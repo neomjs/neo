@@ -324,6 +324,16 @@ Each example is self-contained and demonstrates one concept clearly.
 - Component browser with live examples
 - Source code viewer with syntax highlighting
 
+**DevIndex** (`apps/devindex/`):
+- The **only** Neo.mjs application running `Neo.core.Base` as a **Node.js backend runtime** (no browser, no VDOM)
+- Proves the class system (configs, singletons, reactive hooks) works identically in both environments
+- Service-oriented architecture:
+  - `Spider.mjs`: Discovery engine using **weighted random walk** across 6 strategies (Network Walker, Core High Stars, Keyword, Temporal, Community, Stargazer) to avoid filter bubbles
+  - `Updater.mjs`: Enrichment pipeline with **meritocracy logic** — dynamic contribution thresholds and a "Safe Purge Protocol" handling API errors and GitHub user renames via Database IDs
+  - `Storage.mjs`: Flat-file persistence layer (`users.jsonl`, `tracker.json`, `visited.json`) with atomic writes and automatic pruning based on `maxUsers` caps
+- Accompanied by extensive learning materials (`learn/guides/devindex/` — 8 guides + FAQ)
+- Architecturally significant as the reference implementation for Neo-powered backend services
+
 **SharedCovid** (`apps/sharedcovid/`):
 - Multi-window data visualization
 - Real-time COVID-19 statistics
@@ -332,10 +342,10 @@ Each example is self-contained and demonstrates one concept clearly.
 - Gallery and Helix components
 
 **RealWorld** (`apps/RealWorld/`):
-- Standard benchmark application (Conduit clone)
-- Demonstrates full CRUD operations
-- Routing and navigation
-- Authentication and state management
+- Conduit benchmark application — a standardized playground for comparing frameworks (legacy)
+- Uses strict DOM template requirements (markup *must* match exact specifications), which constrains Neo to `component.Base` instead of leveraging the full component library
+- Demonstrates CRUD operations, routing, and authentication patterns
+- *Note: The rigid template constraints make this an anti-pattern for idiomatic Neo.mjs — use Portal or SharedCovid as reference implementations instead*
 
 ---
 
@@ -381,10 +391,27 @@ Query these when you need to understand *why* something works a certain way, tra
 ### Agent OS Backend (`/ai` - 144 files, ~20k lines)
 
 The cognitive architecture underpinning the swarm:
-- `agent/`: The cognitive loop, task schedulers, and agent profiles.
+- `agent/`: The cognitive loop, task schedulers, and **agent profiles** (see below).
 - `graph/`: The Native Edge Graph topology database (`Database.mjs`, `NodeModel.mjs`, `EdgeModel.mjs`).
 - `daemons/`: Offline memory consolidation pipelines (e.g., `DreamService.mjs`).
+- `mcp/ToolService.mjs`: The **universal dispatch layer** for all 5 MCP servers — `callTool()` is the single choke-point routing every tool invocation through OpenAPI-driven Zod validation. Understanding this is critical for agents planning interceptors or middleware (e.g., NL Action Recorder).
 - `sdk-manifest.md`: Public API mapping for interacting with the KB, Memory, GitHub, and Neural Link services.
+
+#### Agent Profiles (`ai/agent/profile/`)
+
+Agents are not monolithic — they have **configurable profiles** that determine model provider, connected MCP servers, and system prompts:
+- `Librarian.mjs`: GraphRAG research specialist connecting to the knowledge-base server. Defaults to `gemini` but supports `ollama` (e.g., `gemma4-31b`) for offline/swarm spawning.
+- `QA.mjs`: Validation-focused agent for test synthesis and E2E verification.
+- `Browser.mjs`: Browser-aware profile for visual interaction tasks.
+
+Local inference via MLX Server / ML Studio is a first-class deployment target — agents are not limited to cloud API providers.
+
+#### Daemon Lifecycle Scripts (`buildScripts/ai/`)
+
+Offline cognitive maintenance runs as **Node.js scripts**, not MCP protocol operations:
+- `node buildScripts/ai/runSandman.mjs` — Triggers the DreamService REM pipeline: extracts Semantic Graph nodes, detects topological conflicts (obsolete/superseded tickets), and runs Capability Gap Inference (DOC_GAP, TEST_GAP, GUIDE_GAP).
+- `node buildScripts/ai/runGoldenPath.mjs` — Synthesizes the strategic roadmap from open issues, discussion states, and graph topology into `sandman_handoff.md`.
+- Additional utilities: `syncKnowledgeBase.mjs`, `defragChromaDB.mjs`, `defragSQLiteDB.mjs`, `recreateGraphDb.mjs` — the maintenance toolkit for the vector and graph databases.
 
 ---
 
@@ -449,10 +476,23 @@ This local infrastructure exposes five dedicated Model Context Protocol (MCP) se
 - Ensures all work is traceable and documented
 
 **4. Neural Link Server** (`ai/mcp/server/neural-link/`)
-- The vital bridge connecting the detached Node.js Agent OS to the browser-based Frontend Engine.
-- Bypasses traditional HTML DOM by feeding structured JSON component blueprints directly to agents.
-- Enables deep, runtime component state introspection and dynamic mutation.
-- Powers deterministic **Whitebox E2E** testing frameworks, allowing agents to assert accurate internal memory states.
+- Three-party WebSocket architecture enabling multi-agent concurrent access:
+  ```
+  Bridge Process (Standalone WebSocket Hub, port 8081)
+      ↑                    ↑
+      │                    │
+  Agent MCP Server    App Worker (Browser)
+  (Node.js client)    (Browser client via neo-ai-bridge.mjs)
+  ```
+- The `Bridge.mjs` is a **standalone process** — not embedded in the MCP server. Multiple agents can connect simultaneously to the same running application, which is how swarm operations work.
+- `ConnectionService` provides **session awareness**: tracks live App Worker sessions with `appName`, `connectedAt`, console logs (last 1,000), and window topology. This is what makes the Neural Link "session-aware" — agents can auto-target the most recent session without explicit session IDs.
+- Bypasses traditional HTML DOM by exposing **three tiers of introspection**:
+  - **Component Trees** (JSON-like, but richer): Hierarchical class instances with full config state. Neo classes provide `toJSON()` exports for serialized snapshots — this is what agents inspect when examining component instances.
+  - **VDOM** (pure JSON): The *desired next state* — pending until `update()` is called. Uses a distinct syntax (`tag`, `cls`, `cn`) to make it immediately distinguishable from VNodes.
+  - **VNode** (pure JSON): The *current live DOM state*. Uses a different syntax (`nodeName`, `className`, `childNodes`) so agents can tell at a glance which tree they're looking at.
+- **Delta update pipeline**: `TreeBuilder.mjs` constructs symmetric VDOM and VNode trees (honoring `updateDepth` to control child component expansion). These paired trees are sent to the VDom Worker, where `Helper.mjs` converts VDOM → VNode, then compares two VNode trees to produce a minimal delta stream. Agents can log this delta stream in main to debug exactly what changes reach the live DOM.
+- **VDOM Teleportation**: If a component is already flagged for an update (e.g., a button text change within a toolbar), it carries its own `updateDepth`. The parent can send its update to the VDom Worker containing only the flagged child — not all siblings — drastically reducing diff surface.
+- Powers deterministic **Whitebox E2E** testing frameworks, allowing agents to assert accurate internal component, VDOM, and VNode states independently.
 
 **5. File System Server** (`ai/mcp/server/file-system/`)
 - A localized file-system proxy exclusively for internal Neo agents.
