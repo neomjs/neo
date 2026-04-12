@@ -123,6 +123,19 @@ Neo.create(Effect, {
 
 **The Result**: Fine-grained reactivity where you need it, coarse-grained where you don't.
 
+> **Core Engine Deep Dives:** The concepts above — class compilation, config descriptors, reactivity, and lifecycle — are
+> each explored in depth within the `learn/guides/coreengine/` guide series. While `src/Neo.mjs` and `src/core/Base.mjs`
+> provide the implementation mechanics, these 6 guides explain the *architectural reasoning* behind them:
+>
+> 1. **Why Enhance JS Classes?** (`WhyEnhance.md`) — The native `constructor` trap and why `construct()` exists
+> 2. **Class Compilation** (`SetupClass.md`) — How `Neo.setupClass()` walks the prototype chain, merges configs, and resolves mixins
+> 3. **The Config System** (`ConfigSystem.md`) — Config descriptors, the `configSymbol` holding zone, and cross-dependent batch resolution
+> 4. **Two-Tier Reactivity** (`Reactivity.md`) — The v10 bridge: `core.Config` instances backing every reactive config, enabling `EffectManager` to observe *any* config
+> 5. **Instance Lifecycle** (`Lifecycle.md`) — `initAsync()`, remote method registration, and Main Thread Addon patterns
+> 6. **Core Utilities** (`Utilities.md`) — `core.Compare` as the infinite loop breaker, and the declarative `delayable` system
+>
+> These form a sequential narrative — each guide's closing paragraph hands off to the next.
+
 ---
 
 ### 4. Zero-Build Development Mode
@@ -351,11 +364,16 @@ Each example is self-contained and demonstrates one concept clearly.
 
 ### Learning Materials (`/learn`)
 
+**The Index**: `learn/tree.json` is the canonical hierarchical taxonomy of all 130+ learning topics. The Knowledge Base's `LearningSource.mjs` traverses this file to discover and index every guide — scanning it gives you an instant top-level perspective of the entire documentation landscape.
+
 **Structured Content**:
-- **Benefits**: Why Neo.mjs exists, what problems it solves
-- **Getting Started**: First steps, tutorials, quick wins
-- **Fundamentals**: Core concepts, architecture deep-dives
-- **Guides**: Task-oriented how-tos
+- **Benefits**: Why Neo.mjs exists, what problems it solves (12 topics)
+- **Getting Started**: First steps, tutorials, quick wins (9 topics)
+- **Agent OS & Conversational UIs**: AI infrastructure, MCP servers, tooling (13 topics)
+- **Guides**: Fundamentals, Core Engine, UI Building Blocks, Data Handling, Testing, Advanced Architecture (62 topics)
+- **DevIndex App**: Flagship application architecture, data factory, frontend (22 topics)
+- **Tutorials**: Hands-on walkthroughs (5 topics)
+- **Engine vs Frameworks**: Competitive comparisons with React, Angular, Vue, Solid, Next, Ext (7 topics)
 - **Blog**: Historical context, design decisions, evolution
 
 The content in `/learn` is the source material for the AI Knowledge Base. Query it for conceptual understanding.
