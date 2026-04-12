@@ -24,6 +24,8 @@ At the beginning of every new session, you **MUST** perform the following steps 
 
 Parse the file `learn/guides/fundamentals/CodebaseOverview.md`. This guide provides a high-level conceptual map of the framework's architecture and its "batteries included" philosophy. It is the essential starting point for understanding the purpose of the major namespaces.
 
+**Documentation Taxonomy:** Additionally, scan `learn/tree.json` — the canonical hierarchical index of all 130+ learning topics. The Knowledge Base's `LearningSource.mjs` traverses this file to discover and index every guide. Scanning it gives you an instant top-level perspective of the entire documentation landscape, making subsequent knowledge base queries far more targeted.
+
 ### Step 2: Read the Core Concepts
 
 Read `src/Neo.mjs`. Focus on understanding:
