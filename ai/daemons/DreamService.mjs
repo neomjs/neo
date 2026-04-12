@@ -635,8 +635,9 @@ ${topContent}
     }
 
     /**
-     * Parses the local file system for markdown files and explicitly syncs their state
-     * into the Native Graph database. Re-asserts edge weights for OPEN issues.
+     * @summary Parses the local file system for markdown files and explicitly syncs their state
+     * into the Native Graph database. Re-asserts edge weights for OPEN issues, heavily discounting
+     * any nodes structurally blocked via BLOCKED_BY relationships to prevent GraphRAG hallucinations.
      * Upserts textual issue embeddings into the localized `neo_graph_nodes` SQLite vector collection.
      * @returns {Promise<Object[]>} Returns only the OPEN issues for synthesis.
      */
@@ -729,16 +730,34 @@ ${topContent}
                     if (edges.length > 0) {
                         let baseWeight = 1.0;
 
-                        // Community Multiplier: Boost if ticket is external and has been triaged
-                        if (meta.author && meta.author !== 'tobiu' && meta.author !== 'neo-mjs-swarm') {
-                            if (Array.isArray(meta.labels) && meta.labels.length > 0) {
-                                baseWeight += 0.5;
+                        // Check if this issue is mathematically blocked by any currently OPEN issues
+                        let isBlocked = false;
+                        if (Array.isArray(meta.blockedBy)) {
+                            for (const blocker of meta.blockedBy) {
+                                const blockerId = extractIssueId(blocker);
+                                const blockerData = parsedIssues.find(p => p.issueId === blockerId);
+                                if (blockerData && blockerData.meta.state === 'OPEN') {
+                                    isBlocked = true;
+                                    break;
+                                }
                             }
                         }
 
-                        // Bug Multiplier: Forcing Context Priming towards regressions
-                        if (Array.isArray(meta.labels) && meta.labels.includes('bug')) {
-                            baseWeight += 1.0;
+                        if (isBlocked) {
+                            baseWeight = 0.05;
+                            logger.debug(`[DreamService] Discounting topological weight for ${issueId} because it is BLOCKED_BY an OPEN issue.`);
+                        } else {
+                            // Community Multiplier: Boost if ticket is external and has been triaged
+                            if (meta.author && meta.author !== 'tobiu' && meta.author !== 'neo-mjs-swarm') {
+                                if (Array.isArray(meta.labels) && meta.labels.length > 0) {
+                                    baseWeight += 0.5;
+                                }
+                            }
+
+                            // Bug Multiplier: Forcing Context Priming towards regressions
+                            if (Array.isArray(meta.labels) && meta.labels.includes('bug')) {
+                                baseWeight += 1.0;
+                            }
                         }
 
                         edges.forEach(e => {
