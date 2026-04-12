@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-04-12T19:05:27.041Z",
-  "releasesLastFetched": "2026-04-12T19:05:34.597Z",
+  "lastSync": "2026-04-12T19:51:55.803Z",
+  "releasesLastFetched": "2026-04-12T19:52:02.603Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -24826,25 +24826,25 @@
       "contentHash": "670f62df839e77c6c4e221eaed25ae1e1b822971391e0416ff0b5fcb49ced91c"
     },
     "9912": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9912.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-12T11:37:19Z",
-      "contentHash": "c46f269f993d8511f0c6e2e627dc8c7d707e543586cc7534a63211cfe368f612"
+      "closedAt": "2026-04-12T19:20:25Z",
+      "updatedAt": "2026-04-12T19:25:12Z",
+      "contentHash": "9627439e84b99588150dcea34c536b79f9e2954060aaa454e0f803deaed44f5b"
     },
     "9913": {
       "state": "OPEN",
       "path": "resources/content/issues/issue-9913.md",
       "closedAt": null,
-      "updatedAt": "2026-04-12T11:37:20Z",
-      "contentHash": "91f80ba6d484d6f6ef05fa440441438b6b1a1c0c3f5f47d0f36582e5593cba85"
+      "updatedAt": "2026-04-12T19:08:13Z",
+      "contentHash": "7f5c22415f6ea41a05e48259f722a4a2ca61a593cd6511078d3904144303c454"
     },
     "9914": {
       "state": "OPEN",
       "path": "resources/content/issues/issue-9914.md",
       "closedAt": null,
-      "updatedAt": "2026-04-12T11:37:21Z",
-      "contentHash": "0b61bd5319aa51b109350dd4bef2ea302711603e449f49848ce386383fb53466"
+      "updatedAt": "2026-04-12T19:10:50Z",
+      "contentHash": "2d7a75b714e0fc5d7fb7736abe06d6e0e669171a828b440f0af431f7607e23f9"
     },
     "9915": {
       "state": "OPEN",
@@ -24950,6 +24950,13 @@
       "closedAt": null,
       "updatedAt": "2026-04-12T18:59:03Z",
       "contentHash": "712c6dca197b28c48f093b276d2a0668412ca4b2a8747fe5b51ad8b1f1384db7"
+    },
+    "9942": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-9942.md",
+      "closedAt": null,
+      "updatedAt": "2026-04-12T19:31:19Z",
+      "contentHash": "95c01a22be6a7b81a38d0ba90626914d47b0eaa632c9cc67e9186c295c0e6b7c"
     }
   },
   "releases": {
