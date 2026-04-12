@@ -58,6 +58,9 @@ test.describe('Memory Core Offline Summarization', () => {
             fs.unlinkSync(testDbPath);
         }
 
+        aiConfig.collections.memory = `test-memory-${process.pid}-${Date.now()}`;
+        aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
+
         SDK                  = await import('../../../../../../../../ai/services.mjs');
         TextEmbeddingService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
 
@@ -95,12 +98,11 @@ test.describe('Memory Core Offline Summarization', () => {
         // Clean up dummy turns so we don't pollute the real memory core
         if (dummySessionId && localModelActive) {
             try {
-                const memCol = await SDK.Memory_SQLiteVectorManager.getMemoryCollection();
-                await memCol.delete({where: {sessionId: dummySessionId}});
-
-                const sumCol = await SDK.Memory_SQLiteVectorManager.getSummaryCollection();
-                await sumCol.delete({where: {sessionId: dummySessionId}});
-                console.log(`[Cleanup] Deleted dummy session ${dummySessionId} from DB.`);
+                if (SDK.Memory_ChromaManager && SDK.Memory_ChromaManager.client) {
+                    await SDK.Memory_ChromaManager.client.deleteCollection({name: SDK.Memory_Config.data.collections.memory});
+                    await SDK.Memory_ChromaManager.client.deleteCollection({name: SDK.Memory_Config.data.collections.session});
+                }
+                console.log(`[Cleanup] Deleted dummy Chroma collections for session ${dummySessionId}.`);
             } catch (e) {
                 console.warn(`[Cleanup] Failed to delete session ${dummySessionId}:`, e);
             }
@@ -165,7 +167,7 @@ test.describe('Memory Core Offline Summarization', () => {
         }];
 
         // Ensure database is ready before adding memories
-        await SDK.Memory_SQLiteVectorManager.ready();
+        await SDK.Memory_ChromaManager.ready();
 
         for (const turn of turns) {
             const addResult = await SDK.Memory_Service.addMemory({
@@ -197,7 +199,7 @@ test.describe('Memory Core Offline Summarization', () => {
         expect(result.title).toBeTruthy();
 
         // Verify summary actually got written
-        const summaryCollection = await SDK.Memory_SQLiteVectorManager.getSummaryCollection();
+        const summaryCollection = await SDK.Memory_ChromaManager.getSummaryCollection();
         const savedSummary      = await summaryCollection.get({
             ids    : [result.summaryId],
             include: ['metadatas', 'documents']
