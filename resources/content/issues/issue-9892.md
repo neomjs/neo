@@ -1,14 +1,14 @@
 ---
 id: 9892
 title: 'docs: Expand CodebaseOverview with Agent OS internals and DevIndex architecture'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - ai
 assignees:
   - tobiu
 createdAt: '2026-04-11T19:23:01Z'
-updatedAt: '2026-04-11T19:29:48Z'
+updatedAt: '2026-04-12T08:29:53Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9892'
 author: tobiu
 commentsCount: 1
@@ -18,6 +18,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-12T08:29:53Z'
 ---
 # docs: Expand CodebaseOverview with Agent OS internals and DevIndex architecture
 
@@ -103,4 +104,11 @@ This is a **documentation-only** ticket. No code changes. The prior #9875 (alrea
 > 
 > This should be included in the #9892 implementation scope alongside the DevIndex and Agent OS internals additions.
 
+- 2026-04-11T19:56:07Z @tobiu cross-referenced by PR #9894
+- 2026-04-12T08:09:57Z @tobiu referenced in commit `43a11df` - "docs: expand CodebaseOverview with Agent OS internals and DevIndex architecture (#9892)"
+- 2026-04-12T08:10:24Z @tobiu cross-referenced by PR #9897
+- 2026-04-12T08:24:37Z @tobiu referenced in commit `84c52aa` - "docs: expand CodebaseOverview with Agent OS internals and DevIndex architecture (#9892)"
+- 2026-04-12T08:29:53Z @tobiu referenced in commit `975f13a` - "docs: expand CodebaseOverview with Agent OS internals and DevIndex architecture (#9892) (#9897)"
+- 2026-04-12T08:29:53Z @tobiu closed this issue
+- 2026-04-12T08:36:24Z @tobiu cross-referenced by #9898
 
