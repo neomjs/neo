@@ -1,7 +1,6 @@
 import aiConfig                 from '../config.mjs';
 import Base                     from '../../../../../src/core/Base.mjs';
 import ChromaManager            from '../managers/ChromaManager.mjs';
-import SQLiteVectorManager      from '../managers/SQLiteVectorManager.mjs';
 import StorageRouter            from '../managers/StorageRouter.mjs';
 import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
 import logger                   from '../logger.mjs';
@@ -106,15 +105,6 @@ class HealthService extends Base {
         try {
             const engine = aiConfig.engine || 'hybrid';
             const engines = { chroma: false, sqlite: false };
-
-            // 1. Vector SQLite Engine (Legacy)
-            if (engine === 'neo' || engine === 'both') {
-                await SQLiteVectorManager.ready();
-                if (!SQLiteVectorManager.db?.open) {
-                    throw new Error("SQLite VSS not open");
-                }
-                engines.sqlite = true;
-            }
 
             // 2. Vector Chroma Engine (Hybrid & Legacy Chroma)
             if (engine === 'chroma' || engine === 'hybrid' || engine === 'both') {

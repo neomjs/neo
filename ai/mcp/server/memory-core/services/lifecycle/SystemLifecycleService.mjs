@@ -39,12 +39,6 @@ class SystemLifecycleService extends Base {
 
         const GraphService        = (await import('../GraphService.mjs')).default;
         const StorageRouter       = (await import('../../managers/StorageRouter.mjs')).default;
-        const aiConfig            = (await import('../../config.mjs')).default;
-
-        let SQLiteVectorManager = null;
-        if (aiConfig.engine === 'neo' || aiConfig.engine === 'both') {
-            SQLiteVectorManager = (await import('../../managers/SQLiteVectorManager.mjs')).default;
-        }
 
         // 1. Boot External Daemons First
         if (!ChromaLifecycleService._initPromise) await ChromaLifecycleService.initAsync();
@@ -52,7 +46,6 @@ class SystemLifecycleService extends Base {
 
         // 2. Boot Core Storage
         if (!GraphService._initPromise) await GraphService.initAsync();
-        if (SQLiteVectorManager && !SQLiteVectorManager._initPromise) await SQLiteVectorManager.initAsync();
         
         // 3. Boot Router (relies on active Daemons)
         if (!StorageRouter._initPromise) await StorageRouter.initAsync();
@@ -60,7 +53,6 @@ class SystemLifecycleService extends Base {
         await ChromaLifecycleService.ready();
         await InferenceLifecycleService.ready();
         await GraphService.ready();
-        if (SQLiteVectorManager) await SQLiteVectorManager.ready();
         await StorageRouter.ready();
 
         logger.info('[SystemLifecycleService] All memory-core microservices initialized successfully!');
