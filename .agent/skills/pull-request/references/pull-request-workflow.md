@@ -40,12 +40,12 @@ Your commit messages MUST follow Conventional Commits and MUST append the ticket
 
 ## 4. Pull Request Creation
 
-You MUST use the GitHub CLI to open a Pull Request targeting the `dev` branch.
+You MUST use the GitHub CLI to open a Pull Request targeting the `dev` branch. You are strictly forbidden from using the `--fill` flag, as it bypasses the generation of a comprehensive PR body.
 
 ```bash
-gh pr create --fill --base dev
+gh pr create --title "feat/fix/chore: Your Title (#TICKET_ID)" --body "Comprehensive markdown body explaining architectural impact, edge cases, and explicitly stating Resolves #TICKET_ID" --base dev
 ```
-*(The `--fill` flag automatically uses your commits to populate the PR details. If you need to add custom context, e.g., explicitly stating `Resolves #TICKET_ID` or dropping `Origin Session ID` telemetry, use the `manage_issue_comment` MCP tool to add a comment immediately after creation).*
+*(Passing the body directly ensures the PR contains the required context and aligns with the "Fat Ticket" protocol.)*
 
 ## 5. Definition of Done & The Handoff State
 
