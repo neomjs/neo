@@ -17,11 +17,12 @@ subIssues:
   - '[ ] 9951 Scaffold signal_state_transition MCP Endpoint'
   - '[ ] 9952 Sandman Handoff: Top 10 Actionable Tasks Dashboarding'
   - '[ ] 9953 MCP Progressive Disclosure Endpoint'
-  - '[ ] 9957 Scaffold pull-request Progressive Disclosure Skill'
+  - '[x] 9957 Scaffold pull-request Progressive Disclosure Skill'
   - '[ ] 9958 System Prompt Token Optimization via Mermaid Graphs'
-subIssuesCompleted: 0
+subIssuesCompleted: 1
 subIssuesTotal: 5
-blockedBy: []
+blockedBy:
+  - '[ ] 9951 Scaffold signal_state_transition MCP Endpoint'
 blocking: []
 ---
 # Epic: Abstracting the Operating Environment (Agent OS v3)
@@ -47,4 +48,6 @@ Instead of treating LLM agents like human Terminal Operators by waiting for conv
 - 2026-04-13T09:28:50Z @tobiu added sub-issue #9953
 - 2026-04-13T09:34:19Z @tobiu added sub-issue #9957
 - 2026-04-13T09:39:43Z @tobiu added sub-issue #9958
+- 2026-04-13T11:13:34Z @tobiu marked this issue as being blocked by #9951
+- 2026-04-13T12:49:01Z @tobiu cross-referenced by PR #9968
 
