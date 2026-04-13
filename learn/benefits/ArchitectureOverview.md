@@ -383,9 +383,9 @@ complete organism where the codebase and the agent co-evolve.
 
 ## Next Steps
 
-- [Strategic Workflows](./StrategicWorkflows.md) — Advanced agent workflow patterns
-- [Neural Link: Live Application Mutability](./NeuralLink.md) — Deep dive into the Neural Link bridge
-- [The Knowledge Base Server](./KnowledgeBase.md) — Semantic RAG architecture
-- [The Memory Core Server](./MemoryCore.md) — Episodic memory and graph storage
-- [The GitHub Workflow Server](./GitHubWorkflow.md) — Offline-first issue management
-- [Code Execution (AI SDK)](./CodeExecution.md) — The SDK Bouncer pattern in detail
+- [Strategic Workflows](../agentos/StrategicWorkflows.md) — Advanced agent workflow patterns
+- [Neural Link: Live Application Mutability](../agentos/NeuralLink.md) — Deep dive into the Neural Link bridge
+- [The Knowledge Base Server](../agentos/KnowledgeBase.md) — Semantic RAG architecture
+- [The Memory Core Server](../agentos/MemoryCore.md) — Episodic memory and graph storage
+- [The GitHub Workflow Server](../agentos/GitHubWorkflow.md) — Offline-first issue management
+- [Code Execution (AI SDK)](../agentos/CodeExecution.md) — The SDK Bouncer pattern in detail
