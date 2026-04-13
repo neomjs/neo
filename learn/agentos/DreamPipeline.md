@@ -327,12 +327,12 @@ The DreamService is controlled by `ai/mcp/server/memory-core/config.mjs`:
 flowchart LR
     classDef session fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
     classDef dream fill:#3d1f00,stroke:#f39c12,stroke-width:2px,color:#eee
-    classDef graph fill:#1a1a2e,stroke:#e94560,stroke-width:1px,color:#eee
+    classDef db fill:#1a1a2e,stroke:#e94560,stroke-width:1px,color:#eee
     classDef orch fill:#1a3c34,stroke:#2ecc71,stroke-width:1px,color:#eee
 
     Sessions["Agent Sessions"]:::session
     Dream["DreamService"]:::dream
-    Graph["Native Edge Graph"]:::graph
+    Graph["Native Edge Graph"]:::db
     Handoff["sandman_handoff.md"]:::dream
     Orch["Orchestrator"]:::orch
     Agent["Autonomous Agent"]:::session
