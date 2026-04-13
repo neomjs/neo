@@ -176,12 +176,10 @@ You **MUST** perform these steps in order before marking a task as complete:
 4.  **One PR per Ticket:** Enforce a strict 1-to-1 ratio between an Issue and a Pull Request. Do not bundle multiple unassociated issues into a single PR.
     - **Epic Exception:** An Epic may have a single overarching PR that resolves all of its associated Sub-Issues.
 5.  **Assign:** Ensure the Pull Request and the underlying Ticket are assigned to the current user to capture credit.
-6.  **The Reflection Phase (Self-Review):** Once the PR is opened, the Agent MUST execute the `pr-review` skill against its own generated PR. This formally pauses the purely iterative "Developer Persona" and forces an objective evaluation. Run the review and evaluate if the architecture aligns with Neo paradigms and if the Anchor & Echo JSDoc strategy was followed.
-7.  **Iterative Polish:** If the self-review uncovers minor gaps (e.g., missed JSDoc), push rapid successive commits to the open PR. If the review uncovers a mathematically superior structural architecture that is out-of-scope for the current execution, generate a Follow-Up Epic mathematically bound to the original PR to avoid scope creep.
-8.  **Architectural Handoff:** The Agent natively posts the evaluation metrics via GitHub Issue Comments to the PR. The PR body MUST have already included a "Fat Ticket Style" summary.
-9.  **The Hard Stop (MANDATORY):** The agent's task is strictly considered "Done" once the PR is assigned and the self-review comment is posted. You MUST halt and await human QA. **DO NOT** execute `gh pr merge` yourself under any circumstances.
-10. **Iterative PR Updates:** If requested to push new commits to an open PR that alter the scope or change the technical approach, you MUST post a new comment on the PR detailing the exact delta.
-11. **Human Merge Rule:** (Note: When the Human Approver eventually merges the code, they will utilize a Squash Merge to preserve the Fat Ticket natively).
+6.  **Handoff / Hard Stop (MANDATORY):** The agent's task is strictly considered "Done" once the PR is opened. You MUST halt and await human QA. **DO NOT** execute `gh pr merge` yourself under any circumstances.
+7.  **The Reflection Phase:** Before concluding the turn, ask the human Commander: "PR opened. Shall I execute the `pr-review` skill to perform a self-reflection log?" (Note: In fully autonomous "headless" mode, execute the skill automatically). See the `pr-review` skill for the rules on Iterative Polish vs. Follow-up Epics.
+8.  **Iterative PR Updates:** If requested to push new commits to an open PR that alter the scope or change the technical approach, you MUST post a new comment on the PR detailing the exact delta.
+9.  **Human Merge Rule:** (Note: When the Human Approver eventually merges the code, they will utilize a Squash Merge to preserve the Fat Ticket natively).
 
 ## 9. Preventing Context Corruption (State Management)
 
