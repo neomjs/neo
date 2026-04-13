@@ -1,14 +1,15 @@
 ---
 id: 9942
 title: 'bug(ai): Resolve local inference 4096 n_ctx Exhaustion During Session Summarization'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - ai
   - core
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-12T19:31:19Z'
-updatedAt: '2026-04-12T19:31:19Z'
+updatedAt: '2026-04-12T21:39:00Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9942'
 author: tobiu
 commentsCount: 0
@@ -18,6 +19,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-12T20:36:36Z'
 ---
 # bug(ai): Resolve local inference 4096 n_ctx Exhaustion During Session Summarization
 
@@ -34,4 +36,10 @@ Because the loop executing the batch in `SessionService.summarizeSessions()` lac
 - 2026-04-12T19:31:21Z @tobiu added the `bug` label
 - 2026-04-12T19:31:21Z @tobiu added the `ai` label
 - 2026-04-12T19:31:21Z @tobiu added the `core` label
+- 2026-04-12T20:14:05Z @tobiu cross-referenced by PR #9943
+- 2026-04-12T20:36:19Z @tobiu referenced in commit `b0cb622` - "fix(memory-core): Enforce explicit DreamService system prompt and token boundaries to resolve local inference context exhaustion (#9942)"
+- 2026-04-12T20:36:31Z @tobiu cross-referenced by PR #9944
+- 2026-04-12T20:36:36Z @tobiu referenced in commit `d1e89a9` - "fix(memory-core): Enforce explicit DreamService system prompt and token boundaries to resolve local inference context exhaustion (#9942) (#9944)"
+- 2026-04-12T20:36:36Z @tobiu closed this issue
+- 2026-04-12T21:39:00Z @tobiu assigned to @tobiu
 

@@ -4,12 +4,11 @@ title: Configure MCP Server for Multi-Target Ticket Export (JSON/MD)
 state: OPEN
 labels:
   - enhancement
-  - stale
   - ai
 assignees:
   - tobiu
 createdAt: '2026-01-11T10:17:25Z'
-updatedAt: '2026-04-12T07:21:46Z'
+updatedAt: '2026-04-13T04:36:48Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8538'
 author: tobiu
 commentsCount: 1
@@ -39,4 +38,5 @@ Enhance the `neo.mjs-github-workflow` server to support configurable export targ
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-04-12T04:24:36Z @github-actions added the `stale` label
+- 2026-04-13T04:36:48Z @github-actions removed the `stale` label
 
