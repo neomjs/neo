@@ -53,6 +53,21 @@ The root system prompt (`AGENTS.md`) and the skills layer are symbiotic:
 Three primary skills form the backbone of the Agent OS issue lifecycle. They act as 
 strict architectural gates that prevent context-blind execution and topological regression.
 
+```mermaid
+flowchart TD
+    classDef intake fill:#0f3460,stroke:#16c79a,stroke-width:2px,color:#fff
+    classDef execute fill:#1a1a2e,stroke:#4a4e69,stroke-width:2px,color:#fff
+    classDef pr fill:#3d1f00,stroke:#f39c12,stroke-width:2px,color:#eee
+    classDef review fill:#2a0a2a,stroke:#c7168b,stroke-width:2px,color:#eee
+    
+    A[Ticket Assigned] --> B(ticket-intake)
+    B:::intake --> |Validation / ROI Check| C[Tactical Coding phase]
+    C:::execute --> D(pull-request)
+    D:::pr --> |Reflection / Git Handoff| E[PR Opened]
+    E --> F(pr-review)
+    F:::review --> |Evaluation / Graph Ingestion| G[Merge & Retrospective]
+```
+
 ### 1. `ticket-intake` (The Pre-Execution Reflection Gate)
 Invoked immediately upon picking up a ticket, before any code is written.
 - **Validation Sweep:** Forces the agent to ensure the ticket has enough architectural context to be actionable.
