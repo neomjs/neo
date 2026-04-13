@@ -219,4 +219,66 @@ test.describe('Memory Core Offline Summarization', () => {
         expect(metadata.participatingAgents.includes('developer')).toBe(true);
         expect(metadata.models.includes('gemma4')).toBe(true);
     });
+
+    test('SessionService correctly truncates massive session histories to fix #9921 n_ctx exhaustion', async () => {
+        if (!SDK.Memory_LifecycleService._initPromise) {
+            await SDK.Memory_LifecycleService.initAsync();
+        } else {
+            await SDK.Memory_LifecycleService.ready();
+        }
+        await SDK.Memory_SessionService.ready();
+
+        const bigDummySessionId = crypto.randomUUID();
+        await SDK.Memory_ChromaManager.ready();
+
+        // Create a massive string > 10000 chars (approx 20,000 chars)
+        const hugeString = new Array(20000).fill('A').join('');
+        
+        await SDK.Memory_Service.addMemory({
+            prompt   : "Massive text request",
+            thought  : "Thinking deeply...",
+            response : hugeString,
+            agent    : "developer",
+            model    : "gemini-3.1-pro",
+            sessionId: bigDummySessionId
+        });
+
+        // Mock the model.generateContent to avoid actual LLM calls and verify the exact prompt content
+        const originalGenerateContent = SDK.Memory_SessionService.model ? SDK.Memory_SessionService.model.generateContent : null;
+        let capturedPrompt = '';
+        
+        SDK.Memory_SessionService.model = {
+            generateContent: async (prompt) => {
+                capturedPrompt = prompt;
+                return {
+                    response: {
+                        text: () => JSON.stringify({
+                            title              : "Massive Session",
+                            summary            : "It was huge",
+                            memoryCount        : 1,
+                            timeSpanString     : "0 minutes",
+                            participatingAgents: ["developer"],
+                            models             : ["gemini-3.1-pro"],
+                            quality            : 5,
+                            productivity       : 5,
+                            topics             : ["testing"],
+                            decisionList       : ["implemented truncation"]
+                        })
+                    }
+                };
+            }
+        };
+
+        const result = await SDK.Memory_SessionService.summarizeSession(bigDummySessionId);
+        
+        // Restore
+        if (originalGenerateContent) {
+            SDK.Memory_SessionService.model.generateContent = originalGenerateContent;
+        }
+
+        // Verify it was truncated successfully
+        expect(capturedPrompt.includes('[TRUNCATED_EARLY_SESSION_HISTORY]...')).toBe(true);
+        // Prompt should be around 10k chars (content) + instructions, usually < 12000 total length
+        expect(capturedPrompt.length).toBeLessThan(12000); 
+    });
 });
