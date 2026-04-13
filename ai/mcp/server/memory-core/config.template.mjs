@@ -177,6 +177,15 @@ const defaultConfig = {
         graph  : process.env.GRAPH_COLLECTION_NAME || 'neo-native-graph'
     },
     /**
+     * Datasets Schema/Paths
+     * This defines WHERE autonomous curation exports data.
+     */
+    datasets: {
+        rlaif: {
+            trajectories: process.env.NEO_RLAIF_PATH || path.resolve(cwd, '.neo-ai-data/datasets/rlaif/trajectories.jsonl')
+        }
+    },
+    /**
      * Target markdown file used for autonomous agent-to-user reporting (offline jobs).
      * @type {string}
      */
