@@ -446,13 +446,26 @@ class SessionService extends Base {
                         const parsedTools = JSON.parse(m.toolsUsed);
                         if (Array.isArray(parsedTools)) {
                             parsedTools.forEach(t => {
-                                if (t) allToolsUsed.add(typeof t === 'string' ? t : (t.name || t.toolAction || JSON.stringify(t)));
+                                if (t) {
+                                    if (typeof t === 'string') {
+                                        try {
+                                            const inner = JSON.parse(t);
+                                            const identifier = inner.name || inner.toolAction || inner.toolSummary || 'unknown_tool';
+                                            allToolsUsed.add(String(identifier).substring(0, 50));
+                                        } catch (e) {
+                                            allToolsUsed.add(t.substring(0, 50));
+                                        }
+                                    } else {
+                                        const identifier = t.name || t.toolAction || t.toolSummary || 'unknown_tool';
+                                        allToolsUsed.add(String(identifier).substring(0, 50));
+                                    }
+                                }
                             });
                         } else {
-                            allToolsUsed.add(m.toolsUsed);
+                            allToolsUsed.add(String(parsedTools).substring(0, 50));
                         }
                     } catch (e) {
-                        allToolsUsed.add(m.toolsUsed);
+                        allToolsUsed.add(String(m.toolsUsed).substring(0, 50));
                     }
                 }
             });

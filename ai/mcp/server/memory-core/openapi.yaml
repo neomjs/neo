@@ -928,7 +928,7 @@ components:
           example: 5
         toolsUsed:
           type: array
-          description: "Descriptions or array of tools used."
+          description: "A list of tool names invoked during this turn. IMPORTANT: Do NOT include tool arguments, JSON payloads, or file contents. This must only be a tiny array of names (e.g., ['view_file', 'replace']) to prevent prompt bloat."
           items:
             type: string
           example: ["view_file", "replace"]
