@@ -293,20 +293,43 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 { role: 'user', content: `--- Session Episodic Memory ---\n${session.document}` }
             ];
 
-            // Call standard generation method explicitly without format enforcement (MLX hardware rejects `json_object` without schema map)
-            const result = await provider.generate(messages);
+            let maxRetries = 3;
+            let attempt = 0;
+            let payload = null;
+            let result = null;
 
-            // Extract using robust Json parser to catch malformed boundaries
-            const payload = Json.extract(result.content);
+            while (attempt < maxRetries && !payload) {
+                attempt++;
+                
+                // Call standard generation method explicitly without format enforcement
+                result = await provider.generate(messages);
 
-            // Validation check
-            if (!payload || !payload.session_artifact || !payload.session_artifact.graph || !payload.session_artifact.graph.nodes || !payload.session_artifact.graph.edges) {
-                logger.warn(`[DreamService] Failed to validate extracted Tri-Vector A2A payload for session: ${session.meta.sessionId}`);
-                logger.warn(`[DreamService] --- RAW LLM DUMP ---\n${result.content}\n-----------------------------`);
+                // Extract using robust Json parser to catch malformed boundaries
+                payload = Json.extract(result.content);
+
+                // Validation check
+                if (!payload || !payload.session_artifact || !payload.session_artifact.graph || !payload.session_artifact.graph.nodes || !payload.session_artifact.graph.edges) {
+                    logger.warn(`[DreamService] Attempt ${attempt}: Failed to validate extracted Tri-Vector A2A payload for session: ${session.meta.sessionId}`);
+                    
+                    if (attempt < maxRetries) {
+                        logger.warn(`[DreamService] Attempt ${attempt}: Injecting autonomous JSON repair feedback loop.`);
+                        messages.push({ role: 'assistant', content: result.content });
+                        messages.push({ 
+                            role: 'user', 
+                            content: `Your previous response failed internal schema validation. You are either missing required keys (e.g., session_artifact, graph.nodes, graph.edges) or you provided malformed JSON. Please correct your output and provide ONLY the exact JSON shape requested in the instructions.`
+                        });
+                        payload = null; // Ensure loop continues
+                    } else {
+                        logger.warn(`[DreamService] --- FINAL EXHAUSTED RAW LLM DUMP ---\n${result.content}\n-----------------------------`);
+                    }
+                }
+            }
+            
+            if (!payload) {
                 return null;
             }
 
-            logger.debug(`[DreamService] Successfully extracted Tri-Vector A2A schema for session ${session.meta.sessionId}.`);
+            logger.debug(`[DreamService] Successfully extracted Tri-Vector A2A schema for session ${session.meta.sessionId} after ${attempt} attempts.`);
 
             const artifact = payload.session_artifact;
 
