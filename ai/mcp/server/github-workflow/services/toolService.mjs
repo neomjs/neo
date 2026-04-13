@@ -1,5 +1,6 @@
 import path               from 'path';
 import {fileURLToPath}    from 'url';
+import AgentStateService  from './AgentStateService.mjs';
 import HealthService      from './HealthService.mjs';
 import IssueService       from './IssueService.mjs';
 import DiscussionService  from './DiscussionService.mjs';
@@ -30,6 +31,7 @@ const serviceMapping = {
     manage_issue_assignees   : IssueService      .manageIssueAssignees   .bind(IssueService),
     manage_issue_comment     : IssueService      .manageIssueComment     .bind(IssueService),
     manage_issue_labels      : IssueService      .manageIssueLabels      .bind(IssueService),
+    signal_state_transition  : AgentStateService .signalStateTransition  .bind(AgentStateService),
     sync_all                 : SyncService       .runFullSync            .bind(SyncService),
     update_issue_relationship: IssueService      .updateIssueRelationship.bind(IssueService)
 };
