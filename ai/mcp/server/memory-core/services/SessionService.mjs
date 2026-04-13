@@ -380,15 +380,45 @@ class SessionService extends Base {
 
         if (memories.ids.length === 0) return null;
 
-        let aggregatedContent = memories.documents.join('\n\n---\n\n');
-
-        // Fix for #9921: local inference n_ctx exhaustion. 
-        // Enforce a strict content length limit (~10000 chars roughly equals 2500 tokens).
-        // By slicing from the negative length, we keep the tail end of the session, preventing 
-        // early context noise from breaking the 'final resolution' of the turn.
         const MAX_CONTENT_LENGTH = 10000;
-        if (aggregatedContent.length > MAX_CONTENT_LENGTH) {
-            aggregatedContent = '[TRUNCATED_EARLY_SESSION_HISTORY]...\n\n' + aggregatedContent.slice(-MAX_CONTENT_LENGTH);
+        let aggregatedContent;
+
+        // Implement Map-Reduce Chunking for long sessions (Fixes #9965 & #9921 lossless)
+        const totalRawLength = memories.documents.reduce((acc, doc) => acc + doc.length, 0) + (memories.documents.length * 7);
+        
+        if (totalRawLength > MAX_CONTENT_LENGTH) {
+            console.log(`[SessionService] Session ${sessionId} exceeds ${MAX_CONTENT_LENGTH} chars. Initiating Map-Reduce summarization pipeline.`);
+            const chunks = [];
+            let currentChunk = '';
+            
+            for (let i = 0; i < memories.documents.length; i++) {
+                const doc = memories.documents[i];
+                if (currentChunk.length + doc.length > MAX_CONTENT_LENGTH && currentChunk.length > 0) {
+                    chunks.push(currentChunk);
+                    currentChunk = doc;
+                } else {
+                    currentChunk += (currentChunk.length > 0 ? '\n\n---\n\n' : '') + doc;
+                }
+            }
+            if (currentChunk.length > 0) chunks.push(currentChunk);
+
+            const subSummaries = [];
+            for (let i = 0; i < chunks.length; i++) {
+                console.log(`[SessionService] Generating Sub-Summary ${i + 1}/${chunks.length} for session ${sessionId}`);
+                const chunkPrompt = `Analyze this sequential segment of a longer AI agent session. Identify the main problem, tool execution paths taken, and any code modified. Keep it concise.\n\n${chunks[i]}`;
+                // Avoid using explicit response_format JSON here to allow plain-text summaries from subsets
+                const result = await this.model.generateContent(chunkPrompt);
+                subSummaries.push(result.response.text());
+            }
+
+            aggregatedContent = "[COMPRESSED SESSION SUB-SUMMARIES]\n\n" + subSummaries.map((s, i) => `--- Chunk ${i + 1} ---\n${s}`).join('\n\n');
+            
+            // Safety measure in case subSummaries aggregate still overflows heavily
+            if (aggregatedContent.length > MAX_CONTENT_LENGTH) {
+                aggregatedContent = '[TRUNCATED_COMPRESSED_HISTORY]...\n\n' + aggregatedContent.slice(-MAX_CONTENT_LENGTH);
+            }
+        } else {
+            aggregatedContent = memories.documents.join('\n\n---\n\n');
         }
 
         let lastActivity = Date.now();

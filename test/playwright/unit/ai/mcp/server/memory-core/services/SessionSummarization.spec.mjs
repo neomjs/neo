@@ -220,7 +220,7 @@ test.describe('Memory Core Offline Summarization', () => {
         expect(metadata.models.includes('gemma4')).toBe(true);
     });
 
-    test('SessionService correctly truncates massive session histories to fix #9921 n_ctx exhaustion', async () => {
+    test('SessionService correctly map-reduces massive session histories to fix #9965', async () => {
         if (!SDK.Memory_LifecycleService._initPromise) {
             await SDK.Memory_LifecycleService.initAsync();
         } else {
@@ -245,11 +245,19 @@ test.describe('Memory Core Offline Summarization', () => {
 
         // Mock the model.generateContent to avoid actual LLM calls and verify the exact prompt content
         const originalGenerateContent = SDK.Memory_SessionService.model ? SDK.Memory_SessionService.model.generateContent : null;
-        let capturedPrompt = '';
+        let capturedPrompts = [];
         
         SDK.Memory_SessionService.model = {
             generateContent: async (prompt) => {
-                capturedPrompt = prompt;
+                capturedPrompts.push(prompt);
+                
+                // Emulate Sub-Summary string if it is a map chunk
+                if (prompt.includes('Analyze this sequential segment')) {
+                    return {
+                        response: { text: () => "Mock chunk summary." }
+                    };
+                }
+
                 return {
                     response: {
                         text: () => JSON.stringify({
@@ -262,7 +270,7 @@ test.describe('Memory Core Offline Summarization', () => {
                             quality            : 5,
                             productivity       : 5,
                             topics             : ["testing"],
-                            decisionList       : ["implemented truncation"]
+                            decisionList       : ["implemented map reduce"]
                         })
                     }
                 };
@@ -276,9 +284,12 @@ test.describe('Memory Core Offline Summarization', () => {
             SDK.Memory_SessionService.model.generateContent = originalGenerateContent;
         }
 
-        // Verify it was truncated successfully
-        expect(capturedPrompt.includes('[TRUNCATED_EARLY_SESSION_HISTORY]...')).toBe(true);
-        // Prompt should be around 10k chars (content) + instructions, usually < 12000 total length
-        expect(capturedPrompt.length).toBeLessThan(12000); 
+        // Verify map-reduce logic occurred due to large payload
+        expect(capturedPrompts.length).toBeGreaterThan(1);
+        
+        // The last prompt should be the final compression that includes our compressed arrays
+        const finalPrompt = capturedPrompts[capturedPrompts.length - 1];
+        expect(finalPrompt.includes('[COMPRESSED SESSION SUB-SUMMARIES]')).toBe(true);
+        expect(finalPrompt.length).toBeLessThan(12000); 
     });
 });
