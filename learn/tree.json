@@ -28,6 +28,7 @@
     {"name": "Agent OS & Conversational UIs",                          "parentId": null,                                 "isLeaf": false, "id": "AgentOS"},
         {"name": "Strategic Workflows",                                "parentId": "AgentOS",                                             "id": "agentos/StrategicWorkflows"},
         {"name": "Swarm Intelligence & Sub-Agents",                    "parentId": "AgentOS",                                             "id": "agentos/SwarmIntelligence"},
+        {"name": "Progressive Disclosure Skills",                      "parentId": "AgentOS",                                             "id": "agentos/ProgressiveDisclosureSkills"},
         {"name": "The Dream Pipeline & Golden Path",                   "parentId": "AgentOS",                                             "id": "agentos/DreamPipeline"},
         {"name": "Neural Link: Live Application Mutability",           "parentId": "AgentOS",                                             "id": "agentos/NeuralLink"},
         {"name": "The Knowledge Base Server",                          "parentId": "AgentOS",                                             "id": "agentos/KnowledgeBase"},
