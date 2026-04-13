@@ -735,6 +735,9 @@ ${topContent}
                 }
 
                 if (meta.state === 'OPEN') {
+                    // Ensure local edge topology is completely lazily loaded into RAM BEFORE re-asserting native weights
+                    GraphService.db.getAdjacentNodes(issueId, 'both');
+
                     // The Ancestral Anchor: Re-assert edge weights for active roadmap items
                     const edges = GraphService.db.edges.items.filter(e => e.source === issueId || e.target === issueId);
                     if (edges.length > 0) {
@@ -1135,6 +1138,9 @@ ${topContent}
 
             for (const row of results) {
                 const issueId = row.id;
+
+                // Guarantee graph topology is completely loaded into RAM BEFORE executing cold-cache resistant queries natively!
+                GraphService.db.getAdjacentNodes(issueId, 'both');
 
                 // Re-verify blocker topology natively using GraphService API
                 const blockers = GraphService.db.edges.getByIndex('target', issueId).filter(e => e.type === 'BLOCKS');
