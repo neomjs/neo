@@ -335,8 +335,16 @@ class SessionService extends Base {
         const sessionsToUpdate = [];
 
         Object.keys(sessions).forEach(sessionId => {
-            const sessionData = sessions[sessionId];
+            const sessionData  = sessions[sessionId];
             const summaryCount = summaryMap[sessionId];
+
+            // Explicitly exclude the current active session from both cases.
+            // It is still accumulating memories, so summarizing it mid-flight is wasteful and
+            // produces incomplete summaries. It will be correctly summarized on the next startup
+            // when a new session takes over.
+            if (sessionId === this.currentSessionId) {
+                return;
+            }
 
             // Case A: Completely Missing Summary (within the scoped window)
             if (summaryCount === undefined) {
@@ -345,12 +353,7 @@ class SessionService extends Base {
             // Case B: Partial / Outdated Summary
             // If the memory count differs (new memories added OR deleted), we update.
             // This self-corrects: once updated, the counts match, and it won't run again.
-            //
-            // We explicitly exclude the current session. Since it is active, its memory count
-            // is constantly changing (drift is expected). We only want to summarize it once it ends.
-            // Note: This check is irrelevant for startup (since no memories exist yet for the new session),
-            // but crucial when an agent manually triggers the summarization tool during an active session.
-            else if (sessionData.count !== summaryCount && sessionId !== this.currentSessionId) {
+            else if (sessionData.count !== summaryCount) {
                 logger.info(`[SessionService] Updating active session ${sessionId} (DB: ${sessionData.count} !== Summary: ${summaryCount})`);
                 sessionsToUpdate.push(sessionId);
             }
