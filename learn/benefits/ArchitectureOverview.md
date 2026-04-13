@@ -1,4 +1,4 @@
-# Agent OS Architecture Overview
+# Neo.mjs Architecture Overview
 
 This guide provides a top-level architectural map of the Neo.mjs Agent OS. It traces the vertical
 path of intelligence — from a user clicking a button, through the worker threads, up into the
