@@ -381,4 +381,58 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
              delete GraphService.db.storage.db.prepare;
         }
     });
+
+    test('should retry extraction on malformed JSON payload up to 3 times to fix #9913', async () => {
+        let executionCount = 0;
+        const baseGenerate = OpenAiCompatible.prototype.generate;
+        
+        // Mock to fail twice with invalid JSON, then succeed on the 3rd attempt
+        OpenAiCompatible.prototype.generate = async function(messages) {
+            executionCount++;
+            providerPrompt = messages; // Save for assertion
+            
+            if (executionCount < 3) {
+                // Return malformed payload mimicking local hallucination
+                return {
+                    content: "```json\n{ \"a2a_version\": \"1.0\", \"agent_id\": \"Antigravity\" " // Unfinished, no graph
+                };
+            }
+            
+            // On attempt 3, return valid Tri-Vector
+            return {
+                content: JSON.stringify({
+                    a2a_version: "1.0",
+                    agent_id: "Antigravity",
+                    session_artifact: {
+                        graph: {
+                            nodes: [],
+                            edges: []
+                        }
+                    }
+                })
+            };
+        };
+
+        const session = {
+            meta: { sessionId: 'playwright-retry-test' },
+            document: "Mock episodic history"
+        };
+
+        const result = await DreamService.executeTriVectorExtraction(session);
+
+        // Assert that the LLM was called 3 times natively due to the retry loop wrapping
+        expect(executionCount).toBe(3);
+        
+        // Assert the returned result is strictly not null since attempt 3 passed
+        expect(result).not.toBeNull();
+        expect(result.session_artifact).toBeDefined();
+
+        // Check if the feedback logic was appended to the provider messages
+        const lastMessage = providerPrompt[providerPrompt.length - 1];
+        expect(lastMessage.role).toBe('user');
+        expect(lastMessage.content).toContain('failed internal schema validation');
+
+        // Restore global function
+        OpenAiCompatible.prototype.generate = baseGenerate;
+    });
 });
