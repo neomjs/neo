@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-13T08:03:04Z'
-updatedAt: '2026-04-13T08:59:17Z'
+updatedAt: '2026-04-13T09:39:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9948'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -62,4 +62,15 @@ We will refactor the `AGENTS_STARTUP.md` (and consequently `AGENTS.md`) to encod
 
 * docs: explicitly trigger lateral thinking pathways in reflection mode"
 - 2026-04-13T08:59:17Z @tobiu assigned to @tobiu
+### @EthanFrostpro - 2026-04-13T09:39:27Z
+
+Really like this concept. The "stepping back" pattern maps to something I've been thinking about in AI pair programming: the most effective human-AI collaboration happens when there are explicit checkpoints where the human re-evaluates direction rather than just reviewing output.
+
+A few thoughts on implementation:
+
+1. **Frequency matters** — too many reflection points creates friction and breaks flow. Too few defeats the purpose. For coding agents, I'd suggest reflection at semantic boundaries (end of a feature, before a refactor) rather than fixed intervals.
+2. **The reflection should be asymmetric** — the agent should present what it did AND what it chose not to do. Often the most valuable insight is understanding why alternative approaches were rejected.
+3. **Consider a "confidence score" alongside the reflection** — if the agent can flag areas where it was uncertain, the human reviewer knows exactly where to focus their attention. This is more efficient than reviewing everything equally.
+The broader pattern here is making AI delegation explicit rather than implicit — which is where most AI-assisted workflows break down.
+
 
