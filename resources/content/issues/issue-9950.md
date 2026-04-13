@@ -17,8 +17,9 @@ subIssues:
   - '[ ] 9951 Scaffold signal_state_transition MCP Endpoint'
   - '[ ] 9952 Purge Git Mandates & Optimize Dashboard'
   - '[ ] 9953 MCP Progressive Disclosure Endpoint'
+  - '[ ] 9957 Scaffold pull-request Progressive Disclosure Skill'
 subIssuesCompleted: 0
-subIssuesTotal: 3
+subIssuesTotal: 4
 blockedBy: []
 blocking: []
 ---
@@ -43,4 +44,5 @@ Instead of treating LLM agents like human Terminal Operators by waiting for conv
 - 2026-04-13T09:28:47Z @tobiu added sub-issue #9951
 - 2026-04-13T09:28:48Z @tobiu added sub-issue #9952
 - 2026-04-13T09:28:50Z @tobiu added sub-issue #9953
+- 2026-04-13T09:34:19Z @tobiu added sub-issue #9957
 
