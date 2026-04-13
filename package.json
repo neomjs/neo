@@ -14,6 +14,7 @@
         "add-config"                   : "node ./buildScripts/create/addConfig.mjs",
         "add-reactive-tags"            : "node ./buildScripts/helpers/addReactiveTags.mjs",
         "ai:agent"                     : "node ./buildScripts/ai/runAgent.mjs",
+        "ai:analyze-nl-telemetry"      : "node ./ai/scripts/analyzeNlTelemetry.mjs",
         "ai:defrag-kb"                 : "node ./buildScripts/ai/defragChromaDB.mjs --target knowledge-base",
         "ai:defrag-memory"             : "node ./buildScripts/ai/defragChromaDB.mjs --target memory-core",
         "ai:defrag-sqlite"             : "node ./buildScripts/ai/defragSQLiteDB.mjs",

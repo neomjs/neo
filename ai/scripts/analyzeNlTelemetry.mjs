@@ -6,6 +6,8 @@
  * 
  * Usage: node ai/scripts/analyzeNlTelemetry.mjs <sessionId> [--save]
  */
+import Neo from '../../src/Neo.mjs';
+import * as core from '../../src/core/_export.mjs';
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
@@ -16,8 +18,10 @@ const __dirname = path.dirname(__filename);
 
 // Resolve upward from neo/ai/scripts to neo root
 const ROOT_DIR = path.resolve(__dirname, '../../');
-const DB_PATH = process.env.NEO_MEMORY_DB_PATH || path.join(ROOT_DIR, '.neo-ai-data/neo-sqlite/memory-core.sqlite');
-const RLAIF_PATH = process.env.NEO_RLAIF_PATH || path.join(ROOT_DIR, '.neo-ai-data/datasets/rlaif/trajectories.jsonl');
+import aiConfig from '../mcp/server/memory-core/config.mjs';
+
+const DB_PATH = process.env.NEO_MEMORY_DB_PATH || path.join(aiConfig.engines.neo.dataDir, aiConfig.engines.neo.filename);
+const RLAIF_PATH = aiConfig.datasets.rlaif.trajectories;
 
 const sessionId = process.argv[2];
 const save = process.argv.includes('--save');

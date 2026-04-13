@@ -203,6 +203,19 @@ can also be swapped to local inference for offline development.
 This tiered model allows the swarm to scale test coverage and documentation
 without proportionally scaling API costs.
 
+## Sub-Agent Training & RLAIF (Demonstrations of Intelligence)
+
+While the Orchestrator delegates tasks live, the `nl_action_log` captured during **Frontier agent** (e.g., Gemini 3.1 Pro / Claude Opus) interactions via the Neural Link represents highly valuable "Demonstrations of Intelligence". 
+
+Instead of treating these interactions as ephemeral, they are extracted into format-compliant `.jsonl` datasets for Reinforcement Learning from AI Feedback (RLAIF). The intelligence of the Frontier models is stockpiled to feed future SLM fine-tuning pipelines (SFT/DPO), directly raising the baseline capability of the local Sub-Agent tiers (like Gemma 4).
+
+To harvest the most recent telemetry:
+```bash
+npm run ai:analyze-nl-telemetry -- <sessionId> --save
+```
+
+This invokes `ai/scripts/analyzeNlTelemetry.mjs`. The offline script parses the episodic memory from `memory-core.sqlite`, filters for structured DOM manipulation and state assertions engineered by Frontier models, and exports it into `.neo-ai-data/datasets/rlaif/trajectories.jsonl`.
+
 ## Context Window Management
 
 Sub-agents have finite context windows. The `maxSubAgentLifespan` config
@@ -358,6 +371,7 @@ To add a new sub-agent profile:
 | `ai/agent/profile/Librarian.mjs` | GraphRAG research specialist |
 | `ai/agent/profile/QA.mjs` | Local test generation engine |
 | `ai/agent/profile/Browser.mjs` | Visual telemetry via Neural Link |
+| `ai/scripts/analyzeNlTelemetry.mjs` | Offline parser to convert sub-agent test sessions into RLAIF datasets |
 | `ai/services.mjs` | SDK with Zod validation boundary |
 | `ai/mcp/validation/OpenApiValidator.mjs` | Zod schema generator from OpenAPI specs |
 
