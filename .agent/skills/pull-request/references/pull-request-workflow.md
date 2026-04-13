@@ -9,7 +9,7 @@ By consolidating the PR creation logic here, we prevent our agents from falling 
 The act of opening a PR is an irreversible state transition in the Agent OS. Before executing the final `git commit` and `gh pr create`, you MUST step back from the tactical implementation and assume the persona of an Architect.
 
 **Scope Creep vs. Iteration:** You must explicitly "think outside the box" and challenge your initial tactical assumptions:
-- **Minor Gaps:** If your reflection uncovers minor misses (e.g., missed JSDoc, missing Anchor & Echo context, logical edge cases), you MUST fix them and add rapid successive commits to your local branch to polish the execution *before* opening the PR.
+- **Minor Gaps:** If your reflection uncovers minor misses (e.g., missed JSDoc, missing Anchor & Echo context, logical edge cases, or missing unit tests validating new logic), you MUST fix them and add rapid successive commits to your local branch to polish the execution *before* opening the PR.
 - **Major Refactors:** If you realize a mathematically superior architecture exists (e.g., massive GC optimization) that is *out-of-scope* for the current ticket, DO NOT attempt to scope-creep and cram it into the active branch. Secure the "good enough" execution, and instead formally propose a **Follow-Up System Enhancement Ticket** conceptually linked to the original.
 
 *If and only if* you pass this reflection phase, proceed to the Git execution sequence.

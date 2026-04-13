@@ -9,7 +9,10 @@ If you blindly accept a ticket's premise, you risk injecting regressions into th
 Before executing a `git checkout`, you MUST interrogate the codebase and Memory Core to establish the validity of the ticket's premise. 
 
 1. **Relevance Validation:** If the ticket involves core framework topology, use `ask_knowledge_base` to confirm if the requested feature/pattern is still architecturally valid or if it has been deprecated.
-2. **Duplication Check:** Use `grep_search` against the `resources/content/issues` and `resources/content/discussions` to ensure there isn't an overlapping active initiative. 
+2. **Historical Amnesia Check (Unknown Unknowns):** A fresh Agent instance possesses zero intuition about past failures. Even if a ticket premise seems perfectly novel, you MUST actively query the conceptual domain using `query_documents` (`type='ticket'`), `query_summaries`, and `query_raw_memories`. This surfaces historical paradoxes, abandoned branches, or closed discussions that you are currently blind to.
+3. **Duplication Check:** Use `grep_search` against the `resources/content/issues` and `resources/content/discussions` to ensure there isn't an overlapping active initiative. 
+4. **Hypothesis vs. Root Cause Validation:** Tickets frequently prescribe specific technical solutions (e.g., "Implement X to fix Y"). You MUST NOT accept the prescribed solution blindly. You must independently investigate the systemic behavior to verify if 'X' is actually the correct solution for 'Y'. 
+5. **Empirical Proof (Test-Driven Discovery):** When validating hypotheses involving complex state, token boundaries, or engine logic, do not rely solely on mental modeling. Consult the `unit-test` skill (`view_file` on `.agent/skills/unit-test/SKILL.md`) and write a localized Playwright unit-test (or an isolated draft concept) to empirically reproduce the paradox *first*. This guarantees you are solving the explicit root cause before you modify live framework architecture. Implementing a flawed directive simply because it was written in an Issue guarantees a Negative ROI.
 
 ## 2. ROI (Return on Investment) Calculation
 
