@@ -950,6 +950,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /system/state/transition:
+    post:
+      summary: Signal State Transition
+      operationId: signal_state_transition
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Provides a native state-trap for Headless Orchestration to gracefully capture execution states or signal logic failures.
+        
+        Support `state: 'PR_OPENED'` to trigger autonomous turn-completion and shutdown sequences.
+        Support `state: 'BLOCKED'` and `state: 'HANDOFF'` for derailed agents, enabling them to pass a localized artifact mapping the problem back to the Orchestrator, which natively applies the `agent-task:blocked` label on GitHub.
+      tags: [Issues]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - state
+              properties:
+                state:
+                  type: string
+                  enum: [PR_OPENED, BLOCKED, HANDOFF]
+                  description: The execution state to signal.
+                target_id:
+                  type: integer
+                  description: The target Issue or PR number associated with this state.
+                artifact_path:
+                  type: string
+                  description: Optional file path to a localized artifact mapping the problem.
+      responses:
+        '200':
+          description: State transition signal received and processed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignalStateTransitionResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     HealthCheckResponse:
@@ -1241,6 +1287,18 @@ components:
           type: string
           format: uri
           description: The URL of the newly created issue.
+
+    SignalStateTransitionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Indicates whether the state transition was recorded successfully.
+          example: true
+        message:
+          type: string
+          description: A human-readable message describing the outcome.
+          example: "State PR_OPENED processed. Orchestrator turn completed."
 
     UpdateIssueRelationshipResponse:
       type: object
