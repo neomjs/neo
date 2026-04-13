@@ -285,8 +285,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         StorageRouter.getGraphCollection = async () => {
             return {
                 query: async () => ({
-                    ids: [['epic-1', 'task-blocked', 'blocker', 'weak-task']],
-                    distances: [[0.1, 0.2, 0.9, 0.8]]
+                    ids: [['epic-1', 'task-blocked', 'blocker', 'weak-task', 'rejected-task']],
+                    distances: [[0.1, 0.2, 0.9, 0.8, 0.05]]
                 }),
                 get: async () => ({ ids: [], metadatas: [] }),
                 upsert: async () => {}
@@ -302,7 +302,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
                         { id: 'epic-1', data: JSON.stringify({ id: 'epic-1', name: 'Epic Hero', properties: { state: 'OPEN'} }), struct_score: 5.0 },
                         { id: 'task-blocked', data: JSON.stringify({ id: 'task-blocked', name: 'Blocked Task', properties: { state: 'OPEN'} }), struct_score: 10.0 },
                         { id: 'blocker', data: JSON.stringify({ id: 'blocker', name: 'Blocker Bug', properties: { state: 'OPEN'} }), struct_score: 1.0 },
-                        { id: 'weak-task', data: JSON.stringify({ id: 'weak-task', name: 'Weak Task', properties: { state: 'OPEN'} }), struct_score: 0.1 }
+                        { id: 'weak-task', data: JSON.stringify({ id: 'weak-task', name: 'Weak Task', properties: { state: 'OPEN'} }), struct_score: 0.1 },
+                        { id: 'rejected-task', data: JSON.stringify({ id: 'rejected-task', name: 'Massive Stale Feature', properties: { state: 'OPEN', labels: ['needs-re-triage']} }), struct_score: 1000.0 }
                     ],
                     get: () => null,
                     run: () => {}
@@ -320,7 +321,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
              { id: 'epic-1', properties: { state: 'OPEN' } },
              { id: 'task-blocked', properties: { state: 'OPEN' } },
              { id: 'blocker', properties: { state: 'OPEN' } },
-             { id: 'weak-task', properties: { state: 'OPEN' } }
+             { id: 'weak-task', properties: { state: 'OPEN' } },
+             { id: 'rejected-task', properties: { state: 'OPEN', labels: ['needs-re-triage'] } }
         ];
 
         GraphService.db.edges.getByIndex = (idx, val) => {
@@ -356,6 +358,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         expect(finalContent).toContain('Epic Hero');
         expect(finalContent).toContain('Weak Task'); 
         expect(finalContent).not.toContain('Blocked Task'); // REJECTED topologically by GraphService
+        expect(finalContent).not.toContain('Massive Stale Feature'); // REJECTED mathematically by Negative ROI penalty
         expect(finalContent).toContain('Math synthesis works natively.');
         expect(finalContent.indexOf('- **[Codebase Gap]**')).toBeLessThan(finalContent.indexOf('## Computed Golden Path'));
         expect(finalContent).not.toContain('Old Path');

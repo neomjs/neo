@@ -1186,10 +1186,17 @@ ${topContent}
                 // Lower distance = Higher significance. (Add 0.1 to avoid div by 0 and curb massive asymptotes)
                 const semanticScore = 1.0 / (semantic_distance + 0.1);
 
-                const priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
-
                 let nodeData = null;
                 try { nodeData = JSON.parse(row.data); } catch (e) { }
+
+                let priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
+
+                // Apply Negative ROI Protocol for automatically rejected Swarm tickets (#9971)
+                const labels = nodeData?.properties?.labels || [];
+                if (labels.includes('needs-re-triage')) {
+                    priority -= 10000;
+                    logger.debug(`[DreamService] Applied massive negative weight penalty to rejected node: ${issueId}`);
+                }
 
                 scoredNodes.push({
                     node: nodeData || { id: issueId },
