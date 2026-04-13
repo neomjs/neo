@@ -48,15 +48,19 @@ gh pr create --fill --base dev
 ```
 *(The `--fill` flag automatically uses your commits to populate the PR details. If you need to add custom context, e.g., explicitly stating `Resolves #TICKET_ID` or dropping `Origin Session ID` telemetry, use the `manage_issue_comment` MCP tool to add a comment immediately after creation).*
 
-## 5. Definition of Done & The Handoff State
+## 5. Post-PR Polish & The Handoff State
 
-The agent's task is strictly considered "Done" once the PR is opened. You MUST halt and await human QA. **DO NOT** execute `gh pr merge` yourself under any circumstances.
+A Pull Request is a request for validation, not the finish line. You MUST execute a two-phased defense. You performed **Pre-PR Reflection** to control scope. Now, you must perform **Post-PR Reflection** to guarantee quality.
+
+1.  **Skill Chaining (MANDATORY):** Immediately after the PR is opened, you MUST invoke the `pr-review` skill against your own PR.
+2.  **Iterative Polish:** Act as your own harshest critic. If your review identifies minor gaps (missing JSDoc, logical edge cases), push follow-up commits to the branch to polish the execution.
+3.  **Human QA:** Once the PR passes your own critical review, you MUST halt. **DO NOT** execute `gh pr merge` yourself under any circumstances.
 
 ### State Transition Trap (Final Step)
 
-Once the PR is successfully opened, you MUST invoke the `signal_state_transition` tool to formally alert the Orchestrator that the workflow stage has completed.
+Only after the PR is successfully opened AND you have completed the Post-PR autonomous review cycle, you MUST formally alert the Orchestrator.
 
 1.  Execute the following MCP tool:
-    `signal_state_transition(state: 'PR_OPENED', target: "[pr-number]")`
+    `signal_state_transition(state: 'PR_READY_FOR_REVIEW', target: "[pr-number]")`
 
 This explicitly frees the current swarm intelligence instance to terminate or accept a new ticket from the `DreamService` queue.
