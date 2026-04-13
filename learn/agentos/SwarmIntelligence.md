@@ -364,6 +364,7 @@ To add a new sub-agent profile:
 ## Related Guides
 
 - [Architecture Overview](../benefits/ArchitectureOverview.md) — Platform-level topology
+- [The Dream Pipeline & Golden Path](./DreamPipeline.md) — Forecasting engine and scoring algorithm
 - [Strategic Workflows](./StrategicWorkflows.md) — Agent workflow patterns
 - [Code Execution (AI SDK)](./CodeExecution.md) — The SDK Bouncer in detail
 - [Neural Link](./NeuralLink.md) — Deep dive into the browser bridge
