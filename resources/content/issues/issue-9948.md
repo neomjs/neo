@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-13T08:03:04Z'
-updatedAt: '2026-04-13T08:22:21Z'
+updatedAt: '2026-04-13T08:59:17Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9948'
 author: tobiu
 commentsCount: 0
@@ -60,4 +61,5 @@ We will refactor the `AGENTS_STARTUP.md` (and consequently `AGENTS.md`) to encod
 * docs: offload cognitive instructions to pr-review-guide
 
 * docs: explicitly trigger lateral thinking pathways in reflection mode"
+- 2026-04-13T08:59:17Z @tobiu assigned to @tobiu
 
