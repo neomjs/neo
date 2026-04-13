@@ -34,3 +34,8 @@ To fix a regression not just by reverting code, but by understanding the *intent
     *   **What changed?** (from `git`)
     *   **What was the plan?** (from the knowledge base)
     *   **What was the intent?** (from your memory)
+
+## Related Guides
+
+- [Swarm Intelligence & Sub-Agents](./SwarmIntelligence.md) — How tasks are delegated
+- [Progressive Disclosure Skills](./ProgressiveDisclosureSkills.md) — The lifecycle governance rules
