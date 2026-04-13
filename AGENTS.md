@@ -154,7 +154,9 @@ First, classify the user's request into one of two categories:
     - **Action:** Apply the **Ticket-First Gate** (Section 3).
 
 **Meta Gate: Deduplication & Linking**
-- **Gate 0:** Before creating *any* Issue or Discussion on GitHub, you **MUST** verify an equivalent item doesn't already exist using the `grep_search` tool locally against the `resources/content/issues/` and `resources/content/discussions/` directories. This prevents polluting the remote tracker. 
+- **Gate 0 (Generation):** Before creating *any* Issue or Discussion on GitHub, you **MUST** verify an equivalent item doesn't already exist using the `grep_search` tool locally against the `resources/content/issues/` and `resources/content/discussions/` directories. This prevents polluting the remote tracker. 
+- **Pre-Execution Reflection (Ticket Intake):** If you are picking up or assigned an *existing* ticket, you MUST run the `ticket-intake` skill immediately. You are forbidden from jumping blindly into `git checkout` without first validating the architectural ROI and confirming the ticket represents valid framework philosophy.
+  - Read: `.agent/skills/ticket-intake/SKILL.md`
 - **Graph Linking:** When creating Sub-Issues for an Epic, you **MUST** natively link them using the `update_issue_relationship` MCP tool. Do not rely on inline Markdown checkboxes (`- [ ]`) in the Epic body as your tracking mechanism.
 - **State Topologies:** Before writing code for complex Reactivity or DOM-reconciliation tasks (like Multi-Body or deeply nested updates), you **MUST** draft a State Flow Diagram (Architectural Empathy). Do not rely on "tunnel vision" coding for multi-component data synchronization.
 
