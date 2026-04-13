@@ -358,6 +358,7 @@ Here you find the full history of Neo.mjs updates.
 ## Benefits
 
 - [Introduction](https://neomjs.com/raw/learn/benefits/Introduction.md)
+- [Architecture Overview](https://neomjs.com/raw/learn/benefits/ArchitectureOverview.md)
 - [Object Permanence](https://neomjs.com/raw/learn/benefits/ObjectPermanence.md)
 - [JSON First UIs (Asymmetric VDOM)](https://neomjs.com/raw/learn/benefits/JSONFirstUIs.md)
 - [Off the Main Thread](https://neomjs.com/raw/learn/benefits/OffTheMainThread.md)
@@ -386,6 +387,9 @@ Here you find the full history of Neo.mjs updates.
 ## Agentos
 
 - [Strategic Workflows](https://neomjs.com/raw/learn/agentos/StrategicWorkflows.md)
+- [Swarm Intelligence & Sub-Agents](https://neomjs.com/raw/learn/agentos/SwarmIntelligence.md)
+- [Progressive Disclosure Skills](https://neomjs.com/raw/learn/agentos/ProgressiveDisclosureSkills.md)
+- [The Dream Pipeline & Golden Path](https://neomjs.com/raw/learn/agentos/DreamPipeline.md)
 - [Neural Link: Live Application Mutability](https://neomjs.com/raw/learn/agentos/NeuralLink.md)
 - [The Knowledge Base Server](https://neomjs.com/raw/learn/agentos/KnowledgeBase.md)
 - [The Memory Core Server](https://neomjs.com/raw/learn/agentos/MemoryCore.md)
@@ -512,6 +516,8 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #9980](https://neomjs.com/raw/news/tickets/9980.md)
+- [Ticket #9977](https://neomjs.com/raw/news/tickets/9977.md)
 - [Ticket #9975](https://neomjs.com/raw/news/tickets/9975.md)
 - [Ticket #9973](https://neomjs.com/raw/news/tickets/9973.md)
 - [Ticket #9971](https://neomjs.com/raw/news/tickets/9971.md)
