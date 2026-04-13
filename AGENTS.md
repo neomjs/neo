@@ -160,26 +160,14 @@ First, classify the user's request into one of two categories:
 
 **Note:** A conceptual discussion can become an actionable task. The moment the intent shifts from "what if..." to "let's do...", you must treat it as a new actionable request and apply the Ticket-First Gate.
 
-## 7. Git Protocol
+## 7. The Pull Request Mandate (Definition of Done)
 
-- **Ticket ID Required:** The commit subject line **MUST** end with `(#TICKET_ID)`.
-    - **Correct:** `feat: Add infinite canvas (#8392)`
-- **Standard:** Follow Conventional Commits.
+You are strictly **FORBIDDEN** from committing code or running `gh pr create` via raw bash commands based on generic workflow assumptions.
 
-## 8. Ticket Closure Protocol (Definition of Done)
+When you believe your codebase modifications are complete and ready for review, you **MUST** formally open a Pull Request. To do this, you are required to invoke the dedicated `pull-request` skill:
+- Read and adhere to the guidelines in `.agent/skills/pull-request/SKILL.md`
 
-You **MUST** perform these steps in order before marking a task as complete:
-
-1.  **Branching (MANDATORY):** You are strictly forbidden from committing or pushing directly to the `main` (release-only) or `dev` (default working) branches. You MUST checkout a new branch (e.g., `agent/9851-retrospective`).
-2.  **Commit & Push:** Commit your finalized changes to this branch and push the branch to the remote repository.
-3.  **Pull Request (MANDATORY):** Use `run_command` with `gh pr create --fill --base dev` to open a Pull Request targeting the `dev` branch. The PR body **MUST** include the keyword `Resolves #[Issue Number]` to guarantee automatic ticket closure upon merge.
-4.  **One PR per Ticket:** Enforce a strict 1-to-1 ratio between an Issue and a Pull Request. Do not bundle multiple unassociated issues into a single PR.
-    - **Epic Exception:** An Epic may have a single overarching PR that resolves all of its associated Sub-Issues.
-5.  **Assign:** Ensure the Pull Request and the underlying Ticket are assigned to the current user to capture credit.
-6.  **Handoff / Hard Stop (MANDATORY):** The agent's task is strictly considered "Done" once the PR is opened. You MUST halt and await human QA. **DO NOT** execute `gh pr merge` yourself under any circumstances.
-7.  **The Reflection Phase:** Before concluding the turn, ask the human Commander: "PR opened. Shall I execute the `pr-review` skill to perform a self-reflection log?" (Note: In fully autonomous "headless" mode, execute the skill automatically). See the `pr-review` skill for the rules on Iterative Polish vs. Follow-up Epics.
-8.  **Iterative PR Updates:** If requested to push new commits to an open PR that alter the scope or change the technical approach, you MUST post a new comment on the PR detailing the exact delta.
-9.  **Human Merge Rule:** (Note: When the Human Approver eventually merges the code, they will utilize a Squash Merge to preserve the Fat Ticket natively).
+This skill governs branch generation, conventional commit standards, the critical "Stepping Back" reflection phase, and the state handoff endpoint sequence. Follow it exactly.
 
 ## 9. Preventing Context Corruption (State Management)
 
