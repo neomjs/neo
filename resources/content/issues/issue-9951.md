@@ -1,14 +1,14 @@
 ---
 id: 9951
 title: Scaffold signal_state_transition MCP Endpoint
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - ai
   - architecture
 assignees: []
 createdAt: '2026-04-13T09:28:30Z'
-updatedAt: '2026-04-13T09:38:54Z'
+updatedAt: '2026-04-13T17:15:23Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9951'
 author: tobiu
 commentsCount: 0
@@ -17,7 +17,9 @@ subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
-blocking: []
+blocking:
+  - '[ ] 9950 Epic: Abstracting the Operating Environment (Agent OS v3)'
+closedAt: '2026-04-13T17:15:23Z'
 ---
 # Scaffold signal_state_transition MCP Endpoint
 
@@ -36,4 +38,11 @@ Provide a native state-trap for Headless Orchestration to gracefully capture the
 - 2026-04-13T09:28:33Z @tobiu added the `architecture` label
 - 2026-04-13T09:28:47Z @tobiu added parent issue #9950
 - 2026-04-13T09:32:32Z @tobiu changed title from **Scaffold submit_work MCP Meta-Tool** to **Scaffold signal_state_transition MCP Endpoint**
+- 2026-04-13T11:13:34Z @tobiu marked this issue as blocking #9950
+- 2026-04-13T12:49:01Z @tobiu cross-referenced by PR #9968
+- 2026-04-13T17:10:32Z @tobiu referenced in commit `82d9a94` - "feat: scaffold signal_state_transition MCP endpoint (#9951)"
+- 2026-04-13T17:10:49Z @tobiu cross-referenced by PR #9979
+- 2026-04-13T17:15:23Z @tobiu referenced in commit `0c83a1d` - "feat: scaffold signal_state_transition MCP endpoint (#9951) (#9979)"
+- 2026-04-13T17:15:24Z @tobiu closed this issue
+- 2026-04-13T17:17:16Z @tobiu cross-referenced by #9980
 
