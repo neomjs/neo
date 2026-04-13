@@ -27,6 +27,7 @@
         {"name": "Creating Your First App",                            "parentId": "GettingStarted",                                      "id": "gettingstarted/CreatingYourFirstApp"},
     {"name": "Agent OS & Conversational UIs",                          "parentId": null,                                 "isLeaf": false, "id": "AgentOS"},
         {"name": "Strategic Workflows",                                "parentId": "AgentOS",                                             "id": "agentos/StrategicWorkflows"},
+        {"name": "Swarm Intelligence & Sub-Agents",                    "parentId": "AgentOS",                                             "id": "agentos/SwarmIntelligence"},
         {"name": "Neural Link: Live Application Mutability",           "parentId": "AgentOS",                                             "id": "agentos/NeuralLink"},
         {"name": "The Knowledge Base Server",                          "parentId": "AgentOS",                                             "id": "agentos/KnowledgeBase"},
         {"name": "The Memory Core Server",                             "parentId": "AgentOS",                                             "id": "agentos/MemoryCore"},
