@@ -384,6 +384,7 @@ complete organism where the codebase and the agent co-evolve.
 ## Next Steps
 
 - [Strategic Workflows](../agentos/StrategicWorkflows.md) — Advanced agent workflow patterns
+- [Swarm Intelligence & Sub-Agents](../agentos/SwarmIntelligence.md) — Delegation, profiles, and capability gating
 - [Neural Link: Live Application Mutability](../agentos/NeuralLink.md) — Deep dive into the Neural Link bridge
 - [The Knowledge Base Server](../agentos/KnowledgeBase.md) — Semantic RAG architecture
 - [The Memory Core Server](../agentos/MemoryCore.md) — Episodic memory and graph storage
