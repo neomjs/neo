@@ -292,4 +292,59 @@ test.describe('Memory Core Offline Summarization', () => {
         expect(finalPrompt.includes('[COMPRESSED SESSION SUB-SUMMARIES]')).toBe(true);
         expect(finalPrompt.length).toBeLessThan(12000); 
     });
+
+    test('SessionService limits toolsUsed stringification to prevent prompt explosion', async () => {
+        if (!SDK.Memory_LifecycleService._initPromise) {
+            await SDK.Memory_LifecycleService.initAsync();
+        } else {
+            await SDK.Memory_LifecycleService.ready();
+        }
+        await SDK.Memory_SessionService.ready();
+
+        const dummySessionId = crypto.randomUUID();
+        await SDK.Memory_ChromaManager.ready();
+
+        const massiveToolConfig = new Array(50000).fill('A').join('');
+        const toolsUsed = [JSON.stringify({
+            name: undefined,
+            toolAction: undefined,
+            content: massiveToolConfig
+        })];
+
+        await SDK.Memory_Service.addMemory({
+            prompt   : "Massive tools",
+            thought  : "Thinking...",
+            response : "Done",
+            agent    : "developer",
+            model    : "gemini-3.1-pro",
+            toolsUsed: toolsUsed,
+            sessionId: dummySessionId
+        });
+
+        const originalGenerateContent = SDK.Memory_SessionService.model ? SDK.Memory_SessionService.model.generateContent : null;
+        let capturedPrompts = [];
+        
+        SDK.Memory_SessionService.model = {
+            generateContent: async (prompt) => {
+                capturedPrompts.push(prompt);
+                return {
+                    response: {
+                        text: () => JSON.stringify({
+                            title: "Massive Session Tools", summary: "Done"
+                        })
+                    }
+                };
+            }
+        };
+
+        await SDK.Memory_SessionService.summarizeSession(dummySessionId);
+        
+        if (originalGenerateContent) {
+            SDK.Memory_SessionService.model.generateContent = originalGenerateContent;
+        }
+
+        const finalPrompt = capturedPrompts[capturedPrompts.length - 1];
+        // Ensure final prompt is kept reasonably sized despite huge tools logging JSON
+        expect(finalPrompt.length).toBeLessThan(15000);
+    });
 });
