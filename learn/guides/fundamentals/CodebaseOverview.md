@@ -50,7 +50,7 @@ First, it is critical to understand the primary execution boundary. Neo.mjs oper
 1. **The Frontend UI Engine:** The browser-based application runtime that renders the DOM.
 2. **The Agent OS (Node.js):** The backend cognitive loop and local AI SDK.
 
-> For a visual architectural map showing how the Runtime Engine and Agent OS connect as a closed feedback loop, see [Architecture Overview](../../benefits/ArchitectureOverview.md).
+> For a visual architectural map showing how the Runtime Engine and Agent OS connect as a closed feedback loop, see [Architecture Overview](../../benefits/ArchitectureOverview.md). For the autonomous sub-agent delegation model (profiles, capability gating, cost control), see [Swarm Intelligence](../../agentos/SwarmIntelligence.md).
 
 ### 1. The Frontend Engine: True Multithreading via Web Workers
 
