@@ -111,6 +111,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `pr-review` | Lifecycle | Structured quality evaluation & graph ingestion |
 | `neural-link` | Tactical | Live application inspection sequences |
 | `unit-test` | Tactical | Playwright test authoring patterns |
+| `whitebox-e2e` | Tactical | Neural Link pre-flight workflow for authoring E2E tests |
 | `ideation-sandbox` | Creative | GitHub Discussion brainstorming |
 | `create-skill` | Meta | Skill authoring bootstrap guide |
 
