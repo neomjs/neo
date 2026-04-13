@@ -387,7 +387,7 @@ class SessionService extends Base {
         const totalRawLength = memories.documents.reduce((acc, doc) => acc + doc.length, 0) + (memories.documents.length * 7);
         
         if (totalRawLength > MAX_CONTENT_LENGTH) {
-            console.log(`[SessionService] Session ${sessionId} exceeds ${MAX_CONTENT_LENGTH} chars. Initiating Map-Reduce summarization pipeline.`);
+            logger.info(`[SessionService] Session ${sessionId} exceeds ${MAX_CONTENT_LENGTH} chars. Initiating Map-Reduce summarization pipeline.`);
             const chunks = [];
             let currentChunk = '';
             
@@ -404,7 +404,7 @@ class SessionService extends Base {
 
             const subSummaries = [];
             for (let i = 0; i < chunks.length; i++) {
-                console.log(`[SessionService] Generating Sub-Summary ${i + 1}/${chunks.length} for session ${sessionId}`);
+                logger.info(`[SessionService] Generating Sub-Summary ${i + 1}/${chunks.length} for session ${sessionId}`);
                 const chunkPrompt = `Analyze this sequential segment of a longer AI agent session. Identify the main problem, tool execution paths taken, and any code modified. Keep it concise.\n\n${chunks[i]}`;
                 // Avoid using explicit response_format JSON here to allow plain-text summaries from subsets
                 const result = await this.model.generateContent(chunkPrompt);

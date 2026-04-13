@@ -3,6 +3,7 @@ import fs     from 'fs-extra';
 import path   from 'path';
 import Base   from '../../../../../src/core/Base.mjs';
 import config from '../config.mjs';
+import logger from '../logger.mjs';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -42,7 +43,7 @@ class RecorderService extends Base {
         try {
             const dbPath = config.memoryCoreDbPath;
             if (!dbPath) {
-                console.warn('[RecorderService] memoryCoreDbPath not configured. Disabling logging.');
+                logger.warn('[RecorderService] memoryCoreDbPath not configured. Disabling logging.');
                 return;
             }
             
@@ -73,9 +74,9 @@ class RecorderService extends Base {
                 CREATE INDEX IF NOT EXISTS idx_nl_action_log_timestamp ON nl_action_log(timestamp);
             `);
             
-            console.log('[RecorderService] Connected to Memory Core nl_action_log.');
+            logger.info('[RecorderService] Connected to Memory Core nl_action_log.');
         } catch (err) {
-            console.warn('[RecorderService] Failed to initialize SQLite connection:', err.message);
+            logger.warn('[RecorderService] Failed to initialize SQLite connection:', err.message);
         }
     }
 
@@ -112,7 +113,7 @@ class RecorderService extends Base {
             );
         } catch (err) {
             // Swallowing exceptions so it never disrupts the main logic
-            console.error('[RecorderService] Failed to append log entry:', err);
+            logger.error('[RecorderService] Failed to append log entry:', err);
         }
     }
 
@@ -141,7 +142,7 @@ class RecorderService extends Base {
             
             return this.db.prepare(sql).all(...args);
         } catch (err) {
-            console.error('[RecorderService] Failed to query sequences:', err);
+            logger.error('[RecorderService] Failed to query sequences:', err);
             return [];
         }
     }
@@ -158,7 +159,7 @@ class RecorderService extends Base {
             const dropStmt = this.db.prepare(`DELETE FROM nl_action_log WHERE timestamp < ?`);
             dropStmt.run(cutoff);
         } catch (err) {
-            console.error('[RecorderService] Failed to prune logs:', err);
+            logger.error('[RecorderService] Failed to prune logs:', err);
         }
     }
 }

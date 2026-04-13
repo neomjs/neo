@@ -234,6 +234,16 @@ class ConnectionService extends Base {
     }
 
     /**
+     * @returns {String|null}
+     */
+    getDefaultSessionId() {
+        if (this.sessionData.size > 0) {
+            return Array.from(this.sessionData.keys()).pop();
+        }
+        return null;
+    }
+
+    /**
      * Returns the current status.
      * @returns {Object}
      */
