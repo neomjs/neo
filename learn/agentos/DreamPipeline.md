@@ -283,6 +283,32 @@ if (age > TTL_MS) {
 This prevents the handoff file from growing stale — gaps that matter will be
 re-detected on the next cycle; gaps that don't will naturally disappear.
 
+## Running the Pipeline
+
+The DreamService runs automatically when the Memory Core MCP server starts
+(controlled by the `autoDream` and `autoGoldenPath` config flags). To trigger
+a manual REM cycle, use the standalone CLI entrypoint:
+
+```bash
+npm run ai:run-sandman
+```
+
+This runs `buildScripts/ai/runSandman.mjs`, which:
+
+1. Boots the `LifecycleService` (starts ChromaDB + SQLite)
+2. Waits for the local LLM provider to be reachable (polls `/v1/models`
+   for up to 30 seconds)
+3. Initializes the DreamService with all auto-triggers disabled
+   (to prevent double-execution)
+4. Runs the full pipeline: `processUndigestedSessions()` → garbage
+   collection → Golden Path synthesis
+5. Applies global topology decay via `GraphService.decayGlobalTopology()`
+6. Exits with code 0 (success) or 1 (failure)
+
+The manual entrypoint is useful for overnight batch processing or when
+you want to regenerate `sandman_handoff.md` after importing new session
+data.
+
 ## Configuration
 
 The DreamService is controlled by `ai/mcp/server/memory-core/config.mjs`:
@@ -332,6 +358,7 @@ The system evolves by predicting its own evolution.
 | File | Purpose |
 |---|---|
 | `ai/daemons/DreamService.mjs` | The complete REM pipeline (1368 lines) |
+| `buildScripts/ai/runSandman.mjs` | CLI entrypoint (`npm run ai:run-sandman`) |
 | `ai/mcp/server/memory-core/services/GraphService.mjs` | Native Edge Graph (SQLite) |
 | `ai/mcp/server/memory-core/managers/StorageRouter.mjs` | ChromaDB collection routing |
 | `ai/mcp/server/memory-core/services/TextEmbeddingService.mjs` | Vector embedding |
