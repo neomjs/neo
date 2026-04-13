@@ -16,7 +16,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
-import { execSync }   from 'child_process';
+import { execFileSync } from 'child_process';
 import path           from 'path';
 import fs             from 'fs';
 import Database       from 'better-sqlite3';
@@ -95,7 +95,7 @@ test.describe('Neo.ai.scripts.analyzeNlTelemetry', () => {
             NEO_RLAIF_PATH: testRlaifPath
         };
 
-        const output = execSync(`node ${scriptPath} test-session-1`, { env, encoding: 'utf-8' });
+        const output = execFileSync('node', [scriptPath, 'test-session-1'], { env, encoding: 'utf-8' });
         
         expect(output).toContain('Found 1 Neural Link trajectories for session test-session-1');
         expect(output).toContain('Preview of Trajectory [0]');
@@ -108,7 +108,7 @@ test.describe('Neo.ai.scripts.analyzeNlTelemetry', () => {
             NEO_RLAIF_PATH: testRlaifPath
         };
 
-        const output = execSync(`node ${scriptPath} test-session-2`, { env, encoding: 'utf-8' });
+        const output = execFileSync('node', [scriptPath, 'test-session-2'], { env, encoding: 'utf-8' });
         expect(output).toContain('No neural link trajectories found in session: test-session-2');
     });
 
@@ -119,7 +119,7 @@ test.describe('Neo.ai.scripts.analyzeNlTelemetry', () => {
             NEO_RLAIF_PATH: testRlaifPath
         };
 
-        const output = execSync(`node ${scriptPath} test-session-1 --save`, { env, encoding: 'utf-8' });
+        const output = execFileSync('node', [scriptPath, 'test-session-1', '--save'], { env, encoding: 'utf-8' });
         expect(output).toContain('Successfully appended 1 trajectories to');
         
         // Verify file was written
