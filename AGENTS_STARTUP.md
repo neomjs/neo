@@ -67,7 +67,7 @@ Before executing any commands, you MUST orient yourself to the repository's buil
             - **Ask First:** If a summary seems relevant but you are unsure of the current session's goal, ask the user: *"I see a relevant past session about [Topic]. Should I load its full context?"*
             - **Autonomy:** You are authorized to proactively load a session if it contains critical technical details (e.g., a failed attempt at the same task) that will prevent you from making mistakes.
     - **Your First Turn:** Your only responsibility is to save your work for the current session. The initialization process itself is your first turn. **Before** you send your first response to the user (e.g., "I am ready"), you **MUST** call `add_memory` to save this initialization turn. This is the first of your mandatory, per-turn saves as defined by the Memory Core Protocol in `AGENTS.md`.
-- **If the healthcheck fails:** The Memory Core is not active. Proceed with the session without using memory tools. Your work will not be persisted for future analysis.
+- **If the healthcheck fails (The Infrastructure Triage Mandate):** Do NOT proceed with the session. A failed healthcheck indicates a sick core ecosystem. You MUST prioritize diagnosing and self-healing the failed infrastructure (e.g., inspecting Node.js process logs, debugging `stdout` pollution, or requesting human assistance) before attempting any actionable work or roadmap tasks. Proceeding without active infrastructure is strictly forbidden.
 
 **Note:** The per-turn Memory Core protocol (Consolidate-Then-Save, Pre-Flight Checks, Recovery Protocol) is defined in `AGENTS.md`, which is automatically loaded into your context via `settings.json`.
 
