@@ -14,15 +14,15 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[ ] 9951 Scaffold signal_state_transition MCP Endpoint'
+  - '[x] 9951 Scaffold signal_state_transition MCP Endpoint'
   - '[ ] 9952 Sandman Handoff: Top 10 Actionable Tasks Dashboarding'
   - '[ ] 9953 MCP Progressive Disclosure Endpoint'
   - '[x] 9957 Scaffold pull-request Progressive Disclosure Skill'
   - '[ ] 9958 System Prompt Token Optimization via Mermaid Graphs'
-subIssuesCompleted: 1
+subIssuesCompleted: 2
 subIssuesTotal: 5
 blockedBy:
-  - '[ ] 9951 Scaffold signal_state_transition MCP Endpoint'
+  - '[x] 9951 Scaffold signal_state_transition MCP Endpoint'
 blocking: []
 ---
 # Epic: Abstracting the Operating Environment (Agent OS v3)
