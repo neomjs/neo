@@ -380,7 +380,16 @@ class SessionService extends Base {
 
         if (memories.ids.length === 0) return null;
 
-        const aggregatedContent = memories.documents.join('\n\n---\n\n');
+        let aggregatedContent = memories.documents.join('\n\n---\n\n');
+
+        // Fix for #9921: local inference n_ctx exhaustion. 
+        // Enforce a strict content length limit (~10000 chars roughly equals 2500 tokens).
+        // By slicing from the negative length, we keep the tail end of the session, preventing 
+        // early context noise from breaking the 'final resolution' of the turn.
+        const MAX_CONTENT_LENGTH = 10000;
+        if (aggregatedContent.length > MAX_CONTENT_LENGTH) {
+            aggregatedContent = '[TRUNCATED_EARLY_SESSION_HISTORY]...\n\n' + aggregatedContent.slice(-MAX_CONTENT_LENGTH);
+        }
 
         let lastActivity = Date.now();
         let firstActivity = lastActivity;
