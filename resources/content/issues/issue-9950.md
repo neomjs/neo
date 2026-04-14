@@ -19,8 +19,9 @@ subIssues:
   - '[ ] 9953 MCP Progressive Disclosure Endpoint'
   - '[x] 9957 Scaffold pull-request Progressive Disclosure Skill'
   - '[ ] 9958 System Prompt Token Optimization via Mermaid Graphs'
+  - '[ ] 10018 Autonomous Healthcheck Workflow for Frontier Model Agents'
 subIssuesCompleted: 3
-subIssuesTotal: 5
+subIssuesTotal: 6
 blockedBy:
   - '[x] 9951 Scaffold signal_state_transition MCP Endpoint'
 blocking: []
@@ -50,4 +51,5 @@ Instead of treating LLM agents like human Terminal Operators by waiting for conv
 - 2026-04-13T09:39:43Z @tobiu added sub-issue #9958
 - 2026-04-13T11:13:34Z @tobiu marked this issue as being blocked by #9951
 - 2026-04-13T12:49:01Z @tobiu cross-referenced by PR #9968
+- 2026-04-14T18:57:45Z @tobiu added sub-issue #10018
 
