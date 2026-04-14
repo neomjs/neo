@@ -299,7 +299,6 @@ flowchart TD
 
 4. **Capability Gap Inference:** This phase is **deterministic** — it does not use an LLM.
    It cross-references graph nodes directly against the filesystem:
-   - Does `docs/output/structure.json` mention this class? If not: **DOC_GAP**
    - Does `test/` contain files matching this class's tokens? If not: **TEST_GAP**
    - Does `learn/guides/` have a matching guide? If not: **GUIDE_GAP**
 
