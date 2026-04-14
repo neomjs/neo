@@ -10,7 +10,7 @@ labels:
   - core
 assignees: []
 createdAt: '2026-01-13T22:08:35Z'
-updatedAt: '2026-04-14T04:23:02Z'
+updatedAt: '2026-04-14T05:49:53Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8621'
 author: tobiu
 commentsCount: 1
@@ -34,7 +34,6 @@ Investigate if this event flicker causes unwanted side effects, particularly for
 
 **Potential Solution:**
 If side effects are found, implement a "debounce" or "flicker detection" logic in `FocusManager` or `DeltaUpdates`. For example: "If an element loses focus, but re-gains it within X ms without another element taking focus in between, treat it as a continuous focus session."
-
 
 ## Timeline
 

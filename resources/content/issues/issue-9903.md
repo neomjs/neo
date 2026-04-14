@@ -8,7 +8,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-12T10:10:04Z'
-updatedAt: '2026-04-13T22:25:23Z'
+updatedAt: '2026-04-14T05:49:55Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9903'
 author: tobiu
 commentsCount: 0
@@ -43,7 +43,6 @@ The `nl_action_log` captured during Frontier agent (e.g., Gemini 3.1 Pro / Claud
 ### References
 - **Origin Session ID (Pivot)**: `f191cbb2-133b-43ac-bd7a-a2e85ea1fd95` (Agents: use `get_session_memories` to pull context on why test generation was abandoned).
 - **Related PR**: #9902
-
 
 ## Timeline
 
