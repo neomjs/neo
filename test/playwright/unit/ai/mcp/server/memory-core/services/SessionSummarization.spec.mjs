@@ -347,4 +347,52 @@ test.describe('Memory Core Offline Summarization', () => {
         // Ensure final prompt is kept reasonably sized despite huge tools logging JSON
         expect(finalPrompt.length).toBeLessThan(15000);
     });
+
+    test('findSessionsToSummarize orders candidates newest first based on lastActivity', async () => {
+        if (!SDK.Memory_LifecycleService._initPromise) {
+            await SDK.Memory_LifecycleService.initAsync();
+        } else {
+            await SDK.Memory_LifecycleService.ready();
+        }
+        await SDK.Memory_SessionService.ready();
+        await SDK.Memory_ChromaManager.ready();
+
+        const s1 = crypto.randomUUID();
+        const s2 = crypto.randomUUID();
+        const s3 = crypto.randomUUID();
+
+        // Memory 1 is oldest
+        await SDK.Memory_Service.addMemory({
+            prompt: "Test s1", thought: "T1", response: "R1", agent: "dev", model: "gemini-3.1-pro", sessionId: s1
+        });
+        
+        await new Promise(r => setTimeout(r, 100)); // Sleep to ensure timestamp difference
+
+        // Memory 2 is middle
+        await SDK.Memory_Service.addMemory({
+            prompt: "Test s2", thought: "T2", response: "R2", agent: "dev", model: "gemini-3.1-pro", sessionId: s2
+        });
+
+        await new Promise(r => setTimeout(r, 100)); // Sleep
+
+        // Memory 3 is newest
+        await SDK.Memory_Service.addMemory({
+            prompt: "Test s3", thought: "T3", response: "R3", agent: "dev", model: "gemini-3.1-pro", sessionId: s3
+        });
+
+        // Use findSessionsToSummarize explicitly
+        const candidates = await SDK.Memory_SessionService.findSessionsToSummarize(true);
+
+        // candidates should contain s1, s2, s3. Since s3 is newest, its index should be smaller than s2 and s1.
+        expect(candidates.includes(s3)).toBe(true);
+        expect(candidates.includes(s2)).toBe(true);
+        expect(candidates.includes(s1)).toBe(true);
+
+        const pos1 = candidates.indexOf(s1);
+        const pos2 = candidates.indexOf(s2);
+        const pos3 = candidates.indexOf(s3);
+
+        expect(pos3).toBeLessThan(pos2);
+        expect(pos2).toBeLessThan(pos1);
+    });
 });
