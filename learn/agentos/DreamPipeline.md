@@ -125,7 +125,6 @@ and checks three coverage dimensions:
 
 | Gap Type | Detection Method |
 |---|---|
-| `[DOC_GAP]` | Node absent from the `docs/output/structure.json` jsdocx manifest |
 | `[TEST_GAP]` | No test file paths in `test/` contain tokens matching the node name |
 | `[GUIDE_GAP]` | No guide paths in `learn/guides/` match the node name (with LLM verification fallback) |
 
@@ -211,8 +210,6 @@ The Golden Path synthesis produces a markdown file divided into sections:
 ### 🧪 Critical Test Constraints (N items)
 - **`CLASS:MyClass`**: lacks test coverage...
 
-### 📚 Missing Architecture Documentation (N items)
-- **`METHOD:myMethod`**: missing from jsdocx...
 
 ### 🗺️ Guide Disconnects (N items)
 - **`CLASS:MyComponent`**: lacks guide...

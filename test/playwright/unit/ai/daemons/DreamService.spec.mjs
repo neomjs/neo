@@ -186,8 +186,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         // Validate gaps are stored on the node correctly
         const updatedNode = GraphService.db.nodes.get('mock-file-1');
         expect(updatedNode.properties.capabilityGap).toBeDefined();
-        // It should identify test and doc gaps for structural gaps
-        expect(updatedNode.properties.capabilityGap).toContain('[DOC_GAP]');
+        // It should identify test gaps for structural gaps
         expect(updatedNode.properties.capabilityGap).toContain('[TEST_GAP]');
     });
 
