@@ -584,7 +584,7 @@ ${contextText}
                     return regex.test(p);
                 }));
                 if (!hasTest) {
-                    testGap = `[TEST_GAP] The ${node.type} '${node.name}' lacks corresponding automated validation suites (Playwright/Jest) covering its tokens within the test/ directory.`;
+                    testGap = `[TEST_GAP] The ${node.type} '${node.name}' lacks corresponding automated validation suites (Playwright) covering its tokens within the test/ directory.`;
                 }
             }
 
@@ -711,6 +711,10 @@ ${topContent}
                             type: 'ISSUE',
                             name: meta.title || issueId,
                             state: meta.state,
+                            properties: {
+                                state: meta.state,
+                                labels: Array.isArray(meta.labels) ? meta.labels : []
+                            },
                             updatedAt: meta.updatedAt || meta.createdAt
                         });
 
@@ -1212,38 +1216,37 @@ ${topContent}
         // Sort descending by calculated priority
         scoredNodes.sort((a, b) => b.score - a.score);
 
-        const topNodes = scoredNodes.slice(0, 3);
+        // Remove mathematically rejected targets (Negative ROI), then slice
+        const topNodes = scoredNodes.filter(n => n.score > -5000).slice(0, 5);
 
-        if (topNodes.length === 0) {
-            logger.info('[DreamService] No actionable unblocked issues found. Golden path empty.');
-            return;
-        }
+        let markdownAppend = '';
 
-        logger.info(`[DreamService] Top Issue 1 (${topNodes[0].node.id}): Priority ${topNodes[0].score.toFixed(2)} [Sem: ${topNodes[0].semantic.toFixed(2)} / Struc: ${topNodes[0].structural.toFixed(2)}]`);
+        if (topNodes.length > 0) {
+            logger.info(`[DreamService] Top Issue 1 (${topNodes[0].node.id}): Priority ${topNodes[0].score.toFixed(2)} [Sem: ${topNodes[0].semantic.toFixed(2)} / Struc: ${topNodes[0].structural.toFixed(2)}]`);
 
-        // Explicitly anchor this to the frontier context so the Agent NEVER loses sight of it
-        let markdownAppend = `\n## Computed Golden Path (Strategic Recommendation)\n\n`;
-        markdownAppend += `Based on the latest Tri-Vector Synthesis and Topological Priorities, the following tasks are mathematically recommended as the next immediate focus:\n\n`;
+            // Explicitly anchor this to the frontier context so the Agent NEVER loses sight of it
+            markdownAppend = `\n## Computed Golden Path (Strategic Recommendation)\n\n`;
+            markdownAppend += `Based on the latest Tri-Vector Synthesis and Topological Priorities, the following tasks are mathematically recommended as the next immediate focus:\n\n`;
 
-        topNodes.forEach((item, index) => {
-            if (item.node && item.node.id) {
-                GraphService.linkNodes('frontier', item.node.id, 'GUIDES', item.score);
-                const title = item.node.properties?.title || item.node.properties?.name || item.node.name || 'Unknown Title';
-                markdownAppend += `${index + 1}. **${item.node.id}**: Score ${item.score.toFixed(2)} (Semantic: ${item.semantic.toFixed(2)}, Structural: ${item.structural.toFixed(2)})\n   - *${title}*\n`;
-            }
-        });
-
-        try {
-            logger.info('[DreamService] Instantiating API provider to interpret Mathematical Golden Path...');
-            const provider = Neo.create(OpenAiCompatible, {
-                modelName: aiConfig.openAiCompatible.model,
-                host: aiConfig.openAiCompatible.host
+            topNodes.forEach((item, index) => {
+                if (item.node && item.node.id) {
+                    GraphService.linkNodes('frontier', item.node.id, 'GUIDES', item.score);
+                    const title = item.node.properties?.title || item.node.properties?.name || item.node.name || 'Unknown Title';
+                    markdownAppend += `${index + 1}. **${item.node.id}**: Score ${item.score.toFixed(2)} (Semantic: ${item.semantic.toFixed(2)}, Structural: ${item.structural.toFixed(2)})\n   - *${title}*\n`;
+                }
             });
 
-            // Get adjacent frontier topology for context
-            const frontierTopology = GraphService.getContextFrontier({ depth: 1 });
+            try {
+                logger.info('[DreamService] Instantiating API provider to interpret Mathematical Golden Path...');
+                const provider = Neo.create(OpenAiCompatible, {
+                    modelName: aiConfig.openAiCompatible.model,
+                    host: aiConfig.openAiCompatible.host
+                });
 
-            const interpretPrompt = `
+                // Get adjacent frontier topology for context
+                const frontierTopology = GraphService.getContextFrontier({ depth: 1 });
+
+                const interpretPrompt = `
 You are the Neo.mjs Strategic Steering Engine.
 The mathematical engine has evaluated the codebase and determined the following top priority features based on semantic and structural weight:
 
@@ -1259,15 +1262,18 @@ Mandatory Schema:
 DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object.
 `;
 
-            const result = await provider.generate(interpretPrompt);
+                const result = await provider.generate(interpretPrompt);
 
-            const payload = Json.extract(result.content);
-            if (payload && payload.strategic_brief) {
-                markdownAppend += `\n> **Strategic Interpretation:**\n> ${payload.strategic_brief}\n\n`;
-                logger.info('[DreamService] Successfully appended semantic strategic brief to Golden Path.');
+                const payload = Json.extract(result.content);
+                if (payload && payload.strategic_brief) {
+                    markdownAppend += `\n> **Strategic Interpretation:**\n> ${payload.strategic_brief}\n\n`;
+                    logger.info('[DreamService] Successfully appended semantic strategic brief to Golden Path.');
+                }
+            } catch (e) {
+                logger.warn('[DreamService] Failed to generate semantic interpretation for Golden Path (LLM Offline). Proceeding with pure mathematical output.', e);
             }
-        } catch (e) {
-            logger.warn('[DreamService] Failed to generate semantic interpretation for Golden Path (LLM Offline). Proceeding with pure mathematical output.', e);
+        } else {
+            logger.info('[DreamService] No actionable unblocked issues found. Golden path empty.');
         }
 
         // Centralize full generation of sandman_handoff.md here, enforcing completely idempotent behavior.
@@ -1330,22 +1336,20 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         if (gapElementsCount === 0) {
             handoffContent += `*No architectural gaps detected at this time. Codebase is aligned with structural jsdocx graph expectations.*\n`;
         } else {
+            const limit = 5;
             if (testGaps.length > 0) {
-                handoffContent += `### 🧪 Critical Test Constraints (\`${testGaps.length}\` items)\n`;
-                testGaps.slice(0, 15).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
-                if (testGaps.length > 15) handoffContent += `  - *(+ ${testGaps.length - 15} more in native SQLite)*\n`;
+                handoffContent += `### 🧪 Critical Test Constraints (\`${Math.min(testGaps.length, limit)}\` of \`${testGaps.length}\` items)\n`;
+                testGaps.slice(0, limit).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
                 handoffContent += `\n`;
             }
             if (docGaps.length > 0) {
-                handoffContent += `### 📚 Missing Architecture Documentation (\`${docGaps.length}\` items)\n`;
-                docGaps.slice(0, 15).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
-                if (docGaps.length > 15) handoffContent += `  - *(+ ${docGaps.length - 15} more in native SQLite)*\n`;
+                handoffContent += `### 📚 Missing Architecture Documentation (\`${Math.min(docGaps.length, limit)}\` of \`${docGaps.length}\` items)\n`;
+                docGaps.slice(0, limit).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
                 handoffContent += `\n`;
             }
             if (guideGaps.length > 0) {
-                handoffContent += `### 🗺️ Guide Disconnects (\`${guideGaps.length}\` items)\n`;
-                guideGaps.slice(0, 15).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
-                if (guideGaps.length > 15) handoffContent += `  - *(+ ${guideGaps.length - 15} more in native SQLite)*\n`;
+                handoffContent += `### 🗺️ Guide Disconnects (\`${Math.min(guideGaps.length, limit)}\` of \`${guideGaps.length}\` items)\n`;
+                guideGaps.slice(0, limit).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
                 handoffContent += `\n`;
             }
         }
@@ -1354,7 +1358,46 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             logger.info(`[DreamService] TTL Pruning eradicated ${prunedGaps} stale Gaps from the Native Graph.`);
         }
 
-        handoffContent += `\n${markdownAppend}`;
+        // --- Executive Priority Backlog ---
+        const goldenIds = new Set(topNodes.map(item => item.node.id));
+        let backlogAppend = '';
+        try {
+            const rawIssuesDir = path.resolve(__dirname, '../../resources/content/issues');
+            const filesRaw = fs.readdirSync(rawIssuesDir);
+            const mdFiles = filesRaw.filter(f => f.endsWith('.md'));
+            
+            const openIssuesData = [];
+            for (const file of mdFiles) {
+                const issueId = file.replace(/\.md$/, '');
+                if (goldenIds.has(issueId)) continue; // Skip if already in Golden Path
+
+                // Query SQLite GraphService natively instead of reading the filesystem content again
+                const dbNode = GraphService.db.nodes.get(issueId);
+                if (dbNode && (dbNode.state === 'OPEN' || dbNode.properties?.state === 'OPEN')) {
+                    if (!dbNode.properties?.labels?.includes('needs-re-triage')) {
+                        const numericId = parseInt(issueId.replace('issue-', ''), 10) || 0;
+                        openIssuesData.push({ id: issueId, numericId, node: dbNode });
+                    }
+                }
+            }
+
+            openIssuesData.sort((a, b) => b.numericId - a.numericId);
+            const latest5 = openIssuesData.slice(0, 5);
+
+            if (latest5.length > 0) {
+                backlogAppend += `\n## 📋 Latest Priority Backlog\n\nThe following open tickets represent the most recently created structural objectives.\n\n`;
+                latest5.forEach((item, idx) => {
+                   const title = item.node.properties?.title || item.node.properties?.name || item.node.name || 'Unknown Title';
+                   const labels = item.node.properties?.labels || [];
+                   const labelTags = labels.length > 0 ? ` [\`${labels.join('\`, \`')}\`]` : '';
+                   backlogAppend += `${idx + 1}. **${item.id}**${labelTags}\n   - *${title}*\n`;
+                });
+            }
+        } catch (e) {
+            logger.warn('[DreamService] Failed to generate Latest Priority Backlog', e);
+        }
+
+        handoffContent += `${backlogAppend}${markdownAppend}`;
 
         const handoffFile = aiConfig.handoffFilePath;
         fs.writeFileSync(handoffFile, handoffContent.trim() + '\n', 'utf-8');
