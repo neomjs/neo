@@ -15,20 +15,12 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[ ] 10000 Hardened Identity Ingestion & Tenant Isolation'
-  - '[ ] 10001 Dynamic Topology: Unified vs. Federated Routing'
-  - '[ ] 10002 Universal Macro Overlay DB Topology'
-  - '[ ] 10003 Standardize Global Vector Embedding Configuration'
-  - '[ ] 10004 DreamService: Omnidirectional Gap Inference Engine'
-  - '[ ] 10006 DreamService: Semantic Edge Injection into Native Graph'
-  - '[ ] 10007 Memory Core: Bypass Database Initialization in Unified Mode'
-  - '[ ] 10008 Playwright Test Coverage: Unified Monolithic Topology'
-  - '[ ] 10009 Playwright Test Coverage: Federated Cloud Topology'
-  - '[ ] 10010 Memory Core: Team vs Private Context Retrieval Flag'
-  - '[ ] 10011 Native Edge Graph (SQLite): Row-Level Security & Tenant Isolation'
-  - '[ ] 10012 DreamService: Federated Execution Batching & Throttling'
+  - '[ ] 10013 [Sub-Epic] DreamService Decomposition'
+  - '[ ] 10014 [Sub-Epic] Macro Knowledge Base & Semantic Gap Inference'
+  - '[ ] 10015 [Sub-Epic] Dynamic Topology — Unified vs. Federated Routing'
+  - '[ ] 10016 [Sub-Epic] Multi-Tenant Identity & Data Privacy'
 subIssuesCompleted: 0
-subIssuesTotal: 12
+subIssuesTotal: 4
 blockedBy: []
 blocking: []
 ---
@@ -66,4 +58,24 @@ To support both rapid local development and scalable enterprise clusters, we are
 - 2026-04-14T15:19:44Z @tobiu added sub-issue #10010
 - 2026-04-14T15:22:01Z @tobiu added sub-issue #10011
 - 2026-04-14T15:22:03Z @tobiu added sub-issue #10012
+- 2026-04-14T16:43:28Z @tobiu cross-referenced by #10013
+- 2026-04-14T16:43:31Z @tobiu cross-referenced by #10014
+- 2026-04-14T16:43:35Z @tobiu cross-referenced by #10015
+- 2026-04-14T16:43:40Z @tobiu cross-referenced by #10016
+- 2026-04-14T16:43:52Z @tobiu added sub-issue #10013
+- 2026-04-14T16:43:54Z @tobiu added sub-issue #10014
+- 2026-04-14T16:43:55Z @tobiu added sub-issue #10015
+- 2026-04-14T16:43:56Z @tobiu added sub-issue #10016
+- 2026-04-14T16:44:03Z @tobiu removed sub-issue #10003
+- 2026-04-14T16:44:05Z @tobiu removed sub-issue #10002
+- 2026-04-14T16:44:06Z @tobiu removed sub-issue #10004
+- 2026-04-14T16:44:07Z @tobiu removed sub-issue #10006
+- 2026-04-14T16:44:09Z @tobiu removed sub-issue #10012
+- 2026-04-14T16:44:11Z @tobiu removed sub-issue #10001
+- 2026-04-14T16:44:12Z @tobiu removed sub-issue #10007
+- 2026-04-14T16:44:14Z @tobiu removed sub-issue #10008
+- 2026-04-14T16:44:16Z @tobiu removed sub-issue #10009
+- 2026-04-14T16:44:17Z @tobiu removed sub-issue #10000
+- 2026-04-14T16:44:19Z @tobiu removed sub-issue #10010
+- 2026-04-14T16:44:20Z @tobiu removed sub-issue #10011
 
