@@ -168,15 +168,9 @@ class DreamService extends Base {
                             include: ['documents']
                         });
                         if (rawMemories && rawMemories.documents && rawMemories.documents.length > 0) {
-                            const sliced = rawMemories.documents.slice(-3); // take only final 3 concluding actions
-                            let rawStr = sliced.join('\n\n---\n\n');
-                            
-                            // Natively enforce strict token floor ensuring LLM has minimum 2500 tokens free to generate complex output maps
-                            const maxLen = 4000;
-                            if (rawStr.length > maxLen) {
-                                rawStr = rawStr.slice(-maxLen);
-                            }
-                            rawEpisodicMemory = rawStr;
+                            // Send the full raw memory to the LLM. Lossless context tracking is required.
+                            // If local APIs crash, it is a configuration issue with n_ctx, not a client logic error.
+                            rawEpisodicMemory = rawMemories.documents.join('\n\n---\n\n');
                         }
                     }
                 } catch (e) {

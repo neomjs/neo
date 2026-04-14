@@ -220,7 +220,7 @@ test.describe('Memory Core Offline Summarization', () => {
         expect(metadata.models.includes('gemma4')).toBe(true);
     });
 
-    test('SessionService correctly map-reduces massive session histories to fix #9965', async () => {
+    test('SessionService correctly processes massive session histories natively without map-reduce', async () => {
         if (!SDK.Memory_LifecycleService._initPromise) {
             await SDK.Memory_LifecycleService.initAsync();
         } else {
@@ -251,13 +251,6 @@ test.describe('Memory Core Offline Summarization', () => {
             generateContent: async (prompt) => {
                 capturedPrompts.push(prompt);
                 
-                // Emulate Sub-Summary string if it is a map chunk
-                if (prompt.includes('Analyze this sequential segment')) {
-                    return {
-                        response: { text: () => "Mock chunk summary." }
-                    };
-                }
-
                 return {
                     response: {
                         text: () => JSON.stringify({
@@ -270,7 +263,7 @@ test.describe('Memory Core Offline Summarization', () => {
                             quality            : 5,
                             productivity       : 5,
                             topics             : ["testing"],
-                            decisionList       : ["implemented map reduce"]
+                            decisionList       : ["bypassed map reduce natively"]
                         })
                     }
                 };
@@ -284,13 +277,12 @@ test.describe('Memory Core Offline Summarization', () => {
             SDK.Memory_SessionService.model.generateContent = originalGenerateContent;
         }
 
-        // Verify map-reduce logic occurred due to large payload
-        expect(capturedPrompts.length).toBeGreaterThan(1);
+        // Verify ONLY ONE generation payload happened
+        expect(capturedPrompts.length).toBe(1);
         
-        // The last prompt should be the final compression that includes our compressed arrays
-        const finalPrompt = capturedPrompts[capturedPrompts.length - 1];
-        expect(finalPrompt.includes('[COMPRESSED SESSION SUB-SUMMARIES]')).toBe(true);
-        expect(finalPrompt.length).toBeLessThan(12000); 
+        // Output should be massive implicitly mapped correctly
+        const finalPrompt = capturedPrompts[0];
+        expect(finalPrompt.length).toBeGreaterThan(20000); 
     });
 
     test('SessionService limits toolsUsed stringification to prevent prompt explosion', async () => {
