@@ -6,9 +6,10 @@ labels:
   - bug
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-13T07:23:53Z'
-updatedAt: '2026-04-13T07:24:38Z'
+updatedAt: '2026-04-13T22:33:21Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9946'
 author: tobiu
 commentsCount: 0
@@ -20,8 +21,6 @@ blockedBy: []
 blocking: []
 closedAt: '2026-04-13T07:24:38Z'
 ---
-# Fix Topology Hallucination Regression in DreamService Hybrid GraphRAG
-
 # Fix Topology Hallucination Regression in DreamService Hybrid GraphRAG
 
 ### Problem
@@ -47,4 +46,5 @@ Since the cache remained completely cold organically, the `BLOCKS` edges inserte
 - 2026-04-13T07:24:28Z @tobiu cross-referenced by PR #9947
 - 2026-04-13T07:24:38Z @tobiu referenced in commit `5e98aef` - "fix: Stabilize DreamService hybrid graph topology cohesion (#9946) (#9947)"
 - 2026-04-13T07:24:38Z @tobiu closed this issue
+- 2026-04-13T22:33:10Z @tobiu assigned to @tobiu
 

@@ -6,9 +6,10 @@ labels:
   - enhancement
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-13T09:28:30Z'
-updatedAt: '2026-04-13T17:15:23Z'
+updatedAt: '2026-04-13T22:32:46Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9951'
 author: tobiu
 commentsCount: 0
@@ -45,4 +46,5 @@ Provide a native state-trap for Headless Orchestration to gracefully capture the
 - 2026-04-13T17:15:23Z @tobiu referenced in commit `0c83a1d` - "feat: scaffold signal_state_transition MCP endpoint (#9951) (#9979)"
 - 2026-04-13T17:15:24Z @tobiu closed this issue
 - 2026-04-13T17:17:16Z @tobiu cross-referenced by #9980
+- 2026-04-13T22:32:46Z @tobiu assigned to @tobiu
 

@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-13T13:27:27Z'
-updatedAt: '2026-04-13T13:47:26Z'
+updatedAt: '2026-04-13T22:32:02Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9971'
 author: tobiu
 commentsCount: 0
@@ -40,4 +41,5 @@ Our new `ticket-intake` skill (#9969) empowers agents to formally reject stale o
 - 2026-04-13T13:45:26Z @tobiu cross-referenced by PR #9972
 - 2026-04-13T13:47:26Z @tobiu referenced in commit `2072154` - "feat: Implement needs-re-triage negative ROI downgrade in DreamService (#9971) (#9972)"
 - 2026-04-13T13:47:26Z @tobiu closed this issue
+- 2026-04-13T22:32:02Z @tobiu assigned to @tobiu
 

@@ -6,9 +6,10 @@ labels:
   - documentation
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-13T09:34:08Z'
-updatedAt: '2026-04-13T13:04:28Z'
+updatedAt: '2026-04-13T22:32:28Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9957'
 author: tobiu
 commentsCount: 0
@@ -55,4 +56,5 @@ Remove raw Git and `gh` execution mandates from the root `AGENTS.md` system prom
 * fix: restore iterative polish mandate into the Pre-PR reflection phase (#9957)
 
 * refactor: align Pre-COMMIT reflection explicitly with pr-review semantic guidelines (#9957)"
+- 2026-04-13T22:32:28Z @tobiu assigned to @tobiu
 

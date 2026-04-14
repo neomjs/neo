@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-13T14:57:51Z'
-updatedAt: '2026-04-13T15:12:00Z'
+updatedAt: '2026-04-13T22:31:56Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9975'
 author: tobiu
 commentsCount: 0
@@ -47,4 +48,5 @@ This ticket formalizes two systemic mandates across the Neo.mjs Agent OS:
 
 * docs: establish ask_knowledge_base as primary RAG subagent for domain sweep"
 - 2026-04-13T15:12:00Z @tobiu closed this issue
+- 2026-04-13T22:31:56Z @tobiu assigned to @tobiu
 

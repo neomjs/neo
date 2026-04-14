@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-13T11:53:11Z'
-updatedAt: '2026-04-13T11:59:20Z'
+updatedAt: '2026-04-13T22:32:20Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9965'
 author: tobiu
 commentsCount: 0
@@ -45,4 +46,5 @@ To achieve 100% data preservation while remaining strictly within the `n_ctx: 40
 - 2026-04-13T11:58:37Z @tobiu cross-referenced by PR #9966
 - 2026-04-13T11:59:20Z @tobiu referenced in commit `670c9a1` - "feat(MemoryCore): Implement lossless Map-Reduce chunking for massive REM sessions (#9965) (#9966)"
 - 2026-04-13T11:59:20Z @tobiu closed this issue
+- 2026-04-13T22:32:20Z @tobiu assigned to @tobiu
 

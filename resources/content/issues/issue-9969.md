@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-13T13:11:09Z'
-updatedAt: '2026-04-13T13:31:43Z'
+updatedAt: '2026-04-13T22:32:10Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9969'
 author: tobiu
 commentsCount: 0
@@ -51,4 +52,5 @@ If an autonomous swarm agent blindly accepts a ticket's premise, it will write r
 * fix: explicitly forbid '--fill' during PR creation to mandate architectural ticket bodies"
 - 2026-04-13T13:31:43Z @tobiu closed this issue
 - 2026-04-13T13:45:42Z @tobiu cross-referenced by PR #9972
+- 2026-04-13T22:32:10Z @tobiu assigned to @tobiu
 
