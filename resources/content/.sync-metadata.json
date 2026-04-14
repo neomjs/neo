@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-04-14T05:50:06.718Z",
-  "releasesLastFetched": "2026-04-14T05:50:14.130Z",
+  "lastSync": "2026-04-14T07:47:58.749Z",
+  "releasesLastFetched": "2026-04-14T07:48:06.692Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -25151,8 +25151,8 @@
       "state": "OPEN",
       "path": "resources/content/issues/issue-9991.md",
       "closedAt": null,
-      "updatedAt": "2026-04-13T23:03:37Z",
-      "contentHash": "2adb86716ba0f7bd1f00e69e3152b43fa153b905bc5fcd563b4387b67d6e35bf"
+      "updatedAt": "2026-04-14T06:31:31Z",
+      "contentHash": "935569418cac11faad6964b7fdd67a603fa31d6334d39a48a13e145e93afdf08"
     }
   },
   "releases": {
