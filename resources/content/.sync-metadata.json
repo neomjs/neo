@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-04-14T07:47:58.749Z",
-  "releasesLastFetched": "2026-04-14T07:48:06.692Z",
+  "lastSync": "2026-04-14T09:21:38.485Z",
+  "releasesLastFetched": "2026-04-14T09:21:47.977Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -24984,7 +24984,7 @@
       "path": "resources/content/issues/issue-9950.md",
       "closedAt": null,
       "updatedAt": "2026-04-13T09:32:35Z",
-      "contentHash": "5ef0b60b9dcb84a63769800d76348e2074004021c0499051a34c3464cf445652"
+      "contentHash": "1307b8961b1e9e56259fecf2d55508d15417be32aafd9cee16cc198a64cbd7cd"
     },
     "9951": {
       "state": "CLOSED",
@@ -24994,11 +24994,11 @@
       "contentHash": "af73f257ae7e18b34c119af9a848e4128b188f876b41a4e1f932e94ed0283749"
     },
     "9952": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-9952.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-13T09:38:56Z",
-      "contentHash": "469d0593513ebc865d86822ab967b235861f5292ab98d1e3b6a201361ac08fd6"
+      "closedAt": "2026-04-14T09:19:38Z",
+      "updatedAt": "2026-04-14T09:19:38Z",
+      "contentHash": "0b8dd7aaa7bf059837d474392a059a52cc176084b336aec730a58ceabeb62499"
     },
     "9953": {
       "state": "OPEN",
@@ -25153,6 +25153,27 @@
       "closedAt": null,
       "updatedAt": "2026-04-14T06:31:31Z",
       "contentHash": "935569418cac11faad6964b7fdd67a603fa31d6334d39a48a13e145e93afdf08"
+    },
+    "9992": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-9992.md",
+      "closedAt": null,
+      "updatedAt": "2026-04-14T08:19:14Z",
+      "contentHash": "6b25c0f0877b3f440746167de51247d4d40eaee8455530f670c295f9a2610ecc"
+    },
+    "9993": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-9993.md",
+      "closedAt": null,
+      "updatedAt": "2026-04-14T08:19:16Z",
+      "contentHash": "2aa33b14b333da28fbf8368d6c80f374c303ffc1acce812c6651b9cf31557944"
+    },
+    "9994": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-9994.md",
+      "closedAt": null,
+      "updatedAt": "2026-04-14T08:19:18Z",
+      "contentHash": "3de07a3d21d0fa22789a7cbaf6e45c68b2b739d8c7e3f0fdbcdcfab7dc6d721c"
     }
   },
   "releases": {
