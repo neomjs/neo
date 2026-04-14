@@ -15,11 +15,11 @@ commentsCount: 0
 parentIssue: null
 subIssues:
   - '[x] 9951 Scaffold signal_state_transition MCP Endpoint'
-  - '[ ] 9952 Sandman Handoff: Top 10 Actionable Tasks Dashboarding'
+  - '[x] 9952 Sandman Handoff: Top 5 Actionable Tasks Dashboarding'
   - '[ ] 9953 MCP Progressive Disclosure Endpoint'
   - '[x] 9957 Scaffold pull-request Progressive Disclosure Skill'
   - '[ ] 9958 System Prompt Token Optimization via Mermaid Graphs'
-subIssuesCompleted: 2
+subIssuesCompleted: 3
 subIssuesTotal: 5
 blockedBy:
   - '[x] 9951 Scaffold signal_state_transition MCP Endpoint'
