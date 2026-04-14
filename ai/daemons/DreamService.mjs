@@ -1272,7 +1272,6 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let prunedGaps = 0;
 
         let testGaps = [];
-        let docGaps = [];
         let guideGaps = [];
 
         GraphService.db.nodes.items.forEach(node => {
@@ -1299,8 +1298,6 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                                 gapElementsCount++;
                                 if (msg.includes('[TEST_GAP]')) {
                                     testGaps.push({ id: node.id, msg: msg.replace('[TEST_GAP]', '').trim() });
-                                } else if (msg.includes('[DOC_GAP]')) {
-                                    docGaps.push({ id: node.id, msg: msg.replace('[DOC_GAP]', '').trim() });
                                 } else if (msg.includes('[GUIDE_GAP]')) {
                                     guideGaps.push({ id: node.id, msg: msg.replace('[GUIDE_GAP]', '').trim() });
                                 } else {
@@ -1325,11 +1322,6 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             if (testGaps.length > 0) {
                 handoffContent += `### 🧪 Critical Test Constraints (\`${Math.min(testGaps.length, limit)}\` of \`${testGaps.length}\` items)\n`;
                 testGaps.slice(0, limit).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
-                handoffContent += `\n`;
-            }
-            if (docGaps.length > 0) {
-                handoffContent += `### 📚 Missing Architecture Documentation (\`${Math.min(docGaps.length, limit)}\` of \`${docGaps.length}\` items)\n`;
-                docGaps.slice(0, limit).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
                 handoffContent += `\n`;
             }
             if (guideGaps.length > 0) {
