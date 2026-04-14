@@ -6,9 +6,10 @@ labels:
   - bug
   - ai
   - architecture
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-13T16:22:15Z'
-updatedAt: '2026-04-13T16:35:06Z'
+updatedAt: '2026-04-13T22:31:48Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9977'
 author: tobiu
 commentsCount: 0
@@ -52,4 +53,5 @@ The MCP standard transport relies on pure JSON over `stdout`. Services logging r
 - 2026-04-13T16:23:01Z @tobiu cross-referenced by PR #9978
 - 2026-04-13T16:35:06Z @tobiu closed this issue
 - 2026-04-13T16:35:06Z @tobiu referenced in commit `4e9227c` - "fix: MCP Infrastructure Stability — Stdout Pollution & Crash Recovery (#9977) (#9978)"
+- 2026-04-13T22:31:48Z @tobiu assigned to @tobiu
 

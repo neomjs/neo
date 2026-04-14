@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - bug
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-12T13:25:35Z'
-updatedAt: '2026-04-13T11:54:40Z'
+updatedAt: '2026-04-13T22:32:57Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9921'
 author: tobiu
 commentsCount: 0
@@ -46,4 +47,5 @@ This indicates that as `Neo.ai.Agent` reasoning loops expand during heavily cont
 - 2026-04-13T11:54:40Z @tobiu referenced in commit `c4a9eda` - "fix(MemoryCore): Resolve local MLX n_ctx exhaustion by truncating tail-end session documents (#9921) (#9964)"
 - 2026-04-13T11:54:40Z @tobiu closed this issue
 - 2026-04-13T11:58:45Z @tobiu cross-referenced by PR #9966
+- 2026-04-13T22:32:57Z @tobiu assigned to @tobiu
 
