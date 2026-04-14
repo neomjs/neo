@@ -273,16 +273,19 @@ class SessionService extends Base {
         if (allMetadatas.length === 0) return [];
 
         // 2. Group memories by session
-        const sessions = {}; // {sessionId: {count: number}}
+        const sessions = {}; // {sessionId: {count: number, lastActivity: number}}
 
         allMetadatas.forEach(m => {
             if (!m.sessionId) return;
 
             if (!sessions[m.sessionId]) {
-                sessions[m.sessionId] = { count: 0 };
+                sessions[m.sessionId] = { count: 0, lastActivity: 0 };
             }
 
             sessions[m.sessionId].count++;
+            if (m.timestamp && m.timestamp > sessions[m.sessionId].lastActivity) {
+                sessions[m.sessionId].lastActivity = m.timestamp;
+            }
         });
 
         // 3. Fetch existing summaries
@@ -348,18 +351,21 @@ class SessionService extends Base {
 
             // Case A: Completely Missing Summary (within the scoped window)
             if (summaryCount === undefined) {
-                sessionsToUpdate.push(sessionId);
+                sessionsToUpdate.push({ sessionId, lastActivity: sessionData.lastActivity });
             }
             // Case B: Partial / Outdated Summary
             // If the memory count differs (new memories added OR deleted), we update.
             // This self-corrects: once updated, the counts match, and it won't run again.
             else if (sessionData.count !== summaryCount) {
                 logger.info(`[SessionService] Updating active session ${sessionId} (DB: ${sessionData.count} !== Summary: ${summaryCount})`);
-                sessionsToUpdate.push(sessionId);
+                sessionsToUpdate.push({ sessionId, lastActivity: sessionData.lastActivity });
             }
         });
 
-        return sessionsToUpdate;
+        // 5. Sort candidates to prioritize the most recent sessions first
+        sessionsToUpdate.sort((a, b) => b.lastActivity - a.lastActivity);
+
+        return sessionsToUpdate.map(s => s.sessionId);
     }
 
     /**
