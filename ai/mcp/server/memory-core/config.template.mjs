@@ -149,7 +149,7 @@ const defaultConfig = {
     /**
      * The target Storage Architecture to use.
      * Note: Chroma is the only supported Vector DB.
-     * Options: 'hybrid' (Chroma vectors + SQLite graph), 'chroma' (Legacy Chroma-only).
+     * Options: 'hybrid' (Chroma vectors + SQLite graph), 'chroma' (Chroma vectors only).
      * The default is explicitly 'hybrid' per Epic #9922 Two-Pillar RAG architecture.
      */
     engine: 'hybrid',
@@ -163,6 +163,12 @@ const defaultConfig = {
             host   : 'localhost',
             port   : 8001
         }
+    },
+    /**
+     * Physical file paths for embedded/local datasets.
+     */
+    storagePaths: {
+        graph: path.resolve(cwd, '.neo-ai-data/sqlite/memory-core-graph.sqlite')
     },
     /**
      * Data Schema/Table Names

@@ -79,11 +79,6 @@ class ChromaManager extends AbstractVectorManager {
      * @returns {Promise<boolean>} True if connected, false otherwise
      */
     async connect() {
-        if (aiConfig.engine === 'neo') {
-            this.connected = true;
-            return true;
-        }
-
         try {
             await this.client.heartbeat();
             this.connected = true;

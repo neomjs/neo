@@ -5,10 +5,10 @@ import logger          from '../logger.mjs';
 
 /**
  * StorageRouter acts as a transparent Proxy pattern for the underlying vector databases.
- * It reads aiConfig.engine ('neo', 'chroma', or 'both') and dispatches collection
+ * It reads aiConfig.architecture ('chroma' or 'hybrid') and dispatches collection
  * calls (add, upsert, get, query) to the appropriate managers.
  * 
- * If 'both' is selected:
+ * If 'hybrid' is selected:
  *  - Writes are dispatched to both databases (mirroring).
  *  - Reads return from the primary database (Neo) to avoid duplication.
  *

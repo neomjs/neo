@@ -39,8 +39,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         testDbPath = path.join(tmpDir, testDbName);
 
         // Mock the SQLite target path to a safe pure temporary location
-        aiConfig.engines.neo.dataDir  = tmpDir;
-        aiConfig.engines.neo.filename = testDbName;
+        if (!aiConfig.storagePaths) aiConfig.storagePaths = {};
+        aiConfig.storagePaths.graph = testDbPath;
 
         GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;

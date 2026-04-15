@@ -19,11 +19,11 @@ class CollectionProxy extends Base {
     }
 
     async getManagers() {
-        const engine = aiConfig.engine || 'both';
+        const architecture = aiConfig.architecture || 'hybrid';
         const managers = [];
         
         // In Hybrid RAG, vectors exclusively live in ChromaDB
-        if (engine === 'chroma' || engine === 'hybrid' || engine === 'both' || engine === 'neo') {
+        if (architecture === 'chroma' || architecture === 'hybrid') {
             const { default: ChromaManager } = await import('./ChromaManager.mjs');
             await ChromaManager.ready();
             managers.push(ChromaManager);
