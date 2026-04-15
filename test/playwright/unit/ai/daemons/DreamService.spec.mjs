@@ -25,6 +25,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
     let GraphService;
     let SystemLifecycleService;
     let DreamService;
+    let SemanticGraphExtractor;
     let StorageRouter;
     let OpenAiCompatible;
     let TextEmbeddingService;
@@ -51,6 +52,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
 
         GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         DreamService = (await import('../../../../../ai/daemons/DreamService.mjs')).default;
+        SemanticGraphExtractor = (await import('../../../../../ai/daemons/services/SemanticGraphExtractor.mjs')).default;
         StorageRouter = (await import('../../../../../ai/mcp/server/memory-core/managers/StorageRouter.mjs')).default;
         OpenAiCompatible       = (await import('../../../../../ai/provider/OpenAiCompatible.mjs')).default;
         SystemLifecycleService = (await import('../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
@@ -419,7 +421,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             document: "Mock episodic history"
         };
 
-        const result = await DreamService.executeTriVectorExtraction(session);
+        const result = await SemanticGraphExtractor.executeTriVectorExtraction(session);
 
         // Assert that the LLM was called 3 times natively due to the retry loop wrapping
         expect(executionCount).toBe(3);
