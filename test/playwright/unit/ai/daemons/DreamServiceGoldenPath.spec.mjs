@@ -41,8 +41,7 @@ test.describe('DreamService Golden Path', () => {
         const testDbName = `memory-core-dream-test-${process.pid}-${Date.now()}.sqlite`;
         const testDbPath = path.join(tmpDir, testDbName);
 
-        aiConfig.engines.neo.dataDir  = tmpDir;
-        aiConfig.engines.neo.filename = testDbName;
+        aiConfig.storagePaths.graph = testDbPath;
         aiConfig.engine               = 'neo';
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
 
@@ -77,7 +76,7 @@ test.describe('DreamService Golden Path', () => {
         const os         = await import('os');
         const fs         = await import('fs');
         const tmpDir     = path.resolve(process.cwd(), 'tmp');
-        const testDbPath = path.join(tmpDir, aiConfig.engines.neo.filename);
+        const testDbPath = aiConfig.storagePaths.graph;
 
         if (fs.existsSync(testDbPath)) {
             try {fs.unlinkSync(testDbPath);}          catch (e) {}
@@ -100,7 +99,7 @@ test.describe('DreamService Golden Path', () => {
         expect(topology).not.toBeNull();
         expect(topology.frontier.id).toBe('frontier');
 
-        const openIssues = GraphService.db.nodes.items.filter(n => n.label === 'ISSUE' && n.properties?.state === 'OPEN');
+        const openIssues = GraphService.db.nodes.items.filter(n => (n.label === 'ISSUE' || n.type === 'ISSUE') && n.properties?.state === 'OPEN');
 
         expect(openIssues.length).toBeGreaterThan(0);
 
