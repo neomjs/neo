@@ -1,4 +1,4 @@
-import {setup} from '../../../setup.mjs';
+import {setup} from '../../../../../setup.mjs';
 
 const appName = 'RecorderServiceTest';
 
@@ -14,8 +14,8 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../src/Neo.mjs';
-import * as core      from '../../../../../src/core/_export.mjs';
+import Neo            from '../../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
 
@@ -26,8 +26,8 @@ test.describe('Neo.ai.mcp.server.neural-link.services.RecorderService', () => {
     let testDbPath;
     
     test.beforeAll(async () => {
-        config = (await import('../../../../../ai/mcp/server/neural-link/config.mjs')).default;
-        RecorderService = (await import('../../../../../ai/mcp/server/neural-link/services/RecorderService.mjs')).default;
+        config = (await import('../../../../../../../ai/mcp/server/neural-link/config.mjs')).default;
+        RecorderService = (await import('../../../../../../../ai/mcp/server/neural-link/services/RecorderService.mjs')).default;
         
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
