@@ -439,12 +439,13 @@ Offline cognitive maintenance runs as **Node.js scripts**, not MCP protocol oper
 
 ---
 
-### Swarm Skills & Workflows (`/.agent/skills/` - 11 files, ~268 lines)
+### Swarm Skills & Workflows (`/.agent/skills/` - 12 files, ~300 lines)
 
 Formalized Anthropic Progressive Disclosure Skills natively used by the swarm:
 - `create-skill`: Architectural blueprinting for new operational abilities.
 - `ideation-sandbox`: Safe brainstorming pipelines mapped directly into GitHub Discussions.
 - `pr-review`: Evaluation matrix templates spanning `[ARCH_ALIGNMENT]` to `[EFFORT_PROFILE]`.
+- `tech-debt-radar`: Proactive architectural sweep using semantic RAG to map and target technical debt.
 - `neural-link`: Standard operating procedures for traversing the Object-Permanent VDOM structure.
 - `unit-test`: Synthetically driving Playwright natively.
 
