@@ -1,0 +1,236 @@
+import fs from 'fs';
+import path from 'path';
+import { Memory_Config as aiConfig } from '../../services.mjs';
+import Base from '../../../src/core/Base.mjs';
+import { Memory_GraphService as GraphService } from '../../services.mjs';
+import Json from '../../../src/util/Json.mjs';
+import logger from '../../mcp/server/memory-core/logger.mjs';
+import OpenAiCompatible from '../../provider/OpenAiCompatible.mjs';
+
+/**
+ * @class Neo.ai.daemons.services.SemanticGraphExtractor
+ * @extends Neo.core.Base
+ * @singleton
+ */
+class SemanticGraphExtractor extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.ai.daemons.services.SemanticGraphExtractor'
+         * @protected
+         */
+        className: 'Neo.ai.daemons.services.SemanticGraphExtractor',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
+    }
+
+    /**
+     * Executes the Tri-Vector Synthesis (Semantic Graph, Open Deltas, Roadmap Strategy)
+     * from the session memory log via JSON schema extraction.
+     * @param {Object} session Wrapped session object containing id, document, and meta
+     * @returns {Promise<Object|null>} The extracted payload, or null on failure
+     */
+    async executeTriVectorExtraction(session) {
+        logger.info(`[SemanticGraphExtractor] Extracting Tri-Vector Synthesis for session ID: ${session.meta.sessionId}`);
+
+        const systemInstruction = `You are the Neo.mjs REM (Rapid Eye Movement) Sleep digestion agent.
+Your task is to analyze the following episodic development session history and extract three vital vectors of intelligence into a strict A2A 2026 JSON object:
+
+1. **Semantic Graph:** Core concepts, framework components, and their relationships.
+2. **Feature Namespace:** What primary class or namespace were we working on?
+3. **Human Readable Summary:** A single sentence summary of the turn/session.
+
+Enforce this STRICT JSON schema:
+{
+  "a2a_version": "1.0",
+  "agent_id": "Antigravity_Primary",
+  "session_artifact": {
+    "feature_namespace": "String (e.g. Neo.dashboard.Main, or null)",
+    "human_readable_summary": "String (1 sentence high-level summary of the session or turn)",
+    "roadmap_impact": "String (Proposal for a long-term strategy pivot) or null",
+    "graph": {
+      "nodes": [
+        {
+          "id": "Type:Name",
+          "type": "String (MUST BE EXACTLY ONE OF: SESSION, MEMORY, ARTIFACT_PLAN, ARTIFACT_TASK, ISSUE, STRATEGY, SYSTEM_ANCHOR, CONCEPT, CLASS, METHOD, FILE, GUIDE, BLOG, TEST)",
+          "name": "String",
+          "description": "String",
+          "logical_layer": "String (e.g. UI, State, Network, Build, Docs, Core, Unknown)",
+          "stability": "String (EXPERIMENTAL, STABLE, DEPRECATED, UNKNOWN)",
+          "gravity_well": "Boolean (Is this a long-term strategic anchor from roadmap/boardroom?)",
+          "strategic_weight": 0.9,
+          "confidence": 0.9,
+          "tags": ["Array", "of", "Strings"]
+        }
+      ],
+      "edges": [
+        {
+          "source": "String (must match a node id, or 'frontier')",
+          "target": "String (must match a node id, or 'frontier')",
+          "relationship": "String (MUST BE EXACTLY ONE OF: IMPLEMENTS, EXTENDS, DEPENDS_ON, BLOCKS, BLOCKED_BY, RELATES_TO, RESOLVES, CAUSES_ISSUE)",
+          "weight": 1.0,
+          "justification": "String (Brief reason for this edge's algorithmic relevance)"
+        }
+      ]
+    }
+  }
+}
+
+DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object.`;
+
+        try {
+            const provider = Neo.create(OpenAiCompatible, {
+                modelName: aiConfig.openAiCompatible.model,
+                host: aiConfig.openAiCompatible.host
+            });
+
+            // Format boundaries securely
+            const messages = [
+                { role: 'system', content: systemInstruction },
+                { role: 'user', content: `--- Session Episodic Memory ---\n${session.document}` }
+            ];
+
+            let maxRetries = 3;
+            let attempt = 0;
+            let payload = null;
+            let result = null;
+
+            while (attempt < maxRetries && !payload) {
+                attempt++;
+                
+                // Call standard generation method explicitly without format enforcement
+                result = await provider.generate(messages);
+
+                // Extract using robust Json parser to catch malformed boundaries
+                payload = Json.extract(result.content);
+
+                // Validation check
+                if (!payload || !payload.session_artifact || !payload.session_artifact.graph || !payload.session_artifact.graph.nodes || !payload.session_artifact.graph.edges) {
+                    logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Failed to validate extracted Tri-Vector A2A payload for session: ${session.meta.sessionId}`);
+                    
+                    if (attempt < maxRetries) {
+                        logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Injecting autonomous JSON repair feedback loop.`);
+                        messages.push({ role: 'assistant', content: result.content });
+                        messages.push({ 
+                            role: 'user', 
+                            content: `Your previous response failed internal schema validation. You are either missing required keys (e.g., session_artifact, graph.nodes, graph.edges) or you provided malformed JSON. Please correct your output and provide ONLY the exact JSON shape requested in the instructions.`
+                        });
+                        payload = null; // Ensure loop continues
+                    } else {
+                        logger.warn(`[SemanticGraphExtractor] --- FINAL EXHAUSTED RAW LLM DUMP ---\n${result.content}\n-----------------------------`);
+                    }
+                }
+            }
+            
+            if (!payload) {
+                return null;
+            }
+
+            logger.debug(`[SemanticGraphExtractor] Successfully extracted Tri-Vector A2A schema for session ${session.meta.sessionId} after ${attempt} attempts.`);
+
+            const artifact = payload.session_artifact;
+
+            // --- VECTOR 1: SEMANTIC GRAPH ---
+            // Ensure frontier exists, if not, stub it so we can link to it
+            if (!GraphService.db.nodes.has('frontier')) {
+                GraphService.upsertNode({
+                    id: 'frontier',
+                    type: 'SYSTEM_ANCHOR',
+                    name: 'Active Context Frontier',
+                    description: 'The actively tracked development front for the current project scope.',
+                    semanticVectorId: null
+                });
+            }
+
+            const VALID_TYPES = ['SESSION', 'MEMORY', 'ARTIFACT_PLAN', 'ARTIFACT_TASK', 'ISSUE', 'STRATEGY', 'SYSTEM_ANCHOR', 'CONCEPT', 'CLASS', 'METHOD', 'FILE', 'GUIDE', 'BLOG', 'TEST'];
+
+            // Bridge to GraphService (SQLite)
+            for (const node of artifact.graph.nodes) {
+                if (node.id === 'frontier') continue;
+                
+                let nodeType = node.type && VALID_TYPES.includes(node.type.toUpperCase()) ? node.type.toUpperCase() : 'CONCEPT';
+                let nodeId = node.id;
+                
+                // Enforce Neo native Graph ID specification (Type:Name) if hallucinated
+                if (!nodeId.includes(':')) {
+                    const cleanName = (node.name || nodeId).replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+                    nodeId = `${nodeType}:${cleanName}`;
+                }
+
+                GraphService.upsertNode({
+                    id: nodeId,
+                    type: nodeType,
+                    name: node.name || 'Unknown',
+                    description: node.description || '',
+                    semanticVectorId: session.id,
+                    properties: {
+                        logical_layer: node.logical_layer || 'Unknown',
+                        stability: node.stability || 'UNKNOWN',
+                        gravity_well: node.gravity_well === true,
+                        strategic_weight: typeof node.strategic_weight === 'number' ? node.strategic_weight : (node.gravity_well ? 1.0 : 0.1),
+                        confidence: typeof node.confidence === 'number' ? node.confidence : 0.5,
+                        tags: Array.isArray(node.tags) ? node.tags : [],
+                        context_source: session.meta.sessionId
+                    }
+                });
+                
+                // Update the payload graph node id so edges bind correctly
+                node._resolvedId = nodeId; 
+            }
+
+            const validNodeRefs = new Set([...artifact.graph.nodes.map(n => n.id), ...artifact.graph.nodes.map(n => n._resolvedId), 'frontier']);
+
+            for (const edge of artifact.graph.edges) {
+                // Map the original edge source/target to the resolved Node IDs
+                let resolvedSource = edge.source;
+                let resolvedTarget = edge.target;
+                
+                const sourceNode = artifact.graph.nodes.find(n => n.id === edge.source);
+                if (sourceNode && sourceNode._resolvedId) resolvedSource = sourceNode._resolvedId;
+                
+                const targetNode = artifact.graph.nodes.find(n => n.id === edge.target);
+                if (targetNode && targetNode._resolvedId) resolvedTarget = targetNode._resolvedId;
+
+                if (!validNodeRefs.has(resolvedSource) || !validNodeRefs.has(resolvedTarget)) {
+                    logger.warn(`[SemanticGraphExtractor] Culling hallucinated edge from ${resolvedSource} to ${resolvedTarget}`);
+                    continue; // Skip trying to link non-existent graph nodes
+                }
+
+                GraphService.linkNodes(
+                    resolvedSource,
+                    resolvedTarget,
+                    edge.relationship || 'RELATES_TO',
+                    edge.weight !== undefined ? parseFloat(edge.weight) : 1.0,
+                    {
+                        justification: edge.justification || '',
+                        context_source: session.meta.sessionId
+                    }
+                );
+            }
+
+            logger.info(`[SemanticGraphExtractor] Graph entities committed to Neocortex for session ${session.meta.sessionId}.`);
+
+            // --- VECTOR 2: STRATEGIC ROADMAP PIVOTS ---
+            if (artifact.roadmap_impact && typeof artifact.roadmap_impact === 'string' && artifact.roadmap_impact.toLowerCase() !== 'null') {
+                const auditLog = path.join('/tmp', 'roadmap_audits.log');
+                const strategyEntry = `[${new Date().toISOString()}] Session ${session.meta.sessionId}:\n${artifact.roadmap_impact}\n\n`;
+                await fs.promises.appendFile(auditLog, strategyEntry, 'utf8');
+                logger.info(`[SemanticGraphExtractor] Extracted Strategy impact to roadmap_audits.log`);
+            }
+
+            return payload;
+
+        } catch (error) {
+            if (error.message && error.message.includes('fetch failed')) {
+                logger.debug(`[SemanticGraphExtractor] Skipping extraction (API provider offline).`);
+            } else {
+                logger.error('[SemanticGraphExtractor] Error during graph extraction run:', error);
+            }
+            return null;
+        }
+    }
+}
+
+export default Neo.setupClass(SemanticGraphExtractor);

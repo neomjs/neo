@@ -68,6 +68,8 @@ NeuralLink_Config.data.autoConnect = false;
 
 // --- Daemons ---
 import DreamService from './daemons/DreamService.mjs';
+import SemanticGraphExtractor from './daemons/services/SemanticGraphExtractor.mjs';
+import TopologyInferenceEngine from './daemons/services/TopologyInferenceEngine.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -270,5 +272,7 @@ export {
     NeuralLink_RuntimeService,
 
     // Daemons
-    DreamService
+    DreamService,
+    SemanticGraphExtractor,
+    TopologyInferenceEngine
 };
