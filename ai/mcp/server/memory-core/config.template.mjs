@@ -148,7 +148,7 @@ const defaultConfig = {
     summarizationConcurrency: 5,
     /**
      * The target Storage Engine (Vector Database) to use.
-     * Options: 'hybrid' (ChromaDB vectors + SQLite graph), 'neo' (SQLite vectors - DEPRECATED), 'chroma' (Legacy).
+     * Options: 'hybrid' (ChromaDB vectors + SQLite graph), 'chroma' (Legacy).
      * The default is explicitly 'hybrid' per Epic #9922 Two-Pillar RAG architecture.
      */
     engine: 'hybrid',
@@ -157,10 +157,6 @@ const defaultConfig = {
      * This defines WHERE data is stored physically.
      */
     engines: {
-        neo   : {
-            dataDir : path.resolve(cwd, '.neo-ai-data/neo-sqlite'),
-            filename: 'memory-core.sqlite'
-        },
         chroma: {
             dataDir: path.resolve(cwd, '.neo-ai-data/chroma/memory-core'),
             host   : 'localhost',
