@@ -16,10 +16,11 @@ This protocol ensures that feedback is:
 If you are an AI Agent tasked with writing a PR review directly on GitHub (acting against your own PR or others), you MUST follow this protocol. This serves as the critical "Stepping Back" strategy where you transition from "Driver/Implementer" to "Navigator/Reviewer".
 
 1. **Context Initialization:** You MUST retrieve the state of the PR using `get_pull_request_diff` and `get_conversation` (via the `neo-mjs-github-workflow` MCP server) before formulating your review.
-2. **Scope Creep vs. Iteration:** As you step back to critically review your own architectural choices, you MUST explicitly "think outside the box" and challenge your initial assumptions:
+2. **Semantic Blast-Radius Sweep (Tech Debt Radar):** If the PR introduces fundamental framework architectural shifts or is labeled as `refactor(ai)`, you MUST execute the Tech Debt Radar (by triggering `view_file` on `/Users/Shared/github/neomjs/neo/.agent/skills/tech-debt-radar/SKILL.md`) to mandate a semantic sweep against historical issues and Memory Core sessions. This guarantees the newly proposed architecture does not collide with or ignore sweeping ambient debt across the repository before the PR is merged.
+3. **Scope Creep vs. Iteration:** As you step back to critically review your own architectural choices, you MUST explicitly "think outside the box" and challenge your initial assumptions:
     - **Minor Gaps:** If you uncover minor misses (e.g., missed JSDoc, missing Anchor & Echo context), push rapid successive commits to the PR to polish the execution.
     - **Major Refactors:** If you realize a mathematically superior architecture exists (e.g., massive GC optimization) that is *out-of-scope* for the current ticket, DO NOT attempt to cram it into the active PR. Secure the "good enough" PR, and instead propose a **Follow-Up System Enhancement Ticket** conceptually linked to the original PR to avoid scope creep.
-3. **Execution:** Once formulated, use the `manage_issue_comment` MCP tool (action: `create`) to post the review directly onto the PR thread, or formulate it in markdown locally if MCP is disconnected.
+4. **Execution:** Once formulated, use the `manage_issue_comment` MCP tool (action: `create`) to post the review directly onto the PR thread, or formulate it in markdown locally if MCP is disconnected.
 
 ## 3. Structural Evaluation Metrics
 Every PR review MUST score the work across the following categories on a scale of `0` to `100`:
