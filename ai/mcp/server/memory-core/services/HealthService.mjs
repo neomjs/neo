@@ -103,11 +103,11 @@ class HealthService extends Base {
      */
     async #checkDatabaseConnections() {
         try {
-            const engine = aiConfig.engine || 'hybrid';
+            const architecture = aiConfig.architecture || 'hybrid';
             const engines = { chroma: false, sqlite: false };
 
-            // 2. Vector Chroma Engine (Hybrid & Legacy Chroma)
-            if (engine === 'chroma' || engine === 'hybrid' || engine === 'both') {
+            // 2. Vector Chroma DB (Hybrid & Standalone Chroma)
+            if (architecture === 'chroma' || architecture === 'hybrid') {
                 await ChromaManager.ready();
                 if (!ChromaManager.connected && !(await ChromaManager.connect())) {
                     throw new Error("ChromaDB is not accessible");
@@ -184,13 +184,10 @@ class HealthService extends Base {
 
     #checkApiKeyConfigured() {
         const providers = [aiConfig.modelProvider];
-        const engine = aiConfig.engine || 'hybrid';
+        const architecture = aiConfig.architecture || 'hybrid';
 
-        if (engine === 'chroma' || engine === 'hybrid' || engine === 'both') {
+        if (architecture === 'chroma' || architecture === 'hybrid') {
             providers.push(aiConfig.chromaEmbeddingProvider);
-        }
-        if (engine === 'neo' || engine === 'both') {
-            providers.push(aiConfig.neoEmbeddingProvider);
         }
 
         const needsGemini = providers.some(p => p === 'gemini');

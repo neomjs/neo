@@ -45,8 +45,7 @@ class GraphService extends Base {
         }
 
         this._initPromise = (async () => {
-            const {dataDir, filename} = aiConfig.engines.neo;
-            const dbPath              = path.resolve(dataDir, filename);
+            const dbPath              = aiConfig.storagePaths.graph;
             let storage               = Neo.create(SQLite, {dbPath: dbPath});
             await storage.ready();
 

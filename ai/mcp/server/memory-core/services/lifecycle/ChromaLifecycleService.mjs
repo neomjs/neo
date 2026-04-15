@@ -50,7 +50,7 @@ class ChromaLifecycleService extends Base {
      */
     async initAsync() {
         await super.initAsync();
-        if (aiConfig.autoStartDatabase && (aiConfig.engine === 'chroma' || aiConfig.engine === 'both' || aiConfig.engine === 'hybrid')) {
+        if (aiConfig.autoStartDatabase && (aiConfig.architecture === 'chroma' || aiConfig.architecture === 'hybrid')) {
             await this.startDatabase();
         }
     }
