@@ -15,11 +15,11 @@ author: tobiu
 commentsCount: 0
 parentIssue: null
 subIssues:
-  - '[ ] 10013 [Sub-Epic] DreamService Decomposition'
+  - '[x] 10013 [Sub-Epic] DreamService Decomposition'
   - '[ ] 10014 [Sub-Epic] Macro Knowledge Base & Semantic Gap Inference'
   - '[ ] 10015 [Sub-Epic] Dynamic Topology — Unified vs. Federated Routing'
   - '[ ] 10016 [Sub-Epic] Multi-Tenant Identity & Data Privacy'
-subIssuesCompleted: 0
+subIssuesCompleted: 1
 subIssuesTotal: 4
 blockedBy: []
 blocking: []
@@ -78,4 +78,14 @@ To support both rapid local development and scalable enterprise clusters, we are
 - 2026-04-14T16:44:17Z @tobiu removed sub-issue #10000
 - 2026-04-14T16:44:19Z @tobiu removed sub-issue #10010
 - 2026-04-14T16:44:20Z @tobiu removed sub-issue #10011
+- 2026-04-14T22:37:43Z @tobiu referenced in commit `a2d25ea` - "perf(ai): Natively bypass Map-Reduce chunking to eliminate local inference bottlenecks (#9999)"
+- 2026-04-14T22:37:51Z @tobiu cross-referenced by PR #10019
+- 2026-04-15T08:31:39Z @tobiu referenced in commit `1e03e2a` - "test(memory-core): Add remote API latency assertion to SessionService.spec (#9999)"
+- 2026-04-15T08:39:49Z @tobiu referenced in commit `503f60b` - "test(memory-core): Add remote API latency assertion to SessionService.spec (#9999)"
+- 2026-04-15T08:49:48Z @tobiu referenced in commit `4db2ad6` - "perf(ai): Natively bypass Map-Reduce chunking to eliminate local inference bottlenecks (#10019)
+
+* perf(ai): Natively bypass Map-Reduce chunking to eliminate local inference bottlenecks (#9999)
+
+* test(memory-core): Add remote API latency assertion to SessionService.spec (#9999)"
+- 2026-04-15T10:34:00Z @tobiu cross-referenced by PR #10024
 

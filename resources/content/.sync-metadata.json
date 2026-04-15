@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-04-15T11:23:12.444Z",
-  "releasesLastFetched": "2026-04-15T11:23:21.374Z",
+  "lastSync": "2026-04-15T12:19:07.156Z",
+  "releasesLastFetched": "2026-04-15T12:19:17.508Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -25187,7 +25187,7 @@
       "path": "resources/content/issues/issue-9999.md",
       "closedAt": null,
       "updatedAt": "2026-04-14T15:09:40Z",
-      "contentHash": "cc7c2792a52c361c41a1806a6449e0c28b4d29688aa33ea302d5790d21df4459"
+      "contentHash": "e0a2a91e5ad4e40f6998ef29db51df9e76e4251946d6d11329a45ac1c6372055"
     },
     "10000": {
       "state": "OPEN",
@@ -25274,18 +25274,18 @@
       "contentHash": "88048a7d11338ae7021021acf3258fa23f4b66a1fca41b99e69c1a42612acf09"
     },
     "10013": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-10013.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-14T16:43:27Z",
-      "contentHash": "f35490005eb72beb3ab8b8d6ea7768ae21a434606224968e9b602d4e4ac1e9c6"
+      "closedAt": "2026-04-15T12:07:07Z",
+      "updatedAt": "2026-04-15T12:07:07Z",
+      "contentHash": "fc3e71f2f24293d0a581a1726295fec976f9bd4721d100016afc3a0535ed6589"
     },
     "10014": {
       "state": "OPEN",
       "path": "resources/content/issues/issue-10014.md",
       "closedAt": null,
       "updatedAt": "2026-04-14T16:43:30Z",
-      "contentHash": "a639a819170731c9d690444cf5ef2becbdf6a978f30d5ce309a21a9ee43bab0f"
+      "contentHash": "444fcd0eacc3d1759f4b1509591ac265a790448f69ee1efba0b9c2e59f224b1a"
     },
     "10015": {
       "state": "OPEN",
@@ -25335,6 +25335,13 @@
       "closedAt": "2026-04-15T11:07:01Z",
       "updatedAt": "2026-04-15T11:07:01Z",
       "contentHash": "8e080c75ab8e99f39212fe6f71a63fc66659d719a328f701e1e8d275ab93187a"
+    },
+    "10028": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-10028.md",
+      "closedAt": null,
+      "updatedAt": "2026-04-15T12:17:04Z",
+      "contentHash": "50572b10659e9f59b4b97a79ff2a48991ee826cc78263c17f16274e170f14c52"
     }
   },
   "releases": {
