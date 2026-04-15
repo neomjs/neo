@@ -20064,6 +20064,7 @@
   "repo:ggandor/leap.nvim",
   "repo:ggchivalrous/yiyin",
   "repo:ggerganov/imtui",
+  "repo:ggerganov/kbd-audio",
   "repo:ggez/ggez",
   "repo:ggml-org/ggml",
   "repo:ggml-org/llama.cpp",
