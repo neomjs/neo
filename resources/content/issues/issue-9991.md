@@ -1,21 +1,22 @@
 ---
 id: 9991
 title: Mirror current workspace snapshot to GitHub
-state: OPEN
+state: CLOSED
 labels:
   - needs-re-triage
 assignees: []
 createdAt: '2026-04-13T23:03:37Z'
-updatedAt: '2026-04-14T06:31:31Z'
+updatedAt: '2026-04-14T23:03:08Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9991'
 author: freelin-hummel
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-14T23:03:08Z'
 ---
 # Mirror current workspace snapshot to GitHub
 
@@ -41,4 +42,9 @@ Scope:
 > If we are mistaken and this is indeed related to Neo.mjs, please let us know and provide some more specifics regarding the requested synchronization!
 
 - 2026-04-14T06:31:31Z @tobiu added the `needs-re-triage` label
+### @freelin-hummel - 2026-04-14T23:03:08Z
+
+apologies this was a mistake, ty!
+
+- 2026-04-14T23:03:08Z @freelin-hummel closed this issue
 

@@ -4,13 +4,12 @@ title: 'Investigation: FocusManager Stability during Atomic Moves'
 state: OPEN
 labels:
   - discussion
-  - stale
   - ai
   - testing
   - core
 assignees: []
 createdAt: '2026-01-13T22:08:35Z'
-updatedAt: '2026-04-14T05:49:53Z'
+updatedAt: '2026-04-15T04:22:22Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8621'
 author: tobiu
 commentsCount: 1
@@ -46,4 +45,5 @@ If side effects are found, implement a "debounce" or "flicker detection" logic i
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-04-14T04:23:02Z @github-actions added the `stale` label
+- 2026-04-15T04:22:22Z @github-actions removed the `stale` label
 
