@@ -45,7 +45,9 @@ import Memory_SummaryService        from './mcp/server/memory-core/services/Summ
 import Memory_ChromaLifecycleService from './mcp/server/memory-core/services/lifecycle/ChromaLifecycleService.mjs';
 import Memory_InferenceLifecycleService from './mcp/server/memory-core/services/lifecycle/InferenceLifecycleService.mjs';
 import Memory_ChromaManager         from './mcp/server/memory-core/managers/ChromaManager.mjs';
+import Memory_StorageRouter         from './mcp/server/memory-core/managers/StorageRouter.mjs';
 import Memory_LifecycleService      from './mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
+import Memory_TextEmbeddingService  from './mcp/server/memory-core/services/TextEmbeddingService.mjs';
 import Memory_Config                from './mcp/server/memory-core/config.mjs';
 
 Memory_Config.data.autoSummarize = false;
@@ -190,6 +192,7 @@ makeSafe(Memory_InferenceLifecycleService, memSpec);
 makeSafe(Memory_HealthService,    memSpec);
 makeSafe(Memory_GraphService,     memSpec);
 makeSafe(Memory_SummaryService,   memSpec);
+makeSafe(Memory_TextEmbeddingService, memSpec);
 
 // Neural Link
 makeSafe(NeuralLink_ConnectionService,  nlSpec);
@@ -252,7 +255,9 @@ export {
     Memory_InferenceLifecycleService,
     Memory_GraphService,
     Memory_HealthService,
+    Memory_StorageRouter,
     Memory_SummaryService,
+    Memory_TextEmbeddingService,
 
     // Neural Link
     NeuralLink_ComponentService,
