@@ -45,8 +45,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         }
         testDbPath = path.join(tmpDir, testDbName);
 
-        aiConfig.engines.neo.dataDir  = tmpDir;
-        aiConfig.engines.neo.filename = testDbName;
+        aiConfig.storagePaths.graph = testDbPath;
         aiConfig.autoIngestFileSystem = false; // Prevent differential sync during DreamService tests
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
 
