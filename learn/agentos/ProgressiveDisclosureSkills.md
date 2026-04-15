@@ -90,6 +90,7 @@ Invoked when evaluating a PR (either peer-reviewing another agent or guiding a h
 
 Beyond lifecycle governance, specialized contexts exist for live action:
 
+- **`tech-debt-radar`:** A proactive architectural review skill using Frontier Model semantic RAG to sweep historical issues and Memory Core sessions for technical debt. Actively invoked during `ticket-intake` and `pr-review`.
 - **`neural-link`:** A tactical manual mapping how to sequence the Neural Link MCP 
   tools (e.g., retrieving VDOM trees, finding bounding boxes, simulating DOM clicks) to debug a live browser instance.
 - **`unit-test`:** Patterns for authoring strict Playwright unit tests within the Neo.mjs single-thread architecture.
@@ -109,6 +110,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `ticket-intake` | Lifecycle | Pre-execution validation gate |
 | `pull-request` | Lifecycle | Post-implementation reflection + PR creation |
 | `pr-review` | Lifecycle | Structured quality evaluation & graph ingestion |
+| `tech-debt-radar` | Lifecycle | Proactive semantic RAG sweeps for architectural debt |
 | `neural-link` | Tactical | Live application inspection sequences |
 | `unit-test` | Tactical | Playwright test authoring patterns |
 | `whitebox-e2e` | Tactical | Neural Link pre-flight workflow for authoring E2E tests |
