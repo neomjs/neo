@@ -147,8 +147,9 @@ const defaultConfig = {
      */
     summarizationConcurrency: 5,
     /**
-     * The target Storage Engine (Vector Database) to use.
-     * Options: 'hybrid' (ChromaDB vectors + SQLite graph), 'chroma' (Legacy).
+     * The target Storage Architecture to use.
+     * Note: Chroma is the only supported Vector DB.
+     * Options: 'hybrid' (Chroma vectors + SQLite graph), 'chroma' (Legacy Chroma-only).
      * The default is explicitly 'hybrid' per Epic #9922 Two-Pillar RAG architecture.
      */
     engine: 'hybrid',
