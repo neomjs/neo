@@ -68,8 +68,9 @@ test.describe('Memory Core Offline Summarization', () => {
         SDK.Memory_Config.data.modelProvider         = 'openAiCompatible';
         SDK.Memory_Config.data.neoEmbeddingProvider  = 'openAiCompatible';
         SDK.Memory_Config.data.chromaEmbeddingProvider = 'openAiCompatible';
-        SDK.Memory_Config.data.openAiCompatible.model          = 'gemma4:31b';
-        SDK.Memory_Config.data.openAiCompatible.embeddingModel = 'qwen3-embedding';
+        SDK.Memory_Config.data.openAiCompatible.host           = 'http://127.0.0.1:1234';
+        SDK.Memory_Config.data.openAiCompatible.model          = 'gemma-4-31b-it';
+        SDK.Memory_Config.data.openAiCompatible.embeddingModel = 'text-embedding-qwen3-embedding-8b';
         SDK.Memory_Config.data.autoSummarize         = false;
 
         // Adjust batch limit to speed up test execution
@@ -84,7 +85,7 @@ test.describe('Memory Core Offline Summarization', () => {
             const res  = await fetch(`${host}/v1/models`);
             if (res.ok) {
                 const data      = await res.json();
-                const hasGemma4 = data.data?.some(m => m.id.startsWith('gemma4'));
+                const hasGemma4 = data.data?.some(m => m.id.includes('gemma-4'));
                 if (hasGemma4) {
                     localModelActive = true;
                 }
@@ -165,6 +166,14 @@ test.describe('Memory Core Offline Summarization', () => {
             agent   : "developer",
             model   : "gemini-3.1-pro"
         }];
+        const hugeString = new Array(15000).fill('A').join('');
+        turns.push({
+            prompt  : "Can a massive block of text be evaluated without crashing?",
+            thought : "We need to ensure map-reduce is gone and flash attention handles 15k chars.",
+            response: hugeString,
+            agent   : "developer",
+            model   : "gemini-3.1-pro"
+        });
 
         // Ensure database is ready before adding memories
         await SDK.Memory_ChromaManager.ready();
@@ -194,7 +203,7 @@ test.describe('Memory Core Offline Summarization', () => {
 
         expect(result).not.toBeNull();
         expect(result.sessionId).toBe(dummySessionId);
-        expect(result.memoryCount).toBe(5);
+        expect(result.memoryCount).toBe(6);
         expect(result.summaryId).toBe(`summary_${dummySessionId}`);
         expect(result.title).toBeTruthy();
 
@@ -386,5 +395,42 @@ test.describe('Memory Core Offline Summarization', () => {
 
         expect(pos3).toBeLessThan(pos2);
         expect(pos2).toBeLessThan(pos1);
+    });
+
+    test('SessionService performance: measure latency for 1 session via API', async () => {
+        if (!localModelActive) {
+            test.skip(true, 'Skipping: openAiCompatible or API not found locally');
+            return;
+        }
+
+        if (!SDK.Memory_LifecycleService._initPromise) {
+            await SDK.Memory_LifecycleService.initAsync();
+        } else {
+            await SDK.Memory_LifecycleService.ready();
+        }
+        await SDK.Memory_SessionService.ready();
+
+        const perfSessionId = crypto.randomUUID();
+        await SDK.Memory_ChromaManager.ready();
+
+        // Inject 1 typical turn
+        await SDK.Memory_Service.addMemory({
+            prompt   : "Quick performance test for remote API generation",
+            thought  : "Measuring true API latency, avoiding map-reduce overhead.",
+            response : "This is a brief response to establish baseline latency for 1 session generation.",
+            agent    : "developer",
+            model    : "gemini-3.1-pro",
+            sessionId: perfSessionId
+        });
+
+        const start = Date.now();
+        const result = await SDK.Memory_SessionService.summarizeSession(perfSessionId);
+        const end = Date.now();
+        
+        const durationMs = end - start;
+        
+        expect(result).not.toBeNull();
+        expect(result.sessionId).toBe(perfSessionId);
+        expect(durationMs).toBeLessThan(20000);
     });
 });
