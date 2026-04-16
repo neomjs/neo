@@ -175,7 +175,7 @@ class Server extends Base {
                 let isError           = false;
                 let structuredContent = null;
 
-                if (result?.constructor?.name === 'Object') {
+                if (Neo.isObject(result)) {
                     isError = 'error' in result;
 
                     if (isError) {
