@@ -14,27 +14,17 @@ function buildZodSchema(openApiDocument, operation) {
     // Process parameters defined in the OpenAPI operation (path, query, header, etc.).
     if (operation.parameters) {
         for (const param of operation.parameters) {
-            let schema;
-            switch (param.schema.type) {
-                case 'integer':
-                    schema = z.number().int();
-                    break;
-                case 'string':
-                    schema = z.string();
-                    break;
-                case 'boolean':
-                    schema = z.boolean();
-                    break;
-                default:
-                    // Fallback for unsupported or unknown schema types.
-                    schema = z.any();
-            }
+            let schema = buildZodSchemaFromNode(openApiDocument, param.schema);
+            
             // Mark schema as optional if not explicitly required.
             if (!param.required) {
                 schema = schema.optional();
             }
             // Add description for better Zod schema introspection.
-            shape[param.name] = schema.describe(param.description);
+            if (param.description) {
+                schema = schema.describe(param.description);
+            }
+            shape[param.name] = schema;
         }
     }
 
@@ -48,21 +38,12 @@ function buildZodSchema(openApiDocument, operation) {
         if (requestBodySchema.properties) {
             const { properties, required = [] } = requestBodySchema;
             for (const [propName, propSchema] of Object.entries(properties)) {
-                let schema;
-                switch (propSchema.type) {
-                    case 'string':
-                        schema = z.string();
-                        break;
-                    case 'array':
-                        schema = z.array(z.string());
-                        break;
-                    default:
-                        schema = z.any();
-                }
+                let schema = buildZodSchemaFromNode(openApiDocument, propSchema);
+                
                 if (!required.includes(propName)) {
                     schema = schema.optional();
                 }
-                shape[propName] = schema.describe(propSchema.description);
+                shape[propName] = schema;
             }
         }
     }
@@ -86,18 +67,18 @@ function resolveRef(doc, ref) {
 
 /**
  * Recursively builds a Zod schema from an OpenAPI schema object, handling
- * nested structures and JSON references. This is used for output schemas.
+ * nested structures and JSON references.
  * @param {object} doc - The full OpenAPI document for reference resolution.
  * @param {object} schema - The OpenAPI schema object (or a resolved reference).
  * @returns {z.ZodType} A Zod schema representing the OpenAPI schema.
  */
-function buildZodSchemaFromResponse(doc, schema) {
+function buildZodSchemaFromNode(doc, schema) {
     if (schema.$ref) {
-        return buildZodSchemaFromResponse(doc, resolveRef(doc, schema.$ref));
+        return buildZodSchemaFromNode(doc, resolveRef(doc, schema.$ref));
     }
 
     if (schema.oneOf) {
-        const options = schema.oneOf.map(s => buildZodSchemaFromResponse(doc, s));
+        const options = schema.oneOf.map(s => buildZodSchemaFromNode(doc, s));
         return z.union(options);
     }
 
@@ -107,7 +88,7 @@ function buildZodSchemaFromResponse(doc, schema) {
         if (schema.properties) {
             const required = schema.required || [];
             for (const [propName, propSchema] of Object.entries(schema.properties)) {
-                let propertySchema = buildZodSchemaFromResponse(doc, propSchema);
+                let propertySchema = buildZodSchemaFromNode(doc, propSchema);
                 if (!required.includes(propName)) {
                     propertySchema = propertySchema.optional();
                 }
@@ -121,7 +102,7 @@ function buildZodSchemaFromResponse(doc, schema) {
             if (schema.additionalProperties === true) {
                 additionalSchema = z.any();
             } else if (typeof schema.additionalProperties === 'object') {
-                additionalSchema = buildZodSchemaFromResponse(doc, schema.additionalProperties);
+                additionalSchema = buildZodSchemaFromNode(doc, schema.additionalProperties);
             }
 
             if (additionalSchema) {
@@ -130,7 +111,7 @@ function buildZodSchemaFromResponse(doc, schema) {
         }
     } else if (schema.type === 'array') {
         if (schema.items) {
-            zodSchema = z.array(buildZodSchemaFromResponse(doc, schema.items));
+            zodSchema = z.array(buildZodSchemaFromNode(doc, schema.items));
         } else {
             zodSchema = z.array(z.any());
         }
@@ -138,6 +119,8 @@ function buildZodSchemaFromResponse(doc, schema) {
         zodSchema = z.string();
     } else if (schema.type === 'integer') {
         zodSchema = z.number().int();
+    } else if (schema.type === 'number') {
+        zodSchema = z.number();
     } else if (schema.type === 'boolean') {
         zodSchema = z.boolean();
     } else {
@@ -168,7 +151,15 @@ function buildOutputZodSchema(doc, operation) {
     const schema = response?.content?.['application/json']?.schema;
 
     if (schema) {
-        return buildZodSchemaFromResponse(doc, schema);
+        let resolvedSchema = schema;
+        if (schema.$ref) {
+            resolvedSchema = resolveRef(doc, schema.$ref);
+        }
+
+        if (resolvedSchema.type !== 'object') {
+            return z.object({ result: buildZodSchemaFromNode(doc, schema) }).describe(schema.description || '');
+        }
+        return buildZodSchemaFromNode(doc, schema);
     }
 
     if (response?.content?.['text/plain']) {

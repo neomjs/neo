@@ -781,6 +781,16 @@ components:
                 connected:
                   type: boolean
                   example: true
+                engines:
+                  type: object
+                  nullable: true
+                  properties:
+                    chroma:
+                      type: boolean
+                      example: true
+                    sqlite:
+                      type: boolean
+                      example: false
                 collections:
                   type: object
                   nullable: true
