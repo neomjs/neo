@@ -22,8 +22,8 @@ subIssues:
   - '[x] 8164 Enhance Neo.manager.Window to Track Full Window Geometry'
   - '[ ] 8165 Implement Configurable Theme Inheritance for Dragged Items'
   - '[ ] 8166 Implement Cross-Window Drop Validation and Topology Rules'
-  - '[ ] 8167 Harden Return Trip Logic for Detached Items'
-subIssuesCompleted: 3
+  - '[x] 8167 Harden Return Trip Logic for Detached Items'
+subIssuesCompleted: 4
 subIssuesTotal: 7
 blockedBy: []
 blocking: []
