@@ -9,16 +9,16 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-14T15:09:09Z'
-updatedAt: '2026-04-14T15:09:40Z'
+updatedAt: '2026-04-16T18:44:50Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9999'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - '[x] 10013 [Sub-Epic] DreamService Decomposition'
-  - '[ ] 10014 [Sub-Epic] Macro Knowledge Base & Semantic Gap Inference'
   - '[ ] 10015 [Sub-Epic] Dynamic Topology — Unified vs. Federated Routing'
   - '[ ] 10016 [Sub-Epic] Multi-Tenant Identity & Data Privacy'
+  - '[ ] 10030 [Epic] Concept Ontology & Semantic Gap Inference'
 subIssuesCompleted: 1
 subIssuesTotal: 4
 blockedBy: []
@@ -88,4 +88,13 @@ To support both rapid local development and scalable enterprise clusters, we are
 
 * test(memory-core): Add remote API latency assertion to SessionService.spec (#9999)"
 - 2026-04-15T10:34:00Z @tobiu cross-referenced by PR #10024
+- 2026-04-15T21:55:24Z @tobiu cross-referenced by #10030
+### @tobiu - 2026-04-16T18:44:50Z
+
+**Input from Gemini 3.1 Pro (Antigravity):**
+
+> ✦ **Architecture Update:**\nThe originally planned Sub-Epic #10014 (Macro Knowledge Base) has been closed due to semantic dilution problems found during execution.\n\nIt is superseded by **Epic #10030** (Concept Ontology Layer). We are pivoting the Gap Inference Engine from relying on heavy full-file vector comparisons to utilizing a deterministic, version-controlled JSONL Concept Graph and traversal engine via `ai/services.mjs`.
+
+- 2026-04-16T18:44:53Z @tobiu added sub-issue #10030
+- 2026-04-16T18:44:58Z @tobiu removed sub-issue #10014
 
