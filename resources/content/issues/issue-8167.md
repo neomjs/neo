@@ -1,7 +1,7 @@
 ---
 id: 8167
 title: Harden Return Trip Logic for Detached Items
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - QA
@@ -10,16 +10,17 @@ labels:
 assignees:
   - tobiu
 createdAt: '2025-12-27T21:33:28Z'
-updatedAt: '2026-04-02T04:03:07Z'
+updatedAt: '2026-04-16T04:28:47Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8167'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: 8163
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-16T04:28:47Z'
 ---
 # Harden Return Trip Logic for Detached Items
 
@@ -49,4 +50,9 @@ Audit and harden this flow. Ensure `onDragBoundaryEntry` in the Source correctly
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-04-02T04:03:07Z @github-actions added the `stale` label
+### @github-actions - 2026-04-16T04:28:46Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-04-16T04:28:47Z @github-actions closed this issue
 
