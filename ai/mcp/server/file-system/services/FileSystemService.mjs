@@ -24,7 +24,7 @@ function ensureSandboxed(absolutePath) {
 
 class FileSystemService {
     static async healthcheck() {
-        return { status: 'OK' };
+        return { status: 'healthy' };
     }
 
     static async readFile({absolutePath}) {

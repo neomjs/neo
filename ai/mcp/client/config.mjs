@@ -35,6 +35,10 @@ const defaultConfig = {
             command    : "npm",
             args       : ["run", "ai:mcp-server-memory-core"],
             requiredEnv: ["GEMINI_API_KEY"]
+        },
+        "neural-link": {
+            command: "npm",
+            args   : ["run", "ai:mcp-server-neural-link"]
         }
     }
 };

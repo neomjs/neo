@@ -117,9 +117,12 @@ class Server extends Base {
                 const { tools, nextCursor } = listTools({ cursor, limit });
 
                 const mcpTools = tools.map(tool => ({
-                    name: tool.name,
-                    description: tool.description,
-                    inputSchema: tool.inputSchema
+                    name        : tool.name,
+                    title       : tool.title,
+                    description : tool.description,
+                    inputSchema : tool.inputSchema,
+                    outputSchema: tool.outputSchema,
+                    annotations : tool.annotations
                 }));
 
                 return { tools: mcpTools, nextCursor: nextCursor || undefined };
@@ -155,12 +158,43 @@ class Server extends Base {
 
                 const result = await callTool(name, args);
 
-                return {
-                    content: [{
+                let contentBlock;
+                let isError           = false;
+                let structuredContent = null;
+
+                if (typeof result === 'object' && result !== null && !Array.isArray(result)) {
+                    isError = 'error' in result;
+
+                    if (isError) {
+                        contentBlock = {
+                            type: 'text',
+                            text: `Tool Error: ${result.error || 'Unknown Error'}. Message: ${result.message || 'No message provided.'}`
+                        };
+                    } else {
+                        contentBlock = {
+                            type: 'text',
+                            text: JSON.stringify(result, null, 2)
+                        };
+                        structuredContent = result;
+                    }
+                } else {
+                    contentBlock = {
                         type: 'text',
-                        text: JSON.stringify(result ?? null, null, 2)
-                    }]
+                        text: typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result)
+                    };
+                    structuredContent = { result };
+                }
+
+                const response = {
+                    content: [contentBlock],
+                    isError
                 };
+
+                if (structuredContent) {
+                    response.structuredContent = structuredContent;
+                }
+
+                return response;
             } catch (error) {
                 logger.error(`[MCP] Error executing tool ${name}:`, error);
                 return {

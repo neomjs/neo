@@ -198,7 +198,7 @@ class Server extends Base {
                 let isError           = false;
                 let structuredContent = null;
 
-                if (typeof result === 'object' && result !== null) {
+                if (typeof result === 'object' && result !== null && !Array.isArray(result)) {
                     isError = 'error' in result;
 
                     if (isError) {
@@ -216,8 +216,9 @@ class Server extends Base {
                 } else {
                     contentBlock = {
                         type: 'text',
-                        text: String(result)
+                        text: typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result)
                     };
+                    structuredContent = { result };
                 }
 
                 const response = {
