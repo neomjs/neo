@@ -17,12 +17,12 @@ const defaultConfig = {
      * Automatically synchronize the knowledge base on startup.
      * @type {boolean}
      */
-    autoSync: process.env.AUTO_SYNC !== 'false',
+    autoSync: process.env.AUTO_SYNC === 'true',
     /**
      * Automatically start the local Chroma database process on startup.
      * @type {boolean}
      */
-    autoStartDatabase: process.env.NEO_KB_AUTO_START_DATABASE !== 'false',
+    autoStartDatabase: process.env.NEO_KB_AUTO_START_DATABASE === 'true',
     /**
      * Global debug flag for all MCP servers.
      * @type {boolean}
