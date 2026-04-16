@@ -100,7 +100,7 @@ class Server extends Base {
                 let isError           = false;
                 let structuredContent = null;
 
-                if (typeof result === 'object' && result !== null && !Array.isArray(result)) {
+                if (result?.constructor?.name === 'Object') {
                     isError = 'error' in result;
 
                     if (isError) {
