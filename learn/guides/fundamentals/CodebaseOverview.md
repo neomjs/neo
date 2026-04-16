@@ -443,7 +443,7 @@ Offline cognitive maintenance runs as **Node.js scripts**, not MCP protocol oper
 
 Formalized Anthropic Progressive Disclosure Skills natively used by the swarm:
 - `create-skill`: Architectural blueprinting for new operational abilities.
-- `healthcheck`: Diagnostic workflows utilizing tests and historical Memory Core states to intelligently triage infrastructure degradation.
+- `self-repair`: Diagnostic workflows utilizing tests and historical Memory Core states to intelligently triage infrastructure degradation.
 - `ideation-sandbox`: Safe brainstorming pipelines mapped directly into GitHub Discussions.
 - `pr-review`: Evaluation matrix templates spanning `[ARCH_ALIGNMENT]` to `[EFFORT_PROFILE]`.
 - `tech-debt-radar`: Proactive architectural sweep using semantic RAG to map and target technical debt.

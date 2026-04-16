@@ -1,4 +1,4 @@
-# Healthcheck Protocol (System Diagnostic & Treatment Matrix)
+# Self-Repair Protocol (System Diagnostic & Treatment Matrix)
 
 When tasked with executing a system healthcheck, diagnosing a corrupted state, or restoring infrastructure communication (e.g., failed handoffs), you MUST execute this chronological protocol. 
 
@@ -6,11 +6,13 @@ When tasked with executing a system healthcheck, diagnosing a corrupted state, o
 Your first priority is determining if the bridge between the Neo.mjs Agent OS clients and the MCP servers is healthy.
 
 1. **Invoke the `unit-test` skill**: Navigate to `test/playwright/unit/ai/` and execute target test suites like `McpServersHealth.spec.mjs`. Use these tests as the absolute source of truth for JSON-RPC sequence validity.
-2. **Verify Daemon & Database Status**: If `memory-core` or `knowledge-base` are offline, check your `package.json` scripts. Verify that ChromaDB is running without zombie processes.
+2. **Verify Daemon & Database Status**: If `memory-core`, `knowledge-base`, or the Neural Link bridge are offline, check your `package.json` scripts. Verify that ChromaDB is running without zombie processes.
     - **Knowledge Base** runs on port `8000` (script: `npm run ai:server`)
     - **Memory Core** runs on port `8001` (script: `npm run ai:server-memory`)
+    - **Neural Link Bridge** ensures realtime VDOM sync (script: `npm run ai:server-neural-link`)
     - Search for and terminate zombie processes if ports are locked before attempting to restart the services.
-3. **Native Terminal Execution**: If an MCP connection fails or an MCP server is unreachable, do not blindly guess why. Boot the Neo MCP servers directly in a separate terminal process using the `run_command` tool to witness the crash or monitor logs. You have native control; use it.
+3. **Deep Infrastructure Introspection (`ai/services.mjs`)**: The entire Agent OS backend is located in `/Users/Shared/github/neomjs/neo/ai`. The `ai/services.mjs` module aggregates dependencies, allowing you to bypass full MCP HTTP boundaries and interact natively with internal tooling. If servers crash on boot, use `ai/examples/` (such as chroma checks) or a generic Node process to invoke internal routines via `services.mjs` directly.
+4. **Native Terminal Execution**: If an MCP connection fails or an MCP server is unreachable, do not blindly guess why. Boot the Neo MCP servers directly in a separate terminal process using the `run_command` tool to witness the crash or monitor logs. You have native control; use it.
 
 ## Phase 2: Historical Forensics (The "How Did We Get Here" Protocol)
 If the infrastructure code is functioning, but the *state* is corrupted (e.g., bad topologies, missing context, duplicated elements), you must triangulate *when* the corruption occurred.

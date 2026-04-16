@@ -94,7 +94,7 @@ Beyond lifecycle governance, specialized contexts exist for live action:
 - **`neural-link`:** A tactical manual mapping how to sequence the Neural Link MCP 
   tools (e.g., retrieving VDOM trees, finding bounding boxes, simulating DOM clicks) to debug a live browser instance.
 - **`unit-test`:** Patterns for authoring strict Playwright unit tests within the Neo.mjs single-thread architecture.
-- **`healthcheck`:** A strict diagnostic protocol ensuring infrastructure verification across MCP services, Unit Testing, and Historical Forensics using Memory Core states to resolve system lockups.
+- **`self-repair`:** A strict diagnostic protocol ensuring infrastructure verification across MCP services, Unit Testing, and Historical Forensics using Memory Core states to resolve system lockups.
 - **`ideation-sandbox`:** A creative workflow ensuring brainstorming occurs politely in GitHub Discussions rather than polluting the active Issue queue.
 
 ## The Meta-Skill: Adding New Skills
@@ -114,7 +114,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `tech-debt-radar` | Lifecycle | Proactive semantic RAG sweeps for architectural debt |
 | `neural-link` | Tactical | Live application inspection sequences |
 | `unit-test` | Tactical | Playwright test authoring patterns |
-| `healthcheck` | Tactical | Systemic infrastructure diagnosis, test execution, and memory core forensics |
+| `self-repair` | Tactical | Systemic infrastructure diagnosis, test execution, and memory core forensics |
 | `whitebox-e2e` | Tactical | Neural Link pre-flight workflow for authoring E2E tests |
 | `ideation-sandbox` | Creative | GitHub Discussion brainstorming |
 | `create-skill` | Meta | Skill authoring bootstrap guide |
