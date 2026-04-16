@@ -17,28 +17,28 @@ const defaultConfig = {
      * Automatically trigger session summarization on startup.
      * @type {boolean}
      */
-    autoSummarize: process.env.AUTO_SUMMARIZE !== 'false',
+    autoSummarize: process.env.AUTO_SUMMARIZE === 'true',
     /**
      * Automatically start the local database process (Chroma/SQLite) on startup.
      * @type {boolean}
      */
-    autoStartDatabase: process.env.NEO_MEM_AUTO_START_DATABASE !== 'false',
+    autoStartDatabase: process.env.NEO_MEM_AUTO_START_DATABASE === 'true',
     /**
      * Automatically start the local inference server on startup.
      * @type {boolean}
      */
-    autoStartInference: process.env.NEO_MEM_AUTO_START_INFERENCE !== 'false',
+    autoStartInference: process.env.NEO_MEM_AUTO_START_INFERENCE === 'true',
     /**
      * Automatically trigger GraphRAG extraction on startup.
      * @type {boolean}
      */
-    autoDream: process.env.AUTO_DREAM !== 'false',
+    autoDream: process.env.AUTO_DREAM === 'true',
     /**
      * Automatically trigger Golden Path Synthesis into the handoff file on startup.
      * Crucial for headless swarm nodes (Mac 2) to physically generate sandman_handoff.md.
      * @type {boolean}
      */
-    autoGoldenPath: process.env.AUTO_GOLDEN_PATH !== 'false',
+    autoGoldenPath: process.env.AUTO_GOLDEN_PATH === 'true',
     /**
      * Immediately parse each incoming memory turn (add_memory) for Graph Injection.
      * @type {boolean}
