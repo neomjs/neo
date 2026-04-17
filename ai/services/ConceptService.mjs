@@ -74,6 +74,14 @@ class ConceptService extends Base {
     edgesByTarget = new Map()
 
     /**
+     * Reverse lookup index mapping lowercase aliases to their canonical concept IDs.
+     * Built during `loadGraph()` from the optional `aliases` array on each node.
+     * @member {Map<String, String>} aliasIndex
+     * @private
+     */
+    aliasIndex = new Map()
+
+    /**
      * Whether the graph has been loaded.
      * @member {Boolean} loaded
      * @private
@@ -158,6 +166,7 @@ class ConceptService extends Base {
         this.nodes.clear();
         this.edgesBySource.clear();
         this.edgesByTarget.clear();
+        this.aliasIndex.clear();
         this.loaded = false;
 
         const errors    = [],
@@ -177,6 +186,20 @@ class ConceptService extends Base {
             }
 
             this.nodes.set(node.id, node);
+
+            // Index aliases for O(1) reverse lookup
+            if (Array.isArray(node.aliases)) {
+                for (const alias of node.aliases) {
+                    const key = alias.toLowerCase().trim();
+
+                    if (this.aliasIndex.has(key)) {
+                        errors.push(`Duplicate alias '${alias}' on node '${node.id}' — already mapped to '${this.aliasIndex.get(key)}'`);
+                        continue;
+                    }
+
+                    this.aliasIndex.set(key, node.id);
+                }
+            }
         }
 
         // Index edges with bidirectional lookup
@@ -384,6 +407,48 @@ class ConceptService extends Base {
         return edges
             .map(e => this.nodes.get(e.source))
             .filter(Boolean);
+    }
+
+    /**
+     * @summary Resolves an alias or alternative term to its canonical concept ID.
+     * Performs case-insensitive O(1) lookup against the alias index built during `loadGraph()`.
+     *
+     * A term qualifies as an alias only if it refers to the exact same architectural concept
+     * within Neo.mjs. Cross-framework terms (ViewModel, JSX) belong in `ANALOGOUS_TO` edges.
+     *
+     * @param {String} term The alias or alternative name to resolve.
+     * @returns {Object|null} The concept node, or `null` if no alias match.
+     */
+    resolveAlias(term) {
+        this.ensureLoaded();
+
+        const key       = term.toLowerCase().trim(),
+              conceptId = this.aliasIndex.get(key);
+
+        // Also check direct ID match
+        if (!conceptId) {
+            return this.nodes.get(key) || null;
+        }
+
+        return this.nodes.get(conceptId) || null;
+    }
+
+    /**
+     * @summary Returns all `ANALOGOUS_TO` edges for a concept — cross-framework mappings
+     * that relate Neo.mjs concepts to their nearest equivalents in other frameworks.
+     *
+     * External concept targets use the `ext:` prefix (e.g., `ext:react-context`) to prevent
+     * collision with internal concept IDs.
+     *
+     * Each edge includes an optional `note` field explaining the architectural distinction.
+     *
+     * @param {String} conceptId The concept ID to look up analogues for.
+     * @returns {Array<Object>} ANALOGOUS_TO edges with `{source, target, type, note}`.
+     */
+    getAnalogousConcepts(conceptId) {
+        this.ensureLoaded();
+
+        return this.getEdges(conceptId, 'ANALOGOUS_TO');
     }
 
     /**
