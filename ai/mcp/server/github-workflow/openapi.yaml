@@ -443,6 +443,9 @@ paths:
         **Action: 'remove'**
         - Unassigns one or more users.
 
+        **Special Values:**
+        - `@me`: Resolves to the authenticated GitHub user. Use this instead of hardcoding usernames.
+
         **Permission Check:**
         Requires `ADMIN`, `MAINTAIN`, or `WRITE` permissions. Returns 403 otherwise.
       tags: [Issues]
@@ -472,8 +475,8 @@ paths:
                   type: array
                   items:
                     type: string
-                  description: An array of GitHub user logins.
-                  example: ["tobiu"]
+                  description: An array of GitHub user logins. Use `@me` to assign/unassign the authenticated user.
+                  example: ["@me"]
       responses:
         '200':
           description: Assignees updated successfully.

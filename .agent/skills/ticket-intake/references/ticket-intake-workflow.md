@@ -26,9 +26,41 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
 Evaluate the ticket based on effort vs. architectural payoff. A ticket can yield a **Negative ROI**.
 - **Negative ROI:** High effort, introduces legacy anti-patterns, duplicates active work, or forces severe regressions to satisfy outdated constraints.
 
-If your calculation results in a Negative ROI, you MUST reject the ticket.
+If your calculation results in a Negative ROI, you MUST reject the ticket — proceed to **Section 4: The Rejection Protocol**.
 
-## 3. The Rejection Protocol (Handling Negative ROI)
+## 3. Acceptance Protocol (Branch-Before-Code + Auto-Assign)
+
+If the ticket passes validation and yields a positive ROI, you MUST execute the following two gates **before** writing any code or modifying any files.
+
+### 3a. Claim Ownership (Auto-Assign)
+
+Signal to the Swarm that this ticket is actively being worked. Use the `manage_issue_assignees` MCP tool to assign the ticket to yourself:
+
+```
+manage_issue_assignees(action: 'add', issue_number: N, assignees: ['@me'])
+```
+
+The `@me` shortcut resolves to the authenticated GitHub user — no hardcoded usernames. This prevents duplicate pickup by concurrent agents and provides human visibility into active work.
+
+### 3b. Branch-Before-Code Gate
+
+Create a feature branch **before** writing any code:
+
+```bash
+git checkout -b agent/[ticket-id]-[descriptor]
+# Example: git checkout -b agent/10051-ticket-intake-gate
+```
+
+This is a non-negotiable safety gate. The `dev` branch must remain clean at all times. If a session crashes, the feature branch contains the damage — `dev` has a clean slate for the next session.
+
+You are **FORBIDDEN** from executing the following tools while on the `dev` or `main` branch:
+- `replace` / `replace_file_content` / `multi_replace_file_content`
+- `write_file` / `write_to_file`
+- `git commit`
+
+> **Note:** The `pull-request` skill (Section 2: Git Branching Mandate) also enforces branching before PR creation. This gate moves the enforcement upstream — the branch must exist before the *first line of code*, not the last.
+
+## 4. The Rejection Protocol (Handling Negative ROI)
 
 If you determine the ticket is stale or harmful, you MUST execute the Rejection Protocol instead of attempting to build it. 
 **DO NOT close the ticket.** It must be preserved so the Swarm can formally evaluate the paradox.

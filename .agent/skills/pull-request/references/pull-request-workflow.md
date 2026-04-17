@@ -24,6 +24,8 @@ git checkout -b agent/[ticket-id]-[descriptor]
 # Example: git checkout -b agent/9957-pull-request-skill
 ```
 
+> **Note:** If you followed the `ticket-intake` skill (Section 3: Acceptance Protocol), the feature branch should already exist. This gate serves as a safety net — verify you are on a feature branch before committing.
+
 ## 3. Commit Sequence
 
 Your commit messages MUST follow Conventional Commits and MUST append the ticket ID so that the GitHub API and our internal memory cores can track outcomes.
