@@ -71,6 +71,9 @@ import DreamService from './daemons/DreamService.mjs';
 import SemanticGraphExtractor from './daemons/services/SemanticGraphExtractor.mjs';
 import TopologyInferenceEngine from './daemons/services/TopologyInferenceEngine.mjs';
 
+// --- Concept Ontology ---
+import ConceptService from './services/ConceptService.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
@@ -274,5 +277,8 @@ export {
     // Daemons
     DreamService,
     SemanticGraphExtractor,
-    TopologyInferenceEngine
+    TopologyInferenceEngine,
+
+    // Concept Ontology
+    ConceptService
 };
