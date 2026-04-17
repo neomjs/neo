@@ -45,8 +45,8 @@ function createTestFixture(nodes, edges) {
 function createMinimalFixture() {
     const nodes = [
         {id: 'root', name: 'Neo.mjs', tier: 0, description: 'System anchor', uniqueToNeo: false, tags: []},
-        {id: 'threading', name: 'Multi-Threading', tier: 1, description: 'Worker-based threading', uniqueToNeo: true, tags: ['architecture']},
-        {id: 'vdom', name: 'JSON-First VDOM', tier: 1, description: 'VDOM protocol', uniqueToNeo: true, tags: ['vdom']},
+        {id: 'threading', name: 'Multi-Threading', tier: 1, description: 'Worker-based threading', uniqueToNeo: true, tags: ['architecture'], aliases: ['multi-worker', 'OMT architecture']},
+        {id: 'vdom', name: 'JSON-First VDOM', tier: 1, description: 'VDOM protocol', uniqueToNeo: true, tags: ['vdom'], aliases: ['JSON VDOM']},
         {id: 'reactivity', name: 'Reactivity', tier: 2, description: 'Config system', uniqueToNeo: true, tags: ['reactivity']}
     ];
 
@@ -56,7 +56,9 @@ function createMinimalFixture() {
         {source: 'threading', target: 'reactivity', type: 'PARENT_CONCEPT'},
         {source: 'threading', target: 'file:learn/guides/Threading.md', type: 'EXPLAINED_BY'},
         {source: 'threading', target: 'file:src/worker/Manager.mjs', type: 'IMPLEMENTED_BY'},
-        {source: 'reactivity', target: 'file:learn/guides/Reactivity.md', type: 'EXPLAINED_BY'}
+        {source: 'reactivity', target: 'file:learn/guides/Reactivity.md', type: 'EXPLAINED_BY'},
+        {source: 'vdom', target: 'ext:react-jsx', type: 'ANALOGOUS_TO', note: 'JSX compiles to createElement; Neo VDOM is raw JSON.'},
+        {source: 'threading', target: 'ext:react-concurrent', type: 'ANALOGOUS_TO', note: 'React simulates scheduling on one thread; Neo uses real Web Workers.'}
     ];
 
     return createTestFixture(nodes, edges);
@@ -74,6 +76,7 @@ test.describe('Neo.ai.services.ConceptService', () => {
         ConceptService.nodes.clear();
         ConceptService.edgesBySource.clear();
         ConceptService.edgesByTarget.clear();
+        ConceptService.aliasIndex.clear();
         ConceptService.loaded = false;
     });
 
@@ -87,7 +90,7 @@ test.describe('Neo.ai.services.ConceptService', () => {
         const stats = ConceptService.loadGraph();
 
         expect(stats.nodeCount).toBe(4);
-        expect(stats.edgeCount).toBe(6);
+        expect(stats.edgeCount).toBe(8);
         expect(stats.errors.length).toBe(0);
 
         fs.rmSync(tmpDir, {recursive: true});
@@ -357,5 +360,131 @@ test.describe('Neo.ai.services.ConceptService', () => {
         expect(stats.errors.length).toBe(0);
         expect(stats.nodeCount).toBeGreaterThan(50);
         expect(stats.edgeCount).toBeGreaterThan(100);
+    });
+
+    // ── resolveAlias ──────────────────────────────────────────
+
+    test('resolveAlias should resolve case-insensitive aliases to canonical concepts', () => {
+        const tmpDir = createMinimalFixture();
+
+        ConceptService.defaultConceptsDir = tmpDir;
+        ConceptService.loadGraph();
+
+        // Exact alias match
+        const result = ConceptService.resolveAlias('multi-worker');
+        expect(result).toBeTruthy();
+        expect(result.id).toBe('threading');
+
+        // Case-insensitive
+        const upper = ConceptService.resolveAlias('OMT Architecture');
+        expect(upper).toBeTruthy();
+        expect(upper.id).toBe('threading');
+
+        // JSON VDOM alias
+        const vdom = ConceptService.resolveAlias('json vdom');
+        expect(vdom).toBeTruthy();
+        expect(vdom.id).toBe('vdom');
+
+        // Non-existent alias
+        expect(ConceptService.resolveAlias('nonexistent-term')).toBeNull();
+
+        // Direct ID lookup fallback
+        const direct = ConceptService.resolveAlias('threading');
+        expect(direct).toBeTruthy();
+        expect(direct.id).toBe('threading');
+
+        fs.rmSync(tmpDir, {recursive: true});
+    });
+
+    test('loadGraph should detect duplicate aliases across nodes', () => {
+        const nodes = [
+            {id: 'a', name: 'A', tier: 1, description: 'First', uniqueToNeo: false, tags: [], aliases: ['shared-alias']},
+            {id: 'b', name: 'B', tier: 1, description: 'Second', uniqueToNeo: false, tags: [], aliases: ['shared-alias']}
+        ];
+        const tmpDir = createTestFixture(nodes, []);
+
+        ConceptService.defaultConceptsDir = tmpDir;
+
+        const stats = ConceptService.loadGraph();
+
+        expect(stats.errors.length).toBe(1);
+        expect(stats.errors[0]).toContain('Duplicate alias');
+        expect(stats.errors[0]).toContain('shared-alias');
+
+        fs.rmSync(tmpDir, {recursive: true});
+    });
+
+    test('loadGraph should clear aliasIndex on reload', () => {
+        const tmpDir = createMinimalFixture();
+
+        ConceptService.defaultConceptsDir = tmpDir;
+        ConceptService.loadGraph();
+
+        expect(ConceptService.resolveAlias('multi-worker')).toBeTruthy();
+
+        // Create a second fixture without aliases
+        const tmpDir2 = createTestFixture(
+            [{id: 'x', name: 'X', tier: 0, description: 'Clean', uniqueToNeo: false, tags: []}],
+            []
+        );
+
+        ConceptService.defaultConceptsDir = tmpDir2;
+        ConceptService.loadGraph();
+
+        // Old aliases should be cleared
+        expect(ConceptService.resolveAlias('multi-worker')).toBeNull();
+
+        fs.rmSync(tmpDir, {recursive: true});
+        fs.rmSync(tmpDir2, {recursive: true});
+    });
+
+    // ── getAnalogousConcepts ──────────────────────────────────
+
+    test('getAnalogousConcepts should return ANALOGOUS_TO edges with notes', () => {
+        const tmpDir = createMinimalFixture();
+
+        ConceptService.defaultConceptsDir = tmpDir;
+        ConceptService.loadGraph();
+
+        const analogues = ConceptService.getAnalogousConcepts('vdom');
+
+        expect(analogues.length).toBe(1);
+        expect(analogues[0].target).toBe('ext:react-jsx');
+        expect(analogues[0].type).toBe('ANALOGOUS_TO');
+        expect(analogues[0].note).toContain('JSX');
+
+        // Threading has one analogue
+        const threadAnalogues = ConceptService.getAnalogousConcepts('threading');
+        expect(threadAnalogues.length).toBe(1);
+        expect(threadAnalogues[0].target).toBe('ext:react-concurrent');
+
+        // No analogues for reactivity
+        expect(ConceptService.getAnalogousConcepts('reactivity').length).toBe(0);
+
+        fs.rmSync(tmpDir, {recursive: true});
+    });
+
+    // ── Production graph: aliases & ANALOGOUS_TO ──────────────
+
+    test('production graph should have aliases and ANALOGOUS_TO edges', () => {
+        ConceptService.defaultConceptsDir = null;
+        ConceptService.loadGraph();
+
+        // Alias index should be populated
+        expect(ConceptService.aliasIndex.size).toBeGreaterThan(0);
+
+        // OMT should resolve to off-main-thread
+        const omt = ConceptService.resolveAlias('OMT');
+        expect(omt).toBeTruthy();
+        expect(omt.id).toBe('off-main-thread');
+
+        // ANALOGOUS_TO edges should exist in the production graph
+        const stateAnalogues = ConceptService.getAnalogousConcepts('state-provider');
+        expect(stateAnalogues.length).toBeGreaterThan(0);
+
+        // All ANALOGOUS_TO targets should use the ext: prefix
+        for (const edge of stateAnalogues) {
+            expect(edge.target.startsWith('ext:')).toBe(true);
+        }
     });
 });

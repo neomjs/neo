@@ -95,10 +95,17 @@ Each line in `nodes.jsonl` is a JSON object:
 | `description` | string | ✅ | One-paragraph explanation of the concept |
 | `uniqueToNeo` | boolean | ✅ | `true` if architecturally unique to Neo.mjs |
 | `tags` | string[] | ✅ | Categorization tags for search and filtering |
+| `aliases` | string[] | ❌ | Alternative terms that refer to the exact same concept (O(1) lookup) |
 
 ```jsonl
-{"id":"push-reactivity","name":"Push-Based Reactivity (Config System)","tier":1,"description":"Reactive properties defined with a trailing underscore trigger explicit lifecycle hooks when changed.","uniqueToNeo":true,"tags":["reactivity","config","lifecycle"]}
+{"id":"off-main-thread","name":"Off-Main-Thread Execution","tier":1,"description":"Application business logic runs inside a dedicated App Worker.","uniqueToNeo":true,"tags":["architecture","workers"],"aliases":["off the main thread","OMT"]}
 ```
+
+> [!IMPORTANT]
+> **Aliases are strict synonyms within Neo.mjs.** A term qualifies as an alias only if it
+> refers to the exact same architectural concept. Cross-framework terms (e.g., "ViewModel"
+> for State Provider, "JSX" for JSON VDOM) are **not** aliases — they belong in
+> `ANALOGOUS_TO` edges.
 
 ## Edge Schema
 
@@ -107,8 +114,9 @@ Each line in `edges.jsonl` is a JSON object:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `source` | string | ✅ | Source node ID (concept or file reference) |
-| `target` | string | ✅ | Target node ID (concept or file reference) |
+| `target` | string | ✅ | Target node ID (concept, file reference, or `ext:` external ID) |
 | `type` | string | ✅ | Relationship type (see Edge Types below) |
+| `note` | string | ❌ | Architectural distinction note (used with `ANALOGOUS_TO`) |
 
 ### Edge Types
 
@@ -119,6 +127,7 @@ Each line in `edges.jsonl` is a JSON object:
 | `EXPLAINED_BY` | concept → file | Guide/doc that explains the concept |
 | `EXEMPLIFIED_BY` | concept → file | Example that demonstrates the concept |
 | `REQUIRES` | concept → concept | Prerequisite (must understand A before B) |
+| `ANALOGOUS_TO` | concept → ext:id | Cross-framework analogue (not equivalence) |
 
 ### File Reference Format
 
@@ -128,6 +137,20 @@ File targets use the `file:` prefix with a repository-relative path:
 {"source":"push-reactivity","target":"file:src/Neo.mjs","type":"IMPLEMENTED_BY"}
 {"source":"push-reactivity","target":"file:learn/guides/coreengine/ConfigSystem.md","type":"EXPLAINED_BY"}
 ```
+
+### External Reference Format
+
+External (cross-framework) targets use the `ext:` prefix to prevent collision with
+internal concept IDs:
+
+```jsonl
+{"source":"state-provider","target":"ext:react-context","type":"ANALOGOUS_TO","note":"Both provide hierarchical state, but Neo.mjs providers use bind:{} on reactive configs — no subtree re-rendering."}
+```
+
+> [!WARNING]
+> `ANALOGOUS_TO` expresses architectural similarity, **not equivalence**. The `note`
+> field must explain how the Neo.mjs concept differs from its cross-framework analogue.
+> Never use this edge to suggest that concepts are interchangeable.
 
 ## Tiering System
 
