@@ -390,6 +390,7 @@ Here you find the full history of Neo.mjs updates.
 - [Swarm Intelligence & Sub-Agents](https://neomjs.com/raw/learn/agentos/SwarmIntelligence.md)
 - [Progressive Disclosure Skills](https://neomjs.com/raw/learn/agentos/ProgressiveDisclosureSkills.md)
 - [The Dream Pipeline & Golden Path](https://neomjs.com/raw/learn/agentos/DreamPipeline.md)
+- [The Concept Ontology](https://neomjs.com/raw/learn/agentos/ConceptOntology.md)
 - [Neural Link: Live Application Mutability](https://neomjs.com/raw/learn/agentos/NeuralLink.md)
 - [The Knowledge Base Server](https://neomjs.com/raw/learn/agentos/KnowledgeBase.md)
 - [The Memory Core Server](https://neomjs.com/raw/learn/agentos/MemoryCore.md)
