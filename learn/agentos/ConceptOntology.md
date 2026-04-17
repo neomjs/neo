@@ -140,50 +140,51 @@ File targets use the `file:` prefix with a repository-relative path:
 
 ## The Concept Hierarchy (Abbreviated)
 
-```
-Neo.mjs (system anchor)
-├── Multi-Threading Architecture [tier:1] ✅
-│   ├── Off-Main-Thread Execution [tier:1] ✅
-│   ├── Worker Isolation [tier:1] ✅
-│   ├── SharedWorker Mode [tier:1] ✅
-│   └── Cross-Thread Communication [tier:1] ✅
-├── JSON-First VDOM Protocol [tier:1] ✅
-│   ├── VDOM as IPC Layer [tier:1]
-│   ├── Delta Update Pipeline [tier:1] ✅
-│   ├── Asymmetric VDOM Updates [tier:1] ✅
-│   └── VDOM Teleportation [tier:2]
-├── Two-Tier Reactivity [tier:1] ✅
-│   ├── Push-Based Reactivity [tier:1] ✅
-│   │   ├── Reactive Configs [tier:2] ✅
-│   │   ├── Lifecycle Hooks [tier:2] ✅
-│   │   └── Config Descriptors [tier:2] ✅
-│   └── Pull-Based Reactivity [tier:1] ✅
-├── Class System & Compilation [tier:1] ✅
-│   ├── Neo.setupClass() [tier:1] ✅
-│   ├── Mixin Architecture [tier:2]
-│   └── Instance Lifecycle [tier:1] ✅
-├── Multi-Window Applications [tier:1] ✅
-├── Object Permanence [tier:1] ✅
-├── AI-Native Architecture (Agent OS) [tier:1] ✅
-│   ├── Neural Link [tier:2] ✅
-│   ├── Knowledge Base [tier:2] ✅
-│   ├── Memory Core [tier:2] ✅
-│   ├── Dream Pipeline [tier:2] ✅
-│   ├── Swarm Intelligence [tier:2] ✅
-│   └── Progressive Disclosure Skills [tier:2] ✅
-├── Component Architecture [tier:1] ✅
-│   ├── Layouts [tier:2] ✅
-│   ├── Theming Engine [tier:2] ✅
-│   └── Grid Component [tier:2] ✅
-├── Data Layer [tier:1] ✅
-│   ├── Records & RecordFactory [tier:2] ✅
-│   ├── Stores & Collections [tier:2] ✅
-│   ├── State Provider [tier:2] ✅
-│   └── Data Pipelines [tier:2] ✅
-└── Forms Engine [tier:1] ✅
+```mermaid
+mindmap
+  root((Neo.mjs))
+    Multi-Threading ✅
+      Off-Main-Thread ✅
+      Worker Isolation ✅
+      SharedWorker Mode ✅
+      Cross-Thread Comm ✅
+    JSON-First VDOM ✅
+      VDOM as IPC
+      Delta Updates ✅
+      Asymmetric Updates ✅
+      VDOM Teleportation
+    Two-Tier Reactivity ✅
+      Push-Based ✅
+        Reactive Configs ✅
+        Lifecycle Hooks ✅
+        Config Descriptors ✅
+      Pull-Based ✅
+    Class System ✅
+      setupClass ✅
+      Mixin Architecture
+      Instance Lifecycle ✅
+    Multi-Window ✅
+    Object Permanence ✅
+    Agent OS ✅
+      Neural Link ✅
+      Knowledge Base ✅
+      Memory Core ✅
+      Dream Pipeline ✅
+      Swarm Intelligence ✅
+      Progressive Skills ✅
+    Component Architecture ✅
+      Layouts ✅
+      Theming Engine ✅
+      Grid Component ✅
+    Data Layer ✅
+      Records ✅
+      Stores & Collections ✅
+      State Provider ✅
+      Data Pipelines ✅
+    Forms Engine ✅
 ```
 
-✅ = has at least one EXPLAINED_BY edge
+✅ = has at least one `EXPLAINED_BY` edge. Missing ✅ = `GUIDE_GAP` candidate.
 
 ## Contributing a Concept
 
@@ -202,28 +203,18 @@ Neo.mjs (system anchor)
 
 ## Integration Architecture
 
-```
-┌─────────────────────────────────────────────┐
-│              Concept Ontology               │
-│         (.neo-ai-data/concepts/)            │
-│                                             │
-│   CONCEPT ──EXPLAINED_BY──> learn/guides/   │
-│   CONCEPT ──IMPLEMENTED_BY──> src/**/*.mjs  │
-│   CONCEPT ──PARENT_CONCEPT──> CONCEPT       │
-└────────────────────┬────────────────────────┘
-                     │
-          Loaded by ConceptService
-          (ai/services.mjs SDK)
-                     │
-         ┌───────────▼───────────┐
-         │   GapInferenceEngine  │
-         │  (Graph Traversal)    │
-         └───────────┬───────────┘
-                     │
-         ┌───────────▼───────────┐
-         │   Golden Path / REM   │
-         │  (DreamService)       │
-         └───────────────────────┘
+```mermaid
+flowchart TB
+    subgraph ontology["Concept Ontology (.neo-ai-data/concepts/)"]
+        direction LR
+        C["CONCEPT"] -->|EXPLAINED_BY| G["learn/guides/"]
+        C -->|IMPLEMENTED_BY| S["src/**/*.mjs"]
+        C -->|PARENT_CONCEPT| C2["CONCEPT"]
+    end
+
+    ontology -->|Loaded by| CS["ConceptService\n(ai/services.mjs SDK)"]
+    CS --> GIE["GapInferenceEngine\n(Graph Traversal)"]
+    GIE --> DP["Golden Path / REM\n(DreamService)"]
 ```
 
 ## Related
