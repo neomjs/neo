@@ -1,25 +1,130 @@
+import {setup} from '../../../../../setup.mjs';
+
+const appName = 'PullRequestSourceTest';
+
+setup({
+    neoConfig: {
+        unitTestMode: true
+    },
+    appConfig: {
+        name             : appName,
+        isMounted        : () => true,
+        vnodeInitialising: false
+    }
+});
+
 import {test, expect}  from '@playwright/test';
-import fs              from 'fs';
+import fs              from 'fs-extra';
 import path            from 'path';
 import {fileURLToPath} from 'url';
+import Neo             from '../../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../../src/core/_export.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const repoRoot   = path.resolve(__dirname, '../../../../../../..');
 
-test.describe('Knowledge Base PullRequestSource (#10057)', () => {
-    test('PullRequestSource.mjs exists and emits type="pull" chunks targeting resources/content/pulls', () => {
-        const sourcePath = path.join(repoRoot, 'ai/mcp/server/knowledge-base/source/PullRequestSource.mjs');
+test.describe('Neo.ai.mcp.server.knowledge-base.source.PullRequestSource', () => {
+    let PullRequestSource;
+    let aiConfig;
+    let originalRoot;
+    let mockRoot;
 
-        expect(fs.existsSync(sourcePath), `PullRequestSource.mjs not found at ${sourcePath}`).toBe(true);
+    test.beforeAll(async () => {
+        aiConfig          = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        PullRequestSource = (await import('../../../../../../../ai/mcp/server/knowledge-base/source/PullRequestSource.mjs')).default;
 
-        const content = fs.readFileSync(sourcePath, 'utf8');
+        originalRoot = aiConfig.neoRootDir;
 
-        expect(content, 'className must match namespace').toMatch(/className:\s*'Neo\.ai\.mcp\.server\.knowledge-base\.source\.PullRequestSource'/);
-        expect(content, 'must target resources/content/pulls').toMatch(/resources\/content\/pulls/);
-        expect(content, "chunks must carry type: 'pull'").toMatch(/type\s*:\s*'pull'/);
-        expect(content, "chunks must carry kind: 'pull'").toMatch(/kind\s*:\s*'pull'/);
-        expect(content, 'must export via Neo.setupClass').toMatch(/export default Neo\.setupClass\(PullRequestSource\)/);
+        const tmpDir = path.resolve(process.cwd(), 'tmp');
+        fs.ensureDirSync(tmpDir);
+        mockRoot = path.join(tmpDir, `pullrequest-source-mock-${process.pid}-${Date.now()}`);
+
+        const pullsDir = path.join(mockRoot, 'resources/content/pulls');
+        fs.ensureDirSync(pullsDir);
+        fs.writeFileSync(path.join(pullsDir, 'pr-0001.md'), '# First PR\nbody A');
+        fs.writeFileSync(path.join(pullsDir, 'pr-0002.md'), '# Second PR\nbody B');
+        fs.writeFileSync(path.join(pullsDir, 'notes.txt'), 'should be ignored — non-md');
+
+        aiConfig.neoRootDir = mockRoot;
+    });
+
+    test.afterAll(() => {
+        aiConfig.neoRootDir = originalRoot;
+        if (mockRoot && fs.existsSync(mockRoot)) fs.removeSync(mockRoot);
+    });
+
+    test('is a Neo.setupClass singleton with the expected className and extract() method', () => {
+        expect(PullRequestSource, 'default export must resolve').toBeDefined();
+        expect(PullRequestSource.className).toBe('Neo.ai.mcp.server.knowledge-base.source.PullRequestSource');
+        expect(typeof PullRequestSource.extract).toBe('function');
+    });
+
+    test('extract() emits one chunk per .md file with type: "pull" and correct metadata', async () => {
+        const written = [];
+        const writeStream = {
+            write(chunkStr) {
+                written.push(JSON.parse(chunkStr.trim()));
+                return true;
+            }
+        };
+        const createHashFn = chunk => 'hash:' + chunk.name;
+
+        const count = await PullRequestSource.extract(writeStream, createHashFn);
+
+        expect(count).toBe(2);
+        expect(written).toHaveLength(2);
+
+        const [first, second] = written;
+
+        expect(first).toMatchObject({
+            type   : 'pull',
+            kind   : 'pull',
+            name   : 'pr-0001',
+            content: '# First PR\nbody A',
+            hash   : 'hash:pr-0001'
+        });
+        expect(first.source).toBe(path.join(mockRoot, 'resources/content/pulls/pr-0001.md'));
+
+        expect(second).toMatchObject({
+            type   : 'pull',
+            kind   : 'pull',
+            name   : 'pr-0002',
+            content: '# Second PR\nbody B',
+            hash   : 'hash:pr-0002'
+        });
+    });
+
+    test('extract() ignores non-.md files in the pulls directory', async () => {
+        const written = [];
+        const writeStream = {
+            write(chunkStr) {
+                written.push(JSON.parse(chunkStr.trim()));
+                return true;
+            }
+        };
+
+        await PullRequestSource.extract(writeStream, chunk => chunk.name);
+
+        expect(written.map(w => w.name)).not.toContain('notes');
+    });
+
+    test('extract() returns 0 and writes nothing when the pulls directory is absent', async () => {
+        const missingRoot = path.join(mockRoot, 'does-not-exist');
+        aiConfig.neoRootDir = missingRoot;
+        try {
+            const written = [];
+            const writeStream = {
+                write(chunkStr) { written.push(chunkStr); return true; }
+            };
+
+            const count = await PullRequestSource.extract(writeStream, () => 'h');
+
+            expect(count).toBe(0);
+            expect(written).toHaveLength(0);
+        } finally {
+            aiConfig.neoRootDir = mockRoot;
+        }
     });
 
     test('PullRequestSource is registered in DatabaseService sources array', () => {
@@ -34,14 +139,5 @@ test.describe('Knowledge Base PullRequestSource (#10057)', () => {
         const arrayMatch = content.match(/const\s+sources\s*=\s*\[([\s\S]*?)\]/m);
         expect(arrayMatch, 'sources array block not found in DatabaseService.mjs').not.toBeNull();
         expect(arrayMatch[1], 'PullRequestSource must appear in the sources array').toMatch(/\bPullRequestSource\b/);
-    });
-
-    test('resources/content/pulls exists and holds markdown files to embed', () => {
-        const pullsDir = path.join(repoRoot, 'resources/content/pulls');
-
-        expect(fs.existsSync(pullsDir), `pulls directory not found at ${pullsDir}`).toBe(true);
-
-        const markdownFiles = fs.readdirSync(pullsDir).filter(f => f.endsWith('.md'));
-        expect(markdownFiles.length, 'expected at least one PR markdown file to embed').toBeGreaterThan(0);
     });
 });
