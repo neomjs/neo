@@ -68,17 +68,26 @@ function resolveRef(doc, ref) {
 /**
  * Recursively builds a Zod schema from an OpenAPI schema object, handling
  * nested structures and JSON references.
- * @param {object} doc - The full OpenAPI document for reference resolution.
- * @param {object} schema - The OpenAPI schema object (or a resolved reference).
+ * @param {object}  doc             - The full OpenAPI document for reference resolution.
+ * @param {object}  schema          - The OpenAPI schema object (or a resolved reference).
+ * @param {object}  [opts]          - Optional build context.
+ * @param {boolean} [opts.lenient]  - When true, `z.object(...)` nodes without a declared
+ *                                    `additionalProperties` are emitted via `.passthrough()`
+ *                                    so the resulting JSON Schema tolerates extra fields.
+ *                                    Used for *output* schemas where implementations may
+ *                                    return more fields than the OpenAPI contract declares
+ *                                    (see #9837). Input schemas stay strict.
  * @returns {z.ZodType} A Zod schema representing the OpenAPI schema.
  */
-function buildZodSchemaFromNode(doc, schema) {
+function buildZodSchemaFromNode(doc, schema, opts = {}) {
+    const {lenient = false} = opts;
+
     if (schema.$ref) {
-        return buildZodSchemaFromNode(doc, resolveRef(doc, schema.$ref));
+        return buildZodSchemaFromNode(doc, resolveRef(doc, schema.$ref), opts);
     }
 
     if (schema.oneOf) {
-        const options = schema.oneOf.map(s => buildZodSchemaFromNode(doc, s));
+        const options = schema.oneOf.map(s => buildZodSchemaFromNode(doc, s, opts));
         return z.union(options);
     }
 
@@ -88,7 +97,7 @@ function buildZodSchemaFromNode(doc, schema) {
         if (schema.properties) {
             const required = schema.required || [];
             for (const [propName, propSchema] of Object.entries(schema.properties)) {
-                let propertySchema = buildZodSchemaFromNode(doc, propSchema);
+                let propertySchema = buildZodSchemaFromNode(doc, propSchema, opts);
                 if (!required.includes(propName)) {
                     propertySchema = propertySchema.optional();
                 }
@@ -102,16 +111,22 @@ function buildZodSchemaFromNode(doc, schema) {
             if (schema.additionalProperties === true) {
                 additionalSchema = z.any();
             } else if (typeof schema.additionalProperties === 'object') {
-                additionalSchema = buildZodSchemaFromNode(doc, schema.additionalProperties);
+                additionalSchema = buildZodSchemaFromNode(doc, schema.additionalProperties, opts);
             }
 
             if (additionalSchema) {
                 zodSchema = zodSchema.catchall(additionalSchema);
             }
+        } else if (lenient) {
+            // Output schemas tolerate server-side drift: emit `additionalProperties: true`
+            // so strict MCP clients (e.g. GitHub Copilot) accept responses that carry
+            // fields the OpenAPI contract forgot to declare. Input schemas stay strict —
+            // agents passing unknown fields should still fail validation.
+            zodSchema = zodSchema.passthrough();
         }
     } else if (schema.type === 'array') {
         if (schema.items) {
-            zodSchema = z.array(buildZodSchemaFromNode(doc, schema.items));
+            zodSchema = z.array(buildZodSchemaFromNode(doc, schema.items, opts));
         } else {
             // Fallback for OpenAPI arrays declared without `items`. We use z.unknown() rather than
             // z.any() because zod-to-json-schema with target:'openApi3' emits z.any() as the bare
@@ -156,8 +171,14 @@ function buildZodSchemaFromNode(doc, schema) {
  * @returns {z.ZodType|null} A Zod schema for the output, or null if no schema is defined.
  */
 function buildOutputZodSchema(doc, operation) {
-    const response = operation.responses?.['200'] || operation.responses?.['201'] || operation.responses?.['202'];
-    const schema = response?.content?.['application/json']?.schema;
+    const response    = operation.responses?.['200'] || operation.responses?.['201'] || operation.responses?.['202'];
+    const schema      = response?.content?.['application/json']?.schema;
+    // Every `z.object(...)` produced here is emitted with `.passthrough()` so the resulting
+    // JSON Schema sets `additionalProperties: true`. This is the output-side counterpart to
+    // the input-side strictness: server implementations drift faster than OpenAPI contracts,
+    // and strict MCP clients (GitHub Copilot) reject any response with undeclared fields.
+    // See #9837.
+    const outputOpts  = {lenient: true};
 
     if (schema) {
         let resolvedSchema = schema;
@@ -166,14 +187,18 @@ function buildOutputZodSchema(doc, operation) {
         }
 
         if (resolvedSchema.type !== 'object') {
-            return z.object({ result: buildZodSchemaFromNode(doc, schema) }).describe(schema.description || '');
+            return z.object({ result: buildZodSchemaFromNode(doc, schema, outputOpts) })
+                .passthrough()
+                .describe(schema.description || '');
         }
-        return buildZodSchemaFromNode(doc, schema);
+        return buildZodSchemaFromNode(doc, schema, outputOpts);
     }
 
     if (response?.content?.['text/plain']) {
         // For text/plain, we need to wrap it in an object for client compatibility
-        return z.object({ result: z.string().describe(response.description || '') }).required();
+        return z.object({ result: z.string().describe(response.description || '') })
+            .passthrough()
+            .required();
     }
 
     // If no schema is found, return null to indicate its absence.
