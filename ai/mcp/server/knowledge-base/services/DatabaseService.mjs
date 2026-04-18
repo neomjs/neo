@@ -5,6 +5,7 @@ import VectorService      from './VectorService.mjs';
 import ApiSource          from '../source/ApiSource.mjs';
 import DiscussionSource   from '../source/DiscussionSource.mjs';
 import LearningSource     from '../source/LearningSource.mjs';
+import PullRequestSource  from '../source/PullRequestSource.mjs';
 import ReleaseNotesSource from '../source/ReleaseNotesSource.mjs';
 import TestSource         from '../source/TestSource.mjs';
 import TicketSource       from '../source/TicketSource.mjs';
@@ -127,6 +128,7 @@ class DatabaseService extends Base {
             ApiSource,
             DiscussionSource,
             LearningSource,
+            PullRequestSource,
             ReleaseNotesSource,
             TicketSource,
             TestSource
