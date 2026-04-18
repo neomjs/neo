@@ -59,6 +59,33 @@ function findStrictObjects(node, pathLabel = '') {
     return findings;
 }
 
+/**
+ * Walks a JSON Schema node looking for INPUT "open-bag" objects that would silently
+ * strip their payload to `{}` — the #10070 regression. An open-bag is a `type: "object"`
+ * node that declares NO child `properties` (the author signaled "caller decides the
+ * shape") AND strict `additionalProperties: false` (Zod then drops every unknown key).
+ * The root of an input schema is excluded — top-level inputs with declared fields
+ * legitimately stay strict; we only care about *nested* open-bag slots like
+ * `properties`, `selector`, `data`, `config`.
+ *
+ * @param {object} node           The schema node to walk.
+ * @param {string} pathLabel=''   Dotted path label for error reporting.
+ * @returns {string[]}            Paths of silently-stripping open-bag nodes (empty when safe).
+ */
+function findSilentlyStrippingOpenBags(node, pathLabel = '') {
+    const findings = [];
+    const walk = (n, p, isRoot) => {
+        if (!n || typeof n !== 'object') return;
+        if (!isRoot && !Array.isArray(n) && n.type === 'object' && !n.properties && n.additionalProperties === false) {
+            findings.push(p);
+        }
+        if (Array.isArray(n)) n.forEach((v, i) => walk(v, `${p}[${i}]`, false));
+        else for (const k in n) walk(n[k], `${p}.${k}`, false);
+    };
+    walk(node, pathLabel, true);
+    return findings;
+}
+
 test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
     /**
      * Direct regression for https://github.com/neomjs/neo/issues/10064. Prior to the fix,
@@ -85,6 +112,23 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         const lenient = zodToJsonSchema(z.object({a: z.string()}).passthrough());
         expect(strict.additionalProperties).toBe(false);
         expect(lenient.additionalProperties).toBe(true);
+    });
+
+    /**
+     * Direct regression for https://github.com/neomjs/neo/issues/10070. Prior to the fix,
+     * `type: object` with no declared `properties` emitted strict `z.object({})` which
+     * Zod parses by stripping every unknown key — silently nulling the entire payload
+     * on open-bag inputs like `set_instance_properties.properties`. The fix emits
+     * `z.object({}).passthrough()` in that case, preserving the caller's payload.
+     */
+    test('buildZodSchema preserves open-bag input payloads (set_instance_properties.properties)', async () => {
+        const doc = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/neural-link/openapi.yaml'), 'utf8'));
+        const op  = doc.paths['/instance/properties/set'].post;
+        const parsed = buildZodSchema(doc, op).parse({
+            id        : 'neo-button-1',
+            properties: {text: 'KEEP_ME', arbitraryKey: 42}
+        });
+        expect(parsed.properties).toEqual({text: 'KEEP_ME', arbitraryKey: 42});
     });
 
     for (const server of servers) {
@@ -135,7 +179,27 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
             ).toEqual([]);
         });
 
-        test(`${server}: every emitted input schema stays strict (regression guard against #9837 overreach)`, () => {
+        test(`${server}: no nested open-bag input objects silently strip payloads (#10070)`, () => {
+            const yamlPath = path.join(repoRoot, 'ai/mcp/server', server, 'openapi.yaml');
+            const doc      = yaml.load(fs.readFileSync(yamlPath, 'utf8'));
+            const offenders = [];
+
+            for (const [, pathItem] of Object.entries(doc.paths || {})) {
+                for (const [, op] of Object.entries(pathItem)) {
+                    if (!op?.operationId) continue;
+
+                    const inputSchema = zodToJsonSchema(buildZodSchema(doc, op), {target: 'openApi3', $refStrategy: 'none'});
+                    offenders.push(...findSilentlyStrippingOpenBags(inputSchema, `${op.operationId}.input`));
+                }
+            }
+
+            expect(
+                offenders,
+                `Nested open-bag input nodes in ${server} still strip payloads (Zod strict empty-object default):\n${offenders.join('\n')}`
+            ).toEqual([]);
+        });
+
+        test(`${server}: every emitted input schema stays strict at the root (regression guard against #9837 overreach)`, () => {
             const yamlPath = path.join(repoRoot, 'ai/mcp/server', server, 'openapi.yaml');
             const doc      = yaml.load(fs.readFileSync(yamlPath, 'utf8'));
             let checkedOps = 0;
