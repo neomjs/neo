@@ -24,11 +24,21 @@ To fix a regression not just by reverting code, but by understanding the *intent
     ```
     Reading the ticket will tell you the *planned* work.
 
-4.  **Find the Unwritten Context (`ai:query-memory`):** This is the most critical step. The ticket describes the plan, but the memory core holds the conversation, the debates, the alternative approaches, and the specific user constraints that shaped the final implementation. Query your memory using the ticket number or key phrases from the original discussion.
+4.  **Find the Unwritten Context (Memory Core):** This is the most critical step. The ticket describes the plan, but the memory core holds the conversation, the debates, the alternative approaches, and the specific user constraints that shaped the final implementation. Query your memory using the ticket number or key phrases from the original discussion.
+
+    **Inside an active MCP session (preferred when Claude Code, Antigravity, Gemini CLI, etc. are driving):** call the Memory Core MCP tools directly:
+    ```
+    query_summaries({query: "context for ticket #<ticket_number>"})
+    query_raw_memories({query: "<key phrase from original discussion>"})
+    ```
+    `query_summaries` returns high-level session overviews quickly; `query_raw_memories` drills into individual prompt/thought/response entries when you need the nuanced decision trail.
+
+    **Outside an MCP session (shell / CI / standalone scripts):** the CLI form covers the same ground:
     ```bash
     npm run ai:query-memory -- -q "context for ticket #<ticket_number>"
     ```
-    This query reveals the crucial **"why"** behind the code that is now causing a regression.
+
+    Either surface reveals the crucial **"why"** behind the code that is now causing a regression. Semantic search is the strength here — vector embeddings surface loosely-worded prior context that keyword grep over the repo would miss.
 
 5.  **Synthesize and Solve:** With the full context, you can now devise a solution that addresses the new regression while still respecting the original problem that the previous developer (or a past version of yourself) was trying to solve. Your final plan should explicitly reference the synthesis of these three sources of information:
     *   **What changed?** (from `git`)
