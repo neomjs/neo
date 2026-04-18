@@ -26,6 +26,8 @@ Parse the file `learn/guides/fundamentals/CodebaseOverview.md`. This guide provi
 
 **Documentation Taxonomy:** Additionally, scan `learn/tree.json` — the canonical hierarchical index of all 130+ learning topics. The Knowledge Base's `LearningSource.mjs` traverses this file to discover and index every guide. Scanning it gives you an instant top-level perspective of the entire documentation landscape, making subsequent knowledge base queries far more targeted.
 
+**Strategic Workflows:** Parse `learn/agentos/StrategicWorkflows.md`. This is the repository's canonical playbook for multi-step agent workflows — most importantly the **Regression Bug Analysis Workflow** (three-dimensional git + ticket + memory query pattern). It is the deep reference behind the memory-query triggers enumerated in §3.3 and is the single most effective antidote to reinventing the wheel across sessions and agents.
+
 ### Step 2: Read the Core Concepts
 
 Read `src/Neo.mjs`. Focus on understanding:
@@ -169,6 +171,14 @@ As an AI agent, your context window is ephemeral. By rigidly adhering to the "Co
 **Action:** Before beginning the implementation of any complex feature or bug fix, you **MUST** perform a brief, proactive exploration of the Memory Core. 
 - `query_summaries`: Search high-level session summaries for broad patterns (e.g., "race condition", "VDOM", "Canvas"). Use this to find relevant past sessions quickly.
 - `query_raw_memories`: Dive into specific implementation details from those sessions to understand the nuanced thought processes.
+
+**Memory-query triggers (mandatory before git/grep/test work).** Query the Memory Core *first* — not after — when you hit any of:
+- User reports a regression ("used to work", "suddenly broken", "worked before my change")
+- Surprise validation failures, schema mismatches, `additionalProperties` rejections, or other "suddenly the contract doesn't hold" symptoms
+- Architecturally non-obvious code where "why was it done this way" is unclear
+- Decision points where prior trade-offs likely inform the right answer ("should we X or Y?")
+
+Memory Core's semantic search routinely surfaces prior decisions keyword grep would miss — *"what would tobi do here?"*. Memories are authored across many agents and harnesses (Claude Code, Antigravity/Gemini, and others); a diagnosis captured in a prior session saves re-derivation in the current one. `git log` and test reproductions produce narrower evidence at higher cost. See `learn/agentos/StrategicWorkflows.md` (Regression Bug Analysis Workflow) for the three-dimensional git + ticket + memory pattern.
 
 **The Contextual Ledger (Mandatory Check):**
 When querying your memory, actively look for two things:
