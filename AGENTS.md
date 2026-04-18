@@ -59,7 +59,8 @@ Writing code fast or changing concepts on the fly is acceptable during the explo
 You **MUST** execute this Pre-Flight Check before running a `git commit` command. The check consists of explicitly stating in your internal thought process:
 "Pre-Flight Check: 
 1. **Gate 1 (Ticket):** A ticket must exist for this commit. I will verify the ticket number and include it in the commit message.
-2. **Gate 2 (Contextual Completeness):** I have reviewed the modified code and applied the 'Anchor & Echo' Knowledge Base Enhancement Strategy to ensure new or changed methods/properties have adequate semantic context before proceeding. I am not committing undocumented, context-less code."
+2. **Gate 2 (Contextual Completeness):** I have reviewed the modified code and applied the 'Anchor & Echo' Knowledge Base Enhancement Strategy to ensure new or changed methods/properties have adequate semantic context before proceeding. I am not committing undocumented, context-less code.
+3. **Gate 3 (Commit Format):** I have consulted `.agent/skills/pull-request/references/pull-request-workflow.md` §3 and will emit a Conventional Commits subject of form `type(scope): message (#TICKET_ID)` with no `<noreply@*>` `Co-Authored-By` footers."
 
 ## 4. The Memory Core Protocol
 
