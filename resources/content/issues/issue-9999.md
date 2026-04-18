@@ -19,8 +19,9 @@ subIssues:
   - '[ ] 10015 [Sub-Epic] Dynamic Topology — Unified vs. Federated Routing'
   - '[ ] 10016 [Sub-Epic] Multi-Tenant Identity & Data Privacy'
   - '[ ] 10030 [Epic] Concept Ontology & Semantic Gap Inference'
-subIssuesCompleted: 1
-subIssuesTotal: 4
+  - '[x] 10057 Knowledge Base: Add PullRequestSource for PR Conversation Embeddings'
+subIssuesCompleted: 2
+subIssuesTotal: 5
 blockedBy: []
 blocking: []
 ---
