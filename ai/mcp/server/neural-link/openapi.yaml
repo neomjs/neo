@@ -467,10 +467,16 @@ paths:
                     type: string
                   filters:
                     type: array
+                    items:
+                      type: object
                   sorters:
                     type: array
+                    items:
+                      type: object
                   items:
                     type: array
+                    items:
+                      type: object
 
   /data/store/list:
     post:
@@ -1556,7 +1562,8 @@ components:
           description: The method name (e.g. 'load' or 'series.push')
         args:
           type: array
-          description: Arguments to pass to the method
+          items: {}
+          description: Arguments to pass to the method (heterogeneous — any JSON-serializable value)
         sessionId:
           type: string
           description: The target App Worker Session ID
