@@ -5,9 +5,10 @@ state: CLOSED
 labels:
   - enhancement
   - ai
-assignees: []
+assignees:
+  - tobiu
 createdAt: '2026-04-14T12:46:32Z'
-updatedAt: '2026-04-14T12:52:24Z'
+updatedAt: '2026-04-18T15:22:56Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9997'
 author: tobiu
 commentsCount: 0
@@ -43,4 +44,5 @@ Origin Session ID: 56268bb1-7e01-4e49-bd2b-26b3a3208797
 - 2026-04-14T12:47:17Z @tobiu cross-referenced by PR #9998
 - 2026-04-14T12:52:24Z @tobiu referenced in commit `a1eacd6` - "enhancement: Prioritize latest active sessions in summarization pipeline (#9997) (#9998)"
 - 2026-04-14T12:52:24Z @tobiu closed this issue
+- 2026-04-18T15:22:56Z @tobiu assigned to @tobiu
 
