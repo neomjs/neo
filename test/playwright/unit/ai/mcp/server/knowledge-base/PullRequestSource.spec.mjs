@@ -5,7 +5,7 @@ import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
-const repoRoot   = path.resolve(__dirname, '../../../..');
+const repoRoot   = path.resolve(__dirname, '../../../../../../..');
 
 test.describe('Knowledge Base PullRequestSource (#10057)', () => {
     test('PullRequestSource.mjs exists and emits type="pull" chunks targeting resources/content/pulls', () => {
