@@ -5,13 +5,14 @@ state: OPEN
 labels:
   - enhancement
   - developer-experience
+  - stale
   - ai
 assignees: []
 createdAt: '2026-01-17T10:46:30Z'
-updatedAt: '2026-01-17T10:46:30Z'
+updatedAt: '2026-04-18T04:07:52Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8755'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -45,4 +46,9 @@ Enable `LivePreview` to accept Mermaid diagram syntax.
 - 2026-01-17T10:46:31Z @tobiu added the `enhancement` label
 - 2026-01-17T10:46:31Z @tobiu added the `developer-experience` label
 - 2026-01-17T10:46:31Z @tobiu added the `ai` label
+### @github-actions - 2026-04-18T04:07:52Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-04-18T04:07:52Z @github-actions added the `stale` label
 

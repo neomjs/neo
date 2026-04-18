@@ -1,7 +1,7 @@
 ---
 id: 8288
 title: 'Neo Agent OS: Orchestration & Swarm Architecture'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - stale
@@ -9,16 +9,17 @@ labels:
   - architecture
 assignees: []
 createdAt: '2026-01-03T08:03:39Z'
-updatedAt: '2026-04-04T03:44:28Z'
+updatedAt: '2026-04-18T09:47:13Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8288'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-04-18T04:07:54Z'
 ---
 # Neo Agent OS: Orchestration & Swarm Architecture
 
@@ -41,7 +42,6 @@ This epic tracks the architectural exploration and implementation of the **Neo A
 -   Design the JSON schema for the Context Graph.
 -   Implement the first "Decision Node" logic (e.g., simplistic Release automation).
 
-
 ## Timeline
 
 - 2026-01-03T08:03:41Z @tobiu added the `epic` label
@@ -52,4 +52,9 @@ This epic tracks the architectural exploration and implementation of the **Neo A
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-04-04T03:44:28Z @github-actions added the `stale` label
+### @github-actions - 2026-04-18T04:07:54Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-04-18T04:07:54Z @github-actions closed this issue
 
