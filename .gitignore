@@ -103,6 +103,9 @@ resources/data/deck/EditorConfig.json
 !.neo-ai-data/concepts/
 ai/mcp/server/*/config.mjs
 
+# Claude Code worktrees (agent-spawned checkouts)
+.claude/worktrees/
+
 # Playwright test results
 test/playwright/test-results/
 # Single-file Playwright runs via npx
