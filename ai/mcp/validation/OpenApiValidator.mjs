@@ -113,7 +113,11 @@ function buildZodSchemaFromNode(doc, schema) {
         if (schema.items) {
             zodSchema = z.array(buildZodSchemaFromNode(doc, schema.items));
         } else {
-            zodSchema = z.array(z.any());
+            // Fallback for OpenAPI arrays declared without `items`. We use z.unknown() rather than
+            // z.any() because zod-to-json-schema with target:'openApi3' emits z.any() as the bare
+            // {"type":"array"} (stripping `items` entirely), which strict validators like GitHub
+            // Copilot reject. z.unknown() round-trips as {"type":"array","items":{}} — compliant.
+            zodSchema = z.array(z.unknown());
         }
     } else if (schema.type === 'string') {
         zodSchema = z.string();
@@ -124,7 +128,12 @@ function buildZodSchemaFromNode(doc, schema) {
     } else if (schema.type === 'boolean') {
         zodSchema = z.boolean();
     } else {
-        zodSchema = z.any();
+        // Catch-all for schemas without a declared type (e.g. `{}`, or an array `items: {}` sentinel).
+        // We use z.unknown() rather than z.any() because zod-to-json-schema with target:'openApi3'
+        // strips `items` from z.array(z.any()) but preserves it for z.array(z.unknown()). Runtime
+        // validation is identical (both accept any value); only the emitted JSON Schema differs,
+        // and only z.unknown() satisfies strict validators like GitHub Copilot's.
+        zodSchema = z.unknown();
     }
 
     if (schema.nullable) {
