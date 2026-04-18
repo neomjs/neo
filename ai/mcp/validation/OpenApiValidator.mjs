@@ -93,8 +93,11 @@ function buildZodSchemaFromNode(doc, schema, opts = {}) {
 
     let zodSchema;
     if (schema.type === 'object') {
-        const shape = {};
-        if (schema.properties) {
+        const shape            = {};
+        const hasProperties    = !!schema.properties;
+        const hasAdditionalDef = schema.additionalProperties !== undefined;
+
+        if (hasProperties) {
             const required = schema.required || [];
             for (const [propName, propSchema] of Object.entries(schema.properties)) {
                 let propertySchema = buildZodSchemaFromNode(doc, propSchema, opts);
@@ -120,8 +123,16 @@ function buildZodSchemaFromNode(doc, schema, opts = {}) {
         } else if (lenient) {
             // Output schemas tolerate server-side drift: emit `additionalProperties: true`
             // so strict MCP clients (e.g. GitHub Copilot) accept responses that carry
-            // fields the OpenAPI contract forgot to declare. Input schemas stay strict —
-            // agents passing unknown fields should still fail validation.
+            // fields the OpenAPI contract forgot to declare. See #9837.
+            zodSchema = zodSchema.passthrough();
+        } else if (!hasProperties && !hasAdditionalDef) {
+            // Open-bag INPUT: OpenAPI declared `type: object` with no `properties` and no
+            // `additionalProperties`. The absence of a declared shape is the author's
+            // design signal — "caller decides the keys" (e.g. `set_instance_properties`'s
+            // `properties` field, `find_instances`'s `selector`, `modify_state_provider`'s
+            // `data`). Without passthrough, Zod's strict parse silently strips the entire
+            // payload to `{}`, producing hollow `{success: true}` responses while the
+            // worker executes `instance.set({})` — a no-op. See #10070.
             zodSchema = zodSchema.passthrough();
         }
     } else if (schema.type === 'array') {
