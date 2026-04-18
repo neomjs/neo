@@ -52,6 +52,15 @@ Before executing any commands, you MUST orient yourself to the repository's buil
 2. **Discover Capabilities:** Before assuming you know how to perform a multi-step task like testing, debugging, or scaffolding, you must list the contents of `.agent/skills/` to discover what predefined workflows exist for this specific repository. If a skill folder exists for your assigned task, you MUST read its `SKILL.md` before proceeding.
 3. **Propose New Skills:** The Agent Skill system is actively expanding. If you identify a recurring, complex task that lacks a skill, you are highly encouraged to propose creating a new one to the user.
 
+#### Harness Memory-File Wiring
+
+Different AI harnesses auto-load their own "memory file" at session start. Each should be symlinked to `AGENTS.md` to preserve single-source-of-truth across the swarm:
+
+- **Claude Code:** auto-loads `./CLAUDE.md` or `./.claude/CLAUDE.md` (identical precedence per the [Claude Code memory docs](https://code.claude.com/docs/en/memory.md)). The repo wires this via `.claude/CLAUDE.md → ../AGENTS.md`.
+- **Gemini CLI:** reads `.gemini/settings.json` for harness configuration and `.gemini/GEMINI.md` for agent memory.
+
+As new harnesses join the swarm, add their memory-file conventions here.
+
 ### Step 6: Check for Memory Core
 
 - Use the `healthcheck` tool for the `neo.mjs-memory-core` server.
