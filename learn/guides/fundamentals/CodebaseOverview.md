@@ -439,16 +439,30 @@ Offline cognitive maintenance runs as **Node.js scripts**, not MCP protocol oper
 
 ---
 
-### Swarm Skills & Workflows (`/.agent/skills/` - 12 files, ~300 lines)
+### Swarm Skills & Workflows (`/.agent/skills/` - 13 skills)
 
-Formalized Anthropic Progressive Disclosure Skills natively used by the swarm:
-- `create-skill`: Architectural blueprinting for new operational abilities.
-- `self-repair`: Diagnostic workflows utilizing tests and historical Memory Core states to intelligently triage infrastructure degradation.
-- `ideation-sandbox`: Safe brainstorming pipelines mapped directly into GitHub Discussions.
-- `pr-review`: Evaluation matrix templates spanning `[ARCH_ALIGNMENT]` to `[EFFORT_PROFILE]`.
-- `tech-debt-radar`: Proactive architectural sweep using semantic RAG to map and target technical debt.
+Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. Listed in execution-lifecycle order, then tactical, creative, and meta. See [`learn/agentos/ProgressiveDisclosureSkills.md`](../../agentos/ProgressiveDisclosureSkills.md) for the full protocol reference and lifecycle flow diagram.
+
+**Lifecycle (execution gates):**
+- `ticket-intake`: Pre-execution validation gate for existing tickets (validation sweep, ROI calculation, branch-before-code).
+- `ticket-create`: Pre-creation discipline gate for new GitHub issues (duplicate sweep, Fat Ticket body, title/label rules, visible-proposal protocol).
+- `pull-request`: Post-implementation reflection + PR creation (stepping-back protocol, conventional-commit format, handoff sequence).
+- `pr-review`: Evaluation matrix templates spanning `[ARCH_ALIGNMENT]` to `[EFFORT_PROFILE]` + graph ingestion tags for the Dream Pipeline.
+- `tech-debt-radar`: Proactive architectural sweep using semantic RAG to map and target technical debt. Invoked during `ticket-intake` and `pr-review`.
+
+**Tactical (live operations):**
 - `neural-link`: Standard operating procedures for traversing the Object-Permanent VDOM structure.
-- `unit-test`: Synthetically driving Playwright natively.
+- `unit-test`: Synthetically driving Playwright natively within the single-thread architecture.
+- `whitebox-e2e`: Neural Link pre-flight workflow for authoring robust end-to-end tests.
+- `self-repair`: Diagnostic workflows utilizing tests and historical Memory Core states to intelligently triage infrastructure degradation.
+- `memory-mining`: Querying Memory Core before diagnosing regressions or proposing architectural claims — prevents re-derivation of prior reasoning across sessions and harnesses.
+- `debugging-antigravity`: Debugging Antigravity IDE MCP servers, language-server duplication, and `mcpServers` configuration.
+
+**Creative:**
+- `ideation-sandbox`: Safe brainstorming pipelines mapped directly into GitHub Discussions (diverts early-stage proposals away from the active Issue queue).
+
+**Meta:**
+- `create-skill`: Architectural blueprinting for new operational abilities.
 
 ---
 

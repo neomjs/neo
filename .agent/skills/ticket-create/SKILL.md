@@ -1,0 +1,11 @@
+---
+name: ticket-create
+description: Authoritative protocol for creating Neo.mjs GitHub issues. Enforces duplicate sweep, Fat Ticket body structure, strict label rules, title hygiene, visible-proposal protocol, and the five-stage challenge chain at creation time. Use immediately before calling the create_issue MCP tool.
+triggers: Use this skill before any invocation of the create_issue MCP tool. This is the creation-side dual of ticket-intake (which consumes existing tickets).
+---
+
+# Ticket Create Skill
+
+If you are about to create a new GitHub issue, you MUST NOT compose the title, body, or labels ad-hoc — and you MUST NOT skip the pre-creation duplicate sweep.
+
+You MUST immediately use the `view_file` tool to read and strictly adhere to `/Users/Shared/github/neomjs/neo/.agent/skills/ticket-create/references/ticket-create-workflow.md` before proceeding. Or, if you already have the payload in context, proceed directly to its directives.
