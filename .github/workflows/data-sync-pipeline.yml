@@ -40,14 +40,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run devindex:optout
 
-      - name: Run DevIndex Spider (3x Loop)
+      - name: Run DevIndex Spider
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          for i in 1 2 3; do
-            echo "Starting Spider Run $i/3..."
-            npm run devindex:spider -- --strategy random
-          done
+        run: npm run devindex:spider -- --strategy random
 
       - name: Run DevIndex Updater
         run: npm run devindex:update -- --limit=800
