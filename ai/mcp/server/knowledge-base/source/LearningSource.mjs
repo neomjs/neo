@@ -52,7 +52,10 @@ class LearningSource extends Base {
                     const filePath = path.join(learnBasePath, `${item.id}.md`);
                     if (await fs.pathExists(filePath)) {
                         const content = await fs.readFile(filePath, 'utf-8');
-                        const chunks  = DocumentationParser.parse(item, content, filePath);
+                        // Pass the neoRootDir-relative path so stored chunk metadata stays
+                        // portable across distributed Chroma zips (#10097). fs.readFile above
+                        // still uses the absolute path internally.
+                        const chunks  = DocumentationParser.parse(item, content, path.relative(aiConfig.neoRootDir, filePath));
 
                         chunks.forEach(chunk => {
                             chunk.hash = createHashFn(chunk);
