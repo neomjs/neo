@@ -53,10 +53,11 @@ function stableStringify(value) {
  * established by `IssueIngestor` and `FileSystemIngestor` — a singleton with a single public
  * `syncConceptsToGraph()` entry point that DreamService invokes during the REM cycle.
  *
- * **Why differential sync?** The REM pipeline runs on SLMs (currently `gemma4-31b`), which are
- * I/O-bound on SQLite writes when the ontology is large. Hashing concept payloads and skipping
- * unchanged rows eliminates redundant upserts across cycles — 59 nodes today, potentially
- * thousands after #10050/#10036/#10037 enrichment.
+ * **Why differential sync?** The REM pipeline runs on local models (currently `gemma4-31b` — a
+ * 256K-context frontier-capable open-weight model distilled from Gemini 3). Capability is not the
+ * concern; I/O throughput is. Hashing concept payloads and skipping unchanged rows eliminates
+ * redundant SQLite writes across cycles — 59 nodes today, potentially thousands after
+ * #10050/#10036/#10037 enrichment. Cheap, deterministic, auditable.
  *
  * **Why upsert-only, no deletions in Phase 1?** Concept removal is a data-hygiene concern handled
  * by `GraphMaintenanceService`'s Fade / Apoptosis passes. This ingestor is strictly additive.
