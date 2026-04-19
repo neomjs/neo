@@ -98,11 +98,11 @@ class ApiSource extends Base {
                 count += await this.indexRawDirectory(writeStream, createHashFn, relativeEntryPath, defaultType, hierarchy);
             } else if (entry.isFile() && entryName.endsWith('.mjs')) {
                 const content = await fs.readFile(entryPath, 'utf-8');
-                // Emit the ABSOLUTE path as chunk metadata.source so downstream consumers
-                // (notably SearchService) can fs.pathExists / fs.readFile it directly without
-                // CWD-dependent resolution. This aligns ApiSource with the contract already
-                // followed by LearningSource, TicketSource, DiscussionSource, etc. See #10097.
-                const chunks  = SourceParser.parse(content, entryPath, defaultType, hierarchy);
+                // Emit the neoRootDir-relative path as chunk metadata.source so the distributed
+                // Chroma zip shipped with each neo release stays portable across recipients'
+                // filesystems. SearchService resolves against its own neoRootDir at read time.
+                // See #10097 — absolute paths would hard-code tobi's FS layout into the zip.
+                const chunks  = SourceParser.parse(content, relativeEntryPath, defaultType, hierarchy);
 
                 chunks.forEach(chunk => {
                     chunk.hash = createHashFn(chunk);

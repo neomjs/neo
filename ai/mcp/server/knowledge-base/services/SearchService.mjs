@@ -107,14 +107,17 @@ class SearchService extends Base {
 
         // 2. Read file contents for context.
         //
-        // As of #10097 all source loaders (ApiSource, LearningSource, TicketSource,
-        // DiscussionSource, etc.) emit absolute `metadata.source` paths resolved against
-        // `neoRootDir`. This resolve-before-read remains as a defensive safety net:
-        // if a future loader or downstream mutation reintroduces relative-path drift,
-        // the synthesis LLM would silently receive `No Content (File missing or empty)`
-        // context and produce placeholder "I don't have enough information" answers
-        // while references look healthy — the exact failure mode that motivated #10097.
-        // Keep this branch even after the upstream normalization lands.
+        // All source loaders store `metadata.source` as a path relative to `neoRootDir`
+        // so the Chroma collection shipped with each neo release remains portable across
+        // recipients' filesystems. We resolve against the consumer's own `neoRootDir`
+        // at read time. Before #10097 this branch did a bare `fs.pathExists(ref.source)`
+        // which silently succeeded for legacy absolute-path chunks but failed for the
+        // relative-path chunks emitted by ApiSource / TestSource — producing phantom
+        // `No Content (File missing or empty)` context. The synthesis LLM then saw
+        // empty documents and returned placeholder "I don't have enough information"
+        // answers for every `type='src'` / `type='ai-infrastructure'` query. The
+        // `path.isAbsolute` short-circuit keeps legacy absolute-path chunks working
+        // during the grace period when a consumer has not yet re-synced.
         const contextPromises = references.map(async (ref, index) => {
             let content = '';
 
