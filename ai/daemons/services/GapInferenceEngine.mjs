@@ -167,6 +167,13 @@ class GapInferenceEngine extends Base {
         const threshold = aiConfig.data.guideGapWeightThreshold;
 
         for (const concept of conceptNodes) {
+            // #10036: unvalidated concepts (candidates from ConceptDiscoveryService awaiting
+            // curator review) are silenced regardless of weight. Low weight is the primary gate
+            // for legitimate low-priority concepts; the validated flag is the explicit override
+            // for "this hasn't been reviewed yet — don't surface it." Legacy rows without the
+            // field (pre-#10036) have `validated === undefined`, treated as validated.
+            if (concept.properties?.validated === false) continue;
+
             const
                 outboundEdges       = GraphService.db.edges.getByIndex('source', concept.id),
                 explainedByEdges    = outboundEdges.filter(e => e.type === 'EXPLAINED_BY'),

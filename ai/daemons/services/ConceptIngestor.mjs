@@ -101,7 +101,12 @@ class ConceptIngestor extends Base {
             name       : conceptNode.name        ?? '',
             tags       : conceptNode.tags        ?? [],
             tier       : conceptNode.tier        ?? 0,
-            uniqueToNeo: !!conceptNode.uniqueToNeo
+            uniqueToNeo: !!conceptNode.uniqueToNeo,
+            // #10036: validated flag — unvalidated concepts are candidates from ConceptDiscoveryService
+            // awaiting human curation. `undefined` (legacy rows pre-#10036) is treated as validated.
+            // Flipping `validated: false → true` during curator review must trigger re-upsert, so the
+            // flag contributes to the hash.
+            validated  : conceptNode.validated !== false
         };
 
         return crypto.createHash('sha256').update(stableStringify(payload)).digest('hex');
@@ -242,6 +247,7 @@ class ConceptIngestor extends Base {
                             tags       : conceptNode.tags        ?? [],
                             tier       : conceptNode.tier        ?? 0,
                             uniqueToNeo: !!conceptNode.uniqueToNeo,
+                            validated  : conceptNode.validated !== false,
                             weight
                         }
                     });
