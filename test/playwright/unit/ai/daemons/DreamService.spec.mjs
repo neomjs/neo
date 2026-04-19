@@ -181,8 +181,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
 
         // Suppress QueryService dynamic import execution during this deterministic test
         const originalImport = global.import;
-        // 3. Trigger REM sleep cycle
-        await DreamService.executeCapabilityGapInference(session, payload);
+        // 3. Trigger session-scoped TEST_GAP inference (post-#10085 scope split)
+        await DreamService.inferTestGapsFromSession(payload);
 
         // Validate gaps are stored on the node correctly
         const updatedNode = GraphService.db.nodes.get('mock-file-1');
@@ -239,11 +239,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             type  : 'EXEMPLIFIED_BY'
         });
 
-        // Empty session payload — concept-graph pass is session-independent
-        const payload = {session_artifact: {graph: {nodes: [], edges: []}}};
-        const session = {meta: {sessionId: 'playwright-concept-graph-session'}};
-
-        await DreamService.executeCapabilityGapInference(session, payload);
+        // Concept-graph pass is session-independent (hoisted to cycle-scope in #10085).
+        await DreamService.inferConceptGraphGaps();
 
         const covered     = GraphService.db.nodes.get('concept-covered');
         const missingGuide = GraphService.db.nodes.get('concept-missing-guide');
@@ -279,10 +276,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             type  : 'EXPLAINED_BY'
         });
 
-        await DreamService.executeCapabilityGapInference(
-            {meta: {sessionId: 'playwright-example-gap-session'}},
-            {session_artifact: {graph: {nodes: [], edges: []}}}
-        );
+        await DreamService.inferConceptGraphGaps();
 
         const node = GraphService.db.nodes.get('concept-no-example');
 
@@ -302,14 +296,94 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             properties: {name: 'MinorHelper', tier: 3, uniqueToNeo: false, weight: 0.3}
         });
 
-        await DreamService.executeCapabilityGapInference(
-            {meta: {sessionId: 'playwright-low-weight-session'}},
-            {session_artifact: {graph: {nodes: [], edges: []}}}
-        );
+        await DreamService.inferConceptGraphGaps();
 
         const node = GraphService.db.nodes.get('concept-low-weight');
 
         expect(node.properties?.capabilityGap).toBeUndefined();
+    });
+
+    test('processUndigestedSessions calls inferTestGapsFromSession per-session and inferConceptGraphGaps once per cycle (hoist contract — #10085)', async () => {
+        // Locks in the #10085 Item 1 contract: the concept-graph pass is ontology-scoped, so it
+        // must fire exactly once per REM cycle regardless of session count — not N times inside
+        // the per-session loop like the pre-refactor `executeCapabilityGapInference` wrapper did.
+        // Guards against any future "simplification" that re-inlines the cycle-scope call back
+        // into the session loop and silently reintroduces N×M traversal cost at ontology scale.
+
+        const aiConfig                = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const ConceptIngestor         = (await import('../../../../../ai/daemons/services/ConceptIngestor.mjs')).default;
+        const FileSystemIngestor      = (await import('../../../../../ai/mcp/server/memory-core/services/FileSystemIngestor.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../ai/daemons/services/TopologyInferenceEngine.mjs')).default;
+
+        const sessionCount = 3;
+        const mockSessions = Array.from({length: sessionCount}, (_, i) => ({
+            id      : `sess-${i}`,
+            document: 'mock-document',
+            meta    : {sessionId: `sess-${i}`, title: `Mock Session ${i}`}
+        }));
+
+        let testGapCalls                           = 0;
+        let conceptGapCalls                        = 0;
+        let sessionUpdateCount                     = 0;
+        let conceptGapCalledAfterLastSessionUpdate = false;
+
+        const orig = {
+            provider           : aiConfig.modelProvider,
+            findUndigested     : DreamService.findUndigestedSessions,
+            sessionsCollection : DreamService.sessionsCollection,
+            inferTest          : DreamService.inferTestGapsFromSession,
+            inferConcept       : DreamService.inferConceptGraphGaps,
+            runGarbageCol      : DreamService.runGarbageCollection,
+            synthesizeGolden   : DreamService.synthesizeGoldenPath,
+            triVector          : SemanticGraphExtractor.executeTriVectorExtraction,
+            syncConcepts       : ConceptIngestor.syncConceptsToGraph,
+            syncFs             : FileSystemIngestor.syncWorkspaceToGraph,
+            extractTopo        : TopologyInferenceEngine.extractTopology,
+            isProcessing       : DreamService.isProcessing
+        };
+
+        try {
+            aiConfig.modelProvider    = 'mock-provider';
+            DreamService.isProcessing = false;
+
+            DreamService.findUndigestedSessions = async () => mockSessions;
+            DreamService.sessionsCollection     = {
+                update: async () => { sessionUpdateCount++; }
+            };
+            DreamService.inferTestGapsFromSession = async () => { testGapCalls++; };
+            DreamService.inferConceptGraphGaps    = async () => {
+                conceptGapCalls++;
+                conceptGapCalledAfterLastSessionUpdate = (sessionUpdateCount === sessionCount);
+            };
+            DreamService.runGarbageCollection = async () => {};
+            DreamService.synthesizeGoldenPath = async () => {};
+
+            SemanticGraphExtractor.executeTriVectorExtraction = async () => ({
+                session_artifact: {graph: {nodes: [], edges: []}}
+            });
+            ConceptIngestor.syncConceptsToGraph     = async () => ({});
+            FileSystemIngestor.syncWorkspaceToGraph = async () => {};
+            TopologyInferenceEngine.extractTopology = async () => {};
+
+            await DreamService.processUndigestedSessions();
+
+            expect(testGapCalls).toBe(sessionCount);
+            expect(conceptGapCalls).toBe(1);
+            expect(conceptGapCalledAfterLastSessionUpdate).toBe(true);
+        } finally {
+            aiConfig.modelProvider                            = orig.provider;
+            DreamService.findUndigestedSessions               = orig.findUndigested;
+            DreamService.sessionsCollection                   = orig.sessionsCollection;
+            DreamService.inferTestGapsFromSession             = orig.inferTest;
+            DreamService.inferConceptGraphGaps                = orig.inferConcept;
+            DreamService.runGarbageCollection                 = orig.runGarbageCol;
+            DreamService.synthesizeGoldenPath                 = orig.synthesizeGolden;
+            SemanticGraphExtractor.executeTriVectorExtraction = orig.triVector;
+            ConceptIngestor.syncConceptsToGraph               = orig.syncConcepts;
+            FileSystemIngestor.syncWorkspaceToGraph           = orig.syncFs;
+            TopologyInferenceEngine.extractTopology           = orig.extractTopo;
+            DreamService.isProcessing                         = orig.isProcessing;
+        }
     });
 
     test('synthesizeGoldenPath should mathematically select and inject Golden Path while rejecting BLOCKS', async () => {

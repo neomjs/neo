@@ -61,31 +61,20 @@ class GapInferenceEngine extends Base {
     }
 
     /**
-     * Main entry point invoked by DreamService per session. Executes both the structural-node
-     * TEST_GAP pass (session-artifact scoped) and the concept-graph GUIDE_GAP / EXAMPLE_GAP pass
-     * (ontology scoped — session-independent).
-     *
-     * Gaps are persisted as a JSON-array-encoded string on `node.properties.capabilityGap`; each
-     * entry carries a tag prefix (`[TEST_GAP]`, `[GUIDE_GAP]`, `[EXAMPLE_GAP]`) so
-     * `GoldenPathSynthesizer` can categorize them into the correct display section in
-     * `sandman_handoff.md`. The `lastGapCheck` timestamp supports TTL-based staleness pruning.
-     *
-     * @param {Object} session The wrapped session object
-     * @param {Object} payload The parsed Tri-Vector schema from `SemanticGraphExtractor`
-     */
-    async executeCapabilityGapInference(session, payload) {
-        await this.inferTestGapsFromSession(payload);
-        await this.inferConceptGraphGaps();
-    }
-
-    /**
-     * Pass 1: per-structural-node TEST_GAP inference. Iterates CLASS / METHOD / COMPONENT nodes
+     * Session-scoped TEST_GAP inference entry point. Iterates CLASS / METHOD / COMPONENT nodes
      * from the session artifact and checks for a matching test file via tokenized regex scan.
      * Preserved from pre-#10035 behavior. Internal-config lifecycle hooks (`beforeSet*`,
      * `afterSet*`, `beforeGet*`) are excluded since they're structurally shared and not
      * individually testable.
-     * @param {Object} payload The parsed Tri-Vector schema
-     * @protected
+     *
+     * Gaps are persisted as a JSON-array-encoded string on `node.properties.capabilityGap` with
+     * `[TEST_GAP]` prefix so `GoldenPathSynthesizer` can categorize them into the correct
+     * `sandman_handoff.md` section. The `lastGapCheck` timestamp supports TTL-based staleness
+     * pruning.
+     *
+     * Paired with `inferConceptGraphGaps` — which runs at cycle-scope, not per-session — to form
+     * the full capability-gap pass. See #10085 for the scope split rationale.
+     * @param {Object} payload The parsed Tri-Vector schema from `SemanticGraphExtractor`
      */
     async inferTestGapsFromSession(payload) {
         if (!payload || !payload.session_artifact || !payload.session_artifact.graph || !payload.session_artifact.graph.nodes) return;
@@ -148,7 +137,11 @@ class GapInferenceEngine extends Base {
      * (`file:learn/guides/X.md`, `ext:react-jsx`) that are deliberately NOT materialized as graph
      * nodes. `getAdjacentNodes` would return empty for these targets and mis-flag every concept
      * as a guide gap. See #10035 for the architectural decision.
-     * @protected
+     *
+     * **Scope:** cycle-scoped. Output depends only on ontology state, not on any individual
+     * session — invoked once per REM cycle from `DreamService.processUndigestedSessions` after
+     * the per-session loop, before garbage collection. See #10085 for why this was hoisted out
+     * of the per-session loop.
      */
     async inferConceptGraphGaps() {
         const conceptNodes = GraphService.db.nodes.items.filter(n => n.label === 'CONCEPT');
