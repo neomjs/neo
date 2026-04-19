@@ -204,9 +204,9 @@ class DreamService extends Base {
                 logger.info(`[DreamService]   -> Topological Conflicts took: ${topoTime}s`);
                 
                 const capStart = Date.now();
-                await this.executeCapabilityGapInference(session, success);
+                await this.inferTestGapsFromSession(success);
                 const capTime = ((Date.now() - capStart) / 1000).toFixed(1);
-                logger.info(`[DreamService]   -> Capability Gap Inference took: ${capTime}s`);
+                logger.info(`[DreamService]   -> Session TEST_GAP Inference took: ${capTime}s`);
 
                 logger.info(`[DreamService] Total Session Digest Time: ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
 
@@ -218,6 +218,13 @@ class DreamService extends Base {
                     logger.info(`[DreamService] Session ${session.meta.sessionId} marked as graphDigested in Memory Core.`);
                 }
                 }
+
+                // Hoisted from the per-session loop (#10085): concept-graph gap inference is
+                // ontology-scoped — same output every invocation within a single REM cycle — so
+                // running it once after the session loop replaces N redundant traversals.
+                const conceptGapStart = Date.now();
+                await this.inferConceptGraphGaps();
+                logger.info(`[DreamService] Cycle-scope GUIDE_GAP / EXAMPLE_GAP Inference took: ${((Date.now() - conceptGapStart) / 1000).toFixed(1)}s`);
             }
 
             // Universal Fade (Garbage Collection)
@@ -235,12 +242,25 @@ class DreamService extends Base {
     }
 
     /**
-     * Executes Capability Gap Inference natively via dynamic filesystem evaluation mathematically (bypassing LLM hallucinations).
-     * @param {Object} session The wrapped session object
-     * @param {Object} payload The parsed Tri-Vector schema
+     * Cycle-scoped GUIDE_GAP / EXAMPLE_GAP inference entry point. Delegates to
+     * `GapInferenceEngine` for deterministic concept-graph edge traversal (`EXPLAINED_BY` /
+     * `EXEMPLIFIED_BY`). Output depends only on ontology state, not on any individual session —
+     * invoked once per REM cycle after the per-session loop, before `runGarbageCollection`.
+     * Paired with `inferTestGapsFromSession` (session-scoped). See #10085 for the scope split.
      */
-    async executeCapabilityGapInference(session, payload) {
-        return GapInferenceEngine.executeCapabilityGapInference(session, payload);
+    async inferConceptGraphGaps() {
+        return GapInferenceEngine.inferConceptGraphGaps();
+    }
+
+    /**
+     * Session-scoped TEST_GAP inference entry point. Delegates to `GapInferenceEngine` for
+     * structural-node (CLASS / METHOD / COMPONENT) test-file coverage checks keyed to the
+     * current session's artifact. Invoked inside the REM loop once per session.
+     * Paired with `inferConceptGraphGaps` (cycle-scoped). See #10085 for the scope split.
+     * @param {Object} payload The parsed Tri-Vector schema from `SemanticGraphExtractor`
+     */
+    async inferTestGapsFromSession(payload) {
+        return GapInferenceEngine.inferTestGapsFromSession(payload);
     }
 
     /**

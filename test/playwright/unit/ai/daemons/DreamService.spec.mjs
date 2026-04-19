@@ -181,8 +181,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
 
         // Suppress QueryService dynamic import execution during this deterministic test
         const originalImport = global.import;
-        // 3. Trigger REM sleep cycle
-        await DreamService.executeCapabilityGapInference(session, payload);
+        // 3. Trigger session-scoped TEST_GAP inference (post-#10085 scope split)
+        await DreamService.inferTestGapsFromSession(payload);
 
         // Validate gaps are stored on the node correctly
         const updatedNode = GraphService.db.nodes.get('mock-file-1');
@@ -239,11 +239,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             type  : 'EXEMPLIFIED_BY'
         });
 
-        // Empty session payload — concept-graph pass is session-independent
-        const payload = {session_artifact: {graph: {nodes: [], edges: []}}};
-        const session = {meta: {sessionId: 'playwright-concept-graph-session'}};
-
-        await DreamService.executeCapabilityGapInference(session, payload);
+        // Concept-graph pass is session-independent (hoisted to cycle-scope in #10085).
+        await DreamService.inferConceptGraphGaps();
 
         const covered     = GraphService.db.nodes.get('concept-covered');
         const missingGuide = GraphService.db.nodes.get('concept-missing-guide');
@@ -279,10 +276,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             type  : 'EXPLAINED_BY'
         });
 
-        await DreamService.executeCapabilityGapInference(
-            {meta: {sessionId: 'playwright-example-gap-session'}},
-            {session_artifact: {graph: {nodes: [], edges: []}}}
-        );
+        await DreamService.inferConceptGraphGaps();
 
         const node = GraphService.db.nodes.get('concept-no-example');
 
@@ -302,10 +296,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             properties: {name: 'MinorHelper', tier: 3, uniqueToNeo: false, weight: 0.3}
         });
 
-        await DreamService.executeCapabilityGapInference(
-            {meta: {sessionId: 'playwright-low-weight-session'}},
-            {session_artifact: {graph: {nodes: [], edges: []}}}
-        );
+        await DreamService.inferConceptGraphGaps();
 
         const node = GraphService.db.nodes.get('concept-low-weight');
 
