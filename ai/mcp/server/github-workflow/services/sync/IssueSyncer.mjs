@@ -142,7 +142,6 @@ class IssueSyncer extends Base {
             githubUrl         : issue.url,
             author            : issue.author.login,
             commentsCount     : this.#countTimelineComments(issue), // Derived from the exhausted timeline — #10110
-
             parentIssue       : issue.parent ? issue.parent.number : null,
             subIssues         : issue.subIssues?.nodes.map(sub => `[${sub.state === 'CLOSED' ? 'x' : ' '}] ${sub.number} ${sub.title.replace(lineBreaksRegex, ' ')}`) || [],
             subIssuesCompleted: issue.subIssuesSummary?.completed || 0,
