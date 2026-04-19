@@ -184,10 +184,13 @@ class ConceptIngestor extends Base {
      * edges (PARENT_CONCEPT, IMPLEMENTED_BY, EXPLAINED_BY, EXEMPLIFIED_BY, ANALOGOUS_TO),
      * and skips unchanged payloads via sha256 hash comparison.
      *
-     * Orphan concepts (concepts with NO outbound IMPLEMENTED_BY edge) are surfaced via
-     * `logger.warn` during ingestion rather than written to the capability-gap channel —
-     * orphans are ontology data-quality signals, not documentation coverage gaps, and
-     * conflating them would dilute the gap-channel signal consumed by `GoldenPathSynthesizer`.
+     * Orphan concepts (concepts with NO outbound IMPLEMENTED_BY edge) are counted in the
+     * returned stats for the cycle-summary `logger.info` line. They are NOT written to the
+     * `capabilityGap` channel from this service — that emission lives in
+     * `GapInferenceEngine.inferConceptGraphGaps`, which weight-gates the signal and routes it
+     * through the same `capabilityGap` tag channel + `sandman_handoff.md` section pattern as
+     * `[GUIDE_GAP]` and `[EXAMPLE_GAP]`. See #10087 for the architectural rationale — per-orphan
+     * `logger.warn` was ephemeral in an offline daemon, the graph+handoff plane is durable.
      *
      * @returns {Promise<Object>} Ingestion statistics: `{conceptsProcessed, conceptsUpserted, conceptsSkipped, edgesReplaced, orphansDetected, errors}`
      */
@@ -258,10 +261,12 @@ class ConceptIngestor extends Base {
                     stats.edgesReplaced += newEdges.length;
 
                     // Orphan detection — no IMPLEMENTED_BY means no source code anchors this concept.
+                    // Counted here for the cycle-summary stats line; the actionable `[ORPHAN_CONCEPT]`
+                    // gap signal is emitted by `GapInferenceEngine.inferConceptGraphGaps` through the
+                    // durable `capabilityGap` channel + `sandman_handoff.md` section (see #10087).
                     const hasImplementedBy = newEdges.some(e => e.type === CONCEPT_EDGE_TYPES.IMPLEMENTED_BY);
                     if (!hasImplementedBy && conceptNode.tier > 0) {
                         stats.orphansDetected++;
-                        logger.warn(`[ConceptIngestor] Orphan concept detected: '${conceptNode.name}' (id: ${conceptId}, tier: ${conceptNode.tier}) has no IMPLEMENTED_BY edge. Possible ontology data-quality issue — review nodes.jsonl.`);
                     }
                 } catch (e) {
                     stats.errors.push(`[${conceptId}] ${e.message}`);

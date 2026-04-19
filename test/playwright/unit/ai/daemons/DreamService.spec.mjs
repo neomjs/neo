@@ -214,8 +214,9 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         });
 
         // Seed target stub nodes (SQLite FK constraint on edges.target → nodes.id) then the edges.
-        // The "covered" concept needs BOTH EXPLAINED_BY (no guide gap) and EXEMPLIFIED_BY
-        // (no example gap) — otherwise it'd correctly emit [EXAMPLE_GAP].
+        // The "covered" concept needs EXPLAINED_BY (no guide gap), EXEMPLIFIED_BY (no example gap),
+        // AND IMPLEMENTED_BY (no orphan gap post-#10087) — otherwise it'd correctly emit one of
+        // those signals instead of being fully covered.
         GraphService.upsertNode({
             id        : 'file:learn/guides/Threading.md',
             type      : 'FILE',
@@ -228,6 +229,12 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             name      : 'file:examples/threading/demo.mjs',
             properties: {isConceptEdgeStub: true}
         });
+        GraphService.upsertNode({
+            id        : 'file:src/worker/Manager.mjs',
+            type      : 'FILE',
+            name      : 'file:src/worker/Manager.mjs',
+            properties: {isConceptEdgeStub: true}
+        });
         GraphService.db.addEdge({
             source: 'concept-covered',
             target: 'file:learn/guides/Threading.md',
@@ -237,6 +244,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             source: 'concept-covered',
             target: 'file:examples/threading/demo.mjs',
             type  : 'EXEMPLIFIED_BY'
+        });
+        GraphService.db.addEdge({
+            source: 'concept-covered',
+            target: 'file:src/worker/Manager.mjs',
+            type  : 'IMPLEMENTED_BY'
         });
 
         // Concept-graph pass is session-independent (hoisted to cycle-scope in #10085).
@@ -301,6 +313,79 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         const node = GraphService.db.nodes.get('concept-low-weight');
 
         expect(node.properties?.capabilityGap).toBeUndefined();
+    });
+
+    test('should detect ORPHAN_CONCEPT for concepts with no IMPLEMENTED_BY edge (#10087)', async () => {
+        // #10087: concepts without source-code anchoring emit `[ORPHAN_CONCEPT]` via the durable
+        // `capabilityGap` channel rather than the deprecated per-orphan `logger.warn` in
+        // `ConceptIngestor`. Shares the same `GUIDE_GAP_WEIGHT_THRESHOLD` weight gate as
+        // `[GUIDE_GAP]` / `[EXAMPLE_GAP]` so low-priority concepts don't flood the handoff.
+
+        // Concept A: fully wired (EXPLAINED_BY + EXEMPLIFIED_BY + IMPLEMENTED_BY) — no gaps
+        GraphService.upsertNode({
+            id        : 'concept-anchored',
+            type      : 'CONCEPT',
+            name      : 'Anchored',
+            properties: {name: 'Anchored', tier: 1, uniqueToNeo: true, weight: 1.0}
+        });
+
+        // Concept B: has guide + example but NO implementation — ORPHAN_CONCEPT only
+        GraphService.upsertNode({
+            id        : 'concept-orphan',
+            type      : 'CONCEPT',
+            name      : 'OrphanExample',
+            properties: {name: 'OrphanExample', tier: 1, uniqueToNeo: true, weight: 1.0}
+        });
+
+        // Concept C: low weight, no edges — weight gate blocks ORPHAN_CONCEPT emission
+        GraphService.upsertNode({
+            id        : 'concept-low-orphan',
+            type      : 'CONCEPT',
+            name      : 'LowWeightOrphan',
+            properties: {name: 'LowWeightOrphan', tier: 3, uniqueToNeo: false, weight: 0.3}
+        });
+
+        // Seed stub nodes for edge targets (SQLite FK on edges.target → nodes.id)
+        [
+            'file:src/Anchored.mjs',
+            'file:learn/guides/Anchored.md',
+            'file:examples/anchored.mjs',
+            'file:learn/guides/OrphanExample.md',
+            'file:examples/orphan-example.mjs'
+        ].forEach(id => GraphService.upsertNode({
+            id, type: 'FILE', name: id, properties: {isConceptEdgeStub: true}
+        }));
+
+        // concept-anchored: all three edges present
+        GraphService.db.addEdge({source: 'concept-anchored', target: 'file:src/Anchored.mjs',        type: 'IMPLEMENTED_BY'});
+        GraphService.db.addEdge({source: 'concept-anchored', target: 'file:learn/guides/Anchored.md', type: 'EXPLAINED_BY'});
+        GraphService.db.addEdge({source: 'concept-anchored', target: 'file:examples/anchored.mjs',    type: 'EXEMPLIFIED_BY'});
+
+        // concept-orphan: guide + example only; missing IMPLEMENTED_BY
+        GraphService.db.addEdge({source: 'concept-orphan', target: 'file:learn/guides/OrphanExample.md', type: 'EXPLAINED_BY'});
+        GraphService.db.addEdge({source: 'concept-orphan', target: 'file:examples/orphan-example.mjs',   type: 'EXEMPLIFIED_BY'});
+
+        // concept-low-orphan: no edges (weight gate should skip it)
+
+        await DreamService.inferConceptGraphGaps();
+
+        const anchored  = GraphService.db.nodes.get('concept-anchored');
+        const orphan    = GraphService.db.nodes.get('concept-orphan');
+        const lowOrphan = GraphService.db.nodes.get('concept-low-orphan');
+
+        // Fully-wired concept → no capabilityGap writes
+        expect(anchored.properties.capabilityGap).toBeUndefined();
+
+        // Missing-implementation concept → ORPHAN_CONCEPT only (guide + example present)
+        expect(orphan.properties.capabilityGap).toBeDefined();
+        expect(orphan.properties.capabilityGap).toContain('[ORPHAN_CONCEPT]');
+        expect(orphan.properties.capabilityGap).toContain('OrphanExample');
+        expect(orphan.properties.capabilityGap).toContain('IMPLEMENTED_BY');
+        expect(orphan.properties.capabilityGap).not.toContain('[GUIDE_GAP]');
+        expect(orphan.properties.capabilityGap).not.toContain('[EXAMPLE_GAP]');
+
+        // Low-weight concept → weight gate blocks all three signals
+        expect(lowOrphan.properties?.capabilityGap).toBeUndefined();
     });
 
     test('processUndigestedSessions calls inferTestGapsFromSession per-session and inferConceptGraphGaps once per cycle (hoist contract — #10085)', async () => {
@@ -438,7 +523,16 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
              { id: 'task-blocked', properties: { state: 'OPEN' } },
              { id: 'blocker', properties: { state: 'OPEN' } },
              { id: 'weak-task', properties: { state: 'OPEN' } },
-             { id: 'rejected-task', properties: { state: 'OPEN', labels: ['needs-re-triage'] } }
+             { id: 'rejected-task', properties: { state: 'OPEN', labels: ['needs-re-triage'] } },
+             // #10087: planted CONCEPT with ORPHAN_CONCEPT gap to verify the ⚠️ section renders
+             // in sandman_handoff.md alongside the existing TEST/GUIDE/EXAMPLE sections.
+             { id: 'concept-orphan-render-test', properties: {
+                 state        : 'OPEN',
+                 capabilityGap: JSON.stringify([
+                     "[ORPHAN_CONCEPT] The CONCEPT 'Reactivity' has no IMPLEMENTED_BY edge — either anchor it to a source file or retire the concept from nodes.jsonl if aspirational/stale."
+                 ]),
+                 lastGapCheck: Date.now()
+             } }
         ];
 
         GraphService.db.edges.getByIndex = (idx, val) => {
@@ -478,6 +572,10 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         expect(finalContent).toContain('Math synthesis works natively.');
         expect(finalContent.indexOf('- **[Codebase Gap]**')).toBeLessThan(finalContent.indexOf('## Computed Golden Path'));
         expect(finalContent).not.toContain('Old Path');
+
+        // #10087: planted CONCEPT with [ORPHAN_CONCEPT] must surface as a dedicated section
+        expect(finalContent).toContain('⚠️ Orphaned Concepts');
+        expect(finalContent).toContain('Reactivity');
 
         // Run AGAIN to trigger duplication prevention natively
         await DreamService.synthesizeGoldenPath();
