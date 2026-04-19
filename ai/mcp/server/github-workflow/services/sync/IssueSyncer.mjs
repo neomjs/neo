@@ -7,8 +7,8 @@ import matter                                        from 'gray-matter';
 import path                                          from 'path';
 import GraphqlService                                from '../GraphqlService.mjs';
 import ReleaseSyncer                                 from './ReleaseSyncer.mjs';
-import {FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries.mjs';
-import {GET_ISSUE_ID, UPDATE_ISSUE}                  from '../queries/mutations.mjs';
+import {FETCH_ISSUE_TIMELINE_PAGE, FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries.mjs';
+import {GET_ISSUE_ID, UPDATE_ISSUE}                                            from '../queries/mutations.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const lineBreaksRegex = /[\r\n]+/g;
@@ -49,6 +49,57 @@ class IssueSyncer extends Base {
      */
     #calculateContentHash(content) {
         return crypto.createHash('sha256').update(content).digest('hex');
+    }
+
+    /**
+     * @summary Continuation-fetches remaining timelineItems pages for an issue until exhausted.
+     *
+     * GitHub's GraphQL `timelineItems` connection returns events oldest-first with no `orderBy`,
+     * so the default `first: N` request truncates the tail. Once total events exceed N, newly-
+     * authored comments and structural events silently disappear from the rendered markdown
+     * while scalar metadata (`updatedAt`, `comments.totalCount`) stays correct — a divergence
+     * between the metadata path and the content-rendering path.
+     *
+     * This helper is the pagination primitive: it detects `pageInfo.hasNextPage` and loops
+     * `FETCH_ISSUE_TIMELINE_PAGE` with the previous cursor, concatenating nodes in place on
+     * the issue object. Emits a warning log on continuation to make cap-edge conditions visible.
+     *
+     * @param {object} issue The GraphQL issue node with its first page of timelineItems already populated.
+     * @returns {Promise<void>}
+     * @private
+     * @see https://github.com/neomjs/neo/issues/10090
+     */
+    async #exhaustTimelineItems(issue) {
+        if (!issue.timelineItems?.pageInfo?.hasNextPage) return;
+
+        const startCount = issue.timelineItems.nodes.length;
+        let   cursor     = issue.timelineItems.pageInfo.endCursor;
+        const allNodes   = [...issue.timelineItems.nodes];
+
+        logger.warn(`⚠️ Timeline continuation required for #${issue.number} — first page had ${startCount} events, more pending`);
+
+        while (cursor) {
+            const data = await GraphqlService.query(
+                FETCH_ISSUE_TIMELINE_PAGE,
+                {
+                    owner           : aiConfig.owner,
+                    repo            : aiConfig.repo,
+                    number          : issue.number,
+                    maxTimelineItems: issueSyncConfig.maxTimelineItemsPerIssue,
+                    cursor
+                },
+                true // sub-issues feature
+            );
+
+            const page = data.repository.issue.timelineItems;
+            allNodes.push(...page.nodes);
+            logger.info(`  📄 Fetched timeline page for #${issue.number}: +${page.nodes.length} events (cumulative: ${allNodes.length})`);
+
+            cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+        }
+
+        issue.timelineItems.nodes    = allNodes;
+        issue.timelineItems.pageInfo = {hasNextPage: false, endCursor: null};
     }
 
     /**
@@ -360,7 +411,10 @@ class IssueSyncer extends Base {
                 stats.pulled.count++;
                 stats.pulled.issues.push(issueNumber);
 
-                // Comments are already in issue.comments - no separate fetch needed!
+                // Continuation-fetch the full timeline if the first page was truncated.
+                // Prevents silent comment-body + structural-event loss on active Epics (#10090).
+                await this.#exhaustTimelineItems(issue);
+
                 const markdown = this.#formatIssueMarkdown(issue);
                 contentHash = this.#calculateContentHash(markdown);
 
@@ -455,57 +509,94 @@ class IssueSyncer extends Base {
 
         if (relatedIssuesToUpdate.size > 0) {
             logger.info(`🔄 Force-updating ${relatedIssuesToUpdate.size} related issues due to relationship activity...`);
-
-            for (const relatedIssueNumber of relatedIssuesToUpdate) {
-                try {
-                    const data = await GraphqlService.query(
-                        FETCH_SINGLE_ISSUE,
-                        {
-                            owner           : aiConfig.owner,
-                            repo            : aiConfig.repo,
-                            number          : relatedIssueNumber,
-                            maxLabels       : issueSyncConfig.maxLabelsPerIssue,
-                            maxAssignees    : issueSyncConfig.maxAssigneesPerIssue,
-                            maxComments     : issueSyncConfig.maxCommentsPerIssue,
-                            maxSubIssues    : issueSyncConfig.maxSubIssuesPerIssue,
-                            maxTimelineItems: issueSyncConfig.maxTimelineItemsPerIssue
-                        },
-                        true // Enable sub-issues
-                    );
-
-                    const issue = data.repository.issue;
-                    if (!issue) continue;
-
-                    const targetPath = this.#getIssuePath(issue);
-                    if (!targetPath) continue;
-
-                    const markdown    = this.#formatIssueMarkdown(issue);
-                    const contentHash = this.#calculateContentHash(markdown);
-
-                    await fs.mkdir(path.dirname(targetPath), { recursive: true });
-                    await fs.writeFile(targetPath, markdown, 'utf-8');
-
-                    stats.pulled.updated++;
-                    stats.pulled.issues.push(relatedIssueNumber);
-                    logger.info(`✅ Force-updated related issue #${relatedIssueNumber}`);
-
-                    newMetadata.issues[relatedIssueNumber] = {
-                        state    : issue.state,
-                        path     : this.#relativePath(targetPath), // Store relative path
-                        updatedAt: issue.updatedAt,
-                        closedAt : issue.closedAt || null,
-                        milestone: issue.milestone?.title || null,
-                        title    : issue.title,
-                        contentHash
-                    };
-
-                } catch (e) {
-                    logger.error(`Failed to force-update related issue #${relatedIssueNumber}: ${e.message}`);
-                }
-            }
+            const refetchStats = await this.refetchIssuesByNumber([...relatedIssuesToUpdate], newMetadata);
+            stats.pulled.count   += refetchStats.refetched.count;
+            stats.pulled.updated += refetchStats.refetched.count;
+            stats.pulled.issues.push(...refetchStats.refetched.issues);
         }
 
         return { newMetadata, stats };
+    }
+
+    /**
+     * @summary Force-refetches the given issues from GitHub and rewrites their local markdown.
+     *
+     * Bypasses the delta-sync `updatedAt` gate. Use this when the local file is known to have
+     * drifted from GitHub for reasons that do NOT bump `issue.updatedAt`:
+     *   - `timelineItems` truncation (the original cap-related divergence — see #10090)
+     *   - Comment deletions (GitHub does not update `updatedAt` on delete)
+     *   - Relationship events (sub-issue/blocking edges) when both sides are outside the delta window
+     *
+     * This method is the single recovery primitive: it fetches each issue via `FETCH_SINGLE_ISSUE`,
+     * exhausts the full timelineItems connection via `#exhaustTimelineItems`, re-renders markdown,
+     * writes the file, and mutates the passed `metadata` in place. Caller is responsible for
+     * persisting metadata afterwards.
+     *
+     * The internal pullFromGitHub's related-issue force-update loop delegates here, and the
+     * `ai/scripts/detectTruncatedTimelines.mjs` recovery step invokes it via GH_SyncService.
+     *
+     * @param {Array<number>|Set<number>} numbers The issue numbers to refetch.
+     * @param {object} metadata The sync metadata object (mutated in place).
+     * @returns {Promise<{refetched: {count: number, issues: number[]}, errors: Array<{issueNumber: number, error: string}>}>}
+     */
+    async refetchIssuesByNumber(numbers, metadata) {
+        const stats = {refetched: {count: 0, issues: []}, errors: []};
+        const list  = [...numbers];
+
+        for (const issueNumber of list) {
+            try {
+                const data = await GraphqlService.query(
+                    FETCH_SINGLE_ISSUE,
+                    {
+                        owner           : aiConfig.owner,
+                        repo            : aiConfig.repo,
+                        number          : issueNumber,
+                        maxLabels       : issueSyncConfig.maxLabelsPerIssue,
+                        maxAssignees    : issueSyncConfig.maxAssigneesPerIssue,
+                        maxComments     : issueSyncConfig.maxCommentsPerIssue,
+                        maxSubIssues    : issueSyncConfig.maxSubIssuesPerIssue,
+                        maxTimelineItems: issueSyncConfig.maxTimelineItemsPerIssue
+                    },
+                    true
+                );
+
+                const issue = data.repository.issue;
+                if (!issue) {
+                    logger.warn(`Issue #${issueNumber} not found on GitHub, skipping refetch`);
+                    continue;
+                }
+
+                await this.#exhaustTimelineItems(issue);
+
+                const targetPath = this.#getIssuePath(issue);
+                if (!targetPath) continue;
+
+                const markdown    = this.#formatIssueMarkdown(issue);
+                const contentHash = this.#calculateContentHash(markdown);
+
+                await fs.mkdir(path.dirname(targetPath), {recursive: true});
+                await fs.writeFile(targetPath, markdown, 'utf-8');
+
+                stats.refetched.count++;
+                stats.refetched.issues.push(issueNumber);
+                logger.info(`✅ Refetched issue #${issueNumber}`);
+
+                metadata.issues[issueNumber] = {
+                    state    : issue.state,
+                    path     : this.#relativePath(targetPath),
+                    updatedAt: issue.updatedAt,
+                    closedAt : issue.closedAt || null,
+                    milestone: issue.milestone?.title || null,
+                    title    : issue.title,
+                    contentHash
+                };
+            } catch (e) {
+                logger.error(`Failed to refetch issue #${issueNumber}: ${e.message}`);
+                stats.errors.push({issueNumber, error: e.message});
+            }
+        }
+
+        return stats;
     }
 
     /**

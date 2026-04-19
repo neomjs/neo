@@ -149,7 +149,7 @@ export const FETCH_ISSUES_FOR_SYNC = `
               RENAMED_TITLE_EVENT,    # Title updates
               MILESTONED_EVENT,       # Added to milestone
               DEMILESTONED_EVENT,     # Removed from milestone
-              
+
               # Relationship Events
               # Critical for sync: Adding/removing sub-issues does not always bump the parent's updatedAt.
               SUB_ISSUE_ADDED_EVENT,
@@ -161,6 +161,10 @@ export const FETCH_ISSUES_FOR_SYNC = `
               BLOCKED_BY_REMOVED_EVENT,
               BLOCKING_REMOVED_EVENT
             ]) {
+            # pageInfo enables continuation-fetching when an issue's timeline has outgrown
+            # a single page of \`maxTimelineItems\`. Without this, tail events (including
+            # newly-authored comments) are silently dropped once totalCount > first. See #10090.
+            pageInfo { hasNextPage endCursor }
             nodes {
               __typename
               ... on IssueComment {
@@ -289,7 +293,7 @@ export const FETCH_ISSUES_FOR_SYNC = `
         }
       }
     }
-    
+
     # Monitor rate limit usage
     rateLimit {
       cost
@@ -475,6 +479,9 @@ export const FETCH_SINGLE_ISSUE = `
               BLOCKED_BY_REMOVED_EVENT,
               BLOCKING_REMOVED_EVENT
             ]) {
+            # pageInfo enables continuation-fetching for issues whose timeline has outgrown
+            # a single page of \`maxTimelineItems\`. See FETCH_ISSUES_FOR_SYNC above for detail.
+            pageInfo { hasNextPage endCursor }
             nodes {
               __typename
               ... on IssueComment {
@@ -602,6 +609,167 @@ export const FETCH_SINGLE_ISSUE = `
           }
       }
     }
+  }
+`;
+
+/**
+ * Continuation query for a single issue's timelineItems connection.
+ *
+ * Used by IssueSyncer when an issue's timeline exceeds one page of \`maxTimelineItems\` —
+ * i.e. \`FETCH_ISSUES_FOR_SYNC\` or \`FETCH_SINGLE_ISSUE\` returned \`pageInfo.hasNextPage: true\`.
+ * Fetches only the next page of timeline events (no redundant issue metadata) keyed by the
+ * cursor from the prior page.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ * - $number: Int!
+ * - $maxTimelineItems: Int!
+ * - $cursor: String! - The endCursor from the previous page's pageInfo
+ */
+export const FETCH_ISSUE_TIMELINE_PAGE = `
+  query FetchIssueTimelinePage(
+    $owner: String!
+    $repo: String!
+    $number: Int!
+    $maxTimelineItems: Int!
+    $cursor: String!
+  ) {
+    repository(owner: $owner, name: $repo) {
+      issue(number: $number) {
+        timelineItems(
+          first: $maxTimelineItems,
+          after: $cursor,
+          itemTypes: [
+            REFERENCED_EVENT,
+            CROSS_REFERENCED_EVENT,
+            LABELED_EVENT,
+            UNLABELED_EVENT,
+            ASSIGNED_EVENT,
+            UNASSIGNED_EVENT,
+            CLOSED_EVENT,
+            ISSUE_COMMENT,
+            REOPENED_EVENT,
+            RENAMED_TITLE_EVENT,
+            MILESTONED_EVENT,
+            DEMILESTONED_EVENT,
+            SUB_ISSUE_ADDED_EVENT,
+            SUB_ISSUE_REMOVED_EVENT,
+            PARENT_ISSUE_ADDED_EVENT,
+            PARENT_ISSUE_REMOVED_EVENT,
+            BLOCKED_BY_ADDED_EVENT,
+            BLOCKING_ADDED_EVENT,
+            BLOCKED_BY_REMOVED_EVENT,
+            BLOCKING_REMOVED_EVENT
+          ]
+        ) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            __typename
+            ... on IssueComment {
+              createdAt
+              author { login }
+              body
+            }
+            ... on ReferencedEvent {
+              createdAt
+              actor { login }
+              commit { oid message }
+            }
+            ... on CrossReferencedEvent {
+              createdAt
+              actor { login }
+              source { __typename ... on Issue { number } ... on PullRequest { number } }
+            }
+            ... on LabeledEvent {
+              createdAt
+              actor { login }
+              label { name }
+            }
+            ... on UnlabeledEvent {
+              createdAt
+              actor { login }
+              label { name }
+            }
+            ... on AssignedEvent {
+              createdAt
+              actor { login }
+              assignee { ... on User { login } }
+            }
+            ... on UnassignedEvent {
+              createdAt
+              actor { login }
+              assignee { ... on User { login } }
+            }
+            ... on ClosedEvent {
+              createdAt
+              actor { login }
+            }
+            ... on ReopenedEvent {
+              createdAt
+              actor { login }
+            }
+            ... on RenamedTitleEvent {
+              createdAt
+              actor { login }
+              previousTitle
+              currentTitle
+            }
+            ... on MilestonedEvent {
+              createdAt
+              actor { login }
+              milestoneTitle
+            }
+            ... on DemilestonedEvent {
+              createdAt
+              actor { login }
+              milestoneTitle
+            }
+            ... on SubIssueAddedEvent {
+              createdAt
+              actor { login }
+              subIssue { number }
+            }
+            ... on SubIssueRemovedEvent {
+              createdAt
+              actor { login }
+              subIssue { number }
+            }
+            ... on ParentIssueAddedEvent {
+              createdAt
+              actor { login }
+              parent { number }
+            }
+            ... on ParentIssueRemovedEvent {
+              createdAt
+              actor { login }
+              parent { number }
+            }
+            ... on BlockedByAddedEvent {
+              createdAt
+              actor { login }
+              blockingIssue { number }
+            }
+            ... on BlockingAddedEvent {
+              createdAt
+              actor { login }
+              blockedIssue { number }
+            }
+            ... on BlockedByRemovedEvent {
+              createdAt
+              actor { login }
+              blockingIssue { number }
+            }
+            ... on BlockingRemovedEvent {
+              createdAt
+              actor { login }
+              blockedIssue { number }
+            }
+          }
+        }
+      }
+    }
+    rateLimit { cost remaining resetAt }
   }
 `;
 
