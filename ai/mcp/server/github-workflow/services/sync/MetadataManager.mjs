@@ -75,11 +75,16 @@ class MetadataManager extends Base {
         // Prune issues
         for (const [key, value] of Object.entries(metadata.issues)) {
             prunedMetadata.issues[key] = {
-                state      : value.state,
-                path       : value.path,
-                closedAt   : value.closedAt,
-                updatedAt  : value.updatedAt,
-                contentHash: value.contentHash
+                state        : value.state,
+                path         : value.path,
+                closedAt     : value.closedAt,
+                updatedAt    : value.updatedAt,
+                contentHash  : value.contentHash,
+                // commentsTotal is the sentinel field that the stale-counts sweep compares against
+                // live GitHub state to catch updatedAt-blind drift (notably comment deletions — see
+                // #10092). May be undefined on pre-migration entries; detectStaleCommentsCounts seeds
+                // missing values lazily without triggering a refetch.
+                commentsTotal: value.commentsTotal
             };
         }
 
