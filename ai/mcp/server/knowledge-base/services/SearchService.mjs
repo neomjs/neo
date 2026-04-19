@@ -4,6 +4,7 @@ import Base                 from '../../../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
 import fs                   from 'fs-extra';
 import logger               from '../logger.mjs';
+import path                 from 'path';
 import QueryService         from './QueryService.mjs';
 
 /**
@@ -104,20 +105,35 @@ class SearchService extends Base {
             score : Number(r.score)
         }));
 
-        // 2. Read file contents for context
+        // 2. Read file contents for context.
+        //
+        // Source loaders are inconsistent about absolute vs relative paths — LearningSource
+        // emits absolute paths (resolved against `neoRootDir`), ApiSource emits relative
+        // paths (e.g., `ai/mcp/server/.../IssueSyncer.mjs`). Before #10097 this branch did a
+        // bare `fs.pathExists(ref.source)` which silently succeeded for absolute paths but
+        // resolved relative ones against the MCP server's CWD (not the neo repo), producing
+        // phantom `No Content (File missing or empty)` context. The synthesis LLM then saw
+        // empty documents and returned placeholder "I don't have enough information"
+        // answers for every `type='src'` / `type='ai-infrastructure'` query. Resolving
+        // against `neoRootDir` handles both shapes transparently.
         const contextPromises = references.map(async (ref, index) => {
             let content = '';
 
-            if (ref.source && await fs.pathExists(ref.source)) {
+            const absoluteSource = ref.source && path.isAbsolute(ref.source)
+                ? ref.source
+                : path.resolve(aiConfig.neoRootDir, ref.source || '');
+
+            if (absoluteSource && await fs.pathExists(absoluteSource)) {
                 try {
-                    content = await fs.readFile(ref.source, 'utf8');
+                    content = await fs.readFile(absoluteSource, 'utf8');
                 } catch (err) {
-                    logger.warn(`[SearchService] Failed to read file ${ref.source}:`, err.message);
+                    logger.warn(`[SearchService] Failed to read file ${absoluteSource}:`, err.message);
                 }
             }
 
             if (!content) {
                 content = 'No Content (File missing or empty)';
+                logger.warn(`[SearchService] Empty context for ref.source="${ref.source}" (resolved to "${absoluteSource}") — chunk content will not reach the synthesis LLM.`);
             }
 
             return `--- DOCUMENT ${index + 1} (${ref.name} from ${ref.source}) ---\n${content}`;
