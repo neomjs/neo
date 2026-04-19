@@ -199,6 +199,21 @@ const defaultConfig = {
      */
     decayFactor: Number(process.env.GRAPH_DECAY_FACTOR) || 0.98,
     /**
+     * Minimum weight threshold for emitting `[GUIDE_GAP]`, `[EXAMPLE_GAP]`, and `[ORPHAN_CONCEPT]`
+     * signals on CONCEPT nodes during `GapInferenceEngine.inferConceptGraphGaps`.
+     *
+     * **Derivation:** `ConceptService.calculateWeight` returns `tier_score + uniqueness + coverage_deficit`
+     * where tier-1 gets `0.8`, tier-2 `0.5`, tier-3 `0.3`; uniqueness adds `0.2`; coverage deficit (no
+     * EXPLAINED_BY) adds `0.3`. The minimum a tier-1 concept can score is `0.8` (covered, non-unique).
+     * Setting threshold = `0.8` means *"at least tier-1 baseline priority"* — every tier-1 concept
+     * without a guide qualifies; tier-2/3 concepts qualify only if uniqueness + deficit push them above.
+     *
+     * Tune up to silence tier-2/3 noise as ontology grows (#10036 / #10037 / #10050); tune down to
+     * surface lower-priority concepts in the handoff.
+     * @type {number}
+     */
+    guideGapWeightThreshold: Number(process.env.NEO_GUIDE_GAP_WEIGHT_THRESHOLD) || 0.8,
+    /**
      * Universal JSONL backup/export directory for all databases.
      * @type {string}
      */

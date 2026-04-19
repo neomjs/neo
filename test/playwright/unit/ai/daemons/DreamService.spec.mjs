@@ -334,6 +334,38 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         expect(node.properties?.capabilityGap).toBeUndefined();
     });
 
+    test('threshold override via aiConfig.data.guideGapWeightThreshold changes emission behavior (#10086)', async () => {
+        // #10086: the weight gate lives in config (not a file-local constant). Verifying that
+        // GapInferenceEngine reads the live config value means curators can tune the handoff
+        // silence level without code changes — the stated goal of the config-lift.
+        const aiConfig = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const original = aiConfig.data.guideGapWeightThreshold;
+
+        // Plant a concept whose weight (0.5) is BELOW the default 0.8 — normally no gap emitted.
+        GraphService.upsertNode({
+            id        : 'concept-mid-weight',
+            type      : 'CONCEPT',
+            name      : 'MidWeight',
+            properties: {name: 'MidWeight', tier: 2, uniqueToNeo: false, weight: 0.5}
+        });
+
+        try {
+            // Override the threshold below the concept's weight. The same concept must now pass
+            // the gate and emit gaps through the same branch logic — proving the config is
+            // actually consulted at gate time, not captured at module load.
+            aiConfig.data.guideGapWeightThreshold = 0.3;
+
+            await DreamService.inferConceptGraphGaps();
+
+            const node = GraphService.db.nodes.get('concept-mid-weight');
+            expect(node.properties.capabilityGap).toBeDefined();
+            expect(node.properties.capabilityGap).toContain('[GUIDE_GAP]');
+            expect(node.properties.capabilityGap).toContain('[ORPHAN_CONCEPT]');
+        } finally {
+            aiConfig.data.guideGapWeightThreshold = original;
+        }
+    });
+
     test('should detect ORPHAN_CONCEPT for concepts with no IMPLEMENTED_BY edge (#10087)', async () => {
         // #10087: concepts without source-code anchoring emit `[ORPHAN_CONCEPT]` via the durable
         // `capabilityGap` channel rather than the deprecated per-orphan `logger.warn` in
