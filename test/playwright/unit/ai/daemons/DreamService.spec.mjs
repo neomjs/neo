@@ -114,6 +114,25 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         }
     });
 
+    test.afterEach(async () => {
+        // Symmetric cleanup per `feedback_symmetric_spec_cleanup.md`: `fullyParallel: true` lets
+        // Playwright interleave this spec with ConceptService/ConceptIngestor specs in the same
+        // worker, and `GraphService.db` is a shared singleton. Mirroring beforeEach here closes
+        // the cross-spec door — the next queued test from any spec sees a clean graph, not our
+        // trailing fixtures (CONCEPT nodes planted by the ORPHAN_CONCEPT detection test, etc.).
+        if (GraphService.db) {
+            GraphService.db.nodes.clear();
+            GraphService.db.edges.clear();
+            GraphService.db.vicinityLoadedNodes.clear();
+
+            if (GraphService.db.storage?.db) {
+                await GraphService.db.storage.clear();
+                GraphService.db.storage.db.exec('DELETE FROM GraphLog');
+                GraphService.db.lastSyncId = 0;
+            }
+        }
+    });
+
     test.afterAll(async () => {
         if (GraphService?.db) {
             if (GraphService.db.storage?.db) {
@@ -386,6 +405,32 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
 
         // Low-weight concept → weight gate blocks all three signals
         expect(lowOrphan.properties?.capabilityGap).toBeUndefined();
+    });
+
+    test('should emit GUIDE_GAP and ORPHAN_CONCEPT together when concept lacks both EXPLAINED_BY and IMPLEMENTED_BY (#10087)', async () => {
+        // Locks in the independence of ORPHAN_CONCEPT from the GUIDE_GAP / EXAMPLE_GAP branch.
+        // GUIDE_GAP and EXAMPLE_GAP are mutually exclusive (one requires EXPLAINED_BY absent, the
+        // other requires it present), but ORPHAN_CONCEPT is orthogonal — a concept can be both
+        // undocumented AND unanchored. This compound case exercises the branch orthogonality that
+        // the three-case test above doesn't hit directly.
+        GraphService.upsertNode({
+            id        : 'concept-fully-uncovered',
+            type      : 'CONCEPT',
+            name      : 'FullyUncovered',
+            properties: {name: 'FullyUncovered', tier: 1, uniqueToNeo: true, weight: 1.3}
+        });
+
+        await DreamService.inferConceptGraphGaps();
+
+        const node = GraphService.db.nodes.get('concept-fully-uncovered');
+
+        expect(node.properties.capabilityGap).toBeDefined();
+        expect(node.properties.capabilityGap).toContain('[GUIDE_GAP]');
+        expect(node.properties.capabilityGap).toContain('[ORPHAN_CONCEPT]');
+        expect(node.properties.capabilityGap).toContain('FullyUncovered');
+        // EXAMPLE_GAP requires EXPLAINED_BY present; since we have neither edge, only GUIDE_GAP
+        // fires from the if/else-if pair, never EXAMPLE_GAP.
+        expect(node.properties.capabilityGap).not.toContain('[EXAMPLE_GAP]');
     });
 
     test('processUndigestedSessions calls inferTestGapsFromSession per-session and inferConceptGraphGaps once per cycle (hoist contract — #10085)', async () => {
