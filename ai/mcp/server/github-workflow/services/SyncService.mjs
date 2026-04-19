@@ -193,6 +193,38 @@ class SyncService extends Base {
             timing
         };
     }
+
+    /**
+     * @summary Force-refetches the given issues from GitHub, bypassing delta-sync `updatedAt` gating.
+     *
+     * The sync engine normally relies on `issue.updatedAt` to decide which issues need a fresh
+     * pull. That gate is blind to several classes of drift: `timelineItems` truncation past the
+     * page cap (#10090), comment deletions (GitHub does not bump `updatedAt` on delete), and
+     * relationship events where both sides fall outside the delta window. This endpoint is the
+     * surgical recovery primitive — it force-refetches the listed issues, exhausts their full
+     * timelineItems connection, rewrites the local markdown, and persists updated metadata.
+     *
+     * Intended callers: diagnostic scripts such as `ai/scripts/detectTruncatedTimelines.mjs` —
+     * not the normal `runFullSync` flow. Keeps the delta-sync cost model intact for routine
+     * syncs while giving admin tooling a narrow, auditable healing path.
+     *
+     * @param {object}   params
+     * @param {number[]} params.numbers Issue numbers to force-refetch.
+     * @returns {Promise<{refetched: {count: number, issues: number[]}, errors: Array<{issueNumber: number, error: string}>}>}
+     */
+    async refetchIssuesByNumber({numbers}) {
+        if (!Array.isArray(numbers) || numbers.length === 0) {
+            return {refetched: {count: 0, issues: []}, errors: []};
+        }
+
+        const metadata = await MetadataManager.load();
+        const stats    = await IssueSyncer.refetchIssuesByNumber(numbers, metadata);
+        await MetadataManager.save(metadata);
+
+        logger.info(`✨ Force-refetch complete: ${stats.refetched.count}/${numbers.length} issues refetched`);
+
+        return stats;
+    }
 }
 
 export default Neo.setupClass(SyncService);

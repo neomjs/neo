@@ -181,4 +181,19 @@ Resolved: Stabilized Grid Multi-Body Architecture by decoupling column instantia
 - 2026-03-31T20:22:36Z @tobiu added sub-issue #9616
 - 2026-03-31T20:45:04Z @tobiu cross-referenced by #9617
 - 2026-03-31T20:45:12Z @tobiu added sub-issue #9617
+- 2026-04-01T10:22:33Z @tobiu added sub-issue #9618
+- 2026-04-01T17:27:58Z @tobiu added sub-issue #9619
+- 2026-04-01T17:36:58Z @tobiu added sub-issue #9620
+- 2026-04-01T19:56:36Z @tobiu added sub-issue #9622
+- 2026-04-01T20:03:31Z @tobiu added sub-issue #9623
+- 2026-04-01T20:25:38Z @tobiu added sub-issue #9624
+- 2026-04-01T21:01:59Z @tobiu added sub-issue #9625
+- 2026-04-01T21:42:18Z @tobiu added sub-issue #9614
+- 2026-04-02T08:17:16Z @tobiu added sub-issue #9626
+- 2026-04-02T22:54:09Z @tobiu added sub-issue #9635
+- 2026-04-02T23:02:31Z @tobiu added sub-issue #9636
+- 2026-04-02T23:02:43Z @tobiu added sub-issue #9637
+- 2026-04-09T21:18:42Z @tobiu cross-referenced by #9839
+- 2026-04-10T16:35:19Z @tobiu added sub-issue #9868
+- 2026-04-10T18:19:43Z @tobiu added sub-issue #9872
 
