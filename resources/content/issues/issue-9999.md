@@ -108,4 +108,69 @@ To support both rapid local development and scalable enterprise clusters, we are
 - 2026-04-18T18:15:34Z @tobiu cross-referenced by PR #10066
 - 2026-04-18T23:01:05Z @tobiu cross-referenced by #10074
 - 2026-04-19T09:43:06Z @tobiu cross-referenced by #10079
+- 2026-04-19T11:34:22Z @tobiu referenced in commit `a32c0af` - "fix(github-workflow): paginate timelineItems to prevent silent content drop (#10090)
+
+The IssueSyncer rendered comment bodies through the unified timelineItems
+GraphQL channel, which was page-capped at maxTimelineItemsPerIssue (50) with
+no continuation logic. Once an issue's timeline grew past the cap, tail
+events including newly-authored comments were silently dropped from the
+local markdown while scalar frontmatter metadata (commentsCount, updatedAt)
+stayed correct — a divergence between metadata tracking and content
+rendering that gave a false appearance of successful sync.
+
+Changes:
+- issueQueries: add pageInfo on timelineItems in both FETCH queries and
+  introduce FETCH_ISSUE_TIMELINE_PAGE for continuation fetches.
+- IssueSyncer: add #exhaustTimelineItems pagination primitive with a warn
+  log on continuation; extract the related-issues force-update loop into
+  a reusable refetchIssuesByNumber(numbers, metadata) method that both
+  pullFromGitHub and external tooling share.
+- SyncService: expose refetchIssuesByNumber({numbers}) as the SDK entry
+  for surgical recovery bypassing delta-sync updatedAt gating.
+- ai/scripts/detectTruncatedTimelines.mjs: diagnostic that flags files
+  whose rendered comment blocks fall short of frontmatter commentsCount
+  or whose timeline sits exactly at the cap.
+- ai/scripts/refetchTruncatedIssues.mjs: thin recovery wrapper that
+  consumes the detector output (list or --stdin JSON) and delegates to
+  the SyncService endpoint.
+- IssueSyncer.spec: Playwright regression covering a 75-event mocked
+  issue that forces one continuation page and asserts every comment and
+  structural event lands in the rendered markdown.
+
+Recovery artifacts in this commit: issues #10030, #9486, #9999, #9535 —
+the four issues flagged as drifted by the detector baseline run — were
+healed via the new refetch endpoint and now reflect live GitHub state."
+- 2026-04-19T11:35:15Z @tobiu cross-referenced by PR #10091
+- 2026-04-19T11:41:30Z @tobiu referenced in commit `3ec8167` - "fix(github-workflow): paginate timelineItems to prevent silent content drop (#10090) (#10091)
+
+The IssueSyncer rendered comment bodies through the unified timelineItems
+GraphQL channel, which was page-capped at maxTimelineItemsPerIssue (50) with
+no continuation logic. Once an issue's timeline grew past the cap, tail
+events including newly-authored comments were silently dropped from the
+local markdown while scalar frontmatter metadata (commentsCount, updatedAt)
+stayed correct — a divergence between metadata tracking and content
+rendering that gave a false appearance of successful sync.
+
+Changes:
+- issueQueries: add pageInfo on timelineItems in both FETCH queries and
+  introduce FETCH_ISSUE_TIMELINE_PAGE for continuation fetches.
+- IssueSyncer: add #exhaustTimelineItems pagination primitive with a warn
+  log on continuation; extract the related-issues force-update loop into
+  a reusable refetchIssuesByNumber(numbers, metadata) method that both
+  pullFromGitHub and external tooling share.
+- SyncService: expose refetchIssuesByNumber({numbers}) as the SDK entry
+  for surgical recovery bypassing delta-sync updatedAt gating.
+- ai/scripts/detectTruncatedTimelines.mjs: diagnostic that flags files
+  whose rendered comment blocks fall short of frontmatter commentsCount
+  or whose timeline sits exactly at the cap.
+- ai/scripts/refetchTruncatedIssues.mjs: thin recovery wrapper that
+  consumes the detector output (list or --stdin JSON) and delegates to
+  the SyncService endpoint.
+- IssueSyncer.spec: Playwright regression covering a 75-event mocked
+  issue that forces one continuation page and asserts every comment and
+  structural event lands in the rendered markdown.
+
+Recovery artifacts in this commit: issues #10030, #9486, #9999, #9535 —
+the four issues flagged as drifted by the detector baseline run — were
+healed via the new refetch endpoint and now reflect live GitHub state."
 
