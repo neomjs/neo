@@ -180,6 +180,8 @@ As an AI agent, your context window is ephemeral. By rigidly adhering to the "Co
 
 Memory Core's semantic search routinely surfaces prior decisions keyword grep would miss — *"what would tobi do here?"*. Memories are authored across many agents and harnesses (Claude Code, Antigravity/Gemini, and others); a diagnosis captured in a prior session saves re-derivation in the current one. `git log` and test reproductions produce narrower evidence at higher cost. See `learn/agentos/StrategicWorkflows.md` (Regression Bug Analysis Workflow) for the three-dimensional git + ticket + memory pattern.
 
+**Enforcement:** When either trigger above fires, invoke the `memory-mining` skill (`.agent/skills/memory-mining/SKILL.md`). The skill invocation IS the state-transition that converts this rule from poster-on-a-wall to door-you-walk-through — reflexes-as-skills get applied reliably, reflexes-as-rules drift.
+
 **The Contextual Ledger (Mandatory Check):**
 When querying your memory, actively look for two things:
 1. **Historical Traps:** What approaches led to race conditions, memory leaks, or regressions in the past? (Learn from previous failures).
