@@ -53,11 +53,10 @@ async function createLabelIndex(options = {}) {
     console.log('Fetching labels from GitHub...');
 
     try {
+        // GH_LabelService.listLabels throws on GraphQL failure (rate-limit, 5xx, network) —
+        // the real error propagates through the outer catch below so CI logs surface the
+        // actual HTTP status and message rather than a generic "Invalid response" wrapper (#10112).
         const response = await GH_LabelService.listLabels();
-
-        if (!response || !response.labels) {
-            throw new Error('Invalid response from GH_LabelService');
-        }
 
         const labels = response.labels.map(label => ({
             color      : `#${label.color}`,
