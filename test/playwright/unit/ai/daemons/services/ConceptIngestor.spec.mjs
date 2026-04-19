@@ -103,6 +103,17 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
         if (tmpConceptsDir && fs.existsSync(tmpConceptsDir)) {
             try { fs.rmSync(tmpConceptsDir, {recursive: true}); } catch (e) {}
         }
+
+        // Symmetric cleanup: ConceptService is a cross-spec singleton. Under `fullyParallel: true`
+        // Playwright interleaves tests from multiple spec files in the same worker, so leaving
+        // `loaded = true` after our last sync call leaks state into ConceptService.spec.mjs tests
+        // that assert fresh-module state (e.g. `should throw if query methods are called before
+        // loadGraph`). Resetting here, not only in beforeEach, closes that cross-spec door.
+        ConceptService.nodes.clear();
+        ConceptService.edgesBySource.clear();
+        ConceptService.edgesByTarget.clear();
+        ConceptService.aliasIndex.clear();
+        ConceptService.loaded = false;
     });
 
     test.afterAll(() => {
@@ -263,25 +274,34 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
             ]
         );
 
-        await ConceptIngestor.syncConceptsToGraph();
+        const first = await ConceptIngestor.syncConceptsToGraph();
         const nodesAfterFirst = new Set(GraphService.db.nodes.items.map(n => n.id));
         const edgesAfterFirst = GraphService.db.edges.items
             .map(e => `${e.source}|${e.target}|${e.type}`)
             .sort()
             .join('\n');
 
-        await ConceptIngestor.syncConceptsToGraph();
+        const second = await ConceptIngestor.syncConceptsToGraph();
         const nodesAfterSecond = new Set(GraphService.db.nodes.items.map(n => n.id));
         const edgesAfterSecond = GraphService.db.edges.items
             .map(e => `${e.source}|${e.target}|${e.type}`)
             .sort()
             .join('\n');
 
+        // Graph-state equivalence
         expect(nodesAfterSecond.size).toBe(nodesAfterFirst.size);
         for (const id of nodesAfterFirst) {
             expect(nodesAfterSecond.has(id)).toBe(true);
         }
         expect(edgesAfterSecond).toBe(edgesAfterFirst);
+
+        // Skip-path contract: idempotency means the second sync must hit the hash-match skip path
+        // rather than re-upsert (which could silently diverge if differential-sync regressed).
+        // Without this assertion, a broken skip path that still produced identical final state
+        // would pass the graph-equivalence checks above — false green.
+        expect(second.conceptsSkipped).toBe(first.conceptsProcessed);
+        expect(second.conceptsUpserted).toBe(0);
+        expect(second.edgesReplaced).toBe(0);
     });
 
     test('should return stats object with the documented shape', async () => {
