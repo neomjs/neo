@@ -98,7 +98,11 @@ class ApiSource extends Base {
                 count += await this.indexRawDirectory(writeStream, createHashFn, relativeEntryPath, defaultType, hierarchy);
             } else if (entry.isFile() && entryName.endsWith('.mjs')) {
                 const content = await fs.readFile(entryPath, 'utf-8');
-                const chunks  = SourceParser.parse(content, relativeEntryPath, defaultType, hierarchy);
+                // Emit the ABSOLUTE path as chunk metadata.source so downstream consumers
+                // (notably SearchService) can fs.pathExists / fs.readFile it directly without
+                // CWD-dependent resolution. This aligns ApiSource with the contract already
+                // followed by LearningSource, TicketSource, DiscussionSource, etc. See #10097.
+                const chunks  = SourceParser.parse(content, entryPath, defaultType, hierarchy);
 
                 chunks.forEach(chunk => {
                     chunk.hash = createHashFn(chunk);

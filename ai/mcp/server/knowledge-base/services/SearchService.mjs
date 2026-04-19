@@ -107,15 +107,14 @@ class SearchService extends Base {
 
         // 2. Read file contents for context.
         //
-        // Source loaders are inconsistent about absolute vs relative paths — LearningSource
-        // emits absolute paths (resolved against `neoRootDir`), ApiSource emits relative
-        // paths (e.g., `ai/mcp/server/.../IssueSyncer.mjs`). Before #10097 this branch did a
-        // bare `fs.pathExists(ref.source)` which silently succeeded for absolute paths but
-        // resolved relative ones against the MCP server's CWD (not the neo repo), producing
-        // phantom `No Content (File missing or empty)` context. The synthesis LLM then saw
-        // empty documents and returned placeholder "I don't have enough information"
-        // answers for every `type='src'` / `type='ai-infrastructure'` query. Resolving
-        // against `neoRootDir` handles both shapes transparently.
+        // As of #10097 all source loaders (ApiSource, LearningSource, TicketSource,
+        // DiscussionSource, etc.) emit absolute `metadata.source` paths resolved against
+        // `neoRootDir`. This resolve-before-read remains as a defensive safety net:
+        // if a future loader or downstream mutation reintroduces relative-path drift,
+        // the synthesis LLM would silently receive `No Content (File missing or empty)`
+        // context and produce placeholder "I don't have enough information" answers
+        // while references look healthy — the exact failure mode that motivated #10097.
+        // Keep this branch even after the upstream normalization lands.
         const contextPromises = references.map(async (ref, index) => {
             let content = '';
 
