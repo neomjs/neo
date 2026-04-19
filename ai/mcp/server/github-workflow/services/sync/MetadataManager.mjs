@@ -80,10 +80,11 @@ class MetadataManager extends Base {
                 closedAt     : value.closedAt,
                 updatedAt    : value.updatedAt,
                 contentHash  : value.contentHash,
-                // commentsTotal is the sentinel field that the stale-counts sweep compares against
-                // live GitHub state to catch updatedAt-blind drift (notably comment deletions — see
-                // #10092). May be undefined on pre-migration entries; detectStaleCommentsCounts seeds
-                // missing values lazily without triggering a refetch.
+                // commentsTotal is the count of ISSUE_COMMENT nodes derived from the exhausted
+                // timelineItems connection (#10110). Single source of truth: the metadata value
+                // is structurally guaranteed to match the rendered markdown because both are
+                // produced from the same timeline. Pre-#10110 entries fed this from the separate
+                // comments.totalCount scalar (a pre-timeline-era leftover), now superseded.
                 commentsTotal: value.commentsTotal
             };
         }

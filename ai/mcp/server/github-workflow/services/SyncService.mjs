@@ -101,19 +101,6 @@ class SyncService extends Base {
         // 4. Pull remote changes
         const { newMetadata, stats: pullStats } = await IssueSyncer.pullFromGitHub(metadata);
 
-        // 4b. Sentinel sweep for updatedAt-blind drift (comment deletions — #10092).
-        //     Runs AFTER the delta pull so newly-refreshed entries have current commentsTotal
-        //     and only genuinely-drifted issues survive as mismatches into the refetch step.
-        const staleCountsStats = await IssueSyncer.detectStaleCommentsCounts(newMetadata);
-        if (staleCountsStats.stale.length > 0) {
-            const staleNumbers = staleCountsStats.stale.map(s => s.number);
-            logger.warn(`🔍 Comment-count drift detected on ${staleNumbers.length} issue(s): ${staleNumbers.join(', ')}`);
-            const refetchStats = await IssueSyncer.refetchIssuesByNumber(staleNumbers, newMetadata);
-            pullStats.pulled.count   += refetchStats.refetched.count;
-            pullStats.pulled.updated += refetchStats.refetched.count;
-            pullStats.pulled.issues.push(...refetchStats.refetched.issues);
-        }
-
         // 5. Sync release notes
         const releaseStats = await ReleaseSyncer.syncNotes(metadata);
 
@@ -180,13 +167,7 @@ class SyncService extends Base {
             dropped     : pullStats.dropped,
             releases    : releaseStats,
             discussions : discussionStats,
-            pulls       : pullStats2,
-            staleCounts : {
-                checked: staleCountsStats.checked,
-                stale  : staleCountsStats.stale.length,
-                seeded : staleCountsStats.seeded,
-                errors : staleCountsStats.errors.length
-            }
+            pulls       : pullStats2
         };
 
         const timing = {
@@ -203,7 +184,6 @@ class SyncService extends Base {
         logger.info(`   Releases:    ${finalStats.releases.count} synced`);
         logger.info(`   Discussions: ${finalStats.discussions.count} synced`);
         logger.info(`   Pulls:       ${finalStats.pulls.count} synced`);
-        logger.info(`   StaleCounts: ${finalStats.staleCounts.checked} checked, ${finalStats.staleCounts.stale} drifted, ${finalStats.staleCounts.seeded} seeded${finalStats.staleCounts.errors > 0 ? `, ${finalStats.staleCounts.errors} errors` : ''}`);
         logger.info(`   Duration:    ${Math.round(timing.durationMs / 1000)}s`);
 
         return {

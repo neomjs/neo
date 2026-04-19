@@ -167,11 +167,6 @@ const defaultConfig = {
          */
         maxAssigneesPerIssue: 10,
         /**
-         * Maximum number of comments to fetch per issue in GraphQL queries.
-         * @type {number}
-         */
-        maxCommentsPerIssue: 100,
-        /**
          * Maximum number of sub-issues to fetch per issue in GraphQL queries.
          * @type {number}
          */
@@ -180,15 +175,7 @@ const defaultConfig = {
          * Maximum number of timeline items to fetch per issue in GraphQL queries.
          * @type {number}
          */
-        maxTimelineItemsPerIssue: 50,
-        /**
-         * Batch size for the stale-comments-count sentinel sweep (#10092).
-         * Controls how many issues are queried via aliased GraphQL fields per request.
-         * Stay below GitHub's per-query complexity limit (~500 nodes). Each issue costs
-         * ~3 complexity units here, so 100 is a safe default.
-         * @type {number}
-         */
-        staleCommentsBatchSize: 100
+        maxTimelineItemsPerIssue: 50
     },
     /**
      * Configuration for pull request queries.
