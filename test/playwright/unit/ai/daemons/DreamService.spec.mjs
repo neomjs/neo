@@ -439,6 +439,33 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         expect(lowOrphan.properties?.capabilityGap).toBeUndefined();
     });
 
+    test('unvalidated concepts (validated: false) should be silenced regardless of weight (#10036)', async () => {
+        // #10036: mined candidates from ConceptDiscoveryService carry `validated: false` until
+        // a curator promotes them via nodes.jsonl edit. Low weight is the primary silencing
+        // mechanism (weight gate), but `validated: false` is the explicit override — even if
+        // an unvalidated candidate had a high weight, it must stay silent until reviewed.
+        GraphService.upsertNode({
+            id        : 'concept-unvalidated',
+            type      : 'CONCEPT',
+            name      : 'UnvalidatedCandidate',
+            properties: {
+                name       : 'UnvalidatedCandidate',
+                tier       : 1,
+                uniqueToNeo: true,
+                weight     : 1.3,
+                validated  : false
+            }
+        });
+
+        await DreamService.inferConceptGraphGaps();
+
+        const node = GraphService.db.nodes.get('concept-unvalidated');
+
+        // Weight 1.3 >= 0.8 threshold → would normally emit GUIDE_GAP + ORPHAN_CONCEPT.
+        // The `validated: false` flag must suppress all three concept-graph signals.
+        expect(node.properties.capabilityGap).toBeUndefined();
+    });
+
     test('should emit GUIDE_GAP and ORPHAN_CONCEPT together when concept lacks both EXPLAINED_BY and IMPLEMENTED_BY (#10087)', async () => {
         // Locks in the independence of ORPHAN_CONCEPT from the GUIDE_GAP / EXAMPLE_GAP branch.
         // GUIDE_GAP and EXAMPLE_GAP are mutually exclusive (one requires EXPLAINED_BY absent, the

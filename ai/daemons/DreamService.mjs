@@ -11,6 +11,7 @@ import { Memory_GraphService as GraphService } from '../services.mjs';
 import Json                 from '../../src/util/Json.mjs';
 import logger               from '../mcp/server/memory-core/logger.mjs';
 import OpenAiCompatible     from '../provider/OpenAiCompatible.mjs';
+import ConceptDiscoveryService from './services/ConceptDiscoveryService.mjs';
 import ConceptIngestor         from './services/ConceptIngestor.mjs';
 import FileSystemIngestor      from '../mcp/server/memory-core/services/FileSystemIngestor.mjs';
 import GapInferenceEngine      from './services/GapInferenceEngine.mjs';
@@ -261,6 +262,22 @@ class DreamService extends Base {
      */
     async inferTestGapsFromSession(payload) {
         return GapInferenceEngine.inferTestGapsFromSession(payload);
+    }
+
+    /**
+     * Concept discovery entry point (#10036). Delegates to `ConceptDiscoveryService` to mine
+     * recurring architectural vocabulary from Memory Core session summaries and local GitHub
+     * issue markdown. New candidates land in `.neo-ai-data/concepts/nodes.jsonl` with
+     * `validated: false`, tier 3, low weight — silenced in `sandman_handoff.md` until a
+     * curator promotes them via JSONL edit (git diff is the review surface).
+     *
+     * Safe to call standalone (CLI / one-off) or from a REM-cycle orchestrator. Does not
+     * mutate the Native Edge Graph directly — `ConceptIngestor.syncConceptsToGraph` picks up
+     * the new rows on its next run.
+     * @returns {Promise<Object>} `{candidatesAdded, candidates}`
+     */
+    async runConceptDiscovery() {
+        return ConceptDiscoveryService.runDiscoveryCycle();
     }
 
     /**
