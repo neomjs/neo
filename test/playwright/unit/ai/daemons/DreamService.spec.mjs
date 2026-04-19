@@ -191,83 +191,125 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         expect(updatedNode.properties.capabilityGap).toContain('[TEST_GAP]');
     });
 
-    test('should detect GUIDE_GAP using Boolean LLM Verification', async () => {
-        const baseGenerate = OpenAiCompatible.prototype.generate;
-        OpenAiCompatible.prototype.generate = async function(prompt) {
-            providerPrompt = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
-            return {
-                content: JSON.stringify({
-                    verified: false
-                })
-            };
-        };
+    test('should detect GUIDE_GAP via concept-graph edge traversal (no LLM verification)', async () => {
+        // #10035 rewrite: replaces the pre-refactor regex + LLM Boolean verification path with
+        // deterministic outbound-EXPLAINED_BY edge traversal. Two CONCEPT nodes planted in the
+        // graph — one with EXPLAINED_BY (covered), one without (gap). Both above the tier-1
+        // weight threshold (0.8) so threshold-filtering isn't what drives the asymmetry.
 
+        // Concept 1: tier-1, unique, covered via EXPLAINED_BY — should NOT gap
         GraphService.upsertNode({
-            id         : 'node-guide-test',
-            type       : 'CLASS',
-            name       : 'RogueFeature',
-            description  : 'A feature totally disconnected from the vision.',
-            properties : {path: 'src/rogue/Rogue.mjs'}
-        });
-        
-        GraphService.upsertNode({
-            id: 'mock-guide-node',
-            type: 'FILE',
-            name: 'Rogue Guide',
-            properties: {path: 'learn/guides/rogue.md'}
+            id        : 'concept-covered',
+            type      : 'CONCEPT',
+            name      : 'Threading',
+            properties: {name: 'Threading', tier: 1, uniqueToNeo: true, weight: 1.0}
         });
 
-        // Prepare isolated node payload
-        const payload = {
-            session_artifact: {
-                graph: {
-                    nodes: [{
-                        id           : 'node-guide-test',
-                        type         : 'CLASS',
-                        name         : 'RogueFeature',
-                        description  : 'A feature totally disconnected from the vision.',
-                        confidence   : 0.9,
-                        _resolvedId  : 'node-guide-test'
-                    }],
-                    edges: []
-                }
-            }
-        };
+        // Concept 2: tier-1, unique, NO EXPLAINED_BY — should gap
+        GraphService.upsertNode({
+            id        : 'concept-missing-guide',
+            type      : 'CONCEPT',
+            name      : 'RogueConcept',
+            properties: {name: 'RogueConcept', tier: 1, uniqueToNeo: true, weight: 1.3}
+        });
 
-        const session = {
-            meta: {sessionId: 'playwright-drift-session'}
-        };
+        // Seed target stub nodes (SQLite FK constraint on edges.target → nodes.id) then the edges.
+        // The "covered" concept needs BOTH EXPLAINED_BY (no guide gap) and EXEMPLIFIED_BY
+        // (no example gap) — otherwise it'd correctly emit [EXAMPLE_GAP].
+        GraphService.upsertNode({
+            id        : 'file:learn/guides/Threading.md',
+            type      : 'FILE',
+            name      : 'file:learn/guides/Threading.md',
+            properties: {isConceptEdgeStub: true}
+        });
+        GraphService.upsertNode({
+            id        : 'file:examples/threading/demo.mjs',
+            type      : 'FILE',
+            name      : 'file:examples/threading/demo.mjs',
+            properties: {isConceptEdgeStub: true}
+        });
+        GraphService.db.addEdge({
+            source: 'concept-covered',
+            target: 'file:learn/guides/Threading.md',
+            type  : 'EXPLAINED_BY'
+        });
+        GraphService.db.addEdge({
+            source: 'concept-covered',
+            target: 'file:examples/threading/demo.mjs',
+            type  : 'EXEMPLIFIED_BY'
+        });
 
-        // Mock QueryService globally to return a fake guide result so it triggers Boolean Verification
-        const QueryService = (await import('../../../../../ai/mcp/server/knowledge-base/services/QueryService.mjs')).default;
-        const originalQuery = QueryService.queryDocuments;
-        QueryService.queryDocuments = async () => ({ topResult: '/mock/path/guide.md' });
+        // Empty session payload — concept-graph pass is session-independent
+        const payload = {session_artifact: {graph: {nodes: [], edges: []}}};
+        const session = {meta: {sessionId: 'playwright-concept-graph-session'}};
 
-        const originalFsPromisesRead = fs.promises.readFile;
-        fs.promises.readFile = async (p, enc) => {
-            if (p.includes('rogue.md')) return "Mock Guide Content for RogueFeature.";
-            return originalFsPromisesRead(p, enc);
-        };
-
-        const configOverride = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        
         await DreamService.executeCapabilityGapInference(session, payload);
 
-        // Verify Prompt explicitly hit Guide Gap Logic
-        const promptText = typeof providerPrompt === 'string' ? providerPrompt : JSON.stringify(providerPrompt);
-        expect(promptText).toContain('QA Engine');
-        expect(promptText).toContain('RogueFeature');
+        const covered     = GraphService.db.nodes.get('concept-covered');
+        const missingGuide = GraphService.db.nodes.get('concept-missing-guide');
 
-        // Verify logging appended GUIDE_GAP
-        const updatedNode = GraphService.db.nodes.get('node-guide-test');
-        expect(updatedNode.properties.capabilityGap).toBeDefined();
-        expect(updatedNode.properties.capabilityGap).toContain('[GUIDE_GAP]');
-        expect(updatedNode.properties.capabilityGap).toContain('failed LLM semantic verification');
-        
-        // Restore global functions
-        OpenAiCompatible.prototype.generate = baseGenerate;
-        QueryService.queryDocuments = originalQuery;
-        fs.promises.readFile = originalFsPromisesRead;
+        expect(covered.properties.capabilityGap).toBeUndefined();
+
+        expect(missingGuide.properties.capabilityGap).toBeDefined();
+        expect(missingGuide.properties.capabilityGap).toContain('[GUIDE_GAP]');
+        expect(missingGuide.properties.capabilityGap).toContain('RogueConcept');
+        expect(missingGuide.properties.capabilityGap).toContain('EXPLAINED_BY');
+        expect(missingGuide.properties.lastGapCheck).toBeGreaterThan(0);
+    });
+
+    test('should detect EXAMPLE_GAP for concepts documented but lacking worked examples', async () => {
+        // #10035 new signal: EXPLAINED_BY edge present, EXEMPLIFIED_BY edge absent.
+        // Lower-severity than a missing guide; surfaced in a separate handoff section.
+        GraphService.upsertNode({
+            id        : 'concept-no-example',
+            type      : 'CONCEPT',
+            name      : 'Reactivity',
+            properties: {name: 'Reactivity', tier: 1, uniqueToNeo: true, weight: 1.0}
+        });
+
+        GraphService.upsertNode({
+            id        : 'file:learn/guides/Reactivity.md',
+            type      : 'FILE',
+            name      : 'file:learn/guides/Reactivity.md',
+            properties: {isConceptEdgeStub: true}
+        });
+        GraphService.db.addEdge({
+            source: 'concept-no-example',
+            target: 'file:learn/guides/Reactivity.md',
+            type  : 'EXPLAINED_BY'
+        });
+
+        await DreamService.executeCapabilityGapInference(
+            {meta: {sessionId: 'playwright-example-gap-session'}},
+            {session_artifact: {graph: {nodes: [], edges: []}}}
+        );
+
+        const node = GraphService.db.nodes.get('concept-no-example');
+
+        expect(node.properties.capabilityGap).toBeDefined();
+        expect(node.properties.capabilityGap).toContain('[EXAMPLE_GAP]');
+        expect(node.properties.capabilityGap).toContain('Reactivity');
+        expect(node.properties.capabilityGap).not.toContain('[GUIDE_GAP]');
+    });
+
+    test('should skip low-weight concepts even when lacking EXPLAINED_BY', async () => {
+        // Weight threshold (0.8) prevents flooding the handoff with tier-3 noise. A tier-3 concept
+        // with no uniqueness and no coverage deficit yet scores below 0.8 → no gap emitted.
+        GraphService.upsertNode({
+            id        : 'concept-low-weight',
+            type      : 'CONCEPT',
+            name      : 'MinorHelper',
+            properties: {name: 'MinorHelper', tier: 3, uniqueToNeo: false, weight: 0.3}
+        });
+
+        await DreamService.executeCapabilityGapInference(
+            {meta: {sessionId: 'playwright-low-weight-session'}},
+            {session_artifact: {graph: {nodes: [], edges: []}}}
+        );
+
+        const node = GraphService.db.nodes.get('concept-low-weight');
+
+        expect(node.properties?.capabilityGap).toBeUndefined();
     });
 
     test('synthesizeGoldenPath should mathematically select and inject Golden Path while rejecting BLOCKS', async () => {

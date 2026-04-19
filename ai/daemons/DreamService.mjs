@@ -11,6 +11,7 @@ import { Memory_GraphService as GraphService } from '../services.mjs';
 import Json                 from '../../src/util/Json.mjs';
 import logger               from '../mcp/server/memory-core/logger.mjs';
 import OpenAiCompatible     from '../provider/OpenAiCompatible.mjs';
+import ConceptIngestor         from './services/ConceptIngestor.mjs';
 import FileSystemIngestor      from '../mcp/server/memory-core/services/FileSystemIngestor.mjs';
 import GapInferenceEngine      from './services/GapInferenceEngine.mjs';
 import GoldenPathSynthesizer   from './services/GoldenPathSynthesizer.mjs';
@@ -158,6 +159,12 @@ class DreamService extends Base {
                 logger.info('[DreamService] No undigested session memories found. Proceeding to ambient task execution.');
             } else {
                 logger.info(`[DreamService] Found ${sessions.length} undigested session(s). Beginning REM pipeline...`);
+
+                // Phase 0: Ingest the version-controlled Concept Ontology (.neo-ai-data/concepts/*.jsonl)
+                // into the Native Edge Graph as first-class CONCEPT nodes + typed edges. Runs BEFORE
+                // FileSystemIngestor so downstream gap inference can traverse concept-graph relationships
+                // deterministically instead of regex-matching token lists against file paths.
+                await ConceptIngestor.syncConceptsToGraph();
 
                 // Phase 1: Ingest Live Workspace Files for Gap Analysis context mapping
                 await FileSystemIngestor.syncWorkspaceToGraph();
