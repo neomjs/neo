@@ -613,6 +613,38 @@ export const FETCH_SINGLE_ISSUE = `
 `;
 
 /**
+ * @summary Builds a batched GraphQL query that fetches `comments.totalCount` for an
+ * arbitrary list of issue numbers in a single request, using aliased fields.
+ *
+ * This is the detection primitive for the comment-deletion sentinel sweep (#10092).
+ * Standard delta-sync is blind to deletions because GitHub does not bump
+ * `issue.updatedAt` when a comment is removed. A periodic totals sweep compares the
+ * live totalCount against the stored `commentsTotal` in metadata and force-refetches
+ * any mismatches via `refetchIssuesByNumber`.
+ *
+ * Uses GraphQL field aliasing (`issue42: issue(number: 42) { ... }`) so that N issues
+ * can be queried in one trip. Query complexity is ~3 × N — safely under GitHub's
+ * per-request limit for batches up to ~150. Caller is responsible for chunking.
+ *
+ * @param {number[]} numbers The issue numbers to fetch totals for.
+ * @returns {string} The composed GraphQL query string.
+ */
+export function buildIssueTotalsBatchQuery(numbers) {
+    const aliasedFields = numbers
+        .map(n => `    issue${n}: issue(number: ${n}) { number comments { totalCount } }`)
+        .join('\n');
+
+    return `
+  query FetchIssueTotalsBatch($owner: String!, $repo: String!) {
+    repository(owner: $owner, name: $repo) {
+${aliasedFields}
+    }
+    rateLimit { cost remaining resetAt }
+  }
+`;
+}
+
+/**
  * Continuation query for a single issue's timelineItems connection.
  *
  * Used by IssueSyncer when an issue's timeline exceeds one page of \`maxTimelineItems\` —

@@ -57,6 +57,100 @@ test.describe('Neo.ai.mcp.server.github-workflow.services.sync.IssueSyncer', () 
         await fs.remove(tmpIssuesDir).catch(() => {});
     });
 
+    test('detectStaleCommentsCounts lazily seeds entries missing the sentinel', async () => {
+        const metadata = {
+            issues: {
+                100: {state: 'OPEN', commentsTotal: undefined},
+                101: {state: 'OPEN', commentsTotal: undefined}
+            }
+        };
+
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchIssueTotalsBatch')) {
+                return {
+                    repository: {
+                        issue100: {number: 100, comments: {totalCount: 5}},
+                        issue101: {number: 101, comments: {totalCount: 3}}
+                    },
+                    rateLimit: {cost: 1, remaining: 5000, resetAt: ''}
+                };
+            }
+            throw new Error(`Unexpected GraphQL query: ${query.slice(0, 80)}`);
+        };
+
+        const result = await IssueSyncer.detectStaleCommentsCounts(metadata);
+
+        expect(result.checked).toBe(2);
+        expect(result.seeded).toBe(2);
+        expect(result.stale).toHaveLength(0);
+        expect(result.errors).toHaveLength(0);
+        expect(metadata.issues[100].commentsTotal).toBe(5);
+        expect(metadata.issues[101].commentsTotal).toBe(3);
+    });
+
+    test('detectStaleCommentsCounts reports no drift when live totals match stored sentinels', async () => {
+        const metadata = {
+            issues: {
+                200: {state: 'OPEN', commentsTotal: 4},
+                201: {state: 'OPEN', commentsTotal: 7}
+            }
+        };
+
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchIssueTotalsBatch')) {
+                return {
+                    repository: {
+                        issue200: {number: 200, comments: {totalCount: 4}},
+                        issue201: {number: 201, comments: {totalCount: 7}}
+                    },
+                    rateLimit: {cost: 1, remaining: 5000, resetAt: ''}
+                };
+            }
+            throw new Error(`Unexpected GraphQL query: ${query.slice(0, 80)}`);
+        };
+
+        const result = await IssueSyncer.detectStaleCommentsCounts(metadata);
+
+        expect(result.checked).toBe(2);
+        expect(result.seeded).toBe(0);
+        expect(result.stale).toHaveLength(0);
+        expect(result.errors).toHaveLength(0);
+    });
+
+    test('detectStaleCommentsCounts reports drift when live totalCount diverges from stored sentinel', async () => {
+        // This is the #9535 scenario: a comment was deleted on GitHub, updatedAt did not bump,
+        // so the local frontmatter still says commentsCount: 11 while live reports 10.
+        const metadata = {
+            issues: {
+                300: {state: 'OPEN', commentsTotal: 11},
+                301: {state: 'OPEN', commentsTotal: 4} // unchanged; should NOT appear in stale
+            }
+        };
+
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchIssueTotalsBatch')) {
+                return {
+                    repository: {
+                        issue300: {number: 300, comments: {totalCount: 10}}, // deletion detected
+                        issue301: {number: 301, comments: {totalCount: 4}}
+                    },
+                    rateLimit: {cost: 1, remaining: 5000, resetAt: ''}
+                };
+            }
+            throw new Error(`Unexpected GraphQL query: ${query.slice(0, 80)}`);
+        };
+
+        const result = await IssueSyncer.detectStaleCommentsCounts(metadata);
+
+        expect(result.checked).toBe(2);
+        expect(result.seeded).toBe(0);
+        expect(result.stale).toHaveLength(1);
+        expect(result.stale[0]).toEqual({number: 300, stored: 11, live: 10});
+        expect(result.errors).toHaveLength(0);
+        // Stored sentinel is NOT mutated; refetchIssuesByNumber handles the authoritative update.
+        expect(metadata.issues[300].commentsTotal).toBe(11);
+    });
+
     test('refetchIssuesByNumber paginates timeline and renders all events past the page cap', async () => {
         const PAGE_SIZE    = issueSyncConfig.maxTimelineItemsPerIssue; // 50
         const TOTAL_EVENTS = 75;

@@ -7,8 +7,8 @@ import matter                                        from 'gray-matter';
 import path                                          from 'path';
 import GraphqlService                                from '../GraphqlService.mjs';
 import ReleaseSyncer                                 from './ReleaseSyncer.mjs';
-import {FETCH_ISSUE_TIMELINE_PAGE, FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries.mjs';
-import {GET_ISSUE_ID, UPDATE_ISSUE}                                            from '../queries/mutations.mjs';
+import {buildIssueTotalsBatchQuery, FETCH_ISSUE_TIMELINE_PAGE, FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries.mjs';
+import {GET_ISSUE_ID, UPDATE_ISSUE}                                                                        from '../queries/mutations.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const lineBreaksRegex = /[\r\n]+/g;
@@ -440,13 +440,14 @@ class IssueSyncer extends Base {
             }
 
             newMetadata.issues[issueNumber] = {
-                state    : issue.state,
-                path     : this.#relativePath(targetPath), // Store relative path
-                updatedAt: issue.updatedAt,
-                closedAt : issue.closedAt || null,
-                milestone: issue.milestone?.title || null,
-                title    : issue.title,
-                contentHash // Store hash for push comparison
+                state        : issue.state,
+                path         : this.#relativePath(targetPath), // Store relative path
+                updatedAt    : issue.updatedAt,
+                closedAt     : issue.closedAt || null,
+                milestone    : issue.milestone?.title || null,
+                title        : issue.title,
+                contentHash,                                    // Store hash for push comparison
+                commentsTotal: issue.comments?.totalCount ?? 0  // Sentinel for comment-deletion drift (#10092)
             };
         }
 
@@ -582,13 +583,14 @@ class IssueSyncer extends Base {
                 logger.info(`✅ Refetched issue #${issueNumber}`);
 
                 metadata.issues[issueNumber] = {
-                    state    : issue.state,
-                    path     : this.#relativePath(targetPath),
-                    updatedAt: issue.updatedAt,
-                    closedAt : issue.closedAt || null,
-                    milestone: issue.milestone?.title || null,
-                    title    : issue.title,
-                    contentHash
+                    state        : issue.state,
+                    path         : this.#relativePath(targetPath),
+                    updatedAt    : issue.updatedAt,
+                    closedAt     : issue.closedAt || null,
+                    milestone    : issue.milestone?.title || null,
+                    title        : issue.title,
+                    contentHash,
+                    commentsTotal: issue.comments?.totalCount ?? 0
                 };
             } catch (e) {
                 logger.error(`Failed to refetch issue #${issueNumber}: ${e.message}`);
@@ -597,6 +599,72 @@ class IssueSyncer extends Base {
         }
 
         return stats;
+    }
+
+    /**
+     * @summary Sentinel sweep that detects comment-deletion drift invisible to delta sync.
+     *
+     * Delta-sync uses `issue.updatedAt` as the invalidation signal, and GitHub does **not**
+     * bump `updatedAt` when a comment is deleted. The local markdown and metadata therefore
+     * retain stale `commentsCount` indefinitely — the pattern that kept issue #9535 frozen
+     * during the #10090 investigation. The timeline-scan workaround from #7948 does not
+     * transfer because GraphQL exposes no `ISSUE_COMMENT_DELETED_EVENT` type.
+     *
+     * This sweep compares live `issue.comments.totalCount` against the stored
+     * `commentsTotal` sentinel in metadata for every tracked issue, in a single batched
+     * GraphQL request via `buildIssueTotalsBatchQuery`. Mismatches are handed to
+     * `refetchIssuesByNumber`, which is the same recovery primitive introduced in #10090.
+     *
+     * First-run semantics (lazy seeding): entries without `commentsTotal` are seeded
+     * in place from the live value without triggering a refetch. This lets the sentinel
+     * graduate cleanly on pre-existing metadata without one-shot refetch storms.
+     *
+     * @param {object} metadata The sync metadata object. Mutated in place to seed missing
+     *                          `commentsTotal` fields. Caller is responsible for persisting.
+     * @returns {Promise<{checked: number, stale: Array<{number: number, stored: number, live: number}>, seeded: number, errors: Array<{error: string, batch: number[]}>}>}
+     */
+    async detectStaleCommentsCounts(metadata) {
+        const issueNumbers = Object.keys(metadata.issues).map(Number).filter(n => Number.isInteger(n));
+        const result       = {checked: 0, stale: [], seeded: 0, errors: []};
+
+        if (issueNumbers.length === 0) return result;
+
+        const batchSize = issueSyncConfig.staleCommentsBatchSize || 100;
+
+        for (let i = 0; i < issueNumbers.length; i += batchSize) {
+            const batch = issueNumbers.slice(i, i + batchSize);
+            try {
+                const data = await GraphqlService.query(
+                    buildIssueTotalsBatchQuery(batch),
+                    {owner: aiConfig.owner, repo: aiConfig.repo},
+                    true
+                );
+
+                result.checked += batch.length;
+
+                for (const num of batch) {
+                    const node = data.repository[`issue${num}`];
+                    if (!node) continue; // Issue no longer exists on GitHub; drop handled elsewhere.
+
+                    const liveTotal   = node.comments.totalCount;
+                    const entry       = metadata.issues[num];
+                    const storedTotal = entry?.commentsTotal;
+
+                    if (storedTotal === undefined || storedTotal === null) {
+                        // Lazy seed: populate sentinel without triggering a refetch.
+                        entry.commentsTotal = liveTotal;
+                        result.seeded++;
+                    } else if (storedTotal !== liveTotal) {
+                        result.stale.push({number: num, stored: storedTotal, live: liveTotal});
+                    }
+                }
+            } catch (e) {
+                logger.error(`Stale-counts batch query failed for ${batch.length} issues: ${e.message}`);
+                result.errors.push({error: e.message, batch});
+            }
+        }
+
+        return result;
     }
 
     /**
