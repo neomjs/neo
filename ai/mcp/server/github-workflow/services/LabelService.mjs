@@ -1,7 +1,6 @@
 import Base           from '../../../../../src/core/Base.mjs';
 import GraphqlService from './GraphqlService.mjs';
 import aiConfig       from '../config.mjs';
-import logger         from '../logger.mjs';
 import {FETCH_LABELS} from './queries/labelQueries.mjs';
 
 /**
@@ -30,43 +29,44 @@ class LabelService extends Base {
     }
 
     /**
-     * Fetches a list of all labels in the repository.
-     * @returns {Promise<object>} A promise that resolves to the list of labels.
+     * @summary Fetches a list of all labels in the repository via paginated GraphQL queries.
+     *
+     * GraphQL exceptions from `GraphqlService.query` (rate-limit 429, 5xx, network failures,
+     * malformed responses) propagate unmodified to the caller — they are NOT swallowed into
+     * an error-object wrapper. This preserves the original HTTP status, GraphQL error body,
+     * and stack trace for diagnosis. The MCP tool boundary at `Server.mjs:150-222` catches
+     * and converts thrown exceptions into structured MCP error payloads for protocol
+     * responses; non-MCP callers (build scripts, CLI) receive normal exception semantics.
+     *
+     * @returns {Promise<{count: number, labels: object[]}>} Resolves to the aggregated label set.
+     * @throws {Error} If the underlying GraphQL call fails. See `GraphqlService.query` for error shapes.
+     * @see https://github.com/neomjs/neo/issues/10112
      */
     async listLabels() {
         let allLabels   = [];
         let hasNextPage = true;
         let cursor      = null;
 
-        try {
-            while (hasNextPage) {
-                const variables = {
-                    owner : aiConfig.owner,
-                    repo  : aiConfig.repo,
-                    limit : 100,
-                    cursor
-                };
-
-                const data   = await GraphqlService.query(FETCH_LABELS, variables);
-                const labels = data.repository.labels;
-
-                allLabels.push(...labels.nodes);
-                hasNextPage = labels.pageInfo.hasNextPage;
-                cursor      = labels.pageInfo.endCursor;
-            }
-
-            return {
-                count : allLabels.length,
-                labels: allLabels
+        while (hasNextPage) {
+            const variables = {
+                owner: aiConfig.owner,
+                repo : aiConfig.repo,
+                limit: 100,
+                cursor
             };
-        } catch (error) {
-            logger.error('Error fetching labels via GraphQL:', error);
-            return {
-                error  : 'GraphQL API request failed',
-                message: error.message,
-                code   : 'GRAPHQL_API_ERROR'
-            };
+
+            const data   = await GraphqlService.query(FETCH_LABELS, variables);
+            const labels = data.repository.labels;
+
+            allLabels.push(...labels.nodes);
+            hasNextPage = labels.pageInfo.hasNextPage;
+            cursor      = labels.pageInfo.endCursor;
         }
+
+        return {
+            count : allLabels.length,
+            labels: allLabels
+        };
     }
 }
 
