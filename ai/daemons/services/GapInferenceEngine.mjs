@@ -21,18 +21,28 @@ const GUIDE_GAP_WEIGHT_THRESHOLD = 0.8;
 /**
  * @summary Service for deterministic capability-gap inference over the Native Edge Graph.
  *
- * Operates in two parallel passes per REM cycle:
+ * Operates in two passes per REM cycle:
  *
- * 1. **TEST_GAP inference (regex):** iterates session-artifact structural nodes (CLASS / METHOD /
- *    COMPONENT) and matches tokenized node names against `test/*` file-path entries in the graph.
- *    Preserved from pre-#10035 behavior — testing discipline still maps 1:1 to source file names,
- *    where regex imprecision is acceptable because the test-file namespace is small and flat.
+ * 1. **TEST_GAP inference (regex, session-scoped):** iterates session-artifact structural nodes
+ *    (CLASS / METHOD / COMPONENT) and matches tokenized node names against `test/*` file-path
+ *    entries in the graph. Preserved from pre-#10035 behavior — testing discipline still maps
+ *    1:1 to source file names, where regex imprecision is acceptable because the test-file
+ *    namespace is small and flat.
  *
- * 2. **GUIDE_GAP / EXAMPLE_GAP inference (graph traversal):** iterates CONCEPT nodes ingested by
- *    `ConceptIngestor` and checks for outbound `EXPLAINED_BY` / `EXEMPLIFIED_BY` edges. This
- *    replaces the pre-#10035 regex + LLM Boolean verification path.
+ * 2. **Concept-graph inference (edge traversal, cycle-scoped):** iterates CONCEPT nodes ingested
+ *    by `ConceptIngestor` and emits three deterministic signals via outbound-edge checks:
+ *    - `[GUIDE_GAP]` — no `EXPLAINED_BY` edge
+ *    - `[EXAMPLE_GAP]` — has `EXPLAINED_BY`, lacks `EXEMPLIFIED_BY`
+ *    - `[ORPHAN_CONCEPT]` — no `IMPLEMENTED_BY` edge (concept exists in ontology but no source
+ *      code anchors it; either the ontology is stale/aspirational or the implementation is
+ *      missing and should be added). Surfaced through the same `capabilityGap` channel +
+ *      `sandman_handoff.md` section pattern as the other gap types, not via `logger.warn`
+ *      (logger is ephemeral; the graph + handoff is the durable substrate). Added in #10087.
+ *    All three share the `GUIDE_GAP_WEIGHT_THRESHOLD` weight gate so low-priority concepts
+ *    don't flood the handoff; the gate auto-surfaces meaningful signals as concept ingestion
+ *    matures (#10036 / #10037 / #10050).
  *
- *    **Why graph traversal over LLM verification?** The concept graph's `EXPLAINED_BY` edges are
+ *    **Why graph traversal over LLM verification?** The concept graph's edges are
  *    curator-maintained (`.neo-ai-data/concepts/edges.jsonl` is version-controlled; each edge
  *    exists because a human — or an agent under PR review — asserted it). The LLM verification
  *    step that existed pre-refactor was a patch for regex imprecision when matching concept names
@@ -121,16 +131,26 @@ class GapInferenceEngine extends Base {
     }
 
     /**
-     * Pass 2: concept-graph GUIDE_GAP and EXAMPLE_GAP inference via deterministic edge traversal.
+     * Pass 2: concept-graph gap inference via deterministic edge traversal.
      *
-     * For each CONCEPT node in the graph:
-     * - **`[GUIDE_GAP]`**: emitted if no outbound `EXPLAINED_BY` edge exists AND concept weight
-     *   meets `GUIDE_GAP_WEIGHT_THRESHOLD` (tier-1 baseline). Lower-weight concepts (tier-3
-     *   without uniqueness or deficit lift) are considered low-priority; missing guides for them
-     *   are not worth surfacing in the handoff.
-     * - **`[EXAMPLE_GAP]`**: emitted if a concept has `EXPLAINED_BY` but no `EXEMPLIFIED_BY`.
-     *   Signals that the concept is documented but lacks a working example — lower severity than
-     *   a missing guide.
+     * For each CONCEPT node in the graph, emits three weight-gated signals based on outbound
+     * edges in the Native Edge Graph:
+     * - **`[GUIDE_GAP]`**: no outbound `EXPLAINED_BY` edge. Concept is architecturally relevant
+     *   but undocumented — write a guide.
+     * - **`[EXAMPLE_GAP]`**: has `EXPLAINED_BY` but no `EXEMPLIFIED_BY`. Concept is documented
+     *   but lacks a working example — lower severity than a missing guide.
+     * - **`[ORPHAN_CONCEPT]`** (added in #10087): no `IMPLEMENTED_BY` edge. Concept exists in
+     *   the ontology but no source code anchors it. Either add an implementation or retire the
+     *   concept from `nodes.jsonl`. Replaces the ephemeral per-orphan `logger.warn` that used
+     *   to live in `ConceptIngestor` — routing through `capabilityGap` + `sandman_handoff.md`
+     *   makes the signal durable and aggregatable.
+     *
+     * All three signals share the same `GUIDE_GAP_WEIGHT_THRESHOLD` weight gate. Lower-weight
+     * concepts (tier-3 without uniqueness or coverage deficit lift) are considered low-priority
+     * — missing guides/examples/implementations for them aren't worth surfacing in the handoff
+     * at the current early stage of the ontology. As concept ingestion matures (#10036 / #10037
+     * / #10050), richer weight signals auto-promote meaningful gaps through the same gate
+     * without config changes.
      *
      * Uses the edges-direct traversal pattern (`db.edges.getByIndex('source', id).filter(...)`)
      * rather than `db.getAdjacentNodes(...)` because concept edges point at string identifiers
@@ -147,28 +167,33 @@ class GapInferenceEngine extends Base {
         const conceptNodes = GraphService.db.nodes.items.filter(n => n.label === 'CONCEPT');
 
         if (conceptNodes.length === 0) {
-            logger.debug('[GapInferenceEngine] Concept graph empty — skipping GUIDE_GAP / EXAMPLE_GAP pass. (Is ConceptIngestor running before this?)');
+            logger.debug('[GapInferenceEngine] Concept graph empty — skipping concept-graph gap pass. (Is ConceptIngestor running before this?)');
             return;
         }
 
-        logger.info(`[GapInferenceEngine] GUIDE_GAP / EXAMPLE_GAP pass: traversing ${conceptNodes.length} concepts.`);
+        logger.info(`[GapInferenceEngine] Concept-graph gap pass: traversing ${conceptNodes.length} concepts.`);
 
         for (const concept of conceptNodes) {
             const
-                outboundEdges      = GraphService.db.edges.getByIndex('source', concept.id),
-                explainedByEdges   = outboundEdges.filter(e => e.type === 'EXPLAINED_BY'),
-                exemplifiedByEdges = outboundEdges.filter(e => e.type === 'EXEMPLIFIED_BY'),
-                weight             = concept.properties?.weight ?? 0,
-                gaps               = [];
+                outboundEdges       = GraphService.db.edges.getByIndex('source', concept.id),
+                explainedByEdges    = outboundEdges.filter(e => e.type === 'EXPLAINED_BY'),
+                exemplifiedByEdges  = outboundEdges.filter(e => e.type === 'EXEMPLIFIED_BY'),
+                implementedByEdges  = outboundEdges.filter(e => e.type === 'IMPLEMENTED_BY'),
+                weight              = concept.properties?.weight ?? 0,
+                gaps                = [];
 
-            if (explainedByEdges.length === 0 && weight >= GUIDE_GAP_WEIGHT_THRESHOLD) {
+            if (weight >= GUIDE_GAP_WEIGHT_THRESHOLD) {
                 const name = concept.properties?.name || concept.name || concept.id;
-                gaps.push(`[GUIDE_GAP] The CONCEPT '${name}' lacks a corresponding architectural Guide (no EXPLAINED_BY edge in the concept ontology).`);
-            }
 
-            if (explainedByEdges.length > 0 && exemplifiedByEdges.length === 0 && weight >= GUIDE_GAP_WEIGHT_THRESHOLD) {
-                const name = concept.properties?.name || concept.name || concept.id;
-                gaps.push(`[EXAMPLE_GAP] The CONCEPT '${name}' is documented but lacks a working example (no EXEMPLIFIED_BY edge in the concept ontology).`);
+                if (explainedByEdges.length === 0) {
+                    gaps.push(`[GUIDE_GAP] The CONCEPT '${name}' lacks a corresponding architectural Guide (no EXPLAINED_BY edge in the concept ontology).`);
+                } else if (exemplifiedByEdges.length === 0) {
+                    gaps.push(`[EXAMPLE_GAP] The CONCEPT '${name}' is documented but lacks a working example (no EXEMPLIFIED_BY edge in the concept ontology).`);
+                }
+
+                if (implementedByEdges.length === 0) {
+                    gaps.push(`[ORPHAN_CONCEPT] The CONCEPT '${name}' has no IMPLEMENTED_BY edge — either anchor it to a source file or retire the concept from nodes.jsonl if aspirational/stale.`);
+                }
             }
 
             this.applyGapsToNode(concept, gaps);

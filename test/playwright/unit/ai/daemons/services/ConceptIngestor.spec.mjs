@@ -193,7 +193,10 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
         expect(node.properties.description).toBe('Updated description');
     });
 
-    test('should emit logger.warn for orphan concepts (tier > 0, no IMPLEMENTED_BY edge)', async () => {
+    test('should count orphan concepts in stats without emitting per-orphan logger.warn (#10087)', async () => {
+        // Post-#10087: orphan surfacing moved from the ephemeral logger.warn channel to the
+        // durable capabilityGap channel via GapInferenceEngine.inferConceptGraphGaps. ConceptIngestor
+        // retains the count for the cycle-summary info line but no longer warns per orphan.
         writeFixture(
             [
                 {id: 'anchored', name: 'Anchored Concept', tier: 1, description: 'Has implementation', uniqueToNeo: false, tags: []},
@@ -206,10 +209,10 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
 
         expect(stats.orphansDetected).toBe(1);
 
-        const orphanWarn = warnMessages.find(m => m.includes('Orphan concept detected'));
-        expect(orphanWarn).toBeDefined();
-        expect(orphanWarn).toContain('Orphan Concept');
-        expect(orphanWarn).toContain('orphan');
+        // The per-orphan warn was deliberately removed — only the cycle-summary info line should
+        // reference the count, and nothing at warn level should mention this specific orphan.
+        const perOrphanWarn = warnMessages.find(m => m.includes('Orphan concept detected') || m.includes('Orphan Concept'));
+        expect(perOrphanWarn).toBeUndefined();
     });
 
     test('should persist only edges with canonical CONCEPT_EDGE_TYPES', async () => {
