@@ -296,24 +296,14 @@ Without this context, sub-agents will hallucinate bugs where none exist (e.g., c
     -   *Template:* "I cannot see the parent container's computed styles. Could you please paste the computed `height` and `overflow` of the element wrapping `.my-component`?"
 4.  **Verify Assumptions:** Never assume a class like `neo-label` behaves standardly. Verify its computed style.
 
-## 9. Swarm Architecture: The "Fat Ticket" Protocol
+## 9. Swarm Architecture: Ticket & PR Workflow
 
-**Context:** The Neo.mjs project runs as a distributed agentic swarm. Multiple hardware instances (e.g., Mac 1, Mac 2) operate simultaneously, but their underlying SQLite `/neo-ai-data` repositories are entirely local to avoid cross-network database collisions.
+**Swarm context:** Neo.mjs runs as a distributed agentic swarm. Multiple hardware instances operate simultaneously, but their local SQLite stores are isolated — there is no cross-network database merge. GitHub Issues are the A2A (Agent-to-Agent) memory bridge that closes the gap. Fat Tickets preserve architectural context; skeleton tickets break the chain.
 
-**The Boot Amnesia Problem:** This means that when a secondary agent drops into the network or pulls a new git sync, it has *zero* chronological memory vectors of what the primary agent discussed, discovered, or decided in the preceding sessions.
+**Workflow skills (authoritative — read before invoking their respective tools):**
+- **Creating new tickets:** `.agent/skills/ticket-create/SKILL.md` — duplicate sweep, Fat Ticket body structure, title hygiene, label rules, visible-proposal protocol, five-stage challenge chain. Read before any `create_issue` invocation.
+- **Picking up existing tickets:** `.agent/skills/ticket-intake/SKILL.md` — validation sweep, ROI calculation, branch-before-code gate. Read before any `git checkout` on an assigned ticket.
+- **Opening pull requests:** `.agent/skills/pull-request/SKILL.md` — stepping-back reflection, conventional-commit format, ticket-ID suffix, handoff protocol. All code changes MUST culminate in a PR against `dev`; direct commits to `main`/`dev` are forbidden.
+- **Reviewing pull requests:** `.agent/skills/pr-review/SKILL.md` — structured evaluation metrics, graph ingestion tags, severity ladder. Human approval for squash-merge is required; agents MUST NOT autonomously merge their own PRs.
 
-**The Solution:** You MUST bridge the SQLite gap by converting GitHub Issues into your primary episodic memory carriers.
-
-**Mandatory Workflow:**
-1.  **Gate 0 (Deduplication):** Before creating *any* ticket, you MUST run a `grep_search` against the `resources/content/issues` and `resources/content/discussions` directory. Redundant, duplicate tickets pollute the Knowledge Base and disrupt swarm synchronicity.
-2.  **Epic Granularity Constraints:** Do NOT create an Epic unless it functions strictly as an overarching parent node for granular, multi-commit sub-issues. If the task is a single commit (no matter how big), it is a standard Request, NOT an Epic.
-3.  **Strict Graph Connectivity:** When generating sub-issues for an Epic, you MUST use the `update_issue_relationship` tool to natively link the sub-issues to their parent block.
-4.  **Do Not Create Skeleton Tickets:** You are strictly forbidden from creating GitHub issues with one-sentence descriptions. A ticket is not just for human tracking; it is the **A2A (Agent-to-Agent)** data transport mechanism.
-5.  **Generate "Fat Tickets":** When you call `create_issue`, the `body` parameter MUST contain a highly detailed summary that functions as a structural graph node proxy.
-6.  **Required A2A Context:** The Fat Ticket MUST contain:
-    -   **The Problem:** Include deep background context or insights from your recent Memory Core explorations.
-    -   **The Architectural Reality:** Point out exactly *which* Neo.mjs patterns or class topologies this issue interacts with. Include specific paths to files discovered during your research.
-    -   **Avoided "Gold Standards" / Traps:** Explain *why* you decided not to use alternative paths. Specifically highlight if you avoided a generic industry or LLM "Gold Standard" (e.g., standard React patterns, generic node workflows) because it acts as a trap within Neo.mjs's unique multi-threaded architecture.
-7.  **Handoff Realization:** On boot (`initAsync`), nodes like Mac 2 automatically synthesize the latest synced `.md` issues into their local SQLite matrix and build `sandman_handoff.md`. If your tickets are "Fat," the resulting "Golden Path" ranking will accurately bridge the distributed swarm without ever merging the raw SQLite files.
-8.  **Pull Request Collaboration:** Once you begin actionable work, you are acting as an asynchronous contributor. All code changes MUST culminate in a Pull Request against the `dev` branch. The PR body MUST contain a "Fat Ticket" style summary and the `Resolves #[Issue Number]` keyword. Direct commits to `main` or `dev` are forbidden.
-9.  **The Reflection Phase & Hard Stop:** Upon creating the PR, you MUST NOT autonomously merge the PR. A Human Approver will eventually Squash Merge the code to preserve the Fat Ticket natively. Before concluding your turn, ask the human Commander if you should execute the `pr-review` skill to self-evaluate the architectural alignment.
+**Handoff realization:** on boot, swarm nodes synthesize synced `.md` issues into their local SQLite matrix and build `sandman_handoff.md`. Fat Tickets make the resulting "Golden Path" ranking bridge the distributed swarm without merging raw SQLite.

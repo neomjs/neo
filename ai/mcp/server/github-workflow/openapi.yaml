@@ -610,32 +610,11 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Creates a new issue on GitHub. This is the authoritative first step for creating a new ticket.
+        Creates a new GitHub issue.
 
-        ## CRITICAL PROTOCOL: READ BEFORE USING
-        You generally FAIL to show the proposal to the user before calling this tool. Do not let that happen.
+        **MANDATORY:** invoke the `ticket-create` skill (`.agent/skills/ticket-create/SKILL.md`) BEFORE calling this tool. The skill enforces the duplicate sweep, Fat Ticket body structure, title hygiene, strict label rules, and visible-proposal protocol. Calling `create_issue` without reading the skill first produces anti-pattern tickets that pollute the A2A memory bridge.
 
-        **MANDATORY WORKFLOW (Do Not Skip):**
-
-        1.  **Check Labels:** Run `list_labels` to verify available labels.
-        2.  **Draft Content:** Formulate the `title`, `body`, and `labels`.
-        3.  **VISUAL PROPOSAL (REQUIRED):** You **MUST** display the proposed ticket content to the user **IN THE CHAT** before calling this tool. Use this format:
-            ```text
-            Title: [Proposed Title]
-            Labels: [label1, label2]
-            Body:
-            [Proposed Body]
-            ```
-        4.  **Call Tool:** Immediately call `create_issue` after displaying the proposal. Do not ask for permission first (the user can decline the tool call).
-
-        **STRICT LABELING RULES:**
-        - **MANDATORY:** The `ai` label is REQUIRED on ALL tickets you create.
-        - **PRIMARY:** Include one primary label: `epic`, `enhancement`, or `bug`.
-        - **SECONDARY:** Add other relevant labels (e.g., `documentation`) if they exist.
-
-        **Post-Creation:**
-        The tool returns the new issue number. You can use this number immediately for other tools (e.g., `create_comment`, `manage_issue_assignees`).
-        To update the issue body later, use `run_shell_command` with `gh issue edit {number} --body "..."`.
+        After creation, the returned issue number can be passed to `manage_issue_assignees`, `manage_issue_labels`, `update_issue_relationship`, etc.
       tags: [Issues]
       requestBody:
         required: true
