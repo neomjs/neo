@@ -241,6 +241,33 @@ test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
         expect(accepted).toEqual([]);
     });
 
+    test('aiConfig.data.conceptDiscovery.minSourceLength override changes extraction behavior (#10086 pattern)', async () => {
+        writeEmptyConceptGraph();
+        ConceptService.loadGraph();
+
+        const aiConfig  = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const original  = aiConfig.data.conceptDiscovery?.minSourceLength;
+        const bodyText  = 'Moderate length source. '.repeat(15); // ~360 chars — above default 200, below an override of 10000
+
+        llmResponses = [{candidates: [{id: 'x', name: 'X', description: 'y', reasoning: 'z', aliases: []}]}];
+
+        try {
+            // Raise threshold above body length — extraction must short-circuit without invoking LLM
+            aiConfig.data.conceptDiscovery.minSourceLength = 10000;
+            const skipped = await ConceptDiscoveryService.extractConceptsFromSource('raised-threshold', bodyText);
+            expect(skipped).toEqual([]);
+            expect(llmCallCount).toBe(0);
+
+            // Restore the normal threshold — same body now triggers the LLM
+            aiConfig.data.conceptDiscovery.minSourceLength = 200;
+            const accepted = await ConceptDiscoveryService.extractConceptsFromSource('normal-threshold', bodyText);
+            expect(llmCallCount).toBe(1);
+            expect(accepted.length).toBe(1);
+        } finally {
+            aiConfig.data.conceptDiscovery.minSourceLength = original;
+        }
+    });
+
     test('runDiscoveryCycle should merge epic+PR candidates, dedupe by id, and append to nodes.jsonl', async () => {
         writeEmptyConceptGraph();
 

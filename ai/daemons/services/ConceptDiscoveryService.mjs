@@ -13,26 +13,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 /**
- * How many pull-request markdown files to process per discovery cycle. PRs accumulate quickly
- * (~300+ in the repo today) and each one is a separate LLM invocation. Sort-descending by
- * filename means we process the most-recent PRs first — where the freshest architectural
- * discourse lives (Gold Standards / Traps Avoided / Retrospective sections in recent review
- * comments). Bumpable via the instance-level `prScanLimit` property for tests / operators.
- * @type {Number}
- * @private
- */
-const DEFAULT_PR_SCAN_LIMIT = 20;
-
-/**
- * Minimum source text length for LLM invocation. Tiny bodies (one-liner PR descriptions,
- * empty epics) aren't worth the call. 200 characters is ~30 words — below this, there's no
- * coherent architectural discussion to extract from.
- * @type {Number}
- * @private
- */
-const MIN_SOURCE_LENGTH = 200;
-
-/**
  * System prompt establishing the Teaching Test + anti-patterns for the concept extraction
  * LLM. Emphasizes semantic judgment (what qualifies as an ontology concept) over pattern
  * matching (what LOOKS capitalized). Instructs strict JSON output so `Json.extract` can
@@ -150,10 +130,12 @@ class ConceptDiscoveryService extends Base {
     }
 
     /**
-     * Cap on PRs processed per cycle. Override on instance for tests / operator-tuning.
-     * @member {Number} prScanLimit
+     * Instance-level override for the per-cycle PR cap. Tests mutate this directly for
+     * deterministic cap behavior; production falls back to `aiConfig.data.conceptDiscovery
+     * .prScanLimit` (#10086 config-lift pattern — live read at call time, not module load).
+     * @member {Number|null} prScanLimit=null
      */
-    prScanLimit = DEFAULT_PR_SCAN_LIMIT
+    prScanLimit = null
 
     /**
      * Invokes the configured LLM provider on a single source and parses the response as the
@@ -170,7 +152,8 @@ class ConceptDiscoveryService extends Base {
      * @protected
      */
     async extractConceptsFromSource(sourceRef, text) {
-        if (!text || text.trim().length < MIN_SOURCE_LENGTH) return [];
+        const minSourceLength = aiConfig.data.conceptDiscovery?.minSourceLength ?? 200;
+        if (!text || text.trim().length < minSourceLength) return [];
 
         let provider;
         try {
@@ -300,7 +283,8 @@ class ConceptDiscoveryService extends Base {
             return nb - na;
         });
 
-        const cappedFiles = files.slice(0, this.prScanLimit);
+        const scanLimit   = this.prScanLimit ?? aiConfig.data.conceptDiscovery?.prScanLimit ?? 20;
+        const cappedFiles = files.slice(0, scanLimit);
         const sources     = [];
 
         for (const file of cappedFiles) {
@@ -356,7 +340,7 @@ class ConceptDiscoveryService extends Base {
         const sources = await this.loadPullRequestSources();
         if (sources.length === 0) return [];
 
-        logger.info(`[ConceptDiscoveryService] PR mining: scanning ${sources.length} recent PR file(s) (cap=${this.prScanLimit}).`);
+        logger.info(`[ConceptDiscoveryService] PR mining: scanning ${sources.length} recent PR file(s).`);
 
         const all = [];
         for (const {sourceRef, text} of sources) {

@@ -214,6 +214,24 @@ const defaultConfig = {
      */
     guideGapWeightThreshold: Number(process.env.NEO_GUIDE_GAP_WEIGHT_THRESHOLD) || 0.8,
     /**
+     * Operator-tuning knobs for `ConceptDiscoveryService` (#10036). Both values are read live
+     * at method-call time (not captured at module load) so tests + runtime overrides are honored.
+     *
+     * - `prScanLimit`: how many pull-request markdown files to process per discovery cycle.
+     *   PRs are sorted descending by PR number so the most-recent (freshest architectural
+     *   discourse) process first. Capping bounds per-cycle LLM cost against the ~300+ PR corpus.
+     * - `minSourceLength`: minimum source text length (chars) to trigger an LLM extraction call.
+     *   Short bodies aren't worth the provider round-trip; 200 ≈ 30 words of coherent prose.
+     *
+     * Expected to migrate to SDK-layer config per #10103 once the daemon/service config split
+     * lands — these are daemon concerns, not memory-core concerns.
+     * @type {Object}
+     */
+    conceptDiscovery: {
+        prScanLimit    : Number(process.env.NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT)     || 20,
+        minSourceLength: Number(process.env.NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH) || 200
+    },
+    /**
      * Universal JSONL backup/export directory for all databases.
      * @type {string}
      */
