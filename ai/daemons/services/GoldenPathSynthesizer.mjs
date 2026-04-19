@@ -247,8 +247,9 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let gapElementsCount = 0;
         let prunedGaps = 0;
 
-        let testGaps = [];
-        let guideGaps = [];
+        let testGaps    = [];
+        let guideGaps   = [];
+        let exampleGaps = [];
 
         GraphService.db.nodes.items.forEach(node => {
             if (node.properties?.capabilityGap) {
@@ -276,8 +277,10 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                                     testGaps.push({ id: node.id, msg: msg.replace('[TEST_GAP]', '').trim() });
                                 } else if (msg.includes('[GUIDE_GAP]')) {
                                     guideGaps.push({ id: node.id, msg: msg.replace('[GUIDE_GAP]', '').trim() });
+                                } else if (msg.includes('[EXAMPLE_GAP]')) {
+                                    exampleGaps.push({ id: node.id, msg: msg.replace('[EXAMPLE_GAP]', '').trim() });
                                 } else {
-                                    // Fallback for unlabeled 
+                                    // Fallback for unlabeled
                                     testGaps.push({ id: node.id, msg });
                                 }
                             }
@@ -303,6 +306,11 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             if (guideGaps.length > 0) {
                 handoffContent += `### 🗺️ Guide Disconnects (\`${Math.min(guideGaps.length, limit)}\` of \`${guideGaps.length}\` items)\n`;
                 guideGaps.slice(0, limit).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
+                handoffContent += `\n`;
+            }
+            if (exampleGaps.length > 0) {
+                handoffContent += `### 💡 Example Disconnects (\`${Math.min(exampleGaps.length, limit)}\` of \`${exampleGaps.length}\` items)\n`;
+                exampleGaps.slice(0, limit).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
                 handoffContent += `\n`;
             }
         }
