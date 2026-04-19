@@ -77,8 +77,7 @@ Name both explicitly in your plan: *"I am leveraging the [X] pattern from sessio
 ## 4. Anti-patterns
 
 Do NOT use this skill for:
-- **Routine "how does X work"** questions → that is `ask_knowledge_base` territory.
-- **File discovery** ("which files implement Z?") → that is `query_documents`.
+- **Routine "how does X work" questions AND file discovery** ("which files implement Z?") → both belong to `ask_knowledge_base`. Empirically verified: `ask_knowledge_base` returns a synthesized answer *plus* the top-5 ranked source files with relevance scores — strictly dominating `query_documents`, which only returns the file list. Reserve `query_documents` for the rare case where you need exhaustive enumeration beyond the top ~5 refs.
 - **Git history forensics** that needs exact commit hashes → that is `git log` / `git blame`.
 - **Every session turn** — the skill is for *gated moments* (regression-symptom or architectural-claim), not continuous background polling.
 
