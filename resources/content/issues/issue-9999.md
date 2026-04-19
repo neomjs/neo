@@ -100,4 +100,12 @@ To support both rapid local development and scalable enterprise clusters, we are
 - 2026-04-16T18:44:58Z @tobiu removed sub-issue #10014
 - 2026-04-17T07:27:26Z @tobiu cross-referenced by PR #10047
 - 2026-04-17T13:08:56Z @tobiu cross-referenced by PR #10048
+- 2026-04-18T14:22:18Z @tobiu cross-referenced by #10061
+- 2026-04-18T14:38:10Z @tobiu cross-referenced by PR #10062
+- 2026-04-18T14:57:24Z @tobiu cross-referenced by #10063
+- 2026-04-18T18:11:51Z @tobiu added sub-issue #10057
+- 2026-04-18T18:11:52Z @tobiu cross-referenced by #10057
+- 2026-04-18T18:15:34Z @tobiu cross-referenced by PR #10066
+- 2026-04-18T23:01:05Z @tobiu cross-referenced by #10074
+- 2026-04-19T09:43:06Z @tobiu cross-referenced by #10079
 
