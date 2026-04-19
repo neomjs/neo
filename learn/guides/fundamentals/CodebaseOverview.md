@@ -443,6 +443,7 @@ Offline cognitive maintenance runs as **Node.js scripts**, not MCP protocol oper
 
 Formalized Anthropic Progressive Disclosure Skills natively used by the swarm:
 - `create-skill`: Architectural blueprinting for new operational abilities.
+- `ticket-create`: Pre-creation discipline gate for new GitHub issues (duplicate sweep, Fat Ticket body, title/label rules, visible-proposal protocol).
 - `self-repair`: Diagnostic workflows utilizing tests and historical Memory Core states to intelligently triage infrastructure degradation.
 - `ideation-sandbox`: Safe brainstorming pipelines mapped directly into GitHub Discussions.
 - `pr-review`: Evaluation matrix templates spanning `[ARCH_ALIGNMENT]` to `[EFFORT_PROFILE]`.

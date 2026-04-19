@@ -610,11 +610,7 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Creates a new GitHub issue.
-
-        **MANDATORY:** invoke the `ticket-create` skill (`.agent/skills/ticket-create/SKILL.md`) BEFORE calling this tool. The skill enforces the duplicate sweep, Fat Ticket body structure, title hygiene, strict label rules, and visible-proposal protocol. Calling `create_issue` without reading the skill first produces anti-pattern tickets that pollute the A2A memory bridge.
-
-        After creation, the returned issue number can be passed to `manage_issue_assignees`, `manage_issue_labels`, `update_issue_relationship`, etc.
+        Creates a new GitHub issue. **MANDATORY** pre-step: read `.agent/skills/ticket-create/SKILL.md` — the skill contains the full creation protocol (duplicate sweep, Fat Ticket body, label rules, visible proposal, post-creation chaining).
       tags: [Issues]
       requestBody:
         required: true
