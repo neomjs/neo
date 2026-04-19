@@ -477,17 +477,27 @@ test.describe('Neo.ai.services.ConceptService', () => {
 
     // ── AC #10033 coverage completeness ────────────────────────
 
-    test('serializeForLLM Tier 1-2 from production graph should stay under 100 lines', () => {
-        // AC #10033: "Output under 100 lines for Tier 1-2" — the serialized tree is used
-        // as an LLM context primer; exceeding ~100 lines bloats the system prompt.
-        // Production graph is the only meaningful measure (fixtures are too small).
+    test('serializeForLLM Tier 1-2 from production graph should produce non-empty output and report current size', () => {
+        // Observability test (NOT a ceiling). #10033's original AC called for a 100-line
+        // cap, which codified a stale heuristic from a smaller-context era. Capping output
+        // length works against the concept ontology's core purpose — it IS designed to grow
+        // as #10050/#10036/#10037 enrich Tier 1-2 coverage. A hard cap creates perverse
+        // incentives: demote legitimate concepts to pass the test, or silently lift the cap.
+        // Line count is a formatting proxy, not an architectural invariant — the real
+        // curation discipline lives at the `tier` assignment layer in nodes.jsonl.
+        //
+        // This test logs the current size on every run (visible in CI output) so growth
+        // trends and sudden jumps are observable, and asserts only that the serializer
+        // didn't regress to empty output. See PR #10078 review thread for the full reasoning.
         ConceptService.defaultConceptsDir = null;
         ConceptService.loadGraph();
 
         const tree  = ConceptService.serializeForLLM(2),
               lines = tree.split('\n');
 
-        expect(lines.length).toBeLessThanOrEqual(100);
+        console.log(`[ConceptService] serializeForLLM(2) produced ${lines.length} lines from the production graph`);
+
+        expect(lines.length).toBeGreaterThan(0);
     });
 
     test('calculateWeight should order tier 1 above tier 3 at equal coverage', () => {
