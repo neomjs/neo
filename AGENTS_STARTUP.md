@@ -63,6 +63,24 @@ Different AI harnesses auto-load their own "memory file" at session start. Each 
 
 As new harnesses join the swarm, add their memory-file conventions here.
 
+#### Worktree Bootstrap (Claude Code)
+
+Claude Code creates a fresh git worktree per session at `.claude/worktrees/<name>/`. Because `ai/mcp/server/*/config.mjs` is gitignored (copy-from-template files for local overrides), worktrees start without these files. Any script that imports `ai/services.mjs` fails with:
+
+```
+Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../ai/mcp/server/github-workflow/config.mjs'
+```
+
+**Before running any SDK-consuming script or `test-unit` command in a worktree, execute:**
+
+```bash
+node ai/scripts/bootstrapWorktree.mjs
+```
+
+It copies the four `config.mjs` files from the main checkout (resolved via `git worktree list --porcelain`). Idempotent; no-op from the main checkout.
+
+**Do NOT use symlinks** as an alternative — they break Playwright specs under `unitTestMode` with `Namespace collision in unitTestMode for Neo.core.Base`. Node resolves relative imports inside symlinked modules against the canonical (target) path, which points at the main checkout's `src/core/Base.mjs`, and the worktree-local `Base.mjs` collides with it at setupClass time. Copies have their own canonical path inside the worktree and resolve correctly.
+
 ### Step 6: Check for Memory Core
 
 - Use the `healthcheck` tool for the `neo.mjs-memory-core` server.
