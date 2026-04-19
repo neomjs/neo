@@ -4,6 +4,7 @@ import Base                 from '../../../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
 import fs                   from 'fs-extra';
 import logger               from '../logger.mjs';
+import path                 from 'path';
 import QueryService         from './QueryService.mjs';
 
 /**
@@ -104,20 +105,37 @@ class SearchService extends Base {
             score : Number(r.score)
         }));
 
-        // 2. Read file contents for context
+        // 2. Read file contents for context.
+        //
+        // All source loaders store `metadata.source` as a path relative to `neoRootDir`
+        // so the Chroma collection shipped with each neo release remains portable across
+        // recipients' filesystems. We resolve against the consumer's own `neoRootDir`
+        // at read time. Before #10097 this branch did a bare `fs.pathExists(ref.source)`
+        // which silently succeeded for legacy absolute-path chunks but failed for the
+        // relative-path chunks emitted by ApiSource / TestSource — producing phantom
+        // `No Content (File missing or empty)` context. The synthesis LLM then saw
+        // empty documents and returned placeholder "I don't have enough information"
+        // answers for every `type='src'` / `type='ai-infrastructure'` query. The
+        // `path.isAbsolute` short-circuit keeps legacy absolute-path chunks working
+        // during the grace period when a consumer has not yet re-synced.
         const contextPromises = references.map(async (ref, index) => {
             let content = '';
 
-            if (ref.source && await fs.pathExists(ref.source)) {
+            const absoluteSource = ref.source && path.isAbsolute(ref.source)
+                ? ref.source
+                : path.resolve(aiConfig.neoRootDir, ref.source || '');
+
+            if (absoluteSource && await fs.pathExists(absoluteSource)) {
                 try {
-                    content = await fs.readFile(ref.source, 'utf8');
+                    content = await fs.readFile(absoluteSource, 'utf8');
                 } catch (err) {
-                    logger.warn(`[SearchService] Failed to read file ${ref.source}:`, err.message);
+                    logger.warn(`[SearchService] Failed to read file ${absoluteSource}:`, err.message);
                 }
             }
 
             if (!content) {
                 content = 'No Content (File missing or empty)';
+                logger.warn(`[SearchService] Empty context for ref.source="${ref.source}" (resolved to "${absoluteSource}") — chunk content will not reach the synthesis LLM.`);
             }
 
             return `--- DOCUMENT ${index + 1} (${ref.name} from ${ref.source}) ---\n${content}`;

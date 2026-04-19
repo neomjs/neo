@@ -98,6 +98,10 @@ class ApiSource extends Base {
                 count += await this.indexRawDirectory(writeStream, createHashFn, relativeEntryPath, defaultType, hierarchy);
             } else if (entry.isFile() && entryName.endsWith('.mjs')) {
                 const content = await fs.readFile(entryPath, 'utf-8');
+                // Emit the neoRootDir-relative path as chunk metadata.source so the distributed
+                // Chroma zip shipped with each neo release stays portable across recipients'
+                // filesystems. SearchService resolves against its own neoRootDir at read time.
+                // See #10097 — absolute paths would hard-code tobi's FS layout into the zip.
                 const chunks  = SourceParser.parse(content, relativeEntryPath, defaultType, hierarchy);
 
                 chunks.forEach(chunk => {

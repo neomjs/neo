@@ -51,7 +51,8 @@ class ReleaseNotesSource extends Base {
                         kind   : 'release',
                         name   : file.replace('.md', ''),
                         content,
-                        source : filePath
+                        // Relative path keeps the distributed Chroma zip portable (#10097).
+                        source : path.relative(aiConfig.neoRootDir, filePath)
                     };
 
                     chunk.hash = createHashFn(chunk);
