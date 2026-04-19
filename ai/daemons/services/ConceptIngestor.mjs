@@ -108,10 +108,54 @@ class ConceptIngestor extends Base {
     }
 
     /**
+     * Ensures stub nodes exist for every edge target before the edge itself is inserted. The
+     * SQLite schema enforces a FOREIGN KEY from `edges.target` to `nodes.id`, so concept edges
+     * pointing at `file:...` or `ext:...` namespaced identifiers would crash insertion if those
+     * nodes didn't already exist. Stubs carry the label appropriate to their namespace prefix
+     * (`FILE` for `file:`, `EXT` for `ext:`, fallback `CONCEPT` for direct concept-to-concept
+     * references) so downstream filters can treat them correctly.
+     *
+     * Idempotent: only creates stubs for targets not already present. If `FileSystemIngestor`
+     * later materializes a real FILE node for the same path, the stub is naturally replaced by
+     * the real node's upsert since IDs match.
+     * @param {Object[]} edges Edges about to be inserted; their `target` fields are scanned
+     * @protected
+     */
+    ensureEdgeTargetsExist(edges) {
+        const db = GraphService.db;
+
+        for (const edge of edges) {
+            if (db.nodes.get(edge.target)) continue;
+
+            let stubType;
+            if (edge.target.startsWith('file:')) {
+                stubType = 'FILE';
+            } else if (edge.target.startsWith('ext:')) {
+                stubType = 'EXT';
+            } else {
+                // Direct concept-to-concept reference (e.g., ANALOGOUS_TO across concept IDs).
+                // A stub CONCEPT node is created only if the sibling concept hasn't been ingested
+                // yet — the next iteration of the ingestor's main loop will upgrade it in place.
+                stubType = 'CONCEPT';
+            }
+
+            GraphService.upsertNode({
+                id        : edge.target,
+                type      : stubType,
+                name      : edge.target,
+                properties: {isConceptEdgeStub: true}
+            });
+        }
+    }
+
+    /**
      * Removes all existing concept-typed edges originating from a given source concept, then
      * re-inserts them. Used during edge sync because edges don't have stable IDs — a (source,
      * target, type) tuple is the natural key, but rather than implement tuple-level differential
      * sync for a small edge set we favor the simpler replace-in-place pattern.
+     *
+     * Target-node existence is guaranteed via `ensureEdgeTargetsExist` before insertion to
+     * satisfy the SQLite FOREIGN KEY constraint on `edges.target → nodes.id`.
      * @param {String}   sourceId The concept ID whose outbound concept edges should be replaced
      * @param {Object[]} newEdges Ingestor-shaped edges (see `syncConceptsToGraph` for schema)
      * @protected
@@ -126,6 +170,8 @@ class ConceptIngestor extends Base {
         if (edgesToRemove.length > 0) {
             db.edges.remove(edgesToRemove);
         }
+
+        this.ensureEdgeTargetsExist(newEdges);
 
         for (const edge of newEdges) {
             db.addEdge(edge);
