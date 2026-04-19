@@ -1,22 +1,6 @@
-import Base                                 from '../../../src/core/Base.mjs';
-import {Memory_GraphService as GraphService} from '../../services.mjs';
-import logger                               from '../../mcp/server/memory-core/logger.mjs';
-
-/**
- * Minimum weight threshold for emitting a `[GUIDE_GAP]` on a CONCEPT node.
- *
- * **Derivation:** `ConceptService.calculateWeight` returns `tier_score + uniqueness + coverage_deficit`
- * where tier-1 gets `0.8`, tier-2 `0.5`, tier-3 `0.3`; uniqueness adds `0.2`; coverage deficit (no
- * EXPLAINED_BY) adds `0.3`. The minimum a tier-1 concept can score is `0.8` (covered, non-unique).
- * Setting threshold = `0.8` means *"at least tier-1 baseline priority"* — every tier-1 concept
- * without a guide qualifies; tier-2/3 concepts qualify only if uniqueness + deficit push them above.
- *
- * Not config-lifted in Phase 1 — if human tuning becomes a real need, promote to
- * `aiConfig.data.guideGapWeightThreshold` with the same default.
- * @type {Number}
- * @private
- */
-const GUIDE_GAP_WEIGHT_THRESHOLD = 0.8;
+import Base                                                        from '../../../src/core/Base.mjs';
+import {Memory_Config as aiConfig, Memory_GraphService as GraphService} from '../../services.mjs';
+import logger                                                      from '../../mcp/server/memory-core/logger.mjs';
 
 /**
  * @summary Service for deterministic capability-gap inference over the Native Edge Graph.
@@ -38,9 +22,12 @@ const GUIDE_GAP_WEIGHT_THRESHOLD = 0.8;
  *      missing and should be added). Surfaced through the same `capabilityGap` channel +
  *      `sandman_handoff.md` section pattern as the other gap types, not via `logger.warn`
  *      (logger is ephemeral; the graph + handoff is the durable substrate). Added in #10087.
- *    All three share the `GUIDE_GAP_WEIGHT_THRESHOLD` weight gate so low-priority concepts
- *    don't flood the handoff; the gate auto-surfaces meaningful signals as concept ingestion
- *    matures (#10036 / #10037 / #10050).
+ *    All three share the `aiConfig.data.guideGapWeightThreshold` gate (config-lifted in #10086
+ *    for curator tuning; defaults to `0.8` = tier-1 baseline). Low-priority concepts don't flood
+ *    the handoff; the gate auto-surfaces meaningful signals as concept ingestion matures
+ *    (#10036 / #10037 / #10050). The config name retains the historical `guideGap*` prefix for
+ *    the same reason the ticket does — the threshold was introduced for GUIDE_GAP in #10035,
+ *    then widened to gate all three concept-graph signals in #10087.
  *
  *    **Why graph traversal over LLM verification?** The concept graph's edges are
  *    curator-maintained (`.neo-ai-data/concepts/edges.jsonl` is version-controlled; each edge
@@ -145,12 +132,14 @@ class GapInferenceEngine extends Base {
      *   to live in `ConceptIngestor` — routing through `capabilityGap` + `sandman_handoff.md`
      *   makes the signal durable and aggregatable.
      *
-     * All three signals share the same `GUIDE_GAP_WEIGHT_THRESHOLD` weight gate. Lower-weight
-     * concepts (tier-3 without uniqueness or coverage deficit lift) are considered low-priority
-     * — missing guides/examples/implementations for them aren't worth surfacing in the handoff
-     * at the current early stage of the ontology. As concept ingestion matures (#10036 / #10037
-     * / #10050), richer weight signals auto-promote meaningful gaps through the same gate
-     * without config changes.
+     * All three signals share the same `aiConfig.data.guideGapWeightThreshold` weight gate
+     * (default `0.8` = tier-1 baseline; config-lifted in #10086 for curator tuning). Lower-weight
+     * concepts (tier-3 without uniqueness or coverage deficit lift) are considered low-priority —
+     * missing guides/examples/implementations for them aren't worth surfacing in the handoff at
+     * the current early stage of the ontology. As concept ingestion matures (#10036 / #10037 /
+     * #10050), richer weight signals auto-promote meaningful gaps through the same gate without
+     * config changes. The derivation of the default (0.8) lives in `config.template.mjs` next to
+     * the value itself.
      *
      * Uses the edges-direct traversal pattern (`db.edges.getByIndex('source', id).filter(...)`)
      * rather than `db.getAdjacentNodes(...)` because concept edges point at string identifiers
@@ -173,6 +162,10 @@ class GapInferenceEngine extends Base {
 
         logger.info(`[GapInferenceEngine] Concept-graph gap pass: traversing ${conceptNodes.length} concepts.`);
 
+        // Resolved once per cycle (not per concept) — the config value is read at gate time so
+        // mid-cycle config mutations in tests / runtime take effect without re-importing.
+        const threshold = aiConfig.data.guideGapWeightThreshold;
+
         for (const concept of conceptNodes) {
             const
                 outboundEdges       = GraphService.db.edges.getByIndex('source', concept.id),
@@ -182,7 +175,7 @@ class GapInferenceEngine extends Base {
                 weight              = concept.properties?.weight ?? 0,
                 gaps                = [];
 
-            if (weight >= GUIDE_GAP_WEIGHT_THRESHOLD) {
+            if (weight >= threshold) {
                 const name = concept.properties?.name || concept.name || concept.id;
 
                 if (explainedByEdges.length === 0) {
