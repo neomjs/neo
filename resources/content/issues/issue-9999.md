@@ -21,11 +21,13 @@ subIssues:
   - '[ ] 10030 [Epic] Concept Ontology & Semantic Gap Inference'
   - '[x] 10057 Knowledge Base: Add PullRequestSource for PR Conversation Embeddings'
   - '[ ] 10127 HealthService: surface effective unified/federated topology in /health'
-  - '[ ] 10129 Backup: atomic timestamped bundle across all persistent subsystems'
-subIssuesCompleted: 2
-subIssuesTotal: 7
+  - '[x] 10129 Backup: atomic timestamped bundle across all persistent subsystems'
+  - '[ ] 10136 Rewrite CodebaseOverview.md to reflect Two Hemispheres architecture + Dream Pipeline'
+subIssuesCompleted: 3
+subIssuesTotal: 8
 blockedBy: []
-blocking: []
+blocking:
+  - '[ ] 10135 Audit Agent OS for Windows support'
 ---
 # [Epic] Cloud-Native Knowledge & Multi-Tenant Memory Core
 
@@ -183,4 +185,8 @@ healed via the new refetch endpoint and now reflect live GitHub state."
 - 2026-04-20T13:32:29Z @tobiu cross-referenced by PR #10123
 - 2026-04-20T14:38:15Z @tobiu cross-referenced by PR #10128
 - 2026-04-20T15:26:36Z @tobiu cross-referenced by PR #10130
+- 2026-04-20T19:48:27Z @tobiu cross-referenced by #10135
+- 2026-04-20T19:48:52Z @tobiu marked this issue as blocking #10135
+- 2026-04-20T20:45:16Z @tobiu cross-referenced by #10136
+- 2026-04-20T20:45:24Z @tobiu added sub-issue #10136
 
