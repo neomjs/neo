@@ -40,6 +40,12 @@ dotenv.config({
  *     - **Load:** Delegates embedding and vector storage to `VectorService`.
  * 3.  **Lifecycle Management:** Provides methods for the full lifecycle of the knowledge base,
  *     from creation and synchronization to deletion.
+ * 4.  **Backup Surface:** Exposes `manageDatabaseBackup({action: 'export'})` as a peer to
+ *     `Memory_DatabaseService.manageDatabaseBackup`, routed through the `ai/services.mjs`
+ *     SDK boundary (`makeSafe` Zod validation). Non-destructive — captures the current
+ *     ChromaDB collection state as JSONL for consumption by the canonical backup orchestrator
+ *     (`buildScripts/ai/backup.mjs`), without triggering sync, re-embedding, or compaction.
+ *     See ticket #10129 for the atomic-bundle substrate design.
  *
  * @class Neo.ai.mcp.server.knowledge-base.services.DatabaseService
  * @extends Neo.core.Base
@@ -78,6 +84,148 @@ class DatabaseService extends Base {
             returns    : chunk.returns
         });
         return crypto.createHash('sha256').update(contentString).digest('hex');
+    }
+
+    /**
+     * @summary Exports the Knowledge Base ChromaDB collection as JSONL.
+     *
+     * Peer-symmetric with `Memory_DatabaseService.exportDatabase`. Called by the canonical
+     * backup orchestrator (`buildScripts/ai/backup.mjs`) to populate the `kb/` subfolder
+     * of an atomic timestamped bundle, or invoked standalone for ad-hoc KB snapshots.
+     * Non-destructive: reads the current collection state without triggering sync, re-embed,
+     * or compaction. See #10129 for bundle layout.
+     *
+     * @param {Object}  options
+     * @param {String} [options.backupPath=aiConfig.backupPath] Directory for the JSONL artifact.
+     * @returns {Promise<{message: String}>}
+     */
+    async exportDatabase({backupPath = aiConfig.backupPath} = {}) {
+        try {
+            logger.log('Starting knowledge base export...');
+            const collection = await ChromaManager.getKnowledgeBaseCollection();
+            const count      = await this.#exportCollection(collection, backupPath, 'knowledge-base-backup');
+            return {message: `Export complete. Exported ${count} knowledge base chunks.`};
+        } catch (error) {
+            logger.error('[DatabaseService] Error exporting knowledge base:', error);
+            const exportError = new Error(`DATABASE_EXPORT_ERROR: ${error.message}`);
+            exportError.code  = 'DATABASE_EXPORT_ERROR';
+            throw exportError;
+        }
+    }
+
+    /**
+     * Helper method to stream a ChromaDB collection into a timestamped JSONL artifact.
+     * Mirror of `Memory_DatabaseService#exportCollection` — duplicated deliberately to keep
+     * each MCP service's backup logic locally discoverable (see #10129 Phase 3: peer scripts,
+     * not delegation). Pagination cap + surgical per-id rescue mode make this robust against
+     * partially corrupted HNSW segments.
+     *
+     * @param {Object} collection The ChromaDB collection to export.
+     * @param {String} backupPath The directory to save the backup file.
+     * @param {String} filePrefix The prefix for the backup filename.
+     * @returns {Promise<Number>} The number of exported documents.
+     * @private
+     */
+    async #exportCollection(collection, backupPath, filePrefix) {
+        logger.log(`Fetching all documents from "${collection.name}"...`);
+
+        const count = await collection.count();
+        if (count === 0) {
+            logger.log(`No documents found in ${collection.name} to export.`);
+            return 0;
+        }
+
+        logger.log(`Found ${count} documents in ${collection.name} to export.`);
+
+        await fs.ensureDir(backupPath);
+        const timestamp   = new Date().toISOString().replace(/:/g, '-');
+        const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
+        const writeStream = fs.createWriteStream(backupFile);
+
+        const limit = 2000;
+        let offset  = 0;
+
+        while (offset < count) {
+            logger.log(`Fetching batch: ${offset} to ${Math.min(offset + limit, count)} of ${count}`);
+
+            let batch;
+            try {
+                batch = await collection.get({
+                    include: ['documents', 'embeddings', 'metadatas'],
+                    limit,
+                    offset
+                });
+            } catch (batchErr) {
+                logger.log(`Batch ${offset} fetch failed: ${batchErr.message}. Initiating surgical 1-by-1 rescue mode...`);
+
+                const idBatch = await collection.get({include: [], limit, offset});
+
+                batch = {ids: [], metadatas: [], documents: [], embeddings: []};
+
+                for (const id of idBatch.ids) {
+                    try {
+                        const single = await collection.get({
+                            ids    : [id],
+                            include: ['documents', 'embeddings', 'metadatas']
+                        });
+
+                        if (single.ids?.length > 0) {
+                            batch.ids.push(single.ids[0]);
+                            batch.documents.push(single.documents[0]);
+                            batch.metadatas.push(single.metadatas[0]);
+                            batch.embeddings.push(single.embeddings[0]);
+                        }
+                    } catch (singleErr) {
+                        logger.error(`Skipping corrupted vector ID during export: ${id}`);
+                    }
+                }
+            }
+
+            if (!batch.ids || batch.ids.length === 0) break;
+
+            for (let i = 0; i < batch.ids.length; i++) {
+                const record = {
+                    id       : batch.ids[i],
+                    embedding: batch.embeddings[i],
+                    metadata : batch.metadatas[i],
+                    document : batch.documents[i]
+                };
+                writeStream.write(JSON.stringify(record) + '\n');
+            }
+
+            offset += limit;
+        }
+
+        await new Promise(resolve => writeStream.end(resolve));
+        logger.log(`Successfully exported ${count} documents to: ${backupFile}`);
+        return count;
+    }
+
+    /**
+     * @summary Dispatcher for knowledge-base backup operations — peer of `Memory_DatabaseService.manageDatabaseBackup`.
+     *
+     * Registered as `manage_database_backup` in `openapi.yaml` so the `ai/services.mjs`
+     * SDK layer auto-wraps it with Zod validation via `makeSafe()`. This keeps the canonical
+     * backup orchestrator (`buildScripts/ai/backup.mjs`) on the validated SDK boundary rather
+     * than importing MCP service internals directly.
+     *
+     * Currently supports `action: 'export'` only. Import + truncate are out-of-scope per
+     * #10129 (restore tooling is a separate ticket).
+     *
+     * @param {Object}  options
+     * @param {String}  options.action       The action to perform. Currently 'export'.
+     * @param {String} [options.backupPath]  Forwarded to `exportDatabase` when action is 'export'.
+     * @returns {Promise<Object>}
+     */
+    async manageDatabaseBackup({action, ...config}) {
+        if (action === 'export') {
+            return this.exportDatabase(config);
+        }
+
+        throw new Error(
+            `Unknown action: ${action}. KB backup currently supports 'export' only; ` +
+            `'import' and 'truncate' are deferred to follow-up tickets (see #10129 Out of Scope: Restore tooling).`
+        );
     }
 
     /**

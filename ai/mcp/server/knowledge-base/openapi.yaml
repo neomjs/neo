@@ -151,6 +151,61 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /db/backup/manage:
+    post:
+      summary: Manage Knowledge Base Backup
+      operationId: manage_database_backup
+      x-pass-as-object: true
+      description: |
+        Exports the Knowledge Base ChromaDB collection as a timestamped JSONL file.
+        Peer of `Memory_DatabaseService.manage_database_backup`. Non-destructive — captures
+        current collection state without triggering sync, re-embedding, or compaction.
+
+        **When to Use:**
+        Invoked by the canonical backup orchestrator (`buildScripts/ai/backup.mjs`) to
+        populate the `kb/` subfolder of an atomic timestamped bundle. Also callable
+        standalone for ad-hoc KB snapshots.
+
+        **Scope Note:**
+        Currently supports `action: 'export'` only. Import + truncate are deferred to
+        follow-up tickets (restore tooling is out-of-scope per #10129).
+      tags: [Database]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [export]
+                  description: The action to perform. Currently only 'export' is supported.
+                backupPath:
+                  type: string
+                  description: Optional directory for the JSONL artifact. Defaults to `aiConfig.backupPath`.
+      responses:
+        '200':
+          description: Operation completed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupActionResponse'
+        '400':
+          description: Invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal error during export.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /documents/query:
     post:
       summary: Query Documents
@@ -705,6 +760,16 @@ components:
           type: string
           description: Optional details about the operation.
           example: "Knowledge base synchronization started."
+
+    BackupActionResponse:
+      type: object
+      description: |
+        Structured response for `manage_database_backup` operations. Peer-symmetric with the
+        Memory Core `BackupActionResponse` schema. Export populates `message` with the chunk count.
+      properties:
+        message:
+          type: string
+          example: "Export complete. Exported 9428 knowledge base chunks."
 
     ErrorResponse:
       type: object

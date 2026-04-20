@@ -547,6 +547,9 @@ paths:
                     enum: [memories, summaries, graph]
                   default: [memories, summaries, graph]
                   description: (Export/Truncate only) Which collections to target.
+                backupPath:
+                  type: string
+                  description: (Export only) Optional directory for JSONL artifacts. Used by the canonical backup orchestrator to route MC artifacts into bundle subfolders. Defaults to `aiConfig.backupPath`.
                 file:
                   type: string
                   description: (Import only) The absolute path to the JSONL backup file to import.

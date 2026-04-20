@@ -184,7 +184,7 @@ class DatabaseService extends Base {
              try {
                  const node = JSON.parse(row.data);
                  const record = { type: 'node', data: node };
-                 writeStream.write(JSON.stringify(record) + '\\n');
+                 writeStream.write(JSON.stringify(record) + '\n');
                  exported++;
              } catch(e) {
                  logger.error(`Error parsing node during export`, e);
@@ -197,7 +197,7 @@ class DatabaseService extends Base {
              try {
                  const edge = JSON.parse(row.data);
                  const record = { type: 'edge', data: edge };
-                 writeStream.write(JSON.stringify(record) + '\\n');
+                 writeStream.write(JSON.stringify(record) + '\n');
                  exported++;
              } catch(e) {
                  logger.error(`Error parsing edge during export`, e);
@@ -289,28 +289,35 @@ class DatabaseService extends Base {
     }
 
     /**
-     * Exports the entire memory database (both memories and summaries) to a JSONL file.
-     * @param {Object} options
-     * @param {String[]} [options.include=['memories', 'summaries', 'graph']] Array of collections to export.
+     * Exports the memory database (memories, summaries, graph) to JSONL files.
+     *
+     * Accepts an optional `backupPath` so orchestrators (e.g. `buildScripts/ai/backup.mjs`)
+     * can direct artifacts into a subfolder of an atomic timestamped bundle without
+     * needing to post-process file locations. Default behavior is unchanged (flat write
+     * to `aiConfig.backupPath`).
+     *
+     * @param {Object}    options
+     * @param {String[]} [options.include=['memories','summaries','graph']] Array of collections to export.
+     * @param {String}   [options.backupPath=aiConfig.backupPath]           Directory for the JSONL artifacts.
      * @returns {Promise<{message: string}>}
      */
-    async exportDatabase({include=['memories', 'summaries', 'graph']} = {}) {
+    async exportDatabase({include=['memories', 'summaries', 'graph'], backupPath = aiConfig.backupPath} = {}) {
         try {
             logger.log('Starting agent memory export...');
             let memoryCount = 0, summaryCount = 0, graphCount = 0;
 
             if (include.includes('memories')) {
                 const collection = await StorageRouter.getMemoryCollection();
-                memoryCount      = await this.#exportCollection(collection, aiConfig.backupPath, 'memory-backup');
+                memoryCount      = await this.#exportCollection(collection, backupPath, 'memory-backup');
             }
 
             if (include.includes('summaries')) {
                 const collection = await StorageRouter.getSummaryCollection();
-                summaryCount     = await this.#exportCollection(collection, aiConfig.backupPath, 'summaries-backup');
+                summaryCount     = await this.#exportCollection(collection, backupPath, 'summaries-backup');
             }
 
             if (include.includes('graph')) {
-                graphCount = await this.#exportGraph(aiConfig.backupPath, 'graph-backup');
+                graphCount = await this.#exportGraph(backupPath, 'graph-backup');
             }
 
             return {message: `Export complete. Exported ${memoryCount} memories, ${summaryCount} summaries, and ${graphCount} graph elements.`};

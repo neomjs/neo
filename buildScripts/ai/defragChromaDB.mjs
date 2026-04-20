@@ -13,10 +13,26 @@ import Neo             from '../../src/Neo.mjs';
  * within ChromaDB. It is designed to be target-agnostic, capable of processing different database instances
  * (e.g., Knowledge Base, Memory Core) by dynamically loading their specific configurations.
  *
- * The "Nuke and Pave" Strategy:
- * 1.  **Backup (Safety First)**: Before any destructive operation, a full physical backup of the database folder is created.
- *     Backups are stored in `dist/chromadb-backups/<target>/` to avoid project root pollution.
- *     Automated retention policy: Deletes backups older than 7 days, but always keeps the last 3.
+ * ## Peer Architecture (#10129)
+ *
+ * This script and `buildScripts/ai/backup.mjs` are **peer scripts with orthogonal responsibilities**.
+ * Defrag does NOT call the canonical backup orchestrator — it retains its own private pre-nuke
+ * physical-copy snapshot (step 1 below). The rationale is captured in #10129 Phase 3:
+ *
+ * - `backup.mjs` captures current state as portable JSONL via the `ai/services.mjs` SDK boundary
+ * - Defrag needs a *fast* pre-nuke snapshot that preserves exact HNSW index state, which a
+ *   physical directory copy provides but a JSONL export does not
+ * - Delegation between the two would re-create the discoverability failure this separation solves
+ *
+ * Operators who want compacted backups compose at the shell layer: `npm run ai:defrag-kb && npm run ai:backup`.
+ *
+ * ## The "Nuke and Pave" Strategy
+ *
+ * 1.  **Pre-Nuke Snapshot (Defrag-Internal Safety)**: Before any destructive operation, a full physical copy
+ *     of the database folder is created via `fs.copy()`. This preserves exact HNSW index state for instant
+ *     restore if the nuke-and-pave ETL fails mid-flight. Snapshots live at `dist/chromadb-backups/<target>/`
+ *     and are explicitly NOT the canonical backup — that lives at `.neo-ai-data/backups/backup-<ts>/` via
+ *     `buildScripts/ai/backup.mjs`. Automated retention: keep last 3, delete others older than 7 days.
  * 2.  **Extract (ETL)**: All data (IDs, embeddings, metadata, documents) is fetched from *all* target collections
  *     into an in-memory buffer.
  * 3.  **Nuke (Logical Reset)**: The collections are deleted via the API. This releases the logical references to the data,
@@ -31,8 +47,10 @@ import Neo             from '../../src/Neo.mjs';
  * `node buildScripts/defragChromaDB.mjs --target memory-core`
  *
  * @module buildScripts/defragChromaDB
+ * @see buildScripts/ai/backup.mjs   Canonical JSONL bundle backup orchestrator (peer, not dependency)
  * @see Neo.ai.mcp.server.knowledge-base.Config
  * @see Neo.ai.mcp.server.memory-core.Config
+ * @see https://github.com/neomjs/neo/issues/10129
  */
 
 const __filename   = fileURLToPath(import.meta.url);
@@ -221,18 +239,19 @@ async function defragChromaDB() {
         const initialSize = await getDirSize(DB_PATH);
         console.log(`   📊 Initial Size: ${(initialSize / 1024 / 1024).toFixed(2)} MB`);
 
-        // 1. Backup (Mandatory & Centralized)
-        // We never run destructive operations without a fallback.
-        // Backups are stored in `dist/chromadb-backups/<target>/backup-<timestamp>`
+        // 1. Pre-Nuke Snapshot (Defrag-Internal Safety)
+        // Fast physical copy preserving exact HNSW index state. This is defrag-exclusive —
+        // it is NOT the canonical backup. For portable JSONL snapshots see `buildScripts/ai/backup.mjs`.
+        // Peer architecture per #10129: neither script calls the other.
         const timestamp  = Date.now();
         const backupRoot = path.resolve(PROJECT_ROOT, 'dist', 'chromadb-backups', targetName);
         const backupName = `backup-${timestamp}`;
         const backupPath = path.join(backupRoot, backupName);
 
-        console.log(`\n1️⃣  Creating Backup at ${backupPath}...`);
+        console.log(`\n1️⃣  Creating pre-nuke snapshot at ${backupPath}...`);
         await fs.ensureDir(backupRoot);
         await fs.copy(DB_PATH, backupPath);
-        console.log(`   ✅ Backup created.`);
+        console.log(`   ✅ Pre-nuke snapshot created (defrag-exclusive, not the canonical backup).`);
 
         // 1.1 Cleanup Old Backups
         await cleanOldBackups(backupRoot);
