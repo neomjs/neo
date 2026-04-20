@@ -15,10 +15,11 @@ import ChromaLifecycleService   from '../services/lifecycle/ChromaLifecycleServi
  * **Dynamic topology (Epic #9999, sub-epic #10015):** The ChromaClient coordinates are resolved from
  * `aiConfig.chromaUnified`. In **federated** mode (the default, flag `false`) the client targets
  * `aiConfig.engines.chroma.{host, port}` — Memory Core's own ChromaDB instance, typically on port 8001.
- * In **unified** mode (flag `true`) the client targets `aiConfig.kbChroma.{host, port}` — the shared
- * Knowledge Base instance, typically on port 8000 — enabling single-container KB + MC deployments
- * where one ChromaDB process serves both servers. The federation choice is orthogonal to per-tenant
- * write tagging and read-side isolation, which live in `SessionService` / `MemoryService`.
+ * In **unified** mode (flag `true`) the client targets `aiConfig.engines.kb.chroma.{host, port}` —
+ * the shared Knowledge Base instance, typically on port 8000 — enabling single-container KB + MC
+ * deployments where one ChromaDB process serves both servers. The federation choice is orthogonal
+ * to per-tenant write tagging and read-side isolation, which live in `SessionService` /
+ * `MemoryService`.
  *
  * @class Neo.ai.mcp.server.memory-core.managers.ChromaManager
  * @extends Neo.ai.mcp.server.memory-core.managers.AbstractVectorManager
@@ -80,14 +81,35 @@ class ChromaManager extends AbstractVectorManager {
      * by diagnostics (e.g. HealthService topology reporting) without re-instantiating the singleton.
      *
      * - `chromaUnified=false` (default, federated): routes to `cfg.engines.chroma` — MC's own instance
-     * - `chromaUnified=true` (unified): routes to `cfg.kbChroma` — the shared KB instance
+     * - `chromaUnified=true` (unified): routes to `cfg.engines.kb.chroma` — the shared KB instance
+     *
+     * Throws when unified mode is requested but `engines.kb.chroma` is absent — this can only happen
+     * when a custom config file explicitly clobbers the `engines.kb` branch (the shipped template
+     * ships it populated). Surfacing an explicit error here prevents `new ChromaClient({host:
+     * undefined, port: undefined})` from failing later with a less-actionable heartbeat error.
      *
      * @param {Object} cfg              aiConfig-shaped input. Must expose `chromaUnified` plus both
-     *                                  branch targets `engines.chroma.{host, port}` and `kbChroma.{host, port}`.
+     *                                  branch targets `engines.chroma.{host, port}` and
+     *                                  `engines.kb.chroma.{host, port}`.
      * @returns {{host: string, port: number}} The resolved coordinates for the active topology.
+     * @throws {Error} When `chromaUnified=true` and `engines.kb.chroma` is not defined.
      */
     resolveChromaCoordinates(cfg) {
-        return cfg.chromaUnified ? cfg.kbChroma : cfg.engines.chroma;
+        if (cfg.chromaUnified) {
+            const kbChroma = cfg.engines?.kb?.chroma;
+
+            if (!kbChroma) {
+                throw new Error(
+                    'ChromaManager: chromaUnified=true requires engines.kb.chroma.{host, port} ' +
+                    'to be defined. Check your custom config override — the shipped template provides ' +
+                    'defaults (localhost:8000) overridable via NEO_KB_CHROMA_HOST / NEO_KB_CHROMA_PORT.'
+                )
+            }
+
+            return kbChroma
+        }
+
+        return cfg.engines.chroma
     }
 
     /**

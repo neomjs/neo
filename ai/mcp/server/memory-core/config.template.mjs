@@ -169,26 +169,33 @@ const defaultConfig = {
     engine: 'hybrid',
     /**
      * Database Engine Definitions
-     * This defines WHERE data is stored physically.
+     * This defines WHERE data is stored physically (for engines MC owns) and WHERE MC reaches
+     * into other services' engines (under `engines.<serviceName>.<engineType>`). The flat
+     * `engines.chroma` path is MC's own ChromaDB; the nested `engines.kb.chroma` path is the
+     * Knowledge Base's ChromaDB, consulted only when `chromaUnified` is `true`.
      */
     engines: {
         chroma: {
             dataDir: path.resolve(cwd, '.neo-ai-data/chroma/memory-core'),
             host   : 'localhost',
             port   : 8001
+        },
+        /**
+         * Connection coordinates for the shared Knowledge Base ChromaDB instance, consulted by
+         * `ChromaManager` when `chromaUnified` is `true`. In unified mode the Memory Core's
+         * ChromaClient targets `engines.kb.chroma.{host, port}` instead of `engines.chroma.{host, port}`.
+         * Defaults match the Knowledge Base server's default (`localhost:8000`); override per-deployment
+         * via `NEO_KB_CHROMA_HOST` / `NEO_KB_CHROMA_PORT` for containerized topologies. The
+         * `engines.<serviceName>.<engineType>` namespace is the extension point for any future
+         * cross-service engine-reference groups.
+         * @type {Object}
+         */
+        kb: {
+            chroma: {
+                host: process.env.NEO_KB_CHROMA_HOST || 'localhost',
+                port: Number(process.env.NEO_KB_CHROMA_PORT) || 8000
+            }
         }
-    },
-    /**
-     * Connection coordinates for the shared Knowledge Base ChromaDB instance, consulted by
-     * `ChromaManager` when `chromaUnified` is `true`. In unified mode the Memory Core's ChromaClient
-     * targets these coordinates instead of `engines.chroma.{host, port}`. Defaults match the
-     * Knowledge Base server's default (`localhost:8000`); override per-deployment via
-     * `NEO_KB_CHROMA_HOST` / `NEO_KB_CHROMA_PORT` for containerized topologies.
-     * @type {Object}
-     */
-    kbChroma: {
-        host: process.env.NEO_KB_CHROMA_HOST || 'localhost',
-        port: Number(process.env.NEO_KB_CHROMA_PORT) || 8000
     },
     /**
      * Physical file paths for embedded/local datasets.
