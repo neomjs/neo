@@ -41,11 +41,15 @@ dotenv.config({
  * 3.  **Lifecycle Management:** Provides methods for the full lifecycle of the knowledge base,
  *     from creation and synchronization to deletion.
  * 4.  **Backup Surface:** Exposes `manageDatabaseBackup({action: 'export'})` as a peer to
- *     `Memory_DatabaseService.manageDatabaseBackup`, routed through the `ai/services.mjs`
- *     SDK boundary (`makeSafe` Zod validation). Non-destructive — captures the current
- *     ChromaDB collection state as JSONL for consumption by the canonical backup orchestrator
- *     (`buildScripts/ai/backup.mjs`), without triggering sync, re-embedding, or compaction.
- *     See ticket #10129 for the atomic-bundle substrate design.
+ *     `Memory_DatabaseService.manageDatabaseBackup`, reached via the `ai/services.mjs` SDK
+ *     boundary. Deliberately NOT registered as an MCP tool in `toolService.mjs` — the
+ *     `npm run ai:backup` script-over-tool path protects the ~80-tool MCP budget (see
+ *     #9903 precedent, #10132 for retirement rationale). `makeSafe` no-match passthrough
+ *     forwards raw args through the SDK when no openapi operation is registered.
+ *     Non-destructive — captures the current ChromaDB collection state as JSONL for
+ *     consumption by the canonical backup orchestrator (`buildScripts/ai/backup.mjs`),
+ *     without triggering sync, re-embedding, or compaction. See #10129 for the
+ *     atomic-bundle substrate design.
  *
  * @class Neo.ai.mcp.server.knowledge-base.services.DatabaseService
  * @extends Neo.core.Base
@@ -204,10 +208,13 @@ class DatabaseService extends Base {
     /**
      * @summary Dispatcher for knowledge-base backup operations — peer of `Memory_DatabaseService.manageDatabaseBackup`.
      *
-     * Registered as `manage_database_backup` in `openapi.yaml` so the `ai/services.mjs`
-     * SDK layer auto-wraps it with Zod validation via `makeSafe()`. This keeps the canonical
-     * backup orchestrator (`buildScripts/ai/backup.mjs`) on the validated SDK boundary rather
-     * than importing MCP service internals directly.
+     * Reached exclusively via the `ai/services.mjs` SDK — deliberately NOT registered as an
+     * MCP tool in `toolService.mjs` serviceMapping (script-over-tool per #9903 precedent, to
+     * protect the ~80-tool MCP budget against the 100-tool harness cap; see #10132 for the
+     * full retirement rationale). `makeSafe` no-match passthrough forwards raw args through
+     * when no matching openapi operation is found, so `backup.mjs` can invoke this dispatcher
+     * with `{action, backupPath}` without a Zod schema. The manual throw below is the actual
+     * rejection path for invalid actions.
      *
      * Currently supports `action: 'export'` only. Import + truncate are out-of-scope per
      * #10129 (restore tooling is a separate ticket).

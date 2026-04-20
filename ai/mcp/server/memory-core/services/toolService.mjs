@@ -23,7 +23,6 @@ const serviceMapping = {
     get_session_memories  : MemoryService           .listMemories        .bind(MemoryService),
     healthcheck           : HealthService           .healthcheck         .bind(HealthService),
     manage_database       : ChromaLifecycleService  .manageDatabase      .bind(ChromaLifecycleService),
-    manage_database_backup: DatabaseService         .manageDatabaseBackup.bind(DatabaseService),
     mutate_frontier       : MemoryService           .mutateFrontier      .bind(MemoryService),
     pre_brief_session     : MemoryService           .preBriefSession     .bind(MemoryService),
     query_hybrid_graph    : GraphService            .queryNodeTopology   .bind(GraphService),

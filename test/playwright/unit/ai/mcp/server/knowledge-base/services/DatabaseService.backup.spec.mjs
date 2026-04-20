@@ -118,9 +118,13 @@ test.describe('KB_DatabaseService — manageDatabaseBackup (#10129 Phase 1)', ()
         expect(produced).toHaveLength(0);
     });
 
-    test('rejects unsupported actions at the SDK Zod validation boundary', async () => {
+    test('rejects unsupported actions at the dispatcher layer', async () => {
+        // No openapi operation is registered for `manage_database_backup` in KB (retired per
+        // #10132 script-over-tool reduction), so `makeSafe` no-match passthrough forwards
+        // args raw — the manual `throw new Error('Unknown action...')` inside the dispatcher
+        // is the rejection path.
         await expect(
             KB_DatabaseService.manageDatabaseBackup({action: 'import'})
-        ).rejects.toThrow();
+        ).rejects.toThrow(/Unknown action: import/);
     });
 });
