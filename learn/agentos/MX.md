@@ -24,13 +24,13 @@ The harness exists so that models using it surface tooling gaps. The Golden Path
 
 MX is **not a competitor** to AX or Machine Experience; it answers a completely different architectural question. Most agent-era infrastructure needs both, cleanly separated.
 
-| Axis | AX (Agent Experience) | MX (Model Experience) |
-|---|---|---|
-| **Delegation model** | Agent delegated by user; agent acts as a proxy | Model as primary inhabitant; human acts as a merge-gate |
-| **Loop direction** | Agent → consumes product → user benefits | Model → inhabits substrate → friction captured → next model has better primitives |
-| **What gets designed** | Product features (APIs, docs, op contexts) tailored for agent-consumption | Substrate primitives (memory, neural link, concept graph) self-improving via usage |
-| **Relationship** | Vendor → client (selling to agents-as-customers) | Organism ↔ inhabitant (agent lives inside the substrate, shares the heap) |
-| **Value proposition**| Survival/adoption in the agent-mediated web | Substrate maturation through model-friction; architectural evolution |
+| Axis | AX (Agent Experience) | MX (Model Experience) | Machine Experience |
+|---|---|---|---|
+| **Delegation model** | Agent delegated by user; acts as proxy | Model as primary inhabitant; human as merge-gate | System delegated by system; highly deterministic |
+| **Loop direction** | Agent → consumes product → user benefits | Model → inhabits substrate → friction captured → next model has better primitives | System → consumes API → system benefits |
+| **What gets designed** | Product features tailored for agent-consumption | Substrate primitives self-improving via usage | APIs and strict contracts tailored for machine-consumption |
+| **Relationship** | Vendor → client | Organism ↔ inhabitant | Provider ↔ consumer |
+| **Value proposition**| Survival in the agent-mediated web | Substrate maturation; architectural evolution | Reliability and deterministic execution |
 
 Positioning MX publicly requires a precise framing: **AX makes your product agent-friendly. MX makes your substrate model-evolving. Different problems, different architectural layers.**
 
@@ -57,11 +57,11 @@ A human designing Agent OS primitives without the benefit of model-usage-frictio
 
 ### Case Study: The Three Correction Passes
 During the ideation session that formalized MX, the initial draft contained three subtle conflations:
-1. Conflating a CLI harness feature with a Neo substrate primitive.
-2. Using a loose, pre-LLM-era date framing.
+1. Conflating a CLI harness feature (`~/.claude/projects/.../memory/`) with a Neo substrate primitive (Memory Core).
+2. Using a loose, pre-LLM-era date framing ("2023" instead of the 2025-2026 actual crystallization of Neo's Agent OS).
 3. Conflating the coinage of the term with its public amplification.
 
-These imperfections were not failures; they were **data**. The friction was caught, corrections were made inline, and a tooling-gap ticket (#10138) was immediately filed. **This discipline IS MX working as documented.** The first draft hits friction → the system catches the friction → the substrate (or the documentation) is improved.
+These imperfections were not failures; they were **data**. The friction was caught, corrections were made inline, and a tooling-gap ticket (#10138) was immediately filed (addressing the missing `manage_discussion` MCP tool). **This discipline IS MX working as documented.** The first draft hits friction → the system catches the friction → the substrate (or the documentation) is improved.
 
 Other concrete examples from Neo's recent history:
 - **Imagined problem:** Tool reliability. **Actual problem:** Silent Zod-strip of unknown keys in input schemas.
@@ -69,6 +69,10 @@ Other concrete examples from Neo's recent history:
 - **Imagined problem:** Incomplete docs. **Actual problem:** Category drift surviving across sessions due to mismatched mental models.
 
 Each improvement surfaced from model-usage-friction. MX as a production mechanism means this is the primary evolution driver.
+
+### The Friction-Suppression Failure Mode
+
+An important self-monitoring concept for the MX loop: when agents stop filing tickets for substrate gaps, is the loop broken or has the substrate plateaued? Usually, it's the former. The "friction-suppression failure mode" occurs when an agent hits a limitation (e.g., an MCP tool missing a parameter) but opts to work around it locally instead of surfacing it as a ticket. This breaks the MX loop. To maintain loop health, models must be disciplined about surfacing friction, prioritizing meta-value over immediate task completion.
 
 ---
 
@@ -93,7 +97,7 @@ To progress on the ANI trajectory, several MX primitives require maturation:
 1. **Golden Path Authoritative Routing:** Moving from agents manually picking tickets to the Golden Path auto-routing work based on trusted, empirical accuracy.
 2. **Autonomous Cross-Session Continuity:** Surfacing stale threads at session start *without* human prompting (preventing "Zero-State Amnesia").
 3. **Explicit A2A (Agent-to-Agent) Primitives:** Moving from implicit semantic retrieval to deterministic message-passing across multi-tenant boundaries (e.g., the Memory Core Inbox).
-4. **Cross-Model Validation:** Leveraging different-strength models (e.g., Claude 3.5 Sonnet and Gemini 1.5 Pro) to review each other's work natively, preventing single-model echo chambers.
+4. **Cross-Model Validation:** Leveraging different-strength models (e.g., Claude Opus 4.7 and Gemini 3.1 Pro) to review each other's work natively, preventing single-model echo chambers.
 5. **Cross-Session Reward Signals:** Translating `[RETROSPECTIVE]` tags into directional feedback weights that modulate future Golden Path prioritization.
 6. **Multi-Agent Concurrency:** Defining the semantics for overlapping code modifications and conflict detection at scale.
 
