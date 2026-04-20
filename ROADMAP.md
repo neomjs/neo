@@ -76,7 +76,7 @@ We will empower developers (and the "CEO Agent") to spawn specialized agents pro
     *   `ai/agents/pm.mjs`: Scans Epics, breaks them down into User Stories (Issues).
     *   `ai/agents/dev.mjs`: Scans open Issues, writes code, runs tests, and submits PRs.
 *   [x] **The "Feature Factory" Experiment:** A proof-of-concept where a single command triggers a chain of agents.
-*   [ ] **Neo.ai.Agent Class:** (Deferred) Standardize the scripts into a formal SDK class structure.
+*   [x] **Neo.ai.Agent Class** (`ai/Agent.mjs`): Base class extending `Neo.core.Base` that orchestrates MCP client connections, the autonomous cognitive Loop, Scheduler, and model-provider abstraction (Gemini, Ollama, OpenAI-compatible). Formalizes the SDK class structure; the "Fake Agent" Direct-Service-Import pattern remains available for single-shot scripts.
 
 ### Phase 3: The Command Center (post-v12.2)
 
