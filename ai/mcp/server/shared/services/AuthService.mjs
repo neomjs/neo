@@ -5,7 +5,7 @@ import Base from '../../../../../src/core/Base.mjs';
  *
  * This service acts as the **Authorization Anchor** for the MCP ecosystem. It implements
  * the **Discovery-First Pattern**, where it dynamically resolves security endpoints from the
- * identity provider's `.well-known/openid-configuration`. 
+ * identity provider's `.well-known/openid-configuration`.
  *
  * Key Architectural Concepts:
  * - **Dynamic Resolution:** Autonomously fetches and parses OIDC discovery documents.
@@ -14,14 +14,22 @@ import Base from '../../../../../src/core/Base.mjs';
  *    to identify the required authorization server.
  * - **Audience Enforcement:** Strictly validates that the `aud` (Audience) claim in the
  *   Bearer token matches the MCP server's public URL to prevent passthrough attacks.
+ * - **Identity Propagation (Epic #9999, ticket #10000):** The `verifyAccessToken` verifier
+ *   extracts `preferred_username` (or `sub` as fallback) from the introspection response and
+ *   surfaces it as `userId` on the auth context. Downstream request handlers read this via
+ *   `RequestContextService.getUserId()` to tag ChromaDB writes and filter reads per tenant,
+ *   enabling multi-tenant Memory Core deployments without trusting reverse-proxy forwarded
+ *   headers. The identity source of truth is the OIDC provider's validated introspection
+ *   response — not an infrastructure-level HTTP header.
  *
- * This service is essential for enabling **Agent-Native Security** in distributed or 
+ * This service is essential for enabling **Agent-Native Security** in distributed or
  * cloud-native environments using Infrastructure as Code (IaC).
  *
  * @class Neo.ai.mcp.server.shared.services.AuthService
  * @extends Neo.core.Base
  * @singleton
  * @see Neo.ai.mcp.server.shared.services.TransportService
+ * @see Neo.ai.mcp.server.shared.services.RequestContextService
  */
 class AuthService extends Base {
     static config = {
@@ -149,11 +157,23 @@ class AuthService extends Base {
                     throw new InvalidTokenError(`None of the provided audiences are allowed. Expected ${mcpServerUrl}, got: ${audiences.join(', ')}`);
                 }
 
+                // Extract identity claims from the introspection response for downstream
+                // tenant isolation (ticket #10000). `preferred_username` is Keycloak / GitLab /
+                // many OIDC providers' convention for the human-readable login name; `sub` is the
+                // OIDC-spec-mandated subject identifier and the reliable fallback. Providers may
+                // omit `preferred_username` (e.g. machine-to-machine client credential flows),
+                // so the `sub`-fallback guarantees a non-empty userId whenever the token is
+                // active. `username` is retained separately for human-facing logging.
+                const userId   = data.preferred_username || data.sub;
+                const username = data.preferred_username || data.name || data.email || data.sub;
+
                 return {
                     token,
                     clientId : data.client_id,
                     scopes   : data.scope ? data.scope.split(' ') : [],
                     expiresAt: data.exp,
+                    userId,
+                    username
                 };
             }
         };

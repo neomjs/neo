@@ -1,10 +1,11 @@
-import Base           from '../../../../../src/core/Base.mjs';
-import StorageRouter  from '../managers/StorageRouter.mjs';
-import crypto         from 'crypto';
-import GraphService   from './GraphService.mjs';
-import logger         from '../logger.mjs';
-import SessionService from './SessionService.mjs';
-import aiConfig       from '../config.mjs';
+import Base                  from '../../../../../src/core/Base.mjs';
+import StorageRouter         from '../managers/StorageRouter.mjs';
+import crypto                from 'crypto';
+import GraphService          from './GraphService.mjs';
+import logger                from '../logger.mjs';
+import SessionService        from './SessionService.mjs';
+import aiConfig              from '../config.mjs';
+import RequestContextService from '../../shared/services/RequestContextService.mjs';
 
 
 /**
@@ -14,9 +15,21 @@ import aiConfig       from '../config.mjs';
  * It handles the creation of new memory entries (including embedding generation), retrieving memories by session,
  * and performing semantic searches to find relevant past interactions.
  *
+ * **Multi-tenant isolation (Epic #9999, sub-epic #10016, ticket #10000):** When a request arrives
+ * via SSE transport with a valid OIDC Bearer token, `RequestContextService.getUserId()` returns
+ * the authenticated user's identifier (derived from the token's `preferred_username` / `sub`
+ * claim). Writes (`addMemory`) tag ChromaDB metadata with that `userId`; reads (`listMemories`,
+ * `queryMemories`, and the graph-bridged summary fetches inside `getContextFrontier` and
+ * `preBriefSession`) apply a `where: {userId}` filter so tenants only see their own data. In
+ * stdio transport mode no request context is active, `getUserId()` returns `undefined`, and
+ * writes + reads fall through unchanged — single-tenant backward-compat. The team-vs-private
+ * toggle (#10010) will later let operators opt out of the read filter while keeping the write
+ * tag.
+ *
  * @class Neo.ai.mcp.server.memory-core.services.MemoryService
  * @extends Neo.core.Base
  * @singleton
+ * @see Neo.ai.mcp.server.shared.services.RequestContextService
  */
 class MemoryService extends Base {
     static config = {
@@ -73,6 +86,11 @@ class MemoryService extends Base {
                 timestamp: now,
                 type: 'agent-interaction'
             };
+
+            // Tenant-isolation tag (#10000): present only when a request context was established
+            // by the SSE transport layer. In stdio mode it is absent — single-tenant fallthrough.
+            const userId = RequestContextService.getUserId();
+            if (userId) metadata.userId = userId;
 
             if (agent) metadata.agent = agent;
             if (model) metadata.model = model;
@@ -131,8 +149,13 @@ class MemoryService extends Base {
 
             const collection = await StorageRouter.getMemoryCollection();
 
+            // Tenant read-filter (#10000): adds userId to the where clause when a request context
+            // is active. In stdio mode userId is undefined and the filter reduces to sessionId alone.
+            const userId = RequestContextService.getUserId();
+            const where  = userId ? {sessionId, userId} : {sessionId};
+
             const result = await collection.get({
-                where  : {sessionId},
+                where,
                 include: ['metadatas']
             });
 
@@ -190,8 +213,14 @@ class MemoryService extends Base {
                 include   : ['metadatas']
             };
 
-            if (sessionId) {
-                queryArgs.where = {sessionId};
+            // Tenant-scoped where clause (#10000). Merges userId with the caller-provided
+            // sessionId when both are present; either side is optional.
+            const userId = RequestContextService.getUserId();
+            const where  = {};
+            if (sessionId) where.sessionId = sessionId;
+            if (userId)    where.userId    = userId;
+            if (Object.keys(where).length > 0) {
+                queryArgs.where = where;
             }
 
             const searchResult = await collection.query(queryArgs);
@@ -255,13 +284,20 @@ class MemoryService extends Base {
             // We grab context blocks from summaries, as that is where DreamService extracts episodic graph nodes from
             const collection = await StorageRouter.getSummaryCollection();
 
+            // Tenant defense-in-depth (#10000): the graph is shared across users until #10011 adds
+            // SQLite row-level security. If a neighbor's semanticVectorId points at another user's
+            // summary, the userId filter reduces the fetch to zero rows rather than leaking it.
+            const userId = RequestContextService.getUserId();
+
             for (const neighbor of strategicNeighbors) {
                 if (neighbor.semanticVectorId) {
                     try {
-                        const result = await collection.get({
-                            ids: [neighbor.semanticVectorId],
+                        const getArgs = {
+                            ids    : [neighbor.semanticVectorId],
                             include: ['documents', 'metadatas']
-                        });
+                        };
+                        if (userId) getArgs.where = {userId};
+                        const result = await collection.get(getArgs);
 
                         if (result.documents && result.documents.length > 0) {
                             semanticContexts.push({
@@ -327,15 +363,22 @@ class MemoryService extends Base {
 
             const collection = await StorageRouter.getSummaryCollection();
 
+            // Tenant defense-in-depth (#10000): same rationale as getContextFrontier — the graph
+            // may return a neighbor whose vector belongs to another tenant until #10011 isolates
+            // the graph itself. userId filter converts cross-tenant leaks into empty results.
+            const userId = RequestContextService.getUserId();
+
             for (const neighbor of neighbors) {
                 let episodicContext = null;
 
                 if (neighbor.semanticVectorId) {
                     try {
-                        const result = await collection.get({
-                            ids: [neighbor.semanticVectorId],
+                        const getArgs = {
+                            ids    : [neighbor.semanticVectorId],
                             include: ['documents']
-                        });
+                        };
+                        if (userId) getArgs.where = {userId};
+                        const result = await collection.get(getArgs);
                         if (result.documents && result.documents.length > 0) {
                             episodicContext = result.documents[0];
                         }
