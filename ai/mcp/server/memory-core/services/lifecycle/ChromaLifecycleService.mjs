@@ -10,7 +10,14 @@ import Observable from '../../../../../../src/core/Observable.mjs';
  * Following the dismantling of the monolithic database service, this class is now an explicitly isolated orchestrator
  * responsible for managing the local ChromaDB vector database daemon. It handles asynchronous initialization,
  * persistent heartbeat monitoring (`waitForHeartbeat`), and safe termination sequences independently.
- * 
+ *
+ * **Dynamic topology (Epic #9999, sub-epic #10015, ticket #10007):** When `aiConfig.chromaUnified` is
+ * `true`, this service becomes a no-op for daemon spawn — the Knowledge Base server owns the shared
+ * ChromaDB instance and Memory Core connects as a downstream client via `ChromaManager`.
+ * `startDatabase()` returns `{status: 'skipped_unified_mode'}` and `initAsync()` short-circuits before
+ * process spawn. The heartbeat / status methods continue to function: they query the shared instance
+ * via `ChromaManager.client` which was already routed to `engines.kb.chroma.{host, port}` in #10001.
+ *
  * Future AI sessions should search for `chroma startup`, `vector database lifecycle`, or `daemon orchestrator`.
  *
  * @class Neo.ai.mcp.server.memory-core.services.lifecycle.ChromaLifecycleService
@@ -47,9 +54,18 @@ class ChromaLifecycleService extends Base {
 
     /**
      * @summary Asynchronously initializes the ChromaLifecycleService, verifying engine config constraints.
+     *
+     * In unified-topology deployments (`chromaUnified=true`, ticket #10007) this short-circuits before
+     * any daemon-spawn gate so MC does not race the Knowledge Base server for the shared ChromaDB port.
      */
     async initAsync() {
         await super.initAsync();
+
+        if (aiConfig.chromaUnified) {
+            logger.log('[ChromaLifecycleService] chromaUnified=true — skipping own ChromaDB spawn; Memory Core connects to the shared Knowledge Base instance.');
+            return;
+        }
+
         if (aiConfig.autoStartDatabase && (aiConfig.architecture === 'chroma' || aiConfig.architecture === 'hybrid')) {
             await this.startDatabase();
         }
@@ -71,9 +87,22 @@ class ChromaLifecycleService extends Base {
 
     /**
      * @summary Boots the explicit local ChromaDB daemon as a detached process and awaits readiness.
+     *
+     * In unified topology (ticket #10007) this returns `{status: 'skipped_unified_mode'}` without
+     * attempting any spawn — the Knowledge Base server owns the shared instance. The defensive guard
+     * lives here (not only in `initAsync`) so the `manage_database` MCP tool, which delegates to
+     * this method via `manageDatabase()`, returns a clear no-op response if an operator invokes it
+     * manually in unified mode rather than silently spawning a duplicate daemon.
      * @returns {Promise<Object>}
      */
     async startDatabase() {
+        if (aiConfig.chromaUnified) {
+            return {
+                status: 'skipped_unified_mode',
+                detail: 'Memory Core runs as a downstream client of the Knowledge Base ChromaDB in unified mode. No daemon spawn required — see aiConfig.chromaUnified.'
+            };
+        }
+
         try {
             if (this.chromaProcess && !this.chromaProcess.killed) {
                 return { status: 'already_running', pid: this.chromaProcess.pid, detail: 'Started by this process.' };
@@ -205,6 +234,13 @@ class ChromaLifecycleService extends Base {
 
     /**
      * @summary High-level router for managing ChromaDB process state (start/stop) from the orchestrator.
+     *
+     * Backs the `manage_database` MCP tool (see `services/toolService.mjs`). In unified topology
+     * (`aiConfig.chromaUnified=true`, ticket #10007) the `start` action propagates `startDatabase`'s
+     * `{status: 'skipped_unified_mode'}` response rather than spawning; the `stop` action is naturally
+     * a no-op since `chromaProcess` was never populated — falls through to `stopDatabase`'s existing
+     * `{status: 'not_running'}` path. Operators invoking the tool manually in unified mode therefore
+     * get a structured, actionable response from both branches.
      * @param {Object} args
      * @returns {Promise<Object>}
      */
