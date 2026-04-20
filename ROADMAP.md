@@ -47,46 +47,33 @@ Completion of the multi-body Grid refactor that partitions the DOM into `bodySta
 
 **Embedding transition.** The shipped release zip currently embeds the Knowledge Base with `gemini-embedding-001` (3072-dimensional vectors). Local runs can already opt into `qwen3-8b` (4096-dimensional) via `NEO_GLOBAL_EMBEDDING`. Shifting the release-zip default to qwen3-8b aligns with the local-inference-first direction already established in the Memory Core and removes the Gemini-API dependency for fresh setups. Tracks naturally with the multi-tenant cloud deployment story — self-hosted deployments can run entirely offline on a single machine with sufficient GPU/MLX capacity.
 
-## Foundation Shipped: The Agent OS (v11.x → v12.1)
+## Agent OS Foundation
 
 Neo.mjs ships as **two hemispheres on one class system**. Every Agent OS component — `DreamService`, `GraphService`, `Agent`, `Loop`, the MCP services — extends `Neo.core.Base` and uses `Neo.setupClass()` exactly like `Neo.button.Base` or `Neo.grid.Container`. The AI infrastructure is not a separate project; it is a native inhabitant of the framework it maintains.
 
 > For the full architectural map, see [Architecture Overview](learn/benefits/ArchitectureOverview.md) and [The Dream Pipeline & Golden Path](learn/agentos/DreamPipeline.md).
 
-### Left Hemisphere — Frontend Runtime Engine
+### v12.1 Baseline (long-standing)
 
-Multi-threaded Web Worker architecture (App, VDom, Data, Canvas) keeping the Main Thread free for DOM mutations only. SharedWorker mode enables multi-window applications that share a single App Worker heap — components move between windows without losing state.
+Stable platform surface prior to the current release cycle:
 
-### Right Hemisphere — The Agent OS
+*   **Frontend Runtime Engine.** Multi-threaded Web Worker architecture (App, VDom, Data, Canvas) keeping the Main Thread free for DOM mutations only. SharedWorker mode enables multi-window applications sharing a single App Worker heap — components move between windows without losing state.
+*   **Neural Link Bridge.** Bidirectional WebSocket bridge between the Agent OS and the browser runtime. Agents query the semantic component tree directly (no DOM scraping), inspect stores and state providers, and hot-patch class prototypes at runtime. The same bridge serves Playwright whitebox E2E fixtures — unified tooling across AI-driven and CI-driven introspection.
+*   **Core MCP Servers.** Knowledge Base (semantic RAG), Memory Core (episodic memory), GitHub Workflow (offline-first issue management), Neural Link (runtime introspection), File System.
+*   **Neo Class System.** `Neo.core.Base` + `Neo.setupClass()` unifying Frontend and Agent OS under a single inheritance hierarchy.
 
-A Node.js infrastructure providing AI agents with persistent memory, semantic codebase understanding, and live-application introspection.
+### Shipped since v12.1 (500+ tickets resolved in under one month)
 
-*   **Five MCP servers.** Knowledge Base (semantic RAG), Memory Core (episodic memory + Native Edge Graph), GitHub Workflow (offline-first Fat Ticket A2A protocol), Neural Link (runtime introspection + mutation), File System.
-*   **The Cognitive Loop.** `ai/agent/Loop.mjs` drives every autonomous agent through *Perceive → Reason → Act → Reflect*, persisting every thought as an episodic memory via `add_memory()`.
-*   **The SDK Bouncer.** `ai/services.mjs` wraps each MCP method with Zod runtime validation. Frontier models (Opus, Gemini) access MCP directly; sub-agents (Gemma 4-31B) access the same services via schema-validated calls — preventing hallucinated JSON from reaching internal databases.
-*   **Headless Agent SDK.** `ai/Agent.mjs` base class extending `Neo.core.Base` with Loop, Scheduler, and model-provider abstraction (Gemini, Ollama, OpenAI-compatible). `ai/agents/pm.mjs` and `ai/agents/dev.mjs` ship as reference implementations — the "Fake Agent" Direct-Service-Import pattern remains available for single-shot scripts.
+A month of sustained 10–20 ticket/day velocity delivered the self-improving substrate that v12.2 builds on:
 
-### DreamService & the Golden Path
-
-The self-improvement engine. A six-phase REM pipeline (File Ingest → Tri-Vector Extraction → Topological Conflict Detection → Capability Gap Inference → Hebbian Decay → Golden Path Synthesis) digests session memories into the Native Edge Graph and synthesizes `resources/content/sandman_handoff.md` — a mathematically ranked roadmap (`semantic distance × structural weight + modifiers`) that directs the Orchestrator.
-
-The closed loop: *agents create sessions → DreamService digests → graph re-prioritizes → `sandman_handoff.md` directs → agents create new sessions*. **The system evolves by predicting its own evolution.**
-
-### Native Edge Graph
-
-SQLite-backed knowledge graph. 14 node types (`SESSION`, `MEMORY`, `ISSUE`, `CLASS`, `METHOD`, `FILE`, `GUIDE`, `TEST`, …) and 8 relationships (`IMPLEMENTS`, `EXTENDS`, `DEPENDS_ON`, `BLOCKS`, `RELATES_TO`, `RESOLVES`, `CAUSES_ISSUE`). Populated via strict JSON-schema LLM extraction with autonomous repair loops and `Type:Name` ID enforcement. Capability gap signals (`[TEST_GAP]`, `[GUIDE_GAP]`, `[ORPHAN_CONCEPT]`) attach to nodes with 7-day TTL pruning so stale gaps naturally fade.
-
-### Neural Link Bridge
-
-Bidirectional WebSocket bridge between the Agent OS and the browser runtime. Agents query the semantic component tree directly (no DOM scraping), inspect stores and state providers, and hot-patch class prototypes at runtime. The same bridge serves Playwright whitebox E2E fixtures — unified tooling across AI-driven and CI-driven introspection.
-
-### Fat Ticket A2A Protocol
-
-GitHub Issues serve as the durable inter-hardware memory bridge. Because the swarm runs across disjoint SQLite instances (one Memory Core per hardware node, no cross-network merge), Fat Tickets preserve architectural context, rationale, and avoided pitfalls so sessions can hand off work cleanly across machines and agent harnesses (Claude Code, Antigravity, Gemini CLI).
-
-### Progressive Disclosure Skills
-
-Thirteen formalized agent skills under `.agent/skills/` govern the swarm's execution discipline — `ticket-intake`, `ticket-create`, `pull-request`, `pr-review`, `tech-debt-radar` as lifecycle gates; `neural-link`, `unit-test`, `whitebox-e2e`, `memory-mining`, `self-repair` as tactical workflows. Each skill is loaded on-demand via the Skill tool so agent context stays lean until a workflow fires.
+*   **DreamService & the Golden Path.** Six-phase REM pipeline (File Ingest → Tri-Vector Extraction → Topological Conflict Detection → Capability Gap Inference → Hebbian Decay → Golden Path Synthesis) digests session memories into the Native Edge Graph and synthesizes `resources/content/sandman_handoff.md` — a mathematically ranked roadmap (`semantic distance × structural weight + modifiers`) that directs the Orchestrator. *The system evolves by predicting its own evolution.*
+*   **Native Edge Graph.** SQLite-backed knowledge graph. 14 node types (`SESSION`, `MEMORY`, `ISSUE`, `CLASS`, `METHOD`, `FILE`, `GUIDE`, `TEST`, …) and 8 relationships (`IMPLEMENTS`, `EXTENDS`, `DEPENDS_ON`, `BLOCKS`, `RELATES_TO`, `RESOLVES`, `CAUSES_ISSUE`). Populated via strict JSON-schema LLM extraction with autonomous repair loops and `Type:Name` ID enforcement. Capability gap signals (`[TEST_GAP]`, `[GUIDE_GAP]`, `[ORPHAN_CONCEPT]`) attach to nodes with 7-day TTL pruning so stale gaps naturally fade.
+*   **Concept Ontology foundation.** Deterministic graph-traversal gap inference replacing regex + per-match LLM verification. Core pillars shipped; remaining scope tracked under v12.2 goal #2.
+*   **Fat Ticket A2A Protocol.** GitHub Issues as durable inter-hardware memory bridge. Because the swarm runs across disjoint SQLite instances (one Memory Core per hardware node, no cross-network merge), Fat Tickets preserve architectural context, rationale, and avoided pitfalls so sessions can hand off work cleanly across machines and agent harnesses (Claude Code, Antigravity, Gemini CLI).
+*   **Cognitive Loop formalization.** `ai/agent/Loop.mjs` drives every autonomous agent through *Perceive → Reason → Act → Reflect*, persisting every thought as an episodic memory via `add_memory()`.
+*   **SDK Bouncer.** `ai/services.mjs` wraps each MCP method with Zod runtime validation. Frontier models (Opus, Gemini) access MCP directly; sub-agents (Gemma 4-31B) access the same services via schema-validated calls — preventing hallucinated JSON from reaching internal databases.
+*   **Headless Agent SDK.** `ai/Agent.mjs` base class extending `Neo.core.Base` with Loop, Scheduler, and model-provider abstraction (Gemini, Ollama, OpenAI-compatible). `ai/agents/pm.mjs` and `ai/agents/dev.mjs` ship as reference implementations; the "Fake Agent" Direct-Service-Import pattern remains available for single-shot scripts.
+*   **Progressive Disclosure Skills.** Thirteen formalized agent skills under `.agent/skills/` govern the swarm's execution discipline — `ticket-intake`, `ticket-create`, `pull-request`, `pr-review`, `tech-debt-radar` as lifecycle gates; `neural-link`, `unit-test`, `whitebox-e2e`, `memory-mining`, `self-repair` as tactical workflows. Each skill is loaded on-demand via the Skill tool so agent context stays lean until a workflow fires.
 
 ### Phase 3: The Command Center (post-v12.2)
 
