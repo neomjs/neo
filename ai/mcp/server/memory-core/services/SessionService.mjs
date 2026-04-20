@@ -12,6 +12,7 @@ import os from 'os';
 import logger from '../logger.mjs';
 import http from 'http';
 import https from 'https';
+import RequestContextService from '../../shared/services/RequestContextService.mjs';
 
 /**
  * @summary Service for handling session summarization and drift detection.
@@ -481,18 +482,26 @@ ${aggregatedContent}
 
         const summaryId = `summary_${sessionId}`;
 
+        // Multi-tenant isolation tag (#10000): attach the active user's id when a request
+        // context is present so `SummaryService.{listSummaries, querySummaries}` tenant-filters
+        // can observe this summary. Undefined in stdio mode = legacy unfiltered single-tenant.
+        const userId = RequestContextService.getUserId();
+
+        const summaryMetadata = {
+            sessionId, timestamp: lastActivity, memoryCount: memories.ids.length,
+            title, category, quality, productivity, impact, complexity,
+            technologies: (technologies || []).join(','),
+            participatingAgents: participatingAgents.join(','),
+            models: models.join(','),
+            totalToolCalls,
+            toolsUsed: Array.from(allToolsUsed).join(',')
+        };
+        if (userId) summaryMetadata.userId = userId;
+
         await this.sessionsCollection.upsert({
             ids: [summaryId],
             documents: [summary],
-            metadatas: [{
-                sessionId, timestamp: lastActivity, memoryCount: memories.ids.length,
-                title, category, quality, productivity, impact, complexity,
-                technologies: (technologies || []).join(','),
-                participatingAgents: participatingAgents.join(','),
-                models: models.join(','),
-                totalToolCalls,
-                toolsUsed: Array.from(allToolsUsed).join(',')
-            }]
+            metadatas: [summaryMetadata]
         });
 
         // --- 1. Topological Ingestion (Graph Mapping) ---
@@ -562,14 +571,23 @@ ${aggregatedContent}
 
                         // Push into ChromaDB
                         try {
+                            // Tenant tag (#10000): attribute the ingested artifact to the user
+                            // who triggered the summarization cycle. In a multi-tenant cloud
+                            // deploy, concurrent users summarizing overlapping time windows each
+                            // produce their own tenant-tagged copy — cross-tenant isolation
+                            // holds because the ChromaDB id is also conversation-scoped.
+                            const planUserId = RequestContextService.getUserId();
+                            const planMetadata = {
+                                sessionId,
+                                timestamp: stats.mtimeMs,
+                                type: 'implementation_plan',
+                                source: 'antigravity'
+                            };
+                            if (planUserId) planMetadata.userId = planUserId;
+
                             await this.memoryCollection.upsert({
                                 ids: [artifactId],
-                                metadatas: [{
-                                    sessionId,
-                                    timestamp: stats.mtimeMs,
-                                    type: 'implementation_plan',
-                                    source: 'antigravity'
-                                }],
+                                metadatas: [planMetadata],
                                 documents: [content]
                             });
                         } catch (e) {
