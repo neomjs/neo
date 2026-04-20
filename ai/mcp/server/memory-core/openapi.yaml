@@ -515,77 +515,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /db/backup/manage:
-    post:
-      summary: Manage Database Backup
-      operationId: manage_database_backup
-      x-pass-as-object: true
-      description: |
-        Manages database backups (import/export).
-
-        **When to Use:**
-        - **Export:** For creating backups or migrating memory data between environments.
-        - **Import:** To restore a backup or migrate memory from another environment.
-      tags: [Database]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - action
-              properties:
-                action:
-                  type: string
-                  enum: [import, export, truncate]
-                  description: The action to perform.
-                include:
-                  type: array
-                  items:
-                    type: string
-                    enum: [memories, summaries, graph]
-                  default: [memories, summaries, graph]
-                  description: (Export/Truncate only) Which collections to target.
-                backupPath:
-                  type: string
-                  description: (Export only) Optional directory for JSONL artifacts. Used by the canonical backup orchestrator to route MC artifacts into bundle subfolders. Defaults to `aiConfig.backupPath`.
-                file:
-                  type: string
-                  description: (Import only) The absolute path to the JSONL backup file to import.
-                mode:
-                  type: string
-                  enum: [merge, replace]
-                  default: merge
-                  description: |
-                    (Import only) Import mode.
-                    - merge: Add new records, skip existing IDs
-                    - replace: Clear existing data and import
-                reEmbed:
-                  type: boolean
-                  default: false
-                  description: |
-                    (Import only) If true, ignores stored embeddings and generates new ones.
-      responses:
-        '200':
-          description: Operation completed successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/BackupActionResponse'
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '503':
-          description: Cannot connect to database
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
   /graph/nodes/{id}:
     get:
       summary: Get Node by ID
@@ -1246,33 +1175,6 @@ components:
         message:
           type: string
           example: "All summaries successfully deleted"
-
-    BackupActionResponse:
-      type: object
-      properties:
-        message:
-          type: string
-          example: "Database operation completed successfully"
-        imported:
-          type: integer
-          nullable: true
-          description: Number of records imported (Import only)
-          example: 150
-        total:
-          type: integer
-          nullable: true
-          description: Total records in collection after operation (Import only)
-          example: 155
-        skipped:
-          type: integer
-          nullable: true
-          description: Number of records skipped (Import only)
-          example: 5
-        mode:
-          type: string
-          nullable: true
-          description: Import mode used (Import only)
-          example: "merge"
 
     ErrorResponse:
       type: object

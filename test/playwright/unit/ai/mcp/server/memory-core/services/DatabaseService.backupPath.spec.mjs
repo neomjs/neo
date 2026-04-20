@@ -22,6 +22,10 @@ import InstanceManager from '../../../../../../../../src/manager/Instance.mjs';
 import fs             from 'fs';
 import path           from 'path';
 
+// Serial mode: see DatabaseService.backup.spec.mjs for rationale (singleton mutation
+// across beforeAll/afterAll; local-DX safeguard — CI already uses workers:1).
+test.describe.configure({mode: 'serial'});
+
 test.describe('Memory_DatabaseService — backupPath routing (#10129 Phase 2 prerequisite)', () => {
     let SDK, Memory_DatabaseService, Memory_StorageRouter;
     let originalGetMemory, originalGetSummary, tmpDir;

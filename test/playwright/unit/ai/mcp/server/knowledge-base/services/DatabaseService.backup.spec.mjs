@@ -26,6 +26,12 @@ import {fileURLToPath} from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
+// Serial mode: specs in this file mutate the `KB_ChromaManager.getKnowledgeBaseCollection`
+// singleton via beforeAll/afterAll. Running tests serially within this file prevents
+// intra-file races during local multi-worker runs. CI uses `workers: 1` (see
+// playwright.config.unit.mjs) so this is a local-DX-only safeguard.
+test.describe.configure({mode: 'serial'});
+
 test.describe('KB_DatabaseService — manageDatabaseBackup (#10129 Phase 1)', () => {
     let SDK, KB_DatabaseService, KB_ChromaManager;
     let originalGetCollection, tmpBackupDir;
@@ -118,9 +124,13 @@ test.describe('KB_DatabaseService — manageDatabaseBackup (#10129 Phase 1)', ()
         expect(produced).toHaveLength(0);
     });
 
-    test('rejects unsupported actions at the SDK Zod validation boundary', async () => {
+    test('rejects unsupported actions at the dispatcher layer', async () => {
+        // No openapi operation is registered for `manage_database_backup` in KB (retired per
+        // #10132 script-over-tool reduction), so `makeSafe` no-match passthrough forwards
+        // args raw — the manual `throw new Error('Unknown action...')` inside the dispatcher
+        // is the rejection path.
         await expect(
             KB_DatabaseService.manageDatabaseBackup({action: 'import'})
-        ).rejects.toThrow();
+        ).rejects.toThrow(/Unknown action: import/);
     });
 });
