@@ -20,8 +20,10 @@ subIssues:
   - '[ ] 10016 [Sub-Epic] Multi-Tenant Identity & Data Privacy'
   - '[ ] 10030 [Epic] Concept Ontology & Semantic Gap Inference'
   - '[x] 10057 Knowledge Base: Add PullRequestSource for PR Conversation Embeddings'
+  - '[ ] 10127 HealthService: surface effective unified/federated topology in /health'
+  - '[ ] 10129 Backup: atomic timestamped bundle across all persistent subsystems'
 subIssuesCompleted: 2
-subIssuesTotal: 5
+subIssuesTotal: 7
 blockedBy: []
 blocking: []
 ---
@@ -173,4 +175,12 @@ Changes:
 Recovery artifacts in this commit: issues #10030, #9486, #9999, #9535 —
 the four issues flagged as drifted by the detector baseline run — were
 healed via the new refetch endpoint and now reflect live GitHub state."
+- 2026-04-20T00:44:38Z @tobiu cross-referenced by #10109
+- 2026-04-20T02:07:08Z @tobiu cross-referenced by #10120
+- 2026-04-20T10:40:37Z @tobiu cross-referenced by PR #10121
+- 2026-04-20T11:13:56Z @tobiu cross-referenced by #9748
+- 2026-04-20T11:19:03Z @tobiu cross-referenced by PR #10122
+- 2026-04-20T13:32:29Z @tobiu cross-referenced by PR #10123
+- 2026-04-20T14:38:15Z @tobiu cross-referenced by PR #10128
+- 2026-04-20T15:26:36Z @tobiu cross-referenced by PR #10130
 
