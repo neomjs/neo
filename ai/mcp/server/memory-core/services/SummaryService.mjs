@@ -1,7 +1,8 @@
-import aiConfig      from '../config.mjs';
-import Base          from '../../../../../src/core/Base.mjs';
-import StorageRouter from '../managers/StorageRouter.mjs';
-import logger        from '../logger.mjs';
+import aiConfig              from '../config.mjs';
+import Base                  from '../../../../../src/core/Base.mjs';
+import StorageRouter         from '../managers/StorageRouter.mjs';
+import logger                from '../logger.mjs';
+import RequestContextService from '../../shared/services/RequestContextService.mjs';
 
 
 /**
@@ -10,9 +11,18 @@ import logger        from '../logger.mjs';
  * This service manages the high-level session summaries. It allows for retrieving past summaries to provide context,
  * searching summaries by content or metadata, and performing administrative tasks like deleting all summaries.
  *
+ * **Multi-tenant isolation (Epic #9999, sub-epic #10016, ticket #10000):** When a request context
+ * is active (SSE transport + OIDC Bearer token), `RequestContextService.getUserId()` returns the
+ * authenticated tenant. Reads (`listSummaries`, `querySummaries`) apply `where: {userId}` so each
+ * tenant only sees their own session summaries; `deleteAllSummaries` switches from the global
+ * `collection.drop()` + re-create path to `collection.delete({where: {userId}})` so one tenant
+ * can never wipe another tenant's data. In stdio mode `getUserId()` is `undefined`, the filters
+ * are skipped, and the legacy drop-based `deleteAllSummaries` behavior is preserved for local dev.
+ *
  * @class Neo.ai.mcp.server.memory-core.services.SummaryService
  * @extends Neo.core.Base
  * @singleton
+ * @see Neo.ai.mcp.server.shared.services.RequestContextService
  */
 class SummaryService extends Base {
     static config = {
@@ -43,7 +53,28 @@ class SummaryService extends Base {
     async deleteAllSummaries() {
         try {
             const collection = await StorageRouter.getSummaryCollection();
+            const userId     = RequestContextService.getUserId();
 
+            // Multi-tenant branch (#10000): when an authenticated user invokes this, only their
+            // own summaries are deleted — the `collection.drop()` path would nuke every tenant's
+            // data in a unified deployment. `collection.delete({where: {userId}})` scopes the
+            // destructive operation to the current tenant's rows.
+            if (userId) {
+                const before = await collection.get({
+                    where  : {userId},
+                    include: []
+                });
+                const toDeleteIds = before.ids || [];
+                const deleted    = toDeleteIds.length;
+
+                if (deleted > 0) {
+                    await collection.delete({where: {userId}});
+                }
+
+                return {deleted, message: `Deleted ${deleted} summaries for the active tenant.`};
+            }
+
+            // Legacy single-tenant path (stdio mode, no request context): drop + recreate.
             const count = await collection.count();
             await collection.drop();
             await StorageRouter.getSummaryCollection(); // Re-creates it
@@ -73,6 +104,11 @@ class SummaryService extends Base {
         try {
             const collection = await StorageRouter.getSummaryCollection();
 
+            // Tenant read-filter (#10000): applied to both the batched metadata sweep (phase 1)
+            // and the slice-fetch (phase 3). Undefined in stdio mode = legacy unfiltered read.
+            const userId = RequestContextService.getUserId();
+            const where  = userId ? {userId} : undefined;
+
             // Phase 1: Fetch ALL metadata (lightweight)
             const
                 allRecords = [],
@@ -82,11 +118,14 @@ class SummaryService extends Base {
                 hasMore     = true;
 
             while (hasMore) {
-                const batch = await collection.get({
+                const getArgs = {
                     limit  : batchSize,
                     offset : batchOffset,
                     include: ['metadatas'] // No documents
-                });
+                };
+                if (where) getArgs.where = where;
+
+                const batch = await collection.get(getArgs);
 
                 if (batch.ids.length === 0) {
                     hasMore = false;
@@ -117,11 +156,18 @@ class SummaryService extends Base {
                 return {count: 0, total, summaries: []};
             }
 
-            // Phase 3: Fetch full documents for the slice
-            const result = await collection.get({
+            // Phase 3: Fetch full documents for the slice.
+            // The `where` tenant filter is re-applied as belt-and-suspenders — the ids list was
+            // already derived from a tenant-scoped batch sweep, so this is redundant in the happy
+            // path but blocks a class of misuse if the method is ever called with externally
+            // supplied ids.
+            const sliceGetArgs = {
                 ids    : targetIds,
                 include: ['metadatas', 'documents']
-            });
+            };
+            if (where) sliceGetArgs.where = where;
+
+            const result = await collection.get(sliceGetArgs);
 
             // Create a map for O(1) lookup instead of re-sorting
             const resultMap = new Map();
@@ -194,8 +240,13 @@ class SummaryService extends Base {
                 include   : ['metadatas', 'documents']
             };
 
-            if (category) {
-                queryArgs.where = {category};
+            // Tenant-scoped where clause (#10000) merged with the optional category filter.
+            const userId = RequestContextService.getUserId();
+            const where  = {};
+            if (category) where.category = category;
+            if (userId)   where.userId   = userId;
+            if (Object.keys(where).length > 0) {
+                queryArgs.where = where;
             }
 
             const searchResult = await collection.query(queryArgs);

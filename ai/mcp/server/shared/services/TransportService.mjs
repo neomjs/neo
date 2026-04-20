@@ -1,27 +1,35 @@
-import Base from '../../../../../src/core/Base.mjs';
+import Base                  from '../../../../../src/core/Base.mjs';
+import RequestContextService from './RequestContextService.mjs';
 
 /**
  * @summary Orchestrates the SSE transport layer and session lifecycle for MCP servers.
  *
- * This service manages the **Logical Transport Layer** using Express and the Streamable HTTP 
- * transport. It provides a standardized environment for secure agent communication by 
+ * This service manages the **Logical Transport Layer** using Express and the Streamable HTTP
+ * transport. It provides a standardized environment for secure agent communication by
  * integrating the **AuthService** for OIDC/OAuth enforcement.
  *
  * Key Architectural Concepts:
  * - **Session Management:** Handles the lifecycle of stateful MCP sessions via `Mcp-Session-Id`.
- * - **Transport Abstraction:** Decouples the Express app and CORS configuration from the 
+ * - **Transport Abstraction:** Decouples the Express app and CORS configuration from the
  *   individual server logic (e.g. Knowledge Base, Memory Core).
- * - **Auth Integration:** Automatically wires up the **Authorization Anchor** when OIDC 
+ * - **Auth Integration:** Automatically wires up the **Authorization Anchor** when OIDC
  *   configuration is detected in the environment.
  * - **CORS Enforcement:** Ensures cross-origin compatibility for modern browser-based AI agents.
+ * - **Request-Context Propagation (ticket #10000):** Each `/mcp` request is wrapped in
+ *   `RequestContextService.run({userId, username}, ...)` before dispatching to the MCP
+ *   transport. This bridges the gap between Express's per-request `req.auth` context and the
+ *   service layer that runs inside `callTool(name, args)` — downstream services read the
+ *   authenticated user's identity via `RequestContextService.getUserId()` to tag ChromaDB
+ *   writes and filter reads per tenant.
  *
- * By extracting this logic, we maintain a lean root server while ensuring consistent 
+ * By extracting this logic, we maintain a lean root server while ensuring consistent
  * **Physical-to-Logical Mapping** for all Neo.mjs MCP servers.
  *
  * @class Neo.ai.mcp.server.shared.services.TransportService
  * @extends Neo.core.Base
  * @singleton
  * @see Neo.ai.mcp.server.shared.services.AuthService
+ * @see Neo.ai.mcp.server.shared.services.RequestContextService
  */
 class TransportService extends Base {
     static config = {
@@ -113,7 +121,17 @@ class TransportService extends Base {
                 await server.mcpServer.connect(transport);
             }
 
-            await transport.handleRequest(req, res, req.body);
+            // Propagate the authenticated identity into the async call chain so service methods
+            // can tag ChromaDB writes and filter reads per tenant (ticket #10000). `req.auth` is
+            // populated by the `requireBearerAuth` middleware when OIDC is configured; when auth
+            // is disabled (local dev, no `aiConfig.auth.host`/`.issuerUrl`) the context is empty
+            // and downstream services fall through to single-tenant behavior.
+            const requestContext = {
+                userId  : req.auth?.userId,
+                username: req.auth?.username
+            };
+
+            await RequestContextService.run(requestContext, () => transport.handleRequest(req, res, req.body));
         });
 
         const port = aiConfig.ssePort || 3000;
