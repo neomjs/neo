@@ -26,6 +26,12 @@ import {fileURLToPath} from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
+// Serial mode: specs in this file mutate the `KB_ChromaManager.getKnowledgeBaseCollection`
+// singleton via beforeAll/afterAll. Running tests serially within this file prevents
+// intra-file races during local multi-worker runs. CI uses `workers: 1` (see
+// playwright.config.unit.mjs) so this is a local-DX-only safeguard.
+test.describe.configure({mode: 'serial'});
+
 test.describe('KB_DatabaseService — manageDatabaseBackup (#10129 Phase 1)', () => {
     let SDK, KB_DatabaseService, KB_ChromaManager;
     let originalGetCollection, tmpBackupDir;

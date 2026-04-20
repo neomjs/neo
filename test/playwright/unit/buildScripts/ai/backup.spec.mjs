@@ -22,6 +22,11 @@ import InstanceManager from '../../../../../src/manager/Instance.mjs';
 import fs             from 'fs';
 import path           from 'path';
 
+// Serial mode: this file mutates KB + MC singleton collection accessors across
+// beforeAll/afterAll. Serial ordering within this file prevents local multi-worker
+// races. CI runs workers:1 (see playwright.config.unit.mjs) so this is local-DX only.
+test.describe.configure({mode: 'serial'});
+
 test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 2)', () => {
     let SDK, runBackup;
     let KB_ChromaManager, Memory_StorageRouter;
