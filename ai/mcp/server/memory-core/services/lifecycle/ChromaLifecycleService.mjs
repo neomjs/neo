@@ -234,6 +234,13 @@ class ChromaLifecycleService extends Base {
 
     /**
      * @summary High-level router for managing ChromaDB process state (start/stop) from the orchestrator.
+     *
+     * Backs the `manage_database` MCP tool (see `services/toolService.mjs`). In unified topology
+     * (`aiConfig.chromaUnified=true`, ticket #10007) the `start` action propagates `startDatabase`'s
+     * `{status: 'skipped_unified_mode'}` response rather than spawning; the `stop` action is naturally
+     * a no-op since `chromaProcess` was never populated — falls through to `stopDatabase`'s existing
+     * `{status: 'not_running'}` path. Operators invoking the tool manually in unified mode therefore
+     * get a structured, actionable response from both branches.
      * @param {Object} args
      * @returns {Promise<Object>}
      */
