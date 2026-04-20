@@ -147,6 +147,20 @@ const defaultConfig = {
      */
     summarizationConcurrency: 5,
     /**
+     * Dynamic topology flag for the Cloud-Native Memory Core deployment (Epic #9999, sub-epic #10015).
+     * When `true`, Memory Core connects to the shared Knowledge Base ChromaDB instance at
+     * `kbChroma.{host, port}` instead of addressing its own instance at `engines.chroma.{host, port}`.
+     * This enables **unified-topology** single-container deployments where KB and MC share one ChromaDB
+     * process (the klarso.com cloud pattern); `false` preserves the **federated** two-instance default.
+     *
+     * Pairs with `autoStartDatabase`: in unified mode the operator should leave that `false` so MC does
+     * not spawn a duplicate ChromaDB — the KB server owns the process. The federation choice is orthogonal
+     * to per-tenant write tagging (#10000) and read-side isolation (#10010), which apply regardless of
+     * topology.
+     * @type {boolean}
+     */
+    chromaUnified: process.env.NEO_CHROMA_UNIFIED === 'true',
+    /**
      * The target Storage Architecture to use.
      * Note: Chroma is the only supported Vector DB.
      * Options: 'hybrid' (Chroma vectors + SQLite graph), 'chroma' (Chroma vectors only).
@@ -163,6 +177,18 @@ const defaultConfig = {
             host   : 'localhost',
             port   : 8001
         }
+    },
+    /**
+     * Connection coordinates for the shared Knowledge Base ChromaDB instance, consulted by
+     * `ChromaManager` when `chromaUnified` is `true`. In unified mode the Memory Core's ChromaClient
+     * targets these coordinates instead of `engines.chroma.{host, port}`. Defaults match the
+     * Knowledge Base server's default (`localhost:8000`); override per-deployment via
+     * `NEO_KB_CHROMA_HOST` / `NEO_KB_CHROMA_PORT` for containerized topologies.
+     * @type {Object}
+     */
+    kbChroma: {
+        host: process.env.NEO_KB_CHROMA_HOST || 'localhost',
+        port: Number(process.env.NEO_KB_CHROMA_PORT) || 8000
     },
     /**
      * Physical file paths for embedded/local datasets.

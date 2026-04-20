@@ -80,6 +80,17 @@ const defaultConfig = {
         }
     },
     /**
+     * Dynamic topology flag for the Cloud-Native Memory Core deployment (Epic #9999, sub-epic #10015).
+     * When `true`, the Knowledge Base is the sole owner of the ChromaDB process on this host and the
+     * Memory Core server connects as a downstream client (see `memory-core/config.template.mjs` →
+     * `chromaUnified`). This flag does **not** alter client-side behavior for the KB itself; it
+     * documents the deployment topology for operators and keeps configuration symmetric across the
+     * two servers so tooling and diagnostics can introspect either side and report the effective
+     * topology consistently.
+     * @type {boolean}
+     */
+    chromaUnified: process.env.NEO_CHROMA_UNIFIED === 'true',
+    /**
      * The hostname of the ChromaDB server for the knowledge base.
      * @type {string}
      */

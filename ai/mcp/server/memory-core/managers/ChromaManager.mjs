@@ -12,6 +12,14 @@ import ChromaLifecycleService   from '../services/lifecycle/ChromaLifecycleServi
  * collections are created if they don't exist. It handles the `dummyEmbeddingFunction` requirement for ChromaDB
  * to prevent warnings.
  *
+ * **Dynamic topology (Epic #9999, sub-epic #10015):** The ChromaClient coordinates are resolved from
+ * `aiConfig.chromaUnified`. In **federated** mode (the default, flag `false`) the client targets
+ * `aiConfig.engines.chroma.{host, port}` — Memory Core's own ChromaDB instance, typically on port 8001.
+ * In **unified** mode (flag `true`) the client targets `aiConfig.kbChroma.{host, port}` — the shared
+ * Knowledge Base instance, typically on port 8000 — enabling single-container KB + MC deployments
+ * where one ChromaDB process serves both servers. The federation choice is orthogonal to per-tenant
+ * write tagging and read-side isolation, which live in `SessionService` / `MemoryService`.
+ *
  * @class Neo.ai.mcp.server.memory-core.managers.ChromaManager
  * @extends Neo.ai.mcp.server.memory-core.managers.AbstractVectorManager
  * @singleton
@@ -60,9 +68,26 @@ class ChromaManager extends AbstractVectorManager {
     construct(config) {
         super.construct(config);
 
-        // The client is created here, but the connection is evaluated lazily.
-        const {host, port} = aiConfig.engines.chroma;
+        // The client is constructed here; heartbeat/connection is evaluated lazily by `connect()`.
+        const {host, port} = this.resolveChromaCoordinates(aiConfig);
         this.client        = new ChromaClient({host, port, ssl: false});
+    }
+
+    /**
+     * Resolves the effective ChromaDB `{host, port}` from the unified-vs-federated topology flag
+     * (Epic #9999, sub-epic #10015, ticket #10001). Pure function of the passed config — extracted
+     * from the `construct()` call-site so the resolution is independently testable and observable
+     * by diagnostics (e.g. HealthService topology reporting) without re-instantiating the singleton.
+     *
+     * - `chromaUnified=false` (default, federated): routes to `cfg.engines.chroma` — MC's own instance
+     * - `chromaUnified=true` (unified): routes to `cfg.kbChroma` — the shared KB instance
+     *
+     * @param {Object} cfg              aiConfig-shaped input. Must expose `chromaUnified` plus both
+     *                                  branch targets `engines.chroma.{host, port}` and `kbChroma.{host, port}`.
+     * @returns {{host: string, port: number}} The resolved coordinates for the active topology.
+     */
+    resolveChromaCoordinates(cfg) {
+        return cfg.chromaUnified ? cfg.kbChroma : cfg.engines.chroma;
     }
 
     /**
