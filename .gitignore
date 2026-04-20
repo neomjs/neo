@@ -106,6 +106,9 @@ ai/mcp/server/*/config.mjs
 # Claude Code worktrees (agent-spawned checkouts)
 .claude/worktrees/
 
+# Per-user Claude Code permissions allowlist (not shared)
+.claude/settings.json
+
 # Playwright test results
 test/playwright/test-results/
 # Single-file Playwright runs via npx
