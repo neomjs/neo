@@ -151,7 +151,8 @@ const defaultConfig = {
      * When `true`, Memory Core connects to the shared Knowledge Base ChromaDB instance at
      * `kbChroma.{host, port}` instead of addressing its own instance at `engines.chroma.{host, port}`.
      * This enables **unified-topology** single-container deployments where KB and MC share one ChromaDB
-     * process (the klarso.com cloud pattern); `false` preserves the **federated** two-instance default.
+     * process — the pattern for centrally hosted multi-tenant Memory Core deployments. `false` preserves
+     * the **federated** two-instance default.
      *
      * Pairs with `autoStartDatabase`: in unified mode the operator should leave that `false` so MC does
      * not spawn a duplicate ChromaDB — the KB server owns the process. The federation choice is orthogonal
