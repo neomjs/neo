@@ -123,3 +123,27 @@ The `create_issue` tool returns the new issue number. Typical immediate follow-u
 - **Ticket body edits:** `gh issue edit N --body "..."` via shell, since `create_issue` does not have an update mode. The local `.md` file is canonical after `sync_all`; edits can happen either remotely via `gh` or locally with `sync_all` pushing the local version back.
 
 Minimize chained calls where possible — a well-formed `create_issue` call with complete `title`, `body`, `labels`, and `assignees` at creation time avoids all of the above except `update_issue_relationship` (which can only run after the issue exists).
+
+## 12. Authorship Respect
+
+**You update your own authored artifacts in place. You never override another author's.**
+
+When editing tickets:
+- **Ticket body:** Update your own in place. If it's someone else's ticket, respond via a NEW comment.
+- **Ticket AC list:** Extend your own list. If it's someone else's ticket, do NOT mutate their AC list; propose additions via comment.
+
+*Why:* Rewriting someone else's prose causes attribution collapse and breaks Native Edge Graph ingestion.
+
+## 13. Substrate Awareness ("Assume No Private Memory")
+
+When writing tickets, **assume the reader has access to nothing private**.
+
+**Fair-game citations:**
+- Committed repo paths (`learn/...`, `.agent/skills/...`)
+- GitHub resources (`#N`, PR URLs, commit SHAs)
+- Neo Memory Core session IDs (`Origin Session ID: <uuid>`)
+
+**FORBIDDEN load-bearing citations:**
+- Harness-private filenames (e.g., `feedback_*.md` from Claude Code, or private Antigravity stores)
+- Local filesystem paths outside the repo
+- Machine-specific identifiers
