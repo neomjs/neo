@@ -39,15 +39,25 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
     let warnMessages = [];
 
     /**
-     * Builds a stub Chroma memory collection fulfilling the contract
-     * `collection.get({where: {sessionId}, include: ['metadatas']}) → {ids, metadatas}`.
-     * Filters the given seed rows by sessionId so the ingestor sees only the session's
-     * memories, matching production Chroma filter semantics.
+     * Builds a stub Chroma memory collection supporting two query shapes:
+     * - `collection.get({where: {sessionId}, include: ['metadatas']}) → {ids, metadatas}` —
+     *   filters by sessionId (used by `syncSessionToGraph` for batch-per-session ingestion).
+     * - `collection.get({ids: [...]}) → {ids, metadatas}` — direct-id lookup (used by
+     *   `backfillMemory` for per-row back-fill via `ingestSingleRow`).
      */
     function stubMemoryCollection(seedRows) {
         return {
-            get: async ({where}) => {
-                const matching = seedRows.filter(r => r.metadata.sessionId === where.sessionId);
+            get: async ({ids, where} = {}) => {
+                let matching;
+
+                if (ids) {
+                    matching = seedRows.filter(r => ids.includes(r.id));
+                } else if (where?.sessionId) {
+                    matching = seedRows.filter(r => r.metadata.sessionId === where.sessionId);
+                } else {
+                    matching = seedRows;
+                }
+
                 return {
                     ids      : matching.map(r => r.id),
                     metadatas: matching.map(r => r.metadata)
@@ -345,5 +355,161 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         expect(stats.sessionUpserted).toBe(false);
         expect(stats.errors.length).toBeGreaterThan(0);
         expect(stats.errors[0]).toContain('sessionId is required');
+    });
+
+    // ------------------------------------------------------------------------------------------
+    // ingestSingleRow (#10153) — per-row back-fill primitive. Consumed by
+    // `GraphService.ensureNodeExists` when `linkNodesAsync` hits a missing `memory:`/`session:`
+    // endpoint, and by `LazyEdgeDrainer` when draining the #10165 lazy-edges JSONL queue.
+    // ------------------------------------------------------------------------------------------
+
+    /**
+     * Stub matching `collection.get({ids}) → {ids, metadatas}` AND
+     * `collection.get({where: {sessionId}}) → {ids, metadatas}` — summary Chroma rows are
+     * looked up by `sessionId` metadata (opaque Chroma IDs) in `backfillSession`.
+     */
+    function stubSummaryCollection(seedRows) {
+        return {
+            get: async ({ids, where} = {}) => {
+                let matching;
+
+                if (ids) {
+                    matching = seedRows.filter(r => ids.includes(r.id));
+                } else if (where?.sessionId) {
+                    matching = seedRows.filter(r => r.metadata.sessionId === where.sessionId);
+                } else {
+                    matching = seedRows;
+                }
+
+                return {
+                    ids      : matching.map(r => r.id),
+                    metadatas: matching.map(r => r.metadata)
+                };
+            }
+        };
+    }
+
+    test('ingestSingleRow returns unrecognized-prefix for non memory:/session: ids', async () => {
+        const result = await MemorySessionIngestor.ingestSingleRow('CONCEPT:foo');
+
+        expect(result.success).toBe(false);
+        expect(result.reason).toBe('unrecognized-prefix');
+    });
+
+    test('ingestSingleRow returns already-exists when node is present', async () => {
+        GraphService.upsertNode({id: 'memory:abc', type: 'MEMORY', name: 'abc', properties: {}});
+
+        const result = await MemorySessionIngestor.ingestSingleRow('memory:abc');
+
+        expect(result.success).toBe(true);
+        expect(result.reason).toBe('already-exists');
+        expect(result.graphNodeId).toBe('memory:abc');
+    });
+
+    test('ingestSingleRow backfills Memory and recursively creates parent Session', async () => {
+        // Seed the parent Session node so GraphService.linkNodes's foreign-key check will pass
+        // when backfillMemory emits the ORIGINATES_IN edge. The backfillSession helper upserts
+        // the session node first, but the FK-verify in linkNodes reads from SQLite — which the
+        // in-memory upsert path populates via addNode → storage. This is consistent with the
+        // forward-ingestion test pattern in earlier cases here.
+        const memoryCollection  = stubMemoryCollection([
+            {id: 'mem-xyz', metadata: {sessionId: 'sess-xyz', createdAt: '2026-04-21T10:00:00Z', userId: 'tobiu'}}
+        ]);
+        const summaryCollection = stubSummaryCollection([
+            {id: 'chroma-summary-xyz', metadata: {sessionId: 'sess-xyz', createdAt: '2026-04-21T09:00:00Z', userId: 'tobiu', title: 'Recursive session'}}
+        ]);
+
+        const result = await MemorySessionIngestor.ingestSingleRow('memory:mem-xyz', {memoryCollection, summaryCollection});
+
+        expect(result.success).toBe(true);
+        expect(result.reason).toBe('backfilled');
+        expect(result.graphNodeId).toBe('memory:mem-xyz');
+
+        const memoryNode = GraphService.db.nodes.get('memory:mem-xyz');
+        expect(memoryNode).toBeTruthy();
+        expect(memoryNode.properties.backfilled).toBe(true);
+        expect(memoryNode.properties.sessionId).toBe('sess-xyz');
+
+        const sessionNode = GraphService.db.nodes.get('session:sess-xyz');
+        expect(sessionNode).toBeTruthy();
+        expect(sessionNode.properties.backfilled).toBe(true);
+
+        // ORIGINATES_IN edge from Memory → Session
+        const edge = GraphService.db.edges.items.find(e =>
+            e.source === 'memory:mem-xyz' && e.target === 'session:sess-xyz' && e.type === 'ORIGINATES_IN'
+        );
+        expect(edge).toBeTruthy();
+    });
+
+    test('ingestSingleRow backfills Session with full metadata when summary row exists', async () => {
+        const summaryCollection = stubSummaryCollection([
+            {id: 'chroma-summary-abc', metadata: {sessionId: 'sess-abc', createdAt: '2026-04-21T09:00:00Z', userId: 'tobiu', title: 'Abc session'}}
+        ]);
+
+        const result = await MemorySessionIngestor.ingestSingleRow('session:sess-abc', {summaryCollection});
+
+        expect(result.success).toBe(true);
+        expect(result.reason).toBe('backfilled');
+
+        const node = GraphService.db.nodes.get('session:sess-abc');
+        expect(node.properties.backfilled).toBe(true);
+        expect(node.properties.chromaId).toBe('chroma-summary-abc');
+        expect(node.properties.sessionId).toBe('sess-abc');
+        expect(node.properties.userId).toBe('tobiu');
+    });
+
+    test('ingestSingleRow falls back to minimal session when no summary row exists', async () => {
+        const summaryCollection = stubSummaryCollection([]);
+
+        const result = await MemorySessionIngestor.ingestSingleRow('session:sess-unknown', {summaryCollection});
+
+        expect(result.success).toBe(true);
+        expect(result.reason).toBe('backfilled-minimal');
+
+        const node = GraphService.db.nodes.get('session:sess-unknown');
+        expect(node.properties.backfilled).toBe(true);
+        expect(node.properties.minimal).toBe(true);
+        expect(node.properties.sessionId).toBe('sess-unknown');
+    });
+
+    test('ingestSingleRow normalizes uppercase MEMORY: prefix to canonical lowercase', async () => {
+        const memoryCollection  = stubMemoryCollection([
+            {id: 'mem-upper', metadata: {sessionId: 'sess-upper', createdAt: '2026-04-21T10:00:00Z', userId: 'tobiu'}}
+        ]);
+        const summaryCollection = stubSummaryCollection([
+            {id: 'chroma-summary-upper', metadata: {sessionId: 'sess-upper', createdAt: '2026-04-21T09:00:00Z', userId: 'tobiu'}}
+        ]);
+
+        // Caller passes the uppercase prefix (Gemini's #10165 extractor convention); the
+        // back-fill must land under the canonical lowercase form so the node is discoverable
+        // by the existing ingestor's `session:`/`memory:` ID contract.
+        const result = await MemorySessionIngestor.ingestSingleRow('MEMORY:mem-upper', {memoryCollection, summaryCollection});
+
+        expect(result.success).toBe(true);
+        expect(result.graphNodeId).toBe('memory:mem-upper');
+        expect(GraphService.db.nodes.get('memory:mem-upper')).toBeTruthy();
+        expect(GraphService.db.nodes.get('MEMORY:mem-upper')).toBeFalsy();
+    });
+
+    test('syncSessionToGraph tags upserted nodes with liveIngested: true provenance marker', async () => {
+        const session = {
+            id  : 'chroma-summary-live',
+            meta: {sessionId: 'agent-live', createdAt: '2026-04-21T09:00:00Z', userId: 'tobiu', title: 'Live'}
+        };
+        const memoryCollection = stubMemoryCollection([
+            {id: 'mem-live', metadata: {sessionId: 'agent-live', createdAt: '2026-04-21T09:01:00Z', userId: 'tobiu'}}
+        ]);
+
+        await MemorySessionIngestor.syncSessionToGraph(session, {memoryCollection});
+
+        const sessionNode = GraphService.db.nodes.get('session:agent-live');
+        const memoryNode  = GraphService.db.nodes.get('memory:mem-live');
+
+        expect(sessionNode.properties.liveIngested).toBe(true);
+        expect(memoryNode.properties.liveIngested).toBe(true);
+        // `backfilled` should remain undefined on live-ingested nodes; the two markers are
+        // mutually exclusive provenance tags per ticket #10153.
+        expect(sessionNode.properties.backfilled).toBeUndefined();
+        expect(memoryNode.properties.backfilled).toBeUndefined();
     });
 });

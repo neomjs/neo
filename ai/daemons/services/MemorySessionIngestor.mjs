@@ -168,11 +168,15 @@ class MemorySessionIngestor extends Base {
                     type      : 'SESSION',
                     name      : session.meta.title || agentSessionId,
                     properties: {
-                        chromaId   : session.id,
-                        createdAt  : session.meta.createdAt,
-                        payloadHash: sessionPayloadHash,
-                        sessionId  : agentSessionId,
-                        userId     : session.meta.userId
+                        chromaId    : session.id,
+                        createdAt   : session.meta.createdAt,
+                        // Provenance marker distinguishing live REM-cycle ingestion from #10153
+                        // lazy back-fill. Queries discriminating between the two sources use
+                        // `liveIngested` vs `backfilled` on the node's properties.
+                        liveIngested: true,
+                        payloadHash : sessionPayloadHash,
+                        sessionId   : agentSessionId,
+                        userId      : session.meta.userId
                     }
                 });
                 stats.sessionUpserted = true;
@@ -210,11 +214,13 @@ class MemorySessionIngestor extends Base {
                         type      : 'MEMORY',
                         name      : memoryChromaId.slice(0, 12),
                         properties: {
-                            chromaId   : memoryChromaId,
-                            createdAt  : meta.createdAt,
-                            payloadHash: memoryPayloadHash,
-                            sessionId  : meta.sessionId ?? agentSessionId,
-                            userId     : meta.userId
+                            chromaId    : memoryChromaId,
+                            createdAt   : meta.createdAt,
+                            // Provenance marker — see sibling comment in the SESSION upsert.
+                            liveIngested: true,
+                            payloadHash : memoryPayloadHash,
+                            sessionId   : meta.sessionId ?? agentSessionId,
+                            userId      : meta.userId
                         }
                     });
 
@@ -236,6 +242,240 @@ class MemorySessionIngestor extends Base {
         }
 
         return stats;
+    }
+
+    /**
+     * Back-fills a single MEMORY or SESSION graph node from its Chroma source row — the per-row
+     * analog of `syncSessionToGraph` (which is batch-per-session). Invoked by #10153's lazy
+     * back-fill mechanism when `GraphService.linkNodes` encounters a missing target matching
+     * the `memory:` or `session:` prefix pattern.
+     *
+     * **Graph-node-id convention:** the canonical form is lowercase (`memory:<chromaId>`,
+     * `session:<sessionId>`) matching the IDs produced by `syncSessionToGraph`. This method
+     * accepts **case-insensitive** prefix matching so it can consume edges queued with the
+     * uppercase convention used by `SemanticGraphExtractor`'s lazy-edges queue (#10165) without
+     * requiring a canonical-format migration. The back-filled node always lands under the
+     * lowercase canonical ID; callers whose edge had the uppercase form should have their edge
+     * target re-normalized at the same call site (see the `linkNodes` prefix-normalization path
+     * landed in #10153).
+     *
+     * **Memory → Session dependency:** a Memory's `sessionId` metadata points at its parent
+     * Session. Back-filling a Memory whose parent Session is absent would dangle the
+     * `ORIGINATES_IN` edge, so this method recursively back-fills the Session first, then the
+     * Memory. Session back-fill has no further dependency chain.
+     *
+     * **Minimal-session fallback:** if a Session back-fill is requested but no summary row
+     * exists in the Chroma summary collection (possible for sessions that never reached
+     * summarization), a MINIMAL SESSION node is created with just `{sessionId, backfilled: true,
+     * minimal: true}` properties. This keeps the graph link-target resolvable even for
+     * partial-history sessions; a future live ingestion or summarization will upgrade the node
+     * by upserting the full payload.
+     *
+     * @param {String} graphNodeId The graph-node ID to back-fill. Accepts both lowercase
+     *     (`memory:<id>`, `session:<id>`) and uppercase (`MEMORY:<id>`, `SESSION:<id>`) prefix
+     *     forms. Unrecognized prefixes return a no-op result rather than raising.
+     * @param {Object} [options]
+     * @param {Object} [options.memoryCollection=null] Optional memory collection override for
+     *     test injection. Production callers pass nothing; falls back to
+     *     `StorageRouter.getMemoryCollection()`.
+     * @param {Object} [options.summaryCollection=null] Optional summary collection override for
+     *     test injection.
+     * @returns {Promise<Object>} Result descriptor:
+     *     `{success: Boolean, reason: String, graphNodeId?: String, error?: String}`. Possible
+     *     `reason` values: `'unrecognized-prefix'`, `'already-exists'`, `'backfilled'`,
+     *     `'backfilled-minimal'`, `'no-collection'`, `'chroma-fetch-failed'`,
+     *     `'chroma-row-not-found'`.
+     */
+    async ingestSingleRow(graphNodeId, {memoryCollection = null, summaryCollection = null} = {}) {
+        const parsed = this.parseGraphNodeId(graphNodeId);
+
+        if (!parsed) {
+            return {success: false, reason: 'unrecognized-prefix', graphNodeId};
+        }
+
+        const {type, bareId, canonicalGraphId} = parsed;
+
+        if (GraphService.db?.nodes?.get(canonicalGraphId)) {
+            return {success: true, reason: 'already-exists', graphNodeId: canonicalGraphId};
+        }
+
+        try {
+            if (type === 'MEMORY') {
+                return await this.backfillMemory(bareId, canonicalGraphId, {memoryCollection, summaryCollection});
+            } else {
+                return await this.backfillSession(bareId, canonicalGraphId, {summaryCollection});
+            }
+        } catch (e) {
+            logger.error(`[MemorySessionIngestor] Lazy back-fill error for ${graphNodeId}:`, e);
+            return {success: false, reason: 'error', graphNodeId: canonicalGraphId, error: e.message};
+        }
+    }
+
+    /**
+     * Parses a graph-node ID into its canonical (lowercase) form + type + bare identifier.
+     * Case-insensitive on the `memory:` / `session:` prefix so we can consume edges queued with
+     * either convention. Returns `null` for unrecognized prefixes; callers treat that as
+     * "not a back-fillable node — fall through to the existing cull path".
+     *
+     * @param {String} id Raw graph-node ID from a call site
+     * @returns {{type: String, bareId: String, canonicalGraphId: String}|null}
+     * @protected
+     */
+    parseGraphNodeId(id) {
+        if (!id || typeof id !== 'string') {
+            return null;
+        }
+
+        const lower = id.toLowerCase();
+
+        if (lower.startsWith('memory:')) {
+            const bareId = id.slice(7);
+            return {type: 'MEMORY', bareId, canonicalGraphId: 'memory:' + bareId};
+        }
+
+        if (lower.startsWith('session:')) {
+            const bareId = id.slice(8);
+            return {type: 'SESSION', bareId, canonicalGraphId: 'session:' + bareId};
+        }
+
+        return null;
+    }
+
+    /**
+     * Fetches a single Memory row from Chroma and upserts it as a MEMORY graph node, recursively
+     * ensuring the parent Session node exists so the `ORIGINATES_IN` edge terminates cleanly.
+     * Private helper for `ingestSingleRow`.
+     *
+     * @param {String} chromaId Chroma memory row ID (the bare ID, no `memory:` prefix)
+     * @param {String} canonicalGraphId Canonical graph-node ID (`memory:<chromaId>`)
+     * @param {Object} collections
+     * @param {Object} [collections.memoryCollection]
+     * @param {Object} [collections.summaryCollection]
+     * @returns {Promise<Object>} Result descriptor
+     * @protected
+     */
+    async backfillMemory(chromaId, canonicalGraphId, {memoryCollection, summaryCollection}) {
+        const collection = memoryCollection || await StorageRouter.getMemoryCollection();
+
+        if (!collection) {
+            return {success: false, reason: 'no-collection', graphNodeId: canonicalGraphId};
+        }
+
+        let raw;
+
+        try {
+            raw = await collection.get({ids: [chromaId], include: ['metadatas']});
+        } catch (e) {
+            return {success: false, reason: 'chroma-fetch-failed', graphNodeId: canonicalGraphId, error: e.message};
+        }
+
+        if (!raw?.ids?.length) {
+            return {success: false, reason: 'chroma-row-not-found', graphNodeId: canonicalGraphId};
+        }
+
+        const
+            meta         = raw.metadatas?.[0] || {},
+            sessionId    = meta.sessionId,
+            sessionNodeId = sessionId ? 'session:' + sessionId : null;
+
+        // Recursively ensure parent Session exists before creating the Memory edge. Without this
+        // the ORIGINATES_IN edge created below would dangle at the session endpoint.
+        if (sessionNodeId && !GraphService.db?.nodes?.get(sessionNodeId)) {
+            await this.backfillSession(sessionId, sessionNodeId, {summaryCollection});
+        }
+
+        const payloadHash = this.computeMemoryPayloadHash(meta);
+
+        GraphService.upsertNode({
+            id        : canonicalGraphId,
+            type      : 'MEMORY',
+            name      : chromaId.slice(0, 12),
+            properties: {
+                backfilled : true,
+                chromaId   : chromaId,
+                createdAt  : meta.createdAt,
+                payloadHash: payloadHash,
+                sessionId  : sessionId,
+                userId     : meta.userId
+            }
+        });
+
+        if (sessionNodeId) {
+            GraphService.linkNodes(canonicalGraphId, sessionNodeId, 'ORIGINATES_IN', 1.0);
+        }
+
+        return {success: true, reason: 'backfilled', graphNodeId: canonicalGraphId};
+    }
+
+    /**
+     * Fetches a single Session summary row from Chroma (by `sessionId` metadata filter, since
+     * session summary Chroma IDs are opaque) and upserts it as a SESSION graph node. Private
+     * helper for `ingestSingleRow`.
+     *
+     * **Minimal-session fallback:** if no summary row matches the sessionId, creates a minimal
+     * node so link targets resolve even for never-summarized sessions. See class-level note on
+     * the minimal-session fallback.
+     *
+     * @param {String} sessionId Agent-logical session ID (the bare ID, no `session:` prefix)
+     * @param {String} canonicalGraphId Canonical graph-node ID (`session:<sessionId>`)
+     * @param {Object} collections
+     * @param {Object} [collections.summaryCollection]
+     * @returns {Promise<Object>} Result descriptor
+     * @protected
+     */
+    async backfillSession(sessionId, canonicalGraphId, {summaryCollection}) {
+        const collection = summaryCollection || await StorageRouter.getSummaryCollection();
+
+        if (!collection) {
+            return {success: false, reason: 'no-collection', graphNodeId: canonicalGraphId};
+        }
+
+        let raw;
+
+        try {
+            raw = await collection.get({where: {sessionId}, include: ['metadatas']});
+        } catch (e) {
+            return {success: false, reason: 'chroma-fetch-failed', graphNodeId: canonicalGraphId, error: e.message};
+        }
+
+        if (!raw?.ids?.length) {
+            // Minimal-session fallback: no summary exists. Still create the node so downstream
+            // edges resolve; a future summarization cycle will upgrade the payload.
+            GraphService.upsertNode({
+                id        : canonicalGraphId,
+                type      : 'SESSION',
+                name      : sessionId,
+                properties: {
+                    backfilled: true,
+                    minimal   : true,
+                    sessionId : sessionId
+                }
+            });
+
+            return {success: true, reason: 'backfilled-minimal', graphNodeId: canonicalGraphId};
+        }
+
+        const
+            meta        = raw.metadatas?.[0] || {},
+            chromaId    = raw.ids[0],
+            session     = {id: chromaId, meta},
+            payloadHash = this.computeSessionPayloadHash(session);
+
+        GraphService.upsertNode({
+            id        : canonicalGraphId,
+            type      : 'SESSION',
+            name      : meta.title || sessionId,
+            properties: {
+                backfilled : true,
+                chromaId   : chromaId,
+                createdAt  : meta.createdAt,
+                payloadHash: payloadHash,
+                sessionId  : sessionId,
+                userId     : meta.userId
+            }
+        });
+
+        return {success: true, reason: 'backfilled', graphNodeId: canonicalGraphId};
     }
 }
 
