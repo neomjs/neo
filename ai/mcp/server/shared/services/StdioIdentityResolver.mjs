@@ -110,7 +110,12 @@ class StdioIdentityResolver extends Base {
             let output = execSync('gh api user', {
                 encoding: 'utf8',
                 stdio   : ['ignore', 'pipe', 'ignore'],
-                timeout : 3000
+                // 5s matches the MCP client-side init-handshake budget. A shorter budget (3s)
+                // risks consuming so much of the handshake that the client times out before the
+                // server finishes `initAsync` — particularly on stale auth tokens or proxied
+                // networks. A `gh` that can't answer in 5s is effectively broken — the
+                // unresolved-fallthrough path is the right destination.
+                timeout : 5000
             });
 
             return JSON.parse(output)

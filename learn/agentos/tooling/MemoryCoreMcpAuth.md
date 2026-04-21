@@ -42,7 +42,7 @@ Once the server starts, every tool call from a client MUST arrive with `Authoriz
 The stdio transport has no request-level authentication primitive — the security boundary is the trusted-process boundary. Identity is resolved **once at server boot** via the following chain:
 
 1. **`NEO_AGENT_IDENTITY` environment variable.** Explicit pinning — the authoritative source for agent harnesses. The value is normalized: a leading `@` is stripped so the runtime identity matches GitHub API conventions (`neo-opus-4-7`, not `@neo-opus-4-7`).
-2. **`gh api user` via the GitHub CLI.** Fallback for local human developers who have `gh` installed and authenticated. Silent-fails (returns `null`) if the CLI is absent, the user is not logged in, or the call exceeds a 3-second timeout — preserving zero-friction local development.
+2. **`gh api user` via the GitHub CLI.** Fallback for local human developers who have `gh` installed and authenticated. Silent-fails (returns `null`) if the CLI is absent, the user is not logged in, or the call exceeds a 5-second timeout — matches the MCP client-side init-handshake budget so a slow `gh` doesn't exhaust the client's connection window.
 3. **`unresolved`.** Neither path yielded identity. Downstream services treat this as **single-tenant mode** (backward-compatible) — no tag on writes, no filter on reads.
 
 The resolved identity is cached on the running server instance and wrapped around every `CallToolRequestSchema` dispatch via `RequestContextService.run()`.
@@ -150,7 +150,7 @@ Check startup logs for `[neo-memory-core MCP] Identity: <userId> via <source>`. 
 
 1. Verify `NEO_AGENT_IDENTITY` is set in the harness's MCP server environment — `env` block in `settings.json`, not shell export.
 2. If no `NEO_AGENT_IDENTITY` is set, verify `gh auth status` reports a valid login.
-3. If `gh` is installed but the timeout is exceeded, the 3-second budget may be too tight for a slow network; set `NEO_AGENT_IDENTITY` explicitly to skip the CLI call.
+3. If `gh` is installed but the timeout is exceeded, the 5-second budget may be too tight for a degraded network or stale auth; set `NEO_AGENT_IDENTITY` explicitly to skip the CLI call.
 
 ### AgentIdentity node is `unbound` despite identity resolution
 
