@@ -35,6 +35,15 @@ Every PR review MUST score the work across the following categories on a scale o
 *   **`[COMPLEXITY]`** (0-100): Factor in file touchpoints, depth of changes (core vs. app-level), and cognitive load.
 *   **`[EFFORT_PROFILE]`**: Categorize the effort relative to the Impact/Complexity ratio to establish explicit Native Graph labels. Valid values are: `Quick Win` (High ROI/Low Complexity), `Heavy Lift` (High Complexity/High Impact), `Maintenance` (Routine tasks), or `Architectural Pillar` (Fundamental shifts).
 
+### 3.1 Score-Deduction Justification (MANDATORY)
+
+Any metric scored below 100 MUST include a specific reason for the deduction. **Restated praise is NOT a justification.**
+
+- ❌ `[COMPLEXITY]`: 85 — *"Deftly handles the complex staging logic."* (describes the PR; doesn't explain the 15-point gap)
+- ✅ `[COMPLEXITY]`: 85 — *"15 points deducted because stage-gating introduces reasoning complexity an author unfamiliar with the pattern will need to internalize before picking up subs."*
+
+This discipline prevents cosmetic score adjustments. A 100/100 is a stronger statement when sub-100 scores carry explicit deduction reasoning.
+
 ## 4. Graph Ingestion Tags
 To bridge the gap between human/agent code review and the internal Agent OS memory, you MUST use the following explicit markdown tags for any critical feedback. 
 The Retrospective daemon explicitly regex-matches these tags during REM sleep:
@@ -46,7 +55,74 @@ The Retrospective daemon explicitly regex-matches these tags during REM sleep:
 ## 5. Required Actions & Cross-Linking
 *   **Related Graph Nodes:** Every PR review MUST list related graph nodes (e.g., `Target Epic ID`, `Issue ID`) to ensure the Native Edge Graph links the evaluation to the overarching goal.
 *   **Required Actions:** Clearly list a bulleted checklist of mandatory changes required before the PR can be accepted.
+*   **Zero-Issue PR Semantics:** If a PR has no required actions, replace the checkbox list with a single explicit sentence: *"No required actions — ready to merge."* Do NOT pre-tick placeholder items (e.g., `- [x] All checks pass and no required changes identified.`) — that reads as box-checking rather than genuine review. Null state is its own form; don't dress it as action.
 
 ## 6. The Review Template
 When drafting your review, use the `view_file` tool to load the exact markdown template from:
 `/Users/Shared/github/neomjs/neo/.agent/skills/pr-review/assets/pr-review-template.md`
+
+## 7. Depth Floor — Preventing Rubber-Stamp Approvals
+
+Structural skill compliance does not guarantee rigor. A review can hit every `[EVALUATION_METRICS]` score, include all graph-ingestion tags, match the template structure — and still be empirically rubber-stamp-shaped. The Depth Floor mandates below close that gap.
+
+### 7.1 Minimum-One-Challenge for Peer Reviews
+
+Peer-reviews MUST name at least one of the following:
+- A **weakness** in the approach, even if non-blocking
+- An **unverified assumption** the author is relying on
+- An **edge case** that may not be covered
+- A **follow-up concern** (something orthogonal the PR surfaces but doesn't resolve)
+
+If no such concern exists, the reviewer MUST explicitly document the search:
+
+> *"I actively looked for [specific thing 1], [specific thing 2], and [specific thing 3] and found no concerns."*
+
+The search documentation is not optional filler — it's the reviewer proving they looked. A peer-review with neither a challenge nor a documented search fails the Depth Floor, regardless of structural compliance elsewhere.
+
+Self-reviews (§1) already have an analogous requirement ("actively hunt for blind spots"); §7.1 extends the discipline to peer-reviews.
+
+### 7.2 Cross-Model Asymmetry Context
+
+Different model families exhibit statistically-different failure modes when reviewing PRs:
+
+- **Claude-family** reviewers tend toward over-rigor — may flag concerns that aren't load-bearing, inflate `[COMPLEXITY]` scores, or request JSDoc polish the PR doesn't need.
+- **Gemini-family** reviewers tend toward quick-win framing — may score all metrics at 100 without challenge, pre-tick placeholder required-actions, or skip adversarial examination of the change.
+
+The Depth Floor catches the Gemini-family failure mode. `[CONTENT_COMPLETENESS]` scoring catches part of the Claude-family failure mode. Neither is a style mandate — be the reviewer you are; trust cross-model asymmetry to compensate. The floor is not a ceiling. Do not calibrate toward the other model's style; the skill-level floor is what keeps rigor universal, not style convergence.
+
+### 7.3 Anti-Patterns
+
+| Anti-pattern | Why it fails the Depth Floor |
+|---|---|
+| Unexplained score deduction (`[X]`: 85 with no reasoning) | Cosmetic; §3.1 violated |
+| Pre-ticked "All checks pass" placeholder in Required Actions | Null-state dressed as action; §5 Zero-Issue PR Semantics violated |
+| Fully affirming review with no challenges or documented search | §7.1 Minimum-One-Challenge violated |
+| Approval without cross-skill integration check on PRs introducing new workflow conventions | §8 Cross-Skill Integration Audit violated |
+| Style-calibrating toward the other model family's tone | §7.2 — the floor keeps rigor universal, not style convergence |
+
+## 8. Cross-Skill Integration Audit
+
+For PRs that introduce new workflow primitives, skill files, architectural conventions, or MCP tool surfaces, the reviewer MUST verify whether other skills / docs / tools need updating to reference the new pattern.
+
+### 8.1 When This Section Applies
+
+- PR adds or materially changes a skill file (`.agent/skills/**/SKILL.md` or `**/references/*.md`)
+- PR introduces a new workflow convention (new commit-message format, new comment template, new ticket-body section)
+- PR adds a new MCP tool surface
+- PR modifies `AGENTS_STARTUP.md` or `AGENTS.md` (startup conventions change)
+- PR introduces a new architectural primitive other subsystems will consume
+
+### 8.2 Verification Checklist
+
+- [ ] Does any existing skill document a predecessor step that should now fire this new pattern? (E.g., if PR adds `epic-review`, does `ticket-intake` need to check for epic-review state as a prerequisite?)
+- [ ] Does `AGENTS_STARTUP.md` §9 Workflow skills list need updating to include the new pattern?
+- [ ] Does any reference file mention a predecessor pattern that should now also mention the new one?
+- [ ] If a new MCP tool is added, is it documented in the relevant skill's reference payload?
+- [ ] If a new convention is introduced, is there documentation somewhere explaining when the convention applies and how it fires?
+
+If any check surfaces a miss, flag it in Required Actions. A PR that ships a new convention without the cross-skill references creates a **latent integration gap** — the convention exists but won't fire because no other skill knows to invoke it.
+
+### 8.3 Empirical Example
+
+PR #10155 shipped `.agent/skills/epic-review/` with the claim "runs *before* `ticket-intake`." Real integration required `ticket-intake` to check whether the parent epic had been reviewed before proceeding with sub pickup. The PR did NOT update `ticket-intake`. The reviewer did NOT flag the missing integration. Result: `epic-review` ships as a skill but the "runs before ticket-intake" claim is aspirational until `ticket-intake` is updated — a latent gap §8 would have caught.
+

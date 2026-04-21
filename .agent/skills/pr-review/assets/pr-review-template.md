@@ -37,10 +37,18 @@
 
 ### 📋 Required Actions
 
+**For PRs with required actions — use the checkbox list form:**
+
 To proceed with merging, please address the following:
 
 - [ ] Item 1 (e.g., Add missing JSDoc to `newMethod`)
 - [ ] Item 2 (e.g., Fix the race condition in `Store.js` loading)
 - [ ] Item 3
+
+**For zero-issue PRs — use the null-state sentence:**
+
+No required actions — ready to merge.
+
+*Do NOT use pre-ticked placeholder items like `- [x] All checks pass and no required changes identified.` — that reads as box-checking, not genuine review. Per guide §5 Zero-Issue PR Semantics + §7.3 anti-patterns table.*
 
 [Closing Remarks]
