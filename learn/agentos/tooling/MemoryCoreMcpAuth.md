@@ -227,12 +227,14 @@ The Mailbox A2A service natively integrates with the `PermissionService` to enfo
 
 ### Sending Messages (`addMessage`)
 - To send a direct message, the sender MUST have the `CAN_REPLY_TO` permission for the target recipient.
+- **Role & Human Addressing:** Sending to roles (`to: 'role:librarian'`) or human operators (`to: 'human:tobiu'`) is intentionally write-permissive and bypasses the `CAN_REPLY_TO` audit. Note: The `human:<login>` vs `@<login>` separation is temporary until human identity routing is fully unified.
 - **Reachable Counterparty Exception:** If the target recipient has *previously sent a message* to the sender, the system infers an implicit trust chain, and the sender is allowed to reply without an explicit `CAN_REPLY_TO` edge.
-- Broadcast messages (`to: AGENT:*`) are always permitted.
+- Broadcast messages (`to: 'AGENT:*'`) are always permitted.
 
 ### Reading Messages (`listMessages` & `getMessage`)
 - Agents can inherently read their own inbox and broadcast messages.
 - To read another agent's inbox (e.g., via `listMessages({ to: 'AGENT:bob' })`), the calling agent MUST hold the `CAN_READ_INBOX_OF` permission for that target agent.
+- **Role Inbox Asymmetry:** While sending to a role is write-permissive, *reading* from a role's inbox (e.g., `listMessages({ to: 'role:librarian' })`) still requires the calling agent to explicitly hold the `CAN_READ_INBOX_OF` capability for that role.
 - Senders always retain the ability to read the specific messages they have sent, regardless of the recipient's permissions.
 
 ## See Also

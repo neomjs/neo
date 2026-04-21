@@ -117,4 +117,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => 
         // Checking against broadcast (always true)
         expect(PermissionService.hasPermission('AGENT:alice', 'AGENT:*', 'CAN_READ_INBOX_OF')).toBe(true);
     });
+
+    test('listPermissions denies access when requesting for another identity', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+            await expect(PermissionService.listPermissions({ forIdentity: 'AGENT:bob' }))
+                .rejects.toThrow('Unauthorized: Cannot enumerate permissions for AGENT:bob');
+        });
+    });
 });

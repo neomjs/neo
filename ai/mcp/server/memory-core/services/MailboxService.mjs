@@ -52,8 +52,10 @@ class MailboxService extends Base {
         const messageId = `MESSAGE:${crypto.randomUUID()}`;
         const timestamp = new Date().toISOString();
 
+        const isRoleOrHuman = to.startsWith('role:') || to.startsWith('human:');
+
         // Check reply permission
-        if (to !== 'AGENT:*' && to !== sentBy) {
+        if (!isRoleOrHuman && to !== 'AGENT:*' && to !== sentBy) {
             let canReply = PermissionService.hasPermission(sentBy, to, 'CAN_REPLY_TO');
 
             // Reachable counterparty logic: if they ever sent us a message, we can reply
