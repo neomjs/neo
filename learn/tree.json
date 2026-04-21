@@ -42,6 +42,7 @@
             {"name": "Agent-Agnostic MCP Configuration",               "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/AgentAgnosticMcpConfig"},
             {"name": "Memory Core MCP API",                            "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/MemoryCoreMcpApi"},
             {"name": "Memory Core MCP Authentication",                 "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/MemoryCoreMcpAuth"},
+            {"name": "Graph Back-Fill: Memory & Session Lifecycle",    "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/GraphBackfill"},
             {"name": "Chrome DevTools MCP Server",                     "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/ChromeDevToolsMcpServer"},
             {"name": "GitHub CLI Setup",                               "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/GitHubCLISetup"},
             {"name": "GitHub Workflow Server: gh-absent",              "parentId": "AgentOS/Tooling",                                     "id": "agentos/tooling/GitHubWorkflowServerGhAbsent"},
