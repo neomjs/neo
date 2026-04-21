@@ -8,6 +8,8 @@ import HealthService            from './HealthService.mjs';
 import MemoryService            from './MemoryService.mjs';
 import SessionService           from './SessionService.mjs';
 import SummaryService           from './SummaryService.mjs';
+import MailboxService           from './MailboxService.mjs';
+import PermissionService        from './PermissionService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -29,7 +31,14 @@ const serviceMapping = {
     query_raw_memories    : MemoryService           .queryMemories       .bind(MemoryService),
     query_summaries       : SummaryService          .querySummaries      .bind(SummaryService),
     search_nodes          : GraphService            .searchNodes         .bind(GraphService),
-    summarize_sessions    : SessionService          .summarizeSessions   .bind(SessionService)
+    summarize_sessions    : SessionService          .summarizeSessions   .bind(SessionService),
+    add_message           : MailboxService          .addMessage          .bind(MailboxService),
+    list_messages         : MailboxService          .listMessages        .bind(MailboxService),
+    get_message           : MailboxService          .getMessage          .bind(MailboxService),
+    mark_read             : MailboxService          .markRead            .bind(MailboxService),
+    grant_permission      : PermissionService       .grantPermission     .bind(PermissionService),
+    revoke_permission     : PermissionService       .revokePermission    .bind(PermissionService),
+    list_permissions      : PermissionService       .listPermissions     .bind(PermissionService)
 };
 
 const toolService = Neo.create(ToolService, {
