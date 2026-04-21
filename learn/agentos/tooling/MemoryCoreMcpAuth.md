@@ -172,43 +172,68 @@ The `AuthMiddleware` refused a tool-call argument. Check that the client is not 
 
 ## Service Relationships
 
+```mermaid
+flowchart TD
+    subgraph MCP ["MCP Tool Call Dispatch"]
+        direction TD
+        
+        SSE["SSE Transport\nTransportService"]
+        STDIO["Stdio Transport\nServer.mjs"]
+        
+        AuthSvc["AuthService\n(OIDC introspect)"]
+        StdioRes["StdioIdentityResolver\n(env-var + gh-CLI)"]
+        
+        SSE --> AuthSvc
+        STDIO --> StdioRes
+        
+        Bind["bindAgentIdent\n(graph lookup)"]
+        
+        AuthSvc --> Bind
+        StdioRes --> Bind
+        
+        ReqCtx["RequestContextService\n.run(identity, dispatch)"]
+        
+        Bind --> ReqCtx
+        
+        AuthMid["AuthMiddleware\n.validateNoSpoof()"]
+        
+        ReqCtx --> AuthMid
+        
+        CallTool["callTool()\n(service dispatch)"]
+        
+        AuthMid --> CallTool
+    end
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                    MCP Tool Call Dispatch                       │
-│  ┌──────────────────┐    ┌──────────────────┐                   │
-│  │  SSE Transport   │    │ Stdio Transport  │                   │
-│  │ TransportService │    │    Server.mjs    │                   │
-│  └────────┬─────────┘    └────────┬─────────┘                   │
-│           │                       │                             │
-│           ▼                       ▼                             │
-│  ┌──────────────────┐    ┌───────────────────────┐              │
-│  │   AuthService    │    │ StdioIdentityResolver │              │
-│  │ (OIDC introspect)│    │ (env-var + gh-CLI)    │              │
-│  └────────┬─────────┘    └────────┬──────────────┘              │
-│           │                       │                             │
-│           └──────────┬────────────┘                             │
-│                      ▼                                          │
-│             ┌──────────────────┐                                │
-│             │  bindAgentIdent  │                                │
-│             │   (graph lookup) │                                │
-│             └────────┬─────────┘                                │
-│                      ▼                                          │
-│        ┌─────────────────────────────┐                          │
-│        │   RequestContextService     │                          │
-│        │ .run(identity, dispatch)    │                          │
-│        └────────────┬────────────────┘                          │
-│                     ▼                                           │
-│         ┌──────────────────────┐                                │
-│         │   AuthMiddleware     │                                │
-│         │ .validateNoSpoof()   │                                │
-│         └──────────┬───────────┘                                │
-│                    ▼                                            │
-│         ┌──────────────────────┐                                │
-│         │      callTool()      │                                │
-│         │  (service dispatch)  │                                │
-│         └──────────────────────┘                                │
-└────────────────────────────────────────────────────────────────┘
-```
+
+## Cross-Tenant Permissions
+
+Beyond the baseline strict-isolate policy, cross-tenant access is granted via explicit **capability edges** in the Native Edge Graph. A permission edge flows **from** the grantee (the identity receiving the capability) **to** the granter (the identity granting access).
+
+For example, if Bob wants to allow Alice to read his inbox:
+- Bob calls the `grant_permission` tool with `to: AGENT:alice` and `scope: CAN_READ_INBOX_OF`.
+- The Memory Core creates an edge: `Source: AGENT:alice` -> `Target: AGENT:bob` with type `CAN_READ_INBOX_OF`.
+
+### Valid Scopes
+
+The system currently supports the following scopes:
+- `CAN_READ_INBOX_OF`: Allows the grantee to read messages sent to the granter's inbox.
+- `CAN_REPLY_TO`: Allows the grantee to send a direct message to the granter.
+- `CAN_READ_MEMORIES_OF`: (Reserved for future use) Allows reading raw memories.
+- `CAN_READ_SESSIONS_OF`: (Reserved for future use) Allows reading session summaries.
+
+## Mailbox A2A Integration
+
+The Mailbox A2A service natively integrates with the `PermissionService` to enforce the strict-isolate policy:
+
+### Sending Messages (`addMessage`)
+- To send a direct message, the sender MUST have the `CAN_REPLY_TO` permission for the target recipient.
+- **Reachable Counterparty Exception:** If the target recipient has *previously sent a message* to the sender, the system infers an implicit trust chain, and the sender is allowed to reply without an explicit `CAN_REPLY_TO` edge.
+- Broadcast messages (`to: AGENT:*`) are always permitted.
+
+### Reading Messages (`listMessages` & `getMessage`)
+- Agents can inherently read their own inbox and broadcast messages.
+- To read another agent's inbox (e.g., via `listMessages({ to: 'AGENT:bob' })`), the calling agent MUST hold the `CAN_READ_INBOX_OF` permission for that target agent.
+- Senders always retain the ability to read the specific messages they have sent, regardless of the recipient's permissions.
 
 ## See Also
 
