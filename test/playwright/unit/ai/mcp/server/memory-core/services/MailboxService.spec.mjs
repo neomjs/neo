@@ -19,7 +19,7 @@ import RequestContextService from '../../../../../../../../ai/mcp/server/shared/
 
 test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
     test.describe.configure({ mode: 'serial' });
-    let MailboxService, GraphService, PermissionService, LifecycleService;
+    let MailboxService, GraphService, PermissionService, LifecycleService, originalAutoSave;
     
     test.beforeAll(async () => {
         // Load dynamically due to SQLite DB mount timing
@@ -37,11 +37,12 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         } else {
             await LifecycleService.ready();
         }
+        originalAutoSave = GraphService.db.autoSave;
         GraphService.db.autoSave = true;
     });
 
     test.afterAll(async () => {
-        // cleanup if needed
+        GraphService.db.autoSave = originalAutoSave;
     });
 
     test.beforeEach(async () => {
@@ -201,8 +202,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
 
         await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
             for (let i = 0; i < 5; i++) {
-                await MailboxService.addMessage({ to: 'AGENT:bob', subject: `Msg ${i}`, body: '...' });
-                await new Promise(r => setTimeout(r, 10)); // guarantee sorting order
+                const res = await MailboxService.addMessage({ to: 'AGENT:bob', subject: `Msg ${i}`, body: '...' });
+                GraphService.db.nodes.get(res.messageId).properties.sentAt = new Date(1000000000000 + i * 1000).toISOString();
             }
         });
 
