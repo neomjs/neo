@@ -63,7 +63,11 @@ async function seed() {
             Memory_GraphService.upsertNode(identity);
             console.log(`Created AgentIdentity: ${identity.id}`);
         } else {
-            // Fetch raw SQLite node to check if createdAt exists
+            // Defensive `createdAt` retention logic:
+            // We peek directly at the raw SQLite `Nodes` table to check if the existing node has a `createdAt` timestamp.
+            // This ensures an idempotent upsert without clobbering the creation-time provenance.
+            // If `upsertNode` semantics ever change to 'preserve existing properties if not in update payload', 
+            // this manual peek could be refactored or removed.
             let hasCreatedAt = false;
             if (Memory_GraphService.db && Memory_GraphService.db.storage) {
                 const stmt = Memory_GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?');

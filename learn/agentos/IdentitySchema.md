@@ -6,7 +6,7 @@ This document formalizes the `AgentIdentity` graph node schema within the Neo.mj
 
 The AgentOS Memory Core utilizes a persistent, hybrid semantic/graph database to link ephemeral conversation memory with structural repository data.
 
-To support the "Agent Experience" (MX) capabilities and fully attribute actions across long-lived Swarm intelligences, we provision explicit Identity nodes representing the actors interacting with the repository. 
+To support the "Model Experience" (MX) capabilities — cf. Discussion #10137 for the distinction from Agent Experience (AX) — and fully attribute actions across long-lived Swarm intelligences, we provision explicit Identity nodes representing the actors interacting with the repository. 
 
 ### Per-Model vs. Per-Version Account Binding
 
