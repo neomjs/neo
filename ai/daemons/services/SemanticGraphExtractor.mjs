@@ -207,10 +207,19 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                     const targetsSessionOrMemory = resolvedTarget.startsWith('SESSION:') || resolvedTarget.startsWith('MEMORY:') || resolvedSource.startsWith('SESSION:') || resolvedSource.startsWith('MEMORY:');
                     
                     if (isProvenance && targetsSessionOrMemory) {
+                        /**
+                         * @summary Provenance Edge Lazy-Queue Strategy
+                         * Provenance edges (MENTIONED_IN, DISCUSSED_IN, REFERENCED_BY) linking to past sessions/memories 
+                         * may reference nodes not in the current payload or synchronous graph cache. 
+                         * Instead of dropping them as invalid, we route them to a JSONL backfill queue.
+                         * Consumer-side draining and retry logic is handled under Epic #10153.
+                         */
                         logger.info(`[SemanticGraphExtractor] Queuing unresolved provenance edge for lazy back-fill: ${resolvedSource} -> ${resolvedTarget}`);
-                        const lazyQueueFile = path.join('/tmp', 'neo_lazy_edges.json');
+                        const lazyQueueFile = aiConfig.lazyEdgesQueuePath;
                         const edgeData = JSON.stringify({ ...edge, source: resolvedSource, target: resolvedTarget, timestamp: new Date().toISOString() }) + '\n';
                         try {
+                            // Ensure the directory exists before appending
+                            await fs.promises.mkdir(path.dirname(lazyQueueFile), { recursive: true });
                             await fs.promises.appendFile(lazyQueueFile, edgeData, 'utf8');
                         } catch (err) {
                             logger.error('[SemanticGraphExtractor] Failed to queue lazy edge:', err);

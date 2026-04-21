@@ -26,12 +26,13 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     let SemanticGraphExtractor;
     let SystemLifecycleService;
     let OpenAiCompatible;
+    let aiConfig;
 
     const testDbName = `memory-core-semantic-extractor-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath;
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
 
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
@@ -137,6 +138,13 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
                                 },
                                 {
                                     source: "CONCEPT:TestConcept",
+                                    target: "SESSION:non-existent-session",
+                                    relationship: "DISCUSSED_IN",
+                                    weight: 1.0,
+                                    justification: "Provenance test 2"
+                                },
+                                {
+                                    source: "CONCEPT:TestConcept",
                                     target: "frontier",
                                     relationship: "RELATES_TO"
                                 }
@@ -153,7 +161,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             document: "Mock episodic history for provenance"
         };
 
-        const lazyQueueFile = path.join('/tmp', 'neo_lazy_edges.json');
+        const lazyQueueFile = aiConfig.lazyEdgesQueuePath;
         if (fs.existsSync(lazyQueueFile)) {
             fs.unlinkSync(lazyQueueFile);
         }
@@ -161,13 +169,15 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         const result = await SemanticGraphExtractor.executeTriVectorExtraction(session);
 
         expect(result).not.toBeNull();
-        expect(result.session_artifact.graph.edges.length).toBe(2);
+        expect(result.session_artifact.graph.edges.length).toBe(3);
 
         // Check if the lazy queue file was created and contains the edge
         expect(fs.existsSync(lazyQueueFile)).toBe(true);
         const queueContent = fs.readFileSync(lazyQueueFile, 'utf8');
         expect(queueContent).toContain('"relationship":"MENTIONED_IN"');
         expect(queueContent).toContain('"target":"MEMORY:non-existent-memory"');
+        expect(queueContent).toContain('"relationship":"DISCUSSED_IN"');
+        expect(queueContent).toContain('"target":"SESSION:non-existent-session"');
 
         // Check if RELATES_TO edge was added to the GraphService (since frontier exists)
         const edges = GraphService.db.edges.items;
