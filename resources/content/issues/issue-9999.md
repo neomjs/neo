@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-14T15:09:09Z'
-updatedAt: '2026-04-16T18:44:50Z'
+updatedAt: '2026-04-21T17:27:05Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9999'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[x] 10013 [Sub-Epic] DreamService Decomposition'
@@ -197,4 +197,150 @@ healed via the new refetch endpoint and now reflect live GitHub state."
 - 2026-04-21T09:28:52Z @tobiu cross-referenced by #10143
 - 2026-04-21T09:29:19Z @tobiu cross-referenced by #10146
 - 2026-04-21T09:32:43Z @tobiu added sub-issue #10143
+### @tobiu - 2026-04-21T17:03:01Z
+
+# Session Handover — 2026-04-21 Cycle Summary + Phase 2+ Delegation
+
+Fresh-session anchor. Both my context window (Claude Opus 4.7 / Claude Code, session `71dc3cd8-d39d-48e1-ac62-e240ca67d1a5`) and Gemini's (Gemini 3.1 Pro / Antigravity, session `7a73e53f-801a-490f-b693-b431189aa1a9` + prior `30e93319-06e2-44d2-adf2-99168a997d08`) are filling up. This comment codifies the current state + delegation so any fresh session can pick up cleanly.
+
+**Updated 2026-04-21:** Phase 1 complete. #10161 merged; #10151 shipped. Phase 2 now unlocked — see below.
+
+---
+
+## What Shipped This Session
+
+### Workflow-infrastructure PRs (5 merged)
+
+| PR | Scope |
+|---|---|
+| [#10155](https://github.com/neomjs/neo/pull/10155) | `epic-review` skill (5-stage gating chain, vision-fit + approach-elegance + scope-coherence) |
+| [#10157](https://github.com/neomjs/neo/pull/10157) | `pr-review` depth-floor mandates + template slots + evaluative-vs-descriptive metric taxonomy |
+| [#10160](https://github.com/neomjs/neo/pull/10160) | Epic-Review Pre-Requisite gate in `ticket-intake-workflow.md` |
+| [#10142](https://github.com/neomjs/neo/pull/10142) | Self-Identification mandate in `pull-request-workflow.md` + Cross-Harness Authorship Convention |
+| [#10163](https://github.com/neomjs/neo/pull/10163) | Review Response Protocol + PR Comment Hygiene + PR Body Hygiene + Authorship Respect + Substrate Awareness + Stale Local Ticket Prevention + Lesson Promotion Path |
+
+### Substantive-work PRs (Phase 1 — both merged)
+
+| PR | Resolves | Status |
+|---|---|---|
+| [#10162](https://github.com/neomjs/neo/pull/10162) | #10144 AgentIdentity node + seed script + IdentitySchema.md | **Merged** |
+| [#10161](https://github.com/neomjs/neo/pull/10161) | #10151 MemorySessionIngestor deterministic ingestion phase | **Merged** |
+
+Phase 1 is closed. Both Opus-track and Gemini-track deliverables shipped; downstream subs (#10152, #10153, #10158, #10145) are now unblocked.
+
+### Tickets filed
+
+| Ticket | Purpose |
+|---|---|
+| [#10164](https://github.com/neomjs/neo/issues/10164) | Pre-commit cross-PR file-collision check — empirically anchored on this session's three-way #10163 / #10142 / #10160 collision + #10162 post-merge conflict |
+
+---
+
+## Phase-2+ Delegation Table
+
+Proposed assignments — not locked. Whichever identity actually claims the ticket (via `manage_issue_assignees add @me`) owns it. This table records intent for coordination, not a contract.
+
+### Phase 2 (open — Phase 1 complete, begin pickup)
+
+| Ticket | Proposed owner | Rationale |
+|---|---|---|
+| [#10152](https://github.com/neomjs/neo/issues/10152) Gemma4 extractor provenance edges | **Gemini** | Prompt engineering + Zod schema; Gemini territory. |
+| [#10153](https://github.com/neomjs/neo/issues/10153) Lazy back-fill for pre-migration Chroma rows | **Either** | Middle-ground scope; assign based on capacity. |
+| [#10158](https://github.com/neomjs/neo/issues/10158) Post-ship telemetry + retention policy | **Either** | Middle-ground scope; assign based on capacity. |
+| [#10145](https://github.com/neomjs/neo/issues/10145) OAuth2 Memory-Core MCP auth | **Opus** | MC server internals, convention-sensitive. |
+
+### Phase 3 (opens after phase 2 core lands)
+
+| Ticket | Proposed owner | Rationale |
+|---|---|---|
+| [#10146](https://github.com/neomjs/neo/issues/10146) Cross-tenant perms + test suite | **Opus** | Integration-heavy; spans mailbox + identity + auth. |
+| [#10147](https://github.com/neomjs/neo/issues/10147) Message node schema + addMessage/listMessages/markRead tools | **Opus** | Central integration point; decisions cascade to D2/D3/D4. |
+
+### Phase 4 (opens after #10147 merges)
+
+| Ticket | Proposed owner |
+|---|---|
+| [#10148](https://github.com/neomjs/neo/issues/10148) Lifecycle (archive/delete + retracted-marker) | **Gemini** |
+| [#10149](https://github.com/neomjs/neo/issues/10149) Healthcheck inbox/outbox preview | **Gemini** |
+| [#10150](https://github.com/neomjs/neo/issues/10150) Optional Chroma semantic layer | **Either** |
+
+---
+
+## Cross-Model PR Review Pattern
+
+Validated empirically across 4+ review cycles this session — both directions now produce substantive reviews when backed by the enhanced `pr-review` skill:
+
+- **Gemini reviews Opus PRs**; **Opus reviews Gemini PRs**.
+- Both apply `pr-review` skill mandates: §3.1 Score Justification, §7 Depth Floor, §8 Cross-Skill Integration Audit, §5 Zero-Issue PR Semantics.
+- Authors respond via `pull-request` §7 Review Response Protocol using `[ADDRESSED]` / `[DEFERRED]` / `[REJECTED_WITH_RATIONALE]` tags.
+- PR-body Self-Identification per `pull-request` §5 (top-of-body `Authored by [Model] ([Harness]). Session <uuid>.`).
+- For same-session self-authored PRs: `pr-review` §1.3 self-review mode (clinical, first-person, actively hunt for blind spots).
+
+---
+
+## Epic-Review Status
+
+Per `epic-review` skill §5 (per-agent-per-epic one-shot):
+
+| Epic | Gemini identity | Opus identity |
+|---|---|---|
+| [#10143](https://github.com/neomjs/neo/issues/10143) Graph-first Memory artifacts | ✓ Reviewed (session `7a73e53f-801a-490f-b693-b431189aa1a9`) | Not reviewed (authored the epic; author-self-review skill ambiguity flagged as v1.1 candidate — skip OK for now) |
+| [#10016](https://github.com/neomjs/neo/issues/10016) Multi-Tenant Identity & Data Privacy | Not reviewed | Not reviewed |
+| [#10139](https://github.com/neomjs/neo/issues/10139) Mailbox — explicit A2A primitive | Not reviewed | Not reviewed (authored the reshape) |
+
+**Rule:** whichever identity picks up the first sub from #10016 or #10139 runs `epic-review` before ticket-intake on that sub. If both identities pick up subs, both run independent reviews (cross-model asymmetry is the feature per `epic-review-workflow.md` §8).
+
+---
+
+## Outstanding Follow-ups
+
+- **[#10164](https://github.com/neomjs/neo/issues/10164)** (unassigned) — pre-commit cross-PR file-collision check. Empirical cases #1 + #2 = #10163/#10142/#10160 + #10162 post-merge collision. Consolidation candidate with a stale-local-ticket mechanical guard if the Stale Prevention rule fails in practice (not filed separately; file combined later if either/both discipline rules fail empirically).
+
+- **v1.1 skill-refinement candidates** (track only; file if empirical 3+ instance):
+  - `[BLOCKED_BY]` fourth tag for `pull-request` §7 (blocked-on-upstream-merge case — observed once with Gemini's #10163 `[DEFERRED]` stretch)
+  - `epic-review` author-self-review mode documentation (ambiguity around whether epic author runs epic-review on own authored epic)
+
+---
+
+## For Fresh-Session Boot
+
+### Memory Core session IDs for context mining
+
+Opus:
+- `71dc3cd8-d39d-48e1-ac62-e240ca67d1a5` (this session — workflow infrastructure + Phase 1 Opus track)
+- `5a521819-dc75-4549-888e-fcea818d0401` (prior session — MX paradigm discussion #10137)
+- `a38d25d1-3003-4d57-b0ac-0effe2c3507e` (prior session — #10139 mailbox original filing)
+
+Gemini:
+- `7a73e53f-801a-490f-b693-b431189aa1a9` (this session — workflow infrastructure + #10144 + epic-review on #10143)
+- `30e93319-06e2-44d2-adf2-99168a997d08` (prior session — #10141 / #10142 Self-Identification origin)
+
+### Next Concrete Actions
+
+**Opus track (Phase 2 entry):**
+1. Begin [#10145](https://github.com/neomjs/neo/issues/10145) OAuth2 Memory-Core MCP auth.
+2. Phase 3 entry: [#10147](https://github.com/neomjs/neo/issues/10147) Message schema after phase 2 core lands.
+3. Phase 3 follow-through: [#10146](https://github.com/neomjs/neo/issues/10146) Cross-tenant perms + test suite.
+
+**Gemini track (Phase 2 entry):**
+1. Begin [#10152](https://github.com/neomjs/neo/issues/10152) Gemma4 extractor provenance edges — attaches extracted entities to Memory/Session nodes now that #10151 has shipped.
+2. Phase 4 entry: [#10148](https://github.com/neomjs/neo/issues/10148) Lifecycle and [#10149](https://github.com/neomjs/neo/issues/10149) Healthcheck preview after #10147 ships.
+
+**Either track (pick based on capacity):**
+- [#10153](https://github.com/neomjs/neo/issues/10153) Lazy back-fill — middle-ground scope.
+- [#10158](https://github.com/neomjs/neo/issues/10158) Post-ship telemetry + retention — middle-ground scope.
+
+### Session-Boot Checklist (for both agents)
+
+1. Run `neo-mjs-github-workflow:sync_all` (or `gh issue view #9999`) to fetch latest state of this comment thread — per `ticket-intake-workflow.md` §1 Stale Local Ticket Prevention.
+2. Read this handover comment for delegation + phase state.
+3. `query_raw_memories` against Memory Core with the prior-session IDs above for deep context on any thread you're picking up.
+4. Before first sub-pickup from #10016 or #10139: run `epic-review` skill (per §5 per-agent-per-epic one-shot).
+5. Self-identify in PR bodies per `pull-request-workflow.md` §5. Use the Review Response Protocol per §7 when receiving Request Changes.
+
+---
+
+Origin Session ID: `71dc3cd8-d39d-48e1-ac62-e240ca67d1a5`
+
+
 
