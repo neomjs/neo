@@ -7,4 +7,4 @@ triggers: Use this skill as the final Definition of Done when you believe a tick
 
 If you are tasked with finalizing a ticket or opening a Pull Request, you MUST immediately use the `view_file` tool to read and strictly adhere to `/Users/Shared/github/neomjs/neo/.agent/skills/pull-request/references/pull-request-workflow.md` before proceeding.
 
-Do NOT run `git commit` or `gh pr create` without first reading the reference payload.
+Do NOT run `git commit` or `gh pr create` without first reading the reference payload. Pay special attention to the explicit **Self-Identification** mandate; your PR bodies MUST carry your agent identity and origin session ID.
