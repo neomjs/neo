@@ -69,7 +69,7 @@ Enforce this STRICT JSON schema:
         {
           "source": "String (must match a node id, or 'frontier')",
           "target": "String (must match a node id, or 'frontier')",
-          "relationship": "String (MUST BE EXACTLY ONE OF: IMPLEMENTS, EXTENDS, DEPENDS_ON, BLOCKS, BLOCKED_BY, RELATES_TO, RESOLVES, CAUSES_ISSUE)",
+          "relationship": "String (MUST BE EXACTLY ONE OF: IMPLEMENTS, EXTENDS, DEPENDS_ON, BLOCKS, BLOCKED_BY, RELATES_TO, RESOLVES, CAUSES_ISSUE, MENTIONED_IN, DISCUSSED_IN, REFERENCED_BY)",
           "weight": 1.0,
           "justification": "String (Brief reason for this edge's algorithmic relevance)"
         }
@@ -77,6 +77,12 @@ Enforce this STRICT JSON schema:
     }
   }
 }
+
+PROVENANCE EDGES:
+When extracting entities, you MUST emit provenance edges linking them back to the source Memory or Session, for example:
+- MENTIONED_IN (Concept -> Memory:xyz)
+- DISCUSSED_IN (Class/Method -> Session:xyz)
+- REFERENCED_BY (Issue -> Memory:xyz)
 
 DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object.`;
 
@@ -193,7 +199,34 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 const targetNode = artifact.graph.nodes.find(n => n.id === edge.target);
                 if (targetNode && targetNode._resolvedId) resolvedTarget = targetNode._resolvedId;
 
-                if (!validNodeRefs.has(resolvedSource) || !validNodeRefs.has(resolvedTarget)) {
+                const sourceExists = validNodeRefs.has(resolvedSource) || GraphService.db.nodes.has(resolvedSource);
+                const targetExists = validNodeRefs.has(resolvedTarget) || GraphService.db.nodes.has(resolvedTarget);
+
+                if (!sourceExists || !targetExists) {
+                    const isProvenance = ['MENTIONED_IN', 'DISCUSSED_IN', 'REFERENCED_BY'].includes(edge.relationship);
+                    const targetsSessionOrMemory = resolvedTarget.startsWith('SESSION:') || resolvedTarget.startsWith('MEMORY:') || resolvedSource.startsWith('SESSION:') || resolvedSource.startsWith('MEMORY:');
+                    
+                    if (isProvenance && targetsSessionOrMemory) {
+                        /**
+                         * @summary Provenance Edge Lazy-Queue Strategy
+                         * Provenance edges (MENTIONED_IN, DISCUSSED_IN, REFERENCED_BY) linking to past sessions/memories 
+                         * may reference nodes not in the current payload or synchronous graph cache. 
+                         * Instead of dropping them as invalid, we route them to a JSONL backfill queue.
+                         * Consumer-side draining and retry logic is handled under Epic #10153.
+                         */
+                        logger.info(`[SemanticGraphExtractor] Queuing unresolved provenance edge for lazy back-fill: ${resolvedSource} -> ${resolvedTarget}`);
+                        const lazyQueueFile = aiConfig.lazyEdgesQueuePath;
+                        const edgeData = JSON.stringify({ ...edge, source: resolvedSource, target: resolvedTarget, timestamp: new Date().toISOString() }) + '\n';
+                        try {
+                            // Ensure the directory exists before appending
+                            await fs.promises.mkdir(path.dirname(lazyQueueFile), { recursive: true });
+                            await fs.promises.appendFile(lazyQueueFile, edgeData, 'utf8');
+                        } catch (err) {
+                            logger.error('[SemanticGraphExtractor] Failed to queue lazy edge:', err);
+                        }
+                        continue;
+                    }
+
                     logger.warn(`[SemanticGraphExtractor] Culling hallucinated edge from ${resolvedSource} to ${resolvedTarget}`);
                     continue; // Skip trying to link non-existent graph nodes
                 }
