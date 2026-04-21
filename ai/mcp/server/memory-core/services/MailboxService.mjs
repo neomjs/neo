@@ -31,12 +31,19 @@ class MailboxService extends Base {
     /**
      * Adds a new message to the mailbox system.
      * @param {Object} args
-     * @param {String} args.to
-     * @param {String} args.subject
-     * @param {String} args.body
+     * @param {String} args.to The agent identity, role, or broadcast to send to
+     * @param {String} args.subject The subject of the message
+     * @param {String} args.body The body content of the message
+     * @param {String} [args.originSessionId] The session ID this message originates from
+     * @param {String[]} [args.relatedSessions] Array of session IDs related to this message
+     * @param {String[]} [args.relatedTickets] Array of ticket IDs referenced
+     * @param {String} [args.inReplyTo] Message ID this replies to
+     * @param {String} [args.priority='normal'] Message priority ('low', 'normal', or 'high')
+     * @param {String} [args.partOfThread] Thread ID
+     * @param {String[]} [args.taggedConcepts] Array of concept IDs tagged
      * @returns {Promise<Object>}
      */
-    async addMessage({ to, subject, body }) {
+    async addMessage({ to, subject, body, originSessionId, relatedSessions = [], relatedTickets = [], inReplyTo, priority = 'normal', partOfThread, taggedConcepts = [] }) {
         const sentBy = RequestContextService.getAgentIdentityNodeId();
         if (!sentBy) {
             throw new Error("Cannot send message: no agent identity context bound. Ensure StdioIdentityResolver or OIDC transport is active.");
@@ -81,6 +88,7 @@ class MailboxService extends Base {
             properties: {
                 subject,
                 bodyText: body,
+                priority,
                 sentAt: timestamp,
                 readAt: null
             }
@@ -90,16 +98,31 @@ class MailboxService extends Base {
         GraphService.linkNodes(messageId, sentBy, 'SENT_BY', 1.0, { timestamp });
         GraphService.linkNodes(messageId, to, 'SENT_TO', 1.0, { timestamp });
 
-        return { messageId, sentAt: timestamp, status: 'sent' };
+        // 3. Map additional graph semantic edges
+        if (originSessionId) GraphService.linkNodes(messageId, originSessionId, 'ORIGINATES_IN', 1.0, { timestamp });
+        if (inReplyTo) GraphService.linkNodes(messageId, inReplyTo, 'IN_REPLY_TO', 1.0, { timestamp });
+        if (partOfThread) GraphService.linkNodes(messageId, partOfThread, 'PART_OF_THREAD', 1.0, { timestamp });
+        
+        for (const s of relatedSessions) GraphService.linkNodes(messageId, s, 'RELATED_SESSION', 1.0, { timestamp });
+        for (const t of relatedTickets) GraphService.linkNodes(messageId, t, 'REFERENCES_TICKET', 1.0, { timestamp });
+        for (const c of taggedConcepts) GraphService.linkNodes(messageId, c, 'TAGGED_CONCEPT', 1.0, { timestamp });
+
+        return { messageId, sentAt: timestamp, priority, status: 'sent' };
     }
 
     /**
-     * Lists messages sent to the calling agent or broadcast.
+     * Lists messages in the mailbox.
      * @param {Object} args
-     * @param {String} [args.status='all']
+     * @param {String} [args.box='inbox'] Which box to list ('inbox', 'outbox', 'all')
+     * @param {String} [args.status='all'] Read status ('all', 'read', 'unread')
+     * @param {String} [args.to] Target identity to list messages for (defaults to caller)
+     * @param {String} [args.threadId] Filter by specific thread
+     * @param {String} [args.from] Filter by specific sender
+     * @param {Number} [args.limit=50] Maximum number of messages to return
+     * @param {Number} [args.offset=0] Pagination offset
      * @returns {Promise<Object>}
      */
-    async listMessages({ status = 'all', to } = {}) {
+    async listMessages({ box = 'inbox', status = 'all', to, threadId, from, limit = 50, offset = 0 } = {}) {
         const me = RequestContextService.getAgentIdentityNodeId();
         if (!me) {
             throw new Error("Cannot list messages: no agent identity context bound.");
@@ -114,44 +137,77 @@ class MailboxService extends Base {
         }
 
         const db = GraphService.db;
-        const messages = [];
+        let messages = [];
 
-        // Simple iteration over edges for now; fine for A2A scale.
         for (const edge of db.edges.items) {
-            if (edge.type === 'SENT_TO' && (edge.target === target || edge.target === 'AGENT:*')) {
-                const messageNode = db.nodes.get(edge.source);
+            let isMatch = false;
+            let targetNode = null;
+            let senderNode = null;
+
+            if (edge.type === 'SENT_TO') {
+                targetNode = edge.target;
+                if ((box === 'inbox' || box === 'all') && (targetNode === target || targetNode === 'AGENT:*')) {
+                    isMatch = true;
+                }
+            } else if (edge.type === 'SENT_BY') {
+                senderNode = edge.target;
+                if ((box === 'outbox' || box === 'all') && senderNode === target) {
+                    isMatch = true;
+                }
+            }
+
+            if (isMatch) {
+                // Determine message node id depending on which edge we matched
+                const messageNodeId = edge.source;
+                // Avoid duplicates if 'all' is chosen
+                if (messages.find(m => m.messageId === messageNodeId)) continue;
+                
+                const messageNode = db.nodes.get(messageNodeId);
                 if (messageNode && messageNode.label === 'MESSAGE') {
                     const isUnread = !messageNode.properties.readAt;
                     if (status === 'unread' && !isUnread) continue;
+                    if (status === 'read' && isUnread) continue;
 
-                    let sentByNodeId = null;
+                    let sentByNodeId = senderNode;
+                    let sentToNodeId = targetNode;
+                    let foundThreadId = null;
+
                     for (const sourceEdge of db.edges.items) {
-                        if (sourceEdge.source === messageNode.id && sourceEdge.type === 'SENT_BY') {
-                            sentByNodeId = sourceEdge.target;
-                            break;
+                        if (sourceEdge.source === messageNode.id) {
+                            if (sourceEdge.type === 'SENT_BY') sentByNodeId = sourceEdge.target;
+                            if (sourceEdge.type === 'SENT_TO') sentToNodeId = sourceEdge.target;
+                            if (sourceEdge.type === 'PART_OF_THREAD') foundThreadId = sourceEdge.target;
                         }
                     }
+
+                    if (from && sentByNodeId !== from) continue;
+                    if (threadId && foundThreadId !== threadId) continue;
 
                     messages.push({
                         messageId: messageNode.id,
                         subject: messageNode.properties.subject,
+                        priority: messageNode.properties.priority,
                         sentAt: messageNode.properties.sentAt,
                         readAt: messageNode.properties.readAt,
                         from: sentByNodeId,
-                        to: edge.target
+                        to: sentToNodeId
                     });
                 }
             }
         }
 
         messages.sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
+        
+        // Pagination
+        messages = messages.slice(offset, offset + limit);
+        
         return { messages };
     }
 
     /**
      * Retrieves a single message.
      * @param {Object} args
-     * @param {String} args.messageId
+     * @param {String} args.messageId The ID of the message to retrieve
      * @returns {Promise<Object>}
      */
     async getMessage({ messageId }) {
@@ -212,7 +268,7 @@ class MailboxService extends Base {
     /**
      * Marks a message as read.
      * @param {Object} args
-     * @param {String} args.messageId
+     * @param {String} args.messageId The ID of the message to mark read
      * @returns {Promise<Object>}
      */
     async markRead({ messageId }) {

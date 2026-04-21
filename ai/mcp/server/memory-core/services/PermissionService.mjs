@@ -107,8 +107,15 @@ class PermissionService extends Base {
      * @returns {Promise<Object>}
      */
     async listPermissions({ forIdentity } = {}) {
-        const targetId = forIdentity || RequestContextService.getAgentIdentityNodeId();
-        if (!targetId) throw new Error("Cannot list permissions: no agent identity context bound and no forIdentity provided.");
+        const caller = RequestContextService.getAgentIdentityNodeId();
+        if (!caller) throw new Error("Cannot list permissions: no agent identity context bound.");
+
+        const targetId = forIdentity || caller;
+
+        // Prevent arbitrary enumeration of other agents' permissions unless the caller is the target
+        if (targetId !== caller) {
+            throw new Error(`Unauthorized: Cannot enumerate permissions for ${targetId}`);
+        }
 
         const db = GraphService.db;
         const capabilities = [];     // Things targetId can do to others
