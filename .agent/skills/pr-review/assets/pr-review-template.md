@@ -35,6 +35,36 @@
 
 ---
 
+### 🔬 Depth Floor
+
+**Challenge OR documented search (per guide §7.1):**
+
+Provide ONE of the following:
+
+- **Challenge**: [Weakness / unverified assumption / edge case / follow-up concern — even if non-blocking. Peer-reviews that are genuinely affirming should still name something to watch.]
+
+OR
+
+- **Documented search**: *"I actively looked for [specific thing 1], [specific thing 2], and [specific thing 3] and found no concerns."*
+
+*A peer-review with neither a challenge nor a documented search fails the Depth Floor regardless of structural compliance elsewhere.*
+
+---
+
+### 🔗 Cross-Skill Integration Audit
+
+*(Required per guide §8.1 when the PR touches skill files, conventions, MCP tool surfaces, `AGENTS_STARTUP.md` / `AGENTS.md`, or architectural primitives. Mark N/A for routine code changes that don't introduce cross-substrate conventions.)*
+
+- [ ] Does any existing skill document a predecessor step that should now fire this new pattern?
+- [ ] Does `AGENTS_STARTUP.md` §9 Workflow skills list need updating?
+- [ ] Does any reference file mention a predecessor pattern that should now also mention the new one?
+- [ ] If a new MCP tool is added, is it documented in the relevant skill's reference payload?
+- [ ] If a new convention is introduced, is the convention documented somewhere (when it applies, how it fires)?
+
+**Findings:** [Gaps surfaced by the checklist, or "All checks pass — no integration gaps." Any gap should also appear in Required Actions below.]
+
+---
+
 ### 📋 Required Actions
 
 **For PRs with required actions — use the checkbox list form:**
