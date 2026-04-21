@@ -113,11 +113,11 @@ You MUST follow this exact handoff protocol:
 
 **Cross-Review Response Cycle:** If an external reviewer posts `Status: Request Changes` on your PR, you re-enter the author loop per §6 (Review Response Protocol). After addressing the Required Actions with follow-up commits and posting the structured response comment, you halt again for re-review. Done-ness is per-handoff, not per-lifetime.
 
-## 6. Review Response Protocol
+## 7. Review Response Protocol
 
 Once a reviewer posts `Status: Request Changes` (per the `pr-review` skill) or `Status: Comment` with actionable Required Actions, the author MUST respond via a structured comment on the PR thread. This closes the review-negotiation loop in a way both downstream human re-reviewers and automated consumers (Retrospective daemon, graph ingestion) can parse unambiguously.
 
-### 6.1 When to Invoke
+### 7.1 When to Invoke
 
 Trigger this protocol when any of:
 
@@ -127,7 +127,7 @@ Trigger this protocol when any of:
 
 Skip if the review is `Approved` with zero blocking concerns — a brief thank-you or silence suffices.
 
-### 6.2 Per-Item Status Tags
+### 7.2 Per-Item Status Tags
 
 Every Required Action from the reviewer's comment MUST receive an explicit status in the author's response comment. Three tags, mirroring `pr-review` §4 Graph Ingestion Notes so the Retrospective daemon sees a unified taxonomy:
 
@@ -135,15 +135,15 @@ Every Required Action from the reviewer's comment MUST receive an explicit statu
 - **`[DEFERRED]`** — not addressed in this PR; follow-up ticket # cited + rationale for deferral.
 - **`[REJECTED_WITH_RATIONALE]`** — author disagrees with the reviewer's ask; rationale documented for the reviewer's potential counter-challenge. **Do NOT silently skip an item** — if you disagree, say so explicitly.
 
-### 6.3 Template
+### 7.3 Template
 
 Use the template at `.agent/skills/pull-request/assets/review-response-template.md` as the structural skeleton. Do NOT ad-hoc the format — the per-item tag structure is load-bearing for automated ingestion by the Retrospective daemon.
 
-### 6.4 Authorship Respect
+### 7.4 Authorship Respect
 
 Post the response as a **NEW comment** on the PR thread. Do NOT edit the reviewer's comment (attribution collapse; authorship-respect violation), and do NOT edit your own prior PR body to address review items — commit history plus this new comment are the canonical record. Aligned with the authorship-respect rule that applies across all surfaces (tickets, PR bodies, review comments).
 
-### 6.5 Commit Message Convention
+### 7.5 Commit Message Convention
 
 Follow-up commits addressing review feedback use the standard Conventional Commits format with the ticket ID. The commit message does NOT need to cite the reviewer or specific Required Action number — the Addressed comment on the PR thread carries the link:
 
@@ -153,17 +153,17 @@ fix(scope): <concise description> (#TICKET_ID)
 
 Example: `fix(ai): protect SESSION and MEMORY from getOrphanedNodes cleanup (#10151)` — the Addressed comment explicitly maps this commit SHA to the specific Required Action it closes.
 
-### 6.6 Re-Review Signal
+### 7.6 Re-Review Signal
 
 End the Addressed comment with `Re-review requested.` to signal the reviewer that the author's response cycle is complete. Do NOT add a new commit after posting the Addressed comment unless you are starting another response cycle (in response to the reviewer's follow-up feedback — new round, new comment).
 
-### 6.7 Relationship to Sibling Skills
+### 7.7 Relationship to Sibling Skills
 
 - **`pr-review` §4 (Graph Ingestion Notes)** — the tag convention here mirrors `[KB_GAP]` / `[TOOLING_GAP]` / `[RETROSPECTIVE]`. Reviewer-side and author-side tags form a unified taxonomy.
 - **`pr-review` §5 (Required Actions)** — the author's response provides per-item status against the reviewer's Required Actions.
 - **`pull-request` §1 (Stepping Back)** — the pre-PR reflection that catches obvious issues should prevent most Required Actions. If you find yourself responding to many rounds of Request Changes on the same PR, revisit Stepping Back discipline.
 
-### 6.8 Anti-Patterns
+### 7.8 Anti-Patterns
 
 | Anti-pattern | Why it harms |
 |---|---|
@@ -174,11 +174,11 @@ End the Addressed comment with `Re-review requested.` to signal the reviewer tha
 | Using non-standard status language (*"done"*, *"fixed"*, *"won't fix"*) | Breaks the tag taxonomy; Retrospective daemon cannot ingest consistently |
 | Appending to the first Addressed comment across multiple review rounds | Violates the polish-vs-pivot analog from #10109 — new round = new comment preserving the negotiation evolution |
 
-### 6.9 Empirical Example
+### 7.9 Empirical Example
 
 PR #10161 (MemorySessionIngestor) received a `Status: Request Changes` review with one Required Action (*add `SESSION` and `MEMORY` labels to `GraphService.getOrphanedNodes` protection list*). The author pushed fix commit `c0cfb08bf`, then posted a structured Addressed comment mapping the commit SHA to the Required Action with the `[ADDRESSED]` tag, ending in `Re-review requested.` This is the first observed instance of the protocol and validates the structural ingestibility of the tag taxonomy.
 
-## 7. PR Comment Hygiene (Polish vs. Pivot)
+## 8. PR Comment Hygiene (Polish vs. Pivot)
 
 When performing self-reviews or responding to feedback across multiple rounds, you must distinguish between "polish" (better execution of the same idea) and "pivot" (a change in architectural direction).
 
@@ -190,7 +190,7 @@ When performing self-reviews or responding to feedback across multiple rounds, y
 | **Scope reductions / architectural pivots** | NEW comment with explicit link to the decision being resumed. Do NOT rewrite the original — callout preserves the pivot in history. |
 | **Follow-up completion notes** | NEW short comment (e.g., "merged #X, closed by PR"). |
 
-## 8. PR Body Hygiene
+## 9. PR Body Hygiene
 
 Do not blindly copy the entire ticket body into the PR description. The ticket holds the original context; the PR body summarizes the implementation delta.
 
@@ -216,7 +216,7 @@ Resolves #N
 <one compressed paragraph per pivot — why direction changed, not the old text>
 ```
 
-## 9. Authorship Respect
+## 10. Authorship Respect
 
 **You update your own authored artifacts in place. You never override another author's.**
 
@@ -230,12 +230,6 @@ Resolves #N
 **Exceptions:**
 - PR author explicitly invites co-authorship on the body.
 - Abandoned PR salvaged by a maintainer (documented in a comment first).
-
-## 10. Origin Session ID Requirement
-
-The Origin Session ID is a swarm-shared substrate anchor. It allows cross-harness agents on the same machine to query the Neo Memory Core for context.
-
-You MUST include `Origin Session ID: <uuid>` on its own line near the bottom of all PR bodies (and tickets).
 
 ## 11. Substrate Awareness ("Assume No Private Memory")
 
