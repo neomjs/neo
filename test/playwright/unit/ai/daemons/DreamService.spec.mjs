@@ -642,6 +642,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         GraphService.db.edges.getByIndex = (idx, val) => {
             return GraphService.db.edges.items.filter(e => e[idx] === val);
         };
+        const originalLinkNodes = GraphService.linkNodes;
         GraphService.linkNodes = () => {};
         GraphService.getContextFrontier = () => ({ nodes: [], edges: [] });
 
@@ -701,6 +702,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         } else {
              delete GraphService.db.storage.db.prepare;
         }
+        GraphService.linkNodes = originalLinkNodes;
     });
 
     test('should retry extraction on malformed JSON payload up to 3 times to fix #9913', async () => {

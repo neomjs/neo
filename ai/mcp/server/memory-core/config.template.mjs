@@ -269,7 +269,12 @@ const defaultConfig = {
      * Universal JSONL backup/export directory for all databases.
      * @type {string}
      */
-    backupPath: path.resolve(cwd, '.neo-ai-data/backups')
+    backupPath: path.resolve(cwd, '.neo-ai-data/backups'),
+    /**
+     * Target file path for the lazy backfill queue of unresolved provenance edges.
+     * @type {string}
+     */
+    lazyEdgesQueuePath: process.env.NEO_LAZY_EDGES_QUEUE_PATH || path.resolve(cwd, 'ai/data/memory-core/lazy-edges.jsonl')
 };
 
 /**
