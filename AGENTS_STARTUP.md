@@ -303,6 +303,7 @@ Without this context, sub-agents will hallucinate bugs where none exist (e.g., c
 **Workflow skills (authoritative — read before invoking their respective tools):**
 - **Creating new tickets:** `.agent/skills/ticket-create/SKILL.md` — duplicate sweep, Fat Ticket body structure, title hygiene, label rules, visible-proposal protocol, five-stage challenge chain. Read before any `create_issue` invocation.
 - **Picking up existing tickets:** `.agent/skills/ticket-intake/SKILL.md` — validation sweep, ROI calculation, branch-before-code gate. Read before any `git checkout` on an assigned ticket.
+- **Reviewing an epic before picking up its subs:** `.agent/skills/epic-review/SKILL.md` — five-stage gating chain (roadmap fit, approach elegance, sub-structure coherence, prescription layer, avoided-traps completeness). Per-agent-per-epic one-shot; posts a structured comment on the epic ticket. Read before `ticket-intake` on any sub of an unreviewed epic.
 - **Opening pull requests:** `.agent/skills/pull-request/SKILL.md` — stepping-back reflection, conventional-commit format, ticket-ID suffix, handoff protocol. All code changes MUST culminate in a PR against `dev`; direct commits to `main`/`dev` are forbidden.
 - **Reviewing pull requests:** `.agent/skills/pr-review/SKILL.md` — structured evaluation metrics, graph ingestion tags, severity ladder. Human approval for squash-merge is required; agents MUST NOT autonomously merge their own PRs.
 
