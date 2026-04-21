@@ -18,6 +18,7 @@ import GapInferenceEngine      from './services/GapInferenceEngine.mjs';
 import GoldenPathSynthesizer   from './services/GoldenPathSynthesizer.mjs';
 import GraphMaintenanceService from './services/GraphMaintenanceService.mjs';
 import IssueIngestor           from './services/IssueIngestor.mjs';
+import MemorySessionIngestor   from './services/MemorySessionIngestor.mjs';
 import SemanticGraphExtractor  from './services/SemanticGraphExtractor.mjs';
 import TopologyInferenceEngine from './services/TopologyInferenceEngine.mjs';
 
@@ -193,7 +194,16 @@ class DreamService extends Base {
                 
                 session.document = rawEpisodicMemory;
                 logger.info(`[DreamService]   -> Payload size (chars): ${session.document.length}`);
-                
+
+                // Phase 2a: Memory/Session graph ingestion — runs BEFORE SemanticGraphExtractor
+                // so future provenance edges (#10152) from extracted entities attach to real
+                // MEMORY/SESSION nodes rather than dangling at `sessionId` scalars. Deterministic
+                // Chroma-ID → graph-node mapping; no LLM cost, idempotent via payloadHash.
+                const ingestStart = Date.now();
+                const ingestStats = await MemorySessionIngestor.syncSessionToGraph(session);
+                const ingestTime  = ((Date.now() - ingestStart) / 1000).toFixed(1);
+                logger.info(`[DreamService]   -> Memory/Session graph ingestion took: ${ingestTime}s (${ingestStats.memoriesUpserted} upserted, ${ingestStats.memoriesSkipped} skipped)`);
+
                 const startTime = Date.now();
                 const success = await SemanticGraphExtractor.executeTriVectorExtraction(session);
                 const triVectorTime = ((Date.now() - startTime) / 1000).toFixed(1);
