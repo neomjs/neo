@@ -212,6 +212,36 @@ test.describe('Neo.ai.daemons.services.LazyEdgeDrainer', () => {
         expect(remaining).toContain('memory:dryrun-m');
     });
 
+    test('drainQueue recovers orphaned .draining file from a prior-run SIGKILL', async () => {
+        // Simulate a prior drain that was SIGKILL'd between rename and completion: the
+        // `.draining` file exists with queued edges but the live queue may or may not have
+        // fresh appends from a concurrent producer.
+        const drainingPath = queuePath + '.draining';
+        const orphanedEdge = {source: 'CONCEPT:orphan', target: 'memory:orphan', relationship: 'MENTIONED_IN'};
+        const freshEdge    = {source: 'CONCEPT:fresh',  target: 'memory:fresh',  relationship: 'DISCUSSED_IN'};
+
+        fs.writeFileSync(drainingPath, JSON.stringify(orphanedEdge) + '\n');
+        fs.writeFileSync(queuePath,    JSON.stringify(freshEdge)   + '\n');
+
+        const processedTargets = [];
+        GraphService.linkNodesAsync = async (source, target) => {
+            processedTargets.push(target);
+            return true;
+        };
+
+        const stats = await LazyEdgeDrainer.drainQueue({filePath: queuePath});
+
+        expect(stats.orphanRecovered).toBe(true);
+        // Both the orphaned and the fresh edge should have been drained in this single run.
+        expect(stats.succeeded).toBe(2);
+        expect(processedTargets).toContain('memory:orphan');
+        expect(processedTargets).toContain('memory:fresh');
+        // Orphan file removed after successful recovery.
+        expect(fs.existsSync(drainingPath)).toBe(false);
+        // Live queue fully drained (no failures to retain).
+        expect(fs.existsSync(queuePath)).toBe(false);
+    });
+
     test('drainQueue handles thrown exceptions from linkNodesAsync as failures', async () => {
         fs.writeFileSync(queuePath, JSON.stringify({source: 'a', target: 'memory:throw', relationship: 'RELATES_TO'}) + '\n');
 

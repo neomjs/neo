@@ -83,12 +83,19 @@ class LazyEdgeDrainer extends Base {
         const
             queuePath    = filePath || aiConfig.lazyEdgesQueuePath,
             drainingPath = queuePath + '.draining',
-            stats        = {totalLines: 0, processed: 0, succeeded: 0, failed: 0, skippedMalformed: 0, queueRotated: false};
+            stats        = {totalLines: 0, processed: 0, succeeded: 0, failed: 0, skippedMalformed: 0, queueRotated: false, orphanRecovered: false};
 
         if (!queuePath) {
             logger.warn('[LazyEdgeDrainer] No queue path configured (aiConfig.lazyEdgesQueuePath); nothing to drain.');
             return stats;
         }
+
+        // Recovery-on-boot for orphaned `.draining` files — addresses the SIGKILL edge case
+        // where a prior drain crashed between `rename` and the `try`/`catch` restore path
+        // (the catch only runs on thrown exceptions; `SIGKILL` / `SIGSTOP` / process exit
+        // bypass it). Merging orphan content back into the live queue is idempotent and
+        // preserves the "failures retained for retry" contract.
+        stats.orphanRecovered = await this.recoverOrphanedDraining(queuePath, drainingPath);
 
         try {
             if (dryRun) {
@@ -140,6 +147,51 @@ class LazyEdgeDrainer extends Base {
         }
 
         return stats;
+    }
+
+    /**
+     * Recovers an orphaned `.draining` file from a prior drain cycle that crashed between
+     * `rename(queuePath, drainingPath)` and the catch-block restore. Such orphans occur under
+     * process termination signals that bypass `try`/`catch` (`SIGKILL`, OOM kills, hardware
+     * failure). Without recovery, the orphaned edges would remain on disk but never be
+     * retried until manual intervention.
+     *
+     * Resolution: merge the orphan's content into the live queue (prepended so orphaned
+     * edges are processed first, preserving FIFO semantics for the entries that have been
+     * waiting longest), then delete the orphan. The merge is idempotent — a subsequent
+     * recovery-on-boot finds no orphan and no-ops.
+     *
+     * @param {String} queuePath    The live queue path
+     * @param {String} drainingPath The `.draining` orphan path
+     * @returns {Promise<Boolean>} `true` if an orphan was recovered; `false` if none existed.
+     * @protected
+     */
+    async recoverOrphanedDraining(queuePath, drainingPath) {
+        if (!fs.existsSync(drainingPath)) {
+            return false;
+        }
+
+        try {
+            const orphanContent = await fs.promises.readFile(drainingPath, 'utf8');
+
+            if (orphanContent.length > 0) {
+                const existingContent = fs.existsSync(queuePath)
+                    ? await fs.promises.readFile(queuePath, 'utf8')
+                    : '';
+
+                // Normalize trailing newline on the orphan so the concat doesn't produce
+                // adjacent JSON objects on a single line.
+                const merged = orphanContent.endsWith('\n') ? orphanContent + existingContent : orphanContent + '\n' + existingContent;
+                await fs.promises.writeFile(queuePath, merged, 'utf8');
+            }
+
+            await fs.promises.unlink(drainingPath);
+            logger.warn(`[LazyEdgeDrainer] Recovered orphaned ${drainingPath} from prior run and merged into live queue.`);
+            return true;
+        } catch (e) {
+            logger.error(`[LazyEdgeDrainer] Failed to recover orphaned ${drainingPath}:`, e);
+            return false;
+        }
     }
 
     /**
