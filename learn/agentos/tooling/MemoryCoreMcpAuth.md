@@ -172,42 +172,37 @@ The `AuthMiddleware` refused a tool-call argument. Check that the client is not 
 
 ## Service Relationships
 
-```
-┌────────────────────────────────────────────────────────────────┐
-│                    MCP Tool Call Dispatch                       │
-│  ┌──────────────────┐    ┌──────────────────┐                   │
-│  │  SSE Transport   │    │ Stdio Transport  │                   │
-│  │ TransportService │    │    Server.mjs    │                   │
-│  └────────┬─────────┘    └────────┬─────────┘                   │
-│           │                       │                             │
-│           ▼                       ▼                             │
-│  ┌──────────────────┐    ┌───────────────────────┐              │
-│  │   AuthService    │    │ StdioIdentityResolver │              │
-│  │ (OIDC introspect)│    │ (env-var + gh-CLI)    │              │
-│  └────────┬─────────┘    └────────┬──────────────┘              │
-│           │                       │                             │
-│           └──────────┬────────────┘                             │
-│                      ▼                                          │
-│             ┌──────────────────┐                                │
-│             │  bindAgentIdent  │                                │
-│             │   (graph lookup) │                                │
-│             └────────┬─────────┘                                │
-│                      ▼                                          │
-│        ┌─────────────────────────────┐                          │
-│        │   RequestContextService     │                          │
-│        │ .run(identity, dispatch)    │                          │
-│        └────────────┬────────────────┘                          │
-│                     ▼                                           │
-│         ┌──────────────────────┐                                │
-│         │   AuthMiddleware     │                                │
-│         │ .validateNoSpoof()   │                                │
-│         └──────────┬───────────┘                                │
-│                    ▼                                            │
-│         ┌──────────────────────┐                                │
-│         │      callTool()      │                                │
-│         │  (service dispatch)  │                                │
-│         └──────────────────────┘                                │
-└────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph MCP ["MCP Tool Call Dispatch"]
+        direction TD
+        
+        SSE["SSE Transport\nTransportService"]
+        STDIO["Stdio Transport\nServer.mjs"]
+        
+        AuthSvc["AuthService\n(OIDC introspect)"]
+        StdioRes["StdioIdentityResolver\n(env-var + gh-CLI)"]
+        
+        SSE --> AuthSvc
+        STDIO --> StdioRes
+        
+        Bind["bindAgentIdent\n(graph lookup)"]
+        
+        AuthSvc --> Bind
+        StdioRes --> Bind
+        
+        ReqCtx["RequestContextService\n.run(identity, dispatch)"]
+        
+        Bind --> ReqCtx
+        
+        AuthMid["AuthMiddleware\n.validateNoSpoof()"]
+        
+        ReqCtx --> AuthMid
+        
+        CallTool["callTool()\n(service dispatch)"]
+        
+        AuthMid --> CallTool
+    end
 ```
 
 ## Cross-Tenant Permissions
