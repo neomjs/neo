@@ -24,8 +24,9 @@ subIssues:
   - '[x] 10129 Backup: atomic timestamped bundle across all persistent subsystems'
   - '[ ] 10136 Rewrite CodebaseOverview.md to reflect Two Hemispheres architecture + Dream Pipeline'
   - '[ ] 10139 Extend Memory Core with Explicit A2A Primitive'
+  - '[ ] 10143 Graph-first Memory artifacts: lift Memory + Session to first-class nodes'
 subIssuesCompleted: 3
-subIssuesTotal: 9
+subIssuesTotal: 10
 blockedBy: []
 blocking:
   - '[ ] 10135 Audit Agent OS for Windows support'
@@ -193,4 +194,7 @@ healed via the new refetch endpoint and now reflect live GitHub state."
 - 2026-04-20T23:29:48Z @tobiu cross-referenced by #10139
 - 2026-04-20T23:29:54Z @tobiu added sub-issue #10139
 - 2026-04-20T23:40:12Z @tobiu cross-referenced by PR #10140
+- 2026-04-21T09:28:52Z @tobiu cross-referenced by #10143
+- 2026-04-21T09:29:19Z @tobiu cross-referenced by #10146
+- 2026-04-21T09:32:43Z @tobiu added sub-issue #10143
 
