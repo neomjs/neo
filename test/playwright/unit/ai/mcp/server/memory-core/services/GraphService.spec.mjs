@@ -362,4 +362,136 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         expect(link.weight).toBe(0.95);
         expect(link.source).toBe('RootT');
     });
+
+    // ----------------------------------------------------------------------------------------
+    // linkNodesAsync + ensureNodeExists + normalizeGraphNodeId (#10153) — lazy back-fill path.
+    // Sync `linkNodes` preserved unchanged for existing callers; these tests exercise the
+    // async path that resolves missing endpoints via `MemorySessionIngestor.ingestSingleRow`.
+    // ----------------------------------------------------------------------------------------
+
+    test('normalizeGraphNodeId lowercases memory:/session: prefixes and passes others through', () => {
+        expect(GraphService.normalizeGraphNodeId('MEMORY:abc')).toBe('memory:abc');
+        expect(GraphService.normalizeGraphNodeId('memory:abc')).toBe('memory:abc');
+        expect(GraphService.normalizeGraphNodeId('SESSION:xyz')).toBe('session:xyz');
+        expect(GraphService.normalizeGraphNodeId('session:xyz')).toBe('session:xyz');
+        expect(GraphService.normalizeGraphNodeId('CONCEPT:foo')).toBe('CONCEPT:foo');
+        expect(GraphService.normalizeGraphNodeId('frontier')).toBe('frontier');
+        expect(GraphService.normalizeGraphNodeId(null)).toBe(null);
+        expect(GraphService.normalizeGraphNodeId('')).toBe('');
+    });
+
+    test('linkNodesAsync creates the edge when both endpoints already exist', async () => {
+        GraphService.upsertNode({id: 'NodeA', type: 'TEST', name: 'A', properties: {}});
+        GraphService.upsertNode({id: 'NodeB', type: 'TEST', name: 'B', properties: {}});
+
+        const ok = await GraphService.linkNodesAsync('NodeA', 'NodeB', 'RELATES_TO', 1.0);
+
+        expect(ok).toBe(true);
+        const edge = GraphService.db.edges.items.find(e =>
+            e.source === 'NodeA' && e.target === 'NodeB' && e.type === 'RELATES_TO'
+        );
+        expect(edge).toBeTruthy();
+    });
+
+    test('linkNodesAsync back-fills missing memory: target via MemorySessionIngestor', async () => {
+        const MemorySessionIngestor = (await import('../../../../../../../../ai/daemons/services/MemorySessionIngestor.mjs')).default;
+        const originalIngest = MemorySessionIngestor.ingestSingleRow;
+
+        // Mock the ingestor to simulate a successful back-fill — upsert a node and return success.
+        MemorySessionIngestor.ingestSingleRow = async (id) => {
+            const normalized = id.toLowerCase().startsWith('memory:') ? 'memory:' + id.slice(7) :
+                               id.toLowerCase().startsWith('session:') ? 'session:' + id.slice(8) : id;
+            GraphService.upsertNode({id: normalized, type: 'MEMORY', name: normalized, properties: {backfilled: true}});
+            return {success: true, reason: 'backfilled', graphNodeId: normalized};
+        };
+
+        try {
+            GraphService.upsertNode({id: 'NodeSrc', type: 'TEST', name: 'Src', properties: {}});
+
+            const ok = await GraphService.linkNodesAsync('NodeSrc', 'memory:lazy-xyz', 'MENTIONED_IN', 1.0);
+
+            expect(ok).toBe(true);
+            expect(GraphService.db.nodes.get('memory:lazy-xyz')).toBeTruthy();
+            const edge = GraphService.db.edges.items.find(e =>
+                e.source === 'NodeSrc' && e.target === 'memory:lazy-xyz' && e.type === 'MENTIONED_IN'
+            );
+            expect(edge).toBeTruthy();
+        } finally {
+            MemorySessionIngestor.ingestSingleRow = originalIngest;
+        }
+    });
+
+    test('linkNodesAsync normalizes uppercase MEMORY: prefix to canonical lowercase', async () => {
+        const MemorySessionIngestor = (await import('../../../../../../../../ai/daemons/services/MemorySessionIngestor.mjs')).default;
+        const originalIngest = MemorySessionIngestor.ingestSingleRow;
+
+        MemorySessionIngestor.ingestSingleRow = async (id) => {
+            // The resolver is called with the already-normalized id; verify that fact.
+            expect(id).toBe('memory:upper-case-id');
+            GraphService.upsertNode({id: 'memory:upper-case-id', type: 'MEMORY', name: 'UC', properties: {backfilled: true}});
+            return {success: true, reason: 'backfilled', graphNodeId: 'memory:upper-case-id'};
+        };
+
+        try {
+            GraphService.upsertNode({id: 'NodeSrc2', type: 'TEST', name: 'Src', properties: {}});
+
+            // Caller passes uppercase prefix — linkNodesAsync normalizes before ensureNodeExists.
+            const ok = await GraphService.linkNodesAsync('NodeSrc2', 'MEMORY:upper-case-id', 'REFERENCED_BY', 1.0);
+
+            expect(ok).toBe(true);
+            // Edge lands against canonical lowercase id, not the uppercase input.
+            expect(GraphService.db.nodes.get('memory:upper-case-id')).toBeTruthy();
+            expect(GraphService.db.nodes.get('MEMORY:upper-case-id')).toBeFalsy();
+            const edge = GraphService.db.edges.items.find(e =>
+                e.target === 'memory:upper-case-id' && e.type === 'REFERENCED_BY'
+            );
+            expect(edge).toBeTruthy();
+        } finally {
+            MemorySessionIngestor.ingestSingleRow = originalIngest;
+        }
+    });
+
+    test('linkNodesAsync returns false when back-fill fails (hallucinated target)', async () => {
+        const MemorySessionIngestor = (await import('../../../../../../../../ai/daemons/services/MemorySessionIngestor.mjs')).default;
+        const originalIngest = MemorySessionIngestor.ingestSingleRow;
+
+        MemorySessionIngestor.ingestSingleRow = async (id) => ({
+            success: false,
+            reason : 'chroma-row-not-found',
+            graphNodeId: id
+        });
+
+        try {
+            GraphService.upsertNode({id: 'NodeSrc3', type: 'TEST', name: 'Src', properties: {}});
+
+            const ok = await GraphService.linkNodesAsync('NodeSrc3', 'memory:does-not-exist', 'MENTIONED_IN', 1.0);
+
+            expect(ok).toBe(false);
+            // No edge created — genuine hallucination, cull stands.
+            const edge = GraphService.db.edges.items.find(e =>
+                e.source === 'NodeSrc3' && e.target === 'memory:does-not-exist'
+            );
+            expect(edge).toBeFalsy();
+        } finally {
+            MemorySessionIngestor.ingestSingleRow = originalIngest;
+        }
+    });
+
+    test('linkNodesAsync returns false for unrecognized-prefix targets (non-back-fillable)', async () => {
+        GraphService.upsertNode({id: 'NodeSrc4', type: 'TEST', name: 'Src', properties: {}});
+
+        // No mock needed — ingestSingleRow will return {success: false, reason: 'unrecognized-prefix'}
+        // for the CONCEPT: prefix (not a memory:/session: target).
+        const ok = await GraphService.linkNodesAsync('NodeSrc4', 'CONCEPT:not-a-node', 'RELATES_TO', 1.0);
+
+        expect(ok).toBe(false);
+    });
+
+    test('ensureNodeExists returns true when node already in graph', async () => {
+        GraphService.upsertNode({id: 'memory:present', type: 'MEMORY', name: 'present', properties: {}});
+
+        const ready = await GraphService.ensureNodeExists('memory:present');
+
+        expect(ready).toBe(true);
+    });
 });

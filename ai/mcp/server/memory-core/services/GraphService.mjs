@@ -228,9 +228,129 @@ class GraphService extends Base {
     }
 
     /**
+     * Async variant of {@link GraphService#linkNodes linkNodes} that performs **lazy
+     * back-fill** on missing endpoints before attempting the edge creation (#10153).
+     *
+     * Where the sync `linkNodes` silently culls edges whose source or target is absent from the
+     * graph, this async path first attempts to materialize the missing endpoints from their
+     * Chroma source rows via `MemorySessionIngestor.ingestSingleRow`. Back-fill applies only to
+     * node IDs matching the `memory:<chromaId>` or `session:<sessionId>` prefix (case-insensitive
+     * — consumes the uppercase-prefix convention used by `SemanticGraphExtractor`'s lazy-edges
+     * queue #10165 without requiring a canonical-format migration). Unrecognized prefixes fall
+     * through to the sync `linkNodes` cull behavior unchanged.
+     *
+     * **Why a separate method rather than making `linkNodes` async:** the sync `linkNodes` is
+     * called from many synchronous code paths where adding an `await` would have wide blast
+     * radius. Net-new back-fill-aware callers (the `LazyEdgeDrainer` that consumes #10165's
+     * queue, future mailbox `IN_REPLY_TO` / identity `AUTHORED_BY` edge creators) use this
+     * async path; existing sync callers remain unaffected.
+     *
+     * **Prefix normalization:** if either endpoint uses the uppercase `MEMORY:`/`SESSION:`
+     * prefix, the back-filled node lands under the canonical lowercase ID and the edge is
+     * created against the canonical form. Callers should expect the edge's actual source/target
+     * in SQLite to be the normalized lowercase variant regardless of the input case.
+     *
+     * @param {String} source Source node ID
+     * @param {String} target Target node ID
+     * @param {String} relationship Edge type
+     * @param {Number} [weight=1.0] Edge weight
+     * @param {Object} [properties={}] Additional edge metadata
+     * @returns {Promise<Boolean>} `true` if the edge was created or already existed; `false` if
+     *     back-fill failed or the endpoints were unrecognized/unresolvable.
+     */
+    async linkNodesAsync(source, target, relationship, weight = 1.0, properties = {}) {
+        if (!this.db?.storage?.db) {
+            return false;
+        }
+
+        const
+            normalizedSource = this.normalizeGraphNodeId(source),
+            normalizedTarget = this.normalizeGraphNodeId(target);
+
+        const
+            sourceReady = await this.ensureNodeExists(normalizedSource),
+            targetReady = await this.ensureNodeExists(normalizedTarget);
+
+        if (!sourceReady || !targetReady) {
+            logger.warn(`[GraphService] linkNodesAsync: endpoint resolution failed (source=${sourceReady}, target=${targetReady}) — ${normalizedSource} -> ${normalizedTarget}`);
+            return false;
+        }
+
+        this.linkNodes(normalizedSource, normalizedTarget, relationship, weight, properties);
+        return true;
+    }
+
+    /**
+     * Ensures a graph node exists, attempting lazy back-fill from its Chroma source row if
+     * absent. Used by `linkNodesAsync` and the `LazyEdgeDrainer` to resolve missing endpoints
+     * before edge creation (#10153).
+     *
+     * Back-fill applies only to the `memory:` / `session:` prefix pattern — nodes managed by
+     * other substrates (concepts, classes, AgentIdentity, files) remain the responsibility of
+     * their owning ingestor. Returns `false` for unrecognized-prefix IDs: callers treat that as
+     * "genuine hallucination, cull" rather than "back-fill failed".
+     *
+     * **Dynamic import rationale:** `MemorySessionIngestor` imports `GraphService` via
+     * `ai/services.mjs`, so a static import here would create a module-load cycle. The dynamic
+     * import resolves at call-time, after both modules have finished their top-level evaluation.
+     *
+     * @param {String} graphNodeId Canonical-form graph node ID to resolve
+     * @returns {Promise<Boolean>} `true` if the node now exists (was present or was successfully
+     *     back-filled); `false` otherwise.
+     */
+    async ensureNodeExists(graphNodeId) {
+        if (!this.db?.storage?.db || !graphNodeId) {
+            return false;
+        }
+
+        if (this.db.nodes.has(graphNodeId)) {
+            return true;
+        }
+
+        const {default: MemorySessionIngestor} = await import('../../../../daemons/services/MemorySessionIngestor.mjs');
+        const result = await MemorySessionIngestor.ingestSingleRow(graphNodeId);
+
+        if (!result.success) {
+            if (result.reason !== 'unrecognized-prefix') {
+                logger.warn(`[GraphService] ensureNodeExists: back-fill failed for ${graphNodeId} — ${result.reason}${result.error ? ' (' + result.error + ')' : ''}`);
+            }
+            return false;
+        }
+
+        return this.db.nodes.has(result.graphNodeId || graphNodeId);
+    }
+
+    /**
+     * Normalizes a graph node ID's prefix to its canonical lowercase form. Non-`memory:` /
+     * non-`session:` IDs pass through unchanged. Used by `linkNodesAsync` to accept edges
+     * queued with the uppercase `MEMORY:`/`SESSION:` convention (#10165) without polluting the
+     * graph with case-variant duplicate nodes.
+     *
+     * @param {String} id Raw graph node ID
+     * @returns {String} Normalized ID (lowercase prefix when recognized, unchanged otherwise)
+     */
+    normalizeGraphNodeId(id) {
+        if (!id || typeof id !== 'string') {
+            return id;
+        }
+
+        const lower = id.toLowerCase();
+
+        if (lower.startsWith('memory:')) {
+            return 'memory:' + id.slice(7);
+        }
+
+        if (lower.startsWith('session:')) {
+            return 'session:' + id.slice(8);
+        }
+
+        return id;
+    }
+
+    /**
      * Applies geometric weight decay mapping to existing graph relationships over time.
      * Enforces a 24-hour algorithmic lock to prevent amnesia under high execution frequency.
-     * 
+     *
      * @param {Number} decayFactor
      * @param {Number} pruningThreshold
      * @param {Boolean} force Bypass the 24-hour lock (used strictly for manual forcing/tuning)
