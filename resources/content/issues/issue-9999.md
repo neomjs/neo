@@ -23,8 +23,9 @@ subIssues:
   - '[ ] 10127 HealthService: surface effective unified/federated topology in /health'
   - '[x] 10129 Backup: atomic timestamped bundle across all persistent subsystems'
   - '[ ] 10136 Rewrite CodebaseOverview.md to reflect Two Hemispheres architecture + Dream Pipeline'
+  - '[ ] 10139 Extend Memory Core with Explicit A2A Primitive'
 subIssuesCompleted: 3
-subIssuesTotal: 8
+subIssuesTotal: 9
 blockedBy: []
 blocking:
   - '[ ] 10135 Audit Agent OS for Windows support'
@@ -189,4 +190,7 @@ healed via the new refetch endpoint and now reflect live GitHub state."
 - 2026-04-20T19:48:52Z @tobiu marked this issue as blocking #10135
 - 2026-04-20T20:45:16Z @tobiu cross-referenced by #10136
 - 2026-04-20T20:45:24Z @tobiu added sub-issue #10136
+- 2026-04-20T23:29:48Z @tobiu cross-referenced by #10139
+- 2026-04-20T23:29:54Z @tobiu added sub-issue #10139
+- 2026-04-20T23:40:12Z @tobiu cross-referenced by PR #10140
 
