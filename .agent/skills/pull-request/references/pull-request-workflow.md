@@ -85,7 +85,20 @@ gh pr create --title "feat/fix/chore: Your Title (#TICKET_ID)" --body "Comprehen
 ```
 *(Passing the body directly ensures the PR contains the required context and aligns with the "Fat Ticket" protocol.)*
 
-## 5. Definition of Done & The Handoff State
+## 5. Self-Identification (Mandatory Authorship)
+
+To ensure symmetric discipline across the PR lifecycle and enable accurate cross-model convergence tracking, you MUST explicitly self-identify within the PR body you generate. This mirrors the authorship requirements in the `pr-review` skill.
+
+Your PR body MUST include a self-identification block near the top, formatted exactly as follows:
+`Authored by [Model Name] ([Agent Wrapper]). Session <Origin Session ID>.`
+
+**Cross-Harness Authorship Convention:**
+When you author a PR based on a handoff, ticket, or artifact synthesized by a *different* model in a *different* session (e.g., executing an implementation plan created by another agent), you MUST attribute the full provenance:
+`Authored by [Model-B] ([Harness-B]) consuming [Model-A]'s handoff — session A <id>, session B <id>.`
+
+This ensures A2A provenance remains graph-extractable even if you do not have a dedicated GitHub service account.
+
+## 6. Definition of Done & The Handoff State
 
 The agent's task is strictly considered "Done" once the PR is opened. A PR is a request for validation by an external entity (Human or QA Agent). **An agent MUST NOT autonomously run the `pr-review` skill against its own PR in headless mode.** 
 
