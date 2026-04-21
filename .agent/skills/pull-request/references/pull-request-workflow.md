@@ -177,3 +177,76 @@ End the Addressed comment with `Re-review requested.` to signal the reviewer tha
 ### 6.9 Empirical Example
 
 PR #10161 (MemorySessionIngestor) received a `Status: Request Changes` review with one Required Action (*add `SESSION` and `MEMORY` labels to `GraphService.getOrphanedNodes` protection list*). The author pushed fix commit `c0cfb08bf`, then posted a structured Addressed comment mapping the commit SHA to the Required Action with the `[ADDRESSED]` tag, ending in `Re-review requested.` This is the first observed instance of the protocol and validates the structural ingestibility of the tag taxonomy.
+
+## 7. PR Comment Hygiene (Polish vs. Pivot)
+
+When performing self-reviews or responding to feedback across multiple rounds, you must distinguish between "polish" (better execution of the same idea) and "pivot" (a change in architectural direction).
+
+| Lifecycle stage | Comment pattern |
+|---|---|
+| **Initial self-review** | ONE comment. Contains the full evaluation metrics + graph linking + required actions. |
+| **Polish commits landing** | UPDATE the existing self-review comment in place. Readers see current state, not evolution. |
+| **Bug-fix rounds** | NEW comment per round for clarity + traceability. Title the comment with the fix scope. |
+| **Scope reductions / architectural pivots** | NEW comment with explicit link to the decision being resumed. Do NOT rewrite the original — callout preserves the pivot in history. |
+| **Follow-up completion notes** | NEW short comment (e.g., "merged #X, closed by PR"). |
+
+## 8. PR Body Hygiene
+
+Do not blindly copy the entire ticket body into the PR description. The ticket holds the original context; the PR body summarizes the implementation delta.
+
+**Minimum-viable PR body structure:**
+```markdown
+Resolves #N
+
+<one-paragraph outcome summary — what actually shipped, not restating ticket>
+
+## Deltas from ticket (if any)
+<scope additions, better solutions, discovered edge cases>
+
+## Test Evidence
+<commands run, results, coverage>
+
+## Post-Merge Validation
+- [ ] <items verifiable only after merge>
+
+## Commits (if multi-commit)
+- <sha> — <purpose>
+
+## Evolution (optional, only if pivots occurred during implementation)
+<one compressed paragraph per pivot — why direction changed, not the old text>
+```
+
+## 9. Authorship Respect
+
+**You update your own authored artifacts in place. You never override another author's.**
+
+| Surface | Own artifact | Other author's artifact |
+|---|---|---|
+| PR body | Update in place | Respond via comment (never rewrite) |
+| Self-review comment | Update (polish) / new comment (pivot) | Respond via NEW comment |
+| Ticket body | Update in place | Comment on the ticket |
+| Ticket AC list | Extend own "Evolution" trail | Comment — do NOT mutate their AC list |
+
+**Exceptions:**
+- PR author explicitly invites co-authorship on the body.
+- Abandoned PR salvaged by a maintainer (documented in a comment first).
+
+## 10. Origin Session ID Requirement
+
+The Origin Session ID is a swarm-shared substrate anchor. It allows cross-harness agents on the same machine to query the Neo Memory Core for context.
+
+You MUST include `Origin Session ID: <uuid>` on its own line near the bottom of all PR bodies (and tickets).
+
+## 11. Substrate Awareness ("Assume No Private Memory")
+
+When writing public artifacts (PRs, Tickets, comments), **assume the reader has access to nothing private**.
+
+**Fair-game references:**
+- Committed repo paths (`learn/...`, `.agent/skills/...`)
+- GitHub resources (`#N`, PR URLs, commit SHAs)
+- Neo Memory Core session IDs (`Origin Session ID: <uuid>`)
+
+**FORBIDDEN load-bearing citations:**
+- Harness-private filenames (e.g., `feedback_*.md` from Claude Code, or private Antigravity stores)
+- Local filesystem paths outside the repo
+- Machine-specific identifiers

@@ -56,6 +56,18 @@ Since the agent relies on this when executing the specific task, make it detaile
 - Use explicit Markdown formatting (Headers, Lists, Bold text) to make it scannable for the LLM.
 - **Never guess:** If the payload requires knowing the absolute path of configuration files, verify those paths before writing them into the payload.
 
+## 3. The Lesson Promotion Path
+
+When a swarm agent discovers a systemic trap, an architectural pattern, or a workflow optimization that took significant effort to derive, that knowledge must not die when the session ends.
+
+**You MUST promote valuable operational lessons to the Swarm:**
+
+1. **Locate the relevant domain:** Determine which existing skill governs the domain (e.g., `pull-request`, `neural-link`, `unit-test`).
+2. **Update the Payload:** Edit the appropriate `references/*.md` file to append the new lesson, trap, or rule. Update the file in-place and include it in your Pull Request.
+3. **Author New Skills:** If the lesson represents a completely novel operational domain, use this guide to scaffold a new skill and propose it to the human commander.
+
+*Why:* Skills are the permanent architectural memory of the swarm. Promoting lessons ensures the next agent does not repeat your expensive mistakes.
+
 ## Verification
 
 Before pushing your new skill, check:
