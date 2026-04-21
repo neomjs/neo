@@ -173,7 +173,10 @@ class AuthService extends Base {
                     scopes   : data.scope ? data.scope.split(' ') : [],
                     expiresAt: data.exp,
                     userId,
-                    username
+                    username,
+                    // Provenance tag consumed by `RequestContextService.getSource()` (#10145).
+                    // Distinguishes OIDC-derived identity from stdio env-var / gh-CLI paths.
+                    source   : 'oidc'
                 };
             }
         };

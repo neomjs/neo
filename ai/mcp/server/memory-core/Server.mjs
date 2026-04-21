@@ -3,10 +3,14 @@ import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotoc
 import Base                                            from '../../../../src/core/Base.mjs';
 import aiConfig                                        from './config.mjs';
 import logger                                          from './logger.mjs';
+import GraphService                                    from './services/GraphService.mjs';
 import HealthService                                   from './services/HealthService.mjs';
 import SessionService                                  from './services/SessionService.mjs';
 import InferenceLifecycleService                       from './services/lifecycle/InferenceLifecycleService.mjs';
 import {listTools, callTool}                           from './services/toolService.mjs';
+import AuthMiddleware                                  from '../shared/services/AuthMiddleware.mjs';
+import RequestContextService                           from '../shared/services/RequestContextService.mjs';
+import StdioIdentityResolver                           from '../shared/services/StdioIdentityResolver.mjs';
 
 /**
  * @summary The Memory Core MCP Server application.
@@ -40,6 +44,15 @@ class Server extends Base {
      * @protected
      */
     mcpServer = null
+    /**
+     * Resolved agent identity for stdio transport sessions (ticket #10145). Populated at
+     * `initAsync()` time via `StdioIdentityResolver` + AgentIdentity graph-node binding. Null
+     * when running under SSE transport (identity flows per-request via `AuthService` /
+     * `RequestContextService` instead) or when stdio resolution yielded no identity.
+     * @member {Object|null} stdioIdentity=null
+     * @protected
+     */
+    stdioIdentity = null
 
     /**
      * Async initialization sequence.
@@ -93,13 +106,135 @@ class Server extends Base {
                 resourceName: 'neo-memory-core MCP'
             });
         } else {
+            // Resolve stdio identity before connecting the transport (ticket #10145). The
+            // resolved context is cached on this.stdioIdentity and wrapped around every
+            // CallToolRequestSchema dispatch so downstream services (e.g. MemoryService) read
+            // a consistent identity via RequestContextService.getUserId(). SSE mode skips
+            // this path — TransportService performs the equivalent wrap per-request using
+            // OIDC-derived identity.
+            this.stdioIdentity = await this.resolveStdioIdentity();
+
             const {StdioServerTransport} = await import('@modelcontextprotocol/sdk/server/stdio.js');
             const transport = new StdioServerTransport();
             await this.mcpServer.connect(transport);
 
             logger.info('[neo-memory-core MCP] Server started on stdio transport');
             logger.info('[neo-memory-core MCP] Available tools loaded from OpenAPI spec');
+            this.logIdentityStatus();
         }
+    }
+
+    /**
+     * Resolves the active stdio agent identity and binds it to its AgentIdentity graph node.
+     *
+     * Composes three steps: (1) `StdioIdentityResolver.resolve()` returns the GitHub identity
+     * via the env-var → gh-CLI chain; (2) `GraphService.getNode({id: '@' + githubLogin})`
+     * looks up the matching seeded AgentIdentity node (#10144 convention); (3) the composite
+     * is shaped for `RequestContextService.run()` consumption.
+     *
+     * Missing graph node is non-fatal: the identity still flows as `userId` tag, but
+     * `agentIdentityNodeId` is null. Unseeded agents can write memories — they just can't yet
+     * terminate `AUTHORED_BY` edges on a graph node until someone adds them via
+     * `seedAgentIdentities.mjs`.
+     *
+     * @returns {Promise<Object|null>} Context object for `RequestContextService.run()`, or
+     *     `null` when resolution yielded no identity (single-tenant fallthrough).
+     * @protected
+     */
+    async resolveStdioIdentity() {
+        const resolved = await StdioIdentityResolver.resolve();
+
+        if (!resolved.githubLogin) {
+            return null;
+        }
+
+        const agentIdentityNodeId = await this.bindAgentIdentity(resolved.githubLogin);
+
+        return {
+            userId             : resolved.githubLogin,
+            username           : resolved.username,
+            agentIdentityNodeId,
+            source             : resolved.source
+        };
+    }
+
+    /**
+     * Builds the RequestContext for an SSE-transport request. Invoked by `TransportService.setup`
+     * via duck-typed hook — shared transport code checks `typeof server.buildRequestContext ===
+     * 'function'` and calls it once the OIDC-introspected `req.auth` is available. Returning
+     * `{}` when no identity is present preserves the single-tenant fallthrough semantics.
+     *
+     * This is the SSE analog of `resolveStdioIdentity()` — both paths end at a context shape
+     * `RequestContextService.run()` accepts, both bind `agentIdentityNodeId` via the same
+     * `bindAgentIdentity()` helper, and both tag the `source` provenance field.
+     *
+     * @param {Object|undefined} reqAuth The auth context populated by `AuthService.verifyAccessToken`.
+     *     Keys: `{userId, username, source: 'oidc', ...}`. Undefined when the SSE request
+     *     arrived with OIDC disabled (local dev).
+     * @returns {Promise<Object>} RequestContext shape; `{}` when no identity is resolvable.
+     * @protected
+     */
+    async buildRequestContext(reqAuth) {
+        if (!reqAuth?.userId) {
+            return {};
+        }
+
+        const agentIdentityNodeId = await this.bindAgentIdentity(reqAuth.userId);
+
+        return {
+            userId             : reqAuth.userId,
+            username           : reqAuth.username,
+            agentIdentityNodeId,
+            source             : reqAuth.source || 'oidc'
+        };
+    }
+
+    /**
+     * Resolves a bare GitHub login to its seeded AgentIdentity graph node ID (per ticket
+     * #10144's `@`-prefixed ID convention). Shared between `resolveStdioIdentity` (stdio boot)
+     * and `buildRequestContext` (per-SSE-request) so both transports reach the same node
+     * lookup behavior.
+     *
+     * Missing node is non-fatal: returns `null`. Downstream services that build `AUTHORED_BY`
+     * graph edges treat `null` as "skip edge creation for this write" rather than failing
+     * the write — unseeded agents can still accumulate memories.
+     *
+     * @param {String|undefined|null} userId The bare GitHub login (no `@` prefix).
+     * @returns {Promise<String|null>} The AgentIdentity node ID or `null` if unresolvable.
+     * @protected
+     */
+    async bindAgentIdentity(userId) {
+        if (!userId) {
+            return null;
+        }
+
+        const graphNodeId = '@' + userId;
+
+        try {
+            // Ensure the graph is fully loaded before the lookup. Without this await a
+            // cold-boot race would silently miss seeded identity nodes.
+            await GraphService.ready();
+            return GraphService.getNode({id: graphNodeId})?.id || null;
+        } catch (error) {
+            logger.warn(`[neo-memory-core MCP] AgentIdentity graph lookup failed for ${graphNodeId}: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * Logs the resolved stdio identity state during startup for operator visibility.
+     * @protected
+     */
+    logIdentityStatus() {
+        if (!this.stdioIdentity) {
+            logger.info('[neo-memory-core MCP] Identity: unresolved (single-tenant fallthrough)');
+            return;
+        }
+
+        const {userId, agentIdentityNodeId, source} = this.stdioIdentity;
+        const bound                                 = agentIdentityNodeId ? `bound to ${agentIdentityNodeId}` : 'unbound (no matching AgentIdentity node)';
+
+        logger.info(`[neo-memory-core MCP] Identity: ${userId} via ${source} — ${bound}`);
     }
 
     /**
@@ -176,6 +311,11 @@ class Server extends Base {
             try {
                 logger.debug(`[MCP] Calling tool: ${name} with args:`, JSON.stringify(args));
 
+                // Anti-spoof guard (ticket #10145): reject any tool-call argument that would
+                // let the client override server-stamped identity. No-op on existing tool
+                // schemas; activates once Mailbox (#10139) adds `from` fields.
+                AuthMiddleware.validateNoIdentitySpoof(args);
+
                 const exemptFromHealthCheck = ['healthcheck', 'start_database', 'stop_database'];
 
                 if (!exemptFromHealthCheck.includes(name)) {
@@ -193,7 +333,16 @@ class Server extends Base {
                     }
                 }
 
-                const result = await callTool(name, args);
+                // Wrap the tool dispatch in RequestContextService.run() when a stdio identity
+                // was resolved (ticket #10145). This establishes the AsyncLocalStorage-scoped
+                // context that MemoryService.addMemory, etc. read via getUserId() to tag
+                // ChromaDB writes per tenant. SSE mode leaves stdioIdentity null because
+                // TransportService has already wrapped the /mcp request with per-request OIDC
+                // identity — re-wrapping here would clobber that context.
+                const dispatch = () => callTool(name, args);
+                const result   = this.stdioIdentity
+                    ? await RequestContextService.run(this.stdioIdentity, dispatch)
+                    : await dispatch();
 
                 let contentBlock;
                 let isError           = false;
