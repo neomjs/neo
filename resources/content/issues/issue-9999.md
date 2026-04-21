@@ -343,4 +343,5 @@ Gemini:
 Origin Session ID: `71dc3cd8-d39d-48e1-ac62-e240ca67d1a5`
 
 
+- 2026-04-21T18:27:01Z @tobiu cross-referenced by PR #10165
 
