@@ -110,12 +110,15 @@ class StdioIdentityResolver extends Base {
             let output = execSync('gh api user', {
                 encoding: 'utf8',
                 stdio   : ['ignore', 'pipe', 'ignore'],
-                // 5s matches the MCP client-side init-handshake budget. A shorter budget (3s)
-                // risks consuming so much of the handshake that the client times out before the
-                // server finishes `initAsync` — particularly on stale auth tokens or proxied
-                // networks. A `gh` that can't answer in 5s is effectively broken — the
-                // unresolved-fallthrough path is the right destination.
-                timeout : 5000
+                // 1.5s fail-fast budget. A healthy `gh api user` resolves in <200ms; a call
+                // that takes longer is likely hanging on auth refresh or a degraded network.
+                // The MCP client-side init-handshake budget is ~5s TOTAL — it includes this
+                // call PLUS ChromaDB health checks, SystemLifecycleService.ready(),
+                // GraphService.ready(), and transport connect. Matching the gh timeout to the
+                // full budget would consume 100% on a hang, guaranteeing client timeout. Fail
+                // fast to unresolved-fallthrough (single-tenant mode) instead; agent harnesses
+                // that care about identity fidelity set `NEO_AGENT_IDENTITY` explicitly.
+                timeout : 1500
             });
 
             return JSON.parse(output)
