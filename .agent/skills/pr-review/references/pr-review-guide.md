@@ -35,14 +35,24 @@ Every PR review MUST score the work across the following categories on a scale o
 *   **`[COMPLEXITY]`** (0-100): Factor in file touchpoints, depth of changes (core vs. app-level), and cognitive load.
 *   **`[EFFORT_PROFILE]`**: Categorize the effort relative to the Impact/Complexity ratio to establish explicit Native Graph labels. Valid values are: `Quick Win` (High ROI/Low Complexity), `Heavy Lift` (High Complexity/High Impact), `Maintenance` (Routine tasks), or `Architectural Pillar` (Fundamental shifts).
 
-### 3.1 Score-Deduction Justification (MANDATORY)
+### 3.1 Score Justification (MANDATORY)
 
-Any metric scored below 100 MUST include a specific reason for the deduction. **Restated praise is NOT a justification.**
+Every metric score MUST include a specific, non-tautological reason. **Restated praise is NOT a justification.**
 
-- ❌ `[COMPLEXITY]`: 85 — *"Deftly handles the complex staging logic."* (describes the PR; doesn't explain the 15-point gap)
-- ✅ `[COMPLEXITY]`: 85 — *"15 points deducted because stage-gating introduces reasoning complexity an author unfamiliar with the pattern will need to internalize before picking up subs."*
+Metric categories govern what "justification" means:
 
-This discipline prevents cosmetic score adjustments. A 100/100 is a stronger statement when sub-100 scores carry explicit deduction reasoning.
+- **Evaluative metrics** (100 = ideal): `[ARCH_ALIGNMENT]`, `[CONTENT_COMPLETENESS]`, `[EXECUTION_QUALITY]`, `[PRODUCTIVITY]`, `[IMPACT]`. Sub-100 scores MUST explain the deduction (*"X points deducted because…"*).
+- **Descriptive metrics** (score is a factual observation; no inherent "ideal"): `[COMPLEXITY]`, `[EFFORT_PROFILE]`. Justification must explain WHY the score characterizes the work — not a deduction from ideal.
+
+Examples:
+
+- ❌ `[CONTENT_COMPLETENESS]`: 80 — *"Documentation is thorough."* (evaluative metric needs deduction reason for the 20-point gap)
+- ✅ `[CONTENT_COMPLETENESS]`: 80 — *"20 points deducted because the template was not updated with dedicated sections for §7.1 and §8."*
+- ❌ `[COMPLEXITY]`: 85 — *"Deftly handles the staging logic."* (descriptive metric needs factual characterization, not praise)
+- ✅ `[COMPLEXITY]`: 85 — *"High: stage-gating across 5 ordered stages introduces novel reasoning an author unfamiliar with the pattern must internalize before sub pickup."*
+- ✅ `[COMPLEXITY]`: 30 — *"Low: markdown additions within existing doc structure; no new code paths or cross-substrate integration."*
+
+This discipline prevents cosmetic score adjustments while respecting the category distinction. A 100/100 on an evaluative metric is stronger when sub-100 scores carry explicit deduction reasoning; a clear factual characterization on a descriptive metric anchors the score in the work's actual structure.
 
 ## 4. Graph Ingestion Tags
 To bridge the gap between human/agent code review and the internal Agent OS memory, you MUST use the following explicit markdown tags for any critical feedback. 
@@ -94,7 +104,7 @@ The Depth Floor catches the Gemini-family failure mode. `[CONTENT_COMPLETENESS]`
 
 | Anti-pattern | Why it fails the Depth Floor |
 |---|---|
-| Unexplained score deduction (`[X]`: 85 with no reasoning) | Cosmetic; §3.1 violated |
+| Unexplained score (evaluative deduction or descriptive characterization missing) | Cosmetic; §3.1 violated |
 | Pre-ticked "All checks pass" placeholder in Required Actions | Null-state dressed as action; §5 Zero-Issue PR Semantics violated |
 | Fully affirming review with no challenges or documented search | §7.1 Minimum-One-Challenge violated |
 | Approval without cross-skill integration check on PRs introducing new workflow conventions | §8 Cross-Skill Integration Audit violated |
