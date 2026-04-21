@@ -1,0 +1,165 @@
+import Base from '../../../../../src/core/Base.mjs';
+import GraphService from './GraphService.mjs';
+import RequestContextService from '../../shared/services/RequestContextService.mjs';
+import logger from '../logger.mjs';
+
+/**
+ * @summary Service for managing cross-tenant permission edges in the Native Graph.
+ *
+ * Implements the explicit permission checks required for Phase 3 (#10146).
+ * The default policy is strict-isolation (opt-in visibility). Permissions are
+ * granted via Graph edges representing the capability.
+ *
+ * Edge Structure:
+ * - A permission capability flows from the grantee to the granter.
+ * - E.g. Alice `CAN_READ_INBOX_OF` Bob means:
+ *   Edge source = Alice (grantee)
+ *   Edge target = Bob (granter/owner)
+ *   Edge type = `CAN_READ_INBOX_OF`
+ *
+ * @class Neo.ai.mcp.server.memory-core.services.PermissionService
+ * @extends Neo.core.Base
+ * @singleton
+ */
+class PermissionService extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.ai.mcp.server.memory-core.services.PermissionService'
+         * @protected
+         */
+        className: 'Neo.ai.mcp.server.memory-core.services.PermissionService',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true
+    }
+
+    /**
+     * @member {String[]} validScopes
+     * @protected
+     */
+    validScopes = ['CAN_READ_INBOX_OF', 'CAN_READ_MEMORIES_OF', 'CAN_READ_SESSIONS_OF', 'CAN_REPLY_TO']
+
+    /**
+     * Grants a permission. The caller is the owner of the resource granting access TO another identity.
+     * This creates a graph edge where `source = to` and `target = caller`.
+     *
+     * @param {Object} opts
+     * @param {String} opts.to The agent identity being granted the permission
+     * @param {String} opts.scope The permission scope
+     * @returns {Promise<Object>}
+     */
+    async grantPermission({ to, scope }) {
+        const owner = RequestContextService.getAgentIdentityNodeId();
+        if (!owner) throw new Error("Cannot grant permission: no agent identity context bound.");
+        if (!to) throw new Error("Missing 'to' parameter.");
+        if (!scope) throw new Error("Missing 'scope' parameter.");
+
+        if (!this.validScopes.includes(scope)) {
+            throw new Error(`Invalid scope. Must be one of: ${this.validScopes.join(', ')}`);
+        }
+
+        // Check if node exists
+        const db = GraphService.db;
+        if (!db.nodes.get(to)) {
+            // It's technically fine if the target doesn't exist yet, but linkNodes might cull it if not found in SQLite.
+            // Let's lazily ensure the node exists if we're granting permission to it.
+            GraphService.upsertNode({ id: to, type: 'AGENT', name: to.replace('AGENT:', ''), properties: {} });
+        }
+
+        // The capability belongs to 'to', pointing at 'owner'
+        // e.g. "Alice CAN_READ_INBOX_OF Bob" (source: Alice, target: Bob)
+        GraphService.linkNodes(to, owner, scope, 1.0);
+        return { success: true, message: `Granted ${scope} to ${to}` };
+    }
+
+    /**
+     * Revokes a permission. The caller is the owner of the resource revoking access FROM another identity.
+     * @param {Object} opts
+     * @param {String} opts.to The agent identity losing the permission
+     * @param {String} opts.scope The permission scope
+     * @returns {Promise<Object>}
+     */
+    async revokePermission({ to, scope }) {
+        const owner = RequestContextService.getAgentIdentityNodeId();
+        if (!owner) throw new Error("Cannot revoke permission: no agent identity context bound.");
+        
+        const db = GraphService.db;
+        const edgesToRemove = [];
+        for (const edge of db.edges.items) {
+            if (edge.source === to && edge.target === owner && edge.type === scope) {
+                edgesToRemove.push(edge);
+            }
+        }
+
+        if (edgesToRemove.length > 0) {
+            db.edges.remove(edgesToRemove);
+        }
+        
+        return { success: true, message: `Revoked ${scope} from ${to}` };
+    }
+
+    /**
+     * Lists permissions for an identity. Defaults to the caller.
+     * @param {Object} opts
+     * @param {String} [opts.forIdentity] The identity to list permissions for.
+     * @returns {Promise<Object>}
+     */
+    async listPermissions({ forIdentity } = {}) {
+        const targetId = forIdentity || RequestContextService.getAgentIdentityNodeId();
+        if (!targetId) throw new Error("Cannot list permissions: no agent identity context bound and no forIdentity provided.");
+
+        const db = GraphService.db;
+        const capabilities = [];     // Things targetId can do to others
+        const grantedToOthers = [];  // Things others can do to targetId
+
+        for (const edge of db.edges.items) {
+            if (this.validScopes.includes(edge.type)) {
+                if (edge.source === targetId) {
+                    capabilities.push({ 
+                        target: edge.target, 
+                        scope: edge.type, 
+                        timestamp: edge.properties?.timestamp 
+                    });
+                }
+                if (edge.target === targetId) {
+                    grantedToOthers.push({ 
+                        grantedTo: edge.source, 
+                        scope: edge.type, 
+                        timestamp: edge.properties?.timestamp 
+                    });
+                }
+            }
+        }
+
+        return { identity: targetId, capabilities, grantedToOthers };
+    }
+
+    /**
+     * Synchronous check if the caller has the specified permission against the target.
+     * @param {String} caller The identity attempting the action
+     * @param {String} target The identity that owns the resource
+     * @param {String} scope The required scope
+     * @returns {Boolean}
+     */
+    hasPermission(caller, target, scope) {
+        // Broadcasts are pseudo-targets; checking permission against broadcast logic
+        // is typically handled at the service layer, but structurally always allowed.
+        if (target === 'AGENT:*') return true;
+
+        // Identity always has permission to their own resources
+        if (caller === target) return true;
+
+        const db = GraphService.db;
+        for (const edge of db.edges.items) {
+            if (edge.source === caller && edge.target === target && edge.type === scope) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+export default Neo.setupClass(PermissionService);

@@ -35,6 +35,8 @@ tags:
     description: Database-level operations
   - name: Graph
     description: Knowledge Graph operations
+  - name: Permissions
+    description: Agent permission operations
 
 paths:
   /healthcheck:
@@ -360,6 +362,125 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /permissions/grant:
+    post:
+      summary: Grant Permission
+      operationId: grant_permission
+      x-pass-as-object: true
+      description: |
+        Grants a permission edge from the caller to a target identity.
+      tags: [Permissions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+                - scope
+              properties:
+                to:
+                  type: string
+                  description: The agent identity being granted the permission
+                scope:
+                  type: string
+                  description: The permission scope
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /permissions/revoke:
+    post:
+      summary: Revoke Permission
+      operationId: revoke_permission
+      x-pass-as-object: true
+      description: |
+        Revokes a permission edge from the caller to a target identity.
+      tags: [Permissions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+                - scope
+              properties:
+                to:
+                  type: string
+                  description: The agent identity losing the permission
+                scope:
+                  type: string
+                  description: The permission scope
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /permissions:
+    get:
+      summary: List Permissions
+      operationId: list_permissions
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Lists permissions for an identity (defaults to the caller).
+      tags: [Permissions]
+      parameters:
+        - name: forIdentity
+          in: query
+          required: false
+          description: The identity to list permissions for.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /summaries:
     get:
       summary: Get All Summaries
@@ -660,6 +781,261 @@ paths:
                 type: object
         '500':
           description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /permissions/grant:
+    post:
+      summary: Grant Permission
+      operationId: grant_permission
+      x-pass-as-object: true
+      description: |
+        Grants a permission edge from the caller to a target identity.
+      tags: [Permissions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+                - scope
+              properties:
+                to:
+                  type: string
+                  description: The agent identity being granted the permission
+                scope:
+                  type: string
+                  description: The permission scope
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /permissions/revoke:
+    post:
+      summary: Revoke Permission
+      operationId: revoke_permission
+      x-pass-as-object: true
+      description: |
+        Revokes a permission edge from the caller to a target identity.
+      tags: [Permissions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+                - scope
+              properties:
+                to:
+                  type: string
+                  description: The agent identity losing the permission
+                scope:
+                  type: string
+                  description: The permission scope
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /permissions:
+    get:
+      summary: List Permissions
+      operationId: list_permissions
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Lists permissions for an identity (defaults to the caller).
+      tags: [Permissions]
+      parameters:
+        - name: forIdentity
+          in: query
+          required: false
+          description: The identity to list permissions for.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /mailbox/messages:
+    post:
+      summary: Send Message
+      operationId: add_message
+      x-pass-as-object: true
+      description: |
+        Sends an A2A message to a specific agent identity or broadcast (*).
+      tags: [Mailbox]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+                - subject
+                - body
+              properties:
+                to:
+                  type: string
+                  description: "Recipient Agent Identity Node ID, or 'AGENT:*' for broadcast"
+                subject:
+                  type: string
+                body:
+                  type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      summary: List Messages
+      operationId: list_messages
+      x-pass-as-object: true
+      description: |
+        Lists incoming messages for the active agent context.
+      tags: [Mailbox]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: "Message read status ('unread' or 'all')"
+          schema:
+            type: string
+            default: "all"
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /mailbox/messages/{messageId}:
+    get:
+      summary: Get Message
+      operationId: get_message
+      x-pass-as-object: true
+      description: |
+        Retrieves a specific message. Subject to read-path permission checks.
+      tags: [Mailbox]
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /mailbox/messages/{messageId}/read:
+    post:
+      summary: Mark Message Read
+      operationId: mark_read
+      x-pass-as-object: true
+      description: |
+        Marks a specific message as read.
+      tags: [Mailbox]
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
           content:
             application/json:
               schema:
