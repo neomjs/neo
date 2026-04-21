@@ -122,14 +122,29 @@ class TransportService extends Base {
             }
 
             // Propagate the authenticated identity into the async call chain so service methods
-            // can tag ChromaDB writes and filter reads per tenant (ticket #10000). `req.auth` is
-            // populated by the `requireBearerAuth` middleware when OIDC is configured; when auth
-            // is disabled (local dev, no `aiConfig.auth.host`/`.issuerUrl`) the context is empty
-            // and downstream services fall through to single-tenant behavior.
-            const requestContext = {
-                userId  : req.auth?.userId,
-                username: req.auth?.username
-            };
+            // can tag ChromaDB writes and filter reads per tenant (ticket #10000 + #10145).
+            //
+            // Context-shape dispatch:
+            // - If the concrete server (e.g. memory-core) implements `buildRequestContext()`,
+            //   defer to it — the server may enrich the raw OIDC auth with server-specific
+            //   bindings like AgentIdentity graph-node IDs (memory-core's #10144 contract).
+            // - Otherwise fall back to the minimal `{userId, username}` shape — sufficient for
+            //   servers (knowledge-base, gh-workflow) that don't own an identity graph.
+            //
+            // `req.auth` is populated by the `requireBearerAuth` middleware when OIDC is
+            // configured; when auth is disabled (local dev, no `aiConfig.auth.host` /
+            // `.issuerUrl`) the context is empty and downstream services fall through to
+            // single-tenant behavior.
+            let requestContext;
+
+            if (typeof server.buildRequestContext === 'function') {
+                requestContext = await server.buildRequestContext(req.auth);
+            } else {
+                requestContext = {
+                    userId  : req.auth?.userId,
+                    username: req.auth?.username
+                };
+            }
 
             await RequestContextService.run(requestContext, () => transport.handleRequest(req, res, req.body));
         });
