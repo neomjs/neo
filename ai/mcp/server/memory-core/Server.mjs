@@ -214,7 +214,31 @@ class Server extends Base {
             // Ensure the graph is fully loaded before the lookup. Without this await a
             // cold-boot race would silently miss seeded identity nodes.
             await GraphService.ready();
-            return GraphService.getNode({id: graphNodeId})?.id || null;
+            
+            let retries = 3;
+            while (retries > 0) {
+                const node = GraphService.getNode({id: graphNodeId});
+                if (node) {
+                    return node.id;
+                }
+                
+                logger.debug(`[neo-memory-core MCP] bindAgentIdentity: Cache miss for ${graphNodeId}. Retries left: ${retries - 1}. Forcing vicinity tracker reset.`);
+                
+                // Reset the vicinity tracker to force a fresh SQLite read on the next loop
+                if (GraphService.db && GraphService.db.vicinityLoadedNodes) {
+                    GraphService.db.vicinityLoadedNodes.delete(graphNodeId);
+                }
+                
+                // Wait 200ms before retrying. This interval provides sufficient time for SQLite's WAL 
+                // (Write-Ahead Log) to flush and synchronize across the read/write connection split
+                // on slower machines or heavily-loaded boot sequences. Bounding to 3 attempts * 200ms 
+                // limits the worst-case boot delay to 600ms.
+                await new Promise(resolve => setTimeout(resolve, 200));
+                retries--;
+            }
+            
+            logger.warn(`[neo-memory-core MCP] AgentIdentity graph lookup failed for ${graphNodeId}: Node not found in database`);
+            return null;
         } catch (error) {
             logger.warn(`[neo-memory-core MCP] AgentIdentity graph lookup failed for ${graphNodeId}: ${error.message}`);
             return null;

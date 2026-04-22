@@ -214,6 +214,48 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         expect(GraphService.db.nodes.has('LazyNode')).toBe(true);
     });
 
+    test('should recover from boot-time identity cache race (stuck vicinity cache)', async () => {
+        GraphService.upsertNode({id: '@neo-opus-4-7', name: 'Identity Node'});
+
+        // Let the asynchronous store mutations propagate to SQLite natively
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        let wasAutoSave = GraphService.db.autoSave;
+        GraphService.db.autoSave = false;
+
+        try {
+            // Simulate the stuck state: vicinityLoadedNodes marks the nodeId as "loaded"
+            // but db.nodes doesn't have it (the broken state we saw in production)
+            GraphService.db.nodes.clear();
+            GraphService.db.vicinityLoadedNodes.add('@neo-opus-4-7');
+        } finally {
+            GraphService.db.autoSave = wasAutoSave;
+        }
+
+        // Note: GraphService.getNode('@neo-opus-4-7') directly would return null here.
+        // We simulate the bindAgentIdentity retry logic that explicitly deletes the stuck cache.
+        let retries = 3;
+        let rehydratedNode = null;
+        while (retries > 0) {
+            rehydratedNode = GraphService.getNode({id: '@neo-opus-4-7'});
+            if (rehydratedNode) break;
+
+            if (GraphService.db && GraphService.db.vicinityLoadedNodes) {
+                GraphService.db.vicinityLoadedNodes.delete('@neo-opus-4-7');
+            }
+            // Use 50ms interval for faster test execution instead of the 200ms prod value
+            await new Promise(resolve => setTimeout(resolve, 50));
+            retries--;
+        }
+
+        expect(rehydratedNode).toBeTruthy();
+        expect(rehydratedNode.id).toBe('@neo-opus-4-7');
+        expect(rehydratedNode.name).toBe('Identity Node');
+
+        // Verify it actually placed it back into the in-memory map
+        expect(GraphService.db.nodes.has('@neo-opus-4-7')).toBe(true);
+    });
+
     test('should lazy-load topology for getContextFrontier when frontiers drop out of cache', async () => {
         GraphService.upsertNode({id: 'frontier', type: 'SYSTEM_ANCHOR', name: 'AnchorData'});
         GraphService.upsertNode({id: 'StrategicTarget', name: 'SecretGoal'});
