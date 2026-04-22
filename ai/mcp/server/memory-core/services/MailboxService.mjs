@@ -377,6 +377,52 @@ class MailboxService extends Base {
 
         return { messageId, readAt: messageNode.properties.readAt, status: 'read' };
     }
+
+    /**
+     * Generates the mailbox preview for the healthcheck payload.
+     * @returns {Promise<Object|null>}
+     */
+    async getHealthcheckPreview() {
+        const me = RequestContextService.getAgentIdentityNodeId();
+        if (!me) {
+            return null; // No agent identity bound yet
+        }
+
+        const inboxResult = await this.listMessages({ box: 'inbox', limit: 100 }); // fetch enough to count unreads
+        const outboxResult = await this.listMessages({ box: 'outbox', limit: 3 });
+
+        let unreadCount = 0;
+        let inboxPreview = [];
+
+        for (const msg of inboxResult.messages) {
+            if (!msg.readAt) {
+                unreadCount++;
+            }
+            if (inboxPreview.length < 3) {
+                inboxPreview.push({
+                    id: msg.messageId,
+                    from: msg.from,
+                    subject: msg.subject ? msg.subject.substring(0, 60) + (msg.subject.length > 60 ? '...' : '') : '',
+                    createdAt: msg.sentAt,
+                    priority: msg.priority
+                });
+            }
+        }
+
+        const outboxPreview = outboxResult.messages.map(msg => ({
+            id: msg.messageId,
+            from: msg.from, // outbox 'from' is me
+            subject: msg.subject ? msg.subject.substring(0, 60) + (msg.subject.length > 60 ? '...' : '') : '',
+            createdAt: msg.sentAt,
+            priority: msg.priority
+        }));
+
+        return {
+            unreadCount,
+            inbox: inboxPreview,
+            outboxRecent: outboxPreview
+        };
+    }
 }
 
 export default Neo.setupClass(MailboxService);
