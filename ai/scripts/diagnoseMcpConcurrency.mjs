@@ -115,6 +115,10 @@ function runLsof(files) {
     } catch (error) {
         // Exit code 1 = no matching processes; not an error
         if (error.status === 1) return '';
+        if (error.code === 'ENOENT') {
+            console.error('Platform not supported: this diagnostic requires `lsof` (macOS / Linux).');
+            return '';
+        }
         throw new Error(`lsof failed: ${error.message || error}`);
     }
 }
@@ -125,11 +129,11 @@ function runLsof(files) {
  * Each record in lsof's field-delimited format spans multiple lines; a new record
  * starts on every `p` (PID) tag. We accumulate the current record until the next
  * `p` flush, then push it. This preserves the architectural invariant that one
- * record = one (process, file) pair — deduplication by PID happens at the caller
- * boundary (see `uniqueProcesses` in main).
+ * record represents one PID and its associated files. Deduplication by PID happens
+ * at the caller boundary (see `uniqueProcesses` in main).
  *
  * @param {String} raw Raw lsof output.
- * @returns {Array<{pid: number, command: string, file: string}>}
+ * @returns {Array<{pid: number, command: string, files: string[]}>}
  */
 function parseLsofOutput(raw) {
     const records = [];
@@ -142,10 +146,10 @@ function parseLsofOutput(raw) {
 
         if (tag === 'p') {
             if (current && current.pid) records.push(current);
-            current = {pid: parseInt(value, 10)};
+            current = {pid: parseInt(value, 10), files: []};
         } else if (current) {
             if (tag === 'c') current.command = value;
-            else if (tag === 'n') current.file = value;
+            else if (tag === 'n') current.files.push(value);
         }
     }
     if (current && current.pid) records.push(current);
@@ -158,9 +162,10 @@ function parseLsofOutput(raw) {
  *
  * Delegates to {@link runLsof} + {@link parseLsofOutput} to run the OS-level probe
  * and shape its raw output into the Projection Layer the rest of the script
- * consumes. Returns one entry per (process, file) — the caller dedupes by PID.
+ * consumes. Returns one entry per process with an array of its files. The caller
+ * dedupes across records by PID.
  *
- * @returns {Array<{pid: number, command: string, file: string}>}
+ * @returns {Array<{pid: number, command: string, files: string[]}>}
  */
 function listHoldingProcesses() {
     const raw = runLsof([SQLITE_MAIN, SQLITE_WAL, SQLITE_SHM]);
@@ -255,18 +260,22 @@ function main() {
 
     // Enrich with harness classification, then dedupe by PID (lsof emits one record
     // per open file descriptor; a single process with main+wal+shm open yields 3
-    // entries that we collapse to one).
+    // entries that we collapse to one, merging the files array).
     const enriched = holders.map(h => {
         const {harness, chain} = classifyHarness(h.pid);
-        return {pid: h.pid, command: h.command, file: h.file, harness, chain};
+        return {pid: h.pid, command: h.command, files: Array.from(new Set(h.files)), harness, chain};
     });
 
-    const seen             = new Set();
-    const uniqueProcesses  = enriched.filter(p => {
-        if (seen.has(p.pid)) return false;
-        seen.add(p.pid);
-        return true;
-    });
+    const processMap = new Map();
+    for (const p of enriched) {
+        if (processMap.has(p.pid)) {
+            const existing = processMap.get(p.pid);
+            existing.files = Array.from(new Set([...existing.files, ...p.files]));
+        } else {
+            processMap.set(p.pid, p);
+        }
+    }
+    const uniqueProcesses = Array.from(processMap.values());
 
     const byHarness = {};
     for (const p of uniqueProcesses) {
