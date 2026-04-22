@@ -214,7 +214,27 @@ class Server extends Base {
             // Ensure the graph is fully loaded before the lookup. Without this await a
             // cold-boot race would silently miss seeded identity nodes.
             await GraphService.ready();
-            return GraphService.getNode({id: graphNodeId})?.id || null;
+            
+            let retries = 3;
+            while (retries > 0) {
+                const node = GraphService.getNode({id: graphNodeId});
+                if (node) {
+                    return node.id;
+                }
+                
+                logger.debug(`[neo-memory-core MCP] bindAgentIdentity: Cache miss for ${graphNodeId}. Retries left: ${retries - 1}. Forcing vicinity tracker reset.`);
+                
+                // Reset the vicinity tracker to force a fresh SQLite read on the next loop
+                if (GraphService.db && GraphService.db.vicinityLoadedNodes) {
+                    GraphService.db.vicinityLoadedNodes.delete(graphNodeId);
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 200));
+                retries--;
+            }
+            
+            logger.warn(`[neo-memory-core MCP] AgentIdentity graph lookup failed for ${graphNodeId}: Node not found in database`);
+            return null;
         } catch (error) {
             logger.warn(`[neo-memory-core MCP] AgentIdentity graph lookup failed for ${graphNodeId}: ${error.message}`);
             return null;
@@ -330,36 +350,6 @@ class Server extends Base {
                             }],
                             isError: true
                         };
-                    }
-                }
-
-                // Self-heal stdio identity binding if the boot-time resolution yielded a
-                // userId but a null `agentIdentityNodeId` — e.g. the AgentIdentity graph node
-                // was materialized (seeded) AFTER the MCP process booted, or a vicinity-cache
-                // race at boot-time `bindAgentIdentity` left the lookup empty. The boot-time
-                // result is cached on `this.stdioIdentity` and never re-evaluated without this
-                // hook, so without self-heal the process stays stuck in `identity: userId + no
-                // bound node` for its entire lifetime. Cheap null-check per dispatch; only
-                // attempts rebind when BOTH userId is present AND the node-id is null — i.e.
-                // the exact recoverable-state from ticket #10181. Once healed, the in-place
-                // mutation means subsequent dispatches skip the check via the truthy guard.
-                if (
-                    this.stdioIdentity &&
-                    !this.stdioIdentity.agentIdentityNodeId &&
-                    this.stdioIdentity.userId
-                ) {
-                    try {
-                        const healedNodeId = await this.bindAgentIdentity(this.stdioIdentity.userId);
-                        if (healedNodeId) {
-                            this.stdioIdentity.agentIdentityNodeId = healedNodeId;
-                            logger.info(`[neo-memory-core MCP] Identity self-healed: ${this.stdioIdentity.userId} → ${healedNodeId}`);
-                        }
-                    } catch (rebindError) {
-                        // Non-fatal — fall through to dispatch with the unresolved binding
-                        // intact. Downstream services that require a bound identity will raise
-                        // their own errors; services that tolerate `getAgentIdentityNodeId()`
-                        // returning null (e.g. `MemoryService.addMemory`) continue to work.
-                        logger.warn(`[neo-memory-core MCP] Identity self-heal attempt failed: ${rebindError.message}`);
                     }
                 }
 

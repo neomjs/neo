@@ -214,6 +214,32 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         expect(GraphService.db.nodes.has('LazyNode')).toBe(true);
     });
 
+    test('should trigger a SQLite lazy-load on cache miss when fetching a Node with NO edges (identity binding bug)', async () => {
+        GraphService.upsertNode({id: '@neo-opus-4-7', name: 'Identity Node'});
+
+        // Let the asynchronous store mutations propagate to SQLite natively
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        let wasAutoSave          = GraphService.db.autoSave;
+        GraphService.db.autoSave = false;
+
+        // Explicitly clear RAM cache WITHOUT cascading to SQLite
+        GraphService.db.nodes.clear();
+        GraphService.db.edges.clear();
+        GraphService.db.vicinityLoadedNodes.clear();
+
+        GraphService.db.autoSave = wasAutoSave;
+
+        // Access directly via getNode which should trigger SQLite rehydration even for nodes with 0 edges
+        const rehydratedNode = GraphService.getNode({id: '@neo-opus-4-7'});
+        expect(rehydratedNode).toBeTruthy();
+        expect(rehydratedNode.id).toBe('@neo-opus-4-7');
+        expect(rehydratedNode.name).toBe('Identity Node');
+
+        // Verify it actually placed it back into the in-memory map
+        expect(GraphService.db.nodes.has('@neo-opus-4-7')).toBe(true);
+    });
+
     test('should lazy-load topology for getContextFrontier when frontiers drop out of cache', async () => {
         GraphService.upsertNode({id: 'frontier', type: 'SYSTEM_ANCHOR', name: 'AnchorData'});
         GraphService.upsertNode({id: 'StrategicTarget', name: 'SecretGoal'});
