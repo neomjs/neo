@@ -82,6 +82,11 @@ const defaultConfig = {
          */
         discussionsDir: path.resolve(projectRoot, 'resources/content/discussions'),
         /**
+         * The path to the directory for pull requests.
+         * @type {string}
+         */
+        pullsDir: path.resolve(projectRoot, 'resources/content/pulls'),
+        /**
          * The path to the synchronization metadata file.
          * @type {string}
          */
