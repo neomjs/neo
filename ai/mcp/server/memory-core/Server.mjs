@@ -1,3 +1,4 @@
+import {execSync}                                      from 'node:child_process';
 import {McpServer}                                     from '@modelcontextprotocol/sdk/server/mcp.js';
 import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
 import Base                                            from '../../../../src/core/Base.mjs';
@@ -94,6 +95,7 @@ class Server extends Base {
         // 5. Perform Health Check & Log Status
         const health = await HealthService.healthcheck();
         this.logStartupStatus(health);
+        this.logSiblingConcurrency();
 
         // 6. Connect Transport
         if (aiConfig.transport === 'sse') {
@@ -295,6 +297,62 @@ class Server extends Base {
         } else {
             logger.info('✅ [Startup] Memory Core health check passed');
             this.logCollectionStats(health);
+        }
+    }
+
+    /**
+     * @summary Boot-time diagnostic that invokes `lsof` to detect SQLite file contention.
+     * Checks for sibling MCP server processes holding the memory-core SQLite files
+     * and logs them for visibility (ticket #10188).
+     * 
+     * Uses the same empirical `lsof` + PID walk pattern established in 
+     * @see {file} ../../../scripts/diagnoseMcpConcurrency.mjs
+     * 
+     * @protected
+     */
+    logSiblingConcurrency() {
+        const dbPath = aiConfig.storagePaths.graph;
+        if (!dbPath) return;
+
+        const files = [dbPath, `${dbPath}-wal`, `${dbPath}-shm`];
+
+        try {
+            // lsof -F pcn will list PID, command name, and file path for holding processes.
+            const raw = execSync(`lsof -F pcn -- ${files.map(f => `'${f}'`).join(' ')}`, {
+                encoding: 'utf8',
+                stdio: ['ignore', 'pipe', 'pipe']
+            });
+
+            // Parse output:
+            let current = null;
+            const records = [];
+            for (const line of raw.split('\n')) {
+                if (!line) continue;
+                if (line[0] === 'p') {
+                    if (current && current.pid !== process.pid) records.push(current);
+                    current = { pid: parseInt(line.slice(1), 10) };
+                } else if (current && line[0] === 'c') {
+                    current.command = line.slice(1);
+                }
+            }
+            if (current && current.pid !== process.pid) records.push(current);
+
+            // Deduplicate by PID
+            const uniquePids = new Set();
+            const siblings = records.filter(r => {
+                if (uniquePids.has(r.pid)) return false;
+                uniquePids.add(r.pid);
+                return true;
+            });
+
+            if (siblings.length > 0) {
+                logger.info(`ℹ️  [Startup] Sibling concurrency: ${siblings.length} peer process(es) holding SQLite files. PIDs: ${siblings.map(s => s.pid).join(', ')}`);
+            }
+        } catch (error) {
+            // Ignore ENOENT (lsof missing on Windows) or status 1 (no matching processes)
+            if (error.status !== 1 && error.code !== 'ENOENT') {
+                logger.debug(`[Startup] Failed to check sibling concurrency: ${error.message}`);
+            }
         }
     }
 
