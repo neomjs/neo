@@ -229,6 +229,10 @@ class Server extends Base {
                     GraphService.db.vicinityLoadedNodes.delete(graphNodeId);
                 }
                 
+                // Wait 200ms before retrying. This interval provides sufficient time for SQLite's WAL 
+                // (Write-Ahead Log) to flush and synchronize across the read/write connection split
+                // on slower machines or heavily-loaded boot sequences. Bounding to 3 attempts * 200ms 
+                // limits the worst-case boot delay to 600ms.
                 await new Promise(resolve => setTimeout(resolve, 200));
                 retries--;
             }
@@ -350,6 +354,36 @@ class Server extends Base {
                             }],
                             isError: true
                         };
+                    }
+                }
+
+                // Self-heal stdio identity binding if the boot-time resolution yielded a
+                // userId but a null `agentIdentityNodeId` — e.g. the AgentIdentity graph node
+                // was materialized (seeded) AFTER the MCP process booted, or a vicinity-cache
+                // race at boot-time `bindAgentIdentity` left the lookup empty. The boot-time
+                // result is cached on `this.stdioIdentity` and never re-evaluated without this
+                // hook, so without self-heal the process stays stuck in `identity: userId + no
+                // bound node` for its entire lifetime. Cheap null-check per dispatch; only
+                // attempts rebind when BOTH userId is present AND the node-id is null — i.e.
+                // the exact recoverable-state from ticket #10181. Once healed, the in-place
+                // mutation means subsequent dispatches skip the check via the truthy guard.
+                if (
+                    this.stdioIdentity &&
+                    !this.stdioIdentity.agentIdentityNodeId &&
+                    this.stdioIdentity.userId
+                ) {
+                    try {
+                        const healedNodeId = await this.bindAgentIdentity(this.stdioIdentity.userId);
+                        if (healedNodeId) {
+                            this.stdioIdentity.agentIdentityNodeId = healedNodeId;
+                            logger.info(`[neo-memory-core MCP] Identity self-healed: ${this.stdioIdentity.userId} → ${healedNodeId}`);
+                        }
+                    } catch (rebindError) {
+                        // Non-fatal — fall through to dispatch with the unresolved binding
+                        // intact. Downstream services that require a bound identity will raise
+                        // their own errors; services that tolerate `getAgentIdentityNodeId()`
+                        // returning null (e.g. `MemoryService.addMemory`) continue to work.
+                        logger.warn(`[neo-memory-core MCP] Identity self-heal attempt failed: ${rebindError.message}`);
                     }
                 }
 
