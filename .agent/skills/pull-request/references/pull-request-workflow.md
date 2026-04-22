@@ -47,6 +47,21 @@ git branch --show-current
 
 If it returns `main` or `dev`, STOP and branch off using the §2.2 procedure. This check costs nothing and catches edge cases where a harness's isolation assumption has broken (e.g. symlink detach, manual `git checkout`).
 
+### 2.3.1 Branch Freshness Check (pre-push) *(Codified per #10212)*
+
+Before the first `git push` that opens a PR, AND before every force-push that would update the PR branch:
+
+```bash
+git fetch origin
+[ "$(git merge-base HEAD origin/dev)" = "$(git rev-parse origin/dev)" ] \
+    && echo "Safe to push" \
+    || git rebase origin/dev
+```
+
+**Why this matters under rapid merge tempo:** when multiple PRs merge in a short window (common for active refactor epics), every outstanding feature branch becomes stale within minutes. Pre-push rebase ensures the PR diff reflects only your own change surface, not already-merged content from peer branches.
+
+**Exception — first push of a freshly-branched feature:** skip ONLY after confirming via `git log origin/dev..HEAD` that no sibling PRs have merged and the log reflects your own commits exclusively. The branch-point IS `origin/dev`'s tip.
+
 ## 3. Commit Sequence
 
 Your commit messages MUST follow Conventional Commits and MUST append the ticket ID so that the GitHub API and our internal memory cores can track outcomes.
