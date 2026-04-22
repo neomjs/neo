@@ -219,6 +219,9 @@ class HealthService extends Base {
      * @private
      */
     async #performHealthCheck() {
+        // Dynamic import to avoid circular dependencies
+        const { default: MailboxService } = await import('./MailboxService.mjs');
+
         const payload = {
             status   : 'healthy',
             timestamp: new Date().toISOString(),
@@ -239,6 +242,7 @@ class HealthService extends Base {
                 summarizationStatus : this.#startupSummarizationStatus || 'not_attempted',
                 summarizationDetails: this.#startupSummarizationDetails
             },
+            mailbox  : MailboxService.getHealthcheckPreview(),
             details  : [],
             version  : process.env.npm_package_version || '1.0.0',
             uptime   : process.uptime()

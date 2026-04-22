@@ -400,6 +400,43 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         }
     });
 
+    test('getHealthcheckPreview returns formatted mailbox metrics', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+            await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+            const m1 = await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Msg 1', body: '...' });
+            const m2 = await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Msg 2', body: '...' });
+            
+            // artificially space them to ensure predictable sorting
+            GraphService.db.nodes.get(m1.messageId).properties.sentAt = new Date(1000).toISOString();
+            GraphService.db.nodes.get(m2.messageId).properties.sentAt = new Date(2000).toISOString();
+        });
+
+        // Test from Bob's perspective (Inbox)
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+            const preview = MailboxService.getHealthcheckPreview();
+            expect(preview.unreadCount).toBe(2);
+            expect(preview.inbox.length).toBe(2);
+            expect(preview.inbox[0].subject).toBe('Msg 2');
+            expect(preview.outboxRecent.length).toBe(0);
+        });
+
+        // Test from Alice's perspective (Outbox)
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+            const preview = MailboxService.getHealthcheckPreview();
+            expect(preview.unreadCount).toBe(0);
+            expect(preview.inbox.length).toBe(0);
+            expect(preview.outboxRecent.length).toBe(2);
+            expect(preview.outboxRecent[0].subject).toBe('Msg 2');
+        });
+        
+        // Test no identity returns null
+        const noIdentityPreview = MailboxService.getHealthcheckPreview();
+        expect(noIdentityPreview).toBeNull();
+    });
+
     // ------------------------------------------------------------------
     // #10174 regression coverage — production-convention addressing
     //
@@ -573,4 +610,3 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         });
     });
 });
-
