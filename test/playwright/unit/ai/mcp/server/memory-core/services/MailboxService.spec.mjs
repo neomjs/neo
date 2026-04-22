@@ -357,5 +357,44 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
             expect(res.messages[0].to).toBe('role:librarian');
         });
     });
+
+    test('addMessage auto-emits TAGGED_CONCEPT edges via SemanticGraphExtractor', async () => {
+        const SemanticGraphExtractor = (await import('../../../../../../../../ai/daemons/services/SemanticGraphExtractor.mjs')).default;
+        
+        // Mock the extractor to resolve immediately with predefined concepts
+        const originalExtract = SemanticGraphExtractor.extractMessageConcepts;
+        try {
+            SemanticGraphExtractor.extractMessageConcepts = async (body) => {
+                return ['CONCEPT:mcp-integration', 'CLASS:Neo.ai.mcp.server.memory-core.services.MailboxService'];
+            };
+
+            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+                await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+            });
+
+            let msgId;
+            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+                const res = await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Integration', body: 'Let us build MCP integrations' });
+                msgId = res.messageId;
+            });
+
+            // The extractor runs asynchronously in a detached .then(), so we yield to the microtask queue
+            await new Promise(resolve => setTimeout(resolve, 0));
+
+            // Verify TAGGED_CONCEPT edges were created
+            const edges = GraphService.db.edges.items.filter(e => e.source === msgId && e.type === 'TAGGED_CONCEPT');
+            expect(edges.length).toBe(2);
+            expect(edges.find(e => e.target === 'CONCEPT:mcp-integration')).toBeDefined();
+            expect(edges.find(e => e.target === 'CLASS:Neo.ai.mcp.server.memory-core.services.MailboxService')).toBeDefined();
+            
+            // Verify nodes were created and have auto_extracted provenance
+            const conceptNode = GraphService.db.nodes.get('CONCEPT:mcp-integration');
+            expect(conceptNode).toBeDefined();
+            expect(conceptNode.properties.auto_extracted).toBe(true);
+
+        } finally {
+            SemanticGraphExtractor.extractMessageConcepts = originalExtract;
+        }
+    });
 });
 
