@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-04-22T20:09:34.365Z",
-  "releasesLastFetched": "2026-04-22T20:09:42.271Z",
+  "lastSync": "2026-04-22T20:32:57.242Z",
+  "releasesLastFetched": "2026-04-22T20:33:06.799Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -29312,7 +29312,7 @@
       "path": "resources/content/issues/issue-10186.md",
       "closedAt": null,
       "updatedAt": "2026-04-22T19:28:56Z",
-      "contentHash": "e025adead8fddb7b994f73fa0b1faba11b817c8ea72a226c8a82fe3cfa40f261",
+      "contentHash": "4887c07d5c1eae4a3f90005ad97c6255068249913fa9a9c2363398a6d80b8dd0",
       "commentsTotal": 6
     },
     "10187": {
@@ -29327,16 +29327,16 @@
       "state": "OPEN",
       "path": "resources/content/issues/issue-10188.md",
       "closedAt": null,
-      "updatedAt": "2026-04-22T18:32:28Z",
-      "contentHash": "53ad85f7ac8da35fbb216acf553aa4332ca28038aa1cb9e4b328ae5e766fb57d",
+      "updatedAt": "2026-04-22T20:18:27Z",
+      "contentHash": "8856533145e404114bfc41b8f6d24bf114555d8e26759d1962d93e20876c1c29",
       "commentsTotal": 0
     },
     "10189": {
       "state": "OPEN",
       "path": "resources/content/issues/issue-10189.md",
       "closedAt": null,
-      "updatedAt": "2026-04-22T18:32:37Z",
-      "contentHash": "d75efafd724a2b2d4fd3b899444987ca9574578dcdf4a41603a550efb6dc0d6f",
+      "updatedAt": "2026-04-22T20:13:40Z",
+      "contentHash": "88cc33b6f2fbfb4512e0d7630bb013f4ef3c21829d96ffb3a92bbd3ed4906a56",
       "commentsTotal": 0
     },
     "10190": {
@@ -29380,11 +29380,11 @@
       "commentsTotal": 0
     },
     "10199": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-10199.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-22T19:46:08Z",
-      "contentHash": "02771ceca11f44ecce055a5733860accb47e0eb0aeb767b49bb50022ca2ad0d7",
+      "closedAt": "2026-04-22T20:19:54Z",
+      "updatedAt": "2026-04-22T20:19:54Z",
+      "contentHash": "5136af4a084aec8f0ff74a184cfec3077bf224301dd873a4aeaa654e4255a4e1",
       "commentsTotal": 0
     },
     "10200": {
