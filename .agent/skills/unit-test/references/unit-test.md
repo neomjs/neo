@@ -85,3 +85,8 @@ npm run test-unit -- test/playwright/unit/path/to/your.spec.mjs
 ```bash
 npm run test-unit -- test/playwright/unit/path/to/your.spec.mjs --debug
 ```
+
+## 7. Directory Conventions
+
+- **Canonical Unit Tests**: `test/playwright/unit/`
+- **MCP Server Unit Tests**: You **MUST** place MCP tests in `test/playwright/unit/ai/mcp/server/`. Do NOT use the deprecated/grandfathered `test/playwright/mcp/` tree for new tests.
