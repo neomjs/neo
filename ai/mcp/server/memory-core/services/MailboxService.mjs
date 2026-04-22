@@ -3,6 +3,7 @@ import RequestContextService from '../../shared/services/RequestContextService.m
 import GraphService from './GraphService.mjs';
 import PermissionService from './PermissionService.mjs';
 import crypto from 'crypto';
+import SemanticGraphExtractor from '../../../../daemons/services/SemanticGraphExtractor.mjs';
 
 /**
  * @summary A2A (Agent-to-Agent) Messaging Service mapped to the Native Edge Graph.
@@ -108,6 +109,27 @@ class MailboxService extends Base {
         for (const s of relatedSessions) GraphService.linkNodes(messageId, s, 'RELATED_SESSION', 1.0, { timestamp });
         for (const t of relatedTickets) GraphService.linkNodes(messageId, t, 'REFERENCES_TICKET', 1.0, { timestamp });
         for (const c of taggedConcepts) GraphService.linkNodes(messageId, c, 'TAGGED_CONCEPT', 1.0, { timestamp });
+
+        // 4. Auto-emit TAGGED_CONCEPT edges asynchronously without blocking delivery
+        SemanticGraphExtractor.extractMessageConcepts(body).then(concepts => {
+            if (concepts && concepts.length > 0) {
+                for (const c of concepts) {
+                    // Ensure the concept node exists before linking
+                    if (!GraphService.db.nodes.has(c)) {
+                        let type = c.split(':')[0];
+                        let name = c.split(':').slice(1).join(':');
+                        GraphService.upsertNode({
+                            id: c,
+                            type: type,
+                            name: name || c,
+                            properties: { auto_extracted: true }
+                        });
+                    }
+                    // Use slightly lower weight for auto-extracted concepts
+                    GraphService.linkNodes(messageId, c, 'TAGGED_CONCEPT', 0.8, { timestamp });
+                }
+            }
+        }).catch(() => { /* error logged internally */ });
 
         return { messageId, sentAt: timestamp, priority, status: 'sent' };
     }

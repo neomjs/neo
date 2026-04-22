@@ -264,6 +264,81 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             return null;
         }
     }
+
+    /**
+     * Extracts semantic concepts from a message body for auto-emission.
+     * @param {String} bodyText The message content to analyze
+     * @returns {Promise<String[]>} Array of extracted Concept Node IDs
+     */
+    async extractMessageConcepts(bodyText) {
+        if (!bodyText || typeof bodyText !== 'string' || bodyText.trim().length === 0) {
+            return [];
+        }
+
+        logger.info(`[SemanticGraphExtractor] Extracting concepts from message body...`);
+
+        const systemInstruction = `You are a concept extraction agent for the Neo.mjs Native Edge Graph.
+Your task is to analyze the following message body and extract the top 1-5 architectural concepts, classes, or patterns it discusses.
+
+Enforce this STRICT JSON schema:
+{
+  "concepts": [
+    "String (must be in the exact format CONCEPT:name or CLASS:name, e.g. CONCEPT:multi-threading, CLASS:Neo.component.Base)"
+  ]
+}
+
+DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object.`;
+
+        try {
+            const provider = Neo.create(OpenAiCompatible, {
+                modelName: aiConfig.openAiCompatible.model,
+                host: aiConfig.openAiCompatible.host
+            });
+
+            const messages = [
+                { role: 'system', content: systemInstruction },
+                { role: 'user', content: `--- Message Body ---\n${bodyText}` }
+            ];
+
+            let maxRetries = 2;
+            let attempt = 0;
+            let payload = null;
+
+            while (attempt < maxRetries && !payload) {
+                attempt++;
+                const result = await provider.generate(messages);
+                payload = Json.extract(result.content);
+
+                if (!payload || !Array.isArray(payload.concepts)) {
+                    logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Failed to validate extracted concepts schema for message.`);
+                    if (attempt < maxRetries) {
+                        messages.push({ role: 'assistant', content: result.content });
+                        messages.push({ 
+                            role: 'user', 
+                            content: `Your previous response failed internal schema validation. You are either missing the 'concepts' array or provided malformed JSON. Please correct your output and provide ONLY the exact JSON shape requested.`
+                        });
+                        payload = null;
+                    }
+                }
+            }
+            
+            if (!payload || !Array.isArray(payload.concepts)) {
+                return [];
+            }
+
+            const validConcepts = payload.concepts.filter(c => typeof c === 'string' && c.includes(':'));
+            logger.info(`[SemanticGraphExtractor] Extracted ${validConcepts.length} concepts from message.`);
+            return validConcepts;
+
+        } catch (error) {
+            if (error.message && error.message.includes('fetch failed')) {
+                logger.debug(`[SemanticGraphExtractor] Skipping message concept extraction (API provider offline).`);
+            } else {
+                logger.error('[SemanticGraphExtractor] Error during message concept extraction:', error);
+            }
+            return [];
+        }
+    }
 }
 
 export default Neo.setupClass(SemanticGraphExtractor);

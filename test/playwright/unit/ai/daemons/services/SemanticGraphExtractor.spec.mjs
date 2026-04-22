@@ -194,4 +194,50 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             fs.unlinkSync(lazyQueueFile);
         }
     });
+    test('should extract concepts from message bodies', async () => {
+        const baseGenerate = OpenAiCompatible.prototype.generate;
+        
+        OpenAiCompatible.prototype.generate = async function(messages) {
+            return {
+                content: JSON.stringify({
+                    concepts: [
+                        "CONCEPT:mailbox-service",
+                        "CLASS:Neo.ai.mcp.server.memory-core.services.MailboxService",
+                        "invalid-concept", // should be filtered out
+                        "CONCEPT:auto-emit"
+                    ]
+                })
+            };
+        };
+
+        const result = await SemanticGraphExtractor.extractMessageConcepts("Let's add auto-emit to MailboxService");
+
+        expect(result).not.toBeNull();
+        expect(Array.isArray(result)).toBe(true);
+        expect(result.length).toBe(3);
+        expect(result).toContain("CONCEPT:mailbox-service");
+        expect(result).toContain("CLASS:Neo.ai.mcp.server.memory-core.services.MailboxService");
+        expect(result).toContain("CONCEPT:auto-emit");
+        expect(result).not.toContain("invalid-concept"); // properly filtered
+
+        // Restore global function
+        OpenAiCompatible.prototype.generate = baseGenerate;
+    });
+
+    test('should handle API failure gracefully during message concept extraction', async () => {
+        const baseGenerate = OpenAiCompatible.prototype.generate;
+        
+        OpenAiCompatible.prototype.generate = async function(messages) {
+            throw new Error("fetch failed");
+        };
+
+        const result = await SemanticGraphExtractor.extractMessageConcepts("Test body");
+
+        expect(result).not.toBeNull();
+        expect(Array.isArray(result)).toBe(true);
+        expect(result.length).toBe(0);
+
+        // Restore global function
+        OpenAiCompatible.prototype.generate = baseGenerate;
+    });
 });
