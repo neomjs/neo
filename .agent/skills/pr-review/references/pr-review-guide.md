@@ -11,7 +11,7 @@ This protocol ensures that feedback is:
 ## 1. Core Philosophy
 - **For Internal Agents (Peer-Review):** Be objective, clinical, and strict. Enforce the "Fat Ticket" protocol and strict JSDoc completeness.
 - **For External/First-Time Contributors:** Start with positive reinforcement. Acknowledge their effort. Provide explicit, helpful examples when asking for changes.
-- **For Self-Review (same session):** Use first-person, introspective tone. The review is a structured reflection, not praise. Replace "you did X" with "I chose X because...". Focus on documenting *rationale*, *trade-offs*, and *gaps you are aware of* rather than scoring your own work favorably. Be harsher on self-scoring — actively hunt for blind spots. Self-review mode is a **fallback mode** to capture intent, and does NOT substitute for the cross-family requirement. See `pull-request §6.1` for the authoritative cross-family mandate.
+- **For Self-Review (same session):** Use first-person, introspective tone. The review is a structured reflection, not praise. Replace "you did X" with "I chose X because...". Focus on documenting *rationale*, *trade-offs*, and *gaps you are aware of* rather than scoring your own work favorably. Be harsher on self-scoring — actively hunt for blind spots. Self-review is a **fallback mode** for intent capture; it does NOT substitute for the cross-family requirement. See `pull-request §6.1` for the authoritative cross-family mandate.
 
 ## 2. Agent Operational Mandates: The Reflection Phase
 If you are an AI Agent tasked with writing a PR review directly on GitHub (acting against your own PR or others), you MUST follow this protocol. This serves as the critical "Stepping Back" strategy where you transition from "Driver/Implementer" to "Navigator/Reviewer".
