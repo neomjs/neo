@@ -67,7 +67,7 @@ Each AI harness pins its model's identity at session start by setting `NEO_AGENT
 }
 ```
 
-### Gemini CLI / Antigravity (`.gemini/settings.json`)
+### Gemini CLI / Antigravity (`~/.gemini/antigravity/mcp_config.json`)
 
 ```json
 {
