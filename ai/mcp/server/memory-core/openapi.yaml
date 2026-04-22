@@ -882,10 +882,14 @@ paths:
           description: "Filter by specific thread"
           schema:
             type: string
-        - name: from
+        - name: fromIdentity
           in: query
           required: false
-          description: "Filter by specific sender"
+          description: |
+            Filter by specific sender identity. Named `fromIdentity` rather than `from` to avoid
+            the anti-spoof reserved-key collision in `AuthMiddleware` — `from` is a
+            claim-of-authorship key blocked at the callTool choke-point, whereas this parameter
+            is a read-path filter with no authorship semantics. Renamed per #10174.
           schema:
             type: string
         - name: limit
@@ -1211,6 +1215,39 @@ components:
         message:
           type: string
           example: "Memory successfully added"
+        mailbox:
+          description: |
+            Per-turn A2A mailbox delta signal — unread-inbox awareness piggybacked on every
+            memory write. Bypasses the in-memory graph cache via a direct SQLite read, so
+            messages written by other harness processes surface immediately without requiring
+            an MCP server restart. `null` when the caller has no bound AgentIdentity
+            (single-tenant fallthrough). Shipped with #10174.
+          nullable: true
+          type: object
+          properties:
+            unreadCount:
+              type: integer
+              description: Number of unread messages addressed to the caller's inbox (direct + broadcast)
+              example: 2
+            latestPreview:
+              nullable: true
+              type: object
+              description: Newest unread message preview; `null` when the inbox is empty
+              properties:
+                messageId:
+                  type: string
+                  example: "MESSAGE:9ccb7868-9b7c-4199-9c3c-a9ba175e70f6"
+                subject:
+                  type: string
+                  example: "Re: First A2A handshake — Phase 4 split proposal"
+                from:
+                  type: string
+                  description: The sender's AgentIdentity node id
+                  example: "@neo-gemini-3-1-pro"
+                sentAt:
+                  type: string
+                  format: date-time
+                  example: "2026-04-22T13:33:41.675Z"
 
     MemoriesListResponse:
       type: object

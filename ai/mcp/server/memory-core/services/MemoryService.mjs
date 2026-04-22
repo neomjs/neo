@@ -7,6 +7,84 @@ import SessionService        from './SessionService.mjs';
 import aiConfig              from '../config.mjs';
 import RequestContextService from '../../shared/services/RequestContextService.mjs';
 
+/**
+ * Computes a lightweight inbox snapshot for the bound AgentIdentity to piggyback on every
+ * `add_memory` response — the per-turn **mailbox delta signal** shipped with #10174.
+ *
+ * Why it lives here rather than in `MailboxService`: `add_memory` is called by the agent's
+ * Memory Core Protocol every single turn (per `CLAUDE.md §4.2`'s Consolidate-Then-Save mandate).
+ * Extending its response payload gives agents push-style inbox awareness without adding a new
+ * polling endpoint and without waiting for the `ai/graph/Database.mjs` in-memory edge cache to
+ * gain cross-process coherence. The query intentionally bypasses `GraphService.db.edges.items`
+ * (the per-process in-memory cache that never sees remote writes without a server restart —
+ * observed empirically during the #10174 diagnostic) and reads straight from SQLite via
+ * `GraphService.db.storage.db.prepare()`, so a message sent by another harness's MCP server is
+ * visible as soon as its transaction commits.
+ *
+ * **Failure mode is non-fatal.** Any error inside this helper is swallowed and logged — the
+ * caller's memory write must always succeed on its own merits. An agent briefly missing its
+ * mailbox preview is an inconvenience; a silently dropped memory write would be a critical
+ * data-loss regression.
+ *
+ * @returns {{unreadCount: Number, latestPreview: Object|null}|null} A snapshot block with the
+ *     unread count + most-recent unread message preview (messageId, subject, from, sentAt).
+ *     Returns `null` when the caller has no bound agent identity (single-tenant fallthrough —
+ *     consistent with every other RequestContext-scoped operation in this service).
+ * @private
+ */
+function buildMailboxDelta() {
+    const me = RequestContextService.getAgentIdentityNodeId();
+    if (!me) return null;
+
+    const sqlite = GraphService.db?.storage?.db;
+    if (!sqlite) return null;
+
+    try {
+        // Unread-count: edges of type SENT_TO whose target is either the caller's bound
+        // identity OR the `AGENT:*` broadcast sentinel (seeded per #10174). readAt-null on the
+        // joined MESSAGE node filters to unread. DISTINCT e.source defends against duplicate
+        // SENT_TO edges (shouldn't happen in current schema, but cheap insurance).
+        const unreadRow = sqlite.prepare(`
+            SELECT COUNT(DISTINCT e.source) AS unreadCount
+            FROM Edges e
+            JOIN Nodes n ON n.id = e.source
+            WHERE e.type = 'SENT_TO'
+              AND (e.target = ? OR e.target = 'AGENT:*')
+              AND json_extract(n.data, '$.properties.readAt') IS NULL
+        `).get(me);
+
+        // Latest unread preview: newest sentAt wins. The correlated subquery resolves the
+        // sender identity via the message's SENT_BY edge. `messageId` on the outer select is
+        // the MESSAGE node id (redundant with n.id but explicit for caller ergonomics).
+        const previewRow = sqlite.prepare(`
+            SELECT
+                n.id AS messageId,
+                json_extract(n.data, '$.properties.subject') AS subject,
+                json_extract(n.data, '$.properties.sentAt') AS sentAt,
+                (
+                    SELECT se.target FROM Edges se
+                    WHERE se.source = n.id AND se.type = 'SENT_BY'
+                    LIMIT 1
+                ) AS "from"
+            FROM Edges e
+            JOIN Nodes n ON n.id = e.source
+            WHERE e.type = 'SENT_TO'
+              AND (e.target = ? OR e.target = 'AGENT:*')
+              AND json_extract(n.data, '$.properties.readAt') IS NULL
+            ORDER BY json_extract(n.data, '$.properties.sentAt') DESC
+            LIMIT 1
+        `).get(me);
+
+        return {
+            unreadCount  : unreadRow?.unreadCount ?? 0,
+            latestPreview: previewRow || null
+        };
+    } catch (error) {
+        logger.warn('[MemoryService] Mailbox delta query failed (non-fatal, memory write unaffected):', error.message);
+        return null;
+    }
+}
+
 
 /**
  * @summary Service for handling adding, listing, and querying agent memories.
@@ -64,7 +142,12 @@ class MemoryService extends Base {
      * @param {String} [options.model]   The model name (e.g. 'gemini-3.1-pro').
      * @param {Number} [options.amountToolCalls] The number of tool calls executed during the turn.
      * @param {Array|String} [options.toolsUsed] Descriptions or array of tools used.
-     * @returns {Promise<{id: string, sessionId: string, timestamp: string, message: string}>}
+     * @returns {Promise<{id: string, sessionId: string, timestamp: string, message: string, mailbox: Object|null}>}
+     *     Memory-write confirmation plus a per-turn **mailbox delta signal** (`mailbox` block —
+     *     `{unreadCount, latestPreview}` when the caller has a bound AgentIdentity, `null`
+     *     otherwise). Piggybacks inbox awareness on the protocol's mandatory per-turn save,
+     *     bypassing the in-memory graph cache so cross-harness writes surface immediately —
+     *     see {@link buildMailboxDelta} and ticket #10174.
      */
     async addMemory({prompt, response, thought, sessionId, agent, model, amountToolCalls, toolsUsed}) {
         try {
@@ -122,7 +205,12 @@ class MemoryService extends Base {
                 logger.warn(`[MemoryService] Real-Time parsing skipped: DreamService decoupled. Awaiting REM sleep.`);
             }
 
-            return {id: memoryId, sessionId, timestamp, message: "Memory successfully added"};
+            // 4. Mailbox delta signal: per-turn piggyback of inbox unread-count + latest preview.
+            //    Non-fatal — buildMailboxDelta swallows its own errors and returns null on failure,
+            //    so a degraded mailbox query never blocks a successful memory write.
+            const mailbox = buildMailboxDelta();
+
+            return {id: memoryId, sessionId, timestamp, message: "Memory successfully added", mailbox};
         } catch (error) {
             logger.error('[MemoryService] Error adding memory:', error);
             return {
@@ -444,3 +532,8 @@ class MemoryService extends Base {
 }
 
 export default Neo.setupClass(MemoryService);
+// Exported for unit-test consumption — see
+// `test/playwright/unit/ai/mcp/server/memory-core/services/MailboxService.spec.mjs` (#10174
+// regression coverage). Not part of the public service surface; consumers outside the test
+// suite should call `MemoryService.addMemory` and read the `mailbox` property on the response.
+export {buildMailboxDelta};
