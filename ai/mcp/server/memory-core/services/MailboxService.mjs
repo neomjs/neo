@@ -6,14 +6,55 @@ import crypto from 'crypto';
 import SemanticGraphExtractor from '../../../../daemons/services/SemanticGraphExtractor.mjs';
 
 /**
+ * Canonicalizes a mailbox `to` address to the form seeded in the AgentIdentity graph.
+ *
+ * Neo's mailbox tool-schema wording accepts the ambiguous `'AGENT:@login'` form in addition to the
+ * canonical seeded `'@login'` form. Left unnormalized, {@link Neo.ai.mcp.server.memory-core.services.GraphService#linkNodes}
+ * culls every `SENT_TO` edge whose prefixed-form target doesn't happen to match a seeded node —
+ * the silent-drop root cause documented in #10174. Centralizing normalization here preserves
+ * `linkNodes`'s defense-in-depth FK-style guard (hallucinated-path protection for every other
+ * edge-creation path in the graph) while honoring the mailbox's documented addressing surface.
+ *
+ * Accepted shapes and their canonical outputs:
+ * - `'@login'` → `'@login'` (already canonical)
+ * - `'AGENT:@login'` → `'@login'` (strip the `AGENT:` prefix)
+ * - `'AGENT:*'` → `'AGENT:*'` (broadcast sentinel — unchanged, seeded as a real `BroadcastSentinel`
+ *   node by `ai/scripts/seedAgentIdentities.mjs` so the FK guard accepts it)
+ * - `'role:<name>'` / `'human:<login>'` → unchanged (role + human addressing; the corresponding
+ *   node must pre-exist in the graph or be created by a separate seed pass)
+ * - Test-fixture convention `'AGENT:<bareName>'` without `@` → unchanged; MailboxService unit
+ *   tests seed these directly and bypass the production `bindAgentIdentity` path entirely. The
+ *   `.startsWith('AGENT:@')` guard intentionally does NOT strip for bare-name fixtures.
+ *
+ * @param {String} to The raw `to` address as supplied by the caller.
+ * @returns {String} The canonical address ready for `linkNodes` and permission-check consumption.
+ * @private
+ */
+function normalizeMailboxTarget(to) {
+    if (to?.startsWith('AGENT:@')) {
+        return to.slice('AGENT:'.length)
+    }
+    return to
+}
+
+/**
  * @summary A2A (Agent-to-Agent) Messaging Service mapped to the Native Edge Graph.
  *
  * Implements the Mailbox primitives for direct or broadcast agent communications.
  * Messages are stored as graph nodes of `type: 'MESSAGE'`, with `SENT_BY` and `SENT_TO` edges.
  *
+ * This class is a key example of the framework's **A2A messaging substrate** and demonstrates
+ * concepts like **agent identity**, **broadcast fan-out**, **reachable-counterparty trust
+ * inference**, and **server-stamped authorship** (the anti-spoof `SENT_BY` edge is derived from
+ * `RequestContextService.getAgentIdentityNodeId()`, never from client input — per
+ * `AuthMiddleware.IDENTITY_OVERRIDE_KEYS`).
+ *
  * @class Neo.ai.mcp.server.memory-core.services.MailboxService
  * @extends Neo.core.Base
  * @singleton
+ * @see Neo.ai.mcp.server.memory-core.services.GraphService
+ * @see Neo.ai.mcp.server.memory-core.services.PermissionService
+ * @see Neo.ai.mcp.server.shared.services.RequestContextService
  */
 class MailboxService extends Base {
     static config = {
@@ -49,6 +90,13 @@ class MailboxService extends Base {
         if (!sentBy) {
             throw new Error("Cannot send message: no agent identity context bound. Ensure StdioIdentityResolver or OIDC transport is active.");
         }
+
+        // Canonicalize addressing to match the seeded AgentIdentity graph-node IDs. Upstream tool-
+        // schema wording exposes the `'AGENT:@login'` prefixed form; the seed uses bare `@login`.
+        // Without this normalization, `GraphService.linkNodes`'s FK guard silently culls the
+        // `SENT_TO` edge — the root-cause bug closed by #10174. Permission checks and edge
+        // creation below all consume the canonical form from this point on.
+        to = normalizeMailboxTarget(to);
 
         const messageId = `MESSAGE:${crypto.randomUUID()}`;
         const timestamp = new Date().toISOString();
@@ -141,12 +189,16 @@ class MailboxService extends Base {
      * @param {String} [args.status='all'] Read status ('all', 'read', 'unread')
      * @param {String} [args.to] Target identity to list messages for (defaults to caller)
      * @param {String} [args.threadId] Filter by specific thread
-     * @param {String} [args.from] Filter by specific sender
+     * @param {String} [args.fromIdentity] Filter by specific sender. Named `fromIdentity` rather
+     *   than `from` to avoid the anti-spoof reserved-key collision in
+     *   {@link Neo.ai.mcp.server.shared.services.AuthMiddleware} — `from` is a claim-of-authorship
+     *   key blocked at the callTool choke-point, whereas this parameter is a read-path filter
+     *   with no authorship semantics. Renamed per #10174.
      * @param {Number} [args.limit=50] Maximum number of messages to return
      * @param {Number} [args.offset=0] Pagination offset
      * @returns {Promise<Object>}
      */
-    async listMessages({ box = 'inbox', status = 'all', to, threadId, from, limit = 50, offset = 0 } = {}) {
+    async listMessages({ box = 'inbox', status = 'all', to, threadId, fromIdentity, limit = 50, offset = 0 } = {}) {
         const me = RequestContextService.getAgentIdentityNodeId();
         if (!me) {
             throw new Error("Cannot list messages: no agent identity context bound.");
@@ -204,7 +256,7 @@ class MailboxService extends Base {
                         }
                     }
 
-                    if (from && sentByNodeId !== from) continue;
+                    if (fromIdentity && sentByNodeId !== fromIdentity) continue;
                     if (threadId && foundThreadId !== threadId) continue;
 
                     messages.push({

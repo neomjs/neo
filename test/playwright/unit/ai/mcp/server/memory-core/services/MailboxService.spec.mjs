@@ -19,14 +19,15 @@ import RequestContextService from '../../../../../../../../ai/mcp/server/shared/
 
 test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
     test.describe.configure({ mode: 'serial' });
-    let MailboxService, GraphService, PermissionService, LifecycleService, originalAutoSave;
-    
+    let MailboxService, GraphService, PermissionService, LifecycleService, buildMailboxDelta, originalAutoSave;
+
     test.beforeAll(async () => {
         // Load dynamically due to SQLite DB mount timing
         GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         MailboxService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/MailboxService.mjs')).default;
         PermissionService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/PermissionService.mjs')).default;
         LifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
+        buildMailboxDelta = (await import('../../../../../../../../ai/mcp/server/memory-core/services/MemoryService.mjs')).buildMailboxDelta;
 
         // Force in-memory DB config
         const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
@@ -222,7 +223,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         });
     });
 
-    test('listMessages filters by threadId and from', async () => {
+    test('listMessages filters by threadId and fromIdentity', async () => {
         GraphService.upsertNode({ id: 'AGENT:charlie', type: 'AGENT', name: 'Charlie', properties: {} });
         GraphService.upsertNode({ id: 'thread-X', type: 'THREAD', name: 'Thread X', properties: {} });
         GraphService.upsertNode({ id: 'thread-Y', type: 'THREAD', name: 'Thread Y', properties: {} });
@@ -242,13 +243,15 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         });
 
         await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            const filterFrom = await MailboxService.listMessages({ from: 'AGENT:alice' });
+            // `fromIdentity` rather than `from` — the latter is blocked by AuthMiddleware
+            // as a claim-of-authorship key. See #10174 and MailboxService JSDoc.
+            const filterFrom = await MailboxService.listMessages({ fromIdentity: 'AGENT:alice' });
             expect(filterFrom.messages.length).toBe(2);
 
             const filterThread = await MailboxService.listMessages({ threadId: 'thread-X' });
             expect(filterThread.messages.length).toBe(2);
-            
-            const filterBoth = await MailboxService.listMessages({ from: 'AGENT:alice', threadId: 'thread-X' });
+
+            const filterBoth = await MailboxService.listMessages({ fromIdentity: 'AGENT:alice', threadId: 'thread-X' });
             expect(filterBoth.messages.length).toBe(1);
             expect(filterBoth.messages[0].subject).toBe('A1');
         });
@@ -348,10 +351,10 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         // Reading requires CAN_READ_INBOX_OF if the target isn't the caller
         await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
             await expect(MailboxService.listMessages({ to: 'role:librarian' })).rejects.toThrow(/Unauthorized/);
-            
+
             // Grant bob permission to read librarian role
             GraphService.linkNodes('AGENT:bob', 'role:librarian', 'CAN_READ_INBOX_OF', 1.0);
-            
+
             const res = await MailboxService.listMessages({ to: 'role:librarian' });
             expect(res.messages.length).toBe(1);
             expect(res.messages[0].to).toBe('role:librarian');
@@ -360,7 +363,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
 
     test('addMessage auto-emits TAGGED_CONCEPT edges via SemanticGraphExtractor', async () => {
         const SemanticGraphExtractor = (await import('../../../../../../../../ai/daemons/services/SemanticGraphExtractor.mjs')).default;
-        
+
         // Mock the extractor to resolve immediately with predefined concepts
         const originalExtract = SemanticGraphExtractor.extractMessageConcepts;
         try {
@@ -386,7 +389,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
             expect(edges.length).toBe(2);
             expect(edges.find(e => e.target === 'CONCEPT:mcp-integration')).toBeDefined();
             expect(edges.find(e => e.target === 'CLASS:Neo.ai.mcp.server.memory-core.services.MailboxService')).toBeDefined();
-            
+
             // Verify nodes were created and have auto_extracted provenance
             const conceptNode = GraphService.db.nodes.get('CONCEPT:mcp-integration');
             expect(conceptNode).toBeDefined();
@@ -395,6 +398,179 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         } finally {
             SemanticGraphExtractor.extractMessageConcepts = originalExtract;
         }
+    });
+
+    // ------------------------------------------------------------------
+    // #10174 regression coverage — production-convention addressing
+    //
+    // The tests above use the `AGENT:<name>` test-fixture convention. Production seeds
+    // AgentIdentity nodes under bare `@login` (per ai/scripts/seedAgentIdentities.mjs), and
+    // `RequestContextService.getAgentIdentityNodeId()` returns that bare form. The divergence
+    // between test and production conventions hid the SENT_TO cull bug for months — the
+    // following block mirrors the REAL seed so end-to-end regressions catch it.
+    // ------------------------------------------------------------------
+    test.describe('#10174 production-convention addressing', () => {
+        test.beforeEach(async () => {
+            // Mirror the seedAgentIdentities.mjs convention + AGENT:* broadcast sentinel.
+            GraphService.upsertNode({ id: '@opus',   type: 'AgentIdentity',     name: 'Opus',      properties: {} });
+            GraphService.upsertNode({ id: '@gemini', type: 'AgentIdentity',     name: 'Gemini',    properties: {} });
+            // (`AGENT:*` already seeded by the outer beforeEach — retained because production
+            //  uses the same sentinel id and this test block validates its addressability.)
+        });
+
+        test('bare `@login` addressing persists SENT_TO edge and surfaces in inbox', async () => {
+            await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, async () => {
+                await PermissionService.grantPermission({ to: '@opus', scope: 'CAN_REPLY_TO' });
+            });
+
+            let messageId;
+            await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
+                const res = await MailboxService.addMessage({ to: '@gemini', subject: 'direct ping', body: 'hello' });
+                expect(res.status).toBe('sent');
+                messageId = res.messageId;
+
+                // Core #10174 assertion: SENT_TO edge MUST persist. Pre-fix, GraphService.linkNodes
+                // culled this silently because @gemini was a seeded AgentIdentity node — wait,
+                // it should have worked. Actually: this specific case was the ONE that worked
+                // pre-fix (bare `@login` IS the seeded form). The value of this test is as a
+                // baseline against which the next two tests (`AGENT:@login` + `AGENT:*`) prove
+                // the fix by not regressing what already worked.
+                const sentToEdge = GraphService.db.edges.items.find(
+                    e => e.source === messageId && e.type === 'SENT_TO'
+                );
+                expect(sentToEdge).toBeDefined();
+                expect(sentToEdge.target).toBe('@gemini');
+            });
+
+            const inbox = await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, async () => {
+                return await MailboxService.listMessages({ box: 'inbox' });
+            });
+            expect(inbox.messages.length).toBe(1);
+            expect(inbox.messages[0].subject).toBe('direct ping');
+        });
+
+        test('`AGENT:@login` prefixed form normalizes to bare `@login` SENT_TO target', async () => {
+            await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, async () => {
+                await PermissionService.grantPermission({ to: '@opus', scope: 'CAN_REPLY_TO' });
+            });
+
+            let messageId;
+            await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
+                // The ambiguous tool-schema form — pre-fix, this was culled because the
+                // literal 'AGENT:@gemini' string isn't a seeded node. Post-fix,
+                // normalizeMailboxTarget strips the `AGENT:` prefix.
+                const res = await MailboxService.addMessage({ to: 'AGENT:@gemini', subject: 'prefixed', body: 'body' });
+                expect(res.status).toBe('sent');
+                messageId = res.messageId;
+
+                const sentToEdge = GraphService.db.edges.items.find(
+                    e => e.source === messageId && e.type === 'SENT_TO'
+                );
+                expect(sentToEdge).toBeDefined();
+                // Must be the canonical bare `@login`, NOT the raw input `AGENT:@gemini`.
+                expect(sentToEdge.target).toBe('@gemini');
+            });
+
+            // Recipient bound under bare `@gemini` sees the message via listMessages.
+            const inbox = await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, async () => {
+                return await MailboxService.listMessages({ box: 'inbox' });
+            });
+            expect(inbox.messages.length).toBe(1);
+            expect(inbox.messages[0].subject).toBe('prefixed');
+        });
+
+        test('`AGENT:*` broadcast creates SENT_TO edge to the seeded sentinel and fans out', async () => {
+            let messageId;
+            await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
+                const res = await MailboxService.addMessage({ to: 'AGENT:*', subject: 'broadcast', body: 'body' });
+                expect(res.status).toBe('sent');
+                messageId = res.messageId;
+
+                // Pre-fix core bug: AGENT:* wasn't a seeded node, so linkNodes culled this edge,
+                // and zero recipients saw the broadcast. Post-fix (seed script adds AGENT:* as
+                // BroadcastSentinel), the edge persists and listMessages' `=== 'AGENT:*'` filter
+                // fans it out to every authenticated inbox query.
+                const sentToEdge = GraphService.db.edges.items.find(
+                    e => e.source === messageId && e.type === 'SENT_TO'
+                );
+                expect(sentToEdge).toBeDefined();
+                expect(sentToEdge.target).toBe('AGENT:*');
+            });
+
+            // Sender sees it in outbox
+            const opusOutbox = await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
+                return await MailboxService.listMessages({ box: 'outbox' });
+            });
+            expect(opusOutbox.messages.length).toBe(1);
+
+            // Every OTHER authenticated identity sees it in inbox via broadcast fan-out
+            const geminiInbox = await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, async () => {
+                return await MailboxService.listMessages({ box: 'inbox' });
+            });
+            expect(geminiInbox.messages.length).toBe(1);
+            expect(geminiInbox.messages[0].subject).toBe('broadcast');
+        });
+
+        test('buildMailboxDelta counts unread and surfaces latest preview for bound identity', async () => {
+            await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, async () => {
+                await PermissionService.grantPermission({ to: '@opus', scope: 'CAN_REPLY_TO' });
+            });
+
+            await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
+                const first = await MailboxService.addMessage({ to: '@gemini', subject: 'one', body: '1' });
+                // Force distinct sentAt so the ORDER BY ... LIMIT 1 is deterministic.
+                GraphService.db.nodes.get(first.messageId).properties.sentAt = '2026-04-22T13:00:00.000Z';
+                // Writes reflect through to SQLite via the upsert path used by addEdge → autoSave
+                // but explicit properties updates need a direct storage push or we rely on the
+                // in-memory store matching SQLite; since the test uses `:memory:` SQLite there's
+                // no cross-process coherence to worry about.
+                const second = await MailboxService.addMessage({ to: '@gemini', subject: 'two', body: '2' });
+                GraphService.db.nodes.get(second.messageId).properties.sentAt = '2026-04-22T14:00:00.000Z';
+
+                // Persist the patched sentAt to SQLite so the SELECT json_extract(...) read
+                // matches. addMessage wrote the original sentAt; we patched the in-memory copy
+                // but still need to write that through.
+                GraphService.db.storage.db.prepare(`
+                    UPDATE Nodes SET data = ? WHERE id = ?
+                `).run(JSON.stringify(GraphService.db.nodes.get(first.messageId)),  first.messageId);
+                GraphService.db.storage.db.prepare(`
+                    UPDATE Nodes SET data = ? WHERE id = ?
+                `).run(JSON.stringify(GraphService.db.nodes.get(second.messageId)), second.messageId);
+            });
+
+            const delta = await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, () => {
+                return buildMailboxDelta();
+            });
+
+            expect(delta).not.toBeNull();
+            expect(delta.unreadCount).toBe(2);
+            expect(delta.latestPreview).not.toBeNull();
+            expect(delta.latestPreview.subject).toBe('two');  // newest-first ordering
+            expect(delta.latestPreview.from).toBe('@opus');
+            expect(delta.latestPreview.messageId).toMatch(/^MESSAGE:/);
+        });
+
+        test('buildMailboxDelta returns null when identity is unbound (single-tenant fallthrough)', async () => {
+            // No agentIdentityNodeId = unbound context, the stdio single-tenant case.
+            const delta = await RequestContextService.run({}, () => {
+                return buildMailboxDelta();
+            });
+            expect(delta).toBeNull();
+        });
+
+        test('buildMailboxDelta includes broadcast messages in unread count for all recipients', async () => {
+            await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
+                await MailboxService.addMessage({ to: 'AGENT:*', subject: 'hello all', body: 'broadcast body' });
+            });
+
+            // Gemini's delta counts the broadcast even though it wasn't directly addressed
+            const delta = await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, () => {
+                return buildMailboxDelta();
+            });
+            expect(delta).not.toBeNull();
+            expect(delta.unreadCount).toBe(1);
+            expect(delta.latestPreview.subject).toBe('hello all');
+        });
     });
 });
 

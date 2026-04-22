@@ -1,7 +1,20 @@
 /**
- * @summary Seeds initial AgentIdentity nodes into the Neo.mjs Memory Core Native Graph.
- * These nodes represent persistent identities for human owners and model agents.
- * 
+ * @summary Seeds initial AgentIdentity + BroadcastSentinel nodes into the Neo.mjs Memory Core Native Graph.
+ *
+ * These nodes form the **addressable identity surface** for the A2A Mailbox substrate (#10139):
+ * human owners (`@tobiu`), model-backed agents (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`), and the
+ * `AGENT:*` broadcast sentinel that carries fan-out `SENT_TO` edges emitted by
+ * {@link Neo.ai.mcp.server.memory-core.services.MailboxService#addMessage} for broadcast traffic.
+ *
+ * **Why the broadcast sentinel needs to be a real graph node (#10174):** `GraphService.linkNodes`
+ * enforces an FK-style guard that culls edges whose endpoints aren't present in the Nodes table.
+ * The guard is correct defense-in-depth against hallucinated LLM-generated edges but wrongly
+ * dropped every broadcast `SENT_TO` edge while this sentinel was merely a sentinel string. Seeding
+ * it as a real node satisfies the guard without relaxing it for other edge-creation paths.
+ *
+ * Idempotent re-run is safe: existing nodes preserve their original `createdAt` via the defensive
+ * SQLite peek below; new properties merge on top.
+ *
  * Usage: node ai/scripts/seedAgentIdentities.mjs
  */
 
@@ -44,6 +57,19 @@ const IDENTITIES = [
             displayName: 'Tobias Uhlig',
             modelFamily: null,
             accountType: 'human',
+            createdAt: new Date().toISOString()
+        }
+    },
+    {
+        id: 'AGENT:*',
+        type: 'BroadcastSentinel',
+        name: 'Broadcast',
+        description: 'Mailbox broadcast sentinel. `SENT_TO` edges targeting this node fan out to all authenticated recipients per MailboxService.listMessages visibility rules. Must exist as a real graph node so GraphService.linkNodes FK-style guard does not cull broadcast edges — see #10174.',
+        properties: {
+            githubLogin: null,
+            displayName: 'Broadcast',
+            modelFamily: null,
+            accountType: 'sentinel',
             createdAt: new Date().toISOString()
         }
     }
