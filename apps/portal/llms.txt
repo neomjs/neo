@@ -401,6 +401,7 @@ Here you find the full history of Neo.mjs updates.
 - [Agent-Agnostic MCP Configuration](https://neomjs.com/raw/learn/agentos/tooling/AgentAgnosticMcpConfig.md)
 - [Memory Core MCP API](https://neomjs.com/raw/learn/agentos/tooling/MemoryCoreMcpApi.md)
 - [Memory Core MCP Authentication](https://neomjs.com/raw/learn/agentos/tooling/MemoryCoreMcpAuth.md)
+- [Graph Back-Fill: Memory & Session Lifecycle](https://neomjs.com/raw/learn/agentos/tooling/GraphBackfill.md)
 - [Chrome DevTools MCP Server](https://neomjs.com/raw/learn/agentos/tooling/ChromeDevToolsMcpServer.md)
 - [GitHub CLI Setup](https://neomjs.com/raw/learn/agentos/tooling/GitHubCLISetup.md)
 - [GitHub Workflow Server: gh-absent](https://neomjs.com/raw/learn/agentos/tooling/GitHubWorkflowServerGhAbsent.md)
