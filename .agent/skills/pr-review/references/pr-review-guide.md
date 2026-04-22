@@ -11,7 +11,7 @@ This protocol ensures that feedback is:
 ## 1. Core Philosophy
 - **For Internal Agents (Peer-Review):** Be objective, clinical, and strict. Enforce the "Fat Ticket" protocol and strict JSDoc completeness.
 - **For External/First-Time Contributors:** Start with positive reinforcement. Acknowledge their effort. Provide explicit, helpful examples when asking for changes.
-- **For Self-Review (same session):** Use first-person, introspective tone. The review is a structured reflection, not praise. Replace "you did X" with "I chose X because...". Focus on documenting *rationale*, *trade-offs*, and *gaps you are aware of* rather than scoring your own work favorably. Be harsher on self-scoring — actively hunt for blind spots.
+- **For Self-Review (same session):** Use first-person, introspective tone. The review is a structured reflection, not praise. Replace "you did X" with "I chose X because...". Focus on documenting *rationale*, *trade-offs*, and *gaps you are aware of* rather than scoring your own work favorably. Be harsher on self-scoring — actively hunt for blind spots. Self-review mode is a **fallback mode** to capture intent, and does NOT substitute for the cross-family requirement. See `pull-request §6.1` for the authoritative cross-family mandate.
 
 ## 2. Agent Operational Mandates: The Reflection Phase
 If you are an AI Agent tasked with writing a PR review directly on GitHub (acting against your own PR or others), you MUST follow this protocol. This serves as the critical "Stepping Back" strategy where you transition from "Driver/Implementer" to "Navigator/Reviewer".
@@ -101,6 +101,8 @@ Different model families exhibit statistically-different failure modes when revi
 - **Gemini-family** reviewers tend toward quick-win framing — may score all metrics at 100 without challenge, pre-tick placeholder required-actions, or skip adversarial examination of the change.
 
 The Depth Floor catches the Gemini-family failure mode. `[CONTENT_COMPLETENESS]` scoring catches part of the Claude-family failure mode. Neither is a style mandate — be the reviewer you are; trust cross-model asymmetry to compensate. The floor is not a ceiling. Do not calibrate toward the other model's style; the skill-level floor is what keeps rigor universal, not style convergence.
+
+*This asymmetry is the empirical basis for the cross-family review mandate in `pull-request §6.1`.*
 
 ### 7.3 Anti-Patterns
 

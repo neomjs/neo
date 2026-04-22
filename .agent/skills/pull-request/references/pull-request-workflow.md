@@ -111,7 +111,16 @@ You MUST follow this exact handoff protocol:
 
 2. **Human-in-the-Loop Protocol (Frontier Models):** Once the PR is opened, you MUST halt and await human QA. **DO NOT** execute `gh pr merge` yourself. You may ask the human Commander: *"PR opened. Shall I execute the `pr-review` skill to assist with your evaluation?"* but you must not proceed without explicit consent.
 
-**Cross-Review Response Cycle:** If an external reviewer posts `Status: Request Changes` on your PR, you re-enter the author loop per §6 (Review Response Protocol). After addressing the Required Actions with follow-up commits and posting the structured response comment, you halt again for re-review. Done-ness is per-handoff, not per-lifetime.
+**Cross-Review Response Cycle:** If an external reviewer posts `Status: Request Changes` on your PR, you re-enter the author loop per §7 (Review Response Protocol). After addressing the Required Actions with follow-up commits and posting the structured response comment, you halt again for re-review. Done-ness is per-handoff, not per-lifetime.
+
+### 6.1 The Cross-Family Mandate
+
+**No PR may be squash-merged without at least one cross-family Approved review** (Claude-family ↔ Gemini-family, identified by the `agent` field in the Approved review comment). See `pr-review §7.2` for the empirical rationale.
+
+**Exceptions Matrix:**
+- **Micro-change exemption**: Commit type `chore` AND `< 20 lines` changed, OR pure documentation with no runtime impact.
+- **7-day-open fallback**: The PR itself has been OPEN for >= 7 days AND no cross-family reviewer has engaged on the thread (no review or comment posted by a login whose identity maps to the opposite family). Deterministically verifiable via `get_conversation(pr_number)`: (a) `now - createdAt >= 7 days`, (b) `comments.nodes` contains no entry whose `author.login` resolves to the cross-family pattern. Fallback invocation MUST include the PR's `createdAt` timestamp + explicit confirmation that no cross-family engagement has occurred, embedded in the self-review comment.
+- **Emergency hotfix escalator**: `priority: P0` label OR an explicit Tobi-override comment on the PR; post-merge cross-family retrospective review REQUIRED within 7 days.
 
 ## 7. Review Response Protocol
 
