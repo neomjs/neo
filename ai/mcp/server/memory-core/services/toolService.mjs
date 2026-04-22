@@ -38,7 +38,8 @@ const serviceMapping = {
     mark_read             : MailboxService          .markRead            .bind(MailboxService),
     grant_permission      : PermissionService       .grantPermission     .bind(PermissionService),
     revoke_permission     : PermissionService       .revokePermission    .bind(PermissionService),
-    list_permissions      : PermissionService       .listPermissions     .bind(PermissionService)
+    list_permissions      : PermissionService       .listPermissions     .bind(PermissionService),
+    set_session_id        : SessionService          .setSessionId        .bind(SessionService)
 };
 
 const toolService = Neo.create(ToolService, {

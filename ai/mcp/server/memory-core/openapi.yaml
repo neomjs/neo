@@ -518,6 +518,56 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /sessions/set_id:
+    post:
+      summary: Set Session ID
+      operationId: set_session_id
+      x-pass-as-object: true
+      description: |
+        Overrides the current active session ID.
+        Useful for manually reconnecting to a previous session after a server restart to prevent session fragmentation.
+      tags: [Sessions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sessionId
+              properties:
+                sessionId:
+                  type: string
+                  description: The session ID to override and continue.
+      responses:
+        '200':
+          description: Session ID successfully overridden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  sessionId:
+                    type: string
+                  replacedSessionId:
+                    type: string
+                  message:
+                    type: string
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /graph/nodes/{id}:
     get:
       summary: Get Node by ID
