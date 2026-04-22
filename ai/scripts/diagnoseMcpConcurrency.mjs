@@ -116,7 +116,7 @@ function runLsof(files) {
         // Exit code 1 = no matching processes; not an error
         if (error.status === 1) return '';
         if (error.code === 'ENOENT') {
-            console.log('Platform not supported: this diagnostic requires `lsof` (macOS / Linux).');
+            console.error('Platform not supported: this diagnostic requires `lsof` (macOS / Linux).');
             return '';
         }
         throw new Error(`lsof failed: ${error.message || error}`);
@@ -129,11 +129,11 @@ function runLsof(files) {
  * Each record in lsof's field-delimited format spans multiple lines; a new record
  * starts on every `p` (PID) tag. We accumulate the current record until the next
  * `p` flush, then push it. This preserves the architectural invariant that one
- * record = one (process, file) pair — deduplication by PID happens at the caller
- * boundary (see `uniqueProcesses` in main).
+ * record represents one PID and its associated files. Deduplication by PID happens
+ * at the caller boundary (see `uniqueProcesses` in main).
  *
  * @param {String} raw Raw lsof output.
- * @returns {Array<{pid: number, command: string, file: string}>}
+ * @returns {Array<{pid: number, command: string, files: string[]}>}
  */
 function parseLsofOutput(raw) {
     const records = [];
@@ -162,9 +162,10 @@ function parseLsofOutput(raw) {
  *
  * Delegates to {@link runLsof} + {@link parseLsofOutput} to run the OS-level probe
  * and shape its raw output into the Projection Layer the rest of the script
- * consumes. Returns one entry per (process, file) — the caller dedupes by PID.
+ * consumes. Returns one entry per process with an array of its files. The caller
+ * dedupes across records by PID.
  *
- * @returns {Array<{pid: number, command: string, file: string}>}
+ * @returns {Array<{pid: number, command: string, files: string[]}>}
  */
 function listHoldingProcesses() {
     const raw = runLsof([SQLITE_MAIN, SQLITE_WAL, SQLITE_SHM]);
