@@ -109,6 +109,9 @@ ai/mcp/server/*/config.mjs
 # Per-user Claude Code permissions allowlist (not shared)
 .claude/settings.json
 
+# Local workspace-level Antigravity config (causes dual-parse bug if committed)
+.gemini/settings.json
+
 # Playwright test results
 test/playwright/test-results/
 # Single-file Playwright runs via npx

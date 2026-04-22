@@ -49,6 +49,14 @@ The resolved identity is cached on the running server instance and wrapped aroun
 
 ## Harness Configuration
 
+> [!WARNING]
+> Antigravity natively runs both a system-scope and a workspace-scope language server
+> that each independently parse MCP configurations. Place `mcpServers` only in the
+> global `~/.gemini/antigravity/mcp_config.json` — DO NOT populate the workspace
+> `.gemini/settings.json`. A workspace-level config causes 2× MCP process duplication
+> (Twin Language Server Bug). See `.agent/skills/debugging-antigravity/references/debugging-guide.md` §1
+> for the full pattern.
+
 Each AI harness pins its model's identity at session start by setting `NEO_AGENT_IDENTITY`. Matches the per-model GitHub-account convention from ticket #10144 (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@tobiu`).
 
 ### Claude Code (`.claude/settings.json`)
