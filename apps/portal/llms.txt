@@ -408,6 +408,7 @@ Here you find the full history of Neo.mjs updates.
 - [Troubleshooting Tool Calls](https://neomjs.com/raw/learn/agentos/tooling/TroubleshootingToolCalls.md)
 - [AI Tooling WSL Setup](https://neomjs.com/raw/learn/agentos/tooling/AiToolingWslSetup.md)
 - [Introduction to MCP](https://neomjs.com/raw/learn/agentos/tooling/Introduction.md)
+- [0001 — Cross-Process Cache Coherence](https://neomjs.com/raw/learn/agentos/decisions/0001-cross-process-cache-coherence.md)
 
 ## Guides
 
@@ -519,6 +520,14 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #10212](https://neomjs.com/raw/news/tickets/10212.md)
+- [Ticket #10210](https://neomjs.com/raw/news/tickets/10210.md)
+- [Ticket #10209](https://neomjs.com/raw/news/tickets/10209.md)
+- [Ticket #10208](https://neomjs.com/raw/news/tickets/10208.md)
+- [Ticket #10207](https://neomjs.com/raw/news/tickets/10207.md)
+- [Ticket #10206](https://neomjs.com/raw/news/tickets/10206.md)
+- [Ticket #10200](https://neomjs.com/raw/news/tickets/10200.md)
+- [Ticket #10199](https://neomjs.com/raw/news/tickets/10199.md)
 - [Ticket #10195](https://neomjs.com/raw/news/tickets/10195.md)
 - [Ticket #10194](https://neomjs.com/raw/news/tickets/10194.md)
 - [Ticket #10192](https://neomjs.com/raw/news/tickets/10192.md)
