@@ -614,6 +614,46 @@ ${aggregatedContent}
     }
 
     /**
+     * Overrides the current session ID manually.
+     * Helpful for reconnecting a fragmented session after a server restart.
+     * @protected Assumes the caller is authorized to claim the given sessionId in a single-tenant environment.
+     * @param {Object} args
+     * @param {String} args.sessionId
+     * @returns {Promise<Object>}
+     */
+    async setSessionId({ sessionId }) {
+        if (!sessionId || typeof sessionId !== 'string') {
+            return { error: 'Invalid sessionId', code: 'INVALID_SESSION_ID' };
+        }
+        
+        const oldSessionId = this.currentSessionId;
+        if (oldSessionId === sessionId) {
+            return { success: true, sessionId: this.currentSessionId, message: "Session ID unchanged." };
+        }
+
+        try {
+            // Prune old session if 0 memories
+            if (this.memoryCollection) {
+                const memories = await this.memoryCollection.get({
+                    where: { sessionId: oldSessionId },
+                    limit: 1
+                });
+                if (!memories.ids || memories.ids.length === 0) {
+                    logger.info(`[SessionService] Abandoning orphaned zero-memory session ID: ${oldSessionId}`);
+                    // If no memories exist, we can just abandon the old ID.
+                }
+            }
+        } catch (e) {
+            logger.warn(`[SessionService] Error checking old session during override: ${e.message}`);
+        }
+        
+        logger.info(`[SessionService] Overriding session ID: ${oldSessionId} -> ${sessionId}`);
+        this.currentSessionId = sessionId;
+        
+        return { success: true, sessionId: this.currentSessionId, replacedSessionId: oldSessionId };
+    }
+
+    /**
      * Summarizes sessions based on the provided sessionId or all unsummarized sessions.
      * Note: If the current active sessionId is explicitly passed, it WILL be summarized.
      * @param {Object}  options
