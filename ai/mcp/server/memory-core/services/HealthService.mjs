@@ -242,7 +242,7 @@ class HealthService extends Base {
                 summarizationStatus : this.#startupSummarizationStatus || 'not_attempted',
                 summarizationDetails: this.#startupSummarizationDetails
             },
-            mailbox  : MailboxService.getHealthcheckPreview(),
+            mailboxPreview: await MailboxService.getHealthcheckPreview(),
             details  : [],
             version  : process.env.npm_package_version || '1.0.0',
             uptime   : process.uptime()

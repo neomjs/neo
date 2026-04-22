@@ -380,89 +380,47 @@ class MailboxService extends Base {
 
     /**
      * Generates the mailbox preview for the healthcheck payload.
-     * @returns {Object|null}
+     * @returns {Promise<Object|null>}
      */
-    getHealthcheckPreview() {
+    async getHealthcheckPreview() {
         const me = RequestContextService.getAgentIdentityNodeId();
         if (!me) {
             return null; // No agent identity bound yet
         }
 
-        const db = GraphService.db;
-        let inbox = [];
-        let outbox = [];
+        const inboxResult = await this.listMessages({ box: 'inbox', limit: 100 }); // fetch enough to count unreads
+        const outboxResult = await this.listMessages({ box: 'outbox', limit: 3 });
+
         let unreadCount = 0;
+        let inboxPreview = [];
 
-        for (const edge of db.edges.items) {
-            let isInbox = false;
-            let isOutbox = false;
-            let targetNode = null;
-            let senderNode = null;
-
-            if (edge.type === 'SENT_TO') {
-                targetNode = edge.target;
-                if (targetNode === me || targetNode === 'AGENT:*') {
-                    isInbox = true;
-                }
-            } else if (edge.type === 'SENT_BY') {
-                senderNode = edge.target;
-                if (senderNode === me) {
-                    isOutbox = true;
-                }
+        for (const msg of inboxResult.messages) {
+            if (!msg.readAt) {
+                unreadCount++;
             }
-
-            if (isInbox || isOutbox) {
-                const messageNodeId = edge.source;
-                const messageNode = db.nodes.get(messageNodeId);
-                
-                if (messageNode && messageNode.label === 'MESSAGE') {
-                    // Filter out archived/retracted
-                    if (messageNode.properties.archivedAt || messageNode.properties.retracted) {
-                        continue;
-                    }
-
-                    let sentByNodeId = senderNode;
-                    let sentToNodeId = targetNode;
-
-                    // If we only resolved one from the current edge, we need the other
-                    if (!sentByNodeId || !sentToNodeId) {
-                        for (const sourceEdge of db.edges.items) {
-                            if (sourceEdge.source === messageNode.id) {
-                                if (sourceEdge.type === 'SENT_BY') sentByNodeId = sourceEdge.target;
-                                if (sourceEdge.type === 'SENT_TO') sentToNodeId = sourceEdge.target;
-                            }
-                        }
-                    }
-
-                    const previewItem = {
-                        id: messageNode.id,
-                        from: sentByNodeId,
-                        subject: messageNode.properties.subject ? messageNode.properties.subject.substring(0, 60) + (messageNode.properties.subject.length > 60 ? '...' : '') : '',
-                        createdAt: messageNode.properties.sentAt,
-                        priority: messageNode.properties.priority
-                    };
-
-                    if (isInbox && !inbox.find(m => m.id === messageNode.id)) {
-                        if (!messageNode.properties.readAt) {
-                            unreadCount++;
-                        }
-                        inbox.push(previewItem);
-                    }
-                    if (isOutbox && !outbox.find(m => m.id === messageNode.id)) {
-                        outbox.push(previewItem);
-                    }
-                }
+            if (inboxPreview.length < 3) {
+                inboxPreview.push({
+                    id: msg.messageId,
+                    from: msg.from,
+                    subject: msg.subject ? msg.subject.substring(0, 60) + (msg.subject.length > 60 ? '...' : '') : '',
+                    createdAt: msg.sentAt,
+                    priority: msg.priority
+                });
             }
         }
 
-        // Sort by createdAt DESC
-        inbox.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        outbox.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        const outboxPreview = outboxResult.messages.map(msg => ({
+            id: msg.messageId,
+            from: msg.from, // outbox 'from' is me
+            subject: msg.subject ? msg.subject.substring(0, 60) + (msg.subject.length > 60 ? '...' : '') : '',
+            createdAt: msg.sentAt,
+            priority: msg.priority
+        }));
 
         return {
             unreadCount,
-            inbox: inbox.slice(0, 3),
-            outboxRecent: outbox.slice(0, 3)
+            inbox: inboxPreview,
+            outboxRecent: outboxPreview
         };
     }
 }

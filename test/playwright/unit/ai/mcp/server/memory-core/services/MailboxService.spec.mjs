@@ -416,7 +416,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
 
         // Test from Bob's perspective (Inbox)
         await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            const preview = MailboxService.getHealthcheckPreview();
+            const preview = await MailboxService.getHealthcheckPreview();
             expect(preview.unreadCount).toBe(2);
             expect(preview.inbox.length).toBe(2);
             expect(preview.inbox[0].subject).toBe('Msg 2');
@@ -425,7 +425,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
 
         // Test from Alice's perspective (Outbox)
         await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-            const preview = MailboxService.getHealthcheckPreview();
+            const preview = await MailboxService.getHealthcheckPreview();
             expect(preview.unreadCount).toBe(0);
             expect(preview.inbox.length).toBe(0);
             expect(preview.outboxRecent.length).toBe(2);
@@ -433,7 +433,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         });
         
         // Test no identity returns null
-        const noIdentityPreview = MailboxService.getHealthcheckPreview();
+        const noIdentityPreview = await MailboxService.getHealthcheckPreview();
         expect(noIdentityPreview).toBeNull();
     });
 
