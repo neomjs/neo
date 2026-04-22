@@ -99,7 +99,7 @@ resources/data/deck/EditorConfig.json
 
 # Agent OS Local Data
 .env
-.neo-ai-data/*
+.neo-ai-data
 !.neo-ai-data/concepts/
 ai/mcp/server/*/config.mjs
 
