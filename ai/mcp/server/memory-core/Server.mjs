@@ -301,8 +301,13 @@ class Server extends Base {
     }
 
     /**
+     * @summary Boot-time diagnostic that invokes `lsof` to detect SQLite file contention.
      * Checks for sibling MCP server processes holding the memory-core SQLite files
-     * and logs them for boot-time diagnostic visibility (ticket #10188).
+     * and logs them for visibility (ticket #10188).
+     * 
+     * Uses the same empirical `lsof` + PID walk pattern established in 
+     * @see {file} ../../../scripts/diagnoseMcpConcurrency.mjs
+     * 
      * @protected
      */
     logSiblingConcurrency() {
@@ -341,7 +346,7 @@ class Server extends Base {
             });
 
             if (siblings.length > 0) {
-                logger.warn(`⚠️  [Startup] Concurrency Alert: ${siblings.length} sibling process(es) holding SQLite files. PIDs: ${siblings.map(s => s.pid).join(', ')}`);
+                logger.info(`ℹ️  [Startup] Sibling concurrency: ${siblings.length} peer process(es) holding SQLite files. PIDs: ${siblings.map(s => s.pid).join(', ')}`);
             }
         } catch (error) {
             // Ignore ENOENT (lsof missing on Windows) or status 1 (no matching processes)
