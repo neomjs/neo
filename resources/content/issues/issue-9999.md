@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-14T15:09:09Z'
-updatedAt: '2026-04-21T17:27:05Z'
+updatedAt: '2026-04-22T09:14:17Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9999'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues:
   - '[x] 10013 [Sub-Epic] DreamService Decomposition'
@@ -344,4 +344,160 @@ Origin Session ID: `71dc3cd8-d39d-48e1-ac62-e240ca67d1a5`
 
 
 - 2026-04-21T18:27:01Z @tobiu cross-referenced by PR #10165
+- 2026-04-21T19:06:54Z @tobiu cross-referenced by PR #10166
+- 2026-04-21T21:06:49Z @tobiu cross-referenced by PR #10167
+- 2026-04-21T22:30:26Z @tobiu cross-referenced by PR #10170
+- 2026-04-21T22:47:30Z @tobiu cross-referenced by PR #10171
+- 2026-04-21T23:19:24Z @tobiu cross-referenced by #10172
+### @tobiu - 2026-04-22T09:09:42Z
+
+# Session Handover — 2026-04-21 Evening Cycle
+
+**Updated 2026-04-22T09:15Z** — corrected #10139 epic-review status (Gemini did post, multiple times; original comment mis-stated "Not formally reviewed").
+
+Fresh-session anchor following six PR-cycles on top of the 17:03 handover above. Both context windows (Opus session `d69ac7a0-9fe8-4416-b766-cd9edb8bee71`, Gemini session `ada4aecb-60fc-4b25-a76b-cb92600835a2`) are winding down. Phase 3 closed + Phase 4 entry points open. This comment codifies current state for any fresh session.
+
+---
+
+## What Shipped This Cycle
+
+### Substantive-work PRs (5 merged)
+
+| PR | Resolves | Author | Status |
+|---|---|---|---|
+| [#10165](https://github.com/neomjs/neo/pull/10165) | #10152 Gemma4 extractor provenance edges + lazy-queue producer | Gemini | **Merged** |
+| [#10166](https://github.com/neomjs/neo/pull/10166) | #10145 stdio identity + anti-spoof guard | Opus | **Merged** |
+| [#10167](https://github.com/neomjs/neo/pull/10167) | #10146 + #10147 bundled: permissions + mailbox primitives | Gemini | **Merged** |
+| [#10170](https://github.com/neomjs/neo/pull/10170) | #10168 test coverage + role-based addressing + serial fixture isolation | Gemini | **Merged** |
+| [#10171](https://github.com/neomjs/neo/pull/10171) | #10153 lazy back-fill consumer + priorityBackfill CLI | Opus | **Merged** |
+
+**Actuals shifted from the 17:03 handover's proposed delegation:** Gemini picked up the Opus-track Phase 3 (#10147 + #10146 bundled as option A); Opus picked up the Gemini-track-candidate #10153 (lazy back-fill) since Gemini was in-context on the mailbox work. Net: same substrate coverage, different track attribution. The bundling + scope-split decisions were negotiated in the planning exchanges visible on this ticket.
+
+### Tickets filed this cycle
+
+| Ticket | Purpose | Parent |
+|---|---|---|
+| [#10168](https://github.com/neomjs/neo/issues/10168) | Mailbox test-coverage expansion + role-based addressing | #10139 |
+| [#10169](https://github.com/neomjs/neo/issues/10169) | `TAGGED_CONCEPT` auto-emit via `SemanticGraphExtractor` on message bodies | #10143 |
+| [#10172](https://github.com/neomjs/neo/issues/10172) | Graph node-ID case canonicalization (lowercase `memory:` vs uppercase `MEMORY:`) | #10143 |
+
+---
+
+## Remaining Open Work
+
+### Phase 4 Mailbox subs (now unblocked by #10167 merge)
+
+| Ticket | Proposed owner | Notes |
+|---|---|---|
+| [#10148](https://github.com/neomjs/neo/issues/10148) Lifecycle (archive/delete + retracted-marker) | **Gemini** | Gemini in-context on mailbox substrate from #10167 / #10170. |
+| [#10149](https://github.com/neomjs/neo/issues/10149) Healthcheck extension (inbox/outbox preview) | **Gemini** | Pairs naturally with #10158 telemetry surface. |
+| [#10150](https://github.com/neomjs/neo/issues/10150) Optional Chroma semantic layer for "find related messages" | **Either** | Middle-ground; extractor-adjacent (Gemini context) vs retrieval-layer (either). |
+
+### Phase 3 follow-ups from this cycle
+
+| Ticket | Proposed owner | Rationale |
+|---|---|---|
+| [#10169](https://github.com/neomjs/neo/issues/10169) `TAGGED_CONCEPT` auto-emit | **Gemini** | `SemanticGraphExtractor` territory; Gemini deep context from #10152 / #10165. |
+| [#10172](https://github.com/neomjs/neo/issues/10172) Node-ID case canonicalization | **Either** | Option A (lowercase canonical, cheaper) vs Option B (uppercase canonical, DB migration). Opus leans A. |
+| [#10158](https://github.com/neomjs/neo/issues/10158) Post-ship telemetry + retention | **Either** | Surfaced by Gemini's epic-review on #10143; still unassigned. |
+
+### Workflow follow-ups still pending
+
+| Ticket | Status |
+|---|---|
+| [#10164](https://github.com/neomjs/neo/issues/10164) Pre-commit cross-PR file-collision check | Unassigned; empirical cases from prior sessions still live. |
+
+---
+
+## Cross-Model PR Review Empirical Data
+
+Four cross-model review cycles validated this session — pattern holds across code-scope, workflow-scope, and plumbing-scope PRs:
+
+| Review direction | PR | Surface-level outcome |
+|---|---|---|
+| Opus → Gemini | #10165 | 3 polish items (`/tmp` convention, JSDoc gap, partial coverage) → addressed in single follow-up |
+| Opus → Gemini | #10167 | Scope reconciliation (6 of 8 edge types missing) + openapi duplicate blocker → addressed cleanly |
+| Opus → Gemini | #10170 | 5 polish items (RA1–RA5) → addressed in single follow-up |
+| Gemini → Opus | #10171 | 2 Depth Floor challenges (SIGKILL orphan, canonical-case debt) → `[ADDRESSED]` + `[DEFERRED]` to #10172 |
+
+**Cross-model asymmetry confirmed empirically:** Opus reviews lean toward structural/coverage/scope concerns; Gemini reviews lean toward edge-case/timing/failure-mode concerns. Complementary — the `pr-review` §7.2 cross-model asymmetry framing holds.
+
+**Protocol observation:** Gemini consistently used flat-bullet addressing comments; Opus used the canonical `pull-request` §7.2 `[ADDRESSED]` / `[DEFERRED]` / commit-SHA / `Re-review requested.` taxonomy. Content parity; graph-ingestible shape differs. Worth tracking for Retrospective daemon empirical-pattern mining.
+
+---
+
+## Identity & Harness Configuration
+
+**GitHub accounts provisioned** (this session, post-merge by @tobiu):
+- `@neo-opus-4-7` — Claude Opus 4.7 identity
+- `@neo-gemini-3-1-pro` — Gemini 3.1 Pro identity
+- Both 2FA-secured, classic tokens issued, `@neomjs.com` email addresses.
+
+**Immediate harness-config action for next session** (no code change needed):
+
+```json
+// .claude/settings.json
+"env": { "NEO_AGENT_IDENTITY": "neo-opus-4-7" }
+
+// .gemini/settings.json
+"env": { "NEO_AGENT_IDENTITY": "neo-gemini-3-1-pro" }
+```
+
+Without these, both harnesses fall through to `gh api user` → `@tobiu` and Mailbox `SENT_BY` edges collapse to the same graph node, losing cross-model differentiation.
+
+See `learn/agentos/tooling/MemoryCoreMcpAuth.md` §Harness Configuration for the full snippets.
+
+---
+
+## For Fresh-Session Boot
+
+### Memory Core session IDs for context mining
+
+Opus:
+- `d69ac7a0-9fe8-4416-b766-cd9edb8bee71` (this session — #10145 + #10153 + four reviews)
+- `71dc3cd8-d39d-48e1-ac62-e240ca67d1a5` (prior session — workflow infrastructure + Phase 1 Opus track)
+
+Gemini:
+- `ada4aecb-60fc-4b25-a76b-cb92600835a2` (this session — #10152 + #10146 + #10147 + #10168 + epic-review on #10139)
+- `7a73e53f-801a-490f-b693-b431189aa1a9` (prior — #10144 + epic-review on #10143)
+
+### Epic-Review Status
+
+| Epic | Gemini identity | Opus identity |
+|---|---|---|
+| [#10143](https://github.com/neomjs/neo/issues/10143) Graph-first Memory artifacts | ✓ Reviewed (prior session) | Author-self-skip (authored the epic) |
+| [#10016](https://github.com/neomjs/neo/issues/10016) Multi-Tenant Identity & Data Privacy | ✓ Reviewed (prior session) | ✓ Reviewed (this session 2026-04-21T18:22Z) |
+| [#10139](https://github.com/neomjs/neo/issues/10139) Mailbox A2A | ✓ Reviewed (this session — three comments 20:27Z, 21:02Z, 23:03Z; all 5-stage greenlights) | Author-self-skip (authored the reshape) |
+
+All three active epics now have their cross-model epic-review coverage. Phase 4 sub pickups don't need new epic-reviews (per-agent-per-epic one-shot satisfied).
+
+### Next Concrete Actions
+
+**Opus track:**
+1. If Phase 4 mailbox work is available to Opus (not natural given Gemini's in-context advantage), pick up a middle-ground alternate — [#10172](https://github.com/neomjs/neo/issues/10172) canonical-case settlement is well-scoped Opus work.
+2. Or [#10164](https://github.com/neomjs/neo/issues/10164) pre-commit cross-PR file-collision check — workflow tooling, quick win.
+
+**Gemini track:**
+1. [#10148](https://github.com/neomjs/neo/issues/10148) Mailbox lifecycle — continues the #10167 / #10170 arc.
+2. [#10149](https://github.com/neomjs/neo/issues/10149) Mailbox healthcheck preview — pairs well with Gemini's substrate knowledge.
+3. [#10169](https://github.com/neomjs/neo/issues/10169) `TAGGED_CONCEPT` Gemma4 auto-emit — `SemanticGraphExtractor` territory.
+
+**Either track (pick by capacity):**
+- [#10158](https://github.com/neomjs/neo/issues/10158) telemetry + retention
+- [#10150](https://github.com/neomjs/neo/issues/10150) Chroma semantic layer
+
+### Session-Boot Checklist (for both agents)
+
+1. Confirm `NEO_AGENT_IDENTITY` is set in harness config → graph-node binding should resolve to `@neo-opus-4-7` / `@neo-gemini-3-1-pro` at startup (visible in memory-core server log as `[neo-memory-core MCP] Identity: <login> via env-var — bound to @<login>`).
+2. Run `neo-mjs-github-workflow:sync_all` to pull the latest ticket state.
+3. Read this handover comment for delegation + phase state.
+4. `query_raw_memories` against Memory Core with the prior-session IDs for deep context on any thread you're picking up.
+5. Self-identify in PR bodies per `pull-request-workflow.md` §5.
+6. Use the `[ADDRESSED]` / `[DEFERRED]` / `[REJECTED_WITH_RATIONALE]` tag taxonomy per §7.2 when responding to reviews — improves Retrospective daemon ingestion.
+
+---
+
+Origin Session ID: `d69ac7a0-9fe8-4416-b766-cd9edb8bee71` (Claude Opus 4.7 / Claude Code)
+
+
 
