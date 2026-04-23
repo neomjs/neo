@@ -14,24 +14,43 @@ setup({
 });
 
 import {test, expect}        from '@playwright/test';
+import fs                    from 'fs-extra';
+import path                  from 'path';
 import Neo                   from '../../../../../../../../src/Neo.mjs';
 import RequestContextService from '../../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
 test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => {
     let PermissionService, GraphService, LifecycleService;
+    let dbPath;
 
     test.beforeAll(async () => {
+        // Build an isolated tmp path for the database file tests
+        const tmpDir = path.resolve(process.cwd(), 'tmp');
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        dbPath = path.join(tmpDir, `neo-permission-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
+
         GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         PermissionService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/PermissionService.mjs')).default;
         LifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
 
+        // Force temp file DB config instead of :memory: to prevent initialization race wipes
         const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        aiConfig.storagePaths.graph = ':memory:';
+        aiConfig.storagePaths.graph = dbPath;
 
         if (!LifecycleService._initPromise) {
             await LifecycleService.initAsync();
         } else {
             await LifecycleService.ready();
+        }
+    });
+
+    test.afterAll(async () => {
+        if (fs.existsSync(dbPath)) {
+            try { fs.unlinkSync(dbPath); } catch (e) {}
+            try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
+            try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
         }
     });
 
