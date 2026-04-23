@@ -594,19 +594,19 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         await GraphService.initAsync();
 
         // Assert all four identities are present with correct types
-        const geminiPro = await GraphService.getNode({id: '@neo-gemini-3-1-pro'});
+        const geminiPro = GraphService.getNode({id: '@neo-gemini-3-1-pro'});
         expect(geminiPro).toBeTruthy();
         expect(geminiPro.type).toBe('AgentIdentity');
 
-        const claudeOpus = await GraphService.getNode({id: '@neo-opus-4-7'});
+        const claudeOpus = GraphService.getNode({id: '@neo-opus-4-7'});
         expect(claudeOpus).toBeTruthy();
         expect(claudeOpus.type).toBe('AgentIdentity');
 
-        const tobiu = await GraphService.getNode({id: '@tobiu'});
+        const tobiu = GraphService.getNode({id: '@tobiu'});
         expect(tobiu).toBeTruthy();
         expect(tobiu.type).toBe('AgentIdentity');
 
-        const broadcast = await GraphService.getNode({id: 'AGENT:*'});
+        const broadcast = GraphService.getNode({id: 'AGENT:*'});
         expect(broadcast).toBeTruthy();
         expect(broadcast.type).toBe('BroadcastSentinel');
     });
