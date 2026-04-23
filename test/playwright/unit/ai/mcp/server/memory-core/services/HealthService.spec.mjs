@@ -36,6 +36,7 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
         buildIdentityBlock = mod.buildIdentityBlock;
     });
 
+
     test('null state projects to unresolved + unbound', () => {
         expect(buildIdentityBlock(null)).toEqual({
             source: 'unresolved',
@@ -118,5 +119,91 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
             bound : true,
             nodeId: '@neo-opus-4-7'
         });
+    });
+});
+
+/**
+ * @summary Coverage for the #10127 topology observability block in the healthcheck payload.
+ *
+ * Mirrors the #10176 precedent above: the end-to-end integration path requires a live ChromaDB
+ * plus the full StorageRouter/ChromaManager singleton bootstrap, which is out of scope for a
+ * pure-projection unit test. This spec pins the contract of `buildTopologyBlock` — the module-scope
+ * pure function consumed from `#performHealthCheck` to fill `database.topology`. Integration
+ * correctness (does the value reach the MCP healthcheck response under both real topologies?) is
+ * validated empirically post-merge via harness restart + healthcheck inspection.
+ *
+ * The function delegates coordinate resolution to `ChromaManager.resolveChromaCoordinates` — a pure
+ * method extracted in #10001 whose own unit coverage exists separately. Here we verify the three
+ * surface properties operators consume: `mode` (unified vs federated), `coordinates` (pass-through
+ * of the resolver's output), and `resolvedVia` (the config-key-path string that names which branch
+ * won).
+ *
+ * @see Neo.ai.mcp.server.memory-core.services.HealthService#buildTopologyBlock
+ * @see Neo.ai.mcp.server.memory-core.managers.ChromaManager#resolveChromaCoordinates
+ */
+test.describe('HealthService #10127 — buildTopologyBlock', () => {
+    let buildTopologyBlock;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../../../ai/mcp/server/memory-core/services/HealthService.mjs');
+        buildTopologyBlock = mod.buildTopologyBlock;
+    });
+
+    test('federated mode surfaces engines.chroma coordinates + resolvedVia path', () => {
+        // Default production topology: Memory Core owns its own ChromaDB, KB owns a separate one.
+        // `chromaUnified` unset/false → resolver returns `engines.chroma`, `resolvedVia` names that
+        // exact config key path so operators inspecting a wrong host/port know where to look.
+        const cfg = {
+            chromaUnified: false,
+            engines: {
+                chroma: {host: 'localhost', port: 8100},
+                kb    : {chroma: {host: 'localhost', port: 8000}}
+            }
+        };
+        expect(buildTopologyBlock(cfg)).toEqual({
+            mode       : 'federated',
+            coordinates: {host: 'localhost', port: 8100},
+            resolvedVia: 'engines.chroma'
+        });
+    });
+
+    test('unified mode surfaces engines.kb.chroma coordinates + resolvedVia path', () => {
+        // Sub-epic #10015 unified topology: Memory Core reuses the KB's ChromaDB instance. The whole
+        // point of the `/health` topology surface is making this mode verifiable from the wire —
+        // `mode: 'unified'` confirms the `NEO_CHROMA_UNIFIED=true` flag took effect, `coordinates`
+        // pins the exact KB-owned endpoint, `resolvedVia` names the config branch the resolver walked.
+        const cfg = {
+            chromaUnified: true,
+            engines: {
+                chroma: {host: 'localhost', port: 8100},
+                kb    : {chroma: {host: 'localhost', port: 8000}}
+            }
+        };
+        expect(buildTopologyBlock(cfg)).toEqual({
+            mode       : 'unified',
+            coordinates: {host: 'localhost', port: 8000},
+            resolvedVia: 'engines.kb.chroma'
+        });
+    });
+
+    test('unified mode with missing engines.kb.chroma surfaces error, does not throw', () => {
+        // Misconfig path: a custom config override clobbers `engines.kb` while leaving
+        // `chromaUnified=true`. `resolveChromaCoordinates` throws a descriptive error. Healthcheck
+        // must NOT propagate the throw — the remaining observability surface (identity, mailbox,
+        // migration) is still valuable, and the topology block itself is the right place to
+        // surface the misconfig as observable data. `coordinates: null` + `error` string aligns
+        // with the "surface, don't obscure" principle codified in PR #10227.
+        const cfg = {
+            chromaUnified: true,
+            engines: {
+                chroma: {host: 'localhost', port: 8100}
+                // engines.kb deliberately absent
+            }
+        };
+        const result = buildTopologyBlock(cfg);
+        expect(result.mode).toBe('unified');
+        expect(result.coordinates).toBeNull();
+        expect(result.resolvedVia).toBe('engines.kb.chroma');
+        expect(result.error).toMatch(/engines\.kb\.chroma/);
     });
 });

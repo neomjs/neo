@@ -66,11 +66,76 @@ The server exposes a suite of tools via the Model Context Protocol (MCP).
 
 ### Database Management
 
-*   **`healthcheck`**: Diagnostics tool. Checks ChromaDB status, collection health, and API key configuration.
+*   **`healthcheck`**: Diagnostics tool. Checks ChromaDB status, collection health, API key configuration, identity binding, and effective ChromaDB topology. See **Healthcheck Response Shape** below for the full payload contract.
 *   **`start_database`**: Starts the local ChromaDB process.
 *   **`stop_database`**: Stops the local ChromaDB process.
 *   **`export_database`**: Exports memories and summaries to JSONL files for backup.
 *   **`import_database`**: Imports data from JSONL backups.
+
+## Healthcheck Response Shape
+
+Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint when the server is exposed over HTTP) receive a structured payload covering connectivity, identity, mailbox, multi-tenant migration state, and ChromaDB topology resolution. The shape is stable — new observability blocks are additive, existing blocks are not renamed or reshaped.
+
+```json readonly
+{
+    "status": "healthy",
+    "timestamp": "2026-04-24T10:15:00.000Z",
+    "session":  { "currentId": "b02bd06c-..." },
+    "database": {
+        "process": { "managed": false, "strategy": "external" },
+        "connection": {
+            "connected": true,
+            "engines":   { "chroma": true, "sqlite": false },
+            "collections": {
+                "memories":  { "name": "neo-agent-memory",   "exists": true, "count": 8599 },
+                "summaries": { "name": "neo-agent-sessions", "exists": true, "count": 794 }
+            }
+        },
+        "topology": {
+            "mode": "federated",
+            "coordinates": { "host": "localhost", "port": 8100 },
+            "resolvedVia": "engines.chroma"
+        }
+    },
+    "features":  { "summarization": true },
+    "startup":   { "summarizationStatus": "not_attempted", "summarizationDetails": null },
+    "mailboxPreview": null,
+    "identity":  { "source": "env-var", "bound": true, "nodeId": "@neo-opus-4-7" },
+    "migration": { "memory": 0, "session": 0, "total": 0, "available": true },
+    "details":   ["Connected to an externally managed ChromaDB instance", "All features are operational"],
+    "version":   "1.0.0",
+    "uptime":    0.21
+}
+```
+
+### `database.topology` — Effective ChromaDB Coordinate Resolution
+
+Introduced in #10127 (follow-up to sub-epic #10015's unified-topology pillar — #10001 routing + #10007 lifecycle bypass). The block surfaces **which ChromaDB instance Memory Core is actually using**, so operators deploying in unified mode can verify the flag took effect without inspecting logs or re-running the config through `node -e`.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `mode` | `'unified' \| 'federated'` | `'unified'` means Memory Core reuses the KB's ChromaDB instance (`chromaUnified=true`). `'federated'` means Memory Core owns its own instance (default). |
+| `coordinates` | `{host, port} \| null` | The effective `{host, port}` the client is targeting. `null` when `chromaUnified=true` but `engines.kb.chroma` is missing from config — a misconfig surfaced as observable data rather than a 500. |
+| `resolvedVia` | `'engines.kb.chroma' \| 'engines.chroma'` | The exact config key path the resolver read. Gives operators a direct pointer to what to inspect when coordinates look wrong. |
+| `error` | `string` (optional) | Present only when the resolver threw — names the specific misconfig. |
+
+**Why this matters:** Without `database.topology`, a forgotten `NEO_CHROMA_UNIFIED=true` silently caused Memory Core to spin up its own ChromaDB, mount a distinct volume, and populate a distinct collection set — diverging from the KB state until cross-tenant drift emerged. The block closes that observability gap in-band.
+
+### `identity` — Stdio Identity Binding
+
+Introduced in #10176. Surfaces whether the MCP server resolved a concrete AgentIdentity at boot:
+- `source`: `'env-var'` (NEO_AGENT_IDENTITY), `'gh-cli'` (authenticated login), or `'unresolved'`.
+- `bound`: `true` when the resolved userId matched a seeded AgentIdentity graph node. `false` is a seed-state failure signal — agent needs `ai/scripts/seedAgentIdentities.mjs` or the #10232 boot-time self-seed did not fire.
+- `nodeId`: The canonical `@login` AgentIdentity node when bound, `null` otherwise.
+
+### `migration` — Multi-Tenant Migration Progress
+
+Introduced in #10017 (see `learn/agentos/tooling/MultiTenantMigrationGuide.md`). Tracks how many pre-tenant-aware-era nodes remain untagged as natural query patterns lazy-tag data:
+- `memory` / `session`: Count of `MEMORY` / `SESSION` label nodes lacking a `userId` property.
+- `total`: Sum of the two.
+- `available`: `false` if the SQLite graph is not yet mounted (substrate-readiness signal, not a migration error).
+
+A zero `total` is the signal operators watch for to flip the `memorySharing` default from `'legacy'` to `'private'`.
 
 ## Two-Stage Query Workflow
 

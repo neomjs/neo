@@ -44,6 +44,62 @@ export function buildIdentityBlock(stdioIdentityState) {
 }
 
 /**
+ * @summary Projects the effective ChromaDB topology resolution into the healthcheck `database.topology`
+ *          observability block (#10127).
+ *
+ * Pure function: takes an `aiConfig`-shaped input and returns the three-field projection operators
+ * need to verify ChromaDB coordinate resolution — `{mode, coordinates, resolvedVia}`. Extracted as a
+ * module-scope function so unit tests can exercise the projection without bootstrapping the full
+ * Memory Core runtime, mirroring the {@link buildIdentityBlock} precedent for module-scope pure
+ * projections.
+ *
+ * **Why this block exists:** Today's `{engines: {chroma: true}}` is a binary reachability flag. It
+ * cannot distinguish a client pointed at the KB's ChromaDB (unified topology, per sub-epic #10015)
+ * from one that silently spun up its own instance (federated topology). A forgotten `NEO_CHROMA_UNIFIED`
+ * env flag would cause Memory Core to mount a distinct volume and populate a distinct collection set,
+ * diverging from the KB state without any operator-visible signal until cross-tenant drift emerges.
+ * This block closes that gap: `mode` surfaces which topology branch won, `coordinates` pins the
+ * effective `{host, port}`, and `resolvedVia` names the exact config key path the resolver read —
+ * giving operators a direct pointer to what to fix when coordinates look wrong.
+ *
+ * **Consumes {@link Neo.ai.mcp.server.memory-core.managers.ChromaManager#resolveChromaCoordinates}**
+ * as the single source of truth for coordinate resolution. `resolveChromaCoordinates` was extracted
+ * as a pure method in #10001 specifically to make this kind of observability aggregation possible
+ * without singleton re-instantiation or config-resolution duplication.
+ *
+ * **Defensive error handling:** `resolveChromaCoordinates` throws when `chromaUnified=true` and
+ * `engines.kb.chroma` is undefined (misconfig via custom config override clobbering the `engines.kb`
+ * branch). Healthcheck must not explode under that condition — operators still need the remaining
+ * observability surface (identity, mailbox, migration counts). We surface the misconfig as observable
+ * data (`{coordinates: null, error: <message>}`) instead, aligning with the "surface, don't obscure"
+ * principle codified in PR #10227.
+ *
+ * @param {Object} cfg aiConfig-shaped input. Reads `cfg.chromaUnified` plus the branch targets
+ *     `engines.chroma.{host, port}` and `engines.kb.chroma.{host, port}` via `resolveChromaCoordinates`.
+ * @returns {{mode: String, coordinates: Object|null, resolvedVia: String, error?: String}}
+ *     `mode` is `'unified'` or `'federated'`. `coordinates` is `{host, port}` on success or `null` on
+ *     resolver throw. `resolvedVia` is the exact config key path that won the resolution —
+ *     `'engines.kb.chroma'` for unified mode, `'engines.chroma'` for federated. `error` is present
+ *     only when the resolver threw.
+ * @see Neo.ai.mcp.server.memory-core.managers.ChromaManager#resolveChromaCoordinates
+ * @see learn/agentos/MemoryCore.md
+ */
+export function buildTopologyBlock(cfg) {
+    const mode        = cfg.chromaUnified ? 'unified'           : 'federated';
+    const resolvedVia = cfg.chromaUnified ? 'engines.kb.chroma' : 'engines.chroma';
+
+    try {
+        return {
+            mode,
+            coordinates: ChromaManager.resolveChromaCoordinates(cfg),
+            resolvedVia
+        };
+    } catch (e) {
+        return {mode, coordinates: null, resolvedVia, error: e.message};
+    }
+}
+
+/**
  * @summary Monitors and validates the ChromaDB dependency for the Memory Core MCP server.
  *
  * This service acts as a gatekeeper, ensuring that ChromaDB is properly running,
@@ -345,7 +401,8 @@ class HealthService extends Base {
                 connection: {
                     connected  : false,
                     collections: null
-                }
+                },
+                topology  : buildTopologyBlock(aiConfig)
             },
             features : {
                 summarization: false
