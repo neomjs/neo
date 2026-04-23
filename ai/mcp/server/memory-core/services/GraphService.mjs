@@ -47,7 +47,6 @@ class GraphService extends Base {
 
         this._initPromise = (async () => {
             const dbPath              = aiConfig.storagePaths.graph;
-            console.log('--- GraphService initAsync READING config dbPath:', dbPath);
             let storage               = Neo.create(SQLite, {dbPath: dbPath});
             await storage.ready();
 
@@ -209,7 +208,7 @@ class GraphService extends Base {
                 ...(properties || {})
             };
             
-            if (currentUserId !== undefined) {
+            if (currentUserId !== undefined && p.userId === undefined) {
                 p.userId = currentUserId;
             }
 
