@@ -1216,6 +1216,33 @@ components:
                     type: string
                   priority:
                     type: string
+        identity:
+          type: object
+          description: |
+            Stdio transport identity observability (#10176). Surfaces the resolved
+            agent identity state for diagnostic purposes. Always present on stdio
+            transport; populated by Server.mjs post-`resolveStdioIdentity()`. `bound: false`
+            indicates the identity resolved but no seeded AgentIdentity graph node matched —
+            a valid single-tenant fallthrough state, not a health failure (status stays
+            `healthy`). `source: 'unresolved'` indicates the resolver yielded no userId
+            at all (env-var missing + gh-cli fallback failed or timed out).
+          properties:
+            source:
+              type: string
+              enum: [env-var, gh-cli, oidc, unresolved]
+              description: Provenance of the resolved identity
+              example: env-var
+            bound:
+              type: boolean
+              description: |
+                True iff the resolved login matched a seeded AgentIdentity graph node.
+                False for unseeded identities or when source is 'unresolved'.
+              example: true
+            nodeId:
+              type: string
+              nullable: true
+              description: The `@`-prefixed graph node ID when bound, else null
+              example: "@neo-opus-4-7"
         details:
           type: array
           items:
