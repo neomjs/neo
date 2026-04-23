@@ -1,9 +1,9 @@
 /**
  * @summary Copies gitignored `ai/mcp/server/<name>/config.mjs` files from the main git
- * checkout into the current git worktree so SDK-consuming scripts (`ai/services.mjs`)
- * can run.
+ * checkout into the current git worktree, and optionally symlinks the `.neo-ai-data/`
+ * data directory so Memory Core substrate is unified across worktree MCP server processes.
  *
- * **Background:** `ai/mcp/server/{github-workflow,knowledge-base,memory-core,neural-link}/config.mjs`
+ * **Background (config copy):** `ai/mcp/server/{github-workflow,knowledge-base,memory-core,neural-link}/config.mjs`
  * are gitignored (they are copy-from-template files for local overrides). Fresh git worktrees
  * under `.claude/worktrees/<name>/` therefore cannot run any script that imports
  * `ai/services.mjs`:
@@ -12,23 +12,41 @@
  * Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../ai/mcp/server/github-workflow/config.mjs'
  * ```
  *
- * **Do NOT use symlinks** as a workaround — Node resolves relative imports inside a
- * symlinked module against the real (canonical) path of the target, which points at the
- * main checkout's `src/core/Base.mjs`. When the worktree-local `src/core/Base.mjs` ALSO
- * gets imported (e.g. by a Playwright spec), `Neo.setupClass` sees the same namespace
- * registered from two different file paths and throws `Namespace collision in unitTestMode`.
- * Copies have their own canonical path inside the worktree and resolve correctly.
+ * **Symlinks: code vs data (critical distinction).**
+ *
+ * **Do NOT symlink SOURCE CODE** (`src/core/Base.mjs`, `config.mjs`, any ESM-imported
+ * module) — Node's ESM resolver walks to the canonical (real) path of a symlinked module.
+ * When the worktree-local `src/core/Base.mjs` ALSO gets imported (e.g. by a Playwright
+ * spec), `Neo.setupClass` sees the same namespace registered from two different file
+ * paths and throws `Namespace collision in unitTestMode`. For code, config files MUST be
+ * real copies with their own canonical path inside the worktree.
+ *
+ * **Symlinking DATA DIRECTORIES is safe and recommended.** `.neo-ai-data/` contains SQLite
+ * DB files (Memory Core graph), Chroma vectors, JSONL backups, concept CSVs — pure data
+ * with zero ESM import chains. `better-sqlite3` opens files by path, and `path.resolve`
+ * traverses symlinks transparently without canonical-path side effects. Symlinking
+ * `.neo-ai-data/` unifies the Memory Core substrate so AgentIdentity nodes seeded once
+ * are visible to every worktree's MCP server, and A2A mailbox handoffs span harnesses.
+ * This automates the tactical convention codified in ticket #10176 and closes #10224.
+ * See {@link symlinkDataDir} for the implementation.
  *
  * **Usage:**
  * ```
- * node ai/scripts/bootstrapWorktree.mjs
+ * node ai/scripts/bootstrapWorktree.mjs              # copy configs only
+ * node ai/scripts/bootstrapWorktree.mjs --link-data  # copy configs + symlink .neo-ai-data/
+ * node ai/scripts/bootstrapWorktree.mjs --link-data --force
+ *                                                    # clobber existing worktree-local
+ *                                                    # .neo-ai-data/ (data-loss guard
+ *                                                    # opt-in; gitignored + session-scoped)
  * ```
  *
- * Idempotent: files that already exist are skipped. Refuses to run from the main checkout
- * (no-op). Resolves the main checkout via `git worktree list --porcelain` — its first
- * entry is always the primary working tree.
+ * Idempotent: files that already exist are skipped; an existing symlink at `.neo-ai-data/`
+ * short-circuits to `'already-linked'`. Refuses to run from the main checkout (no-op).
+ * Resolves the main checkout via `git worktree list --porcelain` — its first entry is
+ * always the primary working tree.
  *
  * @see https://github.com/neomjs/neo/issues/10095
+ * @see https://github.com/neomjs/neo/issues/10224
  */
 import {execFile}       from 'child_process';
 import fs               from 'fs/promises';
@@ -116,6 +134,65 @@ async function exists(p) {
     }
 }
 
+/**
+ * @summary Creates a worktree→main-checkout symlink for a data directory (default:
+ * `.neo-ai-data/`), unifying the Memory Core substrate across concurrent worktree MCP
+ * server processes.
+ *
+ * Distinct from the "do NOT symlink source code" caveat at the file head — that warning
+ * applies exclusively to ESM-imported modules, where Node's resolver walks to the
+ * canonical path and causes `Namespace collision in unitTestMode`. Data directories
+ * carry no such semantic: `better-sqlite3` opens by path, Chroma dumps read/write through
+ * `fs`, and `path.resolve` transparently traverses symlinks without canonical-path side
+ * effects. Symlinking `.neo-ai-data/` closes the #10224 data-isolation split by unifying
+ * the substrate ADR 0001 §1 assumes exists (one SQLite file shared across N processes).
+ *
+ * Idempotent by design: `'already-linked'` short-circuits on re-invocation over an
+ * existing symlink. Refuses to clobber a real directory without `force: true` — a
+ * data-loss guard protecting against cases where a worktree accumulated unique writes
+ * before unification was opted-in.
+ *
+ * @param {object}  options
+ * @param {string}  options.mainCheckout Absolute path to the primary git checkout.
+ * @param {string}  options.projectRoot  Absolute path to the worktree root to link from.
+ * @param {string}  [options.dir='.neo-ai-data'] Directory name to link; relative to both roots.
+ * @param {boolean} [options.force=false] If true, overwrite an existing non-symlink dir at dst.
+ * @param {Function} [options.log=console.log] Logger fn for action diagnostics.
+ * @returns {Promise<'main-checkout'|'already-linked'|'linked'>} Action taken.
+ * @throws {Error} When dst is a non-symlink directory and `force` is false.
+ */
+export async function symlinkDataDir({mainCheckout, projectRoot, dir = '.neo-ai-data', force = false, log = console.log}) {
+    if (path.resolve(projectRoot) === path.resolve(mainCheckout)) {
+        log(`symlink skip (main checkout): ${dir}`);
+        return 'main-checkout';
+    }
+
+    const src   = path.join(mainCheckout, dir);
+    const dst   = path.join(projectRoot, dir);
+    const lstat = await fs.lstat(dst).catch(() => null);
+
+    if (lstat?.isSymbolicLink()) {
+        log(`symlink skip (already linked): ${dir}`);
+        return 'already-linked';
+    }
+
+    if (lstat?.isDirectory()) {
+        if (!force) {
+            throw new Error(
+                `Refusing to replace non-symlink ${dst}; pass force=true (CLI --force) to opt in. ` +
+                `This directory contains local data that would be lost.`
+            );
+        }
+        log(`symlink clobber (force=true): removing ${dir}`);
+        await fs.rm(dst, {recursive: true, force: true});
+    }
+
+    await fs.mkdir(path.dirname(dst), {recursive: true});
+    await fs.symlink(src, dst, 'dir');
+    log(`symlinked: ${dir} → ${src}`);
+    return 'linked';
+}
+
 // -------------------------------------------------------------------------------------
 // CLI entry point. Runs only when invoked directly (node ai/scripts/bootstrapWorktree.mjs)
 // and not when imported by a test spec.
@@ -128,6 +205,10 @@ if (isMain) {
     const __dirname   = path.dirname(__filename);
     const projectRoot = path.resolve(__dirname, '..', '..'); // ai/scripts/ → ai/ → root
 
+    const args     = new Set(process.argv.slice(2));
+    const linkData = args.has('--link-data');
+    const force    = args.has('--force');
+
     try {
         const mainCheckout = await resolveMainCheckout(projectRoot);
         if (!mainCheckout) {
@@ -138,6 +219,11 @@ if (isMain) {
         const result = await bootstrapWorktree({mainCheckout, projectRoot});
         const total  = result.copied.length + result.skipped.length + result.missing.length;
         console.log(`\n✓ Bootstrap complete: ${result.copied.length} copied, ${result.skipped.length} skipped, ${result.missing.length} missing (${total} total)`);
+
+        if (linkData) {
+            const symlinkResult = await symlinkDataDir({mainCheckout, projectRoot, force});
+            console.log(`✓ Data symlink: ${symlinkResult}`);
+        }
     } catch (e) {
         console.error('Bootstrap failed:', e.message);
         process.exit(1);

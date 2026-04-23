@@ -74,12 +74,19 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../ai/mcp/server/github-workf
 **Before running any SDK-consuming script or `test-unit` command in a worktree, execute:**
 
 ```bash
-node ai/scripts/bootstrapWorktree.mjs
+node ai/scripts/bootstrapWorktree.mjs              # copy configs only
+node ai/scripts/bootstrapWorktree.mjs --link-data  # ALSO unify .neo-ai-data/ (recommended)
 ```
 
-It copies the four `config.mjs` files from the main checkout (resolved via `git worktree list --porcelain`). Idempotent; no-op from the main checkout.
+It copies the four `config.mjs` files from the main checkout (resolved via `git worktree list --porcelain`) and — with `--link-data` — symlinks the worktree's `.neo-ai-data/` to the main checkout's. Idempotent; no-op from the main checkout.
 
-**Do NOT use symlinks** as an alternative — they break Playwright specs under `unitTestMode` with `Namespace collision in unitTestMode for Neo.core.Base`. Node resolves relative imports inside symlinked modules against the canonical (target) path, which points at the main checkout's `src/core/Base.mjs`, and the worktree-local `Base.mjs` collides with it at setupClass time. Copies have their own canonical path inside the worktree and resolve correctly.
+**Why `--link-data` matters (per #10224):** without it, each worktree gets its own empty `.neo-ai-data/sqlite/memory-core-graph.sqlite`, which means AgentIdentity nodes seeded in the main checkout are invisible to the worktree's MCP server. `bindAgentIdentity('neo-opus-4-7')` returns null, the mailbox throws `"no agent identity context bound"`, and A2A handshakes silently fail — the #10184 symptom from a different root cause than cache coherence. The symlink unifies the Memory Core substrate (SQLite + Chroma + concepts + backups) so ADR 0001's "one SQLite file shared across N processes" assumption holds across worktrees.
+
+**Symlink discipline — code vs data:**
+- **Source code** (`src/core/Base.mjs`, `ai/mcp/server/*/config.mjs`): **do NOT symlink.** Node's ESM resolver walks to the canonical (target) path, and `Neo.setupClass` sees the same namespace registered from two different file paths → `Namespace collision in unitTestMode`. Config files MUST be real copies.
+- **Data directories** (`.neo-ai-data/`): **symlink is safe and recommended.** Pure data with zero ESM imports — `better-sqlite3` opens by path, `path.resolve` traverses symlinks transparently. Use `--link-data` as the default.
+
+**`--force` flag:** use only if the worktree accumulated unique writes to `.neo-ai-data/` before unification was opted-in. Clobbers the local directory and creates the symlink.
 
 ### Step 6: Check for Memory Core
 

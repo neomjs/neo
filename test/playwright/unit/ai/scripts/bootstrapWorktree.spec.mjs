@@ -30,6 +30,7 @@ import path            from 'path';
  */
 test.describe('ai/scripts/bootstrapWorktree', () => {
     let bootstrapWorktree;
+    let symlinkDataDir;
     let BOOTSTRAP_CONFIGS;
     let fakeMainCheckout;
     let fakeWorktree;
@@ -42,8 +43,9 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     ];
 
     test.beforeAll(async () => {
-        const mod        = await import('../../../../../ai/scripts/bootstrapWorktree.mjs');
+        const mod         = await import('../../../../../ai/scripts/bootstrapWorktree.mjs');
         bootstrapWorktree = mod.bootstrapWorktree;
+        symlinkDataDir    = mod.symlinkDataDir;
         BOOTSTRAP_CONFIGS = mod.BOOTSTRAP_CONFIGS;
     });
 
@@ -140,5 +142,108 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
 
         expect(result.missing).toEqual([removed]);
         expect(result.copied).toEqual(fixtureConfigs.filter(c => c !== removed));
+    });
+
+    // --------------------------------------------------------------------------------
+    // #10224 symlinkDataDir — unifies .neo-ai-data across worktree+main checkouts.
+    //
+    // These tests use a canary file in the main-checkout data dir to prove that the
+    // symlinked worktree path sees the same data, empirically validating the
+    // cross-process substrate unification this helper exists to enable.
+    // --------------------------------------------------------------------------------
+    test.describe('#10224 symlinkDataDir', () => {
+        const dataDir = '.neo-ai-data';
+        let mainDataDir;
+
+        test.beforeEach(async () => {
+            // Seed the main checkout's .neo-ai-data/ with a canary file so tests can
+            // prove symlink traversal actually reaches it.
+            mainDataDir = path.join(fakeMainCheckout, dataDir);
+            await fs.ensureDir(mainDataDir);
+            await fs.writeFile(path.join(mainDataDir, 'canary.txt'), 'main-checkout-canary\n', 'utf-8');
+        });
+
+        test('creates a symlink when worktree .neo-ai-data does not exist', async () => {
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                log         : () => {}
+            });
+
+            expect(result).toBe('linked');
+
+            const dst         = path.join(fakeWorktree, dataDir);
+            const lstat       = await fs.lstat(dst);
+            expect(lstat.isSymbolicLink()).toBe(true);
+
+            // Canary reachable via the symlinked path — proves symlink traversal works.
+            const canaryViaLink = await fs.readFile(path.join(dst, 'canary.txt'), 'utf-8');
+            expect(canaryViaLink).toBe('main-checkout-canary\n');
+        });
+
+        test('is idempotent — returns already-linked when dst is already a symlink', async () => {
+            // First call creates the link.
+            await symlinkDataDir({mainCheckout: fakeMainCheckout, projectRoot: fakeWorktree, log: () => {}});
+
+            // Second call must short-circuit; no error, no re-link.
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                log         : () => {}
+            });
+            expect(result).toBe('already-linked');
+        });
+
+        test('refuses to clobber a non-symlink directory without force', async () => {
+            // Pre-create a real directory with unique content — simulates a worktree
+            // that has accumulated data before symlink unification was opted-in.
+            const worktreeDataDir = path.join(fakeWorktree, dataDir);
+            await fs.ensureDir(worktreeDataDir);
+            await fs.writeFile(path.join(worktreeDataDir, 'local-only.txt'), 'worktree-specific\n', 'utf-8');
+
+            await expect(
+                symlinkDataDir({mainCheckout: fakeMainCheckout, projectRoot: fakeWorktree, log: () => {}})
+            ).rejects.toThrow(/Refusing to replace non-symlink/);
+
+            // Local data preserved — guard did its job.
+            const preserved = await fs.readFile(path.join(worktreeDataDir, 'local-only.txt'), 'utf-8');
+            expect(preserved).toBe('worktree-specific\n');
+        });
+
+        test('clobbers a non-symlink directory when force=true and creates the link', async () => {
+            const worktreeDataDir = path.join(fakeWorktree, dataDir);
+            await fs.ensureDir(worktreeDataDir);
+            await fs.writeFile(path.join(worktreeDataDir, 'local-only.txt'), 'worktree-specific\n', 'utf-8');
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                force       : true,
+                log         : () => {}
+            });
+            expect(result).toBe('linked');
+
+            // Local dir replaced — confirm dst is now a symlink.
+            const lstat = await fs.lstat(worktreeDataDir);
+            expect(lstat.isSymbolicLink()).toBe(true);
+
+            // Canary reachable via the freshly-linked path.
+            const canary = await fs.readFile(path.join(worktreeDataDir, 'canary.txt'), 'utf-8');
+            expect(canary).toBe('main-checkout-canary\n');
+        });
+
+        test('returns main-checkout when run from the primary working tree', async () => {
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeMainCheckout, // same path = primary working tree
+                log         : () => {}
+            });
+            expect(result).toBe('main-checkout');
+
+            // No link was created (the main checkout's own dataDir stays as a real dir).
+            const lstat = await fs.lstat(path.join(fakeMainCheckout, dataDir));
+            expect(lstat.isDirectory()).toBe(true);
+            expect(lstat.isSymbolicLink()).toBe(false);
+        });
     });
 });
