@@ -408,7 +408,7 @@ class MailboxService extends Base {
             if (inboxPreview.length < 3) {
                 inboxPreview.push({
                     id: msg.messageId,
-                    from: msg.from,
+                    from: msg.from || 'unknown',
                     subject: msg.subject ? msg.subject.substring(0, 60) + (msg.subject.length > 60 ? '...' : '') : '',
                     createdAt: msg.sentAt,
                     priority: msg.priority
@@ -418,7 +418,7 @@ class MailboxService extends Base {
 
         const outboxPreview = outboxResult.messages.map(msg => ({
             id: msg.messageId,
-            from: msg.from, // outbox 'from' is me
+            from: msg.from || 'unknown', // outbox 'from' is me
             subject: msg.subject ? msg.subject.substring(0, 60) + (msg.subject.length > 60 ? '...' : '') : '',
             createdAt: msg.sentAt,
             priority: msg.priority
