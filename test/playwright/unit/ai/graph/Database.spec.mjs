@@ -299,4 +299,54 @@ test.describe('Neo.ai.graph.Database', () => {
 
         db.destroy();
     });
+
+    test('should invalidate vicinity of both endpoints when syncCache invalidates edges (#10260)', async () => {
+        if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+        
+        // Setup Primary instance (Agent A)
+        let storageA = Neo.create(SQLite, { dbPath });
+        await storageA.initAsync();
+        let dbA = Neo.create(Database, { id: 'cache-a', storage: storageA });
+        await storageA.load();
+
+        // Setup Secondary instance (Agent B)
+        let storageB = Neo.create(SQLite, { dbPath });
+        await storageB.initAsync();
+        let dbB = Neo.create(Database, { id: 'cache-b', storage: storageB });
+        await storageB.load();
+
+        // Instance A creates two nodes
+        dbA.addNode({ id: 'node-x' });
+        dbA.addNode({ id: 'node-y' });
+
+        // Instance B syncs and then accesses both nodes, warming its vicinity cache
+        dbB.syncCache();
+        dbB.getAdjacentNodes('node-x');
+        dbB.getAdjacentNodes('node-y');
+        
+        expect(dbB.vicinityLoadedNodes.has('node-x')).toBe(true);
+        expect(dbB.vicinityLoadedNodes.has('node-y')).toBe(true);
+        expect(dbB.edges.getCount()).toBe(0);
+
+        // Instance A adds a new edge between the nodes
+        dbA.addEdge({ id: 'edge-xy', source: 'node-x', target: 'node-y', type: 'LINKS' });
+
+        // Without the #10260 fix, dbB.syncCache() would remove the edge ID from delta, 
+        // but it wouldn't clear 'node-x' or 'node-y' from vicinityLoadedNodes.
+        dbB.syncCache();
+        
+        // With #10260, they should no longer be marked as loaded
+        expect(dbB.vicinityLoadedNodes.has('node-x')).toBe(false);
+        expect(dbB.vicinityLoadedNodes.has('node-y')).toBe(false);
+
+        // A subsequent call to getAdjacentNodes triggers a SQLite fetch and hydrates the new edge
+        let adjacentToX = dbB.getAdjacentNodes('node-x');
+        expect(adjacentToX.length).toBe(1);
+        expect(adjacentToX[0].id).toBe('node-y');
+        expect(dbB.edges.getCount()).toBe(1);
+        expect(dbB.edges.get('edge-xy')).toBeTruthy();
+
+        dbA.destroy();
+        dbB.destroy();
+    });
 });
