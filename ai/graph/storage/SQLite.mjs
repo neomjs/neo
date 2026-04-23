@@ -43,10 +43,17 @@ class SQLite extends Base {
         const Database = (await import('better-sqlite3')).default;
 
         await fs.ensureDir(path.dirname(me.dbPath));
-
+        console.log('--- SQLite initAsync opening dbPath:', me.dbPath);
         me.db = new Database(me.dbPath, { verbose: null });
         me.db.pragma('journal_mode = WAL');
         me.db.pragma('busy_timeout = 5000');
+        
+        try {
+            const rcs = await import('../../mcp/server/shared/services/RequestContextService.mjs');
+            me.RequestContextService = rcs.default;
+        } catch (e) {
+            // Safe fallback for browser/UI isolated executions
+        }
 
         me.initSchema();
     }
@@ -69,17 +76,21 @@ class SQLite extends Base {
             this.db.exec('DROP TABLE IF EXISTS Nodes');
         }
 
+        console.log('--- EXECUTING SQLite initSchema. upgradeRequired:', upgradeRequired);
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS Nodes (
                 id TEXT PRIMARY KEY,
+                user_id TEXT,
                 data TEXT NOT NULL
             );
         `);
+        console.log('--- Nodes schema after creation:', this.db.prepare('PRAGMA table_info(Nodes)').all());
 
         // We store the structured relationships natively
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS Edges (
                 id TEXT PRIMARY KEY,
+                user_id TEXT,
                 source TEXT NOT NULL,
                 target TEXT NOT NULL,
                 type TEXT NOT NULL,
@@ -90,6 +101,19 @@ class SQLite extends Base {
             CREATE INDEX IF NOT EXISTS idx_edges_source ON Edges(source);
             CREATE INDEX IF NOT EXISTS idx_edges_target ON Edges(target);
         `);
+        
+        // Multi-Tenant Migration (#10011): Add user_id if migrating from older schema
+        try {
+            this.db.prepare('SELECT user_id FROM Nodes LIMIT 1').get();
+        } catch (e) {
+            try {
+                console.log('--- Migrating database to add user_id ---');
+                this.db.exec('ALTER TABLE Nodes ADD COLUMN user_id TEXT');
+                this.db.exec('ALTER TABLE Edges ADD COLUMN user_id TEXT');
+            } catch (alterErr) {
+                console.error('--- Migration failed ---', alterErr);
+            }
+        }
 
         // The Delta Log Hardware Mechanism mimicking Global Broadcast matrices securely natively without network payloads cleanly!
         this.db.exec(`
@@ -118,14 +142,14 @@ class SQLite extends Base {
     addNodes(nodes) {
         if (!this.db || !nodes || nodes.length === 0) return;
         const stmt = this.db.prepare(`
-            INSERT INTO Nodes (id, data)
-            VALUES (?, ?)
-            ON CONFLICT(id) DO UPDATE SET data=excluded.data
+            INSERT INTO Nodes (id, user_id, data)
+            VALUES (?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET data=excluded.data, user_id=excluded.user_id
         `);
         
         const insertMany = this.db.transaction((nodesList) => {
             for (const node of nodesList) {
-                stmt.run(node.id, JSON.stringify(node));
+                stmt.run(node.id, node.properties?.userId || null, JSON.stringify(node));
             }
         });
         
@@ -139,9 +163,10 @@ class SQLite extends Base {
     addEdges(edges) {
         if (!this.db || !edges || edges.length === 0) return;
         const stmt = this.db.prepare(`
-            INSERT INTO Edges (id, source, target, type, data)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO Edges (id, user_id, source, target, type, data)
+            VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET 
+                user_id=excluded.user_id, 
                 source=excluded.source, 
                 target=excluded.target, 
                 type=excluded.type, 
@@ -150,7 +175,7 @@ class SQLite extends Base {
 
         const insertMany = this.db.transaction((edgesList) => {
             for (const edge of edgesList) {
-                stmt.run(edge.id, edge.source, edge.target, edge.type || null, JSON.stringify(edge));
+                stmt.run(edge.id, edge.properties?.userId || null, edge.source, edge.target, edge.type || null, JSON.stringify(edge));
             }
         });
 
@@ -201,14 +226,14 @@ class SQLite extends Base {
         if (!this.db || !diffLog || diffLog.length === 0) return;
 
         const insertNodeStmt = this.db.prepare(`
-            INSERT INTO Nodes (id, data) VALUES (?, ?)
-            ON CONFLICT(id) DO UPDATE SET data=excluded.data
+            INSERT INTO Nodes (id, user_id, data) VALUES (?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET data=excluded.data, user_id=excluded.user_id
         `);
         const removeNodeStmt = this.db.prepare('DELETE FROM Nodes WHERE id = ?');
 
         const insertEdgeStmt = this.db.prepare(`
-            INSERT INTO Edges (id, source, target, type, data) VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET source=excluded.source, target=excluded.target, type=excluded.type, data=excluded.data
+            INSERT INTO Edges (id, user_id, source, target, type, data) VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET user_id=excluded.user_id, source=excluded.source, target=excluded.target, type=excluded.type, data=excluded.data
         `);
         const removeEdgeStmt = this.db.prepare('DELETE FROM Edges WHERE id = ?');
 
@@ -219,14 +244,14 @@ class SQLite extends Base {
 
                 if (storeType === 'nodes') {
                     if (mutation.addedItems) {
-                        for (const node of mutation.addedItems) insertNodeStmt.run(node.id, JSON.stringify(node));
+                        for (const node of mutation.addedItems) insertNodeStmt.run(node.id, node.properties?.userId || null, JSON.stringify(node));
                     }
                     if (mutation.removedItems) {
                         for (const node of mutation.removedItems) removeNodeStmt.run(node.id);
                     }
                 } else if (storeType === 'edges') {
                     if (mutation.addedItems) {
-                        for (const edge of mutation.addedItems) insertEdgeStmt.run(edge.id, edge.source, edge.target, edge.type || null, JSON.stringify(edge));
+                        for (const edge of mutation.addedItems) insertEdgeStmt.run(edge.id, edge.properties?.userId || null, edge.source, edge.target, edge.type || null, JSON.stringify(edge));
                     }
                     if (mutation.removedItems) {
                         for (const edge of mutation.removedItems) removeEdgeStmt.run(edge.id);
@@ -311,13 +336,16 @@ class SQLite extends Base {
         if (ids.length === 0) return {nodes: [], edges: []};
 
         let placeholders = ids.map(() => '?').join(',');
+        
+        // Resolve Identity for RLS natively synchronously
+        let userId = this.RequestContextService ? this.RequestContextService.getAgentIdentityNodeId() : null;
+        let rlsClause = `AND (user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.visibility') = 'team')`;
 
-        const nodesStmt = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${placeholders})`);
-        const targetNodes = nodesStmt.all(...ids).map(r => JSON.parse(r.data));
+        const nodesStmt = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${placeholders}) ${rlsClause}`);
+        const targetNodes = nodesStmt.all(...ids, userId || null).map(r => JSON.parse(r.data));
 
-        const edgesStmt = this.db.prepare(`SELECT data FROM Edges WHERE source IN (${placeholders}) OR target IN (${placeholders})`);
-        // Duplicate the parameters array because we use the placeholder block twice locally identically natively!
-        const edgesParams = [...ids, ...ids];
+        const edgesStmt = this.db.prepare(`SELECT data FROM Edges WHERE (source IN (${placeholders}) OR target IN (${placeholders})) ${rlsClause}`);
+        const edgesParams = [...ids, ...ids, userId || null];
         const edges = edgesStmt.all(...edgesParams).map(r => JSON.parse(r.data));
 
         let adjacentIds = new Set();
@@ -330,8 +358,8 @@ class SQLite extends Base {
         if (adjacentIds.size > 0) {
             let adjIdsArray = Array.from(adjacentIds);
             let adjPl       = adjIdsArray.map(() => '?').join(',');
-            let adjStmt     = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${adjPl})`);
-            adjacentNodes   = adjStmt.all(...adjIdsArray).map(r => JSON.parse(r.data));
+            let adjStmt     = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${adjPl}) ${rlsClause}`);
+            adjacentNodes   = adjStmt.all(...adjIdsArray, userId || null).map(r => JSON.parse(r.data));
         }
 
         return {
