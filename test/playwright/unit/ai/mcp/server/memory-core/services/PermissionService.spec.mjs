@@ -20,7 +20,8 @@ import Neo                   from '../../../../../../../../src/Neo.mjs';
 import RequestContextService from '../../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
 test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => {
-    let PermissionService, GraphService, LifecycleService;
+    test.describe.configure({ mode: 'serial' });
+    let PermissionService, GraphService, LifecycleService, originalAutoSave;
     let dbPath;
 
     test.beforeAll(async () => {
@@ -44,9 +45,13 @@ test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => 
         } else {
             await LifecycleService.ready();
         }
+        
+        originalAutoSave = GraphService.db.autoSave;
+        GraphService.db.autoSave = true;
     });
 
     test.afterAll(async () => {
+        GraphService.db.autoSave = originalAutoSave;
         if (fs.existsSync(dbPath)) {
             try { fs.unlinkSync(dbPath); } catch (e) {}
             try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
