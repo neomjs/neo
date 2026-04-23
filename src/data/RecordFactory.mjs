@@ -372,7 +372,7 @@ class RecordFactory extends Base {
      * @param {Object} opts.record
      */
     onRecordChange(opts) {
-        Neo.get?.(opts.model.storeId)?.onRecordChange(opts)
+        Neo.get(opts.model.storeId)?.onRecordChange(opts)
     }
 
     /**
