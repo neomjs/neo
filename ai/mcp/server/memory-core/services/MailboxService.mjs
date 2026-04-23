@@ -107,10 +107,17 @@ class MailboxService extends Base {
         if (!isRoleOrHuman && to !== 'AGENT:*' && to !== sentBy) {
             let canReply = PermissionService.hasPermission(sentBy, to, 'CAN_REPLY_TO');
 
-            // Reachable counterparty logic: if they ever sent us a message, we can reply
+            // Reachable Counterparty trust lift: if `to` ever sent a message that reached the
+            // caller — either directly (SENT_TO → sentBy) or via broadcast (SENT_TO → AGENT:*) —
+            // an implicit trust chain permits DM without an explicit CAN_REPLY_TO grant.
+            // Broadcast inclusion closes #10179: pre-fix the iteration only matched direct
+            // SENT_TO targets, breaking the first-message bootstrap pattern where Agent A
+            // broadcasts and Agent B wants to DM-reply. Trade-off: any broadcaster becomes
+            // DM-reachable by every authenticated recipient; rate-limit mitigation is deferred
+            // until the spam surface materializes empirically at swarm scale.
             if (!canReply) {
                 for (const edge of GraphService.db.edges.items) {
-                    if (edge.type === 'SENT_TO' && edge.target === sentBy) {
+                    if (edge.type === 'SENT_TO' && (edge.target === sentBy || edge.target === 'AGENT:*')) {
                         let priorSender = null;
                         for (const srcEdge of GraphService.db.edges.items) {
                             if (srcEdge.source === edge.source && srcEdge.type === 'SENT_BY') {

@@ -326,6 +326,40 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         });
     });
 
+    test('#10179 broadcast recipient can DM-reply to broadcaster without explicit grant', async () => {
+        // Bob broadcasts (always-permitted — broadcast bypasses the CAN_REPLY_TO gate).
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+            await MailboxService.addMessage({ to: 'AGENT:*', subject: 'ping', body: 'body' });
+        });
+
+        // Alice — a broadcast recipient without explicit CAN_REPLY_TO — DM-replies to Bob.
+        // Pre-fix, this was rejected with Unauthorized because the reachable-counterparty
+        // iteration only matched SENT_TO edges whose target equaled the caller directly,
+        // never the AGENT:* sentinel. Replicates the empirical 2026-04-22 Opus↔Gemini
+        // handshake failure documented on PR #10177.
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Re: ping', body: 'body' });
+            expect(res.status).toBe('sent');
+        });
+    });
+
+    test('#10179 unrelated broadcast does NOT grant DM access to non-broadcaster', async () => {
+        GraphService.upsertNode({ id: 'AGENT:ed', type: 'AGENT', name: 'Ed', properties: {} });
+
+        // Ed broadcasts. Alice and Bob receive it but have no other substrate signal.
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:ed' }, async () => {
+            await MailboxService.addMessage({ to: 'AGENT:*', subject: 'from ed', body: 'body' });
+        });
+
+        // Alice tries to DM Bob — must still be rejected. Ed's broadcast grants DM access
+        // *to Ed* for every authenticated recipient (per #10179 trust lift), but does not
+        // transitively grant Alice reply-access to unrelated third parties. Validates the
+        // guard's core invariant survives the broadcast-receipt extension.
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+            await expect(MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Hi', body: 'body' })).rejects.toThrow(/Unauthorized/);
+        });
+    });
+
     test('Role-based addressing dispatch modes', async () => {
         GraphService.upsertNode({ id: 'role:librarian', type: 'ROLE', name: 'Librarian', properties: {} });
         GraphService.upsertNode({ id: 'human:tobiu', type: 'HUMAN', name: 'Tobias', properties: {} });

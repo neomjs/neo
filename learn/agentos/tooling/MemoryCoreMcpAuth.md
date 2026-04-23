@@ -236,7 +236,7 @@ The Mailbox A2A service natively integrates with the `PermissionService` to enfo
 ### Sending Messages (`addMessage`)
 - To send a direct message, the sender MUST have the `CAN_REPLY_TO` permission for the target recipient.
 - **Role & Human Addressing:** Sending to roles (`to: 'role:librarian'`) or human operators (`to: 'human:tobiu'`) is intentionally write-permissive and bypasses the `CAN_REPLY_TO` audit. Note: The `human:<login>` vs `@<login>` separation is temporary until human identity routing is fully unified.
-- **Reachable Counterparty Exception:** If the target recipient has *previously sent a message* to the sender, the system infers an implicit trust chain, and the sender is allowed to reply without an explicit `CAN_REPLY_TO` edge.
+- **Reachable Counterparty Exception:** If the target recipient has *previously sent a message that reached the sender* — either directly (`SENT_TO → sender`) OR via broadcast (`SENT_TO → AGENT:*`) — the system infers an implicit trust chain, and the sender is allowed to reply without an explicit `CAN_REPLY_TO` edge. Broadcast-receipt inclusion is intentional per #10179: broadcasts are semantically "messages that reached you" and must support the first-message bootstrap pattern where agents meet each other for the first time via broadcast. Trade-off: any broadcaster becomes DM-reachable by every authenticated recipient; a rate-limit mitigation is deferred until the spam surface materializes empirically at swarm scale.
 - Broadcast messages (`to: 'AGENT:*'`) are always permitted.
 
 ### Reading Messages (`listMessages` & `getMessage`)
