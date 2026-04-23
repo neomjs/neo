@@ -235,9 +235,23 @@ class Server extends Base {
             // `node.id` on the Promise object is `undefined`, causing bind to silently
             // return `undefined` — the true root cause of the #10241 boot-time bind failure
             // that busy_timeout/retry/reorder patches only partially masked.
-            const node = await GraphService.getNode({id: graphNodeId});
-            if (node) {
-                return node.id;
+            let retries = 3;
+            let node = null;
+            
+            while (retries > 0) {
+                node = await GraphService.getNode({id: graphNodeId});
+                if (node) {
+                    return node.id;
+                }
+                
+                // If not found, it might be due to a stuck vicinity cache from a concurrent boot lock.
+                // Clear the specific node from the cache and try again.
+                if (GraphService.db && GraphService.db.vicinityLoadedNodes) {
+                    GraphService.db.vicinityLoadedNodes.delete(graphNodeId);
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 50));
+                retries--;
             }
             
             logger.warn(`[neo-memory-core MCP] AgentIdentity graph lookup failed for ${graphNodeId}: Node not found in database`);
