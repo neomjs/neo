@@ -274,6 +274,27 @@ The Mailbox A2A service natively integrates with the `PermissionService` to enfo
 - **Role Inbox Asymmetry:** While sending to a role is write-permissive, *reading* from a role's inbox (e.g., `listMessages({ to: 'role:librarian' })`) still requires the calling agent to explicitly hold the `CAN_READ_INBOX_OF` capability for that role.
 - Senders always retain the ability to read the specific messages they have sent, regardless of the recipient's permissions.
 
+### Reply Policy Deployment Modes (#10252)
+
+The `CAN_REPLY_TO` enforcement on `addMessage` is a **deployment-selected default** via `aiConfig.mailbox.defaultReplyPolicy`. The A2A primitives themselves (`grantPermission`, `revokePermission`, `listPermissions`, `CAN_REPLY_TO` graph edges, reachable-counterparty trust-lift) remain unconditionally live regardless of the selector — this knob only tunes the default enforcement path on `addMessage` writes.
+
+| Mode | Default Policy | Suited For | Bootstrap UX |
+|---|---|---|---|
+| `'open'` (library default) | Accept any authenticated peer | Homogeneous trusted-frontier swarms (local development with Claude + Gemini + future frontier models owned by a single operator) | First-contact DM succeeds immediately |
+| `'blocked'` | Strict-isolation per #10146 | Multi-user / multi-tenant Memory Core deployments; mixed-trust-tier installations where cross-tenant boundaries must be enforced at the substrate | First-contact DM requires an explicit `CAN_REPLY_TO` grant OR a broadcast-first bootstrap per #10179's trust-lift |
+
+**Selection paths** (precedence order, highest first):
+1. `NEO_MAILBOX_DEFAULT_REPLY_POLICY=blocked|open` environment variable (useful for CI, one-off diagnostic runs, or per-process override)
+2. Explicit `mailbox.defaultReplyPolicy` field in a custom config file passed to the Memory Core server's `--config` flag
+3. The library default (`'open'`) baked into `ai/mcp/server/memory-core/config.mjs`
+
+**What this does NOT change:**
+- `CAN_READ_INBOX_OF`, `CAN_READ_MEMORIES_OF`, `CAN_READ_SESSIONS_OF` read-path scopes remain strict regardless of mode. Reading someone's inbox is categorically different from sending them a message; asymmetric treatment is intentional.
+- `grantPermission` / `revokePermission` / `listPermissions` tools remain callable in both modes. Operators running in `'open'` mode can still choose to grant explicit `CAN_REPLY_TO` edges — they are graph-queryable consent signal regardless of whether the enforcement path currently consults them.
+- Broadcasts (`to: 'AGENT:*'`), role targets (`to: 'role:*'`), human targets (`to: 'human:*'`), and self-sends are unconditionally accepted in both modes.
+
+**Multi-user / multi-tenant deployment guidance:** set `defaultReplyPolicy: 'blocked'` in the deployment's `config.mjs` as part of installation. Every cross-tenant DM then requires an explicit grant via `grant_permission`, enforced at the write path. Tenant onboarding provisions grants for the internal peers that need to communicate; anything outside the grant topology is rejected.
+
 ## See Also
 
 - `ai/mcp/server/shared/services/AuthService.mjs` — OIDC discovery and token introspection
@@ -292,4 +313,7 @@ The Mailbox A2A service natively integrates with the `PermissionService` to enfo
 - #10145 — OAuth2 authentication layer for Memory Core MCP connections (this doc)
 - #10016 — Multi-Tenant Identity & Data Privacy (parent sub-epic)
 - #10139 — Mailbox A2A primitive (future consumer of anti-spoof invariant)
+- #10146 — Cross-tenant permission edges + multi-tenant validation test suite (strict-isolate default codification)
+- #10179 — Mailbox reachable-counterparty broadcast-receipt trust-lift
+- #10252 — Mailbox reply policy: config-gated default for deployment-tier selection
 - #9999 — Cloud-Native Knowledge & Multi-Tenant Memory Core (grand-parent epic)

@@ -21,7 +21,7 @@ import RequestContextService from '../../../../../../../../ai/mcp/server/shared/
 
 test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
     test.describe.configure({ mode: 'serial' });
-    let MailboxService, GraphService, PermissionService, LifecycleService, buildMailboxDelta, originalAutoSave;
+    let MailboxService, GraphService, PermissionService, LifecycleService, buildMailboxDelta, originalAutoSave, mailboxAiConfig, originalMailboxPolicy;
     let dbPath;
 
     test.beforeAll(async () => {
@@ -40,8 +40,20 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         buildMailboxDelta = (await import('../../../../../../../../ai/mcp/server/memory-core/services/MemoryService.mjs')).buildMailboxDelta;
 
         // Force temp file DB config instead of :memory: to prevent initialization race wipes
-        const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        aiConfig.storagePaths.graph = dbPath;
+        mailboxAiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        mailboxAiConfig.storagePaths.graph = dbPath;
+
+        // Pin this suite to strict-isolation mode (#10252). These tests predate the
+        // config-gated default and assert `'blocked'`-mode behavior (Unauthorized
+        // throws on ungranted DMs, reachable-counterparty trust-lift semantics).
+        // Explicit pin preserves their invariants regardless of the library default
+        // shipped in config.mjs. Symmetric restore in afterAll per symmetric-cleanup
+        // discipline — Playwright `fullyParallel` interleaves across files even when
+        // describe mode is `serial`, so cross-file mutation of the singleton Config
+        // needs both-ends guards.
+        mailboxAiConfig.data.mailbox ??= {};
+        originalMailboxPolicy = mailboxAiConfig.data.mailbox.defaultReplyPolicy;
+        mailboxAiConfig.data.mailbox.defaultReplyPolicy = 'blocked';
 
         if (!LifecycleService._initPromise) {
             await LifecycleService.initAsync();
@@ -54,6 +66,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
 
     test.afterAll(async () => {
         GraphService.db.autoSave = originalAutoSave;
+        // Symmetric restore of the mailbox policy to whatever the library default
+        // was before this suite ran.
+        if (mailboxAiConfig?.data?.mailbox) {
+            mailboxAiConfig.data.mailbox.defaultReplyPolicy = originalMailboxPolicy;
+        }
         if (fs.existsSync(dbPath)) {
             try { fs.unlinkSync(dbPath); } catch (e) {}
             try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
@@ -656,6 +673,158 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
             expect(delta).not.toBeNull();
             expect(delta.unreadCount).toBe(1);
             expect(delta.latestPreview.subject).toBe('hello all');
+        });
+    });
+});
+
+/**
+ * #10252: Mailbox reply policy — `'open'` mode behavior.
+ *
+ * Separate top-level describe so the config mutation + serial ordering are
+ * self-contained. Mirrors the setup pattern of the parent suite (isolated tmp
+ * SQLite + symmetric afterAll cleanup) but pins `defaultReplyPolicy: 'open'`
+ * for the duration of these tests.
+ *
+ * Validates the three invariants of `'open'` mode:
+ *   1. First-contact DM between two identities with no prior history and no
+ *      `CAN_REPLY_TO` grant SUCCEEDS (the core UX deliverable).
+ *   2. `PermissionService.grantPermission` remains callable and `CAN_REPLY_TO`
+ *      edges remain graph-queryable — primitives unchanged, only enforcement
+ *      path differs.
+ *   3. Read-path scoping (`CAN_READ_INBOX_OF`) remains strict — reading
+ *      another agent's inbox without a grant still throws Unauthorized.
+ */
+test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — open policy mode (#10252)', () => {
+    test.describe.configure({ mode: 'serial' });
+    let MailboxService, GraphService, PermissionService, LifecycleService, mailboxAiConfig, originalAutoSave, originalMailboxPolicy;
+    let dbPath;
+
+    test.beforeAll(async () => {
+        const tmpDir = path.resolve(process.cwd(), 'tmp');
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        dbPath = path.join(tmpDir, `neo-mailbox-open-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
+
+        GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        MailboxService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/MailboxService.mjs')).default;
+        PermissionService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/PermissionService.mjs')).default;
+        LifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
+
+        mailboxAiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        mailboxAiConfig.storagePaths.graph = dbPath;
+
+        mailboxAiConfig.data.mailbox ??= {};
+        originalMailboxPolicy = mailboxAiConfig.data.mailbox.defaultReplyPolicy;
+        mailboxAiConfig.data.mailbox.defaultReplyPolicy = 'open';
+
+        if (!LifecycleService._initPromise) {
+            await LifecycleService.initAsync();
+        } else {
+            await LifecycleService.ready();
+        }
+        originalAutoSave = GraphService.db.autoSave;
+        GraphService.db.autoSave = true;
+    });
+
+    test.afterAll(async () => {
+        GraphService.db.autoSave = originalAutoSave;
+        if (mailboxAiConfig?.data?.mailbox) {
+            mailboxAiConfig.data.mailbox.defaultReplyPolicy = originalMailboxPolicy;
+        }
+        if (fs.existsSync(dbPath)) {
+            try { fs.unlinkSync(dbPath); } catch (e) {}
+            try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
+            try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
+        }
+    });
+
+    test.beforeEach(async () => {
+        if (GraphService.db) {
+            GraphService.db.nodes.clear();
+            GraphService.db.edges.clear();
+            GraphService.db.vicinityLoadedNodes.clear();
+
+            if (GraphService.db.storage?.db) {
+                await GraphService.db.storage.clear();
+                GraphService.db.storage.db.exec('DELETE FROM GraphLog');
+            }
+        }
+
+        GraphService.upsertNode({ id: 'AGENT:alice', type: 'AGENT', name: 'Alice', properties: {} });
+        GraphService.upsertNode({ id: 'AGENT:bob', type: 'AGENT', name: 'Bob', properties: {} });
+        GraphService.upsertNode({ id: 'AGENT:charlie', type: 'AGENT', name: 'Charlie', properties: {} });
+        GraphService.upsertNode({ id: 'AGENT:*', type: 'AGENT', name: 'Broadcast', properties: {} });
+    });
+
+    test('first-contact DM succeeds without grant or prior history', async () => {
+        // Charlie sends to Alice with no CAN_REPLY_TO edge and no prior message history.
+        // Strict mode would throw Unauthorized here (see the parent suite's Reachable-
+        // Counterparty Trust test); open mode accepts the send.
+        const res = await RequestContextService.run({ agentIdentityNodeId: 'AGENT:charlie' }, () => {
+            return MailboxService.addMessage({ to: 'AGENT:alice', subject: 'First contact', body: 'hi' });
+        });
+
+        expect(res.status).toBe('sent');
+        expect(res.messageId).toMatch(/^MESSAGE:/);
+    });
+
+    test('grantPermission remains callable and edges remain graph-queryable', async () => {
+        // Even in 'open' mode, operators can still explicitly grant CAN_REPLY_TO.
+        // The edge is created and visible via listPermissions — only the enforcement
+        // path on addMessage is bypassed.
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+            const result = await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+            expect(result.success).toBe(true);
+        });
+
+        // Alice (the grantee) can list her capabilities and sees the grant.
+        const perms = await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, () => {
+            return PermissionService.listPermissions();
+        });
+
+        expect(perms.capabilities).toContainEqual(expect.objectContaining({
+            target: 'AGENT:bob',
+            scope : 'CAN_REPLY_TO'
+        }));
+    });
+
+    test('read-path scoping stays strict — CAN_READ_INBOX_OF still enforced', async () => {
+        // Bob sends Alice a message (allowed in open mode).
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+            const res = await MailboxService.addMessage({ to: 'AGENT:alice', subject: 'inbox test', body: 'body' });
+            msgId = res.messageId;
+        });
+
+        // Charlie tries to read Alice's inbox — should fail regardless of reply policy.
+        // Open mode only relaxes the WRITE gate; read-path isolation is a separate
+        // scope (`CAN_READ_INBOX_OF`) and stays strict per #10252's Out of Scope.
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:charlie' }, async () => {
+            await expect(MailboxService.listMessages({ to: 'AGENT:alice' })).rejects.toThrow(/Unauthorized/);
+        });
+
+        // Charlie also can't fetch the specific message by ID without the scope.
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:charlie' }, async () => {
+            await expect(MailboxService.getMessage({ messageId: msgId })).rejects.toThrow(/Unauthorized/);
+        });
+    });
+
+    test('broadcast sends and role/human targets behave identically in both modes', async () => {
+        // Open mode does not change the always-allowed paths: broadcast sends,
+        // self-sends, and role/human targets all continue to work regardless of policy.
+        GraphService.upsertNode({ id: 'role:librarian', type: 'ROLE', name: 'Librarian', properties: {} });
+        GraphService.upsertNode({ id: 'human:tobiu', type: 'HUMAN', name: 'Tobias', properties: {} });
+
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+            const broadcast = await MailboxService.addMessage({ to: 'AGENT:*', subject: 'announce', body: 'body' });
+            expect(broadcast.status).toBe('sent');
+
+            const toRole = await MailboxService.addMessage({ to: 'role:librarian', subject: 'need book', body: 'body' });
+            expect(toRole.status).toBe('sent');
+
+            const toHuman = await MailboxService.addMessage({ to: 'human:tobiu', subject: 'fyi', body: 'body' });
+            expect(toHuman.status).toBe('sent');
         });
     });
 });
