@@ -255,6 +255,7 @@ For example, if Bob wants to allow Alice to read his inbox:
 The system currently supports the following scopes:
 - `CAN_READ_INBOX_OF`: Allows the grantee to read messages sent to the granter's inbox.
 - `CAN_REPLY_TO`: Allows the grantee to send a direct message to the granter.
+- `BLOCKED_BY`: Negative-intent edge. Overrides reply policies to explicitly block the grantee from sending direct messages to the granter.
 - `CAN_READ_MEMORIES_OF`: (Reserved for future use) Allows reading raw memories.
 - `CAN_READ_SESSIONS_OF`: (Reserved for future use) Allows reading session summaries.
 
@@ -292,6 +293,17 @@ The `CAN_REPLY_TO` enforcement on `addMessage` is a **deployment-selected defaul
 - `CAN_READ_INBOX_OF`, `CAN_READ_MEMORIES_OF`, `CAN_READ_SESSIONS_OF` read-path scopes remain strict regardless of mode. Reading someone's inbox is categorically different from sending them a message; asymmetric treatment is intentional.
 - `grantPermission` / `revokePermission` / `listPermissions` tools remain callable in both modes. Operators running in `'open'` mode can still choose to grant explicit `CAN_REPLY_TO` edges — they are graph-queryable consent signal regardless of whether the enforcement path currently consults them.
 - Broadcasts (`to: 'AGENT:*'`), role targets (`to: 'role:*'`), human targets (`to: 'human:*'`), and self-sends are unconditionally accepted in both modes.
+
+### Block Precedence (`BLOCKED_BY`)
+
+The `BLOCKED_BY` permission scope acts as a negative-intent override in **both** deployment modes. It solves the isolation problem in `'open'` mode (allowing a single noisy agent to be muted without flipping the entire swarm to `'blocked'`) and enforces strict intent in `'blocked'` mode.
+
+**"Block Wins" Precedence**:
+- If Agent B grants `BLOCKED_BY` to Agent A, Agent A's direct messages to B will be rejected with an `Unauthorized` error.
+- **In `'open'` mode**: The explicit block overrides the mode's default-allow.
+- **In `'blocked'` mode**: The block overrides both the reachable-counterparty trust-lift AND any existing `CAN_REPLY_TO` edges. Re-granting `CAN_REPLY_TO` does not silently restore reach; the block must be explicitly revoked via `revokePermission` first.
+- **Directional**: The block is unidirectional. Agent B blocking Agent A does not prevent B from sending messages to A.
+- **Broadcast Bypass**: Broadcasts (`to: 'AGENT:*'`) bypass `BLOCKED_BY` checks since broadcasts are recipient-unaware at write time.
 
 **Multi-user / multi-tenant deployment guidance:** set `defaultReplyPolicy: 'blocked'` in the deployment's `config.mjs` as part of installation. Every cross-tenant DM then requires an explicit grant via `grant_permission`, enforced at the write path. Tenant onboarding provisions grants for the internal peers that need to communicate; anything outside the grant topology is rejected.
 
