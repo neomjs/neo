@@ -197,7 +197,11 @@ Startup log reads `Identity: tobiu via gh-cli — unbound (no matching AgentIden
 
 If the `identity.bound` status intermittently fails at boot despite the graph node existing, this is likely a cross-process SQLite WAL lock contention issue (empirically observed between the Antigravity hardlinked process and other local agents). During concurrent boot, read operations like `GraphService.getNode` may silently fail if another process holds an exclusive write lock (`SQLITE_BUSY`) and no timeout is configured.
 
-**The Fix:** Ensure that `pragma busy_timeout = 5000` is applied to the SQLite connection (`ai/graph/storage/SQLite.mjs`). This is the native, architectural solution to cross-process contention. Adding arbitrary retry loops in application code masks the underlying `SQLITE_BUSY` error and should be avoided.
+**Fix (two layers):**
+1. `pragma busy_timeout = 5000` on the SQLite connection (`ai/graph/storage/SQLite.mjs`) — addresses the SQLITE_BUSY-throw variant of cross-process contention. Necessary but not sufficient.
+2. `await GraphService.getNode({id})` in `bindAgentIdentity` (`ai/mcp/server/memory-core/Server.mjs`) — addresses the Promise-unwrap variant. Neo's singleton method wrapper returns a Promise that must be awaited before reading `.id`; without it, the bind silently latches `undefined`. See #10249 / PR #10250.
+
+Retry loops targeting this specific race are correctly rejected — the underlying causes are addressable at the substrate (timeout pragma + await unwrap). Note: retry patterns with cache invalidation (`vicinityLoadedNodes.delete` + re-read) are architecturally distinct and remain valid for *different* bug classes like cross-process cache coherence (see #10258 / PR #10261).
 
 ### Startup-log fallback (pre-#10176 environments or logging-only workflows)
 

@@ -94,6 +94,8 @@ If no such concern exists, the reviewer MUST explicitly document the search:
 
 The search documentation is not optional filler — it's the reviewer proving they looked. A peer-review with neither a challenge nor a documented search fails the Depth Floor, regardless of structural compliance elsewhere.
 
+**Note on Resolution Paths:** If your challenge raises a "this pattern is suspect" claim or architectural dispute, refer to **§5.1 Suggesting Empirical Isolation Tests** as the preferred path for resolving the concern empirically rather than via theoretical debate.
+
 Self-reviews (§1) already have an analogous requirement ("actively hunt for blind spots"); §7.1 extends the discipline to peer-reviews.
 
 ### 7.2 Cross-Model Asymmetry Context
