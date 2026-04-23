@@ -271,6 +271,51 @@ const defaultConfig = {
      */
     backupPath: path.resolve(cwd, '.neo-ai-data/backups'),
     /**
+     * Mailbox substrate behavior configuration (#10252).
+     *
+     * Deployment-tier selectors for the A2A mailbox service. The A2A primitives
+     * themselves (Message nodes, SENT_BY / SENT_TO edges, CAN_REPLY_TO permission
+     * edges, PermissionService.grantPermission / revokePermission / listPermissions)
+     * remain unconditionally live regardless of these selectors — this block only
+     * tunes default enforcement policy to match deployment reality.
+     *
+     * @type {Object}
+     */
+    mailbox: {
+        /**
+         * Default reply policy for non-broadcast DMs. Controls whether `addMessage`
+         * to a specific AgentIdentity target requires a prior `CAN_REPLY_TO` grant
+         * or reachable-counterparty trust-lift (#10146 strict-isolation default),
+         * or accepts any authenticated sender as a peer.
+         *
+         * - `'blocked'` — strict-isolation default policy from #10146. Suited for
+         *   multi-user / multi-tenant Memory Core deployments and mixed-trust-tier
+         *   installations where cross-tenant boundaries must be enforced at the
+         *   substrate. Cross-tenant reach requires explicit `CAN_REPLY_TO` grants.
+         *   Reachable-counterparty trust-lift (#10179) relaxes the bootstrap once
+         *   any broadcast or direct message has flowed between the pair.
+         *
+         * - `'open'` — peer-trust mode. Suited for homogeneous trusted-frontier
+         *   swarms where every authenticated identity is a peer owned by the same
+         *   operator (e.g. local development with Claude + Gemini + future frontier
+         *   models). Eliminates the first-message bootstrap tax. `CAN_REPLY_TO`
+         *   edges still queryable via `grant_permission` / `list_permissions`;
+         *   enforcement simply skips the check.
+         *
+         * Does NOT weaken read-path scoping — `CAN_READ_INBOX_OF`,
+         * `CAN_READ_MEMORIES_OF`, `CAN_READ_SESSIONS_OF` remain strict regardless
+         * of this setting. Reading someone's inbox is categorically different
+         * from sending them a message; asymmetric treatment is intentional.
+         *
+         * Library default is `'open'`; multi-user / multi-tenant deployments
+         * override to `'blocked'` in their `config.mjs` as part of installation,
+         * or via the `NEO_MAILBOX_DEFAULT_REPLY_POLICY` environment variable.
+         *
+         * @type {'blocked'|'open'}
+         */
+        defaultReplyPolicy: process.env.NEO_MAILBOX_DEFAULT_REPLY_POLICY || 'open'
+    },
+    /**
      * Target file path for the lazy backfill queue of unresolved provenance edges.
      * @type {string}
      */

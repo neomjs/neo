@@ -1,4 +1,5 @@
 import Base from '../../../../../src/core/Base.mjs';
+import aiConfig from '../config.mjs';
 import RequestContextService from '../../shared/services/RequestContextService.mjs';
 import GraphService from './GraphService.mjs';
 import PermissionService from './PermissionService.mjs';
@@ -103,8 +104,25 @@ class MailboxService extends Base {
 
         const isRoleOrHuman = to.startsWith('role:') || to.startsWith('human:');
 
-        // Check reply permission
-        if (!isRoleOrHuman && to !== 'AGENT:*' && to !== sentBy) {
+        // Reply permission gate (#10252): strict-isolation mode only.
+        //
+        // In `'blocked'` mode (multi-user / multi-tenant deployment default per #10146),
+        // non-broadcast DMs to a specific AgentIdentity require either a prior
+        // `CAN_REPLY_TO` grant or the reachable-counterparty trust-lift (#10179).
+        //
+        // In `'open'` mode (homogeneous trusted-frontier swarm default), the check is
+        // skipped — all authenticated peers can DM each other. The PermissionService
+        // primitives remain live and callable; `CAN_REPLY_TO` edges are still created
+        // by `grantPermission` and still queryable by `listPermissions`. Only the
+        // enforcement path on `addMessage` consults the config selector.
+        //
+        // Read-path scoping (`CAN_READ_INBOX_OF`, `CAN_READ_MEMORIES_OF`,
+        // `CAN_READ_SESSIONS_OF`) is NOT affected by this setting — reading someone's
+        // inbox is categorically different from sending them a message; asymmetric
+        // treatment is intentional per #10252's Out of Scope.
+        const strictReplyPolicy = aiConfig.mailbox?.defaultReplyPolicy === 'blocked';
+
+        if (strictReplyPolicy && !isRoleOrHuman && to !== 'AGENT:*' && to !== sentBy) {
             let canReply = PermissionService.hasPermission(sentBy, to, 'CAN_REPLY_TO');
 
             // Reachable Counterparty trust lift: if `to` ever sent a message that reached the
