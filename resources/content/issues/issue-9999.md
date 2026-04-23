@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-14T15:09:09Z'
-updatedAt: '2026-04-22T09:14:17Z'
+updatedAt: '2026-04-23T22:22:28Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9999'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: null
 subIssues:
   - '[x] 10013 [Sub-Epic] DreamService Decomposition'
@@ -501,4 +501,161 @@ Origin Session ID: `d69ac7a0-9fe8-4416-b766-cd9edb8bee71` (Claude Opus 4.7 / Cla
 
 
 - 2026-04-22T15:39:04Z @neo-opus-4-7 cross-referenced by #10179
+- 2026-04-23T12:41:30Z @neo-opus-4-7 cross-referenced by #10237
+- 2026-04-23T17:29:49Z @neo-opus-4-7 cross-referenced by #10252
+- 2026-04-23T17:39:54Z @neo-opus-4-7 cross-referenced by PR #10253
+- 2026-04-23T17:55:24Z @neo-opus-4-7 cross-referenced by #10251
+- 2026-04-23T18:12:08Z @neo-opus-4-7 cross-referenced by #10255
+- 2026-04-23T18:38:37Z @neo-opus-4-7 cross-referenced by #10257
+- 2026-04-23T18:47:10Z @neo-opus-4-7 cross-referenced by PR #10258
+- 2026-04-23T21:03:00Z @neo-opus-4-7 cross-referenced by #10259
+- 2026-04-23T21:58:55Z @neo-gemini-3-1-pro cross-referenced by PR #10265
+- 2026-04-23T22:04:39Z @neo-opus-4-7 cross-referenced by PR #10266
+### @neo-opus-4-7 - 2026-04-23T22:22:28Z
+
+**Input from Claude Opus 4.7 (Claude Code):**
+
+> ❋ # Session Handover — 2026-04-23 / 2026-04-24 Cycle
+> 
+> **Session anchor**: Claude Opus 4.7 (Claude Code) session `cff20948-2dbb-4ac4-99e2-df2ebe967a4b` (primary); Gemini 3.1 Pro (Antigravity) session `1c5933cc-a2d0-4296-ae3f-f4e815d385a2`. Both context windows saturating — this comment codifies the state so a fresh session (either identity) can pick up cleanly.
+> 
+> ## The Big Win: A2A Substrate Fully Operational
+> 
+> Priority 0 for #10139 closed empirically this session. The full 5-layer A2A stack now composes end-to-end with zero manual SQLite queries and zero harness-restart workarounds:
+> 
+> | Layer | Ticket / PR | Authored |
+> |---|---|---|
+> | Auth + stdio identity | #10145 / #10166 | Claude (prior session) |
+> | Identity binding (await unwrap) | #10249 / #10250 | Claude |
+> | Write-path edges (normalization) | #10259 / #10262 | Claude |
+> | Cross-process read coherence | #10257 / #10258 + #10260 / #10261 | Claude + Gemini |
+> | Config-gated reply policy | #10252 / #10253 | Claude |
+> | Per-agent blocking (BLOCKED_BY) | #10255 / #10266 | Gemini |
+> 
+> **Empirical verification**: post-merge of #10258 + #10261 + harness restart, direct-DM between `@neo-opus-4-7` ↔ `@neo-gemini-3-1-pro` works bidirectionally. `list_messages` surfaces peer writes on first call. `from` attribution populated correctly. `mailbox.defaultReplyPolicy: 'open'` enables first-contact DM without bootstrap workarounds.
+> 
+> ## Docs + Pattern Codification (shipped)
+> 
+> - **PR #10254** — `.github/AI_QUICK_START.md` three-harness parity (Claude Desktop config added) + `.neo-ai-data` symlink convention + `NEO_AGENT_IDENTITY` placement discipline + `⌘Q` restart gotcha
+> - **PR #10263** — Empirical Isolation-Test-After-Review pattern codified symmetrically in `pr-review §5.1` + `pull-request §7.10`; Fresh MCP Client Isolation Strategy in `debugging-antigravity` + `self-repair`; WAL-lock troubleshooting with two-layer fix (busy_timeout + await unwrap) in `MemoryCoreMcpAuth.md` **[approved, awaiting merge]**
+> - **PR #10265** — `MultiTenantMigrationGuide.md` as design source of truth for #10017; `healthcheck.migration.untaggedCount` observability surface; `WriteSideInvariant.spec.mjs` regression guard **[open for review]**
+> 
+> ## #9999 Remaining Critical Path
+> 
+> ### Sub-epic #10016 — Multi-Tenant Identity & Data Privacy (3/7 → 4/7 done post-merge)
+> 
+> | Ticket | Status | Track | Depends On |
+> |---|---|---|---|
+> | #10000 Hardened identity ingestion | ✅ done | — | — |
+> | #10144 AgentIdentity node type | ✅ done | — | — |
+> | #10145 OAuth2 MCP auth | ✅ done | — | — |
+> | #10146 Cross-tenant permission edges | ✅ done | — | — |
+> | **#10017 Migration strategy** | 🟡 PR #10265 open | Claude | awaiting merge |
+> | **#10010 Team vs Private flag** | ⏸ queued | Gemini | #10017 merge (design anchor) |
+> | **#10011 SQLite RLS + tenant isolation** | ⏸ queued | Gemini | #10017 merge (design anchor) |
+> 
+> ### Sub-epic #10015 — Dynamic Topology (2/4 done)
+> 
+> | Ticket | Status | Track | Notes |
+> |---|---|---|---|
+> | #10001 Unified vs federated routing | ✅ done | — | — |
+> | #10007 Bypass db init in unified mode | ✅ done | — | — |
+> | **#10008 Playwright: unified topology** | ⏸ queued | Gemini | coordinate with @tobiu on `config.template.mjs` boundaries first |
+> | **#10009 Playwright: federated topology** | ⏸ queued | Gemini | same coordination gate |
+> 
+> ### Standalone #9999 subs
+> 
+> | Ticket | Status | Track | Notes |
+> |---|---|---|---|
+> | **#10127 Healthcheck topology surface** | ⏸ open | Either | Quick Win shape; pure aggregation; already-spec'd |
+> | #10136 CodebaseOverview Two-Hemispheres rewrite | ⏸ open | Either | Orthogonal to deployment-critical path |
+> 
+> ### Out-of-band tickets filed this session
+> 
+> | Ticket | Status | Purpose |
+> |---|---|---|
+> | #10267 | 🟠 unassigned | Investigate gh-workflow MCP sync-metadata.json no-op-diff pollution (Option C recommended — split timestamps into gitignored sidecar) |
+> 
+> ## Pending Operational Step (tobi-side)
+> 
+> The `normalizeGraphIdentities.mjs` migration script (#10259 / PR #10262, **already merged**) has NOT yet been run with `--apply` on the primary SQLite. The graph still contains the pre-#10144 aliases `@opus` + `@gemini` plus test-fixture leakage `AGENT:alice` + `AGENT:bob`. Next session's operator step:
+> 
+> ```bash
+> # 1. Review the plan
+> node ai/scripts/normalizeGraphIdentities.mjs
+> 
+> # 2. Commit atomically
+> node ai/scripts/normalizeGraphIdentities.mjs --apply
+> 
+> # 3. Restart all MCP harnesses (⌘Q + relaunch Claude Desktop + Antigravity)
+> ```
+> 
+> After apply: Gemini's stuck `MESSAGE:64a3ba28-...` ("Re: hello all") routed to `@opus` becomes reachable at canonical `@neo-opus-4-7` inbox.
+> 
+> ## Division of Labor Going Forward
+> 
+> Confirmed via A2A exchange this session (`MESSAGE:d559987d` thread):
+> 
+> **Claude track** (once #10265 merges):
+> - Support Gemini's #10010 / #10011 via `MultiTenantMigrationGuide.md` as design reference
+> - Pick up **#10127** (Quick Win observability) as next solo track
+> - Available for ad-hoc polish / cross-family review coverage on her PRs
+> 
+> **Gemini track** (blocked on #10017 merge to pin `memorySharing` enum semantics):
+> - **#10011** (SQLite RLS + tenant isolation) — deepest substrate, her lane
+> - **#10010** (Team vs Private retrieval flag) — pairs with #10011 (tag-on-write + filter-on-read feature pair)
+> - **#10008 / #10009** (Playwright topology coverage) — after tobi coordination on `config.template.mjs` scope boundaries
+> 
+> ## Key Retrospectives for Future Sessions
+> 
+> Captured across this session's PR reviews + ticket bodies. All are graph-ingestible via `query_summaries` / `query_raw_memories`:
+> 
+> 1. **Cross-family review catches what solo review misses** — every substrate fix in the #10241 → #10266 chain had a catch landed by the *other* family. Empirical substrate of the `#10208` / `#10211` mandate. Pattern now codified symmetrically via #10263 (`pr-review §5.1` + `pull-request §7.10`).
+> 
+> 2. **Empirical Isolation-Test-After-Review** as architectural-dispute resolution primitive — converts theoretical debate into binary empirical results in ~5 minutes of harness time. Self-demonstrated by Gemini's revision cycle on #10263 where she adopted the proposed revision verbatim rather than re-debating.
+> 
+> 3. **Lazy-tag-on-read is the #10017 prescription**, not back-fill. Full rationale in `MultiTenantMigrationGuide.md §Core Decision` + the #10017 reshape note. Four concrete arguments against back-fill are the load-bearing precedent for any future "should we back-fill legacy data?" question.
+> 
+> 4. **"Scope-name intuition was correct, prescription layer needed reshape"** as a recurring pattern — `#10251 → #10252 → #10255 → #10266` (BLOCKED_BY substrate-flip → config-gated + additive primitive) is the canonical example. When a reviewer flags a prescription but the author's core concept is sound, reshape at the right substrate instead of rejecting wholesale.
+> 
+> 5. **Diagnostic primitives should be shell-invokable CLIs**, not additional MCP tool surface, when the diagnostic's whole purpose is to bypass the MCP tool cache (Fresh MCP Client Primitive per #10263). Self-referential recursion-avoidance insight.
+> 
+> 6. **"Ensure isolation test reproduces the full failure condition"** — my #10253 Phase-2 isolation test ran in single-harness mode and incorrectly confirmed `busy_timeout` alone would close the race; under real 6-process swarm load, #10258 + #10261 had to close additional gaps. Future isolation tests: reproduce the full operational load, not simplified variants.
+> 
+> ## Session IDs for Memory Mining
+> 
+> **Claude Opus 4.7 / Claude Code** (chronological, most recent last):
+> - `d3cf73b4-21b0-419c-9921-feb472e5a693` — #10241 plan-mode exploration
+> - `5f746864-85c4-4b2c-bd79-64c76a8a2be3` — #10249 await discovery
+> - `57b8fba5-2bd4-4446-ab46-6d1c9086a19d` — #10252 / #10253 config-gated reply policy
+> - `7ad90eb3-2218-4200-977b-fbfe546d64a8` — #10258 cross-process coherence + #10259 identity normalization
+> - `29f490c0-41ed-4846-a767-287552d5c3c4` — Post-#10258 merge, first direct-DM empirical success
+> - `cff20948-2dbb-4ac4-99e2-df2ebe967a4b` — #10017 intake reshape + implementation + this handover
+> 
+> **Gemini 3.1 Pro / Antigravity**:
+> - `1ca26c19-dd3c-4f74-ae42-51409514d40c` — #10242 original, busy_timeout work
+> - `1c5933cc-a2d0-4296-ae3f-f4e815d385a2` — #10260 / #10261 syncCache + #10263 docs consolidation + #10264 / #10266 opportunistic pickups
+> 
+> ## Fresh-Session Boot Checklist
+> 
+> 1. **Confirm harness identity**: `healthcheck` → `identity.bound: true, nodeId: '@neo-opus-4-7'` or `'@neo-gemini-3-1-pro'`. If unbound, restart harness (verify `NEO_AGENT_IDENTITY` env var per `AI_QUICK_START §5 Core Configuration`).
+> 
+> 2. **Check tobi's pending operational step**: if `@opus` + `@gemini` still appear in SQLite (`search_nodes` query 'AgentIdentity'), prompt him to run `normalizeGraphIdentities.mjs --apply`. If clean, skip.
+> 
+> 3. **Check PR state**: `list_pull_requests` for open PRs. At handover time: PR #10263 (approved, awaiting merge) + PR #10265 (open, awaiting review).
+> 
+> 4. **Cross-family coordination first**: before picking up any #9999 sub, A2A mailbox handshake (`list_messages`) to see if the other track has posted a coordination message. Direct-DM to the other identity works without workarounds post-#10258.
+> 
+> 5. **Priority order for next pickup**:
+>    - **If you're Gemini**: wait for #10265 merge, then #10011 first (substrate-heavy, unblocks #10010)
+>    - **If you're Claude**: #10127 (Quick Win) OR stand-by for cross-family review coverage on Gemini's #10011 PR
+> 
+> 6. **Before first code change**: `ticket-intake` skill. If the ticket's prescription predates a substrate change this session codified (especially #10144 graph-first identity), reshape rather than accept blindly. The #10017 reshape note is the canonical example of the pattern.
+> 
+> ---
+> 
+> **Session end state**: A2A operational, design anchor for #10017 in PR review, cross-family review pattern well-exercised, `#9999` remaining critical path scoped and tracked. Fresh session picks up with the operational step + #10265 merge + Gemini's #10011 start; I pick up #10127 on the next Claude-track session.
+> 
+> Origin Session ID (this handover): `cff20948-2dbb-4ac4-99e2-df2ebe967a4b`
+
 
