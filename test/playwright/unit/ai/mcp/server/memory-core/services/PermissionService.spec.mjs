@@ -143,4 +143,29 @@ test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => 
                 .rejects.toThrow('Unauthorized: Cannot enumerate permissions for AGENT:bob');
         });
     });
+
+    test('grantPermission preserves existing node type and does not overwrite it (resolves #10231)', async () => {
+        // Pre-seed AGENT:* as a BroadcastSentinel
+        GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: '*', properties: {} });
+
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+            const res = await PermissionService.grantPermission({ to: 'AGENT:*', scope: 'CAN_REPLY_TO' });
+            expect(res.success).toBe(true);
+        });
+
+        // Assert type remains 'BroadcastSentinel'
+        const node = GraphService.getNode({ id: 'AGENT:*' });
+        expect(node.type).toBe('BroadcastSentinel');
+        
+        // Also assert in SQLite
+        const rows = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').all('AGENT:*');
+        expect(JSON.parse(rows[0].data).label).toBe('BroadcastSentinel');
+    });
+
+    test('grantPermission throws when target does not exist (resolves #10231)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+            await expect(PermissionService.grantPermission({ to: 'AGENT:phantom', scope: 'CAN_REPLY_TO' }))
+                .rejects.toThrow('Cannot grant CAN_REPLY_TO to AGENT:phantom: target does not exist. Identity nodes must be pre-seeded via ai/scripts/seedAgentIdentities.mjs.');
+        });
+    });
 });

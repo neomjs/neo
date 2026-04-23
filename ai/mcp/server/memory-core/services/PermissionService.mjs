@@ -60,12 +60,14 @@ class PermissionService extends Base {
             throw new Error(`Invalid scope. Must be one of: ${this.validScopes.join(', ')}`);
         }
 
-        // Check if node exists
-        const db = GraphService.db;
-        if (!db.nodes.get(to)) {
-            // It's technically fine if the target doesn't exist yet, but linkNodes might cull it if not found in SQLite.
-            // Let's lazily ensure the node exists if we're granting permission to it.
-            GraphService.upsertNode({ id: to, type: 'AGENT', name: to.replace('AGENT:', ''), properties: {} });
+        // Verify target exists in SQLite directly (not in-memory cache, per sibling ticket's
+        // lazy-load root-cause fix). Identity creation is a privileged operation (seedAgentIdentities.mjs);
+        // it should NOT be an implicit side-effect of a permission grant. Stubbing with type 'AGENT'
+        // + stripped metadata destroys seed data and creates type-inconsistent nodes.
+        // Pattern mirrors linkNodes:179-185 (FK-style existence guard).
+        const verifyStmt = GraphService.db.storage.db.prepare('SELECT count(*) as count FROM Nodes WHERE id = ?');
+        if (verifyStmt.get(to).count === 0) {
+            throw new Error(`Cannot grant ${scope} to ${to}: target does not exist. Identity nodes must be pre-seeded via ai/scripts/seedAgentIdentities.mjs.`);
         }
 
         // The capability belongs to 'to', pointing at 'owner'
