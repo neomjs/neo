@@ -90,6 +90,8 @@ class GraphService extends Base {
             this.linkNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);
 
             // --- 2. AGENT IDENTITY SUBSTRATE SEEDING (#10232) ---
+            // Eliminates the "seed → restart-again" recovery loop documented across sessions
+            // 0327771f, 15852d91, 8968b9f6, 24aa1fa1 (see #10232 body).
             // Auto-provision identity roots at boot so bindAgentIdentity doesn't throw on fresh setups.
             for (const identity of IDENTITIES) {
                 // We use getAdjacentNodes as a trigger for lazy-loading into the cache
@@ -99,11 +101,13 @@ class GraphService extends Base {
                     this.upsertNode(identity);
                 } else {
                     // Defensive createdAt retention: Peek SQLite to preserve original timestamp
-                    const rows = storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').all(identity.id);
-                    if (rows.length > 0) {
-                        const rawData = JSON.parse(rows[0].data);
-                        if (rawData.properties && rawData.properties.createdAt) {
-                            identity.properties.createdAt = rawData.properties.createdAt;
+                    const row = storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(identity.id);
+                    if (row) {
+                        const rawData = JSON.parse(row.data);
+                        if (rawData.properties?.createdAt) {
+                            const preserved = {...identity, properties: {...identity.properties, createdAt: rawData.properties.createdAt}};
+                            this.upsertNode(preserved);
+                            continue;
                         }
                     }
                     this.upsertNode(identity);

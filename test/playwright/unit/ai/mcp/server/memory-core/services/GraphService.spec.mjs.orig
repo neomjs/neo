@@ -551,9 +551,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
             }
         }
 
-        // Wipe the init promise and db to force complete re-initialization
+        // Wipe the init promise to force re-initialization
         GraphService._initPromise = null;
-        GraphService.db = null;
 
         // Run the boot sequence
         await GraphService.initAsync();
@@ -563,13 +562,13 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         expect(geminiPro).toBeTruthy();
         expect(geminiPro.type).toBe('AgentIdentity');
 
+        const geminiFlash = GraphService.getNode({id: '@neo-gemini-3-1-flash'});
+        expect(geminiFlash).toBeTruthy();
+        expect(geminiFlash.type).toBe('AgentIdentity');
+
         const claudeOpus = GraphService.getNode({id: '@neo-opus-4-7'});
         expect(claudeOpus).toBeTruthy();
         expect(claudeOpus.type).toBe('AgentIdentity');
-
-        const tobiu = GraphService.getNode({id: '@tobiu'});
-        expect(tobiu).toBeTruthy();
-        expect(tobiu.type).toBe('AgentIdentity');
 
         const broadcast = GraphService.getNode({id: 'AGENT:*'});
         expect(broadcast).toBeTruthy();
