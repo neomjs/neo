@@ -761,6 +761,38 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
             expect(delta.unreadCount).toBe(1);
             expect(delta.latestPreview.subject).toBe('hello all');
         });
+
+        test('BLOCKED_BY overrides CAN_REPLY_TO in blocked mode', async () => {
+            // Bob grants Alice CAN_REPLY_TO
+            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+                await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+                // And then blocks her
+                await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'BLOCKED_BY' });
+            });
+
+            // Alice tries to DM Bob -> fails because BLOCKED_BY overrides
+            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+                await expect(MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Fail', body: 'Blocked' }))
+                    .rejects.toThrow('Unauthorized: AGENT:bob has blocked messages from AGENT:alice.');
+            });
+
+            // Broadcasts bypass BLOCKED_BY
+            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+                const res = await MailboxService.addMessage({ to: 'AGENT:*', subject: 'Broadcast', body: 'Passes' });
+                expect(res.status).toBe('sent');
+            });
+
+            // Revoke the block
+            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+                await PermissionService.revokePermission({ to: 'AGENT:alice', scope: 'BLOCKED_BY' });
+            });
+
+            // Alice tries to DM Bob again -> succeeds because CAN_REPLY_TO remains
+            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+                const res = await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Success', body: 'Unblocked' });
+                expect(res.status).toBe('sent');
+            });
+        });
     });
 });
 
@@ -912,6 +944,42 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — open po
 
             const toHuman = await MailboxService.addMessage({ to: 'human:tobiu', subject: 'fyi', body: 'body' });
             expect(toHuman.status).toBe('sent');
+        });
+    });
+
+    test('BLOCKED_BY overrides default-allow in open mode', async () => {
+        // Bob blocks Alice
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+            await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'BLOCKED_BY' });
+        });
+
+        // Alice tries to DM Bob -> fails because BLOCKED_BY overrides open mode default
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+            await expect(MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Fail', body: 'Blocked' }))
+                .rejects.toThrow('Unauthorized: AGENT:bob has blocked messages from AGENT:alice.');
+        });
+
+        // Bob can still DM Alice (directional block)
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+            const res = await MailboxService.addMessage({ to: 'AGENT:alice', subject: 'Passes', body: 'Directional' });
+            expect(res.status).toBe('sent');
+        });
+
+        // Broadcasts bypass BLOCKED_BY
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: 'AGENT:*', subject: 'Broadcast', body: 'Passes' });
+            expect(res.status).toBe('sent');
+        });
+
+        // Revoke the block
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+            await PermissionService.revokePermission({ to: 'AGENT:alice', scope: 'BLOCKED_BY' });
+        });
+
+        // Alice tries to DM Bob again -> succeeds
+        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Success', body: 'Unblocked' });
+            expect(res.status).toBe('sent');
         });
     });
 });
