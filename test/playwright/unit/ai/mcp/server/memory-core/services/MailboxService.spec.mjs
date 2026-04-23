@@ -582,6 +582,62 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
             expect(inbox.messages[0].subject).toBe('prefixed');
         });
 
+        test('#10259 missing `@` prefix auto-prepends to canonical `@login`', async () => {
+            // The MORE COMMON typo case per tobi's polish request: author writes a bare
+            // GitHub login (`gemini`) rather than the canonical `@`-prefixed form. Without
+            // normalization, `linkNodes`' FK guard culls the SENT_TO edge because `gemini`
+            // is not a seeded AgentIdentity node. With the prepend, it routes to the
+            // canonical `@gemini` seed and the recipient sees the message.
+            await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, async () => {
+                await PermissionService.grantPermission({ to: '@opus', scope: 'CAN_REPLY_TO' });
+            });
+
+            let messageId;
+            await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
+                const res = await MailboxService.addMessage({ to: 'gemini', subject: 'missing-prefix', body: 'body' });
+                expect(res.status).toBe('sent');
+                messageId = res.messageId;
+
+                const sentToEdge = GraphService.db.edges.items.find(
+                    e => e.source === messageId && e.type === 'SENT_TO'
+                );
+                expect(sentToEdge).toBeDefined();
+                // Must be the canonical `@`-prefixed form, NOT the raw bare input.
+                expect(sentToEdge.target).toBe('@gemini');
+            });
+
+            const inbox = await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, async () => {
+                return await MailboxService.listMessages({ box: 'inbox' });
+            });
+            expect(inbox.messages.find(m => m.subject === 'missing-prefix')).toBeDefined();
+        });
+
+        test('#10259 missing-prefix normalization preserves `AGENT:<bareName>` test-fixture pattern', async () => {
+            // Load-bearing negative test: `AGENT:bob` should NOT be transformed to
+            // `@AGENT:bob`. The `includes(':')` guard in normalizeMailboxTarget must
+            // preserve the fixture path. Also covers `role:`/`human:` target patterns
+            // by the same mechanism. Without this invariant, existing spec scenarios
+            // seeded with `AGENT:alice` / `role:librarian` / `human:tobiu` would break.
+            GraphService.upsertNode({ id: 'AGENT:bob', type: 'AGENT', name: 'Bob', properties: {} });
+
+            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+                await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+            });
+
+            let messageId;
+            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+                const res = await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'fixture-preserved', body: 'body' });
+                expect(res.status).toBe('sent');
+                messageId = res.messageId;
+
+                const sentToEdge = GraphService.db.edges.items.find(
+                    e => e.source === messageId && e.type === 'SENT_TO'
+                );
+                expect(sentToEdge).toBeDefined();
+                expect(sentToEdge.target).toBe('AGENT:bob');  // unchanged
+            });
+        });
+
         test('#10259 accidental `@@login` double-prefix normalizes to canonical `@login`', async () => {
             // Defense-in-depth per #10259: if misformed automation or ID copy-paste
             // sends `to: '@@gemini'`, the normalizeMailboxTarget strip brings it back

@@ -350,9 +350,16 @@ The script is safe to re-run after `--apply`. If an alias has already been purge
 - **DreamService / Retrospective daemon** indices that reference the aliases become stale pointers. Accept as low-frequency read-path trade-off.
 - **Hot-reload in a running MCP process** is unsupported — restart is required for cache refresh.
 
-### Accidental `@@` prefix handling
+### Accidental prefix normalization
 
-Independent of the migration: `MailboxService.normalizeMailboxTarget` (#10259) strips accidental double-`@` prefixes (`@@login` → `@login`) to defend against misformed automation or ID copy-paste errors. Without this, `linkNodes`' FK-style guard would silently cull the `SENT_TO` edge because `@@login` doesn't match any seeded AgentIdentity node.
+Independent of the migration: `MailboxService.normalizeMailboxTarget` (#10259) handles the two single-typo prefix surfaces symmetrically:
+
+- **Missing `@`** (more common): bare GitHub login → prepend `@`. `gemini` → `@gemini`, `neo-opus-4-7` → `@neo-opus-4-7`.
+- **Accidental `@@`** (less common): double-prefix → single-prefix. `@@login` → `@login`.
+
+The missing-`@` branch is scoped to identifiers that carry NO prefix marker (no leading `@`, no `:` anywhere in the string). Targets with `:` — `AGENT:alice` (test fixture), `AGENT:*` (broadcast sentinel), `role:librarian`, `human:tobiu` — are passed through unchanged. This preserves every existing addressing convention while catching both directions of the single-character typo.
+
+Without these normalizations, `GraphService.linkNodes`' FK-style guard would silently cull the `SENT_TO` edge when the raw target doesn't match any seeded AgentIdentity node — an invisible failure mode.
 
 ## See Also
 

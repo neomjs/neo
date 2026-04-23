@@ -32,7 +32,9 @@ import SemanticGraphExtractor from '../../../../daemons/services/SemanticGraphEx
  * @private
  */
 function normalizeMailboxTarget(to) {
-    if (to?.startsWith('AGENT:@')) {
+    if (!to) return to;
+
+    if (to.startsWith('AGENT:@')) {
         return to.slice('AGENT:'.length)
     }
     // Strip accidental leading `@@` prefix (#10259). Defense-in-depth for misformed
@@ -41,8 +43,21 @@ function normalizeMailboxTarget(to) {
     // SENT_TO edge because `@@login` doesn't match any seeded AgentIdentity node.
     // Scope is intentionally minimal — only double-@ is stripped, not N-@ for N>2,
     // because N>2 is vanishingly rare and the single-prefix-strip handles the 99% case.
-    if (to?.startsWith('@@')) {
+    if (to.startsWith('@@')) {
         return to.slice(1)
+    }
+    // Prepend missing leading `@` (#10259 follow-up per tobi's polish request). This
+    // is the MORE COMMON typo than double-`@`: when an author writes the target as a
+    // bare GitHub login (`neo-gemini-3-1-pro`, `tobiu`) rather than the canonical
+    // `@`-prefixed form, normalize to the seeded AgentIdentity node ID. Prefix-absence
+    // check is load-bearing:
+    //   - `AGENT:*` / `AGENT:alice` — has `:`, preserved (sentinel + test-fixture paths)
+    //   - `role:librarian` / `human:tobiu` — has `:`, preserved (role/human addressing)
+    //   - bare `neo-opus-4-7` → `@neo-opus-4-7` (the case this branch exists for)
+    // Together with the `@@` strip above, this normalizes both directions of the
+    // single-typo surface. Anything with a colon or an existing `@` is passed through.
+    if (!to.startsWith('@') && !to.includes(':')) {
+        return '@' + to;
     }
     return to
 }
