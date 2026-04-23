@@ -1,4 +1,12 @@
 /**
+ * Operational Context:
+ * Idempotent recovery tool. In healthy operation, this script runs exactly once — at initial Memory
+ * Core provisioning — and the seeded nodes persist for the lifetime of the graph. If you find yourself
+ * needing to re-run it, something upstream wiped the AgentIdentity nodes; the known hazard is
+ * test-pollution via the :memory: override leak in MailboxService.spec.mjs / PermissionService.spec.mjs
+ * (see "Test pollution hazard" section in learn/agentos/IdentitySchema.md). Re-seeding is safe —
+ * existing createdAt is preserved — but the upstream cause should be fixed rather than masked.
+ *
  * @summary Seeds initial AgentIdentity + BroadcastSentinel nodes into the Neo.mjs Memory Core Native Graph.
  *
  * These nodes form the **addressable identity surface** for the A2A Mailbox substrate (#10139):
@@ -11,6 +19,12 @@
  * The guard is correct defense-in-depth against hallucinated LLM-generated edges but wrongly
  * dropped every broadcast `SENT_TO` edge while this sentinel was merely a sentinel string. Seeding
  * it as a real node satisfies the guard without relaxing it for other edge-creation paths.
+ *
+ * **Apoptosis Exemption:**
+ * Agent root nodes are natively protected from the `DreamService` Phase 4 Garbage Collection (Apoptosis) mechanism.
+ * The apoptosis process actively prunes "orphaned nodes" (nodes with zero edges) to prevent unbound
+ * graph growth, but `AgentIdentity` and `BroadcastSentinel` are explicitly exempted in `GraphService.getOrphanedNodes` 
+ * to prevent silent wipes during idle or fresh Memory Core states prior to their first activity edges.
  *
  * Idempotent re-run is safe: existing nodes preserve their original `createdAt` via the defensive
  * SQLite peek below; new properties merge on top.

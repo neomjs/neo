@@ -42,3 +42,13 @@ Agent identities are seeded idempotently into the native graph using the `ai/scr
 ```bash
 node ai/scripts/seedAgentIdentities.mjs
 ```
+
+## Test Pollution Hazard
+
+**The Incident:** On 2026-04-22 (session `15852d91`) and 2026-04-23 (session `8968b9f6`), the production `AgentIdentity` nodes were wiped. This was traced back to a test-pollution anti-pattern in the Playwright test suite.
+
+**The Mechanism:** Tests like `MailboxService.spec.mjs` and `PermissionService.spec.mjs` attempt to isolate themselves using an in-memory database override (`aiConfig.storagePaths.graph = ':memory:';`). However, if `LifecycleService._initPromise` is already set (because a prior test initialized the `LifecycleService` with the default production SQLite path), the `:memory:` override is silently ignored. When the test's `beforeEach` hook then executes `storage.clear()`, it wipes the production data instead of the intended in-memory database.
+
+**The Safer Pattern:** Other specs (e.g., `DreamService`, `SemanticGraphExtractor`) use concrete `testDbPath` temporary files per test. This provides a robust isolation boundary and eliminates the leak surface.
+
+**Recovery Procedure:** If you find the identities missing (often manifesting as identity unbound errors or `null` mailbox previews), run the `ai/scripts/seedAgentIdentities.mjs` script. If the root cause was test pollution, please file a ticket to refactor the offending specs to the concrete temporary file pattern.

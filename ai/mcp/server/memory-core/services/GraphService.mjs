@@ -738,11 +738,13 @@ class GraphService extends Base {
     /**
      * Finds nodes that have lost all structural edges to trigger algorithmic forgetting.
      * Protects structural-anchor node types (`SYSTEM_ANCHOR`, `System`, `ISSUE`, `DISCUSSION`,
-     * `PULL_REQUEST`, `SESSION`, `MEMORY`) from pruning regardless of edge state. `SESSION` and
+     * `PULL_REQUEST`, `SESSION`, `MEMORY`, `AgentIdentity`, `BroadcastSentinel`) from pruning regardless of edge state. `SESSION` and
      * `MEMORY` are protected because they are load-bearing anchors for future mailbox
      * (`IN_REPLY_TO`), identity (`AUTHORED_BY`), and provenance (`MENTIONED_IN`) edges — they may
      * be momentarily edgeless during the ingestion window (#10151) or for empty sessions, and
      * must persist so downstream edge-creators (#10139, #10016, #10152) attach to real targets.
+     * `AgentIdentity` and `BroadcastSentinel` are protected to prevent silent wipes during
+     * idle or fresh Memory Core states prior to their first activity edges (Apoptosis Vulnerability fix #10229).
      * @returns {String[]} Array of node IDs mapping to orphaned vectors.
      */
     getOrphanedNodes() {
@@ -763,7 +765,7 @@ class GraphService extends Base {
                 data = JSON.parse(row.data);
             } catch(e) { continue; }
             
-            if (data.label !== 'SYSTEM_ANCHOR' && data.label !== 'System' && data.label !== 'ISSUE' && data.label !== 'DISCUSSION' && data.label !== 'PULL_REQUEST' && data.label !== 'SESSION' && data.label !== 'MEMORY') {
+            if (data.label !== 'SYSTEM_ANCHOR' && data.label !== 'System' && data.label !== 'ISSUE' && data.label !== 'DISCUSSION' && data.label !== 'PULL_REQUEST' && data.label !== 'SESSION' && data.label !== 'MEMORY' && data.label !== 'AgentIdentity' && data.label !== 'BroadcastSentinel') {
                 orphaned.push(row.id);
             }
         }
