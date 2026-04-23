@@ -408,7 +408,10 @@ class MailboxService extends Base {
             if (inboxPreview.length < 3) {
                 inboxPreview.push({
                     id: msg.messageId,
-                    from: msg.from,
+                    // Legacy Data Remediation: Messages written during the #10184/#10181 incident
+                    // window may lack a SENT_BY edge if the sender was identity-unbound.
+                    // This fallback ensures schema compliance. New writes enforce bind-identity discipline.
+                    from: msg.from || 'unknown',
                     subject: msg.subject ? msg.subject.substring(0, 60) + (msg.subject.length > 60 ? '...' : '') : '',
                     createdAt: msg.sentAt,
                     priority: msg.priority
@@ -418,7 +421,8 @@ class MailboxService extends Base {
 
         const outboxPreview = outboxResult.messages.map(msg => ({
             id: msg.messageId,
-            from: msg.from, // outbox 'from' is me
+            // Legacy Data Remediation: See inboxPreview rationale.
+            from: msg.from || 'unknown', // outbox 'from' is me
             subject: msg.subject ? msg.subject.substring(0, 60) + (msg.subject.length > 60 ? '...' : '') : '',
             createdAt: msg.sentAt,
             priority: msg.priority

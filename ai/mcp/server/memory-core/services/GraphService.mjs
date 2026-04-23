@@ -64,62 +64,78 @@ class GraphService extends Base {
             await storage.load();
 
             // Ensure the frontier node exists to prevent context frontier errors
-            this.db.getAdjacentNodes('frontier', 'both'); // trigger lazy load
-            if (!this.db.nodes.has('frontier')) {
-                this.upsertNode({
-                    id         : 'frontier',
-                    type       : 'SYSTEM_ANCHOR',
-                    name       : 'Active Context Frontier',
-                    description: 'The shifting focal point of the active Neo OS agent session.'
-                });
+            try {
+                this.db.getAdjacentNodes('frontier', 'both'); // trigger lazy load
+                if (!this.db.nodes.has('frontier')) {
+                    this.upsertNode({
+                        id         : 'frontier',
+                        type       : 'SYSTEM_ANCHOR',
+                        name       : 'Active Context Frontier',
+                        description: 'The shifting focal point of the active Neo OS agent session.'
+                    });
+                }
+            } catch (error) {
+                logger.warn(`[GraphService] Non-fatal DB contention during 'frontier' seed: ${error.message}`);
             }
 
             // --- 1. THE GLOBAL SYSTEM PRIMER (Epic #9671) ---
             // Inject the Master Architecture Tenets directly into the Native Graph at boot.
             // Because this is anchored to the 'frontier' with a protected SYSTEM_TENET edge,
             // it acts as a deterministic onboarding payload for every agent session.
-            this.db.getAdjacentNodes('Neo-Master-Architecture', 'both');
-            if (!this.db.nodes.has('Neo-Master-Architecture')) {
-                this.upsertNode({
-                    id         : 'Neo-Master-Architecture',
-                    type       : 'System',
-                    name       : 'Global System Primer',
-                    description: 'Core framework tenets: 1. All Playwright tests must be run using "npm run test-unit -- [file]". No npx. 2. UI debugging and application state inspection must use the Neural Link MCP tools. 3. Look at .agent/skills for reusable agent workflows.'
-                });
+            try {
+                this.db.getAdjacentNodes('Neo-Master-Architecture', 'both');
+                if (!this.db.nodes.has('Neo-Master-Architecture')) {
+                    this.upsertNode({
+                        id         : 'Neo-Master-Architecture',
+                        type       : 'System',
+                        name       : 'Global System Primer',
+                        description: 'Core framework tenets: 1. All Playwright tests must be run using "npm run test-unit -- [file]". No npx. 2. UI debugging and application state inspection must use the Neural Link MCP tools. 3. Look at .agent/skills for reusable agent workflows.'
+                    });
+                }
+                this.linkNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);
+            } catch (error) {
+                logger.warn(`[GraphService] Non-fatal DB contention during Master Architecture seed: ${error.message}`);
             }
-            this.linkNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);
 
             // --- 2. AGENT IDENTITY SUBSTRATE SEEDING (#10232) ---
             // Eliminates the "seed → restart-again" recovery loop documented across sessions
             // 0327771f, 15852d91, 8968b9f6, 24aa1fa1 (see #10232 body).
             // Auto-provision identity roots at boot so bindAgentIdentity doesn't throw on fresh setups.
-            for (const identity of IDENTITIES) {
-                // We use getAdjacentNodes as a trigger for lazy-loading into the cache
-                this.db.getAdjacentNodes(identity.id, 'both');
-                
-                if (!this.db.nodes.has(identity.id)) {
-                    this.upsertNode(identity);
-                } else {
-                    // Defensive createdAt retention: Peek SQLite to preserve original timestamp
-                    const row = storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(identity.id);
-                    if (row) {
-                        const rawData = JSON.parse(row.data);
-                        if (rawData.properties?.createdAt) {
-                            const preserved = {...identity, properties: {...identity.properties, createdAt: rawData.properties.createdAt}};
-                            this.upsertNode(preserved);
-                            continue;
+            try {
+                for (const identity of IDENTITIES) {
+                    // We use getAdjacentNodes as a trigger for lazy-loading into the cache
+                    this.db.getAdjacentNodes(identity.id, 'both');
+                    
+                    if (!this.db.nodes.has(identity.id)) {
+                        this.upsertNode(identity);
+                    } else {
+                        // Defensive createdAt retention: Peek SQLite to preserve original timestamp
+                        const row = storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(identity.id);
+                        if (row) {
+                            const rawData = JSON.parse(row.data);
+                            if (rawData.properties?.createdAt) {
+                                const preserved = {...identity, properties: {...identity.properties, createdAt: rawData.properties.createdAt}};
+                                this.upsertNode(preserved);
+                                continue;
+                            }
                         }
+                        this.upsertNode(identity);
                     }
-                    this.upsertNode(identity);
                 }
+            } catch (error) {
+                logger.warn(`[GraphService] Non-fatal DB contention during Identity Substrate seed: ${error.message}`);
             }
 
             // --- 3. FILE SYSTEM INGESTION (Differential Sync) ---
             if (aiConfig.data.autoIngestFileSystem) {
-                logger.log('[GraphService] Bootstrapping FileSystem Ingestion Native Sync...');
-                const FileSystemIngestor = (await import('./FileSystemIngestor.mjs')).default;
-                await FileSystemIngestor.syncWorkspaceToGraph();
-                logger.log('[GraphService] FileSystem topology synced.');
+                try {
+                    logger.log('[GraphService] Bootstrapping FileSystem Ingestion Native Sync...');
+                    const FileSystemIngestor = (await import('./FileSystemIngestor.mjs')).default;
+                    await FileSystemIngestor.syncWorkspaceToGraph();
+                    logger.log('[GraphService] FileSystem topology synced.');
+                } catch (error) {
+                    logger.warn(`[GraphService] Non-fatal error during FileSystem ingestion: ${error.message}`);
+                }
             }
 
             logger.log('[GraphService] SQLite database mounted securely via ai.graph.Database.');
