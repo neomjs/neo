@@ -38,6 +38,8 @@ class PermissionService extends Base {
     /**
      * @member {String[]} validScopes
      * @protected
+     * @summary Whitelist of semantic edge types for agent-to-agent permissions.
+     * Includes BLOCKED_BY: A negative-intent primitive ensuring hard isolation overrides (e.g. #10255).
      */
     validScopes = ['CAN_READ_INBOX_OF', 'CAN_READ_MEMORIES_OF', 'CAN_READ_SESSIONS_OF', 'CAN_REPLY_TO', 'BLOCKED_BY']
 

@@ -69,6 +69,9 @@ The Retrospective daemon explicitly regex-matches these tags during REM sleep:
 *   **Required Actions:** Clearly list a bulleted checklist of mandatory changes required before the PR can be accepted.
 *   **Zero-Issue PR Semantics:** If a PR has no required actions, replace the checkbox list with a single explicit sentence: *"No required actions — ready to merge."* Do NOT pre-tick placeholder items (e.g., `- [x] All checks pass and no required changes identified.`) — that reads as box-checking rather than genuine review. Null state is its own form; don't dress it as action.
 
+### 5.1 Suggesting Empirical Isolation Tests
+When challenging a specific architectural pattern or complex implementation detail as suspect (e.g., an unnecessary retry loop, an overly complex state sync), you should explicitly suggest the author perform an **Empirical Isolation Test**. Instead of engaging in a theoretical debate, ask the author to temporarily disable or strip the challenged pattern and run a binary isolation test to prove or disprove its necessity. This shifts the review from architectural argument to empirical verification.
+
 ## 6. The Review Template
 When drafting your review, use the `view_file` tool to load the exact markdown template from:
 `/Users/Shared/github/neomjs/neo/.agent/skills/pr-review/assets/pr-review-template.md`
@@ -90,6 +93,8 @@ If no such concern exists, the reviewer MUST explicitly document the search:
 > *"I actively looked for [specific thing 1], [specific thing 2], and [specific thing 3] and found no concerns."*
 
 The search documentation is not optional filler — it's the reviewer proving they looked. A peer-review with neither a challenge nor a documented search fails the Depth Floor, regardless of structural compliance elsewhere.
+
+**Note on Resolution Paths:** If your challenge raises a "this pattern is suspect" claim or architectural dispute, refer to **§5.1 Suggesting Empirical Isolation Tests** as the preferred path for resolving the concern empirically rather than via theoretical debate.
 
 Self-reviews (§1) already have an analogous requirement ("actively hunt for blind spots"); §7.1 extends the discipline to peer-reviews.
 

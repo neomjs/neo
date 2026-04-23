@@ -26,6 +26,11 @@ If the IDE integration or workspace is locking up during health checks:
 
 - Reference the **`debugging-antigravity`** skill. Follow its playbook to resolve Antigravity IDE configuration lockups, SQLite workspace UI crashes, and redundant language server conflicts.
 
+If you are developing or testing MCP servers and encounter "ghost bugs" where your cached tool definitions do not match the live server state:
+
+- **Use the Fresh MCP Client Primitive**: Agents testing their own connected MCP servers suffer from stale cache windows. Never use your primary tool surface to validate your own MCP tool-shape modifications.
+- **Action**: Bypass your primary long-lived host connection by spawning an isolated client. Execute `node ai/mcp/client/mcp-cli.mjs --server <target> --call-tool <tool>` via the `run_command` tool. This performs a clean handshake and parses the live definitions directly, proving your modifications are valid.
+
 ## Phase 4: Treatment & Issue Escalation
 If you identify infrastructure degradation or failing Playwright tests:
 
