@@ -230,6 +230,70 @@ class HealthService extends Base {
         }
     }
 
+    /**
+     * Computes the untagged-legacy-node counts for the multi-tenant migration observability
+     * surface (#10017). Operators scrape `healthcheck.migration.untaggedCount.total` to track
+     * how much pre-tenant-aware-era data remains as natural query patterns move writes toward
+     * 100% tagged coverage. A zero total is the signal that defaults can be flipped from
+     * `'legacy'` to `'private'` for the deployment.
+     *
+     * Implementation is pure SQLite aggregation via `GraphService.db.storage.db`. Two
+     * `COUNT(*)` queries (one per tracked node label), negligible cost per healthcheck.
+     * Filters for `userId` absent OR empty in the node's `properties` JSON.
+     *
+     * Returns `{available: false, ...zeros}` when the SQLite graph is not yet mounted
+     * (e.g., pre-#{GraphService.initAsync} healthchecks). `available: false` is a
+     * substrate-readiness signal, not a migration error.
+     *
+     * @returns {Promise<{memory: Number, session: Number, total: Number, available: Boolean, error?: String}>}
+     * @see learn/agentos/tooling/MultiTenantMigrationGuide.md §5
+     * @private
+     */
+    async #checkMigrationState() {
+        try {
+            // Dynamic import to avoid circular dependency with GraphService (GraphService
+            // itself imports HealthService indirectly via other service chains).
+            const {default: GraphService} = await import('./GraphService.mjs');
+            const sqliteDb = GraphService.db?.storage?.db;
+
+            if (!sqliteDb) {
+                return {memory: 0, session: 0, total: 0, available: false};
+            }
+
+            // COALESCE guard: treats both literal NULL and empty-string as "untagged".
+            // json_extract returns NULL for missing keys, which COALESCE('') normalizes,
+            // letting a single `= ''` comparison handle both shapes uniformly.
+            const memoryQuery = sqliteDb.prepare(`
+                SELECT COUNT(*) AS c FROM Nodes
+                WHERE json_extract(data, '$.label') = 'MEMORY'
+                  AND COALESCE(json_extract(data, '$.properties.userId'), '') = ''
+            `);
+            const sessionQuery = sqliteDb.prepare(`
+                SELECT COUNT(*) AS c FROM Nodes
+                WHERE json_extract(data, '$.label') = 'SESSION'
+                  AND COALESCE(json_extract(data, '$.properties.userId'), '') = ''
+            `);
+
+            const memory  = memoryQuery.get().c;
+            const session = sessionQuery.get().c;
+
+            return {
+                memory,
+                session,
+                total    : memory + session,
+                available: true
+            };
+        } catch (e) {
+            return {
+                memory   : 0,
+                session  : 0,
+                total    : 0,
+                available: false,
+                error    : e.message
+            };
+        }
+    }
+
     #checkApiKeyConfigured() {
         const providers = [aiConfig.modelProvider];
         const architecture = aiConfig.architecture || 'hybrid';
@@ -292,6 +356,7 @@ class HealthService extends Base {
             },
             mailboxPreview: await MailboxService.getHealthcheckPreview(),
             identity : buildIdentityBlock(this.#stdioIdentityState),
+            migration: await this.#checkMigrationState(),
             details  : [],
             version  : process.env.npm_package_version || '1.0.0',
             uptime   : process.uptime()
