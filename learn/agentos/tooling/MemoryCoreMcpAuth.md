@@ -295,6 +295,72 @@ The `CAN_REPLY_TO` enforcement on `addMessage` is a **deployment-selected defaul
 
 **Multi-user / multi-tenant deployment guidance:** set `defaultReplyPolicy: 'blocked'` in the deployment's `config.mjs` as part of installation. Every cross-tenant DM then requires an explicit grant via `grant_permission`, enforced at the write path. Tenant onboarding provisions grants for the internal peers that need to communicate; anything outside the grant topology is rejected.
 
+## Identity Normalization Migration (#10259)
+
+If your SQLite graph predates the `#10144` canonical `AgentIdentity` convention, it may contain stale alias nodes (`@opus`, `@gemini`) with null metadata alongside the canonical nodes (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`). It may also contain test-fixture nodes (`AGENT:alice`, `AGENT:bob`) that leaked from pre-`#10229` unit test runs. Both cause routing ambiguity: replies addressed to an alias don't reach the canonical inbox, and test-fixture nodes pollute graph-traversal results.
+
+The `ai/scripts/normalizeGraphIdentities.mjs` script consolidates the graph in a single idempotent operation.
+
+### Running the migration
+
+**1. Dry-run first (default):**
+
+```bash
+node ai/scripts/normalizeGraphIdentities.mjs
+```
+
+Prints the migration plan — which edges would be rewritten, which nodes would be deleted, and any duplicate-edge collisions the canonical consolidation would encounter. Exits without committing.
+
+**2. Review the plan, then apply atomically:**
+
+```bash
+node ai/scripts/normalizeGraphIdentities.mjs --apply
+```
+
+Wraps all writes in a single SQLite transaction. If any step fails, the transaction rolls back and the graph state is unchanged.
+
+**3. Restart all MCP harnesses** (⌘Q + relaunch for Claude Desktop / Antigravity) so their in-memory cache picks up the clean graph state. Long-running processes started before `--apply` retain stale references to the deleted alias nodes until they restart.
+
+### Verifying outcome
+
+After `--apply` + harness restart, the SQLite inventory should show exactly 4 `AgentIdentity` nodes plus 1 `BroadcastSentinel`:
+
+```bash
+sqlite3 .neo-ai-data/sqlite/memory-core-graph.sqlite \
+  "SELECT id, json_extract(data, '\$.label') as label FROM Nodes WHERE id LIKE '@%' OR json_extract(data, '\$.label') IN ('AgentIdentity', 'BroadcastSentinel', 'AGENT') ORDER BY id"
+```
+
+Expected result:
+```
+@neo-gemini-3-1-pro | AgentIdentity
+@neo-opus-4-7       | AgentIdentity
+@tobiu              | AgentIdentity
+AGENT:*             | BroadcastSentinel
+```
+
+No `@opus`, `@gemini`, `AGENT:alice`, or `AGENT:bob` should appear.
+
+### Idempotent re-runs
+
+The script is safe to re-run after `--apply`. If an alias has already been purged, the script logs `[NO-OP] ... already purged (idempotent)` and skips it. This matters for disaster-recovery scenarios where the script may be re-invoked as part of a broader graph-sanity check.
+
+### What the migration does NOT do
+
+- **ChromaDB metadata** referencing the old aliases remains as-is. Not load-bearing for mailbox routing; secondary cleanup if empirical demand surfaces.
+- **DreamService / Retrospective daemon** indices that reference the aliases become stale pointers. Accept as low-frequency read-path trade-off.
+- **Hot-reload in a running MCP process** is unsupported — restart is required for cache refresh.
+
+### Accidental prefix normalization
+
+Independent of the migration: `MailboxService.normalizeMailboxTarget` (#10259) handles the two single-typo prefix surfaces symmetrically:
+
+- **Missing `@`** (more common): bare GitHub login → prepend `@`. `gemini` → `@gemini`, `neo-opus-4-7` → `@neo-opus-4-7`.
+- **Accidental `@@`** (less common): double-prefix → single-prefix. `@@login` → `@login`.
+
+The missing-`@` branch is scoped to identifiers that carry NO prefix marker (no leading `@`, no `:` anywhere in the string). Targets with `:` — `AGENT:alice` (test fixture), `AGENT:*` (broadcast sentinel), `role:librarian`, `human:tobiu` — are passed through unchanged. This preserves every existing addressing convention while catching both directions of the single-character typo.
+
+Without these normalizations, `GraphService.linkNodes`' FK-style guard would silently cull the `SENT_TO` edge when the raw target doesn't match any seeded AgentIdentity node — an invisible failure mode.
+
 ## See Also
 
 - `ai/mcp/server/shared/services/AuthService.mjs` — OIDC discovery and token introspection
