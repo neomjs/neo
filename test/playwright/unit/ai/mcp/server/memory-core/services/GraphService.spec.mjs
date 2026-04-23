@@ -41,6 +41,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         // Mock the SQLite target path to a safe pure temporary location
         if (!aiConfig.storagePaths) aiConfig.storagePaths = {};
         aiConfig.storagePaths.graph = testDbPath;
+        console.log('--- TEST DB PATH MOCKED TO:', aiConfig.storagePaths.graph);
 
         GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
@@ -594,20 +595,95 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         await GraphService.initAsync();
 
         // Assert all four identities are present with correct types
-        const geminiPro = GraphService.getNode({id: '@neo-gemini-3-1-pro'});
+        const geminiPro = await GraphService.getNode({id: '@neo-gemini-3-1-pro'});
         expect(geminiPro).toBeTruthy();
         expect(geminiPro.type).toBe('AgentIdentity');
 
-        const claudeOpus = GraphService.getNode({id: '@neo-opus-4-7'});
+        const claudeOpus = await GraphService.getNode({id: '@neo-opus-4-7'});
         expect(claudeOpus).toBeTruthy();
         expect(claudeOpus.type).toBe('AgentIdentity');
 
-        const tobiu = GraphService.getNode({id: '@tobiu'});
+        const tobiu = await GraphService.getNode({id: '@tobiu'});
         expect(tobiu).toBeTruthy();
         expect(tobiu.type).toBe('AgentIdentity');
 
-        const broadcast = GraphService.getNode({id: 'AGENT:*'});
+        const broadcast = await GraphService.getNode({id: 'AGENT:*'});
         expect(broadcast).toBeTruthy();
         expect(broadcast.type).toBe('BroadcastSentinel');
+    });
+
+    test('cross-tenant data isolation and identity stamping', async () => {
+        const RequestContextService = (await import('../../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+
+        // Ensure pristine GraphService
+        if (GraphService.db) {
+            GraphService.db.nodes.clear();
+            GraphService.db.edges.clear();
+            GraphService.db.vicinityLoadedNodes.clear();
+
+            if (GraphService.db.storage?.db) {
+                await GraphService.db.storage.clear();
+            }
+        }
+
+        // Mock identity A
+        let mockIdentity = '@identity-a';
+        const originalGetId = RequestContextService.getAgentIdentityNodeId;
+        RequestContextService.getAgentIdentityNodeId = () => mockIdentity;
+
+        try {
+            // Act: Upsert Node and Link Nodes as Agent A
+            GraphService.upsertNode({id: 'tenant-a-node-1', type: 'TEST', name: 'tenant-a', properties: {}});
+            GraphService.upsertNode({id: 'tenant-a-node-2', type: 'TEST', name: 'tenant-a', properties: {}});
+            await GraphService.linkNodesAsync('tenant-a-node-1', 'tenant-a-node-2', 'RELATES_TO', 1.0);
+
+            // Assert: Nodes and edges are stamped
+            let node1 = GraphService.db.nodes.get('tenant-a-node-1');
+            expect(node1.properties.userId).toBe('@identity-a');
+
+            let edge = GraphService.db.edges.items.find(e => e.source === 'tenant-a-node-1' && e.target === 'tenant-a-node-2');
+            expect(edge.properties.userId).toBe('@identity-a');
+
+            // Wait for DB to sync memory to disk (flush mutations if any are async, though upsert is sync RAM + async disk?)
+            // upsertNode pushes to RAM and then directly calls storage.addNodes() synchronously.
+
+            // Clear RAM to force disk load without deleting from SQLite
+            GraphService.db.nodes.clearSilent();
+            GraphService.db.edges.clearSilent();
+            GraphService.db.vicinityLoadedNodes.clear();
+
+            // Switch to Identity B
+            mockIdentity = '@identity-b';
+
+            // Act: Attempt to search for Tenant A's node using GraphService search
+            const resultsB = await GraphService.searchNodes({query: 'tenant-a'});
+            expect(resultsB.nodes.length).toBe(0);
+
+            // Attempt to load vicinity for Tenant A's node (should return nothing or fail to traverse to other tenant's nodes)
+            await GraphService.db.getAdjacentNodes('tenant-a-node-1', 1);
+            let edgeLoadedB = GraphService.db.edges.items.find(e => e.source === 'tenant-a-node-1' && e.target === 'tenant-a-node-2');
+            expect(edgeLoadedB).toBeFalsy();
+
+            // Mock Identity A again
+            mockIdentity = '@identity-a';
+            const resultsA = await GraphService.searchNodes({query: 'tenant-a'});
+            expect(resultsA.nodes.length).toBeGreaterThan(0);
+
+            // Test legacy "untagged" node isolation (should be visible to both)
+            mockIdentity = undefined; // System level / legacy
+            GraphService.upsertNode({id: 'legacy-node-1', type: 'TEST', name: 'legacy-node', properties: {}});
+            // Legacy nodes are synced directly via upsertNode to db.storage.addNodes
+
+            mockIdentity = '@identity-b';
+            const resultsLegacyB = await GraphService.searchNodes({query: 'legacy-node'});
+            expect(resultsLegacyB.nodes.length).toBe(1);
+
+            mockIdentity = '@identity-a';
+            const resultsLegacyA = await GraphService.searchNodes({query: 'legacy-node'});
+            expect(resultsLegacyA.nodes.length).toBe(1);
+
+        } finally {
+            RequestContextService.getAgentIdentityNodeId = originalGetId;
+        }
     });
 });
