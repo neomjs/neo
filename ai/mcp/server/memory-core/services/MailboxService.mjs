@@ -146,6 +146,16 @@ class MailboxService extends Base {
 
                 for (const edge of GraphService.db.edges.items) {
                     if (edge.type === 'SENT_TO' && (edge.target === sentBy || edge.target === 'AGENT:*')) {
+                        // Per-message outbound vicinity lazy-load (#10257 follow-up per Gemini's
+                        // cross-family review on PR #10258). Symmetric with listMessages' inner
+                        // loop fix. Without this, the SENT_BY edge scan below comes up empty
+                        // for peer-process messages (the SENT_BY edge targets the author node,
+                        // not sentBy or AGENT:*, so the entry-level inbound lookups don't load
+                        // it). That would cause priorSender to stay null and the trust-lift to
+                        // falsely fail — breaking first-message bootstrap under cross-process
+                        // writes, exactly the scenario this PR's core fix is meant to close.
+                        GraphService.db.getAdjacentNodes(edge.source, 'outbound');
+
                         let priorSender = null;
                         for (const srcEdge of GraphService.db.edges.items) {
                             if (srcEdge.source === edge.source && srcEdge.type === 'SENT_BY') {
