@@ -111,7 +111,21 @@ class Database extends Base {
             this.isExecutingTransaction = false;
             this.autoSave               = false;
 
-            this.edges.remove(delta.invalidEdges);
+            let edgeIdsToRemove = [];
+            delta.invalidEdges.forEach(edgeRef => {
+                let edgeId = typeof edgeRef === 'string' ? edgeRef : edgeRef.id;
+                let edge   = this.edges.get(edgeId);
+
+                let source = edge ? edge.source : (edgeRef.source || null);
+                let target = edge ? edge.target : (edgeRef.target || null);
+
+                if (source) this.vicinityLoadedNodes.delete(source);
+                if (target) this.vicinityLoadedNodes.delete(target);
+
+                edgeIdsToRemove.push(edgeId);
+            });
+
+            this.edges.remove(edgeIdsToRemove);
 
             this.autoSave               = wasAutoSave;
             this.isExecutingTransaction = wasTransacting;

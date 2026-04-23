@@ -272,18 +272,28 @@ class SQLite extends Base {
         let logs         = this.db.prepare('SELECT log_id, entity_id, entity_type FROM GraphLog WHERE log_id > ? ORDER BY log_id ASC').all(sinceId);
         let maxId        = sinceId;
         let invalidNodes = new Set();
-        let invalidEdges = new Set();
+        let invalidEdgesMap = new Map();
 
         for (let trace of logs) {
             maxId = trace.log_id > maxId ? trace.log_id : maxId;
             if (trace.entity_type === 'nodes') invalidNodes.add(trace.entity_id);
-            else if (trace.entity_type === 'edges') invalidEdges.add(trace.entity_id);
+            else if (trace.entity_type === 'edges') invalidEdgesMap.set(trace.entity_id, { id: trace.entity_id });
+        }
+
+        if (invalidEdgesMap.size > 0) {
+            let edgeIds = Array.from(invalidEdgesMap.keys());
+            let placeholders = edgeIds.map(() => '?').join(',');
+            let edgesQuery = this.db.prepare(`SELECT id, source, target FROM Edges WHERE id IN (${placeholders})`);
+            let edgesData = edgesQuery.all(...edgeIds);
+            for (let row of edgesData) {
+                invalidEdgesMap.set(row.id, { id: row.id, source: row.source, target: row.target });
+            }
         }
 
         return {
             lastLogId: maxId,
             invalidNodes: Array.from(invalidNodes),
-            invalidEdges: Array.from(invalidEdges)
+            invalidEdges: Array.from(invalidEdgesMap.values())
         };
     }
 
