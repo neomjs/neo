@@ -652,13 +652,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
             GraphService.db.edges.clearSilent();
             GraphService.db.vicinityLoadedNodes.clear();
 
-            console.log("SQLITE NODES AFTER CLEAR:", GraphService.db.storage.db.prepare("SELECT id, user_id, data FROM Nodes").all());
-
             // Switch to Identity B
             mockIdentity = '@identity-b';
 
             // Act: Attempt to search for Tenant A's node using GraphService search
-            const resultsB = GraphService.searchNodes({query: 'tenant-a'});
+            const resultsB = await GraphService.searchNodes({query: 'tenant-a'});
             expect(resultsB.nodes.length).toBe(0);
 
             // Attempt to load vicinity for Tenant A's node (should return nothing or fail to traverse to other tenant's nodes)
@@ -668,7 +666,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
 
             // Mock Identity A again
             mockIdentity = '@identity-a';
-            const resultsA = GraphService.searchNodes({query: 'tenant-a'});
+            const resultsA = await GraphService.searchNodes({query: 'tenant-a'});
             expect(resultsA.nodes.length).toBeGreaterThan(0);
 
             // Test legacy "untagged" node isolation (should be visible to both)
@@ -677,11 +675,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
             // Legacy nodes are synced directly via upsertNode to db.storage.addNodes
 
             mockIdentity = '@identity-b';
-            const resultsLegacyB = GraphService.searchNodes({query: 'legacy-node'});
+            const resultsLegacyB = await GraphService.searchNodes({query: 'legacy-node'});
             expect(resultsLegacyB.nodes.length).toBe(1);
 
             mockIdentity = '@identity-a';
-            const resultsLegacyA = GraphService.searchNodes({query: 'legacy-node'});
+            const resultsLegacyA = await GraphService.searchNodes({query: 'legacy-node'});
             expect(resultsLegacyA.nodes.length).toBe(1);
 
         } finally {

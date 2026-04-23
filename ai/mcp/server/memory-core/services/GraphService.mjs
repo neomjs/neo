@@ -47,6 +47,7 @@ class GraphService extends Base {
 
         this._initPromise = (async () => {
             const dbPath              = aiConfig.storagePaths.graph;
+            console.log('--- GraphService initAsync READING config dbPath:', dbPath);
             let storage               = Neo.create(SQLite, {dbPath: dbPath});
             await storage.ready();
 
@@ -156,6 +157,8 @@ class GraphService extends Base {
         this.db.getAdjacentNodes(id, 'both');
 
         let node = this.db.nodes.get(id);
+        
+        let currentUserId = this.db.storage?.RequestContextService ? this.db.storage.RequestContextService.getAgentIdentityNodeId() : undefined;
 
         if (node) {
             if (type) {
@@ -182,6 +185,10 @@ class GraphService extends Base {
             if (properties !== undefined && typeof properties === 'object') {
                 Object.assign(p, properties);
             }
+            
+            if (currentUserId !== undefined && p.userId === undefined) {
+                p.userId = currentUserId;
+            }
 
             node.properties = p;
 
@@ -193,17 +200,23 @@ class GraphService extends Base {
                 }
             }
         } else {
+            let p = {
+                name       : name || id,
+                description: description || '',
+                semanticVectorId,
+                state,
+                updatedAt,
+                ...(properties || {})
+            };
+            
+            if (currentUserId !== undefined) {
+                p.userId = currentUserId;
+            }
+
             this.db.addNode({
                 id,
                 label     : type || 'NODE',
-                properties: {
-                    name       : name || id,
-                    description: description || '',
-                    semanticVectorId,
-                    state,
-                    updatedAt,
-                    ...(properties || {})
-                }
+                properties: p
             });
             // logger.debug(`Successfully added node to Database RAM: ${id}`);
         }
@@ -238,13 +251,19 @@ class GraphService extends Base {
                                                        AND type = ?`);
         const existing = stmt.get(source, target, relationship);
 
+        let currentUserId = this.db.storage?.RequestContextService ? this.db.storage.RequestContextService.getAgentIdentityNodeId() : undefined;
+        let edgeProperties = {weight, ...properties};
+        if (currentUserId !== undefined && edgeProperties.userId === undefined) {
+            edgeProperties.userId = currentUserId;
+        }
+
         if (!existing) {
             this.db.addEdge({
                 id        : globalThis.crypto.randomUUID(),
                 source,
                 target,
                 type      : relationship,
-                properties: {weight, ...properties}
+                properties: edgeProperties
             });
         } else {
             const currentWeight = parseFloat(existing.weight) || 1.0;
@@ -255,7 +274,7 @@ class GraphService extends Base {
             const row = dataStmt.get(existing.id);
             if (row && row.data) {
                 let parsed = JSON.parse(row.data);
-                parsed.properties = { ...(parsed.properties || {}), ...properties, weight: newWeight };
+                parsed.properties = { ...(parsed.properties || {}), ...edgeProperties, weight: newWeight };
                 
                 const updateStmt = this.db.storage.db.prepare(`UPDATE Edges SET data = ? WHERE id = ?`);
                 updateStmt.run(JSON.stringify(parsed), existing.id);
@@ -265,7 +284,7 @@ class GraphService extends Base {
             let ramEdge = this.db.edges.get(existing.id);
             if (ramEdge) {
                 ramEdge.properties.weight = newWeight;
-                Object.assign(ramEdge.properties, properties);
+                Object.assign(ramEdge.properties, edgeProperties);
             }
 
             if (typeof this.db.acknowledgeLocalMutations === 'function') {
@@ -545,28 +564,41 @@ class GraphService extends Base {
      * Performs a text-based fuzzy search across node topology to find structural entities.
      * @param {Object} data
      * @param {String} data.query
-     * @returns {Array} List of matching Nodes.
+     * @returns {Object} List of matching Nodes.
      */
     searchNodes({query}) {
-        let q       = query.toLowerCase(),
-            matches = [];
+        if (!this.db?.storage?.db) {
+            return {nodes: []};
+        }
 
-        this.db.nodes.items.forEach(node => {
-            let name    = (node.properties?.name || '').toLowerCase();
-            let desc    = (node.properties?.description || '').toLowerCase();
-            let idLower = node.id.toLowerCase();
+        let q = `%${query.toLowerCase()}%`;
+        
+        let userId = this.db.storage.RequestContextService ? this.db.storage.RequestContextService.getAgentIdentityNodeId() : null;
 
-            if (name.includes(q) || desc.includes(q) || idLower.includes(q)) {
-                matches.push({
-                    id         : node.id,
-                    type       : node.label,
-                    name       : node.properties?.name,
-                    description: node.properties?.description
-                });
-            }
-        });
+        let rlsClause = `AND (user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.visibility') = 'team')`;
 
-        return {nodes: matches.slice(0, 50)};
+        const stmt = this.db.storage.db.prepare(`
+            SELECT data FROM Nodes 
+            WHERE (lower(json_extract(data, '$.properties.name')) LIKE ? 
+               OR lower(json_extract(data, '$.properties.description')) LIKE ? 
+               OR lower(id) LIKE ?)
+              ${rlsClause}
+            LIMIT 50
+        `);
+
+        let matches = [];
+        const rows = stmt.all(q, q, q, userId || null);
+        for (const row of rows) {
+            let node = JSON.parse(row.data);
+            matches.push({
+                id         : node.id,
+                type       : node.label,
+                name       : node.properties?.name,
+                description: node.properties?.description
+            });
+        }
+
+        return {nodes: matches};
     }
 
     /**

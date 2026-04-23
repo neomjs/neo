@@ -43,11 +43,10 @@ class SQLite extends Base {
         const Database = (await import('better-sqlite3')).default;
 
         await fs.ensureDir(path.dirname(me.dbPath));
-        console.log('--- SQLite initAsync opening dbPath:', me.dbPath);
         me.db = new Database(me.dbPath, { verbose: null });
         me.db.pragma('journal_mode = WAL');
         me.db.pragma('busy_timeout = 5000');
-        
+
         try {
             const rcs = await import('../../mcp/server/shared/services/RequestContextService.mjs');
             me.RequestContextService = rcs.default;
@@ -76,7 +75,6 @@ class SQLite extends Base {
             this.db.exec('DROP TABLE IF EXISTS Nodes');
         }
 
-        console.log('--- EXECUTING SQLite initSchema. upgradeRequired:', upgradeRequired);
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS Nodes (
                 id TEXT PRIMARY KEY,
@@ -84,7 +82,6 @@ class SQLite extends Base {
                 data TEXT NOT NULL
             );
         `);
-        console.log('--- Nodes schema after creation:', this.db.prepare('PRAGMA table_info(Nodes)').all());
 
         // We store the structured relationships natively
         this.db.exec(`
@@ -101,13 +98,12 @@ class SQLite extends Base {
             CREATE INDEX IF NOT EXISTS idx_edges_source ON Edges(source);
             CREATE INDEX IF NOT EXISTS idx_edges_target ON Edges(target);
         `);
-        
+
         // Multi-Tenant Migration (#10011): Add user_id if migrating from older schema
         try {
             this.db.prepare('SELECT user_id FROM Nodes LIMIT 1').get();
         } catch (e) {
             try {
-                console.log('--- Migrating database to add user_id ---');
                 this.db.exec('ALTER TABLE Nodes ADD COLUMN user_id TEXT');
                 this.db.exec('ALTER TABLE Edges ADD COLUMN user_id TEXT');
             } catch (alterErr) {
