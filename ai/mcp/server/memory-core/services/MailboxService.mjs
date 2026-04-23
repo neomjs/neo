@@ -146,6 +146,17 @@ class MailboxService extends Base {
         // treatment is intentional per #10252's Out of Scope.
         const strictReplyPolicy = aiConfig.mailbox?.defaultReplyPolicy === 'blocked';
 
+        // BLOCKED_BY check fires in BOTH reply-policy modes — operator explicit blocks
+        // always override both the 'open' default-allow AND the 'blocked'-mode reachable-
+        // counterparty trust-lift. Block wins; re-granting CAN_REPLY_TO does not silently
+        // re-enable reach. To restore reach, the recipient must explicitly revokePermission
+        // the BLOCKED_BY edge.
+        if (!isRoleOrHuman && to !== 'AGENT:*' && to !== sentBy) {
+            if (PermissionService.hasPermission(sentBy, to, 'BLOCKED_BY')) {
+                throw new Error(`Unauthorized: ${to} has blocked messages from ${sentBy}.`);
+            }
+        }
+
         if (strictReplyPolicy && !isRoleOrHuman && to !== 'AGENT:*' && to !== sentBy) {
             let canReply = PermissionService.hasPermission(sentBy, to, 'CAN_REPLY_TO');
 

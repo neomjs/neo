@@ -39,7 +39,7 @@ class PermissionService extends Base {
      * @member {String[]} validScopes
      * @protected
      */
-    validScopes = ['CAN_READ_INBOX_OF', 'CAN_READ_MEMORIES_OF', 'CAN_READ_SESSIONS_OF', 'CAN_REPLY_TO']
+    validScopes = ['CAN_READ_INBOX_OF', 'CAN_READ_MEMORIES_OF', 'CAN_READ_SESSIONS_OF', 'CAN_REPLY_TO', 'BLOCKED_BY']
 
     /**
      * Grants a permission. The caller is the owner of the resource granting access TO another identity.
