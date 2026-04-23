@@ -134,6 +134,16 @@ class MailboxService extends Base {
             // DM-reachable by every authenticated recipient; rate-limit mitigation is deferred
             // until the spam surface materializes empirically at swarm scale.
             if (!canReply) {
+                // Trigger syncCache + lazy-reload vicinity (#10257). The trust-lift
+                // iteration needs to see peer-process broadcasts / DMs that just landed —
+                // SENT_TO edges targeting sentBy or AGENT:*. Without the re-load, those
+                // edges from peer harnesses remain invisible to this process, blocking
+                // first-message bootstrap even when SQLite has them. Bare `syncCache()`
+                // alone would invalidate without re-hydrating; `getAdjacentNodes` handles
+                // both steps. See listMessages for the full rationale.
+                GraphService.db.getAdjacentNodes(sentBy, 'inbound');
+                GraphService.db.getAdjacentNodes('AGENT:*', 'inbound');
+
                 for (const edge of GraphService.db.edges.items) {
                     if (edge.type === 'SENT_TO' && (edge.target === sentBy || edge.target === 'AGENT:*')) {
                         let priorSender = null;
@@ -238,6 +248,23 @@ class MailboxService extends Base {
         }
 
         const db = GraphService.db;
+
+        // Consume WAL delta AND re-populate vicinity from SQLite before iterating
+        // in-memory edges (#10257). A bare `syncCache()` call invalidates cached
+        // entries but edge-type scans don't have a lazy-reload fallback, so locally-
+        // written messages get wiped without re-hydration. `getAdjacentNodes` is the
+        // correct primitive: it triggers `syncCache` (see Database.mjs:~267) AND then
+        // re-loads the node vicinity from SQLite, re-populating the cache with peer
+        // writes. Mailbox inbox query maps onto "inbound edges targeting me or the
+        // broadcast sentinel" — vicinity of those two nodes.
+        if (box === 'inbox' || box === 'all') {
+            db.getAdjacentNodes(target, 'inbound');
+            db.getAdjacentNodes('AGENT:*', 'inbound');
+        }
+        if (box === 'outbox' || box === 'all') {
+            db.getAdjacentNodes(target, 'inbound');
+        }
+
         let messages = [];
 
         for (const edge of db.edges.items) {
@@ -262,7 +289,14 @@ class MailboxService extends Base {
                 const messageNodeId = edge.source;
                 // Avoid duplicates if 'all' is chosen
                 if (messages.find(m => m.messageId === messageNodeId)) continue;
-                
+
+                // Lazy-reload this message's outbound vicinity — loads SENT_BY,
+                // PART_OF_THREAD, TAGGED_CONCEPT, etc. edges authored by the message.
+                // Without this, the inner `sourceEdge` iteration (below) sees only
+                // edges present in the process's cache at query entry, which for
+                // peer-process writes is empty. #10257.
+                db.getAdjacentNodes(messageNodeId, 'outbound');
+
                 const messageNode = db.nodes.get(messageNodeId);
                 if (messageNode && messageNode.label === 'MESSAGE') {
                     const isUnread = !messageNode.properties.readAt;
@@ -318,6 +352,13 @@ class MailboxService extends Base {
         }
 
         const db = GraphService.db;
+
+        // Trigger syncCache + lazy-reload vicinity for this message node (#10257).
+        // Ensures peer-process writes to this message's edges (e.g. late PART_OF_THREAD
+        // additions, read-receipt annotations) are visible. See listMessages for the
+        // full rationale on why bare `syncCache()` is insufficient for edge-type scans.
+        db.getAdjacentNodes(messageId, 'both');
+
         const messageNode = db.nodes.get(messageId);
         if (!messageNode || messageNode.label !== 'MESSAGE') {
             throw new Error(`Message not found: ${messageId}`);
@@ -379,6 +420,11 @@ class MailboxService extends Base {
         }
 
         const db = GraphService.db;
+
+        // Trigger syncCache + lazy-reload vicinity (#10257). Ensures the SENT_TO edge
+        // iteration sees peer-process writes. See listMessages for the full rationale.
+        db.getAdjacentNodes(messageId, 'both');
+
         const messageNode = db.nodes.get(messageId);
         if (!messageNode || messageNode.label !== 'MESSAGE') {
             throw new Error(`Message not found: ${messageId}`);
