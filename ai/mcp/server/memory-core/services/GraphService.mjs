@@ -4,6 +4,7 @@ import logger       from '../logger.mjs';
 import Base         from '../../../../../src/core/Base.mjs';
 import CoreDatabase from '../../../../../ai/graph/Database.mjs';
 import SQLite       from '../../../../../ai/graph/storage/SQLite.mjs';
+import { IDENTITIES } from '../../../../../ai/graph/identityRoots.mjs';
 
 /**
  * @summary Service that manages the SQLite Knowledge Graph (Nodes and Edges).
@@ -88,7 +89,32 @@ class GraphService extends Base {
             }
             this.linkNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);
 
-            // --- 2. FILE SYSTEM INGESTION (Differential Sync) ---
+            // --- 2. AGENT IDENTITY SUBSTRATE SEEDING (#10232) ---
+            // Eliminates the "seed → restart-again" recovery loop documented across sessions
+            // 0327771f, 15852d91, 8968b9f6, 24aa1fa1 (see #10232 body).
+            // Auto-provision identity roots at boot so bindAgentIdentity doesn't throw on fresh setups.
+            for (const identity of IDENTITIES) {
+                // We use getAdjacentNodes as a trigger for lazy-loading into the cache
+                this.db.getAdjacentNodes(identity.id, 'both');
+                
+                if (!this.db.nodes.has(identity.id)) {
+                    this.upsertNode(identity);
+                } else {
+                    // Defensive createdAt retention: Peek SQLite to preserve original timestamp
+                    const row = storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(identity.id);
+                    if (row) {
+                        const rawData = JSON.parse(row.data);
+                        if (rawData.properties?.createdAt) {
+                            const preserved = {...identity, properties: {...identity.properties, createdAt: rawData.properties.createdAt}};
+                            this.upsertNode(preserved);
+                            continue;
+                        }
+                    }
+                    this.upsertNode(identity);
+                }
+            }
+
+            // --- 3. FILE SYSTEM INGESTION (Differential Sync) ---
             if (aiConfig.data.autoIngestFileSystem) {
                 logger.log('[GraphService] Bootstrapping FileSystem Ingestion Native Sync...');
                 const FileSystemIngestor = (await import('./FileSystemIngestor.mjs')).default;

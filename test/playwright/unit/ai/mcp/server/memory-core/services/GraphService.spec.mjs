@@ -536,4 +536,43 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
 
         expect(ready).toBe(true);
     });
+
+    test('should auto-provision all identity roots at boot via initAsync', async () => {
+        // Guarantee pristine isolated boundary baseline natively
+        if (GraphService.db) {
+            GraphService.db.nodes.clear();
+            GraphService.db.edges.clear();
+            GraphService.db.vicinityLoadedNodes.clear();
+
+            if (GraphService.db.storage?.db) {
+                await GraphService.db.storage.clear();
+                GraphService.db.storage.db.exec('DELETE FROM GraphLog');
+                GraphService.db.lastSyncId = 0;
+            }
+        }
+
+        // Wipe the init promise and db to force complete re-initialization
+        GraphService._initPromise = null;
+        GraphService.db = null;
+
+        // Run the boot sequence
+        await GraphService.initAsync();
+
+        // Assert all four identities are present with correct types
+        const geminiPro = GraphService.getNode({id: '@neo-gemini-3-1-pro'});
+        expect(geminiPro).toBeTruthy();
+        expect(geminiPro.type).toBe('AgentIdentity');
+
+        const claudeOpus = GraphService.getNode({id: '@neo-opus-4-7'});
+        expect(claudeOpus).toBeTruthy();
+        expect(claudeOpus.type).toBe('AgentIdentity');
+
+        const tobiu = GraphService.getNode({id: '@tobiu'});
+        expect(tobiu).toBeTruthy();
+        expect(tobiu.type).toBe('AgentIdentity');
+
+        const broadcast = GraphService.getNode({id: 'AGENT:*'});
+        expect(broadcast).toBeTruthy();
+        expect(broadcast.type).toBe('BroadcastSentinel');
+    });
 });
