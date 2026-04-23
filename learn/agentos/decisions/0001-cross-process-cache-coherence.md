@@ -317,7 +317,8 @@ decision — no new substrate will be built. The scope becomes:
    specific and becomes redundant
 5. Preserve PR #10182's `callTool` self-heal block as defense-in-depth until
    the end-to-end divergence test passes cleanly across at least one live
-   restart cycle with all three harnesses active
+   restart cycle with all three harnesses active.
+   - **Update (2026-04-23):** This condition was empirically verified and the `#10182` block was surgically removed via PR #10227. The architectural rationale shifted from "defense-in-depth" to "surface, don't obscure" — defensive code here masked bugs, whereas explicit failure aligns with Neo.mjs's loud-failure discipline. The `#10228` test-pollution fix further mitigates the remaining failure mode that would have made self-heal useful.
 
 ### 5.2 Post-implementation validation
 
