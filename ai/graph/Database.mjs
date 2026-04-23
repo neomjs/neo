@@ -72,6 +72,11 @@ class Database extends Base {
      * Executes strict cache synchronization polling Native SQLite triggers for identical cross-worker coherence cleanly natively.
      * Evaluates hardware SQLite `GraphLog` boundaries securely identifying structural mutations dynamically created by concurrent Nodes/AppWorkers.
      * Splices identified cache diffs executing perfectly accurately guaranteeing perfect isolated thread execution topologies.
+     * 
+     * Invariants (ADR 0001):
+     * 1. A fresh boot (`lastSyncId === 0`) is a legitimate "catch me up" trigger, not a short-circuit skip.
+     * 2. This method INVALIDATES stale cache entries; it does not upsert new ones (lazy-load handles that).
+     * 
      * @see Neo.ai.graph.storage.SQLite#getDeltaLog
      */
     syncCache() {
@@ -79,6 +84,8 @@ class Database extends Base {
             return;
         }
 
+        // Anchor & Echo (#10190 Bug A): lastSyncId === 0 is no longer a short-circuit. 
+        // Fresh-boot is a legitimate "catch me up" signal, ensuring delta log replay.
         let delta       = this.storage.getDeltaLog(this.lastSyncId);
         this.lastSyncId = delta.lastLogId;
 
@@ -278,6 +285,8 @@ class Database extends Base {
             me.autoSave               = wasAutoSave;
             me.isExecutingTransaction = wasTransacting;
 
+            // Anchor & Echo (#10190 Bug B): Empty vicinity must not mark loaded.
+            // This prevents future adjacency updates from being cached-out silently.
             if (vicinity.nodes.length > 0 || vicinity.edges.length > 0) {
                 me.vicinityLoadedNodes.add(nodeId);
             }
