@@ -223,7 +223,7 @@ class Server extends Base {
             // cold-boot race would silently miss seeded identity nodes.
             await GraphService.ready();
             
-            const node = await GraphService.getNode({id: graphNodeId});
+            const node = GraphService.getNode({id: graphNodeId});
             if (node) {
                 return node.id;
             }
