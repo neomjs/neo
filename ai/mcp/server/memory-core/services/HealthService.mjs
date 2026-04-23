@@ -6,6 +6,44 @@ import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
 import logger                   from '../logger.mjs';
 
 /**
+ * @summary Projects the stdio identity state into the healthcheck-payload shape (#10176).
+ *
+ * Pure function: takes the cached stdioIdentity context (or null) and returns the
+ * observability block the healthcheck response exposes — `{source, bound, nodeId}`.
+ * Extracted as a module-scope function so unit tests can exercise the projection
+ * logic without bootstrapping the full Memory Core runtime.
+ *
+ * Three input shapes matter:
+ * 1. `null` — stdioIdentity never populated (SSE transport, or resolver ran before the
+ *    setter was invoked). Projects to `{source: 'unresolved', bound: false, nodeId: null}`.
+ * 2. Resolved without graph node — `gh-cli` / `env-var` yielded a userId but no seeded
+ *    AgentIdentity graph node matched. Projects to `{source: <resolved>, bound: false, nodeId: null}`.
+ *    Diagnostic: agent needs seeding via `ai/scripts/seedAgentIdentities.mjs` OR the boot-time
+ *    self-seed from #10232 wasn't triggered.
+ * 3. Resolved with graph node — fully bound identity. Projects to `{source: <resolved>, bound: true, nodeId: '@login'}`.
+ *    The success shape that A2A operation requires.
+ *
+ * `status` is NOT flipped by this projection. Unbound identity is a valid single-tenant
+ * fallthrough per the MemoryCoreMcpAuth contract — this block is pure observability, not
+ * a health gate. The architectural choice matches "surface, don't obscure" (PR #10227).
+ *
+ * @param {Object|null} stdioIdentityState Either `null` or `{userId, agentIdentityNodeId, source}`
+ * @returns {{source: String, bound: Boolean, nodeId: String|null}}
+ */
+export function buildIdentityBlock(stdioIdentityState) {
+    if (!stdioIdentityState) {
+        return {source: 'unresolved', bound: false, nodeId: null};
+    }
+
+    const {agentIdentityNodeId, source} = stdioIdentityState;
+    return {
+        source: source || 'unresolved',
+        bound : !!agentIdentityNodeId,
+        nodeId: agentIdentityNodeId || null
+    };
+}
+
+/**
  * @summary Monitors and validates the ChromaDB dependency for the Memory Core MCP server.
  *
  * This service acts as a gatekeeper, ensuring that ChromaDB is properly running,
@@ -95,6 +133,16 @@ class HealthService extends Base {
      * @private
      */
     #startupSummarizationDetails = null;
+
+    /**
+     * Cached stdio identity state for the healthcheck `identity` observability block (#10176).
+     * Populated by `Server.mjs` post-`resolveStdioIdentity()` via {@link HealthService#setStdioIdentityState}.
+     * Null when the setter hasn't fired yet (SSE transport, pre-boot, or timing races — all of
+     * which project to `source: 'unresolved'` via {@link buildIdentityBlock}).
+     * @member {Object|null} #stdioIdentityState
+     * @private
+     */
+    #stdioIdentityState = null;
 
     /**
      * Checks if the active vector and graph databases are running and accessible.
@@ -243,6 +291,7 @@ class HealthService extends Base {
                 summarizationDetails: this.#startupSummarizationDetails
             },
             mailboxPreview: await MailboxService.getHealthcheckPreview(),
+            identity : buildIdentityBlock(this.#stdioIdentityState),
             details  : [],
             version  : process.env.npm_package_version || '1.0.0',
             uptime   : process.uptime()
@@ -434,6 +483,25 @@ class HealthService extends Base {
         this.#startupSummarizationDetails = details;
 
         // Clear the cache to ensure next healthcheck returns updated info
+        this.clearCache();
+    }
+
+    /**
+     * Caches the resolved stdio identity so the healthcheck `identity` block can surface
+     * it (#10176). Called by `Server.mjs` after `resolveStdioIdentity()` completes in the
+     * stdio boot path. SSE transport does not call this — per-request OIDC identity is
+     * orthogonal to process-level stdio identity; observability for SSE per-request state
+     * is a separate concern.
+     *
+     * Clears the healthcheck cache so the next call returns a fresh payload including
+     * the new identity block.
+     *
+     * @param {Object|null} stdioIdentityState Either `null` (unresolved) or
+     *     `{userId, agentIdentityNodeId, source}`. The projection to the observable
+     *     `{source, bound, nodeId}` shape happens inside `buildIdentityBlock`.
+     */
+    setStdioIdentityState(stdioIdentityState) {
+        this.#stdioIdentityState = stdioIdentityState;
         this.clearCache();
     }
 

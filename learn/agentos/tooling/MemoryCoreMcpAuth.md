@@ -152,21 +152,50 @@ The SSE path validates Bearer tokens per OAuth 2.1 draft conventions (audience e
 
 ## Troubleshooting
 
-### `addMemory` writes are not tagged with `userId` in stdio mode
+### Primary diagnostic: `healthcheck` identity block (#10176)
 
-Check startup logs for `[neo-memory-core MCP] Identity: <userId> via <source>`. If the line reads `Identity: unresolved (single-tenant fallthrough)`:
+The fastest single-call diagnostic is the `identity` block in the MCP `healthcheck` response. Call `healthcheck` and inspect `identity.*` — no need to grep startup logs or check multiple substrates:
 
-1. Verify `NEO_AGENT_IDENTITY` is set in the harness's MCP server environment — `env` block in `settings.json`, not shell export.
+```json
+{
+    "identity": {
+        "source": "env-var" | "gh-cli" | "oidc" | "unresolved",
+        "bound":  true | false,
+        "nodeId": "@neo-opus-4-7" | null
+    }
+}
+```
+
+The three substantive states and their implied fixes:
+
+| `identity.source` | `identity.bound` | Interpretation | Fix |
+|---|---|---|---|
+| `env-var` or `gh-cli` | `true` | ✓ Fully operational. Agent bound to graph node. | None needed. |
+| `env-var` or `gh-cli` | `false` | Identity resolved but no matching AgentIdentity graph node. | Run `node ai/scripts/seedAgentIdentities.mjs` OR verify the #10232 boot-time self-seed fired. If new per-model account: add to `ai/graph/identityRoots.mjs` and restart. |
+| `unresolved` | `false` | Resolver yielded no userId at all. | See "Identity unresolved" section below. |
+
+`status` stays `healthy` regardless of `bound` — unbound identity is a valid single-tenant fallthrough, not a health failure. This is observability, not a gate.
+
+### `identity.source: 'unresolved'` (stdio mode)
+
+Resolver chain failed entirely — neither env-var nor gh-CLI yielded a login:
+
+1. Verify `NEO_AGENT_IDENTITY` is set in the harness's MCP server environment — `env` block in `settings.json` / `claude_desktop_config.json`, not shell export.
 2. If no `NEO_AGENT_IDENTITY` is set, verify `gh auth status` reports a valid login.
 3. If `gh` is installed but the 1.5-second fail-fast timeout is exceeded, the CLI is likely hanging on auth refresh or a degraded network. The design is intentional — fail-fast preserves the MCP handshake budget for the rest of `initAsync`. Set `NEO_AGENT_IDENTITY` explicitly to skip the CLI call entirely.
 
-### AgentIdentity node is `unbound` despite identity resolution
+### `identity.bound: false` despite resolved `source`
 
-Startup log reads `Identity: tobiu via gh-cli — unbound (no matching AgentIdentity node)`.
+Startup log reads `Identity: tobiu via gh-cli — unbound (no matching AgentIdentity node)`, and `healthcheck.identity.bound` is `false`.
 
-- The graph node `@tobiu` does not exist in the current Memory Core graph.
+- The graph node `@<login>` does not exist in the current Memory Core graph.
 - Run `node ai/scripts/seedAgentIdentities.mjs` to re-seed the canonical identities.
-- For a new per-model account, add the identity to the `IDENTITIES` array in `seedAgentIdentities.mjs` before running.
+- For a new per-model account, add the identity to the `IDENTITIES` array in `ai/graph/identityRoots.mjs` (the shared source consumed by both boot-time self-seed and the CLI) before running.
+- Post-#10232, boot-time self-seed should provision missing root identities automatically. If `bound` stays false after a restart cycle with a populated graph, investigate whether `GraphService.initAsync` is reaching the self-seed block — check startup logs for errors.
+
+### Startup-log fallback (pre-#10176 environments or logging-only workflows)
+
+The `[neo-memory-core MCP] Identity: <userId> via <source> — bound to <nodeId>` log line is still emitted at boot by `logIdentityStatus` and remains usable as a fallback diagnostic. The healthcheck block supersedes it for live diagnostics because a single tool call returns structured JSON the agent can branch on; log-grep requires filesystem access to the MCP stdout capture.
 
 ### `Identity-override spoof rejected` error on a tool call
 

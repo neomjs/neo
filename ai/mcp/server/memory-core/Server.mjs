@@ -116,6 +116,12 @@ class Server extends Base {
             // OIDC-derived identity.
             this.stdioIdentity = await this.resolveStdioIdentity();
 
+            // Surface stdio identity state for healthcheck observability (#10176). The block
+            // is informational-only — unbound identity does NOT flip healthcheck status to
+            // unhealthy because mailbox is an optional feature and single-tenant fallthrough
+            // is a valid operational mode (see MemoryCoreMcpAuth.md contract).
+            HealthService.setStdioIdentityState(this.stdioIdentity);
+
             const {StdioServerTransport} = await import('@modelcontextprotocol/sdk/server/stdio.js');
             const transport = new StdioServerTransport();
             await this.mcpServer.connect(transport);
