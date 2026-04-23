@@ -75,7 +75,7 @@ class Database extends Base {
      * @see Neo.ai.graph.storage.SQLite#getDeltaLog
      */
     syncCache() {
-        if (!this.storage || !this.lastSyncId) {
+        if (!this.storage) {
             return;
         }
 
@@ -278,7 +278,9 @@ class Database extends Base {
             me.autoSave               = wasAutoSave;
             me.isExecutingTransaction = wasTransacting;
 
-            me.vicinityLoadedNodes.add(nodeId);
+            if (vicinity.nodes.length > 0 || vicinity.edges.length > 0) {
+                me.vicinityLoadedNodes.add(nodeId);
+            }
         }
 
         // 3. Increment LRU Matrix bounds tracking footprint usage cleanly natively

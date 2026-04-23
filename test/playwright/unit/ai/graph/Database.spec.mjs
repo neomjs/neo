@@ -30,10 +30,11 @@ test.describe('Neo.ai.graph.Database', () => {
     if (!fs.existsSync(tmpDir)) {
         fs.mkdirSync(tmpDir, { recursive: true });
     }
-    const dbPath = path.join(tmpDir, 'neo-graph-test.db');
+    let dbPath;
 
     test.beforeEach(async () => {
         testRun++;
+        dbPath = path.join(tmpDir, `neo-graph-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
         db = Neo.create(Database, {
             id: 'my-graph-db-' + testRun
         });
@@ -42,6 +43,11 @@ test.describe('Neo.ai.graph.Database', () => {
     test.afterEach(() => {
         db?.destroy();
         db = null;
+        if (fs.existsSync(dbPath)) {
+            try { fs.unlinkSync(dbPath); } catch (e) {}
+            try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
+            try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
+        }
     });
 
     test('should add and retrieve a node correctly', async () => {
@@ -242,7 +248,55 @@ test.describe('Neo.ai.graph.Database', () => {
         expect(dbSecondary.nodes.has('branch')).toBe(false);
         expect(dbSecondary.nodes.getCount()).toBe(1);
 
+        // Verify Secondary sees additions by Primary
+        dbPrimary.addNode({ id: 'new-branch' });
+        // The node insertion will trigger a delta log for 'new-branch', which invalidates 'new-branch'.
+        // Let's verify B sees the new node if it tries to load its vicinity.
+        dbSecondary.getAdjacentNodes('new-branch');
+        expect(dbSecondary.nodes.has('new-branch')).toBe(true);
+
         dbPrimary.destroy();
         dbSecondary.destroy();
+    });
+
+    test('should replay GraphLog mutations even on fresh boot when lastSyncId is 0 (Bug A)', async () => {
+        if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+        
+        let storageFresh = Neo.create(SQLite, { dbPath });
+        await storageFresh.initAsync();
+        let dbFresh = Neo.create(Database, { id: 'cache-fresh', storage: storageFresh });
+        await storageFresh.load(); // DB empty -> lastSyncId = 0
+        
+        expect(dbFresh.lastSyncId).toBe(0);
+
+        let storageOther = Neo.create(SQLite, { dbPath });
+        await storageOther.initAsync();
+        let dbOther = Neo.create(Database, { id: 'cache-other', storage: storageOther });
+        await storageOther.load();
+        
+        dbOther.addNode({ id: 'race-node' });
+        
+        // With Bug A fix, syncCache() processes the delta and lastSyncId advances
+        dbFresh.syncCache();
+        expect(dbFresh.lastSyncId).toBeGreaterThan(0);
+        
+        dbFresh.destroy();
+        dbOther.destroy();
+    });
+
+    test('should not mark vicinityLoadedNodes if lazy load returns empty (Bug B)', async () => {
+        if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+        
+        let storage = Neo.create(SQLite, { dbPath });
+        await storage.initAsync();
+        let db = Neo.create(Database, { id: 'bug-b', storage });
+        await storage.load();
+
+        db.getAdjacentNodes('ghost-node');
+
+        // Should NOT be marked loaded since vicinity was empty
+        expect(db.vicinityLoadedNodes.has('ghost-node')).toBe(false);
+
+        db.destroy();
     });
 });
