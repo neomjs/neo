@@ -226,17 +226,17 @@ class MailboxService extends Base {
         });
 
         // 2. Map the routing edges
-        GraphService.linkNodes(messageId, sentBy, 'SENT_BY', 1.0, { timestamp });
-        GraphService.linkNodes(messageId, to, 'SENT_TO', 1.0, { timestamp });
+        GraphService.linkNodes(messageId, sentBy, 'SENT_BY', 1.0, { timestamp, userId: null });
+        GraphService.linkNodes(messageId, to, 'SENT_TO', 1.0, { timestamp, userId: null });
 
         // 3. Map additional graph semantic edges
-        if (originSessionId) GraphService.linkNodes(messageId, originSessionId, 'ORIGINATES_IN', 1.0, { timestamp });
-        if (inReplyTo) GraphService.linkNodes(messageId, inReplyTo, 'IN_REPLY_TO', 1.0, { timestamp });
-        if (partOfThread) GraphService.linkNodes(messageId, partOfThread, 'PART_OF_THREAD', 1.0, { timestamp });
+        if (originSessionId) GraphService.linkNodes(messageId, originSessionId, 'ORIGINATES_IN', 1.0, { timestamp, userId: null });
+        if (inReplyTo) GraphService.linkNodes(messageId, inReplyTo, 'IN_REPLY_TO', 1.0, { timestamp, userId: null });
+        if (partOfThread) GraphService.linkNodes(messageId, partOfThread, 'PART_OF_THREAD', 1.0, { timestamp, userId: null });
         
-        for (const s of relatedSessions) GraphService.linkNodes(messageId, s, 'RELATED_SESSION', 1.0, { timestamp });
-        for (const t of relatedTickets) GraphService.linkNodes(messageId, t, 'REFERENCES_TICKET', 1.0, { timestamp });
-        for (const c of taggedConcepts) GraphService.linkNodes(messageId, c, 'TAGGED_CONCEPT', 1.0, { timestamp });
+        for (const s of relatedSessions) GraphService.linkNodes(messageId, s, 'RELATED_SESSION', 1.0, { timestamp, userId: null });
+        for (const t of relatedTickets) GraphService.linkNodes(messageId, t, 'REFERENCES_TICKET', 1.0, { timestamp, userId: null });
+        for (const c of taggedConcepts) GraphService.linkNodes(messageId, c, 'TAGGED_CONCEPT', 1.0, { timestamp, userId: null });
 
         // 4. Auto-emit TAGGED_CONCEPT edges asynchronously without blocking delivery
         SemanticGraphExtractor.extractMessageConcepts(body).then(concepts => {
@@ -254,7 +254,7 @@ class MailboxService extends Base {
                         });
                     }
                     // Use slightly lower weight for auto-extracted concepts
-                    GraphService.linkNodes(messageId, c, 'TAGGED_CONCEPT', 0.8, { timestamp });
+                    GraphService.linkNodes(messageId, c, 'TAGGED_CONCEPT', 0.8, { timestamp, userId: null });
                 }
             }
         }).catch(() => { /* error logged internally */ });

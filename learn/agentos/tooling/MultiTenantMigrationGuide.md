@@ -41,13 +41,13 @@ if (!sentBy) {
 
 ### 2. Read-side `memorySharing` flag semantics
 
-The `memorySharing` enum — implementation lives in [#10010](../../../resources/content/issues/issue-10010.md), design pinned here — carries three values:
+The `memorySharing` enum — implementation lives in [#10010](../../../resources/content/issues/issue-10010.md), design pinned here — interacts directly with the SQLite Row-Level Security (RLS) enforcement mechanism (implemented in `#10011`):
 
-| Value | Semantics | Intended Use |
+| Value | Semantics (SQLite RLS Enforcement) | Intended Use |
 |---|---|---|
-| `'private'` | Strict tenant isolation. Reads return ONLY rows where `userId` matches the caller's bound identity. Untagged legacy rows are excluded. | Default post-migration-window. Default for multi-user production deployments. |
-| `'team'` | Intra-tenant sharing. Reads return rows where `userId` matches any identity in the caller's tenant group. Untagged legacy rows are excluded. | Explicit opt-in for teams that share context across peers within the same tenant. |
-| `'legacy'` | Compatibility bucket. Reads return untagged rows AND rows matching the caller's bound tenant. | **Default during migration window.** Enables solo-dev and pre-#10144 data continuity without manual intervention. |
+| `'private'` | Strict tenant isolation. The RLS filter clause strictly requires `user_id = ?`. Untagged legacy rows are excluded natively at the SQLite query level. | Default post-migration-window. Default for multi-user production deployments. |
+| `'team'` | Intra-tenant sharing. RLS bypasses strict isolation if `json_extract(data, '$.properties.visibility') = 'team'`. Untagged legacy rows are excluded. | Explicit opt-in for teams that share context across peers within the same tenant. |
+| `'legacy'` | Compatibility bucket. The RLS filter clause allows `user_id IS NULL`. Reads return untagged rows AND rows matching the caller's bound tenant. | **Default during migration window.** Enables solo-dev and pre-#10144 data continuity without manual intervention. |
 
 **Default value evolution**:
 
@@ -56,9 +56,9 @@ The `memorySharing` enum — implementation lives in [#10010](../../../resources
 
 ### 3. No back-fill — explicit rejection
 
-**There is no migration script.** Untagged legacy rows stay untagged forever. Tenants that want full historical access query with `memorySharing: 'legacy'` indefinitely. Tenants that want strict isolation use `memorySharing: 'private'` and accept that pre-migration data isn't in their view.
+**There is no migration script.** Untagged legacy rows stay untagged forever in SQLite. Tenants that want full historical access query with `memorySharing: 'legacy'` indefinitely. Tenants that want strict isolation use `memorySharing: 'private'` and accept that pre-migration data isn't in their view.
 
-This is a deliberate architectural choice, not a temporary state. The absence of a migration script is the migration.
+This is a deliberate architectural choice, not a temporary state. The absence of a migration script is the migration. The RLS filter simply shifts its bounds based on the runtime context.
 
 ### 4. Operational window and deprecation path
 
