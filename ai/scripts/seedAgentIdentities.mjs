@@ -20,12 +20,11 @@
  * dropped every broadcast `SENT_TO` edge while this sentinel was merely a sentinel string. Seeding
  * it as a real node satisfies the guard without relaxing it for other edge-creation paths.
  *
- * **Apoptosis Vulnerability (Orphaned Node Deletion):**
- * Agent root nodes are susceptible to the `DreamService` Phase 4 Garbage Collection (Apoptosis) mechanism.
+ * **Apoptosis Exemption:**
+ * Agent root nodes are natively protected from the `DreamService` Phase 4 Garbage Collection (Apoptosis) mechanism.
  * The apoptosis process actively prunes "orphaned nodes" (nodes with zero edges) to prevent unbound
- * graph growth with obsolete concepts. If these seeded identities become unlinked, they will be
- * wiped out by the DreamService. Until formal apoptosis-exemption logic is implemented, these 
- * identities must remain actively linked to prevent node-loss regressions.
+ * graph growth, but `AgentIdentity` and `BroadcastSentinel` are explicitly exempted in `GraphService.getOrphanedNodes` 
+ * to prevent silent wipes during idle or fresh Memory Core states prior to their first activity edges.
  *
  * Idempotent re-run is safe: existing nodes preserve their original `createdAt` via the defensive
  * SQLite peek below; new properties merge on top.
