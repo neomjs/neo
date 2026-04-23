@@ -193,6 +193,12 @@ Startup log reads `Identity: tobiu via gh-cli — unbound (no matching AgentIden
 - For a new per-model account, add the identity to the `IDENTITIES` array in `ai/graph/identityRoots.mjs` (the shared source consumed by both boot-time self-seed and the CLI) before running.
 - Post-#10232, boot-time self-seed should provision missing root identities automatically. If `bound` stays false after a restart cycle with a populated graph, investigate whether `GraphService.initAsync` is reaching the self-seed block — check startup logs for errors.
 
+### Boot-Time Identity Race Condition (Cross-Process WAL Lock Contention)
+
+If the `identity.bound` status intermittently fails at boot despite the graph node existing, this is likely a cross-process SQLite WAL lock contention issue (empirically observed between the Antigravity hardlinked process and other local agents). During concurrent boot, read operations like `GraphService.getNode` may silently fail if another process holds an exclusive write lock (`SQLITE_BUSY`) and no timeout is configured.
+
+**The Fix:** Ensure that `pragma busy_timeout = 5000` is applied to the SQLite connection (`ai/graph/storage/SQLite.mjs`). This is the native, architectural solution to cross-process contention. Adding arbitrary retry loops in application code masks the underlying `SQLITE_BUSY` error and should be avoided.
+
 ### Startup-log fallback (pre-#10176 environments or logging-only workflows)
 
 The `[neo-memory-core MCP] Identity: <userId> via <source> — bound to <nodeId>` log line is still emitted at boot by `logIdentityStatus` and remains usable as a fallback diagnostic. The healthcheck block supersedes it for live diagnostics because a single tool call returns structured JSON the agent can branch on; log-grep requires filesystem access to the MCP stdout capture.

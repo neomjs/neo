@@ -91,3 +91,20 @@ If the spinner persists but the backend servers are healthy:
    rm -rf ~/Library/Application\ Support/Antigravity/Cache
    rm -rf ~/Library/Application\ Support/Antigravity/GPUCache
    ```
+
+## 5. The Fresh MCP Client Isolation Strategy (Cache Bypass)
+
+### The Problem
+Agents operating on MCP servers they themselves are connected to often suffer from "ghost bugs" — where the agent's context or cached tool definitions do not match the live server state. If you modify an MCP tool definition (e.g., adding a new parameter) and attempt to test it via your own primary connection, you will hit a stale cache window. The server has updated, but your host client has not re-handshaked to discover the new shape.
+
+### The Fix
+Never use your own primary tool surface to validate tool-shape changes on the server you are modifying. Instead, use the **Fresh MCP Client Isolation Strategy**.
+
+The `ai/mcp/client` infrastructure allows you to spawn a completely clean, isolated client-server connection, bypassing the agent's primary long-lived host connection.
+
+**Empirical Verification Example:**
+To verify a tool shape change (e.g., in `memory-core`), spawn a fresh client via CLI:
+```bash
+node ai/mcp/client/mcp-cli.mjs --server memory-core --call-tool "your_modified_tool" '{"param": "test"}'
+```
+This forces a clean handshake, parsing the live tool definitions directly from the server process, proving whether your tool-shape changes are actually valid without restarting the entire IDE harness.
