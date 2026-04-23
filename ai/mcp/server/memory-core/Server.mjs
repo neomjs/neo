@@ -92,22 +92,12 @@ class Server extends Base {
         await InferenceLifecycleService.ready();
         await SessionService.ready();
 
-        // 5. Perform Health Check & Log Status
-        const health = await HealthService.healthcheck();
-        this.logStartupStatus(health);
-        this.logSiblingConcurrency();
-
-        // 6. Connect Transport
-        if (aiConfig.transport === 'sse') {
-            const {default: TransportService} = await import('../shared/services/TransportService.mjs');
-
-            await TransportService.setup({
-                server      : this,
-                aiConfig,
-                logger,
-                resourceName: 'neo-memory-core MCP'
-            });
-        } else {
+        // 5. Resolve stdio identity (if applicable) BEFORE the boot-time healthcheck snapshot
+        // (#10249). Elevated out of the stdio transport-connect branch so the initial telemetry
+        // logged by `logStartupStatus` reflects the bound identity state, not the pre-bind null.
+        // Runtime MCP healthcheck tool-dispatch already reads `#stdioIdentityState` live per call,
+        // so this reorder affects boot-log observability only — not runtime correctness.
+        if (aiConfig.transport !== 'sse') {
             // Resolve stdio identity before connecting the transport (ticket #10145). The
             // resolved context is cached on this.stdioIdentity and wrapped around every
             // CallToolRequestSchema dispatch so downstream services (e.g. MemoryService) read
@@ -121,7 +111,24 @@ class Server extends Base {
             // unhealthy because mailbox is an optional feature and single-tenant fallthrough
             // is a valid operational mode (see MemoryCoreMcpAuth.md contract).
             HealthService.setStdioIdentityState(this.stdioIdentity);
+        }
 
+        // 6. Perform Health Check & Log Status (sees populated stdioIdentityState post-reorder)
+        const health = await HealthService.healthcheck();
+        this.logStartupStatus(health);
+        this.logSiblingConcurrency();
+
+        // 7. Connect Transport
+        if (aiConfig.transport === 'sse') {
+            const {default: TransportService} = await import('../shared/services/TransportService.mjs');
+
+            await TransportService.setup({
+                server      : this,
+                aiConfig,
+                logger,
+                resourceName: 'neo-memory-core MCP'
+            });
+        } else {
             const {StdioServerTransport} = await import('@modelcontextprotocol/sdk/server/stdio.js');
             const transport = new StdioServerTransport();
             await this.mcpServer.connect(transport);
@@ -223,7 +230,12 @@ class Server extends Base {
             // cold-boot race would silently miss seeded identity nodes.
             await GraphService.ready();
             
-            const node = GraphService.getNode({id: graphNodeId});
+            // `GraphService.getNode` returns a Promise (Neo's singleton method wrapper);
+            // awaiting it unpacks to the `{id, type, name, ...}` shape. Without `await`,
+            // `node.id` on the Promise object is `undefined`, causing bind to silently
+            // return `undefined` — the true root cause of the #10241 boot-time bind failure
+            // that busy_timeout/retry/reorder patches only partially masked.
+            const node = await GraphService.getNode({id: graphNodeId});
             if (node) {
                 return node.id;
             }
