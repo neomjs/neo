@@ -71,7 +71,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
     test('bindAgentIdentity should correctly retrieve identity without cache manipulation', async () => {
         await GraphService.initAsync();
-        
+
         GraphService.upsertNode({id: '@neo-opus-4-7', type: 'AgentIdentity', name: 'Identity Node'});
 
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -81,7 +81,45 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
         const boundId = await serverInstance.bindAgentIdentity('neo-opus-4-7');
         expect(boundId).toBe('@neo-opus-4-7');
-        
+
         serverInstance.destroy();
+    });
+
+    test('bindAgentIdentity must await the Promise-returning getNode (regression pin for #10249)', async () => {
+        // Regression guard: in production, `GraphService.getNode` returns a Promise (Neo
+        // singleton method wrapping). If `bindAgentIdentity` drops the `await`, `node.id`
+        // on the Promise object is `undefined` — the actual root cause of #10241's merged-
+        // but-incomplete fix that #10249 corrects. `unitTestMode` may resolve the method
+        // synchronously, so the other test in this suite does not reproduce the failure
+        // mode; this test forces the Promise path explicitly by stubbing `getNode` to
+        // return a Promise regardless of the framework's runtime decision.
+
+        await GraphService.initAsync();
+
+        const serverInstance = Neo.create('Neo.ai.mcp.server.memory-core.Server');
+
+        const originalGetNode = GraphService.getNode.bind(GraphService);
+        GraphService.getNode = function({id}) {
+            // Force the production Promise-wrapped shape regardless of test mode.
+            return Promise.resolve({
+                id,
+                type       : 'AgentIdentity',
+                name       : 'Regression Pin',
+                description: '#10249 — proves bindAgentIdentity awaits GraphService.getNode'
+            });
+        };
+
+        try {
+            const boundId = await serverInstance.bindAgentIdentity('regression-pin-agent');
+
+            // The load-bearing assertions: boundId must be the resolved string, not the
+            // Promise object, not `undefined`, not `'[object Promise]'`.
+            expect(typeof boundId).toBe('string');
+            expect(boundId).toBe('@regression-pin-agent');
+            expect(boundId).not.toBeUndefined();
+        } finally {
+            GraphService.getNode = originalGetNode;
+            serverInstance.destroy();
+        }
     });
 });
