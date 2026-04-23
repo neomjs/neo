@@ -134,6 +134,11 @@ class GraphService extends Base {
      * @param {Object} nodeData
      */
     upsertNode({id, type, name, description, semanticVectorId, state, updatedAt, properties}) {
+        // Lazy-load from SQLite before in-memory check — prevents cold-cache stubs from
+        // overwriting rich SQLite rows via addNodes' ON CONFLICT DO UPDATE semantics.
+        // Mirrors the discipline in getNode:424. Resolves #10230.
+        this.db.getAdjacentNodes(id, 'both');
+
         let node = this.db.nodes.get(id);
 
         if (node) {

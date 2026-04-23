@@ -214,6 +214,41 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         expect(GraphService.db.nodes.has('LazyNode')).toBe(true);
     });
 
+    test('upsertNode should lazy-load from SQLite to prevent cold-cache stub overwriting (resolves #10230)', async () => {
+        // Bypass upsertNode to simulate a rich node seeded directly into SQLite
+        GraphService.db.storage.addNodes([{
+            id: '@test-identity',
+            label: 'AgentIdentity',
+            properties: {
+                name: 'Test Identity',
+                githubLogin: 'test-user',
+                createdAt: '2026-04-23T00:00:00Z'
+            }
+        }]);
+
+        // Let the asynchronous store mutations propagate natively
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // Simulate cold cache
+        GraphService.db.nodes.clear();
+
+        // Perform the upsert with a stub payload
+        GraphService.upsertNode({id: '@test-identity', type: 'AGENT'});
+
+        // Wait for potential async writes
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // Re-read directly from SQLite to assert nothing was overwritten
+        const rows = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').all('@test-identity');
+        expect(rows.length).toBe(1);
+        const data = JSON.parse(rows[0].data);
+        
+        expect(data.label).toBe('AGENT'); // Type is updated
+        expect(data.properties.name).toBe('Test Identity'); // Original properties preserved
+        expect(data.properties.githubLogin).toBe('test-user');
+        expect(data.properties.createdAt).toBe('2026-04-23T00:00:00Z');
+    });
+
     test('should recover from boot-time identity cache race (stuck vicinity cache)', async () => {
         GraphService.upsertNode({id: '@neo-opus-4-7', name: 'Identity Node'});
 
