@@ -582,6 +582,37 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
             expect(inbox.messages[0].subject).toBe('prefixed');
         });
 
+        test('#10259 accidental `@@login` double-prefix normalizes to canonical `@login`', async () => {
+            // Defense-in-depth per #10259: if misformed automation or ID copy-paste
+            // sends `to: '@@gemini'`, the normalizeMailboxTarget strip brings it back
+            // to the canonical `@gemini` form before linkNodes' FK-style guard runs.
+            // Without the strip, the SENT_TO edge gets culled because `@@gemini` is
+            // not a seeded AgentIdentity node.
+            await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, async () => {
+                await PermissionService.grantPermission({ to: '@opus', scope: 'CAN_REPLY_TO' });
+            });
+
+            let messageId;
+            await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
+                const res = await MailboxService.addMessage({ to: '@@gemini', subject: 'double-prefix', body: 'body' });
+                expect(res.status).toBe('sent');
+                messageId = res.messageId;
+
+                const sentToEdge = GraphService.db.edges.items.find(
+                    e => e.source === messageId && e.type === 'SENT_TO'
+                );
+                expect(sentToEdge).toBeDefined();
+                // Must be the canonical single-@ form, NOT the raw double-@ input.
+                expect(sentToEdge.target).toBe('@gemini');
+            });
+
+            // Recipient bound under bare `@gemini` sees the message via listMessages.
+            const inbox = await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, async () => {
+                return await MailboxService.listMessages({ box: 'inbox' });
+            });
+            expect(inbox.messages.find(m => m.subject === 'double-prefix')).toBeDefined();
+        });
+
         test('`AGENT:*` broadcast creates SENT_TO edge to the seeded sentinel and fans out', async () => {
             let messageId;
             await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {

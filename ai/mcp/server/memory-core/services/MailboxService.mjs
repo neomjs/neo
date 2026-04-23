@@ -35,6 +35,15 @@ function normalizeMailboxTarget(to) {
     if (to?.startsWith('AGENT:@')) {
         return to.slice('AGENT:'.length)
     }
+    // Strip accidental leading `@@` prefix (#10259). Defense-in-depth for misformed
+    // automation / ID copy-paste where the canonical `@login` form gets an extra `@`
+    // prepended inadvertently. Without this, `linkNodes`' FK-style guard culls the
+    // SENT_TO edge because `@@login` doesn't match any seeded AgentIdentity node.
+    // Scope is intentionally minimal — only double-@ is stripped, not N-@ for N>2,
+    // because N>2 is vanishingly rare and the single-prefix-strip handles the 99% case.
+    if (to?.startsWith('@@')) {
+        return to.slice(1)
+    }
     return to
 }
 
