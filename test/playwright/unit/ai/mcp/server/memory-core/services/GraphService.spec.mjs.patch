@@ -1,9 +1,0 @@
---- test/playwright/unit/ai/mcp/server/memory-core/services/GraphService.spec.mjs
-+++ test/playwright/unit/ai/mcp/server/memory-core/services/GraphService.spec.mjs
-@@ -561,6 +561,7 @@
- 
-         // Assert all four identities are present with correct types
-         const geminiPro = GraphService.getNode({id: '@neo-gemini-3-1-pro'});
-+        console.log("geminiPro node is:", geminiPro);
-         expect(geminiPro).toBeTruthy();
-         expect(geminiPro.type).toBe('AgentIdentity');
