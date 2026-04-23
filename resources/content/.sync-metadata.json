@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-04-23T08:53:14.456Z",
-  "releasesLastFetched": "2026-04-23T08:53:25.086Z",
+  "lastSync": "2026-04-23T09:12:14.396Z",
+  "releasesLastFetched": "2026-04-23T09:12:26.227Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -29080,7 +29080,7 @@
       "path": "resources/content/issues/issue-10139.md",
       "closedAt": null,
       "updatedAt": "2026-04-22T22:01:27Z",
-      "contentHash": "1bae1abd76014a93c0671a5146828f5ca71de313be2ee2951c2ceb4d7083d673",
+      "contentHash": "df728011d072497335f1d13dce97075e8a5be737d2ed0f6e8062df12e7bc5a43",
       "commentsTotal": 4
     },
     "10141": {
@@ -29268,11 +29268,11 @@
       "commentsTotal": 0
     },
     "10179": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-10179.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-23T08:52:17Z",
-      "contentHash": "184e6f4392c3e00a55d56c4fc9d6098222b1935e8556ac5def777adc59fef94a",
+      "closedAt": "2026-04-23T09:09:45Z",
+      "updatedAt": "2026-04-23T09:09:45Z",
+      "contentHash": "6050d5896523883eb20c76aec3f7a06a2698ac4fc8a392f4f0a8fb571bad7ba6",
       "commentsTotal": 0
     },
     "10180": {
@@ -29312,7 +29312,7 @@
       "path": "resources/content/issues/issue-10186.md",
       "closedAt": null,
       "updatedAt": "2026-04-22T19:28:56Z",
-      "contentHash": "8b7af676bfd6e3ddefa45783581bad3a2fbb4d0994497304583c2e0e3e4c6e2e",
+      "contentHash": "95737067208999f25bb3fd7cf738204ba59e35c839f04d8838610a266bbb7037",
       "commentsTotal": 6
     },
     "10187": {
@@ -29340,12 +29340,12 @@
       "commentsTotal": 0
     },
     "10190": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-10190.md",
-      "closedAt": null,
-      "updatedAt": "2026-04-22T18:33:23Z",
-      "contentHash": "ddd5ae21b11f9b9cfd864d35fb8de2e933e2d125fac14aadcee0b91be4ac2826",
-      "commentsTotal": 0
+      "closedAt": "2026-04-23T09:09:19Z",
+      "updatedAt": "2026-04-23T09:09:19Z",
+      "contentHash": "fd498a7c5e2e828ed60bbeafdfc4f47c274803eb8dd16f459cff6a57cb951b78",
+      "commentsTotal": 1
     },
     "10191": {
       "state": "CLOSED",
