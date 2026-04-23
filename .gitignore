@@ -119,3 +119,6 @@ test-results/
 
 # Autonomous AI Output files
 resources/content/sandman_handoff.md
+
+*.orig
+*.patch
