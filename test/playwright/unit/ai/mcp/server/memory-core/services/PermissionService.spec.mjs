@@ -47,6 +47,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => 
         }
         
         originalAutoSave = GraphService.db.autoSave;
+        
+        // @summary Enables autoSave for the duration of the test suite (#10256).
+        // This is necessary because these tests assert SQLite state via direct queries.
+        // Without autoSave = true, the memory-state and disk-state may diverge,
+        // causing intermittent assertion failures in serial mode.
         GraphService.db.autoSave = true;
     });
 
