@@ -163,10 +163,19 @@ function makeSafe(service, spec) {
 }
 
 // --- Load Specs ---
-const ghSpec  = yaml.load(fs.readFileSync(path.join(__dirname, 'mcp/server/github-workflow/openapi.yaml'), 'utf8'));
-const kbSpec  = yaml.load(fs.readFileSync(path.join(__dirname, 'mcp/server/knowledge-base/openapi.yaml'),  'utf8'));
-const memSpec = yaml.load(fs.readFileSync(path.join(__dirname, 'mcp/server/memory-core/openapi.yaml'),     'utf8'));
-const nlSpec  = yaml.load(fs.readFileSync(path.join(__dirname, 'mcp/server/neural-link/openapi.yaml'), 'utf8'));
+function safeLoadYaml(filePath) {
+    try {
+        return yaml.load(fs.readFileSync(filePath, 'utf8'));
+    } catch (err) {
+        console.error(`[services.mjs] Failed to load or parse YAML at ${filePath}:`, err.message);
+        return null;
+    }
+}
+
+const ghSpec  = safeLoadYaml(path.join(__dirname, 'mcp/server/github-workflow/openapi.yaml'));
+const kbSpec  = safeLoadYaml(path.join(__dirname, 'mcp/server/knowledge-base/openapi.yaml'));
+const memSpec = safeLoadYaml(path.join(__dirname, 'mcp/server/memory-core/openapi.yaml'));
+const nlSpec  = safeLoadYaml(path.join(__dirname, 'mcp/server/neural-link/openapi.yaml'));
 
 // --- Apply Safety Wrappers ---
 
