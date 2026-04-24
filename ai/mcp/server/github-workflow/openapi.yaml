@@ -248,23 +248,96 @@ paths:
     get:
       summary: Get PR Conversation
       operationId: get_conversation
+      x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       description: |
-        Retrieves the full conversation for a pull request, including the title, body, and all comments.
+        Retrieves the conversation for a pull request, including the title, body, and comments.
 
         **When to Use:**
-        Use this tool to get the complete context of a pull request, including the initial proposal and the full discussion history, which is essential for a comprehensive review.
+        Use this tool to get the context of a pull request — the initial proposal and the discussion history.
+
+        **Comment selectors (optional, first-match precedence):**
+        - `comment_id`: fetch ONLY the comment whose GitHub node ID matches. Used for A2A
+          hand-off — a reviewer mailboxes the `commentId` (returned by `manage_issue_comment`
+          action:`create`) to the peer, and the peer fetches just-this-comment rather than
+          re-walking the whole thread. Scales linearly with new-comment volume.
+        - `since_comment_id`: fetch comments AFTER the one with the given ID (exclusive).
+          Incremental review cycles: track last-seen commentId, fetch only what's new.
+        - `last_n`: fetch the last N comments. Coarse-grained catch-up when IDs aren't tracked.
+
+        Omitting all selectors returns the full conversation (backward-compatible default).
       tags: [Pull Requests]
-      parameters:
-        - name: pr_number
-          in: path
-          required: true
-          description: The number of the pull request.
-          schema:
-            type: integer
-            example: 123
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - pr_number
+              properties:
+                pr_number:
+                  type: integer
+                  description: The number of the pull request.
+                  example: 10272
+                comment_id:
+                  type: string
+                  description: Return only the comment whose GitHub global node ID matches. Elides all other comments; PR title/body are still returned.
+                  example: "IC_kwDOABcD1234567890"
+                since_comment_id:
+                  type: string
+                  description: Return only comments AFTER the one with this ID (exclusive). If the ID isn't found, returns empty comments.
+                  example: "IC_kwDOABcD1234567890"
+                last_n:
+                  type: integer
+                  description: Return only the last N comments (by creation order).
+                  example: 3
       responses:
+        '200':
+          description: Conversation data for the pull request, optionally filtered by selector.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Pull request conversation shape — title/body/author plus a (possibly filtered) comments collection.
+                properties:
+                  title:
+                    type: string
+                  body:
+                    type: string
+                  author:
+                    type: object
+                    properties:
+                      login:
+                        type: string
+                  comments:
+                    type: object
+                    properties:
+                      nodes:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                              description: The GitHub global node ID of the comment.
+                            author:
+                              type: object
+                              properties:
+                                login:
+                                  type: string
+                            body:
+                              type: string
+                            createdAt:
+                              type: string
+                              format: date-time
+        '400':
+          description: Bad Request (missing `pr_number`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '500':
           description: Internal server error, e.g., `gh` command failed.
           content:
@@ -331,11 +404,17 @@ paths:
                   example: "Gemini 3.1 Pro (Antigravity)"
       responses:
         '200':
-          description: Comment created or updated successfully.
+          description: |
+            Comment created or updated successfully. Returns the canonical comment identifier
+            (`commentId`), its GitHub URL, and the relevant timestamp (`createdAt` on create,
+            `updatedAt` on update) so the caller can surface the canonical reference for A2A
+            propagation patterns — see `.agent/skills/pr-review/references/pr-review-guide.md §9`
+            and `.agent/skills/pull-request/references/pull-request-workflow.md §8` for the
+            comment-ID hand-off convention that pairs with `get_conversation({comment_id: …})`.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/CommentResponse'
         '400':
           description: Bad Request (missing arguments or invalid action).
           content:
@@ -1111,6 +1190,38 @@ components:
           type: string
           description: Optional details from the CLI output.
           example: "Checked out branch 'some-contributor/my-feature-branch'"
+
+    CommentResponse:
+      type: object
+      description: |
+        Enriched response for comment create/update operations. Surfaces the canonical
+        `commentId` (GitHub global node ID) so callers can reference the comment in
+        downstream A2A propagation patterns. `createdAt` is populated on create;
+        `updatedAt` on update. Superset of `SuccessResponse` — existing consumers that
+        only read `message` continue to work unchanged.
+      properties:
+        message:
+          type: string
+          description: Human-readable confirmation of the operation.
+          example: "Successfully created comment on PR #10272"
+        commentId:
+          type: string
+          description: The canonical GitHub global node ID of the comment. Use with `get_conversation({comment_id: ...})` or in A2A payloads to reference just-this-comment.
+          example: "IC_kwDOABcD1234567890"
+        url:
+          type: string
+          description: The canonical HTTP URL of the comment on github.com.
+          example: "https://github.com/neomjs/neo/pull/10272#issuecomment-4309098042"
+        createdAt:
+          type: string
+          format: date-time
+          description: The creation timestamp (ISO-8601). Populated by 'create' action only.
+          example: "2026-04-24T01:48:14Z"
+        updatedAt:
+          type: string
+          format: date-time
+          description: The last-modified timestamp (ISO-8601). Populated by 'update' action only.
+          example: "2026-04-24T02:15:33Z"
 
     SyncIssuesResponse:
       type: object

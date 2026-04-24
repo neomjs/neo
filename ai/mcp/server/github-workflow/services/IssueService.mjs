@@ -192,9 +192,21 @@ class IssueService extends Base {
                 ? idData.repository.pullRequest.id
                 : idData.repository.issue.id;
 
-            // Shared Mutation
-            await GraphqlService.query(ADD_COMMENT, { subjectId, body: finalBody });
-            return { message: `Successfully created comment on ${isPR ? 'PR' : 'issue'} #${number}` };
+            // Shared Mutation — capture response so we can surface the canonical comment
+            // identifier. Enables the A2A propagation pattern from #10272 §2.3: posting
+            // a review comment returns the commentId, which the reviewer can then relay
+            // via mailbox DM to the author; the author fetches just-this-comment via
+            // `get_conversation({comment_id: ...})` instead of re-walking the whole thread.
+            // Symmetric with `updateComment`'s existing `{commentId, url, updatedAt}` shape.
+            const result = await GraphqlService.query(ADD_COMMENT, { subjectId, body: finalBody });
+            const node   = result.addComment.commentEdge.node;
+
+            return {
+                message  : `Successfully created comment on ${isPR ? 'PR' : 'issue'} #${number}`,
+                commentId: node.id,
+                url      : node.url,
+                createdAt: node.createdAt
+            };
 
         } catch (error) {
             logger.error(`Error creating comment on ${isPR ? 'PR' : 'issue'} #${number} via GraphQL:`, error);
