@@ -41,16 +41,16 @@ To minimize cross-family scoring drift, all evaluative metrics MUST adhere to th
 
 | Score | Word | `[EXECUTION_QUALITY]` Anchor | `[ARCH_ALIGNMENT]` Anchor | `[CONTENT_COMPLETENESS]` Anchor | `[PRODUCTIVITY]` Anchor | `[IMPACT]` Anchor |
 |---|---|---|---|---|---|---|
-| 100 | Exemplary | No observed defects. Tests green. Edge cases covered/deferred. | Flawless paradigm alignment. | Perfect Anchor & Echo. Fat Ticket. | Achieves all goals efficiently. | Critical framework architecture. |
-| 90 | Excellent | Tests green. One polish nit. | Minor architectural nit. | One missing JSDoc nit. | Achieves all goals; minor polish missing. | Major new feature / optimization. |
-| 80 | Strong | Tests green. 1-2 nits. | 1-2 minor anti-patterns. | 1-2 missing @summary tags. | Achieves main goals; 1-2 nits missed. | Significant component/workflow. |
-| 70 | Solid | Tests green. Mechanical defect. | Suboptimal API usage. | Missing doc on a helper method. | Misses a minor AC. | Standard feature or refactor. |
-| 60 | Acceptable | Tests green. Functional gap deferred. | Ignores some framework idioms. | Relies on implied context. | Requires follow-up for a major AC. | Routine bug fix or minor feature. |
-| 50 | Mixed | Claimed green; not re-verified. 1 functional defect. | Mix of correct/incorrect usage. | Some methods bare. | Partially functional. | Moderate maintenance. |
-| 40 | Weak | Tests fail/unrun. 1 functional defect. | Misunderstanding of core concepts. | Major methods lack JSDoc. | Misses primary goal. | Minor bug fix or localized tweak. |
-| 30 | Poor | Multiple defects; tests fail materially. | Active violation of architecture. | Barely any documentation. | Little progress on requirements. | Trivial changes (single line). |
-| 20 | Inadequate | Functional regression observed. | Introduces major architectural debt. | Zero documentation added. | Re-derives/ignores instructions. | Typo fixes only. |
-| 10 | Broken | Tests fail catastrophically; regression. | Completely incompatible. | Active semantic degradation. | Negative productivity. | Zero impact/meaningless. |
+| 100 | Exemplary | No observed defects. Tests green. Edge cases covered/deferred. | Flawless paradigm alignment. | Perfect Anchor & Echo. Fat Ticket. | Achieves all goals efficiently. | Foundational framework architecture. |
+| 90 | Excellent | Tests green. One polish nit. | Minor architectural nit. | One missing JSDoc nit. | Achieves all goals; minor polish missing. | N/A |
+| 80 | Strong | Tests green. 1-2 nits. | 1-2 minor anti-patterns. | 1-2 missing @summary tags. | Achieves main goals; 1-2 nits missed. | Major feature or subsystem. |
+| 70 | Solid | Tests green. Mechanical defect. | Suboptimal API usage. | Missing doc on a helper method. | Misses a minor AC. | N/A |
+| 60 | Acceptable | Tests green. Functional gap deferred. | Ignores some framework idioms. | Relies on implied context. | Requires follow-up for a major AC. | Substantive refactor or workflow. |
+| 50 | Mixed | Claimed green; not re-verified. 1 functional defect. | Mix of correct/incorrect usage. | Some methods bare. | Partially functional. | N/A |
+| 40 | Weak | Tests fail/unrun. 1 functional defect. | Misunderstanding of core concepts. | Major methods lack JSDoc. | Misses primary goal. | Routine bug fix or standard feature. |
+| 30 | Poor | Multiple defects; tests fail materially. | Active violation of architecture. | Barely any documentation. | Little progress on requirements. | N/A |
+| 20 | Inadequate | Functional regression observed. | Introduces major architectural debt. | Zero documentation added. | Re-derives/ignores instructions. | Minor localized tweak. |
+| 10 | Broken | Tests fail catastrophically; regression. | Completely incompatible. | Active semantic degradation. | Negative productivity. | Trivial changes (typos, formatting). |
 
 ### 3.2 Score Justification (MANDATORY)
 
