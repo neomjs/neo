@@ -129,6 +129,14 @@ Present-day tool schemas (`add_memory`, `mutate_frontier`, etc.) don't accept an
 
 **Read-path filters by a different parameter name.** If a future tool legitimately needs to query across multiple users (e.g., an admin-only cross-tenant audit), the parameter MUST NOT be named `userId` — use `filterUserId` or similar to clearly distinguish it from the protected identity field.
 
+## Shared Graph Nodes and RLS Bypass
+
+While the write-path unconditional identity tagging applies universally to standard memories, **Shared Graph Entities** (such as A2A Mailbox messages) require special handling. 
+
+By default, the SQLite graph database enforces Row Level Security (RLS) via the `user_id` property, filtering nodes using `user_id = ? OR user_id IS NULL`. If a message node is persisted with the sender's identity, it becomes invisible to the recipient during inter-process vicinity hydration due to RLS. 
+
+To solve this, shared entities explicitly set `userId: null` on their node properties during creation (e.g., in `MailboxService.addMessage`). This normalizes authorship and ensures the node is globally discoverable across agent boundaries. Security is maintained not by node-level RLS, but via the specific `SENT_TO` / `SENT_BY` graph edges linking the shared entity to the recipient's and sender's identities.
+
 ## Request Context Shape
 
 ```javascript
