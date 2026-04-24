@@ -307,7 +307,12 @@ Without this context, sub-agents will hallucinate bugs where none exist (e.g., c
 
 **Swarm context:** Neo.mjs runs as a distributed agentic swarm. Multiple hardware instances operate simultaneously, but their local SQLite stores are isolated — there is no cross-network database merge. GitHub Issues are the A2A (Agent-to-Agent) memory bridge that closes the gap. Fat Tickets preserve architectural context; skeleton tickets break the chain.
 
+### Merge Authorization (Human-Only)
+
+Cross-family approval gates squash-merge ELIGIBILITY, but agents are strictly forbidden from executing the merge itself. Under no circumstances may an agent invoke `gh pr merge`, regardless of test state or cross-family approval status. Handoff explicitly terminates when the PR enters the "approved" state. Agents must not interpret ambiguous signals (e.g., "take a look", "approved", "LGTM", "ready for merge", "no required actions") as authorization to merge. The actual squash-merge execution is reserved exclusively for the human user (`@tobiu`) acting as the final pipeline authority.
+
 **Workflow skills (authoritative — read before invoking their respective tools):**
+- **Proposing architectural changes or discussing ideas:** `.agent/skills/ideation-sandbox/SKILL.md` — workflow for creating and participating in GitHub Discussions to explore new ideas safely before creating tickets.
 - **Creating new tickets:** `.agent/skills/ticket-create/SKILL.md` — duplicate sweep, Fat Ticket body structure, title hygiene, label rules, visible-proposal protocol, five-stage challenge chain. Read before any `create_issue` invocation.
 - **Picking up existing tickets:** `.agent/skills/ticket-intake/SKILL.md` — validation sweep, ROI calculation, branch-before-code gate. Read before any `git checkout` on an assigned ticket.
 - **Reviewing an epic before picking up its subs:** `.agent/skills/epic-review/SKILL.md` — five-stage gating chain (roadmap fit, approach elegance, sub-structure coherence, prescription layer, avoided-traps completeness). Per-agent-per-epic one-shot; posts a structured comment on the epic ticket. Read before `ticket-intake` on any sub of an unreviewed epic.
