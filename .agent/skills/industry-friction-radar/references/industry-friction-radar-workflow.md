@@ -41,3 +41,12 @@ You must use the `ideation-sandbox` skill to post a GitHub Discussion proposing 
 - **No Direct PRs:** This skill produces Ideas (Discussions), never Code (Commits/PRs).
 - **Attribution:** The resulting GitHub Discussion MUST include an Author's Note citing the provenance of the friction point, using the `citations` array from Step 2. (e.g., *"External friction observed in [ecosystem] [date]; this Discussion abstracts and responds natively via Neo's architecture."*)
 - **Adjacency Sweep:** Before posting the Discussion, execute a duplicate sweep (per `ticket-create` guidelines) to ensure the concept isn't already being discussed.
+
+## Integrations & Context
+
+To understand the macro-architecture this skill serves (Neo as an Application Engine on the Left Hemisphere, and Agent OS on the Right Hemisphere), review the following:
+
+- `learn/benefits/ArchitectureOverview.md` (Left/Right Hemispheres)
+- `learn/agentos/DreamPipeline.md` (Sensory Input & DreamService)
+- `resources/content/discussions/discussion-10119.md` (Engine-category vs. Framework-category positioning)
+- `resources/content/discussions/discussion-10137.md` (Agent OS context)
