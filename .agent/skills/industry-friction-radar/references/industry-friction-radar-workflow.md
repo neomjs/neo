@@ -1,8 +1,8 @@
 # Industry Friction Radar Workflow
 
-**Anchor Summary:** This protocol governs the Neo organism's external sensory organ. It defines a strict 3-step abstraction pipeline required to systematically ingest Bleeding-Edge/Frontier industry developments (like native JS features or worker paradigms) and synthesize them into Neo-native innovations, without violating Neo's ethical boundaries, stealing code, or importing framework-specific architectural noise.
+**Anchor Summary:** This protocol governs the Neo organism's external sensory organ. It defines a strict 3-step abstraction pipeline required to systematically ingest Frontier industry developments (like native JS features or worker paradigms) and synthesize them into Neo-native innovations, without violating Neo's ethical boundaries, stealing code, or importing framework-specific architectural noise.
 
-This protocol outlines the strict 3-step abstraction pipeline required to systematically ingest Bleeding-Edge/Frontier developments without violating Neo's ethical boundaries or architectural paradigms.
+This protocol outlines the strict 3-step abstraction pipeline required to systematically ingest Frontier developments without violating Neo's ethical boundaries or architectural paradigms.
 
 ## The "SOTA" Trap (Mandatory Framing)
 
