@@ -38,6 +38,11 @@ export const ADD_BLOCKED_BY = `
 /**
  * Mutation to add a comment to a subject (issue or PR).
  *
+ * Returns the new comment's `id`, `url`, and `createdAt` so the caller can surface
+ * the canonical identifier for A2A propagation patterns (per #10272 §2.3 —
+ * comment-ID hand-off via mailbox DMs lets the recipient `get_conversation` fetch
+ * just-this-comment via the `comment_id` param instead of re-fetching the whole thread).
+ *
  * Variables required:
  * - $subjectId: ID! - The global ID of the issue or PR
  * - $body: String! - The comment body
@@ -49,6 +54,7 @@ export const ADD_COMMENT = `
         node {
           id
           url
+          createdAt
         }
       }
     }

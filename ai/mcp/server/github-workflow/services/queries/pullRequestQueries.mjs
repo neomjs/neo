@@ -24,6 +24,7 @@ export const GET_CONVERSATION = `
         }
         comments(first: $maxComments) {
           nodes {
+            id
             author {
               login
             }

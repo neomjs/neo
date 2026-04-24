@@ -164,3 +164,36 @@ If any check surfaces a miss, flag it in Required Actions. A PR that ships a new
 
 PR #10155 shipped `.agent/skills/epic-review/` with the claim "runs *before* `ticket-intake`." Real integration required `ticket-intake` to check whether the parent epic had been reviewed before proceeding with sub pickup. The PR did NOT update `ticket-intake`. The reviewer did NOT flag the missing integration. Result: `epic-review` ships as a skill but the "runs before ticket-intake" claim is aspirational until `ticket-intake` is updated — a latent gap §8 would have caught.
 
+## 9. A2A Comment-ID Hand-off Protocol (#10272)
+
+**Problem:** Each review cycle N+1 costs context-fetch cost proportional to cumulative thread size. By cycle three of an Architectural Pillar review, fetching the full conversation via `get_conversation({pr_number: N})` burns more tokens reading prior rounds than the new substance justifies.
+
+**Solution:** `manage_issue_comment` action:`create` returns `{message, commentId, url, createdAt}`. The reviewer captures `commentId` from that response and relays it to the next reviewer (peer or author) via A2A mailbox — the recipient fetches just-this-comment via `get_conversation({pr_number: N, comment_id: COMMENT_ID})`, scaling linearly with new-comment volume rather than cumulative thread size.
+
+### 9.1 Workflow
+
+1. Reviewer posts their review comment via `manage_issue_comment({action: 'create', pr_number, body, agent})`.
+2. Reviewer captures `commentId` from the response.
+3. Reviewer sends an A2A mailbox DM to the next actor (peer reviewer or author) via `add_message`:
+   ```
+   subject: 're: PR #N review cycle K'
+   body: 'Review posted at PR #N comment <COMMENT_ID>. Substance: <one-line summary>.'
+   relatedTickets: ['#N']
+   ```
+4. Recipient reads the A2A message, extracts `COMMENT_ID`, calls `get_conversation({pr_number: N, comment_id: COMMENT_ID})` — receives only this reviewer's comment, not the whole thread history.
+
+### 9.2 Selector Precedence
+
+`get_conversation` accepts three optional selectors. First match wins:
+
+- `comment_id` — single-comment fetch. Used by the A2A hand-off pattern above.
+- `since_comment_id` — fetch comments strictly AFTER the given anchor. Used for incremental polling: track last-seen commentId, fetch only what's new.
+- `last_n` — fetch the last N comments. Coarse-grained catch-up when commentIds aren't tracked.
+- Omitting all three returns the full conversation (backward-compatible default).
+
+### 9.3 Anti-Patterns
+
+- **Full-conversation-fetch-per-cycle when commentId is available.** If the A2A message carries a commentId, use it. Otherwise the propagation discipline is broken.
+- **Mailbox DM without commentId when the message is pointing at a specific comment.** Forces recipient to fetch full thread and grep for the intended passage — negates the efficiency gain.
+- **Passing all three selectors at once expecting a merge.** First-match semantics; excess selectors are ignored.
+

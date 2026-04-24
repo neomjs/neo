@@ -54,23 +54,95 @@ class PullRequestService extends Base {
     }
 
     /**
-     * Gets the full conversation for a specific pull request.
-     * @param {number} prNumber The number of the pull request
-     * @returns {Promise<object>} A promise that resolves to the conversation data or a structured error.
+     * Gets the conversation for a specific pull request, optionally filtered by comment
+     * selector to reduce context-fetch cost across review cycles (#10272 §2.2).
+     *
+     * **Default behavior (no selectors):** returns full conversation — backward compatible
+     * with the pre-#10272 shape that callers depend on.
+     *
+     * **Selectors (first-match precedence, pick at most one):**
+     * - `comment_id` — fetch ONLY the comment whose GitHub node ID matches. Used for A2A
+     *   hand-off: a reviewer posts a comment, mailboxes the `commentId` from the create-path
+     *   return shape to the peer, peer fetches just-this-comment for near-zero context cost.
+     * - `since_comment_id` — fetch all comments AFTER the one with the given ID (exclusive).
+     *   Used for incremental review cycles: agent tracks the last seen commentId and fetches
+     *   only what's new. Scales linearly with new-comment volume, not cumulative thread size.
+     * - `last_n` — fetch the last N comments. Coarse-grained alternative when comment IDs
+     *   aren't tracked. Useful for quick catch-up scans.
+     *
+     * Selectors are applied client-side after a single GraphQL fetch (the fetch itself already
+     * caps at `aiConfig.pullRequest.maxCommentsPerPullRequest`). Server-side pagination
+     * optimization is a follow-up concern if empirical volume demands it; for current
+     * conversation sizes (up to a few dozen comments) client-side filter is simpler and
+     * avoids multi-query cursor choreography.
+     *
+     * @param {Object|number} options Either a number (legacy `prNumber` positional form, retained for
+     *                                backward compat) or an object with the shape below.
+     * @param {number}        options.pr_number         The pull request number (required when object form).
+     * @param {string}        [options.comment_id]      Return only the matching comment's data; other
+     *                                                  comments elided. PR title/body still returned.
+     * @param {string}        [options.since_comment_id] Return comments strictly after the matching
+     *                                                  comment (by createdAt order). If the id isn't found,
+     *                                                  returns empty comments (callers can interpret as
+     *                                                  "nothing new" or "id invalid").
+     * @param {number}        [options.last_n]          Return only the last N comments (by createdAt order).
+     * @returns {Promise<object>} Conversation data (optionally filtered) or a structured error.
      */
-    async getConversation(prNumber) {
+    async getConversation(options) {
+        // Accept legacy positional `prNumber` form for backward compatibility with any
+        // caller predating #10272. New callers use the object form for filter support.
+        const {pr_number, comment_id, since_comment_id, last_n} = typeof options === 'number'
+            ? {pr_number: options}
+            : (options || {});
+
+        if (!pr_number) {
+            return {
+                error  : 'Bad Request',
+                message: "Missing required argument: 'pr_number' is required.",
+                code   : 'MISSING_ARGUMENTS'
+            };
+        }
+
         const variables = {
             owner      : aiConfig.owner,
             repo       : aiConfig.repo,
-            prNumber,
+            prNumber   : pr_number,
             maxComments: aiConfig.pullRequest.maxCommentsPerPullRequest
         };
 
         try {
-            const data = await GraphqlService.query(GET_CONVERSATION, variables);
-            return data.repository.pullRequest;
+            const data         = await GraphqlService.query(GET_CONVERSATION, variables);
+            const pullRequest  = data.repository.pullRequest;
+            const allComments  = pullRequest.comments?.nodes || [];
+
+            // Selector precedence: comment_id > since_comment_id > last_n > full.
+            let filtered;
+
+            if (comment_id) {
+                filtered = allComments.filter(c => c.id === comment_id);
+            } else if (since_comment_id) {
+                const anchorIdx = allComments.findIndex(c => c.id === since_comment_id);
+                // Anchor not found → empty result set (callers interpret as "nothing after" or
+                // "invalid id"). Trying to infer intent would hide bugs.
+                filtered = anchorIdx === -1 ? [] : allComments.slice(anchorIdx + 1);
+            } else if (typeof last_n === 'number' && last_n > 0) {
+                filtered = allComments.slice(-last_n);
+            } else {
+                // No selector — return full conversation shape unchanged (backward compat).
+                return pullRequest;
+            }
+
+            // Filtered paths preserve PR title/body/author; only comments are narrowed.
+            // Caller can detect filtering via comments.length vs unfiltered fetch.
+            return {
+                ...pullRequest,
+                comments: {
+                    ...pullRequest.comments,
+                    nodes: filtered
+                }
+            };
         } catch (error) {
-            logger.error(`Error getting conversation for PR #${prNumber} via GraphQL:`, error);
+            logger.error(`Error getting conversation for PR #${pr_number} via GraphQL:`, error);
             return {
                 error  : 'GraphQL API request failed',
                 message: error.message,
