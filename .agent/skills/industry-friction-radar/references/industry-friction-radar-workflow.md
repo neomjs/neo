@@ -1,5 +1,7 @@
 # Industry Friction Radar Workflow
 
+**Anchor Summary:** This protocol governs the Neo organism's external sensory organ. It defines a strict 3-step abstraction pipeline required to systematically ingest State of the Art (SOTA) industry developments (like native JS features or worker paradigms) and synthesize them into Neo-native innovations, without violating Neo's ethical boundaries, stealing code, or importing framework-specific architectural noise.
+
 This protocol outlines the strict 3-step abstraction pipeline required to systematically ingest State of the Art (SOTA) developments without violating Neo's ethical boundaries or architectural paradigms.
 
 ## The Architecture vs. Framework Filter
@@ -18,7 +20,7 @@ Use the `search_web` tool to identify bleeding-edge developments within the Engi
 ### Step 2: Friction Extraction (The "Why")
 You are strictly forbidden from analyzing or replicating external implementation code. Instead, abstract the underlying problem. *Why* did the industry build this? What fundamental friction were they trying to solve?
 
-**Process Boundary:** You must output a structured JSON schema representing the friction. This strips away subtle framing bias from the source material and ensures we do not carry external context forward.
+**Semantic Boundary:** You must output a structured JSON schema representing the friction. This strips away subtle framing bias from the source material and ensures we do not carry external context forward.
 
 ```json
 {
@@ -40,7 +42,7 @@ You must use the `ideation-sandbox` skill to post a GitHub Discussion proposing 
 ## Output Rules
 - **No Direct PRs:** This skill produces Ideas (Discussions), never Code (Commits/PRs).
 - **Attribution:** The resulting GitHub Discussion MUST include an Author's Note citing the provenance of the friction point, using the `citations` array from Step 2. (e.g., *"External friction observed in [ecosystem] [date]; this Discussion abstracts and responds natively via Neo's architecture."*)
-- **Adjacency Sweep:** Before posting the Discussion, execute a duplicate sweep (per `ticket-create` guidelines) to ensure the concept isn't already being discussed.
+- **Adjacency Sweep:** Before posting the Discussion, execute a duplicate sweep (per `ideation-sandbox` guidelines) to ensure the concept isn't already being discussed.
 
 ## Integrations & Context
 

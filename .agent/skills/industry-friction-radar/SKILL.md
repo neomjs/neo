@@ -6,4 +6,4 @@ triggers: Use this skill when executing periodic "horizon scans" for the Dream P
 
 # Industry Friction Radar
 
-If you are tasked with executing an industry friction radar scan, you MUST immediately use the `view_file` tool to read and strictly adhere to `/Users/Shared/antigravity/neomjs/neo/.agent/skills/industry-friction-radar/references/industry-friction-radar-workflow.md` before proceeding.
+If you are tasked with executing an industry friction radar scan, you MUST immediately use the `view_file` tool to read and strictly adhere to `.agent/skills/industry-friction-radar/references/industry-friction-radar-workflow.md` before proceeding.
