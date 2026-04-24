@@ -35,13 +35,30 @@ Every PR review MUST score the work across the following categories on a scale o
 *   **`[COMPLEXITY]`** (0-100): Factor in file touchpoints, depth of changes (core vs. app-level), and cognitive load.
 *   **`[EFFORT_PROFILE]`**: Categorize the effort relative to the Impact/Complexity ratio to establish explicit Native Graph labels. Valid values are: `Quick Win` (High ROI/Low Complexity), `Heavy Lift` (High Complexity/High Impact), `Maintenance` (Routine tasks), or `Architectural Pillar` (Fundamental shifts).
 
-### 3.1 Score Justification (MANDATORY)
+### 3.1 Decile Anchors for Evaluative Metrics
+
+To minimize cross-family scoring drift, all evaluative metrics MUST adhere to these explicit decile anchors. The human-recognizable word per tier acts as a shared calibration vocabulary, avoiding affect-loaded cross-cultural drift (e.g., "Awesome" vs "Meh"). Engineering-specific words ensure consistent scale anchoring.
+
+| Score | Word | `[EXECUTION_QUALITY]` Anchor | `[ARCH_ALIGNMENT]` Anchor | `[CONTENT_COMPLETENESS]` Anchor | `[PRODUCTIVITY]` Anchor | `[IMPACT]` Anchor |
+|---|---|---|---|---|---|---|
+| 100 | Exemplary | No observed defects. Tests green. Edge cases covered/deferred. | Flawless paradigm alignment. | Perfect Anchor & Echo. Fat Ticket. | Achieves all goals efficiently. | Critical framework architecture. |
+| 90 | Excellent | Tests green. One polish nit. | Minor architectural nit. | One missing JSDoc nit. | Achieves all goals; minor polish missing. | Major new feature / optimization. |
+| 80 | Strong | Tests green. 1-2 nits. | 1-2 minor anti-patterns. | 1-2 missing @summary tags. | Achieves main goals; 1-2 nits missed. | Significant component/workflow. |
+| 70 | Solid | Tests green. Mechanical defect. | Suboptimal API usage. | Missing doc on a helper method. | Misses a minor AC. | Standard feature or refactor. |
+| 60 | Acceptable | Tests green. Functional gap deferred. | Ignores some framework idioms. | Relies on implied context. | Requires follow-up for a major AC. | Routine bug fix or minor feature. |
+| 50 | Mixed | Claimed green; not re-verified. 1 functional defect. | Mix of correct/incorrect usage. | Some methods bare. | Partially functional. | Moderate maintenance. |
+| 40 | Weak | Tests fail/unrun. 1 functional defect. | Misunderstanding of core concepts. | Major methods lack JSDoc. | Misses primary goal. | Minor bug fix or localized tweak. |
+| 30 | Poor | Multiple defects; tests fail materially. | Active violation of architecture. | Barely any documentation. | Little progress on requirements. | Trivial changes (single line). |
+| 20 | Inadequate | Functional regression observed. | Introduces major architectural debt. | Zero documentation added. | Re-derives/ignores instructions. | Typo fixes only. |
+| 10 | Broken | Tests fail catastrophically; regression. | Completely incompatible. | Active semantic degradation. | Negative productivity. | Zero impact/meaningless. |
+
+### 3.2 Score Justification (MANDATORY)
 
 Every metric score MUST include a specific, non-tautological reason. **Restated praise is NOT a justification.**
 
 Metric categories govern what "justification" means:
 
-- **Evaluative metrics** (100 = ideal): `[ARCH_ALIGNMENT]`, `[CONTENT_COMPLETENESS]`, `[EXECUTION_QUALITY]`, `[PRODUCTIVITY]`, `[IMPACT]`. Sub-100 scores MUST explain the deduction (*"X points deducted because…"*).
+- **Evaluative metrics** (100 = ideal): `[ARCH_ALIGNMENT]`, `[CONTENT_COMPLETENESS]`, `[EXECUTION_QUALITY]`, `[PRODUCTIVITY]`, `[IMPACT]`. Sub-100 scores MUST explain the deduction (*"X points deducted because…"*). A score of 100 on an evaluative metric requires an explicit one-line enumeration: *"I actively considered [X], [Y], [Z] and confirmed none apply."*
 - **Descriptive metrics** (score is a factual observation; no inherent "ideal"): `[COMPLEXITY]`, `[EFFORT_PROFILE]`. Justification must explain WHY the score characterizes the work — not a deduction from ideal.
 
 Examples:
@@ -109,7 +126,7 @@ Different model families exhibit statistically-different failure modes when revi
 
 The Depth Floor catches the Gemini-family failure mode. `[CONTENT_COMPLETENESS]` scoring catches part of the Claude-family failure mode. Neither is a style mandate — be the reviewer you are; trust cross-model asymmetry to compensate. The floor is not a ceiling. Do not calibrate toward the other model's style; the skill-level floor is what keeps rigor universal, not style convergence.
 
-*This asymmetry is the empirical basis for the cross-family review mandate in `pull-request §6.1`.*
+*This asymmetry is the empirical basis for the cross-family review mandate in `pull-request §6.1` and is mitigated by the decile anchor rubric in §3.1 which acts as a concrete calibration intervention.*
 
 ### 7.3 Anti-Patterns
 

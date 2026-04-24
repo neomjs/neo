@@ -10,28 +10,9 @@
 
 ---
 
-### 📊 Evaluation Metrics
-*   **`[ARCH_ALIGNMENT]`**: [0-100] - [Brief justification]
-*   **`[CONTENT_COMPLETENESS]`**: [0-100] - [Brief justification]
-*   **`[EXECUTION_QUALITY]`**: [0-100] - [Brief justification]
-*   **`[PRODUCTIVITY]`**: [0-100] - [Brief justification]
-*   **`[IMPACT]`**: [0-100] - [Brief justification]
-*   **`[COMPLEXITY]`**: [0-100] - [Brief justification]
-*   **`[EFFORT_PROFILE]`**: [Quick Win | Heavy Lift | Maintenance | Architectural Pillar] - [Brief justification]
-
----
-
 ### 🕸️ Context & Graph Linking
 *   **Target Epic / Issue ID:** Resolves #[Issue Number]
 *   **Related Graph Nodes:** [Any other related node IDs or conceptual tags]
-
----
-
-### 🧠 Graph Ingestion Notes
-
-*   **`[KB_GAP]`**: [If applicable, document any framework concepts misunderstood in this PR]
-*   **`[TOOLING_GAP]`**: [If applicable, document any issues with tooling, tests, or MCP execution that occurred during this PR's lifespan]
-*   **`[RETROSPECTIVE]`**: [High-level architectural takeaways or praise that should be permanently remembered]
 
 ---
 
@@ -48,6 +29,14 @@ OR
 - **Documented search**: *"I actively looked for [specific thing 1], [specific thing 2], and [specific thing 3] and found no concerns."*
 
 *A peer-review with neither a challenge nor a documented search fails the Depth Floor regardless of structural compliance elsewhere.*
+
+---
+
+### 🧠 Graph Ingestion Notes
+
+*   **`[KB_GAP]`**: [If applicable, document any framework concepts misunderstood in this PR]
+*   **`[TOOLING_GAP]`**: [If applicable, document any issues with tooling, tests, or MCP execution that occurred during this PR's lifespan]
+*   **`[RETROSPECTIVE]`**: [High-level architectural takeaways or praise that should be permanently remembered]
 
 ---
 
@@ -80,5 +69,16 @@ To proceed with merging, please address the following:
 No required actions — eligible for human merge.
 
 *Do NOT use pre-ticked placeholder items like `- [x] All checks pass and no required changes identified.` — that reads as box-checking, not genuine review. Per guide §5 Zero-Issue PR Semantics + §7.3 anti-patterns table.*
+
+---
+
+### 📊 Evaluation Metrics
+*   **`[ARCH_ALIGNMENT]`**: [0-100] - [Brief justification]
+*   **`[CONTENT_COMPLETENESS]`**: [0-100] - [Brief justification]
+*   **`[EXECUTION_QUALITY]`**: [0-100] - [Brief justification]
+*   **`[PRODUCTIVITY]`**: [0-100] - [Brief justification]
+*   **`[IMPACT]`**: [0-100] - [Brief justification]
+*   **`[COMPLEXITY]`**: [0-100] - [Brief justification]
+*   **`[EFFORT_PROFILE]`**: [Quick Win | Heavy Lift | Maintenance | Architectural Pillar] - [Brief justification]
 
 [Closing Remarks]
