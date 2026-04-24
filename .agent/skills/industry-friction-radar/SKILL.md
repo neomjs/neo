@@ -19,7 +19,13 @@ This skill serves as the external sensory organ for the Neo organism, feeding ma
 Do NOT proceed until you have read and internalized the strict 3-step abstraction workflow:
 - Read: `references/industry-friction-radar-workflow.md`
 
-## Integrations
+## Integrations & Context
+
+To understand the macro-architecture this skill serves (Neo as an Application Engine on the Left Hemisphere, and Agent OS on the Right Hemisphere), review the following:
+
+- `learn/benefits/ArchitectureOverview.md` (Left/Right Hemispheres)
+- `learn/agentos/DreamPipeline.md` (Sensory Input & DreamService)
+- `resources/content/discussions/discussion-10119.md` (Engine-category vs. Framework-category positioning)
+- `resources/content/discussions/discussion-10137.md` (Agent OS context)
 
 - Outputs MUST be fed into the `ideation-sandbox` skill (never direct Pull Requests).
-- Relates to `learn/benefits/ArchitectureOverview.md` (Left/Right Hemispheres) and `learn/agentos/DreamPipeline.md` (Sensory Input).

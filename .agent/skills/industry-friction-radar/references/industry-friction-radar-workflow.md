@@ -23,7 +23,7 @@ You are strictly forbidden from analyzing or replicating external implementation
 ```json
 {
   "friction_point": "<abstracted problem statement>",
-  "engine_domain": "<Left Hemisphere (UI/Core) or Right Hemisphere (Agent OS)>",
+  "engine_domain": "<Left Hemisphere (Application Engine) or Right Hemisphere (Agent OS)>",
   "citations": [
     { "url": "<source URL>", "date": "<date observed>", "ecosystem": "<ecosystem name>" }
   ]
