@@ -4,15 +4,16 @@ title: Investigate addVnodeComponentReferences Data Loss & TreeBuilder Symmetry
 state: OPEN
 labels:
   - discussion
+  - stale
   - ai
   - testing
   - core
 assignees: []
 createdAt: '2026-01-23T23:30:52Z'
-updatedAt: '2026-01-23T23:40:50Z'
+updatedAt: '2026-04-24T04:31:31Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8874'
 author: tobiu
-commentsCount: 3
+commentsCount: 4
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -110,4 +111,9 @@ This explains the "Extra Delta" regression encountered in #8868.
 > 
 > **Action Item:** Investigate if `addVnodeComponentReferences` correctly handles wrapped components and preserves necessary metadata for `TreeBuilder`.
 
+### @github-actions - 2026-04-24T04:31:31Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-04-24T04:31:31Z @github-actions added the `stale` label
 
