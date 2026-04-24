@@ -1,8 +1,16 @@
 # Industry Friction Radar Workflow
 
-**Anchor Summary:** This protocol governs the Neo organism's external sensory organ. It defines a strict 3-step abstraction pipeline required to systematically ingest State of the Art (SOTA) industry developments (like native JS features or worker paradigms) and synthesize them into Neo-native innovations, without violating Neo's ethical boundaries, stealing code, or importing framework-specific architectural noise.
+**Anchor Summary:** This protocol governs the Neo organism's external sensory organ. It defines a strict 3-step abstraction pipeline required to systematically ingest Bleeding-Edge/Frontier industry developments (like native JS features or worker paradigms) and synthesize them into Neo-native innovations, without violating Neo's ethical boundaries, stealing code, or importing framework-specific architectural noise.
 
-This protocol outlines the strict 3-step abstraction pipeline required to systematically ingest State of the Art (SOTA) developments without violating Neo's ethical boundaries or architectural paradigms.
+This protocol outlines the strict 3-step abstraction pipeline required to systematically ingest Bleeding-Edge/Frontier developments without violating Neo's ethical boundaries or architectural paradigms.
+
+## The "SOTA" Trap (Mandatory Framing)
+
+The term "State of the Art" (SOTA) often acts as a semantic trap. 
+- In the **Left Hemisphere (Application Engine)**, "SOTA" often equates to accepted anti-patterns (e.g., massive main-thread Virtual DOMs, complex hydration payloads, monolithic generic state). 
+- In the **Right Hemisphere (Agent OS)**, "SOTA" often equates to stateless ReAct loops, brittle context windows, and single-agent paradigms.
+
+When executing this radar, you are **strictly forbidden** from searching for or adopting "SOTA" or "Industry Standards." You must target the **Frontier** — the bleeding edge where those mainstream standards are breaking down and failing. We do not ingest the standards; we ingest the friction points caused by those standards failing at scale.
 
 ## The Architecture vs. Framework Filter
 
