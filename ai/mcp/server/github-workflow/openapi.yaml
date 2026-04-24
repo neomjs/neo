@@ -1206,7 +1206,7 @@ components:
           example: "Successfully created comment on PR #10272"
         commentId:
           type: string
-          description: The canonical GitHub global node ID of the comment. Use with `get_conversation({comment_id: ...})` or in A2A payloads to reference just-this-comment.
+          description: "The canonical GitHub global node ID of the comment. Use with `get_conversation({comment_id: ...})` or in A2A payloads to reference just-this-comment."
           example: "IC_kwDOABcD1234567890"
         url:
           type: string
