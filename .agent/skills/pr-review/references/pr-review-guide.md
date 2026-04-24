@@ -98,6 +98,8 @@ The search documentation is not optional filler — it's the reviewer proving th
 
 Self-reviews (§1) already have an analogous requirement ("actively hunt for blind spots"); §7.1 extends the discipline to peer-reviews.
 
+*(Extension for Discussion reviews: When reviewing Ideation Sandbox proposals, this Depth Floor applies equally. You must challenge an assumption or document your search. See `.agent/skills/ideation-sandbox/SKILL.md §5`)*
+
 ### 7.2 Cross-Model Asymmetry Context
 
 Different model families exhibit statistically-different failure modes when reviewing PRs:
