@@ -9,6 +9,8 @@ triggers: Use this skill when the user asks to brainstorm an architecture change
 ## 1. Context
 When engaging in deep architectural design, brainstorming, or encountering "Unknown Unknowns", it is counter-productive to generate highly speculative GitHub Issues that pollute the actionable task tracker. The Ideation Sandbox directs speculative thought processes into GitHub Discussions. Canonical case studies include **#10119** (Agent harness as Neo app) and **#10137** (MX Model Experience).
 
+**Crucial Mindset Shift:** The Ideation Sandbox is NOT meant to serve as a holding pen or a "second shot" before blindly creating an Epic. It is a dedicated space to discuss, brainstorm back-and-forth, and rigorously apply **PR Depth Challenges**. As a reviewer, you are expected to actively challenge assumptions and push back on architectural proposals (just as you would in a PR), rather than merely rubber-stamping the idea for graduation.
+
 ## 2. Triggers
 You **MUST** use this skill when:
 - Brainstorming a new, complex feature that lacks formal requirements.
