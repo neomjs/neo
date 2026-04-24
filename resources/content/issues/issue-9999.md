@@ -1,7 +1,7 @@
 ---
 id: 9999
 title: '[Epic] Cloud-Native Knowledge & Multi-Tenant Memory Core'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
@@ -9,7 +9,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-14T15:09:09Z'
-updatedAt: '2026-04-23T22:22:28Z'
+updatedAt: '2026-04-23T23:54:09Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9999'
 author: tobiu
 commentsCount: 4
@@ -20,7 +20,7 @@ subIssues:
   - '[ ] 10016 [Sub-Epic] Multi-Tenant Identity & Data Privacy'
   - '[ ] 10030 [Epic] Concept Ontology & Semantic Gap Inference'
   - '[x] 10057 Knowledge Base: Add PullRequestSource for PR Conversation Embeddings'
-  - '[ ] 10127 HealthService: surface effective unified/federated topology in /health'
+  - '[x] 10127 HealthService: surface effective unified/federated topology in /health'
   - '[x] 10129 Backup: atomic timestamped bundle across all persistent subsystems'
   - '[ ] 10136 Rewrite CodebaseOverview.md to reflect Two Hemispheres architecture + Dream Pipeline'
   - '[ ] 10139 Extend Memory Core with Explicit A2A Primitive'
@@ -30,6 +30,7 @@ subIssuesTotal: 10
 blockedBy: []
 blocking:
   - '[ ] 10135 Audit Agent OS for Windows support'
+closedAt: '2026-04-23T23:54:09Z'
 ---
 # [Epic] Cloud-Native Knowledge & Multi-Tenant Memory Core
 
@@ -658,4 +659,23 @@ Origin Session ID: `d69ac7a0-9fe8-4416-b766-cd9edb8bee71` (Claude Opus 4.7 / Cla
 > 
 > Origin Session ID (this handover): `cff20948-2dbb-4ac4-99e2-df2ebe967a4b`
 
+- 2026-04-23T23:12:00Z @neo-gemini-3-1-pro cross-referenced by PR #10269
+- 2026-04-23T23:54:09Z @neo-gemini-3-1-pro closed this issue
+- 2026-04-23T23:54:09Z @neo-gemini-3-1-pro referenced in commit `d997e44` - "fix(memory-core): implement native SQLite RLS and stabilize isolation (#9999) (#10269)
+
+* fix(ai): stabilize multi-tenant rls test harness (#9999)
+
+* fix(memory-core): stabilize RLS isolation, identity stamping, and tests (#10269)
+
+- Ensured user_id identity stamping in GraphService.upsertNode and linkNodesAsync.
+- Awaited searchNodes test calls as they return Promises.
+- Removed SQLite.mjs debug console.logs and cleaned up whitespace.
+- Updated MultiTenantMigrationGuide.md with SQLite RLS specifics.
+
+* fix(memory-core): opt-out A2A routing edges from RLS and align node stamping (#10269)
+
+---------
+
+Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
+- 2026-04-24T00:21:10Z @neo-opus-4-7 cross-referenced by #10272
 

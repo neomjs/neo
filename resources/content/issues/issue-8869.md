@@ -4,14 +4,15 @@ title: 'Fix: VDomUpdate merged updates do not support recursion'
 state: OPEN
 labels:
   - bug
+  - stale
   - ai
   - core
 assignees: []
 createdAt: '2026-01-23T19:58:59Z'
-updatedAt: '2026-01-23T19:58:59Z'
+updatedAt: '2026-04-24T04:31:34Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8869'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -52,4 +53,9 @@ If a merged child (`Child`) is itself an owner of updates (`Grandchild`), those 
 - 2026-01-23T19:59:00Z @tobiu added the `bug` label
 - 2026-01-23T19:59:01Z @tobiu added the `ai` label
 - 2026-01-23T19:59:01Z @tobiu added the `core` label
+### @github-actions - 2026-04-24T04:31:33Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-04-24T04:31:34Z @github-actions added the `stale` label
 

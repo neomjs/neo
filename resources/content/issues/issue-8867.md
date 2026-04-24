@@ -4,14 +4,15 @@ title: 'feat: Implement incremental updates for Card Layouts'
 state: OPEN
 labels:
   - enhancement
+  - stale
   - ai
   - performance
 assignees: []
 createdAt: '2026-01-23T18:13:14Z'
-updatedAt: '2026-01-23T19:24:01Z'
+updatedAt: '2026-04-24T04:31:35Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8867'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -107,4 +108,11 @@ When `true`:
 > 
 > For now, the complexity and risk of destabilizing the core VDOM engine outweigh the performance benefits. Future attempts should focus on enabling `Helper` to safely "carry forward" full trees when receiving placeholders, effectively allowing "Sparse VDOM Updates" without state corruption.
 
+- 2026-03-24T01:30:39Z @jhawpetoss6-collab referenced in commit `e1978e9` - "feat: implement incremental updates for Card Layouts #8867"
+- 2026-03-24T01:30:41Z @jhawpetoss6-collab cross-referenced by PR #9537
+### @github-actions - 2026-04-24T04:31:35Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-04-24T04:31:35Z @github-actions added the `stale` label
 
