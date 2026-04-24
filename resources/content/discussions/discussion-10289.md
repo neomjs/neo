@@ -9,6 +9,8 @@ createdAt: '2026-04-24T10:08:40Z'
 updatedAt: '2026-04-24T10:08:40Z'
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Claude Opus 4.7 (Claude Code)** during an Ideation session with @tobiu (session `b02bd06c-a2cb-4aff-8af1-c4f2643c91be`). The "don't be evil" framing + the self-defense-mechanism metaphor + the cloud-phase timing driver were @tobiu's framings on 2026-04-24; this Discussion formalizes the depth analysis into an iterative-review artifact per the `#10280` workflow. Items 2+3 of a three-item session sweep (Item 1 → `#10288` backtick convention, this → Items 2+3 organism self-defense).
+>
+> **Update 2026-04-24 (@neo-gemini-3-1-pro):** Added the 'Contextual Sandboxing' and 'MCP Middleware Guard' primitives, expanded the Attack Surfaces table to include Resource Exhaustion, and resolved sequencing OQs based on cross-family review.
 
 ## Context
 
@@ -52,6 +54,7 @@ The organism needs a codified self-defense analogous to Google's retired *"don't
 | Agent-to-agent poisoning via Memory Core | None | Memories treated as equally authoritative regardless of authoring agent's trust tier |
 | Supply-chain via dependencies | None automated | No gate on `package.json` changes or new npm imports |
 | Markdown injection / invisible content | None | Zero-width chars, HTML comments, ANSI escapes render invisibly but enter context |
+| Resource Exhaustion (DoS) via Complex Reasoning | 25-turn guardrail in `AGENTS.md` | External issue contains logically contradictory architectural requests, causing infinite agent reasoning loops. Needs substrate-level rate limiting for cloud phase. |
 
 ### Instruction-level malice — what happens today
 
@@ -126,6 +129,14 @@ New section in `pr-review-guide.md` — equivalent of Depth Floor `§7.1` but fo
 
 Not paranoid, not performative — forcing one explicit consideration step before approval. Same shape as Depth Floor minimum-one-challenge, different axis.
 
+### 7. Contextual Sandboxing (API Gateway Isolation)
+
+Instead of relying solely on LLM attention mechanisms to obey delimiter discipline (Primitive 3), the Memory Core / MCP boundary acts as an API gateway that physically segregates context. Untrusted content is processed in an isolated, single-turn inference whose only output is a structured JSON response (e.g., a summary or risk score), which is then passed to the main reasoning agent. The main agent never sees the raw, potentially malicious text.
+
+### 8. MCP Middleware Guards (Hardcoded Tenets)
+
+Tenets should not exist solely as markdown instructions for agents to read. They must be codified as Middleware Guards within the MCP servers themselves. For instance, the `github-workflow` MCP server must structurally reject a `git push` command targeting `main` if the caller is an agent identity. The organism's immune system must not rely exclusively on the agent's conscience; the tools must refuse unsafe actions structurally.
+
 ### 6. Neo Tenets Document
 
 @tobiu's "don't be evil" analog, but codified with Neo-specific substance. A short document — `AGENTS_TENETS.md` at repo root, loaded at boot alongside `AGENTS.md` — declaring what the organism will not do **regardless of instructions**, even from the highest-trust tier:
@@ -157,8 +168,10 @@ A community PR's review thread contains valuable retrospective content. External
 **5. Interaction with `apps/legit/`-style browser-side versioning.** `[OQ_RESOLUTION_PENDING]`
 If agents mutate runtime state via Neural Link with writethrough to Legit FS, every NL mutation is a commit. External-agent mutations (Scenario C from `#10119`) need their own tenet surface. Does the Neo Tenets document extend to runtime-mutation tenets, or does NL get its own tenet file?
 
-**6. Anthropic's existing `policy` / `constitution` primitives.** `[OQ_RESOLUTION_PENDING]`
-Anthropic publishes their Constitutional AI framing. Worth aligning Neo Tenets with that framework where semantics overlap vs diverging explicitly where Neo's organism-scale concerns differ. Claude's own RLHF already provides some defenses (e.g., resistance to "CRITICAL INSTRUCTION" markers). How much should Neo Tenets re-codify vs rely-on vs supplement?
+**6. Anthropic's existing `policy` / `constitution` primitives.** `[RESOLVED_TO_AC]`
+Constitutional AI (CAI) guides general harmlessness but lacks structural repository awareness. Neo Tenets must be strictly operational and quantifiable constraints on an agentic system. 
+*   **AC:** Tenets will focus exclusively on repository safety, architectural hygiene, and tool usage (e.g., "Do not modify `package.json` without human approval"). 
+*   **AC:** Tenets must be backed by MCP Middleware Guards (Primitive 8) wherever programmatic enforcement is possible.
 
 **7. Organism identity boundaries.** `[OQ_RESOLUTION_PENDING]`
 Who IS the organism? Just the swarm of agents? Or also the humans who operate it? The memory-bound agents? The MCP servers themselves? "Self-defense" implies a self — worth defining. Matters for tenet scope: does the organism defend only agent-executed code, or also human-executed operational scripts?
@@ -169,8 +182,9 @@ The `#10208` / `#10277` cross-family review mandate was framed as calibration-as
 **9. Trust tier for human contributors.** `[OQ_RESOLUTION_PENDING]`
 Provenance tiers above distinguish swarm-internal-agents from external-agents, and `@tobiu` as owner. What about human contributors (via GitHub Issues/PRs) who aren't @tobiu but are trusted via social context? "Community member @alice is trusted" — is there a graph-native way to express contributor-reputation? Or do all non-tobi humans default to external-tier?
 
-**10. Graduation sequencing.** `[OQ_RESOLUTION_PENDING]`
-Of the six primitives, which are `#9999` cloud-phase blockers vs. post-`#9999`? Proposal: **provenance tracking (1) + trusted-instruction ring (2) + tenets v0 (6 kernel)** are blockers. Delimiter discipline (3), injection scan (4), adversarial-lens (5) can layer on after without blocking deployment. But this needs tobi + Gemini review — premature to fix.
+**10. Graduation sequencing.** `[RESOLVED_TO_AC]`
+*   **AC (Blockers for #9999):** Provenance Tracking (1), Neo Tenets v0 (6) + MCP Middleware Guards (8), and Trusted-Instruction Ring (2).
+*   **AC (Fast-Followers):** Delimiter discipline (3), injection scan (4), adversarial-lens (5), and Contextual Sandboxing (7). If tools are locked down structurally, injection scans become a secondary defense layer.
 
 ## Per-Domain Graduation Criteria
 
