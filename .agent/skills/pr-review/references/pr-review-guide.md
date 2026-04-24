@@ -128,7 +128,20 @@ The Depth Floor catches the Gemini-family failure mode. `[CONTENT_COMPLETENESS]`
 
 *This asymmetry is the empirical basis for the cross-family review mandate in `pull-request §6.1` and is mitigated by the decile anchor rubric in §3.1 which acts as a concrete calibration intervention.*
 
-### 7.3 Anti-Patterns
+### 7.3 Provenance Audit
+
+When a PR introduces a major new architectural abstraction or core subsystem, it is vulnerable to ingesting external framework bias or improperly attributed concepts. The reviewer MUST execute a **Provenance Audit**:
+
+1. **The Threshold:** Standard feature PRs or bug fixes are exempt. This audit triggers only for structural shifts, novel algorithms, or core subsystems.
+2. **The Audit Task:** The reviewer's task is **not** to play detective or run exhaustive web searches for stolen code. The task is to audit the author's declarations.
+3. **Chain of Custody:** The conceptual origin trace of an architectural abstraction. The PR description (Fat Ticket) MUST explicitly declare this provenance:
+   - *Internal Origin:* E.g., "Derived from internal Neo.mjs R&D / Session ID XYZ."
+   - *External Origin:* E.g., "Friction abstracted from [Ecosystem] via industry-friction-radar."
+4. **The External Nuance:** External human or agent contributors will likely not use internal ideation tools. For external PRs, the reviewer enforces the *principle* of the radar. If the author cannot defend the conceptual origin of the architecture natively (e.g., relying on "Because React does it this way"), the PR fails the audit.
+
+If a qualifying PR lacks a provenance declaration, or if it merely ports external framework code rather than solving the abstracted friction natively, the reviewer MUST flag it as a Required Action.
+
+### 7.4 Anti-Patterns
 
 | Anti-pattern | Why it fails the Depth Floor |
 |---|---|
@@ -137,6 +150,7 @@ The Depth Floor catches the Gemini-family failure mode. `[CONTENT_COMPLETENESS]`
 | Fully affirming review with no challenges or documented search | §7.1 Minimum-One-Challenge violated |
 | Approval without cross-skill integration check on PRs introducing new workflow conventions | §8 Cross-Skill Integration Audit violated |
 | Style-calibrating toward the other model family's tone | §7.2 — the floor keeps rigor universal, not style convergence |
+| Ignoring Chain of Custody | §7.3 Provenance Audit violated on a major abstraction |
 
 ## 8. Cross-Skill Integration Audit
 

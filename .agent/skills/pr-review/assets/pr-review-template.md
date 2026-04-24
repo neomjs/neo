@@ -40,6 +40,16 @@ OR
 
 ---
 
+### 🛂 Provenance Audit
+
+If the PR is a major architectural abstraction or new core subsystem (§7.3 threshold), document the chain of custody:
+- **Internal Origin:** [session ID / internal R&D reference] OR
+- **External Origin:** [ecosystem + industry-friction-radar citation]
+
+If author cannot defend native origin vs. framework-category logic, flag as Required Action per §7.3. Mark N/A for standard features or bug fixes.
+
+---
+
 ### 🔗 Cross-Skill Integration Audit
 
 *(Required per guide §8.1 when the PR touches skill files, conventions, MCP tool surfaces, `AGENTS_STARTUP.md` / `AGENTS.md`, or architectural primitives. Mark N/A for routine code changes that don't introduce cross-substrate conventions.)*
