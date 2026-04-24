@@ -124,7 +124,9 @@ You MUST follow this exact handoff protocol:
 1. **Autonomous Protocol (Headless):** Immediately after the PR is successfully opened, you MUST invoke the state transition trap to terminate the swarm intelligence loop:
    `signal_state_transition(state: 'PR_OPENED', target: "[pr-number]")`
 
-2. **Human-in-the-Loop Protocol (Frontier Models):** Once the PR is opened, you MUST halt and await human QA. **DO NOT** execute `gh pr merge` yourself. You MUST NOT offer or recommend a self-review using the `pr-review` skill, as cross-model reviews are strictly required. Inform the human Commander that the PR is open and ready for cross-model review, and you must not proceed with self-review unless explicitly instructed or the 7-day-open fallback is reached.
+2. **Human-in-the-Loop Protocol (Frontier Models):** Once the PR is opened, you MUST halt and await cross-model review. You MUST NOT offer or recommend a self-review using the `pr-review` skill, as cross-model reviews are strictly required. Inform the human Commander that the PR is open and ready for cross-model review, and you must not proceed with self-review unless explicitly instructed or the 7-day-open fallback is reached.
+
+3. **[HUMAN_ONLY] Merge Execution:** Agents are strictly forbidden from executing the merge itself. Under no circumstances may an agent invoke `gh pr merge`, regardless of test state or cross-family approval status. Handoff explicitly terminates when the PR enters the `APPROVED` state. The actual squash-merge execution is reserved exclusively for the human user (`@tobiu`) acting as the final pipeline authority.
 
 **Cross-Review Response Cycle:** If an external reviewer posts `Status: Request Changes` on your PR, you re-enter the author loop per §7 (Review Response Protocol). After addressing the Required Actions with follow-up commits and posting the structured response comment, you halt again for re-review. Done-ness is per-handoff, not per-lifetime.
 
