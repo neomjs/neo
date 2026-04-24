@@ -309,7 +309,7 @@ Without this context, sub-agents will hallucinate bugs where none exist (e.g., c
 
 ### Merge Authorization (Human-Only)
 
-Cross-family approval gates squash-merge ELIGIBILITY, but agents are strictly forbidden from executing the merge itself. Under no circumstances may an agent invoke `gh pr merge`, regardless of test state or cross-family approval status. Handoff explicitly terminates when the PR enters the `APPROVED` state. The actual squash-merge execution is reserved exclusively for the human user (`@tobiu`) acting as the final pipeline authority.
+Cross-family approval gates squash-merge ELIGIBILITY, but agents are strictly forbidden from executing the merge itself. Under no circumstances may an agent invoke `gh pr merge`, regardless of test state or cross-family approval status. Handoff explicitly terminates when the PR enters the "approved" state. Agents must not interpret ambiguous signals (e.g., "take a look", "approved", "LGTM", "ready for merge", "no required actions") as authorization to merge. The actual squash-merge execution is reserved exclusively for the human user (`@tobiu`) acting as the final pipeline authority.
 
 **Workflow skills (authoritative — read before invoking their respective tools):**
 - **Proposing architectural changes or discussing ideas:** `.agent/skills/ideation-sandbox/SKILL.md` — workflow for creating and participating in GitHub Discussions to explore new ideas safely before creating tickets.
