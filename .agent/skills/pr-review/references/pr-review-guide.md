@@ -134,7 +134,7 @@ When a PR introduces a major new architectural abstraction or core subsystem, it
 
 1. **The Threshold:** Standard feature PRs or bug fixes are exempt. This audit triggers only for structural shifts, novel algorithms, or core subsystems.
 2. **The Audit Task:** The reviewer's task is **not** to play detective or run exhaustive web searches for stolen code. The task is to audit the author's declarations.
-3. **Chain of Custody:** The PR description (Fat Ticket) MUST explicitly declare the provenance of the architecture:
+3. **Chain of Custody:** The conceptual origin trace of an architectural abstraction. The PR description (Fat Ticket) MUST explicitly declare this provenance:
    - *Internal Origin:* E.g., "Derived from internal Neo.mjs R&D / Session ID XYZ."
    - *External Origin:* E.g., "Friction abstracted from [Ecosystem] via industry-friction-radar."
 4. **The External Nuance:** External human or agent contributors will likely not use internal ideation tools. For external PRs, the reviewer enforces the *principle* of the radar. If the author cannot defend the conceptual origin of the architecture natively (e.g., relying on "Because React does it this way"), the PR fails the audit.
