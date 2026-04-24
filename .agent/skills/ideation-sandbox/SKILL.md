@@ -6,16 +6,16 @@ triggers: Use this skill when the user asks to brainstorm an architecture change
 
 # Ideation Sandbox
 
-## Context
-When engaging in deep architectural design, brainstorming, or encountering "Unknown Unknowns", it is counter-productive to generate highly speculative GitHub Issues that pollute the actionable task tracker. The Ideation Sandbox directs speculative thought processes into GitHub Discussions.
+## 1. Context
+When engaging in deep architectural design, brainstorming, or encountering "Unknown Unknowns", it is counter-productive to generate highly speculative GitHub Issues that pollute the actionable task tracker. The Ideation Sandbox directs speculative thought processes into GitHub Discussions. Canonical case studies include **#10119** (Agent harness as Neo app) and **#10137** (MX Model Experience).
 
-## Triggers
+## 2. Triggers
 You **MUST** use this skill when:
 - Brainstorming a new, complex feature that lacks formal requirements.
 - Exploring major architectural refactors.
 - Discussing concepts that are not yet actionable.
 
-## Instructions
+## 3. Initial Proposal (Authoring)
 1. **Never create an Issue for ideation.** If your intent is speculative or exploratory, abort Issue creation immediately.
 2. **Use Discussions.** Call the `create_discussion` tool to post your proposal.
 3. **Set the Category.** Map the discussion to the `Ideas` category.
@@ -23,5 +23,23 @@ You **MUST** use this skill when:
    - **Self-Identification (Mandatory):** You **MUST** begin the body by explicitly identifying yourself and your underlying model. (e.g., `> **Author's Note:** This proposal was autonomously synthesized by **[Agent Name] ([Model Name])** during an Ideation session.`)
    - **The Concept:** What is being proposed?
    - **The Rationale:** Why is this valuable?
-   - **Open Questions:** What unknowns still need to be addressed?
-5. **Graduation:** If the user and team decide an idea is ready for implementation, *then* a formal GitHub issue can be raised referencing the discussion.
+   - **Open Questions (OQs):** What unknowns still need to be addressed?
+
+## 4. Author's Note Convention (The #10119 Annotation Pattern)
+Discussions are meant to evolve. Instead of creating noisy parallel comment threads to reflect updates to the core idea, the authoritative substrate is the Discussion body itself. 
+- Use **"the #10119 annotation pattern"**: Treat the Discussion body like a PR diff. When the idea evolves, edit the body directly (like a force-push). 
+- Add top-of-body annotation markers (e.g. `> **Update 2026-04-24:** Refined the VDOM syncing section based on feedback below.`) to signal what changed. 
+- You may add a brief comment to notify thread participants, but the body remains the single source of truth.
+
+## 5. Iterative Review Workflow
+The ideation lifecycle mirrors the PR review protocol. Comments serve as review feedback. When an Open Question (OQ) is resolved through discussion, the author edits the body to reflect the decision.
+To enable the Retrospective daemon to ingest this negotiation, the author MUST use the following OQ resolution tags in the body when closing out an open question:
+- `[RESOLVED_TO_AC]` — The question was answered and formulated into a concrete Acceptance Criterion.
+- `[GRADUATED_TO_TICKET]` — The question requires its own standalone epic/ticket to resolve (cite the ticket number).
+- `[DEFERRED_WITH_TIMELINE]` — The question is intentionally deferred (cite rationale and when it will be addressed).
+- `[REJECTED_WITH_RATIONALE]` — The premise of the question was found invalid or out-of-scope (cite rationale).
+
+## 6. Per-Domain Graduation Criteria
+A Discussion cannot graduate to an Epic until it is clearly scoped. There is no universal checklist. Every Discussion MUST articulate its own graduation criteria in a dedicated section near the end of the body.
+- If you cannot articulate what "ready for epic" looks like for this specific proposal, it isn't ready.
+- **Graduation Trigger:** The author (human or agent) declares readiness by adding a `GRADUATED` marker near the top of the body, linking to the newly created Epic ticket. The Discussion stays open as the archaeological source; the Epic becomes the actionable artifact.
