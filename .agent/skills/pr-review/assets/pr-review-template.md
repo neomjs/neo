@@ -77,7 +77,7 @@ To proceed with merging, please address the following:
 
 **For zero-issue PRs — use the null-state sentence:**
 
-No required actions — ready to merge.
+No required actions — eligible for human merge.
 
 *Do NOT use pre-ticked placeholder items like `- [x] All checks pass and no required changes identified.` — that reads as box-checking, not genuine review. Per guide §5 Zero-Issue PR Semantics + §7.3 anti-patterns table.*
 
