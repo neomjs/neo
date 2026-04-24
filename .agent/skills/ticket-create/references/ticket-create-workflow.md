@@ -4,9 +4,12 @@ The authoritative protocol for creating Neo.mjs GitHub issues. Enforced before a
 
 Tickets are **A2A (Agent-to-Agent) memory bridges**, not just human tracking artifacts. A poorly-formed ticket loses architectural context the Swarm will re-derive every session. Every rule below exists because an earlier session re-derived the discipline and got it wrong.
 
-## 1. Pre-Creation Duplicate Sweep (Gate 0)
+## 1. Pre-Authoring Adjacency Sweeps (Gate 0)
 
-**Before drafting any title or body**, verify no equivalent ticket already exists. Redundant tickets pollute the Knowledge Base and disrupt swarm synchronicity.
+**Before drafting any title or body**, you MUST execute two specific sweeps to ensure swarm synchronicity and architectural discipline:
+
+### 1a. The Content Sweep (Duplicate Detection)
+Verify no equivalent ticket already exists. Redundant tickets pollute the Knowledge Base.
 
 ```
 grep on resources/content/issues/       # open tickets
@@ -18,6 +21,10 @@ Primary: `ask_knowledge_base(query='...', type='ticket')` — semantic search su
 Fallback: `grep` / `query_documents` for exact keyword verification.
 
 If an equivalent ticket exists: do NOT file a duplicate. Either comment on the existing ticket, extend its scope, or reject the new request.
+
+### 1b. The Meta-Skill Sweep (Progressive Disclosure)
+If the proposed ticket involves modifying any agent skill (i.e., any file within `.agent/skills/`), you MUST explicitly consult `.agent/skills/create-skill/SKILL.md` before finalizing the ticket body. 
+**Pre-flight check:** *Have I verified this proposal adheres to the Progressive Disclosure routing pattern and does not bloat the top-level SKILL.md router?*
 
 ## 2. Five-Stage Challenge Chain
 
