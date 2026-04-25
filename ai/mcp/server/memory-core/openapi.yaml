@@ -885,6 +885,9 @@ paths:
                   type: array
                   items:
                     type: string
+                task:
+                  type: object
+                  description: "Optional A2A Task envelope (https://a2a-protocol.org/latest/specification/) for structured agent coordination. Omit for free-form markdown messages."
       responses:
         '200':
           description: OK
