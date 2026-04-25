@@ -1075,3 +1075,219 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — open po
         expect(found.task).toBeUndefined();
     });
 });
+
+/**
+ * #10338: A2A_TASK state-machine + transition authority + idempotency claim-and-lock
+ */
+test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — A2A_TASK (#10338)', () => {
+    test.describe.configure({ mode: 'serial' });
+    let MailboxService, GraphService, PermissionService, LifecycleService, mailboxAiConfig, originalAutoSave;
+    let dbPath;
+
+    test.beforeAll(async () => {
+        const tmpDir = path.resolve(process.cwd(), 'tmp');
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        dbPath = path.join(tmpDir, `neo-mailbox-a2a-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
+
+        GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        MailboxService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/MailboxService.mjs')).default;
+        PermissionService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/PermissionService.mjs')).default;
+        LifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
+
+        mailboxAiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        mailboxAiConfig.storagePaths.graph = dbPath;
+
+        if (!LifecycleService._initPromise) {
+            await LifecycleService.initAsync();
+        } else {
+            await LifecycleService.ready();
+        }
+        originalAutoSave = GraphService.db.autoSave;
+        GraphService.db.autoSave = true;
+    });
+
+    test.afterAll(async () => {
+        GraphService.db.autoSave = originalAutoSave;
+        if (fs.existsSync(dbPath)) {
+            try { fs.unlinkSync(dbPath); } catch (e) {}
+            try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
+            try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
+        }
+    });
+
+    test.beforeEach(async () => {
+        if (GraphService.db) {
+            GraphService.db.nodes.clear();
+            GraphService.db.edges.clear();
+            GraphService.db.vicinityLoadedNodes.clear();
+
+            if (GraphService.db.storage?.db) {
+                await GraphService.db.storage.clear();
+                GraphService.db.storage.db.exec('DELETE FROM GraphLog');
+            }
+        }
+
+        GraphService.upsertNode({ id: '@alice', type: 'AGENT', name: 'Alice', properties: {} });
+        GraphService.upsertNode({ id: '@bob', type: 'AGENT', name: 'Bob', properties: {} });
+        GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
+        GraphService.upsertNode({ id: 'AGENT:*', type: 'AGENT', name: 'Broadcast', properties: {} });
+        
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+            await PermissionService.grantPermission({ to: '@charlie', scope: 'CAN_REPLY_TO' });
+        });
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await PermissionService.grantPermission({ to: '@bob', scope: 'CAN_REPLY_TO' });
+            await PermissionService.grantPermission({ to: '@charlie', scope: 'CAN_REPLY_TO' });
+        });
+    });
+
+    test('addMessage and transitionTask enforce state enum validation', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await expect(MailboxService.addMessage({
+                to: '@bob', subject: 'task', body: 'body',
+                task: { state: 'InvalidState' }
+            })).rejects.toThrow(/Invalid task state: InvalidState/);
+            
+            const res = await MailboxService.addMessage({
+                to: '@bob', subject: 'task', body: 'body',
+                task: { state: 'Submitted' }
+            });
+            
+            await expect(MailboxService.transitionTask({
+                taskId: res.messageId, newState: 'AlsoInvalid'
+            })).rejects.toThrow(/Invalid new task state: AlsoInvalid/);
+        });
+    });
+
+    test('RBAC Matrix: Originator and Assignee authority', async () => {
+        let msgId;
+        // Alice creates task for Bob
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({
+                to: '@bob', subject: 'task', body: 'body',
+                task: { state: 'Submitted' }
+            });
+            msgId = res.messageId;
+        });
+
+        // Bob (Assignee) can transition Submitted -> Working
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const res = await MailboxService.transitionTask({ taskId: msgId, newState: 'Working' });
+            expect(res.success).toBe(true);
+            expect(res.task.state).toBe('Working');
+        });
+
+        // Bob (Assignee) can transition Working -> InputRequired
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const res = await MailboxService.transitionTask({ taskId: msgId, newState: 'InputRequired' });
+            expect(res.success).toBe(true);
+            expect(res.task.state).toBe('InputRequired');
+        });
+
+        // Alice (Originator) can transition InputRequired -> Working
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.transitionTask({ taskId: msgId, newState: 'Working' });
+            expect(res.success).toBe(true);
+            expect(res.task.state).toBe('Working');
+        });
+        
+        // Bob (Assignee) can transition Working -> Completed
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const res = await MailboxService.transitionTask({ taskId: msgId, newState: 'Completed' });
+            expect(res.success).toBe(true);
+            expect(res.task.state).toBe('Completed');
+        });
+
+        // Test Canceled by Originator
+        let msg2Id;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({
+                to: '@bob', subject: 'task2', body: 'body',
+                task: { state: 'Submitted' }
+            });
+            msg2Id = res.messageId;
+            
+            const trans = await MailboxService.transitionTask({ taskId: msg2Id, newState: 'Canceled' });
+            expect(trans.success).toBe(true);
+            expect(trans.task.state).toBe('Canceled');
+        });
+        
+        // Test Failed by Assignee
+        let msg3Id;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({
+                to: '@bob', subject: 'task3', body: 'body',
+                task: { state: 'Submitted' }
+            });
+            msg3Id = res.messageId;
+        });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await MailboxService.transitionTask({ taskId: msg3Id, newState: 'Working' });
+            const trans = await MailboxService.transitionTask({ taskId: msg3Id, newState: 'Failed' });
+            expect(trans.success).toBe(true);
+            expect(trans.task.state).toBe('Failed');
+        });
+    });
+
+    test('Unauthorized transition attempts throw errors', async () => {
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({
+                to: '@bob', subject: 'task', body: 'body',
+                task: { state: 'Submitted' }
+            });
+            msgId = res.messageId;
+        });
+
+        // Alice (Originator) cannot transition Submitted -> Working
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await expect(MailboxService.transitionTask({ taskId: msgId, newState: 'Working' }))
+                .rejects.toThrow(/Unauthorized: @alice as originator cannot transition/);
+        });
+
+        // Bob (Assignee) cannot transition Submitted -> Canceled
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await expect(MailboxService.transitionTask({ taskId: msgId, newState: 'Canceled' }))
+                .rejects.toThrow(/Unauthorized: @bob as assignee cannot transition/);
+        });
+
+        // Charlie (Unrelated) cannot transition anything
+        await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
+            await expect(MailboxService.transitionTask({ taskId: msgId, newState: 'Working' }))
+                .rejects.toThrow(/Unauthorized: @charlie is neither originator nor assignee/);
+        });
+    });
+
+    test('Optimistic concurrency (claim-and-lock) handles race conditions', async () => {
+        let msgId;
+        // Broadcast task -> ANY agent could potentially be assignee
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({
+                to: 'AGENT:*', subject: 'task', body: 'body',
+                task: { state: 'Submitted' }
+            });
+            msgId = res.messageId;
+        });
+
+        // Bob claims it
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const resBob = await MailboxService.transitionTask({ taskId: msgId, newState: 'Working' });
+            expect(resBob.success).toBe(true);
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
+            // Charlie thinks it's still 'Submitted' (by mutating local in-memory representation)
+            const node = GraphService.db.nodes.get(msgId);
+            node.properties.task.state = 'Submitted'; 
+            
+            // But DB actually has 'Working'. Charlie's UPDATE will have changes === 0
+            const resCharlie = await MailboxService.transitionTask({ taskId: msgId, newState: 'Working' });
+            
+            expect(resCharlie.success).toBe(false);
+            expect(resCharlie.reason).toMatch(/Race lost: state changed to Working/);
+        });
+    });
+});
