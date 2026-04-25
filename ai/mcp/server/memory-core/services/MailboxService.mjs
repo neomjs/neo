@@ -497,6 +497,12 @@ class MailboxService extends Base {
      * Enforces the Track 2B (#10338) state-machine, RBAC transition authority, and
      * optimistic-concurrency idempotency (claim-and-lock).
      *
+     * Note on Error Semantics:
+     * - Throws an Error for unauthorized access or invalid input parameters.
+     * - Returns { success: false, reason: ... } for expected state-race failures (e.g., expectedCurrentState mismatch, or optimistic-concurrency race lost).
+     * Note on Broadcast Assignees:
+     * - Tasks sent to `AGENT:*` are broadcast and can be claimed by ANY authenticated agent. The UPDATE-WHERE-state optimistic concurrency guard serializes the race to claim it.
+     *
      * @param {Object} args
      * @param {String} args.taskId The ID of the MESSAGE node containing the task
      * @param {String} args.newState The new state to transition to
@@ -578,9 +584,10 @@ class MailboxService extends Base {
             // Lost the race or state changed asynchronously. Fetch fresh state directly from DB.
             const row = db.storage.db.prepare(`SELECT json_extract(data, '$.properties.task.state') as state FROM Nodes WHERE id = ?`).get(taskId);
             const freshState = row && row.state ? row.state : currentState;
-            // Sync memory node to reality
+            // Sync memory node to reality and trigger cache events
             if (messageNode && messageNode.properties && messageNode.properties.task) {
                 messageNode.properties.task.state = freshState;
+                GraphService.upsertNode(messageNode);
             }
             return { success: false, rowsAffected: 0, reason: `Race lost: state changed to ${freshState}` };
         }

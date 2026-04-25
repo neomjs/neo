@@ -1059,13 +1059,13 @@ paths:
               required:
                 - taskId
                 - newState
-                - expectedCurrentState
               properties:
                 taskId:
                   type: string
                 newState:
                   type: string
-                  description: The target state (e.g., IN_PROGRESS, COMPLETED, BLOCKED).
+                  enum: [Submitted, Working, InputRequired, Completed, Canceled, Failed, Rejected, AuthRequired, Unknown, Expired, Blocked]
+                  description: "Target A2A Task state per A2A Protocol spec (PascalCase). See https://a2a-protocol.org/latest/specification/."
                 expectedCurrentState:
                   type: string
                   description: The expected current state for optimistic locking.
