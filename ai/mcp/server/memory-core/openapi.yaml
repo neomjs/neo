@@ -885,6 +885,15 @@ paths:
                   type: array
                   items:
                     type: string
+                task:
+                  type: object
+                  description: |
+                    Optional A2A Task envelope payload (per #10334 / Discussion #10313 Option C
+                    hybrid). Stored verbatim on the MESSAGE node and surfaced by get_message +
+                    list_messages for programmatic agent coordination. Phase 1 treats `task` as
+                    opaque JSON; Phase 2 (Track 2B #10338) layers state-machine + RBAC + idempotency
+                    on top. Schema follows A2A spec subset + Neo extensions (`expiresAt`, `Blocked`).
+                    See https://a2a-protocol.org/latest/specification/ for the canonical envelope.
       responses:
         '200':
           description: OK
