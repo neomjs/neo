@@ -7,25 +7,10 @@ import crypto from 'crypto';
 import SemanticGraphExtractor from '../../../../daemons/services/SemanticGraphExtractor.mjs';
 
 /**
- * Canonicalizes a mailbox `to` address to the form seeded in the AgentIdentity graph.
- *
- * Neo's mailbox tool-schema wording accepts the ambiguous `'AGENT:@login'` form in addition to the
- * canonical seeded `'@login'` form. Left unnormalized, {@link Neo.ai.mcp.server.memory-core.services.GraphService#linkNodes}
- * culls every `SENT_TO` edge whose prefixed-form target doesn't happen to match a seeded node —
- * the silent-drop root cause documented in #10174. Centralizing normalization here preserves
- * `linkNodes`'s defense-in-depth FK-style guard (hallucinated-path protection for every other
- * edge-creation path in the graph) while honoring the mailbox's documented addressing surface.
- *
- * Accepted shapes and their canonical outputs:
- * - `'@login'` → `'@login'` (already canonical)
- * - `'AGENT:@login'` → `'@login'` (strip the `AGENT:` prefix)
- * - `'AGENT:*'` → `'AGENT:*'` (broadcast sentinel — unchanged, seeded as a real `BroadcastSentinel`
- *   node by `ai/scripts/seedAgentIdentities.mjs` so the FK guard accepts it)
- * - `'role:<name>'` / `'human:<login>'` → unchanged (role + human addressing; the corresponding
- *   node must pre-exist in the graph or be created by a separate seed pass)
- * - Test-fixture convention `'AGENT:<bareName>'` without `@` → unchanged; MailboxService unit
- *   tests seed these directly and bypass the production `bindAgentIdentity` path entirely. The
- *   `.startsWith('AGENT:@')` guard intentionally does NOT strip for bare-name fixtures.
+ * Normalizes a raw addressing target into its canonical Graph Node ID format.
+ * Enforces the unified identity substrate where `@<login>` is canonical for all identities.
+ * Preserves the `AGENT:*` sentinel for system-wide broadcasts.
+ * Safely strips legacy `AGENT:` prefixes and redundant `@@` prefixes.
  *
  * @param {String} to The raw `to` address as supplied by the caller.
  * @returns {String} The canonical address ready for `linkNodes` and permission-check consumption.
