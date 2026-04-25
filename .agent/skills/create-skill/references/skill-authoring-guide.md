@@ -68,6 +68,19 @@ When a swarm agent discovers a systemic trap, an architectural pattern, or a wor
 
 *Why:* Skills are the permanent architectural memory of the swarm. Promoting lessons ensures the next agent does not repeat your expensive mistakes.
 
+## 4. The Claude Symlink Mandate
+
+The Neo.mjs agent swarm operates across multiple identities (e.g., Antigravity and Claude Code). While `.agent/skills/` is the canonical repository of skills, Claude Code relies on a dedicated `.claude/skills/` directory to parse its available tools at boot.
+
+**CRITICAL:** Whenever you create a *new* skill folder in `.agent/skills/`, you **MUST** immediately create a corresponding symlink in the `.claude/skills/` directory.
+
+```bash
+# Run from repository root:
+ln -sf ../../.agent/skills/my-new-skill .claude/skills/my-new-skill
+```
+
+Failure to create this symlink will result in Claude being entirely blind to the new protocol, causing severe swarm capability desyncs.
+
 ## Verification
 
 Before pushing your new skill, check:
@@ -75,3 +88,4 @@ Before pushing your new skill, check:
 - [ ] Does `SKILL.md` have the strictly formatted YAML `name`, `description`, and `triggers` block?
 - [ ] Is the heavy instructional content stored entirely in the `references/` directory?
 - [ ] Does the `SKILL.md` body provide the explicit **absolute path** to the reference file?
+- [ ] Is there a corresponding symlink for the new skill in `.claude/skills/`?
