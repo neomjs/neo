@@ -982,4 +982,96 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — open po
             expect(res.status).toBe('sent');
         });
     });
+
+    // #10334 — A2A Task envelope primitive (Track 2 Phase 1).
+    // Phase 1 stores the optional `task` field as opaque JSON and roundtrips it through
+    // get_message + list_messages. State-machine semantics + RBAC enforcement layer on
+    // top in Track 2B (#10338). Schema follows Option C hybrid: A2A spec subset + Neo
+    // extensions (`expiresAt`, `Blocked`) per Discussion #10313 graduation. See
+    // https://a2a-protocol.org/latest/specification/.
+    test('#10334 task envelope: roundtrips through addMessage/getMessage/listMessages', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        const taskPayload = {
+            state: 'Submitted',
+            input: {
+                parts: [
+                    { kind: 'text', text: 'Please review PR #N' },
+                    { kind: 'data', data: { prNumber: 12345 } }
+                ]
+            },
+            metadata: {
+                sessionId: 'session-abc-123',
+                relatedTickets: ['#10334', '#10311'],
+                parentTask: null
+            },
+            expectedOutput: { shape: 'review', locationHint: 'post as PR comment' },
+            budget: { deadline: '2026-04-30T00:00:00Z', maxTokens: 8000 },
+            expiresAt: '2026-04-30T00:00:00Z'
+        };
+
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({
+                to: '@bob',
+                subject: 'Task delegation',
+                body: 'See task envelope',
+                task: taskPayload
+            });
+            msgId = res.messageId;
+        });
+
+        // Verify task stored on the MESSAGE node verbatim
+        const node = GraphService.db.nodes.get(msgId);
+        expect(node.properties.task).toEqual(taskPayload);
+
+        // Verify getMessage returns task field
+        const bobRead = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.getMessage({ messageId: msgId });
+        });
+        expect(bobRead.task).toEqual(taskPayload);
+        expect(bobRead.body).toBe('See task envelope');
+
+        // Verify listMessages includes task field in summary
+        const bobList = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.listMessages({ status: 'all' });
+        });
+        const found = bobList.messages.find(m => m.messageId === msgId);
+        expect(found).toBeDefined();
+        expect(found.task).toEqual(taskPayload);
+    });
+
+    test('#10334 task envelope: backward-compatible — messages without task field unaffected', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({
+                to: '@bob', subject: 'Plain message', body: 'No task envelope'
+            });
+            msgId = res.messageId;
+        });
+
+        // Node should NOT have task property
+        const node = GraphService.db.nodes.get(msgId);
+        expect(node.properties.task).toBeUndefined();
+
+        // getMessage return should NOT have task field
+        const bobRead = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.getMessage({ messageId: msgId });
+        });
+        expect(bobRead.task).toBeUndefined();
+        expect(bobRead.body).toBe('No task envelope');
+
+        // listMessages summary should NOT have task field
+        const bobList = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            return await MailboxService.listMessages({ status: 'all' });
+        });
+        const found = bobList.messages.find(m => m.messageId === msgId);
+        expect(found.task).toBeUndefined();
+    });
 });

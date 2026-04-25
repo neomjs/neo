@@ -75,9 +75,16 @@ class MailboxService extends Base {
      * @param {String} [args.priority='normal'] Message priority ('low', 'normal', or 'high')
      * @param {String} [args.partOfThread] Thread ID
      * @param {String[]} [args.taggedConcepts] Array of concept IDs tagged
+     * @param {Object} [args.task] Optional A2A Task envelope payload (per #10334). When present,
+     *   stored verbatim as a property on the MESSAGE node and surfaced by get_message + list_messages
+     *   for programmatic agent coordination. Phase 1 (this primitive) treats `task` as opaque JSON;
+     *   Phase 2 (Track 2B #10338) layers state-machine transitions, RBAC enforcement, and idempotency
+     *   claim-and-lock on top. Schema follows Option C hybrid (A2A spec subset + Neo extensions like
+     *   `expiresAt`, `Blocked`) per Discussion #10313 graduation. See
+     *   {@link https://a2a-protocol.org/latest/specification/} for the canonical Task envelope.
      * @returns {Promise<Object>}
      */
-    async addMessage({ to, subject, body, originSessionId, relatedSessions = [], relatedTickets = [], inReplyTo, priority = 'normal', partOfThread, taggedConcepts = [] }) {
+    async addMessage({ to, subject, body, originSessionId, relatedSessions = [], relatedTickets = [], inReplyTo, priority = 'normal', partOfThread, taggedConcepts = [], task }) {
         const sentBy = RequestContextService.getAgentIdentityNodeId();
         if (!sentBy) {
             throw new Error("Cannot send message: no agent identity context bound. Ensure StdioIdentityResolver or OIDC transport is active.");
@@ -179,19 +186,29 @@ class MailboxService extends Base {
         }
 
         // 1. Create the Message Node
+        // The optional `task` property carries an A2A-Task-object-shaped JSON payload per #10334
+        // (Track 2 envelope primitive). When present, downstream consumers (listMessages,
+        // getMessage) surface it for programmatic agent coordination. Schema sketch + Option C
+        // hybrid (A2A spec subset + Neo extensions like `expiresAt`/`Blocked`) per Discussion
+        // #10313 graduation. Phase 1 stores arbitrary opaque object; Phase 2 (Track 2B #10338)
+        // layers state-machine transition logic + RBAC matrix on top. See
+        // https://a2a-protocol.org/latest/specification/ for the canonical envelope shape.
+        const messageProperties = {
+            subject,
+            bodyText: body,
+            priority,
+            sentAt: timestamp,
+            readAt: null,
+            userId: sentBy,
+            sharedEntity: true
+        };
+        if (task !== undefined) messageProperties.task = task;
+
         GraphService.upsertNode({
             id: messageId,
             type: 'MESSAGE',
             name: subject,
-            properties: {
-                subject,
-                bodyText: body,
-                priority,
-                sentAt: timestamp,
-                readAt: null,
-                userId: sentBy,
-                sharedEntity: true
-            }
+            properties: messageProperties
         });
 
         // 2. Map the routing edges
@@ -332,7 +349,7 @@ class MailboxService extends Base {
                     if (fromIdentity && sentByNodeId !== fromIdentity) continue;
                     if (threadId && foundThreadId !== threadId) continue;
 
-                    messages.push({
+                    const summary = {
                         messageId: messageNode.id,
                         subject: messageNode.properties.subject,
                         priority: messageNode.properties.priority,
@@ -340,7 +357,9 @@ class MailboxService extends Base {
                         readAt: messageNode.properties.readAt,
                         from: sentByNodeId,
                         to: sentToNodeId
-                    });
+                    };
+                    if (messageNode.properties.task !== undefined) summary.task = messageNode.properties.task;
+                    messages.push(summary);
                 }
             }
         }
@@ -410,7 +429,7 @@ class MailboxService extends Base {
             throw new Error(`Unauthorized: message ${messageId} was not sent to or from ${me}. (Read-path validation strictly enforced per Phase 3 rules)`);
         }
 
-        return {
+        const result = {
             messageId,
             subject: messageNode.properties.subject,
             body: messageNode.properties.bodyText,
@@ -419,6 +438,8 @@ class MailboxService extends Base {
             from: sentBy,
             to: sentTo
         };
+        if (messageNode.properties.task !== undefined) result.task = messageNode.properties.task;
+        return result;
     }
 
     /**
