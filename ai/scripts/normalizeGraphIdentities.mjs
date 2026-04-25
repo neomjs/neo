@@ -66,7 +66,7 @@ const ALIAS_MAP = {
  * the live graph. Purging them cascades to any remaining orphan edges via the
  * SQLite FK constraint (`ON DELETE CASCADE`).
  */
-const PURGE_NODES = ['AGENT:alice', 'AGENT:bob'];
+const PURGE_NODES = ['AGENT:alice', 'AGENT:bob', 'AGENT:charlie'];
 
 function parseArgs(argv) {
     const args = {apply: false, db: null, help: false};
