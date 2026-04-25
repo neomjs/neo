@@ -8,7 +8,7 @@
 DB_PATH=".neo-ai-data/sqlite/memory-core-graph.sqlite"
 TMUX_SESSION=${TMUX_SESSION:-"neo-agent"}
 POLL_INTERVAL=${POLL_INTERVAL:-300} # 5 minutes default
-IDENTITY=${IDENTITY:-"neo-gemini-3-1-pro"}
+IDENTITY=${NEO_AGENT_IDENTITY:-"@neo-gemini-3-1-pro"}
 STATE_FILE="/tmp/neo-agent-state.txt"
 CONCURRENCY_LOCK=".neo-ai-data/heartbeat-concurrency.lock"
 
