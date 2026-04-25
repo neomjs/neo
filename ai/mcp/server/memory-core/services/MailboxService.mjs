@@ -221,7 +221,8 @@ class MailboxService extends Base {
                 bodyText: body,
                 priority,
                 sentAt: timestamp,
-                readAt: null
+                readAt: null,
+                userId: null
             }
         });
 
