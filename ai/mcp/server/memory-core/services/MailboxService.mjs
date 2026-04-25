@@ -62,6 +62,8 @@ class MailboxService extends Base {
         singleton: true
     }
 
+    static VALID_TASK_STATES = ['Submitted', 'Working', 'InputRequired', 'Completed', 'Canceled', 'Failed', 'Rejected', 'AuthRequired', 'Unknown', 'Expired', 'Blocked'];
+
     /**
      * Adds a new message to the mailbox system.
      * @param {Object} args
@@ -202,7 +204,13 @@ class MailboxService extends Base {
             userId: sentBy,
             sharedEntity: true
         };
-        if (task !== undefined) messageProperties.task = task;
+        
+        if (task !== undefined) {
+            if (task.state && !MailboxService.VALID_TASK_STATES.includes(task.state)) {
+                throw new Error(`Invalid task state: ${task.state}. Must be one of: ${MailboxService.VALID_TASK_STATES.join(', ')}`);
+            }
+            messageProperties.task = task;
+        }
 
         GraphService.upsertNode({
             id: messageId,
@@ -482,6 +490,119 @@ class MailboxService extends Base {
         GraphService.upsertNode(messageNode);
 
         return { messageId, readAt: messageNode.properties.readAt, status: 'read' };
+    }
+
+    /**
+     * Transitions an A2A task to a new state.
+     * Enforces the Track 2B (#10338) state-machine, RBAC transition authority, and
+     * optimistic-concurrency idempotency (claim-and-lock).
+     *
+     * Note on Error Semantics:
+     * - Throws an Error for unauthorized access or invalid input parameters.
+     * - Returns { success: false, reason: ... } for expected state-race failures (e.g., expectedCurrentState mismatch, or optimistic-concurrency race lost).
+     * Note on Broadcast Assignees:
+     * - Tasks sent to `AGENT:*` are broadcast and can be claimed by ANY authenticated agent. The UPDATE-WHERE-state optimistic concurrency guard serializes the race to claim it.
+     *
+     * @param {Object} args
+     * @param {String} args.taskId The ID of the MESSAGE node containing the task
+     * @param {String} args.newState The new state to transition to
+     * @param {String} [args.expectedCurrentState] Optional guard: if provided, the transition fails if current state differs
+     * @returns {Promise<Object>} Object containing success boolean, rowsAffected, and updated task object
+     */
+    async transitionTask({ taskId, newState, expectedCurrentState }) {
+        if (!MailboxService.VALID_TASK_STATES.includes(newState)) {
+            throw new Error(`Invalid new task state: ${newState}. Must be one of: ${MailboxService.VALID_TASK_STATES.join(', ')}`);
+        }
+
+        const me = RequestContextService.getAgentIdentityNodeId();
+        if (!me) {
+            throw new Error("Cannot transition task: no agent identity context bound.");
+        }
+
+        const db = GraphService.db;
+
+        // Trigger syncCache to ensure we have latest vicinity
+        db.getAdjacentNodes(taskId, 'both');
+
+        const messageNode = db.nodes.get(taskId);
+        if (!messageNode || messageNode.label !== 'MESSAGE') {
+            throw new Error(`Task not found: ${taskId}`);
+        }
+
+        if (!messageNode.properties.task || !messageNode.properties.task.state) {
+            throw new Error(`Message ${taskId} is not an A2A Task (missing task.state)`);
+        }
+
+        const currentState = messageNode.properties.task.state;
+
+        if (expectedCurrentState && currentState !== expectedCurrentState) {
+            return { success: false, rowsAffected: 0, reason: `State mismatch: expected ${expectedCurrentState}, got ${currentState}` };
+        }
+
+        let isOriginator = false;
+        let isAssignee = false;
+
+        for (const edge of db.edges.items) {
+            if (edge.source === taskId) {
+                if (edge.type === 'SENT_BY' && edge.target === me) isOriginator = true;
+                if (edge.type === 'SENT_TO' && (edge.target === me || edge.target === 'AGENT:*')) isAssignee = true;
+            }
+        }
+
+        if (!isOriginator && !isAssignee) {
+            throw new Error(`Unauthorized: ${me} is neither originator nor assignee for task ${taskId}`);
+        }
+
+        let authorized = false;
+
+        if (isOriginator) {
+            if (currentState === 'Submitted' && newState === 'Canceled') authorized = true;
+            if (currentState === 'InputRequired' && newState === 'Working') authorized = true;
+        }
+
+        if (isAssignee) {
+            if (currentState === 'Submitted' && newState === 'Working') authorized = true;
+            if (currentState === 'Working' && ['InputRequired', 'Completed', 'Failed'].includes(newState)) authorized = true;
+        }
+
+        if (!authorized) {
+            const role = isOriginator ? 'originator' : 'assignee';
+            throw new Error(`Unauthorized: ${me} as ${role} cannot transition \`${currentState} → ${newState}\``);
+        }
+
+        const timestamp = new Date().toISOString();
+
+        // Optimistic concurrency claim-and-lock: Update SQLite with WHERE-state guard
+        const stmt = db.storage.db.prepare(`
+            UPDATE Nodes
+            SET data = json_set(data, '$.properties.task.state', ?, '$.properties.lastModifiedAt', ?)
+            WHERE id = ? AND json_extract(data, '$.properties.task.state') = ?
+        `);
+        const info = stmt.run(newState, timestamp, taskId, currentState);
+
+        if (info.changes === 0) {
+            // Lost the race or state changed asynchronously. Fetch fresh state directly from DB.
+            const row = db.storage.db.prepare(`SELECT json_extract(data, '$.properties.task.state') as state FROM Nodes WHERE id = ?`).get(taskId);
+            const freshState = row && row.state ? row.state : currentState;
+            // Sync memory node to reality and trigger cache events
+            if (messageNode && messageNode.properties && messageNode.properties.task) {
+                messageNode.properties.task.state = freshState;
+                GraphService.upsertNode(messageNode);
+            }
+            return { success: false, rowsAffected: 0, reason: `Race lost: state changed to ${freshState}` };
+        }
+
+        messageNode.properties.task.state = newState;
+        messageNode.properties.lastModifiedAt = timestamp;
+
+        // Push the merged object back to GraphService cache to trigger events
+        GraphService.upsertNode(messageNode);
+
+        return {
+            success: true,
+            rowsAffected: info.changes,
+            task: messageNode.properties.task
+        };
     }
 
     /**

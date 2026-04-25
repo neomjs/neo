@@ -1041,6 +1041,66 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /mailbox/tasks/transition:
+    post:
+      summary: Transition A2A Task State
+      operationId: transition_task
+      x-pass-as-object: true
+      description: |
+        Transitions the state of an A2A Task using optimistic concurrency control.
+        Validates roles (Originator vs Assignee) against the new state.
+      tags: [Mailbox]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - taskId
+                - newState
+              properties:
+                taskId:
+                  type: string
+                newState:
+                  type: string
+                  enum: [Submitted, Working, InputRequired, Completed, Canceled, Failed, Rejected, AuthRequired, Unknown, Expired, Blocked]
+                  description: "Target A2A Task state per A2A Protocol spec (PascalCase). See https://a2a-protocol.org/latest/specification/."
+                expectedCurrentState:
+                  type: string
+                  description: The expected current state for optimistic locking.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Bad Request (Invalid Transition)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict (State Mismatch)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     HealthCheckResponse:
