@@ -686,4 +686,58 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
             RequestContextService.getAgentIdentityNodeId = originalGetId;
         }
     });
+
+    test('cross-tenant visibility of shared entities', async () => {
+        const RequestContextService = (await import('../../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+
+        // Ensure pristine GraphService
+        if (GraphService.db) {
+            GraphService.db.nodes.clear();
+            GraphService.db.edges.clear();
+            GraphService.db.vicinityLoadedNodes.clear();
+
+            if (GraphService.db.storage?.db) {
+                await GraphService.db.storage.clear();
+            }
+        }
+
+        // Mock identity A
+        let mockIdentity = '@identity-a';
+        const originalGetId = RequestContextService.getAgentIdentityNodeId;
+        RequestContextService.getAgentIdentityNodeId = () => mockIdentity;
+
+        try {
+            // Act: Upsert Node as Agent A but mark it as shared
+            GraphService.upsertNode({id: 'shared-node-1', type: 'TEST', name: 'shared-node', properties: { sharedEntity: true }});
+            GraphService.upsertNode({id: 'private-node-1', type: 'TEST', name: 'private-node', properties: {}});
+            await GraphService.linkNodesAsync('shared-node-1', 'private-node-1', 'RELATES_TO', 1.0);
+
+            // Clear RAM to force disk load without deleting from SQLite
+            GraphService.db.nodes.clearSilent();
+            GraphService.db.edges.clearSilent();
+            GraphService.db.vicinityLoadedNodes.clear();
+
+            // Switch to Identity B
+            mockIdentity = '@identity-b';
+
+            // Act: Attempt to search for shared node using GraphService search
+            const resultsB_shared = await GraphService.searchNodes({query: 'shared-node'});
+            expect(resultsB_shared.nodes.length).toBe(1);
+            expect(resultsB_shared.nodes[0].id).toBe('shared-node-1');
+
+            const resultsB_private = await GraphService.searchNodes({query: 'private-node'});
+            expect(resultsB_private.nodes.length).toBe(0);
+
+            // Attempt to load vicinity for shared node (should succeed)
+            await GraphService.db.getAdjacentNodes('shared-node-1', 1);
+            let nodeLoadedB = GraphService.db.nodes.get('shared-node-1');
+            expect(nodeLoadedB).toBeTruthy();
+            
+            // Wait, edges might be private if not explicitly shared, but RLS clause applies to edges too.
+            // Edge between shared and private might not be loaded if private is not accessible.
+            // Since edge has `user_id = @identity-a`, Identity B won't see it unless the edge is shared.
+        } finally {
+            RequestContextService.getAgentIdentityNodeId = originalGetId;
+        }
+    });
 });

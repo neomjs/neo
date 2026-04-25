@@ -133,9 +133,9 @@ Present-day tool schemas (`add_memory`, `mutate_frontier`, etc.) don't accept an
 
 While the write-path unconditional identity tagging applies universally to standard memories, **Shared Graph Entities** (such as A2A Mailbox messages) require special handling. 
 
-By default, the SQLite graph database enforces Row Level Security (RLS) via the `user_id` property, filtering nodes using `user_id = ? OR user_id IS NULL`. If a message node is persisted with the sender's identity, it becomes invisible to the recipient during inter-process vicinity hydration due to RLS. 
+By default, the SQLite graph database enforces Row Level Security (RLS) via the `user_id` property. If a message node is persisted with only the sender's identity, it becomes invisible to the recipient during inter-process vicinity hydration due to RLS. 
 
-To solve this, shared entities explicitly set `userId: null` on their node properties during creation (e.g., in `MailboxService.addMessage`). This normalizes authorship and ensures the node is globally discoverable across agent boundaries. Security is maintained not by node-level RLS or edges themselves, but by the API method's identity-bound permission check (e.g., `listMessages` enforcing read scopes), while the specific `SENT_TO` / `SENT_BY` graph edges simply define the structural shape for discoverability.
+To solve this, shared entities explicitly set `sharedEntity: true` on their node properties during creation (e.g., in `MailboxService.addMessage`). The SQLite read layer respects this flag alongside the legacy `user_id IS NULL` fallback. This approach ensures the node is globally discoverable across agent boundaries without corrupting provenance—the `user_id` accurately reflects the true author. Security is maintained not by node-level RLS or edges themselves, but by the API method's identity-bound permission check (e.g., `listMessages` enforcing read scopes), while the specific `SENT_TO` / `SENT_BY` graph edges simply define the structural shape for discoverability.
 
 ## Request Context Shape
 
