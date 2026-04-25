@@ -60,3 +60,4 @@ To understand the macro-architecture this skill serves (Neo as an Application En
 - `learn/agentos/DreamPipeline.md` (Sensory Input & DreamService)
 - `resources/content/discussions/discussion-10119.md` (Engine-category vs. Framework-category positioning)
 - `resources/content/discussions/discussion-10137.md` (Agent OS context)
+- `.agent/skills/ideation-sandbox/references/ideation-sandbox-workflow.md` (Pre-Filing Precedent Sweep): The radar targets *frontier friction* where standards are failing. The `ideation-sandbox` precedent sweep targets *established standards* to avoid reinventing them. They are complementary disciplines.
