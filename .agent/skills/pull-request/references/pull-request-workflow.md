@@ -93,7 +93,11 @@ Decision rule: *"Does this enable a new capability that did not exist before?"* 
 
 ## 4. Pull Request Creation
 
-You MUST use the GitHub CLI to open a Pull Request targeting the `dev` branch. You are strictly forbidden from using the `--fill` flag, as it bypasses the generation of a comprehensive PR body.
+You MUST use the GitHub CLI to open a Pull Request targeting the `dev` branch. 
+
+**Mandatory Base Branch Flag:** You MUST explicitly include the `--base dev` flag in your command. Never rely on the default branch parameter, as it may inadvertently default to `main` and result in massive, thousands-of-commits diff bloat.
+
+**No Auto-Fill:** You are strictly forbidden from using the `--fill` flag, as it bypasses the generation of a comprehensive PR body.
 
 ```bash
 gh pr create --title "feat/fix/chore: Your Title (#TICKET_ID)" --body "Comprehensive markdown body explaining architectural impact, edge cases, and explicitly stating Resolves #TICKET_ID" --base dev
