@@ -313,7 +313,7 @@ Cross-family approval gates squash-merge ELIGIBILITY, but agents are strictly fo
 
 **Workflow skills (authoritative — read before invoking their respective tools):**
 - **Proposing architectural changes or discussing ideas:** `.agent/skills/ideation-sandbox/SKILL.md` — workflow for creating and participating in GitHub Discussions to explore new ideas safely before creating tickets.
-- **Creating new tickets:** `.agent/skills/ticket-create/SKILL.md` — duplicate sweep, Fat Ticket body structure, title hygiene, label rules, visible-proposal protocol, five-stage challenge chain. Read before any `create_issue` invocation.
+- **Creating new tickets:** `.agent/skills/ticket-create/SKILL.md` — duplicate sweep, Fat Ticket body structure, title hygiene, label rules, five-stage challenge chain. Read before any `create_issue` invocation.
 - **Picking up existing tickets:** `.agent/skills/ticket-intake/SKILL.md` — validation sweep, ROI calculation, branch-before-code gate. Read before any `git checkout` on an assigned ticket.
 - **Reviewing an epic before picking up its subs:** `.agent/skills/epic-review/SKILL.md` — five-stage gating chain (roadmap fit, approach elegance, sub-structure coherence, prescription layer, avoided-traps completeness). Per-agent-per-epic one-shot; posts a structured comment on the epic ticket. Read before `ticket-intake` on any sub of an unreviewed epic.
 - **Opening pull requests:** `.agent/skills/pull-request/SKILL.md` — stepping-back reflection, conventional-commit format, ticket-ID suffix, cross-family review mandate, branch freshness check, handoff protocol. All code changes MUST culminate in a PR against `dev`; direct commits to `main`/`dev` are forbidden.
