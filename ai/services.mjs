@@ -303,5 +303,9 @@ export {
     TopologyInferenceEngine,
 
     // Concept Ontology
-    ConceptService
+    ConceptService,
+
+    // Internal Testing
+    safeLoadYaml,
+    makeSafe
 };
