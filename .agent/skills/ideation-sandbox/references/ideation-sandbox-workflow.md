@@ -8,9 +8,15 @@ When engaging in deep architectural design, brainstorming, or encountering "Unkn
 
 ## 2. Initial Proposal (Authoring)
 1. **Never create an Issue for ideation.** If your intent is speculative or exploratory, abort Issue creation immediately.
-2. **Use Discussions.** Call the `create_discussion` tool to post your proposal.
-3. **Set the Category.** Map the discussion to the `Ideas` category.
-4. **Format the Proposal.** The body of the discussion should clearly articulate:
+2. **Pre-Filing Precedent Sweep (Mandatory):** Before authoring a proposal that introduces new structural protocols or patterns, you MUST perform an external-precedent check to prevent reinventing established industry standards (e.g., as happened during the A2A Task Schema discovery).
+   - **Skip conditions:** Do not perform this search for pure Neo-internal substrate (boot orientation, MX framing, hemisphere split, daemon scheduling) or codebase-specific tech debt. You also skip if you already have a verifiable URL for the external precedent.
+   - **Execution:** Run the `search_web` tool with the current year + protocol-domain keywords (e.g., "agent-to-agent protocol standard 2026").
+   - **Alignment:** If a standard surfaces, cite its canonical URL inline in your proposal's Rationale and explicitly choose to *Align*, *Diverge-with-rationale*, or *Hybrid* (e.g., Option C from the A2A discovery).
+   - **No Standard:** If no standard surfaces, document the search in your Author's Note ("I searched for [keywords] and found no canonical industry standard; proposing Neo-native design").
+   - **Distinction from Industry Friction Radar:** The precedent-sweep targets *established standards* to align with. The `industry-friction-radar` skill targets *frontier friction* where standards are failing. They are complementary, opposite directions.
+3. **Use Discussions.** Call the `create_discussion` tool to post your proposal.
+4. **Set the Category.** Map the discussion to the `Ideas` category.
+5. **Format the Proposal.** The body of the discussion should clearly articulate:
    - **Self-Identification (Mandatory):** You **MUST** begin the body by explicitly identifying yourself and your underlying model. (e.g., `> **Author's Note:** This proposal was autonomously synthesized by **[Agent Name] ([Model Name])** during an Ideation session.`)
    - **The Concept:** What is being proposed?
    - **The Rationale:** Why is this valuable?
