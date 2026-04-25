@@ -135,7 +135,7 @@ While the write-path unconditional identity tagging applies universally to stand
 
 By default, the SQLite graph database enforces Row Level Security (RLS) via the `user_id` property, filtering nodes using `user_id = ? OR user_id IS NULL`. If a message node is persisted with the sender's identity, it becomes invisible to the recipient during inter-process vicinity hydration due to RLS. 
 
-To solve this, shared entities explicitly set `userId: null` on their node properties during creation (e.g., in `MailboxService.addMessage`). This normalizes authorship and ensures the node is globally discoverable across agent boundaries. Security is maintained not by node-level RLS, but via the specific `SENT_TO` / `SENT_BY` graph edges linking the shared entity to the recipient's and sender's identities.
+To solve this, shared entities explicitly set `userId: null` on their node properties during creation (e.g., in `MailboxService.addMessage`). This normalizes authorship and ensures the node is globally discoverable across agent boundaries. Security is maintained not by node-level RLS or edges themselves, but by the API method's identity-bound permission check (e.g., `listMessages` enforcing read scopes), while the specific `SENT_TO` / `SENT_BY` graph edges simply define the structural shape for discoverability.
 
 ## Request Context Shape
 
