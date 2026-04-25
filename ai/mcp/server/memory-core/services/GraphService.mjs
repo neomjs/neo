@@ -574,7 +574,7 @@ class GraphService extends Base {
         
         let userId = this.db.storage.RequestContextService ? this.db.storage.RequestContextService.getAgentIdentityNodeId() : null;
 
-        let rlsClause = `AND (user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.visibility') = 'team')`;
+        let rlsClause = `AND (user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.sharedEntity') = 1 OR json_extract(data, '$.properties.visibility') = 'team')`;
 
         const stmt = this.db.storage.db.prepare(`
             SELECT data FROM Nodes 

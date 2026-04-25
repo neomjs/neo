@@ -335,7 +335,7 @@ class SQLite extends Base {
         
         // Resolve Identity for RLS natively synchronously
         let userId = this.RequestContextService ? this.RequestContextService.getAgentIdentityNodeId() : null;
-        let rlsClause = `AND (user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.visibility') = 'team')`;
+        let rlsClause = `AND (user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.sharedEntity') = 1 OR json_extract(data, '$.properties.visibility') = 'team')`;
 
         const nodesStmt = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${placeholders}) ${rlsClause}`);
         const targetNodes = nodesStmt.all(...ids, userId || null).map(r => JSON.parse(r.data));
