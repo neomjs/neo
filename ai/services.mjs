@@ -101,6 +101,11 @@ function findOperation(spec, operationId) {
  * @returns {Object} - The service object with wrapped methods (mutates original or returns proxy).
  */
 function makeSafe(service, spec) {
+    if (!spec) {
+        console.warn(`[services.mjs] Warning: OpenAPI spec is null or invalid. Running ${service?.constructor?.name || 'Service'} in degraded mode (NO Zod validation).`);
+        return service;
+    }
+
     // Iterate over all properties of the service (including inherited ones if it's a class instance)
     // For simple objects/singletons:
     const proto = Object.getPrototypeOf(service);
@@ -163,10 +168,28 @@ function makeSafe(service, spec) {
 }
 
 // --- Load Specs ---
-const ghSpec  = yaml.load(fs.readFileSync(path.join(__dirname, 'mcp/server/github-workflow/openapi.yaml'), 'utf8'));
-const kbSpec  = yaml.load(fs.readFileSync(path.join(__dirname, 'mcp/server/knowledge-base/openapi.yaml'),  'utf8'));
-const memSpec = yaml.load(fs.readFileSync(path.join(__dirname, 'mcp/server/memory-core/openapi.yaml'),     'utf8'));
-const nlSpec  = yaml.load(fs.readFileSync(path.join(__dirname, 'mcp/server/neural-link/openapi.yaml'), 'utf8'));
+/**
+ * Safely loads a YAML OpenAPI specification.
+ * 
+ * Degraded Mode Semantics (Fail-Open):
+ * If a specification file is missing or contains syntax errors, this function catches the error
+ * and returns `null` rather than crashing the process. This prevents a single malformed MCP 
+ * spec from causing a systemic boot cascade failure across all daemon services.
+ * Downstream consumers (e.g., `makeSafe`) must handle `null` by skipping validation.
+ */
+function safeLoadYaml(filePath) {
+    try {
+        return yaml.load(fs.readFileSync(filePath, 'utf8'));
+    } catch (err) {
+        console.error(`[services.mjs] Failed to load or parse YAML at ${filePath}:`, err.message);
+        return null;
+    }
+}
+
+const ghSpec  = safeLoadYaml(path.join(__dirname, 'mcp/server/github-workflow/openapi.yaml'));
+const kbSpec  = safeLoadYaml(path.join(__dirname, 'mcp/server/knowledge-base/openapi.yaml'));
+const memSpec = safeLoadYaml(path.join(__dirname, 'mcp/server/memory-core/openapi.yaml'));
+const nlSpec  = safeLoadYaml(path.join(__dirname, 'mcp/server/neural-link/openapi.yaml'));
 
 // --- Apply Safety Wrappers ---
 
@@ -280,5 +303,9 @@ export {
     TopologyInferenceEngine,
 
     // Concept Ontology
-    ConceptService
+    ConceptService,
+
+    // Internal Testing
+    safeLoadYaml,
+    makeSafe
 };
