@@ -60,13 +60,13 @@ expect(queryResult.properties.value.id).toBe("40000");
 ## 4. Comprehensive Example
 
 Before authoring a new test, closely examine the following reference implementation which showcases deep state assertions, programmatic mutation, and DOM versus Worker Engine drift validation:
-`/Users/Shared/github/neomjs/neo/test/playwright/e2e/ButtonBaseNL.spec.mjs`
+`test/playwright/e2e/ButtonBaseNL.spec.mjs`
 
 ## 5. Telemetry & RLAIF Integration
 
 Tests utilizing the `neuralLink` fixture inherently generate rich user interaction trajectories. These paths are extracted as structured datasets to continuously train the Swarm's autonomous agents. 
-The backend daemon `/Users/Shared/github/neomjs/neo/ai/scripts/analyzeNlTelemetry.mjs` curates these logs from the local `memory-core.sqlite` to generate the "Golden Path" SFT/DPO datasets used in Local SLM fine-tuning pipelines.
+The backend daemon `ai/scripts/analyzeNlTelemetry.mjs` curates these logs from the local `memory-core.sqlite` to generate the "Golden Path" SFT/DPO datasets used in Local SLM fine-tuning pipelines.
 
 ## 6. Deep Dive Documentation
 For the complete API of the `neuralLink` test SDK (`nlApp`) including simulating native VNode events, VDOM querying, and complex store inspection, you MUST reference the foundational guide:
-`/Users/Shared/github/neomjs/neo/learn/guides/testing/WhiteboxE2E.md`
+`learn/guides/testing/WhiteboxE2E.md`

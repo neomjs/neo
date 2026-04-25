@@ -43,9 +43,9 @@ Below the YAML block, the Markdown body MUST be a concise directive instructing 
 
 ```markdown
 # [Skill Title]
-If you need to [do this task], you MUST immediately use the `view_file` tool to read and strictly adhere to `/Users/Shared/github/neomjs/neo/.agent/skills/[skill-name]/references/[descriptive-payload-name].md` before proceeding.
+If you need to [do this task], you MUST immediately use the `view_file` tool to read and strictly adhere to `.agent/skills/[skill-name]/references/[descriptive-payload-name].md` before proceeding.
 ```
-*(Always use the absolute repository path `/Users/Shared/github/neomjs/neo/...` for the `view_file` tool parameter).*
+*(Always use a relative path like `.agent/skills/...` for the `view_file` tool parameter).*
 
 ## 2. Writing the Payload (references/*.md)
 

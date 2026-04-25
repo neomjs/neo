@@ -10,7 +10,7 @@ This meta-analysis MUST be executed strictly by **Frontier Models** (e.g., Gemin
 
 A fresh Agent instance possesses zero intuition about the high-level framework topology. Before diving into semantic sweeps, you MUST establish a mental map to prevent hallucinated debt.
 
-**Mandatory Action:** You MUST use the `view_file` tool to read `/Users/Shared/github/neomjs/neo/learn/benefits/ArchitectureOverview.md`. This establishes the structural baseline (Runtime Engine vs. Agent OS, VDOM physics, etc.) required to accurately classify architectural deviations. 
+**Mandatory Action:** You MUST use the `view_file` tool to read `learn/benefits/ArchitectureOverview.md`. This establishes the structural baseline (Runtime Engine vs. Agent OS, VDOM physics, etc.) required to accurately classify architectural deviations. 
 
 ## 3. The Multi-Vectored Sweep
 

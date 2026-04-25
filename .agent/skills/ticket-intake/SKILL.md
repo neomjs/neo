@@ -8,4 +8,4 @@ triggers: Use this skill immediately when assigned a new ticket, before checking
 
 If you are an agent tasked with executing a ticket or issue, you MUST NOT begin executing Git branch commands or writing code.
 
-You MUST immediately use the `view_file` tool to read and strictly adhere to `/Users/Shared/github/neomjs/neo/.agent/skills/ticket-intake/references/ticket-intake-workflow.md` before proceeding. Or, if you already have the payload in context, proceed directly to its directives.
+You MUST immediately use the `view_file` tool to read and strictly adhere to `.agent/skills/ticket-intake/references/ticket-intake-workflow.md` before proceeding. Or, if you already have the payload in context, proceed directly to its directives.

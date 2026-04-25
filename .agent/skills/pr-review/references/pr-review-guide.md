@@ -18,7 +18,7 @@ If you are an AI Agent tasked with writing a PR review directly on GitHub (actin
 
 1. **Context Initialization:** You MUST retrieve the state of the PR using `get_pull_request_diff` and `get_conversation` (via the `neo-mjs-github-workflow` MCP server) before formulating your review.
 2. **Self-Review Detection:** After retrieving the PR conversation, extract the associated ticket number from the PR body (e.g., `Resolves #N`). Then query `query_raw_memories(query: '#N')` scoped to the **current Memory Core session ID**. If a match is found, the agent authored this PR in the current session — switch to **self-review mode** (first-person, clinical, no congratulatory openers). If no match, use standard **peer-review mode** (third-person, constructive).
-3. **Semantic Blast-Radius Sweep (Tech Debt Radar):** If the PR introduces fundamental framework architectural shifts or is labeled as `refactor(ai)`, you MUST execute the Tech Debt Radar (by triggering `view_file` on `/Users/Shared/github/neomjs/neo/.agent/skills/tech-debt-radar/SKILL.md`) to mandate a semantic sweep against historical issues and Memory Core sessions. This guarantees the newly proposed architecture does not collide with or ignore sweeping ambient debt across the repository before the PR is merged.
+3. **Semantic Blast-Radius Sweep (Tech Debt Radar):** If the PR introduces fundamental framework architectural shifts or is labeled as `refactor(ai)`, you MUST execute the Tech Debt Radar (by triggering `view_file` on `.agent/skills/tech-debt-radar/SKILL.md`) to mandate a semantic sweep against historical issues and Memory Core sessions. This guarantees the newly proposed architecture does not collide with or ignore sweeping ambient debt across the repository before the PR is merged.
 4. **Scope Creep vs. Iteration:** As you step back to critically review your own architectural choices, you MUST explicitly "think outside the box" and challenge your initial assumptions:
     - **Minor Gaps:** If you uncover minor misses (e.g., missed JSDoc, missing Anchor & Echo context), push rapid successive commits to the PR to polish the execution.
     - **Major Refactors:** If you realize a mathematically superior architecture exists (e.g., massive GC optimization) that is *out-of-scope* for the current ticket, DO NOT attempt to cram it into the active PR. Secure the "good enough" PR, and instead propose a **Follow-Up System Enhancement Ticket** conceptually linked to the original PR to avoid scope creep.
@@ -91,7 +91,7 @@ When challenging a specific architectural pattern or complex implementation deta
 
 ## 6. The Review Template
 When drafting your review, use the `view_file` tool to load the exact markdown template from:
-`/Users/Shared/github/neomjs/neo/.agent/skills/pr-review/assets/pr-review-template.md`
+`.agent/skills/pr-review/assets/pr-review-template.md`
 
 ## 7. Depth Floor — Preventing Rubber-Stamp Approvals
 
