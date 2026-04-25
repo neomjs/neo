@@ -91,7 +91,6 @@ Invoked before filing any new GitHub Issue via the `create_issue` MCP tool. Crea
 - **Duplicate Sweep:** Mandates a pre-creation scan of `resources/content/issues/`, `issue-archive/`, and `discussions/` to prevent Knowledge Base pollution.
 - **Fat Ticket Body Structure:** Enforces Context / Problem / Architectural Reality / Fix / AC / Out of Scope / Related / Origin Session ID as the A2A memory shape.
 - **Title Hygiene & Label Rules:** Rejects `[enhancement]` / `[bug]` / `[epic]` title prefixes (category lives in labels); mandates `ai` label on every agent-authored ticket.
-- **Visible Proposal Protocol:** Forces the agent to dump the proposed ticket into chat before the `create_issue` tool fires, so a human can redirect before remote state changes.
 
 ## Tactical & Creative Skills
 
@@ -116,7 +115,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | Skill | Type | Purpose |
 |---|---|---|
 | `ticket-intake` | Lifecycle | Pre-execution validation gate for existing tickets |
-| `ticket-create` | Lifecycle | Pre-creation discipline gate (duplicate sweep, Fat Ticket body, title/label rules, visible-proposal protocol) |
+| `ticket-create` | Lifecycle | Pre-creation discipline gate (duplicate sweep, Fat Ticket body, title/label rules) |
 | `pull-request` | Lifecycle | Post-implementation reflection + PR creation |
 | `pr-review` | Lifecycle | Structured quality evaluation & graph ingestion |
 | `tech-debt-radar` | Lifecycle | Proactive semantic RAG sweeps for architectural debt |

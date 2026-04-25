@@ -689,7 +689,7 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Creates a new GitHub issue. **MANDATORY** pre-step: read `.agent/skills/ticket-create/SKILL.md` — the skill contains the full creation protocol (duplicate sweep, Fat Ticket body, label rules, visible proposal, post-creation chaining).
+        Creates a new GitHub issue. **MANDATORY** pre-step: read `.agent/skills/ticket-create/SKILL.md` — the skill contains the full creation protocol (duplicate sweep, Fat Ticket body, label rules, post-creation chaining).
       tags: [Issues]
       requestBody:
         required: true
