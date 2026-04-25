@@ -5,4 +5,4 @@ triggers: [Healthcheck, run health checklist, diagnose system collapse, MCP infr
 ---
 # Autonomous Self-Repair Workflow
 
-If you need to diagnose infrastructure degradation, verify MCP server stability, or troubleshoot a corrupted Agent OS session, you **MUST** immediately use the `view_file` tool to read and strictly adhere to `/Users/Shared/github/neomjs/neo/.agent/skills/self-repair/references/self-repair-protocol.md` before proceeding.
+If you need to diagnose infrastructure degradation, verify MCP server stability, or troubleshoot a corrupted Agent OS session, you **MUST** immediately use the `view_file` tool to read and strictly adhere to `.agent/skills/self-repair/references/self-repair-protocol.md` before proceeding.

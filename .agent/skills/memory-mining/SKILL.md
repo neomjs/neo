@@ -6,4 +6,4 @@ triggers: Use this skill when (1) the user reports a regression symptom ("used t
 
 # Memory Mining Skill
 
-If you are diagnosing a regression symptom or about to propose a non-trivial architectural claim, you MUST immediately use the `view_file` tool to read and strictly adhere to `/Users/Shared/github/neomjs/neo/.agent/skills/memory-mining/references/memory-mining-protocol.md` before running `git log`, `grep`, or broader tool exploration. Or, if you already have the payload in context, proceed directly to its directives.
+If you are diagnosing a regression symptom or about to propose a non-trivial architectural claim, you MUST immediately use the `view_file` tool to read and strictly adhere to `.agent/skills/memory-mining/references/memory-mining-protocol.md` before running `git log`, `grep`, or broader tool exploration. Or, if you already have the payload in context, proceed directly to its directives.

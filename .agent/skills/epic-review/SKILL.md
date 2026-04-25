@@ -5,6 +5,6 @@ triggers: Use this skill when an agent is about to pick up its first sub from an
 ---
 # Epic Review Skill
 
-If you are about to pick up your first sub-issue from an epic that your model-identity has not yet reviewed, you MUST immediately use the `view_file` tool to read and strictly adhere to `/Users/Shared/github/neomjs/neo/.agent/skills/epic-review/references/epic-review-workflow.md` before running `ticket-intake` or any sub-work steps.
+If you are about to pick up your first sub-issue from an epic that your model-identity has not yet reviewed, you MUST immediately use the `view_file` tool to read and strictly adhere to `.agent/skills/epic-review/references/epic-review-workflow.md` before running `ticket-intake` or any sub-work steps.
 
 Subsequent sub pickups from the same epic by the same model-identity cite the prior review by URL reference instead of re-running the skill.
