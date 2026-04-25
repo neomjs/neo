@@ -75,7 +75,7 @@ The Neo.mjs agent swarm operates across multiple identities (e.g., Antigravity a
 **CRITICAL:** Whenever you create a *new* skill folder in `.agent/skills/`, you **MUST** immediately create a corresponding symlink in the `.claude/skills/` directory.
 
 ```bash
-cd /Users/Shared/antigravity/neomjs/neo
+# Run from repository root:
 ln -sf ../../.agent/skills/my-new-skill .claude/skills/my-new-skill
 ```
 
