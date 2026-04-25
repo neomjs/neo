@@ -36,6 +36,7 @@ const serviceMapping = {
     list_messages         : MailboxService          .listMessages        .bind(MailboxService),
     get_message           : MailboxService          .getMessage          .bind(MailboxService),
     mark_read             : MailboxService          .markRead            .bind(MailboxService),
+    transition_task       : MailboxService          .transitionTask      .bind(MailboxService),
     grant_permission      : PermissionService       .grantPermission     .bind(PermissionService),
     revoke_permission     : PermissionService       .revokePermission    .bind(PermissionService),
     list_permissions      : PermissionService       .listPermissions     .bind(PermissionService),
