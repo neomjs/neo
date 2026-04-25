@@ -92,18 +92,18 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         }
 
         // Seed agents
-        GraphService.upsertNode({ id: 'AGENT:alice', type: 'AGENT', name: 'Alice', properties: {} });
-        GraphService.upsertNode({ id: 'AGENT:bob', type: 'AGENT', name: 'Bob', properties: {} });
+        GraphService.upsertNode({ id: '@alice', type: 'AGENT', name: 'Alice', properties: {} });
+        GraphService.upsertNode({ id: '@bob', type: 'AGENT', name: 'Bob', properties: {} });
         GraphService.upsertNode({ id: 'AGENT:*', type: 'AGENT', name: 'Broadcast', properties: {} });
     });
 
     test('addMessage enforces identity and routes correctly', async () => {
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
         });
 
-        const promise = RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-            return await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Hello', body: 'Test body' });
+        const promise = RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            return await MailboxService.addMessage({ to: '@bob', subject: 'Hello', body: 'Test body' });
         });
         let res = await promise;
         
@@ -121,27 +121,27 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
                 if (edge.type === 'SENT_TO') sentTo = edge.target;
             }
         }
-        expect(sentBy).toBe('AGENT:alice');
-        expect(sentTo).toBe('AGENT:bob');
+        expect(sentBy).toBe('@alice');
+        expect(sentTo).toBe('@bob');
     });
 
     test('listMessages properly isolates by identity', async () => {
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
         });
 
         // Alice sends to Bob
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-            await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'To Bob', body: 'Secret' });
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await MailboxService.addMessage({ to: '@bob', subject: 'To Bob', body: 'Secret' });
         });
         
         // Alice sends to Broadcast
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             await MailboxService.addMessage({ to: 'AGENT:*', subject: 'To All', body: 'Public' });
         });
 
         // Bob reads
-        const bobRes = await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+        const bobRes = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             return await MailboxService.listMessages({ status: 'all' });
         });
         
@@ -150,8 +150,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         expect(bobRes.messages.find(m => m.subject === 'To All')).toBeDefined();
 
         // Charlie (new agent) reads - should only see broadcast
-        GraphService.upsertNode({ id: 'AGENT:charlie', type: 'AGENT', name: 'Charlie', properties: {} });
-        const charlieRes = await RequestContextService.run({ agentIdentityNodeId: 'AGENT:charlie' }, async () => {
+        GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
+        const charlieRes = await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
             return await MailboxService.listMessages({ status: 'all' });
         });
         
@@ -160,47 +160,47 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
     });
 
     test('getMessage enforces read-path isolation', async () => {
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
         });
 
         let msgId;
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-            const res = await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Private', body: '123' });
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: '@bob', subject: 'Private', body: '123' });
             msgId = res.messageId;
         });
 
         // Bob can read
-        const bobRead = await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+        const bobRead = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             return await MailboxService.getMessage({ messageId: msgId });
         });
         expect(bobRead.body).toBe('123');
 
         // Alice (sender) can read
-        const aliceRead = await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+        const aliceRead = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             return await MailboxService.getMessage({ messageId: msgId });
         });
         expect(aliceRead.body).toBe('123');
 
         // Charlie cannot read
-        GraphService.upsertNode({ id: 'AGENT:charlie', type: 'AGENT', name: 'Charlie', properties: {} });
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:charlie' }, async () => {
+        GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
+        await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
             await expect(MailboxService.getMessage({ messageId: msgId })).rejects.toThrow(/Unauthorized/);
         });
     });
 
     test('markRead updates the readAt property', async () => {
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
         });
 
         let msgId;
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-            const res = await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Private', body: '123' });
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: '@bob', subject: 'Private', body: '123' });
             msgId = res.messageId;
         });
 
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             const res = await MailboxService.markRead({ messageId: msgId });
             expect(res.readAt).toBeTruthy();
         });
@@ -210,18 +210,18 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
     });
 
     test('listMessages outbox mode retrieves sent messages', async () => {
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
         });
 
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-            await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Outbox Msg 1', body: '1' });
-            await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Outbox Msg 2', body: '2' });
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await MailboxService.addMessage({ to: '@bob', subject: 'Outbox Msg 1', body: '1' });
+            await MailboxService.addMessage({ to: '@bob', subject: 'Outbox Msg 2', body: '2' });
             
             const outboxRes = await MailboxService.listMessages({ box: 'outbox' });
             expect(outboxRes.messages.length).toBe(2);
-            expect(outboxRes.messages[0].from).toBe('AGENT:alice');
-            expect(outboxRes.messages[0].to).toBe('AGENT:bob');
+            expect(outboxRes.messages[0].from).toBe('@alice');
+            expect(outboxRes.messages[0].to).toBe('@bob');
             
             const inboxRes = await MailboxService.listMessages({ box: 'inbox' });
             expect(inboxRes.messages.length).toBe(0);
@@ -229,18 +229,18 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
     });
 
     test('listMessages pagination (limit/offset) boundary', async () => {
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
         });
 
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             for (let i = 0; i < 5; i++) {
-                const res = await MailboxService.addMessage({ to: 'AGENT:bob', subject: `Msg ${i}`, body: '...' });
+                const res = await MailboxService.addMessage({ to: '@bob', subject: `Msg ${i}`, body: '...' });
                 GraphService.db.nodes.get(res.messageId).properties.sentAt = new Date(1000000000000 + i * 1000).toISOString();
             }
         });
 
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             const page1 = await MailboxService.listMessages({ limit: 2, offset: 0 });
             expect(page1.messages.length).toBe(2);
             expect(page1.messages[0].subject).toBe('Msg 4'); // Sorted descending
@@ -256,34 +256,34 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
     });
 
     test('listMessages filters by threadId and fromIdentity', async () => {
-        GraphService.upsertNode({ id: 'AGENT:charlie', type: 'AGENT', name: 'Charlie', properties: {} });
+        GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
         GraphService.upsertNode({ id: 'thread-X', type: 'THREAD', name: 'Thread X', properties: {} });
         GraphService.upsertNode({ id: 'thread-Y', type: 'THREAD', name: 'Thread Y', properties: {} });
 
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
-            await PermissionService.grantPermission({ to: 'AGENT:charlie', scope: 'CAN_REPLY_TO' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+            await PermissionService.grantPermission({ to: '@charlie', scope: 'CAN_REPLY_TO' });
         });
 
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-            await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'A1', body: '...', partOfThread: 'thread-X' });
-            await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'A2', body: '...', partOfThread: 'thread-Y' });
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await MailboxService.addMessage({ to: '@bob', subject: 'A1', body: '...', partOfThread: 'thread-X' });
+            await MailboxService.addMessage({ to: '@bob', subject: 'A2', body: '...', partOfThread: 'thread-Y' });
         });
 
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:charlie' }, async () => {
-            await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'C1', body: '...', partOfThread: 'thread-X' });
+        await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
+            await MailboxService.addMessage({ to: '@bob', subject: 'C1', body: '...', partOfThread: 'thread-X' });
         });
 
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             // `fromIdentity` rather than `from` — the latter is blocked by AuthMiddleware
             // as a claim-of-authorship key. See #10174 and MailboxService JSDoc.
-            const filterFrom = await MailboxService.listMessages({ fromIdentity: 'AGENT:alice' });
+            const filterFrom = await MailboxService.listMessages({ fromIdentity: '@alice' });
             expect(filterFrom.messages.length).toBe(2);
 
             const filterThread = await MailboxService.listMessages({ threadId: 'thread-X' });
             expect(filterThread.messages.length).toBe(2);
 
-            const filterBoth = await MailboxService.listMessages({ fromIdentity: 'AGENT:alice', threadId: 'thread-X' });
+            const filterBoth = await MailboxService.listMessages({ fromIdentity: '@alice', threadId: 'thread-X' });
             expect(filterBoth.messages.length).toBe(1);
             expect(filterBoth.messages[0].subject).toBe('A1');
         });
@@ -297,14 +297,14 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         GraphService.upsertNode({ id: 'THREAD:xyz', type: 'THREAD', name: 'TXYZ', properties: {} });
         GraphService.upsertNode({ id: 'CONCEPT:test', type: 'CONCEPT', name: 'CTest', properties: {} });
 
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
         });
 
         let msgId;
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const res = await MailboxService.addMessage({ 
-                to: 'AGENT:bob', 
+                to: '@bob', 
                 subject: 'Rich semantics', 
                 body: 'body',
                 priority: 'high',
@@ -337,30 +337,30 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         // Let's grant Bob CAN_REPLY_TO Alice so Bob can start. No wait, Reachable Counterparty:
         // "if they ever sent us a message, we can reply"
         
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
         });
 
         // 1. Alice sends to Bob (allowed via explicit grant)
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-            await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Hi Bob', body: 'body' });
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await MailboxService.addMessage({ to: '@bob', subject: 'Hi Bob', body: 'body' });
         });
 
         // 2. Bob sends to Alice (no explicit grant, but Bob is replying to Alice)
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            const res = await MailboxService.addMessage({ to: 'AGENT:alice', subject: 'Re: Hi Bob', body: 'body' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const res = await MailboxService.addMessage({ to: '@alice', subject: 'Re: Hi Bob', body: 'body' });
             expect(res.status).toBe('sent');
         });
         
         // 3. Charlie tries to send to Alice (no grant, no history)
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:charlie' }, async () => {
-            await expect(MailboxService.addMessage({ to: 'AGENT:alice', subject: 'Spam', body: 'spam' })).rejects.toThrow(/Unauthorized/);
+        await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
+            await expect(MailboxService.addMessage({ to: '@alice', subject: 'Spam', body: 'spam' })).rejects.toThrow(/Unauthorized/);
         });
     });
 
     test('#10179 broadcast recipient can DM-reply to broadcaster without explicit grant', async () => {
         // Bob broadcasts (always-permitted — broadcast bypasses the CAN_REPLY_TO gate).
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await MailboxService.addMessage({ to: 'AGENT:*', subject: 'ping', body: 'body' });
         });
 
@@ -369,17 +369,17 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         // iteration only matched SENT_TO edges whose target equaled the caller directly,
         // never the AGENT:* sentinel. Replicates the empirical 2026-04-22 Opus↔Gemini
         // handshake failure documented on PR #10177.
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-            const res = await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Re: ping', body: 'body' });
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: '@bob', subject: 'Re: ping', body: 'body' });
             expect(res.status).toBe('sent');
         });
     });
 
     test('#10179 unrelated broadcast does NOT grant DM access to non-broadcaster', async () => {
-        GraphService.upsertNode({ id: 'AGENT:ed', type: 'AGENT', name: 'Ed', properties: {} });
+        GraphService.upsertNode({ id: '@ed', type: 'AGENT', name: 'Ed', properties: {} });
 
         // Ed broadcasts. Alice and Bob receive it but have no other substrate signal.
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:ed' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@ed' }, async () => {
             await MailboxService.addMessage({ to: 'AGENT:*', subject: 'from ed', body: 'body' });
         });
 
@@ -387,8 +387,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         // *to Ed* for every authenticated recipient (per #10179 trust lift), but does not
         // transitively grant Alice reply-access to unrelated third parties. Validates the
         // guard's core invariant survives the broadcast-receipt extension.
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-            await expect(MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Hi', body: 'body' })).rejects.toThrow(/Unauthorized/);
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await expect(MailboxService.addMessage({ to: '@bob', subject: 'Hi', body: 'body' })).rejects.toThrow(/Unauthorized/);
         });
     });
 
@@ -397,7 +397,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         GraphService.upsertNode({ id: 'human:tobiu', type: 'HUMAN', name: 'Tobias', properties: {} });
 
         // Any agent can dispatch to a role or human without CAN_REPLY_TO
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             await MailboxService.addMessage({ to: 'role:librarian', subject: 'Need book', body: 'body' });
             await MailboxService.addMessage({ to: 'human:tobiu', subject: 'Help', body: 'body' });
         });
@@ -415,11 +415,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         expect(humanCount).toBe(1);
         
         // Reading requires CAN_READ_INBOX_OF if the target isn't the caller
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await expect(MailboxService.listMessages({ to: 'role:librarian' })).rejects.toThrow(/Unauthorized/);
 
             // Grant bob permission to read librarian role
-            GraphService.linkNodes('AGENT:bob', 'role:librarian', 'CAN_READ_INBOX_OF', 1.0);
+            GraphService.linkNodes('@bob', 'role:librarian', 'CAN_READ_INBOX_OF', 1.0);
 
             const res = await MailboxService.listMessages({ to: 'role:librarian' });
             expect(res.messages.length).toBe(1);
@@ -437,13 +437,13 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
                 return ['CONCEPT:mcp-integration', 'CLASS:Neo.ai.mcp.server.memory-core.services.MailboxService'];
             };
 
-            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-                await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+            await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+                await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
             });
 
             let msgId;
-            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-                const res = await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Integration', body: 'Let us build MCP integrations' });
+            await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                const res = await MailboxService.addMessage({ to: '@bob', subject: 'Integration', body: 'Let us build MCP integrations' });
                 msgId = res.messageId;
             });
 
@@ -467,13 +467,13 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
     });
 
     test('getHealthcheckPreview returns formatted mailbox metrics', async () => {
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
         });
 
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-            const m1 = await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Msg 1', body: '...' });
-            const m2 = await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Msg 2', body: '...' });
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const m1 = await MailboxService.addMessage({ to: '@bob', subject: 'Msg 1', body: '...' });
+            const m2 = await MailboxService.addMessage({ to: '@bob', subject: 'Msg 2', body: '...' });
             
             // artificially space them to ensure predictable sorting
             GraphService.db.nodes.get(m1.messageId).properties.sentAt = new Date(1000).toISOString();
@@ -481,7 +481,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         });
 
         // Test from Bob's perspective (Inbox)
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             const preview = await MailboxService.getHealthcheckPreview();
             expect(preview.unreadCount).toBe(2);
             expect(preview.inbox.length).toBe(2);
@@ -490,7 +490,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         });
 
         // Test from Alice's perspective (Outbox)
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const preview = await MailboxService.getHealthcheckPreview();
             expect(preview.unreadCount).toBe(0);
             expect(preview.inbox.length).toBe(0);
@@ -612,21 +612,21 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
             expect(inbox.messages.find(m => m.subject === 'missing-prefix')).toBeDefined();
         });
 
-        test('#10259 missing-prefix normalization preserves `AGENT:<bareName>` test-fixture pattern', async () => {
-            // Load-bearing negative test: `AGENT:bob` should NOT be transformed to
-            // `@AGENT:bob`. The `includes(':')` guard in normalizeMailboxTarget must
+        test('#10259 missing-prefix normalization preserves canonical `@` and alternative schemes', async () => {
+            // Load-bearing negative test: `@bob` should NOT be transformed to
+            // `@@bob`. The `includes(':')` guard in normalizeMailboxTarget must
             // preserve the fixture path. Also covers `role:`/`human:` target patterns
             // by the same mechanism. Without this invariant, existing spec scenarios
-            // seeded with `AGENT:alice` / `role:librarian` / `human:tobiu` would break.
-            GraphService.upsertNode({ id: 'AGENT:bob', type: 'AGENT', name: 'Bob', properties: {} });
+            // seeded with `@alice` / `role:librarian` / `human:tobiu` would break.
+            GraphService.upsertNode({ id: '@bob', type: 'AGENT', name: 'Bob', properties: {} });
 
-            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-                await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+            await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+                await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
             });
 
             let messageId;
-            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-                const res = await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'fixture-preserved', body: 'body' });
+            await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                const res = await MailboxService.addMessage({ to: '@bob', subject: 'fixture-preserved', body: 'body' });
                 expect(res.status).toBe('sent');
                 messageId = res.messageId;
 
@@ -634,7 +634,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
                     e => e.source === messageId && e.type === 'SENT_TO'
                 );
                 expect(sentToEdge).toBeDefined();
-                expect(sentToEdge.target).toBe('AGENT:bob');  // unchanged
+                expect(sentToEdge.target).toBe('@bob');  // unchanged
             });
         });
 
@@ -764,32 +764,32 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
 
         test('BLOCKED_BY overrides CAN_REPLY_TO in blocked mode', async () => {
             // Bob grants Alice CAN_REPLY_TO
-            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-                await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+            await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+                await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
                 // And then blocks her
-                await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'BLOCKED_BY' });
+                await PermissionService.grantPermission({ to: '@alice', scope: 'BLOCKED_BY' });
             });
 
             // Alice tries to DM Bob -> fails because BLOCKED_BY overrides
-            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-                await expect(MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Fail', body: 'Blocked' }))
-                    .rejects.toThrow('Unauthorized: AGENT:bob has blocked messages from AGENT:alice.');
+            await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                await expect(MailboxService.addMessage({ to: '@bob', subject: 'Fail', body: 'Blocked' }))
+                    .rejects.toThrow('Unauthorized: @bob has blocked messages from @alice.');
             });
 
             // Broadcasts bypass BLOCKED_BY
-            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+            await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
                 const res = await MailboxService.addMessage({ to: 'AGENT:*', subject: 'Broadcast', body: 'Passes' });
                 expect(res.status).toBe('sent');
             });
 
             // Revoke the block
-            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-                await PermissionService.revokePermission({ to: 'AGENT:alice', scope: 'BLOCKED_BY' });
+            await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+                await PermissionService.revokePermission({ to: '@alice', scope: 'BLOCKED_BY' });
             });
 
             // Alice tries to DM Bob again -> succeeds because CAN_REPLY_TO remains
-            await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-                const res = await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Success', body: 'Unblocked' });
+            await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                const res = await MailboxService.addMessage({ to: '@bob', subject: 'Success', body: 'Unblocked' });
                 expect(res.status).toBe('sent');
             });
         });
@@ -870,9 +870,9 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — open po
             }
         }
 
-        GraphService.upsertNode({ id: 'AGENT:alice', type: 'AGENT', name: 'Alice', properties: {} });
-        GraphService.upsertNode({ id: 'AGENT:bob', type: 'AGENT', name: 'Bob', properties: {} });
-        GraphService.upsertNode({ id: 'AGENT:charlie', type: 'AGENT', name: 'Charlie', properties: {} });
+        GraphService.upsertNode({ id: '@alice', type: 'AGENT', name: 'Alice', properties: {} });
+        GraphService.upsertNode({ id: '@bob', type: 'AGENT', name: 'Bob', properties: {} });
+        GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
         GraphService.upsertNode({ id: 'AGENT:*', type: 'AGENT', name: 'Broadcast', properties: {} });
     });
 
@@ -880,8 +880,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — open po
         // Charlie sends to Alice with no CAN_REPLY_TO edge and no prior message history.
         // Strict mode would throw Unauthorized here (see the parent suite's Reachable-
         // Counterparty Trust test); open mode accepts the send.
-        const res = await RequestContextService.run({ agentIdentityNodeId: 'AGENT:charlie' }, () => {
-            return MailboxService.addMessage({ to: 'AGENT:alice', subject: 'First contact', body: 'hi' });
+        const res = await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, () => {
+            return MailboxService.addMessage({ to: '@alice', subject: 'First contact', body: 'hi' });
         });
 
         expect(res.status).toBe('sent');
@@ -892,18 +892,18 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — open po
         // Even in 'open' mode, operators can still explicitly grant CAN_REPLY_TO.
         // The edge is created and visible via listPermissions — only the enforcement
         // path on addMessage is bypassed.
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            const result = await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_REPLY_TO' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const result = await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
             expect(result.success).toBe(true);
         });
 
         // Alice (the grantee) can list her capabilities and sees the grant.
-        const perms = await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, () => {
+        const perms = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, () => {
             return PermissionService.listPermissions();
         });
 
         expect(perms.capabilities).toContainEqual(expect.objectContaining({
-            target: 'AGENT:bob',
+            target: '@bob',
             scope : 'CAN_REPLY_TO'
         }));
     });
@@ -911,20 +911,20 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — open po
     test('read-path scoping stays strict — CAN_READ_INBOX_OF still enforced', async () => {
         // Bob sends Alice a message (allowed in open mode).
         let msgId;
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            const res = await MailboxService.addMessage({ to: 'AGENT:alice', subject: 'inbox test', body: 'body' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const res = await MailboxService.addMessage({ to: '@alice', subject: 'inbox test', body: 'body' });
             msgId = res.messageId;
         });
 
         // Charlie tries to read Alice's inbox — should fail regardless of reply policy.
         // Open mode only relaxes the WRITE gate; read-path isolation is a separate
         // scope (`CAN_READ_INBOX_OF`) and stays strict per #10252's Out of Scope.
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:charlie' }, async () => {
-            await expect(MailboxService.listMessages({ to: 'AGENT:alice' })).rejects.toThrow(/Unauthorized/);
+        await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
+            await expect(MailboxService.listMessages({ to: '@alice' })).rejects.toThrow(/Unauthorized/);
         });
 
         // Charlie also can't fetch the specific message by ID without the scope.
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:charlie' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
             await expect(MailboxService.getMessage({ messageId: msgId })).rejects.toThrow(/Unauthorized/);
         });
     });
@@ -935,7 +935,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — open po
         GraphService.upsertNode({ id: 'role:librarian', type: 'ROLE', name: 'Librarian', properties: {} });
         GraphService.upsertNode({ id: 'human:tobiu', type: 'HUMAN', name: 'Tobias', properties: {} });
 
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const broadcast = await MailboxService.addMessage({ to: 'AGENT:*', subject: 'announce', body: 'body' });
             expect(broadcast.status).toBe('sent');
 
@@ -949,36 +949,36 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — open po
 
     test('BLOCKED_BY overrides default-allow in open mode', async () => {
         // Bob blocks Alice
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'BLOCKED_BY' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'BLOCKED_BY' });
         });
 
         // Alice tries to DM Bob -> fails because BLOCKED_BY overrides open mode default
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-            await expect(MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Fail', body: 'Blocked' }))
-                .rejects.toThrow('Unauthorized: AGENT:bob has blocked messages from AGENT:alice.');
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await expect(MailboxService.addMessage({ to: '@bob', subject: 'Fail', body: 'Blocked' }))
+                .rejects.toThrow('Unauthorized: @bob has blocked messages from @alice.');
         });
 
         // Bob can still DM Alice (directional block)
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            const res = await MailboxService.addMessage({ to: 'AGENT:alice', subject: 'Passes', body: 'Directional' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const res = await MailboxService.addMessage({ to: '@alice', subject: 'Passes', body: 'Directional' });
             expect(res.status).toBe('sent');
         });
 
         // Broadcasts bypass BLOCKED_BY
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const res = await MailboxService.addMessage({ to: 'AGENT:*', subject: 'Broadcast', body: 'Passes' });
             expect(res.status).toBe('sent');
         });
 
         // Revoke the block
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            await PermissionService.revokePermission({ to: 'AGENT:alice', scope: 'BLOCKED_BY' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.revokePermission({ to: '@alice', scope: 'BLOCKED_BY' });
         });
 
         // Alice tries to DM Bob again -> succeeds
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-            const res = await MailboxService.addMessage({ to: 'AGENT:bob', subject: 'Success', body: 'Unblocked' });
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({ to: '@bob', subject: 'Success', body: 'Unblocked' });
             expect(res.status).toBe('sent');
         });
     });

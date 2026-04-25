@@ -76,81 +76,81 @@ test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => 
             }
         }
 
-        GraphService.upsertNode({ id: 'AGENT:alice', type: 'AGENT', name: 'Alice', properties: {} });
-        GraphService.upsertNode({ id: 'AGENT:bob', type: 'AGENT', name: 'Bob', properties: {} });
+        GraphService.upsertNode({ id: '@alice', type: 'AGENT', name: 'Alice', properties: {} });
+        GraphService.upsertNode({ id: '@bob', type: 'AGENT', name: 'Bob', properties: {} });
     });
 
     test('grantPermission creates a graph edge with correctly swapped source/target', async () => {
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            const res = await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_READ_INBOX_OF' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const res = await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_READ_INBOX_OF' });
             expect(res.success).toBe(true);
         });
 
         // The capability belongs to Alice, pointing at Bob
         const edges = GraphService.db.edges.items;
         expect(edges.length).toBe(1);
-        expect(edges[0].source).toBe('AGENT:alice');
-        expect(edges[0].target).toBe('AGENT:bob');
+        expect(edges[0].source).toBe('@alice');
+        expect(edges[0].target).toBe('@bob');
         expect(edges[0].type).toBe('CAN_READ_INBOX_OF');
     });
 
     test('revokePermission removes the granted edge', async () => {
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_READ_INBOX_OF' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_READ_INBOX_OF' });
             expect(GraphService.db.edges.getCount()).toBe(1);
 
-            const res = await PermissionService.revokePermission({ to: 'AGENT:alice', scope: 'CAN_READ_INBOX_OF' });
+            const res = await PermissionService.revokePermission({ to: '@alice', scope: 'CAN_READ_INBOX_OF' });
             expect(res.success).toBe(true);
             expect(GraphService.db.edges.getCount()).toBe(0);
         });
     });
 
     test('listPermissions shows capabilities and granted permissions', async () => {
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_READ_INBOX_OF' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_READ_INBOX_OF' });
         });
         
         // Alice should have a capability to read Bob's inbox
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const res = await PermissionService.listPermissions();
             expect(res.capabilities.length).toBe(1);
-            expect(res.capabilities[0].target).toBe('AGENT:bob');
+            expect(res.capabilities[0].target).toBe('@bob');
             expect(res.capabilities[0].scope).toBe('CAN_READ_INBOX_OF');
             expect(res.grantedToOthers.length).toBe(0);
         });
 
         // Bob should see he granted to Alice
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             const res = await PermissionService.listPermissions();
             expect(res.capabilities.length).toBe(0);
             expect(res.grantedToOthers.length).toBe(1);
-            expect(res.grantedToOthers[0].grantedTo).toBe('AGENT:alice');
+            expect(res.grantedToOthers[0].grantedTo).toBe('@alice');
             expect(res.grantedToOthers[0].scope).toBe('CAN_READ_INBOX_OF');
         });
     });
 
     test('hasPermission validates correctly', async () => {
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            await PermissionService.grantPermission({ to: 'AGENT:alice', scope: 'CAN_READ_INBOX_OF' });
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_READ_INBOX_OF' });
         });
 
         // Alice checking against Bob
-        expect(PermissionService.hasPermission('AGENT:alice', 'AGENT:bob', 'CAN_READ_INBOX_OF')).toBe(true);
+        expect(PermissionService.hasPermission('@alice', '@bob', 'CAN_READ_INBOX_OF')).toBe(true);
 
         // Charlie checking against Bob
-        expect(PermissionService.hasPermission('AGENT:charlie', 'AGENT:bob', 'CAN_READ_INBOX_OF')).toBe(false);
+        expect(PermissionService.hasPermission('@charlie', '@bob', 'CAN_READ_INBOX_OF')).toBe(false);
 
         // Bob checking against himself (always true)
-        expect(PermissionService.hasPermission('AGENT:bob', 'AGENT:bob', 'CAN_READ_INBOX_OF')).toBe(true);
+        expect(PermissionService.hasPermission('@bob', '@bob', 'CAN_READ_INBOX_OF')).toBe(true);
 
         // Checking against broadcast (always true)
-        expect(PermissionService.hasPermission('AGENT:alice', 'AGENT:*', 'CAN_READ_INBOX_OF')).toBe(true);
+        expect(PermissionService.hasPermission('@alice', 'AGENT:*', 'CAN_READ_INBOX_OF')).toBe(true);
     });
 
     test('listPermissions denies access when requesting for another identity', async () => {
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:alice' }, async () => {
-            await expect(PermissionService.listPermissions({ forIdentity: 'AGENT:bob' }))
-                .rejects.toThrow('Unauthorized: Cannot enumerate permissions for AGENT:bob');
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await expect(PermissionService.listPermissions({ forIdentity: '@bob' }))
+                .rejects.toThrow('Unauthorized: Cannot enumerate permissions for @bob');
         });
     });
 
@@ -158,7 +158,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => 
         // Pre-seed AGENT:* as a BroadcastSentinel
         GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: '*', properties: {} });
 
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             const res = await PermissionService.grantPermission({ to: 'AGENT:*', scope: 'CAN_REPLY_TO' });
             expect(res.success).toBe(true);
         });
@@ -173,9 +173,9 @@ test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => 
     });
 
     test('grantPermission throws when target does not exist (resolves #10231)', async () => {
-        await RequestContextService.run({ agentIdentityNodeId: 'AGENT:bob' }, async () => {
-            await expect(PermissionService.grantPermission({ to: 'AGENT:phantom', scope: 'CAN_REPLY_TO' }))
-                .rejects.toThrow('Cannot grant CAN_REPLY_TO to AGENT:phantom: target does not exist. Identity nodes must be pre-seeded via ai/scripts/seedAgentIdentities.mjs.');
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await expect(PermissionService.grantPermission({ to: '@phantom', scope: 'CAN_REPLY_TO' }))
+                .rejects.toThrow('Cannot grant CAN_REPLY_TO to @phantom: target does not exist. Identity nodes must be pre-seeded via ai/scripts/seedAgentIdentities.mjs.');
         });
     });
 });
