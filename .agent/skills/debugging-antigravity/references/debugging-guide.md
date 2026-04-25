@@ -77,7 +77,7 @@ Find and destroy orphaned workspace hashes so the IDE does not re-register them 
 find "$HOME/Library/Application Support/Antigravity/User/workspaceStorage" -name "workspace.json" 2>/dev/null
 
 # Typically, you delete the folders containing stale mapping values like:
-# {"folder": "file:///Users/Shared/github/neomjs/neo/.agent/skills/ticket-intake"}
+# {"folder": "file://.agent/skills/ticket-intake"}
 ```
 
 After performing these purges, closing and restarting the IDE forces the UI to cleanly rebuild the workspace payload based only on the actively opened directory.
