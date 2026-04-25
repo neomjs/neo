@@ -50,6 +50,19 @@ If author cannot defend native origin vs. framework-category logic, flag as Requ
 
 ---
 
+### 🎯 Close-Target Audit
+
+*(Required per guide §5.2 when the PR body or commit messages contain `Closes #N` / `Resolves #N` / `Fixes #N` magic keywords. Mark N/A for PRs without close-target keywords.)*
+
+For every issue named as close-target, verify it does NOT carry the `epic` label:
+
+- [ ] Close-targets identified: [list of `#N` references, or "none"]
+- [ ] For each `#N`: confirmed not `epic`-labeled (or flagged as Required Action below)
+
+**Findings:** [Pass / specific epic flagged / N/A]
+
+---
+
 ### 🔗 Cross-Skill Integration Audit
 
 *(Required per guide §8.1 when the PR touches skill files, conventions, MCP tool surfaces, `AGENTS_STARTUP.md` / `AGENTS.md`, or architectural primitives. Mark N/A for routine code changes that don't introduce cross-substrate conventions.)*

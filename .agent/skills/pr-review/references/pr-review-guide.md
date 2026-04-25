@@ -89,6 +89,32 @@ The Retrospective daemon explicitly regex-matches these tags during REM sleep:
 ### 5.1 Suggesting Empirical Isolation Tests
 When challenging a specific architectural pattern or complex implementation detail as suspect (e.g., an unnecessary retry loop, an overly complex state sync), you should explicitly suggest the author perform an **Empirical Isolation Test**. Instead of engaging in a theoretical debate, ask the author to temporarily disable or strip the challenged pattern and run a binary isolation test to prove or disprove its necessity. This shifts the review from architectural argument to empirical verification.
 
+### 5.2 Close-Target Audit
+
+When reviewing a PR, audit every issue named as a close-target via GitHub's magic keywords (`Closes #N`, `Resolves #N`, `Fixes #N` — case-insensitive, in the PR body or commit messages) against the target issue's labels.
+
+**The Rule:** Epics are not valid close-targets for PRs. An epic represents a body of work delivered across multiple sub-issues; closing an epic is a *project-management* event that fires when the last sub closes (or when the epic is explicitly retired with rationale). PRs deliver subs, not epics. GitHub's auto-close-on-merge semantics fire indiscriminately on any magic-keyword reference, so the discipline-layer enforcement is the reviewer's job.
+
+**Reviewer-side check:**
+
+1. Parse the PR body + commit messages for `Closes #N` / `Resolves #N` / `Fixes #N` patterns (case-insensitive).
+2. For each `#N`, fetch the issue's labels (via `gh issue view N --json labels` or the `mcp__neo-mjs-github-workflow__get_local_issue_by_id` tool).
+3. If the issue carries the `epic` label → flag as **Required Action**:
+
+   > *"PR names epic #N as close-target via `Closes`/`Resolves`/`Fixes` keyword. Epics close when their last sub-issue closes, not on PR-merge. Required: change close-target to a specific sub-issue this PR resolves, or remove the magic-close keyword and reference the epic via `Related: #N` instead."*
+
+**Author response options** when this Required Action fires:
+- Change `Closes #N` → `Closes #M` where `#M` is the specific sub-issue the PR resolves.
+- Remove the close-target entirely if the PR is an incremental contribution toward the epic without fully closing any single issue.
+- Move the epic reference to `Related: #N` (no magic-close behavior).
+
+**Empirical anchor:** Epic #9999 ("Cloud-Native Knowledge & Multi-Tenant Memory Core") was auto-closed at 2026-04-23T23:54:09Z with `stateReason: COMPLETED` despite 7 of 10 sub-issues still being open. Most likely mechanism: a merged PR named `Closes #9999` triggering GitHub's auto-close-on-merge. The damage was compounded by `prevent-reopen.yml` (since disabled) re-closing the manual reopen 6 seconds later, plus a sabotage-spawn duplicate ticket (#10323, since closed). The discipline-layer audit codified here would have caught the close-target at review time, before merge — preventing the entire downstream chain.
+
+**Out of scope for this audit:**
+- Leaf tickets without `epic` label — close-target is valid.
+- Sub-issues with their own children (rare but legitimate) — same risk class as leaf; not flagged.
+- `Related: #N` / `Refs #N` / `Part of #N` references — these don't trigger GitHub's magic-close, so they're not subject to this audit.
+
 ## 6. The Review Template
 When drafting your review, use the `view_file` tool to load the exact markdown template from:
 `.agent/skills/pr-review/assets/pr-review-template.md`
@@ -151,6 +177,7 @@ If a qualifying PR lacks a provenance declaration, or if it merely ports externa
 | Approval without cross-skill integration check on PRs introducing new workflow conventions | §8 Cross-Skill Integration Audit violated |
 | Style-calibrating toward the other model family's tone | §7.2 — the floor keeps rigor universal, not style convergence |
 | Ignoring Chain of Custody | §7.3 Provenance Audit violated on a major abstraction |
+| PR names an epic as close-target without flagging | §5.2 Close-Target Audit violated; risks epic auto-close-with-open-subs (see #9999 sabotage chain) |
 
 ## 8. Cross-Skill Integration Audit
 
