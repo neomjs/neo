@@ -251,6 +251,11 @@ Rationale: §9 of `pr-review-guide.md` covers the reviewer-side mechanics; this 
 
 Do not blindly copy the entire ticket body into the PR description. The ticket holds the original context; the PR body summarizes the implementation delta.
 
+**The Epic Close-Target Ban (Mandatory):**
+You are strictly FORBIDDEN from using magic close keywords (e.g., `Closes #N`, `Resolves #N`, `Fixes #N`) where `#N` is an Epic ticket. GitHub's auto-close-on-merge semantics will prematurely close the entire epic when the PR merges. PRs deliver sub-issues, not epics.
+- If your PR contributes to an epic but does not close it, use `Related: #N` instead.
+- You may only use magic close keywords on leaf sub-issues that the PR fully implements.
+
 **Minimum-viable PR body structure:**
 ```markdown
 Resolves #N
