@@ -76,9 +76,16 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../ai/mcp/server/github-workf
 ```bash
 node ai/scripts/bootstrapWorktree.mjs              # copy configs only
 node ai/scripts/bootstrapWorktree.mjs --link-data  # ALSO unify .neo-ai-data/ (recommended)
+node ai/scripts/bootstrapWorktree.mjs --link-data --install     # ALSO npm install + bundle-parse5
+node ai/scripts/bootstrapWorktree.mjs --link-data --build-all   # ALSO full Webpack build (frontend tickets)
 ```
 
 It copies the four `config.mjs` files from the main checkout (resolved via `git worktree list --porcelain`) and — with `--link-data` — symlinks the worktree's `.neo-ai-data/` to the main checkout's. Idempotent; no-op from the main checkout.
+
+**Per-task-class invocation guidance (per #10351):**
+- **Docs-only tickets** — `--link-data` is sufficient (no `node_modules` needed; the worktree filesystem itself + the data unification covers everything).
+- **Backend / MCP / unit-test tickets** — add `--install`. Empirical anchor: ~17s for `npm install` on a populated local cache (808 packages observed); `bundle-parse5` adds ~1-2s and IS required for the unit-test runner. Skips both if `node_modules/` already exists in the worktree.
+- **Frontend / Webpack-distribution tickets** — add `--build-all`. Implies `--install`; runs the full `npm run build-all` after dependencies are present. Use only when the ticket actually touches frontend bundles, themes, or Webpack thread distributions — backend tickets pay the full build cost for nothing otherwise.
 
 **Why `--link-data` matters (per #10224):** without it, each worktree gets its own empty `.neo-ai-data/sqlite/memory-core-graph.sqlite`, which means AgentIdentity nodes seeded in the main checkout are invisible to the worktree's MCP server. `bindAgentIdentity('neo-opus-4-7')` returns null, the mailbox throws `"no agent identity context bound"`, and A2A handshakes silently fail — the #10184 symptom from a different root cause than cache coherence. The symlink unifies the Memory Core substrate (SQLite + Chroma + concepts + backups) so ADR 0001's "one SQLite file shared across N processes" assumption holds across worktrees.
 

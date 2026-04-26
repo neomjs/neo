@@ -31,6 +31,8 @@ import path            from 'path';
 test.describe('ai/scripts/bootstrapWorktree', () => {
     let bootstrapWorktree;
     let symlinkDataDir;
+    let installDependencies;
+    let runBuildAll;
     let BOOTSTRAP_CONFIGS;
     let fakeMainCheckout;
     let fakeWorktree;
@@ -43,10 +45,12 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     ];
 
     test.beforeAll(async () => {
-        const mod         = await import('../../../../../ai/scripts/bootstrapWorktree.mjs');
-        bootstrapWorktree = mod.bootstrapWorktree;
-        symlinkDataDir    = mod.symlinkDataDir;
-        BOOTSTRAP_CONFIGS = mod.BOOTSTRAP_CONFIGS;
+        const mod           = await import('../../../../../ai/scripts/bootstrapWorktree.mjs');
+        bootstrapWorktree   = mod.bootstrapWorktree;
+        symlinkDataDir      = mod.symlinkDataDir;
+        installDependencies = mod.installDependencies;
+        runBuildAll         = mod.runBuildAll;
+        BOOTSTRAP_CONFIGS   = mod.BOOTSTRAP_CONFIGS;
     });
 
     test.beforeEach(async () => {
@@ -244,6 +248,124 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             const lstat = await fs.lstat(path.join(fakeMainCheckout, dataDir));
             expect(lstat.isDirectory()).toBe(true);
             expect(lstat.isSymbolicLink()).toBe(false);
+        });
+    });
+
+    // --------------------------------------------------------------------------------
+    // #10351 installDependencies + runBuildAll — opt-in flags that close the
+    // multi-step manual bootstrap gap (npm install + bundle-parse5 + optional build-all).
+    //
+    // These tests inject a mock `exec` to capture invoked commands without spawning real
+    // npm child processes. The pure-function form (with explicit dependency injection)
+    // mirrors the existing `bootstrapWorktree`/`symlinkDataDir` testability pattern.
+    // --------------------------------------------------------------------------------
+    test.describe('#10351 installDependencies', () => {
+        function makeMockExec() {
+            const calls = [];
+            const exec = async (cmd, args, opts) => {
+                calls.push({cmd, args, opts});
+                // Simulate npm install creating node_modules — flips the existence guard
+                // for downstream calls that re-check.
+                if (cmd === 'npm' && args[0] === 'install') {
+                    await fs.ensureDir(path.join(opts.cwd, 'node_modules'));
+                }
+                return {stdout: '', stderr: ''};
+            };
+            return {exec, calls};
+        }
+
+        test('runs `npm install` then `bundle-parse5` when node_modules is absent', async () => {
+            const {exec, calls} = makeMockExec();
+            const result = await installDependencies({
+                projectRoot: fakeWorktree,
+                exec,
+                log        : () => {}
+            });
+
+            expect(result).toBe('installed');
+            expect(calls).toHaveLength(2);
+            expect(calls[0].cmd).toBe('npm');
+            expect(calls[0].args).toEqual(['install']);
+            expect(calls[1].cmd).toBe('npm');
+            expect(calls[1].args).toEqual(['run', 'bundle-parse5']);
+
+            // Both invocations targeted the worktree (not main checkout).
+            for (const call of calls) {
+                expect(call.opts.cwd).toBe(fakeWorktree);
+            }
+        });
+
+        test('skips `npm install` when node_modules already exists, but always runs bundle-parse5', async () => {
+            // Pre-seed node_modules to simulate prior install / symlink.
+            await fs.ensureDir(path.join(fakeWorktree, 'node_modules'));
+
+            const {exec, calls} = makeMockExec();
+            const result = await installDependencies({
+                projectRoot: fakeWorktree,
+                exec,
+                log        : () => {}
+            });
+
+            expect(result).toBe('installed');
+            expect(calls).toHaveLength(1);
+            expect(calls[0].args).toEqual(['run', 'bundle-parse5']);
+        });
+
+        test('emits log lines for skip / install / bundle paths', async () => {
+            const logs   = [];
+            const {exec} = makeMockExec();
+
+            // First run — install branch
+            await installDependencies({projectRoot: fakeWorktree, exec, log: line => logs.push(line)});
+            expect(logs.join('\n')).toContain('installing dependencies');
+            expect(logs.join('\n')).toContain('bundling parse5');
+
+            // Second run — skip branch
+            const logs2 = [];
+            await installDependencies({projectRoot: fakeWorktree, exec, log: line => logs2.push(line)});
+            expect(logs2.join('\n')).toContain('install skip (exists)');
+            expect(logs2.join('\n')).toContain('bundling parse5');
+        });
+    });
+
+    test.describe('#10351 runBuildAll', () => {
+        function makeMockExec() {
+            const calls = [];
+            const exec = async (cmd, args, opts) => {
+                calls.push({cmd, args, opts});
+                if (cmd === 'npm' && args[0] === 'install') {
+                    await fs.ensureDir(path.join(opts.cwd, 'node_modules'));
+                }
+                return {stdout: '', stderr: ''};
+            };
+            return {exec, calls};
+        }
+
+        test('composes installDependencies then runs `npm run build-all`', async () => {
+            const {exec, calls} = makeMockExec();
+            const result = await runBuildAll({
+                projectRoot: fakeWorktree,
+                exec,
+                log        : () => {}
+            });
+
+            expect(result).toBe('built');
+            // Expected sequence: npm install, npm run bundle-parse5, npm run build-all
+            expect(calls).toHaveLength(3);
+            expect(calls[0].args).toEqual(['install']);
+            expect(calls[1].args).toEqual(['run', 'bundle-parse5']);
+            expect(calls[2].args).toEqual(['run', 'build-all']);
+        });
+
+        test('skips install when node_modules exists but still runs bundle-parse5 + build-all', async () => {
+            await fs.ensureDir(path.join(fakeWorktree, 'node_modules'));
+
+            const {exec, calls} = makeMockExec();
+            await runBuildAll({projectRoot: fakeWorktree, exec, log: () => {}});
+
+            expect(calls).toHaveLength(2);
+            expect(calls[0].args).toEqual(['run', 'bundle-parse5']);
+            expect(calls[1].args).toEqual(['run', 'build-all']);
         });
     });
 });
