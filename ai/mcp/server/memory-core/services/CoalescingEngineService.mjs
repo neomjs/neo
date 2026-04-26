@@ -64,6 +64,12 @@ class CoalescingEngineService extends Base {
     maxWindowSeconds = 300
 
     /**
+     * @member {McpServer|null} mcpServer=null
+     * @protected
+     */
+    mcpServer = null
+
+    /**
      * Per-subscription queue + timer state.
      * Structure: `Map<subscriptionId, {queue: Object[], timer: ?TimerId, subscription: Object, windowStart: ?Date}>`
      * Populated lazily on first enqueue; cleared on flush.
@@ -71,6 +77,14 @@ class CoalescingEngineService extends Base {
      * @protected
      */
     coalesceState = new Map()
+
+    /**
+     * Injects the MCP server instance for push notifications.
+     * @param {McpServer} mcpServer
+     */
+    setMcpServer(mcpServer) {
+        this.mcpServer = mcpServer;
+    }
 
     /**
      * Enqueue an event for coalesced delivery to a subscription. Starts (or extends)
@@ -256,11 +270,18 @@ class CoalescingEngineService extends Base {
         }
 
         if (target === 'mcp-notifications') {
-            // Shape A's MCP notification emit-point will be wired by #10358. Until then,
-            // log the digest so it is observable but undelivered. Once Shape A lands,
-            // this branch routes through its emit surface (e.g., MCP server's session-handle
-            // notification dispatcher) without touching this engine's contract.
-            logger.info(`[CoalescingEngine] Shape A digest pending #10358 emit-wiring for ${subscription.id}: ${digest.payload.totalEvents} events.`);
+            if (!this.mcpServer) {
+                logger.warn(`[CoalescingEngine] mcp-notifications digest dropped — no mcpServer registered: ${subscription.id}`);
+                return;
+            }
+            try {
+                await this.mcpServer.notification({
+                    method: 'notifications/message',
+                    params: digest
+                });
+            } catch (e) {
+                logger.error(`[CoalescingEngine] mcp-notifications dispatch failed for ${subscription.id}: ${e.message}`);
+            }
             return;
         }
 
