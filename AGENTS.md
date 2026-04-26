@@ -450,8 +450,8 @@ The lifecycle skills below carry the discipline that this file's invariants (esp
 | `ticket-create` | Before `create_issue` MCP invocation — duplicate sweep, Fat Ticket body, label rules, 5-stage challenge chain |
 | `ticket-intake` | Picking up an existing assigned ticket — validation sweep, ROI calculation, branch-before-code gate |
 | `epic-review` | Before picking up a sub of an unreviewed epic — 5-stage roadmap-fit / approach-elegance / sub-coherence chain |
-| `pull-request` | Code modifications complete; before opening PR — stepping-back reflection, commit format, cross-family review mandate |
-| `pr-review` | Reviewing a PR (yours or peer's) — structured eval metrics, graph ingestion tags, severity ladder, restates §0 merge gate |
+| `pull-request` | Code modifications complete; before opening PR — stepping-back reflection, commit format, cross-family review mandate, post-comment A2A commentId hand-off (author→reviewer) per workflow §8.1 |
+| `pr-review` | Reviewing a PR (yours or peer's) — structured eval metrics, graph ingestion tags, severity ladder, restates §0 merge gate, post-comment A2A commentId hand-off (reviewer→author) per guide §9 + §9.4 cold-cache exception |
 | `ideation-sandbox` | Before creating a Discussion for architectural exploration — speculative-thought routing, OQ tracking |
 | `memory-mining` | On regression / non-obvious-architecture / decision-points — historical context retrieval ("what was decided here?") |
 | `tech-debt-radar` | During PR review for fundamental architectural shifts — semantic sweep against historical issues + Memory Core |

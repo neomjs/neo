@@ -251,6 +251,10 @@ Symmetric with `pr-review §9` (reviewer side). When YOU (as author) post a resp
 
 Rationale: §9 of `pr-review-guide.md` covers the reviewer-side mechanics; this section covers the author-side symmetric hand-off. The selector precedence (`comment_id > since_comment_id > last_n > full`) and anti-patterns (full-fetch-when-commentId-available, mailbox-without-commentId, all-three-selectors-at-once) apply identically here.
 
+**Pre-Flight Check (operational reflex)** — mirrors `AGENTS.md §3 / §4.2` proven primitive. After every author-side `manage_issue_comment` create, before yielding turn, explicitly state in your reasoning: *"Pre-Flight: I posted response commentId `<ID>` addressing reviewer feedback. I have (or will) send an A2A ping to reviewer `<handle>` with the literal commentId in the body."* This commitment-statement is the gate that permits yielding turn. Skipping is empirically the dominant failure mode (PR #10371 + #10375, 2026-04-26: 5+ missed pings before @tobiu surfaced the gap). See `pr-review-guide §9.4 Pre-Flight Check` for the full reasoning template; single source of truth lives there, this section inherits.
+
+**Cold-cache exception:** When picking up a PR after a fresh session bootstrap, opening Cycle 1 of a PR, taking a cross-agent handoff, or recovering from a missed/lost reviewer ping, full-thread fetch (or `since_comment_id` from the last-known anchor) is the right call instead — the warm-cache reflex would land one comment in a void without prior-cycle grounding. See `pr-review-guide §9.5 Cold-Cache Exception` for the warm-vs-cold-cache dichotomy and per-case fetch shape; single source of truth lives there, this section inherits.
+
 ## 9. PR Body Hygiene
 
 Do not blindly copy the entire ticket body into the PR description. The ticket holds the original context; the PR body summarizes the implementation delta.
