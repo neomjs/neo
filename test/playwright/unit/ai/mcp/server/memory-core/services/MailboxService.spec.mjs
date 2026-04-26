@@ -1281,13 +1281,243 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — A2A_TAS
         await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
             // Charlie thinks it's still 'Submitted' (by mutating local in-memory representation)
             const node = GraphService.db.nodes.get(msgId);
-            node.properties.task.state = 'Submitted'; 
-            
+            node.properties.task.state = 'Submitted';
+
             // But DB actually has 'Working'. Charlie's UPDATE will have changes === 0
             const resCharlie = await MailboxService.transitionTask({ taskId: msgId, newState: 'Working' });
-            
+
             expect(resCharlie.success).toBe(false);
             expect(resCharlie.reason).toMatch(/Race lost: state changed to Working/);
         });
+    });
+});
+
+/**
+ * #10339: TTL/Expired sweeper — cron-driven stale-task transition to Expired state.
+ *
+ * Maintenance-role bulk operation that complements the agent-flow `transitionTask` from
+ * #10338. Tests the atomic `UPDATE-WHERE` semantics, idempotency, opt-in `expiresAt`
+ * gating, terminal-state preservation, and bulk multi-state transition.
+ */
+test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — TTL Sweeper (#10339)', () => {
+    test.describe.configure({ mode: 'serial' });
+    let MailboxService, GraphService, PermissionService, LifecycleService, mailboxAiConfig, originalAutoSave;
+    let dbPath;
+
+    test.beforeAll(async () => {
+        const tmpDir = path.resolve(process.cwd(), 'tmp');
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        dbPath = path.join(tmpDir, `neo-mailbox-ttl-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
+
+        GraphService      = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        MailboxService    = (await import('../../../../../../../../ai/mcp/server/memory-core/services/MailboxService.mjs')).default;
+        PermissionService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/PermissionService.mjs')).default;
+        LifecycleService  = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
+
+        mailboxAiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        mailboxAiConfig.storagePaths.graph = dbPath;
+
+        if (!LifecycleService._initPromise) {
+            await LifecycleService.initAsync();
+        } else {
+            await LifecycleService.ready();
+        }
+        originalAutoSave = GraphService.db.autoSave;
+        GraphService.db.autoSave = true;
+    });
+
+    test.afterAll(async () => {
+        GraphService.db.autoSave = originalAutoSave;
+        if (fs.existsSync(dbPath)) {
+            try { fs.unlinkSync(dbPath); } catch (e) {}
+            try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
+            try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
+        }
+    });
+
+    test.beforeEach(async () => {
+        // Defensive: prior describe may have left autoSave false. Without it, upsertNode
+        // mutations don't propagate to SQLite synchronously and downstream FK checks fail.
+        GraphService.db.autoSave = true;
+
+        if (GraphService.db) {
+            GraphService.db.nodes.clear();
+            GraphService.db.edges.clear();
+            GraphService.db.vicinityLoadedNodes.clear();
+
+            if (GraphService.db.storage?.db) {
+                await GraphService.db.storage.clear();
+                GraphService.db.storage.db.exec('DELETE FROM GraphLog');
+            }
+        }
+
+        // Seed identities under a TTL-suite-local prefix so cross-describe interleaving
+        // (Playwright `fullyParallel` interleaves across files even with `mode: 'serial'`
+        // per memory `feedback_symmetric_spec_cleanup`) cannot corrupt this suite's seeds.
+        // Sweep itself bypasses RBAC; we only need identities for `addMessage` to attach
+        // SENT_BY/SENT_TO edges. Default policy is `'open'` outside the #10174 pin window,
+        // so no `CAN_REPLY_TO` grants are required.
+        GraphService.upsertNode({ id: '@ttl-alice', type: 'AGENT', name: 'TTL-Alice', properties: {} });
+        GraphService.upsertNode({ id: '@ttl-bob',   type: 'AGENT', name: 'TTL-Bob',   properties: {} });
+    });
+
+    /**
+     * Helper: seed a task with a chosen state and expiresAt via addMessage. Returns msgId.
+     */
+    async function seedTask({ from = '@ttl-alice', to = '@ttl-bob', state, expiresAt }) {
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: from }, async () => {
+            const task = { state };
+            if (expiresAt !== undefined) task.expiresAt = expiresAt;
+            const res = await MailboxService.addMessage({
+                to, subject: `t-${state}-${Math.random().toString(36).slice(2,7)}`, body: 'body', task
+            });
+            msgId = res.messageId;
+        });
+        return msgId;
+    }
+
+    test('sweep transitions Submitted/Working/InputRequired tasks past expiresAt to Expired', async () => {
+        const past = '2020-01-01T00:00:00Z';
+        const submittedId      = await seedTask({ state: 'Submitted',     expiresAt: past });
+        const workingId        = await seedTask({ state: 'Working',       expiresAt: past });
+        const inputRequiredId  = await seedTask({ state: 'InputRequired', expiresAt: past });
+
+        // Sanity: seeds visible in cache pre-sweep, with proper task envelope. Diagnostic
+        // assertions catch cross-spec contamination (e.g., agent identity nodes leaking
+        // into the SQLite store) where our seed addMessage calls would silently fail and
+        // leave msgIds undefined.
+        expect(submittedId).toMatch(/^MESSAGE:/);
+        const submittedSqlite = GraphService.db.storage.db.prepare(
+            `SELECT json_extract(data, '$.properties.task.state') as state,
+                    json_extract(data, '$.properties.task.expiresAt') as expiresAt
+             FROM Nodes WHERE id = ?`
+        ).get(submittedId);
+        expect(submittedSqlite.state).toBe('Submitted');
+        expect(submittedSqlite.expiresAt).toBe(past);
+
+        const result = await MailboxService.sweepExpiredTasks();
+
+        expect(result.success).toBe(true);
+        expect(result.sweptCount).toBe(3);
+
+        for (const id of [submittedId, workingId, inputRequiredId]) {
+            const node = GraphService.db.nodes.get(id);
+            expect(node).toBeTruthy();
+            expect(node.properties.task.state).toBe('Expired');
+            expect(node.properties.lastModifiedAt).toBeTruthy();
+        }
+    });
+
+    test('sweep skips tasks without expiresAt (TTL is opt-in)', async () => {
+        const noTtlId = await seedTask({ state: 'Submitted' });
+
+        const result = await MailboxService.sweepExpiredTasks();
+
+        expect(result.sweptCount).toBe(0);
+        const node = GraphService.db.nodes.get(noTtlId);
+        expect(node.properties.task.state).toBe('Submitted');
+    });
+
+    test('sweep skips tasks with future expiresAt', async () => {
+        const futureId = await seedTask({ state: 'Submitted', expiresAt: '2099-12-31T23:59:59Z' });
+
+        const result = await MailboxService.sweepExpiredTasks();
+
+        expect(result.sweptCount).toBe(0);
+        const node = GraphService.db.nodes.get(futureId);
+        expect(node.properties.task.state).toBe('Submitted');
+    });
+
+    test('sweep skips already-terminal tasks (idempotent across terminal states)', async () => {
+        const past = '2020-01-01T00:00:00Z';
+        // Each terminal state. Even if expiresAt is past, terminal tasks must not be re-swept.
+        const completedId = await seedTask({ state: 'Completed', expiresAt: past });
+        const canceledId  = await seedTask({ state: 'Canceled',  expiresAt: past });
+        const failedId    = await seedTask({ state: 'Failed',    expiresAt: past });
+        const expiredId   = await seedTask({ state: 'Expired',   expiresAt: past });
+
+        const result = await MailboxService.sweepExpiredTasks();
+
+        expect(result.sweptCount).toBe(0);
+
+        const completedNode = GraphService.db.nodes.get(completedId);
+        const canceledNode  = GraphService.db.nodes.get(canceledId);
+        const failedNode    = GraphService.db.nodes.get(failedId);
+        const expiredNode   = GraphService.db.nodes.get(expiredId);
+
+        expect(completedNode.properties.task.state).toBe('Completed');
+        expect(canceledNode.properties.task.state).toBe('Canceled');
+        expect(failedNode.properties.task.state).toBe('Failed');
+        expect(expiredNode.properties.task.state).toBe('Expired');
+    });
+
+    test('sweep is idempotent across consecutive cycles', async () => {
+        const past = '2020-01-01T00:00:00Z';
+        const id = await seedTask({ state: 'Submitted', expiresAt: past });
+
+        const first = await MailboxService.sweepExpiredTasks();
+        expect(first.sweptCount).toBe(1);
+
+        // Second cycle — task is already Expired; no further work
+        const second = await MailboxService.sweepExpiredTasks();
+        expect(second.sweptCount).toBe(0);
+
+        const node = GraphService.db.nodes.get(id);
+        expect(node.properties.task.state).toBe('Expired');
+    });
+
+    test('sweep updates lastModifiedAt atomically with state', async () => {
+        const past = '2020-01-01T00:00:00Z';
+        const id = await seedTask({ state: 'Submitted', expiresAt: past });
+
+        const before = new Date().toISOString();
+        const result = await MailboxService.sweepExpiredTasks();
+        const after  = new Date().toISOString();
+
+        expect(result.sweptCount).toBe(1);
+
+        const node = GraphService.db.nodes.get(id);
+        expect(node.properties.task.state).toBe('Expired');
+        expect(node.properties.lastModifiedAt).toBeTruthy();
+        // lastModifiedAt MUST sit between the test boundaries — proves it was updated
+        // by THIS sweep cycle, not seeded from addMessage (which has no lastModifiedAt).
+        expect(node.properties.lastModifiedAt >= before).toBe(true);
+        expect(node.properties.lastModifiedAt <= after).toBe(true);
+    });
+
+    test('sweep does not require an identity context (maintenance role bypasses RBAC)', async () => {
+        const past = '2020-01-01T00:00:00Z';
+        const id = await seedTask({ state: 'Submitted', expiresAt: past });
+
+        // Run sweep WITHOUT a RequestContextService.run wrapper — proves identity binding
+        // is not consulted. Mirrors the cron-process invocation (no MCP request context).
+        const result = await MailboxService.sweepExpiredTasks();
+
+        expect(result.success).toBe(true);
+        expect(result.sweptCount).toBe(1);
+        const node = GraphService.db.nodes.get(id);
+        expect(node.properties.task.state).toBe('Expired');
+    });
+
+    test('sweep handles mixed cohort — terminal + active + opt-in/out + future expiresAt', async () => {
+        const past   = '2020-01-01T00:00:00Z';
+        const future = '2099-12-31T23:59:59Z';
+
+        const expiredCandidate = await seedTask({ state: 'Working',  expiresAt: past   });
+        const futureCandidate  = await seedTask({ state: 'Working',  expiresAt: future });
+        const noTtl            = await seedTask({ state: 'Working' });
+        const alreadyTerminal  = await seedTask({ state: 'Completed', expiresAt: past  });
+
+        const result = await MailboxService.sweepExpiredTasks();
+
+        // Only the expiredCandidate matches all WHERE clauses
+        expect(result.sweptCount).toBe(1);
+        expect(GraphService.db.nodes.get(expiredCandidate).properties.task.state).toBe('Expired');
+        expect(GraphService.db.nodes.get(futureCandidate).properties.task.state).toBe('Working');
+        expect(GraphService.db.nodes.get(noTtl).properties.task.state).toBe('Working');
+        expect(GraphService.db.nodes.get(alreadyTerminal).properties.task.state).toBe('Completed');
     });
 });
