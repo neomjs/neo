@@ -223,6 +223,19 @@ class GraphService extends Base {
 
     /**
      * Links two nodes via a relationship tracking edge weight metadata.
+     * 
+     * @summary Creates an edge between two nodes. This method executes as an atomic transaction
+     * (if not already inside one) to prevent race conditions during SQLite WAL flushes. It also 
+     * features a cache-warm retry mechanism on FK verify miss to account for WAL-snapshot-lag
+     * from other processes.
+     * 
+     * @description
+     * **Transaction Overhead:** Future callers should be aware that invoking `linkNodes` rapidly
+     * in a hot path incurs SQLite transaction overhead.
+     * **WAL Snapshot Lag:** If a peer process writes a node, the current connection's snapshot
+     * might lack it temporarily. This method automatically attempts to warm the cache and retry
+     * the FK verification before culling the edge.
+     * 
      * @param {String} source
      * @param {String} target
      * @param {String} relationship

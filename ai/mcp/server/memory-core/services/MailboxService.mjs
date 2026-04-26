@@ -246,7 +246,7 @@ class MailboxService extends Base {
                 Promise.all([import('fs'), import('path'), import('../logger.mjs')]).then(([{ default: fs }, { default: path }, { default: logger }]) => {
                     logger.warn(JSON.stringify(logEntry));
                     const logPath = path.join(path.dirname(aiConfig.storagePaths.graph), 'sent-to-cull.jsonl');
-                    fs.appendFileSync(logPath, JSON.stringify(logEntry) + '\\n');
+                    fs.appendFileSync(logPath, JSON.stringify(logEntry) + '\n');
                 });
             }
         } catch (e) {
