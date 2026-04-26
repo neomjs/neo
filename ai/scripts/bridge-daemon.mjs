@@ -1,13 +1,18 @@
 import fs from 'fs-extra';
 import path from 'path';
-import Database from 'better-sqlite3';
-import { exec } from 'child_process';
-import util from 'util';
+import { spawn } from 'child_process';
+import { 
+    initializeDatabase, 
+    getLastSyncId, 
+    getActiveShapeCSubscriptions, 
+    getGraphLogEntries, 
+    getNodesData, 
+    getEdgesData, 
+    getDbNode 
+} from './bridge-daemon-queries.mjs';
 
-const execAsync = util.promisify(exec);
-
-const DB_PATH = '.neo-ai-data/sqlite/memory-core-graph.sqlite';
-const DAEMON_DATA_DIR = '.neo-ai-data/wake-daemon';
+const DB_PATH = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
+const DAEMON_DATA_DIR = process.env.NEO_AI_DAEMON_DIR || '.neo-ai-data/wake-daemon';
 const STATE_FILE = path.join(DAEMON_DATA_DIR, 'lastSyncId');
 const POLL_INTERVAL_MS = 3000;
 const DEFAULT_COALESCE_WINDOW_MS = 30000; // 30 seconds
@@ -15,28 +20,10 @@ const DEFAULT_COALESCE_WINDOW_MS = 30000; // 30 seconds
 // Ensure daemon data dir exists
 fs.ensureDirSync(DAEMON_DATA_DIR);
 
-let db;
-try {
-    db = new Database(DB_PATH, { fileMustExist: true });
-    db.pragma('journal_mode = WAL');
-    db.pragma('busy_timeout = 5000');
-} catch (err) {
-    console.error(`[Bridge Daemon] Failed to open database at ${DB_PATH}. Is the graph initialized?`);
-    process.exit(1);
-}
+const db = initializeDatabase(DB_PATH);
 
 // Read lastSyncId
-let lastSyncId = 0;
-if (fs.existsSync(STATE_FILE)) {
-    lastSyncId = parseInt(fs.readFileSync(STATE_FILE, 'utf8'), 10) || 0;
-} else {
-    try {
-        const row = db.prepare('SELECT MAX(log_id) as max_id FROM GraphLog').get();
-        lastSyncId = row?.max_id || 0;
-    } catch (e) {
-        lastSyncId = 0;
-    }
-}
+let lastSyncId = getLastSyncId(db, STATE_FILE);
 
 console.log(`[Bridge Daemon] Started. Tail-syncing from GraphLog ID: ${lastSyncId}`);
 
@@ -45,26 +32,12 @@ console.log(`[Bridge Daemon] Started. Tail-syncing from GraphLog ID: ${lastSyncI
 const coalesceState = {};
 
 /**
- * Gets active Bridge Daemon subscriptions
- */
-function getActiveShapeCSubscriptions() {
-    const stmt = db.prepare(`
-        SELECT data 
-        FROM Nodes 
-        WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
-          AND json_extract(data, '$.properties.harnessTarget') = 'bridge-daemon'
-          AND COALESCE(json_extract(data, '$.properties.status'), 'active') != 'degraded'
-    `);
-    return stmt.all().map(row => JSON.parse(row.data));
-}
-
-/**
  * Main polling loop
  */
 async function pollLoop() {
     try {
         // Fetch deltas
-        const logs = db.prepare('SELECT log_id, entity_id, entity_type FROM GraphLog WHERE log_id > ? ORDER BY log_id ASC').all(lastSyncId);
+        const logs = getGraphLogEntries(db, lastSyncId);
         
         if (logs.length > 0) {
             const invalidNodes = new Set();
@@ -77,16 +50,12 @@ async function pollLoop() {
                 else if (trace.entity_type === 'edges') invalidEdges.add(trace.entity_id);
             }
 
-            const subscriptions = getActiveShapeCSubscriptions();
+            const subscriptions = getActiveShapeCSubscriptions(db);
             
             if (subscriptions.length > 0) {
                 // Fetch the actual node/edge data to evaluate filters
-                const nodesData = invalidNodes.size > 0 
-                    ? db.prepare(`SELECT id, data FROM Nodes WHERE id IN (${Array.from(invalidNodes).map(() => '?').join(',')})`).all(...Array.from(invalidNodes))
-                    : [];
-                const edgesData = invalidEdges.size > 0 
-                    ? db.prepare(`SELECT id, data, source, target, type FROM Edges WHERE id IN (${Array.from(invalidEdges).map(() => '?').join(',')})`).all(...Array.from(invalidEdges))
-                    : [];
+                const nodesData = getNodesData(db, invalidNodes);
+                const edgesData = getEdgesData(db, invalidEdges);
                 
                 const nodesMap = new Map(nodesData.map(r => [r.id, JSON.parse(r.data)]));
                 const edgesMap = new Map(edgesData.map(r => [r.id, JSON.parse(r.data)]));
@@ -127,7 +96,7 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
     if (trigger === 'SENT_TO_ME' && trace.entity_type === 'edges' && entity.type === 'SENT_TO') {
         // A SENT_TO edge points to the agent.
         if (entity.target === agentIdentity || entity.target === 'AGENT:*') {
-            const messageNode = nodesMap.get(entity.source) || getDbNode(entity.source);
+            const messageNode = nodesMap.get(entity.source) || getDbNode(db, entity.source);
             if (messageNode && messageNode.label === 'MESSAGE') {
                 // Apply filters
                 if (filters.priority && messageNode.properties?.priority !== filters.priority) return null;
@@ -172,14 +141,7 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
     return null;
 }
 
-function getDbNode(id) {
-    try {
-        const row = db.prepare('SELECT data FROM Nodes WHERE id = ?').get(id);
-        return row ? JSON.parse(row.data) : null;
-    } catch (e) {
-        return null;
-    }
-}
+
 
 /**
  * Queues an event for coalescing.
@@ -261,30 +223,44 @@ async function flushSubscription(subId) {
 }
 
 /**
+ * Promisified spawn wrapper for injection-safe execution
+ */
+function spawnAsync(command, args) {
+    return new Promise((resolve, reject) => {
+        const child = spawn(command, args, { stdio: 'ignore' });
+        child.on('close', code => {
+            if (code === 0) resolve();
+            else reject(new Error(`${command} exited with code ${code}`));
+        });
+        child.on('error', reject);
+    });
+}
+
+/**
  * Delivers the digest to the correct adapter (tmux or osascript).
  */
 async function deliverDigest(subscription, digest) {
     const meta = subscription.properties?.harnessTargetMetadata || {};
     const adapter = meta.adapter || 'tmux'; // fallback to tmux if not specified
 
-    // We escape double quotes to avoid shell injection
-    const escapedDigest = digest.replace(/"/g, '\\\\\"');
-
     try {
         if (adapter === 'tmux') {
             const tmuxSession = meta.tmuxSession || process.env.TMUX_SESSION || 'neo-agent';
-            await execAsync(`tmux send-keys -t "${tmuxSession}" "${escapedDigest}" C-m`);
+            await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, digest, 'C-m']);
             console.log(`[Bridge Daemon] Delivered ${subscription.id} via tmux to session ${tmuxSession}`);
         } else if (adapter === 'osascript') {
-            const script = `
-                tell application "Claude" to activate
-                tell application "System Events" to keystroke "${escapedDigest}"
-                tell application "System Events" to key code 36
-            `;
-            await execAsync(`osascript -e '${script.replace(/\\n/g, "' -e '")}'`);
+            const osascriptArgs = [
+                '-e', 'on run argv',
+                '-e', '  tell application "Claude" to activate',
+                '-e', '  tell application "System Events" to keystroke (item 1 of argv)',
+                '-e', '  tell application "System Events" to key code 36',
+                '-e', 'end run',
+                digest
+            ];
+            await spawnAsync('osascript', osascriptArgs);
             console.log(`[Bridge Daemon] Delivered ${subscription.id} via osascript`);
         } else if (adapter === 'test') {
-            console.log(`[Bridge Daemon Test Adapter] Delivered ${subscription.id}: ${escapedDigest}`);
+            console.log(`[Bridge Daemon Test Adapter] Delivered ${subscription.id}: ${digest}`);
         } else {
             console.warn(`[Bridge Daemon] Unknown adapter '${adapter}' for subscription ${subscription.id}`);
         }
