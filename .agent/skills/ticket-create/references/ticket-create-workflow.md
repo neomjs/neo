@@ -111,12 +111,12 @@ If the "ticket" is really an architectural question, brainstorming, or pre-PR ex
 
 The `create_issue` tool returns the new issue number. Typical immediate follow-ups:
 
-- **`manage_issue_assignees(action: 'add', issue_number: N, assignees: ['@me'])`** — claim ownership when you intend to pick up the ticket immediately (per `ticket-intake` §3a Acceptance Protocol). Skip if the ticket is for someone else or deferred.
 - **`manage_issue_labels(action: 'add', ...)`** — only if the label set needs adjustment post-creation (e.g., label list was incomplete at `create_issue` time). Prefer getting labels right in the initial call.
 - **`update_issue_relationship(parent_id: N, child_id: M, type: 'SUB_ISSUE')`** — required when filing sub-issues under an Epic. Native graph linkage only; do NOT rely on inline `- [ ] #N` markdown checkboxes (see §6).
 - **Ticket body edits:** `gh issue edit N --body "..."` via shell, since `create_issue` does not have an update mode. The local `.md` file is canonical after `sync_all`; edits can happen either remotely via `gh` or locally with `sync_all` pushing the local version back.
+- **Picking up the ticket:** If you intend to start working on this newly created ticket immediately, you MUST run the `ticket-intake` skill next. Assignment (`manage_issue_assignees`) belongs to the intake process, not the creation process.
 
-Minimize chained calls where possible — a well-formed `create_issue` call with complete `title`, `body`, `labels`, and `assignees` at creation time avoids all of the above except `update_issue_relationship` (which can only run after the issue exists).
+Minimize chained calls where possible — a well-formed `create_issue` call with complete `title`, `body`, and `labels` at creation time avoids all of the above except `update_issue_relationship` (which can only run after the issue exists).
 
 ## 11. Authorship Respect
 
