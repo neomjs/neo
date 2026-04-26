@@ -12,6 +12,7 @@ import {listTools, callTool}                           from './services/toolServ
 import AuthMiddleware                                  from '../shared/services/AuthMiddleware.mjs';
 import RequestContextService                           from '../shared/services/RequestContextService.mjs';
 import StdioIdentityResolver                           from '../shared/services/StdioIdentityResolver.mjs';
+import WakeSubscriptionService                         from './services/WakeSubscriptionService.mjs';
 
 /**
  * @summary The Memory Core MCP Server application.
@@ -80,9 +81,17 @@ class Server extends Base {
             capabilities: {
                 tools: {
                     listChanged: false
+                },
+                experimental: {
+                    'neo-wake-substrate': {
+                        version: '1.0',
+                        supportedEvents: ['wake/sent_to_me', 'wake/task_state_changed', 'wake/permission_granted']
+                    }
                 }
             }
         });
+
+        WakeSubscriptionService.setMcpServer(this.mcpServer);
 
         // 3. Setup Request Handlers
         this.setupRequestHandlers();
@@ -131,6 +140,9 @@ class Server extends Base {
         } else {
             const {StdioServerTransport} = await import('@modelcontextprotocol/sdk/server/stdio.js');
             const transport = new StdioServerTransport();
+            
+            if (!this.mcpServer) return; // Prevent crash if instance was destroyed during async boot
+            
             await this.mcpServer.connect(transport);
 
             logger.info('[neo-memory-core MCP] Server started on stdio transport');
