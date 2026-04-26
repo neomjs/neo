@@ -295,6 +295,8 @@ The Memory Core MCP server emits `notifications/message` events conforming to
 the MCP spec's notification framework. Three event types correspond to the
 three trigger primitives (per Discussion #10354 OQ 2):
 
+All event payloads carry two delivery-tracking identifiers in the `data` field: `eventId` (ULID, unique per emission for transport-layer idempotency) and `logId` (the originating `GraphLog.log_id` of the substrate mutation that triggered the event, stable across re-emissions for cursor-based catchup). See §6.1.6 for the disconnect-reconnect mechanics that depend on these.
+
 #### 6.1.1 `wake/sent_to_me` payload
 
 ```json
@@ -306,6 +308,8 @@ three trigger primitives (per Discussion #10354 OQ 2):
     "data": {
       "schemaVersion": "1.0",
       "eventType": "wake/sent_to_me",
+      "eventId": "01HXXX...",
+      "logId": 12345,
       "agentIdentity": "@neo-opus-4-7",
       "subscriptionId": "WAKE_SUB:c0ffee01-…",
       "payload": {
@@ -334,6 +338,8 @@ three trigger primitives (per Discussion #10354 OQ 2):
     "data": {
       "schemaVersion": "1.0",
       "eventType": "wake/task_state_changed",
+      "eventId": "01HXXX...",
+      "logId": 12346,
       "agentIdentity": "@neo-opus-4-7",
       "subscriptionId": "WAKE_SUB:c0ffee02-…",
       "payload": {
@@ -361,6 +367,8 @@ three trigger primitives (per Discussion #10354 OQ 2):
     "data": {
       "schemaVersion": "1.0",
       "eventType": "wake/permission_granted",
+      "eventId": "01HXXX...",
+      "logId": 12347,
       "agentIdentity": "@neo-opus-4-7",
       "subscriptionId": "WAKE_SUB:c0ffee03-…",
       "payload": {
@@ -401,6 +409,78 @@ Subscription is created via the standard `manage_wake_subscription` MCP tool
 `harnessTarget: 'mcp-notifications'`; subsequent events fire on the
 notification channel.
 
+#### 6.1.6 Dropped-Connection Semantics
+
+Shape A relies on the MCP transport's persistent session handle for live
+event delivery. When the transport breaks (TCP close, timeout, network
+partition), the server cannot deliver in-flight events. **Decision:
+client-driven watermark resync rather than server-side queueing** — aligns
+with the existing `GraphLog + lastSyncId` pattern from ADR 0001 and reused
+by Shape C bridge daemon.
+
+**Watermark mechanics:**
+
+- Each wake event carries `logId` (the originating `GraphLog.log_id` of the
+  substrate mutation that triggered it) plus `eventId` (a ULID unique per
+  emission). See §6.1.1-6.1.3 payloads.
+- Client persists `lastSeenLogId` per subscription — typically in
+  harness-local state alongside the subscription ID. The persistence
+  granularity is the client's call: per-event commit (most durable, more
+  I/O) or windowed checkpoint (e.g., every N events / every M seconds).
+- On reconnect, client calls `manage_wake_subscription({action: 'resync',
+  subscriptionId, sinceLogId})` (see §6.4). The server:
+  1. Queries `GraphLog` from `sinceLogId` forward
+  2. Re-applies the subscription's current trigger + filter spec to the
+     delta entries (handles the case where filters were updated during the
+     disconnect window — the resync uses *current* spec, not historical)
+  3. Re-emits matching events as notifications with **new `eventId` ULIDs
+     but the same `logId` values** — preserving idempotency anchors while
+     making the new emission distinguishable
+- After resync completes, live notifications resume on the persistent
+  session handle.
+
+**Why client-driven (rather than server-queue):**
+
+- Server stays stateless w.r.t. per-client delivery cursor — no memory
+  pressure from disconnected-client queues, no "events lost on server
+  restart" problem
+- `GraphLog` is *already* the durable substrate queue (per ADR 0001 §2.1);
+  re-deriving events from it is symmetric with how Shape C bridge daemon
+  consumes the same delta stream. Single-source-of-truth discipline.
+- Idempotent: the same `sinceLogId` query returns the same events from
+  `GraphLog` (subject to filter changes, which the resync naturally
+  handles via current-spec re-application)
+- Server-restart-resilient: when the *server* restarts (rather than
+  client), all in-flight notifications are lost regardless of client
+  state. Client treats this identically to its own disconnect and uses
+  the resync path. The MCP server's `lastSyncId` is durably tracked
+  per ADR 0001 §2.3; subscription state is durable via graph-resident
+  `WAKE_SUBSCRIPTION` per Section 6.5; only the live-notification stream
+  is volatile.
+
+**At-least-once delivery semantics:**
+
+If the client receives a notification but disconnects before persisting
+`lastSeenLogId`, the same event may be re-delivered on resync (with a new
+`eventId` but identical `logId`). Application-layer deduplication is the
+recommended mitigation rather than transport-layer ack tracking:
+
+- `wake/sent_to_me` events carry `messageId`; the agent dedupes by
+  checking whether that messageId is already marked-read in its inbox
+- `wake/task_state_changed` events carry `taskId` + `newState`; the
+  agent dedupes by checking whether the task is already in (or past)
+  `newState`
+- `wake/permission_granted` events carry the edge identity; rare enough
+  that re-processing is idempotent (re-checking a granted permission is
+  harmless)
+
+**Coalescing window during reconnect:** the OQ 6 throttle (Section 6.4)
+applies to resync output. If reconnect happens after a long disconnect
+(e.g., overnight), the resync query may return many events; the
+coalescing window batches them into a single digest rather than firing
+N separate notifications. Same path that protects against
+burst-write thrashing during normal operation.
+
 ### 6.2 A2A Webhook Payload Shape (Shape B)
 
 For harnesses providing an HTTP endpoint, wake events POST to the registered
@@ -429,6 +509,18 @@ Body: <event-specific shape per 6.1.1-6.1.3>
 - After 3 consecutive failures across multiple events: subscription
   transitions to `harnessTarget: 'degraded'` until manual recovery via
   `manage_wake_subscription({action: 'update', ...})`
+
+**Idempotency under retry:** the server's retry loop emits the *same*
+`eventId` ULID across retry attempts (only the timestamp may shift). The
+webhook receiver SHOULD dedupe by `eventId` if the receiver itself caches
+ack-state; otherwise application-layer dedup by subject ID (per the same
+discipline as Shape A in §6.1.6) is sufficient.
+
+**Client-driven catchup on prolonged outage:** webhook receivers that
+sustain prolonged outage (e.g., harness offline overnight) recover via
+the same `manage_wake_subscription({action: 'resync', ...})` path
+described in §6.1.6 — the resync output simply re-fires through the
+webhook rather than the MCP notification channel. Symmetric with Shape A.
 
 #### 6.2.3 Signing
 
@@ -578,6 +670,66 @@ Post-Phase-3, heartbeat retains:
 - Diagnostic-mode override during empirical-bisection sessions
 
 It is no longer the primary wake mechanism for push-capable identities.
+
+### 6.6 Subscription Management Tool Surface
+
+The `manage_wake_subscription` MCP tool is the single client-facing surface
+for subscription lifecycle. Server-side, it mutates the `WAKE_SUBSCRIPTION`
+graph node + writes through the in-memory MCP server cache (per OQ 3
+resolution in Discussion #10354).
+
+#### 6.6.1 Tool surface
+
+```
+manage_wake_subscription({
+  action: 'subscribe' | 'unsubscribe' | 'update' | 'list' | 'resync',
+
+  // Required for unsubscribe / update / list (single) / resync:
+  subscriptionId?: <uuid>,
+
+  // Required for subscribe; optional for update:
+  trigger?: 'SENT_TO_ME' | 'TASK_STATE_CHANGED' | 'PERMISSION_GRANTED',
+  filters?: {
+    taggedConcepts?: [<concept-id>, ...],
+    priority?: 'high' | 'normal' | 'low',
+    senderFilter?: [<identity>, ...],
+    inReplyToFilter?: [<thread-root-id>, ...]
+  },
+  harnessTarget?: 'mcp-notifications' | 'a2a-webhook' | 'bridge-daemon' | 'disabled' | 'none',
+  harnessTargetMetadata?: {
+    url?: <webhook-url>,             // Shape B
+    signingKey?: <opaque-string>,    // Shape B (returned by server on subscribe; rotated via update)
+    coalesceWindow?: <seconds>,      // §6.4 override; null = use default
+    daemonSocketPath?: <path>        // Shape C
+  },
+
+  // Required for resync only:
+  sinceLogId?: <integer>            // GraphLog.log_id watermark; client-tracked
+})
+```
+
+#### 6.6.2 Action semantics
+
+| Action | Returns | Side-effect |
+|---|---|---|
+| `subscribe` | `{subscriptionId, harnessTarget, signingKey?}` | Creates `WAKE_SUBSCRIPTION` node + `SUBSCRIBES_TO` edge; writes to in-memory cache; for Shape B, generates and returns `signingKey` |
+| `unsubscribe` | `{subscriptionId, status: 'removed'}` | Deletes the `WAKE_SUBSCRIPTION` node + edge; evicts from cache |
+| `update` | `{subscriptionId, currentState}` | Mutates `WAKE_SUBSCRIPTION` properties; cache write-through |
+| `list` | `{subscriptions: [...]}` | Returns all subscriptions for the bound agent identity (or one if `subscriptionId` provided) |
+| `resync` | `{subscriptionId, eventsReplayed: <integer>, lastLogId: <integer>}` | Queries `GraphLog` from `sinceLogId` forward, applies current trigger+filter spec, re-emits matching events via the subscription's configured channel (MCP notifications / A2A webhook / bridge daemon). Returns the count + the highest log_id reached so the client can update its `lastSeenLogId` watermark. |
+
+#### 6.6.3 Authority + RBAC
+
+The tool consults `RequestContextService.getAgentIdentityNodeId()` to
+identify the calling agent. Subscriptions are personal by default —
+agents can only manage their own. Future multi-agent shared subscriptions
+(deferred per Discussion #10354 OQ 3 out-of-scope) would require a
+permission scope (e.g., `CAN_MANAGE_SUBSCRIPTIONS_OF`) to grant
+team-level visibility.
+
+The `resync` action specifically respects RBAC: the re-emitted events
+honor the same trigger + filter spec as live emissions, so an agent
+cannot use resync as a privilege-escalation backdoor.
 
 ---
 
