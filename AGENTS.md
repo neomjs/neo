@@ -241,11 +241,12 @@ The Neo.mjs agent framework operates as a self-evolving system. You are not just
 
 ## 14. The A2A Contextual Bridge Protocol (End of Session Handoff)
 
-To cure "Zero-State Amnesia" between sequential Swarm intelligence instances, follow-up tasks must natively embed routing telemetry.
+To cure "Zero-State Amnesia" between sequential Swarm intelligence instances, follow-up tasks must natively embed routing telemetry and utilize the **Sunset Protocol**.
 
-1. **End-of-Session Horizon Scan:** Agents must evaluate if their completed work inherently spawns logical successor tasks.
-2. **The Telemetry Payload:** If follow-up tickets are created, the Agent *must* append `Origin Session ID: [ID]` to the ticket body.
-3. **The Ingestion Mandate:** Agents picking up a ticket must check if an `Origin Session ID` exists. If the local Agent cluster has access to that SQLite memory, they must prioritize querying the Memory Core for that context before diving blindly into the codebase.
+1. **The Sunset Protocol (MANDATORY):** Before terminating a long-running session or handing over work, you MUST execute the `session-sunset` skill. Read `.agent/skills/session-sunset/SKILL.md` to trigger the formal protocol for structuring handover comments, mental-model states, and Memory Core persistence.
+2. **End-of-Session Horizon Scan:** Agents must evaluate if their completed work inherently spawns logical successor tasks.
+3. **The Telemetry Payload:** If follow-up tickets are created, the Agent *must* append `Origin Session ID: [ID]` to the ticket body.
+4. **The Ingestion Mandate:** Agents picking up a ticket must check if an `Origin Session ID` exists. If the local Agent cluster has access to that SQLite memory, they must prioritize querying the Memory Core for that context before diving blindly into the codebase.
 
 ## 15. The Knowledge Base: Your Primary Source of Truth
 
@@ -454,6 +455,7 @@ The lifecycle skills below carry the discipline that this file's invariants (esp
 | `ideation-sandbox` | Before creating a Discussion for architectural exploration — speculative-thought routing, OQ tracking |
 | `memory-mining` | On regression / non-obvious-architecture / decision-points — historical context retrieval ("what was decided here?") |
 | `tech-debt-radar` | During PR review for fundamental architectural shifts — semantic sweep against historical issues + Memory Core |
+| `session-sunset` | Concluding an active session / handing over work — structured handover, conceptual priming, prevent Zero-State Amnesia |
 
 **Why this lives in per-turn memory:** these skills carry mechanically-load-bearing discipline. When agents skip the skill invocation, the gate/protocol/template fails silently — empirically observed (PR #10356 merge violation traces to exactly this failure mode: pr-review skill was loaded for the review but not in context at the post-approval merge moment). Per-turn awareness in `AGENTS.md` keeps the trigger → skill loop reflexive even when long sessions evict skill files.
 
