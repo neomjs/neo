@@ -27,7 +27,7 @@ import RequestContextService from '../../../../../../../../ai/mcp/server/shared/
 
 test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', () => {
     test.describe.configure({mode: 'serial'});
-    let WakeSubscriptionService, GraphService, LifecycleService, originalAutoSave;
+    let WakeSubscriptionService, GraphService, LifecycleService, CoalescingEngineService, originalAutoSave;
     let dbPath;
 
     test.beforeAll(async () => {
@@ -39,6 +39,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
 
         GraphService            = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         WakeSubscriptionService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/WakeSubscriptionService.mjs')).default;
+        CoalescingEngineService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/CoalescingEngineService.mjs')).default;
         LifecycleService        = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
 
         const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
@@ -369,10 +370,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
 
         test.beforeEach(async () => {
             emittedEvents = [];
-            WakeSubscriptionService.setMcpServer(null); // Reset
+            CoalescingEngineService.setMcpServer(null);
+            CoalescingEngineService.clearAll();
         });
 
-        test('graceful no-op when no mcpServer is registered', async () => {
+        test('graceful no-op when CoalescingEngineService has no mcpServer registered', async () => {
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 await WakeSubscriptionService.subscribe({trigger: 'SENT_TO_ME', harnessTarget: 'mcp-notifications'});
             });
@@ -383,29 +385,44 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
 
             // pump shouldn't fail and shouldn't emit
             await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
             expect(emittedEvents.length).toBe(0);
         });
 
-        test('emits notifications/message for matching mcp-notifications subscription', async () => {
-            WakeSubscriptionService.setMcpServer(mockMcpServer);
+        test('emits digest for matching mcp-notifications subscription after pump -> enqueue -> flush', async () => {
+            CoalescingEngineService.setMcpServer(mockMcpServer);
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
-                await WakeSubscriptionService.subscribe({trigger: 'SENT_TO_ME', harnessTarget: 'mcp-notifications'});
+                // Set a small coalesceWindow so it would naturally flush, but we will force flush
+                await WakeSubscriptionService.subscribe({
+                    trigger: 'SENT_TO_ME', 
+                    harnessTarget: 'mcp-notifications'
+                });
             });
 
             // Make a mutation
             GraphService.upsertNode({id: 'MSG:2', type: 'MESSAGE', properties: {from: '@bob', subject: 'hello'}});
             GraphService.linkNodes('MSG:2', '@alice', 'SENT_TO', 1.0);
 
+            const originalEnqueue = CoalescingEngineService.enqueue;
+
             await WakeSubscriptionService.pump();
+
+            // Wait for coalescing engine to dispatch
+            await CoalescingEngineService.flushAll();
+            
+            CoalescingEngineService.enqueue = originalEnqueue;
+            
             expect(emittedEvents.length).toBe(1);
             expect(emittedEvents[0].method).toBe('notifications/message');
-            expect(emittedEvents[0].params.eventType).toBe('wake/sent_to_me');
-            expect(emittedEvents[0].params.payload.from).toBe('@bob');
+            expect(emittedEvents[0].params.eventType).toBe('wake/digest');
+            expect(emittedEvents[0].params.payload.totalEvents).toBe(1);
+            expect(emittedEvents[0].params.payload.breakdown.sent_to_me.count).toBe(1);
+            expect(emittedEvents[0].params.payload.breakdown.sent_to_me.latest.from).toBe('@bob');
         });
 
         test('does not emit for non-matching subscription', async () => {
-            WakeSubscriptionService.setMcpServer(mockMcpServer);
+            CoalescingEngineService.setMcpServer(mockMcpServer);
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 await WakeSubscriptionService.subscribe({
@@ -420,11 +437,12 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
             GraphService.linkNodes('MSG:3', '@alice', 'SENT_TO', 1.0);
 
             await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
             expect(emittedEvents.length).toBe(0);
         });
 
         test('advances liveCursor per delta.lastLogId', async () => {
-            WakeSubscriptionService.setMcpServer(mockMcpServer);
+            CoalescingEngineService.setMcpServer(mockMcpServer);
             const initialCursor = WakeSubscriptionService.liveCursor;
 
             GraphService.upsertNode({id: 'MSG:4', type: 'MESSAGE', properties: {}});
@@ -434,7 +452,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         });
 
         test('warms cache with active mcp-notifications subscriptions on first call', async () => {
-            WakeSubscriptionService.setMcpServer(mockMcpServer);
+            CoalescingEngineService.setMcpServer(mockMcpServer);
 
             let subId;
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
@@ -450,6 +468,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
             GraphService.linkNodes('MSG:5', '@alice', 'SENT_TO', 1.0);
 
             await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
 
             // Should have lazily warmed the cache and successfully emitted
             expect(WakeSubscriptionService.subscriptionCache.has(subId)).toBe(true);
@@ -457,7 +476,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         });
 
         test('skips bridge-daemon / a2a-webhook / disabled targets', async () => {
-            WakeSubscriptionService.setMcpServer(mockMcpServer);
+            CoalescingEngineService.setMcpServer(mockMcpServer);
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 await WakeSubscriptionService.subscribe({trigger: 'SENT_TO_ME', harnessTarget: 'bridge-daemon'});
@@ -469,12 +488,13 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
             GraphService.linkNodes('MSG:6', '@alice', 'SENT_TO', 1.0);
 
             await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
             // None of the subscriptions target mcp-notifications
             expect(emittedEvents.length).toBe(0);
         });
 
         test('concurrent pump() invocations do not double-emit', async () => {
-            WakeSubscriptionService.setMcpServer(mockMcpServer);
+            CoalescingEngineService.setMcpServer(mockMcpServer);
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 await WakeSubscriptionService.subscribe({trigger: 'SENT_TO_ME', harnessTarget: 'mcp-notifications'});
@@ -488,6 +508,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
                 WakeSubscriptionService.pump(),
                 WakeSubscriptionService.pump()
             ]);
+            
+            await CoalescingEngineService.flushAll();
 
             // If the race condition was present, both might emit the same event
             expect(emittedEvents.length).toBe(1);

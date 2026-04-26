@@ -13,7 +13,7 @@ import AuthMiddleware                                  from '../shared/services/
 import RequestContextService                           from '../shared/services/RequestContextService.mjs';
 import StdioIdentityResolver                           from '../shared/services/StdioIdentityResolver.mjs';
 import WakeSubscriptionService                         from './services/WakeSubscriptionService.mjs';
-
+import CoalescingEngineService                         from './services/CoalescingEngineService.mjs';
 /**
  * @summary The Memory Core MCP Server application.
  *
@@ -91,7 +91,8 @@ class Server extends Base {
             }
         });
 
-        await WakeSubscriptionService.setMcpServer(this.mcpServer);
+        await WakeSubscriptionService.init();
+        CoalescingEngineService.setMcpServer(this.mcpServer);
 
         // 3. Setup Request Handlers
         this.setupRequestHandlers();

@@ -3,6 +3,7 @@ import Base                   from '../../../../../src/core/Base.mjs';
 import GraphService           from './GraphService.mjs';
 import RequestContextService  from '../../shared/services/RequestContextService.mjs';
 import logger                 from '../logger.mjs';
+import CoalescingEngineService from './CoalescingEngineService.mjs';
 
 /**
  * @summary Service for managing graph-resident WAKE_SUBSCRIPTION nodes and the
@@ -64,16 +65,27 @@ class WakeSubscriptionService extends Base {
     subscriptionCache = new Map()
 
     /**
-     * @member {McpServer|null} mcpServer=null
-     * @protected
-     */
-    mcpServer = null
-
-    /**
      * @member {Number} liveCursor=0
      * @protected
      */
     liveCursor = 0
+
+    /**
+     * Sets the initial live cursor to the current graph log head to prevent
+     * replaying historical events on boot.
+     */
+    async init() {
+        await GraphService.ready();
+        const storage = GraphService.db?.storage;
+        if (storage?.db) {
+            try {
+                const row = storage.db.prepare('SELECT MAX(log_id) as maxId FROM GraphLog').get();
+                this.liveCursor = row.maxId || 0;
+            } catch (e) {
+                logger.warn('[WakeSubscription] Failed to read max log_id on init', e);
+            }
+        }
+    }
 
     /**
      * Guard against re-entrant calls to pump()
@@ -83,34 +95,12 @@ class WakeSubscriptionService extends Base {
     _pumping = false
 
     /**
-     * Injects the MCP server instance for push notifications.
-     * Sets the initial live cursor to the current graph log head to prevent
-     * replaying historical events on boot.
-     * @param {McpServer} mcpServer
-     */
-    async setMcpServer(mcpServer) {
-        this.mcpServer = mcpServer;
-        await GraphService.ready();
-        const storage = GraphService.db?.storage;
-        if (storage?.db) {
-            // Get current log_id to start pumping from now
-            try {
-                const row = storage.db.prepare('SELECT MAX(log_id) as maxId FROM GraphLog').get();
-                this.liveCursor = row.maxId || 0;
-            } catch (e) {
-                logger.warn('[WakeSubscription] Failed to read max log_id on setMcpServer', e);
-            }
-        }
-    }
-
-    /**
      * Evaluates recent GraphLog deltas and pushes matching events to connected
      * Shape A (MCP notification) clients. Intended to be called by mutation paths
      * (e.g. MailboxService, PermissionService) for low-latency delivery.
      * @returns {Promise<void>}
      */
     async pump() {
-        if (!this.mcpServer) return;
         if (this._pumping) return;
         
         try {
@@ -142,31 +132,19 @@ class WakeSubscriptionService extends Base {
                 return;
             }
 
-            const eventsToEmit = [];
             for (const sub of activeSubs) {
                 for (const edgeRef of delta.invalidEdges) {
                     const logId = this._getEntityLogId(edgeRef.id) || delta.lastLogId;
                     const matched = this._evaluateEdgeAgainstSubscription(edgeRef, sub, logId);
-                    if (matched) eventsToEmit.push(matched);
+                    if (matched) CoalescingEngineService.enqueue(sub, matched);
                 }
                 for (const nodeId of delta.invalidNodes) {
                     const logId = this._getEntityLogId(nodeId) || delta.lastLogId;
                     const matched = this._evaluateNodeAgainstSubscription(nodeId, sub, logId);
-                    if (matched) eventsToEmit.push(matched);
+                    if (matched) CoalescingEngineService.enqueue(sub, matched);
                 }
             }
 
-            for (const event of eventsToEmit) {
-                try {
-                    // ADR 0002 §6.1 specifies the method name is 'notifications/message'
-                    await this.mcpServer.notification({
-                        method: 'notifications/message',
-                        params: event
-                    });
-                } catch (e) {
-                    logger.error('[WakeSubscription] Failed to emit MCP notification', e);
-                }
-            }
             
             this.liveCursor = delta.lastLogId;
         } catch (e) {
