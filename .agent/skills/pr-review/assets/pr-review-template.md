@@ -63,6 +63,22 @@ For every issue named as close-target, verify it does NOT carry the `epic` label
 
 ---
 
+### 📡 MCP-Tool-Description Budget Audit
+
+*(Required per guide §5.3 when the PR touches `ai/mcp/server/*/openapi.yaml` — adds a new `description:`, modifies an existing block-literal `description:`, or introduces a new tool path or operation. Mark N/A for PRs that don't touch OpenAPI surfaces.)*
+
+For every modified or added OpenAPI tool description:
+
+- [ ] Single-line preferred — block-literal (`|`) descriptions justified by content, not authorial habit
+- [ ] No internal cross-refs (no ticket numbers, Phase sequencing, session IDs, or memory anchor names in the description payload)
+- [ ] No architectural narrative — descriptions describe call-site usage (what + when-to-use + when-not-to-use)
+- [ ] External standard URLs OK — citing canonical specs (e.g., `https://a2a-protocol.org/...`) is acceptable
+- [ ] 1024-char hard cap respected — approaching it is a red flag (see `McpServerToolLimits` test)
+
+**Findings:** [Pass / specific descriptions flagged / N/A]
+
+---
+
 ### 🔗 Cross-Skill Integration Audit
 
 *(Required per guide §8.1 when the PR touches skill files, conventions, MCP tool surfaces, `AGENTS_STARTUP.md` / `AGENTS.md`, or architectural primitives. Mark N/A for routine code changes that don't introduce cross-substrate conventions.)*
