@@ -606,6 +606,90 @@ class MailboxService extends Base {
     }
 
     /**
+     * @summary Sweeps expired A2A Tasks past their `task.expiresAt` to the `Expired` state.
+     *
+     * Maintenance operation invoked by the swarm-heartbeat cron cycle (Track 2C, #10339).
+     * Bulk-transitions all MESSAGE nodes carrying an A2A Task envelope whose `task.expiresAt`
+     * ISO timestamp has passed AND whose `task.state` is non-terminal
+     * (`Submitted` / `Working` / `InputRequired`) to `Expired` via a single atomic
+     * `UPDATE-WHERE` statement — mirroring the optimistic-concurrency pattern used by
+     * `transitionTask`. Cached MESSAGE nodes are then synced to reflect the SQLite write,
+     * triggering observable cache events.
+     *
+     * Distinguished from `transitionTask` in three ways:
+     * 1. **No identity context required.** Sweeper runs as a maintenance role; not bound
+     *    to an agent identity. Bypasses the originator/assignee RBAC matrix because TTL
+     *    expiry is a substrate-level concern, not a state-machine action.
+     * 2. **No state-machine validation.** Direct SQL `UPDATE`; the `WHERE` clause itself
+     *    constrains source states (`Submitted` / `Working` / `InputRequired`) and target
+     *    state (`Expired` is fixed).
+     * 3. **Bulk operation.** A single `UPDATE` may transition many tasks; returns
+     *    `sweptCount` for observability rather than per-task results.
+     *
+     * Idempotent: rerunning when no tasks are expired is a no-op (zero `sweptCount`).
+     * Tasks without an `expiresAt` field are unaffected (TTL is opt-in). Tasks already
+     * in terminal states (`Completed` / `Canceled` / `Failed` / `Rejected` / `Expired`)
+     * are untouched.
+     *
+     * NOT exposed via MCP tool surface — internal cron primitive only. See
+     * `ai/scripts/sweepExpiredTasks.mjs` for the CLI invoker consumed by the heartbeat.
+     *
+     * @returns {Promise<{success: Boolean, sweptCount: Number}>}
+     */
+    async sweepExpiredTasks() {
+        const
+            db        = GraphService.db,
+            timestamp = new Date().toISOString();
+
+        const stmt = db.storage.db.prepare(`
+            UPDATE Nodes
+            SET data = json_set(data,
+                '$.properties.task.state', 'Expired',
+                '$.properties.lastModifiedAt', ?
+            )
+            WHERE
+                json_extract(data, '$.label') = 'MESSAGE'
+                AND json_extract(data, '$.properties.task.state') IN ('Submitted', 'Working', 'InputRequired')
+                AND json_extract(data, '$.properties.task.expiresAt') IS NOT NULL
+                AND datetime(json_extract(data, '$.properties.task.expiresAt')) < datetime(?)
+        `);
+        const info = stmt.run(timestamp, timestamp);
+
+        if (info.changes > 0) {
+            // Fast-forward `lastSyncId` so subsequent `syncCache()` calls won't treat our
+            // own UPDATE-triggered GraphLog entries as external invalidation events. SQLite
+            // `node_update` triggers append to GraphLog automatically (see SQLite.mjs); without
+            // this fast-forward, the next `getAdjacentNodes` (e.g. via downstream
+            // `transitionTask` or `upsertNode`) would invalidate the just-written cache entries
+            // and break consumers that read via `db.nodes.get(id)`. Mirrors the discipline used
+            // by `GraphService.upsertNode` after `storage.addNodes`.
+            db.acknowledgeLocalMutations?.();
+
+            // Sync cached MESSAGE nodes that the sweep touched. The unique sweep timestamp
+            // discriminates this cycle's writes from any concurrent `transitionTask` writes,
+            // since ISO millisecond precision plus single-process JS ordering guarantee
+            // distinct values across calls. Direct in-memory mutation (no `upsertNode` round
+            // trip) is sufficient because SQLite already holds the canonical truth.
+            const sweptRows = db.storage.db.prepare(`
+                SELECT id FROM Nodes
+                WHERE json_extract(data, '$.label') = 'MESSAGE'
+                    AND json_extract(data, '$.properties.task.state') = 'Expired'
+                    AND json_extract(data, '$.properties.lastModifiedAt') = ?
+            `).all(timestamp);
+
+            for (const row of sweptRows) {
+                const cached = db.nodes.get(row.id);
+                if (cached?.properties?.task) {
+                    cached.properties.task.state    = 'Expired';
+                    cached.properties.lastModifiedAt = timestamp
+                }
+            }
+        }
+
+        return { success: true, sweptCount: info.changes }
+    }
+
+    /**
      * Generates the mailbox preview for the healthcheck payload.
      * @returns {Promise<Object|null>}
      */

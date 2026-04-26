@@ -28,26 +28,56 @@ get_issues_count() {
     echo "${count:-0}"
 }
 
+# Function to sweep expired A2A tasks (Track 2C, #10339)
+# Invokes the JS CLI wrapper which calls MailboxService.sweepExpiredTasks(). Bulk SQL
+# UPDATE-WHERE atomically transitions stale Submitted/Working/InputRequired tasks past
+# their task.expiresAt to Expired. Returns the swept count via stdout JSON. Substrate-level
+# maintenance — not gated on token-economy fast-path because TTL expiry is global and
+# operates regardless of the agent's conversational activity.
+sweep_expired_tasks() {
+    if [ ! -f "$DB_PATH" ]; then
+        echo "0"
+        return
+    fi
+    local script_dir=$(dirname "$0")
+    local output=$(node "${script_dir}/sweepExpiredTasks.mjs" 2>/dev/null)
+    local count=$(echo "$output" | grep -oE '"sweptCount":[0-9]+' | grep -oE '[0-9]+$')
+    echo "${count:-0}"
+}
+
 # Background pulse generator
 heartbeat_pulse() {
     while true; do
         sleep $POLL_INTERVAL
-        
+
         # Concurrency Trap: Skip if agent is busy (lock exists)
         if [ -f "$CONCURRENCY_LOCK" ]; then
             continue
+        fi
+
+        # Track 2C TTL sweep (#10339) — fires every cycle BEFORE the token-economy
+        # fast-path. Stale-task expiration is substrate maintenance, not agent-conversational
+        # — runs unconditionally so the queue's actionable-set stays bounded even during
+        # idle stretches. Sweep is near-instant on small candidate sets (single bulk SQL).
+        local expired=$(sweep_expired_tasks)
+        if [ "$expired" -gt 0 ]; then
+            echo "[heartbeat $(date -Iseconds)] sweep: ${expired} task(s) transitioned to Expired" >&2
         fi
 
         # Execute the fast-path deterministic queries
         local unread=$(get_unread_count)
         local issues=$(get_issues_count)
 
-        # Token Economy: Only inject pulse if there's actionable state
+        # Token Economy: Only inject pulse if there's actionable state. Sweep count does
+        # NOT factor into the inject decision — silent maintenance per #10339 AC.
         if [ "$unread" -eq 0 ] && [ "$issues" -eq 0 ]; then
             continue
         fi
 
         local prompt="[SYSTEM HEARTBEAT] Last wake: T-5min. Mailbox unread: ${unread}. Open issues assigned: ${issues}."
+        if [ "$expired" -gt 0 ]; then
+            prompt="${prompt} Tasks expired this cycle: ${expired}."
+        fi
 
         # Inject into active terminal (using tmux as the substrate for headless sessions)
         if tmux has-session -t "$TMUX_SESSION" 2>/dev/null; then
