@@ -258,7 +258,9 @@ PR #10155 shipped `.agent/skills/epic-review/` with the claim "runs *before* `ti
 
 ## 9. A2A Comment-ID Hand-off Protocol (#10272)
 
-**Problem:** Each review cycle N+1 costs context-fetch cost proportional to cumulative thread size. By cycle three of an Architectural Pillar review, fetching the full conversation via `get_conversation({pr_number: N})` burns more tokens reading prior rounds than the new substance justifies.
+**Problem:** Without commentId-scoped fetch, every review cycle N+1 incurs **cumulative-thread context cost** — full-thread fetch reads all prior cycles, not just the delta. This breaks linear-cost scaling: by cycle three of an Architectural Pillar review, fetching the full conversation burns more tokens on prior rounds than on the new substance. Compounds silently across the swarm — every reviewer pays the cumulative cost per cycle, not just once. **Treat as invariant discipline, not optional optimization** — the cost asymmetry diverges with thread length, and missed pings cascade across reviewers.
+
+**Empirical anchor (PR #10371, 2026-04-26):** Cycle 3 thread reached ~8KB markdown across 6 prior comments. Full-thread fetch by Cycle 4 reviewer reads all 8KB to extract the ~1KB delta from one new comment — **~8× context-budget waste per cycle, ratio diverging with thread length**. CommentId-scoped fetch reads ~1KB. Reviewer-side §9 + author-side `pull-request-workflow §8.1` discipline together close the loop.
 
 **Solution:** `manage_issue_comment` action:`create` returns `{message, commentId, url, createdAt}`. The reviewer captures `commentId` from that response and relays it to the next reviewer (peer or author) via A2A mailbox — the recipient fetches just-this-comment via `get_conversation({pr_number: N, comment_id: COMMENT_ID})`, scaling linearly with new-comment volume rather than cumulative thread size.
 
@@ -288,4 +290,20 @@ PR #10155 shipped `.agent/skills/epic-review/` with the claim "runs *before* `ti
 - **Full-conversation-fetch-per-cycle when commentId is available.** If the A2A message carries a commentId, use it. Otherwise the propagation discipline is broken.
 - **Mailbox DM without commentId when the message is pointing at a specific comment.** Forces recipient to fetch full thread and grep for the intended passage — negates the efficiency gain.
 - **Passing all three selectors at once expecting a merge.** First-match semantics; excess selectors are ignored.
+- **Rigidly applying commentId-scoped fetch in a cold-cache case** (e.g., fresh session bootstrap, Cycle 1 review). Lands one isolated comment in a void without the prior context it depends on. See §9.4 below.
+
+### 9.4 Cold-Cache Exception
+
+CommentId-scoped fetch is the **warm-cache** path — the reviewer or author has continuous prior-cycle context loaded in the current context window. **Cold-cache cases require a different fetch shape:**
+
+| Cold-cache case | Fetch shape | Reason |
+|---|---|---|
+| **Fresh session bootstrap** | Full-thread fetch + `query_summaries` / `query_raw_memories` for Memory Core grounding | No prior cycle context loaded; commentId-scoped fetch lands one comment in a void |
+| **Cycle 1 review** | Full-thread fetch | First ramp on the PR; no prior cycle exists; need full diff + body for grounding |
+| **Cross-agent handoff** | Full-thread fetch + memory query against the prior agent's session-id | Different reviewer/author than prior cycle; no shared mental model |
+| **Missed/lost A2A ping** | `since_comment_id` from last-known anchor, OR `last_n: 3-5`, OR full-thread fallback | No commentId pointer to scope from |
+
+The dichotomy mirrors the boot-pull-vs-sunset-pull lifecycle distinction (`AGENTS_STARTUP §0` vs `session-sunset` skill body Step 1): **warm path** optimizes for incremental context; **cold path** grounds from scratch. They are NOT symmetric operations — they fill different lifecycle gaps. Don't confuse them: rigidly applying commentId-scoped fetch in a cold-cache case lands one isolated comment without the context it depends on; over-fetching on principle in a warm-cache case defeats the linear-cost scaling.
+
+**The right reflex** — before fetching, ask: *"do I have prior cycle context loaded in this context window?"* If yes → commentId-scoped fetch (or `since_comment_id` for incremental polling across stale-anchor recovery). If no → full-thread fetch + memory query for grounding.
 
