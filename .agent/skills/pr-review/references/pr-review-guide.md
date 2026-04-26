@@ -290,9 +290,22 @@ PR #10155 shipped `.agent/skills/epic-review/` with the claim "runs *before* `ti
 - **Full-conversation-fetch-per-cycle when commentId is available.** If the A2A message carries a commentId, use it. Otherwise the propagation discipline is broken.
 - **Mailbox DM without commentId when the message is pointing at a specific comment.** Forces recipient to fetch full thread and grep for the intended passage — negates the efficiency gain.
 - **Passing all three selectors at once expecting a merge.** First-match semantics; excess selectors are ignored.
-- **Rigidly applying commentId-scoped fetch in a cold-cache case** (e.g., fresh session bootstrap, Cycle 1 review). Lands one isolated comment in a void without the prior context it depends on. See §9.4 below.
+- **Rigidly applying commentId-scoped fetch in a cold-cache case** (e.g., fresh session bootstrap, Cycle 1 review). Lands one isolated comment in a void without the prior context it depends on. See §9.5 below.
+- **Skipping the Pre-Flight Check (§9.4) before yielding turn after `manage_issue_comment`.** Empirically the dominant failure mode — agents read this guide, draft the comment, post it, and forget to capture commentId + send A2A ping. Proven mitigation: explicit reasoning-statement mirroring the `AGENTS.md §3 / §4.2` Pre-Flight pattern.
 
-### 9.4 Cold-Cache Exception
+### 9.4 Pre-Flight Check (operational reflex)
+
+The §9 hand-off protocol is mechanical — but reviewers empirically miss it across cycles even after reading this guide (PR #10371 + #10375, 2026-04-26: 5+ missed pings before @tobiu surfaced the gap explicitly). The discipline is reflex-application, not knowledge.
+
+**Pre-Flight Check shape** (mirrors `AGENTS.md §3 / §4.2` proven primitives). After every `manage_issue_comment` create, before yielding turn, you MUST explicitly state in your internal reasoning:
+
+> *"Pre-Flight: I posted review commentId `<ID>` for cycle K. I have (or will) send an A2A ping to `<recipient>` via `add_message` with the literal commentId in the body so they can call `get_conversation({pr_number, comment_id})` for scoped fetch."*
+
+This commitment-statement is the gate that permits yielding turn. The §0.5 `add_memory` discipline already proves this Pre-Flight pattern works as a reflex enforcement primitive when paired with explicit pre-action reasoning. Skipping forces the next cycle's actor to re-read the full thread — the empirical-anchor ~8× cost ratio quantifies the cost.
+
+Cold-cache exception applies when the recipient lacks prior-cycle context — see §9.5 below for when full-thread fetch is the right call instead.
+
+### 9.5 Cold-Cache Exception
 
 CommentId-scoped fetch is the **warm-cache** path — the reviewer or author has continuous prior-cycle context loaded in the current context window. **Cold-cache cases require a different fetch shape:**
 
