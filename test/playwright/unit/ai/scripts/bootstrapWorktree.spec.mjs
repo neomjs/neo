@@ -306,7 +306,11 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
                 log        : () => {}
             });
 
-            expect(result).toBe('installed');
+            // Return value MUST reflect the action actually taken (skip), not just the
+            // post-condition that node_modules exists. Per @neo-gemini-3-1-pro's PR #10352
+            // cycle 1 review: a returned-action contract that always reports `'installed'`
+            // because node_modules ends up present either way is semantically broken.
+            expect(result).toBe('already-installed');
             expect(calls).toHaveLength(1);
             expect(calls[0].args).toEqual(['run', 'bundle-parse5']);
         });

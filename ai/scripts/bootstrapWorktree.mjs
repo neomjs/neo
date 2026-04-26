@@ -220,22 +220,25 @@ export async function symlinkDataDir({mainCheckout, projectRoot, dir = '.neo-ai-
  */
 export async function installDependencies({projectRoot, log = console.log, exec = execFileAsync}) {
     const nodeModulesPath = path.join(projectRoot, 'node_modules');
+    let action;
 
     if (await exists(nodeModulesPath)) {
         log(`install skip (exists): node_modules`);
+        action = 'already-installed';
     } else {
         log(`installing dependencies (npm install)...`);
         const start = Date.now();
         await exec('npm', ['install'], {cwd: projectRoot});
         log(`installed dependencies in ${Math.round((Date.now() - start) / 1000)}s`);
+        action = 'installed';
     }
 
     log(`bundling parse5 (test-runner prerequisite)...`);
-    const start = Date.now();
+    const bundleStart = Date.now();
     await exec('npm', ['run', 'bundle-parse5'], {cwd: projectRoot});
-    log(`bundled parse5 in ${Math.round((Date.now() - start) / 1000)}s`);
+    log(`bundled parse5 in ${Math.round((Date.now() - bundleStart) / 1000)}s`);
 
-    return await exists(path.join(projectRoot, 'node_modules')) ? 'installed' : 'already-installed';
+    return action;
 }
 
 /**
