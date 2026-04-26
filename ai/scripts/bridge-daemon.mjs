@@ -96,11 +96,8 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
     if (trigger === 'SENT_TO_ME' && trace.entity_type === 'edges' && entity.type === 'SENT_TO') {
         // A SENT_TO edge points to the agent.
         if (entity.target === agentIdentity || entity.target === 'AGENT:*') {
-            console.log(`[Bridge Daemon] Evaluating SENT_TO edge for ${agentIdentity}`);
             const messageNode = nodesMap.get(entity.source) || getDbNode(db, entity.source);
-            console.log(`[Bridge Daemon] Message node:`, messageNode);
             if (messageNode && messageNode.label === 'MESSAGE') {
-                console.log(`[Bridge Daemon] Message node confirmed as MESSAGE`);
                 // Apply filters
                 if (filters.priority && messageNode.properties?.priority !== filters.priority) return null;
                 if (filters.senderFilter && !filters.senderFilter.includes(messageNode.properties?.from)) return null;
@@ -185,10 +182,8 @@ function queueEvent(subscription, eventPayload) {
         const windowMs = coalesceSeconds * 1000;
 
         if (windowMs === 0) {
-            console.log(`[Bridge Daemon] Flushing immediately for ${subId}`);
             flushSubscription(subId);
         } else {
-            console.log(`[Bridge Daemon] Setting timer for ${subId} (${windowMs}ms)`);
             coalesceState[subId].timer = setTimeout(() => {
                 flushSubscription(subId);
             }, windowMs);
@@ -200,7 +195,6 @@ function queueEvent(subscription, eventPayload) {
  * Flushes the queue for a subscription, building the digest and invoking the harness adapter.
  */
 async function flushSubscription(subId) {
-    console.log(`[Bridge Daemon] flushSubscription called for ${subId}`);
     const state = coalesceState[subId];
     if (!state) return;
 
