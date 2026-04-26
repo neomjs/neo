@@ -91,7 +91,7 @@ class Server extends Base {
             }
         });
 
-        WakeSubscriptionService.setMcpServer(this.mcpServer);
+        await WakeSubscriptionService.setMcpServer(this.mcpServer);
 
         // 3. Setup Request Handlers
         this.setupRequestHandlers();

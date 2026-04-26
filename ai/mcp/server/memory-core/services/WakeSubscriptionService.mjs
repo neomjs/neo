@@ -88,9 +88,10 @@ class WakeSubscriptionService extends Base {
      * replaying historical events on boot.
      * @param {McpServer} mcpServer
      */
-    setMcpServer(mcpServer) {
+    async setMcpServer(mcpServer) {
         this.mcpServer = mcpServer;
-        const storage = GraphService.db.storage;
+        await GraphService.ready();
+        const storage = GraphService.db?.storage;
         if (storage?.db) {
             // Get current log_id to start pumping from now
             try {
