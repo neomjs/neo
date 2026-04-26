@@ -449,6 +449,7 @@ The lifecycle skills below carry the discipline that this file's invariants (esp
 | `ideation-sandbox` | Before creating a Discussion for architectural exploration — speculative-thought routing, OQ tracking |
 | `memory-mining` | On regression / non-obvious-architecture / decision-points — historical context retrieval ("what was decided here?") |
 | `tech-debt-radar` | During PR review for fundamental architectural shifts — semantic sweep against historical issues + Memory Core |
+| `session-sunset` | Concluding an active session / handing over work — structured handover, conceptual priming, prevent Zero-State Amnesia |
 
 **Why this lives in per-turn memory:** these skills carry mechanically-load-bearing discipline. When agents skip the skill invocation, the gate/protocol/template fails silently — empirically observed (PR #10356 merge violation traces to exactly this failure mode: pr-review skill was loaded for the review but not in context at the post-approval merge moment). Per-turn awareness in `AGENTS.md` keeps the trigger → skill loop reflexive even when long sessions evict skill files.
 

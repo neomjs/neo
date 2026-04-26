@@ -9,8 +9,9 @@ Because the Neo.mjs Swarm operates across fragmented sessions and multiple agent
 Before terminating your session, you MUST execute the following 7 steps to ensure a clean handover.
 
 ### Step 1: Codebase Synchronization (The Pre-Sunset Pull)
-Use the `run_command` tool to execute `git checkout dev && git pull origin dev` (or the default branch of the repository). Because the AI harness initializes MCP servers *before* an agent's first turn, pulling the latest code at the end of the current session guarantees the next session's servers boot with fresh infrastructure.
-
+Use the `run_command` tool to synchronize the codebase, but you MUST respect harness-isolation logic:
+- **Shared Checkout (Antigravity/Gemini):** Execute `git checkout dev && git pull origin dev`. Because the AI harness initializes MCP servers *before* an agent's first turn, pulling the latest code at the end of the current session guarantees the next session's servers boot with fresh infrastructure.
+- **Isolated Worktree (Claude Code):** Do NOT checkout `dev` (which would conflict with the main checkout). Instead, ensure your current PR branch is fully committed and pushed (`git push origin HEAD`). The next agent session will either resume this worktree or bootstrap a new one from the main checkout's updated `dev`.
 ### Step 2: Handovers Posted (Active Work)
 For any tickets or tasks that you actively worked on but did not fully complete, you MUST post a self-contained handover comment directly on the GitHub Issue (using `manage_issue_comment`).
 - Provide implementation guidance.
