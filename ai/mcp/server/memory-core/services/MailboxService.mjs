@@ -3,6 +3,7 @@ import aiConfig from '../config.mjs';
 import RequestContextService from '../../shared/services/RequestContextService.mjs';
 import GraphService from './GraphService.mjs';
 import PermissionService from './PermissionService.mjs';
+import WakeSubscriptionService from './WakeSubscriptionService.mjs';
 import crypto from 'crypto';
 import SemanticGraphExtractor from '../../../../daemons/services/SemanticGraphExtractor.mjs';
 
@@ -282,6 +283,8 @@ class MailboxService extends Base {
                 }
             }
         }).catch(() => { /* error logged internally */ });
+
+        WakeSubscriptionService.pump();
 
         return { messageId, sentAt: timestamp, priority, status: 'sent' };
     }
@@ -628,6 +631,8 @@ class MailboxService extends Base {
         // Push the merged object back to GraphService cache to trigger events
         GraphService.upsertNode(messageNode);
 
+        WakeSubscriptionService.pump();
+
         return {
             success: true,
             rowsAffected: info.changes,
@@ -714,6 +719,8 @@ class MailboxService extends Base {
                     cached.properties.lastModifiedAt = timestamp
                 }
             }
+
+            WakeSubscriptionService.pump();
         }
 
         return { success: true, sweptCount: info.changes }

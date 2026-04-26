@@ -64,6 +64,123 @@ class WakeSubscriptionService extends Base {
     subscriptionCache = new Map()
 
     /**
+     * @member {McpServer|null} mcpServer=null
+     * @protected
+     */
+    mcpServer = null
+
+    /**
+     * @member {Number} liveCursor=0
+     * @protected
+     */
+    liveCursor = 0
+
+    /**
+     * Injects the MCP server instance for push notifications.
+     * Sets the initial live cursor to the current graph log head to prevent
+     * replaying historical events on boot.
+     * @param {McpServer} mcpServer
+     */
+    setMcpServer(mcpServer) {
+        this.mcpServer = mcpServer;
+        const storage = GraphService.db.storage;
+        if (storage?.db) {
+            // Get current log_id to start pumping from now
+            try {
+                const row = storage.db.prepare('SELECT MAX(log_id) as maxId FROM GraphLog').get();
+                this.liveCursor = row.maxId || 0;
+            } catch (e) {
+                logger.warn('[WakeSubscription] Failed to read max log_id on setMcpServer', e);
+            }
+        }
+    }
+
+    /**
+     * Evaluates recent GraphLog deltas and pushes matching events to connected
+     * Shape A (MCP notification) clients. Intended to be called by mutation paths
+     * (e.g. MailboxService, PermissionService) for low-latency delivery.
+     * @returns {Promise<void>}
+     */
+    async pump() {
+        if (!this.mcpServer) return;
+        
+        try {
+            const db = GraphService.db;
+            if (!db) return;
+            
+            const storage = db.storage;
+            if (!storage?.getDeltaLog) return;
+            
+            const delta = storage.getDeltaLog(this.liveCursor);
+            if (delta.invalidEdges.length === 0 && delta.invalidNodes.length === 0) {
+                this.liveCursor = delta.lastLogId;
+                return;
+            }
+
+            // We only care about mcp-notifications target
+            // We also explicitly do a full scan since the cache might only have lazy-loaded partials.
+            // Wait, does subscriptionCache have all active subscriptions? No, it's lazy loaded.
+            // We should ensure all active mcp-notifications subscriptions are in cache.
+            // Or simply do a quick SQLite scan for them to guarantee we don't miss any if we haven't listed them.
+            this._warmMcpSubscriptions();
+
+            const activeSubs = Array.from(this.subscriptionCache.values())
+                .filter(sub => sub.harnessTarget === 'mcp-notifications' && sub.status === 'active');
+                
+            if (activeSubs.length === 0) {
+                this.liveCursor = delta.lastLogId;
+                return;
+            }
+
+            const eventsToEmit = [];
+            for (const sub of activeSubs) {
+                for (const edgeRef of delta.invalidEdges) {
+                    const matched = this._evaluateEdgeAgainstSubscription(edgeRef, sub, delta.lastLogId);
+                    if (matched) eventsToEmit.push(matched);
+                }
+                for (const nodeId of delta.invalidNodes) {
+                    const matched = this._evaluateNodeAgainstSubscription(nodeId, sub, delta.lastLogId);
+                    if (matched) eventsToEmit.push(matched);
+                }
+            }
+
+            for (const event of eventsToEmit) {
+                try {
+                    // ADR 0002 §6.1 specifies the method name is 'notifications/message'
+                    await this.mcpServer.notification({
+                        method: 'notifications/message',
+                        params: event
+                    });
+                } catch (e) {
+                    logger.error('[WakeSubscription] Failed to emit MCP notification', e);
+                }
+            }
+            
+            this.liveCursor = delta.lastLogId;
+        } catch (e) {
+            logger.error('[WakeSubscription] Background pump failed:', e);
+        }
+    }
+
+    /**
+     * Ensures all active 'mcp-notifications' subscriptions are in cache.
+     * @protected
+     */
+    _warmMcpSubscriptions() {
+        const db = GraphService.db;
+        if (!db) return;
+        for (const node of db.nodes.items) {
+            if (node.label !== 'WAKE_SUBSCRIPTION') continue;
+            const props = node.properties || {};
+            if (props.harnessTarget === 'mcp-notifications' && props.status === 'active') {
+                if (!this.subscriptionCache.has(node.id)) {
+                    this.subscriptionCache.set(node.id, {id: node.id, ...props});
+                }
+            }
+        }
+    }
+
+    /**
      * Unified entry point for the `manage_wake_subscription` MCP tool. Dispatches to
      * action-specific handlers per ADR 0002 §6.6.
      *
@@ -307,11 +424,11 @@ class WakeSubscriptionService extends Base {
         // examine edges; TASK_STATE_CHANGED examines nodes (the Task envelope payload).
         // Filter spec is applied to the matched candidate's payload; non-matches are skipped.
         for (const edgeRef of delta.invalidEdges) {
-            const matched = this._evaluateEdgeAgainstSubscription(edgeRef, subscription);
+            const matched = this._evaluateEdgeAgainstSubscription(edgeRef, subscription, delta.lastLogId);
             if (matched) events.push(matched);
         }
         for (const nodeId of delta.invalidNodes) {
-            const matched = this._evaluateNodeAgainstSubscription(nodeId, subscription);
+            const matched = this._evaluateNodeAgainstSubscription(nodeId, subscription, delta.lastLogId);
             if (matched) events.push(matched);
         }
 
@@ -329,9 +446,10 @@ class WakeSubscriptionService extends Base {
      * @protected
      * @param {Object} edgeRef GraphLog edge reference: `{id, source, target}`
      * @param {Object} subscription The cached WAKE_SUBSCRIPTION entry (id + properties)
+     * @param {Number} logIdAnchor The delta block's lastLogId for the notification watermark
      * @returns {Object|null} Wrapped wake-event payload (per §6.1.1 / §6.1.3 envelope) or null when no match
      */
-    _evaluateEdgeAgainstSubscription(edgeRef, subscription) {
+    _evaluateEdgeAgainstSubscription(edgeRef, subscription, logIdAnchor) {
         const db   = GraphService.db;
         const edge = db.edges.get(edgeRef.id);
         if (!edge) return null;
@@ -343,7 +461,7 @@ class WakeSubscriptionService extends Base {
             if (!messageNode) return null;
             const payload = this._buildSentToMePayload(messageNode);
             if (!this._matchesFilters(payload, subscription.filters)) return null;
-            return this._wrapEvent('wake/sent_to_me', subscription, payload, edgeRef.id);
+            return this._wrapEvent('wake/sent_to_me', subscription, payload, logIdAnchor);
         }
 
         if (subscription.trigger === 'PERMISSION_GRANTED'
@@ -354,7 +472,7 @@ class WakeSubscriptionService extends Base {
                 grantedBy : edge.source,
                 grantedAt : new Date().toISOString()
             };
-            return this._wrapEvent('wake/permission_granted', subscription, payload, edgeRef.id);
+            return this._wrapEvent('wake/permission_granted', subscription, payload, logIdAnchor);
         }
 
         return null;
@@ -366,9 +484,10 @@ class WakeSubscriptionService extends Base {
      * @protected
      * @param {String} nodeId GraphLog-touched node ID (typically a `MESSAGE:*` carrying a Task envelope)
      * @param {Object} subscription The cached WAKE_SUBSCRIPTION entry (id + properties)
+     * @param {Number} logIdAnchor The delta block's lastLogId for the notification watermark
      * @returns {Object|null} Wrapped wake-event payload (per §6.1.2 envelope) or null when no match
      */
-    _evaluateNodeAgainstSubscription(nodeId, subscription) {
+    _evaluateNodeAgainstSubscription(nodeId, subscription, logIdAnchor) {
         if (subscription.trigger !== 'TASK_STATE_CHANGED') return null;
 
         const node = GraphService.db.nodes.get(nodeId);
@@ -389,7 +508,7 @@ class WakeSubscriptionService extends Base {
             assignee      : task.assignee,
             lastModifiedAt: props.updatedAt || props.sentAt
         };
-        return this._wrapEvent('wake/task_state_changed', subscription, payload, nodeId);
+        return this._wrapEvent('wake/task_state_changed', subscription, payload, logIdAnchor);
     }
 
     /**
