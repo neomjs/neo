@@ -79,7 +79,9 @@ class CoalescingEngineService extends Base {
     coalesceState = new Map()
 
     /**
-     * Injects the MCP server instance for push notifications.
+     * @summary Injects the MCP server instance for push notifications.
+     * @description Provides the engine with the handle needed to dispatch
+     * notifications (Shape A) back to the client. Should be populated at boot.
      * @param {McpServer} mcpServer
      */
     setMcpServer(mcpServer) {

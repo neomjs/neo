@@ -370,7 +370,6 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
 
         test.beforeEach(async () => {
             emittedEvents = [];
-            emittedEvents = [];
             CoalescingEngineService.setMcpServer(null);
             CoalescingEngineService.clearAll();
         });
@@ -397,8 +396,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
                 // Set a small coalesceWindow so it would naturally flush, but we will force flush
                 await WakeSubscriptionService.subscribe({
                     trigger: 'SENT_TO_ME', 
-                    harnessTarget: 'mcp-notifications',
-                    harnessTargetMetadata: { coalesceWindow: 0.05 }
+                    harnessTarget: 'mcp-notifications'
                 });
             });
 
@@ -406,12 +404,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
             GraphService.upsertNode({id: 'MSG:2', type: 'MESSAGE', properties: {from: '@bob', subject: 'hello'}});
             GraphService.linkNodes('MSG:2', '@alice', 'SENT_TO', 1.0);
 
-            let enqueued = false;
             const originalEnqueue = CoalescingEngineService.enqueue;
-            CoalescingEngineService.enqueue = function(...args) {
-                enqueued = true;
-                return originalEnqueue.apply(this, args);
-            };
 
             await WakeSubscriptionService.pump();
 
