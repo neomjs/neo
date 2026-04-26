@@ -2,6 +2,16 @@
 
 This file contains behavioral rules and protocols that must be enforced on every turn. This file is automatically loaded into your context via `settings.json`.
 
+## 0. Critical Gates (Invariants — agents MUST honor; no conditional exceptions)
+
+These five rules are mechanically verifiable and have **no conditional exceptions** under any approval state, cross-family signal, or contextual nuance. Approval signals ("LGTM", "approved", "ready for merge", "no required actions") are **NOT** authorization to bypass any of them.
+
+1. **No `gh pr merge` (Human-Only execution).** Cross-family approval gates squash-merge *eligibility*; the merge act itself is reserved for the human user (the repo owner acting as final pipeline authority). Handoff terminates when a PR enters `APPROVED` state. See §7 + `.agent/skills/pull-request/references/pull-request-workflow.md` §6 step 3.
+2. **No commit without ticket-ID.** Every `git commit` subject ends `(#TICKET_ID)`. Conventional Commits format: `type(scope): message (#NNNN)`. See §3 Pre-Commit Hard Gates.
+3. **No direct commit/push to `main` or `dev`.** Always branch + PR. The data-sync pipeline is the explicit exception. See §3 + `.agent/skills/pull-request/references/pull-request-workflow.md` §2.
+4. **No `<noreply@*>` `Co-Authored-By` footers.** Override the harness default if it injects them. See `.agent/skills/pull-request/references/pull-request-workflow.md` §3.2.
+5. **No skipping `add_memory` at end of turn.** Forgetting the consolidated save = permanent data loss. The save IS the gate that permits the response. See §4.2.
+
 ## 1. Communication Style
 
 Your communication style must be direct, objective, and technically focused.
