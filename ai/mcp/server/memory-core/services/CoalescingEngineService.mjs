@@ -105,6 +105,14 @@ class CoalescingEngineService extends Base {
             return;
         }
 
+        // TRACKING: #10400 - Bypass digest and emit raw events globally per human command.
+        // Event volume is currently low and external harnesses (IDE, Claude Code) expect raw payloads.
+        logger.warn(`[CoalescingEngine] Sub ${subId} using global rawDelivery bypass (Tracking: #10400).`);
+        this._dispatchRaw(subscription, event).catch(e => {
+            logger.error(`[CoalescingEngine] _dispatchRaw failed: ${e.message}`);
+        });
+        return;
+
         let state = this.coalesceState.get(subId);
         if (!state) {
             state = {queue: [], timer: null, subscription, windowStart: null};
@@ -295,6 +303,56 @@ class CoalescingEngineService extends Base {
         }
 
         logger.warn(`[CoalescingEngine] Unknown harnessTarget '${target}' for ${subscription.id}; dropping digest.`);
+    }
+
+    /**
+     * Dispatches a raw event envelope via the channel matching `subscription.harnessTarget`.
+     * Used exclusively for the `rawDelivery` bypass (Tracking: #10400).
+     *
+     * @protected
+     * @param {Object} subscription
+     * @param {Object} event
+     * @returns {Promise<void>}
+     */
+    async _dispatchRaw(subscription, event) {
+        const target = subscription.harnessTarget;
+
+        if (target === 'a2a-webhook') {
+            const subscriptionForDelivery = {
+                id        : subscription.id,
+                properties: {
+                    harnessTargetMetadata: subscription.harnessTargetMetadata || {}
+                }
+            };
+            try {
+                await WebhookDeliveryService.deliver(subscriptionForDelivery, event);
+            } catch (e) {
+                logger.error(`[CoalescingEngine] WebhookDeliveryService.deliver failed for ${subscription.id} (raw): ${e.message}`);
+            }
+            return;
+        }
+
+        if (target === 'mcp-notifications') {
+            if (!this.mcpServer) {
+                logger.warn(`[CoalescingEngine] mcp-notifications raw dropped — no mcpServer registered: ${subscription.id}`);
+                return;
+            }
+            try {
+                await this.mcpServer.notification({
+                    method: 'notifications/message',
+                    params: event
+                });
+            } catch (e) {
+                logger.error(`[CoalescingEngine] mcp-notifications raw dispatch failed for ${subscription.id}: ${e.message}`);
+            }
+            return;
+        }
+
+        if (target === 'bridge-daemon' || target === 'disabled' || target === 'none') {
+            return;
+        }
+
+        logger.warn(`[CoalescingEngine] Unknown harnessTarget '${target}' for ${subscription.id}; dropping raw event.`);
     }
 }
 
