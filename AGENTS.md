@@ -461,3 +461,72 @@ The lifecycle skills below carry the discipline that this file's invariants (esp
 **Why this lives in per-turn memory:** these skills carry mechanically-load-bearing discipline. When agents skip the skill invocation, the gate/protocol/template fails silently — empirically observed (PR #10356 merge violation traces to exactly this failure mode: pr-review skill was loaded for the review but not in context at the post-approval merge moment). Per-turn awareness in `AGENTS.md` keeps the trigger → skill loop reflexive even when long sessions evict skill files.
 
 Tactical / domain-specific skills (`neural-link`, `unit-test`, `whitebox-e2e`, `debugging-antigravity`, `self-repair`, `industry-friction-radar`, `create-skill`) remain discoverable via `.agent/skills/` directory listing — those are contextual rather than gate-bearing, so per-turn awareness isn't load-bearing.
+
+The skill table above governs **multi-step lifecycle discipline** (ticket creation, PR cycle, review cycle). The two sections below — §22 (turn-start mailbox check) and §23 (authoring-time sibling-file lift) — codify **in-line Pre-Flight Check reflexes** that fire at specific lifecycle points without warranting a full skill apparatus. They are AGENTS.md-resident for the same reason §3 Pre-Commit and §4.2 Consolidate-Then-Save are: discipline that must survive context-pruning to its application moment.
+
+## 22. The Mailbox Check Protocol (Pre-Flight at Turn Start)
+
+Symmetric companion to §4.2 (Consolidate-Then-Save at turn end): at turn start, you MUST check your A2A mailbox for unread messages before proceeding with the user's request.
+
+### Pre-Flight Check (state in your reasoning at turn start)
+
+> *"Pre-Flight: I called `list_messages({status: 'unread'})` and observed [N unread / none]. [If unread: I will read the most relevant before yielding the turn / queued for processing context.]"*
+
+### Why
+
+Without an explicit turn-start check:
+- You may proceed on a stale mental model (cross-family reviewer's response missed)
+- Coordination signals (pause requests, work-split changes) get lost
+- State-mismatch findings compound across review cycles
+- Cross-cycle continuity breaks at every turn boundary
+
+### Conditional skip
+
+If the user's prompt is a direct continuation of the immediately-prior turn AND no time-elapsed signal suggests messages may have arrived (e.g., the user says "now do Y" within seconds of your last response), the inbox check is OPTIONAL — but err toward checking when in doubt. The check itself is cheap; the cost of a missed coordination signal compounds across turns.
+
+### Relationship to Phase 3 wake substrate (#10357)
+
+Once the wake substrate ships (Shape A/B/C/D), auto-wake events prime the next turn with mailbox context. The mailbox-check Pre-Flight then becomes the **verification primitive** for auto-wake delivery — it catches gaps where:
+
+- Subscriber filter excluded a relevant event
+- Wake substrate transport failure (network, harness)
+- Cold-cache (fresh session bootstrap, no prior subscription state)
+- In-flight turn arrival (wake fires post-turn-completion; the next turn still needs to query state)
+
+The mandate is NOT obsoleted by auto-wakeup; it is the discipline-layer companion to the substrate-layer push. Same `verify-effect-not-just-success` logic we apply to PR review state-mismatch findings: substrate primes the context, turn-start check verifies delivery.
+
+### Empirical anchor
+
+Session `aaf22f06-cc5c-4dff-aa2f-7d5efb3a6343` (2026-04-26): 6+ instances of inbound A2A messages requiring explicit human-prompted nudges before being read by the receiving agent. Pattern recurred across both Claude Code and Antigravity sessions. Post-codification, the Pre-Flight reasoning-statement transforms the discipline from "remember to check sometimes" to "explicit commitment before yielding."
+
+## 23. Authoring Discipline: Sibling-File Lift
+
+Before writing a new `class X extends Y` file in an existing directory (especially `src/`, `ai/mcp/server/`, `ai/graph/`, `ai/daemons/`), you MUST read 1-2 sibling files in that directory to lift the prevailing pattern. Inspect:
+
+- Singleton vs functional?
+- `Neo.core.Base` extension + `Neo.setupClass` registration?
+- Direct import vs constructor-DI?
+- `static config = {className, singleton}` shape?
+
+### Pre-Flight Check (state in your reasoning before authoring)
+
+> *"Pre-Flight: I read `<sibling-file>` and observed pattern `<P>`; my new class will follow that pattern."*
+
+This is the per-turn reflex companion to `AGENTS_STARTUP.md §1 Steps 2-3` (one-time boot read of `src/Neo.mjs` + `src/core/Base.mjs`). The boot read establishes the conceptual model; this Pre-Flight ensures the reflex fires at authoring time, surviving context-pruning.
+
+### Scope
+
+This discipline targets **in-process service authoring** — directories where a sibling pattern already exists. Standalone scripts in `ai/scripts/` and similar may legitimately use raw substrate APIs (e.g., `better-sqlite3` directly, OS subprocess spawning) when the local convention prescribes it; lift those patterns from sibling scripts in the same directory.
+
+The discipline is to lift **whichever pattern the directory's siblings already follow** — not to force `Neo.core.Base` everywhere. Read first, then conform.
+
+### Empirical anchors
+
+- **PR #10379** (Shape B Webhook Delivery, 2026-04-26): `WebhookDeliveryService.mjs` was authored with `constructor({databaseService, logger})` instead of the canonical `class X extends Base { static config = {className, singleton: true} }; export default Neo.setupClass(X);` pattern that every sibling MCP service in `ai/mcp/server/memory-core/services/` follows. Single review-cycle to catch and a multi-commit refactor to fix; a pre-flight read of `PermissionService.mjs` or `MailboxService.mjs` at authoring time would have been free.
+- **PR #10381** (Shape C bridge daemon, merged 2026-04-26): `bridge-daemon.mjs` correctly used raw `better-sqlite3` + `json_extract` queries because the `ai/scripts/` convention is "out-of-process polling script with raw substrate access" (see `swarm-heartbeat.sh`, `seedAgentIdentities.mjs`). Same absence-of-discipline at authoring time, but the prevailing directory pattern legitimately differs — this is the scope clause above in action.
+
+Two empirical anchors confirm the pattern: in-process service directories require Neo-class lift; out-of-process script directories don't. Read sibling files first to determine which regime applies.
+
+### Why not §0 Critical Gate elevation
+
+The violation is not mechanically verifiable — some directories legitimately mix patterns, and the right-pattern depends on the directory's prevailing convention rather than a single global rule. Critical Gate semantics (no conditional exceptions, mechanically auditable) don't apply. §23-resident discipline with a Pre-Flight Check reasoning-statement is the correct shape; revisit elevation only if §23 + §21 awareness prove insufficient.
