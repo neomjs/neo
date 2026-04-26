@@ -104,10 +104,23 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
                 if (filters.taggedConcepts && !filters.taggedConcepts.some(c => (messageNode.properties?.taggedConcepts || []).includes(c))) return null;
                 if (filters.inReplyToFilter && !filters.inReplyToFilter.includes(messageNode.properties?.inReplyTo)) return null;
 
+                let fromIdentity = 'unknown';
+                for (const edge of edgesMap.values()) {
+                    if (edge.type === 'SENT_BY' && edge.source === messageNode.id) {
+                        fromIdentity = edge.target;
+                        break;
+                    }
+                }
+                if (fromIdentity === 'unknown') {
+                    const stmt = db.prepare("SELECT target FROM Edges WHERE source = ? AND type = 'SENT_BY' LIMIT 1");
+                    const row = stmt.get(messageNode.id);
+                    if (row) fromIdentity = row.target;
+                }
+
                 return {
                     type: 'message',
                     messageId: messageNode.id,
-                    from: messageNode.properties?.from,
+                    from: fromIdentity,
                     subject: messageNode.properties?.subject,
                     priority: messageNode.properties?.priority || 'normal',
                     logId: trace.log_id
@@ -203,20 +216,20 @@ async function flushSubscription(subId) {
     let breakdown = '';
     if (messages.length > 0) {
         const latest = messages[messages.length - 1];
-        breakdown += `\\n- ${messages.length} new messages (latest: "${latest.subject}" from ${latest.from})`;
+        breakdown += `\n- ${messages.length} new messages (latest: "${latest.subject}" from ${latest.from})`;
     }
     if (tasks.length > 0) {
         const latest = tasks[tasks.length - 1];
-        breakdown += `\\n- ${tasks.length} task transitions (latest: ${latest.newState} on task ${latest.taskId})`;
+        breakdown += `\n- ${tasks.length} task transitions (latest: ${latest.newState} on task ${latest.taskId})`;
     }
     if (permissions.length > 0) {
         const latest = permissions[permissions.length - 1];
-        breakdown += `\\n- ${permissions.length} permissions granted (latest: ${latest.scope} by ${latest.grantedBy})`;
+        breakdown += `\n- ${permissions.length} permissions granted (latest: ${latest.scope} by ${latest.grantedBy})`;
     }
 
     const windowDuration = Date.now() - windowStart;
     
-    const digest = `[WAKE] ${N} events for ${identity}: ${breakdown}\\n\\nSubscription: ${subId}\\nWindow: ${windowDuration}ms`;
+    const digest = `[WAKE] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}\nWindow: ${windowDuration}ms`;
     
     // Delivery to per-harness adapter
     await deliverDigest(subscription, digest);
@@ -249,16 +262,40 @@ async function deliverDigest(subscription, digest) {
             await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, digest, 'C-m']);
             console.log(`[Bridge Daemon] Delivered ${subscription.id} via tmux to session ${tmuxSession}`);
         } else if (adapter === 'osascript') {
+            const appName = meta.appName || 'Claude';
+            const tabShortcut = meta.tabShortcut !== undefined ? meta.tabShortcut : '3';
+            
             const osascriptArgs = [
                 '-e', 'on run argv',
-                '-e', '  tell application "Claude" to activate',
-                '-e', '  tell application "System Events" to keystroke (item 1 of argv)',
-                '-e', '  tell application "System Events" to key code 36',
+                '-e', '  set savedClipboard to the clipboard',
+                '-e', '  set the clipboard to (item 1 of argv)',
+                '-e', `  tell application "${appName}" to activate`,
+                '-e', '  delay 0.5',
+                '-e', '  tell application "System Events"',
+                '-e', `    tell process "${appName}"`,
+                '-e', '      set frontmost to true',
+                '-e', '      delay 0.5'
+            ];
+
+            if (tabShortcut) {
+                osascriptArgs.push('-e', `      keystroke "${tabShortcut}" using command down`);
+                osascriptArgs.push('-e', '      delay 0.5');
+            }
+
+            osascriptArgs.push(
+                '-e', '      keystroke "v" using command down',
+                '-e', '      delay 0.5',
+                '-e', '      key code 36',
+                '-e', '    end tell',
+                '-e', '  end tell',
+                '-e', '  delay 0.5',
+                '-e', '  set the clipboard to savedClipboard',
                 '-e', 'end run',
                 digest
-            ];
+            );
+
             await spawnAsync('osascript', osascriptArgs);
-            console.log(`[Bridge Daemon] Delivered ${subscription.id} via osascript`);
+            console.log(`[Bridge Daemon] Delivered ${subscription.id} via osascript to ${appName}`);
         } else if (adapter === 'test') {
             console.log(`[Bridge Daemon Test Adapter] Delivered ${subscription.id}: ${digest}`);
         } else {
