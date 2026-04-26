@@ -163,12 +163,25 @@ test.describe('CoalescingEngineService', () => {
         expect(deliverCalls[0].subscription.properties.harnessTargetMetadata.url).toBe('https://example.com/wake');
     });
 
-    test('does NOT dispatch mcp-notifications subscriptions until #10358 wires the emit-point', async () => {
+    test('dispatches mcp-notifications subscriptions via mcpServer.notification', async () => {
+        let notificationCalledWith = null;
+        CoalescingEngineService.setMcpServer({
+            notification: async (args) => {
+                notificationCalledWith = args;
+            }
+        });
+
         const sub = buildSubscription({harnessTarget: 'mcp-notifications', harnessTargetMetadata: {coalesceWindow: 0.05}});
         CoalescingEngineService.enqueue(sub, buildEnvelope('wake/sent_to_me', {messageId: 'M1'}));
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        expect(deliverCalls.length).toBe(0);
+        expect(notificationCalledWith).not.toBeNull();
+        expect(notificationCalledWith.method).toBe('notifications/message');
+        expect(notificationCalledWith.params.eventType).toBe('wake/digest');
+        expect(notificationCalledWith.params.payload.totalEvents).toBe(1);
+
+        // cleanup
+        CoalescingEngineService.setMcpServer(null);
     });
 
     test('does NOT dispatch bridge-daemon subscriptions (Shape C handles its own coalescing)', async () => {
