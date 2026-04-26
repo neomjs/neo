@@ -4,7 +4,19 @@ This document outlines the authoritative protocol for gracefully terminating an 
 
 Because the Neo.mjs Swarm operates across fragmented sessions and multiple agent identities, simply halting execution creates "Zero-State Amnesia" (`AGENTS.md §14`). The next agent starts blind. The Sunset Protocol guarantees the next agent has a perfect "cold-pickup" ramp.
 
-## 1. The Handoff Structure
+## 1. Trigger Conditions: Turn vs. Session
+
+To an LLM, yielding a prompt resolution feels like a "termination," but to a Human Commander, it is merely a **Turn** within a longer continuous **Session**. 
+
+You are strictly **FORBIDDEN** from executing the Sunset Protocol simply because you finished a prompt and yielded control back to the human. You MUST only execute the Sunset Protocol when a true **Session Boundary** is reached.
+
+A true Session Boundary is defined by:
+1. **Context Window Exhaustion:** You are approaching the token limit of your model (e.g., ~1M tokens for Claude, ~2M tokens for Gemini).
+2. **Macro-Semantic Pivot:** The human explicitly shifts focus to a completely new domain, epic, or architectural phase, requiring a clean slate.
+3. **Proactive Agent Recommendation:** You recognize a natural, logical break point in the work stream and explicitly recommend sunsetting to the human.
+
+If none of these conditions are met, do **NOT** sunset. Simply output your response and wait for the next turn.
+## 2. The Handoff Structure
 
 Before terminating your session, you MUST execute the following 7 steps to ensure a clean handover.
 
@@ -39,7 +51,7 @@ Crucially, from an "LLM Psychology" perspective, this message must include a **C
 ### Step 7: Memory Persistence (The Sandman Memory)
 This is the final and most critical step. You MUST invoke `add_memory` to persist a rich "Sandman memory" node. This memory should encapsulate the entire Sunset Protocol payload (Steps 1-6). The resulting `Origin Session ID` or `Memory ID` serves as the direct pointer for the next agent.
 
-## 2. Terminating the Session
+## 3. Terminating the Session
 
 After completing the 7 steps above, you must drop your final Sunset Protocol payload directly into the chat response for the Human Commander. 
 
