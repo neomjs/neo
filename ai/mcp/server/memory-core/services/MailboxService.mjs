@@ -284,7 +284,7 @@ class MailboxService extends Base {
             }
         }).catch(() => { /* error logged internally */ });
 
-        WakeSubscriptionService.pump();
+        WakeSubscriptionService.pump().catch(e => logger.error('[wake-pump]', e));
 
         return { messageId, sentAt: timestamp, priority, status: 'sent' };
     }
@@ -631,7 +631,7 @@ class MailboxService extends Base {
         // Push the merged object back to GraphService cache to trigger events
         GraphService.upsertNode(messageNode);
 
-        WakeSubscriptionService.pump();
+        WakeSubscriptionService.pump().catch(e => logger.error('[wake-pump]', e));
 
         return {
             success: true,
@@ -720,7 +720,7 @@ class MailboxService extends Base {
                 }
             }
 
-            WakeSubscriptionService.pump();
+            WakeSubscriptionService.pump().catch(e => logger.error('[wake-pump]', e));
         }
 
         return { success: true, sweptCount: info.changes }

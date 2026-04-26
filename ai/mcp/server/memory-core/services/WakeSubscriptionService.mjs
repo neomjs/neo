@@ -76,6 +76,13 @@ class WakeSubscriptionService extends Base {
     liveCursor = 0
 
     /**
+     * Guard against re-entrant calls to pump()
+     * @member {Boolean} _pumping=false
+     * @protected
+     */
+    _pumping = false
+
+    /**
      * Injects the MCP server instance for push notifications.
      * Sets the initial live cursor to the current graph log head to prevent
      * replaying historical events on boot.
@@ -103,8 +110,10 @@ class WakeSubscriptionService extends Base {
      */
     async pump() {
         if (!this.mcpServer) return;
+        if (this._pumping) return;
         
         try {
+            this._pumping = true;
             const db = GraphService.db;
             if (!db) return;
             
@@ -135,11 +144,13 @@ class WakeSubscriptionService extends Base {
             const eventsToEmit = [];
             for (const sub of activeSubs) {
                 for (const edgeRef of delta.invalidEdges) {
-                    const matched = this._evaluateEdgeAgainstSubscription(edgeRef, sub, delta.lastLogId);
+                    const logId = this._getEntityLogId(edgeRef.id) || delta.lastLogId;
+                    const matched = this._evaluateEdgeAgainstSubscription(edgeRef, sub, logId);
                     if (matched) eventsToEmit.push(matched);
                 }
                 for (const nodeId of delta.invalidNodes) {
-                    const matched = this._evaluateNodeAgainstSubscription(nodeId, sub, delta.lastLogId);
+                    const logId = this._getEntityLogId(nodeId) || delta.lastLogId;
+                    const matched = this._evaluateNodeAgainstSubscription(nodeId, sub, logId);
                     if (matched) eventsToEmit.push(matched);
                 }
             }
@@ -159,6 +170,8 @@ class WakeSubscriptionService extends Base {
             this.liveCursor = delta.lastLogId;
         } catch (e) {
             logger.error('[WakeSubscription] Background pump failed:', e);
+        } finally {
+            this._pumping = false;
         }
     }
 
@@ -424,11 +437,13 @@ class WakeSubscriptionService extends Base {
         // examine edges; TASK_STATE_CHANGED examines nodes (the Task envelope payload).
         // Filter spec is applied to the matched candidate's payload; non-matches are skipped.
         for (const edgeRef of delta.invalidEdges) {
-            const matched = this._evaluateEdgeAgainstSubscription(edgeRef, subscription, delta.lastLogId);
+            const logId = this._getEntityLogId(edgeRef.id) || delta.lastLogId;
+            const matched = this._evaluateEdgeAgainstSubscription(edgeRef, subscription, logId);
             if (matched) events.push(matched);
         }
         for (const nodeId of delta.invalidNodes) {
-            const matched = this._evaluateNodeAgainstSubscription(nodeId, subscription, delta.lastLogId);
+            const logId = this._getEntityLogId(nodeId) || delta.lastLogId;
+            const matched = this._evaluateNodeAgainstSubscription(nodeId, subscription, logId);
             if (matched) events.push(matched);
         }
 
@@ -438,6 +453,20 @@ class WakeSubscriptionService extends Base {
             lastLogId     : delta.lastLogId,
             eventsReplayed: events.length
         };
+    }
+
+    /**
+     * Retrieves the specific GraphLog log_id for an entity, to anchor the wake event
+     * per ADR 0002 §6.1.6.
+     * @protected
+     * @param {String} entityId
+     * @returns {Number|null}
+     */
+    _getEntityLogId(entityId) {
+        try {
+            const row = GraphService.db.storage.db.prepare('SELECT MAX(log_id) as maxId FROM GraphLog WHERE entity_id = ?').get(entityId);
+            return row?.maxId || null;
+        } catch (e) { return null; }
     }
 
     /**

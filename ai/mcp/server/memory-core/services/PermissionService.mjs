@@ -76,7 +76,7 @@ class PermissionService extends Base {
         // The capability belongs to 'to', pointing at 'owner'
         // e.g. "Alice CAN_READ_INBOX_OF Bob" (source: Alice, target: Bob)
         GraphService.linkNodes(to, owner, scope, 1.0);
-        WakeSubscriptionService.pump();
+        WakeSubscriptionService.pump().catch(e => logger.error('[wake-pump]', e));
         return { success: true, message: `Granted ${scope} to ${to}` };
     }
 
@@ -101,7 +101,7 @@ class PermissionService extends Base {
 
         if (edgesToRemove.length > 0) {
             db.edges.remove(edgesToRemove);
-            WakeSubscriptionService.pump();
+            WakeSubscriptionService.pump().catch(e => logger.error('[wake-pump]', e));
         }
         
         return { success: true, message: `Revoked ${scope} from ${to}` };

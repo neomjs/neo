@@ -73,15 +73,19 @@ paths:
         Manages the lifecycle (start/stop) of the ChromaDB database instance for the Memory Core.
 
         **Behavior:**
-        - **Start:** Spawns a managed process (cleaned on exit) if none exists. If running externally (e.g., `npm run ai:server-memory`), connects as a client (NOT killed on exit).
-        - **Stop:** Stops managed processes only. External databases are ignored.
+        - **Start:**
+          - **Managed:** If no database is running on the configured port, this tool spawns a new process managed by this server. This process will be automatically cleaned up when the agent session ends.
+          - **External:** If a database is already running (e.g., via `npm run ai:server-memory`), this tool simply confirms the connection. The server acts as a client and will NOT kill the database on exit.
+        - **Stop:**
+          - **Managed:** Stops the process spawned by this server.
+          - **External:** **No effect.** The server cannot stop a database it did not start.
 
-        **Swarm Recommendation:**
-        For multi-agent workflows, always start the database externally to prevent unexpected disconnects when the "owner" agent exits.
+        **Multi-Agent / Swarm Recommendation:**
+        For workflows involving multiple concurrent agents, it is **highly recommended** to start the database externally using `npm run ai:server-memory` before starting the agents. This prevents unexpected disconnects for other agents when the "owner" agent exits.
 
         **When to Use:**
-        - Use `action: start` if `healthcheck` reveals the database is not running.
-        - Use `action: stop` for debugging, forcing a restart, or freeing resources.
+        - Use `action: start` if a `healthcheck` reveals that the database process is not running.
+        - Use `action: stop` for debugging, forcing a restart, or freeing up resources.
       tags: ["Database Lifecycle"]
       requestBody:
         required: true
