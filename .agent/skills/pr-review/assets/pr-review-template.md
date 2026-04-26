@@ -30,6 +30,19 @@ OR
 
 *A peer-review with neither a challenge nor a documented search fails the Depth Floor regardless of structural compliance elsewhere.*
 
+**Rhetorical-Drift Audit (per guide §7.4):**
+
+*(Required when the PR carries substantive architectural prose — PR description framing, Anchor & Echo JSDoc additions, `[RETROSPECTIVE]` tags, or linked-anchor citations. Mark N/A for routine code with no architectural prose.)*
+
+Verify symmetry between stated framing and mechanical implementation:
+
+- [ ] PR description: framing matches what the diff substantiates (no overshoot)
+- [ ] Anchor & Echo summaries: precise codebase terminology, no metaphor that overshoots the implementation
+- [ ] `[RETROSPECTIVE]` tag: accurately characterizes what shipped (no inflation of architectural significance)
+- [ ] Linked anchors: cited tickets/PRs actually establish the claimed pattern (no borrowed authority)
+
+**Findings:** [Pass / specific drift flagged with Required Action / N/A]
+
 ---
 
 ### 🧠 Graph Ingestion Notes
@@ -107,7 +120,7 @@ To proceed with merging, please address the following:
 
 No required actions — eligible for human merge.
 
-*Do NOT use pre-ticked placeholder items like `- [x] All checks pass and no required changes identified.` — that reads as box-checking, not genuine review. Per guide §5 Zero-Issue PR Semantics + §7.3 anti-patterns table.*
+*Do NOT use pre-ticked placeholder items like `- [x] All checks pass and no required changes identified.` — that reads as box-checking, not genuine review. Per guide §5 Zero-Issue PR Semantics + §7.5 anti-patterns table.*
 
 ---
 
