@@ -280,6 +280,7 @@ For PRs that introduce new workflow primitives, skill files, architectural conve
 - PR adds a new MCP tool surface
 - PR modifies `AGENTS_STARTUP.md` or `AGENTS.md` (startup conventions change)
 - PR introduces a new architectural primitive other subsystems will consume
+- PR refactors a substrate or changes a wire format (e.g., event payloads, tool signatures, database schemas)
 
 ### 8.2 Verification Checklist
 
@@ -288,12 +289,17 @@ For PRs that introduce new workflow primitives, skill files, architectural conve
 - [ ] Does any reference file mention a predecessor pattern that should now also mention the new one?
 - [ ] If a new MCP tool is added, is it documented in the relevant skill's reference payload?
 - [ ] If a new convention is introduced, is there documentation somewhere explaining when the convention applies and how it fires?
+- [ ] If a wire format or substrate contract was changed, does the PR explicitly enumerate downstream consumers and verify they were updated to handle the new format?
 
 If any check surfaces a miss, flag it in Required Actions. A PR that ships a new convention without the cross-skill references creates a **latent integration gap** — the convention exists but won't fire because no other skill knows to invoke it.
 
 ### 8.3 Empirical Example
 
 PR #10155 shipped `.agent/skills/epic-review/` with the claim "runs *before* `ticket-intake`." Real integration required `ticket-intake` to check whether the parent epic had been reviewed before proceeding with sub pickup. The PR did NOT update `ticket-intake`. The reviewer did NOT flag the missing integration. Result: `epic-review` ships as a skill but the "runs before ticket-intake" claim is aspirational until `ticket-intake` is updated — a latent gap §8 would have caught.
+
+### 8.4 Empirical Example 2: Wire Format Change
+
+PR #10397 changed the wake substrate wire format from raw events to a coalesced `wake/digest` envelope (Shape A). The PR cleanly migrated the upstream engine, but the reviewer missed the cross-skill integration audit for downstream consumers. Result: the Antigravity IDE wake handler silently failed because it expected raw events, not a digest payload. A §8 integration audit would have explicitly enumerated downstream consumers of the wire format (e.g., IDE client) and flagged the missing handler patch.
 
 ## 9. A2A Comment-ID Hand-off Protocol (#10272)
 
