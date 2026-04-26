@@ -193,6 +193,81 @@ export async function symlinkDataDir({mainCheckout, projectRoot, dir = '.neo-ai-
     return 'linked';
 }
 
+/**
+ * @summary Installs the worktree's `node_modules` and bundles the parse5 test prerequisite.
+ *
+ * Worktrees off `origin/dev` start without `node_modules` (gitignored) AND without
+ * `dist/parse5.mjs` (gitignored test-runner prerequisite). Both are needed to run the
+ * Playwright unit-test suite or any SDK-consuming script. Adding these as opt-in flags
+ * here closes the manual-multi-step bootstrap gap surfaced empirically during #10339
+ * implementation (per #10351).
+ *
+ * Idempotent: skips `npm install` when `node_modules/` is already present (e.g.,
+ * symlinked from main, prior `--install` invocation, or manual `npm i`). Always runs
+ * `npm run bundle-parse5` because the bundle output lives under `dist/` (gitignored)
+ * and is cheap to rebuild — surfacing it explicitly under `--install` closes the
+ * "test runner fails with `Cannot find module '.../dist/parse5.mjs'`" friction.
+ *
+ * Cost anchor: ~17s for `npm install` on a populated local cache (808 packages,
+ * empirically observed during #10339 implementation, 2026-04-26). `bundle-parse5`
+ * adds ~1-2s. Friction-free when `node_modules` already exists (skip path is sub-millisecond).
+ *
+ * @param {object}   options
+ * @param {string}   options.projectRoot      Absolute path to the worktree root.
+ * @param {Function} [options.log]            Logger fn for action diagnostics.
+ * @param {Function} [options.exec]           execFile wrapper for dependency injection (testing).
+ * @returns {Promise<'already-installed'|'installed'>} Action taken.
+ */
+export async function installDependencies({projectRoot, log = console.log, exec = execFileAsync}) {
+    const nodeModulesPath = path.join(projectRoot, 'node_modules');
+    let action;
+
+    if (await exists(nodeModulesPath)) {
+        log(`install skip (exists): node_modules`);
+        action = 'already-installed';
+    } else {
+        log(`installing dependencies (npm install)...`);
+        const start = Date.now();
+        await exec('npm', ['install'], {cwd: projectRoot});
+        log(`installed dependencies in ${Math.round((Date.now() - start) / 1000)}s`);
+        action = 'installed';
+    }
+
+    log(`bundling parse5 (test-runner prerequisite)...`);
+    const bundleStart = Date.now();
+    await exec('npm', ['run', 'bundle-parse5'], {cwd: projectRoot});
+    log(`bundled parse5 in ${Math.round((Date.now() - bundleStart) / 1000)}s`);
+
+    return action;
+}
+
+/**
+ * @summary Runs the full `npm run build-all` after ensuring dependencies are installed.
+ *
+ * Implies {@link installDependencies}. Required for tickets that touch the frontend
+ * Webpack distributions or themes — backend-only / MCP-only tickets do not need this.
+ *
+ * NOT idempotent in the same idempotent-skip sense as the other bootstrap helpers —
+ * `npm run build-all` re-runs every invocation. Webpack itself caches incremental builds,
+ * so re-runs against an already-built tree are still considerably faster than cold builds.
+ *
+ * @param {object}   options
+ * @param {string}   options.projectRoot      Absolute path to the worktree root.
+ * @param {Function} [options.log]            Logger fn for action diagnostics.
+ * @param {Function} [options.exec]           execFile wrapper for dependency injection (testing).
+ * @returns {Promise<'built'>} Action taken.
+ */
+export async function runBuildAll({projectRoot, log = console.log, exec = execFileAsync}) {
+    await installDependencies({projectRoot, log, exec});
+
+    log(`running full build (npm run build-all)...`);
+    const start = Date.now();
+    await exec('npm', ['run', 'build-all'], {cwd: projectRoot});
+    log(`build-all completed in ${Math.round((Date.now() - start) / 1000)}s`);
+
+    return 'built';
+}
+
 // -------------------------------------------------------------------------------------
 // CLI entry point. Runs only when invoked directly (node ai/scripts/bootstrapWorktree.mjs)
 // and not when imported by a test spec.
@@ -208,6 +283,8 @@ if (isMain) {
     const args     = new Set(process.argv.slice(2));
     const linkData = args.has('--link-data');
     const force    = args.has('--force');
+    const install  = args.has('--install');
+    const buildAll = args.has('--build-all');
 
     try {
         const mainCheckout = await resolveMainCheckout(projectRoot);
@@ -223,6 +300,14 @@ if (isMain) {
         if (linkData) {
             const symlinkResult = await symlinkDataDir({mainCheckout, projectRoot, force});
             console.log(`✓ Data symlink: ${symlinkResult}`);
+        }
+
+        if (buildAll) {
+            const buildResult = await runBuildAll({projectRoot});
+            console.log(`✓ Build: ${buildResult}`);
+        } else if (install) {
+            const installResult = await installDependencies({projectRoot});
+            console.log(`✓ Install: ${installResult}`);
         }
     } catch (e) {
         console.error('Bootstrap failed:', e.message);
