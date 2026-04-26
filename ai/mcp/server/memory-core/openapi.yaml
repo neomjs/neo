@@ -1106,8 +1106,7 @@ paths:
       summary: Manage WAKE_SUBSCRIPTION
       operationId: manage_wake_subscription
       x-pass-as-object: true
-      description: |
-        Unified surface for the Phase 3 wake-substrate subscription lifecycle. Subscribe to graph events (SENT_TO_ME / TASK_STATE_CHANGED / PERMISSION_GRANTED) with optional filters; route delivery via mcp-notifications, a2a-webhook, or bridge-daemon (Shape A/B/C per ADR 0002).
+      description: Subscribe / unsubscribe / update / list / resync agent wake-event subscriptions with trigger types (SENT_TO_ME, TASK_STATE_CHANGED, PERMISSION_GRANTED), optional AND-conjunctive filters, and harness target routing.
       tags: [WakeSubscriptions]
       requestBody:
         required: true

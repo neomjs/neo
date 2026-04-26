@@ -327,6 +327,9 @@ class WakeSubscriptionService extends Base {
      * Evaluates a GraphLog edge entry against a subscription's trigger+filter spec.
      * Returns the wake-event payload if matched, null otherwise.
      * @protected
+     * @param {Object} edgeRef GraphLog edge reference: `{id, source, target}`
+     * @param {Object} subscription The cached WAKE_SUBSCRIPTION entry (id + properties)
+     * @returns {Object|null} Wrapped wake-event payload (per §6.1.1 / §6.1.3 envelope) or null when no match
      */
     _evaluateEdgeAgainstSubscription(edgeRef, subscription) {
         const db   = GraphService.db;
@@ -361,6 +364,9 @@ class WakeSubscriptionService extends Base {
      * Evaluates a GraphLog node entry against TASK_STATE_CHANGED triggers.
      * Returns the wake-event payload if matched, null otherwise.
      * @protected
+     * @param {String} nodeId GraphLog-touched node ID (typically a `MESSAGE:*` carrying a Task envelope)
+     * @param {Object} subscription The cached WAKE_SUBSCRIPTION entry (id + properties)
+     * @returns {Object|null} Wrapped wake-event payload (per §6.1.2 envelope) or null when no match
      */
     _evaluateNodeAgainstSubscription(nodeId, subscription) {
         if (subscription.trigger !== 'TASK_STATE_CHANGED') return null;
@@ -389,6 +395,8 @@ class WakeSubscriptionService extends Base {
     /**
      * Builds the wake/sent_to_me payload from a MESSAGE node.
      * @protected
+     * @param {Object} messageNode Graph node with `properties` (from / subject / priority / taggedConcepts / inReplyTo / to)
+     * @returns {{messageId:String,from:String,subject:String,priority:String,taggedConcepts:String[],isReplyTo:?String,isBroadcast:Boolean}}
      */
     _buildSentToMePayload(messageNode) {
         const props = messageNode.properties || {};
@@ -406,6 +414,11 @@ class WakeSubscriptionService extends Base {
     /**
      * Wraps a payload in the standard wake notification envelope per ADR 0002 §6.1.1-§6.1.3.
      * @protected
+     * @param {String} eventType One of `wake/sent_to_me`, `wake/task_state_changed`, `wake/permission_granted`
+     * @param {Object} subscription Cached WAKE_SUBSCRIPTION entry (provides `id` + `agentIdentity`)
+     * @param {Object} payload Trigger-specific inner payload built by the matching `_build*Payload` helper
+     * @param {String|Number} logIdAnchor GraphLog `log_id` anchor preserved across re-emissions for cursor-based catchup
+     * @returns {Object} Full notification envelope (`schemaVersion`, `eventType`, `eventId`, `logId`, `agentIdentity`, `subscriptionId`, `payload`, `emittedAt`)
      */
     _wrapEvent(eventType, subscription, payload, logIdAnchor) {
         return {
@@ -424,6 +437,9 @@ class WakeSubscriptionService extends Base {
      * Applies optional filter spec (taggedConcepts, priority, senderFilter, inReplyToFilter)
      * to a sent_to_me payload. Returns true if all configured filters pass.
      * @protected
+     * @param {Object} payload The `_buildSentToMePayload` output to evaluate
+     * @param {Object} [filters={}] Subscription filter spec (taggedConcepts / priority / senderFilter / inReplyToFilter)
+     * @returns {Boolean} `true` if every configured filter passes (AND-conjunctive); `false` otherwise
      */
     _matchesFilters(payload, filters = {}) {
         if (filters.priority && payload.priority !== filters.priority) return false;
@@ -446,6 +462,8 @@ class WakeSubscriptionService extends Base {
      * Loads a subscription by id, preferring the in-memory cache and falling back to
      * SQLite. Cache-warms on miss.
      * @protected
+     * @param {String} subscriptionId The `WAKE_SUB:<uuid>` identifier
+     * @returns {Object|null} Cached entry (`{id, ...properties}`) or null if no matching node exists
      */
     _loadSubscription(subscriptionId) {
         if (this.subscriptionCache.has(subscriptionId)) return this.subscriptionCache.get(subscriptionId);
