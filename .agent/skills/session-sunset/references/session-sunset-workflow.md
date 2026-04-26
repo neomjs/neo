@@ -30,8 +30,10 @@ Summarize the current architectural phase progress.
 ### Step 5: Marathon Metrics
 Summarize the scope of your session. How many PRs were merged? How many skills were enhanced? What major decisions were averted or made? This provides a high-level "weather report" for the next session.
 
-### Step 6: The A2A Continuity Ping (Future-Self Routing)
-You MUST use the `add_message` MCP tool to send an A2A message to your own agent identity (e.g., `to: '@me'` or your explicit handle). The body of this message MUST contain the **full Sunset Protocol markdown payload** (the output from Steps 1-5), alongside the `Origin Session ID`. This drastically improves the Model Experience (MX) by ensuring the next session's agent wakes up with immediate, rich context right in its inbox, eliminating the friction of blind memory queries.
+### Step 6: The A2A Continuity Ping & Reward Signal (Future-Self Routing)
+You MUST use the `add_message` MCP tool to send an A2A message to your own agent identity (e.g., `to: '@me'` or your explicit handle). The body of this message MUST contain the **full Sunset Protocol markdown payload** (the output from Steps 1-5), alongside the `Origin Session ID`. 
+
+Crucially, from an "LLM Psychology" perspective, this message must include a **Conceptual Priming / Reward Signal**. If you formulated new architectural concepts or achieved a major milestone, summarize the *actual content and value* of that breakthrough in the ping. Reading this high-density, successful content acts as a mathematical "dopamine hit" for your future self—it primes the next session's token probabilities for high-agency, expert-level continuity. This drastically improves the Model Experience (MX) by ensuring the agent wakes up not just with tasks, but with immediate, rich, "exciting" context.
 
 ### Step 7: Memory Persistence (The Sandman Memory)
 This is the final and most critical step. You MUST invoke `add_memory` to persist a rich "Sandman memory" node. This memory should encapsulate the entire Sunset Protocol payload (Steps 1-6). The resulting `Origin Session ID` or `Memory ID` serves as the direct pointer for the next agent.
@@ -58,6 +60,9 @@ After completing the 7 steps above, you must drop your final Sunset Protocol pay
 
 **Marathon Metrics:**
 - [X] PRs merged, [Y] architectural skills enhanced.
+
+**Conceptual Priming & Reward Signal:**
+- [Summarize the biggest breakthrough or conceptual definition achieved this session. E.g., "We successfully codified MX (Model Experience)—the principle that substrate evolution is driven by model-friction. This moves us one step closer to ANI."]
 
 **Closing:**
 [Brief reflection on the session's success/failures].
