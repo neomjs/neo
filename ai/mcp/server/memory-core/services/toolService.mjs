@@ -10,6 +10,7 @@ import SessionService           from './SessionService.mjs';
 import SummaryService           from './SummaryService.mjs';
 import MailboxService           from './MailboxService.mjs';
 import PermissionService        from './PermissionService.mjs';
+import WakeSubscriptionService  from './WakeSubscriptionService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
@@ -40,6 +41,7 @@ const serviceMapping = {
     grant_permission      : PermissionService       .grantPermission     .bind(PermissionService),
     revoke_permission     : PermissionService       .revokePermission    .bind(PermissionService),
     list_permissions      : PermissionService       .listPermissions     .bind(PermissionService),
+    manage_wake_subscription: WakeSubscriptionService.manage              .bind(WakeSubscriptionService),
     set_session_id        : SessionService          .setSessionId        .bind(SessionService)
 };
 
