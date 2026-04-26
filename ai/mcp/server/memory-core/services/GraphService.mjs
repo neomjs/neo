@@ -234,61 +234,85 @@ class GraphService extends Base {
             return;
         } // Safe guard for SQLite backend
 
-        // Enforce Foreign Key constraints preemptively to prevent SQLite crash from hallucinated paths
-        const verifyStmt = this.db.storage.db.prepare('SELECT count(*) as count FROM Nodes WHERE id IN (?, ?)');
-        const count = verifyStmt.get(source, target).count;
-        if (source !== target && count !== 2) {
-             logger.warn(`[GraphService] Culling hallucinated edge mapping: ${source} -> ${target}`);
-             return;
-        }
-        if (source === target && count !== 1) return;
+        const executeLink = () => {
+            // Enforce Foreign Key constraints preemptively to prevent SQLite crash from hallucinated paths
+            const verifyStmt = this.db.storage.db.prepare('SELECT count(*) as count FROM Nodes WHERE id IN (?, ?)');
+            let count = verifyStmt.get(source, target).count;
+            
+            let expectedCount = source === target ? 1 : 2;
 
-        const stmt     = this.db.storage.db.prepare(`SELECT id, json_extract(data, '$.properties.weight') as weight
-                                                     FROM Edges
-                                                     WHERE source = ?
-                                                       AND target = ?
-                                                       AND type = ?`);
-        const existing = stmt.get(source, target, relationship);
+            if (count !== expectedCount) {
+                // #10347 Cache-Warm Retry: If the count check fails, the node might exist in the SQLite WAL
+                // from another agent but hasn't been synced to this connection's snapshot yet. 
+                // We force a cache warm (which invokes syncCache and WAL read) and re-verify.
+                if (this.db && typeof this.db.getAdjacentNodes === 'function') {
+                    // Ensure we attempt to warm both endpoints in case either is the missing link
+                    this.db.getAdjacentNodes(source, 'both');
+                    this.db.getAdjacentNodes(target, 'both');
+                    
+                    // Re-evaluate the count after forcing synchronization
+                    count = verifyStmt.get(source, target).count;
+                }
+            }
 
-        let currentUserId = this.db.storage?.RequestContextService ? this.db.storage.RequestContextService.getAgentIdentityNodeId() : undefined;
-        let edgeProperties = {weight, ...properties};
-        if (currentUserId !== undefined && edgeProperties.userId === undefined) {
-            edgeProperties.userId = currentUserId;
-        }
+            if (count !== expectedCount) {
+                 logger.warn(`[GraphService] Culling hallucinated edge mapping: ${source} -> ${target} (count was ${count})`);
+                 return;
+            }
 
-        if (!existing) {
-            this.db.addEdge({
-                id        : globalThis.crypto.randomUUID(),
-                source,
-                target,
-                type      : relationship,
-                properties: edgeProperties
-            });
+            const stmt     = this.db.storage.db.prepare(`SELECT id, json_extract(data, '$.properties.weight') as weight
+                                                         FROM Edges
+                                                         WHERE source = ?
+                                                           AND target = ?
+                                                           AND type = ?`);
+            const existing = stmt.get(source, target, relationship);
+
+            let currentUserId = this.db.storage?.RequestContextService ? this.db.storage.RequestContextService.getAgentIdentityNodeId() : undefined;
+            let edgeProperties = {weight, ...properties};
+            if (currentUserId !== undefined && edgeProperties.userId === undefined) {
+                edgeProperties.userId = currentUserId;
+            }
+
+            if (!existing) {
+                this.db.addEdge({
+                    id        : globalThis.crypto.randomUUID(),
+                    source,
+                    target,
+                    type      : relationship,
+                    properties: edgeProperties
+                });
+            } else {
+                const currentWeight = parseFloat(existing.weight) || 1.0;
+                const newWeight     = Math.min(currentWeight + (weight * 0.1), 5.0);
+
+                // Fetch the entire current JSON to merge new properties natively
+                const dataStmt = this.db.storage.db.prepare(`SELECT data FROM Edges WHERE id = ?`);
+                const row = dataStmt.get(existing.id);
+                if (row && row.data) {
+                    let parsed = JSON.parse(row.data);
+                    parsed.properties = { ...(parsed.properties || {}), ...edgeProperties, weight: newWeight };
+                    
+                    const updateStmt = this.db.storage.db.prepare(`UPDATE Edges SET data = ? WHERE id = ?`);
+                    updateStmt.run(JSON.stringify(parsed), existing.id);
+                }
+
+                // Keep RAM cache functionally coherent if edge actively exists
+                let ramEdge = this.db.edges.get(existing.id);
+                if (ramEdge) {
+                    ramEdge.properties.weight = newWeight;
+                    Object.assign(ramEdge.properties, edgeProperties);
+                }
+
+                if (typeof this.db.acknowledgeLocalMutations === 'function') {
+                    this.db.acknowledgeLocalMutations();
+                }
+            }
+        };
+
+        if (this.db.isExecutingTransaction) {
+            executeLink();
         } else {
-            const currentWeight = parseFloat(existing.weight) || 1.0;
-            const newWeight     = Math.min(currentWeight + (weight * 0.1), 5.0);
-
-            // Fetch the entire current JSON to merge new properties natively
-            const dataStmt = this.db.storage.db.prepare(`SELECT data FROM Edges WHERE id = ?`);
-            const row = dataStmt.get(existing.id);
-            if (row && row.data) {
-                let parsed = JSON.parse(row.data);
-                parsed.properties = { ...(parsed.properties || {}), ...edgeProperties, weight: newWeight };
-                
-                const updateStmt = this.db.storage.db.prepare(`UPDATE Edges SET data = ? WHERE id = ?`);
-                updateStmt.run(JSON.stringify(parsed), existing.id);
-            }
-
-            // Keep RAM cache functionally coherent if edge actively exists
-            let ramEdge = this.db.edges.get(existing.id);
-            if (ramEdge) {
-                ramEdge.properties.weight = newWeight;
-                Object.assign(ramEdge.properties, edgeProperties);
-            }
-
-            if (typeof this.db.acknowledgeLocalMutations === 'function') {
-                this.db.acknowledgeLocalMutations();
-            }
+            this.db.transaction(executeLink);
         }
     }
 
