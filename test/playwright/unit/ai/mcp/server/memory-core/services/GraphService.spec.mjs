@@ -441,6 +441,49 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         expect(link.source).toBe('RootT');
     });
 
+    test('linkNodes handles WAL-snapshot lag via cache-warm retry mechanism', () => {
+        // We simulate WAL snapshot lag by ensuring the node is NOT in SQLite during the first FK check,
+        // but appears in SQLite exactly when the cache-warm mechanism is triggered.
+
+        GraphService.upsertNode({ id: 'AnchorNode', type: 'AGENT', name: 'Anchor', properties: {} });
+        
+        expect(GraphService.db.nodes.has('GhostNode')).toBe(false);
+
+        // Spy on getAdjacentNodes to simulate another process writing the node during the cache-warm retry
+        const originalGetAdjacent = GraphService.db.getAdjacentNodes.bind(GraphService.db);
+        let cacheWarmTriggered = false;
+
+        GraphService.db.getAdjacentNodes = (nodeId, direction, type) => {
+            if (nodeId === 'GhostNode') {
+                cacheWarmTriggered = true;
+                // Simulate peer process writing the Node into SQLite exactly now
+                GraphService.db.storage.db.exec(`
+                    INSERT INTO Nodes (id, data) VALUES (
+                        'GhostNode',
+                        json('{"id":"GhostNode","label":"AGENT","properties":{"name":"Ghost"}}')
+                    )
+                `);
+            }
+            return originalGetAdjacent(nodeId, direction, type);
+        };
+
+        // linkNodes should hit the first FK check failure (count=1), trigger cache warm, find the ghost, and succeed
+        GraphService.linkNodes('AnchorNode', 'GhostNode', 'SEES_GHOST', 1.0);
+
+        // Restore original method
+        GraphService.db.getAdjacentNodes = originalGetAdjacent;
+
+        // Verify the cache warm was actually triggered
+        expect(cacheWarmTriggered).toBe(true);
+
+        // Verify the edge was created successfully after the retry
+        const edgeCount = GraphService.db.storage.db.prepare('SELECT count(*) as count FROM Edges WHERE source = ? AND target = ?').get('AnchorNode', 'GhostNode').count;
+        expect(edgeCount).toBe(1);
+
+        // Verify cache warming pulled the ghost node into memory
+        expect(GraphService.db.nodes.has('GhostNode')).toBe(true);
+    });
+
     // ----------------------------------------------------------------------------------------
     // linkNodesAsync + ensureNodeExists + normalizeGraphNodeId (#10153) — lazy back-fill path.
     // Sync `linkNodes` preserved unchanged for existing callers; these tests exercise the

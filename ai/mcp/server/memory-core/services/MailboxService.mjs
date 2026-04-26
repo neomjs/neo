@@ -87,6 +87,7 @@ class MailboxService extends Base {
      * @returns {Promise<Object>}
      */
     async addMessage({ to, subject, body, originSessionId, relatedSessions = [], relatedTickets = [], inReplyTo, priority = 'normal', partOfThread, taggedConcepts = [], task }) {
+        const preNormalizeTo = to; // Phase 1 #10347 observability
         const sentBy = RequestContextService.getAgentIdentityNodeId();
         if (!sentBy) {
             throw new Error("Cannot send message: no agent identity context bound. Ensure StdioIdentityResolver or OIDC transport is active.");
@@ -98,6 +99,7 @@ class MailboxService extends Base {
         // `SENT_TO` edge — the root-cause bug closed by #10174. Permission checks and edge
         // creation below all consume the canonical form from this point on.
         to = normalizeMailboxTarget(to);
+        const postNormalizeTo = to; // Phase 1 #10347 observability
 
         const messageId = `MESSAGE:${crypto.randomUUID()}`;
         const timestamp = new Date().toISOString();
@@ -222,6 +224,34 @@ class MailboxService extends Base {
         // 2. Map the routing edges
         GraphService.linkNodes(messageId, sentBy, 'SENT_BY', 1.0, { timestamp, userId: sentBy, sharedEntity: true });
         GraphService.linkNodes(messageId, to, 'SENT_TO', 1.0, { timestamp, userId: sentBy, sharedEntity: true });
+
+        // Phase 1 #10347 Observability: Make SENT_TO failure loud and cross-process readable
+        try {
+            const edgeCount = GraphService.db.storage.db.prepare('SELECT count(*) as count FROM Edges WHERE source = ? AND target = ? AND type = ?').get(messageId, to, 'SENT_TO').count;
+            if (edgeCount === 0) {
+                const fkVerifyCount = GraphService.db.storage.db.prepare('SELECT count(*) as count FROM Nodes WHERE id IN (?, ?)').get(messageId, to).count;
+                
+                const logEntry = {
+                    msg: "[#10347 Phase 1] Intermittent SENT_TO edge cull detected",
+                    timestamp,
+                    caller_passed_to: preNormalizeTo,
+                    pre_normalize_to: preNormalizeTo,
+                    post_normalize_to: postNormalizeTo,
+                    fk_verify_count: fkVerifyCount,
+                    identity_binding_me: sentBy,
+                    edge_type: 'SENT_TO',
+                    message_id: messageId
+                };
+
+                Promise.all([import('fs'), import('path'), import('../logger.mjs')]).then(([{ default: fs }, { default: path }, { default: logger }]) => {
+                    logger.warn(JSON.stringify(logEntry));
+                    const logPath = path.join(path.dirname(aiConfig.storagePaths.graph), 'sent-to-cull.jsonl');
+                    fs.appendFileSync(logPath, JSON.stringify(logEntry) + '\n');
+                });
+            }
+        } catch (e) {
+            // fail silently on observability errors to not break the message send
+        }
 
         // 3. Map additional graph semantic edges
         if (originSessionId) GraphService.linkNodes(messageId, originSessionId, 'ORIGINATES_IN', 1.0, { timestamp, userId: sentBy, sharedEntity: true });
