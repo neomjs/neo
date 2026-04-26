@@ -28,6 +28,21 @@ get_issues_count() {
     echo "${count:-0}"
 }
 
+# Heartbeat-Bypass Detection (Phase 3 Wake Substrate)
+# Returns identities with WAKE_SUBSCRIPTION.harnessTarget IN ('mcp-notifications', 'a2a-webhook')
+get_push_capable_identities() {
+    if [ ! -f "$DB_PATH" ]; then
+        return
+    fi
+    sqlite3 "$DB_PATH" "
+      SELECT json_extract(data, '\$.properties.agentIdentity')
+      FROM Nodes
+      WHERE json_extract(data, '\$.label') = 'WAKE_SUBSCRIPTION'
+        AND json_extract(data, '\$.properties.harnessTarget') IN ('mcp-notifications', 'a2a-webhook')
+        AND COALESCE(json_extract(data, '\$.properties.status'), 'active') != 'degraded';
+    " 2>/dev/null
+}
+
 # Function to sweep expired A2A tasks (Track 2C, #10339)
 # Invokes the JS CLI wrapper which calls MailboxService.sweepExpiredTasks(). Bulk SQL
 # UPDATE-WHERE atomically transitions stale Submitted/Working/InputRequired tasks past
@@ -62,6 +77,12 @@ heartbeat_pulse() {
         local expired=$(sweep_expired_tasks)
         if [ "$expired" -gt 0 ]; then
             echo "[heartbeat $(date -Iseconds)] sweep: ${expired} task(s) transitioned to Expired" >&2
+        fi
+
+        # Heartbeat-Bypass Detection
+        local push_identities=$(get_push_capable_identities)
+        if echo "$push_identities" | grep -Fq "$IDENTITY"; then
+            continue
         fi
 
         # Execute the fast-path deterministic queries
