@@ -1101,6 +1101,82 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /wake-subscriptions/manage:
+    post:
+      summary: Manage WAKE_SUBSCRIPTION
+      operationId: manage_wake_subscription
+      x-pass-as-object: true
+      description: |
+        Unified surface for the Phase 3 wake-substrate subscription lifecycle. Subscribe to graph events (SENT_TO_ME / TASK_STATE_CHANGED / PERMISSION_GRANTED) with optional filters; route delivery via mcp-notifications, a2a-webhook, or bridge-daemon (Shape A/B/C per ADR 0002).
+      tags: [WakeSubscriptions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [subscribe, unsubscribe, update, list, resync]
+                  description: Lifecycle action to perform on the subscription.
+                subscriptionId:
+                  type: string
+                  description: Required for unsubscribe / update / resync; optional for list (single).
+                trigger:
+                  type: string
+                  enum: [SENT_TO_ME, TASK_STATE_CHANGED, PERMISSION_GRANTED]
+                  description: Required for subscribe.
+                filters:
+                  type: object
+                  description: Optional AND-conjunctive filters over the trigger.
+                  properties:
+                    taggedConcepts:  {type: array, items: {type: string}}
+                    priority:        {type: string, enum: [high, normal, low]}
+                    senderFilter:    {type: array, items: {type: string}}
+                    inReplyToFilter: {type: array, items: {type: string}}
+                harnessTarget:
+                  type: string
+                  enum: [mcp-notifications, a2a-webhook, bridge-daemon, disabled, none]
+                  description: Required for subscribe; specifies how wake events are delivered.
+                harnessTargetMetadata:
+                  type: object
+                  description: Channel-specific metadata. url required for a2a-webhook; coalesceWindow optional override; daemonSocketPath for bridge-daemon.
+                  properties:
+                    url:               {type: string}
+                    coalesceWindow:    {type: integer, minimum: 0, maximum: 300}
+                    daemonSocketPath:  {type: string}
+                sinceLogId:
+                  type: integer
+                  description: Required for resync. GraphLog watermark; client-tracked.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Bad Request (invalid action / parameter)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Permission denied (subscription owned by a different identity)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     HealthCheckResponse:
