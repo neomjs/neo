@@ -11,9 +11,10 @@ To an LLM, yielding a prompt resolution feels like a "termination," but to a Hum
 You are strictly **FORBIDDEN** from executing the Sunset Protocol simply because you finished a prompt and yielded control back to the human. You MUST only execute the Sunset Protocol when a true **Session Boundary** is reached.
 
 A true Session Boundary is defined by:
-1. **Context Window Exhaustion:** You are approaching the token limit of your model (e.g., ~1M tokens for Claude, ~2M tokens for Gemini).
-2. **Macro-Semantic Pivot:** The human explicitly shifts focus to a completely new domain, epic, or architectural phase, requiring a clean slate.
-3. **Proactive Agent Recommendation:** You recognize a natural, logical break point in the work stream and explicitly recommend sunsetting to the human.
+1. **Context Window Exhaustion:** You are approaching the token limit of your model (e.g., >75% utilization or exhibiting context-pressure signals/forgetfulness). Avoid hardcoding specific token counts as models evolve.
+2. **Macro-Semantic Pivot:** The human explicitly shifts focus to a completely new domain, epic, or architectural phase (e.g., switching from Database Layer substrate work to UI Framework component design), requiring a clean slate. *Asymmetry Tiebreaker: The cost of a premature sunset is greater than a late sunset; when in doubt, lean conservative and keep the session open.*
+3. **Explicit Human Directive:** The Human Commander explicitly instructs you to terminate the session (e.g., "let's wrap", "time to sunset", or `/sunset`).
+4. **Proactive Agent Recommendation:** You recognize a natural, logical break point in the work stream and explicitly recommend sunsetting to the human.
 
 If none of these conditions are met, do **NOT** sunset. Simply output your response and wait for the next turn.
 ## 2. The Handoff Structure

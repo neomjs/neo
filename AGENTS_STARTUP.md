@@ -24,7 +24,8 @@ At the beginning of every new session, you **MUST** perform the following steps 
 
 Before reading any documentation, code, or memory, you **MUST** ensure your local checkout is up-to-date with the remote repository. 
 - Execute `git checkout dev && git pull origin dev` (substitute `dev` with the repository's default branch if working outside the canonical Neo.mjs repo).
-- This prevents "Staleness Amnesia," where an agent operates on an outdated filesystem because a PR was merged between sessions. 
+- **Lifecycle role (boot vs. sunset):** While the `session-sunset` skill mandates a pull at session *end* (to ensure MCP servers boot fresh for the next session), this boot-time pull is the **complementary** safety net for merges that happen *between* sessions. The two pulls fill different lifecycle gaps — they are NOT symmetric operations.
+- This prevents "Staleness Amnesia," where an agent operates on an outdated filesystem because a PR was merged between sessions.
 
 ### Step 1: Read the Codebase Overview
 
