@@ -338,9 +338,15 @@ class CoalescingEngineService extends Base {
                 return;
             }
             try {
+                // TRACKING: #10400 Fix
+                // The Antigravity harness natively expects `wake/digest` envelopes per ADR 0002.
+                // To bypass the 5s coalescing timer without breaking the wire contract,
+                // we package the raw event into an immediate, single-item digest.
+                const digestEnvelope = this._buildDigestEnvelope(subscription, [event], new Date());
+                
                 await this.mcpServer.notification({
                     method: 'notifications/message',
-                    params: event
+                    params: digestEnvelope
                 });
             } catch (e) {
                 logger.error(`[CoalescingEngine] mcp-notifications raw dispatch failed for ${subscription.id}: ${e.message}`);
