@@ -436,3 +436,22 @@ Without this context, sub-agents will hallucinate bugs where none exist (e.g., c
 3.  **Consult the Expert:** If tools are insufficient or the hierarchy is complex, **ASK THE USER**.
     -   *Template:* "I cannot see the parent container's computed styles. Could you please paste the computed `height` and `overflow` of the element wrapping `.my-component`?"
 4.  **Verify Assumptions:** Never assume a class like `neo-label` behaves standardly. Verify its computed style.
+
+## 21. Workflow Skills (when to invoke)
+
+The lifecycle skills below carry the discipline that this file's invariants (especially §0 Critical Gates) depend on — gate enforcement, Fat Ticket structure, review templates, merge-gate restatement. Invoke via the `Skill` tool / matching slash-command **BEFORE** the trigger action, not after. Skill content lives in `.agent/skills/<name>/SKILL.md` + `references/`; this table is the per-turn awareness signpost so the trigger → skill loop fires reliably even when context-pruning evicts the skill files.
+
+| Skill | Trigger condition (invoke when) |
+|---|---|
+| `ticket-create` | Before `create_issue` MCP invocation — duplicate sweep, Fat Ticket body, label rules, 5-stage challenge chain |
+| `ticket-intake` | Picking up an existing assigned ticket — validation sweep, ROI calculation, branch-before-code gate |
+| `epic-review` | Before picking up a sub of an unreviewed epic — 5-stage roadmap-fit / approach-elegance / sub-coherence chain |
+| `pull-request` | Code modifications complete; before opening PR — stepping-back reflection, commit format, cross-family review mandate |
+| `pr-review` | Reviewing a PR (yours or peer's) — structured eval metrics, graph ingestion tags, severity ladder, restates §0 merge gate |
+| `ideation-sandbox` | Before creating a Discussion for architectural exploration — speculative-thought routing, OQ tracking |
+| `memory-mining` | On regression / non-obvious-architecture / decision-points — historical context retrieval ("what was decided here?") |
+| `tech-debt-radar` | During PR review for fundamental architectural shifts — semantic sweep against historical issues + Memory Core |
+
+**Why this lives in per-turn memory:** these skills carry mechanically-load-bearing discipline. When agents skip the skill invocation, the gate/protocol/template fails silently — empirically observed (PR #10356 merge violation traces to exactly this failure mode: pr-review skill was loaded for the review but not in context at the post-approval merge moment). Per-turn awareness in `AGENTS.md` keeps the trigger → skill loop reflexive even when long sessions evict skill files.
+
+Tactical / domain-specific skills (`neural-link`, `unit-test`, `whitebox-e2e`, `debugging-antigravity`, `self-repair`, `industry-friction-radar`, `create-skill`) remain discoverable via `.agent/skills/` directory listing — those are contextual rather than gate-bearing, so per-turn awareness isn't load-bearing.
