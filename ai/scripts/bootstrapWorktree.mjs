@@ -58,17 +58,32 @@
  *                                                    # clobber any existing real
  *                                                    # gitignored subdir (data-loss guard
  *                                                    # opt-in; never touches concepts/)
+ * node ai/scripts/bootstrapWorktree.mjs --link-data --canonical-root /path/to/canonical
+ *                                                    # independent-clone topology: explicit
+ *                                                    # canonical-root override (per #10435)
  * ```
  *
+ * Also supports the `NEO_AI_CANONICAL_ROOT` env var as a fallback for the `--canonical-root`
+ * flag, useful for CI / shell aliases.
+ *
+ * **Topology support:**
+ * - **Git worktrees** (the original #10095 use case): canonical is resolved automatically
+ *   via `git worktree list --porcelain`.
+ * - **Independent clones** (per #10435): a separate clone (e.g., an Antigravity-side clone
+ *   that mirrors the canonical github-side clone) is NOT a git worktree, so `git worktree
+ *   list` returns the clone itself. Pass `--canonical-root <path>` (or set
+ *   `NEO_AI_CANONICAL_ROOT`) to point at the canonical sibling explicitly. Same per-subdir
+ *   symlink semantics + `concepts/` protection apply.
+ *
  * Idempotent: files that already exist are skipped; subdirs already symlinked report
- * `'already-linked'`. Refuses to run from the main checkout (no-op). Resolves the main
- * checkout via `git worktree list --porcelain` — its first entry is always the primary
- * working tree.
+ * `'already-linked'`. Refuses to run from the main checkout itself (no-op when worktree
+ * root === resolved canonical root).
  *
  * @see https://github.com/neomjs/neo/issues/10095
  * @see https://github.com/neomjs/neo/issues/10224 (closed predecessor — coarse-grained symlink)
  * @see https://github.com/neomjs/neo/issues/10424 (cross-process coherence gap empirically anchored)
- * @see https://github.com/neomjs/neo/issues/10432 (this granular refinement)
+ * @see https://github.com/neomjs/neo/issues/10432 / #10433 (granular per-subdir refinement)
+ * @see https://github.com/neomjs/neo/issues/10435 (this independent-clone extension)
  */
 import {execFile}       from 'child_process';
 import fs               from 'fs/promises';
@@ -106,14 +121,32 @@ export const DATA_SUBDIRS_TO_LINK = [
 ];
 
 /**
- * @summary Resolves the main git checkout path for a given project root by parsing
- * `git worktree list --porcelain`. The first `worktree <path>` line is always the primary
- * working tree regardless of where the command is invoked from.
+ * @summary Resolves the canonical "main checkout" path for a given project root.
  *
- * @param {string} cwd The directory to run git from.
+ * Two resolution paths, in priority order:
+ *
+ * 1. **Explicit override** (per #10435) — when an `explicitRoot` is supplied (typically
+ *    via the `--canonical-root` CLI flag or `NEO_AI_CANONICAL_ROOT` env var), use it
+ *    directly. Required for **independent clone** topologies (e.g., a separate
+ *    `antigravity/neomjs/neo` clone that mirrors the canonical `github/neomjs/neo`
+ *    clone — not a git worktree, so `git worktree list` returns the clone itself
+ *    rather than the canonical sibling).
+ *
+ * 2. **Git worktree resolution** (the original #10095 path) — `git worktree list
+ *    --porcelain` returns the primary working tree as its first entry, which is the
+ *    canonical-shared-checkout for any worktree spawned off it. For independent clones
+ *    this returns the clone's own root, which signals "main checkout mode" downstream
+ *    (no symlinking) — exactly the right behavior when no explicit override exists.
+ *
+ * @param {string}  cwd             The directory to run git from.
+ * @param {object}  [options]
+ * @param {string}  [options.explicitRoot] Absolute path to the canonical checkout, when
+ *                                        known via CLI flag / env var. Skips git resolution.
  * @returns {Promise<string|null>} Absolute path to the main checkout, or null on failure.
  */
-export async function resolveMainCheckout(cwd) {
+export async function resolveMainCheckout(cwd, {explicitRoot} = {}) {
+    if (explicitRoot) return path.resolve(explicitRoot);
+
     const {stdout} = await execFileAsync('git', ['worktree', 'list', '--porcelain'], {cwd});
     const match    = stdout.match(/^worktree (.+)$/m);
     return match ? match[1] : null;
@@ -367,18 +400,30 @@ if (isMain) {
     const __dirname   = path.dirname(__filename);
     const projectRoot = path.resolve(__dirname, '..', '..'); // ai/scripts/ → ai/ → root
 
-    const args     = new Set(process.argv.slice(2));
+    const argv     = process.argv.slice(2);
+    const args     = new Set(argv);
     const linkData = args.has('--link-data');
     const force    = args.has('--force');
     const install  = args.has('--install');
     const buildAll = args.has('--build-all');
 
+    // `--canonical-root <path>` flag wins; `NEO_AI_CANONICAL_ROOT` env var is the fallback.
+    // Both are no-ops when running in an actual git worktree (the existing
+    // git-worktree-list resolution path is the natural primary). They activate the
+    // independent-clone topology (per #10435) where canonical lives in a sibling
+    // checkout that `git worktree list` doesn't surface.
+    const flagIdx       = argv.indexOf('--canonical-root');
+    const explicitRoot  = (flagIdx !== -1 && argv[flagIdx + 1])
+        ? argv[flagIdx + 1]
+        : (process.env.NEO_AI_CANONICAL_ROOT || null);
+
     try {
-        const mainCheckout = await resolveMainCheckout(projectRoot);
+        const mainCheckout = await resolveMainCheckout(projectRoot, {explicitRoot});
         if (!mainCheckout) {
-            console.error('Failed to resolve main checkout via git worktree list. Is this a git repository?');
+            console.error('Failed to resolve main checkout. Provide --canonical-root <path> (or NEO_AI_CANONICAL_ROOT env var) when running outside a git worktree, or ensure this is a git repository.');
             process.exit(1);
         }
+        if (explicitRoot) console.log(`✓ Canonical checkout (explicit): ${mainCheckout}`);
 
         const result = await bootstrapWorktree({mainCheckout, projectRoot});
         const total  = result.copied.length + result.skipped.length + result.missing.length;
