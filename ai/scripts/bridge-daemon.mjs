@@ -1,6 +1,6 @@
 import fs from 'fs-extra';
 import path from 'path';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import { 
     initializeDatabase, 
     getLastSyncId, 
@@ -19,6 +19,66 @@ const DEFAULT_COALESCE_WINDOW_MS = 30000; // 30 seconds
 
 // Ensure daemon data dir exists
 fs.ensureDirSync(DAEMON_DATA_DIR);
+
+const PID_FILE = path.join(DAEMON_DATA_DIR, 'bridge-daemon.pid');
+
+function enforceSingleton() {
+    if (fs.existsSync(PID_FILE)) {
+        try {
+            const oldPid = parseInt(fs.readFileSync(PID_FILE, 'utf8'), 10);
+            if (!isNaN(oldPid) && oldPid > 0 && oldPid !== process.pid) {
+                try {
+                    // Check if alive
+                    process.kill(oldPid, 0);
+                    // Process exists. Check if it is actually our daemon (handle PID recycling)
+                    try {
+                        const cmd = execSync(`ps -p ${oldPid} -o command=`).toString().trim();
+                        if (cmd.includes('bridge-daemon.mjs')) {
+                            console.log(`[Bridge Daemon] Found existing instance (PID: ${oldPid}). Terminating it...`);
+                            process.kill(oldPid, 'SIGKILL');
+                        } else {
+                            console.log(`[Bridge Daemon] Stale PID file found. PID ${oldPid} used by a different process. Proceeding.`);
+                        }
+                    } catch (psErr) {
+                        // Could not run ps, default to kill to be safe
+                        console.log(`[Bridge Daemon] Could not verify process name. Terminating PID ${oldPid} to be safe...`);
+                        process.kill(oldPid, 'SIGKILL');
+                    }
+                } catch (e) {
+                    // Process is not alive
+                }
+            }
+        } catch (e) {
+            console.error('[Bridge Daemon] Failed to check existing PID file:', e);
+        }
+    }
+    
+    // Write new PID
+    fs.writeFileSync(PID_FILE, process.pid.toString(), 'utf8');
+
+    // Cleanup on exit
+    const cleanup = () => {
+        try {
+            if (fs.existsSync(PID_FILE)) {
+                const currentPid = parseInt(fs.readFileSync(PID_FILE, 'utf8'), 10);
+                if (currentPid === process.pid) {
+                    fs.unlinkSync(PID_FILE);
+                }
+            }
+        } catch (e) {}
+        process.exit();
+    };
+
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
+    process.on('exit', cleanup);
+    process.on('uncaughtException', (err) => {
+        console.error('[Bridge Daemon] Uncaught exception:', err);
+        cleanup();
+    });
+}
+
+enforceSingleton();
 
 const db = initializeDatabase(DB_PATH);
 
