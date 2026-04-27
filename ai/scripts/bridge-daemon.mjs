@@ -1,24 +1,139 @@
+/**
+ * @summary Bridge daemon for Neo.mjs Phase 3 wake substrate (Shape C delivery).
+ *
+ * Polls SQLite GraphLog for new SENT_TO_ME edges, coalesces matching events
+ * per active WAKE_SUBSCRIPTION, and delivers digests via osascript (macOS) or
+ * tmux. Designed to run as a long-lived background process; one instance
+ * per `.neo-ai-data/wake-daemon/` directory (singleton-enforced via PID lock
+ * per #10422 / #10423).
+ *
+ * **Diagnostic log persistence (per #10419):**
+ * All informational + error lines are written to BOTH stdout (live terminal
+ * observability) AND `.neo-ai-data/wake-daemon/bridge.log` (persistent audit
+ * trail for post-hoc wake-failure investigation, e.g. Bug 2 of #10410, the
+ * Leonard demo failure, future osascript silent errors).
+ *
+ * **Rotation:** Daily rotation via `.YYYY-MM-DD` suffix on the previous day's
+ * file; archive files older than `LOG_RETENTION_DAYS` are pruned at startup.
+ *
+ * **Line format:** `[ISO-timestamp] [PID:NNN] [LEVEL] message` — greppable
+ * post-hoc, per-line correlation with daemon process and event chronology.
+ *
+ * @see #10419 (this PR — diagnostic substrate)
+ * @see #10410 Bug 2 (duplicate-wake delivery — original motivation; root-cause
+ *      diagnosis depends on persisted log lines surviving terminal scrollback)
+ * @see #10423 (PID-lock singleton enforcement; PID transitions are now logged)
+ */
 import fs from 'fs-extra';
 import path from 'path';
 import { spawn, execSync } from 'child_process';
-import { 
-    initializeDatabase, 
-    getLastSyncId, 
-    getActiveShapeCSubscriptions, 
-    getGraphLogEntries, 
-    getNodesData, 
-    getEdgesData, 
-    getDbNode 
+import {
+    initializeDatabase,
+    getLastSyncId,
+    getActiveShapeCSubscriptions,
+    getGraphLogEntries,
+    getNodesData,
+    getEdgesData,
+    getDbNode
 } from './bridge-daemon-queries.mjs';
 
-const DB_PATH = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
-const DAEMON_DATA_DIR = process.env.NEO_AI_DAEMON_DIR || '.neo-ai-data/wake-daemon';
-const STATE_FILE = path.join(DAEMON_DATA_DIR, 'lastSyncId');
-const POLL_INTERVAL_MS = 3000;
+const DB_PATH                  = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
+const DAEMON_DATA_DIR          = process.env.NEO_AI_DAEMON_DIR || '.neo-ai-data/wake-daemon';
+const STATE_FILE               = path.join(DAEMON_DATA_DIR, 'lastSyncId');
+const LOG_FILE                 = path.join(DAEMON_DATA_DIR, 'bridge.log');
+const LOG_RETENTION_DAYS       = 30;
+const POLL_INTERVAL_MS         = 3000;
 const DEFAULT_COALESCE_WINDOW_MS = 30000; // 30 seconds
 
 // Ensure daemon data dir exists
 fs.ensureDirSync(DAEMON_DATA_DIR);
+
+/**
+ * Rotates `bridge.log` if its mtime falls on a calendar day different from today's.
+ * Renames the previous-day file to `bridge.log.YYYY-MM-DD` so the active file always
+ * holds the current day's lines. Best-effort: failures surface to stderr and the
+ * daemon continues (log integrity is not allowed to gate daemon liveness).
+ * @protected
+ */
+function rotateLogIfNewDay() {
+    if (!fs.existsSync(LOG_FILE)) return;
+    try {
+        const stats    = fs.statSync(LOG_FILE);
+        const fileDay  = stats.mtime.toISOString().split('T')[0];
+        const todayDay = new Date().toISOString().split('T')[0];
+        if (fileDay !== todayDay) {
+            const archivePath = `${LOG_FILE}.${fileDay}`;
+            fs.renameSync(LOG_FILE, archivePath);
+        }
+    } catch (e) {
+        // Log rotation failure is non-fatal; surface to stderr only
+        process.stderr.write(`[Bridge Daemon] Log rotation failed: ${e.message}\n`);
+    }
+}
+
+/**
+ * Prunes archived log files (`bridge.log.*`) older than `LOG_RETENTION_DAYS` from
+ * `DAEMON_DATA_DIR`. Runs once at daemon startup. Best-effort: per-file unlink
+ * failures are silently swallowed (best to lose a stale archive than gate startup).
+ * @protected
+ */
+function pruneOldLogs() {
+    const cutoff = Date.now() - LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+    try {
+        const entries = fs.readdirSync(DAEMON_DATA_DIR);
+        for (const entry of entries) {
+            // Match `bridge.log.YYYY-MM-DD` archive files only — leave `bridge.log` alone
+            if (!entry.startsWith('bridge.log.') || entry === 'bridge.log') continue;
+            const fullPath = path.join(DAEMON_DATA_DIR, entry);
+            try {
+                const stats = fs.statSync(fullPath);
+                if (stats.mtime.getTime() < cutoff) {
+                    fs.unlinkSync(fullPath);
+                }
+            } catch (e) {
+                // Per-entry failure is non-fatal
+            }
+        }
+    } catch (e) {
+        // Directory listing failure is non-fatal
+    }
+}
+
+/**
+ * Persistent + console log writer. Writes a single line to BOTH stdout (live
+ * terminal observability) AND the persistent `bridge.log` file (post-hoc audit
+ * trail). Format: `[ISO-timestamp] [PID:NNN] [LEVEL] message`. Daily rotation
+ * is checked on every call.
+ *
+ * Failures on file-write are silently swallowed — daemon liveness MUST NOT
+ * depend on log integrity. Failures on console-write propagate naturally.
+ *
+ * @param {String} level   One of 'INFO' | 'ERROR' (used to dispatch console.log vs console.error and to embed in the line prefix).
+ * @param {String} message The message body. Should NOT include a trailing newline — `writeLog` appends one.
+ * @protected
+ */
+function writeLog(level, message) {
+    rotateLogIfNewDay();
+    const timestamp = new Date().toISOString();
+    const line      = `[${timestamp}] [PID:${process.pid}] [${level}] ${message}`;
+
+    // File write — best-effort, never throws
+    try {
+        fs.appendFileSync(LOG_FILE, line + '\n', 'utf8');
+    } catch (e) {
+        // Best-effort; daemon must stay alive even if file-write fails
+    }
+
+    // Console write — preserves live terminal observability
+    if (level === 'ERROR') {
+        console.error(line);
+    } else {
+        console.log(line);
+    }
+}
+
+// One-shot prune at startup; reaper for archived logs older than retention window
+pruneOldLogs();
 
 const PID_FILE = path.join(DAEMON_DATA_DIR, 'bridge-daemon.pid');
 
@@ -42,14 +157,14 @@ async function enforceSingleton() {
                         // Use ps -p to verify the PID hasn't been recycled by a non-daemon process
                         const cmd = execSync(`ps -p ${oldPid} -o command=`).toString().trim();
                         if (cmd.includes('bridge-daemon.mjs')) {
-                            console.log(`[Bridge Daemon] Found existing instance (PID: ${oldPid}). Sending SIGTERM...`);
+                            writeLog('INFO', `[Bridge Daemon] Found existing instance (PID: ${oldPid}). Sending SIGTERM...`);
                             process.kill(oldPid, 'SIGTERM');
                         } else {
-                            console.log(`[Bridge Daemon] Stale PID file found. PID ${oldPid} used by a different process. Proceeding.`);
+                            writeLog('INFO', `[Bridge Daemon] Stale PID file found. PID ${oldPid} used by a different process. Proceeding.`);
                             isAlive = false; // We won't wait for it to exit
                         }
                     } catch (psErr) {
-                        console.log(`[Bridge Daemon] Could not verify process name. Sending SIGTERM to PID ${oldPid} to be safe...`);
+                        writeLog('INFO', `[Bridge Daemon] Could not verify process name. Sending SIGTERM to PID ${oldPid} to be safe...`);
                         process.kill(oldPid, 'SIGTERM');
                     }
                 }
@@ -67,7 +182,7 @@ async function enforceSingleton() {
                         }
                     }
                     if (alive) {
-                        console.log(`[Bridge Daemon] PID ${oldPid} did not exit after 3s. Escalating to SIGKILL...`);
+                        writeLog('INFO', `[Bridge Daemon] PID ${oldPid} did not exit after 3s. Escalating to SIGKILL...`);
                         try {
                             process.kill(oldPid, 'SIGKILL');
                         } catch (e) {}
@@ -79,7 +194,7 @@ async function enforceSingleton() {
                 } catch (e) {}
             }
         } catch (e) {
-            console.error('[Bridge Daemon] Failed to check existing PID file:', e);
+            writeLog('ERROR', `[Bridge Daemon] Failed to check existing PID file: ${e.message || e}`);
         }
     }
     
@@ -88,7 +203,7 @@ async function enforceSingleton() {
         fs.writeFileSync(PID_FILE, process.pid.toString(), { encoding: 'utf8', flag: 'wx' });
     } catch (e) {
         if (e.code === 'EEXIST') {
-            console.error(`[Bridge Daemon] Failed to claim PID file (EEXIST). Another instance started simultaneously. Exiting.`);
+            writeLog('ERROR', `[Bridge Daemon] Failed to claim PID file (EEXIST). Another instance started simultaneously. Exiting.`);
             process.exit(1);
         } else {
             throw e;
@@ -115,7 +230,7 @@ async function enforceSingleton() {
     process.on('SIGTERM', cleanup);
     process.on('exit', cleanup);
     process.on('uncaughtException', (err) => {
-        console.error('[Bridge Daemon] Uncaught exception:', err);
+        writeLog('ERROR', `[Bridge Daemon] Uncaught exception: ${err && err.stack ? err.stack : err}`);
         cleanup(); // Calls process.exit() automatically
     });
 }
@@ -173,7 +288,7 @@ async function pollLoop() {
             fs.writeFileSync(STATE_FILE, lastSyncId.toString(), 'utf8');
         }
     } catch (err) {
-        console.error('[Bridge Daemon] Error in poll loop:', err);
+        writeLog('ERROR', `[Bridge Daemon] Error in poll loop: ${err && err.stack ? err.stack : err}`);
     }
 
     setTimeout(pollLoop, POLL_INTERVAL_MS);
@@ -358,7 +473,7 @@ async function deliverDigest(subscription, digest) {
         if (adapter === 'tmux') {
             const tmuxSession = meta.tmuxSession || process.env.TMUX_SESSION || 'neo-agent';
             await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, digest, 'C-m']);
-            console.log(`[Bridge Daemon] Delivered ${subscription.id} via tmux to session ${tmuxSession}`);
+            writeLog('INFO', `[Bridge Daemon] Delivered ${subscription.id} via tmux to session ${tmuxSession}`);
         } else if (adapter === 'osascript') {
             const appName = meta.appName || 'Claude';
             let tabShortcut = meta.tabShortcut;
@@ -442,14 +557,14 @@ async function deliverDigest(subscription, digest) {
             );
 
             await spawnAsync('osascript', osascriptArgs);
-            console.log(`[Bridge Daemon] Delivered ${subscription.id} via osascript to ${appName}`);
+            writeLog('INFO', `[Bridge Daemon] Delivered ${subscription.id} via osascript to ${appName}`);
         } else if (adapter === 'test') {
-            console.log(`[Bridge Daemon Test Adapter] Delivered ${subscription.id}: ${digest}`);
+            writeLog('INFO', `[Bridge Daemon Test Adapter] Delivered ${subscription.id}: ${digest}`);
         } else {
-            console.warn(`[Bridge Daemon] Unknown adapter '${adapter}' for subscription ${subscription.id}`);
+            writeLog('ERROR', `[Bridge Daemon] Unknown adapter '${adapter}' for subscription ${subscription.id}`);
         }
     } catch (err) {
-        console.error(`[Bridge Daemon] Failed to deliver via ${adapter}:`, err.message);
+        writeLog('ERROR', `[Bridge Daemon] Failed to deliver via ${adapter}: ${err.message}`);
     }
 }
 
@@ -462,7 +577,7 @@ async function main() {
     // Read lastSyncId
     lastSyncId = getLastSyncId(db, STATE_FILE);
     
-    console.log(`[Bridge Daemon] Started. Tail-syncing from GraphLog ID: ${lastSyncId}`);
+    writeLog('INFO', `[Bridge Daemon] Started. Tail-syncing from GraphLog ID: ${lastSyncId}`);
     
     pollLoop();
 }
