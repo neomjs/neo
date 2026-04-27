@@ -184,6 +184,7 @@ class WakeSubscriptionService extends Base {
     async manage(opts = {}) {
         const {action, ...rest} = opts;
         switch (action) {
+            case 'bootstrap'  : return this.bootstrap  (rest);
             case 'subscribe'  : return this.subscribe  (rest);
             case 'unsubscribe': return this.unsubscribe(rest);
             case 'update'     : return this.update     (rest);
@@ -191,9 +192,60 @@ class WakeSubscriptionService extends Base {
             case 'resync'     : return this.resync     (rest);
             default:
                 throw new Error(
-                    `Invalid action '${action}'. Must be one of: subscribe, unsubscribe, update, list, resync.`
+                    `Invalid action '${action}'. Must be one of: bootstrap, subscribe, unsubscribe, update, list, resync.`
                 );
         }
+    }
+
+    /**
+     * Idempotent action to bootstrap a subscription from the agent's identity template.
+     * Required to eliminate fragile cross-harness hardcoded defaults (e.g., appName fallback).
+     * @param {Object} [opts]
+     * @param {Object} [opts.overrideMetadata] Optional metadata to override template defaults
+     * @returns {Promise<Object>} {subscriptionId, harnessTarget, status: 'existing'|'created'}
+     */
+    async bootstrap({overrideMetadata} = {}) {
+        const owner = RequestContextService.getAgentIdentityNodeId();
+        if (!owner) throw new Error('Cannot bootstrap subscription: no agent identity context bound.');
+
+        // Access GraphService.db.nodes.get directly because GraphService.getNode filters out custom properties
+        const identityNode = GraphService.db.nodes.get(owner);
+        if (!identityNode || !identityNode.properties || !identityNode.properties.subscriptionTemplate) {
+            throw new Error(`Cannot bootstrap subscription: no subscriptionTemplate found on AgentIdentity '${owner}'.`);
+        }
+
+        const template = identityNode.properties.subscriptionTemplate;
+
+        // Idempotency check: see if an active subscription matching the template already exists for this owner
+        const db = GraphService.db;
+        if (db) {
+            for (const node of db.nodes.items) {
+                if (node.label === 'WAKE_SUBSCRIPTION') {
+                    const props = node.properties || {};
+                    if (props.agentIdentity === owner && 
+                        props.status === 'active' && 
+                        props.trigger === template.trigger && 
+                        props.harnessTarget === template.harnessTarget) {
+                        return { subscriptionId: node.id, harnessTarget: props.harnessTarget, status: 'existing' };
+                    }
+                }
+            }
+        }
+
+        const mergedMetadata = {
+            ...(template.harnessTargetMetadata || {}),
+            ...(overrideMetadata || {})
+        };
+
+        // Create new subscription from template
+        const result = await this.subscribe({
+            trigger: template.trigger,
+            filters: template.filters || {},
+            harnessTarget: template.harnessTarget,
+            harnessTargetMetadata: mergedMetadata
+        });
+
+        return { ...result, status: 'created' };
     }
 
     /**

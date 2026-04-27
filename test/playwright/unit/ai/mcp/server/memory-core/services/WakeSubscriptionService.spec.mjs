@@ -90,6 +90,72 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
     });
 
     // -----------------------------------------------------------------------------
+    // bootstrap
+    // -----------------------------------------------------------------------------
+
+    test.describe('bootstrap', () => {
+        test('creates new subscription from identity template', async () => {
+            // Give Alice a template
+            GraphService.upsertNode({
+                id: '@alice',
+                type: 'AGENT',
+                name: 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger: 'SENT_TO_ME',
+                        harnessTarget: 'bridge-daemon',
+                        harnessTargetMetadata: { appName: 'TestApp' }
+                    }
+                }
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const res = await WakeSubscriptionService.manage({ action: 'bootstrap' });
+                expect(res.status).toBe('created');
+                expect(res.subscriptionId).toMatch(/^WAKE_SUB:[0-9a-f-]{36}$/);
+                expect(res.harnessTarget).toBe('bridge-daemon');
+
+                const node = GraphService.db.nodes.get(res.subscriptionId);
+                expect(node.properties.trigger).toBe('SENT_TO_ME');
+                expect(node.properties.harnessTargetMetadata.appName).toBe('TestApp');
+            });
+        });
+
+        test('returns existing subscription if it matches template (idempotent)', async () => {
+            // Give Alice a template
+            GraphService.upsertNode({
+                id: '@alice',
+                type: 'AGENT',
+                name: 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger: 'SENT_TO_ME',
+                        harnessTarget: 'bridge-daemon',
+                        harnessTargetMetadata: { appName: 'TestApp' }
+                    }
+                }
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const first = await WakeSubscriptionService.manage({ action: 'bootstrap' });
+                expect(first.status).toBe('created');
+
+                const second = await WakeSubscriptionService.manage({ action: 'bootstrap' });
+                expect(second.status).toBe('existing');
+                expect(second.subscriptionId).toBe(first.subscriptionId);
+            });
+        });
+
+        test('throws error if identity has no template', async () => {
+            // Bob has no template
+            await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
+                await expect(WakeSubscriptionService.manage({ action: 'bootstrap' }))
+                    .rejects.toThrow("Cannot bootstrap subscription: no subscriptionTemplate found on AgentIdentity '@bob'.");
+            });
+        });
+    });
+
+    // -----------------------------------------------------------------------------
     // subscribe
     // -----------------------------------------------------------------------------
 
@@ -389,11 +455,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
             expect(emittedEvents.length).toBe(0);
         });
 
-        test('emits digest for matching mcp-notifications subscription after pump -> enqueue -> flush', async () => {
+        test('emits raw event for matching mcp-notifications subscription (bypass coalescing) after pump', async () => {
             CoalescingEngineService.setMcpServer(mockMcpServer);
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
-                // Set a small coalesceWindow so it would naturally flush, but we will force flush
+                // mcp-notifications bypasses coalescing window and pushes immediately
                 await WakeSubscriptionService.subscribe({
                     trigger: 'SENT_TO_ME', 
                     harnessTarget: 'mcp-notifications'
@@ -415,10 +481,10 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
             
             expect(emittedEvents.length).toBe(1);
             expect(emittedEvents[0].method).toBe('notifications/message');
-            expect(emittedEvents[0].params.eventType).toBe('wake/digest');
-            expect(emittedEvents[0].params.payload.totalEvents).toBe(1);
-            expect(emittedEvents[0].params.payload.breakdown.sent_to_me.count).toBe(1);
-            expect(emittedEvents[0].params.payload.breakdown.sent_to_me.latest.from).toBe('@bob');
+            expect(emittedEvents[0].params.eventType).toBe('wake/sent_to_me');
+            expect(emittedEvents[0].params.payload.messageId).toBe('MSG:2');
+            expect(emittedEvents[0].params.payload.from).toBe('@bob');
+            expect(emittedEvents[0].params.payload.subject).toBe('hello');
         });
 
         test('does not emit for non-matching subscription', async () => {
