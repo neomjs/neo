@@ -129,5 +129,17 @@ test.describe('Bridge Daemon', () => {
         const output = await deliveryPromise;
         expect(output).toContain('[Bridge Daemon Test Adapter] Delivered');
         expect(output).toContain('Test Wake Event');
+
+        // Per #10419 — verify the diagnostic log file was persisted to disk and contains
+        // structured entries (ISO timestamp + PID + INFO/ERROR level prefix). Persistence
+        // is the substrate for post-hoc wake-failure investigation; without this audit
+        // trail every diagnostic depends on terminal-scrollback luck.
+        const logFile = path.join(DAEMON_DIR, 'bridge.log');
+        expect(fs.existsSync(logFile)).toBe(true);
+        const logContents = fs.readFileSync(logFile, 'utf8');
+        expect(logContents).toMatch(/\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\]/); // ISO timestamp
+        expect(logContents).toMatch(/\[PID:\d+\]/);                                       // PID prefix
+        expect(logContents).toMatch(/\[INFO\]/);                                          // level prefix
+        expect(logContents).toContain('[Bridge Daemon Test Adapter] Delivered');          // Same delivery line as stdout
     });
 });
