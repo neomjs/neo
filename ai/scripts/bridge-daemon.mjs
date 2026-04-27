@@ -506,6 +506,19 @@ async function deliverDigest(subscription, digest) {
                 else if (appName === 'Cursor') tabShortcut = 'l';
             }
             
+            // [Anchor & Echo] The Electron-Paradox Defense:
+            // Electron-based IDEs (Antigravity, Cursor) register their bundle names differently 
+            // than their underlying macOS process names (often just "Electron" to System Events).
+            // Using \`tell process "\${appName}"\` will fail with exit code 1 because the process
+            // name does not match the app name.
+            // Fix: We activate the app via its bundle name, then dynamically ask System Events for 
+            // the \`first application process whose frontmost is true\`.
+            // 
+            // [Anchor & Echo] The Key Code 36 (Enter) Defense:
+            // We specifically use \`key code 36\` (Enter) to submit the payload after pasting. 
+            // This is load-bearing for Claude Desktop with Tab 3 (Claude Code) and Google Antigravity.
+            // Do NOT "clean this up" or revert to \`tell process\` or try to replace the Enter key 
+            // without empiric validation across both harnesses.
             const osascriptArgs = [
                 '-e', 'on run argv',
                 '-e', '  set wakePayload to (item 1 of argv)',
