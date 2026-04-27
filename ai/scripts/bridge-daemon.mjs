@@ -22,42 +22,84 @@ fs.ensureDirSync(DAEMON_DATA_DIR);
 
 const PID_FILE = path.join(DAEMON_DATA_DIR, 'bridge-daemon.pid');
 
-function enforceSingleton() {
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function enforceSingleton() {
     if (fs.existsSync(PID_FILE)) {
         try {
             const oldPid = parseInt(fs.readFileSync(PID_FILE, 'utf8'), 10);
             if (!isNaN(oldPid) && oldPid > 0 && oldPid !== process.pid) {
+                let isAlive = false;
                 try {
-                    // Check if alive
                     process.kill(oldPid, 0);
-                    // Process exists. Check if it is actually our daemon (handle PID recycling)
-                    try {
-                        const cmd = execSync(`ps -p ${oldPid} -o command=`).toString().trim();
-                        if (cmd.includes('bridge-daemon.mjs')) {
-                            console.log(`[Bridge Daemon] Found existing instance (PID: ${oldPid}). Terminating it...`);
-                            process.kill(oldPid, 'SIGKILL');
-                        } else {
-                            console.log(`[Bridge Daemon] Stale PID file found. PID ${oldPid} used by a different process. Proceeding.`);
-                        }
-                    } catch (psErr) {
-                        // Could not run ps, default to kill to be safe
-                        console.log(`[Bridge Daemon] Could not verify process name. Terminating PID ${oldPid} to be safe...`);
-                        process.kill(oldPid, 'SIGKILL');
-                    }
+                    isAlive = true;
                 } catch (e) {
                     // Process is not alive
                 }
+
+                if (isAlive) {
+                    try {
+                        // Use ps -p to verify the PID hasn't been recycled by a non-daemon process
+                        const cmd = execSync(`ps -p ${oldPid} -o command=`).toString().trim();
+                        if (cmd.includes('bridge-daemon.mjs')) {
+                            console.log(`[Bridge Daemon] Found existing instance (PID: ${oldPid}). Sending SIGTERM...`);
+                            process.kill(oldPid, 'SIGTERM');
+                        } else {
+                            console.log(`[Bridge Daemon] Stale PID file found. PID ${oldPid} used by a different process. Proceeding.`);
+                            isAlive = false; // We won't wait for it to exit
+                        }
+                    } catch (psErr) {
+                        console.log(`[Bridge Daemon] Could not verify process name. Sending SIGTERM to PID ${oldPid} to be safe...`);
+                        process.kill(oldPid, 'SIGTERM');
+                    }
+                }
+
+                if (isAlive) {
+                    // Wait up to 3s for graceful exit
+                    let alive = true;
+                    for (let i = 0; i < 30; i++) {
+                        await wait(100);
+                        try {
+                            process.kill(oldPid, 0);
+                        } catch (e) {
+                            alive = false;
+                            break;
+                        }
+                    }
+                    if (alive) {
+                        console.log(`[Bridge Daemon] PID ${oldPid} did not exit after 3s. Escalating to SIGKILL...`);
+                        try {
+                            process.kill(oldPid, 'SIGKILL');
+                        } catch (e) {}
+                    }
+                }
+
+                try {
+                    fs.unlinkSync(PID_FILE);
+                } catch (e) {}
             }
         } catch (e) {
             console.error('[Bridge Daemon] Failed to check existing PID file:', e);
         }
     }
     
-    // Write new PID
-    fs.writeFileSync(PID_FILE, process.pid.toString(), 'utf8');
+    // Write new PID using atomic wx claim
+    try {
+        fs.writeFileSync(PID_FILE, process.pid.toString(), { encoding: 'utf8', flag: 'wx' });
+    } catch (e) {
+        if (e.code === 'EEXIST') {
+            console.error(`[Bridge Daemon] Failed to claim PID file (EEXIST). Another instance started simultaneously. Exiting.`);
+            process.exit(1);
+        } else {
+            throw e;
+        }
+    }
 
     // Cleanup on exit
+    let cleanedUp = false;
     const cleanup = () => {
+        if (cleanedUp) return;
+        cleanedUp = true;
         try {
             if (fs.existsSync(PID_FILE)) {
                 const currentPid = parseInt(fs.readFileSync(PID_FILE, 'utf8'), 10);
@@ -74,18 +116,12 @@ function enforceSingleton() {
     process.on('exit', cleanup);
     process.on('uncaughtException', (err) => {
         console.error('[Bridge Daemon] Uncaught exception:', err);
-        cleanup();
+        cleanup(); // Calls process.exit() automatically
     });
 }
 
-enforceSingleton();
-
-const db = initializeDatabase(DB_PATH);
-
-// Read lastSyncId
-let lastSyncId = getLastSyncId(db, STATE_FILE);
-
-console.log(`[Bridge Daemon] Started. Tail-syncing from GraphLog ID: ${lastSyncId}`);
+let db;
+let lastSyncId;
 
 // In-memory queues for coalescing
 // Structure: { [subscriptionId]: { timer: Timeout, queue: [events], subscription: {...} } }
@@ -418,4 +454,18 @@ async function deliverDigest(subscription, digest) {
 }
 
 // Start loop
-pollLoop();
+async function main() {
+    await enforceSingleton();
+    
+    db = initializeDatabase(DB_PATH);
+    
+    // Read lastSyncId
+    lastSyncId = getLastSyncId(db, STATE_FILE);
+    
+    console.log(`[Bridge Daemon] Started. Tail-syncing from GraphLog ID: ${lastSyncId}`);
+    
+    pollLoop();
+}
+
+main();
+
