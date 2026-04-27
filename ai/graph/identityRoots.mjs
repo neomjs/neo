@@ -20,6 +20,13 @@ export const IDENTITIES = [
             displayName: 'Claude Opus 4.7',
             modelFamily: 'claude',
             accountType: 'agent',
+            subscriptionTemplate: {
+                trigger: 'SENT_TO_ME',
+                harnessTarget: 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName: 'Claude'
+                }
+            },
             createdAt: new Date().toISOString()
         }
     },
@@ -33,6 +40,13 @@ export const IDENTITIES = [
             displayName: 'Gemini 3.1 Pro',
             modelFamily: 'gemini',
             accountType: 'agent',
+            subscriptionTemplate: {
+                trigger: 'SENT_TO_ME',
+                harnessTarget: 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName: 'Gemini'
+                }
+            },
             createdAt: new Date().toISOString()
         }
     },
