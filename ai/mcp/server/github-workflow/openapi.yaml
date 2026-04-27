@@ -1088,6 +1088,30 @@ components:
               type: array
               items:
                 type: string
+        notificationPreview:
+          type: object
+          description: A passive inbox preview of unread GitHub notifications. Present only if authenticated.
+          properties:
+            unreadCount:
+              type: integer
+              description: Total number of unread notifications.
+              example: 3
+            latest:
+              type: array
+              description: The 5 most recent unread notifications.
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  reason:
+                    type: string
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  url:
+                    type: string
 
     Label:
       type: object
