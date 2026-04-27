@@ -34,6 +34,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     let installDependencies;
     let runBuildAll;
     let BOOTSTRAP_CONFIGS;
+    let DATA_SUBDIRS_TO_LINK;
     let fakeMainCheckout;
     let fakeWorktree;
 
@@ -46,11 +47,12 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
 
     test.beforeAll(async () => {
         const mod           = await import('../../../../../ai/scripts/bootstrapWorktree.mjs');
-        bootstrapWorktree   = mod.bootstrapWorktree;
-        symlinkDataDir      = mod.symlinkDataDir;
-        installDependencies = mod.installDependencies;
-        runBuildAll         = mod.runBuildAll;
-        BOOTSTRAP_CONFIGS   = mod.BOOTSTRAP_CONFIGS;
+        bootstrapWorktree    = mod.bootstrapWorktree;
+        symlinkDataDir       = mod.symlinkDataDir;
+        installDependencies  = mod.installDependencies;
+        runBuildAll          = mod.runBuildAll;
+        BOOTSTRAP_CONFIGS    = mod.BOOTSTRAP_CONFIGS;
+        DATA_SUBDIRS_TO_LINK = mod.DATA_SUBDIRS_TO_LINK;
     });
 
     test.beforeEach(async () => {
@@ -149,105 +151,234 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     });
 
     // --------------------------------------------------------------------------------
-    // #10224 symlinkDataDir — unifies .neo-ai-data across worktree+main checkouts.
+    // #10432 symlinkDataDir — granular per-subdir symlinking of gitignored substrate-data
+    // subdirs of `.neo-ai-data/`, while leaving the git-tracked `concepts/` subdir
+    // untouched. Refines the closed predecessor #10224 (coarse-grained parent-level
+    // symlink) and unblocks the cross-process coherence gap empirically anchored in
+    // #10424.
     //
-    // These tests use a canary file in the main-checkout data dir to prove that the
-    // symlinked worktree path sees the same data, empirically validating the
-    // cross-process substrate unification this helper exists to enable.
+    // These tests use canary files PER SUBDIR in the main-checkout data dir to prove that
+    // each symlinked worktree subdir sees its corresponding main-checkout subdir's data.
+    // The concepts/-untouched test is the load-bearing safety check — the bug class this
+    // refactor exists to prevent.
     // --------------------------------------------------------------------------------
-    test.describe('#10224 symlinkDataDir', () => {
+    test.describe('#10432 symlinkDataDir (granular per-subdir)', () => {
         const dataDir = '.neo-ai-data';
-        let mainDataDir;
+        const fixtureSubdirs = ['sqlite', 'chroma', 'wake-daemon'];
 
-        test.beforeEach(async () => {
-            // Seed the main checkout's .neo-ai-data/ with a canary file so tests can
-            // prove symlink traversal actually reaches it.
-            mainDataDir = path.join(fakeMainCheckout, dataDir);
-            await fs.ensureDir(mainDataDir);
-            await fs.writeFile(path.join(mainDataDir, 'canary.txt'), 'main-checkout-canary\n', 'utf-8');
+        async function seedMainSubdirs(subdirs = fixtureSubdirs) {
+            for (const subdir of subdirs) {
+                const dir = path.join(fakeMainCheckout, dataDir, subdir);
+                await fs.ensureDir(dir);
+                await fs.writeFile(path.join(dir, 'canary.txt'), `main-${subdir}-canary\n`, 'utf-8');
+            }
+        }
+
+        test('exports the canonical DATA_SUBDIRS_TO_LINK list', () => {
+            // The exact list is documented in the source; we assert the load-bearing
+            // invariants rather than the precise sequence (which may evolve).
+            expect(Array.isArray(DATA_SUBDIRS_TO_LINK)).toBe(true);
+            expect(DATA_SUBDIRS_TO_LINK).toContain('sqlite');
+            expect(DATA_SUBDIRS_TO_LINK).toContain('chroma');
+            expect(DATA_SUBDIRS_TO_LINK).toContain('wake-daemon');
+
+            // CRITICAL invariant: concepts/ is git-tracked and MUST NEVER be in the
+            // default allowlist. This is the load-bearing safety check that prevents
+            // the pre-#10432 clobber-bug from regressing.
+            expect(DATA_SUBDIRS_TO_LINK).not.toContain('concepts');
         });
 
-        test('creates a symlink when worktree .neo-ai-data does not exist', async () => {
+        test('symlinks every allowlisted subdir from canonical when none exist in worktree', async () => {
+            await seedMainSubdirs();
+
             const result = await symlinkDataDir({
                 mainCheckout: fakeMainCheckout,
                 projectRoot : fakeWorktree,
+                subdirs     : fixtureSubdirs,
                 log         : () => {}
             });
 
-            expect(result).toBe('linked');
+            expect(result.linked).toEqual(fixtureSubdirs);
+            expect(result.alreadyLinked).toHaveLength(0);
+            expect(result.clobbered).toHaveLength(0);
+            expect(result.skippedNoSource).toHaveLength(0);
+            expect(result.mainCheckout).toBe(false);
 
-            const dst         = path.join(fakeWorktree, dataDir);
-            const lstat       = await fs.lstat(dst);
-            expect(lstat.isSymbolicLink()).toBe(true);
+            // Each subdir is now a symlink, and each canary is reachable via the link.
+            for (const subdir of fixtureSubdirs) {
+                const dst   = path.join(fakeWorktree, dataDir, subdir);
+                const lstat = await fs.lstat(dst);
+                expect(lstat.isSymbolicLink()).toBe(true);
 
-            // Canary reachable via the symlinked path — proves symlink traversal works.
-            const canaryViaLink = await fs.readFile(path.join(dst, 'canary.txt'), 'utf-8');
-            expect(canaryViaLink).toBe('main-checkout-canary\n');
+                const canary = await fs.readFile(path.join(dst, 'canary.txt'), 'utf-8');
+                expect(canary).toBe(`main-${subdir}-canary\n`);
+            }
+
+            // Parent .neo-ai-data/ is a regular directory (not a symlink) — preserves
+            // the worktree's tracked concepts/ subdir if present.
+            const parentLstat = await fs.lstat(path.join(fakeWorktree, dataDir));
+            expect(parentLstat.isDirectory()).toBe(true);
+            expect(parentLstat.isSymbolicLink()).toBe(false);
         });
 
-        test('is idempotent — returns already-linked when dst is already a symlink', async () => {
-            // First call creates the link.
-            await symlinkDataDir({mainCheckout: fakeMainCheckout, projectRoot: fakeWorktree, log: () => {}});
+        test('is idempotent per-subdir — re-running over partial state surfaces alreadyLinked + linked', async () => {
+            await seedMainSubdirs();
 
-            // Second call must short-circuit; no error, no re-link.
+            // First call links all three subdirs.
+            await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                subdirs     : fixtureSubdirs,
+                log         : () => {}
+            });
+
+            // Manually unlink one to simulate a partial state.
+            await fs.unlink(path.join(fakeWorktree, dataDir, 'chroma'));
+
+            // Second call: two are alreadyLinked, the unlinked one gets re-linked.
             const result = await symlinkDataDir({
                 mainCheckout: fakeMainCheckout,
                 projectRoot : fakeWorktree,
+                subdirs     : fixtureSubdirs,
                 log         : () => {}
             });
-            expect(result).toBe('already-linked');
+
+            expect(result.alreadyLinked.sort()).toEqual(['sqlite', 'wake-daemon'].sort());
+            expect(result.linked).toEqual(['chroma']);
+            expect(result.clobbered).toHaveLength(0);
+            expect(result.skippedNoSource).toHaveLength(0);
         });
 
-        test('refuses to clobber a non-symlink directory without force', async () => {
-            // Pre-create a real directory with unique content — simulates a worktree
-            // that has accumulated data before symlink unification was opted-in.
-            const worktreeDataDir = path.join(fakeWorktree, dataDir);
-            await fs.ensureDir(worktreeDataDir);
-            await fs.writeFile(path.join(worktreeDataDir, 'local-only.txt'), 'worktree-specific\n', 'utf-8');
+        test('refuses to clobber a non-symlink subdir without force', async () => {
+            await seedMainSubdirs();
+
+            // Pre-create one subdir as a regular dir with unique content — simulates a
+            // worktree that has accumulated data before symlink unification was opted-in.
+            const worktreeSubdir = path.join(fakeWorktree, dataDir, 'sqlite');
+            await fs.ensureDir(worktreeSubdir);
+            await fs.writeFile(path.join(worktreeSubdir, 'local-only.txt'), 'worktree-specific\n', 'utf-8');
 
             await expect(
-                symlinkDataDir({mainCheckout: fakeMainCheckout, projectRoot: fakeWorktree, log: () => {}})
+                symlinkDataDir({
+                    mainCheckout: fakeMainCheckout,
+                    projectRoot : fakeWorktree,
+                    subdirs     : fixtureSubdirs,
+                    log         : () => {}
+                })
             ).rejects.toThrow(/Refusing to replace non-symlink/);
 
             // Local data preserved — guard did its job.
-            const preserved = await fs.readFile(path.join(worktreeDataDir, 'local-only.txt'), 'utf-8');
+            const preserved = await fs.readFile(path.join(worktreeSubdir, 'local-only.txt'), 'utf-8');
             expect(preserved).toBe('worktree-specific\n');
         });
 
-        test('clobbers a non-symlink directory when force=true and creates the link', async () => {
-            const worktreeDataDir = path.join(fakeWorktree, dataDir);
-            await fs.ensureDir(worktreeDataDir);
-            await fs.writeFile(path.join(worktreeDataDir, 'local-only.txt'), 'worktree-specific\n', 'utf-8');
+        test('clobbers per-subdir with force=true and creates the link', async () => {
+            await seedMainSubdirs();
 
+            const worktreeSubdir = path.join(fakeWorktree, dataDir, 'sqlite');
+            await fs.ensureDir(worktreeSubdir);
+            await fs.writeFile(path.join(worktreeSubdir, 'local-only.txt'), 'worktree-specific\n', 'utf-8');
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                subdirs     : fixtureSubdirs,
+                force       : true,
+                log         : () => {}
+            });
+
+            expect(result.linked).toEqual(fixtureSubdirs);
+            expect(result.clobbered).toEqual(['sqlite']);
+
+            // Clobbered subdir is now a symlink + canary reachable.
+            const lstat = await fs.lstat(worktreeSubdir);
+            expect(lstat.isSymbolicLink()).toBe(true);
+
+            const canary = await fs.readFile(path.join(worktreeSubdir, 'canary.txt'), 'utf-8');
+            expect(canary).toBe('main-sqlite-canary\n');
+        });
+
+        test('gracefully skips subdirs missing in the main checkout', async () => {
+            // Seed only two of three; third (chroma) is absent in the main checkout.
+            await seedMainSubdirs(['sqlite', 'wake-daemon']);
+
+            const result = await symlinkDataDir({
+                mainCheckout: fakeMainCheckout,
+                projectRoot : fakeWorktree,
+                subdirs     : fixtureSubdirs, // includes chroma which isn't in main
+                log         : () => {}
+            });
+
+            expect(result.linked.sort()).toEqual(['sqlite', 'wake-daemon'].sort());
+            expect(result.skippedNoSource).toEqual(['chroma']);
+        });
+
+        test('NEVER touches concepts/ even when present in main checkout and force=true', async () => {
+            // Seed both the allowlisted subdirs AND a concepts/ in main and a regular
+            // (tracked-style) concepts/ in the worktree with unique content.
+            await seedMainSubdirs();
+            await fs.ensureDir(path.join(fakeMainCheckout, dataDir, 'concepts'));
+            await fs.writeFile(
+                path.join(fakeMainCheckout, dataDir, 'concepts', 'main-concept.txt'),
+                'main-concept\n', 'utf-8'
+            );
+
+            const worktreeConceptsDir = path.join(fakeWorktree, dataDir, 'concepts');
+            await fs.ensureDir(worktreeConceptsDir);
+            await fs.writeFile(
+                path.join(worktreeConceptsDir, 'tracked-concept.txt'),
+                'worktree-tracked-concept\n', 'utf-8'
+            );
+
+            // Use the DEFAULT allowlist (which deliberately omits concepts/), and force=true.
             const result = await symlinkDataDir({
                 mainCheckout: fakeMainCheckout,
                 projectRoot : fakeWorktree,
                 force       : true,
                 log         : () => {}
             });
-            expect(result).toBe('linked');
 
-            // Local dir replaced — confirm dst is now a symlink.
-            const lstat = await fs.lstat(worktreeDataDir);
-            expect(lstat.isSymbolicLink()).toBe(true);
+            // concepts/ is NOT in the default allowlist → not in any result bucket.
+            expect(result.linked).not.toContain('concepts');
+            expect(result.alreadyLinked).not.toContain('concepts');
+            expect(result.clobbered).not.toContain('concepts');
 
-            // Canary reachable via the freshly-linked path.
-            const canary = await fs.readFile(path.join(worktreeDataDir, 'canary.txt'), 'utf-8');
-            expect(canary).toBe('main-checkout-canary\n');
+            // The worktree's concepts/ is still a regular dir, with its tracked file intact.
+            const lstat = await fs.lstat(worktreeConceptsDir);
+            expect(lstat.isDirectory()).toBe(true);
+            expect(lstat.isSymbolicLink()).toBe(false);
+
+            const tracked = await fs.readFile(path.join(worktreeConceptsDir, 'tracked-concept.txt'), 'utf-8');
+            expect(tracked).toBe('worktree-tracked-concept\n');
+
+            // The main-checkout's concept file is NOT visible in the worktree's
+            // concepts/ — it remains a regular dir, isolated by design.
+            const mainOnlyExists = await fs.pathExists(path.join(worktreeConceptsDir, 'main-concept.txt'));
+            expect(mainOnlyExists).toBe(false);
         });
 
-        test('returns main-checkout when run from the primary working tree', async () => {
+        test('returns mainCheckout: true when run from the primary working tree', async () => {
+            await seedMainSubdirs();
+
             const result = await symlinkDataDir({
                 mainCheckout: fakeMainCheckout,
                 projectRoot : fakeMainCheckout, // same path = primary working tree
+                subdirs     : fixtureSubdirs,
                 log         : () => {}
             });
-            expect(result).toBe('main-checkout');
 
-            // No link was created (the main checkout's own dataDir stays as a real dir).
-            const lstat = await fs.lstat(path.join(fakeMainCheckout, dataDir));
-            expect(lstat.isDirectory()).toBe(true);
-            expect(lstat.isSymbolicLink()).toBe(false);
+            expect(result.mainCheckout).toBe(true);
+            expect(result.linked).toHaveLength(0);
+            expect(result.alreadyLinked).toHaveLength(0);
+            expect(result.clobbered).toHaveLength(0);
+            expect(result.skippedNoSource).toHaveLength(0);
+
+            // No links were created in the main checkout's own data subdirs.
+            for (const subdir of fixtureSubdirs) {
+                const lstat = await fs.lstat(path.join(fakeMainCheckout, dataDir, subdir));
+                expect(lstat.isDirectory()).toBe(true);
+                expect(lstat.isSymbolicLink()).toBe(false);
+            }
         });
     });
 
