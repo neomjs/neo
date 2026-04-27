@@ -17,8 +17,9 @@ import SemanticGraphExtractor from '../../../../daemons/services/SemanticGraphEx
  * @returns {String} The canonical address ready for `linkNodes` and permission-check consumption.
  * @private
  */
-function normalizeMailboxTarget(to) {
+function normalizeMailboxTarget(to, sentBy) {
     if (!to) return to;
+    if (to === '@me' && sentBy) return sentBy;
     if (to === 'AGENT:*') return to;                                    // sentinel preserved
     if (to.startsWith('AGENT:')) {
         to = to.slice('AGENT:'.length);
@@ -99,7 +100,7 @@ class MailboxService extends Base {
         // Without this normalization, `GraphService.linkNodes`'s FK guard silently culls the
         // `SENT_TO` edge — the root-cause bug closed by #10174. Permission checks and edge
         // creation below all consume the canonical form from this point on.
-        to = normalizeMailboxTarget(to);
+        to = normalizeMailboxTarget(to, sentBy);
         const postNormalizeTo = to; // Phase 1 #10347 observability
 
         const messageId = `MESSAGE:${crypto.randomUUID()}`;
