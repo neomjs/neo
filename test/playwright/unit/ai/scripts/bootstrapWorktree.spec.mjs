@@ -33,6 +33,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     let symlinkDataDir;
     let installDependencies;
     let runBuildAll;
+    let resolveMainCheckout;
     let BOOTSTRAP_CONFIGS;
     let DATA_SUBDIRS_TO_LINK;
     let fakeMainCheckout;
@@ -51,6 +52,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
         symlinkDataDir       = mod.symlinkDataDir;
         installDependencies  = mod.installDependencies;
         runBuildAll          = mod.runBuildAll;
+        resolveMainCheckout  = mod.resolveMainCheckout;
         BOOTSTRAP_CONFIGS    = mod.BOOTSTRAP_CONFIGS;
         DATA_SUBDIRS_TO_LINK = mod.DATA_SUBDIRS_TO_LINK;
     });
@@ -148,6 +150,48 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
 
         expect(result.missing).toEqual([removed]);
         expect(result.copied).toEqual(fixtureConfigs.filter(c => c !== removed));
+    });
+
+    // --------------------------------------------------------------------------------
+    // #10435 resolveMainCheckout — explicit canonical-root override for independent
+    // clone topologies (where `git worktree list` returns the clone itself rather than
+    // the canonical sibling). The git-worktree-list fall-through path is intentionally
+    // not exercised here (depends on a real git checkout); the explicit-root happy
+    // paths are the new public contract that warrants permanent coverage.
+    // --------------------------------------------------------------------------------
+    test.describe('#10435 resolveMainCheckout (explicit canonical-root)', () => {
+        test('returns explicitRoot verbatim when absolute', async () => {
+            const explicitRoot = path.resolve(process.cwd(), 'tmp', 'fake-canonical-abs');
+            const result       = await resolveMainCheckout(process.cwd(), {explicitRoot});
+            expect(result).toBe(explicitRoot);
+        });
+
+        test('resolves a relative explicitRoot to absolute', async () => {
+            // Pass a relative path; expect the result to be path.resolve()d to absolute.
+            const relative = 'tmp/fake-canonical-rel';
+            const result   = await resolveMainCheckout(process.cwd(), {explicitRoot: relative});
+            expect(path.isAbsolute(result)).toBe(true);
+            expect(result).toBe(path.resolve(relative));
+        });
+
+        test('falls through to git resolution when explicitRoot is undefined', async () => {
+            // We're running inside the neomjs/neo repo, so the git path resolves to a
+            // real working-tree root. Rather than asserting a specific path (which would
+            // couple the test to a particular harness layout), we assert that the result
+            // is a non-null absolute path — proving the fall-through path is wired.
+            const result = await resolveMainCheckout(process.cwd());
+            expect(typeof result).toBe('string');
+            expect(path.isAbsolute(result)).toBe(true);
+        });
+
+        test('falls through to git resolution when explicitRoot is explicitly null/empty', async () => {
+            // Boundary: passing falsy explicitRoot must still take the git path.
+            const r1 = await resolveMainCheckout(process.cwd(), {explicitRoot: null});
+            const r2 = await resolveMainCheckout(process.cwd(), {explicitRoot: ''});
+            expect(r1).not.toBeNull();
+            expect(r2).not.toBeNull();
+            expect(r1).toBe(r2); // same fall-through path => same answer
+        });
     });
 
     // --------------------------------------------------------------------------------
