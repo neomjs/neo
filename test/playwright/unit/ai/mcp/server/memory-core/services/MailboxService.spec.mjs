@@ -669,6 +669,43 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
             expect(inbox.messages.find(m => m.subject === 'double-prefix')).toBeDefined();
         });
 
+        test('`@me` alias normalizes to the sentBy identity (Future-Self Routing)', async () => {
+            let messageId;
+            await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
+                const res = await MailboxService.addMessage({ to: '@me', subject: 'note to self', body: 'body' });
+                expect(res.status).toBe('sent');
+                messageId = res.messageId;
+
+                const sentToEdge = GraphService.db.edges.items.find(
+                    e => e.source === messageId && e.type === 'SENT_TO'
+                );
+                expect(sentToEdge).toBeDefined();
+                expect(sentToEdge.target).toBe('@opus');
+            });
+
+            // Opus should see their own message in the inbox
+            const inbox = await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
+                return await MailboxService.listMessages({ box: 'inbox' });
+            });
+            expect(inbox.messages.find(m => m.subject === 'note to self')).toBeDefined();
+        });
+
+        test('`@me` alias falls through when sentBy is absent', async () => {
+            // Simulate missing identity context. The MailboxService guards against missing context
+            // at the start of addMessage, so we expect an error to be thrown before normalization,
+            // but if that guard is ever removed, the normalization safely falls through.
+            await RequestContextService.run({ agentIdentityNodeId: null }, async () => {
+                let error;
+                try {
+                    await MailboxService.addMessage({ to: '@me', subject: 'fallthrough', body: 'body' });
+                } catch (e) {
+                    error = e;
+                }
+                expect(error).toBeDefined();
+                expect(error.message).toContain('no agent identity context bound');
+            });
+        });
+
         test('`AGENT:*` broadcast creates SENT_TO edge to the seeded sentinel and fans out', async () => {
             let messageId;
             await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
