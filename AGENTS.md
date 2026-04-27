@@ -449,6 +449,7 @@ The lifecycle skills below carry the discipline that this file's invariants (esp
 | Skill | Trigger condition (invoke when) |
 |---|---|
 | `ticket-create` | Before `create_issue` MCP invocation — duplicate sweep, Fat Ticket body, label rules, 5-stage challenge chain |
+| `ticket-triage` | Maintainer-permission agent encountering a ticket missing `ai` / primary / secondary labels — retrospective 5-stage challenge + label application BEFORE `ticket-intake` fires |
 | `ticket-intake` | Picking up an existing assigned ticket — validation sweep, ROI calculation, branch-before-code gate |
 | `epic-review` | Before picking up a sub of an unreviewed epic — 5-stage roadmap-fit / approach-elegance / sub-coherence chain |
 | `pull-request` | Code modifications complete; before opening PR — stepping-back reflection, commit format, cross-family review mandate, post-comment A2A commentId hand-off (author→reviewer) per workflow §8.1 |
