@@ -92,6 +92,18 @@ For every modified or added OpenAPI tool description:
 
 ---
 
+### 🔌 Wire-Format Compatibility Audit
+
+*(Required when the PR alters JSON-RPC notification schemas, payload envelopes, or native API wire formats. Mark N/A for routine changes that do not modify inter-process or inter-agent contracts.)*
+
+- [ ] Does the change impact downstream consumers (e.g., Antigravity IDE, Bridge Daemon, Claude Code)?
+- [ ] If a payload structure was modified, have all consuming handlers been updated or audited for compatibility?
+- [ ] Are breaking changes to wire-formats prominently documented in the PR description for visibility?
+
+**Findings:** [Pass / specific compatibility gaps flagged / N/A]
+
+---
+
 ### 🔗 Cross-Skill Integration Audit
 
 *(Required per guide §8.1 when the PR touches skill files, conventions, MCP tool surfaces, `AGENTS_STARTUP.md` / `AGENTS.md`, or architectural primitives. Mark N/A for routine code changes that don't introduce cross-substrate conventions.)*
