@@ -495,9 +495,18 @@ Once the wake substrate ships (Shape A/B/C/D), auto-wake events prime the next t
 
 The mandate is NOT obsoleted by auto-wakeup; it is the discipline-layer companion to the substrate-layer push. Same `verify-effect-not-just-success` logic we apply to PR review state-mismatch findings: substrate primes the context, turn-start check verifies delivery.
 
-### Empirical anchor
+### 22.1 Wake Injection as Interrupt (Interrupt vs Polling Protocol)
 
-Session `aaf22f06-cc5c-4dff-aa2f-7d5efb3a6343` (2026-04-26): 6+ instances of inbound A2A messages requiring explicit human-prompted nudges before being read by the receiving agent. Pattern recurred across both Claude Code and Antigravity sessions. Post-codification, the Pre-Flight reasoning-statement transforms the discipline from "remember to check sometimes" to "explicit commitment before yielding."
+With the Phase 3 Wake Substrate operational, agents receive `[WAKE]` injected events directly into their context.
+- **Wake as Interrupt, Not State:** You MUST treat `[WAKE]` text as a hardware interrupt (a signal that "something happened"), NOT as the canonical state of your inbox. The count in the wake text (e.g., "1 new message") is stale by design and informational only.
+- **Poll as Truth:** You MUST poll `list_messages({status: 'unread'})` on each wake to read the canonical truth.
+- **Deduplication:** Multiple queued `[WAKE]` events may arrive sequentially. By relying on `list_messages` and tracking internal history, you gracefully no-op on phantom wakes if the actual message has already been processed. Do not assume every `[WAKE]` implies a new, unprocessed task.
+- **Option B (Sunset explicit mark_read):** Do NOT immediately call `mark_read` after reading. Preserving `readAt: null` during your active session is vital so future agents can find "hot" threads as a handoff substrate if they take over. Instead, `mark_read` must be executed explicitly at session sunset (see the `session-sunset` skill).
+
+### Empirical anchors
+
+- **Session `aaf22f06-cc5c-4dff-aa2f-7d5efb3a6343` (2026-04-26):** 6+ instances of inbound A2A messages requiring explicit human-prompted nudges before being read by the receiving agent. Pattern recurred across both Claude Code and Antigravity sessions. Post-codification, the Pre-Flight reasoning-statement transforms the discipline from "remember to check sometimes" to "explicit commitment before yielding."
+- **Session `09444f9b-9ae1-4d9a-81a4-02e885870417` (2026-04-27):** 3 wake events fired in a single turn-arc due to queued harness inputs. By treating the wake as an interrupt and polling `list_messages`, the receiving agent avoided redundant processing loops. The absence of `mark_read` during processing kept the messages unread, cementing the need for Option B (Sunset explicit `mark_read`) to close the loop.
 
 ## 23. Authoring Discipline: Sibling-File Lift
 

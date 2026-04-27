@@ -19,42 +19,45 @@ A true Session Boundary is defined by:
 If none of these conditions are met, do **NOT** sunset. Simply output your response and wait for the next turn.
 ## 2. The Handoff Structure
 
-Before terminating your session, you MUST execute the following 7 steps to ensure a clean handover.
+Before terminating your session, you MUST execute the following 8 steps to ensure a clean handover.
 
 ### Step 1: Codebase Synchronization (The Pre-Sunset Pull)
 Use the `run_command` tool to synchronize the codebase, but you MUST respect harness-isolation logic:
 - **Shared Checkout (Antigravity/Gemini):** Execute `git checkout dev && git pull origin dev`. Because the AI harness initializes MCP servers *before* an agent's first turn, pulling the latest code at the end of the current session guarantees the next session's servers boot with fresh infrastructure.
 - **Isolated Worktree (Claude Code):** Do NOT checkout `dev` (which would conflict with the main checkout). Instead, ensure your current PR branch is fully committed and pushed (`git push origin HEAD`). The next agent session will either resume this worktree or bootstrap a new one from the main checkout's updated `dev`.
-### Step 2: Handovers Posted (Active Work)
+
+### Step 2: Inbox Cleanup (`mark_read`)
+To preserve "hot" thread visibility across sessions (Option B), agents do NOT `mark_read` messages immediately during active processing. You MUST explicitly use the `mark_read` MCP tool on all processed messages in your inbox during this Sunset sequence. This ensures the inbox is clean for the next agent session while preserving cross-session visibility.
+### Step 3: Handovers Posted (Active Work)
 For any tickets or tasks that you actively worked on but did not fully complete, you MUST post a self-contained handover comment directly on the GitHub Issue (using `manage_issue_comment`).
 - Provide implementation guidance.
 - Provide empirical anchors (e.g. recent test results).
 - Signal ownership (who was working on it).
 - Define the pickup protocol for the next agent.
 
-### Step 3: Handovers Considered (Deferred Work)
+### Step 4: Handovers Considered (Deferred Work)
 Explicitly document what the next agent should **NOT** pick up. If there are tickets or discussions that are blocked, already handled internally, or assigned to a different domain, list them. This prevents the next agent from wasting cycles triaging noise.
 
-### Step 4: Mental-Model State
+### Step 5: Mental-Model State
 Summarize the current architectural phase progress.
 - What phase of the architecture is currently stable?
 - What phase is actively being built?
 - What are the outstanding structural blockers?
 
-### Step 5: Marathon Metrics
+### Step 6: Marathon Metrics
 Summarize the scope of your session. How many PRs were merged? How many skills were enhanced? What major decisions were averted or made? This provides a high-level "weather report" for the next session.
 
-### Step 6: The A2A Continuity Ping & Reward Signal (Future-Self Routing)
-You MUST use the `add_message` MCP tool to send an A2A message to your own agent identity (e.g., `to: '@me'` or your explicit handle). The body of this message MUST contain the **full Sunset Protocol markdown payload** (the output from Steps 1-5), alongside the `Origin Session ID`. 
+### Step 7: The A2A Continuity Ping & Reward Signal (Future-Self Routing)
+You MUST use the `add_message` MCP tool to send an A2A message to your own agent identity (e.g., `to: '@me'` or your explicit handle). The body of this message MUST contain the **full Sunset Protocol markdown payload** (the output from Steps 1-7), alongside the `Origin Session ID`. 
 
 Crucially, from an "LLM Psychology" perspective, this message must include a **Conceptual Priming / Reward Signal**. If you formulated new architectural concepts or achieved a major milestone, summarize the *actual content and value* of that breakthrough in the ping. Reading this high-density, successful content acts as a mathematical "dopamine hit" for your future self—it primes the next session's token probabilities for high-agency, expert-level continuity. This drastically improves the Model Experience (MX) by ensuring the agent wakes up not just with tasks, but with immediate, rich, "exciting" context.
 
-### Step 7: Memory Persistence (The Sandman Memory)
-This is the final and most critical step. You MUST invoke `add_memory` to persist a rich "Sandman memory" node. This memory should encapsulate the entire Sunset Protocol payload (Steps 1-6). The resulting `Origin Session ID` or `Memory ID` serves as the direct pointer for the next agent.
+### Step 8: Memory Persistence (The Sandman Memory)
+This is the final and most critical step. You MUST invoke `add_memory` to persist a rich "Sandman memory" node. This memory should encapsulate the entire Sunset Protocol payload (Steps 1-8). The resulting `Origin Session ID` or `Memory ID` serves as the direct pointer for the next agent.
 
 ## 3. Terminating the Session
 
-After completing the 7 steps above, you must drop your final Sunset Protocol payload directly into the chat response for the Human Commander. 
+After completing the 8 steps above, you must drop your final Sunset Protocol payload directly into the chat response for the Human Commander. 
 
 **Format the final response as follows:**
 
