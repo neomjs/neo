@@ -517,15 +517,8 @@ async function deliverDigest(subscription, digest) {
                 '-e', `  tell application "${appName}" to activate`,
                 '-e', '  delay 0.5',
                 '-e', '  tell application "System Events"',
-                '-e', `    tell process "${appName}"`,
-                '-e', '      set frontmost to true',
-                '-e', '    end tell',
-                '-e', '    delay 0.5',
-                '-e', '    set currentApp to name of first application process whose frontmost is true',
-                '-e', `    if currentApp is not "${appName}" then`,
-                '-e', '      error "Target app failed to become frontmost"',
-                '-e', '    end if',
-                '-e', `    tell process "${appName}"`
+                '-e', '    set frontmostProcess to first application process whose frontmost is true',
+                '-e', '    tell frontmostProcess'
             ];
 
             if (tabShortcut) {
@@ -549,12 +542,8 @@ async function deliverDigest(subscription, digest) {
                 '-e', '  set the clipboard to wakePayload',
                 '-e', '  delay 0.2',
                 '-e', '  tell application "System Events"',
-                '-e', '    set currentApp to name of first application process whose frontmost is true',
-                '-e', `    if currentApp is not "${appName}" then`,
-                '-e', '      set the clipboard to savedClipboard',
-                '-e', '      error "Target app lost frontmost status before paste"',
-                '-e', '    end if',
-                '-e', `    tell process "${appName}"`,
+                '-e', '    set frontmostProcess to first application process whose frontmost is true',
+                '-e', '    tell frontmostProcess',
                 '-e', '      keystroke "v" using command down',
                 '-e', '      delay 0.5',
                 '-e', '      key code 36',
@@ -565,7 +554,8 @@ async function deliverDigest(subscription, digest) {
                 '-e', '    set the clipboard to userInput',
                 '-e', '    delay 0.2',
                 '-e', '    tell application "System Events"',
-                '-e', `      tell process "${appName}"`,
+                '-e', '      set frontmostProcess to first application process whose frontmost is true',
+                '-e', '      tell frontmostProcess',
                 '-e', '        keystroke "v" using command down',
                 '-e', '      end tell',
                 '-e', '    end tell',
