@@ -4,15 +4,16 @@ title: Fix VDOM Update Collision Logic for Sparse Trees (Teleportation)
 state: OPEN
 labels:
   - bug
+  - stale
   - ai
   - regression
   - core
 assignees: []
 createdAt: '2026-01-26T20:26:23Z'
-updatedAt: '2026-01-26T20:26:23Z'
+updatedAt: '2026-04-27T04:45:54Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8890'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -42,4 +43,10 @@ The fix is to refine the collision detection in `src/mixin/VdomLifecycle.mjs` to
 - 2026-01-26T20:26:24Z @tobiu added the `ai` label
 - 2026-01-26T20:26:24Z @tobiu added the `regression` label
 - 2026-01-26T20:26:25Z @tobiu added the `core` label
+- 2026-04-04T00:37:04Z @aryanjsingh cross-referenced by PR #9675
+### @github-actions - 2026-04-27T04:45:53Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-04-27T04:45:54Z @github-actions added the `stale` label
 
