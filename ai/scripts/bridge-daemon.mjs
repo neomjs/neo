@@ -265,10 +265,11 @@ async function deliverDigest(subscription, digest) {
             console.log(`[Bridge Daemon] Delivered ${subscription.id} via tmux to session ${tmuxSession}`);
         } else if (adapter === 'osascript') {
             const appName = meta.appName || 'Claude';
-            // In April 2026, Claude Desktop features 3 main tabs: Chat (Cmd+1), Cowork (Cmd+2), and Code (Cmd+3).
-            // We default to '3' to automatically switch to the Code tab for agentic tasks.
-            // If the target app is a standalone 'Claude Code' app instead, this shortcut typically causes no harm.
-            const tabShortcut = meta.tabShortcut !== undefined ? meta.tabShortcut : '3';
+            let tabShortcut = meta.tabShortcut;
+            if (tabShortcut === undefined || tabShortcut === null) {
+                if (appName === 'Claude') tabShortcut = '3';
+                else if (appName === 'Cursor') tabShortcut = 'l';
+            }
             
             const osascriptArgs = [
                 '-e', 'on run argv',
