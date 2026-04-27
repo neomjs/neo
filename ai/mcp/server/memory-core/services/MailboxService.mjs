@@ -14,6 +14,7 @@ import SemanticGraphExtractor from '../../../../daemons/services/SemanticGraphEx
  * Safely strips legacy `AGENT:` prefixes and redundant `@@` prefixes.
  *
  * @param {String} to The raw `to` address as supplied by the caller.
+ * @param {String} [sentBy] The canonical node ID of the sender, used to resolve `@me`.
  * @returns {String} The canonical address ready for `linkNodes` and permission-check consumption.
  * @private
  */

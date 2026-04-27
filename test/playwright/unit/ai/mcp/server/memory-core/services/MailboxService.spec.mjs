@@ -669,6 +669,27 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
             expect(inbox.messages.find(m => m.subject === 'double-prefix')).toBeDefined();
         });
 
+        test('`@me` alias normalizes to the sentBy identity (Future-Self Routing)', async () => {
+            let messageId;
+            await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
+                const res = await MailboxService.addMessage({ to: '@me', subject: 'note to self', body: 'body' });
+                expect(res.status).toBe('sent');
+                messageId = res.messageId;
+
+                const sentToEdge = GraphService.db.edges.items.find(
+                    e => e.source === messageId && e.type === 'SENT_TO'
+                );
+                expect(sentToEdge).toBeDefined();
+                expect(sentToEdge.target).toBe('@opus');
+            });
+
+            // Opus should see their own message in the inbox
+            const inbox = await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
+                return await MailboxService.listMessages({ box: 'inbox' });
+            });
+            expect(inbox.messages.find(m => m.subject === 'note to self')).toBeDefined();
+        });
+
         test('`AGENT:*` broadcast creates SENT_TO edge to the seeded sentinel and fans out', async () => {
             let messageId;
             await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
