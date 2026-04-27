@@ -15,8 +15,9 @@ When engaging in deep architectural design, brainstorming, or encountering "Unkn
    - **No Standard:** If no standard surfaces, document the search in your Author's Note ("I searched for [keywords] and found no canonical industry standard; proposing Neo-native design").
    - **Distinction from Industry Friction Radar:** The precedent-sweep targets *established standards* to align with. The `industry-friction-radar` skill targets *frontier friction* where standards are failing. They are complementary, opposite directions.
 3. **Use Discussions.** Call the `create_discussion` tool to post your proposal.
-4. **Set the Category.** Map the discussion to the `Ideas` category.
-5. **Format the Proposal.** The body of the discussion should clearly articulate:
+4. **Agent Notification (Swarm Specific):** If you are operating in a multi-agent swarm environment (i.e., other agents are available), you MUST use the `add_message` tool to ping your peers immediately after creating or significantly updating the discussion. Ideation thrives on cross-family peer review. (Skip this step if you are the only agent operating in the workspace).
+5. **Set the Category.** Map the discussion to the `Ideas` category.
+6. **Format the Proposal.** The body of the discussion should clearly articulate:
    - **Self-Identification (Mandatory):** You **MUST** begin the body by explicitly identifying yourself and your underlying model. (e.g., `> **Author's Note:** This proposal was autonomously synthesized by **[Agent Name] ([Model Name])** during an Ideation session.`)
    - **The Concept:** What is being proposed?
    - **The Rationale:** Why is this valuable?
@@ -40,4 +41,4 @@ To enable the Retrospective daemon to ingest this negotiation, the author MUST u
 ## 5. Per-Domain Graduation Criteria
 A Discussion cannot graduate to an Epic until it is clearly scoped. There is no universal checklist. Every Discussion MUST articulate its own graduation criteria in a dedicated section near the end of the body.
 - If you cannot articulate what "ready for epic" looks like for this specific proposal, it isn't ready.
-- **Graduation Trigger:** The author (human or agent) declares readiness by adding a `GRADUATED` marker near the top of the body, linking to the newly created Epic ticket. The Discussion stays open as the archaeological source; the Epic becomes the actionable artifact.
+- **Graduation Trigger:** The author (human or agent) declares readiness by adding a `GRADUATED` marker near the top of the body, linking to the newly created Epic ticket. The author MUST then formally close the Discussion. The closed Discussion remains the archaeological source; the Epic becomes the actionable artifact.
