@@ -105,13 +105,21 @@ class CoalescingEngineService extends Base {
             return;
         }
 
-        // TRACKING: #10400 - Bypass digest and emit raw events globally per human command.
-        // Event volume is currently low and external harnesses (IDE, Claude Code) expect raw payloads.
-        logger.warn(`[CoalescingEngine] Sub ${subId} using global rawDelivery bypass (Tracking: #10400).`);
-        this._dispatchRaw(subscription, event).catch(e => {
-            logger.error(`[CoalescingEngine] _dispatchRaw failed: ${e.message}`);
-        });
-        return;
+        const target = subscription.harnessTarget;
+
+        if (target === 'mcp-notifications') {
+            // TRACKING: #10400 - Bypass coalescing and emit raw events to mcp-notifications.
+            // External harnesses (like Antigravity IDE) expect raw event payloads directly,
+            // not the 'wake/digest' envelope.
+            this._dispatchRaw(subscription, event).catch(e => {
+                logger.error(`[CoalescingEngine] _dispatchRaw failed: ${e.message}`);
+            });
+            return;
+        }
+
+        if (target === 'disabled' || target === 'none') {
+            return;
+        }
 
         let state = this.coalesceState.get(subId);
         if (!state) {
@@ -339,14 +347,11 @@ class CoalescingEngineService extends Base {
             }
             try {
                 // TRACKING: #10400 Fix
-                // The Antigravity harness natively expects `wake/digest` envelopes per ADR 0002.
-                // To bypass the 5s coalescing timer without breaking the wire contract,
-                // we package the raw event into an immediate, single-item digest.
-                const digestEnvelope = this._buildDigestEnvelope(subscription, [event], new Date());
-                
+                // The Antigravity IDE harness specifically expects raw events over MCP.
+                // We deliberately bypass the ADR 0002 `wake/digest` wire-contract here.
                 await this.mcpServer.notification({
                     method: 'notifications/message',
-                    params: digestEnvelope
+                    params: event
                 });
             } catch (e) {
                 logger.error(`[CoalescingEngine] mcp-notifications raw dispatch failed for ${subscription.id}: ${e.message}`);

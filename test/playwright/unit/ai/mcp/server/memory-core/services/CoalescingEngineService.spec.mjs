@@ -177,8 +177,9 @@ test.describe('CoalescingEngineService', () => {
 
         expect(notificationCalledWith).not.toBeNull();
         expect(notificationCalledWith.method).toBe('notifications/message');
-        expect(notificationCalledWith.params.eventType).toBe('wake/digest');
-        expect(notificationCalledWith.params.payload.totalEvents).toBe(1);
+        // TRACKING: #10400 Fix - mcp-notifications bypassed timer and digest envelope
+        expect(notificationCalledWith.params.eventType).toBe('wake/sent_to_me');
+        expect(notificationCalledWith.params.payload.messageId).toBe('M1');
 
         // cleanup
         CoalescingEngineService.setMcpServer(null);
