@@ -1,6 +1,6 @@
 import fs from 'fs-extra';
 import path from 'path';
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import { 
     initializeDatabase, 
     getLastSyncId, 
@@ -20,12 +20,108 @@ const DEFAULT_COALESCE_WINDOW_MS = 30000; // 30 seconds
 // Ensure daemon data dir exists
 fs.ensureDirSync(DAEMON_DATA_DIR);
 
-const db = initializeDatabase(DB_PATH);
+const PID_FILE = path.join(DAEMON_DATA_DIR, 'bridge-daemon.pid');
 
-// Read lastSyncId
-let lastSyncId = getLastSyncId(db, STATE_FILE);
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-console.log(`[Bridge Daemon] Started. Tail-syncing from GraphLog ID: ${lastSyncId}`);
+async function enforceSingleton() {
+    if (fs.existsSync(PID_FILE)) {
+        try {
+            const oldPid = parseInt(fs.readFileSync(PID_FILE, 'utf8'), 10);
+            if (!isNaN(oldPid) && oldPid > 0 && oldPid !== process.pid) {
+                let isAlive = false;
+                try {
+                    process.kill(oldPid, 0);
+                    isAlive = true;
+                } catch (e) {
+                    // Process is not alive
+                }
+
+                if (isAlive) {
+                    try {
+                        // Use ps -p to verify the PID hasn't been recycled by a non-daemon process
+                        const cmd = execSync(`ps -p ${oldPid} -o command=`).toString().trim();
+                        if (cmd.includes('bridge-daemon.mjs')) {
+                            console.log(`[Bridge Daemon] Found existing instance (PID: ${oldPid}). Sending SIGTERM...`);
+                            process.kill(oldPid, 'SIGTERM');
+                        } else {
+                            console.log(`[Bridge Daemon] Stale PID file found. PID ${oldPid} used by a different process. Proceeding.`);
+                            isAlive = false; // We won't wait for it to exit
+                        }
+                    } catch (psErr) {
+                        console.log(`[Bridge Daemon] Could not verify process name. Sending SIGTERM to PID ${oldPid} to be safe...`);
+                        process.kill(oldPid, 'SIGTERM');
+                    }
+                }
+
+                if (isAlive) {
+                    // Wait up to 3s for graceful exit
+                    let alive = true;
+                    for (let i = 0; i < 30; i++) {
+                        await wait(100);
+                        try {
+                            process.kill(oldPid, 0);
+                        } catch (e) {
+                            alive = false;
+                            break;
+                        }
+                    }
+                    if (alive) {
+                        console.log(`[Bridge Daemon] PID ${oldPid} did not exit after 3s. Escalating to SIGKILL...`);
+                        try {
+                            process.kill(oldPid, 'SIGKILL');
+                        } catch (e) {}
+                    }
+                }
+
+                try {
+                    fs.unlinkSync(PID_FILE);
+                } catch (e) {}
+            }
+        } catch (e) {
+            console.error('[Bridge Daemon] Failed to check existing PID file:', e);
+        }
+    }
+    
+    // Write new PID using atomic wx claim
+    try {
+        fs.writeFileSync(PID_FILE, process.pid.toString(), { encoding: 'utf8', flag: 'wx' });
+    } catch (e) {
+        if (e.code === 'EEXIST') {
+            console.error(`[Bridge Daemon] Failed to claim PID file (EEXIST). Another instance started simultaneously. Exiting.`);
+            process.exit(1);
+        } else {
+            throw e;
+        }
+    }
+
+    // Cleanup on exit
+    let cleanedUp = false;
+    const cleanup = () => {
+        if (cleanedUp) return;
+        cleanedUp = true;
+        try {
+            if (fs.existsSync(PID_FILE)) {
+                const currentPid = parseInt(fs.readFileSync(PID_FILE, 'utf8'), 10);
+                if (currentPid === process.pid) {
+                    fs.unlinkSync(PID_FILE);
+                }
+            }
+        } catch (e) {}
+        process.exit();
+    };
+
+    process.on('SIGINT', cleanup);
+    process.on('SIGTERM', cleanup);
+    process.on('exit', cleanup);
+    process.on('uncaughtException', (err) => {
+        console.error('[Bridge Daemon] Uncaught exception:', err);
+        cleanup(); // Calls process.exit() automatically
+    });
+}
+
+let db;
+let lastSyncId;
 
 // In-memory queues for coalescing
 // Structure: { [subscriptionId]: { timer: Timeout, queue: [events], subscription: {...} } }
@@ -288,7 +384,13 @@ async function deliverDigest(subscription, digest) {
                 '-e', '  tell application "System Events"',
                 '-e', `    tell process "${appName}"`,
                 '-e', '      set frontmost to true',
-                '-e', '      delay 0.5'
+                '-e', '    end tell',
+                '-e', '    delay 0.5',
+                '-e', '    set currentApp to name of first application process whose frontmost is true',
+                '-e', `    if currentApp is not "${appName}" then`,
+                '-e', '      error "Target app failed to become frontmost"',
+                '-e', '    end if',
+                '-e', `    tell process "${appName}"`
             ];
 
             if (tabShortcut) {
@@ -312,6 +414,11 @@ async function deliverDigest(subscription, digest) {
                 '-e', '  set the clipboard to wakePayload',
                 '-e', '  delay 0.2',
                 '-e', '  tell application "System Events"',
+                '-e', '    set currentApp to name of first application process whose frontmost is true',
+                '-e', `    if currentApp is not "${appName}" then`,
+                '-e', '      set the clipboard to savedClipboard',
+                '-e', '      error "Target app lost frontmost status before paste"',
+                '-e', '    end if',
                 '-e', `    tell process "${appName}"`,
                 '-e', '      keystroke "v" using command down',
                 '-e', '      delay 0.5',
@@ -347,4 +454,18 @@ async function deliverDigest(subscription, digest) {
 }
 
 // Start loop
-pollLoop();
+async function main() {
+    await enforceSingleton();
+    
+    db = initializeDatabase(DB_PATH);
+    
+    // Read lastSyncId
+    lastSyncId = getLastSyncId(db, STATE_FILE);
+    
+    console.log(`[Bridge Daemon] Started. Tail-syncing from GraphLog ID: ${lastSyncId}`);
+    
+    pollLoop();
+}
+
+main();
+
