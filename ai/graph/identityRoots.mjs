@@ -24,7 +24,8 @@ export const IDENTITIES = [
                 trigger: 'SENT_TO_ME',
                 harnessTarget: 'bridge-daemon',
                 harnessTargetMetadata: {
-                    appName: 'Claude'
+                    appName: 'Claude',
+                    tabShortcut: '3'
                 }
             },
             createdAt: new Date().toISOString()
@@ -44,7 +45,8 @@ export const IDENTITIES = [
                 trigger: 'SENT_TO_ME',
                 harnessTarget: 'bridge-daemon',
                 harnessTargetMetadata: {
-                    appName: 'Gemini'
+                    appName: 'Cursor',
+                    tabShortcut: null
                 }
             },
             createdAt: new Date().toISOString()

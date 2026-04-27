@@ -104,15 +104,17 @@ function runMigration(db, apply) {
             }
 
             const expectedAppName = template.harnessTargetMetadata.appName;
+            const expectedTabShortcut = template.harnessTargetMetadata.tabShortcut;
             const currentMetadata = props.harnessTargetMetadata || {};
 
-            if (currentMetadata.appName !== expectedAppName) {
-                console.log(`  [PATCH] Subscription ${sub.id} (Owner: ${agentId}) | appName: ${currentMetadata.appName || 'none'} → ${expectedAppName}`);
+            if (currentMetadata.appName !== expectedAppName || currentMetadata.tabShortcut !== expectedTabShortcut) {
+                console.log(`  [PATCH] Subscription ${sub.id} (Owner: ${agentId}) | appName: ${currentMetadata.appName || 'none'} → ${expectedAppName}, tabShortcut: ${currentMetadata.tabShortcut !== undefined ? currentMetadata.tabShortcut : 'none'} → ${expectedTabShortcut !== undefined ? expectedTabShortcut : 'none'}`);
                 
                 if (apply) {
                     props.harnessTargetMetadata = {
                         ...currentMetadata,
-                        appName: expectedAppName
+                        appName: expectedAppName,
+                        tabShortcut: expectedTabShortcut
                     };
                     data.properties = props;
                     

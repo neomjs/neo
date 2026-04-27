@@ -200,9 +200,11 @@ class WakeSubscriptionService extends Base {
     /**
      * Idempotent action to bootstrap a subscription from the agent's identity template.
      * Required to eliminate fragile cross-harness hardcoded defaults (e.g., appName fallback).
+     * @param {Object} [opts]
+     * @param {Object} [opts.overrideMetadata] Optional metadata to override template defaults
      * @returns {Promise<Object>} {subscriptionId, harnessTarget, status: 'existing'|'created'}
      */
-    async bootstrap() {
+    async bootstrap({overrideMetadata} = {}) {
         const owner = RequestContextService.getAgentIdentityNodeId();
         if (!owner) throw new Error('Cannot bootstrap subscription: no agent identity context bound.');
 
@@ -230,12 +232,17 @@ class WakeSubscriptionService extends Base {
             }
         }
 
+        const mergedMetadata = {
+            ...(template.harnessTargetMetadata || {}),
+            ...(overrideMetadata || {})
+        };
+
         // Create new subscription from template
         const result = await this.subscribe({
             trigger: template.trigger,
             filters: template.filters || {},
             harnessTarget: template.harnessTarget,
-            harnessTargetMetadata: template.harnessTargetMetadata || {}
+            harnessTargetMetadata: mergedMetadata
         });
 
         return { ...result, status: 'created' };
