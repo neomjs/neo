@@ -130,27 +130,39 @@ class Server extends Base {
             // wake-substrate genuinely self-healing, mirroring the #10181/#10182 dispatch-time
             // identity-binding self-heal pattern.
             //
-            // Fire-and-forget: bootstrap failure must not gate boot. `WakeSubscriptionService.bootstrap()`
-            // throws when the bound identity lacks a `subscriptionTemplate` — that's a legitimate
-            // configuration state for unseeded identities (single-tenant fallthrough), not a fatal
-            // error. Caught + logged at warn level. `RequestContextService.run()` is required so
-            // that `bootstrap()`'s `getAgentIdentityNodeId()` resolves to the bound identity.
+            // **Single-error-boundary design:** wrapping the entire `RequestContextService.run()`
+            // call inside an async IIFE's try/catch unifies error handling across all failure
+            // sources — synchronous throws during `RequestContextService.run()` setup, synchronous
+            // throws inside `bootstrap()`'s setup before its first `await` (e.g., the
+            // identity-binding guard at WakeSubscriptionService.mjs:209), and asynchronous
+            // rejections from `bootstrap()`'s SQLite/GraphService awaits all converge on the same
+            // catch. Fire-and-forget by not awaiting the IIFE — boot continues unconditionally
+            // (per @neo-gemini-3-1-pro's PR #10438 cycle 1 challenge: tightens the dual-catch
+            // pattern that the original implementation used; the IIFE's try/catch is the
+            // canonical single error boundary for fire-and-forget async operations).
             //
-            // Safe to repeat across restarts per #10412's raw-SQL idempotency check — already-
-            // existing subs return `status: 'existing'` rather than creating duplicates.
+            // **`RequestContextService.run()` rationale:** `bootstrap()` calls
+            // `RequestContextService.getAgentIdentityNodeId()` (line 208 of WakeSubscriptionService),
+            // which throws unless executed inside a `run()` scope — so the wrap is required, not
+            // ceremonial. The identity context shape `{userId, username, agentIdentityNodeId, source}`
+            // is the same one the per-tool dispatch wrap consumes downstream.
+            //
+            // **Idempotency:** safe to repeat across restarts per #10412's raw-SQL idempotency
+            // check — already-existing subs return `status: 'existing'` rather than creating
+            // duplicates. Missing-template throws are caught + logged at warn level (legitimate
+            // single-tenant fallthrough; not a fatal boot error).
             if (this.stdioIdentity?.agentIdentityNodeId) {
-                RequestContextService.run(this.stdioIdentity, async () => {
+                (async () => {
                     try {
-                        const result = await WakeSubscriptionService.bootstrap();
+                        const result = await RequestContextService.run(
+                            this.stdioIdentity,
+                            () => WakeSubscriptionService.bootstrap()
+                        );
                         logger.info(`[neo-memory-core MCP] Wake subscription auto-bootstrap: ${result.status} (${result.subscriptionId})`);
                     } catch (err) {
                         logger.warn(`[neo-memory-core MCP] Wake subscription auto-bootstrap skipped (non-fatal): ${err.message}`);
                     }
-                }).catch(err => {
-                    // Defensive guard — RequestContextService.run() shouldn't itself throw, but
-                    // never let auto-invoke leak an unhandled rejection up to the boot path.
-                    logger.warn(`[neo-memory-core MCP] Wake subscription auto-bootstrap context error (non-fatal): ${err.message}`);
-                });
+                })();
             }
         }
 
