@@ -361,6 +361,26 @@ class HealthService extends Base {
             payload.status = 'unhealthy';
             payload.githubCli.details.push(authCheck.error);
             logger.info('[HealthService] gh-status: unauthenticated');
+        } else {
+            // Step 3: Enrich with Notifications (Passive Inbox) if authenticated
+            try {
+                const { stdout } = await execAsync('gh api notifications');
+                const notifications = JSON.parse(stdout);
+                
+                payload.notificationPreview = {
+                    unreadCount: notifications.length,
+                    latest: notifications.slice(0, 5).map(n => ({
+                        id: n.id,
+                        reason: n.reason,
+                        type: n.subject?.type,
+                        title: n.subject?.title,
+                        url: n.subject?.url
+                    }))
+                };
+            } catch (e) {
+                logger.warn(`[HealthService] Failed to fetch notifications for preview: ${e.message}`);
+                // Don't fail the healthcheck if notifications fail, just omit the preview
+            }
         }
 
         // If we made it here with no issues, everything is healthy
