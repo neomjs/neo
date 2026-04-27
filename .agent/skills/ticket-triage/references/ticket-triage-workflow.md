@@ -43,9 +43,11 @@ Apply the same five-stage challenge chain from `ticket-create §2` retrospective
 **Outcome routing:**
 
 - **All five pass:** proceed to Step 2 (apply labels).
-- **One or more fail:** post a structured review comment on the ticket flagging the failure(s). Use the `pr-review` `[ARCH_ALIGNMENT]` framing. Do **NOT** apply labels — the ticket needs author clarification before it's triagable. Halt the triage protocol.
+- **One or more fail:** post a structured review comment on the ticket flagging the failure(s) using the `pr-review` `[ARCH_ALIGNMENT]` framing, AND apply the `needs-re-triage` label (canonical taxonomy marker for *"premise identified as stale, duplicate, or Negative ROI by Swarm Agent"*). Do **NOT** apply primary or secondary labels. Halt the triage protocol.
 
 **The retrospective challenge is the labeling-decision gate.** A ticket that fails any stage is not yet ready for label application — labels signal "this is real work this repo wants done." Premature labels create downstream pickup pressure on flawed premises.
+
+**Why `needs-re-triage` on the halt path:** without a marker, the halted ticket remains in the same "unlabeled" bucket that triggers `ticket-triage` itself, creating a re-triage loop where every passing maintainer re-runs the 5-stage challenge and posts duplicate review comments. The `needs-re-triage` label signals *"premise has been challenged; further triage requires author clarification first"* — preventing the loop while preserving auditability.
 
 ### Step 2 — Apply Primary Label
 
