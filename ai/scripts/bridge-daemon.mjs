@@ -495,7 +495,17 @@ async function deliverDigest(subscription, digest) {
             await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, digest, 'C-m']);
             writeLog('INFO', `[Bridge Daemon] Delivered ${subscription.id} via tmux to session ${tmuxSession}`);
         } else if (adapter === 'osascript') {
-            const appName = meta.appName || 'Claude';
+            const appName = meta.appName;
+            if (!appName) {
+                writeLog('ERROR', 
+                    `[Bridge Daemon] Cannot deliver subscription ${subscription.id}: ` +
+                    `harnessTargetMetadata.appName is missing/empty. ` +
+                    `Skipping delivery to avoid misrouting. ` +
+                    `Verify subscription template via 'manage_wake_subscription({action: \\'list\\'})' ` +
+                    `or fix the AgentIdentity subscriptionTemplate.`
+                );
+                return;
+            }
             let tabShortcut = meta.tabShortcut;
             // In April 2026, Claude Desktop features 3 main tabs: Chat (Cmd+1), Cowork (Cmd+2), and Code (Cmd+3).
             // We default to '3' to automatically switch to the Code tab for agentic tasks.
