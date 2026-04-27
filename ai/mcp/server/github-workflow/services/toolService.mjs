@@ -31,6 +31,7 @@ const serviceMapping = {
     manage_issue_assignees   : IssueService      .manageIssueAssignees   .bind(IssueService),
     manage_issue_comment     : IssueService      .manageIssueComment     .bind(IssueService),
     manage_issue_labels      : IssueService      .manageIssueLabels      .bind(IssueService),
+    manage_pr_reviewers      : PullRequestService.managePrReviewers      .bind(PullRequestService),
     signal_state_transition  : AgentStateService .signalStateTransition  .bind(AgentStateService),
     sync_all                 : SyncService       .runFullSync            .bind(SyncService),
     update_issue_relationship: IssueService      .updateIssueRelationship.bind(IssueService)
