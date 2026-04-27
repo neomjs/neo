@@ -254,6 +254,10 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
 
 /**
  * Queues an event for coalescing.
+ * Applies tuple-based deduplication (type + identity-tuple) to prevent duplicate
+ * wake event triggers within a single coalescing window.
+ * @param {Object} subscription - The target subscription node
+ * @param {Object} eventPayload - The wake event to queue
  */
 function queueEvent(subscription, eventPayload) {
     const subId = subscription.id;
@@ -308,9 +312,7 @@ function queueEvent(subscription, eventPayload) {
  */
 async function flushSubscription(subId) {
     const state = coalesceState[subId];
-    if (!state) {
-        return;
-    }
+    if (!state) return;
 
     const { queue, subscription, windowStart } = state;
     delete coalesceState[subId]; // reset
