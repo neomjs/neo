@@ -266,7 +266,11 @@ async function deliverDigest(subscription, digest) {
         } else if (adapter === 'osascript') {
             const appName = meta.appName || 'Claude';
             let tabShortcut = meta.tabShortcut;
-            if (tabShortcut === undefined || tabShortcut === null) {
+            // In April 2026, Claude Desktop features 3 main tabs: Chat (Cmd+1), Cowork (Cmd+2), and Code (Cmd+3).
+            // We default to '3' to automatically switch to the Code tab for agentic tasks.
+            // For Cursor, Cmd+L opens the Composer/Chat panel for agentic input.
+            // Note: If tabShortcut is explicitly null, it is treated as a deliberate opt-out (no keystroke).
+            if (tabShortcut === undefined) {
                 if (appName === 'Claude') tabShortcut = '3';
                 else if (appName === 'Cursor') tabShortcut = 'l';
             }
