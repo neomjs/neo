@@ -10,15 +10,18 @@ import SemanticGraphExtractor from '../../../../daemons/services/SemanticGraphEx
 /**
  * Normalizes a raw addressing target into its canonical Graph Node ID format.
  * Enforces the unified identity substrate where `@<login>` is canonical for all identities.
- * Preserves the `AGENT:*` sentinel for system-wide broadcasts.
+ * The two recognized recipient-field aliases are `@me` (Future-Self Routing) and `AGENT:*` (system-wide broadcast).
  * Safely strips legacy `AGENT:` prefixes and redundant `@@` prefixes.
  *
  * @param {String} to The raw `to` address as supplied by the caller.
+ * @param {String} [sentBy] The canonical sender identity (from `RequestContextService.getAgentIdentityNodeId()`).
+ *                           Required only when resolving the `@me` alias; ignored for all other inputs.
  * @returns {String} The canonical address ready for `linkNodes` and permission-check consumption.
  * @private
  */
-function normalizeMailboxTarget(to) {
+function normalizeMailboxTarget(to, sentBy) {
     if (!to) return to;
+    if (to === '@me' && sentBy) return sentBy;
     if (to === 'AGENT:*') return to;                                    // sentinel preserved
     if (to.startsWith('AGENT:')) {
         to = to.slice('AGENT:'.length);
@@ -99,7 +102,7 @@ class MailboxService extends Base {
         // Without this normalization, `GraphService.linkNodes`'s FK guard silently culls the
         // `SENT_TO` edge — the root-cause bug closed by #10174. Permission checks and edge
         // creation below all consume the canonical form from this point on.
-        to = normalizeMailboxTarget(to);
+        to = normalizeMailboxTarget(to, sentBy);
         const postNormalizeTo = to; // Phase 1 #10347 observability
 
         const messageId = `MESSAGE:${crypto.randomUUID()}`;

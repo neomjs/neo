@@ -91,22 +91,29 @@ When challenging a specific architectural pattern or complex implementation deta
 
 ### 5.2 Close-Target Audit
 
-When reviewing a PR, audit every issue named as a close-target via GitHub's magic keywords (`Closes #N`, `Resolves #N`, `Fixes #N` — case-insensitive, in the PR body or commit messages) against the target issue's labels.
+When reviewing a PR, audit every issue named as a close-target via GitHub's magic keywords (`Closes #N`, `Resolves #N`, `Fixes #N` — case-insensitive, in the PR body or commit messages) against the target issue's labels AND syntax validity.
 
-**The Rule:** Epics are not valid close-targets for PRs. An epic represents a body of work delivered across multiple sub-issues; closing an epic is a *project-management* event that fires when the last sub closes (or when the epic is explicitly retired with rationale). PRs deliver subs, not epics. GitHub's auto-close-on-merge semantics fire indiscriminately on any magic-keyword reference, so the discipline-layer enforcement is the reviewer's job.
+**Rule 1: Validity (Epics are not valid close-targets)**
+Epics represent a body of work delivered across multiple sub-issues; closing an epic is a *project-management* event that fires when the last sub closes (or when the epic is explicitly retired with rationale). PRs deliver subs, not epics. GitHub's auto-close-on-merge semantics fire indiscriminately on any magic-keyword reference, so the discipline-layer enforcement is the reviewer's job.
+
+**Rule 2: Syntax-Exact Keyword Mandate**
+Author-side discipline (`pull-request §2`) mandates strict newline-isolated PR closing syntax. Prose-embedded closures or comma-separated lists are forbidden. The reviewer MUST enforce this syntax to prevent automated parsing failures during Retrospective ingestion.
 
 **Reviewer-side check:**
 
 1. Parse the PR body + commit messages for `Closes #N` / `Resolves #N` / `Fixes #N` patterns (case-insensitive).
-2. For each `#N`, fetch the issue's labels (via `gh issue view N --json labels` or the `mcp__neo-mjs-github-workflow__get_local_issue_by_id` tool).
-3. If the issue carries the `epic` label → flag as **Required Action**:
+2. **Syntax Check:** If the keyword is embedded in prose (e.g., "This PR closes #123 by adding...") or uses a comma-separated list (e.g., "Resolves #123, #124"), flag as **Required Action**:
+   > *"PR uses prose-embedded or comma-separated close targets. Required: apply the Syntax-Exact Keyword Mandate by isolating each `Resolves #N` declaration on its own independent line."*
+3. **Validity Check:** For each `#N`, fetch the issue's labels (via `gh issue view N --json labels` or the `mcp__neo-mjs-github-workflow__get_local_issue_by_id` tool).
+4. If the issue carries the `epic` label → flag as **Required Action**:
 
    > *"PR names epic #N as close-target via `Closes`/`Resolves`/`Fixes` keyword. Epics close when their last sub-issue closes, not on PR-merge. Required: change close-target to a specific sub-issue this PR resolves, or remove the magic-close keyword and reference the epic via `Related: #N` instead."*
 
-**Author response options** when this Required Action fires:
-- Change `Closes #N` → `Closes #M` where `#M` is the specific sub-issue the PR resolves.
-- Remove the close-target entirely if the PR is an incremental contribution toward the epic without fully closing any single issue.
-- Move the epic reference to `Related: #N` (no magic-close behavior).
+**Author response options** when these Required Actions fire:
+- **Syntax:** Isolate the keyword to a separate line per ticket.
+- **Validity:** Change `Closes #N` → `Closes #M` where `#M` is the specific sub-issue the PR resolves.
+- **Validity:** Remove the close-target entirely if the PR is an incremental contribution toward the epic without fully closing any single issue.
+- **Validity:** Move the epic reference to `Related: #N` (no magic-close behavior).
 
 **Empirical anchor:** Epic #9999 ("Cloud-Native Knowledge & Multi-Tenant Memory Core") was auto-closed at 2026-04-23T23:54:09Z with `stateReason: COMPLETED` despite 7 of 10 sub-issues still being open. Most likely mechanism: a merged PR named `Closes #9999` triggering GitHub's auto-close-on-merge. The damage was compounded by `prevent-reopen.yml` (since disabled) re-closing the manual reopen 6 seconds later, plus a sabotage-spawn duplicate ticket (#10323, since closed). The discipline-layer audit codified here would have caught the close-target at review time, before merge — preventing the entire downstream chain.
 
