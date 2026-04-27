@@ -1,7 +1,9 @@
 /**
  * @summary Copies gitignored `ai/mcp/server/<name>/config.mjs` files from the main git
- * checkout into the current git worktree, and optionally symlinks the `.neo-ai-data/`
- * data directory so Memory Core substrate is unified across worktree MCP server processes.
+ * checkout into the current git worktree, and optionally symlinks the gitignored
+ * substrate-data subdirs of `.neo-ai-data/` (sqlite, chroma, wake-daemon, etc.) so
+ * Memory Core, knowledge-base, and bridge-daemon state is unified across worktree
+ * MCP server processes — while leaving the git-tracked `concepts/` subdir untouched.
  *
  * **Background (config copy):** `ai/mcp/server/{github-workflow,knowledge-base,memory-core,neural-link}/config.mjs`
  * are gitignored (they are copy-from-template files for local overrides). Fresh git worktrees
@@ -21,32 +23,52 @@
  * paths and throws `Namespace collision in unitTestMode`. For code, config files MUST be
  * real copies with their own canonical path inside the worktree.
  *
- * **Symlinking DATA DIRECTORIES is safe and recommended.** `.neo-ai-data/` contains SQLite
- * DB files (Memory Core graph), Chroma vectors, JSONL backups, concept CSVs — pure data
- * with zero ESM import chains. `better-sqlite3` opens files by path, and `path.resolve`
- * traverses symlinks transparently without canonical-path side effects. Symlinking
- * `.neo-ai-data/` unifies the Memory Core substrate so AgentIdentity nodes seeded once
- * are visible to every worktree's MCP server, and A2A mailbox handoffs span harnesses.
- * This automates the tactical convention codified in ticket #10176 and closes #10224.
- * See {@link symlinkDataDir} for the implementation.
+ * **Symlinking DATA DIRECTORIES is safe and recommended — but only the gitignored ones.**
+ * `.neo-ai-data/` contains SQLite DB files (Memory Core graph), Chroma vectors, JSONL
+ * backups, concept CSVs — pure data with zero ESM import chains. `better-sqlite3` opens
+ * files by path, and `path.resolve` traverses symlinks transparently without canonical-path
+ * side effects.
+ *
+ * **The gitignore boundary inside `.neo-ai-data/` is load-bearing:**
+ *
+ * ```
+ * .neo-ai-data
+ * !.neo-ai-data/concepts/
+ * ```
+ *
+ * Everything inside `.neo-ai-data/` is gitignored EXCEPT `concepts/` which IS git-tracked.
+ * Symlinking the parent `.neo-ai-data/` directory atomically (the pre-#10432 behavior)
+ * hides the worktree's tracked `concepts/` files behind canonical's view; using `--force`
+ * clobbers them entirely. Both outcomes break the worktree-local concepts substrate.
+ *
+ * The granular fix (per #10432): symlink each gitignored substrate-data subdir individually
+ * via the `DATA_SUBDIRS_TO_LINK` allowlist. `concepts/` is never in the allowlist → never
+ * touched. This unifies the Memory Core substrate ({@link symlinkDataDir}) so AgentIdentity
+ * nodes seeded once are visible to every worktree's MCP server, A2A mailbox handoffs span
+ * harnesses, AND the bridge daemon's PID-lock singleton (#10423) plus persistent log
+ * (#10425) span worktrees too — without the tracked `concepts/` clobber risk that
+ * empirically broke 10 of 11 worktrees in the 2026-04-27 cross-process coherence gap
+ * diagnosis.
  *
  * **Usage:**
  * ```
  * node ai/scripts/bootstrapWorktree.mjs              # copy configs only
- * node ai/scripts/bootstrapWorktree.mjs --link-data  # copy configs + symlink .neo-ai-data/
+ * node ai/scripts/bootstrapWorktree.mjs --link-data  # copy configs + symlink data subdirs
  * node ai/scripts/bootstrapWorktree.mjs --link-data --force
- *                                                    # clobber existing worktree-local
- *                                                    # .neo-ai-data/ (data-loss guard
- *                                                    # opt-in; gitignored + session-scoped)
+ *                                                    # clobber any existing real
+ *                                                    # gitignored subdir (data-loss guard
+ *                                                    # opt-in; never touches concepts/)
  * ```
  *
- * Idempotent: files that already exist are skipped; an existing symlink at `.neo-ai-data/`
- * short-circuits to `'already-linked'`. Refuses to run from the main checkout (no-op).
- * Resolves the main checkout via `git worktree list --porcelain` — its first entry is
- * always the primary working tree.
+ * Idempotent: files that already exist are skipped; subdirs already symlinked report
+ * `'already-linked'`. Refuses to run from the main checkout (no-op). Resolves the main
+ * checkout via `git worktree list --porcelain` — its first entry is always the primary
+ * working tree.
  *
  * @see https://github.com/neomjs/neo/issues/10095
- * @see https://github.com/neomjs/neo/issues/10224
+ * @see https://github.com/neomjs/neo/issues/10224 (closed predecessor — coarse-grained symlink)
+ * @see https://github.com/neomjs/neo/issues/10424 (cross-process coherence gap empirically anchored)
+ * @see https://github.com/neomjs/neo/issues/10432 (this granular refinement)
  */
 import {execFile}       from 'child_process';
 import fs               from 'fs/promises';
@@ -61,6 +83,26 @@ export const BOOTSTRAP_CONFIGS = [
     'ai/mcp/server/knowledge-base/config.mjs',
     'ai/mcp/server/memory-core/config.mjs',
     'ai/mcp/server/neural-link/config.mjs'
+];
+
+/**
+ * Allowlist of `.neo-ai-data/` subdirs to symlink to canonical when `--link-data` is set.
+ * All entries are gitignored substrate-data subdirs that benefit from cross-worktree
+ * unification. The git-tracked `concepts/` subdir is deliberately NOT in this list —
+ * symlinking it would hide the worktree's own tracked files; `--force` would clobber them.
+ *
+ * The order is informational (no semantic dependency between subdirs); each is symlinked
+ * independently and per-subdir results are reported separately.
+ *
+ * @see {@link symlinkDataDir} for the per-subdir symlink-or-skip-or-clobber logic.
+ */
+export const DATA_SUBDIRS_TO_LINK = [
+    'sqlite',       // Memory Core graph DB (memory-core-graph.sqlite + WAL/SHM)
+    'chroma',       // Vector DBs (knowledge-base + memory-core)
+    'wake-daemon',  // PID-lock + bridge.log + lastSyncId — unifies #10423 singleton across worktrees
+    'backups',      // JSONL backups (Memory Core message + node history)
+    'datasets',     // Canonical CSVs ingested by knowledge-base sync
+    'neo-sqlite'    // Legacy DB (still referenced by older code paths)
 ];
 
 /**
@@ -135,62 +177,107 @@ async function exists(p) {
 }
 
 /**
- * @summary Creates a worktree→main-checkout symlink for a data directory (default:
- * `.neo-ai-data/`), unifying the Memory Core substrate across concurrent worktree MCP
- * server processes.
+ * @summary Granularly symlinks gitignored substrate-data subdirs of `.neo-ai-data/` to
+ * canonical, unifying the Memory Core substrate across concurrent worktree MCP server
+ * processes while leaving the git-tracked `concepts/` subdir untouched.
+ *
+ * **Why granular per-subdir, not parent-level (per #10432):**
+ *
+ * The `.gitignore` boundary inside `.neo-ai-data/` is `.neo-ai-data` (gitignored) plus
+ * `!.neo-ai-data/concepts/` (tracked exception). Symlinking the parent atomically (the
+ * pre-#10432 behavior) hides the worktree's tracked `concepts/` files behind canonical's
+ * view; `--force` clobbers them entirely. Both outcomes break the worktree-local
+ * concepts substrate.
+ *
+ * This function symlinks each gitignored subdir individually via the `subdirs` allowlist
+ * (default: {@link DATA_SUBDIRS_TO_LINK}). `concepts/` is never in the default allowlist
+ * → never touched, regardless of `--force`. The data-loss guard (refuse-clobber-without-
+ * force) is preserved per-subdir, so a corrupted `sqlite/` can be reset without nuking
+ * everything else.
+ *
+ * **Why this is the right substrate (Anchor & Echo):**
  *
  * Distinct from the "do NOT symlink source code" caveat at the file head — that warning
- * applies exclusively to ESM-imported modules, where Node's resolver walks to the
- * canonical path and causes `Namespace collision in unitTestMode`. Data directories
- * carry no such semantic: `better-sqlite3` opens by path, Chroma dumps read/write through
- * `fs`, and `path.resolve` transparently traverses symlinks without canonical-path side
- * effects. Symlinking `.neo-ai-data/` closes the #10224 data-isolation split by unifying
- * the substrate ADR 0001 §1 assumes exists (one SQLite file shared across N processes).
+ * applies exclusively to ESM-imported modules where Node's resolver walks to the canonical
+ * path and causes `Namespace collision in unitTestMode`. Data directories carry no such
+ * semantic: `better-sqlite3` opens by path, Chroma dumps read/write through `fs`, and
+ * `path.resolve` transparently traverses symlinks without canonical-path side effects.
  *
- * Idempotent by design: `'already-linked'` short-circuits on re-invocation over an
- * existing symlink. Refuses to clobber a real directory without `force: true` — a
- * data-loss guard protecting against cases where a worktree accumulated unique writes
- * before unification was opted-in.
+ * The `wake-daemon/` subdir is critical for PID-lock singleton enforcement (#10423) to
+ * span worktrees — without symlinking, each worktree has its own `bridge-daemon.pid` and
+ * daemons spawned from different worktrees can't see each other's locks. Same logic for
+ * the persistent `bridge.log` substrate (#10425).
  *
- * @param {object}  options
- * @param {string}  options.mainCheckout Absolute path to the primary git checkout.
- * @param {string}  options.projectRoot  Absolute path to the worktree root to link from.
- * @param {string}  [options.dir='.neo-ai-data'] Directory name to link; relative to both roots.
- * @param {boolean} [options.force=false] If true, overwrite an existing non-symlink dir at dst.
+ * Idempotent per-subdir by design: an existing symlink reports `'already-linked'`; a
+ * missing canonical source reports `'skip-no-source'` (graceful for fresh repos that
+ * haven't created the subdir yet); a non-symlink directory throws unless `force=true`.
+ *
+ * @param {object}   options
+ * @param {string}   options.mainCheckout Absolute path to the primary git checkout.
+ * @param {string}   options.projectRoot  Absolute path to the worktree root to link from.
+ * @param {string[]} [options.subdirs]    Allowlist of subdirs to symlink; defaults to {@link DATA_SUBDIRS_TO_LINK}.
+ * @param {boolean}  [options.force=false] If true, clobber existing non-symlink dirs in the allowlist (never touches subdirs not in the allowlist).
  * @param {Function} [options.log=console.log] Logger fn for action diagnostics.
- * @returns {Promise<'main-checkout'|'already-linked'|'linked'>} Action taken.
- * @throws {Error} When dst is a non-symlink directory and `force` is false.
+ * @returns {Promise<{linked: string[], alreadyLinked: string[], clobbered: string[], skippedNoSource: string[], mainCheckout: boolean}>} Per-subdir action map.
+ * @throws {Error} When any subdir's dst is a non-symlink directory and `force` is false. The error message names the offending subdir.
  */
-export async function symlinkDataDir({mainCheckout, projectRoot, dir = '.neo-ai-data', force = false, log = console.log}) {
+export async function symlinkDataDir({
+    mainCheckout,
+    projectRoot,
+    subdirs = DATA_SUBDIRS_TO_LINK,
+    force   = false,
+    log     = console.log
+}) {
+    const result = {linked: [], alreadyLinked: [], clobbered: [], skippedNoSource: [], mainCheckout: false};
+
     if (path.resolve(projectRoot) === path.resolve(mainCheckout)) {
-        log(`symlink skip (main checkout): ${dir}`);
-        return 'main-checkout';
+        log(`symlink skip (main checkout): no per-subdir action`);
+        result.mainCheckout = true;
+        return result;
     }
 
-    const src   = path.join(mainCheckout, dir);
-    const dst   = path.join(projectRoot, dir);
-    const lstat = await fs.lstat(dst).catch(() => null);
+    // Ensure the parent .neo-ai-data/ exists as a regular dir; we never symlink the parent.
+    // This preserves the git-tracked concepts/ subdir already present in the worktree.
+    const parentDst = path.join(projectRoot, '.neo-ai-data');
+    await fs.mkdir(parentDst, {recursive: true});
 
-    if (lstat?.isSymbolicLink()) {
-        log(`symlink skip (already linked): ${dir}`);
-        return 'already-linked';
-    }
+    for (const subdir of subdirs) {
+        const src   = path.join(mainCheckout, '.neo-ai-data', subdir);
+        const dst   = path.join(parentDst, subdir);
+        const lstat = await fs.lstat(dst).catch(() => null);
 
-    if (lstat?.isDirectory()) {
-        if (!force) {
-            throw new Error(
-                `Refusing to replace non-symlink ${dst}; pass force=true (CLI --force) to opt in. ` +
-                `This directory contains local data that would be lost.`
-            );
+        if (lstat?.isSymbolicLink()) {
+            log(`symlink skip (already linked): ${subdir}`);
+            result.alreadyLinked.push(subdir);
+            continue;
         }
-        log(`symlink clobber (force=true): removing ${dir}`);
-        await fs.rm(dst, {recursive: true, force: true});
+
+        // Skip if canonical lacks the subdir — graceful for fresh repos.
+        const srcExists = await exists(src);
+        if (!srcExists) {
+            log(`symlink skip (no source in main checkout): ${subdir}`);
+            result.skippedNoSource.push(subdir);
+            continue;
+        }
+
+        if (lstat?.isDirectory()) {
+            if (!force) {
+                throw new Error(
+                    `Refusing to replace non-symlink ${dst}; pass force=true (CLI --force) to opt in. ` +
+                    `This directory contains local data that would be lost.`
+                );
+            }
+            log(`symlink clobber (force=true): removing ${subdir}`);
+            await fs.rm(dst, {recursive: true, force: true});
+            result.clobbered.push(subdir);
+        }
+
+        await fs.symlink(src, dst, 'dir');
+        log(`symlinked: ${subdir} → ${src}`);
+        result.linked.push(subdir);
     }
 
-    await fs.mkdir(path.dirname(dst), {recursive: true});
-    await fs.symlink(src, dst, 'dir');
-    log(`symlinked: ${dir} → ${src}`);
-    return 'linked';
+    return result;
 }
 
 /**
@@ -299,7 +386,22 @@ if (isMain) {
 
         if (linkData) {
             const symlinkResult = await symlinkDataDir({mainCheckout, projectRoot, force});
-            console.log(`✓ Data symlink: ${symlinkResult}`);
+            if (symlinkResult.mainCheckout) {
+                console.log(`✓ Data symlink: skipped (running in main checkout)`);
+            } else {
+                const linkedN          = symlinkResult.linked.length;
+                const alreadyLinkedN   = symlinkResult.alreadyLinked.length;
+                const clobberedN       = symlinkResult.clobbered.length;
+                const skippedNoSourceN = symlinkResult.skippedNoSource.length;
+                console.log(
+                    `✓ Data symlink: ${linkedN} linked, ${alreadyLinkedN} already-linked, ` +
+                    `${clobberedN} clobbered, ${skippedNoSourceN} skipped-no-source`
+                );
+                if (linkedN          > 0) console.log(`  linked:           ${symlinkResult.linked.join(', ')}`);
+                if (alreadyLinkedN   > 0) console.log(`  already-linked:   ${symlinkResult.alreadyLinked.join(', ')}`);
+                if (clobberedN       > 0) console.log(`  clobbered:        ${symlinkResult.clobbered.join(', ')}`);
+                if (skippedNoSourceN > 0) console.log(`  skipped-no-src:   ${symlinkResult.skippedNoSource.join(', ')}`);
+            }
         }
 
         if (buildAll) {
