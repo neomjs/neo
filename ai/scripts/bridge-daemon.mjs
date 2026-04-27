@@ -369,6 +369,10 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
 
 /**
  * Queues an event for coalescing.
+ * Applies tuple-based deduplication (type + identity-tuple) to prevent duplicate
+ * wake event triggers within a single coalescing window.
+ * @param {Object} subscription - The target subscription node
+ * @param {Object} eventPayload - The wake event to queue
  */
 function queueEvent(subscription, eventPayload) {
     const subId = subscription.id;
@@ -381,7 +385,23 @@ function queueEvent(subscription, eventPayload) {
         };
     }
 
-    coalesceState[subId].queue.push(eventPayload);
+    // Deduplicate within the coalescing window
+    const isDuplicate = coalesceState[subId].queue.some(existing => {
+        if (existing.type !== eventPayload.type) return false;
+        
+        if (eventPayload.type === 'message') {
+            return existing.messageId === eventPayload.messageId;
+        } else if (eventPayload.type === 'task') {
+            return existing.taskId === eventPayload.taskId && existing.newState === eventPayload.newState;
+        } else if (eventPayload.type === 'permission') {
+            return existing.scope === eventPayload.scope && existing.grantedBy === eventPayload.grantedBy;
+        }
+        return false;
+    });
+
+    if (!isDuplicate) {
+        coalesceState[subId].queue.push(eventPayload);
+    }
 
     // Start timer if not running
     if (!coalesceState[subId].timer) {
