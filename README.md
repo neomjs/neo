@@ -28,7 +28,13 @@ Every other 2026 platform asks: *how can AI help humans use this software?* Neo 
 
 Intelligence does not live in chronological session logs or LLM context windows. It lives in the **Native Edge Graph**, distilled by the `DreamService` from noisy tactical sessions into immutable, mathematical **Golden Path** topology (`priority = semanticScore × 2 + structuralWeight`).
 
-A six-phase REM cycle (Workspace Ingestion → Tri-Vector Extraction → Topological Conflict Detection → Capability Gap Inference → Apoptosis / Hebbian Decay → Golden Path Synthesis) closes the feedback loop. Orphaned concepts are pruned by Hebbian decay — unused connections weaken and dissolve. Survivors compound into stigmergic paths and gravity wells the swarm follows.
+The pipeline rests on four architectural patterns:
+1. **Asymmetric RAG**: Deterministic state ingestion (filesystem/issues → SQLite) vs probabilistic extraction (sessions → LLM).
+2. **Tri-Vector Synthesis**: Explicit provenance edges (`MENTIONED_IN`, `DISCUSSED_IN`) linking derived concepts strictly back to raw episodic sessions.
+3. **Hybrid GraphRAG**: The `GoldenPathSynthesizer` combines semantic distance (Chroma) with structural edge weights (SQLite) to traverse beyond blocked nodes.
+4. **Graph Apoptosis**: Orphaned concepts are pruned via Hebbian weight decay (`GraphMaintenanceService`); unused connections weaken and dissolve.
+
+A six-phase REM cycle closes the feedback loop, where survivors compound into stigmergic paths and gravity wells the swarm follows.
 
 We don't need to capture all of Neo. The graph routes us.
 
