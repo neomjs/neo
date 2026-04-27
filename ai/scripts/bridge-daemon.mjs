@@ -254,7 +254,9 @@ function spawnAsync(command, args) {
  */
 async function deliverDigest(subscription, digest) {
     const meta = subscription.properties?.harnessTargetMetadata || {};
-    const adapter = meta.adapter || 'tmux'; // fallback to tmux if not specified
+    // Fall back to osascript on macOS by default, tmux otherwise
+    const defaultAdapter = process.platform === 'darwin' ? 'osascript' : 'tmux';
+    const adapter = meta.adapter || defaultAdapter;
 
     try {
         if (adapter === 'tmux') {
