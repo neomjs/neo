@@ -266,7 +266,23 @@ function queueEvent(subscription, eventPayload) {
         };
     }
 
-    coalesceState[subId].queue.push(eventPayload);
+    // Deduplicate within the coalescing window
+    const isDuplicate = coalesceState[subId].queue.some(existing => {
+        if (existing.type !== eventPayload.type) return false;
+        
+        if (eventPayload.type === 'message') {
+            return existing.messageId === eventPayload.messageId;
+        } else if (eventPayload.type === 'task') {
+            return existing.taskId === eventPayload.taskId && existing.newState === eventPayload.newState;
+        } else if (eventPayload.type === 'permission') {
+            return existing.scope === eventPayload.scope && existing.grantedBy === eventPayload.grantedBy;
+        }
+        return false;
+    });
+
+    if (!isDuplicate) {
+        coalesceState[subId].queue.push(eventPayload);
+    }
 
     // Start timer if not running
     if (!coalesceState[subId].timer) {
@@ -292,7 +308,9 @@ function queueEvent(subscription, eventPayload) {
  */
 async function flushSubscription(subId) {
     const state = coalesceState[subId];
-    if (!state) return;
+    if (!state) {
+        return;
+    }
 
     const { queue, subscription, windowStart } = state;
     delete coalesceState[subId]; // reset

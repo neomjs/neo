@@ -12,7 +12,7 @@ test.describe('Bridge Daemon', () => {
     const DB_PATH = `.neo-ai-data/sqlite/test-daemon-${TEST_ID}.sqlite`;
     const DAEMON_DIR = `.neo-ai-data/wake-daemon-test-${TEST_ID}`;
 
-    test.beforeAll(() => {
+    test.beforeEach(() => {
         fs.ensureDirSync(path.dirname(DB_PATH));
         fs.ensureDirSync(DAEMON_DIR);
         if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
@@ -46,9 +46,15 @@ test.describe('Bridge Daemon', () => {
         `);
     });
 
-    test.afterAll(() => {
-        if (daemonProcess) daemonProcess.kill('SIGKILL');
-        if (db) db.close();
+    test.afterEach(() => {
+        if (daemonProcess) {
+            daemonProcess.kill('SIGKILL');
+            daemonProcess = null;
+        }
+        if (db) {
+            db.close();
+            db = null;
+        }
         if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
         if (fs.existsSync(`${DB_PATH}-wal`)) fs.unlinkSync(`${DB_PATH}-wal`);
         if (fs.existsSync(`${DB_PATH}-shm`)) fs.unlinkSync(`${DB_PATH}-shm`);
@@ -129,5 +135,97 @@ test.describe('Bridge Daemon', () => {
         const output = await deliveryPromise;
         expect(output).toContain('[Bridge Daemon Test Adapter] Delivered');
         expect(output).toContain('Test Wake Event');
+    });
+
+    test('deduplicates multiple triggers for the same message in the coalescing window', async () => {
+        const subId = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-dedup';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id: agentId,
+            label: 'AGENT',
+            properties: { name: 'Test Agent Dedup' }
+        }));
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id: subId,
+            label: 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity: agentId,
+                harnessTarget: 'bridge-daemon',
+                status: 'active',
+                trigger: 'SENT_TO_ME',
+                harnessTargetMetadata: {
+                    adapter: 'test',
+                    coalesceWindow: 2 // 2 seconds to ensure we catch multiple triggers
+                }
+            }
+        }));
+
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+            stdio: 'pipe',
+            env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        let deliveryCount = 0;
+        let finalDigest = '';
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                resolve(); // Resolve instead of reject because we expect exactly one delivery. We'll wait a bit.
+            }, 8000);
+            
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                console.log('[DAEMON STDOUT]', out);
+                if (out.includes('[Bridge Daemon Test Adapter] Delivered')) {
+                    deliveryCount++;
+                    finalDigest = out;
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const msgId = 'msg_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
+            id: msgId,
+            label: 'MESSAGE',
+            properties: {
+                from: '@sender',
+                subject: 'Test Dedup Event'
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
+
+        // Insert first SENT_TO edge
+        const edgeId1 = 'edge_1_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId1, JSON.stringify({
+            id: edgeId1,
+            source: msgId,
+            target: agentId,
+            type: 'SENT_TO'
+        }), msgId, agentId, 'SENT_TO');
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId1, 'edges');
+
+        // Insert second SENT_TO edge for the exact same message to simulate duplication
+        const edgeId2 = 'edge_2_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId2, JSON.stringify({
+            id: edgeId2,
+            source: msgId,
+            target: agentId,
+            type: 'SENT_TO'
+        }), msgId, agentId, 'SENT_TO');
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId2, 'edges');
+
+        // Wait for 5 seconds to ensure any duplicate delivers would have occurred
+        await deliveryPromise;
+        
+        expect(deliveryCount).toBe(1);
+        expect(finalDigest).toContain('1 new messages');
+        expect(finalDigest).toContain('Test Dedup Event');
     });
 });
