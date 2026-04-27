@@ -45,7 +45,12 @@ export const IDENTITIES = [
                 trigger: 'SENT_TO_ME',
                 harnessTarget: 'bridge-daemon',
                 harnessTargetMetadata: {
-                    appName: 'Cursor',
+                    // Per #10440: the macOS app is `Antigravity` (Google's IDE forked from
+                    // Cursor; CFBundleName + CFBundleDisplayName: 'Antigravity'). Empirically
+                    // verified via `osascript -e 'tell application "Antigravity" to activate'`
+                    // → exit 0; the prior `'Cursor'` placeholder failed with `Can't get
+                    // application "Cursor". (-1728)` exit 1.
+                    appName: 'Antigravity',
                     tabShortcut: null
                 }
             },
