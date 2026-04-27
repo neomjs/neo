@@ -275,6 +275,9 @@ You are strictly FORBIDDEN from using magic close keywords (e.g., `Closes #N`, `
 **The Syntax-Exact Keyword Mandate (Mandatory):**
 When your PR fully implements a ticket, you MUST use the exact GitHub-supported magic keyword syntax (e.g., `Resolves #N` or `Closes #N`) on its own line. 
 You are strictly FORBIDDEN from embedding the closing keyword in a conversational sentence (e.g., "Closes Sub 3 of Epic #X (#Y)"). GitHub's parser requires strict syntax to establish the automatic close link. If you fail to use the exact syntax, the ticket will remain open after merge.
+**Multiple Tickets Loophole:** While we strive for a 1-Ticket-to-1-PR ratio, if your PR fully resolves multiple tickets, you MUST flag each one individually. Do NOT use comma-separated lists like `Resolves #X, #Y`. Instead, use a distinct line for each ticket:
+`Resolves #X`
+`Resolves #Y`
 
 **Minimum-viable PR body structure:**
 ```markdown
