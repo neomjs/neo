@@ -10,7 +10,7 @@ import SemanticGraphExtractor from '../../../../daemons/services/SemanticGraphEx
 /**
  * Normalizes a raw addressing target into its canonical Graph Node ID format.
  * Enforces the unified identity substrate where `@<login>` is canonical for all identities.
- * Preserves the `AGENT:*` sentinel for system-wide broadcasts.
+ * The two recognized recipient-field aliases are `@me` (Future-Self Routing) and `AGENT:*` (system-wide broadcast).
  * Safely strips legacy `AGENT:` prefixes and redundant `@@` prefixes.
  *
  * @param {String} to The raw `to` address as supplied by the caller.
