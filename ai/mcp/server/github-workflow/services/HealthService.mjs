@@ -364,7 +364,7 @@ class HealthService extends Base {
         } else {
             // Step 3: Enrich with Notifications (Passive Inbox) if authenticated
             try {
-                const { stdout } = await execAsync('gh api notifications');
+                const { stdout } = await execAsync("gh api 'notifications?participating=true'");
                 const notifications = JSON.parse(stdout);
                 const mentions = notifications.filter(n => n.reason === 'mention');
                 
