@@ -265,10 +265,15 @@ async function deliverDigest(subscription, digest) {
             console.log(`[Bridge Daemon] Delivered ${subscription.id} via tmux to session ${tmuxSession}`);
         } else if (adapter === 'osascript') {
             const appName = meta.appName || 'Claude';
+            let tabShortcut = meta.tabShortcut;
             // In April 2026, Claude Desktop features 3 main tabs: Chat (Cmd+1), Cowork (Cmd+2), and Code (Cmd+3).
             // We default to '3' to automatically switch to the Code tab for agentic tasks.
-            // If the target app is a standalone 'Claude Code' app instead, this shortcut typically causes no harm.
-            const tabShortcut = meta.tabShortcut !== undefined ? meta.tabShortcut : '3';
+            // For Cursor, Cmd+L opens the Composer/Chat panel for agentic input.
+            // Note: If tabShortcut is explicitly null, it is treated as a deliberate opt-out (no keystroke).
+            if (tabShortcut === undefined) {
+                if (appName === 'Claude') tabShortcut = '3';
+                else if (appName === 'Cursor') tabShortcut = 'l';
+            }
             
             const osascriptArgs = [
                 '-e', 'on run argv',
@@ -288,6 +293,8 @@ async function deliverDigest(subscription, digest) {
             }
 
             osascriptArgs.push(
+                '-e', '      keystroke "a" using command down',
+                '-e', '      delay 0.2',
                 '-e', '      keystroke "v" using command down',
                 '-e', '      delay 0.5',
                 '-e', '      key code 36',
