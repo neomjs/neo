@@ -288,6 +288,8 @@ async function deliverDigest(subscription, digest) {
             }
 
             osascriptArgs.push(
+                '-e', '      keystroke "a" using command down',
+                '-e', '      delay 0.2',
                 '-e', '      keystroke "v" using command down',
                 '-e', '      delay 0.5',
                 '-e', '      key code 36',
