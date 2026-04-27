@@ -121,6 +121,37 @@ class Server extends Base {
             // unhealthy because mailbox is an optional feature and single-tenant fallthrough
             // is a valid operational mode (see MemoryCoreMcpAuth.md contract).
             HealthService.setStdioIdentityState(this.stdioIdentity);
+
+            // Auto-invoke wake subscription bootstrap (per #10437; closes the missing AC from
+            // #10402 Phase 1). Without this, every new session boots with zero active
+            // WAKE_SUBSCRIPTION nodes for the bound identity until an agent manually calls
+            // `manage_wake_subscription({action: 'bootstrap'})` — a discipline burden that
+            // does not survive context-pruning. The substrate-level auto-invoke makes the
+            // wake-substrate genuinely self-healing, mirroring the #10181/#10182 dispatch-time
+            // identity-binding self-heal pattern.
+            //
+            // Fire-and-forget: bootstrap failure must not gate boot. `WakeSubscriptionService.bootstrap()`
+            // throws when the bound identity lacks a `subscriptionTemplate` — that's a legitimate
+            // configuration state for unseeded identities (single-tenant fallthrough), not a fatal
+            // error. Caught + logged at warn level. `RequestContextService.run()` is required so
+            // that `bootstrap()`'s `getAgentIdentityNodeId()` resolves to the bound identity.
+            //
+            // Safe to repeat across restarts per #10412's raw-SQL idempotency check — already-
+            // existing subs return `status: 'existing'` rather than creating duplicates.
+            if (this.stdioIdentity?.agentIdentityNodeId) {
+                RequestContextService.run(this.stdioIdentity, async () => {
+                    try {
+                        const result = await WakeSubscriptionService.bootstrap();
+                        logger.info(`[neo-memory-core MCP] Wake subscription auto-bootstrap: ${result.status} (${result.subscriptionId})`);
+                    } catch (err) {
+                        logger.warn(`[neo-memory-core MCP] Wake subscription auto-bootstrap skipped (non-fatal): ${err.message}`);
+                    }
+                }).catch(err => {
+                    // Defensive guard — RequestContextService.run() shouldn't itself throw, but
+                    // never let auto-invoke leak an unhandled rejection up to the boot path.
+                    logger.warn(`[neo-memory-core MCP] Wake subscription auto-bootstrap context error (non-fatal): ${err.message}`);
+                });
+            }
         }
 
         // 6. Perform Health Check & Log Status (sees populated stdioIdentityState post-reorder)
