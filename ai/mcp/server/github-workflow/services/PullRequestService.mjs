@@ -202,6 +202,82 @@ class PullRequestService extends Base {
             };
         }
     }
+
+    /**
+     * @summary Unified add/remove of GitHub PR reviewer-requests via the `gh pr edit` CLI.
+     *
+     * Sibling to `IssueService.manageIssueAssignees` for PR reviewer invitations — closes the
+     * **invitation layer** of the cross-family review mandate (`pull-request §6.1`). The mandate
+     * itself is the validation layer (Approved-status before merge); this tool is the active
+     * invitation primitive that pairs with it. Without invitation, reviewers learn about PRs
+     * needing review via passive notification polling — the latency this tool closes.
+     *
+     * Surfaces GitHub's `requested_reviewers` API (`POST /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers`,
+     * mirrored as `gh pr edit <pr-number> --add-reviewer <login>` / `--remove-reviewer <login>`).
+     * Permission errors are surfaced via the underlying `gh` CLI's exit code rather than a
+     * pre-flight check — keeps the service-internal logic decoupled from `RepositoryService`'s
+     * permission cache while preserving end-to-end error visibility.
+     *
+     * @param {object}    options
+     * @param {number}    options.pr_number          The number of the pull request.
+     * @param {string[]}  [options.reviewers]        Array of GitHub user logins to add or remove as reviewers.
+     * @param {string[]}  [options.team_reviewers]   Array of team slugs (without owner prefix). The owner is auto-prepended via `aiConfig.owner`.
+     * @param {string}    options.action             Either `'add'` or `'remove'`.
+     * @returns {Promise<object>} Success message + reviewer payload on success, or structured error.
+     *
+     * @see #10217 / Sub 3 of Epic #10214
+     * @see pull-request-workflow.md §6.1 (cross-family mandate — invitation layer cross-reference)
+     */
+    async managePrReviewers({pr_number, reviewers, team_reviewers, action}) {
+        if (!['add', 'remove'].includes(action)) {
+            return {
+                error  : 'Bad Request',
+                message: "Invalid action. Must be 'add' or 'remove'.",
+                code   : 'INVALID_ARGUMENTS'
+            };
+        }
+
+        const reviewerList     = reviewers || [];
+        const teamReviewerList = team_reviewers || [];
+
+        if (reviewerList.length === 0 && teamReviewerList.length === 0) {
+            return {
+                error  : 'Bad Request',
+                message: "At least one entry in 'reviewers' or 'team_reviewers' is required.",
+                code   : 'MISSING_ARGUMENTS'
+            };
+        }
+
+        try {
+            const flagName        = action === 'add' ? '--add-reviewer' : '--remove-reviewer';
+            const reviewerFlags   = reviewerList.map(r => `${flagName} "${r}"`).join(' ');
+            // Team-reviewer syntax in `gh pr edit` requires the OWNER/team-slug form.
+            const teamFlags       = teamReviewerList.map(t => `${flagName} "${aiConfig.owner}/${t}"`).join(' ');
+            const allFlags        = [reviewerFlags, teamFlags].filter(Boolean).join(' ');
+            const allTargets      = [...reviewerList, ...teamReviewerList.map(t => `${aiConfig.owner}/${t}`)];
+
+            const command = `gh pr edit ${pr_number} ${allFlags} --repo ${aiConfig.owner}/${aiConfig.repo}`;
+            logger.info(`Attempting to ${action} reviewers on PR #${pr_number}: ${allTargets.join(', ')}`);
+
+            await execAsync(command, {cwd: aiConfig.projectRoot});
+
+            const verb = action === 'add' ? 'requested' : 'removed';
+            return {
+                message       : `Successfully ${verb} reviewers on PR #${pr_number}: ${allTargets.join(', ')}`,
+                pr_number,
+                reviewers     : reviewerList,
+                team_reviewers: teamReviewerList
+            };
+        } catch (error) {
+            logger.error(`Error managing reviewers on PR #${pr_number}:`, error);
+            return {
+                error  : 'GitHub CLI command failed',
+                message: `Failed to ${action} reviewers on PR #${pr_number}: ${error.message}`,
+                code   : 'GH_CLI_ERROR',
+                details: error.stderr || error.message
+            };
+        }
+    }
 }
 
 export default Neo.setupClass(PullRequestService);
