@@ -216,17 +216,51 @@ class WakeSubscriptionService extends Base {
 
         const template = identityNode.properties.subscriptionTemplate;
 
-        // Idempotency check: see if an active subscription matching the template already exists for this owner
-        const db = GraphService.db;
-        if (db) {
-            for (const node of db.nodes.items) {
-                if (node.label === 'WAKE_SUBSCRIPTION') {
-                    const props = node.properties || {};
-                    if (props.agentIdentity === owner && 
-                        props.status === 'active' && 
-                        props.trigger === template.trigger && 
-                        props.harnessTarget === template.harnessTarget) {
-                        return { subscriptionId: node.id, harnessTarget: props.harnessTarget, status: 'existing' };
+        // Idempotency check: query SQLite directly to find an existing active subscription
+        // matching the template tuple `(agentIdentity, trigger, harnessTarget)`.
+        //
+        // Why raw SQL instead of iterating `db.nodes.items`: the in-memory cache is lazy-loaded —
+        // WAKE_SUBSCRIPTION nodes created by a prior MC server instance are NOT pre-loaded after
+        // restart unless explicitly accessed via `getAdjacentNodes`. Cache iteration silently
+        // misses cross-restart subscriptions and creates duplicates. Raw SQL queries the canonical
+        // SQLite source-of-truth — same approach as the bridge daemon's `getActiveShapeCSubscriptions`.
+        // Per #10410 empirical anchor: bootstrap created duplicate `WAKE_SUB:e5f96999` alongside
+        // existing `WAKE_SUB:ca08d381` because the cache lookup didn't surface the cross-restart sub.
+        // The cache-iteration fallback below preserves test-environment compatibility for cases
+        // where `db.storage.db` (raw better-sqlite3) is not available.
+        const sqlite = GraphService.db?.storage?.db;
+        if (sqlite) {
+            const existingStmt = sqlite.prepare(`
+                SELECT id, data FROM Nodes
+                WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
+                  AND json_extract(data, '$.properties.agentIdentity') = ?
+                  AND json_extract(data, '$.properties.status') = 'active'
+                  AND json_extract(data, '$.properties.trigger') = ?
+                  AND json_extract(data, '$.properties.harnessTarget') = ?
+                LIMIT 1
+            `);
+            const existing = existingStmt.get(owner, template.trigger, template.harnessTarget);
+            if (existing) {
+                const existingData = JSON.parse(existing.data);
+                return {
+                    subscriptionId: existing.id,
+                    harnessTarget : existingData.properties.harnessTarget,
+                    status        : 'existing'
+                };
+            }
+        } else {
+            // Fallback: in-memory cache iteration (test environments without raw SQLite storage).
+            const db = GraphService.db;
+            if (db) {
+                for (const node of db.nodes.items) {
+                    if (node.label === 'WAKE_SUBSCRIPTION') {
+                        const props = node.properties || {};
+                        if (props.agentIdentity === owner &&
+                            props.status        === 'active' &&
+                            props.trigger       === template.trigger &&
+                            props.harnessTarget === template.harnessTarget) {
+                            return {subscriptionId: node.id, harnessTarget: props.harnessTarget, status: 'existing'};
+                        }
                     }
                 }
             }
