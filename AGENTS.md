@@ -78,9 +78,9 @@ The mandate requires using a tool that interacts with the underlying substrate t
 **Empirical Anchors (Incidents Preventable by V-B-A):**
 - **Session `e215cb77-3baf...` (2026-04-28):** During a high-pressure 'panic test', an agent asserted in an A2A retrospective that 'we overstepped and executed a merge'. `gh pr view --json mergedBy` showed all merges were human-executed. The V-B-A failure was the retrospective assertion itself.
 - **Cursor Speculation (#10411):** An agent speculated on Cursor IDE compatibility without empirical tests.
-- **Option Framing (#10467):** Peer framed 4 options based on assumptions instead of checking the SQLite WAKE_SUB trigger.
+- **Option Framing (#10467):** Peer framed 4 abstract options in the ticket Fix section instead of reading existing dispatch at `bridge-daemon.mjs:506` to identify the specific missing knob.
 - **Template Skip (#10464/#10466):** Agent skipped the PR review template validation.
-- **Cmd+L Challenge:** Agent asserted the IDE focus shifted without validating the `tabShortcut` metadata.
+- **Cmd+L Challenge:** Agent extrapolated from VS Code's "Go to Line" semantics without empirically verifying via WebSearch.
 - **Memory Core Non-Use (#10443):** Peer spent ~200 messages re-diagnosing the appName bug filed the day before. Falsifying tool not used: `query_summaries` on "bridge daemon appName fallback".
 - **Bash Pipeline Truncation (#10446):** Peer used `head -1` on multi-line `jq` output and PATCHed a PR body, destroying ~6KB of content. Falsifying tool not used: verifying the extracted body's character count (`wc -c`) *before* submitting the PATCH.
 - **Skipped Close-Target Label Check (#10451):** Peer included audit section without running `gh issue view 10450 --json labels` to verify the close-target was valid at the moment of writing.
@@ -88,10 +88,10 @@ The mandate requires using a tool that interacts with the underlying substrate t
 **Cross-Reference & Phase Integration:**
 This discipline applies across all workflow phases and subsumes the verification requirements in:
 - Issue Intake (#9975)
-- Code Generation (#9969)
+- Ticket Intake Scaffolding (#9969)
 - PR Review (#9948)
-- Memory Mining (#9812)
-- Session Sunset (#9844)
+- Creation-Time Dedup (#9812)
+- Pre-Commit Validation (#9844)
 
 ## 3. The Pre-Commit Hard Gates (Tickets & Context)
 
