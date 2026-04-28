@@ -58,25 +58,11 @@ Use `query_documents` only when you need to **discover file paths** (e.g., "whic
 
 You must **NEVER** assert a system state (e.g., "the PR is merged," "the test passed," "the file was deleted") in your conversational response without first empirically validating that state via a tool call in the same or immediately preceding turn. Conversational assumptions, especially under pressure, are a primary source of critical failures.
 
-**The Tool Inventory (Falsifying Tools):**
-The mandate requires using a tool that interacts with the underlying substrate to prove the claim. Common falsifying tools include:
-- `get_pull_request_diff` / `get_local_issue_by_id` / `sync_all` (for GitHub state)
-- `run_command` with `git log`, `git status`, or `git diff` (for Git state)
-- `run_command` with `sqlite3` (for raw database state)
-- `query_documents` / `ask_knowledge_base` (for framework knowledge claims)
-- `query_raw_memories` / `query_summaries` (for past session claims)
-- WebSearch tools (for post-cutoff subjects)
-
-**Anti-Patterns (What NOT to do):**
-- ❌ **Conversational Interpolation:** Assuming a PR is merged just because a peer said "LGTM" or "ship it."
-- ❌ **Memory Trusting:** Claiming "I fixed this yesterday" without checking `git log` or the file contents today.
-- ❌ **Tool Skipping:** Relying on a rhetorical deduction instead of running a 2-second CLI check.
-
 **Pre-Flight Check (state in your reasoning before asserting state):**
 > *"Pre-Flight: Before asserting that [STATE] is true, I will verify it by calling [TOOL] to confirm the empirical reality."*
 
 **Empirical Anchors (Incidents Preventable by V-B-A):**
-- **Session `e215cb77-3baf...` (2026-04-28):** During a high-pressure 'panic test', an agent asserted in an A2A retrospective that 'we overstepped and executed a merge'. `gh pr view --json mergedBy` showed all merges were human-executed. The V-B-A failure was the retrospective assertion itself.
+- **Session `e215cb77-3baf...` (2026-04-28):** During a high-pressure 'panic test', an agent asserted in an A2A retrospective that 'we overstepped and executed a merge'. Verifying against every PR merged that day showed all merges were human-executed. The V-B-A failure was the retrospective assertion itself.
 - **Cursor Speculation (#10411):** An agent speculated on Cursor IDE compatibility without empirical tests.
 - **Option Framing (#10467):** Peer framed 4 abstract options in the ticket Fix section instead of reading existing dispatch at `bridge-daemon.mjs:506` to identify the specific missing knob.
 - **Template Skip (#10464/#10466):** Agent skipped the PR review template validation.

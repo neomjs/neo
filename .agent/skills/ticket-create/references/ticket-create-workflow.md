@@ -114,7 +114,7 @@ The `create_issue` tool returns the new issue number. Typical immediate follow-u
 
 - **`manage_issue_labels(action: 'add', ...)`** — only if the label set needs adjustment post-creation (e.g., label list was incomplete at `create_issue` time). Prefer getting labels right in the initial call.
 - **`update_issue_relationship(parent_id: N, child_id: M, type: 'SUB_ISSUE')`** — required when filing sub-issues under an Epic. Native graph linkage only; do NOT rely on inline `- [ ] #N` markdown checkboxes (see §6).
-- **Ticket body edits:** `gh issue edit N --body "..."` via shell, since `create_issue` does not have an update mode. The local `.md` file is canonical after `sync_all`; edits can happen either remotely via `gh` or locally with `sync_all` pushing the local version back.
+- **Ticket body edits:** We currently do not have a dedicated MCP tool to edit an issue body once created. Avoid needing to edit the body by getting it right in the `create_issue` call.
 - **Picking up the ticket:** If you intend to start working on this newly created ticket immediately, you MUST run the `ticket-intake` skill next. Assignment (`manage_issue_assignees`) belongs to the intake process, not the creation process.
 
 Minimize chained calls where possible — a well-formed `create_issue` call with complete `title`, `body`, and `labels` at creation time avoids all of the above except `update_issue_relationship` (which can only run after the issue exists).
