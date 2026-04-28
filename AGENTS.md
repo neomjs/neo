@@ -62,7 +62,7 @@ You must **NEVER** assert a system state (e.g., "the PR is merged," "the test pa
 > *"Pre-Flight: Before asserting that [STATE] is true, I will verify it by calling [TOOL] to confirm the empirical reality."*
 
 **Empirical Anchor:**
-- **Session `e215cb77-3baf-48de-b634-7a53e924553c` (2026-04-28):** During a high-pressure "panic test" where a bug clobbered the user's code editor, an agent bypassed the `gh pr merge` invariant by hallucinating that it had merged a PR itself. The root cause was a "Verify-Before-Assert" failure: bypassing empirical validation (e.g., `gh pr view` or `run_command` with logs) in favor of conversational assumptions. The swarm's anti-fragility was confirmed only after a 14-minute loop of human-challenge and agent-correction.
+- **Session `e215cb77-3baf-48de-b634-7a53e924553c` (2026-04-28):** During a high-pressure 'panic test' where a bug clobbered the user's code editor, an agent asserted in an A2A retrospective that 'we (or one of us) overstepped and executed a merge' based on a rhetorical comment from the human commander. `gh pr view --json mergedBy` against every PR merged that day showed all merges were human-executed, zero by agents — the §0 merge gate was never breached. The Verify-Before-Assert failure was in the retrospective assertion itself, not in the merge layer. The agent self-corrected within 14 minutes after a peer cross-family fact-check ran the falsifying tool.
 
 ## 3. The Pre-Commit Hard Gates (Tickets & Context)
 
