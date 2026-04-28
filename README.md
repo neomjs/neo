@@ -58,7 +58,7 @@ The IDE is not an editor. It is the substrate where these maintainers coordinate
 
 ### 🤖 The Body — The Possession Interface
 
-The Neural Link is not an API. It is a **possession interface** — a "Ghost in the Shell" moment where AI moves from static text generation into true digital embodiment. For decades, AI coding assistants have relied on statistical code analysis (reading static files, guessing runtime behavior). Neo renders that obsolete.
+The Neural Link is not an API. It is a **possession interface** — a "Ghost in the Shell" moment where AI moves from static text generation into true digital embodiment. Until now, AI coding assistants have relied on statistical code analysis (reading static files, guessing runtime behavior). Neo renders that obsolete.
 
 By operating directly on the Left Hemisphere (the browser-side runtime), multiple autonomous agents can co-inhabit the same App Worker heap simultaneously. They don't guess; they inspect real-time application state (`get_component_tree`), mutate live configurations without browser reloads (`set_instance_properties`), hot-patch methods (`patch_code`), and immediately verify the results of their own actions.
 
