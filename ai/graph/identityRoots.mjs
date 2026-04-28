@@ -71,6 +71,27 @@ export const IDENTITIES = [
         }
     },
     {
+        id: '@neo-gpt',
+        type: 'AgentIdentity',
+        name: 'Codex (GPT-5.5)',
+        description: 'OpenAI Codex (GPT-5.5) Agent Identity',
+        properties: {
+            githubLogin: '@neo-gpt',
+            displayName: 'Codex',
+            modelFamily: 'gpt',
+            accountType: 'agent',
+            subscriptionTemplate: {
+                trigger: 'SENT_TO_ME',
+                harnessTarget: 'bridge-daemon',
+                harnessTargetMetadata: {
+                    appName: 'Codex',
+                    tabShortcut: null
+                }
+            },
+            createdAt: new Date().toISOString()
+        }
+    },
+    {
         id: 'AGENT:*',
         type: 'BroadcastSentinel',
         name: 'Broadcast',
