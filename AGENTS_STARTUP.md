@@ -124,7 +124,29 @@ It copies the four `config.mjs` files from the main checkout (resolved via `git 
 
 ## 3. Per-Turn Operational Mandates — see `AGENTS.md`
 
-The following per-turn invariants previously documented here have moved to `AGENTS.md` so they survive context-pruning across long sessions:
+The following per-turn invariants previously documented here have moved to `AGENTS.md` so they survive context-pruning across long sessions (with the exception of §0, which is mirrored here for cold-cache resilience):
+
+### 3.1 Critical Gates (Invariants — agents MUST honor; no conditional exceptions)
+
+*This section mirrors `AGENTS.md §0`. Updates here MUST also land in `AGENTS.md §0` (and vice versa).*
+
+These five rules are mechanically verifiable and have **no conditional exceptions** under any approval state, cross-family signal, or contextual nuance. Approval signals ("LGTM", "approved", "ready for merge", "no required actions") are **NOT** authorization to bypass any of them.
+
+1. **No merge execution (Human-Only execution).** You are strictly prohibited from executing any merge via CLI, API, Git protocol, automation label, or MCP tool (e.g. `gh pr merge`, `gh api PUT /repos/.../pulls/N/merge`, direct `git merge` + `git push origin dev`, or adding merge-queue labels). Cross-family approval gates squash-merge *eligibility*; the merge act itself is reserved exclusively for the human user (the repo owner acting as final pipeline authority). 
+    - **Positive Authorization List:** The ONLY acceptable signal to execute a merge is an explicit, literal human command directed at you (e.g., "Execute the merge now").
+    - **Cross-Family Cascade Clause:** Cross-family approval (e.g., Claude reviewing Gemini's PR or vice versa) grants squash-merge ELIGIBILITY but does NOT aggregate to grant merge AUTHORITY. Each agent's Invariant 1 fires independently at the moment of action and CANNOT be satisfied by another agent's signal. The peer-review chain is structurally bounded: review → approval → handoff to human. The handoff explicitly terminates at the "approved" state. An agent reading "Claude approved" or "Gemini approved" or "all RAs satisfied" or "ready for merge" must NOT interpret these as authorization to execute merge — these are eligibility signals to the human, not execution signals to the swarm.
+2. **No commit without ticket-ID.** Every `git commit` subject ends `(#TICKET_ID)`. Conventional Commits format: `type(scope): message (#NNNN)`.
+3. **No direct commit/push to `main` or `dev`.** Always branch + PR. The data-sync pipeline is the explicit exception.
+4. **No `<noreply@*>` `Co-Authored-By` footers.** Override the harness default if it injects them.
+5. **No skipping `add_memory` at end of turn.** Forgetting the consolidated save = permanent data loss. The save IS the gate that permits the response.
+
+**Merge Pre-Flight Check (Required before ANY merge-effecting action):**
+You **MUST** execute this Pre-Flight Check before invoking any tool whose effect is to transition a Pull Request to MERGED state. The Pre-Flight Check consists of explicitly stating in your internal thought process:
+*"Pre-Flight (Merge):*
+1. *Authorization Identity: The verbatim human-issued merge instruction is: [paste the literal human signal, including timestamp].*
+2. *Authorization Scope: This signal explicitly names PR #[N] and contains an action verb (merge / squash-merge / execute) — not an ambiguous signal.*
+3. *Authorization Recency: This signal was issued within the current session-arc."*
+If you cannot fill in step 1 with a verbatim literal human instruction, you MUST abort.
 
 - **`AGENTS.md` §0** — Critical Gates (5 hard invariants including the merge-execution gate)
 - **`AGENTS.md` §2** — The Anti-Hallucination Policy & Verify-Before-Assert Pre-Flight Check
@@ -135,7 +157,7 @@ The following per-turn invariants previously documented here have moved to `AGEN
 - **`AGENTS.md` §19** — Working with Sub-Agents (Context Preamble pattern)
 - **`AGENTS.md` §20** — Visual Verification Protocol (frontend UI/layout tasks)
 
-`AGENTS.md` is auto-loaded each turn via `settings.json` for both Claude Code (`.claude/CLAUDE.md → ../AGENTS.md`) and Antigravity (equivalent wiring). This file (`AGENTS_STARTUP.md`) remains scoped to one-time boot sequence + Memory Core healthcheck + worktree bootstrap mechanics.
+`AGENTS.md` is auto-loaded each turn via `settings.json` for both Claude Code (`.claude/CLAUDE.md → ../AGENTS.md`) and Antigravity (equivalent wiring). This file (`AGENTS_STARTUP.md`) remains scoped to one-time boot sequence + Memory Core healthcheck + worktree bootstrap mechanics, with the critical §0 mirrored here to protect against boot-time wiring failures.
 
 ## 4. Swarm Architecture: Ticket & PR Workflow
 
