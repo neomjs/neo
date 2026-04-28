@@ -8,7 +8,7 @@ If you blindly accept a ticket's premise, you risk injecting regressions into th
 
 Before executing a `git checkout`, you MUST interrogate the codebase and Memory Core to establish the validity of the ticket's premise. 
 
-1. **Stale Local Ticket Prevention:** Your local `.md` ticket file may be stale if someone else edited the issue on GitHub while you were working in parallel. Before validating a ticket premise, you MUST ensure you are reading the latest truth. You MUST use the `mcp_neo-mjs-github-workflow_get_conversation` tool to fetch the live issue body and comment thread directly from GitHub.
+1. **Fetch Remote Truth:** Before validating a ticket premise, you MUST ensure you are reading the latest truth. You MUST use the `mcp_neo-mjs-github-workflow_get_conversation` tool to fetch the live issue body and comment thread directly from GitHub.
    - **Pre-Triage Pre-Check (unlabeled tickets):** If the ticket lacks the mandatory `ai` provenance label, a primary label (`bug`/`enhancement`/`epic`), or relevant secondary labels, AND you have maintainer permission (`WRITE` permission or higher per `get_viewer_permission`), you MUST halt `ticket-intake` and run the `ticket-triage` skill (`.agent/skills/ticket-triage/SKILL.md`) first. `ticket-triage` applies labels via a retrospective five-stage challenge gate before the ticket becomes intake-ready. After triage completes (and labels are applied OR a clarification comment is posted), resume `ticket-intake` from this step.
 2. **Epic-Review Pre-Requisite (Blast-Radius Constraint):** If the ticket's parent is labeled `epic`, you MUST verify that the `epic-review` skill (`.agent/skills/epic-review/SKILL.md`) has been posted as a structured `epic-review` comment on the parent Epic ticket by your agent identity. If it has not, you are forbidden from proceeding. You MUST halt the `ticket-intake` process and run the `epic-review` protocol on the parent Epic first.
    - *Note:* If you have already posted an `epic-review` on this Epic in a prior session, cite the prior comment via URL and proceed with `ticket-intake`.
@@ -43,7 +43,7 @@ If the ticket passes validation and yields a positive ROI, you MUST execute the 
 
 Signal to the Swarm that this ticket is actively being worked. Before assigning yourself, you MUST verify that the ticket is not already owned by another active agent or human.
 
-1. **Query Existing Assignee:** Read the `assignees` array from the ticket's frontmatter (via `get_local_issue_by_id`) or GitHub.
+1. **Query Existing Assignee:** Read the `assignees` array by fetching the live issue via the `mcp_neo-mjs-github-workflow_get_conversation` tool.
 2. **If Empty:** Proceed with assignment:
    ```
    manage_issue_assignees(action: 'add', issue_number: N, assignees: ['@me'])

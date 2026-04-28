@@ -127,6 +127,7 @@ It copies the four `config.mjs` files from the main checkout (resolved via `git 
 The following per-turn invariants previously documented here have moved to `AGENTS.md` so they survive context-pruning across long sessions:
 
 - **`AGENTS.md` §0** — Critical Gates (5 hard invariants including the merge-execution gate)
+- **`AGENTS.md` §2** — The Anti-Hallucination Policy & Verify-Before-Assert Pre-Flight Check
 - **`AGENTS.md` §15** — Knowledge Base / Anchor & Echo / Two-Stage Query / Ask the Expert
 - **`AGENTS.md` §16** — Implementation Loop
 - **`AGENTS.md` §17** — Virtuous Cycle: Enhancing the Knowledge Base

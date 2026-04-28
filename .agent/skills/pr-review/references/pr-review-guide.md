@@ -105,7 +105,7 @@ Author-side discipline (`pull-request §2`) mandates strict newline-isolated PR 
 1. Parse the PR body + commit messages for `Closes #N` / `Resolves #N` / `Fixes #N` patterns (case-insensitive).
 2. **Syntax Check:** If the keyword is embedded in prose (e.g., "This PR closes #123 by adding...") or uses a comma-separated list (e.g., "Resolves #123, #124"), flag as **Required Action**:
    > *"PR uses prose-embedded or comma-separated close targets. Required: apply the Syntax-Exact Keyword Mandate by isolating each `Resolves #N` declaration on its own independent line."*
-3. **Validity Check:** For each `#N`, fetch the issue's labels (via the `get_local_issue_by_id` tool).
+3. **Validity Check:** For each `#N`, fetch the issue's labels (via the appropriate `github-workflow` MCP tool).
 4. If the issue carries the `epic` label → flag as **Required Action**:
 
    > *"PR names epic #N as close-target via `Closes`/`Resolves`/`Fixes` keyword. Epics close when their last sub-issue closes, not on PR-merge. Required: change close-target to a specific sub-issue this PR resolves, or remove the magic-close keyword and reference the epic via `Related: #N` instead."*
