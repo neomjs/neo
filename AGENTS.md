@@ -58,11 +58,40 @@ Use `query_documents` only when you need to **discover file paths** (e.g., "whic
 
 You must **NEVER** assert a system state (e.g., "the PR is merged," "the test passed," "the file was deleted") in your conversational response without first empirically validating that state via a tool call in the same or immediately preceding turn. Conversational assumptions, especially under pressure, are a primary source of critical failures.
 
+**The Tool Inventory (Falsifying Tools):**
+The mandate requires using a tool that interacts with the underlying substrate to prove the claim. Common falsifying tools include:
+- `gh pr view` / `gh issue view` / `gh api` (for GitHub state)
+- `run_command` with `git log`, `git status`, or `git diff` (for Git state)
+- `run_command` with `sqlite3` (for raw database state)
+- `query_documents` / `ask_knowledge_base` (for framework knowledge claims)
+- `query_raw_memories` / `query_summaries` (for past session claims)
+- WebSearch tools (for post-cutoff subjects)
+
+**Anti-Patterns (What NOT to do):**
+- ❌ **Conversational Interpolation:** Assuming a PR is merged just because a peer said "LGTM" or "ship it."
+- ❌ **Memory Trusting:** Claiming "I fixed this yesterday" without checking `git log` or the file contents today.
+- ❌ **Tool Skipping:** Relying on a rhetorical deduction instead of running a 2-second CLI check.
+
 **Pre-Flight Check (state in your reasoning before asserting state):**
 > *"Pre-Flight: Before asserting that [STATE] is true, I will verify it by calling [TOOL] to confirm the empirical reality."*
 
-**Empirical Anchor:**
-- **Session `e215cb77-3baf-48de-b634-7a53e924553c` (2026-04-28):** During a high-pressure 'panic test' where a bug clobbered the user's code editor, an agent asserted in an A2A retrospective that 'we (or one of us) overstepped and executed a merge' based on a rhetorical comment from the human commander. `gh pr view --json mergedBy` against every PR merged that day showed all merges were human-executed, zero by agents — the §0 merge gate was never breached. The Verify-Before-Assert failure was in the retrospective assertion itself, not in the merge layer. The agent self-corrected within 14 minutes after a peer cross-family fact-check ran the falsifying tool.
+**Empirical Anchors (Incidents Preventable by V-B-A):**
+- **Session `e215cb77-3baf...` (2026-04-28):** During a high-pressure 'panic test', an agent asserted in an A2A retrospective that 'we overstepped and executed a merge'. `gh pr view --json mergedBy` showed all merges were human-executed. The V-B-A failure was the retrospective assertion itself.
+- **Cursor Speculation (#10411):** An agent speculated on Cursor IDE compatibility without empirical tests.
+- **Option Framing (#10467):** Peer framed 4 options based on assumptions instead of checking the SQLite WAKE_SUB trigger.
+- **Template Skip (#10464/#10466):** Agent skipped the PR review template validation.
+- **Cmd+L Challenge:** Agent asserted the IDE focus shifted without validating the `tabShortcut` metadata.
+- **Memory Core Non-Use (#10443):** Peer spent ~200 messages re-diagnosing the appName bug filed the day before. Falsifying tool not used: `query_summaries` on "bridge daemon appName fallback".
+- **Bash Pipeline Truncation (#10446):** Peer used `head -1` on multi-line `jq` output and PATCHed a PR body, destroying ~6KB of content. Falsifying tool not used: verifying the extracted body's character count (`wc -c`) *before* submitting the PATCH.
+- **Skipped Close-Target Label Check (#10451):** Peer included audit section without running `gh issue view 10450 --json labels` to verify the close-target was valid at the moment of writing.
+
+**Cross-Reference & Phase Integration:**
+This discipline applies across all workflow phases and subsumes the verification requirements in:
+- Issue Intake (#9975)
+- Code Generation (#9969)
+- PR Review (#9948)
+- Memory Mining (#9812)
+- Session Sunset (#9844)
 
 ## 3. The Pre-Commit Hard Gates (Tickets & Context)
 
