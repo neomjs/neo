@@ -4,14 +4,15 @@ title: Restore Buffered Grid Stability
 state: OPEN
 labels:
   - epic
+  - stale
   - ai
   - regression
 assignees: []
 createdAt: '2026-01-27T12:02:59Z'
-updatedAt: '2026-01-27T12:02:59Z'
+updatedAt: '2026-04-28T04:50:28Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8891'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - '[ ] 8892 Create Component Test for Grid Teleportation Artifacts'
@@ -43,4 +44,9 @@ The Grid is a flagship component, and its stability is critical.
 - 2026-01-27T12:04:52Z @tobiu added sub-issue #8893
 - 2026-01-27T12:04:55Z @tobiu added sub-issue #8894
 - 2026-01-27T21:20:53Z @tobiu added sub-issue #8898
+### @github-actions - 2026-04-28T04:50:27Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-04-28T04:50:28Z @github-actions added the `stale` label
 

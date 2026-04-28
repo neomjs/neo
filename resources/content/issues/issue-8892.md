@@ -3,22 +3,23 @@ id: 8892
 title: Create Component Test for Grid Teleportation Artifacts
 state: OPEN
 labels:
+  - stale
   - ai
   - testing
   - regression
 assignees: []
 createdAt: '2026-01-27T12:03:23Z'
-updatedAt: '2026-01-27T12:03:23Z'
+updatedAt: '2026-04-28T04:50:27Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8892'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 8891
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking:
-  - '[ ] 8894 Restore Grid Stability (Fix/Revert Teleportation)'
+  - '[x] 8894 Restore Grid Stability (Fix/Revert Teleportation)'
 ---
 # Create Component Test for Grid Teleportation Artifacts
 
@@ -37,4 +38,9 @@ Create a Playwright Component Test (`test/playwright/component/grid/Teleportatio
 - 2026-01-27T12:03:25Z @tobiu added the `regression` label
 - 2026-01-27T12:04:48Z @tobiu added parent issue #8891
 - 2026-01-27T12:04:58Z @tobiu marked this issue as blocking #8894
+### @github-actions - 2026-04-28T04:50:26Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-04-28T04:50:27Z @github-actions added the `stale` label
 
