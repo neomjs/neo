@@ -60,7 +60,7 @@ You must **NEVER** assert a system state (e.g., "the PR is merged," "the test pa
 
 **The Tool Inventory (Falsifying Tools):**
 The mandate requires using a tool that interacts with the underlying substrate to prove the claim. Common falsifying tools include:
-- `gh pr view` / `gh issue view` / `gh api` (for GitHub state)
+- `get_pull_request_diff` / `get_local_issue_by_id` / `sync_all` (for GitHub state)
 - `run_command` with `git log`, `git status`, or `git diff` (for Git state)
 - `run_command` with `sqlite3` (for raw database state)
 - `query_documents` / `ask_knowledge_base` (for framework knowledge claims)
@@ -83,7 +83,7 @@ The mandate requires using a tool that interacts with the underlying substrate t
 - **Cmd+L Challenge:** Agent extrapolated from VS Code's "Go to Line" semantics without empirically verifying via WebSearch.
 - **Memory Core Non-Use (#10443):** Peer spent ~200 messages re-diagnosing the appName bug filed the day before. Falsifying tool not used: `query_summaries` on "bridge daemon appName fallback".
 - **Bash Pipeline Truncation (#10446):** Peer used `head -1` on multi-line `jq` output and PATCHed a PR body, destroying ~6KB of content. Falsifying tool not used: verifying the extracted body's character count (`wc -c`) *before* submitting the PATCH.
-- **Skipped Close-Target Label Check (#10451):** Peer included audit section without running `gh issue view 10450 --json labels` to verify the close-target was valid at the moment of writing.
+- **Skipped Close-Target Label Check (#10451):** Peer included audit section without running `get_local_issue_by_id` on 10450 to verify the close-target was valid at the moment of writing.
 
 **Cross-Reference & Phase Integration:**
 This discipline applies across all workflow phases and subsumes the verification requirements in:

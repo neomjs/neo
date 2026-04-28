@@ -23,7 +23,7 @@ If the ticket already has full labels (mandatory + primary + relevant secondary)
 
 Before running the four-step workflow:
 
-1. **The ticket body.** Use `get_local_issue_by_id` (offline) or `gh issue view N` (remote-truth-fresh per `ticket-intake §1.1`).
+1. **The ticket body.** Use `neo-mjs-github-workflow:sync_all` and `get_local_issue_by_id` (remote-truth-fresh per `ticket-intake §1.1`).
 2. **Existing label set.** Run `list_labels` on the repo to see canonical label inventory. Do NOT invent label names — if a needed label is missing, propose its creation via a comment on the ticket and halt triage until the label exists.
 3. **Author identity + permission.** Confirm whether the author is a maintainer (would have applied labels themselves), an external contributor (couldn't), or a lower-privileged agent (couldn't).
 4. **Adjacency sweep.** Has a similar ticket been filed and labeled? Quick `grep_search` against `resources/content/issues/` and `resources/content/issue-archive/` to anchor the secondary-label decisions.
