@@ -503,7 +503,7 @@ async function deliverDigest(subscription, digest) {
             // Note: If tabShortcut is explicitly null, it is treated as a deliberate opt-out (no keystroke).
             if (tabShortcut === undefined) {
                 if (appName === 'Claude') tabShortcut = '3';
-                else if (appName === 'Cursor') tabShortcut = 'l';
+                else if (appName === 'Cursor' || appName === 'Antigravity') tabShortcut = 'l';
             }
             
             // [Anchor & Echo] The Electron-Paradox Defense:
