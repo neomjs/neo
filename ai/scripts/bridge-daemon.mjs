@@ -499,15 +499,15 @@ async function deliverDigest(subscription, digest) {
             let tabShortcut = meta.tabShortcut;
             // In April 2026, Claude Desktop features 3 main tabs: Chat (Cmd+1), Cowork (Cmd+2), and Code (Cmd+3).
             // We default to '3' to automatically switch to the Code tab for agentic tasks.
-            // For Cursor, Cmd+L opens the Composer/Chat panel for agentic input.
+            // For Antigravity, Cmd+L opens the Composer/Chat panel for agentic input.
             // Note: If tabShortcut is explicitly null, it is treated as a deliberate opt-out (no keystroke).
             if (tabShortcut === undefined) {
                 if (appName === 'Claude') tabShortcut = '3';
-                else if (appName === 'Cursor') tabShortcut = 'l';
+                else if (appName === 'Antigravity') tabShortcut = 'l';
             }
             
             // [Anchor & Echo] The Electron-Paradox Defense:
-            // Electron-based IDEs (Antigravity, Cursor) register their bundle names differently 
+            // Electron-based IDEs (Antigravity, VS Code) register their bundle names differently
             // than their underlying macOS process names (often just "Electron" to System Events).
             // Using \`tell process "\${appName}"\` will fail with exit code 1 because the process
             // name does not match the app name.
