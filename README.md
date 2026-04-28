@@ -58,11 +58,11 @@ The IDE is not an editor. It is the substrate where these maintainers coordinate
 
 ### 🤖 The Body — The Possession Interface
 
-The Neural Link is not an API. It is a **possession interface** — a shared mutable substrate AI can inhabit and mutate in real-time. Multiple autonomous agents co-inhabit the same App Worker heap simultaneously, each able to introspect components (`get_component_tree`), mutate state (`set_instance_properties`), hot-patch methods (`patch_code`), and simulate user events to verify their own changes.
+The Neural Link is not an API. It is a **possession interface** — a "Ghost in the Shell" moment where AI moves from static text generation into true digital embodiment. For decades, AI coding assistants have relied on statistical code analysis (reading static files, guessing runtime behavior). Neo renders that obsolete.
 
-The current host is JavaScript + browser. The primitive transcends web UI: the same architecture (shared mutable substrate + multi-agent co-inhabitation + introspect/mutate/verify primitives) maps to game-engine scene graphs, robotics sensorimotor loops, and any future domain where AI needs to embody. *Software → Games → Robots → X*.
+By operating directly on the Left Hemisphere (the browser-side runtime), multiple autonomous agents can co-inhabit the same App Worker heap simultaneously. They don't guess; they inspect real-time application state (`get_component_tree`), mutate live configurations without browser reloads (`set_instance_properties`), hot-patch methods (`patch_code`), and immediately verify the results of their own actions.
 
-The model thinks in components the way it thinks in concepts. The VDOM tree isn't a rendering target — it's a working memory surface where the model is *thinking with its hands inside the machine*.
+This is the next evolution of conversational UIs: shared agents collaborating inside the live application itself. The VDOM tree isn't a rendering target — it's a working memory surface where the model is *thinking with its hands inside the machine*. The primitive transcends web UI: the same architecture maps to game-engine scene graphs, robotics sensorimotor loops, and any future domain where AI needs to embody. *Software → Games → Robots → X*.
 
 **Read**: [`learn/agentos/MemoryCore.md`](./learn/agentos/MemoryCore.md) and the Neural Link guide.
 
