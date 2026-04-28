@@ -44,13 +44,25 @@ export function getGraphLogEntries(db, lastSyncId) {
 export function getNodesData(db, nodeIds) {
     if (!nodeIds || nodeIds.size === 0) return [];
     const ids = Array.from(nodeIds);
-    return db.prepare(`SELECT id, data FROM Nodes WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids);
+    let results = [];
+    for (let i = 0; i < ids.length; i += 400) {
+        let chunk = ids.slice(i, i + 400);
+        let placeholders = chunk.map(() => '?').join(',');
+        results = results.concat(db.prepare(`SELECT id, data FROM Nodes WHERE id IN (${placeholders})`).all(...chunk));
+    }
+    return results;
 }
 
 export function getEdgesData(db, edgeIds) {
     if (!edgeIds || edgeIds.size === 0) return [];
     const ids = Array.from(edgeIds);
-    return db.prepare(`SELECT id, data, source, target, type FROM Edges WHERE id IN (${ids.map(() => '?').join(',')})`).all(...ids);
+    let results = [];
+    for (let i = 0; i < ids.length; i += 400) {
+        let chunk = ids.slice(i, i + 400);
+        let placeholders = chunk.map(() => '?').join(',');
+        results = results.concat(db.prepare(`SELECT id, data, source, target, type FROM Edges WHERE id IN (${placeholders})`).all(...chunk));
+    }
+    return results;
 }
 
 export function getDbNode(db, id) {
