@@ -1,29 +1,29 @@
-import fs                   from 'fs';
-import path                 from 'path';
-import yaml                 from 'js-yaml';
-import {fileURLToPath}      from 'url';
-import crypto               from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import yaml from 'js-yaml';
+import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 import { Memory_Config as aiConfig } from '../services.mjs';
-import Base                 from '../../src/core/Base.mjs';
+import Base from '../../src/core/Base.mjs';
 import { Memory_StorageRouter as StorageRouter } from '../services.mjs';
 import { Memory_TextEmbeddingService as TextEmbeddingService } from '../services.mjs';
 import { Memory_GraphService as GraphService } from '../services.mjs';
-import Json                 from '../../src/util/Json.mjs';
-import logger               from '../mcp/server/memory-core/logger.mjs';
-import OpenAiCompatible     from '../provider/OpenAiCompatible.mjs';
+import Json from '../../src/util/Json.mjs';
+import logger from '../mcp/server/memory-core/logger.mjs';
+import OpenAiCompatible from '../provider/OpenAiCompatible.mjs';
 import ConceptDiscoveryService from './services/ConceptDiscoveryService.mjs';
-import ConceptIngestor         from './services/ConceptIngestor.mjs';
-import FileSystemIngestor      from '../mcp/server/memory-core/services/FileSystemIngestor.mjs';
-import GapInferenceEngine      from './services/GapInferenceEngine.mjs';
-import GoldenPathSynthesizer   from './services/GoldenPathSynthesizer.mjs';
+import ConceptIngestor from './services/ConceptIngestor.mjs';
+import FileSystemIngestor from '../mcp/server/memory-core/services/FileSystemIngestor.mjs';
+import GapInferenceEngine from './services/GapInferenceEngine.mjs';
+import GoldenPathSynthesizer from './services/GoldenPathSynthesizer.mjs';
 import GraphMaintenanceService from './services/GraphMaintenanceService.mjs';
-import IssueIngestor           from './services/IssueIngestor.mjs';
-import MemorySessionIngestor   from './services/MemorySessionIngestor.mjs';
-import SemanticGraphExtractor  from './services/SemanticGraphExtractor.mjs';
+import IssueIngestor from './services/IssueIngestor.mjs';
+import MemorySessionIngestor from './services/MemorySessionIngestor.mjs';
+import SemanticGraphExtractor from './services/SemanticGraphExtractor.mjs';
 import TopologyInferenceEngine from './services/TopologyInferenceEngine.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+const __dirname = path.dirname(__filename);
 
 /**
  * @summary Service for offline GraphRAG extraction ("REM Sleep").
@@ -75,7 +75,7 @@ class DreamService extends Base {
         // Inter-service dependency lock: ensure DB is ready BEFORE scheduling background work
         const LifecycleService = (await import('../services.mjs')).Memory_LifecycleService;
         await LifecycleService.ready();
-        
+
         // Wait for the full lifecycle boot to ensure GraphService.db is mounted
         if (LifecycleService._initPromise) {
             await LifecycleService._initPromise;
@@ -140,7 +140,7 @@ class DreamService extends Base {
             logger.debug('[DreamService] REM pipeline is already running. Skipping trigger.');
             return;
         }
-        
+
         this.isProcessing = true;
 
         if (aiConfig.modelProvider === 'openAiCompatible') {
@@ -172,62 +172,62 @@ class DreamService extends Base {
                 await FileSystemIngestor.syncWorkspaceToGraph();
 
                 for (const session of sessions) {
-                logger.info(`[DreamService] Preparing session ${session.meta.sessionId} ("${session.meta.title}") for REM extraction.`);
-                
-                let rawEpisodicMemory = session.document;
-                try {
-                    const memoryCollection = await StorageRouter.getMemoryCollection();
-                    if (memoryCollection) {
-                        const rawMemories = await memoryCollection.get({
-                            where: { sessionId: session.meta.sessionId },
-                            include: ['documents']
-                        });
-                        if (rawMemories && rawMemories.documents && rawMemories.documents.length > 0) {
-                            // Send the full raw memory to the LLM. Lossless context tracking is required.
-                            // If local APIs crash, it is a configuration issue with n_ctx, not a client logic error.
-                            rawEpisodicMemory = rawMemories.documents.join('\n\n---\n\n');
+                    logger.info(`[DreamService] Preparing session ${session.meta.sessionId} ("${session.meta.title}") for REM extraction.`);
+
+                    let rawEpisodicMemory = session.document;
+                    try {
+                        const memoryCollection = await StorageRouter.getMemoryCollection();
+                        if (memoryCollection) {
+                            const rawMemories = await memoryCollection.get({
+                                where: { sessionId: session.meta.sessionId },
+                                include: ['documents']
+                            });
+                            if (rawMemories && rawMemories.documents && rawMemories.documents.length > 0) {
+                                // Send the full raw memory to the LLM. Lossless context tracking is required.
+                                // If local APIs crash, it is a configuration issue with n_ctx, not a client logic error.
+                                rawEpisodicMemory = rawMemories.documents.join('\n\n---\n\n');
+                            }
                         }
+                    } catch (e) {
+                        logger.warn(`[DreamService] Could not fetch raw memories for ${session.meta.sessionId}`, e);
                     }
-                } catch (e) {
-                    logger.warn(`[DreamService] Could not fetch raw memories for ${session.meta.sessionId}`, e);
-                }
-                
-                session.document = rawEpisodicMemory;
-                logger.info(`[DreamService]   -> Payload size (chars): ${session.document.length}`);
 
-                // Phase 2a: Memory/Session graph ingestion — runs BEFORE SemanticGraphExtractor
-                // so future provenance edges (#10152) from extracted entities attach to real
-                // MEMORY/SESSION nodes rather than dangling at `sessionId` scalars. Deterministic
-                // Chroma-ID → graph-node mapping; no LLM cost, idempotent via payloadHash.
-                const ingestStart = Date.now();
-                const ingestStats = await MemorySessionIngestor.syncSessionToGraph(session);
-                const ingestTime  = ((Date.now() - ingestStart) / 1000).toFixed(1);
-                logger.info(`[DreamService]   -> Memory/Session graph ingestion took: ${ingestTime}s (${ingestStats.memoriesUpserted} upserted, ${ingestStats.memoriesSkipped} skipped)`);
+                    session.document = rawEpisodicMemory;
+                    logger.info(`[DreamService]   -> Payload size (chars): ${session.document.length}`);
 
-                const startTime = Date.now();
-                const success = await SemanticGraphExtractor.executeTriVectorExtraction(session);
-                const triVectorTime = ((Date.now() - startTime) / 1000).toFixed(1);
-                logger.info(`[DreamService]   -> Tri-Vector Synthesis took: ${triVectorTime}s`);
+                    // Phase 2a: Memory/Session graph ingestion — runs BEFORE SemanticGraphExtractor
+                    // so future provenance edges (#10152) from extracted entities attach to real
+                    // MEMORY/SESSION nodes rather than dangling at `sessionId` scalars. Deterministic
+                    // Chroma-ID → graph-node mapping; no LLM cost, idempotent via payloadHash.
+                    const ingestStart = Date.now();
+                    const ingestStats = await MemorySessionIngestor.syncSessionToGraph(session);
+                    const ingestTime = ((Date.now() - ingestStart) / 1000).toFixed(1);
+                    logger.info(`[DreamService]   -> Memory/Session graph ingestion took: ${ingestTime}s (${ingestStats.memoriesUpserted} upserted, ${ingestStats.memoriesSkipped} skipped)`);
 
-                const topoStart = Date.now();
-                await TopologyInferenceEngine.extractTopology(session.document, session.meta.sessionId);
-                const topoTime = ((Date.now() - topoStart) / 1000).toFixed(1);
-                logger.info(`[DreamService]   -> Topological Conflicts took: ${topoTime}s`);
-                
-                const capStart = Date.now();
-                await this.inferTestGapsFromSession(success);
-                const capTime = ((Date.now() - capStart) / 1000).toFixed(1);
-                logger.info(`[DreamService]   -> Session TEST_GAP Inference took: ${capTime}s`);
+                    const startTime = Date.now();
+                    const success = await SemanticGraphExtractor.executeTriVectorExtraction(session);
+                    const triVectorTime = ((Date.now() - startTime) / 1000).toFixed(1);
+                    logger.info(`[DreamService]   -> Tri-Vector Synthesis took: ${triVectorTime}s`);
 
-                logger.info(`[DreamService] Total Session Digest Time: ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+                    const topoStart = Date.now();
+                    await TopologyInferenceEngine.extractTopology(session.document, session.meta.sessionId);
+                    const topoTime = ((Date.now() - topoStart) / 1000).toFixed(1);
+                    logger.info(`[DreamService]   -> Topological Conflicts took: ${topoTime}s`);
 
-                if (success) {
-                    await this.sessionsCollection.update({
-                        ids: [session.id],
-                        metadatas: [{ ...session.meta, graphDigested: true }]
-                    });
-                    logger.info(`[DreamService] Session ${session.meta.sessionId} marked as graphDigested in Memory Core.`);
-                }
+                    const capStart = Date.now();
+                    await this.inferTestGapsFromSession(success);
+                    const capTime = ((Date.now() - capStart) / 1000).toFixed(1);
+                    logger.info(`[DreamService]   -> Session TEST_GAP Inference took: ${capTime}s`);
+
+                    logger.info(`[DreamService] Total Session Digest Time: ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
+
+                    if (success) {
+                        await this.sessionsCollection.update({
+                            ids: [session.id],
+                            metadatas: [{ ...session.meta, graphDigested: true }]
+                        });
+                        logger.info(`[DreamService] Session ${session.meta.sessionId} marked as graphDigested in Memory Core.`);
+                    }
                 }
 
                 // Hoisted from the per-session loop (#10085): concept-graph gap inference is

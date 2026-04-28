@@ -47,20 +47,20 @@ class OpenAiCompatibleProvider extends Base {
         // Apply global system prompt if set
         if (this.systemPrompt) {
             messages.push({
-                role   : 'system',
+                role: 'system',
                 content: this.systemPrompt
             });
         }
 
         if (typeof input === 'string') {
             messages.push({
-                role   : 'user',
+                role: 'user',
                 content: input
             });
         } else if (Array.isArray(input)) {
             input.forEach(msg => {
                 messages.push({
-                    role   : msg.role === 'model' ? 'assistant' : msg.role,
+                    role: msg.role === 'model' ? 'assistant' : msg.role,
                     content: String(msg.content)
                 });
             });
@@ -145,7 +145,7 @@ class OpenAiCompatibleProvider extends Base {
 
         try {
             const response = await fetch(`${this.host}/v1/chat/completions`, {
-                method : 'POST',
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
@@ -157,17 +157,17 @@ class OpenAiCompatibleProvider extends Base {
                 throw new Error(`OpenAI-Compatible API error: ${response.status} - ${text}`);
             }
 
-            const reader  = response.body.getReader();
+            const reader = response.body.getReader();
             const decoder = new TextDecoder('utf-8');
             let buffer = '';
 
             while (true) {
-                const {done, value} = await reader.read();
+                const { done, value } = await reader.read();
                 if (done) break;
 
-                buffer += decoder.decode(value, {stream: true});
+                buffer += decoder.decode(value, { stream: true });
                 const lines = buffer.split('\n');
-                
+
                 // Keep the last partial line in the buffer for the next chunk
                 buffer = lines.pop();
 
