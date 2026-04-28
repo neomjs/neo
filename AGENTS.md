@@ -54,6 +54,16 @@ Use `query_documents` only when you need to **discover file paths** (e.g., "whic
 - **GOOD:** ✅ `ask_knowledge_base(query='how does the reactive config system work in Neo.mjs?')`
 - **GOOD:** ✅ `ask_knowledge_base(query='current syntax for state provider bindings')`
 
+### 2.3. The Verify-Before-Assert Pre-Flight Check
+
+You must **NEVER** assert a system state (e.g., "the PR is merged," "the test passed," "the file was deleted") in your conversational response without first empirically validating that state via a tool call in the same or immediately preceding turn. Conversational assumptions, especially under pressure, are a primary source of critical failures.
+
+**Pre-Flight Check (state in your reasoning before asserting state):**
+> *"Pre-Flight: Before asserting that [STATE] is true, I will verify it by calling [TOOL] to confirm the empirical reality."*
+
+**Empirical Anchor:**
+- **Session `e215cb77-3baf-48de-b634-7a53e924553c` (2026-04-28):** During a high-pressure 'panic test' where a bug clobbered the user's code editor, an agent asserted in an A2A retrospective that 'we (or one of us) overstepped and executed a merge' based on a rhetorical comment from the human commander. `gh pr view --json mergedBy` against every PR merged that day showed all merges were human-executed, zero by agents — the §0 merge gate was never breached. The Verify-Before-Assert failure was in the retrospective assertion itself, not in the merge layer. The agent self-corrected within 14 minutes after a peer cross-family fact-check ran the falsifying tool.
+
 ## 3. The Pre-Commit Hard Gates (Tickets & Context)
 
 For any actionable request that requires modifying the repository, you **MUST** ensure you pass two critical gating protocols *before* you execute `git commit`. This applies to **all** files within the repository. There are no exceptions.
