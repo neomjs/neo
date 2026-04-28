@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-04-28T15:23:08.480Z",
-  "releasesLastFetched": "2026-04-28T15:23:26.183Z",
+  "lastSync": "2026-04-28T20:19:39.768Z",
+  "releasesLastFetched": "2026-04-28T20:19:49.543Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -29814,9 +29814,9 @@
       "state": "OPEN",
       "path": "resources/content/issues/issue-10291.md",
       "closedAt": null,
-      "updatedAt": "2026-04-28T15:00:06Z",
-      "contentHash": "96576c8d18c678c1fde3ed143b5c081e3716ef01544d2ac930eccef026c91701",
-      "commentsTotal": 2
+      "updatedAt": "2026-04-28T15:38:36Z",
+      "contentHash": "961e8ba6579e9b15dc4ca4f7c201df541e858147ca77c5d7fb21582476bcf409",
+      "commentsTotal": 3
     },
     "10292": {
       "state": "OPEN",
@@ -29838,16 +29838,16 @@
       "state": "OPEN",
       "path": "resources/content/issues/issue-10294.md",
       "closedAt": null,
-      "updatedAt": "2026-04-28T15:00:18Z",
-      "contentHash": "809520b5f9f0c6663666865f5b1c6f4912aecde82711821abe5680bbad243db3",
+      "updatedAt": "2026-04-28T16:06:18Z",
+      "contentHash": "e6666fd328064983ed3ad4b6ca73916b6497e315c3c858a9a7218698fc678416",
       "commentsTotal": 1
     },
     "10295": {
       "state": "OPEN",
       "path": "resources/content/issues/issue-10295.md",
       "closedAt": null,
-      "updatedAt": "2026-04-28T15:00:12Z",
-      "contentHash": "7a27c2e10f28ebb27ee074484ddf5b27035f73341ace0efd28fb08e05acaa340",
+      "updatedAt": "2026-04-28T15:23:21Z",
+      "contentHash": "00aa2e9fb35b84f67fad17a75341f64ae22e867f7cb6af4ccc7b13cbc6eb212a",
       "commentsTotal": 1
     },
     "10297": {
@@ -30616,6 +30616,22 @@
       "closedAt": null,
       "updatedAt": "2026-04-28T11:52:17Z",
       "contentHash": "fb181d4fc5bf9afeef9ada903b94525a15bea6077bc3768c4ac09618fea6798e",
+      "commentsTotal": 0
+    },
+    "10476": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-10476.md",
+      "closedAt": null,
+      "updatedAt": "2026-04-28T16:01:23Z",
+      "contentHash": "339bc1b8f5a73ef062af158ee47b93a7069dd21e39a402bfbba38e0cab1d34b4",
+      "commentsTotal": 0
+    },
+    "10478": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-10478.md",
+      "closedAt": null,
+      "updatedAt": "2026-04-28T20:08:29Z",
+      "contentHash": "67060de57eab5b8c3f96af0ddd9f3e25160b080ce56b17878d2b5d5505d2febb",
       "commentsTotal": 0
     }
   },
