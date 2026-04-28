@@ -303,11 +303,15 @@ class SQLite extends Base {
 
         if (invalidEdgesMap.size > 0) {
             let edgeIds = Array.from(invalidEdgesMap.keys());
-            let placeholders = edgeIds.map(() => '?').join(',');
-            let edgesQuery = this.db.prepare(`SELECT id, source, target FROM Edges WHERE id IN (${placeholders})`);
-            let edgesData = edgesQuery.all(...edgeIds);
-            for (let row of edgesData) {
-                invalidEdgesMap.set(row.id, { id: row.id, source: row.source, target: row.target });
+            let chunkSize = 400;
+            for (let i = 0; i < edgeIds.length; i += chunkSize) {
+                let chunk = edgeIds.slice(i, i + chunkSize);
+                let placeholders = chunk.map(() => '?').join(',');
+                let edgesQuery = this.db.prepare(`SELECT id, source, target FROM Edges WHERE id IN (${placeholders})`);
+                let edgesData = edgesQuery.all(...chunk);
+                for (let row of edgesData) {
+                    invalidEdgesMap.set(row.id, { id: row.id, source: row.source, target: row.target });
+                }
             }
         }
 
@@ -331,18 +335,25 @@ class SQLite extends Base {
         let ids = Array.isArray(nodeIds) ? nodeIds : [nodeIds];
         if (ids.length === 0) return {nodes: [], edges: []};
 
-        let placeholders = ids.map(() => '?').join(',');
-        
         // Resolve Identity for RLS natively synchronously
         let userId = this.RequestContextService ? this.RequestContextService.getAgentIdentityNodeId() : null;
         let rlsClause = `AND (user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.sharedEntity') = 1 OR json_extract(data, '$.properties.visibility') = 'team')`;
 
-        const nodesStmt = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${placeholders}) ${rlsClause}`);
-        const targetNodes = nodesStmt.all(...ids, userId || null).map(r => JSON.parse(r.data));
+        const chunkSize = 400;
+        let targetNodes = [];
+        let edges = [];
 
-        const edgesStmt = this.db.prepare(`SELECT data FROM Edges WHERE (source IN (${placeholders}) OR target IN (${placeholders})) ${rlsClause}`);
-        const edgesParams = [...ids, ...ids, userId || null];
-        const edges = edgesStmt.all(...edgesParams).map(r => JSON.parse(r.data));
+        for (let i = 0; i < ids.length; i += chunkSize) {
+            let chunk = ids.slice(i, i + chunkSize);
+            let placeholders = chunk.map(() => '?').join(',');
+
+            const nodesStmt = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${placeholders}) ${rlsClause}`);
+            targetNodes.push(...nodesStmt.all(...chunk, userId || null).map(r => JSON.parse(r.data)));
+
+            const edgesStmt = this.db.prepare(`SELECT data FROM Edges WHERE (source IN (${placeholders}) OR target IN (${placeholders})) ${rlsClause}`);
+            const edgesParams = [...chunk, ...chunk, userId || null];
+            edges.push(...edgesStmt.all(...edgesParams).map(r => JSON.parse(r.data)));
+        }
 
         let adjacentIds = new Set();
         for (let e of edges) {
@@ -353,9 +364,12 @@ class SQLite extends Base {
         let adjacentNodes = [];
         if (adjacentIds.size > 0) {
             let adjIdsArray = Array.from(adjacentIds);
-            let adjPl       = adjIdsArray.map(() => '?').join(',');
-            let adjStmt     = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${adjPl}) ${rlsClause}`);
-            adjacentNodes   = adjStmt.all(...adjIdsArray, userId || null).map(r => JSON.parse(r.data));
+            for (let i = 0; i < adjIdsArray.length; i += chunkSize) {
+                let chunk = adjIdsArray.slice(i, i + chunkSize);
+                let adjPl = chunk.map(() => '?').join(',');
+                let adjStmt = this.db.prepare(`SELECT data FROM Nodes WHERE id IN (${adjPl}) ${rlsClause}`);
+                adjacentNodes.push(...adjStmt.all(...chunk, userId || null).map(r => JSON.parse(r.data)));
+            }
         }
 
         return {
