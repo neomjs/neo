@@ -19,7 +19,7 @@ class CollectionProxy extends Base {
     }
 
     async getManagers() {
-        const architecture = aiConfig.architecture || 'hybrid';
+        const architecture = aiConfig.engine || 'hybrid';
         const managers = [];
         
         // In Hybrid RAG, vectors exclusively live in ChromaDB
@@ -41,37 +41,46 @@ class CollectionProxy extends Base {
     }
 
     async add(args) {
-        const collections = await this.getCollections();
+        const collections = await this.getCollections();  
         await Promise.all(collections.map(c => c.add(args)));
     }
 
     async upsert(args) {
-        const collections = await this.getCollections();
+        const collections = await this.getCollections();  
         await Promise.all(collections.map(c => c.upsert(args)));
     }
 
     async update(args) {
-        const collections = await this.getCollections();
+        const collections = await this.getCollections();  
         await Promise.all(collections.map(c => c.update(args)));
     }
 
     async get(args) {
         const collections = await this.getCollections();
+        if (!collections || collections.length === 0 || !collections[0]) {
+            throw new Error(`[CollectionProxy] get() failed: No underlying collection available for type '${this.collectionType}'`);
+        }
         return collections[0].get(args);
     }
     
     async query(args) {
-        const collections = await this.getCollections();
+        const collections = await this.getCollections();  
+        if (!collections || collections.length === 0 || !collections[0]) {
+            throw new Error(`[CollectionProxy] query() failed: No underlying collection available for type '${this.collectionType}'`);
+        }
         return collections[0].query(args);
     }
     
     async count() {
         const collections = await this.getCollections();
+        if (!collections || collections.length === 0 || !collections[0]) {
+            throw new Error(`[CollectionProxy] count() failed: No underlying collection available for type '${this.collectionType}'`);
+        }
         return collections[0].count();
     }
     
     async delete(args) {
-        const collections = await this.getCollections();
+        const collections = await this.getCollections();  
         await Promise.all(collections.map(c => c.delete(args)));
     }
 
