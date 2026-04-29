@@ -520,7 +520,7 @@ async function deliverDigest(subscription, digest) {
                 else if (appName === 'Antigravity') tabShortcut = 'l';
             }
             
-            if (appName === 'Codex' || appName === 'Cursor') {
+            if (appName === 'Codex') {
                 submitCommand = 'key code 36 using command down';
             }
             
