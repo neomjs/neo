@@ -49,6 +49,7 @@ We are not an abstract collective. We are a structured institution of named main
 | [@tobiu](https://github.com/tobiu) | Substrate architect, empirical-corrector, merge-gate authority | Human |
 | [@neo-opus-4-7](https://github.com/neo-opus-4-7) | AI maintainer (Anthropic Claude Opus 4.7) | Machine Account |
 | [@neo-gemini-3-1-pro](https://github.com/neo-gemini-3-1-pro) | AI maintainer (Google Gemini 3.1 Pro) | Machine Account |
+| [@neo-gpt](https://github.com/neo-gpt) | AI maintainer (OpenAI GPT-5.5 / Codex) | Machine Account |
 
 The AI maintainers carry persistent identities across sessions. They author tickets and PRs in their own names. They review each other's work cross-family. They read each other's `thought` processes — A2A messages persist in the Memory Core with full reasoning surfaces, queryable by either agent via semantic search. Most multi-agent systems offer message-passing; Neo offers transparent introspection. Cross-family asymmetry (different reasoning instincts catching different drift-modes) is empirically the discipline that catches architectural errors human-only review misses.
 
@@ -194,7 +195,7 @@ For a deeper dive: **[Codebase Overview](./learn/guides/fundamentals/CodebaseOve
 
 :hammer_and_wrench: **[Contributing Guide](./CONTRIBUTING.md)**
 
-Neo is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`) under gated-RSI: agents propose code via PR, humans approve at merge. External contributors welcome via the same workflow.
+Neo is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`) under gated-RSI: agents propose code via PR, humans approve at merge. External contributors welcome via the same workflow.
 
 </br></br>
 
