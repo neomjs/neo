@@ -170,7 +170,7 @@ Use the following structure:
 {
   "context": {
     "fileName": [
-      "<YOUR_NEO_REPO_PATH>/.agent/ANTIGRAVITY_RULES.md",
+      "<YOUR_NEO_REPO_PATH>/.agents/ANTIGRAVITY_RULES.md",
       "<YOUR_NEO_REPO_PATH>/AGENTS.md",
       "~/.gemini/GEMINI.md"
     ]

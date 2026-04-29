@@ -439,7 +439,7 @@ Offline cognitive maintenance runs as **Node.js scripts**, not MCP protocol oper
 
 ---
 
-### Swarm Skills & Workflows (`/.agent/skills/` - 13 skills)
+### Swarm Skills & Workflows (`/.agents/skills/` - 13 skills)
 
 Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. Listed in execution-lifecycle order, then tactical, creative, and meta. See [`learn/agentos/ProgressiveDisclosureSkills.md`](../../agentos/ProgressiveDisclosureSkills.md) for the full protocol reference and lifecycle flow diagram.
 

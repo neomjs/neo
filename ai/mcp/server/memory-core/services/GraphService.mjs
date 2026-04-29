@@ -89,7 +89,7 @@ class GraphService extends Base {
                         id         : 'Neo-Master-Architecture',
                         type       : 'System',
                         name       : 'Global System Primer',
-                        description: 'Core framework tenets: 1. All Playwright tests must be run using "npm run test-unit -- [file]". No npx. 2. UI debugging and application state inspection must use the Neural Link MCP tools. 3. Look at .agent/skills for reusable agent workflows.'
+                        description: 'Core framework tenets: 1. All Playwright tests must be run using "npm run test-unit -- [file]". No npx. 2. UI debugging and application state inspection must use the Neural Link MCP tools. 3. Look at .agents/skills for reusable agent workflows.'
                     });
                 }
                 this.linkNodes('frontier', 'Neo-Master-Architecture', 'SYSTEM_TENET', 1.0);

@@ -58,7 +58,7 @@ Parse the file `.github/CODING_GUIDELINES.md` to ensure all code and documentati
 Before executing any commands, you MUST orient yourself to the repository's built-in tools.
 
 1. **Verify Scripts Before Running:** You must never run an `npm run` or `npx` command (like `test:unit` or `playwright`) without first explicitly viewing `package.json` to see the actual, available scripts.
-2. **Discover Capabilities:** Before assuming you know how to perform a multi-step task like testing, debugging, or scaffolding, you must list the contents of `.agent/skills/` to discover what predefined workflows exist for this specific repository. If a skill folder exists for your assigned task, you MUST read its `SKILL.md` before proceeding.
+2. **Discover Capabilities:** Before assuming you know how to perform a multi-step task like testing, debugging, or scaffolding, you must list the contents of `.agents/skills/` to discover what predefined workflows exist for this specific repository. If a skill folder exists for your assigned task, you MUST read its `SKILL.md` before proceeding.
 3. **Propose New Skills:** The Agent Skill system is actively expanding. If you identify a recurring, complex task that lacks a skill, you are highly encouraged to propose creating a new one to the user.
 
 #### Harness Memory-File Wiring
@@ -160,6 +160,6 @@ These five rules are mechanically verifiable and have **no conditional exception
 
 Cross-family approval gates squash-merge ELIGIBILITY, but agents are strictly forbidden from executing the merge itself. Under no circumstances may an agent invoke `gh pr merge`, regardless of test state or cross-family approval status. Handoff explicitly terminates when the PR enters the "approved" state. Agents must not interpret ambiguous signals (e.g., "take a look", "approved", "LGTM", "ready for merge", "no required actions") as authorization to merge. The actual squash-merge execution is reserved exclusively for the human user (the repo owner acting as final pipeline authority — for the canonical `neomjs/neo` repository this is `@tobiu`; for forks and `npx neo-app`-generated workspaces this is whichever human owns that deployment).
 
-**Workflow skills:** the per-turn awareness table mapping each lifecycle skill to its trigger condition lives in `AGENTS.md` §21 (auto-loaded each turn, survives context pruning). Skill content itself remains under `.agent/skills/<name>/SKILL.md` + `references/`.
+**Workflow skills:** the per-turn awareness table mapping each lifecycle skill to its trigger condition lives in `AGENTS.md` §21 (auto-loaded each turn, survives context pruning). Skill content itself remains under `.agents/skills/<name>/SKILL.md` + `references/`.
 
 **Handoff realization:** on boot, swarm nodes synthesize synced `.md` issues into their local SQLite matrix and build `sandman_handoff.md`. Fat Tickets make the resulting "Golden Path" ranking bridge the distributed swarm without merging raw SQLite.
