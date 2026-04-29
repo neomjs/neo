@@ -81,6 +81,9 @@ class MailboxService extends Base {
      * @param {String} [args.priority='normal'] Message priority ('low', 'normal', or 'high')
      * @param {String} [args.partOfThread] Thread ID
      * @param {String[]} [args.taggedConcepts] Array of concept IDs tagged
+     * @param {Boolean} [args.wakeSuppressed=false] Persist the message without emitting `SENT_TO_ME`
+     *   wake events. Intended for mailbox-only handovers such as session-sunset self-DMs that must be
+     *   consumed by the next boot, not injected back into the active sender harness.
      * @param {Object} [args.task] Optional A2A Task envelope payload (per #10334). When present,
      *   stored verbatim as a property on the MESSAGE node and surfaced by get_message + list_messages
      *   for programmatic agent coordination. Phase 1 (this primitive) treats `task` as opaque JSON;
@@ -90,7 +93,7 @@ class MailboxService extends Base {
      *   {@link https://a2a-protocol.org/latest/specification/} for the canonical Task envelope.
      * @returns {Promise<Object>}
      */
-    async addMessage({ to, subject, body, originSessionId, relatedSessions = [], relatedTickets = [], inReplyTo, priority = 'normal', partOfThread, taggedConcepts = [], task }) {
+    async addMessage({ to, subject, body, originSessionId, relatedSessions = [], relatedTickets = [], inReplyTo, priority = 'normal', partOfThread, taggedConcepts = [], wakeSuppressed = false, task }) {
         const preNormalizeTo = to; // Phase 1 #10347 observability
         const sentBy = RequestContextService.getAgentIdentityNodeId();
         if (!sentBy) {
@@ -207,6 +210,12 @@ class MailboxService extends Base {
             priority,
             sentAt: timestamp,
             readAt: null,
+            from: sentBy,
+            to,
+            inReplyTo: inReplyTo || null,
+            partOfThread: partOfThread || null,
+            taggedConcepts,
+            wakeSuppressed: Boolean(wakeSuppressed),
             userId: sentBy,
             sharedEntity: true
         };
@@ -403,6 +412,7 @@ class MailboxService extends Base {
                         to: sentToNodeId
                     };
                     if (messageNode.properties.task !== undefined) summary.task = messageNode.properties.task;
+                    if (messageNode.properties.wakeSuppressed) summary.wakeSuppressed = true;
                     messages.push(summary);
                 }
             }
@@ -483,6 +493,7 @@ class MailboxService extends Base {
             to: sentTo
         };
         if (messageNode.properties.task !== undefined) result.task = messageNode.properties.task;
+        if (messageNode.properties.wakeSuppressed) result.wakeSuppressed = true;
         return result;
     }
 

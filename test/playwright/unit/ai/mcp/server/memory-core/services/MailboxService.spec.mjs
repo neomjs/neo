@@ -321,6 +321,12 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
 
         const node = GraphService.db.nodes.get(msgId);
         expect(node.properties.priority).toBe('high');
+        expect(node.properties.from).toBe('@alice');
+        expect(node.properties.to).toBe('@bob');
+        expect(node.properties.inReplyTo).toBe('MESSAGE:abc');
+        expect(node.properties.partOfThread).toBe('THREAD:xyz');
+        expect(node.properties.taggedConcepts).toEqual(['CONCEPT:test']);
+        expect(node.properties.wakeSuppressed).toBe(false);
 
         let edges = GraphService.db.edges.items.filter(e => e.source === msgId);
         expect(edges.find(e => e.type === 'ORIGINATES_IN' && e.target === 'SESSION:123')).toBeDefined();
@@ -329,6 +335,34 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         expect(edges.find(e => e.type === 'IN_REPLY_TO' && e.target === 'MESSAGE:abc')).toBeDefined();
         expect(edges.find(e => e.type === 'PART_OF_THREAD' && e.target === 'THREAD:xyz')).toBeDefined();
         expect(edges.find(e => e.type === 'TAGGED_CONCEPT' && e.target === 'CONCEPT:test')).toBeDefined();
+    });
+
+    test('addMessage persists wakeSuppressed mailbox-only messages as unread inbox items', async () => {
+        let msgId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.addMessage({
+                to             : '@alice',
+                subject        : 'Sunset handover',
+                body           : 'handover payload',
+                taggedConcepts : ['sunset-protocol-handover'],
+                wakeSuppressed : true
+            });
+            msgId = res.messageId;
+
+            const inbox = await MailboxService.listMessages({ status: 'unread' });
+            expect(inbox.messages.map(msg => msg.messageId)).toContain(msgId);
+
+            const message = await MailboxService.getMessage({ messageId: msgId });
+            expect(message.wakeSuppressed).toBe(true);
+            expect(message.readAt).toBeNull();
+        });
+
+        const node = GraphService.db.nodes.get(msgId);
+        expect(node.properties.wakeSuppressed).toBe(true);
+        expect(node.properties.taggedConcepts).toEqual(['sunset-protocol-handover']);
+        expect(node.properties.from).toBe('@alice');
+        expect(node.properties.to).toBe('@alice');
+        expect(node.properties.readAt).toBeNull();
     });
 
     test('Reachable Counterparty exception permits replies without explicit grant', async () => {

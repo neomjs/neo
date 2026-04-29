@@ -309,6 +309,8 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
         if (entity.target === agentIdentity || entity.target === 'AGENT:*') {
             const messageNode = nodesMap.get(entity.source) || getDbNode(db, entity.source);
             if (messageNode && messageNode.label === 'MESSAGE') {
+                if (messageNode.properties?.wakeSuppressed) return null;
+
                 // Apply filters
                 if (filters.priority && messageNode.properties?.priority !== filters.priority) return null;
                 if (filters.senderFilter && !filters.senderFilter.includes(messageNode.properties?.from)) return null;
@@ -616,4 +618,3 @@ async function main() {
 }
 
 main();
-
