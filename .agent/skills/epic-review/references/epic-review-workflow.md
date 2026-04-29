@@ -21,7 +21,7 @@ If the epic body has materially changed since your prior review (check `updatedA
 
 Before running the five-stage chain, pull the following context:
 
-1. **The epic body.** Use `view_file` on `resources/content/issues/issue-<epic-id>.md` (or `get_local_issue_by_id` if not synced locally).
+1. **The epic body.** Use the `mcp_neo-mjs-github-workflow_get_conversation` tool to fetch the live epic issue body and comment thread directly from GitHub.
 2. **All sub-issues under the epic.** Titles, labels, blocking relationships — the epic's frontmatter `subIssues` list is the canonical source. Read each sub's body if sub-structure coherence review (stage 3) will run.
 3. **Roadmap alignment.** Query the Memory Core for current strategic direction:
    - `get_context_frontier()` — Golden Path authoritative routing
