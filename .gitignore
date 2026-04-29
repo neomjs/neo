@@ -109,6 +109,9 @@ ai/mcp/server/*/config.mjs
 # Per-user Claude Code permissions allowlist (not shared)
 .claude/settings.json
 
+# Per-user Codex MCP server configs
+.codex/config.toml
+
 # Local workspace-level Antigravity config (causes dual-parse bug if committed)
 .gemini/settings.json
 
