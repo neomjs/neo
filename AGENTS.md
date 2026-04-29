@@ -501,9 +501,25 @@ The lifecycle skills below carry the discipline that this file's invariants (esp
 
 **Why this lives in per-turn memory:** these skills carry mechanically-load-bearing discipline. When agents skip the skill invocation, the gate/protocol/template fails silently — empirically observed (PR #10356 merge violation traces to exactly this failure mode: pr-review skill was loaded for the review but not in context at the post-approval merge moment). Per-turn awareness in `AGENTS.md` keeps the trigger → skill loop reflexive even when long sessions evict skill files.
 
-Tactical / domain-specific skills (`neural-link`, `unit-test`, `whitebox-e2e`, `debugging-antigravity`, `self-repair`, `industry-friction-radar`, `create-skill`) remain discoverable via `.agents/skills/` directory listing — those are contextual rather than gate-bearing, so per-turn awareness isn't load-bearing.
+Tactical / domain-specific skills (`neural-link`, `unit-test`, `whitebox-e2e`, `self-repair`, `industry-friction-radar`, `create-skill`) remain discoverable via `.agents/skills/` directory listing. They are not loaded speculatively, but the Skill Trigger Pre-Flight below MUST pull them in when the prompt semantics match.
 
-The skill table above governs **multi-step lifecycle discipline** (ticket creation, PR cycle, review cycle). The two sections below — §22 (turn-start mailbox check) and §23 (authoring-time sibling-file lift) — codify **in-line Pre-Flight Check reflexes** that fire at specific lifecycle points without warranting a full skill apparatus. They are AGENTS.md-resident for the same reason §3 Pre-Commit and §4.2 Consolidate-Then-Save are: discipline that must survive context-pruning to its application moment.
+### Skill Trigger Pre-Flight (Prompt + A2A)
+
+Before acting on every user prompt and every A2A message, identify the request's **action + target object** and compare that pair against known skill triggers. Do this before planning or tool use. A2A mailbox messages count as prompts for this gate because they can request reviews, re-reviews, tests, ticket pickup, or PR hand-offs.
+
+If the semantic trigger matches, read `.agents/skills/<name>/SKILL.md` before proceeding. If no trigger matches, proceed without loading skills; do not turn this into a speculative context-bloat step. The trigger is **not** raw keyword matching — ambiguous verbs MUST be disambiguated by their object. The examples below are illustrative, not exhaustive; any prompt or A2A message with the same action + target-object shape must route to the matching skill even when its exact wording is absent:
+
+- `review` + PR / diff / approval / LGTM / re-review => `pr-review`
+- `test` + unit / spec / Playwright unit / `*.spec.mjs` => `unit-test`
+- `test` + E2E / end-to-end / user flow / whitebox / Neural Link => `whitebox-e2e`
+- `ticket` + create / file / open new issue => `ticket-create`
+- `ticket` + missing labels / unlabeled contributor issue => `ticket-triage`
+- `ticket` + assigned issue / pickup / "work on #NNNN" / bare issue number with ticket/work context (`10037`) => `ticket-intake`
+- `ticket` + sub-issue of unreviewed epic => `epic-review` before `ticket-intake`
+- commit / push / open PR / finalize branch => `pull-request`
+- regression / "used to work" / prior decision context => `memory-mining`
+
+The skill table above governs **multi-step lifecycle discipline** (ticket creation, PR cycle, review cycle). The Skill Trigger Pre-Flight plus the two sections below — §22 (turn-start mailbox check) and §23 (authoring-time sibling-file lift) — codify **in-line Pre-Flight Check reflexes** that fire at specific lifecycle points without warranting a new skill apparatus. They are AGENTS.md-resident for the same reason §3 Pre-Commit and §4.2 Consolidate-Then-Save are: discipline that must survive context-pruning to its application moment.
 
 ## 22. The Mailbox Check Protocol (Pre-Flight at Turn Start)
 
