@@ -50,8 +50,7 @@ test.describe('Memory Core Offline Summarization', () => {
 
         const testDbName              = `memory-core-session-test-${process.pid}-${Date.now()}.sqlite`;
         const testDbPath              = path.join(tmpDir, testDbName);
-        aiConfig.engines.neo.dataDir  = tmpDir;
-        aiConfig.engines.neo.filename = testDbName;
+        aiConfig.storagePaths.graph = testDbPath;
 
         // Remove existing test db
         if (fs.existsSync(testDbPath)) {
@@ -409,6 +408,9 @@ test.describe('Memory Core Offline Summarization', () => {
             await SDK.Memory_LifecycleService.ready();
         }
         await SDK.Memory_SessionService.ready();
+        if (SDK.Memory_SessionService.bindModel) {
+            SDK.Memory_SessionService.bindModel();
+        }
 
         const perfSessionId = crypto.randomUUID();
         await SDK.Memory_ChromaManager.ready();

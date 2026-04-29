@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import {fileURLToPath} from 'url';
+import { fileURLToPath } from 'url';
 import { Memory_Config as aiConfig } from '../../services.mjs';
 import Base from '../../../src/core/Base.mjs';
 import { Memory_StorageRouter as StorageRouter } from '../../services.mjs';
@@ -12,7 +12,7 @@ import OpenAiCompatible from '../../provider/OpenAiCompatible.mjs';
 import IssueIngestor from './IssueIngestor.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+const __dirname = path.dirname(__filename);
 
 /**
  * @class Neo.ai.daemons.services.GoldenPathSynthesizer
@@ -247,10 +247,10 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let gapElementsCount = 0;
         let prunedGaps = 0;
 
-        let testGaps        = [];
-        let guideGaps       = [];
-        let exampleGaps     = [];
-        let orphanConcepts  = [];
+        let testGaps = [];
+        let guideGaps = [];
+        let exampleGaps = [];
+        let orphanConcepts = [];
 
         GraphService.db.nodes.items.forEach(node => {
             if (node.properties?.capabilityGap) {
@@ -289,9 +289,9 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                             }
                         });
                     } catch (e) {
-                         const sanitizedMessage = node.properties.capabilityGap.replace(/\\n/g, ' ').replace(/\\n/g, ' ');
-                         testGaps.push({ id: node.id, msg: sanitizedMessage });
-                         gapElementsCount++;
+                        const sanitizedMessage = node.properties.capabilityGap.replace(/\\n/g, ' ').replace(/\\n/g, ' ');
+                        testGaps.push({ id: node.id, msg: sanitizedMessage });
+                        gapElementsCount++;
                     }
                 }
             }
@@ -334,7 +334,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             const rawIssuesDir = path.resolve(__dirname, '../../../resources/content/issues');
             const filesRaw = fs.readdirSync(rawIssuesDir);
             const mdFiles = filesRaw.filter(f => f.endsWith('.md'));
-            
+
             const openIssuesData = [];
             for (const file of mdFiles) {
                 const issueId = file.replace(/\\.md$/, '');
@@ -356,10 +356,10 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             if (latest5.length > 0) {
                 backlogAppend += `\n## 📋 Latest Priority Backlog\n\nThe following open tickets represent the most recently created structural objectives.\n\n`;
                 latest5.forEach((item, idx) => {
-                   const title = item.node.properties?.title || item.node.properties?.name || item.node.name || 'Unknown Title';
-                   const labels = item.node.properties?.labels || [];
-                   const labelTags = labels.length > 0 ? ' [\\`' + labels.join('\\`, \\`') + '\\`]' : '';
-                   backlogAppend += `${idx + 1}. **${item.id}**${labelTags}\n   - *${title}*\n`;
+                    const title = item.node.properties?.title || item.node.properties?.name || item.node.name || 'Unknown Title';
+                    const labels = item.node.properties?.labels || [];
+                    const labelTags = labels.length > 0 ? ' [\\`' + labels.join('\\`, \\`') + '\\`]' : '';
+                    backlogAppend += `${idx + 1}. **${item.id}**${labelTags}\n   - *${title}*\n`;
                 });
             }
         } catch (e) {
