@@ -4,6 +4,8 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { spawn } from 'child_process';
 import crypto from 'crypto';
+import { getNodesData, getEdgesData } from '../../../../../ai/scripts/bridge-daemon-queries.mjs';
+import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../../../../ai/graph/storage/constants.mjs';
 
 test.describe('Bridge Daemon', () => {
     let db;
@@ -311,79 +313,36 @@ test.describe('Bridge Daemon', () => {
         expect(output).toContain(subId);
     });
 
-    test('successfully processes > 1000 GraphLog entries without SQLite parameter limit errors', async () => {
-        const agentId = 'agent_load_test_' + crypto.randomUUID();
-        const subId = 'sub_load_test_' + crypto.randomUUID();
+    test('getNodesData and getEdgesData deterministically chunk queries by SQLITE_IN_CLAUSE_BATCH_SIZE', () => {
+        let prepareCount = 0;
+        let paramsLength = [];
 
-        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
-            id: agentId,
-            label: 'AGENT',
-            properties: { name: 'Test Agent Load' }
-        }));
-
-        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
-            id: subId,
-            label: 'WAKE_SUBSCRIPTION',
-            properties: {
-                agentIdentity: agentId,
-                harnessTarget: 'bridge-daemon',
-                status: 'active',
-                trigger: 'SENT_TO_ME',
-                harnessTargetMetadata: {
-                    adapter: 'test',
-                    coalesceWindow: 1,
-                    appName: 'DummyApp'
-                }
+        const mockDb = {
+            prepare: () => {
+                prepareCount++;
+                return {
+                    all: (...params) => {
+                        paramsLength.push(params.length);
+                        return params.map(p => ({ id: p, data: '{}' }));
+                    }
+                };
             }
-        }));
+        };
 
-        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+        const overflowAmount = 50;
+        const totalItems = SQLITE_IN_CLAUSE_BATCH_SIZE + overflowAmount;
+        const ids = new Set(Array.from({ length: totalItems }, (_, i) => `id_${i}`));
+        
+        const nodeResults = getNodesData(mockDb, ids);
+        expect(prepareCount).toBe(2);
+        expect(paramsLength).toEqual([SQLITE_IN_CLAUSE_BATCH_SIZE, overflowAmount]);
+        expect(nodeResults.length).toBe(totalItems);
 
-        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
-            stdio: 'pipe',
-            env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
-        });
-
-        // Wait a bit for daemon to initialize and grab max_id
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        const insertNodeStmt = db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)');
-        const insertEdgeStmt = db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)');
-        const insertLogStmt = db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)');
-
-        db.transaction(() => {
-            for (let i = 0; i < 1500; i++) {
-                const msgId = `msg_load_${i}_${crypto.randomUUID()}`;
-                const edgeId = `edge_load_${i}_${crypto.randomUUID()}`;
-                
-                insertNodeStmt.run(msgId, JSON.stringify({ id: msgId, label: 'MESSAGE', properties: { subject: `Load ${i}` }}));
-                insertLogStmt.run(msgId, 'nodes');
-                
-                insertEdgeStmt.run(edgeId, JSON.stringify({ id: edgeId, source: msgId, target: agentId, type: 'SENT_TO'}), msgId, agentId, 'SENT_TO');
-                insertLogStmt.run(edgeId, 'edges');
-            }
-        })();
-
-        const successPromise = new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Daemon failed to process load within timeout')), 20000);
-            
-            daemonProcess.stdout.on('data', (data) => {
-                const out = data.toString();
-                if (out.includes(`Delivered ${subId}`)) {
-                    clearTimeout(timeout);
-                    resolve(true);
-                }
-            });
-            daemonProcess.stderr.on('data', (data) => {
-                const err = data.toString();
-                if (err.includes('too many SQL variables') || err.includes('Error:')) {
-                    clearTimeout(timeout);
-                    reject(new Error('SQLite error: ' + err));
-                }
-            });
-            daemonProcess.on('error', reject);
-        });
-
-        await expect(successPromise).resolves.toBe(true);
+        prepareCount = 0;
+        paramsLength = [];
+        const edgeResults = getEdgesData(mockDb, ids);
+        expect(prepareCount).toBe(2);
+        expect(paramsLength).toEqual([SQLITE_IN_CLAUSE_BATCH_SIZE, overflowAmount]);
+        expect(edgeResults.length).toBe(totalItems);
     });
 });
