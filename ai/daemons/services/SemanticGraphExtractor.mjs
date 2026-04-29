@@ -113,7 +113,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 payload = Json.extract(result.content);
 
                 // Validation check
-                if (!payload || !payload.session_artifact || !payload.session_artifact.graph || !payload.session_artifact.graph.nodes || !payload.session_artifact.graph.edges) {
+                if (!payload || !payload.session_artifact) {
                     logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Failed to validate extracted Tri-Vector A2A payload for session: ${session.meta.sessionId}`);
                     
                     if (attempt < maxRetries) {
@@ -121,12 +121,17 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                         messages.push({ role: 'assistant', content: result.content });
                         messages.push({ 
                             role: 'user', 
-                            content: `Your previous response failed internal schema validation. You are either missing required keys (e.g., session_artifact, graph.nodes, graph.edges) or you provided malformed JSON. Please correct your output and provide ONLY the exact JSON shape requested in the instructions.`
+                            content: `Your previous response failed internal schema validation. You are missing required keys (e.g., session_artifact) or you provided malformed JSON. Please correct your output and provide ONLY the exact JSON shape requested in the instructions.`
                         });
                         payload = null; // Ensure loop continues
                     } else {
                         logger.warn(`[SemanticGraphExtractor] --- FINAL EXHAUSTED RAW LLM DUMP ---\n${result.content}\n-----------------------------`);
                     }
+                } else {
+                    // Relaxed schema validation: default missing graph/nodes/edges to empty arrays to prevent exhaustion loops.
+                    payload.session_artifact.graph = payload.session_artifact.graph || {};
+                    payload.session_artifact.graph.nodes = payload.session_artifact.graph.nodes || [];
+                    payload.session_artifact.graph.edges = payload.session_artifact.graph.edges || [];
                 }
             }
             

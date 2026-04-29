@@ -118,7 +118,7 @@ class GoldenPathSynthesizer extends Base {
                         WHERE e.target = n.id AND e.type != 'BLOCKS'
                     ), 0.0) as struct_score
                 FROM Nodes n
-                WHERE json_extract(n.data, '$.properties.state') = 'OPEN'
+                WHERE (json_extract(n.data, '$.properties.state') = 'OPEN' OR json_extract(n.data, '$.state') = 'OPEN')
                   AND n.id IN (${placeholders})
             `);
 
@@ -155,6 +155,21 @@ class GoldenPathSynthesizer extends Base {
                 try { nodeData = JSON.parse(row.data); } catch (e) { }
 
                 let priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
+
+                // Apply hierarchical priority bonuses for Swarm workflows (PR > Ticket > Discussion)
+                const nodeType = nodeData?.type || nodeData?.label || '';
+                const nodeUrl = nodeData?.properties?.url || '';
+                
+                if (nodeType === 'PULL_REQUEST' || nodeUrl.includes('/pull/')) {
+                    priority += 1000;
+                    logger.debug(`[GoldenPathSynthesizer] Applied +1000 PULL_REQUEST bonus to ${issueId}`);
+                } else if (nodeType === 'ISSUE' || nodeUrl.includes('/issues/')) {
+                    priority += 500;
+                    logger.debug(`[GoldenPathSynthesizer] Applied +500 ISSUE bonus to ${issueId}`);
+                } else if (nodeType === 'DISCUSSION' || nodeUrl.includes('/discussions/')) {
+                    priority += 100;
+                    logger.debug(`[GoldenPathSynthesizer] Applied +100 DISCUSSION bonus to ${issueId}`);
+                }
 
                 // Apply Negative ROI Protocol for automatically rejected Swarm tickets (#9971)
                 const labels = nodeData?.properties?.labels || [];
