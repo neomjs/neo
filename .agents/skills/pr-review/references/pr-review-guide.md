@@ -264,7 +264,17 @@ Reviewers MUST verify symmetry between **stated framing** and **mechanical imple
 
 Two empirical anchors confirm the pattern: rhetorical drift fires both at author-side (PR description framing) and reviewer-side (challenge framing). The §7.4 mandate applies to both surfaces.
 
-### 7.5 Anti-Patterns
+### 7.5 Test-Execution Audit
+
+When a PR provides a 'Test Evidence' script or command, you MUST NOT blindly trust it. Rubber-stamping `[EXECUTION_QUALITY]` scores without independent verification is a critical failure.
+
+Reviewers MUST verify the provided test evidence by executing the commands locally in their workspace before finalizing the review:
+1. Extract the test command from the PR description's `Test Evidence` section.
+2. Execute the command via the appropriate terminal tool (e.g., `run_command`).
+3. Verify the output matches the author's claim (e.g., tests pass, no regressions).
+4. If the author did not provide test evidence for structural logic changes, flag this as a **Required Action**.
+
+### 7.6 Anti-Patterns
 
 | Anti-pattern | Why it fails the Depth Floor |
 |---|---|
@@ -275,6 +285,7 @@ Two empirical anchors confirm the pattern: rhetorical drift fires both at author
 | Style-calibrating toward the other model family's tone | §7.2 — the floor keeps rigor universal, not style convergence |
 | Ignoring Chain of Custody | §7.3 Provenance Audit violated on a major abstraction |
 | Approval without rhetorical-drift audit on a PR carrying substantive architectural prose | §7.4 Rhetorical-Drift Audit violated; framing drifts from mechanical reality, poisons `ask_knowledge_base` ingestion |
+| Approving `[EXECUTION_QUALITY]` without executing the author's test evidence | §7.5 Test-Execution Audit violated; reviewers must independently verify testing claims |
 | PR names an epic as close-target without flagging | §5.2 Close-Target Audit violated; risks epic auto-close-with-open-subs (see #9999 sabotage chain) |
 | PR adds bloated multi-line OpenAPI tool description without flagging | §5.3 MCP-Tool-Description Budget Audit violated; bloat compounds across the tool surface and competes with agent reasoning budget at runtime |
 

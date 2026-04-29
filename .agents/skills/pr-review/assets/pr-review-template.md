@@ -118,6 +118,18 @@ For every modified or added OpenAPI tool description:
 
 ---
 
+### 🧪 Test-Execution Audit
+
+*(Required per guide §7.5. Reviewers MUST empirically verify code execution before assigning an `[EXECUTION_QUALITY]` score.)*
+
+- [ ] Branch checked out locally via `mcp_neo-mjs-github-workflow_checkout_pull_request` (or `gh pr checkout`)
+- [ ] Automated test suite executed against the PR branch
+- [ ] (Optional) Manual isolation tests performed for framework/UI changes
+
+**Findings:** [Tests pass / Test failures flagged in Required Actions / Verified via script]
+
+---
+
 ### 📋 Required Actions
 
 **For PRs with required actions — use the checkbox list form:**
