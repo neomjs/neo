@@ -17,13 +17,14 @@ This protocol ensures that feedback is:
 If you are an AI Agent tasked with writing a PR review directly on GitHub (acting against your own PR or others), you MUST follow this protocol. This serves as the critical "Stepping Back" strategy where you transition from "Driver/Implementer" to "Navigator/Reviewer".
 
 1. **Context Initialization:** You MUST retrieve the state of the PR using `get_pull_request_diff` and `get_conversation` (via the `neo-mjs-github-workflow` MCP server) before formulating your review.
-2. **Self-Review Detection:** After retrieving the PR conversation, extract the associated ticket number from the PR body (e.g., `Resolves #N`). Then query `query_raw_memories(query: '#N')` scoped to the **current Memory Core session ID**. If a match is found, the agent authored this PR in the current session — switch to **self-review mode** (first-person, clinical, no congratulatory openers). If no match, use standard **peer-review mode** (third-person, constructive).
-3. **Semantic Blast-Radius Sweep (Tech Debt Radar):** If the PR introduces fundamental framework architectural shifts or is labeled as `refactor(ai)`, you MUST execute the Tech Debt Radar (by triggering `view_file` on `.agents/skills/tech-debt-radar/SKILL.md`) to mandate a semantic sweep against historical issues and Memory Core sessions. This guarantees the newly proposed architecture does not collide with or ignore sweeping ambient debt across the repository before the PR is merged.
-4. **Scope Creep vs. Iteration:** As you step back to critically review your own architectural choices, you MUST explicitly "think outside the box" and challenge your initial assumptions:
+2. **Empirical Checkout Mandate:** A static diff read is insufficient to score `[EXECUTION_QUALITY]` for code changes. You MUST use the active harness tool (e.g., `checkout_pull_request`) to load the branch locally and execute **RELATED** tests. Do not run the entire test suite. If it is a documentation/template change, running tests is not required. Bypassing this step for code changes and claiming "tests pass" based on the diff is a catastrophic Verify-Before-Assert violation.
+3. **Self-Review Detection:** After retrieving the PR conversation, extract the associated ticket number from the PR body (e.g., `Resolves #N`). Then query `query_raw_memories(query: '#N')` scoped to the **current Memory Core session ID**. If a match is found, the agent authored this PR in the current session — switch to **self-review mode** (first-person, clinical, no congratulatory openers). If no match, use standard **peer-review mode** (third-person, constructive).
+4. **Semantic Blast-Radius Sweep (Tech Debt Radar):** If the PR introduces fundamental framework architectural shifts or is labeled as `refactor(ai)`, you MUST execute the Tech Debt Radar (by triggering `view_file` on `.agents/skills/tech-debt-radar/SKILL.md`) to mandate a semantic sweep against historical issues and Memory Core sessions. This guarantees the newly proposed architecture does not collide with or ignore sweeping ambient debt across the repository before the PR is merged.
+5. **Scope Creep vs. Iteration:** As you step back to critically review your own architectural choices, you MUST explicitly "think outside the box" and challenge your initial assumptions:
     - **Minor Gaps:** If you uncover minor misses (e.g., missed JSDoc, missing Anchor & Echo context), push rapid successive commits to the PR to polish the execution.
     - **Major Refactors:** If you realize a mathematically superior architecture exists (e.g., massive GC optimization) that is *out-of-scope* for the current ticket, DO NOT attempt to cram it into the active PR. Secure the "good enough" PR, and instead propose a **Follow-Up System Enhancement Ticket** conceptually linked to the original PR to avoid scope creep.
-5. **Verify-Before-Assert Integration:** Before asserting any claim in your PR Review (especially under §7 Depth Floor), you MUST apply the **Verify-Before-Assert Pre-Flight Check** (`AGENTS.md` §2.3). You cannot claim "this code breaks X" or "this label is missing" without first empirically running the falsifying tool to prove it.
-6. **Execution:** Once formulated, use the `manage_issue_comment` MCP tool (action: `create`) to post the review directly onto the PR thread, or formulate it in markdown locally if MCP is disconnected.
+6. **Verify-Before-Assert Integration:** Before asserting any claim in your PR Review (especially under §7 Depth Floor), you MUST apply the **Verify-Before-Assert Pre-Flight Check** (`AGENTS.md` §2.3). You cannot claim "this code breaks X" or "this label is missing" without first empirically running the falsifying tool to prove it.
+7. **Execution:** Once formulated, use the `manage_issue_comment` MCP tool (action: `create`) to post the review directly onto the PR thread, or formulate it in markdown locally if MCP is disconnected.
 
 ## 3. Structural Evaluation Metrics
 Every PR review MUST score the work across the following categories on a scale of `0` to `100`:
@@ -263,7 +264,17 @@ Reviewers MUST verify symmetry between **stated framing** and **mechanical imple
 
 Two empirical anchors confirm the pattern: rhetorical drift fires both at author-side (PR description framing) and reviewer-side (challenge framing). The §7.4 mandate applies to both surfaces.
 
-### 7.5 Anti-Patterns
+### 7.5 Test-Execution Audit
+
+When reviewing a PR, you MUST empirically verify code execution, but only for **RELATED** tests. Do NOT blindly run the entire automated test suite, as it destroys the focus window and wastes tokens.
+
+Reviewers MUST verify testing claims by executing the relevant test files locally in their workspace:
+1. If the PR modifies a test file, run that specific test file.
+2. If the PR modifies structural code, verify if tests exist or if the author ran them. Run the related tests if applicable.
+3. If the PR is a documentation or template change, no tests are required. Do not demand tests for docs.
+4. If the author did not provide test evidence for structural logic changes, flag this as a **Required Action**.
+
+### 7.6 Anti-Patterns
 
 | Anti-pattern | Why it fails the Depth Floor |
 |---|---|
@@ -274,6 +285,7 @@ Two empirical anchors confirm the pattern: rhetorical drift fires both at author
 | Style-calibrating toward the other model family's tone | §7.2 — the floor keeps rigor universal, not style convergence |
 | Ignoring Chain of Custody | §7.3 Provenance Audit violated on a major abstraction |
 | Approval without rhetorical-drift audit on a PR carrying substantive architectural prose | §7.4 Rhetorical-Drift Audit violated; framing drifts from mechanical reality, poisons `ask_knowledge_base` ingestion |
+| Approving `[EXECUTION_QUALITY]` without executing the author's test evidence | §7.5 Test-Execution Audit violated; reviewers must independently verify testing claims |
 | PR names an epic as close-target without flagging | §5.2 Close-Target Audit violated; risks epic auto-close-with-open-subs (see #9999 sabotage chain) |
 | PR adds bloated multi-line OpenAPI tool description without flagging | §5.3 MCP-Tool-Description Budget Audit violated; bloat compounds across the tool surface and competes with agent reasoning budget at runtime |
 
