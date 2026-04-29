@@ -27518,6 +27518,7 @@
   "repo:lucidrains/DALLE2-pytorch",
   "repo:lucidrains/PaLM-rlhf-pytorch",
   "repo:lucidrains/RETRO-pytorch",
+  "repo:lucidrains/alphafold3-pytorch",
   "repo:lucidrains/audiolm-pytorch",
   "repo:lucidrains/big-sleep",
   "repo:lucidrains/deep-daze",
