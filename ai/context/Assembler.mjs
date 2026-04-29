@@ -230,13 +230,13 @@ class ContextAssembler extends Base {
     }
 
     /**
-     * Loads SKILL.md files from the .agent/skills directory to be injected into the system prompt.
+     * Loads SKILL.md files from the .agents/skills directory to be injected into the system prompt.
      * Uses Progressive Disclosure: Only injects YAML frontmatter.
      * @returns {String}
      */
     loadSkillsSync() {
         try {
-            const skillsDir = path.resolve(__dirname, '../../.agent/skills');
+            const skillsDir = path.resolve(__dirname, '../../.agents/skills');
             if (!fs.existsSync(skillsDir)) return '';
 
             const entries = fs.readdirSync(skillsDir, { withFileTypes: true });

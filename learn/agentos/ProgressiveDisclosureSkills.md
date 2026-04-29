@@ -18,7 +18,7 @@ phenomenon). If an agent is tasked with a simple CSS fix, it does not need the
 sequences in its prompt.
 
 By deferring specialized procedural knowledge into standalone Markdown files 
-(`.agent/skills/*/SKILL.md`), we keep the root `AGENTS.md` system prompt lean.
+(`.agents/skills/*/SKILL.md`), we keep the root `AGENTS.md` system prompt lean.
 The root prompt outlines the *rules of engagement*, while the skills provide the 
 *tactical implementation manuals*.
 
