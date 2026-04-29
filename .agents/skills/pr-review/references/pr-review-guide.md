@@ -73,6 +73,14 @@ Examples:
 
 This discipline prevents cosmetic score adjustments while respecting the category distinction. A 100/100 on an evaluative metric is stronger when sub-100 scores carry explicit deduction reasoning; a clear factual characterization on a descriptive metric anchors the score in the work's actual structure.
 
+### 3.3 Follow-Up Metrics Delta
+
+Cycle 1 / cold-cache reviews score every metric explicitly in the full template. Cycle N / warm-cache follow-up reviews may use the follow-up template's **Metrics Delta** section instead:
+
+- If a metric changed since the prior review, write the before/after value (`80 -> 100`) and the concrete reason the score changed.
+- If a metric did not change, carry it forward by reference (`unchanged from prior review`) and name the prior review anchor.
+- Do not silently omit metrics. The delta form reduces thread bulk; it does not erase the scoring surface.
+
 ## 4. Graph Ingestion Tags
 To bridge the gap between human/agent code review and the internal Agent OS memory, you MUST use the following explicit markdown tags for any critical feedback. 
 The Retrospective daemon explicitly regex-matches these tags during REM sleep:
@@ -174,9 +182,38 @@ Conflating budgets — bloating YAML with what should have stayed in JSDoc — h
 - PR body verbosity (reviewers + Retrospective daemon legitimately consume Fat Ticket framing).
 - OpenAPI/JS contract drift (e.g., `enum` values diverging from runtime validators, `required` arrays diverging from JS-side implementation) — adjacent discipline gap; warrants separate codification if recurrent. The §5.3 audit is budget-focused; correctness drift is a different audit shape.
 
-## 6. The Review Template
-When drafting your review, use the `view_file` tool to load the exact markdown template from:
-`.agents/skills/pr-review/assets/pr-review-template.md`
+## 6. Review Template Selection
+
+Before drafting your review, classify the review cycle. Template choice is part of context-budget control and rigor control.
+
+### 6.1 Full Review Template
+
+Use the full template from `.agents/skills/pr-review/assets/pr-review-template.md` when any of these apply:
+
+- **Cycle 1 / cold-cache review:** first substantive review of the PR.
+- **Fresh session bootstrap:** you do not have prior-cycle context loaded in this context window.
+- **Cross-agent handoff without grounding:** another agent hands you a PR and you have not loaded the prior review/response context.
+- **Major delta:** the author changed scope, touched new architectural surfaces, added new files outside the prior Required Actions, or rewrote the PR body/close-target semantics enough that prior scores are no longer reliable.
+- **Lost anchor recovery:** no usable prior review commentId, author response commentId, or last-known anchor exists.
+
+When in doubt, use the full template. The full template is the safety path for cold context and broadened scope.
+
+### 6.2 Follow-Up Review Template
+
+Use the follow-up template from `.agents/skills/pr-review/assets/pr-review-followup-template.md` only for **Cycle N / warm-cache delta re-reviews** where:
+
+- You have prior-cycle context loaded, or you have grounded from the relevant prior review/author response anchors.
+- The latest author delta maps to previous Required Actions or a narrow PR-body / metadata correction.
+- The change surface is small enough that previous scores remain meaningful baselines.
+
+The follow-up template is not permission to rubber-stamp. It still requires:
+
+- A delta-specific Depth Floor: either one new delta concern or a documented search over changed files, prior blockers, and metadata.
+- A Test-Execution Audit scoped to changed surfaces since the prior cycle. Docs/template-only and PR-body-only deltas can explicitly state no tests are required.
+- Metrics delta semantics per §3.3.
+- A2A commentId capture and hand-off per §9 after posting the follow-up review.
+
+If a commentId-scoped A2A message arrives but you lack the surrounding prior-cycle context, treat that as a cold-cache case first: load enough grounding context, then decide whether the follow-up template is still valid.
 
 ## 7. Depth Floor — Preventing Rubber-Stamp Approvals
 
@@ -384,4 +421,3 @@ CommentId-scoped fetch is the **warm-cache** path — the reviewer or author has
 The dichotomy mirrors the boot-pull-vs-sunset-pull lifecycle distinction (`AGENTS_STARTUP §0` vs `session-sunset` skill body Step 1): **warm path** optimizes for incremental context; **cold path** grounds from scratch. They are NOT symmetric operations — they fill different lifecycle gaps. Don't confuse them: rigidly applying commentId-scoped fetch in a cold-cache case lands one isolated comment without the context it depends on; over-fetching on principle in a warm-cache case defeats the linear-cost scaling.
 
 **The right reflex** — before fetching, ask: *"do I have prior cycle context loaded in this context window?"* If yes → commentId-scoped fetch (or `since_comment_id` for incremental polling across stale-anchor recovery). If no → full-thread fetch + memory query for grounding.
-
