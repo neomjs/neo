@@ -1,0 +1,61 @@
+# Copy this file to .codex/config.toml for local Codex MCP setup.
+# Keep .codex/config.toml untracked: it can contain machine-local paths,
+# trust-level overrides, and environment-specific MCP settings.
+
+project_doc_fallback_filenames = [".codex/CODEX.md"]
+
+[mcp_servers."neo-mjs-github-workflow"]
+command = "npm"
+args = ["run", "--silent", "ai:mcp-server-github-workflow"]
+env_vars = ["GH_TOKEN", "GITHUB_TOKEN", "NEO_AGENT_IDENTITY"]
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+enabled = true
+
+[mcp_servers."neo-mjs-knowledge-base"]
+command = "npm"
+args = ["run", "--silent", "ai:mcp-server-knowledge-base"]
+env_vars = [
+    "GEMINI_API_KEY",
+    "NEO_AGENT_IDENTITY",
+    "NEO_CHROMA_EMBEDDING_PROVIDER",
+    "NEO_CHROMA_UNIFIED",
+    "NEO_EMBEDDING_PROVIDER",
+    "NEO_KB_AUTO_START_DATABASE",
+    "NEO_OPENAI_COMPATIBLE_API_KEY",
+    "NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL",
+    "NEO_OPENAI_COMPATIBLE_HOST",
+    "NEO_OPENAI_COMPATIBLE_MODEL"
+]
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+enabled = true
+
+[mcp_servers."neo-mjs-memory-core"]
+command = "npm"
+args = ["run", "--silent", "ai:mcp-server-memory-core"]
+env_vars = [
+    "GEMINI_API_KEY",
+    "NEO_AGENT_IDENTITY",
+    "NEO_CHROMA_EMBEDDING_PROVIDER",
+    "NEO_CHROMA_UNIFIED",
+    "NEO_EMBEDDING_PROVIDER",
+    "NEO_MEM_AUTO_START_DATABASE",
+    "NEO_MEM_AUTO_START_INFERENCE",
+    "NEO_MODEL_PROVIDER",
+    "NEO_OPENAI_COMPATIBLE_API_KEY",
+    "NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL",
+    "NEO_OPENAI_COMPATIBLE_HOST",
+    "NEO_OPENAI_COMPATIBLE_MODEL"
+]
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+enabled = true
+
+[mcp_servers."neo-mjs-neural-link"]
+command = "npm"
+args = ["run", "--silent", "ai:mcp-server-neural-link"]
+env_vars = ["NEO_AGENT_IDENTITY"]
+startup_timeout_sec = 30
+tool_timeout_sec = 120
+enabled = true
