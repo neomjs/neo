@@ -73,7 +73,6 @@ You must **NEVER** assert a system state (e.g., "the PR is merged," "the test pa
 - **Memory Core Non-Use (#10443):** Peer spent ~200 messages re-diagnosing the appName bug filed the day before. Falsifying tool not used: `query_summaries` on "bridge daemon appName fallback".
 - **Bash Pipeline Truncation (#10446):** Peer used `head -1` on multi-line `jq` output and PATCHed a PR body, destroying ~6KB of content. Falsifying tool not used: verifying the extracted body's character count (`wc -c`) *before* submitting the PATCH.
 - **Skipped Close-Target Label Check (#10451):** Peer included audit section without running `get_local_issue_by_id` on 10450 to verify the close-target was valid at the moment of writing.
-- **Static Diff Hallucination (#10500):** Agent approved a code PR without checking out the branch and running related tests locally, relying solely on static diff analysis to assess `[EXECUTION_QUALITY]`. Falsifying tool not used: `checkout_pull_request` + related test execution *before* asserting success.
 
 **Cross-Reference & Phase Integration:**
 This discipline applies across all workflow phases and subsumes the verification requirements in:
