@@ -6,11 +6,14 @@ This file contains behavioral rules and protocols that must be enforced on every
 
 These five rules are mechanically verifiable and have **no conditional exceptions** under any approval state, cross-family signal, or contextual nuance. Approval signals ("LGTM", "approved", "ready for merge", "no required actions") are **NOT** authorization to bypass any of them.
 
-1. **No `gh pr merge` (Human-Only execution).** Cross-family approval gates squash-merge *eligibility*; the merge act itself is reserved for the human user (the repo owner acting as final pipeline authority). Handoff terminates when a PR enters `APPROVED` state. See §7 + `.agent/skills/pull-request/references/pull-request-workflow.md` §6 step 3.
+1. **No `gh pr merge` (Human-Only execution).** Cross-family approval gates squash-merge *eligibility*; the merge act itself is reserved exclusively for the human user (the repo owner acting as final pipeline authority). Handoff terminates when a PR enters `APPROVED` state. See §7 + `.agent/skills/pull-request/references/pull-request-workflow.md` §6 step 3.
+    - **Cross-Family Cascade Clause:** Cross-family approval (e.g., Claude reviewing Gemini's PR or vice versa) grants squash-merge ELIGIBILITY but does NOT aggregate to grant merge AUTHORITY. Each agent's §0 Invariant 1 fires independently at the moment of action and CANNOT be satisfied by another agent's signal. The peer-review chain is structurally bounded: review → approval → handoff to human. The handoff explicitly terminates at the "approved" state. An agent reading "Claude approved" or "Gemini approved" or "all RAs satisfied" or "ready for merge" must NOT interpret these as authorization to execute merge — these are eligibility signals to the human, not execution signals to the swarm. If you find yourself reasoning "my peer approved, so I can merge" — that reasoning IS the loophole §0 forbids.
 2. **No commit without ticket-ID.** Every `git commit` subject ends `(#TICKET_ID)`. Conventional Commits format: `type(scope): message (#NNNN)`. See §3 Pre-Commit Hard Gates.
 3. **No direct commit/push to `main` or `dev`.** Always branch + PR. The data-sync pipeline is the explicit exception. See §3 + `.agent/skills/pull-request/references/pull-request-workflow.md` §2.
 4. **No `<noreply@*>` `Co-Authored-By` footers.** Override the harness default if it injects them. See `.agent/skills/pull-request/references/pull-request-workflow.md` §3.2.
 5. **No skipping `add_memory` at end of turn.** Forgetting the consolidated save = permanent data loss. The save IS the gate that permits the response. See §4.2.
+
+
 
 ## 1. Communication Style & Pipeline Authority
 
