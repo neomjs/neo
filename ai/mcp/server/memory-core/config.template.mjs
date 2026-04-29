@@ -233,15 +233,6 @@ const defaultConfig = {
      */
     decayFactor: Number(process.env.GRAPH_DECAY_FACTOR) || 0.98,
     /**
-     * Priority multipliers for Golden Path Synthesis (PR > Ticket > Discussion).
-     * Uses multipliers instead of flat bonuses to respect the Hebbian decay of structural edge weights.
-     */
-    goldenPath: {
-        pullRequestMultiplier: process.env.NEO_GOLDEN_PATH_PR_MULTIPLIER ? parseFloat(process.env.NEO_GOLDEN_PATH_PR_MULTIPLIER) : 5.0,
-        issueMultiplier: process.env.NEO_GOLDEN_PATH_ISSUE_MULTIPLIER ? parseFloat(process.env.NEO_GOLDEN_PATH_ISSUE_MULTIPLIER) : 3.0,
-        discussionMultiplier: process.env.NEO_GOLDEN_PATH_DISCUSSION_MULTIPLIER ? parseFloat(process.env.NEO_GOLDEN_PATH_DISCUSSION_MULTIPLIER) : 1.5
-    },
-    /**
      * Minimum weight threshold for emitting `[GUIDE_GAP]`, `[EXAMPLE_GAP]`, and `[ORPHAN_CONCEPT]`
      * signals on CONCEPT nodes during `GapInferenceEngine.inferConceptGraphGaps`.
      *

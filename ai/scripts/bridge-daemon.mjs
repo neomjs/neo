@@ -509,7 +509,6 @@ async function deliverDigest(subscription, digest) {
                 return;
             }
             let tabShortcut = meta.tabShortcut;
-            
             // In April 2026, Claude Desktop features 3 main tabs: Chat (Cmd+1), Cowork (Cmd+2), and Code (Cmd+3).
             // We default to '3' to automatically switch to the Code tab for agentic tasks.
             // For Antigravity, Cmd+L opens the Composer/Chat panel for agentic input.

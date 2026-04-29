@@ -85,7 +85,7 @@ export const IDENTITIES = [
                 harnessTarget: 'bridge-daemon',
                 harnessTargetMetadata: {
                     appName: 'Codex',
-                    tabShortcut: 'l'
+                    tabShortcut: null
                 }
             },
             createdAt: new Date().toISOString()
