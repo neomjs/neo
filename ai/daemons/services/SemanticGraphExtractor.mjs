@@ -29,11 +29,11 @@ class SemanticGraphExtractor extends Base {
     /**
      * Executes the Tri-Vector Synthesis (Semantic Graph, Open Deltas, Roadmap Strategy)
      * from the session memory log via JSON schema extraction.
-     * 
-     * @summary Anchor & Echo: Employs a relaxed schema validation strategy. Missing or truncated 
-     * `graph.nodes` and `graph.edges` default to empty arrays rather than triggering strict validation 
+     *
+     * @summary Anchor & Echo: Employs a relaxed schema validation strategy. Missing or truncated
+     * `graph.nodes` and `graph.edges` default to empty arrays rather than triggering strict validation
      * failures. This graceful degradation prevents token-exhaustion crash-loops under peak payload sizes.
-     * 
+     *
      * @param {Object} session Wrapped session object containing id, document, and meta
      * @returns {Promise<Object|null>} The extracted payload, or null on failure
      */
@@ -133,10 +133,15 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                         logger.warn(`[SemanticGraphExtractor] --- FINAL EXHAUSTED RAW LLM DUMP ---\n${result.content}\n-----------------------------`);
                     }
                 } else {
-                    // Relaxed schema validation: default missing graph/nodes/edges to empty arrays to prevent exhaustion loops.
+                    // Relaxed schema validation: default missing or malformed graph/nodes/edges to empty arrays to prevent exhaustion loops.
                     payload.session_artifact.graph = payload.session_artifact.graph || {};
-                    payload.session_artifact.graph.nodes = payload.session_artifact.graph.nodes || [];
-                    payload.session_artifact.graph.edges = payload.session_artifact.graph.edges || [];
+
+                    if (!Array.isArray(payload.session_artifact.graph.nodes)) {
+                        payload.session_artifact.graph.nodes = [];
+                    }
+                    if (!Array.isArray(payload.session_artifact.graph.edges)) {
+                        payload.session_artifact.graph.edges = [];
+                    }
                 }
             }
             
