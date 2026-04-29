@@ -120,13 +120,13 @@ For every modified or added OpenAPI tool description:
 
 ### 🧪 Test-Execution Audit
 
-*(Required per guide §7.5. Reviewers MUST empirically verify code execution before assigning an `[EXECUTION_QUALITY]` score.)*
+*(Required per guide §7.5. Reviewers MUST verify RELATED tests before assigning an `[EXECUTION_QUALITY]` score.)*
 
-- [ ] Branch checked out locally via `mcp_neo-mjs-github-workflow_checkout_pull_request` (or `gh pr checkout`)
-- [ ] Automated test suite executed against the PR branch
-- [ ] (Optional) Manual isolation tests performed for framework/UI changes
+- [ ] Branch checked out locally (e.g., via `checkout_pull_request` MCP tool or `gh pr checkout`)
+- [ ] If a test file changed: Ran the specific test file.
+- [ ] If code changed: Verified if there are tests, or if new tests are needed.
 
-**Findings:** [Tests pass / Test failures flagged in Required Actions / Verified via script]
+**Findings:** [Tests pass / No tests needed (docs change) / Test failures flagged in Required Actions]
 
 ---
 
