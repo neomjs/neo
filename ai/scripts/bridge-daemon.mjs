@@ -520,10 +520,6 @@ async function deliverDigest(subscription, digest) {
                 else if (appName === 'Antigravity') tabShortcut = 'l';
             }
             
-            if (appName === 'Codex') {
-                submitCommand = 'key code 36 using command down';
-            }
-            
             // [Anchor & Echo] The Electron-Paradox Defense:
             // Electron-based IDEs (Antigravity, VS Code) register their bundle names differently
             // than their underlying macOS process names (often just "Electron" to System Events).
