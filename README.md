@@ -195,7 +195,7 @@ For a deeper dive: **[Codebase Overview](./learn/guides/fundamentals/CodebaseOve
 
 :hammer_and_wrench: **[Contributing Guide](./CONTRIBUTING.md)**
 
-Neo is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`) under gated-RSI: agents propose code via PR, humans approve at merge. External contributors welcome via the same workflow.
+Neo is co-developed by `@tobiu` (substrate architect + merge-gate authority) and the AI maintainer team (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`) under gated-RSI: agents propose code via PR, humans approve at merge. External contributors welcome via the same workflow.
 
 </br></br>
 
