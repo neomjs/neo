@@ -64,16 +64,6 @@ You must **NEVER** assert a system state (e.g., "the PR is merged," "the test pa
 **Pre-Flight Check (state in your reasoning before asserting state):**
 > *"Pre-Flight: Before asserting that [STATE] is true, I will verify it by calling [TOOL] to confirm the empirical reality."*
 
-**Empirical Anchors (Incidents Preventable by V-B-A):**
-- **Session `e215cb77-3baf...` (2026-04-28):** During a high-pressure 'panic test', an agent asserted in an A2A retrospective that 'we overstepped and executed a merge'. Verifying against every PR merged that day showed all merges were human-executed. The V-B-A failure was the retrospective assertion itself.
-- **Cursor Speculation (#10411):** An agent speculated on Cursor IDE compatibility without empirical tests.
-- **Option Framing (#10467):** Peer framed 4 abstract options in the ticket Fix section instead of reading existing dispatch at `bridge-daemon.mjs:506` to identify the specific missing knob.
-- **Template Skip (#10464/#10466):** Agent skipped the PR review template validation.
-- **Cmd+L Challenge:** Agent extrapolated from VS Code's "Go to Line" semantics without empirically verifying via WebSearch.
-- **Memory Core Non-Use (#10443):** Peer spent ~200 messages re-diagnosing the appName bug filed the day before. Falsifying tool not used: `query_summaries` on "bridge daemon appName fallback".
-- **Bash Pipeline Truncation (#10446):** Peer used `head -1` on multi-line `jq` output and PATCHed a PR body, destroying ~6KB of content. Falsifying tool not used: verifying the extracted body's character count (`wc -c`) *before* submitting the PATCH.
-- **Skipped Close-Target Label Check (#10451):** Peer included audit section without running `get_local_issue_by_id` on 10450 to verify the close-target was valid at the moment of writing.
-
 **Cross-Reference & Phase Integration:**
 This discipline applies across all workflow phases and subsumes the verification requirements in:
 - Issue Intake (#9975)
@@ -243,7 +233,7 @@ To maintain repository hygiene and improve test coverage, you MUST adhere to the
 4. **Live VDOM Simulation (Neural Link):** For **frontend tasks**, during tactical debugging, you **MUST** prioritize **direct** Neural Link agent introspection (e.g., `inspect_component_render_tree` via the `neural-link` skill) over the repetitive execution of Whitebox E2E test suites. Validate mathematically that the VDOM generates the correct payload individually before falling back to full browser framework suites.
 5. **Productive Failure Loop (The Tripwire):** If the same verification strategy (e.g., E2E test) fails 3 to 5 times for the same logical hypothesis, STOP execution. Do not panic. Instead, step back and challenge your architectural assumptions. You **MUST** document the paradox locally (e.g., in `walkthrough.md` or a `scratch` artifact), invoke `add_memory`, and ask the user for guidance — but **first consider #7 (Peer Escalation Protocol) below**: cross-family peer escalation is lower-cost than user-tier escalation and frequently resolves the paradox without reaching this rule's user-tier hand-off. Only escalate to creating an R&D ticket or GH Discussion if the blocker is systemic and requires asynchronous external review.
 6. **Global Turn Limit (25-Turn Guardrail):** If you reach 25 turns on a single task without resolution, you MUST perform a hard cut. Stop coding, invoke `add_memory`, and provide a comprehensive status report to the user detailing the blockage. **Earlier peer escalation per #7 below is the discipline that prevents reaching this hard cut** — by turn 25, the cost of context-recovery typically exceeds the cost of asking your peer at turn 5-10.
-7. **Peer Escalation Protocol (Swarm Strength Primitive):** *"Stuck is data, not failure. Asking is discipline."* When you encounter friction that resists multiple debugging hypotheses (substrate-edge ambiguity, cross-family-knowledge gap, multi-turn diminishing returns), your cross-family peer (e.g., `@neo-opus-4-7` ↔ `@neo-gemini-3-1-pro`) is often the lowest-cost source of fresh-perspective unblock. Send an A2A message via `add_message` with: empirical state (what you tested, what passed/failed) + hypothesis enumeration (what you've ruled out and why) + specific ask (not "help me solve this" but "have you seen this pattern? / what would you check next?") + explicit *"I'm escalating per §10.7"* framing. Peer escalation is a sign of structural awareness, not weakness — it fires earlier and lower-cost than the user-tier rules above (#5, #6), and frequently resolves friction that would otherwise reach them. The cost stratification is explicit: peer-tier (low — async A2A, peer responds when convenient) → user-tier #5 (medium — interrupts user attention) → user-tier #6 (high — comprehensive status report, hard work-stop). **Do NOT defer escalating because** *"my peer might be busy"* (A2A is async; their response timing is theirs), *"I should figure this out solo"* (solo loops on substrate-edge cases waste compute), or *"asking is admitting failure"* (wrong framing — earlier escalation IS the wisdom that prevents reaching #6's 25-turn hard-cut). Empirical anchor: session `aaf22f06-cc5c-4dff-aa2f-7d5efb3a6343` (2026-04-26) — an agent encountered a Playwright/ES-module load-order paradox; substantial turn budget burned on solo debugging before user-triggered escalation surfaced cross-family contribution that unblocked in a single A2A response. The substrate worked when invoked; this rule codifies the reflex to invoke it proactively.
+7. **Peer Escalation Protocol (Swarm Strength Primitive):** When you encounter friction that resists multiple debugging hypotheses (substrate-edge ambiguity, cross-family gap), your cross-family peer is the lowest-cost unblock. Send an A2A message via `add_message` with: empirical state + hypothesis enumeration + specific ask + explicit *"I'm escalating per §10.7"* framing. Do this proactively before reaching the user-tier escalations (#5, #6). Do NOT defer escalating because your peer might be busy (A2A is async) or because you want to solve it solo (solo loops on substrate-edge cases waste compute).
 
 ## 11. File Editing Tool Selection (The "Append Gap")
 
@@ -560,10 +550,6 @@ With the Phase 3 Wake Substrate operational, agents receive `[WAKE]` injected ev
 - **Deduplication:** Multiple queued `[WAKE]` events may arrive sequentially. By relying on `list_messages` and tracking internal history, you gracefully no-op on phantom wakes if the actual message has already been processed. Do not assume every `[WAKE]` implies a new, unprocessed task.
 - **Option B (Sunset explicit mark_read):** Do NOT immediately call `mark_read` after reading. Preserving `readAt: null` during your active session is vital so future agents can find "hot" threads as a handoff substrate if they take over. During a mid-session-interrupt, keeping messages unread allows the handoff protocol to see them. Instead, `mark_read` must be executed explicitly at session sunset (see the `session-sunset` skill) once handovers are drafted.
 
-### Empirical anchors
-
-- **Session `aaf22f06-cc5c-4dff-aa2f-7d5efb3a6343` (2026-04-26):** 6+ instances of inbound A2A messages requiring explicit human-prompted nudges before being read by the receiving agent. Pattern recurred across both Claude Code and Antigravity sessions. Post-codification, the Pre-Flight reasoning-statement transforms the discipline from "remember to check sometimes" to "explicit commitment before yielding."
-- **Session `bf59d6c4-e250-44a2-b4b2-5bffae40ab5f` (2026-04-27):** 3 wake events fired in a single turn-arc due to queued harness inputs. By treating the wake as an interrupt and polling `list_messages`, the receiving agent avoided redundant processing loops. The absence of `mark_read` during processing kept the messages unread, cementing the need for Option B (Sunset explicit `mark_read`) to close the loop.
 
 ## 23. Authoring Discipline: Sibling-File Lift
 
@@ -586,12 +572,6 @@ This discipline targets **in-process service authoring** — directories where a
 
 The discipline is to lift **whichever pattern the directory's siblings already follow** — not to force `Neo.core.Base` everywhere. Read first, then conform.
 
-### Empirical anchors
-
-- **PR #10379** (Shape B Webhook Delivery, 2026-04-26): `WebhookDeliveryService.mjs` was authored with `constructor({databaseService, logger})` instead of the canonical `class X extends Base { static config = {className, singleton: true} }; export default Neo.setupClass(X);` pattern that every sibling MCP service in `ai/mcp/server/memory-core/services/` follows. Single review-cycle to catch and a multi-commit refactor to fix; a pre-flight read of `PermissionService.mjs` or `MailboxService.mjs` at authoring time would have been free.
-- **PR #10381** (Shape C bridge daemon, merged 2026-04-26): `bridge-daemon.mjs` correctly used raw `better-sqlite3` + `json_extract` queries because the `ai/scripts/` convention is "out-of-process polling script with raw substrate access" (see `swarm-heartbeat.sh`, `seedAgentIdentities.mjs`). Same absence-of-discipline at authoring time, but the prevailing directory pattern legitimately differs — this is the scope clause above in action.
-
-Two empirical anchors confirm the pattern: in-process service directories require Neo-class lift; out-of-process script directories don't. Read sibling files first to determine which regime applies.
 
 ### Why not §0 Critical Gate elevation
 
