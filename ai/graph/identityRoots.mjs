@@ -51,7 +51,7 @@ export const IDENTITIES = [
                     // → exit 0; the prior `'Cursor'` placeholder failed with `Can't get
                     // application "Cursor". (-1728)` exit 1.
                     appName: 'Antigravity',
-                    tabShortcut: null
+                    tabShortcut: 'l'
                 }
             },
             createdAt: new Date().toISOString()
@@ -85,7 +85,7 @@ export const IDENTITIES = [
                 harnessTarget: 'bridge-daemon',
                 harnessTargetMetadata: {
                     appName: 'Codex',
-                    tabShortcut: null
+                    tabShortcut: 'l'
                 }
             },
             createdAt: new Date().toISOString()

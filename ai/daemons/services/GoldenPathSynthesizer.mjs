@@ -154,22 +154,24 @@ class GoldenPathSynthesizer extends Base {
                 let nodeData = null;
                 try { nodeData = JSON.parse(row.data); } catch (e) { }
 
-                let priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
-
                 // Apply hierarchical priority bonuses for Swarm workflows (PR > Ticket > Discussion)
+                // Using multipliers on the structural score to respect Hebbian decay over time.
                 const nodeType = nodeData?.type || nodeData?.label || '';
                 const nodeUrl = nodeData?.properties?.url || '';
                 
+                let structMultiplier = 1.0;
                 if (nodeType === 'PULL_REQUEST' || nodeUrl.includes('/pull/')) {
-                    priority += 1000;
-                    logger.debug(`[GoldenPathSynthesizer] Applied +1000 PULL_REQUEST bonus to ${issueId}`);
+                    structMultiplier = aiConfig.goldenPath?.pullRequestMultiplier || 5.0;
+                    logger.debug(`[GoldenPathSynthesizer] Applied ${structMultiplier}x PULL_REQUEST multiplier to ${issueId}`);
                 } else if (nodeType === 'ISSUE' || nodeUrl.includes('/issues/')) {
-                    priority += 500;
-                    logger.debug(`[GoldenPathSynthesizer] Applied +500 ISSUE bonus to ${issueId}`);
+                    structMultiplier = aiConfig.goldenPath?.issueMultiplier || 3.0;
+                    logger.debug(`[GoldenPathSynthesizer] Applied ${structMultiplier}x ISSUE multiplier to ${issueId}`);
                 } else if (nodeType === 'DISCUSSION' || nodeUrl.includes('/discussions/')) {
-                    priority += 100;
-                    logger.debug(`[GoldenPathSynthesizer] Applied +100 DISCUSSION bonus to ${issueId}`);
+                    structMultiplier = aiConfig.goldenPath?.discussionMultiplier || 1.5;
+                    logger.debug(`[GoldenPathSynthesizer] Applied ${structMultiplier}x DISCUSSION multiplier to ${issueId}`);
                 }
+
+                let priority = (semanticScore * SEMANTIC_WEIGHT) + ((struct_score * structMultiplier) * STRUCTURAL_WEIGHT);
 
                 // Apply Negative ROI Protocol for automatically rejected Swarm tickets (#9971)
                 const labels = nodeData?.properties?.labels || [];
