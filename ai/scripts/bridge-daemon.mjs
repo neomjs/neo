@@ -509,7 +509,6 @@ async function deliverDigest(subscription, digest) {
                 return;
             }
             let tabShortcut = meta.tabShortcut;
-            let submitCommand = 'key code 36';
             
             // In April 2026, Claude Desktop features 3 main tabs: Chat (Cmd+1), Cowork (Cmd+2), and Code (Cmd+3).
             // We default to '3' to automatically switch to the Code tab for agentic tasks.
@@ -573,7 +572,7 @@ async function deliverDigest(subscription, digest) {
                 '-e', '    tell frontmostProcess',
                 '-e', '      keystroke "v" using command down',
                 '-e', '      delay 0.5',
-                '-e', `      ${submitCommand}`,
+                '-e', '      key code 36',
                 '-e', '      delay 1.0',
                 '-e', '    end tell',
                 '-e', '  end tell',

@@ -153,8 +153,8 @@ class GoldenPathSynthesizer extends Base {
 
                 let nodeData = null;
                 try { nodeData = JSON.parse(row.data); } catch (e) { }
-                let priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
 
+                let priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
 
                 // Apply Negative ROI Protocol for automatically rejected Swarm tickets (#9971)
                 const labels = nodeData?.properties?.labels || [];
