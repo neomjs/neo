@@ -1,4 +1,5 @@
 import Base from './Base.mjs';
+import { SQLITE_IN_CLAUSE_BATCH_SIZE } from './constants.mjs';
 
 /**
  * Native Write-Ahead Logging (WAL) SQLite engine proxy driving memory graph persistence logic.
@@ -303,7 +304,7 @@ class SQLite extends Base {
 
         if (invalidEdgesMap.size > 0) {
             let edgeIds = Array.from(invalidEdgesMap.keys());
-            let chunkSize = 400;
+            let chunkSize = SQLITE_IN_CLAUSE_BATCH_SIZE;
             for (let i = 0; i < edgeIds.length; i += chunkSize) {
                 let chunk = edgeIds.slice(i, i + chunkSize);
                 let placeholders = chunk.map(() => '?').join(',');
@@ -339,7 +340,7 @@ class SQLite extends Base {
         let userId = this.RequestContextService ? this.RequestContextService.getAgentIdentityNodeId() : null;
         let rlsClause = `AND (user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.sharedEntity') = 1 OR json_extract(data, '$.properties.visibility') = 'team')`;
 
-        const chunkSize = 400;
+        const chunkSize = SQLITE_IN_CLAUSE_BATCH_SIZE;
         let targetNodes = [];
         let edges = [];
 

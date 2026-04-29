@@ -4,6 +4,8 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { spawn } from 'child_process';
 import crypto from 'crypto';
+import { getNodesData, getEdgesData } from '../../../../../ai/scripts/bridge-daemon-queries.mjs';
+import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../../../../ai/graph/storage/constants.mjs';
 
 test.describe('Bridge Daemon', () => {
     let db;
@@ -309,5 +311,38 @@ test.describe('Bridge Daemon', () => {
         const output = await errorLogPromise;
         expect(output).toContain('[Bridge Daemon] Cannot deliver subscription');
         expect(output).toContain(subId);
+    });
+
+    test('getNodesData and getEdgesData deterministically chunk queries by SQLITE_IN_CLAUSE_BATCH_SIZE', () => {
+        let prepareCount = 0;
+        let paramsLength = [];
+
+        const mockDb = {
+            prepare: () => {
+                prepareCount++;
+                return {
+                    all: (...params) => {
+                        paramsLength.push(params.length);
+                        return params.map(p => ({ id: p, data: '{}' }));
+                    }
+                };
+            }
+        };
+
+        const overflowAmount = 50;
+        const totalItems = SQLITE_IN_CLAUSE_BATCH_SIZE + overflowAmount;
+        const ids = new Set(Array.from({ length: totalItems }, (_, i) => `id_${i}`));
+
+        const nodeResults = getNodesData(mockDb, ids);
+        expect(prepareCount).toBe(2);
+        expect(paramsLength).toEqual([SQLITE_IN_CLAUSE_BATCH_SIZE, overflowAmount]);
+        expect(nodeResults.length).toBe(totalItems);
+
+        prepareCount = 0;
+        paramsLength = [];
+        const edgeResults = getEdgesData(mockDb, ids);
+        expect(prepareCount).toBe(2);
+        expect(paramsLength).toEqual([SQLITE_IN_CLAUSE_BATCH_SIZE, overflowAmount]);
+        expect(edgeResults.length).toBe(totalItems);
     });
 });
