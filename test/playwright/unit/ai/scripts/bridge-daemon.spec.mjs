@@ -332,7 +332,7 @@ test.describe('Bridge Daemon', () => {
         const overflowAmount = 50;
         const totalItems = SQLITE_IN_CLAUSE_BATCH_SIZE + overflowAmount;
         const ids = new Set(Array.from({ length: totalItems }, (_, i) => `id_${i}`));
-        
+
         const nodeResults = getNodesData(mockDb, ids);
         expect(prepareCount).toBe(2);
         expect(paramsLength).toEqual([SQLITE_IN_CLAUSE_BATCH_SIZE, overflowAmount]);
