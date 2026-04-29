@@ -151,6 +151,82 @@ test.describe('Bridge Daemon', () => {
         expect(logContents).toContain('[Bridge Daemon Test Adapter] Delivered');          // Same delivery line as stdout
     });
 
+    test('does not deliver wake events for wakeSuppressed mailbox-only messages', async () => {
+        const subId = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-suppressed';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id: agentId,
+            label: 'AGENT',
+            properties: { name: 'Test Agent Suppressed' }
+        }));
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id: subId,
+            label: 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity: agentId,
+                harnessTarget: 'bridge-daemon',
+                status: 'active',
+                trigger: 'SENT_TO_ME',
+                harnessTargetMetadata: {
+                    adapter: 'test',
+                    coalesceWindow: 1
+                }
+            }
+        }));
+
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+            stdio: 'pipe',
+            env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        let deliveryCount = 0;
+        daemonProcess.stdout.on('data', (data) => {
+            const out = data.toString();
+            if (out.includes('[Bridge Daemon Test Adapter] Delivered')) {
+                deliveryCount++;
+            }
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const msgId = 'msg_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
+            id: msgId,
+            label: 'MESSAGE',
+            properties: {
+                from: agentId,
+                to: agentId,
+                subject: 'Suppressed Sunset Ping',
+                readAt: null,
+                taggedConcepts: ['sunset-protocol-handover'],
+                wakeSuppressed: true
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
+
+        const edgeId = 'edge_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
+            id: edgeId,
+            source: msgId,
+            target: agentId,
+            type: 'SENT_TO'
+        }), msgId, agentId, 'SENT_TO');
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
+
+        await new Promise(resolve => setTimeout(resolve, 5500));
+
+        expect(deliveryCount).toBe(0);
+
+        const stored = db.prepare('SELECT data FROM Nodes WHERE id = ?').get(msgId);
+        const storedMessage = JSON.parse(stored.data);
+        expect(storedMessage.properties.readAt).toBeNull();
+        expect(storedMessage.properties.wakeSuppressed).toBe(true);
+    });
+
     test('deduplicates multiple triggers for the same message in the coalescing window', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-dedup';

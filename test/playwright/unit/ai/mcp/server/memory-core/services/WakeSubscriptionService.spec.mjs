@@ -487,6 +487,37 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
             expect(emittedEvents[0].params.payload.subject).toBe('hello');
         });
 
+        test('does not emit SENT_TO_ME wake for wakeSuppressed mailbox-only messages', async () => {
+            CoalescingEngineService.setMcpServer(mockMcpServer);
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                await WakeSubscriptionService.subscribe({
+                    trigger: 'SENT_TO_ME',
+                    harnessTarget: 'mcp-notifications'
+                });
+            });
+
+            GraphService.upsertNode({
+                id        : 'MSG:SUPPRESSED',
+                type      : 'MESSAGE',
+                properties: {
+                    from          : '@alice',
+                    to            : '@alice',
+                    subject       : 'Sunset handover',
+                    readAt        : null,
+                    taggedConcepts: ['sunset-protocol-handover'],
+                    wakeSuppressed: true
+                }
+            });
+            GraphService.linkNodes('MSG:SUPPRESSED', '@alice', 'SENT_TO', 1.0);
+
+            await WakeSubscriptionService.pump();
+            await CoalescingEngineService.flushAll();
+
+            expect(emittedEvents.length).toBe(0);
+            expect(GraphService.db.nodes.get('MSG:SUPPRESSED').properties.readAt).toBeNull();
+        });
+
         test('does not emit for non-matching subscription', async () => {
             CoalescingEngineService.setMcpServer(mockMcpServer);
 

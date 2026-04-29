@@ -553,6 +553,7 @@ class WakeSubscriptionService extends Base {
         if (subscription.trigger === 'SENT_TO_ME' && edge.type === 'SENT_TO' && edge.target === owner) {
             const messageNode = db.nodes.get(edge.source);
             if (!messageNode) return null;
+            if (messageNode.properties?.wakeSuppressed) return null;
             const payload = this._buildSentToMePayload(messageNode);
             if (!this._matchesFilters(payload, subscription.filters)) return null;
             return this._wrapEvent('wake/sent_to_me', subscription, payload, logIdAnchor);

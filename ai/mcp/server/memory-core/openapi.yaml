@@ -885,6 +885,10 @@ paths:
                   type: array
                   items:
                     type: string
+                wakeSuppressed:
+                  type: boolean
+                  default: false
+                  description: "Persist the message without emitting SENT_TO_ME wake events. Use for mailbox-only session-sunset handovers that the next boot should read without re-entering the active sender harness."
                 task:
                   type: object
                   description: "Optional A2A Task envelope (https://a2a-protocol.org/latest/specification/) for structured agent coordination. Omit for free-form markdown messages."
