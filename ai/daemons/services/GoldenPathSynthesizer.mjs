@@ -36,6 +36,11 @@ class GoldenPathSynthesizer extends Base {
     /**
      * Synthesizes the Golden Path (strategic priorities) deterministically by analyzing Graph topology
      * combined with Vector Similarity (Hybrid GraphRAG).
+     * 
+     * @summary Anchor & Echo: Priority weighting relies strictly on the organic Hebbian decay curve.
+     * We avoid hardcoded multiplier bonuses (e.g., for PRs) to prevent zeroing out the natural 
+     * physics simulation of the queue. Task state is queried via both `$.properties.state` and 
+     * `$.state` to ensure reliable `OPEN` detection across varying JSON schemas.
      */
     async synthesizeGoldenPath() {
         logger.info('[GoldenPathSynthesizer] Initializing Hybrid GraphRAG Strategic Traversal...');
