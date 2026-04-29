@@ -408,8 +408,8 @@ paths:
             Comment created or updated successfully. Returns the canonical comment identifier
             (`commentId`), its GitHub URL, and the relevant timestamp (`createdAt` on create,
             `updatedAt` on update) so the caller can surface the canonical reference for A2A
-            propagation patterns — see `.agent/skills/pr-review/references/pr-review-guide.md §9`
-            and `.agent/skills/pull-request/references/pull-request-workflow.md §8` for the
+            propagation patterns — see `.agents/skills/pr-review/references/pr-review-guide.md §9`
+            and `.agents/skills/pull-request/references/pull-request-workflow.md §8` for the
             comment-ID hand-off convention that pairs with `get_conversation({comment_id: …})`.
           content:
             application/json:
@@ -757,7 +757,7 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Creates a new GitHub issue. **MANDATORY** pre-step: read `.agent/skills/ticket-create/SKILL.md` — the skill contains the full creation protocol (duplicate sweep, Fat Ticket body, label rules, post-creation chaining).
+        Creates a new GitHub issue. **MANDATORY** pre-step: read `.agents/skills/ticket-create/SKILL.md` — the skill contains the full creation protocol (duplicate sweep, Fat Ticket body, label rules, post-creation chaining).
       tags: [Issues]
       requestBody:
         required: true
