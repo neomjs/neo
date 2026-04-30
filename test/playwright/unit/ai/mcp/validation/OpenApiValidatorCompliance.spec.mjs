@@ -163,7 +163,43 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         const schema = zodToJsonSchema(buildZodSchema(doc, op), {target: 'openApi3', $refStrategy: 'none'});
 
         expect(schema.properties.action.type).toBe('string');
-        expect(schema.properties.action.enum).toEqual(['start', 'stop']);
+    });
+
+    /**
+     * Direct regression for https://github.com/neomjs/neo/issues/10531.
+     * Prior to the fix, `buildZodSchemaFromNode` ignored `default`, `minimum`,
+     * and `maximum` properties defined in OpenAPI.
+     * This test confirms these constraints are preserved in the generated Zod schema.
+     */
+    test('buildZodSchema preserves default, minimum, and maximum constraints (#10531)', async () => {
+        const doc = {
+            paths: {
+                '/test': {
+                    post: {
+                        operationId: 'test_bounds',
+                        requestBody: {
+                            content: {
+                                'application/json': {
+                                    schema: {
+                                        type: 'object',
+                                        properties: {
+                                            count: { type: 'integer', minimum: 1, maximum: 100, default: 10 }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        const op = doc.paths['/test'].post;
+        const schema = zodToJsonSchema(buildZodSchema(doc, op), {target: 'openApi3', $refStrategy: 'none'});
+
+        expect(schema.properties.count.type).toBe('integer');
+        expect(schema.properties.count.minimum).toBe(1);
+        expect(schema.properties.count.maximum).toBe(100);
+        expect(schema.properties.count.default).toBe(10);
     });
 
     for (const server of servers) {

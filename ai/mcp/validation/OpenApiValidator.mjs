@@ -151,10 +151,14 @@ function buildZodSchemaFromNode(doc, schema, opts = {}) {
         } else {
             zodSchema = z.string();
         }
-    } else if (schema.type === 'integer') {
-        zodSchema = z.number().int();
-    } else if (schema.type === 'number') {
-        zodSchema = z.number();
+    } else if (schema.type === 'integer' || schema.type === 'number') {
+        zodSchema = schema.type === 'integer' ? z.number().int() : z.number();
+        if (schema.minimum !== undefined) {
+            zodSchema = zodSchema.min(schema.minimum);
+        }
+        if (schema.maximum !== undefined) {
+            zodSchema = zodSchema.max(schema.maximum);
+        }
     } else if (schema.type === 'boolean') {
         zodSchema = z.boolean();
     } else {
@@ -172,6 +176,10 @@ function buildZodSchemaFromNode(doc, schema, opts = {}) {
 
     if (schema.description) {
         zodSchema = zodSchema.describe(schema.description);
+    }
+
+    if (schema.default !== undefined) {
+        zodSchema = zodSchema.default(schema.default);
     }
 
     return zodSchema;
