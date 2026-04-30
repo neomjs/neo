@@ -146,7 +146,11 @@ function buildZodSchemaFromNode(doc, schema, opts = {}) {
             zodSchema = z.array(z.unknown());
         }
     } else if (schema.type === 'string') {
-        zodSchema = z.string();
+        if (Array.isArray(schema.enum) && schema.enum.length > 0) {
+            zodSchema = z.enum(schema.enum);
+        } else {
+            zodSchema = z.string();
+        }
     } else if (schema.type === 'integer') {
         zodSchema = z.number().int();
     } else if (schema.type === 'number') {
