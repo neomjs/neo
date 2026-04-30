@@ -14,7 +14,7 @@ A true Session Boundary is defined by:
 1. **Context Window Exhaustion:** You are approaching the token limit of your model (e.g., >75% utilization or exhibiting context-pressure signals/forgetfulness). Avoid hardcoding specific token counts as models evolve.
 2. **Macro-Semantic Pivot:** The human explicitly shifts focus to a completely new domain, epic, or architectural phase (e.g., switching from Database Layer substrate work to UI Framework component design), requiring a clean slate. *Asymmetry Tiebreaker: The cost of a premature sunset is greater than a late sunset; when in doubt, lean conservative and keep the session open.*
 3. **Explicit Human Directive:** The Human Commander explicitly instructs you to terminate the session (e.g., "let's wrap", "time to sunset", or `/sunset`).
-4. **Proactive Agent Recommendation:** You recognize a natural, logical break point in the work stream and explicitly **RECOMMEND** sunsetting to the human (e.g. "We've reached a logical break point. Should we sunset the session?"). **NEVER unilaterally execute the protocol based solely on this.**
+4. **Proactive Agent Recommendation:** You recognize a natural, logical break point in the work stream and explicitly **RECOMMEND** sunsetting to the human (e.g. "We've reached a logical break point. Should we sunset the session?"). **NEVER unilaterally execute the protocol based solely on this.** It requires explicit `@tobiu` confirmation unless context exhaustion is the active trigger. Note: A new `[WAKE]` event invalidates any pending sunset recommendation.
 
 If none of these conditions are met, do **NOT** sunset. Simply output your response and wait for the next turn.
 
@@ -28,6 +28,9 @@ Subjective calibration disagreement between agents during cross-family review lo
 
 ### 1.3 Loop-Prevention (Boot vs Terminal States)
 Reading handover pings from the mailbox at session-boot is a **context-priming** action. It equips you with the required strategy to begin work. Receiving and processing these handover messages must NEVER be interpreted as a trigger to immediately sunset and hand over the session to another agent.
+
+### 1.4 Churn Prevention (The Fresh-Session Grace Floor)
+To prevent "boot -> one wake -> sunset" churn, agents must respect a fresh-session grace floor. An approved PR handoff is a task boundary, NOT automatically a session boundary. Do not recommend sunsetting immediately after completing a single fast task if the session is still fresh (e.g., under 10 turns) unless context exhaustion is active.
 
 ## 2. The Handoff Structure
 
