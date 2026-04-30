@@ -32,16 +32,16 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         }
         dbPath = path.join(tmpDir, `neo-mailbox-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
+        // Force temp file DB config instead of :memory: to prevent initialization race wipes
+        mailboxAiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        mailboxAiConfig.storagePaths.graph = dbPath;
+
         // Load dynamically due to SQLite DB mount timing
         GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         MailboxService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/MailboxService.mjs')).default;
         PermissionService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/PermissionService.mjs')).default;
         LifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
         buildMailboxDelta = (await import('../../../../../../../../ai/mcp/server/memory-core/services/MemoryService.mjs')).buildMailboxDelta;
-
-        // Force temp file DB config instead of :memory: to prevent initialization race wipes
-        mailboxAiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        mailboxAiConfig.storagePaths.graph = dbPath;
 
         // Pin this suite to strict-isolation mode (#10252). These tests predate the
         // config-gated default and assert `'blocked'`-mode behavior (Unauthorized

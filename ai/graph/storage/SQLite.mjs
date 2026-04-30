@@ -143,13 +143,13 @@ class SQLite extends Base {
             VALUES (?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET data=excluded.data, user_id=excluded.user_id
         `);
-        
+
         const insertMany = this.db.transaction((nodesList) => {
             for (const node of nodesList) {
                 stmt.run(node.id, node.properties?.userId || null, JSON.stringify(node));
             }
         });
-        
+
         insertMany(nodes);
     }
 
@@ -162,11 +162,11 @@ class SQLite extends Base {
         const stmt = this.db.prepare(`
             INSERT INTO Edges (id, user_id, source, target, type, data)
             VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET 
-                user_id=excluded.user_id, 
-                source=excluded.source, 
-                target=excluded.target, 
-                type=excluded.type, 
+            ON CONFLICT(id) DO UPDATE SET
+                user_id=excluded.user_id,
+                source=excluded.source,
+                target=excluded.target,
+                type=excluded.type,
                 data=excluded.data
         `);
 
@@ -265,6 +265,12 @@ class SQLite extends Base {
      */
     clear() {
         if (!this.db) return;
+
+        // Critical safeguard (#10515): Prevent accidental test-driven wipes of the production database
+        if (this.dbPath && !this.dbPath.includes('tmp') && !this.dbPath.includes('test') && this.dbPath !== ':memory:') {
+            throw new Error(`FATAL: Attempted to clear a non-temporary SQLite database natively! Path: ${this.dbPath}`);
+        }
+
         this.db.exec('DELETE FROM Edges');
         this.db.exec('DELETE FROM Nodes');
     }
