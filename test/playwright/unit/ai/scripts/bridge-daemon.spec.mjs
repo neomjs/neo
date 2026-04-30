@@ -119,7 +119,8 @@ test.describe('Bridge Daemon', () => {
             label: 'MESSAGE',
             properties: {
                 from: '@sender',
-                subject: 'Test Wake Event'
+                subject: 'Test Wake Event',
+                priority: 'normal'
             }
         }));
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
@@ -136,7 +137,9 @@ test.describe('Bridge Daemon', () => {
         // Wait for delivery
         const output = await deliveryPromise;
         expect(output).toContain('[Bridge Daemon Test Adapter] Delivered');
+        expect(output).toContain('[WAKE][priority:normal]');
         expect(output).toContain('Test Wake Event');
+        expect(output).toContain('priority: normal');
 
         // Per #10419 — verify the diagnostic log file was persisted to disk and contains
         // structured entries (ISO timestamp + PID + INFO/ERROR level prefix). Persistence
@@ -317,6 +320,105 @@ test.describe('Bridge Daemon', () => {
         expect(deliveryCount).toBe(1);
         expect(finalDigest).toContain('1 new messages');
         expect(finalDigest).toContain('Test Dedup Event');
+        expect(finalDigest).toContain('[WAKE][priority:normal]');
+        expect(finalDigest).toContain('priority: normal');
+    });
+
+    test('uses the highest coalesced message priority in the wake digest header', async () => {
+        const subId = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-priority';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id: agentId,
+            label: 'AGENT',
+            properties: { name: 'Test Agent Priority' }
+        }));
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id: subId,
+            label: 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity: agentId,
+                harnessTarget: 'bridge-daemon',
+                status: 'active',
+                trigger: 'SENT_TO_ME',
+                harnessTargetMetadata: {
+                    adapter: 'test',
+                    coalesceWindow: 2
+                }
+            }
+        }));
+
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+            stdio: 'pipe',
+            env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver priority digest within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes('[Bridge Daemon Test Adapter] Delivered')) {
+                    clearTimeout(timeout);
+                    resolve(out);
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const lowMsgId = 'msg_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(lowMsgId, JSON.stringify({
+            id: lowMsgId,
+            label: 'MESSAGE',
+            properties: {
+                from: '@sender',
+                subject: 'Low Priority Wake Event',
+                priority: 'low'
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(lowMsgId, 'nodes');
+
+        const lowEdgeId = 'edge_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(lowEdgeId, JSON.stringify({
+            id: lowEdgeId,
+            source: lowMsgId,
+            target: agentId,
+            type: 'SENT_TO'
+        }), lowMsgId, agentId, 'SENT_TO');
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(lowEdgeId, 'edges');
+
+        const highMsgId = 'msg_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(highMsgId, JSON.stringify({
+            id: highMsgId,
+            label: 'MESSAGE',
+            properties: {
+                from: '@sender',
+                subject: 'High Priority Wake Event',
+                priority: 'high'
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(highMsgId, 'nodes');
+
+        const highEdgeId = 'edge_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(highEdgeId, JSON.stringify({
+            id: highEdgeId,
+            source: highMsgId,
+            target: agentId,
+            type: 'SENT_TO'
+        }), highMsgId, agentId, 'SENT_TO');
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(highEdgeId, 'edges');
+
+        const output = await deliveryPromise;
+        expect(output).toContain('[WAKE][priority:high]');
+        expect(output).toContain('2 new messages');
+        expect(output).toContain('High Priority Wake Event');
+        expect(output).toContain('priority: high');
     });
 
     test('skips osascript delivery and logs error when appName is missing', async () => {
