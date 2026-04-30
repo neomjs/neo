@@ -32,6 +32,9 @@ Reading handover pings from the mailbox at session-boot is a **context-priming**
 ### 1.4 Churn Prevention (The Fresh-Session Grace Floor)
 To prevent "boot -> one wake -> sunset" churn, agents must respect a fresh-session grace floor. An approved PR handoff is a task boundary, NOT automatically a session boundary. Do not recommend sunsetting immediately after completing a single fast task if the session is still fresh (e.g., under 10 turns) unless context exhaustion is active.
 
+### 1.5 The Continuity Guard (Human Absence)
+A non-human-confirmed sunset is valid **only** when objective context exhaustion/degradation is active, OR a daemon-backed fresh-session route is available and invoked. Otherwise, sunset reduces swarm liveness. If context is healthy and `@tobiu` is absent, you must **stay subscribed/idle and triage the next wake**. If context is exhausted, sunset must couple to durable handoff plus fresh-session routing.
+
 ## 2. The Handoff Structure
 
 Before terminating your session, you MUST execute the following 9 steps to ensure a clean handover.
