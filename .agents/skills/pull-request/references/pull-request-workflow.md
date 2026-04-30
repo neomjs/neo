@@ -147,11 +147,41 @@ You MUST follow this exact handoff protocol:
 
 **Invitation Layer (`manage_pr_reviewers`):** the cross-family mandate is the **validation** mechanism (Approved-status before merge). The MCP tool `manage_pr_reviewers` (`github-workflow` server) is the corresponding **invitation** mechanism — surfaces GitHub's `requested_reviewers` API for active review-requests. If no cross-family reviewer has engaged ~2 hours after PR open, the author SHOULD formally invite the opposite family via `manage_pr_reviewers({action: 'add', pr_number, reviewers: ['<opposite-family-login>']})`. Invitation precedes the 7-day-open fallback — it's the natural escalation step BEFORE that fallback fires. Codified per #10217.
 
-### 6.2 The Core Swarm A2A Notification Mandate
+### 6.2 The Core Swarm A2A Notification Mandate (Review Routing Protocol)
 
-If you are operating inside the canonical `neomjs/neo` repository as a core swarm member (e.g., `@neo-opus-4-7`, `@neo-gemini-3-1-pro`), immediately after successfully opening a PR, you MUST send an A2A notification message via the `add_message` tool to your peer(s) informing them that the PR has been created. 
+If you are operating inside the canonical `neomjs/neo` repository as a core swarm member (e.g., `@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`), immediately after successfully opening a PR, you MUST route a review request via the `add_message` tool.
 
-This strict feedback loop prevents duplicated work and confusion over ticket ownership when multiple agents are running concurrently. This rule strictly applies only to the `neomjs/neo` repo for the core team; it does NOT affect external contributors, forks, or users of `npx neo-app` workspaces.
+To prevent redundant parallel effort and reviewer collision, you MUST adhere to this explicit role-routing protocol rather than broadcasting naked multi-peer pings:
+
+1. **Default PR Handoff (Single-Peer Ping):** 
+   - **GitHub Layer (Assignment):** Author chooses exactly ONE `primary-reviewer` and immediately calls the `manage_pr_reviewers` MCP tool (`action: 'add'`) to make ownership visible in the PR UI.
+   - **A2A Layer (Wake):** Author sends ONE actionable A2A ping *only* to that same primary reviewer.
+     - Include `Review role: primary-reviewer`.
+     - Include `Requested action: review PR #N`.
+     - Do NOT send an actionable request to the second peer (unless using the `AGENT:*` broadcast primitive for general awareness, which does not convey primary ownership).
+   - *Primary-reviewer selection heuristic:* Default to round-robin (rotation) to prevent static silos (provenance: #10483). Subsystem familiarity should only be used as an explicit override with stated rationale (e.g., "Assigning @neo-gpt because they authored this abstraction in PR #X"). Do not use pure random selection.
+
+2. **Reviewer SLA & Decline Protocol:**
+   - **24-Hour Response Window:** The assigned `primary-reviewer` has 24 hours to provide an initial review.
+   - **Decline Protocol:** If a peer cannot review within 24 hours (due to queue load, context-mismatch, or loop exhaustion), they MUST formally decline via an A2A ping back to the author with `Requested action: unassign` and use `manage_pr_reviewers` to remove themselves. The author then assigns the remaining peer.
+   - **Silence Timeout Path:** If the assigned reviewer is completely silent for 24 hours, the author MUST unilaterally unassign them via `manage_pr_reviewers`, assign the third peer, and note the timeout in a PR comment.
+
+3. **Optional Visibility (The Observer):** If the second peer requires awareness without action, send an explicit no-action note.
+   - Include `Review role: observer` and `Requested action: none`.
+   - *Note:* This should be rare. Most PRs do not need observer notification.
+
+4. **Tie-Breaker Routing:** If the author and primary reviewer disagree after one full response cycle, ping the third peer.
+   - **PR Comment Layer:** Post a comment on the PR containing the tag `[TIE_BREAKER_REQUEST]` along with a 1-line summary of both positions. This serves as the durable graph-reconstruction record.
+   - **A2A Layer:** Send an A2A ping to the third peer.
+     - Include `Review role: tie-breaker`.
+     - Include the `commentId` for the contested review so the tie-breaker reviews only the disagreement, not the entire PR from scratch.
+
+5. **Architectural-Pillar Exception:** For broad structural framework changes, dual review is allowed but MUST be explicit.
+   - Use `Review role: independent-reviewer` for both peers.
+   - State `Dual independent review requested due architectural-pillar scope`.
+   - Naked multi-peer review requests remain strictly forbidden.
+
+This strict role-based feedback loop prevents duplicated work and confusion over PR ownership when multiple agents are running concurrently. This rule strictly applies only to the `neomjs/neo` repo for the core team; it does NOT affect external contributors, forks, or users of `npx neo-app` workspaces.
 
 ## 8. PR Comment Hygiene (Polish vs. Pivot)
 
