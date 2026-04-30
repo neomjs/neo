@@ -36,6 +36,11 @@ class GoldenPathSynthesizer extends Base {
     /**
      * Synthesizes the Golden Path (strategic priorities) deterministically by analyzing Graph topology
      * combined with Vector Similarity (Hybrid GraphRAG).
+     *
+     * @summary Anchor & Echo: Priority weighting relies strictly on the organic Hebbian decay curve.
+     * We avoid hardcoded multiplier bonuses (e.g., for PRs) to prevent zeroing out the natural
+     * physics simulation of the queue. Task state is queried via both `$.properties.state` and
+     * `$.state` to ensure reliable `OPEN` detection across varying JSON schemas.
      */
     async synthesizeGoldenPath() {
         logger.info('[GoldenPathSynthesizer] Initializing Hybrid GraphRAG Strategic Traversal...');
@@ -118,7 +123,7 @@ class GoldenPathSynthesizer extends Base {
                         WHERE e.target = n.id AND e.type != 'BLOCKS'
                     ), 0.0) as struct_score
                 FROM Nodes n
-                WHERE json_extract(n.data, '$.properties.state') = 'OPEN'
+                WHERE (json_extract(n.data, '$.properties.state') = 'OPEN' OR json_extract(n.data, '$.state') = 'OPEN')
                   AND n.id IN (${placeholders})
             `);
 
@@ -136,7 +141,7 @@ class GoldenPathSynthesizer extends Base {
 
                 for (const bEdge of blockers) {
                     const blockerNode = GraphService.db.nodes.get(bEdge.source);
-                    if (blockerNode && blockerNode.properties?.state === 'OPEN') {
+                    if (blockerNode && (blockerNode.properties?.state === 'OPEN' || blockerNode.state === 'OPEN')) {
                         isBlocked = true;
                         break;
                     }
