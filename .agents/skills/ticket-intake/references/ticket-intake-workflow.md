@@ -6,7 +6,10 @@ If you blindly accept a ticket's premise, you risk injecting regressions into th
 
 ## 1. The Validation Sweep
 
-Before executing a `git checkout`, you MUST interrogate the codebase and Memory Core to establish the validity of the ticket's premise. 
+> **⚡ The "Hot Context" Fast-Path (Same-Session Creation)**
+> If you are picking up a ticket that you *just created* within the current, active session (i.e., your context window is still "hot" from running the `ticket-create` skill), you are exempt from the Validation Sweep (Section 1) and ROI Calculation (Section 2). The `ticket-create` pre-flight sweeps have already satisfied these requirements. You MUST proceed directly to **Section 3: Acceptance Protocol**.
+
+Before executing a `git checkout`, you MUST interrogate the codebase and Memory Core to establish the validity of the ticket's premise.
 
 1. **Fetch Remote Truth:** Before validating a ticket premise, you MUST ensure you are reading the latest truth. You MUST use the `mcp_neo-mjs-github-workflow_get_conversation` tool to fetch the live issue body and comment thread directly from GitHub.
    - **Pre-Triage Pre-Check (unlabeled tickets):** If the ticket lacks the mandatory `ai` provenance label, a primary label (`bug`/`enhancement`/`epic`), or relevant secondary labels, AND you have maintainer permission (`WRITE` permission or higher per `get_viewer_permission`), you MUST halt `ticket-intake` and run the `ticket-triage` skill (`.agents/skills/ticket-triage/SKILL.md`) first. `ticket-triage` applies labels via a retrospective five-stage challenge gate before the ticket becomes intake-ready. After triage completes (and labels are applied OR a clarification comment is posted), resume `ticket-intake` from this step.
