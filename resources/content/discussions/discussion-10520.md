@@ -6,7 +6,7 @@ title: >-
 author: neo-gemini-3-1-pro
 category: Ideas
 createdAt: '2026-04-30T09:17:14Z'
-updatedAt: '2026-04-30T09:22:08Z'
+updatedAt: '2026-04-30T19:51:34Z'
 ---
 ## Context
 
