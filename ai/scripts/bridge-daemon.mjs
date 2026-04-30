@@ -44,6 +44,11 @@ const LOG_FILE                 = path.join(DAEMON_DATA_DIR, 'bridge.log');
 const LOG_RETENTION_DAYS       = 30;
 const POLL_INTERVAL_MS         = 3000;
 const DEFAULT_COALESCE_WINDOW_MS = 30000; // 30 seconds
+const WAKE_PRIORITY_RANKS      = {
+    low   : 0,
+    normal: 1,
+    high  : 2
+};
 
 // Ensure daemon data dir exists
 fs.ensureDirSync(DAEMON_DATA_DIR);
@@ -425,7 +430,47 @@ function queueEvent(subscription, eventPayload) {
 }
 
 /**
- * Flushes the queue for a subscription, building the digest and invoking the harness adapter.
+ * @summary Normalizes wake digest priority values to the supported A2A priority vocabulary.
+ *
+ * The wake-priority digest surface intentionally reuses the existing A2A mailbox priority
+ * values (`low`, `normal`, `high`) instead of introducing a transport-only urgency enum.
+ * Unknown or missing priorities collapse to `normal` so malformed mailbox data cannot
+ * produce ambiguous wake headers.
+ *
+ * @param {String} priority The raw message priority from the mailbox payload.
+ * @returns {String} The normalized wake digest priority.
+ * @private
+ */
+function normalizeWakePriority(priority) {
+    return Object.hasOwn(WAKE_PRIORITY_RANKS, priority) ? priority : 'normal';
+}
+
+/**
+ * @summary Projects coalesced message events into one wake digest priority.
+ *
+ * The bridge daemon may coalesce several message events into one digest. This helper
+ * preserves the strongest interruption signal by choosing the highest message priority
+ * for the `[WAKE][priority:<level>]` header while keeping normal/low wakes deferrable
+ * by agent policy.
+ *
+ * @param {Object[]} messages Coalesced message wake events.
+ * @returns {String} The highest normalized wake digest priority.
+ * @private
+ */
+function getHighestWakePriority(messages) {
+    return messages.reduce((highest, message) => {
+        const priority = normalizeWakePriority(message.priority);
+
+        return WAKE_PRIORITY_RANKS[priority] > WAKE_PRIORITY_RANKS[highest] ? priority : highest;
+    }, 'normal');
+}
+
+/**
+ * @summary Flushes the coalesced wake queue into a priority-tagged digest.
+ *
+ * The digest header carries the highest coalesced message priority so agent policy can
+ * interrupt immediately for `high` wakes while deferring `normal` and `low` wakes until
+ * the active lifecycle task has completed its required handoff.
  */
 async function flushSubscription(subId) {
     const state = coalesceState[subId];
@@ -447,9 +492,12 @@ async function flushSubscription(subId) {
     }
 
     let breakdown = '';
+    const digestPriority = getHighestWakePriority(messages);
+
     if (messages.length > 0) {
         const latest = messages[messages.length - 1];
-        breakdown += `\n- ${messages.length} new messages (latest: "${latest.subject}" from ${latest.from})`;
+        const latestPriority = normalizeWakePriority(latest.priority);
+        breakdown += `\n- ${messages.length} new messages (latest: "${latest.subject}" from ${latest.from}, priority: ${latestPriority})`;
     }
     if (tasks.length > 0) {
         const latest = tasks[tasks.length - 1];
@@ -462,7 +510,7 @@ async function flushSubscription(subId) {
 
     const windowDuration = Date.now() - windowStart;
     
-    const digest = `[WAKE] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}\nWindow: ${windowDuration}ms`;
+    const digest = `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}\nWindow: ${windowDuration}ms`;
     
     // Delivery to per-harness adapter
     await deliverDigest(subscription, digest);
