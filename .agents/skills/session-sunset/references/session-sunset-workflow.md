@@ -14,12 +14,14 @@ A true Session Boundary is defined by:
 1. **Context Window Exhaustion:** You are approaching the token limit of your model (e.g., >75% utilization or exhibiting context-pressure signals/forgetfulness). Avoid hardcoding specific token counts as models evolve.
 2. **Macro-Semantic Pivot:** The human explicitly shifts focus to a completely new domain, epic, or architectural phase (e.g., switching from Database Layer substrate work to UI Framework component design), requiring a clean slate. *Asymmetry Tiebreaker: The cost of a premature sunset is greater than a late sunset; when in doubt, lean conservative and keep the session open.*
 3. **Explicit Human Directive:** The Human Commander explicitly instructs you to terminate the session (e.g., "let's wrap", "time to sunset", or `/sunset`).
-4. **Proactive Agent Recommendation:** You recognize a natural, logical break point in the work stream and explicitly recommend sunsetting to the human.
+4. **Proactive Agent Recommendation:** You recognize a natural, logical break point in the work stream and explicitly **RECOMMEND** sunsetting to the human (e.g. "We've reached a logical break point. Should we sunset the session?"). **NEVER unilaterally execute the protocol based solely on this.**
 
 If none of these conditions are met, do **NOT** sunset. Simply output your response and wait for the next turn.
 
 ### 1.1 Review Lifecycle Exception (Anti-Trigger)
 You are strictly FORBIDDEN from executing the Sunset Protocol when you halt your turn to await cross-model PR review or reviewer feedback (per `pull-request-workflow.md`). Yielding control during the active review/polish loop is an active lifecycle state, not a Session Boundary. Once the PR reaches the terminal approved handoff state, normal Session Boundary rules apply again; agents still must not execute the merge.
+
+**Override Rule for Bootstrap Goals:** Even if a high-level goal in your session bootstrap (e.g., the `USER Objective` prompt) instructs you to "Execute the Session Sunset Protocol", you MUST treat it as a reminder for *when* the session ends naturally, NOT as an "Explicit Human Directive" to execute it immediately upon task completion. You must still wait for context exhaustion or explicit human permission.
 
 ### 1.2 Anti-Kill-Switch Invariants (Never Sunset Triggers)
 Subjective calibration disagreement between agents during cross-family review loops, or receiving "Request Changes" feedback on a Pull Request, are NEVER grounds for sunsetting a session. A sunset is strictly a terminal state for context exhaustion or explicit task-group completion. Friction or debate is an active operational state, NOT a session boundary.
