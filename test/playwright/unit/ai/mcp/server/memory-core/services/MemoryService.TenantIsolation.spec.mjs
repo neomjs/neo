@@ -39,6 +39,9 @@ function createSpyCollection() {
 
     const matchesWhere = (metadata, where) => {
         if (!where) return true;
+        if (where.$and) {
+            return where.$and.every(cond => matchesWhere(metadata, cond));
+        }
         return Object.entries(where).every(([key, value]) => metadata?.[key] === value);
     };
 
@@ -201,7 +204,7 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
         );
 
         const queryCall = spyCollection.queryCalls.at(-1);
-        expect(queryCall.where).toEqual({sessionId: 'session-a', userId: 'u-alice'});
+        expect(queryCall.where).toEqual({ $and: [{ sessionId: 'session-a' }, { userId: 'u-alice' }] });
     });
 
     test('queryMemories without a request context leaves the where clause at caller-provided sessionId only', async () => {

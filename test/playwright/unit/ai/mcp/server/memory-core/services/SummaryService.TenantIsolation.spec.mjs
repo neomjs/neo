@@ -205,7 +205,7 @@ test.describe('SummaryService — tenant isolation (#10000)', () => {
         );
 
         const q = spy.calls.query.at(-1);
-        expect(q.where).toEqual({category: 'refactoring', userId: 'u-alice'});
+        expect(q.where).toEqual({ $and: [{ category: 'refactoring' }, { userId: 'u-alice' }] });
     });
 
     test('querySummaries without a request context leaves the caller-provided category-only where as-is', async () => {
