@@ -89,7 +89,7 @@ The Retrospective daemon explicitly regex-matches these tags during REM sleep:
 *   **`[TOOLING_GAP]`**: Use this to document failures in the development workflow, broken test commands, or MCP tools that failed during the generation of the PR.
 *   **`[RETROSPECTIVE]`**: Use this for high-level takeaways or architectural praise.
 
-**Author-side response tags (`pull-request` §6):** The `pull-request` skill §6 Review Response Protocol defines a symmetric set of author-side tags — `[ADDRESSED]`, `[DEFERRED]`, `[REJECTED_WITH_RATIONALE]` — used by PR authors when responding to Required Actions from a review. Reviewer-side and author-side tags form a unified taxonomy the Retrospective daemon ingests as a complete negotiation thread; both sides of the review cycle are mineable signal.
+**Author-side response tags (`pull-request` §6):** The `.agents/skills/pull-request/references/review-response-protocol.md` document defines a symmetric set of author-side tags — `[ADDRESSED]`, `[DEFERRED]`, `[REJECTED_WITH_RATIONALE]` — used by PR authors when responding to Required Actions from a review. Reviewer-side and author-side tags form a unified taxonomy the Retrospective daemon ingests as a complete negotiation thread; both sides of the review cycle are mineable signal.
 
 ## 5. Required Actions & Cross-Linking
 *   **Related Graph Nodes:** Every PR review MUST list related graph nodes (e.g., `Target Epic ID`, `Issue ID`) to ensure the Native Edge Graph links the evaluation to the overarching goal.

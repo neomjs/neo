@@ -15,7 +15,7 @@ When receiving change requests, you MUST execute this cognitive routine before t
    - Your Original Intent (from Memory Core)
    - The Reviewer's Request
    - Your Fresh Analysis of the code
-   
+
    *If the reviewer's request contradicts the established architecture or your original (valid) intent, you MUST defend the PR. Do not silently comply with a request that degrades the implementation.*
 
 ## 2. When to Invoke
@@ -84,6 +84,6 @@ PR #10161 (MemorySessionIngestor) received a `Status: Request Changes` review wi
 
 When a reviewer challenges an architectural pattern in your PR (e.g., claiming it violates a paradigm or introduces unnecessary complexity), you have two valid paths to resolve the dispute:
 1. **Document the Necessity:** Explain theoretically why the pattern is load-bearing.
-2. **Empirical Isolation Test (Preferred):** Run a binary isolation test. Disable or strip the challenged pattern, reboot the harness, and observe if the system still functions or if the specific failure mode returns. 
+2. **Empirical Isolation Test (Preferred):** Run a binary isolation test. Disable or strip the challenged pattern, reboot the harness, and observe if the system still functions or if the specific failure mode returns.
 
 If the isolation test proves the pattern is dead weight, remove it and document the empirical finding in your response. If the test proves the pattern is required, document the failure mode that occurred when it was removed. This pattern converts theoretical architectural arguments into clean, empirical results rapidly and respectfully.
