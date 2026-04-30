@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import {fileURLToPath} from 'url';
 import { Memory_Config as aiConfig } from '../../services.mjs';
 import Base from '../../../src/core/Base.mjs';
 import { Memory_StorageRouter as StorageRouter } from '../../services.mjs';
@@ -12,7 +12,7 @@ import OpenAiCompatible from '../../provider/OpenAiCompatible.mjs';
 import IssueIngestor from './IssueIngestor.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname  = path.dirname(__filename);
 
 /**
  * @class Neo.ai.daemons.services.GoldenPathSynthesizer
@@ -36,6 +36,11 @@ class GoldenPathSynthesizer extends Base {
     /**
      * Synthesizes the Golden Path (strategic priorities) deterministically by analyzing Graph topology
      * combined with Vector Similarity (Hybrid GraphRAG).
+     *
+     * @summary Anchor & Echo: Priority weighting relies strictly on the organic Hebbian decay curve.
+     * We avoid hardcoded multiplier bonuses (e.g., for PRs) to prevent zeroing out the natural
+     * physics simulation of the queue. Task state is queried via both `$.properties.state` and
+     * `$.state` to ensure reliable `OPEN` detection across varying JSON schemas.
      */
     async synthesizeGoldenPath() {
         logger.info('[GoldenPathSynthesizer] Initializing Hybrid GraphRAG Strategic Traversal...');
@@ -118,7 +123,7 @@ class GoldenPathSynthesizer extends Base {
                         WHERE e.target = n.id AND e.type != 'BLOCKS'
                     ), 0.0) as struct_score
                 FROM Nodes n
-                WHERE json_extract(n.data, '$.properties.state') = 'OPEN'
+                WHERE (json_extract(n.data, '$.properties.state') = 'OPEN' OR json_extract(n.data, '$.state') = 'OPEN')
                   AND n.id IN (${placeholders})
             `);
 
@@ -136,7 +141,7 @@ class GoldenPathSynthesizer extends Base {
 
                 for (const bEdge of blockers) {
                     const blockerNode = GraphService.db.nodes.get(bEdge.source);
-                    if (blockerNode && blockerNode.properties?.state === 'OPEN') {
+                    if (blockerNode && (blockerNode.properties?.state === 'OPEN' || blockerNode.state === 'OPEN')) {
                         isBlocked = true;
                         break;
                     }
@@ -247,10 +252,10 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let gapElementsCount = 0;
         let prunedGaps = 0;
 
-        let testGaps = [];
-        let guideGaps = [];
-        let exampleGaps = [];
-        let orphanConcepts = [];
+        let testGaps        = [];
+        let guideGaps       = [];
+        let exampleGaps     = [];
+        let orphanConcepts  = [];
 
         GraphService.db.nodes.items.forEach(node => {
             if (node.properties?.capabilityGap) {
@@ -289,9 +294,9 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                             }
                         });
                     } catch (e) {
-                        const sanitizedMessage = node.properties.capabilityGap.replace(/\\n/g, ' ').replace(/\\n/g, ' ');
-                        testGaps.push({ id: node.id, msg: sanitizedMessage });
-                        gapElementsCount++;
+                         const sanitizedMessage = node.properties.capabilityGap.replace(/\\n/g, ' ').replace(/\\n/g, ' ');
+                         testGaps.push({ id: node.id, msg: sanitizedMessage });
+                         gapElementsCount++;
                     }
                 }
             }
@@ -334,7 +339,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             const rawIssuesDir = path.resolve(__dirname, '../../../resources/content/issues');
             const filesRaw = fs.readdirSync(rawIssuesDir);
             const mdFiles = filesRaw.filter(f => f.endsWith('.md'));
-
+            
             const openIssuesData = [];
             for (const file of mdFiles) {
                 const issueId = file.replace(/\\.md$/, '');
@@ -356,10 +361,10 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             if (latest5.length > 0) {
                 backlogAppend += `\n## 📋 Latest Priority Backlog\n\nThe following open tickets represent the most recently created structural objectives.\n\n`;
                 latest5.forEach((item, idx) => {
-                    const title = item.node.properties?.title || item.node.properties?.name || item.node.name || 'Unknown Title';
-                    const labels = item.node.properties?.labels || [];
-                    const labelTags = labels.length > 0 ? ' [\\`' + labels.join('\\`, \\`') + '\\`]' : '';
-                    backlogAppend += `${idx + 1}. **${item.id}**${labelTags}\n   - *${title}*\n`;
+                   const title = item.node.properties?.title || item.node.properties?.name || item.node.name || 'Unknown Title';
+                   const labels = item.node.properties?.labels || [];
+                   const labelTags = labels.length > 0 ? ' [\\`' + labels.join('\\`, \\`') + '\\`]' : '';
+                   backlogAppend += `${idx + 1}. **${item.id}**${labelTags}\n   - *${title}*\n`;
                 });
             }
         } catch (e) {

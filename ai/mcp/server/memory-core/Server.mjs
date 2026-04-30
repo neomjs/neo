@@ -431,8 +431,6 @@ class Server extends Base {
      * Wires up the MCP request handlers for listing and calling tools.
      */
     setupRequestHandlers() {
-        if (!this.mcpServer) return;
-
         // List Tools Handler
         this.mcpServer.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
             try {
