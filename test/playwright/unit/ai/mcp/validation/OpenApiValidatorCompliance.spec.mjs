@@ -131,6 +131,41 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(parsed.properties).toEqual({text: 'KEEP_ME', arbitraryKey: 42});
     });
 
+    /**
+     * Direct regression for https://github.com/neomjs/neo/issues/10527.
+     * Prior to the fix, `buildZodSchemaFromNode` blindly converted string schemas
+     * to `z.string()`, entirely dropping any `enum` constraint defined in OpenAPI.
+     * This test confirms that string parameters with enums correctly generate `z.enum()`.
+     */
+    test('buildZodSchema preserves enum constraints for string inputs (#10527)', async () => {
+        const doc = {
+            paths: {
+                '/test': {
+                    post: {
+                        operationId: 'test_enum',
+                        requestBody: {
+                            content: {
+                                'application/json': {
+                                    schema: {
+                                        type: 'object',
+                                        properties: {
+                                            action: { type: 'string', enum: ['start', 'stop'] }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        const op = doc.paths['/test'].post;
+        const schema = zodToJsonSchema(buildZodSchema(doc, op), {target: 'openApi3', $refStrategy: 'none'});
+
+        expect(schema.properties.action.type).toBe('string');
+        expect(schema.properties.action.enum).toEqual(['start', 'stop']);
+    });
+
     for (const server of servers) {
         test(`${server}: every emitted input/output schema has items on array nodes (#10064)`, () => {
             const yamlPath = path.join(repoRoot, 'ai/mcp/server', server, 'openapi.yaml');
