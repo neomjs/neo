@@ -19087,6 +19087,7 @@
   "repo:facebookresearch/detr",
   "repo:facebookresearch/dino",
   "repo:facebookresearch/dinov2",
+  "repo:facebookresearch/dinov3",
   "repo:facebookresearch/dlrm",
   "repo:facebookresearch/encodec",
   "repo:facebookresearch/esm",
