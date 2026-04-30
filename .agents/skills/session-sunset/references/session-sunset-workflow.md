@@ -14,7 +14,7 @@ A true Session Boundary is defined by:
 1. **Context Window Exhaustion:** You are approaching the token limit of your model (e.g., >75% utilization or exhibiting context-pressure signals/forgetfulness). Avoid hardcoding specific token counts as models evolve.
 2. **Macro-Semantic Pivot:** The human explicitly shifts focus to a completely new domain, epic, or architectural phase (e.g., switching from Database Layer substrate work to UI Framework component design), requiring a clean slate. *Asymmetry Tiebreaker: The cost of a premature sunset is greater than a late sunset; when in doubt, lean conservative and keep the session open.*
 3. **Explicit Human Directive:** The Human Commander explicitly instructs you to terminate the session (e.g., "let's wrap", "time to sunset", or `/sunset`).
-4. **Proactive Agent Recommendation:** You recognize a natural, logical break point in the work stream and explicitly **RECOMMEND** sunsetting to the human (e.g. "We've reached a logical break point. Should we sunset the session?"). **NEVER unilaterally execute the protocol based solely on this.** It requires explicit `@tobiu` confirmation unless context exhaustion is the active trigger. Note: A new `[WAKE]` event invalidates any pending sunset recommendation.
+4. **Proactive Agent Recommendation:** You recognize a natural, logical break point in the work stream and explicitly **RECOMMEND** sunsetting to the human (e.g. "We've reached a logical break point. Should we sunset the session?"). **NEVER unilaterally execute the protocol based solely on this.** Note: A new `[WAKE]` event invalidates any pending sunset recommendation.
 
 If none of these conditions are met, do **NOT** sunset. Simply output your response and wait for the next turn.
 
