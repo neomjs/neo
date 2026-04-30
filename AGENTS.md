@@ -210,10 +210,10 @@ This skill governs branch generation, conventional commit standards, the critica
 
 ## 8. The Resumption Protocol (Interruption Amnesia)
 
-During continuous agent sessions, an agent can succumb to "interruption amnesia." If the human commander injects a diagnostic sub-question or testing request (e.g., "test this A2A message" or "run this script") while the agent is midway through a ticket's lifecycle, the agent will typically resolve the sub-question and halt. It frequently drops the overarching "Definition of Done" (executing the `pull-request` skill) because its immediate context window was hijacked by the side-quest.
+During continuous agent sessions, any interrupting user prompt or A2A message can cause "interruption amnesia": the agent resolves the side-quest, then forgets the active ticket lifecycle and PR Definition of Done.
 
 **The Mandate:**
-If a user interrupts your ticket lifecycle for a diagnostic test, meta-request, or side-quest, you **MUST** explicitly resume the ticket lifecycle and check the PR Definition of Done immediately after the test concludes. Do not halt without asking yourself: *"Did the previous interruption distract me from opening the Pull Request?"*
+After any user prompt or A2A message reaches the agent during an active ticket lifecycle, resume that lifecycle and check the PR Definition of Done before halting. Ask: *"Did this interruption distract me from opening the Pull Request?"*
 
 ## 9. Preventing Context Corruption (State Management)
 
