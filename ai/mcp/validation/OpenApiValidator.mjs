@@ -156,18 +156,12 @@ function buildZodSchemaFromNode(doc, schema, opts = {}) {
         } else {
             zodSchema = z.string();
         }
-    } else if (schema.type === 'integer') {
-        zodSchema = z.number().int();
-
-        if (typeof schema.minimum === 'number') {
-            zodSchema = zodSchema.min(schema.minimum)
-        }
-
-        if (typeof schema.maximum === 'number') {
-            zodSchema = zodSchema.max(schema.maximum)
-        }
-    } else if (schema.type === 'number') {
+    } else if (schema.type === 'integer' || schema.type === 'number') {
         zodSchema = z.number();
+
+        if (schema.type === 'integer') {
+            zodSchema = zodSchema.int()
+        }
 
         if (typeof schema.minimum === 'number') {
             zodSchema = zodSchema.min(schema.minimum)
