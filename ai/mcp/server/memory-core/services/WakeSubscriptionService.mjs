@@ -291,7 +291,8 @@ class WakeSubscriptionService extends Base {
      * @param {String} opts.trigger One of validTriggers
      * @param {Object} [opts.filters] taggedConcepts | priority | senderFilter | inReplyToFilter
      * @param {String} opts.harnessTarget One of validHarnessTargets
-     * @param {Object} [opts.harnessTargetMetadata] url | coalesceWindow | daemonSocketPath
+     * @param {Object} [opts.harnessTargetMetadata] appName | url | coalesceWindow |
+     *     daemonSocketPath | adapter | tabShortcut | tmuxSession
      * @returns {Promise<Object>} {subscriptionId, harnessTarget, signingKey?}
      */
     async subscribe({trigger, filters = {}, harnessTarget, harnessTargetMetadata = {}} = {}) {
@@ -320,6 +321,7 @@ class WakeSubscriptionService extends Base {
             signingKey              = crypto.randomBytes(32).toString('hex');
             finalMetadata.signingKey = signingKey;
         }
+        this.validateHarnessTargetMetadata(harnessTarget, finalMetadata);
 
         const properties = {
             agentIdentity: owner,
@@ -418,6 +420,7 @@ class WakeSubscriptionService extends Base {
         if (filters               !== undefined) updated.filters               = filters;
         if (harnessTarget         !== undefined) updated.harnessTarget         = harnessTarget;
         if (harnessTargetMetadata !== undefined) updated.harnessTargetMetadata = {...subscription.harnessTargetMetadata, ...harnessTargetMetadata};
+        this.validateHarnessTargetMetadata(updated.harnessTarget, updated.harnessTargetMetadata || {});
         updated.updatedAt = new Date().toISOString();
 
         const {id, ...properties} = updated;
@@ -430,6 +433,28 @@ class WakeSubscriptionService extends Base {
         this.subscriptionCache.set(subscriptionId, updated);
 
         return {subscriptionId, currentState: updated};
+    }
+
+    /**
+     * @summary Validates channel metadata for the WAKE_SUBSCRIPTION lifecycle before
+     * graph persistence.
+     *
+     * This service-side guard complements the `manage_wake_subscription` MCP tool shape:
+     * the schema teaches fresh agents to pass the bridge-daemon routing fields, while
+     * this check protects bootstrap and programmatic paths that bypass MCP Zod parsing.
+     * The explicit `appName` requirement intentionally echoes the bridge-daemon/osascript
+     * routing contract so malformed subscriptions fail before the daemon can only log a
+     * missed wake.
+     *
+     * @param {String} harnessTarget The wake delivery channel.
+     * @param {Object} metadata Channel-specific harnessTargetMetadata.
+     * @throws {Error} When required metadata is missing.
+     * @protected
+     */
+    validateHarnessTargetMetadata(harnessTarget, metadata = {}) {
+        if (harnessTarget === 'bridge-daemon' && !metadata.appName) {
+            throw new Error('Shape C (bridge-daemon) requires harnessTargetMetadata.appName.');
+        }
     }
 
     /**

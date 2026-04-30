@@ -1143,11 +1143,16 @@ paths:
                   description: Required for subscribe; specifies how wake events are delivered.
                 harnessTargetMetadata:
                   type: object
-                  description: Channel-specific metadata. url required for a2a-webhook; coalesceWindow optional override; daemonSocketPath for bridge-daemon.
+                  description: Channel-specific metadata. appName is required so fresh agents always provide the bridge-daemon/osascript routing target; url is required for a2a-webhook; coalesceWindow is an optional override.
+                  required: [appName]
                   properties:
-                    url:               {type: string}
-                    coalesceWindow:    {type: integer, minimum: 0, maximum: 300}
-                    daemonSocketPath:  {type: string}
+                    url:              {type: string}
+                    coalesceWindow:   {type: integer, minimum: 0, maximum: 300}
+                    daemonSocketPath: {type: string}
+                    adapter:          {type: string, enum: [osascript, tmux]}
+                    appName:          {type: string}
+                    tabShortcut:      {type: string, nullable: true}
+                    tmuxSession:      {type: string}
                 sinceLogId:
                   type: integer
                   description: Required for resync. GraphLog watermark; client-tracked.

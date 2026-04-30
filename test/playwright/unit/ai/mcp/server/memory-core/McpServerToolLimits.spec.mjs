@@ -58,4 +58,22 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
             }
         }
     });
+
+    test('manage_wake_subscription surfaces bridge metadata contract', async () => {
+        const { tools } = await toolService.listTools();
+        const tool = tools.find(item => item.name === 'manage_wake_subscription');
+        const metadata = tool.inputSchema.properties.harnessTargetMetadata;
+
+        expect(metadata.required).toContain('appName');
+        expect(Object.keys(metadata.properties)).toEqual(expect.arrayContaining([
+            'adapter',
+            'appName',
+            'coalesceWindow',
+            'daemonSocketPath',
+            'tabShortcut',
+            'tmuxSession',
+            'url'
+        ]));
+        expect(metadata.properties.adapter.enum).toEqual(['osascript', 'tmux']);
+    });
 });
