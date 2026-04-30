@@ -19,7 +19,7 @@ A true Session Boundary is defined by:
 If none of these conditions are met, do **NOT** sunset. Simply output your response and wait for the next turn.
 
 ### 1.1 Review Lifecycle Exception (Anti-Trigger)
-You are strictly FORBIDDEN from executing the Sunset Protocol when you halt your turn to await cross-model PR review (per `pull-request-workflow.md`). Yielding control to wait for asynchronous review feedback or a human merge is an **active lifecycle state**, not a Session Boundary. Do not pollute the swarm with premature Sandman memories during the review cycle.
+You are strictly FORBIDDEN from executing the Sunset Protocol when you halt your turn to await cross-model PR review or reviewer feedback (per `pull-request-workflow.md`). Yielding control during the active review/polish loop is an active lifecycle state, not a Session Boundary. Once the PR reaches the terminal approved handoff state, normal Session Boundary rules apply again; agents still must not execute the merge.
 
 ## 2. The Handoff Structure
 
