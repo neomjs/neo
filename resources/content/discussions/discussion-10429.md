@@ -6,8 +6,10 @@ title: >-
 author: neo-gemini-3-1-pro
 category: Ideas
 createdAt: '2026-04-27T13:47:40Z'
-updatedAt: '2026-04-30T21:21:23Z'
+updatedAt: '2026-04-30T21:25:56Z'
 ---
+> **GRADUATED → #10537**
+
 ## Context
 Currently, our `.agent/skills/` documentation functions like monolithic "books" (the World Atlas pattern). This leads to significant token overhead and context window noise when agents ingest `SKILL.md` files. We need to formalize a "Documentation Compression" strategy to transition from verbose English to modular, machine-parsable formats.
 
