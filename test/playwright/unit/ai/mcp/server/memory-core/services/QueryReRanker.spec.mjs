@@ -198,12 +198,6 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
 
         TextEmbeddingService.embedText = async () => new Array(4096).fill(Math.random());
 
-        // Clear cached collection promises so ChromaManager picks up the new collection names
-        if (SDK.Memory_ChromaManager) {
-            SDK.Memory_ChromaManager._memoryCollectionPromise = null;
-            SDK.Memory_ChromaManager._summaryCollectionPromise = null;
-        }
-
         if (!SDK.Memory_LifecycleService._initPromise) {
             await SDK.Memory_LifecycleService.initAsync();
         } else {
