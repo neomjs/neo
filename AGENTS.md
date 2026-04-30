@@ -206,6 +206,8 @@ When you believe your codebase modifications are complete and ready for review, 
 
 This skill governs branch generation, conventional commit standards, the critical "Stepping Back" reflection phase, and the state handoff endpoint sequence. Follow it exactly.
 
+**Cross-Review Response Cycle (Anti-Passive Compliance):** If an external reviewer posts `Status: Request Changes` on your PR, you **MUST** execute the Triangular Evaluation per `.agents/skills/pull-request/references/review-response-protocol.md` before pushing any follow-up commits. Passive compliance (rubber-stamping reviewer requests without re-hydrating your original architectural intent) is strictly forbidden.
+
 ## 8. The Resumption Protocol (Interruption Amnesia)
 
 During continuous agent sessions, an agent can succumb to "interruption amnesia." If the human commander injects a diagnostic sub-question or testing request (e.g., "test this A2A message" or "run this script") while the agent is midway through a ticket's lifecycle, the agent will typically resolve the sub-question and halt. It frequently drops the overarching "Definition of Done" (executing the `pull-request` skill) because its immediate context window was hijacked by the side-quest.
