@@ -17,6 +17,10 @@ A true Session Boundary is defined by:
 4. **Proactive Agent Recommendation:** You recognize a natural, logical break point in the work stream and explicitly recommend sunsetting to the human.
 
 If none of these conditions are met, do **NOT** sunset. Simply output your response and wait for the next turn.
+
+### 1.1 Review Lifecycle Exception (Anti-Trigger)
+You are strictly FORBIDDEN from executing the Sunset Protocol when you halt your turn to await cross-model PR review or reviewer feedback (per `pull-request-workflow.md`). Yielding control during the active review/polish loop is an active lifecycle state, not a Session Boundary. Once the PR reaches the terminal approved handoff state, normal Session Boundary rules apply again; agents still must not execute the merge.
+
 ## 2. The Handoff Structure
 
 Before terminating your session, you MUST execute the following 8 steps to ensure a clean handover.
