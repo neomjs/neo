@@ -242,11 +242,12 @@ class SummaryService extends Base {
 
             // Tenant-scoped where clause (#10000) merged with the optional category filter.
             const userId = RequestContextService.getUserId();
-            const where  = {};
-            if (category) where.category = category;
-            if (userId)   where.userId   = userId;
-            if (Object.keys(where).length > 0) {
-                queryArgs.where = where;
+            if (category && userId) {
+                queryArgs.where = { $and: [{ category }, { userId }] };
+            } else if (category) {
+                queryArgs.where = { category };
+            } else if (userId) {
+                queryArgs.where = { userId };
             }
 
             const searchResult = await collection.query(queryArgs);

@@ -240,7 +240,7 @@ class MemoryService extends Base {
             // Tenant read-filter (#10000): adds userId to the where clause when a request context
             // is active. In stdio mode userId is undefined and the filter reduces to sessionId alone.
             const userId = RequestContextService.getUserId();
-            const where  = userId ? {sessionId, userId} : {sessionId};
+            const where  = userId ? { $and: [{ sessionId }, { userId }] } : { sessionId };
 
             const result = await collection.get({
                 where,
@@ -304,11 +304,12 @@ class MemoryService extends Base {
             // Tenant-scoped where clause (#10000). Merges userId with the caller-provided
             // sessionId when both are present; either side is optional.
             const userId = RequestContextService.getUserId();
-            const where  = {};
-            if (sessionId) where.sessionId = sessionId;
-            if (userId)    where.userId    = userId;
-            if (Object.keys(where).length > 0) {
-                queryArgs.where = where;
+            if (sessionId && userId) {
+                queryArgs.where = { $and: [{ sessionId }, { userId }] };
+            } else if (sessionId) {
+                queryArgs.where = { sessionId };
+            } else if (userId) {
+                queryArgs.where = { userId };
             }
 
             const searchResult = await collection.query(queryArgs);
