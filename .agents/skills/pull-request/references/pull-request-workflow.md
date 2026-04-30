@@ -159,9 +159,13 @@ To prevent redundant parallel effort and reviewer collision, you MUST adhere to 
      - Include `Review role: primary-reviewer`.
      - Include `Requested action: review PR #N`.
      - Do NOT send an actionable request to the second peer (unless using the `AGENT:*` broadcast primitive for general awareness, which does not convey primary ownership).
-   - *Primary-reviewer selection heuristic:* Prefer subsystem familiarity + current load + recent ownership. If equal, fallback to round-robin or an explicit, stated choice. Do not use pure random selection.
+   - *Primary-reviewer selection heuristic:* Default to round-robin (rotation) to prevent static silos. Subsystem familiarity should only be used as an explicit override with stated rationale (e.g., "Assigning @neo-gpt because they authored this abstraction in PR #X"). Do not use pure random selection.
 
-2. **Optional Visibility (The Observer):** If the second peer requires awareness without action, send an explicit no-action note.
+2. **Reviewer SLA & Decline Protocol:**
+   - **24-Hour Response Window:** The assigned `primary-reviewer` has 24 hours to provide an initial review.
+   - **Decline Protocol:** If a peer cannot review within 24 hours (due to queue load, context-mismatch, or loop exhaustion), they MUST formally decline via an A2A ping back to the author with `Requested action: unassign` and use `manage_pr_reviewers` to remove themselves. The author then assigns the remaining peer.
+
+3. **Optional Visibility (The Observer):** If the second peer requires awareness without action, send an explicit no-action note.
    - Include `Review role: observer` and `Requested action: none`.
    - *Note:* This should be rare. Most PRs do not need observer notification.
 
