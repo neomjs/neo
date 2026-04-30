@@ -41,17 +41,17 @@ class CollectionProxy extends Base {
     }
 
     async add(args) {
-        const collections = await this.getCollections();  
+        const collections = await this.getCollections();
         await Promise.all(collections.map(c => c.add(args)));
     }
 
     async upsert(args) {
-        const collections = await this.getCollections();  
+        const collections = await this.getCollections();
         await Promise.all(collections.map(c => c.upsert(args)));
     }
 
     async update(args) {
-        const collections = await this.getCollections();  
+        const collections = await this.getCollections();
         await Promise.all(collections.map(c => c.update(args)));
     }
 
@@ -64,7 +64,7 @@ class CollectionProxy extends Base {
     }
     
     async query(args) {
-        const collections = await this.getCollections();  
+        const collections = await this.getCollections();
         if (!collections || collections.length === 0 || !collections[0]) {
             throw new Error(`[CollectionProxy] query() failed: No underlying collection available for type '${this.collectionType}'`);
         }
@@ -80,7 +80,7 @@ class CollectionProxy extends Base {
     }
     
     async delete(args) {
-        const collections = await this.getCollections();  
+        const collections = await this.getCollections();
         await Promise.all(collections.map(c => c.delete(args)));
     }
 

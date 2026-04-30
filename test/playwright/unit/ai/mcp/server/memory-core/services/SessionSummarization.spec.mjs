@@ -50,8 +50,7 @@ test.describe('Memory Core Offline Summarization', () => {
 
         const testDbName              = `memory-core-session-test-${process.pid}-${Date.now()}.sqlite`;
         const testDbPath              = path.join(tmpDir, testDbName);
-        aiConfig.engines.neo.dataDir  = tmpDir;
-        aiConfig.engines.neo.filename = testDbName;
+        aiConfig.storagePaths.graph   = testDbPath;
 
         // Remove existing test db
         if (fs.existsSync(testDbPath)) {
