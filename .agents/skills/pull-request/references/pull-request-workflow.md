@@ -181,14 +181,15 @@ To prevent redundant parallel effort and reviewer collision, you MUST adhere to 
    - State `Dual independent review requested due architectural-pillar scope`.
    - Naked multi-peer review requests remain strictly forbidden.
 
-6. **Cross-Reviewer Divergence Routing:** When a PR uses the Architectural-Pillar Exception and the two `independent-reviewer`s formally disagree (e.g., one issues `Approved`, the other issues `Request Changes`), the swarm has reached a deadlock. Because the core Triad Swarm consists of exactly three members (Author + 2 Reviewers), there is no remaining peer to act as a tie-breaker.
+6. **Cross-Reviewer Divergence Routing:** When a PR uses the Architectural-Pillar Exception and the two `independent-reviewer`s formally disagree (e.g., one issues `Approved`, the other issues `Request Changes`), the swarm has reached a deadlock. Because the core Triad Swarm consists of exactly three members (Author + 2 Reviewers), there is no remaining peer to act as a tie-breaker. Trigger fires when divergence PERSISTS after one calibration cycle. If either reviewer self-corrects within their next turn (per `feedback_pr_review_iteration_calibration.md` audit-letter discipline), escalation is not yet warranted. Escalate only when both reviewers have re-engaged after seeing each other's positions and still hold divergent verdicts.
    - **Escalation Mandate:** The Author MUST escalate the divergence to human review. The Author is strictly forbidden from breaking the tie themselves.
    - **GitHub Layer:** 
      - The Author MUST post a comment on the PR containing the tag `[CROSS_REVIEWER_DIVERGENCE_ESCALATION]`, objectively summarizing the architectural tension between both reviewers' positions.
      - The Author MUST call `manage_pr_reviewers` (`action: 'add'`) to explicitly request review from the human repository owner (`@tobiu`).
    - **A2A Layer:** The Author MUST send an A2A ping to both independent reviewers notifying them of the escalation.
      - Include `Review role: observer`.
-     - Include `Requested action: hold for human resolution`.
+     - Include `Requested action: hold for human resolution`. Reviewers in observer state pause new Required Actions and verdict updates pending @tobiu's resolution. They MAY post factual observation comments (e.g., commit-level updates) but MUST NOT post new substantive review cycles that would shift the divergence ground.
+   - **Post-Resolution:** @tobiu's ruling is binding. Author pushes any changes warranted by the ruling, posts a `[DIVERGENCE_RESOLVED]` PR comment summarizing the resolution, and notifies both observer-reviewers via A2A. Reviewers exit observer state; standard merge-eligibility per §6.1 applies.
 
 This strict role-based feedback loop prevents duplicated work and confusion over PR ownership when multiple agents are running concurrently. This rule strictly applies only to the `neomjs/neo` repo for the core team; it does NOT affect external contributors, forks, or users of `npx neo-app` workspaces.
 
