@@ -41,6 +41,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         testDbPath = path.join(tmpDir, testDbName);
 
         aiConfig.storagePaths.graph   = testDbPath;
+        aiConfig.lazyEdgesQueuePath   = path.join(tmpDir, `lazy-edges-${process.pid}-${Date.now()}.jsonl`);
         aiConfig.autoIngestFileSystem = false;
 
         GraphService           = (await import('../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
@@ -241,6 +242,52 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             expect(result.length).toBe(0);
         } finally {
             // Restore global function
+            OpenAiCompatible.prototype.generate = baseGenerate;
+        }
+    });
+
+    test('should handle missing or malformed graph nodes/edges gracefully', async () => {
+        const baseGenerate = OpenAiCompatible.prototype.generate;
+
+        try {
+            // Case 1: graph missing nodes and edges entirely
+            OpenAiCompatible.prototype.generate = async function(messages) {
+                return {
+                    content: JSON.stringify({
+                        a2a_version: "1.0",
+                        agent_id: "Antigravity",
+                        session_artifact: {
+                            graph: {}
+                        }
+                    })
+                };
+            };
+
+            let result = await SemanticGraphExtractor.executeTriVectorExtraction({ id: 'mock-1', meta: { sessionId: 'mock-session-1' }, document: 'test' });
+            expect(result.session_artifact.graph.nodes).toEqual([]);
+            expect(result.session_artifact.graph.edges).toEqual([]);
+
+            // Case 2: graph nodes and edges are truthy non-arrays (e.g., objects)
+            OpenAiCompatible.prototype.generate = async function(messages) {
+                return {
+                    content: JSON.stringify({
+                        a2a_version: "1.0",
+                        agent_id: "Antigravity",
+                        session_artifact: {
+                            graph: {
+                                nodes: { someObject: true },
+                                edges: "this is not an array"
+                            }
+                        }
+                    })
+                };
+            };
+
+            result = await SemanticGraphExtractor.executeTriVectorExtraction({ id: 'mock-2', meta: { sessionId: 'mock-session-2' }, document: 'test' });
+            expect(result.session_artifact.graph.nodes).toEqual([]);
+            expect(result.session_artifact.graph.edges).toEqual([]);
+
+        } finally {
             OpenAiCompatible.prototype.generate = baseGenerate;
         }
     });

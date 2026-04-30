@@ -37,19 +37,32 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         }
         dbPath = path.join(tmpDir, `neo-wake-subscription-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
+        const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig.storagePaths.graph = dbPath;
+
         GraphService            = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         WakeSubscriptionService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/WakeSubscriptionService.mjs')).default;
         CoalescingEngineService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/CoalescingEngineService.mjs')).default;
         LifecycleService        = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
 
-        const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        aiConfig.storagePaths.graph = dbPath;
+        const GraphMaintenanceService = (await import('../../../../../../../../ai/daemons/services/GraphMaintenanceService.mjs')).default;
+        globalThis.GraphMaintenanceService = GraphMaintenanceService;
 
-        if (!LifecycleService._initPromise) {
-            await LifecycleService.initAsync();
-        } else {
-            await LifecycleService.ready();
+        // Force re-initialization to break free from Playwright worker-reuse poisoning
+        LifecycleService._initPromise = null;
+        if (GraphService.db) {
+            if (GraphService.db.storage && typeof GraphService.db.storage.close === 'function') {
+                GraphService.db.storage.close();
+            }
+            GraphService.db = null;
         }
+        GraphService._initPromise = null;
+        if (Neo.idMap && Neo.idMap['memory-core-graph']) {
+            Neo.idMap['memory-core-graph'].destroy();
+            delete Neo.idMap['memory-core-graph'];
+        }
+
+        await LifecycleService.initAsync();
 
         originalAutoSave         = GraphService.db.autoSave;
         GraphService.db.autoSave = true;
@@ -80,6 +93,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         // (per `feedback_symmetric_spec_cleanup.md` — Playwright fullyParallel can interleave
         // sibling specs in the same worker, so cross-singleton state must be reset).
         WakeSubscriptionService.subscriptionCache.clear();
+        WakeSubscriptionService.liveCursor = 0;
 
         GraphService.upsertNode({id: '@alice', type: 'AGENT', name: 'Alice', properties: {}});
         GraphService.upsertNode({id: '@bob',   type: 'AGENT', name: 'Bob',   properties: {}});
@@ -87,6 +101,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
 
     test.afterEach(async () => {
         WakeSubscriptionService.subscriptionCache.clear();
+        WakeSubscriptionService.liveCursor = 0;
     });
 
     // -----------------------------------------------------------------------------
@@ -278,6 +293,36 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
     });
 
     // -----------------------------------------------------------------------------
+    // durability (GC)
+    // -----------------------------------------------------------------------------
+
+    test('WAKE_SUBSCRIPTION nodes survive GraphMaintenanceService GC (Apoptosis regression #10515)', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const res = await WakeSubscriptionService.subscribe({
+                trigger      : 'SENT_TO_ME',
+                harnessTarget: 'mcp-notifications'
+            });
+
+            const subscriptionId = res.subscriptionId;
+
+            // Assert subscription is alive
+            expect(GraphService.db.nodes.get(subscriptionId)).toBeDefined();
+
+            // Run full garbage collection sequence (simulate DreamService tick)
+            const GraphMaintenanceService = globalThis.GraphMaintenanceService;
+            await GraphMaintenanceService.runGarbageCollection();
+
+            // Assert subscription SURVIVED the cull
+            expect(GraphService.db.nodes.get(subscriptionId)).toBeDefined();
+
+            // Assert the edge survived
+            const edges = GraphService.db.edges.items.filter(e => e.target === subscriptionId);
+            expect(edges.length).toBe(1);
+            expect(edges[0].source).toBe('@alice');
+        });
+    });
+
+    // -----------------------------------------------------------------------------
     // update
     // -----------------------------------------------------------------------------
 
@@ -461,7 +506,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 // mcp-notifications bypasses coalescing window and pushes immediately
                 await WakeSubscriptionService.subscribe({
-                    trigger: 'SENT_TO_ME', 
+                    trigger: 'SENT_TO_ME',
                     harnessTarget: 'mcp-notifications'
                 });
             });
@@ -476,9 +521,9 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
 
             // Wait for coalescing engine to dispatch
             await CoalescingEngineService.flushAll();
-            
+
             CoalescingEngineService.enqueue = originalEnqueue;
-            
+
             expect(emittedEvents.length).toBe(1);
             expect(emittedEvents[0].method).toBe('notifications/message');
             expect(emittedEvents[0].params.eventType).toBe('wake/sent_to_me');
@@ -523,7 +568,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 await WakeSubscriptionService.subscribe({
-                    trigger: 'SENT_TO_ME', 
+                    trigger: 'SENT_TO_ME',
                     harnessTarget: 'mcp-notifications',
                     filters: { priority: 'high' }
                 });
@@ -605,7 +650,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
                 WakeSubscriptionService.pump(),
                 WakeSubscriptionService.pump()
             ]);
-            
+
             await CoalescingEngineService.flushAll();
 
             // If the race condition was present, both might emit the same event

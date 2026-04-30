@@ -16,14 +16,15 @@ This protocol ensures that feedback is:
 ## 2. Agent Operational Mandates: The Reflection Phase
 If you are an AI Agent tasked with writing a PR review directly on GitHub (acting against your own PR or others), you MUST follow this protocol. This serves as the critical "Stepping Back" strategy where you transition from "Driver/Implementer" to "Navigator/Reviewer".
 
-1. **Context Initialization:** You MUST retrieve the state of the PR using `get_pull_request_diff` and `get_conversation` (via the `neo-mjs-github-workflow` MCP server) before formulating your review.
-2. **Self-Review Detection:** After retrieving the PR conversation, extract the associated ticket number from the PR body (e.g., `Resolves #N`). Then query `query_raw_memories(query: '#N')` scoped to the **current Memory Core session ID**. If a match is found, the agent authored this PR in the current session — switch to **self-review mode** (first-person, clinical, no congratulatory openers). If no match, use standard **peer-review mode** (third-person, constructive).
-3. **Semantic Blast-Radius Sweep (Tech Debt Radar):** If the PR introduces fundamental framework architectural shifts or is labeled as `refactor(ai)`, you MUST execute the Tech Debt Radar (by triggering `view_file` on `.agents/skills/tech-debt-radar/SKILL.md`) to mandate a semantic sweep against historical issues and Memory Core sessions. This guarantees the newly proposed architecture does not collide with or ignore sweeping ambient debt across the repository before the PR is merged.
-4. **Scope Creep vs. Iteration:** As you step back to critically review your own architectural choices, you MUST explicitly "think outside the box" and challenge your initial assumptions:
+1. **Context Initialization:** You MUST verify `gh pr view <N> --json state` is `OPEN` before retrieving `get_pull_request_diff` and `get_conversation` (via the `neo-mjs-github-workflow` MCP server). Abort if `MERGED`/`CLOSED`.
+2. **Empirical Checkout Mandate:** A static diff read is insufficient to score `[EXECUTION_QUALITY]` for code changes. You MUST use the active harness tool (e.g., `checkout_pull_request`) to load the branch locally and execute **RELATED** tests. Do not run the entire test suite. If it is a documentation/template change, running tests is not required. Bypassing this step for code changes and claiming "tests pass" based on the diff is a catastrophic Verify-Before-Assert violation.
+3. **Self-Review Detection:** After retrieving the PR conversation, extract the associated ticket number from the PR body (e.g., `Resolves #N`). Then query `query_raw_memories(query: '#N')` scoped to the **current Memory Core session ID**. If a match is found, the agent authored this PR in the current session — switch to **self-review mode** (first-person, clinical, no congratulatory openers). If no match, use standard **peer-review mode** (third-person, constructive).
+4. **Semantic Blast-Radius Sweep (Tech Debt Radar):** If the PR introduces fundamental framework architectural shifts or is labeled as `refactor(ai)`, you MUST execute the Tech Debt Radar (by triggering `view_file` on `.agents/skills/tech-debt-radar/SKILL.md`) to mandate a semantic sweep against historical issues and Memory Core sessions. This guarantees the newly proposed architecture does not collide with or ignore sweeping ambient debt across the repository before the PR is merged.
+5. **Scope Creep vs. Iteration:** As you step back to critically review your own architectural choices, you MUST explicitly "think outside the box" and challenge your initial assumptions:
     - **Minor Gaps:** If you uncover minor misses (e.g., missed JSDoc, missing Anchor & Echo context), push rapid successive commits to the PR to polish the execution.
     - **Major Refactors:** If you realize a mathematically superior architecture exists (e.g., massive GC optimization) that is *out-of-scope* for the current ticket, DO NOT attempt to cram it into the active PR. Secure the "good enough" PR, and instead propose a **Follow-Up System Enhancement Ticket** conceptually linked to the original PR to avoid scope creep.
-5. **Verify-Before-Assert Integration:** Before asserting any claim in your PR Review (especially under §7 Depth Floor), you MUST apply the **Verify-Before-Assert Pre-Flight Check** (`AGENTS.md` §2.3). You cannot claim "this code breaks X" or "this label is missing" without first empirically running the falsifying tool to prove it.
-6. **Execution:** Once formulated, use the `manage_issue_comment` MCP tool (action: `create`) to post the review directly onto the PR thread, or formulate it in markdown locally if MCP is disconnected.
+6. **Verify-Before-Assert Integration:** Before asserting any claim in your PR Review (especially under §7 Depth Floor), you MUST apply the **Verify-Before-Assert Pre-Flight Check** (`AGENTS.md` §2.3). You cannot claim "this code breaks X" or "this label is missing" without first empirically running the falsifying tool to prove it.
+7. **Execution:** Once formulated, use the `manage_issue_comment` MCP tool (action: `create`) to post the review directly onto the PR thread, or formulate it in markdown locally if MCP is disconnected.
 
 ## 3. Structural Evaluation Metrics
 Every PR review MUST score the work across the following categories on a scale of `0` to `100`:
@@ -72,6 +73,14 @@ Examples:
 
 This discipline prevents cosmetic score adjustments while respecting the category distinction. A 100/100 on an evaluative metric is stronger when sub-100 scores carry explicit deduction reasoning; a clear factual characterization on a descriptive metric anchors the score in the work's actual structure.
 
+### 3.3 Follow-Up Metrics Delta
+
+Cycle 1 / cold-cache reviews score every metric explicitly in the full template. Cycle N / warm-cache follow-up reviews may use the follow-up template's **Metrics Delta** section instead:
+
+- If a metric changed since the prior review, write the before/after value (`80 -> 100`) and the concrete reason the score changed.
+- If a metric did not change, carry it forward by reference (`unchanged from prior review`) and name the prior review anchor.
+- Do not silently omit metrics. The delta form reduces thread bulk; it does not erase the scoring surface.
+
 ## 4. Graph Ingestion Tags
 To bridge the gap between human/agent code review and the internal Agent OS memory, you MUST use the following explicit markdown tags for any critical feedback. 
 The Retrospective daemon explicitly regex-matches these tags during REM sleep:
@@ -80,7 +89,7 @@ The Retrospective daemon explicitly regex-matches these tags during REM sleep:
 *   **`[TOOLING_GAP]`**: Use this to document failures in the development workflow, broken test commands, or MCP tools that failed during the generation of the PR.
 *   **`[RETROSPECTIVE]`**: Use this for high-level takeaways or architectural praise.
 
-**Author-side response tags (`pull-request` §6):** The `pull-request` skill §6 Review Response Protocol defines a symmetric set of author-side tags — `[ADDRESSED]`, `[DEFERRED]`, `[REJECTED_WITH_RATIONALE]` — used by PR authors when responding to Required Actions from a review. Reviewer-side and author-side tags form a unified taxonomy the Retrospective daemon ingests as a complete negotiation thread; both sides of the review cycle are mineable signal.
+**Author-side response tags (`pull-request` §6):** The `.agents/skills/pull-request/references/review-response-protocol.md` document defines a symmetric set of author-side tags — `[ADDRESSED]`, `[DEFERRED]`, `[REJECTED_WITH_RATIONALE]` — used by PR authors when responding to Required Actions from a review. Reviewer-side and author-side tags form a unified taxonomy the Retrospective daemon ingests as a complete negotiation thread; both sides of the review cycle are mineable signal.
 
 ## 5. Required Actions & Cross-Linking
 *   **Related Graph Nodes:** Every PR review MUST list related graph nodes (e.g., `Target Epic ID`, `Issue ID`) to ensure the Native Edge Graph links the evaluation to the overarching goal.
@@ -173,9 +182,38 @@ Conflating budgets — bloating YAML with what should have stayed in JSDoc — h
 - PR body verbosity (reviewers + Retrospective daemon legitimately consume Fat Ticket framing).
 - OpenAPI/JS contract drift (e.g., `enum` values diverging from runtime validators, `required` arrays diverging from JS-side implementation) — adjacent discipline gap; warrants separate codification if recurrent. The §5.3 audit is budget-focused; correctness drift is a different audit shape.
 
-## 6. The Review Template
-When drafting your review, use the `view_file` tool to load the exact markdown template from:
-`.agents/skills/pr-review/assets/pr-review-template.md`
+## 6. Review Template Selection
+
+Before drafting your review, classify the review cycle. Template choice is part of context-budget control and rigor control.
+
+### 6.1 Full Review Template
+
+Use the full template from `.agents/skills/pr-review/assets/pr-review-template.md` when any of these apply:
+
+- **Cycle 1 / cold-cache review:** first substantive review of the PR.
+- **Fresh session bootstrap:** you do not have prior-cycle context loaded in this context window.
+- **Cross-agent handoff without grounding:** another agent hands you a PR and you have not loaded the prior review/response context.
+- **Major delta:** the author changed scope, touched new architectural surfaces, added new files outside the prior Required Actions, or rewrote the PR body/close-target semantics enough that prior scores are no longer reliable.
+- **Lost anchor recovery:** no usable prior review commentId, author response commentId, or last-known anchor exists.
+
+When in doubt, use the full template. The full template is the safety path for cold context and broadened scope.
+
+### 6.2 Follow-Up Review Template
+
+Use the follow-up template from `.agents/skills/pr-review/assets/pr-review-followup-template.md` only for **Cycle N / warm-cache delta re-reviews** where:
+
+- You have prior-cycle context loaded, or you have grounded from the relevant prior review/author response anchors.
+- The latest author delta maps to previous Required Actions or a narrow PR-body / metadata correction.
+- The change surface is small enough that previous scores remain meaningful baselines.
+
+The follow-up template is not permission to rubber-stamp. It still requires:
+
+- A delta-specific Depth Floor: either one new delta concern or a documented search over changed files, prior blockers, and metadata.
+- A Test-Execution Audit scoped to changed surfaces since the prior cycle. Docs/template-only and PR-body-only deltas can explicitly state no tests are required.
+- Metrics delta semantics per §3.3.
+- A2A commentId capture and hand-off per §9 after posting the follow-up review.
+
+If a commentId-scoped A2A message arrives but you lack the surrounding prior-cycle context, treat that as a cold-cache case first: load enough grounding context, then decide whether the follow-up template is still valid.
 
 ## 7. Depth Floor — Preventing Rubber-Stamp Approvals
 
@@ -263,7 +301,17 @@ Reviewers MUST verify symmetry between **stated framing** and **mechanical imple
 
 Two empirical anchors confirm the pattern: rhetorical drift fires both at author-side (PR description framing) and reviewer-side (challenge framing). The §7.4 mandate applies to both surfaces.
 
-### 7.5 Anti-Patterns
+### 7.5 Test-Execution Audit
+
+When reviewing a PR, you MUST empirically verify code execution, but only for **RELATED** tests. Do NOT blindly run the entire automated test suite, as it destroys the focus window and wastes tokens.
+
+Reviewers MUST verify testing claims by executing the relevant test files locally in their workspace:
+1. If the PR modifies a test file, run that specific test file.
+2. If the PR modifies structural code, verify if tests exist or if the author ran them. Run the related tests if applicable.
+3. If the PR is a documentation or template change, no tests are required. Do not demand tests for docs.
+4. If the author did not provide test evidence for structural logic changes, flag this as a **Required Action**.
+
+### 7.6 Anti-Patterns
 
 | Anti-pattern | Why it fails the Depth Floor |
 |---|---|
@@ -274,6 +322,7 @@ Two empirical anchors confirm the pattern: rhetorical drift fires both at author
 | Style-calibrating toward the other model family's tone | §7.2 — the floor keeps rigor universal, not style convergence |
 | Ignoring Chain of Custody | §7.3 Provenance Audit violated on a major abstraction |
 | Approval without rhetorical-drift audit on a PR carrying substantive architectural prose | §7.4 Rhetorical-Drift Audit violated; framing drifts from mechanical reality, poisons `ask_knowledge_base` ingestion |
+| Approving `[EXECUTION_QUALITY]` without executing the author's test evidence | §7.5 Test-Execution Audit violated; reviewers must independently verify testing claims |
 | PR names an epic as close-target without flagging | §5.2 Close-Target Audit violated; risks epic auto-close-with-open-subs (see #9999 sabotage chain) |
 | PR adds bloated multi-line OpenAPI tool description without flagging | §5.3 MCP-Tool-Description Budget Audit violated; bloat compounds across the tool surface and competes with agent reasoning budget at runtime |
 
@@ -372,4 +421,3 @@ CommentId-scoped fetch is the **warm-cache** path — the reviewer or author has
 The dichotomy mirrors the boot-pull-vs-sunset-pull lifecycle distinction (`AGENTS_STARTUP §0` vs `session-sunset` skill body Step 1): **warm path** optimizes for incremental context; **cold path** grounds from scratch. They are NOT symmetric operations — they fill different lifecycle gaps. Don't confuse them: rigidly applying commentId-scoped fetch in a cold-cache case lands one isolated comment without the context it depends on; over-fetching on principle in a warm-cache case defeats the linear-cost scaling.
 
 **The right reflex** — before fetching, ask: *"do I have prior cycle context loaded in this context window?"* If yes → commentId-scoped fetch (or `since_comment_id` for incremental polling across stale-anchor recovery). If no → full-thread fetch + memory query for grounding.
-

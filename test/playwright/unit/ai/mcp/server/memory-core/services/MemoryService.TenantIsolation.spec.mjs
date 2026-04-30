@@ -18,7 +18,6 @@ import Neo                   from '../../../../../../../../src/Neo.mjs';
 import * as core             from '../../../../../../../../src/core/_export.mjs';
 import MemoryService         from '../../../../../../../../ai/mcp/server/memory-core/services/MemoryService.mjs';
 import StorageRouter         from '../../../../../../../../ai/mcp/server/memory-core/managers/StorageRouter.mjs';
-import GraphService          from '../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs';
 import RequestContextService from '../../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
 /**
@@ -100,6 +99,12 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
     let originalGetMemoryCollection;
     let originalUpsertNode;
     let originalLinkNodes;
+
+    let GraphService;
+
+    test.beforeAll(async () => {
+        GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+    });
 
     test.beforeEach(() => {
         spyCollection                           = createSpyCollection();

@@ -4,6 +4,17 @@
 
 project_doc_fallback_filenames = [".codex/CODEX.md"]
 
+# Neo.mjs marathon sessions routinely exceed Codex's conservative default effective
+# context budget. As of April 2026, GPT-5.5 / GPT-5.4 expose 1M-token context
+# windows, so keep compaction late enough for architectural continuity while
+# reserving headroom for output and reasoning tokens.
+#
+# If you switch this local config to a smaller model (for example a 400K mini/codex
+# model), reduce these values accordingly before starting the session.
+model_context_window = 1000000
+model_auto_compact_token_limit = 850000
+model_max_output_tokens = 128000
+
 [mcp_servers."neo-mjs-github-workflow"]
 command = "npm"
 args = ["run", "--silent", "ai:mcp-server-github-workflow"]

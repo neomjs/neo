@@ -32,13 +32,13 @@ test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => 
         }
         dbPath = path.join(tmpDir, `neo-permission-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
-        GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
-        PermissionService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/PermissionService.mjs')).default;
-        LifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
-
         // Force temp file DB config instead of :memory: to prevent initialization race wipes
         const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         aiConfig.storagePaths.graph = dbPath;
+
+        GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        PermissionService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/PermissionService.mjs')).default;
+        LifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
 
         if (!LifecycleService._initPromise) {
             await LifecycleService.initAsync();
