@@ -153,10 +153,12 @@ If you are operating inside the canonical `neomjs/neo` repository as a core swar
 
 To prevent redundant parallel effort and reviewer collision, you MUST adhere to this explicit role-routing protocol rather than broadcasting naked multi-peer pings:
 
-1. **Default PR Handoff (Single-Peer Ping):** Send exactly ONE actionable review request to ONE peer.
-   - Include `Review role: primary-reviewer`.
-   - Include `Requested action: review PR #N`.
-   - Do NOT send an actionable request to the second peer.
+1. **Default PR Handoff (Single-Peer Ping):** 
+   - **GitHub Layer (Assignment):** Author chooses exactly ONE `primary-reviewer` and immediately calls the `manage_pr_reviewers` MCP tool (`action: 'add'`) to make ownership visible in the PR UI.
+   - **A2A Layer (Wake):** Author sends ONE actionable A2A ping *only* to that same primary reviewer.
+     - Include `Review role: primary-reviewer`.
+     - Include `Requested action: review PR #N`.
+     - Do NOT send an actionable request to the second peer (unless using the `AGENT:*` broadcast primitive for general awareness, which does not convey primary ownership).
    - *Primary-reviewer selection heuristic:* Prefer subsystem familiarity + current load + recent ownership. If equal, fallback to round-robin or an explicit, stated choice. Do not use pure random selection.
 
 2. **Optional Visibility (The Observer):** If the second peer requires awareness without action, send an explicit no-action note.
@@ -164,8 +166,10 @@ To prevent redundant parallel effort and reviewer collision, you MUST adhere to 
    - *Note:* This should be rare. Most PRs do not need observer notification.
 
 3. **Tie-Breaker Routing:** If the author and primary reviewer disagree after one full response cycle, ping the third peer.
-   - Include `Review role: tie-breaker`.
-   - Include links/commentIds for the contested review and author response so the tie-breaker reviews only the disagreement, not the entire PR from scratch.
+   - **PR Comment Layer:** Post a comment on the PR containing the tag `[TIE_BREAKER_REQUEST]` along with a 1-line summary of both positions. This serves as the durable graph-reconstruction record.
+   - **A2A Layer:** Send an A2A ping to the third peer.
+     - Include `Review role: tie-breaker`.
+     - Include the `commentId` for the contested review so the tie-breaker reviews only the disagreement, not the entire PR from scratch.
 
 4. **Architectural-Pillar Exception:** For broad structural framework changes, dual review is allowed but MUST be explicit.
    - Use `Review role: independent-reviewer` for both peers.
