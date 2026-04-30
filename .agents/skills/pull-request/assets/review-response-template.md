@@ -2,7 +2,7 @@
 Review Response Template
 Post via manage_issue_comment with action=create on the PR thread.
 Use this for author-side responses to reviewer-initiated Required Actions
-(per pull-request-workflow.md §6 Review Response Protocol).
+(per review-response-protocol.md).
 Remove HTML comments before posting.
 -->
 
