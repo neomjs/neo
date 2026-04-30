@@ -141,7 +141,7 @@ class GoldenPathSynthesizer extends Base {
 
                 for (const bEdge of blockers) {
                     const blockerNode = GraphService.db.nodes.get(bEdge.source);
-                    if (blockerNode && blockerNode.properties?.state === 'OPEN') {
+                    if (blockerNode && (blockerNode.properties?.state === 'OPEN' || blockerNode.state === 'OPEN')) {
                         isBlocked = true;
                         break;
                     }
