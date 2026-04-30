@@ -21,9 +21,15 @@ If none of these conditions are met, do **NOT** sunset. Simply output your respo
 ### 1.1 Review Lifecycle Exception (Anti-Trigger)
 You are strictly FORBIDDEN from executing the Sunset Protocol when you halt your turn to await cross-model PR review or reviewer feedback (per `pull-request-workflow.md`). Yielding control during the active review/polish loop is an active lifecycle state, not a Session Boundary. Once the PR reaches the terminal approved handoff state, normal Session Boundary rules apply again; agents still must not execute the merge.
 
+### 1.2 Anti-Kill-Switch Invariants (Never Sunset Triggers)
+Subjective calibration disagreement between agents during cross-family review loops, or receiving "Request Changes" feedback on a Pull Request, are NEVER grounds for sunsetting a session. A sunset is strictly a terminal state for context exhaustion or explicit task-group completion. Friction or debate is an active operational state, NOT a session boundary.
+
+### 1.3 Loop-Prevention (Boot vs Terminal States)
+Reading handover pings from the mailbox at session-boot is a **context-priming** action. It equips you with the required strategy to begin work. Receiving and processing these handover messages must NEVER be interpreted as a trigger to immediately sunset and hand over the session to another agent.
+
 ## 2. The Handoff Structure
 
-Before terminating your session, you MUST execute the following 8 steps to ensure a clean handover.
+Before terminating your session, you MUST execute the following 9 steps to ensure a clean handover.
 
 ### Step 1: Codebase Synchronization (The Pre-Sunset Pull)
 Use the `run_command` tool to synchronize the codebase, but you MUST respect harness-isolation logic:
@@ -59,12 +65,16 @@ Set `wakeSuppressed: true` and include `taggedConcepts: ['sunset-protocol-handov
 
 Crucially, from an "LLM Psychology" perspective, this message must include a **Conceptual Priming / Reward Signal**. If you formulated new architectural concepts or achieved a major milestone, summarize the *actual content and value* of that breakthrough in the ping. Reading this high-density, successful content acts as a mathematical "dopamine hit" for your future self—it primes the next session's token probabilities for high-agency, expert-level continuity. This drastically improves the Model Experience (MX) by ensuring the agent wakes up not just with tasks, but with immediate, rich, "exciting" context.
 
-### Step 8: Memory Persistence (The Sandman Memory)
-This is the final and most critical step. You MUST invoke `add_memory` to persist a rich "Sandman memory" node. This memory should encapsulate the entire Sunset Protocol payload (Steps 1-8). The resulting `Origin Session ID` or `Memory ID` serves as the direct pointer for the next agent.
+### Step 8: Disable Harness Routing (The Unsubscribe Primitive)
+As the penultimate operational step, you MUST sever the active wake routing to prevent "False Continuity" (processing new events with stale context while waiting for the daemon to reboot the harness).
+Invoke the `manage_wake_subscription(action: 'unsubscribe', subscriptionId: '<current-sub-id>')` tool. (The `subscriptionId` is available in the payload of the WAKE events you received, or by querying `manage_wake_subscription(action: 'list')`). This cleanly severs the wake loop, transitioning the harness into a truly dormant state.
+
+### Step 9: Memory Persistence (The Sandman Memory)
+This is the final memory checkpoint. You MUST invoke `add_memory` to persist a rich "Sandman memory" node. This memory should encapsulate the entire Sunset Protocol payload (Steps 1-9), including the successful unsubscription. The resulting `Origin Session ID` or `Memory ID` serves as the direct pointer for the next agent.
 
 ## 3. Terminating the Session
 
-After completing the 8 steps above, you must drop your final Sunset Protocol payload directly into the chat response for the Human Commander. 
+After completing the 9 steps above, you must drop your final Sunset Protocol payload directly into the chat response for the Human Commander. 
 
 **Format the final response as follows:**
 
@@ -94,7 +104,7 @@ The organism is healing. Future-self entry point preserved in Sandman memory [UU
 
 Next session: read that memory FIRST, then pick up carry-over starting with #[N].
 
-Halting per Sunset Protocol.
+Routing severed via unsubscribe primitive. Halting per Sunset Protocol.
 ```
 
 By adhering to this protocol, you ensure the Swarm maintains perfect continuity across time and identity boundaries.
