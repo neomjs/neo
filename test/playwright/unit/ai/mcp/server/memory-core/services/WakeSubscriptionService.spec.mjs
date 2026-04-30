@@ -27,7 +27,7 @@ import RequestContextService from '../../../../../../../../ai/mcp/server/shared/
 
 test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', () => {
     test.describe.configure({mode: 'serial'});
-    let WakeSubscriptionService, GraphService, LifecycleService, CoalescingEngineService, originalAutoSave;
+    let WakeSubscriptionService, GraphService, LifecycleService, CoalescingEngineService, callTool, originalAutoSave;
     let dbPath;
 
     test.beforeAll(async () => {
@@ -44,6 +44,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         WakeSubscriptionService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/WakeSubscriptionService.mjs')).default;
         CoalescingEngineService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/CoalescingEngineService.mjs')).default;
         LifecycleService        = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
+        ({callTool}             = await import('../../../../../../../../ai/mcp/server/memory-core/services/toolService.mjs'));
 
         const GraphMaintenanceService = (await import('../../../../../../../../ai/daemons/services/GraphMaintenanceService.mjs')).default;
         globalThis.GraphMaintenanceService = GraphMaintenanceService;
@@ -224,6 +225,37 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
                 trigger      : 'SENT_TO_ME',
                 harnessTarget: 'a2a-webhook'
             })).rejects.toThrow('Shape B (a2a-webhook) requires harnessTargetMetadata.url');
+        });
+    });
+
+    test('subscribe with bridge-daemon but no appName throws', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            await expect(WakeSubscriptionService.subscribe({
+                trigger      : 'SENT_TO_ME',
+                harnessTarget: 'bridge-daemon'
+            })).rejects.toThrow('Shape C (bridge-daemon) requires harnessTargetMetadata.appName');
+        });
+    });
+
+    test('MCP tool preserves explicit bridge-daemon metadata fields', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const res = await callTool('manage_wake_subscription', {
+                action               : 'subscribe',
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    adapter       : 'osascript',
+                    appName       : 'Claude',
+                    coalesceWindow: 0,
+                    tabShortcut   : '3'
+                }
+            });
+
+            const node = GraphService.db.nodes.get(res.subscriptionId);
+            expect(node.properties.harnessTargetMetadata.adapter).toBe('osascript');
+            expect(node.properties.harnessTargetMetadata.appName).toBe('Claude');
+            expect(node.properties.harnessTargetMetadata.coalesceWindow).toBe(0);
+            expect(node.properties.harnessTargetMetadata.tabShortcut).toBe('3');
         });
     });
 
@@ -621,7 +653,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
             CoalescingEngineService.setMcpServer(mockMcpServer);
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
-                await WakeSubscriptionService.subscribe({trigger: 'SENT_TO_ME', harnessTarget: 'bridge-daemon'});
+                await WakeSubscriptionService.subscribe({
+                    trigger              : 'SENT_TO_ME',
+                    harnessTarget        : 'bridge-daemon',
+                    harnessTargetMetadata: {appName: 'Claude'}
+                });
                 await WakeSubscriptionService.subscribe({trigger: 'SENT_TO_ME', harnessTarget: 'a2a-webhook', harnessTargetMetadata: {url: 'test'}});
                 await WakeSubscriptionService.subscribe({trigger: 'SENT_TO_ME', harnessTarget: 'disabled'});
             });
