@@ -65,12 +65,12 @@ Set `wakeSuppressed: true` and include `taggedConcepts: ['sunset-protocol-handov
 
 Crucially, from an "LLM Psychology" perspective, this message must include a **Conceptual Priming / Reward Signal**. If you formulated new architectural concepts or achieved a major milestone, summarize the *actual content and value* of that breakthrough in the ping. Reading this high-density, successful content acts as a mathematical "dopamine hit" for your future self—it primes the next session's token probabilities for high-agency, expert-level continuity. This drastically improves the Model Experience (MX) by ensuring the agent wakes up not just with tasks, but with immediate, rich, "exciting" context.
 
-### Step 8: Memory Persistence (The Sandman Memory)
-This is the final memory checkpoint. You MUST invoke `add_memory` to persist a rich "Sandman memory" node. This memory should encapsulate the entire Sunset Protocol payload (Steps 1-9). The resulting `Origin Session ID` or `Memory ID` serves as the direct pointer for the next agent.
-
-### Step 9: Disable Harness Routing (The Unsubscribe Primitive)
-As the absolute final operational step before rendering your output, you MUST sever the active wake routing to prevent "False Continuity" (processing new events with stale context while waiting for the daemon to reboot the harness).
+### Step 8: Disable Harness Routing (The Unsubscribe Primitive)
+As the penultimate operational step, you MUST sever the active wake routing to prevent "False Continuity" (processing new events with stale context while waiting for the daemon to reboot the harness).
 Invoke the `manage_wake_subscription(action: 'unsubscribe', subscriptionId: '<current-sub-id>')` tool. (The `subscriptionId` is available in the payload of the WAKE events you received, or by querying `manage_wake_subscription(action: 'list')`). This cleanly severs the wake loop, transitioning the harness into a truly dormant state.
+
+### Step 9: Memory Persistence (The Sandman Memory)
+This is the final memory checkpoint. You MUST invoke `add_memory` to persist a rich "Sandman memory" node. This memory should encapsulate the entire Sunset Protocol payload (Steps 1-9), including the successful unsubscription. The resulting `Origin Session ID` or `Memory ID` serves as the direct pointer for the next agent.
 
 ## 3. Terminating the Session
 
