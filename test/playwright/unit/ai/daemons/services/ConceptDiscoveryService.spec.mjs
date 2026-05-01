@@ -168,6 +168,7 @@ test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
         expect(candidates.length).toBe(1);
         expect(candidates[0].name).toBe('Native Edge Graph');
         expect(candidates[0].validated).toBe(false);
+        expect(candidates[0].verifiedAt).toBeNull();
         expect(candidates[0].tier).toBe(3);
         expect(candidates[0].source).toBe('epic-200');
     });
@@ -246,6 +247,7 @@ test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
         ConceptService.loadGraph();
 
         const aiConfig  = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig.data.conceptDiscovery ??= {};
         const original  = aiConfig.data.conceptDiscovery?.minSourceLength;
         const bodyText  = 'Moderate length source. '.repeat(15); // ~360 chars — above default 200, below an override of 10000
 
@@ -296,6 +298,7 @@ test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
         expect(nodesContent).toContain('"shared-concept"');
         expect(nodesContent).toContain('"pr-only-concept"');
         expect(nodesContent).toContain('"validated":false');
+        expect(nodesContent).toContain('"verifiedAt":null');
 
         // Epic-source wins on id collision (first-seen): description should be 'from-epic', not 'from-pr'
         const sharedLine = nodesContent.split('\n').find(l => l.includes('"shared-concept"'));
