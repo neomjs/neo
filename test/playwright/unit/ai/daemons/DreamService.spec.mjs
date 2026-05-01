@@ -30,6 +30,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
     let StorageRouter;
     let OpenAiCompatible;
     let TextEmbeddingService;
+    let KBRecorderService;
     let logger;
     const testDbName = `memory-core-dream-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath; // Reassigned in beforeAll
@@ -41,7 +42,9 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
     const freshVerifiedAt = new Date().toISOString();
 
     test.beforeAll(async () => {
-        const aiConfig                = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const
+            aiConfig = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default,
+            kbConfig = (await import('../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
         
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
@@ -52,6 +55,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         aiConfig.storagePaths.graph = testDbPath;
         aiConfig.autoIngestFileSystem = false; // Prevent differential sync during DreamService tests
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
+        kbConfig.data.memoryCoreDbPath = testDbPath;
 
         GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         DreamService = (await import('../../../../../ai/daemons/DreamService.mjs')).default;
@@ -61,6 +65,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         OpenAiCompatible       = (await import('../../../../../ai/provider/OpenAiCompatible.mjs')).default;
         SystemLifecycleService = (await import('../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
         TextEmbeddingService   = (await import('../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
+        KBRecorderService      = (await import('../../../../../ai/mcp/server/knowledge-base/services/KBRecorderService.mjs')).default;
         logger                 = (await import('../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
 
         if (fs.existsSync(testDbPath)) {
@@ -78,6 +83,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         }
 
         if (!SystemLifecycleService._initPromise) { await SystemLifecycleService.initAsync(); } else { await SystemLifecycleService.ready(); }
+        await KBRecorderService.ready();
 
         // Monkey patch OpenAiCompatible
         originalGenerate = OpenAiCompatible.prototype.generate;
@@ -117,6 +123,10 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
                 GraphService.db.lastSyncId = 0;
             }
         }
+
+        if (KBRecorderService?.db) {
+            KBRecorderService.db.exec('DELETE FROM kb_query_log; DELETE FROM kb_query_faqs;');
+        }
     });
 
     test.afterEach(async () => {
@@ -145,6 +155,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             }
             GraphService.db           = null;
             GraphService._initPromise = null;
+        }
+
+        if (KBRecorderService?.db) {
+            try { KBRecorderService.db.close(); } catch (e) {}
+            KBRecorderService.db = null;
         }
 
         if (SystemLifecycleService) {
@@ -288,6 +303,45 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         expect(missingGuide.properties.capabilityGap).toContain('RogueConcept');
         expect(missingGuide.properties.capabilityGap).toContain('EXPLAINED_BY');
         expect(missingGuide.properties.lastGapCheck).toBeGreaterThan(0);
+    });
+
+    test('should emit KB_DEMAND_GAP for repeated uncovered Agent FAQ demand (#10081)', async () => {
+        const originalListAgentFaqs = KBRecorderService.listAgentFaqs;
+
+        KBRecorderService.listAgentFaqs = () => ({
+            faqs: [{
+                clusterId              : 'kb-demand-cluster',
+                canonicalQuery         : 'How should agents use ask_knowledge_base?',
+                count                  : 3,
+                relatedConceptIds      : ['concept-kb-demand'],
+                hasStrongGuideCoverage: false
+            }]
+        });
+
+        try {
+            GraphService.upsertNode({
+                id        : 'concept-kb-demand',
+                type      : 'CONCEPT',
+                name      : 'Knowledge Base Demand',
+                properties: {
+                    name       : 'Knowledge Base Demand',
+                    tier       : 3,
+                    uniqueToNeo: false,
+                    verifiedAt : freshVerifiedAt,
+                    weight     : 0.3
+                }
+            });
+
+            await DreamService.inferConceptGraphGaps();
+
+            const node = GraphService.db.nodes.get('concept-kb-demand');
+
+            expect(node.properties.capabilityGap).toContain('[KB_DEMAND_GAP]');
+            expect(node.properties.capabilityGap).toContain('How should agents use ask_knowledge_base?');
+            expect(node.properties.capabilityGap).not.toContain('[GUIDE_GAP]');
+        } finally {
+            KBRecorderService.listAgentFaqs = originalListAgentFaqs;
+        }
     });
 
     test('should detect EXAMPLE_GAP for concepts documented but lacking worked examples', async () => {
@@ -803,6 +857,13 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
                      "[CONCEPT_REVERIFY_DUE] The CONCEPT 'Config System' has verifiedAt=null and needs source-grounded re-verification."
                  ]),
                  lastGapCheck: Date.now()
+             } },
+             { id: 'concept-kb-demand-render-test', properties: {
+                 state        : 'OPEN',
+                 capabilityGap: JSON.stringify([
+                     '[KB_DEMAND_GAP] Agents asked "how does reactive config work?" 4 times (cluster abc123) but the mapped Concept Ontology area lacks strong guide coverage.'
+                 ]),
+                 lastGapCheck: Date.now()
              } }
         ];
 
@@ -850,6 +911,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         expect(finalContent).toContain('Reactivity');
         expect(finalContent).toContain('Concept Reverification Queue');
         expect(finalContent).toContain('Config System');
+        expect(finalContent).toContain('Agent FAQ Demand Gaps');
+        expect(finalContent).toContain('reactive config');
 
         // Run AGAIN to trigger duplication prevention natively
         await DreamService.synthesizeGoldenPath();

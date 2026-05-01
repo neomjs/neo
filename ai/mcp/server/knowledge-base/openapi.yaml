@@ -395,6 +395,58 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /knowledge/agent-faqs:
+    post:
+      summary: List Agent FAQs
+      operationId: list_agent_faqs
+      x-pass-as-object: true
+      description: |
+        Lists frequently repeated Knowledge Base questions captured from agent calls to
+        `ask_knowledge_base` and `query_documents`.
+
+        The rows come from the shared SQLite telemetry tables `kb_query_log` and
+        `kb_query_faqs`. Set `refresh: true` to rebuild the materialized FAQ table from
+        the raw query log before reading it. The current clustering implementation uses
+        exact normalized-query grouping and records the configured similarity threshold
+        as a calibration value for the later embedding-backed clustering phase.
+      tags: [Documents]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                limit:
+                  type: integer
+                  description: Maximum number of FAQ clusters to return.
+                  default: 25
+                minCount:
+                  type: integer
+                  description: Minimum query occurrences required for a cluster.
+                  default: 3
+                refresh:
+                  type: boolean
+                  description: Rebuild the `kb_query_faqs` table from `kb_query_log` before reading.
+                  default: false
+                sinceTimestamp:
+                  type: integer
+                  description: Lower timestamp bound used when `refresh` is true.
+                  default: 0
+      responses:
+        '200':
+          description: Materialized Agent FAQ clusters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentFaqResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /knowledge/hierarchy:
     get:
       summary: Get Class Hierarchy
@@ -672,6 +724,50 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/QueryResultItem'
+
+    AgentFaq:
+      type: object
+      properties:
+        clusterId:
+          type: string
+        canonicalQuery:
+          type: string
+        normalizedQuery:
+          type: string
+        variants:
+          type: array
+          items:
+            type: string
+        count:
+          type: integer
+        failureCount:
+          type: integer
+        firstSeen:
+          type: integer
+        lastSeen:
+          type: integer
+        relatedConceptIds:
+          type: array
+          items:
+            type: string
+        hasStrongGuideCoverage:
+          type: boolean
+        similarityThreshold:
+          type: number
+
+    AgentFaqResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        minCount:
+          type: integer
+        similarityThreshold:
+          type: number
+        faqs:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentFaq'
 
     Document:
       type: object
