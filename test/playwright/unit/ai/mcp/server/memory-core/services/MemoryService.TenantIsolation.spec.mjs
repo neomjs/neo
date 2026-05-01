@@ -262,9 +262,11 @@ test.describe('MemoryService — additive shared-commons access (#10556)', () =>
     });
 
     test('queryMemories without sessionId returns the tenant\'s own records PLUS shared records', async () => {
-        spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {userId: 'u-alice', prompt: 'a1'}, document: 'a1'});
-        spyCollection.rows.set('m-shared1', {id: 'm-shared1', metadata: {userId: 'shared', prompt: 'L1'}, document: 'L1'});
-        spyCollection.rows.set('m-b1', {id: 'm-b1', metadata: {userId: 'u-bob', prompt: 'b1'}, document: 'b1'});
+        // Note: timestamp metadata required because queryMemories serializes via
+        // `new Date(metadata.timestamp).toISOString()` — undefined timestamp throws.
+        spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {userId: 'u-alice', timestamp: 100, prompt: 'a1'}, document: 'a1'});
+        spyCollection.rows.set('m-shared1', {id: 'm-shared1', metadata: {userId: 'shared', timestamp: 200, prompt: 'L1'}, document: 'L1'});
+        spyCollection.rows.set('m-b1', {id: 'm-b1', metadata: {userId: 'u-bob', timestamp: 300, prompt: 'b1'}, document: 'b1'});
 
         const view = await RequestContextService.run({userId: 'u-alice'}, () =>
             MemoryService.queryMemories({query: 'anything', nResults: 10})
@@ -278,8 +280,8 @@ test.describe('MemoryService — additive shared-commons access (#10556)', () =>
     test('queryMemories without sessionId AND without context preserves single-tenant fallthrough', async () => {
         // Daemon contexts (offline, no env-var, no gh-cli) yield undefined userId. No where clause
         // applied; all records returned regardless of tag — single-tenant fallthrough.
-        spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {userId: 'u-alice', prompt: 'a1'}, document: 'a1'});
-        spyCollection.rows.set('m-untagged', {id: 'm-untagged', metadata: {prompt: 'pre-migration'}, document: 'P'});
+        spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {userId: 'u-alice', timestamp: 100, prompt: 'a1'}, document: 'a1'});
+        spyCollection.rows.set('m-untagged', {id: 'm-untagged', metadata: {timestamp: 200, prompt: 'pre-migration'}, document: 'P'});
 
         const view = await MemoryService.queryMemories({query: 'anything', nResults: 10});
 

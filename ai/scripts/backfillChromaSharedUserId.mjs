@@ -50,9 +50,10 @@ const __dirname  = path.dirname(__filename);
 // MUST match `SHARED_USER_ID` exported from `ai/mcp/server/shared/services/RequestContextService.mjs`.
 // Hardcoded (vs imported) because that module transitively pulls in the Neo class system, which
 // requires a bootstrap this standalone script intentionally avoids — keeping the migration runner
-// dependency-light and fast to invoke. Test coverage in
-// `test/playwright/unit/ai/mcp/server/shared/services/RequestContextService.normalizeUserId.spec.mjs`
-// asserts both values stay in sync.
+// dependency-light and fast to invoke. The sync invariant (script literal == service export) is
+// asserted by the `SHARED_USER_ID is in sync with the migration runner script's hardcoded copy`
+// test in `test/playwright/unit/ai/mcp/server/shared/services/RequestContextService.spec.mjs`,
+// which reads this script as text + regex-extracts the constant + compares against the import.
 const SHARED_USER_ID = 'shared';
 
 const COLLECTION_MEMORY  = 'neo-agent-memory';

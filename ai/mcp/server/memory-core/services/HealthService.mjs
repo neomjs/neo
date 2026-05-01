@@ -503,10 +503,7 @@ class HealthService extends Base {
             },
             mailboxPreview: await MailboxService.getHealthcheckPreview(),
             identity : buildIdentityBlock(this.#stdioIdentityState),
-            migration: {
-                ...(await this.#checkMigrationState()),
-                chromadb: await this.#checkChromaMigrationState()
-            },
+            migration: await this.#checkMigrationState(),
             details  : [],
             version  : process.env.npm_package_version || '1.0.0',
             uptime   : process.uptime()
@@ -522,6 +519,13 @@ class HealthService extends Base {
             payload.details.push(connectionCheck.error);
             return payload;
         }
+
+        // Step 1.5: ChromaDB-side migration observability (#10556).
+        // MUST run AFTER #checkDatabaseConnections so `ChromaManager.connected` is established.
+        // Earlier ordering (initialized at payload-construction time) cached `available: false`
+        // on cold-process healthchecks even when the same payload reported `database.connected: true`.
+        // GPT review on PR #10567 caught this — empirical reproducer in PR comments.
+        payload.migration.chromadb = await this.#checkChromaMigrationState();
 
         // Step 2: Check collections
         const collectionsCheck = await this.#checkCollections();

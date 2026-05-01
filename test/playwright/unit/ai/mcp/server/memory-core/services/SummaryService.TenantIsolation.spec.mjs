@@ -261,9 +261,11 @@ test.describe('SummaryService — additive shared-commons access (#10556)', () =
     });
 
     test('querySummaries returns the tenant\'s own records PLUS SHARED_USER_ID-tagged records', async () => {
-        spy.rows.set('s-a1', {id: 's-a1', metadata: {userId: 'u-alice', title: 'Alice 1'}, document: 'A1'});
-        spy.rows.set('s-shared1', {id: 's-shared1', metadata: {userId: 'shared',  title: 'Legacy 1'}, document: 'L1'});
-        spy.rows.set('s-b1', {id: 's-b1', metadata: {userId: 'u-bob',   title: 'Bob 1'},   document: 'B1'});
+        // Note: timestamp metadata required because querySummaries serializes via
+        // `new Date(metadata.timestamp).toISOString()` — undefined timestamp throws.
+        spy.rows.set('s-a1', {id: 's-a1', metadata: {userId: 'u-alice', timestamp: 100, title: 'Alice 1'}, document: 'A1'});
+        spy.rows.set('s-shared1', {id: 's-shared1', metadata: {userId: 'shared',  timestamp: 200, title: 'Legacy 1'}, document: 'L1'});
+        spy.rows.set('s-b1', {id: 's-b1', metadata: {userId: 'u-bob',   timestamp: 300, title: 'Bob 1'},   document: 'B1'});
 
         const view = await RequestContextService.run({userId: 'u-alice'}, () =>
             SummaryService.querySummaries({query: 'anything', nResults: 10})
@@ -310,7 +312,7 @@ test.describe('SummaryService — additive shared-commons access (#10556)', () =
     test('querySummaries normalizes `@`-prefixed userId at the boundary (canonical-form invariant)', async () => {
         // AgentIdentity nodeId form is `@x`; ChromaDB userId form is `x`. The boundary helper
         // strips the prefix so a request context with `@x` matches stored records tagged `x`.
-        spy.rows.set('s-x1', {id: 's-x1', metadata: {userId: 'x-prefix-test', title: 'X1'}, document: 'X1'});
+        spy.rows.set('s-x1', {id: 's-x1', metadata: {userId: 'x-prefix-test', timestamp: 100, title: 'X1'}, document: 'X1'});
 
         await RequestContextService.run({userId: '@x-prefix-test'}, () =>
             SummaryService.querySummaries({query: 'anything', nResults: 10})

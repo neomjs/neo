@@ -100,11 +100,31 @@ test.describe('Neo.ai.mcp.server.shared.services.RequestContextService (#10000)'
 test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556)', () => {
     test('SHARED_USER_ID is the string `shared`', () => {
         // The sentinel value the migration runner tags legacy records with, and the read-side
-        // $or filter grants additive access to. Both substrate components MUST use the same
-        // string literal — empirical assertion catches accidental drift between the
-        // RequestContextService export and the standalone migration script's hardcoded copy
-        // (which intentionally avoids importing this module to skip Neo class-system bootstrap).
+        // $or filter grants additive access to.
         expect(SHARED_USER_ID).toBe('shared');
+    });
+
+    test('SHARED_USER_ID is in sync with the migration runner script\'s hardcoded copy', async () => {
+        // The standalone runner at `ai/scripts/backfillChromaSharedUserId.mjs` intentionally
+        // does NOT import this module — it avoids the Neo class-system bootstrap to keep the
+        // script dependency-light and fast to invoke. Instead, it hardcodes the same sentinel
+        // value with a sync-with-RequestContextService comment. This test enforces the sync
+        // invariant: the literal in the script MUST match the exported constant. Without this
+        // assertion, the script could silently drift (e.g., someone renames the export but
+        // misses the script copy → migrator tags records with the old value while reads filter
+        // for the new value, yielding zero observable rows after a successful-looking migration).
+        const fs   = await import('fs');
+        const path = await import('path');
+
+        // Resolve relative to the spec file's directory; the spec lives 8 levels deep from repo root.
+        const repoRoot   = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../../../../../..');
+        const scriptPath = path.join(repoRoot, 'ai/scripts/backfillChromaSharedUserId.mjs');
+        const source     = fs.readFileSync(scriptPath, 'utf-8');
+
+        // Match the `const SHARED_USER_ID = '<value>';` line at module scope.
+        const match = source.match(/^const\s+SHARED_USER_ID\s*=\s*['"](.+?)['"]\s*;?\s*$/m);
+        expect(match, 'expected `const SHARED_USER_ID = ...` in migration runner script').not.toBeNull();
+        expect(match[1]).toBe(SHARED_USER_ID);
     });
 
     test('normalizeUserId strips `@`-prefix at the AgentIdentity ↔ userId boundary', () => {
