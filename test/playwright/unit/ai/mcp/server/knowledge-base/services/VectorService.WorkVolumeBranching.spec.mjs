@@ -218,4 +218,49 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         expect(result.message).toContain('Embedding complete');
         expect(spy.calls.upsert).toBeGreaterThan(0); // embedding actually happened
     });
+
+    test('above-threshold MCP call: Server.mjs adapter contract converts to isError', async () => {
+        // RA2 (per @neo-gpt cycle 1): the previous test verifies VectorService.embed()
+        // returns the {error} payload, but the wire-format guarantee is that the MCP caller
+        // observes isError: true. The Server.mjs:140-145 adapter does that conversion via
+        // the `isError = 'error' in result` contract. This test exercises the integration
+        // boundary: invoke the toolService dispatch end-to-end (which is what Server.mjs
+        // calls), then apply the inline adapter conversion the Server uses, and assert on
+        // the resulting MCP-response-shape `isError: true`.
+        const spy = createSpyCollection({existingIds: []});
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        writeFixtureJsonl(fixturePath, 10);
+
+        // Override the dataPath the dispatcher reads, so our fixture is what gets embedded.
+        const KB_DataPath_orig = KB_Config.data.dataPath;
+        KB_Config.data.dataPath = fixturePath;
+
+        // Stub createKnowledgeBase so syncDatabase() doesn't try to regenerate the JSONL
+        // from sources — we want it to use our fixture verbatim.
+        const KB_DatabaseService = SDK.KB_DatabaseService;
+        const createKnowledgeBase_orig = KB_DatabaseService.createKnowledgeBase;
+        KB_DatabaseService.createKnowledgeBase = async () => ({message: 'stub: skipped JSONL regen'});
+
+        try {
+            // Import the KB toolService callTool (the universal MCP dispatch entry).
+            // Server.mjs:140-145 calls this then wraps with `isError = 'error' in result`.
+            const {callTool} = await import('../../../../../../../../ai/mcp/server/knowledge-base/services/toolService.mjs');
+
+            const result = await callTool('manage_knowledge_base', {action: 'sync'});
+
+            // Inline the Server.mjs:140-145 adapter conversion the MCP wire format depends on.
+            // This is the exact wire contract — extract it here so the test asserts the
+            // observable MCP-caller behavior, not just the service return shape.
+            const isError = Neo.isObject(result) && 'error' in result;
+
+            expect(isError).toBe(true);
+            expect(result.code).toBe('KB_SYNC_VOLUME_EXCEEDED');
+            expect(result.chunksToProcess).toBe(10);
+            expect(spy.calls.upsert).toBe(0);
+        } finally {
+            KB_DatabaseService.createKnowledgeBase = createKnowledgeBase_orig;
+            KB_Config.data.dataPath = KB_DataPath_orig;
+        }
+    });
 });

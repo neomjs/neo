@@ -120,9 +120,7 @@ paths:
         - **embed:** Embeds the existing JSONL file into the vector database (diff-based).
         - **delete:** Permanently deletes the entire collection from ChromaDB.
 
-        **When-to-use:** Use **sync** for routine post-merge updates; the diff-based embed step skips re-embedding when nothing changed. Use **delete** + **sync** for a clean rebuild after embedding-provider changes.
-
-        **When-NOT-to-use (work-volume gate, #10572):** when invoked via MCP and the diff yields more than `mcpSyncMaxChunks` chunks (default 50, aligned with batchSize), this tool refuses synchronous execution and returns `KB_SYNC_VOLUME_EXCEEDED` with a CLI remediation pointer. Synchronous embedding at high volume risks freezing the agent harness for ~1hr (empirical anchor 2026-05-01: full re-embedding after embedding-provider migration). Run `npm run ai:sync-kb` for bulk work; the CLI bypasses the gate.
+        **Volume gate:** when the post-delta diff exceeds `mcpSyncMaxChunks` (default 50), this tool returns `KB_SYNC_VOLUME_EXCEEDED` instead of executing synchronously. Use `npm run ai:sync-kb` for bulk re-embedding work.
       tags: [Database]
       requestBody:
         required: true
