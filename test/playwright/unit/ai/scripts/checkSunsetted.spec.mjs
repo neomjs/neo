@@ -14,7 +14,7 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import {execSync} from 'child_process';
+import {execFileSync} from 'child_process';
 import path from 'path';
 
 /**
@@ -23,7 +23,7 @@ import path from 'path';
 test.describe('ai/scripts/checkSunsetted', () => {
     test('checkSunsetted.mjs returns a valid JSON string even for unknown agents', async () => {
         const scriptPath = path.resolve(process.cwd(), 'ai/scripts/checkSunsetted.mjs');
-        const output = execSync(`node ${scriptPath} "@neo-unknown-agent"`, { encoding: 'utf-8' });
+        const output = execFileSync('node', [scriptPath, '@neo-unknown-agent'], { encoding: 'utf-8' });
         const parsed = JSON.parse(output);
         
         expect(parsed.identity).toBe('@neo-unknown-agent');
