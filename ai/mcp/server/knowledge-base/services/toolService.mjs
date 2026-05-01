@@ -19,7 +19,10 @@ const serviceMapping = {
     healthcheck          : HealthService           .healthcheck        .bind(HealthService),
     list_documents       : DocumentService         .listDocuments      .bind(DocumentService),
     manage_database      : DatabaseLifecycleService.manageDatabase     .bind(DatabaseLifecycleService),
-    manage_knowledge_base: DatabaseService         .manageKnowledgeBase.bind(DatabaseService),
+    // #10572: dispatch wrapper marks `viaMcp: true` so VectorService.embed can apply the
+    // work-volume gate. CLI invocations (via `npm run ai:sync-kb`) call DatabaseService.syncDatabase
+    // directly without `viaMcp`, bypassing the gate — explicit opt-in to long-running work.
+    manage_knowledge_base: args => DatabaseService.manageKnowledgeBase({...args, viaMcp: true}),
     query_documents      : QueryService            .queryDocuments     .bind(QueryService)
 };
 
