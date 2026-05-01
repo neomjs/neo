@@ -308,7 +308,6 @@ test.describe('Neo.ai.services.ConceptService', () => {
         ConceptService.loadGraph();
 
         const results = ConceptService.findConceptsRelevantTo('I need to fix the grid component', {limit: 2});
-        
         expect(results.length).toBe(2);
         expect(results[0].id).toBe('c1');
         expect(results[1].id).toBe('c2');

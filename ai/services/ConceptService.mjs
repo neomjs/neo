@@ -277,7 +277,7 @@ class ConceptService extends Base {
      * Each node in the tree includes its metadata and a `children` array.
      * @param {Number} [maxTier=3] Maximum tier to include.
      * @returns {Object} Tree root with nested children.
-     * @protected Intended for internal orchestration and visualization apps. LLM query surfaces should use bounded variants.
+     * @protected Documents the boundary for internal orchestration and visualization apps. LLM query surfaces should use bounded variants.
      */
     getConceptTree(maxTier = 3) {
         this.ensureLoaded();
@@ -350,7 +350,7 @@ class ConceptService extends Base {
      * @param {Number} [minWeight=0] Minimum weight threshold for inclusion.
      * @returns {Array<Object>} Gap entries sorted by weight descending:
      *   `{concept, weight, tier, severity, missingEdgeTypes}`.
-     * @protected Intended for internal orchestration. LLM query surfaces should use findGapsRelevantTo.
+     * @protected Documents the boundary for internal orchestration. LLM query surfaces should use findGapsRelevantTo.
      */
     findGuideGaps(minWeight = 0) {
         this.ensureLoaded();
@@ -399,7 +399,7 @@ class ConceptService extends Base {
      *
      * @param {String} classPath Repository-relative path (e.g., `'src/data/Store.mjs'`).
      * @param {Object} [options]
-     * @param {Number} [options.limit=5] Max concepts to return. Default 5 prevents context bloat.
+     * @param {Number} [options.limit=5] Max concepts to return. Default 5 prevents context bloat. Pass 0 for unbounded.
      * @returns {Array<Object>} Concept nodes that reference this file.
      */
     classifyConcept(classPath, {limit = 5} = {}) {
@@ -553,7 +553,7 @@ class ConceptService extends Base {
      *
      * @param {String} conceptId The concept ID to look up analogues for.
      * @returns {Array<Object>} ANALOGOUS_TO edges with `{source, target, type, note}`.
-     * @protected Intended for internal orchestration.
+     * @protected Documents the boundary for internal orchestration.
      */
     getAnalogousConcepts(conceptId) {
         this.ensureLoaded();
