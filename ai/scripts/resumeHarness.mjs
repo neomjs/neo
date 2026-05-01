@@ -9,6 +9,9 @@
 import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function spawnAsync(cmd, args) {
     return new Promise((resolve, reject) => {
@@ -23,7 +26,8 @@ function spawnAsync(cmd, args) {
 
 async function resumeHarness(identity, reason) {
     // Blocker 1: Idempotency (cooldown file + 600s minimum re-fire window)
-    const cooldownDir = path.resolve(process.cwd(), '.neo-ai-data/wake-daemon');
+    // Fix: Resolve from __dirname instead of process.cwd() to support cron/launchd
+    const cooldownDir = path.resolve(__dirname, '../../.neo-ai-data/wake-daemon');
     const cooldownFile = path.resolve(cooldownDir, `cooldown-${identity.replace(/[^a-zA-Z0-9_-]/g, '')}.txt`);
     
     try {
