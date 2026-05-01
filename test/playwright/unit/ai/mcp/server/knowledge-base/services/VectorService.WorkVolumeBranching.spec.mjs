@@ -199,6 +199,15 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         expect(result.message).toContain('npm run ai:sync-kb');
         expect(spy.calls.upsert).toBe(0); // no embedding work attempted under the gate
 
+        // Tail-progress reference (#10576 RA1 from @neo-gpt cycle 2): rendered message
+        // must point operators at a usable log path with no `undefined` interpolation.
+        // Defensive fallback in VectorService kicks in when `aiConfig.logPath` is absent
+        // — proven by the no-undefined assertion under the canonical-config setup, then
+        // by the dedicated fallback test below that simulates a stale config.mjs.
+        expect(result.message).toContain('tail -f');
+        expect(result.message).toContain('kb-server-');
+        expect(result.message).not.toContain('undefined');
+
         // Wire-format boundary (RA2 per @neo-gpt cycle 1): the KB Server's adapter at
         // Server.mjs:202 — `isError = 'error' in result` — is the contract that converts
         // this service-level shape into the MCP-protocol `isError: true` the caller observes.
@@ -208,6 +217,29 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         // before it reaches the gate — a test-env artifact, not a production path.)
         const isError = Neo.isObject(result) && 'error' in result;
         expect(isError).toBe(true);
+    });
+
+    test('above-threshold MCP gate-message renders fallback path when aiConfig.logPath unset (#10580 RA1)', async () => {
+        // Simulates an existing gitignored `config.mjs` deployment without the new
+        // `logPath` template key. Naked `${aiConfig.logPath}` interpolation would
+        // render `undefined/kb-server-...`; the fallback in VectorService.embed should
+        // render `${neoRootDir}/.neo-ai-data/logs/kb-server-...` instead.
+        const spy = createSpyCollection({existingIds: []});
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+        writeFixtureJsonl(fixturePath, 10);
+
+        const wasLogPath       = KB_Config.data.logPath;
+        KB_Config.data.logPath = undefined;
+
+        try {
+            const result = await KB_VectorService.embed(fixturePath, {viaMcp: true});
+
+            expect(result.code).toBe('KB_SYNC_VOLUME_EXCEEDED');
+            expect(result.message).not.toContain('undefined');
+            expect(result.message).toContain('.neo-ai-data/logs');
+        } finally {
+            KB_Config.data.logPath = wasLogPath;
+        }
     });
 
     test('above-threshold CLI invocation bypasses the gate (explicit opt-in to long work)', async () => {

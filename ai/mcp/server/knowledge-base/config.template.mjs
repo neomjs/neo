@@ -116,6 +116,14 @@ const defaultConfig = {
      */
     hierarchyPath: path.resolve(neoRootDir, 'docs/output/class-hierarchy.json'),
     /**
+     * Directory for the always-on KB server diagnostic log files (#10576). The KB server's
+     * `logger.mjs` writes daily-rotated entries here regardless of `debug`, so long-running
+     * operations (sync, embedding loops, ChromaDB lifecycle) leave a tail-able diagnostic
+     * trail observable from the host shell. Default: `<neoRootDir>/.neo-ai-data/logs/`.
+     * @type {string}
+     */
+    logPath: path.resolve(neoRootDir, '.neo-ai-data/logs'),
+    /**
      * The name of the ChromaDB collection for the knowledge base.
      * @type {string}
      */
