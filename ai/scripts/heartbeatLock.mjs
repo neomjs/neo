@@ -22,7 +22,7 @@ import path    from 'path';
 import {fileURLToPath} from 'url';
 
 export const HEARTBEAT_LOCK_PATH = '.neo-ai-data/heartbeat-concurrency.lock';
-export const DEFAULT_STALE_LOCK_MS = 30 * 60 * 1000;
+export const DEFAULT_STALE_LOCK_MS = 10 * 60 * 1000;
 
 /**
  * @summary Creates the heartbeat concurrency lock before expensive Agent OS work starts.
