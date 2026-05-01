@@ -531,6 +531,12 @@ function spawnAsync(command, args) {
 }
 
 /**
+ * Global mutex for serializing adapter deliveries. 
+ * Prevents concurrent osascript calls from colliding when multiple agents wake simultaneously.
+ */
+let deliveryPromise = Promise.resolve();
+
+/**
  * Delivers the digest to the correct adapter (tmux or osascript).
  */
 async function deliverDigest(subscription, digest) {
@@ -538,6 +544,9 @@ async function deliverDigest(subscription, digest) {
     // Fall back to osascript on macOS by default, tmux otherwise
     const defaultAdapter = process.platform === 'darwin' ? 'osascript' : 'tmux';
     const adapter = meta.adapter || defaultAdapter;
+
+    // Serialize execution to prevent focus collisions (Electron-Paradox defense)
+    deliveryPromise = deliveryPromise.then(async () => {
 
     try {
         if (adapter === 'tmux') {
@@ -649,6 +658,9 @@ async function deliverDigest(subscription, digest) {
     } catch (err) {
         writeLog('ERROR', `[Bridge Daemon] Failed to deliver via ${adapter}: ${err.message}`);
     }
+    });
+
+    return deliveryPromise;
 }
 
 // Start loop
