@@ -25,10 +25,12 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
     let GraphService;
     let SystemLifecycleService;
     let DreamService;
+    let MemorySessionIngestor;
     let SemanticGraphExtractor;
     let StorageRouter;
     let OpenAiCompatible;
     let TextEmbeddingService;
+    let logger;
     const testDbName = `memory-core-dream-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath; // Reassigned in beforeAll
 
@@ -52,11 +54,13 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
 
         GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         DreamService = (await import('../../../../../ai/daemons/DreamService.mjs')).default;
+        MemorySessionIngestor = (await import('../../../../../ai/daemons/services/MemorySessionIngestor.mjs')).default;
         SemanticGraphExtractor = (await import('../../../../../ai/daemons/services/SemanticGraphExtractor.mjs')).default;
         StorageRouter = (await import('../../../../../ai/mcp/server/memory-core/managers/StorageRouter.mjs')).default;
         OpenAiCompatible       = (await import('../../../../../ai/provider/OpenAiCompatible.mjs')).default;
         SystemLifecycleService = (await import('../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
         TextEmbeddingService   = (await import('../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
+        logger                 = (await import('../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
 
         if (fs.existsSync(testDbPath)) {
             try {
@@ -525,6 +529,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             runGarbageCol      : DreamService.runGarbageCollection,
             synthesizeGolden   : DreamService.synthesizeGoldenPath,
             triVector          : SemanticGraphExtractor.executeTriVectorExtraction,
+            syncSession        : MemorySessionIngestor.syncSessionToGraph,
             syncConcepts       : ConceptIngestor.syncConceptsToGraph,
             syncFs             : FileSystemIngestor.syncWorkspaceToGraph,
             extractTopo        : TopologyInferenceEngine.extractTopology,
@@ -550,6 +555,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             SemanticGraphExtractor.executeTriVectorExtraction = async () => ({
                 session_artifact: {graph: {nodes: [], edges: []}}
             });
+            MemorySessionIngestor.syncSessionToGraph = async () => ({
+                errors          : [],
+                memoriesSkipped : 0,
+                memoriesUpserted: 0
+            });
             ConceptIngestor.syncConceptsToGraph     = async () => ({});
             FileSystemIngestor.syncWorkspaceToGraph = async () => {};
             TopologyInferenceEngine.extractTopology = async () => {};
@@ -568,9 +578,108 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             DreamService.runGarbageCollection                 = orig.runGarbageCol;
             DreamService.synthesizeGoldenPath                 = orig.synthesizeGolden;
             SemanticGraphExtractor.executeTriVectorExtraction = orig.triVector;
+            MemorySessionIngestor.syncSessionToGraph          = orig.syncSession;
             ConceptIngestor.syncConceptsToGraph               = orig.syncConcepts;
             FileSystemIngestor.syncWorkspaceToGraph           = orig.syncFs;
             TopologyInferenceEngine.extractTopology           = orig.extractTopo;
+            DreamService.isProcessing                         = orig.isProcessing;
+        }
+    });
+
+    test('processUndigestedSessions does not set graphDigested when memory ingestion reports errors (#10460)', async () => {
+        // Regression guard for #10460: the Tri-Vector extractor can succeed from
+        // `session.document` even when MemorySessionIngestor partially failed to upsert MEMORY
+        // nodes. Keep such sessions undigested so the next REM cycle retries the missing graph
+        // rows instead of permanently masking them behind `graphDigested: true`.
+
+        const aiConfig                = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const ConceptIngestor         = (await import('../../../../../ai/daemons/services/ConceptIngestor.mjs')).default;
+        const FileSystemIngestor      = (await import('../../../../../ai/mcp/server/memory-core/services/FileSystemIngestor.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../ai/daemons/services/TopologyInferenceEngine.mjs')).default;
+
+        const mockSession = {
+            id      : 'chroma-summary-partial',
+            document: 'mock-document',
+            meta    : {sessionId: 'agent-session-partial', title: 'Partial ingest session'}
+        };
+
+        let testGapCalls     = 0;
+        let conceptGapCalls  = 0;
+        let sessionUpdates   = 0;
+        const infoMessages   = [];
+        const warnMessages   = [];
+
+        const orig = {
+            provider           : aiConfig.modelProvider,
+            findUndigested     : DreamService.findUndigestedSessions,
+            sessionsCollection : DreamService.sessionsCollection,
+            inferTest          : DreamService.inferTestGapsFromSession,
+            inferConcept       : DreamService.inferConceptGraphGaps,
+            runGarbageCol      : DreamService.runGarbageCollection,
+            synthesizeGolden   : DreamService.synthesizeGoldenPath,
+            triVector          : SemanticGraphExtractor.executeTriVectorExtraction,
+            syncSession        : MemorySessionIngestor.syncSessionToGraph,
+            syncConcepts       : ConceptIngestor.syncConceptsToGraph,
+            syncFs             : FileSystemIngestor.syncWorkspaceToGraph,
+            extractTopo        : TopologyInferenceEngine.extractTopology,
+            getMemory          : StorageRouter.getMemoryCollection,
+            loggerInfo         : logger.info,
+            loggerWarn         : logger.warn,
+            isProcessing       : DreamService.isProcessing
+        };
+
+        try {
+            aiConfig.modelProvider    = 'mock-provider';
+            DreamService.isProcessing = false;
+
+            DreamService.findUndigestedSessions = async () => [mockSession];
+            DreamService.sessionsCollection     = {
+                update: async () => { sessionUpdates++; }
+            };
+            DreamService.inferTestGapsFromSession = async () => { testGapCalls++; };
+            DreamService.inferConceptGraphGaps    = async () => { conceptGapCalls++; };
+            DreamService.runGarbageCollection     = async () => {};
+            DreamService.synthesizeGoldenPath     = async () => {};
+
+            SemanticGraphExtractor.executeTriVectorExtraction = async () => ({
+                session_artifact: {graph: {nodes: [], edges: []}}
+            });
+            MemorySessionIngestor.syncSessionToGraph = async () => ({
+                errors          : ['[memory:broken] simulated upsert failure'],
+                memoriesSkipped : 1,
+                memoriesUpserted: 2
+            });
+            ConceptIngestor.syncConceptsToGraph     = async () => ({});
+            FileSystemIngestor.syncWorkspaceToGraph = async () => {};
+            TopologyInferenceEngine.extractTopology = async () => {};
+            StorageRouter.getMemoryCollection       = async () => null;
+
+            logger.info = (...args) => { infoMessages.push(args.join(' ')); };
+            logger.warn = (...args) => { warnMessages.push(args.join(' ')); };
+
+            await DreamService.processUndigestedSessions();
+
+            expect(testGapCalls).toBe(1);
+            expect(conceptGapCalls).toBe(1);
+            expect(sessionUpdates).toBe(0);
+            expect(infoMessages.some(msg => msg.includes('2 upserted, 1 skipped, 1 errors'))).toBe(true);
+            expect(warnMessages.some(msg => msg.includes('agent-session-partial') && msg.includes('graphDigested will NOT be set'))).toBe(true);
+        } finally {
+            aiConfig.modelProvider                            = orig.provider;
+            DreamService.findUndigestedSessions               = orig.findUndigested;
+            DreamService.sessionsCollection                   = orig.sessionsCollection;
+            DreamService.inferTestGapsFromSession             = orig.inferTest;
+            DreamService.inferConceptGraphGaps                = orig.inferConcept;
+            DreamService.runGarbageCollection                 = orig.runGarbageCol;
+            DreamService.synthesizeGoldenPath                 = orig.synthesizeGolden;
+            SemanticGraphExtractor.executeTriVectorExtraction = orig.triVector;
+            MemorySessionIngestor.syncSessionToGraph          = orig.syncSession;
+            ConceptIngestor.syncConceptsToGraph               = orig.syncConcepts;
+            FileSystemIngestor.syncWorkspaceToGraph           = orig.syncFs;
+            TopologyInferenceEngine.extractTopology           = orig.extractTopo;
+            StorageRouter.getMemoryCollection                 = orig.getMemory;
+            logger.info                                      = orig.loggerInfo;
+            logger.warn                                      = orig.loggerWarn;
             DreamService.isProcessing                         = orig.isProcessing;
         }
     });
