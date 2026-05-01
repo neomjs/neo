@@ -92,10 +92,14 @@ class StorageRouter extends Base {
             const graphWeights = new Map();
 
             if (topology?.strategicNeighbors) {
-                topology.strategicNeighbors.forEach(n => {
-                    graphWeights.set(n.id, n.weight);
-                    if (n.semanticVectorId) graphWeights.set(n.semanticVectorId, n.weight);
-                });
+                if (Array.isArray(topology.strategicNeighbors)) {
+                    topology.strategicNeighbors.forEach(n => {
+                        graphWeights.set(n.id, n.weight);
+                        if (n.semanticVectorId) graphWeights.set(n.semanticVectorId, n.weight);
+                    });
+                } else {
+                    logger.warn(`[StorageRouter] topology.strategicNeighbors is not iterable (type: ${typeof topology.strategicNeighbors}). Skipping re-ranking weights.`);
+                }
             }
 
             const distances = searchResult.distances?.[0] || [];

@@ -1,5 +1,6 @@
 import fs                   from 'fs-extra';
-import {GoogleGenerativeAI} from '@google/generative-ai';
+import TextEmbeddingService from '../../memory-core/services/TextEmbeddingService.mjs';
+import mcConfig             from '../../memory-core/config.mjs';
 import aiConfig             from '../config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
@@ -108,21 +109,14 @@ class QueryService extends Base {
             throw new Error('A query string must be provided.');
         }
 
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-            throw new Error('The GEMINI_API_KEY environment variable is not set.');
-        }
-
-        const genAI          = new GoogleGenerativeAI(apiKey);
-        const model          = genAI.getGenerativeModel({model: aiConfig.embeddingModel});
-        const collection     = await ChromaManager.getKnowledgeBaseCollection();
-        const queryEmbedding = await model.embedContent(query);
+        const collection           = await ChromaManager.getKnowledgeBaseCollection();
+        const queryEmbeddingValues = await TextEmbeddingService.embedText(query, mcConfig.chromaEmbeddingProvider);
         const queryLower     = query.toLowerCase();
 
         const whereClause = (type && type !== 'all') ? { type } : {};
 
         const queryOptions = {
-            queryEmbeddings: [queryEmbedding.embedding.values],
+            queryEmbeddings: [queryEmbeddingValues],
             nResults       : aiConfig.nResults,
             where          : whereClause
         };
