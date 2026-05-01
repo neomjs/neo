@@ -42,6 +42,9 @@ function createSpyCollection() {
         if (where.$and) {
             return where.$and.every(cond => matchesWhere(metadata, cond));
         }
+        if (where.$or) {
+            return where.$or.some(cond => matchesWhere(metadata, cond));
+        }
         return Object.entries(where).every(([key, value]) => metadata?.[key] === value);
     };
 
@@ -204,7 +207,14 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
         );
 
         const queryCall = spyCollection.queryCalls.at(-1);
-        expect(queryCall.where).toEqual({ $and: [{ sessionId: 'session-a' }, { userId: 'u-alice' }] });
+        // #10556: read filter became additive — tenant's own records OR records tagged
+        // with SHARED_USER_ID. The sessionId filter remains in the outer $and.
+        expect(queryCall.where).toEqual({
+            $and: [
+                {sessionId: 'session-a'},
+                {$or: [{userId: 'u-alice'}, {userId: 'shared'}]}
+            ]
+        });
     });
 
     test('queryMemories without a request context leaves the where clause at caller-provided sessionId only', async () => {
@@ -216,5 +226,83 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
 
         const queryCall = spyCollection.queryCalls.at(-1);
         expect(queryCall.where).toEqual({sessionId: 'session-a'});
+    });
+});
+
+test.describe('MemoryService — additive shared-commons access (#10556)', () => {
+    let spyCollection;
+    let originalGetMemoryCollection;
+
+    test.beforeEach(() => {
+        spyCollection                       = createSpyCollection();
+        originalGetMemoryCollection         = StorageRouter.getMemoryCollection;
+        StorageRouter.getMemoryCollection   = async () => spyCollection;
+    });
+
+    test.afterEach(() => {
+        StorageRouter.getMemoryCollection = originalGetMemoryCollection;
+    });
+
+    test('listMemories returns the tenant\'s OWN records PLUS SHARED_USER_ID-tagged records (sessionId-scoped)', async () => {
+        // Pre-#10145 records (backfilled by the migration runner with userId='shared') become
+        // accessible to every tenant via the additive $or filter, alongside the tenant's own data.
+        // sessionId remains the outer $and gate so cross-session leaks are still prevented.
+        const sid = 'session-shared-test';
+        spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {sessionId: sid, userId: 'u-alice', timestamp: 100, prompt: 'a1'}, document: 'a1'});
+        spyCollection.rows.set('m-shared1', {id: 'm-shared1', metadata: {sessionId: sid, userId: 'shared', timestamp: 200, prompt: 'L1'}, document: 'L1'});
+        spyCollection.rows.set('m-b1', {id: 'm-b1', metadata: {sessionId: sid, userId: 'u-bob', timestamp: 300, prompt: 'b1'}, document: 'b1'});
+
+        const view = await RequestContextService.run({userId: 'u-alice'}, () =>
+            MemoryService.listMemories({sessionId: sid, limit: 10, offset: 0})
+        );
+
+        // Alice sees her own memory + the shared-tagged legacy memory, but not Bob's.
+        expect(view.count).toBe(2);
+        expect(view.memories.map(m => m.prompt).sort()).toEqual(['L1', 'a1']);
+    });
+
+    test('queryMemories without sessionId returns the tenant\'s own records PLUS shared records', async () => {
+        spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {userId: 'u-alice', prompt: 'a1'}, document: 'a1'});
+        spyCollection.rows.set('m-shared1', {id: 'm-shared1', metadata: {userId: 'shared', prompt: 'L1'}, document: 'L1'});
+        spyCollection.rows.set('m-b1', {id: 'm-b1', metadata: {userId: 'u-bob', prompt: 'b1'}, document: 'b1'});
+
+        const view = await RequestContextService.run({userId: 'u-alice'}, () =>
+            MemoryService.queryMemories({query: 'anything', nResults: 10})
+        );
+
+        // No sessionId; the where clause is just the additive $or. Alice sees her records + shared.
+        expect(view.count).toBe(2);
+        expect(view.results.map(r => r.prompt).sort()).toEqual(['L1', 'a1']);
+    });
+
+    test('queryMemories without sessionId AND without context preserves single-tenant fallthrough', async () => {
+        // Daemon contexts (offline, no env-var, no gh-cli) yield undefined userId. No where clause
+        // applied; all records returned regardless of tag — single-tenant fallthrough.
+        spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {userId: 'u-alice', prompt: 'a1'}, document: 'a1'});
+        spyCollection.rows.set('m-untagged', {id: 'm-untagged', metadata: {prompt: 'pre-migration'}, document: 'P'});
+
+        const view = await MemoryService.queryMemories({query: 'anything', nResults: 10});
+
+        // Both records visible (untagged + tagged) — no filter applied.
+        expect(view.count).toBe(2);
+    });
+
+    test('addMemory tags new writes with the normalized userId (no `@` prefix)', async () => {
+        // Canonical-form invariant on the write side: AgentIdentity nodeId form is `@x`,
+        // ChromaDB userId form is `x`. The boundary helper strips the prefix at write time
+        // so a future read filter using either form will always match.
+        await RequestContextService.run({userId: '@neo-test-agent'}, () =>
+            MemoryService.addMemory({
+                sessionId: 'session-canonical',
+                prompt   : 'test',
+                thought  : 'test',
+                response : 'test'
+            })
+        );
+
+        const addCall = spyCollection.addCalls.at(-1);
+        const tagged  = addCall.metadatas[0]?.userId;
+        // The stored tag should be `neo-test-agent` (no prefix), NOT `@neo-test-agent`.
+        expect(tagged).toBe('neo-test-agent');
     });
 });

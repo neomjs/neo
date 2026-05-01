@@ -38,6 +38,8 @@ function createSpyCollection() {
 
     const matchesWhere = (metadata, where) => {
         if (!where) return true;
+        if (where.$and) return where.$and.every(c => matchesWhere(metadata, c));
+        if (where.$or)  return where.$or.some(c => matchesWhere(metadata, c));
         return Object.entries(where).every(([k, v]) => metadata?.[k] === v);
     };
 
@@ -205,7 +207,14 @@ test.describe('SummaryService — tenant isolation (#10000)', () => {
         );
 
         const q = spy.calls.query.at(-1);
-        expect(q.where).toEqual({ $and: [{ category: 'refactoring' }, { userId: 'u-alice' }] });
+        // #10556: read filter became additive — tenant's own records OR records tagged
+        // with SHARED_USER_ID. The category filter remains in the outer $and.
+        expect(q.where).toEqual({
+            $and: [
+                {category: 'refactoring'},
+                {$or: [{userId: 'u-alice'}, {userId: 'shared'}]}
+            ]
+        });
     });
 
     test('querySummaries without a request context leaves the caller-provided category-only where as-is', async () => {
@@ -217,5 +226,98 @@ test.describe('SummaryService — tenant isolation (#10000)', () => {
 
         const q = spy.calls.query.at(-1);
         expect(q.where).toEqual({category: 'refactoring'});
+    });
+});
+
+test.describe('SummaryService — additive shared-commons access (#10556)', () => {
+    let spy;
+    let originalGetSummaryCollection;
+
+    test.beforeEach(() => {
+        spy                                = createSpyCollection();
+        originalGetSummaryCollection       = StorageRouter.getSummaryCollection;
+        StorageRouter.getSummaryCollection = async () => spy;
+    });
+
+    test.afterEach(() => {
+        StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+    });
+
+    test('listSummaries returns the tenant\'s OWN records PLUS SHARED_USER_ID-tagged records', async () => {
+        // The load-bearing #10556 invariant: legacy pre-#10145 records (backfilled by the
+        // migration runner with userId='shared') become accessible to every tenant via the
+        // additive $or filter, alongside the tenant's own data.
+        spy.rows.set('s-a1', {id: 's-a1', metadata: {userId: 'u-alice', timestamp: 100, title: 'Alice 1'}, document: 'A1'});
+        spy.rows.set('s-shared1', {id: 's-shared1', metadata: {userId: 'shared',  timestamp: 200, title: 'Legacy 1'}, document: 'L1'});
+        spy.rows.set('s-b1', {id: 's-b1', metadata: {userId: 'u-bob',   timestamp: 300, title: 'Bob 1'},   document: 'B1'});
+
+        const view = await RequestContextService.run({userId: 'u-alice'}, () =>
+            SummaryService.listSummaries({limit: 10, offset: 0})
+        );
+
+        // Alice sees her own summary + the shared-tagged legacy summary, but not Bob's.
+        expect(view.count).toBe(2);
+        expect(view.summaries.map(s => s.title).sort()).toEqual(['Alice 1', 'Legacy 1']);
+    });
+
+    test('querySummaries returns the tenant\'s own records PLUS SHARED_USER_ID-tagged records', async () => {
+        spy.rows.set('s-a1', {id: 's-a1', metadata: {userId: 'u-alice', title: 'Alice 1'}, document: 'A1'});
+        spy.rows.set('s-shared1', {id: 's-shared1', metadata: {userId: 'shared',  title: 'Legacy 1'}, document: 'L1'});
+        spy.rows.set('s-b1', {id: 's-b1', metadata: {userId: 'u-bob',   title: 'Bob 1'},   document: 'B1'});
+
+        const view = await RequestContextService.run({userId: 'u-alice'}, () =>
+            SummaryService.querySummaries({query: 'anything', nResults: 10})
+        );
+
+        // Alice's semantic query returns her records + the shared commons; Bob's stays isolated.
+        expect(view.count).toBe(2);
+        const titles = view.results.map(r => r.title).sort();
+        expect(titles).toEqual(['Alice 1', 'Legacy 1']);
+    });
+
+    test('listSummaries with an unresolved userId preserves single-tenant fallthrough (no filter)', async () => {
+        // Daemon contexts (offline, no env-var, no gh-cli) yield undefined userId. The read filter
+        // collapses to undefined; collection.get receives no `where` clause; all records returned.
+        spy.rows.set('s-a1', {id: 's-a1', metadata: {userId: 'u-alice', timestamp: 100, title: 'Alice 1'}, document: 'A1'});
+        spy.rows.set('s-shared1', {id: 's-shared1', metadata: {userId: 'shared', timestamp: 200, title: 'Legacy 1'}, document: 'L1'});
+        spy.rows.set('s-untagged', {id: 's-untagged', metadata: {timestamp: 300, title: 'Pre-migration 1'}, document: 'P1'});
+
+        const view = await SummaryService.listSummaries({limit: 10, offset: 0});
+
+        // Without a userId, the additive filter does not apply — single-tenant fallthrough.
+        // All records are visible (including any pre-migration untagged records).
+        expect(view.count).toBe(3);
+    });
+
+    test('deleteAllSummaries does NOT remove SHARED_USER_ID-tagged records (asymmetric scope)', async () => {
+        // The asymmetry: read filter is additive (mine + shared); delete filter is scoped (mine only).
+        // "Delete all my summaries" must NOT touch the shared commons even though reads include them.
+        spy.rows.set('s-a1', {id: 's-a1', metadata: {userId: 'u-alice'}, document: 'A1'});
+        spy.rows.set('s-a2', {id: 's-a2', metadata: {userId: 'u-alice'}, document: 'A2'});
+        spy.rows.set('s-shared1', {id: 's-shared1', metadata: {userId: 'shared'}, document: 'L1'});
+
+        const result = await RequestContextService.run({userId: 'u-alice'}, () =>
+            SummaryService.deleteAllSummaries()
+        );
+
+        // Only Alice's two summaries are deleted; the shared-tagged legacy summary survives.
+        expect(result.deleted).toBe(2);
+        expect(spy.rows.has('s-shared1')).toBe(true);
+        // Verify the delete call's where clause: scoped to userId only, NOT including SHARED.
+        expect(spy.calls.delete[0].where).toEqual({userId: 'u-alice'});
+    });
+
+    test('querySummaries normalizes `@`-prefixed userId at the boundary (canonical-form invariant)', async () => {
+        // AgentIdentity nodeId form is `@x`; ChromaDB userId form is `x`. The boundary helper
+        // strips the prefix so a request context with `@x` matches stored records tagged `x`.
+        spy.rows.set('s-x1', {id: 's-x1', metadata: {userId: 'x-prefix-test', title: 'X1'}, document: 'X1'});
+
+        await RequestContextService.run({userId: '@x-prefix-test'}, () =>
+            SummaryService.querySummaries({query: 'anything', nResults: 10})
+        );
+
+        const q = spy.calls.query.at(-1);
+        // The where clause should reference the normalized `x-prefix-test`, NOT `@x-prefix-test`.
+        expect(q.where).toEqual({$or: [{userId: 'x-prefix-test'}, {userId: 'shared'}]});
     });
 });
