@@ -341,6 +341,7 @@ For PRs that introduce new workflow primitives, skill files, architectural conve
 - PR modifies `AGENTS_STARTUP.md` or `AGENTS.md` (startup conventions change)
 - PR introduces a new architectural primitive other subsystems will consume
 - PR refactors a substrate or changes a wire format (e.g., event payloads, tool signatures, database schemas)
+- PR changes `ai/mcp/server/<name>/config.template.mjs`; read `.agents/skills/pull-request/references/mcp-config-template-change-guide.md` before approval
 
 ### 8.2 Verification Checklist
 
