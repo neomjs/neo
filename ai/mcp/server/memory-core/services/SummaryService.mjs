@@ -53,12 +53,14 @@ class SummaryService extends Base {
     async deleteAllSummaries() {
         try {
             const collection = await StorageRouter.getSummaryCollection();
-            const userId     = RequestContextService.getUserId();
+            const userId     = normalizeUserId(RequestContextService.getUserId());
 
             // Multi-tenant branch (#10000): when an authenticated user invokes this, only their
             // own summaries are deleted — the `collection.drop()` path would nuke every tenant's
             // data in a unified deployment. `collection.delete({where: {userId}})` scopes the
-            // destructive operation to the current tenant's rows.
+            // destructive operation to the current tenant's rows. Note: the filter intentionally
+            // does NOT include SHARED_USER_ID (#10556) — deleting "all my summaries" must not
+            // touch the shared commons even though reads include it via the additive $or filter.
             if (userId) {
                 const before = await collection.get({
                     where  : {userId},
