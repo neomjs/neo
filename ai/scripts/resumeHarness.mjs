@@ -47,13 +47,13 @@ async function resumeHarness(identity, reason) {
     // Harness Registry resolving the enum to specific executable paths/scripts
     const HARNESS_REGISTRY = {
         'antigravity-ide': { appName: 'Antigravity', adapter: 'osascript' },
-        'claude-desktop': { appName: 'Claude', adapter: 'osascript' },
-        'codex-desktop': { appName: 'Codex', adapter: 'osascript' }
+        'claude-code-cli': { adapter: 'tmux', tmuxSession: 'claude-code' },
+        'codex-desktop': { adapter: 'tmux', tmuxSession: 'codex' }
     };
 
     const identityMap = {
         '@neo-gemini-3-1-pro': 'antigravity-ide',
-        '@neo-opus-4-7': 'claude-desktop',
+        '@neo-opus-4-7': 'claude-code-cli',
         '@neo-gpt': 'codex-desktop'
     };
 
@@ -71,7 +71,6 @@ async function resumeHarness(identity, reason) {
         if (adapter === 'osascript') {
             const { appName } = harnessTarget;
             // Uses the "Key Code 36 (Enter) Defense" established in bridge-daemon.mjs
-            // Also explicitly starts a fresh terminal session via Cmd+N
             const osascriptArgs = [
                 '-e', 'on run argv',
                 '-e', '  set wakePayload to (item 1 of argv)',
@@ -85,8 +84,6 @@ async function resumeHarness(identity, reason) {
                 '-e', '  tell application "System Events"',
                 '-e', '    set frontmostProcess to first application process whose frontmost is true',
                 '-e', '    tell frontmostProcess',
-                '-e', '      keystroke "n" using command down',
-                '-e', '      delay 0.5',
                 '-e', '      set the clipboard to ""',
                 '-e', '      keystroke "a" using command down',
                 '-e', '      delay 0.2',
@@ -130,7 +127,7 @@ async function resumeHarness(identity, reason) {
             console.log(`Successfully resumed ${identity} via osascript (${appName})`);
         } else if (adapter === 'tmux') {
             // Provide tmux fallback
-            const tmuxSession = process.env.TMUX_SESSION || 'neo-agent';
+            const tmuxSession = process.env.TMUX_SESSION || harnessTarget.tmuxSession || 'neo-agent';
             await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, payload, 'C-m']);
             console.log(`Successfully resumed ${identity} via tmux (${tmuxSession})`);
         }
