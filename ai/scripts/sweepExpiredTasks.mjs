@@ -18,6 +18,14 @@
  *   node ai/scripts/sweepExpiredTasks.mjs
  *   # → {"success":true,"sweptCount":3}
  */
+// IMPORTANT: `Neo` MUST be imported BEFORE any module that uses `Neo.gatekeep()` /
+// `Neo.setupClass()` at module-load time (e.g. `src/core/Compare.mjs`, transitively
+// pulled in via the LifecycleService → GraphService → SQLite import chain). Without
+// this prelude the script crashes at module-load with `ReferenceError: Neo is not
+// defined` (regression originally surfaced empirically by @neo-gpt during the #10318
+// heartbeat token-economy measurement, fixed under #10595).
+import Neo              from '../../src/Neo.mjs';
+import * as core        from '../../src/core/_export.mjs';
 import LifecycleService from '../mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
 import MailboxService   from '../mcp/server/memory-core/services/MailboxService.mjs';
 
