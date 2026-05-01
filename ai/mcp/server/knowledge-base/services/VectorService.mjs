@@ -205,7 +205,8 @@ class VectorService extends Base {
                 error  : `KB sync work volume exceeds MCP-callable threshold`,
                 message: `${chunksToProcess.length} chunks need re-embedding (threshold: ${mcpThreshold}). ` +
                          `Synchronous embedding at this volume risks agent freeze. ` +
-                         `Run via CLI: \`npm run ai:sync-kb\`.`,
+                         `Run via CLI: \`npm run ai:sync-kb\`. ` +
+                         `Tail progress: \`tail -f ${aiConfig.logPath}/kb-server-$(date +%Y-%m-%d).log\`.`,
                 code           : 'KB_SYNC_VOLUME_EXCEEDED',
                 chunksToProcess: chunksToProcess.length,
                 threshold      : mcpThreshold
