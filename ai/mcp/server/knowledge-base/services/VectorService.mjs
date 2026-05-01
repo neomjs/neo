@@ -1,5 +1,6 @@
-import {GoogleGenerativeAI} from '@google/generative-ai';
 import aiConfig             from '../config.mjs';
+import TextEmbeddingService from '../../memory-core/services/TextEmbeddingService.mjs';
+import mcConfig             from '../../memory-core/config.mjs';
 import Base                 from '../../../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
 import fs                   from 'fs-extra';
@@ -55,6 +56,8 @@ class VectorService extends Base {
         const collectionName = aiConfig.collectionName;
         try {
             await ChromaManager.client.deleteCollection({name: collectionName});
+            ChromaManager._knowledgeBaseCollectionPromise = null;
+            ChromaManager.knowledgeBaseCollection = null;
             const message = `Knowledge base collection '${collectionName}' deleted successfully.`;
             logger.log(message);
             return {message};
@@ -177,12 +180,7 @@ class VectorService extends Base {
             return {message};
         }
 
-        const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-        if (!GEMINI_API_KEY) throw new Error('The GEMINI_API_KEY environment variable is not set.');
-
-        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: aiConfig.embeddingModel });
-        logger.log(`Initialized Google AI embedding model: ${aiConfig.embeddingModel}.`);
+        logger.log(`Using TextEmbeddingService with provider: ${mcConfig.chromaEmbeddingProvider}.`);
 
         logger.log('Embedding chunks...');
         const {batchSize, batchDelay, maxRetries} = aiConfig;
@@ -200,10 +198,7 @@ class VectorService extends Base {
 
             while (retries < maxRetries && !success) {
                 try {
-                    const result = await model.batchEmbedContents({
-                        requests: textsToEmbed.map(text => ({model: aiConfig.embeddingModel, content: {parts: [{text}]}}))
-                    });
-                    const embeddings = result.embeddings.map(e => e.values);
+                    const embeddings = await TextEmbeddingService.embedTexts(textsToEmbed, mcConfig.chromaEmbeddingProvider);
 
                     const metadatas = batch.map(chunk => {
                         const metadata = {};
