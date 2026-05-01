@@ -271,6 +271,17 @@ const defaultConfig = {
      */
     backupPath: path.resolve(cwd, '.neo-ai-data/backups'),
     /**
+     * Directory for the always-on Memory Core diagnostic log files (#10582). The MC
+     * server's `logger.mjs` writes daily-rotated entries here regardless of `debug`,
+     * so long-running operations (summarization, ingestion sweeps, ChromaDB
+     * lifecycle) leave a tail-able diagnostic trail observable from the host shell.
+     * Default: `<neoRootDir>/.neo-ai-data/logs/` — shared with the KB and Neural
+     * Link servers (each uses a distinct filename prefix: `mc-server-`, `kb-server-`,
+     * `nl-server-`). Per-server file isolation, single tailable directory.
+     * @type {string}
+     */
+    logPath: path.resolve(cwd, '.neo-ai-data/logs'),
+    /**
      * Mailbox substrate behavior configuration (#10252).
      *
      * Deployment-tier selectors for the A2A mailbox service. The A2A primitives
