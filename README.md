@@ -157,18 +157,56 @@ Neo is split into two complementary layers (engine ↔ toolchain):
 **Read**: [`learn/benefits/ArchitectureOverview.md`](./learn/benefits/ArchitectureOverview.md)
 
 </br></br>
-## A Platform at Scale
+## A Platform at Scale (State of May 1, 2026)
 
-This is not a micro-library. It is a substrate representing over a decade of architectural investment:
+Neo isn't just a framework — it's a **digital organism**. The substrate is both *curated source* (engine, tests, themes, guides) and the *cognitive content* the swarm feeds on (issues, discussions, PR conversations, agent skills). Both layers are structural; both compound.
 
-- **~45,000 lines** of core platform source
-- **~36,000 lines** of working examples and flagship applications
-- **~12,000 lines** of production-grade theming
-- **~14,000 lines** of dedicated AI-native infrastructure
-- **~53,000 lines** of detailed JSDoc documentation
-- **3,185 commits in 3 months** (Jan–Mar 2026, post-Agent-OS)
+Counts use the same methodology as [`learn/guides/fundamentals/CodebaseOverview.md`](./learn/guides/fundamentals/CodebaseOverview.md) (which carries the canonical numbers + measurement protocol): `sloc` source-only for code (excludes blanks + comments), comments tracked as a distinct metric, markdown content via line-count. The codebase grows fast — when this dated header drifts more than a month from current, refresh both files in lock-step.
 
-**Total: ~170,000 lines of curated code + documentation.**
+### The Engine (curated source — `sloc`)
+
+- **~54,000 lines** — core platform source (`/src`)
+- **~27,000 lines** — AI-native infrastructure (`/ai`: MCP servers, Memory Core, Neural Link, daemons)
+- **~40,000 lines** — flagship applications (`/apps`: Portal, DevIndex, SharedCovid, RealWorld)
+- **~20,000 lines** — working examples (`/examples`)
+- **~26,000 lines** — automated test suites (`/test`: Playwright unit + e2e)
+- **~15,000 lines** — production-grade theming (`/resources/scss`)
+- **~7,000 lines** — build tooling (`/buildScripts`)
+- **~1,300 lines** — Neo-powered docs viewer (`/docs/app`)
+
+**Engine source subtotal: ~191,000 lines** (`sloc` source-only).
+
+### Embedded Knowledge (JSDoc + inline comments)
+
+- **~74,000 lines** — JSDoc + inline comments across the engine source above. Doc-as-substrate; the Knowledge Base parses these as primary input alongside the code.
+
+### Learning Materials (`/learn`)
+
+- **~36,000 lines** — guides, tutorials, blog posts, and architecture deep-dives across 130+ topics indexed by `learn/tree.json`.
+
+### The Swarm Diet (cognitive content)
+
+The swarm — Claude, Gemini, GPT — reads + writes against committed Markdown. Issues, discussions, PR conversations, and agent skills aren't artifacts; they're the agents' working memory and execution substrate, parsed by the Knowledge Base and Memory Core for context priming + retrieval.
+
+- **~64,000 lines** — active GitHub issues (`/resources/content/issues`)
+- **~172,000 lines** — issue archive (`/resources/content/issue-archive`)
+- **~60,000 lines** — pull request conversations + agent reviews (`/resources/content/pulls`)
+- **~7,000 lines** — discussions / ideation sandbox (`/resources/content/discussions`)
+- **~3,000 lines** — agent skills (`/.agents`: skills + protocols)
+
+**Swarm-diet subtotal: ~306,000 lines** of cognitive content.
+
+### Totals
+
+- **Curated substrate (source + comments + learn + swarm-diet): ~607,000 lines** — version-controlled, agent-readable, swarm-evolving.
+- **Plus generated `/dist` builds** (transpiled bundles + theme outputs): per the [Codebase Overview](./learn/guides/fundamentals/CodebaseOverview.md) note, dist *"would triple"* engine source — adding ~570,000 lines of distributed runtime artifacts.
+- **Total substrate (curated + dist): approaching ~1,180,000 lines.**
+
+A million-line organism. Growing fast:
+
+- **3,200+ commits** in the first 3 months of 2026 (post-Agent-OS).
+- **~7,200 curated files** under `git` version control.
+- Cognitive content (~306k) is now **~1.6× the engine source** (~191k). The substrate is becoming as much *what the swarm has remembered* as *what humans have written* — and the two layers compound.
 
 For a deeper dive: **[Codebase Overview](./learn/guides/fundamentals/CodebaseOverview.md)**.
 
