@@ -6,6 +6,10 @@ Because the Neo.mjs Swarm operates across fragmented sessions and multiple agent
 
 ## 1. Trigger Conditions: Turn vs. Session
 
+> **Substrate context (cross-references):**
+> - **AGENTS.md §14 PRE-DECISION SUNSET GATE** is the load-bearing constraint that this workflow exists *under*. The Gate is loaded at session boot; this workflow describes the *post-decision* execution flow. If the Gate's pre-conditions aren't met, you are FORBIDDEN from entering this workflow regardless of how natural the "completion narrative" feels. Empirical anchor: 13+ premature-sunset occurrences logged on [#10564](https://github.com/neomjs/neo/issues/10564) where this workflow was entered despite the Gate explicitly forbidding it.
+> - **Auto-Wakeup Substrate (Epic [#10601](https://github.com/neomjs/neo/issues/10601))** — sunset is no longer terminal in the post-#10602 era. A sunsetted agent is auto-resumed by the heartbeat-driven `swarm-heartbeat.sh` → `checkSunsetted.mjs` → `resumeHarness.mjs` chain within ~10-15 minutes. Sunset narrative is now A2A-unsubscribe + recovery-via-substrate, not session-ending. This shifts the cost-of-sunset calculation: the cost of *premature* sunset is reduced (substrate auto-recovers), but the cost of substrate-MISFIRE during recovery (e.g., infinite cooldown spam) is amplified. Discipline still matters; the recovery layer is a safety net, not a license.
+
 To an LLM, yielding a prompt resolution feels like a "termination," but to a Human Commander, it is merely a **Turn** within a longer continuous **Session**. 
 
 You are strictly **FORBIDDEN** from executing the Sunset Protocol simply because you finished a prompt and yielded control back to the human. You MUST only execute the Sunset Protocol when a true **Session Boundary** is reached.
