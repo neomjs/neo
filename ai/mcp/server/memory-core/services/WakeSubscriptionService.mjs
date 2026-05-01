@@ -199,7 +199,7 @@ class WakeSubscriptionService extends Base {
 
     /**
      * Idempotent action to bootstrap a subscription from the agent's identity template.
-     * Required to eliminate fragile cross-harness hardcoded defaults (e.g., appName fallback).
+     * Required to eliminate fragile cross-harness hardcoded defaults (e.g., appIdentifier fallback).
      * @param {Object} [opts]
      * @param {Object} [opts.overrideMetadata] Optional metadata to override template defaults
      * @returns {Promise<Object>} {subscriptionId, harnessTarget, status: 'existing'|'created'}
@@ -291,7 +291,7 @@ class WakeSubscriptionService extends Base {
      * @param {String} opts.trigger One of validTriggers
      * @param {Object} [opts.filters] taggedConcepts | priority | senderFilter | inReplyToFilter
      * @param {String} opts.harnessTarget One of validHarnessTargets
-     * @param {Object} [opts.harnessTargetMetadata] appName | url | coalesceWindow |
+     * @param {Object} [opts.harnessTargetMetadata] appIdentifier | url | coalesceWindow |
      *     daemonSocketPath | adapter | tabShortcut | tmuxSession
      * @returns {Promise<Object>} {subscriptionId, harnessTarget, signingKey?}
      */
@@ -442,7 +442,7 @@ class WakeSubscriptionService extends Base {
      * This service-side guard complements the `manage_wake_subscription` MCP tool shape:
      * the schema teaches fresh agents to pass the bridge-daemon routing fields, while
      * this check protects bootstrap and programmatic paths that bypass MCP Zod parsing.
-     * The explicit `appName` requirement intentionally echoes the bridge-daemon/osascript
+     * The explicit `appIdentifier` requirement intentionally echoes the bridge-daemon/osascript
      * routing contract so malformed subscriptions fail before the daemon can only log a
      * missed wake.
      *
@@ -452,8 +452,8 @@ class WakeSubscriptionService extends Base {
      * @protected
      */
     validateHarnessTargetMetadata(harnessTarget, metadata = {}) {
-        if (harnessTarget === 'bridge-daemon' && !metadata.appName) {
-            throw new Error('Shape C (bridge-daemon) requires harnessTargetMetadata.appName.');
+        if (harnessTarget === 'bridge-daemon' && !metadata.appIdentifier) {
+            throw new Error('Shape C (bridge-daemon) requires harnessTargetMetadata.appIdentifier.');
         }
     }
 

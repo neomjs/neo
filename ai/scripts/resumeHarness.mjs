@@ -44,12 +44,21 @@ async function resumeHarness(identity, reason) {
 
     const payload = `Auto-Wakeup Substrate: Resuming sunsetted session. Reason: ${reason}`;
 
-    // Blocker 2 & 3: Phase 1 scope (Antigravity only)
-    const identityMap = {
-        '@neo-gemini-3-1-pro': { appName: 'Antigravity', adapter: 'osascript' }
+    // Harness Registry resolving the enum to specific executable paths/scripts
+    const HARNESS_REGISTRY = {
+        'antigravity-ide': { appName: 'Antigravity', adapter: 'osascript' },
+        'claude-desktop': { appName: 'Claude', adapter: 'osascript' },
+        'codex-desktop': { appName: 'Codex', adapter: 'osascript' }
     };
 
-    const harnessTarget = identityMap[identity];
+    const identityMap = {
+        '@neo-gemini-3-1-pro': 'antigravity-ide',
+        '@neo-opus-4-7': 'claude-desktop',
+        '@neo-gpt': 'codex-desktop'
+    };
+
+    const targetId = identityMap[identity];
+    const harnessTarget = targetId ? HARNESS_REGISTRY[targetId] : null;
 
     if (!harnessTarget) {
         console.error(`Unknown harness target for identity: ${identity}`);
@@ -62,6 +71,7 @@ async function resumeHarness(identity, reason) {
         if (adapter === 'osascript') {
             const { appName } = harnessTarget;
             // Uses the "Key Code 36 (Enter) Defense" established in bridge-daemon.mjs
+            // Also explicitly starts a fresh terminal session via Cmd+N
             const osascriptArgs = [
                 '-e', 'on run argv',
                 '-e', '  set wakePayload to (item 1 of argv)',
@@ -75,6 +85,8 @@ async function resumeHarness(identity, reason) {
                 '-e', '  tell application "System Events"',
                 '-e', '    set frontmostProcess to first application process whose frontmost is true',
                 '-e', '    tell frontmostProcess',
+                '-e', '      keystroke "n" using command down',
+                '-e', '      delay 0.5',
                 '-e', '      set the clipboard to ""',
                 '-e', '      keystroke "a" using command down',
                 '-e', '      delay 0.2',
