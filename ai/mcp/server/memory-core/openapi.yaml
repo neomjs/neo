@@ -916,6 +916,7 @@ paths:
           description: "Which box to list ('inbox', 'outbox', 'all')"
           schema:
             type: string
+            enum: [inbox, outbox, all]
             default: "inbox"
         - name: status
           in: query
@@ -923,6 +924,7 @@ paths:
           description: "Message read status ('all', 'read', 'unread')"
           schema:
             type: string
+            enum: [all, read, unread]
             default: "all"
         - name: to
           in: query

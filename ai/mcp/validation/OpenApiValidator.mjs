@@ -66,8 +66,13 @@ function resolveRef(doc, ref) {
 }
 
 /**
- * Recursively builds a Zod schema from an OpenAPI schema object, handling
- * nested structures and JSON references.
+ * @summary Recursively builds a Zod schema from an OpenAPI schema object.
+ *
+ * The OpenAPI-to-Zod bridge is the Agent OS tool-shape compiler. It must preserve
+ * machine-readable schema metadata such as defaults and numeric bounds so fresh
+ * agents can learn valid MCP tool calls from `tools/list` before hitting runtime
+ * validation errors.
+ *
  * @param {object}  doc             - The full OpenAPI document for reference resolution.
  * @param {object}  schema          - The OpenAPI schema object (or a resolved reference).
  * @param {object}  [opts]          - Optional build context.
@@ -151,10 +156,20 @@ function buildZodSchemaFromNode(doc, schema, opts = {}) {
         } else {
             zodSchema = z.string();
         }
-    } else if (schema.type === 'integer') {
-        zodSchema = z.number().int();
-    } else if (schema.type === 'number') {
+    } else if (schema.type === 'integer' || schema.type === 'number') {
         zodSchema = z.number();
+
+        if (schema.type === 'integer') {
+            zodSchema = zodSchema.int()
+        }
+
+        if (typeof schema.minimum === 'number') {
+            zodSchema = zodSchema.min(schema.minimum)
+        }
+
+        if (typeof schema.maximum === 'number') {
+            zodSchema = zodSchema.max(schema.maximum)
+        }
     } else if (schema.type === 'boolean') {
         zodSchema = z.boolean();
     } else {
@@ -172,6 +187,10 @@ function buildZodSchemaFromNode(doc, schema, opts = {}) {
 
     if (schema.description) {
         zodSchema = zodSchema.describe(schema.description);
+    }
+
+    if (Object.hasOwn(schema, 'default')) {
+        zodSchema = zodSchema.default(schema.default);
     }
 
     return zodSchema;

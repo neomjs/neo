@@ -166,6 +166,34 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(schema.properties.action.enum).toEqual(['start', 'stop']);
     });
 
+    /**
+     * Direct regression for https://github.com/neomjs/neo/issues/10531.
+     * The MCP tool-shape compiler must preserve OpenAPI defaults, numeric bounds,
+     * and native choice enums so agents learn valid calls from `tools/list`.
+     */
+    test('memory-core input schemas preserve defaults, bounds, and choice enums (#10531)', async () => {
+        const doc                = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/memory-core/openapi.yaml'), 'utf8')),
+              addMessageSchema   = zodToJsonSchema(buildZodSchema(doc, doc.paths['/mailbox/messages'].post), {target: 'openApi3', $refStrategy: 'none'}),
+              listMessagesSchema = zodToJsonSchema(buildZodSchema(doc, doc.paths['/mailbox/messages'].get),  {target: 'openApi3', $refStrategy: 'none'}),
+              wakeSchema         = zodToJsonSchema(buildZodSchema(doc, doc.paths['/wake-subscriptions/manage'].post), {target: 'openApi3', $refStrategy: 'none'}),
+              coalesceWindow     = wakeSchema.properties.harnessTargetMetadata.properties.coalesceWindow;
+
+        expect(addMessageSchema.properties.priority.enum).toEqual(['low', 'normal', 'high']);
+        expect(addMessageSchema.properties.priority.default).toBe('normal');
+        expect(addMessageSchema.properties.wakeSuppressed.default).toBe(false);
+
+        expect(listMessagesSchema.properties.box.enum).toEqual(['inbox', 'outbox', 'all']);
+        expect(listMessagesSchema.properties.box.default).toBe('inbox');
+        expect(listMessagesSchema.properties.status.enum).toEqual(['all', 'read', 'unread']);
+        expect(listMessagesSchema.properties.status.default).toBe('all');
+        expect(listMessagesSchema.properties.limit.default).toBe(50);
+        expect(listMessagesSchema.properties.offset.default).toBe(0);
+
+        expect(coalesceWindow.type).toBe('integer');
+        expect(coalesceWindow.minimum).toBe(0);
+        expect(coalesceWindow.maximum).toBe(300);
+    });
+
     for (const server of servers) {
         test(`${server}: every emitted input/output schema has items on array nodes (#10064)`, () => {
             const yamlPath = path.join(repoRoot, 'ai/mcp/server', server, 'openapi.yaml');
