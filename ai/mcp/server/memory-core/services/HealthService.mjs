@@ -350,6 +350,96 @@ class HealthService extends Base {
         }
     }
 
+    /**
+     * Computes the chromadb-side untagged-record counts for the multi-tenant migration
+     * observability surface (#10556 — companion to the SQLite graph-side counter at
+     * {@link HealthService##checkMigrationState}).
+     *
+     * Pre-#10145 records lack the `userId` metadata key entirely. ChromaDB's where-vocabulary
+     * has no `$exists` operator and its `$ne` operator skips records with missing keys, so
+     * untagged records are unreachable via filtered reads — they're invisible to all stdio
+     * agents until the backfill runner (`ai/scripts/backfillChromaSharedUserId.mjs`) tags
+     * them with `userId: 'shared'`. This method exposes the remaining untagged volume so
+     * operators can verify migration completeness.
+     *
+     * Returns `{available: false, ...zeros}` when the ChromaDB client is unreachable
+     * (substrate-readiness signal, not a migration error).
+     *
+     * @returns {Promise<{memory: Number, session: Number, total: Number, available: Boolean, error?: String}>}
+     * @see ai/scripts/backfillChromaSharedUserId.mjs — the runner that tags untagged records
+     * @see #10556 — the Fat Ticket establishing the additive-tenant-isolation read shape
+     * @private
+     */
+    async #checkChromaMigrationState() {
+        try {
+            if (!ChromaManager.connected) {
+                return {memory: 0, session: 0, total: 0, available: false};
+            }
+
+            const memoryCollection  = await StorageRouter.getMemoryCollection();
+            const summaryCollection = await StorageRouter.getSummaryCollection();
+
+            // ChromaDB's `.count()` does not accept a `where` filter; only the unfiltered total
+            // is available natively. To compute untagged-count, we use the `$ne` operator's
+            // documented behavior of skipping records where the metadata key is absent — so
+            // `where: {userId: {$ne: <unused-sentinel>}}` returns ALL tagged records (any
+            // userId value), and `total - tagged = untagged`. Cheaper than scanning every
+            // record's metadata to test `userId` presence in code.
+            const sentinelValueNeverUsed = '__neomjs_migration_probe__';
+            const taggedFilter = {userId: {$ne: sentinelValueNeverUsed}};
+
+            const [memoryTotal, memoryTagged, sessionTotal, sessionTagged] = await Promise.all([
+                memoryCollection.count(),
+                this.#countWhere(memoryCollection, taggedFilter),
+                summaryCollection.count(),
+                this.#countWhere(summaryCollection, taggedFilter)
+            ]);
+
+            const memoryUntagged  = Math.max(0, memoryTotal  - memoryTagged);
+            const sessionUntagged = Math.max(0, sessionTotal - sessionTagged);
+
+            return {
+                memory   : memoryUntagged,
+                session  : sessionUntagged,
+                total    : memoryUntagged + sessionUntagged,
+                available: true
+            };
+        } catch (e) {
+            return {
+                memory   : 0,
+                session  : 0,
+                total    : 0,
+                available: false,
+                error    : e.message
+            };
+        }
+    }
+
+    /**
+     * Counts records matching a `where` clause via paginated `.get()` sweeps. Used by
+     * {@link HealthService##checkChromaMigrationState} because ChromaDB's `.count()` does
+     * not accept a `where` filter — only the unfiltered total is available natively.
+     *
+     * @param {Object} collection ChromaDB collection wrapper
+     * @param {Object} where      ChromaDB where-clause filter
+     * @returns {Promise<Number>}
+     * @private
+     */
+    async #countWhere(collection, where) {
+        const batchSize = 2000;
+        let total       = 0;
+        let offset      = 0;
+
+        while (true) {
+            const batch = await collection.get({limit: batchSize, offset, where, include: []});
+            const n     = batch.ids?.length || 0;
+            total += n;
+            if (n < batchSize) break;
+            offset += batchSize;
+        }
+        return total;
+    }
+
     #checkApiKeyConfigured() {
         const providers = [aiConfig.modelProvider];
         const architecture = aiConfig.architecture || 'hybrid';
@@ -413,7 +503,10 @@ class HealthService extends Base {
             },
             mailboxPreview: await MailboxService.getHealthcheckPreview(),
             identity : buildIdentityBlock(this.#stdioIdentityState),
-            migration: await this.#checkMigrationState(),
+            migration: {
+                ...(await this.#checkMigrationState()),
+                chromadb: await this.#checkChromaMigrationState()
+            },
             details  : [],
             version  : process.env.npm_package_version || '1.0.0',
             uptime   : process.uptime()
