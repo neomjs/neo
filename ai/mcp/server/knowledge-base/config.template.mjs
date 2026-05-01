@@ -136,6 +136,19 @@ const defaultConfig = {
      */
     batchSize: 50,
     /**
+     * Work-volume gate for MCP-callable `manage_knowledge_base sync` (#10572): when
+     * the post-delta `chunksToProcess.length` exceeds this value AND the call originates
+     * via MCP tool dispatch, `VectorService.embed` refuses synchronous execution and
+     * returns a `KB_SYNC_VOLUME_EXCEEDED` error pointing the operator at the CLI path
+     * (`npm run ai:sync-kb`). CLI invocations bypass the gate.
+     *
+     * Default `50` aligns with `batchSize` — one batch is the floor for "small enough
+     * to run synchronously". Real latency depends on provider/tier/retry-state; the
+     * threshold is empirically tunable per deployment.
+     * @type {number}
+     */
+    mcpSyncMaxChunks: 50,
+    /**
      * Delay in milliseconds between batches to avoid rate limits.
      * @type {number}
      */

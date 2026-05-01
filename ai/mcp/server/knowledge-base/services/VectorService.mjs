@@ -73,10 +73,23 @@ class VectorService extends Base {
 
     /**
      * Reads a JSONL file, enriches data, generates embeddings, and updates ChromaDB.
-     * @param {String} knowledgeBasePath The path to the JSONL source file.
-     * @returns {Promise<object>} A promise that resolves to a success message.
+     *
+     * **Work-volume gate (#10572):** when invoked via MCP (`viaMcp: true`), refuses
+     * synchronous execution if `chunksToProcess.length` exceeds `aiConfig.mcpSyncMaxChunks`
+     * (default 50, aligned with `batchSize`). Returns a structured `{error, code, ...}`
+     * payload that the MCP server's `Server.mjs` converts to `isError: true` per its
+     * existing `'error' in result` contract. CLI invocations (via `npm run ai:sync-kb`)
+     * pass `viaMcp: false` and bypass the gate — explicit opt-in to long-running work.
+     *
+     * @param {String}  knowledgeBasePath          The path to the JSONL source file.
+     * @param {Object}  [opts]                     Optional invocation context.
+     * @param {Boolean} [opts.viaMcp=false]        True when called via MCP tool dispatch;
+     *                                             enables the work-volume gate.
+     * @returns {Promise<object>} A promise that resolves to a success message, OR a
+     *     `{error, code: 'KB_SYNC_VOLUME_EXCEEDED', ...}` shape when the MCP gate fires.
+     * @see #10572
      */
-    async embed(knowledgeBasePath) {
+    async embed(knowledgeBasePath, {viaMcp = false} = {}) {
         logger.log('Starting knowledge base embedding...');
 
         if (!await fs.pathExists(knowledgeBasePath)) {
@@ -178,6 +191,27 @@ class VectorService extends Base {
             const message = 'No changes detected. Knowledge base is up to date.';
             logger.log(message);
             return {message};
+        }
+
+        // Work-volume gate (#10572): refuse synchronous embedding via MCP when the
+        // post-delta queue exceeds the configured threshold. The threshold default
+        // matches `batchSize` (one batch is the floor for "small enough to run
+        // synchronously"); real latency is provider/tier/retry-state-dependent so
+        // the threshold is empirically tunable rather than timing-derived.
+        // CLI invocations pass viaMcp: false and bypass.
+        const mcpThreshold = aiConfig.mcpSyncMaxChunks ?? 50;
+        if (viaMcp && chunksToProcess.length > mcpThreshold) {
+            const errorPayload = {
+                error  : `KB sync work volume exceeds MCP-callable threshold`,
+                message: `${chunksToProcess.length} chunks need re-embedding (threshold: ${mcpThreshold}). ` +
+                         `Synchronous embedding at this volume risks agent freeze. ` +
+                         `Run via CLI: \`npm run ai:sync-kb\`.`,
+                code           : 'KB_SYNC_VOLUME_EXCEEDED',
+                chunksToProcess: chunksToProcess.length,
+                threshold      : mcpThreshold
+            };
+            logger.warn(`[VectorService] ${errorPayload.error}: ${errorPayload.message}`);
+            return errorPayload;
         }
 
         logger.log(`Using TextEmbeddingService with provider: ${mcConfig.chromaEmbeddingProvider}.`);
