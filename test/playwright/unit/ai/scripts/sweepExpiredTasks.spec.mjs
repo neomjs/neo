@@ -13,13 +13,9 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import {execFile}     from 'child_process';
-import {promisify}    from 'util';
-import path           from 'path';
+import {test, expect}  from '@playwright/test';
+import path            from 'path';
 import {fileURLToPath} from 'url';
-
-const execFileAsync = promisify(execFile);
 
 const __filename  = fileURLToPath(import.meta.url);
 const __dirname   = path.dirname(__filename);
@@ -51,25 +47,21 @@ const scriptPath  = path.join(projectRoot, 'ai', 'scripts', 'sweepExpiredTasks.m
  * regardless of graph state.
  */
 test.describe('ai/scripts/sweepExpiredTasks.mjs regression guard (#10595)', () => {
-    test('script exits 0 with success JSON on stdout (no Neo-not-defined regression)', async () => {
-        const {stdout, stderr} = await execFileAsync('node', [scriptPath], {
-            cwd: projectRoot,
-            // 30s ceiling; happy path completes in <500ms based on measurement page
-            timeout: 30000
-        });
-
-        // Stderr should NOT contain the regression-class signature.
-        expect(stderr).not.toContain('ReferenceError: Neo is not defined');
-
-        // Stdout should be exactly one JSON line: {"success":true,"sweptCount":<n>}
-        const trimmed = stdout.trim();
-        expect(trimmed).toMatch(/^\{"success":true,"sweptCount":\d+\}$/);
-
-        const payload = JSON.parse(trimmed);
-        expect(payload.success).toBe(true);
-        expect(typeof payload.sweptCount).toBe('number');
-        expect(payload.sweptCount).toBeGreaterThanOrEqual(0);
-    });
+    // Note: a behavioral subprocess invocation of the script (`node ai/scripts/sweepExpiredTasks.mjs`)
+    // would catch the `Neo is not defined` regression class behaviorally, BUT
+    // `MailboxService.sweepExpiredTasks()` performs a bulk SQL UPDATE that mutates the
+    // worktree's live `.neo-ai-data/sqlite/memory-core-graph.sqlite` — it transitions
+    // `Submitted`/`Working`/`InputRequired` tasks past `expiresAt` to `Expired`. Running
+    // that mutation under a unit-test runner against the production graph is unsafe per
+    // @neo-gpt's PR #10597 review feedback. A fixture-DB-isolated behavioral test would
+    // require non-trivial config-injection plumbing (`aiConfig.data.dbPath` swap +
+    // LifecycleService re-init) that is out of scope for this regression-guard.
+    //
+    // The structural import-order test below is sufficient to catch the regression class:
+    // the failure mode is at module-LOAD time (before any DB I/O), and it manifests
+    // deterministically when `Neo` isn't imported before `Compare.mjs` is transitively
+    // pulled in via the LifecycleService chain. If a future commit reorders or removes
+    // the prelude, the structural assertion fires.
 
     test('script imports Neo prelude before LifecycleService (regression-class structural guard)', async () => {
         // Static check: the file's top imports MUST include `Neo` and `core/_export` before

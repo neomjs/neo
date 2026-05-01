@@ -17,6 +17,11 @@ CONCURRENCY_LOCK=".neo-ai-data/heartbeat-concurrency.lock"
 # so operators can `tail` the file when investigating heartbeat behavior. Co-located
 # with `bridge.log` under `wake-daemon/` (already in `DATA_SUBDIRS_TO_LINK` per #10432).
 SWEEP_LOG=".neo-ai-data/wake-daemon/sweep-errors.log"
+# Ensure parent dir exists on fresh checkouts before any `2>>"$SWEEP_LOG"` redirection
+# fires (per @neo-gpt's PR #10597 cycle 1 review). Without this guard, a clone that
+# hasn't yet symlinked `wake-daemon/` via `bootstrapWorktree.mjs --link-data` would
+# fail the redirect at shell-parse time and silently bypass the intended log surface.
+mkdir -p "$(dirname "$SWEEP_LOG")"
 
 # Function to get unread messages count via SQLite fast-path
 get_unread_count() {
