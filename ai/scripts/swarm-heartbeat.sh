@@ -11,6 +11,7 @@ POLL_INTERVAL=${POLL_INTERVAL:-300} # 5 minutes default
 IDENTITY=${NEO_AGENT_IDENTITY:-"@neo-gemini-3-1-pro"}
 STATE_FILE="/tmp/neo-agent-state.txt"
 CONCURRENCY_LOCK=".neo-ai-data/heartbeat-concurrency.lock"
+HEARTBEAT_LOCK_TTL_SECONDS=${HEARTBEAT_LOCK_TTL_SECONDS:-1800} # 30 minutes
 # Persistent sweep-error log (#10595). Replaces the prior `2>/dev/null` mask on the
 # `sweepExpiredTasks.mjs` invocation, which silently hid the `ReferenceError: Neo is
 # not defined` regression for the entire lifetime of the bug. Failures now append here
@@ -22,6 +23,39 @@ SWEEP_LOG=".neo-ai-data/wake-daemon/sweep-errors.log"
 # hasn't yet symlinked `wake-daemon/` via `bootstrapWorktree.mjs --link-data` would
 # fail the redirect at shell-parse time and silently bypass the intended log surface.
 mkdir -p "$(dirname "$SWEEP_LOG")"
+
+# Returns the mtime of a file on macOS (stat -f) or Linux (stat -c).
+file_mtime_seconds() {
+    stat -f "%m" "$1" 2>/dev/null || stat -c "%Y" "$1" 2>/dev/null
+}
+
+# Heartbeat concurrency semantics (#10319):
+# - Lock present and fresh  => current pulse is skipped.
+# - Lock present and stale  => lock is cleared; current pulse may continue.
+# - Lock absent             => current pulse may continue.
+# Missed pulses are not queued; the next pulse re-reads Memory Core state.
+heartbeat_lock_active() {
+    if [ ! -f "$CONCURRENCY_LOCK" ]; then
+        return 1
+    fi
+
+    local mtime=$(file_mtime_seconds "$CONCURRENCY_LOCK")
+    if [ -z "$mtime" ]; then
+        echo "[heartbeat $(date -Iseconds)] concurrency lock unreadable; skipping pulse" >&2
+        return 0
+    fi
+
+    local now=$(date +%s)
+    local age=$((now - mtime))
+
+    if [ "$age" -gt "$HEARTBEAT_LOCK_TTL_SECONDS" ]; then
+        echo "[heartbeat $(date -Iseconds)] clearing stale concurrency lock (${age}s old)" >&2
+        rm -f "$CONCURRENCY_LOCK"
+        return 1
+    fi
+
+    return 0
+}
 
 # Function to get unread messages count via SQLite fast-path
 get_unread_count() {
@@ -80,8 +114,8 @@ heartbeat_pulse() {
     while true; do
         sleep $POLL_INTERVAL
 
-        # Concurrency Trap: Skip if agent is busy (lock exists)
-        if [ -f "$CONCURRENCY_LOCK" ]; then
+        # Concurrency Trap: skip if expensive agent work is already running.
+        if heartbeat_lock_active; then
             continue
         fi
 
