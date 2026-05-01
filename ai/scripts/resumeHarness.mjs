@@ -29,7 +29,7 @@ async function resumeHarness(identity, reason) {
     // Fix: Resolve from __dirname instead of process.cwd() to support cron/launchd
     const cooldownDir = path.resolve(__dirname, '../../.neo-ai-data/wake-daemon');
     const cooldownFile = path.resolve(cooldownDir, `cooldown-${identity.replace(/[^a-zA-Z0-9_-]/g, '')}.txt`);
-    
+
     try {
         await fs.mkdir(cooldownDir, { recursive: true });
         const stats = await fs.stat(cooldownFile);
@@ -43,21 +43,21 @@ async function resumeHarness(identity, reason) {
     }
 
     const payload = `Auto-Wakeup Substrate: Resuming sunsetted session. Reason: ${reason}`;
-    
+
     // Blocker 2 & 3: Phase 1 scope (Antigravity only)
     const identityMap = {
         '@neo-gemini-3-1-pro': { appName: 'Antigravity', adapter: 'osascript' }
     };
-    
+
     const harnessTarget = identityMap[identity];
-    
+
     if (!harnessTarget) {
         console.error(`Unknown harness target for identity: ${identity}`);
         process.exit(1);
     }
-    
+
     const adapter = process.platform === 'darwin' ? harnessTarget.adapter : 'tmux';
-    
+
     try {
         if (adapter === 'osascript') {
             const { appName } = harnessTarget;
@@ -113,7 +113,7 @@ async function resumeHarness(identity, reason) {
                 '-e', 'end run',
                 payload
             ];
-            
+
             await spawnAsync('osascript', osascriptArgs);
             console.log(`Successfully resumed ${identity} via osascript (${appName})`);
         } else if (adapter === 'tmux') {
@@ -122,7 +122,7 @@ async function resumeHarness(identity, reason) {
             await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, payload, 'C-m']);
             console.log(`Successfully resumed ${identity} via tmux (${tmuxSession})`);
         }
-        
+
         // Write the cooldown file
         await fs.writeFile(cooldownFile, Date.now().toString());
     } catch (err) {

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ai/scripts/swarm-heartbeat.sh
-# 
+#
 # Swarm Autonomy: Track 1 (Sleep-Cycle MVP)
 # Provides an information-rich heartbeat to active terminal sessions.
 # Catches SESSION_FULL exits to facilitate Sandman Handoffs.
@@ -128,16 +128,6 @@ heartbeat_pulse() {
             echo "[heartbeat $(date -Iseconds)] sweep: ${expired} task(s) transitioned to Expired" >&2
         fi
 
-        # Heartbeat-Bypass Detection
-        local push_identities=$(get_push_capable_identities)
-        if echo "$push_identities" | grep -Fq "$IDENTITY"; then
-            continue
-        fi
-
-        # Execute the fast-path deterministic queries
-        local unread=$(get_unread_count)
-        local issues=$(get_issues_count)
-
         # Check Sunsetted State for Phase 1 Recovery (#10601)
         local script_dir=$(dirname "$0")
         local sunset_json=$(node "${script_dir}/checkSunsetted.mjs" "$IDENTITY" 2>>"$SWEEP_LOG")
@@ -147,14 +137,24 @@ heartbeat_pulse() {
 
             if [ "$is_sunsetted" = "true" ]; then
                 echo "[heartbeat $(date -Iseconds)] Phase 1 Recovery Triggered for $IDENTITY. Reason: $sunset_reason" >&2
-                
+
                 # Use Phase 1/2 Harness Resume Adapter
                 node "${script_dir}/resumeHarness.mjs" "$IDENTITY" "$sunset_reason" 2>>"$SWEEP_LOG"
-                
+
                 # Continue loop; no need to send regular heartbeat to tmux since we just resumed via OS
                 continue
             fi
         fi
+
+        # Heartbeat-Bypass Detection
+        local push_identities=$(get_push_capable_identities)
+        if echo "$push_identities" | grep -Fq "$IDENTITY"; then
+            continue
+        fi
+
+        # Execute the fast-path deterministic queries
+        local unread=$(get_unread_count)
+        local issues=$(get_issues_count)
 
         # Token Economy: Only inject pulse if there's actionable state. Sweep count does
         # NOT factor into the inject decision — silent maintenance per #10339 AC.
@@ -186,7 +186,7 @@ heartbeat_pulse &
 # Wrapper loop for the Agent process
 while true; do
     echo "Booting Agent Session..."
-    
+
     # Support overriding the agent command
     if [ $# -eq 0 ]; then
         # Default fallback (could be claude or npm run ai:cli)
@@ -194,10 +194,10 @@ while true; do
     else
         AGENT_CMD="$@"
     fi
-    
+
     # Run the agent
     $AGENT_CMD
-    
+
     # Check for Sandman Handoff trap (SESSION_FULL state)
     if [ -f "$STATE_FILE" ]; then
         AGENT_STATE=$(cat "$STATE_FILE")

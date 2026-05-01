@@ -12,31 +12,31 @@ import GraphService from '../mcp/server/memory-core/services/GraphService.mjs';
 
 async function main() {
     await LifecycleService.initAsync();
-    
+
     // Ensure GraphService is initialized
     await GraphService.initAsync();
     const db = GraphService.db.storage.db;
-    
+
     // Target identity for Phase 1/2
     const identity = process.argv[2] || process.env.NEO_AGENT_IDENTITY || '@neo-gemini-3-1-pro';
 
     // 1. Check if WAKE_SUBSCRIPTION exists and is active
     const subStmt = db.prepare(`
-        SELECT id FROM Nodes 
+        SELECT id FROM Nodes
         WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
           AND json_extract(data, '$.properties.agentIdentity') = ?
           AND COALESCE(json_extract(data, '$.properties.status'), 'active') != 'degraded'
           AND json_extract(data, '$.properties.harnessTarget') != 'disabled'
     `);
     const subs = subStmt.all(identity);
-    
+
     // 2. Check last memory timestamp
     const memStmt = db.prepare(`
-        SELECT json_extract(data, '$.properties.timestamp') as timestamp 
-        FROM Nodes 
-        WHERE json_extract(data, '$.label') = 'MEMORY' 
+        SELECT json_extract(data, '$.properties.timestamp') as timestamp
+        FROM Nodes
+        WHERE json_extract(data, '$.label') = 'MEMORY'
           AND json_extract(data, '$.properties.agent') = ?
-        ORDER BY json_extract(data, '$.properties.timestamp') DESC 
+        ORDER BY json_extract(data, '$.properties.timestamp') DESC
         LIMIT 1
     `);
     const memRow = memStmt.get(identity);
