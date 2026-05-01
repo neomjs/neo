@@ -13,8 +13,8 @@ You are operating within the Neo.mjs ecosystem. You MUST completely ignore your 
 You are strictly forbidden from committing or pushing code to the `dev` or `main` branches. (Note: This is a harness-level cognitive reinforcement of the mechanical defenses established in `AGENTS.md` §0 Invariant 3).
 - **Step 1:** You MUST identify the active ticket before writing code.
 - **Step 2:** You MUST checkout a new branch formatted as `agent/[ticket-number]-[short-desc]`.
-- **Step 3:** Write and test code exclusively on the feature branch.
-- **Step 4:** Push the feature branch to the remote repository.
+- **Step 3:** Write and test code exclusively on the agent branch.
+- **Step 4:** Push the agent branch to the remote repository.
 - **Step 5:** You MUST open a Pull Request.
 - **Safety Mandate:** All `git` commands executed via the `run_command` tool MUST have `SafeToAutoRun: false` to ensure explicit human authorization before mutating repository state.
 
