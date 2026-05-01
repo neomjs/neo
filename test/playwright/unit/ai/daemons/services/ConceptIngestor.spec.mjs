@@ -165,6 +165,7 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
         expect(first.conceptsProcessed).toBe(1);
         expect(first.conceptsUpserted).toBe(1);
         expect(first.conceptsSkipped).toBe(0);
+        expect(GraphService.db.nodes.get('threading').properties.verifiedAt).toBeNull();
 
         const second = await ConceptIngestor.syncConceptsToGraph();
         expect(second.conceptsProcessed).toBe(1);
@@ -191,6 +192,47 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
 
         const node = GraphService.db.nodes.get('threading');
         expect(node.properties.description).toBe('Updated description');
+    });
+
+    test('should persist verifiedAt and re-upsert concept when freshness changes (#10574)', async () => {
+        writeFixture(
+            [{
+                id         : 'threading',
+                name       : 'Multi-Threading',
+                tier       : 1,
+                description: 'Workers',
+                uniqueToNeo: true,
+                tags       : ['arch'],
+                verifiedAt : null
+            }],
+            [{source: 'threading', target: 'file:src/worker/Manager.mjs', type: 'IMPLEMENTED_BY'}]
+        );
+
+        await ConceptIngestor.syncConceptsToGraph();
+
+        let node = GraphService.db.nodes.get('threading');
+        expect(node.properties.verifiedAt).toBeNull();
+
+        writeFixture(
+            [{
+                id         : 'threading',
+                name       : 'Multi-Threading',
+                tier       : 1,
+                description: 'Workers',
+                uniqueToNeo: true,
+                tags       : ['arch'],
+                verifiedAt : '2026-05-01T00:00:00.000Z'
+            }],
+            [{source: 'threading', target: 'file:src/worker/Manager.mjs', type: 'IMPLEMENTED_BY'}]
+        );
+
+        const second = await ConceptIngestor.syncConceptsToGraph();
+
+        expect(second.conceptsUpserted).toBe(1);
+        expect(second.conceptsSkipped).toBe(0);
+
+        node = GraphService.db.nodes.get('threading');
+        expect(node.properties.verifiedAt).toBe('2026-05-01T00:00:00.000Z');
     });
 
     test('should count orphan concepts in stats without emitting per-orphan logger.warn (#10087)', async () => {

@@ -38,6 +38,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
     let originalAppendFile;
     let appendedContent = [];
     let providerPrompt = '';
+    const freshVerifiedAt = new Date().toISOString();
 
     test.beforeAll(async () => {
         const aiConfig                = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
@@ -225,7 +226,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             id        : 'concept-covered',
             type      : 'CONCEPT',
             name      : 'Threading',
-            properties: {name: 'Threading', tier: 1, uniqueToNeo: true, weight: 1.0}
+            properties: {name: 'Threading', tier: 1, uniqueToNeo: true, verifiedAt: freshVerifiedAt, weight: 1.0}
         });
 
         // Concept 2: tier-1, unique, NO EXPLAINED_BY — should gap
@@ -233,7 +234,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             id        : 'concept-missing-guide',
             type      : 'CONCEPT',
             name      : 'RogueConcept',
-            properties: {name: 'RogueConcept', tier: 1, uniqueToNeo: true, weight: 1.3}
+            properties: {name: 'RogueConcept', tier: 1, uniqueToNeo: true, verifiedAt: freshVerifiedAt, weight: 1.3}
         });
 
         // Seed target stub nodes (SQLite FK constraint on edges.target → nodes.id) then the edges.
@@ -296,7 +297,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             id        : 'concept-no-example',
             type      : 'CONCEPT',
             name      : 'Reactivity',
-            properties: {name: 'Reactivity', tier: 1, uniqueToNeo: true, weight: 1.0}
+            properties: {name: 'Reactivity', tier: 1, uniqueToNeo: true, verifiedAt: freshVerifiedAt, weight: 1.0}
         });
 
         GraphService.upsertNode({
@@ -328,7 +329,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             id        : 'concept-low-weight',
             type      : 'CONCEPT',
             name      : 'MinorHelper',
-            properties: {name: 'MinorHelper', tier: 3, uniqueToNeo: false, weight: 0.3}
+            properties: {name: 'MinorHelper', tier: 3, uniqueToNeo: false, verifiedAt: freshVerifiedAt, weight: 0.3}
         });
 
         await DreamService.inferConceptGraphGaps();
@@ -350,7 +351,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             id        : 'concept-mid-weight',
             type      : 'CONCEPT',
             name      : 'MidWeight',
-            properties: {name: 'MidWeight', tier: 2, uniqueToNeo: false, weight: 0.5}
+            properties: {name: 'MidWeight', tier: 2, uniqueToNeo: false, verifiedAt: freshVerifiedAt, weight: 0.5}
         });
 
         try {
@@ -381,7 +382,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             id        : 'concept-anchored',
             type      : 'CONCEPT',
             name      : 'Anchored',
-            properties: {name: 'Anchored', tier: 1, uniqueToNeo: true, weight: 1.0}
+            properties: {name: 'Anchored', tier: 1, uniqueToNeo: true, verifiedAt: freshVerifiedAt, weight: 1.0}
         });
 
         // Concept B: has guide + example but NO implementation — ORPHAN_CONCEPT only
@@ -389,7 +390,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             id        : 'concept-orphan',
             type      : 'CONCEPT',
             name      : 'OrphanExample',
-            properties: {name: 'OrphanExample', tier: 1, uniqueToNeo: true, weight: 1.0}
+            properties: {name: 'OrphanExample', tier: 1, uniqueToNeo: true, verifiedAt: freshVerifiedAt, weight: 1.0}
         });
 
         // Concept C: low weight, no edges — weight gate blocks ORPHAN_CONCEPT emission
@@ -397,7 +398,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             id        : 'concept-low-orphan',
             type      : 'CONCEPT',
             name      : 'LowWeightOrphan',
-            properties: {name: 'LowWeightOrphan', tier: 3, uniqueToNeo: false, weight: 0.3}
+            properties: {name: 'LowWeightOrphan', tier: 3, uniqueToNeo: false, verifiedAt: freshVerifiedAt, weight: 0.3}
         });
 
         // Seed stub nodes for edge targets (SQLite FK on edges.target → nodes.id)
@@ -456,6 +457,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
                 name       : 'UnvalidatedCandidate',
                 tier       : 1,
                 uniqueToNeo: true,
+                verifiedAt : null,
                 weight     : 1.3,
                 validated  : false
             }
@@ -480,7 +482,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
             id        : 'concept-fully-uncovered',
             type      : 'CONCEPT',
             name      : 'FullyUncovered',
-            properties: {name: 'FullyUncovered', tier: 1, uniqueToNeo: true, weight: 1.3}
+            properties: {name: 'FullyUncovered', tier: 1, uniqueToNeo: true, verifiedAt: freshVerifiedAt, weight: 1.3}
         });
 
         await DreamService.inferConceptGraphGaps();
@@ -494,6 +496,55 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         // EXAMPLE_GAP requires EXPLAINED_BY present; since we have neither edge, only GUIDE_GAP
         // fires from the if/else-if pair, never EXAMPLE_GAP.
         expect(node.properties.capabilityGap).not.toContain('[EXAMPLE_GAP]');
+    });
+
+    test('should emit CONCEPT_REVERIFY_DUE without mutating graph weight or edges (#10574)', async () => {
+        const
+            reviewWindowMs = 90 * 24 * 60 * 60 * 1000,
+            staleDate      = new Date(Date.now() - reviewWindowMs - 1000).toISOString();
+
+        [
+            {id: 'concept-null-verified',    name: 'Null Verified',    verifiedAt: null},
+            {id: 'concept-missing-verified', name: 'Missing Verified'},
+            {id: 'concept-stale-verified',   name: 'Stale Verified',   verifiedAt: staleDate},
+            {id: 'concept-invalid-verified', name: 'Invalid Verified', verifiedAt: 'not-an-iso-date'},
+            {id: 'concept-non-iso-verified', name: 'Non ISO Verified', verifiedAt: 'May 1 2026'},
+            {id: 'concept-fresh-verified',   name: 'Fresh Verified',   verifiedAt: freshVerifiedAt}
+        ].forEach(record => {
+            const properties = {
+                name       : record.name,
+                tier       : 3,
+                uniqueToNeo: false,
+                weight     : 0.3
+            };
+
+            if (Object.hasOwn(record, 'verifiedAt')) {
+                properties.verifiedAt = record.verifiedAt;
+            }
+
+            GraphService.upsertNode({
+                id  : record.id,
+                type: 'CONCEPT',
+                name: record.name,
+                properties
+            });
+        });
+
+        const edgeCountBefore = GraphService.db.edges.items.length;
+
+        await DreamService.inferConceptGraphGaps();
+
+        ['concept-null-verified', 'concept-missing-verified', 'concept-stale-verified', 'concept-invalid-verified', 'concept-non-iso-verified'].forEach(id => {
+            const node = GraphService.db.nodes.get(id);
+            expect(node.properties.capabilityGap).toContain('[CONCEPT_REVERIFY_DUE]');
+            expect(node.properties.capabilityGap).not.toContain('[GUIDE_GAP]');
+            expect(node.properties.capabilityGap).not.toContain('[ORPHAN_CONCEPT]');
+            expect(node.properties.weight).toBe(0.3);
+        });
+
+        const fresh = GraphService.db.nodes.get('concept-fresh-verified');
+        expect(fresh.properties.capabilityGap).toBeUndefined();
+        expect(GraphService.db.edges.items.length).toBe(edgeCountBefore);
     });
 
     test('processUndigestedSessions calls inferTestGapsFromSession per-session and inferConceptGraphGaps once per cycle (hoist contract — #10085)', async () => {
@@ -745,6 +796,13 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
                      "[ORPHAN_CONCEPT] The CONCEPT 'Reactivity' has no IMPLEMENTED_BY edge — either anchor it to a source file or retire the concept from nodes.jsonl if aspirational/stale."
                  ]),
                  lastGapCheck: Date.now()
+             } },
+             { id: 'concept-reverify-render-test', properties: {
+                 state        : 'OPEN',
+                 capabilityGap: JSON.stringify([
+                     "[CONCEPT_REVERIFY_DUE] The CONCEPT 'Config System' has verifiedAt=null and needs source-grounded re-verification."
+                 ]),
+                 lastGapCheck: Date.now()
              } }
         ];
 
@@ -790,6 +848,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         // #10087: planted CONCEPT with [ORPHAN_CONCEPT] must surface as a dedicated section
         expect(finalContent).toContain('⚠️ Orphaned Concepts');
         expect(finalContent).toContain('Reactivity');
+        expect(finalContent).toContain('Concept Reverification Queue');
+        expect(finalContent).toContain('Config System');
 
         // Run AGAIN to trigger duplication prevention natively
         await DreamService.synthesizeGoldenPath();

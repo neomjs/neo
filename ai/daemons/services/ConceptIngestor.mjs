@@ -106,7 +106,11 @@ class ConceptIngestor extends Base {
             // awaiting human curation. `undefined` (legacy rows pre-#10036) is treated as validated.
             // Flipping `validated: false → true` during curator review must trigger re-upsert, so the
             // flag contributes to the hash.
-            validated  : conceptNode.validated !== false
+            validated  : conceptNode.validated !== false,
+            // #10574: verifiedAt freshness metadata is non-destructive. It queues re-verification
+            // work but never fades the CONCEPT node or its edges. Missing legacy values normalize
+            // to null and must trigger re-upsert when curators later stamp an ISO date.
+            verifiedAt : conceptNode.verifiedAt ?? null
         };
 
         return crypto.createHash('sha256').update(stableStringify(payload)).digest('hex');
@@ -248,6 +252,7 @@ class ConceptIngestor extends Base {
                             tier       : conceptNode.tier        ?? 0,
                             uniqueToNeo: !!conceptNode.uniqueToNeo,
                             validated  : conceptNode.validated !== false,
+                            verifiedAt : conceptNode.verifiedAt ?? null,
                             weight
                         }
                     });

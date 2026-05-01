@@ -3,6 +3,24 @@ import {Memory_Config as aiConfig, Memory_GraphService as GraphService} from '..
 import logger                                                      from '../../mcp/server/memory-core/logger.mjs';
 
 /**
+ * Default freshness window for Concept Ontology source-grounding. Concepts with missing,
+ * null, invalid, or older `verifiedAt` values emit `[CONCEPT_REVERIFY_DUE]` so curators
+ * can review them again. This signal is intentionally non-destructive: it never mutates
+ * concept weights, edge weights, validation state, or graph visibility.
+ * @type {Number}
+ * @private
+ */
+const CONCEPT_REVERIFY_INTERVAL_MS = 90 * 24 * 60 * 60 * 1000;
+
+/**
+ * ISO freshness stamps accept either a date-only value (`YYYY-MM-DD`) or the canonical
+ * JavaScript UTC timestamp emitted by `Date#toISOString()`.
+ * @type {RegExp}
+ * @private
+ */
+const ISO_VERIFIED_AT_PATTERN = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}\.\d{3}Z)?$/;
+
+/**
  * @summary Service for deterministic capability-gap inference over the Native Edge Graph.
  *
  * Operates in two passes per REM cycle:
@@ -14,7 +32,9 @@ import logger                                                      from '../../m
  *    namespace is small and flat.
  *
  * 2. **Concept-graph inference (edge traversal, cycle-scoped):** iterates CONCEPT nodes ingested
- *    by `ConceptIngestor` and emits three deterministic signals via outbound-edge checks:
+ *    by `ConceptIngestor` and emits deterministic signals via metadata + outbound-edge checks:
+ *    - `[CONCEPT_REVERIFY_DUE]` — `verifiedAt` is null, missing, invalid, or older than the
+ *      90-day freshness window. This queues curation only; it never fades graph nodes or edges.
  *    - `[GUIDE_GAP]` — no `EXPLAINED_BY` edge
  *    - `[EXAMPLE_GAP]` — has `EXPLAINED_BY`, lacks `EXEMPLIFIED_BY`
  *    - `[ORPHAN_CONCEPT]` — no `IMPLEMENTED_BY` edge (concept exists in ontology but no source
@@ -22,12 +42,11 @@ import logger                                                      from '../../m
  *      missing and should be added). Surfaced through the same `capabilityGap` channel +
  *      `sandman_handoff.md` section pattern as the other gap types, not via `logger.warn`
  *      (logger is ephemeral; the graph + handoff is the durable substrate). Added in #10087.
- *    All three share the `aiConfig.data.guideGapWeightThreshold` gate (config-lifted in #10086
- *    for curator tuning; defaults to `0.8` = tier-1 baseline). Low-priority concepts don't flood
- *    the handoff; the gate auto-surfaces meaningful signals as concept ingestion matures
- *    (#10036 / #10037 / #10050). The config name retains the historical `guideGap*` prefix for
- *    the same reason the ticket does — the threshold was introduced for GUIDE_GAP in #10035,
- *    then widened to gate all three concept-graph signals in #10087.
+ *    The three coverage signals share the `aiConfig.data.guideGapWeightThreshold` gate
+ *    (config-lifted in #10086 for curator tuning; defaults to `0.8` = tier-1 baseline).
+ *    `[CONCEPT_REVERIFY_DUE]` is not weight-gated because freshness review is a curation
+ *    cadence, not a severity claim. Low-priority concepts may need review without becoming
+ *    more important.
  *
  *    **Why graph traversal over LLM verification?** The concept graph's edges are
  *    curator-maintained (`.neo-ai-data/concepts/edges.jsonl` is version-controlled; each edge
@@ -120,8 +139,11 @@ class GapInferenceEngine extends Base {
     /**
      * Pass 2: concept-graph gap inference via deterministic edge traversal.
      *
-     * For each CONCEPT node in the graph, emits three weight-gated signals based on outbound
-     * edges in the Native Edge Graph:
+     * For each CONCEPT node in the graph, emits a non-destructive freshness signal plus three
+     * weight-gated coverage signals based on outbound edges in the Native Edge Graph:
+     * - **`[CONCEPT_REVERIFY_DUE]`** (added in #10574): `verifiedAt` is `null`, missing,
+     *   invalid, or older than the 90-day freshness window. This queues source-grounding review
+     *   work only; it never changes concept weight, edge weight, validation, or graph visibility.
      * - **`[GUIDE_GAP]`**: no outbound `EXPLAINED_BY` edge. Concept is architecturally relevant
      *   but undocumented — write a guide.
      * - **`[EXAMPLE_GAP]`**: has `EXPLAINED_BY` but no `EXEMPLIFIED_BY`. Concept is documented
@@ -132,14 +154,14 @@ class GapInferenceEngine extends Base {
      *   to live in `ConceptIngestor` — routing through `capabilityGap` + `sandman_handoff.md`
      *   makes the signal durable and aggregatable.
      *
-     * All three signals share the same `aiConfig.data.guideGapWeightThreshold` weight gate
+     * The three coverage signals share the same `aiConfig.data.guideGapWeightThreshold` weight gate
      * (default `0.8` = tier-1 baseline; config-lifted in #10086 for curator tuning). Lower-weight
      * concepts (tier-3 without uniqueness or coverage deficit lift) are considered low-priority —
      * missing guides/examples/implementations for them aren't worth surfacing in the handoff at
      * the current early stage of the ontology. As concept ingestion matures (#10036 / #10037 /
      * #10050), richer weight signals auto-promote meaningful gaps through the same gate without
      * config changes. The derivation of the default (0.8) lives in `config.template.mjs` next to
-     * the value itself.
+     * the value itself. Freshness review remains independent of this gate.
      *
      * Uses the edges-direct traversal pattern (`db.edges.getByIndex('source', id).filter(...)`)
      * rather than `db.getAdjacentNodes(...)` because concept edges point at string identifiers
@@ -153,7 +175,9 @@ class GapInferenceEngine extends Base {
      * of the per-session loop.
      */
     async inferConceptGraphGaps() {
-        const conceptNodes = GraphService.db.nodes.items.filter(n => n.label === 'CONCEPT');
+        const
+            conceptNodes = GraphService.db.nodes.items.filter(n => n.label === 'CONCEPT'),
+            now          = Date.now();
 
         if (conceptNodes.length === 0) {
             logger.debug('[GapInferenceEngine] Concept graph empty — skipping concept-graph gap pass. (Is ConceptIngestor running before this?)');
@@ -164,7 +188,7 @@ class GapInferenceEngine extends Base {
 
         // Resolved once per cycle (not per concept) — the config value is read at gate time so
         // mid-cycle config mutations in tests / runtime take effect without re-importing.
-        const threshold = aiConfig.data.guideGapWeightThreshold;
+        const threshold = aiConfig.data.guideGapWeightThreshold ?? 0.8;
 
         for (const concept of conceptNodes) {
             // #10036: unvalidated concepts (candidates from ConceptDiscoveryService awaiting
@@ -180,11 +204,19 @@ class GapInferenceEngine extends Base {
                 exemplifiedByEdges  = outboundEdges.filter(e => e.type === 'EXEMPLIFIED_BY'),
                 implementedByEdges  = outboundEdges.filter(e => e.type === 'IMPLEMENTED_BY'),
                 weight              = concept.properties?.weight ?? 0,
-                gaps                = [];
+                gaps                = [],
+                name                = concept.properties?.name || concept.name || concept.id;
+
+            if (this.isConceptReverifyDue(concept, now)) {
+                const verifiedAt = concept.properties?.verifiedAt ?? null;
+                gaps.push([
+                    `[CONCEPT_REVERIFY_DUE] The CONCEPT '${name}' has verifiedAt=${JSON.stringify(verifiedAt)}`,
+                    'and needs source-grounded re-verification. Re-check the Concept Ontology metadata;',
+                    'do not decay graph weight or edges automatically.'
+                ].join(' '));
+            }
 
             if (weight >= threshold) {
-                const name = concept.properties?.name || concept.name || concept.id;
-
                 if (explainedByEdges.length === 0) {
                     gaps.push(`[GUIDE_GAP] The CONCEPT '${name}' lacks a corresponding architectural Guide (no EXPLAINED_BY edge in the concept ontology).`);
                 } else if (exemplifiedByEdges.length === 0) {
@@ -198,6 +230,31 @@ class GapInferenceEngine extends Base {
 
             this.applyGapsToNode(concept, gaps);
         }
+    }
+
+    /**
+     * @summary Determines whether a Concept Ontology node is due for source-grounded re-verification.
+     *
+     * `verifiedAt` is freshness metadata, not graph physics. Returning `true` means the concept
+     * should appear in the curation queue via `[CONCEPT_REVERIFY_DUE]`; callers must not treat this
+     * as permission to reduce graph weight, weaken edges, flip `validated`, or hide the concept.
+     * Missing legacy values, explicit `null`, non-ISO / invalid date strings, and dates older than the
+     * configured review window are all due.
+     * @param {Object} conceptNode                      SQLite-persisted CONCEPT node
+     * @param {Number} now=Date.now()                   Epoch milliseconds used for deterministic tests
+     * @param {Number} reviewWindowMs=CONCEPT_REVERIFY_INTERVAL_MS Freshness window in milliseconds
+     * @returns {Boolean}
+     * @protected
+     */
+    isConceptReverifyDue(conceptNode, now=Date.now(), reviewWindowMs=CONCEPT_REVERIFY_INTERVAL_MS) {
+        const verifiedAt = conceptNode?.properties?.verifiedAt ?? null;
+        if (!verifiedAt || typeof verifiedAt !== 'string') return true;
+        if (!ISO_VERIFIED_AT_PATTERN.test(verifiedAt)) return true;
+
+        const verifiedTime = Date.parse(verifiedAt);
+        if (!Number.isFinite(verifiedTime)) return true;
+
+        return now - verifiedTime > reviewWindowMs;
     }
 
     /**
