@@ -64,6 +64,40 @@ test.describe('KB MCP server logger — always-on file sink (#10576)', () => {
         }
     });
 
+    test('preserves Error stack/message in the durable log (#10580 RA2)', async () => {
+        const wasDebug = aiConfig.data.debug;
+        aiConfig.data.debug = false;
+
+        try {
+            const today    = new Date().toISOString().slice(0, 10);
+            const expected = path.join(tmpLogDir, `kb-server-${today}.log`);
+
+            const err = new Error('chroma upsert failed at chunk 42');
+            logger.error('embedding batch failed', err);
+
+            // Also exercise circular-reference fallback so unhandled JSON throws can't
+            // crash the logger itself (defensive — see stringifyArg in logger.mjs).
+            const circular = {};
+            circular.self = circular;
+            logger.warn('circular sample', circular);
+
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            const content = fs.readFileSync(expected, 'utf8');
+
+            // Error message + stack must both land in the file. JSON.stringify on an
+            // Error returns `{}`; without the special-case, the post-mortem log would
+            // be useless for the exact use case the file sink exists for.
+            expect(content).toContain('chroma upsert failed at chunk 42');
+            expect(content).toContain('at '); // stack frame marker (Node V8)
+
+            // Circular ref must not throw inside the logger — falls back to String().
+            expect(content).toContain('circular sample');
+        } finally {
+            aiConfig.data.debug = wasDebug;
+        }
+    });
+
     test('writes log entries to daily-rotated file regardless of debug flag', async () => {
         const wasDebug = aiConfig.data.debug;
         aiConfig.data.debug = false; // explicit: file sink must run with debug OFF.

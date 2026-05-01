@@ -43,9 +43,24 @@ const getStream = () => {
     return currentStream;
 };
 
+const stringifyArg = (a) => {
+    if (typeof a === 'string') return a;
+    // Error instances must be unpacked manually — Error.message and Error.stack are
+    // non-enumerable, so JSON.stringify(err) yields `{}` and silently destroys the
+    // post-mortem evidence the file sink exists to preserve.
+    if (a instanceof Error) return `${a.name}: ${a.message}\n${a.stack || ''}`.trim();
+    try {
+        return JSON.stringify(a);
+    } catch {
+        // Circular references or other JSON.stringify failures — fall back to String coercion
+        // so the log entry still lands rather than throwing inside the logger itself.
+        return String(a);
+    }
+};
+
 const formatLine = (level, args) => {
     const timestamp = new Date().toISOString();
-    const message   = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ');
+    const message   = args.map(stringifyArg).join(' ');
     return `${timestamp} [${level.toUpperCase()}] ${message}\n`;
 };
 
