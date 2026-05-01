@@ -157,11 +157,11 @@ Neo is split into two complementary layers (engine ↔ toolchain):
 **Read**: [`learn/benefits/ArchitectureOverview.md`](./learn/benefits/ArchitectureOverview.md)
 
 </br></br>
-## A Platform at Scale
+## A Platform at Scale (State of May 1, 2026)
 
 Neo isn't just a framework — it's a **digital organism**. The substrate is both *curated source* (engine, tests, themes, guides) and the *cognitive content* the swarm feeds on (issues, discussions, PR conversations, agent skills). Both layers are structural; both compound.
 
-Counts use the same methodology as [`learn/guides/fundamentals/CodebaseOverview.md`](./learn/guides/fundamentals/CodebaseOverview.md): `sloc` source-only for code (excludes blanks + comments), comments tracked as a distinct metric, markdown content via line-count.
+Counts use the same methodology as [`learn/guides/fundamentals/CodebaseOverview.md`](./learn/guides/fundamentals/CodebaseOverview.md) (which carries the canonical numbers + measurement protocol): `sloc` source-only for code (excludes blanks + comments), comments tracked as a distinct metric, markdown content via line-count. The codebase grows fast — when this dated header drifts more than a month from current, refresh both files in lock-step.
 
 ### The Engine (curated source — `sloc`)
 

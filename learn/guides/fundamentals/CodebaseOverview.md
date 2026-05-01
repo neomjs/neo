@@ -2,33 +2,37 @@
 
 > **Note for Readers:** This guide is primarily written for AI agents working with the Neo.mjs codebase and is part of their required session initialization. However, it also serves as a comprehensive overview for human developers seeking to understand the platform's scale, architecture, and design philosophy. References to "querying" refer to the AI Knowledge Base system available to agents.
 
-## Understanding the Scale (State of April 2026)
+## Understanding the Scale (State of May 1, 2026)
 
-Neo.mjs is not a library. It's a **comprehensive web platform** with:
+Neo.mjs is not a library. It's a **comprehensive web platform**. Methodology: `sloc` source-only for code (excludes blanks + comments), comments tracked as a distinct metric, markdown content via `wc -l`.
 
-- **54,361 lines** of core engine source (426 files)
-- **41,772 lines** of flagship applications (399 files)
-- **14,838 lines** of component theming (613 files)
-- **23,212 lines** of working examples (642 files)
-- **20,026 lines** of AI infrastructure (144 files)
-- **24,442 lines** of learning materials (148 files)
-- **21,937 lines** of automated tests (189 files)
-- **7,517 lines** of build tooling (67 files)
+- **54,363 lines** of core engine source (423 files)
+- **40,401 lines** of flagship applications (375 files)
+- **14,913 lines** of component theming (618 files)
+- **20,190 lines** of working examples (510 files)
+- **26,661 lines** of AI infrastructure (182 files)
+- **35,937 lines** of learning materials (159 files)
+- **26,331 lines** of automated tests (203 files)
+- **7,036 lines** of build tooling (60 files)
 - **1,294 lines** of documentation app (17 files)
-- **204,082 lines** of Agent Knowledge context (3,924 files)
-- **260 lines** of Swarm Skills (10 files)
-- **66,077 lines** of pure JSDoc and inline comments
+- **302,491 lines** of Agent Knowledge context — issues + archive + pulls + discussions (4,441 files)
+- **154 lines** of Swarm Skill routers (17 SKILL.md files)
+- **2,610 lines** of Swarm Skill references + assets (24 files — workflows, templates, protocols)
+- **73,701 lines** of pure JSDoc and inline comments (sloc Comment metric across the source layers above)
 
-**Total: ~205,000 lines of source code + ~274,000 lines of documentation = ~479,000 lines of knowledge**
+**Total: ~191,000 lines of source code (sloc) + ~74,000 lines of comments + ~341,000 lines of cognitive content (Markdown) = ~606,000 lines of curated substrate.**
 
-The documentation lines count. They contain intent, architectural rationale, and usage patterns—knowledge that's as valuable as the code itself for understanding the platform.
+The documentation and cognitive content count. Issues, discussions, PR conversations, and agent skills aren't artifacts; they're the agents' working memory and execution substrate, parsed by the Knowledge Base and Memory Core for context priming + retrieval.
 
 **Note:** These metrics exclude:
-- The `/dist` directory (production builds, which would triple these numbers)
-- Markdown files in `/learn` (~100 files of guides, tutorials, and blog posts)
-- Generated documentation outputs
+- The `/dist` directory (production builds — would triple the engine source layer, projecting another ~570,000 lines of transpiled bundles + theme outputs).
+- Generated documentation outputs.
+
+**Including `/dist`, the substrate approaches ~1,180,000 lines.** A million-line organism.
 
 This is not a small library—it's a comprehensive platform with more source code than many established frameworks. It represents a decade of architectural thinking about how web applications *should* work—and how AI agents *should* collaborate with them.
+
+**Keep this number in sync.** The codebase grows fast (3,200+ commits in Q1 2026 post-Agent-OS alone). The dated header at the top of this section is the canonical signal — when it drifts more than a month from current, refresh empirically via `npx --yes sloc -e 'node_modules|dist|test-results' <dir>` per layer + `find <dir> -type f -name '*.md' | xargs wc -l` for Markdown layers. The README's `## A Platform at Scale` section mirrors these numbers and should be updated in lock-step.
 
 ---
 
