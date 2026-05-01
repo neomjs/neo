@@ -277,6 +277,7 @@ class ConceptService extends Base {
      * Each node in the tree includes its metadata and a `children` array.
      * @param {Number} [maxTier=3] Maximum tier to include.
      * @returns {Object} Tree root with nested children.
+     * @protected Intended for internal orchestration and visualization apps. LLM query surfaces should use bounded variants.
      */
     getConceptTree(maxTier = 3) {
         this.ensureLoaded();
@@ -349,6 +350,7 @@ class ConceptService extends Base {
      * @param {Number} [minWeight=0] Minimum weight threshold for inclusion.
      * @returns {Array<Object>} Gap entries sorted by weight descending:
      *   `{concept, weight, tier, severity, missingEdgeTypes}`.
+     * @protected Intended for internal orchestration. LLM query surfaces should use findGapsRelevantTo.
      */
     findGuideGaps(minWeight = 0) {
         this.ensureLoaded();
@@ -396,17 +398,124 @@ class ConceptService extends Base {
      * Performs reverse lookup on `IMPLEMENTED_BY` edges.
      *
      * @param {String} classPath Repository-relative path (e.g., `'src/data/Store.mjs'`).
+     * @param {Object} [options]
+     * @param {Number} [options.limit=5] Max concepts to return. Default 5 prevents context bloat.
      * @returns {Array<Object>} Concept nodes that reference this file.
      */
-    classifyConcept(classPath) {
+    classifyConcept(classPath, {limit = 5} = {}) {
         this.ensureLoaded();
 
         const fileRef = classPath.startsWith('file:') ? classPath : `file:${classPath}`,
               edges   = this.getInboundEdges(fileRef, 'IMPLEMENTED_BY');
 
-        return edges
+        let concepts = edges
             .map(e => this.nodes.get(e.source))
             .filter(Boolean);
+
+        if (limit > 0) {
+            concepts = concepts.slice(0, limit);
+        }
+
+        return concepts;
+    }
+
+    /**
+     * @summary Returns the top concepts most relevant to a task description.
+     * Bounded by a default limit to prevent LLM context flooding.
+     * Phase 1: Keyword/Tier-based heuristic matching.
+     * Phase 2 (Pending #10037): ChromaDB cosine similarity.
+     *
+     * @param {String} taskDescription Natural language task description.
+     * @param {Object} [options]
+     * @param {Number} [options.limit=5] Max concepts to return. Default 5 prevents context bloat.
+     * @returns {Array<Object>} Most relevant concepts.
+     */
+    findConceptsRelevantTo(taskDescription, {limit = 5} = {}) {
+        this.ensureLoaded();
+
+        if (!taskDescription) {
+            return [];
+        }
+
+        const keywords = taskDescription.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+
+        // Phase 1: simple heuristic score
+        const scored = [...this.nodes.values()]
+            .filter(n => n.tier > 0) // Skip anchor
+            .map(concept => {
+                let score = 0;
+                const terms = [
+                    concept.id.toLowerCase(),
+                    concept.name.toLowerCase(),
+                    ...(concept.aliases || []).map(a => a.toLowerCase())
+                ];
+
+                for (const kw of keywords) {
+                    if (terms.some(t => t.includes(kw))) {
+                        score += 10;
+                    }
+                }
+
+                // Slight boost for higher tier (lower number)
+                score += (4 - concept.tier);
+
+                return {concept, score};
+            })
+            .filter(item => item.score > (4 - item.concept.tier)) // Must have at least one keyword match
+            .sort((a, b) => b.score - a.score)
+            .map(item => item.concept);
+
+        return scored.slice(0, limit);
+    }
+
+    /**
+     * @summary Task-scoped version of findGuideGaps that returns gaps semantically related to the task.
+     * Bounded by a default limit to prevent LLM context flooding.
+     * Phase 1: Keyword/Tier-based heuristic matching.
+     * Phase 2 (Pending #10037): ChromaDB cosine similarity.
+     *
+     * @param {String} taskDescription Natural language task description.
+     * @param {Object} [options]
+     * @param {Number} [options.limit=5] Max gaps to return. Default 5 prevents context bloat.
+     * @param {Number} [options.minWeight=0] Minimum gap weight threshold.
+     * @returns {Array<Object>} Relevant guide gaps.
+     */
+    findGapsRelevantTo(taskDescription, {limit = 5, minWeight = 0} = {}) {
+        this.ensureLoaded();
+
+        const allGaps = this.findGuideGaps(minWeight);
+
+        if (!taskDescription) {
+            return allGaps.slice(0, limit);
+        }
+
+        const keywords = taskDescription.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+
+        const scoredGaps = allGaps
+            .map(gap => {
+                let score = gap.weight; // start with existing weight
+                const concept = gap.concept;
+                const terms = [
+                    concept.id.toLowerCase(),
+                    concept.name.toLowerCase(),
+                    ...(concept.aliases || []).map(a => a.toLowerCase())
+                ];
+
+                let matched = false;
+                for (const kw of keywords) {
+                    if (terms.some(t => t.includes(kw))) {
+                        score += 10;
+                        matched = true;
+                    }
+                }
+
+                return {gap, score, matched};
+            })
+            .filter(item => item.matched)
+            .sort((a, b) => b.score - a.score)
+            .map(item => item.gap);
+
+        return scoredGaps.slice(0, limit);
     }
 
     /**
@@ -444,6 +553,7 @@ class ConceptService extends Base {
      *
      * @param {String} conceptId The concept ID to look up analogues for.
      * @returns {Array<Object>} ANALOGOUS_TO edges with `{source, target, type, note}`.
+     * @protected Intended for internal orchestration.
      */
     getAnalogousConcepts(conceptId) {
         this.ensureLoaded();
