@@ -1,9 +1,13 @@
-import fs from 'fs/promises';
-import os from 'os';
-import path from 'path';
-import Base from '../../../../src/core/Base.mjs';
+import fs              from 'fs/promises';
+import os              from 'os';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+import Base            from '../../../../src/core/Base.mjs';
 
-const cwd = process.cwd();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+const neoRootDir = path.resolve(__dirname, '../../../../');
+const cwd        = process.cwd();
 
 /**
  * Default configuration object.
@@ -34,6 +38,17 @@ const defaultConfig = {
      * @type {string}
      */
     memoryCoreDbPath: path.join(os.homedir(), '.neo-ai-data', 'memory-core.sqlite'),
+    /**
+     * Directory for the always-on Neural Link diagnostic log files (#10582). The NL
+     * server's `logger.mjs` writes daily-rotated entries here regardless of `debug`,
+     * so long-running inspection chains and DOM/VDOM introspection sweeps leave a
+     * tail-able diagnostic trail observable from the host shell. Default:
+     * `<neoRootDir>/.neo-ai-data/logs/` — shared with the KB and Memory Core servers
+     * (each uses a distinct filename prefix: `nl-server-`, `kb-server-`, `mc-server-`).
+     * Per-server file isolation, single tailable directory.
+     * @type {string}
+     */
+    logPath: path.resolve(neoRootDir, '.neo-ai-data/logs'),
     /**
      * Number of days to retain Action logs in the Neural Link Database.
      * @type {number}
