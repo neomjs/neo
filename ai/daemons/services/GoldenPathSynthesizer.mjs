@@ -256,6 +256,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let guideGaps       = [];
         let exampleGaps     = [];
         let orphanConcepts  = [];
+        let reverifyDue     = [];
 
         GraphService.db.nodes.items.forEach(node => {
             if (node.properties?.capabilityGap) {
@@ -287,6 +288,8 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                                     exampleGaps.push({ id: node.id, msg: msg.replace('[EXAMPLE_GAP]', '').trim() });
                                 } else if (msg.includes('[ORPHAN_CONCEPT]')) {
                                     orphanConcepts.push({ id: node.id, msg: msg.replace('[ORPHAN_CONCEPT]', '').trim() });
+                                } else if (msg.includes('[CONCEPT_REVERIFY_DUE]')) {
+                                    reverifyDue.push({ id: node.id, msg: msg.replace('[CONCEPT_REVERIFY_DUE]', '').trim() });
                                 } else {
                                     // Fallback for unlabeled
                                     testGaps.push({ id: node.id, msg });
@@ -324,6 +327,11 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             if (orphanConcepts.length > 0) {
                 handoffContent += `### ⚠️ Orphaned Concepts (\`${Math.min(orphanConcepts.length, limit)}\` of \`${orphanConcepts.length}\` items)\n`;
                 orphanConcepts.slice(0, limit).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
+                handoffContent += `\n`;
+            }
+            if (reverifyDue.length > 0) {
+                handoffContent += `### Concept Reverification Queue (\`${Math.min(reverifyDue.length, limit)}\` of \`${reverifyDue.length}\` items)\n`;
+                reverifyDue.slice(0, limit).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
                 handoffContent += `\n`;
             }
         }

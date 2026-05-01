@@ -61,7 +61,8 @@ If nothing qualifies, return \`{"candidates": []}\`. Err on the side of quality 
  * the `guideGapWeightThreshold = 0.8` default, so they're silenced in `sandman_handoff.md`
  * until a curator promotes them. `validated: false` is the explicit override in
  * `GapInferenceEngine` — even if the weight gate is lowered later, unvalidated candidates
- * stay silent until review.
+ * stay silent until review. `verifiedAt: null` marks that the concept has not yet received
+ * explicit source-grounded verification under the Concept Ontology freshness contract.
  * @type {Object}
  * @private
  */
@@ -69,6 +70,7 @@ const CANDIDATE_DEFAULTS = {
     tier       : 3,
     uniqueToNeo: false,
     validated  : false,
+    verifiedAt : null,
     tags       : ['mined-candidate']
 };
 
@@ -402,7 +404,7 @@ class ConceptDiscoveryService extends Base {
      * the graph. The next `ConceptIngestor.syncConceptsToGraph` picks them up.
      *
      * Each candidate serializes one per line matching the established schema
-     * (`{id, name, tier, description, uniqueToNeo, tags, aliases, validated, source, reasoning}`).
+     * (`{id, name, tier, description, uniqueToNeo, tags, aliases, validated, verifiedAt, source, reasoning}`).
      * File is flush-written via `fs.promises.appendFile` which is atomic at the per-line level
      * on POSIX filesystems — safe for the single-writer REM pipeline pattern.
      * @param {Object[]} candidates

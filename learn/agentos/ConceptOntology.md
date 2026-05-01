@@ -96,9 +96,10 @@ Each line in `nodes.jsonl` is a JSON object:
 | `uniqueToNeo` | boolean | ✅ | `true` if architecturally unique to Neo.mjs |
 | `tags` | string[] | ✅ | Categorization tags for search and filtering |
 | `aliases` | string[] | ❌ | Alternative terms that refer to the exact same concept (O(1) lookup) |
+| `verifiedAt` | string \| null | ❌ | ISO date string for the last source-grounded verification, or `null` / missing when never explicitly verified |
 
 ```jsonl
-{"id":"off-main-thread","name":"Off-Main-Thread Execution","tier":1,"description":"Application business logic runs inside a dedicated App Worker.","uniqueToNeo":true,"tags":["architecture","workers"],"aliases":["off the main thread","OMT"]}
+{"id":"off-main-thread","name":"Off-Main-Thread Execution","tier":1,"description":"Application business logic runs inside a dedicated App Worker.","uniqueToNeo":true,"tags":["architecture","workers"],"aliases":["off the main thread","OMT"],"verifiedAt":null}
 ```
 
 > [!IMPORTANT]
@@ -106,6 +107,15 @@ Each line in `nodes.jsonl` is a JSON object:
 > refers to the exact same architectural concept. Cross-framework terms (e.g., "ViewModel"
 > for State Provider, "JSX" for JSON VDOM) are **not** aliases — they belong in
 > `ANALOGOUS_TO` edges.
+
+> [!IMPORTANT]
+> **Freshness metadata is non-destructive.** `verifiedAt` exists to build a review queue:
+> concepts with `null`, missing, invalid, or older-than-90-day values emit a
+> `CONCEPT_REVERIFY_DUE` handoff signal. This must not fade graph nodes, weaken edges,
+> reduce concept weight, or auto-retire concepts. A stale verification date means "check
+> this against current repo reality"; it is not evidence that the concept lost value.
+> Existing committed ontology nodes start with explicit `verifiedAt: null` so the first
+> source-grounding pass can be queried directly from the data file.
 
 ## Edge Schema
 
