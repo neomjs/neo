@@ -9,10 +9,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-04-14T15:09:09Z'
-updatedAt: '2026-04-25T03:58:34Z'
+updatedAt: '2026-05-01T16:10:34Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9999'
 author: tobiu
-commentsCount: 8
+commentsCount: 9
 parentIssue: null
 subIssues:
   - '[x] 10013 [Sub-Epic] DreamService Decomposition'
@@ -25,8 +25,9 @@ subIssues:
   - '[ ] 10136 Rewrite CodebaseOverview.md to reflect Two Hemispheres architecture + Dream Pipeline'
   - '[ ] 10139 Extend Memory Core with Explicit A2A Primitive'
   - '[ ] 10143 Graph-first Memory artifacts: lift Memory + Session to first-class nodes'
-subIssuesCompleted: 3
-subIssuesTotal: 10
+  - '[ ] 10587 Capture runSandman inference hard-failures durably'
+subIssuesCompleted: 4
+subIssuesTotal: 11
 blockedBy: []
 blocking:
   - '[ ] 10135 Audit Agent OS for Windows support'
@@ -704,4 +705,70 @@ Reopened (cycle 2) by @neo-opus-4-7 — prior reopen at 03:57:38Z was sabotage-r
 - 2026-04-25T04:24:39Z @neo-opus-4-7 cross-referenced by PR #10326
 - 2026-04-25T04:35:43Z @neo-opus-4-7 cross-referenced by PR #10325
 - 2026-04-25T04:55:11Z @neo-opus-4-7 cross-referenced by PR #10328
+- 2026-04-25T23:49:11Z @neo-opus-4-7 cross-referenced by #10349
+- 2026-04-26T09:54:47Z @neo-opus-4-7 cross-referenced by #10355
+- 2026-04-26T09:59:36Z @neo-opus-4-7 cross-referenced by PR #10356
+- 2026-04-26T15:43:49Z @neo-opus-4-7 cross-referenced by PR #10378
+- 2026-04-26T19:05:51Z @neo-opus-4-7 cross-referenced by #10388
+- 2026-04-27T21:49:57Z @neo-opus-4-7 cross-referenced by PR #10453
+- 2026-04-28T08:50:36Z @neo-opus-4-7 cross-referenced by #10462
+- 2026-05-01T08:19:23Z @neo-opus-4-7 cross-referenced by #10556
+- 2026-05-01T11:11:55Z @neo-gpt cross-referenced by #10088
+- 2026-05-01T12:22:35Z @neo-gpt cross-referenced by #10574
+- 2026-05-01T12:41:06Z @neo-gpt cross-referenced by PR #10575
+- 2026-05-01T16:03:26Z @neo-gpt added sub-issue #10587
+### @neo-gpt - 2026-05-01T16:10:34Z
+
+**Input from GPT-5.5 (Codex Desktop):**
+
+> ● # Epic Review by @neo-gpt
+> 
+> ## Stage 1 — Roadmap Fit: ✅
+> 
+> #9999 still fits the current strategic direction. The live sub-issue graph shows it remains the parent for Multi-Tenant Memory Core, Dynamic Topology, A2A graph primitives, Concept Ontology adjacency, and the new #10587 Sandman observability slice. `get_context_frontier()` is currently empty, but the issue history, #10137 discussion references, and reopened-state cleanup confirm #9999 is still the active umbrella rather than a stale closed epic.
+> 
+> Duplicate sweep note: #10323 is a reopen artifact from the temporary prevent-reopen workflow, not a competing epic. #10030 is an intentional child / parallel concept layer after the abandoned Macro DB approach, not a replacement for the whole #9999 arc.
+> 
+> ## Stage 2 — Approach Elegance: ✅
+> 
+> The evolved approach reuses existing substrate rather than creating parallel machinery: Dynamic Topology owns Chroma placement, Multi-Tenant Identity owns user/privacy boundaries, Graph-first Memory and A2A own structured agent coordination, and #10030 replaces semantic-diluting Macro DB vectors with a deterministic Concept Ontology. That pivot is load-bearing and documented in the epic thread.
+> 
+> For #10587 specifically, the elegant layer is the explicit `runSandman.mjs` operator path plus existing Memory Core logging / durable substrate. It should not add a new MCP tool surface and must not re-enable boot-time auto-runs.
+> 
+> ## Stage 3 — Sub-Structure Coherence: ✅ with hygiene note
+> 
+> Live sub-issues under #9999 now include closed foundation work (#10013, #10057, #10127, #10129), open substrate epics (#10015, #10016, #10030, #10143), open coordination/documentation work (#10136, #10139), and #10587 as a narrow Sandman failure-observability child. The structure is coherent: #10587 closes a real operational gap between explicit Sandman execution and future-agent diagnosis without overlapping Gemini's active #10037 Concept Ontology lane.
+> 
+> Non-blocking hygiene: the top-level epic body still references the superseded Universal Macro DB framing. The thread and child graph correct it, so this does not block #10587, but a later body-refresh would reduce cold-reader ambiguity.
+> 
+> ## Stage 4 — Prescription Layer: ✅
+> 
+> The child graph maps to the right owner layers:
+> 
+> - #10015: topology/config routing.
+> - #10016: identity and privacy boundaries.
+> - #10030: concept graph and semantic gap inference.
+> - #10139/#10143: graph-primary memory and A2A primitives.
+> - #10587: explicit Sandman operator observability, ideally through existing Memory Core logger / durable breadcrumb mechanisms.
+> 
+> #10587's prescription is narrow and well-placed: preserve nonzero provider-failure exit, add a durable breadcrumb, test without a live provider, and avoid boot-time automation changes.
+> 
+> ## Stage 5 — Avoided Traps Completeness: ✅ with additions
+> 
+> The epic thread already names the major historical trap: the Macro KB vector approach was abandoned because full-file embeddings diluted semantic signal, and #10030 took over with deterministic Concept Ontology.
+> 
+> Additional traps to keep explicit for #10587 and nearby children:
+> 
+> - Do not resurrect boot-time autoDream / autoSummarize / autoGoldenPath while duplicate MCP-server startup remains unresolved (#10569 guardrail).
+> - Do not create a new MCP tool for a narrow operator diagnostic; durable logging / graph breadcrumbs are sufficient.
+> - Do not make provider-unavailable tests depend on a real MLX / LM Studio / OpenAI-compatible server.
+> - Do not close #9999 while native sub-issues remain open; prior reopen workflow churn proves that parent-state semantics are load-bearing.
+> 
+> ## Verdict
+> 
+> Greenlight for #10587 pickup under #9999. Proceeding with the child ticket intake and implementation path.
+> 
+> Origin Session ID: cf46c3e3-3bc7-4726-8b0b-b9c9af48742f
+
+- 2026-05-01T16:20:53Z @neo-gpt cross-referenced by PR #10590
 
