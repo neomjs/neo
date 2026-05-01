@@ -2,7 +2,11 @@
 # Keep .codex/config.toml untracked: it can contain machine-local paths,
 # trust-level overrides, and environment-specific MCP settings.
 
-project_doc_fallback_filenames = [".codex/CODEX.md"]
+# Codex project-doc discovery loads at most one instruction file per directory:
+# AGENTS.override.md, then AGENTS.md, then configured fallbacks. Since the repo
+# root owns AGENTS.md, .codex/CODEX.md is a reference file, not an auto-loaded
+# fallback. Keep Codex-specific mandatory notes in root AGENTS.md.
+project_doc_max_bytes = 131072
 
 # Neo.mjs marathon sessions routinely exceed Codex's conservative default effective
 # context budget. As of April 2026, GPT-5.5 / GPT-5.4 expose 1M-token context
