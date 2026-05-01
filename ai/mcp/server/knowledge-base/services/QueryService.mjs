@@ -158,6 +158,7 @@ class QueryService extends Base {
                     }
 
                     if (metadata.type === 'guide') score += queryScoreWeights.guideMatch;
+                    if (metadata.type === 'concept') score += queryScoreWeights.conceptMatch;
                     if (metadata.type === 'blog') {
                         score += queryScoreWeights.blogMatch;
                         if (nameLower.includes(keywordSingular)) score += queryScoreWeights.guideMatch;
