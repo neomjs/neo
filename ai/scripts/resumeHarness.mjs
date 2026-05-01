@@ -127,7 +127,7 @@ async function resumeHarness(identity, reason) {
             console.log(`Successfully resumed ${identity} via osascript (${appName})`);
         } else if (adapter === 'tmux') {
             // Provide tmux fallback
-            const tmuxSession = process.env.TMUX_SESSION || harnessTarget.tmuxSession || 'neo-agent';
+            const tmuxSession = harnessTarget.tmuxSession || process.env.TMUX_SESSION || 'neo-agent';
             await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, payload, 'C-m']);
             console.log(`Successfully resumed ${identity} via tmux (${tmuxSession})`);
         }
