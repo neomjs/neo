@@ -5,23 +5,155 @@ import Memory_Config from '../../ai/mcp/server/memory-core/config.mjs';
 import Memory_Service from '../../ai/mcp/server/memory-core/services/MemoryService.mjs';
 import DreamService from '../../ai/daemons/DreamService.mjs';
 import LifecycleService from '../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
+import InferenceLifecycleService from '../../ai/mcp/server/memory-core/services/lifecycle/InferenceLifecycleService.mjs';
 import GraphService from '../../ai/mcp/server/memory-core/services/GraphService.mjs';
-import { spawn } from 'child_process';
+import logger from '../../ai/mcp/server/memory-core/logger.mjs';
 import http from 'http';
+import {pathToFileURL} from 'url';
 
 /**
  * @module buildScripts/ai/runSandman
  */
 
-function checkProvider() {
-    const host = Memory_Config.data.openAiCompatible?.host || 'http://127.0.0.1:8000';
+const DEFAULT_OPENAI_COMPATIBLE_HOST = 'http://127.0.0.1:8000';
+const PROVIDER_READY_ATTEMPTS        = 30;
+const PROVIDER_READY_RETRY_MS        = 1000;
+
+/**
+ * @summary Resolves the OpenAI-compatible host that the Sandman REM pipeline must reach.
+ * @param {Object} config
+ * @returns {String}
+ */
+export function getOpenAiCompatibleHost(config = Memory_Config.data) {
+    return config.openAiCompatible?.host || DEFAULT_OPENAI_COMPATIBLE_HOST;
+}
+
+/**
+ * @summary Probes the configured OpenAI-compatible provider used by the Sandman REM pipeline.
+ * @param {Object} config
+ * @returns {Promise<Boolean>}
+ */
+export function checkProvider(config = Memory_Config.data) {
+    const host = getOpenAiCompatibleHost(config);
+
     return new Promise(resolve => {
-        const req = http.get(`${host}/v1/models`, () => resolve(true));
-        req.on('error', () => resolve(false));
+        let settled = false;
+        const settle = value => {
+            if (!settled) {
+                settled = true;
+                resolve(value);
+            }
+        };
+
+        const req = http.get(`${host}/v1/models`, response => {
+            response.resume();
+            settle(true);
+        });
+
+        req.setTimeout(3000, () => {
+            req.destroy();
+            settle(false);
+        });
+        req.on('error', () => settle(false));
     });
 }
 
-async function runSandman() {
+/**
+ * @summary Waits for the local provider readiness loop while exposing deterministic test seams.
+ * @param {Object} options
+ * @param {Function} options.checkProvider
+ * @param {Number} options.attempts
+ * @param {Number} options.delayMs
+ * @param {Object} options.output
+ * @returns {Promise<Object>}
+ */
+export async function waitForProvider({
+    checkProvider: providerCheck = () => checkProvider(),
+    attempts = PROVIDER_READY_ATTEMPTS,
+    delayMs  = PROVIDER_READY_RETRY_MS,
+    output   = process.stdout
+} = {}) {
+    const startedAt = Date.now();
+
+    for (let i = 0; i < attempts; i++) {
+        if (await providerCheck()) {
+            return {
+                running  : true,
+                attempts : i + 1,
+                elapsedMs: Date.now() - startedAt,
+                timeoutMs: attempts * delayMs
+            };
+        }
+
+        output.write('.');
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+
+    return {
+        running  : false,
+        attempts,
+        elapsedMs: Date.now() - startedAt,
+        timeoutMs: attempts * delayMs
+    };
+}
+
+/**
+ * @summary Builds the durable Sandman provider-timeout breadcrumb for the Memory Core log.
+ * @param {Object} options
+ * @param {Object} options.config
+ * @param {Object} options.waitResult
+ * @param {Object|null} options.lifecycleStatus
+ * @returns {Object}
+ */
+export function createProviderFailureDiagnostic({
+    config = Memory_Config.data,
+    waitResult,
+    lifecycleStatus = null
+} = {}) {
+    return {
+        event          : 'runSandman.provider_readiness_timeout',
+        reason         : 'PROVIDER_READINESS_TIMEOUT',
+        provider       : 'openAiCompatible',
+        modelProvider  : config.modelProvider || null,
+        host           : getOpenAiCompatibleHost(config),
+        model          : config.openAiCompatible?.model || null,
+        embeddingModel : config.openAiCompatible?.embeddingModel || null,
+        attempts       : waitResult?.attempts ?? null,
+        elapsedMs      : waitResult?.elapsedMs ?? null,
+        timeoutMs      : waitResult?.timeoutMs ?? null,
+        lifecycleStatus,
+        nextAction     : 'Start the configured OpenAI-compatible / MLX provider, then rerun npm run ai:run-sandman.'
+    };
+}
+
+/**
+ * @summary Records the Sandman provider-timeout failure through terminal output and durable MC logging.
+ * @param {Object} diagnostic
+ * @param {Object} sinks
+ * @param {Object} sinks.log
+ * @param {Function} sinks.stderr
+ * @returns {Promise<Object>}
+ */
+export async function recordProviderReadinessFailure(
+    diagnostic,
+    {
+        log    = logger,
+        stderr = console.error
+    } = {}
+) {
+    const message = `\n❌ openAiCompatible server is not running on ${diagnostic.host}. Please start your MLX provider manually.`;
+
+    stderr(message);
+    log.error('[runSandman] openAiCompatible provider readiness timeout', diagnostic);
+
+    if (typeof log.flush === 'function') {
+        await log.flush();
+    }
+
+    return {message, diagnostic};
+}
+
+export async function runSandman() {
     // Enable debug logging to see progress
     Memory_Config.data.debug = true;
 
@@ -39,21 +171,20 @@ async function runSandman() {
         console.log('   Lifecycle Service Ready. Database should be running.');
 
         console.log('   Waiting for MLX provider to warm up load weights into VRAM...');
-        let isProviderRunning = false;
-        for (let i = 0; i < 30; i++) {
-            isProviderRunning = await checkProvider();
-            if (isProviderRunning) {
-                console.log('\n   ✅ openAiCompatible server is running (auto-boot successful).');
-                break;
-            }
-            process.stdout.write('.');
-            await new Promise(resolve => setTimeout(resolve, 1000));
+        const waitResult = await waitForProvider();
+
+        if (!waitResult.running) {
+            const diagnostic = createProviderFailureDiagnostic({
+                waitResult,
+                lifecycleStatus: InferenceLifecycleService.getStatus()
+            });
+
+            await recordProviderReadinessFailure(diagnostic);
+            process.exitCode = 1;
+            return;
         }
 
-        if (!isProviderRunning) {
-            console.error(`\n❌ openAiCompatible server is not running on ${Memory_Config.data.openAiCompatible?.host || 'http://127.0.0.1:8000'}. Please start your MLX provider manually.`);
-            process.exit(1);
-        }
+        console.log('\n   ✅ openAiCompatible server is running (auto-boot successful).');
 
         console.log('   Waiting for DreamService Initialization...');
         // We might need to ensure DreamService is fully inited, though it initAsync runs automatically upon Neo.setupClass
@@ -82,4 +213,6 @@ async function runSandman() {
     }
 }
 
-runSandman();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    runSandman();
+}
