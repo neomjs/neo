@@ -59,11 +59,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(scriptContent).toContain("'@neo-opus-4-7': 'claude-desktop'");
     });
 
-    test('GPT identity routes to tmux with codex session', async () => {
-        const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
-        expect(scriptContent).toContain("'codex-desktop': { adapter: 'tmux', tmuxSession: 'codex' }");
-        expect(scriptContent).toContain("'@neo-gpt': 'codex-desktop'");
-    });
+
 
     test('TMUX_SESSION precedence honors harnessTarget.tmuxSession over process.env', async () => {
         // Read script statically to verify precedence logic

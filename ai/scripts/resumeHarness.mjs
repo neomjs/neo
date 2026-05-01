@@ -47,14 +47,12 @@ async function resumeHarness(identity, reason) {
     // Harness Registry resolving the enum to specific executable paths/scripts
     const HARNESS_REGISTRY = {
         'antigravity-ide': { appName: 'Antigravity', adapter: 'osascript' },
-        'claude-desktop': { appName: 'Claude', adapter: 'osascript', tabShortcut: '3' },
-        'codex-desktop': { adapter: 'tmux', tmuxSession: 'codex' }
+        'claude-desktop': { appName: 'Claude', adapter: 'osascript', tabShortcut: '3' }
     };
 
     const identityMap = {
         '@neo-gemini-3-1-pro': 'antigravity-ide',
-        '@neo-opus-4-7': 'claude-desktop',
-        '@neo-gpt': 'codex-desktop'
+        '@neo-opus-4-7': 'claude-desktop'
     };
 
     const targetId = identityMap[identity];
