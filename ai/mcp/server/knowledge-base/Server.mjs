@@ -5,6 +5,7 @@ import aiConfig                                        from './config.mjs';
 import logger                                          from './logger.mjs';
 import DatabaseService                                 from './services/DatabaseService.mjs';
 import HealthService                                   from './services/HealthService.mjs';
+import KBRecorderService                               from './services/KBRecorderService.mjs';
 import {listTools, callTool}                           from './services/toolService.mjs';
 
 /**
@@ -76,6 +77,7 @@ class Server extends Base {
         // 4. Wait for dependent services
         // DatabaseService is a singleton, so we wait for its global ready state
         await DatabaseService.ready();
+        await KBRecorderService.ready();
 
         // 5. Perform Health Check & Log Status
         const health = await HealthService.healthcheck();
@@ -171,17 +173,30 @@ class Server extends Base {
         // Call Tool Handler
         this.mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const {name, arguments: args} = request.params;
+            const t0 = Date.now();
 
             try {
                 logger.debug(`[MCP] Calling tool: ${name} with args:`, JSON.stringify(args));
 
-                const exemptFromHealthCheck = ['healthcheck', 'start_database', 'stop_database'];
+                const exemptFromHealthCheck = ['healthcheck', 'start_database', 'stop_database', 'list_agent_faqs'];
 
                 if (!exemptFromHealthCheck.includes(name)) {
                     try {
                         await HealthService.ensureHealthy();
                     } catch (healthError) {
                         logger.error(`[MCP] Health check failed for tool ${name}:`, healthError.message);
+                        KBRecorderService.log({
+                            agent_id   : process.env.NEO_AGENT_ID || process.env.USER || 'unknown',
+                            session_id : args?.sessionId || process.env.NEO_SESSION_ID || null,
+                            sequence_id: `${process.env.NEO_AGENT_ID || process.env.USER || 'unknown'}_${t0}`,
+                            timestamp  : t0,
+                            tool       : name,
+                            args,
+                            result     : {error: healthError.message},
+                            success    : false,
+                            duration_ms: Date.now() - t0
+                        });
+
                         return {
                             content: [{
                                 type: 'text',

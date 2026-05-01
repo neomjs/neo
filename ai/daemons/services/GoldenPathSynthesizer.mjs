@@ -257,6 +257,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         let exampleGaps     = [];
         let orphanConcepts  = [];
         let reverifyDue     = [];
+        let kbDemandGaps    = [];
 
         GraphService.db.nodes.items.forEach(node => {
             if (node.properties?.capabilityGap) {
@@ -290,6 +291,8 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                                     orphanConcepts.push({ id: node.id, msg: msg.replace('[ORPHAN_CONCEPT]', '').trim() });
                                 } else if (msg.includes('[CONCEPT_REVERIFY_DUE]')) {
                                     reverifyDue.push({ id: node.id, msg: msg.replace('[CONCEPT_REVERIFY_DUE]', '').trim() });
+                                } else if (msg.includes('[KB_DEMAND_GAP]')) {
+                                    kbDemandGaps.push({ id: node.id, msg: msg.replace('[KB_DEMAND_GAP]', '').trim() });
                                 } else {
                                     // Fallback for unlabeled
                                     testGaps.push({ id: node.id, msg });
@@ -332,6 +335,11 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             if (reverifyDue.length > 0) {
                 handoffContent += `### Concept Reverification Queue (\`${Math.min(reverifyDue.length, limit)}\` of \`${reverifyDue.length}\` items)\n`;
                 reverifyDue.slice(0, limit).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
+                handoffContent += `\n`;
+            }
+            if (kbDemandGaps.length > 0) {
+                handoffContent += `### Agent FAQ Demand Gaps (\`${Math.min(kbDemandGaps.length, limit)}\` of \`${kbDemandGaps.length}\` items)\n`;
+                kbDemandGaps.slice(0, limit).forEach(g => handoffContent += `- **\`${g.id}\`**: ${g.msg}\n`);
                 handoffContent += `\n`;
             }
         }

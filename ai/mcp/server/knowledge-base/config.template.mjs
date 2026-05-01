@@ -1,4 +1,5 @@
 import fs              from 'fs/promises';
+import os              from 'os';
 import path            from 'path';
 import Base            from '../../../../src/core/Base.mjs';
 import {fileURLToPath} from 'url';
@@ -105,6 +106,41 @@ const defaultConfig = {
      * @type {string}
      */
     path: path.resolve(neoRootDir, '.neo-ai-data/chroma/knowledge-base'),
+    /**
+     * @summary Shared SQLite destination for Knowledge Base query telemetry.
+     *
+     * Path to the shared Memory Core SQLite database used for Knowledge Base query telemetry.
+     * Mirrors the Neural Link recorder default so `kb_query_log` and `kb_query_faqs`
+     * land beside `nl_action_log` without coupling either MCP server's schema.
+     * @type {string}
+     */
+    memoryCoreDbPath: process.env.NEO_MEMORY_DB_PATH ||
+        process.env.NEO_MEMORY_CORE_DB_PATH ||
+        path.join(os.homedir(), '.neo-ai-data', 'memory-core.sqlite'),
+    /**
+     * @summary Repetition threshold for promoting KB queries into Agent FAQ clusters.
+     *
+     * Minimum repeated Knowledge Base queries required before an Agent FAQ becomes
+     * eligible for `[KB_DEMAND_GAP]` inference and `list_agent_faqs` reporting.
+     * @type {number}
+     */
+    kbFaqMinCount: Number(process.env.NEO_KB_FAQ_MIN_COUNT) || 3,
+    /**
+     * @summary Calibration threshold for future embedding-backed Agent FAQ clustering.
+     *
+     * Calibration marker for FAQ clustering. The first implementation uses exact
+     * normalized-query grouping as the conservative 1.0 baseline; operators can
+     * lower this once embedding-backed similarity is measured against real traffic.
+     * @type {number}
+     */
+    kbFaqSimilarityThreshold: Number(process.env.NEO_KB_FAQ_SIMILARITY_THRESHOLD) || 1.0,
+    /**
+     * @summary Bound for Concept Ontology IDs attached to each Agent FAQ cluster.
+     *
+     * Maximum number of Concept Ontology IDs attached to each Agent FAQ.
+     * @type {number}
+     */
+    kbFaqConceptLimit: Number(process.env.NEO_KB_FAQ_CONCEPT_LIMIT) || 5,
     /**
      * The path to the generated knowledge base JSONL file.
      * @type {string}
