@@ -133,7 +133,14 @@ class DreamService extends Base {
     }
 
     /**
-     * Pipeline to process undigested sessions.
+     * @summary Runs the REM digest pipeline for sessions that are not yet marked graph-digested.
+     *
+     * The DreamService REM pipeline hydrates raw episodic memories, syncs deterministic
+     * MEMORY/SESSION graph nodes via `MemorySessionIngestor`, then runs Tri-Vector semantic
+     * extraction and ambient graph ingestion. The `graphDigested` marker is only safe after
+     * both the deterministic memory/session ingestion and the semantic extractor complete
+     * without reported errors; otherwise the next REM cycle must retry the partial graph work
+     * instead of hiding missing nodes behind a completed digest flag.
      */
     async processUndigestedSessions() {
         if (this.isProcessing) {
@@ -182,7 +189,7 @@ class DreamService extends Base {
                                 where: { sessionId: session.meta.sessionId },
                                 include: ['documents']
                             });
-                            if (rawMemories && rawMemories.documents && rawMemories.documents.length > 0) {
+                            if (rawMemories?.documents?.length > 0) {
                                 // Send the full raw memory to the LLM. Lossless context tracking is required.
                                 // If local APIs crash, it is a configuration issue with n_ctx, not a client logic error.
                                 rawEpisodicMemory = rawMemories.documents.join('\n\n---\n\n');
@@ -201,8 +208,13 @@ class DreamService extends Base {
                     // Chroma-ID → graph-node mapping; no LLM cost, idempotent via payloadHash.
                     const ingestStart = Date.now();
                     const ingestStats = await MemorySessionIngestor.syncSessionToGraph(session);
+                    const ingestErrors = ingestStats.errors?.length ?? 0;
                     const ingestTime = ((Date.now() - ingestStart) / 1000).toFixed(1);
-                    logger.info(`[DreamService]   -> Memory/Session graph ingestion took: ${ingestTime}s (${ingestStats.memoriesUpserted} upserted, ${ingestStats.memoriesSkipped} skipped)`);
+                    logger.info(`[DreamService]   -> Memory/Session graph ingestion took: ${ingestTime}s (${ingestStats.memoriesUpserted} upserted, ${ingestStats.memoriesSkipped} skipped, ${ingestErrors} errors)`);
+
+                    if (ingestErrors > 0) {
+                        logger.warn(`[DreamService] Session ${session.meta.sessionId} had ${ingestErrors} memory-ingestion error(s); graphDigested will NOT be set this cycle.`);
+                    }
 
                     const startTime = Date.now();
                     const success = await SemanticGraphExtractor.executeTriVectorExtraction(session);
@@ -221,7 +233,7 @@ class DreamService extends Base {
 
                     logger.info(`[DreamService] Total Session Digest Time: ${((Date.now() - startTime) / 1000).toFixed(1)}s`);
 
-                    if (success) {
+                    if (success && ingestErrors === 0) {
                         await this.sessionsCollection.update({
                             ids: [session.id],
                             metadatas: [{ ...session.meta, graphDigested: true }]
