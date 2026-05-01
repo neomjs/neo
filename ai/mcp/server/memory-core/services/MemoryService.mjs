@@ -378,28 +378,30 @@ class MemoryService extends Base {
             // summary, the userId filter reduces the fetch to zero rows rather than leaking it.
             const userId = RequestContextService.getUserId();
 
-            for (const neighbor of strategicNeighbors) {
-                if (neighbor.semanticVectorId) {
-                    try {
-                        const getArgs = {
-                            ids    : [neighbor.semanticVectorId],
-                            include: ['documents', 'metadatas']
-                        };
-                        if (userId) getArgs.where = {userId};
-                        const result = await collection.get(getArgs);
+            if (Array.isArray(strategicNeighbors)) {
+                for (const neighbor of strategicNeighbors) {
+                    if (neighbor.semanticVectorId) {
+                        try {
+                            const getArgs = {
+                                ids    : [neighbor.semanticVectorId],
+                                include: ['documents', 'metadatas']
+                            };
+                            if (userId) getArgs.where = {userId};
+                            const result = await collection.get(getArgs);
 
-                        if (result.documents && result.documents.length > 0) {
-                            semanticContexts.push({
-                                nodeId: neighbor.id,
-                                name: neighbor.name,
-                                relationship: neighbor.relationship,
-                                weight: neighbor.weight,
-                                content: result.documents[0],
-                                metadata: result.metadatas ? result.metadatas[0] : null
-                            });
+                            if (result.documents && result.documents.length > 0) {
+                                semanticContexts.push({
+                                    nodeId: neighbor.id,
+                                    name: neighbor.name,
+                                    relationship: neighbor.relationship,
+                                    weight: neighbor.weight,
+                                    content: result.documents[0],
+                                    metadata: result.metadatas ? result.metadatas[0] : null
+                                });
+                            }
+                        } catch (e) {
+                             logger.warn(`[MemoryService] Failed to fetch vector ${neighbor.semanticVectorId} for node ${neighbor.id}`);
                         }
-                    } catch (e) {
-                         logger.warn(`[MemoryService] Failed to fetch vector ${neighbor.semanticVectorId} for node ${neighbor.id}`);
                     }
                 }
             }
@@ -440,10 +442,12 @@ class MemoryService extends Base {
             let {neighbors} = GraphService.getNeighbors({ id: targetId });
 
             // Focus purely on highest-weight semantic and architectural relationships
-            neighbors = neighbors
-                .filter(n => n.weight >= 0.5) // filter weak noise
-                .sort((a, b) => b.weight - a.weight)
-                .slice(0, limit);
+            neighbors = Array.isArray(neighbors)
+                ? neighbors
+                    .filter(n => n.weight >= 0.5) // filter weak noise
+                    .sort((a, b) => b.weight - a.weight)
+                    .slice(0, limit)
+                : [];
 
             const brief = {
                 target: baseNode,
