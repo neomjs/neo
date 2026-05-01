@@ -11,7 +11,7 @@ POLL_INTERVAL=${POLL_INTERVAL:-300} # 5 minutes default
 IDENTITY=${NEO_AGENT_IDENTITY:-"@neo-gemini-3-1-pro"}
 STATE_FILE="/tmp/neo-agent-state.txt"
 CONCURRENCY_LOCK=".neo-ai-data/heartbeat-concurrency.lock"
-HEARTBEAT_LOCK_TTL_SECONDS=${HEARTBEAT_LOCK_TTL_SECONDS:-1800} # 30 minutes
+HEARTBEAT_LOCK_TTL_SECONDS=${HEARTBEAT_LOCK_TTL_SECONDS:-600} # 10 minutes
 # Persistent sweep-error log (#10595). Replaces the prior `2>/dev/null` mask on the
 # `sweepExpiredTasks.mjs` invocation, which silently hid the `ReferenceError: Neo is
 # not defined` regression for the entire lifetime of the bug. Failures now append here
