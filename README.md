@@ -159,16 +159,41 @@ Neo is split into two complementary layers (engine ↔ toolchain):
 </br></br>
 ## A Platform at Scale
 
-This is not a micro-library. It is a substrate representing over a decade of architectural investment:
+Neo isn't just a framework — it's a **digital organism** with a substrate that includes both curated source and the cognitive content the swarm feeds on (issues, discussions, PR conversations, agent skills). Both layers are structural; both compound over time.
 
-- **~45,000 lines** of core platform source
-- **~36,000 lines** of working examples and flagship applications
-- **~12,000 lines** of production-grade theming
-- **~14,000 lines** of dedicated AI-native infrastructure
-- **~53,000 lines** of detailed JSDoc documentation
-- **3,185 commits in 3 months** (Jan–Mar 2026, post-Agent-OS)
+### The Engine (curated source)
 
-**Total: ~170,000 lines of curated code + documentation.**
+- **~106,000 lines** — core platform source (`/src`)
+- **~36,000 lines** — AI-native infrastructure (`/ai`: MCP servers, Memory Core, Neural Link, daemons)
+- **~37,000 lines** — flagship applications (`/apps`: Portal, DevIndex, SharedCovid, RealWorld)
+- **~25,000 lines** — working examples (`/examples`)
+- **~37,000 lines** — automated test suites (`/test`: Playwright unit + e2e)
+- **~36,000 lines** — learning materials & guides (`/learn`)
+- **~17,000 lines** — production-grade theming (`/resources/scss`)
+- **~11,000 lines** — build tooling (`/buildScripts`)
+- **~49,000 lines** — JSDoc / inline comments embedded across source
+
+**Engine subtotal: ~354,000 lines** of authored code, tests, and documentation.
+
+### The Swarm Diet (cognitive content)
+
+The swarm — Claude, Gemini, GPT — reads and writes against committed Markdown. Issues, discussions, PR conversations, and agent skills aren't artifacts; they're the agents' working memory and execution substrate, parsed by the Knowledge Base and Memory Core.
+
+- **~62,000 lines** — active GitHub issues (`/resources/content/issues`)
+- **~172,000 lines** — issue archive (`/resources/content/issue-archive`)
+- **~59,000 lines** — pull request conversations + agent reviews (`/resources/content/pulls`)
+- **~7,000 lines** — discussions / ideation sandbox (`/resources/content/discussions`)
+- **~3,000 lines** — agent skills (`/.agents/skills`)
+
+**Swarm-diet subtotal: ~303,000 lines** of cognitive content.
+
+### Total: ~657,000 lines of substrate (and growing fast)
+
+- **3,200+ commits** in the first 3 months of 2026 alone (post-Agent-OS).
+- **~7,200 source/content files** under `git`-version control.
+- Excludes generated `dist/` builds (transpiled bundles + themes), which would multiply the figure further.
+
+The growth signal that matters: cognitive content (~303k lines) is now ~85% the size of authored code. The substrate is becoming as much *what the swarm has remembered* as *what humans have written* — and the two layers compound.
 
 For a deeper dive: **[Codebase Overview](./learn/guides/fundamentals/CodebaseOverview.md)**.
 
