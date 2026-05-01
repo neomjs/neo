@@ -390,7 +390,7 @@ The content in `/learn` is the source material for the AI Knowledge Base. Query 
 
 ---
 
-### Agent Knowledge Base (`/resources/content/` - 3,923 files, ~178.7k lines)
+### Agent Knowledge Base (`/resources/content/` - 4,441 files, ~302,491 lines, May 1 2026)
 
 The entire historical footprint and live contextual state of the Neo.mjs project is synchronized locally for the Agent OS within `resources/content/`:
 
@@ -694,6 +694,6 @@ If you're coming from other frameworks, here are the key mental shifts:
 
 ## Remember
 
-This is a **~479,000-line platform**, not a 5k-line library. And that's just the indexed source and conceptual knowledge context—it excludes the `/dist` production builds (which would triple it) and transient tracking data arrays.
+This is a **~606,000-line curated substrate** (May 1, 2026 snapshot — see `## Understanding the Scale` at the top for the canonical breakdown), not a 5k-line library. Including `/dist` production builds (transpiled bundles + theme outputs) the substrate approaches **~1,180,000 lines**. The cognitive content (issues + discussions + PR conversations + agent skills) alone is now ~1.6× the engine source — substrate is compounding on the swarm-diet layer.
 
 Don't assume. Query. The knowledge base contains the answers. Your job is to ask the right questions.
