@@ -138,6 +138,24 @@ heartbeat_pulse() {
         local unread=$(get_unread_count)
         local issues=$(get_issues_count)
 
+        # Check Sunsetted State for Phase 1 Recovery (#10601)
+        local script_dir=$(dirname "$0")
+        local sunset_json=$(node "${script_dir}/checkSunsetted.mjs" "$IDENTITY" 2>>"$SWEEP_LOG")
+        if [ $? -eq 0 ] && [ -n "$sunset_json" ]; then
+            local is_sunsetted=$(echo "$sunset_json" | jq -r '.sunsetted')
+            local sunset_reason=$(echo "$sunset_json" | jq -r '.reason')
+
+            if [ "$is_sunsetted" = "true" ]; then
+                echo "[heartbeat $(date -Iseconds)] Phase 1 Recovery Triggered for $IDENTITY. Reason: $sunset_reason" >&2
+                
+                # Use Phase 1/2 Harness Resume Adapter
+                node "${script_dir}/resumeHarness.mjs" "$IDENTITY" "$sunset_reason" 2>>"$SWEEP_LOG"
+                
+                # Continue loop; no need to send regular heartbeat to tmux since we just resumed via OS
+                continue
+            fi
+        fi
+
         # Token Economy: Only inject pulse if there's actionable state. Sweep count does
         # NOT factor into the inject decision — silent maintenance per #10339 AC.
         if [ "$unread" -eq 0 ] && [ "$issues" -eq 0 ]; then
