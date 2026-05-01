@@ -54,7 +54,7 @@ test.describe('ai/scripts/resumeHarness', () => {
             // Depending on if tmux is installed or not, the error could be "tmux exited with code X" or "ENOENT"
             expect(output).toContain('Failed to resume @neo-opus-4-7 via tmux:');
         }
-        
+
         // Let's verify the script content as a static fallback check
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
         expect(scriptContent).toContain("'claude-code-cli': { adapter: 'tmux', tmuxSession: 'claude-code' }");
