@@ -11,6 +11,12 @@ POLL_INTERVAL=${POLL_INTERVAL:-300} # 5 minutes default
 IDENTITY=${NEO_AGENT_IDENTITY:-"@neo-gemini-3-1-pro"}
 STATE_FILE="/tmp/neo-agent-state.txt"
 CONCURRENCY_LOCK=".neo-ai-data/heartbeat-concurrency.lock"
+# Persistent sweep-error log (#10595). Replaces the prior `2>/dev/null` mask on the
+# `sweepExpiredTasks.mjs` invocation, which silently hid the `ReferenceError: Neo is
+# not defined` regression for the entire lifetime of the bug. Failures now append here
+# so operators can `tail` the file when investigating heartbeat behavior. Co-located
+# with `bridge.log` under `wake-daemon/` (already in `DATA_SUBDIRS_TO_LINK` per #10432).
+SWEEP_LOG=".neo-ai-data/wake-daemon/sweep-errors.log"
 
 # Function to get unread messages count via SQLite fast-path
 get_unread_count() {
@@ -55,7 +61,11 @@ sweep_expired_tasks() {
         return
     fi
     local script_dir=$(dirname "$0")
-    local output=$(node "${script_dir}/sweepExpiredTasks.mjs" 2>/dev/null)
+    # Per #10595: stderr surfaces to $SWEEP_LOG (no longer silently masked to /dev/null).
+    # The prior `2>/dev/null` mask hid `ReferenceError: Neo is not defined` for the
+    # full lifetime of the regression empirically anchored in PR #10594's measurement.
+    # Stdout is still captured into $output for the JSON parse — only stderr changes.
+    local output=$(node "${script_dir}/sweepExpiredTasks.mjs" 2>>"$SWEEP_LOG")
     local count=$(echo "$output" | grep -oE '"sweptCount":[0-9]+' | grep -oE '[0-9]+$')
     echo "${count:-0}"
 }
