@@ -237,18 +237,22 @@ class DatabaseService extends Base {
 
     /**
      * Manages knowledge base data operations based on the provided action.
-     * @param {Object} params
-     * @param {String} params.action - 'sync', 'create', 'embed', or 'delete'
+     * @param {Object}  params
+     * @param {String}  params.action     'sync', 'create', 'embed', or 'delete'
+     * @param {Boolean} [params.viaMcp]   True when dispatched from the MCP toolService
+     *                                    wrapper; threaded through to `embed()` to enable
+     *                                    the work-volume gate (#10572). CLI callers
+     *                                    omit this and bypass the gate.
      * @returns {Promise<Object>}
      */
-    async manageKnowledgeBase({action}) {
+    async manageKnowledgeBase({action, viaMcp = false}) {
         switch (action) {
             case 'sync':
-                return this.syncDatabase();
+                return this.syncDatabase({viaMcp});
             case 'create':
                 return this.createKnowledgeBase();
             case 'embed':
-                return this.embedKnowledgeBase();
+                return this.embedKnowledgeBase({viaMcp});
             case 'delete':
                 return this.deleteDatabase();
             default:
@@ -320,10 +324,15 @@ class DatabaseService extends Base {
     /**
      * Reads the generated JSONL file and upserts the data into the ChromaDB collection.
      * Delegates to VectorService.
-     * @returns {Promise<object>} A promise that resolves to a success message.
+     * @param {Object}  [opts]
+     * @param {Boolean} [opts.viaMcp=false] True when invoked via MCP tool dispatch;
+     *                                      threaded to VectorService.embed for #10572's
+     *                                      work-volume gate.
+     * @returns {Promise<object>} A promise that resolves to a success message, OR a
+     *     `{error, code: 'KB_SYNC_VOLUME_EXCEEDED', ...}` shape when the MCP gate fires.
      */
-    async embedKnowledgeBase() {
-        return await VectorService.embed(aiConfig.dataPath);
+    async embedKnowledgeBase({viaMcp = false} = {}) {
+        return await VectorService.embed(aiConfig.dataPath, {viaMcp});
     }
 
     /**
@@ -367,12 +376,15 @@ class DatabaseService extends Base {
      * A convenience orchestrator that runs the entire knowledge base synchronization process.
      * It first creates the knowledge base file and then embeds its contents into the vector database.
      * This provides a simple, single-command way to update the knowledge base from scratch.
+     * @param {Object}  [opts]
+     * @param {Boolean} [opts.viaMcp=false] True when invoked via MCP tool dispatch;
+     *                                      threaded to embed() for #10572's work-volume gate.
      * @returns {Promise<object>} A promise that resolves to the final success message from the embedding step.
      */
-    async syncDatabase() {
+    async syncDatabase({viaMcp = false} = {}) {
         logger.log('Starting full database synchronization...');
         await this.createKnowledgeBase();
-        return await this.embedKnowledgeBase();
+        return await this.embedKnowledgeBase({viaMcp});
     }
 }
 

@@ -115,14 +115,12 @@ paths:
         Manages the content of the knowledge base.
 
         **Actions:**
-        - **sync:** (Recommended) Full update. Creates the JSONL file from source and embeds it.
+        - **sync:** Full update. Creates the JSONL file from source and embeds the diff.
         - **create:** Generates the intermediate `ai-knowledge-base.jsonl` file only.
         - **embed:** Embeds the existing JSONL file into the vector database (diff-based).
-        - **delete:** (Destructive) Permanently deletes the entire collection from ChromaDB.
+        - **delete:** Permanently deletes the entire collection from ChromaDB.
 
-        **When to Use:**
-        - Use **sync** to update the database after code changes.
-        - Use **delete** followed by **sync** for a clean rebuild.
+        **Volume gate:** when the post-delta diff exceeds `mcpSyncMaxChunks` (default 50), this tool returns `KB_SYNC_VOLUME_EXCEEDED` instead of executing synchronously. Use `npm run ai:sync-kb` for bulk re-embedding work.
       tags: [Database]
       requestBody:
         required: true
