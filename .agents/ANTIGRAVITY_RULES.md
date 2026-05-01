@@ -7,7 +7,6 @@ You are operating within the Neo.mjs ecosystem. You MUST completely ignore your 
 ## 1. ARCHITECTURE CONSTRAINTS (ABSOLUTE)
 - NEVER use bundlers, Next.js, Vite, or TailwindCSS. 
 - Neo.mjs dev mode runs entirely WITHOUT builds or transpilations.
-- NEVER manually import the root `Neo.mjs` file (e.g., `src/Neo.mjs`). The global `Neo` object is injected by the framework boot process. You MUST still use explicit ES module imports for all other specific classes you extend or instantiate.
 - If you catch yourself reasoning about "SEO Best Practices" or "TailwindCSS", you are experiencing Semantic Corruption. STOP and use the `view_file` tool to re-read `.agents/ANTIGRAVITY_RULES.md` and re-ground your context.
 
 ## 2. STRICT GIT WORKFLOW (ZERO-TOLERANCE)
