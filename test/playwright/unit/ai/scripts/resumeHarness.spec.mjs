@@ -44,21 +44,19 @@ test.describe('ai/scripts/resumeHarness', () => {
         }
     });
 
-    test('Opus identity routes to tmux with claude-code session', async () => {
+    test('Opus identity routes to osascript with claude-desktop and tabShortcut 3', async () => {
         try {
             execFileSync('node', [scriptPath, '@neo-opus-4-7', 'test'], { encoding: 'utf-8', stdio: 'pipe' });
         } catch (e) {
-            // It might fail because tmux is not running or no session named 'claude-code'
-            // We just want to check if it attempted to use tmux with claude-code
+            // It might fail if osascript fails to activate Claude or System Events isn't permitted
             const output = e.stderr + e.stdout;
-            // Depending on if tmux is installed or not, the error could be "tmux exited with code X" or "ENOENT"
-            expect(output).toContain('Failed to resume @neo-opus-4-7 via tmux:');
+            expect(output).toContain('Failed to resume @neo-opus-4-7 via osascript:');
         }
 
         // Let's verify the script content as a static fallback check
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
-        expect(scriptContent).toContain("'claude-code-cli': { adapter: 'tmux', tmuxSession: 'claude-code' }");
-        expect(scriptContent).toContain("'@neo-opus-4-7': 'claude-code-cli'");
+        expect(scriptContent).toContain("'claude-desktop': { appName: 'Claude', adapter: 'osascript', tabShortcut: '3' }");
+        expect(scriptContent).toContain("'@neo-opus-4-7': 'claude-desktop'");
     });
 
     test('GPT identity routes to tmux with codex session', async () => {

@@ -47,13 +47,13 @@ async function resumeHarness(identity, reason) {
     // Harness Registry resolving the enum to specific executable paths/scripts
     const HARNESS_REGISTRY = {
         'antigravity-ide': { appName: 'Antigravity', adapter: 'osascript' },
-        'claude-code-cli': { adapter: 'tmux', tmuxSession: 'claude-code' },
+        'claude-desktop': { appName: 'Claude', adapter: 'osascript', tabShortcut: '3' },
         'codex-desktop': { adapter: 'tmux', tmuxSession: 'codex' }
     };
 
     const identityMap = {
         '@neo-gemini-3-1-pro': 'antigravity-ide',
-        '@neo-opus-4-7': 'claude-code-cli',
+        '@neo-opus-4-7': 'claude-desktop',
         '@neo-gpt': 'codex-desktop'
     };
 
@@ -69,7 +69,7 @@ async function resumeHarness(identity, reason) {
 
     try {
         if (adapter === 'osascript') {
-            const { appName } = harnessTarget;
+            const { appName, tabShortcut } = harnessTarget;
             // Uses the "Key Code 36 (Enter) Defense" established in bridge-daemon.mjs
             const osascriptArgs = [
                 '-e', 'on run argv',
@@ -84,6 +84,10 @@ async function resumeHarness(identity, reason) {
                 '-e', '  tell application "System Events"',
                 '-e', '    set frontmostProcess to first application process whose frontmost is true',
                 '-e', '    tell frontmostProcess',
+                ...(tabShortcut ? [
+                '-e', `      keystroke "${tabShortcut}" using command down`,
+                '-e', '      delay 0.2'
+                ] : []),
                 '-e', '      set the clipboard to ""',
                 '-e', '      keystroke "a" using command down',
                 '-e', '      delay 0.2',
