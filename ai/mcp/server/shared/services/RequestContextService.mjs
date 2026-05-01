@@ -2,6 +2,46 @@ import {AsyncLocalStorage} from 'async_hooks';
 import Base                from '../../../../../src/core/Base.mjs';
 
 /**
+ * @summary Sentinel `userId` value tagging records that belong to the historical commons —
+ * accessible to all tenants via the additive read filter.
+ *
+ * Reads in tenant-aware mode use `where: {$or: [{userId: <current>}, {userId: SHARED_USER_ID}]}`,
+ * granting every authenticated tenant access to their own data PLUS the shared baseline.
+ * The migration runner (`ai/scripts/backfillChromaSharedUserId.mjs`, #10556) tags any
+ * pre-#10145 ChromaDB records lacking a `userId` key with this sentinel so the additive
+ * read filter can return them. New writes always tag with the resolved per-tenant userId,
+ * never with `SHARED_USER_ID`.
+ *
+ * @member {String}
+ * @see #10556 — chromadb metadata backfill that introduces this sentinel
+ * @see #10017 — adjacent SQLite Native Edge Graph migration (different storage layer, gradual)
+ */
+export const SHARED_USER_ID = 'shared';
+
+/**
+ * @summary Strips the `@`-prefix from AgentIdentity-style identifiers so userId comparisons
+ * are always canonical-form.
+ *
+ * AgentIdentity graph node IDs use the form `@neo-opus-4-7` (per #10144 seed convention),
+ * but ChromaDB metadata `userId` values are stored without the prefix (`neo-opus-4-7`).
+ * Without a normalization boundary, code paths that mix the two forms produce silent
+ * self-filtering — a write tags `userId: 'neo-opus-4-7'` but a read filter that uses
+ * `userId: '@neo-opus-4-7'` returns zero rows even for the writer's own data.
+ *
+ * Use this helper at every read/write boundary that compares identifiers across the
+ * AgentIdentity ↔ userId namespaces.
+ *
+ * @param {String|null|undefined} input The identifier to normalize.
+ * @returns {String|undefined} The normalized identifier (no `@` prefix), or `undefined` for
+ *     null/undefined input. Empty string is preserved as empty string.
+ */
+export function normalizeUserId(input) {
+    if (input == null) return undefined;
+    const str = String(input);
+    return str.startsWith('@') ? str.slice(1) : str;
+}
+
+/**
  * @summary Request-scoped context propagation for MCP servers.
  *
  * Bridges the gap between the Express / MCP transport layer (where per-request auth claims
@@ -9,6 +49,10 @@ import Base                from '../../../../../src/core/Base.mjs';
  * no access to the originating HTTP request). Wraps Node.js's built-in `AsyncLocalStorage` in
  * a Neo singleton so services can read request-scoped identity — `userId`, `username` — without
  * any of the primitive leaking into their method signatures.
+ *
+ * **Module-level exports:**
+ * - {@link SHARED_USER_ID} — sentinel value for legacy/commons records (#10556)
+ * - {@link normalizeUserId} — `@`-prefix stripping boundary helper (#10556)
  *
  * **Identity flow (Epic #9999, sub-epic #10016, tickets #10000 + #10145):**
  *
