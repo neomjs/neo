@@ -1,5 +1,6 @@
 import Base                                                        from '../../../src/core/Base.mjs';
 import {Memory_Config as aiConfig, Memory_GraphService as GraphService} from '../../services.mjs';
+import KBRecorderService                                           from '../../mcp/server/knowledge-base/services/KBRecorderService.mjs';
 import logger                                                      from '../../mcp/server/memory-core/logger.mjs';
 
 /**
@@ -42,6 +43,8 @@ const ISO_VERIFIED_AT_PATTERN = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}\.\d{3}Z
  *      missing and should be added). Surfaced through the same `capabilityGap` channel +
  *      `sandman_handoff.md` section pattern as the other gap types, not via `logger.warn`
  *      (logger is ephemeral; the graph + handoff is the durable substrate). Added in #10087.
+ *    - `[KB_DEMAND_GAP]` — repeated agent questions from the Knowledge Base FAQ telemetry
+ *      table map to this concept, but the FAQ cluster still lacks strong guide coverage.
  *    The three coverage signals share the `aiConfig.data.guideGapWeightThreshold` gate
  *    (config-lifted in #10086 for curator tuning; defaults to `0.8` = tier-1 baseline).
  *    `[CONCEPT_REVERIFY_DUE]` is not weight-gated because freshness review is a curation
@@ -184,6 +187,8 @@ class GapInferenceEngine extends Base {
             return;
         }
 
+        const kbDemandGaps = await this.getKbDemandGapsByConcept();
+
         logger.info(`[GapInferenceEngine] Concept-graph gap pass: traversing ${conceptNodes.length} concepts.`);
 
         // Resolved once per cycle (not per concept) — the config value is read at gate time so
@@ -228,8 +233,53 @@ class GapInferenceEngine extends Base {
                 }
             }
 
+            gaps.push(...(kbDemandGaps.get(concept.id) || []));
+
             this.applyGapsToNode(concept, gaps);
         }
+    }
+
+    /**
+     * @summary Maps materialized Agent FAQ demand rows onto Concept Ontology nodes.
+     *
+     * `KBRecorderService` owns `kb_query_log` / `kb_query_faqs`; this method only consumes its
+     * read model and converts high-frequency uncovered questions into the same durable
+     * `capabilityGap` channel used by structural concept gaps. The FAQ table's
+     * `has_strong_guide_coverage` flag is authoritative here — it keeps the daemon from
+     * re-running semantic coverage checks during every REM cycle.
+     *
+     * @returns {Promise<Map<String, String[]>>} Concept ID to `[KB_DEMAND_GAP]` strings.
+     * @protected
+     */
+    async getKbDemandGapsByConcept() {
+        const gapsByConcept = new Map();
+
+        try {
+            await KBRecorderService.ready();
+
+            const {faqs} = KBRecorderService.listAgentFaqs({refresh: true});
+
+            for (const faq of faqs) {
+                if (faq.hasStrongGuideCoverage) continue;
+
+                const relatedConceptIds = faq.relatedConceptIds || [];
+
+                for (const conceptId of relatedConceptIds) {
+                    if (!gapsByConcept.has(conceptId)) {
+                        gapsByConcept.set(conceptId, []);
+                    }
+
+                    gapsByConcept.get(conceptId).push(
+                        `[KB_DEMAND_GAP] Agents asked "${faq.canonicalQuery}" ${faq.count} times ` +
+                        `(cluster ${faq.clusterId}) but the mapped Concept Ontology area lacks strong guide coverage.`
+                    );
+                }
+            }
+        } catch (err) {
+            logger.debug('[GapInferenceEngine] KB demand gap pass skipped:', err.message);
+        }
+
+        return gapsByConcept;
     }
 
     /**
