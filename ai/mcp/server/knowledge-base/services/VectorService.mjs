@@ -201,11 +201,17 @@ class VectorService extends Base {
         // CLI invocations pass viaMcp: false and bypass.
         const mcpThreshold = aiConfig.mcpSyncMaxChunks ?? 50;
         if (viaMcp && chunksToProcess.length > mcpThreshold) {
+            // Defensive log-path resolution mirrors logger.mjs's lazy resolution — keeps
+            // the refusal message coherent even on existing gitignored config.mjs deployments
+            // that pre-date the `logPath` template key. Without the fallback, the rendered
+            // message would carry `undefined/kb-server-...`.
+            const logDir = aiConfig.logPath || `${aiConfig.neoRootDir}/.neo-ai-data/logs`;
             const errorPayload = {
                 error  : `KB sync work volume exceeds MCP-callable threshold`,
                 message: `${chunksToProcess.length} chunks need re-embedding (threshold: ${mcpThreshold}). ` +
                          `Synchronous embedding at this volume risks agent freeze. ` +
-                         `Run via CLI: \`npm run ai:sync-kb\`.`,
+                         `Run via CLI: \`npm run ai:sync-kb\`. ` +
+                         `Tail progress: \`tail -f ${logDir}/kb-server-$(date +%Y-%m-%d).log\`.`,
                 code           : 'KB_SYNC_VOLUME_EXCEEDED',
                 chunksToProcess: chunksToProcess.length,
                 threshold      : mcpThreshold
