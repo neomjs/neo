@@ -25,8 +25,8 @@ subIssues:
   - '[ ] 10136 Rewrite CodebaseOverview.md to reflect Two Hemispheres architecture + Dream Pipeline'
   - '[ ] 10139 Extend Memory Core with Explicit A2A Primitive'
   - '[ ] 10143 Graph-first Memory artifacts: lift Memory + Session to first-class nodes'
-  - '[ ] 10587 Capture runSandman inference hard-failures durably'
-subIssuesCompleted: 4
+  - '[x] 10587 Capture runSandman inference hard-failures durably'
+subIssuesCompleted: 5
 subIssuesTotal: 11
 blockedBy: []
 blocking:
