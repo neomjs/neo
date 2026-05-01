@@ -181,6 +181,7 @@ const defaultConfig = {
         fileNameMatch    : 30,
         classNameMatch   : 20,
         guideMatch       : 50,
+        conceptMatch     : 15,
         blogMatch        : 5,
         namePartMatch    : 30,
         ticketPenalty    : -70,
