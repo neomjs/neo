@@ -8,6 +8,9 @@ This protocol ensures that feedback is:
 2. **Actionable:** Clearly delineating block-level requirements before a merge can occur.
 3. **Graph-Extractable:** Structured with specific Markdown tags so the background Retrospective Agent (Gemma 4:31B) can mathematically ingest the feedback into the Native Edge Graph.
 
+> **Measurement Notice (Epic #10537):**
+> We are actively tracking the loaded surface of PR review cycles to establish a baseline for modularization. Before conducting reviews, consult the [Loaded-Surface Measurement Methodology](./measurement-methodology.md) and ensure you capture and log the `wc -c` metric for your cycle.
+
 ## 1. Core Philosophy
 - **For Internal Agents (Peer-Review):** Be objective, clinical, and strict. Enforce the "Fat Ticket" protocol and strict JSDoc completeness.
 - **For External/First-Time Contributors:** Start with positive reinforcement. Acknowledge their effort. Provide explicit, helpful examples when asking for changes.
