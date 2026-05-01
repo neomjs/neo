@@ -16,7 +16,7 @@ setup({
 import {test, expect}         from '@playwright/test';
 import Neo                    from '../../../../../../../../src/Neo.mjs';
 import * as core              from '../../../../../../../../src/core/_export.mjs';
-import RequestContextService  from '../../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import RequestContextService, {SHARED_USER_ID, normalizeUserId}  from '../../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
 test.describe('Neo.ai.mcp.server.shared.services.RequestContextService (#10000)', () => {
     test('get/getUserId/getUsername return undefined when no context is active', () => {
@@ -94,5 +94,84 @@ test.describe('Neo.ai.mcp.server.shared.services.RequestContextService (#10000)'
 
         expect(resultA).toBe('u-alpha');
         expect(resultB).toBe('u-beta');
+    });
+});
+
+test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556)', () => {
+    test('SHARED_USER_ID is the string `shared`', () => {
+        // The sentinel value the migration runner tags legacy records with, and the read-side
+        // $or filter grants additive access to.
+        expect(SHARED_USER_ID).toBe('shared');
+    });
+
+    test('SHARED_USER_ID is in sync with the migration runner script\'s hardcoded copy', async () => {
+        // The standalone runner at `ai/scripts/backfillChromaSharedUserId.mjs` intentionally
+        // does NOT import this module — it avoids the Neo class-system bootstrap to keep the
+        // script dependency-light and fast to invoke. Instead, it hardcodes the same sentinel
+        // value with a sync-with-RequestContextService comment. This test enforces the sync
+        // invariant: the literal in the script MUST match the exported constant. Without this
+        // assertion, the script could silently drift (e.g., someone renames the export but
+        // misses the script copy → migrator tags records with the old value while reads filter
+        // for the new value, yielding zero observable rows after a successful-looking migration).
+        const fs   = await import('fs');
+        const path = await import('path');
+
+        // Resolve relative to the spec file's directory; the spec lives 8 levels deep from repo root.
+        const repoRoot   = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../../../../../..');
+        const scriptPath = path.join(repoRoot, 'ai/scripts/backfillChromaSharedUserId.mjs');
+        const source     = fs.readFileSync(scriptPath, 'utf-8');
+
+        // Match the `const SHARED_USER_ID = '<value>';` line at module scope.
+        const match = source.match(/^const\s+SHARED_USER_ID\s*=\s*['"](.+?)['"]\s*;?\s*$/m);
+        expect(match, 'expected `const SHARED_USER_ID = ...` in migration runner script').not.toBeNull();
+        expect(match[1]).toBe(SHARED_USER_ID);
+    });
+
+    test('normalizeUserId strips `@`-prefix at the AgentIdentity ↔ userId boundary', () => {
+        // AgentIdentity nodeId form is `@neo-opus-4-7`; ChromaDB metadata userId form is
+        // `neo-opus-4-7`. The boundary helper canonicalizes both to the no-prefix form
+        // so read filters never self-filter.
+        expect(normalizeUserId('@neo-opus-4-7')).toBe('neo-opus-4-7');
+        expect(normalizeUserId('@alice')).toBe('alice');
+        expect(normalizeUserId('@')).toBe('');
+    });
+
+    test('normalizeUserId is idempotent — calling on an already-normalized value is a no-op', () => {
+        // Critical for the canonical-form invariant: any code path that calls normalizeUserId
+        // twice (boundary → service → cache, etc.) must not double-strip into something invalid.
+        expect(normalizeUserId('alice')).toBe('alice');
+        expect(normalizeUserId('neo-opus-4-7')).toBe('neo-opus-4-7');
+        expect(normalizeUserId(normalizeUserId('@alice'))).toBe('alice');
+    });
+
+    test('normalizeUserId returns undefined for null/undefined inputs', () => {
+        // Null-safe boundary: services pass `RequestContextService.getUserId()` directly,
+        // which returns undefined when no context is active. The helper preserves the
+        // single-tenant fallthrough signal rather than coercing to empty-string.
+        expect(normalizeUserId(undefined)).toBeUndefined();
+        expect(normalizeUserId(null)).toBeUndefined();
+    });
+
+    test('normalizeUserId preserves empty-string distinct from null', () => {
+        // Edge case: an empty-string userId is semantically distinct from "no userId set"
+        // (which is undefined). The helper preserves the distinction — services downstream
+        // can still treat empty-string as a sentinel if needed.
+        expect(normalizeUserId('')).toBe('');
+    });
+
+    test('normalizeUserId coerces non-string inputs to strings before processing', () => {
+        // Defensive: if a caller accidentally passes a number or boolean (e.g., a metadata
+        // field that's been parsed loose), the helper coerces rather than throwing.
+        expect(normalizeUserId(42)).toBe('42');
+        expect(normalizeUserId(true)).toBe('true');
+    });
+
+    test('canonical-form invariant — both prefix forms collapse to the same value', () => {
+        // The load-bearing assertion for #10556: any code path that ever produces both forms
+        // must converge on a single canonical comparison value at boundary time. Without this
+        // invariant, a write tagging `userId: 'x'` would be invisible to a read filtering
+        // `userId: '@x'` — the silent-self-filter trap.
+        expect(normalizeUserId('@x')).toBe(normalizeUserId('x'));
+        expect(normalizeUserId('@neo-opus-4-7')).toBe(normalizeUserId('neo-opus-4-7'));
     });
 });

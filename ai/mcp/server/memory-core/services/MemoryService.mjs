@@ -5,7 +5,7 @@ import GraphService          from './GraphService.mjs';
 import logger                from '../logger.mjs';
 import SessionService        from './SessionService.mjs';
 import aiConfig              from '../config.mjs';
-import RequestContextService from '../../shared/services/RequestContextService.mjs';
+import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../shared/services/RequestContextService.mjs';
 
 /**
  * Computes a lightweight inbox snapshot for the bound AgentIdentity to piggyback on every
@@ -172,7 +172,7 @@ class MemoryService extends Base {
 
             // Tenant-isolation tag (#10000): present only when a request context was established
             // by the SSE transport layer. In stdio mode it is absent — single-tenant fallthrough.
-            const userId = RequestContextService.getUserId();
+            const userId = normalizeUserId(RequestContextService.getUserId());
             if (userId) metadata.userId = userId;
 
             if (agent) metadata.agent = agent;
@@ -237,10 +237,16 @@ class MemoryService extends Base {
 
             const collection = await StorageRouter.getMemoryCollection();
 
-            // Tenant read-filter (#10000): adds userId to the where clause when a request context
-            // is active. In stdio mode userId is undefined and the filter reduces to sessionId alone.
-            const userId = RequestContextService.getUserId();
-            const where  = userId ? { $and: [{ sessionId }, { userId }] } : { sessionId };
+            // Tenant read-filter (#10000) with additive shared-commons access (#10556): when a
+            // userId resolves, the filter returns the tenant's own records AND records tagged
+            // with SHARED_USER_ID (legacy pre-#10145 data backfilled by the migration runner,
+            // plus any explicitly-shared future data). In stdio mode without resolved identity,
+            // the filter reduces to sessionId alone — single-tenant fallthrough preserved.
+            // normalizeUserId strips `@`-prefix at the AgentIdentity ↔ userId boundary.
+            const userId = normalizeUserId(RequestContextService.getUserId());
+            const where  = userId
+                ? {$and: [{sessionId}, {$or: [{userId}, {userId: SHARED_USER_ID}]}]}
+                : {sessionId};
 
             const result = await collection.get({
                 where,
@@ -301,15 +307,18 @@ class MemoryService extends Base {
                 include   : ['metadatas']
             };
 
-            // Tenant-scoped where clause (#10000). Merges userId with the caller-provided
-            // sessionId when both are present; either side is optional.
-            const userId = RequestContextService.getUserId();
-            if (sessionId && userId) {
-                queryArgs.where = { $and: [{ sessionId }, { userId }] };
+            // Tenant-scoped where clause (#10000) with additive shared-commons access (#10556).
+            // userId-resolved branches return the tenant's own records PLUS SHARED_USER_ID-tagged
+            // records (legacy commons + explicit shares); unresolved-identity preserves single-tenant
+            // fallthrough. normalizeUserId handles the AgentIdentity ↔ userId boundary.
+            const userId    = normalizeUserId(RequestContextService.getUserId());
+            const tenantOr  = userId ? {$or: [{userId}, {userId: SHARED_USER_ID}]} : null;
+            if (sessionId && tenantOr) {
+                queryArgs.where = {$and: [{sessionId}, tenantOr]};
             } else if (sessionId) {
-                queryArgs.where = { sessionId };
-            } else if (userId) {
-                queryArgs.where = { userId };
+                queryArgs.where = {sessionId};
+            } else if (tenantOr) {
+                queryArgs.where = tenantOr;
             }
 
             const searchResult = await collection.query(queryArgs);
@@ -376,7 +385,7 @@ class MemoryService extends Base {
             // Tenant defense-in-depth (#10000): the graph is shared across users until #10011 adds
             // SQLite row-level security. If a neighbor's semanticVectorId points at another user's
             // summary, the userId filter reduces the fetch to zero rows rather than leaking it.
-            const userId = RequestContextService.getUserId();
+            const userId = normalizeUserId(RequestContextService.getUserId());
 
             if (Array.isArray(strategicNeighbors)) {
                 for (const neighbor of strategicNeighbors) {
@@ -386,7 +395,7 @@ class MemoryService extends Base {
                                 ids    : [neighbor.semanticVectorId],
                                 include: ['documents', 'metadatas']
                             };
-                            if (userId) getArgs.where = {userId};
+                            if (userId) getArgs.where = {$or: [{userId}, {userId: SHARED_USER_ID}]};
                             const result = await collection.get(getArgs);
 
                             if (result.documents && result.documents.length > 0) {
@@ -459,7 +468,7 @@ class MemoryService extends Base {
             // Tenant defense-in-depth (#10000): same rationale as getContextFrontier — the graph
             // may return a neighbor whose vector belongs to another tenant until #10011 isolates
             // the graph itself. userId filter converts cross-tenant leaks into empty results.
-            const userId = RequestContextService.getUserId();
+            const userId = normalizeUserId(RequestContextService.getUserId());
 
             for (const neighbor of neighbors) {
                 let episodicContext = null;
@@ -470,7 +479,7 @@ class MemoryService extends Base {
                             ids    : [neighbor.semanticVectorId],
                             include: ['documents']
                         };
-                        if (userId) getArgs.where = {userId};
+                        if (userId) getArgs.where = {$or: [{userId}, {userId: SHARED_USER_ID}]};
                         const result = await collection.get(getArgs);
                         if (result.documents && result.documents.length > 0) {
                             episodicContext = result.documents[0];

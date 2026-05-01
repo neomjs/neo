@@ -2,7 +2,7 @@ import aiConfig              from '../config.mjs';
 import Base                  from '../../../../../src/core/Base.mjs';
 import StorageRouter         from '../managers/StorageRouter.mjs';
 import logger                from '../logger.mjs';
-import RequestContextService from '../../shared/services/RequestContextService.mjs';
+import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../shared/services/RequestContextService.mjs';
 
 
 /**
@@ -53,12 +53,14 @@ class SummaryService extends Base {
     async deleteAllSummaries() {
         try {
             const collection = await StorageRouter.getSummaryCollection();
-            const userId     = RequestContextService.getUserId();
+            const userId     = normalizeUserId(RequestContextService.getUserId());
 
             // Multi-tenant branch (#10000): when an authenticated user invokes this, only their
             // own summaries are deleted — the `collection.drop()` path would nuke every tenant's
             // data in a unified deployment. `collection.delete({where: {userId}})` scopes the
-            // destructive operation to the current tenant's rows.
+            // destructive operation to the current tenant's rows. Note: the filter intentionally
+            // does NOT include SHARED_USER_ID (#10556) — deleting "all my summaries" must not
+            // touch the shared commons even though reads include it via the additive $or filter.
             if (userId) {
                 const before = await collection.get({
                     where  : {userId},
@@ -104,10 +106,14 @@ class SummaryService extends Base {
         try {
             const collection = await StorageRouter.getSummaryCollection();
 
-            // Tenant read-filter (#10000): applied to both the batched metadata sweep (phase 1)
-            // and the slice-fetch (phase 3). Undefined in stdio mode = legacy unfiltered read.
-            const userId = RequestContextService.getUserId();
-            const where  = userId ? {userId} : undefined;
+            // Tenant read-filter (#10000) with additive shared-commons access (#10556): when a
+            // request context resolves a userId, return both the tenant's own records AND records
+            // tagged with SHARED_USER_ID (legacy pre-#10145 data backfilled by the migration runner,
+            // plus any explicitly-shared future data). Undefined in stdio mode = legacy unfiltered.
+            // normalizeUserId strips `@`-prefix so AgentIdentity nodeId vs ChromaDB userId never
+            // self-filters.
+            const userId = normalizeUserId(RequestContextService.getUserId());
+            const where  = userId ? {$or: [{userId}, {userId: SHARED_USER_ID}]} : undefined;
 
             // Phase 1: Fetch ALL metadata (lightweight)
             const
@@ -240,14 +246,19 @@ class SummaryService extends Base {
                 include   : ['metadatas', 'documents']
             };
 
-            // Tenant-scoped where clause (#10000) merged with the optional category filter.
-            const userId = RequestContextService.getUserId();
-            if (category && userId) {
-                queryArgs.where = { $and: [{ category }, { userId }] };
+            // Tenant-scoped where clause (#10000) with additive shared-commons access (#10556).
+            // normalizeUserId handles the AgentIdentity-vs-userId namespace boundary. When userId
+            // resolves, the filter returns the tenant's own records PLUS SHARED_USER_ID-tagged
+            // records (legacy commons + explicit shares); when no userId, the legacy single-tenant
+            // pass-through is preserved for daemon contexts.
+            const userId    = normalizeUserId(RequestContextService.getUserId());
+            const tenantOr  = userId ? {$or: [{userId}, {userId: SHARED_USER_ID}]} : null;
+            if (category && tenantOr) {
+                queryArgs.where = {$and: [{category}, tenantOr]};
             } else if (category) {
-                queryArgs.where = { category };
-            } else if (userId) {
-                queryArgs.where = { userId };
+                queryArgs.where = {category};
+            } else if (tenantOr) {
+                queryArgs.where = tenantOr;
             }
 
             const searchResult = await collection.query(queryArgs);
