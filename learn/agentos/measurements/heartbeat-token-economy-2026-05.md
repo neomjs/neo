@@ -103,6 +103,29 @@ Do not tighten fallback polling below 5 minutes. ADR 0002 assigns the 30-60 seco
 push-based wake substrate and its coalescing window; polling at that cadence would reintroduce the load pattern the
 push substrate was designed to avoid.
 
+## Concurrency Semantics
+
+The heartbeat uses a file mutex at `.neo-ai-data/heartbeat-concurrency.lock` to prevent overlapping pulses while an
+agent is already performing expensive work.
+
+The semantics are deliberately skip-based:
+
+- **Fresh lock present:** skip the current pulse.
+- **No lock:** run the deterministic heartbeat checks.
+- **Stale lock:** clear the lock and continue. The default stale-lock threshold is `30` minutes
+  (`HEARTBEAT_LOCK_TTL_SECONDS=1800`).
+- **Missed pulses:** do not queue. The next successful pulse re-reads Memory Core and GitHub state.
+
+Agents and scripts can wrap expensive work with:
+
+```bash
+node ai/scripts/heartbeatLock.mjs -- npx playwright test test/playwright/unit/foo.spec.mjs
+```
+
+The wrapper creates the lock before the command starts and removes it in a `finally` path after the command exits,
+including failure exits. This preserves the heartbeat as a fallback/watchdog: idle sessions can still be pulsed,
+while long-running inference, test, memory extraction, or review jobs can suppress overlapping heartbeat injections.
+
 ## Architectural Boundary
 
 The heartbeat is not the primary long-term wake substrate. Per ADR 0002 §6.5, push-capable identities should bypass
