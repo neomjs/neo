@@ -268,6 +268,78 @@ test.describe('Neo.ai.services.ConceptService', () => {
         fs.rmSync(tmpDir, {recursive: true});
     });
 
+    test('classifyConcept should respect the limit parameter', () => {
+        const nodes = [
+            {id: 'c1', name: 'C1', tier: 1, description: 'A', uniqueToNeo: false, tags: []},
+            {id: 'c2', name: 'C2', tier: 1, description: 'B', uniqueToNeo: false, tags: []},
+            {id: 'c3', name: 'C3', tier: 1, description: 'C', uniqueToNeo: false, tags: []}
+        ];
+        const edges = [
+            {source: 'c1', target: 'file:src/shared/Foo.mjs', type: 'IMPLEMENTED_BY'},
+            {source: 'c2', target: 'file:src/shared/Foo.mjs', type: 'IMPLEMENTED_BY'},
+            {source: 'c3', target: 'file:src/shared/Foo.mjs', type: 'IMPLEMENTED_BY'}
+        ];
+        const tmpDir = createTestFixture(nodes, edges);
+
+        ConceptService.defaultConceptsDir = tmpDir;
+        ConceptService.loadGraph();
+
+        const defaultResult = ConceptService.classifyConcept('src/shared/Foo.mjs');
+        expect(defaultResult.length).toBe(3);
+
+        const limitedResult = ConceptService.classifyConcept('src/shared/Foo.mjs', {limit: 2});
+        expect(limitedResult.length).toBe(2);
+
+        fs.rmSync(tmpDir, {recursive: true});
+    });
+
+    // ── findConceptsRelevantTo ────────────────────────────────
+
+    test('findConceptsRelevantTo should rank matches and respect limits', () => {
+        const nodes = [
+            {id: 'c1', name: 'Grid Component', tier: 1, description: 'Main grid component', uniqueToNeo: false, tags: ['grid']},
+            {id: 'c2', name: 'Grid Row', tier: 2, description: 'Row for grid', uniqueToNeo: false, tags: ['grid', 'row']},
+            {id: 'c3', name: 'Grid Cell', tier: 3, description: 'Cell for grid row', uniqueToNeo: false, tags: ['grid', 'cell']},
+            {id: 'c4', name: 'Button', tier: 1, description: 'Clickable button', uniqueToNeo: false, tags: ['button']}
+        ];
+        const tmpDir = createTestFixture(nodes, []);
+
+        ConceptService.defaultConceptsDir = tmpDir;
+        ConceptService.loadGraph();
+
+        const results = ConceptService.findConceptsRelevantTo('I need to fix the grid component', {limit: 2});
+        expect(results.length).toBe(2);
+        expect(results[0].id).toBe('c1');
+        expect(results[1].id).toBe('c2');
+
+        fs.rmSync(tmpDir, {recursive: true});
+    });
+
+    // ── findGapsRelevantTo ────────────────────────────────────
+
+    test('findGapsRelevantTo should return missing gaps filtered by relevance and limit', () => {
+        const nodes = [
+            {id: 'c1', name: 'Grid Component', tier: 1, description: 'Main grid', uniqueToNeo: false, tags: ['grid']},
+            {id: 'c2', name: 'Grid View', tier: 2, description: 'Grid visual', uniqueToNeo: false, tags: ['grid']},
+            {id: 'c3', name: 'Button', tier: 1, description: 'Button', uniqueToNeo: false, tags: ['button']}
+        ];
+        const edges = [
+            {source: 'c3', target: 'file:learn/guides/Button.md', type: 'EXPLAINED_BY'}
+        ];
+        const tmpDir = createTestFixture(nodes, edges);
+
+        ConceptService.defaultConceptsDir = tmpDir;
+        ConceptService.loadGraph();
+
+        const gaps = ConceptService.findGapsRelevantTo('Document the grid component', {limit: 1});
+
+        expect(gaps.length).toBe(1);
+        expect(gaps[0].concept.id).toBe('c1');
+        expect(gaps[0].missingEdgeTypes).toContain('EXPLAINED_BY');
+
+        fs.rmSync(tmpDir, {recursive: true});
+    });
+
     // ── getConceptTree ────────────────────────────────────────
 
     test('getConceptTree should build a nested tree from the anchor', () => {
