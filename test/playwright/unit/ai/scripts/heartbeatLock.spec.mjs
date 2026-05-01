@@ -109,7 +109,7 @@ test.describe('ai/scripts/heartbeatLock', () => {
     test('swarm-heartbeat.sh defines the skip, stale-clear, and no-queue semantics', async () => {
         const script = await fs.readFile(path.resolve(process.cwd(), 'ai/scripts/swarm-heartbeat.sh'), 'utf-8');
 
-        expect(script).toContain('HEARTBEAT_LOCK_TTL_SECONDS=${HEARTBEAT_LOCK_TTL_SECONDS:-1800}');
+        expect(script).toContain('HEARTBEAT_LOCK_TTL_SECONDS=${HEARTBEAT_LOCK_TTL_SECONDS:-600}');
         expect(script).toContain('heartbeat_lock_active()');
         expect(script).toContain('rm -f "$CONCURRENCY_LOCK"');
         expect(script).toContain('Missed pulses are not queued');
