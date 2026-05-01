@@ -6,3 +6,7 @@ triggers: Use this skill when evaluating a Pull Request, writing a PR review, st
 # PR Review Skill
 
 If you are tasked with conducting a Pull Request review, generating feedback, or helping a user formulate a PR Review, you MUST immediately use the `view_file` tool to read and strictly adhere to `.agents/skills/pr-review/references/pr-review-guide.md` before proceeding.
+
+**Cycle 1 (new review):** load `.agents/skills/pr-review/assets/pr-review-template.md` and apply its full sectioned structure.
+
+**Cycle N (re-review, N≥2):** load `.agents/skills/pr-review/assets/pr-review-followup-template.md` instead — compact delta-only shape.
