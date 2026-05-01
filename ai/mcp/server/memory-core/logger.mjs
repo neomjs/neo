@@ -90,4 +90,23 @@ logger.log   = createLogMethod('log');
 logger.warn  = createLogMethod('warn');
 logger.error = createLogMethod('error');
 
+/**
+ * @summary Flushes the durable Memory Core log stream before immediate process termination.
+ *
+ * Short-lived operator scripts such as `runSandman.mjs` can write a final diagnostic and
+ * then exit nonzero in the same tick. Exposing this small flush primitive keeps those
+ * breadcrumbs durable without changing the logger's call-site ergonomics for long-lived
+ * MCP server processes.
+ *
+ * @returns {Promise<void>}
+ */
+logger.flush = () => new Promise(resolve => {
+    if (!currentStream) {
+        resolve();
+        return;
+    }
+
+    currentStream.write('', resolve);
+});
+
 export default logger;
