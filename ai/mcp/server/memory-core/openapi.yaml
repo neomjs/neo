@@ -885,7 +885,7 @@ paths:
                 wakeSuppressed:
                   type: boolean
                   default: false
-                  description: "Persist the message without emitting SENT_TO_ME wake events. Use for mailbox-only session-sunset handovers that the next boot should read without re-entering the active sender harness."
+                  description: "Persist the message without emitting SENT_TO_ME wake events. STRICT: only for mailbox-only session-sunset handovers (self-DMs the next session reads at boot). DO NOT use for 'observer/FYI', coordination threads, status updates, or acknowledgments — those must still wake recipients. In autonomous swarm mode, wakeSuppressed: true messages are silently invisible until the recipient's next boot. Default: omit (= false)."
                 task:
                   type: object
                   description: "Optional A2A Task envelope (https://a2a-protocol.org/latest/specification/) for structured agent coordination. Omit for free-form markdown messages."
