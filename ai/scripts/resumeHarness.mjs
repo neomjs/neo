@@ -7,7 +7,8 @@
  * implementing the `harnessResumeStrategy` for Phase 2 readiness.
  */
 import { spawn } from 'child_process';
-import aiConfig from '../mcp/server/memory-core/config.mjs';
+import fs from 'fs/promises';
+import path from 'path';
 
 function spawnAsync(cmd, args) {
     return new Promise((resolve, reject) => {
@@ -21,15 +22,27 @@ function spawnAsync(cmd, args) {
 }
 
 async function resumeHarness(identity, reason) {
+    // Blocker 1: Idempotency (cooldown file + 600s minimum re-fire window)
+    const cooldownDir = path.resolve(process.cwd(), '.neo-ai-data/wake-daemon');
+    const cooldownFile = path.resolve(cooldownDir, `cooldown-${identity.replace(/[^a-zA-Z0-9_-]/g, '')}.txt`);
+    
+    try {
+        await fs.mkdir(cooldownDir, { recursive: true });
+        const stats = await fs.stat(cooldownFile);
+        const ageMs = Date.now() - stats.mtimeMs;
+        if (ageMs < 600 * 1000) {
+            console.log(`Skipping resume for ${identity}: Cooldown active (${Math.round(ageMs/1000)}s / 600s)`);
+            return;
+        }
+    } catch (e) {
+        // File doesn't exist or other error, proceed
+    }
+
     const payload = `Auto-Wakeup Substrate: Resuming sunsetted session. Reason: ${reason}`;
     
-    // For Phase 1, we map identities to their known harness targets.
-    // In Phase 2, this will be dynamically retrieved from the Memory Core 
-    // AgentIdentity nodes or configuration.
+    // Blocker 2 & 3: Phase 1 scope (Antigravity only)
     const identityMap = {
-        '@neo-gemini-3-1-pro': { appName: 'Antigravity', adapter: 'osascript' },
-        '@neo-opus-4-7': { appName: 'Claude', adapter: 'osascript' },
-        '@neo-gpt': { appName: 'Codex', adapter: 'osascript' }
+        '@neo-gemini-3-1-pro': { appName: 'Antigravity', adapter: 'osascript' }
     };
     
     const harnessTarget = identityMap[identity];
@@ -105,6 +118,9 @@ async function resumeHarness(identity, reason) {
             await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, payload, 'C-m']);
             console.log(`Successfully resumed ${identity} via tmux (${tmuxSession})`);
         }
+        
+        // Write the cooldown file
+        await fs.writeFile(cooldownFile, Date.now().toString());
     } catch (err) {
         console.error(`Failed to resume ${identity} via ${adapter}: ${err.message}`);
         process.exit(1);

@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+/**
+ * @summary Auto-Wakeup Substrate Detection Logic (Epic #10601).
+ *
+ * This script queries the SQLite GraphLog to determine if an agent is sunsetted
+ * based on missing WAKE_SUBSCRIPTION nodes or inactivity exceeding the threshold.
+ */
 import Neo from '../../src/Neo.mjs';
 import * as core from '../../src/core/_export.mjs';
 import LifecycleService from '../mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
@@ -44,9 +50,10 @@ async function main() {
     } else if (memRow && memRow.timestamp) {
         const lastMemTime = new Date(memRow.timestamp).getTime();
         const ageMs = Date.now() - lastMemTime;
-        if (ageMs > 10 * 60 * 1000) {
+        const thresholdMs = parseInt(process.env.SUNSET_THRESHOLD_MS, 10) || 10 * 60 * 1000;
+        if (ageMs > thresholdMs) {
             isSunsetted = true;
-            reason = `Last memory is ${Math.round(ageMs / 60000)}m old (>10m threshold)`;
+            reason = `Last memory is ${Math.round(ageMs / 60000)}m old (>${Math.round(thresholdMs/60000)}m threshold)`;
         }
     } else {
         // No memory and has subscription? Assume active (just booted).
