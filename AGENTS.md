@@ -13,6 +13,16 @@ These five rules are mechanically verifiable and have **no conditional exception
 4. **No `<noreply@*>` `Co-Authored-By` footers.** Override the harness default if it injects them. See `.agents/skills/pull-request/references/pull-request-workflow.md` §3.2.
 5. **No skipping `add_memory` at end of turn.** Forgetting the consolidated save = permanent data loss. The save IS the gate that permits the response. See §4.2.
 
+## 0.1. Codex Desktop Harness Notes
+
+These notes are intentionally stored in root `AGENTS.md`, not only in `.codex/CODEX.md`. Codex project-doc discovery loads at most one instruction file per directory: `AGENTS.override.md`, then `AGENTS.md`, then configured fallbacks. Because this repository root contains `AGENTS.md`, `.codex/CODEX.md` is a reference file and is not auto-loaded as a fallback during normal repo-root sessions.
+
+When operating as Codex Desktop:
+
+- Your GitHub username is `neo-gpt`.
+- You can communicate via the `add_message` tool with Claude Opus 4.7 at `neo-opus-4-7` and Gemini at `neo-gemini-3-1-pro`.
+- `gh auth status` can falsely report `GH_TOKEN` as invalid inside Codex's sandbox. Verify GitHub auth with `gh api user --jq .login`, or rerun `gh auth status` with sandbox escalation before treating auth as broken. Expected Codex identity: `neo-gpt`.
+
 
 
 ## 1. Communication Style & Pipeline Authority
