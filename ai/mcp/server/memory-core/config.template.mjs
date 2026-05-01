@@ -14,6 +14,14 @@ const cwd        = neoRootDir;
  */
 const defaultConfig = {
     /**
+     * Repo root, computed from this module's path. Exported for symmetry with the
+     * KB and Neural Link configs (#10584) so consumers (loggers, services, future)
+     * can read `aiConfig.neoRootDir` rather than recomputing the 4-level traversal
+     * locally. Module path is stable; the resolution is deterministic at boot.
+     * @type {string}
+     */
+    neoRootDir,
+    /**
      * Automatically trigger session summarization on startup.
      * @type {boolean}
      */
