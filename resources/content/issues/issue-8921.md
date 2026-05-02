@@ -3,14 +3,15 @@ id: 8921
 title: 'Feat: Implement Neo.ai.Chat (Reference UI)'
 state: OPEN
 labels:
+  - stale
   - ai
   - feature
 assignees: []
 createdAt: '2026-01-31T14:13:13Z'
-updatedAt: '2026-01-31T14:13:13Z'
+updatedAt: '2026-05-02T04:34:25Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8921'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -36,4 +37,9 @@ Create a reference implementation of a Modern AI Chat Interface to demonstrate t
 - 2026-01-31T14:13:24Z @tobiu marked this issue as blocking #8920
 - 2026-01-31T14:15:36Z @tobiu removed the block on #8920
 - 2026-01-31T14:16:33Z @tobiu marked this issue as being blocked by #8920
+### @github-actions - 2026-05-02T04:34:25Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-05-02T04:34:25Z @github-actions added the `stale` label
 
