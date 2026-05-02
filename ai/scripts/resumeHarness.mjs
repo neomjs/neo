@@ -44,12 +44,19 @@ async function resumeHarness(identity, reason) {
 
     const payload = `Auto-Wakeup Substrate: Resuming sunsetted session. Reason: ${reason}`;
 
-    // Blocker 2 & 3: Phase 1 scope (Antigravity only)
-    const identityMap = {
-        '@neo-gemini-3-1-pro': { appName: 'Antigravity', adapter: 'osascript' }
+    // Harness Registry resolving the enum to specific executable paths/scripts
+    const HARNESS_REGISTRY = {
+        'antigravity-ide': { appName: 'Antigravity', adapter: 'osascript' },
+        'claude-desktop': { appName: 'Claude', adapter: 'osascript', tabShortcut: '3' }
     };
 
-    const harnessTarget = identityMap[identity];
+    const identityMap = {
+        '@neo-gemini-3-1-pro': 'antigravity-ide',
+        '@neo-opus-4-7': 'claude-desktop'
+    };
+
+    const targetId = identityMap[identity];
+    const harnessTarget = targetId ? HARNESS_REGISTRY[targetId] : null;
 
     if (!harnessTarget) {
         console.error(`Unknown harness target for identity: ${identity}`);
@@ -60,7 +67,7 @@ async function resumeHarness(identity, reason) {
 
     try {
         if (adapter === 'osascript') {
-            const { appName } = harnessTarget;
+            const { appName, tabShortcut } = harnessTarget;
             // Uses the "Key Code 36 (Enter) Defense" established in bridge-daemon.mjs
             const osascriptArgs = [
                 '-e', 'on run argv',
@@ -75,6 +82,10 @@ async function resumeHarness(identity, reason) {
                 '-e', '  tell application "System Events"',
                 '-e', '    set frontmostProcess to first application process whose frontmost is true',
                 '-e', '    tell frontmostProcess',
+                ...(tabShortcut ? [
+                '-e', `      keystroke "${tabShortcut}" using command down`,
+                '-e', '      delay 0.2'
+                ] : []),
                 '-e', '      set the clipboard to ""',
                 '-e', '      keystroke "a" using command down',
                 '-e', '      delay 0.2',
@@ -118,7 +129,7 @@ async function resumeHarness(identity, reason) {
             console.log(`Successfully resumed ${identity} via osascript (${appName})`);
         } else if (adapter === 'tmux') {
             // Provide tmux fallback
-            const tmuxSession = process.env.TMUX_SESSION || 'neo-agent';
+            const tmuxSession = harnessTarget.tmuxSession || process.env.TMUX_SESSION || 'neo-agent';
             await spawnAsync('tmux', ['send-keys', '-t', tmuxSession, payload, 'C-m']);
             console.log(`Successfully resumed ${identity} via tmux (${tmuxSession})`);
         }
