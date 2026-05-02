@@ -30,31 +30,40 @@ async function main() {
     `);
     const subs = subStmt.all(identity);
 
-    // 2. Check last memory timestamp + capture origin session ID
-    //    Per #10611 PR-B, originSessionId is forwarded to resumeHarness.mjs so the
-    //    fresh-session boot-grounding prompt can anchor the new agent's Memory Core
-    //    context-priming back to the just-sunsetted session.
+    // 2. Find last AGENT_MEMORY for this identity + extract origin session ID.
+    //    Per #10611 PR-B Cycle 2 (substrate-schema RA from @neo-gpt): live Memory Core
+    //    rows are `AGENT_MEMORY` (not `MEMORY`); identity tracks via `properties.userId`
+    //    (not `properties.agent`); and neither `properties.timestamp` nor
+    //    `properties.sessionId` exist as structured fields. The ISO timestamp is
+    //    embedded in `properties.name` ("Memory: <ISO>"), and the sessionId is embedded
+    //    in `properties.description` ("Agent thought flow inside session <UUID>."). We
+    //    extract both via regex post-query. Sorting on `properties.name` is correct
+    //    because ISO-8601 sorts lexically.
     const memStmt = db.prepare(`
-        SELECT json_extract(data, '$.properties.timestamp') as timestamp,
-               json_extract(data, '$.properties.sessionId') as sessionId
+        SELECT json_extract(data, '$.properties.name')        as nameField,
+               json_extract(data, '$.properties.description') as descField
         FROM Nodes
-        WHERE json_extract(data, '$.label') = 'MEMORY'
-          AND json_extract(data, '$.properties.agent') = ?
-        ORDER BY json_extract(data, '$.properties.timestamp') DESC
+        WHERE json_extract(data, '$.label') = 'AGENT_MEMORY'
+          AND json_extract(data, '$.properties.userId') = ?
+        ORDER BY json_extract(data, '$.properties.name') DESC
         LIMIT 1
     `);
     const memRow = memStmt.get(identity);
 
+    const tsMatch     = memRow?.nameField?.match(/^Memory:\s+(.+)$/);
+    const sidMatch    = memRow?.descField?.match(/inside session ([a-f0-9-]+)/);
+    const lastMemTime = tsMatch?.[1] || null;
+
     let isSunsetted = false;
     let reason = '';
-    const originSessionId = memRow?.sessionId || '';
+    const originSessionId = sidMatch?.[1] || '';
 
     if (subs.length === 0) {
         isSunsetted = true;
         reason = 'No active WAKE_SUBSCRIPTION (Unsubscribe primitive fired)';
-    } else if (memRow && memRow.timestamp) {
-        const lastMemTime = new Date(memRow.timestamp).getTime();
-        const ageMs = Date.now() - lastMemTime;
+    } else if (lastMemTime) {
+        const lastMemMs   = new Date(lastMemTime).getTime();
+        const ageMs       = Date.now() - lastMemMs;
         const thresholdMs = parseInt(process.env.SUNSET_THRESHOLD_MS, 10) || 10 * 60 * 1000;
         if (ageMs > thresholdMs) {
             isSunsetted = true;
