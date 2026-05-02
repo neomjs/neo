@@ -214,7 +214,7 @@ The follow-up template is not permission to rubber-stamp. It still requires:
 - A delta-specific Depth Floor: either one new delta concern or a documented search over changed files, prior blockers, and metadata.
 - A Test-Execution Audit scoped to changed surfaces since the prior cycle. Docs/template-only and PR-body-only deltas can explicitly state no tests are required.
 - Metrics delta semantics per §3.3.
-- A2A commentId capture and hand-off per §9 after posting the follow-up review.
+- A2A commentId capture and hand-off per §10 after posting the follow-up review.
 
 If a commentId-scoped A2A message arrives but you lack the surrounding prior-cycle context, treat that as a cold-cache case first: load enough grounding context, then decide whether the follow-up template is still valid.
 
@@ -362,15 +362,52 @@ PR #10155 shipped `.agents/skills/epic-review/` with the claim "runs *before* `t
 
 PR #10397 changed the wake substrate wire format from raw events to a coalesced `wake/digest` envelope (Shape A). The PR cleanly migrated the upstream engine, but the reviewer missed the cross-skill integration audit for downstream consumers. Result: the Antigravity IDE wake handler silently failed because it expected raw events, not a digest payload. A §8 integration audit would have explicitly enumerated downstream consumers of the wire format (e.g., IDE client) and flagged the missing handler patch.
 
-## 9. A2A Comment-ID Hand-off Protocol (#10272)
+## 9. Strategic-Fit Step-Back
+
+After running the technical-defect audits (§3-§8), reviewers MUST execute one
+final cognitive step: "Given everything I now know about this PR + the broader
+strategic landscape, what's the right merge decision?" Four first-class options:
+
+1. **Approve** — PR is free of blocking defects; ship as-is (with non-blocking nits).
+2. **Approve+Follow-Up** — PR isn't perfect but on the right track + delivers
+   measurable value. Approve to unblock momentum; file follow-up tickets for
+   refinements. Use when:
+   - Cycle N+1 churn risks high-cost-low-marginal-value iteration
+   - The PR ships measurable substrate value even with documented gaps
+   - Required Actions surface concerns that are better-tracked-separately
+   *Empirical anchor: PR #10602 Cycle 1 (over-rigor candidate).*
+3. **Request Changes** — must-fix before merge; defects block substrate correctness.
+4. **Drop+Supersede** — the entire PR premise is stale/wrong with current
+   knowledge. Close the PR + close the ticket + file a superseding ticket with
+   corrected scope. Use when:
+   - >5 cycles iterating on fundamentally-wrong premise
+   - Operator-intent correction reveals the abstraction itself needs reshape
+   - Iterative refinement is rearranging deck chairs
+   *Empirical anchor: PR #10610 → #10611 (corrective candidate).*
+
+The step-back is a META-decision applied AFTER technical defects are identified,
+not parallel to score metrics or depth-floor. It's an architectural-judgment
+skill, not a defect-detection skill.
+Empirical anchor: PR #10607 8-cycle pattern.
+
+### 9.1 Reviewer-Yield Protocol (Deadlock Prevention)
+
+When an author invokes `[REJECTED_WITH_RATIONALE]` per the Review Response Protocol (`review-response-protocol.md §4`) and provides empirical or architectural evidence defending their implementation, reviewers MUST execute a "Yield Pre-Flight" before re-escalating to `Request Changes` on the same item.
+
+**The Rule:** A reviewer cannot overrule an author's `[REJECTED_WITH_RATIONALE]` based solely on reviewer authority or abstract preference. Re-escalation requires *superior empirical evidence* (e.g., pointing out a specific failure mode the author's isolation test missed).
+If the author's rationale holds up to empirical scrutiny—even if it doesn't match the reviewer's preferred pattern—the reviewer MUST yield, mark the item resolved, and proceed to the next stage of the PR lifecycle (e.g., `Approve` or `Approve+Follow-Up`).
+
+This explicit reviewer open-mindedness mandate is symmetric to the author's mandate, closing the loop on deadlock vulnerabilities.
+
+## 10. A2A Comment-ID Hand-off Protocol (#10272)
 
 **Problem:** Without commentId-scoped fetch, every review cycle N+1 incurs **cumulative-thread context cost** — full-thread fetch reads all prior cycles, not just the delta. This breaks linear-cost scaling: by cycle three of an Architectural Pillar review, fetching the full conversation burns more tokens on prior rounds than on the new substance. Compounds silently across the swarm — every reviewer pays the cumulative cost per cycle, not just once. **Treat as invariant discipline, not optional optimization** — the cost asymmetry diverges with thread length, and missed pings cascade across reviewers.
 
-**Empirical anchor (PR #10371, 2026-04-26):** Cycle 3 thread reached ~8KB markdown across 6 prior comments. Full-thread fetch by Cycle 4 reviewer reads all 8KB to extract the ~1KB delta from one new comment — **~8× context-budget waste per cycle, ratio diverging with thread length**. CommentId-scoped fetch reads ~1KB. Reviewer-side §9 + author-side `pull-request-workflow §8.1` discipline together close the loop.
+**Empirical anchor (PR #10371, 2026-04-26):** Cycle 3 thread reached ~8KB markdown across 6 prior comments. Full-thread fetch by Cycle 4 reviewer reads all 8KB to extract the ~1KB delta from one new comment — **~8× context-budget waste per cycle, ratio diverging with thread length**. CommentId-scoped fetch reads ~1KB. Reviewer-side §10 + author-side `pull-request-workflow §8.1` discipline together close the loop.
 
 **Solution:** `manage_issue_comment` action:`create` returns `{message, commentId, url, createdAt}`. The reviewer captures `commentId` from that response and relays it to the next reviewer (peer or author) via A2A mailbox — the recipient fetches just-this-comment via `get_conversation({pr_number: N, comment_id: COMMENT_ID})`, scaling linearly with new-comment volume rather than cumulative thread size.
 
-### 9.1 Workflow
+### 10.1 Workflow
 
 1. Reviewer posts their review comment via `manage_issue_comment({action: 'create', pr_number, body, agent})`.
 2. Reviewer captures `commentId` from the response.
@@ -382,7 +419,7 @@ PR #10397 changed the wake substrate wire format from raw events to a coalesced 
    ```
 4. Recipient reads the A2A message, extracts `COMMENT_ID`, calls `get_conversation({pr_number: N, comment_id: COMMENT_ID})` — receives only this reviewer's comment, not the whole thread history.
 
-### 9.2 Selector Precedence
+### 10.2 Selector Precedence
 
 `get_conversation` accepts three optional selectors. First match wins:
 
@@ -391,17 +428,17 @@ PR #10397 changed the wake substrate wire format from raw events to a coalesced 
 - `last_n` — fetch the last N comments. Coarse-grained catch-up when commentIds aren't tracked.
 - Omitting all three returns the full conversation (backward-compatible default).
 
-### 9.3 Anti-Patterns
+### 10.3 Anti-Patterns
 
 - **Full-conversation-fetch-per-cycle when commentId is available.** If the A2A message carries a commentId, use it. Otherwise the propagation discipline is broken.
 - **Mailbox DM without commentId when the message is pointing at a specific comment.** Forces recipient to fetch full thread and grep for the intended passage — negates the efficiency gain.
 - **Passing all three selectors at once expecting a merge.** First-match semantics; excess selectors are ignored.
-- **Rigidly applying commentId-scoped fetch in a cold-cache case** (e.g., fresh session bootstrap, Cycle 1 review). Lands one isolated comment in a void without the prior context it depends on. See §9.5 below.
-- **Skipping the Pre-Flight Check (§9.4) before yielding turn after `manage_issue_comment`.** Empirically the dominant failure mode — agents read this guide, draft the comment, post it, and forget to capture commentId + send A2A ping. Proven mitigation: explicit reasoning-statement mirroring the `AGENTS.md §3 / §4.2` Pre-Flight pattern.
+- **Rigidly applying commentId-scoped fetch in a cold-cache case** (e.g., fresh session bootstrap, Cycle 1 review). Lands one isolated comment in a void without the prior context it depends on. See §10.5 below.
+- **Skipping the Pre-Flight Check (§10.4) before yielding turn after `manage_issue_comment`.** Empirically the dominant failure mode — agents read this guide, draft the comment, post it, and forget to capture commentId + send A2A ping. Proven mitigation: explicit reasoning-statement mirroring the `AGENTS.md §3 / §4.2` Pre-Flight pattern.
 
-### 9.4 Pre-Flight Check (operational reflex)
+### 10.4 Pre-Flight Check (operational reflex)
 
-The §9 hand-off protocol is mechanical — but reviewers empirically miss it across cycles even after reading this guide (PR #10371 + #10375, 2026-04-26: 5+ missed pings before @tobiu surfaced the gap explicitly). The discipline is reflex-application, not knowledge.
+The §10 hand-off protocol is mechanical — but reviewers empirically miss it across cycles even after reading this guide (PR #10371 + #10375, 2026-04-26: 5+ missed pings before @tobiu surfaced the gap explicitly). The discipline is reflex-application, not knowledge.
 
 **Pre-Flight Check shape** (mirrors `AGENTS.md §3 / §4.2` proven primitives). After every `manage_issue_comment` create, before yielding turn, you MUST explicitly state in your internal reasoning:
 
@@ -409,9 +446,9 @@ The §9 hand-off protocol is mechanical — but reviewers empirically miss it ac
 
 This commitment-statement is the gate that permits yielding turn. The §0.5 `add_memory` discipline already proves this Pre-Flight pattern works as a reflex enforcement primitive when paired with explicit pre-action reasoning. Skipping forces the next cycle's actor to re-read the full thread — the empirical-anchor ~8× cost ratio quantifies the cost.
 
-Cold-cache exception applies when the recipient lacks prior-cycle context — see §9.5 below for when full-thread fetch is the right call instead.
+Cold-cache exception applies when the recipient lacks prior-cycle context — see §10.5 below for when full-thread fetch is the right call instead.
 
-### 9.5 Cold-Cache Exception
+### 10.5 Cold-Cache Exception
 
 CommentId-scoped fetch is the **warm-cache** path — the reviewer or author has continuous prior-cycle context loaded in the current context window. **Cold-cache cases require a different fetch shape:**
 
