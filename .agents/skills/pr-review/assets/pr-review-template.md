@@ -1,6 +1,12 @@
 # PR Review Summary
 
-**Status:** [Approved / Request Changes / Comment]
+**Status:** [Approved / Approve+Follow-Up / Request Changes / Drop+Supersede / Comment]
+
+### 🪜 Strategic-Fit Decision
+
+Per §9 Strategic-Fit Step-Back:
+- **Decision**: [Approve / Approve+Follow-Up / Request Changes / Drop+Supersede]
+- **Rationale**: [Why this decision shape vs the others — e.g., "Approve+Follow-Up because the substrate ships measurable value via the Antigravity path even with the cross-harness gap; cross-harness routing is better-tracked-as-follow-up ticket #NNNN than incremental cycles"]
 
 **Peer-Review Opening:** [Friendly Opening / General encouragement. e.g., "Thanks for putting this together! Great approach to solving [Problem]. I've left some review notes below. Let's get these squared away so we can merge."]
 
