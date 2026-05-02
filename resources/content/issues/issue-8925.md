@@ -6,13 +6,14 @@ labels:
   - documentation
   - epic
   - developer-experience
+  - stale
   - ai
 assignees: []
 createdAt: '2026-01-31T15:39:28Z'
-updatedAt: '2026-01-31T15:39:28Z'
+updatedAt: '2026-05-02T04:34:23Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8925'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues:
   - '[x] 8929 Feat: Implement Unit Test Agent Workflow (.agent/workflows/unit-test.md)'
@@ -46,4 +47,9 @@ Create a system of specialized "Startup Profiles" for AI agents to optimize cont
 - 2026-01-31T15:39:30Z @tobiu added the `developer-experience` label
 - 2026-01-31T15:39:30Z @tobiu added the `ai` label
 - 2026-01-31T21:16:48Z @tobiu added sub-issue #8929
+### @github-actions - 2026-05-02T04:34:22Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-05-02T04:34:23Z @github-actions added the `stale` label
 

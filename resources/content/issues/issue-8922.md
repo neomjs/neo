@@ -3,14 +3,15 @@ id: 8922
 title: 'Feat: Implement Neo.container.Spatial (Pan/Zoom Whiteboard)'
 state: OPEN
 labels:
+  - stale
   - design
   - feature
 assignees: []
 createdAt: '2026-01-31T14:24:51Z'
-updatedAt: '2026-01-31T14:24:51Z'
+updatedAt: '2026-05-02T04:34:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8922'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -37,4 +38,9 @@ Create a container designed for infinite 2D spatial layouts (whiteboard style).
 
 - 2026-01-31T14:24:52Z @tobiu added the `design` label
 - 2026-01-31T14:24:52Z @tobiu added the `feature` label
+### @github-actions - 2026-05-02T04:34:23Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-05-02T04:34:24Z @github-actions added the `stale` label
 
