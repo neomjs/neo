@@ -30,9 +30,13 @@ async function main() {
     `);
     const subs = subStmt.all(identity);
 
-    // 2. Check last memory timestamp
+    // 2. Check last memory timestamp + capture origin session ID
+    //    Per #10611 PR-B, originSessionId is forwarded to resumeHarness.mjs so the
+    //    fresh-session boot-grounding prompt can anchor the new agent's Memory Core
+    //    context-priming back to the just-sunsetted session.
     const memStmt = db.prepare(`
-        SELECT json_extract(data, '$.properties.timestamp') as timestamp
+        SELECT json_extract(data, '$.properties.timestamp') as timestamp,
+               json_extract(data, '$.properties.sessionId') as sessionId
         FROM Nodes
         WHERE json_extract(data, '$.label') = 'MEMORY'
           AND json_extract(data, '$.properties.agent') = ?
@@ -43,6 +47,7 @@ async function main() {
 
     let isSunsetted = false;
     let reason = '';
+    const originSessionId = memRow?.sessionId || '';
 
     if (subs.length === 0) {
         isSunsetted = true;
@@ -64,7 +69,8 @@ async function main() {
     console.log(JSON.stringify({
         identity,
         sunsetted: isSunsetted,
-        reason
+        reason,
+        originSessionId
     }));
     process.exit(0);
 }
