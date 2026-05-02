@@ -214,7 +214,7 @@ The follow-up template is not permission to rubber-stamp. It still requires:
 - A delta-specific Depth Floor: either one new delta concern or a documented search over changed files, prior blockers, and metadata.
 - A Test-Execution Audit scoped to changed surfaces since the prior cycle. Docs/template-only and PR-body-only deltas can explicitly state no tests are required.
 - Metrics delta semantics per §3.3.
-- A2A commentId capture and hand-off per §9 after posting the follow-up review.
+- A2A commentId capture and hand-off per §10 after posting the follow-up review.
 
 If a commentId-scoped A2A message arrives but you lack the surrounding prior-cycle context, treat that as a cold-cache case first: load enough grounding context, then decide whether the follow-up template is still valid.
 
@@ -375,6 +375,7 @@ strategic landscape, what's the right merge decision?" Four first-class options:
    - Cycle N+1 churn risks high-cost-low-marginal-value iteration
    - The PR ships measurable substrate value even with documented gaps
    - Required Actions surface concerns that are better-tracked-separately
+   *Empirical anchor: PR #10602 Cycle 1 (over-rigor candidate).*
 3. **Request Changes** — must-fix before merge; defects block substrate correctness.
 4. **Drop+Supersede** — the entire PR premise is stale/wrong with current
    knowledge. Close the PR + close the ticket + file a superseding ticket with
@@ -382,17 +383,27 @@ strategic landscape, what's the right merge decision?" Four first-class options:
    - >5 cycles iterating on fundamentally-wrong premise
    - Operator-intent correction reveals the abstraction itself needs reshape
    - Iterative refinement is rearranging deck chairs
+   *Empirical anchor: PR #10610 → #10611 (corrective candidate).*
 
 The step-back is a META-decision applied AFTER technical defects are identified,
 not parallel to score metrics or depth-floor. It's an architectural-judgment
 skill, not a defect-detection skill.
 Empirical anchor: PR #10607 8-cycle pattern.
 
+### 9.1 Reviewer-Yield Protocol (Deadlock Prevention)
+
+When an author invokes `[REJECTED_WITH_RATIONALE]` per the Review Response Protocol (`review-response-protocol.md §4`) and provides empirical or architectural evidence defending their implementation, reviewers MUST execute a "Yield Pre-Flight" before re-escalating to `Request Changes` on the same item.
+
+**The Rule:** A reviewer cannot overrule an author's `[REJECTED_WITH_RATIONALE]` based solely on reviewer authority or abstract preference. Re-escalation requires *superior empirical evidence* (e.g., pointing out a specific failure mode the author's isolation test missed).
+If the author's rationale holds up to empirical scrutiny—even if it doesn't match the reviewer's preferred pattern—the reviewer MUST yield, mark the item resolved, and proceed to the next stage of the PR lifecycle (e.g., `Approve` or `Approve+Follow-Up`).
+
+This explicit reviewer open-mindedness mandate is symmetric to the author's mandate, closing the loop on deadlock vulnerabilities.
+
 ## 10. A2A Comment-ID Hand-off Protocol (#10272)
 
 **Problem:** Without commentId-scoped fetch, every review cycle N+1 incurs **cumulative-thread context cost** — full-thread fetch reads all prior cycles, not just the delta. This breaks linear-cost scaling: by cycle three of an Architectural Pillar review, fetching the full conversation burns more tokens on prior rounds than on the new substance. Compounds silently across the swarm — every reviewer pays the cumulative cost per cycle, not just once. **Treat as invariant discipline, not optional optimization** — the cost asymmetry diverges with thread length, and missed pings cascade across reviewers.
 
-**Empirical anchor (PR #10371, 2026-04-26):** Cycle 3 thread reached ~8KB markdown across 6 prior comments. Full-thread fetch by Cycle 4 reviewer reads all 8KB to extract the ~1KB delta from one new comment — **~8× context-budget waste per cycle, ratio diverging with thread length**. CommentId-scoped fetch reads ~1KB. Reviewer-side §9 + author-side `pull-request-workflow §8.1` discipline together close the loop.
+**Empirical anchor (PR #10371, 2026-04-26):** Cycle 3 thread reached ~8KB markdown across 6 prior comments. Full-thread fetch by Cycle 4 reviewer reads all 8KB to extract the ~1KB delta from one new comment — **~8× context-budget waste per cycle, ratio diverging with thread length**. CommentId-scoped fetch reads ~1KB. Reviewer-side §10 + author-side `pull-request-workflow §8.1` discipline together close the loop.
 
 **Solution:** `manage_issue_comment` action:`create` returns `{message, commentId, url, createdAt}`. The reviewer captures `commentId` from that response and relays it to the next reviewer (peer or author) via A2A mailbox — the recipient fetches just-this-comment via `get_conversation({pr_number: N, comment_id: COMMENT_ID})`, scaling linearly with new-comment volume rather than cumulative thread size.
 

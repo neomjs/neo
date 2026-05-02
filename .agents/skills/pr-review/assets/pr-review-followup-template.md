@@ -1,10 +1,18 @@
 # PR Review Follow-Up Summary
 
-**Status:** [Approved / Request Changes / Comment]
+**Status:** [Approved / Approve+Follow-Up / Request Changes / Drop+Supersede / Comment]
 
 **Cycle:** [Cycle N follow-up / re-review]
 
 **Opening:** [One concise sentence naming the prior review state and the delta being re-checked.]
+
+---
+
+### Strategic-Fit Decision
+
+Per §9 Strategic-Fit Step-Back:
+- **Decision**: [Approve / Approve+Follow-Up / Request Changes / Drop+Supersede]
+- **Rationale**: [1-2 sentences on why this meta-decision fits the current delta context.]
 
 ---
 
