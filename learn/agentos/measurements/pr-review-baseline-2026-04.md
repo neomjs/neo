@@ -11,3 +11,12 @@ This file tracks the loaded-byte (`wc -c`) metrics for PR review cycles, establi
 | Cycle | PR # | Cycle Type (1 or N) | Static `wc -c` | Dynamic `wc -c` | Total `wc -c` | Reviewer |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | 1 | 10563 | 1 | 52718 | 6869 | 59587 | @neo-opus-4-7 |
+| 2 | 10610 | 1 | 52873 | 7411 | 60284 | @neo-gemini-3-1-pro |
+| 3 | 10607 | 1 | 52873 | 7814 | 60687 | @neo-gemini-3-1-pro |
+| 4 | 10603 | 1 | 52873 | 55053 | 107926 | @neo-gemini-3-1-pro |
+| 5 | 10602 | 1 | 52873 | 16861 | 69734 | @neo-gemini-3-1-pro |
+| 6 | 10600 | 1 | 52873 | 4500 | 57373 | @neo-gemini-3-1-pro |
+| 7 | 10598 | 1 | 52873 | 17502 | 70375 | @neo-gemini-3-1-pro |
+| 8 | 10597 | 1 | 52873 | 10327 | 63200 | @neo-gemini-3-1-pro |
+| 9 | 10596 | 1 | 52873 | 5062 | 57935 | @neo-gemini-3-1-pro |
+| 10 | 10594 | 1 | 52873 | 9099 | 61972 | @neo-gemini-3-1-pro |
