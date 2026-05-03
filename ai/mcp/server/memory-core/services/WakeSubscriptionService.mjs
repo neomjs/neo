@@ -56,9 +56,17 @@ class WakeSubscriptionService extends Base {
 
     /**
      * @member {String[]} validAppNames
+     *
+     * Canonical osascript target app names accepted on Shape C subscription writes. One entry per
+     * harness onboarded into the swarm trio: Antigravity (@neo-gemini-3-1-pro), Claude
+     * (@neo-opus-4-7), Codex (@neo-gpt). The bridge daemon dispatches via `tell application
+     * "<appName>"`, so list completeness is load-bearing — a missing entry rejects the canonical
+     * AgentIdentity.subscriptionTemplate at auto-bootstrap time and silently strands the
+     * corresponding harness from Shape C wake delivery (per #10636 regression after PR #10628).
+     *
      * @protected
      */
-    validAppNames = ['Antigravity', 'Claude']
+    validAppNames = ['Antigravity', 'Claude', 'Codex']
 
     /**
      * In-memory write-through cache for sub-millisecond trigger evaluation.

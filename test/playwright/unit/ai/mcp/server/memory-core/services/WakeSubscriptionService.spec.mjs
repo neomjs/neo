@@ -243,16 +243,38 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
                 trigger      : 'SENT_TO_ME',
                 harnessTarget: 'bridge-daemon',
                 harnessTargetMetadata: {appName: 'antigravity'}
-            })).rejects.toThrow("Invalid appName 'antigravity'. Must be one of: Antigravity, Claude");
+            })).rejects.toThrow("Invalid appName 'antigravity'. Must be one of: Antigravity, Claude, Codex");
         });
     });
 
-    test('subscribe accepts canonical appName', async () => {
+    test('subscribe accepts canonical appName Antigravity', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
             const res = await WakeSubscriptionService.subscribe({
                 trigger      : 'SENT_TO_ME',
                 harnessTarget: 'bridge-daemon',
                 harnessTargetMetadata: {appName: 'Antigravity'}
+            });
+            expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
+        });
+    });
+
+    test('subscribe accepts canonical appName Claude', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const res = await WakeSubscriptionService.subscribe({
+                trigger      : 'SENT_TO_ME',
+                harnessTarget: 'bridge-daemon',
+                harnessTargetMetadata: {appName: 'Claude'}
+            });
+            expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
+        });
+    });
+
+    test('subscribe accepts canonical appName Codex', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const res = await WakeSubscriptionService.subscribe({
+                trigger      : 'SENT_TO_ME',
+                harnessTarget: 'bridge-daemon',
+                harnessTargetMetadata: {appName: 'Codex'}
             });
             expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
         });
