@@ -120,7 +120,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
                     subscriptionTemplate: {
                         trigger: 'SENT_TO_ME',
                         harnessTarget: 'bridge-daemon',
-                        harnessTargetMetadata: { appName: 'TestApp' }
+                        harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
             });
@@ -133,7 +133,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
 
                 const node = GraphService.db.nodes.get(res.subscriptionId);
                 expect(node.properties.trigger).toBe('SENT_TO_ME');
-                expect(node.properties.harnessTargetMetadata.appName).toBe('TestApp');
+                expect(node.properties.harnessTargetMetadata.appName).toBe('Antigravity');
             });
         });
 
@@ -147,7 +147,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
                     subscriptionTemplate: {
                         trigger: 'SENT_TO_ME',
                         harnessTarget: 'bridge-daemon',
-                        harnessTargetMetadata: { appName: 'TestApp' }
+                        harnessTargetMetadata: { appName: 'Antigravity' }
                     }
                 }
             });
@@ -234,6 +234,27 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
                 trigger      : 'SENT_TO_ME',
                 harnessTarget: 'bridge-daemon'
             })).rejects.toThrow('Shape C (bridge-daemon) requires harnessTargetMetadata.appName');
+        });
+    });
+
+    test('subscribe rejects non-canonical appName', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            await expect(WakeSubscriptionService.subscribe({
+                trigger      : 'SENT_TO_ME',
+                harnessTarget: 'bridge-daemon',
+                harnessTargetMetadata: {appName: 'antigravity'}
+            })).rejects.toThrow("Invalid appName 'antigravity'. Must be one of: Antigravity, Claude");
+        });
+    });
+
+    test('subscribe accepts canonical appName', async () => {
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const res = await WakeSubscriptionService.subscribe({
+                trigger      : 'SENT_TO_ME',
+                harnessTarget: 'bridge-daemon',
+                harnessTargetMetadata: {appName: 'Antigravity'}
+            });
+            expect(res.subscriptionId).toMatch(/^WAKE_SUB:/);
         });
     });
 
