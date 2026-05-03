@@ -212,8 +212,13 @@ class WakeSubscriptionService extends Base {
     }
 
     /**
-     * Idempotent action to bootstrap a subscription from the agent's identity template.
-     * Required to eliminate fragile cross-harness hardcoded defaults (e.g., appName fallback).
+     * @summary Idempotently bootstraps a wake subscription from the bound AgentIdentity template.
+     *
+     * This restart-boundary action bridges the Memory Core AgentIdentity graph and the Shape C
+     * wake-substrate routing contract. It must resolve the canonical template from durable graph
+     * state instead of synthesizing cross-harness defaults, otherwise MCP restarts can strand an
+     * agent even while mailbox storage remains healthy.
+     *
      * @param {Object} [opts]
      * @param {Object} [opts.overrideMetadata] Optional metadata to override template defaults
      * @returns {Promise<Object>} {subscriptionId, harnessTarget, status: 'existing'|'created'}
@@ -222,13 +227,10 @@ class WakeSubscriptionService extends Base {
         const owner = RequestContextService.getAgentIdentityNodeId();
         if (!owner) throw new Error('Cannot bootstrap subscription: no agent identity context bound.');
 
-        // Access GraphService.db.nodes.get directly because GraphService.getNode filters out custom properties
-        const identityNode = GraphService.db.nodes.get(owner);
-        if (!identityNode || !identityNode.properties || !identityNode.properties.subscriptionTemplate) {
+        const template = this.loadIdentitySubscriptionTemplate(owner);
+        if (!template) {
             throw new Error(`Cannot bootstrap subscription: no subscriptionTemplate found on AgentIdentity '${owner}'.`);
         }
-
-        const template = identityNode.properties.subscriptionTemplate;
 
         // Idempotency check: query SQLite directly to find an existing active subscription
         // matching the template tuple `(agentIdentity, trigger, harnessTarget)`.
@@ -294,6 +296,78 @@ class WakeSubscriptionService extends Base {
         });
 
         return { ...result, status: 'created' };
+    }
+
+    /**
+     * @summary Resolves an AgentIdentity wake subscription template with a durable read-through fallback.
+     *
+     * Bootstrap sits on the restart boundary between the Memory Core graph cache and the Shape C
+     * bridge-daemon wake substrate. The in-memory graph cache can hold a stale or stripped
+     * AgentIdentity stub after MCP restart, while the durable SQLite `Nodes` row still contains
+     * the canonical `subscriptionTemplate`. This helper keeps the cache fast path but echoes the
+     * wake-substrate source-of-truth rule: a missing cache property is not proof that the durable
+     * AgentIdentity lacks a template.
+     *
+     * @param {String} owner The bound AgentIdentity node id.
+     * @returns {Object|null} The canonical subscription template, or null when the durable identity
+     *     genuinely has no template.
+     * @protected
+     */
+    loadIdentitySubscriptionTemplate(owner) {
+        // Access GraphService.db.nodes.get directly because GraphService.getNode filters out custom properties
+        const identityNode  = GraphService.db?.nodes?.get(owner);
+        const cacheTemplate = identityNode?.properties?.subscriptionTemplate;
+
+        if (cacheTemplate) return cacheTemplate;
+
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite) return null;
+
+        const row = sqlite.prepare('SELECT data FROM Nodes WHERE id = ? LIMIT 1').get(owner);
+        if (!row?.data) return null;
+
+        let durableNode;
+        try {
+            durableNode = JSON.parse(row.data);
+        } catch (error) {
+            logger.warn(`[WakeSubscription] Failed to parse durable AgentIdentity row for ${owner}: ${error.message}`);
+            return null;
+        }
+
+        const durableTemplate = durableNode?.properties?.subscriptionTemplate;
+        if (!durableTemplate) return null;
+
+        this.hydrateIdentityCacheFromDurableNode(owner, durableNode);
+
+        return durableTemplate;
+    }
+
+    /**
+     * @summary Rehydrates a stale AgentIdentity cache stub from the durable graph row.
+     *
+     * The Wake Subscription bootstrap path must not silently keep using a stripped cache node once
+     * SQLite proves the AgentIdentity is richer. Rehydrating the cache prevents repeated
+     * read-through queries during the same MCP server lifetime while preserving SQLite as the
+     * canonical source for restart-time wake-substrate templates.
+     *
+     * @param {String} owner The bound AgentIdentity node id.
+     * @param {Object} durableNode The parsed SQLite `Nodes.data` payload.
+     * @protected
+     */
+    hydrateIdentityCacheFromDurableNode(owner, durableNode) {
+        const cachedNode = GraphService.db?.nodes?.get(owner);
+
+        if (cachedNode) {
+            cachedNode.label      = durableNode.label || cachedNode.label;
+            cachedNode.properties = {
+                ...(cachedNode.properties || {}),
+                ...(durableNode.properties || {})
+            };
+
+            return;
+        }
+
+        GraphService.db?.nodes?.add(durableNode);
     }
 
     /**
