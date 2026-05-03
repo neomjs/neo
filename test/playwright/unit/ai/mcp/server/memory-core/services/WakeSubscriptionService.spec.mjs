@@ -342,33 +342,15 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         });
     });
 
-    test('MCP tool preserves explicit bridge-daemon metadata for Codex with focusSeedKey (#10662)', async () => {
-        // Per #10662, the Codex collapsed-sidebar regression is closed by extending the
-        // per-harness `focusSeedKey: 'space'` default to `appName === 'Codex'`. This test
-        // mirrors the Claude metadata round-trip above for Codex, ensuring the schema
-        // validator + storage substrate accept the same field shape regardless of harness.
-        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
-            const res = await callTool('manage_wake_subscription', {
-                action               : 'subscribe',
-                trigger              : 'SENT_TO_ME',
-                harnessTarget        : 'bridge-daemon',
-                harnessTargetMetadata: {
-                    adapter       : 'osascript',
-                    appName       : 'Codex',
-                    coalesceWindow: 0,
-                    focusSeedKey  : 'space',
-                    tabShortcut   : null
-                }
-            });
-
-            const node = GraphService.db.nodes.get(res.subscriptionId);
-            expect(node.properties.harnessTargetMetadata.adapter).toBe('osascript');
-            expect(node.properties.harnessTargetMetadata.appName).toBe('Codex');
-            expect(node.properties.harnessTargetMetadata.coalesceWindow).toBe(0);
-            expect(node.properties.harnessTargetMetadata.focusSeedKey).toBe('space');
-            expect(node.properties.harnessTargetMetadata.tabShortcut).toBeNull();
-        });
-    });
+    // Note (#10664): the Codex round-trip test for `focusSeedKey: 'space'` that shipped in
+    // PR #10663 was removed here. The bridge runtime layer now fails closed for Codex
+    // without an explicit operator-validated `focusSeedKey` (per #10664 fail-closed guard
+    // + bridge-daemon.spec.mjs `Codex UI wake fails closed when no validated focusSeedKey
+    // is configured` test). The schema-layer round-trip behavior (`focusSeedKey` accepted
+    // as `string | null` in `harnessTargetMetadata`) is already covered by the Claude
+    // round-trip test above; duplicating it for Codex with `focusSeedKey: 'space'` would
+    // have implied Space is the validated Codex configuration, which manual matrix
+    // validation 2026-05-03 falsified. See #10664 for empirical anchor.
 
     test('subscribe rejects invalid trigger', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
