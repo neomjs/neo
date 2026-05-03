@@ -43,15 +43,52 @@ async function main() {
     `);
     const subs = subStmt.all(identity);
 
-    // 2. Find last AGENT_MEMORY for this identity + extract origin session ID.
-    //    rows are `AGENT_MEMORY` (not `MEMORY`); identity tracks via `properties.userId`.
-    //    Legacy rows missing structured fields are migrated via update-on-read.
-    const memStmt = db.prepare(`
+    // [Anchor & Echo] Option A: Upfront Bulk Migration for Legacy Rows
+    // Legacy AGENT_MEMORY rows lack a structured 'timestamp' property (time was embedded in 'name').
+    // If not migrated, 'ORDER BY COALESCE(timestamp, name)' falls back to 'name', and lexical
+    // sorting ('Memory: 2026-05...') always places legacy rows above fresh rows (which have pure ISO strings).
+    // Instead of probabilistic update-on-read (which blocks on the top-1 legacy row infinitely),
+    // we perform a deterministic bulk-migration of ALL legacy rows for the target identity before querying.
+    const legacyStmt = db.prepare(`
         SELECT id,
                data,
                json_extract(data, '$.properties.name')        as nameField,
-               json_extract(data, '$.properties.description') as descField,
-               json_extract(data, '$.properties.timestamp')   as timestampField,
+               json_extract(data, '$.properties.description') as descField
+        FROM Nodes
+        WHERE json_extract(data, '$.label') = 'AGENT_MEMORY'
+          AND (json_extract(data, '$.properties.agentIdentity') = ? OR json_extract(data, '$.properties.userId') = ?)
+          AND json_extract(data, '$.properties.timestamp') IS NULL
+    `);
+    const legacyRows = legacyStmt.all(identity, identity);
+    
+    if (legacyRows.length > 0) {
+        const updateStmt = db.prepare(`UPDATE Nodes SET data = ? WHERE id = ?`);
+        db.transaction((rows) => {
+            for (const row of rows) {
+                const tsMatch  = row.nameField?.match(/^Memory:\s+(.+)$/);
+                const sidMatch = row.descField?.match(/inside session ([a-f0-9-]+)/);
+                
+                if (tsMatch && sidMatch) {
+                    try {
+                        const dataObj = JSON.parse(row.data);
+                        dataObj.properties = dataObj.properties || {};
+                        dataObj.properties.timestamp = tsMatch[1];
+                        dataObj.properties.sessionId = sidMatch[1];
+                        dataObj.properties.agentIdentity = identity;
+                        updateStmt.run(JSON.stringify(dataObj), row.id);
+                    } catch (err) {
+                        // Ignore unparseable legacy rows
+                    }
+                }
+            }
+        })(legacyRows);
+    }
+
+    // 2. Find last AGENT_MEMORY for this identity + extract origin session ID.
+    //    rows are `AGENT_MEMORY` (not `MEMORY`); identity tracks via `properties.userId`.
+    //    Now that legacy rows are migrated, ORDER BY timestamp works deterministically.
+    const memStmt = db.prepare(`
+        SELECT json_extract(data, '$.properties.timestamp')   as timestampField,
                json_extract(data, '$.properties.sessionId')   as sessionIdField
         FROM Nodes
         WHERE json_extract(data, '$.label') = 'AGENT_MEMORY'
@@ -61,37 +98,9 @@ async function main() {
     `);
     const memRow = memStmt.get(identity, identity);
 
-    let lastMemTime = memRow?.timestampField || null;
     let originSessionId = memRow?.sessionIdField || '';
     let isSunsetted = false;
     let reason = '';
-
-    // Update-on-read migration for legacy AGENT_MEMORY rows
-    if (memRow && (!lastMemTime || !originSessionId)) {
-        try {
-            const tsMatch     = memRow.nameField?.match(/^Memory:\s+(.+)$/);
-            const sidMatch    = memRow.descField?.match(/inside session ([a-f0-9-]+)/);
-
-            const migratedTime = tsMatch?.[1];
-            const migratedSessionId = sidMatch?.[1];
-
-            if (migratedTime && migratedSessionId) {
-                lastMemTime = migratedTime;
-                originSessionId = migratedSessionId;
-
-                const dataObj = JSON.parse(memRow.data);
-                dataObj.properties = dataObj.properties || {};
-                dataObj.properties.timestamp = migratedTime;
-                dataObj.properties.sessionId = migratedSessionId;
-                dataObj.properties.agentIdentity = identity;
-
-                const updateStmt = db.prepare(`UPDATE Nodes SET data = ? WHERE id = ?`);
-                updateStmt.run(JSON.stringify(dataObj), memRow.id);
-            }
-        } catch (err) {
-            // Ignore migration errors on read path
-        }
-    }
 
     // [Anchor & Echo] Sunset detection criterion: ONLY the explicit Unsubscribe primitive.
     //
