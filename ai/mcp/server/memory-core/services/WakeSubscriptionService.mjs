@@ -380,7 +380,7 @@ class WakeSubscriptionService extends Base {
      * @param {Object} [opts.filters] taggedConcepts | priority | senderFilter | inReplyToFilter
      * @param {String} opts.harnessTarget One of validHarnessTargets
      * @param {Object} [opts.harnessTargetMetadata] appName | url | coalesceWindow |
-     *     daemonSocketPath | adapter | tabShortcut | tmuxSession
+     *     daemonSocketPath | adapter | tabShortcut | focusSeedKey | tmuxSession
      * @returns {Promise<Object>} {subscriptionId, harnessTarget, signingKey?}
      */
     async subscribe({trigger, filters = {}, harnessTarget, harnessTargetMetadata = {}} = {}) {

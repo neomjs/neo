@@ -581,6 +581,11 @@ async function deliverDigest(subscription, digest) {
                 if (appName === 'Claude') tabShortcut = '3';
                 else if (appName === 'Antigravity') tabShortcut = 'shift+i';
             }
+            let focusSeedKey = meta.focusSeedKey;
+            // Claude Desktop's Cmd+3 selects the Code tab but does not always move focus into
+            // the prompt. Seed focus with Space before the destructive Cmd+A/Cmd+X clear path.
+            // Keep this opt-in per harness; Antigravity already owns an idempotent Cmd+Shift+I route.
+            if (focusSeedKey === undefined && appName === 'Claude') focusSeedKey = 'space';
             
             // [Anchor & Echo] The Electron-Paradox Defense:
             // Electron-based IDEs (Antigravity, VS Code) register their bundle names differently
@@ -618,6 +623,15 @@ async function deliverDigest(subscription, digest) {
                     osascriptArgs.push('-e', `      keystroke "${tabShortcut}" using command down`);
                 }
                 osascriptArgs.push('-e', '      delay 0.5');
+            }
+
+            if (focusSeedKey) {
+                if (focusSeedKey === 'space' || focusSeedKey === ' ') {
+                    osascriptArgs.push('-e', '      key code 49');
+                } else {
+                    osascriptArgs.push('-e', `      keystroke "${focusSeedKey}"`);
+                }
+                osascriptArgs.push('-e', '      delay 0.2');
             }
 
             osascriptArgs.push(
