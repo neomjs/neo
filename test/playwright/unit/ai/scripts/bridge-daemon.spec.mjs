@@ -512,7 +512,7 @@ test.describe('Bridge Daemon', () => {
                 harnessTargetMetadata: {
                     adapter: 'osascript',
                     appName: 'Antigravity',
-                    coalesceWindow: 1 
+                    coalesceWindow: 1
                 }
             }
         }));
@@ -535,7 +535,7 @@ test.describe('Bridge Daemon', () => {
         // We know bridge-daemon will log INFO when it finishes osascript
         const deliveryPromise = new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver event within timeout')), 10000);
-            
+
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
                 if (out.includes('[Bridge Daemon] Delivered ' + subId)) {
@@ -574,7 +574,7 @@ test.describe('Bridge Daemon', () => {
 
         const mockOutput = fs.readFileSync(mockOutPath, 'utf8');
         const args = JSON.parse(mockOutput);
-        
+
         expect(args.join(' ')).toContain('keystroke "i" using {command down, shift down}');
         expect(args.join(' ')).toContain('tell application "Antigravity" to activate');
     });
