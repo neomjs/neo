@@ -52,8 +52,7 @@ export const IDENTITIES = [
                     // → exit 0; the prior `'Cursor'` placeholder failed with `Can't get
                     // application "Cursor". (-1728)` exit 1.
                     appName: 'Antigravity',
-                    tabShortcut: null,
-                    focusSeedKey: 'r'
+                    tabShortcut: null
                 }
             },
             createdAt: new Date().toISOString()
