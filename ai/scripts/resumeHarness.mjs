@@ -22,6 +22,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { readGateState, hasOverride } from './wakeSafetyGate.mjs';
+import { randomUUID } from 'crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -42,14 +43,16 @@ function spawnAsync(cmd, args) {
  * @param {string} identity        Agent identity (e.g. '@neo-opus-4-7').
  * @param {string} reason          Human-readable sunset cause from checkSunsetted.
  * @param {string} originSessionId Memory Core session ID of the just-sunsetted run; falsy → omitted gracefully.
+ * @param {string} freshSessionId  Generated UUID for steady-state session rotation.
  * @returns {string} The full prompt body that will be pasted into the fresh chat.
  */
-function buildBootGroundingPrompt(identity, reason, originSessionId) {
+function buildBootGroundingPrompt(identity, reason, originSessionId, freshSessionId) {
     const sessionAnchor = originSessionId
         ? `Origin Session ID: ${originSessionId}.`
         : 'Origin Session ID unavailable in recovery payload — pull most recent SUNSET-tagged memory for this identity instead.';
     return [
         `hi ${identity}, please read and follow @AGENTS_STARTUP.md to begin a fresh session.`,
+        `Before any memory save in this session, call \`set_session_id({sessionId: '${freshSessionId}'})\` and verify the returned \`sessionId\` matches.`,
         `Recovery context: ${reason}.`,
         `${sessionAnchor} Read resources/content/sandman_handoff.md and your Memory Core context to resume trio coordination from the prior session anchor.`
     ].join(' ');
@@ -91,7 +94,8 @@ async function resumeHarness(identity, reason, originSessionId) {
     // Q1b boot-grounding prompt — replaces the Q1a "Resuming sunsetted session" prose
     // payload that #10607 Cycle 5 shipped. Per #10611, the fresh agent boots via
     // AGENTS_STARTUP.md and re-anchors prior context via Memory Core + sandman_handoff.
-    const payload = buildBootGroundingPrompt(identity, reason, originSessionId);
+    const freshSessionId = randomUUID();
+    const payload = buildBootGroundingPrompt(identity, reason, originSessionId, freshSessionId);
 
     // Harness Registry: each entry adds `freshSessionShortcut` (the Cmd+`<key>` keystroke
     // that spawns a fresh chat session in the target app). Cmd+N is empirically verified
