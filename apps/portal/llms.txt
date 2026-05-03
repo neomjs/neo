@@ -410,6 +410,7 @@ Here you find the full history of Neo.mjs updates.
 - [Troubleshooting Tool Calls](https://neomjs.com/raw/learn/agentos/tooling/TroubleshootingToolCalls.md)
 - [AI Tooling WSL Setup](https://neomjs.com/raw/learn/agentos/tooling/AiToolingWslSetup.md)
 - [Introduction to MCP](https://neomjs.com/raw/learn/agentos/tooling/Introduction.md)
+- [Wake Substrate Incident Protocol](https://neomjs.com/raw/learn/agentos/tooling/WakeSubstrateIncidentProtocol.md)
 - [0001 — Cross-Process Cache Coherence](https://neomjs.com/raw/learn/agentos/decisions/0001-cross-process-cache-coherence.md)
 
 ## Guides
