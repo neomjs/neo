@@ -34,6 +34,27 @@ test.describe('ai/scripts/checkSunsetted', () => {
         expect(parsed.reason).toContain('No active WAKE_SUBSCRIPTION');
     });
 
+    test('checkSunsetted.mjs extracts originSessionId from AGENT_MEMORY for a known identity', async () => {
+        // Cycle 2 RA per @neo-gpt: live Memory Core graph rows are AGENT_MEMORY (not MEMORY)
+        // and expose neither `properties.sessionId` nor `properties.agent` as structured
+        // fields. The sessionId is embedded in `properties.description` ("Agent thought
+        // flow inside session <UUID>.") and identity tracks via `properties.userId`. This
+        // test exercises the post-query regex extraction path that the pre-Cycle-2 query
+        // path could not reach. Using `@neo-opus-4-7` because its identityMap entry shipped
+        // in #10607 (2026-05-02) and a fresh-session boot of this same PR has been writing
+        // AGENT_MEMORY rows under that userId. If the DB has no rows for the identity (clean
+        // bootstrap, fresh fork), originSessionId stays empty — that branch is also valid.
+        const scriptPath = path.resolve(process.cwd(), 'ai/scripts/checkSunsetted.mjs');
+        const output     = execFileSync('node', [scriptPath, '@neo-opus-4-7'], { encoding: 'utf-8' });
+        const parsed     = JSON.parse(output);
+
+        expect(typeof parsed.originSessionId).toBe('string');
+        if (parsed.originSessionId) {
+            // UUID v4 format: 8-4-4-4-12 hex characters with hyphens.
+            expect(parsed.originSessionId).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/);
+        }
+    });
+
     test('swarm-heartbeat.sh integrates the sunset detection properly before the bypass', async () => {
         const fs = await import('fs/promises');
         const script = await fs.readFile(path.resolve(process.cwd(), 'ai/scripts/swarm-heartbeat.sh'), 'utf-8');
