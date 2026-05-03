@@ -536,7 +536,7 @@ Symmetric companion to §4.2 (Consolidate-Then-Save at turn end): at turn start,
 ### Why
 
 Without an explicit turn-start check:
-- You may proceed on a stale mental model (cross-family reviewer's response missed)
+- You may fail at deriving operational intent (missing cross-family reviewer's response or shifting priorities)
 - Coordination signals (pause requests, work-split changes) get lost
 - State-mismatch findings compound across review cycles
 - Cross-cycle continuity breaks at every turn boundary

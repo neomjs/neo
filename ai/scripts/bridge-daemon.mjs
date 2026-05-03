@@ -575,11 +575,11 @@ async function deliverDigest(subscription, digest) {
             let tabShortcut = meta.tabShortcut;
             // In April 2026, Claude Desktop features 3 main tabs: Chat (Cmd+1), Cowork (Cmd+2), and Code (Cmd+3).
             // We default to '3' to automatically switch to the Code tab for agentic tasks.
-            // For Antigravity, Cmd+L opens the Composer/Chat panel for agentic input.
+            // For Antigravity, Cmd+L was unsafe/toggling for this regression class; Cmd+Shift+I is the verified focus command.
             // Note: If tabShortcut is explicitly null, it is treated as a deliberate opt-out (no keystroke).
             if (tabShortcut === undefined) {
                 if (appName === 'Claude') tabShortcut = '3';
-                else if (appName === 'Antigravity') tabShortcut = 'l';
+                else if (appName === 'Antigravity') tabShortcut = 'shift+i';
             }
             
             // [Anchor & Echo] The Electron-Paradox Defense:
@@ -611,7 +611,12 @@ async function deliverDigest(subscription, digest) {
             ];
 
             if (tabShortcut) {
-                osascriptArgs.push('-e', `      keystroke "${tabShortcut}" using command down`);
+                if (tabShortcut.includes('shift+')) {
+                    const key = tabShortcut.replace('shift+', '');
+                    osascriptArgs.push('-e', `      keystroke "${key}" using {command down, shift down}`);
+                } else {
+                    osascriptArgs.push('-e', `      keystroke "${tabShortcut}" using command down`);
+                }
                 osascriptArgs.push('-e', '      delay 0.5');
             }
 
