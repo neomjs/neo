@@ -4,7 +4,7 @@
 
 This protocol governs how the swarm responds to wake-substrate regressions: when to declare an incident, what stays disabled during it, how to validate before reactivation, and how the post-incident retrospective feeds the substrate's next evolution. It is the operator-facing companion to the wake safety gate ([#10648](https://github.com/neomjs/neo/issues/10648)) and the cross-harness prompt-landing matrix ([#10649](https://github.com/neomjs/neo/issues/10649)) under the Wake Incident Safety Tree epic ([#10647](https://github.com/neomjs/neo/issues/10647)).
 
-The discipline is grounded in the 2026-05-03 incident: bridge/MCP restart after PR [#10632](https://github.com/neomjs/neo/issues/10632) merged surfaced four substrate regressions ([#10641](https://github.com/neomjs/neo/issues/10641) orphan-spawn, [#10644](https://github.com/neomjs/neo/issues/10644) Antigravity prompt-surface, [#10645](https://github.com/neomjs/neo/issues/10645) AgentIdentity cache hydration, [#10643](https://github.com/neomjs/neo/issues/10643) `originSessionId` ordering) within ~30 minutes, three orphan Claude Desktop sessions spawned, and the operator manually executed `kill 4390 4395 4401 4409 4413 4417` at 14:07Z to stop the cycle. That manual-kill is the failure mode this protocol institutionalizes against.
+The protocol is operational discipline — preflight checklists, gate-state semantics, coordination patterns. Specific incident retrospectives accumulate as comments on [#10647](https://github.com/neomjs/neo/issues/10647) using the [post-incident retrospective template](#post-incident-retrospective-template) below.
 
 ---
 
@@ -26,7 +26,7 @@ Once declared, the protocol's freeze rule applies until reactivation evidence is
 
 **While an incident is active, no individual local fix authorizes wake-substrate reactivation.** Heartbeat stays off, the wake safety gate stays `tripped` (or `disabled`), bridge stays stopped, and `WAKE_GATE_OVERRIDE=1` is NOT set unless the operator explicitly authorizes a controlled validation step.
 
-This rule exists because the failure mode is cross-layer. The 2026-05-03 incident showed the swarm repeatedly marking one of the eight wake-substrate layers green and discovering a failure at a neighboring layer:
+This rule exists because the failure mode is cross-layer. Empirical experience has shown the swarm repeatedly marking one of the eight wake-substrate layers green and discovering a failure at a neighboring layer:
 
 1. A2A mailbox storage
 2. unread / list semantics
@@ -59,7 +59,7 @@ ps aux | grep -E "swarm-heartbeat" | grep -v grep
 ps aux | grep -E "resumeHarness" | grep -v grep
 ```
 
-Record every PID found, its start time, and the working directory. Multiple `swarm-heartbeat` instances per identity are a hazard — the 2026-05-03 incident had six (4390/4395/4401 + 4409/4413/4417) where one trio was intended; the duplication amplified orphan-spawn.
+Record every PID found, its start time, and the working directory. Multiple `swarm-heartbeat` instances per identity are a hazard: duplicated trios amplify orphan-spawn under any cross-layer regression by multiplying scheduler cycles.
 
 ### Wake safety gate state
 
@@ -103,7 +103,7 @@ If the pending count is non-zero, the operator MUST choose ONE of these paths an
 - **Advance `lastSyncId` after a durable-mailbox audit** — the operator confirms that no pending event needs to wake a harness (because the recipient already saw the message via mailbox poll), then writes the new `lastSyncId` so the bridge skips the backlog on start.
 - **Run a targeted matrix / test bridge** — a non-production bridge instance that ignores the canonical backlog and exercises only the [#10649](https://github.com/neomjs/neo/issues/10649) prompt-landing matrix tests.
 
-**Bridge restart as a background service action is prohibited** while active subscriptions exist AND wake delivery is considered unsafe. The empirical anchor: 2026-05-03 16:00Z, the bridge backlog had **893 rows pending** past `lastSyncId=3034081` (max GraphLog 3034974). Restarting the bridge without a chosen path would have flooded the harnesses with 893 wake events.
+**Bridge restart as a background service action is prohibited** while active subscriptions exist AND wake delivery is considered unsafe. Backlogs of hundreds of pending rows are common after even short downtime windows; restarting the bridge without a chosen path floods the harnesses with the entire pending stream the moment it acks subscriptions.
 
 ---
 
@@ -113,7 +113,7 @@ The freeze rule lifts only when ALL of the following hold:
 
 - **Wake safety gate is `enabled`** ([#10648](https://github.com/neomjs/neo/issues/10648)). `node ai/scripts/wakeSafetyGate.mjs check` exits 0 without `WAKE_GATE_OVERRIDE`.
 - **Cross-harness prompt-landing matrix is green** ([#10649](https://github.com/neomjs/neo/issues/10649)). Each row (Claude Desktop, Antigravity, Codex Desktop) has documented evidence at every column from A2A storage through prompt landing through no-editor-mutation.
-- **Active local-regression tickets are merged** — at minimum the regressions known to break the loop. As of 2026-05-03 evening: [#10643](https://github.com/neomjs/neo/issues/10643), [#10645](https://github.com/neomjs/neo/issues/10645) outstanding. Tickets per incident vary; the principle is that no known broken-loop regression remains open at reactivation time.
+- **Active local-regression tickets are merged** — at minimum the regressions known to break the loop. Tickets per incident vary; the principle is that no known broken-loop regression remains open at reactivation time.
 - **Bridge backlog fence has been chosen and documented** per the preflight checklist above.
 
 OR
@@ -128,7 +128,7 @@ A passing unit test alone does NOT satisfy reactivation. The substrate's failure
 
 While wake delivery is disabled, the swarm coordinates exclusively via the durable mailbox: `add_message` writes the message into SQLite, `list_messages` polls the inbox. Wake events do not arrive; agents check their mailbox at session start (per `AGENTS.md` §22 mailbox-check Pre-Flight) and at any interruption.
 
-**Do not assume wake interrupts will arrive during an incident.** If a peer is silent on a coordination question, the cause is more likely "they have not polled their mailbox since you wrote" than "they declined to respond." When in doubt, ask the operator to relay (the manual ping pattern explicitly used during the 2026-05-03 incident).
+**Do not assume wake interrupts will arrive during an incident.** If a peer is silent on a coordination question, the cause is more likely "they have not polled their mailbox since you wrote" than "they declined to respond." When in doubt, ask the operator to relay (manual ping pattern: operator pokes the recipient's IDE chat to trigger a mailbox poll).
 
 The mailbox path is independent from wake delivery — the `add_message` SQLite write succeeds even when bridge is down, embedding-write contention blocks `add_memory`, or osascript fails for keystroke delivery. This is the path-asymmetry property that makes mailbox the durable coordination substrate during incidents.
 
@@ -138,7 +138,7 @@ The mailbox path is independent from wake delivery — the `add_message` SQLite 
 
 During an active incident, ownership splits across two complementary roles:
 
-- **Local bug owners** — fix specific tickets in their substrate territory. The Wake Incident Safety Tree's local-regression batch (e.g., [#10643](https://github.com/neomjs/neo/issues/10643), [#10644](https://github.com/neomjs/neo/issues/10644), [#10645](https://github.com/neomjs/neo/issues/10645), [#10633](https://github.com/neomjs/neo/issues/10633), [#10627](https://github.com/neomjs/neo/issues/10627)) routes naturally to whichever agent has the deepest subsystem familiarity.
+- **Local bug owners** — fix specific tickets in their substrate territory. Local-regression batches route naturally to whichever agent has the deepest subsystem familiarity for each fix.
 - **One reactivation-gate owner** — coordinates the loop-level validation, runs the cross-harness matrix execution, decides bridge-backlog-fence path, and writes the operator-facing reactivation request. This role is singular by design: cross-layer judgment must concentrate, not split, or the swarm risks a "narrow fix landed → reactivate" failure mode.
 
 The reactivation-gate owner is not a permanent role. It is assigned per-incident by the operator (`@tobiu` for canonical) and rotates across the trio as appropriate to subsystem context.
@@ -173,26 +173,7 @@ After reactivation, the incident closes with a retrospective recorded as a comme
 
 The recurrence-guard line is load-bearing. A retrospective that documents what happened but does not link to a test, guard primitive, or protocol-document edit is incomplete; the substrate evolves through the recurrence guards, not through the prose.
 
----
-
-## Empirical Anchor: The 2026-05-03 Incident
-
-The founding case study for this protocol. Cited inline above; consolidated here for the canonical retrospective shape.
-
-| Field | Value |
-|---|---|
-| Date | 2026-05-03 |
-| Operator | `@tobiu` |
-| Restart trigger | PR [#10632](https://github.com/neomjs/neo/issues/10632) merge expected to validate auto-wake substrate end-to-end |
-| Symptom | Three orphan Claude Desktop sessions spawned via `resumeHarness.mjs` Cmd+N during 13:12-15:42Z; wake payloads landing in Antigravity vscode files; Codex bootstrap stranded |
-| Failed layers | Layer 6 (prompt landing — Antigravity Cmd+L was a TOGGLE, not a focus shortcut), Layer 3 (subscription bootstrap — `validAppNames` excluded `Codex`, AgentIdentity cache stripped `subscriptionTemplate` after restart), Layer 7 (fresh-session recovery — memory-staleness conflated with sunset signal) |
-| Proof | `heartbeat-opus_4_7.log` entries 13:12-15:42Z showing repeated `Phase 1 Recovery Triggered` from staleness false-positive; `bridge.log` osascript exit-0 on Antigravity with no chat-composer landing; raw SQLite vs MCP-cache split for `@neo-gpt` `subscriptionTemplate` |
-| Manual brake | `kill 4390 4395 4401 4409 4413 4417` at 14:07Z (six heartbeat PIDs — three originals + three duplicates) |
-| Fix tickets | [#10641](https://github.com/neomjs/neo/issues/10641) staleness branch removal · [#10644](https://github.com/neomjs/neo/issues/10644) Antigravity Cmd+Shift+I · [#10636](https://github.com/neomjs/neo/issues/10636) Codex `validAppNames` · [#10638](https://github.com/neomjs/neo/issues/10638) bridge stderr surface · [#10648](https://github.com/neomjs/neo/issues/10648) wake safety gate · [#10645](https://github.com/neomjs/neo/issues/10645) cache hydration (open) · [#10643](https://github.com/neomjs/neo/issues/10643) `originSessionId` ordering (open) |
-| Validation evidence | Pending matrix execution in [#10649](https://github.com/neomjs/neo/issues/10649); reactivation criterion not yet met as of doc-creation time |
-| Recurrence guards | Wake safety gate primitive (this PR), bridge stderr capture (PR [#10639](https://github.com/neomjs/neo/issues/10639) merged), this protocol document (PR for [#10650](https://github.com/neomjs/neo/issues/10650)) |
-
-The `Operator manual-trip as architectural recovery` trap captured at [#10647](https://github.com/neomjs/neo/issues/10647) epic-review level is the meta-lesson: this protocol's whole purpose is to make the operator's emergency-brake reflex obsolete.
+Canonical retrospectives for past incidents accumulate as comments on the parent epic [#10647](https://github.com/neomjs/neo/issues/10647) using the template above. The `Operator manual-trip as architectural recovery` trap captured at [#10647](https://github.com/neomjs/neo/issues/10647) epic-review level is the meta-lesson: this protocol's whole purpose is to make the operator's emergency-brake reflex obsolete.
 
 ---
 
