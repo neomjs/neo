@@ -194,7 +194,12 @@ class MemoryService extends Base {
                 type: 'AGENT_MEMORY',
                 name: `Memory: ${timestamp}`,
                 description: `Agent thought flow inside session ${sessionId}.`,
-                semanticVectorId: memoryId
+                semanticVectorId: memoryId,
+                properties: {
+                    agentIdentity: agent,
+                    sessionId,
+                    timestamp
+                }
             });
 
             // 2. Link this memory dynamically to the active context frontier

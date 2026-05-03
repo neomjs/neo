@@ -41,22 +41,24 @@ async function main() {
     //    because ISO-8601 sorts lexically.
     const memStmt = db.prepare(`
         SELECT json_extract(data, '$.properties.name')        as nameField,
-               json_extract(data, '$.properties.description') as descField
+               json_extract(data, '$.properties.description') as descField,
+               json_extract(data, '$.properties.timestamp')   as timestampField,
+               json_extract(data, '$.properties.sessionId')   as sessionIdField
         FROM Nodes
         WHERE json_extract(data, '$.label') = 'AGENT_MEMORY'
-          AND json_extract(data, '$.properties.userId') = ?
-        ORDER BY json_extract(data, '$.properties.name') DESC
+          AND (json_extract(data, '$.properties.agentIdentity') = ? OR json_extract(data, '$.properties.userId') = ?)
+        ORDER BY COALESCE(json_extract(data, '$.properties.timestamp'), json_extract(data, '$.properties.name')) DESC
         LIMIT 1
     `);
-    const memRow = memStmt.get(identity);
+    const memRow = memStmt.get(identity, identity);
 
     const tsMatch     = memRow?.nameField?.match(/^Memory:\s+(.+)$/);
     const sidMatch    = memRow?.descField?.match(/inside session ([a-f0-9-]+)/);
-    const lastMemTime = tsMatch?.[1] || null;
+    const lastMemTime = memRow?.timestampField || tsMatch?.[1] || null;
 
     let isSunsetted = false;
     let reason = '';
-    const originSessionId = sidMatch?.[1] || '';
+    const originSessionId = memRow?.sessionIdField || sidMatch?.[1] || '';
 
     if (subs.length === 0) {
         isSunsetted = true;
