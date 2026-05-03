@@ -58,7 +58,7 @@ async function main() {
         try {
             const tsMatch     = memRow.nameField?.match(/^Memory:\s+(.+)$/);
             const sidMatch    = memRow.descField?.match(/inside session ([a-f0-9-]+)/);
-            
+
             const migratedTime = tsMatch?.[1];
             const migratedSessionId = sidMatch?.[1];
 
