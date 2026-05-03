@@ -156,6 +156,17 @@ heartbeat_pulse() {
             fi
         fi
 
+        # All-agent-idle detection (Phase 3 Substrate Primitive #10625)
+        local cycle_id=$(date +%s)
+        local all_idle_json=$(node "${script_dir}/checkAllAgentIdle.mjs" "$cycle_id" 2>>"$SWEEP_LOG")
+        if [ $? -eq 0 ] && [ -n "$all_idle_json" ]; then
+            local is_all_idle=$(echo "$all_idle_json" | jq -r '.allIdle')
+            if [ "$is_all_idle" = "true" ]; then
+                echo "[heartbeat $(date -Iseconds)] AllAgentIdle detected: $all_idle_json" >&2
+                # The cooldown layer #10626 will hook here to decide whether to emit a WAKE event.
+            fi
+        fi
+
         # Heartbeat-Bypass Detection
         local push_identities=$(get_push_capable_identities)
         if echo "$push_identities" | grep -Fq "$IDENTITY"; then
