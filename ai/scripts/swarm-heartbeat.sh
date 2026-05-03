@@ -163,7 +163,8 @@ heartbeat_pulse() {
             local is_all_idle=$(echo "$all_idle_json" | jq -r '.allIdle')
             if [ "$is_all_idle" = "true" ]; then
                 echo "[heartbeat $(date -Iseconds)] AllAgentIdle detected: $all_idle_json" >&2
-                # The cooldown layer #10626 will hook here to decide whether to emit a WAKE event.
+                # Dispatch WAKE event if not in cooldown (Phase 4 Substrate Primitive #10626)
+                node "${script_dir}/trioWakeCooldown.mjs" "$all_idle_json" 2>>"$SWEEP_LOG"
             fi
         fi
 

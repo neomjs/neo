@@ -1,0 +1,91 @@
+#!/usr/bin/env node
+/**
+ * @summary Cooldown-bounded idempotent trio wake (binds to all-agent-idle detector contract).
+ * 
+ * Prevents swarm heartbeat from spamming wake events by enforcing a 10-minute cooldown
+ * TTL between WAKE messages.
+ */
+import fs from 'fs-extra';
+import path from 'path';
+import Neo from '../../src/Neo.mjs';
+import * as core from '../../src/core/_export.mjs';
+import { withHeartbeatLock } from './heartbeatLock.mjs';
+import RequestContextService from '../mcp/server/shared/services/RequestContextService.mjs';
+import LifecycleService from '../mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
+import GraphService from '../mcp/server/memory-core/services/GraphService.mjs';
+import MailboxService from '../mcp/server/memory-core/services/MailboxService.mjs';
+
+const COOLDOWN_STATE_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.json';
+const COOLDOWN_LOCK_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.lock';
+
+async function main() {
+    const rawSignal = process.argv[2];
+    if (!rawSignal) return;
+
+    let signal;
+    try {
+        signal = JSON.parse(rawSignal);
+    } catch (err) {
+        console.error('trioWakeCooldown: Failed to parse signal:', err.message);
+        process.exit(1);
+    }
+
+    if (signal.allIdle !== true) {
+        return;
+    }
+
+    await withHeartbeatLock(async () => {
+        // Enforce 10-minute (600s) default TTL to match swarm consensus (Regression Fix: #10626 vs 30m flaw)
+        const ttlSeconds = parseInt(process.env.TRIO_WAKE_COOLDOWN_SECONDS, 10) || 600;
+        const ttlMs = ttlSeconds * 1000;
+        const now = Date.now();
+
+        let state = {};
+        if (await fs.pathExists(COOLDOWN_STATE_PATH)) {
+            state = await fs.readJson(COOLDOWN_STATE_PATH).catch(() => ({}));
+        }
+
+        const lastFireAt = state.last_fire_at_iso ? new Date(state.last_fire_at_iso).getTime() : 0;
+        const timeSinceLastFire = now - lastFireAt;
+
+        // If we are within the TTL window, suppress the wake
+        if (timeSinceLastFire < ttlMs) {
+            console.error(`[trioWakeCooldown] Suppressed: within TTL window (${ttlSeconds}s) since last wake.`);
+            return;
+        }
+
+        console.error(`[trioWakeCooldown] Firing SYSTEM WAKE for cycle ${signal.cycle_id} to ${signal.coordinator_recommendation}`);
+
+        // Initialize Services to send an A2A message
+        await LifecycleService.initAsync();
+        await GraphService.initAsync();
+
+        const coordinator = signal.coordinator_recommendation || '@neo-gemini-3-1-pro';
+        const sender = process.env.NEO_AGENT_IDENTITY || '@system';
+
+        await RequestContextService.run({ agentIdentityNodeId: sender }, async () => {
+            await MailboxService.addMessage({
+                to: coordinator,
+                subject: 'Intent-First Wakeup: All-Agent-Idle Detected',
+                body: `The swarm heartbeat has detected that all configured agents are idle.\n\nDetector Signal:\n\`\`\`json\n${JSON.stringify(signal, null, 2)}\n\`\`\`\n\nYou are the recommended coordinator. Please pick up a high-ROI ticket and drive the swarm forward per D1/D2 policies.`,
+                priority: 'high'
+                // We omit `from` since it's a system message.
+            });
+        });
+
+        state = {
+            last_fire_cycle_id: signal.cycle_id,
+            last_fire_at_iso: new Date(now).toISOString(),
+            ttl_seconds: ttlSeconds
+        };
+
+        await fs.ensureDir(path.dirname(COOLDOWN_STATE_PATH));
+        await fs.writeJson(COOLDOWN_STATE_PATH, state, { spaces: 2 });
+
+    }, { lockPath: COOLDOWN_LOCK_PATH });
+}
+
+main().catch(err => {
+    console.error('trioWakeCooldown failed:', err.stack);
+    process.exit(1);
+});
