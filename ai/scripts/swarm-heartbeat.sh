@@ -63,7 +63,11 @@ get_unread_count() {
         echo "0"
         return
     fi
-    local count=$(sqlite3 "$DB_PATH" "SELECT count(DISTINCT n.id) FROM Nodes n JOIN Edges e ON n.id = e.source AND e.type = 'SENT_TO' WHERE json_extract(n.data, '$.type') = 'MESSAGE' AND json_extract(n.data, '$.properties.readAt') IS NULL AND e.target IN ('$IDENTITY', 'AGENT:*');" 2>/dev/null)
+    # Node label discriminator on MESSAGE rows is `$.label`, not `$.type` (substrate-schema
+    # parity with #10619 Cycle 1 finding on AGENT_MEMORY). Pre-fix query matched 0 rows
+    # regardless of mailbox state, so the token-economy gate below silently skipped every
+    # pulse — the heartbeat was a no-op for active idle agents. See #10622.
+    local count=$(sqlite3 "$DB_PATH" "SELECT count(DISTINCT n.id) FROM Nodes n JOIN Edges e ON n.id = e.source AND e.type = 'SENT_TO' WHERE json_extract(n.data, '$.label') = 'MESSAGE' AND json_extract(n.data, '$.properties.readAt') IS NULL AND e.target IN ('$IDENTITY', 'AGENT:*');" 2>/dev/null)
     echo "${count:-0}"
 }
 
