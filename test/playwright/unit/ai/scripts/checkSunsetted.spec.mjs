@@ -15,7 +15,9 @@ setup({
 
 import {test, expect} from '@playwright/test';
 import {execFileSync} from 'child_process';
-import path from 'path';
+import path           from 'path';
+import Neo            from '../../../../../src/Neo.mjs';
+import * as core      from '../../../../../src/core/_export.mjs';
 
 /**
  * @summary Validation for Phase 1 Auto-Wakeup Substrate.
@@ -45,7 +47,10 @@ test.describe('ai/scripts/checkSunsetted', () => {
         // AGENT_MEMORY rows under that userId. If the DB has no rows for the identity (clean
         // bootstrap, fresh fork), originSessionId stays empty — that branch is also valid.
         const scriptPath = path.resolve(process.cwd(), 'ai/scripts/checkSunsetted.mjs');
-        const output     = execFileSync('node', [scriptPath, '@neo-opus-4-7'], { encoding: 'utf-8' });
+        const output     = execFileSync('node', [scriptPath, '@neo-opus-4-7'], {
+            encoding: 'utf-8',
+            env: { ...process.env, NEO_UNIT_TEST_MODE: 'true' }
+        });
         const parsed     = JSON.parse(output);
 
         expect(typeof parsed.originSessionId).toBe('string');
@@ -53,6 +58,49 @@ test.describe('ai/scripts/checkSunsetted', () => {
             // UUID v4 format: 8-4-4-4-12 hex characters with hyphens.
             expect(parsed.originSessionId).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/);
         }
+    });
+
+    test('checkSunsetted.mjs update-on-read legacy row migration actually migrates legacy structure', async () => {
+        const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        await GraphService.initAsync();
+
+        const legacyId = 'legacy-memory-12345';
+        const legacyTime = new Date().toISOString();
+        const legacySession = '12345678-1234-1234-1234-123456789012';
+
+        // Directly insert legacy JSON into SQLite to bypass Node object structuring
+        const dataObj = {
+            id: legacyId,
+            label: 'AGENT_MEMORY',
+            type: 'AGENT_MEMORY',
+            properties: {
+                userId: '@neo-legacy-test',
+                name: `Memory: ${legacyTime}`,
+                description: `Agent thought flow inside session ${legacySession}.`
+            }
+        };
+
+        const insertStmt = GraphService.db.storage.db.prepare(`
+            INSERT INTO Nodes (id, user_id, data) VALUES (?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET data=excluded.data
+        `);
+        insertStmt.run(legacyId, '@neo-legacy-test', JSON.stringify(dataObj));
+
+        const scriptPath = path.resolve(process.cwd(), 'ai/scripts/checkSunsetted.mjs');
+        const output     = execFileSync('node', [scriptPath, '@neo-legacy-test'], {
+            encoding: 'utf-8',
+            env: { ...process.env, NEO_UNIT_TEST_MODE: 'true', SUNSET_THRESHOLD_MS: '600000' }
+        });
+        const parsed     = JSON.parse(output);
+
+        expect(parsed.identity).toBe('@neo-legacy-test');
+
+        // Verify migration in database
+        const row = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(legacyId);
+        const migratedData = JSON.parse(row.data);
+        expect(migratedData.properties.timestamp).toBe(legacyTime);
+        expect(migratedData.properties.sessionId).toBe(legacySession);
+        expect(migratedData.properties.agentIdentity).toBe('@neo-legacy-test');
     });
 
     test('swarm-heartbeat.sh integrates the sunset detection properly before the bypass', async () => {
