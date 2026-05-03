@@ -25,7 +25,8 @@ export const IDENTITIES = [
                 harnessTarget: 'bridge-daemon',
                 harnessTargetMetadata: {
                     appName: 'Claude',
-                    tabShortcut: '3'
+                    tabShortcut: '3',
+                    focusSeedKey: 'space'
                 }
             },
             createdAt: new Date().toISOString()
@@ -85,7 +86,8 @@ export const IDENTITIES = [
                 harnessTarget: 'bridge-daemon',
                 harnessTargetMetadata: {
                     appName: 'Codex',
-                    tabShortcut: null
+                    tabShortcut: null,
+                    focusSeedKey: 'r'
                 }
             },
             createdAt: new Date().toISOString()

@@ -786,6 +786,102 @@ test.describe('Bridge Daemon', () => {
         expect(fs.existsSync(mockOutPath)).toBe(false);
     });
 
+    test('Codex wake delivery emits specific sequence r -> Cmd+Z -> Cmd+A/X -> paste (#10667)', async () => {
+        const subId = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-codex-cleanup';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id: agentId,
+            label: 'AGENT',
+            properties: { name: 'Test Agent Codex Cleanup' }
+        }));
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id: subId,
+            label: 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity: agentId,
+                harnessTarget: 'bridge-daemon',
+                status: 'active',
+                trigger: 'SENT_TO_ME',
+                harnessTargetMetadata: {
+                    adapter: 'osascript',
+                    appName: 'Codex',
+                    coalesceWindow: 1,
+                    focusSeedKey: 'r'
+                }
+            }
+        }));
+
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        const mockOsascriptPath = path.join(binDir, 'osascript');
+        const mockOutPath = path.join(DAEMON_DIR, 'mock_codex_cleanup_out.json');
+        fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+            stdio: 'pipe',
+            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not deliver Codex wake within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes(`Delivered ${subId}`)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const msgId = 'msg_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
+            id: msgId,
+            label: 'MESSAGE',
+            properties: {
+                from: '@sender',
+                subject: 'Test Codex Cleanup',
+                priority: 'normal'
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
+
+        const edgeId = 'edge_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
+            id: edgeId,
+            source: msgId,
+            target: agentId,
+            type: 'SENT_TO'
+        }), msgId, agentId, 'SENT_TO');
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
+
+        await deliveryPromise;
+
+        const rawArgs = JSON.parse(fs.readFileSync(mockOutPath, 'utf-8'));
+        const scriptContent = rawArgs.filter((_, i) => rawArgs[i - 1] === '-e').join('\n');
+
+        const rIndex = scriptContent.indexOf('keystroke "r"');
+        const zIndex = scriptContent.indexOf('keystroke "z" using command down');
+        const aIndex = scriptContent.indexOf('keystroke "a" using command down');
+        const xIndex = scriptContent.indexOf('keystroke "x" using command down');
+        const pasteIndex = scriptContent.indexOf('keystroke "v" using command down');
+
+        expect(rIndex).toBeGreaterThan(-1);
+        expect(zIndex).toBeGreaterThan(rIndex);
+        expect(aIndex).toBeGreaterThan(zIndex);
+        expect(xIndex).toBeGreaterThan(aIndex);
+        expect(pasteIndex).toBeGreaterThan(xIndex);
+    });
+
     test('getNodesData and getEdgesData deterministically chunk queries by SQLITE_IN_CLAUSE_BATCH_SIZE', () => {
         let prepareCount = 0;
         let paramsLength = [];
