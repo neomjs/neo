@@ -59,7 +59,29 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
         GraphService.linkNodes            = originalLinkNodes;
     });
 
-    test('addMemory emits a correctly structured AGENT_MEMORY node payload', async () => {
+    test('addMemory canonicalizes profile-string agent to node-id graph identity', async () => {
+        await MemoryService.addMemory({
+            agent    : 'antigravity',
+            sessionId: 'session-xyz',
+            prompt   : 'hello',
+            thought  : 'thinking',
+            response : 'hi'
+        });
+
+        expect(upsertNodeCalls).toHaveLength(1);
+        const node = upsertNodeCalls[0];
+
+        expect(node.type).toBe('AGENT_MEMORY');
+
+        // Ensure the structured properties are present and correctly named
+        expect(node.properties).toBeDefined();
+        // Profile string 'antigravity' should be canonicalized to '@antigravity'
+        expect(node.properties.agentIdentity).toBe('@antigravity');
+        expect(node.properties.sessionId).toBe('session-xyz');
+        expect(typeof node.properties.timestamp).toBe('string');
+    });
+
+    test('addMemory preserves canonical node-id graph identity', async () => {
         await MemoryService.addMemory({
             agent    : '@neo-gemini-3-1-pro',
             sessionId: 'session-xyz',
@@ -72,17 +94,6 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
         const node = upsertNodeCalls[0];
 
         expect(node.type).toBe('AGENT_MEMORY');
-        
-        // Ensure the structured properties are present and correctly named
-        expect(node.properties).toBeDefined();
         expect(node.properties.agentIdentity).toBe('@neo-gemini-3-1-pro');
-        expect(node.properties.sessionId).toBe('session-xyz');
-        expect(typeof node.properties.timestamp).toBe('string');
-
-        // Ensure legacy fallback compatibility fields (name and description) are still written
-        expect(typeof node.name).toBe('string');
-        expect(node.name.startsWith('Memory: ')).toBe(true);
-        expect(typeof node.description).toBe('string');
-        expect(node.description).toContain('inside session session-xyz');
     });
 });

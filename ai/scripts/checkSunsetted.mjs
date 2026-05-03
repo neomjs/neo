@@ -40,7 +40,9 @@ async function main() {
     //    extract both via regex post-query. Sorting on `properties.name` is correct
     //    because ISO-8601 sorts lexically.
     const memStmt = db.prepare(`
-        SELECT json_extract(data, '$.properties.name')        as nameField,
+        SELECT id,
+               data,
+               json_extract(data, '$.properties.name')        as nameField,
                json_extract(data, '$.properties.description') as descField,
                json_extract(data, '$.properties.timestamp')   as timestampField,
                json_extract(data, '$.properties.sessionId')   as sessionIdField
@@ -59,6 +61,22 @@ async function main() {
     let isSunsetted = false;
     let reason = '';
     const originSessionId = memRow?.sessionIdField || sidMatch?.[1] || '';
+
+    // Update-on-read migration for legacy AGENT_MEMORY rows
+    if (memRow && (!memRow.timestampField || !memRow.sessionIdField) && lastMemTime && originSessionId) {
+        try {
+            const dataObj = JSON.parse(memRow.data);
+            dataObj.properties = dataObj.properties || {};
+            dataObj.properties.timestamp = lastMemTime;
+            dataObj.properties.sessionId = originSessionId;
+            dataObj.properties.agentIdentity = identity;
+            
+            const updateStmt = db.prepare(`UPDATE Nodes SET data = ? WHERE id = ?`);
+            updateStmt.run(JSON.stringify(dataObj), memRow.id);
+        } catch (err) {
+            // Ignore migration errors on read path
+        }
+    }
 
     if (subs.length === 0) {
         isSunsetted = true;

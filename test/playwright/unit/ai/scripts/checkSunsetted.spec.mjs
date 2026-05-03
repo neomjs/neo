@@ -45,7 +45,10 @@ test.describe('ai/scripts/checkSunsetted', () => {
         // AGENT_MEMORY rows under that userId. If the DB has no rows for the identity (clean
         // bootstrap, fresh fork), originSessionId stays empty — that branch is also valid.
         const scriptPath = path.resolve(process.cwd(), 'ai/scripts/checkSunsetted.mjs');
-        const output     = execFileSync('node', [scriptPath, '@neo-opus-4-7'], { encoding: 'utf-8' });
+        const output     = execFileSync('node', [scriptPath, '@neo-opus-4-7'], { 
+            encoding: 'utf-8',
+            env: { ...process.env, NEO_UNIT_TEST_MODE: 'true' }
+        });
         const parsed     = JSON.parse(output);
 
         expect(typeof parsed.originSessionId).toBe('string');
@@ -53,6 +56,18 @@ test.describe('ai/scripts/checkSunsetted', () => {
             // UUID v4 format: 8-4-4-4-12 hex characters with hyphens.
             expect(parsed.originSessionId).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/);
         }
+    });
+
+    test('checkSunsetted.mjs update-on-read legacy row migration does not throw', async () => {
+        const scriptPath = path.resolve(process.cwd(), 'ai/scripts/checkSunsetted.mjs');
+        const output     = execFileSync('node', [scriptPath, '@neo-legacy-test'], { 
+            encoding: 'utf-8',
+            env: { ...process.env, NEO_UNIT_TEST_MODE: 'true' }
+        });
+        const parsed     = JSON.parse(output);
+
+        expect(parsed.identity).toBe('@neo-legacy-test');
+        expect(parsed.sunsetted).toBe(true);
     });
 
     test('swarm-heartbeat.sh integrates the sunset detection properly before the bypass', async () => {
