@@ -342,6 +342,34 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         });
     });
 
+    test('MCP tool preserves explicit bridge-daemon metadata for Codex with focusSeedKey (#10662)', async () => {
+        // Per #10662, the Codex collapsed-sidebar regression is closed by extending the
+        // per-harness `focusSeedKey: 'space'` default to `appName === 'Codex'`. This test
+        // mirrors the Claude metadata round-trip above for Codex, ensuring the schema
+        // validator + storage substrate accept the same field shape regardless of harness.
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const res = await callTool('manage_wake_subscription', {
+                action               : 'subscribe',
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {
+                    adapter       : 'osascript',
+                    appName       : 'Codex',
+                    coalesceWindow: 0,
+                    focusSeedKey  : 'space',
+                    tabShortcut   : null
+                }
+            });
+
+            const node = GraphService.db.nodes.get(res.subscriptionId);
+            expect(node.properties.harnessTargetMetadata.adapter).toBe('osascript');
+            expect(node.properties.harnessTargetMetadata.appName).toBe('Codex');
+            expect(node.properties.harnessTargetMetadata.coalesceWindow).toBe(0);
+            expect(node.properties.harnessTargetMetadata.focusSeedKey).toBe('space');
+            expect(node.properties.harnessTargetMetadata.tabShortcut).toBeNull();
+        });
+    });
+
     test('subscribe rejects invalid trigger', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
             await expect(WakeSubscriptionService.subscribe({

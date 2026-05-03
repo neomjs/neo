@@ -674,6 +674,107 @@ test.describe('Bridge Daemon', () => {
         expect(clearIndex).toBeGreaterThan(spaceIndex);
     });
 
+    test('Codex default focus seed generates Space after activate and before prompt clear (#10662)', async () => {
+        // Per #10662: extends the per-harness focusSeedKey: 'space' default to
+        // appName === 'Codex' so the collapsed-sidebar regression (Cmd+A selects
+        // thread history instead of composer content) is closed by seeding focus
+        // before the destructive clear. Codex has no tab-shortcut default
+        // (tabShortcut stays undefined / null), so the order is
+        // activate → Space → Cmd+A — distinct from the Claude order
+        // (activate → Cmd+3 → Space → Cmd+A).
+        const subId = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-codex';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id: agentId,
+            label: 'AGENT',
+            properties: { name: 'Test Agent Codex' }
+        }));
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id: subId,
+            label: 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity: agentId,
+                harnessTarget: 'bridge-daemon',
+                status: 'active',
+                trigger: 'SENT_TO_ME',
+                harnessTargetMetadata: {
+                    adapter: 'osascript',
+                    appName: 'Codex',
+                    coalesceWindow: 1
+                }
+            }
+        }));
+
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        const mockOsascriptPath = path.join(binDir, 'osascript');
+        const mockOutPath = path.join(DAEMON_DIR, 'mock_codex_out.json');
+        fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+            stdio: 'pipe',
+            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver event within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes('[Bridge Daemon] Delivered ' + subId)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const msgId = 'msg_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
+            id: msgId,
+            label: 'MESSAGE',
+            properties: {
+                from: '@sender',
+                subject: 'Test Codex Event',
+                priority: 'normal'
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
+
+        const edgeId = 'edge_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
+            id: edgeId,
+            source: msgId,
+            target: agentId,
+            type: 'SENT_TO'
+        }), msgId, agentId, 'SENT_TO');
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
+
+        await deliveryPromise;
+
+        const args = JSON.parse(fs.readFileSync(mockOutPath, 'utf8'));
+        const activateIndex = args.findIndex(arg => arg.includes('tell application "Codex" to activate'));
+        const spaceIndex    = args.findIndex(arg => arg.includes('key code 49'));
+        const clearIndex    = args.findIndex(arg => arg.includes('keystroke "a" using command down'));
+
+        expect(activateIndex).toBeGreaterThan(-1);
+        expect(spaceIndex).toBeGreaterThan(activateIndex);
+        expect(clearIndex).toBeGreaterThan(spaceIndex);
+
+        // Negative drift guard: Codex must NOT emit a Cmd+3 tab-shortcut keystroke
+        // (Codex has no Code-tab equivalent). If a future change introduces one,
+        // this assertion fails loudly so the order is re-validated.
+        expect(args.join(' ')).not.toContain('keystroke "3" using command down');
+    });
+
     test('getNodesData and getEdgesData deterministically chunk queries by SQLITE_IN_CLAUSE_BATCH_SIZE', () => {
         let prepareCount = 0;
         let paramsLength = [];
