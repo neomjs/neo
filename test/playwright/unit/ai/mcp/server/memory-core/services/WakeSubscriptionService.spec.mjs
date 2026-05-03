@@ -162,6 +162,44 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
             });
         });
 
+        test('recovers template from durable AgentIdentity row when cache is stale', async () => {
+            GraphService.upsertNode({
+                id: '@neo-gpt',
+                type: 'AgentIdentity',
+                name: 'Codex',
+                properties: {
+                    displayName: 'Codex',
+                    modelFamily: 'gpt',
+                    subscriptionTemplate: {
+                        trigger: 'SENT_TO_ME',
+                        harnessTarget: 'bridge-daemon',
+                        harnessTargetMetadata: {
+                            appName: 'Codex',
+                            tabShortcut: null
+                        }
+                    }
+                }
+            });
+
+            const cachedIdentity = GraphService.db.nodes.get('@neo-gpt');
+            cachedIdentity.properties = {
+                displayName: 'Codex stripped cache stub'
+            };
+
+            await RequestContextService.run({agentIdentityNodeId: '@neo-gpt'}, async () => {
+                const res = await WakeSubscriptionService.manage({action: 'bootstrap'});
+                expect(res.status).toBe('created');
+                expect(res.harnessTarget).toBe('bridge-daemon');
+
+                const subscriptionNode = GraphService.db.nodes.get(res.subscriptionId);
+                expect(subscriptionNode.properties.trigger).toBe('SENT_TO_ME');
+                expect(subscriptionNode.properties.harnessTargetMetadata.appName).toBe('Codex');
+
+                const hydratedIdentity = GraphService.db.nodes.get('@neo-gpt');
+                expect(hydratedIdentity.properties.subscriptionTemplate.harnessTargetMetadata.appName).toBe('Codex');
+            });
+        });
+
         test('throws error if identity has no template', async () => {
             // Bob has no template
             await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
