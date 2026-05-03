@@ -677,17 +677,19 @@ test.describe('Bridge Daemon', () => {
     test('Codex UI wake fails closed when no validated focusSeedKey is configured (#10664)', async () => {
         // Per #10664: PR #10663's hypothesis (Codex Space-seed mirrors Claude's #10661 fix)
         // was empirically falsified by manual matrix validation 2026-05-03. Space and Enter
-        // apply only a focus outline; printable keys can focus but mutate the existing
-        // prompt content — updated evidence shows the probe char APPENDS to the existing
-        // draft rather than fully replacing it, but appending into the prompt is still
-        // mutation that the subsequent Cmd+A/Cmd+X clear captures and the wake paste
-        // overwrites. No safe non-mutating composer-focus primitive exists for Codex
-        // Desktop today. The bridge-daemon MUST fail closed for Codex without an explicit
-        // `meta.focusSeedKey` opt-in — refusing to proceed past the destructive Cmd+A /
-        // Cmd+X clear sequence — until either operator-validated metadata (e.g. the
-        // probe-and-undo candidate `r → Cmd+Z → Cmd+A → Cmd+X` if @neo-gpt's 5-row state
-        // matrix proves it safe) or the Codex app-server adapter (#10517) supersedes
-        // UI-keystroke delivery.
+        // apply only a focus outline; printable keys can focus but mutate prompt content —
+        // updated evidence shows the probe char APPENDS to the existing draft rather than
+        // fully replacing it, but appending IS mutation that the subsequent Cmd+A/Cmd+X
+        // clear captures and the wake paste overwrites. No safe non-mutating composer-focus
+        // primitive exists for Codex Desktop today. The bridge-daemon MUST fail closed for
+        // Codex without an explicit `meta.focusSeedKey` opt-in (single-key non-mutating
+        // primitive only) — refusing to proceed past the destructive Cmd+A / Cmd+X clear
+        // sequence — until either operator opts in via verified single-key metadata, OR
+        // the Codex app-server adapter (#10517) supersedes UI-keystroke delivery. The
+        // probe-and-undo candidate `r → Cmd+Z → Cmd+A → Cmd+X` under @neo-gpt's 5-row
+        // matrix investigation is a multi-step SEQUENCE, NOT a single-key seed; if it
+        // proves safe it needs a distinct implementation path (sequence primitive or
+        // app-server route), NOT a `focusSeedKey: 'r'` opt-in.
         //
         // This test is a defense-in-depth check: even if @neo-gpt's WAKE_SUBSCRIPTION is
         // accidentally re-enabled (currently set to harnessTarget:'disabled' per #10664

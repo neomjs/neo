@@ -595,22 +595,33 @@ async function deliverDigest(subscription, digest) {
             // instead of composer content). Manual matrix validation by @tobiu falsified the
             // hypothesis: pressing Space when the Codex prompt field is unfocused applies
             // only a focus outline — it does NOT focus the composer. Enter behaves
-            // identically. Printable keys (e.g. 'r') CAN focus the composer; updated
-            // empirical evidence shows the keystroke APPENDS to the existing draft rather
-            // than fully replacing it, but appending into the prompt is still mutation —
-            // any subsequent `Cmd+A` / `Cmd+X` clear sequence captures the appended char
-            // and the wake payload pastes over the result. Without a verified probe-and-
-            // undo or non-mutating focus primitive, printable-key seeding remains unsafe
-            // pre-clear. (#10664 candidate `r → Cmd+Z → Cmd+A → Cmd+X` is under
-            // investigation by @neo-gpt against a 5-row state matrix; not yet validated.)
+            // identically. Printable keys (e.g. 'r') CAN focus the composer but MUTATE
+            // prompt content; latest `r` observation appended to the existing prompt rather
+            // than fully replacing it, but appending IS mutation — any subsequent
+            // `Cmd+A` / `Cmd+X` clear sequence captures the appended char and the wake
+            // payload pastes over the result. Until an undo sequence passes the 5-row
+            // matrix (focused empty / focused draft / unfocused empty / unfocused draft /
+            // history-or-transcript focused), printable-key seeding remains unsafe pre-clear.
+            //
+            // **Scope distinction load-bearing for future operator opt-in**: the existing
+            // `meta.focusSeedKey` primitive is a SINGLE-KEY non-mutating focus seed (the
+            // bridge emits one keystroke before the destructive clear). A future verified
+            // single-key non-mutating Codex primitive can opt in via `meta.focusSeedKey`.
+            // The `r → Cmd+Z → Cmd+A → Cmd+X` candidate (under @neo-gpt investigation per
+            // #10664) is a MULTI-STEP probe-and-undo SEQUENCE, NOT a single-key seed; if it
+            // proves safe across all 5 matrix rows, it would need a distinct implementation
+            // path (e.g. a `meta.focusSeedSequence` primitive, or routed via the Codex
+            // app-server adapter below) — NOT a `meta.focusSeedKey: 'r'` opt-in, which
+            // would silently re-introduce the mutating-prompt failure mode.
             //
             // No empirically-validated non-mutating composer-focus primitive exists for
             // Codex Desktop today. Until either (a) operator explicitly configures
-            // `meta.focusSeedKey` via subscription metadata with a verified primitive, or
-            // (b) the Codex app-server adapter (#10517) ships — using `turn/start` /
-            // `turn/steer` / `thread/inject_items` via `codex debug app-server send-message-v2`
-            // — and supersedes the UI-keystroke path entirely, the bridge MUST refuse to
-            // proceed past the destructive Cmd+A / Cmd+X clear sequence for Codex.
+            // `meta.focusSeedKey` via subscription metadata with a verified single-key
+            // non-mutating primitive, or (b) the Codex app-server adapter (#10517) ships —
+            // using `turn/start` / `turn/steer` / `thread/inject_items` via
+            // `codex debug app-server send-message-v2` — and supersedes the UI-keystroke
+            // path entirely, the bridge MUST refuse to proceed past the destructive
+            // Cmd+A / Cmd+X clear sequence for Codex.
             //
             // Defense-in-depth: even with `@neo-gpt`'s WAKE_SUBSCRIPTION currently set to
             // `harnessTarget: 'disabled'` (per #10664 immediate operator mitigation), this
