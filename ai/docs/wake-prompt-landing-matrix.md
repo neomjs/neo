@@ -17,13 +17,13 @@ Before running *any* controlled bridge validation test, you MUST perform this pr
 
 ## The Validation Matrix
 
-The following criteria must be satisfied for each supported harness. 
+The following criteria must be satisfied for each supported harness.
 
 | Requirement | Claude Desktop | Antigravity IDE (Gemini) | Codex Desktop |
 | :--- | :--- | :--- | :--- |
 | **1. Message Persisted** | A2A message saved to local SQLite Memory Core. | A2A message saved to local SQLite Memory Core. | A2A message saved to local SQLite Memory Core. |
 | **2. Unread/List State Correct** | `list_messages` confirms unread status. | `list_messages` confirms unread status. | `list_messages` confirms unread status. |
-| **3. Subscription & Metadata** | Subscription active, `harnessTarget` is `bridge-daemon`, `appName` matches Claude. | Subscription active, `harnessTarget` is `bridge-daemon`, `appName` matches Antigravity. | Subscription active, `harnessTarget` is `bridge-daemon`, `appName` is valid. |
+| **3. Subscription & Metadata** | Subscription active, `harnessTarget` is `bridge-daemon`, `appName` matches Claude. | Subscription active, `harnessTarget` is `bridge-daemon`, `appName` matches Antigravity. | Subscription active, `harnessTarget` is `bridge-daemon`, `appName` matches Codex. |
 | **4. Wake Event Emitted** | Raw/coalesced event emitted with correct envelope shape. | Raw/coalesced event emitted with correct envelope shape. | Raw/coalesced event emitted with correct envelope shape. |
 | **5. Adapter Selection** | Adapter strictly selects Claude session target. | Adapter strictly selects Antigravity/Gemini session target. | Adapter strictly selects Codex session target. |
 | **6. Prompt Payload Lands** | Payload lands natively in Claude's prompt field. | Payload lands directly in the Antigravity Agent Composer. | Payload lands in Codex Desktop's prompt surface. |
@@ -34,6 +34,6 @@ The following criteria must be satisfied for each supported harness.
 
 ## Evidence Requirements
 
-Due to the brittle nature of native UI automation across multiple different IDEs and proprietary desktop apps, **live/manual evidence is acceptable** for UI-only assertions (Columns 6-9).
+Due to the brittle nature of native UI automation across multiple different IDEs and proprietary desktop apps, **live/manual evidence is acceptable** for UI-only assertions (requirements 6-9).
 
-However, deterministic headless unit/integration tests **MUST** be used to validate the backend and bridge adapter intent (Columns 1-5).
+However, deterministic headless unit/integration tests **MUST** be used to validate the backend and bridge adapter intent (requirements 1-5).
