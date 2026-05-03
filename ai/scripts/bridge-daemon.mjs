@@ -583,9 +583,13 @@ async function deliverDigest(subscription, digest) {
             }
             let focusSeedKey = meta.focusSeedKey;
             // Claude Desktop's Cmd+3 selects the Code tab but does not always move focus into
-            // the prompt. Seed focus with Space before the destructive Cmd+A/Cmd+X clear path.
-            // Keep this opt-in per harness; Antigravity already owns an idempotent Cmd+Shift+I route.
-            if (focusSeedKey === undefined && appName === 'Claude') focusSeedKey = 'space';
+            // the prompt. Codex Desktop hits the same class of regression under collapsed-
+            // sidebar state — bridge wake reaches the app window but composer focus is on
+            // thread-history, so the first Cmd+A in the destructive-clear sequence selects
+            // the wrong target (per #10662 / #10649 collapsed-sidebar matrix reproduction).
+            // Seed focus with Space before the destructive Cmd+A/Cmd+X clear path. Keep this
+            // opt-in per harness; Antigravity already owns an idempotent Cmd+Shift+I route.
+            if (focusSeedKey === undefined && (appName === 'Claude' || appName === 'Codex')) focusSeedKey = 'space';
             
             // [Anchor & Echo] The Electron-Paradox Defense:
             // Electron-based IDEs (Antigravity, VS Code) register their bundle names differently
