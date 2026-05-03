@@ -146,6 +146,15 @@ heartbeat_pulse() {
             if [ "$is_sunsetted" = "true" ]; then
                 echo "[heartbeat $(date -Iseconds)] Phase 1 Recovery Triggered for $IDENTITY. Reason: $sunset_reason" >&2
 
+                # Wake safety gate (#10648, child of #10647). Fail-closed gate consulted
+                # before any high-authority action. Skips fresh-session-spawn when the
+                # substrate is known unsafe; operator override via WAKE_GATE_OVERRIDE=1.
+                if ! node "${script_dir}/wakeSafetyGate.mjs" check 2>>"$SWEEP_LOG"; then
+                    local gate_reason=$(node "${script_dir}/wakeSafetyGate.mjs" reason 2>>"$SWEEP_LOG")
+                    echo "[heartbeat $(date -Iseconds)] Wake safety gate closed; skipping fresh-session-spawn for $IDENTITY. Gate reason: $gate_reason" >&2
+                    continue
+                fi
+
                 # Q1b fresh-session-spawn adapter: opens a new chat in target harness via
                 # Cmd+N keystroke before pasting the boot-grounding prompt. Replaces the prior
                 # Q1a in-place wake injection per @tobiu's verbatim 2026-05-02 correction.
@@ -163,8 +172,16 @@ heartbeat_pulse() {
             local is_all_idle=$(echo "$all_idle_json" | jq -r '.allIdle')
             if [ "$is_all_idle" = "true" ]; then
                 echo "[heartbeat $(date -Iseconds)] AllAgentIdle detected: $all_idle_json" >&2
-                # Dispatch WAKE event if not in cooldown (Phase 4 Substrate Primitive #10626)
-                node "${script_dir}/trioWakeCooldown.mjs" "$all_idle_json" 2>>"$SWEEP_LOG"
+
+                # Wake safety gate (#10648). Trio-wake dispatch is a high-authority action;
+                # gate-closed must skip the cooldown-bounded wake even if all agents are idle.
+                if ! node "${script_dir}/wakeSafetyGate.mjs" check 2>>"$SWEEP_LOG"; then
+                    local gate_reason=$(node "${script_dir}/wakeSafetyGate.mjs" reason 2>>"$SWEEP_LOG")
+                    echo "[heartbeat $(date -Iseconds)] Wake safety gate closed; skipping trio wake dispatch. Gate reason: $gate_reason" >&2
+                else
+                    # Dispatch WAKE event if not in cooldown (Phase 4 Substrate Primitive #10626)
+                    node "${script_dir}/trioWakeCooldown.mjs" "$all_idle_json" 2>>"$SWEEP_LOG"
+                fi
             fi
         fi
 

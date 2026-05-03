@@ -21,6 +21,7 @@ import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { readGateState, hasOverride } from './wakeSafetyGate.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -55,6 +56,21 @@ function buildBootGroundingPrompt(identity, reason, originSessionId) {
 }
 
 async function resumeHarness(identity, reason, originSessionId) {
+    // Wake safety gate (#10648, child of #10647). Direct fresh-session-spawn
+    // invocations must also fail-closed when the substrate is unsafe — the
+    // gate is consulted alongside (and ahead of) the existing cooldown. The
+    // operator override `WAKE_GATE_OVERRIDE=1` bypasses the gate; the
+    // procedure for setting it lives in #10650 restart/incident protocol.
+    if (hasOverride()) {
+        console.error('[OVERRIDE] WAKE_GATE_OVERRIDE set; bypassing wake safety gate for resumeHarness.');
+    } else {
+        const gate = await readGateState();
+        if (gate.state !== 'enabled') {
+            console.error(`Skipping resume for ${identity}: Wake safety gate ${gate.state} (reason: ${gate.reason}). Set WAKE_GATE_OVERRIDE=1 to override.`);
+            return;
+        }
+    }
+
     // Blocker 1: Idempotency (cooldown file + 600s minimum re-fire window)
     // Fix: Resolve from __dirname instead of process.cwd() to support cron/launchd
     const cooldownDir = path.resolve(__dirname, '../../.neo-ai-data/wake-daemon');
