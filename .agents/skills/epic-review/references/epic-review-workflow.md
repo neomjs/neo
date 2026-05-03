@@ -149,6 +149,7 @@ This citation belongs in the `ticket-intake` reflection step for the sub, not as
 |---|---|
 | Running all 5 stages unconditionally | Wastes effort on an epic that fails stage 1 or 2; defeats the gating structure |
 | Skipping epic-review because "I already read the epic body" | Epic-review is an **artifact**, not just comprehension — cross-model readback depends on the comment existing |
+| Sub agent picks up Epic body directly (Epic-vs-Sub-Issue discipline failure) | Agents MUST NOT pick up the Epic directly without checking for prior epic-review comments. Epics are coordination structures; sub-issues are the units of execution. Working on an epic directly bypasses the entire validation chain. |
 | Per-sub-pickup epic-review | Per-agent-per-epic; cite the prior review, don't re-run |
 | Posting review as an issue body edit | Comments, not body edits — provenance and attribution live in comments |
 | Missing session ID footer | Breaks A2A provenance; the reviewer's Memory Core session is not queryable from the epic |
