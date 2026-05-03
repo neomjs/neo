@@ -579,7 +579,7 @@ async function deliverDigest(subscription, digest) {
             // Note: If tabShortcut is explicitly null, it is treated as a deliberate opt-out (no keystroke).
             if (tabShortcut === undefined) {
                 if (appName === 'Claude') tabShortcut = '3';
-                else if (appName === 'Antigravity') tabShortcut = 'l';
+                else if (appName === 'Antigravity') tabShortcut = 'shift+i';
             }
             
             // [Anchor & Echo] The Electron-Paradox Defense:
@@ -611,7 +611,12 @@ async function deliverDigest(subscription, digest) {
             ];
 
             if (tabShortcut) {
-                osascriptArgs.push('-e', `      keystroke "${tabShortcut}" using command down`);
+                if (tabShortcut.includes('shift+')) {
+                    const key = tabShortcut.replace('shift+', '');
+                    osascriptArgs.push('-e', `      keystroke "${key}" using {command down, shift down}`);
+                } else {
+                    osascriptArgs.push('-e', `      keystroke "${tabShortcut}" using command down`);
+                }
                 osascriptArgs.push('-e', '      delay 0.5');
             }
 
