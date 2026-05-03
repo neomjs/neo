@@ -71,6 +71,45 @@ test.describe('ai/scripts/swarm-heartbeat', () => {
         expect(body).toContain('echo "${count:-0}"');
     });
 
+    test('Wake safety gate (#10648) is consulted before high-authority dispatch', () => {
+        // Drift guard for the #10647 epic: the heartbeat MUST consult `wakeSafetyGate.mjs`
+        // before invoking the two high-authority sites — fresh-session-spawn via
+        // `resumeHarness.mjs` and trio-wake dispatch via `trioWakeCooldown.mjs`. If a
+        // future change re-orders the gate check after these calls (or removes it),
+        // orphan-spawn / unsafe wake dispatch can fire again before substrate is healthy.
+
+        // The script must reference the gate primitive at all.
+        expect(scriptSrc).toContain('wakeSafetyGate.mjs');
+
+        // Two high-authority sites are gated. Locate each block and assert its gate
+        // check appears textually before the gated invocation.
+        const resumeIdx = scriptSrc.indexOf('resumeHarness.mjs');
+        const trioIdx   = scriptSrc.indexOf('trioWakeCooldown.mjs');
+        expect(resumeIdx).toBeGreaterThan(-1);
+        expect(trioIdx  ).toBeGreaterThan(-1);
+
+        // For each high-authority site, the most recent `wakeSafetyGate.mjs check`
+        // before it must be within the surrounding control block (heuristic: within
+        // 600 chars upstream — single conditional block scope).
+        const gateCheckPattern = /wakeSafetyGate\.mjs"?\s+check/g;
+        const gateCheckMatches = [...scriptSrc.matchAll(gateCheckPattern)].map(m => m.index);
+        expect(gateCheckMatches.length).toBeGreaterThanOrEqual(2);
+
+        const lastGateBefore = (idx) => {
+            const before = gateCheckMatches.filter(g => g < idx);
+            return before.length > 0 ? before[before.length - 1] : -1;
+        };
+
+        const resumeGate = lastGateBefore(resumeIdx);
+        const trioGate   = lastGateBefore(trioIdx);
+
+        expect(resumeGate, 'gate check missing before resumeHarness.mjs invocation').toBeGreaterThan(-1);
+        expect(resumeIdx - resumeGate, 'gate check too far from resumeHarness.mjs invocation').toBeLessThan(1000);
+
+        expect(trioGate, 'gate check missing before trioWakeCooldown.mjs invocation').toBeGreaterThan(-1);
+        expect(trioIdx - trioGate, 'gate check too far from trioWakeCooldown.mjs invocation').toBeLessThan(1000);
+    });
+
     test.describe('fixture-backed regression coverage (#10622 acceptance)', () => {
         let tmpBase;
         let dbPath;
