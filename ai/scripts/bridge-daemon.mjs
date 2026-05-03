@@ -521,10 +521,17 @@ async function flushSubscription(subId) {
  */
 function spawnAsync(command, args) {
     return new Promise((resolve, reject) => {
-        const child = spawn(command, args, { stdio: 'ignore' });
+        const child = spawn(command, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+        let stderrData = '';
+        child.stderr.on('data', (data) => {
+            stderrData += data.toString();
+        });
         child.on('close', code => {
             if (code === 0) resolve();
-            else reject(new Error(`${command} exited with code ${code}`));
+            else {
+                const errorMsg = stderrData.trim() ? `${command} exited with code ${code}. Stderr: ${stderrData.trim()}` : `${command} exited with code ${code}`;
+                reject(new Error(errorMsg));
+            }
         });
         child.on('error', reject);
     });
