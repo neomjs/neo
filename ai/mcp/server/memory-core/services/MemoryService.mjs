@@ -188,13 +188,23 @@ class MemoryService extends Base {
                 documents: [combinedText]
             });
 
+            // Derive canonical graph identity. Fallback to formatting userId, or passing raw agent.
+            const canonicalIdentity = RequestContextService.getAgentIdentityNodeId()
+                || (userId ? `@${userId}` : (agent?.startsWith('@') ? agent : (agent ? `@${agent}` : undefined)));
+
             // 1. Topologically inject the new memory into the Native Edge Graph
             GraphService.upsertNode({
                 id: memoryId,
                 type: 'AGENT_MEMORY',
                 name: `Memory: ${timestamp}`,
                 description: `Agent thought flow inside session ${sessionId}.`,
-                semanticVectorId: memoryId
+                semanticVectorId: memoryId,
+                properties: {
+                    ...(canonicalIdentity ? { agentIdentity: canonicalIdentity } : {}),
+                    ...(userId ? { userId } : {}),
+                    sessionId,
+                    timestamp
+                }
             });
 
             // 2. Link this memory dynamically to the active context frontier
