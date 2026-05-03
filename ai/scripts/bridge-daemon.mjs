@@ -683,6 +683,9 @@ async function deliverDigest(subscription, digest) {
                     osascriptArgs.push('-e', `      keystroke "${focusSeedKey}"`);
                 }
                 osascriptArgs.push('-e', '      delay 0.2');
+                // Cleanup: Revert the seed character so it doesn't corrupt the user's draft
+                osascriptArgs.push('-e', '      keystroke "z" using command down');
+                osascriptArgs.push('-e', '      delay 0.2');
             }
 
             osascriptArgs.push(

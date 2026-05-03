@@ -462,17 +462,19 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
             const updateRes = await WakeSubscriptionService.update({
                 subscriptionId,
                 filters              : {priority: 'high', taggedConcepts: ['critical']},
-                harnessTargetMetadata: {coalesceWindow: 60}
+                harnessTargetMetadata: {coalesceWindow: 60, focusSeedKey: 'r'}
             });
 
             expect(updateRes.currentState.filters.priority).toBe('high');
             expect(updateRes.currentState.filters.taggedConcepts).toEqual(['critical']);
             expect(updateRes.currentState.harnessTargetMetadata.coalesceWindow).toBe(60);
+            expect(updateRes.currentState.harnessTargetMetadata.focusSeedKey).toBe('r');
             expect(updateRes.currentState.agentIdentity).toBe('@alice');
 
             const node = GraphService.db.nodes.get(subscriptionId);
             expect(node.properties.filters.priority).toBe('high');
             expect(node.properties.harnessTargetMetadata.coalesceWindow).toBe(60);
+            expect(node.properties.harnessTargetMetadata.focusSeedKey).toBe('r');
         });
     });
 
