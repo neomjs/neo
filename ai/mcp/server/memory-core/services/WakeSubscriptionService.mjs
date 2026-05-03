@@ -55,6 +55,12 @@ class WakeSubscriptionService extends Base {
     validHarnessTargets = ['mcp-notifications', 'a2a-webhook', 'bridge-daemon', 'disabled', 'none']
 
     /**
+     * @member {String[]} validAppNames
+     * @protected
+     */
+    validAppNames = ['Antigravity', 'Claude']
+
+    /**
      * In-memory write-through cache for sub-millisecond trigger evaluation.
      * Keyed by subscriptionId; values are the full WAKE_SUBSCRIPTION node payload.
      * Populated lazily on `list` and on every mutation; rebuilt at boot from graph state
@@ -454,6 +460,9 @@ class WakeSubscriptionService extends Base {
     validateHarnessTargetMetadata(harnessTarget, metadata = {}) {
         if (harnessTarget === 'bridge-daemon' && !metadata.appName) {
             throw new Error('Shape C (bridge-daemon) requires harnessTargetMetadata.appName.');
+        }
+        if (metadata.appName && !this.validAppNames.includes(metadata.appName)) {
+            throw new Error(`Invalid appName '${metadata.appName}'. Must be one of: ${this.validAppNames.join(', ')}`);
         }
     }
 
