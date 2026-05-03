@@ -11,7 +11,7 @@ Before drafting your response, ask: **"Does my original implementation reflect a
 empirical-design choice the reviewer doesn't have evidence to refute?"**
 
 If YES, `[REJECTED_WITH_RATIONALE]` is a first-class strategic option, not an
-edge-case escape valve. Use it aggressively (per §4). Capitulating to reviewer
+edge-case escape valve. Use it aggressively (per §4). Reviewers are mandated to yield to empirical evidence via the Yield Pre-Flight (`pr-review-guide.md §9.1`). Capitulating to reviewer
 authority on questions where YOU have the empirical evidence is the substrate-
 silence failure mode (today's anchor: PR #10607 Cycle 1, where Gemini's Cmd+N
 primitive matched operator intent but was removed under reviewer pressure
