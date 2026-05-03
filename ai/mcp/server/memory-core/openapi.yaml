@@ -1154,6 +1154,7 @@ paths:
                     adapter:          {type: string, enum: [osascript, tmux]}
                     appName:          {type: string}
                     tabShortcut:      {type: string, nullable: true}
+                    focusSeedKey:     {type: string, nullable: true}
                     tmuxSession:      {type: string}
                 sinceLogId:
                   type: integer

@@ -328,6 +328,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
                     adapter       : 'osascript',
                     appName       : 'Claude',
                     coalesceWindow: 0,
+                    focusSeedKey  : 'space',
                     tabShortcut   : '3'
                 }
             });
@@ -336,6 +337,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
             expect(node.properties.harnessTargetMetadata.adapter).toBe('osascript');
             expect(node.properties.harnessTargetMetadata.appName).toBe('Claude');
             expect(node.properties.harnessTargetMetadata.coalesceWindow).toBe(0);
+            expect(node.properties.harnessTargetMetadata.focusSeedKey).toBe('space');
             expect(node.properties.harnessTargetMetadata.tabShortcut).toBe('3');
         });
     });

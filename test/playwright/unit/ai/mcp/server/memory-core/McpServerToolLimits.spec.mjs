@@ -70,6 +70,7 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
             'appName',
             'coalesceWindow',
             'daemonSocketPath',
+            'focusSeedKey',
             'tabShortcut',
             'tmuxSession',
             'url'

@@ -10,11 +10,14 @@ import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../../../../ai/graph/storage/con
 test.describe('Bridge Daemon', () => {
     let db;
     let daemonProcess;
-    const TEST_ID = crypto.randomUUID().substring(0, 8);
-    const DB_PATH = `.neo-ai-data/sqlite/test-daemon-${TEST_ID}.sqlite`;
-    const DAEMON_DIR = `.neo-ai-data/wake-daemon-test-${TEST_ID}`;
+    let DB_PATH;
+    let DAEMON_DIR;
 
     test.beforeEach(() => {
+        const testId = crypto.randomUUID().substring(0, 8);
+        DB_PATH = `.neo-ai-data/sqlite/test-daemon-${testId}.sqlite`;
+        DAEMON_DIR = `.neo-ai-data/wake-daemon-test-${testId}`;
+
         fs.ensureDirSync(path.dirname(DB_PATH));
         fs.ensureDirSync(DAEMON_DIR);
         if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
@@ -577,6 +580,98 @@ test.describe('Bridge Daemon', () => {
 
         expect(args.join(' ')).toContain('keystroke "i" using {command down, shift down}');
         expect(args.join(' ')).toContain('tell application "Antigravity" to activate');
+        expect(args.join(' ')).not.toContain('key code 49');
+    });
+
+    test('Claude default focus seed generates Space after Cmd+3 and before prompt clear', async () => {
+        const subId = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-claude';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id: agentId,
+            label: 'AGENT',
+            properties: { name: 'Test Agent Claude' }
+        }));
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id: subId,
+            label: 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity: agentId,
+                harnessTarget: 'bridge-daemon',
+                status: 'active',
+                trigger: 'SENT_TO_ME',
+                harnessTargetMetadata: {
+                    adapter: 'osascript',
+                    appName: 'Claude',
+                    coalesceWindow: 1
+                }
+            }
+        }));
+
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        const mockOsascriptPath = path.join(binDir, 'osascript');
+        const mockOutPath = path.join(DAEMON_DIR, 'mock_claude_out.json');
+        fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+            stdio: 'pipe',
+            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver event within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes('[Bridge Daemon] Delivered ' + subId)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const msgId = 'msg_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
+            id: msgId,
+            label: 'MESSAGE',
+            properties: {
+                from: '@sender',
+                subject: 'Test Claude Event',
+                priority: 'normal'
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
+
+        const edgeId = 'edge_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
+            id: edgeId,
+            source: msgId,
+            target: agentId,
+            type: 'SENT_TO'
+        }), msgId, agentId, 'SENT_TO');
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
+
+        await deliveryPromise;
+
+        const args = JSON.parse(fs.readFileSync(mockOutPath, 'utf8'));
+        const activateIndex = args.findIndex(arg => arg.includes('tell application "Claude" to activate'));
+        const tabIndex      = args.findIndex(arg => arg.includes('keystroke "3" using command down'));
+        const spaceIndex    = args.findIndex(arg => arg.includes('key code 49'));
+        const clearIndex    = args.findIndex(arg => arg.includes('keystroke "a" using command down'));
+
+        expect(activateIndex).toBeGreaterThan(-1);
+        expect(tabIndex).toBeGreaterThan(activateIndex);
+        expect(spaceIndex).toBeGreaterThan(tabIndex);
+        expect(clearIndex).toBeGreaterThan(spaceIndex);
     });
 
     test('getNodesData and getEdgesData deterministically chunk queries by SQLITE_IN_CLAUSE_BATCH_SIZE', () => {
