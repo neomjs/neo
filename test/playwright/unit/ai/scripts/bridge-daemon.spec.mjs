@@ -491,6 +491,94 @@ test.describe('Bridge Daemon', () => {
         expect(output).toContain(subId);
     });
 
+    test('Antigravity chorded shortcut generates correct osascript using command and shift down', async () => {
+        const subId = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-antigravity';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id: agentId,
+            label: 'AGENT',
+            properties: { name: 'Test Agent Antigravity' }
+        }));
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id: subId,
+            label: 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity: agentId,
+                harnessTarget: 'bridge-daemon',
+                status: 'active',
+                trigger: 'SENT_TO_ME',
+                harnessTargetMetadata: {
+                    adapter: 'osascript',
+                    appName: 'Antigravity',
+                    coalesceWindow: 1 
+                }
+            }
+        }));
+
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        // Create mock osascript to capture args without actually running AppleScript
+        const binDir = path.join(DAEMON_DIR, 'bin');
+        fs.ensureDirSync(binDir);
+        const mockOsascriptPath = path.join(binDir, 'osascript');
+        const mockOutPath = path.join(DAEMON_DIR, 'mock_out.json');
+        fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
+        fs.chmodSync(mockOsascriptPath, 0o755);
+
+        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+            stdio: 'pipe',
+            env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        // We know bridge-daemon will log INFO when it finishes osascript
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver event within timeout')), 10000);
+            
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes('[Bridge Daemon] Delivered ' + subId)) {
+                    clearTimeout(timeout);
+                    resolve();
+                }
+            });
+            daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const msgId = 'msg_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
+            id: msgId,
+            label: 'MESSAGE',
+            properties: {
+                from: '@sender',
+                subject: 'Test Antigravity Event',
+                priority: 'normal'
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
+
+        const edgeId = 'edge_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
+            id: edgeId,
+            source: msgId,
+            target: agentId,
+            type: 'SENT_TO'
+        }), msgId, agentId, 'SENT_TO');
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
+
+        await deliveryPromise;
+
+        const mockOutput = fs.readFileSync(mockOutPath, 'utf8');
+        const args = JSON.parse(mockOutput);
+        
+        expect(args.join(' ')).toContain('keystroke "i" using {command down, shift down}');
+        expect(args.join(' ')).toContain('tell application "Antigravity" to activate');
+    });
+
     test('getNodesData and getEdgesData deterministically chunk queries by SQLITE_IN_CLAUSE_BATCH_SIZE', () => {
         let prepareCount = 0;
         let paramsLength = [];
