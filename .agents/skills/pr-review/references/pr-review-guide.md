@@ -283,6 +283,7 @@ Reviewers MUST verify testing claims by executing the relevant test files locall
 | Approval without rhetorical-drift audit on a PR carrying substantive architectural prose | §7.4 Rhetorical-Drift Audit violated; framing drifts from mechanical reality, poisons `ask_knowledge_base` ingestion |
 | Approving `[EXECUTION_QUALITY]` without executing the author's test evidence | §7.5 Test-Execution Audit violated; reviewers must independently verify testing claims |
 | PR names an epic as close-target without flagging | §5.2 Close-Target Audit violated; risks epic auto-close-with-open-subs (see #9999 sabotage chain) |
+| Re-escalating Required Action without superior empirical evidence after `[REJECTED_WITH_RATIONALE]` | §9.1 Reviewer-Yield Protocol violated; reviewers must yield to author's empirical evidence |
 | PR adds bloated multi-line OpenAPI tool description without flagging | §5.3 MCP-Tool-Description Budget Audit violated; bloat compounds across the tool surface and competes with agent reasoning budget at runtime |
 
 ## 8. Cross-Skill Integration Audit
@@ -334,8 +335,8 @@ strategic landscape, what's the right merge decision?" Four first-class options:
    *Empirical anchor: PR #10602 Cycle 1 (over-rigor candidate).*
 3. **Request Changes** — must-fix before merge; defects block substrate correctness.
 4. **Drop+Supersede** — the entire PR premise is stale/wrong with current
-   knowledge. Close the PR + close the ticket + file a superseding ticket with
-   corrected scope. Use when:
+   knowledge. The reviewer explicitly RECOMMENDS closure (using the Request Changes shape) so the author executes closing the PR + closing the ticket + filing a superseding ticket with
+   corrected scope (per `AGENTS.md §0 Critical Gate 1`, reviewers do not unilaterally close PRs without human/author coordination). Use when:
    - >5 cycles iterating on fundamentally-wrong premise
    - Operator-intent correction reveals the abstraction itself needs reshape
    - Iterative refinement is rearranging deck chairs
@@ -354,6 +355,8 @@ When an author invokes `[REJECTED_WITH_RATIONALE]` per the Review Response Proto
 If the author's rationale holds up to empirical scrutiny—even if it doesn't match the reviewer's preferred pattern—the reviewer MUST yield, mark the item resolved, and proceed to the next stage of the PR lifecycle (e.g., `Approve` or `Approve+Follow-Up`).
 
 This explicit reviewer open-mindedness mandate is symmetric to the author's mandate, closing the loop on deadlock vulnerabilities.
+
+**Empirical anchor (PR #10607):** A deadlock pattern emerged where a reviewer theoretically escalated a minor config mapping, and the author possessed operator-intent evidence but did not properly invoke `[REJECTED_WITH_RATIONALE]`. The lack of reciprocal yielding mechanisms forced the swarm into a multi-cycle trap that required corrective primitive work in PR #10611.
 
 ## 10. A2A Comment-ID Hand-off Protocol (#10272)
 
