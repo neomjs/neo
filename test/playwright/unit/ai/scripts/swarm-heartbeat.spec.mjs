@@ -13,20 +13,23 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import fs             from 'fs/promises';
-import path           from 'path';
+import {test, expect}     from '@playwright/test';
+import {execFileSync}     from 'child_process';
+import fs                 from 'fs/promises';
+import path               from 'path';
 
 /**
- * @summary Drift guards on `ai/scripts/swarm-heartbeat.sh` — substrate-schema parity (#10622).
+ * @summary Drift guards + fixture-backed regression coverage on `ai/scripts/swarm-heartbeat.sh` (#10622).
  *
  * The heartbeat shell script is sourced by long-running daemons; runtime regressions in
  * its SQL queries silently degrade the auto-wake substrate (the daemon stays alive but
- * its pulse becomes a no-op). The tests below structurally verify the SQL JSON paths
- * against the live Memory Core graph schema. Pattern parity with #10619 Cycle 2's
- * positive-extraction discipline: a previous version of `get_unread_count` queried
- * `$.type = 'MESSAGE'` while MESSAGE nodes use `$.label`, returning 0 unread regardless
- * of mailbox state and silently skipping every pulse via the token-economy gate.
+ * its pulse becomes a no-op). These tests verify both:
+ *   1) Structural shape — the SQL JSON paths target the live Memory Core schema.
+ *   2) Behavioral fixture coverage — the `get_unread_count` function returns nonzero
+ *      against a fresh SQLite fixture seeded with a MESSAGE node + SENT_TO edge, and
+ *      the legacy `$.type = 'MESSAGE'` query returns zero against the same fixture
+ *      (regression-shape proof — same family as #10619 Cycle 2's positive-extraction
+ *      pattern on AGENT_MEMORY).
  */
 test.describe('ai/scripts/swarm-heartbeat', () => {
     let scriptSrc;
@@ -66,5 +69,65 @@ test.describe('ai/scripts/swarm-heartbeat', () => {
         expect(body).toContain('if [ ! -f "$DB_PATH" ]; then');
         expect(body).toContain('echo "0"');
         expect(body).toContain('echo "${count:-0}"');
+    });
+
+    test.describe('fixture-backed regression coverage (#10622 acceptance)', () => {
+        let tmpBase;
+        let dbPath;
+        const TEST_IDENTITY = '@test-agent-10622';
+
+        test.beforeEach(async () => {
+            tmpBase = path.resolve(process.cwd(), 'tmp', `swarm-heartbeat-test-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+            dbPath  = path.join(tmpBase, 'test-graph.sqlite');
+            await fs.mkdir(tmpBase, {recursive: true});
+
+            // Seed a minimal Nodes+Edges schema mirroring `memory-core-graph.sqlite`. We omit
+            // the GraphLog triggers since this fixture exercises only the read path; foreign-key
+            // constraints stay enabled so the SENT_TO edge requires both endpoints to exist.
+            execFileSync('sqlite3', [dbPath], {
+                encoding: 'utf-8',
+                input   : [
+                    'CREATE TABLE Nodes (id TEXT PRIMARY KEY, data TEXT NOT NULL, user_id TEXT);',
+                    'CREATE TABLE Edges (id TEXT PRIMARY KEY, source TEXT NOT NULL, target TEXT NOT NULL, type TEXT NOT NULL, data TEXT NOT NULL, user_id TEXT, FOREIGN KEY (source) REFERENCES Nodes(id) ON DELETE CASCADE, FOREIGN KEY (target) REFERENCES Nodes(id) ON DELETE CASCADE);',
+                    `INSERT INTO Nodes(id, data) VALUES ('${TEST_IDENTITY}', '{"id":"${TEST_IDENTITY}","label":"AGENT"}');`,
+                    // Unread MESSAGE — should be counted (label matches, readAt is JSON null).
+                    `INSERT INTO Nodes(id, data) VALUES ('MSG:unread-1', '{"id":"MSG:unread-1","label":"MESSAGE","properties":{"name":"unread test","readAt":null}}');`,
+                    `INSERT INTO Edges(id, source, target, type, data) VALUES ('e:unread-1', 'MSG:unread-1', '${TEST_IDENTITY}', 'SENT_TO', '{}');`,
+                    // Read MESSAGE — should NOT be counted (readAt is set to a non-null timestamp).
+                    `INSERT INTO Nodes(id, data) VALUES ('MSG:read-1', '{"id":"MSG:read-1","label":"MESSAGE","properties":{"name":"already read","readAt":"2026-05-03T08:00:00Z"}}');`,
+                    `INSERT INTO Edges(id, source, target, type, data) VALUES ('e:read-1', 'MSG:read-1', '${TEST_IDENTITY}', 'SENT_TO', '{}');`
+                ].join('\n')
+            });
+        });
+
+        test.afterEach(async () => {
+            if (tmpBase) {
+                await fs.rm(tmpBase, {recursive: true, force: true}).catch(() => {});
+            }
+        });
+
+        test('get_unread_count returns 1 for a fixture with one unread MESSAGE-labelled row', () => {
+            // Extract the function definition from the production script and re-define it inside
+            // a bash subshell with DB_PATH+IDENTITY pointed at our fixture. Tests THE production
+            // function — not a paraphrase of its query — so any drift in the actual script
+            // surface immediately fails the spec at CI time.
+            const fnSrc  = scriptSrc.match(/get_unread_count\(\)\s*\{[\s\S]*?^}/m)[0];
+            const result = execFileSync('bash', ['-c', `${fnSrc}; get_unread_count`], {
+                encoding: 'utf-8',
+                env     : {...process.env, DB_PATH: dbPath, IDENTITY: TEST_IDENTITY}
+            });
+
+            expect(result.trim()).toBe('1');
+        });
+
+        test('legacy $.type query returns 0 against the same fixture (regression-shape proof)', () => {
+            // Same fixture, swap the corrected `$.label` JSON path for the legacy `$.type` path.
+            // If this assertion ever flips to 1, either the live schema migrated or someone
+            // mass-rewrote MESSAGE rows — both warrant updating this test, not just the script.
+            const legacyQuery = `SELECT count(DISTINCT n.id) FROM Nodes n JOIN Edges e ON n.id = e.source AND e.type = 'SENT_TO' WHERE json_extract(n.data, '$.type') = 'MESSAGE' AND json_extract(n.data, '$.properties.readAt') IS NULL AND e.target IN ('${TEST_IDENTITY}', 'AGENT:*');`;
+            const result      = execFileSync('sqlite3', [dbPath, legacyQuery], {encoding: 'utf-8'});
+
+            expect(result.trim()).toBe('0');
+        });
     });
 });
