@@ -19,6 +19,7 @@ import {randomUUID}              from 'crypto';
 import os                        from 'os';
 import path                      from 'path';
 import fs                        from 'fs';
+import Neo                       from '../../../../../src/Neo.mjs';
 
 test.describe('ai/scripts/resumeHarness', () => {
     const scriptPath = path.resolve(process.cwd(), 'ai/scripts/resumeHarness.mjs');
@@ -159,7 +160,7 @@ test.describe('ai/scripts/resumeHarness', () => {
     test('Q1b boot-grounding prompt: includes dynamic set_session_id rotation instruction (#10627)', async () => {
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
         expect(scriptContent).toContain('set_session_id({sessionId:');
-        
+
         // Ensure randomUUID is imported and used for freshSessionId
         expect(scriptContent).toContain('const freshSessionId = randomUUID();');
         expect(scriptContent).toContain('buildBootGroundingPrompt(identity, reason, originSessionId, freshSessionId)');
@@ -172,24 +173,86 @@ test.describe('ai/scripts/resumeHarness', () => {
         fs.writeFileSync(mockStatePath, `
             export const State = { currentSessionId: 'initial-uuid' };
         `);
-        
+
         const mockSubprocessPath = path.join(os.tmpdir(), `mock-resume-${randomUUID()}.mjs`);
         fs.writeFileSync(mockSubprocessPath, `
             import { State } from 'file://${mockStatePath}';
             State.currentSessionId = 'subprocess-mutated-uuid';
         `);
-        
+
         spawnSync('node', [mockSubprocessPath], { encoding: 'utf-8' });
         fs.unlinkSync(mockSubprocessPath);
-        
+
         // Now check THIS process's State. Since we are in the main test process,
         // we can dynamically import the state and check if it was affected.
         const StateMod = await import('file://' + mockStatePath);
-        
+
         // The process boundary trap: the subprocess mutation did not affect the main process.
         expect(StateMod.State.currentSessionId).toBe('initial-uuid');
         expect(StateMod.State.currentSessionId).not.toBe('subprocess-mutated-uuid');
-        
+
         fs.unlinkSync(mockStatePath);
+    });
+});
+
+test.describe('Neo.ai.mcp.server.memory-core Session ID Rotation Effect (#10627)', () => {
+    let MemoryService, SessionService, LifecycleService, dbPath;
+
+    test.beforeAll(async () => {
+        const tmpDir = path.resolve(process.cwd(), 'tmp');
+        if (!fs.existsSync(tmpDir)) {
+            fs.mkdirSync(tmpDir, {recursive: true});
+        }
+        dbPath = path.join(tmpDir, `neo-session-rotation-test-${Date.now()}-${randomUUID()}.db`);
+
+        const aiConfig = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig.storagePaths.graph = dbPath;
+
+        SessionService   = (await import('../../../../../ai/mcp/server/memory-core/services/SessionService.mjs')).default;
+        MemoryService    = (await import('../../../../../ai/mcp/server/memory-core/services/MemoryService.mjs')).default;
+        LifecycleService = (await import('../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
+
+        if (!LifecycleService._initPromise) {
+            await LifecycleService.initAsync();
+        } else {
+            await LifecycleService.ready();
+        }
+    });
+
+    test.afterAll(async () => {
+        if (fs.existsSync(dbPath)) {
+            try { fs.unlinkSync(dbPath); } catch (e) {}
+            try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
+            try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
+        }
+    });
+
+    test('Agent calling set_session_id successfully groups subsequent implicit add_memory under the fresh ID (#10627)', async () => {
+        // 1. Simulate the state before recovery: The origin session is active.
+        const originSessionId = 'origin-uuid-' + randomUUID();
+        await SessionService.setSessionId({ sessionId: originSessionId });
+        expect(SessionService.currentSessionId).toBe(originSessionId);
+
+        // 2. The harness generates a fresh ID for the recovering agent.
+        const freshSessionId = 'fresh-uuid-' + randomUUID();
+
+        // 3. The recovering agent reads the boot-grounding prompt and executes the instructed MCP tool:
+        await SessionService.setSessionId({ sessionId: freshSessionId });
+
+        // 4. The agent executes its first implicit save (without explicitly passing sessionId in the payload).
+        const result = await MemoryService.addMemory({
+            agent: 'TestAgent',
+            model: 'TestModel',
+            prompt: 'Test Prompt',
+            thought: 'Test Thought',
+            response: 'Test Response',
+            toolsUsed: [],
+            amountToolCalls: 0
+        });
+
+        // 5. Assert the effect: the memory landed under the generated fresh id, not the origin id.
+        expect(result.sessionId).toBe(freshSessionId);
+        expect(result.sessionId).not.toBe(originSessionId);
+        expect(SessionService.currentSessionId).toBe(freshSessionId);
     });
 });
