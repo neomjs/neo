@@ -128,18 +128,24 @@ heartbeat_pulse() {
             echo "[heartbeat $(date -Iseconds)] sweep: ${expired} task(s) transitioned to Expired" >&2
         fi
 
-        # Check Sunsetted State for Phase 1 Recovery (#10601)
+        # Check Sunsetted State for Phase 1 Recovery (#10601 + #10611 PR-B fresh-session-spawn corrective)
         local script_dir=$(dirname "$0")
         local sunset_json=$(node "${script_dir}/checkSunsetted.mjs" "$IDENTITY" 2>>"$SWEEP_LOG")
         if [ $? -eq 0 ] && [ -n "$sunset_json" ]; then
             local is_sunsetted=$(echo "$sunset_json" | jq -r '.sunsetted')
             local sunset_reason=$(echo "$sunset_json" | jq -r '.reason')
+            # Per #10611 PR-B, forward originSessionId to resumeHarness so the fresh-session
+            # boot-grounding prompt can anchor Memory Core context-priming. `// empty` jq filter
+            # safely degrades to '' when the key is absent (older sunset JSON shape).
+            local origin_session_id=$(echo "$sunset_json" | jq -r '.originSessionId // empty')
 
             if [ "$is_sunsetted" = "true" ]; then
                 echo "[heartbeat $(date -Iseconds)] Phase 1 Recovery Triggered for $IDENTITY. Reason: $sunset_reason" >&2
 
-                # Use Phase 1/2 Harness Resume Adapter
-                node "${script_dir}/resumeHarness.mjs" "$IDENTITY" "$sunset_reason" 2>>"$SWEEP_LOG"
+                # Q1b fresh-session-spawn adapter: opens a new chat in target harness via
+                # Cmd+N keystroke before pasting the boot-grounding prompt. Replaces the prior
+                # Q1a in-place wake injection per @tobiu's verbatim 2026-05-02 correction.
+                node "${script_dir}/resumeHarness.mjs" "$IDENTITY" "$sunset_reason" "$origin_session_id" 2>>"$SWEEP_LOG"
 
                 # Continue loop; no need to send regular heartbeat to tmux since we just resumed via OS
                 continue
