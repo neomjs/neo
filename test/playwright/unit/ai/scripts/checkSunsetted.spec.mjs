@@ -103,6 +103,64 @@ test.describe('ai/scripts/checkSunsetted', () => {
         expect(migratedData.properties.agentIdentity).toBe('@neo-legacy-test');
     });
 
+    test('checkSunsetted.mjs legacy-row-blocking-fresh-rows regression test (#10643)', async () => {
+        // Pre-fix: COALESCE(timestamp, name) sorted 'Memory: 2026-xx' (legacy) > '2026-xx' (fresh pure ISO string)
+        // Post-fix: Bulk migration converts legacy rows to pure timestamps, allowing deterministic chronological sorting.
+        const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        await GraphService.initAsync();
+        const db = GraphService.db.storage.db;
+
+        const testIdentity = '@neo-blocking-test';
+        
+        // 1. Insert Legacy Row (Old)
+        const legacyId = 'blocking-legacy-mem';
+        const legacyTime = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+        const legacySession = '11111111-1111-1111-1111-111111111111';
+        const legacyData = {
+            id: legacyId, label: 'AGENT_MEMORY', type: 'AGENT_MEMORY',
+            properties: {
+                userId: testIdentity,
+                name: `Memory: ${legacyTime}`,
+                description: `Agent thought flow inside session ${legacySession}.`
+            }
+        };
+
+        // 2. Insert Fresh Row (New)
+        const freshId = 'blocking-fresh-mem';
+        const freshTime = new Date().toISOString();
+        const freshSession = '22222222-2222-2222-2222-222222222222';
+        const freshData = {
+            id: freshId, label: 'AGENT_MEMORY', type: 'AGENT_MEMORY',
+            properties: {
+                agentIdentity: testIdentity,
+                timestamp: freshTime,
+                sessionId: freshSession,
+                name: `Memory: ${freshTime}`,
+                description: `Agent thought flow inside session ${freshSession}.`
+            }
+        };
+
+        const insertStmt = db.prepare(`INSERT INTO Nodes (id, user_id, data) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data`);
+        insertStmt.run(legacyId, testIdentity, JSON.stringify(legacyData));
+        insertStmt.run(freshId, testIdentity, JSON.stringify(freshData));
+
+        try {
+            const scriptPath = path.resolve(process.cwd(), 'ai/scripts/checkSunsetted.mjs');
+            const output     = execFileSync('node', [scriptPath, testIdentity], {
+                encoding: 'utf-8',
+                env     : { ...process.env, NEO_UNIT_TEST_MODE: 'true' }
+            });
+            const parsed     = JSON.parse(output);
+
+            expect(parsed.identity).toBe(testIdentity);
+            // The origin session ID should match the NEWER fresh row, not the legacy row.
+            expect(parsed.originSessionId).toBe(freshSession);
+        } finally {
+            db.prepare('DELETE FROM Nodes WHERE id = ?').run(legacyId);
+            db.prepare('DELETE FROM Nodes WHERE id = ?').run(freshId);
+        }
+    });
+
     test('checkSunsetted.mjs does NOT flag sunsetted when subscription exists and AGENT_MEMORY is stale (#10641)', async () => {
         // Per issue #10641: removing the memory-staleness branch from the predicate.
         // Pre-fix: a 24h-old AGENT_MEMORY would flip `sunsetted=true` even with an active
