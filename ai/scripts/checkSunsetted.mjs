@@ -31,14 +31,8 @@ async function main() {
     const subs = subStmt.all(identity);
 
     // 2. Find last AGENT_MEMORY for this identity + extract origin session ID.
-    //    Per #10611 PR-B Cycle 2 (substrate-schema RA from @neo-gpt): live Memory Core
-    //    rows are `AGENT_MEMORY` (not `MEMORY`); identity tracks via `properties.userId`
-    //    (not `properties.agent`); and neither `properties.timestamp` nor
-    //    `properties.sessionId` exist as structured fields. The ISO timestamp is
-    //    embedded in `properties.name` ("Memory: <ISO>"), and the sessionId is embedded
-    //    in `properties.description` ("Agent thought flow inside session <UUID>."). We
-    //    extract both via regex post-query. Sorting on `properties.name` is correct
-    //    because ISO-8601 sorts lexically.
+    //    rows are `AGENT_MEMORY` (not `MEMORY`); identity tracks via `properties.userId`.
+    //    Legacy rows missing structured fields are migrated via update-on-read.
     const memStmt = db.prepare(`
         SELECT id,
                data,
@@ -54,25 +48,33 @@ async function main() {
     `);
     const memRow = memStmt.get(identity, identity);
 
-    const tsMatch     = memRow?.nameField?.match(/^Memory:\s+(.+)$/);
-    const sidMatch    = memRow?.descField?.match(/inside session ([a-f0-9-]+)/);
-    const lastMemTime = memRow?.timestampField || tsMatch?.[1] || null;
-
+    let lastMemTime = memRow?.timestampField || null;
+    let originSessionId = memRow?.sessionIdField || '';
     let isSunsetted = false;
     let reason = '';
-    const originSessionId = memRow?.sessionIdField || sidMatch?.[1] || '';
 
     // Update-on-read migration for legacy AGENT_MEMORY rows
-    if (memRow && (!memRow.timestampField || !memRow.sessionIdField) && lastMemTime && originSessionId) {
+    if (memRow && (!lastMemTime || !originSessionId)) {
         try {
-            const dataObj = JSON.parse(memRow.data);
-            dataObj.properties = dataObj.properties || {};
-            dataObj.properties.timestamp = lastMemTime;
-            dataObj.properties.sessionId = originSessionId;
-            dataObj.properties.agentIdentity = identity;
+            const tsMatch     = memRow.nameField?.match(/^Memory:\s+(.+)$/);
+            const sidMatch    = memRow.descField?.match(/inside session ([a-f0-9-]+)/);
             
-            const updateStmt = db.prepare(`UPDATE Nodes SET data = ? WHERE id = ?`);
-            updateStmt.run(JSON.stringify(dataObj), memRow.id);
+            const migratedTime = tsMatch?.[1];
+            const migratedSessionId = sidMatch?.[1];
+
+            if (migratedTime && migratedSessionId) {
+                lastMemTime = migratedTime;
+                originSessionId = migratedSessionId;
+
+                const dataObj = JSON.parse(memRow.data);
+                dataObj.properties = dataObj.properties || {};
+                dataObj.properties.timestamp = migratedTime;
+                dataObj.properties.sessionId = migratedSessionId;
+                dataObj.properties.agentIdentity = identity;
+
+                const updateStmt = db.prepare(`UPDATE Nodes SET data = ? WHERE id = ?`);
+                updateStmt.run(JSON.stringify(dataObj), memRow.id);
+            }
         } catch (err) {
             // Ignore migration errors on read path
         }

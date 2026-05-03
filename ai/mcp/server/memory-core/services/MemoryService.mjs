@@ -189,7 +189,7 @@ class MemoryService extends Base {
             });
 
             // Derive canonical graph identity. Fallback to formatting userId, or passing raw agent.
-            const canonicalIdentity = RequestContextService.getAgentIdentityNodeId() 
+            const canonicalIdentity = RequestContextService.getAgentIdentityNodeId()
                 || (userId ? `@${userId}` : (agent?.startsWith('@') ? agent : (agent ? `@${agent}` : undefined)));
 
             // 1. Topologically inject the new memory into the Native Edge Graph

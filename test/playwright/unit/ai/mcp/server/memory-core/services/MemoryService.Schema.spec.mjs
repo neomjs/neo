@@ -61,7 +61,7 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
 
     test('addMemory canonicalizes profile-string agent to node-id graph identity', async () => {
         await MemoryService.addMemory({
-            agent    : 'antigravity',
+            agent    : 'neo-gemini-3-1-pro',
             sessionId: 'session-xyz',
             prompt   : 'hello',
             thought  : 'thinking',
@@ -75,8 +75,8 @@ test.describe('MemoryService — AGENT_MEMORY Schema (#10620)', () => {
 
         // Ensure the structured properties are present and correctly named
         expect(node.properties).toBeDefined();
-        // Profile string 'antigravity' should be canonicalized to '@antigravity'
-        expect(node.properties.agentIdentity).toBe('@antigravity');
+        // Profile string 'neo-gemini-3-1-pro' should be canonicalized to '@neo-gemini-3-1-pro'
+        expect(node.properties.agentIdentity).toBe('@neo-gemini-3-1-pro');
         expect(node.properties.sessionId).toBe('session-xyz');
         expect(typeof node.properties.timestamp).toBe('string');
     });
