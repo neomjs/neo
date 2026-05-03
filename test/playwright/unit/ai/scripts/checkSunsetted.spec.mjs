@@ -89,7 +89,7 @@ test.describe('ai/scripts/checkSunsetted', () => {
         const scriptPath = path.resolve(process.cwd(), 'ai/scripts/checkSunsetted.mjs');
         const output     = execFileSync('node', [scriptPath, '@neo-legacy-test'], {
             encoding: 'utf-8',
-            env: { ...process.env, NEO_UNIT_TEST_MODE: 'true', SUNSET_THRESHOLD_MS: '600000' }
+            env: { ...process.env, NEO_UNIT_TEST_MODE: 'true' }
         });
         const parsed     = JSON.parse(output);
 
@@ -101,6 +101,65 @@ test.describe('ai/scripts/checkSunsetted', () => {
         expect(migratedData.properties.timestamp).toBe(legacyTime);
         expect(migratedData.properties.sessionId).toBe(legacySession);
         expect(migratedData.properties.agentIdentity).toBe('@neo-legacy-test');
+    });
+
+    test('checkSunsetted.mjs does NOT flag sunsetted when subscription exists and AGENT_MEMORY is stale (#10641)', async () => {
+        // Per issue #10641: removing the memory-staleness branch from the predicate.
+        // Pre-fix: a 24h-old AGENT_MEMORY would flip `sunsetted=true` even with an active
+        // subscription, triggering orphan-session-spawn via `resumeHarness.mjs`.
+        // Post-fix: subscription presence is the authoritative signal; staleness is ignored.
+        const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        await GraphService.initAsync();
+
+        const testIdentity   = '@neo-staleness-test';
+        const staleMemId     = 'stale-memory-test-anchor';
+        const subId          = 'sub-staleness-test';
+        const staleTimestamp = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+        const memData = {
+            id        : staleMemId,
+            label     : 'AGENT_MEMORY',
+            type      : 'AGENT_MEMORY',
+            properties: {
+                userId        : testIdentity,
+                agentIdentity : testIdentity,
+                timestamp     : staleTimestamp,
+                sessionId     : '99999999-9999-9999-9999-999999999999',
+                name          : `Memory: ${staleTimestamp}`,
+                description   : 'Agent thought flow inside session 99999999-9999-9999-9999-999999999999.'
+            }
+        };
+
+        const subData = {
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
+            type      : 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity : testIdentity,
+                harnessTarget : 'claude-desktop',
+                status        : 'active'
+            }
+        };
+
+        const db         = GraphService.db.storage.db;
+        const insertStmt = db.prepare(`INSERT INTO Nodes (id, user_id, data) VALUES (?, ?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data`);
+        insertStmt.run(staleMemId, testIdentity, JSON.stringify(memData));
+        insertStmt.run(subId,      testIdentity, JSON.stringify(subData));
+
+        try {
+            const scriptPath = path.resolve(process.cwd(), 'ai/scripts/checkSunsetted.mjs');
+            const output     = execFileSync('node', [scriptPath, testIdentity], {
+                encoding: 'utf-8',
+                env     : { ...process.env, NEO_UNIT_TEST_MODE: 'true' }
+            });
+            const parsed     = JSON.parse(output);
+
+            expect(parsed.sunsetted).toBe(false);
+            expect(parsed.reason).toBe('');
+        } finally {
+            db.prepare('DELETE FROM Nodes WHERE id = ?').run(staleMemId);
+            db.prepare('DELETE FROM Nodes WHERE id = ?').run(subId);
+        }
     });
 
     test('swarm-heartbeat.sh integrates the sunset detection properly before the bypass', async () => {

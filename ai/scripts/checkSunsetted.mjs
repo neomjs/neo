@@ -80,21 +80,28 @@ async function main() {
         }
     }
 
+    // [Anchor & Echo] Sunset detection criterion: ONLY the explicit Unsubscribe primitive.
+    //
+    // Memory-staleness is NOT a sunset signal. It has too many legitimate causes to serve
+    // as a sunset proxy: Anthropic API rate-limits (the agent cannot save during throttle),
+    // long deep-thinking turns (peer reviews, complex analysis), Memory Core path
+    // asymmetry under contention (`add_memory` blocks on Chroma while `add_message` keeps
+    // working on SQLite), or in-flight tool sequences with consolidate-and-save still
+    // pending. Conflating staleness with sunset previously triggered Phase 1 Recovery
+    // (`resumeHarness.mjs` Cmd+N + paste of `buildBootGroundingPrompt`) against
+    // legitimately active agents, spawning orphan Claude Desktop sessions with zero
+    // continuity context (Zero-State Amnesia per `AGENTS.md` §14).
+    //
+    // The authoritative sunset signal is the Unsubscribe primitive: the `session-sunset`
+    // workflow drops the WAKE_SUBSCRIPTION node before terminating the transcript. Any
+    // wake against an agent that still holds an active subscription is a non-sunset wake
+    // and MUST be delivered in-place by `bridge-daemon.mjs` (Cmd+`<tabShortcut>` + paste);
+    // that is the wake substrate's design contract per the operator's clarified model
+    // (issue #10641): "the bridge SHOULD spawn new sessions. but only after a sunset.
+    // otherwise => resume inside current session."
     if (subs.length === 0) {
         isSunsetted = true;
         reason = 'No active WAKE_SUBSCRIPTION (Unsubscribe primitive fired)';
-    } else if (lastMemTime) {
-        const lastMemMs   = new Date(lastMemTime).getTime();
-        const ageMs       = Date.now() - lastMemMs;
-        const thresholdMs = parseInt(process.env.SUNSET_THRESHOLD_MS, 10) || 10 * 60 * 1000;
-        if (ageMs > thresholdMs) {
-            isSunsetted = true;
-            reason = `Last memory is ${Math.round(ageMs / 60000)}m old (>${Math.round(thresholdMs/60000)}m threshold)`;
-        }
-    } else {
-        // No memory and has subscription? Assume active (just booted).
-        // But if it's older than 10m? We don't have boot time. We'll rely on memory.
-        // Actually, if no memory exists AT ALL, it's a fresh DB. Not sunsetted.
     }
 
     console.log(JSON.stringify({
