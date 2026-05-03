@@ -595,11 +595,16 @@ async function deliverDigest(subscription, digest) {
             // instead of composer content). Manual matrix validation by @tobiu falsified the
             // hypothesis: pressing Space when the Codex prompt field is unfocused applies
             // only a focus outline — it does NOT focus the composer. Enter behaves
-            // identically. Printable keys (e.g. 'r') CAN focus the composer, but if the
-            // prompt already contains text, the keystroke replaces existing content —
-            // unsafe pre-clear seed.
+            // identically. Printable keys (e.g. 'r') CAN focus the composer; updated
+            // empirical evidence shows the keystroke APPENDS to the existing draft rather
+            // than fully replacing it, but appending into the prompt is still mutation —
+            // any subsequent `Cmd+A` / `Cmd+X` clear sequence captures the appended char
+            // and the wake payload pastes over the result. Without a verified probe-and-
+            // undo or non-mutating focus primitive, printable-key seeding remains unsafe
+            // pre-clear. (#10664 candidate `r → Cmd+Z → Cmd+A → Cmd+X` is under
+            // investigation by @neo-gpt against a 5-row state matrix; not yet validated.)
             //
-            // No empirically-validated non-destructive composer-focus primitive exists for
+            // No empirically-validated non-mutating composer-focus primitive exists for
             // Codex Desktop today. Until either (a) operator explicitly configures
             // `meta.focusSeedKey` via subscription metadata with a verified primitive, or
             // (b) the Codex app-server adapter (#10517) ships — using `turn/start` /
