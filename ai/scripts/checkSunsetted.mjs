@@ -2,8 +2,21 @@
 /**
  * @summary Auto-Wakeup Substrate Detection Logic (Epic #10601).
  *
- * This script queries the SQLite GraphLog to determine if an agent is sunsetted
- * based on missing WAKE_SUBSCRIPTION nodes or inactivity exceeding the threshold.
+ * This script queries the SQLite GraphLog to determine if an agent is sunsetted.
+ * The authoritative sunset signal is the Unsubscribe primitive: the
+ * `session-sunset` workflow drops the agent's active WAKE_SUBSCRIPTION node
+ * before terminating the transcript, so a missing subscription is the only
+ * condition that flips `sunsetted=true`.
+ *
+ * `AGENT_MEMORY` rows are read for origin-session extraction (so the
+ * fresh-session-spawn boot prompt can carry the prior session ID for Memory
+ * Core context-priming) and for update-on-read migration of legacy rows
+ * lacking structured `timestamp` / `sessionId` / `agentIdentity` fields.
+ * Memory freshness is intentionally NOT a sunset proxy — it has too many
+ * legitimate non-sunset causes (rate-limit, long deep-thinking turns,
+ * Memory Core path asymmetry under Chroma contention, in-flight tool
+ * sequences). See the Anchor & Echo block on the predicate for the full
+ * rationale and the operator-clarified substrate model from issue #10641.
  */
 import Neo from '../../src/Neo.mjs';
 import * as core from '../../src/core/_export.mjs';
