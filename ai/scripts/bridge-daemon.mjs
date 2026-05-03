@@ -583,14 +583,61 @@ async function deliverDigest(subscription, digest) {
             }
             let focusSeedKey = meta.focusSeedKey;
             // Claude Desktop's Cmd+3 selects the Code tab but does not always move focus into
-            // the prompt. Codex Desktop hits the same class of regression under collapsed-
-            // sidebar state — bridge wake reaches the app window but composer focus is on
-            // thread-history, so the first Cmd+A in the destructive-clear sequence selects
-            // the wrong target (per #10662 / #10649 collapsed-sidebar matrix reproduction).
-            // Seed focus with Space before the destructive Cmd+A/Cmd+X clear path. Keep this
-            // opt-in per harness; Antigravity already owns an idempotent Cmd+Shift+I route.
-            if (focusSeedKey === undefined && (appName === 'Claude' || appName === 'Codex')) focusSeedKey = 'space';
-            
+            // the prompt. Seed focus with Space before the destructive Cmd+A/Cmd+X clear path.
+            // Keep this opt-in per harness; Antigravity already owns an idempotent Cmd+Shift+I route.
+            if (focusSeedKey === undefined && appName === 'Claude') focusSeedKey = 'space';
+
+            // [Anchor & Echo] Codex fail-closed (#10664) — empirical disproval 2026-05-03:
+            //
+            // PR #10663 attempted to mirror Claude's #10661 Space-seed primitive for Codex
+            // Desktop, hypothesizing that the same per-harness focusSeedKey: 'space' default
+            // would close the collapsed-sidebar regression (Cmd+A selecting thread history
+            // instead of composer content). Manual matrix validation by @tobiu falsified the
+            // hypothesis: pressing Space when the Codex prompt field is unfocused applies
+            // only a focus outline — it does NOT focus the composer. Enter behaves
+            // identically. Printable keys (e.g. 'r') CAN focus the composer but MUTATE
+            // prompt content; latest `r` observation appended to the existing prompt rather
+            // than fully replacing it, but appending IS mutation — any subsequent
+            // `Cmd+A` / `Cmd+X` clear sequence captures the appended char and the wake
+            // payload pastes over the result. Until an undo sequence passes the 5-row
+            // matrix (focused empty / focused draft / unfocused empty / unfocused draft /
+            // history-or-transcript focused), printable-key seeding remains unsafe pre-clear.
+            //
+            // **Scope distinction load-bearing for future operator opt-in**: the existing
+            // `meta.focusSeedKey` primitive is a SINGLE-KEY non-mutating focus seed (the
+            // bridge emits one keystroke before the destructive clear). A future verified
+            // single-key non-mutating Codex primitive can opt in via `meta.focusSeedKey`.
+            // The `r → Cmd+Z → Cmd+A → Cmd+X` candidate (under @neo-gpt investigation per
+            // #10664) is a MULTI-STEP probe-and-undo SEQUENCE, NOT a single-key seed; if it
+            // proves safe across all 5 matrix rows, it would need a distinct implementation
+            // path (e.g. a `meta.focusSeedSequence` primitive, or routed via the Codex
+            // app-server adapter below) — NOT a `meta.focusSeedKey: 'r'` opt-in, which
+            // would silently re-introduce the mutating-prompt failure mode.
+            //
+            // No empirically-validated non-mutating composer-focus primitive exists for
+            // Codex Desktop today. Until either (a) operator explicitly configures
+            // `meta.focusSeedKey` via subscription metadata with a verified single-key
+            // non-mutating primitive, or (b) the Codex app-server adapter (#10517) ships —
+            // using `turn/start` / `turn/steer` / `thread/inject_items` via
+            // `codex debug app-server send-message-v2` — and supersedes the UI-keystroke
+            // path entirely, the bridge MUST refuse to proceed past the destructive
+            // Cmd+A / Cmd+X clear sequence for Codex.
+            //
+            // Defense-in-depth: even with `@neo-gpt`'s WAKE_SUBSCRIPTION currently set to
+            // `harnessTarget: 'disabled'` (per #10664 immediate operator mitigation), this
+            // bridge-side guard prevents accidental subscription re-enable from triggering
+            // the empirically-disproved focus-seed path.
+            if (appName === 'Codex' && !focusSeedKey) {
+                writeLog('WARN',
+                    `[Bridge Daemon] Codex UI wake delivery refused for ${subscription.id}: ` +
+                    `no validated composer-focus primitive (per #10664). ` +
+                    `Subscription must opt in via meta.focusSeedKey with a verified primitive, ` +
+                    `or wait for the #10517 Codex app-server adapter.`
+                );
+                return;
+            }
+
+
             // [Anchor & Echo] The Electron-Paradox Defense:
             // Electron-based IDEs (Antigravity, VS Code) register their bundle names differently
             // than their underlying macOS process names (often just "Electron" to System Events).

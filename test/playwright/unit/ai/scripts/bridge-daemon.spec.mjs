@@ -674,21 +674,34 @@ test.describe('Bridge Daemon', () => {
         expect(clearIndex).toBeGreaterThan(spaceIndex);
     });
 
-    test('Codex default focus seed generates Space after activate and before prompt clear (#10662)', async () => {
-        // Per #10662: extends the per-harness focusSeedKey: 'space' default to
-        // appName === 'Codex' so the collapsed-sidebar regression (Cmd+A selects
-        // thread history instead of composer content) is closed by seeding focus
-        // before the destructive clear. Codex has no tab-shortcut default
-        // (tabShortcut stays undefined / null), so the order is
-        // activate → Space → Cmd+A — distinct from the Claude order
-        // (activate → Cmd+3 → Space → Cmd+A).
+    test('Codex UI wake fails closed when no validated focusSeedKey is configured (#10664)', async () => {
+        // Per #10664: PR #10663's hypothesis (Codex Space-seed mirrors Claude's #10661 fix)
+        // was empirically falsified by manual matrix validation 2026-05-03. Space and Enter
+        // apply only a focus outline; printable keys can focus but mutate prompt content —
+        // updated evidence shows the probe char APPENDS to the existing draft rather than
+        // fully replacing it, but appending IS mutation that the subsequent Cmd+A/Cmd+X
+        // clear captures and the wake paste overwrites. No safe non-mutating composer-focus
+        // primitive exists for Codex Desktop today. The bridge-daemon MUST fail closed for
+        // Codex without an explicit `meta.focusSeedKey` opt-in (single-key non-mutating
+        // primitive only) — refusing to proceed past the destructive Cmd+A / Cmd+X clear
+        // sequence — until either operator opts in via verified single-key metadata, OR
+        // the Codex app-server adapter (#10517) supersedes UI-keystroke delivery. The
+        // probe-and-undo candidate `r → Cmd+Z → Cmd+A → Cmd+X` under @neo-gpt's 5-row
+        // matrix investigation is a multi-step SEQUENCE, NOT a single-key seed; if it
+        // proves safe it needs a distinct implementation path (sequence primitive or
+        // app-server route), NOT a `focusSeedKey: 'r'` opt-in.
+        //
+        // This test is a defense-in-depth check: even if @neo-gpt's WAKE_SUBSCRIPTION is
+        // accidentally re-enabled (currently set to harnessTarget:'disabled' per #10664
+        // operator mitigation), the bridge refuses to send any osascript keystroke for a
+        // Codex subscription that lacks an explicit composer-focus primitive.
         const subId = 'sub_' + crypto.randomUUID();
-        const agentId = '@test-agent-codex';
+        const agentId = '@test-agent-codex-fail-closed';
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
             id: agentId,
             label: 'AGENT',
-            properties: { name: 'Test Agent Codex' }
+            properties: { name: 'Test Agent Codex Fail-Closed' }
         }));
 
         db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
@@ -703,6 +716,7 @@ test.describe('Bridge Daemon', () => {
                     adapter: 'osascript',
                     appName: 'Codex',
                     coalesceWindow: 1
+                    // No focusSeedKey configured — bridge MUST refuse delivery
                 }
             }
         }));
@@ -712,7 +726,7 @@ test.describe('Bridge Daemon', () => {
         const binDir = path.join(DAEMON_DIR, 'bin');
         fs.ensureDirSync(binDir);
         const mockOsascriptPath = path.join(binDir, 'osascript');
-        const mockOutPath = path.join(DAEMON_DIR, 'mock_codex_out.json');
+        const mockOutPath = path.join(DAEMON_DIR, 'mock_codex_failclosed_out.json');
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
@@ -721,14 +735,21 @@ test.describe('Bridge Daemon', () => {
             env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
-        const deliveryPromise = new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver event within timeout')), 10000);
+        // Wait for the fail-closed warning log line (proxy for the deliver-or-refuse decision).
+        const refusalPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon did not emit Codex fail-closed warning within timeout')), 10000);
 
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
-                if (out.includes('[Bridge Daemon] Delivered ' + subId)) {
+                if (out.includes(`Codex UI wake delivery refused for ${subId}`)) {
                     clearTimeout(timeout);
                     resolve();
+                }
+                // Negative case: if the daemon ever logs "Delivered" for this subId, the
+                // fail-closed guard didn't fire. Reject so the test fails loudly.
+                if (out.includes(`[Bridge Daemon] Delivered ${subId}`)) {
+                    clearTimeout(timeout);
+                    reject(new Error('Daemon delivered Codex wake despite missing focusSeedKey — fail-closed guard regressed'));
                 }
             });
             daemonProcess.stderr.on('data', data => console.error('[DAEMON STDERR]', data.toString()));
@@ -758,21 +779,11 @@ test.describe('Bridge Daemon', () => {
         }), msgId, agentId, 'SENT_TO');
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
 
-        await deliveryPromise;
+        await refusalPromise;
 
-        const args = JSON.parse(fs.readFileSync(mockOutPath, 'utf8'));
-        const activateIndex = args.findIndex(arg => arg.includes('tell application "Codex" to activate'));
-        const spaceIndex    = args.findIndex(arg => arg.includes('key code 49'));
-        const clearIndex    = args.findIndex(arg => arg.includes('keystroke "a" using command down'));
-
-        expect(activateIndex).toBeGreaterThan(-1);
-        expect(spaceIndex).toBeGreaterThan(activateIndex);
-        expect(clearIndex).toBeGreaterThan(spaceIndex);
-
-        // Negative drift guard: Codex must NOT emit a Cmd+3 tab-shortcut keystroke
-        // (Codex has no Code-tab equivalent). If a future change introduces one,
-        // this assertion fails loudly so the order is re-validated.
-        expect(args.join(' ')).not.toContain('keystroke "3" using command down');
+        // Confirm osascript was never called. The mock writes argv to mockOutPath only when
+        // invoked — so file-absent ⇒ refusal-fired-correctly. Defense-in-depth assertion.
+        expect(fs.existsSync(mockOutPath)).toBe(false);
     });
 
     test('getNodesData and getEdgesData deterministically chunk queries by SQLITE_IN_CLAUSE_BATCH_SIZE', () => {
