@@ -147,8 +147,8 @@ For PRs that introduce or modify public/consumed surfaces (e.g., configs, MCP to
 
 **Audit Protocol:**
 1. **Locate the Ledger:** Fetch the originating ticket (the close-target). Look for the "Contract Ledger" markdown table in the ticket body. If it is a sub-issue relying on a parent epic's ledger, fetch the parent epic to locate it.
-2. **Missing Ledger:** If the PR modifies public surfaces but neither the ticket nor its parent epic lacks a Contract Ledger, flag as a **Required Action**:
-   > *"PR modifies public/consumed surfaces but the originating ticket (or parent epic) lacks a Contract Ledger matrix. Required: backfill the Contract Ledger on the ticket to establish the formal API contract."*
+2. **Missing Ledger:** If the PR modifies public surfaces but both the originating ticket and its parent epic lack a Contract Ledger, flag as a **Required Action**:
+   > *"PR modifies public/consumed surfaces but the originating ticket (and parent epic) lacks a Contract Ledger matrix. Required: backfill the Contract Ledger on the ticket to establish the formal API contract."*
 3. **Drift Detection:** Compare the PR diff against the ticket's Contract Ledger. If the implemented contract drifts from the ledger (e.g., added fields, changed types, missing deprecation steps), flag as a **Required Action**:
    > *"Contract drift detected: the implementation differs from the Contract Ledger defined in the ticket. Required: update the ticket's Contract Ledger to reflect the exact shipped reality."*
 
