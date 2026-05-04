@@ -123,6 +123,32 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(result.stderr).toContain('WAKE_GATE_OVERRIDE=1');
     });
 
+    test('Wake safety gate enabled + unknown identity → gate passes; identity check exits without osascript (#10648, #10681)', async () => {
+        // Always-on coverage of gate-pass logic, addressing @neo-gemini-3-1-pro's PR #10682
+        // cycle 1 challenge re: the coverage gap left by skipping the live-host gate-pass test.
+        // resumeHarness.mjs sequences gate check (lines 67-71) BEFORE identity lookup (lines
+        // 110-116). Pairing an enabled gate with an unknown identity proves the gate let
+        // execution through (no skip message) and the script then exits cleanly via the
+        // unknown-identity branch — neither path reaches the osascript dispatch, so no
+        // host-environment side effects.
+        fs.mkdirSync(path.dirname(gatePath), {recursive: true});
+        fs.writeFileSync(gatePath, JSON.stringify({state: 'enabled', reason: '', trippedAt: null, trippedBy: null}), 'utf-8');
+
+        const result = spawnSync('node', [scriptPath, '@neo-unknown-coverage', 'test'], {
+            encoding: 'utf-8',
+            env     : gateOnlyEnv()
+        });
+        const stderrAndStdout = (result.stderr ?? '') + (result.stdout ?? '');
+
+        // Positive assertion: gate-pass let execution through to the identity check, which
+        // exits with the expected unknown-identity error (resumeHarness.mjs:114-116).
+        expect(result.status).toBe(1);
+        expect(stderrAndStdout).toContain('Unknown harness target for identity: @neo-unknown-coverage');
+        // Negative assertion: gate didn't short-circuit the call.
+        expect(stderrAndStdout).not.toContain('Wake safety gate tripped');
+        expect(stderrAndStdout).not.toContain('Wake safety gate disabled');
+    });
+
     test('Wake safety gate enabled → resumeHarness proceeds past the gate (live host — RUN_LIVE_OSASCRIPT=1 required, #10648, #10681)', async () => {
         // Live-host integration: writes enabled gate state, invokes resumeHarness with a
         // known identity, and confirms the gate doesn't short-circuit. Because the gate
