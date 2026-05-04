@@ -203,6 +203,8 @@ test.describe('ai/scripts/resumeHarness', () => {
     });
 
     test('Antigravity CLI: adapter executes chat -n <payload> via ANTIGRAVITY_CLI_PATH (#10680)', async () => {
+        test.skip(process.platform !== 'darwin', 'Antigravity CLI is currently mac-specific (#10684)');
+
         // Create a mock executable to capture the command shape without launching the real IDE
         const mockPath = path.join(os.tmpdir(), `mock-ag-${randomUUID()}`);
         const outPath = path.join(os.tmpdir(), `out-ag-${randomUUID()}`);
