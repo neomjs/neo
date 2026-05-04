@@ -98,7 +98,7 @@ async function resumeHarness(identity, reason, originSessionId) {
     // for Antigravity IDE and Claude Desktop; Codex Desktop deferred until @neo-gpt
     // confirms its fresh-session shortcut + osascript receptiveness.
     const HARNESS_REGISTRY = {
-        'antigravity-ide': { appName: 'Antigravity', adapter: 'osascript', freshSessionShortcut: 'n' },
+        'antigravity-ide': { adapter: 'antigravity-cli' },
         'claude-desktop':  { appName: 'Claude',      adapter: 'osascript', freshSessionShortcut: 'n', tabShortcut: '3' }
     };
 
@@ -118,7 +118,12 @@ async function resumeHarness(identity, reason, originSessionId) {
     const adapter = process.platform === 'darwin' ? harnessTarget.adapter : 'tmux';
 
     try {
-        if (adapter === 'osascript') {
+        if (adapter === 'antigravity-cli') {
+            const cliPath = '/Applications/Antigravity.app/Contents/Resources/app/bin/antigravity';
+            const args = ['chat', '-n', payload];
+            await spawnAsync(cliPath, args);
+            console.log(`Successfully resumed ${identity} via antigravity-cli`);
+        } else if (adapter === 'osascript') {
             const { appName, tabShortcut, freshSessionShortcut } = harnessTarget;
             // Q1b fresh-session-spawn flow per #10611:
             //   1. Activate target app

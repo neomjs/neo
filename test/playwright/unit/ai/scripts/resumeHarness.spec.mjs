@@ -62,7 +62,9 @@ test.describe('ai/scripts/resumeHarness', () => {
             const files = fs.readdirSync(cooldownDir);
             for (const file of files) {
                 if (file.startsWith('cooldown-')) {
-                    fs.unlinkSync(path.join(cooldownDir, file));
+                    try {
+                        fs.unlinkSync(path.join(cooldownDir, file));
+                    } catch(e) {}
                 }
             }
         }
@@ -171,11 +173,11 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(stderrAndStdout).not.toContain('Wake safety gate disabled');
     });
 
-    test('Q1b fresh-session-spawn: HARNESS_REGISTRY entries include freshSessionShortcut (#10611 PR-B AC1)', async () => {
-        // Re-introduces the Cmd+N primitive that #10607 Cycle 5 removed. Both Antigravity
-        // and Claude Desktop entries must carry freshSessionShortcut for the corrected substrate.
+    test('Q1b fresh-session-spawn: HARNESS_REGISTRY entries include freshSessionShortcut or native CLI args (#10611 PR-B AC1)', async () => {
+        // Re-introduces the Cmd+N primitive that #10607 Cycle 5 removed for Claude Desktop. 
+        // Antigravity now uses its native CLI primitive `-n` instead of osascript.
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
-        expect(scriptContent).toContain("'antigravity-ide': { appName: 'Antigravity', adapter: 'osascript', freshSessionShortcut: 'n' }");
+        expect(scriptContent).toContain("'antigravity-ide': { adapter: 'antigravity-cli' }");
         expect(scriptContent).toMatch(/'claude-desktop':\s+\{[^}]*freshSessionShortcut: 'n'/);
     });
 
