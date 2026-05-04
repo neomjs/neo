@@ -82,6 +82,45 @@ For every issue named as close-target, verify it does NOT carry the `epic` label
 
 ---
 
+### 🪜 Evidence Audit
+
+*(Required when the PR's close-target ACs include observable runtime effect on a surface the CI / agent sandbox cannot reach — substrate / harness / wake / restart / UI-with-visual-AC / CLI-with-host-behavior PRs. Mark N/A for PRs where ACs are fully covered by unit tests / static contract.)*
+
+Reference: [`learn/agentos/evidence-ladder.md`](../../../../learn/agentos/evidence-ladder.md) for L1-L4 ladder + sandbox-vs-achievable ceiling distinction.
+
+The PR body must declare achieved evidence in 1-line greppable form:
+
+```md
+Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target ACs requiring it>). Residual: AC<N> [#<close-target>].
+```
+
+- [ ] PR body contains an `Evidence:` declaration line (or N/A justified inline)
+- [ ] Achieved evidence ≥ close-target required evidence, OR residuals are explicitly listed in the PR's `## Residual / Post-Merge Validation` section
+- [ ] If residuals exist: close-target issue body has the residuals annotated as `[L<N>-deferred — operator handoff needed]`
+- [ ] Two-ceiling distinction: PR body distinguishes "shipped at L<X> because sandbox ceiling" from "shipped at L<X> because author didn't probe further"
+- [ ] Evidence-class collapse check: review language does NOT promote L1/L2 evidence to L3/L4 framing without explicit sandbox-ceiling caveat
+
+**Findings:** [Pass / evidence-AC mismatch flagged / N/A — close-target ACs fully covered by unit tests]
+
+---
+
+### 📜 Source-of-Authority Audit
+
+*(Required for any review comment that cites operator or peer authority — e.g., quoting the Human Commander, citing peer-agent decisions, invoking `[paraphrase]` of a directive. Mark N/A if the review contains no authority citations.)*
+
+Reference: `feedback_peer_cited_authority_neutral_ask` memory + Discussion #10697 OQ-2 source-discipline convergence.
+
+When citing operator / peer authority for a review demand:
+
+- [ ] Citation links a specific GitHub comment-id, A2A messageId, or is explicitly marked `[paraphrase]` for direct-session-quotes that don't appear publicly
+- [ ] Substantive demands stand on their own technical merits, not on the cited authority alone (peer can verify the substantive validity independently)
+- [ ] No appeal-to-authority compounding: "the operator said X" is calibration context, NOT a substitute for substrate-truth audit of the demand
+- [ ] When citing operator-peer A2A quotes that are not publicly visible, the citation marks them so peers outside that thread can corroborate via the operator if needed
+
+**Findings:** [Pass / unsourced authority citation flagged / N/A]
+
+---
+
 ### 📡 MCP-Tool-Description Budget Audit
 
 *(Required per guide §5.3 when the PR touches `ai/mcp/server/*/openapi.yaml` — adds a new `description:`, modifies an existing block-literal `description:`, or introduces a new tool path or operation. Mark N/A for PRs that don't touch OpenAPI surfaces.)*

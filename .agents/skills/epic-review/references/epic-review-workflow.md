@@ -74,6 +74,27 @@ Checks:
 - **Missing phases**: a prerequisite sub implied by the arc but not filed (e.g. a migration ticket, a schema ticket, a doc-update ticket)
 - **Scope creep risk**: subs whose titles or bodies exceed the parent epic's scope
 
+#### Stage 3.1 — Evidence Matrix Producer Hook (entry side of the closeout contract)
+
+*(Required when any of the epic's acceptance criteria describe observable runtime effect on a surface the CI / agent sandbox cannot reach — i.e., when the [Substrate Evidence Ladder](../../../../learn/agentos/evidence-ladder.md) trigger applies. Mark N/A for epics where ACs are fully covered by unit tests / static contract.)*
+
+The `epic-review` skill is the *entry pass* of the closeout contract; `epic-resolution` is the *exit pass* (sibling skill, runs at sub-closure time). Both consume the same matrix shape on the parent epic body. **Stage 3.1 is where the entry pass SEEDS the matrix** so the exit pass has a contract to reconcile against.
+
+For each parent AC of the epic, Stage 3 must produce columns 1–3 of the shared matrix and seed columns 4–6 as placeholders:
+
+```md
+| Parent AC | Required evidence | Owning sub(s) | Delivered PR(s) | Achieved evidence | Residual state |
+|---|---|---|---|---|---|
+| AC1 (...) | L2 | #NNNN | (pending) | (pending) | (pending) |
+| AC2 (...) | L4 | #NNNN, #NNNN | (pending) | (pending) | (pending) |
+```
+
+**Required-evidence assignment:** for each AC, classify as L1 / L2 / L3 / L4 per the ladder. L1 = static contract; L2 = mock dispatch; L3 = live non-destructive probe; L4 = operator-gated destructive handoff. If any AC requires L3+ verification on a surface the sandbox can't reach, the matrix MUST mark it explicitly so `epic-resolution` knows operator-handoff residuals are expected at closeout.
+
+**Where the matrix lives:** post the Stage 3.1 matrix as a comment on the epic ticket, OR amend the epic body to include a `## Closeout Matrix (entry-seeded)` section. The closeout pass (`epic-resolution`) reads the most recent matrix-shaped artifact and reconciles columns 4–6 against the actual delivered PRs.
+
+**Cross-reference:** [`learn/agentos/evidence-ladder.md`](../../../../learn/agentos/evidence-ladder.md) for L1-L4 ladder + sandbox-vs-achievable ceiling distinction + complete schema definitions.
+
 ### Stage 4 — Prescription Layer
 
 *(Runs only if stages 1-2 pass.)*
@@ -142,6 +163,7 @@ This citation belongs in the `ticket-intake` reflection step for the sub, not as
 | `ticket-intake` | Sub pickup | Sub-scope | Epic-review runs *before* ticket-intake the first time your identity picks up any sub from this epic. After epic-review, ticket-intake proceeds per its own protocol. |
 | `pull-request` | PR creation | PR-scope | Orthogonal — epic-review does not interact with the PR layer. |
 | `pr-review` | PR validation | Post-work | Complementary — epic-review catches scope/approach drift *before* work; pr-review catches execution drift *after*. Different blast radius, different timing. |
+| `epic-resolution` | Epic closeout | At sub-closure time | Sibling exit-pass to this entry-pass. Epic-review Stage 3.1 SEEDS the AC → required-evidence → owning-sub matrix; epic-resolution RECONCILES columns 4–6 (delivered PRs / achieved evidence / residual state) at closeout time. The two skills share the same matrix schema defined in [`learn/agentos/evidence-ladder.md`](../../../../learn/agentos/evidence-ladder.md). Different agents may run the two passes; the matrix-as-artifact is the contract between them. |
 
 ## 7. Anti-Patterns
 
