@@ -42,7 +42,8 @@ const serviceMapping = {
     revoke_permission     : PermissionService       .revokePermission    .bind(PermissionService),
     list_permissions      : PermissionService       .listPermissions     .bind(PermissionService),
     manage_wake_subscription: WakeSubscriptionService.manage              .bind(WakeSubscriptionService),
-    set_session_id        : SessionService          .setSessionId        .bind(SessionService)
+    set_session_id        : SessionService          .setSessionId        .bind(SessionService),
+    purge_session         : SessionService          .purgeSession        .bind(SessionService)
 };
 
 const toolService = Neo.create(ToolService, {

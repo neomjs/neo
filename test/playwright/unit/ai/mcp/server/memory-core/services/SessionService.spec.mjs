@@ -178,4 +178,59 @@ test.describe('SessionService setSessionId', () => {
             expect(result.code).toBe('REQUEST_SCOPED_SESSION_ACTIVE');
         });
     });
+
+    test('purgeSession deletes target session memories and summaries, leaves others intact', async () => {
+        const targetSessionId = crypto.randomUUID();
+        const otherSessionId = crypto.randomUUID();
+
+        // Add memory to target session
+        await SDK.Memory_Service.addMemory({
+            prompt: 'target prompt',
+            response: 'target response',
+            thought: 'target thought',
+            sessionId: targetSessionId
+        });
+
+        // Add memory to other session
+        await SDK.Memory_Service.addMemory({
+            prompt: 'other prompt',
+            response: 'other response',
+            thought: 'other thought',
+            sessionId: otherSessionId
+        });
+
+        // Manually add summaries just to be sure we test both collections
+        await SDK.Memory_SessionService.sessionsCollection.add({
+            ids: ['sum_target', 'sum_other'],
+            metadatas: [
+                { sessionId: targetSessionId },
+                { sessionId: otherSessionId }
+            ],
+            documents: ['target summary', 'other summary']
+        });
+
+        const result = await SDK.Memory_SessionService.purgeSession({ sessionId: targetSessionId });
+        expect(result.success).toBe(true);
+        expect(result.deletedMemories).toBeGreaterThan(0);
+        expect(result.deletedSummaries).toBeGreaterThan(0);
+
+        // Verify target session is gone
+        const targetMemories = await SDK.Memory_Service.listMemories({ sessionId: targetSessionId });
+        expect(targetMemories.memories.length).toBe(0);
+
+        const targetSummaries = await SDK.Memory_SessionService.sessionsCollection.get({
+            where: { sessionId: targetSessionId }
+        });
+        expect(targetSummaries.ids.length).toBe(0);
+
+        // Verify other session remains
+        const otherMemories = await SDK.Memory_Service.listMemories({ sessionId: otherSessionId });
+        expect(otherMemories.memories.length).toBe(1);
+
+        const otherSummaries = await SDK.Memory_SessionService.sessionsCollection.get({
+            where: { sessionId: otherSessionId }
+        });
+        expect(otherSummaries.ids.length).toBe(1);
+    });
 });
+
