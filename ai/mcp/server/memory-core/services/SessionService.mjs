@@ -47,10 +47,10 @@ class SessionService extends Base {
          */
         className: 'Neo.ai.mcp.server.memory-core.services.SessionService',
         /**
-         * @member {String|null} currentSessionId=crypto.randomUUID()
+         * @member {String|null} _legacySessionId=crypto.randomUUID()
          * @protected
          */
-        currentSessionId: crypto.randomUUID(),
+        _legacySessionId: crypto.randomUUID(),
         /**
          * @member {Object|null} memoryCollection_=null
          * @protected
@@ -82,7 +82,7 @@ class SessionService extends Base {
     construct(config) {
         super.construct(config);
 
-        logger.info(`[SessionService] Initialized new session: ${this.currentSessionId}`);
+        logger.info(`[SessionService] Initialized new fallback session: ${this._legacySessionId}`);
 
         if (aiConfig.modelProvider === 'gemini') {
             const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -112,7 +112,7 @@ class SessionService extends Base {
                             'Content-Type': 'application/json',
                             'Content-Length': bodyData.length
                         };
-                        
+
                         if (aiConfig.openAiCompatible.apiKey) {
                             headers['Authorization'] = `Bearer ${aiConfig.openAiCompatible.apiKey}`;
                         }
@@ -153,6 +153,20 @@ class SessionService extends Base {
             const genAI = new GoogleGenerativeAI(geminiKey);
             this.model = genAI.getGenerativeModel({ model: aiConfig.modelName });
         }
+    }
+
+    /**
+     * @returns {String|null}
+     */
+    get currentSessionId() {
+        return RequestContextService.getSessionId() || this._legacySessionId;
+    }
+
+    /**
+     * @param {String|null} value
+     */
+    set currentSessionId(value) {
+        this._legacySessionId = value;
     }
 
     /**
@@ -339,7 +353,7 @@ class SessionService extends Base {
         const sessionsToUpdate = [];
 
         Object.keys(sessions).forEach(sessionId => {
-            const sessionData  = sessions[sessionId];
+            const sessionData = sessions[sessionId];
             const summaryCount = summaryMap[sessionId];
 
             // Explicitly exclude the current active session from both cases.
@@ -625,7 +639,7 @@ ${aggregatedContent}
         if (!sessionId || typeof sessionId !== 'string') {
             return { error: 'Invalid sessionId', code: 'INVALID_SESSION_ID' };
         }
-        
+
         const oldSessionId = this.currentSessionId;
         if (oldSessionId === sessionId) {
             return { success: true, sessionId: this.currentSessionId, message: "Session ID unchanged." };
@@ -646,10 +660,10 @@ ${aggregatedContent}
         } catch (e) {
             logger.warn(`[SessionService] Error checking old session during override: ${e.message}`);
         }
-        
+
         logger.info(`[SessionService] Overriding session ID: ${oldSessionId} -> ${sessionId}`);
         this.currentSessionId = sessionId;
-        
+
         return { success: true, sessionId: this.currentSessionId, replacedSessionId: oldSessionId };
     }
 

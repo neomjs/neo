@@ -1,4 +1,4 @@
-import Base                  from '../../../../../src/core/Base.mjs';
+import Base from '../../../../../src/core/Base.mjs';
 import RequestContextService from './RequestContextService.mjs';
 
 /**
@@ -62,16 +62,16 @@ class TransportService extends Base {
      * @returns {Promise<void>}
      */
     async setup(options) {
-        const {server, aiConfig, logger, resourceName} = options;
+        const { server, aiConfig, logger, resourceName } = options;
 
-        const {createMcpExpressApp}           = await import('@modelcontextprotocol/sdk/server/express.js');
-        const {StreamableHTTPServerTransport} = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
-        const crypto                          = await import('crypto');
-        const cors                            = await import('cors');
-        const app                             = createMcpExpressApp();
+        const { createMcpExpressApp } = await import('@modelcontextprotocol/sdk/server/express.js');
+        const { StreamableHTTPServerTransport } = await import('@modelcontextprotocol/sdk/server/streamableHttp.js');
+        const crypto = await import('crypto');
+        const cors = await import('cors');
+        const app = createMcpExpressApp();
 
         app.use(cors.default({
-            origin        : '*',
+            origin: '*',
             exposedHeaders: ['Mcp-Session-Id'],
         }));
 
@@ -87,7 +87,7 @@ class TransportService extends Base {
 
         // Optional OIDC/OAuth Authorization
         if (aiConfig.auth.host || aiConfig.auth.issuerUrl) {
-            const {default: AuthService} = await import('./AuthService.mjs');
+            const { default: AuthService } = await import('./AuthService.mjs');
             await AuthService.setup({
                 app,
                 aiConfig,
@@ -113,9 +113,9 @@ class TransportService extends Base {
                 }
             } else {
                 transport = new StreamableHTTPServerTransport({
-                    sessionIdGenerator  : ()   => crypto.randomUUID(),
+                    sessionIdGenerator: () => crypto.randomUUID(),
                     onsessioninitialized: (id) => this.transports.set(id, transport),
-                    onsessionclosed     : (id) => this.transports.delete(id)
+                    onsessionclosed: (id) => this.transports.delete(id)
                 });
 
                 await server.mcpServer.connect(transport);
@@ -141,9 +141,15 @@ class TransportService extends Base {
                 requestContext = await server.buildRequestContext(req.auth);
             } else {
                 requestContext = {
-                    userId  : req.auth?.userId,
+                    userId: req.auth?.userId,
                     username: req.auth?.username
                 };
+            }
+
+            if (sessionId) {
+                requestContext.sessionId = sessionId;
+            } else if (transport && transport.sessionId) {
+                requestContext.sessionId = transport.sessionId;
             }
 
             await RequestContextService.run(requestContext, () => transport.handleRequest(req, res, req.body));
