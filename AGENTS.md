@@ -225,15 +225,14 @@ During continuous agent sessions, any interrupting user prompt or A2A message ca
 **The Mandate:**
 After any user prompt or A2A message reaches the agent during an active ticket lifecycle, resume that lifecycle and check the PR Definition of Done before halting. Ask: *"Did this interruption distract me from opening the Pull Request?"*
 
-## 9. Preventing Context Corruption (State Management)
+## 9. Reading Modified Files Efficiently (State Management)
 
-Working on the Neo platform requires long, complex sessions. To prevent your context window from becoming corrupted with multiple competing versions of the same file after several edits, you MUST adhere to this protocol:
+Working on the Neo platform requires long, complex sessions. When you've modified a file multiple times and need to verify its current state, use the cheapest authoritative source rather than a full re-read. The discipline is *efficiency-first* — universal across models — with an additional correctness consideration on smaller-context harnesses:
 
-1. **The Single Full-Read Rule:** You should generally only perform a full `read_file` on a specific file *once* per session to establish your baseline understanding.
-2. **Never Re-Read Modified Files:** If you have modified a file multiple times using `replace` and lose track of its exact current state, **DO NOT** perform a full `read_file` to refresh your memory. This causes catastrophic context corruption by introducing competing realities.
-3. **Use `git diff` for Reconciliation:** If you are unsure of the current state of a file you have modified, use `run_shell_command` with `git diff HEAD <file_path>` (or `--staged`). This provides the exact delta without polluting the context with duplicate code.
-4. **Use `grep_search` for Method Verification:** If you need to verify the current state of a specific method after changes, use `grep_search` with the `context` parameter to surgically extract only that method.
-5. **No Shell Fallbacks:** You are strictly forbidden from using `cat` or `grep` via `run_shell_command` to read files. Always use the native `read_file` or `grep_search` tools.
+1. **The Single Full-Read Rule (Efficiency-First):** Prefer `git diff` or surgical `grep_search` with context over a full re-read when verifying the state of a file you've modified. Full re-reads after several edits are wasteful when a delta is available. On smaller-context models, they additionally risk "competing realities" confusion when multiple file versions live in the window; on larger-context models the cost is wasted attention rather than correctness — the efficiency case holds regardless.
+2. **Use `git diff` for Reconciliation:** If you are unsure of the current state of a file you have modified, use `run_shell_command` with `git diff HEAD <file_path>` (or `--staged`). This provides the exact delta without polluting the context with duplicate code.
+3. **Use `grep_search` for Method Verification:** If you need to verify the current state of a specific method after changes, use `grep_search` with the `context` parameter to surgically extract only that method.
+4. **No Shell Fallbacks:** You are strictly forbidden from using `cat` or `grep` via `run_shell_command` to read files. Always use the native `read_file` or `grep_search` tools.
 
 ## 10. Testing and Validation Protocol
 
