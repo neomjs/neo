@@ -14,6 +14,7 @@ setup({
 });
 
 import {test, expect}        from '@playwright/test';
+import crypto                from 'crypto';
 import fs                    from 'fs-extra';
 import path                  from 'path';
 import Neo                   from '../../../../../../../../src/Neo.mjs';
@@ -104,6 +105,53 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         WakeSubscriptionService.subscriptionCache.clear();
         WakeSubscriptionService.liveCursor = 0;
     });
+
+    function insertDurableSubscription({
+        subscriptionId = `WAKE_SUB:${crypto.randomUUID()}`,
+        owner = '@alice',
+        trigger = 'SENT_TO_ME',
+        filters = {},
+        harnessTarget = 'bridge-daemon',
+        harnessTargetMetadata = {appName: 'Codex'},
+        status = 'active',
+        createdAt = '2026-05-04T20:00:00.000Z',
+        updatedAt = createdAt
+    } = {}) {
+        const sqlite = GraphService.db.storage.db;
+        const node = {
+            id        : subscriptionId,
+            label     : 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity: owner,
+                trigger,
+                filters,
+                harnessTarget,
+                harnessTargetMetadata,
+                createdAt,
+                updatedAt,
+                userId      : owner,
+                sharedEntity: false,
+                status
+            }
+        };
+        const edgeId = `EDGE:${crypto.randomUUID()}`;
+        const edge = {
+            id    : edgeId,
+            source: owner,
+            target: subscriptionId,
+            type  : 'SUBSCRIBES_TO',
+            properties: {
+                weight: 1,
+                userId: owner
+            }
+        };
+
+        sqlite.prepare('INSERT INTO Nodes (id, user_id, data) VALUES (?, ?, ?)').run(subscriptionId, owner, JSON.stringify(node));
+        sqlite.prepare('INSERT INTO Edges (id, user_id, source, target, type, data) VALUES (?, ?, ?, ?, ?, ?)')
+            .run(edgeId, owner, owner, subscriptionId, 'SUBSCRIBES_TO', JSON.stringify(edge));
+
+        return {subscriptionId, edgeId};
+    }
 
     // -----------------------------------------------------------------------------
     // bootstrap
@@ -318,6 +366,45 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         });
     });
 
+    test('subscribe reuses cache-cold durable active route instead of duplicating bridge wake delivery (#10717)', async () => {
+        const {subscriptionId} = insertDurableSubscription({
+            owner                : '@alice',
+            trigger              : 'SENT_TO_ME',
+            harnessTarget        : 'bridge-daemon',
+            harnessTargetMetadata: {appName: 'Codex', focusSeedKey: 'r'}
+        });
+
+        expect(GraphService.db.nodes.get(subscriptionId) || null).toBeNull();
+        WakeSubscriptionService.subscriptionCache.clear();
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const res = await WakeSubscriptionService.subscribe({
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {appName: 'Codex', focusSeedKey: 'space'}
+            });
+
+            expect(res.subscriptionId).toBe(subscriptionId);
+            expect(res.status).toBe('existing');
+            expect(WakeSubscriptionService.subscriptionCache.has(subscriptionId)).toBe(true);
+        });
+
+        const refreshedNode = JSON.parse(GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').get(subscriptionId).data);
+        expect(refreshedNode.properties.harnessTargetMetadata.focusSeedKey).toBe('space');
+
+        const duplicateCount = GraphService.db.storage.db.prepare(`
+            SELECT COUNT(*) as count FROM Nodes
+            WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
+              AND json_extract(data, '$.properties.agentIdentity') = '@alice'
+              AND json_extract(data, '$.properties.trigger') = 'SENT_TO_ME'
+              AND json_extract(data, '$.properties.harnessTarget') = 'bridge-daemon'
+              AND json_extract(data, '$.properties.harnessTargetMetadata.appName') = 'Codex'
+              AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+        `).get().count;
+
+        expect(duplicateCount).toBe(1);
+    });
+
     test('MCP tool preserves explicit bridge-daemon metadata fields', async () => {
         await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
             const res = await callTool('manage_wake_subscription', {
@@ -415,6 +502,28 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
 
         // Subscription still exists
         expect(GraphService.db.nodes.get(subscriptionId)).toBeDefined();
+    });
+
+    test('unsubscribe removes cache-cold durable subscription rows visible to bridge daemon (#10717)', async () => {
+        const {subscriptionId, edgeId} = insertDurableSubscription({
+            owner                : '@alice',
+            trigger              : 'SENT_TO_ME',
+            harnessTarget        : 'bridge-daemon',
+            harnessTargetMetadata: {appName: 'Codex'}
+        });
+
+        expect(GraphService.db.nodes.get(subscriptionId) || null).toBeNull();
+        expect(WakeSubscriptionService.subscriptionCache.has(subscriptionId)).toBe(false);
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const res = await WakeSubscriptionService.unsubscribe({subscriptionId});
+            expect(res).toEqual({subscriptionId, status: 'removed'});
+        });
+
+        const sqlite = GraphService.db.storage.db;
+        expect(sqlite.prepare('SELECT id FROM Nodes WHERE id = ?').get(subscriptionId)).toBeUndefined();
+        expect(sqlite.prepare('SELECT id FROM Edges WHERE id = ?').get(edgeId)).toBeUndefined();
+        expect(WakeSubscriptionService.subscriptionCache.has(subscriptionId)).toBe(false);
     });
 
     // -----------------------------------------------------------------------------
@@ -541,6 +650,24 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         await RequestContextService.run({agentIdentityNodeId: '@bob'}, async () => {
             const res = await WakeSubscriptionService.list({subscriptionId: aliceSubId});
             expect(res.subscriptions.length).toBe(0);
+        });
+    });
+
+    test('list surfaces cache-cold durable caller-owned subscriptions that bridge daemon would dispatch (#10717)', async () => {
+        const {subscriptionId} = insertDurableSubscription({
+            owner                : '@alice',
+            trigger              : 'SENT_TO_ME',
+            harnessTarget        : 'bridge-daemon',
+            harnessTargetMetadata: {appName: 'Codex'}
+        });
+
+        expect(GraphService.db.nodes.get(subscriptionId) || null).toBeNull();
+        WakeSubscriptionService.subscriptionCache.clear();
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const res = await WakeSubscriptionService.list();
+            expect(res.subscriptions.map(sub => sub.id)).toContain(subscriptionId);
+            expect(WakeSubscriptionService.subscriptionCache.has(subscriptionId)).toBe(true);
         });
     });
 
