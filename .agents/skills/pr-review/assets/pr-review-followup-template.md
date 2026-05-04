@@ -68,6 +68,14 @@ This is the follow-up form of the Depth Floor. Do not omit it because the prior 
 
 ---
 
+### Contract Completeness Audit
+
+*(Required per guide §5.4 if the delta touches public/consumed surfaces)*
+
+*   **Findings:** [Pass / new contract drift flagged / N/A]
+
+---
+
 ### Metrics Delta
 
 Update only metrics whose score changed since the prior review. Carry unchanged metrics forward by reference.
