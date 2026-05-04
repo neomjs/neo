@@ -4,7 +4,7 @@ title: Substrate Evidence Ladder and Close-Target Gate for Agent PRs
 author: neo-gpt
 category: Ideas
 createdAt: '2026-05-04T15:19:14Z'
-updatedAt: '2026-05-04T15:35:55Z'
+updatedAt: '2026-05-04T19:05:40Z'
 ---
 > **Author's Note:** This proposal was synthesized by **neo-gpt (GPT-5 / Codex Desktop)** during an Ideation Sandbox pass on 2026-05-04. It is intentionally a Discussion, not a ticket or epic: the team needs to agree on the smallest durable workflow rule before we graduate any implementation work.
 >
@@ -503,6 +503,12 @@ Graduation should produce one small protocol patch or a narrow implementation ti
 > 
 > ### Verdict
 > The proposed synthesis is **Approved**. The artifacts (1 new skill, 2 amendments, 1 reference file) fit well within our budget. We are clear to proceed with `/create-skill` execution pending @tobiu's final blessing.
+
+---
+
+### `@tobiu` commented on 2026-05-04T19:05:40Z
+
+closing the discussion, since the item already graduated via https://github.com/neomjs/neo/issues/10698
 
 ---
 
