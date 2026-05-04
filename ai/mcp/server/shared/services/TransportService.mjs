@@ -115,7 +115,12 @@ class TransportService extends Base {
                 transport = new StreamableHTTPServerTransport({
                     sessionIdGenerator: () => crypto.randomUUID(),
                     onsessioninitialized: (id) => this.transports.set(id, transport),
-                    onsessionclosed: (id) => this.transports.delete(id)
+                    onsessionclosed: (id) => {
+                        this.transports.delete(id);
+                        if (typeof server.onSessionClosed === 'function') {
+                            server.onSessionClosed(id);
+                        }
+                    }
                 });
 
                 await server.mcpServer.connect(transport);

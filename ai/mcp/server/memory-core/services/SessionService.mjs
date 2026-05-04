@@ -682,6 +682,55 @@ ${aggregatedContent}
     }
 
     /**
+     * Queues a session for summarization by writing a 'pending' marker
+     * to the SummarizationJobs table and triggering the asynchronous detector.
+     * @param {String} sessionId 
+     */
+    queueSummarizationJob(sessionId) {
+        const db = GraphService.db?.storage?.db;
+        if (!db) return;
+        try {
+            db.prepare(`
+                INSERT INTO SummarizationJobs (session_id, status)
+                VALUES (?, 'pending')
+                ON CONFLICT(session_id) DO UPDATE SET 
+                    status = 'pending',
+                    lease_token = NULL,
+                    expires_at = NULL
+                WHERE status != 'completed' AND status != 'in_progress'
+            `).run(sessionId);
+            
+            // Asynchronously trigger processing so we don't block the caller (e.g. disconnect lifecycle)
+            setTimeout(() => this.processPendingSummarizations(), 100);
+        } catch (e) {
+            logger.warn(`[SessionService] Error queuing summarization for ${sessionId}: ${e.message}`);
+        }
+    }
+
+    /**
+     * Finds pending summarization jobs and attempts to process them.
+     */
+    async processPendingSummarizations() {
+        const db = GraphService.db?.storage?.db;
+        if (!db) return;
+        
+        try {
+            const pendingJobs = db.prepare(`
+                SELECT session_id FROM SummarizationJobs WHERE status = 'pending'
+            `).all();
+            
+            for (const job of pendingJobs) {
+                // Background execution. The inner call uses claimSummarizationJob to get a lease.
+                this.summarizeSessions({ sessionId: job.session_id }).catch(e => {
+                    logger.error(`[SessionService] Background summarization failed for ${job.session_id}:`, e);
+                });
+            }
+        } catch (e) {
+            logger.warn(`[SessionService] Error processing pending summarizations: ${e.message}`);
+        }
+    }
+
+    /**
      * Claims an exclusive lease on a summarization job using the SummarizationJobs table.
      * Prevents race conditions across concurrent MCP instances.
      * @param {String} sessionId 
