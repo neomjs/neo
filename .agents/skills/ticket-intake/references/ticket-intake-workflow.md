@@ -26,7 +26,9 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
    - **Primary:** Prioritize using `ask_knowledge_base` (with `type='ticket'`) to query for overlapping active or archived initiatives. It will mathematically connect semantic concepts (e.g. mapping "payload bloat" to "n_ctx boundaries") that grep would miss.
    - **Fallback:** If you explicitly require exact keyword verification (e.g. a specific UUID or function name constraint), fallback to using `grep_search` targeting `resources/content/issues`, `resources/content/issue-archive`, and `resources/content/discussions`.
 
-7. **Ticket Reality Classification:** Before ROI acceptance or branch/code work, you MUST emit a concise classification artifact that converts the validation sweep into a stable verdict. Ticket prose is not authoritative; the classification must be grounded in the live issue conversation, linked PRs/commits, current source/docs/tests, and relevant Knowledge Base / Memory Core evidence when applicable.
+7. **Contract Completeness Sweep:** If the ticket proposes modifying, introducing, or deprecating a surface that is consumed by humans, agents, or external systems (e.g., public APIs, configs, MCP tools), you MUST verify that a **Contract Ledger** matrix is present in the ticket body. See `learn/agentos/contract-ledger.md`. If it is missing, the ticket is un-actionable. You are forbidden from guessing the contract.
+
+8. **Ticket Reality Classification:** Before ROI acceptance or branch/code work, you MUST emit a concise classification artifact that converts the validation sweep into a stable verdict. Ticket prose is not authoritative; the classification must be grounded in the live issue conversation, linked PRs/commits, current source/docs/tests, and relevant Knowledge Base / Memory Core evidence when applicable.
 
    **Allowed verdicts:**
    - `valid-as-written` — the ticket's premise, scope, and prescription still match current repo reality.
@@ -35,17 +37,18 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
    - `duplicate` — another active or archived ticket covers the same work with equal or better scope.
    - `needs-narrowing` — the goal is valid, but the ticket is too broad or bundles unrelated work.
    - `needs-relinking` — the work is valid, but issue relationships, parent/child links, blockers, or close-target topology must be corrected before implementation.
+   - `missing-contract-ledger` — the work is valid, but the ticket lacks the mandatory Contract Ledger matrix for a public/consumed surface.
    - `invalid-or-negative-roi` — the premise is false, harmful, or no longer worth the implementation cost.
 
    **Routing:**
    - Only `valid-as-written` may proceed to the ROI Calculation and, if ROI remains positive, the Acceptance Protocol.
-   - `needs-narrowing` and `needs-relinking` halt implementation. Post a clarification / topology comment or ask the human commander before branch/code work.
+   - `needs-narrowing`, `needs-relinking`, and `missing-contract-ledger` halt implementation. Post a clarification / topology comment or ask the human commander before branch/code work.
    - `already-resolved`, `superseded`, `duplicate`, and `invalid-or-negative-roi` route to Section 4: Rejection Protocol / re-triage instead of implementation.
 
-8. **Meta-Skill Sweep (Progressive Disclosure):** If the ticket explicitly involves modifying any Agent Skill file (i.e., within `.agents/skills/`), you MUST execute a Pre-Flight Meta-Skill check. Read `.agents/skills/create-skill/SKILL.md` to verify the ticket's premise adheres to the Progressive Disclosure routing pattern and does not bloat top-level `SKILL.md` files before accepting it.
+9. **Meta-Skill Sweep (Progressive Disclosure):** If the ticket explicitly involves modifying any Agent Skill file (i.e., within `.agents/skills/`), you MUST execute a Pre-Flight Meta-Skill check. Read `.agents/skills/create-skill/SKILL.md` to verify the ticket's premise adheres to the Progressive Disclosure routing pattern and does not bloat top-level `SKILL.md` files before accepting it.
 
-9. **Hypothesis vs. Root Cause Validation:** Tickets frequently prescribe specific technical solutions (e.g., "Implement X to fix Y"). You MUST NOT accept the prescribed solution blindly. You must independently investigate the systemic behavior to verify if 'X' is actually the correct solution for 'Y'.
-10. **Empirical Proof (Test-Driven Discovery):** When validating hypotheses involving complex state, token boundaries, or engine logic, do not rely solely on mental modeling. Consult the `unit-test` skill (`view_file` on `.agents/skills/unit-test/SKILL.md`) and write a localized Playwright unit-test (or an isolated draft concept) to empirically reproduce the paradox *first*. This guarantees you are solving the explicit root cause before you modify live framework architecture. Implementing a flawed directive simply because it was written in an Issue guarantees a Negative ROI.
+10. **Hypothesis vs. Root Cause Validation:** Tickets frequently prescribe specific technical solutions (e.g., "Implement X to fix Y"). You MUST NOT accept the prescribed solution blindly. You must independently investigate the systemic behavior to verify if 'X' is actually the correct solution for 'Y'.
+11. **Empirical Proof (Test-Driven Discovery):** When validating hypotheses involving complex state, token boundaries, or engine logic, do not rely solely on mental modeling. Consult the `unit-test` skill (`view_file` on `.agents/skills/unit-test/SKILL.md`) and write a localized Playwright unit-test (or an isolated draft concept) to empirically reproduce the paradox *first*. This guarantees you are solving the explicit root cause before you modify live framework architecture. Implementing a flawed directive simply because it was written in an Issue guarantees a Negative ROI.
 
 ## 2. ROI (Return on Investment) Calculation
 
