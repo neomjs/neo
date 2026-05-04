@@ -14,6 +14,7 @@ import RequestContextService from '../mcp/server/shared/services/RequestContextS
 import LifecycleService from '../mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
 import GraphService from '../mcp/server/memory-core/services/GraphService.mjs';
 import MailboxService from '../mcp/server/memory-core/services/MailboxService.mjs';
+import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 
 const COOLDOWN_STATE_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.json';
 const COOLDOWN_LOCK_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.lock';
@@ -62,16 +63,26 @@ async function main() {
 
         const coordinator = signal.coordinator_recommendation || '@neo-gemini-3-1-pro';
         const sender = process.env.NEO_AGENT_IDENTITY || '@system';
+        const abandonedCount = signal.details?.[coordinator]?.abandonedCount || 0;
 
-        await RequestContextService.run({ agentIdentityNodeId: sender }, async () => {
-            await MailboxService.addMessage({
-                to: coordinator,
-                subject: 'Intent-First Wakeup: All-Agent-Idle Detected',
-                body: `The swarm heartbeat has detected that all configured agents are idle.\n\nDetector Signal:\n\`\`\`json\n${JSON.stringify(signal, null, 2)}\n\`\`\`\n\nYou are the recommended coordinator. Please pick up a high-ROI ticket and drive the swarm forward per D1/D2 policies.`,
-                priority: 'high'
-                // We omit `from` since it's a system message.
+        // Secure the nudge boot ramp BEFORE taking action (Issue #10674)
+        await writeInflightLock(coordinator, 'idle_out_nudge', abandonedCount);
+
+        try {
+            await RequestContextService.run({ agentIdentityNodeId: sender }, async () => {
+                await MailboxService.addMessage({
+                    to: coordinator,
+                    subject: 'Intent-First Wakeup: All-Agent-Idle Detected',
+                    body: `The swarm heartbeat has detected that all configured agents are idle.\n\nDetector Signal:\n\`\`\`json\n${JSON.stringify(signal, null, 2)}\n\`\`\`\n\nYou are the recommended coordinator. Please pick up a high-ROI ticket and drive the swarm forward per D1/D2 policies.`,
+                    priority: 'high'
+                    // We omit `from` since it's a system message.
+                });
             });
-        });
+        } catch (err) {
+            console.error(`[trioWakeCooldown] Failed to send wake message to ${coordinator}:`, err.message);
+            await clearInflightLock(coordinator, 'idle_out_nudge');
+            throw err;
+        }
 
         state = {
             last_fire_cycle_id: signal.cycle_id,

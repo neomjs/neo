@@ -205,4 +205,35 @@ test.describe('ai/scripts/resumeHarness', () => {
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
         expect(scriptContent).toContain("const tmuxSession = harnessTarget.tmuxSession || process.env.TMUX_SESSION || 'neo-agent';");
     });
+
+    test('adapter failure (e.g. ESC-as-rejection) clears the inflight lock (#10674)', async () => {
+        // Create fake bins that always fail (exit 1)
+        const fakeBinDir = path.join(os.tmpdir(), `fake-bin-${randomUUID()}`);
+        fs.mkdirSync(fakeBinDir, { recursive: true });
+        const fakeOsascript = path.join(fakeBinDir, 'osascript');
+        fs.writeFileSync(fakeOsascript, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+        const fakeTmux = path.join(fakeBinDir, 'tmux');
+        fs.writeFileSync(fakeTmux, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+
+        // We can compute the lock path without importing inflightLock if needed,
+        // but importing it is cleaner:
+        const { getLockPath } = await import('../../../../../ai/scripts/inflightLock.mjs');
+        const lockPath = getLockPath('sunset_restart', '@neo-opus-4-7');
+        if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
+
+        const env = { ...overrideEnv, PATH: `${fakeBinDir}:${process.env.PATH}` };
+        try {
+            execFileSync('node', [scriptPath, '@neo-opus-4-7', 'test'], {encoding: 'utf-8', stdio: 'pipe', env});
+            test.fail('Should have exited with error');
+        } catch (e) {
+            expect(e.status).toBe(1);
+            expect(e.stderr).toMatch(/Failed to resume @neo-opus-4-7 via (osascript|tmux)/);
+            
+            // Lock should be cleared!
+            expect(fs.existsSync(lockPath)).toBe(false);
+        } finally {
+            fs.rmSync(fakeBinDir, { recursive: true, force: true });
+            if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
+        }
+    });
 });

@@ -22,6 +22,7 @@ import Neo from '../../src/Neo.mjs';
 import * as core from '../../src/core/_export.mjs';
 import LifecycleService from '../mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
 import GraphService from '../mcp/server/memory-core/services/GraphService.mjs';
+import { checkInflightLock } from './inflightLock.mjs';
 
 async function main() {
     await LifecycleService.initAsync();
@@ -101,6 +102,7 @@ async function main() {
     let originSessionId = memRow?.sessionIdField || '';
     let isSunsetted = false;
     let reason = '';
+    let lockData = null;
 
     // [Anchor & Echo] Sunset detection criterion: ONLY the explicit Unsubscribe primitive.
     //
@@ -122,15 +124,24 @@ async function main() {
     // (issue #10641): "the bridge SHOULD spawn new sessions. but only after a sunset.
     // otherwise => resume inside current session."
     if (subs.length === 0) {
-        isSunsetted = true;
-        reason = 'No active WAKE_SUBSCRIPTION (Unsubscribe primitive fired)';
+        const memTimestampMs = memRow?.timestampField ? new Date(memRow.timestampField).getTime() : 0;
+        lockData = await checkInflightLock(identity, 'sunset_restart', memTimestampMs);
+
+        if (lockData.inFlight) {
+            isSunsetted = false;
+            reason = 'Sunset restart already in-flight (lock active)';
+        } else {
+            isSunsetted = true;
+            reason = 'No active WAKE_SUBSCRIPTION (Unsubscribe primitive fired)';
+        }
     }
 
     console.log(JSON.stringify({
         identity,
         sunsetted: isSunsetted,
         reason,
-        originSessionId
+        originSessionId,
+        abandonedCount: lockData?.abandonedCount || 0
     }));
     process.exit(0);
 }
