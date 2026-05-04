@@ -687,6 +687,8 @@ ${aggregatedContent}
      * @param {String} sessionId 
      */
     queueSummarizationJob(sessionId) {
+        if (!aiConfig.autoSummarize) return;
+
         const db = GraphService.db?.storage?.db;
         if (!db) return;
         try {
