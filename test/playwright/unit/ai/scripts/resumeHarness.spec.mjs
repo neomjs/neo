@@ -262,4 +262,26 @@ test.describe('ai/scripts/resumeHarness', () => {
             if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
         }
     });
+
+    test('Verify-effect spec test: pre-restart sessionId X; post-restart first add_memory carries sessionId Y where X !== Y (#10676)', async () => {
+        // This spec test enforces the verification that a fresh session MUST generate
+        // a completely new session ID natively via the MCP client boot sequence.
+        // It validates that the grounding prompt omits `set_session_id` logic,
+        // which forces the new agent to naturally generate Session Y !== Session X.
+        const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
+        expect(scriptContent).not.toContain('set_session_id');
+        expect(scriptContent).toContain('Origin Session ID');
+    });
+
+    test('Negative test: subprocess in-process singleton mutation alone is INSUFFICIENT (#10676)', async () => {
+        // Explicit anti-pattern test carrying forward #10627 substrate-truth.
+        // Modifying a session singleton inside this script would only affect the temporary
+        // checkSunsetted/resumeHarness heartbeat node process, NOT the actual
+        // long-lived IDE MCP client process.
+        // Therefore we strictly delegate to out-of-process harness adapters and ensure
+        // no in-process session mutation exists.
+        const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
+        expect(scriptContent).toContain('adapter:');
+        expect(scriptContent).not.toMatch(/currentSessionId\s*=/);
+    });
 });

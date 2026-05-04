@@ -50,7 +50,7 @@ function buildBootGroundingPrompt(identity, reason, originSessionId) {
         ? `Origin Session ID: ${originSessionId}.`
         : 'Origin Session ID unavailable in recovery payload — pull most recent SUNSET-tagged memory for this identity instead.';
     return [
-        `hi ${identity}, please read and follow @AGENTS_STARTUP.md to begin a fresh session.`,
+        `hi ${identity}, please read @AGENTS_STARTUP.md, then call add_memory once as a boot heartbeat, then proceed normally.`,
         `Recovery context: ${reason}.`,
         `${sessionAnchor} Read resources/content/sandman_handoff.md and your Memory Core context to resume trio coordination from the prior session anchor.`
     ].join(' ');
