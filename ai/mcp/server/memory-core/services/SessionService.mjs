@@ -737,6 +737,7 @@ ${aggregatedContent}
     /**
      * Claims an exclusive lease on a summarization job using the SummarizationJobs table.
      * Prevents race conditions across concurrent MCP instances.
+     * @summary Provides exclusive lock acquisition for the background summarization coordinator loop.
      * @param {String} sessionId
      * @param {String} leaseToken
      * @param {Number} [ttlMs=300000] Default 5-minute lease
@@ -795,6 +796,7 @@ ${aggregatedContent}
 
     /**
      * Marks a summarization job as completed in the coordinator table.
+     * @summary Finalizes the background summarization job state to prevent duplicate processing.
      * @param {String} sessionId
      */
     completeSummarizationJob(sessionId) {
@@ -813,6 +815,7 @@ ${aggregatedContent}
 
     /**
      * Marks a summarization job as failed in the coordinator table.
+     * @summary Releases the exclusive lease on a background summarization job after an unhandled execution failure.
      * @param {String} sessionId
      */
     failSummarizationJob(sessionId) {

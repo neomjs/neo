@@ -151,11 +151,11 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
 
     test('onSessionClosed triggers SessionService.queueSummarizationJob', async () => {
         const SessionService = (await import('../../../../../../../ai/mcp/server/memory-core/services/SessionService.mjs')).default;
-        
+
         // Mock the SessionService method
         const originalQueue = SessionService.queueSummarizationJob.bind(SessionService);
         let queuedSessionId = null;
-        
+
         SessionService.queueSummarizationJob = function(sessionId) {
             queuedSessionId = sessionId;
         };
