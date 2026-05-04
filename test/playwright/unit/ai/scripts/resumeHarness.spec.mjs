@@ -62,7 +62,9 @@ test.describe('ai/scripts/resumeHarness', () => {
             const files = fs.readdirSync(cooldownDir);
             for (const file of files) {
                 if (file.startsWith('cooldown-')) {
-                    fs.unlinkSync(path.join(cooldownDir, file));
+                    try {
+                        fs.unlinkSync(path.join(cooldownDir, file));
+                    } catch(e) {}
                 }
             }
         }
@@ -171,11 +173,11 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(stderrAndStdout).not.toContain('Wake safety gate disabled');
     });
 
-    test('Q1b fresh-session-spawn: HARNESS_REGISTRY entries include freshSessionShortcut (#10611 PR-B AC1)', async () => {
-        // Re-introduces the Cmd+N primitive that #10607 Cycle 5 removed. Both Antigravity
-        // and Claude Desktop entries must carry freshSessionShortcut for the corrected substrate.
+    test('Q1b fresh-session-spawn: HARNESS_REGISTRY entries include freshSessionShortcut or native CLI args (#10611 PR-B AC1)', async () => {
+        // Re-introduces the Cmd+N primitive that #10607 Cycle 5 removed for Claude Desktop.
+        // Antigravity now uses its native CLI primitive `-n` instead of osascript.
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
-        expect(scriptContent).toContain("'antigravity-ide': { appName: 'Antigravity', adapter: 'osascript', freshSessionShortcut: 'n' }");
+        expect(scriptContent).toContain("'antigravity-ide': { adapter: 'antigravity-cli' }");
         expect(scriptContent).toMatch(/'claude-desktop':\s+\{[^}]*freshSessionShortcut: 'n'/);
     });
 
@@ -198,6 +200,30 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(scriptContent).toContain('Origin Session ID');
         // Negative assertion: the old Q1a prose payload must be gone
         expect(scriptContent).not.toContain('Auto-Wakeup Substrate: Resuming sunsetted session.');
+    });
+
+    test('Antigravity CLI: adapter executes chat -n <payload> via ANTIGRAVITY_CLI_PATH (#10680)', async () => {
+        test.skip(process.platform !== 'darwin', 'Antigravity CLI is currently mac-specific (#10684)');
+
+        // Create a mock executable to capture the command shape without launching the real IDE
+        const mockPath = path.join(os.tmpdir(), `mock-ag-${randomUUID()}`);
+        const outPath = path.join(os.tmpdir(), `out-ag-${randomUUID()}`);
+        fs.writeFileSync(mockPath, `#!/usr/bin/env node\nconst fs = require('fs');\nfs.writeFileSync('${outPath}', JSON.stringify(process.argv.slice(2)));\n`, { mode: 0o755 });
+
+        try {
+            const env = { ...overrideEnv, ANTIGRAVITY_CLI_PATH: mockPath };
+            execFileSync('node', [scriptPath, '@neo-gemini-3-1-pro', 'testReason'], { encoding: 'utf-8', stdio: 'pipe', env });
+
+            expect(fs.existsSync(outPath)).toBe(true);
+            const args = JSON.parse(fs.readFileSync(outPath, 'utf-8'));
+            expect(args[0]).toBe('chat');
+            expect(args[1]).toBe('-n');
+            expect(args[2]).toContain('@AGENTS_STARTUP.md');
+            expect(args[2]).toContain('testReason');
+        } finally {
+            if (fs.existsSync(mockPath)) fs.unlinkSync(mockPath);
+            if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
+        }
     });
 
     test('TMUX_SESSION precedence honors harnessTarget.tmuxSession over process.env', async () => {
