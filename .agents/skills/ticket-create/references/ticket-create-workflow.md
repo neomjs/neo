@@ -69,6 +69,7 @@ Skeleton tickets are forbidden. Every ticket body MUST contain:
 - **The Problem** — deep background, insights from recent Memory Core explorations, reproducer if applicable. Historical "why" for the agent picking up the ticket later.
 - **The Architectural Reality** — exactly which Neo.mjs patterns, class topologies, or service boundaries this issue interacts with. Cite file:line when known. Distinguishes intent-level framing (Problem) from structural specificity (Reality).
 - **The Fix** — concrete prescription: files, symbols, architectural primitives touched. What changes, and where.
+- **Contract Ledger Matrix** *(when applicable)* — For any ticket introducing, modifying, or deprecating a surface consumed by humans, agents, or external systems (e.g. public methods, configs, MCP tools), you MUST include a formal Contract Ledger matrix. This matrix defines Target Surface, Source of Authority, Proposed Behavior, Fallback, Docs, and Evidence. See `learn/agentos/contract-ledger.md` for schema.
 - **Acceptance Criteria** — bulleted checklist. Each item independently verifiable. Post-merge-only items explicitly flagged.
 - **Out of Scope** — what this ticket deliberately does NOT do. Prevents scope creep during implementation.
 - **Avoided Traps** / **Gold Standards Rejected** *(when applicable)* — alternatives considered and rejected, with rationale. Especially critical when rejecting a generic industry/LLM "best practice" (e.g. standard React patterns, generic node workflows) that is a trap in Neo.mjs's multi-threaded architecture.
