@@ -253,6 +253,8 @@ Resolves #N
 
 <one-paragraph outcome summary — what actually shipped, not restating ticket>
 
+Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target ACs requiring it>). Residual: AC<N> [#<close-target>].
+
 ## Deltas from ticket (if any)
 <scope additions, better solutions, discovered edge cases>
 
@@ -268,6 +270,19 @@ Resolves #N
 ## Evolution (optional, only if pivots occurred during implementation)
 <one compressed paragraph per pivot — why direction changed, not the old text>
 ```
+
+**Evidence declaration discipline (#10698 graduation artifact):**
+
+The `Evidence:` line is a 1-line greppable declaration of what evidence class was achieved vs what the close-target requires. Reference: [`learn/agentos/evidence-ladder.md`](../../../../learn/agentos/evidence-ladder.md) for L1-L4 ladder + sandbox-ceiling vs achievable-ceiling distinction.
+
+- **Required for** any PR whose close-target ACs include observable runtime effect on a surface the CI / agent sandbox cannot reach (substrate / harness / wake / restart / UI-with-visual-AC / CLI-with-host-behavior / etc.)
+- **Optional / N/A** for PRs where ACs are fully covered by unit tests / static contract; if omitted, the absence is itself a signal to reviewers that no evidence-class collapse risk exists
+- **Examples:**
+  - `Evidence: L2 (mock-bin dispatch + real SIGTERM on spawned node child) → L4 required (AC5 sessionId distinctness via MCP from spawned session). Residual: AC5 [#10677].`
+  - `Evidence: L3 (browser-rendered visual confirmation on local Chromium) → L4 required (AC2 cross-browser parity on Safari). Residual: AC2 [#NNNN].`
+  - `Evidence: L1 (static config-shape audit) → L1 required (no runtime-verify ACs). No residuals.`
+
+The `pr-review` skill's Evidence Audit section (in `pr-review-template.md`) verifies this declaration against the close-target ACs.
 
 ## 10. Authorship Respect
 

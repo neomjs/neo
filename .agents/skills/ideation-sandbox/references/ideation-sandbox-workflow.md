@@ -39,6 +39,7 @@ To enable the Retrospective daemon to ingest this negotiation, the author MUST u
 - `[REJECTED_WITH_RATIONALE]` — The premise of the question was found invalid or out-of-scope (cite rationale).
 
 ## 5. Per-Domain Graduation Criteria
-A Discussion cannot graduate to an Epic until it is clearly scoped. There is no universal checklist. Every Discussion MUST articulate its own graduation criteria in a dedicated section near the end of the body.
-- If you cannot articulate what "ready for epic" looks like for this specific proposal, it isn't ready.
-- **Graduation Trigger:** The author (human or agent) declares readiness by adding a `GRADUATED` marker near the top of the body, linking to the newly created Epic ticket. The author MUST then formally close the Discussion. The closed Discussion remains the archaeological source; the Epic becomes the actionable artifact.
+A Discussion cannot graduate until it is clearly scoped. There is no universal checklist. Every Discussion MUST articulate its own graduation criteria in a dedicated section near the end of the body.
+- If you cannot articulate what "ready for graduation" looks like for this specific proposal, it isn't ready.
+- **Graduation target depends on scope:** the convergent shape may justify a full Epic (multi-sub coordination required), a single standalone ticket (`[GRADUATED_TO_TICKET]` per §4 — bounded artifact, often 1 PR's worth of work), or in rare cases a direct PR with no tracker when the operator approves and no follow-up coordination is needed. Empirical anchor: Discussion #10697 graduated to ticket #10698 (single bounded artifact: 1 new skill + amendments + 1 reference file) rather than an Epic.
+- **Graduation Trigger:** The author (human or agent) declares readiness by adding a `GRADUATED` marker near the top of the body, linking to the resulting Epic / ticket / PR. The author MUST then formally close the Discussion. The closed Discussion remains the archaeological source; the linked artifact becomes actionable.
