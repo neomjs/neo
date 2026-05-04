@@ -430,6 +430,7 @@ class Server extends Base {
     /**
      * Hook from TransportService on SSE session disconnect.
      * Queues the disconnected session for summarization.
+     * @summary Bridges the transport layer disconnect event into the memory core logic pipeline.
      * @param {String} sessionId
      */
     onSessionClosed(sessionId) {
