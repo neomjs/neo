@@ -11,7 +11,7 @@ import ToolService              from '../../../ToolService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
-const openApiFilePath = path.join(__dirname, '../openapi.yaml');
+const openApiFilePath = process.env.TEST_CORRUPT_OPENAPI || path.join(__dirname, '../openapi.yaml');
 
 const serviceMapping = {
     ask_knowledge_base   : SearchService           .ask                .bind(SearchService),

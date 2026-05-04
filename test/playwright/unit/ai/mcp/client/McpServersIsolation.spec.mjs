@@ -29,19 +29,19 @@ test.describe('Neo.ai.mcp.client.Client Server Isolation', () => {
     test.setTimeout(60000);
 
     test.beforeAll(() => {
-        // Backup the real spec and inject a broken one
-        if (fs.existsSync(targetSpecPath)) {
-            fs.copyFileSync(targetSpecPath, backupSpecPath);
-            fs.writeFileSync(targetSpecPath, 'this: is: [ malformed: yaml', 'utf8');
-        }
+        // We now inject the broken spec path via environment variable
+        // to avoid race conditions with parallel tests reading the real openapi.yaml
+        const malformedPath = path.resolve(__dirname, 'broken-openapi.yaml');
+        fs.writeFileSync(malformedPath, 'this: is: [ malformed: yaml', 'utf8');
+        process.env.TEST_CORRUPT_OPENAPI = malformedPath;
     });
 
     test.afterAll(() => {
-        // Restore the real spec
-        if (fs.existsSync(backupSpecPath)) {
-            fs.copyFileSync(backupSpecPath, targetSpecPath);
-            fs.rmSync(backupSpecPath);
+        const malformedPath = path.resolve(__dirname, 'broken-openapi.yaml');
+        if (fs.existsSync(malformedPath)) {
+            fs.rmSync(malformedPath);
         }
+        delete process.env.TEST_CORRUPT_OPENAPI;
     });
 
     test('Broken server (knowledge-base) should still boot in degraded mode', async () => {
