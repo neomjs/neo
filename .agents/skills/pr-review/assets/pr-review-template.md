@@ -82,6 +82,17 @@ For every issue named as close-target, verify it does NOT carry the `epic` label
 
 ---
 
+### 📑 Contract Completeness Audit
+
+*(Required per guide §5.4 when the PR introduces or modifies public/consumed surfaces. Mark N/A for PRs that don't touch these surfaces.)*
+
+- [ ] Originating ticket contains a Contract Ledger matrix
+- [ ] Implemented PR diff matches the Contract Ledger exactly (no drift)
+
+**Findings:** [Pass / missing ledger flagged / contract drift flagged / N/A]
+
+---
+
 ### 🪜 Evidence Audit
 
 *(Required when the PR's close-target ACs include observable runtime effect on a surface the CI / agent sandbox cannot reach — substrate / harness / wake / restart / UI-with-visual-AC / CLI-with-host-behavior PRs. Mark N/A for PRs where ACs are fully covered by unit tests / static contract.)*
