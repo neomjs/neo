@@ -119,6 +119,11 @@ async function resumeHarness(identity, reason, originSessionId) {
 
     try {
         if (adapter === 'antigravity-cli') {
+            /**
+             * @anchor antigravity-cli-mac-specific
+             * @summary Hardcoded path relies on Mac OS Application Bundle structure.
+             * @todo Abstract for cross-platform execution (Windows/Linux) per Issue #10684.
+             */
             const cliPath = '/Applications/Antigravity.app/Contents/Resources/app/bin/antigravity';
             const args = ['chat', '-n', payload];
             await spawnAsync(cliPath, args);
