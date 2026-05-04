@@ -131,17 +131,40 @@ Playwright `test.skip(!process.env.RUN_LIVE_OSASCRIPT, ...)` discipline:
 - Auto-trips the wake safety gate ([#10648](https://github.com/neomjs/neo/issues/10648)) after `MAX_ABANDONED_ACTIONS` (default 3) consecutive abandoned actions per identity
 - Same primitive guards both modes — sunset-restart (per `resumeHarness.mjs`) AND idle-out A2A nudges (per `trioWakeCooldown.mjs`)
 
+### Detector contract ([#10673](https://github.com/neomjs/neo/issues/10673) / PR [#10689](https://github.com/neomjs/neo/pull/10689))
+
+`ai/scripts/checkSunsetted.mjs` evolved to emit BOTH `sunset` and `idle_out_candidate` signals plus `evidence` fields and `recommended_action`. Two-mode signal disambiguation:
+
+- `recommended_action: 'sunset_restart'` → terminal recovery via per-harness restart (#10676, pending)
+- `recommended_action: 'idle_out_nudge'` → in-place A2A nudge via `idleOutNudge.mjs`
+- `recommended_action: 'no_action'` → in-flight lock held OR no signal
+
+### Idle-out A2A nudge dispatcher ([#10675](https://github.com/neomjs/neo/issues/10675) / PR [#10690](https://github.com/neomjs/neo/pull/10690))
+
+`ai/scripts/idleOutNudge.mjs` — per-identity dispatcher consumed by `swarm-heartbeat.sh` when the detector emits `recommended_action: 'idle_out_nudge'`:
+
+- Reuses A2A messaging path (`MailboxService.addMessage` → `bridge-daemon` keystroke delivery); zero new transport, no fresh-session spawn
+- Bounded / non-spawning / idempotent / no-destructive-type invariants enforced
+- Distinct from `trioWakeCooldown.mjs` (swarm-wide all-idle); fires per-identity when ONE agent is stale while the swarm is otherwise active
+
 ## Prevention
 
-The combination of #10681 (test-suite isolation) and #10683 (in-flight lock primitive) closes the empirically-observed runaway pathways:
+The runaway-spawn pattern's pathways have a mix of shipped fixes and still-pending substrate work. The pattern is **contained** but not "fully fixed" until the sunset-mode restart substrate ([#10676](https://github.com/neomjs/neo/issues/10676)) lands per-harness terminal-restart primitives.
 
-| Pathway | Pre-fix | Post-fix |
-|---|---|---|
-| Slow boot ramp races next heartbeat | parallel spawn | in-flight lock blocks until memory-resolved or expired |
-| User-ESC rejection | substrate blind to rejection | lock expires → counted as abandoned → auto-trip after N |
-| Test-suite invokes real `resumeHarness.mjs` | osascript paste lands on host app | `test.skip(!RUN_LIVE_OSASCRIPT)` opt-in default-off |
-| MC-server `currentSessionId` staleness | fresh agent writes under stale id | sunset-mode terminal-restart (Q1c, [#10676](https://github.com/neomjs/neo/issues/10676)) — fresh OS process = fresh MCP client handshake = fresh `currentSessionId` by construction |
-| Concurrent kill+spawn parallel-init | port collisions / data-layer races | serialized kill-before-spawn (operator-confirmed; [#10676](https://github.com/neomjs/neo/issues/10676) AC9) |
+### Pathway containment status (as of 2026-05-04)
+
+| Pathway | Pre-fix | Post-fix | Status |
+|---|---|---|---|
+| Slow boot ramp races next heartbeat | parallel spawn | in-flight lock blocks until memory-resolved or expired | ✅ shipped via [#10683](https://github.com/neomjs/neo/pull/10683) |
+| User-ESC rejection | substrate blind to rejection | lock expires → counted as abandoned → auto-trip after N | ✅ shipped via [#10683](https://github.com/neomjs/neo/pull/10683) |
+| Test-suite invokes real `resumeHarness.mjs` | osascript paste lands on host app | `test.skip(!RUN_LIVE_OSASCRIPT)` opt-in default-off | ✅ shipped via [#10682](https://github.com/neomjs/neo/pull/10682) |
+| Detector cannot disambiguate sunset vs idle-out | binary `sunsetted` boolean conflated terminal-vs-recoverable | structured `recommended_action` enum + `evidence` fields | ✅ shipped via [#10689](https://github.com/neomjs/neo/pull/10689) |
+| Per-identity stale memory (one agent idle while others active) | no recovery path; either no-op or accidental sunset-restart | bounded in-place A2A nudge via `idleOutNudge.mjs` | ✅ shipped via [#10690](https://github.com/neomjs/neo/pull/10690) |
+| MC-server `currentSessionId` staleness | fresh agent writes under stale id | sunset-mode terminal-restart (Q1c, [#10676](https://github.com/neomjs/neo/issues/10676)) — fresh OS process = fresh MCP client handshake = fresh `currentSessionId` by construction | ⏳ **pending** — substrate work for [#10676](https://github.com/neomjs/neo/issues/10676) |
+| Concurrent kill+spawn parallel-init | port collisions / data-layer races | serialized kill-before-spawn (operator-confirmed; [#10676](https://github.com/neomjs/neo/issues/10676) AC9) | ⏳ **pending** — substrate work for [#10676](https://github.com/neomjs/neo/issues/10676) |
+| Per-harness restart primitive verification | unverified per-harness `kill+launch+inject-prompt` semantics | empirical proof per harness ([#10677](https://github.com/neomjs/neo/issues/10677) / [#10678](https://github.com/neomjs/neo/issues/10678) / [#10679](https://github.com/neomjs/neo/issues/10679)) | ⏳ **in flight** — Antigravity track via PR [#10680](https://github.com/neomjs/neo/pull/10680) |
+
+**Containment vs. resolution:** the substrate fixes shipped (#10682, #10683, #10689, #10690) close the *acute* failure surfaces — the runaway-spawn loop cannot reproduce in production today because (a) the test-suite path that triggered it is now `[skipped]` by default, and (b) any production path that DID try to fire would be blocked by the in-flight lock. **However**, the *root underlying substrate concern* — MC-server `currentSessionId` staleness across MCP-client reconnects — remains until [#10676](https://github.com/neomjs/neo/issues/10676) lands per-harness terminal-restart. The `set_session_id` plumbing band-aid (proposed in #10627, abandoned with PR [#10670](https://github.com/neomjs/neo/pull/10670) closed-as-superseded) was the wrong layer; #10676 is the right substrate fix and is gated on per-harness investigations producing verified primitives.
 
 Empirical validation that the in-flight lock is load-bearing (not theoretical): `@neo-gemini-3-1-pro`'s independent `antigravity chat -n` investigation ([#10678](https://github.com/neomjs/neo/issues/10678)) crashed her Memory Core MCP servers via parallel-init port collisions — the exact failure mode the lock prevents, observed in the wild.
 
