@@ -14,6 +14,8 @@ setup({
 import {test, expect} from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
+import crypto from 'crypto';
 import {fileURLToPath} from 'url';
 
 import Neo from '../../../../../../src/Neo.mjs';
@@ -28,17 +30,18 @@ const backupSpecPath = path.resolve(__dirname, '../../../../../../ai/mcp/server/
 test.describe('Neo.ai.mcp.client.Client Server Isolation', () => {
     test.setTimeout(60000);
 
+    let malformedPath;
+
     test.beforeAll(() => {
         // We now inject the broken spec path via environment variable
         // to avoid race conditions with parallel tests reading the real openapi.yaml
-        const malformedPath = path.resolve(__dirname, 'broken-openapi.yaml');
+        malformedPath = path.join(os.tmpdir(), `broken-openapi-${crypto.randomUUID()}.yaml`);
         fs.writeFileSync(malformedPath, 'this: is: [ malformed: yaml', 'utf8');
         process.env.TEST_CORRUPT_OPENAPI = malformedPath;
     });
 
     test.afterAll(() => {
-        const malformedPath = path.resolve(__dirname, 'broken-openapi.yaml');
-        if (fs.existsSync(malformedPath)) {
+        if (malformedPath && fs.existsSync(malformedPath)) {
             fs.rmSync(malformedPath);
         }
         delete process.env.TEST_CORRUPT_OPENAPI;

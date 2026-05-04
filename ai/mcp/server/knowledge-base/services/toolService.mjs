@@ -11,6 +11,7 @@ import ToolService              from '../../../ToolService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
+/** @anchor test-isolation - ENV override to prevent parallel test mutations from corrupting the canonical file */
 const openApiFilePath = process.env.TEST_CORRUPT_OPENAPI || path.join(__dirname, '../openapi.yaml');
 
 const serviceMapping = {
