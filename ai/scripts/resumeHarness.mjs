@@ -18,7 +18,9 @@
  * @see .agents/skills/session-sunset/references/session-sunset-workflow.md §1
  */
 import { spawn } from 'child_process';
+import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { readGateState, hasOverride } from './wakeSafetyGate.mjs';
@@ -35,6 +37,39 @@ function spawnAsync(cmd, args) {
         });
         proc.on('error', reject);
     });
+}
+
+/**
+ * @summary Resolve the embedded Claude Code CLI binary path inside Claude Desktop.
+ *
+ * Claude Desktop ships the `claude` CLI under
+ * `~/Library/Application Support/Claude/claude-code/<version>/claude.app/Contents/MacOS/claude`.
+ * The version segment changes with auto-updates, so we resolve the LATEST version
+ * dynamically rather than hardcoding a specific build (which would silently break
+ * the substrate after every Claude Desktop update). Operator-override via
+ * `CLAUDE_CLI_PATH` env var supports test-mock injection (per #10681 discipline)
+ * and explicit pinning if needed.
+ *
+ * Empirical anchor (#10677 research-phase comment IC_kwDODSospM8AAAABBJDmZg):
+ * the embedded CLI accepts `--session-id <uuid>` and validates UUID format —
+ * the substrate-correct primitive that #10627's prompt-layer plumbing tried
+ * (and failed structurally) to achieve.
+ *
+ * @returns {Promise<?string>} Absolute path to the Claude Code CLI, or `null`
+ *   if neither the env-var override nor the dynamic resolution succeeds.
+ */
+async function resolveClaudeCliPath() {
+    if (process.env.CLAUDE_CLI_PATH) return process.env.CLAUDE_CLI_PATH;
+    const appSupport = path.join(os.homedir(), 'Library/Application Support/Claude/claude-code');
+    try {
+        const versions = await fs.readdir(appSupport);
+        if (versions.length === 0) return null;
+        // Numeric-aware sort so 2.1.121 ranks ABOVE 2.1.99 (lexicographic sort gets this wrong).
+        const latest = versions.sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).pop();
+        return path.join(appSupport, latest, 'claude.app/Contents/MacOS/claude');
+    } catch (err) {
+        return null;
+    }
 }
 
 /**
@@ -95,12 +130,21 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
     const payload = buildBootGroundingPrompt(identity, reason, originSessionId);
 
     // Harness Registry: Maps identity IDs to their corresponding restart adapter.
-    // 'antigravity-ide' utilizes its native CLI `chat -n` via the `antigravity-cli` adapter.
-    // 'claude-desktop' utilizes `osascript` to inject Cmd+N (`freshSessionShortcut`) keystrokes.
-    // Codex Desktop deferred until @neo-gpt confirms its restart primitive.
+    // 'antigravity-ide' utilizes its native CLI `chat -n` via the `antigravity-cli` adapter (#10678 / #10680).
+    // 'claude-desktop' utilizes the embedded Claude Code CLI's `--session-id <uuid>` primitive
+    //   via the `claude-cli` adapter (#10677). Empirically validated: `--session-id` rejects
+    //   non-UUIDs at the CLI boundary, providing the substrate-correct fresh-sessionId enforcement
+    //   #10627's prompt-layer plumbing tried (and failed structurally) to achieve.
+    // Codex Desktop deferred until @neo-gpt confirms its restart primitive (#10679, blocked on
+    //   target-thread MC-startup diagnosis).
+    //
+    // The legacy `osascript` adapter dispatch (Cmd+N keystroke into running Claude Desktop)
+    // is preserved as a fallback for harnesses that may need it; no production identity
+    // currently routes there. See the Q1b fresh-session-spawn references (#10611 PR-B) for
+    // the historical context.
     const HARNESS_REGISTRY = {
         'antigravity-ide': { adapter: 'antigravity-cli' },
-        'claude-desktop':  { appName: 'Claude',      adapter: 'osascript', freshSessionShortcut: 'n', tabShortcut: '3' }
+        'claude-desktop':  { adapter: 'claude-cli' }
     };
 
     const identityMap = {
@@ -132,6 +176,32 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
             const args = ['chat', '-n', payload];
             await spawnAsync(cliPath, args);
             console.log(`Successfully resumed ${identity} via antigravity-cli`);
+        } else if (adapter === 'claude-cli') {
+            /**
+             * @anchor claude-cli-mac-specific
+             * @summary Embedded Claude Code CLI inside Claude Desktop (`~/Library/Application Support/Claude/...`).
+             * Substrate-correct primitive: spawner generates a fresh UUID and passes it to `--session-id`,
+             * which the CLI enforces at the harness layer (validated rejection of non-UUIDs). The fresh
+             * Claude Code subprocess opens with the spawner-chosen sessionId — fresh MC client handshake
+             * + fresh `currentSessionId` by construction. NO `set_session_id` plumbing in the prompt.
+             *
+             * Path resolves dynamically across Claude Desktop auto-updates via `resolveClaudeCliPath()`.
+             * Operator override `CLAUDE_CLI_PATH` env var supports test-mock injection per #10681
+             * `RUN_LIVE_OSASCRIPT` discipline parallel.
+             *
+             * @todo Abstract for cross-platform execution (Windows/Linux) — sibling concern to #10684.
+             */
+            const cliPath = await resolveClaudeCliPath();
+            if (!cliPath) {
+                throw new Error(
+                    'Claude CLI not found. Set CLAUDE_CLI_PATH env var or install Claude Desktop ' +
+                    '(expects ~/Library/Application Support/Claude/claude-code/<version>/claude.app/Contents/MacOS/claude)'
+                );
+            }
+            const freshSessionId = randomUUID();
+            const args = ['--session-id', freshSessionId, payload];
+            await spawnAsync(cliPath, args);
+            console.log(`Successfully resumed ${identity} via claude-cli (sessionId=${freshSessionId})`);
         } else if (adapter === 'osascript') {
             const { appName, tabShortcut, freshSessionShortcut } = harnessTarget;
             // Q1b fresh-session-spawn flow per #10611:
