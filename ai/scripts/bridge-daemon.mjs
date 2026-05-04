@@ -316,6 +316,16 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
             if (messageNode && messageNode.label === 'MESSAGE') {
                 if (messageNode.properties?.wakeSuppressed) return null;
 
+                // Suppress same-sender broadcast wakes (#10668). The sender already has the
+                // broadcast in active context, so wake-as-interrupt carries no new information
+                // and inflates unread/no-op load during coordination loops. Audit/outbox
+                // visibility is preserved by MailboxService listings — this gates wake
+                // delivery only, not graph storage. Direct self-DMs (target === agentIdentity
+                // AND from === agentIdentity) remain delivered for deliberate self-handoff flows.
+                if (entity.target === 'AGENT:*' && messageNode.properties?.from === agentIdentity) {
+                    return null;
+                }
+
                 // Apply filters
                 if (filters.priority && messageNode.properties?.priority !== filters.priority) return null;
                 if (filters.senderFilter && !filters.senderFilter.includes(messageNode.properties?.from)) return null;

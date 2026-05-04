@@ -914,4 +914,149 @@ test.describe('Bridge Daemon', () => {
         expect(paramsLength).toEqual([SQLITE_IN_CLAUSE_BATCH_SIZE, overflowAmount]);
         expect(edgeResults.length).toBe(totalItems);
     });
+
+    test('suppresses wake for sender of AGENT:* broadcast and delivers to peers (#10668)', async () => {
+        const senderId    = '@test-agent-sender';
+        const peerId      = '@test-agent-peer';
+        const senderSubId = 'sub_' + crypto.randomUUID();
+        const peerSubId   = 'sub_' + crypto.randomUUID();
+
+        // Two agents subscribed to the same bridge-daemon test adapter — the broadcast
+        // sender and a peer receiver. The fix's contract is: sender's own broadcast
+        // does NOT wake them, but the peer's wake delivery is unaffected.
+        for (const [agentId, subId] of [[senderId, senderSubId], [peerId, peerSubId]]) {
+            db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+                id        : agentId,
+                label     : 'AGENT',
+                properties: {name: agentId}
+            }));
+            db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+                id        : subId,
+                label     : 'WAKE_SUBSCRIPTION',
+                properties: {
+                    agentIdentity        : agentId,
+                    harnessTarget        : 'bridge-daemon',
+                    status               : 'active',
+                    trigger              : 'SENT_TO_ME',
+                    harnessTargetMetadata: {adapter: 'test', coalesceWindow: 1}
+                }
+            }));
+            db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+        }
+
+        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
+        });
+
+        let senderDeliveryCount = 0;
+        let peerDeliveryCount   = 0;
+        daemonProcess.stdout.on('data', (data) => {
+            const out = data.toString();
+            if (out.includes(`[Bridge Daemon Test Adapter] Delivered ${senderSubId}`)) senderDeliveryCount++;
+            if (out.includes(`[Bridge Daemon Test Adapter] Delivered ${peerSubId}`))   peerDeliveryCount++;
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Sender broadcasts to AGENT:*: from === senderId, edge target === 'AGENT:*'.
+        const msgId = 'msg_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
+            id        : msgId,
+            label     : 'MESSAGE',
+            properties: {
+                from   : senderId,
+                to     : 'AGENT:*',
+                subject: 'Cross-family broadcast'
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
+
+        const edgeId = 'edge_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
+            id    : edgeId,
+            source: msgId,
+            target: 'AGENT:*',
+            type  : 'SENT_TO'
+        }), msgId, 'AGENT:*', 'SENT_TO');
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
+
+        // Coalesce window 1s + safety margin matches the wakeSuppressed-test pattern.
+        await new Promise(resolve => setTimeout(resolve, 5500));
+
+        // Same-sender broadcast must NOT wake the sender (the #10668 bug).
+        expect(senderDeliveryCount).toBe(0);
+        // Cross-sender broadcast must still wake the peer (preserves broadcast value).
+        expect(peerDeliveryCount).toBe(1);
+    });
+
+    test('preserves wake delivery for direct self-DM addressed to self (#10668)', async () => {
+        // The #10668 fix gates on `entity.target === 'AGENT:*'` to suppress only broadcast
+        // self-fanout. Direct self-DMs (target === agentIdentity AND from === agentIdentity)
+        // remain delivered for deliberate self-handoff flows like sunset protocol DMs.
+        const subId   = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-self-dm';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id        : agentId,
+            label     : 'AGENT',
+            properties: {name: agentId}
+        }));
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id        : subId,
+            label     : 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity        : agentId,
+                harnessTarget        : 'bridge-daemon',
+                status               : 'active',
+                trigger              : 'SENT_TO_ME',
+                harnessTargetMetadata: {adapter: 'test', coalesceWindow: 1}
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+            stdio: 'pipe',
+            env  : {...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver self-DM wake within timeout')), 10000);
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes(`[Bridge Daemon Test Adapter] Delivered ${subId}`)) {
+                    clearTimeout(timeout);
+                    resolve(out);
+                }
+            });
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Direct self-DM: from === agentId AND target === agentId (NOT AGENT:*).
+        const msgId = 'msg_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(msgId, JSON.stringify({
+            id        : msgId,
+            label     : 'MESSAGE',
+            properties: {
+                from   : agentId,
+                to     : agentId,
+                subject: 'Deliberate self-handoff'
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(msgId, 'nodes');
+
+        const edgeId = 'edge_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(edgeId, JSON.stringify({
+            id    : edgeId,
+            source: msgId,
+            target: agentId,
+            type  : 'SENT_TO'
+        }), msgId, agentId, 'SENT_TO');
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(edgeId, 'edges');
+
+        const output = await deliveryPromise;
+        expect(output).toContain('Deliberate self-handoff');
+    });
 });
