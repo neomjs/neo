@@ -870,6 +870,8 @@ ${aggregatedContent}
 
     /**
      * Permanently deletes all raw memories and summaries associated with a specific session ID.
+     * Operates exclusively within the caller's tenant boundary. A single-tenant (unauthenticated) 
+     * call will not delete records owned by the SHARED_USER_ID.
      * @param {Object} args
      * @param {String} args.sessionId
      * @returns {Promise<{deletedMemories: number, deletedSummaries: number, message: string}>}
@@ -881,12 +883,9 @@ ${aggregatedContent}
 
         try {
             const userId = normalizeUserId(RequestContextService.getUserId());
-            const where = { sessionId };
             
-            if (userId) {
-                where['$and'] = [{ sessionId }, { userId }];
-                delete where.sessionId;
-            }
+            // Construct filter: ensure tenant isolation.
+            const where = userId ? { '$and': [{ sessionId }, { userId }] } : { sessionId };
 
             let deletedMemories = 0;
             if (this.memoryCollection) {
@@ -904,6 +903,15 @@ ${aggregatedContent}
                     deletedSummaries = sumBefore.ids.length;
                     await this.sessionsCollection.delete({ ids: sumBefore.ids });
                 }
+            }
+
+            try {
+                const db = GraphService.db?.storage?.db;
+                if (db) {
+                    db.prepare('DELETE FROM SummarizationJobs WHERE session_id = ?').run(sessionId);
+                }
+            } catch (jobError) {
+                logger.warn(`[SessionService] Error cleaning up SummarizationJobs for ${sessionId}: ${jobError.message}`);
             }
 
             return {

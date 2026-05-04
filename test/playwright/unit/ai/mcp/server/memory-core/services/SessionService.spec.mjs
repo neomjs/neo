@@ -232,5 +232,65 @@ test.describe('SessionService setSessionId', () => {
         });
         expect(otherSummaries.ids.length).toBe(1);
     });
+
+    test('purgeSession deletes orphaned SummarizationJobs and respects multi-tenant isolation', async () => {
+        const GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        const RequestContextService = (await import('../../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+
+        const targetSessionId = crypto.randomUUID();
+        const otherSessionId = crypto.randomUUID();
+        const testUserId = 'test-user-123';
+
+        // Add dummy SummarizationJobs directly via SQLite
+        const db = GraphService.db?.storage?.db;
+        db.prepare('INSERT INTO SummarizationJobs (session_id, status) VALUES (?, ?)').run(targetSessionId, 'pending');
+        db.prepare('INSERT INTO SummarizationJobs (session_id, status) VALUES (?, ?)').run(otherSessionId, 'pending');
+
+        // Verify rows exist
+        const countBefore = db.prepare('SELECT COUNT(*) as count FROM SummarizationJobs WHERE session_id IN (?, ?)').get(targetSessionId, otherSessionId);
+        expect(countBefore.count).toBe(2);
+
+        // Add memory to target session under test user
+        await RequestContextService.run({ sessionId: targetSessionId, userId: testUserId }, async () => {
+            await SDK.Memory_Service.addMemory({
+                prompt: 'target prompt',
+                response: 'target response',
+                thought: 'target thought',
+                sessionId: targetSessionId
+            });
+
+            // Purge the session from within the tenant context
+            const result = await SDK.Memory_SessionService.purgeSession({ sessionId: targetSessionId });
+            expect(result.success).toBe(true);
+        });
+
+        // Verify target jobs were deleted, but other session jobs remain
+        const targetJobsAfter = db.prepare('SELECT COUNT(*) as count FROM SummarizationJobs WHERE session_id = ?').get(targetSessionId);
+        expect(targetJobsAfter.count).toBe(0);
+
+        const otherJobsAfter = db.prepare('SELECT COUNT(*) as count FROM SummarizationJobs WHERE session_id = ?').get(otherSessionId);
+        expect(otherJobsAfter.count).toBe(1);
+
+        // Verify tenant isolation: try to purge a session that belongs to a different user, or without the proper tenant.
+        // We'll create another memory under SHARED_USER_ID, then try to delete it from testUserId context.
+        const sharedSessionId = crypto.randomUUID();
+        await SDK.Memory_Service.addMemory({
+            prompt: 'shared prompt',
+            response: 'shared response',
+            thought: 'shared thought',
+            sessionId: sharedSessionId
+        });
+
+        await RequestContextService.run({ sessionId: sharedSessionId, userId: testUserId }, async () => {
+            const result = await SDK.Memory_SessionService.purgeSession({ sessionId: sharedSessionId });
+            // Since where condition expects userId = testUserId, it won't find the SHARED_USER_ID memory.
+            expect(result.success).toBe(true);
+            expect(result.deletedMemories).toBe(0); // Should be 0 deleted because of tenant isolation
+        });
+
+        // Verify shared memory is still there
+        const sharedMemories = await SDK.Memory_Service.listMemories({ sessionId: sharedSessionId });
+        expect(sharedMemories.memories.length).toBe(1);
+    });
 });
 
