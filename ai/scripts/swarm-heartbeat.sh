@@ -142,6 +142,7 @@ heartbeat_pulse() {
             # boot-grounding prompt can anchor Memory Core context-priming. `// empty` jq filter
             # safely degrades to '' when the key is absent (older sunset JSON shape).
             local origin_session_id=$(echo "$sunset_json" | jq -r '.originSessionId // empty')
+            local abandoned_count=$(echo "$sunset_json" | jq -r '.abandonedCount // 0')
 
             if [ "$is_sunsetted" = "true" ]; then
                 # Wake safety gate (#10648, child of #10647). Fail-closed gate consulted
@@ -161,7 +162,7 @@ heartbeat_pulse() {
                 # Q1b fresh-session-spawn adapter: opens a new chat in target harness via
                 # Cmd+N keystroke before pasting the boot-grounding prompt. Replaces the prior
                 # Q1a in-place wake injection per @tobiu's verbatim 2026-05-02 correction.
-                node "${script_dir}/resumeHarness.mjs" "$IDENTITY" "$sunset_reason" "$origin_session_id" 2>>"$SWEEP_LOG"
+                node "${script_dir}/resumeHarness.mjs" "$IDENTITY" "$sunset_reason" "$origin_session_id" "$abandoned_count" 2>>"$SWEEP_LOG"
 
                 # Continue loop; no need to send regular heartbeat to tmux since we just resumed via OS
                 continue

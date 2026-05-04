@@ -22,6 +22,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { readGateState, hasOverride } from './wakeSafetyGate.mjs';
+import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -55,7 +56,7 @@ function buildBootGroundingPrompt(identity, reason, originSessionId) {
     ].join(' ');
 }
 
-async function resumeHarness(identity, reason, originSessionId) {
+async function resumeHarness(identity, reason, originSessionId, abandonedCount = 0) {
     // Wake safety gate (#10648, child of #10647). Direct fresh-session-spawn
     // invocations must also fail-closed when the substrate is unsafe — the
     // gate is consulted alongside (and ahead of) the existing cooldown. The
@@ -116,6 +117,9 @@ async function resumeHarness(identity, reason, originSessionId) {
     }
 
     const adapter = process.platform === 'darwin' ? harnessTarget.adapter : 'tmux';
+
+    // Write the inflight lock BEFORE taking action to secure the boot ramp (Issue #10674)
+    await writeInflightLock(identity, 'sunset_restart', abandonedCount);
 
     try {
         if (adapter === 'osascript') {
@@ -202,6 +206,7 @@ async function resumeHarness(identity, reason, originSessionId) {
         await fs.writeFile(cooldownFile, Date.now().toString());
     } catch (err) {
         console.error(`Failed to resume ${identity} via ${adapter}: ${err.message}`);
+        await clearInflightLock(identity, 'sunset_restart');
         process.exit(1);
     }
 }
@@ -209,13 +214,14 @@ async function resumeHarness(identity, reason, originSessionId) {
 const identity        = process.argv[2];
 const reason          = process.argv[3] || 'Scheduled interval recovery';
 const originSessionId = process.argv[4] || ''; // Optional; populated by checkSunsetted post-#10611
+const abandonedCount  = parseInt(process.argv[5], 10) || 0;
 
 if (!identity) {
-    console.error('Usage: resumeHarness.mjs <identity> [reason] [originSessionId]');
+    console.error('Usage: resumeHarness.mjs <identity> [reason] [originSessionId] [abandonedCount]');
     process.exit(1);
 }
 
-resumeHarness(identity, reason, originSessionId).catch(err => {
+resumeHarness(identity, reason, originSessionId, abandonedCount).catch(err => {
     console.error('Unexpected error:', err.message);
     process.exit(1);
 });

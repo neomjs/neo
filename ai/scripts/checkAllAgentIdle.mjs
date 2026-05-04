@@ -21,6 +21,7 @@ import Neo from '../../src/Neo.mjs';
 import * as core from '../../src/core/_export.mjs';
 import LifecycleService from '../mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
 import GraphService from '../mcp/server/memory-core/services/GraphService.mjs';
+import { checkInflightLock } from './inflightLock.mjs';
 
 async function main() {
     await LifecycleService.initAsync();
@@ -74,7 +75,20 @@ async function main() {
             ageMs = Infinity; 
         }
 
-        details[identity] = { lastMemTime, ageMs };
+        // Check if there is an active idle_out_nudge lock for this identity
+        const lastMemTimeMs = lastMemTime ? new Date(lastMemTime).getTime() : 0;
+        const lockData = await checkInflightLock(identity, 'idle_out_nudge', lastMemTimeMs);
+
+        if (lockData.inFlight) {
+            ageMs = 0; // Treat as actively waking up (not idle)
+        }
+
+        details[identity] = { 
+            lastMemTime, 
+            ageMs, 
+            inFlightNudge: lockData.inFlight, 
+            abandonedCount: lockData.abandonedCount || 0 
+        };
 
         if (ageMs <= thresholdMs) {
             allIdle = false;
