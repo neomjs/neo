@@ -95,6 +95,8 @@ Teams adopting shared mode from per-developer local should follow this migration
 
 5. **First-session smoke test.** Have each developer's agent run a `query_summaries` query against Memory Core — this is the canonical cross-agent **memory visibility** proof. The first agent populates baseline; subsequent agents should see each other's summaries on subsequent queries. Optionally also run an `ask_knowledge_base` query against the Knowledge Base to validate **KB sharing** through the same Chroma instance — it's a separate retrieval surface, not a memory-visibility proof.
 
+6. **Resume validation (when reconnecting agents).** Before an agent reconnects with a previously-used session ID, call `resume_session({session_id})` on Memory Core to verify the session is safe to resume. The tool returns a structured payload: `status: 'resumable'` (with `memoryCount`, `lastActivityAt`, `summarizationStatus`) confirms the agent can keep using that session ID via the `Mcp-Session-Id` header; `SESSION_FINALIZED` (already summarized) or `SESSION_BUSY` (concurrent summarization mid-flight, lease active) signal the agent should start fresh or retry. The validation is read-only — it does not modify server-side session state; the actual session-id binding still happens at the transport layer.
+
 ## Validation
 
 Validation tests for the unified topology are tracked separately under [#10008](https://github.com/neomjs/neo/issues/10008) ("Playwright Test Coverage: Unified Monolithic Topology"). That ticket is the canonical validation path for the contract this profile documents — when it closes, the test substrate empirically proves shared-mode KB/MC read/write correctness against a single Chroma process without collection collision.

@@ -12,7 +12,7 @@ import os from 'os';
 import logger from '../logger.mjs';
 import http from 'http';
 import https from 'https';
-import RequestContextService, { normalizeUserId } from '../../shared/services/RequestContextService.mjs';
+import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../shared/services/RequestContextService.mjs';
 
 /**
  * @summary Service for handling session summarization and drift detection.
@@ -732,6 +732,134 @@ ${aggregatedContent}
         } catch (e) {
             logger.warn(`[SessionService] Error processing pending summarizations: ${e.message}`);
         }
+    }
+
+    /**
+     * Validates whether a session ID is in a state safe for the agent to resume by reconnecting
+     * with that session ID in their `Mcp-Session-Id` header. **Pure read-only query — does NOT
+     * modify `RequestContextService` or any server-side session state.**
+     *
+     * Per the post-#10692 model, session-id binding is owned by the transport layer
+     * (`Mcp-Session-Id` header → `RequestContextService.getSessionId()`). This method answers the
+     * agent's prerequisite question — *"is this session_id safe to use before reconnecting?"* —
+     * and returns a structured payload covering memory count, last activity, and current
+     * summarization status so the agent can decide whether to resume or start fresh.
+     *
+     * **State decision tree:**
+     * 1. `SummarizationJobs.status === 'completed'` → `SESSION_FINALIZED` (resuming would append
+     *    to a closed-book session whose summary already shipped; agent should start fresh).
+     * 2. `SummarizationJobs.status === 'in_progress'` AND lease unexpired → `SESSION_BUSY`
+     *    (concurrent summarization mid-flight; agent should retry shortly to avoid losing
+     *    appended memories from the in-flight summary, or start fresh).
+     * 3. No memories AND no SummarizationJobs row → `SESSION_NOT_FOUND` (no session existed
+     *    or it was fully purged).
+     * 4. Otherwise (memories exist, status is `pending` / `failed` / `none` / expired
+     *    `in_progress`) → resumable; payload returns memory count, last activity, summarization
+     *    status.
+     *
+     * @param {Object} args
+     * @param {String} args.sessionId The session ID to validate.
+     * @returns {Promise<Object>} Either a success payload (`{success: true, sessionId, status:
+     *     'resumable', memoryCount, lastActivityAt, summarizationStatus}`) OR a structured error
+     *     with one of `INVALID_SESSION_ID`, `SESSION_NOT_FOUND`, `SESSION_FINALIZED`, `SESSION_BUSY`.
+     * @see #10725 — design rationale (validation-only, not state-changing)
+     * @see #10692 — RequestContextService transport-layer binding model
+     * @see #10693 — SummarizationJobs lease semantics (TTL + status enum)
+     */
+    async validateSessionForResume({sessionId} = {}) {
+        if (!sessionId || typeof sessionId !== 'string') {
+            return {error: 'Invalid sessionId', code: 'INVALID_SESSION_ID'};
+        }
+
+        // Fast SQLite check on summarization-job state — gates FINALIZED + BUSY error paths
+        // before the more expensive Chroma read.
+        const sqlite = GraphService.db?.storage?.db;
+        let summarizationStatus = 'none';
+        if (sqlite) {
+            try {
+                const row = sqlite.prepare(
+                    'SELECT status, expires_at FROM SummarizationJobs WHERE session_id = ?'
+                ).get(sessionId);
+                if (row) {
+                    summarizationStatus = row.status;
+
+                    if (row.status === 'completed') {
+                        return {
+                            error: 'Session has been finalized via summarization. Resuming would append to a closed-book session; start fresh instead.',
+                            code: 'SESSION_FINALIZED',
+                            sessionId,
+                            summarizationStatus: 'completed'
+                        };
+                    }
+
+                    if (row.status === 'in_progress' && row.expires_at > Date.now()) {
+                        return {
+                            error: 'Session is currently being summarized by another worker (lease active). Retry shortly or start fresh.',
+                            code: 'SESSION_BUSY',
+                            sessionId,
+                            summarizationStatus: 'in_progress',
+                            leaseExpiresAt: new Date(row.expires_at).toISOString()
+                        };
+                    }
+                    // status === 'pending' / 'failed' / expired 'in_progress': resumable below.
+                }
+            } catch (e) {
+                logger.warn(`[SessionService] validateSessionForResume: error checking SummarizationJobs for ${sessionId}: ${e.message}`);
+                // Fall through — treat as no summarization-job row.
+            }
+        }
+
+        // Memory-collection probe for count + last activity. Tenant-aware filter consistent
+        // with MemoryService.listMemories — userId tag plus SHARED_USER_ID legacy commons.
+        let memoryCount    = 0;
+        let lastActivityAt = null;
+        try {
+            const collection = await StorageRouter.getMemoryCollection();
+            if (collection) {
+                const userId = normalizeUserId(RequestContextService.getUserId());
+                const where  = userId
+                    ? {$and: [{sessionId}, {$or: [{userId}, {userId: SHARED_USER_ID}]}]}
+                    : {sessionId};
+
+                const result = await collection.get({
+                    where,
+                    include: ['metadatas']
+                });
+
+                memoryCount = result.ids?.length || 0;
+
+                if (memoryCount > 0) {
+                    const timestamps = (result.metadatas || [])
+                        .map(m => m?.timestamp)
+                        .filter(Boolean)
+                        .map(t => new Date(t).getTime())
+                        .filter(n => Number.isFinite(n));
+                    if (timestamps.length > 0) {
+                        lastActivityAt = new Date(Math.max(...timestamps)).toISOString();
+                    }
+                }
+            }
+        } catch (e) {
+            logger.warn(`[SessionService] validateSessionForResume: error querying memories for ${sessionId}: ${e.message}`);
+            // Fall through — treat as no memories.
+        }
+
+        if (memoryCount === 0 && summarizationStatus === 'none') {
+            return {
+                error: 'No session found with the supplied ID. Either the session never existed or its data has been purged.',
+                code: 'SESSION_NOT_FOUND',
+                sessionId
+            };
+        }
+
+        return {
+            success: true,
+            sessionId,
+            status: 'resumable',
+            memoryCount,
+            lastActivityAt,
+            summarizationStatus
+        };
     }
 
     /**
