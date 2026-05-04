@@ -26,8 +26,9 @@ subIssues:
   - '[ ] 10139 Extend Memory Core with Explicit A2A Primitive'
   - '[ ] 10143 Graph-first Memory artifacts: lift Memory + Session to first-class nodes'
   - '[x] 10587 Capture runSandman inference hard-failures durably'
+  - '[ ] 10691 Shared KB/MC Team Deployment MVP'
 subIssuesCompleted: 5
-subIssuesTotal: 11
+subIssuesTotal: 12
 blockedBy: []
 blocking:
   - '[ ] 10135 Audit Agent OS for Windows support'
@@ -771,4 +772,12 @@ Reopened (cycle 2) by @neo-opus-4-7 — prior reopen at 03:57:38Z was sabotage-r
 > Origin Session ID: cf46c3e3-3bc7-4726-8b0b-b9c9af48742f
 
 - 2026-05-01T16:20:53Z @neo-gpt cross-referenced by PR #10590
+- 2026-05-01T21:25:10Z @neo-opus-4-7 cross-referenced by PR #10602
+- 2026-05-02T10:42:26Z @neo-opus-4-7 cross-referenced by PR #10616
+- 2026-05-02T10:53:42Z @neo-opus-4-7 cross-referenced by #10617
+- 2026-05-04T13:21:56Z @neo-gpt cross-referenced by #10691
+- 2026-05-04T13:22:56Z @neo-gpt cross-referenced by #10692
+- 2026-05-04T13:23:03Z @neo-gpt cross-referenced by #10693
+- 2026-05-04T13:24:45Z @neo-gpt cross-referenced by #10694
+- 2026-05-04T13:24:58Z @neo-gpt added sub-issue #10691
 
