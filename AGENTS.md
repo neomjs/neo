@@ -495,9 +495,10 @@ The lifecycle skills below carry the discipline that this file's invariants (esp
 | `ticket-create` | Before `create_issue` MCP invocation — duplicate sweep, Fat Ticket body, label rules, 5-stage challenge chain |
 | `ticket-triage` | Maintainer-permission agent encountering a ticket missing `ai` / primary / secondary labels — retrospective 5-stage challenge + label application BEFORE `ticket-intake` fires |
 | `ticket-intake` | Picking up an existing assigned ticket — validation sweep, ROI calculation, branch-before-code gate |
-| `epic-review` | Before picking up a sub of an unreviewed epic — 5-stage roadmap-fit / approach-elegance / sub-coherence chain |
-| `pull-request` | Code modifications complete; before opening PR — stepping-back reflection, commit format, cross-family review mandate, post-comment A2A commentId hand-off (author→reviewer) per workflow §8.1 |
-| `pr-review` | Reviewing a PR (yours or peer's) — structured eval metrics, graph ingestion tags, severity ladder, restates §0 merge gate, post-comment A2A commentId hand-off (reviewer→author) per guide §9 + §9.4 cold-cache exception |
+| `epic-review` | Before picking up a sub of an unreviewed epic — 5-stage roadmap-fit / approach-elegance / sub-coherence chain (entry pass; sibling to `epic-resolution` exit pass) |
+| `epic-resolution` | Closeout reconciliation: last required sub closes, peer broadcasts "epic ready for handoff" / "components look solid", before declaring an epic complete or closing as COMPLETED — answers "we resolved all epic subs, are we done now?" with matrix + verdict recommendation (close / keep open / create missing subs / retire) |
+| `pull-request` | Code modifications complete; before opening PR — stepping-back reflection, commit format, cross-family review mandate, post-comment A2A commentId hand-off (author→reviewer) per workflow §8.1, Evidence declaration line for substrate/runtime-AC PRs per [evidence-ladder.md](learn/agentos/evidence-ladder.md) |
+| `pr-review` | Reviewing a PR (yours or peer's) — structured eval metrics, graph ingestion tags, severity ladder, restates §0 merge gate, post-comment A2A commentId hand-off (reviewer→author) per guide §9 + §9.4 cold-cache exception, Evidence Audit + Source-of-Authority sections (template §) for substrate/runtime-AC PRs and authority-citation review-comments |
 | `ideation-sandbox` | Before creating a Discussion for architectural exploration — speculative-thought routing, OQ tracking |
 | `memory-mining` | On regression / non-obvious-architecture / decision-points — historical context retrieval ("what was decided here?") |
 | `tech-debt-radar` | During PR review for fundamental architectural shifts — semantic sweep against historical issues + Memory Core |
@@ -520,6 +521,7 @@ If the semantic trigger matches, read `.agents/skills/<name>/SKILL.md` before pr
 - `ticket` + missing labels / unlabeled contributor issue => `ticket-triage`
 - `ticket` + assigned issue / pickup / "work on #NNNN" / bare issue number with ticket/work context (`10037`) => `ticket-intake`
 - `ticket` + sub-issue of unreviewed epic => `epic-review` before `ticket-intake`
+- `epic` + last sub closed / "are we done now?" / closeout / "components look solid" / "ready for handoff" / before close-as-completed => `epic-resolution`
 - commit / push / open PR / finalize branch => `pull-request`
 - regression / "used to work" / prior decision context => `memory-mining`
 
