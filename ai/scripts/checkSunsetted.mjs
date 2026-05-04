@@ -1,28 +1,75 @@
 #!/usr/bin/env node
 /**
- * @summary Auto-Wakeup Substrate Detection Logic (Epic #10601).
+ * @summary Auto-Wakeup Substrate Detection Logic — two-mode detector contract (Epic #10601, sub #10673).
  *
- * This script queries the SQLite GraphLog to determine if an agent is sunsetted.
- * The authoritative sunset signal is the Unsubscribe primitive: the
- * `session-sunset` workflow drops the agent's active WAKE_SUBSCRIPTION node
- * before terminating the transcript, so a missing subscription is the only
- * condition that flips `sunsetted=true`.
+ * Queries the SQLite GraphLog to determine whether an agent identity is in
+ * one of two recovery-relevant states:
+ *
+ *   - **`sunset`** (terminal): the `WAKE_SUBSCRIPTION` is missing / disabled
+ *     / degraded. The `session-sunset` workflow's Unsubscribe primitive is the
+ *     authoritative signal — staleness alone is NOT a sunset signal (#10641
+ *     codified this discipline). Recovery: per-harness terminal-restart per
+ *     #10676 sunset-mode restart substrate.
+ *   - **`idle_out_candidate`** (recoverable): subscription is active AND the
+ *     last `AGENT_MEMORY` is older than `IDLE_THRESHOLD_MS` (10 min default,
+ *     matches `checkAllAgentIdle.mjs` convention). Recovery: in-place A2A
+ *     heartbeat nudge per #10675 — bounded, non-spawning, idempotent.
+ *
+ * The two signals are mutually exclusive by construction: `sunset` requires
+ * `subscription_active: false`; `idle_out_candidate` requires
+ * `subscription_active: true`. Both can be `false` simultaneously (the no-op
+ * "agent is operating normally" case).
+ *
+ * **Output shape (#10673 contract):**
+ *
+ *     {
+ *       identity: '@neo-opus-4-7',
+ *       sunset: false,
+ *       idle_out_candidate: true,
+ *       evidence: {
+ *         subscription_active: true,
+ *         subscription_status: 'active',     // 'missing' | 'active' | 'degraded' | 'disabled'
+ *         last_memory_age_min: 12,
+ *         last_sessionId: 'cce1fea5-...'
+ *       },
+ *       recommended_action: 'idle_out_nudge', // 'sunset_restart' | 'idle_out_nudge' | 'no_action'
+ *
+ *       // Backward-compat fields (#10673 AC5) for callers not yet migrated:
+ *       sunsetted: false,            // mirrors `sunset`
+ *       reason: '',                   // human-readable
+ *       originSessionId: 'cce1fea5-...',  // = evidence.last_sessionId
+ *       abandonedCount: 0             // from in-flight lock check
+ *     }
+ *
+ * **In-flight lock integration:** when a `sunset_restart` or `idle_out_nudge`
+ * action is in flight (per `inflightLock.mjs`), the corresponding signal
+ * downgrades to `false` — the substrate is already mid-recovery; no second
+ * dispatch needed. This is the data-layer mutex that prevents the runaway-spawn
+ * pattern documented in `learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md`.
  *
  * `AGENT_MEMORY` rows are read for origin-session extraction (so the
  * fresh-session-spawn boot prompt can carry the prior session ID for Memory
  * Core context-priming) and for update-on-read migration of legacy rows
  * lacking structured `timestamp` / `sessionId` / `agentIdentity` fields.
- * Memory freshness is intentionally NOT a sunset proxy — it has too many
- * legitimate non-sunset causes (rate-limit, long deep-thinking turns,
- * Memory Core path asymmetry under Chroma contention, in-flight tool
- * sequences). See the Anchor & Echo block on the predicate for the full
- * rationale and the operator-clarified substrate model from issue #10641.
+ *
+ * @see ai/scripts/inflightLock.mjs        — in-flight lock primitive (#10674)
+ * @see ai/scripts/swarm-heartbeat.sh      — primary consumer of detector output
+ * @see ai/scripts/resumeHarness.mjs       — sunset-mode action dispatcher
+ * @see ai/scripts/trioWakeCooldown.mjs    — idle-out-mode action dispatcher (when #10675 lands)
+ * @see learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md — pre-fix forensic context
  */
 import Neo from '../../src/Neo.mjs';
 import * as core from '../../src/core/_export.mjs';
 import LifecycleService from '../mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
 import GraphService from '../mcp/server/memory-core/services/GraphService.mjs';
 import { checkInflightLock } from './inflightLock.mjs';
+
+/**
+ * @summary Idle-out threshold — fresh `AGENT_MEMORY` newer than this is "active";
+ * older is `idle_out_candidate`. Matches `checkAllAgentIdle.mjs:35` convention so
+ * downstream consumers see consistent idle semantics across detectors.
+ */
+const IDLE_THRESHOLD_MS = parseInt(process.env.IDLE_THRESHOLD_MS, 10) || 10 * 60 * 1000;
 
 async function main() {
     await LifecycleService.initAsync();
@@ -34,15 +81,39 @@ async function main() {
     // Target identity for Phase 1/2
     const identity = process.argv[2] || process.env.NEO_AGENT_IDENTITY || '@neo-gemini-3-1-pro';
 
-    // 1. Check if WAKE_SUBSCRIPTION exists and is active
-    const subStmt = db.prepare(`
-        SELECT id FROM Nodes
+    // 1. Query ALL subscriptions for this identity (regardless of status) so the
+    //    detector can emit a structured `subscription_status` field rather than
+    //    a binary "exists / doesn't exist". Per #10673 evidence-fields contract.
+    const allSubsStmt = db.prepare(`
+        SELECT json_extract(data, '$.properties.status')        as status,
+               json_extract(data, '$.properties.harnessTarget') as harnessTarget
+        FROM Nodes
         WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
           AND json_extract(data, '$.properties.agentIdentity') = ?
-          AND COALESCE(json_extract(data, '$.properties.status'), 'active') != 'degraded'
-          AND json_extract(data, '$.properties.harnessTarget') != 'disabled'
     `);
-    const subs = subStmt.all(identity);
+    const allSubs = allSubsStmt.all(identity);
+
+    // Determine subscription_status with the same precedence the prior
+    // active-subs query encoded: 'active' wins over 'degraded'/'disabled'
+    // (an identity with both an active sub and a disabled one is operationally
+    // active). This preserves the #10641 sunset-detection discipline:
+    // subscription presence beats staleness as the authoritative signal.
+    let subscriptionStatus;
+    if (allSubs.length === 0) {
+        subscriptionStatus = 'missing';
+    } else {
+        const activeSub = allSubs.find(s =>
+            (s.status ?? 'active') === 'active' && s.harnessTarget !== 'disabled'
+        );
+        if (activeSub) {
+            subscriptionStatus = 'active';
+        } else if (allSubs.some(s => s.harnessTarget === 'disabled')) {
+            subscriptionStatus = 'disabled';
+        } else {
+            subscriptionStatus = 'degraded';
+        }
+    }
+    const subscriptionActive = subscriptionStatus === 'active';
 
     // [Anchor & Echo] Option A: Upfront Bulk Migration for Legacy Rows
     // Legacy AGENT_MEMORY rows lack a structured 'timestamp' property (time was embedded in 'name').
@@ -61,14 +132,14 @@ async function main() {
           AND json_extract(data, '$.properties.timestamp') IS NULL
     `);
     const legacyRows = legacyStmt.all(identity, identity);
-    
+
     if (legacyRows.length > 0) {
         const updateStmt = db.prepare(`UPDATE Nodes SET data = ? WHERE id = ?`);
         db.transaction((rows) => {
             for (const row of rows) {
                 const tsMatch  = row.nameField?.match(/^Memory:\s+(.+)$/);
                 const sidMatch = row.descField?.match(/inside session ([a-f0-9-]+)/);
-                
+
                 if (tsMatch && sidMatch) {
                     try {
                         const dataObj = JSON.parse(row.data);
@@ -99,46 +170,79 @@ async function main() {
     `);
     const memRow = memStmt.get(identity, identity);
 
-    let originSessionId = memRow?.sessionIdField || '';
-    let isSunsetted = false;
-    let reason = '';
-    let lockData = null;
+    const originSessionId = memRow?.sessionIdField || '';
+    const lastMemTimeMs   = memRow?.timestampField ? new Date(memRow.timestampField).getTime() : 0;
+    const memAgeMs        = lastMemTimeMs ? (Date.now() - lastMemTimeMs) : null;
+    const lastMemoryAgeMin = memAgeMs !== null ? Math.round(memAgeMs / 60000) : null;
 
+    // 3. Compute the two signals via in-flight lock-aware logic.
+    //
     // [Anchor & Echo] Sunset detection criterion: ONLY the explicit Unsubscribe primitive.
     //
-    // Memory-staleness is NOT a sunset signal. It has too many legitimate causes to serve
-    // as a sunset proxy: Anthropic API rate-limits (the agent cannot save during throttle),
-    // long deep-thinking turns (peer reviews, complex analysis), Memory Core path
-    // asymmetry under contention (`add_memory` blocks on Chroma while `add_message` keeps
-    // working on SQLite), or in-flight tool sequences with consolidate-and-save still
-    // pending. Conflating staleness with sunset previously triggered Phase 1 Recovery
-    // (`resumeHarness.mjs` Cmd+N + paste of `buildBootGroundingPrompt`) against
-    // legitimately active agents, spawning orphan Claude Desktop sessions with zero
-    // continuity context (Zero-State Amnesia per `AGENTS.md` §14).
-    //
-    // The authoritative sunset signal is the Unsubscribe primitive: the `session-sunset`
-    // workflow drops the WAKE_SUBSCRIPTION node before terminating the transcript. Any
-    // wake against an agent that still holds an active subscription is a non-sunset wake
-    // and MUST be delivered in-place by `bridge-daemon.mjs` (Cmd+`<tabShortcut>` + paste);
-    // that is the wake substrate's design contract per the operator's clarified model
-    // (issue #10641): "the bridge SHOULD spawn new sessions. but only after a sunset.
-    // otherwise => resume inside current session."
-    if (subs.length === 0) {
-        const memTimestampMs = memRow?.timestampField ? new Date(memRow.timestampField).getTime() : 0;
-        lockData = await checkInflightLock(identity, 'sunset_restart', memTimestampMs);
+    // Memory-staleness is NOT a sunset signal (#10641 codified this — see
+    // historical context in `learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md`).
+    // The authoritative sunset signal is the absence of an active
+    // `WAKE_SUBSCRIPTION`. Staleness is reflected in `idle_out_candidate`
+    // ONLY when paired with an active subscription, surfacing as a
+    // lower-authority "candidate in-place nudge" signal — never as sunset.
+
+    let sunset             = false;
+    let idleOutCandidate   = false;
+    let reason             = '';
+    let lockData           = null;
+
+    if (!subscriptionActive) {
+        // Potential sunset path. Check in-flight lock first — if a sunset_restart
+        // is already in flight, downgrade to no-op so we don't spawn a second.
+        lockData = await checkInflightLock(identity, 'sunset_restart', lastMemTimeMs);
 
         if (lockData.inFlight) {
-            isSunsetted = false;
+            sunset = false;
             reason = 'Sunset restart already in-flight (lock active)';
         } else {
-            isSunsetted = true;
-            reason = 'No active WAKE_SUBSCRIPTION (Unsubscribe primitive fired)';
+            sunset = true;
+            reason = `No active WAKE_SUBSCRIPTION (status: ${subscriptionStatus})`;
         }
+    } else if (lastMemoryAgeMin !== null && memAgeMs > IDLE_THRESHOLD_MS) {
+        // Active subscription + stale memory = candidate idle-out nudge.
+        // Per @neo-gpt's #10683 substrate-truth audit on bounded discipline:
+        // this signal is "candidate in-place nudge," NOT "agent is idle." The
+        // consumer (per #10675) is responsible for the bounded/non-spawning/
+        // idempotent/no-destructive-type guarantees on the action dispatch.
+        lockData = await checkInflightLock(identity, 'idle_out_nudge', lastMemTimeMs);
+
+        if (!lockData.inFlight) {
+            idleOutCandidate = true;
+        }
+        // else: nudge already in flight; emit no_action recommendation.
     }
 
+    // 4. Compute recommended_action — the single field swarm-heartbeat.sh /
+    //    trioWakeCooldown.mjs / resumeHarness.mjs consume to fork into the
+    //    right recovery path.
+    let recommendedAction;
+    if (sunset)                  recommendedAction = 'sunset_restart';
+    else if (idleOutCandidate)   recommendedAction = 'idle_out_nudge';
+    else                         recommendedAction = 'no_action';
+
+    // 5. Emit structured + backward-compat output. Backward-compat fields
+    //    (#10673 AC5) preserve `sunsetted` / `reason` / `originSessionId` /
+    //    `abandonedCount` for consumers not yet migrated to the new shape.
+    //    `swarm-heartbeat.sh` jq parsing reads these legacy fields today.
     console.log(JSON.stringify({
         identity,
-        sunsetted: isSunsetted,
+        sunset,
+        idle_out_candidate: idleOutCandidate,
+        evidence: {
+            subscription_active : subscriptionActive,
+            subscription_status : subscriptionStatus,
+            last_memory_age_min : lastMemoryAgeMin,
+            last_sessionId      : originSessionId
+        },
+        recommended_action: recommendedAction,
+
+        // Backward-compat fields:
+        sunsetted: sunset,
         reason,
         originSessionId,
         abandonedCount: lockData?.abandonedCount || 0
