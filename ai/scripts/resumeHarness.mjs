@@ -36,7 +36,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * BEFORE awaiting close. This captures the PID even if the spawned process is
  * a long-lived interactive harness (Claude Code CLI, Antigravity IDE) whose
  * `close` event never fires within the spawner's lifetime. Recording is best-
- * effort — failures are logged but do not abort the spawn.
+ * effort — failures are logged but do not abort the spawn. The close/error
+ * settlement still waits for the bookkeeping promise, so fast-exiting mock
+ * adapters cannot race process exit before lifecycle state is persisted.
  *
  * @param {string} cmd
  * @param {string[]} args
@@ -46,18 +48,23 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 function spawnAsync(cmd, args, identity = null) {
     return new Promise((resolve, reject) => {
         const proc = spawn(cmd, args, { stdio: 'ignore' });
+        let recordPromise = Promise.resolve();
 
         if (identity && proc.pid) {
-            recordHarnessProcess(identity, proc.pid).catch(err => {
+            recordPromise = recordHarnessProcess(identity, proc.pid).catch(err => {
                 console.warn(`[harnessLifecycle] Failed to record PID for ${identity}: ${err.message}`);
             });
         }
 
         proc.on('close', code => {
-            if (code === 0) resolve();
-            else reject(new Error(`${cmd} exited with code ${code}`));
+            recordPromise.then(() => {
+                if (code === 0) resolve();
+                else reject(new Error(`${cmd} exited with code ${code}`));
+            });
         });
-        proc.on('error', reject);
+        proc.on('error', err => {
+            recordPromise.then(() => reject(err));
+        });
     });
 }
 
@@ -94,6 +101,40 @@ async function resolveClaudeCliPath() {
         return path.join(appSupport, latest, 'claude.app/Contents/MacOS/claude');
     } catch (err) {
         return null;
+    }
+}
+
+/**
+ * @summary Resolve the Codex CLI binary used by the Codex Desktop app-server adapter.
+ *
+ * The default `codex` executable is intentionally overridable for tests via
+ * `CODEX_CLI_PATH`. Specs pair the override with `CODEX_APP_SERVER_MOCK=1`
+ * to capture the command shape without creating a real Codex Desktop thread.
+ *
+ * @returns {string} The Codex CLI command or test override path.
+ */
+function resolveCodexCliPath() {
+    return process.env.CODEX_CLI_PATH || 'codex';
+}
+
+/**
+ * @summary Fail-closed guard for the live Codex Desktop app-server adapter.
+ *
+ * `codex debug app-server send-message-v2` creates/injects into a real Codex
+ * Desktop thread. Per #10679 and #10682, live-host probes must require an
+ * explicit operator opt-in. Unit tests satisfy this guard with
+ * `CODEX_APP_SERVER_MOCK=1` plus `CODEX_CLI_PATH` pointing at a mock
+ * executable, preserving always-on coverage without host side effects.
+ */
+function assertCodexAppServerAllowed() {
+    const hasLiveOptIn = process.env.RUN_LIVE_CODEX_APP_SERVER === '1';
+    const hasMockOptIn = process.env.CODEX_APP_SERVER_MOCK === '1' && Boolean(process.env.CODEX_CLI_PATH);
+
+    if (!hasLiveOptIn && !hasMockOptIn) {
+        throw new Error(
+            'Codex app-server adapter is a live-host action. Set RUN_LIVE_CODEX_APP_SERVER=1 ' +
+            'for an operator-controlled probe, or set CODEX_APP_SERVER_MOCK=1 with CODEX_CLI_PATH in tests.'
+        );
     }
 }
 
@@ -161,8 +202,11 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
     //   process boots a fresh MCP client + fresh `currentSessionId` by construction. This is
     //   precisely what makes harness restart eliminate the spawner-side sessionId management
     //   that #10627's prompt-layer plumbing tried (and failed structurally) to achieve.
-    // Codex Desktop deferred until @neo-gpt confirms its restart primitive (#10679, blocked on
-    //   target-thread MC-startup diagnosis).
+    // 'codex-desktop' utilizes Codex Desktop's app-server debug surface via
+    //   `codex debug app-server send-message-v2` (#10679). This adapter is deliberately
+    //   live-host-gated: normal tests use CODEX_APP_SERVER_MOCK=1 + CODEX_CLI_PATH
+    //   mocks, while real probes require RUN_LIVE_CODEX_APP_SERVER=1 until target-thread
+    //   Memory Core health + first-memory session identity proof has been captured.
     //
     // The legacy `osascript` adapter dispatch (Cmd+N keystroke into running Claude Desktop)
     // is preserved as a fallback for harnesses that may need it; no production identity
@@ -170,12 +214,14 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
     // the historical context.
     const HARNESS_REGISTRY = {
         'antigravity-ide': { adapter: 'antigravity-cli' },
-        'claude-desktop':  { adapter: 'claude-cli' }
+        'claude-desktop':  { adapter: 'claude-cli' },
+        'codex-desktop':   { adapter: 'codex-app-server' }
     };
 
     const identityMap = {
         '@neo-gemini-3-1-pro': 'antigravity-ide',
-        '@neo-opus-4-7': 'claude-desktop'
+        '@neo-gpt'           : 'codex-desktop',
+        '@neo-opus-4-7'      : 'claude-desktop'
     };
 
     const targetId = identityMap[identity];
@@ -194,10 +240,11 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
     // Cross-adapter cleanup: terminate the previous harness process for this identity BEFORE
     // spawning the new one. Sunset-mode restart spawns fresh processes (claude-cli, antigravity-cli);
     // without cleanup, repeated sunsets accumulate stale processes and orphan windows. Applies to
-    // every CLI-spawning adapter; the legacy osascript Cmd+N adapter (which targeted the same app
-    // instance, no leak surface) is exempt. Per #10696 review point 2.
+    // CLI-spawning adapters; the legacy osascript Cmd+N adapter (which targeted the same app
+    // instance, no leak surface) and Codex app-server adapter (which creates/injects a thread
+    // through the already-running Codex Desktop app-server) are exempt. Per #10696 review point 2.
     // Explicitly scoped to 'sunset_restart' ONLY per @tobiu mandate.
-    if (reason === 'sunset_restart' && adapter !== 'osascript' && adapter !== 'tmux') {
+    if (reason === 'sunset_restart' && adapter !== 'codex-app-server' && adapter !== 'osascript' && adapter !== 'tmux') {
         const cleanup = await terminatePreviousHarness(identity);
         if (cleanup.terminated) {
             const escalation = cleanup.escalated ? `, escalated to ${cleanup.escalated}` : '';
@@ -253,6 +300,27 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
             const args = [payload];
             await spawnAsync(cliPath, args, identity);
             console.log(`Successfully resumed ${identity} via claude-cli`);
+        } else if (adapter === 'codex-app-server') {
+            /**
+             * @anchor codex-app-server-live-host-gate
+             * @summary Codex Desktop app-server thread injection via `send-message-v2`.
+             *
+             * `send-message-v2` is a prompt-injection primitive, not yet a complete
+             * recovery proof. The earlier #10679 probe showed it can create a fresh
+             * Codex Desktop thread and deliver the prompt, but target-thread Memory
+             * Core startup failed. Until a live proof captures healthy post-spawn
+             * Memory Core plus a first `add_memory` sessionId change, the adapter
+             * remains fail-closed for real hosts via `RUN_LIVE_CODEX_APP_SERVER=1`.
+             *
+             * Tests use `CODEX_APP_SERVER_MOCK=1` plus `CODEX_CLI_PATH` to point at a
+             * mock executable, verifying the command shape without creating real Codex
+             * threads.
+             */
+            assertCodexAppServerAllowed();
+            const cliPath = resolveCodexCliPath();
+            const args = ['debug', 'app-server', 'send-message-v2', payload];
+            await spawnAsync(cliPath, args);
+            console.log(`Successfully resumed ${identity} via codex-app-server`);
         } else if (adapter === 'osascript') {
             const { appName, tabShortcut, freshSessionShortcut } = harnessTarget;
             // Q1b fresh-session-spawn flow per #10611:
