@@ -33,9 +33,77 @@ export function getActiveShapeCSubscriptions(db) {
         FROM Nodes 
         WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
           AND json_extract(data, '$.properties.harnessTarget') = 'bridge-daemon'
-          AND COALESCE(json_extract(data, '$.properties.status'), 'active') != 'degraded'
+          AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
     `);
-    return stmt.all().map(row => JSON.parse(row.data));
+    return collapseDuplicateShapeCRoutes(stmt.all().map(row => JSON.parse(row.data)));
+}
+
+/**
+ * @summary Collapses duplicate active Shape C wake routes before bridge-daemon dispatch.
+ *
+ * The bridge daemon is the last-mile consumer of durable `WAKE_SUBSCRIPTION` rows. If a stale
+ * active row survives an MCP restart, dispatching every row wakes the same agent multiple times
+ * for the same mailbox event. This defense-in-depth guard mirrors the Memory Core
+ * `subscribe` idempotency contract: one active route per `(agentIdentity, trigger, filters,
+ * appName)` tuple, with the newest updated/created row winning when legacy duplicates exist.
+ *
+ * @param {Object[]} subscriptions Parsed WAKE_SUBSCRIPTION graph nodes.
+ * @returns {Object[]} Deduplicated subscriptions for bridge delivery.
+ */
+export function collapseDuplicateShapeCRoutes(subscriptions) {
+    const byRoute = new Map();
+
+    for (const subscription of subscriptions) {
+        const key      = buildShapeCRouteKey(subscription);
+        const existing = byRoute.get(key);
+
+        if (!existing || getSubscriptionTimestamp(subscription) >= getSubscriptionTimestamp(existing)) {
+            byRoute.set(key, subscription);
+        }
+    }
+
+    return Array.from(byRoute.values());
+}
+
+function buildShapeCRouteKey(subscription) {
+    const props    = subscription.properties || {};
+    const metadata = props.harnessTargetMetadata || {};
+
+    return stableStringify({
+        agentIdentity: props.agentIdentity,
+        trigger      : props.trigger,
+        filters      : props.filters || {},
+        harnessTarget: props.harnessTarget,
+        routeMetadata: {
+            appName: metadata.appName || null
+        }
+    });
+}
+
+function getSubscriptionTimestamp(subscription) {
+    const props = subscription.properties || {};
+    return props.updatedAt || props.createdAt || '';
+}
+
+function stableStringify(value) {
+    return JSON.stringify(stableNormalize(value));
+}
+
+function stableNormalize(value) {
+    if (Array.isArray(value)) {
+        return value
+            .map(item => stableNormalize(item))
+            .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.keys(value).sort().reduce((out, key) => {
+            out[key] = stableNormalize(value[key]);
+            return out;
+        }, {});
+    }
+
+    return value;
 }
 
 export function getGraphLogEntries(db, lastSyncId) {

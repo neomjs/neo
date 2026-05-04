@@ -4,7 +4,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { spawn } from 'child_process';
 import crypto from 'crypto';
-import { getNodesData, getEdgesData } from '../../../../../ai/scripts/bridge-daemon-queries.mjs';
+import { collapseDuplicateShapeCRoutes, getNodesData, getEdgesData } from '../../../../../ai/scripts/bridge-daemon-queries.mjs';
 import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../../../../ai/graph/storage/constants.mjs';
 
 test.describe('Bridge Daemon', () => {
@@ -913,6 +913,39 @@ test.describe('Bridge Daemon', () => {
         expect(prepareCount).toBe(2);
         expect(paramsLength).toEqual([SQLITE_IN_CLAUSE_BATCH_SIZE, overflowAmount]);
         expect(edgeResults.length).toBe(totalItems);
+    });
+
+    test('collapseDuplicateShapeCRoutes keeps only newest active route per identity tuple (#10717)', () => {
+        const buildSub = ({id, agentIdentity = '@neo-gemini-3-1-pro', appName = 'Antigravity', createdAt}) => ({
+            id,
+            label     : 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity,
+                trigger      : 'SENT_TO_ME',
+                filters      : {},
+                harnessTarget: 'bridge-daemon',
+                harnessTargetMetadata: {
+                    adapter: 'test',
+                    appName
+                },
+                createdAt,
+                updatedAt: createdAt,
+                status   : 'active'
+            }
+        });
+
+        const oldGemini = buildSub({id: 'WAKE_SUB:old-gemini', createdAt: '2026-05-04T20:16:10.969Z'});
+        const newGemini = buildSub({id: 'WAKE_SUB:new-gemini', createdAt: '2026-05-04T20:46:07.162Z'});
+        const claude    = buildSub({
+            id           : 'WAKE_SUB:claude',
+            agentIdentity: '@neo-opus-4-7',
+            appName      : 'Claude',
+            createdAt    : '2026-05-04T20:00:00.000Z'
+        });
+
+        const result = collapseDuplicateShapeCRoutes([oldGemini, claude, newGemini]);
+
+        expect(result.map(sub => sub.id).sort()).toEqual(['WAKE_SUB:claude', 'WAKE_SUB:new-gemini']);
     });
 
     test('suppresses wake for sender of AGENT:* broadcast and delivers to peers (#10668)', async () => {
