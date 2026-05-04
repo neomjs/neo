@@ -1,5 +1,5 @@
-import {AsyncLocalStorage} from 'async_hooks';
-import Base                from '../../../../../src/core/Base.mjs';
+import { AsyncLocalStorage } from 'async_hooks';
+import Base from '../../../../../src/core/Base.mjs';
 
 /**
  * @summary Sentinel `userId` value tagging records that belong to the historical commons —
@@ -122,6 +122,7 @@ class RequestContextService extends Base {
      * Runs `callback` with the supplied context scoped to the active async call stack.
      *
      * @param {Object}   context                      The request-scoped context to expose.
+     * @param {String}   [context.sessionId]          The MCP session ID (e.g. from the Mcp-Session-Id header).
      * @param {String}   [context.userId]             The authenticated user's identifier (from
      *                                                OIDC `preferred_username` / `sub`, or the
      *                                                `StdioIdentityResolver` env-var / gh-CLI
@@ -199,6 +200,20 @@ class RequestContextService extends Base {
      */
     getSource() {
         return this.storage.getStore()?.source
+    }
+
+    /**
+     * @summary Convenience accessor for the client-scoped MCP session ID.
+     *
+     * Extracted from the `Mcp-Session-Id` header by `TransportService`.
+     * This is the primary driver for multi-tenant isolation in the Memory Core.
+     * When present, it completely overrides the legacy process-global fallback
+     * in `SessionService`.
+     *
+     * @returns {String|undefined}
+     */
+    getSessionId() {
+        return this.storage.getStore()?.sessionId
     }
 }
 

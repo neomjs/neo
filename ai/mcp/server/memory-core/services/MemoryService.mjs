@@ -137,7 +137,7 @@ class MemoryService extends Base {
      * @param {String} options.prompt    The user's prompt.
      * @param {String} options.response  The agent's response.
      * @param {String} options.thought   The agent's internal thought process.
-     * @param {String} options.sessionId The ID of the session this memory belongs to.
+     * @param {String} [options.sessionId] The ID of the session this memory belongs to. If omitted, resolves from the request-bound `Mcp-Session-Id` header when present.
      * @param {String} [options.agent]   The agent profile (e.g. 'antigravity').
      * @param {String} [options.model]   The model name (e.g. 'gemini-3.1-pro').
      * @param {Number} [options.amountToolCalls] The number of tool calls executed during the turn.

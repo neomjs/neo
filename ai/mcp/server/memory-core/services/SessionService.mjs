@@ -47,10 +47,10 @@ class SessionService extends Base {
          */
         className: 'Neo.ai.mcp.server.memory-core.services.SessionService',
         /**
-         * @member {String|null} currentSessionId=crypto.randomUUID()
+         * @member {String|null} _legacySessionId=crypto.randomUUID()
          * @protected
          */
-        currentSessionId: crypto.randomUUID(),
+        _legacySessionId: crypto.randomUUID(),
         /**
          * @member {Object|null} memoryCollection_=null
          * @protected
@@ -82,7 +82,7 @@ class SessionService extends Base {
     construct(config) {
         super.construct(config);
 
-        logger.info(`[SessionService] Initialized new session: ${this.currentSessionId}`);
+        logger.info(`[SessionService] Initialized new fallback session: ${this._legacySessionId}`);
 
         if (aiConfig.modelProvider === 'gemini') {
             const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -112,7 +112,7 @@ class SessionService extends Base {
                             'Content-Type': 'application/json',
                             'Content-Length': bodyData.length
                         };
-                        
+
                         if (aiConfig.openAiCompatible.apiKey) {
                             headers['Authorization'] = `Bearer ${aiConfig.openAiCompatible.apiKey}`;
                         }
@@ -153,6 +153,20 @@ class SessionService extends Base {
             const genAI = new GoogleGenerativeAI(geminiKey);
             this.model = genAI.getGenerativeModel({ model: aiConfig.modelName });
         }
+    }
+
+    /**
+     * @returns {String|null}
+     */
+    get currentSessionId() {
+        return RequestContextService.getSessionId() || this._legacySessionId;
+    }
+
+    /**
+     * @param {String|null} value
+     */
+    set currentSessionId(value) {
+        this._legacySessionId = value;
     }
 
     /**
@@ -339,7 +353,7 @@ class SessionService extends Base {
         const sessionsToUpdate = [];
 
         Object.keys(sessions).forEach(sessionId => {
-            const sessionData  = sessions[sessionId];
+            const sessionData = sessions[sessionId];
             const summaryCount = summaryMap[sessionId];
 
             // Explicitly exclude the current active session from both cases.
@@ -616,6 +630,12 @@ ${aggregatedContent}
     /**
      * Overrides the current session ID manually.
      * Helpful for reconnecting a fragmented session after a server restart.
+     *
+     * @summary Manual session override (Legacy / Stdio fallback). When a request-scoped
+     * session is active via `RequestContextService`, this method intentionally fails.
+     * The `Mcp-Session-Id` header is the authoritative source for multi-tenant isolation,
+     * and allowing manual overrides would break tenant boundaries.
+     *
      * @protected Assumes the caller is authorized to claim the given sessionId in a single-tenant environment.
      * @param {Object} args
      * @param {String} args.sessionId
@@ -625,7 +645,15 @@ ${aggregatedContent}
         if (!sessionId || typeof sessionId !== 'string') {
             return { error: 'Invalid sessionId', code: 'INVALID_SESSION_ID' };
         }
-        
+
+        // Enforce request-scoped immutability
+        if (RequestContextService.getSessionId()) {
+            return {
+                error: 'Cannot manually override request-scoped sessions. Manage session identity via Mcp-Session-Id header.',
+                code: 'REQUEST_SCOPED_SESSION_ACTIVE'
+            };
+        }
+
         const oldSessionId = this.currentSessionId;
         if (oldSessionId === sessionId) {
             return { success: true, sessionId: this.currentSessionId, message: "Session ID unchanged." };
@@ -646,10 +674,10 @@ ${aggregatedContent}
         } catch (e) {
             logger.warn(`[SessionService] Error checking old session during override: ${e.message}`);
         }
-        
+
         logger.info(`[SessionService] Overriding session ID: ${oldSessionId} -> ${sessionId}`);
         this.currentSessionId = sessionId;
-        
+
         return { success: true, sessionId: this.currentSessionId, replacedSessionId: oldSessionId };
     }
 
