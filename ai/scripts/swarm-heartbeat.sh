@@ -167,6 +167,32 @@ heartbeat_pulse() {
                 # Continue loop; no need to send regular heartbeat to tmux since we just resumed via OS
                 continue
             fi
+
+            # Per-identity idle-out heartbeat nudge (#10675). When checkSunsetted's
+            # recommended_action is 'idle_out_nudge' (active subscription + stale memory >
+            # IDLE_THRESHOLD_MS), dispatch an in-place A2A nudge via idleOutNudge.mjs.
+            # Distinct from the trio-wide all-agent-idle path below: this fires per-identity
+            # when ONE specific agent is stale while the swarm is otherwise active. Both
+            # reuse the inflightLock.mjs idle_out_nudge mode but operate independently.
+            #
+            # `// "no_action"` jq filter degrades safely on older checkSunsetted output
+            # shape that pre-dates the #10689 detector contract.
+            local recommended_action=$(echo "$sunset_json" | jq -r '.recommended_action // "no_action"')
+            if [ "$recommended_action" = "idle_out_nudge" ]; then
+                # Wake safety gate (#10648, child of #10647). Defense-in-depth: idleOutNudge.mjs
+                # also checks the gate internally (see resumeHarness pattern), but the shell
+                # check skips the Node-process spawn cost when the gate is closed.
+                if ! node "${script_dir}/wakeSafetyGate.mjs" check 2>>"$SWEEP_LOG"; then
+                    local gate_reason=$(node "${script_dir}/wakeSafetyGate.mjs" reason 2>>"$SWEEP_LOG")
+                    echo "[heartbeat $(date -Iseconds)] Wake safety gate closed; skipping idle-out nudge for $IDENTITY. Gate reason: $gate_reason" >&2
+                    continue
+                fi
+
+                echo "[heartbeat $(date -Iseconds)] Idle-out nudge triggered for $IDENTITY" >&2
+                node "${script_dir}/idleOutNudge.mjs" "$IDENTITY" 2>>"$SWEEP_LOG"
+                # Continue loop; nudge dispatched, no need for additional tmux heartbeat
+                continue
+            fi
         fi
 
         # All-agent-idle detection (Phase 3 Substrate Primitive #10625)
