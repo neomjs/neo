@@ -80,9 +80,12 @@ Teams adopting shared mode from per-developer local should follow this migration
 
 3. **Update each developer's config.** Each developer sets `NEO_CHROMA_UNIFIED=true` and points their KB's `engines.kb.chroma.{host, port}` config at the shared instance. The setting can live in the developer's environment or in a shared `.env` template.
 
-4. **Verify via healthcheck.** Each developer runs `healthcheck` from both KB and MC; expect `topology.mode === 'unified'` and matching `coordinates`. Connection failures surface as structured `error` fields, not 500s.
+4. **Verify via healthcheck.** Each developer runs `healthcheck` against both servers, but the proof shape differs per server:
+   - **Memory Core** surfaces the effective topology in its `database.topology` block — expect `mode === 'unified'`, matching `coordinates`, and `resolvedVia === 'engines.kb.chroma'`. This is the canonical topology proof.
+   - **Knowledge Base** proves connectivity to the shared Chroma instance and reports collection availability/counts (the KB healthcheck does not surface a topology block; that diagnostic is MC-side per #10127).
+   - Cross-server consistency: when both servers report `connected: true` against matching `{host, port}`, the shared topology is verified end-to-end. Connection failures surface as structured `error` fields, not 500s.
 
-5. **First-session smoke test.** Have each developer's agent run a `query_summaries` or `ask_knowledge_base` query. The first agent populates baseline; subsequent agents should see each other's summaries on subsequent queries.
+5. **First-session smoke test.** Have each developer's agent run a `query_summaries` query against Memory Core — this is the canonical cross-agent **memory visibility** proof. The first agent populates baseline; subsequent agents should see each other's summaries on subsequent queries. Optionally also run an `ask_knowledge_base` query against the Knowledge Base to validate **KB sharing** through the same Chroma instance — it's a separate retrieval surface, not a memory-visibility proof.
 
 ## Validation
 
