@@ -232,62 +232,30 @@ class WakeSubscriptionService extends Base {
             throw new Error(`Cannot bootstrap subscription: no subscriptionTemplate found on AgentIdentity '${owner}'.`);
         }
 
-        // Idempotency check: query SQLite directly to find an existing active subscription
-        // matching the template tuple `(agentIdentity, trigger, harnessTarget)`.
-        //
-        // Why raw SQL instead of iterating `db.nodes.items`: the in-memory cache is lazy-loaded —
-        // WAKE_SUBSCRIPTION nodes created by a prior MC server instance are NOT pre-loaded after
-        // restart unless explicitly accessed via `getAdjacentNodes`. Cache iteration silently
-        // misses cross-restart subscriptions and creates duplicates. Raw SQL queries the canonical
-        // SQLite source-of-truth — same approach as the bridge daemon's `getActiveShapeCSubscriptions`.
-        // Per #10410 empirical anchor: bootstrap created duplicate `WAKE_SUB:e5f96999` alongside
-        // existing `WAKE_SUB:ca08d381` because the cache lookup didn't surface the cross-restart sub.
-        // The cache-iteration fallback below preserves test-environment compatibility for cases
-        // where `db.storage.db` (raw better-sqlite3) is not available.
-        const sqlite = GraphService.db?.storage?.db;
-        if (sqlite) {
-            const existingStmt = sqlite.prepare(`
-                SELECT id, data FROM Nodes
-                WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
-                  AND json_extract(data, '$.properties.agentIdentity') = ?
-                  AND json_extract(data, '$.properties.status') = 'active'
-                  AND json_extract(data, '$.properties.trigger') = ?
-                  AND json_extract(data, '$.properties.harnessTarget') = ?
-                LIMIT 1
-            `);
-            const existing = existingStmt.get(owner, template.trigger, template.harnessTarget);
-            if (existing) {
-                const existingData = JSON.parse(existing.data);
-                return {
-                    subscriptionId: existing.id,
-                    harnessTarget : existingData.properties.harnessTarget,
-                    status        : 'existing'
-                };
-            }
-        } else {
-            // Fallback: in-memory cache iteration (test environments without raw SQLite storage).
-            const db = GraphService.db;
-            if (db) {
-                for (const node of db.nodes.items) {
-                    if (node.label === 'WAKE_SUBSCRIPTION') {
-                        const props = node.properties || {};
-                        if (props.agentIdentity === owner &&
-                            props.status        === 'active' &&
-                            props.trigger       === template.trigger &&
-                            props.harnessTarget === template.harnessTarget) {
-                            return {subscriptionId: node.id, harnessTarget: props.harnessTarget, status: 'existing'};
-                        }
-                    }
-                }
-            }
-        }
-
         const mergedMetadata = {
             ...(template.harnessTargetMetadata || {}),
             ...(overrideMetadata || {})
         };
 
-        // Create new subscription from template
+        // Bootstrap and public subscribe must share the same durable route-idempotency contract.
+        const existing = this._findActiveSubscriptionByRoute({
+            owner,
+            trigger              : template.trigger,
+            filters              : template.filters || {},
+            harnessTarget        : template.harnessTarget,
+            harnessTargetMetadata: mergedMetadata
+        });
+
+        if (existing) {
+            const refreshed = this._refreshExistingSubscriptionRoute(existing, {
+                filters              : template.filters || {},
+                harnessTargetMetadata: mergedMetadata
+            });
+
+            return {subscriptionId: refreshed.id, harnessTarget: refreshed.harnessTarget, status: 'existing'};
+        }
+
+        // Create new subscription from template.
         const result = await this.subscribe({
             trigger: template.trigger,
             filters: template.filters || {},
@@ -295,7 +263,7 @@ class WakeSubscriptionService extends Base {
             harnessTargetMetadata: mergedMetadata
         });
 
-        return { ...result, status: 'created' };
+        return {...result, status: result.status === 'existing' ? 'existing' : 'created'};
     }
 
     /**
@@ -371,7 +339,17 @@ class WakeSubscriptionService extends Base {
     }
 
     /**
-     * Creates a new subscription. Generates a fresh subscriptionId, persists the
+     * @summary Creates or reuses a caller-owned wake subscription for one canonical route tuple.
+     *
+     * The public `subscribe` action is a restart-boundary surface, not only a fresh-create
+     * primitive. Agents routinely re-subscribe after MCP or bridge-daemon restarts, and the
+     * bridge daemon reads every durable active `WAKE_SUBSCRIPTION` row. To keep the
+     * wake-substrate route topology one-active-row-per-identity, this method first checks the
+     * SQLite source of truth for an active route match using `(agentIdentity, trigger,
+     * harnessTarget, normalized filters, route metadata)`. If one exists, it warms the
+     * in-memory cache and returns the existing id instead of creating duplicate wake fanout.
+     *
+     * Generates a fresh subscriptionId only when no active route exists, persists the
      * WAKE_SUBSCRIPTION node + SUBSCRIBES_TO edge, and populates the cache.
      * For Shape B (`a2a-webhook`), generates an HMAC signing key and returns it once.
      *
@@ -394,22 +372,37 @@ class WakeSubscriptionService extends Base {
             throw new Error(`Invalid harnessTarget '${harnessTarget}'. Must be one of: ${this.validHarnessTargets.join(', ')}`);
         }
 
+        const finalMetadata = {...harnessTargetMetadata};
+
+        if (harnessTarget === 'a2a-webhook' && !finalMetadata.url) {
+            throw new Error("Shape B (a2a-webhook) requires harnessTargetMetadata.url.");
+        }
+        this.validateHarnessTargetMetadata(harnessTarget, finalMetadata);
+
+        const existing = this._findActiveSubscriptionByRoute({
+            owner,
+            trigger,
+            filters,
+            harnessTarget,
+            harnessTargetMetadata: finalMetadata
+        });
+
+        if (existing) {
+            const refreshed = this._refreshExistingSubscriptionRoute(existing, {filters, harnessTargetMetadata: finalMetadata});
+            return {subscriptionId: refreshed.id, harnessTarget: refreshed.harnessTarget, status: 'existing'};
+        }
+
         const subscriptionId = `WAKE_SUB:${crypto.randomUUID()}`;
         const now            = new Date().toISOString();
-        const finalMetadata  = {...harnessTargetMetadata};
 
         // Shape B requires an HMAC signing key for webhook authenticity.
         // Per ADR 0002 §6.2.3 the server generates and returns it once at subscribe-time;
         // it is stored in the node's harnessTargetMetadata for subsequent verification.
         let signingKey;
         if (harnessTarget === 'a2a-webhook') {
-            if (!finalMetadata.url) {
-                throw new Error("Shape B (a2a-webhook) requires harnessTargetMetadata.url.");
-            }
             signingKey              = crypto.randomBytes(32).toString('hex');
             finalMetadata.signingKey = signingKey;
         }
-        this.validateHarnessTargetMetadata(harnessTarget, finalMetadata);
 
         const properties = {
             agentIdentity: owner,
@@ -461,7 +454,7 @@ class WakeSubscriptionService extends Base {
             throw new Error(`Permission denied: subscription ${subscriptionId} is owned by ${subscription.agentIdentity}, not ${caller}.`);
         }
 
-        const db           = GraphService.db;
+        const db            = GraphService.db;
         const edgesToRemove = [];
         for (const edge of db.edges.items) {
             if (edge.target === subscriptionId && edge.type === 'SUBSCRIBES_TO') {
@@ -470,7 +463,15 @@ class WakeSubscriptionService extends Base {
         }
         if (edgesToRemove.length > 0) db.edges.remove(edgesToRemove);
 
-        db.removeNode(subscriptionId);
+        this._removeDurableSubscriptionEdges(subscriptionId);
+
+        if (db.nodes.get(subscriptionId)) {
+            db.removeNode(subscriptionId);
+        } else {
+            db.storage?.removeNodes?.([subscriptionId]);
+            db.vicinityLoadedNodes?.delete(subscriptionId);
+            db.lastAccessMap?.delete(subscriptionId);
+        }
         this.subscriptionCache.delete(subscriptionId);
 
         logger.info(`[WakeSubscription] unsubscribed ${subscriptionId} for ${caller}`);
@@ -567,8 +568,11 @@ class WakeSubscriptionService extends Base {
             return {subscriptions: [subscription]};
         }
 
-        // Full scan for caller-owned subscriptions. The cache may be partial (lazy-loaded);
-        // walk SQLite directly for completeness, then warm the cache as a side effect.
+        const durableSubscriptions = this._listDurableSubscriptionsForOwner(caller);
+        if (durableSubscriptions) return {subscriptions: durableSubscriptions};
+
+        // Fallback for test environments without raw SQLite storage. The cache may be partial
+        // (lazy-loaded); walk the in-memory graph when no durable scan is available.
         const subscriptions = [];
         const db            = GraphService.db;
         for (const node of db.nodes.items) {
@@ -799,11 +803,357 @@ class WakeSubscriptionService extends Base {
         if (this.subscriptionCache.has(subscriptionId)) return this.subscriptionCache.get(subscriptionId);
 
         const node = GraphService.db.nodes.get(subscriptionId);
-        if (!node || node.label !== 'WAKE_SUBSCRIPTION') return null;
+        if (node?.label === 'WAKE_SUBSCRIPTION') {
+            const entry = {id: node.id, ...(node.properties || {})};
+            this.subscriptionCache.set(subscriptionId, entry);
+            return entry;
+        }
 
-        const entry = {id: node.id, ...(node.properties || {})};
+        const durable = this._loadDurableSubscription(subscriptionId);
+        if (!durable) return null;
+
+        const entry = this._hydrateSubscriptionFromDurableNode(subscriptionId, durable);
         this.subscriptionCache.set(subscriptionId, entry);
         return entry;
+    }
+
+    /**
+     * @summary Locates an active wake-subscription route from the durable source of truth.
+     *
+     * Public re-subscribe calls are semantically route recovery attempts after restart, while
+     * bridge-daemon dispatch consumes every active SQLite row. Matching against SQLite before
+     * creating a new `WAKE_SUBSCRIPTION` keeps the API and bridge daemon aligned and prevents
+     * duplicate wake fanout when the in-memory cache is cold.
+     *
+     * @param {Object} opts
+     * @param {String} opts.owner AgentIdentity node id that owns the route.
+     * @param {String} opts.trigger Wake trigger.
+     * @param {Object} opts.filters Normalized AND-conjunctive filter object.
+     * @param {String} opts.harnessTarget Wake delivery channel.
+     * @param {Object} opts.harnessTargetMetadata Channel-specific route metadata.
+     * @returns {Object|null} Cached entry for the existing active route, if present.
+     * @protected
+     */
+    _findActiveSubscriptionByRoute({owner, trigger, filters = {}, harnessTarget, harnessTargetMetadata = {}}) {
+        const candidateRouteKey = this._buildSubscriptionRouteKey({
+            agentIdentity: owner,
+            trigger,
+            filters,
+            harnessTarget,
+            harnessTargetMetadata
+        });
+
+        for (const subscription of this._getCandidateSubscriptions(owner, trigger, harnessTarget)) {
+            if ((subscription.status || 'active') !== 'active') continue;
+            if (this._buildSubscriptionRouteKey(subscription) === candidateRouteKey) {
+                this.subscriptionCache.set(subscription.id, subscription);
+                return subscription;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @summary Reads candidate wake subscriptions from SQLite, falling back to graph cache.
+     *
+     * The durable-first path mirrors the bridge daemon's source of truth. The in-memory fallback
+     * keeps isolated unit-test harnesses working when they replace the graph storage substrate.
+     *
+     * @param {String} owner AgentIdentity node id.
+     * @param {String} trigger Wake trigger.
+     * @param {String} harnessTarget Wake delivery channel.
+     * @returns {Object[]} Candidate subscription entries.
+     * @protected
+     */
+    _getCandidateSubscriptions(owner, trigger, harnessTarget) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (sqlite) {
+            const rows = sqlite.prepare(`
+                SELECT id, data FROM Nodes
+                WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
+                  AND json_extract(data, '$.properties.agentIdentity') = ?
+                  AND json_extract(data, '$.properties.trigger') = ?
+                  AND json_extract(data, '$.properties.harnessTarget') = ?
+                  AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+            `).all(owner, trigger, harnessTarget);
+
+            return rows
+                .map(row => this._parseDurableSubscriptionRow(row))
+                .filter(Boolean)
+                .map(({id, node}) => this._hydrateSubscriptionFromDurableNode(id, node));
+        }
+
+        const candidates = [];
+        const db         = GraphService.db;
+        if (!db) return candidates;
+
+        for (const node of db.nodes.items) {
+            if (node.label !== 'WAKE_SUBSCRIPTION') continue;
+            const props = node.properties || {};
+            if (props.agentIdentity !== owner)     continue;
+            if (props.trigger !== trigger)         continue;
+            if (props.harnessTarget !== harnessTarget) continue;
+            candidates.push({id: node.id, ...props});
+        }
+
+        return candidates;
+    }
+
+    /**
+     * @summary Lists caller-owned wake subscriptions from durable SQLite and warms cache.
+     *
+     * `manage_wake_subscription({action: 'list'})` must show the same active rows the bridge
+     * daemon can dispatch. A full SQLite scan prevents stale-but-active rows from hiding behind
+     * a cold Memory Core graph cache after process restarts.
+     *
+     * @param {String} owner AgentIdentity node id.
+     * @returns {Object[]|null} Durable subscriptions, or null when raw SQLite is unavailable.
+     * @protected
+     */
+    _listDurableSubscriptionsForOwner(owner) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite) return null;
+
+        const rows = sqlite.prepare(`
+            SELECT id, data FROM Nodes
+            WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
+              AND json_extract(data, '$.properties.agentIdentity') = ?
+            ORDER BY COALESCE(
+                json_extract(data, '$.properties.updatedAt'),
+                json_extract(data, '$.properties.createdAt'),
+                ''
+            ) ASC
+        `).all(owner);
+
+        return rows
+            .map(row => this._parseDurableSubscriptionRow(row))
+            .filter(Boolean)
+            .map(({id, node}) => this._hydrateSubscriptionFromDurableNode(id, node));
+    }
+
+    /**
+     * @summary Loads one durable wake-subscription node by id.
+     *
+     * @param {String} subscriptionId The `WAKE_SUB:<uuid>` identifier.
+     * @returns {Object|null} Parsed graph node, or null when absent / malformed / wrong label.
+     * @protected
+     */
+    _loadDurableSubscription(subscriptionId) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite) return null;
+
+        const row = sqlite.prepare('SELECT id, data FROM Nodes WHERE id = ? LIMIT 1').get(subscriptionId);
+        const parsed = this._parseDurableSubscriptionRow(row);
+        return parsed?.node || null;
+    }
+
+    /**
+     * @summary Parses a SQLite Nodes row that should contain a WAKE_SUBSCRIPTION graph node.
+     *
+     * Malformed historical rows are ignored rather than breaking `list` for the caller. The warning
+     * keeps operator forensics possible without making one corrupt row hide all valid wake routes.
+     *
+     * @param {Object} row SQLite row with `id` and JSON `data`.
+     * @returns {{id:String,node:Object}|null}
+     * @protected
+     */
+    _parseDurableSubscriptionRow(row) {
+        if (!row?.data) return null;
+
+        try {
+            const node = JSON.parse(row.data);
+            if (node?.label !== 'WAKE_SUBSCRIPTION') return null;
+            return {id: row.id || node.id, node: {...node, id: node.id || row.id}};
+        } catch (error) {
+            logger.warn(`[WakeSubscription] Failed to parse durable subscription row ${row.id}: ${error.message}`);
+            return null;
+        }
+    }
+
+    /**
+     * @summary Hydrates the graph cache and subscription cache from a durable subscription node.
+     *
+     * This is the Echo half of the durable-source alignment strategy: once SQLite proves a
+     * subscription exists, the hot graph/cache layers are updated so subsequent operations in the
+     * same MCP server lifetime see the same route the bridge daemon sees.
+     *
+     * @param {String} subscriptionId The durable subscription id.
+     * @param {Object} node Parsed `WAKE_SUBSCRIPTION` graph node.
+     * @returns {Object} Cache entry (`{id, ...properties}`).
+     * @protected
+     */
+    _hydrateSubscriptionFromDurableNode(subscriptionId, node) {
+        const id         = subscriptionId || node.id;
+        const properties = node.properties || {};
+        const db         = GraphService.db;
+        const cachedNode = db?.nodes?.get(id);
+
+        if (cachedNode) {
+            cachedNode.label      = node.label || cachedNode.label;
+            cachedNode.properties = {
+                ...(cachedNode.properties || {}),
+                ...properties
+            };
+        } else {
+            const wasAutoSave = db?.autoSave;
+            if (db) db.autoSave = false;
+            try {
+                db?.nodes?.add({
+                    ...node,
+                    id,
+                    label: node.label || 'WAKE_SUBSCRIPTION',
+                    properties
+                });
+            } finally {
+                if (db) db.autoSave = wasAutoSave;
+            }
+        }
+
+        const entry = {id, ...properties};
+        this.subscriptionCache.set(id, entry);
+        return entry;
+    }
+
+    /**
+     * @summary Refreshes mutable metadata on an existing active wake route during re-subscribe.
+     *
+     * Idempotent subscribe must not create a duplicate route, but re-subscribe is also the
+     * operator recovery path after bridge/MCP restarts. Merging the current request's filters and
+     * metadata into the existing row lets agents repair stale route settings (for example a
+     * corrected `focusSeedKey`) without adding parallel active `WAKE_SUBSCRIPTION` rows.
+     *
+     * @param {Object} subscription Existing cache entry.
+     * @param {Object} opts
+     * @param {Object} opts.filters Current filter request.
+     * @param {Object} opts.harnessTargetMetadata Current metadata request.
+     * @returns {Object} Refreshed cache entry.
+     * @protected
+     */
+    _refreshExistingSubscriptionRoute(subscription, {filters = {}, harnessTargetMetadata = {}} = {}) {
+        const refreshed = {
+            ...subscription,
+            filters,
+            harnessTargetMetadata: {
+                ...(subscription.harnessTargetMetadata || {}),
+                ...harnessTargetMetadata
+            },
+            updatedAt: new Date().toISOString()
+        };
+
+        this.validateHarnessTargetMetadata(refreshed.harnessTarget, refreshed.harnessTargetMetadata || {});
+
+        const {id, ...properties} = refreshed;
+        GraphService.upsertNode({
+            id,
+            type: 'WAKE_SUBSCRIPTION',
+            properties
+        });
+
+        this.subscriptionCache.set(id, refreshed);
+
+        return refreshed;
+    }
+
+    /**
+     * @summary Removes durable SUBSCRIBES_TO edges for cache-cold unsubscribe operations.
+     *
+     * `unsubscribe` used to scan only loaded `db.edges.items`; after restart, stale active
+     * subscription nodes can still have durable `SUBSCRIBES_TO` edges that the bridge daemon
+     * observes but the cache has not hydrated. This durable cleanup keeps the public API's remove
+     * semantics aligned with the SQLite graph source of truth.
+     *
+     * @param {String} subscriptionId The subscription node id being removed.
+     * @protected
+     */
+    _removeDurableSubscriptionEdges(subscriptionId) {
+        const db     = GraphService.db;
+        const sqlite = db?.storage?.db;
+        if (!sqlite) return;
+
+        const edgeIds = sqlite.prepare(`
+            SELECT id FROM Edges
+            WHERE target = ?
+              AND type = 'SUBSCRIBES_TO'
+        `).all(subscriptionId).map(row => row.id);
+
+        if (edgeIds.length === 0) return;
+
+        db.edges.remove(edgeIds);
+        db.storage?.removeEdges?.(edgeIds);
+    }
+
+    /**
+     * @summary Builds the canonical active-route key for wake subscription idempotency.
+     *
+     * The route key deliberately includes filter semantics but only channel routing metadata
+     * (`appName` for Shape C, `url` for Shape B). Non-routing settings such as `coalesceWindow`,
+     * `tabShortcut`, or `focusSeedKey` are mutable configuration for an existing route and should
+     * be changed with `update`, not by creating parallel active rows.
+     *
+     * @param {Object} subscription Subscription-like object with route fields.
+     * @returns {String} Stable route identity string.
+     * @protected
+     */
+    _buildSubscriptionRouteKey(subscription) {
+        const routeMetadata = this._getRouteMetadata(subscription.harnessTarget, subscription.harnessTargetMetadata || {});
+
+        return this._stableStringify({
+            agentIdentity: subscription.agentIdentity,
+            trigger      : subscription.trigger,
+            filters      : subscription.filters || {},
+            harnessTarget: subscription.harnessTarget,
+            routeMetadata
+        });
+    }
+
+    /**
+     * @summary Extracts only routing metadata for a wake delivery channel.
+     *
+     * @param {String} harnessTarget Wake delivery channel.
+     * @param {Object} metadata Raw harness target metadata.
+     * @returns {Object} Route-relevant metadata subset.
+     * @protected
+     */
+    _getRouteMetadata(harnessTarget, metadata = {}) {
+        if (harnessTarget === 'bridge-daemon') return {appName: metadata.appName || null};
+        if (harnessTarget === 'a2a-webhook')   return {url: metadata.url || null};
+        return {};
+    }
+
+    /**
+     * @summary Serializes objects with stable key ordering for semantic tuple comparison.
+     *
+     * @param {*} value Value to normalize and stringify.
+     * @returns {String} Deterministic JSON representation.
+     * @protected
+     */
+    _stableStringify(value) {
+        return JSON.stringify(this._stableNormalize(value));
+    }
+
+    /**
+     * @summary Normalizes object keys and primitive arrays for route-key comparison.
+     *
+     * @param {*} value Value to normalize.
+     * @returns {*} Stable normalized value.
+     * @protected
+     */
+    _stableNormalize(value) {
+        if (Array.isArray(value)) {
+            return value
+                .map(item => this._stableNormalize(item))
+                .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+        }
+
+        if (value && typeof value === 'object') {
+            return Object.keys(value).sort().reduce((out, key) => {
+                out[key] = this._stableNormalize(value[key]);
+                return out;
+            }, {});
+        }
+
+        return value;
     }
 }
 
