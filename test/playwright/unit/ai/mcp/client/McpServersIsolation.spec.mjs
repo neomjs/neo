@@ -37,14 +37,14 @@ test.describe('Neo.ai.mcp.client.Client Server Isolation', () => {
         // to avoid race conditions with parallel tests reading the real openapi.yaml
         malformedPath = path.join(os.tmpdir(), `broken-openapi-${crypto.randomUUID()}.yaml`);
         fs.writeFileSync(malformedPath, 'this: is: [ malformed: yaml', 'utf8');
-        process.env.TEST_CORRUPT_OPENAPI = malformedPath;
+        process.env.NEO_AI_MCP_KB_OPENAPI_PATH = malformedPath;
     });
 
     test.afterAll(() => {
         if (malformedPath && fs.existsSync(malformedPath)) {
             fs.rmSync(malformedPath);
         }
-        delete process.env.TEST_CORRUPT_OPENAPI;
+        delete process.env.NEO_AI_MCP_KB_OPENAPI_PATH;
     });
 
     test('Broken server (knowledge-base) should still boot in degraded mode', async () => {
