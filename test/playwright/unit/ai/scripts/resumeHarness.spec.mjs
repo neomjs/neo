@@ -241,6 +241,68 @@ test.describe('ai/scripts/resumeHarness', () => {
         }
     });
 
+    test('harness lifecycle: claude-cli spawn records PID in state-file (#10696 review point 2)', async () => {
+        test.skip(process.platform !== 'darwin', 'Claude CLI is currently mac-specific');
+
+        // Verify the cross-adapter cleanup primitive: after a successful claude-cli dispatch,
+        // resumeHarness records the spawned process's PID via harnessLifecycle.recordHarnessProcess.
+        // The recorded PID is what the NEXT resumeHarness invocation will SIGTERM during cleanup.
+        const harnessLifecycle = await import('../../../../../ai/scripts/harnessLifecycle.mjs');
+        const stateFile = harnessLifecycle.getStateFilePath('@neo-opus-4-7');
+        if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile);
+
+        const mockPath = path.join(os.tmpdir(), `mock-claude-record-${randomUUID()}`);
+        fs.writeFileSync(mockPath, `#!/usr/bin/env node\nprocess.exit(0);\n`, { mode: 0o755 });
+
+        try {
+            const env = { ...overrideEnv, CLAUDE_CLI_PATH: mockPath };
+            execFileSync('node', [scriptPath, '@neo-opus-4-7', 'testReason'], { encoding: 'utf-8', stdio: 'pipe', env });
+
+            // State file MUST exist post-spawn with a recorded PID.
+            expect(fs.existsSync(stateFile)).toBe(true);
+            const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+            expect(state.pid).toBeGreaterThan(0);
+            expect(state.spawnedAt).toBeGreaterThan(0);
+        } finally {
+            if (fs.existsSync(mockPath)) fs.unlinkSync(mockPath);
+            if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile);
+        }
+    });
+
+    test('harness lifecycle: stale dead PID in state-file is reaped before fresh spawn (#10696 review point 2)', async () => {
+        test.skip(process.platform !== 'darwin', 'Claude CLI is currently mac-specific');
+
+        // Pre-populate state file with a clearly-dead PID (well above pid_max), then run
+        // resumeHarness. The cleanup primitive should detect ESRCH and proceed with fresh spawn.
+        // Verifies the fail-safe behavior — cleanup never blocks fresh-spawn on missing/dead PIDs.
+        const harnessLifecycle = await import('../../../../../ai/scripts/harnessLifecycle.mjs');
+        const stateFile = harnessLifecycle.getStateFilePath('@neo-opus-4-7');
+        const stalePid = 999999; // way above typical pid_max
+        await import('fs/promises').then(({writeFile, mkdir}) => mkdir(path.dirname(stateFile), {recursive: true})
+            .then(() => writeFile(stateFile, JSON.stringify({pid: stalePid, spawnedAt: Date.now() - 60000}))));
+
+        const mockPath = path.join(os.tmpdir(), `mock-claude-stale-${randomUUID()}`);
+        const outPath = path.join(os.tmpdir(), `out-claude-stale-${randomUUID()}`);
+        fs.writeFileSync(mockPath, `#!/usr/bin/env node\nconst fs = require('fs');\nfs.writeFileSync('${outPath}', JSON.stringify(process.argv.slice(2)));\n`, { mode: 0o755 });
+
+        try {
+            const env = { ...overrideEnv, CLAUDE_CLI_PATH: mockPath };
+            execFileSync('node', [scriptPath, '@neo-opus-4-7', 'testReason'], { encoding: 'utf-8', stdio: 'pipe', env });
+
+            // Spawn proceeded — output file written.
+            expect(fs.existsSync(outPath)).toBe(true);
+            // State-file was overwritten with the new spawn's PID (not the stale 999999).
+            expect(fs.existsSync(stateFile)).toBe(true);
+            const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+            expect(state.pid).not.toBe(stalePid);
+            expect(state.pid).toBeGreaterThan(0);
+        } finally {
+            if (fs.existsSync(mockPath)) fs.unlinkSync(mockPath);
+            if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
+            if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile);
+        }
+    });
+
     test('Antigravity CLI: adapter executes chat -n <payload> via ANTIGRAVITY_CLI_PATH (#10680)', async () => {
         test.skip(process.platform !== 'darwin', 'Antigravity CLI is currently mac-specific (#10684)');
 

@@ -24,12 +24,35 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { readGateState, hasOverride } from './wakeSafetyGate.mjs';
 import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
+import { recordHarnessProcess, terminatePreviousHarness } from './harnessLifecycle.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function spawnAsync(cmd, args) {
+/**
+ * @summary Spawn a child process and (optionally) record its PID for later harness cleanup.
+ *
+ * When `identity` is provided, the spawned PID is persisted via
+ * `harnessLifecycle.recordHarnessProcess` immediately after `spawn()` returns,
+ * BEFORE awaiting close. This captures the PID even if the spawned process is
+ * a long-lived interactive harness (Claude Code CLI, Antigravity IDE) whose
+ * `close` event never fires within the spawner's lifetime. Recording is best-
+ * effort — failures are logged but do not abort the spawn.
+ *
+ * @param {string} cmd
+ * @param {string[]} args
+ * @param {?string} identity Agent identity for PID-record bookkeeping; pass `null` to skip.
+ * @returns {Promise<void>}
+ */
+function spawnAsync(cmd, args, identity = null) {
     return new Promise((resolve, reject) => {
         const proc = spawn(cmd, args, { stdio: 'ignore' });
+
+        if (identity && proc.pid) {
+            recordHarnessProcess(identity, proc.pid).catch(err => {
+                console.warn(`[harnessLifecycle] Failed to record PID for ${identity}: ${err.message}`);
+            });
+        }
+
         proc.on('close', code => {
             if (code === 0) resolve();
             else reject(new Error(`${cmd} exited with code ${code}`));
@@ -168,6 +191,21 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
     // Write the inflight lock BEFORE taking action to secure the boot ramp (Issue #10674)
     await writeInflightLock(identity, 'sunset_restart', abandonedCount);
 
+    // Cross-adapter cleanup: terminate the previous harness process for this identity BEFORE
+    // spawning the new one. Sunset-mode restart spawns fresh processes (claude-cli, antigravity-cli);
+    // without cleanup, repeated sunsets accumulate stale processes and orphan windows. Applies to
+    // every CLI-spawning adapter; the legacy osascript Cmd+N adapter (which targeted the same app
+    // instance, no leak surface) is exempt. Per #10696 review point 2.
+    if (adapter !== 'osascript' && adapter !== 'tmux') {
+        const cleanup = await terminatePreviousHarness(identity);
+        if (cleanup.terminated) {
+            const escalation = cleanup.escalated ? `, escalated to ${cleanup.escalated}` : '';
+            console.log(`[harnessLifecycle] Terminated previous ${identity} process (PID=${cleanup.pid}${escalation})`);
+        } else if (cleanup.reason !== 'no-prior-state' && cleanup.reason !== 'already-dead') {
+            console.warn(`[harnessLifecycle] Could not terminate previous ${identity} process: ${cleanup.reason}`);
+        }
+    }
+
     try {
         if (adapter === 'antigravity-cli') {
             /**
@@ -177,7 +215,7 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
              */
             const cliPath = process.env.ANTIGRAVITY_CLI_PATH || '/Applications/Antigravity.app/Contents/Resources/app/bin/antigravity';
             const args = ['chat', '-n', payload];
-            await spawnAsync(cliPath, args);
+            await spawnAsync(cliPath, args, identity);
             console.log(`Successfully resumed ${identity} via antigravity-cli`);
         } else if (adapter === 'claude-cli') {
             /**
@@ -212,7 +250,7 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
                 );
             }
             const args = [payload];
-            await spawnAsync(cliPath, args);
+            await spawnAsync(cliPath, args, identity);
             console.log(`Successfully resumed ${identity} via claude-cli`);
         } else if (adapter === 'osascript') {
             const { appName, tabShortcut, freshSessionShortcut } = harnessTarget;
