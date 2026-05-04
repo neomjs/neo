@@ -130,6 +130,17 @@ class SQLite extends Base {
         this.db.exec(`CREATE TRIGGER IF NOT EXISTS edge_insert AFTER INSERT ON Edges BEGIN INSERT INTO GraphLog(entity_id, entity_type) VALUES (NEW.id, 'edges'); END;`);
         this.db.exec(`CREATE TRIGGER IF NOT EXISTS edge_update AFTER UPDATE ON Edges BEGIN INSERT INTO GraphLog(entity_id, entity_type) VALUES (NEW.id, 'edges'); END;`);
         this.db.exec(`CREATE TRIGGER IF NOT EXISTS edge_delete AFTER DELETE ON Edges BEGIN INSERT INTO GraphLog(entity_id, entity_type) VALUES (OLD.id, 'edges'); END;`);
+
+        // Summarization Coordinator Jobs Tracker (#10693)
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS SummarizationJobs (
+                session_id TEXT PRIMARY KEY,
+                status TEXT NOT NULL CHECK(status IN ('pending', 'in_progress', 'completed', 'failed')),
+                lease_token TEXT,
+                expires_at INTEGER,
+                retry_count INTEGER DEFAULT 0
+            );
+        `);
     }
 
     /**

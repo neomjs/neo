@@ -682,6 +682,101 @@ ${aggregatedContent}
     }
 
     /**
+     * Claims an exclusive lease on a summarization job using the SummarizationJobs table.
+     * Prevents race conditions across concurrent MCP instances.
+     * @param {String} sessionId 
+     * @param {String} leaseToken 
+     * @param {Number} [ttlMs=300000] Default 5-minute lease
+     * @returns {Boolean} true if the lease was claimed successfully, false otherwise.
+     */
+    claimSummarizationJob(sessionId, leaseToken, ttlMs = 300000) {
+        const db = GraphService.db?.storage?.db;
+        if (!db) return true; // Fallback: allow execution if DB is somehow missing
+        
+        const now = Date.now();
+        const expiresAt = now + ttlMs;
+        
+        try {
+            const claimTx = db.transaction(() => {
+                const existing = db.prepare('SELECT status, expires_at FROM SummarizationJobs WHERE session_id = ?').get(sessionId);
+                
+                if (!existing) {
+                    db.prepare(`
+                        INSERT INTO SummarizationJobs (session_id, status, lease_token, expires_at, retry_count)
+                        VALUES (?, 'in_progress', ?, ?, 0)
+                    `).run(sessionId, leaseToken, expiresAt);
+                    return true;
+                }
+                
+                if (existing.status === 'completed') {
+                    return false;
+                }
+                
+                if (existing.status === 'in_progress' && existing.expires_at < now) {
+                    db.prepare(`
+                        UPDATE SummarizationJobs 
+                        SET lease_token = ?, expires_at = ?, retry_count = retry_count + 1
+                        WHERE session_id = ?
+                    `).run(leaseToken, expiresAt, sessionId);
+                    return true;
+                }
+                
+                if (existing.status === 'pending' || existing.status === 'failed') {
+                     db.prepare(`
+                        UPDATE SummarizationJobs 
+                        SET status = 'in_progress', lease_token = ?, expires_at = ?, retry_count = retry_count + 1
+                        WHERE session_id = ?
+                    `).run(leaseToken, expiresAt, sessionId);
+                    return true;
+                }
+                
+                return false;
+            });
+            
+            return claimTx();
+        } catch (e) {
+            logger.warn(`[SessionService] Error claiming job for ${sessionId}: ${e.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Marks a summarization job as completed in the coordinator table.
+     * @param {String} sessionId 
+     */
+    completeSummarizationJob(sessionId) {
+        const db = GraphService.db?.storage?.db;
+        if (!db) return;
+        try {
+            db.prepare(`
+                UPDATE SummarizationJobs 
+                SET status = 'completed', lease_token = NULL 
+                WHERE session_id = ?
+            `).run(sessionId);
+        } catch (e) {
+            logger.warn(`[SessionService] Error completing job for ${sessionId}: ${e.message}`);
+        }
+    }
+
+    /**
+     * Marks a summarization job as failed in the coordinator table.
+     * @param {String} sessionId 
+     */
+    failSummarizationJob(sessionId) {
+        const db = GraphService.db?.storage?.db;
+        if (!db) return;
+        try {
+            db.prepare(`
+                UPDATE SummarizationJobs 
+                SET status = 'failed', lease_token = NULL 
+                WHERE session_id = ?
+            `).run(sessionId);
+        } catch (e) {
+            logger.warn(`[SessionService] Error failing job for ${sessionId}: ${e.message}`);
+        }
+    }
+
+    /**
      * Summarizes sessions based on the provided sessionId or all unsummarized sessions.
      * Note: If the current active sessionId is explicitly passed, it WILL be summarized.
      * @param {Object}  options
@@ -692,10 +787,25 @@ ${aggregatedContent}
     async summarizeSessions({ includeAll, sessionId } = {}) {
         try {
             let processed = [];
+            const leaseToken = crypto.randomUUID();
 
             if (sessionId) {
-                const result = await this.summarizeSession(sessionId);
-                if (result) processed.push(result);
+                if (this.claimSummarizationJob(sessionId, leaseToken)) {
+                    try {
+                        const result = await this.summarizeSession(sessionId);
+                        if (result) {
+                            this.completeSummarizationJob(sessionId);
+                            processed.push(result);
+                        } else {
+                            this.failSummarizationJob(sessionId);
+                        }
+                    } catch (err) {
+                        this.failSummarizationJob(sessionId);
+                        logger.error(`[SessionService] Summarization failed for ${sessionId}:`, err);
+                    }
+                } else {
+                    logger.info(`[SessionService] Skipping session ${sessionId} - active lease held by another instance or already completed.`);
+                }
             } else {
                 const sessionsToSummarize = await this.findSessionsToSummarize(includeAll);
 
@@ -717,7 +827,28 @@ ${aggregatedContent}
                     const chunk = sessionsToSummarize.slice(i, i + batchSize);
                     logger.info(`[SessionService] Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(total / batchSize)} (${chunk.length} sessions)...`);
 
-                    const promises = chunk.map(id => this.summarizeSession(id));
+                    const promises = chunk.map(async (id) => {
+                        if (!this.claimSummarizationJob(id, leaseToken)) {
+                            logger.info(`[SessionService] Skipping session ${id} - active lease held by another instance or already completed.`);
+                            return null;
+                        }
+
+                        try {
+                            const result = await this.summarizeSession(id);
+                            if (result) {
+                                this.completeSummarizationJob(id);
+                                return result;
+                            } else {
+                                this.failSummarizationJob(id);
+                                return null;
+                            }
+                        } catch (err) {
+                            this.failSummarizationJob(id);
+                            logger.error(`[SessionService] Summarization failed for ${id}:`, err);
+                            return null;
+                        }
+                    });
+
                     const results = await Promise.all(promises);
                     const batchResult = results.filter(Boolean);
 
