@@ -443,6 +443,8 @@ class Server extends Base {
      * Wires up the MCP request handlers for listing and calling tools.
      */
     setupRequestHandlers() {
+        if (!this.mcpServer) return; // Prevent crash if instance was destroyed during async boot
+
         // List Tools Handler
         this.mcpServer.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
             try {
