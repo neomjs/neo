@@ -16,11 +16,11 @@ import RequestContextService from './RequestContextService.mjs';
  *   configuration is detected in the environment.
  * - **CORS Enforcement:** Ensures cross-origin compatibility for modern browser-based AI agents.
  * - **Request-Context Propagation (ticket #10000):** Each `/mcp` request is wrapped in
- *   `RequestContextService.run({userId, username}, ...)` before dispatching to the MCP
+ *   `RequestContextService.run({userId, username, sessionId}, ...)` before dispatching to the MCP
  *   transport. This bridges the gap between Express's per-request `req.auth` context and the
  *   service layer that runs inside `callTool(name, args)` — downstream services read the
- *   authenticated user's identity via `RequestContextService.getUserId()` to tag ChromaDB
- *   writes and filter reads per tenant.
+ *   authenticated user's identity and `sessionId` via `RequestContextService` to tag ChromaDB
+ *   writes and filter/isolate state per tenant.
  *
  * By extracting this logic, we maintain a lean root server while ensuring consistent
  * **Physical-to-Logical Mapping** for all Neo.mjs MCP servers.
