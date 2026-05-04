@@ -108,6 +108,7 @@ Both `epic-review` (entry pass at sub-creation time) and `epic-resolution` (exit
 
 - Discussion #10697 — origin ideation
 - Issue #10698 — graduation artifact (this file + epic-resolution skill + amendments)
+- [`contract-ledger.md`](./contract-ledger.md) — reciprocal mapping of API contract completeness (T1-T4)
 - Issue #10324 — existing close-target audit (this generalizes it)
 - `.agents/skills/epic-resolution/` — closeout workflow consuming this ladder
 - `.agents/skills/pr-review/` — Evidence Audit section consuming this ladder
