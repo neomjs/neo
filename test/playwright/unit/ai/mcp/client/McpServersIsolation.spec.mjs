@@ -14,6 +14,8 @@ setup({
 import {test, expect} from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
+import crypto from 'crypto';
 import {fileURLToPath} from 'url';
 
 import Neo from '../../../../../../src/Neo.mjs';
@@ -28,20 +30,21 @@ const backupSpecPath = path.resolve(__dirname, '../../../../../../ai/mcp/server/
 test.describe('Neo.ai.mcp.client.Client Server Isolation', () => {
     test.setTimeout(60000);
 
+    let malformedPath;
+
     test.beforeAll(() => {
-        // Backup the real spec and inject a broken one
-        if (fs.existsSync(targetSpecPath)) {
-            fs.copyFileSync(targetSpecPath, backupSpecPath);
-            fs.writeFileSync(targetSpecPath, 'this: is: [ malformed: yaml', 'utf8');
-        }
+        // We now inject the broken spec path via environment variable
+        // to avoid race conditions with parallel tests reading the real openapi.yaml
+        malformedPath = path.join(os.tmpdir(), `broken-openapi-${crypto.randomUUID()}.yaml`);
+        fs.writeFileSync(malformedPath, 'this: is: [ malformed: yaml', 'utf8');
+        process.env.NEO_AI_MCP_KB_OPENAPI_PATH = malformedPath;
     });
 
     test.afterAll(() => {
-        // Restore the real spec
-        if (fs.existsSync(backupSpecPath)) {
-            fs.copyFileSync(backupSpecPath, targetSpecPath);
-            fs.rmSync(backupSpecPath);
+        if (malformedPath && fs.existsSync(malformedPath)) {
+            fs.rmSync(malformedPath);
         }
+        delete process.env.NEO_AI_MCP_KB_OPENAPI_PATH;
     });
 
     test('Broken server (knowledge-base) should still boot in degraded mode', async () => {

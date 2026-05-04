@@ -11,7 +11,8 @@ import ToolService              from '../../../ToolService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
-const openApiFilePath = path.join(__dirname, '../openapi.yaml');
+/** @anchor test-isolation - ENV override to prevent parallel test mutations from corrupting the canonical file. Easily extensible to other servers via NEO_AI_MCP_<SERVER>_OPENAPI_PATH. */
+const openApiFilePath = process.env.NEO_AI_MCP_KB_OPENAPI_PATH || path.join(__dirname, '../openapi.yaml');
 
 const serviceMapping = {
     ask_knowledge_base   : SearchService           .ask                .bind(SearchService),
