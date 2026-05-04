@@ -18,7 +18,6 @@
  * @see .agents/skills/session-sunset/references/session-sunset-workflow.md §1
  */
 import { spawn } from 'child_process';
-import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
@@ -50,10 +49,13 @@ function spawnAsync(cmd, args) {
  * `CLAUDE_CLI_PATH` env var supports test-mock injection (per #10681 discipline)
  * and explicit pinning if needed.
  *
- * Empirical anchor (#10677 research-phase comment IC_kwDODSospM8AAAABBJDmZg):
- * the embedded CLI accepts `--session-id <uuid>` and validates UUID format —
- * the substrate-correct primitive that #10627's prompt-layer plumbing tried
- * (and failed structurally) to achieve.
+ * Substrate-truth anchor (#10677): the spawner passes NO `--session-id` flag.
+ * `claude <prompt>` invocation creates a fresh process with a fresh MCP client
+ * connection, which yields a fresh `currentSessionId` by construction. The
+ * architectural goal of harness restart is precisely to eliminate spawner-side
+ * sessionId management — fresh process = fresh server = fresh session.
+ * `--session-id` is for *resuming* a specific session, the opposite of what
+ * recovery needs.
  *
  * @returns {Promise<?string>} Absolute path to the Claude Code CLI, or `null`
  *   if neither the env-var override nor the dynamic resolution succeeds.
@@ -131,10 +133,11 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
 
     // Harness Registry: Maps identity IDs to their corresponding restart adapter.
     // 'antigravity-ide' utilizes its native CLI `chat -n` via the `antigravity-cli` adapter (#10678 / #10680).
-    // 'claude-desktop' utilizes the embedded Claude Code CLI's `--session-id <uuid>` primitive
-    //   via the `claude-cli` adapter (#10677). Empirically validated: `--session-id` rejects
-    //   non-UUIDs at the CLI boundary, providing the substrate-correct fresh-sessionId enforcement
-    //   #10627's prompt-layer plumbing tried (and failed structurally) to achieve.
+    // 'claude-desktop' utilizes the embedded Claude Code CLI via the `claude-cli` adapter
+    //   (#10677). Substrate-truth: spawner passes NO sessionId flag — fresh `claude <prompt>`
+    //   process boots a fresh MCP client + fresh `currentSessionId` by construction. This is
+    //   precisely what makes harness restart eliminate the spawner-side sessionId management
+    //   that #10627's prompt-layer plumbing tried (and failed structurally) to achieve.
     // Codex Desktop deferred until @neo-gpt confirms its restart primitive (#10679, blocked on
     //   target-thread MC-startup diagnosis).
     //
@@ -180,16 +183,26 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
             /**
              * @anchor claude-cli-mac-specific
              * @summary Embedded Claude Code CLI inside Claude Desktop (`~/Library/Application Support/Claude/...`).
-             * Substrate-correct primitive: spawner generates a fresh UUID and passes it to `--session-id`,
-             * which the CLI enforces at the harness layer (validated rejection of non-UUIDs). The fresh
-             * Claude Code subprocess opens with the spawner-chosen sessionId — fresh MC client handshake
-             * + fresh `currentSessionId` by construction. NO `set_session_id` plumbing in the prompt.
+             *
+             * Substrate-truth: invoking `claude <prompt>` with NO flags spawns a fresh process
+             * which establishes a fresh MCP client connection, which means a fresh
+             * `SessionService.currentSessionId` by construction. The whole point of harness
+             * restart is to get fresh state for free — spawner-side sessionId enforcement
+             * (`--session-id <uuid>`) would defeat the architectural goal by reintroducing
+             * the same sessionId management that prompt-layer plumbing in #10627 tried.
+             *
+             * `--session-id` is for *resuming* a specific session, the opposite of what
+             * recovery needs. Fresh process = fresh session, no flag required.
              *
              * Path resolves dynamically across Claude Desktop auto-updates via `resolveClaudeCliPath()`.
              * Operator override `CLAUDE_CLI_PATH` env var supports test-mock injection per #10681
              * `RUN_LIVE_OSASCRIPT` discipline parallel.
              *
              * @todo Abstract for cross-platform execution (Windows/Linux) — sibling concern to #10684.
+             * @todo Empirically verify whether `claude <prompt>` lands as Claude Desktop Tab 3
+             *   ("Code" tab) or a terminal-attached CLI session. Either satisfies the
+             *   fresh-process / fresh-MCP / fresh-session substrate goal, but the operator
+             *   surface differs. Document the observed shape post-verification.
              */
             const cliPath = await resolveClaudeCliPath();
             if (!cliPath) {
@@ -198,10 +211,9 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
                     '(expects ~/Library/Application Support/Claude/claude-code/<version>/claude.app/Contents/MacOS/claude)'
                 );
             }
-            const freshSessionId = randomUUID();
-            const args = ['--session-id', freshSessionId, payload];
+            const args = [payload];
             await spawnAsync(cliPath, args);
-            console.log(`Successfully resumed ${identity} via claude-cli (sessionId=${freshSessionId})`);
+            console.log(`Successfully resumed ${identity} via claude-cli`);
         } else if (adapter === 'osascript') {
             const { appName, tabShortcut, freshSessionShortcut } = harnessTarget;
             // Q1b fresh-session-spawn flow per #10611:

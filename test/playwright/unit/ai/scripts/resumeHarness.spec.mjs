@@ -87,9 +87,11 @@ test.describe('ai/scripts/resumeHarness', () => {
     test('Opus identity routes to claude-desktop adapter via HARNESS_REGISTRY (config check)', async () => {
         // Static script-content check: HARNESS_REGISTRY claude-desktop entry uses the
         // substrate-correct `claude-cli` adapter post-#10677 (was `osascript` Cmd+N pre-fix).
-        // Always-on coverage — no host side effects. The `claude-cli` adapter empirically
-        // spawns the embedded Claude Code CLI with `--session-id <uuid>` for substrate-correct
-        // fresh-sessionId enforcement at the harness layer.
+        // Always-on coverage — no host side effects. The `claude-cli` adapter spawns the embedded
+        // Claude Code CLI with NO sessionId flag — fresh process = fresh MCP client connection =
+        // fresh `currentSessionId` by construction. That construction-by-spawn is precisely the
+        // architectural goal of harness restart that eliminates the spawner-side sessionId
+        // management plumbing #10627's prompt-layer attempt failed to achieve structurally.
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
         expect(scriptContent).toContain("'claude-desktop':  { adapter: 'claude-cli' }");
         expect(scriptContent).toContain("'@neo-opus-4-7': 'claude-desktop'");
@@ -206,13 +208,17 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(scriptContent).not.toContain('Auto-Wakeup Substrate: Resuming sunsetted session.');
     });
 
-    test('Claude CLI: adapter executes --session-id <uuid> <payload> via CLAUDE_CLI_PATH (#10677)', async () => {
+    test('Claude CLI: adapter executes <payload> with NO session-id flag via CLAUDE_CLI_PATH (#10677)', async () => {
         test.skip(process.platform !== 'darwin', 'Claude CLI is currently mac-specific (parallel concern to #10684)');
 
-        // Mock claude binary that records argv to a file. Substrate-correct primitive verification:
-        // the spawned CLI MUST receive --session-id with a freshly-generated UUID + the boot-grounding
-        // payload as the prompt argument. UUID format validates the spawner's generation (claude CLI
-        // empirically rejects non-UUIDs at the boundary per #10677 research-phase findings).
+        // Mock claude binary that records argv to a file. Substrate-truth verification: the spawner
+        // MUST pass NO `--session-id` flag — fresh `claude <prompt>` invocation creates a fresh
+        // process + fresh MCP client connection + fresh `currentSessionId` by construction. That
+        // is the architectural goal of harness restart (eliminate spawner-side sessionId management
+        // entirely). Spawner-side UUID generation (`--session-id <uuid>`) would defeat the goal by
+        // reintroducing the same plumbing #10627's prompt-layer attempt tried.
+        //
+        // `--session-id` is the CLI's *resume* flag, the opposite of what recovery needs.
         const mockPath = path.join(os.tmpdir(), `mock-claude-${randomUUID()}`);
         const outPath = path.join(os.tmpdir(), `out-claude-${randomUUID()}`);
         fs.writeFileSync(mockPath, `#!/usr/bin/env node\nconst fs = require('fs');\nfs.writeFileSync('${outPath}', JSON.stringify(process.argv.slice(2)));\n`, { mode: 0o755 });
@@ -223,56 +229,15 @@ test.describe('ai/scripts/resumeHarness', () => {
 
             expect(fs.existsSync(outPath)).toBe(true);
             const args = JSON.parse(fs.readFileSync(outPath, 'utf-8'));
-            expect(args[0]).toBe('--session-id');
-            // UUID v4 format: 8-4-4-4-12 hex chars with hyphens. Asserts spawner-side generation.
-            expect(args[1]).toMatch(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/);
-            expect(args[2]).toContain('@AGENTS_STARTUP.md');
-            expect(args[2]).toContain('testReason');
+            // Negative assertion: NO sessionId plumbing.
+            expect(args).not.toContain('--session-id');
+            // Positive assertion: payload is the sole argument.
+            expect(args).toHaveLength(1);
+            expect(args[0]).toContain('@AGENTS_STARTUP.md');
+            expect(args[0]).toContain('testReason');
         } finally {
             if (fs.existsSync(mockPath)) fs.unlinkSync(mockPath);
             if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
-        }
-    });
-
-    test('Claude CLI: spawner generates fresh UUID per recovery invocation (no static reuse) (#10677)', async () => {
-        test.skip(process.platform !== 'darwin', 'Claude CLI is currently mac-specific');
-
-        // Two consecutive invocations MUST produce distinct UUIDs — verifies the substrate-correct
-        // "fresh sessionId per recovery" property. Static reuse would defeat the per-recovery
-        // session-isolation guarantee the primitive provides.
-        const mockPath = path.join(os.tmpdir(), `mock-claude-multi-${randomUUID()}`);
-        const outPath1 = path.join(os.tmpdir(), `out-claude-1-${randomUUID()}`);
-        const outPath2 = path.join(os.tmpdir(), `out-claude-2-${randomUUID()}`);
-
-        // The mock writes to whichever output path is set in the env at invocation time.
-        fs.writeFileSync(mockPath, `#!/usr/bin/env node\nconst fs = require('fs');\nfs.writeFileSync(process.env.MOCK_OUT_PATH, JSON.stringify(process.argv.slice(2)));\n`, { mode: 0o755 });
-
-        try {
-            // Cooldown is shared across both invocations (same identity); skip the second by clearing.
-            const cooldownDir = path.resolve(process.cwd(), '.neo-ai-data/wake-daemon');
-            const cooldownFile = path.resolve(cooldownDir, 'cooldown-neo-opus-4-7.txt');
-
-            execFileSync('node', [scriptPath, '@neo-opus-4-7', 'testReason1'], {
-                encoding: 'utf-8', stdio: 'pipe',
-                env: { ...overrideEnv, CLAUDE_CLI_PATH: mockPath, MOCK_OUT_PATH: outPath1 }
-            });
-            if (fs.existsSync(cooldownFile)) fs.unlinkSync(cooldownFile);
-
-            execFileSync('node', [scriptPath, '@neo-opus-4-7', 'testReason2'], {
-                encoding: 'utf-8', stdio: 'pipe',
-                env: { ...overrideEnv, CLAUDE_CLI_PATH: mockPath, MOCK_OUT_PATH: outPath2 }
-            });
-
-            const args1 = JSON.parse(fs.readFileSync(outPath1, 'utf-8'));
-            const args2 = JSON.parse(fs.readFileSync(outPath2, 'utf-8'));
-            // Same flag position but distinct UUIDs.
-            expect(args1[0]).toBe('--session-id');
-            expect(args2[0]).toBe('--session-id');
-            expect(args1[1]).not.toBe(args2[1]);
-        } finally {
-            if (fs.existsSync(mockPath)) fs.unlinkSync(mockPath);
-            if (fs.existsSync(outPath1)) fs.unlinkSync(outPath1);
-            if (fs.existsSync(outPath2)) fs.unlinkSync(outPath2);
         }
     });
 
