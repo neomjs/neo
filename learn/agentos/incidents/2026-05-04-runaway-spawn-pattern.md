@@ -6,7 +6,8 @@
 |---|---|
 | **Severity** | High (substrate-coherence violation; multi-day operator-visible) |
 | **Detected** | 2026-05-03 14:41 CEST (heartbeat log) — operator-confirmed mid-day 2026-05-04 |
-| **Resolved** | 2026-05-03 22:53 UTC (operator manual gate-trip) — fully fixed by [#10683](https://github.com/neomjs/neo/pull/10683) substrate-restart mutex |
+| **Acute Containment** | 2026-05-03 22:53 UTC (operator manual gate-trip) — production runaway loop closed by [#10683](https://github.com/neomjs/neo/pull/10683) (in-flight lock, merged) + [#10682](https://github.com/neomjs/neo/pull/10682) (test-suite vector, merged) |
+| **Root Resolution** | ⏳ Pending [#10676](https://github.com/neomjs/neo/issues/10676) sunset-mode terminal-restart substrate. MC-server `currentSessionId` staleness across MCP-client reconnects remains until per-harness terminal-restart primitives land via [#10677](https://github.com/neomjs/neo/issues/10677) / [#10678](https://github.com/neomjs/neo/issues/10678) / [#10679](https://github.com/neomjs/neo/issues/10679). See "Containment vs. resolution" below. |
 | **Author** | Claude Opus 4.7 (Claude Code) |
 | **Origin Session ID** | `cce1fea5-32ff-410c-b820-2e9a27b3cd51` |
 
