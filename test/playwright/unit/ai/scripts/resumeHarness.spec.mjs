@@ -36,6 +36,19 @@ test.describe('ai/scripts/resumeHarness', () => {
      * `gateOnlyEnv()` — for tests targeting the gate behavior itself; isolates
      * the gate path but leaves `WAKE_GATE_OVERRIDE` unset so the default-tripped
      * / explicitly-enabled paths can be exercised.
+     *
+     * Live-host opt-in (#10681): tests that fire the REAL `osascript` paste path
+     * (vs. tests that mock or skip osascript) MUST be gated behind
+     * `RUN_LIVE_OSASCRIPT=1` env-var opt-in via `test.skip(!process.env.RUN_LIVE_OSASCRIPT, ...)`
+     * as the FIRST statement of the test body. Default behavior (env var unset)
+     * is `[skipped]` — preventing the host-environment side effect of pasting
+     * the boot-grounding prompt into a live Claude Desktop session and spawning
+     * a real Claude Code session. Empirical anchor: 2026-05-04 09:03Z runaway
+     * spawn caused by running this spec on a host with Claude Desktop +
+     * accessibility permission granted, prior to this discipline. The reference
+     * architecture for safe live-substrate testing is `bridge-daemon.spec.mjs`,
+     * which uses either the `test` adapter (test stream delivery) or a mock
+     * `osascript` binary on PATH that captures argv without executing AppleScript.
      */
     let gatePath, overrideEnv;
     const gateOnlyEnv = () => ({...process.env, WAKE_GATE_FILE_PATH: gatePath});
@@ -69,7 +82,22 @@ test.describe('ai/scripts/resumeHarness', () => {
         }
     });
 
-    test('Opus identity routes to osascript with claude-desktop, freshSessionShortcut n, and tabShortcut 3', async () => {
+    test('Opus identity routes to claude-desktop adapter via HARNESS_REGISTRY (config check)', async () => {
+        // Static script-content check: HARNESS_REGISTRY shape post-#10611 PR-B
+        // includes the freshSessionShortcut primitive (Cmd+N) re-introduced for Q1b fresh-session-spawn.
+        // Always-on coverage — no host side effects. Live runtime exec sibling
+        // ('Opus identity osascript runtime dispatch') is gated behind RUN_LIVE_OSASCRIPT=1.
+        const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
+        expect(scriptContent).toContain("'claude-desktop':  { appName: 'Claude',      adapter: 'osascript', freshSessionShortcut: 'n', tabShortcut: '3' }");
+        expect(scriptContent).toContain("'@neo-opus-4-7': 'claude-desktop'");
+    });
+
+    test('Opus identity osascript runtime dispatch (live host — RUN_LIVE_OSASCRIPT=1 required, #10681)', async () => {
+        // Live-host integration: invokes real `osascript` which on hosts with Claude Desktop
+        // + System Events accessibility granted will paste the boot-grounding prompt into the
+        // live app and spawn a real Claude Code session. Skipped by default to prevent the
+        // 2026-05-04 09:03Z runaway-spawn pattern (see #10681 forensic record).
+        test.skip(!process.env.RUN_LIVE_OSASCRIPT, 'Live osascript test — paste-spawns real Claude sessions on hosts with accessibility granted; set RUN_LIVE_OSASCRIPT=1 to run (#10681)');
         try {
             execFileSync('node', [scriptPath, '@neo-opus-4-7', 'test'], {encoding: 'utf-8', stdio: 'pipe', env: overrideEnv});
         } catch (e) {
@@ -77,12 +105,6 @@ test.describe('ai/scripts/resumeHarness', () => {
             const output = e.stderr + e.stdout;
             expect(output).toContain('Failed to resume @neo-opus-4-7 via osascript:');
         }
-
-        // Static script-content check: HARNESS_REGISTRY shape post-#10611 PR-B
-        // includes the freshSessionShortcut primitive (Cmd+N) re-introduced for Q1b fresh-session-spawn.
-        const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
-        expect(scriptContent).toContain("'claude-desktop':  { appName: 'Claude',      adapter: 'osascript', freshSessionShortcut: 'n', tabShortcut: '3' }");
-        expect(scriptContent).toContain("'@neo-opus-4-7': 'claude-desktop'");
     });
 
     test('Wake safety gate tripped + no override → resumeHarness skips with explicit stderr (#10648)', async () => {
@@ -101,12 +123,14 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(result.stderr).toContain('WAKE_GATE_OVERRIDE=1');
     });
 
-    test('Wake safety gate enabled → resumeHarness proceeds past the gate (#10648)', async () => {
-        // Write enabled gate state on the per-test gate path, then invoke resumeHarness
-        // with a known identity. The gate must NOT short-circuit; resumeHarness proceeds
-        // to harness lookup and osascript dispatch (which may itself fail in test env —
-        // covered by the existing 'Opus identity routes to osascript' test; here we
-        // only verify the gate doesn't pre-empt the path).
+    test('Wake safety gate enabled → resumeHarness proceeds past the gate (live host — RUN_LIVE_OSASCRIPT=1 required, #10648, #10681)', async () => {
+        // Live-host integration: writes enabled gate state, invokes resumeHarness with a
+        // known identity, and confirms the gate doesn't short-circuit. Because the gate
+        // is enabled and the identity is known, resumeHarness reaches osascript dispatch
+        // — which on hosts with Claude Desktop + accessibility granted will paste the
+        // boot-grounding prompt into the live app. Skipped by default to prevent the
+        // 2026-05-04 09:03Z runaway-spawn pattern (see #10681 forensic record).
+        test.skip(!process.env.RUN_LIVE_OSASCRIPT, 'Live osascript test — paste-spawns real Claude sessions when gate is enabled; set RUN_LIVE_OSASCRIPT=1 to run (#10681)');
         fs.mkdirSync(path.dirname(gatePath), {recursive: true});
         fs.writeFileSync(gatePath, JSON.stringify({state: 'enabled', reason: '', trippedAt: null, trippedBy: null}), 'utf-8');
 
