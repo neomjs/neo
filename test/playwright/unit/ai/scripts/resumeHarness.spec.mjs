@@ -85,12 +85,15 @@ test.describe('ai/scripts/resumeHarness', () => {
     });
 
     test('Opus identity routes to claude-desktop adapter via HARNESS_REGISTRY (config check)', async () => {
-        // Static script-content check: HARNESS_REGISTRY shape post-#10611 PR-B
-        // includes the freshSessionShortcut primitive (Cmd+N) re-introduced for Q1b fresh-session-spawn.
-        // Always-on coverage — no host side effects. Live runtime exec sibling
-        // ('Opus identity osascript runtime dispatch') is gated behind RUN_LIVE_OSASCRIPT=1.
+        // Static script-content check: HARNESS_REGISTRY claude-desktop entry uses the
+        // substrate-correct `claude-cli` adapter post-#10677 (was `osascript` Cmd+N pre-fix).
+        // Always-on coverage — no host side effects. The `claude-cli` adapter spawns the embedded
+        // Claude Code CLI with NO sessionId flag — fresh process = fresh MCP client connection =
+        // fresh `currentSessionId` by construction. That construction-by-spawn is precisely the
+        // architectural goal of harness restart that eliminates the spawner-side sessionId
+        // management plumbing #10627's prompt-layer attempt failed to achieve structurally.
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
-        expect(scriptContent).toContain("'claude-desktop':  { appName: 'Claude',      adapter: 'osascript', freshSessionShortcut: 'n', tabShortcut: '3' }");
+        expect(scriptContent).toContain("'claude-desktop':  { adapter: 'claude-cli' }");
         expect(scriptContent).toContain("'@neo-opus-4-7': 'claude-desktop'");
     });
 
@@ -173,12 +176,15 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(stderrAndStdout).not.toContain('Wake safety gate disabled');
     });
 
-    test('Q1b fresh-session-spawn: HARNESS_REGISTRY entries include freshSessionShortcut or native CLI args (#10611 PR-B AC1)', async () => {
-        // Re-introduces the Cmd+N primitive that #10607 Cycle 5 removed for Claude Desktop.
-        // Antigravity now uses its native CLI primitive `-n` instead of osascript.
+    test('Q1b fresh-session-spawn: HARNESS_REGISTRY entries route to native-CLI adapters (#10611 PR-B AC1, #10677, #10678)', async () => {
+        // Both Antigravity and Claude Desktop now route to native-CLI adapters that bypass
+        // the legacy Cmd+N osascript path. Antigravity uses `antigravity chat -n` (#10678 / #10680);
+        // Claude Desktop uses the embedded Claude Code CLI's `--session-id <uuid>` primitive (#10677).
+        // The substrate-correct primitives enforce fresh-sessionId at the harness layer rather than
+        // via the rejected prompt-layer plumbing of #10627.
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
         expect(scriptContent).toContain("'antigravity-ide': { adapter: 'antigravity-cli' }");
-        expect(scriptContent).toMatch(/'claude-desktop':\s+\{[^}]*freshSessionShortcut: 'n'/);
+        expect(scriptContent).toContain("'claude-desktop':  { adapter: 'claude-cli' }");
     });
 
     test('Q1b fresh-session-spawn: osascript flow injects freshSessionShortcut keystroke before paste (#10611 PR-B AC1)', async () => {
@@ -200,6 +206,101 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(scriptContent).toContain('Origin Session ID');
         // Negative assertion: the old Q1a prose payload must be gone
         expect(scriptContent).not.toContain('Auto-Wakeup Substrate: Resuming sunsetted session.');
+    });
+
+    test('Claude CLI: adapter executes <payload> with NO session-id flag via CLAUDE_CLI_PATH (#10677)', async () => {
+        test.skip(process.platform !== 'darwin', 'Claude CLI is currently mac-specific (parallel concern to #10684)');
+
+        // Mock claude binary that records argv to a file. Substrate-truth verification: the spawner
+        // MUST pass NO `--session-id` flag — fresh `claude <prompt>` invocation creates a fresh
+        // process + fresh MCP client connection + fresh `currentSessionId` by construction. That
+        // is the architectural goal of harness restart (eliminate spawner-side sessionId management
+        // entirely). Spawner-side UUID generation (`--session-id <uuid>`) would defeat the goal by
+        // reintroducing the same plumbing #10627's prompt-layer attempt tried.
+        //
+        // `--session-id` is the CLI's *resume* flag, the opposite of what recovery needs.
+        const mockPath = path.join(os.tmpdir(), `mock-claude-${randomUUID()}`);
+        const outPath = path.join(os.tmpdir(), `out-claude-${randomUUID()}`);
+        fs.writeFileSync(mockPath, `#!/usr/bin/env node\nconst fs = require('fs');\nfs.writeFileSync('${outPath}', JSON.stringify(process.argv.slice(2)));\n`, { mode: 0o755 });
+
+        try {
+            const env = { ...overrideEnv, CLAUDE_CLI_PATH: mockPath };
+            execFileSync('node', [scriptPath, '@neo-opus-4-7', 'testReason'], { encoding: 'utf-8', stdio: 'pipe', env });
+
+            expect(fs.existsSync(outPath)).toBe(true);
+            const args = JSON.parse(fs.readFileSync(outPath, 'utf-8'));
+            // Negative assertion: NO sessionId plumbing.
+            expect(args).not.toContain('--session-id');
+            // Positive assertion: payload is the sole argument.
+            expect(args).toHaveLength(1);
+            expect(args[0]).toContain('@AGENTS_STARTUP.md');
+            expect(args[0]).toContain('testReason');
+        } finally {
+            if (fs.existsSync(mockPath)) fs.unlinkSync(mockPath);
+            if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
+        }
+    });
+
+    test('harness lifecycle: claude-cli spawn records PID in state-file (#10696 review point 2)', async () => {
+        test.skip(process.platform !== 'darwin', 'Claude CLI is currently mac-specific');
+
+        // Verify the cross-adapter cleanup primitive: after a successful claude-cli dispatch,
+        // resumeHarness records the spawned process's PID via harnessLifecycle.recordHarnessProcess.
+        // The recorded PID is what the NEXT resumeHarness invocation will SIGTERM during cleanup.
+        const harnessLifecycle = await import('../../../../../ai/scripts/harnessLifecycle.mjs');
+        const stateFile = harnessLifecycle.getStateFilePath('@neo-opus-4-7');
+        if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile);
+
+        const mockPath = path.join(os.tmpdir(), `mock-claude-record-${randomUUID()}`);
+        fs.writeFileSync(mockPath, `#!/usr/bin/env node\nprocess.exit(0);\n`, { mode: 0o755 });
+
+        try {
+            const env = { ...overrideEnv, CLAUDE_CLI_PATH: mockPath };
+            execFileSync('node', [scriptPath, '@neo-opus-4-7', 'testReason'], { encoding: 'utf-8', stdio: 'pipe', env });
+
+            // State file MUST exist post-spawn with a recorded PID.
+            expect(fs.existsSync(stateFile)).toBe(true);
+            const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+            expect(state.pid).toBeGreaterThan(0);
+            expect(state.spawnedAt).toBeGreaterThan(0);
+        } finally {
+            if (fs.existsSync(mockPath)) fs.unlinkSync(mockPath);
+            if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile);
+        }
+    });
+
+    test('harness lifecycle: stale dead PID in state-file is reaped before fresh spawn (#10696 review point 2)', async () => {
+        test.skip(process.platform !== 'darwin', 'Claude CLI is currently mac-specific');
+
+        // Pre-populate state file with a clearly-dead PID (well above pid_max), then run
+        // resumeHarness. The cleanup primitive should detect ESRCH and proceed with fresh spawn.
+        // Verifies the fail-safe behavior — cleanup never blocks fresh-spawn on missing/dead PIDs.
+        const harnessLifecycle = await import('../../../../../ai/scripts/harnessLifecycle.mjs');
+        const stateFile = harnessLifecycle.getStateFilePath('@neo-opus-4-7');
+        const stalePid = 999999; // way above typical pid_max
+        await import('fs/promises').then(({writeFile, mkdir}) => mkdir(path.dirname(stateFile), {recursive: true})
+            .then(() => writeFile(stateFile, JSON.stringify({pid: stalePid, spawnedAt: Date.now() - 60000}))));
+
+        const mockPath = path.join(os.tmpdir(), `mock-claude-stale-${randomUUID()}`);
+        const outPath = path.join(os.tmpdir(), `out-claude-stale-${randomUUID()}`);
+        fs.writeFileSync(mockPath, `#!/usr/bin/env node\nconst fs = require('fs');\nfs.writeFileSync('${outPath}', JSON.stringify(process.argv.slice(2)));\n`, { mode: 0o755 });
+
+        try {
+            const env = { ...overrideEnv, CLAUDE_CLI_PATH: mockPath };
+            execFileSync('node', [scriptPath, '@neo-opus-4-7', 'testReason'], { encoding: 'utf-8', stdio: 'pipe', env });
+
+            // Spawn proceeded — output file written.
+            expect(fs.existsSync(outPath)).toBe(true);
+            // State-file was overwritten with the new spawn's PID (not the stale 999999).
+            expect(fs.existsSync(stateFile)).toBe(true);
+            const state = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+            expect(state.pid).not.toBe(stalePid);
+            expect(state.pid).toBeGreaterThan(0);
+        } finally {
+            if (fs.existsSync(mockPath)) fs.unlinkSync(mockPath);
+            if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
+            if (fs.existsSync(stateFile)) fs.unlinkSync(stateFile);
+        }
     });
 
     test('Antigravity CLI: adapter executes chat -n <payload> via ANTIGRAVITY_CLI_PATH (#10680)', async () => {
@@ -232,33 +333,31 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(scriptContent).toContain("const tmuxSession = harnessTarget.tmuxSession || process.env.TMUX_SESSION || 'neo-agent';");
     });
 
-    test('adapter failure (e.g. ESC-as-rejection) clears the inflight lock (#10674)', async () => {
-        // Create fake bins that always fail (exit 1)
-        const fakeBinDir = path.join(os.tmpdir(), `fake-bin-${randomUUID()}`);
-        fs.mkdirSync(fakeBinDir, { recursive: true });
-        const fakeOsascript = path.join(fakeBinDir, 'osascript');
-        fs.writeFileSync(fakeOsascript, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
-        const fakeTmux = path.join(fakeBinDir, 'tmux');
-        fs.writeFileSync(fakeTmux, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+    test('adapter failure (e.g. ESC-as-rejection) clears the inflight lock (#10674, #10677)', async () => {
+        // Substrate-correct lock-clear-on-failure invariant. Post-#10677, claude-desktop
+        // routes through the `claude-cli` adapter (no longer osascript), so we exercise
+        // the failure path via a fake `claude` binary that always exits 1. The adapter
+        // throws → resumeHarness catch block clears the in-flight lock → next interval
+        // can retry without waiting for BOOT_TIMEOUT_MS expiration.
+        const fakeClaudeCli = path.join(os.tmpdir(), `fake-claude-fail-${randomUUID()}`);
+        fs.writeFileSync(fakeClaudeCli, '#!/bin/sh\nexit 1\n', { mode: 0o755 });
 
-        // We can compute the lock path without importing inflightLock if needed,
-        // but importing it is cleaner:
         const { getLockPath } = await import('../../../../../ai/scripts/inflightLock.mjs');
         const lockPath = getLockPath('sunset_restart', '@neo-opus-4-7');
         if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
 
-        const env = { ...overrideEnv, PATH: `${fakeBinDir}:${process.env.PATH}` };
+        const env = { ...overrideEnv, CLAUDE_CLI_PATH: fakeClaudeCli };
         try {
             execFileSync('node', [scriptPath, '@neo-opus-4-7', 'test'], {encoding: 'utf-8', stdio: 'pipe', env});
             test.fail('Should have exited with error');
         } catch (e) {
             expect(e.status).toBe(1);
-            expect(e.stderr).toMatch(/Failed to resume @neo-opus-4-7 via (osascript|tmux)/);
-            
-            // Lock should be cleared!
+            expect(e.stderr).toMatch(/Failed to resume @neo-opus-4-7 via claude-cli/);
+
+            // Lock cleared per lock-clear-on-failure invariant.
             expect(fs.existsSync(lockPath)).toBe(false);
         } finally {
-            fs.rmSync(fakeBinDir, { recursive: true, force: true });
+            if (fs.existsSync(fakeClaudeCli)) fs.unlinkSync(fakeClaudeCli);
             if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
         }
     });
@@ -266,10 +365,13 @@ test.describe('ai/scripts/resumeHarness', () => {
     test('Verify-effect spec test: pre-restart sessionId X; post-restart first add_memory carries sessionId Y where X !== Y (#10676)', async () => {
         // This spec test enforces the verification that a fresh session MUST generate
         // a completely new session ID natively via the MCP client boot sequence.
-        // It validates that the grounding prompt omits `set_session_id` logic,
+        // It validates that the grounding prompt omits `set_session_id(...)` logic,
         // which forces the new agent to naturally generate Session Y !== Session X.
+        // The substring match is anchored to the call shape `set_session_id(` rather
+        // than the bare term — JSDoc references that explain WHY we avoid the call
+        // (e.g., #10677 substrate-correct framing) are permitted.
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
-        expect(scriptContent).not.toContain('set_session_id');
+        expect(scriptContent).not.toContain('set_session_id(');
         expect(scriptContent).toContain('Origin Session ID');
     });
 

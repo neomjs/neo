@@ -19,22 +19,82 @@
  */
 import { spawn } from 'child_process';
 import fs from 'fs/promises';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { readGateState, hasOverride } from './wakeSafetyGate.mjs';
 import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
+import { recordHarnessProcess, terminatePreviousHarness } from './harnessLifecycle.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-function spawnAsync(cmd, args) {
+/**
+ * @summary Spawn a child process and (optionally) record its PID for later harness cleanup.
+ *
+ * When `identity` is provided, the spawned PID is persisted via
+ * `harnessLifecycle.recordHarnessProcess` immediately after `spawn()` returns,
+ * BEFORE awaiting close. This captures the PID even if the spawned process is
+ * a long-lived interactive harness (Claude Code CLI, Antigravity IDE) whose
+ * `close` event never fires within the spawner's lifetime. Recording is best-
+ * effort — failures are logged but do not abort the spawn.
+ *
+ * @param {string} cmd
+ * @param {string[]} args
+ * @param {?string} identity Agent identity for PID-record bookkeeping; pass `null` to skip.
+ * @returns {Promise<void>}
+ */
+function spawnAsync(cmd, args, identity = null) {
     return new Promise((resolve, reject) => {
         const proc = spawn(cmd, args, { stdio: 'ignore' });
+
+        if (identity && proc.pid) {
+            recordHarnessProcess(identity, proc.pid).catch(err => {
+                console.warn(`[harnessLifecycle] Failed to record PID for ${identity}: ${err.message}`);
+            });
+        }
+
         proc.on('close', code => {
             if (code === 0) resolve();
             else reject(new Error(`${cmd} exited with code ${code}`));
         });
         proc.on('error', reject);
     });
+}
+
+/**
+ * @summary Resolve the embedded Claude Code CLI binary path inside Claude Desktop.
+ *
+ * Claude Desktop ships the `claude` CLI under
+ * `~/Library/Application Support/Claude/claude-code/<version>/claude.app/Contents/MacOS/claude`.
+ * The version segment changes with auto-updates, so we resolve the LATEST version
+ * dynamically rather than hardcoding a specific build (which would silently break
+ * the substrate after every Claude Desktop update). Operator-override via
+ * `CLAUDE_CLI_PATH` env var supports test-mock injection (per #10681 discipline)
+ * and explicit pinning if needed.
+ *
+ * Substrate-truth anchor (#10677): the spawner passes NO `--session-id` flag.
+ * `claude <prompt>` invocation creates a fresh process with a fresh MCP client
+ * connection, which yields a fresh `currentSessionId` by construction. The
+ * architectural goal of harness restart is precisely to eliminate spawner-side
+ * sessionId management — fresh process = fresh server = fresh session.
+ * `--session-id` is for *resuming* a specific session, the opposite of what
+ * recovery needs.
+ *
+ * @returns {Promise<?string>} Absolute path to the Claude Code CLI, or `null`
+ *   if neither the env-var override nor the dynamic resolution succeeds.
+ */
+async function resolveClaudeCliPath() {
+    if (process.env.CLAUDE_CLI_PATH) return process.env.CLAUDE_CLI_PATH;
+    const appSupport = path.join(os.homedir(), 'Library/Application Support/Claude/claude-code');
+    try {
+        const versions = await fs.readdir(appSupport);
+        if (versions.length === 0) return null;
+        // Numeric-aware sort so 2.1.121 ranks ABOVE 2.1.99 (lexicographic sort gets this wrong).
+        const latest = versions.sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).pop();
+        return path.join(appSupport, latest, 'claude.app/Contents/MacOS/claude');
+    } catch (err) {
+        return null;
+    }
 }
 
 /**
@@ -95,12 +155,22 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
     const payload = buildBootGroundingPrompt(identity, reason, originSessionId);
 
     // Harness Registry: Maps identity IDs to their corresponding restart adapter.
-    // 'antigravity-ide' utilizes its native CLI `chat -n` via the `antigravity-cli` adapter.
-    // 'claude-desktop' utilizes `osascript` to inject Cmd+N (`freshSessionShortcut`) keystrokes.
-    // Codex Desktop deferred until @neo-gpt confirms its restart primitive.
+    // 'antigravity-ide' utilizes its native CLI `chat -n` via the `antigravity-cli` adapter (#10678 / #10680).
+    // 'claude-desktop' utilizes the embedded Claude Code CLI via the `claude-cli` adapter
+    //   (#10677). Substrate-truth: spawner passes NO sessionId flag — fresh `claude <prompt>`
+    //   process boots a fresh MCP client + fresh `currentSessionId` by construction. This is
+    //   precisely what makes harness restart eliminate the spawner-side sessionId management
+    //   that #10627's prompt-layer plumbing tried (and failed structurally) to achieve.
+    // Codex Desktop deferred until @neo-gpt confirms its restart primitive (#10679, blocked on
+    //   target-thread MC-startup diagnosis).
+    //
+    // The legacy `osascript` adapter dispatch (Cmd+N keystroke into running Claude Desktop)
+    // is preserved as a fallback for harnesses that may need it; no production identity
+    // currently routes there. See the Q1b fresh-session-spawn references (#10611 PR-B) for
+    // the historical context.
     const HARNESS_REGISTRY = {
         'antigravity-ide': { adapter: 'antigravity-cli' },
-        'claude-desktop':  { appName: 'Claude',      adapter: 'osascript', freshSessionShortcut: 'n', tabShortcut: '3' }
+        'claude-desktop':  { adapter: 'claude-cli' }
     };
 
     const identityMap = {
@@ -121,6 +191,22 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
     // Write the inflight lock BEFORE taking action to secure the boot ramp (Issue #10674)
     await writeInflightLock(identity, 'sunset_restart', abandonedCount);
 
+    // Cross-adapter cleanup: terminate the previous harness process for this identity BEFORE
+    // spawning the new one. Sunset-mode restart spawns fresh processes (claude-cli, antigravity-cli);
+    // without cleanup, repeated sunsets accumulate stale processes and orphan windows. Applies to
+    // every CLI-spawning adapter; the legacy osascript Cmd+N adapter (which targeted the same app
+    // instance, no leak surface) is exempt. Per #10696 review point 2.
+    // Explicitly scoped to 'sunset_restart' ONLY per @tobiu mandate.
+    if (reason === 'sunset_restart' && adapter !== 'osascript' && adapter !== 'tmux') {
+        const cleanup = await terminatePreviousHarness(identity);
+        if (cleanup.terminated) {
+            const escalation = cleanup.escalated ? `, escalated to ${cleanup.escalated}` : '';
+            console.log(`[harnessLifecycle] Terminated previous ${identity} process (PID=${cleanup.pid}${escalation})`);
+        } else if (cleanup.reason !== 'no-prior-state' && cleanup.reason !== 'already-dead') {
+            console.warn(`[harnessLifecycle] Could not terminate previous ${identity} process: ${cleanup.reason}`);
+        }
+    }
+
     try {
         if (adapter === 'antigravity-cli') {
             /**
@@ -130,8 +216,43 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
              */
             const cliPath = process.env.ANTIGRAVITY_CLI_PATH || '/Applications/Antigravity.app/Contents/Resources/app/bin/antigravity';
             const args = ['chat', '-n', payload];
-            await spawnAsync(cliPath, args);
+            await spawnAsync(cliPath, args, identity);
             console.log(`Successfully resumed ${identity} via antigravity-cli`);
+        } else if (adapter === 'claude-cli') {
+            /**
+             * @anchor claude-cli-mac-specific
+             * @summary Embedded Claude Code CLI inside Claude Desktop (`~/Library/Application Support/Claude/...`).
+             *
+             * Substrate-truth: invoking `claude <prompt>` with NO flags spawns a fresh process
+             * which establishes a fresh MCP client connection, which means a fresh
+             * `SessionService.currentSessionId` by construction. The whole point of harness
+             * restart is to get fresh state for free — spawner-side sessionId enforcement
+             * (`--session-id <uuid>`) would defeat the architectural goal by reintroducing
+             * the same sessionId management that prompt-layer plumbing in #10627 tried.
+             *
+             * `--session-id` is for *resuming* a specific session, the opposite of what
+             * recovery needs. Fresh process = fresh session, no flag required.
+             *
+             * Path resolves dynamically across Claude Desktop auto-updates via `resolveClaudeCliPath()`.
+             * Operator override `CLAUDE_CLI_PATH` env var supports test-mock injection per #10681
+             * `RUN_LIVE_OSASCRIPT` discipline parallel.
+             *
+             * @todo Abstract for cross-platform execution (Windows/Linux) — sibling concern to #10684.
+             * @todo Empirically verify whether `claude <prompt>` lands as Claude Desktop Tab 3
+             *   ("Code" tab) or a terminal-attached CLI session. Either satisfies the
+             *   fresh-process / fresh-MCP / fresh-session substrate goal, but the operator
+             *   surface differs. Document the observed shape post-verification.
+             */
+            const cliPath = await resolveClaudeCliPath();
+            if (!cliPath) {
+                throw new Error(
+                    'Claude CLI not found. Set CLAUDE_CLI_PATH env var or install Claude Desktop ' +
+                    '(expects ~/Library/Application Support/Claude/claude-code/<version>/claude.app/Contents/MacOS/claude)'
+                );
+            }
+            const args = [payload];
+            await spawnAsync(cliPath, args, identity);
+            console.log(`Successfully resumed ${identity} via claude-cli`);
         } else if (adapter === 'osascript') {
             const { appName, tabShortcut, freshSessionShortcut } = harnessTarget;
             // Q1b fresh-session-spawn flow per #10611:
