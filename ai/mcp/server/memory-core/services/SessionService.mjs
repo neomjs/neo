@@ -630,6 +630,12 @@ ${aggregatedContent}
     /**
      * Overrides the current session ID manually.
      * Helpful for reconnecting a fragmented session after a server restart.
+     * 
+     * @summary Manual session override (Legacy / Stdio fallback). When a request-scoped
+     * session is active via `RequestContextService`, this method intentionally fails. 
+     * The `Mcp-Session-Id` header is the authoritative source for multi-tenant isolation,
+     * and allowing manual overrides would break tenant boundaries.
+     * 
      * @protected Assumes the caller is authorized to claim the given sessionId in a single-tenant environment.
      * @param {Object} args
      * @param {String} args.sessionId
@@ -638,6 +644,14 @@ ${aggregatedContent}
     async setSessionId({ sessionId }) {
         if (!sessionId || typeof sessionId !== 'string') {
             return { error: 'Invalid sessionId', code: 'INVALID_SESSION_ID' };
+        }
+
+        // Enforce request-scoped immutability
+        if (RequestContextService.getSessionId()) {
+            return { 
+                error: 'Cannot manually override request-scoped sessions. Manage session identity via Mcp-Session-Id header.', 
+                code: 'REQUEST_SCOPED_SESSION_ACTIVE' 
+            };
         }
 
         const oldSessionId = this.currentSessionId;

@@ -203,7 +203,13 @@ class RequestContextService extends Base {
     }
 
     /**
-     * Convenience accessor for the MCP session ID.
+     * @summary Convenience accessor for the client-scoped MCP session ID.
+     * 
+     * Extracted from the `Mcp-Session-Id` header by `TransportService`.
+     * This is the primary driver for multi-tenant isolation in the Memory Core.
+     * When present, it completely overrides the legacy process-global fallback
+     * in `SessionService`.
+     * 
      * @returns {String|undefined}
      */
     getSessionId() {

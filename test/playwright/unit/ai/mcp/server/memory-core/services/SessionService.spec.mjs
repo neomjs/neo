@@ -135,4 +135,31 @@ test.describe('SessionService setSessionId', () => {
         // Note: The AC states we abandon it, meaning we do nothing to Chroma for a zero-memory session,
         // it simply leaves no footprint because it wasn't tracked anyway.
     });
+
+    test('concurrent-client request context maintains isolation', async () => {
+        const RequestContextService = (await import('../../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+        
+        const sessionId1 = crypto.randomUUID();
+        const sessionId2 = crypto.randomUUID();
+
+        let currentId1;
+        await RequestContextService.run({ sessionId: sessionId1 }, async () => {
+            currentId1 = SDK.Memory_SessionService.currentSessionId;
+        });
+
+        let currentId2;
+        await RequestContextService.run({ sessionId: sessionId2 }, async () => {
+            currentId2 = SDK.Memory_SessionService.currentSessionId;
+        });
+
+        expect(currentId1).toBe(sessionId1);
+        expect(currentId2).toBe(sessionId2);
+        
+        // Verify setSessionId fails inside a request context
+        await RequestContextService.run({ sessionId: sessionId1 }, async () => {
+            const result = await SDK.Memory_SessionService.setSessionId({ sessionId: crypto.randomUUID() });
+            expect(result.error).toBe('Cannot manually override request-scoped sessions. Manage session identity via Mcp-Session-Id header.');
+            expect(result.code).toBe('REQUEST_SCOPED_SESSION_ACTIVE');
+        });
+    });
 });
