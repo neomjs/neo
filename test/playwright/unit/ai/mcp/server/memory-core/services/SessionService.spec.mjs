@@ -142,31 +142,34 @@ test.describe('SessionService setSessionId', () => {
         const sessionId1 = crypto.randomUUID();
         const sessionId2 = crypto.randomUUID();
 
-        await RequestContextService.run({ sessionId: sessionId1 }, async () => {
-            const memoryResult1 = await SDK.Memory_Service.addMemory({
-                prompt: 'test prompt 1',
-                response: 'test response 1',
-                thought: 'test thought 1'
-            });
-            expect(memoryResult1.sessionId).toBe(sessionId1);
+        await Promise.all([
+            RequestContextService.run({ sessionId: sessionId1 }, async () => {
+                await new Promise(resolve => setTimeout(resolve, 10));
+                const memoryResult1 = await SDK.Memory_Service.addMemory({
+                    prompt: 'test prompt 1',
+                    response: 'test response 1',
+                    thought: 'test thought 1'
+                });
+                expect(memoryResult1.sessionId).toBe(sessionId1);
 
-            const listResult = await SDK.Memory_Service.listMemories({ sessionId: sessionId1 });
-            expect(listResult.memories.length).toBe(1);
-            expect(listResult.memories[0].sessionId).toBe(sessionId1);
-        });
+                const listResult = await SDK.Memory_Service.listMemories({ sessionId: sessionId1 });
+                expect(listResult.memories.length).toBe(1);
+                expect(listResult.memories[0].sessionId).toBe(sessionId1);
+            }),
+            RequestContextService.run({ sessionId: sessionId2 }, async () => {
+                await new Promise(resolve => setTimeout(resolve, 10));
+                const memoryResult2 = await SDK.Memory_Service.addMemory({
+                    prompt: 'test prompt 2',
+                    response: 'test response 2',
+                    thought: 'test thought 2'
+                });
+                expect(memoryResult2.sessionId).toBe(sessionId2);
 
-        await RequestContextService.run({ sessionId: sessionId2 }, async () => {
-            const memoryResult2 = await SDK.Memory_Service.addMemory({
-                prompt: 'test prompt 2',
-                response: 'test response 2',
-                thought: 'test thought 2'
-            });
-            expect(memoryResult2.sessionId).toBe(sessionId2);
-
-            const listResult = await SDK.Memory_Service.listMemories({ sessionId: sessionId2 });
-            expect(listResult.memories.length).toBe(1);
-            expect(listResult.memories[0].sessionId).toBe(sessionId2);
-        });
+                const listResult = await SDK.Memory_Service.listMemories({ sessionId: sessionId2 });
+                expect(listResult.memories.length).toBe(1);
+                expect(listResult.memories[0].sessionId).toBe(sessionId2);
+            })
+        ]);
 
         // Verify setSessionId fails inside a request context
         await RequestContextService.run({ sessionId: sessionId1 }, async () => {
