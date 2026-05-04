@@ -196,7 +196,8 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
     // without cleanup, repeated sunsets accumulate stale processes and orphan windows. Applies to
     // every CLI-spawning adapter; the legacy osascript Cmd+N adapter (which targeted the same app
     // instance, no leak surface) is exempt. Per #10696 review point 2.
-    if (adapter !== 'osascript' && adapter !== 'tmux') {
+    // Explicitly scoped to 'sunset_restart' ONLY per @tobiu mandate.
+    if (reason === 'sunset_restart' && adapter !== 'osascript' && adapter !== 'tmux') {
         const cleanup = await terminatePreviousHarness(identity);
         if (cleanup.terminated) {
             const escalation = cleanup.escalated ? `, escalated to ${cleanup.escalated}` : '';
