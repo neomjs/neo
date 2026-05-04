@@ -396,6 +396,7 @@ Here you find the full history of Neo.mjs updates.
 - [The Memory Core Server](https://neomjs.com/raw/learn/agentos/MemoryCore.md)
 - [The GitHub Workflow Server](https://neomjs.com/raw/learn/agentos/GitHubWorkflow.md)
 - [Code Execution (AI SDK)](https://neomjs.com/raw/learn/agentos/CodeExecution.md)
+- [Shared KB/MC Team Deployment](https://neomjs.com/raw/learn/agentos/SharedDeployment.md)
 - [PR Review Loaded-Surface Baseline (April 2026)](https://neomjs.com/raw/learn/agentos/measurements/pr-review-baseline-2026-04.md)
 - [Swarm Heartbeat Token Economy Baseline (May 2026)](https://neomjs.com/raw/learn/agentos/measurements/heartbeat-token-economy-2026-05.md)
 - [Server Authorization](https://neomjs.com/raw/learn/agentos/tooling/Authorization.md)
