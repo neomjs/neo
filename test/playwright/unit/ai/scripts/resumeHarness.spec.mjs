@@ -21,6 +21,8 @@ import path                      from 'path';
 import fs                        from 'fs';
 
 test.describe('ai/scripts/resumeHarness', () => {
+    test.describe.configure({mode: 'serial'});
+
     const scriptPath = path.resolve(process.cwd(), 'ai/scripts/resumeHarness.mjs');
     const cooldownDir = path.resolve(process.cwd(), '.neo-ai-data/wake-daemon');
 
@@ -49,6 +51,11 @@ test.describe('ai/scripts/resumeHarness', () => {
      * architecture for safe live-substrate testing is `bridge-daemon.spec.mjs`,
      * which uses either the `test` adapter (test stream delivery) or a mock
      * `osascript` binary on PATH that captures argv without executing AppleScript.
+     *
+     * Codex live-host opt-in (#10679): `codex debug app-server send-message-v2`
+     * creates/injects into a real Codex Desktop thread. Default tests MUST use
+     * `CODEX_APP_SERVER_MOCK=1` plus a `CODEX_CLI_PATH` mock. Real probes require
+     * `RUN_LIVE_CODEX_APP_SERVER=1`.
      */
     let gatePath, overrideEnv;
     const gateOnlyEnv = () => ({...process.env, WAKE_GATE_FILE_PATH: gatePath});
@@ -94,7 +101,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         // management plumbing #10627's prompt-layer attempt failed to achieve structurally.
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
         expect(scriptContent).toContain("'claude-desktop':  { adapter: 'claude-cli' }");
-        expect(scriptContent).toContain("'@neo-opus-4-7': 'claude-desktop'");
+        expect(scriptContent).toContain("'@neo-opus-4-7'      : 'claude-desktop'");
     });
 
     test('Opus identity osascript runtime dispatch (live host — RUN_LIVE_OSASCRIPT=1 required, #10681)', async () => {
@@ -176,15 +183,17 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(stderrAndStdout).not.toContain('Wake safety gate disabled');
     });
 
-    test('Q1b fresh-session-spawn: HARNESS_REGISTRY entries route to native-CLI adapters (#10611 PR-B AC1, #10677, #10678)', async () => {
-        // Both Antigravity and Claude Desktop now route to native-CLI adapters that bypass
+    test('Q1b fresh-session-spawn: HARNESS_REGISTRY entries route to safe adapters (#10611 PR-B AC1, #10677, #10678, #10679)', async () => {
+        // Antigravity and Claude Desktop now route to native-CLI adapters that bypass
         // the legacy Cmd+N osascript path. Antigravity uses `antigravity chat -n` (#10678 / #10680);
-        // Claude Desktop uses the embedded Claude Code CLI's `--session-id <uuid>` primitive (#10677).
-        // The substrate-correct primitives enforce fresh-sessionId at the harness layer rather than
-        // via the rejected prompt-layer plumbing of #10627.
+        // Claude Desktop uses the embedded Claude Code CLI with NO sessionId flag (#10677);
+        // Codex Desktop uses the live-host-gated app-server adapter (#10679). The substrate-correct
+        // primitives avoid the rejected prompt-layer plumbing of #10627.
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
         expect(scriptContent).toContain("'antigravity-ide': { adapter: 'antigravity-cli' }");
         expect(scriptContent).toContain("'claude-desktop':  { adapter: 'claude-cli' }");
+        expect(scriptContent).toContain("'codex-desktop':   { adapter: 'codex-app-server' }");
+        expect(scriptContent).toContain("'@neo-gpt'           : 'codex-desktop'");
     });
 
     test('Q1b fresh-session-spawn: osascript flow injects freshSessionShortcut keystroke before paste (#10611 PR-B AC1)', async () => {
@@ -321,6 +330,52 @@ test.describe('ai/scripts/resumeHarness', () => {
             expect(args[1]).toBe('-n');
             expect(args[2]).toContain('@AGENTS_STARTUP.md');
             expect(args[2]).toContain('testReason');
+        } finally {
+            if (fs.existsSync(mockPath)) fs.unlinkSync(mockPath);
+            if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
+        }
+    });
+
+    test('Codex app-server: default live-host path fails closed without opt-in or mock (#10679)', async () => {
+        test.skip(process.platform !== 'darwin', 'Codex Desktop app-server adapter is currently mac-specific');
+
+        const { getLockPath } = await import('../../../../../ai/scripts/inflightLock.mjs');
+        const lockPath = getLockPath('sunset_restart', '@neo-gpt');
+        if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
+
+        try {
+            execFileSync('node', [scriptPath, '@neo-gpt', 'testReason'], {encoding: 'utf-8', stdio: 'pipe', env: overrideEnv});
+            test.fail('Should have exited with error');
+        } catch (e) {
+            expect(e.status).toBe(1);
+            expect(e.stderr).toContain('Failed to resume @neo-gpt via codex-app-server');
+            expect(e.stderr).toContain('RUN_LIVE_CODEX_APP_SERVER=1');
+
+            // The adapter writes the inflight lock before action, then clears it on fail-closed exit.
+            expect(fs.existsSync(lockPath)).toBe(false);
+        } finally {
+            if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
+        }
+    });
+
+    test('Codex app-server: adapter executes send-message-v2 <payload> via CODEX_CLI_PATH mock (#10679)', async () => {
+        test.skip(process.platform !== 'darwin', 'Codex Desktop app-server adapter is currently mac-specific');
+
+        const mockPath = path.join(os.tmpdir(), `mock-codex-${randomUUID()}`);
+        const outPath = path.join(os.tmpdir(), `out-codex-${randomUUID()}`);
+        fs.writeFileSync(mockPath, `#!/usr/bin/env node\nconst fs = require('fs');\nfs.writeFileSync('${outPath}', JSON.stringify(process.argv.slice(2)));\n`, { mode: 0o755 });
+
+        try {
+            const env = { ...overrideEnv, CODEX_APP_SERVER_MOCK: '1', CODEX_CLI_PATH: mockPath };
+            execFileSync('node', [scriptPath, '@neo-gpt', 'testReason'], { encoding: 'utf-8', stdio: 'pipe', env });
+
+            expect(fs.existsSync(outPath)).toBe(true);
+            const args = JSON.parse(fs.readFileSync(outPath, 'utf-8'));
+            expect(args[0]).toBe('debug');
+            expect(args[1]).toBe('app-server');
+            expect(args[2]).toBe('send-message-v2');
+            expect(args[3]).toContain('@AGENTS_STARTUP.md');
+            expect(args[3]).toContain('testReason');
         } finally {
             if (fs.existsSync(mockPath)) fs.unlinkSync(mockPath);
             if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
