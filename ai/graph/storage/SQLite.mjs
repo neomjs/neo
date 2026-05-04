@@ -135,7 +135,7 @@ class SQLite extends Base {
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS SummarizationJobs (
                 session_id TEXT PRIMARY KEY,
-                status TEXT NOT NULL,
+                status TEXT NOT NULL CHECK(status IN ('pending', 'in_progress', 'completed', 'failed')),
                 lease_token TEXT,
                 expires_at INTEGER,
                 retry_count INTEGER DEFAULT 0
