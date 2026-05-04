@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-05-04T14:14:53.394Z",
-  "releasesLastFetched": "2026-05-04T14:15:10.439Z",
+  "lastSync": "2026-05-04T17:40:25.903Z",
+  "releasesLastFetched": "2026-05-04T17:40:35.732Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -31352,7 +31352,7 @@
       "path": "resources/content/issues/issue-10671.md",
       "closedAt": null,
       "updatedAt": "2026-05-04T09:21:05Z",
-      "contentHash": "06cb8789aabbd35babe72dc32c5a174428aa36640a91c227187b1fccfcf3a732",
+      "contentHash": "4d8423176011628ddc0c3d0348f154173eb0e4b09873af5cc00f69088581acd8",
       "commentsTotal": 2
     },
     "10672": {
@@ -31388,19 +31388,19 @@
       "commentsTotal": 0
     },
     "10676": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-10676.md",
-      "closedAt": null,
-      "updatedAt": "2026-05-04T09:22:13Z",
-      "contentHash": "aef32657e09bab77b3feb9478ee0277a66d771f90ce75615e4e68bb32ddf6618",
+      "closedAt": "2026-05-04T14:33:17Z",
+      "updatedAt": "2026-05-04T14:33:17Z",
+      "contentHash": "cf1dbdf2a6898ff7251e084237b9408aa41f1a6acd4fb9841fcae261cc987cf2",
       "commentsTotal": 1
     },
     "10677": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-10677.md",
-      "closedAt": null,
-      "updatedAt": "2026-05-04T13:47:42Z",
-      "contentHash": "41a38747f1df1d872fac09e89f30f9e9a83bbdd6428a09f1034730504fe3e040",
+      "closedAt": "2026-05-04T17:20:47Z",
+      "updatedAt": "2026-05-04T17:20:47Z",
+      "contentHash": "7bf73aaf049d1c5f397cd3d827a3d3f3f19528bbd80d7aef4bcfc378f4310cfa",
       "commentsTotal": 1
     },
     "10678": {
@@ -31474,6 +31474,14 @@
       "updatedAt": "2026-05-04T13:24:44Z",
       "contentHash": "07a73496eaca05872ee37327d0850b391885755c38b1fb65976a573154ae7b24",
       "commentsTotal": 0
+    },
+    "10698": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-10698.md",
+      "closedAt": "2026-05-04T17:20:16Z",
+      "updatedAt": "2026-05-04T17:20:16Z",
+      "contentHash": "cbe53c63ac73f30d2bf1e48df501a5b12bab6e6ecb0d9a4b030794fd54ae07b0",
+      "commentsTotal": 2
     }
   },
   "releases": {
