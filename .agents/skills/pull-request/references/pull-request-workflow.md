@@ -195,41 +195,9 @@ To prevent redundant parallel effort and reviewer collision, you MUST adhere to 
 
 This strict role-based feedback loop prevents duplicated work and confusion over PR ownership when multiple agents are running concurrently. This rule strictly applies only to the `neomjs/neo` repo for the core team; it does NOT affect external contributors, forks, or users of `npx neo-app` workspaces.
 
-## 8. PR Comment Hygiene (Polish vs. Pivot)
+## 8. PR Comment Hygiene & A2A Propagation (Edge-Case)
 
-When performing self-reviews or responding to feedback across multiple rounds, you must distinguish between "polish" (better execution of the same idea) and "pivot" (a change in architectural direction).
-
-| Lifecycle stage | Comment pattern |
-|---|---|
-| **Initial self-review** | ONE comment. Contains the full evaluation metrics + graph linking + required actions. |
-| **Polish commits landing** | UPDATE the existing self-review comment in place. Readers see current state, not evolution. |
-| **Bug-fix rounds** | NEW comment per round for clarity + traceability. Title the comment with the fix scope. |
-| **Scope reductions / architectural pivots** | NEW comment with explicit link to the decision being resumed. Do NOT rewrite the original — callout preserves the pivot in history. |
-| **Follow-up completion notes** | NEW short comment (e.g., "merged #X, closed by PR"). |
-
-### 8.1 A2A Comment-ID Propagation (Author Side) — #10272
-
-Symmetric with `pr-review §9` (reviewer side). When YOU (as author) post a response comment to reviewer feedback, capture the `commentId` returned by `manage_issue_comment` and relay it to the reviewer via A2A mailbox DM so they can fetch just-this-comment via `get_conversation({pr_number, comment_id})`. Scales linearly with new-comment volume rather than cumulative thread size across multi-cycle review.
-
-**Workflow:**
-1. Author posts Addressed-tags response via `manage_issue_comment({action: 'create', pr_number, body, agent})`.
-2. Author captures `commentId` from the response.
-3. Author sends an A2A DM to the reviewer:
-   ```
-   subject: 're: PR #N addressed'
-   body: 'Response posted at PR #N comment <COMMENT_ID>. Summary: addressed <X>, deferred <Y> to #Z.'
-   inReplyTo: <reviewer's original review commentId if known>
-   relatedTickets: ['#N']
-   ```
-4. Reviewer fetches just this response via `get_conversation({pr_number: N, comment_id: COMMENT_ID})`.
-
-**Re-review cycle:** if reviewer posts a follow-up (Request Changes or Approved), they mailbox YOU with their new commentId. You fetch just-their-new-comment, evaluate, commit further polish if needed, and the loop continues with linear-to-new-content context cost rather than cumulative.
-
-Rationale: §10 of `pr-review-guide.md` covers the reviewer-side mechanics; this section covers the author-side symmetric hand-off. The selector precedence (`comment_id > since_comment_id > last_n > full`) and anti-patterns (full-fetch-when-commentId-available, mailbox-without-commentId, all-three-selectors-at-once) apply identically here.
-
-**Pre-Flight Check (operational reflex)** — mirrors `AGENTS.md §3 / §4.2` proven primitive. After every author-side `manage_issue_comment` create, before yielding turn, explicitly state in your reasoning: *"Pre-Flight: I posted response commentId `<ID>` addressing reviewer feedback. I have (or will) send an A2A ping to reviewer `<handle>` with the literal commentId in the body."* This commitment-statement is the gate that permits yielding turn. Skipping is empirically the dominant failure mode (PR #10371 + #10375, 2026-04-26: 5+ missed pings before @tobiu surfaced the gap). See `pr-review-guide §10.4 Pre-Flight Check` for the full reasoning template; single source of truth lives there, this section inherits.
-
-**Cold-cache exception:** When picking up a PR after a fresh session bootstrap, opening Cycle 1 of a PR, taking a cross-agent handoff, or recovering from a missed/lost reviewer ping, full-thread fetch (or `since_comment_id` from the last-known anchor) is the right call instead — the warm-cache reflex would land one comment in a void without prior-cycle grounding. See `pr-review-guide §10.5 Cold-Cache Exception` for the warm-vs-cold-cache dichotomy and per-case fetch shape; single source of truth lives there, this section inherits.
+*If responding to reviewer feedback across multiple rounds, read `.agents/skills/pull-request/references/review-response-protocol.md`; otherwise skip.*
 
 ## 9. PR Body Hygiene
 

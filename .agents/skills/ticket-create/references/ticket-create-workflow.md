@@ -83,15 +83,9 @@ Skeleton tickets are forbidden. Every ticket body MUST contain:
 - **Blocking / blocked-by:** same tool. Sets `blockedBy` / `blocking` fields on the ticket frontmatter after sync.
 - **Origin Session ID:** embeds the current session as textual provenance. Complements native linkage by preserving the reasoning trail across swarm instances.
 
-## 7. Pre-Execution Gates (from `CLAUDE.md §3`)
+## 7. Pre-Execution Gates
 
-Before any `git commit` associated with the new ticket:
-
-- **Gate 1 (Ticket):** ticket ID must exist, appended to commit subject as `(#ID)`.
-- **Gate 2 (Contextual Completeness):** Anchor & Echo JSDoc on all new or modified classes, methods, properties.
-- **Gate 3 (Commit Format):** Conventional Commits `type(scope): message (#ID)`. No `<noreply@*>` Co-Authored-By footers.
-
-These belong to the commit step, not the creation step — but the ticket's body must be rich enough that a future commit can satisfy Gate 2 without needing a separate documentation pass.
+*These gates apply to the commit step (see `AGENTS.md §3`), not ticket creation. However, you must ensure the ticket body is rich enough that a future commit can satisfy Gate 2 (Contextual Completeness) without requiring a separate documentation pass.*
 
 ## 8. Anti-Patterns (Non-Exhaustive)
 
