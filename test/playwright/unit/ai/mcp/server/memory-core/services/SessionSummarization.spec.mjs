@@ -293,6 +293,97 @@ test.describe('Memory Core Offline Summarization', () => {
         expect(finalPrompt.length).toBeGreaterThan(20000); 
     });
 
+    test('SessionService routes Qwen3 summaries through the OpenAiCompatible provider class', async () => {
+        if (!SDK.Memory_LifecycleService._initPromise) {
+            await SDK.Memory_LifecycleService.initAsync();
+        } else {
+            await SDK.Memory_LifecycleService.ready();
+        }
+        await SDK.Memory_SessionService.ready();
+        await SDK.Memory_ChromaManager.ready();
+
+        const OpenAiCompatibleProvider = (await import('../../../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const qwenSessionId = crypto.randomUUID();
+        const originalProviderConfig = {
+            apiKey       : SDK.Memory_Config.data.openAiCompatible.apiKey,
+            host         : SDK.Memory_Config.data.openAiCompatible.host,
+            model        : SDK.Memory_Config.data.openAiCompatible.model,
+            modelProvider: SDK.Memory_Config.data.modelProvider
+        };
+        const originalGenerate = OpenAiCompatibleProvider.prototype.generate;
+        let capturedPrompt = '';
+        let capturedProviderConfig = null;
+
+        try {
+            SDK.Memory_Config.data.modelProvider = 'openAiCompatible';
+            SDK.Memory_Config.data.openAiCompatible.apiKey = 'qwen-secret';
+            SDK.Memory_Config.data.openAiCompatible.host = 'http://127.0.0.1:11434';
+            SDK.Memory_Config.data.openAiCompatible.model = 'qwen3-8b';
+
+            OpenAiCompatibleProvider.prototype.generate = async function(prompt) {
+                capturedPrompt = prompt;
+                capturedProviderConfig = {
+                    apiKey   : this.apiKey,
+                    host     : this.host,
+                    modelName: this.modelName
+                };
+
+                return {
+                    content: JSON.stringify({
+                        title              : "Qwen3 Summary",
+                        summary            : "Validated local chat summarization through an OpenAI-compatible Qwen3 model.",
+                        category           : "feature",
+                        quality            : 90,
+                        productivity       : 90,
+                        impact             : 60,
+                        complexity         : 30,
+                        technologies       : ["neo.mjs", "memory-core", "qwen3"],
+                        participatingAgents: ["developer"],
+                        models             : ["qwen3-8b"]
+                    })
+                };
+            };
+
+            await SDK.Memory_Service.addMemory({
+                prompt   : "Validate Qwen3 chat summarization",
+                thought  : "Exercise the local OpenAI-compatible chat summary path.",
+                response : "The summary should preserve structured metadata.",
+                agent    : "developer",
+                model    : "qwen3-8b",
+                sessionId: qwenSessionId
+            });
+
+            const result = await SDK.Memory_SessionService.summarizeSession(qwenSessionId);
+
+            expect(capturedProviderConfig).toEqual({
+                apiKey   : 'qwen-secret',
+                host     : 'http://127.0.0.1:11434',
+                modelName: 'qwen3-8b'
+            });
+            expect(capturedPrompt).toContain("Validate Qwen3 chat summarization");
+            expect(result).not.toBeNull();
+            expect(result.sessionId).toBe(qwenSessionId);
+            expect(result.memoryCount).toBe(1);
+
+            const summaryCollection = await SDK.Memory_ChromaManager.getSummaryCollection();
+            const savedSummary = await summaryCollection.get({
+                ids    : [result.summaryId],
+                include: ['metadatas', 'documents']
+            });
+
+            expect(savedSummary.ids.length).toBe(1);
+            expect(savedSummary.documents[0]).toContain("OpenAI-compatible Qwen3 model");
+            expect(savedSummary.metadatas[0].title).toBe("Qwen3 Summary");
+            expect(savedSummary.metadatas[0].models).toContain("qwen3-8b");
+        } finally {
+            OpenAiCompatibleProvider.prototype.generate = originalGenerate;
+            SDK.Memory_Config.data.modelProvider = originalProviderConfig.modelProvider;
+            SDK.Memory_Config.data.openAiCompatible.apiKey = originalProviderConfig.apiKey;
+            SDK.Memory_Config.data.openAiCompatible.host = originalProviderConfig.host;
+            SDK.Memory_Config.data.openAiCompatible.model = originalProviderConfig.model;
+        }
+    });
+
     test('SessionService limits toolsUsed stringification to prevent prompt explosion', async () => {
         if (!SDK.Memory_LifecycleService._initPromise) {
             await SDK.Memory_LifecycleService.initAsync();

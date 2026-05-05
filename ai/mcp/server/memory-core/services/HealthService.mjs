@@ -169,6 +169,55 @@ export function buildEmbeddingProviderBlock(cfg) {
 }
 
 /**
+ * @summary Projects the active session-summary provider into the healthcheck `providers.summary`
+ *          observability block (#10724).
+ *
+ * The shared-deployment local-model validation path (#10724) needs operators to confirm that
+ * session summaries are routed to the intended chat API before waiting for a disconnect-triggered
+ * summarization run. This pure projection names the active provider, host, model, endpoint, local
+ * status, and credential env var without exposing secret values, mirroring the sibling
+ * {@link buildEmbeddingProviderBlock} operator-facing `providers.*` observability strategy.
+ *
+ * @param {Object} cfg aiConfig-shaped input containing `modelProvider`, `modelName`, and
+ *     `openAiCompatible.{host, model, apiKey}`.
+ * @param {Object} [env=process.env] Environment source used to test Gemini key presence in unit tests.
+ * @returns {{active: String, host: String|null, model: String|null, endpoint: String|null, local: Boolean, credential: Object}}
+ */
+export function buildSummaryProviderBlock(cfg, env = process.env) {
+    const active = cfg.modelProvider || 'gemini';
+
+    if (active === 'openAiCompatible') {
+        const host = cfg.openAiCompatible?.host || null;
+
+        return {
+            active,
+            host,
+            model     : cfg.openAiCompatible?.model || null,
+            endpoint  : host ? `${host}/v1/chat/completions` : null,
+            local     : !!host && /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(?::|\/|$)/.test(host),
+            credential: {
+                env       : 'NEO_OPENAI_COMPATIBLE_API_KEY',
+                configured: !!cfg.openAiCompatible?.apiKey,
+                required  : false
+            }
+        };
+    }
+
+    return {
+        active,
+        host      : null,
+        model     : active === 'gemini' ? cfg.modelName || null : null,
+        endpoint  : null,
+        local     : false,
+        credential: {
+            env       : active === 'gemini' ? 'GEMINI_API_KEY' : null,
+            configured: active === 'gemini' ? !!env.GEMINI_API_KEY : true,
+            required  : active === 'gemini'
+        }
+    };
+}
+
+/**
  * @summary Monitors and validates the ChromaDB dependency for the Memory Core MCP server.
  *
  * This service acts as a gatekeeper, ensuring that ChromaDB is properly running,
@@ -574,7 +623,8 @@ class HealthService extends Base {
             identity : buildIdentityBlock(this.#stdioIdentityState),
             migration: await this.#checkMigrationState(),
             providers: {
-                embedding: buildEmbeddingProviderBlock(aiConfig)
+                embedding: buildEmbeddingProviderBlock(aiConfig),
+                summary  : buildSummaryProviderBlock(aiConfig)
             },
             details  : [],
             version  : process.env.npm_package_version || '1.0.0',

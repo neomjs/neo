@@ -24,6 +24,12 @@ class OpenAiCompatibleProvider extends Base {
          */
         modelName: 'gemma4:31b',
         /**
+         * @summary Optional bearer token for OpenAI-compatible API servers that require one.
+         *
+         * @member {String} apiKey=''
+         */
+        apiKey: '',
+        /**
          * @member {String} systemPrompt=''
          */
         systemPrompt: '',
@@ -147,7 +153,8 @@ class OpenAiCompatibleProvider extends Base {
             const response = await fetch(`${this.host}/v1/chat/completions`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...(this.apiKey ? {Authorization: `Bearer ${this.apiKey}`} : {})
                 },
                 body: JSON.stringify(payload)
             });
