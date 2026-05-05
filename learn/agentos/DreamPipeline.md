@@ -9,6 +9,7 @@ experiences overnight and wakes up with a clearer model of the world.
 
 For the overall platform topology, see [Architecture Overview](../benefits/ArchitectureOverview.md).
 For the agent delegation model, see [Swarm Intelligence](./SwarmIntelligence.md).
+For the heartbeat-daemon persistent-process management that enables autonomous DreamMode/Sandman runs during night-shift mode, see [Persistent Process Management](./wake-substrate/PersistentProcessManagement.md) (Epic [#10671](https://github.com/neomjs/neo/issues/10671)).
 
 ## The Philosophy
 

@@ -6,6 +6,8 @@ This protocol governs how the swarm responds to wake-substrate regressions: when
 
 The protocol is operational discipline — preflight checklists, gate-state semantics, coordination patterns. Specific incident retrospectives accumulate as comments on [#10647](https://github.com/neomjs/neo/issues/10647) using the [post-incident retrospective template](#post-incident-retrospective-template) below.
 
+For the persistent-process management substrate that keeps `swarm-heartbeat.sh` running between operator sessions (required for night-shift mode + post-incident reactivation that must survive system reboots), see [Persistent Process Management](../wake-substrate/PersistentProcessManagement.md) (Epic [#10671](https://github.com/neomjs/neo/issues/10671)).
+
 ---
 
 ## When to Declare an Incident
