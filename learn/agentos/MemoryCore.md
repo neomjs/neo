@@ -102,11 +102,33 @@ Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint
             "resolvedVia": "engines.chroma"
         }
     },
-    "features":  { "summarization": true },
+    "features": {
+        "summarization": true
+    },
     "startup":   { "summarizationStatus": "not_attempted", "summarizationDetails": null },
     "mailboxPreview": null,
     "identity":  { "source": "env-var", "bound": true, "nodeId": "@neo-opus-4-7" },
     "migration": { "memory": 0, "session": 0, "total": 0, "available": true },
+    "providers": {
+        "embedding": {
+            "active": "openAiCompatible",
+            "host": "http://127.0.0.1:8000",
+            "model": "text-embedding-qwen3-embedding-1.5b",
+            "dimensions": 4096
+        },
+        "summary": {
+            "active": "openAiCompatible",
+            "host": "http://127.0.0.1:11434",
+            "model": "qwen3-8b",
+            "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+            "local": true,
+            "credential": {
+                "env": "NEO_OPENAI_COMPATIBLE_API_KEY",
+                "configured": false,
+                "required": false
+            }
+        }
+    },
     "details":   ["Connected to an externally managed ChromaDB instance", "All features are operational"],
     "version":   "1.0.0",
     "uptime":    0.21
@@ -141,6 +163,23 @@ Introduced in #10017 (see `learn/agentos/tooling/MultiTenantMigrationGuide.md`).
 - `available`: `false` if the SQLite graph is not yet mounted (substrate-readiness signal, not a migration error).
 
 A zero `total` is the signal operators watch for to flip the `memorySharing` default from `'legacy'` to `'private'`.
+
+### `providers.summary` — Active Summary Model Route
+
+Introduced for local chat-API provider validation (#10724). The block sits beside `providers.embedding` (#10723) and surfaces which generation provider Memory Core will use for session summaries:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `active` | `'gemini' \| 'openAiCompatible' \| string` | The active `modelProvider` config value for summarization. |
+| `host` | `string \| null` | The chat provider host for OpenAI-compatible APIs; `null` for Gemini. |
+| `model` | `string \| null` | The configured generation model (`modelName` for Gemini, `openAiCompatible.model` for OpenAI-compatible chat APIs). |
+| `endpoint` | `string \| null` | Chat-completions endpoint for OpenAI-compatible providers; `null` for Gemini. |
+| `local` | `boolean` | `true` when the endpoint host is `localhost`, `127.0.0.1`, or `[::1]`. |
+| `credential.env` | `string \| null` | Environment variable name operators use for the provider credential. Secret values are never exposed. |
+| `credential.configured` | `boolean` | Whether the credential env/config value is present. |
+| `credential.required` | `boolean` | Whether Memory Core requires the credential to mark summarization available. |
+
+For Qwen3-8b or another local OpenAI-compatible chat model, set `NEO_MODEL_PROVIDER=openAiCompatible`, `NEO_OPENAI_COMPATIBLE_HOST`, and `NEO_OPENAI_COMPATIBLE_MODEL`, then verify `providers.summary` before relying on disconnect-triggered summaries.
 
 ## Two-Stage Query Workflow
 

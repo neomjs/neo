@@ -1394,8 +1394,71 @@ components:
           properties:
             summarization:
               type: boolean
-              description: "Indicates if the summarization feature is available (requires GEMINI_API_KEY)."
+              description: "Indicates if the summarization feature is available for the active provider."
               example: true
+        providers:
+          type: object
+          description: "Active model provider observability. Exposes provider keys, model names, endpoints, and booleans only; never secret values."
+          properties:
+            embedding:
+              type: object
+              description: "Active ChromaDB embedding provider route."
+              properties:
+                active:
+                  type: string
+                  example: "openAiCompatible"
+                host:
+                  type: string
+                  nullable: true
+                  example: "http://127.0.0.1:8000"
+                model:
+                  type: string
+                  nullable: true
+                  example: "text-embedding-qwen3-embedding-1.5b"
+                dimensions:
+                  type: integer
+                  example: 4096
+                error:
+                  type: string
+                  nullable: true
+                  example: null
+            summary:
+              type: object
+              description: "Active session-summary provider route."
+              properties:
+                active:
+                  type: string
+                  example: "openAiCompatible"
+                host:
+                  type: string
+                  nullable: true
+                  example: "http://127.0.0.1:11434"
+                model:
+                  type: string
+                  nullable: true
+                  example: "qwen3-8b"
+                endpoint:
+                  type: string
+                  nullable: true
+                  example: "http://127.0.0.1:11434/v1/chat/completions"
+                local:
+                  type: boolean
+                  description: "True when the configured endpoint is localhost / loopback."
+                  example: true
+                credential:
+                  type: object
+                  description: "Credential observability. Contains env var names and booleans only; never secret values."
+                  properties:
+                    env:
+                      type: string
+                      nullable: true
+                      example: "NEO_OPENAI_COMPATIBLE_API_KEY"
+                    configured:
+                      type: boolean
+                      example: false
+                    required:
+                      type: boolean
+                      example: false
         startup:
           type: object
           description: "Provides status on asynchronous tasks performed at server startup."

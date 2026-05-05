@@ -3,6 +3,7 @@ import aiConfig from '../config.mjs';
 import Base from '../../../../../src/core/Base.mjs';
 import crypto from 'crypto';
 import GraphService from './GraphService.mjs';
+import OpenAiCompatibleProvider from '../../../../provider/OpenAiCompatible.mjs';
 import StorageRouter from '../managers/StorageRouter.mjs';
 import HealthService from './HealthService.mjs';
 import Json from '../../../../../src/util/Json.mjs';
@@ -10,8 +11,6 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import logger from '../logger.mjs';
-import http from 'http';
-import https from 'https';
 import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../shared/services/RequestContextService.mjs';
 
 /**
@@ -77,6 +76,13 @@ class SessionService extends Base {
     }
 
     /**
+     * @summary Initializes the active session summarization model from Memory Core provider config.
+     *
+     * The OpenAI-compatible path uses the shared `Neo.ai.provider.OpenAiCompatible` chat-completions
+     * abstraction so local models such as Qwen3-8b remain operator-configured models, not bespoke
+     * Memory Core provider classes. The provider configs are refreshed before each summary request to
+     * preserve the existing runtime-config mutation behavior used by tests and embedded operators.
+     *
      * @param {Object} config
      */
     construct(config) {
@@ -95,56 +101,23 @@ class SessionService extends Base {
 
         if (aiConfig.modelProvider === 'openAiCompatible') {
             logger.info(`[SessionService] Initializing generation model via OpenAI-Compatible API (${aiConfig.openAiCompatible.model})`);
+            const provider = Neo.create(OpenAiCompatibleProvider, {
+                apiKey   : aiConfig.openAiCompatible.apiKey,
+                host     : aiConfig.openAiCompatible.host,
+                modelName: aiConfig.openAiCompatible.model
+            });
+
             this.model = {
                 generateContent: async (promptText) => {
                     logger.info(`[OpenAiCompatible] Sending summarization prompt (${promptText.length} chars)`);
-                    return new Promise((resolve, reject) => {
-                        const url = new URL(`${aiConfig.openAiCompatible.host}/v1/chat/completions`);
-                        const client = url.protocol === 'https:' ? https : http;
-                        const payload = {
-                            model: aiConfig.openAiCompatible.model,
-                            messages: [{ role: 'user', content: promptText }],
-                            stream: false
-                        };
-                        const bodyData = Buffer.from(JSON.stringify(payload), 'utf8');
+                    provider.apiKey    = aiConfig.openAiCompatible.apiKey;
+                    provider.host      = aiConfig.openAiCompatible.host;
+                    provider.modelName = aiConfig.openAiCompatible.model;
 
-                        const headers = {
-                            'Content-Type': 'application/json',
-                            'Content-Length': bodyData.length
-                        };
+                    const result  = await provider.generate(promptText);
+                    const content = result.content || result.raw?.message?.content || '';
 
-                        if (aiConfig.openAiCompatible.apiKey) {
-                            headers['Authorization'] = `Bearer ${aiConfig.openAiCompatible.apiKey}`;
-                        }
-
-                        const req = client.request(url, {
-                            method: 'POST',
-                            headers,
-                            timeout: 60 * 60 * 1000 // 1 hour timeout
-                        }, (res) => {
-                            let chunks = [];
-                            res.on('data', c => chunks.push(c));
-                            res.on('end', () => {
-                                try {
-                                    const rawStr = Buffer.concat(chunks).toString('utf8');
-                                    if (res.statusCode < 200 || res.statusCode >= 300) {
-                                        logger.error(`[OpenAiCompatible] Error ${res.statusCode}: ${rawStr}`);
-                                        return reject(new Error(`OpenAiCompatible Status ${res.statusCode}: ${rawStr}`));
-                                    }
-                                    const data = JSON.parse(rawStr);
-                                    const content = data.choices?.[0]?.message?.content || '';
-                                    resolve({ response: { text: () => content } });
-                                } catch (e) {
-                                    reject(new Error(`OpenAiCompatible Parser Error: ${e.message}`));
-                                }
-                            });
-                        });
-
-                        req.on('error', e => reject(e));
-                        req.on('timeout', () => { req.destroy(); reject(new Error('OpenAiCompatible Request Timeout')); });
-                        req.write(bodyData);
-                        req.end();
-                    });
+                    return {response: {text: () => content}};
                 }
             };
         } else {
