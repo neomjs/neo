@@ -27,6 +27,8 @@ The shared MVP topology preserves three independent boundaries:
 
 ## Configuration
 
+### Topology mode
+
 The single operator-facing flag is `NEO_CHROMA_UNIFIED`:
 
 ```bash
@@ -44,6 +46,45 @@ The flag is read by both `ai/mcp/server/knowledge-base/config.template.mjs` and 
 In unified mode, the Memory Core's `ChromaClient` targets the Knowledge Base's Chroma coordinates (`engines.kb.chroma.{host, port}`) instead of its own (`engines.chroma.{host, port}`). The KB's local config defines the canonical shared coordinates; MC reads through them.
 
 **Connection contract:** the shared Chroma instance MUST be reachable from every developer's machine — typically a team-managed cloud service (e.g., a managed Chroma cluster) or a shared internal host. The `engines.kb.chroma.{host, port}` config in the KB's `config.mjs` is where operators point at the team's shared instance.
+
+### Embedding provider
+
+ChromaDB's embedding generation is provider-pluggable. The active provider is controlled by `NEO_CHROMA_EMBEDDING_PROVIDER`; supported values are `'gemini'` (default, cloud), `'ollama'` (local), and `'openAiCompatible'` (local OpenAI-format servers including MLX-served Qwen3 models, llama.cpp, LM Studio, etc.).
+
+```bash
+# Default: Google Gemini cloud embedding (gemini-embedding-001):
+unset NEO_CHROMA_EMBEDDING_PROVIDER
+# or
+export NEO_CHROMA_EMBEDDING_PROVIDER=gemini
+
+# Local OpenAI-compatible embedding (e.g. Qwen3 family via MLX):
+export NEO_CHROMA_EMBEDDING_PROVIDER=openAiCompatible
+export NEO_OPENAI_COMPATIBLE_HOST=http://127.0.0.1:8000              # MLX server endpoint
+export NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=text-embedding-qwen3-embedding-1.5b  # Qwen3-1.5B variant
+# OR for the 8B variant:
+# export NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=text-embedding-qwen3-embedding-8b
+export NEO_OPENAI_COMPATIBLE_API_KEY=                                # leave empty for local servers
+
+# Local Ollama embedding:
+export NEO_CHROMA_EMBEDDING_PROVIDER=ollama
+export NEO_OLLAMA_HOST=http://127.0.0.1:11434
+export NEO_OLLAMA_EMBEDDING_MODEL=qwen3-embedding
+```
+
+**Vector dimension is independently pinned** via `NEO_VECTOR_DIMENSION` (default 4096 = 4k dims, matching Qwen3 family). ChromaDB collections are created with this dimension; mismatch between the embedding model's actual output dimension and `vectorDimension` causes silent insert failures or shape errors. Operators MUST match the dimension to the active embedding model:
+
+```bash
+# Qwen3 family default 4k (matches text-embedding-qwen3-embedding-1.5b/8b output):
+export NEO_VECTOR_DIMENSION=4096
+# Gemini gemini-embedding-001:
+export NEO_VECTOR_DIMENSION=3072
+# Smaller models (768/1024):
+export NEO_VECTOR_DIMENSION=768
+```
+
+A sibling override `NEO_EMBEDDING_PROVIDER` controls the SQLite-side embedding path (`neoEmbeddingProvider`) for native-edge-graph operations; in most shared deployments it should match `NEO_CHROMA_EMBEDDING_PROVIDER` for consistency, but it can diverge when the SQLite and ChromaDB engines use different providers intentionally.
+
+**Substrate observation (#10723):** the OpenAI-compatible embedding path is implemented inside `ai/mcp/server/memory-core/services/TextEmbeddingService.mjs#embedText[s]` (POST to `${host}/v1/embeddings` with `{model, input}` payload, parsing `result.data[*].embedding`). It is NOT routed through the `Neo.ai.provider.OpenAiCompatible` class — that class currently exposes `generate` / `stream` (chat completions) but no `embed` method. This means the embedding-provider abstraction is functional but not yet symmetric with the chat-provider abstraction. Future hardening should consolidate the embedding path into the provider class hierarchy; out of scope for #10723 itself.
 
 ## Authentication
 
@@ -100,7 +141,7 @@ Every authenticated request carries a `source` tag through `Server.mjs#buildRequ
 
 The source tag is graph-ingested into agent-identity memory writes; an audit query against memories can verify the proportion of `'oidc'` vs `'proxy-header'` writes against operator expectations.
 
-A symmetric healthcheck `providers.auth` block is a recommended follow-up; tracked separately. Until then, source-tag observability is via memory-write audit only.
+A symmetric healthcheck `providers.auth` block is a recommended follow-up tracked under #10770. Until then, source-tag observability is via memory-write audit only.
 
 ## Healthcheck Verification
 
@@ -124,6 +165,27 @@ Three diagnostic fields:
 See [`MemoryCore.md` §Healthcheck Response Shape](./MemoryCore.md) for the full healthcheck payload contract.
 
 The Knowledge Base's healthcheck mirrors the connectivity assertion (collection counts, embedding status). When both servers report `connected: true` against the same shared `{host, port}`, the topology is verified.
+
+The Memory Core's healthcheck additionally surfaces the **active embedding provider** under `providers.embedding` (#10723):
+
+```json
+"providers": {
+    "embedding": {
+        "active": "openAiCompatible",
+        "host": "http://127.0.0.1:8000",
+        "model": "text-embedding-qwen3-embedding-1.5b",
+        "dimensions": 4096
+    }
+}
+```
+
+Four diagnostic fields:
+- `active`: the provider key currently selected for ChromaDB embedding generation (`'gemini'` | `'openAiCompatible'` | `'ollama'`). Mismatch between operator intent (e.g. expected local Qwen3) and observed value (e.g. silent fallback to `'gemini'` because `NEO_CHROMA_EMBEDDING_PROVIDER` was unset) is the load-bearing diagnostic.
+- `host`: provider endpoint URL when applicable (`null` for cloud `gemini`).
+- `model`: resolved embedding model name. Operators verify this matches the model running on the local server.
+- `dimensions`: configured `vectorDimension`. Must match the embedding model's actual output dimension; mismatch is silent in collection writes but breaks retrieval.
+
+If `active` resolves to an unrecognized value, the block additionally surfaces an `error` field naming the misconfig directly.
 
 ## Asynchronous Session Summarization (Disconnect Trigger)
 
