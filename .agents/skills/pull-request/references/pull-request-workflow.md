@@ -76,7 +76,7 @@ Decision rule: *"Does this enable a new capability that did not exist before?"* 
 
 ### 3.2 Commit Message Hygiene
 
-- **FORBIDDEN:** `Co-Authored-By: <name> <noreply@*>` footers. Some AI harnesses (notably Claude Code) inject these by default — you MUST override that behavior. Agent participation is tracked via the linked ticket body, PR labels (`ai`, `ai-generated`), and Memory Core origin-session IDs, not via fake git identities in commit trailers.
+- **FORBIDDEN:** `Co-Authored-By: <name> <noreply@*>` footers. Some AI harnesses (notably Claude Code) inject these by default — you MUST override that behavior. **Canonical agent emails for required Co-Authored-By trailers (real, project-controlled addresses):** `neo-opus-4-7@neomjs.com`, `neo-gemini-3-1-pro@neomjs.com`, `neo-gpt@neomjs.com`. The machine-account primary email is operator-configured (out of agent scope); squash-merge auto-attribution resolves to `@neomjs.com` once accounts use these as primary. Agent participation is tracked across multiple substrates: ticket body, PR labels (`ai`, `ai-generated`), Memory Core origin-session IDs, and `@neomjs.com` Co-authored-by trailers in git history (the long-term distributed memory + RLAIF flywheel substrate per `README.md` §The Evolution).
 - **MANDATORY:** append the ticket ID to the subject line in `(#TICKET_ID)` form — e.g. `feat(claude): wire harness (#10059)`. A trailing paragraph like `Refs #N` is non-compliant. The `Resolves #N` keyword belongs in the PR body, not the commit.
 
 ### 3.3 Steps
