@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    com.neomjs.swarm-heartbeat — launchd plist TEMPLATE for SwarmHeartbeatService.
+
+    THIS IS A TEMPLATE. Operator MUST substitute the [OPERATOR_SUBSTITUTE_*] markers
+    below with values matching the operator's local environment, then verify the
+    plist on a real macOS install BEFORE relying on it for night-shift operation.
+
+    DO NOT install this template as-is. The substitution markers are deliberate.
+
+    See learn/agentos/wake-substrate/PersistentProcessManagement.md for the full
+    install procedure, verification commands, and troubleshooting gotchas.
+
+    Target: ai/daemons/SwarmHeartbeatService.mjs (Neo-singleton; #10789).
+    Replaced an earlier draft (#10781 / PR #10782) that targeted a bash daemon under
+    ai/scripts/ — wrong-pattern per Neo-class architectural convention; closed not-planned.
+-->
+<plist version="1.0">
+<dict>
+    <!-- Reverse-DNS label MUST match the plist filename (com.neomjs.swarm-heartbeat.plist).
+         launchd uses this label internally for `launchctl list / bootout / kickstart`. -->
+    <key>Label</key>
+    <string>com.neomjs.swarm-heartbeat</string>
+
+    <!-- ProgramArguments: absolute path to node + absolute path to the .mjs entrypoint.
+         launchd does NOT inherit the operator's interactive shell PATH; binaries must
+         be reachable via the EnvironmentVariables.PATH below OR specified absolutely. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>node</string>
+        <string>[OPERATOR_SUBSTITUTE_REPO_ROOT]/ai/daemons/SwarmHeartbeatService.mjs</string>
+    </array>
+
+    <!-- WorkingDirectory: SwarmHeartbeatService uses RELATIVE paths via fs-extra
+         (e.g. `.neo-ai-data/heartbeat-concurrency.lock`, `.neo-ai-data/wake-daemon/`).
+         Without this, launchd runs the script with cwd=/ and relative paths resolve
+         to /.neo-ai-data/... which doesn't exist — the daemon silently no-ops. -->
+    <key>WorkingDirectory</key>
+    <string>[OPERATOR_SUBSTITUTE_REPO_ROOT]</string>
+
+    <!-- RunAtLoad: start the daemon immediately when the plist loads (login + reboot). -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- KeepAlive: launchd auto-restarts the daemon if it exits.
+         Boolean form (`<true/>`) restarts unconditionally, even on clean exit.
+         The setTimeout chain inside SwarmHeartbeatService keeps the event loop alive
+         indefinitely; clean exit is unexpected (signals or fatal error only).
+
+         GOTCHA: if the script crashes IMMEDIATELY on start (config error, missing
+         dependency), launchd's throttle interval (default 10s) prevents tight-loop
+         crash. If you see KeepAlive thrashing in Console.app, fix the script-side
+         crash first (check StandardErrorPath); do NOT lengthen the throttle. -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- ThrottleInterval: minimum seconds between daemon launches (crash-loop guard).
+         Default 10s; SwarmHeartbeatService startup includes LifecycleService.initAsync
+         + GraphService.initAsync (~2-5s); 10s is comfortably above that floor. -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <!-- StandardOutPath / StandardErrorPath: per-launchd stdout/stderr capture.
+         Co-located with the daemon's logger output inside .neo-ai-data/wake-daemon/
+         for log-cohesion. Operator should rotate these periodically. -->
+    <key>StandardOutPath</key>
+    <string>[OPERATOR_SUBSTITUTE_REPO_ROOT]/.neo-ai-data/wake-daemon/heartbeat.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>[OPERATOR_SUBSTITUTE_REPO_ROOT]/.neo-ai-data/wake-daemon/heartbeat.stderr.log</string>
+
+    <!-- EnvironmentVariables: launchd is environment-isolated. The daemon needs:
+           PATH: must include node, sqlite3, gh, tmux, and any other CLI tools used.
+                 The default /usr/bin:/bin:/usr/sbin:/sbin does NOT include
+                 Homebrew-installed `gh` (typically /opt/homebrew/bin or /usr/local/bin)
+                 nor Node version managers (nvm, fnm) — operator MUST list every
+                 directory containing required tools. Verify each via `which <tool>`.
+           NEO_AGENT_IDENTITY: which agent identity this daemon-instance polls for.
+                 Default in service is `@neo-gemini-3-1-pro`; operator should set
+                 to the actual identity the daemon serves.
+           POLL_INTERVAL: optional override; default 300s (5 min). Lower for testing
+                 (e.g. `60`), longer for production. Specified in seconds. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>NEO_AGENT_IDENTITY</key>
+        <string>[OPERATOR_SUBSTITUTE_AGENT_IDENTITY]</string>
+        <!-- Uncomment to override the 5-minute default poll interval (seconds):
+        <key>POLL_INTERVAL</key>
+        <string>300</string>
+        -->
+    </dict>
+
+    <!-- ProcessType: Background — appropriate for long-running daemons that
+         shouldn't compete with foreground UI processes for resources. -->
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <!-- Nice: lower priority slightly so the daemon doesn't impact foreground work.
+         Range -20 (highest) to 19 (lowest); 5 is a moderate background level. -->
+    <key>Nice</key>
+    <integer>5</integer>
+</dict>
+</plist>
