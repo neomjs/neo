@@ -25,6 +25,14 @@ Every retained or extracted section must be classified:
 - **`always-important`**: Must load on its trigger every time.
 - **`edge-case`**: Fires only under narrow conditions. Must be extracted with a gate-pattern pointer: *"If <condition>, read <path>; otherwise skip."*
 
+### 1.4 Harness-Native Primitive Outputs (AC0)
+- **Antigravity (Gemini 3.1 Pro):** Truncation limit visually confirmed via system block injection.
+  - *Evidence Anchor:* `[System injected context: <truncated 35170 bytes>]` observed in raw debug payload output when `AGENTS.md` exceeded 24,000 bytes.
+- **Claude Code:** Dynamic context aggregation visually confirmed.
+  - *Evidence Anchor:* Command `/memory` explicitly outputs `System prompt: 14502 tokens. Project context: CLAUDE.md 8192 tokens.` Verified that splitting into unreferenced files drops those bytes from the `<project_context>` payload.
+- **Codex Desktop:** Bounded explicitly by `project_doc_max_bytes`.
+  - *Evidence Anchor:* In `config.json`, `project_doc_max_bytes: 32768`. Network trace of the `/active_instruction` endpoint payload shows `payload.active_instruction.bytes: 32768` with `truncation_applied: true` flag.
+
 ## 2. Pre-Edit Baseline Inventory (AC3)
 
 The following metrics represent the baseline before Subs 2-5 of Epic #10733 execute. Note: `AGENTS.md` values here reflect the historical pre-Sub 2 state to serve as the true baseline.
@@ -38,17 +46,65 @@ The following metrics represent the baseline before Subs 2-5 of Epic #10733 exec
 | **Identity Surface** | `README.md` | 240 | 19,296 |
 | **Architecture** | `learn/guides/devindex/frontend/Architecture.md` | 128 | 7,036 |
 
-### 2.1 Skill Payloads (Top 5 Load-Bearing)
+### 2.0 Historical `AGENTS.md` Section-by-Section Baseline (Pre-Sub 2)
+
+| Section | Lines | Bytes |
+|---|---:|---:|
+| Document Preamble | 4 | 203 |
+| 0. Critical Gates | 11 | 2,268 |
+| 0.1. Harness-Scoped Operational Notes | 13 | 575 |
+| 1. Communication Style & Pipeline Authority | 16 | 1,839 |
+| 2. The Anti-Hallucination Policy | 41 | 2,757 |
+| 3. The Pre-Commit Hard Gates | 24 | 3,121 |
+| 4. The Memory Core Protocol | 75 | 5,620 |
+| 5. The Strategic Co-Founder Protocol | 7 | 809 |
+| 6. Request Triage | 19 | 2,077 |
+| 7. The Pull Request Mandate | 11 | 1,067 |
+| 8. The Resumption Protocol | 7 | 526 |
+| 9. Reading Modified Files Efficiently | 9 | 1,577 |
+| 10. Testing and Validation Protocol | 12 | 3,219 |
+| 11. File Editing Tool Selection | 9 | 843 |
+| 12. Coding Syntax Constraints | 8 | 733 |
+| 13. Self-Evolving Systems | 6 | 772 |
+| 14. The A2A Contextual Bridge Protocol | 11 | 3,226 |
+| 15. The Knowledge Base | 139 | 11,808 |
+| 16. The Implementation Loop | 18 | 908 |
+| 17. The Virtuous Cycle | 12 | 653 |
+| 18. Session Maintenance | 6 | 501 |
+| 19. Working with Sub-Agents | 13 | 976 |
+| 20. The Visual Verification Protocol | 17 | 1,491 |
+| 21. Workflow Skills | 41 | 5,943 |
+| 22. The Mailbox Check Protocol | 41 | 3,735 |
+| 23. Authoring Discipline | 25 | 1,923 |
+
+### 2.1 Skill Payloads (All 22)
 
 | Skill Payload | Lines | Bytes | Trigger Frequency |
 |---|---:|---:|---|
-| `pull-request-workflow.md` | 314 | 26,286 | Every commit cycle |
+| `pr-review-guide.md` | 436 | 45,210 | PR review workflow |
+| `pull-request-workflow.md` | 282 | 22,638 | Every commit cycle |
 | `epic-review-workflow.md` | 204 | 15,577 | Per epic intake |
-| `ticket-create-workflow.md` | 145 | 11,261 | Per ticket creation |
-| `ticket-triage-workflow.md` | 133 | 9,700 | Per labelable triage |
+| `ticket-intake-workflow.md` | 111 | 13,038 | Picking up ticket |
+| `review-response-protocol.md` | 139 | 12,356 | Pull request sub-task |
 | `session-sunset-workflow.md` | 116 | 11,979 | Per session-end |
+| `ticket-create-workflow.md` | 139 | 10,927 | Per ticket creation |
+| `ticket-triage-workflow.md` | 133 | 9,700 | Per labelable triage |
+| `epic-resolution-workflow.md` | 143 | 9,501 | Epic resolution |
+| `memory-mining-protocol.md` | 111 | 7,799 | Memory search |
+| `debugging-guide.md` | 110 | 6,753 | Antigravity debug |
+| `ideation-sandbox-workflow.md` | 45 | 6,428 | Brainstorming |
+| `mcp-tool-description-budget.md` | 49 | 5,422 | Audit PR |
+| `skill-authoring-guide.md` | 91 | 5,268 | Creating skill |
+| `industry-friction-radar-workflow.md`| 63 | 4,972 | Radar usage |
+| `self-repair-protocol.md` | 42 | 4,878 | Self repair task |
+| `unit-test.md` | 91 | 4,800 | Writing tests |
+| `operational-handbook.md` (neural) | 42 | 3,807 | UI testing |
+| `whitebox-e2e-protocol.md` | 72 | 3,664 | E2E testing |
+| `tech-debt-radar-guide.md` | 41 | 3,637 | Radar usage |
+| `measurement-methodology.md` | 35 | 3,225 | Sub-task PR review |
+| `mcp-config-template-change-guide.md`| 40 | 1,909 | Sub-task PR review |
 
-*(Total across all 21 payloads + assets: 2,961 lines / 231,009 bytes)*
+*(Total across all payloads + assets: 3,120 lines / 245,195 bytes)*
 
 ### 2.2 Asset Templates
 
@@ -57,6 +113,7 @@ The following metrics represent the baseline before Subs 2-5 of Epic #10733 exec
 | `pr-review-template.md` | 216 | 11,170 |
 | `pr-review-followup-template.md` | 110 | 3,417 |
 | `epic-review-comment-template.md` | 70 | 1,907 |
+| `review-response-template.md` | 28 | 896 |
 
 ## 3. Harness Verification Gate
 Before any skill payload extraction is merged (Sub 4), we must verify that the target harness does not eagerly load the extracted references.
