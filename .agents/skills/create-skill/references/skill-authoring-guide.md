@@ -25,6 +25,51 @@ Whenever you create a new skill named `my-new-skill`, you must scaffold the foll
     └── report-template.md   # Example
 ```
 
+## Slot-Rule Discriminator (Apply Before Authoring)
+
+Progressive Disclosure tells you *where* content goes (Router vs Payload). It doesn't tell you *which sections earn their slot* in the first place. Cycle-1 of the cognitive-load epic (#10733) surfaced a richer discriminator that you should apply before drafting any new section: the **3-axis slot rule**, the **disposition taxonomy**, and **substrate-vs-discipline tagging**.
+
+These are guidance, not mechanical gates. Apply them mentally during section drafting. The canonical worked example is the `Compaction Taxonomy` table in `AGENTS.md`.
+
+### The 3-Axis Slot Rule
+
+Evaluate each section you're considering authoring on three axes:
+
+1. **Trigger-frequency** — is this section *always-loaded* (consulted every turn) or *edge-case-triggered* (consulted only when a specific condition fires)? Always-loaded sections compete for per-turn context; edge-case-triggered sections can live in deeper payload files behind explicit trigger language.
+2. **Failure-severity** — what's the cost of an agent missing this guidance? *Catastrophic* (breaks merge / loses data / fires §0 invariants) demands always-loaded substrate; *minor* (style nit / preference) tolerates discipline-only documentation.
+3. **Enforceability** — can a tool, hook, or mechanical check enforce this rule, or does it rely on agent discipline? Mechanical-enforceable rules earn higher reliability with lower per-turn cost; discipline-only rules need explicit per-turn substrate to fire reliably.
+
+**Worked example.** A proposed SKILL section "always cite source line numbers when referencing code" rates: trigger-frequency = always (every code reference); failure-severity = minor (drift, not catastrophe); enforceability = discipline-only. → That's a `compress-to-trigger` candidate (single line in always-loaded substrate pointing to a deeper payload section), not a multi-paragraph always-loaded section.
+
+### The Disposition Taxonomy
+
+For each section, assign a **disposition** declaring why it earns its slot:
+
+- **`keep`** — section stays in always-loaded substrate; severity, frequency, and enforceability all justify the per-turn cost
+- **`move`** — section content stays in the skill substrate but relocates to deeper payload (referenced via Progressive Disclosure pointer)
+- **`compress-to-trigger`** — section reduced to a single trigger line in always-loaded substrate, with the body relocated to payload behind the trigger (the most common cycle-1 outcome)
+- **`rewrite`** — section retained but reframed (e.g. legalese-style spec replaced with plain-discipline prose, or vice-versa)
+- **`retire`** — section removed entirely; no longer earns its slot
+
+Even at creation time, declaring the implicit disposition (`keep` for newly authored sections) forces conscious justification rather than ambient accretion.
+
+### Substrate-vs-Discipline Tagging
+
+For sections likely to be cited from per-turn substrate (`AGENTS.md`, `AGENTS_STARTUP.md`, frequently-loaded SKILL.md routers), tag the section with one of:
+
+- **`MACHINE-ENFORCEABLE-CANDIDATE`** — the rule could in principle be enforced by a hook, lint, or schema check. The tag signals "this is a good target for mechanical-enforcement follow-up work."
+- **`DISCIPLINE-ONLY`** — the rule depends on agent judgment and cannot be mechanically enforced. The tag signals "this needs explicit per-turn substrate to fire reliably."
+
+Sections without one of these tags risk being treated as either over-engineering candidates for hooks, or compaction-via-removal candidates. The tag preserves authorial intent across compaction cycles.
+
+The canonical worked example is `AGENTS.md` `Compaction Taxonomy` — every row carries its disposition + tag, making the discriminator visible to future compaction efforts.
+
+### Byte Budget for SKILL.md Routers
+
+Empirical floor for the `SKILL.md` router itself: **7-12 lines** (range across all 18 current skills, anchored in `learn/agentos/measurements/cognitive-load-baseline-2026-05.md` §7 *SKILL.md Router Byte-Budget Baseline*; routers exceeding 12 lines historically benefit from extracting content into payload).
+
+This is a *discriminator*, not a hard cap. A 14-line router can be justified if the additional lines are load-bearing trigger-language; an 8-line router lacking load-bearing trigger-language can be over-engineered. Use the 7-12 line floor as the *prompt* for "should this content live here, or in payload?"
+
 ## 1. Writing the Router (SKILL.md)
 
 The `SKILL.md` file MUST begin with a frontmatter YAML block. The system parser relies on this block to index the skill.
