@@ -18,9 +18,9 @@ subIssues:
   - '[x] 9952 Sandman Handoff: Top 5 Actionable Tasks Dashboarding'
   - '[ ] 9953 MCP Progressive Disclosure Endpoint'
   - '[x] 9957 Scaffold pull-request Progressive Disclosure Skill'
-  - '[ ] 9958 System Prompt Token Optimization via Mermaid Graphs'
+  - '[x] 9958 System Prompt Token Optimization via Mermaid Graphs'
   - '[x] 10018 Autonomous Healthcheck Workflow for Frontier Model Agents'
-subIssuesCompleted: 4
+subIssuesCompleted: 5
 subIssuesTotal: 6
 blockedBy:
   - '[x] 9951 Scaffold signal_state_transition MCP Endpoint'
