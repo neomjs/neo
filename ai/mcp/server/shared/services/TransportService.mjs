@@ -115,13 +115,18 @@ class TransportService extends Base {
                 transport = new StreamableHTTPServerTransport({
                     sessionIdGenerator: () => crypto.randomUUID(),
                     onsessioninitialized: (id) => this.transports.set(id, transport),
-                    onsessionclosed: (id) => this.transports.delete(id)
+                    onsessionclosed: (id) => {
+                        this.transports.delete(id);
+                        if (typeof server.onSessionClosed === 'function') {
+                            server.onSessionClosed(id);
+                        }
+                    }
                 });
 
                 await server.mcpServer.connect(transport);
             }
 
-            // Propagate the authenticated identity into the async call chain so service methods
+            // Propagate the authenticated identity and sessionId into the async call chain so service methods
             // can tag ChromaDB writes and filter reads per tenant (ticket #10000 + #10145).
             //
             // Context-shape dispatch:
@@ -130,6 +135,8 @@ class TransportService extends Base {
             //   bindings like AgentIdentity graph-node IDs (memory-core's #10144 contract).
             // - Otherwise fall back to the minimal `{userId, username}` shape — sufficient for
             //   servers (knowledge-base, gh-workflow) that don't own an identity graph.
+            // - Finally, the `sessionId` from the transport is appended to whichever context
+            //   shape was resolved, making it available to downstream RequestContextService readers.
             //
             // `req.auth` is populated by the `requireBearerAuth` middleware when OIDC is
             // configured; when auth is disabled (local dev, no `aiConfig.auth.host` /

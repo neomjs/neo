@@ -403,7 +403,7 @@ class SessionService extends Base {
 
         // Natively bypass arbitrary Context Windows or chunking loops.
         // We enforce strict Lossless extraction for local performance consistency.
-        // NOTE: Large sessions natively require the backing daemon (MLX/OpenAiCompatible) to have 
+        // NOTE: Large sessions natively require the backing daemon (MLX/OpenAiCompatible) to have
         // sufficient `n_ctx` capabilities (128k+).
         const aggregatedContent = memories.documents.join('\n\n---\n\n');
 
@@ -559,7 +559,7 @@ ${aggregatedContent}
      * Passively scans the local Antigravity brain directory for implementation plans
      * and structurally ingests them into the vector DB and edge graph if their timestamps
      * match the active session.
-     * @param {String} sessionId 
+     * @param {String} sessionId
      * @param {String} summaryId
      * @param {Number} minTimeMs
      * @param {Number} maxTimeMs
@@ -682,24 +682,78 @@ ${aggregatedContent}
     }
 
     /**
+     * Queues a session for summarization by writing a 'pending' marker
+     * to the SummarizationJobs table and triggering the asynchronous detector.
+     * @summary Wires disconnected SSE session state to the summarization pipeline.
+     * @param {String} sessionId
+     */
+    queueSummarizationJob(sessionId) {
+        if (!aiConfig.autoSummarize) return;
+
+        const db = GraphService.db?.storage?.db;
+        if (!db) return;
+        try {
+            db.prepare(`
+                INSERT INTO SummarizationJobs (session_id, status)
+                VALUES (?, 'pending')
+                ON CONFLICT(session_id) DO UPDATE SET
+                    status = 'pending',
+                    lease_token = NULL,
+                    expires_at = NULL
+                WHERE status != 'completed' AND status != 'in_progress'
+            `).run(sessionId);
+
+            // Asynchronously trigger processing so we don't block the caller (e.g. disconnect lifecycle)
+            setTimeout(() => this.processPendingSummarizations(), 100);
+        } catch (e) {
+            logger.warn(`[SessionService] Error queuing summarization for ${sessionId}: ${e.message}`);
+        }
+    }
+
+    /**
+     * Finds pending summarization jobs and attempts to process them.
+     * @summary Asynchronously resolves pending state markers from disconnected sessions without blocking main loops.
+     */
+    async processPendingSummarizations() {
+        const db = GraphService.db?.storage?.db;
+        if (!db) return;
+
+        try {
+            const pendingJobs = db.prepare(`
+                SELECT session_id FROM SummarizationJobs WHERE status = 'pending'
+            `).all();
+
+            for (const job of pendingJobs) {
+                // Background execution. The inner call uses claimSummarizationJob to get a lease.
+                this.summarizeSessions({ sessionId: job.session_id }).catch(e => {
+                    logger.error(`[SessionService] Background summarization failed for ${job.session_id}:`, e);
+                });
+            }
+        } catch (e) {
+            logger.warn(`[SessionService] Error processing pending summarizations: ${e.message}`);
+        }
+    }
+
+    /**
      * Claims an exclusive lease on a summarization job using the SummarizationJobs table.
      * Prevents race conditions across concurrent MCP instances.
-     * @param {String} sessionId 
-     * @param {String} leaseToken 
+     * @summary Provides exclusive lock acquisition for the background summarization coordinator loop.
+     * @param {String} sessionId
+     * @param {String} leaseToken
      * @param {Number} [ttlMs=300000] Default 5-minute lease
      * @returns {Boolean} true if the lease was claimed successfully, false otherwise.
      */
     claimSummarizationJob(sessionId, leaseToken, ttlMs = 300000) {
         const db = GraphService.db?.storage?.db;
         if (!db) return true; // Fallback: allow execution if DB is somehow missing
-        
+
         const now = Date.now();
         const expiresAt = now + ttlMs;
-        
+
         try {
             const claimTx = db.transaction(() => {
                 const existing = db.prepare('SELECT status, expires_at FROM SummarizationJobs WHERE session_id = ?').get(sessionId);
-                
+
                 if (!existing) {
                     db.prepare(`
                         INSERT INTO SummarizationJobs (session_id, status, lease_token, expires_at, retry_count)
@@ -707,32 +761,32 @@ ${aggregatedContent}
                     `).run(sessionId, leaseToken, expiresAt);
                     return true;
                 }
-                
+
                 if (existing.status === 'completed') {
                     return false;
                 }
-                
+
                 if (existing.status === 'in_progress' && existing.expires_at < now) {
                     db.prepare(`
-                        UPDATE SummarizationJobs 
+                        UPDATE SummarizationJobs
                         SET lease_token = ?, expires_at = ?, retry_count = retry_count + 1
                         WHERE session_id = ?
                     `).run(leaseToken, expiresAt, sessionId);
                     return true;
                 }
-                
+
                 if (existing.status === 'pending' || existing.status === 'failed') {
                      db.prepare(`
-                        UPDATE SummarizationJobs 
+                        UPDATE SummarizationJobs
                         SET status = 'in_progress', lease_token = ?, expires_at = ?, retry_count = retry_count + 1
                         WHERE session_id = ?
                     `).run(leaseToken, expiresAt, sessionId);
                     return true;
                 }
-                
+
                 return false;
             });
-            
+
             return claimTx();
         } catch (e) {
             logger.warn(`[SessionService] Error claiming job for ${sessionId}: ${e.message}`);
@@ -742,15 +796,16 @@ ${aggregatedContent}
 
     /**
      * Marks a summarization job as completed in the coordinator table.
-     * @param {String} sessionId 
+     * @summary Finalizes the background summarization job state to prevent duplicate processing.
+     * @param {String} sessionId
      */
     completeSummarizationJob(sessionId) {
         const db = GraphService.db?.storage?.db;
         if (!db) return;
         try {
             db.prepare(`
-                UPDATE SummarizationJobs 
-                SET status = 'completed', lease_token = NULL 
+                UPDATE SummarizationJobs
+                SET status = 'completed', lease_token = NULL
                 WHERE session_id = ?
             `).run(sessionId);
         } catch (e) {
@@ -760,15 +815,16 @@ ${aggregatedContent}
 
     /**
      * Marks a summarization job as failed in the coordinator table.
-     * @param {String} sessionId 
+     * @summary Releases the exclusive lease on a background summarization job after an unhandled execution failure.
+     * @param {String} sessionId
      */
     failSummarizationJob(sessionId) {
         const db = GraphService.db?.storage?.db;
         if (!db) return;
         try {
             db.prepare(`
-                UPDATE SummarizationJobs 
-                SET status = 'failed', lease_token = NULL 
+                UPDATE SummarizationJobs
+                SET status = 'failed', lease_token = NULL
                 WHERE session_id = ?
             `).run(sessionId);
         } catch (e) {
