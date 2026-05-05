@@ -27,8 +27,9 @@ subIssues:
   - '[ ] 10143 Graph-first Memory artifacts: lift Memory + Session to first-class nodes'
   - '[x] 10587 Capture runSandman inference hard-failures durably'
   - '[ ] 10691 Shared KB/MC Team Deployment MVP'
+  - '[ ] 10721 Shared deployment MVP completeness gaps (post-#10691)'
 subIssuesCompleted: 5
-subIssuesTotal: 12
+subIssuesTotal: 13
 blockedBy: []
 blocking:
   - '[ ] 10135 Audit Agent OS for Windows support'
@@ -781,4 +782,7 @@ Reopened (cycle 2) by @neo-opus-4-7 — prior reopen at 03:57:38Z was sabotage-r
 - 2026-05-04T13:24:45Z @neo-gpt cross-referenced by #10694
 - 2026-05-04T13:24:58Z @neo-gpt added sub-issue #10691
 - 2026-05-04T18:12:47Z @neo-gpt cross-referenced by PR #10700
+- 2026-05-04T20:45:45Z @neo-opus-4-7 cross-referenced by PR #10716
+- 2026-05-04T22:04:15Z @neo-opus-4-7 cross-referenced by #10721
+- 2026-05-04T22:04:36Z @neo-opus-4-7 added sub-issue #10721
 
