@@ -12,7 +12,7 @@ import os from 'os';
 import logger from '../logger.mjs';
 import http from 'http';
 import https from 'https';
-import RequestContextService from '../../shared/services/RequestContextService.mjs';
+import RequestContextService, { normalizeUserId } from '../../shared/services/RequestContextService.mjs';
 
 /**
  * @summary Service for handling session summarization and drift detection.
@@ -864,6 +864,68 @@ ${aggregatedContent}
                 error: 'Session summarization failed',
                 message: error.message,
                 code: 'SUMMARIZATION_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Permanently deletes all raw memories and summaries associated with a specific session ID.
+     * Operates exclusively within the caller's tenant boundary. A single-tenant (unauthenticated) 
+     * call will not delete records owned by the SHARED_USER_ID.
+     * @param {Object} args
+     * @param {String} args.sessionId
+     * @returns {Promise<{deletedMemories: number, deletedSummaries: number, message: string}>}
+     */
+    async purgeSession({ sessionId }) {
+        if (!sessionId || typeof sessionId !== 'string') {
+            return { error: 'Invalid sessionId', code: 'INVALID_SESSION_ID' };
+        }
+
+        try {
+            const userId = normalizeUserId(RequestContextService.getUserId());
+            
+            // Construct filter: ensure tenant isolation.
+            const where = userId ? { '$and': [{ sessionId }, { userId }] } : { sessionId };
+
+            let deletedMemories = 0;
+            if (this.memoryCollection) {
+                const memBefore = await this.memoryCollection.get({ where, include: [] });
+                if (memBefore && memBefore.ids && memBefore.ids.length > 0) {
+                    deletedMemories = memBefore.ids.length;
+                    await this.memoryCollection.delete({ ids: memBefore.ids });
+                }
+            }
+
+            let deletedSummaries = 0;
+            if (this.sessionsCollection) {
+                const sumBefore = await this.sessionsCollection.get({ where, include: [] });
+                if (sumBefore && sumBefore.ids && sumBefore.ids.length > 0) {
+                    deletedSummaries = sumBefore.ids.length;
+                    await this.sessionsCollection.delete({ ids: sumBefore.ids });
+                }
+            }
+
+            try {
+                const db = GraphService.db?.storage?.db;
+                if (db) {
+                    db.prepare('DELETE FROM SummarizationJobs WHERE session_id = ?').run(sessionId);
+                }
+            } catch (jobError) {
+                logger.warn(`[SessionService] Error cleaning up SummarizationJobs for ${sessionId}: ${jobError.message}`);
+            }
+
+            return {
+                success: true,
+                deletedMemories,
+                deletedSummaries,
+                message: `Purged session ${sessionId}: deleted ${deletedMemories} memories and ${deletedSummaries} summaries.`
+            };
+        } catch (error) {
+            logger.error(`[SessionService] Error purging session ${sessionId}:`, error);
+            return {
+                error: 'Failed to purge session',
+                message: error.message,
+                code: 'PURGE_SESSION_ERROR'
             };
         }
     }
