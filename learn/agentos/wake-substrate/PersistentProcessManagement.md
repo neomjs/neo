@@ -40,11 +40,21 @@ which node sqlite3 gh tmux
 # 3. The .neo-ai-data dir tree exists (will be created if not, but worth pre-checking)
 ls -la .neo-ai-data/wake-daemon/ .neo-ai-data/sqlite/
 
-# 4. Manual one-shot execution works (macOS native timeout alternative)
-NEO_AGENT_IDENTITY="@your-identity" POLL_INTERVAL=10 perl -e 'alarm shift; exec @ARGV' 30 \
-   node ai/daemons/SwarmHeartbeatService.mjs
-# (should produce "Starting heartbeat for @your-identity (interval: 10000ms)" log line + at least
-#  one pulse cycle + exit cleanly when alarm hits; no errors in output)
+# 4. Manual one-shot execution works — exercises the SIGTERM clean-shutdown path the
+#    daemon's signal handlers (SwarmHeartbeatService.mjs) implement.
+NEO_AGENT_IDENTITY="@your-identity" POLL_INTERVAL=10 \
+   node ai/daemons/SwarmHeartbeatService.mjs &
+DAEMON_PID=$!
+sleep 30
+kill -TERM "$DAEMON_PID"
+wait "$DAEMON_PID" 2>/dev/null
+# Expected:
+#   1. "Starting heartbeat for @your-identity (interval: 10000ms)" log line on launch
+#   2. At least one pulse cycle (10s interval × ~3 pulses in 30s window)
+#   3. "Received SIGTERM; stopping." + "Heartbeat stopped." log lines on shutdown
+#   4. wait exits 0 (clean shutdown via the handler's process.exit(0))
+# A SIGALRM-shape recipe (perl alarm) would terminate by signal, NOT through the
+# clean-shutdown handler — the daemon only catches SIGTERM/SIGINT.
 ```
 
 If any of these fails, **fix the underlying issue first**. launchd will faithfully reproduce whatever runtime environment problem the manual execution surfaces.
@@ -96,17 +106,30 @@ launchctl list | grep com.neomjs
 ### 3d. Verify execution
 
 ```bash
-# Watch the daemon's stdout — should show "Starting heartbeat for ..." + pulse activity
+# Initial verify: the startup line MUST appear within seconds of bootstrap
 tail -f .neo-ai-data/wake-daemon/heartbeat.stdout.log
+# Expected first line: "[SwarmHeartbeatService] Starting heartbeat for <identity> (interval: 300000ms)"
 
 # Watch the daemon's stderr — should be empty during normal operation
 tail -f .neo-ai-data/wake-daemon/heartbeat.stderr.log
-
-# Watch the concurrency lock — touched on each successful poll if expensive work fires
-ls -la .neo-ai-data/heartbeat-concurrency.lock
 ```
 
-If no log lines appear after 10 minutes, the daemon is loaded but not polling. Common causes: `WorkingDirectory` mis-substituted (script can't find `.neo-ai-data/`), `PATH` missing critical CLI tool (sqlite3, node, gh), or the script crashed (check `heartbeat.stderr.log`).
+The daemon emits `INFO`-level log lines only when something happens — these are the durable observability signals:
+
+- **Startup:** `Starting heartbeat for <identity> (interval: <ms>)` — fires once on launch.
+- **Stale lock cleared:** `Clearing stale concurrency lock (<age>ms old)` — only when a producer-side lock outlived its TTL.
+- **TTL sweep:** `sweep: <N> task(s) transitioned to Expired` — only when N > 0.
+- **Sunset recovery:** `Phase 1 Recovery Triggered for <identity>. Reason: ...` — only when the sunset detector fires.
+- **Idle-out nudge:** `Idle-out nudge triggered for <identity>` — only when the per-identity idle threshold trips.
+- **All-agent-idle:** `AllAgentIdle detected: <signal>` — only when the trio-wide idle predicate holds.
+- **Gate-closed:** `Wake safety gate closed; skipping ...` — only when a high-authority dispatch was suppressed.
+- **Shutdown:** `Received SIGTERM; stopping.` + `Heartbeat stopped.` — fires on `launchctl bootout`.
+
+A healthy idle daemon may emit nothing for many cycles in a row (no expired tasks, no sunset, no idle-out, no all-idle, no gate-closed). The startup line + an empty stderr log is the steady-state proof of life. **Do not infer "daemon stopped polling" from log silence past startup** — silence during agent-active periods is the token-economy gate working as designed.
+
+> ⚠️ **Lock-as-evidence anti-pattern:** the file `.neo-ai-data/heartbeat-concurrency.lock` is **producer-side state** — created by `acquireHeartbeatLock` when expensive agent work starts (#10319 `withHeartbeatLock`), removed when that work finishes. The heartbeat daemon only *inspects + releases stale locks*, never touches it on healthy idle pulses. **Do not watch the lock's mtime as a polling-health indicator** — a healthy daemon may go hours without touching it.
+
+If the startup log line never appears, the daemon failed to launch. Common causes: `WorkingDirectory` mis-substituted (script can't find `.neo-ai-data/`), `PATH` missing critical CLI tool (sqlite3, node, gh), or the script crashed at module-load (check `heartbeat.stderr.log` for `ReferenceError: Neo is not defined` or similar).
 
 ## 4. Uninstall procedure
 

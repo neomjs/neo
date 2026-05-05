@@ -54,8 +54,8 @@ const DEFAULT_IDENTITY         = '@neo-gemini-3-1-pro';
  *     stat-based concurrency-lock check is replaced with the JS implementation already shared
  *     with the producer side (#10319 `withHeartbeatLock`).
  *
- * **Where subprocess invocation is preserved** (out-of-scope for v1; follow-up extracted as
- * #10790): `checkSunsetted.mjs`, `resumeHarness.mjs`, `checkAllAgentIdle.mjs`,
+ * **Where subprocess invocation is preserved** (out-of-scope for v1; follow-up tracked as
+ * #10795): `checkSunsetted.mjs`, `resumeHarness.mjs`, `checkAllAgentIdle.mjs`,
  * `idleOutNudge.mjs`, `trioWakeCooldown.mjs` are CLI-shape (no exported function entrypoint)
  * and converting each to dual-mode (CLI + module-export) is sibling work. Their subprocess
  * cost (~2-5s per cycle, fires every 5min) is operationally tolerable.
@@ -102,18 +102,21 @@ class SwarmHeartbeatService extends Base {
          * Active setTimeout handle for the next pulse; null when not scheduled.
          * @member {Object|null} pollHandle_=null
          * @protected
+         * @reactive
          */
         pollHandle_: null,
         /**
          * Identity this daemon polls for (e.g. `@neo-gemini-3-1-pro`).
          * @member {String|null} identity_=null
          * @protected
+         * @reactive
          */
         identity_: null,
         /**
          * Interval between pulses in milliseconds.
          * @member {Number} pollIntervalMs_=300000
          * @protected
+         * @reactive
          */
         pollIntervalMs_: DEFAULT_POLL_INTERVAL_MS
     }
