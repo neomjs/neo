@@ -113,7 +113,7 @@ Shared deployments need to know **which agent originated each request** so memor
 
 2. **Proxy identity injection (for deployments fronted by an identity-aware proxy)** — when an `oauth2-proxy`-style reverse proxy already terminates OIDC and injects `X-PREFERRED-USERNAME` (or the oauth2-proxy-specific `X-Auth-Request-Preferred-Username`) into the upstream request, the MC server can read that header instead of running its own OIDC verification. Gated by `auth.trustProxyIdentity`. Source provenance: `source: 'proxy-header'`.
 
-The two paths are NOT mutually exclusive — `req.auth` (OIDC) takes precedence over the proxy header by design. The proxy path only fires when `req.auth` is absent (OIDC unconfigured or token missing) AND `trustProxyIdentity` is explicitly enabled.
+The two paths are NOT mutually exclusive — `req.auth` (OIDC) takes precedence over the proxy header by design. The proxy path only fires when `req.auth` is absent (OIDC unconfigured or token missing) AND `trustProxyIdentity` is explicitly enabled. **If `trustProxyIdentity` is enabled and no valid proxy identity header is found, the request is actively rejected with a `401 Unauthorized` error.** This strict "Verify-Before-Assert" gate prevents requests from silently falling through to an unauthenticated single-tenant context in a shared deployment.
 
 ### Configuration: `trustProxyIdentity` (PR #10768 / #10727)
 
