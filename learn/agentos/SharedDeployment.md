@@ -68,6 +68,14 @@ See [`MemoryCore.md` §Healthcheck Response Shape](./MemoryCore.md) for the full
 
 The Knowledge Base's healthcheck mirrors the connectivity assertion (collection counts, embedding status). When both servers report `connected: true` against the same shared `{host, port}`, the topology is verified.
 
+## Asynchronous Session Summarization (Disconnect Trigger)
+
+In a shared deployment, multiple agents connect and disconnect dynamically. To ensure session summaries are automatically available to the team without requiring manual API calls or external cron jobs, the Memory Core leverages a **disconnect-triggered summarization** primitive.
+
+When an MCP client (agent) disconnects from the Server-Sent Events (SSE) transport, the `TransportService` intercepts the termination and signals the Memory Core. The server immediately queues a `pending` summarization marker in its `SummarizationJobs` SQLite coordinator table. This behavior is gated by the `autoSummarize` feature flag, making it a conditional feature rather than an unconditional contract.
+
+This allows the heavy LLM summarization process to run asynchronously in the background. Because it relies on the unified `SummarizationJobs` table, it naturally handles concurrent agent disconnects and server clustering without duplicating summaries. Team members can query the Memory Core and instantly access the completed session context once the background job finishes.
+
 ## Migration: Per-Developer Local → Shared Team Mode
 
 Teams adopting shared mode from per-developer local should follow this migration path:
