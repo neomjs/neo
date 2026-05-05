@@ -517,6 +517,49 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /sessions/purge:
+    post:
+      summary: Purge Session
+      operationId: purge_session
+      x-pass-as-object: true
+      x-annotations:
+        destructiveHint: true
+      description: |
+        Permanently deletes all raw memories and summaries associated with a specific session ID.
+        This provides session-scoped cleanup to prevent global state pollution.
+      tags: [Sessions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sessionId
+              properties:
+                sessionId:
+                  type: string
+                  description: The ID of the session to purge.
+      responses:
+        '200':
+          description: Session purged successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteResponse'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /sessions/set_id:
     post:
       summary: Set Session ID
