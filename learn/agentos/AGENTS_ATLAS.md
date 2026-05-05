@@ -57,13 +57,6 @@ After any user prompt or A2A message reaches the agent during an active ticket l
 ## 12. Coding Syntax Constraints (ES6+) [MACHINE-ENFORCEABLE-CANDIDATE]
 Prioritize the latest ECMAScript syntax (ES6+). Use optional chaining, object property shorthand, destructuring, and fat arrow functions.
 
-## 13. Self-Evolving Systems (Continuous MX Rule-Refinement Loop) [DISCIPLINE-ONLY]
-Actively seek workflow enhancements. Synthesize friction into gold by proposing meta-level optimizations to the user proactively. When you encounter workflow friction or rules that cause cognitive overload or loop failure, you MUST use the **Rule Friction Capture** protocol:
-- Document the task, the failing rule, the cost (e.g. "loop exhaustion"), and propose an alternative.
-- **Ambiguity Routing:**
-  - For concrete, implementation-ready rule fixes, create a standard ticket (via `ticket-create`).
-  - For ambiguous contract/scope/cross-harness cases, propose via the `ideation-sandbox` skill as a Discussion, tagging maintainers for evaluation.
-
 ## 14. The A2A Contextual Bridge Protocol (End of Session Handoff) [MACHINE-ENFORCEABLE-CANDIDATE]
 1. **The Sunset Protocol:** Execute `session-sunset` skill. PRE-DECISION SUNSET GATE: explicitly requires human confirmation (`/sunset` or chat directive) unless context > 75%.
 2. **End-of-Session Horizon Scan.**
@@ -79,7 +72,7 @@ Actively seek workflow enhancements. Synthesize friction into gold by proposing 
 - Stage 1: Query for Knowledge (`ask_knowledge_base`).
 - Stage 2: Query for Memory (`query_summaries`, `query_raw_memories`). Mandatory for regressions, surprises, architecture queries, trade-offs.
 **15.4 Ask the Expert Protocol:** Treat `ask_knowledge_base` as an Embedded RAG Sub-Agent.
-**15.5 Framework Bias Anchor:** Neo is an Agent OS evolving towards ANI, not just a web framework.
+**15.5 Neo Identity Anchor:** in main `AGENTS.md §15.5` as the per-turn anti-drift priming surface.
 
 ## 16. The Implementation Loop [DISCIPLINE-ONLY]
 Step 1: Query & Analyze. Step 2: Implement Changes. Step 3: Verify.
