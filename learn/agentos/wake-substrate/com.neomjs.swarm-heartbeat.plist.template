@@ -21,7 +21,7 @@
     6. If any step fails: `launchctl bootout gui/$(id -u)/com.neomjs.swarm-heartbeat`
        and the daemon stops cleanly without state damage.
 
-    SOURCE: ai/scripts/swarm-heartbeat.sh — continuous-loop bash daemon
+    SOURCE: ai/scripts/swarm-heartbeat-daemon.sh — continuous-loop bash daemon
     SOURCE OF AUTHORITY: Apple launchd documentation
         https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html
 -->
@@ -37,7 +37,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>[OPERATOR_SUBSTITUTE_REPO_ROOT]/ai/scripts/swarm-heartbeat.sh</string>
+        <string>[OPERATOR_SUBSTITUTE_REPO_ROOT]/ai/scripts/swarm-heartbeat-daemon.sh</string>
     </array>
 
     <!-- WorkingDirectory: CRITICAL. swarm-heartbeat.sh uses RELATIVE paths for:
