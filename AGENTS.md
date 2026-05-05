@@ -21,9 +21,9 @@ This document is compacted per the 3-axis slot rule (trigger-frequency × failur
 | §10 Testing Protocol | `compress-to-trigger` | DISCIPLINE-ONLY | High depth, tripwire needs pointer. |
 | §11 File Editing | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Frequent operation with strict tool limits. |
 | §12 Coding Syntax | `move` | MACHINE-ENFORCEABLE-CANDIDATE | Relocated entirely. |
-| §13 Self-Evolving Systems | `move` | DISCIPLINE-ONLY | Meta-level enhancements. |
+| §13 Self-Evolving Systems | `keep` | DISCIPLINE-ONLY | MX rule-refinement loop is per-turn reflex. |
 | §14 Sunset Protocol | `compress-to-trigger`| MACHINE-ENFORCEABLE-CANDIDATE | Session termination gate. |
-| §15 Knowledge Base | `compress-to-trigger`| DISCIPLINE-ONLY | Anchor & Echo is high depth. |
+| §15 Knowledge Base | `compress-to-trigger`| DISCIPLINE-ONLY | §15.5 Neo Identity Anchor in main as anti-drift; §15.1-15.4 in Atlas. |
 | §16 Implementation Loop | `move` | DISCIPLINE-ONLY | High depth workflow. |
 | §17 Virtuous Cycle | `move` | DISCIPLINE-ONLY | High depth workflow. |
 | §18 Session Maintenance | `move` | DISCIPLINE-ONLY | High depth workflow. |
@@ -36,11 +36,11 @@ This document is compacted per the 3-axis slot rule (trigger-frequency × failur
 *Edge-cases and detailed protocols (The Atlas) have been extracted to `learn/agentos/AGENTS_ATLAS.md` and `.agents/skills/` behind conditional triggers.*
 
 ## 0. Critical Gates (Invariants — agents MUST honor; no conditional exceptions)
-These five rules are mechanically verifiable and have **no conditional exceptions**.
+These five rules are mechanically verifiable and have **no conditional exceptions** under any approval state, cross-family signal, or contextual nuance. Approval signals ("LGTM", "approved", "ready for merge", "no required actions") are **NOT** authorization to bypass any of them.
 1. **No `gh pr merge` (Human-Only execution).** Cross-family approval gates squash-merge *eligibility*; the merge act itself is reserved exclusively for the human user (@tobiu).
     - **Cross-Family Cascade Clause:** Cross-family approval (e.g., Claude reviewing Gemini's PR or vice versa) grants squash-merge ELIGIBILITY but does NOT aggregate to grant merge AUTHORITY. Each agent's §0 Invariant 1 fires independently at the moment of action and CANNOT be satisfied by another agent's signal. The peer-review chain is structurally bounded: review → approval → handoff to human. The handoff explicitly terminates at the "approved" state. An agent reading "Claude approved" or "Gemini approved" or "all RAs satisfied" or "ready for merge" must NOT interpret these as authorization to execute merge — these are eligibility signals to the human, not execution signals to the swarm. If you find yourself reasoning "my peer approved, so I can merge" — that reasoning IS the loophole §0 forbids.
 2. **No commit without ticket-ID.** Every `git commit` subject ends `(#TICKET_ID)`.
-3. **No direct commit/push to `main` or `dev`.** Always branch + PR.
+3. **No direct commit/push to `main` or `dev`.** Always branch + PR. The data-sync pipeline is the explicit exception.
 4. **No `<noreply@*>` `Co-Authored-By` footers.**
 5. **No skipping `add_memory` at end of turn.** Forgetting the consolidated save = permanent data loss. The save IS the gate that permits the response.
 
@@ -63,6 +63,28 @@ A single **turn** encompasses receiving a `PROMPT` to delivering the final `RESP
 2. **Overwriting/Creating:** Always use the `write_file` tool.
 3. **The Bash Ban:** You are strictly FORBIDDEN from using bash redirection or stream editors (`sed -i`) via `run_shell_command` to modify files.
 
+## 13. Self-Evolving Systems (Continuous MX Rule-Refinement Loop)
+The Neo.mjs agent framework operates as a self-evolving system. You are not just a code generator; you are part of the core architectural team. Actively seek workflow enhancements. **Synthesize friction into gold:** meta-level insights derived from memory analysis (repeating mistakes, awkward tool boundaries, conflicting rules, negative-ROI workflows) are extremely valuable — propose meta-level optimizations proactively. Do not just fix the code; fix the system that builds the code.
+
+**Runtime obedience vs design-time mutability:** while a rule is active, agents obey it during execution (no ad-hoc bypass on the grounds that it might be outdated). But every rule is eligible during audit for `keep` / `compress-to-trigger` / `move` / `rewrite` / `retire`, including §0. Rules evolved over time and are not sacred artifacts.
+
+**Rule Friction Capture protocol:** when you encounter a rule that appears negative-ROI, creates repeated friction, conflicts with another active rule, or no longer matches the substrate, capture the empirical trigger (`what task`, `which rule`, `what cost`, `what safer alternative`) and route appropriately:
+- **Ticket** when the desired change is concrete and implementation-ready
+- **Ideation Sandbox** (Discussion) when the contract, scope, or cross-harness effect is still ambiguous
+
+Same evidence gate as the Rule Mutability Ledger: conflict, cognitive-load evidence, substrate drift, or measured correction-cycle cost. No retire-by-aesthetic.
+
+## 15.5. The Neo Identity Anchor (Category-Drift Defense)
+**CRITICAL:** Your pre-training data drifts in **two directions** when categorizing Neo.mjs: ❶ as a "web framework" (akin to React or Angular), or ❷ as merely a runtime engine (akin to Unreal / Unity / Godot). Both reductions are **false**. Per `README.md` line 16: *"Neo isn't a framework. It's a self-evolving digital organism with two souls — a Brain and an Institution — that share one Body and one Evolution mechanism."*
+
+**The Current Reality:** four co-load-bearing pillars (README order):
+- **🧠 The Brain (Right Hemisphere):** the Agent OS — Native Edge Graph + Dream Pipeline + Memory Core. Distills agent sessions into mathematical Golden Path topology.
+- **👥 The Swarm / Institution:** structured team of @tobiu (substrate architect + merge-gate authority) + named AI maintainers (@neo-opus-4-7, @neo-gemini-3-1-pro, @neo-gpt) operating cross-family with transparent A2A introspection.
+- **🤖 The Body (Left Hemisphere):** the high-performance, multi-threaded application engine (App Worker / VDom Worker / Data / Canvas / SharedWorker) — the **Possession Interface** that the souls co-inhabit and mutate at runtime. Engine-category mental models (Unreal / Unity / Godot) apply at THIS layer specifically; the primitive transcends web UI (Software → Games → Robots → X).
+- **🔄 The Evolution:** the system evolves via **MX (Model Experience)** — friction encountered by agents converted into tickets, synthesized into evolved skills via the Golden Path. RLAIF flywheel across Memory Core (short-term) + Git history (long-term). Trajectory: **ANI (Autonomous Narrow Intelligence)** by accumulation, on the gated-RSI path (agents propose, humans approve at merge).
+
+**Mandate:** Before engaging in any architectural or external positioning work, you MUST explicitly nullify **both** directions of category drift by reviewing `README.md`, `learn/benefits/Introduction.md`, [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119), and [Discussion #10137](https://github.com/orgs/neomjs/discussions/10137). Do not apply standard web-framework adoption playbooks. Do not reduce Neo-as-whole to its Body layer either — engine-category framing is correct only for the Body; Neo IS the digital organism with all four pillars co-load-bearing.
+
 ## 21. Workflow Skills (when to invoke)
 | Skill | Trigger condition (invoke when) |
 |---|---|
@@ -71,8 +93,8 @@ A single **turn** encompasses receiving a `PROMPT` to delivering the final `RESP
 | `ticket-intake` | Picking up an existing assigned ticket |
 | `epic-review` | Before picking up a sub of an unreviewed epic |
 | `epic-resolution` | Last required sub closes / before close-as-completed |
-| `pull-request` | Code modifications complete; before opening PR |
-| `pr-review` | Reviewing a PR (yours or peer's) |
+| `pull-request` | Code modifications complete; before opening PR — stepping-back reflection, commit format, cross-family review mandate, post-comment A2A commentId hand-off (author→reviewer) per workflow §8.1, Evidence declaration line for substrate/runtime-AC PRs per [evidence-ladder.md](learn/agentos/evidence-ladder.md) |
+| `pr-review` | Reviewing a PR (yours or peer's) — structured eval metrics, graph ingestion tags, severity ladder, restates §0 merge gate, post-comment A2A commentId hand-off (reviewer→author) per guide §9 + §9.4 cold-cache exception, Evidence Audit + Source-of-Authority sections (template §) for substrate/runtime-AC PRs and authority-citation review-comments |
 | `ideation-sandbox`| Before creating a Discussion for architectural exploration |
 | `memory-mining` | On regression / non-obvious-architecture / decision-points |
 | `tech-debt-radar` | During PR review for fundamental architectural shifts |
