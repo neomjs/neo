@@ -143,3 +143,42 @@ The final 3 high-load payloads were audited per the methodology and all received
 *Framework-bias preservation:* `README.md` carries the current organism / Four Pillars identity anchor, while `Architecture.md` carries the runtime constraints agents need to avoid React/main-thread assumptions. The Knowledge Base check confirmed the load-bearing boot concepts remain Neo's multithreaded App Worker architecture and thin Main Thread constraint.
 
 *AC11 mirror decision:* the `AGENTS_STARTUP.md` §0 mirror is retained pending active-harness boot-transcript proof that `AGENTS.md` is loaded before startup execution in Claude Code, Antigravity, and Codex Desktop. No SKILL.md router bodies were changed.
+
+## 6. Sub 5 Asset Template Audit Results (#10738)
+
+### 6.1 Parser/Anchor Audit (AC15)
+
+The **mechanically load-bearing anchors** consumed by the regex-parser are precisely **3 tags**, exclusively in the "Graph Ingestion Notes" section of `pr-review-template.md`:
+
+- `[KB_GAP]`
+- `[TOOLING_GAP]`
+- `[RETROSPECTIVE]`
+
+**Source of authority:** `ai/daemons/services/IssueIngestor.mjs:327` — single-line regex match `/\[(KB_GAP|TOOLING_GAP|RETROSPECTIVE)\](.*?)$/` against bullet-formatted lines. This is the only mechanical parser-anchor dependency in the daemon graph. All other template section anchors (`Strategic-Fit Decision`, `Required Actions`, `Evaluation Metrics`, `Depth Floor`, `Provenance Audit`, `Evidence Audit`, etc.) are consumed *semantically* by `ConceptDiscoveryService.mjs` via LLM extraction (see lines 93-96 of that file: *"Why LLM, not regex? The task is semantic [...] No regex / stop-phrase list / frequency threshold can distinguish [valid concept candidates]"*).
+
+**Implication:** Anchor preservation has TWO classes:
+- **Class A — Mechanical (regex-required):** the 3 tags above MUST retain their `[TAG_NAME]` form on bulleted lines for ingestion. Any future split or restructure that breaks this format silently disables Concept Discovery for the affected reviews.
+- **Class B — Semantic (LLM-quality-affecting):** all other template anchors. Affect extraction quality but not parser correctness. LLM-judgment tolerates structural variation that regex would reject.
+
+This is a substantial deviation from the implicit assumption in #10738's Architectural Reality section, which conflated the two classes under "Retrospective daemon regex parser." The empirical truth is leaner: most "anchor preservation" concerns are LLM-quality (Class B), not regex-correctness (Class A).
+
+### 6.2 Split Verdict (AC16)
+
+All 4 asset templates receive a **keep-monolithic** verdict. Same rationale shape as Sub 4 #10737's keep-monolithic verdicts — single atomic cognitive pass, no condition-gated branches that justify a split:
+
+- **`pr-review-template.md` (216 lines / 11,170 bytes):** Cycle 1 cold-cache PR review template. The 14 audit sections are condition-gated (Source-of-Authority Audit only when authority cited; Evidence Audit only for runtime ACs; MCP-Tool-Description Budget Audit only for openapi.yaml changes; Wire-Format Compatibility Audit only for protocol-touching PRs; etc.) — but the gating is at the *content-application* level (sections marked N/A when not applicable), not at the *load* level. Splitting into "always-fired" vs "conditional" sub-templates would require an agent mid-review to load a secondary template for any audit that turns out to apply, introducing tool-call friction without conditional byte savings (the agent still loads the full audit surface either way to know which apply). The Cycle 1 vs Cycle N split *already exists* at the template-shape level via `pr-review-followup-template.md` (110 lines / 3,417 bytes); further internal split is over-extraction territory.
+- **`pr-review-followup-template.md` (110 lines / 3,417 bytes):** Already the warm-cache split partner of Cycle 1's template. No further split candidate.
+- **`epic-review-comment-template.md` (70 lines / 1,907 bytes):** Small enough that splitting is moot per the matrix-driven decision rule (4-tier: condition-gated / mid-tier / common / universal — this is "common" tier and well under any byte threshold).
+- **`review-response-template.md` (28 lines / 896 bytes):** Already minimal; was the result of Sub 4's prior `pull-request-workflow §8` extraction (PR #10745). Further split is moot.
+
+*Empirical Delta:* 0 KB (intentional). Avoids 1-2 negative-ROI tool calls per review/epic interaction. Symmetric with Sub 4's keep-monolithic shape.
+
+### 6.3 Sample-Ingest Verification (AC17 — partial L1 + post-merge residual)
+
+**Pre-merge L1 (static):** Visual confirmation that `IssueIngestor.mjs:327`'s regex `/\[(KB_GAP|TOOLING_GAP|RETROSPECTIVE)\](.*?)$/` matches the bullet format used in `pr-review-template.md` "Graph Ingestion Notes" section (`*   **\`[KB_GAP]\`**: ...`). The regex is anchored on the bracketed-tag form alone — bullet/bold formatting around the tag is irrelevant; only the literal `[TAG_NAME]` substring needs to exist on a line. Verified via inspection.
+
+**Post-merge L2-L3 residual (operator-handoff):** Actually run `IssueIngestor` on a recent PR review (e.g. PR #10752 Cycle 1 review at `PRR_kwDODSospM78GE72` which contains all 3 tag-classes — `[KB_GAP]` flagging the existing-codebase-precedent issue, `[RETROSPECTIVE]` framing the canonical hermetic-diff retrieval primitive). Sample ingestion verifies end-to-end. Tracked in PR Post-Merge Validation per `pull-request-workflow §9` standard pattern.
+
+### 6.4 Substrate Observation
+
+The audit revealed an **outdated implicit assumption** in `feedback_pr_review_template_discipline.md` memory entry which states *"section structure is regex-matched by the Retrospective daemon for graph ingestion."* The reality is narrower: only 3 specific tags are regex-matched (in `IssueIngestor.mjs`, not in any "Retrospective daemon"). The broader semantic anchors are LLM-consumed. Memory entry should be updated post-merge to reflect the empirical parser scope.
