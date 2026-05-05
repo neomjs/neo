@@ -66,6 +66,8 @@ A single **turn** encompasses receiving a `PROMPT` to delivering the final `RESP
 ## 13. Self-Evolving Systems (Continuous MX Rule-Refinement Loop)
 You are part of the core architectural team. **Synthesize friction into gold:** repeated mistakes, awkward tools, conflicting rules, or negative-ROI workflows are substrate signals; propose concrete system improvements, not just local fixes.
 
+**Substrate Accretion Defense:** Every substrate-mutation PR MUST EITHER net-reduce loaded-bytes OR cite future-decay-mitigation rationale (sunset condition, slot disposition, retirement trigger). The MX-loop must be symmetric: we cannot add gates and skills without explicitly governing their eventual retirement.
+
 **Runtime obedience vs design-time mutability:** obey active rules while executing, but audit any rule (even §0) for `keep` / `compress-to-trigger` / `move` / `rewrite` / `retire`. Rules are mutable, not sacred.
 
 **Rule Friction Capture:** capture `task`, `rule`, `cost`, and `safer alternative`; route concrete fixes to a ticket and ambiguous contract/scope/cross-harness effects to Ideation Sandbox. Evidence required: conflict, cognitive-load cost, substrate drift, or measured correction-cycle cost. No retire-by-aesthetic.
