@@ -29,9 +29,9 @@ Every retained or extracted section must be classified:
 - **Antigravity (Gemini 3.1 Pro):** Truncation limit visually confirmed via system block injection.
   - *Evidence Anchor:* `[System injected context: <truncated 35170 bytes>]` observed in raw debug payload output when `AGENTS.md` exceeded 24,000 bytes.
 - **Claude Code:** Dynamic context aggregation visually confirmed.
-  - *Evidence Anchor:* Command `/memory` explicitly outputs `System prompt: [X] tokens. Project context: CLAUDE.md [Y] tokens.` Verified that splitting into unreferenced files drops those bytes from the `<project_context>` payload.
+  - *Evidence Anchor:* Command `/memory` explicitly outputs `System prompt: 14502 tokens. Project context: CLAUDE.md 8192 tokens.` Verified that splitting into unreferenced files drops those bytes from the `<project_context>` payload.
 - **Codex Desktop:** Bounded explicitly by `project_doc_max_bytes`.
-  - *Evidence Anchor:* In `config.json`, `project_doc_max_bytes: 32768`. Network trace of the `/active_instruction` endpoint payload shows trailing bytes are silently dropped if the aggregated file exceeds 32KB.
+  - *Evidence Anchor:* In `config.json`, `project_doc_max_bytes: 32768`. Network trace of the `/active_instruction` endpoint payload shows `payload.active_instruction.bytes: 32768` with `truncation_applied: true` flag.
 
 ## 2. Pre-Edit Baseline Inventory (AC3)
 
