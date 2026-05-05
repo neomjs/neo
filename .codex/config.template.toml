@@ -5,7 +5,9 @@
 # Codex project-doc discovery loads at most one instruction file per directory:
 # AGENTS.override.md, then AGENTS.md, then configured fallbacks. Since the repo
 # root owns AGENTS.md, .codex/CODEX.md is a reference file, not an auto-loaded
-# fallback. Keep Codex-specific mandatory notes in root AGENTS.md.
+# fallback. Trusted Codex projects inject .codex/CODEX.md through
+# .codex/hooks.json, keeping this customizable config file out of the runtime
+# note source-of-truth path.
 project_doc_max_bytes = 131072
 
 # Neo.mjs marathon sessions routinely exceed Codex's conservative default effective
@@ -74,3 +76,6 @@ env_vars = ["NEO_AGENT_IDENTITY"]
 startup_timeout_sec = 30
 tool_timeout_sec = 120
 enabled = true
+
+[features]
+codex_hooks = true
