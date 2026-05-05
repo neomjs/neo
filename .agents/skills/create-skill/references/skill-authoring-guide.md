@@ -66,7 +66,7 @@ The canonical worked example is `AGENTS.md` `Compaction Taxonomy` — every row 
 
 ### Byte Budget for SKILL.md Routers
 
-Empirical floor for the `SKILL.md` router itself: **7-12 lines** (anchored in `learn/agentos/measurements/cognitive-load-baseline-2026-05.md` cycle-1 baseline; routers exceeding 12 lines historically benefit from extracting content into payload).
+Empirical floor for the `SKILL.md` router itself: **7-12 lines** (range across all 18 current skills, anchored in `learn/agentos/measurements/cognitive-load-baseline-2026-05.md` §7 *SKILL.md Router Byte-Budget Baseline*; routers exceeding 12 lines historically benefit from extracting content into payload).
 
 This is a *discriminator*, not a hard cap. A 14-line router can be justified if the additional lines are load-bearing trigger-language; an 8-line router lacking load-bearing trigger-language can be over-engineered. Use the 7-12 line floor as the *prompt* for "should this content live here, or in payload?"
 
