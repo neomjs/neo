@@ -270,8 +270,14 @@ paths:
                           type: integer
                         deletions:
                           type: integer
+        '400':
+          description: Invalid arguments (e.g., missing file when sha is provided, or invalid sha format).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Pull request not found.
+          description: Pull request or SHA not found.
           content:
             application/json:
               schema:

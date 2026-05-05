@@ -1,4 +1,4 @@
-import {exec}                                  from 'child_process';
+import {exec, execFile}                        from 'child_process';
 import {promisify}                             from 'util';
 import Base                                    from '../../../../../src/core/Base.mjs';
 import GraphqlService                          from './GraphqlService.mjs';
@@ -6,7 +6,8 @@ import aiConfig                                from '../config.mjs';
 import logger                                  from '../logger.mjs';
 import {FETCH_PULL_REQUESTS, GET_CONVERSATION} from './queries/pullRequestQueries.mjs';
 
-const execAsync = promisify(exec);
+const execAsync     = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 /**
  * @summary Service for interacting with GitHub Pull Requests via the `gh` CLI and GraphQL API.
@@ -177,7 +178,7 @@ class PullRequestService extends Base {
 
         try {
             if (files_only) {
-                const {stdout} = await execAsync(`gh pr view ${prNumber} --json files`, {cwd: aiConfig.projectRoot});
+                const {stdout} = await execFileAsync('gh', ['pr', 'view', String(prNumber), '--json', 'files'], {cwd: aiConfig.projectRoot});
                 const parsed = JSON.parse(stdout);
                 return { files: parsed.files || [] };
             }
@@ -192,14 +193,23 @@ class PullRequestService extends Base {
                         code   : 'INVALID_ARGUMENTS'
                     };
                 }
-                const {stdout: baseStdout} = await execAsync(`gh pr view ${prNumber} --json baseRefOid`, {cwd: aiConfig.projectRoot});
+                
+                if (!/^[0-9a-f]{4,40}$/i.test(sha)) {
+                    return {
+                        error  : 'Bad Request',
+                        message: "The 'sha' parameter must be a valid git object hash (4-40 hex characters).",
+                        code   : 'INVALID_ARGUMENTS'
+                    };
+                }
+
+                const {stdout: baseStdout} = await execFileAsync('gh', ['pr', 'view', String(prNumber), '--json', 'baseRefOid'], {cwd: aiConfig.projectRoot});
                 const baseRefOid = JSON.parse(baseStdout).baseRefOid;
                 
-                const filePaths = file.split(',').map(f => `"${f.trim()}"`).join(' ');
-                const {stdout} = await execAsync(`git diff ${baseRefOid}...${sha} -- ${filePaths}`, {cwd: aiConfig.projectRoot});
+                const filePaths = file.split(',').map(f => f.trim());
+                const {stdout} = await execFileAsync('git', ['diff', `${baseRefOid}...${sha}`, '--', ...filePaths], {cwd: aiConfig.projectRoot});
                 diffStdout = stdout;
             } else {
-                const {stdout} = await execAsync(`gh pr diff ${prNumber}`, {cwd: aiConfig.projectRoot});
+                const {stdout} = await execFileAsync('gh', ['pr', 'diff', String(prNumber)], {cwd: aiConfig.projectRoot});
                 diffStdout = stdout;
             }
 
@@ -240,7 +250,7 @@ class PullRequestService extends Base {
         } catch (error) {
             logger.error(`Error getting diff for PR #${prNumber}:`, error);
 
-            if (error.stderr && (error.stderr.includes('bad object') || error.stderr.includes('unknown revision'))) {
+            if (error.stderr && (error.stderr.includes('bad object') || error.stderr.includes('unknown revision') || error.stderr.includes('Invalid symmetric difference expression'))) {
                 return {
                     error  : 'SHA not found',
                     message: `The provided SHA could not be found in the repository: ${error.message}`,
