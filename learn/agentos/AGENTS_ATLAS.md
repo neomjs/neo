@@ -72,7 +72,7 @@ Prioritize the latest ECMAScript syntax (ES6+). Use optional chaining, object pr
 - Stage 1: Query for Knowledge (`ask_knowledge_base`).
 - Stage 2: Query for Memory (`query_summaries`, `query_raw_memories`). Mandatory for regressions, surprises, architecture queries, trade-offs.
 **15.4 Ask the Expert Protocol:** Treat `ask_knowledge_base` as an Embedded RAG Sub-Agent.
-**15.5 Framework Bias Anchor:** moved back to main `AGENTS.md §15.5` per #10740 — anti-drift anchors qualify for per-turn priming.
+**15.5 Neo Identity Anchor:** in main `AGENTS.md §15.5` as the per-turn anti-drift priming surface.
 
 ## 16. The Implementation Loop [DISCIPLINE-ONLY]
 Step 1: Query & Analyze. Step 2: Implement Changes. Step 3: Verify.

@@ -21,9 +21,9 @@ This document is compacted per the 3-axis slot rule (trigger-frequency × failur
 | §10 Testing Protocol | `compress-to-trigger` | DISCIPLINE-ONLY | High depth, tripwire needs pointer. |
 | §11 File Editing | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Frequent operation with strict tool limits. |
 | §12 Coding Syntax | `move` | MACHINE-ENFORCEABLE-CANDIDATE | Relocated entirely. |
-| §13 Self-Evolving Systems | `keep` | DISCIPLINE-ONLY | MX rule-refinement loop is per-turn reflex (restored #10740). |
+| §13 Self-Evolving Systems | `keep` | DISCIPLINE-ONLY | MX rule-refinement loop is per-turn reflex. |
 | §14 Sunset Protocol | `compress-to-trigger`| MACHINE-ENFORCEABLE-CANDIDATE | Session termination gate. |
-| §15 Knowledge Base | `compress-to-trigger`| DISCIPLINE-ONLY | §15.5 Framework Bias Anchor kept in main as anti-drift (restored #10740); rest in Atlas. |
+| §15 Knowledge Base | `compress-to-trigger`| DISCIPLINE-ONLY | §15.5 Neo Identity Anchor in main as anti-drift; §15.1-15.4 in Atlas. |
 | §16 Implementation Loop | `move` | DISCIPLINE-ONLY | High depth workflow. |
 | §17 Virtuous Cycle | `move` | DISCIPLINE-ONLY | High depth workflow. |
 | §18 Session Maintenance | `move` | DISCIPLINE-ONLY | High depth workflow. |
