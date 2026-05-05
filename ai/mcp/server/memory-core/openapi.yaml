@@ -560,6 +560,76 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /sessions/resume:
+    post:
+      summary: Validate session resumability
+      operationId: resume_session
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Validates whether a session ID is in a state safe for the agent to resume by reconnecting with that session ID in their `Mcp-Session-Id` header. Pure read-only query — does NOT modify any server-side session state.
+
+        Use when the agent has a candidate session ID (e.g., from a prior `query_summaries` result or recovered from local context) and needs to confirm it is safe to keep using before reconnecting. The actual session-id binding still happens at the transport layer via the `Mcp-Session-Id` header per the post-#10692 RequestContextService model.
+
+        Returns a structured success payload with `status: 'resumable'`, `memoryCount`, `lastActivityAt`, and `summarizationStatus` — OR one of four structured errors: `INVALID_SESSION_ID`, `SESSION_NOT_FOUND`, `SESSION_FINALIZED` (already summarized; start fresh), `SESSION_BUSY` (concurrent summarization mid-flight; retry shortly).
+      tags: [Sessions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sessionId
+              properties:
+                sessionId:
+                  type: string
+                  description: The session ID to validate.
+      responses:
+        '200':
+          description: Session resumability status (success or structured error).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  sessionId:
+                    type: string
+                  status:
+                    type: string
+                    enum: [resumable]
+                  memoryCount:
+                    type: integer
+                  lastActivityAt:
+                    type: string
+                    nullable: true
+                  summarizationStatus:
+                    type: string
+                    enum: [none, pending, in_progress, completed, failed]
+                  error:
+                    type: string
+                  code:
+                    type: string
+                    enum: [INVALID_SESSION_ID, SESSION_NOT_FOUND, SESSION_FINALIZED, SESSION_BUSY]
+                  leaseExpiresAt:
+                    type: string
+                    description: Present only when `code === 'SESSION_BUSY'`.
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /sessions/set_id:
     post:
       summary: Set Session ID
