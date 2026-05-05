@@ -157,7 +157,7 @@ function buildBootGroundingPrompt(identity, reason, originSessionId) {
     ].join(' ');
 }
 
-async function resumeHarness(identity, reason, originSessionId, abandonedCount = 0) {
+export async function resumeHarness(identity, reason, originSessionId, abandonedCount = 0) {
     // Wake safety gate (#10648, child of #10647). Direct fresh-session-spawn
     // invocations must also fail-closed when the substrate is unsafe — the
     // gate is consulted alongside (and ahead of) the existing cooldown. The
@@ -406,21 +406,24 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
     } catch (err) {
         console.error(`Failed to resume ${identity} via ${adapter}: ${err.message}`);
         await clearInflightLock(identity, 'sunset_restart');
-        process.exit(1);
+        throw err;
     }
 }
 
-const identity        = process.argv[2];
-const reason          = process.argv[3] || 'Scheduled interval recovery';
-const originSessionId = process.argv[4] || ''; // Optional; populated by checkSunsetted post-#10611
-const abandonedCount  = parseInt(process.argv[5], 10) || 0;
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+if (isMain) {
+    const identity        = process.argv[2];
+    const reason          = process.argv[3] || 'Scheduled interval recovery';
+    const originSessionId = process.argv[4] || ''; // Optional; populated by checkSunsetted post-#10611
+    const abandonedCount  = parseInt(process.argv[5], 10) || 0;
 
-if (!identity) {
-    console.error('Usage: resumeHarness.mjs <identity> [reason] [originSessionId] [abandonedCount]');
-    process.exit(1);
+    if (!identity) {
+        console.error('Usage: resumeHarness.mjs <identity> [reason] [originSessionId] [abandonedCount]');
+        process.exit(1);
+    }
+
+    resumeHarness(identity, reason, originSessionId, abandonedCount).catch(err => {
+        console.error('Unexpected error:', err.message);
+        process.exit(1);
+    });
 }
-
-resumeHarness(identity, reason, originSessionId, abandonedCount).catch(err => {
-    console.error('Unexpected error:', err.message);
-    process.exit(1);
-});

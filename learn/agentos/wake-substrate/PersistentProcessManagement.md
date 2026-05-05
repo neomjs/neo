@@ -1,6 +1,6 @@
 # Persistent-Process Management for the Swarm Heartbeat Daemon
 
-This document covers operator-side installation, verification, and uninstallation of `swarm-heartbeat-daemon.sh` as a persistent daemon process. Required for autonomous **night-shift mode** operation — without persistent-process management, the heartbeat daemon only runs when an operator manually invokes it and keeps the terminal open.
+This document covers operator-side installation, verification, and uninstallation of `SwarmHeartbeatService.mjs` as a persistent daemon process. Required for autonomous **night-shift mode** operation — without persistent-process management, the heartbeat daemon only runs when an operator manually invokes it and keeps the terminal open.
 
 > **Verify-before-assert notice:** the plist template in this directory (`com.neomjs.swarm-heartbeat.plist.template`) is **author-side draft**. Correctness of the actual plist on a given operator's macOS install is operator-territory L3 verification. Do NOT install the template as-is without running the verification commands in §3 below.
 
@@ -12,7 +12,8 @@ This document covers operator-side installation, verification, and uninstallatio
 
 The wake substrate (Epic [#10671](https://github.com/neomjs/neo/issues/10671)) ships:
 
-- `ai/scripts/swarm-heartbeat-daemon.sh` — continuous-loop bash daemon (5-minute poll by default)
+- `ai/daemons/SwarmHeartbeatService.mjs` — continuous-loop Node-native singleton (5-minute poll by default)
+- `ai/scripts/swarm-heartbeat-daemon.sh` — legacy interactive CLI loop
 - `ai/scripts/checkSunsetted.mjs` — sunset / idle-out detector consumed by the daemon
 - `ai/scripts/resumeHarness.mjs` — recovery dispatcher invoked when a sunsetted agent is detected
 - `ai/scripts/wakeSafetyGate.mjs` — fail-closed safety gate consulted before any high-authority recovery action
@@ -24,8 +25,8 @@ The daemon is structured as `while true; do … sleep $POLL_INTERVAL; done`. It 
 Before installing, verify on your local environment:
 
 ```bash
-# 1. The daemon script exists and is executable
-test -x ai/scripts/swarm-heartbeat-daemon.sh && echo "OK" || echo "FAIL: chmod +x ai/scripts/swarm-heartbeat-daemon.sh"
+# 1. The daemon script exists
+test -f ai/daemons/SwarmHeartbeatService.mjs && echo "OK" || echo "FAIL: missing ai/daemons/SwarmHeartbeatService.mjs"
 
 # 2. Required tools are reachable
 which node sqlite3 gh
@@ -34,7 +35,7 @@ which node sqlite3 gh
 ls -la .neo-ai-data/wake-daemon/ .neo-ai-data/sqlite/
 
 # 4. Manual one-shot execution works (macOS native timeout alternative)
-NEO_AGENT_IDENTITY="@your-identity" perl -e 'alarm shift; exec @ARGV' 10 bash ai/scripts/swarm-heartbeat-daemon.sh
+NEO_AGENT_IDENTITY="@your-identity" perl -e 'alarm shift; exec @ARGV' 10 node ai/daemons/SwarmHeartbeatService.mjs
 # (should produce log lines + exit cleanly when alarm hits; no errors in output)
 ```
 
@@ -134,7 +135,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/path/to/repo
-ExecStart=/bin/bash /path/to/repo/ai/scripts/swarm-heartbeat-daemon.sh
+ExecStart=/usr/bin/env node /path/to/repo/ai/daemons/SwarmHeartbeatService.mjs
 Restart=always
 RestartSec=10
 Environment="NEO_AGENT_IDENTITY=@your-identity"
@@ -175,7 +176,7 @@ Per [#10780](https://github.com/neomjs/neo/issues/10780): before re-enabling Dre
 
 ## 9. Related substrate
 
-- **Daemon source:** `ai/scripts/swarm-heartbeat-daemon.sh`
+- **Daemon source:** `ai/daemons/SwarmHeartbeatService.mjs`
 - **Daemon dependencies:** `checkSunsetted.mjs`, `resumeHarness.mjs`, `wakeSafetyGate.mjs`, `sweepExpiredTasks.mjs`, `heartbeatLock.mjs`
 - **Parent epic:** [#10671](https://github.com/neomjs/neo/issues/10671) — Substrate-restart recovery (two-mode: idle-out + sunset)
 - **Sub-tickets resolved by this substrate:** [#10396](https://github.com/neomjs/neo/issues/10396), [#10399](https://github.com/neomjs/neo/issues/10399), [#10633](https://github.com/neomjs/neo/issues/10633)

@@ -5,8 +5,9 @@
  * Prevents swarm heartbeat from spamming wake events by enforcing a 10-minute cooldown
  * TTL between WAKE messages.
  */
-import fs from 'fs-extra';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs-extra';
 import Neo from '../../src/Neo.mjs';
 import * as core from '../../src/core/_export.mjs';
 import { withHeartbeatLock } from './heartbeatLock.mjs';
@@ -19,8 +20,7 @@ import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 const COOLDOWN_STATE_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.json';
 const COOLDOWN_LOCK_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.lock';
 
-async function main() {
-    const rawSignal = process.argv[2];
+export async function trioWakeCooldown(rawSignal) {
     if (!rawSignal) return;
 
     let signal;
@@ -96,7 +96,10 @@ async function main() {
     }, { lockPath: COOLDOWN_LOCK_PATH });
 }
 
-main().catch(err => {
-    console.error('trioWakeCooldown failed:', err.stack);
-    process.exit(1);
-});
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+if (isMain) {
+    trioWakeCooldown(process.argv[2]).catch(err => {
+        console.error('trioWakeCooldown failed:', err.stack);
+        process.exit(1);
+    });
+}

@@ -58,6 +58,8 @@
  * @see ai/scripts/trioWakeCooldown.mjs    — idle-out-mode action dispatcher (when #10675 lands)
  * @see learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md — pre-fix forensic context
  */
+import path from 'path';
+import { fileURLToPath } from 'url';
 import Neo from '../../src/Neo.mjs';
 import * as core from '../../src/core/_export.mjs';
 import LifecycleService from '../mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
@@ -71,7 +73,7 @@ import { checkInflightLock } from './inflightLock.mjs';
  */
 const IDLE_THRESHOLD_MS = parseInt(process.env.IDLE_THRESHOLD_MS, 10) || 10 * 60 * 1000;
 
-async function main() {
+export async function checkSunsetted(identityParam) {
     await LifecycleService.initAsync();
 
     // Ensure GraphService is initialized
@@ -79,7 +81,7 @@ async function main() {
     const db = GraphService.db.storage.db;
 
     // Target identity for Phase 1/2
-    const identity = process.argv[2] || process.env.NEO_AGENT_IDENTITY || '@neo-gemini-3-1-pro';
+    const identity = identityParam || process.env.NEO_AGENT_IDENTITY || '@neo-gemini-3-1-pro';
 
     // 1. Query ALL subscriptions for this identity (regardless of status) so the
     //    detector can emit a structured `subscription_status` field rather than
@@ -229,7 +231,7 @@ async function main() {
     //    (#10673 AC5) preserve `sunsetted` / `reason` / `originSessionId` /
     //    `abandonedCount` for consumers not yet migrated to the new shape.
     //    `swarm-heartbeat.sh` jq parsing reads these legacy fields today.
-    console.log(JSON.stringify({
+    return {
         identity,
         sunset,
         idle_out_candidate: idleOutCandidate,
@@ -246,11 +248,17 @@ async function main() {
         reason,
         originSessionId,
         abandonedCount: lockData?.abandonedCount || 0
-    }));
-    process.exit(0);
+    };
 }
 
-main().catch(err => {
-    console.error('checkSunsetted failed:', err.message);
-    process.exit(1);
-});
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+if (isMain) {
+    const targetIdentity = process.argv[2] || process.env.NEO_AGENT_IDENTITY || '@neo-gemini-3-1-pro';
+    checkSunsetted(targetIdentity).then(result => {
+        console.log(JSON.stringify(result));
+        process.exit(0);
+    }).catch(err => {
+        console.error('checkSunsetted failed:', err.message);
+        process.exit(1);
+    });
+}

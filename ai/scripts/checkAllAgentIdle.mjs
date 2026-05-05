@@ -17,19 +17,21 @@
  *     "details": { [identity]: { "lastMemTime": string, "ageMs": number } }
  *   }
  */
+import path from 'path';
+import { fileURLToPath } from 'url';
 import Neo from '../../src/Neo.mjs';
 import * as core from '../../src/core/_export.mjs';
 import LifecycleService from '../mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
 import GraphService from '../mcp/server/memory-core/services/GraphService.mjs';
 import { checkInflightLock } from './inflightLock.mjs';
 
-async function main() {
+export async function checkAllAgentIdle(cycleIdParam, identitiesEnvParam) {
     await LifecycleService.initAsync();
     await GraphService.initAsync();
     const db = GraphService.db.storage.db;
 
-    const cycleId = process.argv[2] || Math.floor(Date.now() / 1000).toString();
-    const identitiesEnv = process.env.NEO_TRIO_IDENTITIES || '@neo-gemini-3-1-pro,@neo-opus-4-7,@neo-gpt';
+    const cycleId = cycleIdParam || Math.floor(Date.now() / 1000).toString();
+    const identitiesEnv = identitiesEnvParam || process.env.NEO_TRIO_IDENTITIES || '@neo-gemini-3-1-pro,@neo-opus-4-7,@neo-gpt';
     const identities = identitiesEnv.split(',').map(s => s.trim()).filter(Boolean);
 
     const thresholdMs = parseInt(process.env.IDLE_THRESHOLD_MS, 10) || 10 * 60 * 1000;
@@ -108,11 +110,16 @@ async function main() {
         details
     };
 
-    console.log(JSON.stringify(signal));
-    process.exit(0);
+    return signal;
 }
 
-main().catch(err => {
-    console.error('checkAllAgentIdle failed:', err.message);
-    process.exit(1);
-});
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+if (isMain) {
+    checkAllAgentIdle(process.argv[2], process.env.NEO_TRIO_IDENTITIES).then(signal => {
+        console.log(JSON.stringify(signal));
+        process.exit(0);
+    }).catch(err => {
+        console.error('checkAllAgentIdle failed:', err.message);
+        process.exit(1);
+    });
+}

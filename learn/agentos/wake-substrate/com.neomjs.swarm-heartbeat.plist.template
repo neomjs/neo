@@ -21,7 +21,7 @@
     6. If any step fails: `launchctl bootout gui/$(id -u)/com.neomjs.swarm-heartbeat`
        and the daemon stops cleanly without state damage.
 
-    SOURCE: ai/scripts/swarm-heartbeat-daemon.sh — continuous-loop bash daemon
+    SOURCE: ai/daemons/SwarmHeartbeatService.mjs — continuous-loop Node-native singleton
     SOURCE OF AUTHORITY: Apple launchd documentation
         https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html
 -->
@@ -32,18 +32,18 @@
     <key>Label</key>
     <string>com.neomjs.swarm-heartbeat</string>
 
-    <!-- ProgramArguments: MUST be absolute path to bash + absolute path to the script.
+    <!-- ProgramArguments: MUST be absolute path to the executable + absolute path to the script.
          launchd does NOT inherit the operator's interactive shell PATH. -->
     <key>ProgramArguments</key>
     <array>
-        <string>/bin/bash</string>
-        <string>[OPERATOR_SUBSTITUTE_REPO_ROOT]/ai/scripts/swarm-heartbeat-daemon.sh</string>
+        <string>/usr/bin/env</string>
+        <string>node</string>
+        <string>[OPERATOR_SUBSTITUTE_REPO_ROOT]/ai/daemons/SwarmHeartbeatService.mjs</string>
     </array>
 
-    <!-- WorkingDirectory: CRITICAL. swarm-heartbeat.sh uses RELATIVE paths for:
+    <!-- WorkingDirectory: CRITICAL. The Node service uses RELATIVE paths for:
            DB_PATH=.neo-ai-data/sqlite/memory-core-graph.sqlite
            CONCURRENCY_LOCK=.neo-ai-data/heartbeat-concurrency.lock
-           SWEEP_LOG=.neo-ai-data/wake-daemon/sweep-errors.log
          Without this WorkingDirectory, launchd runs the script with cwd=/ and
          the relative paths resolve to /.neo-ai-data/... which doesn't exist —
          the daemon silently no-ops on every poll. -->
