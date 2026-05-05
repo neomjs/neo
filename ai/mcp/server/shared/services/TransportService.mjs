@@ -142,14 +142,29 @@ class TransportService extends Base {
             // configured; when auth is disabled (local dev, no `aiConfig.auth.host` /
             // `.issuerUrl`) the context is empty and downstream services fall through to
             // single-tenant behavior.
+            let baseAuth = req.auth;
+
+            // Support identity-aware proxies (e.g., oauth2-proxy, GitLab) when explicitly trusted
+            if (!baseAuth && aiConfig.auth?.trustProxyIdentity) {
+                const proxyUserId = req.headers['x-preferred-username'] || req.headers['x-auth-request-preferred-username'];
+                if (proxyUserId) {
+                    baseAuth = {
+                        userId: proxyUserId,
+                        username: proxyUserId,
+                        source: 'proxy-header'
+                    };
+                }
+            }
+
             let requestContext;
 
             if (typeof server.buildRequestContext === 'function') {
-                requestContext = await server.buildRequestContext(req.auth);
+                requestContext = await server.buildRequestContext(baseAuth);
             } else {
                 requestContext = {
-                    userId: req.auth?.userId,
-                    username: req.auth?.username
+                    userId: baseAuth?.userId,
+                    username: baseAuth?.username,
+                    source: baseAuth?.source
                 };
             }
 
