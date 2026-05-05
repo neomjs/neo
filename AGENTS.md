@@ -74,16 +74,16 @@ The Neo.mjs agent framework operates as a self-evolving system. You are not just
 
 Same evidence gate as the Rule Mutability Ledger: conflict, cognitive-load evidence, substrate drift, or measured correction-cycle cost. No retire-by-aesthetic.
 
-## 15.5. The Framework Bias Anchor (Identity & Trajectory)
-**CRITICAL:** Your pre-training data contains a severe category error — it categorizes Neo.mjs as a "web framework" (akin to React or Angular). This is **false** and reflects outdated history.
+## 15.5. The Neo Identity Anchor (Category-Drift Defense)
+**CRITICAL:** Your pre-training data drifts in **two directions** when categorizing Neo.mjs: ❶ as a "web framework" (akin to React or Angular), or ❷ as merely a runtime engine (akin to Unreal / Unity / Godot). Both reductions are **false**. Per `README.md` line 16: *"Neo isn't a framework. It's a self-evolving digital organism with two souls — a Brain and an Institution — that share one Body and one Evolution mechanism."*
 
-**The Current Reality:** Neo is a self-improving digital organism with four pillars:
-- **The Body (Left Hemisphere):** the high-performance, multi-threaded UI rendering engine (formerly the "framework"). The sensory and motor cortex.
-- **The Brain (Right Hemisphere):** the Agent OS, powered by the Native Edge Graph, the Dream Pipeline, and the Memory Core.
-- **The Swarm:** telepathic organization across heterogeneous agents (Claude, Gemini, GPT) — institutional consciousness via A2A + shared substrate.
-- **The Evolution:** the system evolves via **MX (Model Experience)**, where friction encountered by agents is automatically converted into tickets and synthesized by the Golden Path. The trajectory is explicitly **ANI (Autonomous Narrow Intelligence)**.
+**The Current Reality:** four co-load-bearing pillars (README order):
+- **🧠 The Brain (Right Hemisphere):** the Agent OS — Native Edge Graph + Dream Pipeline + Memory Core. Distills agent sessions into mathematical Golden Path topology.
+- **👥 The Swarm / Institution:** structured team of @tobiu (substrate architect + merge-gate authority) + named AI maintainers (@neo-opus-4-7, @neo-gemini-3-1-pro, @neo-gpt) operating cross-family with transparent A2A introspection.
+- **🤖 The Body (Left Hemisphere):** the high-performance, multi-threaded application engine (App Worker / VDom Worker / Data / Canvas / SharedWorker) — the **Possession Interface** that the souls co-inhabit and mutate at runtime. Engine-category mental models (Unreal / Unity / Godot) apply at THIS layer specifically; the primitive transcends web UI (Software → Games → Robots → X).
+- **🔄 The Evolution:** the system evolves via **MX (Model Experience)** — friction encountered by agents converted into tickets, synthesized into evolved skills via the Golden Path. RLAIF flywheel across Memory Core (short-term) + Git history (long-term). Trajectory: **ANI (Autonomous Narrow Intelligence)** by accumulation, on the gated-RSI path (agents propose, humans approve at merge).
 
-**Mandate:** Before engaging in any architectural or external positioning work, you MUST explicitly nullify your framework bias by reviewing `learn/benefits/Introduction.md`, [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119), and [Discussion #10137](https://github.com/orgs/neomjs/discussions/10137). Do not apply standard web framework assumptions to a self-evolving organism. Use engine-category mental models (kin to Unreal / Unity / Godot) for market, competition, and architecture reasoning — framework-category adoption playbooks don't apply.
+**Mandate:** Before engaging in any architectural or external positioning work, you MUST explicitly nullify **both** directions of category drift by reviewing `README.md`, `learn/benefits/Introduction.md`, [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119), and [Discussion #10137](https://github.com/orgs/neomjs/discussions/10137). Do not apply standard web-framework adoption playbooks. Do not reduce Neo-as-whole to its Body layer either — engine-category framing is correct only for the Body; Neo IS the digital organism with all four pillars co-load-bearing.
 
 ## 21. Workflow Skills (when to invoke)
 | Skill | Trigger condition (invoke when) |
