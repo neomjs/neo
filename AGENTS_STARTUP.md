@@ -27,9 +27,13 @@ Before reading any documentation, code, or memory, you **MUST** ensure your loca
 - **Lifecycle role (boot vs. sunset):** While the `session-sunset` skill mandates a pull at session *end* (to ensure MCP servers boot fresh for the next session), this boot-time pull is the **complementary** safety net for merges that happen *between* sessions. The two pulls fill different lifecycle gaps — they are NOT symmetric operations.
 - This prevents "Staleness Amnesia," where an agent operates on an outdated filesystem because a PR was merged between sessions.
 
-### Step 1: Read the Codebase Overview
+### Step 1: Read the Neo Identity & Frontend Architecture Boot Pair
 
-Parse the file `learn/guides/fundamentals/CodebaseOverview.md`. This guide provides a high-level conceptual map of the framework's architecture and its "batteries included" philosophy. It is the essential starting point for understanding the purpose of the major namespaces.
+Parse `README.md` first. It is the current boot anchor for Neo's organism identity, maintainer model, Four Pillars, Agent OS trajectory, and MX loop. This is the fast framework-bias inoculation layer: Neo is not a conventional web framework, and the agent must not default to React/Angular mental models.
+
+Then parse `learn/guides/devindex/frontend/Architecture.md`. It provides the concise frontend architecture mechanics the old boot mandate relied on `CodebaseOverview.md` for: Off-Main-Thread execution, the Minimal Main Thread, the App Worker, VDOM deltas, and hierarchical MVC/MVVM state flow.
+
+`learn/guides/fundamentals/CodebaseOverview.md` remains the long-form reference for code-authoring and deep orientation contexts, but it is no longer the mandatory Step 1 boot read. Prefer querying the Knowledge Base or opening the long-form guide only when the task needs broader namespace inventory or historical scale context.
 
 **Documentation Taxonomy:** Additionally, scan `learn/tree.json` — the canonical hierarchical index of all 130+ learning topics. The Knowledge Base's `LearningSource.mjs` traverses this file to discover and index every guide. Scanning it gives you an instant top-level perspective of the entire documentation landscape, making subsequent knowledge base queries far more targeted.
 
@@ -135,6 +139,8 @@ The following per-turn invariants previously documented here have moved to `AGEN
 ### 3.1 Critical Gates (Invariants — agents MUST honor; no conditional exceptions)
 
 *This section mirrors `AGENTS.md §0`. Updates here MUST also land in `AGENTS.md §0` (and vice versa).*
+
+Per #10736 AC11, this mirror remains until active-harness boot transcripts verify that `AGENTS.md` is reliably loaded before `AGENTS_STARTUP.md` execution in Claude Code, Antigravity, and Codex Desktop. If that verification lands later, replace this mirror with a short canonical pointer instead of purging the cold-cache rescue path blindly.
 
 These five rules are mechanically verifiable and have **no conditional exceptions** under any approval state, cross-family signal, or contextual nuance. Approval signals ("LGTM", "approved", "ready for merge", "no required actions") are **NOT** authorization to bypass any of them.
 

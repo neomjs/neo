@@ -127,3 +127,19 @@ The final 3 high-load payloads were audited per the methodology and all received
 - **`session-sunset-workflow.md` (11.9KB):** The Sunset Protocol is the terminal execution flow of a session. Trigger conditions and handoff structure are tightly coupled; an agent evaluating the trigger must immediately execute the handoff if met. Slicing this file fragments the terminal safety net. **Crucially, because this payload is only loaded at the very end of a session, its large byte footprint does not pollute the context window during active work.** It is safely detailed because its load penalty is only incurred when the session is already terminating.
 
 *Empirical Delta:* 0 KB (intentional). Avoids 1-2 negative-ROI tool calls per execution.
+
+## 5. Sub 3 Boot Ramp Split Results (#10736)
+
+`AGENTS_STARTUP.md` Step 1 now mandates `README.md` + `learn/guides/devindex/frontend/Architecture.md` instead of `learn/guides/fundamentals/CodebaseOverview.md`.
+
+| Boot read surface | Lines | Bytes | Role |
+|---|---:|---:|---|
+| Previous Step 1: `CodebaseOverview.md` | 699 | 36,592 | Long-form framework and repository overview |
+| New Step 1a: `README.md` | 240 | 19,296 | Neo identity, Four Pillars, MX loop, maintainer model |
+| New Step 1b: `Architecture.md` | 128 | 7,036 | Off-Main-Thread mechanics, Minimal Main Thread, App Worker, MVVM flow |
+
+*Step-1 Delta:* -331 lines / -10,260 bytes. Including the local `AGENTS_STARTUP.md` wording change, the boot-document surface still drops by 325 lines / 9,231 bytes versus the Sub 1 baseline.
+
+*Framework-bias preservation:* `README.md` carries the current organism / Four Pillars identity anchor, while `Architecture.md` carries the runtime constraints agents need to avoid React/main-thread assumptions. The Knowledge Base check confirmed the load-bearing boot concepts remain Neo's multithreaded App Worker architecture and thin Main Thread constraint.
+
+*AC11 mirror decision:* the `AGENTS_STARTUP.md` §0 mirror is retained pending active-harness boot-transcript proof that `AGENTS.md` is loaded before startup execution in Claude Code, Antigravity, and Codex Desktop. No SKILL.md router bodies were changed.
