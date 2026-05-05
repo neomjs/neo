@@ -182,3 +182,28 @@ All 4 asset templates receive a **keep-monolithic** verdict. Same rationale shap
 ### 6.4 Substrate Observation
 
 The audit revealed an **outdated implicit assumption** in `feedback_pr_review_template_discipline.md` memory entry which states *"section structure is regex-matched by the Retrospective daemon for graph ingestion."* The reality is narrower: only 3 specific tags are regex-matched (in `IssueIngestor.mjs`, not in any "Retrospective daemon"). The broader semantic anchors are LLM-consumed. Memory entry should be updated post-merge to reflect the empirical parser scope.
+
+## 7. SKILL.md Router Byte-Budget Baseline (Cycle-2 V1 Anchor for #10760 / PR #10764)
+
+Empirical line counts of all `SKILL.md` routers across `.agents/skills/` measured 2026-05-05 to anchor the byte-budget guidance retrofitted into `.agents/skills/create-skill/references/skill-authoring-guide.md` (V1 sub of cycle-2 epic #10757).
+
+| Skill | Lines | Skill | Lines |
+|---|---:|---|---:|
+| create-skill | 7 | tech-debt-radar | 9 |
+| debugging-antigravity | 7 | ticket-triage | 9 |
+| epic-resolution | 7 | epic-review | 10 |
+| neural-link | 7 | pull-request | 10 |
+| unit-test | 7 | whitebox-e2e | 10 |
+| self-repair | 8 | ticket-create | 11 |
+| ideation-sandbox | 9 | ticket-intake | 11 |
+| industry-friction-radar | 9 | pr-review | 12 |
+| memory-mining | 9 | | |
+| session-sunset | 9 | | |
+
+**Empirical range: 7-12 lines** across 18 skills (median: 9; mean: ~9.0).
+
+This range establishes the discriminator anchor referenced from `skill-authoring-guide.md` §*"Byte Budget for SKILL.md Routers"*. Routers exceeding 12 lines are the candidate population for content-extraction-into-payload analysis; routers under 7 lines may be missing load-bearing trigger language. **The range is a *discriminator*, not a *hard cap*** — see the guide for the substantive criterion.
+
+**Method:** `wc -l .agents/skills/*/SKILL.md`. Re-runnable; the baseline updates as new skills land.
+
+**Substrate observation:** all current routers fit inside the 7-12 band. This is consistent with the lesson cycle-1 surfaced — Progressive Disclosure routers should be lightweight and signpost the payload. New skill authors should treat the band as a calibration aid, not a budget cap.
