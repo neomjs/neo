@@ -220,3 +220,98 @@ test.describe('Neo.ai.mcp.server.github-workflow.services.PullRequestService —
         expect(result.message).toContain('authentication');
     });
 });
+
+test.describe('Neo.ai.mcp.server.github-workflow.services.PullRequestService — getPullRequestDiff (#10748)', () => {
+    let PullRequestService;
+    let fs;
+    let path;
+    let aiConfig;
+    
+    test.beforeAll(async () => {
+        PullRequestService = (await import('../../../../../../../ai/mcp/server/github-workflow/services/PullRequestService.mjs')).default;
+        aiConfig           = (await import('../../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
+        fs                 = await import('fs/promises');
+        path               = await import('path');
+    });
+
+    test('files_only parameter returns structured JSON without diff body', async () => {
+        const result = await PullRequestService.getPullRequestDiff({
+            pr_number : 10747,
+            files_only: true
+        });
+        
+        expect(Array.isArray(result.files)).toBe(true);
+        expect(result.files.some(f => f.path.includes('cognitive-load-baseline'))).toBe(true);
+    });
+
+    test('file parameter filters the diff output', async () => {
+        const result = await PullRequestService.getPullRequestDiff({
+            pr_number: 10747,
+            file     : 'learn/agentos/measurements/cognitive-load-baseline-2026-05.md'
+        });
+        
+        expect(typeof result.result).toBe('string');
+        expect(result.result).toContain('Sub 4 Payload Audit Results');
+    });
+
+    test('AC3 Empirical Guard: sha-pinned diff is immune to local working tree mutations', async () => {
+        const params = {
+            pr_number: 10747,
+            file     : 'learn/agentos/measurements/cognitive-load-baseline-2026-05.md',
+            sha      : 'd8913f1fa89f585a237a5e54992b2d12865e4fb6'
+        };
+
+        // 1. Capture baseline output
+        const baseline = await PullRequestService.getPullRequestDiff(params);
+        
+        // 2. Mutate local working tree
+        const targetFilePath  = path.join(aiConfig.projectRoot, params.file);
+        const originalContent = await fs.readFile(targetFilePath, 'utf-8');
+        const mutatedContent  = originalContent + '\n\n# MUTATED WORKING TREE\n';
+        await fs.writeFile(targetFilePath, mutatedContent);
+
+        try {
+            // 3. Re-run
+            const rerunning = await PullRequestService.getPullRequestDiff(params);
+            
+            // 4. Assert byte-identical output
+            expect(rerunning.result).toBe(baseline.result);
+        } finally {
+            // Restore
+            await fs.writeFile(targetFilePath, originalContent);
+        }
+    });
+
+    test('rejects invalid sha format', async () => {
+        const result = await PullRequestService.getPullRequestDiff({
+            pr_number: 10747,
+            file     : 'some/file.md',
+            sha      : 'invalid-sha-xyz; touch /tmp/pwned'
+        });
+        
+        expect(result.error).toBe('Bad Request');
+        expect(result.code).toBe('INVALID_ARGUMENTS');
+    });
+
+    test('rejects sha without file parameter', async () => {
+        const result = await PullRequestService.getPullRequestDiff({
+            pr_number: 10747,
+            sha      : 'd8913f1fa89f585a237a5e54992b2d12865e4fb6'
+        });
+        
+        expect(result.error).toBe('Bad Request');
+        expect(result.code).toBe('INVALID_ARGUMENTS');
+    });
+
+    test('returns SHA_NOT_FOUND for non-existent commit', async () => {
+        const result = await PullRequestService.getPullRequestDiff({
+            pr_number: 10747,
+            file     : 'some/file.md',
+            sha      : '0000000000000000000000000000000000000000'
+        });
+        
+        expect(result.error).toBe('SHA not found');
+        expect(result.code).toBe('SHA_NOT_FOUND');
+    });
+});
+
