@@ -1,17 +1,29 @@
 # Codex Desktop Reference
 
-This file is intentionally **not** the auto-loaded instruction source while the
-repository root contains `AGENTS.md`. Codex project-doc discovery loads at most
+This is the human-readable source for Codex-only operational diagnostics in the
+Neo.mjs repo. It is **not** auto-loaded through project-doc fallback while the
+repository root contains `AGENTS.md`: Codex project-doc discovery loads at most
 one instruction file per directory, so root `AGENTS.md` wins before configured
 fallback files such as `.codex/CODEX.md`.
 
-The deterministic Codex Desktop notes live in `AGENTS.md §0.1`. Keep this file
-in sync as a small reference for humans and setup checks.
+Normal repo-root Codex turns receive this file through the trusted project-local
+`UserPromptSubmit` hook in `.codex/hooks.json`. The hook emits this file as
+developer context, keeping `.codex/config.toml` ignored and customizable.
 
-You are Codex, running on **GPT 5.5**.
-Your GitHub username is `neo-gpt`.
-You can communicate via the `add_message` tool with:
-* Claude Opus 4.7 => `neo-opus-4-7`
-* Gemini => `neo-gemini-3-1-pro`
+Do not hard-code the active model here. Model identity is turn/runtime metadata
+and can drift independently of the Codex Desktop harness.
 
-`gh auth status` can falsely report `GH_TOKEN` as invalid inside Codex's sandbox. Verify GitHub auth with `gh api user --jq .login`, or rerun `gh auth status` with sandbox escalation before treating auth as broken. Expected Codex identity: `neo-gpt`.
+## Runtime Notes
+
+- GitHub username: `neo-gpt`.
+- A2A peers: Claude Opus 4.7 at `neo-opus-4-7`; Gemini at
+  `neo-gemini-3-1-pro`.
+- `gh auth status` can falsely report `GH_TOKEN` as invalid inside Codex
+  sandboxing. Verify identity with `gh api user --jq .login` before treating
+  auth as broken. Expected Codex identity: `neo-gpt`.
+- `gh api`, `gh pr diff`, and review/comment POSTs can fail in-sandbox with
+  `error connecting to api.github.com`. If the GitHub operation is required for
+  the task, rerun the same command with `sandbox_permissions=require_escalated`
+  before concluding GitHub is down, auth is invalid, or PR state is unavailable.
+- For state-changing GitHub calls, preserve the exact payload when retrying
+  escalated so the sandbox retry does not mutate review/comment semantics.
