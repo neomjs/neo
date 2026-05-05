@@ -100,6 +100,75 @@ export function buildTopologyBlock(cfg) {
 }
 
 /**
+ * @summary Projects the active embedding-provider configuration into the healthcheck `providers.embedding`
+ *          observability block (#10723).
+ *
+ * Pure function: takes an `aiConfig`-shaped input and returns the active embedding provider with
+ * its host, model, and configured vector dimension. Mirrors the {@link buildTopologyBlock} precedent
+ * for module-scope pure projections.
+ *
+ * **Why this block exists:** Operators deploying the shared MC/KB topology against a local-model stack
+ * (e.g., MLX-served Qwen3 embedding model) need an observable surface confirming WHICH embedding
+ * provider is currently active and WHICH model + endpoint is in use. Without this, a misconfigured
+ * `NEO_CHROMA_EMBEDDING_PROVIDER` env var (silently defaulting to Gemini cloud while the operator
+ * believes a local provider is wired) is undetectable until cross-tenant retrieval drift emerges.
+ *
+ * **What this block reports:**
+ * - `active`: which provider key is currently selected for ChromaDB embedding generation
+ *   (`'gemini'` | `'openAiCompatible'` | `'ollama'`)
+ * - `host`: resolved provider endpoint URL (when applicable; `null` for cloud providers)
+ * - `model`: resolved embedding model name
+ * - `dimensions`: configured vector dimension (`vectorDimension` config; load-bearing because
+ *   ChromaDB collections are pinned to dimensions at creation, mismatch causes silent insert failures)
+ *
+ * **Defensive fallback:** if the active provider key isn't recognized, the block surfaces
+ * `{active: <unknown-key>, host: null, model: null, dimensions: <vectorDimension>, error: <msg>}`
+ * so operators see the misconfig directly. Aligns with "surface, don't obscure" (PR #10227).
+ *
+ * @param {Object} cfg aiConfig-shaped input. Reads `cfg.chromaEmbeddingProvider`,
+ *     `cfg.openAiCompatible.{host, embeddingModel}`, `cfg.ollama.{host, embeddingModel}`,
+ *     `cfg.embeddingModel` (Gemini path), `cfg.vectorDimension`.
+ * @returns {{active: String, host: String|null, model: String|null, dimensions: Number, error?: String}}
+ * @see learn/agentos/SharedDeployment.md
+ */
+export function buildEmbeddingProviderBlock(cfg) {
+    const active     = cfg.chromaEmbeddingProvider;
+    const dimensions = cfg.vectorDimension;
+
+    switch (active) {
+        case 'openAiCompatible':
+            return {
+                active,
+                host      : cfg.openAiCompatible?.host || null,
+                model     : cfg.openAiCompatible?.embeddingModel || null,
+                dimensions
+            };
+        case 'ollama':
+            return {
+                active,
+                host      : cfg.ollama?.host || null,
+                model     : cfg.ollama?.embeddingModel || null,
+                dimensions
+            };
+        case 'gemini':
+            return {
+                active,
+                host      : null,
+                model     : cfg.embeddingModel || null,
+                dimensions
+            };
+        default:
+            return {
+                active,
+                host      : null,
+                model     : null,
+                dimensions,
+                error     : `Unrecognized chromaEmbeddingProvider: '${active}'. Expected 'gemini' | 'openAiCompatible' | 'ollama'.`
+            };
+    }
+}
+
+/**
  * @summary Monitors and validates the ChromaDB dependency for the Memory Core MCP server.
  *
  * This service acts as a gatekeeper, ensuring that ChromaDB is properly running,
@@ -504,6 +573,9 @@ class HealthService extends Base {
             mailboxPreview: await MailboxService.getHealthcheckPreview(),
             identity : buildIdentityBlock(this.#stdioIdentityState),
             migration: await this.#checkMigrationState(),
+            providers: {
+                embedding: buildEmbeddingProviderBlock(aiConfig)
+            },
             details  : [],
             version  : process.env.npm_package_version || '1.0.0',
             uptime   : process.uptime()

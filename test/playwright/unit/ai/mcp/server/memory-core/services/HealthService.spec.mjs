@@ -207,3 +207,105 @@ test.describe('HealthService #10127 — buildTopologyBlock', () => {
         expect(result.error).toMatch(/engines\.kb\.chroma/);
     });
 });
+
+/**
+ * @summary Coverage for the #10723 embedding-provider observability block in the healthcheck payload.
+ *
+ * Pins the pure-projection contract of `buildEmbeddingProviderBlock` — the module-scope function
+ * that extracts active embedding-provider state from `aiConfig` for the healthcheck `providers.embedding`
+ * field. Integration correctness (live provider request) is operator-territory L3 validation against
+ * a running local-model server; this spec covers the L1-L2 substrate shape that operators rely on
+ * to verify the provider configured matches the provider actually selected at boot.
+ *
+ * @see Neo.ai.mcp.server.memory-core.services.HealthService#buildEmbeddingProviderBlock
+ */
+test.describe('HealthService #10723 — buildEmbeddingProviderBlock', () => {
+    let buildEmbeddingProviderBlock;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../../../ai/mcp/server/memory-core/services/HealthService.mjs');
+        buildEmbeddingProviderBlock = mod.buildEmbeddingProviderBlock;
+    });
+
+    test('openAiCompatible provider surfaces host + embeddingModel + dimensions', () => {
+        const cfg = {
+            chromaEmbeddingProvider: 'openAiCompatible',
+            vectorDimension        : 4096,
+            openAiCompatible       : {
+                host          : 'http://127.0.0.1:8000',
+                embeddingModel: 'text-embedding-qwen3-embedding-1.5b'
+            }
+        };
+        expect(buildEmbeddingProviderBlock(cfg)).toEqual({
+            active    : 'openAiCompatible',
+            host      : 'http://127.0.0.1:8000',
+            model     : 'text-embedding-qwen3-embedding-1.5b',
+            dimensions: 4096
+        });
+    });
+
+    test('ollama provider surfaces host + embeddingModel + dimensions', () => {
+        const cfg = {
+            chromaEmbeddingProvider: 'ollama',
+            vectorDimension        : 4096,
+            ollama                 : {
+                host          : 'http://127.0.0.1:11434',
+                embeddingModel: 'qwen3-embedding'
+            }
+        };
+        expect(buildEmbeddingProviderBlock(cfg)).toEqual({
+            active    : 'ollama',
+            host      : 'http://127.0.0.1:11434',
+            model     : 'qwen3-embedding',
+            dimensions: 4096
+        });
+    });
+
+    test('gemini provider surfaces null host + embeddingModel + dimensions', () => {
+        const cfg = {
+            chromaEmbeddingProvider: 'gemini',
+            vectorDimension        : 3072,
+            embeddingModel         : 'gemini-embedding-001'
+        };
+        expect(buildEmbeddingProviderBlock(cfg)).toEqual({
+            active    : 'gemini',
+            host      : null,
+            model     : 'gemini-embedding-001',
+            dimensions: 3072
+        });
+    });
+
+    test('unrecognized provider surfaces error field, does not throw', () => {
+        const cfg = {
+            chromaEmbeddingProvider: 'fooProvider',
+            vectorDimension        : 4096
+        };
+        const result = buildEmbeddingProviderBlock(cfg);
+        expect(result.active).toBe('fooProvider');
+        expect(result.host).toBeNull();
+        expect(result.model).toBeNull();
+        expect(result.dimensions).toBe(4096);
+        expect(result.error).toMatch(/Unrecognized chromaEmbeddingProvider/);
+    });
+
+    test('openAiCompatible without nested config surfaces null host + null model + dimensions', () => {
+        const cfg = {
+            chromaEmbeddingProvider: 'openAiCompatible',
+            vectorDimension        : 4096
+            // openAiCompatible config block deliberately absent — defensive against incomplete config
+        };
+        expect(buildEmbeddingProviderBlock(cfg)).toEqual({
+            active    : 'openAiCompatible',
+            host      : null,
+            model     : null,
+            dimensions: 4096
+        });
+    });
+
+    test('dimensions field always reflects vectorDimension regardless of provider', () => {
+        for (const provider of ['gemini', 'openAiCompatible', 'ollama', 'unrecognized']) {
+            const cfg = {chromaEmbeddingProvider: provider, vectorDimension: 768};
+            expect(buildEmbeddingProviderBlock(cfg).dimensions).toBe(768);
+        }
+    });
+});
