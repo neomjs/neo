@@ -21,6 +21,9 @@ import path           from 'path';
 import os             from 'os';
 
 test.describe('ai/scripts/harnessLifecycle', () => {
+    // Shared harness-state identity writes one state file; keep this spec serial under default-worker runs.
+    test.describe.configure({mode: 'serial'});
+
     let harnessLifecycle;
     let getStateFilePath;
     const identity = '@neo-test-harness-agent';
