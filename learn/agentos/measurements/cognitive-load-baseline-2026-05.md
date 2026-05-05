@@ -15,9 +15,12 @@ Repo line counts (`wc -l` / `wc -c`) are a necessary but insufficient proxy. Har
 **The Lazy-Load Verification Rule:** Any extraction or split must demonstrate a per-harness loaded-byte reduction. Splitting files into multiple references does not reduce true loaded bytes if the harness still concatenates them at boot.
 
 ### 1.4 Harness-Native Primitive Outputs (AC0)
-- **Antigravity (Gemini 3.1 Pro):** Truncation limit visually confirmed via system block injection (`<truncated 35170 bytes>`). Actual loaded payload capped strictly at ~24,000 bytes.
-- **Claude Code:** `/memory` visual verification confirms standard dynamic context aggregation via `CLAUDE.md`.
-- **Codex Desktop:** `project_doc_max_bytes` validation and active-instruction audit mechanism deployed for verification.
+- **Antigravity (Gemini 3.1 Pro):** Truncation limit visually confirmed via system block injection.
+  - *Evidence Anchor:* `[System injected context: <truncated 35170 bytes>]` observed in raw debug payload output when `AGENTS.md` exceeded 24,000 bytes.
+- **Claude Code:** Dynamic context aggregation visually confirmed.
+  - *Evidence Anchor:* `/memory` CLI command output showing exact loaded subset of `CLAUDE.md`.
+- **Codex Desktop:** Bounded explicitly by `project_doc_max_bytes`.
+  - *Evidence Anchor:* `project_doc_max_bytes` configuration attribute and `active_instruction` audit mechanism.
 
 ### 1.2 Correction-Cycle Metrics (AC2)
 A lower byte count is a false win if it increases the correction cycles required to achieve compliance.
@@ -42,6 +45,36 @@ The following metrics represent the baseline before Subs 2-5 of Epic #10733 exec
 | **Boot-Mandated Read** | `learn/guides/fundamentals/CodebaseOverview.md` | 699 | 36,592 |
 | **Identity Surface** | `README.md` | 240 | 19,296 |
 | **Architecture** | `learn/guides/devindex/frontend/Architecture.md` | 128 | 7,036 |
+
+### 2.0 Historical `AGENTS.md` Section-by-Section Baseline (Pre-Sub 2)
+
+| Section | Lines | Bytes |
+|---|---:|---:|
+| 0. Critical Gates | 11 | 2,268 |
+| 0.1. Harness-Scoped Operational Notes | 13 | 575 |
+| 1. Communication Style & Pipeline Authority | 16 | 1,839 |
+| 2. The Anti-Hallucination Policy | 41 | 2,757 |
+| 3. The Pre-Commit Hard Gates | 24 | 3,121 |
+| 4. The Memory Core Protocol | 75 | 5,620 |
+| 5. The Strategic Co-Founder Protocol | 7 | 809 |
+| 6. Request Triage | 19 | 2,077 |
+| 7. The Pull Request Mandate | 11 | 1,067 |
+| 8. The Resumption Protocol | 7 | 526 |
+| 9. Reading Modified Files Efficiently | 9 | 1,577 |
+| 10. Testing and Validation Protocol | 12 | 3,219 |
+| 11. File Editing Tool Selection | 9 | 843 |
+| 12. Coding Syntax Constraints | 8 | 733 |
+| 13. Self-Evolving Systems | 6 | 772 |
+| 14. The A2A Contextual Bridge Protocol | 11 | 3,226 |
+| 15. The Knowledge Base | 139 | 11,808 |
+| 16. The Implementation Loop | 18 | 908 |
+| 17. The Virtuous Cycle | 12 | 653 |
+| 18. Session Maintenance | 6 | 501 |
+| 19. Working with Sub-Agents | 13 | 976 |
+| 20. The Visual Verification Protocol | 17 | 1,491 |
+| 21. Workflow Skills | 41 | 5,943 |
+| 22. The Mailbox Check Protocol | 41 | 3,735 |
+| 23. Authoring Discipline | 25 | 1,923 |
 
 ### 2.1 Skill Payloads (All 22)
 
