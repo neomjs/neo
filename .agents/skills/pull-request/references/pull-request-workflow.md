@@ -14,6 +14,20 @@ The act of opening a PR is an irreversible state transition in the Agent OS. Bef
 
 *If and only if* you pass this reflection phase, proceed to the Git execution sequence.
 
+### 1.1 The Substrate-Mutation Pre-Flight Gate
+
+If your PR touches **any** of the following paths:
+- `AGENTS.md`
+- `AGENTS_ATLAS.md`
+- `.agents/skills/**`
+- `learn/agentos/**`
+
+You MUST include a **slot-rationale section** in your PR body. This satisfies the `AGENTS.md §13` mandate requiring explicit decay-mitigation rationale for all substrate mutations.
+Your PR body's slot-rationale section MUST enumerate:
+- For each *added* section: its disposition (`keep` / `move` / `compress-to-trigger` / `rewrite` / `retire`) + 3-axis rating (trigger-frequency × failure-severity × enforceability).
+- For each *modified* section: its disposition delta + the reason for the shift.
+- For each *retired* section: the rationale for removal.
+
 ## 2. Git Branching Mandate
 
 You are strictly forbidden from committing or pushing directly to `main` (release-only) or `dev` (default working). The *mechanism* for satisfying this rule differs by harness class.
