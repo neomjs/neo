@@ -224,13 +224,52 @@ paths:
           schema:
             type: integer
             example: 123
+        - name: file
+          in: query
+          required: false
+          description: |
+            Optional. Comma-separated list of file paths to filter the diff.
+            When provided alone, filters the PR diff to only include chunks for these paths.
+          schema:
+            type: string
+            example: "src/main.js,src/utils.js"
+        - name: sha
+          in: query
+          required: false
+          description: |
+            Optional. When provided alongside `file`, the diff is computed against the named commit, not the live PR head.
+            Defends against working-tree race conditions in concurrent-PR scenarios. Requires `file`.
+          schema:
+            type: string
+        - name: files_only
+          in: query
+          required: false
+          description: |
+            Optional. If true, returns a structured JSON payload of affected files (`path`, `additions`, `deletions`) instead of a plaintext diff.
+          schema:
+            type: boolean
       responses:
         '200':
-          description: The diff of the pull request.
+          description: The diff of the pull request or structured file list.
           content:
             text/plain:
               schema:
                 type: string
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path:
+                          type: string
+                        additions:
+                          type: integer
+                        deletions:
+                          type: integer
         '404':
           description: Pull request not found.
           content:

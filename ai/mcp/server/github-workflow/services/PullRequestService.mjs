@@ -153,19 +153,107 @@ class PullRequestService extends Base {
 
     /**
      * Gets the diff for a specific pull request.
-     * @param {number} prNumber The number of the pull request
-     * @returns {Promise<string|object>} A promise that resolves to the diff text or a structured error.
+     * @param {Object|number} options Either a PR number or an object with parameters
+     * @param {number}  options.pr_number  The number of the pull request
+     * @param {string}  [options.file]     Optional file path (or comma-separated paths) to filter diff
+     * @param {string}  [options.sha]      Optional SHA to diff against instead of live PR head
+     * @param {boolean} [options.files_only] If true, return structured JSON with path/additions/deletions
+     * @returns {Promise<string|object>} A promise that resolves to the diff text, file list JSON, or a structured error.
      */
-    async getPullRequestDiff(prNumber) {
+    async getPullRequestDiff(options) {
+        const { pr_number, file, sha, files_only } = typeof options === 'number' || typeof options === 'string'
+            ? { pr_number: parseInt(options, 10) }
+            : (options || {});
+
+        const prNumber = parseInt(pr_number, 10);
+
+        if (isNaN(prNumber)) {
+            return {
+                error  : 'Bad Request',
+                message: "Missing or invalid required argument: 'pr_number'.",
+                code   : 'INVALID_ARGUMENTS'
+            };
+        }
+
         try {
-            const {stdout} = await execAsync(`gh pr diff ${prNumber}`, {cwd: aiConfig.projectRoot});
-            return { result: stdout };
+            if (files_only) {
+                const {stdout} = await execAsync(`gh pr view ${prNumber} --json files`, {cwd: aiConfig.projectRoot});
+                const parsed = JSON.parse(stdout);
+                return { files: parsed.files || [] };
+            }
+
+            let diffStdout = '';
+
+            if (sha) {
+                if (!file) {
+                    return {
+                        error  : 'Bad Request',
+                        message: "The 'sha' parameter requires the 'file' parameter to be provided.",
+                        code   : 'INVALID_ARGUMENTS'
+                    };
+                }
+                const {stdout: baseStdout} = await execAsync(`gh pr view ${prNumber} --json baseRefOid`, {cwd: aiConfig.projectRoot});
+                const baseRefOid = JSON.parse(baseStdout).baseRefOid;
+                
+                const filePaths = file.split(',').map(f => `"${f.trim()}"`).join(' ');
+                const {stdout} = await execAsync(`git diff ${baseRefOid}...${sha} -- ${filePaths}`, {cwd: aiConfig.projectRoot});
+                diffStdout = stdout;
+            } else {
+                const {stdout} = await execAsync(`gh pr diff ${prNumber}`, {cwd: aiConfig.projectRoot});
+                diffStdout = stdout;
+            }
+
+            if (file) {
+                if (sha) {
+                    return { result: diffStdout };
+                }
+
+                const fileList = file.split(',').map(f => f.trim());
+                const lines = diffStdout.split('\n');
+                const resultLines = [];
+                let capturing = false;
+
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    if (line.startsWith('diff --git ')) {
+                        const parts = line.split(' b/');
+                        if (parts.length >= 2) {
+                            const aPath = parts[0].replace('diff --git a/', '');
+                            const bPath = parts.slice(1).join(' b/');
+                            if (fileList.includes(bPath) || fileList.includes(aPath)) {
+                                capturing = true;
+                                resultLines.push(line);
+                                continue;
+                            }
+                        }
+                        capturing = false;
+                    } else if (capturing) {
+                        resultLines.push(line);
+                    }
+                }
+                
+                return { result: resultLines.join('\n') };
+            }
+
+            return { result: diffStdout };
+
         } catch (error) {
             logger.error(`Error getting diff for PR #${prNumber}:`, error);
+
+            if (error.stderr && (error.stderr.includes('bad object') || error.stderr.includes('unknown revision'))) {
+                return {
+                    error  : 'SHA not found',
+                    message: `The provided SHA could not be found in the repository: ${error.message}`,
+                    code   : 'SHA_NOT_FOUND',
+                    details: error.stderr
+                };
+            }
+
             return {
                 error  : 'GitHub CLI command failed',
-                message: `gh pr diff ${prNumber} failed with exit code ${error.code}`,
-                code   : 'GH_CLI_ERROR'
+                message: `Failed to retrieve diff for PR #${prNumber}: ${error.message}`,
+                code   : 'GH_CLI_ERROR',
+                details: error.stderr || error.message
             };
         }
     }
