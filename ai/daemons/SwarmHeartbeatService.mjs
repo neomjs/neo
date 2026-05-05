@@ -430,7 +430,7 @@ class SwarmHeartbeatService extends Base {
     /**
      * Spawn a node subprocess for the named script and return its stdout.
      * Used for CLI-shape recovery scripts that haven't been refactored to
-     * dual-mode export (#10790).
+     * dual-mode export (#10795).
      * @param {String} scriptName Name of script under `ai/scripts/`
      * @param {String[]} [args=[]]
      * @returns {Promise<String>} stdout content
