@@ -154,6 +154,7 @@ class TransportService extends Base {
                         source: 'proxy-header'
                     };
                 } else {
+                    req.app.locals.logger?.warn('Unauthorized: trustProxyIdentity is enabled but X-PREFERRED-USERNAME header is missing');
                     res.status(401).json({ error: 'Unauthorized: Missing proxy identity header' });
                     return;
                 }
