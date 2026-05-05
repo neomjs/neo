@@ -153,6 +153,9 @@ class TransportService extends Base {
                         username: proxyUserId,
                         source: 'proxy-header'
                     };
+                } else {
+                    res.status(401).json({ error: 'Unauthorized: Missing proxy identity header' });
+                    return;
                 }
             }
 
