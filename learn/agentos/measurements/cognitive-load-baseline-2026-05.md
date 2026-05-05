@@ -14,6 +14,11 @@ Repo line counts (`wc -l` / `wc -c`) are a necessary but insufficient proxy. Har
 
 **The Lazy-Load Verification Rule:** Any extraction or split must demonstrate a per-harness loaded-byte reduction. Splitting files into multiple references does not reduce true loaded bytes if the harness still concatenates them at boot.
 
+### 1.4 Harness-Native Primitive Outputs (AC0)
+- **Antigravity (Gemini 3.1 Pro):** Truncation limit visually confirmed via system block injection (`<truncated 35170 bytes>`). Actual loaded payload capped strictly at ~24,000 bytes.
+- **Claude Code:** `/memory` visual verification confirms standard dynamic context aggregation via `CLAUDE.md`.
+- **Codex Desktop:** `project_doc_max_bytes` validation and active-instruction audit mechanism deployed for verification.
+
 ### 1.2 Correction-Cycle Metrics (AC2)
 A lower byte count is a false win if it increases the correction cycles required to achieve compliance.
 - **Metric 1:** Request-Changes count per PR.
@@ -38,17 +43,34 @@ The following metrics represent the baseline before Subs 2-5 of Epic #10733 exec
 | **Identity Surface** | `README.md` | 240 | 19,296 |
 | **Architecture** | `learn/guides/devindex/frontend/Architecture.md` | 128 | 7,036 |
 
-### 2.1 Skill Payloads (Top 5 Load-Bearing)
+### 2.1 Skill Payloads (All 22)
 
 | Skill Payload | Lines | Bytes | Trigger Frequency |
 |---|---:|---:|---|
-| `pull-request-workflow.md` | 314 | 26,286 | Every commit cycle |
+| `pr-review-guide.md` | 436 | 45,210 | PR review workflow |
+| `pull-request-workflow.md` | 282 | 22,638 | Every commit cycle |
 | `epic-review-workflow.md` | 204 | 15,577 | Per epic intake |
-| `ticket-create-workflow.md` | 145 | 11,261 | Per ticket creation |
-| `ticket-triage-workflow.md` | 133 | 9,700 | Per labelable triage |
+| `ticket-intake-workflow.md` | 111 | 13,038 | Picking up ticket |
+| `review-response-protocol.md` | 139 | 12,356 | Pull request sub-task |
 | `session-sunset-workflow.md` | 116 | 11,979 | Per session-end |
+| `ticket-create-workflow.md` | 139 | 10,927 | Per ticket creation |
+| `ticket-triage-workflow.md` | 133 | 9,700 | Per labelable triage |
+| `epic-resolution-workflow.md` | 143 | 9,501 | Epic resolution |
+| `memory-mining-protocol.md` | 111 | 7,799 | Memory search |
+| `debugging-guide.md` | 110 | 6,753 | Antigravity debug |
+| `ideation-sandbox-workflow.md` | 45 | 6,428 | Brainstorming |
+| `mcp-tool-description-budget.md` | 49 | 5,422 | Audit PR |
+| `skill-authoring-guide.md` | 91 | 5,268 | Creating skill |
+| `industry-friction-radar-workflow.md`| 63 | 4,972 | Radar usage |
+| `self-repair-protocol.md` | 42 | 4,878 | Self repair task |
+| `unit-test.md` | 91 | 4,800 | Writing tests |
+| `operational-handbook.md` (neural) | 42 | 3,807 | UI testing |
+| `whitebox-e2e-protocol.md` | 72 | 3,664 | E2E testing |
+| `tech-debt-radar-guide.md` | 41 | 3,637 | Radar usage |
+| `measurement-methodology.md` | 35 | 3,225 | Sub-task PR review |
+| `mcp-config-template-change-guide.md`| 40 | 1,909 | Sub-task PR review |
 
-*(Total across all 21 payloads + assets: 2,961 lines / 231,009 bytes)*
+*(Total across all payloads + assets: 3,120 lines / 245,195 bytes)*
 
 ### 2.2 Asset Templates
 
@@ -57,6 +79,7 @@ The following metrics represent the baseline before Subs 2-5 of Epic #10733 exec
 | `pr-review-template.md` | 216 | 11,170 |
 | `pr-review-followup-template.md` | 110 | 3,417 |
 | `epic-review-comment-template.md` | 70 | 1,907 |
+| `review-response-template.md` | 28 | 896 |
 
 ## 3. Harness Verification Gate
 Before any skill payload extraction is merged (Sub 4), we must verify that the target harness does not eagerly load the extracted references.
