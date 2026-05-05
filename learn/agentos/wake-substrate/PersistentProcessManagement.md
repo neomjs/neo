@@ -4,6 +4,10 @@ This document covers operator-side installation, verification, and uninstallatio
 
 > **Verify-before-assert notice:** the plist template in this directory (`com.neomjs.swarm-heartbeat.plist.template`) is **author-side draft**. Correctness of the actual plist on a given operator's macOS install is operator-territory L3 verification. Do NOT install the template as-is without running the verification commands in §3 below.
 
+## Compaction Taxonomy (3-Axis Slot Rule)
+**Disposition:** `keep` (External Operator Guide; not injected into active agent context).
+**Rationale:** Low-frequency (run once per host setup), high-severity (macOS `launchd` failure isolates the swarm), non-machine-enforceable (operator-territory CLI execution).
+
 ## 1. Why this exists
 
 The wake substrate (Epic [#10671](https://github.com/neomjs/neo/issues/10671)) ships:

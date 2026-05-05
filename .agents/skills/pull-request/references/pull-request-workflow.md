@@ -195,6 +195,12 @@ To prevent redundant parallel effort and reviewer collision, you MUST adhere to 
 
 This strict role-based feedback loop prevents duplicated work and confusion over PR ownership when multiple agents are running concurrently. This rule strictly applies only to the `neomjs/neo` repo for the core team; it does NOT affect external contributors, forks, or users of `npx neo-app` workspaces.
 
+### 6.3 The Night-Shift Discipline (Merge Impact)
+
+**Driver-Mode / Autonomous Operations:** When operating in autonomous night-shift mode (or any continuous driver-mode loop), merging code that alters the underlying agent substrate or persistent daemon environments can induce swarm amnesia or disconnects.
+- All agents and operators MUST cross-reference the [`PersistentProcessManagement.md`](../../../../learn/agentos/wake-substrate/PersistentProcessManagement.md) guide before merging structural changes that affect the heartbeat, routing, or environment isolation boundaries.
+- Destabilizing the persistent daemon or the underlying environment during active autonomous cycles will require manual operator intervention to recover. Ensure verification is complete before granting merge authority.
+
 ## 8. PR Comment Hygiene & A2A Propagation (Edge-Case)
 
 *If responding to reviewer feedback across multiple rounds, read `.agents/skills/pull-request/references/review-response-protocol.md`; otherwise skip.*
