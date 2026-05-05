@@ -14,14 +14,6 @@ Repo line counts (`wc -l` / `wc -c`) are a necessary but insufficient proxy. Har
 
 **The Lazy-Load Verification Rule:** Any extraction or split must demonstrate a per-harness loaded-byte reduction. Splitting files into multiple references does not reduce true loaded bytes if the harness still concatenates them at boot.
 
-### 1.4 Harness-Native Primitive Outputs (AC0)
-- **Antigravity (Gemini 3.1 Pro):** Truncation limit visually confirmed via system block injection.
-  - *Evidence Anchor:* `[System injected context: <truncated 35170 bytes>]` observed in raw debug payload output when `AGENTS.md` exceeded 24,000 bytes.
-- **Claude Code:** Dynamic context aggregation visually confirmed.
-  - *Evidence Anchor:* `/memory` CLI command output showing exact loaded subset of `CLAUDE.md`.
-- **Codex Desktop:** Bounded explicitly by `project_doc_max_bytes`.
-  - *Evidence Anchor:* `project_doc_max_bytes` configuration attribute and `active_instruction` audit mechanism.
-
 ### 1.2 Correction-Cycle Metrics (AC2)
 A lower byte count is a false win if it increases the correction cycles required to achieve compliance.
 - **Metric 1:** Request-Changes count per PR.
@@ -32,6 +24,14 @@ A lower byte count is a false win if it increases the correction cycles required
 Every retained or extracted section must be classified:
 - **`always-important`**: Must load on its trigger every time.
 - **`edge-case`**: Fires only under narrow conditions. Must be extracted with a gate-pattern pointer: *"If <condition>, read <path>; otherwise skip."*
+
+### 1.4 Harness-Native Primitive Outputs (AC0)
+- **Antigravity (Gemini 3.1 Pro):** Truncation limit visually confirmed via system block injection.
+  - *Evidence Anchor:* `[System injected context: <truncated 35170 bytes>]` observed in raw debug payload output when `AGENTS.md` exceeded 24,000 bytes.
+- **Claude Code:** Dynamic context aggregation visually confirmed.
+  - *Evidence Anchor:* `/memory` CLI command output showing exact loaded subset of `CLAUDE.md`.
+- **Codex Desktop:** Bounded explicitly by `project_doc_max_bytes`.
+  - *Evidence Anchor:* `project_doc_max_bytes` configuration attribute and `active_instruction` audit mechanism.
 
 ## 2. Pre-Edit Baseline Inventory (AC3)
 
