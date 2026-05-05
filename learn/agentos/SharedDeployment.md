@@ -86,6 +86,25 @@ A sibling override `NEO_EMBEDDING_PROVIDER` controls the SQLite-side embedding p
 
 **Substrate observation (#10723):** the OpenAI-compatible embedding path is implemented inside `ai/mcp/server/memory-core/services/TextEmbeddingService.mjs#embedText[s]` (POST to `${host}/v1/embeddings` with `{model, input}` payload, parsing `result.data[*].embedding`). It is NOT routed through the `Neo.ai.provider.OpenAiCompatible` class — that class currently exposes `generate` / `stream` (chat completions) but no `embed` method. This means the embedding-provider abstraction is functional but not yet symmetric with the chat-provider abstraction. Future hardening should consolidate the embedding path into the provider class hierarchy; out of scope for #10723 itself.
 
+### Summary provider
+
+Session summarization is controlled by `NEO_MODEL_PROVIDER`; supported values are `'gemini'` (default, cloud) and `'openAiCompatible'` (local OpenAI-format chat-completions servers such as MLX-served Qwen3-8b, llama.cpp, or LM Studio).
+
+```bash
+# Default: Google Gemini summarization:
+unset NEO_MODEL_PROVIDER
+# or
+export NEO_MODEL_PROVIDER=gemini
+
+# Local OpenAI-compatible chat summarization (e.g. Qwen3-8b via MLX):
+export NEO_MODEL_PROVIDER=openAiCompatible
+export NEO_OPENAI_COMPATIBLE_HOST=http://127.0.0.1:11434
+export NEO_OPENAI_COMPATIBLE_MODEL=qwen3-8b
+export NEO_OPENAI_COMPATIBLE_API_KEY=  # leave empty for local servers
+```
+
+This path uses the existing `Neo.ai.provider.OpenAiCompatible` chat-completions abstraction. Do not add a model-specific Qwen provider class for shared-deployment installs; local-model selection is an operator config concern.
+
 ## Authentication
 
 Shared deployments need to know **which agent originated each request** so memories, summaries, and graph edges are attributed correctly. The Memory Core supports two authentication paths:
@@ -166,7 +185,7 @@ See [`MemoryCore.md` §Healthcheck Response Shape](./MemoryCore.md) for the full
 
 The Knowledge Base's healthcheck mirrors the connectivity assertion (collection counts, embedding status). When both servers report `connected: true` against the same shared `{host, port}`, the topology is verified.
 
-The Memory Core's healthcheck additionally surfaces the **active embedding provider** under `providers.embedding` (#10723):
+The Memory Core's healthcheck additionally surfaces active provider observability under `providers.*` (#10723, #10724):
 
 ```json
 "providers": {
@@ -175,17 +194,39 @@ The Memory Core's healthcheck additionally surfaces the **active embedding provi
         "host": "http://127.0.0.1:8000",
         "model": "text-embedding-qwen3-embedding-1.5b",
         "dimensions": 4096
+    },
+    "summary": {
+        "active": "openAiCompatible",
+        "host": "http://127.0.0.1:11434",
+        "model": "qwen3-8b",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+        "local": true,
+        "credential": {
+            "env": "NEO_OPENAI_COMPATIBLE_API_KEY",
+            "configured": false,
+            "required": false
+        }
     }
 }
 ```
 
-Four diagnostic fields:
+Embedding diagnostic fields:
 - `active`: the provider key currently selected for ChromaDB embedding generation (`'gemini'` | `'openAiCompatible'` | `'ollama'`). Mismatch between operator intent (e.g. expected local Qwen3) and observed value (e.g. silent fallback to `'gemini'` because `NEO_CHROMA_EMBEDDING_PROVIDER` was unset) is the load-bearing diagnostic.
 - `host`: provider endpoint URL when applicable (`null` for cloud `gemini`).
 - `model`: resolved embedding model name. Operators verify this matches the model running on the local server.
 - `dimensions`: configured `vectorDimension`. Must match the embedding model's actual output dimension; mismatch is silent in collection writes but breaks retrieval.
 
 If `active` resolves to an unrecognized value, the block additionally surfaces an `error` field naming the misconfig directly.
+
+Summary diagnostic fields:
+- `active`: the provider key currently selected for session summarization (`'gemini'` | `'openAiCompatible'` | string).
+- `host`: chat provider host when applicable (`null` for cloud `gemini`).
+- `model`: resolved summary-generation model. Operators verify this matches the model running on the local server.
+- `endpoint`: chat-completions endpoint for OpenAI-compatible providers.
+- `local`: whether the endpoint is loopback / localhost.
+- `credential`: env var name plus `configured` / `required` booleans; secret values are never exposed.
+
+For disconnect-triggered summarization, keep `AUTO_SUMMARIZE=true` only after the local model is reachable and healthcheck shows the intended provider/model. If the local chat API is unavailable, Memory Core logs the summarization failure and keeps raw memories intact so the operator can retry.
 
 ## Asynchronous Session Summarization (Disconnect Trigger)
 

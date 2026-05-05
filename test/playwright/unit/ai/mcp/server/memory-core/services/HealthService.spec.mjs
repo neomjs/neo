@@ -309,3 +309,65 @@ test.describe('HealthService #10723 — buildEmbeddingProviderBlock', () => {
         }
     });
 });
+
+/**
+ * @summary Coverage for the #10724 summary-provider observability block in the healthcheck payload.
+ *
+ * Mirrors the sibling `providers.embedding` block from #10723: the end-to-end healthcheck depends on
+ * live Memory Core services, while the load-bearing contract for operators is the pure projection of
+ * active summary-provider config into a secret-free `providers.summary` shape.
+ *
+ * @see Neo.ai.mcp.server.memory-core.services.HealthService#buildSummaryProviderBlock
+ */
+test.describe('HealthService #10724 — buildSummaryProviderBlock', () => {
+    let buildSummaryProviderBlock;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../../../ai/mcp/server/memory-core/services/HealthService.mjs');
+        buildSummaryProviderBlock = mod.buildSummaryProviderBlock;
+    });
+
+    test('openAiCompatible config surfaces Qwen3 chat endpoint without leaking API key value', () => {
+        const result = buildSummaryProviderBlock({
+            modelProvider: 'openAiCompatible',
+            openAiCompatible: {
+                host  : 'http://127.0.0.1:11434',
+                model : 'qwen3-8b',
+                apiKey: 'secret-value'
+            }
+        });
+
+        expect(result).toEqual({
+            active    : 'openAiCompatible',
+            host      : 'http://127.0.0.1:11434',
+            model     : 'qwen3-8b',
+            endpoint  : 'http://127.0.0.1:11434/v1/chat/completions',
+            local     : true,
+            credential: {
+                env       : 'NEO_OPENAI_COMPATIBLE_API_KEY',
+                configured: true,
+                required  : false
+            }
+        });
+    });
+
+    test('gemini config surfaces the Gemini key requirement', () => {
+        const result = buildSummaryProviderBlock({
+            modelProvider: 'gemini',
+            modelName    : 'gemini-2.5-flash'
+        }, {GEMINI_API_KEY: ''});
+
+        expect(result).toEqual({
+            active    : 'gemini',
+            host      : null,
+            model     : 'gemini-2.5-flash',
+            endpoint  : null,
+            local     : false,
+            credential: {
+                env       : 'GEMINI_API_KEY',
+                configured: false,
+                required  : true
+            }
+        });
+    });
+});
