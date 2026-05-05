@@ -1,0 +1,335 @@
+import {setup} from '../../../setup.mjs';
+
+const appName = 'SwarmHeartbeatServiceTest';
+
+setup({
+    neoConfig: {
+        unitTestMode: true
+    },
+    appConfig: {
+        name             : appName,
+        isMounted        : () => true,
+        vnodeInitialising: false
+    }
+});
+
+import {test, expect} from '@playwright/test';
+
+/**
+ * @summary Unit coverage for `ai/daemons/SwarmHeartbeatService.mjs` (#10789 AC6).
+ *
+ * Covers: poll-loop scheduling, idempotent start/stop, concurrency-lock skip-vs-clear,
+ * sunset-detection-routes-to-resumeHarness, gate-tripped blocks high-authority dispatch,
+ * idle-out-nudge routing, push-capable bypass, fault-tolerant rescheduling.
+ *
+ * Stubbing strategy: SwarmHeartbeatService exposes test-stubbable instance-method seams
+ * (`checkHeartbeatLock`, `clearHeartbeatLock`, `sweepExpiredTasks`, `checkGateOpen`,
+ * `readGate`, `runScript`, `runScriptJson`, `runCmd`, `getUnreadCount`, `getIssuesCount`,
+ * `isPushCapable`, `injectTmux`) precisely so unit tests can override them without going
+ * through the heavy substrate. Module-binding imports (e.g. `isGateOpen`) cannot be
+ * reassigned at import-site in ES modules — instance methods are the seam that works.
+ *
+ * Each test stubs only what it needs; `afterEach` stops the daemon and resets singleton
+ * state so cases don't bleed.
+ */
+test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
+    let SwarmHeartbeatService;
+    let originalLifecycleInit;
+    let originalGraphServiceInit;
+
+    test.beforeAll(async () => {
+        SwarmHeartbeatService = (await import('../../../../../ai/daemons/SwarmHeartbeatService.mjs')).default;
+
+        const services = await import('../../../../../ai/services.mjs');
+        const LifecycleService = services.Memory_LifecycleService;
+        const GraphService     = services.Memory_GraphService;
+
+        originalLifecycleInit    = LifecycleService.initAsync;
+        originalGraphServiceInit = GraphService.initAsync;
+
+        // Stub heavy boot — pulse logic uses only `GraphService.db.storage.db`,
+        // which the per-test stubs override at the method level.
+        LifecycleService.initAsync = async () => {};
+        GraphService.initAsync     = async () => {};
+    });
+
+    test.afterAll(async () => {
+        const services = await import('../../../../../ai/services.mjs');
+        services.Memory_LifecycleService.initAsync = originalLifecycleInit;
+        services.Memory_GraphService.initAsync     = originalGraphServiceInit;
+    });
+
+    /**
+     * Apply a default no-op stub set so every test starts from a deterministic baseline.
+     * Individual tests override the seams they care about.
+     */
+    function applyDefaultStubs() {
+        SwarmHeartbeatService.checkHeartbeatLock = async () => ({active: false, stale: false, ageMs: 0});
+        SwarmHeartbeatService.clearHeartbeatLock = async () => {};
+        SwarmHeartbeatService.sweepExpiredTasks  = async () => ({sweptCount: 0});
+        SwarmHeartbeatService.checkGateOpen      = async () => true;
+        SwarmHeartbeatService.readGate           = async () => ({state: 'enabled', reason: '', trippedAt: null, trippedBy: null});
+        SwarmHeartbeatService.runScriptJson      = async () => null;
+        SwarmHeartbeatService.runScript          = async () => '';
+        SwarmHeartbeatService.runCmd             = async () => '[]';
+        SwarmHeartbeatService.getUnreadCount     = async () => 0;
+        SwarmHeartbeatService.getIssuesCount     = async () => 0;
+        SwarmHeartbeatService.isPushCapable      = async () => false;
+        SwarmHeartbeatService.injectTmux         = async () => {};
+        SwarmHeartbeatService.scheduleNext       = function () {};
+        SwarmHeartbeatService.identity           = '@test';
+    }
+
+    test.afterEach(async () => {
+        SwarmHeartbeatService.stop();
+        SwarmHeartbeatService.isPolling      = false;
+        SwarmHeartbeatService.identity       = null;
+        SwarmHeartbeatService.pollIntervalMs = 5 * 60 * 1000;
+    });
+
+    test('start() is idempotent — calling twice does not stack timers', async () => {
+        applyDefaultStubs();
+        let scheduleCount = 0;
+        SwarmHeartbeatService.scheduleNext = function () { scheduleCount++ };
+
+        await SwarmHeartbeatService.start({identity: '@test', pollIntervalMs: 60_000});
+        expect(SwarmHeartbeatService.isPolling).toBe(true);
+        expect(scheduleCount).toBe(1);
+
+        await SwarmHeartbeatService.start({identity: '@test', pollIntervalMs: 60_000});
+        // Second start() is a no-op — scheduleNext NOT called again.
+        expect(scheduleCount).toBe(1);
+    });
+
+    test('start() picks identity from explicit arg, then env, then default', async () => {
+        applyDefaultStubs();
+        SwarmHeartbeatService.scheduleNext = function () {};
+
+        // Explicit arg wins.
+        await SwarmHeartbeatService.start({identity: '@explicit', pollIntervalMs: 60_000});
+        expect(SwarmHeartbeatService.identity).toBe('@explicit');
+        SwarmHeartbeatService.stop();
+        SwarmHeartbeatService.isPolling = false;
+
+        // Env-var falls in when arg absent.
+        const original = process.env.NEO_AGENT_IDENTITY;
+        process.env.NEO_AGENT_IDENTITY = '@from-env';
+        try {
+            await SwarmHeartbeatService.start({pollIntervalMs: 60_000});
+            expect(SwarmHeartbeatService.identity).toBe('@from-env');
+        } finally {
+            if (original === undefined) delete process.env.NEO_AGENT_IDENTITY;
+            else                        process.env.NEO_AGENT_IDENTITY = original;
+        }
+    });
+
+    test('stop() clears the active poll handle and is idempotent', async () => {
+        applyDefaultStubs();
+        SwarmHeartbeatService.scheduleNext = function () {
+            // Set a real timeout so stop() has something to clear.
+            this.pollHandle = setTimeout(() => {}, 60_000);
+        };
+        await SwarmHeartbeatService.start({identity: '@test', pollIntervalMs: 60_000});
+        expect(SwarmHeartbeatService.pollHandle).not.toBeNull();
+
+        SwarmHeartbeatService.stop();
+        expect(SwarmHeartbeatService.pollHandle).toBeNull();
+        expect(SwarmHeartbeatService.isPolling).toBe(false);
+
+        // Second stop() does not throw.
+        expect(() => SwarmHeartbeatService.stop()).not.toThrow();
+    });
+
+    test('pulse() skips when concurrency lock is active', async () => {
+        applyDefaultStubs();
+        SwarmHeartbeatService.checkHeartbeatLock = async () => ({active: true, stale: false, ageMs: 1000});
+
+        const sweepCalls = [];
+        SwarmHeartbeatService.sweepExpiredTasks = async () => { sweepCalls.push(Date.now()); return {sweptCount: 0} };
+
+        await SwarmHeartbeatService.pulse();
+
+        expect(sweepCalls.length).toBe(0); // Active lock → early return; no sweep dispatched.
+    });
+
+    test('pulse() clears stale lock and continues to sweep', async () => {
+        applyDefaultStubs();
+        let releaseCalled = false;
+        SwarmHeartbeatService.checkHeartbeatLock = async () => ({active: false, stale: true, ageMs: 999_999});
+        SwarmHeartbeatService.clearHeartbeatLock = async () => { releaseCalled = true };
+
+        const sweepCalls = [];
+        SwarmHeartbeatService.sweepExpiredTasks = async () => { sweepCalls.push(Date.now()); return {sweptCount: 0} };
+
+        await SwarmHeartbeatService.pulse();
+
+        expect(releaseCalled).toBe(true);
+        expect(sweepCalls.length).toBe(1);
+    });
+
+    test('pulse() skips fresh-session-spawn when wake safety gate is closed', async () => {
+        applyDefaultStubs();
+        SwarmHeartbeatService.checkGateOpen = async () => false;
+        SwarmHeartbeatService.readGate      = async () => ({state: 'tripped', reason: 'test-tripped', trippedAt: null, trippedBy: 'test'});
+
+        const dispatched = [];
+        SwarmHeartbeatService.runScriptJson = async (name) => {
+            if (name === 'checkSunsetted.mjs') {
+                return {
+                    sunsetted          : true,
+                    reason             : 'No active WAKE_SUBSCRIPTION',
+                    originSessionId    : 'sid-123',
+                    abandonedCount     : 0,
+                    recommended_action : 'sunset_restart'
+                };
+            }
+            return null;
+        };
+        SwarmHeartbeatService.runScript = async (name, args) => { dispatched.push({name, args}); return '' };
+
+        await SwarmHeartbeatService.pulse();
+
+        // Gate closed → no resumeHarness dispatch.
+        const resumeCalls = dispatched.filter(d => d.name === 'resumeHarness.mjs');
+        expect(resumeCalls.length).toBe(0);
+    });
+
+    test('pulse() routes sunset to resumeHarness when gate is open', async () => {
+        applyDefaultStubs();
+        const dispatched = [];
+        SwarmHeartbeatService.runScriptJson = async (name) => {
+            if (name === 'checkSunsetted.mjs') {
+                return {
+                    sunsetted          : true,
+                    reason             : 'Subscription missing',
+                    originSessionId    : 'sid-456',
+                    abandonedCount     : 2,
+                    recommended_action : 'sunset_restart'
+                };
+            }
+            return null;
+        };
+        SwarmHeartbeatService.runScript = async (name, args) => { dispatched.push({name, args}); return '' };
+
+        await SwarmHeartbeatService.pulse();
+
+        const resumeCalls = dispatched.filter(d => d.name === 'resumeHarness.mjs');
+        expect(resumeCalls.length).toBe(1);
+        expect(resumeCalls[0].args).toEqual(['@test', 'Subscription missing', 'sid-456', '2']);
+    });
+
+    test('pulse() routes idle_out_nudge when gate is open and recommendation matches', async () => {
+        applyDefaultStubs();
+        const dispatched = [];
+        SwarmHeartbeatService.runScriptJson = async (name) => {
+            if (name === 'checkSunsetted.mjs') {
+                return {
+                    sunsetted          : false,
+                    recommended_action : 'idle_out_nudge'
+                };
+            }
+            return null;
+        };
+        SwarmHeartbeatService.runScript = async (name, args) => { dispatched.push({name, args}); return '' };
+
+        await SwarmHeartbeatService.pulse();
+
+        const nudgeCalls = dispatched.filter(d => d.name === 'idleOutNudge.mjs');
+        expect(nudgeCalls.length).toBe(1);
+        expect(nudgeCalls[0].args).toEqual(['@test']);
+    });
+
+    test('pulse() skips idle_out_nudge when gate is closed', async () => {
+        applyDefaultStubs();
+        SwarmHeartbeatService.checkGateOpen = async () => false;
+
+        const dispatched = [];
+        SwarmHeartbeatService.runScriptJson = async (name) => {
+            if (name === 'checkSunsetted.mjs') {
+                return {sunsetted: false, recommended_action: 'idle_out_nudge'};
+            }
+            return null;
+        };
+        SwarmHeartbeatService.runScript = async (name, args) => { dispatched.push({name, args}); return '' };
+
+        await SwarmHeartbeatService.pulse();
+
+        const nudgeCalls = dispatched.filter(d => d.name === 'idleOutNudge.mjs');
+        expect(nudgeCalls.length).toBe(0);
+    });
+
+    test('pulse() routes allIdle to trioWakeCooldown when gate is open', async () => {
+        applyDefaultStubs();
+        const dispatched = [];
+        SwarmHeartbeatService.runScriptJson = async (name) => {
+            if (name === 'checkAllAgentIdle.mjs') return {allIdle: true, cycle_id: '1', identities: ['@a', '@b']};
+            return null;
+        };
+        SwarmHeartbeatService.runScript = async (name, args) => { dispatched.push({name, args}); return '' };
+
+        await SwarmHeartbeatService.pulse();
+
+        const trioCalls = dispatched.filter(d => d.name === 'trioWakeCooldown.mjs');
+        expect(trioCalls.length).toBe(1);
+        // arg[0] is the JSON-stringified signal
+        expect(JSON.parse(trioCalls[0].args[0]).allIdle).toBe(true);
+    });
+
+    test('pulse() reschedules from finally block even when sweep throws', async () => {
+        applyDefaultStubs();
+        SwarmHeartbeatService.sweepExpiredTasks = async () => { throw new Error('substrate down') };
+
+        let rescheduled = 0;
+        SwarmHeartbeatService.scheduleNext = function () { rescheduled++ };
+
+        await SwarmHeartbeatService.pulse();
+        // Sweep throws but is caught locally; pulse continues; finally fires scheduleNext.
+        expect(rescheduled).toBe(1);
+    });
+
+    test('pulse() injects tmux prompt only when actionable state exists', async () => {
+        applyDefaultStubs();
+
+        const injected = [];
+        SwarmHeartbeatService.injectTmux = async (prompt) => { injected.push(prompt) };
+
+        // Case 1: no unread, no issues — no injection.
+        await SwarmHeartbeatService.pulse();
+        expect(injected.length).toBe(0);
+
+        // Case 2: unread present — inject.
+        SwarmHeartbeatService.getUnreadCount = async () => 3;
+
+        await SwarmHeartbeatService.pulse();
+        expect(injected.length).toBe(1);
+        expect(injected[0]).toContain('Mailbox unread: 3');
+        expect(injected[0]).toContain('Open issues assigned: 0');
+    });
+
+    test('pulse() respects heartbeat-bypass for push-capable identities', async () => {
+        applyDefaultStubs();
+        SwarmHeartbeatService.isPushCapable  = async () => true;
+        SwarmHeartbeatService.getUnreadCount = async () => 99;
+        SwarmHeartbeatService.getIssuesCount = async () => 99;
+
+        const injected = [];
+        SwarmHeartbeatService.injectTmux = async (p) => { injected.push(p) };
+
+        await SwarmHeartbeatService.pulse();
+        // Push-capable bypass — no tmux injection even with high unread count.
+        expect(injected.length).toBe(0);
+    });
+
+    test('pulse() includes expired-count in prompt when sweep yields > 0', async () => {
+        applyDefaultStubs();
+        SwarmHeartbeatService.sweepExpiredTasks = async () => ({sweptCount: 5});
+        SwarmHeartbeatService.getUnreadCount    = async () => 1;
+
+        const injected = [];
+        SwarmHeartbeatService.injectTmux = async (p) => { injected.push(p) };
+
+        await SwarmHeartbeatService.pulse();
+        expect(injected.length).toBe(1);
+        expect(injected[0]).toContain('Tasks expired this cycle: 5');
+    });
+});
