@@ -45,6 +45,63 @@ In unified mode, the Memory Core's `ChromaClient` targets the Knowledge Base's C
 
 **Connection contract:** the shared Chroma instance MUST be reachable from every developer's machine — typically a team-managed cloud service (e.g., a managed Chroma cluster) or a shared internal host. The `engines.kb.chroma.{host, port}` config in the KB's `config.mjs` is where operators point at the team's shared instance.
 
+## Authentication
+
+Shared deployments need to know **which agent originated each request** so memories, summaries, and graph edges are attributed correctly. The Memory Core supports two authentication paths:
+
+1. **OIDC (default for production deployments)** — the operator deploys an OIDC identity provider (e.g. Keycloak, GitLab) and the MC server validates each SSE request's `Authorization: Bearer <token>` against it via `AuthService.verifyAccessToken`. The verified `userId` becomes the `req.auth` block consumed by `Server.mjs#buildRequestContext`. Source provenance: `source: 'oidc'`.
+
+2. **Proxy identity injection (for deployments fronted by an identity-aware proxy)** — when an `oauth2-proxy`-style reverse proxy already terminates OIDC and injects `X-PREFERRED-USERNAME` (or the oauth2-proxy-specific `X-Auth-Request-Preferred-Username`) into the upstream request, the MC server can read that header instead of running its own OIDC verification. Gated by `auth.trustProxyIdentity`. Source provenance: `source: 'proxy-header'`.
+
+The two paths are NOT mutually exclusive — `req.auth` (OIDC) takes precedence over the proxy header by design. The proxy path only fires when `req.auth` is absent (OIDC unconfigured or token missing) AND `trustProxyIdentity` is explicitly enabled.
+
+### Configuration: `trustProxyIdentity` (PR #10768 / #10727)
+
+```bash
+# Default — proxy header is IGNORED. OIDC-only operation:
+unset AUTH_TRUST_PROXY_IDENTITY
+# or
+export AUTH_TRUST_PROXY_IDENTITY=false
+
+# Enable proxy-identity injection (required for oauth2-proxy fronting deployments):
+export AUTH_TRUST_PROXY_IDENTITY=true
+```
+
+The flag lives in both `ai/mcp/server/knowledge-base/config.template.mjs` and `ai/mcp/server/memory-core/config.template.mjs` under the `auth` block, so both servers stay symmetric.
+
+### Threat model — load-bearing operational prerequisite
+
+**`trustProxyIdentity=true` shifts the trust anchor from the MC's own OIDC introspection to the proxy in front of the MC.** That trust shift is correct ONLY when the proxy:
+
+1. **Strips client-set values of `X-PREFERRED-USERNAME` and `X-Auth-Request-Preferred-Username` from incoming requests before forwarding upstream.** Without this, any client can set the header to any value and gain that identity. This is THE deployment prerequisite.
+2. **Sets the header itself based on its own validated authentication state.** Typically the proxy completes its own OIDC flow (against Keycloak, GitLab, or the team's IdP), and forwards the verified `preferred_username` claim as the upstream header.
+3. **Is positioned so the MC server is NEVER reachable from outside the proxy** — direct network access to the MC server bypasses the proxy and bypasses the trust boundary entirely. Typical deployment: MC bound to internal network only; proxy bound to public network; reverse-proxy hop is the only ingress.
+
+If any of the three is uncertain, **leave `trustProxyIdentity=false`** and stick with OIDC mode. The fallback is operational, not catastrophic — it just requires the MC server to do its own OIDC introspection per request.
+
+### Header conventions checked
+
+The proxy-identity reader checks two header names (in order):
+
+1. `x-preferred-username` — the canonical OIDC claim name forwarded as a header by most identity-aware proxies
+2. `x-auth-request-preferred-username` — the `oauth2-proxy`-specific convention (used when oauth2-proxy is configured with `--set-xauthrequest`)
+
+Either header satisfies the gate; the first non-empty value wins. Header-name matching is case-insensitive (Node.js HTTP semantics).
+
+### Source-tag observability
+
+Every authenticated request carries a `source` tag through `Server.mjs#buildRequestContext` so downstream services and log lines can distinguish the auth path empirically:
+
+| Path | `source` value | Trust anchor |
+|---|---|---|
+| OIDC introspection | `'oidc'` | MC's `AuthService.verifyAccessToken` |
+| Proxy header injection | `'proxy-header'` | The fronting proxy's deployment configuration |
+| Single-tenant fallthrough (no auth) | (empty) | None — local dev only |
+
+The source tag is graph-ingested into agent-identity memory writes; an audit query against memories can verify the proportion of `'oidc'` vs `'proxy-header'` writes against operator expectations.
+
+A symmetric healthcheck `providers.auth` block is a recommended follow-up; tracked separately. Until then, source-tag observability is via memory-write audit only.
+
 ## Healthcheck Verification
 
 The Memory Core's `healthcheck` MCP tool exposes the effective topology so operators can verify shared mode took effect without inspecting logs or re-running config through `node -e`:
