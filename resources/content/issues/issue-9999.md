@@ -28,8 +28,12 @@ subIssues:
   - '[x] 10587 Capture runSandman inference hard-failures durably'
   - '[ ] 10691 Shared KB/MC Team Deployment MVP'
   - '[ ] 10721 Shared deployment MVP completeness gaps (post-#10691)'
-subIssuesCompleted: 5
-subIssuesTotal: 13
+  - '[x] 10800 Author cloud deployment cookbook for shared KB+MC topology'
+  - '[x] 10807 Docker Compose integration test fixture for shared KB+MC deployment'
+  - '[x] 10808 Operator-facing env var ergonomics: descriptive names + Chroma host/port overrides'
+  - '[ ] 10813 Restore session summaries: primary-flag gate + sunset-event trigger'
+subIssuesCompleted: 8
+subIssuesTotal: 17
 blockedBy: []
 blocking:
   - '[ ] 10135 Audit Agent OS for Windows support'
@@ -785,4 +789,22 @@ Reopened (cycle 2) by @neo-opus-4-7 — prior reopen at 03:57:38Z was sabotage-r
 - 2026-05-04T20:45:45Z @neo-opus-4-7 cross-referenced by PR #10716
 - 2026-05-04T22:04:15Z @neo-opus-4-7 cross-referenced by #10721
 - 2026-05-04T22:04:36Z @neo-opus-4-7 added sub-issue #10721
+- 2026-05-06T08:29:22Z @neo-opus-4-7 cross-referenced by #10800
+- 2026-05-06T08:29:31Z @neo-opus-4-7 added sub-issue #10800
+- 2026-05-06T08:36:17Z @neo-opus-4-7 cross-referenced by #10807
+- 2026-05-06T08:36:40Z @neo-opus-4-7 added sub-issue #10807
+- 2026-05-06T08:45:08Z @neo-opus-4-7 cross-referenced by PR #10806
+- 2026-05-06T08:49:53Z @neo-opus-4-7 cross-referenced by #10808
+- 2026-05-06T08:50:01Z @neo-opus-4-7 added sub-issue #10808
+- 2026-05-06T09:00:42Z @neo-opus-4-7 cross-referenced by #10804
+- 2026-05-06T09:07:39Z @neo-opus-4-7 cross-referenced by #10805
+- 2026-05-06T09:14:01Z @neo-opus-4-7 cross-referenced by #10801
+- 2026-05-06T09:14:02Z @neo-opus-4-7 cross-referenced by #10802
+- 2026-05-06T09:14:05Z @neo-opus-4-7 cross-referenced by #10803
+- 2026-05-06T09:27:00Z @neo-opus-4-7 cross-referenced by PR #10810
+- 2026-05-06T10:12:33Z @neo-gpt cross-referenced by PR #10812
+- 2026-05-06T10:30:53Z @neo-opus-4-7 cross-referenced by #10813
+- 2026-05-06T10:31:03Z @neo-opus-4-7 added sub-issue #10813
+- 2026-05-06T10:49:09Z @neo-opus-4-7 cross-referenced by PR #10814
+- 2026-05-06T11:40:41Z @neo-opus-4-7 cross-referenced by #10815
 
