@@ -112,14 +112,47 @@ Expected JSON block (excerpt):
   },
   "providers": {
     "embedding": {
-      "aligned": true,
-      "chroma": { "active": "gemini" },
-      "neo": { "active": "gemini" }
+      "active": "openAiCompatible",
+      "host": "http://127.0.0.1:8000",
+      "model": "text-embedding-qwen3-embedding-1.5b",
+      "dimensions": 4096
+    },
+    "summary": {
+      "active": "openAiCompatible",
+      "host": "http://127.0.0.1:11434",
+      "model": "qwen3-8b",
+      "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+      "local": true,
+      "credential": {
+        "env": "NEO_OPENAI_COMPATIBLE_API_KEY",
+        "configured": false,
+        "required": false
+      }
+    },
+    "auth": {
+      "configured": "proxy-header",
+      "oidc": {
+        "host": null,
+        "issuerUrl": null,
+        "realm": null,
+        "configured": false
+      },
+      "proxyHeader": {
+        "trusted": true,
+        "headersChecked": ["x-preferred-username", "x-auth-request-preferred-username"]
+      }
     }
   }
 }
 ```
-If `identity.source` is not `"proxy-header"` or `database.topology.mode` is not `"unified"`, your environment variables are misconfigured. See [Memory Core Healthcheck](MemoryCore.md) for the full schema contract.
+Operator verification anchors:
+- `identity.source === "proxy-header"` confirms the reverse proxy is injecting the `X-PREFERRED-USERNAME` header and the MC server is reading it.
+- `database.topology.mode === "unified"` confirms shared Chroma topology is active.
+- `providers.embedding.active` reflects the configured embedding provider per [#10804](https://github.com/neomjs/neo/issues/10804) consolidation — `'gemini'` (cloud), `'openAiCompatible'` (local Qwen3 / MLX), or `'ollama'`.
+- `providers.summary.active` mirrors the same shape for the session-summary provider.
+- `providers.auth.configured === "proxy-header"` confirms the deployment is using the trust-proxy-identity path; for OIDC mode it would be `'oidc'` (with the `oidc.{host, issuerUrl, realm, configured: true}` block populated). `providers.auth.proxyHeader.headersChecked` is the canonical + `oauth2-proxy`-variant header pair the server reads.
+
+See [Memory Core Healthcheck](MemoryCore.md) for the full schema contract (including the `clientSecret`-non-leak invariant per [#10770](https://github.com/neomjs/neo/issues/10770)).
 
 ## Section 8: First-Connection Smoke Test
 
@@ -137,3 +170,4 @@ This cookbook surfaces the following architectural gaps between "substrate compl
 - **[#10803](https://github.com/neomjs/neo/issues/10803):** Publish reference reverse proxy config for shared topology.
 - **[#10804](https://github.com/neomjs/neo/issues/10804):** Consolidate `neoEmbeddingProvider` and `chromaEmbeddingProvider` configurations.
 - **[#10805](https://github.com/neomjs/neo/issues/10805):** Build staged-stack integration test harness for shared cloud deployment.
+- **[#10808](https://github.com/neomjs/neo/issues/10808):** Operator-facing env var ergonomics — descriptive names (`MCP_HTTP_PORT`, `NEO_PUBLIC_URL`, etc.) + `NEO_CHROMA_HOST` / `NEO_CHROMA_PORT` overridability. Cross-cuts Section 6 (env var inventory) where the forward-looking names are documented ahead of substrate-side wiring.
