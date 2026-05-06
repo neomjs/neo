@@ -267,9 +267,9 @@ Use `configured` as the at-a-glance indicator. A misconfigured `AUTH_TRUST_PROXY
 
 In a shared deployment, multiple agents connect and disconnect dynamically. To ensure session summaries are automatically available to the team without requiring manual API calls or external cron jobs, the Memory Core leverages a **disconnect-triggered summarization** primitive.
 
-When an MCP client (agent) disconnects from the Server-Sent Events (SSE) transport, the `TransportService` intercepts the termination and signals the Memory Core. The server immediately queues a `pending` summarization marker in its `SummarizationJobs` SQLite coordinator table. This behavior is gated by the `autoSummarize` feature flag, making it a conditional feature rather than an unconditional contract.
+When an MCP client (agent) disconnects from the Server-Sent Events (SSE) transport, the `TransportService` intercepts the termination and signals the Memory Core. The server immediately queues a `pending` summarization marker in its `SummarizationJobs` SQLite coordinator table. This behavior is gated by **both** the `autoSummarize` feature flag **and** the `isPrimary` flag (`NEO_MC_PRIMARY=true`); single-writer enforcement per [#10813](https://github.com/neomjs/neo/issues/10813) prevents races across multi-instance harness fleets that share the same Chroma collection.
 
-This allows the heavy LLM summarization process to run asynchronously in the background. Because it relies on the unified `SummarizationJobs` table, it naturally handles concurrent agent disconnects and server clustering without duplicating summaries. Team members can query the Memory Core and instantly access the completed session context once the background job finishes.
+This allows the heavy LLM summarization process to run asynchronously in the background. Because it relies on the unified `SummarizationJobs` table, it naturally handles concurrent agent disconnects and server clustering without duplicating summaries. Team members can query the Memory Core and instantly access the completed session context once the background job finishes. Non-primary instances (`NEO_MC_PRIMARY` unset / `false`) do not queue jobs — the canonical instance handles the shared collection.
 
 ## Migration: Per-Developer Local → Shared Team Mode
 

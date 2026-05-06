@@ -160,7 +160,7 @@ class SessionService extends Base {
             return;
         }
 
-        if (aiConfig.data.autoSummarize) {
+        if (aiConfig.data.autoSummarize && aiConfig.data.isPrimary) {
             logger.info('[Startup] Checking for unsummarized sessions...');
 
             this.summarizeSessions({}).then(result => {
@@ -182,6 +182,9 @@ class SessionService extends Base {
                 logger.warn('    You can manually trigger summarization using the summarize_sessions tool');
                 HealthService.recordStartupSummarization('failed', { error: error.message });
             });
+        } else if (aiConfig.data.autoSummarize && !aiConfig.data.isPrimary) {
+            logger.info('[Startup] AUTO_SUMMARIZE enabled but NEO_MC_PRIMARY=false — skipping (single-writer enforcement, #10813). Set NEO_MC_PRIMARY=true on the canonical Memory Core instance only.');
+            HealthService.recordStartupSummarization('skipped-non-primary', { reason: 'NEO_MC_PRIMARY is not set on this instance' });
         }
     }
 
@@ -658,10 +661,17 @@ ${aggregatedContent}
      * Queues a session for summarization by writing a 'pending' marker
      * to the SummarizationJobs table and triggering the asynchronous detector.
      * @summary Wires disconnected SSE session state to the summarization pipeline.
+     *
+     * Gated on both `autoSummarize` and `isPrimary` (#10813): only the canonical
+     * Memory Core instance writes to the shared SummarizationJobs table on
+     * disconnect-lifecycle events, preventing race conditions across the multi-MC-instance
+     * harness fleet. Non-primary instances no-op silently — their disconnect events are
+     * absorbed by the canonical instance's existing drift-detection sweep.
+     *
      * @param {String} sessionId
      */
     queueSummarizationJob(sessionId) {
-        if (!aiConfig.autoSummarize) return;
+        if (!aiConfig.autoSummarize || !aiConfig.isPrimary) return;
 
         const db = GraphService.db?.storage?.db;
         if (!db) return;
