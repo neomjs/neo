@@ -200,7 +200,7 @@ class ChromaManager extends AbstractVectorManager {
             generate   : async (texts) => {
                 // Pass arrays of texts sequentially or via promise.all to TextEmbeddingService
                 const {default: TextEmbeddingService} = await import('../services/TextEmbeddingService.mjs');
-                const provider                        = aiConfig.chromaEmbeddingProvider;
+                const provider                        = aiConfig.embeddingProvider;
                 const vectors                         = await Promise.all(texts.map(text => TextEmbeddingService.embedText(text, provider)));
                 return vectors;
             },

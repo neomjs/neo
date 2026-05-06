@@ -2,6 +2,9 @@ import fs              from 'fs/promises';
 import path            from 'path';
 import Base            from '../../../../src/core/Base.mjs';
 import {fileURLToPath} from 'url';
+import {normalizeEmbeddingProviderConfig, resolveEmbeddingProvider} from './helpers/EmbeddingProviderConfig.mjs';
+
+export {normalizeEmbeddingProviderConfig, resolveEmbeddingProvider};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -98,17 +101,14 @@ const defaultConfig = {
      */
     modelProvider: process.env.NEO_MODEL_PROVIDER || 'gemini',
     /**
-     * Explicit override provider for the SQLite Native Database Engine.
+     * Canonical embedding provider for Memory Core and Knowledge Base embedding callsites.
      * Supported values: 'gemini', 'ollama', 'openAiCompatible'
+     *
+     * `NEO_CHROMA_EMBEDDING_PROVIDER` remains readable for one deprecation window but emits
+     * a warning and feeds this unified selector.
      * @type {String}
      */
-    neoEmbeddingProvider: process.env.NEO_EMBEDDING_PROVIDER || 'gemini',
-    /**
-     * Explicit override provider for the ChromaDB Engine.
-     * Supported values: 'gemini', 'ollama', 'openAiCompatible'
-     * @type {String}
-     */
-    chromaEmbeddingProvider: process.env.NEO_CHROMA_EMBEDDING_PROVIDER || 'gemini',
+    embeddingProvider: resolveEmbeddingProvider(),
     /**
      * Settings for the Ollama integration
      */
@@ -406,6 +406,7 @@ class Config extends Base {
 
             // Deep merge custom config into the data object
             Neo.merge(this.data, customConfig);
+            normalizeEmbeddingProviderConfig(this.data, process.env, console.warn, customConfig);
 
             console.error(`[Config] Loaded custom configuration from ${absolutePath}`);
 

@@ -110,7 +110,7 @@ class QueryService extends Base {
         }
 
         const collection           = await ChromaManager.getKnowledgeBaseCollection();
-        const queryEmbeddingValues = await TextEmbeddingService.embedText(query, mcConfig.chromaEmbeddingProvider);
+        const queryEmbeddingValues = await TextEmbeddingService.embedText(query, mcConfig.embeddingProvider);
         const queryLower     = query.toLowerCase();
 
         const whereClause = (type && type !== 'all') ? { type } : {};
