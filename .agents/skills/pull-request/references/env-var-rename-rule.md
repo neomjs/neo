@@ -10,7 +10,7 @@ Rename in code + rename in `.env` + rename in tests + ship together in ONE PR. N
 
 ## Why no deprecation chains
 
-- Engine-class deployments (the swarm + selected partners — see `feedback_neo_is_engine_not_framework` memory anchor) don't have thousands of users to protect across release windows; framework-class deprecation patterns are wrong-shape.
+- The realistic operator population for the Agent OS substrate is the swarm (named AI maintainers + the human commander) plus selected partners deploying Neo. Multi-window deprecation patterns assume an external user base across release windows; that assumption doesn't apply here.
 - Empirical anchor: legacy env vars deprecated in [#10808](https://github.com/neomjs/neo/issues/10808) / [#10810](https://github.com/neomjs/neo/issues/10810) / [#10814](https://github.com/neomjs/neo/issues/10814) were never shipped in a released npm version; the "compatibility window" was protecting users-who-don't-exist.
 - KISS over backwards-compat-without-released-users (see `AGENTS.md §13` substrate-accretion-defense).
 
