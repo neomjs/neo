@@ -298,6 +298,7 @@ Reviewers MUST verify testing claims by executing the relevant test files locall
 | PR names an epic as close-target without flagging | §5.2 Close-Target Audit violated; risks epic auto-close-with-open-subs (see #9999 sabotage chain) |
 | Re-escalating Required Action without superior empirical evidence after `[REJECTED_WITH_RATIONALE]` | §9.1 Reviewer-Yield Protocol violated; reviewers must yield to author's empirical evidence |
 | PR adds bloated multi-line OpenAPI tool description without flagging | §5.3 MCP-Tool-Description Budget Audit violated; bloat compounds across the tool surface and competes with agent reasoning budget at runtime |
+| PR adds env-var deprecation chain (`legacyEnvVar` parameter, `console.warn` deprecation in resolver, multi-layer fallback) without released-version compat contract | `pull-request-workflow.md §1.1.1` Clean-Slate Sunset Rule violated; substrate-accretion-defense bypass for users who don't exist (engine-class) |
 
 ## 8. Cross-Skill Integration Audit
 
