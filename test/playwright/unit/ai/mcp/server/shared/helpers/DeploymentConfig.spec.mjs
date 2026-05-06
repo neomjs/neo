@@ -47,7 +47,7 @@ test.describe('DeploymentConfig #10808 — resolveMcpHttpPort', () => {
         expect(warnings).toEqual([]);
     });
 
-    test('returns MCP_HTTP_PORT when only the new env var is set (no warning)', () => {
+    test('returns MCP_HTTP_PORT when the env var is set', () => {
         const warnings = [];
 
         expect(resolveMcpHttpPort({
@@ -58,47 +58,11 @@ test.describe('DeploymentConfig #10808 — resolveMcpHttpPort', () => {
         expect(warnings).toEqual([]);
     });
 
-    test('returns SSE_PORT with deprecation warning when only legacy env var is set (backwards-compat)', () => {
-        const warnings = [];
-
-        expect(resolveMcpHttpPort({
-            env        : {SSE_PORT: '5555'},
-            warn       : message => warnings.push(message),
-            defaultPort: 3001
-        })).toBe(5555);
-        expect(warnings.join('\n')).toMatch(/SSE_PORT is deprecated/);
-        expect(warnings.join('\n')).not.toMatch(/conflicts/);
-    });
-
-    test('MCP_HTTP_PORT wins over SSE_PORT when both set with different values + emits conflict warning', () => {
-        const warnings = [];
-
-        expect(resolveMcpHttpPort({
-            env        : {MCP_HTTP_PORT: '4001', SSE_PORT: '5555'},
-            warn       : message => warnings.push(message),
-            defaultPort: 3001
-        })).toBe(4001);
-        expect(warnings.join('\n')).toMatch(/SSE_PORT is deprecated and conflicts with MCP_HTTP_PORT/);
-        expect(warnings.join('\n')).toMatch(/using 4001/);
-    });
-
-    test('both env vars set with same value — no conflict warning, just deprecation', () => {
-        const warnings = [];
-
-        expect(resolveMcpHttpPort({
-            env        : {MCP_HTTP_PORT: '4001', SSE_PORT: '4001'},
-            warn       : message => warnings.push(message),
-            defaultPort: 3001
-        })).toBe(4001);
-        expect(warnings.join('\n')).toMatch(/SSE_PORT is deprecated/);
-        expect(warnings.join('\n')).not.toMatch(/conflicts/);
-    });
-
     test('empty-string env values treated as unset (not "0" port)', () => {
         const warnings = [];
 
         expect(resolveMcpHttpPort({
-            env        : {MCP_HTTP_PORT: '', SSE_PORT: ''},
+            env        : {MCP_HTTP_PORT: ''},
             warn       : message => warnings.push(message),
             defaultPort: 3001
         })).toBe(3001);
@@ -138,29 +102,6 @@ test.describe('DeploymentConfig #10808 — resolveMcpHttpPort', () => {
         })).toBe(3001);
         expect(warnings.join('\n')).toMatch(/Invalid MCP_HTTP_PORT/);
     });
-
-    test('invalid SSE_PORT also falls back gracefully + emits scoped warning', () => {
-        const warnings = [];
-
-        expect(resolveMcpHttpPort({
-            env        : {SSE_PORT: 'not-a-port'},
-            warn       : message => warnings.push(message),
-            defaultPort: 3001
-        })).toBe(3001);
-        expect(warnings.join('\n')).toMatch(/Invalid SSE_PORT value: "not-a-port"/);
-    });
-
-    test('invalid MCP_HTTP_PORT but valid SSE_PORT — falls through to legacy with deprecation warning', () => {
-        const warnings = [];
-
-        expect(resolveMcpHttpPort({
-            env        : {MCP_HTTP_PORT: 'abc', SSE_PORT: '4001'},
-            warn       : message => warnings.push(message),
-            defaultPort: 3001
-        })).toBe(4001);
-        expect(warnings.join('\n')).toMatch(/Invalid MCP_HTTP_PORT/);
-        expect(warnings.join('\n')).toMatch(/SSE_PORT is deprecated/);
-    });
 });
 
 /**
@@ -192,35 +133,9 @@ test.describe('DeploymentConfig #10808 — resolveChromaHost', () => {
         })).toBe('team-chroma.example.com');
     });
 
-    test('legacy env-var consulted when NEO_CHROMA_HOST unset (MC engines.kb.chroma fallback)', () => {
+    test('empty-string env values treated as unset', () => {
         expect(resolveChromaHost({
-            env         : {NEO_KB_CHROMA_HOST: 'legacy-only.example.com'},
-            legacyEnvVar: 'NEO_KB_CHROMA_HOST'
-        })).toBe('legacy-only.example.com');
-    });
-
-    test('NEO_CHROMA_HOST wins over legacy env var when both set (precedence)', () => {
-        expect(resolveChromaHost({
-            env: {
-                NEO_CHROMA_HOST   : 'unified.example.com',
-                NEO_KB_CHROMA_HOST: 'legacy.example.com'
-            },
-            legacyEnvVar: 'NEO_KB_CHROMA_HOST'
-        })).toBe('unified.example.com');
-    });
-
-    test('legacyEnvVar omitted by KB-own-config callsite — no fallback layer', () => {
-        // KB config.template.mjs calls resolveChromaHost() with no legacyEnvVar.
-        // NEO_KB_CHROMA_HOST should be ignored even if set (it's MC-side legacy).
-        expect(resolveChromaHost({
-            env: {NEO_KB_CHROMA_HOST: 'should-be-ignored.example.com'}
-        })).toBe('localhost');
-    });
-
-    test('empty-string env values treated as unset (consistent with resolveMcpHttpPort)', () => {
-        expect(resolveChromaHost({
-            env         : {NEO_CHROMA_HOST: '', NEO_KB_CHROMA_HOST: ''},
-            legacyEnvVar: 'NEO_KB_CHROMA_HOST'
+            env: {NEO_CHROMA_HOST: ''}
         })).toBe('localhost');
     });
 
@@ -255,23 +170,6 @@ test.describe('DeploymentConfig #10808 — resolveChromaPort', () => {
         })).toBe(9000);
     });
 
-    test('legacy env-var consulted when NEO_CHROMA_PORT unset (MC engines.kb.chroma fallback)', () => {
-        expect(resolveChromaPort({
-            env         : {NEO_KB_CHROMA_PORT: '8500'},
-            legacyEnvVar: 'NEO_KB_CHROMA_PORT'
-        })).toBe(8500);
-    });
-
-    test('NEO_CHROMA_PORT wins over legacy env var (precedence)', () => {
-        expect(resolveChromaPort({
-            env: {
-                NEO_CHROMA_PORT   : '9000',
-                NEO_KB_CHROMA_PORT: '8500'
-            },
-            legacyEnvVar: 'NEO_KB_CHROMA_PORT'
-        })).toBe(9000);
-    });
-
     test('non-numeric NEO_CHROMA_PORT falls back with warning (no NaN leak)', () => {
         const warnings = [];
         expect(resolveChromaPort({
@@ -290,16 +188,6 @@ test.describe('DeploymentConfig #10808 — resolveChromaPort', () => {
             })).toBe(8000);
             expect(warnings.join('\n')).toMatch(/Invalid NEO_CHROMA_PORT/);
         }
-    });
-
-    test('invalid NEO_CHROMA_PORT but valid legacy NEO_KB_CHROMA_PORT — falls through cleanly', () => {
-        const warnings = [];
-        expect(resolveChromaPort({
-            env         : {NEO_CHROMA_PORT: 'abc', NEO_KB_CHROMA_PORT: '8500'},
-            warn        : m => warnings.push(m),
-            legacyEnvVar: 'NEO_KB_CHROMA_PORT'
-        })).toBe(8500);
-        expect(warnings.join('\n')).toMatch(/Invalid NEO_CHROMA_PORT/);
     });
 
     test('custom defaultPort honored when provided', () => {
