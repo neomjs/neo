@@ -52,7 +52,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.lifecycle.ChromaLifecycleS
 
     test('initAsync short-circuits in unified mode even when autoStartDatabase=true', async () => {
         // Explicit coverage of the `initAsync` guard. Without this test, a future edit that reorders
-        // the short-circuit below the `autoStartDatabase && architecture` gate — or deletes it entirely
+        // the short-circuit below the `autoStartDatabase && engine` gate — or deletes it entirely
         // — would pass the other two tests (they call `startDatabase` / `manageDatabase` directly and
         // would still see the method-level guard). This test forces the bypass to be observable at
         // the init-flow level by setting autoStartDatabase=true (which would normally trigger spawn)

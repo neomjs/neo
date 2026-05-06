@@ -66,7 +66,7 @@ class ChromaLifecycleService extends Base {
             return;
         }
 
-        if (aiConfig.autoStartDatabase && (aiConfig.architecture === 'chroma' || aiConfig.architecture === 'hybrid')) {
+        if (aiConfig.autoStartDatabase && (aiConfig.engine === 'chroma' || aiConfig.engine === 'hybrid')) {
             await this.startDatabase();
         }
     }
