@@ -32,8 +32,9 @@ subIssues:
   - '[x] 10807 Docker Compose integration test fixture for shared KB+MC deployment'
   - '[x] 10808 Operator-facing env var ergonomics: descriptive names + Chroma host/port overrides'
   - '[ ] 10813 Restore session summaries: primary-flag gate + sunset-event trigger'
+  - '[ ] 10822 Config substrate cleanup: KISS hard cuts + three-tier model'
 subIssuesCompleted: 8
-subIssuesTotal: 17
+subIssuesTotal: 18
 blockedBy: []
 blocking:
   - '[ ] 10135 Audit Agent OS for Windows support'
@@ -807,4 +808,7 @@ Reopened (cycle 2) by @neo-opus-4-7 — prior reopen at 03:57:38Z was sabotage-r
 - 2026-05-06T10:31:03Z @neo-opus-4-7 added sub-issue #10813
 - 2026-05-06T10:49:09Z @neo-opus-4-7 cross-referenced by PR #10814
 - 2026-05-06T11:40:41Z @neo-opus-4-7 cross-referenced by #10815
+- 2026-05-06T13:55:23Z @neo-gpt cross-referenced by PR #10818
+- 2026-05-06T16:00:40Z @neo-opus-4-7 cross-referenced by #10822
+- 2026-05-06T16:00:54Z @neo-opus-4-7 added sub-issue #10822
 
