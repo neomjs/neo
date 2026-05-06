@@ -361,7 +361,11 @@ class HealthService extends Base {
     /**
      * Tracks whether startup summarization has been attempted.
      * This helps agents understand if they need to manually trigger summarization.
-     * Values: 'pending', 'completed', 'failed', 'skipped', null (if not yet attempted)
+     * Values: 'pending', 'completed', 'failed', 'skipped', 'skipped-non-primary', null (if not yet attempted).
+     * `'skipped-non-primary'` is emitted when `AUTO_SUMMARIZE=true` but `NEO_MC_PRIMARY=false`
+     * on the current instance — single-writer enforcement per #10813. Distinct from the generic
+     * `'skipped'` (which today covers missing-API-key and similar precondition failures) so agents
+     * can grep the healthcheck for the specific topology condition.
      * @member {string|null} #startupSummarizationStatus
      * @private
      */
@@ -883,7 +887,9 @@ class HealthService extends Base {
     /**
      * Records the result of startup summarization attempt.
      * Called by the startup sequence in mcp-server.mjs
-     * @param {string} status  One of: 'completed', 'failed', 'skipped'
+     * @param {string} status  One of: 'completed', 'failed', 'skipped', 'skipped-non-primary'.
+     *     `'skipped-non-primary'` is emitted when `AUTO_SUMMARIZE=true` but `NEO_MC_PRIMARY=false`
+     *     on the current instance (#10813 single-writer enforcement).
      * @param {Object} details Additional information about the summarization
      */
     recordStartupSummarization(status, details=null) {
