@@ -78,6 +78,19 @@ git fetch origin
 
 **Exception — first push of a freshly-branched feature:** skip ONLY after confirming via `git log origin/dev..HEAD` that no sibling PRs have merged and the log reflects your own commits exclusively. The branch-point IS `origin/dev`'s tip.
 
+### 2.4 Tool-Specific Branch Constraints
+
+Some MCP tools execute branch-sensitive operations that pollute feature branches if run improperly.
+
+#### 2.4.1 `sync_all` (GitHub Workflow MCP)
+You MUST ONLY invoke the `sync_all` tool when checked out on the `dev` branch.
+**Why:** The `sync_all` tool bi-directionally synchronizes GitHub issues and releases with local `.md` files. Running this tool on a feature branch will result in unrelated documentation commits being captured in your PR diff, causing review noise and merge conflicts.
+**Workflow:**
+1. Stash changes and checkout `dev` (e.g., `git checkout dev`).
+2. Run `sync_all` to pull the latest issues and releases.
+3. Return to your feature branch (e.g., `git checkout -`).
+4. Proceed with work. **DO NOT run `sync_all` while on a feature branch.**
+
 ## 3. Commit Sequence
 
 Your commit messages MUST follow Conventional Commits and MUST append the ticket ID so that the GitHub API and our internal memory cores can track outcomes.
