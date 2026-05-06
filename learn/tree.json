@@ -39,6 +39,7 @@
         {"name": "Shared KB/MC Team Deployment",                       "parentId": "AgentOS",                                             "id": "agentos/SharedDeployment"},
         {"name": "Deployment Cookbook",                                "parentId": "AgentOS",                                             "id": "agentos/DeploymentCookbook"},
         {"name": "Config Substrate Env-Var Audit",                     "parentId": "AgentOS",                                             "id": "agentos/ConfigSubstrateEnvVarAudit"},
+        {"name": "Config Substrate Dead-Config Audit",                  "parentId": "AgentOS",                                             "id": "agentos/ConfigSubstrateDeadConfigAudit"},
         {"name": "Measurements",                                       "parentId": "AgentOS",                            "isLeaf": false, "id": "AgentOS/Measurements", "collapsed": true},
             {"name": "PR Review Loaded-Surface Baseline (April 2026)", "parentId": "AgentOS/Measurements",                                "id": "agentos/measurements/pr-review-baseline-2026-04"},
             {"name": "Swarm Heartbeat Token Economy Baseline (May 2026)", "parentId": "AgentOS/Measurements",                             "id": "agentos/measurements/heartbeat-token-economy-2026-05"},

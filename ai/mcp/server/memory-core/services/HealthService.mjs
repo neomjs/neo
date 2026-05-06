@@ -395,11 +395,11 @@ class HealthService extends Base {
      */
     async #checkDatabaseConnections() {
         try {
-            const architecture = aiConfig.architecture || 'hybrid';
+            const engine = aiConfig.engine || 'hybrid';
             const engines = { chroma: false, sqlite: false };
 
             // 2. Vector Chroma DB (Hybrid & Standalone Chroma)
-            if (architecture === 'chroma' || architecture === 'hybrid') {
+            if (engine === 'chroma' || engine === 'hybrid') {
                 await ChromaManager.ready();
                 if (!ChromaManager.connected && !(await ChromaManager.connect())) {
                     throw new Error("ChromaDB is not accessible");
@@ -630,9 +630,9 @@ class HealthService extends Base {
 
     #checkApiKeyConfigured() {
         const providers = [aiConfig.modelProvider];
-        const architecture = aiConfig.architecture || 'hybrid';
+        const engine = aiConfig.engine || 'hybrid';
 
-        if (architecture === 'chroma' || architecture === 'hybrid') {
+        if (engine === 'chroma' || engine === 'hybrid') {
             providers.push(aiConfig.embeddingProvider);
         }
 
