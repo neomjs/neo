@@ -146,7 +146,7 @@ The flag lives in both `ai/mcp/server/knowledge-base/config.template.mjs` and `a
 
 **`trustProxyIdentity=true` shifts the trust anchor from the MC's own OIDC introspection to the proxy in front of the MC.** That trust shift is correct ONLY when the proxy:
 
-1. **Strips client-set values of `X-PREFERRED-USERNAME` and `X-Auth-Request-Preferred-Username` from incoming requests before forwarding upstream.** Without this, any client can set the header to any value and gain that identity. This is THE deployment prerequisite.
+1. **Strips client-set values of `X-PREFERRED-USERNAME` and `X-Auth-Request-Preferred-Username` from incoming requests before forwarding upstream.** Without this, any client can set the header to any value and gain that identity. This is THE deployment prerequisite. See the [Reference Proxy Configurations](../../deploy/proxy/) for implementation examples.
 2. **Sets the header itself based on its own validated authentication state.** Typically the proxy completes its own OIDC flow (against Keycloak, GitLab, or the team's IdP), and forwards the verified `preferred_username` claim as the upstream header.
 3. **Is positioned so the MC server is NEVER reachable from outside the proxy** — direct network access to the MC server bypasses the proxy and bypasses the trust boundary entirely. Typical deployment: MC bound to internal network only; proxy bound to public network; reverse-proxy hop is the only ingress.
 
