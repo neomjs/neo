@@ -12,31 +12,34 @@
 mcp.example.com {
     # [Out of scope: TLS termination certificates]
     # tls /path/to/cert.pem /path/to/key.pem
-    
-    # 1. OAuth2 Proxy forward auth integration
+
+    # 1. SECURITY: Header manipulation block
+    # Strip any client-provided identity headers first!
+    request_header -X-Preferred-Username
+    request_header -X-Auth-Request-Preferred-Username
+
+    # 2. OAuth2 Proxy forward auth integration
     forward_auth 127.0.0.1:4180 {
         uri /oauth2/auth
         copy_headers X-Auth-Request-Preferred-Username
     }
 
-    # 2. SECURITY: Header manipulation block
-    # Strip any client-provided identity headers first!
-    request_header -X-Preferred-Username
-    request_header -X-Auth-Request-Preferred-Username
-    
-    # Inject trusted header from the forward_auth step
-    request_header X-Preferred-Username {http.request.header.X-Auth-Request-Preferred-Username}
-
     # 3. Pathname Routing: Knowledge Base Server
     handle_path /kb/* {
-        reverse_proxy 127.0.0.1:8001 {
+        reverse_proxy 127.0.0.1:3001 {
+            # Inject trusted header from the forward_auth step
+            header_up X-Preferred-Username {http.request.header.X-Auth-Request-Preferred-Username}
+            header_up -X-Auth-Request-Preferred-Username
             # SSE streaming is natively supported by Caddy without specific buffering toggles
         }
     }
 
     # 4. Pathname Routing: Memory Core Server
     handle_path /mc/* {
-        reverse_proxy 127.0.0.1:8002 {
+        reverse_proxy 127.0.0.1:3002 {
+            # Inject trusted header from the forward_auth step
+            header_up X-Preferred-Username {http.request.header.X-Auth-Request-Preferred-Username}
+            header_up -X-Auth-Request-Preferred-Username
             # SSE streaming natively supported
         }
     }
