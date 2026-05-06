@@ -3,9 +3,9 @@ import path            from 'path';
 import Base            from '../../../../src/core/Base.mjs';
 import {fileURLToPath} from 'url';
 import {normalizeEmbeddingProviderConfig, resolveEmbeddingProvider} from './helpers/EmbeddingProviderConfig.mjs';
-import {resolveMcpHttpPort}                                         from '../shared/helpers/DeploymentConfig.mjs';
+import {resolveChromaHost, resolveChromaPort, resolveMcpHttpPort}   from '../shared/helpers/DeploymentConfig.mjs';
 
-export {normalizeEmbeddingProviderConfig, resolveEmbeddingProvider, resolveMcpHttpPort};
+export {normalizeEmbeddingProviderConfig, resolveChromaHost, resolveChromaPort, resolveEmbeddingProvider, resolveMcpHttpPort};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -208,8 +208,8 @@ const defaultConfig = {
             chroma: {
                 // #10808: prefer operator-facing `NEO_CHROMA_HOST/PORT` (cookbook Section 5);
                 // `NEO_KB_CHROMA_HOST/PORT` remains readable for backwards-compat during deprecation window.
-                host: process.env.NEO_CHROMA_HOST || process.env.NEO_KB_CHROMA_HOST || 'localhost',
-                port: Number(process.env.NEO_CHROMA_PORT) || Number(process.env.NEO_KB_CHROMA_PORT) || 8000
+                host: resolveChromaHost({legacyEnvVar: 'NEO_KB_CHROMA_HOST'}),
+                port: resolveChromaPort({legacyEnvVar: 'NEO_KB_CHROMA_PORT'})
             }
         }
     },

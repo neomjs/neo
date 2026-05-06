@@ -3,9 +3,9 @@ import os              from 'os';
 import path            from 'path';
 import Base            from '../../../../src/core/Base.mjs';
 import {fileURLToPath} from 'url';
-import {resolveMcpHttpPort} from '../shared/helpers/DeploymentConfig.mjs';
+import {resolveChromaHost, resolveChromaPort, resolveMcpHttpPort} from '../shared/helpers/DeploymentConfig.mjs';
 
-export {resolveMcpHttpPort};
+export {resolveChromaHost, resolveChromaPort, resolveMcpHttpPort};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -105,14 +105,15 @@ const defaultConfig = {
      * unified Chroma instance for both KB + MC, this points at the shared cloud-hosted Chroma.
      * @type {string}
      */
-    host: process.env.NEO_CHROMA_HOST || 'localhost',
+    host: resolveChromaHost(),
     /**
      * The port the ChromaDB server for the knowledge base is listening on.
      *
-     * Operator env var: `NEO_CHROMA_PORT` (#10808).
+     * Operator env var: `NEO_CHROMA_PORT` (#10808). Invalid values (non-integer / out-of-range)
+     * fall back to the default with a console warning per the resolver validity contract.
      * @type {number}
      */
-    port: Number(process.env.NEO_CHROMA_PORT) || 8000,
+    port: resolveChromaPort(),
     /**
      * The local persistence path for the agent knowledge-base server.
      * @type {string}

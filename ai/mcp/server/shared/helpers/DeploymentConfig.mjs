@@ -23,8 +23,18 @@
 export function resolveMcpHttpPort({env = process.env, warn = console.warn, defaultPort} = {}) {
     const hasValue = value => value !== undefined && value !== null && value !== '';
 
-    const newPort    = hasValue(env.MCP_HTTP_PORT) ? Number(env.MCP_HTTP_PORT) : null;
-    const legacyPort = hasValue(env.SSE_PORT)      ? Number(env.SSE_PORT)      : null;
+    const parsePort = (rawValue, envVarName) => {
+        if (!hasValue(rawValue)) return null;
+        const num = Number(rawValue);
+        if (!Number.isInteger(num) || num <= 0 || num > 65535) {
+            warn(`[Config] Invalid ${envVarName} value: "${rawValue}" (must be integer in 1..65535); falling back.`);
+            return null;
+        }
+        return num;
+    };
+
+    const newPort    = parsePort(env.MCP_HTTP_PORT, 'MCP_HTTP_PORT');
+    const legacyPort = parsePort(env.SSE_PORT,      'SSE_PORT');
 
     if (legacyPort !== null) {
         if (newPort !== null && newPort !== legacyPort) {
@@ -33,6 +43,64 @@ export function resolveMcpHttpPort({env = process.env, warn = console.warn, defa
             warn('[Config] SSE_PORT is deprecated; use MCP_HTTP_PORT.');
         }
     }
+
+    return newPort ?? legacyPort ?? defaultPort;
+}
+
+/**
+ * @summary Resolves the ChromaDB host with optional fallback to a legacy server-prefixed env var.
+ *
+ * Per #10808 operator-facing env-var ergonomics: `NEO_CHROMA_HOST` is the canonical
+ * operator-set env var (used by KB own Chroma config + MC `engines.kb.chroma`
+ * unified-mode reference). `NEO_KB_CHROMA_HOST` is the legacy-prefixed form retained
+ * for MC's existing `engines.kb.chroma` fallback chain during the deprecation window.
+ *
+ * Pure function: takes env + optional legacyEnvVar; returns resolved host string.
+ *
+ * @param {Object}   options
+ * @param {Object}   [options.env=process.env]   Environment map (overridable for tests).
+ * @param {String}   [options.defaultHost='localhost'] Default when no env var is set.
+ * @param {String}   [options.legacyEnvVar]      Optional legacy env-var name to consult after `NEO_CHROMA_HOST`
+ *     (e.g., `'NEO_KB_CHROMA_HOST'` for MC's `engines.kb.chroma` block; KB own config does not pass this).
+ * @returns {String}
+ */
+export function resolveChromaHost({env = process.env, defaultHost = 'localhost', legacyEnvVar} = {}) {
+    const hasValue = value => value !== undefined && value !== null && value !== '';
+
+    if (hasValue(env.NEO_CHROMA_HOST))                  return env.NEO_CHROMA_HOST;
+    if (legacyEnvVar && hasValue(env[legacyEnvVar]))    return env[legacyEnvVar];
+    return defaultHost;
+}
+
+/**
+ * @summary Resolves the ChromaDB port with optional fallback to a legacy server-prefixed env var.
+ *
+ * Sibling of {@link resolveChromaHost}. Same semantics; numeric port handling. Invalid values
+ * (non-integer / out-of-range / negative) fall back to the next layer with a warning, mirroring
+ * the {@link resolveMcpHttpPort} validity contract.
+ *
+ * @param {Object}   options
+ * @param {Object}   [options.env=process.env]   Environment map (overridable for tests).
+ * @param {Function} [options.warn=console.warn] Warning sink for invalid-value notices.
+ * @param {Number}   [options.defaultPort=8000]  Default when no env var is set.
+ * @param {String}   [options.legacyEnvVar]      Optional legacy env-var name to consult after `NEO_CHROMA_PORT`.
+ * @returns {Number}
+ */
+export function resolveChromaPort({env = process.env, warn = console.warn, defaultPort = 8000, legacyEnvVar} = {}) {
+    const hasValue = value => value !== undefined && value !== null && value !== '';
+
+    const parsePort = (rawValue, envVarName) => {
+        if (!hasValue(rawValue)) return null;
+        const num = Number(rawValue);
+        if (!Number.isInteger(num) || num <= 0 || num > 65535) {
+            warn(`[Config] Invalid ${envVarName} value: "${rawValue}" (must be integer in 1..65535); falling back.`);
+            return null;
+        }
+        return num;
+    };
+
+    const newPort    = parsePort(env.NEO_CHROMA_PORT, 'NEO_CHROMA_PORT');
+    const legacyPort = legacyEnvVar ? parsePort(env[legacyEnvVar], legacyEnvVar) : null;
 
     return newPort ?? legacyPort ?? defaultPort;
 }
