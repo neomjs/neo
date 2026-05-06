@@ -194,11 +194,6 @@ const defaultConfig = {
      */
     modelName: 'gemini-2.5-flash',
     /**
-     * The name of the Google Generative AI model for text embeddings.
-     * @type {string}
-     */
-    embeddingModel: 'gemini-embedding-001',
-    /**
      * The number of chunks to process in a single batch when embedding.
      * @type {number}
      */

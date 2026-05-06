@@ -39,11 +39,6 @@ class SearchService extends Base {
     }
 
     /**
-     * @member {Object|null} embeddingModel=null
-     * @protected
-     */
-    embeddingModel = null
-    /**
      * @member {Object|null} model=null
      * @protected
      */
@@ -59,8 +54,7 @@ class SearchService extends Base {
         const apiKey = process.env.GEMINI_API_KEY;
         if (apiKey) {
             const genAI = new GoogleGenerativeAI(apiKey);
-            this.model          = genAI.getGenerativeModel({model: aiConfig.modelName});
-            this.embeddingModel = genAI.getGenerativeModel({model: aiConfig.embeddingModel});
+            this.model = genAI.getGenerativeModel({model: aiConfig.modelName});
         }
     }
 
