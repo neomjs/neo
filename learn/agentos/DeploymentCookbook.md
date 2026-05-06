@@ -20,7 +20,7 @@ External Identity Provider (IdP) → Reverse Proxy (OIDC verify) → Reverse Pro
 ### Provisioning Obligations
 The Neo.mjs repository provides the MCP server applications. The external operator is responsible for provisioning:
 - The container runtime (e.g., Docker, Kubernetes).
-- The OAuth 2.0 / OIDC provider.
+- The OAuth 2.1 / OIDC provider.
 - The reverse proxy.
 - The ChromaDB instance.
 
