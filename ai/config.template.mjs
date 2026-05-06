@@ -109,7 +109,7 @@ class Config extends Base {
 
     /**
      * Loads a JSON or MJS configuration file and merges it into the current data.
-     * @param {String} filePath 
+     * @param {String} filePath
      */
     async load(filePath) {
         if (!filePath) return;
