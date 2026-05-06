@@ -91,4 +91,110 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
         TransportService.destroy();
     });
 
+    test.describe('resolveAuthContext proxy-identity injection', () => {
+        let TransportService;
+
+        test.beforeAll(async () => {
+            TransportService = (await import('../../../../../../../../ai/mcp/server/shared/services/TransportService.mjs')).default;
+        });
+
+        test('OIDC precedence: native req.auth overrides proxy headers', () => {
+            const req = {
+                auth: { userId: 'oidc-user', username: 'oidc-user', source: 'jwt' },
+                headers: { 'x-preferred-username': 'spoofed-user' }
+            };
+            const aiConfig = { auth: { trustProxyIdentity: true } };
+
+            const result = TransportService.resolveAuthContext(req, aiConfig);
+
+            expect(result.error).toBeUndefined();
+            expect(result.auth).toEqual({
+                userId: 'oidc-user',
+                username: 'oidc-user',
+                source: 'jwt'
+            });
+        });
+
+        test('Active proxy identity injection (canonical header)', () => {
+            const req = {
+                auth: undefined,
+                headers: { 'x-preferred-username': 'proxy-user' }
+            };
+            const aiConfig = { auth: { trustProxyIdentity: true } };
+
+            const result = TransportService.resolveAuthContext(req, aiConfig);
+
+            expect(result.error).toBeUndefined();
+            expect(result.auth).toEqual({
+                userId: 'proxy-user',
+                username: 'proxy-user',
+                source: 'proxy-header'
+            });
+        });
+
+        test('OAuth2-proxy variant header fallback', () => {
+            const req = {
+                auth: undefined,
+                headers: { 'x-auth-request-preferred-username': 'oauth2-user' }
+            };
+            const aiConfig = { auth: { trustProxyIdentity: true } };
+
+            const result = TransportService.resolveAuthContext(req, aiConfig);
+
+            expect(result.error).toBeUndefined();
+            expect(result.auth).toEqual({
+                userId: 'oauth2-user',
+                username: 'oauth2-user',
+                source: 'proxy-header'
+            });
+        });
+
+        test('Gate-disabled behavior: ignores headers when trustProxyIdentity is false', () => {
+            const req = {
+                auth: undefined,
+                headers: { 'x-preferred-username': 'ignored-user' }
+            };
+            const aiConfig = { auth: { trustProxyIdentity: false } };
+
+            const result = TransportService.resolveAuthContext(req, aiConfig);
+
+            expect(result.error).toBeUndefined();
+            expect(result.auth).toBeUndefined();
+        });
+
+        test('Both headers provided: prioritizes canonical over oauth2-proxy', () => {
+            const req = {
+                auth: undefined,
+                headers: {
+                    'x-preferred-username': 'primary-user',
+                    'x-auth-request-preferred-username': 'secondary-user'
+                }
+            };
+            const aiConfig = { auth: { trustProxyIdentity: true } };
+
+            const result = TransportService.resolveAuthContext(req, aiConfig);
+
+            expect(result.error).toBeUndefined();
+            expect(result.auth).toEqual({
+                userId: 'primary-user',
+                username: 'primary-user',
+                source: 'proxy-header'
+            });
+        });
+
+        test('Header-spoof resistance / required identity: returns 401 when enabled but headers are missing', () => {
+            const req = {
+                auth: undefined,
+                headers: {}
+            };
+            const aiConfig = { auth: { trustProxyIdentity: true } };
+
+            const result = TransportService.resolveAuthContext(req, aiConfig);
+
+            expect(result.error).toBe('Unauthorized: Missing proxy identity header');
+            expect(result.status).toBe(401);
+            expect(result.auth).toBeUndefined();
+        });
+    });
+
 });
