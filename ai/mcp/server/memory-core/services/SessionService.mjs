@@ -214,17 +214,18 @@ class SessionService extends Base {
             const db = GraphService.db;
             if (!db || !db.storage || !db.storage.db) return;
 
-            // Query SQLite directly to find unread sunset handovers, bypassing edge-culling 
+            // Query SQLite directly to find unread sunset handovers, bypassing edge-culling
             // and cache synchronization issues by matching the exact property written by MailboxService.
             const stmt = db.storage.db.prepare(`
-                SELECT id, data FROM Nodes 
-                WHERE json_extract(data, '$.type') = 'MESSAGE' 
-                  AND json_extract(data, '$.properties.readAt') IS NULL 
+                SELECT id, data FROM Nodes
+                WHERE json_extract(data, '$.type') = 'MESSAGE'
+                  AND json_extract(data, '$.properties.readAt') IS NULL
                   AND json_extract(data, '$.properties.taggedConcepts') LIKE '%"sunset-protocol-handover"%'
             `);
             const rows = stmt.all();
 
             let foundUnread = false;
+            const unreadMessages = [];
 
             for (const row of rows) {
                 let messageNode;
@@ -233,14 +234,12 @@ class SessionService extends Base {
                 } catch (err) {
                     continue;
                 }
-                
+
                 // Double check to avoid false positives from LIKE
                 if (messageNode.properties && messageNode.properties.taggedConcepts && messageNode.properties.taggedConcepts.includes('sunset-protocol-handover')) {
                     logger.info(`[SessionService] Sunset Protocol handover message detected: ${messageNode.id} from ${messageNode.properties.from || 'unknown'}`);
-                    
-                    // Mark as read to avoid double-processing
-                    messageNode.properties.readAt = new Date().toISOString();
-                    GraphService.upsertNode(messageNode);
+
+                    unreadMessages.push(messageNode);
                     foundUnread = true;
                 }
             }
@@ -248,7 +247,13 @@ class SessionService extends Base {
             if (foundUnread) {
                 // Trigger the existing sweep which will naturally find the unsummarized sessions
                 logger.info('[SessionService] Triggering summarization sweep due to sunset handovers.');
-                this.summarizeSessions({});
+                await this.summarizeSessions({});
+
+                // Mark as read after successful summarization to avoid permanently consuming the signal on failure
+                for (const messageNode of unreadMessages) {
+                    messageNode.properties.readAt = new Date().toISOString();
+                    GraphService.upsertNode(messageNode);
+                }
             }
         } catch (e) {
             logger.warn(`[SessionService] Sunset Poller encountered an error: ${e.message}`);
@@ -1104,7 +1109,7 @@ ${aggregatedContent}
 
     /**
      * Permanently deletes all raw memories and summaries associated with a specific session ID.
-     * Operates exclusively within the caller's tenant boundary. A single-tenant (unauthenticated) 
+     * Operates exclusively within the caller's tenant boundary. A single-tenant (unauthenticated)
      * call will not delete records owned by the SHARED_USER_ID.
      * @param {Object} args
      * @param {String} args.sessionId
@@ -1117,7 +1122,7 @@ ${aggregatedContent}
 
         try {
             const userId = normalizeUserId(RequestContextService.getUserId());
-            
+
             // Construct filter: ensure tenant isolation.
             const where = userId ? { '$and': [{ sessionId }, { userId }] } : { sessionId };
 
