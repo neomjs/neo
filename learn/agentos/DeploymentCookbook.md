@@ -48,7 +48,7 @@ You must map a single public hostname to two distinct upstream services. We reco
 ### Header Stripping (Security)
 To prevent spoofing attacks, the reverse proxy **MUST** strip any incoming `X-PREFERRED-USERNAME` headers provided by the client before injecting its own trusted value.
 
-See the [Reference Nginx and Caddy Configurations](../../deploy/proxy/) for concrete examples of how to implement this header stripping securely.
+See the [Reference Nginx and Caddy Configurations](../../ai/mcp/deploy/proxy/) for concrete examples of how to implement this header stripping securely.
 
 ## Section 4: Identity Provider Setup
 
