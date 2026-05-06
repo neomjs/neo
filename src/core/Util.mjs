@@ -112,7 +112,8 @@ class Util {
      * @returns {Boolean}
      */
     static isEmpty(value) {
-        if (value === null || value === undefined) {
+        // intentional == to catch null and undefined
+        if (value == null) {
             return true
         }
 
