@@ -190,10 +190,19 @@ The Memory Core's healthcheck additionally surfaces active provider observabilit
 ```json
 "providers": {
     "embedding": {
-        "active": "openAiCompatible",
-        "host": "http://127.0.0.1:8000",
-        "model": "text-embedding-qwen3-embedding-1.5b",
-        "dimensions": 4096
+        "aligned": true,
+        "chroma": {
+            "active": "openAiCompatible",
+            "host": "http://127.0.0.1:8000",
+            "model": "text-embedding-qwen3-embedding-1.5b",
+            "dimensions": 4096
+        },
+        "neo": {
+            "active": "openAiCompatible",
+            "host": "http://127.0.0.1:8000",
+            "model": "text-embedding-qwen3-embedding-1.5b",
+            "dimensions": 4096
+        }
     },
     "summary": {
         "active": "openAiCompatible",
@@ -211,12 +220,14 @@ The Memory Core's healthcheck additionally surfaces active provider observabilit
 ```
 
 Embedding diagnostic fields:
-- `active`: the provider key currently selected for ChromaDB embedding generation (`'gemini'` | `'openAiCompatible'` | `'ollama'`). Mismatch between operator intent (e.g. expected local Qwen3) and observed value (e.g. silent fallback to `'gemini'` because `NEO_CHROMA_EMBEDDING_PROVIDER` was unset) is the load-bearing diagnostic.
-- `host`: provider endpoint URL when applicable (`null` for cloud `gemini`).
-- `model`: resolved embedding model name. Operators verify this matches the model running on the local server.
-- `dimensions`: configured `vectorDimension`. Must match the embedding model's actual output dimension; mismatch is silent in collection writes but breaks retrieval.
+- `aligned`: whether the ChromaDB and SQLite Native Edge Graph embedding paths use the same provider key. `false` is valid only when the operator intentionally splits engines; otherwise it points to a drifted `NEO_CHROMA_EMBEDDING_PROVIDER` / `NEO_EMBEDDING_PROVIDER` setup.
+- `chroma.active`: the provider key selected for ChromaDB embedding generation (`'gemini'` | `'openAiCompatible'` | `'ollama'`). Mismatch between operator intent (e.g. expected local Qwen3) and observed value (e.g. silent fallback to `'gemini'` because `NEO_CHROMA_EMBEDDING_PROVIDER` was unset) is the load-bearing diagnostic.
+- `neo.active`: the provider key selected for SQLite Native Edge Graph embedding operations. If `NEO_EMBEDDING_PROVIDER` is unset, this defaults to `'gemini'`.
+- `chroma.host` / `neo.host`: provider endpoint URL when applicable (`null` for cloud `gemini`).
+- `chroma.model` / `neo.model`: resolved embedding model name. Operators verify this matches the model running on the local server.
+- `chroma.dimensions` / `neo.dimensions`: configured `vectorDimension`. Must match the embedding model's actual output dimension; mismatch is silent in collection writes but breaks retrieval.
 
-If `active` resolves to an unrecognized value, the block additionally surfaces an `error` field naming the misconfig directly.
+If either embedding provider key resolves to an unrecognized value, that sub-block additionally surfaces an `error` field naming the misconfig directly without making healthcheck throw.
 
 Summary diagnostic fields:
 - `active`: the provider key currently selected for session summarization (`'gemini'` | `'openAiCompatible'` | string).

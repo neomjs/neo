@@ -101,38 +101,53 @@ export function buildTopologyBlock(cfg) {
 
 /**
  * @summary Projects the active embedding-provider configuration into the healthcheck `providers.embedding`
- *          observability block (#10723).
+ *          observability block (#10723, #10773).
  *
- * Pure function: takes an `aiConfig`-shaped input and returns the active embedding provider with
- * its host, model, and configured vector dimension. Mirrors the {@link buildTopologyBlock} precedent
+ * Pure function: takes an `aiConfig`-shaped input and returns both active embedding providers with
+ * their host, model, and configured vector dimension. Mirrors the {@link buildTopologyBlock} precedent
  * for module-scope pure projections.
  *
  * **Why this block exists:** Operators deploying the shared MC/KB topology against a local-model stack
- * (e.g., MLX-served Qwen3 embedding model) need an observable surface confirming WHICH embedding
- * provider is currently active and WHICH model + endpoint is in use. Without this, a misconfigured
- * `NEO_CHROMA_EMBEDDING_PROVIDER` env var (silently defaulting to Gemini cloud while the operator
- * believes a local provider is wired) is undetectable until cross-tenant retrieval drift emerges.
+ * (e.g., MLX-served Qwen3 embedding model) need an observable surface confirming WHICH Chroma-side
+ * and SQLite-side embedding providers are currently active and WHICH model + endpoint is in use.
+ * Without this, a misconfigured `NEO_CHROMA_EMBEDDING_PROVIDER` or `NEO_EMBEDDING_PROVIDER` env var
+ * (silently defaulting to Gemini cloud while the operator believes a local provider is wired) is
+ * undetectable until cross-tenant retrieval drift emerges.
  *
  * **What this block reports:**
- * - `active`: which provider key is currently selected for ChromaDB embedding generation
- *   (`'gemini'` | `'openAiCompatible'` | `'ollama'`)
- * - `host`: resolved provider endpoint URL (when applicable; `null` for cloud providers)
- * - `model`: resolved embedding model name
- * - `dimensions`: configured vector dimension (`vectorDimension` config; load-bearing because
- *   ChromaDB collections are pinned to dimensions at creation, mismatch causes silent insert failures)
+ * - `aligned`: whether ChromaDB and SQLite Native Edge Graph embedding provider keys match
+ * - `chroma`: provider projection for ChromaDB embedding generation
+ * - `neo`: provider projection for SQLite Native Edge Graph embedding generation
  *
- * **Defensive fallback:** if the active provider key isn't recognized, the block surfaces
+ * **Defensive fallback:** if either provider key isn't recognized, its sub-block surfaces
  * `{active: <unknown-key>, host: null, model: null, dimensions: <vectorDimension>, error: <msg>}`
  * so operators see the misconfig directly. Aligns with "surface, don't obscure" (PR #10227).
  *
- * @param {Object} cfg aiConfig-shaped input. Reads `cfg.chromaEmbeddingProvider`,
+ * @param {Object} cfg aiConfig-shaped input. Reads `cfg.chromaEmbeddingProvider`, `cfg.neoEmbeddingProvider`,
  *     `cfg.openAiCompatible.{host, embeddingModel}`, `cfg.ollama.{host, embeddingModel}`,
  *     `cfg.embeddingModel` (Gemini path), `cfg.vectorDimension`.
- * @returns {{active: String, host: String|null, model: String|null, dimensions: Number, error?: String}}
+ * @returns {{aligned: Boolean, chroma: Object, neo: Object}}
  * @see learn/agentos/SharedDeployment.md
  */
 export function buildEmbeddingProviderBlock(cfg) {
-    const active     = cfg.chromaEmbeddingProvider;
+    const chromaActive = cfg.chromaEmbeddingProvider;
+    const neoActive    = cfg.neoEmbeddingProvider || 'gemini';
+
+    return {
+        aligned: chromaActive === neoActive,
+        chroma : buildSingleEmbeddingProviderBlock(cfg, chromaActive, 'chromaEmbeddingProvider'),
+        neo    : buildSingleEmbeddingProviderBlock(cfg, neoActive, 'neoEmbeddingProvider')
+    }
+}
+
+/**
+ * Projects one embedding provider selector into the common healthcheck sub-block shape.
+ * @param {Object} cfg aiConfig-shaped input.
+ * @param {String} active The selected provider key.
+ * @param {String} configName The aiConfig key name used in scoped error messages.
+ * @returns {{active: String, host: String|null, model: String|null, dimensions: Number, error?: String}}
+ */
+function buildSingleEmbeddingProviderBlock(cfg, active, configName) {
     const dimensions = cfg.vectorDimension;
 
     switch (active) {
@@ -163,7 +178,7 @@ export function buildEmbeddingProviderBlock(cfg) {
                 host      : null,
                 model     : null,
                 dimensions,
-                error     : `Unrecognized chromaEmbeddingProvider: '${active}'. Expected 'gemini' | 'openAiCompatible' | 'ollama'.`
+                error     : `Unrecognized ${configName}: '${active}'. Expected 'gemini' | 'openAiCompatible' | 'ollama'.`
             };
     }
 }
