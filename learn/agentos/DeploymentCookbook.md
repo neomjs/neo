@@ -48,7 +48,7 @@ You must map a single public hostname to two distinct upstream services. We reco
 ### Header Stripping (Security)
 To prevent spoofing attacks, the reverse proxy **MUST** strip any incoming `X-PREFERRED-USERNAME` headers provided by the client before injecting its own trusted value.
 
-*(Note: Canonical Nginx/Caddy configurations are tracked under [#10803](https://github.com/neomjs/neo/issues/10803)).*
+See the [Reference Nginx and Caddy Configurations](../../ai/mcp/deploy/proxy/) for concrete examples of how to implement this header stripping securely.
 
 ## Section 4: Identity Provider Setup
 
@@ -170,7 +170,6 @@ This cookbook surfaces the following architectural gaps between "substrate compl
 
 - **[#10801](https://github.com/neomjs/neo/issues/10801):** Create reference Docker and docker-compose artifacts for shared KB/MC deployment.
 - **[#10802](https://github.com/neomjs/neo/issues/10802):** Expose public canonical URL configuration to MCP servers for SSE and OAuth callbacks.
-- **[#10803](https://github.com/neomjs/neo/issues/10803):** Publish reference reverse proxy config for shared topology.
 - **[#10804](https://github.com/neomjs/neo/issues/10804):** Consolidate `neoEmbeddingProvider` and `chromaEmbeddingProvider` configurations.
 - **[#10805](https://github.com/neomjs/neo/issues/10805):** Build staged-stack integration test harness for shared cloud deployment.
 - **[#10808](https://github.com/neomjs/neo/issues/10808):** Operator-facing env var ergonomics — descriptive names (`MCP_HTTP_PORT`, `NEO_PUBLIC_URL`, etc.) + `NEO_CHROMA_HOST` / `NEO_CHROMA_PORT` overridability. Cross-cuts Section 6 (env var inventory) where the forward-looking names are documented ahead of substrate-side wiring.
