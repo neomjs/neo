@@ -209,10 +209,10 @@ test.describe('HealthService #10127 — buildTopologyBlock', () => {
 });
 
 /**
- * @summary Coverage for the #10723/#10773 embedding-provider observability block in the healthcheck payload.
+ * @summary Coverage for the #10723/#10773/#10804 embedding-provider observability block in the healthcheck payload.
  *
  * Pins the pure-projection contract of `buildEmbeddingProviderBlock` — the module-scope function
- * that extracts active Chroma-side and SQLite-side embedding-provider state from `aiConfig` for the
+ * that extracts active embedding-provider state from `aiConfig` for the
  * healthcheck `providers.embedding` field. Integration correctness (live provider request) is
  * operator-territory L3 validation against a running local-model server; this spec covers the L1-L2
  * substrate shape that operators rely on to verify the provider configured matches the provider
@@ -220,7 +220,7 @@ test.describe('HealthService #10127 — buildTopologyBlock', () => {
  *
  * @see Neo.ai.mcp.server.memory-core.services.HealthService#buildEmbeddingProviderBlock
  */
-test.describe('HealthService #10723/#10773 — buildEmbeddingProviderBlock', () => {
+test.describe('HealthService #10723/#10773/#10804 — buildEmbeddingProviderBlock', () => {
     let buildEmbeddingProviderBlock;
 
     test.beforeAll(async () => {
@@ -228,161 +228,99 @@ test.describe('HealthService #10723/#10773 — buildEmbeddingProviderBlock', () 
         buildEmbeddingProviderBlock = mod.buildEmbeddingProviderBlock;
     });
 
-    test('same openAiCompatible providers surface chroma + neo sub-blocks and aligned=true', () => {
+    test('openAiCompatible provider surfaces single provider block', () => {
         const cfg = {
-            chromaEmbeddingProvider: 'openAiCompatible',
-            neoEmbeddingProvider   : 'openAiCompatible',
-            vectorDimension        : 4096,
-            openAiCompatible       : {
+            embeddingProvider: 'openAiCompatible',
+            vectorDimension  : 4096,
+            openAiCompatible : {
                 host          : 'http://127.0.0.1:8000',
                 embeddingModel: 'text-embedding-qwen3-embedding-1.5b'
             }
         };
         expect(buildEmbeddingProviderBlock(cfg)).toEqual({
-            aligned: true,
-            chroma : {
-                active    : 'openAiCompatible',
-                host      : 'http://127.0.0.1:8000',
-                model     : 'text-embedding-qwen3-embedding-1.5b',
-                dimensions: 4096
-            },
-            neo: {
-                active    : 'openAiCompatible',
-                host      : 'http://127.0.0.1:8000',
-                model     : 'text-embedding-qwen3-embedding-1.5b',
-                dimensions: 4096
-            }
+            active    : 'openAiCompatible',
+            host      : 'http://127.0.0.1:8000',
+            model     : 'text-embedding-qwen3-embedding-1.5b',
+            dimensions: 4096
         });
     });
 
-    test('diverged providers surface mismatch at-a-glance', () => {
+    test('gemini provider surfaces cloud model + dimensions', () => {
         const cfg = {
-            chromaEmbeddingProvider: 'gemini',
-            neoEmbeddingProvider   : 'openAiCompatible',
-            vectorDimension        : 4096,
-            embeddingModel         : 'gemini-embedding-001',
-            openAiCompatible       : {
-                host          : 'http://127.0.0.1:8000',
-                embeddingModel: 'text-embedding-qwen3-embedding-8b'
-            }
+            embeddingProvider: 'gemini',
+            vectorDimension  : 3072,
+            embeddingModel   : 'gemini-embedding-001'
         };
         expect(buildEmbeddingProviderBlock(cfg)).toEqual({
-            aligned: false,
-            chroma : {
-                active    : 'gemini',
-                host      : null,
-                model     : 'gemini-embedding-001',
-                dimensions: 4096
-            },
-            neo: {
-                active    : 'openAiCompatible',
-                host      : 'http://127.0.0.1:8000',
-                model     : 'text-embedding-qwen3-embedding-8b',
-                dimensions: 4096
-            }
+            active    : 'gemini',
+            host      : null,
+            model     : 'gemini-embedding-001',
+            dimensions: 3072
         });
     });
 
-    test('ollama provider surfaces host + embeddingModel + dimensions for both engines', () => {
+    test('ollama provider surfaces host + embeddingModel + dimensions', () => {
         const cfg = {
-            chromaEmbeddingProvider: 'ollama',
-            neoEmbeddingProvider   : 'ollama',
-            vectorDimension        : 4096,
-            ollama                 : {
+            embeddingProvider: 'ollama',
+            vectorDimension  : 4096,
+            ollama           : {
                 host          : 'http://127.0.0.1:11434',
                 embeddingModel: 'qwen3-embedding'
             }
         };
         expect(buildEmbeddingProviderBlock(cfg)).toEqual({
-            aligned: true,
-            chroma : {
-                active    : 'ollama',
-                host      : 'http://127.0.0.1:11434',
-                model     : 'qwen3-embedding',
-                dimensions: 4096
-            },
-            neo: {
-                active    : 'ollama',
-                host      : 'http://127.0.0.1:11434',
-                model     : 'qwen3-embedding',
-                dimensions: 4096
-            }
+            active    : 'ollama',
+            host      : 'http://127.0.0.1:11434',
+            model     : 'qwen3-embedding',
+            dimensions: 4096
         });
     });
 
-    test('unset neoEmbeddingProvider defaults SQLite-side provider to gemini', () => {
+    test('unset embeddingProvider defaults provider to gemini', () => {
         const cfg = {
-            chromaEmbeddingProvider: 'gemini',
-            vectorDimension        : 3072,
-            embeddingModel         : 'gemini-embedding-001'
+            vectorDimension: 3072,
+            embeddingModel : 'gemini-embedding-001'
         };
         expect(buildEmbeddingProviderBlock(cfg)).toEqual({
-            aligned: true,
-            chroma : {
-                active    : 'gemini',
-                host      : null,
-                model     : 'gemini-embedding-001',
-                dimensions: 3072
-            },
-            neo: {
-                active    : 'gemini',
-                host      : null,
-                model     : 'gemini-embedding-001',
-                dimensions: 3072
-            }
+            active    : 'gemini',
+            host      : null,
+            model     : 'gemini-embedding-001',
+            dimensions: 3072
         });
     });
 
-    test('unrecognized providers surface scoped error fields, do not throw', () => {
+    test('unrecognized provider surfaces scoped error field, does not throw', () => {
         const cfg = {
-            chromaEmbeddingProvider: 'fooProvider',
-            neoEmbeddingProvider   : 'barProvider',
-            vectorDimension        : 4096
+            embeddingProvider: 'fooProvider',
+            vectorDimension  : 4096
         };
         const result = buildEmbeddingProviderBlock(cfg);
-        expect(result.aligned).toBe(false);
-        expect(result.chroma.active).toBe('fooProvider');
-        expect(result.chroma.host).toBeNull();
-        expect(result.chroma.model).toBeNull();
-        expect(result.chroma.dimensions).toBe(4096);
-        expect(result.chroma.error).toMatch(/Unrecognized chromaEmbeddingProvider/);
-        expect(result.neo.active).toBe('barProvider');
-        expect(result.neo.host).toBeNull();
-        expect(result.neo.model).toBeNull();
-        expect(result.neo.dimensions).toBe(4096);
-        expect(result.neo.error).toMatch(/Unrecognized neoEmbeddingProvider/);
+        expect(result.active).toBe('fooProvider');
+        expect(result.host).toBeNull();
+        expect(result.model).toBeNull();
+        expect(result.dimensions).toBe(4096);
+        expect(result.error).toMatch(/Unrecognized embeddingProvider/);
     });
 
-    test('openAiCompatible without nested config surfaces null host + null model + dimensions for both engines', () => {
+    test('openAiCompatible without nested config surfaces null host + null model + dimensions', () => {
         const cfg = {
-            chromaEmbeddingProvider: 'openAiCompatible',
-            neoEmbeddingProvider   : 'openAiCompatible',
-            vectorDimension        : 4096
+            embeddingProvider: 'openAiCompatible',
+            vectorDimension  : 4096
             // openAiCompatible config block deliberately absent — defensive against incomplete config
         };
         expect(buildEmbeddingProviderBlock(cfg)).toEqual({
-            aligned: true,
-            chroma : {
-                active    : 'openAiCompatible',
-                host      : null,
-                model     : null,
-                dimensions: 4096
-            },
-            neo: {
-                active    : 'openAiCompatible',
-                host      : null,
-                model     : null,
-                dimensions: 4096
-            }
+            active    : 'openAiCompatible',
+            host      : null,
+            model     : null,
+            dimensions: 4096
         });
     });
 
     test('dimensions fields always reflect vectorDimension regardless of provider', () => {
         for (const provider of ['gemini', 'openAiCompatible', 'ollama', 'unrecognized']) {
-            const cfg = {chromaEmbeddingProvider: provider, neoEmbeddingProvider: provider, vectorDimension: 768};
+            const cfg = {embeddingProvider: provider, vectorDimension: 768};
             const result = buildEmbeddingProviderBlock(cfg);
-            expect(result.chroma.dimensions).toBe(768);
-            expect(result.neo.dimensions).toBe(768);
+            expect(result.dimensions).toBe(768);
         }
     });
 });

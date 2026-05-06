@@ -4,6 +4,17 @@ import Base                 from '../../../../../src/core/Base.mjs';
 import logger               from '../logger.mjs';
 
 /**
+ * Determines whether TextEmbeddingService needs a Gemini embedding client for the active provider.
+ * Kept pure so #10804 config-consolidation tests can pin the single-provider gate without
+ * constructing the singleton or requiring a live `GEMINI_API_KEY`.
+ * @param {Object} cfg aiConfig-shaped input.
+ * @returns {Boolean}
+ */
+export function shouldInitializeGeminiEmbeddingClient(cfg = aiConfig) {
+    return cfg.embeddingProvider === 'gemini';
+}
+
+/**
  * @summary Service for creating embedding vectors for text.
  *
  * This wrapper service interfaces with the Google Generative AI API (Gemini) to generate vector embeddings
@@ -40,7 +51,7 @@ class TextEmbeddingService extends Base {
     construct(config) {
         super.construct(config);
 
-        if (aiConfig.chromaEmbeddingProvider === 'gemini' || aiConfig.neoEmbeddingProvider === 'gemini') {
+        if (shouldInitializeGeminiEmbeddingClient()) {
             const apiKey = process.env.GEMINI_API_KEY;
             if (!apiKey) {
                 logger.warn('⚠️  [TextEmbeddingService] GEMINI_API_KEY not set. Semantic search features with Gemini will be unavailable.');

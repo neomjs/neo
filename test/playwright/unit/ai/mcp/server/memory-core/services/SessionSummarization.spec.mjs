@@ -65,8 +65,7 @@ test.describe('Memory Core Offline Summarization', () => {
 
         // Force 'openAiCompatible' routing for this test
         SDK.Memory_Config.data.modelProvider         = 'openAiCompatible';
-        SDK.Memory_Config.data.neoEmbeddingProvider  = 'openAiCompatible';
-        SDK.Memory_Config.data.chromaEmbeddingProvider = 'openAiCompatible';
+        SDK.Memory_Config.data.embeddingProvider     = 'openAiCompatible';
         SDK.Memory_Config.data.openAiCompatible.host           = 'http://127.0.0.1:1234';
         SDK.Memory_Config.data.openAiCompatible.model          = 'gemma-4-31b-it';
         SDK.Memory_Config.data.openAiCompatible.embeddingModel = 'text-embedding-qwen3-embedding-8b';

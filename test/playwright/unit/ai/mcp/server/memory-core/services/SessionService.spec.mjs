@@ -57,8 +57,7 @@ test.describe('SessionService setSessionId', () => {
         TextEmbeddingService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
 
         SDK.Memory_Config.data.modelProvider         = 'openAiCompatible';
-        SDK.Memory_Config.data.neoEmbeddingProvider  = 'openAiCompatible';
-        SDK.Memory_Config.data.chromaEmbeddingProvider = 'openAiCompatible';
+        SDK.Memory_Config.data.embeddingProvider     = 'openAiCompatible';
         SDK.Memory_Config.data.autoSummarize         = false;
 
         TextEmbeddingService.embedText = async () => new Array(4096).fill(Math.random());
@@ -293,4 +292,3 @@ test.describe('SessionService setSessionId', () => {
         expect(sharedMemories.memories.length).toBe(1);
     });
 });
-

@@ -111,19 +111,10 @@ Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint
     "migration": { "memory": 0, "session": 0, "total": 0, "available": true },
     "providers": {
         "embedding": {
-            "aligned": true,
-            "chroma": {
-                "active": "openAiCompatible",
-                "host": "http://127.0.0.1:8000",
-                "model": "text-embedding-qwen3-embedding-1.5b",
-                "dimensions": 4096
-            },
-            "neo": {
-                "active": "openAiCompatible",
-                "host": "http://127.0.0.1:8000",
-                "model": "text-embedding-qwen3-embedding-1.5b",
-                "dimensions": 4096
-            }
+            "active": "openAiCompatible",
+            "host": "http://127.0.0.1:8000",
+            "model": "text-embedding-qwen3-embedding-1.5b",
+            "dimensions": 4096
         },
         "summary": {
             "active": "openAiCompatible",
@@ -173,19 +164,19 @@ Introduced in #10017 (see `learn/agentos/tooling/MultiTenantMigrationGuide.md`).
 
 A zero `total` is the signal operators watch for to flip the `memorySharing` default from `'legacy'` to `'private'`.
 
-### `providers.embedding` — Active Embedding Model Routes
+### `providers.embedding` — Active Embedding Model Route
 
-Introduced for Chroma-side local embedding-provider validation (#10723) and expanded for SQLite-side embedding observability (#10773). The block surfaces both embedding paths so operators can verify whether ChromaDB retrieval and SQLite Native Edge Graph operations share the same provider intentionally:
+Introduced for Chroma-side local embedding-provider validation (#10723), expanded for SQLite-side embedding observability (#10773), then consolidated to one provider selector by #10804. The block surfaces the single embedding route used by ChromaDB retrieval and SQLite Native Edge Graph operations:
 
 | Field | Type | Meaning |
 |---|---|---|
-| `aligned` | `boolean` | `true` when `chroma.active` and `neo.active` match. `false` is valid for intentional split-engine deployments, but otherwise indicates config drift between `NEO_CHROMA_EMBEDDING_PROVIDER` and `NEO_EMBEDDING_PROVIDER`. |
-| `chroma.active` | `'gemini' \| 'openAiCompatible' \| 'ollama' \| string` | Provider selected for ChromaDB embedding generation. |
-| `neo.active` | `'gemini' \| 'openAiCompatible' \| 'ollama' \| string` | Provider selected for SQLite Native Edge Graph embedding operations. Defaults to `'gemini'` when `NEO_EMBEDDING_PROVIDER` is unset. |
-| `chroma.host` / `neo.host` | `string \| null` | Embedding provider host for local providers; `null` for Gemini. |
-| `chroma.model` / `neo.model` | `string \| null` | Configured embedding model name. |
-| `chroma.dimensions` / `neo.dimensions` | `number` | Configured `vectorDimension`; must match the embedding model's actual output dimension. |
-| `chroma.error` / `neo.error` | `string` (optional) | Present only when that provider key is unrecognized; healthcheck surfaces the misconfig instead of throwing. |
+| `active` | `'gemini' \| 'openAiCompatible' \| 'ollama' \| string` | Provider selected for every embedding consumer. Controlled by `embeddingProvider` / `NEO_EMBEDDING_PROVIDER`. |
+| `host` | `string \| null` | Embedding provider host for local providers; `null` for Gemini. |
+| `model` | `string \| null` | Configured embedding model name. |
+| `dimensions` | `number` | Configured `vectorDimension`; must match the embedding model's actual output dimension. |
+| `error` | `string` (optional) | Present only when the provider key is unrecognized; healthcheck surfaces the misconfig instead of throwing. |
+
+`NEO_CHROMA_EMBEDDING_PROVIDER` remains readable during the #10804 deprecation window and feeds the unified selector with a warning. Operators should use `NEO_EMBEDDING_PROVIDER` for new deployments.
 
 ### `providers.summary` — Active Summary Model Route
 

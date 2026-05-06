@@ -220,7 +220,7 @@ class VectorService extends Base {
             return errorPayload;
         }
 
-        logger.log(`Using TextEmbeddingService with provider: ${mcConfig.chromaEmbeddingProvider}.`);
+        logger.log(`Using TextEmbeddingService with provider: ${mcConfig.embeddingProvider}.`);
 
         logger.log('Embedding chunks...');
         const {batchSize, batchDelay, maxRetries} = aiConfig;
@@ -238,7 +238,7 @@ class VectorService extends Base {
 
             while (retries < maxRetries && !success) {
                 try {
-                    const embeddings = await TextEmbeddingService.embedTexts(textsToEmbed, mcConfig.chromaEmbeddingProvider);
+                    const embeddings = await TextEmbeddingService.embedTexts(textsToEmbed, mcConfig.embeddingProvider);
 
                     const metadatas = batch.map(chunk => {
                         const metadata = {};
