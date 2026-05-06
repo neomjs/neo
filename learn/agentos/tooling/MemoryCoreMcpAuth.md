@@ -25,15 +25,17 @@ Both paths end at the same destination: a `RequestContextService.run(context, ..
 
 Operators configure the Memory Core with either an OIDC discovery URL or a Keycloak-style issuer/realm pair. The `AuthService` handles discovery, token introspection, audience enforcement, and extracts `preferred_username` / `sub` as the authoritative `userId`. `TransportService` wraps each `/mcp` HTTP request in `RequestContextService.run()` using the auth context.
 
-Deployment example — Memory Core running behind Keycloak in a multi-tenant cloud environment:
+Deployment example — Memory Core running behind Keycloak in a multi-tenant cloud environment (env vars consumed by `ai/mcp/server/memory-core/config.template.mjs` directly, no per-server prefix translation):
 
 ```
-NEO_MEMORY_CORE_TRANSPORT=sse
-NEO_MEMORY_CORE_SSE_PORT=3001
-NEO_MEMORY_CORE_AUTH_ISSUER_URL=https://auth.example.com/realms/neo/
-NEO_MEMORY_CORE_AUTH_CLIENT_ID=neo-memory-core
-NEO_MEMORY_CORE_AUTH_CLIENT_SECRET=<secret>
+TRANSPORT=sse
+MCP_HTTP_PORT=3001       # legacy alias `SSE_PORT` still works during the #10808 deprecation window
+AUTH_ISSUER_URL=https://auth.example.com/realms/neo/
+OAUTH_CLIENT_ID=neo-memory-core
+OAUTH_CLIENT_SECRET=<secret>
 ```
+
+> **Note on per-server env-var namespacing.** Operators running multiple MCP servers side-by-side (e.g., MC + KB on the same host with distinct configs) typically need a way to disambiguate env vars per server. The Memory Core's `config.template.mjs` consumes the unprefixed forms shown above (`TRANSPORT`, `MCP_HTTP_PORT`, `AUTH_ISSUER_URL`, etc.). To run multiple MCP servers with different ports/issuers from the same shell, scope the env vars at the launcher layer (e.g., per-process `.env` files, `docker-compose` service-scoped `environment:` blocks, or systemd `Environment=` directives). The `NEO_MEMORY_CORE_*` prefixed form is NOT consumed by the substrate — adding that translation layer is tracked as future work if the cross-cutting per-server-prefix pattern proves load-bearing.
 
 Once the server starts, every tool call from a client MUST arrive with `Authorization: Bearer <token>` where the token was issued by the configured issuer AND audience-matches the Memory Core's public URL. Tokens with `aud` claims targeting a different resource are rejected per RFC 9068.
 

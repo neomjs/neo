@@ -109,7 +109,7 @@ class TransportService extends Base {
             return new URL(`${protocol}://${host}:${port}`);
         };
 
-        const mcpServerUrl = getFullUrl(process.env.HOST || 'localhost', aiConfig.ssePort);
+        const mcpServerUrl = getFullUrl(process.env.HOST || 'localhost', aiConfig.mcpHttpPort);
 
         // Optional OIDC/OAuth Authorization
         if (aiConfig.auth.host || aiConfig.auth.issuerUrl) {
@@ -196,7 +196,7 @@ class TransportService extends Base {
             await RequestContextService.run(requestContext, () => transport.handleRequest(req, res, req.body));
         });
 
-        const port = aiConfig.ssePort || 3000;
+        const port = aiConfig.mcpHttpPort || 3000;
         app.listen(port, () => {
             logger.info(`[${resourceName}] Server started on SSE transport (Port: ${port})`);
             logger.info(`[${resourceName}] Available tools loaded from OpenAPI spec`);
