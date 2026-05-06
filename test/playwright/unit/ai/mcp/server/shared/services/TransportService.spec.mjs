@@ -197,4 +197,63 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
         });
     });
 
+    test.describe('mcpServerUrl resolution (publicUrl branch)', () => {
+        let TransportService;
+
+        test.beforeAll(async () => {
+            TransportService = (await import('../../../../../../../../ai/mcp/server/shared/services/TransportService.mjs')).default;
+        });
+
+        test.afterEach(() => {
+            if (TransportService.app) {
+                TransportService.destroy();
+            }
+        });
+
+        test('uses aiConfig.publicUrl when set', async () => {
+            const originalHost = process.env.HOST;
+            process.env.HOST = 'internal-host';
+
+            await TransportService.setup({
+                server: { mcpServer: { connect: async () => {} } },
+                aiConfig: { publicUrl: 'https://public.example.com', ssePort: 3000, auth: {} },
+                logger: { info: () => {} },
+                resourceName: 'Test'
+            });
+
+            expect(TransportService.mcpServerUrl.href).toBe('https://public.example.com/');
+            process.env.HOST = originalHost;
+        });
+
+        test('falls back to HOST and port when publicUrl is unset', async () => {
+            const originalHost = process.env.HOST;
+            process.env.HOST = 'internal-host';
+
+            await TransportService.setup({
+                server: { mcpServer: { connect: async () => {} } },
+                aiConfig: { ssePort: 3000, auth: {} },
+                logger: { info: () => {} },
+                resourceName: 'Test'
+            });
+
+            expect(TransportService.mcpServerUrl.href).toBe('https://internal-host:3000/');
+            process.env.HOST = originalHost;
+        });
+
+        test('falls back to HOST and port when publicUrl is empty string', async () => {
+            const originalHost = process.env.HOST;
+            process.env.HOST = 'internal-host';
+
+            await TransportService.setup({
+                server: { mcpServer: { connect: async () => {} } },
+                aiConfig: { publicUrl: '', ssePort: 3000, auth: {} },
+                logger: { info: () => {} },
+                resourceName: 'Test'
+            });
+
+            expect(TransportService.mcpServerUrl.href).toBe('https://internal-host:3000/');
+            process.env.HOST = originalHost;
+        });
+    });
+
 });

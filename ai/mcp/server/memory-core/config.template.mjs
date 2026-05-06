@@ -3,12 +3,13 @@ import path            from 'path';
 import Base            from '../../../../src/core/Base.mjs';
 import {fileURLToPath} from 'url';
 import {normalizeEmbeddingProviderConfig, resolveEmbeddingProvider} from './helpers/EmbeddingProviderConfig.mjs';
-import {resolveChromaHost, resolveChromaPort, resolveMcpHttpPort}   from '../shared/helpers/DeploymentConfig.mjs';
+import {resolveChromaHost, resolveChromaPort, resolveMcpHttpPort, resolvePublicUrl}   from '../shared/helpers/DeploymentConfig.mjs';
 
-export {normalizeEmbeddingProviderConfig, resolveChromaHost, resolveChromaPort, resolveEmbeddingProvider, resolveMcpHttpPort};
+export {normalizeEmbeddingProviderConfig, resolveChromaHost, resolveChromaPort, resolveEmbeddingProvider, resolveMcpHttpPort, resolvePublicUrl};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
+
 const neoRootDir = path.resolve(__dirname, '../../../../');
 const cwd        = neoRootDir;
 
@@ -79,6 +80,16 @@ const defaultConfig = {
      * @type {number}
      */
     mcpHttpPort: resolveMcpHttpPort({defaultPort: 3001}),
+    /**
+     * Optional public canonical URL for this MCP server.
+     * When configured, this URL is explicitly used as the resource indicator
+     * for OAuth 2.1 / OIDC audience claims and SSE callback advertising.
+     * Required when deploying behind reverse proxies (Nginx/Caddy) where
+     * the internal host:port bindings do not match the public-facing URL.
+     * Example: 'https://mcp.neo.mjs.com/memory-core'
+     * @type {string|null}
+     */
+    publicUrl: resolvePublicUrl(),
     /**
      * Optional Express middleware function for authentication (only used if transport is 'sse').
      * @type {Function|null}

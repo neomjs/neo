@@ -11,7 +11,7 @@ Before deploying, ensure you understand the target topology.
 ### Architecture Topology
 1. **Agent Harnesses (Clients):** Local agent runners (e.g., Anthropic Claude Desktop, Gemini) sending MCP JSON-RPC over Server-Sent Events (SSE) or HTTP.
 2. **Reverse Proxy:** The public gateway that terminates TLS, enforces OAuth/OIDC authentication, and injects trusted identity headers.
-3. **MCP Servers:** The Node.js processes running `knowledge-base` and `memory-core`.
+3. **MCP Servers:** The Node.js processes running `knowledge-base` and `memory-core`. These must be configured with a canonical `publicUrl` to support correct SSE advertisement and OAuth callbacks behind the proxy.
 4. **Data Layer:** A shared Chroma vector database and isolated SQLite graph databases for each server.
 
 ### Identity Flow
@@ -57,7 +57,7 @@ You must register an OAuth application with your Identity Provider (e.g., Google
 ### Client Registration
 1. Create a new Web Application client.
 2. Store the `clientId` and `clientSecret` securely.
-3. Configure the Redirect URIs.
+3. Configure the Redirect URIs. If your proxy does not handle the OAuth flow and terminates it at the MCP server, you MUST configure the `NEO_PUBLIC_URL` environment variable so the MCP server can construct correct canonical callbacks.
 
 ### Authentication Modes
 You must configure the MCP servers to trust the proxy:
@@ -85,6 +85,7 @@ When provisioning your containers, supply the following minimal environment vari
 | `NEO_CHROMA_UNIFIED` | Both | Set to `true` to enable shared Chroma architecture. |
 | `NEO_CHROMA_HOST` | Both | Internal URL of the Chroma instance. |
 | `NEO_CHROMA_PORT` | Both | Port of the Chroma instance. |
+| `NEO_PUBLIC_URL` | Both | The canonical public URL for this MCP server (e.g., `https://api.example.com/mc`). Required for SSE advertisement and OAuth `redirect_uri` generation behind reverse proxies. |
 | `AUTH_TRUST_PROXY_IDENTITY` | Both | Set to `true` if your reverse proxy handles authentication. |
 | `GEMINI_API_KEY` | Both | Required for Gemini integration. |
 

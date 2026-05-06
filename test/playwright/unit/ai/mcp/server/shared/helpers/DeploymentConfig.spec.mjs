@@ -14,6 +14,7 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
+
 import Neo            from '../../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../../src/core/_export.mjs';
 
@@ -306,5 +307,41 @@ test.describe('DeploymentConfig #10808 — resolveChromaPort', () => {
             env        : {},
             defaultPort: 9001
         })).toBe(9001);
+    });
+});
+
+test.describe('DeploymentConfig.resolvePublicUrl', () => {
+    let resolvePublicUrl;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../../../ai/mcp/server/shared/helpers/DeploymentConfig.mjs');
+        resolvePublicUrl = mod.resolvePublicUrl;
+    });
+
+    test('returns null when NEO_PUBLIC_URL is undefined', () => {
+        expect(resolvePublicUrl({ env: {} })).toBeNull();
+    });
+
+    test('returns null when NEO_PUBLIC_URL is empty', () => {
+        expect(resolvePublicUrl({ env: { NEO_PUBLIC_URL: '' } })).toBeNull();
+    });
+
+    test('returns parsed URL when NEO_PUBLIC_URL is valid', () => {
+        expect(resolvePublicUrl({ env: { NEO_PUBLIC_URL: 'https://mcp.neo.mjs.com' } })).toBe('https://mcp.neo.mjs.com');
+    });
+
+    test('removes trailing slash from valid URL', () => {
+        expect(resolvePublicUrl({ env: { NEO_PUBLIC_URL: 'https://mcp.neo.mjs.com/' } })).toBe('https://mcp.neo.mjs.com');
+    });
+
+
+    test('warns and returns null for invalid URL', () => {
+        let warning = null;
+        const result = resolvePublicUrl({
+            env: { NEO_PUBLIC_URL: 'not-a-url' },
+            warn: msg => { warning = msg; }
+        });
+        expect(result).toBeNull();
+        expect(warning).toContain('Invalid NEO_PUBLIC_URL value: "not-a-url"');
     });
 });
