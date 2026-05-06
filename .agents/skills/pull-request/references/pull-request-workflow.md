@@ -28,6 +28,8 @@ Your PR body's slot-rationale section MUST enumerate:
 - For each *modified* section: its disposition delta + the reason for the shift.
 - For each *retired* section: the rationale for removal.
 
+**Env-var changes** → read [`env-var-rename-rule.md`](./env-var-rename-rule.md).
+
 ## 2. Git Branching Mandate
 
 You are strictly forbidden from committing or pushing directly to `main` (release-only) or `dev` (default working). The *mechanism* for satisfying this rule differs by harness class.
