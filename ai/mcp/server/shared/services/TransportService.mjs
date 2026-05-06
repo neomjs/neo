@@ -109,7 +109,8 @@ class TransportService extends Base {
             return new URL(`${protocol}://${host}:${port}`);
         };
 
-        const mcpServerUrl = getFullUrl(process.env.HOST || 'localhost', aiConfig.mcpHttpPort);
+        const mcpServerUrl = aiConfig.publicUrl ? new URL(aiConfig.publicUrl) : getFullUrl(process.env.HOST || 'localhost', aiConfig.mcpHttpPort);
+        this.mcpServerUrl = mcpServerUrl;
 
         // Optional OIDC/OAuth Authorization
         if (aiConfig.auth.host || aiConfig.auth.issuerUrl) {

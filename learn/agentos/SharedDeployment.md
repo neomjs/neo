@@ -117,6 +117,17 @@ Shared deployments need to know **which agent originated each request** so memor
 
 The two paths are NOT mutually exclusive — `req.auth` (OIDC) takes precedence over the proxy header by design. The proxy path only fires when `req.auth` is absent (OIDC unconfigured or token missing) AND `trustProxyIdentity` is explicitly enabled. **If `trustProxyIdentity` is enabled and no valid proxy identity header is found, the request is actively rejected with a `401 Unauthorized` error.** This strict "Verify-Before-Assert" gate prevents requests from silently falling through to an unauthenticated single-tenant context in a shared deployment.
 
+### Configuration: Canonical `publicUrl` (PR #10802)
+
+When deploying behind a reverse proxy that uses a public domain (e.g., `https://mcp.neo.mjs.com`), the MCP server MUST know its public canonical URL to advertise correct Server-Sent Events (SSE) endpoints and validate OAuth audience claims.
+
+```bash
+# Set the canonical public URL for the server
+export NEO_PUBLIC_URL=https://mcp.neo.mjs.com/mc
+```
+
+The `publicUrl` property decouples the public-facing URL from the internal `HOST` and `PORT` bindings, fixing SSE callback and OIDC redirect mismatches behind proxies.
+
 ### Configuration: `trustProxyIdentity` (PR #10768 / #10727)
 
 ```bash
