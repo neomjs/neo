@@ -14,6 +14,7 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
+
 import Neo            from '../../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../../src/core/_export.mjs';
 
@@ -332,6 +333,7 @@ test.describe('DeploymentConfig.resolvePublicUrl', () => {
     test('removes trailing slash from valid URL', () => {
         expect(resolvePublicUrl({ env: { NEO_PUBLIC_URL: 'https://mcp.neo.mjs.com/' } })).toBe('https://mcp.neo.mjs.com');
     });
+
 
     test('warns and returns null for invalid URL', () => {
         let warning = null;
