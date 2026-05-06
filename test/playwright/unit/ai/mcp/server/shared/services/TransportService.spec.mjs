@@ -36,7 +36,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
         };
 
         const testPort = 3125;
-        const mockAiConfig = { ssePort: testPort, auth: {} };
+        const mockAiConfig = { mcpHttpPort: testPort, auth: {} };
         const mockLogger = { info: () => {} };
 
         // Setup the real transport service which starts the Express app

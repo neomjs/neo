@@ -88,7 +88,7 @@ When provisioning your containers, supply the following minimal environment vari
 | `AUTH_TRUST_PROXY_IDENTITY` | Both | Set to `true` if your reverse proxy handles authentication. |
 | `GEMINI_API_KEY` | Both | Required for Gemini integration. |
 
-*(Note: Full config unification and public URL advertising are tracked under [#10802](https://github.com/neomjs/neo/issues/10802) and [#10804](https://github.com/neomjs/neo/issues/10804). Environment mapping and legacy variable unification are tracked under [#10808](https://github.com/neomjs/neo/issues/10808)).*
+*(Notes: Public URL advertising is tracked under [#10802](https://github.com/neomjs/neo/issues/10802). Provider consolidation shipped in [PR #10810](https://github.com/neomjs/neo/pull/10810) — `embeddingProvider` is now the canonical selector. Env-var ergonomics shipped in [#10808](https://github.com/neomjs/neo/issues/10808): `MCP_HTTP_PORT` is the canonical operator-facing env var (`SSE_PORT` remains readable during the deprecation window with a warning); `NEO_CHROMA_HOST` / `NEO_CHROMA_PORT` are now env-overridable on both KB + MC.)*
 
 ## Section 7: Healthcheck Verification
 

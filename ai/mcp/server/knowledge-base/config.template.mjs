@@ -3,6 +3,9 @@ import os              from 'os';
 import path            from 'path';
 import Base            from '../../../../src/core/Base.mjs';
 import {fileURLToPath} from 'url';
+import {resolveChromaHost, resolveChromaPort, resolveMcpHttpPort} from '../shared/helpers/DeploymentConfig.mjs';
+
+export {resolveChromaHost, resolveChromaPort, resolveMcpHttpPort};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -35,10 +38,13 @@ const defaultConfig = {
      */
     transport: process.env.TRANSPORT || 'stdio',
     /**
-     * Port for the SSE transport (only used if transport is 'sse').
+     * Port the MCP server's HTTP/SSE transport listens on (only used when `transport === 'sse'`).
+     *
+     * Operator env var: `MCP_HTTP_PORT`. The legacy `SSE_PORT` env var remains readable for one
+     * deprecation window per #10808; resolver emits a warning if both are set with different values.
      * @type {number}
      */
-    ssePort: Number(process.env.SSE_PORT) || 3000,
+    mcpHttpPort: resolveMcpHttpPort({defaultPort: 3000}),
     /**
      * Optional Express middleware function for authentication (only used if transport is 'sse').
      * @type {Function|null}
@@ -94,14 +100,20 @@ const defaultConfig = {
     chromaUnified: process.env.NEO_CHROMA_UNIFIED === 'true',
     /**
      * The hostname of the ChromaDB server for the knowledge base.
+     *
+     * Operator env var: `NEO_CHROMA_HOST` (#10808). For shared cloud deployments where KB hosts the
+     * unified Chroma instance for both KB + MC, this points at the shared cloud-hosted Chroma.
      * @type {string}
      */
-    host: 'localhost',
+    host: resolveChromaHost(),
     /**
      * The port the ChromaDB server for the knowledge base is listening on.
+     *
+     * Operator env var: `NEO_CHROMA_PORT` (#10808). Invalid values (non-integer / out-of-range)
+     * fall back to the default with a console warning per the resolver validity contract.
      * @type {number}
      */
-    port: 8000,
+    port: resolveChromaPort(),
     /**
      * The local persistence path for the agent knowledge-base server.
      * @type {string}
