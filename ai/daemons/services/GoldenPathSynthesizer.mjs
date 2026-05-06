@@ -78,7 +78,7 @@ class GoldenPathSynthesizer extends Base {
             }
 
             logger.debug('[GoldenPathSynthesizer] Computing Frontier Baseline Vector...');
-            frontierEmbedding = await TextEmbeddingService.embedText(frontierText, aiConfig.neoEmbeddingProvider);
+            frontierEmbedding = await TextEmbeddingService.embedText(frontierText, aiConfig.embeddingProvider);
         } catch (e) {
             logger.warn('[GoldenPathSynthesizer] Failed to generate Frontier Baseline Vector. Aborting Hybrid route.', e);
             return;

@@ -101,43 +101,33 @@ export function buildTopologyBlock(cfg) {
 
 /**
  * @summary Projects the active embedding-provider configuration into the healthcheck `providers.embedding`
- *          observability block (#10723, #10773).
+ *          observability block (#10723, #10773, #10804).
  *
- * Pure function: takes an `aiConfig`-shaped input and returns both active embedding providers with
+ * Pure function: takes an `aiConfig`-shaped input and returns the active embedding provider with
  * their host, model, and configured vector dimension. Mirrors the {@link buildTopologyBlock} precedent
  * for module-scope pure projections.
  *
  * **Why this block exists:** Operators deploying the shared MC/KB topology against a local-model stack
  * (e.g., MLX-served Qwen3 embedding model) need an observable surface confirming WHICH Chroma-side
  * and SQLite-side embedding providers are currently active and WHICH model + endpoint is in use.
- * Without this, a misconfigured `NEO_CHROMA_EMBEDDING_PROVIDER` or `NEO_EMBEDDING_PROVIDER` env var
+ * Without this, a misconfigured `NEO_EMBEDDING_PROVIDER` env var
  * (silently defaulting to Gemini cloud while the operator believes a local provider is wired) is
  * undetectable until cross-tenant retrieval drift emerges.
  *
- * **What this block reports:**
- * - `aligned`: whether ChromaDB and SQLite Native Edge Graph embedding provider keys match
- * - `chroma`: provider projection for ChromaDB embedding generation
- * - `neo`: provider projection for SQLite Native Edge Graph embedding generation
+ * **What this block reports:** single-provider projection for every embedding callsite after #10804
+ * consolidated ChromaDB and SQLite Native Edge Graph provider selection into `embeddingProvider`.
  *
- * **Defensive fallback:** if either provider key isn't recognized, its sub-block surfaces
+ * **Defensive fallback:** if the provider key isn't recognized, the block surfaces
  * `{active: <unknown-key>, host: null, model: null, dimensions: <vectorDimension>, error: <msg>}`
  * so operators see the misconfig directly. Aligns with "surface, don't obscure" (PR #10227).
  *
- * @param {Object} cfg aiConfig-shaped input. Reads `cfg.chromaEmbeddingProvider`, `cfg.neoEmbeddingProvider`,
- *     `cfg.openAiCompatible.{host, embeddingModel}`, `cfg.ollama.{host, embeddingModel}`,
- *     `cfg.embeddingModel` (Gemini path), `cfg.vectorDimension`.
- * @returns {{aligned: Boolean, chroma: Object, neo: Object}}
+ * @param {Object} cfg aiConfig-shaped input. Reads `cfg.embeddingProvider`, `cfg.openAiCompatible.{host, embeddingModel}`,
+ *     `cfg.ollama.{host, embeddingModel}`, `cfg.embeddingModel` (Gemini path), `cfg.vectorDimension`.
+ * @returns {{active: String, host: String|null, model: String|null, dimensions: Number, error?: String}}
  * @see learn/agentos/SharedDeployment.md
  */
 export function buildEmbeddingProviderBlock(cfg) {
-    const chromaActive = cfg.chromaEmbeddingProvider;
-    const neoActive    = cfg.neoEmbeddingProvider || 'gemini';
-
-    return {
-        aligned: chromaActive === neoActive,
-        chroma : buildSingleEmbeddingProviderBlock(cfg, chromaActive, 'chromaEmbeddingProvider'),
-        neo    : buildSingleEmbeddingProviderBlock(cfg, neoActive, 'neoEmbeddingProvider')
-    }
+    return buildSingleEmbeddingProviderBlock(cfg, cfg.embeddingProvider || 'gemini', 'embeddingProvider');
 }
 
 /**
@@ -639,7 +629,7 @@ class HealthService extends Base {
         const architecture = aiConfig.architecture || 'hybrid';
 
         if (architecture === 'chroma' || architecture === 'hybrid') {
-            providers.push(aiConfig.chromaEmbeddingProvider);
+            providers.push(aiConfig.embeddingProvider);
         }
 
         const needsGemini = providers.some(p => p === 'gemini');
