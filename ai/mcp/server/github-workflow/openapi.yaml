@@ -1059,6 +1059,9 @@ paths:
       description: |
         Triggers the full, bi-directional synchronization of GitHub issues and releases with the local filesystem.
 
+        **Important Constraints:**
+        - **Branch Constraint:** ONLY use this tool inside the `dev` branch. The tool creates and updates local markdown files based on GitHub content; running it on a feature branch will pollute the branch with unrelated documentation commits.
+
         **When to Use (Use Sparingly):**
         - **Fetching Remote Changes:** Call this if you suspect a teammate has updated tickets and you need to see the changes locally.
         - **Pushing Local Edits:** Call this if you have manually modified a local `.md` file (e.g., updating a description) and need to push that text change to GitHub.
