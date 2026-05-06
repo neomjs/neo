@@ -46,6 +46,32 @@ class TransportService extends Base {
     }
 
     /**
+     * Resolves the base authentication context, handling proxy identity injection.
+     * @param {Object} req The Express request
+     * @param {Object} aiConfig The server configuration
+     * @returns {Object} Result object containing `auth` or `error` with `status`.
+     */
+    resolveAuthContext(req, aiConfig) {
+        let baseAuth = req.auth;
+
+        if (!baseAuth && aiConfig.auth?.trustProxyIdentity) {
+            const proxyUserId = req.headers['x-preferred-username'] || req.headers['x-auth-request-preferred-username'];
+            if (proxyUserId) {
+                baseAuth = {
+                    userId: proxyUserId,
+                    username: proxyUserId,
+                    source: 'proxy-header'
+                };
+            } else {
+                req.app?.locals?.logger?.warn('Unauthorized: trustProxyIdentity is enabled but X-PREFERRED-USERNAME header is missing');
+                return { error: 'Unauthorized: Missing proxy identity header', status: 401 };
+            }
+        }
+
+        return { auth: baseAuth };
+    }
+
+    /**
      * Map of active transport sessions.
      * @member {Map} transports
      * @protected
@@ -142,23 +168,12 @@ class TransportService extends Base {
             // configured; when auth is disabled (local dev, no `aiConfig.auth.host` /
             // `.issuerUrl`) the context is empty and downstream services fall through to
             // single-tenant behavior.
-            let baseAuth = req.auth;
-
-            // Support identity-aware proxies (e.g., oauth2-proxy, GitLab) when explicitly trusted
-            if (!baseAuth && aiConfig.auth?.trustProxyIdentity) {
-                const proxyUserId = req.headers['x-preferred-username'] || req.headers['x-auth-request-preferred-username'];
-                if (proxyUserId) {
-                    baseAuth = {
-                        userId: proxyUserId,
-                        username: proxyUserId,
-                        source: 'proxy-header'
-                    };
-                } else {
-                    req.app.locals.logger?.warn('Unauthorized: trustProxyIdentity is enabled but X-PREFERRED-USERNAME header is missing');
-                    res.status(401).json({ error: 'Unauthorized: Missing proxy identity header' });
-                    return;
-                }
+            const authResult = this.resolveAuthContext(req, aiConfig);
+            if (authResult.error) {
+                res.status(authResult.status).json({ error: authResult.error });
+                return;
             }
+            let baseAuth = authResult.auth;
 
             let requestContext;
 
