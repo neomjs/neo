@@ -444,7 +444,7 @@ class Config extends Base {
 
             // Deep merge custom config into the data object
             Neo.merge(this.data, customConfig);
-            normalizeEmbeddingProviderConfig(this.data, process.env, console.warn, customConfig);
+            normalizeEmbeddingProviderConfig(this.data, process.env, customConfig);
 
             console.error(`[Config] Loaded custom configuration from ${absolutePath}`);
 

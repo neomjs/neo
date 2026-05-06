@@ -1,33 +1,16 @@
 /**
  * @summary Resolves the canonical embedding provider for all embedding callsites.
  *
- * Resolves the canonical embedding provider from the unified selector plus the legacy
- * Chroma-side env/config selector kept during the #10804 deprecation window.
  * @param {Object} options
  * @param {Object} [options.config={}] Config object, including custom config overrides after load().
  * @param {Object} [options.env=process.env] Environment map.
- * @param {Function} [options.warn=console.warn] Warning sink for deprecation/conflict notices.
  * @returns {String} The provider key consumed by all embedding callsites.
  */
-export function resolveEmbeddingProvider({config = {}, env = process.env, warn = console.warn} = {}) {
-    const hasValue     = value => value !== undefined && value !== null && value !== '';
-    const unified      = hasValue(config.embeddingProvider) ? config.embeddingProvider : env.NEO_EMBEDDING_PROVIDER;
-    const legacyChroma = hasValue(config.chromaEmbeddingProvider) ? config.chromaEmbeddingProvider : env.NEO_CHROMA_EMBEDDING_PROVIDER;
-    const legacyNeo    = hasValue(config.neoEmbeddingProvider) ? config.neoEmbeddingProvider : null;
+export function resolveEmbeddingProvider({config = {}, env = process.env} = {}) {
+    const hasValue = value => value !== undefined && value !== null && value !== '';
+    const unified  = hasValue(config.embeddingProvider) ? config.embeddingProvider : env.NEO_EMBEDDING_PROVIDER;
 
-    if (hasValue(legacyChroma)) {
-        if (hasValue(unified) && legacyChroma !== unified) {
-            warn(`[Config] NEO_CHROMA_EMBEDDING_PROVIDER/chromaEmbeddingProvider is deprecated and conflicts with embeddingProvider; using ${unified}.`);
-        } else {
-            warn('[Config] NEO_CHROMA_EMBEDDING_PROVIDER/chromaEmbeddingProvider is deprecated; use NEO_EMBEDDING_PROVIDER/embeddingProvider.');
-        }
-    }
-
-    if (hasValue(legacyNeo) && hasValue(unified) && legacyNeo !== unified) {
-        warn(`[Config] neoEmbeddingProvider is deprecated and conflicts with embeddingProvider; using ${unified}.`);
-    }
-
-    return unified || legacyNeo || legacyChroma || 'gemini';
+    return unified || 'gemini';
 }
 
 /**
@@ -36,11 +19,10 @@ export function resolveEmbeddingProvider({config = {}, env = process.env, warn =
  * Normalizes a mutable config object after custom overrides are merged.
  * @param {Object} config Config object to normalize in place.
  * @param {Object} [env=process.env] Environment map.
- * @param {Function} [warn=console.warn] Warning sink.
  * @param {Object} [sourceConfig=config] Raw override object used for provider resolution.
  * @returns {Object} The same config object for chaining.
  */
-export function normalizeEmbeddingProviderConfig(config, env = process.env, warn = console.warn, sourceConfig = config) {
-    config.embeddingProvider = resolveEmbeddingProvider({config: sourceConfig, env, warn});
+export function normalizeEmbeddingProviderConfig(config, env = process.env, sourceConfig = config) {
+    config.embeddingProvider = resolveEmbeddingProvider({config: sourceConfig, env});
     return config;
 }
