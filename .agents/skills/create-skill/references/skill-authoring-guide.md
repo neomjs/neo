@@ -103,7 +103,7 @@ Since the agent relies on this when executing the specific task, make it detaile
 
 ### The "Map vs World Atlas" Constraint Placement
 
-When documenting a constraint for a specific MCP tool (e.g., "Do not run `sync_all` on a feature branch"), you MUST NOT pollute high-level global workflow files (the "Map", like `pull-request-workflow.md` or `ticket-intake.md`) with tool-specific edge cases. 
+When documenting a constraint for a specific MCP tool (e.g., "Do not run `sync_all` on a feature branch"), you MUST NOT pollute high-level global workflow files (the "Map", like `pull-request-workflow.md` or `ticket-intake.md`) with tool-specific edge cases.
 Instead, extract tool-specific constraints into dedicated, granular payload files (the "World Atlas") and only reference them when that specific tool is invoked.
 - **The Map:** General routing, global lifecycle rules. Keep this clean and high-level to prevent context bloat.
 - **The Atlas:** Tool-specific quirks, edge cases, payload shapes, and strict operational constraints.

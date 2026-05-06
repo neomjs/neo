@@ -2,7 +2,7 @@
 
 ## Branch Constraint
 
-You MUST NOT execute the `sync_all` tool while checked out on a feature branch (e.g., `agent/1234-feature`). 
+You MUST NOT execute the `sync_all` tool while checked out on a feature branch (e.g., `agent/1234-feature`).
 
 **Why:** The `sync_all` tool triggers a bi-directional synchronization of GitHub issues and releases with the local filesystem. Running it on a feature branch will pollute that branch with unrelated documentation commits, creating massive diff bloat and merge conflicts.
 
