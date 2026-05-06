@@ -1,5 +1,4 @@
-import Neo       from '../../../../../src/Neo.mjs';
-import * as core from '../../../../../src/core/_export.mjs';
+const hasValue = value => value !== undefined && value !== null && value !== '';
 
 /**
  * @summary Resolves the canonical embedding provider for all embedding callsites.
@@ -10,7 +9,7 @@ import * as core from '../../../../../src/core/_export.mjs';
  * @returns {String} The provider key consumed by all embedding callsites.
  */
 export function resolveEmbeddingProvider({config = {}, env = process.env} = {}) {
-    const unified = !Neo.isEmpty(config.embeddingProvider) ? config.embeddingProvider : env.NEO_EMBEDDING_PROVIDER;
+    const unified = hasValue(config.embeddingProvider) ? config.embeddingProvider : env.NEO_EMBEDDING_PROVIDER;
 
     return unified || 'gemini';
 }
