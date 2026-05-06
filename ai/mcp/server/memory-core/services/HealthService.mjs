@@ -218,6 +218,67 @@ export function buildSummaryProviderBlock(cfg, env = process.env) {
 }
 
 /**
+ * @summary Projects the active authentication-provider configuration into the healthcheck
+ *          `providers.auth` observability block (#10770).
+ *
+ * Operators deploying the shared MC/KB topology with multi-tenant identity isolation need an
+ * observable surface confirming WHICH auth path is currently primary at boot — OIDC introspection
+ * vs proxy-header injection vs single-tenant fallthrough. Without this, a misconfigured
+ * `AUTH_TRUST_PROXY_IDENTITY=true` set without a fronting proxy actually being deployed is
+ * undetectable until requests start failing in non-obvious ways. Mirrors the
+ * {@link buildEmbeddingProviderBlock} + {@link buildSummaryProviderBlock} precedents for
+ * module-scope pure projections of provider state.
+ *
+ * **Path precedence (matches `Server.mjs#buildRequestContext` runtime semantics):**
+ * - `'oidc'` — `aiConfig.auth.host` AND `aiConfig.auth.issuerUrl` are both populated. The MC
+ *   server runs its own OIDC introspection. Takes precedence over proxy-header even when
+ *   `trustProxyIdentity` is also true (req.auth wins by design — see SharedDeployment.md).
+ * - `'proxy-header'` — OIDC unconfigured AND `trustProxyIdentity=true`. The MC server reads
+ *   `X-PREFERRED-USERNAME` (or the `oauth2-proxy`-specific `X-Auth-Request-Preferred-Username`)
+ *   from the upstream request and trusts the fronting proxy's identity assertion. Per
+ *   PR #10785, requests missing the proxy header in this mode are actively rejected with 401.
+ * - `'unconfigured'` — neither path active. Single-tenant fallthrough (local development).
+ *
+ * **Security: clientSecret never leaks.** This block intentionally omits the OAuth `clientSecret`
+ * field even when OIDC is configured. Healthcheck output is operator-readable and may surface in
+ * logs / monitoring dashboards; the secret value belongs only in the gitignored `config.mjs`.
+ *
+ * @param {Object} cfg aiConfig-shaped input. Reads `cfg.auth.{host, issuerUrl, realm, trustProxyIdentity}`.
+ * @returns {{configured: String, oidc: Object, proxyHeader: Object}}
+ * @see learn/agentos/SharedDeployment.md
+ * @see Neo.ai.mcp.server.memory-core.Server#buildRequestContext
+ */
+export function buildAuthProviderBlock(cfg) {
+    const auth           = cfg.auth || {};
+    const oidcConfigured = !!(auth.host && auth.issuerUrl);
+    const proxyTrusted   = auth.trustProxyIdentity === true;
+
+    let configured;
+
+    if (oidcConfigured) {
+        configured = 'oidc';
+    } else if (proxyTrusted) {
+        configured = 'proxy-header';
+    } else {
+        configured = 'unconfigured';
+    }
+
+    return {
+        configured,
+        oidc: {
+            host      : auth.host || null,
+            issuerUrl : auth.issuerUrl || null,
+            realm     : auth.realm || null,
+            configured: oidcConfigured
+        },
+        proxyHeader: {
+            trusted       : proxyTrusted,
+            headersChecked: ['x-preferred-username', 'x-auth-request-preferred-username']
+        }
+    };
+}
+
+/**
  * @summary Monitors and validates the ChromaDB dependency for the Memory Core MCP server.
  *
  * This service acts as a gatekeeper, ensuring that ChromaDB is properly running,
@@ -624,7 +685,8 @@ class HealthService extends Base {
             migration: await this.#checkMigrationState(),
             providers: {
                 embedding: buildEmbeddingProviderBlock(aiConfig),
-                summary  : buildSummaryProviderBlock(aiConfig)
+                summary  : buildSummaryProviderBlock(aiConfig),
+                auth     : buildAuthProviderBlock(aiConfig)
             },
             details  : [],
             version  : process.env.npm_package_version || '1.0.0',
