@@ -21,6 +21,12 @@ model_context_window = 1000000
 model_auto_compact_token_limit = 850000
 model_max_output_tokens = 128000
 
+# Neo's Memory Core and Knowledge Base MCP servers talk to local Chroma and
+# embedding services over loopback. Keep those services bound to localhost; this
+# flag only lets Codex sandboxed commands reach them from trusted checkouts.
+[sandbox_workspace_write]
+network_access = true
+
 [mcp_servers."neo-mjs-github-workflow"]
 command = "npm"
 args = ["run", "--silent", "ai:mcp-server-github-workflow"]
