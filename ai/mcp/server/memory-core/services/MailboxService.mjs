@@ -313,11 +313,12 @@ class MailboxService extends Base {
      *   {@link Neo.ai.mcp.server.shared.services.AuthMiddleware} — `from` is a claim-of-authorship
      *   key blocked at the callTool choke-point, whereas this parameter is a read-path filter
      *   with no authorship semantics. Renamed per #10174.
+     * @param {String[]} [args.taggedConcepts] Filter by specific tagged concepts (requires all)
      * @param {Number} [args.limit=50] Maximum number of messages to return
      * @param {Number} [args.offset=0] Pagination offset
      * @returns {Promise<Object>}
      */
-    async listMessages({ box = 'inbox', status = 'all', to, threadId, fromIdentity, limit = 50, offset = 0 } = {}) {
+    async listMessages({ box = 'inbox', status = 'all', to, threadId, fromIdentity, taggedConcepts, limit = 50, offset = 0 } = {}) {
         const me = RequestContextService.getAgentIdentityNodeId();
         if (!me) {
             throw new Error("Cannot list messages: no agent identity context bound.");
@@ -390,17 +391,30 @@ class MailboxService extends Base {
                     let sentByNodeId = senderNode;
                     let sentToNodeId = targetNode;
                     let foundThreadId = null;
+                    let messageTaggedConcepts = [];
 
                     for (const sourceEdge of db.edges.items) {
                         if (sourceEdge.source === messageNode.id) {
                             if (sourceEdge.type === 'SENT_BY') sentByNodeId = sourceEdge.target;
                             if (sourceEdge.type === 'SENT_TO') sentToNodeId = sourceEdge.target;
                             if (sourceEdge.type === 'PART_OF_THREAD') foundThreadId = sourceEdge.target;
+                            if (sourceEdge.type === 'TAGGED_CONCEPT') messageTaggedConcepts.push(sourceEdge.target);
                         }
                     }
 
                     if (fromIdentity && sentByNodeId !== fromIdentity) continue;
                     if (threadId && foundThreadId !== threadId) continue;
+                    
+                    if (taggedConcepts && taggedConcepts.length > 0) {
+                        let hasAllConcepts = true;
+                        for (const concept of taggedConcepts) {
+                            if (!messageTaggedConcepts.includes(concept)) {
+                                hasAllConcepts = false;
+                                break;
+                            }
+                        }
+                        if (!hasAllConcepts) continue;
+                    }
 
                     const summary = {
                         messageId: messageNode.id,

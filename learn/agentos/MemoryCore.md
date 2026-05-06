@@ -61,6 +61,15 @@ Operators set `NEO_MC_PRIMARY=true` on the **canonical** Memory Core instance on
 
 The two flags are deliberately AND-ed (not OR-ed): forgetting `NEO_MC_PRIMARY` while having `AUTO_SUMMARIZE=true` is the safe default — non-primary instances do nothing rather than racing the canonical one. Tracked under [#10813](https://github.com/neomjs/neo/issues/10813).
 
+### Session Sunset Polling (Piece B)
+
+To gracefully capture sessions from non-primary harnesses without violating the single-writer constraint or losing events to isolated per-instance SQLite queues, the canonical instance employs a **B2 Mailbox-Poll** strategy. 
+
+When `NEO_MC_PRIMARY=true`, the `SessionService` spins up a periodic background poller (every 30s) that queries the A2A Mailbox for unread self-DM messages matching the contract:
+`{ taggedConcepts: ['sunset-protocol-handover'] }`
+
+This substrate bridges the gap between instances: when any agent on any clone runs the session-sunset skill, the final self-DM is persisted in the shared graph. The canonical MC sees this unread message, triggers a summarization sweep to ingest the finalized session, and marks the message as read to prevent double-processing.
+
 ## Tools
 
 The server exposes a suite of tools via the Model Context Protocol (MCP).

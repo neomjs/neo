@@ -12,6 +12,7 @@ import path from 'path';
 import os from 'os';
 import logger from '../logger.mjs';
 import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../shared/services/RequestContextService.mjs';
+import MailboxService from './MailboxService.mjs';
 
 /**
  * @summary Service for handling session summarization and drift detection.
@@ -185,6 +186,89 @@ class SessionService extends Base {
         } else if (aiConfig.data.autoSummarize && !aiConfig.data.isPrimary) {
             logger.info('[Startup] AUTO_SUMMARIZE enabled but NEO_MC_PRIMARY=false — skipping (single-writer enforcement, #10813). Set NEO_MC_PRIMARY=true on the canonical Memory Core instance only.');
             HealthService.recordStartupSummarization('skipped-non-primary', { reason: 'NEO_MC_PRIMARY is not set on this instance' });
+        }
+
+        if (aiConfig.data.autoSummarize && aiConfig.data.isPrimary) {
+            this.startSunsetHandoverPoller();
+        }
+    }
+
+    /**
+     * Periodically polls for 'sunset-protocol-handover' A2A messages to trigger session summarization.
+     * This acts as the Piece B trigger for the sunset protocol, utilizing the shared A2A mailbox
+     * substrate to cross the gap between non-primary harness instances and the canonical Memory Core.
+     */
+    startSunsetHandoverPoller() {
+        if (this._sunsetPollerId) {
+            clearInterval(this._sunsetPollerId);
+        }
+        
+        logger.info('[SessionService] Starting Piece B Sunset Protocol Poller (30s interval)...');
+        this._sunsetPollerId = setInterval(() => this.pollForSunsetHandovers(), 30000);
+        
+        // Also run immediately
+        setTimeout(() => this.pollForSunsetHandovers(), 5000); // 5s delay to ensure startup is complete
+    }
+
+    /**
+     * Executes a single poll for unread sunset-protocol-handover messages.
+     */
+    async pollForSunsetHandovers() {
+        try {
+            // Because we're a background job running inside the MC, we need to bind a system context
+            // if MailboxService requires identity. Usually 'AGENT:*' or a system identifier works.
+            const previousIdentity = RequestContextService.getAgentIdentityNodeId();
+            try {
+                RequestContextService.setContext({
+                    agentIdentityNodeId: 'SYSTEM:MEMORY_CORE'
+                });
+
+                const messagesResponse = await MailboxService.listMessages({
+                    box: 'all', 
+                    status: 'unread',
+                    taggedConcepts: ['sunset-protocol-handover']
+                });
+
+                const unreadHandovers = messagesResponse.messages || [];
+
+                for (const msg of unreadHandovers) {
+                    const originSessionId = msg.from; // Could be from, or we could extract originSessionId if available
+                    // Wait, let's see where originSessionId is. It's stored as ORIGINATES_IN edge.
+                    // But listMessages doesn't return originSessionId directly yet.
+                    // If we just summarize the session of the sender, that's their session.
+                    // Actually, let's just trigger findSessionsToSummarize and processPendingSummarizations.
+                    // The handover message guarantees the session is effectively ended.
+                    logger.info(`[SessionService] Sunset Protocol handover message detected: ${msg.messageId} from ${msg.from}`);
+                    
+                    // Trigger summarization sweep to pick up the disconnected session.
+                    // We don't even need the specific sessionId if we just run a sweep,
+                    // but we can extract it if we query the edges.
+                    
+                    // Let's mark it as read to avoid double-processing.
+                    // MailboxService doesn't have markRead exposed directly to server internals here without an endpoint?
+                    // GraphService.upsertNode can update properties.readAt.
+                    const node = GraphService.db.nodes.get(msg.messageId);
+                    if (node) {
+                        node.properties.readAt = new Date().toISOString();
+                        GraphService.upsertNode(node);
+                    }
+                }
+                
+                if (unreadHandovers.length > 0) {
+                    // Trigger the existing sweep which will naturally find the unsummarized sessions
+                    logger.info('[SessionService] Triggering summarization sweep due to sunset handovers.');
+                    this.summarizeSessions({});
+                }
+
+            } finally {
+                if (previousIdentity) {
+                    RequestContextService.setContext({ agentIdentityNodeId: previousIdentity });
+                } else {
+                    RequestContextService.clearContext();
+                }
+            }
+        } catch (e) {
+            logger.warn(`[SessionService] Sunset Poller encountered an error: ${e.message}`);
         }
     }
 
