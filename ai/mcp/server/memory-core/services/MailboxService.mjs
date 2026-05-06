@@ -404,7 +404,7 @@ class MailboxService extends Base {
 
                     if (fromIdentity && sentByNodeId !== fromIdentity) continue;
                     if (threadId && foundThreadId !== threadId) continue;
-                    
+
                     if (taggedConcepts && taggedConcepts.length > 0) {
                         let hasAllConcepts = true;
                         for (const concept of taggedConcepts) {

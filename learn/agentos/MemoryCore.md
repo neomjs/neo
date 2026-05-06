@@ -63,7 +63,7 @@ The two flags are deliberately AND-ed (not OR-ed): forgetting `NEO_MC_PRIMARY` w
 
 ### Session Sunset Polling (Piece B)
 
-To gracefully capture sessions from non-primary harnesses without violating the single-writer constraint or losing events to isolated per-instance SQLite queues, the canonical instance employs a **B2 Mailbox-Poll** strategy. 
+To gracefully capture sessions from non-primary harnesses without violating the single-writer constraint or losing events to isolated per-instance SQLite queues, the canonical instance employs a **B2 Mailbox-Poll** strategy.
 
 When `NEO_MC_PRIMARY=true`, the `SessionService` spins up a periodic background poller (every 30s) that queries the A2A Mailbox for unread self-DM messages matching the contract:
 `{ taggedConcepts: ['sunset-protocol-handover'] }`

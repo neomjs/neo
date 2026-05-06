@@ -12,7 +12,6 @@ import path from 'path';
 import os from 'os';
 import logger from '../logger.mjs';
 import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../shared/services/RequestContextService.mjs';
-import MailboxService from './MailboxService.mjs';
 
 /**
  * @summary Service for handling session summarization and drift detection.
@@ -202,70 +201,54 @@ class SessionService extends Base {
         if (this._sunsetPollerId) {
             clearInterval(this._sunsetPollerId);
         }
-        
+
         logger.info('[SessionService] Starting Piece B Sunset Protocol Poller (30s interval)...');
         this._sunsetPollerId = setInterval(() => this.pollForSunsetHandovers(), 30000);
-        
+
         // Also run immediately
         setTimeout(() => this.pollForSunsetHandovers(), 5000); // 5s delay to ensure startup is complete
     }
 
-    /**
-     * Executes a single poll for unread sunset-protocol-handover messages.
-     */
     async pollForSunsetHandovers() {
         try {
-            // Because we're a background job running inside the MC, we need to bind a system context
-            // if MailboxService requires identity. Usually 'AGENT:*' or a system identifier works.
-            const previousIdentity = RequestContextService.getAgentIdentityNodeId();
-            try {
-                RequestContextService.setContext({
-                    agentIdentityNodeId: 'SYSTEM:MEMORY_CORE'
-                });
+            const db = GraphService.db;
+            if (!db || !db.storage || !db.storage.db) return;
 
-                const messagesResponse = await MailboxService.listMessages({
-                    box: 'all', 
-                    status: 'unread',
-                    taggedConcepts: ['sunset-protocol-handover']
-                });
+            // Query SQLite directly to find unread sunset handovers, bypassing edge-culling 
+            // and cache synchronization issues by matching the exact property written by MailboxService.
+            const stmt = db.storage.db.prepare(`
+                SELECT id, data FROM Nodes 
+                WHERE json_extract(data, '$.type') = 'MESSAGE' 
+                  AND json_extract(data, '$.properties.readAt') IS NULL 
+                  AND json_extract(data, '$.properties.taggedConcepts') LIKE '%"sunset-protocol-handover"%'
+            `);
+            const rows = stmt.all();
 
-                const unreadHandovers = messagesResponse.messages || [];
+            let foundUnread = false;
 
-                for (const msg of unreadHandovers) {
-                    const originSessionId = msg.from; // Could be from, or we could extract originSessionId if available
-                    // Wait, let's see where originSessionId is. It's stored as ORIGINATES_IN edge.
-                    // But listMessages doesn't return originSessionId directly yet.
-                    // If we just summarize the session of the sender, that's their session.
-                    // Actually, let's just trigger findSessionsToSummarize and processPendingSummarizations.
-                    // The handover message guarantees the session is effectively ended.
-                    logger.info(`[SessionService] Sunset Protocol handover message detected: ${msg.messageId} from ${msg.from}`);
-                    
-                    // Trigger summarization sweep to pick up the disconnected session.
-                    // We don't even need the specific sessionId if we just run a sweep,
-                    // but we can extract it if we query the edges.
-                    
-                    // Let's mark it as read to avoid double-processing.
-                    // MailboxService doesn't have markRead exposed directly to server internals here without an endpoint?
-                    // GraphService.upsertNode can update properties.readAt.
-                    const node = GraphService.db.nodes.get(msg.messageId);
-                    if (node) {
-                        node.properties.readAt = new Date().toISOString();
-                        GraphService.upsertNode(node);
-                    }
+            for (const row of rows) {
+                let messageNode;
+                try {
+                    messageNode = JSON.parse(row.data);
+                } catch (err) {
+                    continue;
                 }
                 
-                if (unreadHandovers.length > 0) {
-                    // Trigger the existing sweep which will naturally find the unsummarized sessions
-                    logger.info('[SessionService] Triggering summarization sweep due to sunset handovers.');
-                    this.summarizeSessions({});
+                // Double check to avoid false positives from LIKE
+                if (messageNode.properties && messageNode.properties.taggedConcepts && messageNode.properties.taggedConcepts.includes('sunset-protocol-handover')) {
+                    logger.info(`[SessionService] Sunset Protocol handover message detected: ${messageNode.id} from ${messageNode.properties.from || 'unknown'}`);
+                    
+                    // Mark as read to avoid double-processing
+                    messageNode.properties.readAt = new Date().toISOString();
+                    GraphService.upsertNode(messageNode);
+                    foundUnread = true;
                 }
+            }
 
-            } finally {
-                if (previousIdentity) {
-                    RequestContextService.setContext({ agentIdentityNodeId: previousIdentity });
-                } else {
-                    RequestContextService.clearContext();
-                }
+            if (foundUnread) {
+                // Trigger the existing sweep which will naturally find the unsummarized sessions
+                logger.info('[SessionService] Triggering summarization sweep due to sunset handovers.');
+                this.summarizeSessions({});
             }
         } catch (e) {
             logger.warn(`[SessionService] Sunset Poller encountered an error: ${e.message}`);
