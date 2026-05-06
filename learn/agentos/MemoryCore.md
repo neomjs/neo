@@ -254,7 +254,7 @@ You can provide a JSON file or an ES Module (`.mjs`) that exports a configuratio
 ```
 
 This flexibility is crucial for:
-*   **Cloud Deployments:** Switching `transport` to `"sse"` allows the server to run as a microservice in Docker, accepting connections on `ssePort` (default 3001).
+*   **Cloud Deployments:** Switching `transport` to `"sse"` allows the server to run as a microservice in Docker, accepting connections on `ssePort` (default 3001). See the [Deployment Cookbook](DeploymentCookbook.md) for a full shared deployment walkthrough.
 *   **Custom Models:** Switching to a different Gemini model version.
 *   **Port Conflicts:** Running multiple instances or avoiding conflicts with other services.
 *   **Environment Specifics:** Adjusting paths for different deployment environments.
