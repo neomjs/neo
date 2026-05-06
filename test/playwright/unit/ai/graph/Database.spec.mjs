@@ -144,6 +144,34 @@ test.describe('Neo.ai.graph.Database', () => {
         reloadDb.destroy();
     });
 
+    test('SQLite storage enables foreign_keys pragma so Edges cascade-delete with referenced Nodes (#10856)', async () => {
+        if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
+
+        let storage = Neo.create(SQLite, { dbPath });
+        await storage.initAsync();
+
+        // The pragma must be ON for the schema-declared `Edges` ON DELETE CASCADE to fire.
+        // SQLite default is OFF; explicit init pragma is the only enable path per-connection.
+        const pragmaState = storage.db.pragma('foreign_keys', { simple: true });
+        expect(pragmaState).toBe(1);
+
+        // Direct-SQL fixture (bypasses application-layer edge cleanup so we test FK cascade specifically).
+        storage.db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run('cascade-source', '{}');
+        storage.db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run('cascade-target', '{}');
+        storage.db.prepare('INSERT INTO Edges (id, source, target, type, data) VALUES (?, ?, ?, ?, ?)')
+            .run('cascade-edge', 'cascade-source', 'cascade-target', 'KNOWS', '{}');
+
+        expect(storage.db.prepare('SELECT COUNT(*) as c FROM Edges').get().c).toBe(1);
+
+        // Direct-SQL delete of the source Node — only the FK ON DELETE CASCADE can remove the edge here.
+        storage.db.prepare('DELETE FROM Nodes WHERE id = ?').run('cascade-source');
+
+        expect(storage.db.prepare('SELECT COUNT(*) as c FROM Edges').get().c).toBe(0);
+        expect(storage.db.prepare('SELECT COUNT(*) as c FROM Nodes').get().c).toBe(1);
+
+        storage.destroy();
+    });
+
     test('should execute graph mutations synchronously within an atomic transaction', async () => {
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
         
