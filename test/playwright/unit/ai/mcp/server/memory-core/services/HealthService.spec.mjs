@@ -371,3 +371,140 @@ test.describe('HealthService #10724 — buildSummaryProviderBlock', () => {
         });
     });
 });
+
+/**
+ * @summary Coverage for the #10770 auth-provider observability block in the healthcheck payload.
+ *
+ * Pins the pure-projection contract of `buildAuthProviderBlock` — operators deploying the shared
+ * MC/KB topology with multi-tenant identity isolation rely on this block to verify which auth
+ * path is primary at boot (OIDC vs proxy-header vs single-tenant fallthrough). The runtime
+ * precedence semantics are owned by `Server.mjs#buildRequestContext`; this spec covers the
+ * static-config projection that operators observe via healthcheck without bouncing requests
+ * through the server. Includes a defense-in-depth `clientSecret`-leak guard.
+ *
+ * @see Neo.ai.mcp.server.memory-core.services.HealthService#buildAuthProviderBlock
+ */
+test.describe('HealthService #10770 — buildAuthProviderBlock', () => {
+    let buildAuthProviderBlock;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../../../ai/mcp/server/memory-core/services/HealthService.mjs');
+        buildAuthProviderBlock = mod.buildAuthProviderBlock;
+    });
+
+    test('OIDC-only config surfaces oidc primary path with full block', () => {
+        const result = buildAuthProviderBlock({
+            auth: {
+                host              : 'http://127.0.0.1:8180',
+                issuerUrl         : 'http://127.0.0.1:8180/realms/master',
+                realm             : 'master',
+                clientId          : 'memory-core',
+                clientSecret      : 'should-never-leak',
+                trustProxyIdentity: false
+            }
+        });
+
+        expect(result).toEqual({
+            configured: 'oidc',
+            oidc      : {
+                host      : 'http://127.0.0.1:8180',
+                issuerUrl : 'http://127.0.0.1:8180/realms/master',
+                realm     : 'master',
+                configured: true
+            },
+            proxyHeader: {
+                trusted       : false,
+                headersChecked: ['x-preferred-username', 'x-auth-request-preferred-username']
+            }
+        });
+    });
+
+    test('proxy-header-only config surfaces proxy-header primary path with OIDC unconfigured', () => {
+        const result = buildAuthProviderBlock({
+            auth: {
+                host              : null,
+                issuerUrl         : null,
+                clientId          : null,
+                clientSecret      : '',
+                trustProxyIdentity: true
+            }
+        });
+
+        expect(result).toEqual({
+            configured: 'proxy-header',
+            oidc      : {
+                host      : null,
+                issuerUrl : null,
+                realm     : null,
+                configured: false
+            },
+            proxyHeader: {
+                trusted       : true,
+                headersChecked: ['x-preferred-username', 'x-auth-request-preferred-username']
+            }
+        });
+    });
+
+    test('both configured — OIDC wins per Server.mjs#buildRequestContext precedence', () => {
+        const result = buildAuthProviderBlock({
+            auth: {
+                host              : 'http://127.0.0.1:8180',
+                issuerUrl         : 'http://127.0.0.1:8180/realms/master',
+                realm             : 'master',
+                trustProxyIdentity: true
+            }
+        });
+
+        expect(result.configured).toBe('oidc');
+        expect(result.oidc.configured).toBe(true);
+        expect(result.proxyHeader.trusted).toBe(true);
+    });
+
+    test('unconfigured fallthrough — single-tenant local-dev shape', () => {
+        const result = buildAuthProviderBlock({});
+
+        expect(result).toEqual({
+            configured: 'unconfigured',
+            oidc      : {
+                host      : null,
+                issuerUrl : null,
+                realm     : null,
+                configured: false
+            },
+            proxyHeader: {
+                trusted       : false,
+                headersChecked: ['x-preferred-username', 'x-auth-request-preferred-username']
+            }
+        });
+    });
+
+    test('clientSecret never leaks into the healthcheck payload (security guard)', () => {
+        const result = buildAuthProviderBlock({
+            auth: {
+                host              : 'http://127.0.0.1:8180',
+                issuerUrl         : 'http://127.0.0.1:8180/realms/master',
+                clientSecret      : 'super-secret-value-that-must-never-leak',
+                trustProxyIdentity: false
+            }
+        });
+
+        const serialized = JSON.stringify(result);
+
+        expect(serialized).not.toContain('super-secret-value-that-must-never-leak');
+        expect(serialized).not.toContain('clientSecret');
+        expect(result.oidc).not.toHaveProperty('clientSecret');
+    });
+
+    test('partial OIDC (host without issuerUrl) projects to unconfigured', () => {
+        const result = buildAuthProviderBlock({
+            auth: {
+                host              : 'http://127.0.0.1:8180',
+                issuerUrl         : null,
+                trustProxyIdentity: false
+            }
+        });
+
+        expect(result.configured).toBe('unconfigured');
+        expect(result.oidc.configured).toBe(false);
+    });
+});
