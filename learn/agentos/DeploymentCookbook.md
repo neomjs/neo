@@ -86,9 +86,9 @@ When provisioning your containers, supply the following minimal environment vari
 | `NEO_CHROMA_HOST` | Both | Internal URL of the Chroma instance. |
 | `NEO_CHROMA_PORT` | Both | Port of the Chroma instance. |
 | `AUTH_TRUST_PROXY_IDENTITY` | Both | Set to `true` if your reverse proxy handles authentication. |
-| `NEO_API_KEY` | Both | Only if using the `neoEmbeddingProvider` fallback. |
+| `GEMINI_API_KEY` | Both | Required for Gemini integration. |
 
-*(Note: Full config unification and public URL advertising are tracked under [#10802](https://github.com/neomjs/neo/issues/10802) and [#10804](https://github.com/neomjs/neo/issues/10804)).*
+*(Note: Full config unification and public URL advertising are tracked under [#10802](https://github.com/neomjs/neo/issues/10802) and [#10804](https://github.com/neomjs/neo/issues/10804). Environment mapping and legacy variable unification are tracked under [#10808](https://github.com/neomjs/neo/issues/10808)).*
 
 ## Section 7: Healthcheck Verification
 
@@ -98,18 +98,28 @@ Expected JSON block (excerpt):
 ```json
 {
   "status": "healthy",
-  "providers": {
-    "auth": {
-      "mode": "proxy-header",
-      "status": "configured"
-    }
+  "identity": {
+    "source": "proxy-header",
+    "bound": true,
+    "nodeId": "@your-username"
   },
   "database": {
-    "topology": "shared"
+    "topology": {
+      "mode": "unified",
+      "coordinates": { "host": "http://chroma", "port": 8000 },
+      "resolvedVia": "engines.kb.chroma"
+    }
+  },
+  "providers": {
+    "embedding": {
+      "aligned": true,
+      "chroma": { "active": "gemini" },
+      "neo": { "active": "gemini" }
+    }
   }
 }
 ```
-If `providers.auth.mode` is not `proxy-header` or `database.topology` is not `shared`, your environment variables are misconfigured. See [Memory Core Healthcheck](MemoryCore.md) for the full schema contract.
+If `identity.source` is not `"proxy-header"` or `database.topology.mode` is not `"unified"`, your environment variables are misconfigured. See [Memory Core Healthcheck](MemoryCore.md) for the full schema contract.
 
 ## Section 8: First-Connection Smoke Test
 
