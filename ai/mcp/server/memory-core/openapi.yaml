@@ -1066,6 +1066,14 @@ paths:
             is a read-path filter with no authorship semantics. Renamed per #10174.
           schema:
             type: string
+        - name: taggedConcepts
+          in: query
+          required: false
+          description: "Filter by specific tagged concepts (requires all)"
+          schema:
+            type: array
+            items:
+              type: string
         - name: limit
           in: query
           required: false

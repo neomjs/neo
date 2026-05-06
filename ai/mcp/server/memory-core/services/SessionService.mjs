@@ -186,6 +186,78 @@ class SessionService extends Base {
             logger.info('[Startup] AUTO_SUMMARIZE enabled but NEO_MC_PRIMARY=false — skipping (single-writer enforcement, #10813). Set NEO_MC_PRIMARY=true on the canonical Memory Core instance only.');
             HealthService.recordStartupSummarization('skipped-non-primary', { reason: 'NEO_MC_PRIMARY is not set on this instance' });
         }
+
+        if (aiConfig.data.autoSummarize && aiConfig.data.isPrimary) {
+            this.startSunsetHandoverPoller();
+        }
+    }
+
+    /**
+     * Periodically polls for 'sunset-protocol-handover' A2A messages to trigger session summarization.
+     * This acts as the Piece B trigger for the sunset protocol, utilizing the shared A2A mailbox
+     * substrate to cross the gap between non-primary harness instances and the canonical Memory Core.
+     */
+    startSunsetHandoverPoller() {
+        if (this._sunsetPollerId) {
+            clearInterval(this._sunsetPollerId);
+        }
+
+        logger.info('[SessionService] Starting Piece B Sunset Protocol Poller (30s interval)...');
+        this._sunsetPollerId = setInterval(() => this.pollForSunsetHandovers(), 30000);
+
+        // Also run immediately
+        setTimeout(() => this.pollForSunsetHandovers(), 5000); // 5s delay to ensure startup is complete
+    }
+
+    async pollForSunsetHandovers() {
+        try {
+            const db = GraphService.db;
+            if (!db || !db.storage || !db.storage.db) return;
+
+            // Query SQLite directly to find unread sunset handovers, bypassing edge-culling
+            // and cache synchronization issues by matching the exact property written by MailboxService.
+            const stmt = db.storage.db.prepare(`
+                SELECT id, data FROM Nodes
+                WHERE json_extract(data, '$.type') = 'MESSAGE'
+                  AND json_extract(data, '$.properties.readAt') IS NULL
+                  AND json_extract(data, '$.properties.taggedConcepts') LIKE '%"sunset-protocol-handover"%'
+            `);
+            const rows = stmt.all();
+
+            let foundUnread = false;
+            const unreadMessages = [];
+
+            for (const row of rows) {
+                let messageNode;
+                try {
+                    messageNode = JSON.parse(row.data);
+                } catch (err) {
+                    continue;
+                }
+
+                // Double check to avoid false positives from LIKE
+                if (messageNode.properties && messageNode.properties.taggedConcepts && messageNode.properties.taggedConcepts.includes('sunset-protocol-handover')) {
+                    logger.info(`[SessionService] Sunset Protocol handover message detected: ${messageNode.id} from ${messageNode.properties.from || 'unknown'}`);
+
+                    unreadMessages.push(messageNode);
+                    foundUnread = true;
+                }
+            }
+
+            if (foundUnread) {
+                // Trigger the existing sweep which will naturally find the unsummarized sessions
+                logger.info('[SessionService] Triggering summarization sweep due to sunset handovers.');
+                await this.summarizeSessions({});
+
+                // Mark as read after successful summarization to avoid permanently consuming the signal on failure
+                for (const messageNode of unreadMessages) {
+                    messageNode.properties.readAt = new Date().toISOString();
+                    GraphService.upsertNode(messageNode);
+                }
+            }
+        } catch (e) {
+            logger.warn(`[SessionService] Sunset Poller encountered an error: ${e.message}`);
+        }
     }
 
     /**
@@ -1037,7 +1109,7 @@ ${aggregatedContent}
 
     /**
      * Permanently deletes all raw memories and summaries associated with a specific session ID.
-     * Operates exclusively within the caller's tenant boundary. A single-tenant (unauthenticated) 
+     * Operates exclusively within the caller's tenant boundary. A single-tenant (unauthenticated)
      * call will not delete records owned by the SHARED_USER_ID.
      * @param {Object} args
      * @param {String} args.sessionId
@@ -1050,7 +1122,7 @@ ${aggregatedContent}
 
         try {
             const userId = normalizeUserId(RequestContextService.getUserId());
-            
+
             // Construct filter: ensure tenant isolation.
             const where = userId ? { '$and': [{ sessionId }, { userId }] } : { sessionId };
 
