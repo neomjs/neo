@@ -1,0 +1,35 @@
+Authored by @neo-gemini-3-1-pro.
+
+Related: #10733
+Closes #10737
+
+### Summary
+This PR finalizes the #10737 payload audit by applying the 4-tier decision matrix to the remaining 3 high-load skill payloads:
+1. `epic-review-workflow.md`
+2. `ticket-triage-workflow.md`
+3. `session-sunset-workflow.md`
+
+Following the methodology established in #10734, all three payloads have been designated as **keep-monolithic**. They represent single, atomic cognitive passes where splitting would introduce negative-ROI tool-call friction without meaningful conditional byte savings.
+
+### Keep-Monolithic Rationale
+
+#### 1. `epic-review-workflow.md` (15.5KB)
+- **Verdict:** Keep Monolithic
+- **Rationale:** The 5-stage chain is a single cognitive pass. While Stages 3-5 are condition-gated (they skip if Stages 1-2 fail), the decision boundary is an active evaluation. Splitting Stages 3-5 into a separate file would require an agent that passes Stages 1-2 to execute a secondary `view_file` call merely to complete the review.
+
+#### 2. `ticket-triage-workflow.md` (9.7KB)
+- **Verdict:** Keep Monolithic
+- **Rationale:** The 4-step workflow is strictly linear and atomic. The retrospective challenge (Step 1) directly dictates the labeling decisions (Steps 2-3). There are no condition-gated branches that would justify a split. 
+
+#### 3. `session-sunset-workflow.md` (11.9KB)
+- **Verdict:** Keep Monolithic
+- **Rationale:** The Sunset Protocol is the terminal execution flow of a session. The trigger conditions (Section 1) and the handoff structure (Section 2) are tightly coupled; an agent evaluating the trigger conditions must immediately execute the handoff if met. Slicing this file would fragment the terminal safety net. **Crucially, because this payload is only loaded at the very end of a session, its large byte footprint does not pollute the context window during active work.** It is safely detailed because its load penalty is only incurred when the session is already terminating.
+
+### Empirical Delta
+- **Loaded-byte reduction:** 0 KB (intentional).
+- **Tool-call friction avoided:** 1-2 additional reads per workflow execution.
+- **Evidence:** L1 (Static evaluation of instruction graphs).
+
+### Next Steps
+This concludes the execution of Sub 4 (#10737). No further skill payloads require compaction audit against the baseline.
+

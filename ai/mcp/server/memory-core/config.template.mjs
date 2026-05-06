@@ -3,12 +3,13 @@ import path            from 'path';
 import Base            from '../../../../src/core/Base.mjs';
 import {fileURLToPath} from 'url';
 import {normalizeEmbeddingProviderConfig, resolveEmbeddingProvider} from './helpers/EmbeddingProviderConfig.mjs';
-import {resolveChromaHost, resolveChromaPort, resolveMcpHttpPort}   from '../shared/helpers/DeploymentConfig.mjs';
+import {resolveChromaHost, resolveChromaPort, resolveMcpHttpPort, resolvePublicUrl}   from '../shared/helpers/DeploymentConfig.mjs';
 
-export {normalizeEmbeddingProviderConfig, resolveChromaHost, resolveChromaPort, resolveEmbeddingProvider, resolveMcpHttpPort};
+export {normalizeEmbeddingProviderConfig, resolveChromaHost, resolveChromaPort, resolveEmbeddingProvider, resolveMcpHttpPort, resolvePublicUrl};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
+
 const neoRootDir = path.resolve(__dirname, '../../../../');
 const cwd        = neoRootDir;
 
@@ -88,7 +89,7 @@ const defaultConfig = {
      * Example: 'https://mcp.neo.mjs.com/memory-core'
      * @type {string|null}
      */
-    publicUrl: process.env.NEO_PUBLIC_URL || null,
+    publicUrl: resolvePublicUrl(),
     /**
      * Optional Express middleware function for authentication (only used if transport is 'sse').
      * @type {Function|null}

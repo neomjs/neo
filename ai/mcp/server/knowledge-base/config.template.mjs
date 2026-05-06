@@ -3,11 +3,12 @@ import os              from 'os';
 import path            from 'path';
 import Base            from '../../../../src/core/Base.mjs';
 import {fileURLToPath} from 'url';
-import {resolveChromaHost, resolveChromaPort, resolveMcpHttpPort} from '../shared/helpers/DeploymentConfig.mjs';
+import {resolveChromaHost, resolveChromaPort, resolveMcpHttpPort, resolvePublicUrl} from '../shared/helpers/DeploymentConfig.mjs';
 
-export {resolveChromaHost, resolveChromaPort, resolveMcpHttpPort};
+export {resolveChromaHost, resolveChromaPort, resolveMcpHttpPort, resolvePublicUrl};
 
 const __filename = fileURLToPath(import.meta.url);
+
 const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../../../../');
 
@@ -54,7 +55,7 @@ const defaultConfig = {
      * Example: 'https://mcp.neo.mjs.com/knowledge-base'
      * @type {string|null}
      */
-    publicUrl: process.env.NEO_PUBLIC_URL || null,
+    publicUrl: resolvePublicUrl(),
     /**
      * Optional Express middleware function for authentication (only used if transport is 'sse').
      * @type {Function|null}
