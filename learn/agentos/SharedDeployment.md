@@ -10,6 +10,8 @@ Shared deployment removes that staleness by giving the team **one Chroma process
 
 This document is the single source of truth for the shared-deployment MVP profile. It deliberately does not cover full multi-tenant data privacy isolation — that work continues under [#10011](https://github.com/neomjs/neo/issues/10011) and is out of MVP scope.
 
+For a step-by-step deployment guide, see the [Deployment Cookbook](DeploymentCookbook.md) walkthrough.
+
 ## Architecture: One Process, Many Collections, Two Servers
 
 The shared MVP topology preserves three independent boundaries:
