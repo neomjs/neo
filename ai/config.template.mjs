@@ -7,6 +7,7 @@ import {resolveMcpHttpPort, resolvePublicUrl} from './mcp/server/shared/helpers/
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const neoRootDir = path.resolve(__dirname, '../');
+// Fallback to neoRootDir if cwd is root (e.g., container/daemon edge cases)
 const projectRoot = process.cwd() === '/' ? neoRootDir : process.cwd();
 
 /**
@@ -76,6 +77,7 @@ const defaultConfig = {
 /**
  * @class Neo.ai.Config
  * @extends Neo.core.Base
+ * @singleton
  */
 class Config extends Base {
     static config = {
@@ -85,10 +87,24 @@ class Config extends Base {
          */
         className: 'Neo.ai.Config',
         /**
-         * The configuration data object.
-         * @member {Object} data=defaultConfig
+         * @member {Boolean} singleton=true
+         * @protected
          */
-        data: defaultConfig
+        singleton: true
+    }
+
+    /**
+     * The configuration data object.
+     * @member {Object} data
+     */
+    data = null;
+
+    /**
+     * @param {Object} config
+     */
+    construct(config) {
+        super.construct(config);
+        this.data = Neo.clone(defaultConfig, true);
     }
 
     /**
