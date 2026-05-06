@@ -204,7 +204,7 @@ export default {
 
 *   **Transport & Cloud Deployments:**
     *   `transport`: Defines the MCP transport protocol. Defaults to `'stdio'` for local CLI usage. Set to `'sse'` to run the server as a cloud-native HTTP microservice (e.g., in a Docker container).
-    *   `ssePort`: The HTTP port for the SSE server (default: `3000`).
+    *   `mcpHttpPort`: The HTTP port for the SSE server (default: `3000`; env var `MCP_HTTP_PORT` per #10808; `SSE_PORT` legacy alias remains readable during deprecation window).
     *   `authMiddleware`: An optional Express middleware function for securing the `/mcp` endpoint when using the `sse` transport.
 
 *   **Scoring Weights (`queryScoreWeights`):**

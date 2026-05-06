@@ -3,8 +3,9 @@ import path            from 'path';
 import Base            from '../../../../src/core/Base.mjs';
 import {fileURLToPath} from 'url';
 import {normalizeEmbeddingProviderConfig, resolveEmbeddingProvider} from './helpers/EmbeddingProviderConfig.mjs';
+import {resolveMcpHttpPort}                                         from '../shared/helpers/DeploymentConfig.mjs';
 
-export {normalizeEmbeddingProviderConfig, resolveEmbeddingProvider};
+export {normalizeEmbeddingProviderConfig, resolveEmbeddingProvider, resolveMcpHttpPort};
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -71,10 +72,13 @@ const defaultConfig = {
      */
     transport: process.env.TRANSPORT || 'stdio',
     /**
-     * Port for the SSE transport (only used if transport is 'sse').
+     * Port the MCP server's HTTP/SSE transport listens on (only used when `transport === 'sse'`).
+     *
+     * Operator env var: `MCP_HTTP_PORT`. The legacy `SSE_PORT` env var remains readable for one
+     * deprecation window per #10808; resolver emits a warning if both are set with different values.
      * @type {number}
      */
-    ssePort: Number(process.env.SSE_PORT) || 3001,
+    mcpHttpPort: resolveMcpHttpPort({defaultPort: 3001}),
     /**
      * Optional Express middleware function for authentication (only used if transport is 'sse').
      * @type {Function|null}
@@ -202,8 +206,10 @@ const defaultConfig = {
          */
         kb: {
             chroma: {
-                host: process.env.NEO_KB_CHROMA_HOST || 'localhost',
-                port: Number(process.env.NEO_KB_CHROMA_PORT) || 8000
+                // #10808: prefer operator-facing `NEO_CHROMA_HOST/PORT` (cookbook Section 5);
+                // `NEO_KB_CHROMA_HOST/PORT` remains readable for backwards-compat during deprecation window.
+                host: process.env.NEO_CHROMA_HOST || process.env.NEO_KB_CHROMA_HOST || 'localhost',
+                port: Number(process.env.NEO_CHROMA_PORT) || Number(process.env.NEO_KB_CHROMA_PORT) || 8000
             }
         }
     },

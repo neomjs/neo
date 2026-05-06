@@ -30,7 +30,7 @@ Google provides a standard OIDC discovery endpoint. This is the easiest way to c
 
 ```bash
 TRANSPORT=sse
-SSE_PORT=3000
+MCP_HTTP_PORT=3000   # legacy alias `SSE_PORT` still works during the #10808 deprecation window
 HOST=mcp.yourdomain.com
 
 # OIDC Discovery

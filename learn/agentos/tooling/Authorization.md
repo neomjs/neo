@@ -57,7 +57,7 @@ The server intelligently resolves URLs:
    ```bash
    # MCP Server Config
    TRANSPORT=sse
-   SSE_PORT=3000
+   MCP_HTTP_PORT=3000   # legacy alias `SSE_PORT` still works during the #10808 deprecation window
 
    # Auth Config
    AUTH_HOST=localhost
@@ -76,7 +76,7 @@ The server validates incoming `Authorization: Bearer <token>` headers by calling
 `{issuer}/protocol/openid-connect/token/introspect`
 
 ### Audience (aud) Validation
-To prevent token passthrough attacks, the server verifies that the token's audience matches its own public URL (`HOST` + `SSE_PORT`).
+To prevent token passthrough attacks, the server verifies that the token's audience matches its own public URL (`HOST` + `MCP_HTTP_PORT`).
 
 ### CORS Support
 The SSE transport includes CORS middleware by default:

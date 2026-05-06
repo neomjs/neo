@@ -21,7 +21,7 @@ import CoalescingEngineService                         from './services/Coalesci
  * This server uses a dual-transport architecture, allowing it to communicate with local CLI clients
  * via `stdio` (the default) or with cloud-native/remote clients via `sse` (StreamableHTTPServerTransport).
  *
- * The transport mode and HTTP port can be configured using `aiConfig.transport` and `aiConfig.ssePort`.
+ * The transport mode and HTTP port can be configured using `aiConfig.transport` and `aiConfig.mcpHttpPort`.
  *
  * @class Neo.ai.mcp.server.memory-core.Server
  * @extends Neo.core.Base

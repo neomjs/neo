@@ -29,7 +29,7 @@ Deployment example — Memory Core running behind Keycloak in a multi-tenant clo
 
 ```
 NEO_MEMORY_CORE_TRANSPORT=sse
-NEO_MEMORY_CORE_SSE_PORT=3001
+NEO_MEMORY_CORE_MCP_HTTP_PORT=3001  # legacy alias `NEO_MEMORY_CORE_SSE_PORT` still works during the #10808 deprecation window
 NEO_MEMORY_CORE_AUTH_ISSUER_URL=https://auth.example.com/realms/neo/
 NEO_MEMORY_CORE_AUTH_CLIENT_ID=neo-memory-core
 NEO_MEMORY_CORE_AUTH_CLIENT_SECRET=<secret>
