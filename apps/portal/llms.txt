@@ -398,6 +398,7 @@ Here you find the full history of Neo.mjs updates.
 - [Code Execution (AI SDK)](https://neomjs.com/raw/learn/agentos/CodeExecution.md)
 - [Shared KB/MC Team Deployment](https://neomjs.com/raw/learn/agentos/SharedDeployment.md)
 - [Deployment Cookbook](https://neomjs.com/raw/learn/agentos/DeploymentCookbook.md)
+- [Config Substrate Env-Var Audit](https://neomjs.com/raw/learn/agentos/ConfigSubstrateEnvVarAudit.md)
 - [PR Review Loaded-Surface Baseline (April 2026)](https://neomjs.com/raw/learn/agentos/measurements/pr-review-baseline-2026-04.md)
 - [Swarm Heartbeat Token Economy Baseline (May 2026)](https://neomjs.com/raw/learn/agentos/measurements/heartbeat-token-economy-2026-05.md)
 - [Server Authorization](https://neomjs.com/raw/learn/agentos/tooling/Authorization.md)
