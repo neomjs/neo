@@ -26,7 +26,7 @@ The Neo.mjs repository provides the MCP server applications. The external operat
 
 ### Operator Config Bootstrap
 
-The MCP servers boot from per-server `config.mjs` files (gitignored). On first clone, `npm prepare` clones each server's `config.template.mjs` into the matching `config.mjs`. After `git pull` runs that introduce structural template evolution (new imports, new env-binding fields), re-run `npm run prepare` to surface stale-config warnings. To refresh a stale gitignored `config.mjs` from the canonical template, run `npm run prepare -- --migrate-config` — idempotent, safe on already-current files. (See [#10815](https://github.com/neomjs/neo/issues/10815) for the drift-detection substrate.)
+The MCP servers boot from per-server `config.mjs` files (gitignored). On first clone, `npm prepare` clones each server's `config.template.mjs` into the matching `config.mjs`. After `git pull` runs that introduce **structural template evolution** — new top-level `import ... from '...'` lines, new named specifiers within existing import blocks, or new `export { ... }` blocks — re-run `npm run prepare` to surface stale-config warnings. The detector covers the import + named-export surface only; value-level changes inside `defaultConfig` (e.g., new env-binding entries, default-value adjustments) are not yet inspected and require operator awareness from release notes / PR descriptions. To refresh a stale gitignored `config.mjs` from the canonical template, run `npm run prepare -- --migrate-config` — idempotent, safe on already-current files. (See [#10815](https://github.com/neomjs/neo/issues/10815) for the drift-detection substrate.)
 
 ## Section 2: Container Packaging
 

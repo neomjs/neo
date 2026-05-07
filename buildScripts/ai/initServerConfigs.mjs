@@ -35,10 +35,27 @@ const MIGRATE_FLAG = '--migrate-config';
  * Projects a `.mjs` file's structural shape — the surface that `initServerConfigs`
  * watches for drift between template and gitignored config.
  *
- * - **Imports**: each top-level `import ... from '...'` line, captured by source
- *   path (the `from '...'` literal). Multi-line `import {\n  a,\n  b\n} from '...'`
- *   blocks are matched via lazy-cross-newline `[\s\S]*?` because `.*?` would not
- *   span newlines under the `gm` flag.
+ * The `imports` projection is two-tiered to cover both whole-import drift AND
+ * same-source named-specifier drift. The latter is the dominant evolution mode
+ * for the canonical config templates — adding `parseUrl` to the existing
+ * `import {parsePort, parseBool} from '../shared/helpers/EnvConfig.mjs'` block
+ * is structural drift even though the source path is unchanged.
+ *
+ * - **Whole-import entries** (source-path strings, e.g. `'../shared/helpers/EnvConfig.mjs'`):
+ *   detect missing imports — the gitignored config doesn't import from a path
+ *   the template imports from at all.
+ * - **Named-specifier entries** (`<source>:<specifier>` strings, e.g.
+ *   `'../shared/helpers/EnvConfig.mjs:parseUrl'`): detect missing named
+ *   specifiers within a shared source path. Both default imports
+ *   (`import x from '...'` → `<source>:default`) and namespace imports
+ *   (`import * as x from '...'` → `<source>:*`) are projected. `as`-aliases
+ *   are normalized to the imported (left-side) name; the local alias doesn't
+ *   participate in shape comparison.
+ *
+ * Multi-line `import {\n  a,\n  b\n} from '...'` blocks are matched via
+ * lazy-cross-newline `[\s\S]*?` because `.*?` would not span newlines under
+ * the `gm` flag.
+ *
  * - **Named exports**: identifiers inside `export { a, b }` blocks. Currently
  *   unused by the canonical config templates (which use `export default ...`),
  *   but kept as forward-compat surface — if templates evolve to add named-export
@@ -50,9 +67,38 @@ const MIGRATE_FLAG = '--migrate-config';
 export async function projectShape(filePath) {
     const src = await fs.readFile(filePath, 'utf-8');
 
-    const imports = [...src.matchAll(/^import\s+[\s\S]*?from\s+['"]([^'"]+)['"]/gm)]
-        .map(m => m[1])
-        .sort();
+    const imports = [];
+
+    for (const match of src.matchAll(/^import\s+([\s\S]*?)\s+from\s+['"]([^'"]+)['"]/gm)) {
+        const body   = match[1];
+        const source = match[2];
+
+        imports.push(source);
+
+        const namedBlock = body.match(/\{([^}]+)\}/);
+        if (namedBlock) {
+            for (const raw of namedBlock[1].split(',')) {
+                const cleaned  = raw.trim();
+                if (!cleaned) continue;
+                const imported = cleaned.split(/\s+as\s+/)[0].trim();
+                if (imported) {
+                    imports.push(`${source}:${imported}`);
+                }
+            }
+        }
+
+        const defaultMatch = body.match(/^\s*([A-Za-z_$][\w$]*)\s*(?:,|$)/);
+        if (defaultMatch) {
+            imports.push(`${source}:default`);
+        }
+
+        const namespaceMatch = body.match(/\*\s+as\s+[A-Za-z_$][\w$]*/);
+        if (namespaceMatch) {
+            imports.push(`${source}:*`);
+        }
+    }
+
+    imports.sort();
 
     const exports = [...src.matchAll(/^export\s+\{([^}]+)\}/gm)]
         .flatMap(m => m[1].split(',').map(s => s.trim()).filter(Boolean))
