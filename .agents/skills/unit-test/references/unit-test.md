@@ -89,4 +89,5 @@ npm run test-unit -- test/playwright/unit/path/to/your.spec.mjs --debug
 ## 7. Directory Conventions
 
 - **Canonical Unit Tests**: `test/playwright/unit/`
+- **Right-Hemisphere Tests (Backend/Node.js)**: Tests affecting the "right hemisphere" (e.g., buildScripts, AI) belong under `test/playwright/unit/ai/` or `test/playwright/unit/buildScripts/`. Do NOT place them inside the frontend source-mirror (e.g., `test/playwright/unit/src/`). This aligns with the architecture defined in `learn/benefits/ArchitectureOverview.md` § Two Hemispheres.
 - **MCP Server Unit Tests**: You **MUST** place MCP tests in `test/playwright/unit/ai/mcp/server/`. Do NOT use the deprecated/grandfathered `test/playwright/mcp/` tree for new tests.
