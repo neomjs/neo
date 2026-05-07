@@ -1,11 +1,11 @@
 services:
   chroma:
-    image: chromadb/chroma:0.5.20
+    image: chromadb/chroma:1.5.9
     # Tmpfs-mode option for Chroma when used as test fixture (cross-link to #10805)
     tmpfs:
       - /chroma/chroma
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -25,7 +25,7 @@ services:
       - NEO_CHROMA_PORT=8000
       - MCP_HTTP_PORT=3000
       - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
-      - NEO_DEBUG=true
+
     volumes:
       - ../..:/app
     depends_on:
@@ -48,7 +48,7 @@ services:
       - NEO_CHROMA_PORT=8000
       - MCP_HTTP_PORT=3001
       - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
-      - NEO_DEBUG=true
+
     volumes:
       - ../..:/app
     depends_on:
