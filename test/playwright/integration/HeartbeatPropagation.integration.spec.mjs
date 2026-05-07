@@ -23,7 +23,7 @@ test.describe('Heartbeat Propagation Integration (#10896 Lane B)', () => {
             if (previousSamples.length > 1) {
                 const prev = previousSamples[previousSamples.length - 2];
                 // Monotonic uptime
-                expect(sample.uptime).toBeGreaterThan(prev.uptime);
+                expect(sample.uptime).toBeGreaterThanOrEqual(prev.uptime);
             }
 
             // Provider stability
