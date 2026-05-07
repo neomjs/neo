@@ -24,6 +24,10 @@ The Neo.mjs repository provides the MCP server applications. The external operat
 - The reverse proxy.
 - The ChromaDB instance.
 
+### Operator Config Bootstrap
+
+The MCP servers boot from per-server `config.mjs` files (gitignored). On first clone, `npm prepare` clones each server's `config.template.mjs` into the matching `config.mjs`. After `git pull` runs that introduce structural template evolution (new imports, new env-binding fields), re-run `npm run prepare` to surface stale-config warnings. To refresh a stale gitignored `config.mjs` from the canonical template, run `npm run prepare -- --migrate-config` — idempotent, safe on already-current files. (See [#10815](https://github.com/neomjs/neo/issues/10815) for the drift-detection substrate.)
+
 ## Section 2: Container Packaging
 
 When containerizing the MCP servers, you must choose between packaging both servers in one image or building two separate images. 
