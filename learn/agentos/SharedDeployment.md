@@ -132,12 +132,12 @@ The `publicUrl` property decouples the public-facing URL from the internal `HOST
 
 ```bash
 # Default — proxy header is IGNORED. OIDC-only operation:
-unset AUTH_TRUST_PROXY_IDENTITY
+unset NEO_AUTH_TRUST_PROXY_IDENTITY
 # or
-export AUTH_TRUST_PROXY_IDENTITY=false
+export NEO_AUTH_TRUST_PROXY_IDENTITY=false
 
 # Enable proxy-identity injection (required for oauth2-proxy fronting deployments):
-export AUTH_TRUST_PROXY_IDENTITY=true
+export NEO_AUTH_TRUST_PROXY_IDENTITY=true
 ```
 
 The flag lives in both `ai/mcp/server/knowledge-base/config.template.mjs` and `ai/mcp/server/memory-core/config.template.mjs` under the `auth` block, so both servers stay symmetric.
@@ -263,7 +263,7 @@ Auth diagnostic fields:
 - `proxyHeader.trusted`: whether `auth.trustProxyIdentity` is enabled in config.
 - `proxyHeader.headersChecked`: the canonical (`x-preferred-username`) and `oauth2-proxy`-specific (`x-auth-request-preferred-username`) header keys the server reads in proxy-header mode.
 
-Use `configured` as the at-a-glance indicator. A misconfigured `AUTH_TRUST_PROXY_IDENTITY=true` without OIDC and without a fronting proxy actually deployed will surface here as `'proxy-header'`; if requests then fail with `401`, that's the runtime gate ([PR #10785](https://github.com/neomjs/neo/pull/10785)) rejecting missing proxy headers per the [Authentication](#authentication) threat model. The healthcheck shows the *configured* posture; the 401 confirms the gate fires when the prerequisite is absent.
+Use `configured` as the at-a-glance indicator. A misconfigured `NEO_AUTH_TRUST_PROXY_IDENTITY=true` without OIDC and without a fronting proxy actually deployed will surface here as `'proxy-header'`; if requests then fail with `401`, that's the runtime gate ([PR #10785](https://github.com/neomjs/neo/pull/10785)) rejecting missing proxy headers per the [Authentication](#authentication) threat model. The healthcheck shows the *configured* posture; the 401 confirms the gate fires when the prerequisite is absent.
 
 ## Asynchronous Session Summarization (Disconnect Trigger)
 
