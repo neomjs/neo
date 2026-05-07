@@ -1,0 +1,78 @@
+services:
+  chroma:
+    image: chromadb/chroma:1.5.9
+    tmpfs:
+      - /chroma/chroma
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - neo-mcp-test-network
+    ports:
+      - "18080:8000"
+
+  kb-server:
+    build:
+      context: ../..
+      dockerfile: ai/deploy/Dockerfile
+      args:
+        TARGET_SERVER: knowledge-base
+    environment:
+      - NEO_TRANSPORT=sse
+      - NEO_AUTO_SYNC=false
+      - NEO_KB_AUTO_START_DATABASE=false
+      - NEO_CHROMA_UNIFIED=true
+      - NEO_CHROMA_HOST=chroma
+      - NEO_CHROMA_PORT=8000
+      - MCP_HTTP_PORT=3000
+      - NEO_MEMORY_DB_PATH=/tmp/neo-integration/memory-core-graph.sqlite
+      - GEMINI_API_KEY=test-integration-key
+    tmpfs:
+      - /tmp/neo-integration
+    depends_on:
+      chroma:
+        condition: service_healthy
+    networks:
+      - neo-mcp-test-network
+    ports:
+      - "13000:3000"
+
+  mc-server:
+    build:
+      context: ../..
+      dockerfile: ai/deploy/Dockerfile
+      args:
+        TARGET_SERVER: memory-core
+    environment:
+      - NEO_TRANSPORT=sse
+      - NEO_MC_PRIMARY=false
+      - NEO_AUTO_SUMMARIZE=false
+      - NEO_MEM_AUTO_START_DATABASE=false
+      - NEO_MEM_AUTO_START_INFERENCE=false
+      - NEO_AUTO_DREAM=false
+      - NEO_AUTO_GOLDEN_PATH=false
+      - NEO_REAL_TIME_MEMORY_PARSING=false
+      - NEO_AUTO_INGEST_FS=false
+      - NEO_CHROMA_UNIFIED=true
+      - NEO_CHROMA_HOST=chroma
+      - NEO_CHROMA_PORT=8000
+      - MCP_HTTP_PORT=3001
+      - NEO_MEMORY_DB_PATH=/tmp/neo-integration/memory-core-graph.sqlite
+      - NEO_MODEL_PROVIDER=openAiCompatible
+      - NEO_EMBEDDING_PROVIDER=openAiCompatible
+      - NEO_OPENAI_COMPATIBLE_API_KEY=test-integration-key
+    tmpfs:
+      - /tmp/neo-integration
+    depends_on:
+      chroma:
+        condition: service_healthy
+    networks:
+      - neo-mcp-test-network
+    ports:
+      - "13001:3001"
+
+networks:
+  neo-mcp-test-network:
+    driver: bridge
