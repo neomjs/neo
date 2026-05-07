@@ -198,7 +198,7 @@ See [`MemoryCore.md` §Healthcheck Response Shape](./MemoryCore.md) for the full
 
 The Knowledge Base's healthcheck mirrors the connectivity assertion (collection counts, embedding status). When both servers report `connected: true` against the same shared `{host, port}`, the topology is verified.
 
-The local staged-stack fixture verifies this deployed shape with `npm run test-integration`: Playwright starts `ai/deploy/docker-compose.test.yml`, then calls both servers' MCP `healthcheck` tools over `/mcp`. This is the canonical local smoke path for KB + MC + shared Chroma healthcheck validation. It also writes and queries same-session memories as different proxy identities in `test/playwright/integration/CrossTenantIsolation.integration.spec.mjs`, proving tenant-scoped memory reads do not leak across the trusted proxy-identity boundary.
+The local staged-stack fixture verifies this deployed shape with `npm run test-integration`: Playwright starts `ai/deploy/docker-compose.test.yml`, then calls both servers' MCP `healthcheck` tools over `/mcp` (see [HeartbeatPropagation.integration.spec.mjs](../../test/playwright/integration/HeartbeatPropagation.integration.spec.mjs)). This is the canonical local smoke path for KB + MC + shared Chroma healthcheck validation. It also writes and queries same-session memories as different proxy identities in `test/playwright/integration/CrossTenantIsolation.integration.spec.mjs`, proving tenant-scoped memory reads do not leak across the trusted proxy-identity boundary.
 
 The Memory Core's healthcheck additionally surfaces active provider observability under `providers.*` (#10723, #10724, #10770):
 
