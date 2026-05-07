@@ -1,6 +1,7 @@
 import {setup} from '../../../setup.mjs';
 
 const appName = 'ResumeHarnessTest';
+const skipCiSubstrateData = !!process.env.NEO_TEST_SKIP_CI;
 
 setup({
     neoConfig: {
@@ -219,6 +220,7 @@ test.describe('ai/scripts/resumeHarness', () => {
 
     test('Claude CLI: adapter executes <payload> with NO session-id flag via CLAUDE_CLI_PATH (#10677)', async () => {
         test.skip(process.platform !== 'darwin', 'Claude CLI is currently mac-specific (parallel concern to #10684)');
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
         // Mock claude binary that records argv to a file. Substrate-truth verification: the spawner
         // MUST pass NO `--session-id` flag — fresh `claude <prompt>` invocation creates a fresh
@@ -252,6 +254,7 @@ test.describe('ai/scripts/resumeHarness', () => {
 
     test('harness lifecycle: claude-cli spawn records PID in state-file (#10696 review point 2)', async () => {
         test.skip(process.platform !== 'darwin', 'Claude CLI is currently mac-specific');
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
         // Verify the cross-adapter cleanup primitive: after a successful claude-cli dispatch,
         // resumeHarness records the spawned process's PID via harnessLifecycle.recordHarnessProcess.
@@ -280,6 +283,7 @@ test.describe('ai/scripts/resumeHarness', () => {
 
     test('harness lifecycle: stale dead PID in state-file is reaped before fresh spawn (#10696 review point 2)', async () => {
         test.skip(process.platform !== 'darwin', 'Claude CLI is currently mac-specific');
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
         // Pre-populate state file with a clearly-dead PID (well above pid_max), then run
         // resumeHarness. The cleanup primitive should detect ESRCH and proceed with fresh spawn.
@@ -314,6 +318,7 @@ test.describe('ai/scripts/resumeHarness', () => {
 
     test('Antigravity CLI: adapter executes chat -n <payload> via ANTIGRAVITY_CLI_PATH (#10680)', async () => {
         test.skip(process.platform !== 'darwin', 'Antigravity CLI is currently mac-specific (#10684)');
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
         // Create a mock executable to capture the command shape without launching the real IDE
         const mockPath = path.join(os.tmpdir(), `mock-ag-${randomUUID()}`);
@@ -338,6 +343,7 @@ test.describe('ai/scripts/resumeHarness', () => {
 
     test('Codex app-server: default live-host path fails closed without opt-in or mock (#10679)', async () => {
         test.skip(process.platform !== 'darwin', 'Codex Desktop app-server adapter is currently mac-specific');
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
         const { getLockPath } = await import('../../../../../ai/scripts/inflightLock.mjs');
         const lockPath = getLockPath('sunset_restart', '@neo-gpt');
@@ -360,6 +366,7 @@ test.describe('ai/scripts/resumeHarness', () => {
 
     test('Codex app-server: adapter executes send-message-v2 <payload> via CODEX_CLI_PATH mock (#10679)', async () => {
         test.skip(process.platform !== 'darwin', 'Codex Desktop app-server adapter is currently mac-specific');
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
         const mockPath = path.join(os.tmpdir(), `mock-codex-${randomUUID()}`);
         const outPath = path.join(os.tmpdir(), `out-codex-${randomUUID()}`);
@@ -389,6 +396,8 @@ test.describe('ai/scripts/resumeHarness', () => {
     });
 
     test('adapter failure (e.g. ESC-as-rejection) clears the inflight lock (#10674, #10677)', async () => {
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
+
         // Substrate-correct lock-clear-on-failure invariant. Post-#10677, claude-desktop
         // routes through the `claude-cli` adapter (no longer osascript), so we exercise
         // the failure path via a fake `claude` binary that always exits 1. The adapter

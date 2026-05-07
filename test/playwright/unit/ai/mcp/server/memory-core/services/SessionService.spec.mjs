@@ -1,6 +1,7 @@
 import {setup} from '../../../../../../setup.mjs';
 
 const appName = 'MemoryCoreSessionServiceTest';
+const skipCiSubstrateData = !!process.env.NEO_TEST_SKIP_CI;
 
 process.env.NEO_MODEL_PROVIDER        = 'openAiCompatible';
 process.env.NEO_OPENAI_COMPATIBLE_MODEL = 'gemma4';
@@ -30,6 +31,8 @@ const __dirname  = path.dirname(__filename);
 dotenv.config({path: path.resolve(__dirname, '../../../../../../../../.env'), quiet: true});
 
 test.describe('SessionService setSessionId', () => {
+    test.skip(skipCiSubstrateData, 'CI-skip: Memory Core substrate data not seeded - bucket C (#10903)');
+
     let SDK, TextEmbeddingService, dummySessionId;
 
     test.beforeAll(async () => {
