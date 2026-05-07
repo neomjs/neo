@@ -55,6 +55,7 @@ test.describe('QA Sub-Agent Swarm Node', () => {
         // Skip test in CI environments or if we explicitly don't have a local daemon
         // Since this relies on a local Ollama daemon hosting gemma-4, we just let it run locally 
         // to evaluate the Swarm's intelligence.
+        test.skip(!!process.env.NEO_TEST_SKIP_CI || !process.env.GEMINI_API_KEY, 'CI-skip: missing GEMINI_API_KEY - bucket G1 (#10924)');
         test.setTimeout(120000); // Give Gemma4 up to 2 minutes to generate the test code
 
         // The primary orchestrator boots up

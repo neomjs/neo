@@ -18,6 +18,7 @@ test.describe('ChromaDB Recovery Test', () => {
     });
 
     test('should fetch memories gracefully without bounds errors', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: ChromaConnectionError - bucket G2 (#10924)');
         test.skip(!isOnline, 'ChromaDB is not running.');
 
         const col = await ChromaManager.getMemoryCollection();
