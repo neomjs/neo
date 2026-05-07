@@ -30,11 +30,11 @@ Target-tier shorthand:
 
 | env var | current readers | target tier | deletion/keep rationale |
 |---|---|---|---|
-| `AUTH_HOST` | `memory-core/config.template.mjs:125`; `knowledge-base/config.template.mjs:70` | Tier 3 | Runtime binding for OAuth/OIDC authority host in deployed SSE mode. |
-| `AUTH_ISSUER_URL` | `memory-core/config.template.mjs:128`; `knowledge-base/config.template.mjs:73` | Tier 3 | Runtime binding for external issuer URL behind reverse proxies. |
-| `AUTH_PORT` | `memory-core/config.template.mjs:126`; `knowledge-base/config.template.mjs:71` | Tier 3 | Runtime binding for local auth server port; keep env-overridable for deployment. |
-| `AUTH_REALM` | `memory-core/config.template.mjs:127`; `knowledge-base/config.template.mjs:72` | Tier 3 | Runtime binding for auth realm; deployment/operator concern. |
-| `AUTH_TRUST_PROXY_IDENTITY` | `memory-core/config.template.mjs:131`; `knowledge-base/config.template.mjs:76` | Tier 3 | Multi-tenant isolation and reverse-proxy trust boundary toggle. |
+| `NEO_AUTH_HOST` | `memory-core/config.template.mjs:125`; `knowledge-base/config.template.mjs:70` | Tier 3 | Runtime binding for OAuth/OIDC authority host in deployed SSE mode. |
+| `NEO_AUTH_ISSUER_URL` | `memory-core/config.template.mjs:128`; `knowledge-base/config.template.mjs:73` | Tier 3 | Runtime binding for external issuer URL behind reverse proxies. |
+| `NEO_AUTH_PORT` | `memory-core/config.template.mjs:126`; `knowledge-base/config.template.mjs:71` | Tier 3 | Runtime binding for local auth server port; keep env-overridable for deployment. |
+| `NEO_AUTH_REALM` | `memory-core/config.template.mjs:127`; `knowledge-base/config.template.mjs:72` | Tier 3 | Runtime binding for auth realm; deployment/operator concern. |
+| `NEO_AUTH_TRUST_PROXY_IDENTITY` | `memory-core/config.template.mjs:131`; `knowledge-base/config.template.mjs:76` | Tier 3 | Multi-tenant isolation and reverse-proxy trust boundary toggle. |
 | `NEO_AUTO_DREAM` | `memory-core/config.template.mjs:69` | Tier 3 | Operator one-shot/daemon toggle; should stay opt-in env to avoid multi-harness auto-fire. |
 | `NEO_AUTO_GOLDEN_PATH` | `memory-core/config.template.mjs:75` | Tier 3 | Operator one-shot/daemon toggle for Golden Path synthesis. |
 | `NEO_AUTO_INGEST_FS` | `memory-core/config.template.mjs:85` | Tier 3 | Operator one-shot ingestion toggle; avoid enabling by committed config drift. |
@@ -85,8 +85,8 @@ Target-tier shorthand:
 | `NEO_RLAIF_PATH` | `memory-core/config.template.mjs:269` | Tier 2 | Dataset path. Prefer Memory Core config; env override only if operator path injection is needed. |
 | `NEO_SESSION_ID` | `knowledge-base/Server.mjs:190`; `knowledge-base/services/toolService.mjs:43` | Tier 3 | Session identity binding for KB telemetry/request context fallback. |
 | `NEO_VECTOR_DIMENSION` | `memory-core/config.template.mjs:171` | Tier 1 | Shared embedding/vector contract. Tier 1 default plus optional env override only during controlled migrations. |
-| `OAUTH_CLIENT_ID` | `memory-core/config.template.mjs:129`; `knowledge-base/config.template.mjs:74` | Tier 3 | Deployment/runtime auth binding. |
-| `OAUTH_CLIENT_SECRET` | `memory-core/config.template.mjs:130`; `knowledge-base/config.template.mjs:75` | Tier 3 | Secret. Must stay env-backed. |
+| `NEO_OAUTH_CLIENT_ID` | `memory-core/config.template.mjs:129`; `knowledge-base/config.template.mjs:74` | Tier 3 | Deployment/runtime auth binding. |
+| `NEO_OAUTH_CLIENT_SECRET` | `memory-core/config.template.mjs:130`; `knowledge-base/config.template.mjs:75` | Tier 3 | Secret. Must stay env-backed. |
 | `NEO_REAL_TIME_MEMORY_PARSING` | `memory-core/config.template.mjs:80` | Tier 3 | Operator one-shot/daemon toggle; keep opt-in env to prevent accidental graph writes. |
 | `NEO_SESSION_COLLECTION_NAME` | `memory-core/config.template.mjs:260` | Tier 2 | Collection name default; move to per-server config unless deployment override remains necessary. |
 | `SSE_PORT` | `shared/helpers/DeploymentConfig.mjs:37` | Delete | Legacy dev-branch-only alias targeted by #10823. |

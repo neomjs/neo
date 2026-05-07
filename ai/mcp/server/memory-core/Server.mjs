@@ -57,24 +57,12 @@ class Server extends Base {
     stdioIdentity = null
 
     /**
-     * Async initialization sequence.
-     * @returns {Promise<void>}
+     * Creates a new MCP Server instance. Used by TransportService to provision
+     * a dedicated server object per SSE request to avoid SDK lifecycle collisions.
+     * @returns {McpServer}
      */
-    async initAsync() {
-        await super.initAsync();
-
-        // 1. Load custom configuration if provided
-        if (this.configFile) {
-            try {
-                await aiConfig.load(this.configFile);
-            } catch (error) {
-                logger.error('Failed to load configuration:', error);
-                throw error; // Re-throw to trigger ready() catch block in runner
-            }
-        }
-
-        // 2. Initialize MCP Server instance
-        this.mcpServer = new McpServer({
+    createMcpServer() {
+        const mcpServer = new McpServer({
             name   : 'neo-memory-core',
             version: process.env.npm_package_version || '1.0.0',
         }, {
@@ -91,13 +79,35 @@ class Server extends Base {
             }
         });
 
+        this.setupRequestHandlers(mcpServer);
+        CoalescingEngineService.addMcpServer(mcpServer);
+
+        return mcpServer;
+    }
+
+    /**
+     * Async initialization sequence.
+     * @returns {Promise<void>}
+     */
+    async initAsync() {
+        await super.initAsync();
+
+        // 1. Load custom configuration if provided
+        if (this.configFile) {
+            try {
+                await aiConfig.load(this.configFile);
+            } catch (error) {
+                logger.error('Failed to load configuration:', error);
+                throw error; // Re-throw to trigger ready() catch block in runner
+            }
+        }
+
         await WakeSubscriptionService.init();
-        CoalescingEngineService.setMcpServer(this.mcpServer);
 
-        // 3. Setup Request Handlers
-        this.setupRequestHandlers();
+        // 2. Initialize the default stdio MCP Server instance
+        this.mcpServer = this.createMcpServer();
 
-        // 4. Wait for dependent services
+        // 3. Wait for dependent services
         // SessionService is a singleton, so we wait for its global ready state
         await InferenceLifecycleService.ready();
         await SessionService.ready();
@@ -433,20 +443,24 @@ class Server extends Base {
      * @summary Bridges the transport layer disconnect event into the memory core logic pipeline.
      * @param {String} sessionId
      */
-    onSessionClosed(sessionId) {
+    onSessionClosed(sessionId, mcpServerInstance) {
         if (SessionService) {
             SessionService.queueSummarizationJob(sessionId);
+        }
+        if (mcpServerInstance) {
+            CoalescingEngineService.removeMcpServer(mcpServerInstance);
         }
     }
 
     /**
      * Wires up the MCP request handlers for listing and calling tools.
+     * @param {McpServer} mcpServer The target server instance
      */
-    setupRequestHandlers() {
-        if (!this.mcpServer) return; // Prevent crash if instance was destroyed during async boot
+    setupRequestHandlers(mcpServer) {
+        if (!mcpServer) return; // Prevent crash if instance was destroyed during async boot
 
         // List Tools Handler
-        this.mcpServer.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
+        mcpServer.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
             try {
                 const { cursor, limit } = request.params || {};
                 const { tools, nextCursor } = listTools({ cursor, limit });
@@ -472,7 +486,7 @@ class Server extends Base {
         });
 
         // Call Tool Handler
-        this.mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+        mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const { name, arguments: args } = request.params;
 
             try {

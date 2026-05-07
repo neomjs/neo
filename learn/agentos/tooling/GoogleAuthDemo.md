@@ -34,9 +34,9 @@ MCP_HTTP_PORT=3000   # legacy alias `SSE_PORT` still works during the #10808 dep
 HOST=mcp.yourdomain.com
 
 # OIDC Discovery
-AUTH_ISSUER_URL=https://accounts.google.com
-OAUTH_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
-OAUTH_CLIENT_SECRET=your-google-client-secret
+NEO_AUTH_ISSUER_URL=https://accounts.google.com
+NEO_OAUTH_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+NEO_OAUTH_CLIENT_SECRET=your-google-client-secret
 ```
 
 ### Protocol Awareness
@@ -50,7 +50,7 @@ Ensure `HOST` is set correctly. If your server is behind a load balancer with SS
 Unlike Keycloak, Google does not strictly adhere to the RFC 7662 introspection spec for all token types in the same way. However, for **OpenID Connect**, the MCP SDK handles the validation of the Bearer token. 
 
 ### Audience (aud) Validation
-Google ID Tokens include the `aud` field, which matches your `OAUTH_CLIENT_ID`. The Neo.mjs MCP server will validate that the incoming token's audience is authorized to access the resource.
+Google ID Tokens include the `aud` field, which matches your `NEO_OAUTH_CLIENT_ID`. The Neo.mjs MCP server will validate that the incoming token's audience is authorized to access the resource.
 
 > **Note:** In complex scenarios where the client and server use different GCP projects, you may need to configure additional audience mappings in your GCP project.
 
@@ -71,7 +71,7 @@ When connecting an MCP client (like VS Code) to your server:
 ## Troubleshooting
 
 ### 401 Unauthorized
-Verify that the `OAUTH_CLIENT_ID` in your server config matches the one used by the client to obtain the token.
+Verify that the `NEO_OAUTH_CLIENT_ID` in your server config matches the one used by the client to obtain the token.
 
 ### OIDC Discovery Failure
 If the server logs `Failed to fetch OIDC discovery document`, ensure the server has outbound internet access to reach `https://accounts.google.com/.well-known/openid-configuration`.

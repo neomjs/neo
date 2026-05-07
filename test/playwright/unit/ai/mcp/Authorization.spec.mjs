@@ -77,10 +77,10 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
                 SSE_PORT          : MCP_SSE_PORT.toString(),
                 NEO_AUTO_SYNC     : 'false',
                 NEO_AUTO_SUMMARIZE: 'false',
-                AUTH_HOST         : 'localhost',
-                AUTH_PORT         : MOCK_OIDC_PORT.toString(),
-                AUTH_REALM        : 'test',
-                OAUTH_CLIENT_ID   : TEST_CLIENT_ID,
+                NEO_AUTH_HOST     : 'localhost',
+                NEO_AUTH_PORT     : MOCK_OIDC_PORT.toString(),
+                NEO_AUTH_REALM    : 'test',
+                NEO_OAUTH_CLIENT_ID: TEST_CLIENT_ID,
                 HOST              : 'localhost'
             }
         });
@@ -184,7 +184,7 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
         expect(body.authorization_servers).toContain(`http://localhost:${MOCK_OIDC_PORT}/realms/test/`);
     });
 
-    test('should support OIDC discovery via AUTH_ISSUER_URL', async ({request}) => {
+    test('should support OIDC discovery via NEO_AUTH_ISSUER_URL', async ({request}) => {
         const DISCOVERY_MCP_PORT = 3334;
 
         // Start a new MCP server process using issuerUrl
@@ -195,8 +195,8 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
                 SSE_PORT          : DISCOVERY_MCP_PORT.toString(),
                 NEO_AUTO_SYNC     : 'false',
                 NEO_AUTO_SUMMARIZE: 'false',
-                AUTH_ISSUER_URL   : `http://localhost:${MOCK_OIDC_PORT}/realms/test`,
-                OAUTH_CLIENT_ID   : TEST_CLIENT_ID,
+                NEO_AUTH_ISSUER_URL: `http://localhost:${MOCK_OIDC_PORT}/realms/test`,
+                NEO_OAUTH_CLIENT_ID: TEST_CLIENT_ID,
                 HOST              : 'localhost'
             }
         });

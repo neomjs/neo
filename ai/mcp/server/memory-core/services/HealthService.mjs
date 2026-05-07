@@ -229,7 +229,7 @@ export function buildSummaryProviderBlock(cfg, env = process.env) {
  * Operators deploying the shared MC/KB topology with multi-tenant identity isolation need an
  * observable surface confirming WHICH auth path is currently primary at boot — OIDC introspection
  * vs proxy-header injection vs single-tenant fallthrough. Without this, a misconfigured
- * `AUTH_TRUST_PROXY_IDENTITY=true` set without a fronting proxy actually being deployed is
+ * `NEO_AUTH_TRUST_PROXY_IDENTITY=true` set without a fronting proxy actually being deployed is
  * undetectable until requests start failing in non-obvious ways. Mirrors the
  * {@link buildEmbeddingProviderBlock} + {@link buildSummaryProviderBlock} precedents for
  * module-scope pure projections of provider state.
