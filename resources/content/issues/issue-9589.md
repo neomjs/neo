@@ -9,7 +9,7 @@ labels:
   - architecture
 assignees: []
 createdAt: '2026-03-29T10:01:37Z'
-updatedAt: '2026-03-29T10:01:46Z'
+updatedAt: '2026-05-07T17:03:23Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9589'
 author: tobiu
 commentsCount: 0
@@ -28,7 +28,7 @@ closedAt: '2026-03-29T10:01:46Z'
 Implement out-of-the-box OAuth 2.1 / OIDC authorization for the Knowledge Base and Memory Core MCP servers. This enables IaC-driven deployments using standard identity providers like Keycloak.
 
 **Requirements:**
-- Map `AUTH_HOST`, `AUTH_PORT`, `AUTH_REALM`, `OAUTH_CLIENT_ID`, and `OAUTH_CLIENT_SECRET` in `aiConfig.mjs`.
+- Map `NEO_AUTH_HOST`, `NEO_AUTH_PORT`, `NEO_AUTH_REALM`, `NEO_OAUTH_CLIENT_ID`, and `NEO_OAUTH_CLIENT_SECRET` in `aiConfig.mjs`.
 - In `Server.mjs` (for both `knowledge-base` and `memory-core`):
     - Automatically setup the `mcpAuthMetadataRouter` for discovery.
     - Implement a `tokenVerifier` using standard token introspection.
