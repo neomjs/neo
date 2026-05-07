@@ -192,10 +192,11 @@ For every modified or added OpenAPI tool description:
 *(Required per guide §7.6. Reviewers MUST verify automated GitHub Actions before assigning an `[EXECUTION_QUALITY]` score.)*
 
 - [ ] Ran `gh pr checks <N>` to empirically verify CI status.
+- [ ] Confirmed no checks are pending/in-progress (Hold review if unfinished).
 - [ ] Confirmed no "deep red" critical failures (e.g., CodeQL, Security, core build).
 - [ ] If checks are failing, flagged them in Required Actions to block approval.
 
-**Findings:** [Pass - all checks green / Failures flagged in Required Actions / N/A - no CI triggered]
+**Findings:** [Pass - all checks green / Pending - review held / Failures flagged in Required Actions / N/A - no CI triggered]
 
 ---
 
@@ -213,7 +214,7 @@ To proceed with merging, please address the following:
 
 No required actions — eligible for human merge.
 
-*Do NOT use pre-ticked placeholder items like `- [x] All checks pass and no required changes identified.` — that reads as box-checking, not genuine review. Per guide §5 Zero-Issue PR Semantics + §7.5 anti-patterns table.*
+*Do NOT use pre-ticked placeholder items like `- [x] All checks pass and no required changes identified.` — that reads as box-checking, not genuine review. Per guide §5 Zero-Issue PR Semantics + §7.7 anti-patterns table.*
 
 ---
 

@@ -82,10 +82,11 @@ This is the follow-up form of the Depth Floor. Do not omit it because the prior 
 *(Required per guide §7.6. Reviewers MUST verify automated GitHub Actions before assigning an `[EXECUTION_QUALITY]` score.)*
 
 - [ ] Ran `gh pr checks <N>` to empirically verify CI status.
+- [ ] Confirmed no checks are pending/in-progress (Hold review if unfinished).
 - [ ] Confirmed no "deep red" critical failures (e.g., CodeQL, Security, core build).
 - [ ] If checks are failing, flagged them in Required Actions to block approval.
 
-**Findings:** [Pass - all checks green / Failures flagged in Required Actions / N/A - no CI triggered]
+**Findings:** [Pass - all checks green / Pending - review held / Failures flagged in Required Actions / N/A - no CI triggered]
 
 ---
 
