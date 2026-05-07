@@ -89,6 +89,13 @@ test.describe('Neo.ai.mcp.server.knowledge-base.services.KBRecorderService', () 
     });
 
     test('deduplicates repeated KB questions into Agent FAQ clusters', () => {
+        // CI-skip per Bucket G5#2 (singleton-data pollution under workers:1 — listed.faqs[0]
+        // returns undefined when sibling spec mutates the singleton DB state). Empirically still
+        // flakes in CI run 25524203756 despite earlier "auto-resolved" hypothesis from local
+        // re-measurement (workers:1 substrate differs from local default-workers parallelism).
+        // Tracking under #10924 G5 row pending dedicated sub-ticket.
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: G5#2 singleton-data pollution under workers:1 — see #10924');
+
         const
             originalResolve  = KBRecorderService.resolveRelatedConceptIds,
             originalCoverage = KBRecorderService.hasStrongGuideCoverage;

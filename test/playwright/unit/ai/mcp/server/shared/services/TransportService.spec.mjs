@@ -21,6 +21,13 @@ import * as core from '../../../../../../../../src/core/_export.mjs';
 test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
 
     test('onsessionclosed hook removes transport and calls server.onSessionClosed via actual HTTP request', async () => {
+        // CI-skip per #10935 (residual race surface — initResponse.headers undefined under
+        // workers:1 even after #10932 bind-fix shipped via #10930). Different surface than the
+        // bind-await race I tested in spec line 94+; either intra-spec Express middleware-wiring
+        // race OR cross-spec global.fetch interference. Investigation tracked in #10935.
+        // Empirically still flakes in CI run 25524203756.
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: residual race surface post-#10930 — see #10935');
+
         const TransportService = (await import('../../../../../../../../ai/mcp/server/shared/services/TransportService.mjs')).default;
 
         let closedSessionId = null;

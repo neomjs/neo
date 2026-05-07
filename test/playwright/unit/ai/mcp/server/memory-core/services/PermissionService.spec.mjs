@@ -163,6 +163,14 @@ test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => 
     });
 
     test('grantPermission preserves existing node type and does not overwrite it (resolves #10231)', async () => {
+        // CI-skip per Bucket G5#3 (AGENT:* singleton-data pollution under workers:1 — node.type
+        // returns undefined when sibling spec mutates AGENT:* in shared GraphService). 4 specs
+        // touch AGENT:* (MailboxService, WriteSideInvariant, GraphService, PermissionService).
+        // Empirically still flakes in CI run 25524203756 despite earlier "auto-resolved"
+        // hypothesis from local re-measurement (workers:1 differs from local default-workers).
+        // Tracking under #10924 G5 row pending dedicated sub-ticket.
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: G5#3 AGENT:* singleton-data pollution under workers:1 — see #10924');
+
         // Pre-seed AGENT:* as a BroadcastSentinel
         GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: '*', properties: {} });
 

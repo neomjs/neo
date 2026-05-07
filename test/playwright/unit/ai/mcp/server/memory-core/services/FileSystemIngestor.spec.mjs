@@ -120,6 +120,12 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
     });
 
     test('should dynamically ignore high-noise path patterns while preserving structural mapping', async () => {
+        // CI-skip per #10934 (singleton SQLite-close race under workers:1 — afterAll closes
+        // GraphService.db.storage.db; sibling spec running first leaves zombie connection state;
+        // then this test's removeNodes throws "database connection is not open"). Empirically
+        // confirmed in CI run 25524203756. Investigation tracked in #10934.
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: singleton SQLite-close race under workers:1 — see #10934');
+
         const stats = { nodes: 0, edges: 0 };
 
         // Override walk logic root physically mimicking neoRootDir logic natively
