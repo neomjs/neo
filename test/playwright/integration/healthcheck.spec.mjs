@@ -37,7 +37,7 @@ test.describe('Dockerized KB/MC MCP healthcheck integration (#10805 Lane A)', ()
         expect(mcHealth.providers.auth.proxyHeader.trusted).toBe(true);
     });
 
-    test('Sustained liveness (5s/1s window)', async () => {
+    test('Sustained liveness composability check (Lane B helper) — 5s/1s', async () => {
         const readiness = await getReadiness();
 
         test.skip(readiness.dockerAvailable === false, `Docker unavailable: ${readiness.reason}`);
