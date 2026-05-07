@@ -26,6 +26,7 @@ services:
       - NEO_CHROMA_UNIFIED=true
       - NEO_CHROMA_HOST=chroma
       - NEO_CHROMA_PORT=8000
+      - NEO_AUTH_TRUST_PROXY_IDENTITY=true
       - MCP_HTTP_PORT=3000
       - NEO_MEMORY_DB_PATH=/tmp/neo-integration/memory-core-graph.sqlite
       - GEMINI_API_KEY=test-integration-key
@@ -58,6 +59,7 @@ services:
       - NEO_CHROMA_UNIFIED=true
       - NEO_CHROMA_HOST=chroma
       - NEO_CHROMA_PORT=8000
+      - NEO_AUTH_TRUST_PROXY_IDENTITY=true
       - MCP_HTTP_PORT=3001
       - NEO_MEMORY_DB_PATH=/tmp/neo-integration/memory-core-graph.sqlite
       - NEO_MODEL_PROVIDER=openAiCompatible
