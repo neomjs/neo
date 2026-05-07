@@ -11,7 +11,7 @@ Without memory, every session is a blank slate. An agent fixing a bug today has 
 
 ## Architecture
 
-The server is built on a modular service architecture, extending `Neo.core.Base`. It uses **ChromaDB** as the vector database for semantic search and **Google Gemini** for text embeddings and summarization.
+The server is built on a modular service architecture, extending `Neo.core.Base`. It uses **ChromaDB** as the vector database for semantic search and **Google Gemini** for text embeddings and summarization. The Native Edge Graph persists in SQLite via `ai/graph/storage/SQLite.mjs`, which sets `PRAGMA foreign_keys=ON` at connection time so the schema-declared `Edges` `ON DELETE CASCADE` fires on Node deletion (#10856).
 
 ### Key Services
 

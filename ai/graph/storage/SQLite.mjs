@@ -47,6 +47,7 @@ class SQLite extends Base {
         me.db = new Database(me.dbPath, { verbose: null });
         me.db.pragma('journal_mode = WAL');
         me.db.pragma('busy_timeout = 5000');
+        me.db.pragma('foreign_keys = ON'); // honor schema-declared `Edges` ON DELETE CASCADE per #10856
 
         try {
             const rcs = await import('../../mcp/server/shared/services/RequestContextService.mjs');
