@@ -948,7 +948,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/CommentResponse'
         '400':
           description: Bad Request.
           content:

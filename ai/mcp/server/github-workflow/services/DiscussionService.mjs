@@ -166,8 +166,15 @@ class DiscussionService extends Base {
             const discussionId = idData.repository.discussion.id;
 
             // Use ADD_DISCUSSION_COMMENT mutation
-            await GraphqlService.query(ADD_DISCUSSION_COMMENT, { discussionId, body: finalBody });
-            return { message: `Successfully created comment on discussion #${discussion_number}` };
+            const result = await GraphqlService.query(ADD_DISCUSSION_COMMENT, { discussionId, body: finalBody });
+            const comment = result.addDiscussionComment.comment;
+            
+            return {
+                message  : `Successfully created comment on discussion #${discussion_number}`,
+                commentId: comment.id,
+                url      : comment.url,
+                createdAt: comment.createdAt
+            };
 
         } catch (error) {
             logger.error(`Error creating comment on discussion #${discussion_number} via GraphQL:`, error);
