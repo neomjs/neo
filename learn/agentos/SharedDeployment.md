@@ -115,7 +115,7 @@ Shared deployments need to know **which agent originated each request** so memor
 
 2. **Proxy identity injection (for deployments fronted by an identity-aware proxy)** — when an `oauth2-proxy`-style reverse proxy already terminates OIDC and injects `X-PREFERRED-USERNAME` (or the oauth2-proxy-specific `X-Auth-Request-Preferred-Username`) into the upstream request, the MC server can read that header instead of running its own OIDC verification. Gated by `auth.trustProxyIdentity`. Source provenance: `source: 'proxy-header'`.
 
-The two paths are NOT mutually exclusive — `req.auth` (OIDC) takes precedence over the proxy header by design. The proxy path only fires when `req.auth` is absent (OIDC unconfigured or token missing) AND `trustProxyIdentity` is explicitly enabled. **If `trustProxyIdentity` is enabled and no valid proxy identity header is found, the request is actively rejected with a `401 Unauthorized` error.** This strict "Verify-Before-Assert" gate prevents requests from silently falling through to an unauthenticated single-tenant context in a shared deployment.
+The two paths are NOT mutually exclusive — `req.auth` (OIDC) takes precedence over the proxy header by design. The proxy path only fires when `req.auth` is absent (OIDC unconfigured or token missing) AND `trustProxyIdentity` is explicitly enabled. **If `trustProxyIdentity` is enabled and no valid proxy identity header is found, the request is actively rejected with a `401 Unauthorized` error.** This strict "Verify-Before-Assert" gate prevents requests from silently falling through to an unauthenticated single-tenant context in a shared deployment. The local proof for this runtime gate is `test/playwright/integration/AuthRejection.integration.spec.mjs`, which connects without an identity header and expects the rejection before verifying an identity-bearing client can still call `healthcheck`.
 
 ### Configuration: Canonical `publicUrl` (PR #10802)
 
@@ -198,7 +198,7 @@ See [`MemoryCore.md` §Healthcheck Response Shape](./MemoryCore.md) for the full
 
 The Knowledge Base's healthcheck mirrors the connectivity assertion (collection counts, embedding status). When both servers report `connected: true` against the same shared `{host, port}`, the topology is verified.
 
-The local staged-stack fixture verifies this deployed shape with `npm run test-integration`: Playwright starts `ai/deploy/docker-compose.test.yml`, then calls both servers' MCP `healthcheck` tools over `/mcp`. This is the canonical local smoke path for KB + MC + shared Chroma healthcheck validation.
+The local staged-stack fixture verifies this deployed shape with `npm run test-integration`: Playwright starts `ai/deploy/docker-compose.test.yml`, then calls both servers' MCP `healthcheck` tools over `/mcp`. This is the canonical local smoke path for KB + MC + shared Chroma healthcheck validation. It also writes and queries same-session memories as different proxy identities in `test/playwright/integration/CrossTenantIsolation.integration.spec.mjs`, proving tenant-scoped memory reads do not leak across the trusted proxy-identity boundary.
 
 The Memory Core's healthcheck additionally surfaces active provider observability under `providers.*` (#10723, #10724, #10770):
 
