@@ -741,7 +741,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
 
         test.beforeEach(async () => {
             emittedEvents = [];
-            CoalescingEngineService.setMcpServer(null);
+            CoalescingEngineService.clearMcpServers();
             CoalescingEngineService.clearAll();
         });
 
@@ -761,7 +761,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         });
 
         test('emits raw event for matching mcp-notifications subscription (bypass coalescing) after pump', async () => {
-            CoalescingEngineService.setMcpServer(mockMcpServer);
+            CoalescingEngineService.addMcpServer(mockMcpServer);
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 // mcp-notifications bypasses coalescing window and pushes immediately
@@ -793,7 +793,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         });
 
         test('does not emit SENT_TO_ME wake for wakeSuppressed mailbox-only messages', async () => {
-            CoalescingEngineService.setMcpServer(mockMcpServer);
+            CoalescingEngineService.addMcpServer(mockMcpServer);
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 await WakeSubscriptionService.subscribe({
@@ -824,7 +824,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         });
 
         test('does not emit for non-matching subscription', async () => {
-            CoalescingEngineService.setMcpServer(mockMcpServer);
+            CoalescingEngineService.addMcpServer(mockMcpServer);
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 await WakeSubscriptionService.subscribe({
@@ -844,7 +844,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         });
 
         test('advances liveCursor per delta.lastLogId', async () => {
-            CoalescingEngineService.setMcpServer(mockMcpServer);
+            CoalescingEngineService.addMcpServer(mockMcpServer);
             const initialCursor = WakeSubscriptionService.liveCursor;
 
             GraphService.upsertNode({id: 'MSG:4', type: 'MESSAGE', properties: {}});
@@ -854,7 +854,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         });
 
         test('warms cache with active mcp-notifications subscriptions on first call', async () => {
-            CoalescingEngineService.setMcpServer(mockMcpServer);
+            CoalescingEngineService.addMcpServer(mockMcpServer);
 
             let subId;
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
@@ -878,7 +878,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         });
 
         test('skips bridge-daemon / a2a-webhook / disabled targets', async () => {
-            CoalescingEngineService.setMcpServer(mockMcpServer);
+            CoalescingEngineService.addMcpServer(mockMcpServer);
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 await WakeSubscriptionService.subscribe({
@@ -900,7 +900,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         });
 
         test('concurrent pump() invocations do not double-emit', async () => {
-            CoalescingEngineService.setMcpServer(mockMcpServer);
+            CoalescingEngineService.addMcpServer(mockMcpServer);
 
             await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
                 await WakeSubscriptionService.subscribe({trigger: 'SENT_TO_ME', harnessTarget: 'mcp-notifications'});
