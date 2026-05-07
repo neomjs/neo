@@ -1,6 +1,5 @@
 import {test, expect}                   from '@playwright/test';
-import {Client}                         from '@modelcontextprotocol/sdk/client/index.js';
-import {StreamableHTTPClientTransport}  from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import {createIdentityClient}           from './fixtures/identityClient.mjs';
 
 const READY_URL = process.env.NEO_INTEGRATION_READY_URL || 'http://127.0.0.1:13090/ready';
 const KB_URL    = process.env.NEO_INTEGRATION_KB_URL    || 'http://127.0.0.1:13000';
@@ -12,15 +11,11 @@ async function getReadiness() {
 }
 
 async function callHealthcheck(baseUrl) {
-    const transport = new StreamableHTTPClientTransport(new URL('/mcp', baseUrl));
-    const client    = new Client({
-        name   : 'neo-integration-healthcheck',
-        version: '1.0.0'
-    }, {
-        capabilities: {}
+    const client = await createIdentityClient({
+        baseUrl,
+        clientName: 'neo-integration-healthcheck',
+        identity  : 'neo-healthcheck'
     });
-
-    await client.connect(transport);
 
     try {
         const result = await client.callTool({name: 'healthcheck', arguments: {}});
@@ -68,5 +63,7 @@ test.describe('Dockerized KB/MC MCP healthcheck integration (#10805 Lane A)', ()
         expect(mcHealth.providers.embedding.error).toBeUndefined();
         expect(mcHealth.providers.summary.active).toBe('openAiCompatible');
         expect(mcHealth.providers.summary.credential.configured).toBe(true);
+        expect(mcHealth.providers.auth.configured).toBe('proxy-header');
+        expect(mcHealth.providers.auth.proxyHeader.trusted).toBe(true);
     });
 });
