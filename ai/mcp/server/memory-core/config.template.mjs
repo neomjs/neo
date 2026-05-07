@@ -41,7 +41,7 @@ const defaultConfig = {
      * like session summarization, operators set `NEO_MC_PRIMARY=true` on the canonical
      * instance only. Other instances skip startup-summarization and queue-processing.
      *
-     * Pairs with `autoSummarize`: BOTH must be true for the existing AUTO_SUMMARIZE
+     * Pairs with `autoSummarize`: BOTH must be true for the existing NEO_AUTO_SUMMARIZE
      * startup drift-detection path to fire. Either condition false → skip (safe default).
      * The SessionService logs an operator-visible warning when `autoSummarize=true`
      * but `isPrimary=false`, since that combination usually indicates a config-anomaly.
@@ -386,16 +386,16 @@ const defaultConfig = {
  * Maps dot-notation paths in the configuration object to environment variables and parser functions.
  */
 const envBindings = {
-    'autoSummarize': { var: 'AUTO_SUMMARIZE', parse: parseBool },
+    'autoSummarize': { var: 'NEO_AUTO_SUMMARIZE', parse: parseBool },
     'isPrimary': { var: 'NEO_MC_PRIMARY', parse: parseBool },
     'autoStartDatabase': { var: 'NEO_MEM_AUTO_START_DATABASE', parse: parseBool },
     'autoStartInference': { var: 'NEO_MEM_AUTO_START_INFERENCE', parse: parseBool },
-    'autoDream': { var: 'AUTO_DREAM', parse: parseBool },
-    'autoGoldenPath': { var: 'AUTO_GOLDEN_PATH', parse: parseBool },
-    'realTimeMemoryParsing': { var: 'REAL_TIME_MEMORY_PARSING', parse: parseBool },
-    'autoIngestFileSystem': { var: 'AUTO_INGEST_FS', parse: parseBool },
+    'autoDream': { var: 'NEO_AUTO_DREAM', parse: parseBool },
+    'autoGoldenPath': { var: 'NEO_AUTO_GOLDEN_PATH', parse: parseBool },
+    'realTimeMemoryParsing': { var: 'NEO_REAL_TIME_MEMORY_PARSING', parse: parseBool },
+    'autoIngestFileSystem': { var: 'NEO_AUTO_INGEST_FS', parse: parseBool },
     'debug': { var: 'NEO_DEBUG', parse: parseBool },
-    'transport': 'TRANSPORT',
+    'transport': 'NEO_TRANSPORT',
     'mcpHttpPort': { var: 'MCP_HTTP_PORT', parse: parsePort },
     'publicUrl': { var: 'NEO_PUBLIC_URL', parse: parseUrl },
     
@@ -425,12 +425,12 @@ const envBindings = {
     'engines.kb.chroma.host': 'NEO_CHROMA_HOST',
     'engines.kb.chroma.port': { var: 'NEO_CHROMA_PORT', parse: parsePort },
     
-    'collections.memory': 'MEMORY_COLLECTION_NAME',
-    'collections.session': 'SESSION_COLLECTION_NAME',
-    'collections.graph': 'GRAPH_COLLECTION_NAME',
+    'collections.memory': 'NEO_MEMORY_COLLECTION_NAME',
+    'collections.session': 'NEO_SESSION_COLLECTION_NAME',
+    'collections.graph': 'NEO_GRAPH_COLLECTION_NAME',
     
     'datasets.rlaif.trajectories': 'NEO_RLAIF_PATH',
-    'decayFactor': { var: 'GRAPH_DECAY_FACTOR', parse: parseNumber },
+    'decayFactor': { var: 'NEO_GRAPH_DECAY_FACTOR', parse: parseNumber },
     'guideGapWeightThreshold': { var: 'NEO_GUIDE_GAP_WEIGHT_THRESHOLD', parse: parseNumber },
     
     'conceptDiscovery.prScanLimit': { var: 'NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT', parse: parseNumber },
