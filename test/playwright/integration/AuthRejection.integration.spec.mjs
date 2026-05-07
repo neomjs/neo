@@ -1,24 +1,11 @@
-import {test, expect}         from '@playwright/test';
-import {createIdentityClient} from './fixtures/identityClient.mjs';
+import {test, expect} from '@playwright/test';
+import {
+    callJsonTool,
+    createIdentityClient,
+    getReadiness
+} from './fixtures/mcpClient.mjs';
 
-const READY_URL = process.env.NEO_INTEGRATION_READY_URL || 'http://127.0.0.1:13090/ready';
-const MC_URL    = process.env.NEO_INTEGRATION_MC_URL    || 'http://127.0.0.1:13001';
-
-async function getReadiness() {
-    const response = await fetch(READY_URL);
-    return response.json();
-}
-
-async function readToolJson(result) {
-    if (result.structuredContent) {
-        return result.structuredContent;
-    }
-
-    const text = result.content?.find(item => item.type === 'text')?.text;
-    expect(text, 'MCP tool should return text content when structuredContent is absent').toBeTruthy();
-
-    return JSON.parse(text);
-}
+const MC_URL = process.env.NEO_INTEGRATION_MC_URL || 'http://127.0.0.1:13001';
 
 test.describe('Dockerized MC proxy identity rejection integration (#10895)', () => {
     test('MC rejects missing proxy identity and accepts an identity-bearing client', async () => {
@@ -52,7 +39,7 @@ test.describe('Dockerized MC proxy identity rejection integration (#10895)', () 
         });
 
         try {
-            const health = await readToolJson(await client.callTool({name: 'healthcheck', arguments: {}}));
+            const health = await callJsonTool(client, 'healthcheck');
 
             expect(health.status).toBe('healthy');
             expect(health.providers.auth.configured).toBe('proxy-header');

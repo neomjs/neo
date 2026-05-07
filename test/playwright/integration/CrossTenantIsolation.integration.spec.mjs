@@ -1,28 +1,12 @@
-import {test, expect}         from '@playwright/test';
-import {createIdentityClient} from './fixtures/identityClient.mjs';
+import {randomUUID} from 'node:crypto';
+import {test, expect} from '@playwright/test';
+import {
+    callJsonTool,
+    createIdentityClient,
+    getReadiness
+} from './fixtures/mcpClient.mjs';
 
-const READY_URL = process.env.NEO_INTEGRATION_READY_URL || 'http://127.0.0.1:13090/ready';
-const MC_URL    = process.env.NEO_INTEGRATION_MC_URL    || 'http://127.0.0.1:13001';
-
-async function getReadiness() {
-    const response = await fetch(READY_URL);
-    return response.json();
-}
-
-async function callJsonTool(client, name, args) {
-    const result = await client.callTool({name, arguments: args});
-
-    expect(result.isError).not.toBe(true);
-
-    if (result.structuredContent) {
-        return result.structuredContent;
-    }
-
-    const text = result.content?.find(item => item.type === 'text')?.text;
-    expect(text, `MCP tool ${name} should return text content when structuredContent is absent`).toBeTruthy();
-
-    return JSON.parse(text);
-}
+const MC_URL = process.env.NEO_INTEGRATION_MC_URL || 'http://127.0.0.1:13001';
 
 function memoryTexts(result) {
     return result.results.map(memory => [
@@ -40,7 +24,7 @@ test.describe('Dockerized MC cross-tenant isolation integration (#10895)', () =>
 
         expect(readiness.servicesReady, readiness.reason).toBe(true);
 
-        const runId         = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const runId         = `${Date.now()}-${randomUUID()}`;
         const sessionId     = `integration-tenant-${runId}`;
         const aliceSentinel = `alice-visible-${runId}`;
         const bobSentinel   = `bob-visible-${runId}`;

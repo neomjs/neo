@@ -163,7 +163,7 @@ See [Memory Core Healthcheck](MemoryCore.md) for the full schema contract (inclu
 
 ## Section 8: First-Connection Smoke Test
 
-For the local Dockerized fixture, run `npm run test-integration`. The Playwright integration harness builds `ai/deploy/docker-compose.test.yml`, waits for Chroma + KB + MC readiness, then calls the KB and MC `healthcheck` tools over `/mcp`. The same harness also drives the proxy-identity path with `test/playwright/integration/fixtures/identityClient.mjs`, including the `401 Unauthorized` rejection check in `AuthRejection.integration.spec.mjs` and the cross-tenant memory-read isolation check in `CrossTenantIsolation.integration.spec.mjs`.
+For the local Dockerized fixture, run `npm run test-integration`. The Playwright integration harness builds `ai/deploy/docker-compose.test.yml`, waits for Chroma + KB + MC readiness, then calls the KB and MC `healthcheck` tools over `/mcp`. The same harness also drives the proxy-identity path with `test/playwright/integration/fixtures/mcpClient.mjs`, including the `401 Unauthorized` rejection check in `AuthRejection.integration.spec.mjs` and the cross-tenant memory-read isolation check in `CrossTenantIsolation.integration.spec.mjs`.
 
 1. Configure your local agent harness (e.g., `claude_desktop_config.json`) to point the `sse` transport URL to your public proxy endpoint.
 2. Ensure you have authenticated with the proxy (e.g., logging in via browser to obtain the session cookie, or injecting a proxy-issued bearer token).
