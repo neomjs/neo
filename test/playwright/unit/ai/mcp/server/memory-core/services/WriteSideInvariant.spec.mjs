@@ -61,6 +61,9 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WriteSideInvariant (#10017
 
         const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         aiConfig.storagePaths.graph = dbPath;
+        if (!aiConfig.collections) aiConfig.collections = {};
+        aiConfig.collections.memory = `test-memory-${Date.now()}`;
+        aiConfig.collections.session = `test-session-${Date.now()}`;
 
         GraphService     = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         MailboxService   = (await import('../../../../../../../../ai/mcp/server/memory-core/services/MailboxService.mjs')).default;

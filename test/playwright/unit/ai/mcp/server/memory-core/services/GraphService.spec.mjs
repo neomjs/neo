@@ -41,6 +41,9 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         // Mock the SQLite target path to a safe pure temporary location
         if (!aiConfig.storagePaths) aiConfig.storagePaths = {};
         aiConfig.storagePaths.graph = testDbPath;
+        if (!aiConfig.collections) aiConfig.collections = {};
+        aiConfig.collections.memory = `test-memory-${Date.now()}`;
+        aiConfig.collections.session = `test-session-${Date.now()}`;
         console.log('--- TEST DB PATH MOCKED TO:', aiConfig.storagePaths.graph);
 
         GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;

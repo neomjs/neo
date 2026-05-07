@@ -40,6 +40,9 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
         mockFsRoot = path.join(tmpDir, `fs-ingest-mock-${Date.now()}`);
 
         aiConfig.storagePaths.graph = testDbPath;
+        if (!aiConfig.collections) aiConfig.collections = {};
+        aiConfig.collections.memory = `test-memory-${Date.now()}`;
+        aiConfig.collections.session = `test-session-${Date.now()}`;
 
         GraphService       = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         FileSystemIngestor = (await import('../../../../../../../../ai/mcp/server/memory-core/services/FileSystemIngestor.mjs')).default;
