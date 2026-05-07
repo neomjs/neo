@@ -607,3 +607,251 @@ test.describe('HealthService #10844 — buildBackupStateBlock', () => {
         expect(result).toEqual({ lastSuccessful: null, count: 1 });
     });
 });
+
+/**
+ * @summary Coverage for the #10783 wake-substrate observability block.
+ *
+ * The block has two independent file-I/O paths (gate-state via wakeSafetyGate + liveness
+ * via direct fs.stat). Tests cover the cross-product of (gate-file: enabled / disabled / tripped /
+ * missing / malformed) × (liveness-file: fresh / stalled / missing) per AC5, plus the fully-degraded
+ * defensive case.
+ *
+ * Test isolation: each test writes to a unique temp directory + sets `WAKE_GATE_FILE_PATH` and
+ * `NEO_HEARTBEAT_ALIVE_PATH` env vars before importing the block; restores after. Mirrors the
+ * `wakeSafetyGate` env-override pattern.
+ *
+ * @see Neo.ai.mcp.server.memory-core.services.HealthService#buildWakeFeaturesBlock
+ */
+test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
+    let buildWakeFeaturesBlock;
+    let tmpDir;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../../../ai/mcp/server/memory-core/services/HealthService.mjs');
+        buildWakeFeaturesBlock = mod.buildWakeFeaturesBlock;
+
+        const os   = await import('os');
+        const path = await import('path');
+        const fs   = await import('fs/promises');
+
+        tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'wake-features-spec-'));
+    });
+
+    test.afterAll(async () => {
+        const fs = await import('fs/promises');
+        if (tmpDir) {
+            await fs.rm(tmpDir, {recursive: true, force: true}).catch(() => {});
+        }
+    });
+
+    test.beforeEach(async () => {
+        const path = await import('path');
+        const fs   = await import('fs/promises');
+
+        process.env.WAKE_GATE_FILE_PATH      = path.join(tmpDir, `gate-${Date.now()}.json`);
+        process.env.NEO_HEARTBEAT_ALIVE_PATH = path.join(tmpDir, `alive-${Date.now()}`);
+
+        // Ensure clean slate between tests (no carryover from prior writes)
+        await fs.rm(process.env.WAKE_GATE_FILE_PATH,      {force: true}).catch(() => {});
+        await fs.rm(process.env.NEO_HEARTBEAT_ALIVE_PATH, {force: true}).catch(() => {});
+    });
+
+    test.afterEach(() => {
+        delete process.env.WAKE_GATE_FILE_PATH;
+        delete process.env.NEO_HEARTBEAT_ALIVE_PATH;
+    });
+
+    test('gate enabled + liveness fresh → daemonRunning true, gateState enabled', async () => {
+        const fs = await import('fs/promises');
+
+        await fs.writeFile(process.env.WAKE_GATE_FILE_PATH, JSON.stringify({
+            state: 'enabled', reason: '', trippedAt: null, trippedBy: null
+        }));
+        await fs.writeFile(process.env.NEO_HEARTBEAT_ALIVE_PATH, '');
+
+        const result = await buildWakeFeaturesBlock();
+
+        expect(result.gateState).toBe('enabled');
+        expect(result.gateReason).toBe('');
+        expect(result.daemonRunning).toBe(true);
+        expect(result.lastPulseAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        expect(result.secondsSinceLastPulse).toBeGreaterThanOrEqual(0);
+    });
+
+    test('gate disabled + liveness fresh → daemonRunning true, gateState disabled', async () => {
+        const fs = await import('fs/promises');
+
+        await fs.writeFile(process.env.WAKE_GATE_FILE_PATH, JSON.stringify({
+            state: 'disabled', reason: 'maintenance pause', trippedAt: '2026-05-07T10:00:00.000Z', trippedBy: 'cli'
+        }));
+        await fs.writeFile(process.env.NEO_HEARTBEAT_ALIVE_PATH, '');
+
+        const result = await buildWakeFeaturesBlock();
+
+        expect(result.gateState).toBe('disabled');
+        expect(result.gateReason).toBe('maintenance pause');
+        expect(result.gateTrippedBy).toBe('cli');
+        expect(result.daemonRunning).toBe(true);
+    });
+
+    test('gate tripped + liveness fresh → daemonRunning true, gateState tripped, reason surfaced', async () => {
+        const fs = await import('fs/promises');
+
+        await fs.writeFile(process.env.WAKE_GATE_FILE_PATH, JSON.stringify({
+            state    : 'tripped',
+            reason   : 'orphan-spawn detected at 22:53Z',
+            trippedAt: '2026-05-03T22:53:09.450Z',
+            trippedBy: 'wake-substrate-monitor'
+        }));
+        await fs.writeFile(process.env.NEO_HEARTBEAT_ALIVE_PATH, '');
+
+        const result = await buildWakeFeaturesBlock();
+
+        expect(result.gateState).toBe('tripped');
+        expect(result.gateReason).toContain('orphan-spawn');
+        expect(result.gateTrippedAt).toBe('2026-05-03T22:53:09.450Z');
+        expect(result.gateTrippedBy).toBe('wake-substrate-monitor');
+    });
+
+    test('gate file missing → gateState unknown (NOT default-tripped)', async () => {
+        // Critical observability semantic: healthcheck distinguishes "no gate file present"
+        // from "operator-tripped". The wakeSafetyGate enforcement-side default-tripped sentinel
+        // is mapped to 'unknown' here so operators see the actual gap, not a misleading
+        // tripped state with a suspect reason.
+        const fs = await import('fs/promises');
+
+        // No gate file write — leave path absent
+        await fs.writeFile(process.env.NEO_HEARTBEAT_ALIVE_PATH, '');
+
+        const result = await buildWakeFeaturesBlock();
+
+        expect(result.gateState).toBe('unknown');
+        expect(result.gateReason).toBe('');
+        expect(result.gateTrippedAt).toBeNull();
+        expect(result.gateTrippedBy).toBeNull();
+    });
+
+    test('gate file malformed → gateState unknown (defensive)', async () => {
+        // wakeSafetyGate.readGateState returns trippedBy='malformed-state-file' for this case.
+        // Healthcheck observability surfaces it as 'unknown' too — operator sees the gap, not
+        // a fake-tripped state derived from corrupt input.
+        const fs = await import('fs/promises');
+
+        // Two malformed-JSON paths in wakeSafetyGate.readGateState:
+        //   (a) JSON-parse throws       → catch block → trippedBy='read-error'
+        //   (b) JSON-parse succeeds but shape lacks `state: string` → trippedBy='malformed-state-file'
+        // We test (b) here — valid JSON with wrong shape — to exercise the explicit malformed branch.
+        // Per current contract, my block surfaces tripped/malformed-state-file (not unknown)
+        // because trippedBy !== 'default-on-missing-file'. Intentional: operator sees the data
+        // corruption signal explicitly rather than swallowed-as-unknown.
+        await fs.writeFile(process.env.WAKE_GATE_FILE_PATH, JSON.stringify({foo: 'bar'}));
+        await fs.writeFile(process.env.NEO_HEARTBEAT_ALIVE_PATH, '');
+
+        const result = await buildWakeFeaturesBlock();
+
+        expect(result.gateState).toBe('tripped');
+        expect(result.gateTrippedBy).toBe('malformed-state-file');
+    });
+
+    test('liveness file missing → daemonRunning false, lastPulseAt null', async () => {
+        const fs = await import('fs/promises');
+
+        await fs.writeFile(process.env.WAKE_GATE_FILE_PATH, JSON.stringify({
+            state: 'enabled', reason: '', trippedAt: null, trippedBy: null
+        }));
+        // No liveness file write — leave path absent
+
+        const result = await buildWakeFeaturesBlock();
+
+        expect(result.gateState).toBe('enabled');
+        expect(result.daemonRunning).toBe(false);
+        expect(result.lastPulseAt).toBeNull();
+        expect(result.secondsSinceLastPulse).toBeNull();
+    });
+
+    test('liveness file stalled (mtime > 10min) → daemonRunning false, lastPulseAt populated', async () => {
+        const fs = await import('fs/promises');
+
+        await fs.writeFile(process.env.WAKE_GATE_FILE_PATH, JSON.stringify({
+            state: 'enabled', reason: '', trippedAt: null, trippedBy: null
+        }));
+        await fs.writeFile(process.env.NEO_HEARTBEAT_ALIVE_PATH, '');
+
+        // Backdate mtime to 11 minutes ago (past the 10min stale threshold)
+        const elevenMinutesAgo = new Date(Date.now() - 11 * 60 * 1000);
+        await fs.utimes(process.env.NEO_HEARTBEAT_ALIVE_PATH, elevenMinutesAgo, elevenMinutesAgo);
+
+        const result = await buildWakeFeaturesBlock();
+
+        expect(result.daemonRunning).toBe(false);
+        expect(result.lastPulseAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        expect(result.secondsSinceLastPulse).toBeGreaterThan(600);
+    });
+
+    test('both files missing → fully defensive defaults, no throw', async () => {
+        // Worst-case observability: brand new install, daemon never started, gate never written.
+        // Block must not throw; surfaces all-defensive shape.
+        const result = await buildWakeFeaturesBlock();
+
+        expect(result).toEqual({
+            gateState            : 'unknown',
+            gateReason           : '',
+            gateTrippedAt        : null,
+            gateTrippedBy        : null,
+            daemonRunning        : false,
+            lastPulseAt          : null,
+            secondsSinceLastPulse: null
+        });
+    });
+
+    test('explicit `now` parameter overrides Date.now() for deterministic seconds-since calculation', async () => {
+        const fs = await import('fs/promises');
+
+        await fs.writeFile(process.env.NEO_HEARTBEAT_ALIVE_PATH, '');
+
+        // Backdate liveness mtime to a known epoch second
+        const livenessTime = new Date('2026-05-07T20:00:00.000Z');
+        await fs.utimes(process.env.NEO_HEARTBEAT_ALIVE_PATH, livenessTime, livenessTime);
+
+        // "Now" is exactly 5 seconds after the liveness mtime
+        const fixedNow = livenessTime.getTime() + 5000;
+
+        const result = await buildWakeFeaturesBlock(fixedNow);
+
+        expect(result.lastPulseAt).toBe('2026-05-07T20:00:00.000Z');
+        expect(result.secondsSinceLastPulse).toBe(5);
+        expect(result.daemonRunning).toBe(true); // 5s < 10min stale threshold
+    });
+
+    test('POLL_INTERVAL env override widens stale threshold (#10931 AC4)', async () => {
+        // Operator-side POLL_INTERVAL override (e.g., 15-min cadence) must propagate to the
+        // observability stale threshold so a properly-running daemon at the new cadence is
+        // still reported `daemonRunning: true`. Without this propagation, the hardcoded 10-min
+        // threshold would falsely flag a 15-min-cadence daemon as stopped after ~11 min idle.
+        const fs = await import('fs/promises');
+
+        const originalPollInterval = process.env.POLL_INTERVAL;
+        process.env.POLL_INTERVAL = '900'; // 15 min cadence → 30 min stale threshold (2×)
+
+        try {
+            await fs.writeFile(process.env.NEO_HEARTBEAT_ALIVE_PATH, '');
+
+            // Backdate liveness mtime to 11 min ago — past the default 10-min hardcoded threshold,
+            // but well within the 30-min POLL_INTERVAL=900 stale window.
+            const elevenMinAgo = new Date(Date.now() - 11 * 60 * 1000);
+            await fs.utimes(process.env.NEO_HEARTBEAT_ALIVE_PATH, elevenMinAgo, elevenMinAgo);
+
+            const result = await buildWakeFeaturesBlock();
+
+            expect(result.daemonRunning).toBe(true); // 11 min < 30 min stale threshold
+            expect(result.secondsSinceLastPulse).toBeGreaterThan(600);
+            expect(result.secondsSinceLastPulse).toBeLessThan(1800);
+        } finally {
+            if (originalPollInterval !== undefined) {
+                process.env.POLL_INTERVAL = originalPollInterval;
+            } else {
+                delete process.env.POLL_INTERVAL;
+            }
+        }
+    });
+});

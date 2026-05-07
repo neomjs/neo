@@ -1,9 +1,50 @@
+import fs                       from 'fs/promises';
+import path                     from 'path';
+import {fileURLToPath}          from 'url';
 import aiConfig                 from '../config.mjs';
 import Base                     from '../../../../../src/core/Base.mjs';
 import ChromaManager            from '../managers/ChromaManager.mjs';
 import StorageRouter            from '../managers/StorageRouter.mjs';
 import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
 import logger                   from '../logger.mjs';
+import {readGateState}          from '../../../../scripts/wakeSafetyGate.mjs';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Heartbeat-liveness file path resolution. Mirrors `wakeSafetyGate.gateFilePath()` env-override
+ * pattern so parallel test specs can isolate from the canonical on-disk path. Production
+ * deployments leave `NEO_HEARTBEAT_ALIVE_PATH` unset; the canonical path under `.neo-ai-data/wake-daemon/`
+ * applies. Counterpart producer: `ai/scripts/swarm-heartbeat.sh` `touch` line in pulse loop (#10783).
+ */
+function heartbeatAlivePath() {
+    return process.env.NEO_HEARTBEAT_ALIVE_PATH || path.resolve(__dirname, '../../../../../.neo-ai-data/wake-daemon/heartbeat.alive');
+}
+
+/**
+ * @summary Resolves the stale-threshold for the `daemonRunning` heuristic at call-time (#10931).
+ *
+ * Coupling contract: stale threshold = 2× POLL_INTERVAL where POLL_INTERVAL is the substrate
+ * convention from `ai/scripts/swarm-heartbeat.sh` (default 300s = 5 min, env-overridable).
+ * The "× 2" buffer absorbs single missed pulses without false-negative liveness signal.
+ *
+ * Function-call-time read (rather than module-load) preserves test-isolation behavior: specs
+ * that override `POLL_INTERVAL` for stalled-daemon scenarios get the env value at the moment
+ * `buildWakeFeaturesBlock` runs. Mirrors the env-overridable pattern of `heartbeatAlivePath()`
+ * + `wakeSafetyGate.gateFilePath()`.
+ *
+ * Operator override: `POLL_INTERVAL=N` (seconds) propagates from the daemon to observability
+ * — a 15-min cadence (`POLL_INTERVAL=900`) yields a 30-min stale threshold, preventing the
+ * hardcoded-10-min observability gap that prompted this function-form (per #10931 review of
+ * PR #10930 by @neo-gemini-3-1-pro).
+ *
+ * @returns {Number} Stale-threshold in milliseconds (2× POLL_INTERVAL × 1000).
+ * @see ai/scripts/swarm-heartbeat.sh#POLL_INTERVAL
+ */
+function heartbeatLivenessStaleMs() {
+    const pollIntervalSec = parseInt(process.env.POLL_INTERVAL, 10) || 300;
+    return pollIntervalSec * 1000 * 2;
+}
 
 /**
  * @summary Projects the stdio identity state into the healthcheck-payload shape (#10176).
@@ -281,6 +322,100 @@ export function buildAuthProviderBlock(cfg) {
             headersChecked: ['x-preferred-username', 'x-auth-request-preferred-username']
         }
     };
+}
+
+/**
+ * @summary Projects wake-substrate observable state into the healthcheck `features.wake` block (#10783).
+ *
+ * Async pure projection: reads the wake-safety-gate state (via `wakeSafetyGate.readGateState`)
+ * and the heartbeat-liveness file mtime (touched once per pulse by `swarm-heartbeat.sh`),
+ * returning the operator/agent-facing observability shape. Mirrors the
+ * {@link buildAuthProviderBlock} + {@link buildSummaryProviderBlock} sibling-block precedent
+ * for module-scope projection functions.
+ *
+ * **Why this block exists:** the wake substrate (gate-state + daemon-liveness + polling-activity)
+ * was previously invisible from healthcheck. Operators verifying night-shift readiness had to
+ * `grep` 3 separate filesystem locations and run `launchctl list`; agents detecting whether the
+ * heartbeat substrate is healthy before relying on it had no MCP-tool-surface signal at all.
+ * This block surfaces all three dimensions in one observable block, sibling to `features.summarization`.
+ *
+ * **Field semantics:**
+ * - `gateState`: `'enabled'` | `'disabled'` | `'tripped'` | `'unknown'`. Read via
+ *   `wakeSafetyGate.readGateState`. The deny-by-default sentinel (`trippedBy === 'default-on-missing-file'`)
+ *   is mapped to `'unknown'` here — observability semantics differ from gate-enforcement semantics
+ *   (we surface "I don't know" instead of conflating it with operator-tripped state).
+ * - `gateReason` / `gateTrippedAt` / `gateTrippedBy`: pass-through from the gate state file when
+ *   present (empty string / null otherwise).
+ * - `daemonRunning`: boolean. `true` when the heartbeat-liveness file mtime is within
+ *   `heartbeatLivenessStaleMs()` (2× POLL_INTERVAL). `false` when missing or stale.
+ * - `lastPulseAt`: ISO timestamp of the liveness file mtime, or `null` if absent.
+ * - `secondsSinceLastPulse`: derived seconds since last pulse. Surfaces "alive but stalled" when
+ *   `daemonRunning` is `false` but a previous mtime exists.
+ *
+ * **Liveness signal substrate (#10783 design note):** the heartbeat concurrency lock at
+ * `.neo-ai-data/heartbeat-concurrency.lock` is touched only when expensive Agent OS work runs
+ * (per `heartbeatLock.mjs`), NOT on every pulse. So the lock cannot serve as the daemon-liveness
+ * signal directly. This block consumes a dedicated `heartbeat.alive` file that `swarm-heartbeat.sh`
+ * touches at the top of each pulse loop iteration — present-and-fresh means the daemon is polling.
+ *
+ * **Defensive defaults:** missing files / unreadable state surfaces sensible defaults
+ * (`gateState: 'unknown'`, `daemonRunning: false`, `lastPulseAt: null`) WITHOUT throwing.
+ * Aligns with the "surface, don't obscure" principle codified in PR #10227.
+ *
+ * @param {Number|Date} [now=Date.now()] Time source for deterministic tests
+ * @returns {Promise<{gateState: String, gateReason: String, gateTrippedAt: String|null,
+ *     gateTrippedBy: String|null, daemonRunning: Boolean, lastPulseAt: String|null,
+ *     secondsSinceLastPulse: Number|null}>}
+ * @see ai/scripts/wakeSafetyGate.mjs
+ * @see ai/scripts/swarm-heartbeat.sh
+ * @see learn/agentos/wake-substrate/PersistentProcessManagement.md
+ */
+export async function buildWakeFeaturesBlock(now = Date.now()) {
+    const nowMs = typeof now === 'number' ? now : now.getTime();
+
+    let gateBlock = {
+        gateState    : 'unknown',
+        gateReason   : '',
+        gateTrippedAt: null,
+        gateTrippedBy: null
+    };
+
+    try {
+        const gate = await readGateState();
+        if (gate.trippedBy !== 'default-on-missing-file') {
+            gateBlock = {
+                gateState    : gate.state,
+                gateReason   : gate.reason || '',
+                gateTrippedAt: gate.trippedAt || null,
+                gateTrippedBy: gate.trippedBy || null
+            };
+        }
+    } catch (e) {
+        // Defensive: surface 'unknown' instead of throwing — preserves the rest of the
+        // healthcheck observability surface even when the gate-state read path fails.
+    }
+
+    let livenessBlock = {
+        daemonRunning        : false,
+        lastPulseAt          : null,
+        secondsSinceLastPulse: null
+    };
+
+    try {
+        const stat       = await fs.stat(heartbeatAlivePath());
+        const mtimeMs    = stat.mtime.getTime();
+        const ageMs      = Math.max(0, nowMs - mtimeMs);
+        livenessBlock = {
+            daemonRunning        : ageMs < heartbeatLivenessStaleMs(),
+            lastPulseAt          : stat.mtime.toISOString(),
+            secondsSinceLastPulse: Math.floor(ageMs / 1000)
+        };
+    } catch (e) {
+        // ENOENT is the expected case when the daemon hasn't been started locally.
+        // Other errors (permission, etc.) also degrade gracefully to defaults.
+    }
+
+    return {...gateBlock, ...livenessBlock};
 }
 
 /**
@@ -744,7 +879,8 @@ class HealthService extends Base {
                 topology  : buildTopologyBlock(aiConfig)
             },
             features : {
-                summarization: false
+                summarization: false,
+                wake         : await buildWakeFeaturesBlock()
             },
             startup  : {
                 summarizationStatus : this.#startupSummarizationStatus || 'not_attempted',
