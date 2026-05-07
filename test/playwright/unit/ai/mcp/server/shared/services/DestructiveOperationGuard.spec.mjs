@@ -191,6 +191,8 @@ test.describe('Neo.ai.mcp.server.shared.services.DestructiveOperationGuard (#108
 });
 
 test.describe('DestructiveOperationGuard call-site wiring (#10845)', () => {
+    const skipCiSubstrateData = !!process.env.NEO_TEST_SKIP_CI;
+
     test('Memory Core CollectionProxy stops before deleting a production Chroma collection', async () => {
         const proxy = Neo.create(CollectionProxy, {
             collectionType: 'memory'
@@ -220,6 +222,8 @@ test.describe('DestructiveOperationGuard call-site wiring (#10845)', () => {
     });
 
     test('Memory Core graph truncate stops before SQLite deletion on the production graph path', async () => {
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
+
         await expect(MemoryDatabaseService.truncateDatabase({
             include: ['graph']
         })).rejects.toMatchObject({

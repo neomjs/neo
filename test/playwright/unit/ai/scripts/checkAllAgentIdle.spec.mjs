@@ -1,6 +1,7 @@
 import {setup} from '../../../setup.mjs';
 
 const appName = 'AllAgentIdleDetectionTest';
+const skipCiSubstrateData = !!process.env.NEO_TEST_SKIP_CI;
 
 setup({
     neoConfig: {
@@ -26,6 +27,8 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
     const identitiesEnv = '@neo-test-agent-1,@neo-test-agent-2';
 
     test('checkAllAgentIdle.mjs emits positive signal when all configured agents are idle', async () => {
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
+
         const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         await GraphService.initAsync();
 
@@ -72,6 +75,8 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
     });
 
     test('checkAllAgentIdle.mjs emits negative signal when at least one agent is active', async () => {
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
+
         const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         await GraphService.initAsync();
 
