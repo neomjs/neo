@@ -55,6 +55,11 @@ jobs:
         run: npm run test-${{ matrix.suite }}
         env:
           NEO_INTEGRATION_STACK_TIMEOUT_MS: '240000'
+          # Activates the canonical bucket-skip pattern for tests that gate on
+          # CI substrate (heavy SLM, grid WIP, application-spec deferrals).
+          # Test specs check `process.env.NEO_TEST_SKIP_CI` and skip cleanly.
+          # See #10903 (unit-suite buckets A-E) + #10917/#10918 (bucket F).
+          NEO_TEST_SKIP_CI: 'true'
 
       - name: Upload test artifacts on failure
         if: failure()
