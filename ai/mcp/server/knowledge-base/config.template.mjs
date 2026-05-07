@@ -15,9 +15,9 @@ const neoRootDir = path.resolve(__dirname, '../../../../');
  */
 
 const envBindings = {
-    'autoSync': { var: 'AUTO_SYNC', parse: parseBool },
+    'autoSync': { var: 'NEO_AUTO_SYNC', parse: parseBool },
     'autoStartDatabase': { var: 'NEO_KB_AUTO_START_DATABASE', parse: parseBool },
-    'transport': 'TRANSPORT',
+    'transport': 'NEO_TRANSPORT',
     'mcpHttpPort': { var: 'MCP_HTTP_PORT', parse: parsePort },
     'publicUrl': { var: 'NEO_PUBLIC_URL', parse: parseUrl },
     

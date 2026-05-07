@@ -183,7 +183,7 @@ class SessionService extends Base {
                 HealthService.recordStartupSummarization('failed', { error: error.message });
             });
         } else if (aiConfig.data.autoSummarize && !aiConfig.data.isPrimary) {
-            logger.info('[Startup] AUTO_SUMMARIZE enabled but NEO_MC_PRIMARY=false — skipping (single-writer enforcement, #10813). Set NEO_MC_PRIMARY=true on the canonical Memory Core instance only.');
+            logger.info('[Startup] NEO_AUTO_SUMMARIZE enabled but NEO_MC_PRIMARY=false — skipping (single-writer enforcement, #10813). Set NEO_MC_PRIMARY=true on the canonical Memory Core instance only.');
             HealthService.recordStartupSummarization('skipped-non-primary', { reason: 'NEO_MC_PRIMARY is not set on this instance' });
         }
 
