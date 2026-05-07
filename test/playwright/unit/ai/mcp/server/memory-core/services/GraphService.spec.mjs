@@ -128,6 +128,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
     });
 
     test('should extract node neighbors properly', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
         GraphService.upsertNode({id: 'EpicA', name: 'Roadmap Planner'});
         GraphService.upsertNode({id: 'Task1', name: 'Implementation'});
         GraphService.upsertNode({id: 'Task2', name: 'Documentation'});
@@ -153,6 +154,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
     });
 
     test('should dynamically compute getNodeGravity natively', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
         GraphService.upsertNode({id: 'NodeA'});
         GraphService.upsertNode({id: 'NodeB'});
         GraphService.upsertNode({id: 'NodeC'});
