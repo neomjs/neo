@@ -1,12 +1,13 @@
-import aiConfig             from '../config.mjs';
-import TextEmbeddingService from '../../memory-core/services/TextEmbeddingService.mjs';
-import mcConfig             from '../../memory-core/config.mjs';
-import Base                 from '../../../../../src/core/Base.mjs';
-import ChromaManager        from './ChromaManager.mjs';
-import fs                   from 'fs-extra';
-import logger               from '../logger.mjs';
-import path                 from 'path';
-import readline             from 'readline';
+import aiConfig                  from '../config.mjs';
+import TextEmbeddingService      from '../../memory-core/services/TextEmbeddingService.mjs';
+import mcConfig                  from '../../memory-core/config.mjs';
+import Base                      from '../../../../../src/core/Base.mjs';
+import ChromaManager             from './ChromaManager.mjs';
+import fs                        from 'fs-extra';
+import logger                    from '../logger.mjs';
+import path                      from 'path';
+import readline                  from 'readline';
+import DestructiveOperationGuard from '../../shared/services/DestructiveOperationGuard.mjs';
 
 /**
  * @summary Manages vector database operations including embedding generation and storage.
@@ -50,11 +51,30 @@ class VectorService extends Base {
 
     /**
      * Permanently deletes the knowledge base collection.
+     * @param {Object}       [options]
+     * @param {String|Object} [options.confirmation] Explicit production confirmation token.
      * @returns {Promise<object>} A promise that resolves to a success message.
      */
-    async deleteCollection() {
+    async deleteCollection({confirmation} = {}) {
         const collectionName = aiConfig.collectionName;
         try {
+            await DestructiveOperationGuard.assertDestructiveTargetAllowed({
+                operation: 'knowledge-base.chroma.delete',
+                subsystem: 'knowledge-base',
+                mode     : 'delete',
+                target   : {
+                    collectionName,
+                    chroma: {
+                        host: aiConfig.host,
+                        port: aiConfig.port,
+                        path: aiConfig.path
+                    },
+                    path    : aiConfig.path,
+                    repoRoot: aiConfig.neoRootDir
+                },
+                confirmation
+            });
+
             await ChromaManager.client.deleteCollection({name: collectionName});
             ChromaManager._knowledgeBaseCollectionPromise = null;
             ChromaManager.knowledgeBaseCollection = null;

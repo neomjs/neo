@@ -9,6 +9,9 @@ import Neo             from '../src/Neo.mjs';
 import * as core       from '../src/core/_export.mjs';
 import InstanceManager from '../src/manager/Instance.mjs';
 
+// --- Shared Services ---
+import Shared_DestructiveOperationGuard from './mcp/server/shared/services/DestructiveOperationGuard.mjs';
+
 // --- GitHub Workflow Services ---
 import GH_Config                    from './mcp/server/github-workflow/config.mjs';
 import GH_HealthService             from './mcp/server/github-workflow/services/HealthService.mjs';
@@ -254,6 +257,9 @@ makeSafe(NeuralLink_RuntimeService,     nlSpec);
  */
 
 export {
+    // Shared Services
+    Shared_DestructiveOperationGuard,
+
     // GitHub Workflow
     GH_Config,
     GH_HealthService,

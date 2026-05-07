@@ -1,10 +1,11 @@
-import aiConfig      from '../config.mjs';
-import fs            from 'fs-extra';
-import logger        from '../logger.mjs';
-import path          from 'path';
-import readline      from 'readline';
-import Base          from '../../../../../src/core/Base.mjs';
-import StorageRouter from '../managers/StorageRouter.mjs';
+import aiConfig                  from '../config.mjs';
+import fs                        from 'fs-extra';
+import logger                    from '../logger.mjs';
+import path                      from 'path';
+import readline                  from 'readline';
+import Base                      from '../../../../../src/core/Base.mjs';
+import StorageRouter             from '../managers/StorageRouter.mjs';
+import DestructiveOperationGuard from '../../shared/services/DestructiveOperationGuard.mjs';
 
 /**
  * @summary Service for exporting and importing memory core data.
@@ -213,10 +214,11 @@ class DatabaseService extends Base {
      * Helper method to import the Native Graph from JSONL.
      * @param {String} filePath The JSONL file path.
      * @param {String} mode 'merge' or 'replace'.
+     * @param {String|Object} [confirmation] Explicit production confirmation token.
      * @returns {Promise<number>}
      * @private
      */
-    async #importGraph(filePath, mode) {
+    async #importGraph(filePath, mode, confirmation) {
         logger.log(`Importing Graph Data from ${filePath} (mode: ${mode})...`);
         const GraphService = (await import('./GraphService.mjs')).default;
 
@@ -227,6 +229,13 @@ class DatabaseService extends Base {
         const db = GraphService.db.storage.db;
 
         if (mode === 'replace') {
+            await this.#assertGraphDestructiveTargetAllowed({
+                operation: 'memory-core.graph.import.replace',
+                mode     : 'replace',
+                source   : {path: filePath},
+                confirmation
+            });
+
             logger.log(`Replace mode: Truncating existing Graph Nodes and Edges...`);
             db.prepare('DELETE FROM Nodes').run();
             db.prepare('DELETE FROM Edges').run();
@@ -333,11 +342,12 @@ class DatabaseService extends Base {
      * Imports a previously exported JSONL file back into the database.
      * @param {Object} options
      * @param {String} options.file The path to the backup file to import.
-     * @param {String} options.mode The import mode: 'merge' or 'replace'.
-     * @param {Boolean} [options.reEmbed=false] If true, regenerates embeddings for all records.
+     * @param {String}        options.mode The import mode: 'merge' or 'replace'.
+     * @param {Boolean}      [options.reEmbed=false] If true, regenerates embeddings for all records.
+     * @param {String|Object} [options.confirmation] Explicit production confirmation token.
      * @returns {Promise<{imported: number, total: number, mode: string}>}
      */
-    async importDatabase({file, mode, reEmbed=false}) {
+    async importDatabase({file, mode, reEmbed=false, confirmation}) {
         try {
             let filesToImport = [];
 
@@ -391,7 +401,7 @@ class DatabaseService extends Base {
                 
                 const isGraphBackup = path.basename(filePath).startsWith('graph-backup');
                 if (isGraphBackup) {
-                    const graphImportCount = await this.#importGraph(filePath, mode);
+                    const graphImportCount = await this.#importGraph(filePath, mode, confirmation);
                     totalImported += graphImportCount;
                     continue;
                 }
@@ -450,27 +460,34 @@ class DatabaseService extends Base {
     /**
      * Truncates specified collections (or graph) from the database.
      * @param {Object} options
-     * @param {String[]} [options.include=['memories', 'summaries', 'graph']] 
+     * @param {String[]}      [options.include=['memories', 'summaries', 'graph']]
+     * @param {String|Object} [options.confirmation] Explicit production confirmation token.
      * @returns {Promise<{message: string}>}
      */
-    async truncateDatabase({include=['memories', 'summaries', 'graph']} = {}) {
+    async truncateDatabase({include=['memories', 'summaries', 'graph'], confirmation} = {}) {
         try {
             logger.log('Starting truncation of agent database...');
             let truncated = [];
 
             if (include.includes('memories')) {
                 const proxy = Neo.create('Neo.ai.mcp.server.memory-core.managers.CollectionProxy', { collectionType: 'memory' });
-                await proxy.drop();
+                await proxy.drop({confirmation});
                 truncated.push('memories');
             }
 
             if (include.includes('summaries')) {
                 const proxy = Neo.create('Neo.ai.mcp.server.memory-core.managers.CollectionProxy', { collectionType: 'session' });
-                await proxy.drop();
+                await proxy.drop({confirmation});
                 truncated.push('summaries');
             }
             
             if (include.includes('graph')) {
+                await this.#assertGraphDestructiveTargetAllowed({
+                    operation: 'memory-core.graph.truncate',
+                    mode     : 'truncate',
+                    confirmation
+                });
+
                 const GraphService = (await import('./GraphService.mjs')).default;
                 if (GraphService.db?.storage?.db) {
                     GraphService.db.storage.db.prepare('DELETE FROM Nodes').run();
@@ -505,6 +522,32 @@ class DatabaseService extends Base {
         } else {
             throw new Error(`Unknown action: ${action}`);
         }
+    }
+
+    /**
+     * Applies the shared destructive-operation guard to Native Edge Graph targets.
+     *
+     * @param {Object}        options
+     * @param {String}        options.operation
+     * @param {String}        options.mode
+     * @param {Object}       [options.source]
+     * @param {String|Object} [options.confirmation]
+     * @returns {Promise<Object>}
+     * @private
+     */
+    async #assertGraphDestructiveTargetAllowed({operation, mode, source, confirmation}) {
+        return DestructiveOperationGuard.assertDestructiveTargetAllowed({
+            operation,
+            subsystem: 'memory-core',
+            mode,
+            target: {
+                sqlitePath: aiConfig.storagePaths.graph,
+                path      : aiConfig.storagePaths.graph,
+                repoRoot  : process.cwd()
+            },
+            source,
+            confirmation
+        })
     }
 }
 
