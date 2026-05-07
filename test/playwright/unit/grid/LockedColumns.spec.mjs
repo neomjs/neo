@@ -41,6 +41,8 @@ import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 import DomApiVnodeCreator from '../../../../src/vdom/util/DomApiVnodeCreator.mjs';
 
 test.describe('Grid Locked Columns', () => {
+    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
+
     let grid, store;
 
     test.beforeEach(async () => {

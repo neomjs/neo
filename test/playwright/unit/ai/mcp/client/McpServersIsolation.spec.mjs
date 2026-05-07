@@ -28,6 +28,8 @@ const targetSpecPath = path.resolve(__dirname, '../../../../../../ai/mcp/server/
 const backupSpecPath = path.resolve(__dirname, '../../../../../../ai/mcp/server/knowledge-base/openapi.yaml.bak');
 
 test.describe('Neo.ai.mcp.client.Client Server Isolation', () => {
+    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket D: MCP server bootstrap requires env vars/substrate');
+
     test.setTimeout(60000);
 
     let malformedPath;
