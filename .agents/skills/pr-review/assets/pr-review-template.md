@@ -174,15 +174,16 @@ For every modified or added OpenAPI tool description:
 
 ---
 
-### 🧪 Test-Execution Audit
+### 🧪 Test-Execution & Location Audit
 
-*(Required per guide §7.5. Reviewers MUST verify RELATED tests before assigning an `[EXECUTION_QUALITY]` score.)*
+*(Required per guide §7.5. Reviewers MUST verify RELATED tests and canonical placement before assigning an `[EXECUTION_QUALITY]` score.)*
 
 - [ ] Branch checked out locally (e.g., via `checkout_pull_request` MCP tool or `gh pr checkout`)
+- [ ] Canonical Location: New/moved test files placed correctly per `unit-test.md` (e.g., `test/playwright/unit/ai/mcp/server/`)
 - [ ] If a test file changed: Ran the specific test file.
 - [ ] If code changed: Verified if there are tests, or if new tests are needed.
 
-**Findings:** [Tests pass / No tests needed (docs change) / Test failures flagged in Required Actions]
+**Findings:** [Tests pass / Location gap flagged / No tests needed (docs change) / Test failures flagged in Required Actions]
 
 ---
 
