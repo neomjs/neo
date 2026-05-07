@@ -78,6 +78,10 @@ git fetch origin
 
 **Exception — first push of a freshly-branched feature:** skip ONLY after confirming via `git log origin/dev..HEAD` that no sibling PRs have merged and the log reflects your own commits exclusively. The branch-point IS `origin/dev`'s tip.
 
+### 2.4 Tool-Specific Branch Constraints
+
+If you intend to use the `sync_all` MCP tool, you MUST read [sync-all-constraints.md](./sync-all-constraints.md) before execution to prevent severe branch pollution.
+
 ## 3. Commit Sequence
 
 Your commit messages MUST follow Conventional Commits and MUST append the ticket ID so that the GitHub API and our internal memory cores can track outcomes.

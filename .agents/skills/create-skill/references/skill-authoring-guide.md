@@ -101,6 +101,13 @@ Since the agent relies on this when executing the specific task, make it detaile
 - Use explicit Markdown formatting (Headers, Lists, Bold text) to make it scannable for the LLM.
 - **Never guess:** If the payload requires knowing the absolute path of configuration files, verify those paths before writing them into the payload.
 
+### The "Map vs World Atlas" Constraint Placement
+
+When documenting a constraint for a specific MCP tool (e.g., "Do not run `sync_all` on a feature branch"), you MUST NOT pollute high-level global workflow files (the "Map", like `pull-request-workflow.md` or `ticket-intake.md`) with tool-specific edge cases.
+Instead, extract tool-specific constraints into dedicated, granular payload files (the "World Atlas") and only reference them when that specific tool is invoked.
+- **The Map:** General routing, global lifecycle rules. Keep this clean and high-level to prevent context bloat.
+- **The Atlas:** Tool-specific quirks, edge cases, payload shapes, and strict operational constraints.
+
 ## 3. The Lesson Promotion Path
 
 When a swarm agent discovers a systemic trap, an architectural pattern, or a workflow optimization that took significant effort to derive, that knowledge must not die when the session ends.
