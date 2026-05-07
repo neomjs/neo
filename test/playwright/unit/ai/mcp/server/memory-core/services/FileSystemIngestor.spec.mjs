@@ -22,6 +22,13 @@ import path                 from 'path';
 import os                   from 'os';
 
 test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () => {
+    // CI-skip per #10934 (G6-adjacent): describe-scope skip propagates through beforeAll
+    // (line 60 GraphService.db.nodes.clear() triggers Store.fire → SQLite.removeNodes against
+    // closed singleton under workers:1) AND beforeEach AND test body. Per @neo-gpt's c.8e6c3fd78
+    // post-mortem at https://github.com/neomjs/neo/pull/10933#issuecomment-4401574110: the
+    // earlier in-test-body skip-guard never fired because the crash happens in beforeAll first.
+    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: singleton SQLite-close race under workers:1 — see #10934');
+
     let GraphService;
     let SystemLifecycleService;
     let FileSystemIngestor;
