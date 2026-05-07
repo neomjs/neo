@@ -5,6 +5,8 @@ import {fileURLToPath} from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
+process.env.UNIT_TEST_MODE = 'true';
+
 export default defineConfig({
     testDir      : path.join(__dirname, 'unit'),
     outputDir    : path.join(__dirname, 'test-results/unit'),

@@ -1,11 +1,12 @@
-import fs              from 'fs/promises';
 import path            from 'path';
-import Base            from '../../../../src/core/Base.mjs';
+import BaseConfig, { createConfigProxy } from '../shared/BaseConfig.mjs';
 import {fileURLToPath} from 'url';
-import {normalizeEmbeddingProviderConfig, resolveEmbeddingProvider} from './helpers/EmbeddingProviderConfig.mjs';
-import {resolveChromaHost, resolveChromaPort, resolveMcpHttpPort, resolvePublicUrl}   from '../shared/helpers/DeploymentConfig.mjs';
-
-export {normalizeEmbeddingProviderConfig, resolveChromaHost, resolveChromaPort, resolveEmbeddingProvider, resolveMcpHttpPort, resolvePublicUrl};
+import {
+    parseBool,
+    parseNumber,
+    parsePort,
+    parseUrl
+} from '../shared/helpers/EnvConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -30,7 +31,7 @@ const defaultConfig = {
      * Automatically trigger session summarization on startup.
      * @type {boolean}
      */
-    autoSummarize: process.env.AUTO_SUMMARIZE === 'true',
+    autoSummarize: false,
     /**
      * Single-writer enforcement flag for the canonical Memory Core instance (#10813).
      *
@@ -51,38 +52,38 @@ const defaultConfig = {
      * the original race.
      * @type {boolean}
      */
-    isPrimary: process.env.NEO_MC_PRIMARY === 'true',
+    isPrimary: false,
     /**
      * Automatically start the local database process (Chroma/SQLite) on startup.
      * @type {boolean}
      */
-    autoStartDatabase: process.env.NEO_MEM_AUTO_START_DATABASE === 'true',
+    autoStartDatabase: false,
     /**
      * Automatically start the local inference server on startup.
      * @type {boolean}
      */
-    autoStartInference: process.env.NEO_MEM_AUTO_START_INFERENCE === 'true',
+    autoStartInference: false,
     /**
      * Automatically trigger GraphRAG extraction on startup.
      * @type {boolean}
      */
-    autoDream: process.env.AUTO_DREAM === 'true',
+    autoDream: false,
     /**
      * Automatically trigger Golden Path Synthesis into the handoff file on startup.
      * Crucial for headless swarm nodes (Mac 2) to physically generate sandman_handoff.md.
      * @type {boolean}
      */
-    autoGoldenPath: process.env.AUTO_GOLDEN_PATH === 'true',
+    autoGoldenPath: false,
     /**
      * Immediately parse each incoming memory turn (add_memory) for Graph Injection.
      * @type {boolean}
      */
-    realTimeMemoryParsing: process.env.REAL_TIME_MEMORY_PARSING === 'true',
+    realTimeMemoryParsing: false,
     /**
      * Automatically trigger FileSystem ingestion (Differential Graph Sync) on MCP server startup.
      * @type {boolean}
      */
-    autoIngestFileSystem: process.env.AUTO_INGEST_FS === 'true',
+    autoIngestFileSystem: false,
     /**
      * Global debug flag for all MCP servers.
      * @type {boolean}
@@ -92,7 +93,7 @@ const defaultConfig = {
      * Transport protocol for the MCP server ('stdio' or 'sse').
      * @type {string}
      */
-    transport: process.env.TRANSPORT || 'stdio',
+    transport: 'stdio',
     /**
      * Port the MCP server's HTTP/SSE transport listens on (only used when `transport === 'sse'`).
      *
@@ -100,7 +101,7 @@ const defaultConfig = {
      * deprecation window per #10808; resolver emits a warning if both are set with different values.
      * @type {number}
      */
-    mcpHttpPort: resolveMcpHttpPort({defaultPort: 3001}),
+    mcpHttpPort: 3001,
     /**
      * Optional public canonical URL for this MCP server.
      * When configured, this URL is explicitly used as the resource indicator
@@ -110,7 +111,7 @@ const defaultConfig = {
      * Example: 'https://mcp.neo.mjs.com/memory-core'
      * @type {string|null}
      */
-    publicUrl: resolvePublicUrl(),
+    publicUrl: null,
     /**
      * Optional Express middleware function for authentication (only used if transport is 'sse').
      * @type {Function|null}
@@ -122,20 +123,20 @@ const defaultConfig = {
      * @type {Object}
      */
     auth: {
-        host              : process.env.AUTH_HOST || null,
-        port              : Number(process.env.AUTH_PORT) || 8080,
-        realm             : process.env.AUTH_REALM || 'master',
-        issuerUrl         : process.env.AUTH_ISSUER_URL || null,
-        clientId          : process.env.OAUTH_CLIENT_ID || null,
-        clientSecret      : process.env.OAUTH_CLIENT_SECRET || '',
-        trustProxyIdentity: process.env.AUTH_TRUST_PROXY_IDENTITY === 'true'
+        host              : null,
+        port              : 8080,
+        realm             : 'master',
+        issuerUrl         : null,
+        clientId          : null,
+        clientSecret      : '',
+        trustProxyIdentity: false
     },
     /**
      * Explicit override provider for the core LLM Engine (e.g. summarization).
      * Supported values: 'gemini', 'ollama', 'openAiCompatible'
      * @type {String}
      */
-    modelProvider: process.env.NEO_MODEL_PROVIDER || 'gemini',
+    modelProvider: 'gemini',
     /**
      * Canonical embedding provider for Memory Core and Knowledge Base embedding callsites.
      * Supported values: 'gemini', 'ollama', 'openAiCompatible'
@@ -144,31 +145,31 @@ const defaultConfig = {
      * a warning and feeds this unified selector.
      * @type {String}
      */
-    embeddingProvider: resolveEmbeddingProvider(),
+    embeddingProvider: 'gemini',
     /**
      * Settings for the Ollama integration
      */
     ollama: {
-        host          : process.env.NEO_OLLAMA_HOST || 'http://127.0.0.1:11434',
-        model         : process.env.NEO_OLLAMA_MODEL || 'gemma4:31b',
-        embeddingModel: process.env.NEO_OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding'
+        host          : 'http://127.0.0.1:11434',
+        model         : 'gemma4:31b',
+        embeddingModel: 'qwen3-embedding'
     },
     /**
      * Settings for the OpenAI-Compatible API integration (e.g., mlx-lm or mlx-openai-server)
      * WARNING: Never hardcode API keys here. Always export them via .env or globally.
      */
     openAiCompatible: {
-        host          : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
-        model         : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
-        embeddingModel: process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
-        apiKey        : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || ''
+        host          : 'http://127.0.0.1:11434',
+        model         : 'gemma-4-31b-it',
+        embeddingModel: 'text-embedding-qwen3-embedding-8b',
+        apiKey        : ''
     },
     /**
      * The enforced vector dimension across all SQLite collections.
      * Hard-configured here to prevent catastrophic schema wipes due to dynamic model changes.
      * @type {number}
      */
-    vectorDimension: process.env.NEO_VECTOR_DIMENSION ? parseInt(process.env.NEO_VECTOR_DIMENSION, 10) : 4096,
+    vectorDimension: 4096,
     /**
      * The name of the Google Generative AI model for content generation.
      * @type {string}
@@ -205,7 +206,7 @@ const defaultConfig = {
      * topology.
      * @type {boolean}
      */
-    chromaUnified: process.env.NEO_CHROMA_UNIFIED === 'true',
+    chromaUnified: false,
     /**
      * The target Storage Architecture to use.
      * Note: Chroma is the only supported Vector DB.
@@ -240,8 +241,8 @@ const defaultConfig = {
             chroma: {
                 // #10808: prefer operator-facing `NEO_CHROMA_HOST/PORT` (cookbook Section 5);
                 // `NEO_KB_CHROMA_HOST/PORT` remains readable for backwards-compat during deprecation window.
-                host: resolveChromaHost({legacyEnvVar: 'NEO_KB_CHROMA_HOST'}),
-                port: resolveChromaPort({legacyEnvVar: 'NEO_KB_CHROMA_PORT'})
+                host: 'localhost',
+                port: 8000
             }
         }
     },
@@ -249,16 +250,16 @@ const defaultConfig = {
      * Physical file paths for embedded/local datasets.
      */
     storagePaths: {
-        graph: path.resolve(cwd, '.neo-ai-data/sqlite/memory-core-graph.sqlite')
+        graph: process.env.UNIT_TEST_MODE === 'true' ? ':memory:' : path.resolve(cwd, '.neo-ai-data/sqlite/memory-core-graph.sqlite')
     },
     /**
      * Data Schema/Table Names
      * This defines WHAT the tables/collections are called logically.
      */
     collections: {
-        memory : process.env.MEMORY_COLLECTION_NAME || 'neo-agent-memory',
-        session: process.env.SESSION_COLLECTION_NAME || 'neo-agent-sessions',
-        graph  : process.env.GRAPH_COLLECTION_NAME || 'neo-native-graph'
+        memory : process.env.UNIT_TEST_MODE === 'true' ? `test-memory-${Date.now()}-${Math.random().toString(36).substring(7)}` : 'neo-agent-memory',
+        session: process.env.UNIT_TEST_MODE === 'true' ? `test-session-${Date.now()}-${Math.random().toString(36).substring(7)}` : 'neo-agent-sessions',
+        graph  : 'neo-native-graph'
     },
     /**
      * Datasets Schema/Paths
@@ -266,7 +267,7 @@ const defaultConfig = {
      */
     datasets: {
         rlaif: {
-            trajectories: process.env.NEO_RLAIF_PATH || path.resolve(cwd, '.neo-ai-data/datasets/rlaif/trajectories.jsonl')
+            trajectories: path.resolve(cwd, '.neo-ai-data/datasets/rlaif/trajectories.jsonl')
         }
     },
     /**
@@ -278,7 +279,7 @@ const defaultConfig = {
      * The Hebbian decay factor applied every 24 hours to the edge graph (e.g., 0.98 for ~79 day half-life).
      * @type {number}
      */
-    decayFactor: Number(process.env.GRAPH_DECAY_FACTOR) || 0.98,
+    decayFactor: 0.98,
     /**
      * Minimum weight threshold for emitting `[GUIDE_GAP]`, `[EXAMPLE_GAP]`, and `[ORPHAN_CONCEPT]`
      * signals on CONCEPT nodes during `GapInferenceEngine.inferConceptGraphGaps`.
@@ -293,7 +294,7 @@ const defaultConfig = {
      * surface lower-priority concepts in the handoff.
      * @type {number}
      */
-    guideGapWeightThreshold: Number(process.env.NEO_GUIDE_GAP_WEIGHT_THRESHOLD) || 0.8,
+    guideGapWeightThreshold: 0.8,
     /**
      * Operator-tuning knobs for `ConceptDiscoveryService` (#10036). Both values are read live
      * at method-call time (not captured at module load) so tests + runtime overrides are honored.
@@ -309,8 +310,8 @@ const defaultConfig = {
      * @type {Object}
      */
     conceptDiscovery: {
-        prScanLimit    : Number(process.env.NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT)     || 20,
-        minSourceLength: Number(process.env.NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH) || 200
+        prScanLimit    : 20,
+        minSourceLength: 200
     },
     /**
      * Universal JSONL backup/export directory for all databases.
@@ -371,13 +372,72 @@ const defaultConfig = {
          *
          * @type {'blocked'|'open'}
          */
-        defaultReplyPolicy: process.env.NEO_MAILBOX_DEFAULT_REPLY_POLICY || 'open'
+        defaultReplyPolicy: 'open'
     },
     /**
      * Target file path for the lazy backfill queue of unresolved provenance edges.
      * @type {string}
      */
-    lazyEdgesQueuePath: process.env.NEO_LAZY_EDGES_QUEUE_PATH || path.resolve(cwd, 'ai/data/memory-core/lazy-edges.jsonl')
+    lazyEdgesQueuePath: path.resolve(cwd, 'ai/data/memory-core/lazy-edges.jsonl')
+};
+
+/**
+ * Single source of truth for environment variable overrides.
+ * Maps dot-notation paths in the configuration object to environment variables and parser functions.
+ */
+const envBindings = {
+    'autoSummarize': { var: 'AUTO_SUMMARIZE', parse: parseBool },
+    'isPrimary': { var: 'NEO_MC_PRIMARY', parse: parseBool },
+    'autoStartDatabase': { var: 'NEO_MEM_AUTO_START_DATABASE', parse: parseBool },
+    'autoStartInference': { var: 'NEO_MEM_AUTO_START_INFERENCE', parse: parseBool },
+    'autoDream': { var: 'AUTO_DREAM', parse: parseBool },
+    'autoGoldenPath': { var: 'AUTO_GOLDEN_PATH', parse: parseBool },
+    'realTimeMemoryParsing': { var: 'REAL_TIME_MEMORY_PARSING', parse: parseBool },
+    'autoIngestFileSystem': { var: 'AUTO_INGEST_FS', parse: parseBool },
+    'debug': { var: 'NEO_DEBUG', parse: parseBool },
+    'transport': 'TRANSPORT',
+    'mcpHttpPort': { var: 'MCP_HTTP_PORT', parse: parsePort },
+    'publicUrl': { var: 'NEO_PUBLIC_URL', parse: parseUrl },
+    
+    'auth.host': 'AUTH_HOST',
+    'auth.port': { var: 'AUTH_PORT', parse: parsePort },
+    'auth.realm': 'AUTH_REALM',
+    'auth.issuerUrl': 'AUTH_ISSUER_URL',
+    'auth.clientId': 'OAUTH_CLIENT_ID',
+    'auth.clientSecret': 'OAUTH_CLIENT_SECRET',
+    'auth.trustProxyIdentity': { var: 'AUTH_TRUST_PROXY_IDENTITY', parse: parseBool },
+    
+    'modelProvider': 'NEO_MODEL_PROVIDER',
+    'embeddingProvider': 'NEO_EMBEDDING_PROVIDER',
+    
+    'ollama.host': 'NEO_OLLAMA_HOST',
+    'ollama.model': 'NEO_OLLAMA_MODEL',
+    'ollama.embeddingModel': 'NEO_OLLAMA_EMBEDDING_MODEL',
+    
+    'openAiCompatible.host': 'NEO_OPENAI_COMPATIBLE_HOST',
+    'openAiCompatible.model': 'NEO_OPENAI_COMPATIBLE_MODEL',
+    'openAiCompatible.embeddingModel': 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL',
+    'openAiCompatible.apiKey': 'NEO_OPENAI_COMPATIBLE_API_KEY',
+    
+    'vectorDimension': { var: 'NEO_VECTOR_DIMENSION', parse: parseNumber },
+    'chromaUnified': { var: 'NEO_CHROMA_UNIFIED', parse: parseBool },
+    
+    'engines.kb.chroma.host': 'NEO_CHROMA_HOST',
+    'engines.kb.chroma.port': { var: 'NEO_CHROMA_PORT', parse: parsePort },
+    
+    'collections.memory': 'MEMORY_COLLECTION_NAME',
+    'collections.session': 'SESSION_COLLECTION_NAME',
+    'collections.graph': 'GRAPH_COLLECTION_NAME',
+    
+    'datasets.rlaif.trajectories': 'NEO_RLAIF_PATH',
+    'decayFactor': { var: 'GRAPH_DECAY_FACTOR', parse: parseNumber },
+    'guideGapWeightThreshold': { var: 'NEO_GUIDE_GAP_WEIGHT_THRESHOLD', parse: parseNumber },
+    
+    'conceptDiscovery.prScanLimit': { var: 'NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT', parse: parseNumber },
+    'conceptDiscovery.minSourceLength': { var: 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', parse: parseNumber },
+    
+    'mailbox.defaultReplyPolicy': 'NEO_MAILBOX_DEFAULT_REPLY_POLICY',
+    'lazyEdgesQueuePath': 'NEO_LAZY_EDGES_QUEUE_PATH'
 };
 
 /**
@@ -389,7 +449,7 @@ const defaultConfig = {
  * @extends Neo.core.Base
  * @singleton
  */
-class Config extends Base {
+class Config extends BaseConfig {
     static config = {
         /**
          * @member {String} className='Neo.ai.mcp.server.memory-core.Config'
@@ -403,67 +463,41 @@ class Config extends Base {
         singleton: true
     }
 
+    defaultConfig = defaultConfig;
+    envBindings = envBindings;
+    
     /**
-     * The current configuration object.
-     * Starts with defaults and can be updated via load().
-     * @member {Object} data
+     * Applies legacy environment variable fallbacks
      */
-    data = null;
-
-    /**
-     * Initializes the configuration object by deep cloning the defaults.
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-        this.data = Neo.clone(defaultConfig, true);
-    }
-
-    /**
-     * Loads configuration from a JSON file and merges it with defaults.
-     * @param {String} filePath The path to the configuration file.
-     * @returns {Promise<void>}
-     */
-    async load(filePath) {
-        if (!filePath) {
-            return;
-        }
-
-        try {
-            const absolutePath = path.resolve(filePath);
-            const ext          = path.extname(absolutePath);
-            let customConfig;
-
-            if (ext === '.mjs' || ext === '.js') {
-                const module = await import(absolutePath);
-                customConfig = module.default;
-            } else {
-                const content = await fs.readFile(absolutePath, 'utf-8');
-                customConfig  = JSON.parse(content);
+    applyLegacyEnv() {
+        // Handle legacy deprecation fallbacks explicitly
+        if (process.env.SSE_PORT && !process.env.MCP_HTTP_PORT) {
+            console.warn('[Config] Deprecation warning: SSE_PORT is deprecated. Please use MCP_HTTP_PORT.');
+            const legacyPort = parsePort(process.env.SSE_PORT, 'SSE_PORT', console.warn);
+            if (legacyPort !== undefined) {
+                this.data.mcpHttpPort = legacyPort;
             }
-
-            // Deep merge custom config into the data object
-            Neo.merge(this.data, customConfig);
-            normalizeEmbeddingProviderConfig(this.data, process.env, customConfig);
-
-            console.error(`[Config] Loaded custom configuration from ${absolutePath}`);
-
-        } catch (error) {
-            console.error(`[Config] Failed to load configuration from ${filePath}:`, error.message);
-            throw error;
+        }
+        
+        if (process.env.NEO_CHROMA_EMBEDDING_PROVIDER && !process.env.NEO_EMBEDDING_PROVIDER) {
+            console.warn('[Config] Deprecation warning: NEO_CHROMA_EMBEDDING_PROVIDER is deprecated. Please use NEO_EMBEDDING_PROVIDER.');
+            this.data.embeddingProvider = process.env.NEO_CHROMA_EMBEDDING_PROVIDER;
+        }
+        
+        if (process.env.NEO_KB_CHROMA_HOST && !process.env.NEO_CHROMA_HOST) {
+            console.warn('[Config] Deprecation warning: NEO_KB_CHROMA_HOST is deprecated. Please use NEO_CHROMA_HOST.');
+            this.data.engines.kb.chroma.host = process.env.NEO_KB_CHROMA_HOST;
+        }
+        
+        if (process.env.NEO_KB_CHROMA_PORT && !process.env.NEO_CHROMA_PORT) {
+            console.warn('[Config] Deprecation warning: NEO_KB_CHROMA_PORT is deprecated. Please use NEO_CHROMA_PORT.');
+            const legacyPort = parsePort(process.env.NEO_KB_CHROMA_PORT, 'NEO_KB_CHROMA_PORT', console.warn);
+            if (legacyPort !== undefined) {
+                this.data.engines.kb.chroma.port = legacyPort;
+            }
         }
     }
 }
-
 const instance = Neo.setupClass(Config);
 
-export default new Proxy(instance, {
-    get(target, prop, receiver) {
-        // 1. Prefer properties/methods on the instance itself (e.g. load, className)
-        if (Reflect.has(target, prop)) {
-            return Reflect.get(target, prop, receiver);
-        }
-        // 2. Fallback to the data object (e.g. memoryDb.port)
-        return target.data[prop];
-    }
-});
+export default createConfigProxy(instance);

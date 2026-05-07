@@ -84,7 +84,7 @@ test.describe('Neo.ai.mcp.server.knowledge-base.source.PullRequestSource', () =>
             content: '# First PR\nbody A',
             hash   : 'hash:pr-0001'
         });
-        expect(first.source).toBe(path.join(mockRoot, 'resources/content/pulls/pr-0001.md'));
+        expect(first.source).toBe(path.join('resources/content/pulls/pr-0001.md'));
 
         expect(second).toMatchObject({
             type   : 'pull',

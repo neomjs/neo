@@ -1,4 +1,4 @@
-globalThis.Neo = {};
+globalThis.Neo ??= {};
 
 globalThis.Neo.config = {
     environment : 'development',

@@ -71,6 +71,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
     });
 
     test.afterAll(async () => {
+        const { cleanupChromaManager } = await import('../util.mjs');
+        await cleanupChromaManager();
         GraphService.db.autoSave = originalAutoSave;
         if (fs.existsSync(dbPath)) {
             try { fs.unlinkSync(dbPath); }            catch (e) {}

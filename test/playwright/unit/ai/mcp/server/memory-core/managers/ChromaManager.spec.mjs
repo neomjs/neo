@@ -20,6 +20,10 @@ import InstanceManager from '../../../../../../../../src/manager/Instance.mjs';
 import aiConfig       from '../../../../../../../../ai/mcp/server/memory-core/config.mjs';
 import ChromaManager  from '../../../../../../../../ai/mcp/server/memory-core/managers/ChromaManager.mjs';
 import SystemLifecycleService from '../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
+import path           from 'path';
+
+const tmpDir = path.resolve(process.cwd(), 'tmp');
+aiConfig.storagePaths.graph = path.join(tmpDir, 'test-graph-' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.db');
 
 test.describe('Neo.ai.mcp.server.memory-core.managers.ChromaManager — resolveChromaCoordinates (#10001)', () => {
     test('federated mode (chromaUnified=false) routes to MC own ChromaDB coordinates', () => {
@@ -69,6 +73,7 @@ test.describe('Neo.ai.mcp.server.memory-core.managers.ChromaManager', () => {
         // Set up a custom warn logger to inspect leaks
         const warningLogs = [];
         const originalWarn = console.warn;
+        let originalClient;
 
         console.warn = (...args) => {
             warningLogs.push(args.join(' '));
@@ -76,6 +81,8 @@ test.describe('Neo.ai.mcp.server.memory-core.managers.ChromaManager', () => {
 
         try {
             if (!SystemLifecycleService._initPromise) { await SystemLifecycleService.initAsync(); } else { await SystemLifecycleService.ready(); }
+
+            originalClient = ChromaManager.client;
 
             // Mock the client to simulate async latency and rogue warnings
             ChromaManager.client = {
@@ -115,6 +122,7 @@ test.describe('Neo.ai.mcp.server.memory-core.managers.ChromaManager', () => {
         } finally {
             // Un-mock
             console.warn = originalWarn;
+            if (originalClient) ChromaManager.client = originalClient;
             SystemLifecycleService._initPromise = null;
         }
     });

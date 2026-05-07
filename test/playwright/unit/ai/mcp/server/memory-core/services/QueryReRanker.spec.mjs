@@ -34,6 +34,9 @@ test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
 
     test.beforeAll(async () => {
         const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const path = await import("path");
+        const tmpDir = path.resolve(process.cwd(), "tmp");
+        aiConfig.storagePaths.graph = path.join(tmpDir, "test-graph-" + Date.now() + "-" + Math.random().toString(36).substring(7) + ".db");
 
         // Isolate collections to prevent pollution
         aiConfig.collections.memory  = `test-reranker-mem-${testPid}-${testTs}`;
@@ -78,18 +81,8 @@ test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
     });
 
     test.afterAll(async () => {
-        try {
-            if (SDK.Memory_ChromaManager?.client) {
-                await SDK.Memory_ChromaManager.client.deleteCollection({name: SDK.Memory_Config.data.collections.memory});
-                await SDK.Memory_ChromaManager.client.deleteCollection({name: SDK.Memory_Config.data.collections.session});
-            }
-        } catch (e) {
-            console.warn(`[Cleanup] Failed to delete test collections:`, e.message);
-        }
-
-        if (SDK?.Memory_LifecycleService) {
-            SDK.Memory_LifecycleService._initPromise = null;
-        }
+        const { cleanupChromaManager } = await import('../util.mjs');
+        await cleanupChromaManager(SDK);
     });
 
     test('StorageRouter re-ranker should NOT crash when ChromaDB returns empty/malformed query results', async () => {
@@ -207,18 +200,8 @@ test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
     });
 
     test.afterAll(async () => {
-        try {
-            if (SDK.Memory_ChromaManager?.client) {
-                await SDK.Memory_ChromaManager.client.deleteCollection({name: SDK.Memory_Config.data.collections.memory});
-                await SDK.Memory_ChromaManager.client.deleteCollection({name: SDK.Memory_Config.data.collections.session});
-            }
-        } catch (e) {
-            console.warn(`[Cleanup] Failed to delete drift test collections:`, e.message);
-        }
-
-        if (SDK?.Memory_LifecycleService) {
-            SDK.Memory_LifecycleService._initPromise = null;
-        }
+        const { cleanupChromaManager } = await import('../util.mjs');
+        await cleanupChromaManager(SDK);
     });
 
     test('findSessionsToSummarize should detect unsummarized sessions with epoch timestamps', async () => {

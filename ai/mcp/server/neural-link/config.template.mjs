@@ -1,8 +1,8 @@
-import fs              from 'fs/promises';
 import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
-import Base            from '../../../../src/core/Base.mjs';
+import BaseConfig, { createConfigProxy } from '../shared/BaseConfig.mjs';
+import {parsePort, parseBool, parseNumber} from '../shared/helpers/EnvConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -12,6 +12,16 @@ const cwd        = process.cwd();
 /**
  * Default configuration object.
  */
+
+const envBindings = {
+    'autoConnect': { var: 'NEO_NL_AUTO_CONNECT', parse: parseBool },
+    'debug': { var: 'NEO_DEBUG', parse: parseBool },
+    'port': { var: 'NEO_NL_PORT', parse: parsePort },
+    'rpcTimeout': { var: 'NEO_NL_RPC_TIMEOUT', parse: parseNumber },
+    'memoryCoreDbPath': 'NEO_MEMORY_DB_PATH',
+    'pruneLogsAfterDays': { var: 'NEO_NL_PRUNE_LOGS_AFTER_DAYS', parse: parseNumber }
+};
+
 const defaultConfig = {
     /**
      * Repo root, computed from this module's path. Exported for symmetry with the
@@ -73,7 +83,7 @@ const defaultConfig = {
  * @extends Neo.core.Base
  * @singleton
  */
-class Config extends Base {
+class Config extends BaseConfig {
     static config = {
         /**
          * @member {String} className='Neo.ai.mcp.server.neural-link.Config'
@@ -87,64 +97,21 @@ class Config extends Base {
         singleton: true
     }
 
-    /**
-     * The current configuration object.
-     * Starts with defaults and can be updated via load().
-     * @member {Object} data
-     */
-    data = null;
+    defaultConfig = defaultConfig;
+    envBindings = envBindings;
 
     /**
-     * Initializes the configuration object by deep cloning the defaults.
-     * @param {Object} config
+     * Applies legacy environment variable fallbacks
      */
-    construct(config) {
-        super.construct(config);
-        this.data = Neo.clone(defaultConfig, true);
-    }
-
-    /**
-     * Loads configuration from a JSON file and merges it with defaults.
-     * @param {String} filePath The path to the configuration file.
-     * @returns {Promise<void>}
-     */
-    async load(filePath) {
-        if (!filePath) return;
-
-        try {
-            const absolutePath = path.resolve(filePath);
-            const ext = path.extname(absolutePath);
-            let customConfig;
-
-            if (ext === '.mjs' || ext === '.js') {
-                const module = await import(absolutePath);
-                customConfig = module.default;
-            } else {
-                const content = await fs.readFile(absolutePath, 'utf-8');
-                customConfig = JSON.parse(content);
-            }
-
-            // Deep merge custom config into the data object
-            Neo.merge(this.data, customConfig);
-
-            console.error(`[Config] Loaded custom configuration from ${absolutePath}`);
-
-        } catch (error) {
-            console.error(`[Config] Failed to load configuration from ${filePath}:`, error.message);
-            throw error;
+    applyLegacyEnv() {
+        // NEO_MEMORY_CORE_DB_PATH fallback for memoryCoreDbPath
+        if (process.env.NEO_MEMORY_CORE_DB_PATH && !process.env.NEO_MEMORY_DB_PATH) {
+            this.data.memoryCoreDbPath = process.env.NEO_MEMORY_CORE_DB_PATH;
         }
     }
-}
 
+
+}
 const instance = Neo.setupClass(Config);
 
-export default new Proxy(instance, {
-    get(target, prop, receiver) {
-        // 1. Prefer properties/methods on the instance itself (e.g. load, className)
-        if (Reflect.has(target, prop)) {
-            return Reflect.get(target, prop, receiver);
-        }
-        // 2. Fallback to the data object (e.g. port)
-        return target.data[prop];
-    }
-});
+export default createConfigProxy(instance);

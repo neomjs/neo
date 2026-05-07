@@ -1,11 +1,8 @@
-import fs              from 'fs/promises';
 import os              from 'os';
 import path            from 'path';
-import Base            from '../../../../src/core/Base.mjs';
+import BaseConfig, { createConfigProxy } from '../shared/BaseConfig.mjs';
 import {fileURLToPath} from 'url';
-import {resolveChromaHost, resolveChromaPort, resolveMcpHttpPort, resolvePublicUrl} from '../shared/helpers/DeploymentConfig.mjs';
-
-export {resolveChromaHost, resolveChromaPort, resolveMcpHttpPort, resolvePublicUrl};
+import {parsePort, parseUrl, parseBool, parseNumber} from '../shared/helpers/EnvConfig.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -16,18 +13,44 @@ const neoRootDir = path.resolve(__dirname, '../../../../');
  * Default configuration object.
  * Defines the structure and default values for the server configuration.
  */
+
+const envBindings = {
+    'autoSync': { var: 'AUTO_SYNC', parse: parseBool },
+    'autoStartDatabase': { var: 'NEO_KB_AUTO_START_DATABASE', parse: parseBool },
+    'transport': 'TRANSPORT',
+    'mcpHttpPort': { var: 'MCP_HTTP_PORT', parse: parsePort },
+    'publicUrl': { var: 'NEO_PUBLIC_URL', parse: parseUrl },
+    
+    'auth.host': 'AUTH_HOST',
+    'auth.port': { var: 'AUTH_PORT', parse: parsePort },
+    'auth.realm': 'AUTH_REALM',
+    'auth.issuerUrl': 'AUTH_ISSUER_URL',
+    'auth.clientId': 'OAUTH_CLIENT_ID',
+    'auth.clientSecret': 'OAUTH_CLIENT_SECRET',
+    'auth.trustProxyIdentity': { var: 'AUTH_TRUST_PROXY_IDENTITY', parse: parseBool },
+    
+    'chromaUnified': { var: 'NEO_CHROMA_UNIFIED', parse: parseBool },
+    'host': 'NEO_CHROMA_HOST',
+    'port': { var: 'NEO_CHROMA_PORT', parse: parsePort },
+    
+    'memoryCoreDbPath': 'NEO_MEMORY_DB_PATH',
+    'kbFaqMinCount': { var: 'NEO_KB_FAQ_MIN_COUNT', parse: parseNumber },
+    'kbFaqSimilarityThreshold': { var: 'NEO_KB_FAQ_SIMILARITY_THRESHOLD', parse: parseNumber },
+    'kbFaqConceptLimit': { var: 'NEO_KB_FAQ_CONCEPT_LIMIT', parse: parseNumber }
+};
+
 const defaultConfig = {
     neoRootDir,
     /**
      * Automatically synchronize the knowledge base on startup.
      * @type {boolean}
      */
-    autoSync: process.env.AUTO_SYNC === 'true',
+    autoSync: false,
     /**
      * Automatically start the local Chroma database process on startup.
      * @type {boolean}
      */
-    autoStartDatabase: process.env.NEO_KB_AUTO_START_DATABASE === 'true',
+    autoStartDatabase: false,
     /**
      * Global debug flag for all MCP servers.
      * @type {boolean}
@@ -37,7 +60,7 @@ const defaultConfig = {
      * Transport protocol for the MCP server ('stdio' or 'sse').
      * @type {string}
      */
-    transport: process.env.TRANSPORT || 'stdio',
+    transport: 'stdio',
     /**
      * Port the MCP server's HTTP/SSE transport listens on (only used when `transport === 'sse'`).
      *
@@ -45,7 +68,7 @@ const defaultConfig = {
      * deprecation window per #10808; resolver emits a warning if both are set with different values.
      * @type {number}
      */
-    mcpHttpPort: resolveMcpHttpPort({defaultPort: 3000}),
+    mcpHttpPort: 3000,
     /**
      * Optional public canonical URL for this MCP server.
      * When configured, this URL is explicitly used as the resource indicator
@@ -55,7 +78,7 @@ const defaultConfig = {
      * Example: 'https://mcp.neo.mjs.com/knowledge-base'
      * @type {string|null}
      */
-    publicUrl: resolvePublicUrl(),
+    publicUrl: null,
     /**
      * Optional Express middleware function for authentication (only used if transport is 'sse').
      * @type {Function|null}
@@ -67,13 +90,13 @@ const defaultConfig = {
      * @type {Object}
      */
     auth: {
-        host              : process.env.AUTH_HOST || null,
-        port              : Number(process.env.AUTH_PORT) || 8080,
-        realm             : process.env.AUTH_REALM || 'master',
-        issuerUrl         : process.env.AUTH_ISSUER_URL || null,
-        clientId          : process.env.OAUTH_CLIENT_ID || null,
-        clientSecret      : process.env.OAUTH_CLIENT_SECRET || '',
-        trustProxyIdentity: process.env.AUTH_TRUST_PROXY_IDENTITY === 'true'
+        host              : null,
+        port              : 8080,
+        realm             : 'master',
+        issuerUrl         : null,
+        clientId          : null,
+        clientSecret      : '',
+        trustProxyIdentity: false
     },
     /**
      * A dummy embedding function to satisfy the ChromaDB API when embeddings are provided manually.
@@ -108,7 +131,7 @@ const defaultConfig = {
      * topology consistently.
      * @type {boolean}
      */
-    chromaUnified: process.env.NEO_CHROMA_UNIFIED === 'true',
+    chromaUnified: false,
     /**
      * The hostname of the ChromaDB server for the knowledge base.
      *
@@ -116,7 +139,7 @@ const defaultConfig = {
      * unified Chroma instance for both KB + MC, this points at the shared cloud-hosted Chroma.
      * @type {string}
      */
-    host: resolveChromaHost(),
+    host: 'localhost',
     /**
      * The port the ChromaDB server for the knowledge base is listening on.
      *
@@ -124,7 +147,7 @@ const defaultConfig = {
      * fall back to the default with a console warning per the resolver validity contract.
      * @type {number}
      */
-    port: resolveChromaPort(),
+    port: 8000,
     /**
      * The local persistence path for the agent knowledge-base server.
      * @type {string}
@@ -138,9 +161,7 @@ const defaultConfig = {
      * land beside `nl_action_log` without coupling either MCP server's schema.
      * @type {string}
      */
-    memoryCoreDbPath: process.env.NEO_MEMORY_DB_PATH ||
-        process.env.NEO_MEMORY_CORE_DB_PATH ||
-        path.join(os.homedir(), '.neo-ai-data', 'memory-core.sqlite'),
+    memoryCoreDbPath: path.join(os.homedir(), '.neo-ai-data', 'memory-core.sqlite'),
     /**
      * @summary Repetition threshold for promoting KB queries into Agent FAQ clusters.
      *
@@ -148,7 +169,7 @@ const defaultConfig = {
      * eligible for `[KB_DEMAND_GAP]` inference and `list_agent_faqs` reporting.
      * @type {number}
      */
-    kbFaqMinCount: Number(process.env.NEO_KB_FAQ_MIN_COUNT) || 3,
+    kbFaqMinCount: 3,
     /**
      * @summary Calibration threshold for future embedding-backed Agent FAQ clustering.
      *
@@ -157,14 +178,14 @@ const defaultConfig = {
      * lower this once embedding-backed similarity is measured against real traffic.
      * @type {number}
      */
-    kbFaqSimilarityThreshold: Number(process.env.NEO_KB_FAQ_SIMILARITY_THRESHOLD) || 1.0,
+    kbFaqSimilarityThreshold: 1.0,
     /**
      * @summary Bound for Concept Ontology IDs attached to each Agent FAQ cluster.
      *
      * Maximum number of Concept Ontology IDs attached to each Agent FAQ.
      * @type {number}
      */
-    kbFaqConceptLimit: Number(process.env.NEO_KB_FAQ_CONCEPT_LIMIT) || 5,
+    kbFaqConceptLimit: 5,
     /**
      * The path to the generated knowledge base JSONL file.
      * @type {string}
@@ -258,7 +279,7 @@ const defaultConfig = {
  * @extends Neo.core.Base
  * @singleton
  */
-class Config extends Base {
+class Config extends BaseConfig {
     static config = {
         /**
          * @member {String} className='Neo.ai.mcp.server.knowledge-base.Config'
@@ -272,64 +293,29 @@ class Config extends Base {
         singleton: true
     }
 
-    /**
-     * The current configuration object.
-     * Starts with defaults and can be updated via load().
-     * @member {Object} data
-     */
-    data = null;
+    defaultConfig = defaultConfig;
+    envBindings = envBindings;
 
     /**
-     * Initializes the configuration object by deep cloning the defaults.
-     * @param {Object} config
+     * Applies legacy environment variable fallbacks
      */
-    construct(config) {
-        super.construct(config);
-        this.data = Neo.clone(defaultConfig, true);
-    }
-
-    /**
-     * Loads configuration from a JSON file and merges it with defaults.
-     * @param {String} filePath The path to the configuration file.
-     * @returns {Promise<void>}
-     */
-    async load(filePath) {
-        if (!filePath) return;
-
-        try {
-            const absolutePath = path.resolve(filePath);
-            const ext          = path.extname(absolutePath);
-            let   customConfig;
-
-            if (ext === '.mjs' || ext === '.js') {
-                const module = await import(absolutePath);
-                customConfig = module.default;
-            } else {
-                const content = await fs.readFile(absolutePath, 'utf-8');
-                customConfig  = JSON.parse(content);
+    applyLegacyEnv() {
+        // Handle legacy deprecation fallbacks explicitly
+        if (process.env.SSE_PORT && !process.env.MCP_HTTP_PORT) {
+            console.warn('[Config] Deprecation warning: SSE_PORT is deprecated. Please use MCP_HTTP_PORT.');
+            const legacyPort = parsePort(process.env.SSE_PORT, 'SSE_PORT', console.warn);
+            if (legacyPort !== undefined) {
+                this.data.mcpHttpPort = legacyPort;
             }
-
-            // Deep merge custom config into the data object
-            Neo.merge(this.data, customConfig);
-
-            console.error(`[Config] Loaded custom configuration from ${absolutePath}`);
-
-        } catch (error) {
-            console.error(`[Config] Failed to load configuration from ${filePath}:`, error.message);
-            throw error;
+        }
+        
+        // NEO_MEMORY_CORE_DB_PATH fallback for memoryCoreDbPath
+        if (process.env.NEO_MEMORY_CORE_DB_PATH && !process.env.NEO_MEMORY_DB_PATH) {
+            this.data.memoryCoreDbPath = process.env.NEO_MEMORY_CORE_DB_PATH;
         }
     }
-}
 
+}
 const instance = Neo.setupClass(Config);
 
-export default new Proxy(instance, {
-    get(target, prop, receiver) {
-        // 1. Prefer properties/methods on the instance itself (e.g. load, className)
-        if (Reflect.has(target, prop)) {
-            return Reflect.get(target, prop, receiver);
-        }
-        // 2. Fallback to the data object (e.g. port, batchSize)
-        return target.data[prop];
-    }
-});
+export default createConfigProxy(instance);

@@ -74,6 +74,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WriteSideInvariant (#10017
     });
 
     test.afterAll(async () => {
+        const { cleanupChromaManager } = await import('../util.mjs');
+        await cleanupChromaManager();
         if (fs.existsSync(dbPath)) {
             try { fs.unlinkSync(dbPath); } catch (e) {}
             try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
@@ -118,7 +120,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WriteSideInvariant (#10017
 
         const result = await RequestContextService.run({agentIdentityNodeId: '@neo-test-writer'}, () =>
             MailboxService.addMessage({
-                to     : 'AGENT:*',
+                to     : '@neo-test-receiver',
                 subject: 'bound-write-succeeds',
                 body   : 'Identity is bound; write must succeed.'
             })
