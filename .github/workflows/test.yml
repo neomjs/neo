@@ -1,0 +1,70 @@
+name: Tests
+
+on:
+  pull_request:
+    branches: [dev]
+  push:
+    branches: [dev]
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  test:
+    name: ${{ matrix.suite }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # `unit` deferred until #10903 substrate-audit completes (~30 unit
+        # tests fail in clean CI env due to substrate-data + browser gaps —
+        # pre-existing, not caused by this workflow). Re-add via follow-up
+        # PR once per-bucket fixes land.
+        suite: [integration]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # Pre-create .neo-ai-data so the `prepare` lifecycle's downloadKnowledgeBase
+      # short-circuits via its existing-dir guard. Integration tests use a tmpfs
+      # Chroma per `ai/deploy/docker-compose.test.yml`; unit tests are mocked.
+      # Neither suite needs the canonical KB artifact in CI.
+      - name: Skip Knowledge Base download in prepare lifecycle
+        run: mkdir -p .neo-ai-data
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Required for the unit-test runner per bootstrapWorktree.mjs precedent.
+      # Harmless for the integration suite.
+      - name: Bundle parse5
+        run: npm run bundle-parse5
+
+      - name: Run ${{ matrix.suite }} tests
+        run: npm run test-${{ matrix.suite }}
+        env:
+          NEO_INTEGRATION_STACK_TIMEOUT_MS: '240000'
+          # Activates the canonical bucket-skip pattern for tests that gate on
+          # CI substrate (heavy SLM, grid WIP, application-spec deferrals).
+          # Test specs check `process.env.NEO_TEST_SKIP_CI` and skip cleanly.
+          # See #10903 (unit-suite buckets A-E) + #10917/#10918 (bucket F).
+          NEO_TEST_SKIP_CI: 'true'
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.suite }}-${{ github.run_id }}
+          path: test/playwright/test-results/
+          retention-days: 14
