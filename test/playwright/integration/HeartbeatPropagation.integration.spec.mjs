@@ -1,44 +1,9 @@
 import {test, expect} from '@playwright/test';
-import {Client} from '@modelcontextprotocol/sdk/client/index.js';
-import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {assertSustainedHealth} from './util/assertSustainedHealth.mjs';
+import {callHealthcheck, getReadiness} from './fixtures/mcpClient.mjs';
 
-const READY_URL = process.env.NEO_INTEGRATION_READY_URL || 'http://127.0.0.1:13090/ready';
 const KB_URL    = process.env.NEO_INTEGRATION_KB_URL    || 'http://127.0.0.1:13000';
 const MC_URL    = process.env.NEO_INTEGRATION_MC_URL    || 'http://127.0.0.1:13001';
-
-async function getReadiness() {
-    const response = await fetch(READY_URL);
-    return response.json();
-}
-
-async function callHealthcheck(baseUrl) {
-    const transport = new StreamableHTTPClientTransport(new URL('/mcp', baseUrl));
-    const client    = new Client({
-        name   : 'neo-integration-heartbeat',
-        version: '1.0.0'
-    }, {
-        capabilities: {}
-    });
-
-    await client.connect(transport);
-
-    try {
-        const result = await client.callTool({name: 'healthcheck', arguments: {}});
-        expect(result.isError).not.toBe(true);
-
-        if (result.structuredContent) {
-            return result.structuredContent;
-        }
-
-        const text = result.content?.find(item => item.type === 'text')?.text;
-        expect(text, 'MCP healthcheck should return text content').toBeTruthy();
-
-        return JSON.parse(text);
-    } finally {
-        await client.close();
-    }
-}
 
 test.describe('Heartbeat Propagation Integration (#10896 Lane B)', () => {
     test.setTimeout(120000); // Allow enough time for 30s window and startup
