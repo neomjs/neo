@@ -627,6 +627,66 @@ class HealthService extends Base {
         }
         return total;
     }
+    /**
+     * Checks the backup directory for the most recent successful backup bundle.
+     * @returns {Promise<{lastSuccessful: String|null, count: Number, error?: String}>}
+     * @private
+     */
+    async #checkBackupState() {
+        try {
+            const fs = await import('fs-extra');
+            const path = await import('path');
+            
+            const backupPath = aiConfig.backupPath;
+            if (!await fs.pathExists(backupPath)) {
+                return { lastSuccessful: null, count: 0 };
+            }
+
+            const entries = await fs.readdir(backupPath, { withFileTypes: true });
+            
+            const backupDirs = entries
+                .filter(e => e.isDirectory() && e.name.startsWith('backup-'))
+                .map(e => e.name);
+
+            if (backupDirs.length === 0) {
+                return { lastSuccessful: null, count: 0 };
+            }
+
+            backupDirs.sort((a, b) => b.localeCompare(a));
+            
+            const latestDir = backupDirs[0];
+            let timestamp = null;
+
+            const metaPath = path.join(backupPath, latestDir, 'bundle-meta.json');
+            if (await fs.pathExists(metaPath)) {
+                try {
+                    const meta = await fs.readJson(metaPath);
+                    timestamp = meta.timestamp || null;
+                } catch (e) {}
+            }
+
+            if (!timestamp) {
+                const tsMatch = latestDir.match(/^backup-(.+)$/);
+                if (tsMatch) {
+                    const rawTs = tsMatch[1];
+                    const isoTime = rawTs.replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3');
+                    timestamp = isoTime;
+                }
+            }
+
+            return {
+                lastSuccessful: timestamp,
+                count: backupDirs.length
+            };
+        } catch (e) {
+            return {
+                lastSuccessful: null,
+                count: 0,
+                error: e.message
+            };
+        }
+    }
+
 
     #checkApiKeyConfigured() {
         const providers = [aiConfig.modelProvider];
@@ -697,6 +757,7 @@ class HealthService extends Base {
                 summary  : buildSummaryProviderBlock(aiConfig),
                 auth     : buildAuthProviderBlock(aiConfig)
             },
+            backup   : await this.#checkBackupState(),
             details  : [],
             version  : process.env.npm_package_version || '1.0.0',
             uptime   : process.uptime()
