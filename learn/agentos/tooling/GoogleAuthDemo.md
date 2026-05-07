@@ -29,7 +29,7 @@ Update your `.env` file or IaC environment variables.
 Google provides a standard OIDC discovery endpoint. This is the easiest way to configure the server.
 
 ```bash
-TRANSPORT=sse
+NEO_TRANSPORT=sse
 MCP_HTTP_PORT=3000   # legacy alias `SSE_PORT` still works during the #10808 deprecation window
 HOST=mcp.yourdomain.com
 

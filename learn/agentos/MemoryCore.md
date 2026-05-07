@@ -51,7 +51,7 @@ This means the agent starts every new session with an indexed "Recap" of its pas
 
 In multi-harness deployments (Claude Code worktrees + Antigravity + Codex Desktop + per-workspace language servers), several Memory Core instances may share the same Chroma collection. To prevent races on session summarization, the startup auto-discovery path is gated by **two** flags rather than one:
 
-| `AUTO_SUMMARIZE` | `NEO_MC_PRIMARY` | Behavior on startup |
+| `NEO_AUTO_SUMMARIZE` | `NEO_MC_PRIMARY` | Behavior on startup |
 |---|---|---|
 | `false` | (any) | Skip — current default; no summarization at boot. |
 | `true` | `false` (default) | Skip with operator-visible log; healthcheck reports `startup.summarizationStatus: "skipped-non-primary"`. |
@@ -59,7 +59,7 @@ In multi-harness deployments (Claude Code worktrees + Antigravity + Codex Deskto
 
 Operators set `NEO_MC_PRIMARY=true` on the **canonical** Memory Core instance only (typically the one bound to the operator's primary harness). Non-primary instances stay quiet and rely on the canonical instance to handle the shared collection. The same gate applies to disconnect-triggered `queueSummarizationJob` calls, so non-primary instances do not write to the shared `SummarizationJobs` SQLite table either.
 
-The two flags are deliberately AND-ed (not OR-ed): forgetting `NEO_MC_PRIMARY` while having `AUTO_SUMMARIZE=true` is the safe default — non-primary instances do nothing rather than racing the canonical one. Tracked under [#10813](https://github.com/neomjs/neo/issues/10813).
+The two flags are deliberately AND-ed (not OR-ed): forgetting `NEO_MC_PRIMARY` while having `NEO_AUTO_SUMMARIZE=true` is the safe default — non-primary instances do nothing rather than racing the canonical one. Tracked under [#10813](https://github.com/neomjs/neo/issues/10813).
 
 ### Session Sunset Polling (Piece B)
 

@@ -252,7 +252,7 @@ Summary diagnostic fields:
 - `local`: whether the endpoint is loopback / localhost.
 - `credential`: env var name plus `configured` / `required` booleans; secret values are never exposed.
 
-For disconnect-triggered summarization, keep `AUTO_SUMMARIZE=true` only after the local model is reachable and healthcheck shows the intended provider/model. If the local chat API is unavailable, Memory Core logs the summarization failure and keeps raw memories intact so the operator can retry.
+For disconnect-triggered summarization, keep `NEO_AUTO_SUMMARIZE=true` only after the local model is reachable and healthcheck shows the intended provider/model. If the local chat API is unavailable, Memory Core logs the summarization failure and keeps raw memories intact so the operator can retry.
 
 Auth diagnostic fields:
 - `configured`: which auth path is primary at boot — `'oidc'`, `'proxy-header'`, or `'unconfigured'`. OIDC takes precedence when both are configured (matches `Server.mjs#buildRequestContext` runtime semantics — `req.auth` wins over the proxy header by design).

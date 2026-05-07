@@ -56,7 +56,7 @@ The server intelligently resolves URLs:
 4. **Configure .env:**
    ```bash
    # MCP Server Config
-   TRANSPORT=sse
+   NEO_TRANSPORT=sse
    MCP_HTTP_PORT=3000   # legacy alias `SSE_PORT` still works during the #10808 deprecation window
 
    # Auth Config

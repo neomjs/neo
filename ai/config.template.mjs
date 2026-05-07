@@ -26,7 +26,7 @@ const defaultConfig = {
      * Transport protocol ('stdio' or 'sse').
      * @type {string}
      */
-    transport: process.env.TRANSPORT || 'stdio',
+    transport: process.env.NEO_TRANSPORT || 'stdio',
     /**
      * Optional public canonical URL.
      * @type {string|null}

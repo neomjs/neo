@@ -35,20 +35,20 @@ Target-tier shorthand:
 | `AUTH_PORT` | `memory-core/config.template.mjs:126`; `knowledge-base/config.template.mjs:71` | Tier 3 | Runtime binding for local auth server port; keep env-overridable for deployment. |
 | `AUTH_REALM` | `memory-core/config.template.mjs:127`; `knowledge-base/config.template.mjs:72` | Tier 3 | Runtime binding for auth realm; deployment/operator concern. |
 | `AUTH_TRUST_PROXY_IDENTITY` | `memory-core/config.template.mjs:131`; `knowledge-base/config.template.mjs:76` | Tier 3 | Multi-tenant isolation and reverse-proxy trust boundary toggle. |
-| `AUTO_DREAM` | `memory-core/config.template.mjs:69` | Tier 3 | Operator one-shot/daemon toggle; should stay opt-in env to avoid multi-harness auto-fire. |
-| `AUTO_GOLDEN_PATH` | `memory-core/config.template.mjs:75` | Tier 3 | Operator one-shot/daemon toggle for Golden Path synthesis. |
-| `AUTO_INGEST_FS` | `memory-core/config.template.mjs:85` | Tier 3 | Operator one-shot ingestion toggle; avoid enabling by committed config drift. |
-| `AUTO_SUMMARIZE` | `memory-core/config.template.mjs:33` | Tier 3 | Operator one-shot/single-writer-sensitive toggle; paired with `NEO_MC_PRIMARY`. |
-| `AUTO_SYNC` | `knowledge-base/config.template.mjs:25` | Tier 3 | Operator one-shot KB sync toggle; keep env-only to avoid surprise boot re-embedding. |
+| `NEO_AUTO_DREAM` | `memory-core/config.template.mjs:69` | Tier 3 | Operator one-shot/daemon toggle; should stay opt-in env to avoid multi-harness auto-fire. |
+| `NEO_AUTO_GOLDEN_PATH` | `memory-core/config.template.mjs:75` | Tier 3 | Operator one-shot/daemon toggle for Golden Path synthesis. |
+| `NEO_AUTO_INGEST_FS` | `memory-core/config.template.mjs:85` | Tier 3 | Operator one-shot ingestion toggle; avoid enabling by committed config drift. |
+| `NEO_AUTO_SUMMARIZE` | `memory-core/config.template.mjs:33` | Tier 3 | Operator one-shot/single-writer-sensitive toggle; paired with `NEO_MC_PRIMARY`. |
+| `NEO_AUTO_SYNC` | `knowledge-base/config.template.mjs:25` | Tier 3 | Operator one-shot KB sync toggle; keep env-only to avoid surprise boot re-embedding. |
 | `CHROMA_DATA_PATH` | `memory-core/Server.mjs:359`; `knowledge-base/Server.mjs:127` | Defer | Only used in diagnostic text for a manual `chroma run` command. #10825 should decide whether to remove or replace with config-derived coordinates. |
 | `CHROMA_PORT` | `memory-core/Server.mjs:359`; `knowledge-base/Server.mjs:127` | Defer | Diagnostic-only Chroma command hint; not the active MCP topology selector. Audit under #10825 before removal. |
 | `GEMINI_API_KEY` | `memory-core/services/HealthService.mjs:644`; `memory-core/services/TextEmbeddingService.mjs:55,128,203`; `memory-core/services/SessionService.mjs:94,125`; `knowledge-base/services/HealthService.mjs:158`; `knowledge-base/services/SearchService.mjs:59` | Tier 3 | Secret. Must stay env-backed. |
-| `GRAPH_COLLECTION_NAME` | `memory-core/config.template.mjs:261` | Tier 2 | Collection name default; not a universal operator env concern. Move to per-server config unless tests prove env override is required. |
-| `GRAPH_DECAY_FACTOR` | `memory-core/config.template.mjs:281` | Tier 2 | Memory Core graph tuning. Prefer per-server config default over env keep-list. |
+| `NEO_GRAPH_COLLECTION_NAME` | `memory-core/config.template.mjs:261` | Tier 2 | Collection name default; not a universal operator env concern. Move to per-server config unless tests prove env override is required. |
+| `NEO_GRAPH_DECAY_FACTOR` | `memory-core/config.template.mjs:281` | Tier 2 | Memory Core graph tuning. Prefer per-server config default over env keep-list. |
 | `HOST` | `shared/services/TransportService.mjs:112` | Defer | Bare generic env fallback for advertised URL construction. `NEO_PUBLIC_URL` is the canonical deployment surface; #10825/Phase 1.5 should decide whether `HOST` remains. |
 | `LOCALAPPDATA` | `memory-core/services/lifecycle/InferenceLifecycleService.mjs:120` | Tier 3 | Host OS discovery for Windows local inference integration; not a Neo operator var but legitimate process environment input. |
 | `MCP_HTTP_PORT` | `shared/helpers/DeploymentConfig.mjs:36`; `memory-core/config.template.mjs:103`; `knowledge-base/config.template.mjs:48` | Tier 3 | Runtime binding for SSE/HTTP server port. Keep one canonical name per concept. |
-| `MEMORY_COLLECTION_NAME` | `memory-core/config.template.mjs:259` | Tier 2 | Collection name default; move to per-server config unless container override remains a proven need. |
+| `NEO_MEMORY_COLLECTION_NAME` | `memory-core/config.template.mjs:259` | Tier 2 | Collection name default; move to per-server config unless container override remains a proven need. |
 | `NEO_AGENT_ID` | `knowledge-base/Server.mjs:189,191`; `knowledge-base/services/KBRecorderService.mjs:202`; `knowledge-base/services/toolService.mjs:42` | Tier 3 | Identity binding for KB telemetry and request attribution. Keep until request-context identity fully replaces it. |
 | `NEO_AGENT_IDENTITY` | `shared/services/StdioIdentityResolver.mjs:70` | Tier 3 | Canonical local agent identity binding for stdio MCP sessions. |
 | `NEO_AI_MCP_KB_OPENAPI_PATH` | `knowledge-base/services/toolService.mjs:15` | Tier 2 | Tool-service path override. Prefer per-server config/test override rather than global keep-list unless external packaging needs env injection. |
@@ -87,10 +87,10 @@ Target-tier shorthand:
 | `NEO_VECTOR_DIMENSION` | `memory-core/config.template.mjs:171` | Tier 1 | Shared embedding/vector contract. Tier 1 default plus optional env override only during controlled migrations. |
 | `OAUTH_CLIENT_ID` | `memory-core/config.template.mjs:129`; `knowledge-base/config.template.mjs:74` | Tier 3 | Deployment/runtime auth binding. |
 | `OAUTH_CLIENT_SECRET` | `memory-core/config.template.mjs:130`; `knowledge-base/config.template.mjs:75` | Tier 3 | Secret. Must stay env-backed. |
-| `REAL_TIME_MEMORY_PARSING` | `memory-core/config.template.mjs:80` | Tier 3 | Operator one-shot/daemon toggle; keep opt-in env to prevent accidental graph writes. |
-| `SESSION_COLLECTION_NAME` | `memory-core/config.template.mjs:260` | Tier 2 | Collection name default; move to per-server config unless deployment override remains necessary. |
+| `NEO_REAL_TIME_MEMORY_PARSING` | `memory-core/config.template.mjs:80` | Tier 3 | Operator one-shot/daemon toggle; keep opt-in env to prevent accidental graph writes. |
+| `NEO_SESSION_COLLECTION_NAME` | `memory-core/config.template.mjs:260` | Tier 2 | Collection name default; move to per-server config unless deployment override remains necessary. |
 | `SSE_PORT` | `shared/helpers/DeploymentConfig.mjs:37` | Delete | Legacy dev-branch-only alias targeted by #10823. |
-| `TRANSPORT` | `memory-core/config.template.mjs:95`; `knowledge-base/config.template.mjs:40` | Tier 3 | Runtime binding for stdio vs SSE server mode. |
+| `NEO_TRANSPORT` | `memory-core/config.template.mjs:95`; `knowledge-base/config.template.mjs:40` | Tier 3 | Runtime binding for stdio vs SSE server mode. |
 | `USER` | `knowledge-base/Server.mjs:189,191`; `knowledge-base/services/KBRecorderService.mjs:202`; `knowledge-base/services/toolService.mjs:42` | Tier 3 | Host identity fallback. Keep as fallback only while request-bound identity migration remains incomplete. |
 
 ## Count Summary
