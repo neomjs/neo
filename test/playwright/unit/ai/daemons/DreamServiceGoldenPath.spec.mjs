@@ -90,6 +90,7 @@ test.describe('DreamService Golden Path', () => {
     });
 
     test('synthesizeGoldenPath executes without crashing', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
         test.setTimeout(60000);
 
         await DreamService.ingestIssueStates();
