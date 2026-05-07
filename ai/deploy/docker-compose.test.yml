@@ -12,6 +12,11 @@ services:
       interval: 5s
       timeout: 5s
       retries: 12
+      # Cold-start grace: failed probes during start_period do NOT count toward
+      # retries. On 2-CPU GitHub ubuntu-latest hardware, Chroma's banner appears
+      # before uvicorn has bound port 8000 — without this, the first ~12 probes
+      # all fail before HTTP is ready, exhausting the retry budget. (#10913)
+      start_period: 60s
     networks:
       - neo-mcp-test-network
     ports:
