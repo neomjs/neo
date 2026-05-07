@@ -1057,24 +1057,17 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Triggers the full, bi-directional synchronization of GitHub issues and releases with the local filesystem.
+        Triggers bi-directional sync of GitHub issues/releases with the local filesystem.
 
-        **Important Constraints:**
-        - **Branch Constraint:** ONLY use this tool inside the `dev` branch. The tool creates and updates local markdown files based on GitHub content; running it on a feature branch will pollute the branch with unrelated documentation commits.
+        **CRITICAL:** ONLY use this tool inside the `dev` branch. It creates/updates local markdown files; running it on a feature branch will pollute it with unrelated docs.
 
-        **When to Use (Use Sparingly):**
-        - **Fetching Remote Changes:** Call this if you suspect a teammate has updated tickets and you need to see the changes locally.
-        - **Pushing Local Edits:** Call this if you have manually modified a local `.md` file (e.g., updating a description) and need to push that text change to GitHub.
+        **Usage Rules (Use Sparingly):**
+        - **DO USE:** To pull remote changes (e.g. teammates updated tickets) or push manual edits to local `.md` issue files.
+        - **DO NOT USE:** After `create_issue` or `create_comment` (already in context).
+        - **DO NOT USE:** For code changes (syncs only ticket metadata).
 
-        **When NOT to Use:**
-        - **Do NOT call after `create_issue` or `create_comment`:** You already have the content in your context window. The server also handles basic sync automatically.
-        - **Do NOT call for code changes:** This tool only syncs ticket metadata, not code commits.
-
-        **Key Functions:**
-        - **Pulls remote changes:** Fetches the latest issue and release data from GitHub.
-        - **Creates local files:** If a new issue was created on GitHub (e.g., via the `create_issue` tool), this process will create the corresponding local `.md` file.
-        - **Pushes local changes:** Scans for modifications in local issue files (in the active `ISSUE` directory only) and pushes them to GitHub.
-        - **Efficient:** Uses a metadata cache and content hashing to ensure that only actual changes are pushed or pulled, making it fast for no-op runs.
+        **How It Works:**
+        Pulls remote data, creates `.md` files for new issues, and pushes modified `.md` files to GitHub. Uses caching for fast no-ops.
       tags: [Issues]
       responses:
         '200':
