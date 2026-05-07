@@ -128,9 +128,11 @@ test.describe('KB_DatabaseService — manageDatabaseBackup (#10129 Phase 1)', ()
         // No openapi operation is registered for `manage_database_backup` in KB (retired per
         // #10132 script-over-tool reduction), so `makeSafe` no-match passthrough forwards
         // args raw — the manual `throw new Error('Unknown action...')` inside the dispatcher
-        // is the rejection path.
+        // is the rejection path. `'import'` and `'truncate'` were added in #10871 AC-B; this
+        // assertion uses an unambiguously-unsupported action to keep the dispatcher rejection
+        // contract under test.
         await expect(
-            KB_DatabaseService.manageDatabaseBackup({action: 'import'})
-        ).rejects.toThrow(/Unknown action: import/);
+            KB_DatabaseService.manageDatabaseBackup({action: 'frobnicate'})
+        ).rejects.toThrow(/Unknown action: frobnicate/);
     });
 });

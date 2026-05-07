@@ -238,6 +238,79 @@ The server uses **ChromaDB** as its embedding store.
     *   `neo-agent-memory`: Stores the raw interaction logs.
     *   `neo-agent-sessions`: Stores the generated summaries.
 
+## Backup and Restore from Atomic Bundle
+
+The Neo.mjs AI substrate ships two CLI orchestrators for full-substrate snapshots:
+
+| Command | What it does |
+|---|---|
+| `npm run ai:backup` | Captures KB + MC memories/summaries + MC graph + concepts + RLAIF trajectories + mailbox archive into a single timestamped bundle directory under `.neo-ai-data/backups/backup-<ISO-ts>/`. Writes `bundle-meta.json` with `chromaUnified` topology, KB/MC chroma coordinates, neoVersion, and gitSha. Runs row-count integrity check + retention sweep (keep newest K=3, prune >N=7 days). |
+| `npm run ai:restore -- <bundle-path>` | Inverts backup. Reads the bundle, validates structure + JSONL parseability + topology compatibility, then routes each subsystem through the canonical SDK boundary in `ai/services.mjs`. |
+
+### Restore semantics
+
+The restore CLI accepts the following flags:
+
+| Flag | Effect |
+|---|---|
+| `--mode merge` (default) | Idempotent. Embedded substrates upsert (no destructive wipe). Flat substrates (`concepts/`, `trajectories.jsonl`, `sent-to-cull.jsonl`) skip-if-target-exists to preserve operator additions. No `--force` required. |
+| `--mode replace` | Destructive. Each embedded subsystem fires `assertDestructiveTargetAllowed()` (#10845) before truncating + restoring. Flat substrates fire the guard against the target file/dir before overwriting. Refuses if any target is non-empty without `--force`. |
+| `--force` | Required when `--mode replace` AND any target is populated. Acknowledges that data will be overwritten. Also overrides the flat-file skip-if-non-empty rule under `--mode merge`. |
+| `--force-topology-mismatch` | Bypasses the topology compatibility refusal when `bundle-meta.topology.chromaUnified` diverges from the current `mcConfig.chromaUnified`. Required when restoring a federated-topology bundle into a unified deployment (or vice versa); collection IDs may diverge across topologies. |
+
+### Pre-flight integrity validation
+
+Before any write touches a service, the restore orchestrator validates:
+
+1. The 5 required subdirectories (`kb/`, `mc/`, `graph/`, `concepts/`, `trajectories/`) exist.
+2. Optional `mailbox/` (added in #10871 AC-A) is tolerated absent — legacy bundles still restore.
+3. Each `.jsonl` file inside any subdir is parseable (first non-empty line); torn-write or corruption fails fast.
+4. `bundle-meta.json` parses cleanly when present; absent metadata triggers a warning and skips the topology check (legacy bundle path).
+
+A torn or partial bundle aborts with a clear error and zero side effects on the live substrate.
+
+### Production-target destructive-op safeguard
+
+When `--mode replace` writes to canonical `.neo-ai-data/` paths, the destructive-operation guard
+(#10845) requires both an environment variable AND an explicit confirmation token to permit the
+operation. Otherwise the guard refuses and the restore aborts before the truncate fires. Disposable
+targets (under `tmp/`, OS temp dir, or `:memory:` SQLite) bypass the bypass requirement automatically
+— this is what enables Playwright unit tests to exercise replace-mode behavior safely.
+
+```bash readonly
+# Production replace example (only use when intentional):
+NEO_ALLOW_PRODUCTION_DESTRUCTIVE_AI_SUBSTRATE=true \
+npm run ai:restore -- /path/to/.neo-ai-data/backups/backup-2026-05-07T12-00-00.000Z \
+    --mode replace --force
+# Caller must additionally set --confirmation 'CONFIRM_PRODUCTION_DESTRUCTIVE_AI_SUBSTRATE'
+# at the SDK level (programmatic use); the CLI defaults to prompting an explicit operator
+# in future iterations.
+```
+
+### Programmatic usage
+
+The orchestrator is also exposed as `runRestore(...)` from `buildScripts/ai/restore.mjs` for
+embedding inside higher-level recovery substrate (e.g., the `#10844` daily snapshot pipeline,
+or restore-from-cold integration harnesses):
+
+```javascript readonly
+import {runRestore} from './buildScripts/ai/restore.mjs';
+
+const result = await runRestore({
+    bundleRoot           : '/path/to/backup-2026-05-07T12-00-00.000Z',
+    mode                 : 'merge',
+    force                : false,
+    forceTopologyMismatch: false
+});
+
+console.log(result.subsystems.kb.imported);     // KB chunks imported
+console.log(result.topology.match);              // topology compat verdict
+console.log(result.meta?.gitSha);                // bundle gitSha for cross-version diagnostics
+```
+
+The returned object includes per-subsystem result blocks, the parsed `bundle-meta.json` (or
+`null` for legacy bundles), and the topology-check verdict for downstream observability.
+
 ## Configuration
 
 The server supports loading a custom configuration file via the `-c` or `--config` CLI flag. This allows you to override default settings such as the database port, embedding model, or backup paths without modifying the source code.

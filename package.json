@@ -16,6 +16,7 @@
         "ai:agent"                     : "node ./buildScripts/ai/runAgent.mjs",
         "ai:analyze-nl-telemetry"      : "node ./ai/scripts/analyzeNlTelemetry.mjs",
         "ai:backup"                    : "node ./buildScripts/ai/backup.mjs",
+        "ai:restore"                   : "node ./buildScripts/ai/restore.mjs",
         "ai:build-kb-faqs"             : "node ./buildScripts/ai/buildKbAgentFaqs.mjs",
         "ai:defrag-kb"                 : "node ./buildScripts/ai/defragChromaDB.mjs --target knowledge-base",
         "ai:defrag-memory"             : "node ./buildScripts/ai/defragChromaDB.mjs --target memory-core",
