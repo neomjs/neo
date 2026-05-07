@@ -25,6 +25,8 @@ const SERVERS = [
 ];
 
 test.describe('Neo.ai.mcp.client.Client MCP Servers Health', () => {
+    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket D: MCP server bootstrap requires env vars/substrate');
+
     // 60 seconds timeout per test to allow server spawn, initialize, and healthcheck (especially if downloading DB or something)
     test.setTimeout(60000);
 
