@@ -133,13 +133,80 @@ export async function runBackup({
     logger.log('[5/5] Copying RLAIF trajectories...');
     subsystems.trajectories = await copyJsonlSource(trajectoriesSourceFile, layout.trajectories);
 
-    // TODO(#10129): apply retention policy to .neo-ai-data/backups/ — keep newest K=3,
-    // delete older than N=7 days. Mirror defragChromaDB.cleanOldBackups semantics but at
-    // the bundle-directory level. Deferred until operator cadence is known; manual pruning
-    // is acceptable in the interim.
+    logger.log('[6/6] Applying retention sweep...');
+    await cleanOldBackups(DEFAULT_BACKUP_ROOT, logger);
+
+    const completedAt = new Date().toISOString();
+    const meta = { timestamp, completedAt, subsystems };
+    await fs.writeJson(path.join(resolvedRoot, 'bundle-meta.json'), meta, { spaces: 2 });
 
     logger.log(`✅ Backup complete: ${resolvedRoot}`);
-    return {bundleRoot: resolvedRoot, timestamp, subsystems};
+    return {bundleRoot: resolvedRoot, timestamp, completedAt, subsystems};
+}
+
+/**
+ * Applies retention policy to the backup root.
+ * Keeps the newest K=3 bundles unconditionally.
+ * Deletes older bundles if they are older than N=7 days.
+ * @param {String} backupRoot
+ * @param {Object} logger
+ */
+async function cleanOldBackups(backupRoot, logger) {
+    if (!await fs.pathExists(backupRoot)) return;
+
+    const entries = await fs.readdir(backupRoot, { withFileTypes: true });
+    
+    const backups = [];
+    for (const entry of entries) {
+        if (!entry.isDirectory() || !entry.name.startsWith('backup-')) continue;
+        
+        const tsMatch = entry.name.match(/^backup-(.+)$/);
+        if (!tsMatch) continue;
+        
+        const rawTs = tsMatch[1];
+        const isoTime = rawTs.replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3');
+        const date = new Date(isoTime);
+        
+        if (!isNaN(date.getTime())) {
+            backups.push({
+                name: entry.name,
+                path: path.join(backupRoot, entry.name),
+                date: date,
+                time: date.getTime()
+            });
+        }
+    }
+
+    backups.sort((a, b) => b.time - a.time);
+
+    const K = 3;
+    const N_DAYS = 7;
+    const now = Date.now();
+    const thresholdMs = N_DAYS * 24 * 60 * 60 * 1000;
+
+    let deletedCount = 0;
+    
+    for (let i = K; i < backups.length; i++) {
+        const backup = backups[i];
+        const ageMs = now - backup.time;
+        if (ageMs > thresholdMs) {
+            try {
+                logger.log(`[Retention] Deleting old backup: ${backup.name} (age: ${Math.round(ageMs / 86400000)} days)`);
+                await fs.remove(backup.path);
+                deletedCount++;
+            } catch (err) {
+                if (logger.error) {
+                    logger.error(`[Retention] Failed to delete ${backup.name}: ${err.message}`);
+                } else {
+                    logger.log(`[Retention] Failed to delete ${backup.name}: ${err.message}`);
+                }
+            }
+        }
+    }
+    
+    if (deletedCount > 0) {
+        logger.log(`[Retention] Removed ${deletedCount} old backup(s).`);
+    }
 }
 
 /**

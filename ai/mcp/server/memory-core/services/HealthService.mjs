@@ -304,6 +304,65 @@ export function buildAuthProviderBlock(cfg) {
  * @extends Neo.core.Base
  * @singleton
  */
+
+/**
+ * @summary Projects the backup directory state into the observability block for the healthcheck (#10844).
+ *
+ * Checks the backup directory for the most recent successful backup bundle by iterating
+ * over backup directories (sorted newest first) and looking for `bundle-meta.json` containing
+ * a `completedAt` marker. If none is found, it returns `null` for `lastSuccessful`.
+ *
+ * @param {String} backupPath The path to the root backup directory.
+ * @param {Object} fs The fs-extra module (dependency injected for testing).
+ * @param {Object} path The path module (dependency injected for testing).
+ * @returns {Promise<{lastSuccessful: String|null, count: Number, error?: String}>}
+ */
+export async function buildBackupStateBlock(backupPath, fs, path) {
+    try {
+        if (!await fs.pathExists(backupPath)) {
+            return { lastSuccessful: null, count: 0 };
+        }
+
+        const entries = await fs.readdir(backupPath, { withFileTypes: true });
+        
+        const backupDirs = entries
+            .filter(e => e.isDirectory() && e.name.startsWith('backup-'))
+            .map(e => e.name);
+
+        if (backupDirs.length === 0) {
+            return { lastSuccessful: null, count: 0 };
+        }
+
+        backupDirs.sort((a, b) => b.localeCompare(a));
+        
+        let timestamp = null;
+
+        for (const dir of backupDirs) {
+            const metaPath = path.join(backupPath, dir, 'bundle-meta.json');
+            if (await fs.pathExists(metaPath)) {
+                try {
+                    const meta = await fs.readJson(metaPath);
+                    if (meta.completedAt) {
+                        timestamp = meta.timestamp || null;
+                        break;
+                    }
+                } catch (e) {}
+            }
+        }
+
+        return {
+            lastSuccessful: timestamp,
+            count: backupDirs.length
+        };
+    } catch (e) {
+        return {
+            lastSuccessful: null,
+            count: 0,
+            error: e.message
+        };
+    }
+}
+
 class HealthService extends Base {
     static config = {
         /**
@@ -628,6 +687,8 @@ class HealthService extends Base {
         return total;
     }
 
+
+
     #checkApiKeyConfigured() {
         const providers = [aiConfig.modelProvider];
         const engine = aiConfig.engine || 'hybrid';
@@ -697,6 +758,7 @@ class HealthService extends Base {
                 summary  : buildSummaryProviderBlock(aiConfig),
                 auth     : buildAuthProviderBlock(aiConfig)
             },
+            backup   : await buildBackupStateBlock(aiConfig.backupPath, await import('fs-extra'), await import('path')),
             details  : [],
             version  : process.env.npm_package_version || '1.0.0',
             uptime   : process.uptime()
