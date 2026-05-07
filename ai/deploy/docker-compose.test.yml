@@ -3,8 +3,11 @@ services:
     image: chromadb/chroma:1.5.9
     tmpfs:
       - /chroma/chroma
+    # The chromadb/chroma image is debian-slim-based and does NOT include curl.
+    # Python is the runtime (Chroma is a Python app), so use urllib for the probe.
+    # Same target endpoint, fallback-safe across all chromadb image variants. (#10908)
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v2/heartbeat',timeout=2).read() else 1)"]
       interval: 5s
       timeout: 5s
       retries: 12
