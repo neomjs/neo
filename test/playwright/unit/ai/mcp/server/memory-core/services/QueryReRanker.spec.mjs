@@ -1,6 +1,7 @@
 import {setup} from '../../../../../../setup.mjs';
 
 const appName = 'QueryReRankerTest';
+const skipCiSubstrateData = !!process.env.NEO_TEST_SKIP_CI;
 
 setup({
     neoConfig: {
@@ -28,6 +29,8 @@ const __dirname  = path.dirname(__filename);
 dotenv.config({path: path.resolve(__dirname, '../../../../../../../../.env'), quiet: true});
 
 test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
+    test.skip(skipCiSubstrateData, 'CI-skip: Memory Core substrate data not seeded - bucket C (#10903)');
+
     let SDK, TextEmbeddingService, testSessionId;
     const testPid = process.pid;
     const testTs  = Date.now();
@@ -170,6 +173,8 @@ test.describe('StorageRouter Query Re-Ranker Defensive Handling', () => {
 });
 
 test.describe('SessionService Drift Detection — Timestamp Filtering', () => {
+    test.skip(skipCiSubstrateData, 'CI-skip: Memory Core substrate data not seeded - bucket C (#10903)');
+
     let SDK, TextEmbeddingService, driftSessionId;
     const testPid = process.pid;
     const testTs  = Date.now();

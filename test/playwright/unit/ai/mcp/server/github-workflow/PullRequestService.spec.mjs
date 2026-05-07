@@ -1,6 +1,7 @@
 import {setup} from '../../../../../setup.mjs';
 
 const appName = 'PullRequestServiceTest';
+const skipCiGitHubAuth = !!process.env.NEO_TEST_SKIP_CI;
 
 setup({
     neoConfig: {
@@ -222,6 +223,8 @@ test.describe('Neo.ai.mcp.server.github-workflow.services.PullRequestService —
 });
 
 test.describe('Neo.ai.mcp.server.github-workflow.services.PullRequestService — getPullRequestDiff (#10748)', () => {
+    test.skip(skipCiGitHubAuth, 'CI-skip: gh CLI auth not configured - bucket C (#10903)');
+
     let PullRequestService;
     let fs;
     let path;
@@ -314,4 +317,3 @@ test.describe('Neo.ai.mcp.server.github-workflow.services.PullRequestService —
         expect(result.code).toBe('SHA_NOT_FOUND');
     });
 });
-

@@ -1,6 +1,7 @@
 import {setup} from '../../../setup.mjs';
 
 const appName = 'SunsetDetectionTest';
+const skipCiSubstrateData = !!process.env.NEO_TEST_SKIP_CI;
 
 setup({
     neoConfig: {
@@ -85,6 +86,8 @@ test.describe('ai/scripts/checkSunsetted', () => {
     });
 
     test('checkSunsetted.mjs update-on-read legacy row migration actually migrates legacy structure', async () => {
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
+
         const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         await GraphService.initAsync();
 
@@ -128,6 +131,8 @@ test.describe('ai/scripts/checkSunsetted', () => {
     });
 
     test('checkSunsetted.mjs legacy-row-blocking-fresh-rows regression test (#10643)', async () => {
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
+
         // Pre-fix: COALESCE(timestamp, name) sorted 'Memory: 2026-xx' (legacy) > '2026-xx' (fresh pure ISO string)
         // Post-fix: Bulk migration converts legacy rows to pure timestamps, allowing deterministic chronological sorting.
         const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
@@ -186,6 +191,8 @@ test.describe('ai/scripts/checkSunsetted', () => {
     });
 
     test('checkSunsetted.mjs does NOT flag sunsetted when subscription exists and AGENT_MEMORY is stale (#10641, #10673)', async () => {
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
+
         // Per issue #10641: removing the memory-staleness branch from the sunset predicate.
         // Pre-fix: a 24h-old AGENT_MEMORY would flip `sunsetted=true` even with an active
         // subscription, triggering orphan-session-spawn via `resumeHarness.mjs`.
@@ -255,6 +262,8 @@ test.describe('ai/scripts/checkSunsetted', () => {
     });
 
     test('detector contract: active subscription + fresh memory → no_action (#10673 4-quadrant: F,F)', async () => {
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
+
         // Quadrant (sunset=false, idle_out_candidate=false): the no-op case.
         const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         await GraphService.initAsync();
@@ -303,6 +312,8 @@ test.describe('ai/scripts/checkSunsetted', () => {
     });
 
     test('detector contract: subscription_status disambiguation — disabled vs degraded vs missing (#10673 AC1)', async () => {
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
+
         // The detector emits structured `subscription_status` with 4 values:
         // 'missing' (no rows) / 'active' / 'degraded' (status=degraded) / 'disabled' (harnessTarget=disabled).
         // Pre-#10673: the original query filtered out disabled+degraded, so all 3 mapped indistinguishably to "no active sub."
@@ -336,6 +347,8 @@ test.describe('ai/scripts/checkSunsetted', () => {
     });
 
     test('detector contract: in-flight sunset_restart lock downgrades sunset signal to false (#10673 AC2)', async () => {
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
+
         // When a sunset_restart is already in flight (per inflightLock.mjs), the detector
         // MUST NOT recommend another sunset_restart action. The lock is the data-layer mutex
         // that prevents the runaway-spawn pattern documented in the forensic record.
@@ -398,6 +411,8 @@ test.describe('ai/scripts/checkSunsetted', () => {
     });
 
     test('detector contract: (sunset=T, idle_out=T) is structurally impossible — invariant (#10673 AC4)', async () => {
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
+
         // The two signals are mutually exclusive by construction:
         //   - sunset=true requires subscription_active=false
         //   - idle_out_candidate=true requires subscription_active=true
