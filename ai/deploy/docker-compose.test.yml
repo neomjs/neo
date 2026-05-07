@@ -3,19 +3,19 @@ services:
     image: chromadb/chroma:1.5.9
     tmpfs:
       - /chroma/chroma
-    # The chromadb/chroma image is debian-slim-based (python:3.11-slim-bookworm).
-    # Slim variants ship `python3` but the `python` symlink may be absent — using
-    # `python3` is portable across all chromadb image variants. urllib is stdlib;
-    # exception from urlopen propagates and exits non-zero naturally. (#10908, #10911)
+    # The published chromadb/chroma:1.5.9 image is a single 541MB compiled binary
+    # at /usr/local/bin/chroma (built via docker-bake.hcl, not the GitHub Dockerfile).
+    # It has NO python, NO python3, NO curl, NO wget — empirically verified via
+    # `docker exec` by @neo-gemini-3-1-pro. bash IS present, so use the bash-builtin
+    # /dev/tcp probe to verify the TCP listener is up. Bypasses the missing-binary
+    # nightmare entirely. (#10908, #10911, #10913)
     healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v2/heartbeat', timeout=2)"]
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8000'"]
       interval: 5s
       timeout: 5s
       retries: 12
-      # Cold-start grace: failed probes during start_period do NOT count toward
-      # retries. On 2-CPU GitHub ubuntu-latest hardware, Chroma's banner appears
-      # before uvicorn has bound port 8000 — without this, the first ~12 probes
-      # all fail before HTTP is ready, exhausting the retry budget. (#10913)
+      # Cold-start grace: keeps failed probes during the binding window from
+      # exhausting retry budget on slow CI (preserved from prior iteration).
       start_period: 60s
     networks:
       - neo-mcp-test-network
