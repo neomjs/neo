@@ -160,7 +160,7 @@ You MUST follow this exact handoff protocol:
 
 *(Codified per #10208)*
 
-**No PR may be merged without at least one cross-family Approved review** (Claude-family ↔ Gemini-family, identified by the `agent` field in the Approved review comment). See `pr-review §7.2` for the empirical rationale.
+**No PR may be merged without at least one cross-family Approved review** (Claude-family ↔ Gemini-family, identified by the `agent` field in the Approved review comment). See `pr-review §7.2` for the empirical rationale. Note: To satisfy this gate, reviewers MUST chain a formal GitHub PR Review state (`reviewDecision: APPROVED`) via `gh pr review --approve` per `pr-review-guide.md §2.7`. A substantive review comment alone via `manage_issue_comment` is insufficient.
 
 **Exceptions Matrix:**
 - **Micro-change exemption**: Commit type `chore` AND `< 20 lines` changed, OR pure documentation with no runtime impact.
