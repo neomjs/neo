@@ -11,10 +11,7 @@ Backups are stored in `.neo-ai-data/backups/backup-<timestamp>/` and contain the
 - `trajectories/`: RLAIF training trajectories JSONL
 
 ## Prerequisites
-Before initiating any restoration, ensure that all AI MCP servers and daemon processes are stopped.
-```bash
-npm run ai:stop
-```
+Before initiating any restoration, ensure that all AI MCP servers and daemon processes are stopped (terminate any running `npm run ai:server` or `npm run ai:server-memory` processes).
 
 ## Restoration Procedures
 
@@ -24,12 +21,13 @@ The Knowledge Base is stored in ChromaDB.
 **Procedure:**
 1. Clear the current ChromaDB volume for KB:
    ```bash
-   rm -rf .neo-ai-data/chroma/kb/*
+   rm -rf .neo-ai-data/chroma/knowledge-base/*
    ```
-2. Re-import the KB JSONL from the backup bundle (using the internal script if applicable, or fallback to python import script):
+2. Re-synchronize the KB from the source files (deterministic rebuild):
    ```bash
-   node buildScripts/ai/restore.mjs --target kb --source .neo-ai-data/backups/backup-<timestamp>/kb
+   npm run ai:sync-kb
    ```
+   *(Note: Direct JSONL import of the `kb/` bundle is deferred to #10871)*
 
 ### 2. Memory Core (MC) - Memories & Summaries
 Memory Core utilizes ChromaDB for storing conversational memories and session summaries.
@@ -39,10 +37,11 @@ Memory Core utilizes ChromaDB for storing conversational memories and session su
    ```bash
    rm -rf .neo-ai-data/chroma/memory-core/*
    ```
-2. Re-import the MC JSONL from the backup bundle:
+2. Re-import the MC JSONL from the backup bundle via the SDK:
    ```bash
-   node buildScripts/ai/restore.mjs --target mc --source .neo-ai-data/backups/backup-<timestamp>/mc
+   node -e "import('./ai/services.mjs').then(s => s.default.memory.manageDatabaseBackup({action: 'import', file: '.neo-ai-data/backups/backup-<timestamp>/mc/memory-backup-<timestamp>.jsonl', mode: 'replace'}))"
    ```
+   *(Note: A dedicated `restore.mjs` CLI is deferred to #10871)*
 
 ### 3. Memory Core - Native Edge Graph
 The Memory Core Edge Graph is persisted in SQLite.
@@ -52,9 +51,9 @@ The Memory Core Edge Graph is persisted in SQLite.
    ```bash
    mv .neo-ai-data/sqlite/memory-core-graph.sqlite .neo-ai-data/sqlite/memory-core-graph.sqlite.bak
    ```
-2. Re-import the Graph JSONL from the backup bundle:
+2. Re-import the Graph JSONL from the backup bundle via the SDK:
    ```bash
-   node buildScripts/ai/restore.mjs --target graph --source .neo-ai-data/backups/backup-<timestamp>/graph
+   node -e "import('./ai/services.mjs').then(s => s.default.memory.manageDatabaseBackup({action: 'import', file: '.neo-ai-data/backups/backup-<timestamp>/graph/graph-backup-<timestamp>.jsonl', mode: 'replace'}))"
    ```
 
 ### 4. Concept Ontology

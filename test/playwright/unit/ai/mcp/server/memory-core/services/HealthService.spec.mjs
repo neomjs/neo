@@ -523,3 +523,87 @@ test.describe('HealthService #10770 — buildAuthProviderBlock', () => {
         expect(result.oidc.configured).toBe(false);
     });
 });
+
+/**
+ * @summary Coverage for the #10844 backup observability block in the healthcheck payload.
+ *
+ * Pins the pure-projection contract of `buildBackupStateBlock`. It relies on an injected `fs`
+ * and `path` mock to avoid touching the real filesystem during the unit test, ensuring fast
+ * and isolated validation of the exact `completedAt` semantic requirement.
+ *
+ * @see Neo.ai.mcp.server.memory-core.services.HealthService#buildBackupStateBlock
+ */
+test.describe('HealthService #10844 — buildBackupStateBlock', () => {
+    let buildBackupStateBlock;
+
+    const mockPath = {
+        join: (...args) => args.join('/')
+    };
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../../../ai/mcp/server/memory-core/services/HealthService.mjs');
+        buildBackupStateBlock = mod.buildBackupStateBlock;
+    });
+
+    test('returns null if backupPath does not exist', async () => {
+        const mockFs = { pathExists: async () => false };
+        const result = await buildBackupStateBlock('/fake/path', mockFs, mockPath);
+        expect(result).toEqual({ lastSuccessful: null, count: 0 });
+    });
+
+    test('returns null if no backup directories exist', async () => {
+        const mockFs = {
+            pathExists: async () => true,
+            readdir: async () => [
+                { isDirectory: () => false, name: 'backup-2023' },
+                { isDirectory: () => true, name: 'other-dir' }
+            ]
+        };
+        const result = await buildBackupStateBlock('/fake/path', mockFs, mockPath);
+        expect(result).toEqual({ lastSuccessful: null, count: 0 });
+    });
+
+    test('returns timestamp of most recent backup with completedAt marker', async () => {
+        const mockFs = {
+            pathExists: async (p) => {
+                if (p === '/fake/path') return true;
+                if (p.endsWith('bundle-meta.json')) return true;
+                return false;
+            },
+            readdir: async () => [
+                { isDirectory: () => true, name: 'backup-2023-10-01T12-00-00' },
+                { isDirectory: () => true, name: 'backup-2023-10-02T12-00-00' },
+                { isDirectory: () => true, name: 'backup-2023-10-03T12-00-00' }
+            ],
+            readJson: async (p) => {
+                // The newest backup failed (no completedAt)
+                if (p.includes('backup-2023-10-03')) return { timestamp: '2023-10-03T12:00:00Z' };
+                // The middle backup succeeded
+                if (p.includes('backup-2023-10-02')) return { timestamp: '2023-10-02T12:00:00Z', completedAt: '2023-10-02T12:05:00Z' };
+                // The oldest backup succeeded
+                if (p.includes('backup-2023-10-01')) return { timestamp: '2023-10-01T12:00:00Z', completedAt: '2023-10-01T12:05:00Z' };
+                throw new Error('Not found');
+            }
+        };
+
+        const result = await buildBackupStateBlock('/fake/path', mockFs, mockPath);
+        expect(result).toEqual({ lastSuccessful: '2023-10-02T12:00:00Z', count: 3 });
+    });
+
+    test('returns null if all backups lack completedAt marker', async () => {
+        const mockFs = {
+            pathExists: async (p) => {
+                if (p === '/fake/path') return true;
+                if (p.endsWith('bundle-meta.json')) return true;
+                return false;
+            },
+            readdir: async () => [
+                { isDirectory: () => true, name: 'backup-2023-10-01T12-00-00' }
+            ],
+            readJson: async () => ({ timestamp: '2023-10-01T12:00:00Z' }) // No completedAt
+        };
+
+        const result = await buildBackupStateBlock('/fake/path', mockFs, mockPath);
+        expect(result).toEqual({ lastSuccessful: null, count: 1 });
+    });
+});

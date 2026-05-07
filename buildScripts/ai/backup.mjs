@@ -136,8 +136,12 @@ export async function runBackup({
     logger.log('[6/6] Applying retention sweep...');
     await cleanOldBackups(DEFAULT_BACKUP_ROOT, logger);
 
+    const completedAt = new Date().toISOString();
+    const meta = { timestamp, completedAt, subsystems };
+    await fs.writeJson(path.join(resolvedRoot, 'bundle-meta.json'), meta, { spaces: 2 });
+
     logger.log(`✅ Backup complete: ${resolvedRoot}`);
-    return {bundleRoot: resolvedRoot, timestamp, subsystems};
+    return {bundleRoot: resolvedRoot, timestamp, completedAt, subsystems};
 }
 
 /**
@@ -186,9 +190,17 @@ async function cleanOldBackups(backupRoot, logger) {
         const backup = backups[i];
         const ageMs = now - backup.time;
         if (ageMs > thresholdMs) {
-            logger.log(`[Retention] Deleting old backup: ${backup.name} (age: ${Math.round(ageMs / 86400000)} days)`);
-            await fs.remove(backup.path);
-            deletedCount++;
+            try {
+                logger.log(`[Retention] Deleting old backup: ${backup.name} (age: ${Math.round(ageMs / 86400000)} days)`);
+                await fs.remove(backup.path);
+                deletedCount++;
+            } catch (err) {
+                if (logger.error) {
+                    logger.error(`[Retention] Failed to delete ${backup.name}: ${err.message}`);
+                } else {
+                    logger.log(`[Retention] Failed to delete ${backup.name}: ${err.message}`);
+                }
+            }
         }
     }
     
