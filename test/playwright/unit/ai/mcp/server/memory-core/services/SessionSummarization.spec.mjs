@@ -31,6 +31,12 @@ const __dirname  = path.dirname(__filename);
 dotenv.config({path: path.resolve(__dirname, '../../../../../../../../.env'), quiet: true});
 
 test.describe('Memory Core Offline Summarization', () => {
+    // Bucket A (#10903): heavy SLM (gemma4) dependency — no local LM Studio / Ollama in CI.
+    // The per-test `localModelActive` guard below stays as a defensive fallback for local-dev
+    // without gemma4 running, but the CI-side skip is the early exit that prevents `beforeAll`
+    // from probing a nonexistent endpoint.
+    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: heavy SLM (gemma4) — bucket A (#10903)');
+
     let SDK, TextEmbeddingService, dummySessionId;
     let localModelActive = false;
 
