@@ -41,6 +41,10 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         aiConfig.storagePaths.graph = dbPath;
 
+        if (!aiConfig.collections) aiConfig.collections = {};
+        aiConfig.collections.memory = `test-memory-${process.pid}-${Date.now()}`;
+        aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
+
         GraphService            = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         WakeSubscriptionService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/WakeSubscriptionService.mjs')).default;
         CoalescingEngineService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/CoalescingEngineService.mjs')).default;

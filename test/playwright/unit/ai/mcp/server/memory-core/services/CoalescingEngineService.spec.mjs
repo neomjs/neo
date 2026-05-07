@@ -42,6 +42,11 @@ test.describe('CoalescingEngineService', () => {
     let deliverCalls;
 
     test.beforeAll(async () => {
+        const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        if (!aiConfig.collections) aiConfig.collections = {};
+        aiConfig.collections.memory = `test-memory-${process.pid}-${Date.now()}`;
+        aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
+
         CoalescingEngineService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/CoalescingEngineService.mjs')).default;
         WebhookDeliveryService  = (await import('../../../../../../../../ai/mcp/server/memory-core/services/WebhookDeliveryService.mjs')).default;
         originalDeliver         = WebhookDeliveryService.deliver?.bind(WebhookDeliveryService);

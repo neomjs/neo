@@ -31,6 +31,11 @@ test.describe('Memory_DatabaseService — backupPath routing (#10129 Phase 2 pre
     let originalGetMemory, originalGetSummary, tmpDir;
 
     test.beforeAll(async () => {
+        const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        if (!aiConfig.collections) aiConfig.collections = {};
+        aiConfig.collections.memory = `test-memory-${process.pid}-${Date.now()}`;
+        aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
+
         SDK                    = await import('../../../../../../../../ai/services.mjs');
         Memory_DatabaseService = SDK.Memory_DatabaseService;
         Memory_StorageRouter   = SDK.Memory_StorageRouter;

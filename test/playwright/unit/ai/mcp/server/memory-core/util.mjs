@@ -14,6 +14,9 @@ export async function cleanupChromaManager(SDK) {
 
     try {
         if (ChromaManager?.client && collectionsConfig) {
+            if (collectionsConfig.memory === 'neo-agent-memory' || collectionsConfig.session === 'neo-agent-sessions') {
+                throw new Error(`FATAL: Attempted to delete production Chroma collections! Aborting cleanup. memory=${collectionsConfig.memory}, session=${collectionsConfig.session}`);
+            }
             try { await ChromaManager.client.deleteCollection({name: collectionsConfig.memory}); } catch(e) { if (!e.message.includes('not be found')) throw e; }
             try { await ChromaManager.client.deleteCollection({name: collectionsConfig.session}); } catch(e) { if (!e.message.includes('not be found')) throw e; }
         }

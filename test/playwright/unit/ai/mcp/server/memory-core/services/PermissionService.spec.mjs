@@ -36,6 +36,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => 
         const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         aiConfig.storagePaths.graph = dbPath;
 
+        // Mock Chroma collections to prevent production data wipes (#10845 / #10867)
+        if (!aiConfig.collections) aiConfig.collections = {};
+        aiConfig.collections.memory = `test-memory-${process.pid}-${Date.now()}`;
+        aiConfig.collections.session = `test-session-${process.pid}-${Date.now()}`;
+
         GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         PermissionService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/PermissionService.mjs')).default;
         LifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
