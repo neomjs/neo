@@ -34,7 +34,7 @@ We recommend building two distinct images (or running the same image with differ
 - **Resource Limits:** KB is read-heavy; MC is write-heavy. They can be scaled or constrained independently.
 - **Shared Chroma:** Both containers connect to a single unified Chroma instance via internal container networking.
 
-*(Note: Reference `Dockerfile` and `docker-compose.yml` artifacts are pending under [#10801](https://github.com/neomjs/neo/issues/10801)).*
+*(Note: Reference `Dockerfile` and `docker-compose.yml` artifacts are provided in the [`ai/deploy/`](../../ai/deploy/) directory, shipped under [#10801](https://github.com/neomjs/neo/issues/10801)).*
 
 ## Section 3: Reverse Proxy Configuration
 
@@ -168,7 +168,7 @@ See [Memory Core Healthcheck](MemoryCore.md) for the full schema contract (inclu
 
 This cookbook surfaces the following architectural gaps between "substrate complete" and "operator ready," which are actively tracked for remediation:
 
-- **[#10801](https://github.com/neomjs/neo/issues/10801):** Create reference Docker and docker-compose artifacts for shared KB/MC deployment.
+- **[#10801](https://github.com/neomjs/neo/issues/10801):** (Shipped) Create reference Docker and docker-compose artifacts for shared KB/MC deployment.
 - **[#10802](https://github.com/neomjs/neo/issues/10802):** Expose public canonical URL configuration to MCP servers for SSE and OAuth callbacks.
 - **[#10804](https://github.com/neomjs/neo/issues/10804):** Consolidate `neoEmbeddingProvider` and `chromaEmbeddingProvider` configurations.
 - **[#10805](https://github.com/neomjs/neo/issues/10805):** Build staged-stack integration test harness for shared cloud deployment.

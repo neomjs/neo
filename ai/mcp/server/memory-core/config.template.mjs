@@ -429,6 +429,8 @@ const envBindings = {
     'collections.session': 'NEO_SESSION_COLLECTION_NAME',
     'collections.graph': 'NEO_GRAPH_COLLECTION_NAME',
     
+    'storagePaths.graph': 'NEO_MEMORY_DB_PATH',
+    
     'datasets.rlaif.trajectories': 'NEO_RLAIF_PATH',
     'decayFactor': { var: 'NEO_GRAPH_DECAY_FACTOR', parse: parseNumber },
     'guideGapWeightThreshold': { var: 'NEO_GUIDE_GAP_WEIGHT_THRESHOLD', parse: parseNumber },
