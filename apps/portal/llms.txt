@@ -399,6 +399,7 @@ Here you find the full history of Neo.mjs updates.
 - [Shared KB/MC Team Deployment](https://neomjs.com/raw/learn/agentos/SharedDeployment.md)
 - [Deployment Cookbook](https://neomjs.com/raw/learn/agentos/DeploymentCookbook.md)
 - [Config Substrate Env-Var Audit](https://neomjs.com/raw/learn/agentos/ConfigSubstrateEnvVarAudit.md)
+- [Config Substrate Dead-Config Audit](https://neomjs.com/raw/learn/agentos/ConfigSubstrateDeadConfigAudit.md)
 - [PR Review Loaded-Surface Baseline (April 2026)](https://neomjs.com/raw/learn/agentos/measurements/pr-review-baseline-2026-04.md)
 - [Swarm Heartbeat Token Economy Baseline (May 2026)](https://neomjs.com/raw/learn/agentos/measurements/heartbeat-token-economy-2026-05.md)
 - [Server Authorization](https://neomjs.com/raw/learn/agentos/tooling/Authorization.md)
@@ -526,6 +527,18 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #10847](https://neomjs.com/raw/news/tickets/10847.md)
+- [Ticket #10845](https://neomjs.com/raw/news/tickets/10845.md)
+- [Ticket #10844](https://neomjs.com/raw/news/tickets/10844.md)
+- [Ticket #10843](https://neomjs.com/raw/news/tickets/10843.md)
+- [Ticket #10842](https://neomjs.com/raw/news/tickets/10842.md)
+- [Ticket #10841](https://neomjs.com/raw/news/tickets/10841.md)
+- [Ticket #10838](https://neomjs.com/raw/news/tickets/10838.md)
+- [Ticket #10837](https://neomjs.com/raw/news/tickets/10837.md)
+- [Ticket #10835](https://neomjs.com/raw/news/tickets/10835.md)
+- [Ticket #10834](https://neomjs.com/raw/news/tickets/10834.md)
+- [Ticket #10833](https://neomjs.com/raw/news/tickets/10833.md)
+- [Ticket #10830](https://neomjs.com/raw/news/tickets/10830.md)
 - [Ticket #10827](https://neomjs.com/raw/news/tickets/10827.md)
 - [Ticket #10826](https://neomjs.com/raw/news/tickets/10826.md)
 - [Ticket #10825](https://neomjs.com/raw/news/tickets/10825.md)
