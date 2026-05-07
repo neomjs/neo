@@ -1,5 +1,6 @@
-import Base                from '../../../../../src/core/Base.mjs';
-import aiConfig            from '../config.mjs';
+import Base                      from '../../../../../src/core/Base.mjs';
+import aiConfig                  from '../config.mjs';
+import DestructiveOperationGuard from '../../shared/services/DestructiveOperationGuard.mjs';
 
 /**
  * @class Neo.ai.mcp.server.memory-core.managers.CollectionProxy
@@ -84,7 +85,7 @@ class CollectionProxy extends Base {
         await Promise.all(collections.map(c => c.delete(args)));
     }
 
-    async drop() {
+    async drop({confirmation} = {}) {
         const managers = await this.getManagers();
         for (const manager of managers) {
             let coll;
@@ -95,7 +96,28 @@ class CollectionProxy extends Base {
                     await manager.getMemoryCollection() : 
                     await manager.getSummaryCollection();
             }
-                
+
+            const chromaCoordinates = manager.resolveChromaCoordinates?.(aiConfig) || aiConfig.engines?.chroma || {};
+            const chromaPath        = chromaCoordinates.path || chromaCoordinates.dataDir ||
+                (aiConfig.chromaUnified ? undefined : aiConfig.engines?.chroma?.dataDir);
+
+            await DestructiveOperationGuard.assertDestructiveTargetAllowed({
+                operation: `memory-core.${this.collectionType}.drop`,
+                subsystem: 'memory-core',
+                mode     : 'drop',
+                target   : {
+                    collectionName: coll.name,
+                    chroma        : {
+                        host: chromaCoordinates.host,
+                        port: chromaCoordinates.port,
+                        path: chromaPath
+                    },
+                    path    : chromaPath,
+                    repoRoot: process.cwd()
+                },
+                confirmation
+            });
+
             if (manager.client && manager.client.deleteCollection) {
                 await manager.client.deleteCollection({ name: coll.name });
             } else if (manager.deleteCollection) {

@@ -239,14 +239,15 @@ class DatabaseService extends Base {
     /**
      * Manages knowledge base data operations based on the provided action.
      * @param {Object}  params
-     * @param {String}  params.action     'sync', 'create', 'embed', or 'delete'
-     * @param {Boolean} [params.viaMcp]   True when dispatched from the MCP toolService
-     *                                    wrapper; threaded through to `embed()` to enable
-     *                                    the work-volume gate (#10572). CLI callers
-     *                                    omit this and bypass the gate.
+     * @param {String}        params.action       'sync', 'create', 'embed', or 'delete'
+     * @param {Boolean}      [params.viaMcp]      True when dispatched from the MCP toolService
+     *                                            wrapper; threaded through to `embed()` to enable
+     *                                            the work-volume gate (#10572). CLI callers
+     *                                            omit this and bypass the gate.
+     * @param {String|Object} [params.confirmation] Explicit production confirmation token for delete.
      * @returns {Promise<Object>}
      */
-    async manageKnowledgeBase({action, viaMcp = false}) {
+    async manageKnowledgeBase({action, viaMcp = false, confirmation}) {
         switch (action) {
             case 'sync':
                 return this.syncDatabase({viaMcp});
@@ -255,7 +256,7 @@ class DatabaseService extends Base {
             case 'embed':
                 return this.embedKnowledgeBase({viaMcp});
             case 'delete':
-                return this.deleteDatabase();
+                return this.deleteDatabase({confirmation});
             default:
                 throw new Error(`Invalid action: ${action}. Must be 'sync', 'create', 'embed', or 'delete'.`);
         }
@@ -317,10 +318,12 @@ class DatabaseService extends Base {
     /**
      * Permanently deletes the entire knowledge base collection from ChromaDB.
      * Delegates to VectorService.
+     * @param {Object}       [options]
+     * @param {String|Object} [options.confirmation] Explicit production confirmation token.
      * @returns {Promise<object>} A promise that resolves to a success message.
      */
-    async deleteDatabase() {
-        return await VectorService.deleteCollection();
+    async deleteDatabase({confirmation} = {}) {
+        return await VectorService.deleteCollection({confirmation});
     }
 
     /**

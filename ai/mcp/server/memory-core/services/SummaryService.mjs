@@ -48,9 +48,11 @@ class SummaryService extends Base {
 
     /**
      * Deletes all session summaries.
+     * @param {Object}       [options]
+     * @param {String|Object} [options.confirmation] Explicit production confirmation token.
      * @returns {Promise<{deleted: number, message: string}>}
      */
-    async deleteAllSummaries() {
+    async deleteAllSummaries({confirmation} = {}) {
         try {
             const collection = await StorageRouter.getSummaryCollection();
             const userId     = normalizeUserId(RequestContextService.getUserId());
@@ -78,7 +80,7 @@ class SummaryService extends Base {
 
             // Legacy single-tenant path (stdio mode, no request context): drop + recreate.
             const count = await collection.count();
-            await collection.drop();
+            await collection.drop({confirmation});
             await StorageRouter.getSummaryCollection(); // Re-creates it
             return { deleted: count, message: 'All summaries successfully deleted' };
         } catch (error) {
