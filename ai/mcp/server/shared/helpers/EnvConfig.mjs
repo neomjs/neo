@@ -46,13 +46,22 @@ export function setDeep(obj, path, value) {
     let current = obj;
     for (let i = 0; i < keys.length - 1; i++) {
         const key = keys[i];
+        if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+            console.warn(`[Config] Prototype pollution attempt blocked for path "${path}"`);
+            return;
+        }
         if (typeof current[key] !== 'object' || current[key] === null) {
             console.warn(`[Config] Cannot set path "${path}" because intermediate key "${key}" is not an object.`);
             return;
         }
         current = current[key];
     }
-    current[keys[keys.length - 1]] = value;
+    const finalKey = keys[keys.length - 1];
+    if (finalKey === '__proto__' || finalKey === 'constructor' || finalKey === 'prototype') {
+        console.warn(`[Config] Prototype pollution attempt blocked for path "${path}"`);
+        return;
+    }
+    current[finalKey] = value;
 }
 
 export function applyEnvBindings(data, envBindings, env = process.env, warn = console.warn) {

@@ -56,6 +56,25 @@ test.describe('EnvConfig', () => {
             setDeep(obj, 'a.b.d', 3);
             expect(obj.a.b.d).toBe(3);
         });
+
+        test('prevents prototype pollution', () => {
+            let warnings = [];
+            const mockWarn = (msg) => warnings.push(msg);
+            const originalWarn = console.warn;
+            console.warn = mockWarn;
+
+            const obj = {};
+            setDeep(obj, '__proto__.polluted', true);
+            expect(obj.polluted).toBeUndefined();
+            expect({}.polluted).toBeUndefined();
+            
+            setDeep(obj, 'constructor.prototype.polluted2', true);
+            expect(obj.polluted2).toBeUndefined();
+            expect({}.polluted2).toBeUndefined();
+
+            console.warn = originalWarn;
+            expect(warnings.length).toBe(2);
+        });
     });
 
     test.describe('applyEnvBindings', () => {
