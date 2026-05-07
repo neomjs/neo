@@ -102,6 +102,8 @@ class TransportService extends Base {
         const crypto = await import('crypto');
         const cors = await import('cors');
         const app = createMcpExpressApp();
+        
+        this.app = app;
 
         app.use(cors.default({
             origin: '*',
@@ -219,10 +221,27 @@ class TransportService extends Base {
         });
 
         const port = aiConfig.mcpHttpPort || 3000;
-        app.listen(port, () => {
-            logger.info(`[${resourceName}] Server started on SSE transport (Port: ${port})`);
-            logger.info(`[${resourceName}] Available tools loaded from OpenAPI spec`);
+        await new Promise((resolve, reject) => {
+            this.httpServer = app.listen(port, () => {
+                logger.info(`[${resourceName}] Server started on SSE transport (Port: ${port})`);
+                logger.info(`[${resourceName}] Available tools loaded from OpenAPI spec`);
+                resolve();
+            });
+            this.httpServer.on('error', reject);
         });
+    }
+
+    /**
+     * @param {Boolean} [updateParent=true]
+     * @param {Boolean} [silent=false]
+     */
+    destroy(updateParent=true, silent=false) {
+        if (this.httpServer) {
+            this.httpServer.close();
+            this.httpServer = null;
+        }
+
+        super.destroy(updateParent, silent);
     }
 }
 

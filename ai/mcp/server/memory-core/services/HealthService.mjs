@@ -27,7 +27,10 @@ function heartbeatAlivePath() {
  * is considered stopped or stalled. The "× 2" buffer absorbs single missed pulses without
  * false-negative liveness signal.
  */
-const HEARTBEAT_LIVENESS_STALE_MS = 10 * 60 * 1000;
+function heartbeatLivenessStaleMs() {
+    const pollIntervalSec = parseInt(process.env.POLL_INTERVAL, 10) || 300;
+    return pollIntervalSec * 1000 * 2;
+}
 
 /**
  * @summary Projects the stdio identity state into the healthcheck-payload shape (#10176).
@@ -330,7 +333,7 @@ export function buildAuthProviderBlock(cfg) {
  * - `gateReason` / `gateTrippedAt` / `gateTrippedBy`: pass-through from the gate state file when
  *   present (empty string / null otherwise).
  * - `daemonRunning`: boolean. `true` when the heartbeat-liveness file mtime is within
- *   `HEARTBEAT_LIVENESS_STALE_MS` (10 min = 2× POLL_INTERVAL default). `false` when missing or stale.
+ *   `heartbeatLivenessStaleMs()` (2× POLL_INTERVAL). `false` when missing or stale.
  * - `lastPulseAt`: ISO timestamp of the liveness file mtime, or `null` if absent.
  * - `secondsSinceLastPulse`: derived seconds since last pulse. Surfaces "alive but stalled" when
  *   `daemonRunning` is `false` but a previous mtime exists.
@@ -389,7 +392,7 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
         const mtimeMs    = stat.mtime.getTime();
         const ageMs      = Math.max(0, nowMs - mtimeMs);
         livenessBlock = {
-            daemonRunning        : ageMs < HEARTBEAT_LIVENESS_STALE_MS,
+            daemonRunning        : ageMs < heartbeatLivenessStaleMs(),
             lastPulseAt          : stat.mtime.toISOString(),
             secondsSinceLastPulse: Math.floor(ageMs / 1000)
         };
