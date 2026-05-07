@@ -135,6 +135,9 @@ paths:
                   type: string
                   enum: [sync, create, embed, delete]
                   description: The management action to perform.
+                confirmation:
+                  type: string
+                  description: Explicit production confirmation token required with the destructive bypass env for delete.
       responses:
         '200':
           description: Operation completed successfully.

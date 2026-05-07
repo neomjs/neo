@@ -413,6 +413,7 @@ paths:
     delete:
       summary: Delete All Summaries
       operationId: delete_all_summaries
+      x-pass-as-object: true
       x-annotations:
         destructiveHint: true
       description: |
@@ -420,6 +421,16 @@ paths:
 
         **Warning:** This is a destructive operation. It is useful for resetting the summary index while keeping raw memories intact.
       tags: [Summaries]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                confirmation:
+                  type: string
+                  description: Explicit production confirmation token required with the destructive bypass env for the legacy single-tenant drop path.
       responses:
         '200':
           description: All summaries deleted successfully
