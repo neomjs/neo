@@ -95,7 +95,7 @@ When provisioning your containers, supply the following minimal environment vari
 
 ## Section 7: Healthcheck Verification
 
-Once deployed, verify the stack by querying the healthcheck endpoints (e.g., `https://my-proxy.example.com/mc/health`).
+Once deployed, verify the stack by invoking each server's MCP `healthcheck` tool over its `/mcp` endpoint. The MCP servers do not expose a direct `/healthcheck` HTTP route; use JSON-RPC `tools/call` with `name: "healthcheck"` against the KB and MC MCP URLs.
 
 Expected JSON block (excerpt):
 ```json
@@ -158,6 +158,8 @@ Operator verification anchors:
 See [Memory Core Healthcheck](MemoryCore.md) for the full schema contract (including the `clientSecret`-non-leak invariant per [#10770](https://github.com/neomjs/neo/issues/10770)).
 
 ## Section 8: First-Connection Smoke Test
+
+For the local Dockerized fixture, run `npm run test-integration`. The Playwright integration harness builds `ai/deploy/docker-compose.test.yml`, waits for Chroma + KB + MC readiness, then calls the KB and MC `healthcheck` tools over `/mcp`.
 
 1. Configure your local agent harness (e.g., `claude_desktop_config.json`) to point the `sse` transport URL to your public proxy endpoint.
 2. Ensure you have authenticated with the proxy (e.g., logging in via browser to obtain the session cookie, or injecting a proxy-issued bearer token).
