@@ -1,6 +1,6 @@
 services:
   chroma:
-    image: chromadb/chroma:0.5.20
+    image: chromadb/chroma:1.5.9
     volumes:
       - chroma-data:/chroma/chroma
     healthcheck:
