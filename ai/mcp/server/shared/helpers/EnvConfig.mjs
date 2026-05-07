@@ -28,13 +28,13 @@ export function parseBool(rawValue, envVarName, warn = console.warn) {
     return undefined;
 }
 
-export function parseString(rawValue, envVarName, warn = console.warn) {
+export function parseString(rawValue) {
     return rawValue;
 }
 
 export function parseNumber(rawValue, envVarName, warn = console.warn) {
     const num = Number(rawValue);
-    if (Number.isNaN(num)) {
+    if (!Number.isFinite(num)) {
         warn(`[Config] Invalid ${envVarName} value: "${rawValue}" (must be a number); falling back.`);
         return undefined;
     }

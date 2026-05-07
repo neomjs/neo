@@ -43,7 +43,9 @@ test.describe('EnvConfig', () => {
         test('parseNumber', () => {
             expect(parseNumber('123.45', 'NUM', mockWarn)).toBe(123.45);
             expect(parseNumber('abc', 'NUM', mockWarn)).toBeUndefined();
-            expect(warnings.length).toBe(1);
+            expect(parseNumber('Infinity', 'NUM', mockWarn)).toBeUndefined();
+            expect(parseNumber('-Infinity', 'NUM', mockWarn)).toBeUndefined();
+            expect(warnings.length).toBe(3);
         });
     });
 
