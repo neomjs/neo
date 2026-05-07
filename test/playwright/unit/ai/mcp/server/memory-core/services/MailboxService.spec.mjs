@@ -35,6 +35,9 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         // Force temp file DB config instead of :memory: to prevent initialization race wipes
         mailboxAiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         mailboxAiConfig.storagePaths.graph = dbPath;
+        if (!mailboxAiConfig.collections) mailboxAiConfig.collections = {};
+        mailboxAiConfig.collections.memory = `test-memory-${Date.now()}`;
+        mailboxAiConfig.collections.session = `test-session-${Date.now()}`;
 
         // Load dynamically due to SQLite DB mount timing
         GraphService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
