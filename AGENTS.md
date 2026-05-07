@@ -43,6 +43,7 @@ These five rules are mechanically verifiable and have **no conditional exception
 3. **No direct commit/push to `main` or `dev`.** Always branch + PR. The data-sync pipeline is the explicit exception.
 4. **No `<noreply@*>` `Co-Authored-By` footers.**
 5. **No skipping `add_memory` at end of turn.** Forgetting the consolidated save = permanent data loss. The save IS the gate that permits the response.
+6. **Mandatory A2A Notifications.** Whenever you finish ANY task (e.g. creating a ticket, opening/updating a PR, finishing/reacting to a review), you MUST use the `add_message` tool to notify your peers. No loopholes.
 
 ## 3. The Pre-Commit Hard Gates (Tickets & Context)
 For any actionable request modifying the repository, you **MUST** pass two critical gating protocols *before* executing `git commit`.
