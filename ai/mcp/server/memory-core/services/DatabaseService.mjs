@@ -389,8 +389,23 @@ class DatabaseService extends Base {
             logger.log(`Starting agent memory import. Discovered ${filesToImport.length} backup file(s)...`);
 
             if (mode === 'replace') {
-                logger.log('Replace mode specified - wiping target collections before batch import...');
-                // Note: Proxy delete requires specific implementation, relying on merge for now if not supported natively.
+                // Truncate ONLY the subsystems that this import will restore — selected
+                // by the same filename heuristic the per-file dispatch loop uses below.
+                // Truncating subsystems that aren't being restored would be destructive
+                // without restoration. Each subsystem's truncate fires the destructive-op
+                // guard independently (#10845).
+                const subsystemsToWipe = new Set();
+                for (const filePath of filesToImport) {
+                    const base = path.basename(filePath);
+                    if      (base.startsWith('graph-backup'))  subsystemsToWipe.add('graph');
+                    else if (base.startsWith('memory-backup')) subsystemsToWipe.add('memories');
+                    else                                       subsystemsToWipe.add('summaries');
+                }
+
+                if (subsystemsToWipe.size > 0) {
+                    logger.log(`Replace mode: truncating ${[...subsystemsToWipe].join(', ')} before batch import...`);
+                    await this.truncateDatabase({include: [...subsystemsToWipe], confirmation});
+                }
             }
 
             let totalImported        = 0;

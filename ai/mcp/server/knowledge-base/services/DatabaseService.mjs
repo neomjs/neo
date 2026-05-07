@@ -1,20 +1,22 @@
-import aiConfig           from '../config.mjs';
-import Base               from '../../../../../src/core/Base.mjs';
-import ChromaManager      from './ChromaManager.mjs';
-import VectorService      from './VectorService.mjs';
-import ApiSource          from '../source/ApiSource.mjs';
-import ConceptSource      from '../source/ConceptSource.mjs';
-import DiscussionSource   from '../source/DiscussionSource.mjs';
-import LearningSource     from '../source/LearningSource.mjs';
-import PullRequestSource  from '../source/PullRequestSource.mjs';
-import ReleaseNotesSource from '../source/ReleaseNotesSource.mjs';
-import TestSource         from '../source/TestSource.mjs';
-import TicketSource       from '../source/TicketSource.mjs';
-import crypto             from 'crypto';
-import dotenv             from 'dotenv';
-import fs                 from 'fs-extra';
-import logger             from '../logger.mjs';
-import path               from 'path';
+import aiConfig                  from '../config.mjs';
+import Base                      from '../../../../../src/core/Base.mjs';
+import ChromaManager             from './ChromaManager.mjs';
+import DestructiveOperationGuard from '../../shared/services/DestructiveOperationGuard.mjs';
+import VectorService             from './VectorService.mjs';
+import ApiSource                 from '../source/ApiSource.mjs';
+import ConceptSource             from '../source/ConceptSource.mjs';
+import DiscussionSource          from '../source/DiscussionSource.mjs';
+import LearningSource            from '../source/LearningSource.mjs';
+import PullRequestSource         from '../source/PullRequestSource.mjs';
+import ReleaseNotesSource        from '../source/ReleaseNotesSource.mjs';
+import TestSource                from '../source/TestSource.mjs';
+import TicketSource              from '../source/TicketSource.mjs';
+import crypto                    from 'crypto';
+import dotenv                    from 'dotenv';
+import fs                        from 'fs-extra';
+import logger                    from '../logger.mjs';
+import path                      from 'path';
+import readline                  from 'readline';
 
 const cwd       = aiConfig.neoRootDir;
 const insideNeo = process.env.npm_package_name?.includes('neo.mjs') ?? false;
@@ -217,23 +219,191 @@ class DatabaseService extends Base {
      * with `{action, backupPath}` without a Zod schema. The manual throw below is the actual
      * rejection path for invalid actions.
      *
-     * Currently supports `action: 'export'` only. Import + truncate are out-of-scope per
-     * #10129 (restore tooling is a separate ticket).
+     * Supports `action: 'export'`, `'import'`, and `'truncate'`. Import + truncate are the
+     * AC-B (#10871) restore-tooling counterparts to `'export'`, peer-symmetric with
+     * `Memory_DatabaseService.manageDatabaseBackup`.
      *
      * @param {Object}  options
-     * @param {String}  options.action       The action to perform. Currently 'export'.
-     * @param {String} [options.backupPath]  Forwarded to `exportDatabase` when action is 'export'.
+     * @param {String}  options.action      `'export'`, `'import'`, or `'truncate'`.
+     * @param {String} [options.backupPath] Forwarded to `exportDatabase` when action is `'export'`.
+     * @param {String} [options.file]       Forwarded to `importDatabase` when action is `'import'`. Path to a JSONL file or directory.
+     * @param {String} [options.mode]       Forwarded to `importDatabase` when action is `'import'`. `'merge'` (default) or `'replace'`.
+     * @param {String|Object} [options.confirmation] Forwarded to `importDatabase` (`replace` mode) or `truncateDatabase` for the destructive-operation guard.
      * @returns {Promise<Object>}
      */
     async manageDatabaseBackup({action, ...config}) {
         if (action === 'export') {
             return this.exportDatabase(config);
+        } else if (action === 'import') {
+            return this.importDatabase(config);
+        } else if (action === 'truncate') {
+            return this.truncateDatabase(config);
         }
 
         throw new Error(
-            `Unknown action: ${action}. KB backup currently supports 'export' only; ` +
-            `'import' and 'truncate' are deferred to follow-up tickets (see #10129 Out of Scope: Restore tooling).`
+            `Unknown action: ${action}. Supported actions: 'export', 'import', 'truncate'.`
         );
+    }
+
+    /**
+     * Imports a previously exported JSONL file (or directory of JSONL files) into the
+     * Knowledge Base ChromaDB collection. Records preserve their original embeddings — no
+     * re-embedding is triggered, so a restore from a same-version bundle is fast and
+     * cost-free.
+     *
+     * Peer-symmetric counterpart of `exportDatabase`. Called by the canonical restore
+     * orchestrator (`buildScripts/ai/restore.mjs`, #10871 AC-B).
+     *
+     * @param {Object}        options
+     * @param {String}        options.file               Absolute path to a JSONL file OR a directory containing `.jsonl` files.
+     * @param {String}       [options.mode='merge']      `'merge'` upserts on top of existing data; `'replace'` truncates the collection first via the destructive-operation guard.
+     * @param {String|Object} [options.confirmation]     Explicit production confirmation token (forwarded to `truncateDatabase` when mode is `'replace'`).
+     * @returns {Promise<{message: String, imported: Number, mode: String}>}
+     */
+    async importDatabase({file, mode = 'merge', confirmation} = {}) {
+        try {
+            if (!file) {
+                throw new Error('importDatabase requires a `file` argument (path to a JSONL file or directory of JSONL files)');
+            }
+            if (!await fs.pathExists(file)) {
+                throw new Error(`Backup source not found at ${file}`);
+            }
+            if (mode !== 'merge' && mode !== 'replace') {
+                throw new Error(`Unknown mode: ${mode}. Must be 'merge' or 'replace'.`);
+            }
+
+            const stat        = await fs.stat(file);
+            const sourceFiles = [];
+
+            if (stat.isDirectory()) {
+                const entries = await fs.readdir(file);
+                for (const entry of entries) {
+                    if (entry.endsWith('.jsonl')) {
+                        sourceFiles.push(path.join(file, entry));
+                    }
+                }
+            } else if (file.endsWith('.jsonl')) {
+                sourceFiles.push(file);
+            } else {
+                throw new Error(`Unsupported source: ${file} is neither a directory nor a .jsonl file`);
+            }
+
+            if (sourceFiles.length === 0) {
+                return {message: 'No JSONL files found to import.', imported: 0, mode};
+            }
+
+            if (mode === 'replace') {
+                logger.log('Replace mode: truncating Knowledge Base collection before import...');
+                await this.truncateDatabase({confirmation});
+            }
+
+            logger.log(`Starting Knowledge Base import. Discovered ${sourceFiles.length} backup file(s) (mode: ${mode})...`);
+
+            const collection = await ChromaManager.getKnowledgeBaseCollection();
+            let imported     = 0;
+
+            for (const filePath of sourceFiles) {
+                logger.log(`Importing: ${filePath}`);
+
+                const fileStream = fs.createReadStream(filePath);
+                const rl         = readline.createInterface({input: fileStream, crlfDelay: Infinity});
+                const records    = [];
+
+                for await (const line of rl) {
+                    if (line.trim()) {
+                        records.push(JSON.parse(line));
+                    }
+                }
+
+                if (records.length === 0) {
+                    logger.log(`No records found in ${filePath}. Skipping.`);
+                    continue;
+                }
+
+                const BATCH_SIZE = 500;
+                for (let i = 0; i < records.length; i += BATCH_SIZE) {
+                    const batch = records.slice(i, i + BATCH_SIZE);
+                    await collection.upsert({
+                        ids       : batch.map(r => r.id),
+                        embeddings: batch.map(r => r.embedding),
+                        metadatas : batch.map(r => r.metadata),
+                        documents : batch.map(r => r.document)
+                    });
+                    imported += batch.length;
+                }
+            }
+
+            return {
+                message : `Import complete. Ingested ${imported} chunks across ${sourceFiles.length} file(s).`,
+                imported,
+                mode
+            };
+        } catch (error) {
+            logger.error('[DatabaseService] Error importing knowledge base:', error);
+            const importError = new Error(`DATABASE_IMPORT_ERROR: ${error.message}`);
+            importError.code  = 'DATABASE_IMPORT_ERROR';
+            throw importError;
+        }
+    }
+
+    /**
+     * Truncates the Knowledge Base collection. The collection is dropped via Chroma's
+     * `deleteCollection`; the cached `ChromaManager` references are reset so the next
+     * `getKnowledgeBaseCollection()` call lazily recreates an empty collection.
+     *
+     * Routes through the shared destructive-operation guard with a truncate-shaped operation
+     * identifier (`knowledge-base.chroma.truncate`), distinct from `deleteDatabase` which
+     * delegates to `VectorService.deleteCollection` (operation `knowledge-base.chroma.delete`).
+     * Both operations are mechanically similar but the operation/mode metadata in operator
+     * diagnostics differs — `truncate` reflects "wipe-for-restore-replace", `delete` reflects
+     * "permanent removal".
+     *
+     * Production-target invocations require both the bypass env var
+     * (`NEO_ALLOW_PRODUCTION_DESTRUCTIVE_AI_SUBSTRATE=true`) and an explicit operator
+     * confirmation token. Disposable targets (`tmp/`, OS tempdir, `:memory:` SQLite) are
+     * allowed automatically.
+     *
+     * @param {Object}        [options]
+     * @param {String|Object} [options.confirmation] Explicit production confirmation token.
+     * @returns {Promise<{message: String}>}
+     */
+    async truncateDatabase({confirmation} = {}) {
+        const collectionName = aiConfig.collectionName;
+
+        try {
+            await DestructiveOperationGuard.assertDestructiveTargetAllowed({
+                operation: 'knowledge-base.chroma.truncate',
+                subsystem: 'knowledge-base',
+                mode     : 'truncate',
+                target   : {
+                    collectionName,
+                    chroma: {
+                        host: aiConfig.host,
+                        port: aiConfig.port,
+                        path: aiConfig.path
+                    },
+                    path    : aiConfig.path,
+                    repoRoot: aiConfig.neoRootDir
+                },
+                confirmation
+            });
+
+            await ChromaManager.client.deleteCollection({name: collectionName});
+
+            ChromaManager._knowledgeBaseCollectionPromise = null;
+            ChromaManager.knowledgeBaseCollection         = null;
+
+            const message = `Knowledge base collection '${collectionName}' truncated successfully.`;
+            logger.log(message);
+            return {message};
+        } catch (error) {
+            if (error.message?.includes(`Collection ${collectionName} does not exist.`)) {
+                const message = `Knowledge base collection '${collectionName}' did not exist. No action taken.`;
+                logger.log(message);
+                return {message};
+            }
+            throw error;
+        }
     }
 
     /**
