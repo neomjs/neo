@@ -11,7 +11,7 @@ import {expect} from '@playwright/test';
  * @param {number} [options.p95Ms] - Maximum p95 latency. Default: process.env.NEO_INTEGRATION_SUSTAINED_P95_MS || 500.
  * @param {number} [options.maxConsecutiveFailures] - Max sequential failures allowed. Default: 0.
  * @param {Function} [options.onSample] - Optional callback to run custom assertions on each sample.
- * @returns {Promise<Object[]>} The array of gathered samples.
+ * @returns {Promise<{samples: Object[], summary: Object}>} The gathered samples and computed summary.
  */
 export async function assertSustainedHealth({
     probe,
@@ -25,19 +25,19 @@ export async function assertSustainedHealth({
     const samples = [];
     const latencies = [];
     let consecutiveFailures = 0;
-    
+
     const iterations = Math.max(1, Math.floor(windowMs / intervalMs));
-    
+
     for (let i = 0; i < iterations; i++) {
         const start = Date.now();
         try {
             const result = await probe();
             const latency = Date.now() - start;
-            
+
             samples.push(result);
             latencies.push(latency);
             consecutiveFailures = 0;
-            
+
             if (onSample) {
                 await onSample(result, samples);
             }
@@ -47,24 +47,32 @@ export async function assertSustainedHealth({
                 throw new Error(`assertSustainedHealth: Exceeded max consecutive failures (${maxConsecutiveFailures}). Last error: ${error.message}`);
             }
         }
-        
+
         const elapsed = Date.now() - start;
         const sleepTime = Math.max(0, intervalMs - elapsed);
         if (i < iterations - 1 && sleepTime > 0) {
             await new Promise(r => setTimeout(r, sleepTime));
         }
     }
-    
+
     const actualSuccessRate = samples.length / iterations;
     expect(actualSuccessRate, `Success rate should be >= ${successRate}`).toBeGreaterThanOrEqual(successRate);
-    
+
+    let actualP95 = 0;
     if (latencies.length > 0) {
         latencies.sort((a, b) => a - b);
         const p95Index = Math.max(0, Math.ceil(latencies.length * 0.95) - 1);
-        const actualP95 = latencies[p95Index];
-        
+        actualP95 = latencies[p95Index];
+
         expect(actualP95, `p95 latency should be <= ${p95Ms}ms`).toBeLessThanOrEqual(p95Ms);
     }
-    
-    return samples;
+
+    return {
+        samples,
+        summary: {
+            actualSuccessRate,
+            actualP95,
+            iterations
+        }
+    };
 }
