@@ -129,6 +129,28 @@ A healthy idle daemon may emit nothing for many cycles in a row (no expired task
 
 > ⚠️ **Lock-as-evidence anti-pattern:** the file `.neo-ai-data/heartbeat-concurrency.lock` is **producer-side state** — created by `acquireHeartbeatLock` when expensive agent work starts (#10319 `withHeartbeatLock`), removed when that work finishes. The heartbeat daemon only *inspects + releases stale locks*, never touches it on healthy idle pulses. **Do not watch the lock's mtime as a polling-health indicator** — a healthy daemon may go hours without touching it.
 
+#### Healthcheck-side verification (#10783)
+
+For a single-call observability check that doesn't require `tail -f` against multiple log files, the Memory Core healthcheck surfaces the wake substrate's three operational dimensions in one block. Call any healthcheck-emitting tool (e.g. `mcp__neo-mjs-memory-core__healthcheck`) and inspect the `features.wake` block:
+
+```jsonc
+"features": {
+    "wake": {
+        "gateState": "enabled",       // 'enabled' | 'disabled' | 'tripped' | 'unknown'
+        "gateReason": "",
+        "gateTrippedAt": null,
+        "gateTrippedBy": null,
+        "daemonRunning": true,        // mtime of heartbeat-liveness file < 10min
+        "lastPulseAt": "2026-05-07T20:51:52.141Z",
+        "secondsSinceLastPulse": 12
+    }
+}
+```
+
+The `daemonRunning` heuristic reads the dedicated liveness file `.neo-ai-data/wake-daemon/heartbeat.alive` — touched by `swarm-heartbeat.sh` at the top of every pulse loop iteration, NOT the producer-side concurrency lock above. `gateState` is read via `wakeSafetyGate.readGateState`. Field semantics + defensive defaults documented inline at `HealthService.buildWakeFeaturesBlock`.
+
+**Use this for:** quick night-shift readiness check from the agent harness; integration tests asserting daemon-running invariants; operator dashboards consuming the healthcheck JSON. **Use `tail -f` for:** real-time event observation (sweep / sunset / idle-out / gate-closed events as they fire).
+
 If the startup log line never appears, the daemon failed to launch. Common causes: `WorkingDirectory` mis-substituted (script can't find `.neo-ai-data/`), `PATH` missing critical CLI tool (sqlite3, node, gh), or the script crashed at module-load (check `heartbeat.stderr.log` for `ReferenceError: Neo is not defined` or similar).
 
 ## 4. Uninstall procedure

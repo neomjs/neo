@@ -118,6 +118,14 @@ heartbeat_pulse() {
     while true; do
         sleep $POLL_INTERVAL
 
+        # Liveness signal for healthcheck observability (#10783). Touched every pulse so
+        # HealthService.buildWakeFeaturesBlock can distinguish "daemon idle-polling" from
+        # "daemon stopped" via mtime. The concurrency lock at $CONCURRENCY_LOCK is NOT
+        # touched on each pulse (only when expensive Agent OS work runs), so it cannot
+        # serve as the daemon-liveness signal — this dedicated file fills that gap.
+        # Parent dir already exists per the SWEEP_LOG `mkdir -p` at script boot (line 25).
+        touch ".neo-ai-data/wake-daemon/heartbeat.alive" 2>/dev/null
+
         # Concurrency Trap: skip if expensive agent work is already running.
         if heartbeat_lock_active; then
             continue
