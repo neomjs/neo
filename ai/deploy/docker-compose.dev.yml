@@ -1,6 +1,6 @@
 services:
   chroma:
-    image: chromadb/chroma:1.5.9
+    image: chromadb/chroma:0.5.20
     # Tmpfs-mode option for Chroma when used as test fixture (cross-link to #10805)
     tmpfs:
       - /chroma/chroma
