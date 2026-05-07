@@ -42,7 +42,10 @@ test.describe('Memory_DatabaseService — backupPath routing (#10129 Phase 2 pre
         originalGetSummary = Memory_StorageRouter.getSummaryCollection.bind(Memory_StorageRouter);
     });
 
-    test.afterAll(() => {
+    test.afterAll(async () => {
+        const { cleanupChromaManager } = await import('../util.mjs');
+        await cleanupChromaManager();
+
         Memory_StorageRouter.getMemoryCollection  = originalGetMemory;
         Memory_StorageRouter.getSummaryCollection = originalGetSummary;
 

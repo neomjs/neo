@@ -59,7 +59,9 @@ test.describe('CoalescingEngineService', () => {
         CoalescingEngineService.clearAll();
     });
 
-    test.afterAll(() => {
+    test.afterAll(async () => {
+        const { cleanupChromaManager } = await import('../util.mjs');
+        await cleanupChromaManager();
         if (originalDeliver) WebhookDeliveryService.deliver = originalDeliver;
     });
 

@@ -65,6 +65,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
     });
 
     test.afterAll(async () => {
+        const { cleanupChromaManager } = await import('../util.mjs');
+        await cleanupChromaManager();
         GraphService.db.autoSave = originalAutoSave;
         // Symmetric restore of the mailbox policy to whatever the library default
         // was before this suite ran.
@@ -918,6 +920,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — open po
     });
 
     test.afterAll(async () => {
+        const { cleanupChromaManager } = await import('../util.mjs');
+        await cleanupChromaManager();
         GraphService.db.autoSave = originalAutoSave;
         if (mailboxAiConfig?.data?.mailbox) {
             mailboxAiConfig.data.mailbox.defaultReplyPolicy = originalMailboxPolicy;
@@ -1180,6 +1184,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — A2A_TAS
     });
 
     test.afterAll(async () => {
+        const { cleanupChromaManager } = await import('../util.mjs');
+        await cleanupChromaManager();
         GraphService.db.autoSave = originalAutoSave;
         if (fs.existsSync(dbPath)) {
             try { fs.unlinkSync(dbPath); } catch (e) {}
@@ -1400,6 +1406,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — TTL Swe
     });
 
     test.afterAll(async () => {
+        const { cleanupChromaManager } = await import('../util.mjs');
+        await cleanupChromaManager();
         GraphService.db.autoSave = originalAutoSave;
         if (fs.existsSync(dbPath)) {
             try { fs.unlinkSync(dbPath); } catch (e) {}

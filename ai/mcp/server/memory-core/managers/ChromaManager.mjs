@@ -171,7 +171,8 @@ class ChromaManager extends AbstractVectorManager {
                 const msg = args.join(' ');
                 if (msg.includes('No embedding function configuration found') ||
                     msg.includes('Could not deserialize the collection metadata') ||
-                    msg.includes('dummy_embedding_function')) {
+                    msg.includes('dummy_embedding_function') ||
+                    msg.includes('dynamic_text_embedding_service')) {
                     return;
                 }
                 originalWarn.apply(console, args);
