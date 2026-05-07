@@ -274,6 +274,7 @@ export const ADD_DISCUSSION_COMMENT = `
       comment {
         id
         url
+        createdAt
       }
     }
   }
