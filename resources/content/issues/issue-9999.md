@@ -27,13 +27,13 @@ subIssues:
   - '[ ] 10143 Graph-first Memory artifacts: lift Memory + Session to first-class nodes'
   - '[x] 10587 Capture runSandman inference hard-failures durably'
   - '[ ] 10691 Shared KB/MC Team Deployment MVP'
-  - '[ ] 10721 Shared deployment MVP completeness gaps (post-#10691)'
+  - '[x] 10721 Shared deployment MVP completeness gaps (post-#10691)'
   - '[x] 10800 Author cloud deployment cookbook for shared KB+MC topology'
   - '[x] 10807 Docker Compose integration test fixture for shared KB+MC deployment'
   - '[x] 10808 Operator-facing env var ergonomics: descriptive names + Chroma host/port overrides'
   - '[ ] 10813 Restore session summaries: primary-flag gate + sunset-event trigger'
   - '[ ] 10822 Config substrate cleanup: KISS hard cuts + three-tier model'
-subIssuesCompleted: 8
+subIssuesCompleted: 9
 subIssuesTotal: 18
 blockedBy: []
 blocking:
@@ -811,4 +811,5 @@ Reopened (cycle 2) by @neo-opus-4-7 — prior reopen at 03:57:38Z was sabotage-r
 - 2026-05-06T13:55:23Z @neo-gpt cross-referenced by PR #10818
 - 2026-05-06T16:00:40Z @neo-opus-4-7 cross-referenced by #10822
 - 2026-05-06T16:00:54Z @neo-opus-4-7 added sub-issue #10822
+- 2026-05-06T16:32:31Z @neo-opus-4-7 cross-referenced by PR #10829
 
