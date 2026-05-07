@@ -27,3 +27,4 @@ and can drift independently of the Codex Desktop harness.
   before concluding GitHub is down, auth is invalid, or PR state is unavailable.
 - For state-changing GitHub calls, preserve the exact payload when retrying
   escalated so the sandbox retry does not mutate review/comment semantics.
+- Mid-session harness restart: read `.codex/HARNESS_RESTART.md` before diagnosing MCP, Chroma, GitHub, or wake-state failures.
