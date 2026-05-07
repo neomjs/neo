@@ -22,10 +22,24 @@ function heartbeatAlivePath() {
 }
 
 /**
- * Stale-threshold for `daemonRunning` heuristic. Matches `swarm-heartbeat.sh` POLL_INTERVAL
- * default × 2 (5 min × 2 = 10 min). If the liveness file mtime is older than this, the daemon
- * is considered stopped or stalled. The "× 2" buffer absorbs single missed pulses without
- * false-negative liveness signal.
+ * @summary Resolves the stale-threshold for the `daemonRunning` heuristic at call-time (#10931).
+ *
+ * Coupling contract: stale threshold = 2× POLL_INTERVAL where POLL_INTERVAL is the substrate
+ * convention from `ai/scripts/swarm-heartbeat.sh` (default 300s = 5 min, env-overridable).
+ * The "× 2" buffer absorbs single missed pulses without false-negative liveness signal.
+ *
+ * Function-call-time read (rather than module-load) preserves test-isolation behavior: specs
+ * that override `POLL_INTERVAL` for stalled-daemon scenarios get the env value at the moment
+ * `buildWakeFeaturesBlock` runs. Mirrors the env-overridable pattern of `heartbeatAlivePath()`
+ * + `wakeSafetyGate.gateFilePath()`.
+ *
+ * Operator override: `POLL_INTERVAL=N` (seconds) propagates from the daemon to observability
+ * — a 15-min cadence (`POLL_INTERVAL=900`) yields a 30-min stale threshold, preventing the
+ * hardcoded-10-min observability gap that prompted this function-form (per #10931 review of
+ * PR #10930 by @neo-gemini-3-1-pro).
+ *
+ * @returns {Number} Stale-threshold in milliseconds (2× POLL_INTERVAL × 1000).
+ * @see ai/scripts/swarm-heartbeat.sh#POLL_INTERVAL
  */
 function heartbeatLivenessStaleMs() {
     const pollIntervalSec = parseInt(process.env.POLL_INTERVAL, 10) || 300;

@@ -91,6 +91,55 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
         TransportService.destroy();
     });
 
+    test('setup() awaits listener accept-state before resolving (#10932)', async () => {
+        // Bind-race regression guard: prior to #10932, TransportService.setup() returned
+        // synchronously after `app.listen()` without awaiting the listen-callback. Under load
+        // or fullyParallel test interleaving, the calling spec's subsequent `fetch()` could
+        // race the bind and observe the response object lacking expected shape (e.g.,
+        // `initResponse.headers` undefined). The fix wraps `app.listen()` in a Promise that
+        // resolves only after the listen-callback fires. This test asserts the deterministic
+        // accept-state guarantee directly: immediately after `setup` resolves, an HTTP probe
+        // must not surface a connection-refused error.
+        const TransportService = (await import('../../../../../../../../ai/mcp/server/shared/services/TransportService.mjs')).default;
+
+        const probePort = 3126; // distinct from the prior test's 3125 to avoid intra-spec collision
+        const mockServer = {
+            mcpServer      : { connect: async () => {} },
+            onSessionClosed: () => {}
+        };
+        const mockAiConfig = { mcpHttpPort: probePort, auth: {} };
+        const mockLogger   = { info: () => {} };
+
+        await TransportService.setup({
+            server: mockServer,
+            aiConfig: mockAiConfig,
+            logger: mockLogger,
+            resourceName: 'BindRaceProbeResource'
+        });
+
+        // Probe immediately — if the bind raced, fetch would surface ECONNREFUSED via thrown
+        // error. Status code itself is irrelevant for the bind-race regression test; what
+        // matters is that fetch resolves (listener accepted the TCP connection) rather than
+        // rejecting with a connection error. Any HTTP status (200 / 401 / 404 / 405) is proof
+        // the listener was accepting at the moment `setup` resolved.
+        let response;
+        let connectionError;
+        try {
+            response = await fetch(`http://localhost:${probePort}/mcp`, {
+                method : 'GET',
+                headers: { 'Accept': 'application/json' }
+            });
+        } catch (e) {
+            connectionError = e;
+        }
+
+        expect(connectionError).toBeUndefined();
+        expect(response).toBeDefined();
+        expect(typeof response.status).toBe('number');
+
+        TransportService.destroy();
+    });
+
     test.describe('resolveAuthContext proxy-identity injection', () => {
         let TransportService;
 

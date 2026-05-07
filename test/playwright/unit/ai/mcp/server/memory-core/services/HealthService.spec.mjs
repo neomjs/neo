@@ -822,4 +822,36 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
         expect(result.secondsSinceLastPulse).toBe(5);
         expect(result.daemonRunning).toBe(true); // 5s < 10min stale threshold
     });
+
+    test('POLL_INTERVAL env override widens stale threshold (#10931 AC4)', async () => {
+        // Operator-side POLL_INTERVAL override (e.g., 15-min cadence) must propagate to the
+        // observability stale threshold so a properly-running daemon at the new cadence is
+        // still reported `daemonRunning: true`. Without this propagation, the hardcoded 10-min
+        // threshold would falsely flag a 15-min-cadence daemon as stopped after ~11 min idle.
+        const fs = await import('fs/promises');
+
+        const originalPollInterval = process.env.POLL_INTERVAL;
+        process.env.POLL_INTERVAL = '900'; // 15 min cadence → 30 min stale threshold (2×)
+
+        try {
+            await fs.writeFile(process.env.NEO_HEARTBEAT_ALIVE_PATH, '');
+
+            // Backdate liveness mtime to 11 min ago — past the default 10-min hardcoded threshold,
+            // but well within the 30-min POLL_INTERVAL=900 stale window.
+            const elevenMinAgo = new Date(Date.now() - 11 * 60 * 1000);
+            await fs.utimes(process.env.NEO_HEARTBEAT_ALIVE_PATH, elevenMinAgo, elevenMinAgo);
+
+            const result = await buildWakeFeaturesBlock();
+
+            expect(result.daemonRunning).toBe(true); // 11 min < 30 min stale threshold
+            expect(result.secondsSinceLastPulse).toBeGreaterThan(600);
+            expect(result.secondsSinceLastPulse).toBeLessThan(1800);
+        } finally {
+            if (originalPollInterval !== undefined) {
+                process.env.POLL_INTERVAL = originalPollInterval;
+            } else {
+                delete process.env.POLL_INTERVAL;
+            }
+        }
+    });
 });
