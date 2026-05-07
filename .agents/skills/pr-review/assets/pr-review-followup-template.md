@@ -60,9 +60,10 @@ This is the follow-up form of the Depth Floor. Do not omit it because the prior 
 
 ---
 
-### Test-Execution Audit
+### Test-Execution & Location Audit
 
 *   **Changed surface class:** [code / test / docs-template only / PR body only]
+*   **Location check:** [pass / incorrect placement flagged / N/A]
 *   **Related verification run:** [command + result, or "No tests required: docs/template-only delta"]
 *   **Findings:** [pass / fail / not applicable with reason]
 

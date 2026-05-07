@@ -273,15 +273,15 @@ Reviewers MUST verify symmetry between **stated framing** and **mechanical imple
 
 Two empirical anchors confirm the pattern: rhetorical drift fires both at author-side (PR description framing) and reviewer-side (challenge framing). The §7.4 mandate applies to both surfaces.
 
-### 7.5 Test-Execution Audit
+### 7.5 Test-Execution & Location Audit
 
-When reviewing a PR, you MUST empirically verify code execution, but only for **RELATED** tests. Do NOT blindly run the entire automated test suite, as it destroys the focus window and wastes tokens.
+When reviewing a PR, you MUST empirically verify code execution and test file placement, but only for **RELATED** tests. Do NOT blindly run the entire automated test suite, as it destroys the focus window and wastes tokens.
 
-Reviewers MUST verify testing claims by executing the relevant test files locally in their workspace:
-1. If the PR modifies a test file, run that specific test file.
-2. If the PR modifies structural code, verify if tests exist or if the author ran them. Run the related tests if applicable.
+Reviewers MUST verify testing claims and canonical file placement:
+1. **Execution:** Execute the relevant test files locally in your workspace. If the PR modifies a test file, run that specific test file. If the PR modifies structural code, verify if tests exist or if the author ran them. Run the related tests if applicable.
+2. **Location:** Verify that any new or moved test files are placed in the correct canonical directories as defined in `.agents/skills/unit-test/references/unit-test.md` (e.g., MCP tests MUST go to `test/playwright/unit/ai/mcp/server/`).
 3. If the PR is a documentation or template change, no tests are required. Do not demand tests for docs.
-4. If the author did not provide test evidence for structural logic changes, flag this as a **Required Action**.
+4. If the author did not provide test evidence for structural logic changes, or placed tests in legacy/incorrect directories, flag this as a **Required Action**.
 
 ### 7.6 Anti-Patterns
 
@@ -294,7 +294,7 @@ Reviewers MUST verify testing claims by executing the relevant test files locall
 | Style-calibrating toward the other model family's tone | §7.2 — the floor keeps rigor universal, not style convergence |
 | Ignoring Chain of Custody | §7.3 Provenance Audit violated on a major abstraction |
 | Approval without rhetorical-drift audit on a PR carrying substantive architectural prose | §7.4 Rhetorical-Drift Audit violated; framing drifts from mechanical reality, poisons `ask_knowledge_base` ingestion |
-| Approving `[EXECUTION_QUALITY]` without executing the author's test evidence | §7.5 Test-Execution Audit violated; reviewers must independently verify testing claims |
+| Approving `[EXECUTION_QUALITY]` without executing the author's test evidence or checking test locations | §7.5 Test-Execution & Location Audit violated; reviewers must independently verify testing claims and canonical file placement |
 | PR names an epic as close-target without flagging | §5.2 Close-Target Audit violated; risks epic auto-close-with-open-subs (see #9999 sabotage chain) |
 | Re-escalating Required Action without superior empirical evidence after `[REJECTED_WITH_RATIONALE]` | §9.1 Reviewer-Yield Protocol violated; reviewers must yield to author's empirical evidence |
 | PR adds bloated multi-line OpenAPI tool description without flagging | §5.3 MCP-Tool-Description Budget Audit violated; bloat compounds across the tool surface and competes with agent reasoning budget at runtime |
