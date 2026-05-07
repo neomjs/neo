@@ -60,6 +60,9 @@ jobs:
           # Test specs check `process.env.NEO_TEST_SKIP_CI` and skip cleanly.
           # See #10903 (unit-suite buckets A-E) + #10917/#10918 (bucket F).
           NEO_TEST_SKIP_CI: 'true'
+          # PR-local diagnostic for #10917: bypass only the CrossTenantIsolation
+          # skip so CI captures alice add_memory's tool-level error payload.
+          NEO_TEST_DIAGNOSE_10917: 'true'
 
       - name: Upload test artifacts on failure
         if: failure()

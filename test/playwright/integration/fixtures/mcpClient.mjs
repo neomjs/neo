@@ -65,6 +65,42 @@ export function readToolJson(result, label = 'MCP tool') {
 }
 
 /**
+ * @summary Formats diagnostic JSON for MCP assertion messages.
+ * Formats diagnostic JSON for MCP assertion messages.
+ * @param {*} value The value to serialize.
+ * @returns {String} Pretty-printed JSON, or an unserializable-value marker.
+ */
+function formatDiagnosticJson(value) {
+    try {
+        return JSON.stringify(value, null, 2);
+    } catch (error) {
+        return `[unserializable value: ${error.message}]`;
+    }
+}
+
+/**
+ * @summary Builds an assertion message for MCP tool-level errors.
+ * Builds an assertion message for MCP tool-level errors.
+ * @param {String} name   The tool name.
+ * @param {Object} result The MCP SDK tool result.
+ * @param {Object} args   The tool arguments.
+ * @returns {String} The formatted assertion message.
+ */
+function buildToolErrorMessage(name, result, args) {
+    const textContent = result.content
+        ?.filter(item => item.type === 'text')
+        .map(item => item.text)
+        .join('\n') || '<no text content>';
+
+    return [
+        `MCP tool ${name} should not return isError`,
+        `content:\n${textContent}`,
+        `structuredContent:\n${formatDiagnosticJson(result.structuredContent || null)}`,
+        `arguments:\n${formatDiagnosticJson(args)}`
+    ].join('\n\n');
+}
+
+/**
  * @summary Calls an MCP tool and returns its JSON payload.
  * Calls an MCP tool and returns its JSON payload.
  * @param {Client} client The connected MCP client.
@@ -75,7 +111,7 @@ export function readToolJson(result, label = 'MCP tool') {
 export async function callJsonTool(client, name, args = {}) {
     const result = await client.callTool({name, arguments: args});
 
-    expect(result.isError).not.toBe(true);
+    expect(result.isError, buildToolErrorMessage(name, result, args)).not.toBe(true);
 
     return readToolJson(result, `MCP tool ${name}`);
 }

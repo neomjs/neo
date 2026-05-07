@@ -22,7 +22,12 @@ test.describe('Dockerized MC cross-tenant isolation integration (#10895)', () =>
         // Application-layer bug — auth + per-session McpServer substrate are sound (AuthRejection
         // and basic healthcheck pass). Deferred for separate investigation (Phase 1 diagnostic
         // capture of MC's actual error response, then Phase 2 fix). Unblocks Lane C #10897 close.
-        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: bucket F application-spec deferral — see #10917');
+        const diagnose10917 = process.env.NEO_TEST_DIAGNOSE_10917 === 'true';
+
+        test.skip(
+            !!process.env.NEO_TEST_SKIP_CI && !diagnose10917,
+            'CI-skip: bucket F application-spec deferral — see #10917'
+        );
 
         const readiness = await getReadiness();
 
