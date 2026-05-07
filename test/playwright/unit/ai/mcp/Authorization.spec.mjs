@@ -73,15 +73,15 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
         mcpServerProcess = spawn('node', [SERVER_PATH, '--debug'], {
             env: {
                 ...process.env,
-                TRANSPORT      : 'sse',
-                SSE_PORT       : MCP_SSE_PORT.toString(),
-                AUTO_SYNC      : 'false',
-                AUTO_SUMMARIZE : 'false',
-                AUTH_HOST      : 'localhost',
-                AUTH_PORT      : MOCK_OIDC_PORT.toString(),
-                AUTH_REALM     : 'test',
-                OAUTH_CLIENT_ID: TEST_CLIENT_ID,
-                HOST           : 'localhost'
+                NEO_TRANSPORT     : 'sse',
+                SSE_PORT          : MCP_SSE_PORT.toString(),
+                NEO_AUTO_SYNC     : 'false',
+                NEO_AUTO_SUMMARIZE: 'false',
+                AUTH_HOST         : 'localhost',
+                AUTH_PORT         : MOCK_OIDC_PORT.toString(),
+                AUTH_REALM        : 'test',
+                OAUTH_CLIENT_ID   : TEST_CLIENT_ID,
+                HOST              : 'localhost'
             }
         });
 
@@ -185,13 +185,13 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
         const discoveryProcess = spawn('node', [SERVER_PATH, '--debug'], {
             env: {
                 ...process.env,
-                TRANSPORT      : 'sse',
-                SSE_PORT       : DISCOVERY_MCP_PORT.toString(),
-                AUTO_SYNC      : 'false',
-                AUTO_SUMMARIZE : 'false',
-                AUTH_ISSUER_URL: `http://localhost:${MOCK_OIDC_PORT}/realms/test`,
-                OAUTH_CLIENT_ID: TEST_CLIENT_ID,
-                HOST           : 'localhost'
+                NEO_TRANSPORT     : 'sse',
+                SSE_PORT          : DISCOVERY_MCP_PORT.toString(),
+                NEO_AUTO_SYNC     : 'false',
+                NEO_AUTO_SUMMARIZE: 'false',
+                AUTH_ISSUER_URL   : `http://localhost:${MOCK_OIDC_PORT}/realms/test`,
+                OAUTH_CLIENT_ID   : TEST_CLIENT_ID,
+                HOST              : 'localhost'
             }
         });
 
