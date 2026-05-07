@@ -216,7 +216,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
 
             await TransportService.setup({
                 server: { mcpServer: { connect: async () => {} } },
-                aiConfig: { publicUrl: 'https://public.example.com', ssePort: 3000, auth: {} },
+                aiConfig: { publicUrl: 'https://public.example.com', mcpHttpPort: 3000, auth: {} },
                 logger: { info: () => {} },
                 resourceName: 'Test'
             });
@@ -231,7 +231,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
 
             await TransportService.setup({
                 server: { mcpServer: { connect: async () => {} } },
-                aiConfig: { ssePort: 3000, auth: {} },
+                aiConfig: { mcpHttpPort: 3000, auth: {} },
                 logger: { info: () => {} },
                 resourceName: 'Test'
             });
@@ -246,7 +246,7 @@ test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
 
             await TransportService.setup({
                 server: { mcpServer: { connect: async () => {} } },
-                aiConfig: { publicUrl: '', ssePort: 3000, auth: {} },
+                aiConfig: { publicUrl: '', mcpHttpPort: 3000, auth: {} },
                 logger: { info: () => {} },
                 resourceName: 'Test'
             });

@@ -98,7 +98,10 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         }
     });
 
-    test.afterAll(() => {
+    test.afterAll(async () => {
+        const { cleanupChromaManager } = await import('../util.mjs');
+        await cleanupChromaManager();
+
         if (GraphService?.db) {
             if (GraphService.db.storage && GraphService.db.storage.db) {
                 try {

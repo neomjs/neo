@@ -39,8 +39,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
         testDbPath = path.join(tmpDir, testDbName);
         mockFsRoot = path.join(tmpDir, `fs-ingest-mock-${Date.now()}`);
 
-        aiConfig.engines.neo.dataDir  = tmpDir;
-        aiConfig.engines.neo.filename = testDbName;
+        aiConfig.storagePaths.graph = testDbPath;
 
         GraphService       = (await import('../../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
         FileSystemIngestor = (await import('../../../../../../../../ai/mcp/server/memory-core/services/FileSystemIngestor.mjs')).default;
@@ -95,7 +94,10 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
         }
     });
 
-    test.afterAll(() => {
+    test.afterAll(async () => {
+        const { cleanupChromaManager } = await import('../util.mjs');
+        await cleanupChromaManager();
+
         if (GraphService?.db) {
             if (GraphService.db.storage && GraphService.db.storage.db) {
                 try { GraphService.db.storage.db.close(); } catch (e) {};

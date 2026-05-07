@@ -46,8 +46,11 @@ test.describe('SessionService.queueSummarizationJob primary-flag gate (#10813)',
         const fs = await import('fs');
 
         const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const path = await import("path");
+        const tmpDir = path.resolve(process.cwd(), "tmp");
+        aiConfig.storagePaths.graph = path.join(tmpDir, "test-graph-" + Date.now() + "-" + Math.random().toString(36).substring(7) + ".db");
 
-        const tmpDir = path.resolve(process.cwd(), 'tmp');
+        
         if (!fs.existsSync(tmpDir)) {
             fs.mkdirSync(tmpDir, {recursive: true});
         }
@@ -77,16 +80,8 @@ test.describe('SessionService.queueSummarizationJob primary-flag gate (#10813)',
     });
 
     test.afterAll(async () => {
-        try {
-            if (SDK.Memory_ChromaManager && SDK.Memory_ChromaManager.client) {
-                await SDK.Memory_ChromaManager.client.deleteCollection({name: SDK.Memory_Config.data.collections.memory});
-                await SDK.Memory_ChromaManager.client.deleteCollection({name: SDK.Memory_Config.data.collections.session});
-            }
-        } catch (e) {}
-
-        if (SDK?.Memory_LifecycleService) {
-            SDK.Memory_LifecycleService._initPromise = null;
-        }
+        const { cleanupChromaManager } = await import('../util.mjs');
+        await cleanupChromaManager(SDK);
     });
 
     test.beforeEach(() => {

@@ -123,8 +123,8 @@ test.describe('KB MCP server logger — always-on file sink (#10576)', () => {
             expect(content).toContain('[ERROR] error-line');
 
             // Each line carries an ISO 8601 timestamp prefix.
-            const firstLine = content.split('\n')[0];
-            expect(firstLine).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[LOG\]/);
+            const logLine = content.split('\n').find(line => line.includes('[LOG] hello-world'));
+            expect(logLine).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z \[LOG\] hello-world/);
         } finally {
             aiConfig.data.debug = wasDebug;
         }
