@@ -74,11 +74,12 @@ const execFileAsync = promisify(execFile);
  *   pre-#9922 Two-Pillar RAG architecture (last-written 2026-04-15). Replaced by the canonical
  *   `.neo-ai-data/sqlite/memory-core-graph.sqlite` (graph via `better-sqlite3`) +
  *   `.neo-ai-data/chroma/memory-core/` (vectors via Chroma). The `SQLiteVectorManager` that
- *   wrote it has zero production callers (only `AbstractVectorManager` parent + the legacy
- *   one-off `importBackupToSQLite.mjs`); `defragSQLiteDB.mjs` targets a different filename
- *   (`knowledge-graph.sqlite`) and never touches this file. `bootstrapWorktree.mjs` symlinks
- *   the directory across worktrees for backward-compat, but no production code reads or writes
- *   it. Operator may `rm -rf .neo-ai-data/neo-sqlite/` to reclaim ~329 MB at any time.
+ *   wrote it has zero production callers (only `AbstractVectorManager` parent remains); the
+ *   legacy one-off `importBackupToSQLite.mjs` was retired in #10871 AC-B in favour of the
+ *   canonical `npm run ai:restore` orchestrator. `defragSQLiteDB.mjs` targets a different
+ *   filename (`knowledge-graph.sqlite`) and never touches this file. `bootstrapWorktree.mjs`
+ *   symlinks the directory across worktrees for backward-compat, but no production code reads
+ *   or writes it. Operator may `rm -rf .neo-ai-data/neo-sqlite/` to reclaim ~329 MB at any time.
  * - `.neo-ai-data/wake-daemon/{bridge.log,inflight-*.txt,lastSyncId,heartbeat-*.log,sweep-errors.log}`
  *   — operational / process state owned by the bridge daemon and heartbeat substrate; classified
  *   as live-orchestration recovery, not substrate backup. Distinct backup track if needed.
