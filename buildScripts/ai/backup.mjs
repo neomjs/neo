@@ -1,6 +1,11 @@
+import {execFile}       from 'child_process';
 import fs               from 'fs-extra';
 import path             from 'path';
+import {promisify}      from 'util';
 import {fileURLToPath}  from 'url';
+
+import kbConfig         from '../../ai/mcp/server/knowledge-base/config.mjs';
+import mcConfig         from '../../ai/mcp/server/memory-core/config.mjs';
 
 import {
     KB_DatabaseService,
@@ -8,6 +13,8 @@ import {
     Memory_DatabaseService,
     Memory_LifecycleService
 } from '../../ai/services.mjs';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * @module buildScripts/ai/backup
@@ -59,8 +66,30 @@ import {
  * `defragChromaDB.cleanOldBackups` against `dist/chromadb-backups/<target>/`. No automated
  * migration is provided — the archives are cheap and the manual decision is low-risk.
  *
+ * ## Intentionally-Excluded Substrate (Per #10871)
+ *
+ * The following `.neo-ai-data/` paths are **NOT** included in the bundle by design:
+ *
+ * - `.neo-ai-data/neo-sqlite/memory-core.sqlite` — legacy combined vector+graph store from the
+ *   pre-#9922 Two-Pillar RAG architecture (last-written 2026-04-15). Replaced by the canonical
+ *   `.neo-ai-data/sqlite/memory-core-graph.sqlite` (graph via `better-sqlite3`) +
+ *   `.neo-ai-data/chroma/memory-core/` (vectors via Chroma). The `SQLiteVectorManager` that
+ *   wrote it has zero production callers (only `AbstractVectorManager` parent + the legacy
+ *   one-off `importBackupToSQLite.mjs`); `defragSQLiteDB.mjs` targets a different filename
+ *   (`knowledge-graph.sqlite`) and never touches this file. `bootstrapWorktree.mjs` symlinks
+ *   the directory across worktrees for backward-compat, but no production code reads or writes
+ *   it. Operator may `rm -rf .neo-ai-data/neo-sqlite/` to reclaim ~329 MB at any time.
+ * - `.neo-ai-data/wake-daemon/{bridge.log,inflight-*.txt,lastSyncId,heartbeat-*.log,sweep-errors.log}`
+ *   — operational / process state owned by the bridge daemon and heartbeat substrate; classified
+ *   as live-orchestration recovery, not substrate backup. Distinct backup track if needed.
+ * - Physical Chroma data directories (`.neo-ai-data/chroma/{kb,mc}/`) — the bundle captures the
+ *   logical state via JSONL exports, not the on-disk HNSW indexes. Restore re-ingests via the
+ *   canonical `manageDatabaseImport` SDK path. Physical pre-nuke snapshots remain
+ *   `defragChromaDB.mjs`-exclusive at `dist/chromadb-backups/`.
+ *
  * @see buildScripts/ai/defragChromaDB.mjs
  * @see https://github.com/neomjs/neo/issues/10129
+ * @see https://github.com/neomjs/neo/issues/10871
  */
 
 const __filename   = fileURLToPath(import.meta.url);
@@ -69,6 +98,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '../..');
 
 const DEFAULT_CONCEPTS_DIR      = path.join(PROJECT_ROOT, '.neo-ai-data', 'concepts');
 const DEFAULT_TRAJECTORIES_FILE = path.join(PROJECT_ROOT, '.neo-ai-data', 'datasets', 'rlaif', 'trajectories.jsonl');
+const DEFAULT_SENT_TO_CULL_FILE = path.join(path.dirname(mcConfig.storagePaths.graph), 'sent-to-cull.jsonl');
 const DEFAULT_BACKUP_ROOT       = path.join(PROJECT_ROOT, '.neo-ai-data', 'backups');
 
 /**
@@ -85,6 +115,7 @@ export async function runBackup({
     bundleRoot             = null,
     conceptsSourceDir      = DEFAULT_CONCEPTS_DIR,
     trajectoriesSourceFile = DEFAULT_TRAJECTORIES_FILE,
+    sentToCullSourceFile   = DEFAULT_SENT_TO_CULL_FILE,
     logger                 = console
 } = {}) {
     const timestamp    = new Date().toISOString().replace(/:/g, '-');
@@ -95,7 +126,8 @@ export async function runBackup({
         mc          : path.join(resolvedRoot, 'mc'),
         graph       : path.join(resolvedRoot, 'graph'),
         concepts    : path.join(resolvedRoot, 'concepts'),
-        trajectories: path.join(resolvedRoot, 'trajectories')
+        trajectories: path.join(resolvedRoot, 'trajectories'),
+        mailbox     : path.join(resolvedRoot, 'mailbox')
     };
 
     await Promise.all(Object.values(layout).map(dir => fs.ensureDir(dir)));
@@ -107,41 +139,186 @@ export async function runBackup({
 
     const subsystems = {};
 
-    logger.log('[1/5] Exporting Knowledge Base...');
+    logger.log('[1/7] Exporting Knowledge Base...');
     subsystems.kb = await KB_DatabaseService.manageDatabaseBackup({
         action    : 'export',
         backupPath: layout.kb
     });
 
-    logger.log('[2/5] Exporting Memory Core (memories + summaries)...');
+    logger.log('[2/7] Exporting Memory Core (memories + summaries)...');
     subsystems.mc = await Memory_DatabaseService.manageDatabaseBackup({
         action    : 'export',
         include   : ['memories', 'summaries'],
         backupPath: layout.mc
     });
 
-    logger.log('[3/5] Exporting Memory Core graph...');
+    logger.log('[3/7] Exporting Memory Core graph...');
     subsystems.graph = await Memory_DatabaseService.manageDatabaseBackup({
         action    : 'export',
         include   : ['graph'],
         backupPath: layout.graph
     });
 
-    logger.log('[4/5] Copying Concept Ontology...');
-    subsystems.concepts = await copyJsonlSource(conceptsSourceDir, layout.concepts);
+    logger.log('[4/7] Copying Concept Ontology...');
+    subsystems.concepts = await copyJsonlSource(conceptsSourceDir, layout.concepts, logger);
 
-    logger.log('[5/5] Copying RLAIF trajectories...');
-    subsystems.trajectories = await copyJsonlSource(trajectoriesSourceFile, layout.trajectories);
+    logger.log('[5/7] Copying RLAIF trajectories...');
+    subsystems.trajectories = await copyJsonlSource(trajectoriesSourceFile, layout.trajectories, logger);
 
-    logger.log('[6/6] Applying retention sweep...');
+    logger.log('[6/7] Copying mailbox sent-to-cull archive...');
+    subsystems.mailbox = await copyJsonlSource(sentToCullSourceFile, layout.mailbox, logger);
+
+    logger.log('[7/7] Applying retention sweep...');
     await cleanOldBackups(DEFAULT_BACKUP_ROOT, logger);
 
+    logger.log('Verifying bundle integrity (row-count parity)...');
+    const integrity = await verifyBundleIntegrity(layout, subsystems);
+    const failedChecks = integrity.filter(check => check.status === 'fail');
+    if (failedChecks.length > 0) {
+        throw new Error(
+            `Bundle integrity check failed for ${failedChecks.length} subsystem(s):\n` +
+            failedChecks.map(c => `  - ${c.subsystem}: ${c.reason}`).join('\n')
+        );
+    }
+
     const completedAt = new Date().toISOString();
-    const meta = { timestamp, completedAt, subsystems };
+    const topology    = buildTopologyDescriptor();
+    const versionInfo = await buildVersionDescriptor(PROJECT_ROOT, logger);
+    const meta = {
+        bundleVersion: 1,
+        timestamp,
+        completedAt,
+        subsystems,
+        integrity,
+        topology,
+        ...versionInfo
+    };
     await fs.writeJson(path.join(resolvedRoot, 'bundle-meta.json'), meta, { spaces: 2 });
 
     logger.log(`✅ Backup complete: ${resolvedRoot}`);
-    return {bundleRoot: resolvedRoot, timestamp, completedAt, subsystems};
+    return {bundleRoot: resolvedRoot, timestamp, completedAt, subsystems, meta};
+}
+
+/**
+ * Verifies row-count parity between source collections and the JSONL files written into the
+ * bundle. For subsystems whose `manageDatabaseBackup({action: 'export'})` SDK call returns a
+ * numeric count (KB, MC memories+summaries, MC graph), this function counts non-empty lines
+ * in the bundle's JSONL files and compares — mismatch indicates a partial/torn write that the
+ * caller treats as a fail-the-bundle condition.
+ *
+ * For file-copy subsystems (concepts, trajectories, mailbox) the source side has no
+ * authoritative count to compare against — `copyJsonlSource`'s reported `copied` field
+ * already covers the file-presence check, so these are skipped with `status: 'skipped'`.
+ *
+ * @param {Object} layout     The bundle's per-subsystem destination directory map.
+ * @param {Object} subsystems The runBackup `subsystems` map of SDK return values.
+ * @returns {Promise<Array<{subsystem: String, status: 'pass'|'fail'|'skipped', sourceCount?: Number, bundleCount?: Number, reason?: String}>>}
+ */
+export async function verifyBundleIntegrity(layout, subsystems) {
+    const verifiable = ['kb', 'mc', 'graph'];
+    const checks     = [];
+
+    for (const subsystem of verifiable) {
+        const raw         = subsystems[subsystem];
+        const sourceCount = typeof raw === 'number' ? raw : raw?.count;
+
+        if (typeof sourceCount !== 'number') {
+            checks.push({subsystem, status: 'skipped', reason: 'no numeric source count returned by SDK'});
+            continue;
+        }
+
+        const dir = layout[subsystem];
+
+        if (!await fs.pathExists(dir)) {
+            checks.push({subsystem, status: 'fail', sourceCount, bundleCount: 0, reason: `bundle directory missing: ${dir}`});
+            continue;
+        }
+
+        const files = (await fs.readdir(dir)).filter(f => f.endsWith('.jsonl'));
+        let bundleCount = 0;
+
+        for (const file of files) {
+            const content = await fs.readFile(path.join(dir, file), 'utf8');
+            bundleCount += content.split('\n').filter(line => line.trim()).length;
+        }
+
+        if (bundleCount === sourceCount) {
+            checks.push({subsystem, status: 'pass', sourceCount, bundleCount});
+        } else {
+            checks.push({
+                subsystem,
+                status: 'fail',
+                sourceCount,
+                bundleCount,
+                reason: `row-count mismatch: source=${sourceCount}, bundle=${bundleCount} (delta ${bundleCount - sourceCount})`
+            });
+        }
+    }
+
+    return checks
+}
+
+/**
+ * Builds the topology descriptor block for `bundle-meta.json`. Captures the federated-vs-unified
+ * Chroma topology + KB/MC coordinates at backup time so a restore consumer can detect topology
+ * mismatch (`bundle-meta.topology.chromaUnified` vs current `aiConfig.chromaUnified`) and refuse
+ * to clobber a target whose deployment shape diverged from the bundle source.
+ *
+ * Forward-compat extension point for #10871 AC-B (`buildScripts/ai/restore.mjs`).
+ *
+ * @returns {{chromaUnified: Boolean, kbChromaCoords: Object, mcChromaCoords: Object}}
+ */
+function buildTopologyDescriptor() {
+    return {
+        chromaUnified : Boolean(mcConfig.chromaUnified),
+        kbChromaCoords: {
+            host: kbConfig.host    ?? null,
+            port: kbConfig.port    ?? null,
+            path: kbConfig.path    ?? null
+        },
+        mcChromaCoords: {
+            host   : mcConfig.engines?.chroma?.host    ?? null,
+            port   : mcConfig.engines?.chroma?.port    ?? null,
+            dataDir: mcConfig.engines?.chroma?.dataDir ?? null
+        }
+    }
+}
+
+/**
+ * Builds the version descriptor block for `bundle-meta.json`. Captures `neoVersion` from
+ * `package.json` and `gitSha` from the working tree's HEAD so a restore consumer can flag
+ * cross-version restores (e.g. backup taken under v12.0, restoring under v12.2 with schema
+ * migrations applied).
+ *
+ * Both fields are best-effort — missing `git` binary or unreadable `package.json` degrades to
+ * `null` rather than failing the bundle.
+ *
+ * @param {String} projectRoot Absolute repo root.
+ * @param {Object} logger      Log sink for non-fatal warnings.
+ * @returns {Promise<{neoVersion: String|null, gitSha: String|null}>}
+ */
+async function buildVersionDescriptor(projectRoot, logger) {
+    let neoVersion = process.env.npm_package_version ?? null;
+
+    if (!neoVersion) {
+        try {
+            const pkg = await fs.readJson(path.join(projectRoot, 'package.json'));
+            neoVersion = pkg.version ?? null;
+        } catch (err) {
+            logger.warn?.(`[Backup] failed to read package.json for neoVersion: ${err.message}`);
+        }
+    }
+
+    let gitSha = null;
+
+    try {
+        const {stdout} = await execFileAsync('git', ['rev-parse', 'HEAD'], {cwd: projectRoot});
+        gitSha = stdout.trim() || null;
+    } catch (err) {
+        logger.warn?.(`[Backup] failed to capture gitSha: ${err.message}`);
+    }
+
+    return {neoVersion, gitSha}
 }
 
 /**
@@ -211,14 +388,21 @@ async function cleanOldBackups(backupRoot, logger) {
 
 /**
  * Copies JSONL data from a source (either a directory of JSONL files or a single JSONL file)
- * into the destination directory. Missing sources are reported, not fatal — concepts and
- * trajectories may legitimately not exist in fresh environments.
+ * into the destination directory. Missing sources are reported via `note`, not fatal — concepts
+ * and trajectories may legitimately not exist in fresh environments.
  *
- * @param {String} source  Absolute path to a JSONL file or a directory containing JSONL files.
- * @param {String} destDir Absolute path to the target subfolder inside the bundle.
+ * **Empty-source observability (#10871):** when the source PATH exists but yields zero bytes
+ * of bundle-able data (directory with no `.jsonl` files, OR a 0-byte file), the function emits
+ * a warning via `logger.warn(...)` so silent-empty subsystems are visible during backup.
+ * Source-absent (path does not exist) remains silent — fresh-environment fixtures legitimately
+ * lack concepts/trajectories.
+ *
+ * @param {String} source         Absolute path to a JSONL file or a directory containing JSONL files.
+ * @param {String} destDir        Absolute path to the target subfolder inside the bundle.
+ * @param {Object} [logger=console] Log sink; receives `.warn(message)` calls for empty sources.
  * @returns {Promise<{copied: Number, note?: String}>}
  */
-async function copyJsonlSource(source, destDir) {
+async function copyJsonlSource(source, destDir, logger=console) {
     if (!await fs.pathExists(source)) {
         return {copied: 0, note: `source not present: ${source}`};
     }
@@ -229,11 +413,21 @@ async function copyJsonlSource(source, destDir) {
         const entries    = await fs.readdir(source);
         const jsonlFiles = entries.filter(f => f.endsWith('.jsonl'));
 
+        if (jsonlFiles.length === 0) {
+            logger.warn(`[Backup] source directory exists but contains no .jsonl files: ${source}`);
+        }
+
         await Promise.all(jsonlFiles.map(f =>
             fs.copy(path.join(source, f), path.join(destDir, f))
         ));
 
         return {copied: jsonlFiles.length};
+    }
+
+    if (stat.size === 0) {
+        logger.warn(`[Backup] source file is 0 bytes: ${source}`);
+        await fs.copy(source, path.join(destDir, path.basename(source)));
+        return {copied: 0, note: 'source file empty'};
     }
 
     await fs.copy(source, path.join(destDir, path.basename(source)));
