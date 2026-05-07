@@ -1,4 +1,5 @@
-import {test, expect}                 from '@playwright/test';
+import {test, expect}                  from '@playwright/test';
+import {assertSustainedHealth}         from './util/assertSustainedHealth.mjs';
 import {callHealthcheck, getReadiness} from './fixtures/mcpClient.mjs';
 
 const KB_URL = process.env.NEO_INTEGRATION_KB_URL || 'http://127.0.0.1:13000';
@@ -34,5 +35,18 @@ test.describe('Dockerized KB/MC MCP healthcheck integration (#10805 Lane A)', ()
         expect(mcHealth.providers.summary.credential.configured).toBe(true);
         expect(mcHealth.providers.auth.configured).toBe('proxy-header');
         expect(mcHealth.providers.auth.proxyHeader.trusted).toBe(true);
+    });
+
+    test('Sustained liveness (5s/1s window)', async () => {
+        const readiness = await getReadiness();
+
+        test.skip(readiness.dockerAvailable === false, `Docker unavailable: ${readiness.reason}`);
+
+        expect(readiness.servicesReady, readiness.reason).toBe(true);
+
+        await Promise.all([
+            assertSustainedHealth({ probe: () => callHealthcheck(KB_URL), windowMs: 5000, intervalMs: 1000 }),
+            assertSustainedHealth({ probe: () => callHealthcheck(MC_URL), windowMs: 5000, intervalMs: 1000 })
+        ]);
     });
 });
