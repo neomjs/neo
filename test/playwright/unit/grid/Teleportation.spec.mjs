@@ -24,6 +24,8 @@ import Store              from '../../../../src/data/Store.mjs';
 import VdomHelper         from '../../../../src/vdom/Helper.mjs';
 
 test.describe('Grid Teleportation & VDOM Deltas', () => {
+    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'bucket B: Grid tests require Playwright browsers in CI');
+
     let grid, store;
 
     test.beforeEach(async () => {
