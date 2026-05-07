@@ -3,11 +3,12 @@ services:
     image: chromadb/chroma:1.5.9
     tmpfs:
       - /chroma/chroma
-    # The chromadb/chroma image is debian-slim-based and does NOT include curl.
-    # Python is the runtime (Chroma is a Python app), so use urllib for the probe.
-    # Same target endpoint, fallback-safe across all chromadb image variants. (#10908)
+    # The chromadb/chroma image is debian-slim-based (python:3.11-slim-bookworm).
+    # Slim variants ship `python3` but the `python` symlink may be absent — using
+    # `python3` is portable across all chromadb image variants. urllib is stdlib;
+    # exception from urlopen propagates and exits non-zero naturally. (#10908, #10911)
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/v2/heartbeat',timeout=2).read() else 1)"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v2/heartbeat', timeout=2)"]
       interval: 5s
       timeout: 5s
       retries: 12
