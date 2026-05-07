@@ -172,7 +172,7 @@ test.describe('CoalescingEngineService', () => {
 
     test('dispatches mcp-notifications subscriptions via mcpServer.notification', async () => {
         let notificationCalledWith = null;
-        CoalescingEngineService.setMcpServer({
+        CoalescingEngineService.addMcpServer({
             notification: async (args) => {
                 notificationCalledWith = args;
             }
@@ -189,7 +189,7 @@ test.describe('CoalescingEngineService', () => {
         expect(notificationCalledWith.params.payload.messageId).toBe('M1');
 
         // cleanup
-        CoalescingEngineService.setMcpServer(null);
+        CoalescingEngineService.clearMcpServers();
     });
 
     test('does NOT dispatch bridge-daemon subscriptions (Shape C handles its own coalescing)', async () => {

@@ -102,6 +102,13 @@ class CoalescingEngineService extends Base {
     }
 
     /**
+     * @summary Clears all registered MCP server instances.
+     */
+    clearMcpServers() {
+        this.mcpServers.clear();
+    }
+
+    /**
      * Enqueue an event for coalesced delivery to a subscription. Starts (or extends)
      * the per-subscription timer; on fire, the engine builds a digest and dispatches.
      *
