@@ -283,7 +283,11 @@ Reviewers MUST verify testing claims and canonical file placement:
 3. If the PR is a documentation or template change, no tests are required. Do not demand tests for docs.
 4. If the author did not provide test evidence for structural logic changes, or placed tests in legacy/incorrect directories, flag this as a **Required Action**.
 
-### 7.6 Anti-Patterns
+### 7.6 CI / Security Checks Audit
+
+Before approving any PR, you MUST use the `view_file` tool to read and strictly adhere to `.agents/skills/pr-review/audits/ci-security-audit.md` to verify the automated GitHub Actions and Security checks.
+
+### 7.7 Anti-Patterns
 
 | Anti-pattern | Why it fails the Depth Floor |
 |---|---|
@@ -295,6 +299,7 @@ Reviewers MUST verify testing claims and canonical file placement:
 | Ignoring Chain of Custody | §7.3 Provenance Audit violated on a major abstraction |
 | Approval without rhetorical-drift audit on a PR carrying substantive architectural prose | §7.4 Rhetorical-Drift Audit violated; framing drifts from mechanical reality, poisons `ask_knowledge_base` ingestion |
 | Approving `[EXECUTION_QUALITY]` without executing the author's test evidence or checking test locations | §7.5 Test-Execution & Location Audit violated; reviewers must independently verify testing claims and canonical file placement |
+| Approving a PR with failing CI or security checks (like CodeQL) | §7.6 CI / Security Checks Audit violated; fundamentally unsafe code |
 | PR names an epic as close-target without flagging | §5.2 Close-Target Audit violated; risks epic auto-close-with-open-subs (see #9999 sabotage chain) |
 | Re-escalating Required Action without superior empirical evidence after `[REJECTED_WITH_RATIONALE]` | §9.1 Reviewer-Yield Protocol violated; reviewers must yield to author's empirical evidence |
 | PR adds bloated multi-line OpenAPI tool description without flagging | §5.3 MCP-Tool-Description Budget Audit violated; bloat compounds across the tool surface and competes with agent reasoning budget at runtime |
