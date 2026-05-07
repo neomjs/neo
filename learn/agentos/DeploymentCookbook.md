@@ -95,7 +95,7 @@ When provisioning your containers, supply the following minimal environment vari
 
 ## Section 7: Healthcheck Verification
 
-Once deployed, verify the stack by querying the healthcheck endpoints (e.g., `https://my-proxy.example.com/mc/health`).
+Once deployed, verify the stack by querying the healthcheck endpoints (e.g., `https://my-proxy.example.com/mc/healthcheck`).
 
 Expected JSON block (excerpt):
 ```json

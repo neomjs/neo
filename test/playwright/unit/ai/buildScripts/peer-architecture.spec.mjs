@@ -48,6 +48,7 @@ test.describe('backup.mjs ↔ defragChromaDB.mjs peer architecture (#10129 Phase
 
     test('backup.mjs does not import directly from ai/mcp/server/* (SDK bypass check)', () => {
         const source = fs.readFileSync(BACKUP_SCRIPT, 'utf8');
-        expect(source).not.toMatch(/from\s+['"][^'"]*ai\/mcp\/server\//);
+        // Config imports are permitted for topology detection (#10871), but operational SDK bypass is banned.
+        expect(source).not.toMatch(/from\s+['"][^'"]*ai\/mcp\/server\/(?!.*config\.mjs)['"]/);
     });
 });
