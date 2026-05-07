@@ -64,10 +64,10 @@ class CoalescingEngineService extends Base {
     maxWindowSeconds = 300
 
     /**
-     * @member {McpServer|null} mcpServer=null
+     * @member {Set<McpServer>} mcpServers
      * @protected
      */
-    mcpServer = null
+    mcpServers = new Set()
 
     /**
      * Per-subscription queue + timer state.
@@ -79,13 +79,26 @@ class CoalescingEngineService extends Base {
     coalesceState = new Map()
 
     /**
-     * @summary Injects the MCP server instance for push notifications.
+     * @summary Registers an MCP server instance for push notifications.
      * @description Provides the engine with the handle needed to dispatch
-     * notifications (Shape A) back to the client. Should be populated at boot.
+     * notifications (Shape A) back to the client. Should be populated at boot
+     * or per-SSE session.
      * @param {McpServer} mcpServer
      */
-    setMcpServer(mcpServer) {
-        this.mcpServer = mcpServer;
+    addMcpServer(mcpServer) {
+        if (mcpServer) {
+            this.mcpServers.add(mcpServer);
+        }
+    }
+
+    /**
+     * @summary Removes an MCP server instance.
+     * @param {McpServer} mcpServer
+     */
+    removeMcpServer(mcpServer) {
+        if (mcpServer) {
+            this.mcpServers.delete(mcpServer);
+        }
     }
 
     /**
@@ -288,17 +301,20 @@ class CoalescingEngineService extends Base {
         }
 
         if (target === 'mcp-notifications') {
-            if (!this.mcpServer) {
-                logger.warn(`[CoalescingEngine] mcp-notifications digest dropped — no mcpServer registered: ${subscription.id}`);
+            if (this.mcpServers.size === 0) {
+                logger.warn(`[CoalescingEngine] mcp-notifications digest dropped — no mcpServers registered: ${subscription.id}`);
                 return;
             }
-            try {
-                await this.mcpServer.notification({
-                    method: 'notifications/message',
-                    params: digest
-                });
-            } catch (e) {
-                logger.error(`[CoalescingEngine] mcp-notifications dispatch failed for ${subscription.id}: ${e.message}`);
+            
+            for (const server of this.mcpServers) {
+                try {
+                    await server.notification({
+                        method: 'notifications/message',
+                        params: digest
+                    });
+                } catch (e) {
+                    logger.error(`[CoalescingEngine] mcp-notifications dispatch failed for ${subscription.id} on server: ${e.message}`);
+                }
             }
             return;
         }
@@ -341,20 +357,23 @@ class CoalescingEngineService extends Base {
         }
 
         if (target === 'mcp-notifications') {
-            if (!this.mcpServer) {
-                logger.warn(`[CoalescingEngine] mcp-notifications raw dropped — no mcpServer registered: ${subscription.id}`);
+            if (this.mcpServers.size === 0) {
+                logger.warn(`[CoalescingEngine] mcp-notifications raw dropped — no mcpServers registered: ${subscription.id}`);
                 return;
             }
-            try {
-                // TRACKING: #10400 Fix
-                // The Antigravity IDE harness specifically expects raw events over MCP.
-                // We deliberately bypass the ADR 0002 `wake/digest` wire-contract here.
-                await this.mcpServer.notification({
-                    method: 'notifications/message',
-                    params: event
-                });
-            } catch (e) {
-                logger.error(`[CoalescingEngine] mcp-notifications raw dispatch failed for ${subscription.id}: ${e.message}`);
+            
+            for (const server of this.mcpServers) {
+                try {
+                    // TRACKING: #10400 Fix
+                    // The Antigravity IDE harness specifically expects raw events over MCP.
+                    // We deliberately bypass the ADR 0002 `wake/digest` wire-contract here.
+                    await server.notification({
+                        method: 'notifications/message',
+                        params: event
+                    });
+                } catch (e) {
+                    logger.error(`[CoalescingEngine] mcp-notifications raw dispatch failed for ${subscription.id} on server: ${e.message}`);
+                }
             }
             return;
         }

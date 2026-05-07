@@ -65,7 +65,7 @@ You must register an OAuth application with your Identity Provider (e.g., Google
 
 ### Authentication Modes
 You must configure the MCP servers to trust the proxy:
-- Set `AUTH_TRUST_PROXY_IDENTITY=true` on both servers.
+- Set `NEO_AUTH_TRUST_PROXY_IDENTITY=true` on both servers.
 - The proxy handles the OIDC flow, sets a session cookie, and injects the verified email or username into the `X-PREFERRED-USERNAME` header on all proxied requests.
 - See the [Authentication Threat Model](SharedDeployment.md#authentication) for details.
 
@@ -90,7 +90,7 @@ When provisioning your containers, supply the following minimal environment vari
 | `NEO_CHROMA_HOST` | Both | Internal URL of the Chroma instance. |
 | `NEO_CHROMA_PORT` | Both | Port of the Chroma instance. |
 | `NEO_PUBLIC_URL` | Both | The canonical public URL for this MCP server (e.g., `https://api.example.com/mc`). Required for SSE advertisement and OAuth `redirect_uri` generation behind reverse proxies. |
-| `AUTH_TRUST_PROXY_IDENTITY` | Both | Set to `true` if your reverse proxy handles authentication. |
+| `NEO_AUTH_TRUST_PROXY_IDENTITY` | Both | Set to `true` if your reverse proxy handles authentication. |
 | `GEMINI_API_KEY` | Both | Required for Gemini integration. |
 | `NEO_AUTO_SUMMARIZE` | MC | Set to `true` to enable startup + disconnect-driven session summarization. Pairs with `NEO_MC_PRIMARY` — both flags must be `true` for the path to fire (single-writer enforcement, [#10813](https://github.com/neomjs/neo/issues/10813)). |
 | `NEO_MC_PRIMARY` | MC | Set to `true` on the **canonical** Memory Core instance only. In multi-harness deployments where several MC instances share the same Chroma collection, this flag designates the single writer for session summarization; non-primary instances skip startup-summarization and disconnect-queueing to avoid races. |

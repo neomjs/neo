@@ -48,13 +48,13 @@ const defaultConfig = {
      * @type {Object}
      */
     auth: {
-        host              : process.env.AUTH_HOST || null,
-        port              : Number(process.env.AUTH_PORT) || 8080,
-        realm             : process.env.AUTH_REALM || 'master',
-        issuerUrl         : process.env.AUTH_ISSUER_URL || null,
-        clientId          : process.env.OAUTH_CLIENT_ID || null,
-        clientSecret      : process.env.OAUTH_CLIENT_SECRET || '',
-        trustProxyIdentity: process.env.AUTH_TRUST_PROXY_IDENTITY === 'true'
+        host              : process.env.NEO_AUTH_HOST || null,
+        port              : Number(process.env.NEO_AUTH_PORT) || 8080,
+        realm             : process.env.NEO_AUTH_REALM || 'master',
+        issuerUrl         : process.env.NEO_AUTH_ISSUER_URL || null,
+        clientId          : process.env.NEO_OAUTH_CLIENT_ID || null,
+        clientSecret      : process.env.NEO_OAUTH_CLIENT_SECRET || '',
+        trustProxyIdentity: process.env.NEO_AUTH_TRUST_PROXY_IDENTITY === 'true'
     },
     /**
      * A dummy embedding function to satisfy ChromaDB when embeddings are provided manually.

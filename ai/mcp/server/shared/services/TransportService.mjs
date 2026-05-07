@@ -79,6 +79,13 @@ class TransportService extends Base {
     transports = new Map()
 
     /**
+     * Map of active McpServer instances keyed by session ID.
+     * @member {Map} mcpServers
+     * @protected
+     */
+    mcpServers = new Map()
+
+    /**
      * Setups the SSE transport for an MCP server.
      * @param {Object} options
      * @param {Object} options.server The Neo MCP Server instance
@@ -131,6 +138,7 @@ class TransportService extends Base {
         app.all('/mcp', async (req, res) => {
             const sessionId = req.headers['mcp-session-id'];
             let transport;
+            let mcpServerInstance;
 
             if (sessionId) {
                 transport = this.transports.get(sessionId);
@@ -141,16 +149,29 @@ class TransportService extends Base {
             } else {
                 transport = new StreamableHTTPServerTransport({
                     sessionIdGenerator: () => crypto.randomUUID(),
-                    onsessioninitialized: (id) => this.transports.set(id, transport),
+                    onsessioninitialized: (id) => {
+                        this.transports.set(id, transport);
+                        if (mcpServerInstance) {
+                            this.mcpServers.set(id, mcpServerInstance);
+                        }
+                    },
                     onsessionclosed: (id) => {
+                        const closedServerInstance = this.mcpServers.get(id);
                         this.transports.delete(id);
+                        this.mcpServers.delete(id);
                         if (typeof server.onSessionClosed === 'function') {
-                            server.onSessionClosed(id);
+                            server.onSessionClosed(id, closedServerInstance);
                         }
                     }
                 });
 
-                await server.mcpServer.connect(transport);
+                if (typeof server.createMcpServer === 'function') {
+                    mcpServerInstance = server.createMcpServer();
+                } else {
+                    mcpServerInstance = server.mcpServer;
+                }
+
+                await mcpServerInstance.connect(transport);
             }
 
             // Propagate the authenticated identity and sessionId into the async call chain so service methods

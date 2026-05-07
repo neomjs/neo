@@ -42,6 +42,28 @@ class Server extends Base {
     mcpServer = null
 
     /**
+     * Creates a new MCP Server instance. Used by TransportService to provision
+     * a dedicated server object per SSE request to avoid SDK lifecycle collisions.
+     * @returns {McpServer}
+     */
+    createMcpServer() {
+        const mcpServer = new McpServer({
+            name   : 'neo-knowledge-base',
+            version: process.env.npm_package_version || '1.0.0',
+        }, {
+            capabilities: {
+                tools: {
+                    listChanged: false
+                }
+            }
+        });
+
+        this.setupRequestHandlers(mcpServer);
+
+        return mcpServer;
+    }
+
+    /**
      * Async initialization sequence.
      * Replaces the main() function of the previous procedural implementation.
      * @returns {Promise<void>}
@@ -59,20 +81,8 @@ class Server extends Base {
             }
         }
 
-        // 2. Initialize MCP Server instance
-        this.mcpServer = new McpServer({
-            name   : 'neo-knowledge-base',
-            version: process.env.npm_package_version || '1.0.0',
-        }, {
-            capabilities: {
-                tools: {
-                    listChanged: false
-                }
-            }
-        });
-
-        // 3. Setup Request Handlers
-        this.setupRequestHandlers();
+        // 2. Initialize the default stdio MCP Server instance
+        this.mcpServer = this.createMcpServer();
 
         // 4. Wait for dependent services
         // DatabaseService is a singleton, so we wait for its global ready state
@@ -141,10 +151,13 @@ class Server extends Base {
 
     /**
      * Wires up the MCP request handlers for listing and calling tools.
+     * @param {McpServer} mcpServer The target server instance
      */
-    setupRequestHandlers() {
+    setupRequestHandlers(mcpServer) {
+        if (!mcpServer) return;
+
         // List Tools Handler
-        this.mcpServer.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
+        mcpServer.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
             try {
                 const {cursor, limit}     = request.params || {};
                 const {tools, nextCursor} = listTools({cursor, limit});
@@ -171,7 +184,7 @@ class Server extends Base {
         });
 
         // Call Tool Handler
-        this.mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+        mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const {name, arguments: args} = request.params;
             const t0 = Date.now();
 
