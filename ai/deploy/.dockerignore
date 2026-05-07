@@ -1,0 +1,7 @@
+node_modules
+.neo-ai-data
+dist
+docs/output
+.git
+.github
+*.log

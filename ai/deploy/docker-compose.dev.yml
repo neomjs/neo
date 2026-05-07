@@ -1,0 +1,64 @@
+services:
+  chroma:
+    image: chromadb/chroma:1.5.9
+    # Tmpfs-mode option for Chroma when used as test fixture (cross-link to #10805)
+    tmpfs:
+      - /chroma/chroma
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - neo-mcp-network
+    ports:
+      - "8000:8000"
+
+  kb-server:
+    build:
+      context: ../..
+      dockerfile: ai/deploy/Dockerfile
+      args:
+        TARGET_SERVER: knowledge-base
+    environment:
+      - NEO_CHROMA_HOST=chroma
+      - NEO_CHROMA_PORT=8000
+      - MCP_HTTP_PORT=3000
+      - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+
+    volumes:
+      - ../..:/app
+    depends_on:
+      chroma:
+        condition: service_healthy
+    networks:
+      - neo-mcp-network
+    ports:
+      - "3000:3000"
+
+  mc-server:
+    build:
+      context: ../..
+      dockerfile: ai/deploy/Dockerfile
+      args:
+        TARGET_SERVER: memory-core
+    environment:
+      - NEO_CHROMA_UNIFIED=true
+      - NEO_CHROMA_HOST=chroma
+      - NEO_CHROMA_PORT=8000
+      - MCP_HTTP_PORT=3001
+      - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+
+    volumes:
+      - ../..:/app
+    depends_on:
+      chroma:
+        condition: service_healthy
+    networks:
+      - neo-mcp-network
+    ports:
+      - "3001:3001"
+
+networks:
+  neo-mcp-network:
+    driver: bridge
