@@ -34,7 +34,7 @@ We recommend building two distinct images (or running the same image with differ
 - **Resource Limits:** KB is read-heavy; MC is write-heavy. They can be scaled or constrained independently.
 - **Shared Chroma:** Both containers connect to a single unified Chroma instance via internal container networking.
 
-*(Note: Reference `Dockerfile` and `docker-compose.yml` artifacts are provided in the [`deploy/`](../../deploy/) directory, shipped under [#10801](https://github.com/neomjs/neo/issues/10801)).*
+*(Note: Reference `Dockerfile` and `docker-compose.yml` artifacts are provided in the [`ai/deploy/`](../../ai/deploy/) directory, shipped under [#10801](https://github.com/neomjs/neo/issues/10801)).*
 
 ## Section 3: Reverse Proxy Configuration
 

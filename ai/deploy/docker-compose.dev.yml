@@ -1,8 +1,9 @@
 services:
   chroma:
     image: chromadb/chroma:0.5.20
-    volumes:
-      - chroma-data:/chroma/chroma
+    # Tmpfs-mode option for Chroma when used as test fixture (cross-link to #10805)
+    tmpfs:
+      - /chroma/chroma
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
       interval: 10s
@@ -10,11 +11,13 @@ services:
       retries: 5
     networks:
       - neo-mcp-network
+    ports:
+      - "8000:8000"
 
   kb-server:
     build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+      context: ../..
+      dockerfile: ai/deploy/Dockerfile
       args:
         TARGET_SERVER: knowledge-base
     environment:
@@ -22,20 +25,21 @@ services:
       - NEO_CHROMA_PORT=8000
       - MCP_HTTP_PORT=3000
       - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+      - NEO_DEBUG=true
     volumes:
-      - shared-sqlite-data:/app/.neo-ai-data/sqlite
+      - ../..:/app
     depends_on:
       chroma:
         condition: service_healthy
     networks:
       - neo-mcp-network
-    expose:
-      - "3000"
+    ports:
+      - "3000:3000"
 
   mc-server:
     build:
-      context: ..
-      dockerfile: deploy/Dockerfile
+      context: ../..
+      dockerfile: ai/deploy/Dockerfile
       args:
         TARGET_SERVER: memory-core
     environment:
@@ -44,24 +48,17 @@ services:
       - NEO_CHROMA_PORT=8000
       - MCP_HTTP_PORT=3001
       - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+      - NEO_DEBUG=true
     volumes:
-      - shared-sqlite-data:/app/.neo-ai-data/sqlite
+      - ../..:/app
     depends_on:
       chroma:
         condition: service_healthy
     networks:
       - neo-mcp-network
-    expose:
-      - "3001"
-
-    # To expose these services externally, configure a reverse proxy (e.g., Nginx, Caddy)
-    # on the `neo-mcp-network` to route traffic to `kb-server:3000` and `mc-server:3001`.
-    # See tracking issue #10803 for reverse proxy patterns.
+    ports:
+      - "3001:3001"
 
 networks:
   neo-mcp-network:
     driver: bridge
-
-volumes:
-  chroma-data:
-  shared-sqlite-data:
