@@ -84,6 +84,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
     });
 
     test.beforeEach(async () => {
+        // CI-skip per #10934: when sibling spec closes the singleton SQLite under workers:1,
+        // GraphService.db.nodes.clear() triggers Store.fire → SQLite.removeNodes against a
+        // closed connection. Match the test-body skip-guard so beforeEach no-ops cleanly.
+        if (process.env.NEO_TEST_SKIP_CI) return;
+
         if (GraphService.db) {
             GraphService.db.nodes.clear();
             GraphService.db.edges.clear();
