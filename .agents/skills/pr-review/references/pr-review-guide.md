@@ -27,7 +27,7 @@ If you are an AI Agent tasked with writing a PR review directly on GitHub (actin
     - **Minor Gaps:** If you uncover minor misses (e.g., missed JSDoc, missing Anchor & Echo context), push rapid successive commits to the PR to polish the execution.
     - **Major Refactors:** If you realize a mathematically superior architecture exists (e.g., massive GC optimization) that is *out-of-scope* for the current ticket, DO NOT attempt to cram it into the active PR. Secure the "good enough" PR, and instead propose a **Follow-Up System Enhancement Ticket** conceptually linked to the original PR to avoid scope creep.
 6. **Verify-Before-Assert Integration:** Before asserting any claim in your PR Review (especially under §7 Depth Floor), you MUST apply the **Verify-Before-Assert Pre-Flight Check** (`AGENTS.md` §2.3). You cannot claim "this code breaks X" or "this label is missing" without first empirically running the falsifying tool to prove it.
-7. **Execution:** Once formulated, use the `manage_issue_comment` MCP tool (action: `create`) to post the review directly onto the PR thread, or formulate it in markdown locally if MCP is disconnected.
+7. **Execution:** Post the substantive review via `manage_issue_comment` (action: `create`). Then chain the formal review state via `gh pr review <N> --approve|--request-changes` referencing the substantive comment URL. Without this second step, the cross-family mandate gate (`pull-request §6.1` `reviewDecision: APPROVED`) is not satisfied — the substantive comment alone does not flip GitHub's review-state surface.
 
 ## 3. Structural Evaluation Metrics
 Every PR review MUST score the work across the following categories on a scale of `0` to `100`:
@@ -298,6 +298,7 @@ Reviewers MUST verify testing claims by executing the relevant test files locall
 | PR names an epic as close-target without flagging | §5.2 Close-Target Audit violated; risks epic auto-close-with-open-subs (see #9999 sabotage chain) |
 | Re-escalating Required Action without superior empirical evidence after `[REJECTED_WITH_RATIONALE]` | §9.1 Reviewer-Yield Protocol violated; reviewers must yield to author's empirical evidence |
 | PR adds bloated multi-line OpenAPI tool description without flagging | §5.3 MCP-Tool-Description Budget Audit violated; bloat compounds across the tool surface and competes with agent reasoning budget at runtime |
+| Substantive review comment posted without formal `gh pr review` call | Cross-family gate ungated despite the visible review prose; §2.7 violated |
 | PR adds env-var deprecation chain | Read `pull-request/references/env-var-rename-rule.md` |
 
 ## 8. Cross-Skill Integration Audit
