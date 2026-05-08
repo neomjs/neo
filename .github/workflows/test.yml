@@ -24,7 +24,7 @@ jobs:
         # Bucket G (#10924) substrate fixes landed via #10940 (TestLifecycleHelper
         # primitive + daemon-spec migration) + open trackers for residual flakes
         # (#10941/#10936/#10937/#10946 — all unit-skip-guarded via NEO_TEST_SKIP_CI).
-        suite: [integration, unit]
+        suite: [integration-unified, unit]
 
     steps:
       - name: Checkout repository
