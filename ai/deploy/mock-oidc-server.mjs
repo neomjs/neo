@@ -62,6 +62,7 @@ const server = http.createServer(async (request, response) => {
                 sendJson(response, 200, {
                     active            : true,
                     aud               : ['http://127.0.0.1:13002', 'http://127.0.0.1:13090'],
+                    exp               : Math.floor(Date.now() / 1000) + 3600,
                     preferred_username: 'neo-test-oidc-user',
                     client_id         : params.get('client_id')
                 });
@@ -72,6 +73,7 @@ const server = http.createServer(async (request, response) => {
                 sendJson(response, 200, {
                     active            : true,
                     aud               : ['http://127.0.0.1:13002', 'http://127.0.0.1:13090'],
+                    exp               : Math.floor(Date.now() / 1000) + 3600,
                     preferred_username: 'neo-test-oidc-bob',
                     client_id         : params.get('client_id')
                 });
@@ -82,6 +84,7 @@ const server = http.createServer(async (request, response) => {
                 sendJson(response, 200, {
                     active   : true,
                     aud      : ['http://127.0.0.1:13002', 'http://127.0.0.1:13090'],
+                    exp      : Math.floor(Date.now() / 1000) + 3600,
                     sub      : 'neo-test-oidc-sub',
                     client_id: params.get('client_id')
                 });
@@ -92,6 +95,7 @@ const server = http.createServer(async (request, response) => {
                 sendJson(response, 200, {
                     active            : true,
                     aud               : ['http://evil-server:13002'],
+                    exp               : Math.floor(Date.now() / 1000) + 3600,
                     preferred_username: 'neo-test-oidc-user',
                     client_id         : params.get('client_id')
                 });
