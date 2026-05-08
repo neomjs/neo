@@ -28,9 +28,17 @@ export async function getReadiness(readyUrl = DEFAULT_READY_URL) {
 export async function createIdentityClient({
     baseUrl,
     identity = null,
+    bearerToken = null,
     clientName = 'neo-integration-spec'
 }) {
-    const headers = identity ? {'X-PREFERRED-USERNAME': identity} : {};
+    const headers = {};
+    if (identity) {
+        headers['X-PREFERRED-USERNAME'] = identity;
+    }
+    if (bearerToken) {
+        headers['Authorization'] = `Bearer ${bearerToken}`;
+    }
+
     const transport = new StreamableHTTPClientTransport(new URL('/mcp', baseUrl), {
         requestInit: {headers}
     });
