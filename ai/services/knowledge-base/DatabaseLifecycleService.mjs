@@ -1,8 +1,8 @@
 import {spawn}  from 'child_process';
-import aiConfig from '../config.mjs';
-import logger   from '../logger.mjs';
-import Base     from '../../../../../src/core/Base.mjs';
-import Observable from '../../../../../src/core/Observable.mjs';
+import aiConfig from '../../mcp/server/knowledge-base/config.mjs';
+import logger   from '../../mcp/server/knowledge-base/logger.mjs';
+import Base     from '../../../src/core/Base.mjs';
+import Observable from '../../../src/core/Observable.mjs';
 
 /**
  * @summary Manages the lifecycle of the ChromaDB process for the Knowledge Base.

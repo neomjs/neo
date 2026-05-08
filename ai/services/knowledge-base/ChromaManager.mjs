@@ -1,7 +1,7 @@
 import {ChromaClient}           from 'chromadb';
-import aiConfig                 from '../config.mjs';
-import logger                   from '../logger.mjs';
-import Base                     from '../../../../../src/core/Base.mjs';
+import aiConfig                 from '../../mcp/server/knowledge-base/config.mjs';
+import logger                   from '../../mcp/server/knowledge-base/logger.mjs';
+import Base                     from '../../../src/core/Base.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
 
 /**

@@ -66,7 +66,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         OpenAiCompatible       = (await import('../../../../../ai/provider/OpenAiCompatible.mjs')).default;
         SystemLifecycleService = (await import('../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
         TextEmbeddingService   = (await import('../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
-        KBRecorderService      = (await import('../../../../../ai/mcp/server/knowledge-base/services/KBRecorderService.mjs')).default;
+        KBRecorderService      = (await import('../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
         logger                 = (await import('../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
 
         if (fs.existsSync(testDbPath)) {

@@ -7,12 +7,12 @@ import HealthService            from './HealthService.mjs';
 import KBRecorderService        from './KBRecorderService.mjs';
 import QueryService             from './QueryService.mjs';
 import SearchService            from './SearchService.mjs';
-import ToolService              from '../../../ToolService.mjs';
+import ToolService              from '../../mcp/ToolService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
 /** @anchor test-isolation - ENV override to prevent parallel test mutations from corrupting the canonical file. Easily extensible to other servers via NEO_AI_MCP_<SERVER>_OPENAPI_PATH. */
-const openApiFilePath = process.env.NEO_AI_MCP_KB_OPENAPI_PATH || path.join(__dirname, '../openapi.yaml');
+const openApiFilePath = process.env.NEO_AI_MCP_KB_OPENAPI_PATH || path.join(__dirname, '../../mcp/server/knowledge-base/openapi.yaml');
 
 const serviceMapping = {
     ask_knowledge_base   : SearchService           .ask                .bind(SearchService),

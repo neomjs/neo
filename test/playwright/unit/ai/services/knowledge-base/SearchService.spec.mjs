@@ -1,4 +1,4 @@
-import {setup} from '../../../../../../setup.mjs';
+import {setup} from '../../../../setup.mjs';
 
 const appName = 'SearchServiceTest';
 
@@ -14,9 +14,9 @@ setup({
 });
 
 import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../../../src/manager/Instance.mjs';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import fs              from 'fs-extra';
 import path            from 'path';
 
@@ -41,9 +41,9 @@ test.describe('Neo.ai.mcp.server.knowledge-base.services.SearchService', () => {
     const tmpFileContents = 'MOCK_FILE_CONTENT_abc123 — the SearchService should read this verbatim';
 
     test.beforeAll(async () => {
-        aiConfig      = (await import('../../../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
-        QueryService  = (await import('../../../../../../../../ai/mcp/server/knowledge-base/services/QueryService.mjs')).default;
-        SearchService = (await import('../../../../../../../../ai/mcp/server/knowledge-base/services/SearchService.mjs')).default;
+        aiConfig      = (await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        QueryService  = (await import('../../../../../../ai/services/knowledge-base/QueryService.mjs')).default;
+        SearchService = (await import('../../../../../../ai/services/knowledge-base/SearchService.mjs')).default;
 
         // Create a fixture file inside neoRootDir so we can exercise the relative-path resolution.
         const tmpDir = path.resolve(aiConfig.neoRootDir, 'tmp', `search-service-test-${process.pid}-${Date.now()}`);

@@ -1,4 +1,4 @@
-import {setup} from '../../../../../../setup.mjs';
+import {setup} from '../../../../setup.mjs';
 
 const appName = 'KBRecorderServiceTest';
 
@@ -14,8 +14,8 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../../../src/core/_export.mjs';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
 import crypto         from 'crypto';
 import fs             from 'fs';
 import path           from 'path';
@@ -26,7 +26,7 @@ test.describe('Neo.ai.mcp.server.knowledge-base.services.KBRecorderService', () 
     let KBRecorderService;
 
     test.beforeAll(async () => {
-        const config = (await import('../../../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        const config = (await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
 
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
@@ -42,7 +42,7 @@ test.describe('Neo.ai.mcp.server.knowledge-base.services.KBRecorderService', () 
             try {fs.unlinkSync(`${testDbPath}-shm`);} catch (e) {}
         }
 
-        KBRecorderService = (await import('../../../../../../../../ai/mcp/server/knowledge-base/services/KBRecorderService.mjs')).default;
+        KBRecorderService = (await import('../../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
         await KBRecorderService.initAsync();
     });
 
@@ -73,7 +73,7 @@ test.describe('Neo.ai.mcp.server.knowledge-base.services.KBRecorderService', () 
     });
 
     test('captures KB MCP tool calls through the per-server wrapper', async () => {
-        const {callTool} = await import('../../../../../../../../ai/mcp/server/knowledge-base/services/toolService.mjs');
+        const {callTool} = await import('../../../../../../ai/services/knowledge-base/toolService.mjs');
 
         await callTool('list_agent_faqs', {limit: 5});
 
@@ -88,7 +88,7 @@ test.describe('Neo.ai.mcp.server.knowledge-base.services.KBRecorderService', () 
         expect(row.duration_ms).toBeGreaterThanOrEqual(0);
     });
 
-    test('deduplicates repeated KB questions into Agent FAQ clusters', () => {
+    test('deduplicates repeated KB questions into Agent FAQ clusters', async () => {
         test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: kb_query_log singleton-data pollution (#10936)');
         const
             originalResolve  = KBRecorderService.resolveRelatedConceptIds,
@@ -115,13 +115,14 @@ test.describe('Neo.ai.mcp.server.knowledge-base.services.KBRecorderService', () 
                 });
             }
 
-            const built = KBRecorderService.buildAgentFaqs({minCount: 2});
+            const built = await KBRecorderService.buildAgentFaqs({minCount: 2});
             expect(built.count).toBe(1);
             expect(built.faqs[0].count).toBe(3);
             expect(built.faqs[0].relatedConceptIds).toEqual(['concept-reactive-config']);
             expect(built.faqs[0].hasStrongGuideCoverage).toBe(false);
 
-            const listed = KBRecorderService.listAgentFaqs({minCount: 2});
+            const listed = await KBRecorderService.listAgentFaqs({minCount: 2});
+            console.log('LISTED:', listed);
             expect(listed.faqs[0].canonicalQuery).toContain('reactive');
         } finally {
             KBRecorderService.resolveRelatedConceptIds = originalResolve;

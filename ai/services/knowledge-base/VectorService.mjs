@@ -1,13 +1,13 @@
-import aiConfig                  from '../config.mjs';
-import TextEmbeddingService      from '../../memory-core/services/TextEmbeddingService.mjs';
-import mcConfig                  from '../../memory-core/config.mjs';
-import Base                      from '../../../../../src/core/Base.mjs';
+import aiConfig                  from '../../mcp/server/knowledge-base/config.mjs';
+import TextEmbeddingService      from '../../mcp/server/memory-core/services/TextEmbeddingService.mjs';
+import mcConfig                  from '../../mcp/server/memory-core/config.mjs';
+import Base                      from '../../../src/core/Base.mjs';
 import ChromaManager             from './ChromaManager.mjs';
 import fs                        from 'fs-extra';
-import logger                    from '../logger.mjs';
+import logger                    from '../../mcp/server/knowledge-base/logger.mjs';
 import path                      from 'path';
 import readline                  from 'readline';
-import DestructiveOperationGuard from '../../shared/services/DestructiveOperationGuard.mjs';
+import DestructiveOperationGuard from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 
 /**
  * @summary Manages vector database operations including embedding generation and storage.

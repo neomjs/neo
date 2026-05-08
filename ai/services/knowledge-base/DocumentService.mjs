@@ -1,4 +1,4 @@
-import Base          from '../../../../../src/core/Base.mjs';
+import Base          from '../../../src/core/Base.mjs';
 import ChromaManager from './ChromaManager.mjs';
 
 /**
