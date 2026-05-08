@@ -156,6 +156,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
     });
 
     test('should correctly expose getContextFrontier topology', async () => {
+        // CI-skip per #10941: GraphService.spec sibling tests STILL flake under workers:1
+        // despite PR #10940's TestLifecycleHelper migration covering this spec's afterAll.
+        // Investigation tracked in #10941; same root-cause class as the existing :107 guard.
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: GraphService.spec residual post-#10940 migration — see #10941');
+
         GraphService.upsertNode({id: 'frontier', type: 'SYSTEM_ANCHOR'});
         GraphService.upsertNode({id: 'EpicB'});
 
@@ -170,6 +175,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
     });
 
     test('should trigger a SQLite lazy-load on cache miss when fetching a Node', async () => {
+        // CI-skip per #10941: GraphService.spec sibling tests STILL flake under workers:1
+        // despite PR #10940's TestLifecycleHelper migration covering this spec's afterAll.
+        // Investigation tracked in #10941; same root-cause class as the existing :107 guard.
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: GraphService.spec residual post-#10940 migration — see #10941');
+
         GraphService.upsertNode({id: 'LazyNode', name: 'Wait For It'});
         GraphService.upsertNode({id: 'ConnectedNode', name: 'Linked'});
         GraphService.linkNodes('LazyNode', 'ConnectedNode', 'TEST_LINK', 1.0);

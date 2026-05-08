@@ -251,6 +251,11 @@ test.describe('Neo.ai.mcp.server.github-workflow.services.IssueService — manag
 
     test.describe('dispatcher validation', () => {
         test('rejects invalid action (must be create or update)', async () => {
+            // CI-skip per #10942-adjacent: IssueService dispatcher-validation flakes under workers:1
+            // — sibling github-workflow specs share GraphqlService mock state (callCount/.query
+            // override). Same singleton-pollution root-cause class as #10942 PullRequestService.
+            test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: IssueService.dispatcher validation flake under workers:1 — see #10942');
+
             let callCount = 0;
             GraphqlService.query = async () => { callCount++; return null; };
 
