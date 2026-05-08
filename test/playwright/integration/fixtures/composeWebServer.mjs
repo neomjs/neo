@@ -98,13 +98,14 @@ async function waitForServices() {
 
     while (!shuttingDown && Date.now() < deadline) {
         try {
-            const [chroma, kbPort, mcPort] = await Promise.all([
+            const [chroma, kbPort, mcPort, mcOidcPort] = await Promise.all([
                 fetch('http://127.0.0.1:18080/api/v2/heartbeat').then(r => r.ok).catch(() => false),
                 portOpen(13000),
-                portOpen(13001)
+                portOpen(13001),
+                portOpen(13002)
             ]);
 
-            if (chroma && kbPort && mcPort) {
+            if (chroma && kbPort && mcPort && mcOidcPort) {
                 state.servicesReady = true;
                 state.reason        = 'Dockerized MCP integration stack is ready.';
                 return;
