@@ -39,3 +39,47 @@ export async function cleanupChromaManager(SDK) {
         ChromaManager.graphCollection = null;
     }
 }
+
+export class TestLifecycleHelper {
+    static async cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, strategy = 'destroy') {
+        if (strategy === 'clear') {
+            if (GraphService?.db) {
+                GraphService.db.nodes.clear();
+                GraphService.db.edges.clear();
+                if (GraphService.db.vicinityLoadedNodes) { GraphService.db.vicinityLoadedNodes.clear(); }
+                if (GraphService.db.storage) {
+                    try { await GraphService.db.storage.clear(); } catch (e) {
+                        console.warn(`[Cleanup] Failed to clear test database:`, e.message);
+                    }
+                }
+            }
+            return;
+        }
+
+        if (GraphService?.db) {
+            try { GraphService.db.destroy(); } catch (e) {}
+            GraphService.db = null;
+            GraphService._initPromise = null;
+        }
+
+        if (SystemLifecycleService) {
+            SystemLifecycleService._initPromise = null;
+        }
+
+        if (fs && testDbPath) {
+            try {
+                if (fs.existsSync(testDbPath)) {
+                    fs.unlinkSync(testDbPath);
+                }
+                if (fs.existsSync(testDbPath + '-wal')) {
+                    fs.unlinkSync(testDbPath + '-wal');
+                }
+                if (fs.existsSync(testDbPath + '-shm')) {
+                    fs.unlinkSync(testDbPath + '-shm');
+                }
+            } catch (e) {
+                console.warn(`[Cleanup] Failed to delete test database files:`, e.message);
+            }
+        }
+    }
+}

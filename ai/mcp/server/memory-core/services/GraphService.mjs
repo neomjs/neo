@@ -160,11 +160,17 @@ class GraphService extends Base {
         let currentUserId = this.db.storage?.RequestContextService ? this.db.storage.RequestContextService.getAgentIdentityNodeId() : undefined;
 
         if (node) {
-            if (type) {
-                node.label = type;
+            const currentLabel = node.isRecord ? node.get('label') : node.label;
+            const updatedLabel = type || currentLabel || 'NODE';
+            
+            if (node.isRecord) {
+                node.set({ label: updatedLabel });
+            } else {
+                node.label = updatedLabel;
             }
 
-            let p = Object.assign({}, node.properties || {});
+            const currentProperties = node.isRecord ? node.get('properties') : node.properties;
+            let p = Object.assign({}, currentProperties || {});
             if (name !== undefined) {
                 p.name = name;
             }
@@ -189,7 +195,11 @@ class GraphService extends Base {
                 p.userId = currentUserId;
             }
 
-            node.properties = p;
+            if (node.isRecord) {
+                node.set({ properties: p });
+            } else {
+                node.properties = p;
+            }
 
             // Directly commit delta to SQLite since Store.update does not exist
             if (this.db.autoSave && this.db.storage) {
@@ -312,8 +322,13 @@ class GraphService extends Base {
                 // Keep RAM cache functionally coherent if edge actively exists
                 let ramEdge = this.db.edges.get(existing.id);
                 if (ramEdge) {
-                    ramEdge.properties.weight = newWeight;
-                    Object.assign(ramEdge.properties, edgeProperties);
+                    if (ramEdge.isRecord) {
+                        const newProps = { ...(ramEdge.get('properties') || {}), ...edgeProperties, weight: newWeight };
+                        ramEdge.set('properties', newProps);
+                    } else {
+                        ramEdge.properties.weight = newWeight;
+                        Object.assign(ramEdge.properties, edgeProperties);
+                    }
                 }
 
                 if (typeof this.db.acknowledgeLocalMutations === 'function') {

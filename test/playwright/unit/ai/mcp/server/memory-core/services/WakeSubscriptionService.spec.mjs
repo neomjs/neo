@@ -54,35 +54,20 @@ test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', 
         const GraphMaintenanceService = (await import('../../../../../../../../ai/daemons/services/GraphMaintenanceService.mjs')).default;
         globalThis.GraphMaintenanceService = GraphMaintenanceService;
 
-        // Force re-initialization to break free from Playwright worker-reuse poisoning
-        LifecycleService._initPromise = null;
-        if (GraphService.db) {
-            if (GraphService.db.storage && typeof GraphService.db.storage.close === 'function') {
-                GraphService.db.storage.close();
-            }
-            GraphService.db = null;
-        }
-        GraphService._initPromise = null;
-        if (Neo.idMap && Neo.idMap['memory-core-graph']) {
-            Neo.idMap['memory-core-graph'].destroy();
-            delete Neo.idMap['memory-core-graph'];
-        }
+        const { TestLifecycleHelper } = await import('../util.mjs');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, dbPath, fs, 'clear');
 
-        await LifecycleService.initAsync();
+        if (!LifecycleService._initPromise) { await LifecycleService.initAsync(); } else { await LifecycleService.ready(); }
 
         originalAutoSave         = GraphService.db.autoSave;
         GraphService.db.autoSave = true;
     });
 
     test.afterAll(async () => {
-        const { cleanupChromaManager } = await import('../util.mjs');
+        const { cleanupChromaManager, TestLifecycleHelper } = await import('../util.mjs');
         await cleanupChromaManager();
         GraphService.db.autoSave = originalAutoSave;
-        if (fs.existsSync(dbPath)) {
-            try { fs.unlinkSync(dbPath); }            catch (e) {}
-            try { fs.unlinkSync(dbPath + '-wal'); }   catch (e) {}
-            try { fs.unlinkSync(dbPath + '-shm'); }   catch (e) {}
-        }
+        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, dbPath, fs, 'clear');
     });
 
     test.beforeEach(async () => {
