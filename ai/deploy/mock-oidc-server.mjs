@@ -45,9 +45,10 @@ const server = http.createServer(async (request, response) => {
     }
 
     if (request.method === 'GET' && request.url === '/.well-known/openid-configuration') {
+        const reqHost = request.headers.host || `127.0.0.1:${port}`;
         sendJson(response, 200, {
-            issuer                : `http://127.0.0.1:${port}`,
-            introspection_endpoint: `http://127.0.0.1:${port}/introspect`
+            issuer                : `http://${reqHost}`,
+            introspection_endpoint: `http://${reqHost}/introspect`
         });
         return;
     }
