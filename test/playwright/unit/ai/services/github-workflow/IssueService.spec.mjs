@@ -1,4 +1,4 @@
-import {setup} from '../../../../../setup.mjs';
+import {setup} from '../../../../setup.mjs';
 
 const appName = 'IssueServiceTest';
 
@@ -14,9 +14,9 @@ setup({
 });
 
 import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../../src/manager/Instance.mjs';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 
 /**
  * @summary Contract coverage for `IssueService.manageIssueComment` enriched return shape (#10272 Phase 1).
@@ -42,8 +42,8 @@ test.describe('Neo.ai.mcp.server.github-workflow.services.IssueService — manag
     let originalQuery;
 
     test.beforeAll(async () => {
-        GraphqlService = (await import('../../../../../../../ai/mcp/server/github-workflow/services/GraphqlService.mjs')).default;
-        IssueService   = (await import('../../../../../../../ai/mcp/server/github-workflow/services/IssueService.mjs')).default;
+        GraphqlService = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+        IssueService   = (await import('../../../../../../ai/services/github-workflow/IssueService.mjs')).default;
 
         originalQuery = GraphqlService.query.bind(GraphqlService);
     });

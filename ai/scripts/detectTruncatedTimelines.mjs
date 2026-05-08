@@ -25,8 +25,8 @@
  *   node ai/scripts/detectTruncatedTimelines.mjs           # human report
  *   node ai/scripts/detectTruncatedTimelines.mjs --json    # machine-readable
  *
- * @see ai/mcp/server/github-workflow/services/sync/IssueSyncer.mjs
- * @see ai/mcp/server/github-workflow/services/queries/issueQueries.mjs
+ * @see ai/services/github-workflow/sync/IssueSyncer.mjs
+ * @see ai/services/github-workflow/queries/issueQueries.mjs
  * @see https://github.com/neomjs/neo/issues/10090
  */
 import fs              from 'fs/promises';

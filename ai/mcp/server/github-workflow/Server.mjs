@@ -1,10 +1,10 @@
 import BaseServer            from '../BaseServer.mjs';
 import aiConfig              from './config.mjs';
 import logger                from './logger.mjs';
-import HealthService         from './services/HealthService.mjs';
-import RepositoryService     from './services/RepositoryService.mjs';
-import SyncService           from './services/SyncService.mjs';
-import {listTools, callTool} from './services/toolService.mjs';
+import HealthService         from '../../../services/github-workflow/HealthService.mjs';
+import RepositoryService     from '../../../services/github-workflow/RepositoryService.mjs';
+import SyncService           from '../../../services/github-workflow/SyncService.mjs';
+import {listTools, callTool} from '../../../services/github-workflow/toolService.mjs';
 
 /**
  * @summary The GitHub Workflow MCP Server application.

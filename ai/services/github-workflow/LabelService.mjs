@@ -1,6 +1,6 @@
-import Base           from '../../../../../src/core/Base.mjs';
+import Base           from '../../../src/core/Base.mjs';
 import GraphqlService from './GraphqlService.mjs';
-import aiConfig       from '../config.mjs';
+import aiConfig       from '../../mcp/server/github-workflow/config.mjs';
 import {FETCH_LABELS} from './queries/labelQueries.mjs';
 
 /**

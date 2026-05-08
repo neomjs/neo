@@ -1,4 +1,4 @@
-import {setup} from '../../../../../setup.mjs';
+import {setup} from '../../../../setup.mjs';
 
 const appName = 'IssueSyncerTest';
 
@@ -14,9 +14,9 @@ setup({
 });
 
 import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../../src/manager/Instance.mjs';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import fs              from 'fs-extra';
 import path            from 'path';
 
@@ -44,7 +44,7 @@ test.describe('Neo.ai.mcp.server.github-workflow.services.sync.IssueSyncer', () 
     let tmpIssuesDir;
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
         issueSyncConfig = aiConfig.issueSync;
 
         tmpIssuesDir = path.resolve(process.cwd(), 'tmp', `issue-syncer-test-${process.pid}-${Date.now()}`);
@@ -54,8 +54,8 @@ test.describe('Neo.ai.mcp.server.github-workflow.services.sync.IssueSyncer', () 
         // the real resources/content/issues tree.
         issueSyncConfig.issuesDir = tmpIssuesDir;
 
-        GraphqlService = (await import('../../../../../../../ai/mcp/server/github-workflow/services/GraphqlService.mjs')).default;
-        IssueSyncer    = (await import('../../../../../../../ai/mcp/server/github-workflow/services/sync/IssueSyncer.mjs')).default;
+        GraphqlService = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+        IssueSyncer    = (await import('../../../../../../ai/services/github-workflow/sync/IssueSyncer.mjs')).default;
 
         originalQuery = GraphqlService.query.bind(GraphqlService);
     });
