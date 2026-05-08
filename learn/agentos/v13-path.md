@@ -86,6 +86,7 @@ A new per-host singleton Node process responsible for ALL scheduled work that to
 - Graph maintenance (Hebbian decay, etc.)
 - Heartbeat coordination (currently `SwarmHeartbeatService` invoked manually)
 - Concept ingestion ([#10085](https://github.com/neomjs/neo/issues/10085) etc.)
+- **Knowledge Base delta-update sync** (currently `npm run ai:sync-kb`; KB already supports delta updates — orchestrator schedules them on a configurable cadence per the same per-host singleton pattern that drives summarization)
 
 **Out of scope:** wake-event delivery — bridge-daemon's specialized HTTP/osascript-driven domain stays separate. The two daemons sit at the same architectural tier (per-host singleton, PID-file-enforced) but own different concerns.
 
@@ -200,6 +201,8 @@ All M1-M6 milestones closed. Final regression sweep, integration matrix green ac
 | [#10691](https://github.com/neomjs/neo/issues/10691) Shared KB/MC Team Deployment MVP | open | ✅ valid; aligns with REMOTE deployment shape post-Factory |
 | [#10813](https://github.com/neomjs/neo/issues/10813) Restore session summaries | open | ⚠️ re-scope per D3/D5 (Pieces B+C to Orchestrator; Piece A retires under D5) |
 | [#10822](https://github.com/neomjs/neo/issues/10822) Config substrate cleanup | open | ✅ valid; touches M5 |
+| [#10945](https://github.com/neomjs/neo/issues/10945) Deployment-pipeline integration coverage | open | ✅ valid; @neo-gpt's M1 lane (5 sub-tickets #10947/#10949/#10950/#10951/#10952; #10948 closed invalid post-correction) |
+| [#10957](https://github.com/neomjs/neo/issues/10957) Document v13 architectural path (this doc) | open | meta — closes when this PR merges |
 
 ---
 

@@ -6,6 +6,10 @@ This document outlines the high-level strategic direction and priorities for the
 
 Our core vision is to position Neo.mjs not just as a frontend framework, but as the **Operating System and Corporate Headquarters for the AI Workforce**. We are moving beyond simple "tool use" to a future where software is built by a hierarchical swarm of specialized agents (Strategic CEOs, Tactical PMs, Execution Drones), all managed through a powerful, multi-window Neo.mjs interface.
 
+## v13 Architectural Path
+
+The chief-architect document for the v13 release — slim MCP servers, mature SDK, clean daemon architecture, sequenced milestones M1-M7 — lives at [`learn/agentos/v13-path.md`](learn/agentos/v13-path.md). It carries the post-2026-05-08 substrate corrections (Factory pattern partial-rollout reconciliation + `NEO_MC_PRIMARY` retirement sequencing) and audits every open sub-issue of [#9999](https://github.com/neomjs/neo/issues/9999) (the v13 main epic) against the path.
+
 ## Current Focus: v12.2 Release
 
 Three concrete epics define the v12.2 release cut, each unlocking a distinct capability tier. All three advance in parallel; the release lands when the critical-path sub-issues across all three reach completion.
