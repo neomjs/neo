@@ -59,13 +59,13 @@ Memory_Config.data.autoStartDatabase = false;
 Memory_Config.data.autoStartInference = false;
 
 // --- Neural Link Services ---
-import NeuralLink_ComponentService   from './mcp/server/neural-link/services/ComponentService.mjs';
-import NeuralLink_ConnectionService  from './mcp/server/neural-link/services/ConnectionService.mjs';
-import NeuralLink_DataService        from './mcp/server/neural-link/services/DataService.mjs';
-import NeuralLink_HealthService      from './mcp/server/neural-link/services/HealthService.mjs';
-import NeuralLink_InstanceService    from './mcp/server/neural-link/services/InstanceService.mjs';
-import NeuralLink_InteractionService from './mcp/server/neural-link/services/InteractionService.mjs';
-import NeuralLink_RuntimeService     from './mcp/server/neural-link/services/RuntimeService.mjs';
+import NeuralLink_ComponentService   from './services/neural-link/ComponentService.mjs';
+import NeuralLink_ConnectionService  from './services/neural-link/ConnectionService.mjs';
+import NeuralLink_DataService        from './services/neural-link/DataService.mjs';
+import NeuralLink_HealthService      from './services/neural-link/HealthService.mjs';
+import NeuralLink_InstanceService    from './services/neural-link/InstanceService.mjs';
+import NeuralLink_InteractionService from './services/neural-link/InteractionService.mjs';
+import NeuralLink_RuntimeService     from './services/neural-link/RuntimeService.mjs';
 import NeuralLink_Config             from './mcp/server/neural-link/config.mjs';
 
 NeuralLink_Config.data.autoConnect = false;

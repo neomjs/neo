@@ -1,6 +1,6 @@
-import Base              from '../../../../../src/core/Base.mjs';
+import Base              from '../../../src/core/Base.mjs';
 import ConnectionService from './ConnectionService.mjs';
-import logger            from '../logger.mjs';
+import logger            from '../../mcp/server/neural-link/logger.mjs';
 
 /**
  * @summary Monitors the health of the Neural Link MCP Server.
