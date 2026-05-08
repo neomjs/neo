@@ -51,7 +51,7 @@ In unified mode, the Memory Core's `ChromaClient` targets the Knowledge Base's C
 
 ### Embedding provider
 
-Embedding generation is provider-pluggable. The active provider is controlled by `NEO_EMBEDDING_PROVIDER`; supported values are `'gemini'` (default, cloud), `'ollama'` (local), and `'openAiCompatible'` (local OpenAI-format servers including MLX-served Qwen3 models, llama.cpp, LM Studio, etc.). The same selector drives ChromaDB retrieval and SQLite Native Edge Graph operations so both engines generate comparable vectors.
+Embedding generation is provider-pluggable. The active provider is controlled by `NEO_EMBEDDING_PROVIDER`; supported values are `'gemini'` (default, cloud), `'ollama'` (local), and `'openAiCompatible'` (local OpenAI-format servers including MLX-served Qwen3 models, llama.cpp, LM Studio, etc.). The selector drives ChromaDB retrieval operations.
 
 ```bash
 # Default: Google Gemini cloud embedding (gemini-embedding-001):

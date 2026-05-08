@@ -189,7 +189,7 @@ A zero `total` is the signal operators watch for to flip the `memorySharing` def
 
 ### `providers.embedding` — Active Embedding Model Route
 
-Introduced for Chroma-side local embedding-provider validation (#10723), expanded for SQLite-side embedding observability (#10773), then consolidated to one provider selector by #10804. The block surfaces the single embedding route used by ChromaDB retrieval and SQLite Native Edge Graph operations:
+Introduced for Chroma-side local embedding-provider validation (#10723), then consolidated to one provider selector by #10804. The block surfaces the single embedding route used for ChromaDB retrieval:
 
 | Field | Type | Meaning |
 |---|---|---|
