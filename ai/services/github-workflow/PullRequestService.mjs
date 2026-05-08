@@ -1,9 +1,9 @@
 import {exec, execFile}                        from 'child_process';
 import {promisify}                             from 'util';
-import Base                                    from '../../../../../src/core/Base.mjs';
+import Base                                    from '../../../src/core/Base.mjs';
 import GraphqlService                          from './GraphqlService.mjs';
-import aiConfig                                from '../config.mjs';
-import logger                                  from '../logger.mjs';
+import aiConfig                                from '../../mcp/server/github-workflow/config.mjs';
+import logger                                  from '../../mcp/server/github-workflow/logger.mjs';
 import {FETCH_PULL_REQUESTS, GET_CONVERSATION} from './queries/pullRequestQueries.mjs';
 
 const execAsync     = promisify(exec);

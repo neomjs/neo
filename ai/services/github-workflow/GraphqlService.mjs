@@ -1,7 +1,7 @@
 import {exec}      from 'child_process';
 import {promisify} from 'util';
-import Base        from '../../../../../src/core/Base.mjs';
-import logger      from '../logger.mjs';
+import Base        from '../../../src/core/Base.mjs';
+import logger      from '../../mcp/server/github-workflow/logger.mjs';
 
 const execAsync = promisify(exec);
 

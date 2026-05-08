@@ -1,8 +1,8 @@
-import aiConfig          from '../config.mjs';
-import Base              from '../../../../../src/core/Base.mjs';
+import aiConfig          from '../../mcp/server/github-workflow/config.mjs';
+import Base              from '../../../src/core/Base.mjs';
 import GraphqlService    from './GraphqlService.mjs';
 import RepositoryService from './RepositoryService.mjs';
-import logger            from '../logger.mjs';
+import logger            from '../../mcp/server/github-workflow/logger.mjs';
 import {GET_REPO_AND_DISCUSSION_CATEGORIES, GET_DISCUSSION_ID} from './queries/discussionQueries.mjs';
 import {CREATE_DISCUSSION, ADD_DISCUSSION_COMMENT, UPDATE_DISCUSSION_COMMENT} from './queries/mutations.mjs';
 
