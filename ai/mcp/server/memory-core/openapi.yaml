@@ -1377,9 +1377,6 @@ components:
                     chroma:
                       type: boolean
                       example: true
-                    sqlite:
-                      type: boolean
-                      example: false
                 collections:
                   type: object
                   nullable: true

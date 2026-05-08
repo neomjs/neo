@@ -590,7 +590,7 @@ class HealthService extends Base {
     async #checkDatabaseConnections() {
         try {
             const engine = aiConfig.engine || 'hybrid';
-            const engines = { chroma: false, sqlite: false };
+            const engines = { chroma: false };
 
             // 2. Vector Chroma DB (Hybrid & Standalone Chroma)
             if (engine === 'chroma' || engine === 'hybrid') {
@@ -606,7 +606,7 @@ class HealthService extends Base {
             return {
                 running: false,
                 error  : `Database engine not accessible: ${e.message}`,
-                engines: { chroma: false, sqlite: false }
+                engines: { chroma: false }
             };
         }
     }
