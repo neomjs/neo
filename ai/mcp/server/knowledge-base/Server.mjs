@@ -1,12 +1,10 @@
-import {McpServer}                                     from '@modelcontextprotocol/sdk/server/mcp.js';
-import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
-import Base                                            from '../../../../src/core/Base.mjs';
-import aiConfig                                        from './config.mjs';
-import logger                                          from './logger.mjs';
-import DatabaseService                                 from './services/DatabaseService.mjs';
-import HealthService                                   from './services/HealthService.mjs';
-import KBRecorderService                               from './services/KBRecorderService.mjs';
-import {listTools, callTool}                           from './services/toolService.mjs';
+import BaseServer            from '../BaseServer.mjs';
+import aiConfig              from './config.mjs';
+import logger                from './logger.mjs';
+import DatabaseService       from './services/DatabaseService.mjs';
+import HealthService         from './services/HealthService.mjs';
+import KBRecorderService     from './services/KBRecorderService.mjs';
+import {listTools, callTool} from './services/toolService.mjs';
 
 /**
  * @summary The Knowledge Base MCP Server application.
@@ -18,9 +16,9 @@ import {listTools, callTool}                           from './services/toolServ
  * The transport mode and HTTP port can be configured using `aiConfig.transport` and `aiConfig.mcpHttpPort`.
  *
  * @class Neo.ai.mcp.server.knowledge-base.Server
- * @extends Neo.core.Base
+ * @extends Neo.ai.mcp.server.BaseServer
  */
-class Server extends Base {
+class Server extends BaseServer {
     static config = {
         /**
          * @member {String} className='Neo.ai.mcp.server.knowledge-base.Server'
@@ -29,103 +27,81 @@ class Server extends Base {
         className: 'Neo.ai.mcp.server.knowledge-base.Server'
     }
 
-    /**
-     * Path to a custom configuration file.
-     * @member {String|null} configFile=null
-     */
-    configFile = null
-    /**
-     * The MCP Server instance.
-     * @member {McpServer|null} mcpServer=null
-     * @protected
-     */
-    mcpServer = null
+    aiConfig = aiConfig
+    logger   = logger
 
     /**
-     * Creates a new MCP Server instance. Used by TransportService to provision
-     * a dedicated server object per SSE request to avoid SDK lifecycle collisions.
-     * @returns {McpServer}
+     * @summary MCP server identity for `createMcpServer()`.
+     * @returns {{name: String, version: String, capabilities: Object}}
      */
-    createMcpServer() {
-        const mcpServer = new McpServer({
-            name   : 'neo-knowledge-base',
-            version: process.env.npm_package_version || '1.0.0',
-        }, {
+    getServerMetadata() {
+        return {
+            name        : 'neo-knowledge-base',
+            version     : process.env.npm_package_version || '1.0.0',
             capabilities: {
-                tools: {
-                    listChanged: false
-                }
+                tools: {listChanged: false}
             }
+        };
+    }
+
+    /**
+     * @summary Per-server tool registry for ListTools / CallTool dispatch.
+     * @returns {{listTools: Function, callTool: Function}}
+     */
+    getToolService() {
+        return {listTools, callTool};
+    }
+
+    /**
+     * @summary Singleton services to await ready() before transport-connect.
+     * @returns {Array<Object>}
+     */
+    getDependentServices() {
+        return [DatabaseService, KBRecorderService];
+    }
+
+    /**
+     * @summary HealthService for the healthcheck gate + startup-status logging.
+     * @returns {Object}
+     */
+    getHealthService() {
+        return HealthService;
+    }
+
+    /**
+     * @summary Tools allowed without the healthcheck gate (database lifecycle + agent FAQs).
+     * @returns {Array<String>}
+     */
+    getHealthExemptTools() {
+        return ['healthcheck', 'start_database', 'stop_database', 'list_agent_faqs'];
+    }
+
+    /**
+     * @summary Records failed tool dispatch to KBRecorderService when the healthcheck gate rejects.
+     * Preserves the existing telemetry shape (agent_id, session_id, sequence_id, timestamp,
+     * tool, args, result, success, duration_ms) so KB-level analytics stay continuous post-migration.
+     * @param {{toolName: String, args: Object, error: Error, t0: Number}} context
+     */
+    async onHealthGateFailure({toolName, args, error, t0}) {
+        const agent_id = process.env.NEO_AGENT_ID || process.env.USER || 'unknown';
+
+        KBRecorderService.log({
+            agent_id,
+            session_id : args?.sessionId || process.env.NEO_SESSION_ID || null,
+            sequence_id: `${agent_id}_${t0}`,
+            timestamp  : t0,
+            tool       : toolName,
+            args,
+            result     : {error: error.message},
+            success    : false,
+            duration_ms: Date.now() - t0
         });
-
-        this.setupRequestHandlers(mcpServer);
-
-        return mcpServer;
     }
 
     /**
-     * Async initialization sequence.
-     * Replaces the main() function of the previous procedural implementation.
-     * @returns {Promise<void>}
-     */
-    async initAsync() {
-        await super.initAsync();
-
-        // 1. Load custom configuration if provided
-        if (this.configFile) {
-            try {
-                await aiConfig.load(this.configFile);
-            } catch (error) {
-                logger.error('Failed to load configuration:', error);
-                throw error; // Re-throw to trigger ready() catch block in runner
-            }
-        }
-
-        // 2. Initialize the default stdio MCP Server instance
-        this.mcpServer = this.createMcpServer();
-
-        // 4. Wait for dependent services
-        // DatabaseService is a singleton, so we wait for its global ready state
-        await DatabaseService.ready();
-        await KBRecorderService.ready();
-
-        // 5. Perform Health Check & Log Status
-        const health = await HealthService.healthcheck();
-        this.logStartupStatus(health);
-
-        // 6. Connect Transport
-        if (aiConfig.transport === 'sse') {
-            const {default: TransportService} = await import('../shared/services/TransportService.mjs');
-
-            await TransportService.setup({
-                server      : this,
-                aiConfig,
-                logger,
-                resourceName: 'neo-knowledge-base MCP'
-            });
-        } else {
-            const {StdioServerTransport} = await import('@modelcontextprotocol/sdk/server/stdio.js');
-            const transport = new StdioServerTransport();
-            await this.mcpServer.connect(transport);
-
-            logger.info('[neo-knowledge-base MCP] Server started on stdio transport');
-            logger.info('[neo-knowledge-base MCP] Available tools loaded from OpenAPI spec');
-        }
-    }
-
-    /**
-     * Helper to log collection statistics.
-     * @param {Object} health The health object
-     */
-    logCollectionStats(health) {
-        if (health.database.connection.collections) {
-            logger.info(`   - Knowledge Base: ${health.database.connection.collections.knowledgeBase.count}`);
-        }
-    }
-
-    /**
-     * Logs the health status of the server during startup.
-     * @param {Object} health The health check result object.
+     * @summary KB-specific startup status formatting with ChromaDB-tip on unhealthy + collection
+     * stats on degraded/healthy.
+     * @param {Object} health
      */
     logStartupStatus(health) {
         if (health.status === 'unhealthy') {
@@ -150,127 +126,13 @@ class Server extends Base {
     }
 
     /**
-     * Wires up the MCP request handlers for listing and calling tools.
-     * @param {McpServer} mcpServer The target server instance
+     * @summary Collection-count log helper, called from logStartupStatus on degraded/healthy paths.
+     * @param {Object} health
      */
-    setupRequestHandlers(mcpServer) {
-        if (!mcpServer) return;
-
-        // List Tools Handler
-        mcpServer.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
-            try {
-                const {cursor, limit}     = request.params || {};
-                const {tools, nextCursor} = listTools({cursor, limit});
-
-                const mcpTools = tools.map(tool => ({
-                    name        : tool.name,
-                    title       : tool.title,
-                    description : tool.description,
-                    inputSchema : tool.inputSchema,
-                    outputSchema: tool.outputSchema,
-                    annotations : tool.annotations
-                }));
-
-                const result = { tools: mcpTools };
-
-                if (nextCursor) {
-                    result.nextCursor = nextCursor;
-                }
-                return result;
-            } catch (error) {
-                logger.error('[MCP] Error listing tools:', error);
-                return {tools: [], nextCursor: undefined, error: error.message};
-            }
-        });
-
-        // Call Tool Handler
-        mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-            const {name, arguments: args} = request.params;
-            const t0 = Date.now();
-
-            try {
-                logger.debug(`[MCP] Calling tool: ${name} with args:`, JSON.stringify(args));
-
-                const exemptFromHealthCheck = ['healthcheck', 'start_database', 'stop_database', 'list_agent_faqs'];
-
-                if (!exemptFromHealthCheck.includes(name)) {
-                    try {
-                        await HealthService.ensureHealthy();
-                    } catch (healthError) {
-                        logger.error(`[MCP] Health check failed for tool ${name}:`, healthError.message);
-                        KBRecorderService.log({
-                            agent_id   : process.env.NEO_AGENT_ID || process.env.USER || 'unknown',
-                            session_id : args?.sessionId || process.env.NEO_SESSION_ID || null,
-                            sequence_id: `${process.env.NEO_AGENT_ID || process.env.USER || 'unknown'}_${t0}`,
-                            timestamp  : t0,
-                            tool       : name,
-                            args,
-                            result     : {error: healthError.message},
-                            success    : false,
-                            duration_ms: Date.now() - t0
-                        });
-
-                        return {
-                            content: [{
-                                type: 'text',
-                                text: `Cannot execute ${name}: ${healthError.message}`
-                            }],
-                            isError: true
-                        };
-                    }
-                }
-
-                const result = await callTool(name, args);
-
-                let contentBlock;
-                let isError           = false;
-                let structuredContent = null;
-
-                if (Neo.isObject(result)) {
-                    isError = 'error' in result;
-
-                    if (isError) {
-                        contentBlock = {
-                            type: 'text',
-                            text: `Tool Error: ${result.error || 'Unknown Error'}. Message: ${result.message || 'No message provided.'}`
-                        };
-                    } else {
-                        contentBlock = {
-                            type: 'text',
-                            text: JSON.stringify(result, null, 2)
-                        };
-                        structuredContent = result;
-                    }
-                } else {
-                    contentBlock = {
-                        type: 'text',
-                        text: typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result)
-                    };
-                    structuredContent = { result };
-                }
-
-                const response = {
-                    content: [contentBlock],
-                    isError
-                };
-
-                if (structuredContent) {
-                    response.structuredContent = structuredContent;
-                }
-
-                return response;
-            } catch (error) {
-                logger.error(`[MCP] Error executing tool ${name}:`, error);
-
-                return {
-                    content: [{
-                        type: 'text',
-                        text: `Error executing ${name}: ${error.message}`
-                    }],
-                    isError: true
-                };
-            }
-        });
+    logCollectionStats(health) {
+        if (health.database.connection.collections) {
+            logger.info(`   - Knowledge Base: ${health.database.connection.collections.knowledgeBase.count}`);
+        }
     }
 }
 
