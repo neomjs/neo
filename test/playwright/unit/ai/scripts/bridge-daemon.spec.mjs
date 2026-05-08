@@ -583,7 +583,7 @@ test.describe('Bridge Daemon', () => {
         expect(args.join(' ')).not.toContain('key code 49');
     });
 
-    test('Claude default focus seed generates Space after Cmd+3 and before prompt clear', async () => {
+    test('Claude default focus seed emits r -> Cmd+Z before prompt clear (#10987)', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-claude';
 
@@ -662,16 +662,20 @@ test.describe('Bridge Daemon', () => {
 
         await deliveryPromise;
 
-        const args = JSON.parse(fs.readFileSync(mockOutPath, 'utf8'));
-        const activateIndex = args.findIndex(arg => arg.includes('tell application "Claude" to activate'));
-        const tabIndex      = args.findIndex(arg => arg.includes('keystroke "3" using command down'));
-        const spaceIndex    = args.findIndex(arg => arg.includes('key code 49'));
-        const clearIndex    = args.findIndex(arg => arg.includes('keystroke "a" using command down'));
+        const args          = JSON.parse(fs.readFileSync(mockOutPath, 'utf8'));
+        const scriptContent = args.filter((_, i) => args[i - 1] === '-e').join('\n');
+        const activateIndex = scriptContent.indexOf('tell application "Claude" to activate');
+        const tabIndex      = scriptContent.indexOf('keystroke "3" using command down');
+        const rIndex        = scriptContent.indexOf('keystroke "r"');
+        const zIndex        = scriptContent.indexOf('keystroke "z" using command down');
+        const clearIndex    = scriptContent.indexOf('keystroke "a" using command down');
 
         expect(activateIndex).toBeGreaterThan(-1);
         expect(tabIndex).toBeGreaterThan(activateIndex);
-        expect(spaceIndex).toBeGreaterThan(tabIndex);
-        expect(clearIndex).toBeGreaterThan(spaceIndex);
+        expect(rIndex).toBeGreaterThan(tabIndex);
+        expect(zIndex).toBeGreaterThan(rIndex);
+        expect(clearIndex).toBeGreaterThan(zIndex);
+        expect(scriptContent).not.toContain('key code 49');
     });
 
     test('Codex UI wake fails closed when no validated focusSeedKey is configured (#10664)', async () => {
