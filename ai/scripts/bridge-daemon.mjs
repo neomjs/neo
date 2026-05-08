@@ -719,11 +719,17 @@ async function deliverDigest(subscription, digest) {
                 if (appName === 'Claude') tabShortcut = '3';
                 else if (appName === 'Antigravity') tabShortcut = 'shift+i';
             }
-            let focusSeedKey = meta.focusSeedKey;
+            let focusSeedKey      = meta.focusSeedKey;
+            let focusSeedSequence = meta.focusSeedSequence;
             // Claude Desktop's Cmd+3 selects the Code tab but does not always move focus into
-            // the prompt. Seed focus with Space before the destructive Cmd+A/Cmd+X clear path.
-            // Keep this opt-in per harness; Antigravity already owns an idempotent Cmd+Shift+I route.
-            if (focusSeedKey === undefined && appName === 'Claude') focusSeedKey = 'space';
+            // the prompt. Space used to be the non-mutating seed (#10660), but the 2026-05-08
+            // Claude Desktop UI made chat-history tool-call summaries focusable; Space can now
+            // expand/collapse those summaries instead of focusing the prompt. Use an explicit
+            // probe-and-undo sequence before the destructive Cmd+A/Cmd+X clear path (#10987).
+            // Keep this per harness; Antigravity already owns an idempotent Cmd+Shift+I route.
+            if (focusSeedSequence === undefined && focusSeedKey === undefined && appName === 'Claude') {
+                focusSeedSequence = 'r-undo';
+            }
 
             // [Anchor & Echo] Codex fail-closed (#10664) — empirical disproval 2026-05-03:
             //
@@ -814,7 +820,12 @@ async function deliverDigest(subscription, digest) {
                 osascriptArgs.push('-e', '      delay 0.5');
             }
 
-            if (focusSeedKey) {
+            if (focusSeedSequence === 'r-undo') {
+                osascriptArgs.push('-e', '      keystroke "r"');
+                osascriptArgs.push('-e', '      delay 0.2');
+                osascriptArgs.push('-e', '      keystroke "z" using command down');
+                osascriptArgs.push('-e', '      delay 0.2');
+            } else if (focusSeedKey) {
                 if (focusSeedKey === 'space' || focusSeedKey === ' ') {
                     osascriptArgs.push('-e', '      key code 49');
                 } else {
