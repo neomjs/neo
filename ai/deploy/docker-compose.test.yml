@@ -26,7 +26,7 @@ services:
   # Core integration stack on its real HTTP embedding path by providing a tiny
   # deterministic OpenAI-compatible endpoint inside the compose network.
   embedding-server:
-    image: node:22-bookworm-slim
+    image: node:24-alpine
     working_dir: /app
     command: ["node", "ai/deploy/mock-openai-embedding-server.mjs"]
     environment:
