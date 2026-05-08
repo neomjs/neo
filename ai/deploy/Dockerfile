@@ -1,17 +1,28 @@
-FROM node:22-bookworm-slim AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
+
+# better-sqlite3 is part of the Memory Core runtime and needs native build tools
+# when installing on Alpine. The tools stay in this build stage.
+RUN apk add --no-cache python3 make g++
+
 COPY package*.json ./
-# --ignore-scripts skips the `prepare` lifecycle hook (initServerConfigs +
-# downloadKnowledgeBase). Both are dev-time only — production Docker images
-# don't need template-config copying or KB-artifact downloads. Without this
-# flag, npm ci fails because buildScripts/ has not been COPY'd yet (#10902).
-RUN npm ci --omit=dev --ignore-scripts
+# --ignore-scripts skips the root `prepare` lifecycle hook before buildScripts/
+# is copied. Neo's Agent OS runtime packages currently live in devDependencies;
+# installing them here keeps that cost inside this Right-Hemisphere image.
+RUN npm ci --ignore-scripts
 
 COPY . .
 
-FROM node:22-bookworm-slim
+# Path A for #10964: generate gitignored per-server config.mjs files inside the
+# image so clean external checkouts do not need manual template copies.
+RUN npm rebuild better-sqlite3 && node ./buildScripts/ai/initServerConfigs.mjs
+
+FROM node:24-alpine
 WORKDIR /app
+
+RUN apk add --no-cache libstdc++
+
 COPY --from=builder /app ./
 
 ENV NODE_ENV=production
