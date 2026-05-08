@@ -8,7 +8,7 @@ const __dirname  = path.dirname(__filename);
 
 test.describe('GitHub Workflow MCP Server Tool Registration', () => {
     test('list_issues is registered in toolService.mjs', () => {
-        const filePath = path.resolve(__dirname, '../../../../ai/mcp/server/github-workflow/services/toolService.mjs');
+        const filePath = path.resolve(__dirname, '../../../../ai/services/github-workflow/toolService.mjs');
 
         expect(fs.existsSync(filePath), `toolService.mjs not found at ${filePath}`).toBe(true);
 

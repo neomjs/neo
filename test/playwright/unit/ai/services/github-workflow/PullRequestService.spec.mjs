@@ -1,4 +1,4 @@
-import {setup} from '../../../../../setup.mjs';
+import {setup} from '../../../../setup.mjs';
 
 const appName = 'PullRequestServiceTest';
 const skipCiGitHubAuth = !!process.env.NEO_TEST_SKIP_CI;
@@ -15,9 +15,9 @@ setup({
 });
 
 import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../../src/manager/Instance.mjs';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 
 /**
  * @summary Contract coverage for `PullRequestService.getConversation` comment-selector params (#10272 §2.2).
@@ -60,8 +60,8 @@ test.describe('Neo.ai.mcp.server.github-workflow.services.PullRequestService —
     };
 
     test.beforeAll(async () => {
-        GraphqlService      = (await import('../../../../../../../ai/mcp/server/github-workflow/services/GraphqlService.mjs')).default;
-        PullRequestService  = (await import('../../../../../../../ai/mcp/server/github-workflow/services/PullRequestService.mjs')).default;
+        GraphqlService      = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+        PullRequestService  = (await import('../../../../../../ai/services/github-workflow/PullRequestService.mjs')).default;
 
         originalQuery = GraphqlService.query.bind(GraphqlService);
     });
@@ -231,8 +231,8 @@ test.describe('Neo.ai.mcp.server.github-workflow.services.PullRequestService —
     let aiConfig;
     
     test.beforeAll(async () => {
-        PullRequestService = (await import('../../../../../../../ai/mcp/server/github-workflow/services/PullRequestService.mjs')).default;
-        aiConfig           = (await import('../../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
+        PullRequestService = (await import('../../../../../../ai/services/github-workflow/PullRequestService.mjs')).default;
+        aiConfig           = (await import('../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
         fs                 = await import('fs/promises');
         path               = await import('path');
     });

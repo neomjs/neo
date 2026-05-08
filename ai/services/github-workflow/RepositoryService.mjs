@@ -1,7 +1,7 @@
-import aiConfig                from '../config.mjs';
-import Base                    from '../../../../../src/core/Base.mjs';
+import aiConfig                from '../../mcp/server/github-workflow/config.mjs';
+import Base                    from '../../../src/core/Base.mjs';
 import GraphqlService          from './GraphqlService.mjs';
-import logger                  from '../logger.mjs';
+import logger                  from '../../mcp/server/github-workflow/logger.mjs';
 import {GET_VIEWER_PERMISSION} from './queries/repositoryQueries.mjs';
 
 /**

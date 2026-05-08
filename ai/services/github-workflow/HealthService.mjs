@@ -1,8 +1,8 @@
 import {exec}      from 'child_process';
 import {promisify} from 'util';
-import aiConfig    from '../config.mjs';
-import Base        from '../../../../../src/core/Base.mjs';
-import logger      from '../logger.mjs';
+import aiConfig    from '../../mcp/server/github-workflow/config.mjs';
+import Base        from '../../../src/core/Base.mjs';
+import logger      from '../../mcp/server/github-workflow/logger.mjs';
 import semver      from 'semver';
 
 const execAsync = promisify(exec);

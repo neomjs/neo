@@ -1,6 +1,6 @@
-import Base         from '../../../../../src/core/Base.mjs';
+import Base         from '../../../src/core/Base.mjs';
 import IssueService from './IssueService.mjs';
-import logger       from '../logger.mjs';
+import logger       from '../../mcp/server/github-workflow/logger.mjs';
 
 /**
  * @summary Service for handling autonomous subagent state transitions.

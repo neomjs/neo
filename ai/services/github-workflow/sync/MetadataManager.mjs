@@ -1,5 +1,5 @@
-import aiConfig from '../../config.mjs';
-import Base     from '../../../../../../src/core/Base.mjs';
+import aiConfig from '../../../mcp/server/github-workflow/config.mjs';
+import Base     from '../../../../src/core/Base.mjs';
 import fs       from 'fs/promises';
 import path     from 'path';
 

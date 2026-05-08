@@ -15,7 +15,7 @@
  * issue is a no-op writeback.
  *
  * @see ai/scripts/detectTruncatedTimelines.mjs
- * @see ai/mcp/server/github-workflow/services/SyncService.mjs
+ * @see ai/services/github-workflow/SyncService.mjs
  * @see https://github.com/neomjs/neo/issues/10090
  */
 import {GH_SyncService} from '../services.mjs';
