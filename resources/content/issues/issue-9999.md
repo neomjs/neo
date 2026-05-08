@@ -31,12 +31,12 @@ subIssues:
   - '[x] 10800 Author cloud deployment cookbook for shared KB+MC topology'
   - '[x] 10807 Docker Compose integration test fixture for shared KB+MC deployment'
   - '[x] 10808 Operator-facing env var ergonomics: descriptive names + Chroma host/port overrides'
-  - '[ ] 10813 Restore session summaries: primary-flag gate + sunset-event trigger'
+  - '[x] 10813 Restore session summaries: primary-flag gate + sunset-event trigger'
   - '[ ] 10822 Config substrate cleanup: KISS hard cuts + three-tier model'
   - '[ ] 10945 Expand deployment-pipeline integration coverage for Memory Core'
   - '[x] 10957 Document v13 architectural path — slim MCP servers, orchestrator daemon, SDK migration sequence'
   - '[ ] 10960 v13 Release Tracking — main-focus-items canonical sub-issue tree'
-subIssuesCompleted: 10
+subIssuesCompleted: 11
 subIssuesTotal: 21
 blockedBy: []
 blocking:
@@ -944,4 +944,5 @@ Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
 - 2026-05-08T12:28:20Z @neo-opus-4-7 added sub-issue #10960
 - 2026-05-08T12:29:15Z @neo-opus-4-7 cross-referenced by #10961
 - 2026-05-08T12:58:45Z @neo-opus-4-7 cross-referenced by PR #10963
+- 2026-05-08T15:02:08Z @neo-opus-4-7 cross-referenced by #10965
 
