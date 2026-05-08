@@ -193,20 +193,77 @@ class SessionService extends Base {
     }
 
     /**
-     * Periodically polls for 'sunset-protocol-handover' A2A messages to trigger session summarization.
-     * This acts as the Piece B trigger for the sunset protocol, utilizing the shared A2A mailbox
-     * substrate to cross the gap between non-primary harness instances and the canonical Memory Core.
+     * Starts the Piece B sunset-handover poller (30s) and the Piece C periodic
+     * safety-net summarization sweep (configurable via `summarizationSweepIntervalMs`).
+     *
+     * **Piece B** polls every 30s for A2A messages tagged `sunset-protocol-handover`
+     * and triggers summarization when found — fast-path for graceful session close.
+     *
+     * **Piece C (#10813 AC3)** fires `summarizeSessions({})` unconditionally on a
+     * configurable interval (default 10 min). Catches the hard-crash edge case where
+     * neither the sunset event nor the SSE-disconnect `queueSummarizationJob` path
+     * fired — e.g., process killed without cleanup. Set
+     * `summarizationSweepIntervalMs: 0` (or `NEO_SUMMARIZATION_SWEEP_INTERVAL_MS=0`)
+     * to disable Piece C while keeping Piece B active.
      */
     startSunsetHandoverPoller() {
         if (this._sunsetPollerId) {
             clearInterval(this._sunsetPollerId);
         }
+        if (this._sweepIntervalId) {
+            clearInterval(this._sweepIntervalId);
+        }
 
-        logger.info('[SessionService] Starting Piece B Sunset Protocol Poller (30s interval)...');
+        const sweepIntervalMs = aiConfig.data.summarizationSweepIntervalMs;
+        const sweepLabel      = sweepIntervalMs > 0 ? `${Math.round(sweepIntervalMs / 1000)}s` : 'disabled';
+
+        logger.info(`[SessionService] Starting Piece B Sunset Protocol Poller (30s) + Piece C Periodic Sweep (${sweepLabel})...`);
         this._sunsetPollerId = setInterval(() => this.pollForSunsetHandovers(), 30000);
+
+        if (sweepIntervalMs > 0) {
+            this._sweepIntervalId = setInterval(() => this.runPeriodicSummarizationSweep(), sweepIntervalMs);
+        }
 
         // Also run immediately
         setTimeout(() => this.pollForSunsetHandovers(), 5000); // 5s delay to ensure startup is complete
+    }
+
+    /**
+     * Piece C of the #10813 A+B+C summary-restoration architecture: unconditional
+     * periodic safety-net sweep that catches sessions which closed without either
+     * a sunset event (Piece B) OR an SSE-disconnect signal (queueSummarizationJob).
+     *
+     * Fires `summarizeSessions({})` — the existing drift-detection scan that picks
+     * up any session with mismatched memory-vs-summary count. Idempotent against
+     * Piece B and the disconnect path; reuses the same SummarizationJobs lease
+     * primitive when summarizing individual sessions, so no race against concurrent
+     * triggers from the same primary instance.
+     *
+     * Gated on `autoSummarize=true` AND `isPrimary=true` (single-writer enforcement
+     * per #9942). Non-primary instances never start this interval.
+     */
+    async runPeriodicSummarizationSweep() {
+        if (!aiConfig.data.autoSummarize || !aiConfig.data.isPrimary) return;
+
+        try {
+            logger.info('[SessionService] Running Piece C periodic safety-net summarization sweep (#10813)...');
+            const result = await this.summarizeSessions({});
+
+            HealthService.recordPeriodicSweep('completed', {
+                processed: result.processed,
+                lastSweepAt: new Date().toISOString()
+            });
+
+            if (result.processed > 0) {
+                logger.info(`[SessionService] Periodic sweep summarized ${result.processed} session(s).`);
+            }
+        } catch (e) {
+            logger.warn(`[SessionService] Periodic sweep encountered an error: ${e.message}`);
+            HealthService.recordPeriodicSweep('failed', {
+                error: e.message,
+                lastSweepAt: new Date().toISOString()
+            });
+        }
     }
 
     async pollForSunsetHandovers() {

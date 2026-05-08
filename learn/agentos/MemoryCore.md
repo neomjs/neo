@@ -70,6 +70,18 @@ When `NEO_MC_PRIMARY=true`, the `SessionService` spins up a periodic background 
 
 This substrate bridges the gap between instances: when any agent on any clone runs the session-sunset skill, the final self-DM is persisted in the shared graph. The canonical MC sees this unread message, triggers a summarization sweep to ingest the finalized session, and marks the message as read to prevent double-processing.
 
+### Periodic Safety-Net Sweep (Piece C of #10813)
+
+Sunset events (Piece B) and SSE-disconnect signals (`queueSummarizationJob` driven by `Server.mjs`) cover the two graceful close paths. The hard-crash edge case — process killed without cleanup — fires neither, so a session's memories can drift from its summary indefinitely without operator intervention.
+
+When `NEO_MC_PRIMARY=true` AND `NEO_AUTO_SUMMARIZE=true`, the canonical `SessionService` runs an unconditional periodic sweep alongside the sunset poller. Cadence is `summarizationSweepIntervalMs` (env override `NEO_SUMMARIZATION_SWEEP_INTERVAL_MS`, default `600000` ms = 10 minutes). The sweep fires `summarizeSessions({})` — the existing drift-detection scan that picks up any session with mismatched memory-vs-summary count.
+
+Idempotent against Piece B and the disconnect path: each per-session summarization claims an exclusive `SummarizationJobs` lease, so concurrent triggers from the same primary instance no-op cleanly.
+
+Set `NEO_SUMMARIZATION_SWEEP_INTERVAL_MS=0` to disable Piece C while keeping Piece B sunset-poll active — useful for dev environments where periodic load is unwanted.
+
+Healthcheck observability: `startup.periodicSweepStatus` (`'completed' | 'failed' | 'not_attempted'`) and `startup.periodicSweepDetails` (`{processed, lastSweepAt}` on success, `{error, lastSweepAt}` on failure) surface the most recent sweep outcome.
+
 ## Tools
 
 The server exposes a suite of tools via the Model Context Protocol (MCP).

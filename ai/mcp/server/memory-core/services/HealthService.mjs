@@ -573,6 +573,22 @@ class HealthService extends Base {
     #startupSummarizationDetails = null;
 
     /**
+     * Tracks the most recent Piece C periodic sweep status (#10813).
+     * Values: 'completed', 'failed', null (if no sweep has fired yet).
+     * @member {string|null} #lastPeriodicSweepStatus
+     * @private
+     */
+    #lastPeriodicSweepStatus = null;
+
+    /**
+     * Details about the most recent Piece C periodic sweep — `{processed, lastSweepAt}`
+     * on completion, `{error, lastSweepAt}` on failure (#10813).
+     * @member {Object|null} #lastPeriodicSweepDetails
+     * @private
+     */
+    #lastPeriodicSweepDetails = null;
+
+    /**
      * Cached stdio identity state for the healthcheck `identity` observability block (#10176).
      * Populated by `Server.mjs` post-`resolveStdioIdentity()` via {@link HealthService#setStdioIdentityState}.
      * Null when the setter hasn't fired yet (SSE transport, pre-boot, or timing races — all of
@@ -883,8 +899,10 @@ class HealthService extends Base {
                 wake         : await buildWakeFeaturesBlock()
             },
             startup  : {
-                summarizationStatus : this.#startupSummarizationStatus || 'not_attempted',
-                summarizationDetails: this.#startupSummarizationDetails
+                summarizationStatus      : this.#startupSummarizationStatus || 'not_attempted',
+                summarizationDetails     : this.#startupSummarizationDetails,
+                periodicSweepStatus      : this.#lastPeriodicSweepStatus || 'not_attempted',
+                periodicSweepDetails     : this.#lastPeriodicSweepDetails
             },
             mailboxPreview: await MailboxService.getHealthcheckPreview(),
             identity : buildIdentityBlock(this.#stdioIdentityState),
@@ -1093,6 +1111,22 @@ class HealthService extends Base {
     recordStartupSummarization(status, details=null) {
         this.#startupSummarizationStatus  = status;
         this.#startupSummarizationDetails = details;
+
+        // Clear the cache to ensure next healthcheck returns updated info
+        this.clearCache();
+    }
+
+    /**
+     * Records the outcome of a Piece C periodic safety-net summarization sweep
+     * for healthcheck observability (#10813 AC6).
+     *
+     * @param {string} status One of 'completed', 'failed'
+     * @param {Object} details Provenance: `{processed, lastSweepAt}` on success or
+     *     `{error, lastSweepAt}` on failure
+     */
+    recordPeriodicSweep(status, details=null) {
+        this.#lastPeriodicSweepStatus  = status;
+        this.#lastPeriodicSweepDetails = details;
 
         // Clear the cache to ensure next healthcheck returns updated info
         this.clearCache();

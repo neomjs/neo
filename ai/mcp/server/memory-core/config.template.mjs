@@ -54,6 +54,21 @@ const defaultConfig = {
      */
     isPrimary: false,
     /**
+     * Periodic safety-net summarization sweep cadence in milliseconds (#10813 Piece C).
+     *
+     * Active only when `autoSummarize=true` AND `isPrimary=true`. Fires
+     * `summarizeSessions({})` (drift-detection scan) on a regular interval to catch
+     * sessions that closed without a graceful sunset event AND without an SSE
+     * disconnect signal — the hard-crash edge case that Piece B (sunset-poll) and
+     * the disconnect-driven `queueSummarizationJob` path both miss.
+     *
+     * Default 600000 (10 minutes) per ticket #10813 AC3 framing. Operator override
+     * via `NEO_SUMMARIZATION_SWEEP_INTERVAL_MS`. Set to 0 to disable the periodic
+     * sweep while keeping Piece B sunset-poll active.
+     * @type {number}
+     */
+    summarizationSweepIntervalMs: 600000,
+    /**
      * Automatically start the local database process (Chroma/SQLite) on startup.
      * @type {boolean}
      */
@@ -388,6 +403,7 @@ const defaultConfig = {
 const envBindings = {
     'autoSummarize': { var: 'NEO_AUTO_SUMMARIZE', parse: parseBool },
     'isPrimary': { var: 'NEO_MC_PRIMARY', parse: parseBool },
+    'summarizationSweepIntervalMs': { var: 'NEO_SUMMARIZATION_SWEEP_INTERVAL_MS', parse: parseNumber },
     'autoStartDatabase': { var: 'NEO_MEM_AUTO_START_DATABASE', parse: parseBool },
     'autoStartInference': { var: 'NEO_MEM_AUTO_START_INFERENCE', parse: parseBool },
     'autoDream': { var: 'NEO_AUTO_DREAM', parse: parseBool },
