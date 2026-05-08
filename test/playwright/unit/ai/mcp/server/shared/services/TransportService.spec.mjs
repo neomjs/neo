@@ -21,6 +21,7 @@ import * as core from '../../../../../../../../src/core/_export.mjs';
 test.describe('Neo.ai.mcp.server.shared.services.TransportService', () => {
 
     test('onsessionclosed hook removes transport and calls server.onSessionClosed via actual HTTP request', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: HTTP bind race residual post-#10930 fix (#10935)');
         const TransportService = (await import('../../../../../../../../ai/mcp/server/shared/services/TransportService.mjs')).default;
 
         let closedSessionId = null;

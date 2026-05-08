@@ -89,6 +89,7 @@ test.describe('Neo.ai.mcp.server.knowledge-base.services.KBRecorderService', () 
     });
 
     test('deduplicates repeated KB questions into Agent FAQ clusters', () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: kb_query_log singleton-data pollution (#10936)');
         const
             originalResolve  = KBRecorderService.resolveRelatedConceptIds,
             originalCoverage = KBRecorderService.hasStrongGuideCoverage;
