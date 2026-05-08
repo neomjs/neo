@@ -19,6 +19,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
 import os             from 'os';
+import {TestLifecycleHelper} from '../../mcp/server/memory-core/util.mjs';
 
 test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
     let GraphService;
@@ -116,24 +117,8 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
         ConceptService.loaded = false;
     });
 
-    test.afterAll(() => {
-        if (GraphService?.db) {
-            if (GraphService.db.storage?.db) {
-                try { GraphService.db.storage.db.close(); } catch (e) {}
-            }
-            GraphService.db           = null;
-            GraphService._initPromise = null;
-        }
-
-        if (SystemLifecycleService) {
-            SystemLifecycleService._initPromise = null;
-        }
-
-        if (fs.existsSync(testDbPath)) {
-            try { fs.unlinkSync(testDbPath); } catch (e) {}
-            if (fs.existsSync(`${testDbPath}-wal`)) try { fs.unlinkSync(`${testDbPath}-wal`); } catch (e) {}
-            if (fs.existsSync(`${testDbPath}-shm`)) try { fs.unlinkSync(`${testDbPath}-shm`); } catch (e) {}
-        }
+    test.afterAll(async () => {
+        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
     });
 
     /**
