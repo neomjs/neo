@@ -107,7 +107,7 @@ test.describe('OIDC Authentication Fixture', () => {
             });
 
             // Bob should not see Alice's memory
-            const foundSecret = bobResults.documents?.flat().some(doc => doc.includes('OMEGA-99'));
+            const foundSecret = bobResults.results?.some(mem => mem.response.includes('OMEGA-99'));
             expect(foundSecret).toBe(false);
 
             // Alice should see her own memory
@@ -116,7 +116,7 @@ test.describe('OIDC Authentication Fixture', () => {
                 nResults: 5
             });
 
-            const aliceFoundSecret = aliceResults.documents?.flat().some(doc => doc.includes('OMEGA-99'));
+            const aliceFoundSecret = aliceResults.results?.some(mem => mem.response.includes('OMEGA-99'));
             expect(aliceFoundSecret).toBe(true);
 
         } finally {
