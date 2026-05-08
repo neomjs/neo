@@ -1,148 +1,60 @@
-import {McpServer}                                     from '@modelcontextprotocol/sdk/server/mcp.js';
-import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
-import Base                                            from '../../../../src/core/Base.mjs';
-import {listTools, callTool}                           from './services/toolService.mjs';
+import BaseServer            from '../BaseServer.mjs';
+import {listTools, callTool} from './services/toolService.mjs';
+
+/**
+ * @summary Minimal stderr-only logger shim for file-system MCP server. Routes all log levels
+ * to `console.error` so log output never collides with the stdio MCP protocol channel
+ * (stdout). file-system has no dedicated logger module — unlike the cloud-native Tier-1
+ * servers — so this shim provides the BaseServer-expected logger interface.
+ */
+const stderrLogger = {
+    debug: () => {},
+    info : (...args) => console.error(...args),
+    warn : (...args) => console.error(...args),
+    error: (...args) => console.error(...args)
+};
 
 /**
  * @summary The File System MCP Server application.
  *
- * Handles initialization, configuration, and lifecycle management for the file-system MCP server.
  * Provides restricted, sandboxed file operations and execution feedback for agents.
+ * Tier-2 local-only server (gemma4-style local-agent surface) — NOT a deployment target.
+ * Stdio transport only; no aiConfig load, no health service, no dependent services.
  *
- * @class Neo.ai.mcp.server.fileSystem.Server
- * @extends Neo.core.Base
+ * @class Neo.ai.mcp.server.file-system.Server
+ * @extends Neo.ai.mcp.server.BaseServer
  */
-class Server extends Base {
+class Server extends BaseServer {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.fileSystem.Server'
+         * @member {String} className='Neo.ai.mcp.server.file-system.Server'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.fileSystem.Server'
+        className: 'Neo.ai.mcp.server.file-system.Server'
     }
 
-    /**
-     * The MCP Server instance.
-     * @member {McpServer|null} mcpServer=null
-     * @protected
-     */
-    mcpServer = null
+    logger = stderrLogger
 
     /**
-     * Async initialization sequence.
-     * @returns {Promise<void>}
+     * @summary MCP server identity for `createMcpServer()`.
+     * @returns {{name: String, version: String, capabilities: Object}}
      */
-    async initAsync() {
-        await super.initAsync();
-
-        // 1. Initialize MCP Server instance
-        this.mcpServer = new McpServer({
-            name   : 'neo-file-system',
-            version: process.env.npm_package_version || '1.0.0',
-        }, {
+    getServerMetadata() {
+        return {
+            name        : 'neo-file-system',
+            version     : process.env.npm_package_version || '1.0.0',
             capabilities: {
-                tools: {
-                    listChanged: false
-                }
+                tools: {listChanged: false}
             }
-        });
-
-        // 2. Setup Request Handlers
-        this.setupRequestHandlers();
-
-        // 3. Connect Transport (Only stdio supported for file-system currently)
-        const {StdioServerTransport} = await import('@modelcontextprotocol/sdk/server/stdio.js');
-        const transport = new StdioServerTransport();
-        await this.mcpServer.connect(transport);
-
-        console.error('[neo-file-system MCP] Server started on stdio transport');
+        };
     }
 
     /**
-     * Wires up the MCP request handlers for listing and calling tools.
+     * @summary Per-server tool registry for ListTools / CallTool dispatch.
+     * @returns {{listTools: Function, callTool: Function}}
      */
-    setupRequestHandlers() {
-        // List Tools Handler
-        this.mcpServer.server.setRequestHandler(ListToolsRequestSchema, async (request) => {
-            try {
-                const {cursor, limit}     = request.params || {};
-                const {tools, nextCursor} = listTools({cursor, limit});
-
-                const mcpTools = tools.map(tool => ({
-                    name        : tool.name,
-                    title       : tool.title,
-                    description : tool.description,
-                    inputSchema : tool.inputSchema,
-                    outputSchema: tool.outputSchema,
-                    annotations : tool.annotations
-                }));
-
-                const result = { tools: mcpTools };
-
-                if (nextCursor) {
-                    result.nextCursor = nextCursor;
-                }
-                return result;
-            } catch (error) {
-                console.error('[MCP] Error listing tools:', error);
-                return {tools: [], nextCursor: undefined, error: error.message};
-            }
-        });
-
-        // Call Tool Handler
-        this.mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-            const {name, arguments: args} = request.params;
-
-            try {
-                const result = await callTool(name, args);
-
-                let contentBlock;
-                let isError           = false;
-                let structuredContent = null;
-
-                if (Neo.isObject(result)) {
-                    isError = 'error' in result;
-
-                    if (isError) {
-                        contentBlock = {
-                            type: 'text',
-                            text: `Tool Error: ${result.error || 'Unknown Error'}. Message: ${result.message || 'No message provided.'}`
-                        };
-                    } else {
-                        contentBlock = {
-                            type: 'text',
-                            text: JSON.stringify(result, null, 2)
-                        };
-                        structuredContent = result;
-                    }
-                } else {
-                    contentBlock = {
-                        type: 'text',
-                        text: typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result)
-                    };
-                    structuredContent = { result };
-                }
-
-                const response = {
-                    content: [contentBlock],
-                    isError
-                };
-
-                if (structuredContent) {
-                    response.structuredContent = structuredContent;
-                }
-
-                return response;
-            } catch (error) {
-                return {
-                    content: [{
-                        type: 'text',
-                        text: `Error executing ${name}: ${error.message}`
-                    }],
-                    isError: true
-                };
-            }
-        });
+    getToolService() {
+        return {listTools, callTool};
     }
 }
 
