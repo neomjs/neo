@@ -14,10 +14,13 @@
  * auto-remove it — operators or peers must either label it or remove it explicitly.
  *
  * Exit codes:
- *   0 — Project membership matches the labeled set exactly (in-sync).
- *   1 — drift detected. With --apply, drift was closed by adding missing items but
- *       residual unlabeled-Project-items still exist (operator action needed).
- *   2 — script error (network, permission, etc.).
+ *   0 — Project membership matches the labeled set exactly (in-sync). After --apply,
+ *       this means all missing items were added AND no residual unlabeled-Project-items
+ *       remain.
+ *   1 — drift detected. Cases: report-only run with any drift; --apply with residual
+ *       unlabeled-Project-items requiring operator action; --apply with per-item add
+ *       failures.
+ *   2 — script error (network, permission, etc.) bubbled out of a non-throwing gh call.
  *
  * Usage:
  *   npm run ai:reconcile-v13-project                    # report only
@@ -37,11 +40,14 @@ const REPO           = 'neomjs/neo';
 const LABEL          = 'release:v13';
 const APPLY          = process.argv.includes('--apply');
 
-function gh(args, {parse = true} = {}) {
+function gh(args, {parse = true, throws = false} = {}) {
     try {
         const out = execSync(`gh ${args}`, {encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']});
         return parse ? JSON.parse(out) : out;
     } catch (err) {
+        if (throws) {
+            throw err;
+        }
         console.error(`[reconcile] gh command failed: ${args}`);
         console.error(err.stderr?.toString() || err.message);
         process.exit(2);
@@ -89,23 +95,26 @@ if (inProjectNotLabeled.length > 0) {
     inProjectNotLabeled.forEach(i => console.log(`    #${i.content.number} [${i.content.state}] ${i.content.title}`));
 }
 
+let applyFailed = 0;
+
 if (APPLY && labeledNotInProject.length > 0) {
     console.log(`\n[apply] Adding ${labeledNotInProject.length} labeled item(s) to Project #${PROJECT_NUMBER}...`);
     let added = 0;
-    let failed = 0;
     for (const issue of labeledNotInProject) {
         const mutation = `mutation { addProjectV2ItemById(input: {projectId: "${PROJECT_ID}", contentId: "${issue.id}"}) { item { id } } }`;
         try {
-            gh(`api graphql -f query='${mutation}'`, {parse: false});
+            gh(`api graphql -f query='${mutation}'`, {parse: false, throws: true});
             console.log(`  ✓ added #${issue.number}`);
             added++;
-        } catch {
-            console.error(`  ✗ failed #${issue.number}`);
-            failed++;
+        } catch (err) {
+            console.error(`  ✗ failed #${issue.number}: ${err.stderr?.toString() || err.message}`);
+            applyFailed++;
         }
     }
-    console.log(`[apply] ${added} added, ${failed} failed.`);
+    console.log(`[apply] ${added} added, ${applyFailed} failed.`);
 }
 
-// Exit 1 if drift remains (even after --apply, unlabeled-Project-items still need operator action)
-process.exit(1);
+// Exit 0 only when --apply fully heals drift AND no unlabeled-Project-items remain.
+// Exit 1 covers: report-only with drift, --apply with residual unlabeled items, or --apply with per-item failures.
+const fullyHealed = APPLY && applyFailed === 0 && inProjectNotLabeled.length === 0;
+process.exit(fullyHealed ? 0 : 1);
