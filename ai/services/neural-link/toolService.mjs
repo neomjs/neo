@@ -1,6 +1,6 @@
 import path               from 'path';
 import {fileURLToPath}    from 'url';
-import ToolService        from '../../../ToolService.mjs';
+import ToolService        from '../../mcp/ToolService.mjs';
 import ComponentService   from './ComponentService.mjs';
 import ConnectionService  from './ConnectionService.mjs';
 import DataService        from './DataService.mjs';
@@ -11,9 +11,9 @@ import RuntimeService     from './RuntimeService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
-const openApiFilePath = path.join(__dirname, '../openapi.yaml');
+const openApiFilePath = path.join(__dirname, '../../mcp/server/neural-link/openapi.yaml');
 
-import {getCurrentTurnId} from '../Server.mjs';
+import {getCurrentTurnId} from '../../mcp/server/neural-link/Server.mjs';
 import RecorderService    from './RecorderService.mjs';
 
 const serviceMapping = {

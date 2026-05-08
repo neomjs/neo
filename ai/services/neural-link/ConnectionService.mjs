@@ -1,10 +1,10 @@
-import aiConfig  from '../config.mjs';
+import aiConfig  from '../../mcp/server/neural-link/config.mjs';
 import {spawn}   from 'child_process';
 import crypto    from 'crypto';
 import fs        from 'fs';
 import WebSocket from 'ws';
-import Base      from '../../../../../src/core/Base.mjs';
-import logger    from '../logger.mjs';
+import Base      from '../../../src/core/Base.mjs';
+import logger    from '../../mcp/server/neural-link/logger.mjs';
 
 /**
  * @summary Manages the connection to the Neural Link Bridge and orchestrates RPC calls.

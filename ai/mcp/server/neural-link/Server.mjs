@@ -1,9 +1,9 @@
 import BaseServer            from '../BaseServer.mjs';
 import aiConfig              from './config.mjs';
 import logger                from './logger.mjs';
-import ConnectionService     from './services/ConnectionService.mjs';
-import HealthService         from './services/HealthService.mjs';
-import {listTools, callTool} from './services/toolService.mjs';
+import ConnectionService     from '../../../services/neural-link/ConnectionService.mjs';
+import HealthService         from '../../../services/neural-link/HealthService.mjs';
+import {listTools, callTool} from '../../../services/neural-link/toolService.mjs';
 
 let _turnId = 0;
 
