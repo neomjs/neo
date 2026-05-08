@@ -92,6 +92,15 @@ When provisioning your containers, supply the following minimal environment vari
 | `NEO_PUBLIC_URL` | Both | The canonical public URL for this MCP server (e.g., `https://api.example.com/mc`). Required for SSE advertisement and OAuth `redirect_uri` generation behind reverse proxies. |
 | `NEO_AUTH_TRUST_PROXY_IDENTITY` | Both | Set to `true` if your reverse proxy handles authentication. |
 | `GEMINI_API_KEY` | Both | Required for Gemini integration. |
+| `NEO_TRANSPORT` | Both | Steady runtime binding for HTTP/SSE deployments (e.g., set to `sse`). |
+| `NEO_AUTO_SYNC` | KB | Deployment safety toggle. Operator one-shot KB sync toggle (safe deploy default: `false`). |
+| `NEO_KB_AUTO_START_DATABASE` | KB | Deployment safety toggle. Operator one-shot lifecycle toggle for local Chroma startup (safe deploy default: `false`). |
+| `NEO_MEM_AUTO_START_DATABASE` | MC | Safe deploy control. Operator one-shot lifecycle toggle for local Chroma startup (disabled by default: `false`). |
+| `NEO_MEM_AUTO_START_INFERENCE` | MC | Safe deploy control. Operator one-shot lifecycle toggle for local inference startup (disabled by default: `false`). |
+| `NEO_AUTO_DREAM` | MC | Safe deploy control. Operator one-shot/daemon toggle (disabled by default: `false`). |
+| `NEO_AUTO_GOLDEN_PATH` | MC | Safe deploy control. Operator one-shot/daemon toggle for Golden Path synthesis (disabled by default: `false`). |
+| `NEO_REAL_TIME_MEMORY_PARSING` | MC | Safe deploy control. Operator one-shot/daemon toggle (disabled by default: `false`). |
+| `NEO_AUTO_INGEST_FS` | MC | Safe deploy control. Operator one-shot ingestion toggle (disabled by default: `false`). |
 | `NEO_AUTO_SUMMARIZE` | MC | Set to `true` to enable startup + disconnect-driven session summarization. The lifecycle is now handled by the `bridge-daemon`, which acts as a host-level singleton via a `PID_FILE` lock. The daemon uses an in-process mutex to guarantee single-writer semantics across multiple local harness instances on that host. |
 | `NEO_MC_PRIMARY` | MC | *(Deprecated)* Previously used for single-writer enforcement. Replaced by daemon-enforced singleton locks for local multi-harness clusters. Remote multi-user Memory Core deployments instead rely on request-scoped identity context to partition write visibility. |
 | `NEO_SUMMARIZATION_SWEEP_INTERVAL_MS` | MC | The interval in milliseconds for the bridge-daemon to poll SQLite for un-summarized sessions (default: `600000` = 10 mins). Set to `0` to disable periodic sweeping. |
