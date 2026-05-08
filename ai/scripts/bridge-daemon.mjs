@@ -147,6 +147,7 @@ function writeLog(level, message) {
 pruneOldLogs();
 
 const PID_FILE = path.join(DAEMON_DATA_DIR, 'bridge-daemon.pid');
+const SUMMARIZATION_PID_FILE = path.join(DAEMON_DATA_DIR, 'summarization.pid');
 
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -256,8 +257,51 @@ const coalesceState = {};
 let lastSummarizationSweep = Date.now();
 const SWEEP_INTERVAL_MS = parseInt(process.env.NEO_SUMMARIZATION_SWEEP_INTERVAL_MS || '600000', 10);
 let summarizationRunning = false;
+let summarizationPid = null;
 
 function checkSummarizationLifecycle() {
+    // 1. Recover/Verify State from PID file
+    if (fs.existsSync(SUMMARIZATION_PID_FILE)) {
+        try {
+            const pid = parseInt(fs.readFileSync(SUMMARIZATION_PID_FILE, 'utf8'), 10);
+            if (!isNaN(pid) && pid > 0) {
+                try {
+                    process.kill(pid, 0); // Is it alive?
+                    
+                    if (!summarizationRunning) {
+                        // Orphan discovery: verify it's the actual process before adopting
+                        const cmd = execSync(`ps -p ${pid} -o command=`).toString().trim();
+                        if (cmd.includes('summarize-sessions')) {
+                            writeLog('INFO', `[Bridge Daemon] Found orphaned summarization process (PID: ${pid}). Adopting.`);
+                            summarizationRunning = true;
+                            summarizationPid = pid;
+                        } else {
+                            writeLog('INFO', `[Bridge Daemon] Stale summarization PID ${pid} reused by another process. Unlinking.`);
+                            fs.unlinkSync(SUMMARIZATION_PID_FILE);
+                        }
+                    } else if (summarizationPid !== pid) {
+                        // PID file changed while running
+                        summarizationPid = pid;
+                    }
+                } catch (e) {
+                    // Process not alive. Cleanup.
+                    fs.unlinkSync(SUMMARIZATION_PID_FILE);
+                    summarizationRunning = false;
+                    summarizationPid = null;
+                }
+            } else {
+                fs.unlinkSync(SUMMARIZATION_PID_FILE);
+                summarizationRunning = false;
+            }
+        } catch (e) {
+            writeLog('ERROR', `[Bridge Daemon] Failed to read summarization PID file: ${e.message}`);
+        }
+    } else {
+        // No file means not running
+        summarizationRunning = false;
+        summarizationPid = null;
+    }
+
     if (summarizationRunning) return;
 
     try {
@@ -282,8 +326,24 @@ function checkSummarizationLifecycle() {
                 stdio: 'ignore'
             });
 
+            if (p.pid) {
+                summarizationPid = p.pid;
+                try {
+                    fs.writeFileSync(SUMMARIZATION_PID_FILE, p.pid.toString(), { encoding: 'utf8', flag: 'w' });
+                } catch (e) {
+                    writeLog('ERROR', `[Bridge Daemon] Failed to write summarization PID: ${e.message}`);
+                }
+            }
+
             p.on('close', (code) => {
                 summarizationRunning = false;
+                summarizationPid = null;
+                try {
+                    if (fs.existsSync(SUMMARIZATION_PID_FILE)) {
+                        fs.unlinkSync(SUMMARIZATION_PID_FILE);
+                    }
+                } catch(e) {}
+
                 if (code === 0 && handovers.length > 0) {
                     try {
                         markNodesAsRead(db, handovers);
@@ -298,6 +358,12 @@ function checkSummarizationLifecycle() {
 
             p.on('error', (err) => {
                 summarizationRunning = false;
+                summarizationPid = null;
+                try {
+                    if (fs.existsSync(SUMMARIZATION_PID_FILE)) {
+                        fs.unlinkSync(SUMMARIZATION_PID_FILE);
+                    }
+                } catch(e) {}
                 writeLog('ERROR', `[Bridge Daemon] Failed to spawn summarize-sessions: ${err.message}`);
             });
         }
