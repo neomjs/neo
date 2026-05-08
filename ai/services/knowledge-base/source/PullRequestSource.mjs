@@ -1,7 +1,7 @@
 import Base     from './Base.mjs';
 import fs       from 'fs-extra';
 import path     from 'path';
-import aiConfig from '../config.mjs';
+import aiConfig from '../../../mcp/server/knowledge-base/config.mjs';
 
 /**
  * @summary Extracts knowledge chunks from locally synced Pull Request conversations.
@@ -13,17 +13,17 @@ import aiConfig from '../config.mjs';
  * follow-up ticket links. Without this provider, `ask_knowledge_base` can surface
  * the intent of a change but not the reasoning recorded during execution.
  *
- * @class Neo.ai.mcp.server.knowledge-base.source.PullRequestSource
- * @extends Neo.ai.mcp.server.knowledge-base.source.Base
+ * @class Neo.ai.services.knowledge-base.source.PullRequestSource
+ * @extends Neo.ai.services.knowledge-base.source.Base
  * @singleton
  */
 class PullRequestSource extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.source.PullRequestSource'
+         * @member {String} className='Neo.ai.services.knowledge-base.source.PullRequestSource'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.source.PullRequestSource',
+        className: 'Neo.ai.services.knowledge-base.source.PullRequestSource',
         /**
          * @member {Boolean} singleton=true
          * @protected

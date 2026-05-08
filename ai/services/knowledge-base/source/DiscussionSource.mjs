@@ -1,7 +1,7 @@
 import Base from './Base.mjs';
 import fs   from 'fs-extra';
 import path from 'path';
-import aiConfig from '../config.mjs';
+import aiConfig from '../../../mcp/server/knowledge-base/config.mjs';
 
 /**
  * @summary Extracts knowledge chunks from the active and archived GitHub Discussions.
@@ -10,17 +10,17 @@ import aiConfig from '../config.mjs';
  * providing deep historical context on architectural brainstorming,
  * proposals, and high-level agent communications.
  *
- * @class Neo.ai.mcp.server.knowledge-base.source.DiscussionSource
- * @extends Neo.ai.mcp.server.knowledge-base.source.Base
+ * @class Neo.ai.services.knowledge-base.source.DiscussionSource
+ * @extends Neo.ai.services.knowledge-base.source.Base
  * @singleton
  */
 class DiscussionSource extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.source.DiscussionSource'
+         * @member {String} className='Neo.ai.services.knowledge-base.source.DiscussionSource'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.source.DiscussionSource',
+        className: 'Neo.ai.services.knowledge-base.source.DiscussionSource',
         /**
          * @member {Boolean} singleton=true
          * @protected

@@ -1,19 +1,19 @@
-import CoreBase from '../../../../../src/core/Base.mjs';
+import CoreBase from '../../../../src/core/Base.mjs';
 
 /**
  * Abstract base class for Knowledge Base data sources.
  * A Source is responsible for locating, reading, and yielding knowledge chunks from a specific part of the repository.
  *
- * @class Neo.ai.mcp.server.knowledge-base.source.Base
+ * @class Neo.ai.services.knowledge-base.source.Base
  * @extends Neo.core.Base
  */
 class Base extends CoreBase {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.source.Base'
+         * @member {String} className='Neo.ai.services.knowledge-base.source.Base'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.source.Base'
+        className: 'Neo.ai.services.knowledge-base.source.Base'
     }
 
     /**

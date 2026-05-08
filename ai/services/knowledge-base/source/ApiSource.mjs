@@ -2,7 +2,7 @@ import Base         from './Base.mjs';
 import SourceParser from '../parser/SourceParser.mjs';
 import fs           from 'fs-extra';
 import path         from 'path';
-import aiConfig     from '../config.mjs';
+import aiConfig     from '../../../mcp/server/knowledge-base/config.mjs';
 
 /**
  * @summary Extracts knowledge chunks from Neo.mjs source code.
@@ -15,17 +15,17 @@ import aiConfig     from '../config.mjs';
  * allowing the AI to understand not just the API contract but also the logic and patterns
  * used within the framework.
  *
- * @class Neo.ai.mcp.server.knowledge-base.source.ApiSource
- * @extends Neo.ai.mcp.server.knowledge-base.source.Base
+ * @class Neo.ai.services.knowledge-base.source.ApiSource
+ * @extends Neo.ai.services.knowledge-base.source.Base
  * @singleton
  */
 class ApiSource extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.source.ApiSource'
+         * @member {String} className='Neo.ai.services.knowledge-base.source.ApiSource'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.source.ApiSource',
+        className: 'Neo.ai.services.knowledge-base.source.ApiSource',
         /**
          * @member {Boolean} singleton=true
          * @protected

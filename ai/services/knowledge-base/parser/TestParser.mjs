@@ -1,6 +1,6 @@
 import * as acorn from 'acorn';
-import Base       from '../../../../../src/core/Base.mjs';
-import logger     from '../logger.mjs';
+import Base       from '../../../../src/core/Base.mjs';
+import logger     from '../../../mcp/server/knowledge-base/logger.mjs';
 
 /**
  * @summary Extracts knowledge chunks from Playwright test files.
@@ -14,17 +14,17 @@ import logger     from '../logger.mjs';
  * that code comments and nested blocks are correctly processed. The generated chunks
  * include line number metadata to support precise navigation.
  *
- * @class Neo.ai.mcp.server.knowledge-base.parser.TestParser
+ * @class Neo.ai.services.knowledge-base.parser.TestParser
  * @extends Neo.core.Base
  * @singleton
  */
 class TestParser extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.parser.TestParser'
+         * @member {String} className='Neo.ai.services.knowledge-base.parser.TestParser'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.parser.TestParser',
+        className: 'Neo.ai.services.knowledge-base.parser.TestParser',
         /**
          * @member {Boolean} singleton=true
          * @protected

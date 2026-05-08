@@ -1,4 +1,4 @@
-import Base from '../../../../../src/core/Base.mjs';
+import Base from '../../../../src/core/Base.mjs';
 
 const sectionsRegex = /(?=^#+\s)/m;
 
@@ -13,17 +13,17 @@ const sectionsRegex = /(?=^#+\s)/m;
  * specific sections of a guide rather than the entire document. It assigns the correct
  * `type` ('guide' or 'blog') based on the file's location in the learning tree.
  *
- * @class Neo.ai.mcp.server.knowledge-base.parser.DocumentationParser
+ * @class Neo.ai.services.knowledge-base.parser.DocumentationParser
  * @extends Neo.core.Base
  * @singleton
  */
 class DocumentationParser extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.parser.DocumentationParser'
+         * @member {String} className='Neo.ai.services.knowledge-base.parser.DocumentationParser'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.parser.DocumentationParser',
+        className: 'Neo.ai.services.knowledge-base.parser.DocumentationParser',
         /**
          * @member {Boolean} singleton=true
          * @protected

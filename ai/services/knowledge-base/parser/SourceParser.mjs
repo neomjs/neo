@@ -1,6 +1,6 @@
 import * as acorn from 'acorn';
-import Base       from '../../../../../src/core/Base.mjs';
-import logger     from '../logger.mjs';
+import Base       from '../../../../src/core/Base.mjs';
+import logger     from '../../../mcp/server/knowledge-base/logger.mjs';
 
 /**
  * @summary Parses Neo.mjs source files into granular knowledge chunks.
@@ -17,17 +17,17 @@ import logger     from '../logger.mjs';
  *
  * It uses AST parsing (via `acorn`) to robustly handle the code structure.
  *
- * @class Neo.ai.mcp.server.knowledge-base.parser.SourceParser
+ * @class Neo.ai.services.knowledge-base.parser.SourceParser
  * @extends Neo.core.Base
  * @singleton
  */
 class SourceParser extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.parser.SourceParser'
+         * @member {String} className='Neo.ai.services.knowledge-base.parser.SourceParser'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.parser.SourceParser',
+        className: 'Neo.ai.services.knowledge-base.parser.SourceParser',
         /**
          * @member {Boolean} singleton=true
          * @protected
