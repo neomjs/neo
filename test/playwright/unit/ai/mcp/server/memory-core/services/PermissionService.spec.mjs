@@ -22,7 +22,7 @@ import RequestContextService from '../../../../../../../../ai/mcp/server/shared/
 test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => {
     test.describe.configure({ mode: 'serial' });
     let PermissionService, GraphService, LifecycleService, originalAutoSave;
-    let dbPath;
+    let dbPath, originalDbPath, hadGraphDb = false;
 
     test.beforeAll(async () => {
         // Build an isolated tmp path for the database file tests
@@ -34,6 +34,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => 
 
         // Force temp file DB config instead of :memory: to prevent initialization race wipes
         const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        originalDbPath = aiConfig.storagePaths.graph;
         aiConfig.storagePaths.graph = dbPath;
 
         // Mock Chroma collections to prevent production data wipes (#10845 / #10867)
@@ -45,10 +46,19 @@ test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => 
         PermissionService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/PermissionService.mjs')).default;
         LifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
 
+        const { TestLifecycleHelper } = await import('../util.mjs');
+
+        if (GraphService.db) {
+            hadGraphDb = true;
+        }
+
+        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, null, null, 'clear');
+
         if (!LifecycleService._initPromise) {
             await LifecycleService.initAsync();
         } else {
             await LifecycleService.ready();
+            await GraphService.initAsync();
         }
         
         originalAutoSave = GraphService.db.autoSave;
@@ -61,14 +71,20 @@ test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => 
     });
 
     test.afterAll(async () => {
-        const { cleanupChromaManager } = await import('../util.mjs');
+        const { cleanupChromaManager, TestLifecycleHelper } = await import('../util.mjs');
         await cleanupChromaManager();
 
-        GraphService.db.autoSave = originalAutoSave;
-        if (fs.existsSync(dbPath)) {
-            try { fs.unlinkSync(dbPath); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
+        if (GraphService?.db) {
+            GraphService.db.autoSave = originalAutoSave;
+        }
+
+        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, dbPath, fs, 'clear');
+
+        const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig.storagePaths.graph = originalDbPath;
+
+        if (hadGraphDb) {
+            await GraphService.initAsync();
         }
     });
 
@@ -173,7 +189,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => 
 
         // Assert type remains 'BroadcastSentinel'
         const node = GraphService.getNode({ id: 'AGENT:*' });
-        expect(node.type).toBe('BroadcastSentinel');
+        console.log('NODE TYPE IS:', node.type); expect(node.type).toBe('BroadcastSentinel');
         
         // Also assert in SQLite
         const rows = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').all('AGENT:*');

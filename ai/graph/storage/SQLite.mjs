@@ -161,7 +161,13 @@ class SQLite extends Base {
 
         const insertMany = this.db.transaction((nodesList) => {
             for (const node of nodesList) {
-                stmt.run(node.id, node.properties?.userId || null, JSON.stringify(node));
+                const isRecord = node.isRecord;
+                const nodeData = {
+                    id: isRecord ? node.get('id') : node.id,
+                    label: isRecord ? node.get('label') : node.label,
+                    properties: isRecord ? node.get('properties') : node.properties
+                };
+                stmt.run(nodeData.id, nodeData.properties?.userId || null, JSON.stringify(nodeData));
             }
         });
 
@@ -188,7 +194,15 @@ class SQLite extends Base {
 
         const insertMany = this.db.transaction((edgesList) => {
             for (const edge of edgesList) {
-                stmt.run(edge.id, edge.properties?.userId || null, edge.source, edge.target, edge.type || null, JSON.stringify(edge));
+                const isRecord = edge.isRecord;
+                const edgeData = {
+                    id: isRecord ? edge.get('id') : edge.id,
+                    source: isRecord ? edge.get('source') : edge.source,
+                    target: isRecord ? edge.get('target') : edge.target,
+                    type: isRecord ? edge.get('type') : edge.type,
+                    properties: isRecord ? edge.get('properties') : edge.properties
+                };
+                stmt.run(edgeData.id, edgeData.properties?.userId || null, edgeData.source, edgeData.target, edgeData.type || null, JSON.stringify(edgeData));
             }
         });
 

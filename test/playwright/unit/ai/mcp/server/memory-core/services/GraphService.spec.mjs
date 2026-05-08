@@ -58,11 +58,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
 
         // Wipe any RAM caches created by the automated Base constructor async initialization loop cleanly
         // preventing Foreign Key races when `ready` is re-launched pointing to the wiped `testDbPath`!
-        if (GraphService.db) {
-            GraphService.db.nodes.clear();
-            GraphService.db.edges.clear();
-            GraphService.db.vicinityLoadedNodes.clear();
-        }
+        const { TestLifecycleHelper } = await import('../util.mjs');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, null, null, 'clear');
 
         if (!SystemLifecycleService._initPromise) {
             await SystemLifecycleService.initAsync();
@@ -102,29 +99,9 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
     });
 
     test.afterAll(async () => {
-        const { cleanupChromaManager } = await import('../util.mjs');
+        const { cleanupChromaManager, TestLifecycleHelper } = await import('../util.mjs');
         await cleanupChromaManager();
-
-        if (GraphService?.db) {
-            if (GraphService.db.storage && GraphService.db.storage.db) {
-                try {
-                    GraphService.db.storage.db.close();
-                } catch (e) {
-                }
-            }
-            GraphService.db           = null;
-            GraphService._initPromise = null;
-        }
-
-        if (SystemLifecycleService) {
-            SystemLifecycleService._initPromise = null;
-        }
-
-        if (fs.existsSync(testDbPath)) {
-            try {
-                fs.unlinkSync(testDbPath);
-            } catch (e) {}
-        }
+        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
     });
 
     test('should extract node neighbors properly', async () => {
@@ -137,10 +114,12 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         GraphService.linkNodes('EpicA', 'Task2', 'CONTAINS', 0.8);
         GraphService.linkNodes('Task1', 'Task2', 'DEPENDENCY', 0.5);
 
-        const {neighbors} = GraphService.getNeighbors({id: 'EpicA'});
+        const result = GraphService.getNeighbors({id: 'EpicA'});
+        console.log('GETNEIGHBORS RESULT:', result);
+        const {neighbors} = result || {};
 
         // Validation of extraction
-        expect(neighbors.length).toBe(2);
+        expect(neighbors && neighbors.length).toBe(2);
 
         const task1 = neighbors.find(n => n.id === 'Task1');
         const task2 = neighbors.find(n => n.id === 'Task2');

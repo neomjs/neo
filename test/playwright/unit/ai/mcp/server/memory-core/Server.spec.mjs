@@ -49,24 +49,13 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             } catch (e) {}
         }
 
-        if (GraphService.db) {
-            GraphService.db.nodes.clear();
-            GraphService.db.edges.clear();
-            GraphService.db.vicinityLoadedNodes.clear();
-        }
-        GraphService._initPromise = null;
-        GraphService.db = null;
+        const { TestLifecycleHelper } = await import('./util.mjs');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, null, null, null, 'clear');
     });
 
     test.afterAll(async () => {
-        if (GraphService.db?.storage?.db) {
-            GraphService.db.storage.db.close();
-        }
-        try {
-            if (fs.existsSync(testDbPath)) fs.unlinkSync(testDbPath);
-            if (fs.existsSync(`${testDbPath}-wal`)) fs.unlinkSync(`${testDbPath}-wal`);
-            if (fs.existsSync(`${testDbPath}-shm`)) fs.unlinkSync(`${testDbPath}-shm`);
-        } catch (e) {}
+        const { TestLifecycleHelper } = await import('./util.mjs');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, null, testDbPath, fs, 'clear');
     });
 
     test('bindAgentIdentity should correctly retrieve identity without cache manipulation', async () => {
