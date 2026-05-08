@@ -1,8 +1,8 @@
-import aiConfig                 from '../config.mjs';
-import Base                     from '../../../../../src/core/Base.mjs';
+import aiConfig                 from '../../mcp/server/knowledge-base/config.mjs';
+import Base                     from '../../../src/core/Base.mjs';
 import ChromaManager            from './ChromaManager.mjs';
 import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
-import logger                   from '../logger.mjs';
+import logger                   from '../../mcp/server/knowledge-base/logger.mjs';
 
 /**
  * @summary Monitors and validates the ChromaDB dependency for the Knowledge Base MCP server.

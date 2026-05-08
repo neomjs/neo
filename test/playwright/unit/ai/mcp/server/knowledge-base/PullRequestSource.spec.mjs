@@ -128,7 +128,7 @@ test.describe('Neo.ai.mcp.server.knowledge-base.source.PullRequestSource', () =>
     });
 
     test('PullRequestSource is registered in DatabaseService sources array', () => {
-        const dbServicePath = path.join(repoRoot, 'ai/mcp/server/knowledge-base/services/DatabaseService.mjs');
+        const dbServicePath = path.join(repoRoot, 'ai/services/knowledge-base/DatabaseService.mjs');
 
         expect(fs.existsSync(dbServicePath), `DatabaseService.mjs not found at ${dbServicePath}`).toBe(true);
 

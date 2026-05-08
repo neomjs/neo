@@ -1,10 +1,10 @@
 import BaseServer            from '../BaseServer.mjs';
 import aiConfig              from './config.mjs';
 import logger                from './logger.mjs';
-import DatabaseService       from './services/DatabaseService.mjs';
-import HealthService         from './services/HealthService.mjs';
-import KBRecorderService     from './services/KBRecorderService.mjs';
-import {listTools, callTool} from './services/toolService.mjs';
+import DatabaseService       from '../../../services/knowledge-base/DatabaseService.mjs';
+import HealthService         from '../../../services/knowledge-base/HealthService.mjs';
+import KBRecorderService     from '../../../services/knowledge-base/KBRecorderService.mjs';
+import {listTools, callTool} from '../../../services/knowledge-base/toolService.mjs';
 
 /**
  * @summary The Knowledge Base MCP Server application.

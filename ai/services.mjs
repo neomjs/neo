@@ -25,14 +25,14 @@ import GH_SyncService               from './mcp/server/github-workflow/services/
 GH_Config.data.syncOnStartup = false;
 
 // --- Knowledge Base Services ---
-import KB_DatabaseService           from './mcp/server/knowledge-base/services/DatabaseService.mjs';
-import KB_LifecycleService          from './mcp/server/knowledge-base/services/DatabaseLifecycleService.mjs';
-import KB_DocumentService           from './mcp/server/knowledge-base/services/DocumentService.mjs';
-import KB_HealthService             from './mcp/server/knowledge-base/services/HealthService.mjs';
-import KB_RecorderService           from './mcp/server/knowledge-base/services/KBRecorderService.mjs';
-import KB_QueryService              from './mcp/server/knowledge-base/services/QueryService.mjs';
-import KB_SearchService             from './mcp/server/knowledge-base/services/SearchService.mjs';
-import KB_ChromaManager             from './mcp/server/knowledge-base/services/ChromaManager.mjs';
+import KB_DatabaseService           from './services/knowledge-base/DatabaseService.mjs';
+import KB_LifecycleService          from './services/knowledge-base/DatabaseLifecycleService.mjs';
+import KB_DocumentService           from './services/knowledge-base/DocumentService.mjs';
+import KB_HealthService             from './services/knowledge-base/HealthService.mjs';
+import KB_RecorderService           from './services/knowledge-base/KBRecorderService.mjs';
+import KB_QueryService              from './services/knowledge-base/QueryService.mjs';
+import KB_SearchService             from './services/knowledge-base/SearchService.mjs';
+import KB_ChromaManager             from './services/knowledge-base/ChromaManager.mjs';
 import KB_Config                    from './mcp/server/knowledge-base/config.mjs';
 
 // Disable auto-sync and auto-start for all scripts using the SDK to prevent double-runs and daemon spawns

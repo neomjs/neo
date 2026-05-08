@@ -1,9 +1,9 @@
 import {GoogleGenerativeAI} from '@google/generative-ai';
-import aiConfig             from '../config.mjs';
-import Base                 from '../../../../../src/core/Base.mjs';
+import aiConfig             from '../../mcp/server/knowledge-base/config.mjs';
+import Base                 from '../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
 import fs                   from 'fs-extra';
-import logger               from '../logger.mjs';
+import logger               from '../../mcp/server/knowledge-base/logger.mjs';
 import path                 from 'path';
 import QueryService         from './QueryService.mjs';
 
