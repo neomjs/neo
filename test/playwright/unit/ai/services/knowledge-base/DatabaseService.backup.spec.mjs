@@ -1,4 +1,4 @@
-import {setup} from '../../../../../../setup.mjs';
+import {setup} from '../../../../setup.mjs';
 
 const appName = 'KBBackupTest';
 
@@ -16,9 +16,9 @@ setup({
 });
 
 import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../../../../src/Neo.mjs';
-import * as core       from '../../../../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../../../../src/manager/Instance.mjs';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import fs              from 'fs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
@@ -37,7 +37,7 @@ test.describe('KB_DatabaseService — manageDatabaseBackup (#10129 Phase 1)', ()
     let originalGetCollection, tmpBackupDir;
 
     test.beforeAll(async () => {
-        SDK                = await import('../../../../../../../../ai/services.mjs');
+        SDK                = await import('../../../../../../ai/services.mjs');
         KB_DatabaseService = SDK.KB_DatabaseService;
         KB_ChromaManager   = SDK.KB_ChromaManager;
 

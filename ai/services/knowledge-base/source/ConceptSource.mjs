@@ -1,7 +1,7 @@
 import Base from './Base.mjs';
 import fs   from 'fs-extra';
 import path from 'path';
-import aiConfig from '../config.mjs';
+import aiConfig from '../../../mcp/server/knowledge-base/config.mjs';
 
 /**
  * @summary Extracts knowledge chunks from Concept Ontology nodes.
@@ -9,17 +9,17 @@ import aiConfig from '../config.mjs';
  * This source provider reads `.neo-ai-data/concepts/nodes.jsonl`.
  * Each concept node is treated as a single knowledge chunk.
  *
- * @class Neo.ai.mcp.server.knowledge-base.source.ConceptSource
- * @extends Neo.ai.mcp.server.knowledge-base.source.Base
+ * @class Neo.ai.services.knowledge-base.source.ConceptSource
+ * @extends Neo.ai.services.knowledge-base.source.Base
  * @singleton
  */
 class ConceptSource extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.source.ConceptSource'
+         * @member {String} className='Neo.ai.services.knowledge-base.source.ConceptSource'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.source.ConceptSource',
+        className: 'Neo.ai.services.knowledge-base.source.ConceptSource',
         /**
          * @member {Boolean} singleton=true
          * @protected

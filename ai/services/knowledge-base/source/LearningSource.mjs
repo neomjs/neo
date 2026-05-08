@@ -2,7 +2,7 @@ import Base                from './Base.mjs';
 import DocumentationParser from '../parser/DocumentationParser.mjs';
 import fs                  from 'fs-extra';
 import path                from 'path';
-import aiConfig            from '../config.mjs';
+import aiConfig            from '../../../mcp/server/knowledge-base/config.mjs';
 
 /**
  * @summary Extracts knowledge chunks from the 'learn/' directory.
@@ -14,17 +14,17 @@ import aiConfig            from '../config.mjs';
  * By decoupling the file traversal from the core service, this class simplifies the
  * addition of new documentation structures or file formats in the future.
  *
- * @class Neo.ai.mcp.server.knowledge-base.source.LearningSource
- * @extends Neo.ai.mcp.server.knowledge-base.source.Base
+ * @class Neo.ai.services.knowledge-base.source.LearningSource
+ * @extends Neo.ai.services.knowledge-base.source.Base
  * @singleton
  */
 class LearningSource extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.source.LearningSource'
+         * @member {String} className='Neo.ai.services.knowledge-base.source.LearningSource'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.source.LearningSource',
+        className: 'Neo.ai.services.knowledge-base.source.LearningSource',
         /**
          * @member {Boolean} singleton=true
          * @protected

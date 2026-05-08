@@ -24,7 +24,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const repoRoot   = path.resolve(__dirname, '../../../../../../..');
 
-test.describe('Neo.ai.mcp.server.knowledge-base.source.PullRequestSource', () => {
+test.describe('Neo.ai.services.knowledge-base.source.PullRequestSource', () => {
     let PullRequestSource;
     let aiConfig;
     let originalRoot;
@@ -32,7 +32,7 @@ test.describe('Neo.ai.mcp.server.knowledge-base.source.PullRequestSource', () =>
 
     test.beforeAll(async () => {
         aiConfig          = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
-        PullRequestSource = (await import('../../../../../../../ai/mcp/server/knowledge-base/source/PullRequestSource.mjs')).default;
+        PullRequestSource = (await import('../../../../../../../ai/services/knowledge-base/source/PullRequestSource.mjs')).default;
 
         originalRoot = aiConfig.neoRootDir;
 
@@ -56,7 +56,7 @@ test.describe('Neo.ai.mcp.server.knowledge-base.source.PullRequestSource', () =>
 
     test('is a Neo.setupClass singleton with the expected className and extract() method', () => {
         expect(PullRequestSource, 'default export must resolve').toBeDefined();
-        expect(PullRequestSource.className).toBe('Neo.ai.mcp.server.knowledge-base.source.PullRequestSource');
+        expect(PullRequestSource.className).toBe('Neo.ai.services.knowledge-base.source.PullRequestSource');
         expect(typeof PullRequestSource.extract).toBe('function');
     });
 
@@ -128,13 +128,13 @@ test.describe('Neo.ai.mcp.server.knowledge-base.source.PullRequestSource', () =>
     });
 
     test('PullRequestSource is registered in DatabaseService sources array', () => {
-        const dbServicePath = path.join(repoRoot, 'ai/mcp/server/knowledge-base/services/DatabaseService.mjs');
+        const dbServicePath = path.join(repoRoot, 'ai/services/knowledge-base/DatabaseService.mjs');
 
         expect(fs.existsSync(dbServicePath), `DatabaseService.mjs not found at ${dbServicePath}`).toBe(true);
 
         const content = fs.readFileSync(dbServicePath, 'utf8');
 
-        expect(content, 'PullRequestSource must be imported').toMatch(/import\s+PullRequestSource\s+from\s+'\.\.\/source\/PullRequestSource\.mjs'/);
+        expect(content, 'PullRequestSource must be imported').toMatch(/import\s+PullRequestSource\s+from\s+'\.\/source\/PullRequestSource\.mjs'/);
 
         const arrayMatch = content.match(/const\s+sources\s*=\s*\[([\s\S]*?)\]/m);
         expect(arrayMatch, 'sources array block not found in DatabaseService.mjs').not.toBeNull();

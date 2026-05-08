@@ -1,7 +1,7 @@
 import Base from './Base.mjs';
 import fs   from 'fs-extra';
 import path from 'path';
-import aiConfig from '../config.mjs';
+import aiConfig from '../../../mcp/server/knowledge-base/config.mjs';
 
 /**
  * @summary Extracts knowledge chunks from Release Notes.
@@ -10,17 +10,17 @@ import aiConfig from '../config.mjs';
  * Each release note file is treated as a single knowledge chunk, providing historical
  * context on feature additions, bug fixes, and breaking changes.
  *
- * @class Neo.ai.mcp.server.knowledge-base.source.ReleaseNotesSource
- * @extends Neo.ai.mcp.server.knowledge-base.source.Base
+ * @class Neo.ai.services.knowledge-base.source.ReleaseNotesSource
+ * @extends Neo.ai.services.knowledge-base.source.Base
  * @singleton
  */
 class ReleaseNotesSource extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.source.ReleaseNotesSource'
+         * @member {String} className='Neo.ai.services.knowledge-base.source.ReleaseNotesSource'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.source.ReleaseNotesSource',
+        className: 'Neo.ai.services.knowledge-base.source.ReleaseNotesSource',
         /**
          * @member {Boolean} singleton=true
          * @protected

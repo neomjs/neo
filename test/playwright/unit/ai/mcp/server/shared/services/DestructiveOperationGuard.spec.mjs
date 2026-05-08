@@ -25,8 +25,8 @@ import DestructiveOperationGuard, {
 } from '../../../../../../../../ai/mcp/server/shared/services/DestructiveOperationGuard.mjs';
 import CollectionProxy from '../../../../../../../../ai/mcp/server/memory-core/managers/CollectionProxy.mjs';
 import MemoryDatabaseService from '../../../../../../../../ai/mcp/server/memory-core/services/DatabaseService.mjs';
-import KbChromaManager from '../../../../../../../../ai/mcp/server/knowledge-base/services/ChromaManager.mjs';
-import KbVectorService from '../../../../../../../../ai/mcp/server/knowledge-base/services/VectorService.mjs';
+import KbChromaManager from '../../../../../../../../ai/services/knowledge-base/ChromaManager.mjs';
+import KbVectorService from '../../../../../../../../ai/services/knowledge-base/VectorService.mjs';
 
 const repoRoot = process.cwd();
 
@@ -256,7 +256,7 @@ test.describe('DestructiveOperationGuard call-site wiring (#10845)', () => {
         const expected = [
             'ai/mcp/server/memory-core/managers/CollectionProxy.mjs',
             'ai/mcp/server/memory-core/services/DatabaseService.mjs',
-            'ai/mcp/server/knowledge-base/services/VectorService.mjs'
+            'ai/services/knowledge-base/VectorService.mjs'
         ];
 
         for (const relativePath of expected) {

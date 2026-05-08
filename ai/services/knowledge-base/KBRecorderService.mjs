@@ -1,10 +1,10 @@
 import crypto         from 'crypto';
 import fs             from 'fs-extra';
 import path           from 'path';
-import Base           from '../../../../../src/core/Base.mjs';
-import ConceptService from '../../../../services/ConceptService.mjs';
-import config         from '../config.mjs';
-import logger         from '../logger.mjs';
+import Base           from '../../../src/core/Base.mjs';
+import ConceptService from '../ConceptService.mjs';
+import config         from '../../mcp/server/knowledge-base/config.mjs';
+import logger         from '../../mcp/server/knowledge-base/logger.mjs';
 
 /**
  * @summary Captures Knowledge Base query telemetry and materializes Agent FAQ demand clusters.

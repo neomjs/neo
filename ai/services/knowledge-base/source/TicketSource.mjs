@@ -1,7 +1,7 @@
 import Base from './Base.mjs';
 import fs   from 'fs-extra';
 import path from 'path';
-import aiConfig from '../config.mjs';
+import aiConfig from '../../../mcp/server/knowledge-base/config.mjs';
 
 /**
  * @summary Extracts knowledge chunks from the Issue Archive.
@@ -11,17 +11,17 @@ import aiConfig from '../config.mjs';
  * providing deep historical context on past bug fixes, architectural decisions, and
  * feature implementations.
  *
- * @class Neo.ai.mcp.server.knowledge-base.source.TicketSource
- * @extends Neo.ai.mcp.server.knowledge-base.source.Base
+ * @class Neo.ai.services.knowledge-base.source.TicketSource
+ * @extends Neo.ai.services.knowledge-base.source.Base
  * @singleton
  */
 class TicketSource extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.source.TicketSource'
+         * @member {String} className='Neo.ai.services.knowledge-base.source.TicketSource'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.source.TicketSource',
+        className: 'Neo.ai.services.knowledge-base.source.TicketSource',
         /**
          * @member {Boolean} singleton=true
          * @protected

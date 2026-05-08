@@ -1,4 +1,4 @@
-import {setup} from '../../../../../../setup.mjs';
+import {setup} from '../../../../setup.mjs';
 
 const appName = 'KBWorkVolumeBranchingTest';
 
@@ -16,8 +16,8 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../../../src/core/_export.mjs';
+import Neo            from '../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
 import os             from 'os';
@@ -119,13 +119,13 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
     let TextEmbeddingService;
 
     test.beforeAll(async () => {
-        SDK              = await import('../../../../../../../../ai/services.mjs');
+        SDK              = await import('../../../../../../ai/services.mjs');
         KB_ChromaManager = SDK.KB_ChromaManager;
         KB_Config        = SDK.KB_Config;
         TextEmbeddingService = SDK.Memory_TextEmbeddingService;
 
         // VectorService is a helper not exposed via the SDK exports — import directly.
-        const VectorServiceModule = await import('../../../../../../../../ai/mcp/server/knowledge-base/services/VectorService.mjs');
+        const VectorServiceModule = await import('../../../../../../ai/services/knowledge-base/VectorService.mjs');
         KB_VectorService = VectorServiceModule.default;
 
         // Stub the embedding API: tests verify the BRANCH decision, not real embedding work.
