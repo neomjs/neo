@@ -1,0 +1,13 @@
+node_modules
+.neo-ai-data
+dist
+docs/output
+.git
+.github
+.codex
+.claude
+.gemini
+*.log
+
+# Local operator overrides are generated inside Docker for clean-checkout deploys.
+ai/mcp/server/*/config.mjs

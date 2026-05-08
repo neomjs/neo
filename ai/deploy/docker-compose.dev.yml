@@ -5,10 +5,11 @@ services:
     tmpfs:
       - /chroma/chroma
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/8000'"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 12
+      start_period: 60s
     networks:
       - neo-mcp-network
     ports:
@@ -21,6 +22,9 @@ services:
       args:
         TARGET_SERVER: knowledge-base
     environment:
+      - NEO_TRANSPORT=sse
+      - NEO_AUTO_SYNC=false
+      - NEO_KB_AUTO_START_DATABASE=false
       - NEO_CHROMA_HOST=chroma
       - NEO_CHROMA_PORT=8000
       - MCP_HTTP_PORT=3000
@@ -43,6 +47,15 @@ services:
       args:
         TARGET_SERVER: memory-core
     environment:
+      - NEO_TRANSPORT=sse
+      - NEO_MC_PRIMARY=false
+      - NEO_AUTO_SUMMARIZE=false
+      - NEO_MEM_AUTO_START_DATABASE=false
+      - NEO_MEM_AUTO_START_INFERENCE=false
+      - NEO_AUTO_DREAM=false
+      - NEO_AUTO_GOLDEN_PATH=false
+      - NEO_REAL_TIME_MEMORY_PARSING=false
+      - NEO_AUTO_INGEST_FS=false
       - NEO_CHROMA_UNIFIED=true
       - NEO_CHROMA_HOST=chroma
       - NEO_CHROMA_PORT=8000
