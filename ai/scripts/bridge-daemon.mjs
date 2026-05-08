@@ -26,7 +26,11 @@
  */
 import fs from 'fs-extra';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { spawn, execSync } from 'child_process';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import {
     initializeDatabase,
     getLastSyncId,
@@ -34,7 +38,9 @@ import {
     getGraphLogEntries,
     getNodesData,
     getEdgesData,
-    getDbNode
+    getDbNode,
+    getUnreadSunsetHandovers,
+    markNodesAsRead
 } from './bridge-daemon-queries.mjs';
 
 const DB_PATH                  = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
@@ -247,6 +253,59 @@ let lastSyncId;
 // Structure: { [subscriptionId]: { timer: Timeout, queue: [events], subscription: {...} } }
 const coalesceState = {};
 
+let lastSummarizationSweep = Date.now();
+const SWEEP_INTERVAL_MS = parseInt(process.env.NEO_SUMMARIZATION_SWEEP_INTERVAL_MS || '600000', 10);
+let summarizationRunning = false;
+
+function checkSummarizationLifecycle() {
+    if (summarizationRunning) return;
+
+    try {
+        const handovers = getUnreadSunsetHandovers(db);
+        let shouldRun = false;
+
+        if (handovers.length > 0) {
+            writeLog('INFO', `[Bridge Daemon] Found ${handovers.length} unread sunset handovers. Triggering Piece B summarization.`);
+            shouldRun = true;
+        }
+
+        if (!shouldRun && SWEEP_INTERVAL_MS > 0 && Date.now() - lastSummarizationSweep > SWEEP_INTERVAL_MS) {
+            writeLog('INFO', `[Bridge Daemon] Triggering Piece C periodic summarization sweep (Interval: ${SWEEP_INTERVAL_MS}ms).`);
+            shouldRun = true;
+        }
+
+        if (shouldRun) {
+            summarizationRunning = true;
+            lastSummarizationSweep = Date.now();
+
+            const p = spawn(process.argv[0], [path.join(__dirname, 'summarize-sessions.mjs')], {
+                stdio: 'ignore'
+            });
+
+            p.on('close', (code) => {
+                summarizationRunning = false;
+                if (code === 0 && handovers.length > 0) {
+                    try {
+                        markNodesAsRead(db, handovers);
+                        writeLog('INFO', `[Bridge Daemon] Successfully marked ${handovers.length} sunset handovers as read.`);
+                    } catch (e) {
+                        writeLog('ERROR', `[Bridge Daemon] Failed to mark handovers as read: ${e.message}`);
+                    }
+                } else if (code !== 0) {
+                    writeLog('ERROR', `[Bridge Daemon] summarize-sessions.mjs exited with code ${code}.`);
+                }
+            });
+
+            p.on('error', (err) => {
+                summarizationRunning = false;
+                writeLog('ERROR', `[Bridge Daemon] Failed to spawn summarize-sessions: ${err.message}`);
+            });
+        }
+    } catch (e) {
+        writeLog('ERROR', `[Bridge Daemon] Error in checkSummarizationLifecycle: ${e.message}`);
+    }
+}
+
 /**
  * Main polling loop
  */
@@ -292,6 +351,9 @@ async function pollLoop() {
             lastSyncId = maxId;
             fs.writeFileSync(STATE_FILE, lastSyncId.toString(), 'utf8');
         }
+
+        // Run daemon-managed summarization lifecycle (Piece B & C)
+        checkSummarizationLifecycle();
     } catch (err) {
         writeLog('ERROR', `[Bridge Daemon] Error in poll loop: ${err && err.stack ? err.stack : err}`);
     }
