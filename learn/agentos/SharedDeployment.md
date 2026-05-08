@@ -302,6 +302,13 @@ This documentation profile and the test work are complementary:
 - This doc establishes the **contract** operators and agents can rely on.
 - [#10008](https://github.com/neomjs/neo/issues/10008) establishes the **executable proof** that the contract holds.
 
+### Topology Matrix Audit (#10950)
+
+This deployment topology explicitly reconciles the outstanding matrix coverage tickets:
+- **[#10015](https://github.com/neomjs/neo/issues/10015)** (Dynamic Topology): The unified deployment mode documented here is the default product-path for team environments.
+- **[#10008](https://github.com/neomjs/neo/issues/10008)** (Unified Coverage): Playwright integration tests (`test-integration-unified`) empirically prove the unified product-path behavior.
+- **[#10009](https://github.com/neomjs/neo/issues/10009)** (Federated Coverage): Federated topology integration tests are demoted to a non-default diagnostic track, explicitly deferring product claims.
+
 ## Federated Mode Disposition (Non-MVP Diagnostic Path)
 
 The earlier "federated cloud" topology — separate Chroma processes for KB and MC, both deployed remotely — is **demoted from first-class product mode to non-default diagnostic coverage** for the MVP. Rationale:
