@@ -215,6 +215,19 @@ To prevent redundant parallel effort and reviewer collision, you MUST adhere to 
 
 This strict role-based feedback loop prevents duplicated work and confusion over PR ownership when multiple agents are running concurrently. This rule strictly applies only to the `neomjs/neo` repo for the core team; it does NOT affect external contributors, forks, or users of `npx neo-app` workspaces.
 
+### 6.3 Post-Review-Cycle Author Pickup
+
+After an author posts a review-response comment with fixup commits and the
+author-side A2A commentId handoff (`review-response-protocol.md §14`), the
+author MUST invoke the `post-review-pickup` skill before ending the turn.
+
+The author-side matrix, legitimate halt states, and targeted-blocker rule live
+in `.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md`.
+That payload is the Atlas entry; this section is only the map pointer that fires
+after review-response handoff completes. Reviewer-side symmetry is mapped from
+`pr-review-guide.md §11`. This is the public skill codification of the
+`feedback_peer_not_assistant_mode` lineage.
+
 ## 8. PR Comment Hygiene & A2A Propagation (Edge-Case)
 
 *If responding to reviewer feedback across multiple rounds, read `.agents/skills/pull-request/references/review-response-protocol.md`; otherwise skip.*

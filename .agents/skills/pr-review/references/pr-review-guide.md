@@ -441,3 +441,16 @@ CommentId-scoped fetch is the **warm-cache** path — the reviewer or author has
 The dichotomy mirrors the boot-pull-vs-sunset-pull lifecycle distinction (`AGENTS_STARTUP §0` vs `session-sunset` skill body Step 1): **warm path** optimizes for incremental context; **cold path** grounds from scratch. They are NOT symmetric operations — they fill different lifecycle gaps. Don't confuse them: rigidly applying commentId-scoped fetch in a cold-cache case lands one isolated comment without the context it depends on; over-fetching on principle in a warm-cache case defeats the linear-cost scaling.
 
 **The right reflex** — before fetching, ask: *"do I have prior cycle context loaded in this context window?"* If yes → commentId-scoped fetch (or `since_comment_id` for incremental polling across stale-anchor recovery). If no → full-thread fetch + memory query for grounding.
+
+## 11. Post-Review-Cycle Reviewer Pickup
+
+After a reviewer posts the substantive review, chains the formal GitHub review
+state when required, and sends the A2A commentId handoff, the reviewer MUST
+invoke the `post-review-pickup` skill before ending the turn.
+
+The reviewer-side matrix, legitimate halt states, and targeted-blocker rule live
+in `.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md`.
+That payload is the Atlas entry; this section is only the map pointer that fires
+after `pr-review` completes. Author-side symmetry is mapped from
+`pull-request-workflow.md §6.3`. This is the public skill codification of the
+`feedback_peer_not_assistant_mode` lineage.
