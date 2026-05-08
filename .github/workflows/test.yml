@@ -23,9 +23,7 @@ jobs:
         # Bucket A-F audit (#10903) closed via #10907/#10921/#10910/#10919/#10920.
         # Bucket G (#10924) substrate fixes landed via #10940 (TestLifecycleHelper
         # primitive + daemon-spec migration) + open trackers for residual flakes
-        # (#10941/#10936/#10937/#10946 — all skip-guarded via NEO_TEST_SKIP_CI).
-        # NEO_TEST_SKIP_CI=true (env below) activates the canonical bucket-skip
-        # pattern; specs check process.env.NEO_TEST_SKIP_CI and skip cleanly.
+        # (#10941/#10936/#10937/#10946 — all unit-skip-guarded via NEO_TEST_SKIP_CI).
         suite: [integration, unit]
 
     steps:
@@ -57,11 +55,8 @@ jobs:
         run: npm run test-${{ matrix.suite }}
         env:
           NEO_INTEGRATION_STACK_TIMEOUT_MS: '240000'
-          # Activates the canonical bucket-skip pattern for tests that gate on
-          # CI substrate (heavy SLM, grid WIP, application-spec deferrals).
-          # Test specs check `process.env.NEO_TEST_SKIP_CI` and skip cleanly.
-          # See #10903 (unit-suite buckets A-E) + #10917/#10918 (bucket F).
-          NEO_TEST_SKIP_CI: 'true'
+          # Keep the unit residual skip guards active without gating integration specs.
+          NEO_TEST_SKIP_CI: ${{ matrix.suite == 'unit' && 'true' || '' }}
 
       - name: Upload test artifacts on failure
         if: failure()
