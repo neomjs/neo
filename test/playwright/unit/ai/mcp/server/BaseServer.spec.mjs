@@ -81,6 +81,7 @@ function makeTestServerClass(overrides = {}) {
         getHealthExemptTools()     { return overrides.getHealthExemptTools?.() ?? ['healthcheck']; }
         getDependentServices()     { return overrides.getDependentServices?.() ?? []; }
         async wrapDispatch(d)      { return overrides.wrapDispatch?.(d) ?? d(); }
+        async beforeToolDispatch(ctx) { return overrides.beforeToolDispatch?.(ctx); }
     }
     return Neo.setupClass(TestServer);
 }
@@ -322,6 +323,42 @@ test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', ()
 
         expect(result.isError).toBe(true);
         expect(result.content[0].text).toBe('Cannot execute sample: Service down');
+    });
+
+    test('beforeToolDispatch hook fires BEFORE health gate with toolName + args', async () => {
+        const order = [];
+        const Cls = makeTestServerClass({
+            getHealthService    : () => ({ensureHealthy: async () => { order.push('healthGate'); }}),
+            beforeToolDispatch  : async ({toolName, args}) => { order.push(`beforeToolDispatch:${toolName}:${args.x}`); }
+        });
+        const server  = Neo.create(Cls);
+        const mockMcp = makeMockMcpServer();
+        server.setupRequestHandlers(mockMcp);
+
+        await mockMcp.getCallToolHandler()({
+            params: {name: 'sample', arguments: {x: 99}}
+        });
+
+        // Hook fires BEFORE health gate, then dispatch
+        expect(order).toEqual(['beforeToolDispatch:sample:99', 'healthGate']);
+    });
+
+    test('beforeToolDispatch throw routes to formatToolError envelope (not formatHealthError)', async () => {
+        const Cls = makeTestServerClass({
+            getHealthService    : () => ({ensureHealthy: async () => {}}),
+            beforeToolDispatch  : async () => { throw new Error('Identity spoof rejected'); }
+        });
+        const server  = Neo.create(Cls);
+        const mockMcp = makeMockMcpServer();
+        server.setupRequestHandlers(mockMcp);
+
+        const result = await mockMcp.getCallToolHandler()({
+            params: {name: 'sample', arguments: {}}
+        });
+
+        expect(result.isError).toBe(true);
+        // formatToolError shape: "Error executing X: Y" — NOT "Cannot execute X: Y" (that's formatHealthError)
+        expect(result.content[0].text).toBe('Error executing sample: Identity spoof rejected');
     });
 
     test('wrapDispatch override threads context around toolService.callTool', async () => {

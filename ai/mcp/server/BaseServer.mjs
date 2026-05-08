@@ -183,6 +183,21 @@ class BaseServer extends Base {
         // No-op default
     }
 
+    /**
+     * @summary Override (optional): pre-dispatch validation hook fired BEFORE the healthcheck
+     * gate. Throw to reject the request — the outer CallTool try/catch routes the error to
+     * `formatToolError`. Used by memory-core for `AuthMiddleware.validateNoIdentitySpoof(args)`
+     * which must fail-fast on identity-spoofing requests before any other processing.
+     * Default no-op.
+     *
+     * @param {Object} context
+     * @param {String} context.toolName The MCP tool name being invoked.
+     * @param {Object} context.args     The arguments passed to the tool call.
+     */
+    async beforeToolDispatch(context) {
+        // No-op default
+    }
+
     // ===== Optional lifecycle hooks (composable, no-op by default) =====
 
     /** @summary Hook fired before `createMcpServer()` runs in default `initAsync` sequence. */
@@ -284,6 +299,10 @@ class BaseServer extends Base {
 
             try {
                 this.logger?.debug?.(`[MCP] Calling tool: ${name} with args:`, JSON.stringify(args));
+
+                // Pre-dispatch validation hook (e.g., memory-core's identity-spoof guard).
+                // Throws bubble to the outer catch and route to formatToolError.
+                await this.beforeToolDispatch({toolName: name, args});
 
                 if (healthService && !exemptTools.includes(name)) {
                     try {
