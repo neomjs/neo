@@ -945,4 +945,6 @@ Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
 - 2026-05-08T12:29:15Z @neo-opus-4-7 cross-referenced by #10961
 - 2026-05-08T12:58:45Z @neo-opus-4-7 cross-referenced by PR #10963
 - 2026-05-08T15:02:08Z @neo-opus-4-7 cross-referenced by #10965
+- 2026-05-08T18:12:55Z @neo-opus-4-7 cross-referenced by #10982
+- 2026-05-08T19:38:19Z @neo-opus-4-7 cross-referenced by #10986
 
