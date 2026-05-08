@@ -248,32 +248,38 @@ class DatabaseService extends Base {
         const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
 
         let imported = 0;
-        
-        db.transaction((records) => {
-            const insertNode = db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)');
-            const insertEdge = db.prepare('INSERT OR REPLACE INTO Edges (source, target, data) VALUES (?, ?, ?)');
-            
-            for (const record of records) {
-                if (record.type === 'node') {
-                    insertNode.run(record.data.id, JSON.stringify(record.data));
-                } else if (record.type === 'edge') {
-                    insertEdge.run(record.data.source, record.data.target, JSON.stringify(record.data));
-                }
-                imported++;
-            }
-        })([]); // Execute an empty transaction block initially, but we need to batch it.
-        
-        // Let's do it directly in loop for simplicity
-        const insertNode = db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)');
-        const insertEdge = db.prepare('INSERT OR REPLACE INTO Edges (source, target, data) VALUES (?, ?, ?)');
+
+        const insertNode = db.prepare('INSERT OR REPLACE INTO Nodes (id, user_id, data) VALUES (?, ?, ?)');
+        const insertEdge = db.prepare(`
+            INSERT OR REPLACE INTO Edges (id, user_id, source, target, type, data)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `);
 
         // Run within a transaction for speed
         const insertBatch = db.transaction((records) => {
             for (const record of records) {
                 if (record.type === 'node') {
-                    insertNode.run(record.data.id, JSON.stringify(record.data));
+                    insertNode.run(
+                        record.data.id,
+                        record.data.properties?.userId || record.data.user_id || null,
+                        JSON.stringify(record.data)
+                    );
                 } else if (record.type === 'edge') {
-                    insertEdge.run(record.data.source, record.data.target, JSON.stringify(record.data));
+                    const edgeData = record.data;
+                    const edgeId   = edgeData.id || `${edgeData.source}->${edgeData.target}:${edgeData.type}`;
+
+                    if (!edgeData.source || !edgeData.target || !edgeData.type) {
+                        throw new Error(`Invalid graph edge backup record: source, target, and type are required.`);
+                    }
+
+                    insertEdge.run(
+                        edgeId,
+                        edgeData.properties?.userId || edgeData.user_id || null,
+                        edgeData.source,
+                        edgeData.target,
+                        edgeData.type,
+                        JSON.stringify(edgeData)
+                    );
                 }
                 imported++;
             }
