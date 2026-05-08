@@ -28,9 +28,11 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
     const testDbName = `memory-core-fs-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath;
     let mockFsRoot;
+    let originalDbPath;
 
     test.beforeAll(async () => {
         const aiConfig                = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        originalDbPath = aiConfig.storagePaths.graph;
         
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
@@ -48,19 +50,8 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
         FileSystemIngestor = (await import('../../../../../../../../ai/mcp/server/memory-core/services/FileSystemIngestor.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
         
-        if (fs.existsSync(testDbPath)) {
-            try {
-                fs.unlinkSync(testDbPath);
-                if (fs.existsSync(`${testDbPath}-wal`)) fs.unlinkSync(`${testDbPath}-wal`);
-                if (fs.existsSync(`${testDbPath}-shm`)) fs.unlinkSync(`${testDbPath}-shm`);
-            } catch (e) {}
-        }
-
-        if (GraphService.db) {
-            GraphService.db.nodes.clear();
-            GraphService.db.edges.clear();
-            GraphService.db.vicinityLoadedNodes.clear();
-        }
+        const { TestLifecycleHelper } = await import('../util.mjs');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
 
         if (!SystemLifecycleService._initPromise) { await SystemLifecycleService.initAsync(); } else { await SystemLifecycleService.ready(); }
 
@@ -98,25 +89,15 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
     });
 
     test.afterAll(async () => {
-        const { cleanupChromaManager } = await import('../util.mjs');
+        const { cleanupChromaManager, TestLifecycleHelper } = await import('../util.mjs');
         await cleanupChromaManager();
+        
+        const aiConfig = (await import('../../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig.storagePaths.graph = originalDbPath;
 
-        if (GraphService?.db) {
-            if (GraphService.db.storage && GraphService.db.storage.db) {
-                try { GraphService.db.storage.db.close(); } catch (e) {};
-            }
-            GraphService.db           = null;
-            GraphService._initPromise = null;
-        }
-
-        if (SystemLifecycleService) {
-            SystemLifecycleService._initPromise = null;
-        }
+        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
 
         fs.removeSync(mockFsRoot);
-        fs.removeSync(testDbPath);
-        try { fs.unlinkSync(`${testDbPath}-wal`); } catch (e) {}
-        try { fs.unlinkSync(`${testDbPath}-shm`); } catch (e) {}
     });
 
     test('should dynamically ignore high-noise path patterns while preserving structural mapping', async () => {

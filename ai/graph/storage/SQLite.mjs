@@ -64,6 +64,8 @@ class SQLite extends Base {
      * Injects strict Graph relational maps internally mitigating corrupted Edge cascade cascades cleanly.
      */
     initSchema() {
+        if (!this.db) return;
+        if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
         let upgradeRequired = false;
 
         try {
@@ -150,6 +152,7 @@ class SQLite extends Base {
      */
     addNodes(nodes) {
         if (!this.db || !nodes || nodes.length === 0) return;
+        if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
         const stmt = this.db.prepare(`
             INSERT INTO Nodes (id, user_id, data)
             VALUES (?, ?, ?)
@@ -158,7 +161,13 @@ class SQLite extends Base {
 
         const insertMany = this.db.transaction((nodesList) => {
             for (const node of nodesList) {
-                stmt.run(node.id, node.properties?.userId || null, JSON.stringify(node));
+                const isRecord = node.isRecord;
+                const nodeData = {
+                    id: isRecord ? node.get('id') : node.id,
+                    label: isRecord ? node.get('label') : node.label,
+                    properties: isRecord ? node.get('properties') : node.properties
+                };
+                stmt.run(nodeData.id, nodeData.properties?.userId || null, JSON.stringify(nodeData));
             }
         });
 
@@ -171,6 +180,7 @@ class SQLite extends Base {
      */
     addEdges(edges) {
         if (!this.db || !edges || edges.length === 0) return;
+        if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
         const stmt = this.db.prepare(`
             INSERT INTO Edges (id, user_id, source, target, type, data)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -184,7 +194,15 @@ class SQLite extends Base {
 
         const insertMany = this.db.transaction((edgesList) => {
             for (const edge of edgesList) {
-                stmt.run(edge.id, edge.properties?.userId || null, edge.source, edge.target, edge.type || null, JSON.stringify(edge));
+                const isRecord = edge.isRecord;
+                const edgeData = {
+                    id: isRecord ? edge.get('id') : edge.id,
+                    source: isRecord ? edge.get('source') : edge.source,
+                    target: isRecord ? edge.get('target') : edge.target,
+                    type: isRecord ? edge.get('type') : edge.type,
+                    properties: isRecord ? edge.get('properties') : edge.properties
+                };
+                stmt.run(edgeData.id, edgeData.properties?.userId || null, edgeData.source, edgeData.target, edgeData.type || null, JSON.stringify(edgeData));
             }
         });
 
@@ -197,6 +215,7 @@ class SQLite extends Base {
      */
     removeNodes(nodes) {
         if (!this.db || !nodes || nodes.length === 0) return;
+        if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
         const stmt = this.db.prepare('DELETE FROM Nodes WHERE id = ?');
 
         const removeMany = this.db.transaction((nodesList) => {
@@ -215,6 +234,7 @@ class SQLite extends Base {
      */
     removeEdges(edges) {
         if (!this.db || !edges || edges.length === 0) return;
+        if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
         const stmt = this.db.prepare('DELETE FROM Edges WHERE id = ?');
 
         const removeMany = this.db.transaction((edgesList) => {
@@ -233,6 +253,7 @@ class SQLite extends Base {
      */
     executeTransaction(diffLog) {
         if (!this.db || !diffLog || diffLog.length === 0) return;
+        if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
 
         const insertNodeStmt = this.db.prepare(`
             INSERT INTO Nodes (id, user_id, data) VALUES (?, ?, ?)
@@ -277,6 +298,7 @@ class SQLite extends Base {
      */
     clear() {
         if (!this.db) return;
+        if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
 
         // Critical safeguard (#10515): Prevent accidental test-driven wipes of the production database
         if (this.dbPath && !this.dbPath.includes('tmp') && !this.dbPath.includes('test') && this.dbPath !== ':memory:') {
@@ -293,6 +315,7 @@ class SQLite extends Base {
      */
     getLatestLogId() {
         if (!this.db) return 0;
+        if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
         try {
             let maxLogQuery = this.db.prepare('SELECT MAX(log_id) as max_id FROM GraphLog').get();
             return maxLogQuery.max_id || 0;
@@ -308,6 +331,7 @@ class SQLite extends Base {
      */
     getDeltaLog(sinceId = 0) {
         if (!this.db) return {lastLogId: sinceId, invalidNodes: [], invalidEdges: []};
+        if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
 
         let logs         = this.db.prepare('SELECT log_id, entity_id, entity_type FROM GraphLog WHERE log_id > ? ORDER BY log_id ASC').all(sinceId);
         let maxId        = sinceId;
@@ -351,6 +375,7 @@ class SQLite extends Base {
      */
     loadNodeVicinitySync(nodeIds) {
         if (!this.db) return { nodes: [], edges: [] };
+        if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
         let ids = Array.isArray(nodeIds) ? nodeIds : [nodeIds];
         if (ids.length === 0) return {nodes: [], edges: []};
 
@@ -402,6 +427,7 @@ class SQLite extends Base {
      */
     async load() {
         if (!this.db || !this.database) return;
+        if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
 
         // Retrieve absolute max log ID marking initialization cleanly so synchronization matches hardware efficiently internally natively.
         try {
