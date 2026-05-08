@@ -1,0 +1,83 @@
+# Post-Review Pickup Workflow
+
+This payload is the Atlas entry for post-review-cycle pickup discipline. Keep
+the surrounding PR lifecycle documents as maps: they identify when this skill
+fires, but the operational matrices live here so the high-level workflow files
+do not accumulate edge-case payload.
+
+## 1. Trigger
+
+Use this skill immediately after one of these lifecycle handoffs:
+
+- Reviewer posts a substantive PR review, chains a formal GitHub review state
+  when required, and sends the A2A commentId handoff.
+- Author posts a review-response comment with fixup commits and sends the
+  author-side A2A commentId handoff.
+
+The goal is to prevent silent idle after a handoff. The handled PR is now owned
+by the next actor in that cycle; unrelated ready lanes can proceed in parallel.
+
+## 2. Reviewer Pickup Matrix
+
+After completing the reviewer-side handoff, the reviewer MUST choose one of
+these next states before ending the turn:
+
+| Review verdict just posted | Next pickup target |
+|---|---|
+| `Approve` or `Approve+Follow-Up` | Treat the PR as at the human merge gate per `AGENTS.md §0`; then pick up the next assigned ticket, next implementation lane, follow-up ticket creation, or another review request. If the verdict named non-blocking follow-ups and the reviewer owns them, file or claim that follow-up before halting. |
+| `Request Changes` | The author owns the response cycle. Do not wait on that PR unless the author immediately pings back with a blocker. Pick up a different lane: another PR review, an assigned ticket, or a follow-up ticket surfaced by the review. |
+| `Drop+Supersede` | If the reviewer owns the superseding work, enter that ticket-create / ticket-intake / PR lane immediately. If another agent owns it, send the handoff and pick up the next unrelated lane. |
+
+If no next lane is identifiable, report an explicit halt-state instead of
+silently ending the turn, for example:
+
+```text
+halt-state: no assigned or operator-obvious lane remains after #NNNN review; awaiting routing.
+```
+
+## 3. Author Pickup Matrix
+
+After posting review-response fixups and the author-side commentId handoff, the
+author MUST choose one of these next states before ending the turn:
+
+| Author state after response | Next pickup target |
+|---|---|
+| Fixup commits pushed and re-review requested | Start the next assigned ticket, draft the next ready PR, file the follow-up ticket discovered during the response, or review a separate PR if that is the current lane. |
+| Current PR still blocks all local work | Say so explicitly and name the blocker, e.g. `halt-state: awaiting reviewer response on #NNNN; no independent lane assigned.` |
+| Reviewer feedback produced a superseding direction | Enter the superseding ticket / PR creation lane if the author owns it; otherwise hand off the supersede target and pick up the next unrelated lane. |
+
+## 4. Legitimate Halt States
+
+Halt is allowed only when it is explicit and true:
+
+- No assigned or operator-obvious lane remains.
+- Every candidate lane is blocked on human-only action.
+- A safety gate forbids continuing.
+- The operator explicitly requested a pause.
+- Context exhaustion requires `session-sunset`.
+
+Do not broadcast generic "idle" state. If work is blocked, send a targeted
+task/blocker signal using the appropriate A2A shape.
+
+## 5. Integration Points
+
+- `pr-review-guide.md §11` is the reviewer-side map pointer into this skill.
+- `pull-request-workflow.md §6.3` is the author-side map pointer into this
+  skill.
+- `review-response-protocol.md §14` remains the author-side commentId handoff
+  source of truth.
+- `pr-review-guide.md §10` remains the reviewer-side commentId handoff source
+  of truth.
+
+This is the public successor anchor for the `feedback_peer_not_assistant_mode`
+lineage: act as a peer progressing lifecycle phases, not as an assistant waiting
+for the next prompt. Ticket #10970 is the instance-codification.
+
+## 6. Anti-Patterns
+
+| Anti-pattern | Why it harms |
+|---|---|
+| Ending the turn after `Approved` without checking the next lane | Leaves the swarm idle at the human merge gate even when unrelated work is ready. |
+| Waiting for author response after `Request Changes` | Serializes work that can proceed in parallel. |
+| Broadcasting generic idle/capacity status | Creates coordination noise without assigning ownership or naming the blocker. |
+| Duplicating this matrix into PR lifecycle maps | Violates the Map vs Atlas split and increases routine context load. |
