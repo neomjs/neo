@@ -47,28 +47,14 @@ When the server starts, the `SessionService` automatically scans for previous se
 
 This means the agent starts every new session with an indexed "Recap" of its past work, ready to pick up where it left off.
 
-### Single-Writer Enforcement: `NEO_MC_PRIMARY`
+### Session Sunset Polling
 
-In multi-harness deployments (Claude Code worktrees + Antigravity + Codex Desktop + per-workspace language servers), several Memory Core instances may share the same Chroma collection. To prevent races on session summarization, the startup auto-discovery path is gated by **two** flags rather than one:
+To gracefully capture sessions from external harnesses without losing events to isolated per-instance SQLite queues, the Memory Core employs a **B2 Mailbox-Poll** strategy.
 
-| `NEO_AUTO_SUMMARIZE` | `NEO_MC_PRIMARY` | Behavior on startup |
-|---|---|---|
-| `false` | (any) | Skip — current default; no summarization at boot. |
-| `true` | `false` (default) | Skip with operator-visible log; healthcheck reports `startup.summarizationStatus: "skipped-non-primary"`. |
-| `true` | `true` | Fire — drift-detection sweep runs on this instance only. |
-
-Operators set `NEO_MC_PRIMARY=true` on the **canonical** Memory Core instance only (typically the one bound to the operator's primary harness). Non-primary instances stay quiet and rely on the canonical instance to handle the shared collection. The same gate applies to disconnect-triggered `queueSummarizationJob` calls, so non-primary instances do not write to the shared `SummarizationJobs` SQLite table either.
-
-The two flags are deliberately AND-ed (not OR-ed): forgetting `NEO_MC_PRIMARY` while having `NEO_AUTO_SUMMARIZE=true` is the safe default — non-primary instances do nothing rather than racing the canonical one. Tracked under [#10813](https://github.com/neomjs/neo/issues/10813).
-
-### Session Sunset Polling (Piece B)
-
-To gracefully capture sessions from non-primary harnesses without violating the single-writer constraint or losing events to isolated per-instance SQLite queues, the canonical instance employs a **B2 Mailbox-Poll** strategy.
-
-When `NEO_MC_PRIMARY=true`, the `SessionService` spins up a periodic background poller (every 30s) that queries the A2A Mailbox for unread self-DM messages matching the contract:
+The `SessionService` spins up a periodic background poller (every 30s) that queries the A2A Mailbox for unread self-DM messages matching the contract:
 `{ taggedConcepts: ['sunset-protocol-handover'] }`
 
-This substrate bridges the gap between instances: when any agent on any clone runs the session-sunset skill, the final self-DM is persisted in the shared graph. The canonical MC sees this unread message, triggers a summarization sweep to ingest the finalized session, and marks the message as read to prevent double-processing.
+This substrate bridges the gap between instances: when any agent on any clone runs the session-sunset skill, the final self-DM is persisted in the shared graph. The Memory Core sees this unread message, triggers a summarization sweep to ingest the finalized session, and marks the message as read to prevent double-processing.
 
 ## Tools
 

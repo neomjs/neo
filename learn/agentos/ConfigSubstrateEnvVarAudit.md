@@ -38,7 +38,7 @@ Target-tier shorthand:
 | `NEO_AUTO_DREAM` | `memory-core/config.template.mjs:69` | Tier 3 | Operator one-shot/daemon toggle; should stay opt-in env to avoid multi-harness auto-fire. |
 | `NEO_AUTO_GOLDEN_PATH` | `memory-core/config.template.mjs:75` | Tier 3 | Operator one-shot/daemon toggle for Golden Path synthesis. |
 | `NEO_AUTO_INGEST_FS` | `memory-core/config.template.mjs:85` | Tier 3 | Operator one-shot ingestion toggle; avoid enabling by committed config drift. |
-| `NEO_AUTO_SUMMARIZE` | `memory-core/config.template.mjs:33` | Tier 3 | Operator one-shot/single-writer-sensitive toggle; paired with `NEO_MC_PRIMARY`. |
+| `NEO_AUTO_SUMMARIZE` | `memory-core/config.template.mjs:33` | Tier 3 | Operator one-shot/single-writer-sensitive toggle. |
 | `NEO_AUTO_SYNC` | `knowledge-base/config.template.mjs:25` | Tier 3 | Operator one-shot KB sync toggle; keep env-only to avoid surprise boot re-embedding. |
 | `CHROMA_DATA_PATH` | `memory-core/Server.mjs:359`; `knowledge-base/Server.mjs:127` | Defer | Only used in diagnostic text for a manual `chroma run` command. #10825 should decide whether to remove or replace with config-derived coordinates. |
 | `CHROMA_PORT` | `memory-core/Server.mjs:359`; `knowledge-base/Server.mjs:127` | Defer | Diagnostic-only Chroma command hint; not the active MCP topology selector. Audit under #10825 before removal. |
@@ -68,7 +68,7 @@ Target-tier shorthand:
 | `NEO_KB_FAQ_SIMILARITY_THRESHOLD` | `knowledge-base/config.template.mjs:160` | Tier 2 | KB FAQ clustering tuning. Per-server config. |
 | `NEO_LAZY_EDGES_QUEUE_PATH` | `memory-core/config.template.mjs:380` | Tier 2 | Memory Core local path. Keep in config; env override is not a universal deployment category unless container bind-mounts require it. |
 | `NEO_MAILBOX_DEFAULT_REPLY_POLICY` | `memory-core/config.template.mjs:374` | Tier 3 | Multi-tenant isolation policy. Legitimate env keep-list candidate for deployment mode. |
-| `NEO_MC_PRIMARY` | `memory-core/config.template.mjs:54` | Tier 3 | Single-writer process-role flag across multi-harness Memory Core instances. |
+| `NEO_MC_PRIMARY` | `memory-core/config.template.mjs:54` | Delete | Legacy single-writer process-role flag (retired by #10972). |
 | `NEO_MEMORY_CORE_DB_PATH` | `knowledge-base/config.template.mjs:142` | Delete | Legacy/superseded fallback for `NEO_MEMORY_DB_PATH`; not named in #10823 but should be folded into alias cleanup or a sibling deletion ticket. |
 | `NEO_MEMORY_DB_PATH` | `knowledge-base/config.template.mjs:141` | Tier 3 | Runtime binding for KB telemetry to shared Memory Core SQLite path. |
 | `NEO_MEM_AUTO_START_DATABASE` | `memory-core/config.template.mjs:59` | Tier 3 | Operator one-shot lifecycle toggle for local Chroma startup. |
