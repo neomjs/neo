@@ -277,7 +277,7 @@ function checkSummarizationLifecycle() {
         if (shouldRun) {
             summarizationRunning = true;
             lastSummarizationSweep = Date.now();
-            
+
             const p = spawn(process.argv[0], [path.join(__dirname, 'summarize-sessions.mjs')], {
                 stdio: 'ignore'
             });
@@ -295,7 +295,7 @@ function checkSummarizationLifecycle() {
                     writeLog('ERROR', `[Bridge Daemon] summarize-sessions.mjs exited with code ${code}.`);
                 }
             });
-            
+
             p.on('error', (err) => {
                 summarizationRunning = false;
                 writeLog('ERROR', `[Bridge Daemon] Failed to spawn summarize-sessions: ${err.message}`);
