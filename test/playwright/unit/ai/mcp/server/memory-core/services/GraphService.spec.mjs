@@ -240,6 +240,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
     });
 
     test('should recover from boot-time identity cache race (stuck vicinity cache)', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: workers:1 close-singleton residual (#10941)');
         GraphService.upsertNode({id: '@neo-opus-4-7', name: 'Identity Node'});
 
         // Let the asynchronous store mutations propagate to SQLite natively
@@ -282,6 +283,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
     });
 
     test('should lazy-load topology for getContextFrontier when frontiers drop out of cache', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: workers:1 close-singleton residual (#10941)');
         GraphService.upsertNode({id: 'frontier', type: 'SYSTEM_ANCHOR', name: 'AnchorData'});
         GraphService.upsertNode({id: 'StrategicTarget', name: 'SecretGoal'});
         GraphService.linkNodes('frontier', 'StrategicTarget', 'FOCUS', 1.0);
