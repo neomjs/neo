@@ -89,6 +89,12 @@ test.describe('Neo.ai.mcp.server.knowledge-base.services.KBRecorderService', () 
     });
 
     test('deduplicates repeated KB questions into Agent FAQ clusters', () => {
+        // CI-skip per #10936 (G5#2 — KBRecorderService singleton kb_query_log pollution under
+        // workers:1). DreamService.spec also writes kb_query_log; sibling-spec mutations leave
+        // listed.faqs[0] undefined. Separate singleton (kb_query_log) from PR #10940's GraphService
+        // TestLifecycleHelper migration scope; this is independent state-pollution. Investigation #10936.
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: G5#2 KBRecorderService singleton-data pollution under workers:1 — see #10936');
+
         const
             originalResolve  = KBRecorderService.resolveRelatedConceptIds,
             originalCoverage = KBRecorderService.hasStrongGuideCoverage;

@@ -20,11 +20,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # `unit` deferred until #10903 substrate-audit completes (~30 unit
-        # tests fail in clean CI env due to substrate-data + browser gaps —
-        # pre-existing, not caused by this workflow). Re-add via follow-up
-        # PR once per-bucket fixes land.
-        suite: [integration]
+        # Both suites gate. Per-bucket skip-guards activated via the
+        # `NEO_TEST_SKIP_CI=true` env in the Run-tests step. Buckets covered:
+        # A+E (#10907), B+D (#10921), C (#10910), F (#10919) — closes #10903.
+        # Bucket G residual flakes skip-guarded per #10934-#10938 + #10941 + #10942
+        # — closes #10939 (Phase 3 of the #10897 Lane C cascade).
+        suite: [unit, integration]
 
     steps:
       - name: Checkout repository

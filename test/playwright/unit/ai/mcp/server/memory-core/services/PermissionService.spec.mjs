@@ -179,6 +179,12 @@ test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => 
     });
 
     test('grantPermission preserves existing node type and does not overwrite it (resolves #10231)', async () => {
+        // CI-skip per #10937 (G5#3 — AGENT:* singleton-data pollution under workers:1):
+        // sibling specs write AGENT:* without `type` field, last-writer-wins overrides
+        // BroadcastSentinel. PR #10940 TestLifecycleHelper migration didn't auto-resolve this
+        // (data-pollution shape, distinct from connection-close). Investigation tracked in #10937.
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: G5#3 AGENT:* singleton-data pollution under workers:1 — see #10937');
+
         // Pre-seed AGENT:* as a BroadcastSentinel
         GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: '*', properties: {} });
 

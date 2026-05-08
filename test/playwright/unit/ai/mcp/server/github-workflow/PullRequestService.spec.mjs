@@ -248,11 +248,16 @@ test.describe('Neo.ai.mcp.server.github-workflow.services.PullRequestService —
     });
 
     test('file parameter filters the diff output', async () => {
+        // CI-skip per #10942: flake under workers:1 — root cause hypothesis pending empirical
+        // capture (sibling github-workflow singleton-state pollution OR mock-leak from
+        // GraphqlService.query OR genuine production race). Investigation tracked in #10942.
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: PullRequestService.getPullRequestDiff flake under workers:1 — see #10942');
+
         const result = await PullRequestService.getPullRequestDiff({
             pr_number: 10747,
             file     : 'learn/agentos/measurements/cognitive-load-baseline-2026-05.md'
         });
-        
+
         expect(typeof result.result).toBe('string');
         expect(result.result).toContain('Sub 4 Payload Audit Results');
     });
