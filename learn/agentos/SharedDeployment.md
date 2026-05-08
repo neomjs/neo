@@ -198,7 +198,7 @@ See [`MemoryCore.md` §Healthcheck Response Shape](./MemoryCore.md) for the full
 
 The Knowledge Base's healthcheck mirrors the connectivity assertion (collection counts, embedding status). When both servers report `connected: true` against the same shared `{host, port}`, the topology is verified.
 
-The local staged-stack fixture verifies this deployed shape with `npm run test-integration`: Playwright starts `ai/deploy/docker-compose.test.yml`, then calls both servers' MCP `healthcheck` tools over `/mcp` (see [HeartbeatPropagation.integration.spec.mjs](../../test/playwright/integration/HeartbeatPropagation.integration.spec.mjs)). This is the canonical local smoke path for KB + MC + shared Chroma healthcheck validation. It also writes and queries same-session memories as different proxy identities in `test/playwright/integration/CrossTenantIsolation.integration.spec.mjs`, proving tenant-scoped memory reads do not leak across the trusted proxy-identity boundary.
+The local staged-stack fixture verifies this deployed shape with `npm run test-integration-unified`: Playwright starts `ai/deploy/docker-compose.test.yml`, then calls both servers' MCP `healthcheck` tools over `/mcp` (see [HeartbeatPropagation.integration.spec.mjs](../../test/playwright/integration/HeartbeatPropagation.integration.spec.mjs)). This is the canonical local smoke path for KB + MC + shared Chroma healthcheck validation. It also writes and queries same-session memories as different proxy identities in `test/playwright/integration/CrossTenantIsolation.integration.spec.mjs`, proving tenant-scoped memory reads do not leak across the trusted proxy-identity boundary.
 
 The Memory Core's healthcheck additionally surfaces active provider observability under `providers.*` (#10723, #10724, #10770):
 
@@ -301,6 +301,13 @@ Validation tests for the unified topology are tracked separately under [#10008](
 This documentation profile and the test work are complementary:
 - This doc establishes the **contract** operators and agents can rely on.
 - [#10008](https://github.com/neomjs/neo/issues/10008) establishes the **executable proof** that the contract holds.
+
+### Topology Matrix Audit (#10950)
+
+This deployment topology explicitly reconciles the outstanding matrix coverage tickets:
+- **[#10015](https://github.com/neomjs/neo/issues/10015)** (Dynamic Topology): The unified deployment mode documented here is the default product-path for team environments.
+- **[#10008](https://github.com/neomjs/neo/issues/10008)** (Unified Coverage): Playwright integration tests (`test-integration-unified`) empirically prove the unified product-path behavior.
+- **[#10009](https://github.com/neomjs/neo/issues/10009)** (Federated Coverage): Federated topology integration tests are demoted to a non-default diagnostic track, explicitly deferring product claims.
 
 ## Federated Mode Disposition (Non-MVP Diagnostic Path)
 
