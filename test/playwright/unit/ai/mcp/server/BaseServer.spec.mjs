@@ -1,4 +1,4 @@
-import { setup } from '../../../../../setup.mjs';
+import { setup } from '../../../../setup.mjs';
 
 const appName = 'BaseServerTest';
 
@@ -15,9 +15,9 @@ setup({
 
 import {test, expect}                                  from '@playwright/test';
 import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
-import Neo                                             from '../../../../../../../src/Neo.mjs';
-import * as core                                       from '../../../../../../../src/core/_export.mjs';
-import BaseServer                                      from '../../../../../../../ai/mcp/server/shared/BaseServer.mjs';
+import Neo                                             from '../../../../../../src/Neo.mjs';
+import * as core                                       from '../../../../../../src/core/_export.mjs';
+import BaseServer                                      from '../../../../../../ai/mcp/server/BaseServer.mjs';
 
 /**
  * @summary Mock McpServer that captures registered request handlers via the schema object
@@ -85,7 +85,7 @@ function makeTestServerClass(overrides = {}) {
     return Neo.setupClass(TestServer);
 }
 
-test.describe('Neo.mcp.server.Base — required override hooks (#10965)', () => {
+test.describe('Neo.ai.mcp.server.BaseServer — required override hooks (#10965)', () => {
     test('getServerMetadata throws when not overridden', () => {
         const id = ++_testClassCounter;
         class BareServer extends BaseServer {
@@ -114,7 +114,7 @@ test.describe('Neo.mcp.server.Base — required override hooks (#10965)', () => 
     });
 });
 
-test.describe('Neo.mcp.server.Base — optional hook defaults', () => {
+test.describe('Neo.ai.mcp.server.BaseServer — optional hook defaults', () => {
     test('getDependentServices defaults to empty array', () => {
         const Cls    = makeTestServerClass();
         const server = Neo.create(Cls);
@@ -152,7 +152,7 @@ test.describe('Neo.mcp.server.Base — optional hook defaults', () => {
     });
 });
 
-test.describe('Neo.mcp.server.Base — formatToolResult shapes', () => {
+test.describe('Neo.ai.mcp.server.BaseServer — formatToolResult shapes', () => {
     test('object result without error → text + structuredContent', () => {
         const Cls    = makeTestServerClass();
         const server = Neo.create(Cls);
@@ -214,7 +214,7 @@ test.describe('Neo.mcp.server.Base — formatToolResult shapes', () => {
     });
 });
 
-test.describe('Neo.mcp.server.Base — setupRequestHandlers wiring', () => {
+test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', () => {
     test('registers both ListTools and CallTool handlers', () => {
         const Cls       = makeTestServerClass();
         const server    = Neo.create(Cls);
@@ -347,7 +347,7 @@ test.describe('Neo.mcp.server.Base — setupRequestHandlers wiring', () => {
     });
 });
 
-test.describe('Neo.mcp.server.Base — initAsync canonical sequence', () => {
+test.describe('Neo.ai.mcp.server.BaseServer — initAsync canonical sequence', () => {
     test('default initAsync calls hooks in canonical order (no health, no transport)', async () => {
         const calls = [];
         const id    = ++_testClassCounter;

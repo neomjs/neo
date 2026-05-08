@@ -1,6 +1,6 @@
 import {McpServer}                                     from '@modelcontextprotocol/sdk/server/mcp.js';
 import {CallToolRequestSchema, ListToolsRequestSchema} from '@modelcontextprotocol/sdk/types.js';
-import Base                                            from '../../../../src/core/Base.mjs';
+import Base                                            from '../../../src/core/Base.mjs';
 
 /**
  * @summary Common base class for all Neo MCP servers (M2 substrate, ticket #10965).
@@ -51,16 +51,16 @@ import Base                                            from '../../../../src/cor
  *   for servers that don't load runtime config (file-system).
  * - `logger` — per-server `logger` module; falls back to `console.error` when absent.
  *
- * @class Neo.mcp.server.Base
+ * @class Neo.ai.mcp.server.BaseServer
  * @extends Neo.core.Base
  */
 class BaseServer extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.mcp.server.Base'
+         * @member {String} className='Neo.ai.mcp.server.BaseServer'
          * @protected
          */
-        className: 'Neo.mcp.server.Base'
+        className: 'Neo.ai.mcp.server.BaseServer'
     }
 
     /**
@@ -430,7 +430,7 @@ class BaseServer extends Base {
         const metadata = this.getServerMetadata();
 
         if (this.aiConfig?.transport === 'sse') {
-            const {default: TransportService} = await import('./services/TransportService.mjs');
+            const {default: TransportService} = await import('./shared/services/TransportService.mjs');
 
             await TransportService.setup({
                 server      : this,
