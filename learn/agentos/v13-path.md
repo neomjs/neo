@@ -49,7 +49,7 @@ The Factory pattern landed 2026-05-07 in `ai/mcp/server/shared/services/RequestC
 
 **Cons / challenges to address before v13:**
 - **Adoption gap**: only 2/5 servers wrap dispatch with `RequestContextService.run`. The 3 unwrapped servers (file-system, github-workflow, neural-link) silently fall back to "no identity context" → tenant-aware code paths in their service layers behave as if single-tenant. **Resolution**: common base server class (D2) wraps dispatch uniformly.
-- **AsyncLocalStorage edge cases**: long-running async chains (e.g., `setTimeout` callbacks, daemon-spawned work) may lose context. **Open question**: does any current service spawn out-of-context async work? Audit needed.
+- **AsyncLocalStorage edge cases**: long-running async chains (e.g., `setTimeout` callbacks, daemon-spawned work) may lose context. Specific surfaces to audit: **`EventEmitter` boundaries** (handlers fire in the emitter's own context, not the caller's) and **SSE streaming async generators** (iterators that yield asynchronously to the event loop can lose context across yield points). **Open question**: does any current service spawn out-of-context async work via these patterns? Audit needed in M2.
 - **Daemon context**: the Orchestrator daemon (D3) runs scheduled work without a request-context. Services it calls need to handle `getUserId() === undefined` gracefully (as `SHARED_USER_ID` per #10556) — already designed for, but verify on each call site.
 
 **Recommendation:** keep Factory pattern; surface it in the common base class (D2); audit AsyncLocalStorage edge cases as a single-PR sweep.
@@ -66,6 +66,12 @@ Eliminates the per-server `Server.mjs` boilerplate duplication. Provides:
 - Logger initialization
 
 Each per-server `Server.mjs` shrinks to: extend the base, register the server-specific tools + services, return. Ballpark: from 200-500 LOC each (5 × ~300 = ~1500 LOC of duplication today) to 50-100 LOC each (5 × ~75 = ~375 LOC, plus the base class itself).
+
+**Extension points the base must expose:**
+- `registerTools(...)` — server-specific MCP tool definitions
+- `registerServices(...)` — server-specific service singletons consumed via SDK
+- `registerMiddleware(...)` — middleware/interceptor pipeline (e.g., custom `AuthMiddleware` variants, parameter-validation interceptors, per-server request hooks). Today this is duplicated across the 2/5 servers that wrap dispatch; the base class makes it pluggable.
+- `registerHealthChecks(...)` — server-specific healthcheck contributors
 
 **File:** `ai/mcp/server/shared/Server.mjs` (or similar — TBD). Extends `Neo.core.Base` per Agent OS conventions.
 
