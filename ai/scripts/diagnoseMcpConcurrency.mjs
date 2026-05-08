@@ -31,7 +31,7 @@
  * `-F pcn`. Read-only: the script never signals, kills, or otherwise mutates the
  * processes it surfaces (see Avoided Traps in #10186).
  *
- * @see ai/mcp/server/memory-core/services/GraphService.mjs  singleton cache origin
+ * @see ai/services/memory-core/GraphService.mjs  singleton cache origin
  * @see ai/graph/Database.mjs                                 vicinityLoadedNodes mark-without-load
  * @see ai/graph/storage/SQLite.mjs                           WAL pragma (storage layer is concurrency-safe)
  * @see https://github.com/neomjs/neo/issues/10186            Parent epic

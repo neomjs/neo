@@ -18,7 +18,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
-import {TestLifecycleHelper} from '../../mcp/server/memory-core/util.mjs';
+import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.daemons.services.LazyEdgeDrainer', () => {
     // Serial matches the sibling MemorySessionIngestor.spec — cold import chain of the Neo core
@@ -50,8 +50,8 @@ test.describe('Neo.ai.daemons.services.LazyEdgeDrainer', () => {
         aiConfig.autoIngestFileSystem = false;
 
         LazyEdgeDrainer        = (await import('../../../../../../ai/daemons/services/LazyEdgeDrainer.mjs')).default;
-        GraphService           = (await import('../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
-        SystemLifecycleService = (await import('../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
+        GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         logger                 = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
 
         if (fs.existsSync(testDbPath)) {

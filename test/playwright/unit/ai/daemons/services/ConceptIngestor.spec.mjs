@@ -19,7 +19,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
 import os             from 'os';
-import {TestLifecycleHelper} from '../../mcp/server/memory-core/util.mjs';
+import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
     let GraphService;
@@ -48,11 +48,11 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
         aiConfig.autoIngestFileSystem = false;
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff_concept_ingestor.md');
 
-        GraphService           = (await import('../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         ConceptIngestor        = (await import('../../../../../../ai/daemons/services/ConceptIngestor.mjs')).default;
         ConceptService         = (await import('../../../../../../ai/services/ConceptService.mjs')).default;
         logger                 = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
-        SystemLifecycleService = (await import('../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
+        SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
 
         if (fs.existsSync(testDbPath)) {
             try {

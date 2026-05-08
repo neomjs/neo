@@ -23,8 +23,8 @@ import DestructiveOperationGuard, {
     DESTRUCTIVE_PRODUCTION_BYPASS_ENV,
     DESTRUCTIVE_PRODUCTION_CONFIRMATION
 } from '../../../../../../../../ai/mcp/server/shared/services/DestructiveOperationGuard.mjs';
-import CollectionProxy from '../../../../../../../../ai/mcp/server/memory-core/managers/CollectionProxy.mjs';
-import MemoryDatabaseService from '../../../../../../../../ai/mcp/server/memory-core/services/DatabaseService.mjs';
+import CollectionProxy from '../../../../../../../../ai/services/memory-core/managers/CollectionProxy.mjs';
+import MemoryDatabaseService from '../../../../../../../../ai/services/memory-core/DatabaseService.mjs';
 import KbChromaManager from '../../../../../../../../ai/services/knowledge-base/ChromaManager.mjs';
 import KbVectorService from '../../../../../../../../ai/services/knowledge-base/VectorService.mjs';
 
@@ -254,8 +254,8 @@ test.describe('DestructiveOperationGuard call-site wiring (#10845)', () => {
 
     test('destructive Memory Core and Knowledge Base surfaces call the shared guard', () => {
         const expected = [
-            'ai/mcp/server/memory-core/managers/CollectionProxy.mjs',
-            'ai/mcp/server/memory-core/services/DatabaseService.mjs',
+            'ai/services/memory-core/managers/CollectionProxy.mjs',
+            'ai/services/memory-core/DatabaseService.mjs',
             'ai/services/knowledge-base/VectorService.mjs'
         ];
 

@@ -24,7 +24,7 @@ import * as core      from '../../../../../../../../src/core/_export.mjs';
  * Pins the soft-rename contract: `MCP_HTTP_PORT` is the canonical operator-facing env var;
  * `SSE_PORT` remains readable during the deprecation window with a warning when both are set
  * with different values. Pattern mirrors the #10810 `resolveEmbeddingProvider` testable-pure-helper
- * extraction (`ai/mcp/server/memory-core/helpers/EmbeddingProviderConfig.mjs`).
+ * extraction (`ai/services/memory-core/helpers/EmbeddingProviderConfig.mjs`).
  *
  * @see Neo.ai.mcp.server.shared.helpers.DeploymentConfig#resolveMcpHttpPort
  */

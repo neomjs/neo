@@ -18,7 +18,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
-import {TestLifecycleHelper} from '../../mcp/server/memory-core/util.mjs';
+import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
     // Serial within this describe — `beforeAll` performs a cold import cascade of the Neo
@@ -80,10 +80,10 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         aiConfig.autoIngestFileSystem = false;
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff_memory_session_ingestor.md');
 
-        GraphService           = (await import('../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MemorySessionIngestor  = (await import('../../../../../../ai/daemons/services/MemorySessionIngestor.mjs')).default;
         logger                 = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
-        SystemLifecycleService = (await import('../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
+        SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
 
         if (fs.existsSync(testDbPath)) {
             try {

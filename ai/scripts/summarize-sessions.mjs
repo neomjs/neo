@@ -9,7 +9,7 @@
  * Defaults to last-30-days lookback (`includeAll: false`); for fresh-deployment
  * full-summarization, edit the call-site or extend with a `--include-all` CLI flag (future).
  *
- * @see ai/mcp/server/memory-core/services/SessionService.summarizeSessions
+ * @see ai/services/memory-core/SessionService.summarizeSessions
  * @see #10458 (origin), #9942 (daemon-collision context)
  */
 import { Memory_SessionService } from '../services.mjs';

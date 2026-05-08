@@ -39,7 +39,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
         aiConfig.storagePaths.graph = testDbPath;
 
         Server = (await import('../../../../../../../ai/mcp/server/memory-core/Server.mjs')).default;
-        GraphService = (await import('../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        GraphService = (await import('../../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         
         if (fs.existsSync(testDbPath)) {
             try {
@@ -49,12 +49,12 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
             } catch (e) {}
         }
 
-        const { TestLifecycleHelper } = await import('./util.mjs');
+        const { TestLifecycleHelper } = await import('../../../../ai/services/memory-core/util.mjs');
         await TestLifecycleHelper.cleanupGraphService(GraphService, null, null, null, 'clear');
     });
 
     test.afterAll(async () => {
-        const { TestLifecycleHelper } = await import('./util.mjs');
+        const { TestLifecycleHelper } = await import('../../../../ai/services/memory-core/util.mjs');
         await TestLifecycleHelper.cleanupGraphService(GraphService, null, testDbPath, fs, 'clear');
     });
 
@@ -139,7 +139,7 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     });
 
     test('onSessionClosed triggers SessionService.queueSummarizationJob', async () => {
-        const SessionService = (await import('../../../../../../../ai/mcp/server/memory-core/services/SessionService.mjs')).default;
+        const SessionService = (await import('../../../../../../../ai/services/memory-core/SessionService.mjs')).default;
 
         // Mock the SessionService method
         const originalQueue = SessionService.queueSummarizationJob.bind(SessionService);

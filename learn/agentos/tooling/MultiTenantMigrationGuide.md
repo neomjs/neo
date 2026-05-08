@@ -28,7 +28,7 @@ The adopted prescription is **lazy-tag-on-read**: untagged legacy rows stay unta
 
 All write paths through the Memory Core (`MemoryService.addMemory`, `SessionService` ingestion, `MailboxService.addMessage`) MUST require a bound agent identity via `RequestContextService.getAgentIdentityNodeId()`. Writes that reach these paths without a bound identity context MUST throw loudly rather than degrade silently.
 
-This invariant is already codified in `MailboxService.addMessage` (`ai/mcp/server/memory-core/services/MailboxService.mjs` line ~89-92):
+This invariant is already codified in `MailboxService.addMessage` (`ai/services/memory-core/MailboxService.mjs` line ~89-92):
 
 ```js
 const sentBy = RequestContextService.getAgentIdentityNodeId();
@@ -139,8 +139,8 @@ No `.env` changes required for solo devs upgrading from the pre-#10144 substrate
 ## Cross-Reference
 
 - `learn/agentos/tooling/MemoryCoreMcpAuth.md §Cross-Tenant Permissions` — authentication + permission edge types
-- `ai/mcp/server/memory-core/services/HealthService.mjs` — `#checkMigrationState` implementation
-- `ai/mcp/server/memory-core/services/MailboxService.mjs` line ~89 — write-side invariant exemplar
+- `ai/services/memory-core/HealthService.mjs` — `#checkMigrationState` implementation
+- `ai/services/memory-core/MailboxService.mjs` line ~89 — write-side invariant exemplar
 - `#10010` — `memorySharing` flag implementation (retrieval-side plumbing)
 - `#10011` — SQLite RLS + tenant isolation (engine-layer enforcement)
 - `#10016` — Multi-Tenant Identity & Data Privacy (parent sub-epic)

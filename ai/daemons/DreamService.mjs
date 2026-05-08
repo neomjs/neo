@@ -13,7 +13,7 @@ import logger from '../mcp/server/memory-core/logger.mjs';
 import OpenAiCompatible from '../provider/OpenAiCompatible.mjs';
 import ConceptDiscoveryService from './services/ConceptDiscoveryService.mjs';
 import ConceptIngestor from './services/ConceptIngestor.mjs';
-import FileSystemIngestor from '../mcp/server/memory-core/services/FileSystemIngestor.mjs';
+import FileSystemIngestor from '../services/memory-core/FileSystemIngestor.mjs';
 import GapInferenceEngine from './services/GapInferenceEngine.mjs';
 import GoldenPathSynthesizer from './services/GoldenPathSynthesizer.mjs';
 import GraphMaintenanceService from './services/GraphMaintenanceService.mjs';

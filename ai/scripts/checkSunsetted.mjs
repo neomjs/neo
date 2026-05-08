@@ -60,8 +60,8 @@
  */
 import Neo from '../../src/Neo.mjs';
 import * as core from '../../src/core/_export.mjs';
-import LifecycleService from '../mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
-import GraphService from '../mcp/server/memory-core/services/GraphService.mjs';
+import LifecycleService from '../services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import GraphService from '../services/memory-core/GraphService.mjs';
 import { checkInflightLock } from './inflightLock.mjs';
 
 /**

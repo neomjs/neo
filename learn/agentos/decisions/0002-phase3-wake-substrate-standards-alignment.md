@@ -801,8 +801,8 @@ cannot use resync as a privilege-escalation backdoor.
 
 ### Source code (Phase 3 implementation will touch)
 
-- `ai/mcp/server/memory-core/services/MailboxService.mjs` — addMessage / transitionTask emit points for `wake/*` events
-- `ai/mcp/server/memory-core/services/GraphService.mjs` — `linkNodes` is the SENT_TO emit point for `wake/sent_to_me`
+- `ai/services/memory-core/MailboxService.mjs` — addMessage / transitionTask emit points for `wake/*` events
+- `ai/services/memory-core/GraphService.mjs` — `linkNodes` is the SENT_TO emit point for `wake/sent_to_me`
 - `ai/graph/Database.mjs` — `syncCache` + `lastSyncId` pattern reused by Shape C bridge daemon
 - `ai/graph/storage/SQLite.mjs` — `GraphLog` triggers + `getDeltaLog` (Shape C foundation)
 - `ai/scripts/swarm-heartbeat.sh` — `get_push_capable_identities` extension per Section 6.5

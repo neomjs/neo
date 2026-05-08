@@ -86,7 +86,7 @@ export NEO_VECTOR_DIMENSION=768
 
 `NEO_CHROMA_EMBEDDING_PROVIDER` remains readable during the #10804 deprecation window and feeds the unified selector with a warning. New deployments should use `NEO_EMBEDDING_PROVIDER` only.
 
-**Substrate observation (#10723):** the OpenAI-compatible embedding path is implemented inside `ai/mcp/server/memory-core/services/TextEmbeddingService.mjs#embedText[s]` (POST to `${host}/v1/embeddings` with `{model, input}` payload, parsing `result.data[*].embedding`). It is NOT routed through the `Neo.ai.provider.OpenAiCompatible` class — that class currently exposes `generate` / `stream` (chat completions) but no `embed` method. This means the embedding-provider abstraction is functional but not yet symmetric with the chat-provider abstraction. Future hardening should consolidate the embedding path into the provider class hierarchy; out of scope for #10723 itself.
+**Substrate observation (#10723):** the OpenAI-compatible embedding path is implemented inside `ai/services/memory-core/TextEmbeddingService.mjs#embedText[s]` (POST to `${host}/v1/embeddings` with `{model, input}` payload, parsing `result.data[*].embedding`). It is NOT routed through the `Neo.ai.provider.OpenAiCompatible` class — that class currently exposes `generate` / `stream` (chat completions) but no `embed` method. This means the embedding-provider abstraction is functional but not yet symmetric with the chat-provider abstraction. Future hardening should consolidate the embedding path into the provider class hierarchy; out of scope for #10723 itself.
 
 ### Summary provider
 
