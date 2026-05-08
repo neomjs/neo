@@ -250,30 +250,30 @@ class DatabaseService extends Base {
         let imported = 0;
         
         db.transaction((records) => {
-            const insertNode = db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)');
-            const insertEdge = db.prepare('INSERT OR REPLACE INTO Edges (source, target, data) VALUES (?, ?, ?)');
+            const insertNode = db.prepare('INSERT OR REPLACE INTO Nodes (id, user_id, data) VALUES (?, ?, ?)');
+            const insertEdge = db.prepare('INSERT OR REPLACE INTO Edges (id, user_id, source, target, type, data) VALUES (?, ?, ?, ?, ?, ?)');
             
             for (const record of records) {
                 if (record.type === 'node') {
-                    insertNode.run(record.data.id, JSON.stringify(record.data));
+                    insertNode.run(record.data.id, record.data.properties?.userId || null, JSON.stringify(record.data));
                 } else if (record.type === 'edge') {
-                    insertEdge.run(record.data.source, record.data.target, JSON.stringify(record.data));
+                    insertEdge.run(record.data.id, record.data.properties?.userId || null, record.data.source, record.data.target, record.data.type || null, JSON.stringify(record.data));
                 }
                 imported++;
             }
         })([]); // Execute an empty transaction block initially, but we need to batch it.
         
         // Let's do it directly in loop for simplicity
-        const insertNode = db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)');
-        const insertEdge = db.prepare('INSERT OR REPLACE INTO Edges (source, target, data) VALUES (?, ?, ?)');
+        const insertNode = db.prepare('INSERT OR REPLACE INTO Nodes (id, user_id, data) VALUES (?, ?, ?)');
+        const insertEdge = db.prepare('INSERT OR REPLACE INTO Edges (id, user_id, source, target, type, data) VALUES (?, ?, ?, ?, ?, ?)');
 
         // Run within a transaction for speed
         const insertBatch = db.transaction((records) => {
             for (const record of records) {
                 if (record.type === 'node') {
-                    insertNode.run(record.data.id, JSON.stringify(record.data));
+                    insertNode.run(record.data.id, record.data.properties?.userId || null, JSON.stringify(record.data));
                 } else if (record.type === 'edge') {
-                    insertEdge.run(record.data.source, record.data.target, JSON.stringify(record.data));
+                    insertEdge.run(record.data.id, record.data.properties?.userId || null, record.data.source, record.data.target, record.data.type || null, JSON.stringify(record.data));
                 }
                 imported++;
             }
