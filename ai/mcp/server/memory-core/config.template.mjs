@@ -33,27 +33,6 @@ const defaultConfig = {
      */
     autoSummarize: false,
     /**
-     * Single-writer enforcement flag for the canonical Memory Core instance (#10813).
-     *
-     * Multi-harness deployments (Claude Code worktrees + Antigravity + Codex Desktop +
-     * per-workspace language servers) routinely spawn multiple MC instances that share
-     * the same Chroma collection. To avoid race conditions on cross-process operations
-     * like session summarization, operators set `NEO_MC_PRIMARY=true` on the canonical
-     * instance only. Other instances skip startup-summarization and queue-processing.
-     *
-     * Pairs with `autoSummarize`: BOTH must be true for the existing NEO_AUTO_SUMMARIZE
-     * startup drift-detection path to fire. Either condition false → skip (safe default).
-     * The SessionService logs an operator-visible warning when `autoSummarize=true`
-     * but `isPrimary=false`, since that combination usually indicates a config-anomaly.
-     *
-     * Default `false`: the multi-instance deployment is the harness norm; the canonical
-     * instance opts in explicitly. Originally gated globally via #9942 (daemon-collision
-     * fix); this flag restores the path on a per-instance basis without re-introducing
-     * the original race.
-     * @type {boolean}
-     */
-    isPrimary: false,
-    /**
      * Automatically start the local database process (Chroma/SQLite) on startup.
      * @type {boolean}
      */
@@ -387,7 +366,6 @@ const defaultConfig = {
  */
 const envBindings = {
     'autoSummarize': { var: 'NEO_AUTO_SUMMARIZE', parse: parseBool },
-    'isPrimary': { var: 'NEO_MC_PRIMARY', parse: parseBool },
     'autoStartDatabase': { var: 'NEO_MEM_AUTO_START_DATABASE', parse: parseBool },
     'autoStartInference': { var: 'NEO_MEM_AUTO_START_INFERENCE', parse: parseBool },
     'autoDream': { var: 'NEO_AUTO_DREAM', parse: parseBool },
