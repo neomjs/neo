@@ -59,8 +59,16 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     });
 
     test.afterAll(async () => {
-        if (GraphService.db?.storage?.db) {
-            GraphService.db.storage.db.close();
+        // Per #10934 root cause: do NOT close the singleton SQLite — closing cascades into
+        // init failures across every sibling spec consuming the same singleton under workers:1.
+        // Clear state via the existing chain instead; preserve the connection for downstream specs.
+        if (GraphService?.db) {
+            try { GraphService.db.nodes.clear(); }              catch (e) {};
+            try { GraphService.db.edges.clear(); }              catch (e) {};
+            try { GraphService.db.vicinityLoadedNodes.clear(); } catch (e) {};
+            if (GraphService.db.storage?.db) {
+                try { await GraphService.db.storage.clear(); } catch (e) {};
+            }
         }
         try {
             if (fs.existsSync(testDbPath)) fs.unlinkSync(testDbPath);

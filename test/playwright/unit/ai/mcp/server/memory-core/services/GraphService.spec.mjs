@@ -105,19 +105,16 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
         const { cleanupChromaManager } = await import('../util.mjs');
         await cleanupChromaManager();
 
+        // Per #10934 root cause: do NOT close+null the singleton SQLite — closing cascades into
+        // init failures across every sibling spec consuming the same singleton under workers:1.
+        // Clear state via the existing chain instead; preserve the connection for downstream specs.
         if (GraphService?.db) {
-            if (GraphService.db.storage && GraphService.db.storage.db) {
-                try {
-                    GraphService.db.storage.db.close();
-                } catch (e) {
-                }
+            try { GraphService.db.nodes.clear(); }              catch (e) {};
+            try { GraphService.db.edges.clear(); }              catch (e) {};
+            try { GraphService.db.vicinityLoadedNodes.clear(); } catch (e) {};
+            if (GraphService.db.storage?.db) {
+                try { await GraphService.db.storage.clear(); } catch (e) {};
             }
-            GraphService.db           = null;
-            GraphService._initPromise = null;
-        }
-
-        if (SystemLifecycleService) {
-            SystemLifecycleService._initPromise = null;
         }
 
         if (fs.existsSync(testDbPath)) {
