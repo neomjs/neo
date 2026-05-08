@@ -1,9 +1,9 @@
 import crypto from 'crypto';
 import fs     from 'fs-extra';
 import path   from 'path';
-import Base   from '../../../../../src/core/Base.mjs';
-import config from '../config.mjs';
-import logger from '../logger.mjs';
+import Base   from '../../../src/core/Base.mjs';
+import config from '../../mcp/server/neural-link/config.mjs';
+import logger from '../../mcp/server/neural-link/logger.mjs';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
