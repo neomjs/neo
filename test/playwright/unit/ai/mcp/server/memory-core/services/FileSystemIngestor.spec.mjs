@@ -22,13 +22,6 @@ import path                 from 'path';
 import os                   from 'os';
 
 test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () => {
-    // CI-skip per #10934 (G6-adjacent): describe-scope skip propagates through beforeAll
-    // (line 60 GraphService.db.nodes.clear() triggers Store.fire → SQLite.removeNodes against
-    // closed singleton under workers:1) AND beforeEach AND test body. Per @neo-gpt's c.8e6c3fd78
-    // post-mortem at https://github.com/neomjs/neo/pull/10933#issuecomment-4401574110: the
-    // earlier in-test-body skip-guard never fired because the crash happens in beforeAll first.
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: singleton SQLite-close race under workers:1 — see #10934');
-
     let GraphService;
     let SystemLifecycleService;
     let FileSystemIngestor;
@@ -91,11 +84,6 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
     });
 
     test.beforeEach(async () => {
-        // CI-skip per #10934: when sibling spec closes the singleton SQLite under workers:1,
-        // GraphService.db.nodes.clear() triggers Store.fire → SQLite.removeNodes against a
-        // closed connection. Match the test-body skip-guard so beforeEach no-ops cleanly.
-        if (process.env.NEO_TEST_SKIP_CI) return;
-
         if (GraphService.db) {
             GraphService.db.nodes.clear();
             GraphService.db.edges.clear();
@@ -113,16 +101,20 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
         const { cleanupChromaManager } = await import('../util.mjs');
         await cleanupChromaManager();
 
+        // Per #10934 root-cause fix: do NOT close+null the GraphService singleton in afterAll.
+        // The close cascades into "TypeError: database connection is not open" /
+        // "Cannot read properties of undefined (reading exec)" failures across every sibling
+        // spec that consumes the same singleton (GraphService.spec, Database.spec, PermissionService,
+        // and others) under workers:1 because SDK lazy re-init breaks once GraphService.db is null.
+        // Cleanup state via clear() instead — preserves the connection for subsequent specs while
+        // dropping this spec's nodes/edges so test artifacts don't leak.
         if (GraphService?.db) {
-            if (GraphService.db.storage && GraphService.db.storage.db) {
-                try { GraphService.db.storage.db.close(); } catch (e) {};
+            try { GraphService.db.nodes.clear(); }              catch (e) {};
+            try { GraphService.db.edges.clear(); }              catch (e) {};
+            try { GraphService.db.vicinityLoadedNodes.clear(); } catch (e) {};
+            if (GraphService.db.storage?.db) {
+                try { await GraphService.db.storage.clear(); } catch (e) {};
             }
-            GraphService.db           = null;
-            GraphService._initPromise = null;
-        }
-
-        if (SystemLifecycleService) {
-            SystemLifecycleService._initPromise = null;
         }
 
         fs.removeSync(mockFsRoot);
@@ -132,12 +124,6 @@ test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () =>
     });
 
     test('should dynamically ignore high-noise path patterns while preserving structural mapping', async () => {
-        // CI-skip per #10934 (singleton SQLite-close race under workers:1 — afterAll closes
-        // GraphService.db.storage.db; sibling spec running first leaves zombie connection state;
-        // then this test's removeNodes throws "database connection is not open"). Empirically
-        // confirmed in CI run 25524203756. Investigation tracked in #10934.
-        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: singleton SQLite-close race under workers:1 — see #10934');
-
         const stats = { nodes: 0, edges: 0 };
 
         // Override walk logic root physically mimicking neoRootDir logic natively

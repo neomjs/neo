@@ -22,12 +22,6 @@ import fs             from 'fs-extra';
 import path           from 'path';
 
 test.describe('Neo.ai.graph.Database', () => {
-    // CI-skip per #10938 (G6 residual): SQLite.initSchema() throws `this.db.exec undefined`
-    // when sibling spec closes the singleton SQLite under workers:1, leaving Database.spec as
-    // "did not run" + the underlying init throw counts as Playwright's "1 error not part of any
-    // test". Describe-level skip propagates through beforeAll/beforeEach/all tests cleanly.
-    test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: G6 SQLite singleton-close residual under workers:1 — see #10938');
-
     let db;
     let testRun = 0;
     
