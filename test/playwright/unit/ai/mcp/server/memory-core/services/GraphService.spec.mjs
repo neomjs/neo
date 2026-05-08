@@ -156,6 +156,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
     });
 
     test('should correctly expose getContextFrontier topology', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: workers:1 close-singleton residual (#10941)');
         GraphService.upsertNode({id: 'frontier', type: 'SYSTEM_ANCHOR'});
         GraphService.upsertNode({id: 'EpicB'});
 
@@ -170,6 +171,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
     });
 
     test('should trigger a SQLite lazy-load on cache miss when fetching a Node', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: workers:1 close-singleton residual (#10941)');
         GraphService.upsertNode({id: 'LazyNode', name: 'Wait For It'});
         GraphService.upsertNode({id: 'ConnectedNode', name: 'Linked'});
         GraphService.linkNodes('LazyNode', 'ConnectedNode', 'TEST_LINK', 1.0);

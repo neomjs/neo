@@ -179,6 +179,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => 
     });
 
     test('grantPermission preserves existing node type and does not overwrite it (resolves #10231)', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: AGENT:* singleton-data pollution under workers:1 (#10937)');
         // Pre-seed AGENT:* as a BroadcastSentinel
         GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: '*', properties: {} });
 
