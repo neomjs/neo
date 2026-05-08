@@ -22,6 +22,7 @@ import InstanceManager from '../../../../../src/manager/Instance.mjs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import crypto          from 'crypto';
+import {TestLifecycleHelper} from '../mcp/server/memory-core/util.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -42,7 +43,7 @@ test.describe('DreamService Golden Path', () => {
         const testDbPath = path.join(tmpDir, testDbName);
 
         aiConfig.storagePaths.graph = testDbPath;
-        aiConfig.engine               = 'neo';
+        aiConfig.engine               = 'hybrid';
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
 
         TextEmbeddingService = (await import('../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
@@ -61,28 +62,12 @@ test.describe('DreamService Golden Path', () => {
     });
 
     test.afterAll(async () => {
-        if (GraphService?.db) {
-            if (GraphService.db.storage?.db) {
-                try {GraphService.db.storage.db.close();} catch (e) {}
-            }
-            GraphService.db           = null;
-            GraphService._initPromise = null;
-        }
-
-        if (SystemLifecycleService) {
-            SystemLifecycleService._initPromise = null;
-        }
-
-        const os         = await import('os');
         const fs         = await import('fs');
-        const tmpDir     = path.resolve(process.cwd(), 'tmp');
         const testDbPath = aiConfig.storagePaths.graph;
 
-        if (fs.existsSync(testDbPath)) {
-            try {fs.unlinkSync(testDbPath);}          catch (e) {}
-            try {fs.unlinkSync(`${testDbPath}-wal`);} catch (e) {}
-            try {fs.unlinkSync(`${testDbPath}-shm`);} catch (e) {}
-        }
+        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+
+        const tmpDir     = path.resolve(process.cwd(), 'tmp');
         const mockHandoff = path.join(tmpDir, 'mock_sandman_handoff.md');
         if (fs.existsSync(mockHandoff)) {
             try {fs.unlinkSync(mockHandoff);} catch (e) {}
@@ -90,7 +75,6 @@ test.describe('DreamService Golden Path', () => {
     });
 
     test('synthesizeGoldenPath executes without crashing', async () => {
-        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
         test.setTimeout(60000);
 
         await DreamService.ingestIssueStates();

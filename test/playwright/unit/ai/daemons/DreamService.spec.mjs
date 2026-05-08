@@ -18,8 +18,9 @@ import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../src/manager/Instance.mjs';
 import fs             from 'fs';
-import path           from 'path'
+import path           from 'path';
 import os             from 'os';
+import {TestLifecycleHelper} from '../mcp/server/memory-core/util.mjs';
 
 test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
     let GraphService;
@@ -149,27 +150,10 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
     });
 
     test.afterAll(async () => {
-        if (GraphService?.db) {
-            if (GraphService.db.storage?.db) {
-                try { GraphService.db.storage.db.close(); } catch (e) {}
-            }
-            GraphService.db           = null;
-            GraphService._initPromise = null;
-        }
+        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
 
         if (KBRecorderService?.db) {
-            try { KBRecorderService.db.close(); } catch (e) {}
-            KBRecorderService.db = null;
-        }
-
-        if (SystemLifecycleService) {
-            SystemLifecycleService._initPromise = null;
-        }
-
-        if (fs.existsSync(testDbPath)) {
-            try { fs.unlinkSync(testDbPath); } catch (e) {}
-            if (fs.existsSync(`${testDbPath}-wal`)) try { fs.unlinkSync(`${testDbPath}-wal`); } catch (e) {}
-            if (fs.existsSync(`${testDbPath}-shm`)) try { fs.unlinkSync(`${testDbPath}-shm`); } catch (e) {}
+            KBRecorderService.db.exec('DELETE FROM kb_query_log; DELETE FROM kb_query_faqs;');
         }
         
         const tmpDir = path.resolve(process.cwd(), 'tmp');
