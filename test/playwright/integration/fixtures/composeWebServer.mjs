@@ -29,6 +29,35 @@ function dockerCompose(args, options = {}) {
     });
 }
 
+/**
+ * @summary Writes captured Docker CLI output to stderr when it is non-empty.
+ * @param {String} label  Human-readable command label.
+ * @param {Object} result The spawnSync result from a Docker command.
+ * @returns {void}
+ */
+function writeProcessOutput(label, result) {
+    const output = [
+        result.stdout?.trim(),
+        result.stderr?.trim()
+    ].filter(Boolean).join('\n');
+
+    if (output) {
+        console.error(`[composeWebServer] ${label}\n${output}`);
+    }
+}
+
+/**
+ * @summary Emits Docker Compose process and log diagnostics for failed startup.
+ * @param {String} reason The failure reason that triggered diagnostics.
+ * @returns {void}
+ */
+function writeComposeDiagnostics(reason) {
+    console.error(`[composeWebServer] ${reason}`);
+
+    writeProcessOutput('docker compose ps -a', dockerCompose(['ps', '-a']));
+    writeProcessOutput('docker compose logs --tail 200', dockerCompose(['logs', '--no-color', '--tail', '200']));
+}
+
 function isDockerAvailable() {
     const version = spawnSync('docker', ['compose', 'version'], {encoding: 'utf8'});
 
@@ -90,6 +119,7 @@ async function waitForServices() {
     }
 
     state.reason = `Timed out waiting for Dockerized MCP integration stack. Last state: ${state.reason}`;
+    writeComposeDiagnostics(state.reason);
 }
 
 function cleanup() {
@@ -144,6 +174,7 @@ server.listen(readyPort, '127.0.0.1', async () => {
         if (!shuttingDown) {
             state.servicesReady = false;
             state.reason        = `docker compose exited before shutdown with code ${code}.`;
+            writeComposeDiagnostics(state.reason);
         }
     });
 

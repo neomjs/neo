@@ -9,17 +9,14 @@ test.describe('Heartbeat Propagation Integration (#10896 Lane B)', () => {
     test.setTimeout(120000); // Allow enough time for 30s window and startup
 
     test('Sustained healthcheck property assertions (30s window)', async () => {
-        // Bucket F (#10918): consecutive healthcheck samples report identical process.uptime()
-        // values, breaking the strict toBeGreaterThan monotonic check. Two hypotheses (per-session
-        // McpServer regression from #10916 vs test-spec strictness) — diagnostic Phase 1 needed
-        // before fix shape is decided. Deferred to unblock Lane C #10897 close.
-        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: bucket F application-spec deferral — see #10918');
-
         const readiness = await getReadiness();
         test.skip(readiness.dockerAvailable === false, `Docker unavailable: ${readiness.reason}`);
         expect(readiness.servicesReady, readiness.reason).toBe(true);
 
         const checkProperties = (sample, previousSamples) => {
+            expect(sample.status).toBe('healthy');
+            expect(typeof sample.uptime).toBe('number');
+
             if (previousSamples.length > 1) {
                 const prev = previousSamples[previousSamples.length - 2];
                 // Monotonic uptime
