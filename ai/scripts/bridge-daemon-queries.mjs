@@ -142,3 +142,40 @@ export function getDbNode(db, id) {
         return null;
     }
 }
+
+export function getUnreadSunsetHandovers(db) {
+    const stmt = db.prepare(`
+        SELECT id, data FROM Nodes
+        WHERE json_extract(data, '$.type') = 'MESSAGE'
+          AND json_extract(data, '$.properties.readAt') IS NULL
+          AND json_extract(data, '$.properties.taggedConcepts') LIKE '%"sunset-protocol-handover"%'
+    `);
+    const rows = stmt.all();
+    const unreadMessages = [];
+
+    for (const row of rows) {
+        let messageNode;
+        try {
+            messageNode = JSON.parse(row.data);
+        } catch (err) {
+            continue;
+        }
+
+        // Double check to avoid false positives from LIKE
+        if (messageNode.properties && messageNode.properties.taggedConcepts && messageNode.properties.taggedConcepts.includes('sunset-protocol-handover')) {
+            unreadMessages.push(messageNode);
+        }
+    }
+    return unreadMessages;
+}
+
+export function markNodesAsRead(db, nodes) {
+    if (nodes.length === 0) return;
+    const stmt = db.prepare('UPDATE Nodes SET data = ? WHERE id = ?');
+    db.transaction(() => {
+        for (const node of nodes) {
+            node.properties.readAt = new Date().toISOString();
+            stmt.run(JSON.stringify(node), node.id);
+        }
+    })();
+}
