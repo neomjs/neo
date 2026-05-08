@@ -348,6 +348,49 @@ test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', ()
 });
 
 test.describe('Neo.ai.mcp.server.BaseServer — initAsync canonical sequence', () => {
+    test('subclass overrides boot() to skip canonical sequence', async () => {
+        const calls = [];
+        const id    = ++_testClassCounter;
+        class CustomBootServer extends BaseServer {
+            static config = {className: `Neo.test.mcp.server.CustomBootServer${id}`}
+
+            getServerMetadata() { return {name: 'neo-custom'}; }
+            getToolService()    { return {listTools: () => ({tools: []}), callTool: async () => null}; }
+
+            // Custom boot order: only loadCustomConfig + connectTransport, no canonical
+            async boot() {
+                calls.push('custom-boot-start');
+                await this.loadCustomConfig();
+                calls.push('between-blocks');
+                await this.connectTransport();
+                calls.push('custom-boot-end');
+            }
+
+            // Stubs for the building blocks the override DOES use
+            async loadCustomConfig() { calls.push('loadCustomConfig'); }
+            async connectTransport() { calls.push('connectTransport'); }
+
+            // Stubs for canonical-sequence blocks that should NOT fire
+            async beforeMcpServerInit()      { calls.push('beforeMcpServerInit-SHOULD-NOT-FIRE'); }
+            createMcpServer()                { calls.push('createMcpServer-SHOULD-NOT-FIRE'); return {server: {setRequestHandler: () => {}}}; }
+            async waitForDependentServices() { calls.push('waitForDependentServices-SHOULD-NOT-FIRE'); }
+            async runHealthcheckAndLogStatus() { calls.push('runHealthcheck-SHOULD-NOT-FIRE'); return null; }
+        }
+
+        const Cls    = Neo.setupClass(CustomBootServer);
+        const server = Neo.create(Cls);
+        await server.ready();
+
+        // Only the building blocks the custom boot calls should fire
+        expect(calls).toEqual([
+            'custom-boot-start',
+            'loadCustomConfig',
+            'between-blocks',
+            'connectTransport',
+            'custom-boot-end'
+        ]);
+    });
+
     test('default initAsync calls hooks in canonical order (no health, no transport)', async () => {
         const calls = [];
         const id    = ++_testClassCounter;

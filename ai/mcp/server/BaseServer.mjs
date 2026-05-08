@@ -455,14 +455,29 @@ class BaseServer extends Base {
     }
 
     /**
-     * @summary Default canonical async initialization sequence. Subclasses with more complex
-     * bootstrap (e.g. memory-core, neural-link) may override and compose the protected
-     * building blocks in a different order.
+     * @summary Async initialization. Chains into `Neo.core.Base.initAsync()`, then delegates
+     * the boot orchestration to `boot()`. Subclasses should override `boot()` (NOT `initAsync`)
+     * when they need a non-canonical bootstrap order — that keeps the Base class chain
+     * (e.g., reactive config init) wired correctly while letting the subclass freely compose
+     * the protected building blocks (`loadCustomConfig`, `createMcpServer`,
+     * `waitForDependentServices`, `runHealthcheckAndLogStatus`, `connectTransport`).
      * @returns {Promise<void>}
      */
     async initAsync() {
         await super.initAsync();
+        await this.boot();
+    }
 
+    /**
+     * @summary Default canonical bootstrap sequence. Subclasses with custom bootstrap order
+     * (e.g. neural-link's transport-before-services for early MCP-handshake handling, or
+     * memory-core's stdio-identity-resolution between dependent-services and healthcheck)
+     * override this method and call the building blocks (`loadCustomConfig`, `createMcpServer`,
+     * etc.) in their own order. Override does NOT need to call `super.boot()` — the Base
+     * init chain is already handled by `initAsync()`.
+     * @returns {Promise<void>}
+     */
+    async boot() {
         await this.loadCustomConfig();
         await this.beforeMcpServerInit();
 
