@@ -32,7 +32,7 @@ import Base                                            from '../../../src/core/B
  *
  * ## Lifecycle hooks (composable)
  *
- * The default `initAsync()` runs the canonical sequence:
+ * The default `boot()` runs the canonical sequence (called automatically from `initAsync()`):
  *
  *     loadCustomConfig → beforeMcpServerInit → createMcpServer → waitForDependentServices →
  *     beforeHealthcheck → runHealthcheckAndLogStatus → afterHealthcheck → connectTransport →
@@ -40,7 +40,7 @@ import Base                                            from '../../../src/core/B
  *
  * Each `before*` / `after*` hook is a no-op by default. Subclasses with more complex bootstrap
  * (e.g. memory-core's stdio identity resolution, neural-link's transport-before-service order)
- * may also override `initAsync()` directly and compose the protected building blocks
+ * may also override `boot()` directly and compose the protected building blocks
  * (`loadCustomConfig`, `createMcpServer`, `waitForDependentServices`, `runHealthcheckAndLogStatus`,
  * `connectTransport`) in a different order.
  *
