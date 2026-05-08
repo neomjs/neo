@@ -33,8 +33,11 @@ subIssues:
   - '[x] 10808 Operator-facing env var ergonomics: descriptive names + Chroma host/port overrides'
   - '[ ] 10813 Restore session summaries: primary-flag gate + sunset-event trigger'
   - '[ ] 10822 Config substrate cleanup: KISS hard cuts + three-tier model'
-subIssuesCompleted: 9
-subIssuesTotal: 18
+  - '[ ] 10945 Expand deployment-pipeline integration coverage for Memory Core'
+  - '[x] 10957 Document v13 architectural path — slim MCP servers, orchestrator daemon, SDK migration sequence'
+  - '[ ] 10960 v13 Release Tracking — main-focus-items canonical sub-issue tree'
+subIssuesCompleted: 10
+subIssuesTotal: 21
 blockedBy: []
 blocking:
   - '[ ] 10135 Audit Agent OS for Windows support'
@@ -812,4 +815,133 @@ Reopened (cycle 2) by @neo-opus-4-7 — prior reopen at 03:57:38Z was sabotage-r
 - 2026-05-06T16:00:40Z @neo-opus-4-7 cross-referenced by #10822
 - 2026-05-06T16:00:54Z @neo-opus-4-7 added sub-issue #10822
 - 2026-05-06T16:32:31Z @neo-opus-4-7 cross-referenced by PR #10829
+- 2026-05-08T10:24:23Z @neo-gpt cross-referenced by #10945
+- 2026-05-08T10:24:38Z @neo-gpt added sub-issue #10945
+- 2026-05-08T10:46:37Z @neo-gpt cross-referenced by #10947
+- 2026-05-08T10:47:01Z @neo-gpt cross-referenced by #10948
+- 2026-05-08T10:47:27Z @neo-gpt cross-referenced by #10949
+- 2026-05-08T10:47:53Z @neo-gpt cross-referenced by #10950
+- 2026-05-08T10:48:19Z @neo-gpt cross-referenced by #10951
+- 2026-05-08T11:00:04Z @neo-opus-4-7 cross-referenced by PR #10954
+- 2026-05-08T11:07:32Z @neo-opus-4-7 cross-referenced by PR #10955
+- 2026-05-08T11:53:48Z @neo-opus-4-7 cross-referenced by #10957
+- 2026-05-08T11:54:01Z @neo-opus-4-7 added sub-issue #10957
+- 2026-05-08T11:55:34Z @neo-opus-4-7 cross-referenced by PR #10958
+- 2026-05-08T12:05:25Z @neo-opus-4-7 referenced in commit `2015153` - "docs(agentos): incorporate Cycle 1 GPT review fixes + KB delta-update task (#10957)
+
+@neo-gpt's PR #10958 Cycle 1 review at commentId IC_kwDODSospM8AAAABBqH6pg
+flagged two blocking points; both addressed in this commit. Plus operator
+added KB delta-update as another orchestrator-scoped task.
+
+GPT RA1 — close-target / AC consistency:
+- AC7 (ROADMAP.md cross-link) was deferred in original PR body; now satisfied
+  inline in this commit. ROADMAP.md gains a new "v13 Architectural Path"
+  section above "Current Focus: v12.2" linking to learn/agentos/v13-path.md
+  and naming #9999 as the v13 main epic.
+- AC8 native parent_child link was already done via update_issue_relationship
+  immediately post-create (#9999 → #10957). Per-sub-issue follow-up comments
+  remain post-merge work per ticket §"Out of Scope".
+
+GPT RA2 — §6 audit completeness:
+- Added #10945 row (open child of #9999, GPT's M1 lane; 5 valid sub-tickets
+  #10947/#10949/#10950/#10951/#10952 with #10948 closed invalid post-correction)
+- Added #10957 row (this very doc; meta — closes when this PR merges)
+
+Operator addition (chief-architect input 2026-05-08):
+- D3 Orchestrator scope expanded with Knowledge Base delta-update sync
+  task. KB already supports delta updates via `npm run ai:sync-kb`;
+  orchestrator schedules them on configurable cadence per the same
+  per-host singleton pattern.
+
+Co-Authored-By: tobiu <tobiasuhlig78@gmail.com>"
+- 2026-05-08T12:18:00Z @tobiu referenced in commit `a77adf0` - "docs(agentos): v13 architectural path strategy document (#10957) (#10958)
+
+* docs(agentos): add v13 architectural path strategy document (#10957)
+
+Resolves #10957.
+
+Authored 2026-05-08 per @tobiu's chief-architect mandate after today's
+architectural-hallucination corrections (Factory-pattern partial-rollout
+misread + NEO_MC_PRIMARY scoping over-correction).
+
+Document covers the path from current substrate state (post-Bucket-G,
+post-Factory-pattern, post-NEO_MC_PRIMARY-correction) to v13 release:
+
+1. Vision — slim MCP servers + mature SDK + clean daemon architecture
+2. Current State — empirically verified table comparing today vs target
+3. Critical Architectural Decisions — D1 Factory eval (challenge-framed)
+   / D2 common base server class / D3 orchestrator daemon architecture
+   / D4 SDK migration boundary / D5 NEO_MC_PRIMARY retirement path
+4. Sequenced Milestones M1-M7 — current week (M1 substrate stabilization
+   with owner-split: Gemini unit-row, GPT integration, Claude doc) →
+   v13 release cut
+5. Tickets to file/update enumerated for each milestone
+6. #9999 sub-issue audit — every open sub-issue triaged with
+   on-trajectory / re-scope / verify markers
+7. Risks + mitigations
+8. Outcome metrics — quantitative v13 readiness targets
+9. Provenance — citation chain back to today's correction
+
+Strategic shape (~280 lines), not exhaustive specification. Per-milestone
+prescriptions live in their own tickets/PRs; this doc is the chief-architect
+anchor for swarm coordination across that work.
+
+Co-Authored-By: tobiu <tobiasuhlig78@gmail.com>
+
+* docs(agentos): incorporate Gemini's PR #10958 review depth-floor adds (#10957)
+
+Cycle 1 review approved at commentId IC_kwDODSospM8AAAABBqGSkg with two
+non-blocking considerations for M2/M3 implementation phases. Folding both
+into the strategic doc rather than deferring to implementation memory:
+
+D1 (AsyncLocalStorage edge cases) — explicit mention of:
+- EventEmitter boundaries (handlers fire in emitter's own context)
+- SSE streaming async generators (iterators yielding async to event loop
+  can lose context across yield points)
+
+D2 (Common Base Server Class) — added "Extension points the base must
+expose" subsection enumerating registerTools / registerServices /
+registerMiddleware / registerHealthChecks. The middleware/interceptor
+pipeline (custom AuthMiddleware variants, parameter-validation
+interceptors, per-server request hooks) was the specific concern Gemini
+flagged — currently duplicated across the 2/5 servers that wrap dispatch;
+base class makes it pluggable.
+
+Co-Authored-By: tobiu <tobiasuhlig78@gmail.com>
+
+* docs(agentos): incorporate Cycle 1 GPT review fixes + KB delta-update task (#10957)
+
+@neo-gpt's PR #10958 Cycle 1 review at commentId IC_kwDODSospM8AAAABBqH6pg
+flagged two blocking points; both addressed in this commit. Plus operator
+added KB delta-update as another orchestrator-scoped task.
+
+GPT RA1 — close-target / AC consistency:
+- AC7 (ROADMAP.md cross-link) was deferred in original PR body; now satisfied
+  inline in this commit. ROADMAP.md gains a new "v13 Architectural Path"
+  section above "Current Focus: v12.2" linking to learn/agentos/v13-path.md
+  and naming #9999 as the v13 main epic.
+- AC8 native parent_child link was already done via update_issue_relationship
+  immediately post-create (#9999 → #10957). Per-sub-issue follow-up comments
+  remain post-merge work per ticket §"Out of Scope".
+
+GPT RA2 — §6 audit completeness:
+- Added #10945 row (open child of #9999, GPT's M1 lane; 5 valid sub-tickets
+  #10947/#10949/#10950/#10951/#10952 with #10948 closed invalid post-correction)
+- Added #10957 row (this very doc; meta — closes when this PR merges)
+
+Operator addition (chief-architect input 2026-05-08):
+- D3 Orchestrator scope expanded with Knowledge Base delta-update sync
+  task. KB already supports delta updates via `npm run ai:sync-kb`;
+  orchestrator schedules them on configurable cadence per the same
+  per-host singleton pattern.
+
+Co-Authored-By: tobiu <tobiasuhlig78@gmail.com>
+
+---------
+
+Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
+- 2026-05-08T12:28:11Z @neo-opus-4-7 cross-referenced by #10960
+- 2026-05-08T12:28:20Z @neo-opus-4-7 added sub-issue #10960
+- 2026-05-08T12:29:15Z @neo-opus-4-7 cross-referenced by #10961
+- 2026-05-08T12:58:45Z @neo-opus-4-7 cross-referenced by PR #10963
 
