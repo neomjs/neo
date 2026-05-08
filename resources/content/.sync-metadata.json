@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-05-07T17:03:26.175Z",
-  "releasesLastFetched": "2026-05-07T17:03:45.074Z",
+  "lastSync": "2026-05-08T08:47:31.631Z",
+  "releasesLastFetched": "2026-05-08T08:47:43.577Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -31353,7 +31353,7 @@
       "path": "resources/content/issues/issue-10671.md",
       "closedAt": null,
       "updatedAt": "2026-05-05T20:11:12Z",
-      "contentHash": "c6e6e6f2a2451ee04d7f38176be425bf5d0f10b59ad19161d1bf2392b48e6021",
+      "contentHash": "80da7c71118ca6d12cbbd3b92fdb856494e557300ce2ca51d58cc1708cfbb4a0",
       "commentsTotal": 6
     },
     "10672": {
@@ -31848,9 +31848,9 @@
       "state": "OPEN",
       "path": "resources/content/issues/issue-10780.md",
       "closedAt": null,
-      "updatedAt": "2026-05-05T19:31:13Z",
-      "contentHash": "e5a7cfbf604d6b62f7c86043d5274d53ab325038b4d91e671504f8df14a1a43a",
-      "commentsTotal": 0
+      "updatedAt": "2026-05-07T21:03:11Z",
+      "contentHash": "f7aff3ae2ddd649991f22afa05fe6e945da62a1bea6d4eebc042e013acb507db",
+      "commentsTotal": 1
     },
     "10781": {
       "state": "CLOSED",
@@ -31861,11 +31861,11 @@
       "commentsTotal": 1
     },
     "10783": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-10783.md",
-      "closedAt": null,
-      "updatedAt": "2026-05-05T20:00:35Z",
-      "contentHash": "589e5dc39a0696a9bbad40333cedaff06362663fefde2c70a1bf3d69dd7d3b54",
+      "closedAt": "2026-05-07T21:39:15Z",
+      "updatedAt": "2026-05-07T21:39:15Z",
+      "contentHash": "d6a95d9f31d661531a023d959d7b7724562deaf908c2663cca12b34e2b1bf34a",
       "commentsTotal": 0
     },
     "10784": {
@@ -32309,11 +32309,11 @@
       "commentsTotal": 0
     },
     "10897": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-10897.md",
-      "closedAt": null,
-      "updatedAt": "2026-05-07T12:57:48Z",
-      "contentHash": "efd058deb6917332161230cb4710a51c625a0de4cbbe45f77c5a8fe71eb76e8e",
+      "closedAt": "2026-05-07T18:19:53Z",
+      "updatedAt": "2026-05-07T18:19:53Z",
+      "contentHash": "4b01eafa793649945ea95bdea2078fa9eafc6399ab27596bada4e81453ce6f90",
       "commentsTotal": 0
     },
     "10900": {
@@ -32333,11 +32333,11 @@
       "commentsTotal": 0
     },
     "10903": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-10903.md",
-      "closedAt": null,
-      "updatedAt": "2026-05-07T15:51:44Z",
-      "contentHash": "5b42701ebf1678f8a1663641730117c6df67656f15f14a86cc22ec751be1ca20",
+      "closedAt": "2026-05-07T18:21:03Z",
+      "updatedAt": "2026-05-07T18:21:03Z",
+      "contentHash": "b6538a239c4d76bd88e013ed87e6d373ab4e463927d2d5097d5c00c056a44ce2",
       "commentsTotal": 1
     },
     "10905": {
@@ -32373,11 +32373,123 @@
       "commentsTotal": 0
     },
     "10915": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-10915.md",
+      "closedAt": "2026-05-07T17:22:02Z",
+      "updatedAt": "2026-05-07T17:22:02Z",
+      "contentHash": "cfd930a3912bd60c70c3fe69a20517118603fcaf8fdc1dd085fec2f47cd9ce47",
+      "commentsTotal": 0
+    },
+    "10917": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-10917.md",
+      "closedAt": "2026-05-07T19:08:35Z",
+      "updatedAt": "2026-05-07T19:08:35Z",
+      "contentHash": "f860fc5c4358baf6462a088b1fea090252ee9884f66b3bf0061242859d75cb6e",
+      "commentsTotal": 2
+    },
+    "10918": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-10918.md",
+      "closedAt": "2026-05-07T18:20:27Z",
+      "updatedAt": "2026-05-07T18:20:27Z",
+      "contentHash": "b720b1e52a3edab41bec94163d1258706667440c2f46e9f93f8d03b66dd08b6a",
+      "commentsTotal": 0
+    },
+    "10923": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-10923.md",
+      "closedAt": "2026-05-07T18:45:33Z",
+      "updatedAt": "2026-05-07T18:45:33Z",
+      "contentHash": "573c151fe9150dfb3810f7ab64c5d870adb8ac55ee755a78029a304003924159",
+      "commentsTotal": 0
+    },
+    "10924": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-10924.md",
       "closedAt": null,
-      "updatedAt": "2026-05-07T17:00:20Z",
-      "contentHash": "cc0d7a8b5311bb1a1016d800babdbc0bafc230d83730e8af2d63e5b7e83e02a4",
+      "updatedAt": "2026-05-08T08:38:20Z",
+      "contentHash": "558783b4f095c683188a78b907e7aa1dc0c327b2716f7f4b46d11cd9c4e146e2",
+      "commentsTotal": 11
+    },
+    "10931": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-10931.md",
+      "closedAt": "2026-05-07T21:39:14Z",
+      "updatedAt": "2026-05-07T21:39:14Z",
+      "contentHash": "82fde9104258ead7a1bb16245513aad82bf7a09aabf57d112bfbbadd08ff345c",
+      "commentsTotal": 0
+    },
+    "10932": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/issue-10932.md",
+      "closedAt": "2026-05-07T21:39:15Z",
+      "updatedAt": "2026-05-07T21:39:15Z",
+      "contentHash": "29bab23df066cf6da1ad432af5df7c4ac9af7b1e6fcf3fd85d97b8d2a3f70d37",
+      "commentsTotal": 0
+    },
+    "10934": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-10934.md",
+      "closedAt": null,
+      "updatedAt": "2026-05-07T22:06:39Z",
+      "contentHash": "8bd06c37a89144473e166d693694bd7425c606d6a82d187b63a233ab38258fe4",
+      "commentsTotal": 0
+    },
+    "10935": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-10935.md",
+      "closedAt": null,
+      "updatedAt": "2026-05-07T22:07:05Z",
+      "contentHash": "c54ab803fcc08b5baa185883e0b91de32cc8e7843509545aabe62c2835ff786d",
+      "commentsTotal": 0
+    },
+    "10936": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-10936.md",
+      "closedAt": null,
+      "updatedAt": "2026-05-07T22:12:14Z",
+      "contentHash": "3dc5c5bef66d0846e076d7606157887aae7149713caafc0ce72cde42654edc1b",
+      "commentsTotal": 0
+    },
+    "10937": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-10937.md",
+      "closedAt": null,
+      "updatedAt": "2026-05-07T22:12:42Z",
+      "contentHash": "d6011c728b50bec011cb412a0fa06140096b7d535af81fee98d1644a9874195d",
+      "commentsTotal": 0
+    },
+    "10938": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-10938.md",
+      "closedAt": null,
+      "updatedAt": "2026-05-07T22:12:58Z",
+      "contentHash": "cc991d297e58dee1862bcbdb0cc98525f97f2f786c11b8642cd6c964ecc580bb",
+      "commentsTotal": 0
+    },
+    "10939": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-10939.md",
+      "closedAt": null,
+      "updatedAt": "2026-05-08T08:38:37Z",
+      "contentHash": "e02d39f95555dcf58eec344926112021f1d85514ef37dee2ecf55e92137337f8",
+      "commentsTotal": 1
+    },
+    "10941": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-10941.md",
+      "closedAt": null,
+      "updatedAt": "2026-05-08T07:36:21Z",
+      "contentHash": "ba1b7a12bcb6c946305b73d384f734f10c252a08a40999aecc404ed233d6d67c",
+      "commentsTotal": 0
+    },
+    "10942": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-10942.md",
+      "closedAt": null,
+      "updatedAt": "2026-05-08T07:36:49Z",
+      "contentHash": "6cb95bc2d9a9a387a55bcfdf16fa6fd08ef2c6a7f219539359a0190c82e3d09c",
       "commentsTotal": 0
     }
   },
