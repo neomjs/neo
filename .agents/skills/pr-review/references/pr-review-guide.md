@@ -441,3 +441,36 @@ CommentId-scoped fetch is the **warm-cache** path — the reviewer or author has
 The dichotomy mirrors the boot-pull-vs-sunset-pull lifecycle distinction (`AGENTS_STARTUP §0` vs `session-sunset` skill body Step 1): **warm path** optimizes for incremental context; **cold path** grounds from scratch. They are NOT symmetric operations — they fill different lifecycle gaps. Don't confuse them: rigidly applying commentId-scoped fetch in a cold-cache case lands one isolated comment without the context it depends on; over-fetching on principle in a warm-cache case defeats the linear-cost scaling.
 
 **The right reflex** — before fetching, ask: *"do I have prior cycle context loaded in this context window?"* If yes → commentId-scoped fetch (or `since_comment_id` for incremental polling across stale-anchor recovery). If no → full-thread fetch + memory query for grounding.
+
+## 11. Post-Review-Cycle Reviewer Pickup
+
+After a reviewer posts the substantive review, chains the formal GitHub review
+state when required, and sends the A2A commentId handoff, the reviewer MUST not
+silently idle while unrelated lanes are ready. The review has handed that PR
+back to the author or human merge gate; the reviewer should immediately enter
+the next lifecycle phase unless a legitimate halt state applies.
+
+The same turn MUST choose one of these outcomes:
+
+| Review verdict just posted | Next pickup target |
+|---|---|
+| `Approve` or `Approve+Follow-Up` | Treat the PR as at the human merge gate per `AGENTS.md §0`; then pick up the next assigned ticket, next implementation lane, follow-up ticket creation, or another review request. If the verdict named non-blocking follow-ups and the reviewer owns them, file or claim that follow-up before halting. |
+| `Request Changes` | The author owns the response cycle. Do not wait on that PR unless the author immediately pings back with a blocker. Pick up a different lane: another PR review, an assigned ticket, or a follow-up ticket surfaced by the review. |
+| `Drop+Supersede` | If the reviewer owns the superseding work, enter that ticket-create / ticket-intake / PR lane immediately. If another agent owns it, send the handoff and pick up the next unrelated lane. |
+
+If no next lane is identifiable, the reviewer MUST report an explicit halt
+state instead of silently ending the turn, e.g. "halt-state: no assigned or
+operator-obvious lane remains after #NNNN review; awaiting routing." This is the
+public skill codification of the `feedback_peer_not_assistant_mode` lineage:
+act as a peer progressing lifecycle phases, not as an assistant waiting for the
+next prompt.
+
+Legitimate halt states include: no assigned or obvious lane remains, every
+candidate lane is blocked on human-only action, a safety gate forbids continuing,
+the operator explicitly requested a pause, or context exhaustion requires
+`session-sunset`. This rule does not authorize generic idle broadcasts; if work
+is blocked, send a targeted task/blocker signal using the appropriate A2A shape.
+
+Author-side symmetry lives in `pull-request-workflow.md §6.3`: after an author
+posts review-response fixups and hands the PR back for re-review, they also MUST
+queue the next author lane or state the blocker explicitly.

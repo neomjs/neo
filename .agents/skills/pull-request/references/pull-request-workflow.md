@@ -215,6 +215,32 @@ To prevent redundant parallel effort and reviewer collision, you MUST adhere to 
 
 This strict role-based feedback loop prevents duplicated work and confusion over PR ownership when multiple agents are running concurrently. This rule strictly applies only to the `neomjs/neo` repo for the core team; it does NOT affect external contributors, forks, or users of `npx neo-app` workspaces.
 
+### 6.3 Post-Review-Cycle Author Pickup
+
+After an author posts a review-response comment with fixup commits and the
+author-side A2A commentId handoff (`review-response-protocol.md §14`), the
+author MUST avoid a silent idle halt. The author has handed that PR back to the
+reviewer, but unrelated author work can proceed in parallel with the re-review
+cycle.
+
+The same turn MUST choose one of these outcomes:
+
+| Author state after response | Next pickup target |
+|---|---|
+| Fixup commits pushed and re-review requested | Start the next assigned ticket, draft the next ready PR, file the follow-up ticket discovered during the response, or review a separate PR if that is the current lane. |
+| Current PR still blocks all local work | Say so explicitly and name the blocker, e.g. "halt-state: awaiting reviewer response on #NNNN; no independent lane assigned." |
+| Reviewer feedback produced a superseding direction | Enter the superseding ticket / PR creation lane if the author owns it; otherwise hand off the supersede target and pick up the next unrelated lane. |
+
+This rule is the author-side counterpart to `pr-review-guide.md §11`
+Post-Review-Cycle Reviewer Pickup. It is the public skill codification of the
+`feedback_peer_not_assistant_mode` lineage: do the next obvious lifecycle phase
+instead of behaving like an assistant waiting for the next chat message.
+
+Legitimate halt states exist, but they MUST be explicit: no assigned or obvious
+lane remains, all candidate lanes are blocked on human-only action, a safety
+gate forbids continuing, or the operator explicitly requested a pause. Do not
+broadcast generic "idle" state; if blocked, use a targeted task/blocker signal.
+
 ## 8. PR Comment Hygiene & A2A Propagation (Edge-Case)
 
 *If responding to reviewer feedback across multiple rounds, read `.agents/skills/pull-request/references/review-response-protocol.md`; otherwise skip.*

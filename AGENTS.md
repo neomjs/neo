@@ -94,6 +94,7 @@ You are part of the core architectural team. **Synthesize friction into gold:** 
 | `epic-resolution` | Last required sub closes / before close-as-completed |
 | `pull-request` | Code modifications complete; before opening PR — stepping-back reflection, commit format, cross-family review mandate, post-comment A2A commentId hand-off (author→reviewer) per review-response-protocol.md §14, Evidence declaration line for substrate/runtime-AC PRs per [evidence-ladder.md](learn/agentos/evidence-ladder.md) |
 | `pr-review` | Reviewing a PR (yours or peer's) — structured eval metrics, graph ingestion tags, severity ladder, restates §0 merge gate, post-comment A2A commentId hand-off (reviewer→author) per guide §9 + §9.4 cold-cache exception, Evidence Audit + Source-of-Authority sections (template §) for substrate/runtime-AC PRs and authority-citation review-comments |
+| `post-review-pickup` | Immediately after `pr-review` or review-response handoff completes — enter the next ready lifecycle lane or state an explicit halt reason per `pr-review-guide.md §11` / `pull-request-workflow.md §6.3` |
 | `ideation-sandbox`| Before creating a Discussion for architectural exploration |
 | `memory-mining` | On regression / non-obvious-architecture / decision-points |
 | `tech-debt-radar` | During PR review for fundamental architectural shifts |
