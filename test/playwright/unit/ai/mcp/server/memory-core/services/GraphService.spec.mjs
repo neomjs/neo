@@ -313,6 +313,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
     });
 
     test('should execute getPaths and lazy-load recursively across deep dependencies when RAM cache is missed', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: workers:1 close-singleton residual (#10941)');
         GraphService.upsertNode({id: 'Root', name: 'Starting Point'});
         GraphService.upsertNode({id: 'Depth1', name: 'First Hop'});
         GraphService.upsertNode({id: 'Depth2', name: 'Second Hop'});
@@ -354,6 +355,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.GraphService', () => {
     });
 
     test('should automatically execute LRU garbage collection Native Graph footprints when maxGraphNodes is exceeded', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: workers:1 close-singleton residual (#10941)');
         // Guarantee pristine isolated boundary baseline natively for this LRU physics test exclusively smoothly
         GraphService.db.nodes.clear();
         GraphService.db.edges.clear();
