@@ -20,11 +20,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # `unit` deferred until #10903 substrate-audit completes (~30 unit
-        # tests fail in clean CI env due to substrate-data + browser gaps —
-        # pre-existing, not caused by this workflow). Re-add via follow-up
-        # PR once per-bucket fixes land.
-        suite: [integration]
+        # Bucket A-F audit (#10903) closed via #10907/#10921/#10910/#10919/#10920.
+        # Bucket G (#10924) substrate fixes landed via #10940 (TestLifecycleHelper
+        # primitive + daemon-spec migration) + open trackers for residual flakes
+        # (#10941/#10936/#10937/#10946 — all skip-guarded via NEO_TEST_SKIP_CI).
+        # NEO_TEST_SKIP_CI=true (env below) activates the canonical bucket-skip
+        # pattern; specs check process.env.NEO_TEST_SKIP_CI and skip cleanly.
+        suite: [integration, unit]
 
     steps:
       - name: Checkout repository

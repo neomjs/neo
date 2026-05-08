@@ -75,6 +75,7 @@ test.describe('DreamService Golden Path', () => {
     });
 
     test('synthesizeGoldenPath executes without crashing', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: synthesis-write race post-#10940 engine=hybrid fix (#10946)');
         test.setTimeout(60000);
 
         await DreamService.ingestIssueStates();
