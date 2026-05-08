@@ -363,9 +363,31 @@ The system evolves by predicting its own evolution.
 | `ai/provider/OpenAiCompatible.mjs` | LLM provider for extraction |
 | `resources/content/sandman_handoff.md` | The output handoff document |
 
+## Project state is observability-only (NOT a Dream pipeline input)
+
+GitHub ProjectV2 boards (e.g., the v13 release Project [#12](https://github.com/orgs/neomjs/projects/12) per pilot ticket [#10961](https://github.com/neomjs/neo/issues/10961)) are a **visualization layer over the canonical issue substrate** — they are NOT consumed by the Dream pipeline.
+
+`DreamService` / `GoldenPathSynthesizer` read:
+- **Issue parent_child relationships** (native sub-issue graph)
+- **Issue labels + state**
+- **Comment ledgers** (timeline metadata)
+- **Memory Core sessions** (episodic content)
+- **Knowledge Base** (semantic substrate)
+
+They do **NOT** read:
+- Project membership (which issues are in a board)
+- Project status fields (column placement)
+- Project iteration / sprint fields
+- Any Project-only custom fields
+
+Concrete consequence: if an issue's release-criticality is encoded ONLY in Project membership without a corresponding `release:vN` label on the issue itself, Sandman + Golden Path math will not see it and the Tri-Vector synthesis will treat it as background-priority work.
+
+This is by design — Project metadata is a presentation/coordination convenience for human + agent observability; the priority math operates on durable, queryable issue substrate. See `learn/agentos/GitHubWorkflow.md` §"GitHub Projects v2 — Read-Only Derived View Substrate" for the source-of-truth contract.
+
 ## Related Guides
 
 - [Architecture Overview](../benefits/ArchitectureOverview.md) — Platform-level topology
 - [Swarm Intelligence](./SwarmIntelligence.md) — Delegation model and Orchestrator
 - [The Memory Core Server](./MemoryCore.md) — Episodic memory and graph storage
 - [The Knowledge Base Server](./KnowledgeBase.md) — Semantic RAG architecture
+- [The GitHub Workflow Server](./GitHubWorkflow.md) — issue substrate + ProjectV2 derived-view rules
