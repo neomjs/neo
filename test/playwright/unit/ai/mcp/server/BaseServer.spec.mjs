@@ -82,6 +82,7 @@ function makeTestServerClass(overrides = {}) {
         getDependentServices()     { return overrides.getDependentServices?.() ?? []; }
         async wrapDispatch(d)      { return overrides.wrapDispatch?.(d) ?? d(); }
         async beforeToolDispatch(ctx) { return overrides.beforeToolDispatch?.(ctx); }
+        async onHealthGateFailure(ctx) { return overrides.onHealthGateFailure?.(ctx); }
     }
     return Neo.setupClass(TestServer);
 }
@@ -359,6 +360,51 @@ test.describe('Neo.ai.mcp.server.BaseServer — setupRequestHandlers wiring', ()
         expect(result.isError).toBe(true);
         // formatToolError shape: "Error executing X: Y" — NOT "Cannot execute X: Y" (that's formatHealthError)
         expect(result.content[0].text).toBe('Error executing sample: Identity spoof rejected');
+    });
+
+    test('onHealthGateFailure hook fires with context (toolName/args/error/t0) before formatHealthError', async () => {
+        const captured = [];
+        const Cls = makeTestServerClass({
+            getHealthService    : () => ({ensureHealthy: async () => { throw new Error('Service down'); }}),
+            onHealthGateFailure : async (ctx) => { captured.push(ctx); }
+        });
+        const server  = Neo.create(Cls);
+        const mockMcp = makeMockMcpServer();
+        server.setupRequestHandlers(mockMcp);
+
+        const t0Before = Date.now();
+        const result   = await mockMcp.getCallToolHandler()({
+            params: {name: 'sample', arguments: {sessionId: 'sess-1', payload: 42}}
+        });
+
+        expect(captured).toHaveLength(1);
+        expect(captured[0].toolName).toBe('sample');
+        expect(captured[0].args).toEqual({sessionId: 'sess-1', payload: 42});
+        expect(captured[0].error.message).toBe('Service down');
+        expect(captured[0].t0).toBeGreaterThanOrEqual(t0Before);
+        expect(captured[0].t0).toBeLessThanOrEqual(Date.now());
+
+        // Hook does NOT change the error envelope shape
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toBe('Cannot execute sample: Service down');
+    });
+
+    test('onHealthGateFailure default is no-op (does NOT prevent formatHealthError envelope)', async () => {
+        const Cls = makeTestServerClass({
+            getHealthService: () => ({ensureHealthy: async () => { throw new Error('Service down'); }})
+            // No onHealthGateFailure override — default no-op
+        });
+        const server  = Neo.create(Cls);
+        const mockMcp = makeMockMcpServer();
+        server.setupRequestHandlers(mockMcp);
+
+        const result = await mockMcp.getCallToolHandler()({
+            params: {name: 'sample', arguments: {}}
+        });
+
+        // Behavior identical to without the hook — default-no-op confirmed
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toBe('Cannot execute sample: Service down');
     });
 
     test('wrapDispatch override threads context around toolService.callTool', async () => {

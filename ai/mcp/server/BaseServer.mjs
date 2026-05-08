@@ -198,6 +198,22 @@ class BaseServer extends Base {
         // No-op default
     }
 
+    /**
+     * @summary Override (optional): hook called when the healthcheck gate rejects a tool call,
+     * BEFORE the formatHealthError envelope is returned. Lets per-server augment with telemetry
+     * (e.g., knowledge-base's KBRecorderService.log of failed tool dispatch). Default no-op.
+     *
+     * @param {Object} context
+     * @param {String} context.toolName The MCP tool name that was rejected.
+     * @param {Object} context.args     The arguments passed to the tool call.
+     * @param {Error}  context.error    The healthcheck error.
+     * @param {Number} context.t0       The Date.now() timestamp captured at handler entry; lets
+     *     telemetry compute duration_ms = Date.now() - t0.
+     */
+    async onHealthGateFailure(context) {
+        // No-op default
+    }
+
     // ===== Optional lifecycle hooks (composable, no-op by default) =====
 
     /** @summary Hook fired before `createMcpServer()` runs in default `initAsync` sequence. */
@@ -296,6 +312,7 @@ class BaseServer extends Base {
         // CallTool handler
         mcpServer.server.setRequestHandler(CallToolRequestSchema, async (request) => {
             const {name, arguments: args} = request.params;
+            const t0                      = Date.now();
 
             try {
                 this.logger?.debug?.(`[MCP] Calling tool: ${name} with args:`, JSON.stringify(args));
@@ -316,6 +333,7 @@ class BaseServer extends Base {
                         }
                     } catch (healthError) {
                         this.logger?.error?.(`[MCP] Health check failed for tool ${name}:`, healthError.message);
+                        await this.onHealthGateFailure({toolName: name, args, error: healthError, t0});
                         return this.formatHealthError(name, healthError);
                     }
                 }
