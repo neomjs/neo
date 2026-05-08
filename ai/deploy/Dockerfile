@@ -8,8 +8,9 @@ RUN apk add --no-cache python3 make g++
 
 COPY package*.json ./
 # --ignore-scripts skips the root `prepare` lifecycle hook before buildScripts/
-# is copied. Native runtime packages are rebuilt explicitly below.
-RUN npm ci --omit=dev --ignore-scripts
+# is copied. Neo's Agent OS runtime packages currently live in devDependencies;
+# installing them here keeps that cost inside this Right-Hemisphere image.
+RUN npm ci --ignore-scripts
 
 COPY . .
 
