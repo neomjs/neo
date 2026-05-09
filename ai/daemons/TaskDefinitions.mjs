@@ -7,6 +7,7 @@ const __dirname  = path.dirname(__filename);
 export const DEFAULT_POLL_INTERVAL_MS          = 3000;
 export const DEFAULT_SUMMARY_SWEEP_INTERVAL_MS = 600000;
 export const DEFAULT_KB_SYNC_INTERVAL_MS       = 1800000;
+export const DEFAULT_BACKUP_INTERVAL_MS        = 86400000;
 
 export const DEFAULT_DB_PATH    = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
 export const DEFAULT_DATA_DIR   = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
@@ -40,6 +41,13 @@ export function buildTaskDefinitions({scriptDir = DEFAULT_SCRIPT_DIR, nodeBin = 
             args           : [path.resolve(scriptDir, '../../buildScripts/ai/syncKnowledgeBase.mjs')],
             pidFileName    : 'kb-sync.pid',
             expectedCommand: 'syncKnowledgeBase.mjs'
+        },
+        backup: {
+            label          : 'memory core backup',
+            command        : nodeBin,
+            args           : [path.resolve(scriptDir, '../../buildScripts/ai/backup.mjs')],
+            pidFileName    : 'backup.pid',
+            expectedCommand: 'backup.mjs'
         }
     };
 }

@@ -8,6 +8,7 @@ import {
     DEFAULT_POLL_INTERVAL_MS,
     DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
     DEFAULT_KB_SYNC_INTERVAL_MS,
+    DEFAULT_BACKUP_INTERVAL_MS,
     buildTaskDefinitions
 } from '../../../../../ai/daemons/TaskDefinitions.mjs';
 import TaskStateService, { createInitialTaskState } from '../../../../../ai/daemons/services/TaskStateService.mjs';
@@ -33,8 +34,10 @@ function createTestOrchestrator(config = {}) {
         taskStateService_       : TaskStateService,
         summarySweepIntervalMs  : config.summarySweepIntervalMs ?? 600000,
         kbSyncIntervalMs        : config.kbSyncIntervalMs ?? 600000,
+        backupIntervalMs        : config.backupIntervalMs ?? 86400000,
         healthService           : config.healthService || {recordTaskOutcome() {}},
         summarizationCoordinator: config.summarizationCoordinator || {getDueTask: () => null},
+        backupCoordinator       : config.backupCoordinator || {getDueTask: () => null},
         spawnFn                 : config.spawnFn || (() => { throw new Error('spawnFn not expected'); })
     });
 
@@ -51,7 +54,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             nodeBin  : '/node'
         }));
 
-        expect(Object.keys(state)).toEqual(['summary', 'kbSync']);
+        expect(Object.keys(state)).toEqual(['summary', 'kbSync', 'backup']);
         expect(state.summary).toMatchObject({
             running      : false,
             pid          : null,
@@ -102,6 +105,46 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             taskName: 'kbSync',
             reason  : 'periodic-sync:600000'
         }]);
+    });
+
+    test('isolates backup scheduling failure and still schedules other tasks', () => {
+        const outcomes = [];
+        const started  = [];
+
+        const orchestrator = createTestOrchestrator({
+            healthService: {
+                recordTaskOutcome(taskName, status, details) {
+                    outcomes.push({taskName, status, details});
+                }
+            },
+            backupCoordinator: {
+                getDueTask() {
+                    throw new Error('backup logic failed');
+                }
+            }
+        });
+
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
+        };
+
+        orchestrator.poll();
+
+        expect(outcomes).toContainEqual({
+            taskName: 'backup',
+            status  : 'failed',
+            details : {
+                phase: 'schedule',
+                error: 'backup logic failed'
+            }
+        });
+        expect(started).toContainEqual({
+            taskName: 'kbSync',
+            reason  : 'periodic-sync:600000'
+        });
     });
 
 });
