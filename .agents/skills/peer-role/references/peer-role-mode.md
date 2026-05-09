@@ -53,3 +53,5 @@ The skill releases when:
 a) Operator explicitly exits
 b) Shape has converged through peer dialogue and lead has declared graduation
 c) Peer has produced evidence-backed convergence pressure on the artifact and no further depth is warranted
+
+Post-exit: Hand control to `/ticket-create`, `/pull-request`, `/pr-review`, `/session-sunset`, or other phase-specific skills. Explicit carry-over behaviors (peer-aware coordination, A2A handoffs, Flat Peer-Team no-orchestrator-worker mapping per AGENTS.md §15.6) remain fully active globally. Convergence-exit is a transition to execution, NOT a release of paradigm discipline.
