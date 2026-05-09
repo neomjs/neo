@@ -544,13 +544,19 @@ class GraphService extends Base {
         if (!node) {
             return null;
         }
+
+        const
+            nodeId     = node.isRecord ? node.get('id') : node.id,
+            label      = node.isRecord ? node.get('label') : node.label,
+            properties = node.isRecord ? node.get('properties') : node.properties;
+
         return {
-            id              : node.id,
-            type            : node.label,
-            name            : node.properties?.name,
-            description     : node.properties?.description,
-            semanticVectorId: node.properties?.semanticVectorId,
-            state           : node.properties?.state
+            id              : nodeId,
+            type            : label,
+            name            : properties?.name,
+            description     : properties?.description,
+            semanticVectorId: properties?.semanticVectorId,
+            state           : properties?.state
         };
     }
 
