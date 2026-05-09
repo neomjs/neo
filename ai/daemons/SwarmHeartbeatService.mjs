@@ -343,8 +343,9 @@ class SwarmHeartbeatService extends Base {
     }
 
     /**
-     * SQLite query: count of unread MESSAGE-label nodes addressed to the polled identity
-     * or AGENT:* broadcast. Mirrors `swarm-heartbeat.sh#get_unread_count` 1:1.
+     * SQLite query: count of unread MESSAGE-label nodes addressed to the polled identity.
+     * Direct DMs use MESSAGE.properties.readAt; #11029 broadcasts use per-recipient
+     * DELIVERED_TO.readAt edges, with a legacy fallback for old broadcasts lacking receipts.
      * @returns {Promise<Number>}
      * @protected
      */
@@ -352,14 +353,43 @@ class SwarmHeartbeatService extends Base {
         try {
             const db = GraphService.db.storage.db;
             const stmt = db.prepare(`
-                SELECT count(DISTINCT n.id) as count
-                FROM Nodes n
-                JOIN Edges e ON n.id = e.source AND e.type = 'SENT_TO'
-                WHERE json_extract(n.data, '$.label') = 'MESSAGE'
-                  AND json_extract(n.data, '$.properties.readAt') IS NULL
-                  AND e.target IN (?, 'AGENT:*')
+                WITH unread_messages AS (
+                    SELECT n.id AS messageId
+                    FROM Edges e
+                    JOIN Nodes n ON n.id = e.source
+                    WHERE e.type = 'SENT_TO'
+                      AND e.target = ?
+                      AND json_extract(n.data, '$.label') = 'MESSAGE'
+                      AND json_extract(n.data, '$.properties.readAt') IS NULL
+
+                    UNION
+
+                    SELECT n.id AS messageId
+                    FROM Edges e
+                    JOIN Nodes n ON n.id = e.source
+                    WHERE e.type = 'DELIVERED_TO'
+                      AND e.target = ?
+                      AND json_extract(n.data, '$.label') = 'MESSAGE'
+                      AND json_extract(e.data, '$.properties.readAt') IS NULL
+
+                    UNION
+
+                    SELECT n.id AS messageId
+                    FROM Edges e
+                    JOIN Nodes n ON n.id = e.source
+                    WHERE e.type = 'SENT_TO'
+                      AND e.target = 'AGENT:*'
+                      AND json_extract(n.data, '$.label') = 'MESSAGE'
+                      AND json_extract(n.data, '$.properties.readAt') IS NULL
+                      AND NOT EXISTS (
+                          SELECT 1 FROM Edges de
+                          WHERE de.source = n.id AND de.type = 'DELIVERED_TO'
+                      )
+                )
+                SELECT count(DISTINCT messageId) as count
+                FROM unread_messages
             `);
-            const row = stmt.get(this.identity);
+            const row = stmt.get(this.identity, this.identity);
             return row?.count || 0
         } catch (err) {
             logger.error('[SwarmHeartbeatService] getUnreadCount failed:', err);
