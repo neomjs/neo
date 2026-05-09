@@ -262,8 +262,8 @@ export async function verifyBundleIntegrity(layout, subsystems) {
 
 /**
  * Builds the topology descriptor block for `bundle-meta.json`. Captures the KB/MC coordinates
- * at backup time so a restore consumer can detect legacy federated bundles 
- * (`bundle-meta.topology.chromaUnified === false`) and refuse to clobber a target whose 
+ * at backup time so a restore consumer can detect legacy federated bundles
+ * (`bundle-meta.topology.chromaUnified === false`) and refuse to clobber a target whose
  * deployment shape diverged from the bundle source.
  *
  * Forward-compat extension point for #10871 AC-B (`buildScripts/ai/restore.mjs`).

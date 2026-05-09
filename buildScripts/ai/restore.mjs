@@ -307,7 +307,7 @@ export async function checkTopology({meta, forceTopologyMismatch, logger}) {
     // If the bundle was taken under federated mode (chromaUnified=false), we should warn.
     const bundleChromaUnified  = meta?.topology?.chromaUnified;
     const bundleSharedTopology = meta?.topology?.shared_topology;
-    
+
     // A bundle is legacy federated ONLY if it explicitly has chromaUnified: false
     const isLegacyFederated = bundleChromaUnified === false && bundleSharedTopology !== true;
 

@@ -43,8 +43,8 @@ We are permanently retiring the federated topology. The system will strictly enf
 The `engines.kb.chroma` namespace in the Memory Core configuration has been collapsed into a single, global `engines.chroma` namespace.
 
 ### 3.2 Backup and Restore Semantics
-The backup orchestrator (`buildScripts/ai/backup.mjs`) now hardcodes `chromaUnified: true` into the `bundle-meta.json` topology descriptor.
-The restore orchestrator (`buildScripts/ai/restore.mjs`) explicitly checks for legacy federated backups. Restoring a federated backup (where `bundle.chromaUnified=false`) is rejected by default to prevent vector ID collisions, requiring an explicit `--force-topology-mismatch` flag to proceed.
+The backup orchestrator (`buildScripts/ai/backup.mjs`) now hardcodes `shared_topology: true` into the `bundle-meta.json` topology descriptor.
+The restore orchestrator (`buildScripts/ai/restore.mjs`) explicitly checks for legacy federated backups. Restoring a federated backup (where `bundle.topology.chromaUnified === false`) is rejected by default to prevent vector ID collisions, requiring an explicit `--force-topology-mismatch` flag to proceed.
 
 ## 4. Consequences
 

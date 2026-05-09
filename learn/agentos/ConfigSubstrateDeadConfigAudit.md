@@ -37,13 +37,14 @@ Verdict shorthand:
 | MC `architecture` storage selector | No config template definition | Only unbacked reads existed in `HealthService`, `ChromaLifecycleService`, and an old `StorageRouter` comment; the shipped config defines `engine`, not `architecture`. | `dead-remove` | Replaced the unbacked reads/comments with `engine`. |
 | KB `backupPath` default | No KB config template definition | `knowledge-base/services/DatabaseService.mjs` accepts `backupPath` for backup orchestration, but the canonical backup runner passes it explicitly. | `needs-design` | Left unchanged; this is a shared-backup default-shape question, not a safe AC4 deletion. |
 | MC `backupPath` default | `ai/mcp/server/memory-core/config.template.mjs` | `Memory_DatabaseService.exportDatabase()` uses it as the default backup output path. | `live` | Kept. |
-| `chromaUnified` topology flag | KB and MC config templates | Removed in #11014. The system is now permanently unified. | `dead-remove` | Removed from templates and runtime. |
+| `chromaUnified` topology flag | KB and MC config templates | Removed in #11014. The system is now permanently unified. | `removed-in-v13` | Removed from templates and runtime. |
 
 ## Count Summary
 
 | Bucket | Count | Notes |
 |---|---:|---|
-| `dead-remove` | 4 | `ai:migrate-memory`, KB `embeddingModel`, unbacked MC `architecture` reads, and `chromaUnified`. |
+| `dead-remove` | 3 | `ai:migrate-memory`, KB `embeddingModel`, unbacked MC `architecture` reads. |
+| `removed-in-v13` | 1 | `chromaUnified` retired per #11011. |
 | `live` | 4 | MC embedding keys, provider-specific embedding model keys, MC `engine`, MC `backupPath`. |
 | `defer-to-Phase-1.5` | 0 | None. |
 | `needs-design` | 2 | Direct migration script retirement and KB backup default shape need separate contract decisions. |
