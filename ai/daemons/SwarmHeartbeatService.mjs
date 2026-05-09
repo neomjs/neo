@@ -487,8 +487,7 @@ class SwarmHeartbeatService extends Base {
     }
 }
 
-const SwarmHeartbeatServiceSingleton = Neo.setupClass(SwarmHeartbeatService);
-export default SwarmHeartbeatServiceSingleton;
+export default Neo.setupClass(SwarmHeartbeatService);
 
 // Self-invoke entrypoint (#10789 AC4): `node ai/daemons/SwarmHeartbeatService.mjs` under
 // launchd / systemd directly drives the daemon. SIGTERM / SIGINT trigger a clean stop so
@@ -498,13 +497,13 @@ const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolv
 if (isMain) {
     const cleanShutdown = signal => {
         logger.info(`[SwarmHeartbeatService] Received ${signal}; stopping.`);
-        SwarmHeartbeatServiceSingleton.stop();
+        Neo.ai.daemons.SwarmHeartbeatService.stop();
         process.exit(0)
     };
     process.on('SIGTERM', () => cleanShutdown('SIGTERM'));
     process.on('SIGINT',  () => cleanShutdown('SIGINT'));
 
-    SwarmHeartbeatServiceSingleton.start().catch(err => {
+    Neo.ai.daemons.SwarmHeartbeatService.start().catch(err => {
         logger.error('[SwarmHeartbeatService] Daemon start failed:', err);
         process.exit(1)
     })
