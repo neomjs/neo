@@ -1,6 +1,6 @@
 # Persistent-Process Management for SwarmHeartbeatService
 
-This document covers operator-side installation, verification, and uninstallation of `ai/daemons/SwarmHeartbeatService.mjs` as a persistent daemon process. Required for autonomous **night-shift mode** operation — without persistent-process management, the heartbeat singleton only runs when an operator manually invokes the bash wrapper (`ai/scripts/swarm-heartbeat.sh`) interactively and keeps the terminal open.
+This document covers operator-side installation, verification, and uninstallation of the swarm heartbeat daemon as a persistent daemon process. The entry-point wrapper at `ai/scripts/swarm-heartbeat-daemon.mjs` (#11058 split) is the launchd / systemd target; the class definition lives at `ai/daemons/SwarmHeartbeatService.mjs`. Required for autonomous **night-shift mode** operation — without persistent-process management, the heartbeat singleton only runs when an operator manually invokes the bash wrapper (`ai/scripts/swarm-heartbeat.sh`) interactively and keeps the terminal open.
 
 > **Verify-before-assert notice:** the plist template in this directory (`com.neomjs.swarm-heartbeat.plist.template`) is **author-side draft**. Correctness on a given operator's macOS install is operator-territory L3 verification. Do NOT install the template as-is without running the verification commands in §3 below.
 
@@ -31,8 +31,9 @@ The wake substrate (Epic [#10671](https://github.com/neomjs/neo/issues/10671)) s
 Before installing, verify on your local environment:
 
 ```bash
-# 1. The daemon entrypoint exists
-test -f ai/daemons/SwarmHeartbeatService.mjs && echo "OK" || echo "FAIL: did you check out the #10789 branch?"
+# 1. The daemon entry-point wrapper + class definition both exist
+test -f ai/scripts/swarm-heartbeat-daemon.mjs && echo "OK (wrapper)" || echo "FAIL: did you check out the #11058 branch?"
+test -f ai/daemons/SwarmHeartbeatService.mjs && echo "OK (class)"   || echo "FAIL: class file missing"
 
 # 2. Required tools are reachable
 which node sqlite3 gh tmux
@@ -41,9 +42,9 @@ which node sqlite3 gh tmux
 ls -la .neo-ai-data/wake-daemon/ .neo-ai-data/sqlite/
 
 # 4. Manual one-shot execution works — exercises the SIGTERM clean-shutdown path the
-#    daemon's signal handlers (SwarmHeartbeatService.mjs) implement.
+#    wrapper's signal handlers (swarm-heartbeat-daemon.mjs) implement.
 NEO_AGENT_IDENTITY="@your-identity" POLL_INTERVAL=10 \
-   node ai/daemons/SwarmHeartbeatService.mjs &
+   node ai/scripts/swarm-heartbeat-daemon.mjs &
 DAEMON_PID=$!
 sleep 30
 kill -TERM "$DAEMON_PID"
@@ -185,7 +186,7 @@ After=network.target
 [Service]
 Type=simple
 WorkingDirectory=/path/to/repo
-ExecStart=/usr/bin/env node /path/to/repo/ai/daemons/SwarmHeartbeatService.mjs
+ExecStart=/usr/bin/env node /path/to/repo/ai/scripts/swarm-heartbeat-daemon.mjs
 Restart=always
 RestartSec=10
 Environment="NEO_AGENT_IDENTITY=@your-identity"
@@ -207,7 +208,7 @@ Loaded via `systemctl --user daemon-reload && systemctl --user enable --now swar
 | `node: command not found` in stderr log | `PATH` env var doesn't include node's location | Add node's actual install dir to the plist `EnvironmentVariables.PATH` (check via `which node` in your interactive shell) |
 | `gh: command not found` in stderr log | Same — Homebrew's `gh` not in default launchd PATH | Add `/opt/homebrew/bin` (Apple Silicon) or `/usr/local/bin` (Intel) to plist PATH |
 | `tmux: command not found` | Same PATH issue; tmux-injection is best-effort and silently no-ops if absent | Add tmux's install dir to plist PATH OR accept the no-op (heartbeat still runs) |
-| `ReferenceError: Neo is not defined` | Module-load ordering broke the Neo prelude | File a bug — `SwarmHeartbeatService.mjs` should always import `Neo` + `core/_export` first; regressions here have a documented anchor |
+| `ReferenceError: Neo is not defined` | Module-load ordering broke the Neo prelude | File a bug — `ai/scripts/swarm-heartbeat-daemon.mjs` (entry-point wrapper) MUST import `Neo` + `core/_export` + `InstanceManager` before importing the class file; regressions here have a documented anchor |
 | `KeepAlive` causing rapid relaunch loop | Script crashes on startup (config error, missing dependency) | Check `heartbeat.stderr.log` for the actual crash; FIX the crash before lengthening `ThrottleInterval` (do not paper over real bugs) |
 | Daemon runs but doesn't trigger recovery wakes | `wakeSafetyGate.json` is `tripped` (deny-by-default) | Operator-territory: `node ai/scripts/wakeSafetyGate.mjs enable --reason "validated post-#10671"` AFTER end-to-end validation per [Epic #10671](https://github.com/neomjs/neo/issues/10671) |
 | Two heartbeat pulse producers firing | Both `swarm-heartbeat.sh` AND launchd-loaded `SwarmHeartbeatService` running | Pick one. The shell wrapper is for developer-interactive use; launchd is for night-shift / persistent-process. Don't run both. |
@@ -216,7 +217,7 @@ Loaded via `systemctl --user daemon-reload && systemctl --user enable --now swar
 
 Persistent-process management (THIS doc) is one of three integration steps for night-shift readiness:
 
-1. **Persistent-process management** (this doc) — install + verify launchd plist for `SwarmHeartbeatService.mjs`
+1. **Persistent-process management** (this doc) — install + verify launchd plist for `ai/scripts/swarm-heartbeat-daemon.mjs` (entry-point wrapper)
 2. **`wakeSafetyGate` untrip** — `node ai/scripts/wakeSafetyGate.mjs enable --reason "..."` after empirical validation that the cross-harness prompt-landing matrix (#10649) holds
 3. **End-to-end validation** — simulate mutual-idle scenario; verify recovery wake fires correctly to a healthy peer; confirm fresh-session-spawn lands cleanly without runaway-spawn pattern from 2026-05-03
 
@@ -228,7 +229,8 @@ Per [#10780](https://github.com/neomjs/neo/issues/10780): before re-enabling Dre
 
 ## 9. Related substrate
 
-- **Daemon source:** `ai/daemons/SwarmHeartbeatService.mjs` (Neo-singleton; #10789)
+- **Daemon entry-point wrapper:** `ai/scripts/swarm-heartbeat-daemon.mjs` (#11058 split — Neo bootstrap + signal handlers + start invocation; the launchd / systemd target)
+- **Daemon class source:** `ai/daemons/SwarmHeartbeatService.mjs` (Neo-singleton; #10789; class-only since #11058)
 - **Sibling bash wrapper:** `ai/scripts/swarm-heartbeat.sh` (developer-interactive, NOT the persistent-process target; preserved per #10789 AC10)
 - **Daemon dependencies:** `checkSunsetted.mjs`, `resumeHarness.mjs`, `wakeSafetyGate.mjs`, `sweepExpiredTasks.mjs`, `heartbeatLock.mjs`, `idleOutNudge.mjs`, `checkAllAgentIdle.mjs`, `trioWakeCooldown.mjs`
 - **Parent epic:** [#10671](https://github.com/neomjs/neo/issues/10671) — Substrate-restart recovery (two-mode: idle-out + sunset)
