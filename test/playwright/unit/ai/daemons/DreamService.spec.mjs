@@ -799,7 +799,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         GraphService.db.storage.db.prepare = function(sql) {
             // console.log("SQL PREPARE CALLED:", sql.substring(0, 50));
             if (sql.includes('SELECT') && sql.includes('Nodes')) {
-                console.log('MOCK TRIGGERED Nodes SELECT!');
+                // console.log('MOCK TRIGGERED Nodes SELECT!');
                 return {
                     all: () => [
                         { id: 'epic-1', data: JSON.stringify({ id: 'epic-1', name: 'Epic Hero', properties: { state: 'OPEN'} }), struct_score: 5.0 },
