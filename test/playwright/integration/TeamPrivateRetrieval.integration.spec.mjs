@@ -332,9 +332,9 @@ test.describe('Dockerized MC team/private retrieval integration (#10951)', () =>
 
         const runId                 = `${Date.now()}-${randomUUID()}`;
         const sessionId             = `integration-team-private-${runId}`;
-        const ownerIdentity         = 'neo-gpt';
-        const peerIdentity          = 'neo-opus-4-7';
-        const unrelatedIdentity     = 'neo-gemini-3-1-pro';
+        const ownerIdentity         = 'alice';
+        const peerIdentity          = 'bob';
+        const unrelatedIdentity     = 'charlie';
         const ownerMemorySentinel   = `owner-private-memory-${runId}`;
         const peerMemorySentinel    = `peer-private-memory-${runId}`;
         const sharedMemorySentinel  = `shared-memory-${runId}`;
@@ -484,9 +484,9 @@ test.describe('Dockerized MC team/private retrieval integration (#10951)', () =>
         expect(readiness.servicesReady, readiness.reason).toBe(true);
 
         const runId                 = `${Date.now()}-${randomUUID()}`;
-        const ownerIdentity         = 'neo-gpt';
-        const peerIdentity          = 'neo-opus-4-7';
-        const unrelatedIdentity     = 'neo-gemini-3-1-pro';
+        const ownerIdentity         = 'alice';
+        const peerIdentity          = 'bob';
+        const unrelatedIdentity     = 'charlie';
         const privateGraphSentinel  = `private-graph-${runId}`;
         const teamGraphSentinel     = `team-graph-${runId}`;
         const graphPayload          = {
