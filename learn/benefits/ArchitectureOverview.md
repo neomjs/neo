@@ -380,7 +380,7 @@ Post-M6 ([#10986](https://github.com/neomjs/neo/issues/10986)) the per-MCP-serve
 | `ai/services/github-workflow/` | Issue/PR management services (post-M6 SDK location) | `IssueService`, `SyncService`, `LabelService` | — |
 | `ai/services/neural-link/` | Live app bridge services (post-M6 SDK location) | `ConnectionService`, `RecorderService` | — |
 | `ai/scripts/` | One-shot operator scripts + thin daemon boot wrappers | `bridge-daemon.mjs`, `orchestrator-daemon.mjs` | [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) |
-| `ai/daemons/` | Long-running daemon classes | `DreamService` | [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) |
+| `ai/daemons/` | Long-running daemon classes | `DreamService`, `SwarmHeartbeatService` | [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) |
 | `ai/graph/` | Native Edge Graph (SQLite-backed knowledge graph) | `Database`, `Store`, `NodeModel` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md) |
 | `ai/mcp/server/knowledge-base/` | KB MCP-server entry point + config | `Server`, `config` | — |
 | `ai/mcp/server/memory-core/` | MC MCP-server entry point + config | `Server`, `config` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md) |
