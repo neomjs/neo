@@ -53,3 +53,5 @@ The skill releases when:
 a) Operator explicitly exits
 b) Shape has converged through peer dialogue and lead has declared graduation
 c) Peer has produced evidence-backed convergence pressure on the artifact and no further depth is warranted
+
+Post-exit: Flat Peer-Team paradigm is upheld by AGENTS.md §15.6 (session-permanent) + phase-specific skill protocols. Convergence-exit is a hand-off to those layers, NOT a release of paradigm discipline.
