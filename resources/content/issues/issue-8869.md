@@ -1,7 +1,7 @@
 ---
 id: 8869
 title: 'Fix: VDomUpdate merged updates do not support recursion'
-state: OPEN
+state: CLOSED
 labels:
   - bug
   - stale
@@ -9,16 +9,17 @@ labels:
   - core
 assignees: []
 createdAt: '2026-01-23T19:58:59Z'
-updatedAt: '2026-04-24T04:31:34Z'
+updatedAt: '2026-05-09T11:01:05Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8869'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-05-09T04:41:13Z'
 ---
 # Fix: VDomUpdate merged updates do not support recursion
 
@@ -47,7 +48,6 @@ If a merged child (`Child`) is itself an owner of updates (`Grandchild`), those 
 **Related Files:**
 -   `src/manager/VDomUpdate.mjs`
 
-
 ## Timeline
 
 - 2026-01-23T19:59:00Z @tobiu added the `bug` label
@@ -58,4 +58,9 @@ If a merged child (`Child`) is itself an owner of updates (`Grandchild`), those 
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-04-24T04:31:34Z @github-actions added the `stale` label
+### @github-actions - 2026-05-09T04:41:12Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-05-09T04:41:13Z @github-actions closed this issue
 

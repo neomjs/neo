@@ -1,7 +1,7 @@
 ---
 id: 8867
 title: 'feat: Implement incremental updates for Card Layouts'
-state: OPEN
+state: CLOSED
 labels:
   - enhancement
   - stale
@@ -9,16 +9,17 @@ labels:
   - performance
 assignees: []
 createdAt: '2026-01-23T18:13:14Z'
-updatedAt: '2026-04-24T04:31:35Z'
+updatedAt: '2026-05-09T11:01:04Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8867'
 author: tobiu
-commentsCount: 2
+commentsCount: 3
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-05-09T04:41:14Z'
 ---
 # feat: Implement incremental updates for Card Layouts
 
@@ -48,7 +49,6 @@ When `true`:
 -   [ ] Verify payload reduction (App -> VDom IPC).
 -   [ ] Verify correct rendering of the new active card (full subtree appears).
 -   [ ] Verify correct unmounting/hiding of the old active card.
-
 
 ## Timeline
 
@@ -115,4 +115,9 @@ When `true`:
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-04-24T04:31:35Z @github-actions added the `stale` label
+### @github-actions - 2026-05-09T04:41:14Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-05-09T04:41:14Z @github-actions closed this issue
 
