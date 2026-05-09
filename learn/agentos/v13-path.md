@@ -108,6 +108,8 @@ ai/daemons/services/
 
 #### D3.1: Cadence Design
 
+**Substrate evolution note:** This subsection's framing originally targeted a tradeoff-matrix design (time-windowed-scheduling vs. cooperative-coordination-flag vs. adaptive-frequency-throttling) per [#11019](https://github.com/neomjs/neo/issues/11019) AC2. [Discussion #11025](https://github.com/orgs/neomjs/discussions/11025) OQ8 superseded that framing by converging on a cleaner architectural primitive — pure-trigger-builder CadenceEngine with per-task fairness — making the original tradeoff matrix obsolete. Design-ticket reference is therefore Discussion #11025 OQ8 itself, not a separate design ticket.
+
 Per [Discussion #11025](https://github.com/orgs/neomjs/discussions/11025) graduation OQ8 + operator's wake-up call 2026-05-09: the orchestrator's cadence model must be **block-aware**. Graph-processing tasks (Gemma4-31b dream cycle) take ~10 minutes and block `add_memory` while running. The orchestrator cannot run graph-heavy tasks "round the clock" — it must schedule with awareness of agent-active windows.
 
 **CadenceEngine boundary** (M3.5 Sub-3 extraction per §4 M3.5 below): pure trigger-builder via `getIntervalTrigger({taskName, now, lastRunAt, intervalMs, reasonPrefix})`; per-task coordinators decide "what work is due"; Orchestrator wires; ProcessSupervisor executes. NOT execute-runner. Mirrors `SummarizationCoordinatorService.getDueTask({...})` precedent at `ai/daemons/services/SummarizationCoordinatorService.mjs`.
@@ -221,6 +223,16 @@ All M1-M6 milestones closed. Final regression sweep, integration matrix green ac
 - [#10956](https://github.com/neomjs/neo/issues/10956) — re-scope from "remove now" to "strip after Orchestrator migration"
 - [#10945](https://github.com/neomjs/neo/issues/10945) — confirm 5 valid sub-tickets (#10947, #10949, #10950, #10951, #10952); #10948 stays closed invalid
 - [#10013](https://github.com/neomjs/neo/issues/10013) / [#10028](https://github.com/neomjs/neo/issues/10028) — note Orchestrator becomes the host for decomposed services
+
+**Phase 0 + Phase A substrate (Round 1+2 shipped 2026-05-09):**
+- ✓ [#11027](https://github.com/neomjs/neo/issues/11027) → [PR #11036](https://github.com/neomjs/neo/pull/11036) MERGED: AGENTS.md §13.1 contributions-over-commits (graduation of [Discussion #11023](https://github.com/orgs/neomjs/discussions/11023))
+- ✓ [#11028](https://github.com/neomjs/neo/issues/11028) → [PR #11035](https://github.com/neomjs/neo/pull/11035) MERGED: `/lead-role` skill (graduation of [Discussion #11024](https://github.com/orgs/neomjs/discussions/11024))
+- ✓ [#11030](https://github.com/neomjs/neo/issues/11030) → [PR #11040](https://github.com/neomjs/neo/pull/11040) MERGED: AGENTS.md §15.6 Swarm Topology Anchor (graduation of [Discussion #11026](https://github.com/orgs/neomjs/discussions/11026) OQ4)
+- ✓ [#11032](https://github.com/neomjs/neo/issues/11032) → [PR #11034](https://github.com/neomjs/neo/pull/11034) MERGED: `pull-request` Pre-Flight assignee gate
+- ✓ [#11029](https://github.com/neomjs/neo/issues/11029) → [PR #11042](https://github.com/neomjs/neo/pull/11042) MERGED: DELIVERED_TO per-recipient broadcast receipts
+- ⏳ [#11022](https://github.com/neomjs/neo/issues/11022) M3.5 Orchestrator decomposition epic: Sub-1 ✓ [PR #11041](https://github.com/neomjs/neo/pull/11041) MERGED (TaskStateService); Sub-2 → [PR #11044](https://github.com/neomjs/neo/pull/11044) (ProcessSupervisorService, in review); Sub-3 (CadenceEngine) + Sub-4 (slim-down) pending
+- ⏳ [#11031](https://github.com/neomjs/neo/issues/11031) `/peer-role` skill (sister to /lead-role; cites §15.6 — unblocked since #11040 merged)
+- ⏳ [#11038](https://github.com/neomjs/neo/issues/11038) → [PR #11045](https://github.com/neomjs/neo/pull/11045) (autonomous lead rotation V1 docs, in review; graduation of [Discussion #11037](https://github.com/orgs/neomjs/discussions/11037))
 
 ---
 
