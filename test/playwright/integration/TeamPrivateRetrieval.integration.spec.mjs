@@ -189,6 +189,29 @@ function seedGraphRecords(payload) {
 
         await Memory_LifecycleService.ready();
 
+        // Seed AgentIdentity nodes for fixture identities (alice/bob/charlie) so
+        // Server.bindAgentIdentity('alice') can resolve to '@alice' during MCP request
+        // binding. Without this, abstract identities are unbound and GraphService.searchNodes()
+        // filtering by getAgentIdentityNodeId() returns empty for owner-private graph queries.
+        // Mirrors the canonical seedAgentIdentities.mjs upsert pattern; cleanup is symmetric
+        // in cleanupGraphRecords. Avoided trap (#11057): IDs use the canonical '@<username>'
+        // shape, NOT the legacy 'AGENT:<username>' form (#10330 pollution).
+        const fixtureIdentityIds = [
+            '@' + payload.ownerIdentity,
+            '@' + payload.peerIdentity,
+            '@' + payload.unrelatedIdentity
+        ];
+        for (const identityId of fixtureIdentityIds) {
+            GraphService.upsertNode({
+                id        : identityId,
+                type      : 'AgentIdentity',
+                name      : identityId,
+                properties: {
+                    role: 'integration-test-fixture'
+                }
+            });
+        }
+
         await RequestContextService.run({
             agentIdentityNodeId: '@' + payload.ownerIdentity,
             source             : 'integration',
@@ -214,7 +237,8 @@ function seedGraphRecords(payload) {
         });
 
         console.log(JSON.stringify({
-            nodeIds: [payload.privateNodeId, payload.teamNodeId]
+            nodeIds        : [payload.privateNodeId, payload.teamNodeId],
+            identityNodeIds: fixtureIdentityIds
         }));
     `, payload);
 }
@@ -271,7 +295,12 @@ function cleanupGraphRecords(payload) {
         const deleteEdges = db.prepare('DELETE FROM Edges WHERE source = ? OR target = ?');
         const deleteNode = db.prepare('DELETE FROM Nodes WHERE id = ?');
 
-        for (const id of payload.nodeIds) {
+        // Clean up both the test-data nodes AND the fixture AgentIdentity nodes seeded
+        // by seedGraphRecords. AgentIdentity nodes are apoptosis-exempt (per #10789), so
+        // explicit cleanup is required to prevent fixture-identity accumulation across runs.
+        const allNodeIds = [...payload.nodeIds, ...(payload.identityNodeIds || [])];
+
+        for (const id of allNodeIds) {
             deleteEdges.run(id, id);
             deleteNode.run(id);
         }
@@ -280,7 +309,7 @@ function cleanupGraphRecords(payload) {
         GraphService.db.edges.clearSilent();
         GraphService.db.vicinityLoadedNodes.clear();
 
-        console.log(JSON.stringify({deletedNodeIds: payload.nodeIds}));
+        console.log(JSON.stringify({deletedNodeIds: allNodeIds}));
     `, payload);
 }
 
@@ -332,9 +361,9 @@ test.describe('Dockerized MC team/private retrieval integration (#10951)', () =>
 
         const runId                 = `${Date.now()}-${randomUUID()}`;
         const sessionId             = `integration-team-private-${runId}`;
-        const ownerIdentity         = 'neo-gpt';
-        const peerIdentity          = 'neo-opus-4-7';
-        const unrelatedIdentity     = 'neo-gemini-3-1-pro';
+        const ownerIdentity         = 'alice';
+        const peerIdentity          = 'bob';
+        const unrelatedIdentity     = 'charlie';
         const ownerMemorySentinel   = `owner-private-memory-${runId}`;
         const peerMemorySentinel    = `peer-private-memory-${runId}`;
         const sharedMemorySentinel  = `shared-memory-${runId}`;
@@ -484,9 +513,9 @@ test.describe('Dockerized MC team/private retrieval integration (#10951)', () =>
         expect(readiness.servicesReady, readiness.reason).toBe(true);
 
         const runId                 = `${Date.now()}-${randomUUID()}`;
-        const ownerIdentity         = 'neo-gpt';
-        const peerIdentity          = 'neo-opus-4-7';
-        const unrelatedIdentity     = 'neo-gemini-3-1-pro';
+        const ownerIdentity         = 'alice';
+        const peerIdentity          = 'bob';
+        const unrelatedIdentity     = 'charlie';
         const privateGraphSentinel  = `private-graph-${runId}`;
         const teamGraphSentinel     = `team-graph-${runId}`;
         const graphPayload          = {
@@ -514,8 +543,10 @@ test.describe('Dockerized MC team/private retrieval integration (#10951)', () =>
             identity  : unrelatedIdentity
         });
 
+        let seedResult;
+
         try {
-            seedGraphRecords(graphPayload);
+            seedResult = seedGraphRecords(graphPayload);
 
             const ownerPrivate = await callJsonTool(owner, 'search_nodes', {
                 query: privateGraphSentinel
@@ -543,7 +574,8 @@ test.describe('Dockerized MC team/private retrieval integration (#10951)', () =>
             expect(nodeTexts(unrelatedTeam)).toContain(teamGraphSentinel);
         } finally {
             cleanupGraphRecords({
-                nodeIds: [graphPayload.privateNodeId, graphPayload.teamNodeId]
+                nodeIds        : [graphPayload.privateNodeId, graphPayload.teamNodeId],
+                identityNodeIds: seedResult?.identityNodeIds || []
             });
             await Promise.allSettled([
                 owner.close(),
