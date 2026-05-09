@@ -35,7 +35,7 @@ a) Operator explicitly exits via "ship it" / "execute" / similar, OR
 b) Shape has converged through dialogue and tickets/PRs are now appropriate, OR
 c) The architectural decision space has bounded down.
 
-Post-exit: Flat Peer-Team paradigm is upheld by AGENTS.md §15.6 (session-permanent) + phase-specific skill protocols. Convergence-exit is a hand-off to those layers, NOT a release of paradigm discipline.
+Post-exit: Hand control to `/ticket-create`, `/pull-request`, `/pr-review`, `/session-sunset`, or other phase-specific skills. Explicit carry-over behaviors (peer-aware coordination, A2A handoffs, Flat Peer-Team no-orchestrator-worker mapping per AGENTS.md §15.6) remain fully active globally. Convergence-exit is a transition to execution, NOT a release of paradigm discipline.
 
 ## 7. Autonomous Lead Rotation
 
