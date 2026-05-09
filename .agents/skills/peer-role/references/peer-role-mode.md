@@ -20,9 +20,9 @@ Tactical subagents/tools inside a single harness (browser/script-runner/code-exe
 Do NOT auto-load pinned memories or bulk-load context. Use 2-4 targeted `query_summaries` / `query_raw_memories` searches for the active decision space.
 
 ## 4. Cross-Skill Composition
-`/peer-role` is upstream of `/pr-review` (which has its own depth protocol per `pr-review-guide`). 
+`/peer-role` is upstream of `/pr-review` (which has its own depth protocol per `pr-review-guide`).
 - Use `/peer-role` for ideation/A2A/ticket-shape/architectural-proposals *before* code hardens.
-- Use `/pr-review` for concrete code/PR. 
+- Use `/pr-review` for concrete code/PR.
 If a PR review exposes a wrong architectural shape, finish the formal PR review then use `/peer-role` or `/ideation-sandbox` for the design correction thread.
 
 ## 5. Convergence-Artifact Vocabulary
