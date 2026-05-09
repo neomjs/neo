@@ -3,9 +3,9 @@ import Neo from '../../../../../src/Neo.mjs';
 import * as core from '../../../../../src/core/_export.mjs';
 import {
     Orchestrator,
-    buildTaskDefinitions,
-    createInitialTaskState
+    buildTaskDefinitions
 } from '../../../../../ai/daemons/Orchestrator.mjs';
+import TaskStateService, { createInitialTaskState } from '../../../../../ai/daemons/services/TaskStateService.mjs';
 
 function createTestOrchestrator(config = {}) {
     const taskDefinitions = config.taskDefinitions || buildTaskDefinitions({
@@ -13,12 +13,19 @@ function createTestOrchestrator(config = {}) {
         nodeBin  : '/node'
     });
 
+    TaskStateService.configure({
+        stateFile      : '/tmp/orchestrator-test/state.json',
+        taskDefinitions: taskDefinitions,
+        writeLogFn     : () => {}
+    });
+    TaskStateService.taskState = createInitialTaskState(taskDefinitions);
+
     const orchestrator = Neo.create(Orchestrator, {
         dataDir                 : '/tmp/orchestrator-test',
         stateFile               : '/tmp/orchestrator-test/state.json',
         logFile                 : null,
         taskDefinitions,
-        taskState               : createInitialTaskState(taskDefinitions),
+        taskStateService_       : TaskStateService,
         summarySweepIntervalMs  : config.summarySweepIntervalMs ?? 600000,
         kbSyncIntervalMs        : config.kbSyncIntervalMs ?? 600000,
         healthService           : config.healthService || {recordTaskOutcome() {}},
@@ -27,7 +34,7 @@ function createTestOrchestrator(config = {}) {
     });
 
     orchestrator.writeLog  = () => {};
-    orchestrator.writeState = () => {};
+    // orchestrator.writeState = () => {};
 
     return orchestrator;
 }
@@ -135,8 +142,10 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
                 error : 'mark read failed'
             }
         });
-        expect(orchestrator.taskState.summary.running).toBe(false);
-        expect(orchestrator.taskState.summary.lastErrorAt).toEqual(expect.any(String));
-        expect(orchestrator.taskState.summary.lastSuccessAt).toBeNull();
+        
+        const state = orchestrator.taskStateService.getTaskState('summary');
+        expect(state.running).toBe(false);
+        expect(state.lastErrorAt).toEqual(expect.any(String));
+        expect(state.lastSuccessAt).toBeNull();
     });
 });

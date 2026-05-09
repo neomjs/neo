@@ -14,6 +14,7 @@ import {
     initializeDatabase
 } from '../scripts/bridge-daemon-queries.mjs';
 import SummarizationCoordinatorService from './services/SummarizationCoordinatorService.mjs';
+import TaskStateService                from './services/TaskStateService.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -92,27 +93,6 @@ export function buildTaskDefinitions({scriptDir = DEFAULT_SCRIPT_DIR, nodeBin = 
 }
 
 /**
- * @summary Creates the persisted state envelope for orchestrator task tracking.
- *
- * @param {Object} taskDefinitions Task-definition map.
- * @returns {Object}
- */
-export function createInitialTaskState(taskDefinitions) {
-    return Object.keys(taskDefinitions).reduce((state, taskName) => {
-        state[taskName] = {
-            running      : false,
-            pid          : null,
-            lastRunAt    : 0,
-            lastSuccessAt: null,
-            lastErrorAt  : null,
-            lastExitCode : null,
-            lastReason   : null
-        };
-        return state;
-    }, {});
-}
-
-/**
  * @summary Neo daemon class for Agent OS maintenance scheduling (#11009).
  *
  * `ai/scripts/orchestrator-daemon.mjs` owns the Node-process boot wrapper:
@@ -166,11 +146,11 @@ export class Orchestrator extends Base {
          */
         db_: null,
         /**
-         * @member {Object|null} taskState_=null
+         * @member {Object} taskStateService_=TaskStateService
          * @protected
          * @reactive
          */
-        taskState_: null,
+        taskStateService_: TaskStateService,
         /**
          * @member {Object|null} taskDefinitions_=null
          * @protected
@@ -295,7 +275,11 @@ export class Orchestrator extends Base {
         this.configure(options);
 
         fs.ensureDirSync(this.dataDir);
-        this.taskState = this.readState();
+        this.taskStateService.configure({
+            stateFile      : this.stateFile,
+            taskDefinitions: this.taskDefinitions,
+            writeLogFn     : this.writeLog.bind(this)
+        });
         this.recoverTasks();
         this.db = this.initializeDatabaseFn(this.dbPath);
 
@@ -340,42 +324,7 @@ export class Orchestrator extends Base {
         }
     }
 
-    /**
-     * Reads persisted task state, clearing stale in-process fields on boot.
-     * @returns {Object}
-     */
-    readState() {
-        const fallback = createInitialTaskState(this.taskDefinitions);
 
-        if (!fs.existsSync(this.stateFile)) {
-            return fallback;
-        }
-
-        try {
-            const data = JSON.parse(fs.readFileSync(this.stateFile, 'utf8'));
-            return Object.keys(fallback).reduce((state, taskName) => {
-                state[taskName] = {...fallback[taskName], ...(data[taskName] || {})};
-                state[taskName].running = false;
-                state[taskName].pid     = null;
-                return state;
-            }, {});
-        } catch (e) {
-            this.writeLog('ERROR', `[Orchestrator] Failed to read state file: ${e.message}`);
-            return fallback;
-        }
-    }
-
-    /**
-     * Persists the current task-state envelope.
-     * @returns {void}
-     */
-    writeState() {
-        try {
-            fs.writeFileSync(this.stateFile, JSON.stringify(this.taskState, null, 2), 'utf8');
-        } catch (e) {
-            this.writeLog('ERROR', `[Orchestrator] Failed to write state file: ${e.message}`);
-        }
-    }
 
     /**
      * Resolves the PID file path for a child task.
@@ -403,16 +352,11 @@ export class Orchestrator extends Base {
      */
     clearRecoveredTask(taskName, pid) {
         const task    = this.taskDefinitions[taskName];
-        const state   = this.taskState[taskName];
         const pidFile = this.getTaskPidFile(taskName);
 
-        if (state.pid !== pid) {
+        if (!this.taskStateService.clearRecovered(taskName, pid)) {
             return;
         }
-
-        state.running      = false;
-        state.pid          = null;
-        state.lastExitCode = null;
 
         try {
             if (fs.existsSync(pidFile) && parseInt(fs.readFileSync(pidFile, 'utf8'), 10) === pid) {
@@ -421,7 +365,6 @@ export class Orchestrator extends Base {
         } catch (e) {}
 
         this.writeLog('INFO', `[Orchestrator] Recovered ${task.label} process (PID: ${pid}) exited; clearing running state.`);
-        this.writeState();
     }
 
     /**
@@ -467,8 +410,7 @@ export class Orchestrator extends Base {
             const cmd = this.processCommandFn(pid);
 
             if (cmd.includes(task.expectedCommand)) {
-                this.taskState[taskName].running = true;
-                this.taskState[taskName].pid     = pid;
+                this.taskStateService.adoptRunning(taskName, pid);
                 this.watchRecoveredTask(taskName, pid);
                 this.writeLog('INFO', `[Orchestrator] Found running ${task.label} process (PID: ${pid}). Adopting.`);
             } else {
@@ -516,7 +458,7 @@ export class Orchestrator extends Base {
      */
     runTask(taskName, reason, onSuccess) {
         const task  = this.taskDefinitions[taskName];
-        const state = this.taskState[taskName];
+        const state = this.taskStateService.getTaskState(taskName);
 
         if (state.running) {
             this.writeLog('INFO', `[Orchestrator] Skipping ${task.label}; task already running (PID: ${state.pid}).`);
@@ -524,10 +466,7 @@ export class Orchestrator extends Base {
             return false;
         }
 
-        state.running    = true;
-        state.lastRunAt  = Date.now();
-        state.lastReason = reason;
-        this.writeState();
+        this.taskStateService.markStarted(taskName, reason);
 
         this.writeLog('INFO', `[Orchestrator] Starting ${task.label} (${reason}).`);
 
@@ -535,11 +474,8 @@ export class Orchestrator extends Base {
         try {
             child = this.spawnFn(task.command, task.args, {stdio: 'ignore'});
         } catch (e) {
-            state.running    = false;
-            state.pid        = null;
-            state.lastErrorAt = new Date().toISOString();
+            this.taskStateService.markSpawnFailed(taskName);
             this.writeLog('ERROR', `[Orchestrator] ${task.label} failed to start: ${e.message}`);
-            this.writeState();
             this.recordTaskOutcome(taskName, 'failed', {reason, phase: 'spawn', error: e.message});
             return false;
         }
@@ -547,7 +483,7 @@ export class Orchestrator extends Base {
         const pidFile = this.getTaskPidFile(taskName);
 
         if (child.pid) {
-            state.pid = child.pid;
+            this.taskStateService.markSpawned(taskName, child.pid);
             try {
                 fs.writeFileSync(pidFile, child.pid.toString(), 'utf8');
             } catch (e) {
@@ -564,10 +500,6 @@ export class Orchestrator extends Base {
             }
             cleared = true;
 
-            state.running      = false;
-            state.pid          = null;
-            state.lastExitCode = code;
-
             try {
                 if (fs.existsSync(pidFile)) {
                     fs.unlinkSync(pidFile);
@@ -575,34 +507,31 @@ export class Orchestrator extends Base {
             } catch (e) {}
 
             if (error) {
-                state.lastErrorAt = new Date().toISOString();
+                this.taskStateService.markFailed(taskName, null);
                 this.writeLog('ERROR', `[Orchestrator] ${task.label} failed to start: ${error.message}`);
                 this.recordTaskOutcome(taskName, 'failed', {reason, phase: 'start', error: error.message});
             } else if (code === 0) {
                 try {
                     const completedAt = new Date().toISOString();
                     onSuccess?.();
-                    state.lastSuccessAt = completedAt;
+                    this.taskStateService.markCompleted(taskName);
                     this.writeLog('INFO', `[Orchestrator] ${task.label} completed successfully.`);
                     this.recordTaskOutcome(taskName, 'completed', {reason, code, completedAt});
                 } catch (e) {
-                    state.lastErrorAt = new Date().toISOString();
+                    this.taskStateService.markFailed(taskName, null);
                     this.writeLog('ERROR', `[Orchestrator] ${task.label} success hook failed: ${e.message}`);
                     this.recordTaskOutcome(taskName, 'failed', {reason, phase: 'success-hook', error: e.message});
                 }
             } else {
-                state.lastErrorAt = new Date().toISOString();
+                this.taskStateService.markFailed(taskName, code);
                 this.writeLog('ERROR', `[Orchestrator] ${task.label} exited with code ${code}.`);
-                this.recordTaskOutcome(taskName, 'failed', {reason, code, failedAt: state.lastErrorAt});
+                this.recordTaskOutcome(taskName, 'failed', {reason, code, failedAt: new Date().toISOString()});
             }
-
-            this.writeState();
         };
 
         child.on('close', code => clear(code));
         child.on('error', err => clear(null, err));
 
-        this.writeState();
         return true;
     }
 
@@ -629,7 +558,7 @@ export class Orchestrator extends Base {
     runSummaryCycle(now) {
         const trigger = this.summarizationCoordinator.getDueTask({
             db                    : this.db,
-            state                 : this.taskState,
+            state                 : this.taskStateService.getState(),
             now,
             summarySweepIntervalMs: this.summarySweepIntervalMs,
             log                   : this.writeLog.bind(this)
@@ -648,7 +577,7 @@ export class Orchestrator extends Base {
     runKbSyncCycle(now) {
         if (shouldRunIntervalTask({
             now,
-            lastRunAt : this.taskState.kbSync.lastRunAt,
+            lastRunAt : this.taskStateService.getTaskState('kbSync').lastRunAt,
             intervalMs: this.kbSyncIntervalMs
         })) {
             this.runTask('kbSync', `periodic-sync:${this.kbSyncIntervalMs}`);
