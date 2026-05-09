@@ -1,9 +1,9 @@
 import Neo                  from '../../src/Neo.mjs';
 import * as core            from '../../src/core/_export.mjs';
 import KB_Config            from '../../ai/mcp/server/knowledge-base/config.mjs';
-import KB_DatabaseService   from '../../ai/mcp/server/knowledge-base/services/DatabaseService.mjs';
-import KB_ChromaManager     from '../../ai/mcp/server/knowledge-base/services/ChromaManager.mjs';
-import KB_LifecycleService  from '../../ai/mcp/server/knowledge-base/services/DatabaseLifecycleService.mjs';
+import KB_DatabaseService   from '../../ai/services/knowledge-base/DatabaseService.mjs';
+import KB_ChromaManager     from '../../ai/services/knowledge-base/ChromaManager.mjs';
+import KB_LifecycleService  from '../../ai/services/knowledge-base/DatabaseLifecycleService.mjs';
 
 /**
  * @module buildScripts/ai/syncKnowledgeBase
