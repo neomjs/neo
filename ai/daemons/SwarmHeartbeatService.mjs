@@ -1,11 +1,17 @@
-// IMPORTANT: `Neo` MUST be imported BEFORE any module that uses `Neo.gatekeep()` /
-// `Neo.setupClass()` at module-load time (e.g. `src/core/Compare.mjs`, transitively
-// pulled in via Base / LifecycleService / GraphService). Without this prelude the script
-// crashes at module-load with `ReferenceError: Neo is not defined` (regression originally
-// surfaced in `sweepExpiredTasks.mjs` and codified there). Ordering matters — these two
-// side-effect imports must run first to populate `globalThis.Neo`.
+// Neo namespace bootstrap (entry-point invariant): this file is a HYBRID — it defines
+// the SwarmHeartbeatService class AND self-invokes as a daemon entry point under launchd /
+// systemd via the `if (isMain)` block at the bottom. Entry-point invariant requires all
+// 3 imports: `Neo` + `core/_export` populate `globalThis.Neo` so any module using
+// `Neo.gatekeep()` / `Neo.setupClass()` at module-load (e.g. `src/core/Compare.mjs`,
+// transitively pulled via Base / LifecycleService / GraphService) succeeds. Without this
+// prelude the script crashes with `ReferenceError: Neo is not defined`. `InstanceManager`
+// binds `Neo.find` / `Neo.findFirst` / `Neo.get` aliases and consumes pre-singleton
+// `Neo.idMap`. Future cleanup: split class into `ai/daemons/SwarmHeartbeatService.mjs`
+// (class only, no Neo imports) + `ai/scripts/swarm-heartbeat-daemon.mjs` (entry point);
+// matches Orchestrator class+wrapper pattern.
 import Neo             from '../../src/Neo.mjs';
 import * as core       from '../../src/core/_export.mjs';
+import InstanceManager from '../../src/manager/Instance.mjs';
 
 import {spawn}         from 'child_process';
 import path            from 'path';

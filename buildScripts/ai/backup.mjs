@@ -4,7 +4,13 @@ import path             from 'path';
 import {promisify}      from 'util';
 import {fileURLToPath}  from 'url';
 
+// Neo namespace bootstrap (entry-point invariant) — operator-runnable backup driver
+// + future BackupService spawn-child target. `Neo` + `core/_export` populate
+// `globalThis.Neo`; `InstanceManager` binds Neo.find/findFirst/get aliases +
+// consumes pre-singleton `Neo.idMap`.
 import Neo              from '../../src/Neo.mjs';
+import * as core        from '../../src/core/_export.mjs';
+import InstanceManager  from '../../src/manager/Instance.mjs';
 import kbConfig         from '../../ai/mcp/server/knowledge-base/config.mjs';
 import mcConfig         from '../../ai/mcp/server/memory-core/config.mjs';
 
