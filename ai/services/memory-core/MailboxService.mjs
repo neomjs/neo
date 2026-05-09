@@ -256,7 +256,7 @@ class MailboxService extends Base {
                     message_id: messageId
                 };
 
-                Promise.all([import('fs'), import('path'), import('../logger.mjs')]).then(([{ default: fs }, { default: path }, { default: logger }]) => {
+                Promise.all([import('fs'), import('path'), import('../../mcp/server/memory-core/logger.mjs')]).then(([{ default: fs }, { default: path }, { default: logger }]) => {
                     logger.warn(JSON.stringify(logEntry));
                     const logPath = path.join(path.dirname(aiConfig.storagePaths.graph), 'sent-to-cull.jsonl');
                     fs.appendFileSync(logPath, JSON.stringify(logEntry) + '\n');
