@@ -48,7 +48,7 @@ The "main checkout's updated `dev`" assumption above only holds if the operator 
 
 - Worktree agents (correctly per the Isolated-Worktree rule above) do NOT pull dev into primary.
 - Operators don't always run `git pull origin dev` between sunset events.
-- Daemons running from primary (`bridge-daemon`, `DreamService`, future `orchestrator-daemon` post-#11009, KB sync pipeline) silently read pre-merge code when primary is stale.
+- Daemons running from primary — `orchestrator-daemon` (the canonical Agent OS scheduled-maintenance daemon per `learn/agentos/v13-path.md` M3; currently MVP-shape via #11008, full class extraction in flight under #11009) plus its current and future siblings (`bridge-daemon` for wake delivery, `DreamService` for ingestion, KB sync pipeline) — silently read pre-merge code when primary is stale.
 
 **Mandatory sunset probe (Isolated Worktree branch only):**
 
@@ -67,11 +67,11 @@ BEHIND=$(git -C "$PRIMARY_ROOT" rev-list --count dev..origin/dev 2>/dev/null || 
 
 **Conditional handover-comment block (fire only when `BEHIND > 0`):**
 
-> ⚠️ **Primary-checkout reminder:** the operator's primary checkout (`<PRIMARY_ROOT>`) `dev` branch is **`<BEHIND>` commits behind `origin/dev`**. Daemons running from the primary (`bridge-daemon`, `DreamService`, `orchestrator-daemon`, KB sync pipeline) read pre-merge code until refresh. Run `git -C <PRIMARY_ROOT> pull origin dev` in your main checkout to refresh downstream daemon state.
+> ⚠️ **Primary-checkout reminder:** the operator's primary checkout (`<PRIMARY_ROOT>`) `dev` branch is **`<BEHIND>` commits behind `origin/dev`**. The `orchestrator-daemon` (Agent OS canonical scheduled-maintenance daemon) and its siblings (`bridge-daemon`, `DreamService`, KB sync pipeline) read pre-merge code until refresh. Run `git -C <PRIMARY_ROOT> pull origin dev` in your main checkout to refresh `orchestrator-daemon` and downstream-daemon state.
 
 When `BEHIND == 0`, suppress the block — no handover-comment noise on a fresh primary.
 
-**Why this lives at sunset rather than mid-session:** sunset is the natural Operator Synchronization Point — the agent is already drafting handover prose, and the operator is the next active actor between sessions. Mid-session staleness is unaddressed by this probe; the daemon-driven Shape A solution under #11013's follow-up (post-#11009 orchestrator-daemon task) will close that gap with a periodic auto-pull.
+**Why this lives at sunset rather than mid-session:** sunset is the natural Operator Synchronization Point — the agent is already drafting handover prose, and the operator is the next active actor between sessions. Mid-session staleness is unaddressed by this probe; the daemon-driven Shape A solution under #11013's follow-up will register a `primary-dev-sync` periodic task in the `orchestrator-daemon` (post-#11009 `Orchestrator.mjs` class extraction) to close that gap with an automatic `git pull --ff-only`.
 
 ### Step 2: Handovers Posted (Active Work)
 For any tickets or tasks that you actively worked on but did not fully complete, you MUST post a self-contained handover comment directly on the GitHub Issue (using `manage_issue_comment`).
