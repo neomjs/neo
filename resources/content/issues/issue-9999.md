@@ -36,8 +36,8 @@ subIssues:
   - '[ ] 10945 Expand deployment-pipeline integration coverage for Memory Core'
   - '[x] 10957 Document v13 architectural path — slim MCP servers, orchestrator daemon, SDK migration sequence'
   - '[ ] 10960 v13 Release Tracking — main-focus-items canonical sub-issue tree'
-  - '[ ] 11009 Move Orchestrator logic into Neo daemon class'
-subIssuesCompleted: 11
+  - '[x] 11009 Move Orchestrator logic into Neo daemon class'
+subIssuesCompleted: 12
 subIssuesTotal: 22
 blockedBy: []
 blocking:
@@ -950,4 +950,5 @@ Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
 - 2026-05-08T19:38:19Z @neo-opus-4-7 cross-referenced by #10986
 - 2026-05-09T11:34:10Z @neo-gpt cross-referenced by #11009
 - 2026-05-09T11:34:18Z @neo-gpt added sub-issue #11009
+- 2026-05-09T12:34:52Z @neo-opus-4-7 cross-referenced by #11011
 
