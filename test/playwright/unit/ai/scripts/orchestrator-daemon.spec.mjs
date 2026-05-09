@@ -4,43 +4,14 @@ import path from 'path';
 import {
     DEFAULT_KB_SYNC_INTERVAL_MS,
     DEFAULT_POLL_INTERVAL_MS,
-    DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
-    parseInterval
+    DEFAULT_SUMMARY_SWEEP_INTERVAL_MS
 } from '../../../../../ai/scripts/orchestrator-daemon.mjs';
 import {
-    buildTaskDefinitions,
-    shouldRunIntervalTask
+    buildTaskDefinitions
 } from '../../../../../ai/daemons/Orchestrator.mjs';
 
 test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
-    test('parses interval env values while preserving zero as disabled', () => {
-        expect(parseInterval(undefined, DEFAULT_POLL_INTERVAL_MS)).toBe(DEFAULT_POLL_INTERVAL_MS);
-        expect(parseInterval('', DEFAULT_SUMMARY_SWEEP_INTERVAL_MS)).toBe(DEFAULT_SUMMARY_SWEEP_INTERVAL_MS);
-        expect(parseInterval('0', DEFAULT_KB_SYNC_INTERVAL_MS)).toBe(0);
-        expect(parseInterval('-10', DEFAULT_KB_SYNC_INTERVAL_MS)).toBe(0);
-        expect(parseInterval('900000', DEFAULT_KB_SYNC_INTERVAL_MS)).toBe(900000);
-        expect(parseInterval('not-a-number', DEFAULT_KB_SYNC_INTERVAL_MS)).toBe(DEFAULT_KB_SYNC_INTERVAL_MS);
-    });
 
-    test('does not schedule disabled or not-yet-due interval tasks', () => {
-        expect(shouldRunIntervalTask({
-            now       : 1000,
-            lastRunAt : 0,
-            intervalMs: 0
-        })).toBe(false);
-
-        expect(shouldRunIntervalTask({
-            now       : 599999,
-            lastRunAt : 0,
-            intervalMs: 600000
-        })).toBe(false);
-
-        expect(shouldRunIntervalTask({
-            now       : 600000,
-            lastRunAt : 0,
-            intervalMs: 600000
-        })).toBe(true);
-    });
 
     test('builds task commands around existing manual maintenance scripts', () => {
         const scriptDir = path.resolve(process.cwd(), 'ai/scripts');

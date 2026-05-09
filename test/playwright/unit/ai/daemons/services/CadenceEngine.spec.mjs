@@ -1,7 +1,8 @@
 import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
-import CadenceEngine  from '../../../../../../ai/daemons/services/CadenceEngine.mjs';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../src/manager/Instance.mjs';
+import CadenceEngine   from '../../../../../../ai/daemons/services/CadenceEngine.mjs';
 
 test.describe('Neo.ai.daemons.services.CadenceEngine (#11051)', () => {
     test('parseInterval() returns fallback for undefined/null/empty', () => {
