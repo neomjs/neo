@@ -74,8 +74,7 @@ You must configure the MCP servers to trust the proxy:
 Both MCP servers must share a single Chroma instance to enable cross-domain semantic awareness.
 
 1. Ensure the Chroma container/service is accessible to both MCP containers.
-2. Set `NEO_CHROMA_UNIFIED=true` on both MCP servers.
-3. Configure the Chroma host and port:
+2. Configure the Chroma host and port:
    - `NEO_CHROMA_HOST=http://chroma` (or your internal DNS name).
    - `NEO_CHROMA_PORT=8000`.
 
@@ -86,7 +85,7 @@ When provisioning your containers, supply the following minimal environment vari
 | Variable | Target | Purpose |
 |---|---|---|
 | `MCP_HTTP_PORT` | Both | The port the HTTP/SSE server listens on (e.g., `3001` for KB, `3002` for MC). |
-| `NEO_CHROMA_UNIFIED` | Both | Set to `true` to enable shared Chroma architecture. |
+
 | `NEO_CHROMA_HOST` | Both | Internal URL of the Chroma instance. |
 | `NEO_CHROMA_PORT` | Both | Port of the Chroma instance. |
 | `NEO_PUBLIC_URL` | Both | The canonical public URL for this MCP server (e.g., `https://api.example.com/mc`). Required for SSE advertisement and OAuth `redirect_uri` generation behind reverse proxies. |
@@ -124,7 +123,7 @@ Expected JSON block (excerpt):
     "topology": {
       "mode": "unified",
       "coordinates": { "host": "http://chroma", "port": 8000 },
-      "resolvedVia": "engines.kb.chroma"
+      "resolvedVia": "engines.chroma"
     }
   },
   "providers": {

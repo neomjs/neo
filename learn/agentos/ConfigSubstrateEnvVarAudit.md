@@ -54,7 +54,7 @@ Target-tier shorthand:
 | `NEO_AI_MCP_KB_OPENAPI_PATH` | `knowledge-base/services/toolService.mjs:15` | Tier 2 | Tool-service path override. Prefer per-server config/test override rather than global keep-list unless external packaging needs env injection. |
 | `NEO_CHROMA_HOST` | `shared/helpers/DeploymentConfig.mjs:70`; `knowledge-base/config.template.mjs:119`; `memory-core/config.template.mjs:243` | Tier 3 | Runtime binding for shared Chroma host; canonical replacement for server-prefixed aliases. |
 | `NEO_CHROMA_PORT` | `shared/helpers/DeploymentConfig.mjs:102`; `knowledge-base/config.template.mjs:127`; `memory-core/config.template.mjs:244` | Tier 3 | Runtime binding for shared Chroma port; canonical replacement for server-prefixed aliases. |
-| `NEO_CHROMA_UNIFIED` | `memory-core/config.template.mjs:208`; `knowledge-base/config.template.mjs:111` | Delete | Topology-mode flag scheduled for Phase 2 removal after operator data migration. |
+| `NEO_CHROMA_UNIFIED` | `memory-core/config.template.mjs:208`; `knowledge-base/config.template.mjs:111` | Removed | Retired in v13 per #11011. |
 | `NEO_CHROMA_EMBEDDING_PROVIDER` | `memory-core/helpers/EmbeddingProviderConfig.mjs:15` | Delete | Legacy dev-branch-only alias targeted by #10823. |
 | `NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH` | `memory-core/config.template.mjs:313` | Tier 2 | Memory Core daemon tuning. Move to per-server config unless one-shot operator override is still desired. |
 | `NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT` | `memory-core/config.template.mjs:312` | Tier 2 | Memory Core daemon tuning. Move to per-server config. |
@@ -100,7 +100,8 @@ Target-tier shorthand:
 | Tier 1 shared config default plus optional env override | 10 | Provider/model/vector globals that Phase 1.5 should move to `ai/config.template.mjs`. |
 | Tier 2 per-server config | 15 | Collection names, daemon tuning, local paths, and service-specific knobs. |
 | Tier 3 `.env` keep-list | 28 | Secrets, runtime binding, identity binding, single-writer role, multi-tenant isolation, and operator one-shot toggles. |
-| Delete | 6 | Includes #10823 aliases plus `NEO_MEMORY_CORE_DB_PATH` and `NEO_CHROMA_UNIFIED` follow-up deletion candidates. |
+| Delete | 5 | Includes #10823 aliases plus NEO_MEMORY_CORE_DB_PATH follow-up deletion candidates. |
+| Removed in v13 | 1 | NEO_CHROMA_UNIFIED retired per #11011. |
 | Defer to #10825 or Phase 1.5 | 3 | Diagnostic-only Chroma hint vars and generic `HOST` fallback. |
 
 ## Follow-Up Notes

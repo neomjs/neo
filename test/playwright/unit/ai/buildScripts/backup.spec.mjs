@@ -203,7 +203,7 @@ test.describe('backup.mjs orchestrator — atomic bundle assembly (#10129 Phase 
         expect(meta.integrity).toBeInstanceOf(Array);
 
         expect(meta.topology).toBeDefined();
-        expect(typeof meta.topology.chromaUnified).toBe('boolean');
+        expect(typeof meta.topology.shared_topology).toBe('boolean');
         expect(meta.topology.kbChromaCoords).toBeDefined();
         expect(meta.topology.mcChromaCoords).toBeDefined();
         expect('host' in meta.topology.kbChromaCoords).toBe(true);

@@ -97,9 +97,8 @@ class CollectionProxy extends Base {
                     await manager.getSummaryCollection();
             }
 
-            const chromaCoordinates = manager.resolveChromaCoordinates?.(aiConfig) || aiConfig.engines?.chroma || {};
-            const chromaPath        = chromaCoordinates.path || chromaCoordinates.dataDir ||
-                (aiConfig.chromaUnified ? undefined : aiConfig.engines?.chroma?.dataDir);
+            const chromaCoordinates = aiConfig.engines?.chroma || {};
+            const chromaPath        = chromaCoordinates.path || chromaCoordinates.dataDir;
 
             await DestructiveOperationGuard.assertDestructiveTargetAllowed({
                 operation: `memory-core.${this.collectionType}.drop`,

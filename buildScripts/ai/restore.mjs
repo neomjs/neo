@@ -42,10 +42,10 @@ import {
  * - **Pre-flight integrity validation BEFORE any write.** The bundle is fully validated —
  *   subdirs present, JSONL parseable, `bundle-meta.json` (if present) parsed — before any
  *   write touches a service. A torn / partial bundle fails fast.
- * - **Topology compatibility check.** If the bundle's `bundle-meta.topology.chromaUnified`
- *   diverges from the current `mcConfig.chromaUnified`, the restore refuses unless the
- *   operator passes `--force-topology-mismatch`. Bundles without `bundle-meta.json`
- *   (legacy) skip this check with a console warning.
+ * - **Topology compatibility check.** The system natively assumes a `shared_topology`.
+ *   If the bundle is explicitly marked as a legacy federated bundle (`chromaUnified: false`),
+ *   the restore refuses unless the operator passes `--force-topology-mismatch`.
+ *   Bundles without `bundle-meta.json` skip this check with a console warning.
  * - **Two-mode contract:**
  *     - `--mode merge` (default): idempotent. Embedded substrates upsert (no destructive
  *       wipe). Flat substrates skip-if-target-non-empty (preserves operator additions).
@@ -292,7 +292,7 @@ export async function validateBundle(bundleRoot, layout, logger = console) {
 }
 
 /**
- * Compares the bundle's `topology.chromaUnified` to the live `mcConfig.chromaUnified`.
+ * Compares the bundle's `topology.shared_topology` to the live deployment (always true).
  * Mismatch is refused unless `forceTopologyMismatch` is set. Bundles without metadata
  * skip the check (legacy bundles).
  *
@@ -300,28 +300,29 @@ export async function validateBundle(bundleRoot, layout, logger = console) {
  * @param {Object|null} options.meta
  * @param {Boolean} options.forceTopologyMismatch
  * @param {Object}  options.logger
- * @returns {Promise<{bundleChromaUnified: Boolean|null, currentChromaUnified: Boolean, match: Boolean, forced: Boolean}>}
+ * @returns {Promise<{bundleSharedTopology: Boolean|null, currentSharedTopology: Boolean, match: Boolean, forced: Boolean}>}
  */
 export async function checkTopology({meta, forceTopologyMismatch, logger}) {
-    const currentChromaUnified = Boolean(mcConfig.chromaUnified);
+    // Post-#11011: We are permanently in unified mode.
+    // If the bundle was taken under federated mode (chromaUnified=false), we should warn.
     const bundleChromaUnified  = meta?.topology?.chromaUnified;
+    const bundleSharedTopology = meta?.topology?.shared_topology;
 
-    if (typeof bundleChromaUnified !== 'boolean') {
-        return {bundleChromaUnified: null, currentChromaUnified, match: true, forced: false}
-    }
+    // A bundle is legacy federated ONLY if it explicitly has chromaUnified: false
+    const isLegacyFederated = bundleChromaUnified === false && bundleSharedTopology !== true;
 
-    if (bundleChromaUnified === currentChromaUnified) {
-        return {bundleChromaUnified, currentChromaUnified, match: true, forced: false}
+    if (!isLegacyFederated) {
+        return {bundleSharedTopology: bundleSharedTopology ?? bundleChromaUnified ?? true, currentSharedTopology: true, match: true, forced: false}
     }
 
     if (forceTopologyMismatch) {
-        logger.warn?.(`[Restore] Topology mismatch (bundle.chromaUnified=${bundleChromaUnified}, current=${currentChromaUnified}) — proceeding due to --force-topology-mismatch.`);
-        return {bundleChromaUnified, currentChromaUnified, match: false, forced: true}
+        logger.warn?.(`[Restore] Topology mismatch (legacy federated bundle, current=shared_topology) — proceeding due to --force-topology-mismatch.`);
+        return {bundleSharedTopology: false, currentSharedTopology: true, match: false, forced: true}
     }
 
     throw new Error(
-        `Topology mismatch: bundle was taken under chromaUnified=${bundleChromaUnified}, ` +
-        `but current deployment is chromaUnified=${currentChromaUnified}. ` +
+        `Topology mismatch: bundle was taken under legacy federated mode, ` +
+        `but current deployment is permanently unified. ` +
         `Pass --force-topology-mismatch to proceed (collection IDs may diverge across topologies).`
     )
 }

@@ -261,18 +261,18 @@ export async function verifyBundleIntegrity(layout, subsystems) {
 }
 
 /**
- * Builds the topology descriptor block for `bundle-meta.json`. Captures the federated-vs-unified
- * Chroma topology + KB/MC coordinates at backup time so a restore consumer can detect topology
- * mismatch (`bundle-meta.topology.chromaUnified` vs current `aiConfig.chromaUnified`) and refuse
- * to clobber a target whose deployment shape diverged from the bundle source.
+ * Builds the topology descriptor block for `bundle-meta.json`. Captures the KB/MC coordinates
+ * at backup time so a restore consumer can detect legacy federated bundles
+ * (`bundle-meta.topology.chromaUnified === false`) and refuse to clobber a target whose
+ * deployment shape diverged from the bundle source.
  *
  * Forward-compat extension point for #10871 AC-B (`buildScripts/ai/restore.mjs`).
  *
- * @returns {{chromaUnified: Boolean, kbChromaCoords: Object, mcChromaCoords: Object}}
+ * @returns {{shared_topology: Boolean, kbChromaCoords: Object, mcChromaCoords: Object}}
  */
 function buildTopologyDescriptor() {
     return {
-        chromaUnified : Boolean(mcConfig.chromaUnified),
+        shared_topology: true,
         kbChromaCoords: {
             host: kbConfig.host    ?? null,
             port: kbConfig.port    ?? null,

@@ -44,7 +44,8 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
      */
     function buildSyntheticBundle({
         bundleName,
-        chromaUnified = false,
+        chromaUnified,
+        shared_topology,
         includeMailbox = true,
         omitSubdirs = []
     }) {
@@ -102,6 +103,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             integrity    : [{subsystem: 'kb', status: 'pass'}],
             topology     : {
                 chromaUnified,
+                shared_topology,
                 kbChromaCoords: {host: 'localhost', port: 8000, path: '/path/to/kb'},
                 mcChromaCoords: {host: 'localhost', port: 8001, dataDir: '/path/to/mc'}
             },
@@ -166,7 +168,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     });
 
     test('happy-path merge: routes embedded substrates through SDK and copies flat files', async () => {
-        const bundleRoot   = buildSyntheticBundle({bundleName: 'happy-merge', chromaUnified: false});
+        const bundleRoot   = buildSyntheticBundle({bundleName: 'happy-merge', shared_topology: true});
         const conceptsTgt  = path.join(workRoot, 'happy-merge-targets', 'concepts');
         const trajTgt      = path.join(workRoot, 'happy-merge-targets', 'trajectories.jsonl');
         const mailboxTgt   = path.join(workRoot, 'happy-merge-targets', 'sent-to-cull.jsonl');
@@ -221,12 +223,12 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     });
 
     test('topology mismatch: refused without --force-topology-mismatch, allowed with', async () => {
-        // Bundle declares chromaUnified=true; current mcConfig.chromaUnified is false (NEO_CHROMA_UNIFIED unset by default in tests)
-        const bundleRoot = buildSyntheticBundle({bundleName: 'topo-mismatch', chromaUnified: true});
+        // Bundle declares chromaUnified=false; current deployment is permanently unified
+        const bundleRoot = buildSyntheticBundle({bundleName: 'topo-mismatch', chromaUnified: false});
 
         await expect(
             runRestore({bundleRoot, logger: silentLogger})
-        ).rejects.toThrow(/Topology mismatch.*chromaUnified=true.*current.*chromaUnified=false/);
+        ).rejects.toThrow(/Topology mismatch: bundle was taken under legacy federated mode, but current deployment is permanently unified\./);
 
         expect(calls.kb).toHaveLength(0);
         expect(calls.mc).toHaveLength(0);
@@ -245,7 +247,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     });
 
     test('replace mode without --force refuses non-empty target', async () => {
-        const bundleRoot = buildSyntheticBundle({bundleName: 'replace-no-force', chromaUnified: false});
+        const bundleRoot = buildSyntheticBundle({bundleName: 'replace-no-force', shared_topology: true});
 
         // Stub MC collections as non-empty
         Memory_StorageRouter.getMemoryCollection = async () => ({count: async () => 42});
@@ -259,7 +261,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     });
 
     test('replace mode with --force fires guard for flat substrates and forwards mode through SDK', async () => {
-        const bundleRoot   = buildSyntheticBundle({bundleName: 'replace-force', chromaUnified: false});
+        const bundleRoot   = buildSyntheticBundle({bundleName: 'replace-force', shared_topology: true});
         const conceptsTgt  = path.join(workRoot, 'replace-targets', 'concepts');
         const trajTgt      = path.join(workRoot, 'replace-targets', 'trajectories.jsonl');
         const mailboxTgt   = path.join(workRoot, 'replace-targets', 'sent-to-cull.jsonl');
@@ -302,7 +304,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     });
 
     test('merge mode skips existing flat-file targets to preserve operator additions', async () => {
-        const bundleRoot   = buildSyntheticBundle({bundleName: 'merge-preserve', chromaUnified: false});
+        const bundleRoot   = buildSyntheticBundle({bundleName: 'merge-preserve', chromaUnified: true});
         const conceptsTgt  = path.join(workRoot, 'preserve-targets', 'concepts');
         const trajTgt      = path.join(workRoot, 'preserve-targets', 'trajectories.jsonl');
         const mailboxTgt   = path.join(workRoot, 'preserve-targets', 'sent-to-cull.jsonl');
@@ -337,7 +339,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     });
 
     test('legacy bundle without bundle-meta.json proceeds with topology check skipped', async () => {
-        const bundleRoot = buildSyntheticBundle({bundleName: 'legacy-no-meta', chromaUnified: false});
+        const bundleRoot = buildSyntheticBundle({bundleName: 'legacy-no-meta', chromaUnified: true});
         fs.unlinkSync(path.join(bundleRoot, 'bundle-meta.json'));
 
         const result = await runRestore({
@@ -349,20 +351,20 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
         });
 
         expect(result.meta).toBeNull();
-        expect(result.topology.bundleChromaUnified).toBeNull();
+        expect(result.topology.bundleChromaUnified).toBeUndefined();
         expect(result.topology.match).toBe(true);
         expect(calls.kb).toHaveLength(1);
     });
 
     test('rejects unknown mode at orchestrator entry', async () => {
-        const bundleRoot = buildSyntheticBundle({bundleName: 'unknown-mode', chromaUnified: false});
+        const bundleRoot = buildSyntheticBundle({bundleName: 'unknown-mode', chromaUnified: true});
         await expect(
             runRestore({bundleRoot, mode: 'wipe', logger: silentLogger})
         ).rejects.toThrow(/Unknown mode: wipe/);
     });
 
     test('rejects malformed JSONL during pre-flight integrity check', async () => {
-        const bundleRoot = buildSyntheticBundle({bundleName: 'malformed-jsonl', chromaUnified: false});
+        const bundleRoot = buildSyntheticBundle({bundleName: 'malformed-jsonl', chromaUnified: true});
         fs.writeFileSync(path.join(bundleRoot, 'kb', 'broken.jsonl'), 'this-is-not-json\n');
 
         await expect(

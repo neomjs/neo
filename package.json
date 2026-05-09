@@ -32,7 +32,7 @@
         "ai:reconcile-v13-project"     : "node ./ai/scripts/reconcileV13Project.mjs",
         "ai:run-sandman"               : "node ./buildScripts/ai/runSandman.mjs",
         "ai:server"                    : "chroma run --path ./.neo-ai-data/chroma/knowledge-base",
-        "ai:server-memory"             : "chroma run --path ./.neo-ai-data/chroma/memory-core --port 8001",
+
         "ai:server-neural-link"        : "node ./ai/mcp/server/neural-link/run-bridge.mjs",
         "ai:summarize-sessions"        : "node ./ai/scripts/summarize-sessions.mjs",
         "ai:sync-kb"                   : "node ./buildScripts/ai/syncKnowledgeBase.mjs",

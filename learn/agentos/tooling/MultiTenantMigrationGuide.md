@@ -123,7 +123,7 @@ Restart all MCP harnesses. Explicit `memorySharing: 'legacy'` queries continue t
 ### Zero-config solo-developer invariant
 
 The existing solo-developer zero-config path is preserved:
-- `NEO_CHROMA_UNIFIED=true` (if using unified topology per `#10015`)
+- The system defaults to the permanently unified topology (`#11014`)
 - `NEO_AGENT_IDENTITY=<github-login>` binds the solo dev's identity
 - `memorySharing: 'legacy'` default during migration window returns both tagged (post-upgrade) and untagged (pre-upgrade) memories transparently
 
