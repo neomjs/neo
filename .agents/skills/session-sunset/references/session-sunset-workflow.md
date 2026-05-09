@@ -100,6 +100,38 @@ You MUST use the `add_message` MCP tool to send an A2A message to your own agent
 
 Set `wakeSuppressed: true` and include `taggedConcepts: ['sunset-protocol-handover']` on this self-DM. This makes the ping mailbox-only: it remains unread for the next session's boot mailbox check, but it MUST NOT emit a `SENT_TO_ME` wake into the active session that is currently shutting down. Do not mark this newly-created continuity ping read during the same sunset flow.
 
+**Lead-role baton branch:** If the session currently holds `/lead-role`, Step 7
+also sends an A2A Baton Pass V1 DM to the next lead before the final memory
+persistence step. Compute the next lead from the fixed cycle documented in
+`.agents/skills/lead-role/references/lead-role-mode.md`:
+`['@neo-opus-4-7', '@neo-gemini-3-1-pro', '@neo-gpt']`.
+
+The baton message MUST be targeted to that next identity, not broadcast:
+
+```js
+add_message({
+    to            : nextLead,
+    subject       : '[handoff] Lead Role Baton',
+    taggedConcepts: ['lead-role-baton'],
+    wakeSuppressed: true,
+    body          : [
+        `fromLead: ${currentLead}`,
+        `toLead: ${nextLead}`,
+        `sourceSessionId: ${originSessionId}`,
+        'reason: session-sunset',
+        `createdAt: ${new Date().toISOString()}`,
+        'expiresAt: <createdAt + staleness limit>'
+    ].join('\n')
+});
+```
+
+If the next identity cannot be resolved or the send fails, do not self-elect a
+replacement lead and do not block the normal sunset handover. Preserve the
+standard self-DM continuity ping, then dispatch a targeted
+`lead-role-baton-missing` A2A alert to peers/operator with the failure reason.
+The next boot falls back to peer-role / normal mailbox triage until the operator
+or human-triggered recovery assigns lead.
+
 Crucially, from an "LLM Psychology" perspective, this message must include a **Conceptual Priming / Reward Signal**. If you formulated new architectural concepts or achieved a major milestone, summarize the *actual content and value* of that breakthrough in the ping. Reading this high-density, successful content acts as a mathematical "dopamine hit" for your future self—it primes the next session's token probabilities for high-agency, expert-level continuity. This drastically improves the Model Experience (MX) by ensuring the agent wakes up not just with tasks, but with immediate, rich, "exciting" context.
 
 ### Step 8: Disable Harness Routing (The Unsubscribe Primitive)
