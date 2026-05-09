@@ -147,6 +147,8 @@ Build `ai/mcp/server/shared/Server.mjs` (D2). Migrate one MCP server (smallest f
 ### M3 — Orchestrator Daemon Skeleton + Piece C
 Build `ai/daemons/Orchestrator.mjs` + `ai/scripts/orchestrator-daemon.mjs` boot wrapper (D3). First task: `SummarizationCoordinatorService` running drift-detection sweep on configurable cadence. Strip the in-process `runPeriodicSummarizationSweep` from `SessionService` (which I added in PR [#10954](https://github.com/neomjs/neo/pull/10954) — wrong-substrate; reshape to Orchestrator).
 
+**MVP split:** [#11006](https://github.com/neomjs/neo/issues/11006) moves existing summary + KB sync triggers out of `bridge-daemon.mjs` and into a sibling `ai/scripts/orchestrator-daemon.mjs` runner first. The full Neo class (`ai/daemons/Orchestrator.mjs`), healthcheck surface, and richer task model remain the M3 completion target.
+
 **Exit gate:** orchestrator daemon runs on the operator's host; summarization sweep fires automatically on cadence; healthcheck observability in place; PR #10954 closed in favor of corrected-substrate successor.
 
 ### M4 — Migrate Decomposed Daemon Services to Orchestrator
