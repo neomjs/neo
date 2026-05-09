@@ -1,5 +1,6 @@
-import Neo  from '../../../src/Neo.mjs';
-import '../../../src/core/_export.mjs';
+// Neo + core/_export bootstrap belongs to the orchestrator-daemon entry point
+// (`ai/scripts/orchestrator-daemon.mjs`). Class files rely on `globalThis.Neo`
+// populated by the entry-point bootstrap.
 import Base from '../../../src/core/Base.mjs';
 import {
     getUnreadSunsetHandovers,
