@@ -15,7 +15,7 @@ import {
     Memory_GraphService     as GraphService,
     Memory_LifecycleService as LifecycleService
 }                    from '../services.mjs';
-import MailboxService from '../mcp/server/memory-core/services/MailboxService.mjs';
+import MailboxService from '../services/memory-core/MailboxService.mjs';
 import logger        from '../mcp/server/memory-core/logger.mjs';
 import {
     isGateOpen,

@@ -26,8 +26,8 @@
 // heartbeat token-economy measurement, fixed under #10595).
 import Neo              from '../../src/Neo.mjs';
 import * as core        from '../../src/core/_export.mjs';
-import LifecycleService from '../mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
-import MailboxService   from '../mcp/server/memory-core/services/MailboxService.mjs';
+import LifecycleService from '../services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import MailboxService   from '../services/memory-core/MailboxService.mjs';
 
 async function main() {
     await LifecycleService.initAsync();

@@ -11,9 +11,9 @@ import Neo from '../../src/Neo.mjs';
 import * as core from '../../src/core/_export.mjs';
 import { withHeartbeatLock } from './heartbeatLock.mjs';
 import RequestContextService from '../mcp/server/shared/services/RequestContextService.mjs';
-import LifecycleService from '../mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
-import GraphService from '../mcp/server/memory-core/services/GraphService.mjs';
-import MailboxService from '../mcp/server/memory-core/services/MailboxService.mjs';
+import LifecycleService from '../services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import GraphService from '../services/memory-core/GraphService.mjs';
+import MailboxService from '../services/memory-core/MailboxService.mjs';
 import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 
 const COOLDOWN_STATE_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.json';

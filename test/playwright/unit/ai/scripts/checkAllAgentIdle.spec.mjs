@@ -29,7 +29,7 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
     test('checkAllAgentIdle.mjs emits positive signal when all configured agents are idle', async () => {
         test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
-        const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        const GraphService = (await import('../../../../../ai/services/memory-core/GraphService.mjs')).default;
         await GraphService.initAsync();
 
         // 1. Setup mock memory rows for both agents that are OLDER than threshold
@@ -77,7 +77,7 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
     test('checkAllAgentIdle.mjs emits negative signal when at least one agent is active', async () => {
         test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
-        const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        const GraphService = (await import('../../../../../ai/services/memory-core/GraphService.mjs')).default;
         await GraphService.initAsync();
 
         // 1. Setup mock memory rows. Agent 1 is old, Agent 2 is new

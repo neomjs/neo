@@ -88,7 +88,7 @@ test.describe('ai/scripts/checkSunsetted', () => {
     test('checkSunsetted.mjs update-on-read legacy row migration actually migrates legacy structure', async () => {
         test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
-        const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        const GraphService = (await import('../../../../../ai/services/memory-core/GraphService.mjs')).default;
         await GraphService.initAsync();
 
         const legacyId = 'legacy-memory-12345';
@@ -135,7 +135,7 @@ test.describe('ai/scripts/checkSunsetted', () => {
 
         // Pre-fix: COALESCE(timestamp, name) sorted 'Memory: 2026-xx' (legacy) > '2026-xx' (fresh pure ISO string)
         // Post-fix: Bulk migration converts legacy rows to pure timestamps, allowing deterministic chronological sorting.
-        const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        const GraphService = (await import('../../../../../ai/services/memory-core/GraphService.mjs')).default;
         await GraphService.initAsync();
         const db = GraphService.db.storage.db;
 
@@ -199,7 +199,7 @@ test.describe('ai/scripts/checkSunsetted', () => {
         // Post-fix (#10641): subscription presence is the authoritative sunset signal; staleness ignored.
         // Post-fix (#10673): staleness re-emerges as `idle_out_candidate` — a lower-authority
         // "candidate in-place nudge" signal, NEVER as sunset.
-        const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        const GraphService = (await import('../../../../../ai/services/memory-core/GraphService.mjs')).default;
         await GraphService.initAsync();
 
         const testIdentity   = '@neo-staleness-test';
@@ -265,7 +265,7 @@ test.describe('ai/scripts/checkSunsetted', () => {
         test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
         // Quadrant (sunset=false, idle_out_candidate=false): the no-op case.
-        const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        const GraphService = (await import('../../../../../ai/services/memory-core/GraphService.mjs')).default;
         await GraphService.initAsync();
         const db = GraphService.db.storage.db;
 
@@ -318,7 +318,7 @@ test.describe('ai/scripts/checkSunsetted', () => {
         // 'missing' (no rows) / 'active' / 'degraded' (status=degraded) / 'disabled' (harnessTarget=disabled).
         // Pre-#10673: the original query filtered out disabled+degraded, so all 3 mapped indistinguishably to "no active sub."
         // Post-#10673: the evidence object preserves the distinction so consumers can route appropriately.
-        const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        const GraphService = (await import('../../../../../ai/services/memory-core/GraphService.mjs')).default;
         await GraphService.initAsync();
         const db = GraphService.db.storage.db;
 
@@ -352,7 +352,7 @@ test.describe('ai/scripts/checkSunsetted', () => {
         // When a sunset_restart is already in flight (per inflightLock.mjs), the detector
         // MUST NOT recommend another sunset_restart action. The lock is the data-layer mutex
         // that prevents the runaway-spawn pattern documented in the forensic record.
-        const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        const GraphService = (await import('../../../../../ai/services/memory-core/GraphService.mjs')).default;
         await GraphService.initAsync();
 
         const testIdentity = '@neo-locked-sunset-test';
@@ -418,7 +418,7 @@ test.describe('ai/scripts/checkSunsetted', () => {
         //   - idle_out_candidate=true requires subscription_active=true
         // No detector input can produce both true simultaneously. This test documents the
         // invariant by exercising every plausible input shape and asserting NEVER both.
-        const GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        const GraphService = (await import('../../../../../ai/services/memory-core/GraphService.mjs')).default;
         await GraphService.initAsync();
         const db = GraphService.db.storage.db;
 

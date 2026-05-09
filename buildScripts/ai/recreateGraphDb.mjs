@@ -4,8 +4,8 @@ import Neo             from '../../src/Neo.mjs';
 import * as core       from '../../src/core/_export.mjs';
 import InstanceManager from '../../src/manager/Instance.mjs';
 import aiConfig        from '../../ai/mcp/server/memory-core/config.mjs';
-import GraphService    from '../../ai/mcp/server/memory-core/services/GraphService.mjs';
-import StorageRouter   from '../../ai/mcp/server/memory-core/managers/StorageRouter.mjs';
+import GraphService    from '../../ai/services/memory-core/GraphService.mjs';
+import StorageRouter   from '../../ai/services/memory-core/managers/StorageRouter.mjs';
 
 /**
  * @module buildScripts/ai/recreateGraphDb

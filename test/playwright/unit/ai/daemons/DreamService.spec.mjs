@@ -20,7 +20,7 @@ import InstanceManager from '../../../../../src/manager/Instance.mjs';
 import fs             from 'fs';
 import path           from 'path';
 import os             from 'os';
-import {TestLifecycleHelper} from '../mcp/server/memory-core/util.mjs';
+import {TestLifecycleHelper} from '../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
     let GraphService;
@@ -58,14 +58,14 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
         kbConfig.data.memoryCoreDbPath = testDbPath;
 
-        GraphService = (await import('../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        GraphService = (await import('../../../../../ai/services/memory-core/GraphService.mjs')).default;
         DreamService = (await import('../../../../../ai/daemons/DreamService.mjs')).default;
         MemorySessionIngestor = (await import('../../../../../ai/daemons/services/MemorySessionIngestor.mjs')).default;
         SemanticGraphExtractor = (await import('../../../../../ai/daemons/services/SemanticGraphExtractor.mjs')).default;
-        StorageRouter = (await import('../../../../../ai/mcp/server/memory-core/managers/StorageRouter.mjs')).default;
+        StorageRouter = (await import('../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
         OpenAiCompatible       = (await import('../../../../../ai/provider/OpenAiCompatible.mjs')).default;
-        SystemLifecycleService = (await import('../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
-        TextEmbeddingService   = (await import('../../../../../ai/mcp/server/memory-core/services/TextEmbeddingService.mjs')).default;
+        SystemLifecycleService = (await import('../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
+        TextEmbeddingService   = (await import('../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
         KBRecorderService      = (await import('../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
         logger                 = (await import('../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
 
@@ -594,7 +594,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
 
         const aiConfig                = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../ai/daemons/services/ConceptIngestor.mjs')).default;
-        const FileSystemIngestor      = (await import('../../../../../ai/mcp/server/memory-core/services/FileSystemIngestor.mjs')).default;
+        const FileSystemIngestor      = (await import('../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
         const TopologyInferenceEngine = (await import('../../../../../ai/daemons/services/TopologyInferenceEngine.mjs')).default;
 
         const sessionCount = 3;
@@ -683,7 +683,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
 
         const aiConfig                = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         const ConceptIngestor         = (await import('../../../../../ai/daemons/services/ConceptIngestor.mjs')).default;
-        const FileSystemIngestor      = (await import('../../../../../ai/mcp/server/memory-core/services/FileSystemIngestor.mjs')).default;
+        const FileSystemIngestor      = (await import('../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
         const TopologyInferenceEngine = (await import('../../../../../ai/daemons/services/TopologyInferenceEngine.mjs')).default;
 
         const mockSession = {

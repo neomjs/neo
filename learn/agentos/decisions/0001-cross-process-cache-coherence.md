@@ -376,7 +376,7 @@ After #10190 lands:
 - `ai/graph/Database.mjs` — `syncCache()`, `lastSyncId`, `vicinityLoadedNodes`
 - `ai/graph/storage/SQLite.mjs` — `GraphLog` schema + triggers, `getDeltaLog()`,
   `load()`
-- `ai/mcp/server/memory-core/services/GraphService.mjs` — `initAsync()`, `getNode()`
+- `ai/services/memory-core/GraphService.mjs` — `initAsync()`, `getNode()`
 
 ### Related tickets
 

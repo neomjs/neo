@@ -356,10 +356,10 @@ The system evolves by predicting its own evolution.
 |---|---|
 | `ai/daemons/DreamService.mjs` | The complete REM pipeline (1368 lines) |
 | `buildScripts/ai/runSandman.mjs` | CLI entrypoint (`npm run ai:run-sandman`) |
-| `ai/mcp/server/memory-core/services/GraphService.mjs` | Native Edge Graph (SQLite) |
-| `ai/mcp/server/memory-core/managers/StorageRouter.mjs` | ChromaDB collection routing |
-| `ai/mcp/server/memory-core/services/TextEmbeddingService.mjs` | Vector embedding |
-| `ai/mcp/server/memory-core/services/FileSystemIngestor.mjs` | Workspace → Graph sync |
+| `ai/services/memory-core/GraphService.mjs` | Native Edge Graph (SQLite) |
+| `ai/services/memory-core/managers/StorageRouter.mjs` | ChromaDB collection routing |
+| `ai/services/memory-core/TextEmbeddingService.mjs` | Vector embedding |
+| `ai/services/memory-core/FileSystemIngestor.mjs` | Workspace → Graph sync |
 | `ai/provider/OpenAiCompatible.mjs` | LLM provider for extraction |
 | `resources/content/sandman_handoff.md` | The output handoff document |
 
