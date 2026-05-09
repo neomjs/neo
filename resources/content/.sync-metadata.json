@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-05-09T11:26:04.619Z",
-  "releasesLastFetched": "2026-05-09T11:26:15.251Z",
+  "lastSync": "2026-05-09T12:05:07.942Z",
+  "releasesLastFetched": "2026-05-09T12:05:21.525Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -28393,7 +28393,7 @@
       "path": "resources/content/issues/issue-9999.md",
       "closedAt": null,
       "updatedAt": "2026-05-01T16:10:34Z",
-      "contentHash": "98f476af15cbb47f690598f0b14243fd2de363fc82734c4e9bf760e6206664e3",
+      "contentHash": "d3387afc54278e8c6bf43c3da89c1b266e8ffd8fb21a19dff1c7aa00ad513bf8",
       "commentsTotal": 9
     },
     "10000": {
@@ -32577,7 +32577,7 @@
       "path": "resources/content/issues/issue-10960.md",
       "closedAt": null,
       "updatedAt": "2026-05-08T20:44:42Z",
-      "contentHash": "260a850e1b2e6e793e7927764360ad1046d4cae3f2a650fd17d0d6861b7689a1",
+      "contentHash": "c6059d752e7ea4c012b5a6369499498aea6a9d9e2f7f08523e7a88fb0fbe7d55",
       "commentsTotal": 2
     },
     "10961": {
@@ -32661,11 +32661,11 @@
       "commentsTotal": 0
     },
     "10986": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/issue-10986.md",
-      "closedAt": null,
-      "updatedAt": "2026-05-09T11:22:23Z",
-      "contentHash": "b9fa6629f47b72a2e309cfb4880c81106bda9d5ac85c46eb1abe16f0595eb1eb",
+      "closedAt": "2026-05-09T12:04:56Z",
+      "updatedAt": "2026-05-09T12:04:56Z",
+      "contentHash": "42a100220bd86a54a8df854f0899f798b4a666169c903e0ad8f08719e6e787d6",
       "commentsTotal": 1
     },
     "10987": {
@@ -32739,6 +32739,14 @@
       "updatedAt": "2026-05-09T11:17:04Z",
       "contentHash": "29bc55a1f44d2b566471932e6e5703ec5638034a7d02a5dad29b4ac02b94c174",
       "commentsTotal": 0
+    },
+    "11009": {
+      "state": "OPEN",
+      "path": "resources/content/issues/issue-11009.md",
+      "closedAt": null,
+      "updatedAt": "2026-05-09T11:44:34Z",
+      "contentHash": "8e558b79128507937473017060dc6fa1f6dbf51c7a3e7727459a364d57e44a4b",
+      "commentsTotal": 3
     }
   },
   "releases": {
