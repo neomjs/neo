@@ -129,6 +129,10 @@ function makeSafe(service, spec) {
 
                 // Replace with wrapped method
                 service[key] = async (args) => {
+                    // Bypass Zod validation for legacy positional primitives (backward compat)
+                    if (args !== undefined && (typeof args !== 'object' || args === null || Array.isArray(args))) {
+                        return originalMethod(args);
+                    }
                     // 1. Validate
                     const parsedArgs = zodSchema.parse(args || {});
 
