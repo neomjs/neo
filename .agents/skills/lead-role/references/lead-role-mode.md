@@ -35,7 +35,31 @@ a) Operator explicitly exits via "ship it" / "execute" / similar, OR
 b) Shape has converged through dialogue and tickets/PRs are now appropriate, OR
 c) The architectural decision space has bounded down.
 
-## 7. Anti-Pattern Catalog
+## 7. Autonomous Lead Rotation
+
+Lead can be passed between sessions by the A2A Baton Pass V1 (`#11038`).
+This is a deterministic handoff, not leader election.
+
+**Fixed cycle:** `['@neo-opus-4-7', '@neo-gemini-3-1-pro', '@neo-gpt']`.
+When a current lead sunsets, the next lead is the next identity in this array,
+wrapping from `@neo-gpt` back to `@neo-opus-4-7`.
+
+**Baton authority:** a valid baton is a targeted A2A DM to the computed next
+lead with subject `[handoff] Lead Role Baton`, `wakeSuppressed: true`,
+`taggedConcepts: ['lead-role-baton']`, and body fields `fromLead`, `toLead`,
+`sourceSessionId`, `reason`, `createdAt`, and expiry / staleness limits.
+`AGENT:*` broadcasts are invalid for lead acquisition.
+
+**Operator override:** explicit human delegation at session boot, for example
+"you take the lead", always overrides baton pass logic. Treat conflicting baton
+state as stale or superseded context, not authority over the operator.
+
+**Missing / stale baton:** if no valid baton is present, do not self-elect.
+Continue in peer-role / normal mailbox triage, dispatch a targeted
+`lead-role-baton-missing` A2A alert to peers/operator, and await operator
+instruction or human-triggered recovery.
+
+## 8. Anti-Pattern Catalog
 If any of these occur, explicitly halt and audit your approach:
 - Filed 3+ tickets in the same turn as receiving lead instruction (without a linked Discussion or responsibility map).
 - Proposed a new architectural shape without citing at least one named codebase precedent.
@@ -46,3 +70,4 @@ If any of these occur, explicitly halt and audit your approach:
 - **Reading operator's calibration as new directive rather than substrate-correction** (when operator surfaces a verify-before-assert violation, the right response is internalize-and-pause, not pivot-into-new-action-mode).
 - **Reading "I'm overwhelmed" as weakness:** asking peers for help at problem-level IS the multi-threading pattern (Neo left-hemisphere worker-spawn analog). Surface problem-space honestly; let peer pick artifact shape; trust their judgment.
 - **Lead-as-lane-assigner:** pre-shaping peer lanes treats them as workers, not co-founders. Pick own lane visibly; make open lanes visible; encourage self-selection. Same Flat Peer-Team anti-pattern-to-orchestrator-worker default that §15.6 (#11030) anchors at the topology layer.
+- **Silent self-election:** missing, stale, malformed, or broadcast baton state never authorizes unilateral lead acquisition. Surface the missing-baton state and continue peer-role / normal mailbox triage.
