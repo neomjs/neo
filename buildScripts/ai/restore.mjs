@@ -303,25 +303,22 @@ export async function validateBundle(bundleRoot, layout, logger = console) {
  * @returns {Promise<{bundleChromaUnified: Boolean|null, currentChromaUnified: Boolean, match: Boolean, forced: Boolean}>}
  */
 export async function checkTopology({meta, forceTopologyMismatch, logger}) {
-    const currentChromaUnified = Boolean(mcConfig.chromaUnified);
+    // Post-#11011: We are permanently in unified mode.
+    // If the bundle was taken under federated mode (chromaUnified=false), we should warn.
     const bundleChromaUnified  = meta?.topology?.chromaUnified;
 
-    if (typeof bundleChromaUnified !== 'boolean') {
-        return {bundleChromaUnified: null, currentChromaUnified, match: true, forced: false}
-    }
-
-    if (bundleChromaUnified === currentChromaUnified) {
-        return {bundleChromaUnified, currentChromaUnified, match: true, forced: false}
+    if (bundleChromaUnified === true || typeof bundleChromaUnified !== 'boolean') {
+        return {bundleChromaUnified, currentChromaUnified: true, match: true, forced: false}
     }
 
     if (forceTopologyMismatch) {
-        logger.warn?.(`[Restore] Topology mismatch (bundle.chromaUnified=${bundleChromaUnified}, current=${currentChromaUnified}) — proceeding due to --force-topology-mismatch.`);
-        return {bundleChromaUnified, currentChromaUnified, match: false, forced: true}
+        logger.warn?.(`[Restore] Topology mismatch (bundle.chromaUnified=false, current=unified) — proceeding due to --force-topology-mismatch.`);
+        return {bundleChromaUnified, currentChromaUnified: true, match: false, forced: true}
     }
 
     throw new Error(
-        `Topology mismatch: bundle was taken under chromaUnified=${bundleChromaUnified}, ` +
-        `but current deployment is chromaUnified=${currentChromaUnified}. ` +
+        `Topology mismatch: bundle was taken under federated mode (chromaUnified=false), ` +
+        `but current deployment is permanently unified. ` +
         `Pass --force-topology-mismatch to proceed (collection IDs may diverge across topologies).`
     )
 }

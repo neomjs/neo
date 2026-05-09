@@ -141,7 +141,7 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
  * @see Neo.ai.services.memory-core.HealthService#buildTopologyBlock
  * @see Neo.ai.services.memory-core.managers.ChromaManager#resolveChromaCoordinates
  */
-test.describe('HealthService #10127 — buildTopologyBlock', () => {
+test.describe('HealthService #10127, #11011 — buildTopologyBlock', () => {
     let buildTopologyBlock;
 
     test.beforeAll(async () => {
@@ -149,62 +149,36 @@ test.describe('HealthService #10127 — buildTopologyBlock', () => {
         buildTopologyBlock = mod.buildTopologyBlock;
     });
 
-    test('federated mode surfaces engines.chroma coordinates + resolvedVia path', () => {
-        // Default production topology: Memory Core owns its own ChromaDB, KB owns a separate one.
-        // `chromaUnified` unset/false → resolver returns `engines.chroma`, `resolvedVia` names that
-        // exact config key path so operators inspecting a wrong host/port know where to look.
+    test('unified mode surfaces engines.chroma coordinates + resolvedVia path', () => {
+        // Post-#11011: The federated topology is retired. Memory Core reads the shared
+        // unified instance coordinates directly from `engines.chroma`.
         const cfg = {
-            chromaUnified: false,
             engines: {
-                chroma: {host: 'localhost', port: 8100},
-                kb    : {chroma: {host: 'localhost', port: 8000}}
-            }
-        };
-        expect(buildTopologyBlock(cfg)).toEqual({
-            mode       : 'federated',
-            coordinates: {host: 'localhost', port: 8100},
-            resolvedVia: 'engines.chroma'
-        });
-    });
-
-    test('unified mode surfaces engines.kb.chroma coordinates + resolvedVia path', () => {
-        // Sub-epic #10015 unified topology: Memory Core reuses the KB's ChromaDB instance. The whole
-        // point of the `/health` topology surface is making this mode verifiable from the wire —
-        // `mode: 'unified'` confirms the `NEO_CHROMA_UNIFIED=true` flag took effect, `coordinates`
-        // pins the exact KB-owned endpoint, `resolvedVia` names the config branch the resolver walked.
-        const cfg = {
-            chromaUnified: true,
-            engines: {
-                chroma: {host: 'localhost', port: 8100},
-                kb    : {chroma: {host: 'localhost', port: 8000}}
+                chroma: {host: 'localhost', port: 8000}
             }
         };
         expect(buildTopologyBlock(cfg)).toEqual({
             mode       : 'unified',
             coordinates: {host: 'localhost', port: 8000},
-            resolvedVia: 'engines.kb.chroma'
+            resolvedVia: 'engines.chroma'
         });
     });
 
-    test('unified mode with missing engines.kb.chroma surfaces error, does not throw', () => {
-        // Misconfig path: a custom config override clobbers `engines.kb` while leaving
-        // `chromaUnified=true`. `resolveChromaCoordinates` throws a descriptive error. Healthcheck
-        // must NOT propagate the throw — the remaining observability surface (identity, mailbox,
-        // migration) is still valuable, and the topology block itself is the right place to
-        // surface the misconfig as observable data. `coordinates: null` + `error` string aligns
-        // with the "surface, don't obscure" principle codified in PR #10227.
+    test('missing engines.chroma surfaces error, does not throw', () => {
+        // Misconfig path: coordinates are missing or incomplete. Healthcheck
+        // must NOT propagate the throw — the remaining observability surface
+        // is still valuable. `coordinates: null` + `error` string aligns
+        // with the "surface, don't obscure" principle.
         const cfg = {
-            chromaUnified: true,
             engines: {
-                chroma: {host: 'localhost', port: 8100}
-                // engines.kb deliberately absent
+                // chroma deliberately absent
             }
         };
         const result = buildTopologyBlock(cfg);
         expect(result.mode).toBe('unified');
         expect(result.coordinates).toBeNull();
-        expect(result.resolvedVia).toBe('engines.kb.chroma');
-        expect(result.error).toMatch(/engines\.kb\.chroma/);
+        expect(result.resolvedVia).toBe('engines.chroma');
+        expect(result.error).toMatch(/engines\.chroma/);
     });
 });
 

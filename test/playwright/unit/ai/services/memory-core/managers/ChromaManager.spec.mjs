@@ -25,49 +25,6 @@ import path           from 'path';
 const tmpDir = path.resolve(process.cwd(), 'tmp');
 aiConfig.storagePaths.graph = path.join(tmpDir, 'test-graph-' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.db');
 
-test.describe('Neo.ai.services.memory-core.managers.ChromaManager — resolveChromaCoordinates (#10001)', () => {
-    test('federated mode (chromaUnified=false) routes to MC own ChromaDB coordinates', () => {
-        const result = ChromaManager.resolveChromaCoordinates({
-            chromaUnified: false,
-            engines      : {
-                chroma: {host: 'mc-host', port: 8001},
-                kb    : {chroma: {host: 'kb-host', port: 8000}}
-            }
-        });
-
-        expect(result).toEqual({host: 'mc-host', port: 8001});
-    });
-
-    test('unified mode (chromaUnified=true) routes to shared KB ChromaDB coordinates', () => {
-        const result = ChromaManager.resolveChromaCoordinates({
-            chromaUnified: true,
-            engines      : {
-                chroma: {host: 'mc-host', port: 8001},
-                kb    : {chroma: {host: 'kb-host', port: 8000}}
-            }
-        });
-
-        expect(result).toEqual({host: 'kb-host', port: 8000});
-    });
-
-    test('unified mode throws a clear error when engines.kb.chroma is absent', () => {
-        // Guards the misconfiguration path where a custom config override clobbers engines.kb
-        // without supplying a replacement — surfaces the issue at construct-time rather than
-        // letting `new ChromaClient({host: undefined, port: undefined})` fail later at heartbeat.
-        expect(() => ChromaManager.resolveChromaCoordinates({
-            chromaUnified: true,
-            engines      : {chroma: {host: 'mc-host', port: 8001}}
-        })).toThrow(/chromaUnified=true requires engines\.kb\.chroma/);
-    });
-
-    test('shipped config template defaults to federated mode — MC own instance on 8001', () => {
-        // Default-posture guard: the shipped repository must not ship with chromaUnified=true
-        // (that would silently redirect every fresh checkout to port 8000, breaking federated deploys).
-        expect(aiConfig.chromaUnified).toBe(false);
-        expect(ChromaManager.resolveChromaCoordinates(aiConfig)).toEqual(aiConfig.engines.chroma);
-    });
-});
-
 test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
     test('should prevent console.warn global state theft during concurrent collection fetching', async () => {
         // Set up a custom warn logger to inspect leaks

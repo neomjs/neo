@@ -272,7 +272,7 @@ export async function verifyBundleIntegrity(layout, subsystems) {
  */
 function buildTopologyDescriptor() {
     return {
-        chromaUnified : Boolean(mcConfig.chromaUnified),
+        chromaUnified : true,
         kbChromaCoords: {
             host: kbConfig.host    ?? null,
             port: kbConfig.port    ?? null,
