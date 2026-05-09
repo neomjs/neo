@@ -1,18 +1,8 @@
-// Neo namespace bootstrap (entry-point invariant): this file is a HYBRID — it defines
-// the SwarmHeartbeatService class AND self-invokes as a daemon entry point under launchd /
-// systemd via the `if (isMain)` block at the bottom. Entry-point invariant requires all
-// 3 imports: `Neo` + `core/_export` populate `globalThis.Neo` so any module using
-// `Neo.gatekeep()` / `Neo.setupClass()` at module-load (e.g. `src/core/Compare.mjs`,
-// transitively pulled via Base / LifecycleService / GraphService) succeeds. Without this
-// prelude the script crashes with `ReferenceError: Neo is not defined`. `InstanceManager`
-// binds `Neo.find` / `Neo.findFirst` / `Neo.get` aliases and consumes pre-singleton
-// `Neo.idMap`. Future cleanup: split class into `ai/daemons/SwarmHeartbeatService.mjs`
-// (class only, no Neo imports) + `ai/scripts/swarm-heartbeat-daemon.mjs` (entry point);
-// matches Orchestrator class+wrapper pattern.
-import Neo             from '../../src/Neo.mjs';
-import * as core       from '../../src/core/_export.mjs';
-import InstanceManager from '../../src/manager/Instance.mjs';
-
+// Class-only file (#11058 split). Entry-point bootstrap (Neo + core/_export +
+// InstanceManager) lives in `ai/scripts/swarm-heartbeat-daemon.mjs` per the
+// Orchestrator class+wrapper pattern + entry-point-only invariant from #11049.
+// `Neo.setupClass(SwarmHeartbeatService)` at file bottom works via `globalThis.Neo`
+// populated by the entry-point bootstrap chain.
 import {spawn}         from 'child_process';
 import path            from 'path';
 import {fileURLToPath} from 'url';
@@ -66,9 +56,10 @@ const DEFAULT_IDENTITY         = '@neo-gemini-3-1-pro';
  * and converting each to dual-mode (CLI + module-export) is sibling work. Their subprocess
  * cost (~2-5s per cycle, fires every 5min) is operationally tolerable.
  *
- * **Persistent-process management:** the file's bottom self-invoke pattern lets launchd /
- * systemd run `node ai/daemons/SwarmHeartbeatService.mjs` directly. SIGTERM / SIGINT trigger
- * a clean stop so operator `launchctl bootout` doesn't leave dangling timers.
+ * **Persistent-process management:** invocation under launchd / systemd targets the
+ * entry-point wrapper at `ai/scripts/swarm-heartbeat-daemon.mjs`, NOT this class file
+ * (#11058 split — class-only file no longer self-invokes). The wrapper handles Neo
+ * namespace bootstrap, SIGTERM / SIGINT clean-stop, and `start()` invocation.
  *
  * **Coexistence with `swarm-heartbeat.sh`:** the singleton and the shell wrapper share the
  * concurrency lock at `.neo-ai-data/heartbeat-concurrency.lock` (#10319), but operators must
@@ -524,25 +515,5 @@ class SwarmHeartbeatService extends Base {
 }
 
 export default Neo.setupClass(SwarmHeartbeatService);
-
-// Self-invoke entrypoint (#10789 AC4): `node ai/daemons/SwarmHeartbeatService.mjs` under
-// launchd / systemd directly drives the daemon. SIGTERM / SIGINT trigger a clean stop so
-// `launchctl bootout` / `systemctl stop` don't leave dangling timers. The setTimeout chain
-// keeps the event loop alive between pulses; no explicit keepalive primitive needed.
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
-if (isMain) {
-    const cleanShutdown = signal => {
-        logger.info(`[SwarmHeartbeatService] Received ${signal}; stopping.`);
-        Neo.ai.daemons.SwarmHeartbeatService.stop();
-        process.exit(0)
-    };
-    process.on('SIGTERM', () => cleanShutdown('SIGTERM'));
-    process.on('SIGINT',  () => cleanShutdown('SIGINT'));
-
-    Neo.ai.daemons.SwarmHeartbeatService.start().catch(err => {
-        logger.error('[SwarmHeartbeatService] Daemon start failed:', err);
-        process.exit(1)
-    })
-}
 
 export {HEARTBEAT_LOCK_PATH, DEFAULT_POLL_INTERVAL_MS, DEFAULT_IDENTITY};
