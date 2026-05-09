@@ -351,34 +351,53 @@ complete organism where the codebase and the agent co-evolve.
 
 ### Runtime Engine (Browser)
 
-| Package | Purpose | Key Classes |
-|---|---|---|
-| `src/core/` | Class system, Observable, Logger | `Base`, `Observable` |
-| `src/component/` | UI primitives | `Base`, `Wrapper` |
-| `src/container/` | Layout containers | `Base`, `Viewport` |
-| `src/grid/` | Buffered data grids | `Container`, `View` |
-| `src/data/` | Data layer | `Store`, `Model`, `RecordFactory` |
-| `src/state/` | State management | `Provider` |
-| `src/worker/` | Thread management | `App`, `VDom`, `Data`, `Manager` |
-| `src/vdom/` | Virtual DOM engine | `Helper` |
-| `src/main/` | Main thread addons | `DomEvents`, `DomAccess` |
-| `src/ai/` | Neural Link client | `Client` |
+| Package | Purpose | Key Classes | Decisions |
+|---|---|---|---|
+| `src/core/` | Class system, Observable, Logger | `Base`, `Observable` | — |
+| `src/component/` | UI primitives | `Base`, `Wrapper` | — |
+| `src/container/` | Layout containers | `Base`, `Viewport` | — |
+| `src/grid/` | Buffered data grids | `Container`, `View` | — |
+| `src/data/` | Data layer | `Store`, `Model`, `RecordFactory` | — |
+| `src/state/` | State management | `Provider` | — |
+| `src/worker/` | Thread management | `App`, `VDom`, `Data`, `Manager` | — |
+| `src/vdom/` | Virtual DOM engine | `Helper` | — |
+| `src/main/` | Main thread addons | `DomEvents`, `DomAccess` | — |
+| `src/ai/` | Neural Link client | `Client` | — |
 
 ### Agent OS (Node.js)
 
-| Package | Purpose | Key Classes |
-|---|---|---|
-| `ai/Agent.mjs` | Agent base class | `Agent` |
-| `ai/agent/` | Cognitive runtime | `Loop`, `Orchestrator`, `Scheduler` |
-| `ai/context/` | Context window management | `Assembler` |
-| `ai/provider/` | LLM abstraction | `Gemini`, `Ollama`, `OpenAiCompatible` |
-| `ai/services.mjs` | SDK with Zod validation | — |
-| `ai/daemons/` | Background daemons | `DreamService` |
-| `ai/graph/` | Native Edge Graph | `Database`, `Store`, `NodeModel` |
-| `ai/mcp/server/knowledge-base/` | Semantic RAG | `QueryService`, `SearchService` |
-| `ai/mcp/server/memory-core/` | Episodic memory | `MemoryService`, `SessionService` |
-| `ai/mcp/server/github-workflow/` | Issue/PR management | `IssueService`, `SyncService` |
-| `ai/mcp/server/neural-link/` | Live app bridge | `ConnectionService`, `Bridge` |
+Post-M6 ([#10986](https://github.com/neomjs/neo/issues/10986)) the per-MCP-server services were lifted from `ai/mcp/server/<name>/services/` into the flat SDK boundary at `ai/services/<name>/`. The `ai/mcp/server/<name>/` directories now host only the server entry-point (`Server.mjs`), config templates, logger, and shared helpers; the service implementations live under `ai/services/<name>/`. Both rows are listed below for navigability.
+
+| Package | Purpose | Key Classes | Decisions |
+|---|---|---|---|
+| `ai/Agent.mjs` | Agent base class | `Agent` | — |
+| `ai/agent/` | Cognitive runtime | `Loop`, `Orchestrator`, `Scheduler` | — |
+| `ai/context/` | Context window management | `Assembler` | — |
+| `ai/provider/` | LLM abstraction | `Gemini`, `Ollama`, `OpenAiCompatible` | — |
+| `ai/services.mjs` | SDK with Zod validation aggregator | — | — |
+| `ai/services/knowledge-base/` | Semantic RAG services (post-M6 SDK location) | `QueryService`, `SearchService`, `KBRecorderService` | — |
+| `ai/services/memory-core/` | Episodic memory services (post-M6 SDK location) | `MemoryService`, `SessionService`, `GraphService`, `MailboxService` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md), [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) |
+| `ai/services/github-workflow/` | Issue/PR management services (post-M6 SDK location) | `IssueService`, `SyncService`, `LabelService` | — |
+| `ai/services/neural-link/` | Live app bridge services (post-M6 SDK location) | `ConnectionService`, `RecorderService` | — |
+| `ai/scripts/` | One-shot operator scripts + thin daemon boot wrappers | `bridge-daemon.mjs`, `orchestrator-daemon.mjs` | [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) |
+| `ai/daemons/` | Long-running daemon classes | `DreamService` | [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) |
+| `ai/graph/` | Native Edge Graph (SQLite-backed knowledge graph) | `Database`, `Store`, `NodeModel` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md) |
+| `ai/mcp/server/knowledge-base/` | KB MCP-server entry point + config | `Server`, `config` | — |
+| `ai/mcp/server/memory-core/` | MC MCP-server entry point + config | `Server`, `config` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md) |
+| `ai/mcp/server/github-workflow/` | GH-WF MCP-server entry point + config | `Server`, `config` | — |
+| `ai/mcp/server/neural-link/` | NL MCP-server entry point + config | `Server`, `config` | — |
+| `ai/mcp/server/shared/` | Cross-cutting MCP infrastructure | `BaseServer`, `AuthMiddleware`, `RequestContextService`, `TransportService` | — |
+
+## Architectural Decision Records
+
+The Agent OS subsystem records its load-bearing architectural trade-offs in [`learn/agentos/decisions/`](../agentos/decisions/). Every cross-system trade-off — i.e. one that touches multiple subsystems, sets a precedent for future code, or affects load-bearing invariants — earns an ADR (per the `structural-pre-flight` skill's Strategy-vs-Tactics threshold). Per-class localized constraints stay inline as Anchor & Echo guards instead.
+
+The map-as-pointer principle: the Structural Inventory above links each subsystem row to its relevant ADRs so readers who follow the map naturally encounter the architectural-decision substrate without needing to remember to consult `decisions/` separately. Authors of new ADRs MUST add the link to the affected Structural Inventory rows in the same PR (per [#10449](https://github.com/neomjs/neo/issues/10449) Sub-Issue 2 / `structural-pre-flight` map-maintenance discipline).
+
+| ADR | Subject | Subsystems Affected | Status |
+|---|---|---|---|
+| [0001](../agentos/decisions/0001-cross-process-cache-coherence.md) | Cross-Process Cache Coherence for Memory Core Graph | `ai/services/memory-core/`, `ai/graph/`, `ai/mcp/server/memory-core/` | Proposed (#10186 / #10189) |
+| [0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) | Phase 3 Wake-Substrate Standards Alignment (MCP + A2A schema mappings) | `ai/scripts/` (bridge-daemon), `ai/daemons/`, `ai/services/memory-core/` (MailboxService A2A primitives) | Proposed (#10311 / #10355) |
 
 ## Next Steps
 
