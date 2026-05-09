@@ -126,6 +126,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `whitebox-e2e` | Tactical | Neural Link pre-flight workflow for authoring E2E tests |
 | `ideation-sandbox` | Creative | GitHub Discussion brainstorming |
 | `lead-role` | Coordination | Suspends Auto Mode bias; mandates dialogue-first convergence for delegated lead tasks |
+| `peer-role` | Coordination | Suspends Auto Mode bias; mandates evidence-backed convergence-pressure mindset for peer reviews |
 | `create-skill` | Meta | Skill authoring bootstrap guide |
 
 ## Related Guides
