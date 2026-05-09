@@ -46,17 +46,13 @@ const execFileAsync = promisify(execFile);
  * All service calls route through `ai/services.mjs`, which applies Zod validation at the
  * SDK boundary via `makeSafe()` — no direct `ai/mcp/server/...` imports.
  *
- * ## Retention Policy (TODO)
+ * ## Retention Policy
  *
- * Semantics to mirror `defragChromaDB.cleanOldBackups` but applied to the unified bundle tree:
+ * Semantics mirror `defragChromaDB.cleanOldBackups` but applied to the unified bundle tree:
  * - Keep the newest `K` bundles unconditionally (default `K = 3`)
- * - Delete additional bundles older than `N` days (default `N = 7`)
+ * - Delete additional bundles older than `N` days (default `N = 30`)
  * - Sweep runs at the directory level on `.neo-ai-data/backups/` — one timestamp = one decision
  *   (no more correlating JSONL filenames across roots)
- *
- * **Not implemented in this commit** — the substrate is now in place, but the sweep itself
- * is a follow-up once operator habits around `npm run ai:backup` have stabilized and we
- * know the realistic cadence. Until then: manual pruning is fine, bundles are cheap to keep.
  *
  * ## Legacy Backup Migration
  *
@@ -332,7 +328,7 @@ async function buildVersionDescriptor(projectRoot, logger) {
 /**
  * Applies retention policy to the backup root.
  * Keeps the newest K=3 bundles unconditionally.
- * Deletes older bundles if they are older than N=7 days.
+ * Deletes older bundles if they are older than N=30 days.
  * @param {String} backupRoot
  * @param {Object} logger
  */
@@ -365,7 +361,7 @@ async function cleanOldBackups(backupRoot, logger) {
     backups.sort((a, b) => b.time - a.time);
 
     const K = 3;
-    const N_DAYS = 7;
+    const N_DAYS = 30;
     const now = Date.now();
     const thresholdMs = N_DAYS * 24 * 60 * 60 * 1000;
 
