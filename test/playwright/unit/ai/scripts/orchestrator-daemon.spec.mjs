@@ -30,6 +30,7 @@ test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
         const bridgeSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/scripts/bridge-daemon.mjs'), 'utf8');
         const orchestratorSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/scripts/orchestrator-daemon.mjs'), 'utf8');
         const daemonSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/Orchestrator.mjs'), 'utf8');
+        const taskDefSource        = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/utils/TaskDefinitions.mjs'), 'utf8');
 
         expect(bridgeSource).not.toContain('summarize-sessions.mjs');
         expect(bridgeSource).not.toContain('Piece C periodic summarization sweep');
@@ -44,7 +45,10 @@ test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
         expect(orchestratorSource).not.toContain('summarize-sessions.mjs');
         expect(orchestratorSource).not.toContain('syncKnowledgeBase.mjs');
 
-        expect(daemonSource).toContain('summarize-sessions.mjs');
-        expect(daemonSource).toContain('syncKnowledgeBase.mjs');
+        expect(daemonSource).not.toContain('summarize-sessions.mjs');
+        expect(daemonSource).not.toContain('syncKnowledgeBase.mjs');
+
+        expect(taskDefSource).toContain('summarize-sessions.mjs');
+        expect(taskDefSource).toContain('syncKnowledgeBase.mjs');
     });
 });
