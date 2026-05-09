@@ -21,6 +21,7 @@ const __dirname  = path.dirname(__filename);
 export const DEFAULT_POLL_INTERVAL_MS          = 3000;
 export const DEFAULT_SUMMARY_SWEEP_INTERVAL_MS = 600000;
 export const DEFAULT_KB_SYNC_INTERVAL_MS       = 1800000;
+export const DEFAULT_BACKUP_INTERVAL_MS        = 86400000;
 
 const DEFAULT_DB_PATH   = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
 const DEFAULT_DATA_DIR  = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
@@ -87,6 +88,13 @@ export function buildTaskDefinitions({scriptDir = DEFAULT_SCRIPT_DIR, nodeBin = 
             args           : [path.resolve(scriptDir, '../../buildScripts/ai/syncKnowledgeBase.mjs')],
             pidFileName    : 'kb-sync.pid',
             expectedCommand: 'syncKnowledgeBase.mjs'
+        },
+        backup: {
+            label          : 'substrate backup',
+            command        : nodeBin,
+            args           : [path.resolve(scriptDir, '../../buildScripts/ai/backup.mjs')],
+            pidFileName    : 'backup.pid',
+            expectedCommand: 'backup.mjs'
         }
     };
 }
@@ -220,6 +228,12 @@ export class Orchestrator extends Base {
          */
         kbSyncIntervalMs_: DEFAULT_KB_SYNC_INTERVAL_MS,
         /**
+         * @member {Number} backupIntervalMs_=86400000
+         * @protected
+         * @reactive
+         */
+        backupIntervalMs_: DEFAULT_BACKUP_INTERVAL_MS,
+        /**
          * @member {Object} healthService_=HealthService
          * @protected
          * @reactive
@@ -270,6 +284,7 @@ export class Orchestrator extends Base {
             DEFAULT_SUMMARY_SWEEP_INTERVAL_MS
         );
         this.kbSyncIntervalMs       = options.kbSyncIntervalMs ?? parseInterval(process.env.NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS, DEFAULT_KB_SYNC_INTERVAL_MS);
+        this.backupIntervalMs       = options.backupIntervalMs ?? parseInterval(process.env.NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS, DEFAULT_BACKUP_INTERVAL_MS);
         this.taskDefinitions        = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
             nodeBin: options.nodeBin || process.argv[0]
@@ -300,7 +315,7 @@ export class Orchestrator extends Base {
         this.db = this.initializeDatabaseFn(this.dbPath);
 
         this.isPolling = true;
-        this.writeLog('INFO', `[Orchestrator] Started. summaryInterval=${this.summarySweepIntervalMs}ms kbSyncInterval=${this.kbSyncIntervalMs}ms poll=${this.pollIntervalMs}ms.`);
+        this.writeLog('INFO', `[Orchestrator] Started. summaryInterval=${this.summarySweepIntervalMs}ms kbSyncInterval=${this.kbSyncIntervalMs}ms backupInterval=${this.backupIntervalMs}ms poll=${this.pollIntervalMs}ms.`);
         this.poll();
     }
 
@@ -656,6 +671,21 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * Schedules a backup child task when its interval is due.
+     * @param {Number} now Current timestamp in milliseconds.
+     * @returns {void}
+     */
+    runBackupCycle(now) {
+        if (shouldRunIntervalTask({
+            now,
+            lastRunAt : this.taskState.backup.lastRunAt,
+            intervalMs: this.backupIntervalMs
+        })) {
+            this.runTask('backup', `periodic-backup:${this.backupIntervalMs}`);
+        }
+    }
+
+    /**
      * Runs one maintenance sweep with task-level failure isolation.
      * @param {Number} [now=Date.now()] Current timestamp in milliseconds.
      * @returns {void}
@@ -663,6 +693,7 @@ export class Orchestrator extends Base {
     runMaintenanceCycle(now = Date.now()) {
         this.runTaskCycle('summary', () => this.runSummaryCycle(now));
         this.runTaskCycle('kbSync',  () => this.runKbSyncCycle(now));
+        this.runTaskCycle('backup',  () => this.runBackupCycle(now));
     }
 
     /**

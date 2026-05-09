@@ -39,7 +39,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             nodeBin  : '/node'
         }));
 
-        expect(Object.keys(state)).toEqual(['summary', 'kbSync']);
+        expect(Object.keys(state)).toEqual(['summary', 'kbSync', 'backup']);
         expect(state.summary).toMatchObject({
             running      : false,
             pid          : null,

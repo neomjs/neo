@@ -18,6 +18,7 @@ import Orchestrator, {
     DEFAULT_KB_SYNC_INTERVAL_MS,
     DEFAULT_POLL_INTERVAL_MS,
     DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
+    DEFAULT_BACKUP_INTERVAL_MS,
     parseInterval
 } from '../daemons/Orchestrator.mjs';
 
@@ -143,5 +144,6 @@ export {
     DEFAULT_KB_SYNC_INTERVAL_MS,
     DEFAULT_POLL_INTERVAL_MS,
     DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
+    DEFAULT_BACKUP_INTERVAL_MS,
     parseInterval
 };
