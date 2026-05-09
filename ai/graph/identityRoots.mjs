@@ -97,7 +97,7 @@ export const IDENTITIES = [
         id: 'AGENT:*',
         type: 'BroadcastSentinel',
         name: 'Broadcast',
-        description: 'Mailbox broadcast sentinel. `SENT_TO` edges targeting this node fan out to all authenticated recipients per MailboxService.listMessages visibility rules. Must exist as a real graph node so GraphService.linkNodes FK-style guard does not cull broadcast edges — see #10174.',
+        description: 'Mailbox broadcast sentinel. `SENT_TO` edges targeting this node preserve one semantic broadcast MESSAGE; current sends snapshot per-recipient unread state through `DELIVERED_TO` edges, with legacy SENT_TO-only visibility retained for old broadcasts. Must exist as a real graph node so GraphService.linkNodes FK-style guard does not cull broadcast edges — see #10174 and #11029.',
         properties: {
             githubLogin: null,
             displayName: 'Broadcast',

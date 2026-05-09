@@ -21,7 +21,7 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
 
 test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     test.describe.configure({ mode: 'serial' });
-    let MailboxService, GraphService, PermissionService, LifecycleService, buildMailboxDelta, originalAutoSave, mailboxAiConfig, originalMailboxPolicy;
+    let MailboxService, GraphService, PermissionService, LifecycleService, SwarmHeartbeatService, buildMailboxDelta, originalAutoSave, mailboxAiConfig, originalMailboxPolicy;
     let dbPath;
 
     test.beforeAll(async () => {
@@ -44,6 +44,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         MailboxService = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).default;
         PermissionService = (await import('../../../../../../ai/services/memory-core/PermissionService.mjs')).default;
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
+        SwarmHeartbeatService = (await import('../../../../../../ai/daemons/SwarmHeartbeatService.mjs')).default;
         buildMailboxDelta = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).buildMailboxDelta;
 
         // Pin this suite to strict-isolation mode (#10252). These tests predate the
@@ -140,6 +141,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             await MailboxService.addMessage({ to: '@bob', subject: 'To Bob', body: 'Secret' });
         });
         
+        // Charlie is registered before the broadcast, so the #11029 send-time audience snapshot includes them.
+        GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
+
         // Alice sends to Broadcast
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             await MailboxService.addMessage({ to: 'AGENT:*', subject: 'To All', body: 'Public' });
@@ -154,14 +158,21 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         expect(bobRes.messages.find(m => m.subject === 'To Bob')).toBeDefined();
         expect(bobRes.messages.find(m => m.subject === 'To All')).toBeDefined();
 
-        // Charlie (new agent) reads - should only see broadcast
-        GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
+        // Charlie reads - should only see broadcast
         const charlieRes = await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
             return await MailboxService.listMessages({ status: 'all' });
         });
         
         expect(charlieRes.messages.length).toBe(1);
         expect(charlieRes.messages[0].subject).toBe('To All');
+
+        // Dana was not registered at send time, so the per-recipient receipt snapshot excludes them.
+        GraphService.upsertNode({ id: '@dana', type: 'AGENT', name: 'Dana', properties: {} });
+        const danaRes = await RequestContextService.run({ agentIdentityNodeId: '@dana' }, async () => {
+            return await MailboxService.listMessages({ status: 'all' });
+        });
+
+        expect(danaRes.messages.length).toBe(0);
     });
 
     test('getMessage enforces read-path isolation', async () => {
@@ -554,8 +565,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     test.describe('#10174 production-convention addressing', () => {
         test.beforeEach(async () => {
             // Mirror the seedAgentIdentities.mjs convention + AGENT:* broadcast sentinel.
-            GraphService.upsertNode({ id: '@opus',   type: 'AgentIdentity',     name: 'Opus',      properties: {} });
-            GraphService.upsertNode({ id: '@gemini', type: 'AgentIdentity',     name: 'Gemini',    properties: {} });
+            GraphService.upsertNode({ id: '@opus',   type: 'AgentIdentity', name: 'Opus',   properties: { accountType: 'agent' } });
+            GraphService.upsertNode({ id: '@gemini', type: 'AgentIdentity', name: 'Gemini', properties: { accountType: 'agent' } });
+            GraphService.upsertNode({ id: '@gpt',    type: 'AgentIdentity', name: 'GPT',    properties: { accountType: 'agent' } });
             // (`AGENT:*` already seeded by the outer beforeEach — retained because production
             //  uses the same sentinel id and this test block validates its addressability.)
         });
@@ -752,15 +764,19 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
                 expect(res.status).toBe('sent');
                 messageId = res.messageId;
 
-                // Pre-fix core bug: AGENT:* wasn't a seeded node, so linkNodes culled this edge,
-                // and zero recipients saw the broadcast. Post-fix (seed script adds AGENT:* as
-                // BroadcastSentinel), the edge persists and listMessages' `=== 'AGENT:*'` filter
-                // fans it out to every authenticated inbox query.
                 const sentToEdge = GraphService.db.edges.items.find(
                     e => e.source === messageId && e.type === 'SENT_TO'
                 );
                 expect(sentToEdge).toBeDefined();
                 expect(sentToEdge.target).toBe('AGENT:*');
+
+                const deliveryTargets = GraphService.db.edges.items
+                    .filter(e => e.source === messageId && e.type === 'DELIVERED_TO')
+                    .map(e => e.target)
+                    .sort();
+
+                expect(deliveryTargets).toEqual(expect.arrayContaining(['@gemini', '@gpt']));
+                expect(deliveryTargets).not.toContain('@opus');
             });
 
             // Sender sees it in outbox
@@ -775,6 +791,57 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             });
             expect(geminiInbox.messages.length).toBe(1);
             expect(geminiInbox.messages[0].subject).toBe('broadcast');
+        });
+
+        test('#11029 broadcast markRead updates only the caller delivery receipt', async () => {
+            let messageId;
+
+            await RequestContextService.run({ agentIdentityNodeId: '@opus' }, async () => {
+                const res = await MailboxService.addMessage({ to: 'AGENT:*', subject: 'receipt split', body: 'body' });
+                messageId = res.messageId;
+            });
+
+            await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, async () => {
+                const before = await MailboxService.listMessages({ status: 'unread' });
+                expect(before.messages.map(msg => msg.messageId)).toContain(messageId);
+
+                const read = await MailboxService.markRead({ messageId });
+                expect(read.status).toBe('read');
+
+                const after = await MailboxService.listMessages({ status: 'unread' });
+                expect(after.messages.map(msg => msg.messageId)).not.toContain(messageId);
+
+                const full = await MailboxService.getMessage({ messageId });
+                expect(full.readAt).toBe(read.readAt);
+            });
+
+            const messageNode = GraphService.db.nodes.get(messageId);
+            expect(messageNode.properties.readAt).toBeNull();
+
+            const geminiDelivery = GraphService.db.edges.items.find(e =>
+                e.source === messageId && e.type === 'DELIVERED_TO' && e.target === '@gemini'
+            );
+            const gptDelivery = GraphService.db.edges.items.find(e =>
+                e.source === messageId && e.type === 'DELIVERED_TO' && e.target === '@gpt'
+            );
+
+            expect(geminiDelivery.properties.readAt).toBeTruthy();
+            expect(gptDelivery.properties.readAt).toBeNull();
+
+            const gptUnread = await RequestContextService.run({ agentIdentityNodeId: '@gpt' }, async () => {
+                return await MailboxService.listMessages({ status: 'unread' });
+            });
+            expect(gptUnread.messages.map(msg => msg.messageId)).toContain(messageId);
+
+            const geminiDelta = await RequestContextService.run({ agentIdentityNodeId: '@gemini' }, () => buildMailboxDelta());
+            const gptDelta = await RequestContextService.run({ agentIdentityNodeId: '@gpt' }, () => buildMailboxDelta());
+            expect(geminiDelta.unreadCount).toBe(0);
+            expect(gptDelta.unreadCount).toBe(1);
+
+            SwarmHeartbeatService.identity = '@gemini';
+            expect(await SwarmHeartbeatService.getUnreadCount()).toBe(0);
+            SwarmHeartbeatService.identity = '@gpt';
+            expect(await SwarmHeartbeatService.getUnreadCount()).toBe(1);
         });
 
         test('buildMailboxDelta counts unread and surfaces latest preview for bound identity', async () => {
