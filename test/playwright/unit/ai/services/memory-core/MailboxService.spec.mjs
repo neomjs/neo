@@ -100,7 +100,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         // Seed agents
         GraphService.upsertNode({ id: '@alice', type: 'AGENT', name: 'Alice', properties: {} });
         GraphService.upsertNode({ id: '@bob', type: 'AGENT', name: 'Bob', properties: {} });
-        GraphService.upsertNode({ id: 'AGENT:*', type: 'AGENT', name: 'Broadcast', properties: {} });
+        GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: 'Broadcast', properties: {} });
     });
 
     test('addMessage enforces identity and routes correctly', async () => {
@@ -1018,7 +1018,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
         GraphService.upsertNode({ id: '@alice', type: 'AGENT', name: 'Alice', properties: {} });
         GraphService.upsertNode({ id: '@bob', type: 'AGENT', name: 'Bob', properties: {} });
         GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
-        GraphService.upsertNode({ id: 'AGENT:*', type: 'AGENT', name: 'Broadcast', properties: {} });
+        GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: 'Broadcast', properties: {} });
     });
 
     test('first-contact DM succeeds without grant or prior history', async () => {
@@ -1279,7 +1279,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         GraphService.upsertNode({ id: '@alice', type: 'AGENT', name: 'Alice', properties: {} });
         GraphService.upsertNode({ id: '@bob', type: 'AGENT', name: 'Bob', properties: {} });
         GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
-        GraphService.upsertNode({ id: 'AGENT:*', type: 'AGENT', name: 'Broadcast', properties: {} });
+        GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: 'Broadcast', properties: {} });
         
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
