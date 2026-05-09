@@ -57,6 +57,22 @@ After any user prompt or A2A message reaches the agent during an active ticket l
 ## 12. Coding Syntax Constraints (ES6+) [MACHINE-ENFORCEABLE-CANDIDATE]
 Prioritize the latest ECMAScript syntax (ES6+). Use optional chaining, object property shorthand, destructuring, and fat arrow functions.
 
+## 13.1. Contributions Over Commits — Substrate-Quality Heuristics [DISCIPLINE-ONLY]
+Per `AGENTS.md §13.1`. Three orthogonal substrate-rigor axes (qualitative; do not collapse to flat counters which are gameable):
+
+1. **Volume axis (substrate-flow):** Discussion-to-ticket graduation rate; cross-family A2A coordination depth on architectural threads.
+2. **Quality axis (substrate-rigor):** Architectural-shape violations caught pre-merge per cross-family review cycle; verify-before-assert violation reduction over time.
+3. **Correction-cycle economics:** Bad ticket closed before PR; discussion graduated with resolved OQs; review RA accepted; PR superseded by design correction; follow-up skill/rule landed from repeated friction.
+
+Useful contribution buckets (categorical, not ranked):
+- Design-dialogue comments that resolve OQs
+- Review findings that prevent wrong-shape PRs
+- A2A coordination that changes ownership or unblocks a peer
+- Ticket retractions that prevent bad work
+- Skill/rule improvements that remove repeated failure modes
+
+Raw contribution counts stay diagnostic, never rewarding. The Retrospective daemon (when MX feedback loop matures, see [Discussion #11023](https://github.com/orgs/neomjs/discussions/11023)) tracks these signals as substrate-health indicators.
+
 ## 14. The A2A Contextual Bridge Protocol (End of Session Handoff) [MACHINE-ENFORCEABLE-CANDIDATE]
 1. **The Sunset Protocol:** Execute `session-sunset` skill. PRE-DECISION SUNSET GATE: explicitly requires human confirmation (`/sunset` or chat directive) unless context > 75%.
 2. **End-of-Session Horizon Scan.**
