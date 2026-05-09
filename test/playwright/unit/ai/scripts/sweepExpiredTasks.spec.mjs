@@ -72,7 +72,7 @@ test.describe('ai/scripts/sweepExpiredTasks.mjs regression guard (#10595)', () =
         const lines           = content.split('\n');
         const neoImportIdx    = lines.findIndex(l => /^import\s+Neo\s+from\s+['"]\.\.\/\.\.\/src\/Neo\.mjs['"]/.test(l));
         const coreImportIdx   = lines.findIndex(l => /^import\s+\*\s+as\s+core\s+from\s+['"]\.\.\/\.\.\/src\/core\/_export\.mjs['"]/.test(l));
-        const lifecycleIdx    = lines.findIndex(l => /^import\s+LifecycleService\s+from\s+['"]\.\.\/mcp\/server\/memory-core\/services\/lifecycle\/SystemLifecycleService\.mjs['"]/.test(l));
+        const lifecycleIdx    = lines.findIndex(l => /^import\s+LifecycleService\s+from\s+['"]\.\.\/services\/memory-core\/lifecycle\/SystemLifecycleService\.mjs['"]/.test(l));
 
         // All three imports MUST be present and ordered correctly.
         expect(neoImportIdx).toBeGreaterThanOrEqual(0);
