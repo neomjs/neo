@@ -12,7 +12,8 @@
     See learn/agentos/wake-substrate/PersistentProcessManagement.md for the full
     install procedure, verification commands, and troubleshooting gotchas.
 
-    Target: ai/daemons/SwarmHeartbeatService.mjs (Neo-singleton; #10789).
+    Target: ai/scripts/swarm-heartbeat-daemon.mjs (entry-point wrapper; #11058 split).
+    Class definition: ai/daemons/SwarmHeartbeatService.mjs (Neo-singleton; #10789).
     Replaced an earlier draft (#10781 / PR #10782) that targeted a bash daemon under
     ai/scripts/ — wrong-pattern per Neo-class architectural convention; closed not-planned.
 -->
@@ -30,7 +31,7 @@
     <array>
         <string>/usr/bin/env</string>
         <string>node</string>
-        <string>[OPERATOR_SUBSTITUTE_REPO_ROOT]/ai/daemons/SwarmHeartbeatService.mjs</string>
+        <string>[OPERATOR_SUBSTITUTE_REPO_ROOT]/ai/scripts/swarm-heartbeat-daemon.mjs</string>
     </array>
 
     <!-- WorkingDirectory: SwarmHeartbeatService uses RELATIVE paths via fs-extra
