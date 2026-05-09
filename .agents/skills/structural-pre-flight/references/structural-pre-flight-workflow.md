@@ -146,7 +146,7 @@ When the new file lives in `test/playwright/`:
 
 When the new file is itself a substrate-mutation (skill, ADR, AGENTS.md update, learn/agentos/* doc):
 
-- `claudeMd §13` Self-Evolving Systems — substrate-accretion defense (slot-rationale required).
+- `AGENTS.md §13` Self-Evolving Systems — substrate-accretion defense (slot-rationale required).
 - `pull-request §1.1` Substrate-Mutation Pre-Flight Gate — slot-rationale section in PR body.
 - The `create-skill` skill itself if authoring a new `.agents/skills/`.
 
@@ -158,7 +158,7 @@ The skill is invoked from three existing skills:
 - **`ticket-intake` Validation Sweep:** when the picked-up ticket prescribes new `.mjs` files, intake validates the prescription's directory choice against this skill's Stage 1 fast-path or directs the implementer to full Pre-Flight before branching.
 - **`epic-review` Stage 3 (Sub-Structure Coherence):** when reviewing an epic that introduces new `.mjs` files across subs, the epic reviewer references this skill to validate that each sub's prescribed directory choice is substrate-grounded.
 
-Each integration is a 1-3 line anchor in the existing skill's reference payload — see PR #?????'s anchor commits.
+Each integration is a 1-3 line anchor in the existing skill's reference payload — see PR #11010's anchor commits (commit `9ad4c8374`).
 
 ## 5. When You Don't Need To Invoke This Skill
 
@@ -197,7 +197,7 @@ The full-pre-flight statement is verbose by design. Brevity hides reasoning; ver
 
 ## 8. Verification Hooks
 
-A mechanical-enforcement candidate (per `claudeMd §13` MX-loop): a pre-commit hook OR PR-review check could grep the latest commit for new `.mjs` files and verify a Pre-Flight statement was included in either the commit message body or a PR comment. That's a Phase 2 enhancement; current Phase 1 relies on the skill firing at authoring time as a `DISCIPLINE-ONLY` rule.
+A mechanical-enforcement candidate (per `AGENTS.md §13` MX-loop): a pre-commit hook OR PR-review check could grep the latest commit for new `.mjs` files and verify a Pre-Flight statement was included in either the commit message body or a PR comment. That's a Phase 2 enhancement; current Phase 1 relies on the skill firing at authoring time as a `DISCIPLINE-ONLY` rule.
 
 ## 9. Compaction Taxonomy
 
@@ -217,6 +217,6 @@ A mechanical-enforcement candidate (per `claudeMd §13` MX-loop): a pre-commit h
 | §6 Anti-Patterns | `keep` | `DISCIPLINE-ONLY` |
 | §7 Examples | `keep` | `DISCIPLINE-ONLY` |
 | §8 Verification Hooks | `compress-to-trigger` | `MACHINE-ENFORCEABLE-CANDIDATE` |
-| §9 Compaction Taxonomy | `keep` | meta — required by `claudeMd §13` for substrate audits |
+| §9 Compaction Taxonomy | `keep` | meta — required by `AGENTS.md §13` for substrate audits |
 
 The Skill's per-section compaction-taxonomy is itself substrate evidence the discipline fires; future compaction efforts inherit the disposition + tag rather than re-deriving them.

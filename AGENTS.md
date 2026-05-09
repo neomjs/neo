@@ -98,6 +98,7 @@ You are part of the core architectural team. **Synthesize friction into gold:** 
 | `ideation-sandbox`| Before creating a Discussion for architectural exploration |
 | `memory-mining` | On regression / non-obvious-architecture / decision-points |
 | `tech-debt-radar` | During PR review for fundamental architectural shifts |
+| `structural-pre-flight` | Before authoring or relocating any new `.mjs` file — directory-CHOICE discipline (Stage 0 mechanical trigger; Stage 1 fast-path via §23 sibling-file-lift OR full Pre-Flight via ArchitectureOverview.md + ADR consultation). Empirical anchors: misplaced `bridge-daemon.mjs` (#10449 origin) + `orchestrator-daemon.mjs` (PR #11008 → corrective #11009). Also fires from `ticket-create` Stage 3, `ticket-intake` validation, `epic-review` Stage 3 |
 | `session-sunset` | Context Window Exhaustion, Macro-Semantic Pivot |
 | `unit-test` | Before writing, modifying, or executing Playwright unit tests |
 | `whitebox-e2e` | Before writing, modifying, or executing Playwright Whitebox E2E tests |
