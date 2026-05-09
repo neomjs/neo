@@ -106,7 +106,7 @@ Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint
             }
         },
         "topology": {
-            "mode": "federated",
+            "mode": "unified",
             "coordinates": { "host": "localhost", "port": 8100 },
             "resolvedVia": "engines.chroma"
         }
@@ -146,16 +146,16 @@ Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint
 
 ### `database.topology` — Effective ChromaDB Coordinate Resolution
 
-Introduced in #10127 (follow-up to sub-epic #10015's unified-topology pillar — #10001 routing + #10007 lifecycle bypass). The block surfaces **which ChromaDB instance Memory Core is actually using**, so operators deploying in unified mode can verify the flag took effect without inspecting logs or re-running the config through `node -e`.
+Introduced in #10127. The block surfaces **which ChromaDB instance Memory Core is actually using**, so operators can verify coordinates without inspecting logs or re-running the config through `node -e`.
 
 | Field | Type | Meaning |
 |---|---|---|
-| `mode` | `'unified' \| 'federated'` | `'unified'` means Memory Core reuses the KB's ChromaDB instance (`chromaUnified=true`). `'federated'` means Memory Core owns its own instance (default). |
-| `coordinates` | `{host, port} \| null` | The effective `{host, port}` the client is targeting. `null` when `chromaUnified=true` but `engines.kb.chroma` is missing from config — a misconfig surfaced as observable data rather than a 500. |
-| `resolvedVia` | `'engines.kb.chroma' \| 'engines.chroma'` | The exact config key path the resolver read. Gives operators a direct pointer to what to inspect when coordinates look wrong. |
+| `mode` | `'unified'` | Always `'unified'`. Memory Core shares the underlying ChromaDB instance with the KB. |
+| `coordinates` | `{host, port} \| null` | The effective `{host, port}` the client is targeting. `null` when `engines.chroma` is missing from config — a misconfig surfaced as observable data rather than a 500. |
+| `resolvedVia` | `'engines.chroma'` | The exact config key path the resolver read. Gives operators a direct pointer to what to inspect when coordinates look wrong. |
 | `error` | `string` (optional) | Present only when the resolver threw — names the specific misconfig. |
 
-**Why this matters:** Without `database.topology`, a forgotten `NEO_CHROMA_UNIFIED=true` silently caused Memory Core to spin up its own ChromaDB, mount a distinct volume, and populate a distinct collection set — diverging from the KB state until cross-tenant drift emerged. The block closes that observability gap in-band.
+**Why this matters:** The block closes the observability gap in-band by confirming the exact coordinates the Memory Core client is targeting.
 
 ### `identity` — Stdio Identity Binding
 
@@ -230,7 +230,7 @@ The Neo.mjs AI substrate ships two CLI orchestrators for full-substrate snapshot
 
 | Command | What it does |
 |---|---|
-| `npm run ai:backup` | Captures KB + MC memories/summaries + MC graph + concepts + RLAIF trajectories + mailbox archive into a single timestamped bundle directory under `.neo-ai-data/backups/backup-<ISO-ts>/`. Writes `bundle-meta.json` with `chromaUnified` topology, KB/MC chroma coordinates, neoVersion, and gitSha. Runs row-count integrity check + retention sweep (keep newest K=3, prune >N=7 days). |
+| `npm run ai:backup` | Captures KB + MC memories/summaries + MC graph + concepts + RLAIF trajectories + mailbox archive into a single timestamped bundle directory under `.neo-ai-data/backups/backup-<ISO-ts>/`. Writes `bundle-meta.json` with unified topology, KB/MC chroma coordinates, neoVersion, and gitSha. Runs row-count integrity check + retention sweep (keep newest K=3, prune >N=7 days). |
 | `npm run ai:restore -- <bundle-path>` | Inverts backup. Reads the bundle, validates structure + JSONL parseability + topology compatibility, then routes each subsystem through the canonical SDK boundary in `ai/services.mjs`. |
 
 ### Restore semantics
@@ -242,7 +242,7 @@ The restore CLI accepts the following flags:
 | `--mode merge` (default) | Idempotent. Embedded substrates upsert (no destructive wipe). Flat substrates (`concepts/`, `trajectories.jsonl`, `sent-to-cull.jsonl`) skip-if-target-exists to preserve operator additions. No `--force` required. |
 | `--mode replace` | Destructive. Each embedded subsystem fires `assertDestructiveTargetAllowed()` (#10845) before truncating + restoring. Flat substrates fire the guard against the target file/dir before overwriting. Refuses if any target is non-empty without `--force`. |
 | `--force` | Required when `--mode replace` AND any target is populated. Acknowledges that data will be overwritten. Also overrides the flat-file skip-if-non-empty rule under `--mode merge`. |
-| `--force-topology-mismatch` | Bypasses the topology compatibility refusal when `bundle-meta.topology.chromaUnified` diverges from the current `mcConfig.chromaUnified`. Required when restoring a federated-topology bundle into a unified deployment (or vice versa); collection IDs may diverge across topologies. |
+| `--force-topology-mismatch` | Bypasses the topology compatibility refusal when restoring a legacy federated-topology bundle into a unified deployment; collection IDs may diverge across topologies. |
 
 ### Pre-flight integrity validation
 

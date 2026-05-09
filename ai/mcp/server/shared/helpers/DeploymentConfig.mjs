@@ -33,8 +33,7 @@ export function resolveMcpHttpPort({env = process.env, warn = console.warn, defa
  * @summary Resolves the ChromaDB host.
  *
  * Per #10808 operator-facing env-var ergonomics: `NEO_CHROMA_HOST` is the canonical
- * operator-set env var (used by KB own Chroma config + MC `engines.kb.chroma`
- * unified-mode reference).
+ * operator-set env var (used by unified Chroma config).
  *
  * Pure function: takes env; returns resolved host string.
  *
