@@ -7,6 +7,9 @@
  * per `.neo-ai-data/wake-daemon/` directory (singleton-enforced via PID lock
  * per #10422 / #10423).
  *
+ * Scheduled Agent OS maintenance triggers belong to `orchestrator-daemon.mjs`
+ * per #11006. Keep this daemon focused on wake delivery only.
+ *
  * **Diagnostic log persistence (per #10419):**
  * All informational + error lines are written to BOTH stdout (live terminal
  * observability) AND `.neo-ai-data/wake-daemon/bridge.log` (persistent audit
@@ -38,9 +41,7 @@ import {
     getGraphLogEntries,
     getNodesData,
     getEdgesData,
-    getDbNode,
-    getUnreadSunsetHandovers,
-    markNodesAsRead
+    getDbNode
 } from './bridge-daemon-queries.mjs';
 
 const DB_PATH                  = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
@@ -147,8 +148,6 @@ function writeLog(level, message) {
 pruneOldLogs();
 
 const PID_FILE = path.join(DAEMON_DATA_DIR, 'bridge-daemon.pid');
-const SUMMARIZATION_PID_FILE = path.join(DAEMON_DATA_DIR, 'summarization.pid');
-
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function enforceSingleton() {
@@ -254,124 +253,6 @@ let lastSyncId;
 // Structure: { [subscriptionId]: { timer: Timeout, queue: [events], subscription: {...} } }
 const coalesceState = {};
 
-let lastSummarizationSweep = Date.now();
-const SWEEP_INTERVAL_MS = parseInt(process.env.NEO_SUMMARIZATION_SWEEP_INTERVAL_MS || '600000', 10);
-let summarizationRunning = false;
-let summarizationPid = null;
-
-function checkSummarizationLifecycle() {
-    // 1. Recover/Verify State from PID file
-    if (fs.existsSync(SUMMARIZATION_PID_FILE)) {
-        try {
-            const pid = parseInt(fs.readFileSync(SUMMARIZATION_PID_FILE, 'utf8'), 10);
-            if (!isNaN(pid) && pid > 0) {
-                try {
-                    process.kill(pid, 0); // Is it alive?
-                    
-                    if (!summarizationRunning) {
-                        // Orphan discovery: verify it's the actual process before adopting
-                        const cmd = execSync(`ps -p ${pid} -o command=`).toString().trim();
-                        if (cmd.includes('summarize-sessions')) {
-                            writeLog('INFO', `[Bridge Daemon] Found orphaned summarization process (PID: ${pid}). Adopting.`);
-                            summarizationRunning = true;
-                            summarizationPid = pid;
-                        } else {
-                            writeLog('INFO', `[Bridge Daemon] Stale summarization PID ${pid} reused by another process. Unlinking.`);
-                            fs.unlinkSync(SUMMARIZATION_PID_FILE);
-                        }
-                    } else if (summarizationPid !== pid) {
-                        // PID file changed while running
-                        summarizationPid = pid;
-                    }
-                } catch (e) {
-                    // Process not alive. Cleanup.
-                    fs.unlinkSync(SUMMARIZATION_PID_FILE);
-                    summarizationRunning = false;
-                    summarizationPid = null;
-                }
-            } else {
-                fs.unlinkSync(SUMMARIZATION_PID_FILE);
-                summarizationRunning = false;
-            }
-        } catch (e) {
-            writeLog('ERROR', `[Bridge Daemon] Failed to read summarization PID file: ${e.message}`);
-        }
-    } else {
-        // No file means not running
-        summarizationRunning = false;
-        summarizationPid = null;
-    }
-
-    if (summarizationRunning) return;
-
-    try {
-        const handovers = getUnreadSunsetHandovers(db);
-        let shouldRun = false;
-
-        if (handovers.length > 0) {
-            writeLog('INFO', `[Bridge Daemon] Found ${handovers.length} unread sunset handovers. Triggering Piece B summarization.`);
-            shouldRun = true;
-        }
-
-        if (!shouldRun && SWEEP_INTERVAL_MS > 0 && Date.now() - lastSummarizationSweep > SWEEP_INTERVAL_MS) {
-            writeLog('INFO', `[Bridge Daemon] Triggering Piece C periodic summarization sweep (Interval: ${SWEEP_INTERVAL_MS}ms).`);
-            shouldRun = true;
-        }
-
-        if (shouldRun) {
-            summarizationRunning = true;
-            lastSummarizationSweep = Date.now();
-
-            const p = spawn(process.argv[0], [path.join(__dirname, 'summarize-sessions.mjs')], {
-                stdio: 'ignore'
-            });
-
-            if (p.pid) {
-                summarizationPid = p.pid;
-                try {
-                    fs.writeFileSync(SUMMARIZATION_PID_FILE, p.pid.toString(), { encoding: 'utf8', flag: 'w' });
-                } catch (e) {
-                    writeLog('ERROR', `[Bridge Daemon] Failed to write summarization PID: ${e.message}`);
-                }
-            }
-
-            p.on('close', (code) => {
-                summarizationRunning = false;
-                summarizationPid = null;
-                try {
-                    if (fs.existsSync(SUMMARIZATION_PID_FILE)) {
-                        fs.unlinkSync(SUMMARIZATION_PID_FILE);
-                    }
-                } catch(e) {}
-
-                if (code === 0 && handovers.length > 0) {
-                    try {
-                        markNodesAsRead(db, handovers);
-                        writeLog('INFO', `[Bridge Daemon] Successfully marked ${handovers.length} sunset handovers as read.`);
-                    } catch (e) {
-                        writeLog('ERROR', `[Bridge Daemon] Failed to mark handovers as read: ${e.message}`);
-                    }
-                } else if (code !== 0) {
-                    writeLog('ERROR', `[Bridge Daemon] summarize-sessions.mjs exited with code ${code}.`);
-                }
-            });
-
-            p.on('error', (err) => {
-                summarizationRunning = false;
-                summarizationPid = null;
-                try {
-                    if (fs.existsSync(SUMMARIZATION_PID_FILE)) {
-                        fs.unlinkSync(SUMMARIZATION_PID_FILE);
-                    }
-                } catch(e) {}
-                writeLog('ERROR', `[Bridge Daemon] Failed to spawn summarize-sessions: ${err.message}`);
-            });
-        }
-    } catch (e) {
-        writeLog('ERROR', `[Bridge Daemon] Error in checkSummarizationLifecycle: ${e.message}`);
-    }
-}
-
 /**
  * Main polling loop
  */
@@ -418,8 +299,6 @@ async function pollLoop() {
             fs.writeFileSync(STATE_FILE, lastSyncId.toString(), 'utf8');
         }
 
-        // Run daemon-managed summarization lifecycle (Piece B & C)
-        checkSummarizationLifecycle();
     } catch (err) {
         writeLog('ERROR', `[Bridge Daemon] Error in poll loop: ${err && err.stack ? err.stack : err}`);
     }
