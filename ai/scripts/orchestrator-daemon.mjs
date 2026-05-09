@@ -10,6 +10,17 @@
  * @see learn/agentos/v13-path.md
  * @see #11009
  */
+// Neo namespace bootstrap (entry-point invariant): `Neo` + `core/_export` populate
+// `globalThis.Neo` so consumed class files (Orchestrator, TaskStateService,
+// ProcessSupervisorService, SummarizationCoordinatorService) can call
+// `Neo.setupClass()` at module-load. `InstanceManager` binds `Neo.find` /
+// `Neo.findFirst` / `Neo.get` aliases, sets `Base.instanceManagerAvailable=true`,
+// and consumes the pre-singleton `Neo.idMap`. All 3 MUST run before any class
+// import that uses `Neo.setupClass()`.
+import Neo             from '../../src/Neo.mjs';
+import * as core       from '../../src/core/_export.mjs';
+import InstanceManager from '../../src/manager/Instance.mjs';
+
 import {pathToFileURL} from 'url';
 import fs from 'fs-extra';
 import path from 'path';

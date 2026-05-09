@@ -1,9 +1,8 @@
-// IMPORTANT: `Neo` MUST be imported before Base / service singletons that call
-// `Neo.setupClass()` at module-load time. This keeps the daemon directly runnable
-// from Node, matching the persistent-process shape of SwarmHeartbeatService.
-import Neo                         from '../../src/Neo.mjs';
-import * as core                   from '../../src/core/_export.mjs';
-
+// Neo + core/_export + InstanceManager bootstrap belongs to the daemon entry point
+// (`ai/scripts/orchestrator-daemon.mjs`), NOT to this consumed-class file. Class files
+// rely on `globalThis.Neo` populated by the entry-point bootstrap; importing Neo here
+// would violate the entry-point-only invariant + risk partial-namespace damage if the
+// class were ever loaded outside its entry-point's chain.
 import fs                          from 'fs-extra';
 import path                        from 'path';
 import {spawn}                     from 'child_process';

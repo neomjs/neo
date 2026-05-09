@@ -1,4 +1,11 @@
 import {test, expect} from '@playwright/test';
+// Test-side entry-point bootstrap: Neo + core/_export populate `globalThis.Neo`
+// before SummarizationCoordinatorService.mjs is loaded (whose Base import transitively
+// triggers `Neo.gatekeep()` in Compare.mjs at module-load). Mirrors the pattern in
+// Orchestrator.spec.mjs and matches the entry-point invariant — class files no longer
+// import Neo themselves; their bootstrap is the entry point's job.
+import Neo       from '../../../../../../src/Neo.mjs';
+import * as core from '../../../../../../src/core/_export.mjs';
 import {
     buildSummaryTrigger
 } from '../../../../../../ai/daemons/services/SummarizationCoordinatorService.mjs';

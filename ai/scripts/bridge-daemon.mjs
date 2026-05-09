@@ -27,6 +27,15 @@
  *      diagnosis depends on persisted log lines surviving terminal scrollback)
  * @see #10423 (PID-lock singleton enforcement; PID transitions are now logged)
  */
+// Neo namespace bootstrap (entry-point invariant): `Neo` + `core/_export` populate
+// `globalThis.Neo` so any consumed class file relying on `Neo.setupClass()` works
+// at module-load. `InstanceManager` binds `Neo.find` / `Neo.findFirst` / `Neo.get`
+// aliases + sets `Base.instanceManagerAvailable=true` + consumes pre-singleton
+// `Neo.idMap`. All 3 MUST run before consumed class imports.
+import Neo             from '../../src/Neo.mjs';
+import * as core       from '../../src/core/_export.mjs';
+import InstanceManager from '../../src/manager/Instance.mjs';
+
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';

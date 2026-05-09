@@ -12,6 +12,15 @@
  * @see ai/services/memory-core/SessionService.summarizeSessions
  * @see #10458 (origin), #9942 (daemon-collision context)
  */
+// Neo namespace bootstrap (entry-point invariant) — this script is an orchestrator
+// spawn-child entry point (`spawn(node, [summarize-sessions.mjs])`). Each spawned
+// child is its own Node process and needs its own bootstrap. `Neo` + `core/_export`
+// populate `globalThis.Neo`; `InstanceManager` binds Neo.find/findFirst/get aliases
+// + consumes pre-singleton `Neo.idMap`.
+import Neo             from '../../src/Neo.mjs';
+import * as core       from '../../src/core/_export.mjs';
+import InstanceManager from '../../src/manager/Instance.mjs';
+
 import { Memory_SessionService } from '../services.mjs';
 
 async function summarize() {
