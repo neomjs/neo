@@ -1,7 +1,5 @@
 import fs   from 'fs-extra';
 import Base from '../../../src/core/Base.mjs';
-import Neo  from '../../../src/Neo.mjs';
-
 /**
  * @summary Creates the persisted state envelope for orchestrator task tracking.
  *
