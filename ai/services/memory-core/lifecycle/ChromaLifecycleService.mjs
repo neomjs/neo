@@ -69,13 +69,13 @@ class ChromaLifecycleService extends Base {
     /**
      * @summary Boots the explicit local ChromaDB daemon.
      *
-     * In unified topology this returns `{status: 'skipped_unified_mode'}` without
+     * In unified topology this returns `{status: 'shared_topology'}` without
      * attempting any spawn.
      * @returns {Promise<Object>}
      */
     async startDatabase() {
         return {
-            status: 'skipped_unified_mode',
+            status: 'shared_topology',
             detail: 'Memory Core runs as a downstream client of the shared ChromaDB in unified mode. No daemon spawn required.'
         };
     }
@@ -116,7 +116,7 @@ class ChromaLifecycleService extends Base {
      * @summary High-level router for managing ChromaDB process state (start/stop) from the orchestrator.
      *
      * Backs the `manage_database` MCP tool (see `services/toolService.mjs`). In unified topology
-     * the `start` action propagates `startDatabase`'s `{status: 'skipped_unified_mode'}` response
+     * the `start` action propagates `startDatabase`'s `{status: 'shared_topology'}` response
      * rather than spawning; the `stop` action falls through to `stopDatabase`'s existing
      * `{status: 'not_running'}` path.
      * @param {Object} args

@@ -20,17 +20,17 @@ import aiConfig               from '../../../../../../../ai/mcp/server/memory-co
 import ChromaLifecycleService from '../../../../../../../ai/services/memory-core/lifecycle/ChromaLifecycleService.mjs';
 
 test.describe('Neo.ai.services.memory-core.lifecycle.ChromaLifecycleService — permanent unified topology (#11011)', () => {
-    test('startDatabase always returns skipped_unified_mode', async () => {
+    test('startDatabase always returns shared_topology', async () => {
         const result = await ChromaLifecycleService.startDatabase();
 
-        expect(result.status).toBe('skipped_unified_mode');
+        expect(result.status).toBe('shared_topology');
         expect(result.detail).toMatch(/downstream client of the shared ChromaDB/i);
     });
 
-    test('manageDatabase({action:"start"}) propagates skipped_unified_mode', async () => {
+    test('manageDatabase({action:"start"}) propagates shared_topology', async () => {
         const result = await ChromaLifecycleService.manageDatabase({action: 'start'});
 
-        expect(result.status).toBe('skipped_unified_mode');
+        expect(result.status).toBe('shared_topology');
     });
 
     test('initAsync completes without error', async () => {

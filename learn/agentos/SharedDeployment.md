@@ -31,23 +31,9 @@ The shared MVP topology preserves three independent boundaries:
 
 ### Topology mode
 
-The single operator-facing flag is `NEO_CHROMA_UNIFIED`:
+The system uses a **permanently unified** topology. The Memory Core and Knowledge Base always share a single underlying ChromaDB process.
 
-```bash
-# Per-developer local mode (default — each MCP server runs its own Chroma process):
-unset NEO_CHROMA_UNIFIED
-# or
-export NEO_CHROMA_UNIFIED=false
-
-# Shared team deployment mode (KB and MC both target the same Chroma process):
-export NEO_CHROMA_UNIFIED=true
-```
-
-The flag is read by both `ai/mcp/server/knowledge-base/config.template.mjs` and `ai/mcp/server/memory-core/config.template.mjs` at boot. Each config exposes a `chromaUnified: process.env.NEO_CHROMA_UNIFIED === 'true'` flag derived from the same env var, so both servers stay in sync without coordinated config edits.
-
-In unified mode, the Memory Core's `ChromaClient` targets the Knowledge Base's Chroma coordinates (`engines.kb.chroma.{host, port}`) instead of its own (`engines.chroma.{host, port}`). The KB's local config defines the canonical shared coordinates; MC reads through them.
-
-**Connection contract:** the shared Chroma instance MUST be reachable from every developer's machine — typically a team-managed cloud service (e.g., a managed Chroma cluster) or a shared internal host. The `engines.kb.chroma.{host, port}` config in the KB's `config.mjs` is where operators point at the team's shared instance.
+**Connection contract:** the shared Chroma instance MUST be reachable from every developer's machine — typically a team-managed cloud service (e.g., a managed Chroma cluster) or a shared internal host. The `engines.chroma.{host, port}` config is where operators point at the team's shared instance.
 
 ### Embedding provider
 
@@ -190,9 +176,9 @@ The Memory Core's `healthcheck` MCP tool exposes the effective topology so opera
 ```
 
 Three diagnostic fields:
-- `mode`: `'unified'` confirms shared mode is active. `'federated'` means the flag did not take effect (or was unset).
-- `coordinates`: the actual `{host, port}` the Memory Core's client is targeting. In shared mode this should match the team's Chroma service. `null` indicates a misconfiguration (`chromaUnified=true` but `engines.kb.chroma` not populated).
-- `resolvedVia`: `'engines.kb.chroma'` in unified mode, `'engines.chroma'` in federated. Direct pointer to the config key path the resolver consulted.
+- `mode`: Always `'unified'`. Memory Core shares the underlying ChromaDB instance with the KB.
+- `coordinates`: the actual `{host, port}` the Memory Core's client is targeting. In shared mode this should match the team's Chroma service. `null` indicates a misconfiguration (`engines.chroma` not populated).
+- `resolvedVia`: `'engines.chroma'`. Direct pointer to the config key path the resolver consulted.
 
 See [`MemoryCore.md` §Healthcheck Response Shape](./MemoryCore.md) for the full healthcheck payload contract.
 
@@ -283,10 +269,10 @@ Teams adopting shared mode from per-developer local should follow this migration
    - **Fresh start (recommended for MVP):** new shared instance, no historical KB/MC data carried over. Each agent's first session against shared mode rebuilds its local concept of "team context" through normal interaction.
    - **Migrate existing local data:** export per-developer collections via `export_database` (Memory Core MCP tool), reconcile (multiple developers may have summarized the same session), and import into the shared instance via `import_database`. This is operator-intensive and out of MVP scope; document case-by-case if pursued.
 
-3. **Update each developer's config.** Each developer sets `NEO_CHROMA_UNIFIED=true` and points their KB's `engines.kb.chroma.{host, port}` config at the shared instance. The setting can live in the developer's environment or in a shared `.env` template.
+3. **Update each developer's config.** Each developer points their `engines.chroma.{host, port}` config at the shared instance. The setting can live in the developer's environment or in a shared `.env` template.
 
 4. **Verify via healthcheck.** Each developer runs `healthcheck` against both servers, but the proof shape differs per server:
-   - **Memory Core** surfaces the effective topology in its `database.topology` block — expect `mode === 'unified'`, matching `coordinates`, and `resolvedVia === 'engines.kb.chroma'`. This is the canonical topology proof.
+   - **Memory Core** surfaces the effective topology in its `database.topology` block — expect `mode === 'unified'`, matching `coordinates`, and `resolvedVia === 'engines.chroma'`. This is the canonical topology proof.
    - **Knowledge Base** proves connectivity to the shared Chroma instance and reports collection availability/counts (the KB healthcheck does not surface a topology block; that diagnostic is MC-side per #10127).
    - Cross-server consistency: when both servers report `connected: true` against matching `{host, port}`, the shared topology is verified end-to-end. Connection failures surface as structured `error` fields, not 500s.
 
@@ -309,15 +295,11 @@ This deployment topology explicitly reconciles the outstanding matrix coverage t
 - **[#10008](https://github.com/neomjs/neo/issues/10008)** (Unified Coverage): Playwright integration tests (`test-integration-unified`) empirically prove the unified product-path behavior.
 - **[#10009](https://github.com/neomjs/neo/issues/10009)** (Federated Coverage): Federated topology integration tests are demoted to a non-default diagnostic track, explicitly deferring product claims.
 
-## Federated Mode Disposition (Non-MVP Diagnostic Path)
+## Federated Mode Retirement
 
-The earlier "federated cloud" topology — separate Chroma processes for KB and MC, both deployed remotely — is **demoted from first-class product mode to non-default diagnostic coverage** for the MVP. Rationale:
+The earlier "federated cloud" topology — separate Chroma processes for KB and MC — has been **permanently retired**. The unified topology is now the exclusive product path.
 
-- The shared-team need is **shared institutional memory**, which a federated topology fragments by default (each service owns its own Chroma).
-- Operating a federated topology is more complex (two Chroma services to manage) without serving the immediate MVP need.
-- The federated code paths (`chromaUnified=false`) remain functional and tested for the per-developer local default; demotion affects the *cloud* federated case specifically.
-
-[#10009](https://github.com/neomjs/neo/issues/10009) ("Playwright Test Coverage: Federated Cloud Topology") is the reference ticket. Recommended disposition: **demote to non-default diagnostic / future cloud-isolation track**, keep the test coverage but flag as non-MVP. The ticket itself can document the demotion decision in a comment; this doc captures the architectural rationale.
+[#10009](https://github.com/neomjs/neo/issues/10009) ("Playwright Test Coverage: Federated Cloud Topology") is the reference ticket, resolving the removal of federated topology code paths across the substrate.
 
 ## Related
 
