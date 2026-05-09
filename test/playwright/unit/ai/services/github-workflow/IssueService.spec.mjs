@@ -33,10 +33,10 @@ import InstanceManager from '../../../../../../src/manager/Instance.mjs';
  * Tests exercise the GraphQL response parsing path; the actual GitHub API call is mocked via
  * `GraphqlService.query` monkey-patch (pattern established by `LabelService.spec.mjs` #10112).
  *
- * @see Neo.ai.mcp.server.github-workflow.services.IssueService#createComment
- * @see Neo.ai.mcp.server.github-workflow.services.IssueService#updateComment
+ * @see Neo.ai.services.github-workflow.IssueService#createComment
+ * @see Neo.ai.services.github-workflow.IssueService#updateComment
  */
-test.describe('Neo.ai.mcp.server.github-workflow.services.IssueService — manageIssueComment (#10272)', () => {
+test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComment (#10272)', () => {
     let IssueService;
     let GraphqlService;
     let originalQuery;

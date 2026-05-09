@@ -19,7 +19,7 @@ import * as core              from '../../../../../../../src/core/_export.mjs';
 import aiConfig               from '../../../../../../../ai/mcp/server/memory-core/config.mjs';
 import ChromaLifecycleService from '../../../../../../../ai/services/memory-core/lifecycle/ChromaLifecycleService.mjs';
 
-test.describe('Neo.ai.mcp.server.memory-core.services.lifecycle.ChromaLifecycleService — unified-mode bypass (#10007)', () => {
+test.describe('Neo.ai.services.memory-core.lifecycle.ChromaLifecycleService — unified-mode bypass (#10007)', () => {
     test('startDatabase returns skipped_unified_mode when chromaUnified=true', async () => {
         const original = aiConfig.chromaUnified;
 

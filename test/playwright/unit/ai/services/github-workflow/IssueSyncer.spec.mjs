@@ -36,7 +36,7 @@ import path            from 'path';
  *    from the dropped `issue.comments.totalCount` scalar. Guards against regression back to the
  *    pre-timeline-era dual-source pattern that motivated the deleted sentinel sweep.
  */
-test.describe('Neo.ai.mcp.server.github-workflow.services.sync.IssueSyncer', () => {
+test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
     let IssueSyncer;
     let GraphqlService;
     let issueSyncConfig;

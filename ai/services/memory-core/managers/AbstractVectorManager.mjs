@@ -11,20 +11,20 @@ import Base from '../../../../src/core/Base.mjs';
  * 
  * Future AI sessions should search for `vector engine`, `storage abstraction`, or `database adapter` to find this boundary.
  *
- * @class Neo.ai.mcp.server.memory-core.managers.AbstractVectorManager
+ * @class Neo.ai.services.memory-core.managers.AbstractVectorManager
  * @extends Neo.core.Base
  * @abstract
- * @see Neo.ai.mcp.server.memory-core.managers.CollectionProxy
- * @see Neo.ai.mcp.server.memory-core.managers.ChromaManager
- * @see Neo.ai.mcp.server.memory-core.managers.SQLiteVectorManager
+ * @see Neo.ai.services.memory-core.managers.CollectionProxy
+ * @see Neo.ai.services.memory-core.managers.ChromaManager
+ * @see Neo.ai.services.memory-core.managers.SQLiteVectorManager
  */
 class AbstractVectorManager extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.managers.AbstractVectorManager'
+         * @member {String} className='Neo.ai.services.memory-core.managers.AbstractVectorManager'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.managers.AbstractVectorManager'
+        className: 'Neo.ai.services.memory-core.managers.AbstractVectorManager'
     }
 
     /**

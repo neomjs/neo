@@ -19,17 +19,17 @@ const issueSyncConfig = aiConfig.issueSync;
  * - Generating and updating local Markdown files for each release
  * - Sorting releases chronologically to support issue archiving logic
  *
- * @class Neo.ai.mcp.server.github-workflow.services.sync.ReleaseSyncer
+ * @class Neo.ai.services.github-workflow.sync.ReleaseSyncer
  * @extends Neo.core.Base
  * @singleton
  */
 class ReleaseSyncer extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.sync.ReleaseSyncer'
+         * @member {String} className='Neo.ai.services.github-workflow.sync.ReleaseSyncer'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.services.sync.ReleaseSyncer',
+        className: 'Neo.ai.services.github-workflow.sync.ReleaseSyncer',
         /**
          * @member {Boolean} singleton=true
          * @protected

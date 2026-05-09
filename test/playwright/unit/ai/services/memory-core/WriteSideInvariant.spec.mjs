@@ -48,7 +48,7 @@ import RequestContextService from '../../../../../../ai/mcp/server/shared/servic
  * @see learn/agentos/tooling/MultiTenantMigrationGuide.md §1
  * @see ai/services/memory-core/MailboxService.mjs — exemplar enforcement site
  */
-test.describe('Neo.ai.mcp.server.memory-core.services.WriteSideInvariant (#10017)', () => {
+test.describe('Neo.ai.services.memory-core.WriteSideInvariant (#10017)', () => {
     let MailboxService, GraphService, LifecycleService;
     let dbPath;
 

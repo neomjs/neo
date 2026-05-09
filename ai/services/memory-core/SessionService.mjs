@@ -34,17 +34,17 @@ import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/
  * crashes or ends abruptly, its context is preserved and up-to-date for the next agent.
  * Data integrity and context availability are prioritized over minimizing LLM token usage.
  *
- * @class Neo.ai.mcp.server.memory-core.services.SessionService
+ * @class Neo.ai.services.memory-core.SessionService
  * @extends Neo.core.Base
  * @singleton
  */
 class SessionService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.SessionService'
+         * @member {String} className='Neo.ai.services.memory-core.SessionService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.SessionService',
+        className: 'Neo.ai.services.memory-core.SessionService',
         /**
          * @member {String|null} _legacySessionId=crypto.randomUUID()
          * @protected

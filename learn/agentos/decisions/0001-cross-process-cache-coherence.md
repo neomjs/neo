@@ -17,7 +17,7 @@
 
 ## 1. Context
 
-`Neo.ai.mcp.server.memory-core.services.GraphService` is declared `singleton: true`
+`Neo.ai.services.memory-core.GraphService` is declared `singleton: true`
 and holds the in-memory projection of the graph (`db.nodes` Map, `db.edges` Store,
 `vicinityLoadedNodes` Set). Every MCP server process has its own singleton;
 processes share only the SQLite-WAL backing file at

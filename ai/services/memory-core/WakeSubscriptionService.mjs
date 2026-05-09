@@ -22,7 +22,7 @@ import CoalescingEngineService from './CoalescingEngineService.mjs';
  * `GraphLog` deltas and returns the event-payload list; channel dispatch is the
  * consumer's responsibility.
  *
- * @class Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService
+ * @class Neo.ai.services.memory-core.WakeSubscriptionService
  * @extends Neo.core.Base
  * @singleton
  * @see learn/agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md §6.6
@@ -31,10 +31,10 @@ import CoalescingEngineService from './CoalescingEngineService.mjs';
 class WakeSubscriptionService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService'
+         * @member {String} className='Neo.ai.services.memory-core.WakeSubscriptionService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService',
+        className: 'Neo.ai.services.memory-core.WakeSubscriptionService',
         /**
          * @member {Boolean} singleton=true
          * @protected

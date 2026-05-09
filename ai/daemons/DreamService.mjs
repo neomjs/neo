@@ -32,7 +32,7 @@ const __dirname = path.dirname(__filename);
  * yet been formally digested into Graph Nodes and Edges. Uses the configured model provider
  * via configurable model to extract formal graph structures from episodic memories.
  *
- * @class Neo.ai.mcp.server.memory-core.services.DreamService
+ * @class Neo.ai.daemons.DreamService
  * @extends Neo.core.Base
  * @singleton
  */

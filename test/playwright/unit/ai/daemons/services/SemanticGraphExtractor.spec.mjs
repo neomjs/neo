@@ -189,7 +189,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
                     content: JSON.stringify({
                         concepts: [
                             "CONCEPT:mailbox-service",
-                            "CLASS:Neo.ai.mcp.server.memory-core.services.MailboxService",
+                            "CLASS:Neo.ai.services.memory-core.MailboxService",
                             "invalid-concept", // should be filtered out
                             "CONCEPT:auto-emit"
                         ]
@@ -203,7 +203,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
             expect(Array.isArray(result)).toBe(true);
             expect(result.length).toBe(3);
             expect(result).toContain("CONCEPT:mailbox-service");
-            expect(result).toContain("CLASS:Neo.ai.mcp.server.memory-core.services.MailboxService");
+            expect(result).toContain("CLASS:Neo.ai.services.memory-core.MailboxService");
             expect(result).toContain("CONCEPT:auto-emit");
             expect(result).not.toContain("invalid-concept"); // properly filtered
         } finally {

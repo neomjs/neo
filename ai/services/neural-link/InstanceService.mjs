@@ -7,17 +7,17 @@ import ConnectionService from './ConnectionService.mjs';
  * This service provides tools for reading and writing properties of any registered Neo instance
  * (e.g. Components, Stores, Managers, Controllers).
  *
- * @class Neo.ai.mcp.server.neural-link.services.InstanceService
+ * @class Neo.ai.services.neural-link.InstanceService
  * @extends Neo.core.Base
  * @singleton
  */
 class InstanceService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.neural-link.services.InstanceService'
+         * @member {String} className='Neo.ai.services.neural-link.InstanceService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.neural-link.services.InstanceService',
+        className: 'Neo.ai.services.neural-link.InstanceService',
         /**
          * @member {Boolean} singleton=true
          * @protected

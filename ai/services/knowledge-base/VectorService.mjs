@@ -31,17 +31,17 @@ import DestructiveOperationGuard from '../../mcp/server/shared/services/Destruct
  * 4.  **Diffing:** Optimizes API usage by only processing chunks that have changed since
  *     the last run.
  *
- * @class Neo.ai.mcp.server.knowledge-base.services.VectorService
+ * @class Neo.ai.services.knowledge-base.VectorService
  * @extends Neo.core.Base
  * @singleton
  */
 class VectorService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.services.VectorService'
+         * @member {String} className='Neo.ai.services.knowledge-base.VectorService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.services.VectorService',
+        className: 'Neo.ai.services.knowledge-base.VectorService',
         /**
          * @member {Boolean} singleton=true
          * @protected

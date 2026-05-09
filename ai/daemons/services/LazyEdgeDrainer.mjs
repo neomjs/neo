@@ -40,7 +40,7 @@ import logger  from '../../mcp/server/memory-core/logger.mjs';
  * @extends Neo.core.Base
  * @singleton
  * @see Neo.ai.daemons.services.MemorySessionIngestor
- * @see Neo.ai.mcp.server.memory-core.services.GraphService
+ * @see Neo.ai.services.memory-core.GraphService
  */
 class LazyEdgeDrainer extends Base {
     static config = {

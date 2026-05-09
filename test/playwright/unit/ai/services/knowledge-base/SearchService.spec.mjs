@@ -30,7 +30,7 @@ import path            from 'path';
  * synthesis LLM returned placeholder `"I don't have enough information"` answers despite
  * references being correctly retrieved.
  */
-test.describe('Neo.ai.mcp.server.knowledge-base.services.SearchService', () => {
+test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
     let SearchService;
     let QueryService;
     let aiConfig;

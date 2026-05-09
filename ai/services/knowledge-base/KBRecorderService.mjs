@@ -15,19 +15,19 @@ import logger         from '../../mcp/server/knowledge-base/logger.mjs';
  * Those FAQ rows are the durable "agent question" signal consumed by `GapInferenceEngine` as
  * `[KB_DEMAND_GAP]` evidence for the Concept Ontology and Golden Path loop.
  *
- * @class Neo.ai.mcp.server.knowledge-base.services.KBRecorderService
+ * @class Neo.ai.services.knowledge-base.KBRecorderService
  * @extends Neo.core.Base
- * @see Neo.ai.mcp.server.neural-link.services.RecorderService
+ * @see Neo.ai.services.neural-link.RecorderService
  * @see Neo.ai.daemons.services.GapInferenceEngine
  * @singleton
  */
 class KBRecorderService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.services.KBRecorderService'
+         * @member {String} className='Neo.ai.services.knowledge-base.KBRecorderService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.services.KBRecorderService',
+        className: 'Neo.ai.services.knowledge-base.KBRecorderService',
         /**
          * @member {Boolean} singleton=true
          * @protected

@@ -8,17 +8,17 @@ import logger       from '../../mcp/server/github-workflow/logger.mjs';
  * This service provides a deterministic state-trap mechanism for headless orchestrators
  * to signal execution states, allowing for robust lifecycle management and self-healing.
  *
- * @class Neo.ai.mcp.server.github-workflow.services.AgentStateService
+ * @class Neo.ai.services.github-workflow.AgentStateService
  * @extends Neo.core.Base
  * @singleton
  */
 class AgentStateService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.AgentStateService'
+         * @member {String} className='Neo.ai.services.github-workflow.AgentStateService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.services.AgentStateService',
+        className: 'Neo.ai.services.github-workflow.AgentStateService',
         /**
          * @member {Boolean} singleton=true
          * @protected

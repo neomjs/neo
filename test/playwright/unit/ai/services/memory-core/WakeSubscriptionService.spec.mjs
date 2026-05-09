@@ -26,7 +26,7 @@ if (!Neo.get) Neo.get = () => null;
 
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
-test.describe('Neo.ai.mcp.server.memory-core.services.WakeSubscriptionService', () => {
+test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
     test.describe.configure({mode: 'serial'});
     let WakeSubscriptionService, GraphService, LifecycleService, CoalescingEngineService, callTool, originalAutoSave;
     let dbPath;

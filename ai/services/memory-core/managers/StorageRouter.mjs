@@ -12,16 +12,16 @@ import logger          from '../../../mcp/server/memory-core/logger.mjs';
  *  - Writes are dispatched to both databases (mirroring).
  *  - Reads return from the primary database (Neo) to avoid duplication.
  *
- * @class Neo.ai.mcp.server.memory-core.managers.StorageRouter
+ * @class Neo.ai.services.memory-core.managers.StorageRouter
  * @extends Neo.core.Base
  */
 class StorageRouter extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.managers.StorageRouter'
+         * @member {String} className='Neo.ai.services.memory-core.managers.StorageRouter'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.managers.StorageRouter',
+        className: 'Neo.ai.services.memory-core.managers.StorageRouter',
         /**
          * @member {Boolean} singleton=true
          * @protected

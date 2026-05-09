@@ -21,17 +21,17 @@ import ChromaLifecycleService   from '../lifecycle/ChromaLifecycleService.mjs';
  * to per-tenant write tagging and read-side isolation, which live in `SessionService` /
  * `MemoryService`.
  *
- * @class Neo.ai.mcp.server.memory-core.managers.ChromaManager
- * @extends Neo.ai.mcp.server.memory-core.managers.AbstractVectorManager
+ * @class Neo.ai.services.memory-core.managers.ChromaManager
+ * @extends Neo.ai.services.memory-core.managers.AbstractVectorManager
  * @singleton
  */
 class ChromaManager extends AbstractVectorManager {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.managers.ChromaManager'
+         * @member {String} className='Neo.ai.services.memory-core.managers.ChromaManager'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.managers.ChromaManager',
+        className: 'Neo.ai.services.memory-core.managers.ChromaManager',
         /**
          * @member {ChromaClient|null} client=null
          * @protected

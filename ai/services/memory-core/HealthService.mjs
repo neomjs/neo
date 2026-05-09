@@ -103,7 +103,7 @@ export function buildIdentityBlock(stdioIdentityState) {
  * effective `{host, port}`, and `resolvedVia` names the exact config key path the resolver read —
  * giving operators a direct pointer to what to fix when coordinates look wrong.
  *
- * **Consumes {@link Neo.ai.mcp.server.memory-core.managers.ChromaManager#resolveChromaCoordinates}**
+ * **Consumes {@link Neo.ai.services.memory-core.managers.ChromaManager#resolveChromaCoordinates}**
  * as the single source of truth for coordinate resolution. `resolveChromaCoordinates` was extracted
  * as a pure method in #10001 specifically to make this kind of observability aggregation possible
  * without singleton re-instantiation or config-resolution duplication.
@@ -122,7 +122,7 @@ export function buildIdentityBlock(stdioIdentityState) {
  *     resolver throw. `resolvedVia` is the exact config key path that won the resolution —
  *     `'engines.kb.chroma'` for unified mode, `'engines.chroma'` for federated. `error` is present
  *     only when the resolver threw.
- * @see Neo.ai.mcp.server.memory-core.managers.ChromaManager#resolveChromaCoordinates
+ * @see Neo.ai.services.memory-core.managers.ChromaManager#resolveChromaCoordinates
  * @see learn/agentos/MemoryCore.md
  */
 export function buildTopologyBlock(cfg) {
@@ -435,7 +435,7 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
  * when ChromaDB is not available, while failing gracefully at the tool-call level with helpful
  * error messages to guide users toward resolution.
  *
- * @class Neo.ai.mcp.server.memory-core.services.HealthService
+ * @class Neo.ai.services.memory-core.HealthService
  * @extends Neo.core.Base
  * @singleton
  */
@@ -501,10 +501,10 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
 class HealthService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.HealthService'
+         * @member {String} className='Neo.ai.services.memory-core.HealthService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.HealthService',
+        className: 'Neo.ai.services.memory-core.HealthService',
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -864,7 +864,7 @@ class HealthService extends Base {
             status   : 'healthy',
             timestamp: new Date().toISOString(),
             session  : {
-                currentId: Neo.ns('Neo.ai.mcp.server.memory-core.services.SessionService', false)?.currentSessionId
+                currentId: Neo.ns('Neo.ai.services.memory-core.SessionService', false)?.currentSessionId
             },
             database : {
                 process   : ChromaLifecycleService.getDatabaseStatus(),

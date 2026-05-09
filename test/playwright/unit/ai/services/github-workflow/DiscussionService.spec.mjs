@@ -21,7 +21,7 @@ import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 /**
  * @summary Contract coverage for `DiscussionService.manageDiscussionComment` enriched return shape (#10841).
  */
-test.describe('Neo.ai.mcp.server.github-workflow.services.DiscussionService — manageDiscussionComment (#10841)', () => {
+test.describe('Neo.ai.services.github-workflow.DiscussionService — manageDiscussionComment (#10841)', () => {
     let DiscussionService;
     let GraphqlService;
     let originalQuery;

@@ -17,17 +17,17 @@ const execFileAsync = promisify(execFile);
  * the GraphQL API (for metadata retrieval, listing, and conversation history)
  * to provide a comprehensive toolset for managing PRs.
  *
- * @class Neo.ai.mcp.server.github-workflow.services.PullRequestService
+ * @class Neo.ai.services.github-workflow.PullRequestService
  * @extends Neo.core.Base
  * @singleton
  */
 class PullRequestService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.PullRequestService'
+         * @member {String} className='Neo.ai.services.github-workflow.PullRequestService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.services.PullRequestService',
+        className: 'Neo.ai.services.github-workflow.PullRequestService',
         /**
          * @member {Boolean} singleton=true
          * @protected

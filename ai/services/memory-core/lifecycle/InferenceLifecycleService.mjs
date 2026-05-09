@@ -20,18 +20,18 @@ const memCoreDir = path.resolve(__dirname, '../../../mcp/server/memory-core');
  * 
  * Future AI sessions should search for `inference routing`, `ollama daemon`, `mlx python environment`, or `llm orchestrator`.
  *
- * @class Neo.ai.mcp.server.memory-core.services.lifecycle.InferenceLifecycleService
+ * @class Neo.ai.services.memory-core.lifecycle.InferenceLifecycleService
  * @extends Neo.core.Base
  * @singleton
- * @see Neo.ai.mcp.server.memory-core.services.lifecycle.ChromaLifecycleService
+ * @see Neo.ai.services.memory-core.lifecycle.ChromaLifecycleService
  */
 class InferenceLifecycleService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.lifecycle.InferenceLifecycleService'
+         * @member {String} className='Neo.ai.services.memory-core.lifecycle.InferenceLifecycleService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.lifecycle.InferenceLifecycleService',
+        className: 'Neo.ai.services.memory-core.lifecycle.InferenceLifecycleService',
         /**
          * @member {Object|null} inferenceProcess=null
          * @protected

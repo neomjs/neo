@@ -24,7 +24,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
  * deterministic routing: the singleton only initializes a Gemini embedding client when the
  * single canonical `embeddingProvider` selector is `gemini`.
  *
- * @see Neo.ai.mcp.server.memory-core.services.TextEmbeddingService#shouldInitializeGeminiEmbeddingClient
+ * @see Neo.ai.services.memory-core.TextEmbeddingService#shouldInitializeGeminiEmbeddingClient
  */
 test.describe('TextEmbeddingService #10804 — shouldInitializeGeminiEmbeddingClient', () => {
     let shouldInitializeGeminiEmbeddingClient;

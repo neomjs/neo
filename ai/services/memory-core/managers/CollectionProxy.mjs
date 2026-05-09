@@ -3,16 +3,16 @@ import aiConfig                  from '../../../mcp/server/memory-core/config.mj
 import DestructiveOperationGuard from '../../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 
 /**
- * @class Neo.ai.mcp.server.memory-core.managers.CollectionProxy
+ * @class Neo.ai.services.memory-core.managers.CollectionProxy
  * @extends Neo.core.Base
  */
 class CollectionProxy extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.managers.CollectionProxy'
+         * @member {String} className='Neo.ai.services.memory-core.managers.CollectionProxy'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.managers.CollectionProxy',
+        className: 'Neo.ai.services.memory-core.managers.CollectionProxy',
         /**
          * @member {String} collectionType='memory'
          */

@@ -19,17 +19,17 @@ const pullRequestConfig = aiConfig.pullRequest;
  * - Generating and updating local Markdown files for each pull request.
  * - Supporting offline context mapping.
  *
- * @class Neo.ai.mcp.server.github-workflow.services.sync.PullRequestSyncer
+ * @class Neo.ai.services.github-workflow.sync.PullRequestSyncer
  * @extends Neo.core.Base
  * @singleton
  */
 class PullRequestSyncer extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.sync.PullRequestSyncer'
+         * @member {String} className='Neo.ai.services.github-workflow.sync.PullRequestSyncer'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.services.sync.PullRequestSyncer',
+        className: 'Neo.ai.services.github-workflow.sync.PullRequestSyncer',
         /**
          * @member {Boolean} singleton=true
          * @protected

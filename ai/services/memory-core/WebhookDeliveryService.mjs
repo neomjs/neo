@@ -10,17 +10,17 @@ import logger from '../../mcp/server/memory-core/logger.mjs';
  * It is responsible for POSTing the MCP-aligned wake payload to the target URL,
  * applying HMAC-SHA256 signing, and handling exponential backoff and connection degradation.
  * 
- * @class Neo.ai.mcp.server.memory-core.services.WebhookDeliveryService
+ * @class Neo.ai.services.memory-core.WebhookDeliveryService
  * @extends Neo.core.Base
  * @singleton
  */
 class WebhookDeliveryService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.WebhookDeliveryService'
+         * @member {String} className='Neo.ai.services.memory-core.WebhookDeliveryService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.WebhookDeliveryService',
+        className: 'Neo.ai.services.memory-core.WebhookDeliveryService',
         /**
          * @member {Boolean} singleton=true
          * @protected

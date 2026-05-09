@@ -19,7 +19,7 @@ import path                  from 'path';
 import Neo                   from '../../../../../../src/Neo.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
-test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
+test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     test.describe.configure({ mode: 'serial' });
     let MailboxService, GraphService, PermissionService, LifecycleService, buildMailboxDelta, originalAutoSave, mailboxAiConfig, originalMailboxPolicy;
     let dbPath;
@@ -473,7 +473,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
         const originalExtract = SemanticGraphExtractor.extractMessageConcepts;
         try {
             SemanticGraphExtractor.extractMessageConcepts = async (body) => {
-                return ['CONCEPT:mcp-integration', 'CLASS:Neo.ai.mcp.server.memory-core.services.MailboxService'];
+                return ['CONCEPT:mcp-integration', 'CLASS:Neo.ai.services.memory-core.MailboxService'];
             };
 
             await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
@@ -493,7 +493,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
             const edges = GraphService.db.edges.items.filter(e => e.source === msgId && e.type === 'TAGGED_CONCEPT');
             expect(edges.length).toBe(2);
             expect(edges.find(e => e.target === 'CONCEPT:mcp-integration')).toBeDefined();
-            expect(edges.find(e => e.target === 'CLASS:Neo.ai.mcp.server.memory-core.services.MailboxService')).toBeDefined();
+            expect(edges.find(e => e.target === 'CLASS:Neo.ai.services.memory-core.MailboxService')).toBeDefined();
 
             // Verify nodes were created and have auto_extracted provenance
             const conceptNode = GraphService.db.nodes.get('CONCEPT:mcp-integration');
@@ -889,7 +889,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService', () => {
  *   3. Read-path scoping (`CAN_READ_INBOX_OF`) remains strict — reading
  *      another agent's inbox without a grant still throws Unauthorized.
  */
-test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — open policy mode (#10252)', () => {
+test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (#10252)', () => {
     test.describe.configure({ mode: 'serial' });
     let MailboxService, GraphService, PermissionService, LifecycleService, mailboxAiConfig, originalAutoSave, originalMailboxPolicy;
     let dbPath;
@@ -1157,7 +1157,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — open po
 /**
  * #10338: A2A_TASK state-machine + transition authority + idempotency claim-and-lock
  */
-test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — A2A_TASK (#10338)', () => {
+test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)', () => {
     test.describe.configure({ mode: 'serial' });
     let MailboxService, GraphService, PermissionService, LifecycleService, mailboxAiConfig, originalAutoSave;
     let dbPath;
@@ -1379,7 +1379,7 @@ test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — A2A_TAS
  * #10338. Tests the atomic `UPDATE-WHERE` semantics, idempotency, opt-in `expiresAt`
  * gating, terminal-state preservation, and bulk multi-state transition.
  */
-test.describe('Neo.ai.mcp.server.memory-core.services.MailboxService — TTL Sweeper (#10339)', () => {
+test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#10339)', () => {
     test.describe.configure({ mode: 'serial' });
     let MailboxService, GraphService, PermissionService, LifecycleService, mailboxAiConfig, originalAutoSave;
     let dbPath;
