@@ -258,5 +258,4 @@ export class TaskStateService extends Base {
     }
 }
 
-const TaskStateServiceSingleton = Neo.setupClass(TaskStateService);
-export default TaskStateServiceSingleton;
+export default Neo.setupClass(TaskStateService);
