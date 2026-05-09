@@ -123,6 +123,40 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
 });
 
 /**
+ * @summary Coverage for the #11009 orchestrator task outcome projection.
+ *
+ * The end-to-end healthcheck path requires mounted Memory Core dependencies. This spec
+ * pins the pure projection used by `HealthService.recordTaskOutcome()` so operators get
+ * an immutable per-task view under `healthcheck.orchestrator.tasks`.
+ *
+ * @see Neo.ai.services.memory-core.HealthService#buildTaskOutcomesBlock
+ */
+test.describe('HealthService #11009 — buildTaskOutcomesBlock', () => {
+    let buildTaskOutcomesBlock;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
+        buildTaskOutcomesBlock = mod.buildTaskOutcomesBlock;
+    });
+
+    test('clones task outcomes for healthcheck callers', () => {
+        const source = {
+            summary: {
+                status    : 'completed',
+                details   : {reason: 'periodic-sweep:600000'},
+                recordedAt: '2026-05-09T12:00:00.000Z'
+            }
+        };
+
+        const block = buildTaskOutcomesBlock(source);
+
+        expect(block).toEqual(source);
+        expect(block).not.toBe(source);
+        expect(block.summary).not.toBe(source.summary);
+    });
+});
+
+/**
  * @summary Coverage for the #10127 topology observability block in the healthcheck payload.
  *
  * Mirrors the #10176 precedent above: the end-to-end integration path requires a live ChromaDB

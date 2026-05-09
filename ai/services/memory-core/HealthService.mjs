@@ -85,6 +85,26 @@ export function buildIdentityBlock(stdioIdentityState) {
 }
 
 /**
+ * @summary Projects orchestrator task outcomes into the healthcheck `orchestrator.tasks`
+ *          observability block (#11009).
+ *
+ * The task outcome map is updated by `Neo.ai.daemons.Orchestrator` after each child-task
+ * lifecycle event. Returning a shallow clone prevents healthcheck callers from mutating
+ * the cached singleton state while keeping the payload direct enough for operators to
+ * inspect `summary` and `kbSync` independently.
+ *
+ * @param {Object} taskOutcomes Last-known outcome by task name.
+ * @returns {Object}
+ * @see Neo.ai.daemons.Orchestrator#recordTaskOutcome
+ */
+export function buildTaskOutcomesBlock(taskOutcomes) {
+    return Object.entries(taskOutcomes || {}).reduce((out, [taskName, outcome]) => {
+        out[taskName] = {...outcome};
+        return out;
+    }, {});
+}
+
+/**
  * @summary Projects the effective ChromaDB topology resolution into the healthcheck `database.topology`
  *          observability block (#10127).
  *
@@ -569,6 +589,13 @@ class HealthService extends Base {
     #startupSummarizationDetails = null;
 
     /**
+     * Last-known outcomes for orchestrator-owned maintenance tasks.
+     * @member {Object} #taskOutcomes
+     * @private
+     */
+    #taskOutcomes = {};
+
+    /**
      * Cached stdio identity state for the healthcheck `identity` observability block (#10176).
      * Populated by `Server.mjs` post-`resolveStdioIdentity()` via {@link HealthService#setStdioIdentityState}.
      * Null when the setter hasn't fired yet (SSE transport, pre-boot, or timing races — all of
@@ -882,6 +909,9 @@ class HealthService extends Base {
                 summarizationStatus : this.#startupSummarizationStatus || 'not_attempted',
                 summarizationDetails: this.#startupSummarizationDetails
             },
+            orchestrator: {
+                tasks: buildTaskOutcomesBlock(this.#taskOutcomes)
+            },
             mailboxPreview: await MailboxService.getHealthcheckPreview(),
             identity : buildIdentityBlock(this.#stdioIdentityState),
             migration: await this.#checkMigrationState(),
@@ -1087,6 +1117,24 @@ class HealthService extends Base {
     recordStartupSummarization(status, details=null) {
         this.#startupSummarizationStatus  = status;
         this.#startupSummarizationDetails = details;
+
+        // Clear the cache to ensure next healthcheck returns updated info
+        this.clearCache();
+    }
+
+    /**
+     * Records the result of an orchestrator-owned maintenance task.
+     * Called by `Neo.ai.daemons.Orchestrator` after each child-task lifecycle event.
+     * @param {String} taskName Stable orchestrator task name.
+     * @param {String} status One of: 'running', 'completed', 'failed', 'skipped'.
+     * @param {Object|null} details Additional information about the task outcome.
+     */
+    recordTaskOutcome(taskName, status, details=null) {
+        this.#taskOutcomes[taskName] = {
+            status,
+            details,
+            recordedAt: new Date().toISOString()
+        };
 
         // Clear the cache to ensure next healthcheck returns updated info
         this.clearCache();

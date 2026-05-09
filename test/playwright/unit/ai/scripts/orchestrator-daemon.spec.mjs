@@ -5,12 +5,14 @@ import {
     DEFAULT_KB_SYNC_INTERVAL_MS,
     DEFAULT_POLL_INTERVAL_MS,
     DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
-    buildTaskDefinitions,
-    parseInterval,
-    shouldRunIntervalTask
+    parseInterval
 } from '../../../../../ai/scripts/orchestrator-daemon.mjs';
+import {
+    buildTaskDefinitions,
+    shouldRunIntervalTask
+} from '../../../../../ai/daemons/Orchestrator.mjs';
 
-test.describe('ai/scripts/orchestrator-daemon.mjs (#11006)', () => {
+test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
     test('parses interval env values while preserving zero as disabled', () => {
         expect(parseInterval(undefined, DEFAULT_POLL_INTERVAL_MS)).toBe(DEFAULT_POLL_INTERVAL_MS);
         expect(parseInterval('', DEFAULT_SUMMARY_SWEEP_INTERVAL_MS)).toBe(DEFAULT_SUMMARY_SWEEP_INTERVAL_MS);
@@ -53,15 +55,25 @@ test.describe('ai/scripts/orchestrator-daemon.mjs (#11006)', () => {
         expect(tasks.kbSync.expectedCommand).toBe('syncKnowledgeBase.mjs');
     });
 
-    test('keeps bridge-daemon wake-only and routes maintenance ownership to orchestrator', () => {
+    test('keeps bridge-daemon wake-only and routes maintenance ownership to the daemon class', () => {
         const bridgeSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/scripts/bridge-daemon.mjs'), 'utf8');
         const orchestratorSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/scripts/orchestrator-daemon.mjs'), 'utf8');
+        const daemonSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/Orchestrator.mjs'), 'utf8');
 
         expect(bridgeSource).not.toContain('summarize-sessions.mjs');
         expect(bridgeSource).not.toContain('Piece C periodic summarization sweep');
         expect(bridgeSource).not.toContain('checkSummarizationLifecycle');
 
-        expect(orchestratorSource).toContain('summarize-sessions.mjs');
-        expect(orchestratorSource).toContain('syncKnowledgeBase.mjs');
+        expect(orchestratorSource).toContain('../daemons/Orchestrator.mjs');
+        expect(orchestratorSource).toContain('orchestrator-daemon.pid');
+        expect(orchestratorSource).toContain('setupCleanupHandlers');
+        expect(orchestratorSource).toContain('enforceSingleton');
+        expect(orchestratorSource).not.toContain('buildTaskDefinitions');
+        expect(orchestratorSource).not.toContain('runMaintenanceCycle');
+        expect(orchestratorSource).not.toContain('summarize-sessions.mjs');
+        expect(orchestratorSource).not.toContain('syncKnowledgeBase.mjs');
+
+        expect(daemonSource).toContain('summarize-sessions.mjs');
+        expect(daemonSource).toContain('syncKnowledgeBase.mjs');
     });
 });
