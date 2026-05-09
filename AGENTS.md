@@ -119,7 +119,7 @@ For substrate-quality heuristics that operationalize this principle without beco
 | `pr-review` | Reviewing a PR (yours or peer's) — structured eval metrics, graph ingestion tags, severity ladder, restates §0 merge gate, post-comment A2A commentId hand-off (reviewer→author) per guide §9 + §9.4 cold-cache exception, Evidence Audit + Source-of-Authority sections (template §) for substrate/runtime-AC PRs and authority-citation review-comments |
 | `post-review-pickup` | Immediately after `pr-review` or review-response handoff completes — read `.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md`, then enter the next ready lifecycle lane or state an explicit halt reason |
 | `ideation-sandbox`| Before creating a Discussion for architectural exploration |
-| `lead-role` | Operator delegates lead via explicit phrases ("take the lead", "coordinate the team"); OR substrate-shaped ticket about to enter implementation; OR direct invocation. Auto-fires per documented phrases. Suspends Auto Mode velocity-bias for skill duration. |
+| `lead-role` | Operator delegates lead via explicit phrases ("take the lead", "coordinate the team"); OR §22 mailbox check surfaces a valid `lead-role-baton`; OR substrate-shaped ticket about to enter implementation; OR direct invocation. Auto-fires per documented phrases / baton intake. Suspends Auto Mode velocity-bias for skill duration. |
 | `memory-mining` | On regression / non-obvious-architecture / decision-points |
 | `tech-debt-radar` | During PR review for fundamental architectural shifts |
 | `structural-pre-flight` | Before authoring or relocating any new `.mjs` file — directory-CHOICE discipline (Stage 0 mechanical trigger; Stage 1 fast-path via §23 sibling-file-lift OR full Pre-Flight via ArchitectureOverview.md + ADR consultation). Empirical anchors: misplaced `bridge-daemon.mjs` (#10449 origin) + `orchestrator-daemon.mjs` (PR #11008 → corrective #11009). Also fires from `ticket-create` Stage 3, `ticket-intake` validation, `epic-review` Stage 3 |
@@ -130,6 +130,17 @@ For substrate-quality heuristics that operationalize this principle without beco
 ## 22. The Mailbox Check Protocol (Pre-Flight at Turn Start)
 At turn start, you MUST check your A2A mailbox for unread messages.
 > *"Pre-Flight: I called `list_messages({status: 'unread'})` and observed [N unread]."*
+
+**Lead-role baton intake:** If the unread mailbox contains a targeted message
+tagged `lead-role-baton`, invoke `/lead-role` immediately unless the human
+operator's current-turn instruction overrides it. A valid baton is a targeted
+DM, never `AGENT:*`, with `wakeSuppressed: true`, subject
+`[handoff] Lead Role Baton`, and body fields `fromLead`, `toLead`,
+`sourceSessionId`, `reason`, `createdAt`, and expiry / staleness limits. Missing,
+stale, malformed, or broadcast baton state does NOT authorize silent self-election:
+continue in peer-role / normal mailbox triage, dispatch a targeted
+`lead-role-baton-missing` A2A alert, and await operator or human-triggered
+recovery.
 
 **Skill Adherence Pre-Flight (per-turn):**
 Before triggering a lifecycle skill, state in your reasoning: *"I will read the full SKILL.md and its referenced payload before drafting output."* Half-reading is empirically 3–5× more expensive than full-reading across correction cycles. Skipping the manual is the higher-cost path, not the lower-cost path.
