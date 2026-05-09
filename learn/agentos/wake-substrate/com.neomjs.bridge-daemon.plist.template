@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    com.neomjs.bridge-daemon — launchd plist TEMPLATE for the Phase 3 wake-substrate
+    bridge daemon (#11066 packaging).
+
+    THIS IS A TEMPLATE. Operator MUST substitute the [OPERATOR_SUBSTITUTE_*] markers
+    below with values matching the operator's local environment, then verify the
+    plist on a real macOS install BEFORE relying on it for night-shift operation.
+
+    DO NOT install this template as-is. The substitution markers are deliberate.
+
+    See learn/agentos/wake-substrate/PersistentProcessManagement.md for the full
+    install procedure, verification commands, and troubleshooting gotchas.
+
+    Target: ai/scripts/bridge-daemon.mjs (Phase 3 wake-substrate; #10422 PID-lock + #10423 singleton).
+    Sibling-pattern lift from com.neomjs.swarm-heartbeat.plist.template (#11058).
+-->
+<plist version="1.0">
+<dict>
+    <!-- Reverse-DNS label MUST match the plist filename (com.neomjs.bridge-daemon.plist).
+         launchd uses this label internally for `launchctl list / bootout / kickstart`. -->
+    <key>Label</key>
+    <string>com.neomjs.bridge-daemon</string>
+
+    <!-- ProgramArguments: absolute path to node + absolute path to the .mjs entrypoint.
+         launchd does NOT inherit the operator's interactive shell PATH; binaries must
+         be reachable via the EnvironmentVariables.PATH below OR specified absolutely. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>node</string>
+        <string>[OPERATOR_SUBSTITUTE_REPO_ROOT]/ai/scripts/bridge-daemon.mjs</string>
+    </array>
+
+    <!-- WorkingDirectory: bridge-daemon uses RELATIVE paths via fs-extra
+         (e.g. `.neo-ai-data/wake-daemon/lastSyncId`, `.neo-ai-data/wake-daemon/bridge.log`).
+         Without this, launchd runs the script with cwd=/ and relative paths resolve
+         to /.neo-ai-data/... which doesn't exist — the daemon silently no-ops. -->
+    <key>WorkingDirectory</key>
+    <string>[OPERATOR_SUBSTITUTE_REPO_ROOT]</string>
+
+    <!-- RunAtLoad: start the daemon immediately when the plist loads (login + reboot). -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- KeepAlive: launchd auto-restarts the daemon if it exits.
+         Boolean form (`<true/>`) restarts unconditionally, even on clean exit.
+         The bridge-daemon's setInterval poll loop keeps the event loop alive
+         indefinitely; clean exit is unexpected (signals or fatal error only).
+
+         GOTCHA: if the script crashes IMMEDIATELY on start (config error, missing
+         dependency), launchd's throttle interval (default 10s) prevents tight-loop
+         crash. If you see KeepAlive thrashing in Console.app, fix the script-side
+         crash first (check StandardErrorPath); do NOT lengthen the throttle.
+
+         Also: bridge-daemon enforces a PID-lock singleton (#10422 / #10423) — if
+         another bridge instance is already running, the new launchd-started instance
+         will exit cleanly. The PID lock is at `.neo-ai-data/wake-daemon/bridge-daemon.pid`. -->
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- ThrottleInterval: minimum seconds between daemon launches (crash-loop guard).
+         Default 10s; bridge-daemon startup includes SQLite db init + initial GraphLog
+         tail-sync (~1-3s on typical operator workspace); 10s is comfortably above. -->
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <!-- StandardOutPath / StandardErrorPath: per-launchd stdout/stderr capture.
+         Co-located with the daemon's logger output inside .neo-ai-data/wake-daemon/
+         for log-cohesion. The bridge-daemon also writes its own per-day rotating
+         log to bridge.log + bridge.log.YYYY-MM-DD; these launchd-side files capture
+         any stdout/stderr that bypasses the application logger. Operator should
+         rotate these periodically. -->
+    <key>StandardOutPath</key>
+    <string>[OPERATOR_SUBSTITUTE_REPO_ROOT]/.neo-ai-data/wake-daemon/bridge.stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>[OPERATOR_SUBSTITUTE_REPO_ROOT]/.neo-ai-data/wake-daemon/bridge.stderr.log</string>
+
+    <!-- EnvironmentVariables: launchd is environment-isolated. The daemon needs:
+           PATH: must include node, sqlite3, osascript, tmux, and any other CLI tools
+                 used during wake-event delivery. The default /usr/bin:/bin:/usr/sbin:/sbin
+                 does NOT include Homebrew-installed binaries (typically /opt/homebrew/bin
+                 or /usr/local/bin) nor Node version managers (nvm, fnm) — operator MUST
+                 list every directory containing required tools. Verify each via `which <tool>`.
+           NEO_AI_DB_PATH: optional override of the SQLite graph database path.
+                 Default in script: `.neo-ai-data/sqlite/memory-core-graph.sqlite`.
+           NEO_AI_DAEMON_DIR: optional override of the daemon state directory.
+                 Default in script: `.neo-ai-data/wake-daemon`. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <!-- Uncomment to override DB or daemon-dir paths:
+        <key>NEO_AI_DB_PATH</key>
+        <string>[OPERATOR_SUBSTITUTE_REPO_ROOT]/.neo-ai-data/sqlite/memory-core-graph.sqlite</string>
+        <key>NEO_AI_DAEMON_DIR</key>
+        <string>[OPERATOR_SUBSTITUTE_REPO_ROOT]/.neo-ai-data/wake-daemon</string>
+        -->
+    </dict>
+
+    <!-- ProcessType: Background — appropriate for long-running daemons that
+         shouldn't compete with foreground UI processes for resources. -->
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <!-- Nice: lower priority slightly so the daemon doesn't impact foreground work.
+         Range -20 (highest) to 19 (lowest); 5 is a moderate background level. -->
+    <key>Nice</key>
+    <integer>5</integer>
+</dict>
+</plist>

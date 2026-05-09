@@ -239,3 +239,141 @@ Per [#10780](https://github.com/neomjs/neo/issues/10780): before re-enabling Dre
 - **Sub-tickets resolved by this substrate:** [#10396](https://github.com/neomjs/neo/issues/10396), [#10399](https://github.com/neomjs/neo/issues/10399), [#10633](https://github.com/neomjs/neo/issues/10633)
 - **Sibling discipline:** [#10780](https://github.com/neomjs/neo/issues/10780) — Backup-first before DreamMode/Sandman; [`learn/agentos/DreamPipeline.md`](../DreamPipeline.md) for DreamMode-specific operational discipline
 - **Adjacent observability gap:** healthcheck `features.wake` block (gate-state + daemon-running-state + last-pulse timestamp) — currently neither healthcheck-surfaced nor ticketed; sibling-fileable extension of [#10779](https://github.com/neomjs/neo/issues/10779) (`features.dream` healthcheck)
+
+## 10. Sibling daemon: Bridge Daemon Installation (#11066)
+
+The Phase 3 wake-substrate **bridge daemon** (`ai/scripts/bridge-daemon.mjs`) is a parallel persistent-process to SwarmHeartbeatService — runs the SQLite GraphLog wake-event coalescer + osascript / tmux delivery loop. Without persistent-process management, the operator must keep a terminal open running `node ai/scripts/bridge-daemon.mjs` continuously, which blocks operator laptop-close / restart / machine-switch.
+
+**Sibling-pattern lift from §3:** the bridge daemon installs identically to SwarmHeartbeatService — same launchd primitive, same substitution pattern, same troubleshooting gotchas. This section codifies the bridge-specific delta only.
+
+**Coexistence:** bridge + heartbeat are independent daemons. Both write to `.neo-ai-data/wake-daemon/` (bridge: `bridge.log` / `bridge-daemon.pid`; heartbeat: `heartbeat-concurrency.lock` / `heartbeat.{stdout,stderr}.log`). They can install / uninstall independently. The PID-lock substrate (#10422 / #10423) prevents two bridge daemons from running concurrently (the second one exits cleanly).
+
+### 10a. Operator empirical-prerequisites
+
+```bash
+# 1. Daemon entrypoint exists
+test -f ai/scripts/bridge-daemon.mjs && echo "OK" || echo "FAIL: bridge-daemon.mjs missing"
+
+# 2. State directory exists (created on first run, but worth pre-checking)
+ls -la .neo-ai-data/wake-daemon/
+
+# 3. SQLite graph database exists (bridge tail-syncs from it)
+ls -la .neo-ai-data/sqlite/memory-core-graph.sqlite
+
+# 4. Manual one-shot execution works (matches the existing operator-terminal pattern)
+npm run ai:bridge &
+DAEMON_PID=$!
+sleep 10
+kill -TERM "$DAEMON_PID"
+wait "$DAEMON_PID" 2>/dev/null
+# Expected:
+#   1. "[Bridge Daemon] Started. Tail-syncing from GraphLog ID: <N>" log line on launch
+#   2. Quiet poll loop (no errors)
+#   3. Clean exit on SIGTERM
+```
+
+### 10b. macOS launchd installation procedure
+
+```bash
+# From repo root, copy the template + substitute placeholders
+cp learn/agentos/wake-substrate/com.neomjs.bridge-daemon.plist.template \
+   ~/Library/LaunchAgents/com.neomjs.bridge-daemon.plist
+
+# Substitute repo-root path (this assumes you run this command FROM the repo root)
+sed -i '' "s|\[OPERATOR_SUBSTITUTE_REPO_ROOT\]|$(pwd)|g" \
+   ~/Library/LaunchAgents/com.neomjs.bridge-daemon.plist
+
+# Verify substitution succeeded — should be ZERO matches remaining
+grep -c "OPERATOR_SUBSTITUTE" ~/Library/LaunchAgents/com.neomjs.bridge-daemon.plist
+# expected output: 0
+
+# Lint the plist syntax
+plutil -lint ~/Library/LaunchAgents/com.neomjs.bridge-daemon.plist
+# expected output: <path>: OK
+
+# Bootstrap (load + start) the LaunchAgent
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.neomjs.bridge-daemon.plist
+
+# Verify it's running
+launchctl list com.neomjs.bridge-daemon
+# expected output: PID number + "0" exit status
+```
+
+**Note:** the bridge-daemon plist has NO `NEO_AGENT_IDENTITY` env-var (unlike heartbeat) — bridge is identity-agnostic; it processes wake events for ALL identities with active subscriptions. The optional `NEO_AI_DB_PATH` and `NEO_AI_DAEMON_DIR` overrides exist for non-default workspace layouts.
+
+### 10c. Migration from operator-terminal-running mode
+
+Operators currently keeping `node ai/scripts/bridge-daemon.mjs` alive in a terminal can transition cleanly:
+
+```bash
+# 1. Identify the running terminal-managed bridge
+ps aux | grep "bridge-daemon.mjs" | grep -v grep
+# Note the PID
+
+# 2. Send SIGTERM to the operator-terminal-managed instance
+kill -TERM <PID>
+
+# 3. Verify it exited cleanly (PID file removed, no zombie)
+ls .neo-ai-data/wake-daemon/bridge-daemon.pid
+# expected: file does not exist
+
+# 4. Bootstrap the launchd-managed instance per §10b above
+
+# 5. Verify launchd-managed instance is running
+launchctl list com.neomjs.bridge-daemon
+ps aux | grep "bridge-daemon.mjs" | grep -v grep
+# expected: one process running, owned by launchd (no controlling terminal)
+
+# 6. Operator can now close the terminal that previously held the manual daemon
+```
+
+### 10d. Uninstall procedure (mirrors §4)
+
+```bash
+# Stop + unload the LaunchAgent
+launchctl bootout gui/$(id -u)/com.neomjs.bridge-daemon
+
+# Remove the plist
+rm ~/Library/LaunchAgents/com.neomjs.bridge-daemon.plist
+
+# Verify no residual launchd registration
+launchctl list | grep bridge-daemon
+# expected: no output
+```
+
+If re-enabling later, repeat §10b — the template is preserved in the repo at `learn/agentos/wake-substrate/com.neomjs.bridge-daemon.plist.template`.
+
+### 10e. Linux systemd sibling (out-of-scope-for-v1 sketch)
+
+```ini
+# ~/.config/systemd/user/bridge-daemon.service
+[Unit]
+Description=Neo.mjs Bridge Daemon (Phase 3 wake substrate)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/repo
+ExecStart=/usr/bin/env node /path/to/repo/ai/scripts/bridge-daemon.mjs
+Restart=always
+RestartSec=10
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+StandardOutput=append:/path/to/repo/.neo-ai-data/wake-daemon/bridge.stdout.log
+StandardError=append:/path/to/repo/.neo-ai-data/wake-daemon/bridge.stderr.log
+
+[Install]
+WantedBy=default.target
+```
+
+Loaded via `systemctl --user daemon-reload && systemctl --user enable --now bridge-daemon.service`. Verified via `systemctl --user status bridge-daemon.service`.
+
+### 10f. Troubleshooting (bridge-specific gotchas)
+
+Most §6 gotchas apply identically to bridge-daemon. Bridge-specific additions:
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Bridge daemon "loaded" but no wake events delivered | Subscriptions unset OR wakeSafetyGate tripped | Verify subscriptions via `gh issue list` queries against active WAKE_SUBSCRIPTION nodes; check gate state per §3c notes |
+| `osascript: command not found` in stderr log | Same PATH issue as heartbeat | Add `/usr/bin` (osascript is system-installed at `/usr/bin/osascript`) |
+| Two bridge daemons running | PID-lock substrate didn't fire OR plist installed before manual instance was killed | `kill` the operator-terminal instance per §10c step 2; PID-lock at `.neo-ai-data/wake-daemon/bridge-daemon.pid` |
+| GraphLog tail-sync stuck at old ID | `lastSyncId` file corrupted OR DB schema drift | Inspect `.neo-ai-data/wake-daemon/lastSyncId`; if recovery needed, delete + restart (will tail from current GraphLog head, missing intervening events) |
