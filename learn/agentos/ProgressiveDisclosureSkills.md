@@ -125,6 +125,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `self-repair` | Tactical | Systemic infrastructure diagnosis, test execution, and memory core forensics |
 | `whitebox-e2e` | Tactical | Neural Link pre-flight workflow for authoring E2E tests |
 | `ideation-sandbox` | Creative | GitHub Discussion brainstorming |
+| `lead-role` | Coordination | Suspends Auto Mode bias; mandates dialogue-first convergence for delegated lead tasks |
 | `create-skill` | Meta | Skill authoring bootstrap guide |
 
 ## Related Guides
