@@ -528,6 +528,13 @@ Here you find the full history of Neo.mjs updates.
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #11009](https://neomjs.com/raw/news/tickets/11009.md)
+- [Ticket #11006](https://neomjs.com/raw/news/tickets/11006.md)
+- [Ticket #11005](https://neomjs.com/raw/news/tickets/11005.md)
+- [Ticket #11003](https://neomjs.com/raw/news/tickets/11003.md)
+- [Ticket #10996](https://neomjs.com/raw/news/tickets/10996.md)
+- [Ticket #10994](https://neomjs.com/raw/news/tickets/10994.md)
+- [Ticket #10993](https://neomjs.com/raw/news/tickets/10993.md)
 - [Ticket #10991](https://neomjs.com/raw/news/tickets/10991.md)
 - [Ticket #10990](https://neomjs.com/raw/news/tickets/10990.md)
 - [Ticket #10987](https://neomjs.com/raw/news/tickets/10987.md)
