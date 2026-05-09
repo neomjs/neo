@@ -52,7 +52,6 @@ services:
       - NEO_TRANSPORT=sse
       - NEO_AUTO_SYNC=false
       - NEO_KB_AUTO_START_DATABASE=false
-      - NEO_CHROMA_UNIFIED=true
       - NEO_CHROMA_HOST=chroma
       - NEO_CHROMA_PORT=8000
       - NEO_AUTH_TRUST_PROXY_IDENTITY=true
@@ -91,7 +90,6 @@ services:
       - NEO_AUTO_GOLDEN_PATH=false
       - NEO_REAL_TIME_MEMORY_PARSING=false
       - NEO_AUTO_INGEST_FS=false
-      - NEO_CHROMA_UNIFIED=true
       - NEO_CHROMA_HOST=chroma
       - NEO_CHROMA_PORT=8000
       - NEO_AUTH_TRUST_PROXY_IDENTITY=true
@@ -144,7 +142,6 @@ services:
       - NEO_AUTO_GOLDEN_PATH=false
       - NEO_REAL_TIME_MEMORY_PARSING=false
       - NEO_AUTO_INGEST_FS=false
-      - NEO_CHROMA_UNIFIED=true
       - NEO_CHROMA_HOST=chroma
       - NEO_CHROMA_PORT=8000
       - NEO_AUTH_TRUST_PROXY_IDENTITY=false

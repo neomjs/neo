@@ -24,9 +24,7 @@
  * `userId` metadata key is added.
  *
  * **Operates on both memory and summary collections.** Default config targets the
- * federated Memory Core ChromaDB instance (port 8001); the unified-mode KB
- * instance is intentionally NOT touched (KB collections are not subject to the
- * Memory Core tenant filter).
+ * unified ChromaDB instance (port 8000).
  *
  * Usage:
  *   node ai/scripts/backfillChromaSharedUserId.mjs                # dry-run (default)
@@ -65,7 +63,7 @@ function parseArgs(argv) {
         apply       : false,
         help        : false,
         host        : 'localhost',
-        port        : 8001,
+        port        : 8000,
         memoryOnly  : false,
         sessionOnly : false
     };
@@ -96,7 +94,7 @@ Options:
   (no flags)         Dry-run mode — print the migration plan without committing
   --apply            Commit the migration (calls collection.update on all matched ids)
   --host <host>      Override ChromaDB host (default: localhost)
-  --port <port>      Override ChromaDB port (default: 8001)
+  --port <port>      Override ChromaDB port (default: 8000)
   --memory-only      Tag only the neo-agent-memory collection
   --session-only     Tag only the neo-agent-sessions collection
   --help             Print this usage message

@@ -170,7 +170,7 @@ The Memory Core's `healthcheck` MCP tool exposes the effective topology so opera
     "topology": {
         "mode": "unified",
         "coordinates": { "host": "team-chroma.example.com", "port": 8000 },
-        "resolvedVia": "engines.kb.chroma"
+        "resolvedVia": "engines.chroma"
     }
 }
 ```

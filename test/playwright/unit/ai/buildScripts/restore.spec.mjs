@@ -44,7 +44,8 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
      */
     function buildSyntheticBundle({
         bundleName,
-        chromaUnified = false,
+        chromaUnified,
+        shared_topology,
         includeMailbox = true,
         omitSubdirs = []
     }) {
@@ -102,6 +103,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
             integrity    : [{subsystem: 'kb', status: 'pass'}],
             topology     : {
                 chromaUnified,
+                shared_topology,
                 kbChromaCoords: {host: 'localhost', port: 8000, path: '/path/to/kb'},
                 mcChromaCoords: {host: 'localhost', port: 8001, dataDir: '/path/to/mc'}
             },
@@ -166,7 +168,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     });
 
     test('happy-path merge: routes embedded substrates through SDK and copies flat files', async () => {
-        const bundleRoot   = buildSyntheticBundle({bundleName: 'happy-merge', chromaUnified: true});
+        const bundleRoot   = buildSyntheticBundle({bundleName: 'happy-merge', shared_topology: true});
         const conceptsTgt  = path.join(workRoot, 'happy-merge-targets', 'concepts');
         const trajTgt      = path.join(workRoot, 'happy-merge-targets', 'trajectories.jsonl');
         const mailboxTgt   = path.join(workRoot, 'happy-merge-targets', 'sent-to-cull.jsonl');
@@ -226,7 +228,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
 
         await expect(
             runRestore({bundleRoot, logger: silentLogger})
-        ).rejects.toThrow(/Topology mismatch: bundle was taken under federated mode \(chromaUnified=false\), but current deployment is permanently unified\./);
+        ).rejects.toThrow(/Topology mismatch: bundle was taken under legacy federated mode, but current deployment is permanently unified\./);
 
         expect(calls.kb).toHaveLength(0);
         expect(calls.mc).toHaveLength(0);
@@ -245,7 +247,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     });
 
     test('replace mode without --force refuses non-empty target', async () => {
-        const bundleRoot = buildSyntheticBundle({bundleName: 'replace-no-force', chromaUnified: true});
+        const bundleRoot = buildSyntheticBundle({bundleName: 'replace-no-force', shared_topology: true});
 
         // Stub MC collections as non-empty
         Memory_StorageRouter.getMemoryCollection = async () => ({count: async () => 42});
@@ -259,7 +261,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     });
 
     test('replace mode with --force fires guard for flat substrates and forwards mode through SDK', async () => {
-        const bundleRoot   = buildSyntheticBundle({bundleName: 'replace-force', chromaUnified: true});
+        const bundleRoot   = buildSyntheticBundle({bundleName: 'replace-force', shared_topology: true});
         const conceptsTgt  = path.join(workRoot, 'replace-targets', 'concepts');
         const trajTgt      = path.join(workRoot, 'replace-targets', 'trajectories.jsonl');
         const mailboxTgt   = path.join(workRoot, 'replace-targets', 'sent-to-cull.jsonl');
