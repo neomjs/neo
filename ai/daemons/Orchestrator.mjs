@@ -4,9 +4,7 @@
 // would violate the entry-point-only invariant + risk partial-namespace damage if the
 // class were ever loaded outside its entry-point's chain.
 import fs                          from 'fs-extra';
-import path                        from 'path';
 import {spawn}                     from 'child_process';
-import {fileURLToPath}             from 'url';
 import Base                        from '../../src/core/Base.mjs';
 import HealthService               from '../services/memory-core/HealthService.mjs';
 import {
@@ -16,49 +14,15 @@ import SummarizationCoordinatorService from './services/SummarizationCoordinator
 import TaskStateService                from './services/TaskStateService.mjs';
 import ProcessSupervisorService        from './services/ProcessSupervisorService.mjs';
 import CadenceEngine                   from './services/CadenceEngine.mjs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-
-export const DEFAULT_POLL_INTERVAL_MS          = 3000;
-export const DEFAULT_SUMMARY_SWEEP_INTERVAL_MS = 600000;
-export const DEFAULT_KB_SYNC_INTERVAL_MS       = 1800000;
-
-const DEFAULT_DB_PATH   = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
-const DEFAULT_DATA_DIR  = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
-const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../scripts');
-
-/**
- * @summary Builds child-process commands for orchestrator-owned maintenance tasks.
- *
- * The orchestrator intentionally shells out to existing manual maintenance scripts for
- * Piece C instead of reimplementing their internals. This keeps orchestration separate
- * from summarization / KB-sync business logic and gives operators the same scripts for
- * manual recovery.
- *
- * @param {Object} [options]
- * @param {String} [options.scriptDir] Script directory.
- * @param {String} [options.nodeBin] Node executable.
- * @returns {Object}
- */
-export function buildTaskDefinitions({scriptDir = DEFAULT_SCRIPT_DIR, nodeBin = process.argv[0]} = {}) {
-    return {
-        summary: {
-            label          : 'session summarization',
-            command        : nodeBin,
-            args           : [path.join(scriptDir, 'summarize-sessions.mjs')],
-            pidFileName    : 'summarization.pid',
-            expectedCommand: 'summarize-sessions.mjs'
-        },
-        kbSync: {
-            label          : 'knowledge base sync',
-            command        : nodeBin,
-            args           : [path.resolve(scriptDir, '../../buildScripts/ai/syncKnowledgeBase.mjs')],
-            pidFileName    : 'kb-sync.pid',
-            expectedCommand: 'syncKnowledgeBase.mjs'
-        }
-    };
-}
+import {
+    DEFAULT_POLL_INTERVAL_MS,
+    DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
+    DEFAULT_KB_SYNC_INTERVAL_MS,
+    DEFAULT_DB_PATH,
+    DEFAULT_DATA_DIR,
+    DEFAULT_SCRIPT_DIR,
+    buildTaskDefinitions
+} from './utils/TaskDefinitions.mjs';
 
 /**
  * @summary Neo daemon class for Agent OS maintenance scheduling (#11009).
@@ -312,70 +276,37 @@ export class Orchestrator extends Base {
 
 
     /**
-     * Runs one named scheduling lane with its own error boundary.
-     * @param {String} taskName Task key.
-     * @param {Function} fn Scheduling function.
-     * @returns {void}
-     */
-    runTaskCycle(taskName, fn) {
-        try {
-            fn();
-        } catch (e) {
-            this.writeLog('ERROR', `[Orchestrator] ${taskName} scheduling failed: ${e.message}`);
-            this.healthService.recordTaskOutcome(taskName, 'failed', {phase: 'schedule', error: e.message});
-        }
-    }
-
-    /**
-     * Schedules a summary child task when the coordinator reports due work.
-     * @param {Number} now Current timestamp in milliseconds.
-     * @returns {void}
-     */
-    runSummaryCycle(now) {
-        const trigger = this.summarizationCoordinator.getDueTask({
-            db                    : this.db,
-            state                 : this.taskStateService.getState(),
-            now,
-            summarySweepIntervalMs: this.summarySweepIntervalMs,
-            log                   : this.writeLog.bind(this)
-        });
-
-        if (trigger) {
-            this.processSupervisorService.runTask('summary', trigger.reason, trigger.onSuccess);
-        }
-    }
-
-    /**
-     * Schedules a KB sync child task when its interval is due.
-     * @param {Number} now Current timestamp in milliseconds.
-     * @returns {void}
-     */
-    runKbSyncCycle(now) {
-        if (this.cadenceEngine.shouldRunIntervalTask({
-            now,
-            lastRunAt : this.taskStateService.getTaskState('kbSync').lastRunAt,
-            intervalMs: this.kbSyncIntervalMs
-        })) {
-            this.processSupervisorService.runTask('kbSync', `periodic-sync:${this.kbSyncIntervalMs}`);
-        }
-    }
-
-    /**
-     * Runs one maintenance sweep with task-level failure isolation.
-     * @param {Number} [now=Date.now()] Current timestamp in milliseconds.
-     * @returns {void}
-     */
-    runMaintenanceCycle(now = Date.now()) {
-        this.runTaskCycle('summary', () => this.runSummaryCycle(now));
-        this.runTaskCycle('kbSync',  () => this.runKbSyncCycle(now));
-    }
-
-    /**
      * Executes a sweep and schedules the next poll when the daemon remains active.
      * @returns {void}
      */
     poll() {
-        this.runMaintenanceCycle();
+        const now = Date.now();
+        const executeTask = this.processSupervisorService.runTask.bind(this.processSupervisorService);
+        const context = {
+            writeLog     : this.writeLog.bind(this),
+            healthService: this.healthService
+        };
+
+        this.cadenceEngine.runIfDue('summary', () => {
+            return this.summarizationCoordinator.getDueTask({
+                db                    : this.db,
+                state                 : this.taskStateService.getState(),
+                now,
+                summarySweepIntervalMs: this.summarySweepIntervalMs,
+                log                   : this.writeLog.bind(this)
+            });
+        }, executeTask, context);
+
+        this.cadenceEngine.runIfDue('kbSync', () => {
+            if (this.cadenceEngine.shouldRunIntervalTask({
+                now,
+                lastRunAt : this.taskStateService.getTaskState('kbSync').lastRunAt,
+                intervalMs: this.kbSyncIntervalMs
+            })) {
+                return { reason: `periodic-sync:${this.kbSyncIntervalMs}` };
+            }
+            return null;
+        }, executeTask, context);
 
         if (this.isPolling) {
             this.pollHandle = setTimeout(() => this.poll(), this.pollIntervalMs);

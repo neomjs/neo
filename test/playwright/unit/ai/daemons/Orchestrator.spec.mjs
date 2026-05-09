@@ -2,9 +2,14 @@ import {test, expect} from '@playwright/test';
 import Neo from '../../../../../src/Neo.mjs';
 import * as core from '../../../../../src/core/_export.mjs';
 import {
-    Orchestrator,
-    buildTaskDefinitions
+    Orchestrator
 } from '../../../../../ai/daemons/Orchestrator.mjs';
+import {
+    DEFAULT_POLL_INTERVAL_MS,
+    DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
+    DEFAULT_KB_SYNC_INTERVAL_MS,
+    buildTaskDefinitions
+} from '../../../../../ai/daemons/utils/TaskDefinitions.mjs';
 import TaskStateService, { createInitialTaskState } from '../../../../../ai/daemons/services/TaskStateService.mjs';
 
 function createTestOrchestrator(config = {}) {
@@ -83,7 +88,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             }
         };
 
-        orchestrator.runMaintenanceCycle(600000);
+        orchestrator.poll();
 
         expect(outcomes).toEqual([{
             taskName: 'summary',

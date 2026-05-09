@@ -8,7 +8,7 @@ import {
 } from '../../../../../ai/scripts/orchestrator-daemon.mjs';
 import {
     buildTaskDefinitions
-} from '../../../../../ai/daemons/Orchestrator.mjs';
+} from '../../../../../ai/daemons/utils/TaskDefinitions.mjs';
 
 test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
 
