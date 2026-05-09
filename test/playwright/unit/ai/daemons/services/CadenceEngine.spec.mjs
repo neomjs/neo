@@ -24,10 +24,10 @@ test.describe('Neo.ai.daemons.services.CadenceEngine (#11051)', () => {
     test('shouldRunIntervalTask() correctly evaluates due tasks', () => {
         // Disabled
         expect(CadenceEngine.shouldRunIntervalTask({now: 1000, lastRunAt: 0, intervalMs: 0})).toBe(false);
-        
+
         // Not due
         expect(CadenceEngine.shouldRunIntervalTask({now: 1000, lastRunAt: 500, intervalMs: 1000})).toBe(false);
-        
+
         // Exactly due
         expect(CadenceEngine.shouldRunIntervalTask({now: 1500, lastRunAt: 500, intervalMs: 1000})).toBe(true);
 
