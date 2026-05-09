@@ -155,6 +155,11 @@ class HealthService extends Base {
      * @private
      */
     #checkApiKeyConfigured() {
+        if (process.env.NEO_EMBEDDING_PROVIDER === 'mock' ||
+            process.env.NEO_OPENAI_COMPATIBLE_HOST ||
+            process.env.NEO_OLLAMA_HOST) {
+            return true;
+        }
         return !!process.env.GEMINI_API_KEY;
     }
 
