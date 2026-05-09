@@ -10,17 +10,17 @@ import logger                    from '../../../mcp/server/memory-core/logger.mj
  * and the local mathematical engine (MLX/Ollama) into a single readiness promise.
  * This facade protects downstream consumer scripts from internal modularity changes.
  *
- * @class Neo.ai.mcp.server.memory-core.services.lifecycle.SystemLifecycleService
+ * @class Neo.ai.services.memory-core.lifecycle.SystemLifecycleService
  * @extends Neo.core.Base
  * @singleton
  */
 class SystemLifecycleService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.lifecycle.SystemLifecycleService'
+         * @member {String} className='Neo.ai.services.memory-core.lifecycle.SystemLifecycleService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.lifecycle.SystemLifecycleService',
+        className: 'Neo.ai.services.memory-core.lifecycle.SystemLifecycleService',
         /**
          * @member {Boolean} singleton=true
          * @protected

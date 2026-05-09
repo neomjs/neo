@@ -7,17 +7,17 @@ import ConnectionService from './ConnectionService.mjs';
  * This service provides tools for inspecting and modifying components within the connected
  * Neo.mjs application. It delegates the actual transport to `ConnectionService`.
  *
- * @class Neo.ai.mcp.server.neural-link.services.ComponentService
+ * @class Neo.ai.services.neural-link.ComponentService
  * @extends Neo.core.Base
  * @singleton
  */
 class ComponentService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.neural-link.services.ComponentService'
+         * @member {String} className='Neo.ai.services.neural-link.ComponentService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.neural-link.services.ComponentService',
+        className: 'Neo.ai.services.neural-link.ComponentService',
         /**
          * @member {Boolean} singleton=true
          * @protected

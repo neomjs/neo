@@ -18,17 +18,17 @@ const issueSyncConfig = aiConfig.issueSync;
  * - Generating and updating local Markdown files for each discussion.
  * - Supporting offline context mapping.
  *
- * @class Neo.ai.mcp.server.github-workflow.services.sync.DiscussionSyncer
+ * @class Neo.ai.services.github-workflow.sync.DiscussionSyncer
  * @extends Neo.core.Base
  * @singleton
  */
 class DiscussionSyncer extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.sync.DiscussionSyncer'
+         * @member {String} className='Neo.ai.services.github-workflow.sync.DiscussionSyncer'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.services.sync.DiscussionSyncer',
+        className: 'Neo.ai.services.github-workflow.sync.DiscussionSyncer',
         /**
          * @member {Boolean} singleton=true
          * @protected

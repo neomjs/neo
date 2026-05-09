@@ -10,17 +10,17 @@ import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
  * This class provides a wrapper around the ChromaDB client, ensuring that the connection
  * and the specific knowledge-base collection are initialized and cached for subsequent use.
  *
- * @class Neo.ai.mcp.server.knowledge-base.services.ChromaManager
+ * @class Neo.ai.services.knowledge-base.ChromaManager
  * @extends Neo.core.Base
  * @singleton
  */
 class ChromaManager extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.services.ChromaManager'
+         * @member {String} className='Neo.ai.services.knowledge-base.ChromaManager'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.services.ChromaManager',
+        className: 'Neo.ai.services.knowledge-base.ChromaManager',
         /**
          * @member {ChromaClient|null} client=null
          * @protected

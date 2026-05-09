@@ -10,7 +10,7 @@ import Observable from '../../../src/core/Observable.mjs';
  * This service is responsible for starting, stopping, and monitoring the ChromaDB server process.
  * It ensures that the database is running when needed and handles graceful shutdowns.
  *
- * @class Neo.ai.mcp.server.knowledge-base.services.DatabaseLifecycleService
+ * @class Neo.ai.services.knowledge-base.DatabaseLifecycleService
  * @extends Neo.core.Base
  * @singleton
  */
@@ -24,10 +24,10 @@ class DatabaseLifecycleService extends Base {
 
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.services.DatabaseLifecycleService'
+         * @member {String} className='Neo.ai.services.knowledge-base.DatabaseLifecycleService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.services.DatabaseLifecycleService',
+        className: 'Neo.ai.services.knowledge-base.DatabaseLifecycleService',
         /**
          * Holds the child process object for the ChromaDB server.
          * @member {ChildProcess|null} chromaProcess=null

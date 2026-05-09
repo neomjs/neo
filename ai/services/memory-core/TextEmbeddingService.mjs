@@ -21,17 +21,17 @@ export function shouldInitializeGeminiEmbeddingClient(cfg = aiConfig) {
  * for text inputs. These embeddings are essential for the semantic search capabilities of the memory
  * and summary collections.
  *
- * @class Neo.ai.mcp.server.memory-core.services.TextEmbeddingService
+ * @class Neo.ai.services.memory-core.TextEmbeddingService
  * @extends Neo.core.Base
  * @singleton
  */
 class TextEmbeddingService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.TextEmbeddingService'
+         * @member {String} className='Neo.ai.services.memory-core.TextEmbeddingService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.TextEmbeddingService',
+        className: 'Neo.ai.services.memory-core.TextEmbeddingService',
         /**
          * @member {Boolean} singleton=true
          * @protected

@@ -19,7 +19,7 @@ import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/
  * can never wipe another tenant's data. In stdio mode `getUserId()` is `undefined`, the filters
  * are skipped, and the legacy drop-based `deleteAllSummaries` behavior is preserved for local dev.
  *
- * @class Neo.ai.mcp.server.memory-core.services.SummaryService
+ * @class Neo.ai.services.memory-core.SummaryService
  * @extends Neo.core.Base
  * @singleton
  * @see Neo.ai.mcp.server.shared.services.RequestContextService
@@ -27,10 +27,10 @@ import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/
 class SummaryService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.SummaryService'
+         * @member {String} className='Neo.ai.services.memory-core.SummaryService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.SummaryService',
+        className: 'Neo.ai.services.memory-core.SummaryService',
         /**
          * @member {Boolean} singleton=true
          * @protected

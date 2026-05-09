@@ -7,17 +7,17 @@ import ConnectionService from './ConnectionService.mjs';
  * This service provides tools for inspecting user interactions, such as Drag & Drop state,
  * focus, and selection.
  *
- * @class Neo.ai.mcp.server.neural-link.services.InteractionService
+ * @class Neo.ai.services.neural-link.InteractionService
  * @extends Neo.core.Base
  * @singleton
  */
 class InteractionService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.neural-link.services.InteractionService'
+         * @member {String} className='Neo.ai.services.neural-link.InteractionService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.neural-link.services.InteractionService',
+        className: 'Neo.ai.services.neural-link.InteractionService',
         /**
          * @member {Boolean} singleton=true
          * @protected

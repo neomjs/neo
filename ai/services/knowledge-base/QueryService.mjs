@@ -25,17 +25,17 @@ dotenv.config({
  * ChromaDB vector store. It then applies a sophisticated scoring and ranking algorithm
  * to the results to provide the most relevant source files to the user.
  *
- * @class Neo.ai.mcp.server.knowledge-base.services.QueryService
+ * @class Neo.ai.services.knowledge-base.QueryService
  * @extends Neo.core.Base
  * @singleton
  */
 class QueryService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.services.QueryService'
+         * @member {String} className='Neo.ai.services.knowledge-base.QueryService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.services.QueryService',
+        className: 'Neo.ai.services.knowledge-base.QueryService',
         /**
          * @member {Boolean} singleton=true
          * @protected

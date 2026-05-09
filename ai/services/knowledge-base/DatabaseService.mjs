@@ -54,17 +54,17 @@ dotenv.config({
  *     without triggering sync, re-embedding, or compaction. See #10129 for the
  *     atomic-bundle substrate design.
  *
- * @class Neo.ai.mcp.server.knowledge-base.services.DatabaseService
+ * @class Neo.ai.services.knowledge-base.DatabaseService
  * @extends Neo.core.Base
  * @singleton
  */
 class DatabaseService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.services.DatabaseService'
+         * @member {String} className='Neo.ai.services.knowledge-base.DatabaseService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.services.DatabaseService',
+        className: 'Neo.ai.services.knowledge-base.DatabaseService',
         /**
          * @member {Boolean} singleton=true
          * @protected

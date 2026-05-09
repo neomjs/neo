@@ -25,7 +25,7 @@ import path           from 'path';
 const tmpDir = path.resolve(process.cwd(), 'tmp');
 aiConfig.storagePaths.graph = path.join(tmpDir, 'test-graph-' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.db');
 
-test.describe('Neo.ai.mcp.server.memory-core.managers.ChromaManager — resolveChromaCoordinates (#10001)', () => {
+test.describe('Neo.ai.services.memory-core.managers.ChromaManager — resolveChromaCoordinates (#10001)', () => {
     test('federated mode (chromaUnified=false) routes to MC own ChromaDB coordinates', () => {
         const result = ChromaManager.resolveChromaCoordinates({
             chromaUnified: false,
@@ -68,7 +68,7 @@ test.describe('Neo.ai.mcp.server.memory-core.managers.ChromaManager — resolveC
     });
 });
 
-test.describe('Neo.ai.mcp.server.memory-core.managers.ChromaManager', () => {
+test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
     test('should prevent console.warn global state theft during concurrent collection fetching', async () => {
         // Set up a custom warn logger to inspect leaks
         const warningLogs = [];

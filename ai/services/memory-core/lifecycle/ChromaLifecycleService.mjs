@@ -20,11 +20,11 @@ import Observable from '../../../../src/core/Observable.mjs';
  *
  * Future AI sessions should search for `chroma startup`, `vector database lifecycle`, or `daemon orchestrator`.
  *
- * @class Neo.ai.mcp.server.memory-core.services.lifecycle.ChromaLifecycleService
+ * @class Neo.ai.services.memory-core.lifecycle.ChromaLifecycleService
  * @extends Neo.core.Base
  * @singleton
- * @see Neo.ai.mcp.server.memory-core.services.lifecycle.InferenceLifecycleService
- * @see Neo.ai.mcp.server.memory-core.managers.ChromaManager
+ * @see Neo.ai.services.memory-core.lifecycle.InferenceLifecycleService
+ * @see Neo.ai.services.memory-core.managers.ChromaManager
  */
 class ChromaLifecycleService extends Base {
     /**
@@ -36,10 +36,10 @@ class ChromaLifecycleService extends Base {
 
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.lifecycle.ChromaLifecycleService'
+         * @member {String} className='Neo.ai.services.memory-core.lifecycle.ChromaLifecycleService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.lifecycle.ChromaLifecycleService',
+        className: 'Neo.ai.services.memory-core.lifecycle.ChromaLifecycleService',
         /**
          * @member {Object|null} chromaProcess=null
          * @protected

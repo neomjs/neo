@@ -21,7 +21,7 @@ import fs                   from 'fs-extra';
 import path                 from 'path';
 import os                   from 'os';
 
-test.describe('Neo.ai.mcp.server.memory-core.services.FileSystemIngestor', () => {
+test.describe('Neo.ai.services.memory-core.FileSystemIngestor', () => {
     let GraphService;
     let SystemLifecycleService;
     let FileSystemIngestor;

@@ -18,17 +18,17 @@ import logger from '../../mcp/server/memory-core/logger.mjs';
  *   Edge target = Bob (granter/owner)
  *   Edge type = `CAN_READ_INBOX_OF`
  *
- * @class Neo.ai.mcp.server.memory-core.services.PermissionService
+ * @class Neo.ai.services.memory-core.PermissionService
  * @extends Neo.core.Base
  * @singleton
  */
 class PermissionService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.PermissionService'
+         * @member {String} className='Neo.ai.services.memory-core.PermissionService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.PermissionService',
+        className: 'Neo.ai.services.memory-core.PermissionService',
         /**
          * @member {Boolean} singleton=true
          * @protected

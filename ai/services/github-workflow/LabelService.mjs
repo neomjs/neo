@@ -10,17 +10,17 @@ import {FETCH_LABELS} from './queries/labelQueries.mjs';
  * to ensure all labels are fetched, providing a complete list for validation
  * and autocompletion purposes in other parts of the workflow.
  *
- * @class Neo.ai.mcp.server.github-workflow.services.LabelService
+ * @class Neo.ai.services.github-workflow.LabelService
  * @extends Neo.core.Base
  * @singleton
  */
 class LabelService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.LabelService'
+         * @member {String} className='Neo.ai.services.github-workflow.LabelService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.services.LabelService',
+        className: 'Neo.ai.services.github-workflow.LabelService',
         /**
          * @member {Boolean} singleton=true
          * @protected

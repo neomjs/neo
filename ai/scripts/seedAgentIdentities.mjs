@@ -12,7 +12,7 @@
  * These nodes form the **addressable identity surface** for the A2A Mailbox substrate (#10139):
  * human owners (`@tobiu`), model-backed agents (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`), and the
  * `AGENT:*` broadcast sentinel that carries fan-out `SENT_TO` edges emitted by
- * {@link Neo.ai.mcp.server.memory-core.services.MailboxService#addMessage} for broadcast traffic.
+ * {@link Neo.ai.services.memory-core.MailboxService#addMessage} for broadcast traffic.
  *
  * **Why the broadcast sentinel needs to be a real graph node (#10174):** `GraphService.linkNodes`
  * enforces an FK-style guard that culls edges whose endpoints aren't present in the Nodes table.

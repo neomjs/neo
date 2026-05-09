@@ -38,9 +38,9 @@ import InstanceManager from '../../../../../../src/manager/Instance.mjs';
  * Each test mocks `GraphqlService.query` to return a controlled four-comment fixture so
  * filter behavior is assertable without an actual GitHub API round-trip.
  *
- * @see Neo.ai.mcp.server.github-workflow.services.PullRequestService#getConversation
+ * @see Neo.ai.services.github-workflow.PullRequestService#getConversation
  */
-test.describe('Neo.ai.mcp.server.github-workflow.services.PullRequestService — getConversation (#10272)', () => {
+test.describe('Neo.ai.services.github-workflow.PullRequestService — getConversation (#10272)', () => {
     let PullRequestService;
     let GraphqlService;
     let originalQuery;
@@ -222,7 +222,7 @@ test.describe('Neo.ai.mcp.server.github-workflow.services.PullRequestService —
     });
 });
 
-test.describe('Neo.ai.mcp.server.github-workflow.services.PullRequestService — getPullRequestDiff (#10748)', () => {
+test.describe('Neo.ai.services.github-workflow.PullRequestService — getPullRequestDiff (#10748)', () => {
     test.skip(skipCiGitHubAuth, 'CI-skip: gh CLI auth not configured - bucket C (#10903)');
 
     let PullRequestService;

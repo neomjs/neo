@@ -20,7 +20,7 @@ import crypto         from 'crypto';
 import fs             from 'fs';
 import path           from 'path';
 
-test.describe('Neo.ai.mcp.server.knowledge-base.services.KBRecorderService', () => {
+test.describe('Neo.ai.services.knowledge-base.KBRecorderService', () => {
     const testDbName = `kb-recorder-test-${process.pid}-${Date.now()}.sqlite`;
     let testDbPath;
     let KBRecorderService;

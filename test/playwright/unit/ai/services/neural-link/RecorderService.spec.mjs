@@ -19,7 +19,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
 
-test.describe('Neo.ai.mcp.server.neural-link.services.RecorderService', () => {
+test.describe('Neo.ai.services.neural-link.RecorderService', () => {
     let RecorderService;
     let config;
     const testDbName = `nl-recorder-test-${process.pid}-${Date.now()}.sqlite`;

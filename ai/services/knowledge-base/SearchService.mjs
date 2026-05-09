@@ -19,18 +19,18 @@ import QueryService         from './QueryService.mjs';
  * This "Read-Eval-Generate" loop allows agents to ask complex questions like "How do I implement a Store?" and get a
  * code-complete answer without manually searching and reading multiple files.
  *
- * @class Neo.ai.mcp.server.knowledge-base.services.SearchService
+ * @class Neo.ai.services.knowledge-base.SearchService
  * @extends Neo.core.Base
  * @singleton
- * @see Neo.ai.mcp.server.knowledge-base.services.QueryService
+ * @see Neo.ai.services.knowledge-base.QueryService
  */
 class SearchService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.knowledge-base.services.SearchService'
+         * @member {String} className='Neo.ai.services.knowledge-base.SearchService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.knowledge-base.services.SearchService',
+        className: 'Neo.ai.services.knowledge-base.SearchService',
         /**
          * @member {Boolean} singleton=true
          * @protected

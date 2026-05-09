@@ -27,7 +27,7 @@ import logger                  from '../../mcp/server/memory-core/logger.mjs';
  * because it runs out-of-process; this engine handles the in-process Shape A + Shape B
  * routing only.
  *
- * @class Neo.ai.mcp.server.memory-core.services.CoalescingEngineService
+ * @class Neo.ai.services.memory-core.CoalescingEngineService
  * @extends Neo.core.Base
  * @singleton
  * @see learn/agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md §6.4
@@ -36,10 +36,10 @@ import logger                  from '../../mcp/server/memory-core/logger.mjs';
 class CoalescingEngineService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.CoalescingEngineService'
+         * @member {String} className='Neo.ai.services.memory-core.CoalescingEngineService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.CoalescingEngineService',
+        className: 'Neo.ai.services.memory-core.CoalescingEngineService',
         /**
          * @member {Boolean} singleton=true
          * @protected
