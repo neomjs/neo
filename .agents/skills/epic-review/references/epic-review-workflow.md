@@ -73,6 +73,7 @@ Checks:
 - **Phase boundaries**: sub N's outputs feed sub N+1's inputs cleanly; no circular `blocked_by` dependencies
 - **Missing phases**: a prerequisite sub implied by the arc but not filed (e.g. a migration ticket, a schema ticket, a doc-update ticket)
 - **Scope creep risk**: subs whose titles or bodies exceed the parent epic's scope
+- **Structural Pre-Flight Sweep**: when subs prescribe new `.mjs` files (new daemon, new service, new script, new helper), validate each prescribed directory against `.agents/skills/structural-pre-flight/SKILL.md` Stage 0/1 BEFORE the sub is picked up. Each sub's PR will eventually have to satisfy this gate; surfacing mismatches at epic-review time is cheaper than at sub-PR-review time. Empirical anchor: M3 epic where sub PR #11008 misplaced `orchestrator-daemon.mjs` in `ai/scripts/` instead of v13-path.md M3 split (`ai/scripts/orchestrator-daemon.mjs` thin wrapper + `ai/daemons/Orchestrator.mjs` Neo-class + `ai/daemons/services/`); a Stage-3 sweep at epic-review would have caught the directory-choice mismatch in the prescription before sub pickup.
 
 #### Stage 3.1 — Evidence Matrix Producer Hook (entry side of the closeout contract)
 
