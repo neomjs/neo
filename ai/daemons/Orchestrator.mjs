@@ -607,5 +607,4 @@ export class Orchestrator extends Base {
     }
 }
 
-const OrchestratorSingleton = Neo.setupClass(Orchestrator);
-export default OrchestratorSingleton;
+export default Neo.setupClass(Orchestrator);
