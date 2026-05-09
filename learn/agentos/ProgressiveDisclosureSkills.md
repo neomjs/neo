@@ -119,6 +119,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `pull-request` | Lifecycle | Post-implementation reflection + PR creation |
 | `pr-review` | Lifecycle | Structured quality evaluation & graph ingestion |
 | `tech-debt-radar` | Lifecycle | Proactive semantic RAG sweeps for architectural debt |
+| `structural-pre-flight` | Lifecycle | Pre-implementation directory-CHOICE discipline gate fired before authoring any new `.mjs` file (Stage 0 mechanical trigger; Stage 1 fast-path or full Pre-Flight) |
 | `neural-link` | Tactical | Live application inspection sequences |
 | `unit-test` | Tactical | Playwright test authoring patterns |
 | `self-repair` | Tactical | Systemic infrastructure diagnosis, test execution, and memory core forensics |
