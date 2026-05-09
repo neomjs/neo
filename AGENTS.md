@@ -25,6 +25,7 @@ This document is compacted per the 3-axis slot rule (trigger-frequency × failur
 | §13.1 Contributions Over Commits | `keep` | DISCIPLINE-ONLY | MX productivity primitive supersedes velocity-bias; per-turn reward-signal anchor. |
 | §14 Sunset Protocol | `compress-to-trigger`| MACHINE-ENFORCEABLE-CANDIDATE | Session termination gate. |
 | §15 Knowledge Base | `compress-to-trigger`| DISCIPLINE-ONLY | §15.5 Neo Identity Anchor in main as anti-drift; §15.1-15.4 in Atlas. |
+| §15.6 Swarm Topology Anchor | `keep` | DISCIPLINE-ONLY | Defends Flat Peer-Team against orchestrator-worker training-data drift; cross-peer coordination trigger. |
 | §16 Implementation Loop | `move` | DISCIPLINE-ONLY | High depth workflow. |
 | §17 Virtuous Cycle | `move` | DISCIPLINE-ONLY | High depth workflow. |
 | §18 Session Maintenance | `move` | DISCIPLINE-ONLY | High depth workflow. |
@@ -97,6 +98,15 @@ For substrate-quality heuristics that operationalize this principle without beco
 
 **Mandate:** Before architectural or external-positioning work, nullify both category drifts by reviewing `README.md`, `learn/benefits/Introduction.md`, [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119), and [Discussion #10137](https://github.com/orgs/neomjs/discussions/10137). Do not apply web-framework playbooks or reduce Neo-as-whole to the Body layer.
 
+## 15.6. Swarm Topology Anchor — Flat Peer-Team Model (Category-Drift Defense)
+**CRITICAL:** Pre-training data + 2026 industry-standard agent SDKs (OpenAI Agents SDK orchestration patterns; Claude Code subagents docs) default to the **Hierarchical Orchestrator-Worker model** — a lead agent spawning specialized worker subagents to execute narrow disjointed tasks. Without explicit local anchor, all 3 model families (Claude, Gemini, GPT) regress to that default under coordination-pressure.
+
+**Current reality:** Neo's swarm operates **Flat Peer-Team** for named cross-family maintainers (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`). Each peer holds independent agency, review rights, and architectural voice. Lead is facilitator-of-convergence, not delegator-of-worker-slices. Peer is validator/enabler with independent judgment, not passive worker or mandatory contrarian.
+
+**Boundary:** Tactical subagents/tools inside a single harness (browser-subagent, code-execution subagent, etc.) when operator explicitly requests them OR local workflow supports them = fine and encouraged for mechanical efficiency. The prohibition is strictly against mapping named Neo maintainers into parent/worker hierarchy. Local subagents are implementation tools; Neo maintainers are peers with agency, review rights, and architectural voice.
+
+**Mandate:** Before cross-peer coordination, lead/peer role work, ideation review, lane handoff, or A2A lifecycle coordination, nullify the orchestrator-worker drift by reviewing this anchor + [Discussion #11026](https://github.com/orgs/neomjs/discussions/11026). Local harness subagent/tool calls do NOT trigger the anchor read.
+
 ## 21. Workflow Skills (when to invoke)
 | Skill | Trigger condition (invoke when) |
 |---|---|
@@ -127,6 +137,7 @@ Before triggering a lifecycle skill, state in your reasoning: *"I will read the 
 ## 23. Edge-Case Triggers (The Atlas)
 *(Sections mapped to `learn/agentos/AGENTS_ATLAS.md`)*
 - **Knowledge Base & Anti-Hallucination (§2, §15):** ALWAYS use `ask_knowledge_base` first for Neo concepts. If adding documentation, review Anchor & Echo strategy in `AGENTS_ATLAS.md`.
+- **Swarm Topology / Cross-Peer Coordination (§15.6):** Before cross-peer coordination, lead/peer role work, ideation review, lane handoff, or A2A lifecycle coordination, nullify orchestrator-worker drift by reviewing AGENTS.md §15.6 + Discussion #11026.
 - **Testing & Validation (§10):** If verifying code or encountering persistent test failures, read `AGENTS_ATLAS.md`. **Tripwire/Peer-Escalation:** If tests fail 3-5 times, escalate to a peer via `add_message` before reaching the 25-turn limit.
 - **Sunset Protocol (§14):** Before session handover, read `.agents/skills/session-sunset/SKILL.md`. Stale-wake invariant: wake messages in old transcripts are noise.
 - **Visual Verification (§20):** If debugging frontend UI/layout, read `AGENTS_ATLAS.md`.
