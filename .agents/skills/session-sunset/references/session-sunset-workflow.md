@@ -42,6 +42,37 @@ Use the `run_command` tool to synchronize the codebase, but you MUST respect har
 - **Shared Checkout (Antigravity/Gemini):** Execute `git checkout dev && git pull origin dev`. Because the AI harness initializes MCP servers *before* an agent's first turn, pulling the latest code at the end of the current session guarantees the next session's servers boot with fresh infrastructure.
 - **Isolated Worktree (Claude Code):** Do NOT checkout `dev` (which would conflict with the main checkout). Instead, ensure your current PR branch is fully committed and pushed (`git push origin HEAD`). The next agent session will either resume this worktree or bootstrap a new one from the main checkout's updated `dev`.
 
+#### Primary-Checkout Staleness Probe (Isolated Worktree only) — per #11013
+
+The "main checkout's updated `dev`" assumption above only holds if the operator has actually pulled origin/dev into the primary checkout. In practice, primary's `dev` can fall arbitrarily behind because:
+
+- Worktree agents (correctly per the Isolated-Worktree rule above) do NOT pull dev into primary.
+- Operators don't always run `git pull origin dev` between sunset events.
+- Daemons running from primary (`bridge-daemon`, `DreamService`, future `orchestrator-daemon` post-#11009, KB sync pipeline) silently read pre-merge code when primary is stale.
+
+**Mandatory sunset probe (Isolated Worktree branch only):**
+
+```bash
+# Resolve primary-checkout path from the shared .git/ common dir.
+# git rev-parse --git-common-dir returns "<primary>/.git" from any worktree.
+PRIMARY_DOT_GIT=$(git rev-parse --git-common-dir)
+PRIMARY_ROOT=$(cd "$PRIMARY_DOT_GIT/.." && pwd)
+
+# Refresh remote refs so the count is accurate.
+git -C "$PRIMARY_ROOT" fetch origin dev --quiet 2>/dev/null
+
+# Count commits primary's local dev is behind origin/dev.
+BEHIND=$(git -C "$PRIMARY_ROOT" rev-list --count dev..origin/dev 2>/dev/null || echo 0)
+```
+
+**Conditional handover-comment block (fire only when `BEHIND > 0`):**
+
+> ⚠️ **Primary-checkout reminder:** the operator's primary checkout (`<PRIMARY_ROOT>`) `dev` branch is **`<BEHIND>` commits behind `origin/dev`**. Daemons running from the primary (`bridge-daemon`, `DreamService`, `orchestrator-daemon`, KB sync pipeline) read pre-merge code until refresh. Run `git -C <PRIMARY_ROOT> pull origin dev` in your main checkout to refresh downstream daemon state.
+
+When `BEHIND == 0`, suppress the block — no handover-comment noise on a fresh primary.
+
+**Why this lives at sunset rather than mid-session:** sunset is the natural Operator Synchronization Point — the agent is already drafting handover prose, and the operator is the next active actor between sessions. Mid-session staleness is unaddressed by this probe; the daemon-driven Shape A solution under #11013's follow-up (post-#11009 orchestrator-daemon task) will close that gap with a periodic auto-pull.
+
 ### Step 2: Handovers Posted (Active Work)
 For any tickets or tasks that you actively worked on but did not fully complete, you MUST post a self-contained handover comment directly on the GitHub Issue (using `manage_issue_comment`).
 - Provide implementation guidance.
