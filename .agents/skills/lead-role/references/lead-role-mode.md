@@ -35,6 +35,8 @@ a) Operator explicitly exits via "ship it" / "execute" / similar, OR
 b) Shape has converged through dialogue and tickets/PRs are now appropriate, OR
 c) The architectural decision space has bounded down.
 
+Post-exit: Flat Peer-Team paradigm is upheld by AGENTS.md §15.6 (session-permanent) + phase-specific skill protocols. Convergence-exit is a hand-off to those layers, NOT a release of paradigm discipline.
+
 ## 7. Autonomous Lead Rotation
 
 Lead can be passed between sessions by the A2A Baton Pass V1 (`#11038`).
