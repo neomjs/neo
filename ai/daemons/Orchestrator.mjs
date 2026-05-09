@@ -22,7 +22,7 @@ import {
     DEFAULT_DATA_DIR,
     DEFAULT_SCRIPT_DIR,
     buildTaskDefinitions
-} from './utils/TaskDefinitions.mjs';
+} from './TaskDefinitions.mjs';
 
 /**
  * @summary Neo daemon class for Agent OS maintenance scheduling (#11009).

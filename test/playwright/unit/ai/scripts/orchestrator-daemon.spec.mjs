@@ -8,7 +8,7 @@ import {
 } from '../../../../../ai/scripts/orchestrator-daemon.mjs';
 import {
     buildTaskDefinitions
-} from '../../../../../ai/daemons/utils/TaskDefinitions.mjs';
+} from '../../../../../ai/daemons/TaskDefinitions.mjs';
 
 test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
 
@@ -30,7 +30,7 @@ test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
         const bridgeSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/scripts/bridge-daemon.mjs'), 'utf8');
         const orchestratorSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/scripts/orchestrator-daemon.mjs'), 'utf8');
         const daemonSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/Orchestrator.mjs'), 'utf8');
-        const taskDefSource        = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/utils/TaskDefinitions.mjs'), 'utf8');
+        const taskDefSource        = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/TaskDefinitions.mjs'), 'utf8');
 
         expect(bridgeSource).not.toContain('summarize-sessions.mjs');
         expect(bridgeSource).not.toContain('Piece C periodic summarization sweep');

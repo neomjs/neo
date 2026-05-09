@@ -9,7 +9,7 @@ import {
     DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
     DEFAULT_KB_SYNC_INTERVAL_MS,
     buildTaskDefinitions
-} from '../../../../../ai/daemons/utils/TaskDefinitions.mjs';
+} from '../../../../../ai/daemons/TaskDefinitions.mjs';
 import TaskStateService, { createInitialTaskState } from '../../../../../ai/daemons/services/TaskStateService.mjs';
 
 function createTestOrchestrator(config = {}) {
