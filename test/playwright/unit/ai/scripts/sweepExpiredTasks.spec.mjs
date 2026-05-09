@@ -65,14 +65,14 @@ test.describe('ai/scripts/sweepExpiredTasks.mjs regression guard (#10595)', () =
 
     test('script imports Neo prelude before LifecycleService (regression-class structural guard)', async () => {
         // Static check: the file's top imports MUST include `Neo` and `core/_export` before
-        // any `mcp/server/memory-core/services/` module that transitively uses Neo.gatekeep.
+        // any `services/memory-core/` module that transitively uses Neo.gatekeep.
         // This is the structural invariant the runtime test above verifies behaviorally.
         const {default: fs}   = await import('fs-extra');
         const content         = await fs.readFile(scriptPath, 'utf-8');
         const lines           = content.split('\n');
         const neoImportIdx    = lines.findIndex(l => /^import\s+Neo\s+from\s+['"]\.\.\/\.\.\/src\/Neo\.mjs['"]/.test(l));
         const coreImportIdx   = lines.findIndex(l => /^import\s+\*\s+as\s+core\s+from\s+['"]\.\.\/\.\.\/src\/core\/_export\.mjs['"]/.test(l));
-        const lifecycleIdx    = lines.findIndex(l => /^import\s+LifecycleService\s+from\s+['"]\.\.\/mcp\/server\/memory-core\/services\/lifecycle\/SystemLifecycleService\.mjs['"]/.test(l));
+        const lifecycleIdx    = lines.findIndex(l => /^import\s+LifecycleService\s+from\s+['"]\.\.\/services\/memory-core\/lifecycle\/SystemLifecycleService\.mjs['"]/.test(l));
 
         // All three imports MUST be present and ordered correctly.
         expect(neoImportIdx).toBeGreaterThanOrEqual(0);

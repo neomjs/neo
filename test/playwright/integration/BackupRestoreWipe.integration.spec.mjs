@@ -152,7 +152,7 @@ function readGraphEvidence(memoryId) {
         ${NEO_BOOTSTRAP}
 
         const {Memory_LifecycleService} = await import('./ai/services.mjs');
-        const {default: GraphService} = await import('./ai/mcp/server/memory-core/services/GraphService.mjs');
+        const {default: GraphService} = await import('./ai/services/memory-core/GraphService.mjs');
 
         await Memory_LifecycleService.ready();
 
@@ -182,7 +182,7 @@ function cleanupGraphNode(memoryId) {
         ${NEO_BOOTSTRAP}
 
         const {Memory_LifecycleService} = await import('./ai/services.mjs');
-        const {default: GraphService} = await import('./ai/mcp/server/memory-core/services/GraphService.mjs');
+        const {default: GraphService} = await import('./ai/services/memory-core/GraphService.mjs');
 
         await Memory_LifecycleService.ready();
 

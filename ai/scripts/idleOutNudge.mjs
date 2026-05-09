@@ -55,9 +55,9 @@
  */
 import Neo                       from '../../src/Neo.mjs';
 import * as core                 from '../../src/core/_export.mjs';
-import LifecycleService          from '../mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
-import GraphService              from '../mcp/server/memory-core/services/GraphService.mjs';
-import MailboxService            from '../mcp/server/memory-core/services/MailboxService.mjs';
+import LifecycleService          from '../services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import GraphService              from '../services/memory-core/GraphService.mjs';
+import MailboxService            from '../services/memory-core/MailboxService.mjs';
 import RequestContextService     from '../mcp/server/shared/services/RequestContextService.mjs';
 import {hasOverride, readGateState} from './wakeSafetyGate.mjs';
 import {writeInflightLock, clearInflightLock, checkInflightLock} from './inflightLock.mjs';

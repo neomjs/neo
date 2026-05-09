@@ -18,7 +18,7 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 import fs             from 'fs';
 import path           from 'path';
-import {TestLifecycleHelper} from '../../mcp/server/memory-core/util.mjs';
+import {TestLifecycleHelper} from '../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     test.describe.configure({mode: 'serial'});
@@ -45,9 +45,9 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         aiConfig.lazyEdgesQueuePath   = path.join(tmpDir, `lazy-edges-${process.pid}-${Date.now()}.jsonl`);
         aiConfig.autoIngestFileSystem = false;
 
-        GraphService           = (await import('../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs')).default;
+        GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         SemanticGraphExtractor = (await import('../../../../../../ai/daemons/services/SemanticGraphExtractor.mjs')).default;
-        SystemLifecycleService = (await import('../../../../../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs')).default;
+        SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         OpenAiCompatible       = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
 
         if (fs.existsSync(testDbPath)) {

@@ -6,9 +6,9 @@ import { fileURLToPath } from 'url';
 // Boot internal services
 import Neo                  from '../../src/Neo.mjs';
 import * as core            from '../../src/core/_export.mjs';
-import MemoryService from '../../ai/mcp/server/memory-core/services/MemoryService.mjs';
-import DreamService from '../../ai/mcp/server/memory-core/services/DreamService.mjs';
-import GraphService from '../../ai/mcp/server/memory-core/services/GraphService.mjs';
+import MemoryService from '../../ai/services/memory-core/MemoryService.mjs';
+import DreamService from '../../ai/daemons/DreamService.mjs';
+import GraphService from '../../ai/services/memory-core/GraphService.mjs';
 
 /**
  * @module buildScripts/ai/roadmapPlanner

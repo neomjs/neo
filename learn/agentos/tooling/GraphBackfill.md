@@ -112,7 +112,7 @@ Tests inject stubs conforming to the same `collection.get({ids} | {where})` cont
 
 - `ai/daemons/services/MemorySessionIngestor.mjs` — `ingestSingleRow` + `syncSessionToGraph`
 - `ai/daemons/services/LazyEdgeDrainer.mjs` — JSONL queue consumer
-- `ai/mcp/server/memory-core/services/GraphService.mjs` — `linkNodesAsync`, `ensureNodeExists`, `normalizeGraphNodeId`
+- `ai/services/memory-core/GraphService.mjs` — `linkNodesAsync`, `ensureNodeExists`, `normalizeGraphNodeId`
 - `ai/scripts/priorityBackfill.mjs` — operator CLI
 - `learn/agentos/tooling/MemoryCoreMcpAuth.md` — identity propagation (orthogonal; user-tenant tagging happens at write time regardless of back-fill source)
 - `learn/agentos/DreamPipeline.md` — the REM cycle where live ingestion runs

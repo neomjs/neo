@@ -1,9 +1,9 @@
 import Neo                 from '../../src/Neo.mjs';
 import * as core           from '../../src/core/_export.mjs';
 import MC_Config           from '../../ai/mcp/server/memory-core/config.mjs';
-import MC_DatabaseService  from '../../ai/mcp/server/memory-core/services/DatabaseService.mjs';
-import MC_ChromaManager    from '../../ai/mcp/server/memory-core/managers/ChromaManager.mjs';
-import MC_LifecycleService from '../../ai/mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
+import MC_DatabaseService  from '../../ai/services/memory-core/DatabaseService.mjs';
+import MC_ChromaManager    from '../../ai/services/memory-core/managers/ChromaManager.mjs';
+import MC_LifecycleService from '../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import fs                  from 'fs';
 import path                from 'path';
 

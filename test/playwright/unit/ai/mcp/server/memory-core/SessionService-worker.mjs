@@ -13,14 +13,14 @@ const dbPath = process.argv[4];
         const db = new Database(dbPath, { timeout: 5000 });
         
         // Import GraphService and inject db
-        const { default: GraphService } = await import('../../../../../../../ai/mcp/server/memory-core/services/GraphService.mjs');
+        const { default: GraphService } = await import('../../../../../../../ai/services/memory-core/GraphService.mjs');
         GraphService.db = {
             storage: {
                 db: db
             }
         };
 
-        const { default: SessionService } = await import('../../../../../../../ai/mcp/server/memory-core/services/SessionService.mjs');
+        const { default: SessionService } = await import('../../../../../../../ai/services/memory-core/SessionService.mjs');
         
         // Call the claim Summarization job
         const success = SessionService.claimSummarizationJob(sessionId, workerId);

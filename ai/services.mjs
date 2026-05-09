@@ -40,18 +40,18 @@ KB_Config.data.autoSync = false;
 KB_Config.data.autoStartDatabase = false;
 
 // --- Memory Core Services ---
-import Memory_Service               from './mcp/server/memory-core/services/MemoryService.mjs';
-import Memory_DatabaseService       from './mcp/server/memory-core/services/DatabaseService.mjs';
-import Memory_SessionService        from './mcp/server/memory-core/services/SessionService.mjs';
-import Memory_HealthService         from './mcp/server/memory-core/services/HealthService.mjs';
-import Memory_GraphService          from './mcp/server/memory-core/services/GraphService.mjs';
-import Memory_SummaryService        from './mcp/server/memory-core/services/SummaryService.mjs';
-import Memory_ChromaLifecycleService from './mcp/server/memory-core/services/lifecycle/ChromaLifecycleService.mjs';
-import Memory_InferenceLifecycleService from './mcp/server/memory-core/services/lifecycle/InferenceLifecycleService.mjs';
-import Memory_ChromaManager         from './mcp/server/memory-core/managers/ChromaManager.mjs';
-import Memory_StorageRouter         from './mcp/server/memory-core/managers/StorageRouter.mjs';
-import Memory_LifecycleService      from './mcp/server/memory-core/services/lifecycle/SystemLifecycleService.mjs';
-import Memory_TextEmbeddingService  from './mcp/server/memory-core/services/TextEmbeddingService.mjs';
+import Memory_Service               from './services/memory-core/MemoryService.mjs';
+import Memory_DatabaseService       from './services/memory-core/DatabaseService.mjs';
+import Memory_SessionService        from './services/memory-core/SessionService.mjs';
+import Memory_HealthService         from './services/memory-core/HealthService.mjs';
+import Memory_GraphService          from './services/memory-core/GraphService.mjs';
+import Memory_SummaryService        from './services/memory-core/SummaryService.mjs';
+import Memory_ChromaLifecycleService from './services/memory-core/lifecycle/ChromaLifecycleService.mjs';
+import Memory_InferenceLifecycleService from './services/memory-core/lifecycle/InferenceLifecycleService.mjs';
+import Memory_ChromaManager         from './services/memory-core/managers/ChromaManager.mjs';
+import Memory_StorageRouter         from './services/memory-core/managers/StorageRouter.mjs';
+import Memory_LifecycleService      from './services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import Memory_TextEmbeddingService  from './services/memory-core/TextEmbeddingService.mjs';
 import Memory_Config                from './mcp/server/memory-core/config.mjs';
 
 Memory_Config.data.autoSummarize = false;

@@ -1,27 +1,21 @@
 /**
- * @summary Resolves the canonical embedding provider for all embedding callsites.
+ * @summary Compatibility shim — re-exports from the canonical SDK location.
  *
- * @param {Object} options
- * @param {Object} [options.config={}] Config object, including custom config overrides after load().
- * @param {Object} [options.env=process.env] Environment map.
- * @returns {String} The provider key consumed by all embedding callsites.
- */
-export function resolveEmbeddingProvider({config = {}, env = process.env} = {}) {
-    const unified = !Neo.isEmpty(config.embeddingProvider) ? config.embeddingProvider : env.NEO_EMBEDDING_PROVIDER;
-
-    return unified || 'gemini';
-}
-
-/**
- * @summary Normalizes the mutable Memory Core config to the canonical embedding provider key.
+ * Background: M6 sub-issue #10996 migrated `EmbeddingProviderConfig.mjs` from
+ * `ai/mcp/server/memory-core/helpers/` to the canonical SDK boundary at
+ * `ai/services/memory-core/helpers/`. The repo's `ai/mcp/server/memory-core/config.mjs`
+ * is a gitignored runtime file (per `.gitignore:104`); existing local copies that
+ * pre-date the migration import this helper via `./helpers/EmbeddingProviderConfig.mjs`,
+ * which would otherwise resolve to ERR_MODULE_NOT_FOUND.
  *
- * Normalizes a mutable config object after custom overrides are merged.
- * @param {Object} config Config object to normalize in place.
- * @param {Object} [env=process.env] Environment map.
- * @param {Object} [sourceConfig=config] Raw override object used for provider resolution.
- * @returns {Object} The same config object for chaining.
+ * This shim re-exports the canonical surface from the new SDK location so stale
+ * gitignored configs continue to work without the operator manually re-cp'ing from
+ * `config.template.mjs`. The shim is removable once a tracked refresh mechanism
+ * for gitignored configs lands (see `ai/scripts/bootstrapWorktree.mjs:219-223`,
+ * which currently skips existing config files by design).
+ *
+ * @see ai/services/memory-core/helpers/EmbeddingProviderConfig.mjs — canonical implementation
+ * @see #10996 — M6 sub-issue migrating helpers to flat SDK boundary
+ * @see #11005 — follow-up: align Neo classNames with flat SDK locations
  */
-export function normalizeEmbeddingProviderConfig(config, env = process.env, sourceConfig = config) {
-    config.embeddingProvider = resolveEmbeddingProvider({config: sourceConfig, env});
-    return config;
-}
+export {resolveEmbeddingProvider, normalizeEmbeddingProviderConfig} from '../../../../services/memory-core/helpers/EmbeddingProviderConfig.mjs';

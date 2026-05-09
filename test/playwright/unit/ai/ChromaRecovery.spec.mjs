@@ -3,7 +3,7 @@ import '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
 import '../../../../src/manager/Instance.mjs';
 import MC_Config from '../../../../ai/mcp/server/memory-core/config.mjs';
-import ChromaManager from '../../../../ai/mcp/server/memory-core/managers/ChromaManager.mjs';
+import ChromaManager from '../../../../ai/services/memory-core/managers/ChromaManager.mjs';
 
 test.describe('ChromaDB Recovery Test', () => {
     let isOnline = false;

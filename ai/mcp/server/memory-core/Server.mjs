@@ -2,16 +2,16 @@ import {execSync}                  from 'node:child_process';
 import BaseServer                  from '../BaseServer.mjs';
 import aiConfig                    from './config.mjs';
 import logger                      from './logger.mjs';
-import GraphService                from './services/GraphService.mjs';
-import HealthService               from './services/HealthService.mjs';
-import SessionService              from './services/SessionService.mjs';
-import InferenceLifecycleService   from './services/lifecycle/InferenceLifecycleService.mjs';
-import {listTools, callTool}       from './services/toolService.mjs';
+import GraphService                from '../../../services/memory-core/GraphService.mjs';
+import HealthService               from '../../../services/memory-core/HealthService.mjs';
+import SessionService              from '../../../services/memory-core/SessionService.mjs';
+import InferenceLifecycleService   from '../../../services/memory-core/lifecycle/InferenceLifecycleService.mjs';
+import {listTools, callTool}       from '../../../services/memory-core/toolService.mjs';
 import AuthMiddleware              from '../shared/services/AuthMiddleware.mjs';
 import RequestContextService       from '../shared/services/RequestContextService.mjs';
 import StdioIdentityResolver       from '../shared/services/StdioIdentityResolver.mjs';
-import WakeSubscriptionService     from './services/WakeSubscriptionService.mjs';
-import CoalescingEngineService     from './services/CoalescingEngineService.mjs';
+import WakeSubscriptionService     from '../../../services/memory-core/WakeSubscriptionService.mjs';
+import CoalescingEngineService     from '../../../services/memory-core/CoalescingEngineService.mjs';
 
 /**
  * @summary The Memory Core MCP Server application.

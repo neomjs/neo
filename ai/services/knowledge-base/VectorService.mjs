@@ -1,5 +1,5 @@
 import aiConfig                  from '../../mcp/server/knowledge-base/config.mjs';
-import TextEmbeddingService      from '../../mcp/server/memory-core/services/TextEmbeddingService.mjs';
+import TextEmbeddingService      from '../memory-core/TextEmbeddingService.mjs';
 import mcConfig                  from '../../mcp/server/memory-core/config.mjs';
 import Base                      from '../../../src/core/Base.mjs';
 import ChromaManager             from './ChromaManager.mjs';
