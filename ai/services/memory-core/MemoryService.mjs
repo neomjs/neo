@@ -40,40 +40,97 @@ function buildMailboxDelta() {
     if (!sqlite) return null;
 
     try {
-        // Unread-count: edges of type SENT_TO whose target is either the caller's bound
-        // identity OR the `AGENT:*` broadcast sentinel (seeded per #10174). readAt-null on the
-        // joined MESSAGE node filters to unread. DISTINCT e.source defends against duplicate
-        // SENT_TO edges (shouldn't happen in current schema, but cheap insurance).
+        // Unread-count: direct DMs still use MESSAGE.properties.readAt. #11029 broadcasts use
+        // per-recipient DELIVERED_TO.readAt edges; legacy broadcasts without DELIVERY edges keep
+        // the historical shared-read fallback. DISTINCT defends against duplicate edge rows.
         const unreadRow = sqlite.prepare(`
-            SELECT COUNT(DISTINCT e.source) AS unreadCount
-            FROM Edges e
-            JOIN Nodes n ON n.id = e.source
-            WHERE e.type = 'SENT_TO'
-              AND (e.target = ? OR e.target = 'AGENT:*')
-              AND json_extract(n.data, '$.properties.readAt') IS NULL
-        `).get(me);
+            WITH unread_messages AS (
+                SELECT n.id AS messageId
+                FROM Edges e
+                JOIN Nodes n ON n.id = e.source
+                WHERE e.type = 'SENT_TO'
+                  AND e.target = ?
+                  AND json_extract(n.data, '$.label') = 'MESSAGE'
+                  AND json_extract(n.data, '$.properties.readAt') IS NULL
+
+                UNION
+
+                SELECT n.id AS messageId
+                FROM Edges e
+                JOIN Nodes n ON n.id = e.source
+                WHERE e.type = 'DELIVERED_TO'
+                  AND e.target = ?
+                  AND json_extract(n.data, '$.label') = 'MESSAGE'
+                  AND json_extract(e.data, '$.properties.readAt') IS NULL
+
+                UNION
+
+                SELECT n.id AS messageId
+                FROM Edges e
+                JOIN Nodes n ON n.id = e.source
+                WHERE e.type = 'SENT_TO'
+                  AND e.target = 'AGENT:*'
+                  AND json_extract(n.data, '$.label') = 'MESSAGE'
+                  AND json_extract(n.data, '$.properties.readAt') IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM Edges de
+                      WHERE de.source = n.id AND de.type = 'DELIVERED_TO'
+                  )
+            )
+            SELECT COUNT(DISTINCT messageId) AS unreadCount
+            FROM unread_messages
+        `).get(me, me);
 
         // Latest unread preview: newest sentAt wins. The correlated subquery resolves the
         // sender identity via the message's SENT_BY edge. `messageId` on the outer select is
         // the MESSAGE node id (redundant with n.id but explicit for caller ergonomics).
         const previewRow = sqlite.prepare(`
+            WITH unread_messages AS (
+                SELECT n.id AS messageId, n.data AS data
+                FROM Edges e
+                JOIN Nodes n ON n.id = e.source
+                WHERE e.type = 'SENT_TO'
+                  AND e.target = ?
+                  AND json_extract(n.data, '$.label') = 'MESSAGE'
+                  AND json_extract(n.data, '$.properties.readAt') IS NULL
+
+                UNION
+
+                SELECT n.id AS messageId, n.data AS data
+                FROM Edges e
+                JOIN Nodes n ON n.id = e.source
+                WHERE e.type = 'DELIVERED_TO'
+                  AND e.target = ?
+                  AND json_extract(n.data, '$.label') = 'MESSAGE'
+                  AND json_extract(e.data, '$.properties.readAt') IS NULL
+
+                UNION
+
+                SELECT n.id AS messageId, n.data AS data
+                FROM Edges e
+                JOIN Nodes n ON n.id = e.source
+                WHERE e.type = 'SENT_TO'
+                  AND e.target = 'AGENT:*'
+                  AND json_extract(n.data, '$.label') = 'MESSAGE'
+                  AND json_extract(n.data, '$.properties.readAt') IS NULL
+                  AND NOT EXISTS (
+                      SELECT 1 FROM Edges de
+                      WHERE de.source = n.id AND de.type = 'DELIVERED_TO'
+                  )
+            )
             SELECT
-                n.id AS messageId,
-                json_extract(n.data, '$.properties.subject') AS subject,
-                json_extract(n.data, '$.properties.sentAt') AS sentAt,
+                messageId,
+                json_extract(data, '$.properties.subject') AS subject,
+                json_extract(data, '$.properties.sentAt') AS sentAt,
                 (
                     SELECT se.target FROM Edges se
-                    WHERE se.source = n.id AND se.type = 'SENT_BY'
+                    WHERE se.source = messageId AND se.type = 'SENT_BY'
                     LIMIT 1
                 ) AS "from"
-            FROM Edges e
-            JOIN Nodes n ON n.id = e.source
-            WHERE e.type = 'SENT_TO'
-              AND (e.target = ? OR e.target = 'AGENT:*')
-              AND json_extract(n.data, '$.properties.readAt') IS NULL
-            ORDER BY json_extract(n.data, '$.properties.sentAt') DESC
+            FROM unread_messages
+            ORDER BY json_extract(data, '$.properties.sentAt') DESC
             LIMIT 1
-        `).get(me);
+        `).get(me, me);
 
         return {
             unreadCount  : unreadRow?.unreadCount ?? 0,

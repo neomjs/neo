@@ -33,6 +33,98 @@ function normalizeMailboxTarget(to, sentBy) {
     return to;
 }
 
+function getRecordField(record, field) {
+    return record?.isRecord ? record.get(field) : record?.[field];
+}
+
+function getRecordProperties(record) {
+    return getRecordField(record, 'properties') || {};
+}
+
+function setRecordProperties(record, properties) {
+    if (record?.isRecord) {
+        record.set('properties', properties);
+    } else if (record) {
+        record.properties = properties;
+    }
+}
+
+/**
+ * @summary Returns the current broadcast delivery audience for a MESSAGE sent to `AGENT:*`.
+ *
+ * Per #11029, broadcasts remain one semantic MESSAGE + SENT_TO->AGENT:* edge, while unread
+ * state moves to per-recipient DELIVERY edges. The audience is a send-time snapshot of
+ * registered peer agents, excluding the sender and sentinel/human identities.
+ *
+ * @param {String} sentBy The canonical sender identity.
+ * @returns {String[]} Sorted recipient identity node IDs.
+ * @private
+ */
+function getBroadcastAudience(sentBy) {
+    const nodes = GraphService.db?.nodes?.items || [];
+
+    return nodes
+        .map(node => {
+            const id         = getRecordField(node, 'id'),
+                label        = getRecordField(node, 'label'),
+                properties   = getRecordProperties(node),
+                accountType  = properties.accountType;
+
+            if (!id || id === sentBy || id === 'AGENT:*' || !id.startsWith('@')) {
+                return null;
+            }
+
+            if (accountType === 'human' || accountType === 'sentinel') {
+                return null;
+            }
+
+            if (label === 'AgentIdentity') {
+                return accountType === 'agent' ? id : null;
+            }
+
+            return label === 'AGENT' ? id : null;
+        })
+        .filter(Boolean)
+        .sort();
+}
+
+function getBroadcastDeliveryEdges(messageId) {
+    return (GraphService.db?.edges?.items || []).filter(edge =>
+        getRecordField(edge, 'source') === messageId &&
+        getRecordField(edge, 'type') === 'DELIVERED_TO'
+    );
+}
+
+function getBroadcastDeliveryEdge(messageId, target) {
+    return getBroadcastDeliveryEdges(messageId).find(edge => getRecordField(edge, 'target') === target) || null;
+}
+
+function hasBroadcastDeliveryEdges(messageId) {
+    return getBroadcastDeliveryEdges(messageId).length > 0;
+}
+
+function getReadAtForMessage(messageNode, deliveryEdge=null) {
+    if (deliveryEdge) {
+        return getRecordProperties(deliveryEdge).readAt || null;
+    }
+
+    return messageNode?.properties?.readAt || null;
+}
+
+async function setDeliveryEdgeReadAt(edge, readAt) {
+    setRecordProperties(edge, {
+        ...getRecordProperties(edge),
+        readAt
+    });
+
+    const db = GraphService.db;
+
+    if (db?.autoSave && db.storage) {
+        await db.storage.addEdges([edge]);
+        db.acknowledgeLocalMutations?.();
+    }
+}
+
 /**
  * @summary A2A (Agent-to-Agent) Messaging Service mapped to the Native Edge Graph.
  *
@@ -237,6 +329,17 @@ class MailboxService extends Base {
         // 2. Map the routing edges
         GraphService.linkNodes(messageId, sentBy, 'SENT_BY', 1.0, { timestamp, userId: sentBy, sharedEntity: true });
         GraphService.linkNodes(messageId, to, 'SENT_TO', 1.0, { timestamp, userId: sentBy, sharedEntity: true });
+        if (to === 'AGENT:*') {
+            for (const recipient of getBroadcastAudience(sentBy)) {
+                GraphService.linkNodes(messageId, recipient, 'DELIVERED_TO', 1.0, {
+                    deliveredAt: timestamp,
+                    readAt: null,
+                    deliveryKind: 'broadcast',
+                    userId: sentBy,
+                    sharedEntity: true
+                });
+            }
+        }
 
         // Phase 1 #10347 Observability: Make SENT_TO failure loud and cross-process readable
         try {
@@ -353,17 +456,38 @@ class MailboxService extends Base {
         let messages = [];
 
         for (const edge of db.edges.items) {
-            let isMatch = false;
-            let targetNode = null;
-            let senderNode = null;
+            const edgeType = getRecordField(edge, 'type'),
+                edgeSource = getRecordField(edge, 'source'),
+                edgeTarget = getRecordField(edge, 'target');
 
-            if (edge.type === 'SENT_TO') {
-                targetNode = edge.target;
-                if ((box === 'inbox' || box === 'all') && (targetNode === target || targetNode === 'AGENT:*')) {
+            let isMatch = false,
+                targetNode = null,
+                senderNode = null,
+                deliveryEdge = null;
+
+            if (edgeType === 'DELIVERED_TO') {
+                targetNode = edgeTarget;
+                if ((box === 'inbox' || box === 'all') && targetNode === target) {
                     isMatch = true;
+                    deliveryEdge = edge;
                 }
-            } else if (edge.type === 'SENT_BY') {
-                senderNode = edge.target;
+            } else if (edgeType === 'SENT_TO') {
+                targetNode = edgeTarget;
+                if (box === 'inbox' || box === 'all') {
+                    if (targetNode === target) {
+                        isMatch = true;
+                    } else if (targetNode === 'AGENT:*') {
+                        // Load the full message vicinity before deciding whether this is a
+                        // #11029 per-recipient broadcast or a legacy shared-read broadcast.
+                        db.getAdjacentNodes(edgeSource, 'outbound');
+                        deliveryEdge = getBroadcastDeliveryEdge(edgeSource, target);
+                        if (deliveryEdge || !hasBroadcastDeliveryEdges(edgeSource)) {
+                            isMatch = true;
+                        }
+                    }
+                }
+            } else if (edgeType === 'SENT_BY') {
+                senderNode = edgeTarget;
                 if ((box === 'outbox' || box === 'all') && senderNode === target) {
                     isMatch = true;
                 }
@@ -371,7 +495,7 @@ class MailboxService extends Base {
 
             if (isMatch) {
                 // Determine message node id depending on which edge we matched
-                const messageNodeId = edge.source;
+                const messageNodeId = edgeSource;
                 // Avoid duplicates if 'all' is chosen
                 if (messages.find(m => m.messageId === messageNodeId)) continue;
 
@@ -384,7 +508,10 @@ class MailboxService extends Base {
 
                 const messageNode = db.nodes.get(messageNodeId);
                 if (messageNode && messageNode.label === 'MESSAGE') {
-                    const isUnread = !messageNode.properties.readAt;
+                    deliveryEdge = deliveryEdge || getBroadcastDeliveryEdge(messageNodeId, target);
+
+                    const readAt = getReadAtForMessage(messageNode, deliveryEdge);
+                    const isUnread = !readAt;
                     if (status === 'unread' && !isUnread) continue;
                     if (status === 'read' && isUnread) continue;
 
@@ -394,11 +521,13 @@ class MailboxService extends Base {
                     let messageTaggedConcepts = [];
 
                     for (const sourceEdge of db.edges.items) {
-                        if (sourceEdge.source === messageNode.id) {
-                            if (sourceEdge.type === 'SENT_BY') sentByNodeId = sourceEdge.target;
-                            if (sourceEdge.type === 'SENT_TO') sentToNodeId = sourceEdge.target;
-                            if (sourceEdge.type === 'PART_OF_THREAD') foundThreadId = sourceEdge.target;
-                            if (sourceEdge.type === 'TAGGED_CONCEPT') messageTaggedConcepts.push(sourceEdge.target);
+                        if (getRecordField(sourceEdge, 'source') === messageNode.id) {
+                            const sourceEdgeType = getRecordField(sourceEdge, 'type');
+
+                            if (sourceEdgeType === 'SENT_BY') sentByNodeId = getRecordField(sourceEdge, 'target');
+                            if (sourceEdgeType === 'SENT_TO') sentToNodeId = getRecordField(sourceEdge, 'target');
+                            if (sourceEdgeType === 'PART_OF_THREAD') foundThreadId = getRecordField(sourceEdge, 'target');
+                            if (sourceEdgeType === 'TAGGED_CONCEPT') messageTaggedConcepts.push(getRecordField(sourceEdge, 'target'));
                         }
                     }
 
@@ -421,7 +550,7 @@ class MailboxService extends Base {
                         subject: messageNode.properties.subject,
                         priority: messageNode.properties.priority,
                         sentAt: messageNode.properties.sentAt,
-                        readAt: messageNode.properties.readAt,
+                        readAt,
                         from: sentByNodeId,
                         to: sentToNodeId
                     };
@@ -465,27 +594,34 @@ class MailboxService extends Base {
             throw new Error(`Message not found: ${messageId}`);
         }
 
-        let isAuthorized = false;
-        let sentBy = null;
-        let sentTo = null;
+        let sentBy = null,
+            sentTo = null,
+            isDirectRecipient = false;
 
         for (const edge of db.edges.items) {
-            if (edge.source === messageId) {
-                if (edge.type === 'SENT_TO') {
-                    sentTo = edge.target;
-                    if (edge.target === me || edge.target === 'AGENT:*') {
-                        isAuthorized = true;
+            if (getRecordField(edge, 'source') === messageId) {
+                const edgeType = getRecordField(edge, 'type'),
+                    edgeTarget = getRecordField(edge, 'target');
+
+                if (edgeType === 'SENT_TO') {
+                    sentTo = edgeTarget;
+                    if (edgeTarget === me) {
+                        isDirectRecipient = true;
                     }
                 }
-                if (edge.type === 'SENT_BY') {
-                    sentBy = edge.target;
+                if (edgeType === 'SENT_BY') {
+                    sentBy = edgeTarget;
                 }
             }
         }
 
-        // Sender can also read
-        if (sentBy === me) {
-            isAuthorized = true;
+        const deliveryEdge = getBroadcastDeliveryEdge(messageId, me);
+        let isAuthorized = sentBy === me || isDirectRecipient;
+
+        if (!isAuthorized && sentTo === 'AGENT:*') {
+            // Legacy broadcasts without per-recipient receipts retain their historical
+            // read-path semantics. #11029 broadcasts authorize only snapshotted recipients.
+            isAuthorized = deliveryEdge || !hasBroadcastDeliveryEdges(messageId);
         } else if (!isAuthorized && sentTo && sentTo !== me && sentTo !== 'AGENT:*') {
             // Check if me has permission to read sentTo's inbox
             if (PermissionService.hasPermission(me, sentTo, 'CAN_READ_INBOX_OF')) {
@@ -502,7 +638,7 @@ class MailboxService extends Base {
             subject: messageNode.properties.subject,
             body: messageNode.properties.bodyText,
             sentAt: messageNode.properties.sentAt,
-            readAt: messageNode.properties.readAt,
+            readAt: getReadAtForMessage(messageNode, deliveryEdge),
             from: sentBy,
             to: sentTo
         };
@@ -534,15 +670,38 @@ class MailboxService extends Base {
             throw new Error(`Message not found: ${messageId}`);
         }
 
-        let isRecipient = false;
+        let isDirectRecipient = false,
+            isBroadcastRecipient = false;
+
         for (const edge of db.edges.items) {
-            if (edge.source === messageId && edge.type === 'SENT_TO' && (edge.target === me || edge.target === 'AGENT:*')) {
-                isRecipient = true;
-                break;
+            if (getRecordField(edge, 'source') === messageId && getRecordField(edge, 'type') === 'SENT_TO') {
+                const edgeTarget = getRecordField(edge, 'target');
+
+                if (edgeTarget === me) {
+                    isDirectRecipient = true;
+                    break;
+                }
+                if (edgeTarget === 'AGENT:*') {
+                    isBroadcastRecipient = true;
+                }
             }
         }
 
-        if (!isRecipient) {
+        const deliveryEdge = getBroadcastDeliveryEdge(messageId, me);
+
+        if (deliveryEdge) {
+            const readAt = new Date().toISOString();
+
+            await setDeliveryEdgeReadAt(deliveryEdge, readAt);
+
+            return { messageId, readAt, status: 'read' };
+        }
+
+        if (isBroadcastRecipient && hasBroadcastDeliveryEdges(messageId)) {
+            throw new Error(`Unauthorized: you are not the recipient of message ${messageId}`);
+        }
+
+        if (!isDirectRecipient && !isBroadcastRecipient) {
             throw new Error(`Unauthorized: you are not the recipient of message ${messageId}`);
         }
 
