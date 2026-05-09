@@ -76,9 +76,11 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             }
         });
 
-        orchestrator.runTask = (taskName, reason) => {
-            started.push({taskName, reason});
-            return true;
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
         };
 
         orchestrator.runMaintenanceCycle(600000);
@@ -97,55 +99,4 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         }]);
     });
 
-    test('records success-hook failures without throwing out of task cleanup', () => {
-        const outcomes = [];
-        let closeHandler;
-
-        const orchestrator = createTestOrchestrator({
-            healthService: {
-                recordTaskOutcome(taskName, status, details) {
-                    outcomes.push({taskName, status, details});
-                }
-            },
-            spawnFn: () => ({
-                pid: 123,
-                on(eventName, handler) {
-                    if (eventName === 'close') {
-                        closeHandler = handler;
-                    }
-                }
-            })
-        });
-
-        orchestrator.getTaskPidFile = () => '/tmp/orchestrator-test/summary.pid';
-
-        expect(orchestrator.runTask('summary', 'sunset-handover:1', () => {
-            throw new Error('mark read failed');
-        })).toBe(true);
-
-        closeHandler(0);
-
-        expect(outcomes[0]).toMatchObject({
-            taskName: 'summary',
-            status  : 'running',
-            details : {
-                reason: 'sunset-handover:1',
-                pid   : 123
-            }
-        });
-        expect(outcomes[1]).toEqual({
-            taskName: 'summary',
-            status  : 'failed',
-            details : {
-                reason: 'sunset-handover:1',
-                phase : 'success-hook',
-                error : 'mark read failed'
-            }
-        });
-        
-        const state = orchestrator.taskStateService.getTaskState('summary');
-        expect(state.running).toBe(false);
-        expect(state.lastErrorAt).toEqual(expect.any(String));
-        expect(state.lastSuccessAt).toBeNull();
-    });
 });

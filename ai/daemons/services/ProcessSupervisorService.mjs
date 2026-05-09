@@ -1,0 +1,272 @@
+import Neo from '../../../src/Neo.mjs';
+import Base from '../../../src/core/Base.mjs';
+import fs from 'fs-extra';
+import path from 'path';
+import {execSync} from 'child_process';
+
+/**
+ * @class Neo.ai.daemons.services.ProcessSupervisorService
+ * @extends Neo.core.Base
+ * @singleton
+ */
+export class ProcessSupervisorService extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.ai.daemons.services.ProcessSupervisorService'
+         * @protected
+         */
+        className: 'Neo.ai.daemons.services.ProcessSupervisorService',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true,
+        /**
+         * @member {String} dataDir_=''
+         * @protected
+         * @reactive
+         */
+        dataDir_: '',
+        /**
+         * @member {Object|null} taskDefinitions_=null
+         * @protected
+         * @reactive
+         */
+        taskDefinitions_: null,
+        /**
+         * @member {Object|null} taskStateService_=null
+         * @protected
+         * @reactive
+         */
+        taskStateService_: null,
+        /**
+         * @member {Object|null} healthService_=null
+         * @protected
+         * @reactive
+         */
+        healthService_: null,
+        /**
+         * @member {Function|null} writeLog_=null
+         * @protected
+         * @reactive
+         */
+        writeLog_: null,
+        /**
+         * @member {Function|null} spawnFn_=null
+         * @protected
+         * @reactive
+         */
+        spawnFn_: null
+    }
+
+    /**
+     * Reads the command line for a process ID.
+     * @param {Number} pid Process ID.
+     * @returns {String}
+     */
+    processCommand(pid) {
+        return execSync(`ps -p ${pid} -o command=`).toString().trim();
+    }
+
+    /**
+     * Resolves the PID file path for a child task.
+     * @param {String} taskName Task key.
+     * @returns {String}
+     */
+    getTaskPidFile(taskName) {
+        return path.join(this.dataDir, this.taskDefinitions[taskName].pidFileName);
+    }
+
+    /**
+     * Clears adopted child state after the recovered process exits.
+     * @param {String} taskName Task key.
+     * @param {Number} pid Process ID.
+     * @returns {void}
+     */
+    clearRecoveredTask(taskName, pid) {
+        const task    = this.taskDefinitions[taskName];
+        const pidFile = this.getTaskPidFile(taskName);
+
+        if (!this.taskStateService.clearRecovered(taskName, pid)) {
+            return;
+        }
+
+        try {
+            if (fs.existsSync(pidFile) && parseInt(fs.readFileSync(pidFile, 'utf8'), 10) === pid) {
+                fs.unlinkSync(pidFile);
+            }
+        } catch (e) {}
+
+        this.writeLog?.('INFO', `[ProcessSupervisor] Recovered ${task.label} process (PID: ${pid}) exited; clearing running state.`);
+    }
+
+    /**
+     * Watches a recovered child process so the persisted running flag does not stick forever.
+     * @param {String} taskName Task key.
+     * @param {Number} pid Process ID.
+     * @returns {void}
+     */
+    watchRecoveredTask(taskName, pid) {
+        const watcher = setInterval(() => {
+            try {
+                process.kill(pid, 0);
+            } catch (e) {
+                clearInterval(watcher);
+                this.clearRecoveredTask(taskName, pid);
+            }
+        }, 1000);
+
+        watcher.unref?.();
+    }
+
+    /**
+     * Adopts or clears an existing child-task PID file during daemon boot.
+     * @param {String} taskName Task key.
+     * @returns {void}
+     */
+    recoverTask(taskName) {
+        const task    = this.taskDefinitions[taskName];
+        const pidFile = this.getTaskPidFile(taskName);
+
+        if (!fs.existsSync(pidFile)) {
+            return;
+        }
+
+        try {
+            const pid = parseInt(fs.readFileSync(pidFile, 'utf8'), 10);
+            if (Number.isNaN(pid) || pid <= 0) {
+                fs.unlinkSync(pidFile);
+                return;
+            }
+
+            process.kill(pid, 0);
+            const cmd = this.processCommand(pid);
+
+            if (cmd.includes(task.expectedCommand)) {
+                this.taskStateService.adoptRunning(taskName, pid);
+                this.watchRecoveredTask(taskName, pid);
+                this.writeLog?.('INFO', `[ProcessSupervisor] Found running ${task.label} process (PID: ${pid}). Adopting.`);
+            } else {
+                fs.unlinkSync(pidFile);
+                this.writeLog?.('INFO', `[ProcessSupervisor] Stale ${task.label} PID ${pid} reused by another process. Unlinking.`);
+            }
+        } catch (e) {
+            try {
+                fs.unlinkSync(pidFile);
+            } catch (unlinkErr) {}
+        }
+    }
+
+    /**
+     * Recovers all child task PID files on boot.
+     * @returns {void}
+     */
+    recoverTasks() {
+        for (const taskName of Object.keys(this.taskDefinitions || {})) {
+            this.recoverTask(taskName);
+        }
+    }
+
+    /**
+     * Records task status into HealthService without letting observability failures break the loop.
+     * @param {String} taskName Task key.
+     * @param {String} status Outcome status.
+     * @param {Object|null} [details=null] Outcome details.
+     * @returns {void}
+     */
+    recordTaskOutcome(taskName, status, details = null) {
+        try {
+            this.healthService?.recordTaskOutcome?.(taskName, status, details);
+        } catch (e) {
+            this.writeLog?.('ERROR', `[ProcessSupervisor] Failed to record ${taskName} outcome: ${e.message}`);
+        }
+    }
+
+    /**
+     * Starts a child task and wires completion status back into task state and HealthService.
+     * @param {String} taskName Task key.
+     * @param {String} reason Scheduling reason.
+     * @param {Function} [onSuccess] Optional success hook.
+     * @returns {Boolean} True when a child was started.
+     */
+    runTask(taskName, reason, onSuccess) {
+        const task  = this.taskDefinitions[taskName];
+        const state = this.taskStateService.getTaskState(taskName);
+
+        if (state.running) {
+            this.writeLog?.('INFO', `[ProcessSupervisor] Skipping ${task.label}; task already running (PID: ${state.pid}).`);
+            this.recordTaskOutcome(taskName, 'skipped', {reason, pid: state.pid, skippedAt: new Date().toISOString()});
+            return false;
+        }
+
+        this.taskStateService.markStarted(taskName, reason);
+
+        this.writeLog?.('INFO', `[ProcessSupervisor] Starting ${task.label} (${reason}).`);
+
+        let child;
+        try {
+            child = this.spawnFn(task.command, task.args, {stdio: 'ignore'});
+        } catch (e) {
+            this.taskStateService.markSpawnFailed(taskName);
+            this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} failed to start: ${e.message}`);
+            this.recordTaskOutcome(taskName, 'failed', {reason, phase: 'spawn', error: e.message});
+            return false;
+        }
+
+        const pidFile = this.getTaskPidFile(taskName);
+
+        if (child.pid) {
+            this.taskStateService.markSpawned(taskName, child.pid);
+            try {
+                fs.writeFileSync(pidFile, child.pid.toString(), 'utf8');
+            } catch (e) {
+                this.writeLog?.('ERROR', `[ProcessSupervisor] Failed to write ${task.label} PID: ${e.message}`);
+            }
+        }
+
+        this.recordTaskOutcome(taskName, 'running', {reason, pid: child.pid || null, startedAt: new Date().toISOString()});
+
+        let cleared = false;
+        const clear = (code, error) => {
+            if (cleared) {
+                return;
+            }
+            cleared = true;
+
+            try {
+                if (fs.existsSync(pidFile)) {
+                    fs.unlinkSync(pidFile);
+                }
+            } catch (e) {}
+
+            if (error) {
+                this.taskStateService.markFailed(taskName, null);
+                this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} failed to start: ${error.message}`);
+                this.recordTaskOutcome(taskName, 'failed', {reason, phase: 'start', error: error.message});
+            } else if (code === 0) {
+                try {
+                    const completedAt = new Date().toISOString();
+                    onSuccess?.();
+                    this.taskStateService.markCompleted(taskName);
+                    this.writeLog?.('INFO', `[ProcessSupervisor] ${task.label} completed successfully.`);
+                    this.recordTaskOutcome(taskName, 'completed', {reason, code, completedAt});
+                } catch (e) {
+                    this.taskStateService.markFailed(taskName, null);
+                    this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} success hook failed: ${e.message}`);
+                    this.recordTaskOutcome(taskName, 'failed', {reason, phase: 'success-hook', error: e.message});
+                }
+            } else {
+                this.taskStateService.markFailed(taskName, code);
+                this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} exited with code ${code}.`);
+                this.recordTaskOutcome(taskName, 'failed', {reason, code, failedAt: new Date().toISOString()});
+            }
+        };
+
+        child.on('close', code => clear(code));
+        child.on('error', err => clear(null, err));
+
+        return true;
+    }
+}
+
+export default Neo.setupClass(ProcessSupervisorService);
