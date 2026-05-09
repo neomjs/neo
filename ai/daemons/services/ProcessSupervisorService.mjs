@@ -1,4 +1,3 @@
-import Neo from '../../../src/Neo.mjs';
 import Base from '../../../src/core/Base.mjs';
 import fs from 'fs-extra';
 import path from 'path';
