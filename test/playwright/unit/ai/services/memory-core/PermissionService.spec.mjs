@@ -179,7 +179,6 @@ test.describe('Neo.ai.services.memory-core.PermissionService', () => {
     });
 
     test('grantPermission preserves existing node type and does not overwrite it (resolves #10231)', async () => {
-        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: AGENT:* singleton-data pollution under workers:1 (#10937)');
         // Pre-seed AGENT:* as a BroadcastSentinel
         GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: '*', properties: {} });
 
@@ -189,8 +188,9 @@ test.describe('Neo.ai.services.memory-core.PermissionService', () => {
         });
 
         // Assert type remains 'BroadcastSentinel'
-        const node = GraphService.getNode({ id: 'AGENT:*' });
-        console.log('NODE TYPE IS:', node.type); expect(node.type).toBe('BroadcastSentinel');
+        // A sibling SDK-import path can wrap GraphService methods async inside the same workers:1 process.
+        const node = await GraphService.getNode({ id: 'AGENT:*' });
+        expect(node.type).toBe('BroadcastSentinel');
         
         // Also assert in SQLite
         const rows = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').all('AGENT:*');
