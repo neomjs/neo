@@ -1,8 +1,4 @@
-// IMPORTANT: `Neo` MUST be imported before Base / service singletons that call
-// `Neo.setupClass()` at module-load time. This keeps the daemon directly runnable
-// from Node, matching the persistent-process shape of SwarmHeartbeatService.
-import Neo                         from '../../src/Neo.mjs';
-import * as core                   from '../../src/core/_export.mjs';
+
 
 import fs                          from 'fs-extra';
 import path                        from 'path';
@@ -13,6 +9,7 @@ import HealthService               from '../services/memory-core/HealthService.m
 import {
     initializeDatabase
 } from '../scripts/bridge-daemon-queries.mjs';
+import CadenceEngine                 from './services/CadenceEngine.mjs';
 import SummarizationCoordinatorService from './services/SummarizationCoordinatorService.mjs';
 import TaskStateService                from './services/TaskStateService.mjs';
 import ProcessSupervisorService        from './services/ProcessSupervisorService.mjs';
@@ -27,39 +24,6 @@ export const DEFAULT_KB_SYNC_INTERVAL_MS       = 1800000;
 const DEFAULT_DB_PATH   = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
 const DEFAULT_DATA_DIR  = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
 const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../scripts');
-
-/**
- * @summary Parses daemon interval env vars while preserving `0` as disabled.
- *
- * @param {String|undefined} value Environment value.
- * @param {Number} fallback Fallback interval in milliseconds.
- * @returns {Number}
- */
-export function parseInterval(value, fallback) {
-    if (value === undefined || value === null || value === '') {
-        return fallback;
-    }
-
-    const parsed = parseInt(value, 10);
-    if (Number.isNaN(parsed)) {
-        return fallback;
-    }
-
-    return Math.max(parsed, 0);
-}
-
-/**
- * @summary Returns true when an interval task is due and not disabled.
- *
- * @param {Object} options
- * @param {Number} options.now Current timestamp in milliseconds.
- * @param {Number} options.lastRunAt Last start timestamp in milliseconds.
- * @param {Number} options.intervalMs Interval in milliseconds; `0` disables.
- * @returns {Boolean}
- */
-export function shouldRunIntervalTask({now, lastRunAt, intervalMs}) {
-    return intervalMs > 0 && now - lastRunAt >= intervalMs;
-}
 
 /**
  * @summary Builds child-process commands for orchestrator-owned maintenance tasks.
@@ -207,6 +171,12 @@ export class Orchestrator extends Base {
          */
         healthService_: HealthService,
         /**
+         * @member {Object} cadenceEngine_=CadenceEngine
+         * @protected
+         * @reactive
+         */
+        cadenceEngine_: CadenceEngine,
+        /**
          * @member {Object} summarizationCoordinator_=SummarizationCoordinatorService
          * @protected
          * @reactive
@@ -245,20 +215,23 @@ export class Orchestrator extends Base {
         this.dbPath                 = options.dbPath || DEFAULT_DB_PATH;
         this.logFile                = options.logFile   || path.join(dataDir, 'orchestrator.log');
         this.stateFile              = options.stateFile || path.join(dataDir, 'orchestrator-state.json');
-        this.pollIntervalMs         = options.pollIntervalMs ?? parseInterval(process.env.NEO_ORCHESTRATOR_POLL_INTERVAL_MS, DEFAULT_POLL_INTERVAL_MS);
-        this.summarySweepIntervalMs = options.summarySweepIntervalMs ?? parseInterval(
+
+        this.cadenceEngine          = options.cadenceEngine          || CadenceEngine;
+        this.healthService          = options.healthService          || HealthService;
+        this.summarizationCoordinator = options.summarizationCoordinator || SummarizationCoordinatorService;
+        this.processSupervisorService = options.processSupervisorService || ProcessSupervisorService;
+
+        this.pollIntervalMs         = options.pollIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_POLL_INTERVAL_MS, DEFAULT_POLL_INTERVAL_MS);
+        this.summarySweepIntervalMs = options.summarySweepIntervalMs ?? this.cadenceEngine.parseInterval(
             process.env.NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS ?? process.env.NEO_SUMMARIZATION_SWEEP_INTERVAL_MS,
             DEFAULT_SUMMARY_SWEEP_INTERVAL_MS
         );
-        this.kbSyncIntervalMs       = options.kbSyncIntervalMs ?? parseInterval(process.env.NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS, DEFAULT_KB_SYNC_INTERVAL_MS);
+        this.kbSyncIntervalMs       = options.kbSyncIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS, DEFAULT_KB_SYNC_INTERVAL_MS);
         this.taskDefinitions        = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
             nodeBin: options.nodeBin || process.argv[0]
         });
-        this.healthService          = options.healthService          || HealthService;
-        this.summarizationCoordinator = options.summarizationCoordinator || SummarizationCoordinatorService;
         this.spawnFn                = options.spawnFn                || spawn;
-        this.processSupervisorService = options.processSupervisorService || ProcessSupervisorService;
         this.initializeDatabaseFn   = options.initializeDatabaseFn   || initializeDatabase;
     }
 
@@ -377,12 +350,16 @@ export class Orchestrator extends Base {
      * @returns {void}
      */
     runKbSyncCycle(now) {
-        if (shouldRunIntervalTask({
+        const trigger = this.cadenceEngine.getIntervalTrigger({
+            taskName    : 'kbSync',
             now,
-            lastRunAt : this.taskStateService.getTaskState('kbSync').lastRunAt,
-            intervalMs: this.kbSyncIntervalMs
-        })) {
-            this.processSupervisorService.runTask('kbSync', `periodic-sync:${this.kbSyncIntervalMs}`);
+            lastRunAt   : this.taskStateService.getTaskState('kbSync').lastRunAt,
+            intervalMs  : this.kbSyncIntervalMs,
+            reasonPrefix: 'periodic-sync'
+        });
+
+        if (trigger) {
+            this.processSupervisorService.runTask(trigger.taskName, trigger.reason);
         }
     }
 

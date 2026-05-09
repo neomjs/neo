@@ -1,5 +1,6 @@
 import Neo                  from '../../src/Neo.mjs';
 import * as core            from '../../src/core/_export.mjs';
+import InstanceManager      from '../../src/manager/Instance.mjs';
 import KB_Config            from '../../ai/mcp/server/knowledge-base/config.mjs';
 import KB_DatabaseService   from '../../ai/services/knowledge-base/DatabaseService.mjs';
 import KB_ChromaManager     from '../../ai/services/knowledge-base/ChromaManager.mjs';

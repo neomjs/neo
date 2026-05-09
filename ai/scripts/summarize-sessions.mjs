@@ -12,6 +12,9 @@
  * @see ai/services/memory-core/SessionService.summarizeSessions
  * @see #10458 (origin), #9942 (daemon-collision context)
  */
+import Neo from '../../src/Neo.mjs';
+import * as core from '../../src/core/_export.mjs';
+import InstanceManager from '../../src/manager/Instance.mjs';
 import { Memory_SessionService } from '../services.mjs';
 
 async function summarize() {

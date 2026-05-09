@@ -32,6 +32,10 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn, execSync } from 'child_process';
 
+import Neo from '../../src/Neo.mjs';
+import * as core from '../../src/core/_export.mjs';
+import InstanceManager from '../../src/manager/Instance.mjs';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import {

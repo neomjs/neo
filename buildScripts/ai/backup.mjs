@@ -5,6 +5,8 @@ import {promisify}      from 'util';
 import {fileURLToPath}  from 'url';
 
 import Neo              from '../../src/Neo.mjs';
+import * as core        from '../../src/core/_export.mjs';
+import InstanceManager  from '../../src/manager/Instance.mjs';
 import kbConfig         from '../../ai/mcp/server/knowledge-base/config.mjs';
 import mcConfig         from '../../ai/mcp/server/memory-core/config.mjs';
 

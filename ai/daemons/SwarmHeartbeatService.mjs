@@ -1,11 +1,5 @@
-// IMPORTANT: `Neo` MUST be imported BEFORE any module that uses `Neo.gatekeep()` /
-// `Neo.setupClass()` at module-load time (e.g. `src/core/Compare.mjs`, transitively
-// pulled in via Base / LifecycleService / GraphService). Without this prelude the script
-// crashes at module-load with `ReferenceError: Neo is not defined` (regression originally
-// surfaced in `sweepExpiredTasks.mjs` and codified there). Ordering matters — these two
-// side-effect imports must run first to populate `globalThis.Neo`.
-import Neo             from '../../src/Neo.mjs';
-import * as core       from '../../src/core/_export.mjs';
+
+
 
 import {spawn}         from 'child_process';
 import path            from 'path';
