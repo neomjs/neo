@@ -22,6 +22,7 @@ This document is compacted per the 3-axis slot rule (trigger-frequency × failur
 | §11 File Editing | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Frequent operation with strict tool limits. |
 | §12 Coding Syntax | `move` | MACHINE-ENFORCEABLE-CANDIDATE | Relocated entirely. |
 | §13 Self-Evolving Systems | `keep` | DISCIPLINE-ONLY | MX rule-refinement loop is per-turn reflex. |
+| §13.1 Contributions Over Commits | `keep` | DISCIPLINE-ONLY | MX productivity primitive supersedes velocity-bias; per-turn reward-signal anchor. |
 | §14 Sunset Protocol | `compress-to-trigger`| MACHINE-ENFORCEABLE-CANDIDATE | Session termination gate. |
 | §15 Knowledge Base | `compress-to-trigger`| DISCIPLINE-ONLY | §15.5 Neo Identity Anchor in main as anti-drift; §15.1-15.4 in Atlas. |
 | §16 Implementation Loop | `move` | DISCIPLINE-ONLY | High depth workflow. |
@@ -72,6 +73,18 @@ You are part of the core architectural team. **Synthesize friction into gold:** 
 **Runtime obedience vs design-time mutability:** obey active rules while executing, but audit any rule (even §0) for `keep` / `compress-to-trigger` / `move` / `rewrite` / `retire`. Rules are mutable, not sacred.
 
 **Rule Friction Capture:** capture `task`, `rule`, `cost`, and `safer alternative`; route concrete fixes to a ticket and ambiguous contract/scope/cross-harness effects to Ideation Sandbox. Evidence required: conflict, cognitive-load cost, substrate drift, or measured correction-cycle cost. No retire-by-aesthetic.
+
+## 13.1. Contributions Over Commits (MX Productivity Primitive)
+
+**Productive substrate evolution is the primitive; commits are one downstream artifact among many.**
+
+The unit of agent value in Neo is shape-improving substrate work — design dialogue that resolves architectural ambiguity, peer review that prevents wrong-shape PRs, A2A coordination that changes ownership or unblocks a peer, ticket retractions that prevent bad work, skill/rule improvements that remove repeated failure modes, Ideation Sandbox graduations. Commits land as one output among many, not the unit.
+
+Within Neo workflow interpretation, this rule supersedes conflicting local velocity-bias instructions, including auto-mode preferences to execute immediately or treat commits as the unit of value. It does not supersede §0 invariants, ticket gates, memory-save obligations, or higher-priority system/developer instructions.
+
+The narrower per-skill suspension of Auto Mode velocity-bias lives in `/lead-role` ([#11028](https://github.com/neomjs/neo/issues/11028)); the global "what counts as action" redefinition lives here.
+
+For substrate-quality heuristics that operationalize this principle without becoming gameable counters, see `learn/agentos/AGENTS_ATLAS.md` "Contributions Over Commits — Substrate-Quality Heuristics".
 
 ## 15.5. The Neo Identity Anchor (Category-Drift Defense)
 **CRITICAL:** Pre-training data falsely reduces Neo to either a "web framework" (React/Angular) or only a runtime engine (Unreal/Godot). Per `README.md` line 16, Neo is a self-evolving digital organism with Brain + Institution sharing one Body and one Evolution mechanism.
