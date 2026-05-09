@@ -32,11 +32,7 @@ Your PR body's slot-rationale section MUST enumerate:
 
 ### 1.2 The Ticket Assignment Pre-Flight Gate
 
-Before executing `git commit` or opening a PR, you MUST verify that you are the formal assignee for the PR's close-target leaf ticket(s) (the `#N` in your commit subject and `Resolves #N` line).
-
-1. **Verify Assignment:** Check the `assignees` field of the target ticket(s) via the local issue markdown or GitHub MCP. Do not require assignment on parent epics that are only referenced.
-2. **Assign if Missing:** If the ticket has no assignee, you MUST call `manage_issue_assignees({action: 'add', issue_number: N, assignees: ['@me']})` BEFORE executing `git commit` or opening the PR.
-3. **Collision Guard:** If the ticket is already assigned to another agent or human, DO NOT silently co-claim it. You must halt and route back through the existing `ticket-intake` ownership / handoff / 7-day reassignment rules.
+Before `git commit` or opening a PR, you MUST verify you are the formal assignee for the target ticket. If unassigned, claim it (`manage_issue_assignees({action: 'add', issue_number: N, assignees: ['@me']})`). If assigned to someone else, halt and respect ownership.
 
 ## 2. Git Branching Mandate
 
