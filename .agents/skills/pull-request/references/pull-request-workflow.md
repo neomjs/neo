@@ -30,6 +30,10 @@ Your PR body's slot-rationale section MUST enumerate:
 
 **Env-var changes** → read [`env-var-rename-rule.md`](./env-var-rename-rule.md).
 
+### 1.2 The Ticket Assignment Pre-Flight Gate
+
+Before `git commit` or opening a PR, you MUST verify you are the formal assignee for the target ticket. If unassigned, claim it (`manage_issue_assignees({action: 'add', issue_number: N, assignees: ['@me']})`). If assigned to someone else, halt and respect ownership.
+
 ## 2. Git Branching Mandate
 
 You are strictly forbidden from committing or pushing directly to `main` (release-only) or `dev` (default working). The *mechanism* for satisfying this rule differs by harness class.
