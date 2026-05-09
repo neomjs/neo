@@ -18,20 +18,22 @@ test.describe('Remote MCP Transport (v13 Release Gate)', () => {
 
         try {
             // Call 1
-            const result1 = await callJsonTool(client1, 'ask_knowledge_base', {
-                query: 'What is Neo.mjs?'
+            const result1 = await callJsonTool(client1, 'query_documents', {
+                query: 'What is Neo.mjs?',
+                limit: 2
             });
             expect(result1).toBeDefined();
-            expect(result1.answer).toBeDefined();
-            expect(typeof result1.answer).toBe('string');
+            expect(result1.results).toBeDefined();
+            expect(Array.isArray(result1.results)).toBe(true);
 
             // Call 2 (same session)
-            const result2 = await callJsonTool(client1, 'ask_knowledge_base', {
-                query: 'Can you tell me more about its architecture?'
+            const result2 = await callJsonTool(client1, 'query_documents', {
+                query: 'architecture',
+                limit: 2
             });
             expect(result2).toBeDefined();
-            expect(result2.answer).toBeDefined();
-            expect(typeof result2.answer).toBe('string');
+            expect(result2.results).toBeDefined();
+            expect(Array.isArray(result2.results)).toBe(true);
         } finally {
             await client1.close();
         }
