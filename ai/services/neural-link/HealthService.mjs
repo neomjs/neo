@@ -9,17 +9,17 @@ import logger            from '../../mcp/server/neural-link/logger.mjs';
  * to the App Worker(s). It provides a `healthcheck` tool that agents can use
  * to verify if the runtime bridge is operational.
  *
- * @class Neo.ai.mcp.server.neural-link.services.HealthService
+ * @class Neo.ai.services.neural-link.HealthService
  * @extends Neo.core.Base
  * @singleton
  */
 class HealthService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.neural-link.services.HealthService'
+         * @member {String} className='Neo.ai.services.neural-link.HealthService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.neural-link.services.HealthService',
+        className: 'Neo.ai.services.neural-link.HealthService',
         /**
          * @member {Boolean} singleton=true
          * @protected

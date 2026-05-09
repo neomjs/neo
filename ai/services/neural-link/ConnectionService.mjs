@@ -19,17 +19,17 @@ import logger    from '../../mcp/server/neural-link/logger.mjs';
  * 3.  **Session Tracking**: Maintains a local cache of active App Worker sessions based on Bridge events.
  * 4.  **RPC Routing**: Routes requests to specific App Workers via the Bridge.
  *
- * @class Neo.ai.mcp.server.neural-link.services.ConnectionService
+ * @class Neo.ai.services.neural-link.ConnectionService
  * @extends Neo.core.Base
  * @singleton
  */
 class ConnectionService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.neural-link.services.ConnectionService'
+         * @member {String} className='Neo.ai.services.neural-link.ConnectionService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.neural-link.services.ConnectionService',
+        className: 'Neo.ai.services.neural-link.ConnectionService',
         /**
          * @member {String|null} cwd=null @protected
          */

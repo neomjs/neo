@@ -32,7 +32,7 @@ import InstanceManager from '../../../../../../src/manager/Instance.mjs';
  * 1. Happy path returns `{count, labels}` with aggregated pagination.
  * 2. Underlying GraphQL errors propagate unmodified — no wrapper, no swallow.
  */
-test.describe('Neo.ai.mcp.server.github-workflow.services.LabelService', () => {
+test.describe('Neo.ai.services.github-workflow.LabelService', () => {
     let LabelService;
     let GraphqlService;
     let originalQuery;

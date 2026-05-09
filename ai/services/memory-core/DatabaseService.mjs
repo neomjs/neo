@@ -14,17 +14,17 @@ import DestructiveOperationGuard from '../../mcp/server/shared/services/Destruct
  * It supports exporting collections to JSONL files and importing them back, with options to either merge
  * or replace existing data. This is crucial for data migration and disaster recovery.
  *
- * @class Neo.ai.mcp.server.memory-core.services.DatabaseService
+ * @class Neo.ai.services.memory-core.DatabaseService
  * @extends Neo.core.Base
  * @singleton
  */
 class DatabaseService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.DatabaseService'
+         * @member {String} className='Neo.ai.services.memory-core.DatabaseService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.DatabaseService',
+        className: 'Neo.ai.services.memory-core.DatabaseService',
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -491,13 +491,13 @@ class DatabaseService extends Base {
             let truncated = [];
 
             if (include.includes('memories')) {
-                const proxy = Neo.create('Neo.ai.mcp.server.memory-core.managers.CollectionProxy', { collectionType: 'memory' });
+                const proxy = Neo.create('Neo.ai.services.memory-core.managers.CollectionProxy', { collectionType: 'memory' });
                 await proxy.drop({confirmation});
                 truncated.push('memories');
             }
 
             if (include.includes('summaries')) {
-                const proxy = Neo.create('Neo.ai.mcp.server.memory-core.managers.CollectionProxy', { collectionType: 'session' });
+                const proxy = Neo.create('Neo.ai.services.memory-core.managers.CollectionProxy', { collectionType: 'session' });
                 await proxy.drop({confirmation});
                 truncated.push('summaries');
             }

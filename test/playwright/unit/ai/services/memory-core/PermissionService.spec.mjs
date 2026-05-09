@@ -19,7 +19,7 @@ import path                  from 'path';
 import Neo                   from '../../../../../../src/Neo.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
-test.describe('Neo.ai.mcp.server.memory-core.services.PermissionService', () => {
+test.describe('Neo.ai.services.memory-core.PermissionService', () => {
     test.describe.configure({ mode: 'serial' });
     let PermissionService, GraphService, LifecycleService, originalAutoSave;
     let dbPath, originalDbPath, hadGraphDb = false;

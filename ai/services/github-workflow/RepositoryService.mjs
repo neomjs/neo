@@ -12,17 +12,17 @@ import {GET_VIEWER_PERMISSION} from './queries/repositoryQueries.mjs';
  * (e.g., ADMIN, WRITE, READ), which are used by other services to gate
  * privileged operations like assigning issues.
  *
- * @class Neo.ai.mcp.server.github-workflow.services.RepositoryService
+ * @class Neo.ai.services.github-workflow.RepositoryService
  * @extends Neo.core.Base
  * @singleton
  */
 class RepositoryService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.RepositoryService'
+         * @member {String} className='Neo.ai.services.github-workflow.RepositoryService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.services.RepositoryService',
+        className: 'Neo.ai.services.github-workflow.RepositoryService',
         /**
          * @member {Boolean} singleton=true
          * @protected

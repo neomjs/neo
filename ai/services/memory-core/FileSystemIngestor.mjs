@@ -17,13 +17,13 @@ const neoRootDir = path.resolve(__dirname, '../../../');
  * never hallucinates against stale Codebase structures. Maps files as 'FILE' nodes
  * and folders as 'DIRECTORY', establishing hierarchical 'CONTAINS' edges natively.
  *
- * @class Neo.ai.mcp.server.memory-core.services.FileSystemIngestor
+ * @class Neo.ai.services.memory-core.FileSystemIngestor
  * @extends Neo.core.Base
  * @singleton
  */
 class FileSystemIngestor extends Base {
     static config = {
-        className: 'Neo.ai.mcp.server.memory-core.services.FileSystemIngestor',
+        className: 'Neo.ai.services.memory-core.FileSystemIngestor',
         singleton: true,
         /**
          * Standard high-noise directories and files to completely ignore.

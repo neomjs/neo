@@ -104,7 +104,7 @@ function buildMailboxDelta() {
  * toggle (#10010) will later let operators opt out of the read filter while keeping the write
  * tag.
  *
- * @class Neo.ai.mcp.server.memory-core.services.MemoryService
+ * @class Neo.ai.services.memory-core.MemoryService
  * @extends Neo.core.Base
  * @singleton
  * @see Neo.ai.mcp.server.shared.services.RequestContextService
@@ -112,10 +112,10 @@ function buildMailboxDelta() {
 class MemoryService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.MemoryService'
+         * @member {String} className='Neo.ai.services.memory-core.MemoryService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.MemoryService',
+        className: 'Neo.ai.services.memory-core.MemoryService',
         /**
          * @member {Boolean} singleton=true
          * @protected

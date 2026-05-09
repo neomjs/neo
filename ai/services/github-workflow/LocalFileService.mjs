@@ -11,17 +11,17 @@ import path     from 'path';
  * It implements a recursive search strategy to handle nested issue directories
  * (e.g., in the `ISSUE_ARCHIVE`) and supports finding files by their issue ID prefix.
  *
- * @class Neo.ai.mcp.server.github-workflow.services.LocalFileService
+ * @class Neo.ai.services.github-workflow.LocalFileService
  * @extends Neo.core.Base
  * @singleton
  */
 class LocalFileService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.LocalFileService'
+         * @member {String} className='Neo.ai.services.github-workflow.LocalFileService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.services.LocalFileService',
+        className: 'Neo.ai.services.github-workflow.LocalFileService',
         /**
          * @member {Boolean} singleton=true
          * @protected

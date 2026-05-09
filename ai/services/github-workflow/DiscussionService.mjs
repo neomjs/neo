@@ -21,17 +21,17 @@ const AGENT_ICONS = {
  * - Creating discussions inside specific categories (default 'Ideas')
  * - Managing discussion comments
  *
- * @class Neo.ai.mcp.server.github-workflow.services.DiscussionService
+ * @class Neo.ai.services.github-workflow.DiscussionService
  * @extends Neo.core.Base
  * @singleton
  */
 class DiscussionService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.DiscussionService'
+         * @member {String} className='Neo.ai.services.github-workflow.DiscussionService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.services.DiscussionService',
+        className: 'Neo.ai.services.github-workflow.DiscussionService',
         /**
          * @member {Boolean} singleton=true
          * @protected

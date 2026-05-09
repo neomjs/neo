@@ -13,17 +13,17 @@ const execAsync = promisify(exec);
  * all outgoing requests. It also provides a generic `query` method for executing
  * GraphQL operations and basic error handling.
  *
- * @class Neo.ai.mcp.server.github-workflow.services.GraphqlService
+ * @class Neo.ai.services.github-workflow.GraphqlService
  * @extends Neo.core.Base
  * @singleton
  */
 class GraphqlService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.GraphqlService'
+         * @member {String} className='Neo.ai.services.github-workflow.GraphqlService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.services.GraphqlService',
+        className: 'Neo.ai.services.github-workflow.GraphqlService',
         /**
          * @member {Boolean} singleton=true
          * @protected

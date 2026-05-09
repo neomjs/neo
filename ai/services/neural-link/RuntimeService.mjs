@@ -7,17 +7,17 @@ import ConnectionService from './ConnectionService.mjs';
  * This service provides tools for inspecting the runtime structure (workers, windows) and
  * controlling the application lifecycle (reloading).
  *
- * @class Neo.ai.mcp.server.neural-link.services.RuntimeService
+ * @class Neo.ai.services.neural-link.RuntimeService
  * @extends Neo.core.Base
  * @singleton
  */
 class RuntimeService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.neural-link.services.RuntimeService'
+         * @member {String} className='Neo.ai.services.neural-link.RuntimeService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.neural-link.services.RuntimeService',
+        className: 'Neo.ai.services.neural-link.RuntimeService',
         /**
          * @member {Boolean} singleton=true
          * @protected

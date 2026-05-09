@@ -22,7 +22,7 @@ import path           from 'path';
 import os             from 'os';
 import {TestLifecycleHelper} from '../services/memory-core/util.mjs';
 
-test.describe('Neo.ai.mcp.server.memory-core.services.DreamService', () => {
+test.describe('Neo.ai.services.memory-core.DreamService', () => {
     let GraphService;
     let SystemLifecycleService;
     let DreamService;

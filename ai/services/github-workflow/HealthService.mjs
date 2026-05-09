@@ -24,17 +24,17 @@ const execAsync = promisify(exec);
  * when `gh` is not available, while failing gracefully at the tool-call level with helpful
  * error messages to guide users toward resolution.
  *
- * @class Neo.ai.mcp.server.github-workflow.services.HealthService
+ * @class Neo.ai.services.github-workflow.HealthService
  * @extends Neo.core.Base
  * @singleton
  */
 class HealthService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.HealthService'
+         * @member {String} className='Neo.ai.services.github-workflow.HealthService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.services.HealthService',
+        className: 'Neo.ai.services.github-workflow.HealthService',
         /**
          * @member {Boolean} singleton=true
          * @protected

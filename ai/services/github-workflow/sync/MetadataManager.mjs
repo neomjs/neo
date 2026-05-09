@@ -13,17 +13,17 @@ const issueSyncConfig = aiConfig.issueSync;
  * Crucially, it "prunes" the metadata before saving to ensure only essential change-detection
  * fields (like `contentHash` and `updatedAt`) are stored, keeping the file size manageable.
  *
- * @class Neo.ai.mcp.server.github-workflow.services.sync.MetadataManager
+ * @class Neo.ai.services.github-workflow.sync.MetadataManager
  * @extends Neo.core.Base
  * @singleton
  */
 class MetadataManager extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.sync.MetadataManager'
+         * @member {String} className='Neo.ai.services.github-workflow.sync.MetadataManager'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.services.sync.MetadataManager',
+        className: 'Neo.ai.services.github-workflow.sync.MetadataManager',
         /**
          * @member {Boolean} singleton=true
          * @protected

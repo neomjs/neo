@@ -30,17 +30,17 @@ const AGENT_ICONS = {
  * - Handling issue relationships (parent-child, blocked-by) via custom GraphQL mutations
  * - Commenting on issues
  *
- * @class Neo.ai.mcp.server.github-workflow.services.IssueService
+ * @class Neo.ai.services.github-workflow.IssueService
  * @extends Neo.core.Base
  * @singleton
  */
 class IssueService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.IssueService'
+         * @member {String} className='Neo.ai.services.github-workflow.IssueService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.services.IssueService',
+        className: 'Neo.ai.services.github-workflow.IssueService',
         /**
          * @member {Boolean} singleton=true
          * @protected

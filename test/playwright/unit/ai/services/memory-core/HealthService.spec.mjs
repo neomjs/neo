@@ -26,7 +26,7 @@ import InstanceManager from '../../../../../../src/manager/Instance.mjs';
  * logic via `buildIdentityBlock`, which is the load-bearing function for the AC shape contract.
  * Integration correctness is validated post-merge via empirical restart + healthcheck inspection.
  *
- * @see Neo.ai.mcp.server.memory-core.services.HealthService#buildIdentityBlock
+ * @see Neo.ai.services.memory-core.HealthService#buildIdentityBlock
  */
 test.describe('HealthService #10176 — buildIdentityBlock', () => {
     let buildIdentityBlock;
@@ -138,8 +138,8 @@ test.describe('HealthService #10176 — buildIdentityBlock', () => {
  * of the resolver's output), and `resolvedVia` (the config-key-path string that names which branch
  * won).
  *
- * @see Neo.ai.mcp.server.memory-core.services.HealthService#buildTopologyBlock
- * @see Neo.ai.mcp.server.memory-core.managers.ChromaManager#resolveChromaCoordinates
+ * @see Neo.ai.services.memory-core.HealthService#buildTopologyBlock
+ * @see Neo.ai.services.memory-core.managers.ChromaManager#resolveChromaCoordinates
  */
 test.describe('HealthService #10127 — buildTopologyBlock', () => {
     let buildTopologyBlock;
@@ -218,7 +218,7 @@ test.describe('HealthService #10127 — buildTopologyBlock', () => {
  * substrate shape that operators rely on to verify the provider configured matches the provider
  * actually selected at boot.
  *
- * @see Neo.ai.mcp.server.memory-core.services.HealthService#buildEmbeddingProviderBlock
+ * @see Neo.ai.services.memory-core.HealthService#buildEmbeddingProviderBlock
  */
 test.describe('HealthService #10723/#10773/#10804 — buildEmbeddingProviderBlock', () => {
     let buildEmbeddingProviderBlock;
@@ -332,7 +332,7 @@ test.describe('HealthService #10723/#10773/#10804 — buildEmbeddingProviderBloc
  * live Memory Core services, while the load-bearing contract for operators is the pure projection of
  * active summary-provider config into a secret-free `providers.summary` shape.
  *
- * @see Neo.ai.mcp.server.memory-core.services.HealthService#buildSummaryProviderBlock
+ * @see Neo.ai.services.memory-core.HealthService#buildSummaryProviderBlock
  */
 test.describe('HealthService #10724 — buildSummaryProviderBlock', () => {
     let buildSummaryProviderBlock;
@@ -397,7 +397,7 @@ test.describe('HealthService #10724 — buildSummaryProviderBlock', () => {
  * static-config projection that operators observe via healthcheck without bouncing requests
  * through the server. Includes a defense-in-depth `clientSecret`-leak guard.
  *
- * @see Neo.ai.mcp.server.memory-core.services.HealthService#buildAuthProviderBlock
+ * @see Neo.ai.services.memory-core.HealthService#buildAuthProviderBlock
  */
 test.describe('HealthService #10770 — buildAuthProviderBlock', () => {
     let buildAuthProviderBlock;
@@ -531,7 +531,7 @@ test.describe('HealthService #10770 — buildAuthProviderBlock', () => {
  * and `path` mock to avoid touching the real filesystem during the unit test, ensuring fast
  * and isolated validation of the exact `completedAt` semantic requirement.
  *
- * @see Neo.ai.mcp.server.memory-core.services.HealthService#buildBackupStateBlock
+ * @see Neo.ai.services.memory-core.HealthService#buildBackupStateBlock
  */
 test.describe('HealthService #10844 — buildBackupStateBlock', () => {
     let buildBackupStateBlock;
@@ -620,7 +620,7 @@ test.describe('HealthService #10844 — buildBackupStateBlock', () => {
  * `NEO_HEARTBEAT_ALIVE_PATH` env vars before importing the block; restores after. Mirrors the
  * `wakeSafetyGate` env-override pattern.
  *
- * @see Neo.ai.mcp.server.memory-core.services.HealthService#buildWakeFeaturesBlock
+ * @see Neo.ai.services.memory-core.HealthService#buildWakeFeaturesBlock
  */
 test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
     let buildWakeFeaturesBlock;

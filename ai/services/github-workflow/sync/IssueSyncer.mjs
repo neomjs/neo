@@ -23,17 +23,17 @@ const lineBreaksRegex = /[\r\n]+/g;
  * - Detecting content changes via hashing
  * - Pushing local edits back to GitHub
  *
- * @class Neo.ai.mcp.server.github-workflow.services.sync.IssueSyncer
+ * @class Neo.ai.services.github-workflow.sync.IssueSyncer
  * @extends Neo.core.Base
  * @singleton
  */
 class IssueSyncer extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.sync.IssueSyncer'
+         * @member {String} className='Neo.ai.services.github-workflow.sync.IssueSyncer'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.services.sync.IssueSyncer',
+        className: 'Neo.ai.services.github-workflow.sync.IssueSyncer',
         /**
          * @member {Boolean} singleton=true
          * @protected

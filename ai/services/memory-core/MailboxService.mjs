@@ -45,20 +45,20 @@ function normalizeMailboxTarget(to, sentBy) {
  * `RequestContextService.getAgentIdentityNodeId()`, never from client input — per
  * `AuthMiddleware.IDENTITY_OVERRIDE_KEYS`).
  *
- * @class Neo.ai.mcp.server.memory-core.services.MailboxService
+ * @class Neo.ai.services.memory-core.MailboxService
  * @extends Neo.core.Base
  * @singleton
- * @see Neo.ai.mcp.server.memory-core.services.GraphService
- * @see Neo.ai.mcp.server.memory-core.services.PermissionService
+ * @see Neo.ai.services.memory-core.GraphService
+ * @see Neo.ai.services.memory-core.PermissionService
  * @see Neo.ai.mcp.server.shared.services.RequestContextService
  */
 class MailboxService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.MailboxService'
+         * @member {String} className='Neo.ai.services.memory-core.MailboxService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.MailboxService',
+        className: 'Neo.ai.services.memory-core.MailboxService',
         /**
          * @member {Boolean} singleton=true
          * @protected

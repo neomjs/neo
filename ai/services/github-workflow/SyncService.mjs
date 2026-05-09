@@ -24,17 +24,17 @@ const execAsync = promisify(exec);
  *
  * The main entry point is the `runFullSync` method, which executes the entire orchestration sequence.
  *
- * @class Neo.ai.mcp.server.github-workflow.services.SyncService
+ * @class Neo.ai.services.github-workflow.SyncService
  * @extends Neo.core.Base
  * @singleton
  */
 class SyncService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.github-workflow.services.SyncService'
+         * @member {String} className='Neo.ai.services.github-workflow.SyncService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.github-workflow.services.SyncService',
+        className: 'Neo.ai.services.github-workflow.SyncService',
         /**
          * @member {Boolean} singleton=true
          * @protected

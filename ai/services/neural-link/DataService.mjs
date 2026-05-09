@@ -7,17 +7,17 @@ import ConnectionService from './ConnectionService.mjs';
  * This service provides tools for inspecting and modifying data stores and state providers
  * within the connected Neo.mjs application.
  *
- * @class Neo.ai.mcp.server.neural-link.services.DataService
+ * @class Neo.ai.services.neural-link.DataService
  * @extends Neo.core.Base
  * @singleton
  */
 class DataService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.neural-link.services.DataService'
+         * @member {String} className='Neo.ai.services.neural-link.DataService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.neural-link.services.DataService',
+        className: 'Neo.ai.services.neural-link.DataService',
         /**
          * @member {Boolean} singleton=true
          * @protected

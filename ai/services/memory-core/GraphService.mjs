@@ -12,16 +12,16 @@ import { IDENTITIES } from '../../../ai/graph/identityRoots.mjs';
  * It provides the topological layout of the Neo.mjs namespace, knowledge,
  * and history structurally mapping against semantic ChromaDB queries.
  *
- * @class Neo.ai.mcp.server.memory-core.services.GraphService
+ * @class Neo.ai.services.memory-core.GraphService
  * @extends Neo.core.Base
  * @singleton
  */
 class GraphService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.services.GraphService'
+         * @member {String} className='Neo.ai.services.memory-core.GraphService'
          */
-        className: 'Neo.ai.mcp.server.memory-core.services.GraphService',
+        className: 'Neo.ai.services.memory-core.GraphService',
         /**
          * @member {Object|null} db=null
          */

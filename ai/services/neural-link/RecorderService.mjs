@@ -9,17 +9,17 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
  * @summary Service to intercept and persist Neural Link tool invocations to the Native Graph database.
- * @class Neo.ai.mcp.server.neural-link.services.RecorderService
+ * @class Neo.ai.services.neural-link.RecorderService
  * @extends Neo.core.Base
  * @singleton
  */
 class RecorderService extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.neural-link.services.RecorderService'
+         * @member {String} className='Neo.ai.services.neural-link.RecorderService'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.neural-link.services.RecorderService',
+        className: 'Neo.ai.services.neural-link.RecorderService',
         /**
          * @member {Boolean} singleton=true
          * @protected
