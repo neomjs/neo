@@ -24,6 +24,10 @@ test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
         expect(tasks.kbSync.command).toBe('/test/node');
         expect(tasks.kbSync.args).toEqual([path.resolve(scriptDir, '../../buildScripts/ai/syncKnowledgeBase.mjs')]);
         expect(tasks.kbSync.expectedCommand).toBe('syncKnowledgeBase.mjs');
+
+        expect(tasks.backup.command).toBe('/test/node');
+        expect(tasks.backup.args).toEqual([path.resolve(scriptDir, '../../buildScripts/ai/backup.mjs')]);
+        expect(tasks.backup.expectedCommand).toBe('backup.mjs');
     });
 
     test('keeps bridge-daemon wake-only and routes maintenance ownership to the daemon class', () => {
@@ -44,11 +48,14 @@ test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
         expect(orchestratorSource).not.toContain('runMaintenanceCycle');
         expect(orchestratorSource).not.toContain('summarize-sessions.mjs');
         expect(orchestratorSource).not.toContain('syncKnowledgeBase.mjs');
+        expect(orchestratorSource).not.toContain('backup.mjs');
 
         expect(daemonSource).not.toContain('summarize-sessions.mjs');
         expect(daemonSource).not.toContain('syncKnowledgeBase.mjs');
+        expect(daemonSource).not.toContain('backup.mjs');
 
         expect(taskDefSource).toContain('summarize-sessions.mjs');
         expect(taskDefSource).toContain('syncKnowledgeBase.mjs');
+        expect(taskDefSource).toContain('backup.mjs');
     });
 });

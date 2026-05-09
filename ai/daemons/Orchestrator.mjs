@@ -11,6 +11,7 @@ import {
     initializeDatabase
 } from '../scripts/bridge-daemon-queries.mjs';
 import SummarizationCoordinatorService from './services/SummarizationCoordinatorService.mjs';
+import BackupCoordinatorService          from './services/BackupCoordinatorService.mjs';
 import TaskStateService                from './services/TaskStateService.mjs';
 import ProcessSupervisorService        from './services/ProcessSupervisorService.mjs';
 import CadenceEngine                   from './services/CadenceEngine.mjs';
@@ -18,6 +19,7 @@ import {
     DEFAULT_POLL_INTERVAL_MS,
     DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
     DEFAULT_KB_SYNC_INTERVAL_MS,
+    DEFAULT_BACKUP_INTERVAL_MS,
     DEFAULT_DB_PATH,
     DEFAULT_DATA_DIR,
     DEFAULT_SCRIPT_DIR,
@@ -132,6 +134,12 @@ export class Orchestrator extends Base {
          */
         kbSyncIntervalMs_: DEFAULT_KB_SYNC_INTERVAL_MS,
         /**
+         * @member {Number} backupIntervalMs_=86400000
+         * @protected
+         * @reactive
+         */
+        backupIntervalMs_: DEFAULT_BACKUP_INTERVAL_MS,
+        /**
          * @member {Object} healthService_=HealthService
          * @protected
          * @reactive
@@ -149,6 +157,12 @@ export class Orchestrator extends Base {
          * @reactive
          */
         summarizationCoordinator_: SummarizationCoordinatorService,
+        /**
+         * @member {Object} backupCoordinator_=BackupCoordinatorService
+         * @protected
+         * @reactive
+         */
+        backupCoordinator_: BackupCoordinatorService,
         /**
          * @member {Function} spawnFn_=spawn
          * @protected
@@ -189,12 +203,14 @@ export class Orchestrator extends Base {
             DEFAULT_SUMMARY_SWEEP_INTERVAL_MS
         );
         this.kbSyncIntervalMs       = options.kbSyncIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS, DEFAULT_KB_SYNC_INTERVAL_MS);
+        this.backupIntervalMs       = options.backupIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS, DEFAULT_BACKUP_INTERVAL_MS);
         this.taskDefinitions        = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
             nodeBin: options.nodeBin || process.argv[0]
         });
         this.healthService          = options.healthService          || HealthService;
         this.summarizationCoordinator = options.summarizationCoordinator || SummarizationCoordinatorService;
+        this.backupCoordinator      = options.backupCoordinator      || BackupCoordinatorService;
         this.spawnFn                = options.spawnFn                || spawn;
         this.processSupervisorService = options.processSupervisorService || ProcessSupervisorService;
         this.initializeDatabaseFn   = options.initializeDatabaseFn   || initializeDatabase;
@@ -306,6 +322,14 @@ export class Orchestrator extends Base {
                 return { reason: `periodic-sync:${this.kbSyncIntervalMs}` };
             }
             return null;
+        }, executeTask, context);
+
+        this.cadenceEngine.runIfDue('backup', () => {
+            return this.backupCoordinator.getDueTask({
+                state           : this.taskStateService.getState(),
+                now,
+                backupIntervalMs: this.backupIntervalMs
+            });
         }, executeTask, context);
 
         if (this.isPolling) {
