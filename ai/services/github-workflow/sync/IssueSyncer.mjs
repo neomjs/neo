@@ -9,6 +9,7 @@ import GraphqlService                                from '../GraphqlService.mjs
 import ReleaseSyncer                                 from './ReleaseSyncer.mjs';
 import {FETCH_ISSUE_TIMELINE_PAGE, FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries.mjs';
 import {GET_ISSUE_ID, UPDATE_ISSUE}                                                                        from '../queries/mutations.mjs';
+import chunkPath                                        from '../shared/chunkPath.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const lineBreaksRegex = /[\r\n]+/g;
@@ -265,6 +266,7 @@ class IssueSyncer extends Base {
      */
     #getIssuePath(issue) {
         const filename = `${issueSyncConfig.issueFilenamePrefix}${issue.number}.md`;
+        const chunkDir = chunkPath(issue.number);
 
         // Handle both GraphQL (issue.labels.nodes) and potential direct array
         const labels = issue.labels?.nodes
@@ -278,7 +280,7 @@ class IssueSyncer extends Base {
 
         // OPEN issues are always in the main directory
         if (issue.state === 'OPEN') {
-            return path.join(issueSyncConfig.issuesDir, filename);
+            return path.join(issueSyncConfig.issuesDir, chunkDir, filename);
         }
 
         // Logic for CLOSED issues
@@ -288,7 +290,7 @@ class IssueSyncer extends Base {
                 const milestoneDir = issue.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
                     ? issue.milestone.title
                     : issueSyncConfig.versionDirectoryPrefix + issue.milestone.title;
-                return path.join(issueSyncConfig.archiveDir, milestoneDir, filename);
+                return path.join(issueSyncConfig.archiveDir, milestoneDir, chunkDir, filename);
             }
 
             // For issues without a milestone, find the earliest release that was published after it was closed.
@@ -301,11 +303,11 @@ class IssueSyncer extends Base {
                 const releaseDir = release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
                     ? release.tagName
                     : issueSyncConfig.versionDirectoryPrefix + release.tagName;
-                return path.join(issueSyncConfig.archiveDir, releaseDir, filename);
+                return path.join(issueSyncConfig.archiveDir, releaseDir, chunkDir, filename);
             }
 
             // If no subsequent release is found, the issue is recently closed and remains in the main issues directory.
-            return path.join(issueSyncConfig.issuesDir, filename);
+            return path.join(issueSyncConfig.issuesDir, chunkDir, filename);
         }
 
         return null;
