@@ -8,6 +8,8 @@ export const DEFAULT_POLL_INTERVAL_MS          = 3000;
 export const DEFAULT_SUMMARY_SWEEP_INTERVAL_MS = 600000;
 export const DEFAULT_KB_SYNC_INTERVAL_MS       = 1800000;
 export const DEFAULT_BACKUP_INTERVAL_MS        = 86400000;
+export const DEFAULT_PRIMARY_DEV_SYNC_INTERVAL_MS = 600000;
+export const PRIMARY_DEV_SYNC_TASK_NAME           = 'primary-dev-sync';
 
 export const DEFAULT_DB_PATH    = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
 export const DEFAULT_DATA_DIR   = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
@@ -69,6 +71,12 @@ export function buildTaskDefinitions({scriptDir = DEFAULT_SCRIPT_DIR, nodeBin = 
             args           : [path.resolve(scriptDir, '../../buildScripts/ai/backup.mjs')],
             pidFileName    : 'backup.pid',
             expectedCommand: 'backup.mjs'
+        },
+        [PRIMARY_DEV_SYNC_TASK_NAME]: {
+            label          : 'primary checkout dev sync',
+            pidFileName    : 'primary-dev-sync.pid',
+            expectedCommand: 'PrimaryRepoSyncService',
+            serviceTask    : true
         }
     };
 }
