@@ -453,16 +453,22 @@ class DatabaseService extends Base {
 
             let totalImported        = 0;
             let targetCollectionName = '';
+            // #11141: per-substrate truthful counters surface alongside the aggregate so
+            // operator validation can distinguish inserted vs skippedExisting vs failed
+            // post-merge. Currently only graph emits structured counts (`#importGraph`);
+            // memory/summaries upsert path is bulk + adds its count to memoriesInserted.
+            const subsystemCounts = {graph: null, memoriesInserted: 0};
 
             for (const filePath of filesToImport) {
                 logger.log(`Importing: ${filePath}`);
-                
+
                 const isGraphBackup = path.basename(filePath).startsWith('graph-backup');
                 if (isGraphBackup) {
                     const graphImportResult = await this.#importGraph(filePath, mode, confirmation);
                     // #11141: #importGraph now returns {imported, counts, mode}; counts
                     // exposes node/edge inserted/skippedExisting/failed for truthful merge accounting.
                     totalImported += graphImportResult.imported;
+                    subsystemCounts.graph = graphImportResult.counts;
                     continue;
                 }
 
@@ -501,13 +507,18 @@ class DatabaseService extends Base {
                     documents : records.map(r => r.document)
                 });
 
-                totalImported += records.length;
+                totalImported           += records.length;
+                subsystemCounts.memoriesInserted += records.length;
             }
 
             return {
                 message : `Import batch complete. Successfully ingested ${totalImported} records across ${filesToImport.length} file(s).`,
                 imported: totalImported,
-                mode
+                mode,
+                // #11141: structured per-substrate breakdown for operator validation.
+                // `graph` is null when no graph file was imported in this batch; otherwise
+                // exposes {nodes: {inserted,skippedExisting,failed}, edges: {inserted,skippedExisting,failed}}.
+                counts  : subsystemCounts
             };
         } catch (error) {
             logger.error('[DatabaseService] Error importing database:', error);
