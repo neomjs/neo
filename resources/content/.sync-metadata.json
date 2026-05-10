@@ -1,6 +1,6 @@
 {
-  "lastSync": "2026-05-10T19:14:11.099Z",
-  "releasesLastFetched": "2026-05-10T19:14:21.291Z",
+  "lastSync": "2026-05-10T20:13:49.050Z",
+  "releasesLastFetched": "2026-05-10T20:13:58.190Z",
   "pushFailures": [],
   "issues": {
     "3789": {
@@ -33301,11 +33301,11 @@
       "commentsTotal": 1
     },
     "11141": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/111xx/issue-11141.md",
-      "closedAt": null,
-      "updatedAt": "2026-05-10T18:47:01Z",
-      "contentHash": "544e08fa62991cf4c158c67752d20a189cbf834339d16c411cfe5000c020e0d5",
+      "closedAt": "2026-05-10T19:37:13Z",
+      "updatedAt": "2026-05-10T19:46:32Z",
+      "contentHash": "27121e70c592bf1618f81d532aaa67577fb46d25673a5a479ed592d3af1d66e3",
       "commentsTotal": 2
     },
     "11144": {
@@ -33317,12 +33317,36 @@
       "commentsTotal": 0
     },
     "11145": {
-      "state": "OPEN",
+      "state": "CLOSED",
       "path": "resources/content/issues/111xx/issue-11145.md",
-      "closedAt": null,
-      "updatedAt": "2026-05-10T19:13:32Z",
-      "contentHash": "95841a86b07e77d9624babde172a219e289a7e691dd97c0a4a2157b2d6cbe851",
+      "closedAt": "2026-05-10T19:21:53Z",
+      "updatedAt": "2026-05-10T19:21:53Z",
+      "contentHash": "628ee064b52c55cd63709c857d8d3ad059aecd85581fd665ff3dd0ea491b113a",
       "commentsTotal": 1
+    },
+    "11147": {
+      "state": "OPEN",
+      "path": "resources/content/issues/111xx/issue-11147.md",
+      "closedAt": null,
+      "updatedAt": "2026-05-10T19:15:29Z",
+      "contentHash": "bf9f1b60313597072d2fae0b7646f140e0bd1f39c0a061a704f0ede0cd86ec98",
+      "commentsTotal": 0
+    },
+    "11148": {
+      "state": "CLOSED",
+      "path": "resources/content/issues/111xx/issue-11148.md",
+      "closedAt": "2026-05-10T19:19:46Z",
+      "updatedAt": "2026-05-10T19:19:46Z",
+      "contentHash": "4ddf897e9f2da4ef8150a95dc239f2a3c92fe2febbebbc172589d0ca5c774006",
+      "commentsTotal": 1
+    },
+    "11150": {
+      "state": "OPEN",
+      "path": "resources/content/issues/111xx/issue-11150.md",
+      "closedAt": null,
+      "updatedAt": "2026-05-10T19:57:42Z",
+      "contentHash": "076b7f86eac2d4d4da2a9272618d129991f9057d4b7bf7972277a3fb9c9d89d9",
+      "commentsTotal": 0
     }
   },
   "releases": {
