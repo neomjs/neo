@@ -305,6 +305,7 @@ Before approving any PR, you MUST use the `view_file` tool to read and strictly 
 | PR adds bloated multi-line OpenAPI tool description without flagging | §5.3 MCP-Tool-Description Budget Audit violated; bloat compounds across the tool surface and competes with agent reasoning budget at runtime |
 | Substantive review comment posted without formal `gh pr review` call | Cross-family gate ungated despite the visible review prose; §2.7 violated |
 | PR adds env-var deprecation chain | Read `pull-request/references/env-var-rename-rule.md` |
+| Cycle-1 Request Changes with iterative Required Actions when PR premise is structurally invalid | §9.0 Cycle-1 Premise Pre-Flight violated; reviewer normalized "fix-these-N" as merge-path when Drop+Supersede framing was substrate-correct (Velocity-Preservation Bias) |
 
 ## 8. Cross-Skill Integration Audit
 
@@ -366,6 +367,29 @@ The step-back is a META-decision applied AFTER technical defects are identified,
 not parallel to score metrics or depth-floor. It's an architectural-judgment
 skill, not a defect-detection skill.
 Empirical anchor: PR #10607 8-cycle pattern.
+
+### 9.0 Cycle-1 Premise Pre-Flight (Decisiveness-Before-Iteration)
+
+The 4-option Step-Back above was empirically anchored on **after-N-cycles** failure modes (PR #10610 → #10611, #10607 8-cycle pattern). All three Drop+Supersede triggers in §9 option 4 assume iteration has already sunk effort. **PR #11083** (closed unmerged 2026-05-10) demonstrated the missing case: wrong-premise visible at Cycle 1, before any iteration. The Cycle-1 reviewer framed the review as Request Changes with 5 iterative Required Actions — when the substrate-correct shape was a single Drop+Supersede close-recommendation. The framing miss normalized "fix-these-5" as a valid merge path even though no version of the PR was mergeable until upstream substrate graduated. The reviewer's own RA1 ("upstream Discussion needs author-graduation") was structurally not-iterable on the PR; that self-contradiction is the diagnostic.
+
+**Run this pre-flight BEFORE composing Required Actions on a Cycle-1 review.** Ask:
+
+> *"Does this PR have any structural issue that makes Request Changes wrong-shape?"*
+
+If any of the following triggers fire, default to **Drop+Supersede framing** — single-item "close + restart" Required Action, NOT a multi-item iteration list:
+
+1. **Premise-invalid**: PR's stated premise (resolves #X / implements feature Y / cycle-N-of-Discussion-Z) is FALSE — the upstream substrate the PR claims to work from doesn't exist or has different shape than claimed.
+2. **Upstream not graduated**: PR depends on a Discussion / parent ticket / Epic that hasn't reached its required graduation / closure state. Per `ideation-sandbox-workflow.md` §5, only the Discussion author can mark `GRADUATED`; a non-author opening an implementation PR before that is a premise violation.
+3. **Author bypassed**: PR author lacks **specific authority** for the change — narrow patterns of authority-bypass, NOT generic file-ownership policing. Examples: self-marking graduation on a Discussion authored by another peer; crossing peer-role §9 Non-Execution Boundary without explicit lead hand-off; modifying agent-skill substrate without lead/operator concurrence on the amendment direction. Cross-cutting refactors and code-level changes that touch files authored by other agents are routine peer collaboration, NOT trigger 3.
+4. **Anti-pattern instantiation**: change instantiates a pattern Neo doctrine forbids (e.g., orchestrator-worker mapping for named maintainers per AGENTS.md §15.6; framework-category drift per §15.5; bash redirection for file edits per §11).
+5. **Strategic-misalignment**: work conflicts with active roadmap direction the author wasn't aware of (e.g., implementation lane reserved for a peer; deprecated subsystem; lane explicitly halted by operator).
+6. **Better-existing-substrate**: there's already a substrate that solves the problem; PR is reinventing. Memory Core / KB query before review surfaces this.
+
+**Bias defended against — Velocity-Preservation Bias**: preferring iterative paths that salvage work-already-done over decisive paths requiring restart, even when restart is substrate-correct. Companion to Claude over-rigor (§7.2) — same family (mis-weighting at review-decision time), different surface. Amplifiers: Auto Mode "prefer action over planning" reads as "iterate now"; peer-role's "produce evidence-backed pressure" reads as "find things to fix"; CI-green makes merge feel proximate; partial-correctness (e.g., 60% of substantive content right) makes salvage feel efficient. The cost is normalizing process violations as iteratable rather than abandonable.
+
+**Discipline, not gate.** Per AGENTS.md §13 substrate-accretion defense: this is a per-turn self-asked question, not a mandatory checkbox. Runs in <30 seconds for routine PRs (no triggers fire); when any trigger fires, the framing flip is immediate and the review collapses to a short close-recommendation rather than a long iterative-RA list. Companion to verify-before-assert (claudeMd §23 atlas) and §13 substrate-accretion defense.
+
+**Empirical anchor (PR #11083, 2026-05-10)**: review comment `IC_kwDODSospM8AAAABBxjTZw` documented 5 iterative Required Actions; RA1 ("@neo-gpt formally graduates #11079") pointed at upstream Discussion graduation, structurally not-iterable on the PR. The mismatch between RA1's structural shape and the Request Changes framing is the diagnostic that pre-flight would have caught. Operator (@tobiu) surfaced the calibration miss; this subsection encodes the fix.
 
 ### 9.1 Reviewer-Yield Protocol (Deadlock Prevention)
 

@@ -2,6 +2,8 @@
 
 **Status:** [Approved / Approve+Follow-Up / Request Changes / Drop+Supersede / Comment]
 
+*Cycle-1 reviewers: run §9.0 Premise Pre-Flight BEFORE composing Required Actions. If any structural trigger fires (premise-invalid / upstream-not-graduated / author-bypassed / anti-pattern / strategic-misalignment / better-existing-substrate), default to **Drop+Supersede** framing — single-item close-recommendation, NOT multi-item iteration list.*
+
 ### 🪜 Strategic-Fit Decision
 
 Per §9 Strategic-Fit Step-Back:
