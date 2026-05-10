@@ -42,4 +42,28 @@ To enable the Retrospective daemon to ingest this negotiation, the author MUST u
 A Discussion cannot graduate until it is clearly scoped. There is no universal checklist. Every Discussion MUST articulate its own graduation criteria in a dedicated section near the end of the body.
 - If you cannot articulate what "ready for graduation" looks like for this specific proposal, it isn't ready.
 - **Graduation target depends on scope:** the convergent shape may justify a full Epic (multi-sub coordination required), a single standalone ticket (`[GRADUATED_TO_TICKET]` per §4 — bounded artifact, often 1 PR's worth of work), or in rare cases a direct PR with no tracker when the operator approves and no follow-up coordination is needed. Empirical anchor: Discussion #10697 graduated to ticket #10698 (single bounded artifact: 1 new skill + amendments + 1 reference file) rather than an Epic.
+
+### 5.1. Double Diamond Divergence Guard (High-Blast-Radius Mandatory)
+
+**Trigger — mandatory cases:** if the Discussion intends to graduate to (a) an Epic, (b) a new skill / rule / workflow change, or (c) a substrate-level architecture change, the divergence matrix below is **MANDATORY** before graduation. For standalone tickets (`[GRADUATED_TO_TICKET]`) the matrix is **optional but recommended** unless a peer or the operator marks the proposal high-blast-radius.
+
+**Why the gate exists:** §1 already names the rubber-stamp anti-pattern verbatim, but the §5 mechanics still optimize for convergence (proposal → OQ resolution → graduation). The gate forces the divergent half of design before convergence is locked. Empirical anchor: #11076 → #11077 (M4 daemon epic graduated before alternatives were preserved) + #11082 / PR #11083 (premature implementation before #11079 graduated). #11079 (Discussion graduating this guard) is the corrective substrate.
+
+**Matrix floor (5 columns, mandatory):**
+
+| Option | When this would be right | Evidence / falsifier (≥1 source per rejected option) | Adoption or rejection rationale | Residual risk |
+|---|---|---|---|---|
+
+- **Each rejected option MUST cite at least one falsifying source**: prior commit, precedent code, KB result, Memory Core result, prior issue / PR / discussion, or an explicit `"no source found after query X"` note. Bare 1-line rejection rationales without sourced falsification are paperwork, not divergent exploration.
+- **At least 2 alternative shapes** must be enumerated alongside the recommended one, so the reader sees the design space, not just the chosen point.
+
+**Process gate — matrix authored BEFORE convergence:**
+
+- The matrix MUST appear in the Discussion body **before any `[RESOLVED_TO_AC]` tags are applied**. Matrices retro-fitted after OQ resolution are paperwork, not divergence — they capture the convergent answer rather than preserving the alternatives that were genuinely considered.
+- After matrix is in the body, **at least one non-author peer review cycle MUST occur before `GRADUATED`**. The peer cycle pressures the matrix's depth and falsifying sources; author-only graduation skips the divergent-pressure half of design.
+
+**Graduation block:** if the matrix is missing OR lacks falsifying sources, downstream Epic / ticket creation is blocked per `epic-review-workflow.md` Stage 2 Discussion-origin backstop and per `ticket-create-workflow.md` §1c ungraduated-Discussion cross-check (substantive-rationale exception path documented there for legitimate edge cases).
+
+**Substrate-decay control (per AGENTS.md §13):** review this guard's effectiveness after **6 months OR 5 qualifying high-blast-radius graduations**, whichever comes first. If the gate caught no premature convergence over the review window, OR measurably increased review-cycle churn without preventing wrong-shape epics, retire / rewrite / compress. Sunset is symmetric to gate: the substrate-evolution mechanism applies to itself.
+
 - **Graduation Trigger:** The author (human or agent) declares readiness by adding a `GRADUATED` marker near the top of the body, linking to the resulting Epic / ticket / PR. The author MUST then formally close the Discussion. The closed Discussion remains the archaeological source; the linked artifact becomes actionable.

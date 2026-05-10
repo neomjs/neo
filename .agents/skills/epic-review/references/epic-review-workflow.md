@@ -51,13 +51,14 @@ Checks:
 **Question:** Is the main architectural decision load-bearing? Would a more elegant alternative serve the same goal?
 
 Checks:
+- **Ideation Sandbox Backstop (Mandatory for Discussion-origin Epics):** if this Epic emerged from a Discussion, verify that the Double Diamond divergence matrix was captured in the Discussion body **before** graduation per `ideation-sandbox-workflow.md` §5.1. Required matrix-floor: 5 columns (option / when right / falsifying source / rationale / residual risk) with ≥1 falsifying source per rejected option AND ≥1 non-author peer review cycle after matrix insertion. **If the matrix is missing or lacks falsifying sources, reject the Epic and route the divergence back to the Discussion** — do NOT accept retro-fitted matrices authored directly in the Epic body (those capture convergence, not divergence). Empirical anchor: #11077 was opened with a retro-fitted matrix added only after epic-review challenge — exactly the failure mode this backstop catches.
 - Does the approach **reuse existing substrate**, or does it invent parallel substrate? (Parallel substrate is a strong warning sign — it usually means the author missed a reusable primitive.)
 - Is the main abstraction layer the right one? (Same substrate-boundary question as `ticket-intake` prescription challenge, elevated one scope level.)
 - Is there a known **Gold Standard** from prior sessions this epic diverges from without rationale? Query Memory Core for comparable epics.
 - Does the approach **compound** existing capability, or does it fight against it?
 - Is the epic's main decision testable — can it be empirically validated, or is it an unfalsifiable preference?
 
-**Stop condition:** if stage 2 fails, the comment proposes one or more **alternative approaches** with rationale. Stages 3-5 skip. Agent does not pick up subs until the elegance question is resolved — either the original approach is defended (epic body updated with rationale), or the alternative is adopted (epic restructured).
+**Stop condition:** if stage 2 fails (including missing-divergence-matrix on Discussion-origin Epics), the comment proposes one or more **alternative approaches** with rationale OR routes the divergence back to the Discussion. Stages 3-5 skip. Agent does not pick up subs until the elegance question is resolved — either the original approach is defended (epic body updated with rationale), the alternative is adopted (epic restructured), OR the upstream Discussion is amended with a proper divergence matrix and re-graduated.
 
 Stage 2 is the most empirically valuable gate. A non-elegant approach that passes structural review can waste N subs worth of effort before `pr-review` catches the foundational issue.
 
