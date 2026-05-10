@@ -1,8 +1,9 @@
-import aiConfig from '../../mcp/server/github-workflow/config.mjs';
-import Base     from '../../../src/core/Base.mjs';
-import fs       from 'fs-extra';
-import logger   from '../../mcp/server/github-workflow/logger.mjs';
-import path     from 'path';
+import aiConfig  from '../../mcp/server/github-workflow/config.mjs';
+import Base      from '../../../src/core/Base.mjs';
+import chunkPath from './shared/chunkPath.mjs';
+import fs        from 'fs-extra';
+import logger    from '../../mcp/server/github-workflow/logger.mjs';
+import path      from 'path';
 
 /**
  * @summary Service for local file system lookups related to the GitHub workflow.
@@ -69,8 +70,11 @@ class LocalFileService extends Base {
         const filename     = `${aiConfig.issueSync.issueFilenamePrefix}${normalizedId}.md`;
 
         try {
-            // 1. Check the active issues directory first
-            const activePath = path.join(aiConfig.issueSync.issuesDir, filename);
+            // 1. Check the active issues directory first.
+            //    Active issues are stored chunked at `issuesDir/XXxx/issue-N.md` per the
+            //    chunkPath utility (see #11129 unification). Mirrors the write-path
+            //    symmetry from IssueSyncer.mjs#283 / #310.
+            const activePath = path.join(aiConfig.issueSync.issuesDir, chunkPath(normalizedId), filename);
             if (await fs.pathExists(activePath)) {
                 const content = await fs.readFile(activePath, 'utf-8');
                 return { filePath: activePath, content };
