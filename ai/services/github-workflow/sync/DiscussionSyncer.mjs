@@ -47,6 +47,42 @@ class DiscussionSyncer extends Base {
     }
 
     /**
+     * Resolves a path to an absolute path against the project root.
+     * @param {string} p The path to resolve.
+     * @returns {string|null} The absolute path.
+     * @private
+     */
+    #resolvePath(p) {
+        if (!p) return null;
+        if (path.isAbsolute(p)) return p;
+        return path.resolve(aiConfig.projectRoot, p);
+    }
+
+    /**
+     * Converts an absolute path to a path relative to the project root.
+     * @param {string} p The absolute path.
+     * @returns {string|null} The relative path.
+     * @private
+     */
+    #relativePath(p) {
+        if (!p) return null;
+        return path.relative(aiConfig.projectRoot, p);
+    }
+
+    /**
+     * Determines the correct local file path for a given discussion.
+     * @param {object} discussion The GitHub discussion object.
+     * @returns {string} The absolute file path for the discussion's Markdown file.
+     * @private
+     */
+    #getDiscussionPath(discussion) {
+        const filename = `${issueSyncConfig.discussionFilenamePrefix}${discussion.number}.md`;
+        const chunkDir = Math.floor(discussion.number / 100) + 'xx';
+
+        return path.join(issueSyncConfig.discussionsDir, chunkDir, filename);
+    }
+
+    /**
      * Fetches discussions from GitHub and syncs them to local markdown.
      * @param {object} metadata The sync metadata containing cached records.
      * @returns {Promise<object>} Statistics about the operation.
@@ -97,8 +133,7 @@ class DiscussionSyncer extends Base {
 
         for (const discussion of allDiscussions) {
             try {
-                const filename    = `${issueSyncConfig.discussionFilenamePrefix}${discussion.number}.md`;
-                const filePath    = path.join(issueSyncConfig.discussionsDir, filename);
+                const targetPath  = this.#getDiscussionPath(discussion);
 
                 const frontmatter = {
                     number     : discussion.number,
@@ -134,20 +169,38 @@ class DiscussionSyncer extends Base {
                 const currentHash = this.#calculateContentHash(content);
 
                 const cachedDiscussion = cachedDiscussions[discussion.number];
+                const oldPathRelative = cachedDiscussion?.path;
+                const oldAbsolutePath = oldPathRelative ? this.#resolvePath(oldPathRelative) : null;
+
+                const needsUpdate = !cachedDiscussion ||
+                    oldAbsolutePath !== targetPath;
 
                 // Diff cache
-                if (cachedDiscussion && cachedDiscussion.contentHash === currentHash) {
+                if (!needsUpdate && cachedDiscussion && cachedDiscussion.contentHash === currentHash) {
                     logger.debug(`Skipping discussion #${discussion.number}, content unchanged.`);
                     
-                    // We must still transfer the hash to the new run's metadata to persist it
+                    // We must still transfer the hash and path to the new run's metadata to persist it
                     discussion.contentHash = currentHash;
+                    discussion.relativeOutputPath = oldPathRelative;
                     continue;
                 }
 
-                await fs.writeFile(filePath, content, 'utf-8');
+                await fs.mkdir(path.dirname(targetPath), { recursive: true });
+                await fs.writeFile(targetPath, content, 'utf-8');
+                
+                if (oldAbsolutePath && oldAbsolutePath !== targetPath) {
+                    try {
+                        await fs.unlink(oldAbsolutePath);
+                        logger.info(`📦 Moved Discussion #${discussion.number}: ${oldAbsolutePath} → ${targetPath}`);
+                    } catch (e) {
+                        // File might not exist
+                    }
+                }
+
                 logger.debug(`✅ Synced discussion #${discussion.number}`);
                 
                 discussion.contentHash = currentHash;
+                discussion.relativeOutputPath = this.#relativePath(targetPath);
 
                 stats.count++;
                 stats.synced.push(discussion.number);
@@ -161,7 +214,8 @@ class DiscussionSyncer extends Base {
         allDiscussions.forEach(d => {
             metadata.discussions[d.number] = {
                 number: d.number,
-                contentHash: d.contentHash
+                contentHash: d.contentHash,
+                path: d.relativeOutputPath
             };
         });
 
