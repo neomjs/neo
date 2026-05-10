@@ -46,9 +46,7 @@ class DatabaseLifecycleService extends Base {
      */
     async initAsync() {
         await super.initAsync();
-        if (aiConfig.autoStartDatabase) {
-            await this.startDatabase();
-        }
+        logger.log('[DatabaseLifecycleService] Knowledge Base assumes ChromaDB is managed by AgentOrchestrator.');
     }
 
     /**
@@ -86,51 +84,17 @@ class DatabaseLifecycleService extends Base {
      * @returns {Promise<object>} A promise that resolves with the status.
      */
     async startDatabase() {
-        if (this.chromaProcess && !this.chromaProcess.killed) {
-            return { status: 'already_running', pid: this.chromaProcess.pid, detail: 'Server was started by this process.' };
-        }
-
         if (await this.isDbRunning()) {
-            const result = { status: 'already_running', pid: null, detail: 'Server was started externally.' };
+            const result = { status: 'already_running', pid: null, detail: 'Server is managed by AgentOrchestrator.' };
             this.fire('processActive', { pid: null, managedByService: false, detail: result.detail });
             return result;
         }
 
-        await new Promise((resolve, reject) => {
-            const { port, path: dbPath } = aiConfig;
-            const args = ['run', '--path', dbPath, '--port', port.toString()];
-
-            const spawnedProcess = spawn('chroma', args, {
-                detached: true,
-                stdio   : 'ignore'
-            });
-
-            spawnedProcess.on('spawn', () => {
-                this.chromaProcess = spawnedProcess;
-                logger.log(`ChromaDB (Knowledge Base) process started with PID: ${this.chromaProcess.pid}`);
-                
-                // Register cleanup handlers
-                this.cleanupHandler = this.cleanup.bind(this);
-                process.on('exit', this.cleanupHandler);
-                process.on('SIGINT', this.cleanupHandler);
-                process.on('SIGTERM', this.cleanupHandler);
-                
-                resolve();
-            });
-
-            spawnedProcess.on('error', (err) => {
-                console.error('Failed to start ChromaDB (Knowledge Base) process:', err);
-                this.chromaProcess = null;
-                reject(err);
-            });
-
-            spawnedProcess.unref();
-        });
-
+        logger.log('[DatabaseLifecycleService] Knowledge Base assumes ChromaDB is managed by AgentOrchestrator. Waiting for heartbeat...');
         await this.waitForHeartbeat();
 
-        const result = { status: 'started', pid: this.chromaProcess.pid };
-        this.fire('processActive', { pid: this.chromaProcess.pid, managedByService: true, detail: 'started by service' });
+        const result = { status: 'started_externally', pid: null };
+        this.fire('processActive', { pid: null, managedByService: false, detail: 'started externally' });
         return result;
     }
 
@@ -139,19 +103,6 @@ class DatabaseLifecycleService extends Base {
      * @param {string|number} signalOrCode
      */
     async cleanup(signalOrCode) {
-        if (this.chromaProcess) {
-            logger.log(`[DatabaseLifecycleService] cleanup triggered by ${signalOrCode}`);
-            try {
-                // We use the synchronous kill here because async operations might not complete
-                // reliably during the 'exit' event.
-                process.kill(-this.chromaProcess.pid, 'SIGTERM'); 
-                this.chromaProcess = null;
-            } catch (e) {
-                // Ignore errors if process is already gone
-            }
-        }
-        
-        // If this was a signal (not a normal exit), we need to exit explicitly
         if (typeof signalOrCode === 'string') {
             process.exit(0);
         }
@@ -178,31 +129,7 @@ class DatabaseLifecycleService extends Base {
      * @returns {Promise<object>} A promise that resolves with the status.
      */
     async stopDatabase() {
-        if (!this.chromaProcess || this.chromaProcess.killed) {
-            return { status: 'not_running', detail: 'No process was started by this server.' };
-        }
-
-        return new Promise((resolve) => {
-            const pid = this.chromaProcess.pid;
-            this.chromaProcess.on('exit', () => {
-                logger.log(`ChromaDB process with PID: ${pid} has been stopped.`);
-                this.chromaProcess = null;
-
-                // Remove cleanup handlers
-                if (this.cleanupHandler) {
-                    process.off('exit', this.cleanupHandler);
-                    process.off('SIGINT', this.cleanupHandler);
-                    process.off('SIGTERM', this.cleanupHandler);
-                    this.cleanupHandler = null;
-                }
-
-                const result = { status: 'stopped' };
-                this.fire('processStopped', { pid, managedByService: true });
-                resolve(result);
-            });
-
-            process.kill(-this.chromaProcess.pid, 'SIGTERM');
-        });
+        return { status: 'not_running', detail: 'Knowledge Base does not manage the ChromaDB daemon.' };
     }
 
     /**
@@ -210,9 +137,6 @@ class DatabaseLifecycleService extends Base {
      * @returns {object} The status of the ChromaDB process.
      */
     getDatabaseStatus() {
-        if (this.chromaProcess && !this.chromaProcess.killed) {
-            return { running: true, pid: this.chromaProcess.pid, managed: true };
-        }
         return { running: false, pid: null, managed: false };
     }
 }

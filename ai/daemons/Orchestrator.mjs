@@ -304,6 +304,14 @@ export class Orchestrator extends Base {
             healthService: this.healthService
         };
 
+        const continuousTasks = ['chroma', 'bridgeDaemon', 'mlx'];
+        for (const taskName of continuousTasks) {
+            const state = this.taskStateService.getTaskState(taskName);
+            if (state && !state.running) {
+                executeTask(taskName, 'supervisor-restart');
+            }
+        }
+
         this.cadenceEngine.runIfDue('summary', () => {
             return this.summarizationCoordinator.getDueTask({
                 db                    : this.db,
