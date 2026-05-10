@@ -48,6 +48,46 @@ class PullRequestSyncer extends Base {
     }
 
     /**
+     * Resolves a path to an absolute path against the project root.
+     * @param {string} p The path to resolve.
+     * @returns {string|null} The absolute path.
+     * @private
+     */
+    #resolvePath(p) {
+        if (!p) return null;
+        if (path.isAbsolute(p)) return p;
+        return path.resolve(aiConfig.projectRoot, p);
+    }
+
+    /**
+     * Converts an absolute path to a path relative to the project root.
+     * @param {string} p The absolute path.
+     * @returns {string|null} The relative path.
+     * @private
+     */
+    #relativePath(p) {
+        if (!p) return null;
+        return path.relative(aiConfig.projectRoot, p);
+    }
+
+    /**
+     * Determines the correct local file path for a given pull request based on its state.
+     * @param {object} pr The GitHub pull request object.
+     * @returns {string} The absolute file path for the PR's Markdown file.
+     * @private
+     */
+    #getPullRequestPath(pr) {
+        const filename = `${aiConfig.issueSync.pullFilenamePrefix || 'pr-'}${pr.number}.md`;
+        const chunkDir = String(pr.number).padStart(4, '0').slice(0, -2) + 'xx';
+
+        if (pr.state === 'OPEN') {
+            return path.join(issueSyncConfig.pullsDir, chunkDir, filename);
+        } else {
+            return path.join(issueSyncConfig.pullArchiveDir, chunkDir, filename);
+        }
+    }
+
+    /**
      * Fetches pull requests from GitHub and syncs them to local markdown.
      * @param {object} metadata The sync metadata containing cached records.
      * @returns {Promise<object>} Statistics about the operation.
@@ -99,8 +139,7 @@ class PullRequestSyncer extends Base {
 
         for (const pr of allPullRequests) {
             try {
-                const filename    = `${aiConfig.issueSync.pullFilenamePrefix || 'pr-'}${pr.number}.md`;
-                const filePath    = path.join(issueSyncConfig.pullsDir, filename);
+                const targetPath = this.#getPullRequestPath(pr);
 
                 const frontmatter = {
                     number     : pr.number,
@@ -146,20 +185,39 @@ class PullRequestSyncer extends Base {
                 const currentHash = this.#calculateContentHash(content);
 
                 const cachedPull = cachedPulls[pr.number];
+                const oldPathRelative = cachedPull?.path;
+                const oldAbsolutePath = oldPathRelative ? this.#resolvePath(oldPathRelative) : null;
+                
+                const needsUpdate = !cachedPull ||
+                    cachedPull.updatedAt !== pr.updatedAt ||
+                    oldAbsolutePath !== targetPath;
 
                 // Diff cache
-                if (cachedPull && cachedPull.contentHash === currentHash) {
+                if (!needsUpdate && cachedPull && cachedPull.contentHash === currentHash) {
                     logger.debug(`Skipping pull request #${pr.number}, content unchanged.`);
                     
-                    // We must still transfer the hash to the new run's metadata to persist it
+                    // We must still transfer the hash and path to the new run's metadata to persist it
                     pr.contentHash = currentHash;
+                    pr.relativeOutputPath = oldPathRelative;
                     continue;
                 }
 
-                await fs.writeFile(filePath, content, 'utf-8');
+                await fs.mkdir(path.dirname(targetPath), { recursive: true });
+                await fs.writeFile(targetPath, content, 'utf-8');
+                
+                if (oldAbsolutePath && oldAbsolutePath !== targetPath) {
+                    try {
+                        await fs.unlink(oldAbsolutePath);
+                        logger.info(`📦 Moved PR #${pr.number}: ${oldAbsolutePath} → ${targetPath}`);
+                    } catch (e) {
+                        // File might not exist
+                    }
+                }
+
                 logger.debug(`✅ Synced pull request #${pr.number}`);
                 
                 pr.contentHash = currentHash;
+                pr.relativeOutputPath = this.#relativePath(targetPath);
 
                 stats.count++;
                 stats.synced.push(pr.number);
@@ -176,7 +234,7 @@ class PullRequestSyncer extends Base {
                 contentHash: p.contentHash,
                 state: p.state,
                 updatedAt: p.updatedAt,
-                path: path.join('pulls', `${aiConfig.issueSync.pullFilenamePrefix || 'pr-'}${p.number}.md`)
+                path: p.relativeOutputPath
             };
         });
 
