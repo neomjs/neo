@@ -231,6 +231,9 @@ async function main() {
         await GH_SyncService.runFullSync();
         console.log('✅ Sync complete.');
 
+        console.log('🔄 Syncing Pull Requests...');
+        runCommand('npm run ai:sync-prs', 'Failed to sync pull requests');
+
         // Regenerate ticket index to reflect moves (active -> archive)
         console.log('🔄 Regenerating Ticket Index...');
         runCommand('node buildScripts/docs/index/tickets.mjs', 'Failed to regenerate ticket index');
@@ -239,14 +242,14 @@ async function main() {
         // Don't exit, try to commit what we have
     }
 
-    // Commit Archived Tickets
-    console.log('💾 Committing archived tickets...');
+    // Commit Synced Content (Archived Tickets & PRs)
+    console.log('💾 Committing synced GitHub state...');
     const status = runCommandWithOutput('git status --porcelain');
 
     if (status) {
-        runCommand('git add .', 'Failed to stage archive changes');
-        runCommand(`git commit -m "chore: Archive tickets for v${newVersion}"`, 'Failed to commit archive changes');
-        runCommand('git push origin dev', 'Failed to push archive changes');
+        runCommand('git add .', 'Failed to stage synced changes');
+        runCommand(`git commit -m "chore: Sync GitHub state (archive tickets, sync PRs) for v${newVersion}"`, 'Failed to commit synced changes');
+        runCommand('git push origin dev', 'Failed to push synced changes');
     } else {
         console.log('No changes to archive.');
     }
