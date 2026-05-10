@@ -2,6 +2,13 @@ import fs               from 'fs-extra';
 import path             from 'path';
 import {fileURLToPath}  from 'url';
 
+// Bootstrap Neo namespace BEFORE importing services that depend on Neo.gatekeep
+// (Compare.mjs:166). Without these two imports, ai/services.mjs → Compare.mjs
+// triggers `ReferenceError: Neo is not defined`. Mirrors the AI unit-test pattern
+// (e.g., restore-filters.spec.mjs).
+import Neo              from '../../src/Neo.mjs';
+import * as core        from '../../src/core/_export.mjs';
+
 import kbConfig         from '../../ai/mcp/server/knowledge-base/config.mjs';
 import mcConfig         from '../../ai/mcp/server/memory-core/config.mjs';
 
@@ -334,6 +341,10 @@ export async function validateBundle(bundleRoot, layout, logger = console) {
         }
     }
 
+    // Stream-read the first non-empty line for JSONL parseability sanity-check.
+    // Full-file readFile fails on JSONL files >512MB (V8 max-string-length cap):
+    // empirical anchor 2026-05-10, kb backup 586MB → ERR_STRING_TOO_LONG.
+    const readline = (await import('readline')).default;
     const allSubdirs = [...REQUIRED_BUNDLE_SUBDIRS, ...OPTIONAL_BUNDLE_SUBDIRS];
     for (const subdir of allSubdirs) {
         const dir = layout[subdir];
@@ -341,8 +352,14 @@ export async function validateBundle(bundleRoot, layout, logger = console) {
         const entries    = await fs.readdir(dir);
         const jsonlFiles = entries.filter(f => f.endsWith('.jsonl'));
         for (const file of jsonlFiles) {
-            const content = await fs.readFile(path.join(dir, file), 'utf8');
-            const firstLine = content.split('\n').find(line => line.trim());
+            const stream = fs.createReadStream(path.join(dir, file), {encoding: 'utf8'});
+            const rl     = readline.createInterface({input: stream, crlfDelay: Infinity});
+            let firstLine = null;
+            for await (const line of rl) {
+                if (line.trim()) { firstLine = line; break; }
+            }
+            rl.close();
+            stream.destroy();
             if (firstLine) {
                 try {
                     JSON.parse(firstLine);

@@ -500,12 +500,26 @@ class DatabaseService extends Base {
                     records.forEach(r => delete r.embedding);
                 }
 
-                await collection.upsert({
-                    ids       : records.map(r => r.id),
-                    embeddings: records.map(r => r.embedding),
-                    metadatas : records.map(r => r.metadata),
-                    documents : records.map(r => r.document)
-                });
+                // Chroma has TWO upsert limits: (1) record-count cap ~5461; (2) HTTP
+                // body size cap that 413-rejects large payloads. With 4096-dim qwen3
+                // embeddings (~32KB each) + document text, per-record is ~35-40KB.
+                // Chunk size 250 = ~10MB body, well within HTTP limits + record cap.
+                // Empirical anchors 2026-05-10:
+                //   - 9244 records: "Record set length 9244 exceeds max batch size 5461"
+                //   - 4000 records: "413: Payload Too Large"
+                const CHROMA_UPSERT_CHUNK_SIZE = 250;
+                for (let i = 0; i < records.length; i += CHROMA_UPSERT_CHUNK_SIZE) {
+                    const chunk = records.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE);
+                    await collection.upsert({
+                        ids       : chunk.map(r => r.id),
+                        embeddings: chunk.map(r => r.embedding),
+                        metadatas : chunk.map(r => r.metadata),
+                        documents : chunk.map(r => r.document)
+                    });
+                    if (records.length > CHROMA_UPSERT_CHUNK_SIZE) {
+                        logger.log(`  upserted chunk ${Math.floor(i / CHROMA_UPSERT_CHUNK_SIZE) + 1}/${Math.ceil(records.length / CHROMA_UPSERT_CHUNK_SIZE)} (${chunk.length} records)`);
+                    }
+                }
 
                 totalImported           += records.length;
                 subsystemCounts.memoriesInserted += records.length;
