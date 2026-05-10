@@ -288,7 +288,7 @@ async function collectReleaseRoutes() {
  */
 async function collectIssueRoutes() {
     const files = await fg([
-        'resources/content/issues/*.md',
+        'resources/content/issues/**/*.md',
         'resources/content/issue-archive/**/*.md'
     ], {
         cwd    : ROOT_DIR,

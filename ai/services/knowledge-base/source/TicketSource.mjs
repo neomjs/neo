@@ -44,17 +44,17 @@ class TicketSource extends Base {
 
         for (const targetPath of targetPaths) {
             if (await fs.pathExists(targetPath)) {
-                const ticketFiles = await fs.readdir(targetPath);
+                const ticketFiles = await fs.readdir(targetPath, { recursive: true });
                 ticketFiles.sort();
 
                 for (const file of ticketFiles) {
-                    if (file.endsWith('.md')) {
+                    if (typeof file === 'string' && file.endsWith('.md')) {
                         const filePath   = path.join(targetPath, file);
                         const content    = await fs.readFile(filePath, 'utf-8');
                         const chunk      = {
                             type   : 'ticket',
                             kind   : 'ticket',
-                            name   : file.replace('.md', ''),
+                            name   : path.basename(file).replace('.md', ''),
                             content,
                             // Relative path keeps the distributed Chroma zip portable (#10097).
                             source : path.relative(aiConfig.neoRootDir, filePath)

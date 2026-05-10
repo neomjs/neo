@@ -31,11 +31,11 @@ const issuesDir  = path.join(neoRoot, 'resources/content/issues');
 const CUTOFF     = process.argv[2] || '2026-03-27';
 
 async function main() {
-    const files  = await fs.readdir(issuesDir);
+    const filesRaw = await fs.readdir(issuesDir, { recursive: true });
     const closed = [];
 
-    for (const f of files) {
-        if (!f.endsWith('.md')) continue;
+    for (const f of filesRaw) {
+        if (typeof f !== 'string' || !f.endsWith('.md')) continue;
         const content = await fs.readFile(path.join(issuesDir, f), 'utf-8');
         const {data}  = matter(content);
         if (data.state === 'CLOSED' && data.closedAt && data.closedAt >= CUTOFF) {
