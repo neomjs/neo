@@ -1059,15 +1059,18 @@ paths:
       description: |
         Triggers bi-directional sync of GitHub issues/releases with the local filesystem.
 
-        **CRITICAL:** ONLY use this tool inside the `dev` branch. It creates/updates local markdown files; running it on a feature branch will pollute it with unrelated docs.
+        **MECHANICALLY ENFORCED (#11145):** This tool REJECTS calls when the MCP server's working tree is not on the `dev` branch. The rejection happens at the tool boundary, not the library — daemons (PrimaryRepoSyncService) and build-scripts (publish.mjs) keep legitimate access via direct library calls. Calls from agent harnesses must originate from a checkout currently on `dev`.
 
         **Usage Rules (Use Sparingly):**
-        - **DO USE:** To pull remote changes (e.g. teammates updated tickets) or push manual edits to local `.md` issue files.
+        - **DO USE:** To pull remote changes (e.g. teammates updated tickets) or push manual edits to local `.md` issue files. Working tree MUST be on `dev`.
         - **DO NOT USE:** After `create_issue` or `create_comment` (already in context).
         - **DO NOT USE:** For code changes (syncs only ticket metadata).
 
         **How It Works:**
         Pulls remote data, creates `.md` files for new issues, and pushes modified `.md` files to GitHub. Uses caching for fast no-ops.
+
+        **Behavior on non-dev branch:**
+        Throws `sync_all REJECTED: working-tree is on branch '<name>', not 'dev'. ...` with remediation guidance. No remote API calls or local writes happen — the rejection is pre-flight.
       tags: [Issues]
       responses:
         '200':
