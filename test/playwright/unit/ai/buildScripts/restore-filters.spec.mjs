@@ -39,13 +39,17 @@ import path            from 'path';
  *    guard. Tests use synthetic JSONL fixtures (no live SQLite needed).
  * 3. `dispatchPostRestoreHook` — narrow allowlist; explicit reject for
  *    `dream-service`; unknown hook throws.
+ * 4. **Graph merge `INSERT OR IGNORE` row-level semantics** — synthetic SQLite
+ *    + production schema + `ON DELETE CASCADE` FK on Edges. Asserts the SQL
+ *    primitive directly: merge mode preserves live rows + edges; replace mode
+ *    overwrites + cascade-deletes (the documented asymmetry). See the inner
+ *    `test.describe('graph merge: INSERT OR IGNORE preserves live rows + edges')`.
  *
  * NOT in this spec (deferred):
- *   - Full `runRestore` flow with filters (covered in restore.spec.mjs once
- *     #11142 lands and test isolation is hardened).
- *   - `INSERT OR IGNORE` row-level semantics (requires real SQLite; gated on
- *     #11142 wipe-path fix to run safely).
- *   - Chroma-side parity (#11144 follow-up).
+ *   - Full `runRestore` end-to-end flow against live MC services (covered in
+ *     restore.spec.mjs orchestrator-shape tests; live-substrate runs require
+ *     test isolation now that #11140/#11142 wipe-path fix is merged).
+ *   - Chroma-side `#importMemories` preserve-live parity (#11144 follow-up).
  */
 test.describe.configure({mode: 'serial'});
 

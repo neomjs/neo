@@ -47,12 +47,13 @@ import {
  *   the restore refuses unless the operator passes `--force-topology-mismatch`.
  *   Bundles without `bundle-meta.json` skip this check with a console warning.
  * - **Two-mode contract:**
- *     - `--mode merge` (default): idempotent. Embedded substrates use `INSERT OR IGNORE` —
+ *     - `--mode merge` (default): idempotent. **Graph SQLite** uses `INSERT OR IGNORE` —
  *       backup-only IDs INSERT; live-existing IDs preserved (post-wipe re-ingestion stays
- *       authoritative). Flat substrates skip-if-target-non-empty (preserves operator
- *       additions). No `--force` required. Per-#11141: this preserve-live semantic was
- *       silently broken pre-#11141 (used `INSERT OR REPLACE`); 2026-05-10 graph-wipe
- *       incident was the empirical anchor.
+ *       authoritative). **Memory + summaries (Chroma)** still use `collection.upsert()` —
+ *       preserve-live parity for the Chroma side is tracked at #11144. **Flat substrates**
+ *       skip-if-target-non-empty (preserves operator additions). No `--force` required.
+ *       Per-#11141: graph-side preserve-live semantic was silently broken pre-#11141 (used
+ *       `INSERT OR REPLACE`); 2026-05-10 graph-wipe incident was the empirical anchor.
  *     - `--mode replace`: gated. Each embedded subsystem fires
  *       `assertDestructiveTargetAllowed()` before truncating + restoring. Flat substrates
  *       fire the guard against the target file/dir path before overwriting. Refuses if
