@@ -10,6 +10,7 @@ const DEV_BRANCH     = 'dev';
 const REMOTE_NAME    = 'origin';
 const REMOTE_REF     = `${REMOTE_NAME}/${DEV_BRANCH}`;
 const META_SYNC_PATH = 'resources/content/.sync-metadata.json';
+export const DEV_SYNC_ROOTS_ENV_VAR = 'NEO_ORCHESTRATOR_DEV_SYNC_ROOTS';
 
 /**
  * @summary Parses the primary-dev-sync enable flag.
@@ -24,6 +25,62 @@ export function parseEnabledFlag(value, fallback=true) {
     }
 
     return !['0', 'false', 'no', 'off'].includes(String(value).toLowerCase());
+}
+
+/**
+ * @summary Parses the optional multi-checkout dev-sync root list (#11135).
+ *
+ * The env var is intentionally explicit: no sibling-clone discovery, no branch
+ * switching, and no machine-specific defaults.
+ *
+ * @param {String|undefined|null} value JSON array of absolute repo roots.
+ * @returns {Object}
+ */
+export function parseDevSyncRoots(value) {
+    if (value === undefined || value === null || value === '') {
+        return {status: 'unset', roots: []};
+    }
+
+    let parsed;
+    try {
+        parsed = JSON.parse(value);
+    } catch (e) {
+        return {
+            status    : 'invalid',
+            reasonCode: 'invalid-dev-sync-roots',
+            error     : `${DEV_SYNC_ROOTS_ENV_VAR} must be a JSON array of absolute paths.`
+        };
+    }
+
+    if (!Array.isArray(parsed)) {
+        return {
+            status    : 'invalid',
+            reasonCode: 'invalid-dev-sync-roots',
+            error     : `${DEV_SYNC_ROOTS_ENV_VAR} must be a JSON array of absolute paths.`
+        };
+    }
+
+    const roots = [];
+    const seen  = new Set();
+
+    for (const item of parsed) {
+        if (typeof item !== 'string' || item.trim() === '' || !path.isAbsolute(item.trim())) {
+            return {
+                status    : 'invalid',
+                reasonCode: 'invalid-dev-sync-roots',
+                error     : `${DEV_SYNC_ROOTS_ENV_VAR} entries must be absolute path strings.`
+            };
+        }
+
+        const root = path.resolve(item.trim());
+
+        if (!seen.has(root)) {
+            seen.add(root);
+            roots.push(root);
+        }
+    }
+
+    return {status: 'configured', roots};
 }
 
 /**
@@ -105,6 +162,7 @@ class PrimaryRepoSyncService extends Base {
      * @param {Function} [options.writeLog] Orchestrator logger.
      * @param {String} [options.cwd=process.cwd()] Invocation directory.
      * @param {Function} [options.execFileSyncFn=execFileSync] Test seam.
+     * @param {String|undefined|null} [options.devSyncRootsConfig=process.env.NEO_ORCHESTRATOR_DEV_SYNC_ROOTS] Optional configured roots.
      * @returns {Object} Execution result.
      */
     runTask({
@@ -114,7 +172,8 @@ class PrimaryRepoSyncService extends Base {
         healthService,
         writeLog,
         cwd = process.cwd(),
-        execFileSyncFn = execFileSync
+        execFileSyncFn = execFileSync,
+        devSyncRootsConfig = process.env[DEV_SYNC_ROOTS_ENV_VAR]
     }) {
         const state = taskStateService.getTaskState(taskName);
 
@@ -128,11 +187,13 @@ class PrimaryRepoSyncService extends Base {
         taskStateService.markStarted(taskName, reason);
 
         try {
-            const result = this.syncPrimaryDev({cwd, execFileSyncFn, writeLog});
-            const status = result.status === 'completed' ? 'completed' : 'skipped';
+            const result = this.syncPrimaryDev({cwd, execFileSyncFn, writeLog, devSyncRootsConfig});
+            const status = result.status === 'completed' ? 'completed' : result.status === 'failed' ? 'failed' : 'skipped';
 
             if (status === 'completed') {
                 taskStateService.markCompleted(taskName);
+            } else if (status === 'failed') {
+                taskStateService.markFailed(taskName, null);
             } else {
                 taskStateService.markSkipped(taskName);
             }
@@ -155,51 +216,184 @@ class PrimaryRepoSyncService extends Base {
      * @param {String} options.cwd Invocation directory.
      * @param {Function} options.execFileSyncFn Command execution seam.
      * @param {Function} [options.writeLog] Optional logger.
+     * @param {String|undefined|null} [options.devSyncRootsConfig=process.env.NEO_ORCHESTRATOR_DEV_SYNC_ROOTS] Optional configured roots.
      * @returns {Object}
      */
-    syncPrimaryDev({cwd, execFileSyncFn, writeLog}) {
+    syncPrimaryDev({cwd, execFileSyncFn, writeLog, devSyncRootsConfig = process.env[DEV_SYNC_ROOTS_ENV_VAR]}) {
+        const rootsConfig = parseDevSyncRoots(devSyncRootsConfig);
+
+        if (rootsConfig.status === 'invalid') {
+            return this.skip(rootsConfig.reasonCode, {
+                envVar: DEV_SYNC_ROOTS_ENV_VAR,
+                error : rootsConfig.error
+            }, writeLog);
+        }
+
         const primaryRoot = this.resolvePrimaryRoot({cwd, execFileSyncFn});
-        const branch      = this.git(['rev-parse', '--abbrev-ref', 'HEAD'], primaryRoot, execFileSyncFn).trim();
+
+        if (rootsConfig.status === 'configured') {
+            return this.syncConfiguredDevRoots({
+                primaryRoot,
+                roots: rootsConfig.roots,
+                execFileSyncFn,
+                writeLog
+            });
+        }
+
+        return this.syncDevRoot({root: primaryRoot, rootKey: 'primaryRoot', execFileSyncFn, writeLog});
+    }
+
+    /**
+     * Executes the sync ladder for a single configured root.
+     * @param {Object} options
+     * @param {String} options.root Configured repo root.
+     * @param {Function} options.execFileSyncFn Command execution seam.
+     * @param {Function} [options.writeLog] Optional logger.
+     * @returns {Object}
+     */
+    syncConfiguredDevRoot({root, execFileSyncFn, writeLog}) {
+        try {
+            const topLevel = path.resolve(this.git(['rev-parse', '--show-toplevel'], root, execFileSyncFn).trim());
+
+            if (topLevel !== root) {
+                return this.fail('not-repo-root', {root, resolvedRoot: topLevel}, writeLog);
+            }
+        } catch (e) {
+            return this.fail('root-verification-failed', {root, error: e.message}, writeLog);
+        }
+
+        try {
+            return this.syncDevRoot({
+                root,
+                rootKey: 'root',
+                execFileSyncFn,
+                writeLog,
+                fetchBeforeBranch: true,
+                runKbSync: false
+            });
+        } catch (e) {
+            return this.fail('root-sync-failed', {root, error: e.message}, writeLog);
+        }
+    }
+
+    /**
+     * Syncs all configured roots and cascades KB sync once from the owner root.
+     * @param {Object} options
+     * @param {String} options.primaryRoot Owning checkout root for KB sync.
+     * @param {String[]} options.roots Configured repo roots.
+     * @param {Function} options.execFileSyncFn Command execution seam.
+     * @param {Function} [options.writeLog] Optional logger.
+     * @returns {Object}
+     */
+    syncConfiguredDevRoots({primaryRoot, roots, execFileSyncFn, writeLog}) {
+        const rootResults = roots.map(root => {
+            const result = this.syncConfiguredDevRoot({root, execFileSyncFn, writeLog});
+            return {status: result.status, ...result.details};
+        });
+
+        const completed = rootResults.filter(result => result.status === 'completed').length;
+        const failed    = rootResults.filter(result => result.status === 'failed').length;
+        const skipped   = rootResults.filter(result => result.status === 'skipped').length;
+        const status    = completed > 0 ? 'completed' : failed > 0 ? 'failed' : 'skipped';
+        const details   = {
+            mode: 'configured-roots',
+            primaryRoot,
+            rootCount: rootResults.length,
+            completed,
+            skipped,
+            failed,
+            roots: rootResults,
+            kbSync: false
+        };
+
+        if (completed > 0) {
+            this.runKbSync(primaryRoot, execFileSyncFn);
+            details.kbSync = true;
+        } else if (rootResults.length === 0) {
+            details.reasonCode = 'no-configured-roots';
+        } else if (failed > 0) {
+            details.reasonCode = 'configured-root-failures';
+        } else {
+            details.reasonCode = 'no-dev-updates';
+        }
+
+        if (status === 'failed') {
+            writeLog?.('WARN', `[PrimaryRepoSync] Configured roots failed; operator action required.`);
+        } else if (status === 'skipped') {
+            writeLog?.('INFO', `[PrimaryRepoSync] Configured roots skipped: ${details.reasonCode}.`);
+        }
+
+        return {status, details};
+    }
+
+    /**
+     * Executes the dev-sync ladder for one root.
+     * @param {Object} options
+     * @param {String} options.root Repo root to inspect.
+     * @param {String} [options.rootKey='primaryRoot'] Details key for the root.
+     * @param {Function} options.execFileSyncFn Command execution seam.
+     * @param {Function} [options.writeLog] Optional logger.
+     * @param {Boolean} [options.fetchBeforeBranch=false] Fetch/verify origin/dev before branch checks.
+     * @param {Boolean} [options.runKbSync=true] Whether this root owns the KB cascade.
+     * @returns {Object}
+     */
+    syncDevRoot({root, rootKey='primaryRoot', execFileSyncFn, writeLog, fetchBeforeBranch=false, runKbSync=true}) {
+        const rootDetails = {[rootKey]: root};
+
+        if (fetchBeforeBranch) {
+            this.git(['fetch', REMOTE_NAME, DEV_BRANCH, '--quiet'], root, execFileSyncFn);
+            this.git(['rev-parse', '--verify', REMOTE_REF], root, execFileSyncFn);
+        }
+
+        const branch = this.git(['rev-parse', '--abbrev-ref', 'HEAD'], root, execFileSyncFn).trim();
 
         if (branch !== DEV_BRANCH) {
-            return this.skip('not-dev-branch', {primaryRoot, branch}, writeLog);
+            return this.skip('not-dev-branch', {
+                ...rootDetails,
+                branch,
+                ...(fetchBeforeBranch ? {fetched: true} : {})
+            }, writeLog);
         }
 
-        this.git(['fetch', REMOTE_NAME, DEV_BRANCH, '--quiet'], primaryRoot, execFileSyncFn);
+        if (!fetchBeforeBranch) {
+            this.git(['fetch', REMOTE_NAME, DEV_BRANCH, '--quiet'], root, execFileSyncFn);
+        }
 
-        const behind = this.getBehindCount(primaryRoot, execFileSyncFn);
+        const behind = this.getBehindCount(root, execFileSyncFn);
         if (behind === 0) {
-            return this.skip('up-to-date', {primaryRoot, behind}, writeLog);
+            return this.skip('up-to-date', {...rootDetails, behind}, writeLog);
         }
 
-        const status = this.git(['status', '--porcelain'], primaryRoot, execFileSyncFn);
+        const status = this.git(['status', '--porcelain'], root, execFileSyncFn);
         if (status.trim()) {
             if (this.isOnlyMetaSyncStatus(status)) {
-                return this.resolveMetaAndPull({primaryRoot, behind, execFileSyncFn, writeLog});
+                return this.resolveMetaAndPull({root, rootKey, behind, execFileSyncFn, writeLog, runKbSync});
             }
 
             return this.skip('local-divergence', {
-                primaryRoot,
+                ...rootDetails,
                 behind,
                 files: this.parseStatusPaths(status)
             }, writeLog);
         }
 
         try {
-            this.git(['pull', '--ff-only', REMOTE_NAME, DEV_BRANCH], primaryRoot, execFileSyncFn);
-            this.runKbSync(primaryRoot, execFileSyncFn);
+            this.git(['pull', '--ff-only', REMOTE_NAME, DEV_BRANCH], root, execFileSyncFn);
+            if (runKbSync) {
+                this.runKbSync(root, execFileSyncFn);
+            }
             return {
                 status : 'completed',
-                details: {primaryRoot, behind, layer: 'ff-pull', kbSync: true}
+                details: {...rootDetails, behind, layer: 'ff-pull', kbSync: runKbSync}
             };
         } catch (e) {
-            const postPullStatus = this.git(['status', '--porcelain'], primaryRoot, execFileSyncFn);
+            const postPullStatus = this.git(['status', '--porcelain'], root, execFileSyncFn);
             if (this.isOnlyMetaSyncStatus(postPullStatus)) {
-                return this.resolveMetaAndPull({primaryRoot, behind, execFileSyncFn, writeLog});
+                return this.resolveMetaAndPull({root, rootKey, behind, execFileSyncFn, writeLog, runKbSync});
             }
 
             return this.skip('non-FF-divergence', {
-                primaryRoot,
+                ...rootDetails,
                 behind,
                 error: e.message,
                 files: this.parseStatusPaths(postPullStatus)
@@ -233,21 +427,28 @@ class PrimaryRepoSyncService extends Base {
     /**
      * Handles the narrow metadata-only local reset before a fast-forward pull.
      * @param {Object} options
-     * @param {String} options.primaryRoot Primary checkout path.
+     * @param {String} [options.primaryRoot] Primary checkout path.
+     * @param {String} [options.root=options.primaryRoot] Repo root.
+     * @param {String} [options.rootKey='primaryRoot'] Details key for the root.
      * @param {Number} options.behind Commit lag behind origin/dev.
      * @param {Function} options.execFileSyncFn Command execution seam.
      * @param {Function} [options.writeLog] Optional logger.
+     * @param {Boolean} [options.runKbSync=true] Whether this root owns the KB cascade.
      * @returns {Object}
      */
-    resolveMetaAndPull({primaryRoot, behind, execFileSyncFn, writeLog}) {
+    resolveMetaAndPull({primaryRoot, root=primaryRoot, rootKey='primaryRoot', behind, execFileSyncFn, writeLog, runKbSync=true}) {
+        const rootDetails = {[rootKey]: root};
+
         writeLog?.('INFO', `[PrimaryRepoSync] Resetting ${META_SYNC_PATH} before fast-forward pull.`);
-        this.git(['checkout', '--', META_SYNC_PATH], primaryRoot, execFileSyncFn);
-        this.git(['pull', '--ff-only', REMOTE_NAME, DEV_BRANCH], primaryRoot, execFileSyncFn);
-        this.runKbSync(primaryRoot, execFileSyncFn);
+        this.git(['checkout', '--', META_SYNC_PATH], root, execFileSyncFn);
+        this.git(['pull', '--ff-only', REMOTE_NAME, DEV_BRANCH], root, execFileSyncFn);
+        if (runKbSync) {
+            this.runKbSync(root, execFileSyncFn);
+        }
 
         return {
             status : 'completed',
-            details: {primaryRoot, behind, layer: 'meta-sync-reset', resolved: 'meta-sync', kbSync: true}
+            details: {...rootDetails, behind, layer: 'meta-sync-reset', resolved: 'meta-sync', kbSync: runKbSync}
         };
     }
 
@@ -328,7 +529,7 @@ class PrimaryRepoSyncService extends Base {
      * @returns {Object}
      */
     skip(reasonCode, details, writeLog) {
-        if (['local-divergence', 'non-FF-divergence'].includes(reasonCode)) {
+        if (['invalid-dev-sync-roots', 'local-divergence', 'non-FF-divergence'].includes(reasonCode)) {
             writeLog?.('WARN', `[PrimaryRepoSync] Skipped: ${reasonCode}. Operator action required.`);
         } else {
             writeLog?.('INFO', `[PrimaryRepoSync] Skipped: ${reasonCode}.`);
@@ -336,6 +537,22 @@ class PrimaryRepoSyncService extends Base {
 
         return {
             status : 'skipped',
+            details: {reasonCode, ...details}
+        };
+    }
+
+    /**
+     * Builds a failed configured-root result and logs an operator warning.
+     * @param {String} reasonCode Stable failure reason.
+     * @param {Object} details Additional details.
+     * @param {Function} [writeLog] Optional logger.
+     * @returns {Object}
+     */
+    fail(reasonCode, details, writeLog) {
+        writeLog?.('WARN', `[PrimaryRepoSync] Failed configured root: ${reasonCode}. Operator action required.`);
+
+        return {
+            status : 'failed',
             details: {reasonCode, ...details}
         };
     }

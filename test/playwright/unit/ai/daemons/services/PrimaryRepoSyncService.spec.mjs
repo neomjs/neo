@@ -3,6 +3,8 @@ import Neo       from '../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../src/core/_export.mjs';
 import PrimaryRepoSyncService, {
     buildPrimaryRepoSyncTrigger,
+    DEV_SYNC_ROOTS_ENV_VAR,
+    parseDevSyncRoots,
     parseEnabledFlag
 } from '../../../../../../ai/daemons/services/PrimaryRepoSyncService.mjs';
 import {
@@ -95,6 +97,25 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
             lastRunAt : 0,
             intervalMs: 600000
         })).toBeNull();
+    });
+
+    test('parses explicit dev-sync roots without machine-specific defaults', () => {
+        expect(parseDevSyncRoots(undefined)).toEqual({status: 'unset', roots: []});
+        expect(parseDevSyncRoots('')).toEqual({status: 'unset', roots: []});
+        expect(parseDevSyncRoots('["/primary/neo","/primary/neo","/agent/neo"]')).toEqual({
+            status: 'configured',
+            roots : ['/primary/neo', '/agent/neo']
+        });
+        expect(parseDevSyncRoots('{"root":"/primary/neo"}')).toEqual({
+            status    : 'invalid',
+            reasonCode: 'invalid-dev-sync-roots',
+            error     : `${DEV_SYNC_ROOTS_ENV_VAR} must be a JSON array of absolute paths.`
+        });
+        expect(parseDevSyncRoots('["relative/neo"]')).toEqual({
+            status    : 'invalid',
+            reasonCode: 'invalid-dev-sync-roots',
+            error     : `${DEV_SYNC_ROOTS_ENV_VAR} entries must be absolute path strings.`
+        });
     });
 
     test('resolves primary checkout from worktree list and falls back to git-common-dir', () => {
@@ -234,6 +255,197 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
 
         expect(result.status).toBe('completed');
         expect(result.details.resolved).toBe('meta-sync');
+    });
+
+    test('syncs configured dev roots and cascades KB once from the owning checkout', () => {
+        const execStub = createExecStub([{
+            cmd   : 'git',
+            args  : ['worktree', 'list', '--porcelain'],
+            output: 'worktree /primary/neo\n'
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--show-toplevel'],
+            output: '/primary/neo\n'
+        }, {
+            cmd : 'git',
+            args: ['fetch', 'origin', 'dev', '--quiet']
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--verify', 'origin/dev'],
+            output: 'abc123\n'
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--abbrev-ref', 'HEAD'],
+            output: 'dev\n'
+        }, {
+            cmd   : 'git',
+            args  : ['rev-list', '--count', 'dev..origin/dev'],
+            output: '2\n'
+        }, {
+            cmd   : 'git',
+            args  : ['status', '--porcelain'],
+            output: ''
+        }, {
+            cmd : 'git',
+            args: ['pull', '--ff-only', 'origin', 'dev']
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--show-toplevel'],
+            output: '/agent/neo\n'
+        }, {
+            cmd : 'git',
+            args: ['fetch', 'origin', 'dev', '--quiet']
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--verify', 'origin/dev'],
+            output: 'abc123\n'
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--abbrev-ref', 'HEAD'],
+            output: 'dev\n'
+        }, {
+            cmd   : 'git',
+            args  : ['rev-list', '--count', 'dev..origin/dev'],
+            output: '0\n'
+        }, {
+            cmd : process.platform === 'win32' ? 'npm.cmd' : 'npm',
+            args: ['run', 'ai:sync-kb']
+        }]);
+
+        const result = PrimaryRepoSyncService.syncPrimaryDev({
+            cwd               : '/primary/neo',
+            execFileSyncFn    : execStub,
+            writeLog          : () => {},
+            devSyncRootsConfig: '["/primary/neo","/agent/neo"]'
+        });
+
+        expect(result).toEqual({
+            status : 'completed',
+            details: {
+                mode       : 'configured-roots',
+                primaryRoot: '/primary/neo',
+                rootCount  : 2,
+                completed  : 1,
+                skipped    : 1,
+                failed     : 0,
+                roots      : [{
+                    status: 'completed',
+                    root  : '/primary/neo',
+                    behind: 2,
+                    layer : 'ff-pull',
+                    kbSync: false
+                }, {
+                    status    : 'skipped',
+                    reasonCode: 'up-to-date',
+                    root      : '/agent/neo',
+                    behind    : 0
+                }],
+                kbSync: true
+            }
+        });
+        expect(execStub.calls.filter(call => call.cmd.includes('npm') || call.cmd === 'npm').length).toBe(1);
+        expect(execStub.calls.at(-1).cwd).toBe('/primary/neo');
+    });
+
+    test('configured non-dev roots fetch origin/dev but never switch branches', () => {
+        const execStub = createExecStub([{
+            cmd   : 'git',
+            args  : ['worktree', 'list', '--porcelain'],
+            output: 'worktree /primary/neo\n'
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--show-toplevel'],
+            output: '/agent/neo\n'
+        }, {
+            cmd : 'git',
+            args: ['fetch', 'origin', 'dev', '--quiet']
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--verify', 'origin/dev'],
+            output: 'abc123\n'
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--abbrev-ref', 'HEAD'],
+            output: 'feature/foo\n'
+        }]);
+
+        const result = PrimaryRepoSyncService.syncPrimaryDev({
+            cwd               : '/primary/neo',
+            execFileSyncFn    : execStub,
+            writeLog          : () => {},
+            devSyncRootsConfig: '["/agent/neo"]'
+        });
+
+        expect(result.status).toBe('skipped');
+        expect(result.details.roots[0]).toEqual({
+            status    : 'skipped',
+            reasonCode: 'not-dev-branch',
+            root      : '/agent/neo',
+            branch    : 'feature/foo',
+            fetched   : true
+        });
+        expect(execStub.calls.map(call => call.args[0])).not.toContain('checkout');
+        expect(execStub.calls.map(call => call.args[0])).not.toContain('pull');
+    });
+
+    test('configured root failures are isolated from later roots', () => {
+        const execStub = createExecStub([{
+            cmd   : 'git',
+            args  : ['worktree', 'list', '--porcelain'],
+            output: 'worktree /primary/neo\n'
+        }, {
+            cmd  : 'git',
+            args : ['rev-parse', '--show-toplevel'],
+            error: 'not a git repo'
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--show-toplevel'],
+            output: '/agent/neo\n'
+        }, {
+            cmd : 'git',
+            args: ['fetch', 'origin', 'dev', '--quiet']
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--verify', 'origin/dev'],
+            output: 'abc123\n'
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--abbrev-ref', 'HEAD'],
+            output: 'dev\n'
+        }, {
+            cmd   : 'git',
+            args  : ['rev-list', '--count', 'dev..origin/dev'],
+            output: '0\n'
+        }]);
+
+        const result = PrimaryRepoSyncService.syncPrimaryDev({
+            cwd               : '/primary/neo',
+            execFileSyncFn    : execStub,
+            writeLog          : () => {},
+            devSyncRootsConfig: '["/broken/neo","/agent/neo"]'
+        });
+
+        expect(result.status).toBe('failed');
+        expect(result.details).toMatchObject({
+            mode       : 'configured-roots',
+            primaryRoot: '/primary/neo',
+            rootCount  : 2,
+            completed  : 0,
+            skipped    : 1,
+            failed     : 1,
+            reasonCode : 'configured-root-failures',
+            kbSync     : false
+        });
+        expect(result.details.roots[0]).toMatchObject({
+            status    : 'failed',
+            reasonCode: 'root-verification-failed',
+            root      : '/broken/neo'
+        });
+        expect(result.details.roots[1]).toMatchObject({
+            status    : 'skipped',
+            reasonCode: 'up-to-date',
+            root      : '/agent/neo'
+        });
     });
 
     test('halts before pull when non-metadata local divergence exists', () => {
