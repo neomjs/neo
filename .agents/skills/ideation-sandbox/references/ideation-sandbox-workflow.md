@@ -47,15 +47,12 @@ A Discussion cannot graduate until it is clearly scoped. There is no universal c
 
 **Trigger — mandatory cases:** if the Discussion intends to graduate to (a) an Epic, (b) a new skill / rule / workflow change, or (c) a substrate-level architecture change, the divergence matrix below is **MANDATORY** before graduation. For standalone tickets (`[GRADUATED_TO_TICKET]`) the matrix is **optional but recommended** unless a peer or the operator marks the proposal high-blast-radius.
 
-**Why the gate exists:** §1 already names the rubber-stamp anti-pattern verbatim, but the §5 mechanics still optimize for convergence (proposal → OQ resolution → graduation). The gate forces the divergent half of design before convergence is locked. Empirical anchor: #11076 → #11077 (M4 daemon epic graduated before alternatives were preserved) + #11082 / PR #11083 (premature implementation before #11079 graduated). #11079 (Discussion graduating this guard) is the corrective substrate.
-
 **Matrix floor (5 columns, mandatory):**
 
 | Option | When this would be right | Evidence / falsifier (≥1 source per rejected option) | Adoption or rejection rationale | Residual risk |
 |---|---|---|---|---|
 
-- **Each rejected option MUST cite at least one falsifying source**: prior commit, precedent code, KB result, Memory Core result, prior issue / PR / discussion, or an explicit `"no source found after query X"` note. Bare 1-line rejection rationales without sourced falsification are paperwork, not divergent exploration.
-- **At least 2 alternative shapes** must be enumerated alongside the recommended one, so the reader sees the design space, not just the chosen point.
+- Each rejected option MUST cite at least one falsifying source, and at least 2 alternative shapes must be enumerated beside the recommendation.
 
 **Process gate — matrix authored BEFORE convergence:**
 
@@ -64,6 +61,6 @@ A Discussion cannot graduate until it is clearly scoped. There is no universal c
 
 **Graduation block:** if the matrix is missing OR lacks falsifying sources, downstream Epic / ticket creation is blocked per `epic-review-workflow.md` Stage 2 Discussion-origin backstop and per `ticket-create-workflow.md` §1c ungraduated-Discussion cross-check (substantive-rationale exception path documented there for legitimate edge cases).
 
-**Substrate-decay control (per AGENTS.md §13):** review this guard's effectiveness after **6 months OR 5 qualifying high-blast-radius graduations**, whichever comes first. If the gate caught no premature convergence over the review window, OR measurably increased review-cycle churn without preventing wrong-shape epics, retire / rewrite / compress. Sunset is symmetric to gate: the substrate-evolution mechanism applies to itself.
+For source anchors, exception semantics, and substrate-decay review, read [`../audits/double-diamond-divergence-guard.md`](../audits/double-diamond-divergence-guard.md).
 
 - **Graduation Trigger:** The author (human or agent) declares readiness by adding a `GRADUATED` marker near the top of the body, linking to the resulting Epic / ticket / PR. The author MUST then formally close the Discussion. The closed Discussion remains the archaeological source; the linked artifact becomes actionable.
