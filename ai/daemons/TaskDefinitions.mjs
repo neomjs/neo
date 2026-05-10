@@ -28,6 +28,27 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../scripts');
  */
 export function buildTaskDefinitions({scriptDir = DEFAULT_SCRIPT_DIR, nodeBin = process.argv[0]} = {}) {
     return {
+        chroma: {
+            label          : 'chroma daemon',
+            command        : 'chroma',
+            args           : ['run', '--path', '.neo-ai-data/chroma/knowledge-base', '--port', '8000'],
+            pidFileName    : 'chroma.pid',
+            expectedCommand: 'chroma'
+        },
+        bridgeDaemon: {
+            label          : 'bridge daemon',
+            command        : nodeBin,
+            args           : [path.join(scriptDir, 'bridge-daemon.mjs')],
+            pidFileName    : 'bridge-daemon.pid',
+            expectedCommand: 'bridge-daemon.mjs'
+        },
+        mlx: {
+            label          : 'mlx inference',
+            command        : path.resolve(scriptDir, '../mcp/server/memory-core/.venv/bin/python'),
+            args           : ['-m', 'mlx_lm.server', '--model', 'gemma4:31b', '--port', '11435'],
+            pidFileName    : 'mlx.pid',
+            expectedCommand: 'mlx_lm.server'
+        },
         summary: {
             label          : 'session summarization',
             command        : nodeBin,
