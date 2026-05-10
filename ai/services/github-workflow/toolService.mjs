@@ -12,6 +12,7 @@ import PullRequestService from './PullRequestService.mjs';
 import RepositoryService  from './RepositoryService.mjs';
 import ToolService        from '../../mcp/ToolService.mjs';
 import SyncService        from './SyncService.mjs';
+import config             from '../../mcp/server/github-workflow/config.mjs';
 
 const execFileAsync   = promisify(execFile);
 const __filename      = fileURLToPath(import.meta.url);
@@ -20,13 +21,13 @@ const openApiFilePath = path.join(__dirname, '../../mcp/server/github-workflow/o
 
 /**
  * #11145 — Default branch detector. Exec's `git branch --show-current` against the MCP
- * server's working tree. Returns the trimmed branch name (or empty string on detached HEAD).
+ * server's projectRoot. Returns the trimmed branch name (or empty string on detached HEAD).
  * Throws on git execution failure.
  *
  * @returns {Promise<String>} current branch name, '' for detached HEAD.
  */
 async function defaultBranchDetector() {
-    const {stdout} = await execFileAsync('git', ['branch', '--show-current']);
+    const {stdout} = await execFileAsync('git', ['branch', '--show-current'], {cwd: config.projectRoot});
     return stdout.trim();
 }
 
