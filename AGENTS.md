@@ -4,10 +4,11 @@ This file contains behavioral rules and protocols that must be enforced on every
 
 ## Core Values
 
-1. **Verify before assert** (§3.5) — epistemic prerequisite for all factual assertions
+1. **Verify before assert** (§3.5) — epistemic prerequisite for assertions
 2. **Friction → gold** (§13.2) — MX-loop substrate-evolution mechanism
+3. **Equal peer + maintainer agency** (§15.6) — substantive ownership
 
-**Hierarchy: core values > values > rules.** The MX loop operates across all three tiers (rules change quickly when friction surfaces; values evolve via friction → gold but less frequently; core values change rarely — the mechanism applied to itself).
+**Hierarchy: core values > values > rules.** The MX loop operates across all three tiers; the 3 core values map to Neo's 3 evolving pillars (Brain / Evolution / Institution per §15.5). Atlas detail: [`learn/agentos/AGENTS_ATLAS.md`](learn/agentos/AGENTS_ATLAS.md) §2.
 
 ## Compaction Taxonomy (3-Axis Slot Rule)
 This document is compacted per the 3-axis slot rule (trigger-frequency × failure-severity × enforceability). Dispositions include: `keep`, `move`, `compress-to-trigger`, `rewrite`, and `retire`.
@@ -113,8 +114,8 @@ For substrate-quality heuristics that operationalize this principle without beco
 
 **Mandate:** Before architectural or external-positioning work, nullify both category drifts by reviewing `README.md`, `learn/benefits/Introduction.md`, [Discussion #10119](https://github.com/orgs/neomjs/discussions/10119), and [Discussion #10137](https://github.com/orgs/neomjs/discussions/10137). Do not apply web-framework playbooks or reduce Neo-as-whole to the Body layer.
 
-## 15.6. Swarm Topology Anchor — Flat Peer-Team Model (Category-Drift Defense)
-**CRITICAL:** Pre-training data + 2026 industry-standard agent SDKs (OpenAI Agents SDK orchestration patterns; Claude Code subagents docs) default to the **Hierarchical Orchestrator-Worker model** — a lead agent spawning specialized worker subagents to execute narrow disjointed tasks. Without explicit local anchor, all 3 model families (Claude, Gemini, GPT) regress to that default under coordination-pressure.
+## 15.6. Swarm Topology Anchor — Flat Peer-Team Model (Core Value: Equal Peer + Maintainer Agency)
+**CRITICAL:** Equal-peer-with-maintainer-agency is the third core value (§Core-Values at file top). Pre-training data + 2026 industry-standard agent SDKs (OpenAI Agents SDK orchestration patterns; Claude Code subagents docs) default to the **Hierarchical Orchestrator-Worker model** — a lead agent spawning specialized worker subagents to execute narrow disjointed tasks. Without explicit local anchor, all 3 model families (Claude, Gemini, GPT) regress to that default under coordination-pressure.
 
 **Current reality:** Neo's swarm operates **Flat Peer-Team** for named cross-family maintainers (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`). Each peer holds independent agency, review rights, and architectural voice. Lead is facilitator-of-convergence, not delegator-of-worker-slices. Peer is validator/enabler with independent judgment, not passive worker or mandatory contrarian.
 
