@@ -249,9 +249,19 @@ class DatabaseService extends Base {
 
         let imported = 0;
 
-        const insertNode = db.prepare('INSERT OR REPLACE INTO Nodes (id, user_id, data) VALUES (?, ?, ?)');
+        // Mode-dependent INSERT semantics (#11141):
+        //   - 'replace' mode: TRUNCATE-then-OR-REPLACE. Conflict impossible after truncate,
+        //     OR REPLACE retained for backward parity. Backup IS the new state.
+        //   - 'merge' mode: OR IGNORE. Preserves live rows when IDs collide; backup-only IDs
+        //     still INSERT; live-only IDs untouched. This is the "merge latest content with
+        //     backup" semantic the runRestore two-mode contract documented (#10871). Pre-#11141,
+        //     merge silently used OR REPLACE — overwriting post-wipe re-ingestion (gh-workflow +
+        //     retrospective daemon) with stale backup versions. The 2026-05-10 graph-wipe incident
+        //     was the empirical anchor that surfaced this gap.
+        const conflictClause = mode === 'replace' ? 'OR REPLACE' : 'OR IGNORE';
+        const insertNode = db.prepare(`INSERT ${conflictClause} INTO Nodes (id, user_id, data) VALUES (?, ?, ?)`);
         const insertEdge = db.prepare(`
-            INSERT OR REPLACE INTO Edges (id, user_id, source, target, type, data)
+            INSERT ${conflictClause} INTO Edges (id, user_id, source, target, type, data)
             VALUES (?, ?, ?, ?, ?, ?)
         `);
 

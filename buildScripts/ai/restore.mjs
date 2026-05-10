@@ -47,13 +47,26 @@ import {
  *   the restore refuses unless the operator passes `--force-topology-mismatch`.
  *   Bundles without `bundle-meta.json` skip this check with a console warning.
  * - **Two-mode contract:**
- *     - `--mode merge` (default): idempotent. Embedded substrates upsert (no destructive
- *       wipe). Flat substrates skip-if-target-non-empty (preserves operator additions).
- *       No `--force` required.
+ *     - `--mode merge` (default): idempotent. Embedded substrates use `INSERT OR IGNORE` —
+ *       backup-only IDs INSERT; live-existing IDs preserved (post-wipe re-ingestion stays
+ *       authoritative). Flat substrates skip-if-target-non-empty (preserves operator
+ *       additions). No `--force` required. Per-#11141: this preserve-live semantic was
+ *       silently broken pre-#11141 (used `INSERT OR REPLACE`); 2026-05-10 graph-wipe
+ *       incident was the empirical anchor.
  *     - `--mode replace`: gated. Each embedded subsystem fires
  *       `assertDestructiveTargetAllowed()` before truncating + restoring. Flat substrates
  *       fire the guard against the target file/dir path before overwriting. Refuses if
  *       any target is non-empty without `--force`.
+ *
+ * - **Per-incident customization (#11141):**
+ *     - `--filter-labels=<csv>` — drop graph nodes with these labels (orphan-edge guard
+ *       drops edges whose endpoint was filtered). Example: `FILE,DIRECTORY,KB_GAP,TOOLING_GAP`.
+ *     - `--filter-edge-types=<csv>` — drop graph edges with these types. Example:
+ *       `CONTAINS,DISCOVERED_IN,EVALUATED_BY`.
+ *     - `--only-substrate=<csv>` — restrict to listed substrates. Example: `graph` (skips
+ *       kb/mc/concepts/trajectories/mailbox).
+ *     - `--post-restore-hook=<name>` — invoke after restore. Currently: `filesystem-ingestor`
+ *       (regenerates FILE/DIRECTORY/CONTAINS deterministically from current filesystem).
  *
  * ## Intentionally-out-of-scope
  *
@@ -93,8 +106,12 @@ const OPTIONAL_BUNDLE_SUBDIRS = ['mailbox'];
  * @param {String}  [options.conceptsTargetDir]            Override the default concepts target directory.
  * @param {String}  [options.trajectoriesTargetFile]       Override the default trajectories target file.
  * @param {String}  [options.sentToCullTargetFile]         Override the default sent-to-cull target file.
+ * @param {String[]}[options.filterLabels=[]]              Per-incident #11141 customization: drop graph nodes with these labels. Orphan-edge guard auto-fires (drops edges whose endpoint was filtered). Empty list = no filter. Example today's-incident set: `['FILE', 'DIRECTORY', 'KB_GAP', 'TOOLING_GAP']` (FILE/DIRECTORY are regenerable via FileSystemIngestor; KB_GAP/TOOLING_GAP are operator-classified garbage from per-file hallucination).
+ * @param {String[]}[options.filterEdgeTypes=[]]           Per-incident #11141 customization: drop graph edges with these types. Example today's-incident set: `['CONTAINS', 'DISCOVERED_IN', 'EVALUATED_BY']`.
+ * @param {String[]}[options.onlySubstrate=null]           If provided, restore ONLY these substrates (subset of `['kb','mc','graph','concepts','trajectories','mailbox']`). Null = all (existing behavior).
+ * @param {String}  [options.postRestoreHook=null]         Post-restore hook name. Currently supported: `'filesystem-ingestor'` (regenerates FILE/DIRECTORY/CONTAINS deterministically from current filesystem). Null = none.
  * @param {Object}  [options.logger=console]               Log sink; useful for tests.
- * @returns {Promise<{bundleRoot: String, mode: String, subsystems: Object, meta: Object|null, topology: Object}>}
+ * @returns {Promise<{bundleRoot: String, mode: String, subsystems: Object, meta: Object|null, topology: Object, postRestoreHook: Object|null}>}
  */
 export async function runRestore({
     bundleRoot,
@@ -105,6 +122,10 @@ export async function runRestore({
     conceptsTargetDir       = DEFAULT_CONCEPTS_DIR,
     trajectoriesTargetFile  = DEFAULT_TRAJECTORIES_FILE,
     sentToCullTargetFile    = DEFAULT_SENT_TO_CULL_FILE,
+    filterLabels            = [],
+    filterEdgeTypes         = [],
+    onlySubstrate           = null,
+    postRestoreHook         = null,
     logger                  = console
 } = {}) {
     if (!bundleRoot) {
@@ -150,9 +171,21 @@ export async function runRestore({
 
     const subsystems = {};
 
+    // Per-substrate gate (#11141): null `onlySubstrate` = all subsystems (existing behavior).
+    // Non-null array restricts to listed names. Validates against the known substrate set
+    // so typos fail fast instead of silently no-op'ing the entire restore.
+    const ALL_SUBSTRATES   = ['kb', 'mc', 'graph', 'concepts', 'trajectories', 'mailbox'];
+    if (Array.isArray(onlySubstrate)) {
+        const unknown = onlySubstrate.filter(s => !ALL_SUBSTRATES.includes(s));
+        if (unknown.length > 0) {
+            throw new Error(`Unknown substrate(s) in --only-substrate: ${unknown.join(', ')}. Valid: ${ALL_SUBSTRATES.join(', ')}.`);
+        }
+    }
+    const shouldRestore = (substrate) => onlySubstrate === null || onlySubstrate.includes(substrate);
+
     logger.log('[4/6] Restoring embedded substrates (KB, MC memories+summaries, MC graph)...');
 
-    if (await fs.pathExists(layout.kb)) {
+    if (shouldRestore('kb') && await fs.pathExists(layout.kb)) {
         subsystems.kb = await KB_DatabaseService.manageDatabaseBackup({
             action: 'import',
             file  : layout.kb,
@@ -161,7 +194,7 @@ export async function runRestore({
         });
     }
 
-    if (await fs.pathExists(layout.mc)) {
+    if (shouldRestore('mc') && await fs.pathExists(layout.mc)) {
         subsystems.mc = await Memory_DatabaseService.manageDatabaseBackup({
             action: 'import',
             file  : layout.mc,
@@ -170,38 +203,55 @@ export async function runRestore({
         });
     }
 
-    if (await fs.pathExists(layout.graph)) {
+    if (shouldRestore('graph') && await fs.pathExists(layout.graph)) {
+        // Apply per-incident filter (#11141): drop nodes/edges by label/type before SDK import.
+        // Stream-filter into a temp dir matching the bundle layout. Idempotent on re-run.
+        // Empty filter sets short-circuit to original layout.graph (no extra work).
+        const filterStats   = {filteredNodes: 0, filteredEdges: 0, orphanEdges: 0};
+        const graphInputDir = (filterLabels.length || filterEdgeTypes.length)
+            ? await prepareFilteredGraphDir({sourceDir: layout.graph, filterLabels, filterEdgeTypes, stats: filterStats, logger})
+            : layout.graph;
+
         subsystems.graph = await Memory_DatabaseService.manageDatabaseBackup({
             action: 'import',
-            file  : layout.graph,
+            file  : graphInputDir,
             mode,
             confirmation
         });
+
+        if (filterLabels.length || filterEdgeTypes.length) {
+            subsystems.graph.filterStats = filterStats;
+            logger.log(`[Restore][graph] filtered out ${filterStats.filteredNodes} nodes (labels: ${filterLabels.join(',') || '—'}) + ${filterStats.filteredEdges} edges (types: ${filterEdgeTypes.join(',') || '—'}) + ${filterStats.orphanEdges} orphan-endpoint edges before SDK import.`);
+        }
     }
 
     logger.log('[5/6] Restoring flat substrates (concepts, trajectories, mailbox)...');
 
-    subsystems.concepts = await restoreFlatDir({
-        sourceDir : layout.concepts,
-        targetDir : conceptsTargetDir,
-        mode,
-        force,
-        confirmation,
-        subsystem : 'concepts',
-        logger
-    });
+    if (shouldRestore('concepts')) {
+        subsystems.concepts = await restoreFlatDir({
+            sourceDir : layout.concepts,
+            targetDir : conceptsTargetDir,
+            mode,
+            force,
+            confirmation,
+            subsystem : 'concepts',
+            logger
+        });
+    }
 
-    subsystems.trajectories = await restoreFlatFile({
-        sourceDir : layout.trajectories,
-        targetFile: trajectoriesTargetFile,
-        mode,
-        force,
-        confirmation,
-        subsystem : 'trajectories',
-        logger
-    });
+    if (shouldRestore('trajectories')) {
+        subsystems.trajectories = await restoreFlatFile({
+            sourceDir : layout.trajectories,
+            targetFile: trajectoriesTargetFile,
+            mode,
+            force,
+            confirmation,
+            subsystem : 'trajectories',
+            logger
+        });
+    }
 
-    if (await fs.pathExists(layout.mailbox)) {
+    if (shouldRestore('mailbox') && await fs.pathExists(layout.mailbox)) {
         subsystems.mailbox = await restoreFlatFile({
             sourceDir : layout.mailbox,
             targetFile: sentToCullTargetFile,
@@ -213,12 +263,22 @@ export async function runRestore({
         });
     }
 
+    // Post-restore hook dispatch (#11141). Currently supported:
+    //   - 'filesystem-ingestor': regenerates FILE/DIRECTORY/CONTAINS substrate from
+    //     current filesystem state. Idempotent + deterministic. Recommended after a
+    //     graph restore that filtered out FILE/DIRECTORY (avoids stale-path nodes
+    //     for files that no longer exist).
+    let postRestoreHookResult = null;
+    if (postRestoreHook) {
+        postRestoreHookResult = await dispatchPostRestoreHook({hook: postRestoreHook, logger});
+    }
+
     logger.log('[6/6] Restore complete.');
     if (meta) {
         logger.log(`Source bundle: bundleVersion=${meta.bundleVersion ?? '?'}, neoVersion=${meta.neoVersion ?? '?'}, gitSha=${meta.gitSha ?? '?'}, completedAt=${meta.completedAt ?? '?'}`);
     }
 
-    return {bundleRoot: resolvedRoot, mode, subsystems, meta, topology}
+    return {bundleRoot: resolvedRoot, mode, subsystems, meta, topology, postRestoreHook: postRestoreHookResult}
 }
 
 /**
@@ -485,6 +545,112 @@ async function restoreFlatFile({sourceDir, targetFile, mode, force, confirmation
 }
 
 /**
+ * #11141 — Pre-import filter for graph JSONL bundles.
+ *
+ * Stream-reads each `*.jsonl` file under `sourceDir`, drops nodes whose `data.label`
+ * matches `filterLabels` and edges whose `data.type` matches `filterEdgeTypes`. Also
+ * fires the orphan-edge guard: drops edges whose source OR target endpoint was filtered
+ * out (preserves graph integrity post-filter).
+ *
+ * Writes filtered output to a temp dir at `${os.tmpdir()}/neo-restore-graph-<ts>/` mirroring
+ * the source-dir layout. Returns the temp dir path for the SDK import.
+ *
+ * Idempotent + safe per-run: temp dirs are uniquely timestamped; OS cleanup or explicit
+ * caller cleanup handles tear-down. Does NOT mutate the source bundle.
+ *
+ * Empty filter sets short-circuit to source-dir return (no file IO). Caller responsibility
+ * to gate on filter-presence before invoking.
+ *
+ * @param {Object}   options
+ * @param {String}   options.sourceDir       Bundle's `graph/` directory containing JSONL files.
+ * @param {String[]} options.filterLabels    Node labels to drop.
+ * @param {String[]} options.filterEdgeTypes Edge types to drop.
+ * @param {Object}   options.stats           Mutable counters: `{filteredNodes, filteredEdges, orphanEdges}`.
+ * @param {Object}   [options.logger=console]
+ * @returns {Promise<String>} Path to temp dir with filtered JSONL files.
+ */
+async function prepareFilteredGraphDir({sourceDir, filterLabels, filterEdgeTypes, stats, logger = console}) {
+    const os       = (await import('os')).default;
+    const readline = (await import('readline')).default;
+    const labelSet = new Set(filterLabels);
+    const typeSet  = new Set(filterEdgeTypes);
+
+    const tempDir = path.join(os.tmpdir(), `neo-restore-graph-${Date.now()}`);
+    await fs.ensureDir(tempDir);
+
+    const sourceFiles = (await fs.readdir(sourceDir)).filter(f => f.endsWith('.jsonl'));
+    if (sourceFiles.length === 0) return sourceDir; // empty bundle, fall through unchanged
+
+    for (const fileName of sourceFiles) {
+        const inPath  = path.join(sourceDir, fileName);
+        const outPath = path.join(tempDir, fileName);
+
+        // First pass: identify dropped node IDs (orphan-edge guard depends on this set).
+        const droppedNodeIds = new Set();
+        if (labelSet.size > 0) {
+            const rl = readline.createInterface({input: fs.createReadStream(inPath), crlfDelay: Infinity});
+            for await (const line of rl) {
+                if (!line.trim()) continue;
+                try {
+                    const r = JSON.parse(line);
+                    if (r.type === 'node' && labelSet.has(r.data?.label)) {
+                        droppedNodeIds.add(r.data.id);
+                    }
+                } catch (e) { /* skip malformed lines */ }
+            }
+        }
+
+        // Second pass: write filtered output.
+        const rl2  = readline.createInterface({input: fs.createReadStream(inPath), crlfDelay: Infinity});
+        const out  = fs.createWriteStream(outPath);
+        for await (const line of rl2) {
+            if (!line.trim()) continue;
+            try {
+                const r = JSON.parse(line);
+                if (r.type === 'node') {
+                    if (labelSet.has(r.data?.label)) { stats.filteredNodes++; continue; }
+                } else if (r.type === 'edge') {
+                    if (typeSet.has(r.data?.type)) { stats.filteredEdges++; continue; }
+                    if (droppedNodeIds.has(r.data?.source) || droppedNodeIds.has(r.data?.target)) {
+                        stats.orphanEdges++;
+                        continue;
+                    }
+                }
+                out.write(line + '\n');
+            } catch (e) { /* skip malformed lines */ }
+        }
+        await new Promise(resolve => out.end(resolve));
+    }
+
+    logger.log?.(`[Restore][graph] pre-import filter: writing filtered JSONL to ${tempDir}`);
+    return tempDir;
+}
+
+/**
+ * #11141 — Post-restore hook dispatch.
+ *
+ * Currently supported hooks:
+ *   - `'filesystem-ingestor'`: regenerates FILE/DIRECTORY nodes + CONTAINS edges from
+ *     current filesystem state. Idempotent + deterministic. Recommended after restoring
+ *     a graph backup with FILE/DIRECTORY filtered out (avoids stale-path nodes for files
+ *     that no longer exist post-refactor).
+ *
+ * @param {Object} options
+ * @param {String} options.hook   Hook name.
+ * @param {Object} [options.logger=console]
+ * @returns {Promise<{hook: String, result: Object}>}
+ */
+async function dispatchPostRestoreHook({hook, logger = console}) {
+    if (hook === 'filesystem-ingestor') {
+        logger.log(`[Restore] Triggering post-restore hook: filesystem-ingestor (regenerates FILE/DIRECTORY/CONTAINS)...`);
+        const FileSystemIngestor = (await import('../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
+        await FileSystemIngestor.syncWorkspaceToGraph();
+        return {hook, result: {ok: true, message: 'FileSystemIngestor.syncWorkspaceToGraph() completed'}};
+    }
+    throw new Error(`Unknown post-restore hook: ${hook}. Supported: filesystem-ingestor.`);
+}
+
+/**
  * Parses CLI arguments for direct-invocation mode.
  *
  * Shape: `node ./buildScripts/ai/restore.mjs <bundle-path> [--mode merge|replace] [--force] [--force-topology-mismatch]`
@@ -497,6 +663,12 @@ export function parseArgs(argv) {
     let mode                    = 'merge';
     let force                   = false;
     let forceTopologyMismatch   = false;
+    let filterLabels            = [];
+    let filterEdgeTypes         = [];
+    let onlySubstrate           = null;
+    let postRestoreHook         = null;
+
+    const splitCsv = s => String(s).split(',').map(t => t.trim()).filter(Boolean);
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -506,6 +678,22 @@ export function parseArgs(argv) {
             force = true;
         } else if (arg === '--force-topology-mismatch') {
             forceTopologyMismatch = true;
+        } else if (arg === '--filter-labels') {
+            filterLabels = splitCsv(argv[++i]);
+        } else if (arg.startsWith('--filter-labels=')) {
+            filterLabels = splitCsv(arg.slice('--filter-labels='.length));
+        } else if (arg === '--filter-edge-types') {
+            filterEdgeTypes = splitCsv(argv[++i]);
+        } else if (arg.startsWith('--filter-edge-types=')) {
+            filterEdgeTypes = splitCsv(arg.slice('--filter-edge-types='.length));
+        } else if (arg === '--only-substrate') {
+            onlySubstrate = splitCsv(argv[++i]);
+        } else if (arg.startsWith('--only-substrate=')) {
+            onlySubstrate = splitCsv(arg.slice('--only-substrate='.length));
+        } else if (arg === '--post-restore-hook') {
+            postRestoreHook = argv[++i];
+        } else if (arg.startsWith('--post-restore-hook=')) {
+            postRestoreHook = arg.slice('--post-restore-hook='.length);
         } else if (arg.startsWith('--')) {
             throw new Error(`Unknown flag: ${arg}`);
         } else {
@@ -520,7 +708,7 @@ export function parseArgs(argv) {
         throw new Error(`Unexpected positional arguments: ${positional.slice(1).join(' ')}`);
     }
 
-    return {bundleRoot: positional[0], mode, force, forceTopologyMismatch}
+    return {bundleRoot: positional[0], mode, force, forceTopologyMismatch, filterLabels, filterEdgeTypes, onlySubstrate, postRestoreHook}
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -538,6 +726,12 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     } catch (error) {
         console.error(error.message);
         console.error('Usage: node ./buildScripts/ai/restore.mjs <bundle-path> [--mode merge|replace] [--force] [--force-topology-mismatch]');
+        console.error('       [--filter-labels=<csv>] [--filter-edge-types=<csv>] [--only-substrate=<csv>] [--post-restore-hook=<name>]');
+        console.error('Example (today\'s graph wipe restore):');
+        console.error('  npm run ai:restore -- <bundle-path> --mode merge --only-substrate=graph \\');
+        console.error('    --filter-labels=FILE,DIRECTORY,KB_GAP,TOOLING_GAP \\');
+        console.error('    --filter-edge-types=CONTAINS,DISCOVERED_IN,EVALUATED_BY \\');
+        console.error('    --post-restore-hook=filesystem-ingestor');
         process.exit(2);
     }
 }
