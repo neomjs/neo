@@ -106,16 +106,15 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
 
     test('should extract node neighbors properly', async () => {
         test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
-        GraphService.upsertNode({id: 'EpicA', name: 'Roadmap Planner'});
-        GraphService.upsertNode({id: 'Task1', name: 'Implementation'});
-        GraphService.upsertNode({id: 'Task2', name: 'Documentation'});
+        await GraphService.upsertNode({id: 'EpicA', name: 'Roadmap Planner'});
+        await GraphService.upsertNode({id: 'Task1', name: 'Implementation'});
+        await GraphService.upsertNode({id: 'Task2', name: 'Documentation'});
 
-        GraphService.linkNodes('EpicA', 'Task1', 'CONTAINS', 1.0);
-        GraphService.linkNodes('EpicA', 'Task2', 'CONTAINS', 0.8);
-        GraphService.linkNodes('Task1', 'Task2', 'DEPENDENCY', 0.5);
+        await GraphService.linkNodes('EpicA', 'Task1', 'CONTAINS', 1.0);
+        await GraphService.linkNodes('EpicA', 'Task2', 'CONTAINS', 0.8);
+        await GraphService.linkNodes('Task1', 'Task2', 'DEPENDENCY', 0.5);
 
-        const result = GraphService.getNeighbors({id: 'EpicA'});
-        console.log('GETNEIGHBORS RESULT:', result);
+        const result = await GraphService.getNeighbors({id: 'EpicA'});
         const {neighbors} = result || {};
 
         // Validation of extraction
@@ -134,17 +133,17 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
 
     test('should dynamically compute getNodeGravity natively', async () => {
         test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
-        GraphService.upsertNode({id: 'NodeA'});
-        GraphService.upsertNode({id: 'NodeB'});
-        GraphService.upsertNode({id: 'NodeC'});
-        GraphService.upsertNode({id: 'NodeD'});
+        await GraphService.upsertNode({id: 'NodeA'});
+        await GraphService.upsertNode({id: 'NodeB'});
+        await GraphService.upsertNode({id: 'NodeC'});
+        await GraphService.upsertNode({id: 'NodeD'});
 
-        GraphService.linkNodes('NodeA', 'NodeB', 'DEPENDS_ON');
-        GraphService.linkNodes('NodeA', 'NodeC', 'IMPLEMENTS');
-        GraphService.linkNodes('NodeD', 'NodeA', 'RELATES_TO');
+        await GraphService.linkNodes('NodeA', 'NodeB', 'DEPENDS_ON');
+        await GraphService.linkNodes('NodeA', 'NodeC', 'IMPLEMENTS');
+        await GraphService.linkNodes('NodeD', 'NodeA', 'RELATES_TO');
 
-        const gravityA = GraphService.getNodeGravity('NodeA');
-        const gravityB = GraphService.getNodeGravity('NodeB');
+        const gravityA = await GraphService.getNodeGravity('NodeA');
+        const gravityB = await GraphService.getNodeGravity('NodeB');
         
         // NodeA out:2 (NodeB, NodeC), in:1 (NodeD)
         expect(gravityA.out_degree).toBe(2);
@@ -156,14 +155,13 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     });
 
     test('should correctly expose getContextFrontier topology', async () => {
-        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: workers:1 close-singleton residual (#10941)');
-        GraphService.upsertNode({id: 'frontier', type: 'SYSTEM_ANCHOR'});
-        GraphService.upsertNode({id: 'EpicB'});
+        await GraphService.upsertNode({id: 'frontier', type: 'SYSTEM_ANCHOR'});
+        await GraphService.upsertNode({id: 'EpicB'});
 
         // Weight < 0.8 should be filtered out by getContextFrontier originally
-        GraphService.linkNodes('frontier', 'EpicB', 'STRATEGIC_PIVOT', 0.9);
+        await GraphService.linkNodes('frontier', 'EpicB', 'STRATEGIC_PIVOT', 0.9);
 
-        const topology = GraphService.getContextFrontier();
+        const topology = await GraphService.getContextFrontier();
         expect(topology).toBeDefined();
         expect(topology.frontier.id).toBe('frontier');
         expect(topology.strategicNeighbors.length).toBe(1);
@@ -171,10 +169,9 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     });
 
     test('should trigger a SQLite lazy-load on cache miss when fetching a Node', async () => {
-        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: workers:1 close-singleton residual (#10941)');
-        GraphService.upsertNode({id: 'LazyNode', name: 'Wait For It'});
-        GraphService.upsertNode({id: 'ConnectedNode', name: 'Linked'});
-        GraphService.linkNodes('LazyNode', 'ConnectedNode', 'TEST_LINK', 1.0);
+        await GraphService.upsertNode({id: 'LazyNode', name: 'Wait For It'});
+        await GraphService.upsertNode({id: 'ConnectedNode', name: 'Linked'});
+        await GraphService.linkNodes('LazyNode', 'ConnectedNode', 'TEST_LINK', 1.0);
 
         // Let the asynchronous store mutations propagate to SQLite natively
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -190,13 +187,13 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         GraphService.db.autoSave = wasAutoSave;
 
         // Access via getNeighbors which should trigger SQLite rehydration
-        const {neighbors} = GraphService.getNeighbors({id: 'LazyNode'});
+        const {neighbors} = await GraphService.getNeighbors({id: 'LazyNode'});
         expect(neighbors.length).toBe(1);
         expect(neighbors[0].id).toBe('ConnectedNode');
         expect(neighbors[0].relationship).toBe('TEST_LINK');
 
         // Verify the node itself is fully rehydrated in RAM
-        const rehydratedNode = GraphService.getNode({id: 'LazyNode'});
+        const rehydratedNode = await GraphService.getNode({id: 'LazyNode'});
         expect(rehydratedNode.id).toBe('LazyNode');
         expect(rehydratedNode.name).toBe('Wait For It');
 
@@ -223,7 +220,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         GraphService.db.nodes.clear();
 
         // Perform the upsert with a stub payload
-        GraphService.upsertNode({id: '@test-identity', type: 'AGENT'});
+        await GraphService.upsertNode({id: '@test-identity', type: 'AGENT'});
 
         // Wait for potential async writes
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -240,8 +237,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     });
 
     test('should recover from boot-time identity cache race (stuck vicinity cache)', async () => {
-        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: workers:1 close-singleton residual (#10941)');
-        GraphService.upsertNode({id: '@neo-opus-4-7', name: 'Identity Node'});
+        await GraphService.upsertNode({id: '@neo-opus-4-7', name: 'Identity Node'});
 
         // Let the asynchronous store mutations propagate to SQLite natively
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -263,7 +259,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         let retries = 3;
         let rehydratedNode = null;
         while (retries > 0) {
-            rehydratedNode = GraphService.getNode({id: '@neo-opus-4-7'});
+            rehydratedNode = await GraphService.getNode({id: '@neo-opus-4-7'});
             if (rehydratedNode) break;
 
             if (GraphService.db && GraphService.db.vicinityLoadedNodes) {
@@ -283,10 +279,9 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     });
 
     test('should lazy-load topology for getContextFrontier when frontiers drop out of cache', async () => {
-        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: workers:1 close-singleton residual (#10941)');
-        GraphService.upsertNode({id: 'frontier', type: 'SYSTEM_ANCHOR', name: 'AnchorData'});
-        GraphService.upsertNode({id: 'StrategicTarget', name: 'SecretGoal'});
-        GraphService.linkNodes('frontier', 'StrategicTarget', 'FOCUS', 1.0);
+        await GraphService.upsertNode({id: 'frontier', type: 'SYSTEM_ANCHOR', name: 'AnchorData'});
+        await GraphService.upsertNode({id: 'StrategicTarget', name: 'SecretGoal'});
+        await GraphService.linkNodes('frontier', 'StrategicTarget', 'FOCUS', 1.0);
 
         // Let the asynchronous store mutations propagate to SQLite natively
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -302,7 +297,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         GraphService.db.autoSave = wasAutoSave;
 
         // The method should seamlessly recover the topology from SQLite
-        const topology = GraphService.getContextFrontier();
+        const topology = await GraphService.getContextFrontier();
 
         expect(topology).toBeDefined();
         expect(topology.frontier.id).toBe('frontier');
@@ -313,15 +308,14 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     });
 
     test('should execute getPaths and lazy-load recursively across deep dependencies when RAM cache is missed', async () => {
-        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: workers:1 close-singleton residual (#10941)');
-        GraphService.upsertNode({id: 'Root', name: 'Starting Point'});
-        GraphService.upsertNode({id: 'Depth1', name: 'First Hop'});
-        GraphService.upsertNode({id: 'Depth2', name: 'Second Hop'});
-        GraphService.upsertNode({id: 'Depth3', name: 'Final Hop'});
+        await GraphService.upsertNode({id: 'Root', name: 'Starting Point'});
+        await GraphService.upsertNode({id: 'Depth1', name: 'First Hop'});
+        await GraphService.upsertNode({id: 'Depth2', name: 'Second Hop'});
+        await GraphService.upsertNode({id: 'Depth3', name: 'Final Hop'});
 
-        GraphService.linkNodes('Root', 'Depth1', 'CHAIN', 1.0);
-        GraphService.linkNodes('Depth1', 'Depth2', 'CHAIN', 1.0);
-        GraphService.linkNodes('Depth2', 'Depth3', 'CHAIN', 1.0);
+        await GraphService.linkNodes('Root', 'Depth1', 'CHAIN', 1.0);
+        await GraphService.linkNodes('Depth1', 'Depth2', 'CHAIN', 1.0);
+        await GraphService.linkNodes('Depth2', 'Depth3', 'CHAIN', 1.0);
 
         // Let the asynchronous store mutations propagate to SQLite natively
         await new Promise(resolve => setTimeout(resolve, 50));
@@ -351,11 +345,10 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
 
         // Verify that deeply resolved nodes were structurally hydrated into memory
         expect(GraphService.db.nodes.has('Depth3')).toBe(true);
-        expect(GraphService.getNode({id: 'Depth3'}).name).toBe('Final Hop');
+        expect((await GraphService.getNode({id: 'Depth3'})).name).toBe('Final Hop');
     });
 
     test('should automatically execute LRU garbage collection Native Graph footprints when maxGraphNodes is exceeded', async () => {
-        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: workers:1 close-singleton residual (#10941)');
         // Guarantee pristine isolated boundary baseline natively for this LRU physics test exclusively smoothly
         GraphService.db.nodes.clear();
         GraphService.db.edges.clear();
@@ -365,17 +358,17 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         // Set maximum capacity constraint to 3 nodes
         GraphService.db.maxGraphNodes = 3;
 
-        GraphService.upsertNode({id: 'N1', name: 'First'});
-        GraphService.getNode({id: 'N1'}); // Register to LRU Matrix natively
+        await GraphService.upsertNode({id: 'N1', name: 'First'});
+        await GraphService.getNode({id: 'N1'}); // Register to LRU Matrix natively
 
         // Let timestamp differential tick natively avoiding micro-millisecond collisions gracefully
         await new Promise(resolve => setTimeout(resolve, 5));
-        GraphService.upsertNode({id: 'N2', name: 'Second'});
-        GraphService.getNode({id: 'N2'});
+        await GraphService.upsertNode({id: 'N2', name: 'Second'});
+        await GraphService.getNode({id: 'N2'});
 
         await new Promise(resolve => setTimeout(resolve, 5));
-        GraphService.upsertNode({id: 'N3', name: 'Third'});
-        GraphService.getNode({id: 'N3'});
+        await GraphService.upsertNode({id: 'N3', name: 'Third'});
+        await GraphService.getNode({id: 'N3'});
 
         // V8 footprint holds 3 items flawlessly locally smoothly
         expect(GraphService.db.nodes.getCount()).toBe(3);
@@ -384,8 +377,8 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         await new Promise(resolve => setTimeout(resolve, 5));
 
         // This 4th insert will push the length over 3 when accessed.
-        GraphService.upsertNode({id: 'N4', name: 'Fourth'});
-        GraphService.getNode({id: 'N4'}); // GC fires here natively!
+        await GraphService.upsertNode({id: 'N4', name: 'Fourth'});
+        await GraphService.getNode({id: 'N4'}); // GC fires here natively!
 
         // V8 footprint must hold 3 items cleanly locally natively. Output should be N2, N3, N4
         expect(GraphService.db.nodes.getCount()).toBe(3);
@@ -400,15 +393,15 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     });
 
     test('should resolve queryNodeTopology correctly formatting root and neighbors', async () => {
-        GraphService.upsertNode({id: 'RootT', name: 'Topology Start'});
-        GraphService.upsertNode({id: 'AdjacentT', name: 'Adjacency Target', semanticVectorId: 'vec-123'});
-        GraphService.upsertNode({id: 'DeepT', name: 'Deep Target', semanticVectorId: 'vec-456'});
+        await GraphService.upsertNode({id: 'RootT', name: 'Topology Start'});
+        await GraphService.upsertNode({id: 'AdjacentT', name: 'Adjacency Target', semanticVectorId: 'vec-123'});
+        await GraphService.upsertNode({id: 'DeepT', name: 'Deep Target', semanticVectorId: 'vec-456'});
 
-        GraphService.linkNodes('RootT', 'AdjacentT', 'REFERENCES', 0.95);
-        GraphService.linkNodes('AdjacentT', 'DeepT', 'REFERENCES', 0.85);
+        await GraphService.linkNodes('RootT', 'AdjacentT', 'REFERENCES', 0.95);
+        await GraphService.linkNodes('AdjacentT', 'DeepT', 'REFERENCES', 0.85);
 
         // Fetch using the new endpoint topology function - depth 1
-        const topology1 = GraphService.queryNodeTopology({nodeId: 'RootT', maxDepth: 1});
+        const topology1 = await GraphService.queryNodeTopology({nodeId: 'RootT', maxDepth: 1});
 
         // Verify root mapping
         expect(topology1).toBeDefined();
@@ -422,7 +415,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(topology1.nodes.find(n => n.id === 'DeepT')).toBeUndefined();
 
         // Fetch using depth 2
-        const topology2 = GraphService.queryNodeTopology({nodeId: 'RootT', maxDepth: 2});
+        const topology2 = await GraphService.queryNodeTopology({nodeId: 'RootT', maxDepth: 2});
         expect(topology2.nodes.length).toBe(3);
         expect(topology2.edges.length).toBe(2);
         expect(topology2.nodes.find(n => n.id === 'DeepT').semanticVectorId).toBe('vec-456');
@@ -434,11 +427,11 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(link.source).toBe('RootT');
     });
 
-    test('linkNodes handles WAL-snapshot lag via cache-warm retry mechanism', () => {
+    test('linkNodes handles WAL-snapshot lag via cache-warm retry mechanism', async () => {
         // We simulate WAL snapshot lag by ensuring the node is NOT in SQLite during the first FK check,
         // but appears in SQLite exactly when the cache-warm mechanism is triggered.
 
-        GraphService.upsertNode({ id: 'AnchorNode', type: 'AGENT', name: 'Anchor', properties: {} });
+        await GraphService.upsertNode({ id: 'AnchorNode', type: 'AGENT', name: 'Anchor', properties: {} });
         
         expect(GraphService.db.nodes.has('GhostNode')).toBe(false);
 
@@ -461,7 +454,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         };
 
         // linkNodes should hit the first FK check failure (count=1), trigger cache warm, find the ghost, and succeed
-        GraphService.linkNodes('AnchorNode', 'GhostNode', 'SEES_GHOST', 1.0);
+        await GraphService.linkNodes('AnchorNode', 'GhostNode', 'SEES_GHOST', 1.0);
 
         // Restore original method
         GraphService.db.getAdjacentNodes = originalGetAdjacent;
@@ -483,20 +476,20 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     // async path that resolves missing endpoints via `MemorySessionIngestor.ingestSingleRow`.
     // ----------------------------------------------------------------------------------------
 
-    test('normalizeGraphNodeId lowercases memory:/session: prefixes and passes others through', () => {
-        expect(GraphService.normalizeGraphNodeId('MEMORY:abc')).toBe('memory:abc');
-        expect(GraphService.normalizeGraphNodeId('memory:abc')).toBe('memory:abc');
-        expect(GraphService.normalizeGraphNodeId('SESSION:xyz')).toBe('session:xyz');
-        expect(GraphService.normalizeGraphNodeId('session:xyz')).toBe('session:xyz');
-        expect(GraphService.normalizeGraphNodeId('CONCEPT:foo')).toBe('CONCEPT:foo');
-        expect(GraphService.normalizeGraphNodeId('frontier')).toBe('frontier');
-        expect(GraphService.normalizeGraphNodeId(null)).toBe(null);
-        expect(GraphService.normalizeGraphNodeId('')).toBe('');
+    test('normalizeGraphNodeId lowercases memory:/session: prefixes and passes others through', async () => {
+        expect(await GraphService.normalizeGraphNodeId('MEMORY:abc')).toBe('memory:abc');
+        expect(await GraphService.normalizeGraphNodeId('memory:abc')).toBe('memory:abc');
+        expect(await GraphService.normalizeGraphNodeId('SESSION:xyz')).toBe('session:xyz');
+        expect(await GraphService.normalizeGraphNodeId('session:xyz')).toBe('session:xyz');
+        expect(await GraphService.normalizeGraphNodeId('CONCEPT:foo')).toBe('CONCEPT:foo');
+        expect(await GraphService.normalizeGraphNodeId('frontier')).toBe('frontier');
+        expect(await GraphService.normalizeGraphNodeId(null)).toBe(null);
+        expect(await GraphService.normalizeGraphNodeId('')).toBe('');
     });
 
     test('linkNodesAsync creates the edge when both endpoints already exist', async () => {
-        GraphService.upsertNode({id: 'NodeA', type: 'TEST', name: 'A', properties: {}});
-        GraphService.upsertNode({id: 'NodeB', type: 'TEST', name: 'B', properties: {}});
+        await GraphService.upsertNode({id: 'NodeA', type: 'TEST', name: 'A', properties: {}});
+        await GraphService.upsertNode({id: 'NodeB', type: 'TEST', name: 'B', properties: {}});
 
         const ok = await GraphService.linkNodesAsync('NodeA', 'NodeB', 'RELATES_TO', 1.0);
 
@@ -515,12 +508,12 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         MemorySessionIngestor.ingestSingleRow = async (id) => {
             const normalized = id.toLowerCase().startsWith('memory:') ? 'memory:' + id.slice(7) :
                                id.toLowerCase().startsWith('session:') ? 'session:' + id.slice(8) : id;
-            GraphService.upsertNode({id: normalized, type: 'MEMORY', name: normalized, properties: {backfilled: true}});
+            await GraphService.upsertNode({id: normalized, type: 'MEMORY', name: normalized, properties: {backfilled: true}});
             return {success: true, reason: 'backfilled', graphNodeId: normalized};
         };
 
         try {
-            GraphService.upsertNode({id: 'NodeSrc', type: 'TEST', name: 'Src', properties: {}});
+            await GraphService.upsertNode({id: 'NodeSrc', type: 'TEST', name: 'Src', properties: {}});
 
             const ok = await GraphService.linkNodesAsync('NodeSrc', 'memory:lazy-xyz', 'MENTIONED_IN', 1.0);
 
@@ -542,12 +535,12 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         MemorySessionIngestor.ingestSingleRow = async (id) => {
             // The resolver is called with the already-normalized id; verify that fact.
             expect(id).toBe('memory:upper-case-id');
-            GraphService.upsertNode({id: 'memory:upper-case-id', type: 'MEMORY', name: 'UC', properties: {backfilled: true}});
+            await GraphService.upsertNode({id: 'memory:upper-case-id', type: 'MEMORY', name: 'UC', properties: {backfilled: true}});
             return {success: true, reason: 'backfilled', graphNodeId: 'memory:upper-case-id'};
         };
 
         try {
-            GraphService.upsertNode({id: 'NodeSrc2', type: 'TEST', name: 'Src', properties: {}});
+            await GraphService.upsertNode({id: 'NodeSrc2', type: 'TEST', name: 'Src', properties: {}});
 
             // Caller passes uppercase prefix — linkNodesAsync normalizes before ensureNodeExists.
             const ok = await GraphService.linkNodesAsync('NodeSrc2', 'MEMORY:upper-case-id', 'REFERENCED_BY', 1.0);
@@ -576,7 +569,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         });
 
         try {
-            GraphService.upsertNode({id: 'NodeSrc3', type: 'TEST', name: 'Src', properties: {}});
+            await GraphService.upsertNode({id: 'NodeSrc3', type: 'TEST', name: 'Src', properties: {}});
 
             const ok = await GraphService.linkNodesAsync('NodeSrc3', 'memory:does-not-exist', 'MENTIONED_IN', 1.0);
 
@@ -592,7 +585,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     });
 
     test('linkNodesAsync returns false for unrecognized-prefix targets (non-back-fillable)', async () => {
-        GraphService.upsertNode({id: 'NodeSrc4', type: 'TEST', name: 'Src', properties: {}});
+        await GraphService.upsertNode({id: 'NodeSrc4', type: 'TEST', name: 'Src', properties: {}});
 
         // No mock needed — ingestSingleRow will return {success: false, reason: 'unrecognized-prefix'}
         // for the CONCEPT: prefix (not a memory:/session: target).
@@ -602,7 +595,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     });
 
     test('ensureNodeExists returns true when node already in graph', async () => {
-        GraphService.upsertNode({id: 'memory:present', type: 'MEMORY', name: 'present', properties: {}});
+        await GraphService.upsertNode({id: 'memory:present', type: 'MEMORY', name: 'present', properties: {}});
 
         const ready = await GraphService.ensureNodeExists('memory:present');
 
@@ -669,8 +662,8 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
 
         try {
             // Act: Upsert Node and Link Nodes as Agent A
-            GraphService.upsertNode({id: 'tenant-a-node-1', type: 'TEST', name: 'tenant-a', properties: {}});
-            GraphService.upsertNode({id: 'tenant-a-node-2', type: 'TEST', name: 'tenant-a', properties: {}});
+            await GraphService.upsertNode({id: 'tenant-a-node-1', type: 'TEST', name: 'tenant-a', properties: {}});
+            await GraphService.upsertNode({id: 'tenant-a-node-2', type: 'TEST', name: 'tenant-a', properties: {}});
             await GraphService.linkNodesAsync('tenant-a-node-1', 'tenant-a-node-2', 'RELATES_TO', 1.0);
 
             // Assert: Nodes and edges are stamped
@@ -707,7 +700,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
 
             // Test legacy "untagged" node isolation (should be visible to both)
             mockIdentity = undefined; // System level / legacy
-            GraphService.upsertNode({id: 'legacy-node-1', type: 'TEST', name: 'legacy-node', properties: {}});
+            await GraphService.upsertNode({id: 'legacy-node-1', type: 'TEST', name: 'legacy-node', properties: {}});
             // Legacy nodes are synced directly via upsertNode to db.storage.addNodes
 
             mockIdentity = '@identity-b';
@@ -744,8 +737,8 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
 
         try {
             // Act: Upsert Node as Agent A but mark it as shared
-            GraphService.upsertNode({id: 'shared-node-1', type: 'TEST', name: 'shared-node', properties: { sharedEntity: true }});
-            GraphService.upsertNode({id: 'private-node-1', type: 'TEST', name: 'private-node', properties: {}});
+            await GraphService.upsertNode({id: 'shared-node-1', type: 'TEST', name: 'shared-node', properties: { sharedEntity: true }});
+            await GraphService.upsertNode({id: 'private-node-1', type: 'TEST', name: 'private-node', properties: {}});
             await GraphService.linkNodesAsync('shared-node-1', 'private-node-1', 'RELATES_TO', 1.0);
 
             // Clear RAM to force disk load without deleting from SQLite
