@@ -9,7 +9,6 @@ import { Memory_GraphService as GraphService } from '../../services.mjs';
 import Json from '../../../src/util/Json.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
 import OpenAiCompatible from '../../provider/OpenAiCompatible.mjs';
-import IssueIngestor from './IssueIngestor.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -44,11 +43,6 @@ class GoldenPathSynthesizer extends Base {
      */
     async synthesizeGoldenPath() {
         logger.info('[GoldenPathSynthesizer] Initializing Hybrid GraphRAG Strategic Traversal...');
-
-        // This will sync Graph Node states and embed issue vectors!
-        await IssueIngestor.ingestIssueStates();
-        await IssueIngestor.ingestDiscussionStates();
-        await IssueIngestor.ingestPullRequestFeedback();
 
         let graphColl = null;
         let summaryColl = null;

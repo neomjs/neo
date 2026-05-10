@@ -579,7 +579,17 @@ class MemoryService extends Base {
     }
 
     /**
-     * Mutates the active context frontier in the native knowledge graph.
+     * Mutates the current Session/Epic focus of the Active Context Frontier.
+     *
+     * @summary Event-Ordering: This method triggers `GoldenPathSynthesizer.synthesizeGoldenPath()`
+     * asynchronously (fire-and-forget). If invoked immediately after a local ticket file edit
+     * (but BEFORE `SyncService` Stage 2 runs `IssueIngestor`), the Golden Path will be synthesized
+     * using potentially *stale graph state*. This is an intentional architectural trade-off of the
+     * event-driven model: priority updates (like pivoting to a new Epic) are immediate, while
+     * substrate content updates rely on the async SyncService pipeline.
+     * If this fires during Stage 2 ingestion mid-flight, SQLite handles concurrent reads safely,
+     * though the synthesis might miss the in-flight ingestion data.
+     *
      * @param {Object} options
      * @param {String} options.targetNodeId The semantic target ID.
      * @param {Number} [options.weight=1.0] Importance weighting.
@@ -596,6 +606,15 @@ class MemoryService extends Base {
             }
 
             const result = GraphService.mutateFrontier({ targetNodeId, weight, relationship });
+
+            // Trigger event-driven Golden Path Synthesis
+            import('../../daemons/services/GoldenPathSynthesizer.mjs').then(mod => {
+                mod.default.synthesizeGoldenPath().catch(err => {
+                    logger.error('[MemoryService] Event-driven Golden Path Synthesis failed:', err);
+                });
+            }).catch(err => {
+                logger.error('[MemoryService] Failed to load GoldenPathSynthesizer:', err);
+            });
 
             return {
                 message: 'Successfully mutated the context frontier.',
