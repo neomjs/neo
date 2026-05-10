@@ -10,11 +10,16 @@ let projectRoot;
 if (process.env.NEO_WORKSPACE_ROOT) {
     projectRoot = process.env.NEO_WORKSPACE_ROOT;
 } else {
-    const nodeModulesIndex = __dirname.indexOf(`${path.sep}node_modules${path.sep}neo.mjs`);
-    if (nodeModulesIndex !== -1) {
-        projectRoot = __dirname.slice(0, nodeModulesIndex) || path.sep;
+    const pnpmIndex = __dirname.indexOf(`${path.sep}node_modules${path.sep}.pnpm${path.sep}`);
+    if (pnpmIndex !== -1) {
+        projectRoot = __dirname.slice(0, pnpmIndex) || path.sep;
     } else {
-        projectRoot = path.resolve(__dirname, '../../../../');
+        const nodeModulesIndex = __dirname.indexOf(`${path.sep}node_modules${path.sep}neo.mjs`);
+        if (nodeModulesIndex !== -1) {
+            projectRoot = __dirname.slice(0, nodeModulesIndex) || path.sep;
+        } else {
+            projectRoot = path.resolve(__dirname, '../../../../');
+        }
     }
 }
 

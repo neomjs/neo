@@ -82,6 +82,7 @@ Target-tier shorthand:
 | `NEO_OPENAI_COMPATIBLE_HOST` | `memory-core/config.template.mjs:161` | Tier 1 | Shared provider block value; also runtime host binding for local providers. Tier 1 default with env override. |
 | `NEO_OPENAI_COMPATIBLE_MODEL` | `memory-core/config.template.mjs:162` | Tier 1 | Shared provider block value. Tier 1 default plus optional env override. |
 | `NEO_PUBLIC_URL` | `shared/helpers/DeploymentConfig.mjs:119`; `memory-core/config.template.mjs:113`; `knowledge-base/config.template.mjs:58` | Tier 3 | Runtime binding for externally advertised MCP URL behind reverse proxies. |
+| `NEO_WORKSPACE_ROOT` | `github-workflow/config.template.mjs:10` | Tier 3 | Runtime binding for canonical project root path to override standard/pnpm layout heuristic discovery. |
 | `NEO_RLAIF_PATH` | `memory-core/config.template.mjs:269` | Tier 2 | Dataset path. Prefer Memory Core config; env override only if operator path injection is needed. |
 | `NEO_SESSION_ID` | `knowledge-base/Server.mjs:190`; `knowledge-base/services/toolService.mjs:43` | Tier 3 | Session identity binding for KB telemetry/request context fallback. |
 | `NEO_VECTOR_DIMENSION` | `memory-core/config.template.mjs:171` | Tier 1 | Shared embedding/vector contract. Tier 1 default plus optional env override only during controlled migrations. |

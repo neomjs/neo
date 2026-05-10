@@ -88,6 +88,7 @@ When provisioning your containers, supply the following minimal environment vari
 
 | `NEO_CHROMA_HOST` | Both | Internal URL of the Chroma instance. |
 | `NEO_CHROMA_PORT` | Both | Port of the Chroma instance. |
+| `NEO_WORKSPACE_ROOT` | Both | The path to the root of the project workspace. Used to override automatic heuristic layout discovery for standard or pnpm mono-repos. |
 | `NEO_PUBLIC_URL` | Both | The canonical public URL for this MCP server (e.g., `https://api.example.com/mc`). Required for SSE advertisement and OAuth `redirect_uri` generation behind reverse proxies. |
 | `NEO_AUTH_TRUST_PROXY_IDENTITY` | Both | Set to `true` if your reverse proxy handles authentication. |
 | `GEMINI_API_KEY` | Both | Required for Gemini integration. |

@@ -93,7 +93,7 @@ const serviceMapping = {
 
 // Exported for unit-test access (#11145). `buildDevBranchGuard` accepts injected
 // `delegate` + `getBranch` for fixture-driven testing without spawning real `git`.
-export {buildDevBranchGuard, syncAllOnDevOnly};
+export {buildDevBranchGuard, syncAllOnDevOnly, defaultBranchDetector};
 
 const toolService = Neo.create(ToolService, {
     openApiFilePath,

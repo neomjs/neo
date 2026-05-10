@@ -38,11 +38,13 @@ import InstanceManager from '../../../../../../src/manager/Instance.mjs';
  * testing without spawning real `git` (no environment dependency).
  */
 test.describe('Neo.ai.services.github-workflow.toolService — sync_all dev-branch guard (#11145)', () => {
-    let buildDevBranchGuard;
+    let buildDevBranchGuard, defaultBranchDetector, config;
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/services/github-workflow/toolService.mjs');
         buildDevBranchGuard = mod.buildDevBranchGuard;
+        defaultBranchDetector = mod.defaultBranchDetector;
+        config = (await import('../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
     });
 
     test('sync_all delegates to SyncService.runFullSync when on dev', async () => {
@@ -97,5 +99,16 @@ test.describe('Neo.ai.services.github-workflow.toolService — sync_all dev-bran
         const guarded = buildDevBranchGuard(async () => {}, async () => 'feature/x');
 
         await expect(guarded()).rejects.toThrow(/PrimaryRepoSyncService/);
+    });
+
+    test('defaultBranchDetector uses config.projectRoot as cwd (mocked cwd test)', async () => {
+        const originalRoot = config.projectRoot;
+        try {
+            // Set to an explicitly invalid path to guarantee a git error about not being a git repository or no such file
+            config.projectRoot = '/tmp/fake-non-existent-dir-for-neo-test-123';
+            await expect(defaultBranchDetector()).rejects.toThrow(/spawn git|ENOENT|not a git repository/i);
+        } finally {
+            config.projectRoot = originalRoot;
+        }
     });
 });
