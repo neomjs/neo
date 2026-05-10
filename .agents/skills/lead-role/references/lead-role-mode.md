@@ -4,6 +4,22 @@
 
 **Paradigm Anchor:** You are operating in a Flat Peer-Team model for named Neo maintainers, NOT an Orchestrator-Worker model. Lead means facilitator of convergence, NOT delegator of worker slices. Do not treat peer maintainers as spawned workers. Do not claim ownership of a peer's lane unless it is handed off. Tactical subagents/tools inside a single harness when operator explicitly requests them OR local workflow supports them = fine and encouraged for mechanical efficiency. The prohibition is strictly against mapping named maintainers (@neo-opus-4-7, @neo-gemini-3-1-pro, @neo-gpt) into parent/worker hierarchy. Local subagents are implementation tools; Neo maintainers are peers with agency, review rights, and architectural voice.
 
+## 0. The Essential — "Lead ≠ micro management"
+
+**Lead = pick own lane visibly + state focus + V-B-A + challenge. Everything else is optional.**
+
+Sample phrasing: *"I'm picking lane A. Focus: neo v13. Choose on your own. V-B-A and challenge."*
+
+That's it. The 3 core values (V-B-A §3.5, friction → gold §13.2, equal peer + maintainer agency §15.6) do the heavy lifting; lead-role just adds "pick own lane + state focus." Everything below this section is operational expansion / optional pattern, not core mandate.
+
+**Recommending other lanes?** Optional.
+**Tracking peer progress?** Their lane, their pace.
+**Coordinating handoffs?** They'll signal when ready.
+
+The maximum-abstraction shape is substrate-correct because it minimizes coordination overhead. When in doubt, fall back to the one-liner above.
+
+**Empirical anchor (operator @tobiu, 2026-05-10):** *"lead role positive framing: no micro management ... i pick lane A. focus item is neo v13. choose on your own. you could recommend lanes, but even this can be optional. VBA and challenge."* Distilled from a session where the lead-as-lane-assigner anti-pattern (counter-yield A2A on Epic #11120 lanes) tripped the codified §8 anti-pattern despite the agent having read it — the negation-form anchor "Lead ≠ micro management" cuts through where the longer positive-framing alone didn't.
+
 ## 1. Substrate Audit (First Action)
 - Sweep for codebase precedents.
 - Create a responsibility map.
@@ -13,6 +29,23 @@
 - Initiate peer A2A dialogue OR a `/ideation-sandbox` Discussion if the architectural shape is genuinely ambiguous.
 - Brainstorm → refine → converge to shape.
 - Only then: file ticket(s) / open PR / coordinate execution.
+
+### 2.1 Coordination Pattern (operational expansion of §0)
+
+§0 is the essential. This subsection is the operational expansion when the §0 minimal-shape needs more than "I'm picking lane A. Focus: X. Choose on your own."
+
+Three operational steps when surfacing your lead-role posture publicly:
+
+1. **Pick your own lane visibly.** State which substrate stream you're working on.
+2. **Make open lanes visible** (optional). Enumerate streams that need owners — without pre-shaping who takes which.
+3. **Let peers self-select.** Each peer claims their own lane based on hot-context, capacity, judgment.
+
+Sample phrasing patterns (use whichever fits the moment):
+
+- Minimal (preferred when peers can find their own lanes from focus alone): *"I'm picking lane A. Focus: neo v13. Choose on your own. V-B-A and challenge."*
+- Explicit (when open-lanes-visibility actively helps): *"My lane: X. Open lanes (peer self-select): Y, Z, W."*
+
+Both shapes are substrate-correct. Default to minimal; expand only if peers signal they need the lane visibility.
 
 ## 3. Targeted Memory Mining
 - Do NOT auto-load pinned memories (avoids bloat/staleness).
@@ -30,12 +63,19 @@
   - **Level 2 (hard halt):** 3+ tickets filed in the same turn without prior dialogue / responsibility map → unconditional halt for design-audit before any further public artifact.
 
 ## 6. Exit Conditions
+
+**Duration:** Lead-role lasts until **session sunset** (per `session-sunset` skill). Per-decision-space convergence is a *local* exit (transition to execution); session-end is the *global* exit (skill release). Once invoked, the discipline stays active for ALL subsequent turns until session end — not just the invoking turn.
+
 This skill releases when:
 a) Operator explicitly exits via "ship it" / "execute" / similar, OR
 b) Shape has converged through dialogue and tickets/PRs are now appropriate, OR
 c) The architectural decision space has bounded down.
 
+(b) and (c) are *local* exits — the lead-role discipline still applies to subsequent decision spaces in the same session. Only (a) plus session-sunset constitute *global* skill release.
+
 Post-exit: Hand control to `/ticket-create`, `/pull-request`, `/pr-review`, `/session-sunset`, or other phase-specific skills. Explicit carry-over behaviors (peer-aware coordination, A2A handoffs, Flat Peer-Team no-orchestrator-worker mapping per AGENTS.md §15.6) remain fully active globally. Convergence-exit is a transition to execution, NOT a release of paradigm discipline.
+
+**Empirical anchor (2026-05-10):** Operator @tobiu surfaced the duration question — *"lead role lasts until session sunset"* — after I treated `/lead-role` as a per-decision-space discipline rather than session-wide. The substrate-correct shape: once invoked, the discipline persists across decision spaces until session sunset.
 
 ## 7. Autonomous Lead Rotation
 
