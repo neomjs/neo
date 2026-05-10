@@ -291,7 +291,7 @@ test.describe('restore.mjs filters + hooks (#11141)', () => {
             Database  = mod.default;
         });
 
-        async function buildSyntheticGraphDb() {
+        function buildSyntheticGraphDb() {
             const dbFile = path.join(workRoot, `graph-merge-${Date.now()}-${Math.random().toString(36).slice(2)}.sqlite`);
             const db     = new Database(dbFile);
             db.pragma('foreign_keys = ON');
@@ -314,7 +314,7 @@ test.describe('restore.mjs filters + hooks (#11141)', () => {
         }
 
         test('merge mode (OR IGNORE): conflicting node-id keeps live row, no cascade-delete on its edges', () => {
-            const {db, dbFile} = (function () { const r = buildSyntheticGraphDb.bind(null)(); return r; })();
+            const {db, dbFile} = buildSyntheticGraphDb();
             try {
                 // Live state: one node + one edge.
                 db.prepare("INSERT INTO Nodes (id, data) VALUES ('n1', 'LIVE-VERSION')").run();
@@ -345,7 +345,7 @@ test.describe('restore.mjs filters + hooks (#11141)', () => {
         });
 
         test('replace mode (OR REPLACE): conflicting node-id overwrites + cascade-deletes its edges (DOCUMENTED behavior)', () => {
-            const {db, dbFile} = (function () { const r = buildSyntheticGraphDb.bind(null)(); return r; })();
+            const {db, dbFile} = buildSyntheticGraphDb();
             try {
                 // Live state: one node + one edge.
                 db.prepare("INSERT INTO Nodes (id, data) VALUES ('n1', 'LIVE-VERSION')").run();
@@ -375,7 +375,7 @@ test.describe('restore.mjs filters + hooks (#11141)', () => {
         });
 
         test('merge mode (OR IGNORE) on edges: conflicting edge-id preserves live edge data', () => {
-            const {db, dbFile} = (function () { const r = buildSyntheticGraphDb.bind(null)(); return r; })();
+            const {db, dbFile} = buildSyntheticGraphDb();
             try {
                 db.prepare("INSERT INTO Nodes (id, data) VALUES ('n1', 'live')").run();
                 db.prepare("INSERT INTO Nodes (id, data) VALUES ('n2', 'live')").run();
@@ -396,7 +396,7 @@ test.describe('restore.mjs filters + hooks (#11141)', () => {
         });
 
         test('merge mode: backup-only IDs INSERT cleanly (changes=1)', () => {
-            const {db, dbFile} = (function () { const r = buildSyntheticGraphDb.bind(null)(); return r; })();
+            const {db, dbFile} = buildSyntheticGraphDb();
             try {
                 db.prepare("INSERT INTO Nodes (id, data) VALUES ('live-only', 'live')").run();
 
