@@ -591,7 +591,7 @@ async function restoreFlatFile({sourceDir, targetFile, mode, force, confirmation
  * @param {Object}   [options.logger=console]
  * @returns {Promise<String>} Path to temp dir with filtered JSONL files.
  */
-async function prepareFilteredGraphDir({sourceDir, filterLabels, filterEdgeTypes, liveNodeIds, stats, logger = console}) {
+export async function prepareFilteredGraphDir({sourceDir, filterLabels, filterEdgeTypes, liveNodeIds, stats, logger = console}) {
     const os       = (await import('os')).default;
     const readline = (await import('readline')).default;
     const labelSet = new Set(filterLabels);
@@ -667,7 +667,7 @@ async function prepareFilteredGraphDir({sourceDir, filterLabels, filterEdgeTypes
  * @param {String} options.dbPath Absolute path to live SQLite (`mcConfig.storagePaths.graph`).
  * @returns {Promise<Set<String>>} Set of live node IDs.
  */
-async function collectLiveGraphNodeIds({dbPath}) {
+export async function collectLiveGraphNodeIds({dbPath}) {
     const Database = (await import('better-sqlite3')).default;
     const db       = new Database(dbPath, {readonly: true, fileMustExist: true});
     try {
@@ -702,7 +702,7 @@ async function collectLiveGraphNodeIds({dbPath}) {
  * @param {Object} [options.logger=console]
  * @returns {Promise<{hook: String, result: Object}>}
  */
-async function dispatchPostRestoreHook({hook, logger = console}) {
+export async function dispatchPostRestoreHook({hook, logger = console}) {
     if (hook === 'filesystem-ingestor') {
         logger.log(`[Restore] Triggering post-restore hook: filesystem-ingestor (regenerates FILE/DIRECTORY/CONTAINS)...`);
         const FileSystemIngestor = (await import('../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
