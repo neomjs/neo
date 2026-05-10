@@ -15,7 +15,6 @@ import ConceptDiscoveryService from './services/ConceptDiscoveryService.mjs';
 import ConceptIngestor from './services/ConceptIngestor.mjs';
 import FileSystemIngestor from '../services/memory-core/FileSystemIngestor.mjs';
 import GapInferenceEngine from './services/GapInferenceEngine.mjs';
-import GoldenPathSynthesizer from './services/GoldenPathSynthesizer.mjs';
 import GraphMaintenanceService from './services/GraphMaintenanceService.mjs';
 import IssueIngestor from './services/IssueIngestor.mjs';
 import MemorySessionIngestor from './services/MemorySessionIngestor.mjs';
@@ -84,11 +83,6 @@ class DreamService extends Base {
         if (aiConfig.data.autoDream) {
             logger.info('[Startup] DreamService: Checking for undigested session memories...');
             this.processUndigestedSessions().catch(e => logger.error('[Startup] DreamService failed:', e));
-        }
-
-        if (aiConfig.data.autoGoldenPath) {
-            logger.info('[Startup] DreamService: Synthesizing Golden Path into handoff file...');
-            this.synthesizeGoldenPath().catch(e => logger.error('[Startup] Golden Path generation failed:', e));
         }
     }
 
@@ -253,9 +247,6 @@ class DreamService extends Base {
             // Universal Fade (Garbage Collection)
             await this.runGarbageCollection();
 
-            // After extraction pipeline and decay are done, synthesize strategic roadmap
-            await this.synthesizeGoldenPath();
-
             logger.info('[DreamService] REM pipeline completed.');
         } catch (error) {
             logger.error('[DreamService] Failed to process undigested sessions:', error);
@@ -335,14 +326,6 @@ class DreamService extends Base {
      */
     async runGarbageCollection() {
         return GraphMaintenanceService.runGarbageCollection();
-    }
-
-    /**
-     * Synthesizes the Golden Path (strategic priorities) deterministically by analyzing Graph topology
-     * combined with Vector Similarity (Hybrid GraphRAG).
-     */
-    async synthesizeGoldenPath() {
-        return GoldenPathSynthesizer.synthesizeGoldenPath();
     }
 }
 

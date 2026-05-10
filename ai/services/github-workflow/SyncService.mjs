@@ -157,6 +157,18 @@ class SyncService extends Base {
             }
         }
 
+        // Stage 2: Ingest into Native Graph Database
+        try {
+            logger.info('[SyncService] Stage 2: Triggering Native Graph Issue Ingestion...');
+            const IssueIngestor = (await import('../../daemons/services/IssueIngestor.mjs')).default;
+            await IssueIngestor.ingestIssueStates();
+            await IssueIngestor.ingestDiscussionStates();
+            await IssueIngestor.ingestPullRequestFeedback();
+            logger.info('[SyncService] Stage 2: Native Graph Issue Ingestion complete.');
+        } catch (error) {
+            logger.error(`[SyncService] Stage 2 Ingestion failed: ${error.message}`);
+        }
+
         const endTime    = new Date();
         const durationMs = endTime - startTime;
 
