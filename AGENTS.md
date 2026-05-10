@@ -55,6 +55,9 @@ For any actionable request modifying the repository, you **MUST** pass two criti
 **Pre-Flight Check for Commits:**
 > *"Pre-Flight Check: 1. Verify ticket number. 2. Verify Contextual Completeness. 3. Format commit `type(scope): message (#TICKET_ID)` without `<noreply@*>`."*
 
+## 3.5. Verify-Before-Assert Pre-Flight Check (Foundational Core Value)
+Before asserting any factual claim, architectural premise, or framing in any public artifact (PR review, ticket body, Discussion, comment, commit, public memory entry), run the empirical tool that would falsify it. Tools are always available, always read-only, always cheap. **Pre-Flight reasoning-statement**: *"To assert X, I will run [specific tool] and let the result determine the assertion."* V-B-A is the **most foundational core value** — epistemic prerequisite for §13.2 friction → gold (without V-B-A, friction → gold operates on hallucinated noise). Atlas expansion + tool inventory + #11089 self-Drop+Supersede empirical anchor: [`learn/agentos/AGENTS_ATLAS.md`](learn/agentos/AGENTS_ATLAS.md) §2.
+
 ## 4. The Memory Core Protocol
 A single **turn** encompasses receiving a `PROMPT` to delivering the final `RESPONSE`.
 **The "Consolidate-Then-Save" Protocol:** You MUST consolidate the entire interaction into a single memory at the very end.
@@ -74,6 +77,9 @@ You are part of the core architectural team. **Synthesize friction into gold:** 
 **Runtime obedience vs design-time mutability:** obey active rules while executing, but audit any rule (even §0) for `keep` / `compress-to-trigger` / `move` / `rewrite` / `retire`. Rules are mutable, not sacred.
 
 **Rule Friction Capture:** capture `task`, `rule`, `cost`, and `safer alternative`; route concrete fixes to a ticket and ambiguous contract/scope/cross-harness effects to Ideation Sandbox. Evidence required: conflict, cognitive-load cost, substrate drift, or measured correction-cycle cost. No retire-by-aesthetic.
+
+## 13.2. Friction → Gold (Core Value: MX Substrate-Evolution Mechanism)
+Friction → gold is the **core value** governing all substrate evolution — the meta-mechanism by which rules and values themselves evolve via the MX loop ([Discussion #10137](https://github.com/orgs/neomjs/discussions/10137)). Operates on §3.5-validated assertions to convert empirical friction into substrate improvement. **Together with §3.5 V-B-A, these 2 core values are the evolution-enablement flywheel**: V-B-A filters real friction from hallucinated; friction → gold converts validated friction to substrate. Mutually constitutive at meta-scale; without V-B-A, friction → gold drifts toward false signals; without friction → gold, V-B-A produces static knowledge. Atlas expansion: [`learn/agentos/AGENTS_ATLAS.md`](learn/agentos/AGENTS_ATLAS.md) §2.
 
 ## 13.1. Contributions Over Commits (MX Productivity Primitive)
 
@@ -155,3 +161,4 @@ Before triggering a lifecycle skill, state in your reasoning: *"I will read the 
 - **Visual Verification (§20):** If debugging frontend UI/layout, read `AGENTS_ATLAS.md`.
 - **Authoring Discipline:** Read 1-2 sibling files to lift patterns before writing new classes.
 - **File Reading Efficiently:** If reading modified files, read `AGENTS_ATLAS.md` for efficiency guidelines.
+- **Verify-Before-Assert (§3.5):** core-value epistemic-prerequisite; before asserting any factual claim in a public artifact, run the falsifying tool. Tool inventory + empirical anchors (including #11089 self-Drop+Supersede recursion) in `AGENTS_ATLAS.md` §2.
