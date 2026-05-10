@@ -1,4 +1,5 @@
 import {test, expect} from '@playwright/test';
+import path from 'path';
 import Neo from '../../../../../src/Neo.mjs';
 import * as core from '../../../../../src/core/_export.mjs';
 import {
@@ -145,6 +146,23 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             taskName: 'kbSync',
             reason  : 'periodic-sync:600000'
         });
+    });
+
+    test('resolves default paths correctly without configuration overrides', () => {
+        const orchestrator = Neo.create(Orchestrator);
+        const dataDir = '/tmp/orchestrator-test-defaults';
+        
+        expect(() => orchestrator.configure({ dataDir })).not.toThrow();
+        
+        expect(orchestrator.logFile).toBe(path.join(dataDir, 'orchestrator.log'));
+        expect(orchestrator.stateFile).toBe(path.join(dataDir, 'orchestrator-state.json'));
+        
+        const repoRoot = path.resolve(process.cwd());
+        const expectedSummaryScript = path.resolve(repoRoot, 'ai/scripts/summarize-sessions.mjs');
+        const expectedKbSyncScript = path.resolve(repoRoot, 'buildScripts/ai/syncKnowledgeBase.mjs');
+        
+        expect(orchestrator.taskDefinitions.summary.args[0]).toBe(expectedSummaryScript);
+        expect(orchestrator.taskDefinitions.kbSync.args[0]).toBe(expectedKbSyncScript);
     });
 
 });
