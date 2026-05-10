@@ -206,11 +206,25 @@ export async function runRestore({
     if (shouldRestore('graph') && await fs.pathExists(layout.graph)) {
         // Apply per-incident filter (#11141): drop nodes/edges by label/type before SDK import.
         // Stream-filter into a temp dir matching the bundle layout. Idempotent on re-run.
-        // Empty filter sets short-circuit to original layout.graph (no extra work).
-        const filterStats   = {filteredNodes: 0, filteredEdges: 0, orphanEdges: 0};
-        const graphInputDir = (filterLabels.length || filterEdgeTypes.length)
-            ? await prepareFilteredGraphDir({sourceDir: layout.graph, filterLabels, filterEdgeTypes, stats: filterStats, logger})
-            : layout.graph;
+        // Filter goes through the FK-safe Stage-1/2/3 algorithm (per @neo-gpt review).
+        // Empty filter sets short-circuit to original layout.graph (no extra work / no live read).
+        const filterStats   = {filteredNodes: 0, filteredEdges: 0, orphanEdges: 0, acceptedNodes: 0};
+        const filterActive  = filterLabels.length > 0 || filterEdgeTypes.length > 0;
+
+        let graphInputDir = layout.graph;
+        if (filterActive) {
+            // Read-only snapshot of live node IDs (Stage-2 union with accepted-backup IDs).
+            // WAL mode lets us read concurrently with the running MC daemon.
+            const liveNodeIds = await collectLiveGraphNodeIds({dbPath: mcConfig.storagePaths.graph});
+            graphInputDir = await prepareFilteredGraphDir({
+                sourceDir       : layout.graph,
+                filterLabels,
+                filterEdgeTypes,
+                liveNodeIds,
+                stats           : filterStats,
+                logger
+            });
+        }
 
         subsystems.graph = await Memory_DatabaseService.manageDatabaseBackup({
             action: 'import',
@@ -219,9 +233,9 @@ export async function runRestore({
             confirmation
         });
 
-        if (filterLabels.length || filterEdgeTypes.length) {
+        if (filterActive) {
             subsystems.graph.filterStats = filterStats;
-            logger.log(`[Restore][graph] filtered out ${filterStats.filteredNodes} nodes (labels: ${filterLabels.join(',') || '—'}) + ${filterStats.filteredEdges} edges (types: ${filterEdgeTypes.join(',') || '—'}) + ${filterStats.orphanEdges} orphan-endpoint edges before SDK import.`);
+            logger.log(`[Restore][graph] filtered out ${filterStats.filteredNodes} nodes (labels: ${filterLabels.join(',') || '—'}) + ${filterStats.filteredEdges} edges (types: ${filterEdgeTypes.join(',') || '—'}) + ${filterStats.orphanEdges} orphan-endpoint edges before SDK import. Accepted backup nodes: ${filterStats.acceptedNodes}.`);
         }
     }
 
@@ -545,31 +559,39 @@ async function restoreFlatFile({sourceDir, targetFile, mode, force, confirmation
 }
 
 /**
- * #11141 — Pre-import filter for graph JSONL bundles.
+ * #11141 — Pre-import filter for graph JSONL bundles. Three-stage FK-safe shape per
+ * @neo-gpt's peer-review (commentId 4416007918):
  *
- * Stream-reads each `*.jsonl` file under `sourceDir`, drops nodes whose `data.label`
- * matches `filterLabels` and edges whose `data.type` matches `filterEdgeTypes`. Also
- * fires the orphan-edge guard: drops edges whose source OR target endpoint was filtered
- * out (preserves graph integrity post-filter).
+ * **Stage 1** — Read ALL bundle JSONL files, classify each node as accepted (passed
+ * labelSet) or dropped (matched labelSet). Build `acceptedBackupNodeIds` set.
  *
- * Writes filtered output to a temp dir at `${os.tmpdir()}/neo-restore-graph-<ts>/` mirroring
- * the source-dir layout. Returns the temp dir path for the SDK import.
+ * **Stage 2** — Compute `validEndpointIds = acceptedBackupNodeIds ∪ liveNodeIds`. An edge
+ * may safely INSERT only if both endpoints exist in this union (live row OR will-be-inserted
+ * backup row). Otherwise the edge would FK-violate against `Edges.source/target → Nodes(id)`
+ * post-`INSERT OR IGNORE`.
  *
- * Idempotent + safe per-run: temp dirs are uniquely timestamped; OS cleanup or explicit
- * caller cleanup handles tear-down. Does NOT mutate the source bundle.
+ * **Stage 3** — Write filtered output to temp dir. For each backup record:
+ *   - Node: drop if label in `filterLabels` (counter: `filteredNodes`); else keep.
+ *   - Edge: drop if type in `filterEdgeTypes` (counter: `filteredEdges`); drop if either
+ *     endpoint not in `validEndpointIds` (counter: `orphanEdges`); else keep.
  *
- * Empty filter sets short-circuit to source-dir return (no file IO). Caller responsibility
- * to gate on filter-presence before invoking.
+ * Stream-based I/O — constant memory regardless of bundle size. Per-run temp dirs use
+ * timestamped names; OS or caller cleans up. Does NOT mutate source bundle.
+ *
+ * Empty filter sets + empty live snapshot still go through the union check (all backup
+ * edges must reference accepted backup nodes); caller gates on filter-presence to skip
+ * entirely if filtering isn't required.
  *
  * @param {Object}   options
  * @param {String}   options.sourceDir       Bundle's `graph/` directory containing JSONL files.
  * @param {String[]} options.filterLabels    Node labels to drop.
  * @param {String[]} options.filterEdgeTypes Edge types to drop.
- * @param {Object}   options.stats           Mutable counters: `{filteredNodes, filteredEdges, orphanEdges}`.
+ * @param {Set}      options.liveNodeIds     Set of node IDs currently in the live graph SQLite (#11141 / FK-safe edge filter; #11140 review feedback).
+ * @param {Object}   options.stats           Mutable counters: `{filteredNodes, filteredEdges, orphanEdges, acceptedNodes}`.
  * @param {Object}   [options.logger=console]
  * @returns {Promise<String>} Path to temp dir with filtered JSONL files.
  */
-async function prepareFilteredGraphDir({sourceDir, filterLabels, filterEdgeTypes, stats, logger = console}) {
+async function prepareFilteredGraphDir({sourceDir, filterLabels, filterEdgeTypes, liveNodeIds, stats, logger = console}) {
     const os       = (await import('os')).default;
     const readline = (await import('readline')).default;
     const labelSet = new Set(filterLabels);
@@ -581,29 +603,38 @@ async function prepareFilteredGraphDir({sourceDir, filterLabels, filterEdgeTypes
     const sourceFiles = (await fs.readdir(sourceDir)).filter(f => f.endsWith('.jsonl'));
     if (sourceFiles.length === 0) return sourceDir; // empty bundle, fall through unchanged
 
+    // ───── Stage 1: cross-bundle node classification ─────
+    // Walk EVERY JSONL file before filtering edges so that union check sees nodes from
+    // sibling files (e.g., bundle splits node export and edge export). Per-file
+    // classification (the previous shape) would FK-violate on cross-file edges.
+    const acceptedBackupNodeIds = new Set();
+    for (const fileName of sourceFiles) {
+        const rl = readline.createInterface({input: fs.createReadStream(path.join(sourceDir, fileName)), crlfDelay: Infinity});
+        for await (const line of rl) {
+            if (!line.trim()) continue;
+            try {
+                const r = JSON.parse(line);
+                if (r.type === 'node' && r.data?.id && !labelSet.has(r.data?.label)) {
+                    acceptedBackupNodeIds.add(r.data.id);
+                }
+            } catch (e) { /* skip malformed lines */ }
+        }
+    }
+    stats.acceptedNodes = acceptedBackupNodeIds.size;
+
+    // ───── Stage 2: compute valid endpoint set ─────
+    // Edge may insert only if both endpoints exist in (accepted backup ∪ live). Pre-
+    // computing the union keeps Stage 3 to a hot-path Set lookup per endpoint.
+    const validEndpointIds = new Set(liveNodeIds);
+    for (const id of acceptedBackupNodeIds) validEndpointIds.add(id);
+
+    // ───── Stage 3: write filtered output ─────
     for (const fileName of sourceFiles) {
         const inPath  = path.join(sourceDir, fileName);
         const outPath = path.join(tempDir, fileName);
-
-        // First pass: identify dropped node IDs (orphan-edge guard depends on this set).
-        const droppedNodeIds = new Set();
-        if (labelSet.size > 0) {
-            const rl = readline.createInterface({input: fs.createReadStream(inPath), crlfDelay: Infinity});
-            for await (const line of rl) {
-                if (!line.trim()) continue;
-                try {
-                    const r = JSON.parse(line);
-                    if (r.type === 'node' && labelSet.has(r.data?.label)) {
-                        droppedNodeIds.add(r.data.id);
-                    }
-                } catch (e) { /* skip malformed lines */ }
-            }
-        }
-
-        // Second pass: write filtered output.
-        const rl2  = readline.createInterface({input: fs.createReadStream(inPath), crlfDelay: Infinity});
-        const out  = fs.createWriteStream(outPath);
-        for await (const line of rl2) {
+        const rl  = readline.createInterface({input: fs.createReadStream(inPath), crlfDelay: Infinity});
+        const out = fs.createWriteStream(outPath);
+        for await (const line of rl) {
             if (!line.trim()) continue;
             try {
                 const r = JSON.parse(line);
@@ -611,7 +642,7 @@ async function prepareFilteredGraphDir({sourceDir, filterLabels, filterEdgeTypes
                     if (labelSet.has(r.data?.label)) { stats.filteredNodes++; continue; }
                 } else if (r.type === 'edge') {
                     if (typeSet.has(r.data?.type)) { stats.filteredEdges++; continue; }
-                    if (droppedNodeIds.has(r.data?.source) || droppedNodeIds.has(r.data?.target)) {
+                    if (!validEndpointIds.has(r.data?.source) || !validEndpointIds.has(r.data?.target)) {
                         stats.orphanEdges++;
                         continue;
                     }
@@ -622,21 +653,52 @@ async function prepareFilteredGraphDir({sourceDir, filterLabels, filterEdgeTypes
         await new Promise(resolve => out.end(resolve));
     }
 
-    logger.log?.(`[Restore][graph] pre-import filter: writing filtered JSONL to ${tempDir}`);
+    logger.log?.(`[Restore][graph] pre-import filter: ${stats.acceptedNodes} accepted backup nodes, ${liveNodeIds.size} live nodes; writing filtered JSONL to ${tempDir}`);
     return tempDir;
 }
 
 /**
- * #11141 — Post-restore hook dispatch.
+ * #11141 — Read live graph node IDs for FK-safe edge filtering (per @neo-gpt review).
  *
- * Currently supported hooks:
- *   - `'filesystem-ingestor'`: regenerates FILE/DIRECTORY nodes + CONTAINS edges from
- *     current filesystem state. Idempotent + deterministic. Recommended after restoring
- *     a graph backup with FILE/DIRECTORY filtered out (avoids stale-path nodes for files
- *     that no longer exist post-refactor).
+ * Read-only better-sqlite3 access against the live `memory-core-graph.sqlite`. WAL mode
+ * is the default for the live DB so concurrent reads don't block the running MC daemon.
  *
  * @param {Object} options
- * @param {String} options.hook   Hook name.
+ * @param {String} options.dbPath Absolute path to live SQLite (`mcConfig.storagePaths.graph`).
+ * @returns {Promise<Set<String>>} Set of live node IDs.
+ */
+async function collectLiveGraphNodeIds({dbPath}) {
+    const Database = (await import('better-sqlite3')).default;
+    const db       = new Database(dbPath, {readonly: true, fileMustExist: true});
+    try {
+        const rows = db.prepare('SELECT id FROM Nodes').all();
+        return new Set(rows.map(r => r.id));
+    } finally {
+        db.close();
+    }
+}
+
+/**
+ * #11141 — Post-restore hook dispatch. **Narrow allowlist** per @neo-gpt's peer-review
+ * (commentId 4416007918): only deterministic, idempotent, recovery-safe hooks are accepted.
+ *
+ * **ALLOWED:**
+ *   - `'filesystem-ingestor'`: regenerates FILE/DIRECTORY nodes + CONTAINS edges from
+ *     current filesystem state via `FileSystemIngestor.syncWorkspaceToGraph()`.
+ *     Idempotent + deterministic. Recommended after restoring a graph backup with
+ *     FILE/DIRECTORY filtered out (avoids stale-path nodes for files that no longer
+ *     exist post-refactor).
+ *
+ * **EXPLICITLY DISALLOWED (per peer-review):**
+ *   - `'dream-service'`: performs higher-order graph mutation/inference via REM cycle.
+ *     Can blur post-restore validation immediately after recovery. Not equivalent to
+ *     idempotent filesystem regeneration; would need separate AC for safety boundary.
+ *     Defer to a follow-up ticket if needed.
+ *
+ * Unknown / disallowed hook names throw an explicit error rather than no-op silently.
+ *
+ * @param {Object} options
+ * @param {String} options.hook   Hook name (must be in allowlist).
  * @param {Object} [options.logger=console]
  * @returns {Promise<{hook: String, result: Object}>}
  */
@@ -647,7 +709,10 @@ async function dispatchPostRestoreHook({hook, logger = console}) {
         await FileSystemIngestor.syncWorkspaceToGraph();
         return {hook, result: {ok: true, message: 'FileSystemIngestor.syncWorkspaceToGraph() completed'}};
     }
-    throw new Error(`Unknown post-restore hook: ${hook}. Supported: filesystem-ingestor.`);
+    if (hook === 'dream-service') {
+        throw new Error(`Post-restore hook 'dream-service' is intentionally not supported (per #11141 peer-review): REM cycle does graph mutation + inference and can blur recovery validation. File a follow-up ticket if needed.`);
+    }
+    throw new Error(`Unknown post-restore hook: ${hook}. Allowlist: filesystem-ingestor.`);
 }
 
 /**
