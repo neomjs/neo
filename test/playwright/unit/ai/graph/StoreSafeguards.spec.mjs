@@ -29,7 +29,7 @@ test.describe('Neo.ai.graph.Store Safeguards', () => {
                 }
             }
         });
-        
+
         let errorThrown = false;
         try {
             store.clear();
@@ -50,7 +50,7 @@ test.describe('Neo.ai.graph.Store Safeguards', () => {
                 }
             }
         });
-        
+
         let errorThrown = false;
         try {
             store.clear();
@@ -66,11 +66,11 @@ test.describe('Neo.ai.graph.Store Safeguards', () => {
             model   : NodeModel,
             database: {
                 storage: {
-                    dbPath: '/Users/user/tmp/test.sqlite'
+                    dbPath: 'tmp/test.sqlite'
                 }
             }
         });
-        
+
         let errorThrown = false;
         try {
             store.clear();
@@ -90,10 +90,52 @@ test.describe('Neo.ai.graph.Store Safeguards', () => {
                 }
             }
         });
-        
+
         let errorThrown = false;
         try {
             store.clearSilent();
+        } catch(e) {
+            errorThrown = true;
+            expect(e.message).toContain('FATAL: Attempted to clear()');
+        }
+        expect(errorThrown).toBe(true);
+        store.destroy();
+    });
+
+    test('should block clear() on a production database path containing tmp substring', async () => {
+        let store = Neo.create(Store, {
+            model   : NodeModel,
+            database: {
+                storage: {
+                    dbPath: '/var/db/tmp-data.sqlite'
+                }
+            }
+        });
+
+        let errorThrown = false;
+        try {
+            store.clear();
+        } catch(e) {
+            errorThrown = true;
+            expect(e.message).toContain('FATAL: Attempted to clear()');
+        }
+        expect(errorThrown).toBe(true);
+        store.destroy();
+    });
+
+    test('should block clear() on a production database path containing test substring', async () => {
+        let store = Neo.create(Store, {
+            model   : NodeModel,
+            database: {
+                storage: {
+                    dbPath: '/var/db/testing.sqlite'
+                }
+            }
+        });
+
+        let errorThrown = false;
+        try {
+            store.clear();
         } catch(e) {
             errorThrown = true;
             expect(e.message).toContain('FATAL: Attempted to clear()');

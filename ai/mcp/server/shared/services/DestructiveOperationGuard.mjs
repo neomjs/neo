@@ -86,7 +86,33 @@ class DestructiveOperationGuard extends Base {
      * @returns {Promise<Object>} An allow result containing classification details.
      * @throws {DestructiveOperationBlockedError} When the target is production-like or unresolved.
      */
-    async assertDestructiveTargetAllowed({
+    async assertDestructiveTargetAllowed(options = {}) {
+        return this.assertDestructiveTargetAllowedSync(options);
+    }
+
+    /**
+     * Synchronous version of assertDestructiveTargetAllowed.
+     * Asserts that a destructive target is disposable, or explicitly operator-confirmed.
+     *
+     * @param {Object}        options
+     * @param {String}        options.operation             Stable operation identifier.
+     * @param {String}        options.subsystem             Owning subsystem.
+     * @param {String}        options.mode                  Destructive mode, e.g. `delete`, `drop`, or `replace`.
+     * @param {Object}        options.target                Target descriptor.
+     * @param {String}       [options.target.path]          Target data path.
+     * @param {String}       [options.target.sqlitePath]    Target SQLite path.
+     * @param {String}       [options.target.bundlePath]    Target backup bundle path when it is the destructive destination.
+     * @param {Object}       [options.target.chroma]        Chroma target descriptor.
+     * @param {String}       [options.target.collectionName] Chroma collection name.
+     * @param {String}       [options.target.repoRoot]      Repository root for `tmp/` allowance.
+     * @param {String[]}     [options.target.disposableRoots] Additional disposable root paths.
+     * @param {Object}       [options.source]               Optional source descriptor for diagnostics.
+     * @param {String|Object} [options.confirmation]         Explicit production confirmation token.
+     * @param {Object}       [options.env=process.env]      Environment map, injectable for tests.
+     * @returns {Object} An allow result containing classification details.
+     * @throws {DestructiveOperationBlockedError} When the target is production-like or unresolved.
+     */
+    assertDestructiveTargetAllowedSync({
         operation,
         subsystem,
         mode,
