@@ -305,10 +305,14 @@ export class Orchestrator extends Base {
         };
 
         const continuousTasks = ['chroma', 'bridgeDaemon', 'mlx'];
+        const RESTART_COOLDOWN_MS = 15000;
         for (const taskName of continuousTasks) {
             const state = this.taskStateService.getTaskState(taskName);
             if (state && !state.running) {
-                executeTask(taskName, 'supervisor-restart');
+                const lastRunAt = state.lastRunAt || 0;
+                if (now - lastRunAt > RESTART_COOLDOWN_MS) {
+                    executeTask(taskName, 'supervisor-restart');
+                }
             }
         }
 
