@@ -77,7 +77,7 @@ class DiscussionSyncer extends Base {
      */
     #getDiscussionPath(discussion) {
         const filename = `${issueSyncConfig.discussionFilenamePrefix}${discussion.number}.md`;
-        const chunkDir = Math.floor(discussion.number / 100) + 'xx';
+        const chunkDir = String(discussion.number).padStart(4, '0').slice(0, -2) + 'xx';
 
         return path.join(issueSyncConfig.discussionsDir, chunkDir, filename);
     }
