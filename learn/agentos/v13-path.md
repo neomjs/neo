@@ -87,6 +87,7 @@ A new per-host singleton Node process responsible for ALL scheduled work that to
 - Heartbeat coordination (currently `SwarmHeartbeatService` invoked manually)
 - Concept ingestion ([#10085](https://github.com/neomjs/neo/issues/10085) etc.)
 - **Knowledge Base delta-update sync** (currently `npm run ai:sync-kb`; KB already supports delta updates — orchestrator schedules them on a configurable cadence per the same per-host singleton pattern that drives summarization)
+- **Primary-checkout `dev` auto-sync + KB cascade** ([#11017](https://github.com/neomjs/neo/issues/11017)) — orchestrator detects `origin/dev` advances, fast-forwards the primary checkout when safe, and cascades KB sync from the refreshed primary context.
 - **Daily backup with rotation cap (PRIO 0 — non-negotiable)** — orchestrator-owned scheduled task; 30-day rotation cap (one month coverage); backup-success precondition for any DreamMode/Sandman task spawn ([#10780](https://github.com/neomjs/neo/issues/10780) discipline + post-#11018-retraction architectural correction; BackupService extraction lands as M4 per-task coordinator)
 - **Filesystem ingestor for graph** (transitive via DreamService — already wired at `ai/daemons/DreamService.mjs:16-179` invoking `FileSystemIngestor.syncWorkspaceToGraph()`; orchestrator-drives-DreamService-cycle naturally restores FS ingestion without separate scope item)
 - **Cadence design** — graph-blocking awareness, time-windowed scheduling for high-impact tasks (see D3.1 below)
@@ -99,6 +100,7 @@ ai/scripts/orchestrator-daemon.mjs   # Thin Node-process boot wrapper (PID file,
 ai/daemons/Orchestrator.mjs          # Neo class: schedules + runs tasks; per-task try/catch
 ai/daemons/services/
   ├── SummarizationCoordinatorService.mjs   # NEW: Piece C
+  ├── PrimaryRepoSyncService.mjs             # primary checkout dev sync + KB cascade
   ├── DreamService.mjs (existing)            # consumed by Orchestrator
   ├── SwarmHeartbeatService.mjs (existing)   # consumed by Orchestrator
   └── ... (existing decomposed services from #10013)

@@ -197,6 +197,19 @@ export class TaskStateService extends Base {
     }
 
     /**
+     * Marks a task as skipped without treating the no-op as a successful run.
+     * @param {String} taskName
+     * @returns {void}
+     */
+    markSkipped(taskName) {
+        const state = this.taskState[taskName];
+        state.running      = false;
+        state.pid          = null;
+        state.lastExitCode = null;
+        this.writeState();
+    }
+
+    /**
      * Marks a task as failed.
      * @param {String} taskName
      * @param {Number|null} code
