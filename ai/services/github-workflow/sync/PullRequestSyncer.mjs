@@ -7,6 +7,7 @@ import matter                     from 'gray-matter';
 import path                       from 'path';
 import GraphqlService             from '../GraphqlService.mjs';
 import {FETCH_PULL_REQUESTS_FOR_SYNC} from '../queries/pullRequestQueries.mjs';
+import chunkPath                  from '../shared/chunkPath.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const pullRequestConfig = aiConfig.pullRequest;
@@ -78,7 +79,7 @@ class PullRequestSyncer extends Base {
      */
     #getPullRequestPath(pr) {
         const filename = `${aiConfig.issueSync.pullFilenamePrefix || 'pr-'}${pr.number}.md`;
-        const chunkDir = String(pr.number).padStart(4, '0').slice(0, -2) + 'xx';
+        const chunkDir = chunkPath(pr.number);
 
         if (pr.state === 'OPEN') {
             return path.join(issueSyncConfig.pullsDir, chunkDir, filename);

@@ -39,6 +39,7 @@ import path            from 'path';
 test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
     let IssueSyncer;
     let GraphqlService;
+    let chunkPath;
     let issueSyncConfig;
     let originalQuery;
     let tmpIssuesDir;
@@ -56,6 +57,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
 
         GraphqlService = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
         IssueSyncer    = (await import('../../../../../../ai/services/github-workflow/sync/IssueSyncer.mjs')).default;
+        chunkPath      = (await import('../../../../../../ai/services/github-workflow/shared/chunkPath.mjs')).default;
 
         originalQuery = GraphqlService.query.bind(GraphqlService);
     });
@@ -119,7 +121,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(stats.errors).toHaveLength(0);
         expect(continuationCalls).toBe(1);
 
-        const writtenPath = path.join(tmpIssuesDir, `issue-${mockIssue.number}.md`);
+        const writtenPath = path.join(tmpIssuesDir, chunkPath(mockIssue.number), `issue-${mockIssue.number}.md`);
         const written     = await fs.readFile(writtenPath, 'utf-8');
 
         // Every comment body must appear — the bug being fixed is that second-page comments
@@ -176,7 +178,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(metadata.issues[mockIssue.number].commentsTotal).toBe(COMMENT_COUNT);
 
         // Frontmatter commentsCount uses the same derivation — no dual-source divergence possible.
-        const writtenPath = path.join(tmpIssuesDir, `issue-${mockIssue.number}.md`);
+        const writtenPath = path.join(tmpIssuesDir, chunkPath(mockIssue.number), `issue-${mockIssue.number}.md`);
         const written     = await fs.readFile(writtenPath, 'utf-8');
         expect(written).toContain(`commentsCount: ${COMMENT_COUNT}`);
     });
