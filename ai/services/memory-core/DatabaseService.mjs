@@ -249,37 +249,72 @@ class DatabaseService extends Base {
 
         let imported = 0;
 
-        const insertNode = db.prepare('INSERT OR REPLACE INTO Nodes (id, user_id, data) VALUES (?, ?, ?)');
+        // Mode-dependent INSERT semantics (#11141):
+        //   - 'replace' mode: TRUNCATE-then-OR-REPLACE. Conflict impossible after truncate,
+        //     OR REPLACE retained for backward parity. Backup IS the new state.
+        //   - 'merge' mode: OR IGNORE. Preserves live rows when IDs collide; backup-only IDs
+        //     still INSERT; live-only IDs untouched. This is the "merge latest content with
+        //     backup" semantic the runRestore two-mode contract documented (#10871). Pre-#11141,
+        //     merge silently used OR REPLACE — overwriting post-wipe re-ingestion (gh-workflow +
+        //     retrospective daemon) with stale backup versions. The 2026-05-10 graph-wipe incident
+        //     was the empirical anchor that surfaced this gap.
+        const conflictClause = mode === 'replace' ? 'OR REPLACE' : 'OR IGNORE';
+        const insertNode = db.prepare(`INSERT ${conflictClause} INTO Nodes (id, user_id, data) VALUES (?, ?, ?)`);
         const insertEdge = db.prepare(`
-            INSERT OR REPLACE INTO Edges (id, user_id, source, target, type, data)
+            INSERT ${conflictClause} INTO Edges (id, user_id, source, target, type, data)
             VALUES (?, ?, ?, ?, ?, ?)
         `);
+
+        // Truthful counters per @neo-gpt's #11141 peer-review (commentId 4416007918):
+        // distinguish inserted (changes === 1) from skippedExisting (changes === 0; OR
+        // IGNORE silently no-op'd) vs failed (exception per-record). Better-sqlite3
+        // exposes this via `stmt.run().changes`.
+        const counts = {
+            nodes: {inserted: 0, skippedExisting: 0, failed: 0},
+            edges: {inserted: 0, skippedExisting: 0, failed: 0}
+        };
 
         // Run within a transaction for speed
         const insertBatch = db.transaction((records) => {
             for (const record of records) {
                 if (record.type === 'node') {
-                    insertNode.run(
-                        record.data.id,
-                        record.data.properties?.userId || record.data.user_id || null,
-                        JSON.stringify(record.data)
-                    );
+                    try {
+                        const result = insertNode.run(
+                            record.data.id,
+                            record.data.properties?.userId || record.data.user_id || null,
+                            JSON.stringify(record.data)
+                        );
+                        if (result.changes === 1) counts.nodes.inserted++;
+                        else                       counts.nodes.skippedExisting++;
+                    } catch (e) {
+                        counts.nodes.failed++;
+                        if (counts.nodes.failed <= 5) logger.warn(`[importGraph] node insert failed for id=${record.data?.id}: ${e.message}`);
+                    }
                 } else if (record.type === 'edge') {
                     const edgeData = record.data;
                     const edgeId   = edgeData.id || `${edgeData.source}->${edgeData.target}:${edgeData.type}`;
 
                     if (!edgeData.source || !edgeData.target || !edgeData.type) {
-                        throw new Error(`Invalid graph edge backup record: source, target, and type are required.`);
+                        counts.edges.failed++;
+                        if (counts.edges.failed <= 5) logger.warn(`[importGraph] edge missing source/target/type: id=${edgeId}`);
+                        continue;
                     }
 
-                    insertEdge.run(
-                        edgeId,
-                        edgeData.properties?.userId || edgeData.user_id || null,
-                        edgeData.source,
-                        edgeData.target,
-                        edgeData.type,
-                        JSON.stringify(edgeData)
-                    );
+                    try {
+                        const result = insertEdge.run(
+                            edgeId,
+                            edgeData.properties?.userId || edgeData.user_id || null,
+                            edgeData.source,
+                            edgeData.target,
+                            edgeData.type,
+                            JSON.stringify(edgeData)
+                        );
+                        if (result.changes === 1) counts.edges.inserted++;
+                        else                       counts.edges.skippedExisting++;
+                    } catch (e) {
+                        counts.edges.failed++;
+                        if (counts.edges.failed <= 5) logger.warn(`[importGraph] edge insert failed for id=${edgeId}: ${e.message}`);
+                    }
                 }
                 imported++;
             }
@@ -299,8 +334,10 @@ class DatabaseService extends Base {
              insertBatch(batch);
         }
 
-        logger.log(`Successfully imported ${imported} graph elements.`);
-        return imported;
+        const summary = `nodes(inserted=${counts.nodes.inserted}, skipped=${counts.nodes.skippedExisting}, failed=${counts.nodes.failed}) ` +
+                        `edges(inserted=${counts.edges.inserted}, skipped=${counts.edges.skippedExisting}, failed=${counts.edges.failed})`;
+        logger.log(`Successfully imported ${imported} graph elements: ${summary}`);
+        return {imported, counts, mode};
     }
 
     /**
@@ -416,14 +453,22 @@ class DatabaseService extends Base {
 
             let totalImported        = 0;
             let targetCollectionName = '';
+            // #11141: per-substrate truthful counters surface alongside the aggregate so
+            // operator validation can distinguish inserted vs skippedExisting vs failed
+            // post-merge. Currently only graph emits structured counts (`#importGraph`);
+            // memory/summaries upsert path is bulk + adds its count to memoriesInserted.
+            const subsystemCounts = {graph: null, memoriesInserted: 0};
 
             for (const filePath of filesToImport) {
                 logger.log(`Importing: ${filePath}`);
-                
+
                 const isGraphBackup = path.basename(filePath).startsWith('graph-backup');
                 if (isGraphBackup) {
-                    const graphImportCount = await this.#importGraph(filePath, mode, confirmation);
-                    totalImported += graphImportCount;
+                    const graphImportResult = await this.#importGraph(filePath, mode, confirmation);
+                    // #11141: #importGraph now returns {imported, counts, mode}; counts
+                    // exposes node/edge inserted/skippedExisting/failed for truthful merge accounting.
+                    totalImported += graphImportResult.imported;
+                    subsystemCounts.graph = graphImportResult.counts;
                     continue;
                 }
 
@@ -462,13 +507,18 @@ class DatabaseService extends Base {
                     documents : records.map(r => r.document)
                 });
 
-                totalImported += records.length;
+                totalImported           += records.length;
+                subsystemCounts.memoriesInserted += records.length;
             }
 
             return {
                 message : `Import batch complete. Successfully ingested ${totalImported} records across ${filesToImport.length} file(s).`,
                 imported: totalImported,
-                mode
+                mode,
+                // #11141: structured per-substrate breakdown for operator validation.
+                // `graph` is null when no graph file was imported in this batch; otherwise
+                // exposes {nodes: {inserted,skippedExisting,failed}, edges: {inserted,skippedExisting,failed}}.
+                counts  : subsystemCounts
             };
         } catch (error) {
             logger.error('[DatabaseService] Error importing database:', error);
