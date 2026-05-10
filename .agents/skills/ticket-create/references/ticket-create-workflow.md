@@ -26,6 +26,22 @@ If an equivalent ticket exists: do NOT file a duplicate. Either comment on the e
 If the proposed ticket involves modifying any agent skill (i.e., any file within `.agents/skills/`), you MUST explicitly consult `.agents/skills/create-skill/SKILL.md` before finalizing the ticket body.
 **Pre-flight check:** *Have I verified this proposal adheres to the Progressive Disclosure routing pattern and does not bloat the top-level SKILL.md router?*
 
+### 1c. The Ungraduated-Discussion Cross-Check (High-Blast-Radius Mandatory)
+
+**Trigger:** if the proposed ticket is high-blast-radius (Epic, new skill / rule / workflow change, substrate-level architecture change) AND cites a Discussion (`#NNNN`) that has **not yet been formally graduated** (no `GRADUATED` marker in body, Discussion still open or graduation incomplete), the default action is **BLOCK ticket creation**.
+
+**Why the gate exists:** allowing the ticket to be created and relying only on `epic-review` Stage 2 backstop or `ticket-intake` validation lets the ticket exist in the backlog as a **center of gravity** that pulls velocity-biased agents toward execution. Preventing creation at-source is the most robust defense against premature convergence, paired with `ideation-sandbox-workflow.md` §5.1 Double Diamond Divergence Guard (which gates the Discussion side).
+
+**Substantive-rationale exception (3-part):** the block can be passed if the ticket body contains **all three** of the following — note that rationale-content, not author-identity, is what passes the gate:
+
+1. **Explicit substantive-rationale declaration** with cite-able context (e.g., session-mode urgency, time-critical empirical evidence, lane-coordination need that legitimately blocks waiting for graduation, operator-directed sequence with documented reasoning). The author identifies who made the substantive call — peer, operator, or self — for attribution-metadata, but the **rationale-content is what is audit-able by any reviewer**, not the identity. (Per `AGENTS.md §15.6` Flat Peer-Team: operator-identity grants merge-gate authority, not substrate-discipline authority — substantive rationale is the load-bearing gate.)
+2. **Inline divergence-matrix substance** preempting the cited Discussion's expected gap. The matrix should include at least the recommended option + 2 alternative shapes with falsifying sources, mirroring what the Discussion would have produced once graduated. Bare 1-line rationales are paperwork, not preemption.
+3. **Acknowledgment that downstream amendments may be required** once the cited Discussion graduates — the ticket explicitly states which sections may need refresh post-Discussion-graduation, so future agents do not treat the early-filing as final.
+
+**Empirical anchors:** #11084 (filed 2026-05-10 under @tobiu's "e.g. a new ticket" directive, before #11079 graduated; included inline divergence matrix in Avoided Traps preempting Option E's gap; explicitly acknowledged downstream-amendment) is the **right shape** of the exception path. #11082 / PR #11083 (Gemini's premature implementation before #11079 graduated, no inline rationale, no preempting matrix) is the **wrong shape** — caught + retracted within ~10 minutes.
+
+**Sunset clause (per AGENTS.md §13):** review this cross-check's effectiveness after **6 months OR 5 qualifying high-blast-radius graduations**, whichever comes first. Symmetric to `ideation-sandbox-workflow.md` §5.1 sunset; both gates should retire / rewrite / compress together if neither catches premature-convergence patterns over the review window.
+
 ## 2. Five-Stage Challenge Chain
 
 Apply at creation time — not just at intake. Every stage must pass before the ticket is drafted.
