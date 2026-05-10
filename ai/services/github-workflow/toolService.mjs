@@ -8,7 +8,7 @@ import LabelService       from './LabelService.mjs';
 import LocalFileService   from './LocalFileService.mjs';
 import PullRequestService from './PullRequestService.mjs';
 import RepositoryService  from './RepositoryService.mjs';
-import ToolService        from '../../../ToolService.mjs';
+import ToolService        from '../../mcp/ToolService.mjs';
 import SyncService        from './SyncService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
