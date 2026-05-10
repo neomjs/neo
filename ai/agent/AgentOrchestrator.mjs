@@ -5,16 +5,16 @@ import path  from 'path';
 
 /**
  * Parses sandman_handoff.md and injects the resulting directives into a headless agent loop.
- * @class Neo.ai.agent.Orchestrator
+ * @class Neo.ai.agent.AgentOrchestrator
  * @extends Neo.core.Base
  */
-class Orchestrator extends Base {
+class AgentOrchestrator extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.agent.Orchestrator'
+         * @member {String} className='Neo.ai.agent.AgentOrchestrator'
          * @protected
          */
-        className: 'Neo.ai.agent.Orchestrator',
+        className: 'Neo.ai.agent.AgentOrchestrator',
         /**
          * @member {String} handoffPath=path.resolve(process.cwd(), 'resources/content/sandman_handoff.md')
          */
@@ -32,7 +32,7 @@ class Orchestrator extends Base {
      */
     parseGoldenPath() {
         if (!fs.existsSync(this.handoffPath)) {
-            console.warn(`[Orchestrator] No handoff file found at ${this.handoffPath}`);
+            console.warn(`[AgentOrchestrator] No handoff file found at ${this.handoffPath}`);
             return null;
         }
 
@@ -40,7 +40,7 @@ class Orchestrator extends Base {
         const goldenPathMatch = content.match(/## Computed Golden Path[^\n]*\n([\s\S]*?)(?=\n#|$)/);
 
         if (!goldenPathMatch) {
-             console.warn('[Orchestrator] No "## Computed Golden Path" section found.');
+             console.warn('[AgentOrchestrator] No "## Computed Golden Path" section found.');
              return null;
         }
 
@@ -66,12 +66,12 @@ class Orchestrator extends Base {
      * @returns {Promise<void>}
      */
     async execute({ dryRun = false } = {}) {
-        console.log('⏳ Initializing Neo Agent Orchestrator...');
+        console.log('⏳ Initializing Neo AgentOrchestrator...');
 
         const directives = this.parseGoldenPath();
 
         if (!directives || directives.length === 0) {
-            console.log('✅ No immediate Golden Path directives found. Orchestrator exiting cleanly.');
+            console.log('✅ No immediate Golden Path directives found. AgentOrchestrator exiting cleanly.');
             return;
         }
 
@@ -125,10 +125,10 @@ class Orchestrator extends Base {
             }, this.monitorIntervalMs);
 
         } catch (err) {
-            console.error('❌ Agent Orchestrator failed:', err);
+            console.error('❌ AgentOrchestrator failed:', err);
             throw err;
         }
     }
 }
 
-export default Neo.setupClass(Orchestrator);
+export default Neo.setupClass(AgentOrchestrator);

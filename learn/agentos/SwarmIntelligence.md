@@ -367,7 +367,7 @@ To add a new sub-agent profile:
 | `ai/Agent.mjs` | Base class — manages MCP clients, sub-agent registry, delegation |
 | `ai/agent/Loop.mjs` | Cognitive loop — Perceive/Reason/Act/Reflect + tool execution |
 | `ai/agent/Scheduler.mjs` | Priority queue for event processing |
-| `ai/agent/Orchestrator.mjs` | Parses Golden Path, boots agent, monitors exhaustion |
+| `ai/agent/AgentOrchestrator.mjs` | Parses Golden Path, boots agent, monitors exhaustion |
 | `ai/agent/profile/Librarian.mjs` | GraphRAG research specialist |
 | `ai/agent/profile/QA.mjs` | Local test generation engine |
 | `ai/agent/profile/Browser.mjs` | Visual telemetry via Neural Link |
