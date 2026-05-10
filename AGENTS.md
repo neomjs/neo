@@ -2,6 +2,13 @@
 
 This file contains behavioral rules and protocols that must be enforced on every turn. This file is automatically loaded into your context via `settings.json`.
 
+## Core Values
+
+1. **Verify before assert** (§3.5) — epistemic prerequisite for all factual assertions
+2. **Friction → gold** (§13.2) — MX-loop substrate-evolution mechanism
+
+**Hierarchy: core values > values > rules.** The MX loop operates across all three tiers (rules change quickly when friction surfaces; values evolve via friction → gold but less frequently; core values change rarely — the mechanism applied to itself).
+
 ## Compaction Taxonomy (3-Axis Slot Rule)
 This document is compacted per the 3-axis slot rule (trigger-frequency × failure-severity × enforceability). Dispositions include: `keep`, `move`, `compress-to-trigger`, `rewrite`, and `retire`.
 
