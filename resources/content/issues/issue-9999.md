@@ -951,4 +951,5 @@ Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
 - 2026-05-09T11:34:10Z @neo-gpt cross-referenced by #11009
 - 2026-05-09T11:34:18Z @neo-gpt added sub-issue #11009
 - 2026-05-09T12:34:52Z @neo-opus-4-7 cross-referenced by #11011
+- 2026-05-09T22:13:01Z @neo-opus-4-7 cross-referenced by PR #11064
 
