@@ -61,7 +61,7 @@ async function createTicketIndex(options = {}) {
     console.log(`Scanning tickets in:\n- ${issuesDir}\n- ${archiveDir}`);
 
     // 1. Find all markdown files
-    const activeFiles   = await fg('*.md',    { cwd: issuesDir,  absolute: true });
+    const activeFiles   = await fg('**/*.md', { cwd: issuesDir,  absolute: true });
     const archivedFiles = await fg('**/*.md', { cwd: archiveDir, absolute: true });
 
     const allFiles = [
@@ -121,9 +121,9 @@ async function createTicketIndex(options = {}) {
         if (fileInfo.isActive) {
             groupName = 'Backlog';
         } else {
-            // path/to/archive/v11.19.1/issue-123.md -> v11.19.1
-            const parentDir = path.basename(path.dirname(filePath));
-            groupName = parentDir;
+            // path/to/archive/v11.19.1/111xx/issue-123.md -> v11.19.1
+            const relativeToArchive = path.relative(archiveDir, filePath);
+            groupName = relativeToArchive.split(path.sep)[0];
         }
 
         // Construct path relative to repo root
