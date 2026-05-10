@@ -49,9 +49,7 @@ class InferenceLifecycleService extends Base {
      */
     async initAsync() {
         await super.initAsync();
-        if (aiConfig.autoStartInference) {
-            await this.startInferenceServer();
-        }
+        logger.log('[InferenceLifecycleService] Memory Core assumes MLX/Ollama is managed by AgentOrchestrator.');
     }
 
     /**
@@ -71,33 +69,6 @@ class InferenceLifecycleService extends Base {
     }
 
     /**
-     * @summary Abstraction for daemon spawning to eliminate Promise boilerplate.
-     * @param {String} cmd 
-     * @param {Array} args 
-     * @param {String} name 
-     * @returns {Promise<Object>}
-     */
-    spawnInferenceProcess(cmd, args, name) {
-        return new Promise((resolve) => {
-            const spawnedProcess = spawn(cmd, args, { detached: true, stdio: 'ignore' });
-
-            spawnedProcess.on('spawn', () => {
-                this.inferenceProcess = spawnedProcess;
-                this.registerCleanup();
-                logger.log(`[InferenceLifecycleService] ${name} started with PID: ${this.inferenceProcess.pid}`);
-                resolve({ status: 'started', pid: this.inferenceProcess.pid });
-            });
-
-            spawnedProcess.on('error', (err) => {
-                logger.error(`[InferenceLifecycleService] Failed to auto-start ${name}:`, err.message);
-                this.inferenceProcess = null;
-                resolve({ status: 'failed', error: err.message });
-            });
-            spawnedProcess.unref();
-        });
-    }
-
-    /**
      * @summary Spawns the required standalone LLM inference process by mapping seamlessly to the correct binary paths.
      * @returns {Promise<Object>}
      */
@@ -111,56 +82,8 @@ class InferenceLifecycleService extends Base {
                 return { status: 'already_running', detail: 'Inference daemon is already running.' };
             }
 
-            // Ollama
-            if (aiConfig.openAiCompatible.host.includes('11434')) {
-                logger.log('[InferenceLifecycleService] Attempting to auto-start local Ollama daemon for inference...');
-
-                let ollamaCmd = 'ollama';
-                if (process.platform === 'win32') {
-                    const localAppData = process.env.LOCALAPPDATA;
-                    const winPath = localAppData ? path.join(localAppData, 'Programs', 'Ollama', 'ollama.exe') : '';
-                    if (winPath && fs.existsSync(winPath)) {
-                        ollamaCmd = winPath;
-                    }
-                } else {
-                    const macSilicon = '/opt/homebrew/bin/ollama';
-                    const macIntel = '/usr/local/bin/ollama';
-                    if (fs.existsSync(macSilicon)) {
-                        ollamaCmd = macSilicon;
-                    } else if (fs.existsSync(macIntel)) {
-                        ollamaCmd = macIntel;
-                    }
-                }
-
-                return this.spawnInferenceProcess(ollamaCmd, ['serve'], 'Ollama daemon');
-            }
-
-            // MLX
-            if (aiConfig.openAiCompatible.host.includes('11435')) {
-                logger.log('[InferenceLifecycleService] Attempting to auto-start MLX daemon for inference...');
-                
-                const venvPath = path.resolve(memCoreDir, '.venv');
-                if (!fs.existsSync(venvPath)) {
-                    logger.error('[InferenceLifecycleService] MLX venv not found. Please run setup_mlx.sh.');
-                    return { status: 'failed', error: 'VENV_NOT_FOUND' };
-                }
-
-                // Parse the model string. We fallback to 'gemma4:31b' but hugging face names are typically different. 
-                // We trust aiConfig.openAiCompatible.model is correct or mapped by the user
-                const model = aiConfig.openAiCompatible.model;
-                const pythonPath = path.join(venvPath, 'bin', 'python');
-                
-                return this.spawnInferenceProcess(pythonPath, ['-m', 'mlx_lm.server', '--model', model, '--port', '11435'], 'MLX daemon');
-            }
-
-            // LM Studio
-            if (aiConfig.openAiCompatible.host.includes('1234')) {
-                logger.log('[InferenceLifecycleService] Attempting to auto-start LM Studio daemon via lms CLI...');
-                return this.spawnInferenceProcess('lms', ['server', 'start'], 'LM Studio daemon');
-            }
-
-            logger.warn('[InferenceLifecycleService] Local inference server on custom port is offline.');
-            return { status: 'offline', detail: 'Custom port local server is offline.' };
+            logger.warn('[InferenceLifecycleService] Local inference server is offline. AgentOrchestrator should be managing it.');
+            return { status: 'offline', detail: 'Local inference server is offline.' };
         } catch (error) {
             logger.error('[InferenceLifecycleService] Error handling boot:', error);
             return { status: 'failed', error: error.message };
@@ -171,12 +94,7 @@ class InferenceLifecycleService extends Base {
      * @summary Binds SIGINT and SIGTERM handlers to gracefully tear down the assigned inference group.
      */
     registerCleanup() {
-        if (!this.cleanupHandler) {
-            this.cleanupHandler = this.cleanup.bind(this);
-            process.on('exit', this.cleanupHandler);
-            process.on('SIGINT', this.cleanupHandler);
-            process.on('SIGTERM', this.cleanupHandler);
-        }
+        // No-op
     }
 
     /**
@@ -184,13 +102,6 @@ class InferenceLifecycleService extends Base {
      * @param {String|Number} signalOrCode 
      */
     async cleanup(signalOrCode) {
-        if (this.inferenceProcess) {
-            logger.log(`[InferenceLifecycleService] cleanup triggered by ${signalOrCode}`);
-            try {
-                process.kill(-this.inferenceProcess.pid, 'SIGKILL');
-                this.inferenceProcess = null;
-            } catch (e) {}
-        }
         if (typeof signalOrCode === 'string') {
             process.exit(0);
         }
@@ -201,48 +112,7 @@ class InferenceLifecycleService extends Base {
      * @returns {Promise<Object>}
      */
     async stopInferenceServer() {
-        try {
-            if (!this.inferenceProcess || this.inferenceProcess.killed) return { status: 'not_running' };
-
-            return new Promise((resolve) => {
-                const pid = this.inferenceProcess.pid;
-                
-                // Fallback timeout in case 'exit' isn't triggered after SIGKILL
-                const killTimeout = setTimeout(() => {
-                    this.inferenceProcess = null;
-                    if (this.cleanupHandler) {
-                        process.off('exit', this.cleanupHandler);
-                        process.off('SIGINT', this.cleanupHandler);
-                        process.off('SIGTERM', this.cleanupHandler);
-                        this.cleanupHandler = null;
-                    }
-                    resolve({ status: 'stopped', detail: 'timeout_force_resolve' });
-                }, 2000);
-
-                this.inferenceProcess.on('exit', () => {
-                    clearTimeout(killTimeout);
-                    logger.log(`[InferenceLifecycleService] process ${pid} stopped.`);
-                    this.inferenceProcess = null;
-                    if (this.cleanupHandler) {
-                        process.off('exit', this.cleanupHandler);
-                        process.off('SIGINT', this.cleanupHandler);
-                        process.off('SIGTERM', this.cleanupHandler);
-                        this.cleanupHandler = null;
-                    }
-                    resolve({ status: 'stopped' });
-                });
-                
-                try {
-                    process.kill(-this.inferenceProcess.pid, 'SIGKILL');
-                } catch(e) {
-                    clearTimeout(killTimeout);
-                    this.inferenceProcess = null;
-                    resolve({ status: 'stopped', detail: 'already_dead' });
-                }
-            });
-        } catch (error) {
-            return { error: 'Failed to stop inference server', message: error.message };
-        }
+        return { status: 'not_running', detail: 'Memory Core does not manage the MLX/Ollama daemon.' };
     }
     
     /**
@@ -250,9 +120,6 @@ class InferenceLifecycleService extends Base {
      * @returns {Object}
      */
     getStatus() {
-        if (this.inferenceProcess && !this.inferenceProcess.killed) {
-            return { running: true, pid: this.inferenceProcess.pid, managed: true };
-        }
         return { running: false, pid: null, managed: false };
     }
 

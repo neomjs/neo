@@ -304,6 +304,18 @@ export class Orchestrator extends Base {
             healthService: this.healthService
         };
 
+        const continuousTasks = ['chroma', 'bridgeDaemon', 'mlx'];
+        const RESTART_COOLDOWN_MS = 15000;
+        for (const taskName of continuousTasks) {
+            const state = this.taskStateService.getTaskState(taskName);
+            if (state && !state.running) {
+                const lastRunAt = state.lastRunAt || 0;
+                if (now - lastRunAt > RESTART_COOLDOWN_MS) {
+                    executeTask(taskName, 'supervisor-restart');
+                }
+            }
+        }
+
         this.cadenceEngine.runIfDue('summary', () => {
             return this.summarizationCoordinator.getDueTask({
                 db                    : this.db,

@@ -26,6 +26,11 @@ function createTestOrchestrator(config = {}) {
         writeLogFn     : () => {}
     });
     TaskStateService.taskState = createInitialTaskState(taskDefinitions);
+    ['chroma', 'bridgeDaemon', 'mlx'].forEach(name => {
+        if (TaskStateService.taskState[name]) {
+            TaskStateService.taskState[name].running = true;
+        }
+    });
 
     const orchestrator = Neo.create(Orchestrator, {
         dataDir                 : '/tmp/orchestrator-test',
@@ -55,7 +60,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             nodeBin  : '/node'
         }));
 
-        expect(Object.keys(state)).toEqual(['summary', 'kbSync', 'backup']);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'mlx', 'summary', 'kbSync', 'backup']);
         expect(state.summary).toMatchObject({
             running      : false,
             pid          : null,
