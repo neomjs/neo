@@ -10,6 +10,7 @@ import {
     DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
     DEFAULT_KB_SYNC_INTERVAL_MS,
     DEFAULT_BACKUP_INTERVAL_MS,
+    PRIMARY_DEV_SYNC_TASK_NAME,
     buildTaskDefinitions
 } from '../../../../../ai/daemons/TaskDefinitions.mjs';
 import TaskStateService, { createInitialTaskState } from '../../../../../ai/daemons/services/TaskStateService.mjs';
@@ -41,9 +42,12 @@ function createTestOrchestrator(config = {}) {
         summarySweepIntervalMs  : config.summarySweepIntervalMs ?? 600000,
         kbSyncIntervalMs        : config.kbSyncIntervalMs ?? 600000,
         backupIntervalMs        : config.backupIntervalMs ?? 86400000,
+        primaryDevSyncIntervalMs: config.primaryDevSyncIntervalMs ?? 600000,
+        primaryDevSyncEnabled   : config.primaryDevSyncEnabled ?? false,
         healthService           : config.healthService || {recordTaskOutcome() {}},
         summarizationCoordinator: config.summarizationCoordinator || {getDueTask: () => null},
         backupCoordinator       : config.backupCoordinator || {getDueTask: () => null},
+        primaryRepoSyncService  : config.primaryRepoSyncService || {getDueTask: () => null, runTask: () => null},
         spawnFn                 : config.spawnFn || (() => { throw new Error('spawnFn not expected'); })
     });
 
@@ -60,7 +64,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             nodeBin  : '/node'
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'mlx', 'summary', 'kbSync', 'backup']);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'mlx', 'summary', 'kbSync', 'backup', PRIMARY_DEV_SYNC_TASK_NAME]);
         expect(state.summary).toMatchObject({
             running      : false,
             pid          : null,
@@ -168,6 +172,38 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         
         expect(orchestrator.taskDefinitions.summary.args[0]).toBe(expectedSummaryScript);
         expect(orchestrator.taskDefinitions.kbSync.args[0]).toBe(expectedKbSyncScript);
+    });
+
+    test('routes primary-dev-sync through its service coordinator', () => {
+        const started = [];
+        const orchestrator = createTestOrchestrator({
+            kbSyncIntervalMs        : 0,
+            backupIntervalMs        : 0,
+            primaryDevSyncEnabled   : true,
+            primaryDevSyncIntervalMs: 600000,
+            primaryRepoSyncService  : {
+                getDueTask() {
+                    return {
+                        taskName: PRIMARY_DEV_SYNC_TASK_NAME,
+                        reason  : 'periodic-sweep:600000'
+                    };
+                },
+                runTask({taskName, reason}) {
+                    started.push({taskName, reason});
+                }
+            }
+        });
+
+        orchestrator.processSupervisorService = {
+            runTask() {}
+        };
+
+        orchestrator.poll();
+
+        expect(started).toEqual([{
+            taskName: PRIMARY_DEV_SYNC_TASK_NAME,
+            reason  : 'periodic-sweep:600000'
+        }]);
     });
 
 });

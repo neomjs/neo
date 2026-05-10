@@ -13,6 +13,9 @@ import {
 } from '../scripts/bridge-daemon-queries.mjs';
 import SummarizationCoordinatorService from './services/SummarizationCoordinatorService.mjs';
 import BackupCoordinatorService          from './services/BackupCoordinatorService.mjs';
+import PrimaryRepoSyncService, {
+    parseEnabledFlag
+} from './services/PrimaryRepoSyncService.mjs';
 import TaskStateService                from './services/TaskStateService.mjs';
 import ProcessSupervisorService        from './services/ProcessSupervisorService.mjs';
 import CadenceEngine                   from './services/CadenceEngine.mjs';
@@ -21,6 +24,8 @@ import {
     DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
     DEFAULT_KB_SYNC_INTERVAL_MS,
     DEFAULT_BACKUP_INTERVAL_MS,
+    DEFAULT_PRIMARY_DEV_SYNC_INTERVAL_MS,
+    PRIMARY_DEV_SYNC_TASK_NAME,
     DEFAULT_DB_PATH,
     DEFAULT_DATA_DIR,
     DEFAULT_SCRIPT_DIR,
@@ -141,6 +146,18 @@ export class Orchestrator extends Base {
          */
         backupIntervalMs_: DEFAULT_BACKUP_INTERVAL_MS,
         /**
+         * @member {Number} primaryDevSyncIntervalMs_=600000
+         * @protected
+         * @reactive
+         */
+        primaryDevSyncIntervalMs_: DEFAULT_PRIMARY_DEV_SYNC_INTERVAL_MS,
+        /**
+         * @member {Boolean} primaryDevSyncEnabled_=true
+         * @protected
+         * @reactive
+         */
+        primaryDevSyncEnabled_: true,
+        /**
          * @member {Object} healthService_=HealthService
          * @protected
          * @reactive
@@ -164,6 +181,12 @@ export class Orchestrator extends Base {
          * @reactive
          */
         backupCoordinator_: BackupCoordinatorService,
+        /**
+         * @member {Object} primaryRepoSyncService_=PrimaryRepoSyncService
+         * @protected
+         * @reactive
+         */
+        primaryRepoSyncService_: PrimaryRepoSyncService,
         /**
          * @member {Function} spawnFn_=spawn
          * @protected
@@ -205,6 +228,11 @@ export class Orchestrator extends Base {
         );
         this.kbSyncIntervalMs       = options.kbSyncIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS, DEFAULT_KB_SYNC_INTERVAL_MS);
         this.backupIntervalMs       = options.backupIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS, DEFAULT_BACKUP_INTERVAL_MS);
+        this.primaryDevSyncIntervalMs = options.primaryDevSyncIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS, DEFAULT_PRIMARY_DEV_SYNC_INTERVAL_MS);
+        this.primaryDevSyncEnabled  = options.primaryDevSyncEnabled ?? parseEnabledFlag(
+            process.env.NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED,
+            true
+        );
         this.taskDefinitions        = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
             nodeBin: options.nodeBin || process.argv[0]
@@ -212,6 +240,7 @@ export class Orchestrator extends Base {
         this.healthService          = options.healthService          || HealthService;
         this.summarizationCoordinator = options.summarizationCoordinator || SummarizationCoordinatorService;
         this.backupCoordinator      = options.backupCoordinator      || BackupCoordinatorService;
+        this.primaryRepoSyncService = options.primaryRepoSyncService || PrimaryRepoSyncService;
         this.spawnFn                = options.spawnFn                || spawn;
         this.processSupervisorService = options.processSupervisorService || ProcessSupervisorService;
         this.initializeDatabaseFn   = options.initializeDatabaseFn   || initializeDatabase;
@@ -344,6 +373,23 @@ export class Orchestrator extends Base {
                 backupIntervalMs: this.backupIntervalMs
             });
         }, executeTask, context);
+
+        this.cadenceEngine.runIfDue(PRIMARY_DEV_SYNC_TASK_NAME, () => {
+            return this.primaryRepoSyncService.getDueTask({
+                state     : this.taskStateService.getState(),
+                now,
+                intervalMs: this.primaryDevSyncIntervalMs,
+                enabled   : this.primaryDevSyncEnabled
+            });
+        }, (taskName, reason) => {
+            return this.primaryRepoSyncService.runTask({
+                taskName,
+                reason,
+                taskStateService: this.taskStateService,
+                healthService   : this.healthService,
+                writeLog        : this.writeLog.bind(this)
+            });
+        }, context);
 
         if (this.isPolling) {
             this.pollHandle = setTimeout(() => this.poll(), this.pollIntervalMs);
