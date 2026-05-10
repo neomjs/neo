@@ -13,7 +13,7 @@ import SyncService        from './SyncService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
-const openApiFilePath = path.join(__dirname, '../openapi.yaml');
+const openApiFilePath = path.join(__dirname, '../../mcp/server/github-workflow/openapi.yaml');
 
 const serviceMapping = {
     checkout_pull_request    : PullRequestService.checkoutPullRequest    .bind(PullRequestService),
