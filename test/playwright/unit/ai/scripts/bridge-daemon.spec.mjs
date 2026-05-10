@@ -143,6 +143,7 @@ test.describe('Bridge Daemon', () => {
         expect(output).toContain('[WAKE][priority:normal]');
         expect(output).toContain('Test Wake Event');
         expect(output).toContain('priority: normal');
+        expect(output).not.toContain('\nWindow:');
 
         // Per #10419 — verify the diagnostic log file was persisted to disk and contains
         // structured entries (ISO timestamp + PID + INFO/ERROR level prefix). Persistence
