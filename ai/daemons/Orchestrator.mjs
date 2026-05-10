@@ -5,6 +5,7 @@
 // class were ever loaded outside its entry-point's chain.
 import fs                          from 'fs-extra';
 import {spawn}                     from 'child_process';
+import path                        from 'path';
 import Base                        from '../../src/core/Base.mjs';
 import HealthService               from '../services/memory-core/HealthService.mjs';
 import {

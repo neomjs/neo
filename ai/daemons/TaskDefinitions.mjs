@@ -11,7 +11,7 @@ export const DEFAULT_BACKUP_INTERVAL_MS        = 86400000;
 
 export const DEFAULT_DB_PATH    = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
 export const DEFAULT_DATA_DIR   = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
-export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
+export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../scripts');
 
 /**
  * @summary Builds child-process commands for orchestrator-owned maintenance tasks.
