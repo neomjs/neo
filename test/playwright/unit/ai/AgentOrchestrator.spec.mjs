@@ -1,11 +1,11 @@
 import test         from '@playwright/test';
 import fs           from 'fs';
 import path         from 'path';
-import Neo          from '../../../../src/Neo.mjs';
-import * as core    from '../../../../src/core/_export.mjs';
-import Orchestrator from '../../../../ai/agent/Orchestrator.mjs';
+import Neo               from '../../../../src/Neo.mjs';
+import * as core       from '../../../../src/core/_export.mjs';
+import AgentOrchestrator from '../../../../ai/agent/AgentOrchestrator.mjs';
 
-test.describe('Neo.ai.agent.Orchestrator', () => {
+test.describe('Neo.ai.agent.AgentOrchestrator', () => {
     test('Golden Path regex correctly extracts issue IDs and descriptions', async () => {
         const content = `
 # Autonomous Handoff
@@ -27,7 +27,7 @@ Based on priorities, the following tasks are mathematically recommended:
         fs.writeFileSync(testHandoffPath, content, 'utf-8');
 
         try {
-            const orchestrator = Neo.create(Orchestrator, {
+            const orchestrator = Neo.create(AgentOrchestrator, {
                 handoffPath: testHandoffPath
             });
 

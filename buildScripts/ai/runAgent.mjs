@@ -1,7 +1,7 @@
-import Neo             from '../../src/Neo.mjs';
-import * as core       from '../../src/core/_export.mjs';
-import InstanceManager from '../../src/manager/Instance.mjs';
-import Orchestrator    from '../../ai/agent/Orchestrator.mjs';
+import Neo               from '../../src/Neo.mjs';
+import * as core         from '../../src/core/_export.mjs';
+import InstanceManager   from '../../src/manager/Instance.mjs';
+import AgentOrchestrator from '../../ai/agent/AgentOrchestrator.mjs';
 
 /**
  * @module buildScripts/ai/runAgent
@@ -11,10 +11,10 @@ const isDryRun = process.argv.includes('--dry-run');
 
 async function startOrchestrator() {
     try {
-        const orchestrator = Neo.create(Orchestrator);
+        const orchestrator = Neo.create(AgentOrchestrator);
         await orchestrator.execute({ dryRun: isDryRun });
     } catch (err) {
-        console.error('❌ Agent Orchestrator failed:', err);
+        console.error('❌ AgentOrchestrator failed:', err);
         process.exit(1);
     }
 }
