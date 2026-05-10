@@ -157,6 +157,21 @@ class SyncService extends Base {
             }
         }
 
+        // Stage 2: Ingest into Native Graph Database
+        try {
+            logger.info('[SyncService] Stage 2: Triggering Native Graph Issue Ingestion...');
+            // Dynamic import rationale: `IssueIngestor` depends on `GraphService` and `StorageRouter` (SQLite/ChromaDB).
+            // Dynamically importing it here prevents the `github-workflow` MCP server from loading heavy database
+            // dependencies or crashing on boot if the `memory-core` DB is locked, maintaining strict process boundary isolation.
+            const IssueIngestor = (await import('../../daemons/services/IssueIngestor.mjs')).default;
+            await IssueIngestor.ingestIssueStates();
+            await IssueIngestor.ingestDiscussionStates();
+            await IssueIngestor.ingestPullRequestFeedback();
+            logger.info('[SyncService] Stage 2: Native Graph Issue Ingestion complete.');
+        } catch (error) {
+            logger.error(`[SyncService] Stage 2 Ingestion failed: ${error.message}`);
+        }
+
         const endTime    = new Date();
         const durationMs = endTime - startTime;
 

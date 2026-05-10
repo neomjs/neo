@@ -15,12 +15,12 @@ import ConceptDiscoveryService from './services/ConceptDiscoveryService.mjs';
 import ConceptIngestor from './services/ConceptIngestor.mjs';
 import FileSystemIngestor from '../services/memory-core/FileSystemIngestor.mjs';
 import GapInferenceEngine from './services/GapInferenceEngine.mjs';
-import GoldenPathSynthesizer from './services/GoldenPathSynthesizer.mjs';
 import GraphMaintenanceService from './services/GraphMaintenanceService.mjs';
 import IssueIngestor from './services/IssueIngestor.mjs';
 import MemorySessionIngestor from './services/MemorySessionIngestor.mjs';
 import SemanticGraphExtractor from './services/SemanticGraphExtractor.mjs';
 import TopologyInferenceEngine from './services/TopologyInferenceEngine.mjs';
+import GoldenPathSynthesizer from './services/GoldenPathSynthesizer.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -84,11 +84,6 @@ class DreamService extends Base {
         if (aiConfig.data.autoDream) {
             logger.info('[Startup] DreamService: Checking for undigested session memories...');
             this.processUndigestedSessions().catch(e => logger.error('[Startup] DreamService failed:', e));
-        }
-
-        if (aiConfig.data.autoGoldenPath) {
-            logger.info('[Startup] DreamService: Synthesizing Golden Path into handoff file...');
-            this.synthesizeGoldenPath().catch(e => logger.error('[Startup] Golden Path generation failed:', e));
         }
     }
 
@@ -253,15 +248,22 @@ class DreamService extends Base {
             // Universal Fade (Garbage Collection)
             await this.runGarbageCollection();
 
-            // After extraction pipeline and decay are done, synthesize strategic roadmap
-            await this.synthesizeGoldenPath();
-
             logger.info('[DreamService] REM pipeline completed.');
         } catch (error) {
             logger.error('[DreamService] Failed to process undigested sessions:', error);
         } finally {
             this.isProcessing = false;
         }
+    }
+
+    /**
+     * Backward compatibility passthrough to GoldenPathSynthesizer.
+     * @deprecated Trigger GoldenPathSynthesizer directly or use MemoryService.mutateFrontier hook.
+     */
+    async synthesizeGoldenPath() {
+        // We dynamically import it here to avoid circular dependency loops during initialization
+        const { default: GoldenPathSynthesizer } = await import('./services/GoldenPathSynthesizer.mjs');
+        return GoldenPathSynthesizer.synthesizeGoldenPath();
     }
 
     /**
@@ -338,8 +340,7 @@ class DreamService extends Base {
     }
 
     /**
-     * Synthesizes the Golden Path (strategic priorities) deterministically by analyzing Graph topology
-     * combined with Vector Similarity (Hybrid GraphRAG).
+     * @deprecated Use GoldenPathSynthesizer.synthesizeGoldenPath() directly. Kept for backward compatibility and test stability.
      */
     async synthesizeGoldenPath() {
         return GoldenPathSynthesizer.synthesizeGoldenPath();
