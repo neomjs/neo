@@ -7,6 +7,7 @@ import matter                     from 'gray-matter';
 import path                       from 'path';
 import GraphqlService             from '../GraphqlService.mjs';
 import {FETCH_DISCUSSIONS_FOR_SYNC} from '../queries/discussionQueries.mjs';
+import chunkPath                  from '../shared/chunkPath.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 
