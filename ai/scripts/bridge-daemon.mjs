@@ -413,8 +413,7 @@ function queueEvent(subscription, eventPayload) {
         coalesceState[subId] = {
             subscription: subscription,
             queue: [],
-            timer: null,
-            windowStart: Date.now()
+            timer: null
         };
     }
 
@@ -502,7 +501,7 @@ async function flushSubscription(subId) {
     const state = coalesceState[subId];
     if (!state) return;
 
-    const { queue, subscription, windowStart } = state;
+    const { queue, subscription } = state;
     delete coalesceState[subId]; // reset
 
     if (queue.length === 0) return;
@@ -534,9 +533,7 @@ async function flushSubscription(subId) {
         breakdown += `\n- ${permissions.length} permissions granted (latest: ${latest.scope} by ${latest.grantedBy})`;
     }
 
-    const windowDuration = Date.now() - windowStart;
-    
-    const digest = `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}\nWindow: ${windowDuration}ms`;
+    const digest = `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}`;
     
     // Delivery to per-harness adapter
     await deliverDigest(subscription, digest);
