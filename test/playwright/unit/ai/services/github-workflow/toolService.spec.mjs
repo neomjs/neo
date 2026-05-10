@@ -13,7 +13,14 @@ setup({
     }
 });
 
+// Bootstrap parity (#11146/RA-1): importing toolService.mjs chains to Neo service
+// classes that require Neo.gatekeep (Compare.mjs:166). The setup() call only configures
+// Neo; the augmentation happens via these imports — mirrors the existing AI unit-test
+// pattern (e.g. IssueService.spec.mjs).
 import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 
 /**
  * #11145 — Branch-check guard at the agent-callable `sync_all` tool surface.
