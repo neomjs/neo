@@ -15,11 +15,18 @@ setup({
     }
 });
 
-import {test, expect}   from '@playwright/test';
-import fs               from 'fs';
-import fsExtra          from 'fs-extra';
-import os               from 'os';
-import path             from 'path';
+// Bootstrap parity with existing restore.spec.mjs (#11143/RA-2):
+// Importing `restore.mjs` chains to `ai/services.mjs` which loads core classes that
+// require `Neo.gatekeep` (Compare.mjs:166) to be registered. The setup() call only
+// configures Neo; the core augmentation happens via these imports.
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../src/Neo.mjs';
+import * as core       from '../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../src/manager/Instance.mjs';
+import fs              from 'fs';
+import fsExtra         from 'fs-extra';
+import os              from 'os';
+import path            from 'path';
 
 /**
  * #11141 — focused unit tests for the new restore.mjs surfaces:
@@ -259,5 +266,154 @@ test.describe('restore.mjs filters + hooks (#11141)', () => {
     test('hook: unknown name rejected with allowlist hint', async () => {
         await expect(dispatchPostRestoreHook({hook: 'mystery-hook', logger: silentLogger}))
             .rejects.toThrow(/Unknown post-restore hook.*Allowlist: filesystem-ingestor/);
+    });
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Row-level INSERT OR IGNORE preserve-live semantics (RA-3 from /pr-review)
+    //
+    // This is the core semantic correction the entire PR exists for: in merge
+    // mode, conflicting graph IDs must preserve the LIVE row (not overwrite
+    // with backup, and crucially NOT cascade-delete live edges via the
+    // DELETE-then-INSERT shape that `INSERT OR REPLACE` produces under SQLite's
+    // implementation).
+    //
+    // Tests use synthetic SQLite (better-sqlite3 directly) with the production
+    // schema shape (Nodes + Edges + ON DELETE CASCADE FK on Edges.source/target).
+    // No dependency on GraphService / Memory_DatabaseService boot lifecycle —
+    // this asserts the SQL primitive directly.
+    // ─────────────────────────────────────────────────────────────────────
+
+    test.describe('graph merge: INSERT OR IGNORE preserves live rows + edges (#11141 core semantic)', () => {
+        let Database;
+
+        test.beforeAll(async () => {
+            const mod = await import('better-sqlite3');
+            Database  = mod.default;
+        });
+
+        async function buildSyntheticGraphDb() {
+            const dbFile = path.join(workRoot, `graph-merge-${Date.now()}-${Math.random().toString(36).slice(2)}.sqlite`);
+            const db     = new Database(dbFile);
+            db.pragma('foreign_keys = ON');
+            db.exec(`
+                CREATE TABLE Nodes (
+                    id      TEXT PRIMARY KEY,
+                    user_id TEXT,
+                    data    TEXT
+                );
+                CREATE TABLE Edges (
+                    id      TEXT PRIMARY KEY,
+                    user_id TEXT,
+                    source  TEXT NOT NULL REFERENCES Nodes(id) ON DELETE CASCADE,
+                    target  TEXT NOT NULL REFERENCES Nodes(id) ON DELETE CASCADE,
+                    type    TEXT NOT NULL,
+                    data    TEXT
+                );
+            `);
+            return {db, dbFile};
+        }
+
+        test('merge mode (OR IGNORE): conflicting node-id keeps live row, no cascade-delete on its edges', () => {
+            const {db, dbFile} = (function () { const r = buildSyntheticGraphDb.bind(null)(); return r; })();
+            try {
+                // Live state: one node + one edge.
+                db.prepare("INSERT INTO Nodes (id, data) VALUES ('n1', 'LIVE-VERSION')").run();
+                db.prepare("INSERT INTO Nodes (id, data) VALUES ('n2', 'live')").run();
+                db.prepare("INSERT INTO Edges (id, source, target, type) VALUES ('e1', 'n1', 'n2', 'LIVE_EDGE')").run();
+
+                // Backup-style import (merge mode = OR IGNORE) for a conflicting node.
+                const insertNodeMerge = db.prepare("INSERT OR IGNORE INTO Nodes (id, user_id, data) VALUES (?, ?, ?)");
+                const result = insertNodeMerge.run('n1', null, 'BACKUP-VERSION-WOULD-OVERWRITE');
+
+                // OR IGNORE must report 0 changes (skipped) for the conflict.
+                expect(result.changes).toBe(0);
+
+                // Live row preserved.
+                const liveData = db.prepare("SELECT data FROM Nodes WHERE id = 'n1'").get();
+                expect(liveData.data).toBe('LIVE-VERSION');
+
+                // Critical: live edge NOT cascade-deleted (this would happen with OR REPLACE
+                // because SQLite implements OR REPLACE as DELETE-then-INSERT, which fires
+                // ON DELETE CASCADE on Edges.source/target → live edge gone).
+                const edge = db.prepare("SELECT id, type FROM Edges WHERE id = 'e1'").get();
+                expect(edge).toBeDefined();
+                expect(edge.type).toBe('LIVE_EDGE');
+            } finally {
+                db.close();
+                fs.unlinkSync(dbFile);
+            }
+        });
+
+        test('replace mode (OR REPLACE): conflicting node-id overwrites + cascade-deletes its edges (DOCUMENTED behavior)', () => {
+            const {db, dbFile} = (function () { const r = buildSyntheticGraphDb.bind(null)(); return r; })();
+            try {
+                // Live state: one node + one edge.
+                db.prepare("INSERT INTO Nodes (id, data) VALUES ('n1', 'LIVE-VERSION')").run();
+                db.prepare("INSERT INTO Nodes (id, data) VALUES ('n2', 'live')").run();
+                db.prepare("INSERT INTO Edges (id, source, target, type) VALUES ('e1', 'n1', 'n2', 'LIVE_EDGE')").run();
+
+                // Replace mode (OR REPLACE).
+                const insertNodeReplace = db.prepare("INSERT OR REPLACE INTO Nodes (id, user_id, data) VALUES (?, ?, ?)");
+                const result = insertNodeReplace.run('n1', null, 'BACKUP-VERSION');
+
+                // OR REPLACE reports 1 changes (replaced).
+                expect(result.changes).toBe(1);
+
+                // Live row replaced.
+                const replacedData = db.prepare("SELECT data FROM Nodes WHERE id = 'n1'").get();
+                expect(replacedData.data).toBe('BACKUP-VERSION');
+
+                // The cascade-delete is the empirical reason merge mode MUST NOT use OR REPLACE:
+                // Edge with source='n1' was destroyed by ON DELETE CASCADE during the implicit
+                // DELETE phase of INSERT OR REPLACE.
+                const edge = db.prepare("SELECT id FROM Edges WHERE id = 'e1'").get();
+                expect(edge).toBeUndefined();
+            } finally {
+                db.close();
+                fs.unlinkSync(dbFile);
+            }
+        });
+
+        test('merge mode (OR IGNORE) on edges: conflicting edge-id preserves live edge data', () => {
+            const {db, dbFile} = (function () { const r = buildSyntheticGraphDb.bind(null)(); return r; })();
+            try {
+                db.prepare("INSERT INTO Nodes (id, data) VALUES ('n1', 'live')").run();
+                db.prepare("INSERT INTO Nodes (id, data) VALUES ('n2', 'live')").run();
+                db.prepare("INSERT INTO Edges (id, source, target, type, data) VALUES ('e1', 'n1', 'n2', 'LIVE_TYPE', 'LIVE-EDGE-DATA')").run();
+
+                const insertEdgeMerge = db.prepare(`INSERT OR IGNORE INTO Edges (id, user_id, source, target, type, data) VALUES (?, ?, ?, ?, ?, ?)`);
+                const result = insertEdgeMerge.run('e1', null, 'n1', 'n2', 'BACKUP_TYPE', 'BACKUP-EDGE-DATA-WOULD-OVERWRITE');
+
+                expect(result.changes).toBe(0);
+
+                const live = db.prepare("SELECT type, data FROM Edges WHERE id = 'e1'").get();
+                expect(live.type).toBe('LIVE_TYPE');
+                expect(live.data).toBe('LIVE-EDGE-DATA');
+            } finally {
+                db.close();
+                fs.unlinkSync(dbFile);
+            }
+        });
+
+        test('merge mode: backup-only IDs INSERT cleanly (changes=1)', () => {
+            const {db, dbFile} = (function () { const r = buildSyntheticGraphDb.bind(null)(); return r; })();
+            try {
+                db.prepare("INSERT INTO Nodes (id, data) VALUES ('live-only', 'live')").run();
+
+                const insertNodeMerge = db.prepare("INSERT OR IGNORE INTO Nodes (id, user_id, data) VALUES (?, ?, ?)");
+                const result = insertNodeMerge.run('backup-only', null, 'BACKUP');
+
+                expect(result.changes).toBe(1);
+
+                const both = db.prepare("SELECT id, data FROM Nodes ORDER BY id").all();
+                expect(both).toEqual([
+                    {id: 'backup-only', data: 'BACKUP'},
+                    {id: 'live-only',   data: 'live'}
+                ]);
+            } finally {
+                db.close();
+                fs.unlinkSync(dbFile);
+            }
+        });
     });
 });
