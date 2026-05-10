@@ -78,7 +78,7 @@ class PullRequestSyncer extends Base {
      */
     #getPullRequestPath(pr) {
         const filename = `${aiConfig.issueSync.pullFilenamePrefix || 'pr-'}${pr.number}.md`;
-        const chunkDir = Math.floor(pr.number / 100) + 'xx';
+        const chunkDir = String(pr.number).padStart(4, '0').slice(0, -2) + 'xx';
 
         if (pr.state === 'OPEN') {
             return path.join(issueSyncConfig.pullsDir, chunkDir, filename);
