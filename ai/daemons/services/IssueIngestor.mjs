@@ -47,8 +47,8 @@ class IssueIngestor extends Base {
             return [];
         }
 
-        const filesRaw = await fs.promises.readdir(issuesDir);
-        const files = filesRaw.filter(f => f.endsWith('.md'));
+        const filesRaw = await fs.promises.readdir(issuesDir, { recursive: true });
+        const files = filesRaw.filter(f => typeof f === 'string' && f.endsWith('.md'));
         const openIssues = [];
         const parsedIssues = [];
 
@@ -65,7 +65,7 @@ class IssueIngestor extends Base {
                 try {
                     const meta = yaml.load(match[1]);
                     if (meta && meta.state) {
-                        const issueId = 'issue-' + (meta.id || file.replace(/\.md$/, ''));
+                        const issueId = 'issue-' + (meta.id || path.basename(file).replace(/\.md$/, ''));
 
                         GraphService.upsertNode({
                             id: issueId,
@@ -201,7 +201,7 @@ class IssueIngestor extends Base {
 
                     openIssues.push({
                         title: meta.title,
-                        issueId: meta.id || file.replace(/\.md$/, ''),
+                        issueId: meta.id || path.basename(file).replace(/\.md$/, ''),
                         body
                     });
                 }
