@@ -6,7 +6,6 @@ import logger                from '../../mcp/server/memory-core/logger.mjs';
 import SessionService        from './SessionService.mjs';
 import aiConfig              from '../../mcp/server/memory-core/config.mjs';
 import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
-import GoldenPathSynthesizer from '../../daemons/services/GoldenPathSynthesizer.mjs';
 
 /**
  * Computes a lightweight inbox snapshot for the bound AgentIdentity to piggyback on every
@@ -609,8 +608,12 @@ class MemoryService extends Base {
             const result = GraphService.mutateFrontier({ targetNodeId, weight, relationship });
 
             // Trigger event-driven Golden Path Synthesis
-            GoldenPathSynthesizer.synthesizeGoldenPath().catch(err => {
-                logger.error('[MemoryService] Event-driven Golden Path Synthesis failed:', err);
+            import('../../daemons/services/GoldenPathSynthesizer.mjs').then(mod => {
+                mod.default.synthesizeGoldenPath().catch(err => {
+                    logger.error('[MemoryService] Event-driven Golden Path Synthesis failed:', err);
+                });
+            }).catch(err => {
+                logger.error('[MemoryService] Failed to load GoldenPathSynthesizer:', err);
             });
 
             return {
