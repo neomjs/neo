@@ -214,6 +214,7 @@ class Database extends Base {
         oldValue?.destroy();
         let store = ClassSystemUtil.beforeSetInstance(value, Store, {
             autoInitRecords: false,
+            database       : this,
             indices        : [{property: 'source'}, {property: 'target'}],
             model          : EdgeModel
         });
@@ -234,6 +235,7 @@ class Database extends Base {
         oldValue?.destroy();
         let store = ClassSystemUtil.beforeSetInstance(value, Store, {
             autoInitRecords: false,
+            database       : this,
             model          : NodeModel
         });
 

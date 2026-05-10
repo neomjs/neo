@@ -1,10 +1,11 @@
 import DataStore from '../../src/data/Store.mjs';
+import DestructiveOperationGuard from '../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 
 /**
  * A highly specialized Store natively optimized for the Native Edge Graph Database engine.
  * Extends the framework data collection layer by introducing generic reactive associative map indices,
  * reducing massive O(E) semantic topology loop traversals (GraphRAG mappings) to instantaneous O(1) retrievals.
- * 
+ *
  * @class Neo.ai.graph.Store
  * @extends Neo.data.Store
  */
@@ -15,6 +16,12 @@ class Store extends DataStore {
          * @protected
          */
         className: 'Neo.ai.graph.Store',
+        /**
+         * Reference to the parent Database coordinating this store.
+         * @member {Object|Neo.ai.graph.Database|null} database_=null
+         * @reactive
+         */
+        database_: null,
         /**
          * Array of secondary index objects. Each object must have a `property` string.
          * Example: `[{property: 'source'}, {property: 'target'}]`
@@ -39,7 +46,7 @@ class Store extends DataStore {
      */
     afterSetIndices(value, oldValue) {
         let me = this;
-        
+
         if (value && value.length > 0) {
             me.indexMaps = new Map();
 
@@ -63,6 +70,8 @@ class Store extends DataStore {
     clear(reset=true) {
         let me = this;
 
+        me.guardProductionWipe();
+
         super.clear(reset);
 
         if (me.indexMaps) {
@@ -81,6 +90,8 @@ class Store extends DataStore {
     clearSilent(reset=true) {
         let me = this;
 
+        me.guardProductionWipe();
+
         super.clearSilent(reset);
 
         if (me.indexMaps) {
@@ -95,13 +106,13 @@ class Store extends DataStore {
     /**
      * Extracts exact matching items synchronously from the GraphStore topography in O(1) mapping operations.
      * Assumes `property` exists dynamically within `indices_`.
-     * @param {String} property 
-     * @param {*} value 
+     * @param {String} property
+     * @param {*} value
      * @returns {Object[]}
      */
     getByIndex(property, value) {
         let me = this;
-        
+
         if (me.indexMaps) {
             let propertyMap = me.indexMaps.get(property);
             if (propertyMap) {
@@ -111,8 +122,31 @@ class Store extends DataStore {
                 }
             }
         }
-        
+
         return [];
+    }
+
+    /**
+     * Prevents unintended wipe cascades by checking if this store is bound to a live production database.
+     * @protected
+     */
+    guardProductionWipe() {
+        let me      = this,
+            storage = me.database?.storage;
+
+        if (storage && storage.dbPath) {
+            let path = storage.dbPath;
+            try {
+                DestructiveOperationGuard.assertDestructiveTargetAllowedSync({
+                    operation: 'clear',
+                    subsystem: 'Neo.ai.graph.Store',
+                    mode: 'clear',
+                    target: { path }
+                });
+            } catch (e) {
+                throw new Error(`FATAL: Attempted to clear() a Store bound to a non-temporary SQLite database natively! Path: ${path}`);
+            }
+        }
     }
 
     /**
@@ -154,7 +188,7 @@ class Store extends DataStore {
                     item     = removedItems[i];
                     isRecord = Neo.isRecord(item);
                     val      = isRecord ? item.get(prop) : Neo.ns(prop, false, item) ?? item[prop];
-                    
+
                     if (val != null) {
                         itemSet = propertyMap.get(val);
                         if (itemSet) {
@@ -177,7 +211,7 @@ class Store extends DataStore {
                     item     = addedItems[i];
                     isRecord = Neo.isRecord(item);
                     val      = isRecord ? item.get(prop) : Neo.ns(prop, false, item) ?? item[prop];
-                    
+
                     if (val != null) {
                         itemSet = propertyMap.get(val);
                         if (!itemSet) {
