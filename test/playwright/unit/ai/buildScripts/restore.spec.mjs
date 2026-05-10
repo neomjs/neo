@@ -375,23 +375,37 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
     });
 
     test('parseArgs: positional bundle path + --mode + --force + --force-topology-mismatch', () => {
+        // #11141: parseArgs return shape extended with filterLabels/filterEdgeTypes/onlySubstrate/postRestoreHook.
+        // Defaults preserved when those flags are absent (covered separately in restore-filters.spec.mjs).
         expect(parseArgs(['/some/bundle'])).toEqual({
             bundleRoot           : '/some/bundle',
             mode                 : 'merge',
             force                : false,
-            forceTopologyMismatch: false
+            forceTopologyMismatch: false,
+            filterLabels         : [],
+            filterEdgeTypes      : [],
+            onlySubstrate        : null,
+            postRestoreHook      : null
         });
         expect(parseArgs(['/some/bundle', '--mode', 'replace', '--force'])).toEqual({
             bundleRoot           : '/some/bundle',
             mode                 : 'replace',
             force                : true,
-            forceTopologyMismatch: false
+            forceTopologyMismatch: false,
+            filterLabels         : [],
+            filterEdgeTypes      : [],
+            onlySubstrate        : null,
+            postRestoreHook      : null
         });
         expect(parseArgs(['/some/bundle', '--force-topology-mismatch'])).toEqual({
             bundleRoot           : '/some/bundle',
             mode                 : 'merge',
             force                : false,
-            forceTopologyMismatch: true
+            forceTopologyMismatch: true,
+            filterLabels         : [],
+            filterEdgeTypes      : [],
+            onlySubstrate        : null,
+            postRestoreHook      : null
         });
         expect(() => parseArgs([])).toThrow(/Missing required argument/);
         expect(() => parseArgs(['/x', '--unknown-flag'])).toThrow(/Unknown flag/);
