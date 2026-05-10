@@ -243,8 +243,8 @@ template before treating the review as substantively complete:
 
 If the review uses a custom or simplified format, A2A the reviewer
 to redo via `/pr-review` per the skill payload. Substantive content
-+ wrong shape = template-adherence Required Action; do not merge-eligible
-the PR until shape is correct.
++ wrong shape = template-adherence Required Action; do not signal merge-eligibility
+until shape is correct.
 
 ## 8. PR Comment Hygiene & A2A Propagation (Edge-Case)
 
