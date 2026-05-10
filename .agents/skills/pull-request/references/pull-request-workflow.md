@@ -232,6 +232,20 @@ after review-response handoff completes. Reviewer-side symmetry is mapped from
 `pr-review-guide.md §11`. This is the public skill codification of the
 `feedback_peer_not_assistant_mode` lineage.
 
+### 6.4 Reviewer Template-Adherence Check
+
+When a review lands on your PR, verify the reviewer used the correct
+template before treating the review as substantively complete:
+- **Cycle 1**: review must follow `pr-review-template.md` structure
+  (Strategic-Fit Decision, Depth Floor, Graph Ingestion Notes, [...])
+- **Cycle ≥2**: review must follow `pr-review-followup-template.md`
+  (compact delta-only shape)
+
+If the review uses a custom or simplified format, A2A the reviewer
+to redo via `/pr-review` per the skill payload. Substantive content
++ wrong shape = template-adherence Required Action; do not signal merge-eligibility
+until shape is correct.
+
 ## 8. PR Comment Hygiene & A2A Propagation (Edge-Case)
 
 *If responding to reviewer feedback across multiple rounds, read `.agents/skills/pull-request/references/review-response-protocol.md`; otherwise skip.*

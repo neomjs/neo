@@ -158,6 +158,8 @@ The PR cannot be approved if the implemented contract and the ticket's Contract 
 
 Before drafting your review, classify the review cycle. Template choice is part of context-budget control and rigor control.
 
+> **Symmetry Note:** The `pull-request` skill enforces an author-side template-adherence check (see `pull-request-workflow.md §6.4`). If you fail to use the correct template structure specified below, the author is mandated to reject your review and A2A you for a complete rewrite. Substantive content without structural adherence is not merge-eligible.
+
 ### 6.1 Full Review Template
 
 Use the full template from `.agents/skills/pr-review/assets/pr-review-template.md` when any of these apply:
