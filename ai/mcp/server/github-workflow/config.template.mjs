@@ -5,18 +5,8 @@ import BaseConfig, { createConfigProxy } from '../shared/BaseConfig.mjs';
 const __filename  = fileURLToPath(import.meta.url);
 const __dirname   = path.dirname(__filename);
 
-let projectRoot;
-
-if (process.env.NEO_WORKSPACE_ROOT) {
-    projectRoot = process.env.NEO_WORKSPACE_ROOT;
-} else {
-    const nodeModulesIndex = __dirname.indexOf(`${path.sep}node_modules${path.sep}neo.mjs`);
-    if (nodeModulesIndex !== -1) {
-        projectRoot = __dirname.slice(0, nodeModulesIndex) || path.sep;
-    } else {
-        projectRoot = path.resolve(__dirname, '../../../../');
-    }
-}
+const packageRoot = path.resolve(__dirname, '../../../../');
+const projectRoot = process.cwd() === '/' ? packageRoot : process.cwd();
 
 /**
  * Default configuration object.
