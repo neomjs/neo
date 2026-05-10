@@ -51,13 +51,14 @@ Checks:
 **Question:** Is the main architectural decision load-bearing? Would a more elegant alternative serve the same goal?
 
 Checks:
+- **Ideation Sandbox Backstop (Mandatory):** Did this Epic emerge from a Discussion? If yes, verify that the Double Diamond divergence matrix was captured in the Discussion *before* graduation (per `ideation-sandbox-workflow.md` §5). If the matrix is missing or lacks falsifying sources, reject the Epic and route the divergence back to the Discussion. Do not accept retro-fitted matrices authored directly in the Epic body.
 - Does the approach **reuse existing substrate**, or does it invent parallel substrate? (Parallel substrate is a strong warning sign — it usually means the author missed a reusable primitive.)
 - Is the main abstraction layer the right one? (Same substrate-boundary question as `ticket-intake` prescription challenge, elevated one scope level.)
 - Is there a known **Gold Standard** from prior sessions this epic diverges from without rationale? Query Memory Core for comparable epics.
 - Does the approach **compound** existing capability, or does it fight against it?
 - Is the epic's main decision testable — can it be empirically validated, or is it an unfalsifiable preference?
 
-**Stop condition:** if stage 2 fails, the comment proposes one or more **alternative approaches** with rationale. Stages 3-5 skip. Agent does not pick up subs until the elegance question is resolved — either the original approach is defended (epic body updated with rationale), or the alternative is adopted (epic restructured).
+**Stop condition:** if stage 2 fails, the comment proposes one or more **alternative approaches** with rationale, OR rejects the Epic for missing upstream Ideation divergence. Stages 3-5 skip. Agent does not pick up subs until the elegance question is resolved — either the original approach is defended (epic body updated with rationale), the alternative is adopted (epic restructured), or the upstream Ideation Sandbox divergence is completed.
 
 Stage 2 is the most empirically valuable gate. A non-elegant approach that passes structural review can waste N subs worth of effort before `pr-review` catches the foundational issue.
 
