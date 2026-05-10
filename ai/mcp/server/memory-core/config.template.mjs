@@ -48,6 +48,11 @@ const defaultConfig = {
      */
     autoDream: false,
     /**
+     * @deprecated since PR #11101. Golden Path synthesis is now dynamically event-driven
+     * (triggered via MemoryService#mutateFrontier) rather than bound to MCP boot sequence.
+     * This boot-time flag remains for temporary backwards-compatibility but will be
+     * removed in a future release.
+     *
      * Automatically trigger Golden Path Synthesis into the handoff file on startup.
      * Crucial for headless swarm nodes (Mac 2) to physically generate sandman_handoff.md.
      * @type {boolean}

@@ -20,6 +20,7 @@ import IssueIngestor from './services/IssueIngestor.mjs';
 import MemorySessionIngestor from './services/MemorySessionIngestor.mjs';
 import SemanticGraphExtractor from './services/SemanticGraphExtractor.mjs';
 import TopologyInferenceEngine from './services/TopologyInferenceEngine.mjs';
+import GoldenPathSynthesizer from './services/GoldenPathSynthesizer.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -256,6 +257,16 @@ class DreamService extends Base {
     }
 
     /**
+     * Backward compatibility passthrough to GoldenPathSynthesizer.
+     * @deprecated Trigger GoldenPathSynthesizer directly or use MemoryService.mutateFrontier hook.
+     */
+    async synthesizeGoldenPath() {
+        // We dynamically import it here to avoid circular dependency loops during initialization
+        const { default: GoldenPathSynthesizer } = await import('./services/GoldenPathSynthesizer.mjs');
+        return GoldenPathSynthesizer.synthesizeGoldenPath();
+    }
+
+    /**
      * Cycle-scoped GUIDE_GAP / EXAMPLE_GAP inference entry point. Delegates to
      * `GapInferenceEngine` for deterministic concept-graph edge traversal (`EXPLAINED_BY` /
      * `EXEMPLIFIED_BY`). Output depends only on ontology state, not on any individual session —
@@ -326,6 +337,13 @@ class DreamService extends Base {
      */
     async runGarbageCollection() {
         return GraphMaintenanceService.runGarbageCollection();
+    }
+
+    /**
+     * @deprecated Use GoldenPathSynthesizer.synthesizeGoldenPath() directly. Kept for backward compatibility and test stability.
+     */
+    async synthesizeGoldenPath() {
+        return GoldenPathSynthesizer.synthesizeGoldenPath();
     }
 }
 
