@@ -74,9 +74,9 @@ Different AI harnesses auto-load their own "memory file" at session start. Each 
 
 As new harnesses join the swarm, add their memory-file conventions here.
 
-#### Worktree Bootstrap (Claude Code)
+#### Worktree Bootstrap (Claude Code & Antigravity)
 
-Claude Code creates a fresh git worktree per session at `.claude/worktrees/<name>/`. Because `ai/mcp/server/*/config.mjs` is gitignored (copy-from-template files for local overrides), worktrees start without these files. Any script that imports `ai/services.mjs` fails with:
+Agent harnesses create a fresh git worktree per session (e.g., at `.claude/worktrees/<name>/` or `.gemini/antigravity/worktrees/...`). Because `ai/mcp/server/*/config.mjs` is gitignored (copy-from-template files for local overrides), fresh worktrees start without these files. Any script that imports `ai/services.mjs` fails with:
 
 ```
 Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../ai/mcp/server/github-workflow/config.mjs'
