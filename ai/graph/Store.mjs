@@ -16,6 +16,12 @@ class Store extends DataStore {
          */
         className: 'Neo.ai.graph.Store',
         /**
+         * Reference to the parent Database coordinating this store.
+         * @member {Object|Neo.ai.graph.Database|null} database_=null
+         * @reactive
+         */
+        database_: null,
+        /**
          * Array of secondary index objects. Each object must have a `property` string.
          * Example: `[{property: 'source'}, {property: 'target'}]`
          * @member {Object[]|null} indices_=null
@@ -63,6 +69,8 @@ class Store extends DataStore {
     clear(reset=true) {
         let me = this;
 
+        me.guardProductionWipe();
+
         super.clear(reset);
 
         if (me.indexMaps) {
@@ -80,6 +88,8 @@ class Store extends DataStore {
      */
     clearSilent(reset=true) {
         let me = this;
+
+        me.guardProductionWipe();
 
         super.clearSilent(reset);
 
@@ -113,6 +123,22 @@ class Store extends DataStore {
         }
         
         return [];
+    }
+
+    /**
+     * Prevents unintended wipe cascades by checking if this store is bound to a live production database.
+     * @protected
+     */
+    guardProductionWipe() {
+        let me      = this,
+            storage = me.database?.storage;
+            
+        if (storage && storage.dbPath) {
+            let path = storage.dbPath;
+            if (!path.includes('tmp') && !path.includes('test') && path !== ':memory:') {
+                throw new Error(`FATAL: Attempted to clear() a Store bound to a non-temporary SQLite database natively! Path: ${path}`);
+            }
+        }
     }
 
     /**
