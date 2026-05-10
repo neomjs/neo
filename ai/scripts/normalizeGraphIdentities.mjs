@@ -108,7 +108,7 @@ references to the deleted alias nodes until they restart.
  * Core migration routine. Reads current state, plans rewrites + deletions, optionally
  * applies them inside an atomic transaction.
  *
- * @param {import('better-sqlite3').Database} db — open SQLite connection
+ * @param {Object} db — open SQLite connection
  * @param {Boolean} apply — when true, commit the migration; when false, dry-run only
  * @returns {{edgesRewritten: Number, edgesDropped: Number, nodesDeleted: Number, duplicateCollisions: Number, skipped: String[]}}
  */

@@ -113,7 +113,7 @@ export async function readGateState() {
 /**
  * Atomic write of the gate state. Writes to a temp file then rename to avoid
  * scheduler readers seeing a partial write under concurrent operator updates.
- * @param {{state: string, reason: string, trippedBy?: string}} payload
+ * @param {{state: string, reason: string, trippedBy: string|undefined}} payload
  * @returns {Promise<void>}
  */
 export async function writeGateState(payload) {
