@@ -105,6 +105,49 @@ class LocalFileService extends Base {
             };
         }
     }
+
+    /**
+     * Finds and returns the content of a local discussion file by its number.
+     * @param {string} discussionNumber The discussion number, with or without a leading '#'.
+     * @returns {Promise<object>} A promise that resolves to the file content or a structured error.
+     */
+    async getDiscussionById(discussionNumber) {
+        const normalizedId = discussionNumber.startsWith('#') ? discussionNumber.substring(1) : discussionNumber;
+        const filename     = `${aiConfig.issueSync.discussionFilenamePrefix}${normalizedId}.md`;
+
+        try {
+            // 1. Check the active discussions directory first (Flat structure).
+            const activePath = path.join(aiConfig.issueSync.discussionsDir, filename);
+            if (await fs.pathExists(activePath)) {
+                const content = await fs.readFile(activePath, 'utf-8');
+                return { filePath: activePath, content };
+            }
+
+            // 2. If not found, search the archive directory recursively
+            const archivePath = await this.#findFileRecursively(aiConfig.issueSync.archiveRoot, filename);
+
+            if (archivePath) {
+                const content = await fs.readFile(archivePath, 'utf-8');
+                return { filePath: archivePath, content };
+            }
+
+            // 3. If not found anywhere, return an error
+            logger.warn(`[LocalFileService] Discussion file not found for #${normalizedId}`);
+            return {
+                error  : 'File not found',
+                message: `No local markdown file found for discussion #${normalizedId}.`,
+                code   : 'NOT_FOUND'
+            };
+
+        } catch (error) {
+            logger.error(`[LocalFileService] Error getting discussion #${normalizedId}:`, error);
+            return {
+                error  : 'Internal server error',
+                message: error.message,
+                code   : 'SERVER_ERROR'
+            };
+        }
+    }
 }
 
 export default Neo.setupClass(LocalFileService);

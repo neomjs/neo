@@ -6,9 +6,9 @@ import logger                     from '../../../mcp/server/github-workflow/logg
 import matter                     from 'gray-matter';
 import path                       from 'path';
 import GraphqlService             from '../GraphqlService.mjs';
+import ReleaseSyncer              from './ReleaseSyncer.mjs';
 import {FETCH_DISCUSSIONS_FOR_SYNC} from '../queries/discussionQueries.mjs';
-import chunkPath                  from '../shared/chunkPath.mjs';
-
+import archivePath                from '../shared/archivePath.mjs';
 const issueSyncConfig = aiConfig.issueSync;
 
 /**
@@ -71,16 +71,94 @@ class DiscussionSyncer extends Base {
     }
 
     /**
+     * @summary Pre-computes bucket counts and indices for all archived discussions.
+     * @param {Object} metadata The sync metadata.
+     * @param {Array} fetchedDiscussions The delta discussions fetched from GitHub.
+     * @returns {Map<number, {version: string, itemCount: number, itemIndex: number}>}
+     * @private
+     */
+    #planArchiveBuckets(metadata, fetchedDiscussions = []) {
+        const combined = new Map();
+        
+        for (const [idStr, discussion] of Object.entries(metadata.discussions || {})) {
+            combined.set(parseInt(idStr, 10), {
+                number: parseInt(idStr, 10),
+                closed: discussion.closed,
+                closedAt: discussion.closedAt
+            });
+        }
+        
+        for (const discussion of fetchedDiscussions) {
+            combined.set(discussion.number, {
+                number: discussion.number,
+                closed: discussion.closed,
+                closedAt: discussion.closedAt
+            });
+        }
+        
+        const buckets = new Map();
+        
+        for (const discussion of combined.values()) {
+            if (!discussion.closed) continue;
+            
+            let version = null;
+            if (discussion.closedAt) {
+                const closed = new Date(discussion.closedAt);
+                version = ReleaseSyncer.getReleaseForDate(closed);
+            }
+            
+            const bucketName = version || 'legacy';
+            if (!buckets.has(bucketName)) {
+                buckets.set(bucketName, []);
+            }
+            buckets.get(bucketName).push(discussion.number);
+        }
+        
+        const archivePlan = new Map();
+        
+        for (const [bucketName, items] of buckets.entries()) {
+            items.sort((a, b) => a - b);
+            
+            items.forEach((id, index) => {
+                archivePlan.set(id, {
+                    version  : bucketName,
+                    itemCount: items.length,
+                    itemIndex: index
+                });
+            });
+        }
+        
+        return archivePlan;
+    }
+
+    /**
      * Determines the correct local file path for a given discussion.
      * @param {object} discussion The GitHub discussion object.
+     * @param {Map} archivePlan The precomputed bucket plan.
      * @returns {string} The absolute file path for the discussion's Markdown file.
      * @private
      */
-    #getDiscussionPath(discussion) {
+    #getDiscussionPath(discussion, archivePlan) {
         const filename = `${issueSyncConfig.discussionFilenamePrefix}${discussion.number}.md`;
-        const chunkDir = String(discussion.number).padStart(4, '0').slice(0, -2) + 'xx';
 
-        return path.join(issueSyncConfig.discussionsDir, chunkDir, filename);
+        if (!discussion.closed) {
+            // Flat active tier for discussions
+            return path.join(issueSyncConfig.discussionsDir, filename);
+        }
+
+        const plan = archivePlan.get(discussion.number);
+        if (!plan) {
+            return null;
+        }
+
+        return archivePath({
+            archiveRoot: issueSyncConfig.archiveRoot,
+            type       : 'discussions',
+            version    : plan.version,
+            filename   : filename,
+            itemCount  : plan.itemCount,
+            itemIndex  : plan.itemIndex
+        });
     }
 
     /**
@@ -131,10 +209,12 @@ class DiscussionSyncer extends Base {
         };
 
         const cachedDiscussions = metadata.discussions || {};
+        const archivePlan = this.#planArchiveBuckets(metadata, allDiscussions);
 
         for (const discussion of allDiscussions) {
             try {
-                const targetPath  = this.#getDiscussionPath(discussion);
+                const targetPath  = this.#getDiscussionPath(discussion, archivePlan);
+                if (!targetPath) continue;
 
                 const frontmatter = {
                     number     : discussion.number,
@@ -215,6 +295,8 @@ class DiscussionSyncer extends Base {
         allDiscussions.forEach(d => {
             metadata.discussions[d.number] = {
                 number: d.number,
+                closed: d.closed,
+                closedAt: d.closedAt,
                 contentHash: d.contentHash,
                 path: d.relativeOutputPath
             };
