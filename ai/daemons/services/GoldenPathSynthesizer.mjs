@@ -41,6 +41,12 @@ class GoldenPathSynthesizer extends Base {
      * physics simulation of the queue. Task state is queried via both `$.properties.state` and
      * `$.state` to ensure reliable `OPEN` detection across varying JSON schemas.
      */
+    async fetchOpenPRs() {
+        const { execSync } = await import('child_process');
+        const rawPrData = execSync('gh pr list --state open --json number,url,author,title,body,headRefOid,reviewRequests,reviews,comments', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+        return JSON.parse(rawPrData);
+    }
+
     async synthesizeGoldenPath() {
         logger.info('[GoldenPathSynthesizer] Initializing Hybrid GraphRAG Strategic Traversal...');
 
@@ -345,10 +351,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         // --- Active PR Cycle State ---
         let prStateAppend = '';
         try {
-            const { execSync } = await import('child_process');
-            // Fetch all open PRs
-            const rawPrData = execSync('gh pr list --state open --json number,url,author,title,body,headRefOid,reviewRequests,reviews,comments', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
-            const prs = JSON.parse(rawPrData);
+            const prs = await this.fetchOpenPRs();
             
             const agentLogins = ['neo-opus-4-7', 'neo-gemini-3-1-pro', 'neo-gpt'];
             const agentPrs = prs.filter(pr => pr.author && agentLogins.includes(pr.author.login));
