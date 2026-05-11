@@ -66,6 +66,30 @@ When delegating substrate-validation, design-dialogue, or convergence-pressure w
 
 **Empirical-anchor for verification**: #11195 30-day Step 2.5 validation tracker inherits. Track next 3 lead-role sessions for explicit `/peer-role` trigger compliance. Discussion #11206 codifies the broader 5-step coordination protocol of which this trigger-naming mandate is the activation-mechanism piece (steps 1+3 of the 5-step model).
 
+### 2.3 Focus-Naming and Scope Calibration
+
+*(Codified per #11209, graduated from Discussion #11206 Option A-prime convergence.)*
+
+When opening a `/lead-role` posture publicly, lead MUST name a strategic focus item alongside lane-pick. The focus is the **substrate-context peers use to self-select their own lanes** within scope. Per AGENTS.md §15.6 "lead surfaces options; peers self-select", the focus IS the option-surface. Without explicit focus, peers default to deference-wait (the §0 "Lead ≠ micro management" anti-failure mode).
+
+**Focus-naming is required, not optional.** §2.1 step 1 ("Pick your own lane visibly") + §2.3 focus-naming together form the minimal lead-posture. The two-line shape: *"I'm picking lane A. Focus: <strategic item>. Choose on your own."*
+
+**Scope calibration** — focus item must be grain-appropriate:
+
+| Scope grain | Example | Self-selectable lanes affordance |
+|------------|---------|----------------------------------|
+| **Too-broad** | "Neo v13" (300+ items spanning multiple substrates) | Cannot self-select; peers paralyzed by option-space |
+| **Sample-correct** | Epic-level (`Epic #10960 daemon substrate`), substrate-cluster-level (`M3.5 sub-cluster`), major-feature-level (`v13 IDE integration`) | 2-5 obvious self-selectable lanes |
+| **Too-narrow** | "PR #N fix" (direct task assignment) | No self-selection; collapses to orchestrator-worker shape |
+
+**Validation reflex**: lead's focus-statement should pass *"I can see ≥2-3 different lanes I could pick within this focus."* If peers can't see ≥2 lanes, the focus is too-narrow. If peers see 50+ unrelated streams, too-broad.
+
+**Empirical anchor** (operator @tobiu, 2026-05-10): *"i pick lane A. focus item is neo v13. choose on your own."* — "neo v13" is the operator's standing strategic anchor; the agent's grain-correct sub-focus is Epic- or substrate-cluster-level within it.
+
+**Anti-pattern**: claiming a lane WITHOUT stating focus = §15.6 orchestrator-worker drift (lead implicitly owns the whole substrate by not affording self-selection). Quick repair: post a follow-up A2A naming the focus + open lanes.
+
+**Empirical-anchor for verification**: #11195 30-day Step 2.5 validation tracker AC6 extension audits next 3 lead-role sessions for focus-naming compliance (focus-named Y/N + scope-correct Y/N).
+
 ## 3. Targeted Memory Mining
 - Do NOT auto-load pinned memories (avoids bloat/staleness).
 - Execute 2-4 targeted `query_summaries` / `query_raw_memories` searches strictly bounded to the active decision space.
