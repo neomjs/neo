@@ -1278,7 +1278,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
             
             await expect(MailboxService.transitionTask({
                 taskId: res.messageId, newState: 'AlsoInvalid'
-            })).rejects.toThrow(/invalid_enum_value/);
+            })).rejects.toThrow(/invalid_enum_value|Invalid new task state/);
         });
     });
 
