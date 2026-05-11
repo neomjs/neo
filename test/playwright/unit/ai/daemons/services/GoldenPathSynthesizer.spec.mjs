@@ -29,6 +29,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     let GraphService;
     let SystemLifecycleService;
     
+    let StorageRouter;
+    let TextEmbeddingService;
     let tmpHandoffFile;
     let originalExecSync;
     
@@ -50,6 +52,8 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         GoldenPathSynthesizer = (await import('../../../../../../ai/daemons/services/GoldenPathSynthesizer.mjs')).default;
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
+        StorageRouter = (await import('../../../../../../ai/services.mjs')).Memory_StorageRouter;
+        TextEmbeddingService = (await import('../../../../../../ai/services.mjs')).Memory_TextEmbeddingService;
         logger = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
         
         if (!SystemLifecycleService._initPromise) { await SystemLifecycleService.initAsync(); } else { await SystemLifecycleService.ready(); }
@@ -72,6 +76,14 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test('synthesizeGoldenPath appends Active PR Cycle State from GitHub CLI output', async () => {
+        const originalGetGraphCollection = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText = TextEmbeddingService.embedText;
+        
+        StorageRouter.getGraphCollection = async () => ({ query: async () => ({ ids: [['mock-id']], distances: [[0.1]] }) });
+        StorageRouter.getSummaryCollection = async () => ({ get: async () => ({ documents: ['mock document'] }) });
+        TextEmbeddingService.embedText = async () => [0.1, 0.2];
+
         // Mock gh pr list output
         const mockPrData = [
             {
@@ -95,6 +107,9 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         await GoldenPathSynthesizer.synthesizeGoldenPath();
         
         GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+        StorageRouter.getGraphCollection = originalGetGraphCollection;
+        StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+        TextEmbeddingService.embedText = originalEmbedText;
 
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
         
