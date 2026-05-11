@@ -14,6 +14,10 @@ The act of opening a PR is an irreversible state transition in the Agent OS. Bef
 
 *If and only if* you pass this reflection phase, proceed to the Git execution sequence.
 
+### 1.0 The Sandman Handoff Pre-Flight Guard
+
+Before creating any new PR, verify that `resources/content/sandman_handoff.md` does not contain a blocking `lane-state` (e.g., `AWAITING_REVIEW`, `AWAITING_HUMAN`). If a blocking state is active, you are explicitly forbidden from initiating new PR creation until it is resolved.
+
 ### 1.1 The Substrate-Mutation Pre-Flight Gate
 
 If your PR touches **any** of the following paths:

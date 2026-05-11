@@ -145,8 +145,15 @@ For substrate-quality heuristics that operationalize this principle without beco
 | `unit-test` | Before writing, modifying, or executing Playwright unit tests |
 | `whitebox-e2e` | Before writing, modifying, or executing Playwright Whitebox E2E tests |
 
-## 22. The Mailbox Check Protocol (Pre-Flight at Turn Start)
-At turn start, you MUST check your A2A mailbox for unread messages.
+## 22. Turn Start & Session Boot Pre-Flights
+
+**Session Boot Pre-Flight (The Sandman Handoff):**
+At the very beginning of a newly booted session, before executing any workflow skills, you MUST read `resources/content/sandman_handoff.md`.
+- **Hard-Refusal Predicate:** If the `lane-state` is `AWAITING_REVIEW`, `AWAITING_HUMAN`, or a similar blocked state, you MUST halt execution of any new ticket intake or PR creation.
+- **Operator Notification:** You must explicitly log/state the blocked state to the human operator in your response, and await their explicit override before proceeding with new work.
+
+**The Mailbox Check Protocol (Turn Start):**
+At every turn start, you MUST check your A2A mailbox for unread messages.
 > *"Pre-Flight: I called `list_messages({status: 'unread'})` and observed [N unread]."*
 
 **Lead-role baton intake:** If the unread mailbox contains a targeted message
