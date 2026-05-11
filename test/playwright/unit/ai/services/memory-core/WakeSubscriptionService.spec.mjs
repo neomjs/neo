@@ -246,6 +246,243 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
                     .rejects.toThrow("Cannot bootstrap subscription: no subscriptionTemplate found on AgentIdentity '@bob'.");
             });
         });
+
+        // ------------------------------------------------------------------------
+        // Cross-session duplicate-accumulation reconciler (#11182)
+        // ------------------------------------------------------------------------
+
+        test('reconciles duplicate active subscriptions at bootstrap, keeping newest (#11182)', async () => {
+            // Give Alice a template
+            GraphService.upsertNode({
+                id: '@alice',
+                type: 'AGENT',
+                name: 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger: 'SENT_TO_ME',
+                        harnessTarget: 'bridge-daemon',
+                        harnessTargetMetadata: { appName: 'Antigravity' }
+                    }
+                }
+            });
+
+            // Seed 2 active subscriptions for @alice with identical route-tuple but
+            // different creation times. Empirical anchor (#11182): @neo-opus-4-7 + @neo-gpt
+            // both accumulated duplicates with ~2 days between createdAt timestamps.
+            const older = insertDurableSubscription({
+                subscriptionId: 'WAKE_SUB:older-uuid',
+                owner         : '@alice',
+                harnessTargetMetadata: {appName: 'Antigravity'},
+                createdAt     : '2026-05-08T17:57:00.000Z',
+                updatedAt     : '2026-05-08T17:57:00.000Z'
+            });
+            const newer = insertDurableSubscription({
+                subscriptionId: 'WAKE_SUB:newer-uuid',
+                owner         : '@alice',
+                harnessTargetMetadata: {appName: 'Antigravity'},
+                createdAt     : '2026-05-10T17:09:00.000Z',
+                updatedAt     : '2026-05-10T17:09:00.000Z'
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const res = await WakeSubscriptionService.manage({ action: 'bootstrap' });
+
+                // Bootstrap should return the NEWER subscription as existing (reconciler-kept).
+                expect(res.subscriptionId).toBe(newer.subscriptionId);
+                expect(res.status).toBe('existing');
+            });
+
+            // Verify durable state: older retired, newer still active.
+            const sqlite = GraphService.db.storage.db;
+            const olderRow = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(older.subscriptionId);
+            const newerRow = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(newer.subscriptionId);
+
+            const olderNode = JSON.parse(olderRow.data);
+            const newerNode = JSON.parse(newerRow.data);
+
+            expect(olderNode.properties.status).toBe('retired');
+            expect(olderNode.properties.retiredAt).toBeDefined();
+            expect(newerNode.properties.status).toBe('active');
+        });
+
+        test('reconciler is idempotent on canonical single-active state (#11182)', async () => {
+            GraphService.upsertNode({
+                id: '@alice',
+                type: 'AGENT',
+                name: 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger: 'SENT_TO_ME',
+                        harnessTarget: 'bridge-daemon',
+                        harnessTargetMetadata: { appName: 'Antigravity' }
+                    }
+                }
+            });
+
+            const only = insertDurableSubscription({
+                owner                : '@alice',
+                harnessTargetMetadata: {appName: 'Antigravity'},
+                createdAt            : '2026-05-10T17:09:00.000Z'
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const res = await WakeSubscriptionService.manage({ action: 'bootstrap' });
+
+                expect(res.subscriptionId).toBe(only.subscriptionId);
+                expect(res.status).toBe('existing');
+            });
+
+            // The single subscription should remain ACTIVE (not erroneously retired).
+            const sqlite = GraphService.db.storage.db;
+            const row = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(only.subscriptionId);
+            expect(JSON.parse(row.data).properties.status).toBe('active');
+        });
+
+        test('reconciler retires N-1 when 3+ duplicates exist, keeping newest (#11182)', async () => {
+            GraphService.upsertNode({
+                id: '@alice',
+                type: 'AGENT',
+                name: 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger: 'SENT_TO_ME',
+                        harnessTarget: 'bridge-daemon',
+                        harnessTargetMetadata: { appName: 'Antigravity' }
+                    }
+                }
+            });
+
+            const oldest = insertDurableSubscription({
+                subscriptionId       : 'WAKE_SUB:oldest',
+                owner                : '@alice',
+                harnessTargetMetadata: {appName: 'Antigravity'},
+                createdAt            : '2026-05-06T12:00:00.000Z'
+            });
+            const middle = insertDurableSubscription({
+                subscriptionId       : 'WAKE_SUB:middle',
+                owner                : '@alice',
+                harnessTargetMetadata: {appName: 'Antigravity'},
+                createdAt            : '2026-05-08T12:00:00.000Z'
+            });
+            const newest = insertDurableSubscription({
+                subscriptionId       : 'WAKE_SUB:newest',
+                owner                : '@alice',
+                harnessTargetMetadata: {appName: 'Antigravity'},
+                createdAt            : '2026-05-10T12:00:00.000Z'
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const res = await WakeSubscriptionService.manage({ action: 'bootstrap' });
+
+                expect(res.subscriptionId).toBe(newest.subscriptionId);
+            });
+
+            const sqlite = GraphService.db.storage.db;
+            const states = [oldest, middle, newest].map(s => {
+                const row = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(s.subscriptionId);
+                return JSON.parse(row.data).properties.status;
+            });
+
+            expect(states).toEqual(['retired', 'retired', 'active']);
+        });
+
+        test('reconciler preserves distinct route-tuples for same owner (#11183 Cycle 1 GPT-RA1)', async () => {
+            // RA1 from PR #11183 Cycle 1: reconciler must group by canonical route-key
+            // (trigger + filters + harnessTarget + appName), not flatten by owner. Two
+            // legitimate routes for the same agent must BOTH survive.
+            GraphService.upsertNode({
+                id: '@alice',
+                type: 'AGENT',
+                name: 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger: 'SENT_TO_ME',
+                        harnessTarget: 'bridge-daemon',
+                        harnessTargetMetadata: { appName: 'Antigravity' }
+                    }
+                }
+            });
+
+            // Route A: SENT_TO_ME + bridge-daemon + Antigravity (matches bootstrap template)
+            const routeA = insertDurableSubscription({
+                subscriptionId       : 'WAKE_SUB:route-a',
+                owner                : '@alice',
+                trigger              : 'SENT_TO_ME',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {appName: 'Antigravity'},
+                createdAt            : '2026-05-10T17:09:00.000Z'
+            });
+
+            // Route B: TASK_STATE_CHANGED + bridge-daemon + Antigravity (distinct trigger)
+            const routeB = insertDurableSubscription({
+                subscriptionId       : 'WAKE_SUB:route-b',
+                owner                : '@alice',
+                trigger              : 'TASK_STATE_CHANGED',
+                harnessTarget        : 'bridge-daemon',
+                harnessTargetMetadata: {appName: 'Antigravity'},
+                createdAt            : '2026-05-10T17:09:30.000Z'
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const res = await WakeSubscriptionService.manage({ action: 'bootstrap' });
+                // Bootstrap re-uses Route A (matches template); does NOT collapse Route B.
+                expect(res.subscriptionId).toBe(routeA.subscriptionId);
+                expect(res.status).toBe('existing');
+            });
+
+            // Both routes survive: distinct route-tuples must NOT be reconciled as duplicates.
+            const sqlite = GraphService.db.storage.db;
+            const aRow = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(routeA.subscriptionId);
+            const bRow = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(routeB.subscriptionId);
+
+            expect(JSON.parse(aRow.data).properties.status).toBe('active');
+            expect(JSON.parse(bRow.data).properties.status).toBe('active');
+        });
+
+        test('reconciler ignores already-retired or inactive subscriptions (#11182)', async () => {
+            GraphService.upsertNode({
+                id: '@alice',
+                type: 'AGENT',
+                name: 'Alice',
+                properties: {
+                    subscriptionTemplate: {
+                        trigger: 'SENT_TO_ME',
+                        harnessTarget: 'bridge-daemon',
+                        harnessTargetMetadata: { appName: 'Antigravity' }
+                    }
+                }
+            });
+
+            // 1 already-retired + 1 active. Reconciler should treat as canonical (1 active).
+            const retired = insertDurableSubscription({
+                subscriptionId       : 'WAKE_SUB:already-retired',
+                owner                : '@alice',
+                harnessTargetMetadata: {appName: 'Antigravity'},
+                status               : 'retired',
+                createdAt            : '2026-05-08T17:57:00.000Z'
+            });
+            const active = insertDurableSubscription({
+                subscriptionId       : 'WAKE_SUB:still-active',
+                owner                : '@alice',
+                harnessTargetMetadata: {appName: 'Antigravity'},
+                createdAt            : '2026-05-10T17:09:00.000Z'
+            });
+
+            await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+                const res = await WakeSubscriptionService.manage({ action: 'bootstrap' });
+
+                expect(res.subscriptionId).toBe(active.subscriptionId);
+                expect(res.status).toBe('existing');
+            });
+
+            // Already-retired stays retired; active stays active.
+            const sqlite = GraphService.db.storage.db;
+            const retiredRow = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(retired.subscriptionId);
+            const activeRow  = sqlite.prepare('SELECT data FROM Nodes WHERE id = ?').get(active.subscriptionId);
+
+            expect(JSON.parse(retiredRow.data).properties.status).toBe('retired');
+            expect(JSON.parse(activeRow.data).properties.status).toBe('active');
+        });
     });
 
     // -----------------------------------------------------------------------------
