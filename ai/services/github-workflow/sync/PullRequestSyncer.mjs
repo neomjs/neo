@@ -6,8 +6,10 @@ import logger                     from '../../../mcp/server/github-workflow/logg
 import matter                     from 'gray-matter';
 import path                       from 'path';
 import GraphqlService             from '../GraphqlService.mjs';
+import ReleaseSyncer              from './ReleaseSyncer.mjs';
 import {FETCH_PULL_REQUESTS_FOR_SYNC} from '../queries/pullRequestQueries.mjs';
 import chunkPath                  from '../shared/chunkPath.mjs';
+import archivePath                from '../shared/archivePath.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const pullRequestConfig = aiConfig.pullRequest;
@@ -72,20 +74,125 @@ class PullRequestSyncer extends Base {
     }
 
     /**
+     * @summary Pre-computes bucket counts and indices for all archived pull requests.
+     * @param {Object} metadata The sync metadata.
+     * @param {Array} fetchedPullRequests The delta PRs fetched from GitHub.
+     * @returns {Map<number, {version: string, itemCount: number, itemIndex: number}>}
+     * @private
+     */
+    #planArchiveBuckets(metadata, fetchedPullRequests = []) {
+        const combined = new Map();
+        
+        for (const [idStr, pr] of Object.entries(metadata.pulls || {})) {
+            combined.set(parseInt(idStr, 10), {
+                number: parseInt(idStr, 10),
+                state: pr.state,
+                milestone: pr.milestone ? { title: pr.milestone } : null,
+                closedAt: pr.closedAt,
+                mergedAt: pr.mergedAt
+            });
+        }
+        
+        for (const pr of fetchedPullRequests) {
+            combined.set(pr.number, {
+                number: pr.number,
+                state: pr.state,
+                milestone: pr.milestone,
+                closedAt: pr.closedAt,
+                mergedAt: pr.mergedAt
+            });
+        }
+        
+        const buckets = new Map();
+        
+        for (const pr of combined.values()) {
+            if (pr.state === 'OPEN') continue;
+            
+            let version = null;
+            if (pr.milestone?.title) {
+                version = pr.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
+                    ? pr.milestone.title
+                    : issueSyncConfig.versionDirectoryPrefix + pr.milestone.title;
+            } else if (pr.mergedAt || pr.closedAt) {
+                const closed = new Date(pr.mergedAt || pr.closedAt);
+                const release = (ReleaseSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
+                if (release) {
+                    version = release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
+                        ? release.tagName
+                        : issueSyncConfig.versionDirectoryPrefix + release.tagName;
+                }
+            }
+            
+            version = version || issueSyncConfig.defaultArchiveVersion || 'unversioned';
+            
+            if (!buckets.has(version)) buckets.set(version, []);
+            buckets.get(version).push(pr);
+        }
+        
+        const plans = new Map();
+        for (const [version, prs] of buckets.entries()) {
+            prs.sort((a, b) => a.number - b.number);
+            const itemCount = prs.length;
+            prs.forEach((pr, index) => {
+                plans.set(pr.number, {
+                    version,
+                    itemCount,
+                    itemIndex: index
+                });
+            });
+        }
+        
+        return plans;
+    }
+
+    /**
      * Determines the correct local file path for a given pull request based on its state.
      * @param {object} pr The GitHub pull request object.
+     * @param {Map<number, object>} archivePlan Precomputed bucket distribution.
      * @returns {string} The absolute file path for the PR's Markdown file.
      * @private
      */
-    #getPullRequestPath(pr) {
+    #getPullRequestPath(pr, archivePlan = new Map()) {
         const filename = `${aiConfig.issueSync.pullFilenamePrefix || 'pr-'}${pr.number}.md`;
         const chunkDir = chunkPath(pr.number);
 
         if (pr.state === 'OPEN') {
             return path.join(issueSyncConfig.pullsDir, chunkDir, filename);
-        } else {
-            return path.join(issueSyncConfig.pullArchiveDir, chunkDir, filename);
         }
+
+        // Logic for CLOSED and MERGED pull requests
+        const plan = archivePlan.get(pr.number);
+        
+        // Fallback parameters if pr wasn't part of a pre-pass plan
+        let version = plan?.version;
+        let itemCount = plan?.itemCount || 1;
+        let itemIndex = plan?.itemIndex || 0;
+
+        if (!version) {
+            if (pr.milestone?.title) {
+                version = pr.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
+                    ? pr.milestone.title
+                    : issueSyncConfig.versionDirectoryPrefix + pr.milestone.title;
+            } else if (pr.mergedAt || pr.closedAt) {
+                const closed = new Date(pr.mergedAt || pr.closedAt);
+                const release = (ReleaseSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
+                if (release) {
+                    version = release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
+                        ? release.tagName
+                        : issueSyncConfig.versionDirectoryPrefix + release.tagName;
+                }
+            }
+            version = version || issueSyncConfig.defaultArchiveVersion || 'unversioned';
+        }
+
+        return archivePath({
+            archiveRoot: issueSyncConfig.archiveRoot,
+            type: 'pulls',
+            version: version,
+            filename: filename,
+            itemCount: itemCount,
+            itemIndex: itemIndex
+        });
     }
 
     /**
@@ -137,10 +244,11 @@ class PullRequestSyncer extends Base {
         };
 
         const cachedPulls = metadata.pulls || {};
+        const archivePlan = this.#planArchiveBuckets(metadata, allPullRequests);
 
         for (const pr of allPullRequests) {
             try {
-                const targetPath = this.#getPullRequestPath(pr);
+                const targetPath = this.#getPullRequestPath(pr, archivePlan);
 
                 const frontmatter = {
                     number     : pr.number,
@@ -235,6 +343,9 @@ class PullRequestSyncer extends Base {
                 contentHash: p.contentHash,
                 state: p.state,
                 updatedAt: p.updatedAt,
+                closedAt: p.closedAt || null,
+                mergedAt: p.mergedAt || null,
+                milestone: p.milestone?.title || null,
                 path: p.relativeOutputPath
             };
         });

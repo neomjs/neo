@@ -10,6 +10,7 @@ import ReleaseSyncer                                 from './ReleaseSyncer.mjs';
 import {FETCH_ISSUE_TIMELINE_PAGE, FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries.mjs';
 import {GET_ISSUE_ID, UPDATE_ISSUE}                                                                        from '../queries/mutations.mjs';
 import chunkPath                                        from '../shared/chunkPath.mjs';
+import archivePath                                      from '../shared/archivePath.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const lineBreaksRegex = /[\r\n]+/g;
@@ -258,13 +259,84 @@ class IssueSyncer extends Base {
     }
 
     /**
+     * @summary Pre-computes bucket counts and indices for all archived issues.
+     * @param {Object} metadata The sync metadata.
+     * @param {Array} fetchedIssues The delta issues fetched from GitHub.
+     * @returns {Map<number, {version: string, itemCount: number, itemIndex: number}>}
+     * @private
+     */
+    #planArchiveBuckets(metadata, fetchedIssues = []) {
+        const combined = new Map();
+        
+        for (const [idStr, issue] of Object.entries(metadata.issues || {})) {
+            combined.set(parseInt(idStr, 10), {
+                number: parseInt(idStr, 10),
+                state: issue.state,
+                milestone: issue.milestone ? { title: issue.milestone } : null,
+                closedAt: issue.closedAt
+            });
+        }
+        
+        for (const issue of fetchedIssues) {
+            combined.set(issue.number, {
+                number: issue.number,
+                state: issue.state,
+                milestone: issue.milestone,
+                closedAt: issue.closedAt
+            });
+        }
+        
+        const buckets = new Map();
+        
+        for (const issue of combined.values()) {
+            if (issue.state !== 'CLOSED') continue;
+            
+            let version = null;
+            if (issue.milestone?.title) {
+                version = issue.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
+                    ? issue.milestone.title
+                    : issueSyncConfig.versionDirectoryPrefix + issue.milestone.title;
+            } else if (issue.closedAt) {
+                const closed = new Date(issue.closedAt);
+                const release = (ReleaseSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
+                if (release) {
+                    version = release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
+                        ? release.tagName
+                        : issueSyncConfig.versionDirectoryPrefix + release.tagName;
+                }
+            }
+            
+            version = version || issueSyncConfig.defaultArchiveVersion || 'unversioned';
+            
+            if (!buckets.has(version)) buckets.set(version, []);
+            buckets.get(version).push(issue);
+        }
+        
+        const plans = new Map();
+        for (const [version, issues] of buckets.entries()) {
+            issues.sort((a, b) => a.number - b.number);
+            const itemCount = issues.length;
+            issues.forEach((issue, index) => {
+                plans.set(issue.number, {
+                    version,
+                    itemCount,
+                    itemIndex: index
+                });
+            });
+        }
+        
+        return plans;
+    }
+
+    /**
      * Determines the correct local file path for a given issue based on its state (OPEN/CLOSED),
      * labels (dropped), and milestone or closed date (for archiving).
      * @param {object} issue The GitHub issue object.
+     * @param {Map<number, object>} archivePlan Precomputed bucket distribution.
      * @returns {string|null} The absolute file path for the issue's Markdown file, or null if the issue should be dropped.
      * @private
      */
-    #getIssuePath(issue) {
+    #getIssuePath(issue, archivePlan = new Map()) {
         const filename = `${issueSyncConfig.issueFilenamePrefix}${issue.number}.md`;
         const chunkDir = chunkPath(issue.number);
 
@@ -285,29 +357,38 @@ class IssueSyncer extends Base {
 
         // Logic for CLOSED issues
         if (issue.state === 'CLOSED') {
-            // If an issue has a milestone, it is explicitly archived under that version.
-            if (issue.milestone?.title) {
-                const milestoneDir = issue.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
-                    ? issue.milestone.title
-                    : issueSyncConfig.versionDirectoryPrefix + issue.milestone.title;
-                return path.join(issueSyncConfig.archiveDir, milestoneDir, chunkDir, filename);
+            const plan = archivePlan.get(issue.number);
+            
+            // Fallback parameters if issue wasn't part of a pre-pass plan
+            let version = plan?.version;
+            let itemCount = plan?.itemCount || 1;
+            let itemIndex = plan?.itemIndex || 0;
+
+            if (!version) {
+                if (issue.milestone?.title) {
+                    version = issue.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
+                        ? issue.milestone.title
+                        : issueSyncConfig.versionDirectoryPrefix + issue.milestone.title;
+                } else if (issue.closedAt) {
+                    const closed = new Date(issue.closedAt);
+                    const release = (ReleaseSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
+                    if (release) {
+                        version = release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
+                            ? release.tagName
+                            : issueSyncConfig.versionDirectoryPrefix + release.tagName;
+                    }
+                }
+                version = version || issueSyncConfig.defaultArchiveVersion || 'unversioned';
             }
 
-            // For issues without a milestone, find the earliest release that was published after it was closed.
-            const closed = new Date(issue.closedAt);
-
-            const release = (ReleaseSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
-
-            // If a subsequent release exists, archive the issue under that release tag.
-            if (release) {
-                const releaseDir = release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
-                    ? release.tagName
-                    : issueSyncConfig.versionDirectoryPrefix + release.tagName;
-                return path.join(issueSyncConfig.archiveDir, releaseDir, chunkDir, filename);
-            }
-
-            // If no subsequent release is found, the issue is recently closed and remains in the main issues directory.
-            return path.join(issueSyncConfig.issuesDir, chunkDir, filename);
+            return archivePath({
+                archiveRoot: issueSyncConfig.archiveRoot,
+                type: 'issues',
+                version: version,
+                filename: filename,
+                itemCount: itemCount,
+                itemIndex: itemIndex
+            });
         }
 
         return null;
@@ -399,10 +480,12 @@ class IssueSyncer extends Base {
             dropped: { count: 0, issues: [] }
         };
 
+        const archivePlan = this.#planArchiveBuckets(metadata, allIssues);
+
         // Process each issue
         for (const issue of allIssues) {
             const issueNumber = issue.number;
-            const targetPath  = this.#getIssuePath(issue);
+            const targetPath  = this.#getIssuePath(issue, archivePlan);
 
             if (!targetPath) {
                 stats.dropped.count++;
@@ -590,7 +673,8 @@ class IssueSyncer extends Base {
 
                 await this.#exhaustTimelineItems(issue);
 
-                const targetPath = this.#getIssuePath(issue);
+                const archivePlan = this.#planArchiveBuckets(metadata, [issue]);
+                const targetPath = this.#getIssuePath(issue, archivePlan);
                 if (!targetPath) continue;
 
                 const markdown    = this.#formatIssueMarkdown(issue);
@@ -770,13 +854,14 @@ class IssueSyncer extends Base {
             }
 
             // Calculate where this closed issue SHOULD be
+            const archivePlan = this.#planArchiveBuckets(metadata);
             const correctPath = this.#getIssuePath({
                 number   : parseInt(issueNumber),
                 state    : issueData.state,
                 milestone: issueData.milestone ? { title: issueData.milestone } : null,
                 closedAt : issueData.closedAt,
                 updatedAt: issueData.updatedAt
-            });
+            }, archivePlan);
 
             // If the correct path is null, the issue should be dropped (shouldn't happen here)
             if (!correctPath) {
