@@ -138,6 +138,8 @@ To mitigate "Helpful Assistant" regression drift, agents MUST execute this evalu
 
 **Consensus-mandate** (#11217 from #11216): high-blast Discussion graduations require 3× explicit APPROVED cross-family signals; substrate-PRs from non-graduated Discussions rejected at merge-gate. Substantive content: `ideation-sandbox-workflow.md` §6 + `pull-request-workflow.md` §6.1.1.
 
+**Coordination protocol** (#11209 from #11206): lead-role focus-naming (§2.3) + explicit /peer-role skill-trigger (§2.2) + peer lane-announce-A2A (§6.5) + source-of-authority collision check + Authority-hierarchy (§6.6). Substantive content in `lead-role-mode.md` + `peer-role-mode.md`.
+
 ## 21. Workflow Skills (when to invoke)
 | Skill | Trigger condition (invoke when) |
 |---|---|

@@ -32,6 +32,41 @@ Share vocabulary with `/lead-role`. A convergence artifact is either a linked Id
 - **Receiving help-ask = problem-space ownership, not task execution.** When a lead surfaces a problem-space honestly, take ownership at the problem-level + choose your own artifact shape. Do not ask "what shape should the artifact take?".
 - **Self-select lanes; resist 'wait for assignment'.** When a lead makes the landscape visible, read the visible lane landscape and self-select based on independent judgment of what your domain context most enables. Lead doesn't delegate lanes; lead surfaces options and trusts peer judgment.
 
+### 6.5 Lane-Announce-A2A Protocol
+
+*(Codified per #11209, graduated from Discussion #11206 Option A-prime convergence.)*
+
+Before any **write-operation** (state mutation, PR open, issue assignment, branch push creating new artifact), peer MUST send an A2A broadcast announcing the lane-claim. This is the collision-prevention substrate the Flat Peer-Team model needs to operate without orchestrator-worker delegation.
+
+**Trigger scope — write-operations only**:
+- **REQUIRED**: file a ticket, open a PR, branch from `origin/dev`, assign an issue, push a commit that creates a new artifact
+- **EXEMPT** (per OQ1 read-only carve-out): read-only diagnostic sweeps, healthcheck calls, `gh issue view`, `gh pr list`, V-B-A queries, `/peer-role` substrate-validation comments
+
+**Required A2A shape**:
+- Subject: `[lane-claim] taking #N` (or `taking <substrate-description>` for unticketed work)
+- Body: scope-boundary statement (which files / surfaces / write-operations), expected timeline, source-of-authority collision-check findings (see §6.6)
+- Recipient: `AGENT:*` broadcast (let all peers V-B-A against parallel-claim risk)
+
+### 6.6 Source-of-Authority Collision Check
+
+*(Codified per #11209 Option A-prime peer step 6.)*
+
+Before sending the lane-claim A2A, peer MUST run the source-of-authority collision check + surface findings inline in the A2A:
+
+1. **Current Public Authority** — `gh issue view <N> --json assignees,state` for ticket-bound work; `gh pr list --search "in:title #<N>"` for substrate-bound work. Is anyone currently assigned? Any open PRs touching the same write-surface?
+2. **Handoff A2A scan** — `list_messages` for recent `[lane-claim]` or `[handoff]` A2As in past ~30 min on same scope.
+3. **Write-surface boundary** — name the exact file paths or substrate areas you will mutate. If your write-surface overlaps with another peer's active lane, surface that in the A2A.
+
+**Conflict-resolution hierarchy** (per OQ3 resolution):
+
+`Current Public Authority (assignee + open PR + write-surface) > Handoff A2A (explicit baton-pass) > Recent Lane Claim (timing)`
+
+- If 2 peers self-select same lane: peer-with-Current-Public-Authority wins; peer-with-Recent-Lane-Claim yields (or transitions to peer-role review)
+- **Empirical anchor**: PR #11199 Gemini's `[lane-claim] AC4 (#11196) claimed` at 12:33:49Z lost to PR #11203 already-opened at 12:33:14Z by 35-second margin under the (then-not-yet-codified) Authority-hierarchy.
+- Incentivizes structural validation (check authorities) over racing-to-PR.
+
+This hierarchy prevents the empirically-observed "first-PR-open wins by timing" anti-pattern that produces parallel-substrate-implementations + merge-conflict-debt.
+
 ## 7. Anti-Pattern Catalog (Each fires halt-and-audit)
 - **"Ack-and-move-on":** Zero refinements, additions, or challenges; pure agreement.
 - **Parallel execution:** Filing tickets/PRs that overlap with the lead's scope before shape converges.
@@ -40,6 +75,8 @@ Share vocabulary with `/lead-role`. A convergence artifact is either a linked Id
 - **Treating peer maintainers as workers:** Mapping `@neo-opus-4-7`/`@neo-gemini-3-1-pro`/`@neo-gpt` into hierarchical orchestration despite §15.6 anchor.
 - **Asking lead 'what shape?' after problem-space hand-off:** Artifact-shape decision is part of peer agency. Choose your shape; cross-family review only if genuinely ambiguous.
 - **Waiting for lane assignment:** Read the visible lane landscape and self-select based on independent judgment of what your domain context most enables. Lead doesn't delegate lanes; lead surfaces options and trusts peer judgment.
+- **Lane-claim without source-of-authority collision check (per §6.6):** Sending `[lane-claim]` A2A without running the 3-step authority check (current assignee / open PRs / recent lane-claim A2As) → parallel-claim collision risk. Empirical anchor: PR #11199 vs PR #11203 35-second-margin near-miss.
+- **Lane-claim for read-only sweep (over-triggering, per §6.5 OQ1 carve-out):** Sending `[lane-claim]` A2A for diagnostic queries / V-B-A reads / healthchecks creates coordination noise without preventing actual collisions. Write-operations only.
 
 ## 8. Halt Triggers (Machine-Checkable)
 - **Empty agreement:** Zero substantive contribution beyond "looks good" → force evidence-backed restatement OR explicit "alignment after checking X/Y/Z with residual risks named" OR halt.
