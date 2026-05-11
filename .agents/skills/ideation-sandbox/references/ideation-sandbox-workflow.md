@@ -63,4 +63,37 @@ A Discussion cannot graduate until it is clearly scoped. There is no universal c
 
 For source anchors, exception semantics, and substrate-decay review, read [`../audits/double-diamond-divergence-guard.md`](../audits/double-diamond-divergence-guard.md).
 
+### 5.2. Step 2.5: Architectural Step-Back (High-Blast-Radius Convergence Gate)
+
+§5.1 is the **divergence-phase** gate (matrix must be in body before convergence). §5.2 is the **convergence-phase** gate (cross-substrate sweep must run before graduation). Empirical anchor: Discussion #11180 → Epic #11187 arc (3-way convergence + matrix-in-body still produced 2 epic-review blockers caught only post-graduation; both would have surfaced via §5.2 sweep pre-graduation).
+
+**Trigger — high-blast-radius (any ONE qualifies)**:
+- Modifies durable content layout (`resources/content/`, `learn/`, `.agents/`)
+- Couples to CI/workflow (`.github/workflows/`)
+- Requires data migration (file moves, schema mutation, ≥10 files affected)
+- Modifies public skill/rule substrate (AGENTS.md sections, skill payloads)
+- Cross-substrate (touches ≥2 of: services, MCP, daemons, CI, docs, release, agents)
+- Epic-bound (decomposes to ≥3 sub-tickets)
+
+**Gate**: Before any `[RESOLVED_TO_AC]` or `[GRADUATED_TO_TICKET]` marker, one peer MUST post a `STEP_BACK` comment running the 8-point cross-substrate sweep. Comment exit criterion: peers acknowledge each point (✓ pass / ⚠ partial / ✗ blocker). Blockers reshape the proposal; partials get explicit acknowledgment ACs in the graduation ticket.
+
+**8-point cross-substrate sweep checklist** (canonical; adopted from Discussion #11188 OQ4):
+
+1. **Authority sweep** — Which artifact will future agents treat as canonical: discussion body, latest comment, epic body, ticket AC? Are they consistent?
+2. **Consumer sweep** — Which readers consume the proposed shape? Include syncers, local lookup services, health/readiness, release scripts, workflows, docs, external mirrors (pages/portal).
+3. **Path determinism sweep** — Can the path/key be computed from stable identity alone? If not, name the metadata/index/search contract explicitly.
+4. **State mutability sweep** — Which fields decide lifecycle placement (`closedAt`, `mergedAt`, `answerChosenAt`, etc.)? Are they enforced by substrate, mutable, or only socially expected?
+5. **Density and UX sweep** — Use actual counts/distributions; check human navigation and GitHub/portal UI constraints — not only hard FS caps.
+6. **Migration blast-radius sweep** — Estimate file moves, generated sync churn, branch-collision risk, scope-coupling.
+7. **Active vs archive boundary sweep** — Do not generalize archive logic to active state unless active-state churn and lookup semantics are explicitly handled.
+8. **Existing primitive sweep** — Grep CI/workflows/scripts for primitives that make the design simpler (e.g., `.github/workflows/prevent-reopen.yml` for `closedAt`-immutability leverage).
+
+**Discipline-family framing**: §5.2 extends AGENTS.md §3.5 V-B-A (factual-tier empirical-tool) to **architectural-tier** — running a cross-substrate sweep against design proposals instead of empirical claims. Both gates share the same core epistemics: surface the falsifying evidence before assertion.
+
+**Out of scope**: low-blast-radius proposals (single-PR-worth, bounded artifact, no cross-substrate coupling) do NOT require §5.2 — would create discipline-fatigue without commensurate signal. §5.1's matrix remains optional-but-recommended for those.
+
+**Cross-skill complement**: `peer-role-mode.md` §8 third halt-trigger (convergence-rate tripwire) fires §5.2 mechanically when 3 peers reach agreement on a high-blast-radius proposal within ≤2 rounds AND no STEP_BACK comment yet exists. Detector-phrase patterns for 3rd-peer-post detection: "I agree with @peer's option X", "Adopt Option X", "Going with X" — when posted within ≤2 rounds on a high-blast-radius proposal.
+
+**Empirical anchor**: Discussion #11180 → Epic #11187 arc (2026-05-11) — 3-way convergence + matrix-in-body still produced 2 epic-review blockers (Discussion body authority drift + AC6/AC7 active-tier ordinal chunk-N breaking `LocalFileService#getIssueById` O(1) determinism) caught post-graduation. §5.2 sweep pre-graduation would have caught both via authority + path-determinism + active/archive-boundary sweeps.
+
 - **Graduation Trigger:** The author (human or agent) declares readiness by adding a `GRADUATED` marker near the top of the body, linking to the resulting Epic / ticket / PR. The author MUST then formally close the Discussion. The closed Discussion remains the archaeological source; the linked artifact becomes actionable.
