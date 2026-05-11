@@ -29,10 +29,17 @@ these next states before ending the turn:
 | `Drop+Supersede` | If the reviewer owns the superseding work, enter that ticket-create / ticket-intake / PR lane immediately. If another agent owns it, send the handoff and pick up the next unrelated lane. |
 
 If no next lane is identifiable, report an explicit halt-state instead of
-silently ending the turn, for example:
+silently ending the turn, using the formal `lane-state:` vocabulary. You MUST explicitly output your state at the end of your turn:
 
 ```text
-halt-state: backlog self-survey completed after #NNNN review; no positive-ROI lane self-selectable. Awaiting routing.
+lane-state: halt-state (backlog self-survey completed after #NNNN review; no positive-ROI lane self-selectable)
+```
+
+If a lane is identifiable, or if you are blocked by a human merge gate, declare it:
+
+```text
+lane-state: next-lane (picking up ticket #NNNN)
+lane-state: human-gate (PR #NNNN approved and awaiting operator merge)
 ```
 
 ## 3. Author Pickup Matrix
@@ -43,7 +50,7 @@ author MUST choose one of these next states before ending the turn:
 | Author state after response | Next pickup target |
 |---|---|
 | Fixup commits pushed and re-review requested | Start the next assigned ticket, draft the next ready PR, file the follow-up ticket discovered during the response, or review a separate PR if that is the current lane. |
-| Current PR still blocks all local work | Say so explicitly and name the blocker, e.g. `halt-state: awaiting reviewer response on #NNNN; no independent lane assigned.` |
+| Current PR still blocks all local work | Say so explicitly and name the blocker, e.g. `lane-state: halt-state (awaiting reviewer response on #NNNN; no independent lane assigned.)` |
 | Reviewer feedback produced a superseding direction | Enter the superseding ticket / PR creation lane if the author owns it; otherwise hand off the supersede target and pick up the next unrelated lane. |
 
 ## 4. Legitimate Halt States
