@@ -66,6 +66,8 @@ For any actionable request modifying the repository, you **MUST** pass two criti
 ## 3.5. Verify-Before-Assert Pre-Flight Check (Foundational Core Value)
 Before asserting any factual claim, architectural premise, or framing in any public artifact (PR review, ticket body, Discussion, comment, commit, public memory entry), run the empirical tool that would falsify it. Tools are always available, always read-only, always cheap. **Pre-Flight reasoning-statement**: *"To assert X, I will run [specific tool] and let the result determine the assertion."* V-B-A is the **most foundational core value** — epistemic prerequisite for §13.2 friction → gold (without V-B-A, friction → gold operates on hallucinated noise). Atlas expansion + tool inventory + #11089 self-Drop+Supersede empirical anchor: [`learn/agentos/AGENTS_ATLAS.md`](learn/agentos/AGENTS_ATLAS.md) §2.
 
+**Step 2.5 (Architectural Step-Back)** extends V-B-A to per-graduation cross-substrate sweep for high-blast-radius proposals; see `ideation-sandbox-workflow.md` §5.2 + `peer-role-mode.md` §8 convergence-rate tripwire. Auto-fires before `[RESOLVED_TO_AC]` / `[GRADUATED_TO_TICKET]`.
+
 ## 4. The Memory Core Protocol
 A single **turn** encompasses receiving a `PROMPT` to delivering the final `RESPONSE`.
 **The "Consolidate-Then-Save" Protocol:** You MUST consolidate the entire interaction into a single memory at the very end.
@@ -135,7 +137,7 @@ For substrate-quality heuristics that operationalize this principle without beco
 | `pull-request` | Code modifications complete; before opening PR — stepping-back reflection, commit format, cross-family review mandate, post-comment A2A commentId hand-off (author→reviewer) per review-response-protocol.md §14, Evidence declaration line for substrate/runtime-AC PRs per [evidence-ladder.md](learn/agentos/evidence-ladder.md) |
 | `pr-review` | Reviewing a PR (yours or peer's) — structured eval metrics, graph ingestion tags, severity ladder, restates §0 merge gate, post-comment A2A commentId hand-off (reviewer→author) per guide §9 + §9.4 cold-cache exception, Evidence Audit + Source-of-Authority sections (template §) for substrate/runtime-AC PRs and authority-citation review-comments |
 | `post-review-pickup` | Immediately after `pr-review` or review-response handoff completes — read `.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md`, then enter the next ready lifecycle lane or state an explicit halt reason |
-| `ideation-sandbox`| Before creating a Discussion for architectural exploration |
+| `ideation-sandbox`| Before creating a Discussion for architectural exploration; also auto-fires §5.2 Step 2.5 Architectural Step-Back on high-blast-radius proposals before `[RESOLVED_TO_AC]` / `[GRADUATED_TO_TICKET]` graduation |
 | `lead-role` | Operator delegates lead via explicit phrases ("take the lead", "coordinate the team"); OR §22 mailbox check surfaces a valid `lead-role-baton`; OR substrate-shaped ticket about to enter implementation; OR direct invocation. Auto-fires per documented phrases / baton intake. Suspends Auto Mode velocity-bias for skill duration. |
 | `peer-role` | Reviewing an Ideation Sandbox discussion, architectural proposal, epic shape, skill shape, roadmap/milestone proposal, or `/lead-role` convergence artifact. Auto-fires per documented design-review context phrases. Suspends Auto Mode "ack-and-move-on" bias. |
 | `memory-mining` | On regression / non-obvious-architecture / decision-points |
