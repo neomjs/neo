@@ -173,6 +173,49 @@ You MUST follow this exact handoff protocol:
 
 **Invitation Layer (`manage_pr_reviewers`):** the cross-family mandate is the **validation** mechanism (Approved-status before merge). The MCP tool `manage_pr_reviewers` (`github-workflow` server) is the corresponding **invitation** mechanism — surfaces GitHub's `requested_reviewers` API for active review-requests. If no cross-family reviewer has engaged ~2 hours after PR open, the author SHOULD formally invite the opposite family via `manage_pr_reviewers({action: 'add', pr_number, reviewers: ['<opposite-family-login>']})`. Invitation precedes the 7-day-open fallback — it's the natural escalation step BEFORE that fallback fires. Codified per #10217.
 
+### 6.1.1 The Consensus-Gate (PR-Merge-Gate for Discussion-Graduated Substrate)
+
+*(Codified per #11217, graduated from Discussion #11216; operationalizes operator directive 2026-05-11: "premature PRs → reject")*
+
+**Axis 2 of the consensus mandate** (Axis 1 is `ideation-sandbox-workflow.md §6` Discussion-graduation-gate). Without both axes, the consensus-mandate is bypassable by opening a PR before Discussion-graduation reaches 100% APPROVED.
+
+**Scope**: PRs that implement substrate evolution **from a high-blast Discussion** (per `ideation-sandbox-workflow.md §6.1`). PRs from low-blast Discussions, direct-ticket implementations without an originating Discussion, or bug-fixes use the standard §6.1 Cross-Family Mandate alone.
+
+**Author obligation**: when opening a PR from a high-blast Discussion, the PR body's "Related" section MUST cite the Discussion's graduation state via the dogfooded `## Signal Ledger` pattern (per `ideation-sandbox-workflow.md §6.6`):
+
+```markdown
+## Signal Ledger (sourced from Discussion #N)
+- @<peer1>: APPROVED @ <commentId>
+- @<peer2>: APPROVED @ <commentId>
+- @<peer3>: APPROVED @ <commentId>
+
+## Unresolved Dissent
+(empty if 100% APPROVED; otherwise: DEFERRED/VETO entries with status)
+
+## Unresolved Liveness
+(empty if all 3 signals collected; otherwise: no-signal entries with operator-override-rationale)
+```
+
+These three sections are mandatory in the PR body for substrate-mutating PRs from high-blast Discussions. Empty sections are positive signals.
+
+**Reviewer obligation**: the cross-family reviewer MUST verify the Signal Ledger BEFORE stamping `reviewDecision: APPROVED`:
+
+1. Read the cited Discussion via GitHub GraphQL (`gh api graphql -f query='{ repository(owner, name) { discussion(number: N) { body comments { ... } } } }'`), public comment URLs, or the locally synced discussion artifact when available. Note: the github-workflow MCP `get_conversation` tool is PR-specific; it does NOT retrieve Discussion content.
+2. Confirm each peer's APPROVED signal exists at the cited commentId
+3. Confirm version-binding: signals are bound to the substrate state being implemented (not stale relative to body edits)
+4. Confirm any DEFERRED/VETO carries explicit operator-override + residual-risk documentation
+
+**Rejection path**: if the Signal Ledger is incomplete OR contains unresolved DEFERRED/VETO without operator-override, the reviewer posts `Request Changes` citing this §6.1.1 — NOT iterative Cycle-N review-comments on the code itself. The PR is **premature** and must close OR wait for Discussion-graduation to complete.
+
+**Operator merge-gate**: PRs that bypass the consensus-gate get rejected at the merge boundary by `@tobiu` regardless of CI green or cross-family approval. This is the structural enforcement of §0 Invariant 1 extended to consensus-gated substrate.
+
+**Empirical anchors** (2026-05-11):
+- **PR #11212** (Gemini's first sunset PR) — rejected by `@tobiu` at ~14:27Z; opened before Discussion #11210 reached 100% APPROVED
+- **PR #11215 (first iteration)** — rejected by `@tobiu` at ~14:37Z; same root cause
+- **PR #11215 (post-rework)** — Discussion #11210 graduated (3× APPROVED); GPT's Cycle 1 /pr-review nonetheless cited PR-hygiene contamination (15 of 17 files unrelated) → CHANGES_REQUESTED. The Consensus-Gate (this section) is distinct from PR-hygiene gates; both block merge independently.
+
+**Distinction from §6.1 Cross-Family Mandate**: §6.1 enforces approval-before-merge. §6.1.1 enforces consensus-source-before-approval for substrate-PRs. The reviewer's `/pr-review` Substantive Validation checklist is extended by §6.1.1 with the Signal Ledger verification step.
+
 ### 6.2 The Core Swarm A2A Notification Mandate (Review Routing Protocol)
 
 If you are operating inside the canonical `neomjs/neo` repository as a core swarm member (e.g., `@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`), immediately after successfully opening a PR, you MUST route a review request via the `add_message` tool.

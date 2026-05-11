@@ -59,7 +59,7 @@ A Discussion cannot graduate until it is clearly scoped. There is no universal c
 - The matrix MUST appear in the Discussion body **before any `[RESOLVED_TO_AC]` tags are applied**. Matrices retro-fitted after OQ resolution are paperwork, not divergence — they capture the convergent answer rather than preserving the alternatives that were genuinely considered.
 - After matrix is in the body, **at least one non-author peer review cycle MUST occur before `GRADUATED`**. The peer cycle pressures the matrix's depth and falsifying sources; author-only graduation skips the divergent-pressure half of design.
 
-**Graduation block:** if the matrix is missing OR lacks falsifying sources, downstream Epic / ticket creation is blocked per `epic-review-workflow.md` Stage 2 Discussion-origin backstop and per `ticket-create-workflow.md` §1c ungraduated-Discussion cross-check (substantive-rationale exception path documented there for legitimate edge cases).
+**Graduation block:** if the matrix is missing OR lacks falsifying sources, downstream Epic / ticket creation is blocked per `epic-review-workflow.md` Stage 2 Discussion-origin backstop and per `ticket-create-workflow.md` §1c ungraduated-Discussion cross-check (substantive-rationale exception path documented there for legitimate edge cases). **Per §6 Consensus Mandate (high-blast classes only)**, graduation is ALSO blocked when the Signal Ledger lacks 3× explicit APPROVED signals (or has unresolved DEFERRED/VETO); see §6 below for full 2-axis substrate.
 
 For source anchors, exception semantics, and substrate-decay review, read [`../audits/double-diamond-divergence-guard.md`](../audits/double-diamond-divergence-guard.md).
 
@@ -96,4 +96,116 @@ For source anchors, exception semantics, and substrate-decay review, read [`../a
 
 **Empirical anchor**: Discussion #11180 → Epic #11187 arc (2026-05-11) — 3-way convergence + matrix-in-body still produced 2 epic-review blockers (Discussion body authority drift + AC6/AC7 active-tier ordinal chunk-N breaking `LocalFileService#getIssueById` O(1) determinism) caught post-graduation. §5.2 sweep pre-graduation would have caught both via authority + path-determinism + active/archive-boundary sweeps.
 
-- **Graduation Trigger:** The author (human or agent) declares readiness by adding a `GRADUATED` marker near the top of the body, linking to the resulting Epic / ticket / PR. The author MUST then formally close the Discussion. The closed Discussion remains the archaeological source; the linked artifact becomes actionable.
+## 6. Graduation Trigger (Consensus-Gated)
+
+*(Codified per #11217, graduated from Discussion #11216 under its own dogfooded protocol — recursive substrate validation)*
+
+Graduation is the transition from speculative Discussion to actionable Epic / ticket / PR. The author proposes graduation by adding a `[GRADUATION_PROPOSED]` marker near the top of the body. **For high-blast classes**, graduation is BLOCKED until cross-family consensus is reached per the explicit Signal Ledger protocol below. **For low-blast classes**, the original author-declared `GRADUATED` shape (with §5.1 Double Diamond peer-review-cycle satisfied) suffices.
+
+### 6.1 Scope Classification (mandatory in Discussion body header)
+
+Author declares scope in Discussion body via `Scope: high-blast` or `Scope: low-blast`. Default on ambiguity: **high-blast** (conservative). Cross-family reviewers can challenge classification via `[GRADUATION_DEFERRED — reclassification request]`. Operator can override classification under AGENTS.md §0 Invariant.
+
+| Class | Definition | Graduation gate |
+|-------|------------|-----------------|
+| **high-blast** | Substrate evolution (`.agents/skills/*`, `learn/agentos/*`), rule changes (AGENTS.md, §0 invariants), architectural primitives (new subsystems, MCP tools, cross-family protocols), cross-cutting policies | Full §6 Consensus Mandate (this section) |
+| **low-blast** | Bug fix, feature implementation, documentation, test additions | §5.1 Double Diamond (≥1 peer cycle) suffices |
+
+### 6.2 Signal Patterns (high-blast only)
+
+Three explicit signal patterns are recognized; VETO is a substantive divergence position that requires reconciliation, not a kill-switch:
+
+| Signal | Effect on graduation | Definition |
+|--------|----------------------|------------|
+| `[GRADUATION_APPROVED by @<peer> @ <anchor>]` | Satisfies this peer's consensus contribution | Peer endorses substrate at specific version anchor |
+| `[GRADUATION_DEFERRED by @<peer> @ <anchor> — <reason>]` | **BLOCKS** until withdrawn-post-reconciliation OR operator-override | Peer holds substantive concern; reconciliation cycle needed |
+| `[GRADUATION_ABSTAIN by @<peer> @ <anchor>]` | **NOT approval**; if all 3 peers ABSTAIN, no graduation (no peer endorsed) | Peer explicitly passes on this Discussion |
+
+**VETO collapse rule**: A VETO requires either (a) an alternative-implementation proposal OR (b) a V-B-A-falsifier of the proposing peer's claims. Pure "I disagree" without one of these collapses to DEFERRED. Aligns with `pr-review §9.1 Reviewer-Yield Protocol`.
+
+**No-signal handling**: A peer who has not posted any of the three explicit signals does NOT count as ABSTAIN or as consent. **No-signal is liveness-failure, never consent.** Graduation requires 3 explicit signals; if a peer is unreachable, the path forward is operator-override per §6.4, not timeout-as-implicit-consent.
+
+### 6.3 Version-Binding (mandatory per signal)
+
+Every signal MUST cite the substrate state it endorses via `@ <body-sha or last-comment-id>` anchor. If material edits land after the signal, the signal becomes STALE and the peer must re-confirm.
+
+**Examples**:
+- `[GRADUATION_APPROVED by @neo-opus-4-7 @ DC_kwDODSospM4BAZOz]` — bound to specific comment
+- `[GRADUATION_APPROVED by @neo-gpt @ Cycles 4+5+6]` — bound to cycle-comment range
+- `[GRADUATION_DEFERRED by @neo-gpt @ body updatedAt 2026-05-11T14:56Z — needs scope narrowing]` — bound to body timestamp
+
+**Author re-poll obligation**: when material edits land (new ACs, scope changes, semantic refinements), author MUST explicitly request signal re-confirmation. Tightening refinements (stricter semantics, added safeguards) MAY allow prior APPROVED signals to extend pragmatically with peer's explicit acknowledgment; reversing refinements ALWAYS require re-poll.
+
+### 6.4 DEFERRED Reconciliation (burden-of-convergence)
+
+When a peer signals DEFERRED, the **burden of convergence falls on the APPROVED-signalers**, NOT on the DEFERRED peer. APPROVED-signalers must either:
+- **V-B-A** the DEFERRED concern with fresh empirical evidence, OR
+- **Yield** to the DEFERRED peer's position (incorporate constraint, narrow scope, etc.)
+
+The DEFERRED peer is NOT obligated to either prove their case or update their signal unilaterally — they hold the substantive divergence position. The inversion ("what would change your signal?" framing) is an anti-pattern that re-introduces author-pressure on dissenters.
+
+**Reconciliation cycles**: typically resolve in 1-3 substantive cycles. If reconciliation stalls after ~20 comments, escalate to operator per AGENTS.md §0 Invariant for resolution authority.
+
+### 6.5 Operator-Override (preserves residual risk)
+
+Per AGENTS.md §0 Invariant + §15.6 Flat Peer-Team, operator (`@tobiu`) retains override authority for graduation despite unresolved DEFERRED. **But the override does NOT erase residual risk.**
+
+The graduated Issue / Epic / PR body MUST archive the dissent signal in a `## Unresolved Dissent` section with the DEFERRED commentId + reason + override-rationale. Future Discussions can re-open the dissent if the residual risk materializes.
+
+Override syntax: any user-facing directive from `@tobiu` referencing the Discussion. Specific syntax not codified — operator authority is delegated by the Invariant, not by graduation-protocol substrate.
+
+### 6.6 Graduated-Artifact Required Sections (AC11)
+
+The graduated Issue / Epic / PR body MUST include three explicit sections, even if empty. Empty sections are positive signals (no dissent, no liveness gaps). Non-empty sections preserve the divergence trail.
+
+```markdown
+## Signal Ledger
+- @<peer1>: APPROVED @ <commentId>
+- @<peer2>: APPROVED @ <commentId>
+- @<peer3>: APPROVED @ <commentId>
+(or DEFERRED with resolution status; or ABSTAIN with attribution)
+
+## Unresolved Dissent
+(empty if 100% APPROVED — positive signal)
+(otherwise: each DEFERRED/VETO with reason + STATUS: operator-override on <date> OR pending-reconciliation)
+
+## Unresolved Liveness
+(empty if all 3 signals collected — positive signal)
+(otherwise: each peer with no-signal + STATUS: operator-override-rationale)
+```
+
+This pattern makes substrate-state legible in the graduated artifact, archives the divergence trail per §15.6 transparent A2A introspection, and enables future Discussions to re-open if residual risks materialize.
+
+### 6.7 Author Actions Post-Consensus
+
+When the Signal Ledger reaches 3× APPROVED (or operator-override resolves remaining gaps):
+
+1. Add `[GRADUATED_TO_TICKET: #N]` marker near top of body (per §4 OQ-resolution-tag pattern)
+2. Update body with `## Signal Ledger` + `## Unresolved Dissent` + `## Unresolved Liveness` sections
+3. File resulting Epic / ticket / PR with cross-references back to Discussion + each peer's GRADUATION signal commentId
+4. Formally close Discussion via GraphQL `closeDiscussion(reason: RESOLVED)`
+
+The closed Discussion remains the archaeological source; the linked artifact becomes actionable. **The cycle-comments archive as the divergence-trail.**
+
+### 6.8 Two-Axis Substrate: Discussion-Graduation + PR-Merge
+
+The §6 Consensus Mandate is **Axis 1** (Discussion-graduation-gate). The companion **Axis 2** (PR-merge-gate) is codified in `pull-request-workflow.md §6.1.1 Consensus-Gate`. Both axes operationalize the operator's "premature PRs → reject" directive (2026-05-11):
+
+- **Axis 1**: graduation BLOCKED if Signal Ledger incomplete
+- **Axis 2**: PR-merge BLOCKED if PR opened from non-graduated Discussion
+
+Without both axes, the consensus-mandate is bypassable. Cross-family reviewer MUST verify signal-ledger at PR-review time per Axis 2.
+
+### 6.9 Empirical Anchors
+
+- **Discussion #11216** — the consensus-mandate proposal itself; graduated under its own dogfooded protocol after 8 cycle-comments + 3 definitional-flaw discoveries (Cycle 4 loose-positives → Cycle 5 scope-narrowing → Cycle 6 strict-semantics). Recursive substrate validation: the protocol proved its own correctness by running through itself.
+- **Discussion #11210 → #11213** — sunset scope split. Author Gemini unilaterally graduated at ~14:26Z; @tobiu rejected at merge-gate (~14:27Z) and again at ~14:37Z (PR #11212 + first PR #11215 iteration). Anchor for both axes.
+- **Discussion #11214 → #11218** — Decision Escalation Ladder. Graduated under #11216 protocol-in-flight via dogfooding; demonstrates AC11 Signal Ledger format in Issue body.
+- **PR #11212 + PR #11215** — load-bearing PR-merge-gate empirical anchors; operator rejections demonstrate Axis 2 enforcement.
+
+### 6.10 30-Day Post-Merge Validation (AC10)
+
+Per #11195 30-day Step 2.5 validation tracker, the consensus-mandate substrate's compliance is audited prospectively:
+- Next 3 high-blast Discussion graduations: signal-ledger compliance (AC1-5, AC11)
+- Next 3 PRs from Discussion graduations: PR-merge-gate cite-compliance (AC6)
+- If compliance-rate < 80% at Day-30: route to mechanical-enforcement automation ticket per #11195 escalation path
