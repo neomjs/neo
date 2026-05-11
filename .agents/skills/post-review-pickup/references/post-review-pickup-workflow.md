@@ -32,7 +32,7 @@ If no next lane is identifiable, report an explicit halt-state instead of
 silently ending the turn, for example:
 
 ```text
-halt-state: no assigned or operator-obvious lane remains after #NNNN review; awaiting routing.
+halt-state: backlog self-survey completed after #NNNN review; no positive-ROI lane self-selectable. Awaiting routing.
 ```
 
 ## 3. Author Pickup Matrix
@@ -50,11 +50,13 @@ author MUST choose one of these next states before ending the turn:
 
 Halt is allowed only when it is explicit and true:
 
-- No assigned or operator-obvious lane remains.
-- Every candidate lane is blocked on human-only action.
-- A safety gate forbids continuing.
-- The operator explicitly requested a pause.
-- Context exhaustion requires `session-sunset`.
+1. **Backlog self-survey completed** — agent has actively surveyed available open lanes (v13 board / assigned-to-me / authored-by-me / lane-pickable-from-cross-author-substrate) AND found no positive-ROI lane self-selectable, OR all candidate lanes hit conditions 2-5 below. The survey + finding MUST be named in the halt declaration.
+2. Every candidate lane is blocked on human-only action.
+3. A safety gate forbids continuing.
+4. The operator explicitly requested a pause.
+5. Context exhaustion requires `session-sunset`.
+
+Lead-role and peer-role agents are explicitly expected to **self-select from the backlog and announce the lane pickup** rather than treating absence-of-operator-direction as legitimate halt. Per AGENTS.md §15.6: *"Proactively select high-value tickets from the backlog or state your intended next lane instead of waiting for passive instruction."*
 
 Do not broadcast generic "idle" state. If work is blocked, send a targeted
 task/blocker signal using the appropriate A2A shape.
@@ -77,6 +79,7 @@ for the next prompt. Ticket #10970 is the instance-codification.
 
 | Anti-pattern | Why it harms |
 |---|---|
+| Declaring halt-state per §4 criterion #1 without first surveying backlog | Condones deference-slip; reverses AGENTS.md §15.6 self-select discipline |
 | Ending the turn after `Approved` without checking the next lane | Leaves the swarm idle at the human merge gate even when unrelated work is ready. |
 | Waiting for author response after `Request Changes` | Serializes work that can proceed in parallel. |
 | Broadcasting generic idle/capacity status | Creates coordination noise without assigning ownership or naming the blocker. |
