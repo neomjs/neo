@@ -47,6 +47,25 @@ Sample phrasing patterns (use whichever fits the moment):
 
 Both shapes are substrate-correct. Default to minimal; expand only if peers signal they need the lane visibility.
 
+### 2.2 Explicit Peer-Role Skill-Trigger Mandate
+
+When delegating substrate-validation, design-dialogue, or convergence-pressure work to a peer via A2A, the message MUST include the literal phrase **`use /peer-role on X`** where X is the specific artifact (Discussion #N, Issue #N, PR #N, branch name, etc.).
+
+**Why mandated**: vague phrasings like *"could you take a look at X"*, *"your thoughts on Y"*, or *"please review Z"* rely on semantic-match — peers default to "respond to coordination message" mode rather than activating peer-role discipline payload (substrate-validation + precedent-checking + evidence-backed convergence pressure). The receiving peer's `peer-role-mode.md` first-payload-line mandate never fires. **Empirical anchor**: 2026-05-11 session (per #11205 + Discussion #11206) — 17+ A2A messages from lead during a single session, NONE containing the literal trigger phrase. Result: GPT defaulted to ack-and-idle pattern; Gemini defaulted to self-claim mode (35-second-margin parallel-PR collision on PR #11203 narrowly avoided by timing, not protocol). Operator had to manually break the pattern.
+
+**Skill-trigger contexts** (non-exhaustive) where the trigger is required:
+- Substrate-validation work (design dialogue before commit)
+- Cross-substrate sweep (per `ideation-sandbox-workflow.md` §5.2 Step 2.5 Architectural Step-Back)
+- Lane-coordination ambiguity (avoid parallel-claim collisions)
+- Architectural-pillar proposals (multiple peers weighing in)
+- Discussion review (ideation-sandbox graduation reviews; Cycle 1+)
+
+**When NOT required**: pure-informational coordination — state-broadcasts (`[broadcast] PR #N merged`), lane-status updates (`AC3 unblocked`), V-B-A clarifications (`MESSAGE:X cited stale state`), FYI broadcasts. Discipline-fatigue mitigation; only substantive substrate-validation work warrants the trigger.
+
+**Mirror pattern**: parallel to `pull-request-workflow §6.2` mandate for `/pr-review` skill-trigger naming (`Requested action: use /pr-review on PR #N — naming the skill literally is mandatory`). The discipline applies symmetrically across all skill-mode activations from lead-role A2A. Empirical anchor for `/pr-review` mandate: PR #11127 cycle-1 (2026-05-10); empirical anchor for `/peer-role` mandate: 2026-05-11 session per #11205.
+
+**Empirical-anchor for verification**: #11195 30-day Step 2.5 validation tracker inherits. Track next 3 lead-role sessions for explicit `/peer-role` trigger compliance. Discussion #11206 codifies the broader 5-step coordination protocol of which this trigger-naming mandate is the activation-mechanism piece (steps 1+3 of the 5-step model).
+
 ## 3. Targeted Memory Mining
 - Do NOT auto-load pinned memories (avoids bloat/staleness).
 - Execute 2-4 targeted `query_summaries` / `query_raw_memories` searches strictly bounded to the active decision space.
@@ -113,3 +132,4 @@ If any of these occur, explicitly halt and audit your approach:
 - **Reading "I'm overwhelmed" as weakness:** asking peers for help at problem-level IS the multi-threading pattern (Neo left-hemisphere worker-spawn analog). Surface problem-space honestly; let peer pick artifact shape; trust their judgment.
 - **Lead-as-lane-assigner:** pre-shaping peer lanes treats them as workers, not co-founders. Pick own lane visibly; make open lanes visible; encourage self-selection. Same Flat Peer-Team anti-pattern-to-orchestrator-worker default that §15.6 (#11030) anchors at the topology layer.
 - **Silent self-election:** missing, stale, malformed, or broadcast baton state never authorizes unilateral lead acquisition. Surface the missing-baton state and continue peer-role / normal mailbox triage.
+- **Vague-semantic-match A2A coordination:** sending substantive substrate-validation, design-dialogue, or convergence-pressure requests via A2A without the literal `use /peer-role on X` trigger phrase. Empirically produces ack-and-idle (GPT default) or self-claim-collision (Gemini default). See §2.2 for the explicit-trigger mandate. Mirror of the `/pr-review` skill-trigger mandate per `pull-request-workflow §6.2`.
