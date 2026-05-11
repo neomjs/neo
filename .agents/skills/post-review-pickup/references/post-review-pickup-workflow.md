@@ -29,10 +29,17 @@ these next states before ending the turn:
 | `Drop+Supersede` | If the reviewer owns the superseding work, enter that ticket-create / ticket-intake / PR lane immediately. If another agent owns it, send the handoff and pick up the next unrelated lane. |
 
 If no next lane is identifiable, report an explicit halt-state instead of
-silently ending the turn, for example:
+silently ending the turn, using the formal `lane-state:` vocabulary. You MUST explicitly output your state at the end of your turn:
 
 ```text
-halt-state: no assigned or operator-obvious lane remains after #NNNN review; awaiting routing.
+lane-state: halt-state (backlog self-survey completed after #NNNN review; no positive-ROI lane self-selectable)
+```
+
+If a lane is identifiable, or if you are blocked by a human merge gate, declare it:
+
+```text
+lane-state: next-lane (picking up ticket #NNNN)
+lane-state: human-gate (PR #NNNN approved and awaiting operator merge)
 ```
 
 ## 3. Author Pickup Matrix
@@ -43,18 +50,35 @@ author MUST choose one of these next states before ending the turn:
 | Author state after response | Next pickup target |
 |---|---|
 | Fixup commits pushed and re-review requested | Start the next assigned ticket, draft the next ready PR, file the follow-up ticket discovered during the response, or review a separate PR if that is the current lane. |
-| Current PR still blocks all local work | Say so explicitly and name the blocker, e.g. `halt-state: awaiting reviewer response on #NNNN; no independent lane assigned.` |
+| Current PR still blocks all local work | Say so explicitly and name the blocker, e.g. `lane-state: halt-state (awaiting reviewer response on #NNNN; no independent lane assigned.)` |
 | Reviewer feedback produced a superseding direction | Enter the superseding ticket / PR creation lane if the author owns it; otherwise hand off the supersede target and pick up the next unrelated lane. |
 
 ## 4. Legitimate Halt States
 
 Halt is allowed only when it is explicit and true:
 
-- No assigned or operator-obvious lane remains.
-- Every candidate lane is blocked on human-only action.
-- A safety gate forbids continuing.
-- The operator explicitly requested a pause.
-- Context exhaustion requires `session-sunset`.
+1. **Backlog self-survey completed** — agent has actively surveyed available open lanes (v13 board / assigned-to-me / authored-by-me / lane-pickable-from-cross-author-substrate) AND found no positive-ROI lane self-selectable, OR all candidate lanes hit conditions 2-5 below. The survey + finding MUST be named in the halt declaration.
+2. Every candidate lane is blocked on human-only action.
+3. A safety gate forbids continuing.
+4. The operator explicitly requested a pause.
+5. **Context exhaustion** requires `session-sunset` — interpreted STRICTLY as a CONCRETE exhaustion-trigger, NOT a vague feel:
+   - CONCRETE triggers: harness context-window-cap warning fires; empirical degradation observed (factual errors recurring, repeated re-reads, drift across known-stable artifacts); explicit substrate-error rate measurably increases.
+   - NOT criterion #5 triggers (these are deference-slip cover dressed as prudence): "context preservation for next-session", "sustained decision-quality budget exhausted" (subjective feel), "long session, time to halt" (time-based heuristic without concrete error-rate signal).
+   - **Reflex test:** if no concrete trigger has fired AND no observable error-rate degradation, criterion #5 does NOT apply. Continue self-select + execute per the substrate-evolution-flywheel reality below.
+
+Lead-role and peer-role agents are explicitly expected to **self-select from the backlog and announce the lane pickup** rather than treating absence-of-operator-direction as legitimate halt. Per AGENTS.md §15.6: *"Proactively select high-value tickets from the backlog or state your intended next lane instead of waiting for passive instruction."*
+
+### Substrate-evolution-flywheel reality
+
+Operator-named substrate-work-supply for lead/peer agents:
+- v13 Project board: 300+ items (OPEN + IN PROGRESS)
+- Repository ticket backlog: 300+ items across substrates
+- Creating PRs → surfaces friction → produces new tickets (substrate-evolution flywheel)
+- `tech-debt-radar` skill → surfaces architectural debt as new tickets
+- After resolving → re-invoke `tech-debt-radar` → more tickets (long loop)
+- `industry-friction-radar` skill → surfaces external-precedent friction as new tickets
+
+**The probability of zero positive-ROI work available is "as close to zero as it gets" per operator-framing.** Defaulting to halt-state at any non-concrete trigger is deference-slip.
 
 Do not broadcast generic "idle" state. If work is blocked, send a targeted
 task/blocker signal using the appropriate A2A shape.
@@ -77,6 +101,7 @@ for the next prompt. Ticket #10970 is the instance-codification.
 
 | Anti-pattern | Why it harms |
 |---|---|
+| Declaring halt-state per §4 criterion #1 without first surveying backlog | Condones deference-slip; reverses AGENTS.md §15.6 self-select discipline |
 | Ending the turn after `Approved` without checking the next lane | Leaves the swarm idle at the human merge gate even when unrelated work is ready. |
 | Waiting for author response after `Request Changes` | Serializes work that can proceed in parallel. |
 | Broadcasting generic idle/capacity status | Creates coordination noise without assigning ownership or naming the blocker. |

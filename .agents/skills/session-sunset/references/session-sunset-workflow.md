@@ -174,6 +174,8 @@ The organism is healing. Future-self entry point preserved in Sandman memory [UU
 Next session: read that memory FIRST, then pick up carry-over starting with #[N].
 
 Routing severed via unsubscribe primitive. Halting per Sunset Protocol.
+
+lane-state: halt-state (session sunset executed)
 ```
 
 By adhering to this protocol, you ensure the Swarm maintains perfect continuity across time and identity boundaries.
