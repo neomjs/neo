@@ -959,13 +959,16 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
         }
         dbPath = path.join(tmpDir, `neo-mailbox-open-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
+        mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        mailboxAiConfig.storagePaths.graph = dbPath;
+        if (!mailboxAiConfig.collections) mailboxAiConfig.collections = {};
+        mailboxAiConfig.collections.memory = `test-memory-${Date.now()}`;
+        mailboxAiConfig.collections.session = `test-session-${Date.now()}`;
+
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MailboxService = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).default;
         PermissionService = (await import('../../../../../../ai/services/memory-core/PermissionService.mjs')).default;
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
-
-        mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        mailboxAiConfig.storagePaths.graph = dbPath;
 
         mailboxAiConfig.data.mailbox ??= {};
         originalMailboxPolicy = mailboxAiConfig.data.mailbox.defaultReplyPolicy;
@@ -1218,13 +1221,16 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         }
         dbPath = path.join(tmpDir, `neo-mailbox-a2a-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
+        mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        mailboxAiConfig.storagePaths.graph = dbPath;
+        if (!mailboxAiConfig.collections) mailboxAiConfig.collections = {};
+        mailboxAiConfig.collections.memory = `test-memory-${Date.now()}`;
+        mailboxAiConfig.collections.session = `test-session-${Date.now()}`;
+
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MailboxService = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).default;
         PermissionService = (await import('../../../../../../ai/services/memory-core/PermissionService.mjs')).default;
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
-
-        mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        mailboxAiConfig.storagePaths.graph = dbPath;
 
         const { TestLifecycleHelper } = await import('./util.mjs');
         await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, null, null, 'destroy');
@@ -1431,13 +1437,16 @@ test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#1033
         }
         dbPath = path.join(tmpDir, `neo-mailbox-ttl-test-${Date.now()}-${Math.random().toString(36).substring(7)}.db`);
 
+        mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        mailboxAiConfig.storagePaths.graph = dbPath;
+        if (!mailboxAiConfig.collections) mailboxAiConfig.collections = {};
+        mailboxAiConfig.collections.memory = `test-memory-${Date.now()}`;
+        mailboxAiConfig.collections.session = `test-session-${Date.now()}`;
+
         GraphService      = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         MailboxService    = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).default;
         PermissionService = (await import('../../../../../../ai/services/memory-core/PermissionService.mjs')).default;
         LifecycleService  = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
-
-        mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        mailboxAiConfig.storagePaths.graph = dbPath;
 
         const { TestLifecycleHelper } = await import('./util.mjs');
         await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, null, null, 'destroy');

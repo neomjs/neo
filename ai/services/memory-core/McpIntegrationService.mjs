@@ -73,6 +73,11 @@ class McpIntegrationService extends Base {
         return mcpServer;
     }
 
+    /**
+     * @summary Orchestrates the boot sequence for the MCP server, including config loading,
+     * wake subscriptions, MCP instance creation, and identity resolution.
+     * @param {Object} serverInstance The Memory Core server instance being booted.
+     */
     async boot(serverInstance) {
         await serverInstance.loadCustomConfig();
 
@@ -112,6 +117,12 @@ class McpIntegrationService extends Base {
         }
     }
 
+    /**
+     * @summary Builds the request context payload extracted from the authentication token,
+     * resolving and binding the agent identity graph node.
+     * @param {Object} reqAuth Decoded JWT auth payload.
+     * @returns {Promise<Object>} The standard request context object.
+     */
     async buildRequestContext(reqAuth) {
         if (!reqAuth?.userId) return {};
 
@@ -125,6 +136,12 @@ class McpIntegrationService extends Base {
         };
     }
 
+    /**
+     * @summary Cleans up session state and orchestrates post-session workflows like
+     * queuing summarization jobs when a transport connection closes.
+     * @param {String} sessionId The ID of the session that closed.
+     * @param {Object} mcpServerInstance The associated MCP server instance.
+     */
     onSessionClosed(sessionId, mcpServerInstance) {
         if (SessionService) {
             SessionService.queueSummarizationJob(sessionId);
@@ -134,6 +151,11 @@ class McpIntegrationService extends Base {
         }
     }
 
+    /**
+     * @summary Resolves the Stdio-bound identity (for local CLI/IDE execution modes),
+     * bypassing JWT extraction to establish the agent identity.
+     * @returns {Promise<Object|null>} The standard request context object, or null.
+     */
     async resolveStdioIdentity() {
         const resolved = await StdioIdentityResolver.resolve();
 
@@ -149,6 +171,12 @@ class McpIntegrationService extends Base {
         };
     }
 
+    /**
+     * @summary Binds an upstream user/agent ID to a canonical Neo knowledge graph
+     * AgentIdentity node, ensuring it is present in the local database.
+     * @param {String} userId The remote user or bot ID (e.g. github login).
+     * @returns {Promise<String|null>} The bound agent identity graph node ID.
+     */
     async bindAgentIdentity(userId) {
         if (!userId) return null;
 
@@ -182,6 +210,9 @@ class McpIntegrationService extends Base {
         }
     }
 
+    /**
+     * @summary Logs the final resolved identity status for diagnostics during boot.
+     */
     logIdentityStatus() {
         if (!this.stdioIdentity) {
             logger.info('[neo-memory-core MCP] Identity: unresolved (single-tenant fallthrough)');
@@ -194,6 +225,10 @@ class McpIntegrationService extends Base {
         logger.info(`[neo-memory-core MCP] Identity: ${userId} via ${source} — ${bound}`);
     }
 
+    /**
+     * @summary Logs the connection count statistics for the underlying Chroma collections.
+     * @param {Object} health The healthcheck status payload.
+     */
     logCollectionStats(health) {
         if (health.database.connection.collections) {
             logger.info(`   - Memories: ${health.database.connection.collections.memories.count}`);
@@ -201,6 +236,11 @@ class McpIntegrationService extends Base {
         }
     }
 
+    /**
+     * @summary Logs the overall Memory Core startup health, yielding specific diagnostic
+     * hints to the operator if the vector database or graph components are degraded.
+     * @param {Object} health The healthcheck status payload.
+     */
     logStartupStatus(health) {
         if (health.status === 'unhealthy') {
             logger.warn('⚠️  [Startup] Memory Core is unhealthy. Server will start but tools will fail until resolved.');
@@ -223,6 +263,10 @@ class McpIntegrationService extends Base {
         }
     }
 
+    /**
+     * @summary Detects and logs concurrent sibling MCP server processes holding the
+     * same underlying SQLite database files to warn operators of potential WAL contention.
+     */
     logSiblingConcurrency() {
         const dbPath = aiConfig.storagePaths.graph;
         if (!dbPath) return;
