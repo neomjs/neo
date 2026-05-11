@@ -61,13 +61,25 @@ const labeledIssues = gh(`issue list --repo ${REPO} --label "${LABEL}" --state a
 const labeledIds    = new Set(labeledIssues.map(i => i.id));
 
 // 2. Get all Project items via GraphQL
-// GraphQL `first` is capped at 100. Pilot scope (#10961) caps total release:v13 items
-// well below that; if v13 grows past 100 items, paginate via pageInfo.endCursor.
-const projectQuery = `query { node(id: "${PROJECT_ID}") { ... on ProjectV2 { items(first: 100) { nodes { id content { ... on Issue { number id title state } ... on PullRequest { number id title state } } } } } } }`;
-const projectData  = gh(`api graphql -f query='${projectQuery}'`);
-const items        = (projectData.data.node?.items?.nodes ?? [])
-    .filter(item => item.content?.number)
-    .map(item => ({projectItemId: item.id, content: item.content}));
+// Paginate via pageInfo.endCursor to bypass the 100 item limit per query (#10961).
+const items = [];
+let hasNextPage = true;
+let endCursor = null;
+
+while (hasNextPage) {
+    const afterParam = endCursor ? `, after: "${endCursor}"` : '';
+    const projectQuery = `query { node(id: "${PROJECT_ID}") { ... on ProjectV2 { items(first: 100${afterParam}) { pageInfo { hasNextPage endCursor } nodes { id content { ... on Issue { number id title state } ... on PullRequest { number id title state } } } } } } }`;
+    const projectData  = gh(`api graphql -f query='${projectQuery}'`);
+
+    const pageNodes = projectData.data.node?.items?.nodes ?? [];
+    items.push(...pageNodes
+        .filter(item => item.content?.number)
+        .map(item => ({projectItemId: item.id, content: item.content})));
+
+    const pageInfo = projectData.data.node?.items?.pageInfo;
+    hasNextPage = pageInfo?.hasNextPage ?? false;
+    endCursor = pageInfo?.endCursor;
+}
 const itemContentIds = new Set(items.map(i => i.content.id));
 
 // 3. Detect drift
