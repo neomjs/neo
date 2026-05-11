@@ -52,6 +52,11 @@ import Memory_ChromaManager         from './services/memory-core/managers/Chroma
 import Memory_StorageRouter         from './services/memory-core/managers/StorageRouter.mjs';
 import Memory_LifecycleService      from './services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import Memory_TextEmbeddingService  from './services/memory-core/TextEmbeddingService.mjs';
+import Memory_MailboxService        from './services/memory-core/MailboxService.mjs';
+import Memory_PermissionService     from './services/memory-core/PermissionService.mjs';
+import Memory_WakeSubscriptionService from './services/memory-core/WakeSubscriptionService.mjs';
+import Memory_CoalescingEngineService from './services/memory-core/CoalescingEngineService.mjs';
+import Memory_McpIntegrationService from './services/memory-core/McpIntegrationService.mjs';
 import Memory_Config                from './mcp/server/memory-core/config.mjs';
 
 Memory_Config.data.autoSummarize = false;
@@ -230,6 +235,10 @@ makeSafe(Memory_HealthService,    memSpec);
 makeSafe(Memory_GraphService,     memSpec);
 makeSafe(Memory_SummaryService,   memSpec);
 makeSafe(Memory_TextEmbeddingService, memSpec);
+makeSafe(Memory_MailboxService,   memSpec);
+makeSafe(Memory_PermissionService, memSpec);
+makeSafe(Memory_WakeSubscriptionService, memSpec);
+makeSafe(Memory_CoalescingEngineService, memSpec);
 
 // Neural Link
 makeSafe(NeuralLink_ConnectionService,  nlSpec);
@@ -299,6 +308,11 @@ export {
     Memory_StorageRouter,
     Memory_SummaryService,
     Memory_TextEmbeddingService,
+    Memory_MailboxService,
+    Memory_PermissionService,
+    Memory_WakeSubscriptionService,
+    Memory_CoalescingEngineService,
+    Memory_McpIntegrationService,
 
     // Neural Link
     NeuralLink_ComponentService,

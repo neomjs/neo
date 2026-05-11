@@ -1,416 +1,71 @@
-import {execSync}                  from 'node:child_process';
 import BaseServer                  from '../BaseServer.mjs';
 import aiConfig                    from './config.mjs';
 import logger                      from './logger.mjs';
-import GraphService                from '../../../services/memory-core/GraphService.mjs';
-import HealthService               from '../../../services/memory-core/HealthService.mjs';
-import SessionService              from '../../../services/memory-core/SessionService.mjs';
-import InferenceLifecycleService   from '../../../services/memory-core/lifecycle/InferenceLifecycleService.mjs';
+import {
+    Memory_HealthService as HealthService,
+    Memory_McpIntegrationService as McpIntegrationService
+} from '../../../services.mjs';
 import {listTools, callTool}       from '../../../services/memory-core/toolService.mjs';
-import AuthMiddleware              from '../shared/services/AuthMiddleware.mjs';
-import RequestContextService       from '../shared/services/RequestContextService.mjs';
-import StdioIdentityResolver       from '../shared/services/StdioIdentityResolver.mjs';
-import WakeSubscriptionService     from '../../../services/memory-core/WakeSubscriptionService.mjs';
-import CoalescingEngineService     from '../../../services/memory-core/CoalescingEngineService.mjs';
 
 /**
  * @summary The Memory Core MCP Server application.
  *
  * Handles initialization, configuration, and lifecycle management for the Memory Core MCP server.
- * This server uses a dual-transport architecture, allowing it to communicate with local CLI clients
- * via `stdio` (the default) or with cloud-native/remote clients via `sse` (StreamableHTTPServerTransport).
- *
- * The transport mode and HTTP port can be configured using `aiConfig.transport` and `aiConfig.mcpHttpPort`.
+ * Delegated to McpIntegrationService as part of the v13 SDK Migration.
  *
  * @class Neo.ai.mcp.server.memory-core.Server
  * @extends Neo.ai.mcp.server.BaseServer
  */
 class Server extends BaseServer {
     static config = {
-        /**
-         * @member {String} className='Neo.ai.mcp.server.memory-core.Server'
-         * @protected
-         */
         className: 'Neo.ai.mcp.server.memory-core.Server'
     }
 
     aiConfig = aiConfig
     logger   = logger
 
-    /**
-     * Resolved agent identity for stdio transport sessions (ticket #10145). Populated by
-     * `boot()` via `StdioIdentityResolver` + AgentIdentity graph-node binding. Null when
-     * running under SSE transport (identity flows per-request via `AuthService` /
-     * `RequestContextService` instead) or when stdio resolution yielded no identity.
-     * @member {Object|null} stdioIdentity=null
-     * @protected
-     */
-    stdioIdentity = null
-
-    /**
-     * @summary MCP server identity for `createMcpServer()`. Includes the experimental
-     * `neo-wake-substrate` capability that surfaces wake events for connected clients (#10437).
-     * @returns {{name: String, version: String, capabilities: Object}}
-     */
     getServerMetadata() {
-        return {
-            name        : 'neo-memory-core',
-            version     : process.env.npm_package_version || '1.0.0',
-            capabilities: {
-                tools: {listChanged: false},
-                experimental: {
-                    'neo-wake-substrate': {
-                        version: '1.0',
-                        supportedEvents: ['wake/sent_to_me', 'wake/task_state_changed', 'wake/permission_granted']
-                    }
-                }
-            }
-        };
+        return McpIntegrationService.getServerMetadata();
     }
 
-    /**
-     * @summary Per-server tool registry for ListTools / CallTool dispatch.
-     * @returns {{listTools: Function, callTool: Function}}
-     */
     getToolService() {
         return {listTools, callTool};
     }
 
-    /**
-     * @summary HealthService for the healthcheck gate + startup-status logging.
-     * @returns {Object}
-     */
     getHealthService() {
         return HealthService;
     }
 
-    /**
-     * @summary Tools allowed without the healthcheck gate. Database lifecycle tools must
-     * remain reachable while ChromaDB is unavailable so operators can recover.
-     * @returns {Array<String>}
-     */
     getHealthExemptTools() {
-        return ['healthcheck', 'start_database', 'stop_database'];
+        return McpIntegrationService.getHealthExemptTools();
     }
 
-    /**
-     * @summary Pre-dispatch identity-spoof guard (#10145). Rejects any tool-call argument
-     * that would let the client override server-stamped identity. No-op on existing tool
-     * schemas; activates once Mailbox (#10139) adds `from` fields. Throws bubble to the
-     * outer CallTool try/catch and route to `formatToolError`.
-     * @param {{toolName: String, args: Object}} context
-     */
-    async beforeToolDispatch({args}) {
-        AuthMiddleware.validateNoIdentitySpoof(args);
+    async beforeToolDispatch(context) {
+        return McpIntegrationService.beforeToolDispatch(context);
     }
 
-    /**
-     * @summary Wraps tool dispatch in `RequestContextService.run()` when stdio identity is
-     * resolved (ticket #10145). Establishes the AsyncLocalStorage-scoped context that
-     * `MemoryService.addMemory`, etc. read via `getUserId()` to tag ChromaDB writes per
-     * tenant. SSE mode leaves `stdioIdentity` null because `TransportService` already wraps
-     * the `/mcp` request with per-request OIDC identity — re-wrapping here would clobber
-     * that context.
-     * @param {Function} dispatch
-     */
     async wrapDispatch(dispatch) {
-        return this.stdioIdentity
-            ? RequestContextService.run(this.stdioIdentity, dispatch)
-            : dispatch();
+        return McpIntegrationService.wrapDispatch(dispatch);
     }
 
-    /**
-     * @summary Override of `BaseServer.createMcpServer` — chains super then registers the
-     * mcpServer instance with `CoalescingEngineService` so it can broadcast wake events to
-     * the SDK's `experimental.neo-wake-substrate` capability subscribers. Used both at boot
-     * and per-request (SSE mode) to provision dedicated server objects per connection.
-     * @returns {McpServer}
-     */
     createMcpServer() {
-        const mcpServer = super.createMcpServer();
-        CoalescingEngineService.addMcpServer(mcpServer);
-        return mcpServer;
+        return McpIntegrationService.createMcpServer(super.createMcpServer());
     }
 
-    /**
-     * @summary Custom boot order (override of `BaseServer.boot`). Memory Core's bootstrap
-     * has three constraints that the canonical sequence doesn't satisfy:
-     *
-     * 1. `WakeSubscriptionService.init()` must complete BEFORE `createMcpServer()` so the
-     *    experimental wake-substrate capability has its substrate ready when clients connect.
-     * 2. Stdio identity resolution must complete BEFORE healthcheck, so the boot-time
-     *    healthcheck snapshot reflects the bound identity state (#10249).
-     * 3. The wake-subscription auto-bootstrap is fire-and-forget within an async IIFE for
-     *    single-error-boundary discipline (#10438) — must run AFTER stdio identity is bound.
-     *
-     * @returns {Promise<void>}
-     */
     async boot() {
-        await this.loadCustomConfig();
-
-        // Pre-mcpServer init: WakeSubscriptionService substrate ready (#10437).
-        await WakeSubscriptionService.init();
-
-        this.mcpServer = this.createMcpServer();
-
-        // Wait for dependent services.
-        await InferenceLifecycleService.ready();
-        await SessionService.ready();
-
-        // Stdio identity resolution BEFORE healthcheck snapshot (#10249).
-        if (aiConfig.transport !== 'sse') {
-            this.stdioIdentity = await this.resolveStdioIdentity();
-            HealthService.setStdioIdentityState(this.stdioIdentity);
-
-            // Auto-bootstrap wake subscription per #10437 (single-error-boundary IIFE per #10438).
-            // Fire-and-forget: server boot continues unconditionally; wake-substrate self-heals
-            // even if the bootstrap operation hits transient errors.
-            if (this.stdioIdentity?.agentIdentityNodeId) {
-                (async () => {
-                    try {
-                        const result = await RequestContextService.run(
-                            this.stdioIdentity,
-                            () => WakeSubscriptionService.bootstrap()
-                        );
-                        logger.info(`[neo-memory-core MCP] Wake subscription auto-bootstrap: ${result.status} (${result.subscriptionId})`);
-                    } catch (err) {
-                        logger.warn(`[neo-memory-core MCP] Wake subscription auto-bootstrap skipped (non-fatal): ${err.message}`);
-                    }
-                })();
-            }
-        }
-
-        // Healthcheck (sees populated stdioIdentityState post-reorder).
-        await this.runHealthcheckAndLogStatus();
-        this.logSiblingConcurrency();
-
-        await this.connectTransport();
-
-        if (aiConfig.transport !== 'sse') {
-            this.logIdentityStatus();
-        }
+        await McpIntegrationService.boot(this);
     }
 
-    /**
-     * @summary SSE-only hook: builds RequestContext for a `/mcp` request from `req.auth`.
-     * Invoked by `TransportService.setup` via duck-typed hook. Returns `{}` when no identity
-     * is present to preserve single-tenant fallthrough.
-     * @param {Object|undefined} reqAuth
-     * @returns {Promise<Object>}
-     */
     async buildRequestContext(reqAuth) {
-        if (!reqAuth?.userId) return {};
-
-        const agentIdentityNodeId = await this.bindAgentIdentity(reqAuth.userId);
-
-        return {
-            userId             : reqAuth.userId,
-            username           : reqAuth.username,
-            agentIdentityNodeId,
-            source             : reqAuth.source || 'oidc'
-        };
+        return McpIntegrationService.buildRequestContext(reqAuth);
     }
 
-    /**
-     * @summary SSE-only hook fired by `TransportService` on session disconnect. Queues the
-     * disconnected session for summarization and removes the per-session McpServer from
-     * `CoalescingEngineService`'s broadcast set (counterpart to `createMcpServer`'s
-     * `addMcpServer` registration).
-     * @param {String} sessionId
-     * @param {Object} mcpServerInstance
-     */
     onSessionClosed(sessionId, mcpServerInstance) {
-        if (SessionService) {
-            SessionService.queueSummarizationJob(sessionId);
-        }
-        if (mcpServerInstance) {
-            CoalescingEngineService.removeMcpServer(mcpServerInstance);
-        }
+        McpIntegrationService.onSessionClosed(sessionId, mcpServerInstance);
     }
 
-    /**
-     * @summary Resolves the active stdio agent identity and binds it to its AgentIdentity
-     * graph node. Composes three steps: (1) `StdioIdentityResolver.resolve()` returns the
-     * GitHub identity via the env-var → gh-CLI chain; (2) `GraphService.getNode({id: '@' +
-     * githubLogin})` looks up the matching seeded AgentIdentity node (#10144 convention); (3)
-     * the composite is shaped for `RequestContextService.run()` consumption.
-     *
-     * Missing graph node is non-fatal: the identity still flows as `userId` tag, but
-     * `agentIdentityNodeId` is null. Unseeded agents can write memories — they just can't yet
-     * terminate `AUTHORED_BY` edges on a graph node until someone adds them via
-     * `seedAgentIdentities.mjs`.
-     *
-     * @returns {Promise<Object|null>}
-     * @protected
-     */
-    async resolveStdioIdentity() {
-        const resolved = await StdioIdentityResolver.resolve();
-
-        if (!resolved.githubLogin) return null;
-
-        const agentIdentityNodeId = await this.bindAgentIdentity(resolved.githubLogin);
-
-        return {
-            userId             : resolved.githubLogin,
-            username           : resolved.username,
-            agentIdentityNodeId,
-            source             : resolved.source
-        };
-    }
-
-    /**
-     * @summary Resolves a bare GitHub login to its seeded AgentIdentity graph node ID
-     * (per ticket #10144's `@`-prefixed ID convention). Shared between `resolveStdioIdentity`
-     * (stdio boot) and `buildRequestContext` (per-SSE-request) so both transports reach the
-     * same node lookup behavior.
-     *
-     * Missing node is non-fatal: returns `null`. Downstream services that build `AUTHORED_BY`
-     * graph edges treat `null` as "skip edge creation for this write" rather than failing the
-     * write.
-     *
-     * Retries up to 3 times with vicinity-cache eviction between attempts to handle the
-     * #10241 boot-time race where a stuck cache from concurrent boot lock could miss seeded
-     * identity nodes.
-     *
-     * @param {String|undefined|null} userId
-     * @returns {Promise<String|null>}
-     * @protected
-     */
-    async bindAgentIdentity(userId) {
-        if (!userId) return null;
-
-        const graphNodeId = '@' + userId;
-
-        try {
-            await GraphService.ready();
-
-            let retries = 3;
-            let node = null;
-
-            while (retries > 0) {
-                node = await GraphService.getNode({id: graphNodeId});
-                if (node) {
-                    return node.id;
-                }
-
-                if (GraphService.db && GraphService.db.vicinityLoadedNodes) {
-                    GraphService.db.vicinityLoadedNodes.delete(graphNodeId);
-                }
-
-                await new Promise(resolve => setTimeout(resolve, 50));
-                retries--;
-            }
-
-            logger.warn(`[neo-memory-core MCP] AgentIdentity graph lookup failed for ${graphNodeId}: Node not found in database`);
-            return null;
-        } catch (error) {
-            logger.warn(`[neo-memory-core MCP] AgentIdentity graph lookup failed for ${graphNodeId}: ${error.message}`);
-            return null;
-        }
-    }
-
-    /**
-     * @summary Logs the resolved stdio identity state during startup for operator visibility.
-     * @protected
-     */
-    logIdentityStatus() {
-        if (!this.stdioIdentity) {
-            logger.info('[neo-memory-core MCP] Identity: unresolved (single-tenant fallthrough)');
-            return;
-        }
-
-        const {userId, agentIdentityNodeId, source} = this.stdioIdentity;
-        const bound = agentIdentityNodeId ? `bound to ${agentIdentityNodeId}` : 'unbound (no matching AgentIdentity node)';
-
-        logger.info(`[neo-memory-core MCP] Identity: ${userId} via ${source} — ${bound}`);
-    }
-
-    /**
-     * @summary Helper to log Memory Core collection statistics from healthcheck output.
-     * @param {Object} health
-     */
-    logCollectionStats(health) {
-        if (health.database.connection.collections) {
-            logger.info(`   - Memories: ${health.database.connection.collections.memories.count}`);
-            logger.info(`   - Summaries: ${health.database.connection.collections.summaries.count}`);
-        }
-    }
-
-    /**
-     * @summary Memory Core-specific startup status formatting with ChromaDB-tip on unhealthy
-     * + collection-stats on degraded/healthy.
-     * @param {Object} health
-     */
-    logStartupStatus(health) {
-        if (health.status === 'unhealthy') {
-            logger.warn('⚠️  [Startup] Memory Core is unhealthy. Server will start but tools will fail until resolved.');
-            health.details.forEach(detail => logger.warn(`    ${detail}`));
-
-            if (!health.database.process.running) {
-                logger.warn('    💡 Tip: Use the start_database tool after server starts, or run:');
-                logger.warn(`       chroma run --path ${process.env.CHROMA_DATA_PATH || './data/chroma'} --port ${process.env.CHROMA_PORT || '8000'}`);
-            }
-            logger.warn('    The server will periodically retry and recover automatically once dependencies are met.');
-        } else if (health.status === 'degraded') {
-            logger.warn('⚠️  [Startup] Memory Core is degraded. Some features may be unavailable.');
-            health.details.forEach(detail => logger.warn(`    ${detail}`));
-
-            logger.info('✅ [Startup] ChromaDB connectivity confirmed');
-            this.logCollectionStats(health);
-        } else {
-            logger.info('✅ [Startup] Memory Core health check passed');
-            this.logCollectionStats(health);
-        }
-    }
-
-    /**
-     * @summary Boot-time diagnostic: invokes `lsof` to detect SQLite file contention from
-     * sibling MCP server processes holding the memory-core SQLite files (ticket #10188).
-     * Uses the same empirical `lsof` + PID walk pattern established in
-     * `ai/scripts/diagnoseMcpConcurrency.mjs`.
-     * @protected
-     */
-    logSiblingConcurrency() {
-        const dbPath = aiConfig.storagePaths.graph;
-        if (!dbPath) return;
-
-        const files = [dbPath, `${dbPath}-wal`, `${dbPath}-shm`];
-
-        try {
-            const raw = execSync(`lsof -F pcn -- ${files.map(f => `'${f}'`).join(' ')}`, {
-                encoding: 'utf8',
-                stdio: ['ignore', 'pipe', 'pipe']
-            });
-
-            let current = null;
-            const records = [];
-            for (const line of raw.split('\n')) {
-                if (!line) continue;
-                if (line[0] === 'p') {
-                    if (current && current.pid !== process.pid) records.push(current);
-                    current = {pid: parseInt(line.slice(1), 10)};
-                } else if (current && line[0] === 'c') {
-                    current.command = line.slice(1);
-                }
-            }
-            if (current && current.pid !== process.pid) records.push(current);
-
-            const uniquePids = new Set();
-            const siblings = records.filter(r => {
-                if (uniquePids.has(r.pid)) return false;
-                uniquePids.add(r.pid);
-                return true;
-            });
-
-            if (siblings.length > 0) {
-                logger.info(`ℹ️  [Startup] Sibling concurrency: ${siblings.length} peer process(es) holding SQLite files. PIDs: ${siblings.map(s => s.pid).join(', ')}`);
-            }
-        } catch (error) {
-            // Ignore ENOENT (lsof missing on Windows) or status 1 (no matching processes)
-            if (error.status !== 1 && error.code !== 'ENOENT') {
-                logger.debug(`[Startup] Failed to check sibling concurrency: ${error.message}`);
-            }
-        }
+    bindAgentIdentity(identity) {
+        return McpIntegrationService.bindAgentIdentity(identity);
     }
 }
 

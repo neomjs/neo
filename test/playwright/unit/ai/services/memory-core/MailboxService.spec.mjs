@@ -59,6 +59,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         originalMailboxPolicy = mailboxAiConfig.data.mailbox.defaultReplyPolicy;
         mailboxAiConfig.data.mailbox.defaultReplyPolicy = 'blocked';
 
+        const { TestLifecycleHelper } = await import('./util.mjs');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, null, null, 'destroy');
+
         if (!LifecycleService._initPromise) {
             await LifecycleService.initAsync();
         } else {
@@ -69,7 +72,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     });
 
     test.afterAll(async () => {
-        const { cleanupChromaManager } = await import('./util.mjs');
+        const { cleanupChromaManager, TestLifecycleHelper } = await import('./util.mjs');
         await cleanupChromaManager();
         GraphService.db.autoSave = originalAutoSave;
         // Symmetric restore of the mailbox policy to whatever the library default
@@ -77,25 +80,13 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         if (mailboxAiConfig?.data?.mailbox) {
             mailboxAiConfig.data.mailbox.defaultReplyPolicy = originalMailboxPolicy;
         }
-        if (fs.existsSync(dbPath)) {
-            try { fs.unlinkSync(dbPath); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
-        }
+        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, dbPath, fs, 'destroy');
     });
 
     test.beforeEach(async () => {
         // Ensure a clean slate per test
-        if (GraphService.db) {
-            GraphService.db.nodes.clear();
-            GraphService.db.edges.clear();
-            GraphService.db.vicinityLoadedNodes.clear();
-
-            if (GraphService.db.storage?.db) {
-                await GraphService.db.storage.clear();
-                GraphService.db.storage.db.exec('DELETE FROM GraphLog');
-            }
-        }
+        const { TestLifecycleHelper } = await import('./util.mjs');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, null, null, null, 'clear');
 
         // Seed agents
         GraphService.upsertNode({ id: '@alice', type: 'AGENT', name: 'Alice', properties: {} });
@@ -980,6 +971,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
         originalMailboxPolicy = mailboxAiConfig.data.mailbox.defaultReplyPolicy;
         mailboxAiConfig.data.mailbox.defaultReplyPolicy = 'open';
 
+        const { TestLifecycleHelper } = await import('./util.mjs');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, null, null, 'destroy');
+
         if (!LifecycleService._initPromise) {
             await LifecycleService.initAsync();
         } else {
@@ -990,30 +984,18 @@ test.describe('Neo.ai.services.memory-core.MailboxService — open policy mode (
     });
 
     test.afterAll(async () => {
-        const { cleanupChromaManager } = await import('./util.mjs');
+        const { cleanupChromaManager, TestLifecycleHelper } = await import('./util.mjs');
         await cleanupChromaManager();
         GraphService.db.autoSave = originalAutoSave;
         if (mailboxAiConfig?.data?.mailbox) {
             mailboxAiConfig.data.mailbox.defaultReplyPolicy = originalMailboxPolicy;
         }
-        if (fs.existsSync(dbPath)) {
-            try { fs.unlinkSync(dbPath); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
-        }
+        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, dbPath, fs, 'destroy');
     });
 
     test.beforeEach(async () => {
-        if (GraphService.db) {
-            GraphService.db.nodes.clear();
-            GraphService.db.edges.clear();
-            GraphService.db.vicinityLoadedNodes.clear();
-
-            if (GraphService.db.storage?.db) {
-                await GraphService.db.storage.clear();
-                GraphService.db.storage.db.exec('DELETE FROM GraphLog');
-            }
-        }
+        const { TestLifecycleHelper } = await import('./util.mjs');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, null, null, null, 'clear');
 
         GraphService.upsertNode({ id: '@alice', type: 'AGENT', name: 'Alice', properties: {} });
         GraphService.upsertNode({ id: '@bob', type: 'AGENT', name: 'Bob', properties: {} });
@@ -1244,6 +1226,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         mailboxAiConfig.storagePaths.graph = dbPath;
 
+        const { TestLifecycleHelper } = await import('./util.mjs');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, null, null, 'destroy');
+
         if (!LifecycleService._initPromise) {
             await LifecycleService.initAsync();
         } else {
@@ -1254,27 +1239,15 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
     });
 
     test.afterAll(async () => {
-        const { cleanupChromaManager } = await import('./util.mjs');
+        const { cleanupChromaManager, TestLifecycleHelper } = await import('./util.mjs');
         await cleanupChromaManager();
         GraphService.db.autoSave = originalAutoSave;
-        if (fs.existsSync(dbPath)) {
-            try { fs.unlinkSync(dbPath); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
-        }
+        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, dbPath, fs, 'destroy');
     });
 
     test.beforeEach(async () => {
-        if (GraphService.db) {
-            GraphService.db.nodes.clear();
-            GraphService.db.edges.clear();
-            GraphService.db.vicinityLoadedNodes.clear();
-
-            if (GraphService.db.storage?.db) {
-                await GraphService.db.storage.clear();
-                GraphService.db.storage.db.exec('DELETE FROM GraphLog');
-            }
-        }
+        const { TestLifecycleHelper } = await import('./util.mjs');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, null, null, null, 'clear');
 
         GraphService.upsertNode({ id: '@alice', type: 'AGENT', name: 'Alice', properties: {} });
         GraphService.upsertNode({ id: '@bob', type: 'AGENT', name: 'Bob', properties: {} });
@@ -1305,7 +1278,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
             
             await expect(MailboxService.transitionTask({
                 taskId: res.messageId, newState: 'AlsoInvalid'
-            })).rejects.toThrow(/Invalid new task state: AlsoInvalid/);
+            })).rejects.toThrow(/invalid_enum_value/);
         });
     });
 
@@ -1466,6 +1439,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#1033
         mailboxAiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         mailboxAiConfig.storagePaths.graph = dbPath;
 
+        const { TestLifecycleHelper } = await import('./util.mjs');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, null, null, 'destroy');
+
         if (!LifecycleService._initPromise) {
             await LifecycleService.initAsync();
         } else {
@@ -1476,14 +1452,10 @@ test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#1033
     });
 
     test.afterAll(async () => {
-        const { cleanupChromaManager } = await import('./util.mjs');
+        const { cleanupChromaManager, TestLifecycleHelper } = await import('./util.mjs');
         await cleanupChromaManager();
         GraphService.db.autoSave = originalAutoSave;
-        if (fs.existsSync(dbPath)) {
-            try { fs.unlinkSync(dbPath); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-wal'); } catch (e) {}
-            try { fs.unlinkSync(dbPath + '-shm'); } catch (e) {}
-        }
+        await TestLifecycleHelper.cleanupGraphService(GraphService, LifecycleService, dbPath, fs, 'destroy');
     });
 
     test.beforeEach(async () => {
@@ -1491,16 +1463,8 @@ test.describe('Neo.ai.services.memory-core.MailboxService — TTL Sweeper (#1033
         // mutations don't propagate to SQLite synchronously and downstream FK checks fail.
         GraphService.db.autoSave = true;
 
-        if (GraphService.db) {
-            GraphService.db.nodes.clear();
-            GraphService.db.edges.clear();
-            GraphService.db.vicinityLoadedNodes.clear();
-
-            if (GraphService.db.storage?.db) {
-                await GraphService.db.storage.clear();
-                GraphService.db.storage.db.exec('DELETE FROM GraphLog');
-            }
-        }
+        const { TestLifecycleHelper } = await import('./util.mjs');
+        await TestLifecycleHelper.cleanupGraphService(GraphService, null, null, null, 'clear');
 
         // Seed identities under a TTL-suite-local prefix so cross-describe interleaving
         // (Playwright `fullyParallel` interleaves across files even with `mode: 'serial'`

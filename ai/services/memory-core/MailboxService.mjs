@@ -5,8 +5,6 @@ import GraphService from './GraphService.mjs';
 import PermissionService from './PermissionService.mjs';
 import WakeSubscriptionService from './WakeSubscriptionService.mjs';
 import crypto from 'crypto';
-import SemanticGraphExtractor from '../../daemons/services/SemanticGraphExtractor.mjs';
-
 /**
  * Normalizes a raw addressing target into its canonical Graph Node ID format.
  * Enforces the unified identity substrate where `@<login>` is canonical for all identities.
@@ -379,7 +377,8 @@ class MailboxService extends Base {
         for (const c of taggedConcepts) GraphService.linkNodes(messageId, c, 'TAGGED_CONCEPT', 1.0, { timestamp, userId: sentBy, sharedEntity: true });
 
         // 4. Auto-emit TAGGED_CONCEPT edges asynchronously without blocking delivery
-        SemanticGraphExtractor.extractMessageConcepts(body).then(concepts => {
+        import('../../daemons/services/SemanticGraphExtractor.mjs').then(({ default: SemanticGraphExtractor }) => {
+            SemanticGraphExtractor.extractMessageConcepts(body).then(concepts => {
             if (concepts && concepts.length > 0) {
                 for (const c of concepts) {
                     // Ensure the concept node exists before linking
@@ -397,6 +396,7 @@ class MailboxService extends Base {
                     GraphService.linkNodes(messageId, c, 'TAGGED_CONCEPT', 0.8, { timestamp, userId: sentBy, sharedEntity: true });
                 }
             }
+            }).catch(e => logger.error('[auto-extract]', e));
         }).catch(() => { /* error logged internally */ });
 
         WakeSubscriptionService.pump().catch(e => logger.error('[wake-pump]', e));
