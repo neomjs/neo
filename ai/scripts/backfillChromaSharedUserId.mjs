@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * @summary One-shot migration script that backfills `userId: 'shared'` metadata on
- * pre-#10145 ChromaDB records lacking the `userId` key, restoring tenant-aware read
- * access to the legacy commons.
+ * pre-#10145 ChromaDB records lacking the `userId` key, and promotes core-swarm session
+ * summaries to the shared visibility contract.
  *
  * Context: #10556. The Multi-Tenant Identity rollout (#10145, #10000) added
  * `where: {userId}` filters to all reads in `SummaryService` and `MemoryService`.
@@ -16,12 +16,13 @@
  * Without running this script, the new filter is functionally a no-op against
  * existing untagged data — same zero-results behavior as today.
  *
- * **Idempotent.** Safe to run multiple times. Records that already have a `userId`
- * key (any value) are skipped. Re-running tags only newly-arrived untagged records,
- * if any.
+ * **Idempotent.** Safe to run multiple times. Memory records that already have a `userId`
+ * key are skipped. Session-summary records are updated when they either lack `userId` OR
+ * list a named core-swarm maintainer in `participatingAgents` but are not already tagged
+ * as shared. Re-running tags only newly-arrived migration debt, if any.
  *
  * **Metadata-only.** No re-embedding. Embeddings are preserved as-is. Only the
- * `userId` metadata key is added.
+ * `userId` metadata key is added or updated.
  *
  * **Operates on both memory and summary collections.** Default config targets the
  * unified ChromaDB instance (port 8000).
@@ -54,6 +55,14 @@ const __dirname  = path.dirname(__filename);
 // which reads this script as text + regex-extracts the constant + compares against the import.
 const SHARED_USER_ID = 'shared';
 
+// MUST match `CORE_SWARM_USER_IDS` exported from RequestContextService. Duplicated here for
+// the same no-Neo-bootstrap reason as SHARED_USER_ID above; unit tests enforce the sync.
+const CORE_SWARM_USER_IDS = Object.freeze([
+    'neo-opus-4-7',
+    'neo-gemini-3-1-pro',
+    'neo-gpt'
+]);
+
 const COLLECTION_MEMORY  = 'neo-agent-memory';
 const COLLECTION_SESSION = 'neo-agent-sessions';
 const BATCH_SIZE         = 500;
@@ -62,8 +71,8 @@ function parseArgs(argv) {
     const args = {
         apply       : false,
         help        : false,
-        host        : 'localhost',
-        port        : 8000,
+        host        : process.env.NEO_CHROMA_HOST || process.env.NEO_KB_CHROMA_HOST || 'localhost',
+        port        : Number(process.env.NEO_CHROMA_PORT || process.env.NEO_KB_CHROMA_PORT || 8000),
         memoryOnly  : false,
         sessionOnly : false
     };
@@ -93,29 +102,67 @@ userId key, restoring tenant-aware read access to legacy data.
 Options:
   (no flags)         Dry-run mode — print the migration plan without committing
   --apply            Commit the migration (calls collection.update on all matched ids)
-  --host <host>      Override ChromaDB host (default: localhost)
-  --port <port>      Override ChromaDB port (default: 8000)
+  --host <host>      Override ChromaDB host (default: NEO_CHROMA_HOST, fallback localhost)
+  --port <port>      Override ChromaDB port (default: NEO_CHROMA_PORT, fallback 8000)
   --memory-only      Tag only the neo-agent-memory collection
   --session-only     Tag only the neo-agent-sessions collection
   --help             Print this usage message
 
-Idempotent: records with any existing userId value are skipped.
+Idempotent: memory records with any existing userId value are skipped; session
+summaries involving core swarm peers are promoted to userId='${SHARED_USER_ID}'.
 Metadata-only: no re-embedding; existing embeddings are preserved.
 `);
 }
 
 /**
- * Iterates a Chroma collection in batches, accumulating ids of records that lack
- * a `userId` metadata key.
+ * @param {String|null|undefined} input
+ * @returns {String|undefined}
+ */
+function normalizeUserId(input) {
+    if (input == null) return undefined;
+    const str = String(input);
+    return str.startsWith('@') ? str.slice(1) : str;
+}
+
+/**
+ * @param {String|String[]|null|undefined} input
+ * @returns {String[]}
+ */
+function parseAgentList(input) {
+    if (input == null) return [];
+
+    const values = Array.isArray(input) ? input : String(input).split(',');
+    return values
+        .map(value => normalizeUserId(String(value).trim()))
+        .filter(Boolean);
+}
+
+/**
+ * @param {String|String[]|null|undefined} participatingAgents
+ * @returns {Boolean}
+ */
+function hasCoreSwarmParticipant(participatingAgents) {
+    const participants = new Set(parseAgentList(participatingAgents));
+    return CORE_SWARM_USER_IDS.some(userId => participants.has(userId));
+}
+
+/**
+ * Iterates a Chroma collection in batches, accumulating ids of records that need
+ * the `userId: shared` metadata tag.
  *
  * @param {Object} collection ChromaDB collection wrapper
- * @returns {Promise<{untaggedIds: String[], totalScanned: Number, alreadyTagged: Number}>}
+ * @param {Object} options
+ * @param {Boolean} [options.promoteCoreSwarmSummaries=false]
+ * @returns {Promise<{tagRecords: Object[], totalScanned: Number, alreadyTagged: Number, untagged: Number, alreadyShared: Number, coreSwarmParticipant: Number}>}
  */
-async function findUntaggedRecords(collection) {
-    const untaggedIds = [];
-    let totalScanned  = 0;
-    let alreadyTagged = 0;
-    let batchOffset   = 0;
+async function findRecordsToTag(collection, {promoteCoreSwarmSummaries = false} = {}) {
+    const tagRecords           = [];
+    let totalScanned           = 0;
+    let alreadyTagged          = 0;
+    let untagged               = 0;
+    let alreadyShared          = 0;
+    let coreSwarmParticipant   = 0;
+    let batchOffset            = 0;
 
     while (true) {
         const batch = await collection.get({
@@ -133,10 +180,25 @@ async function findUntaggedRecords(collection) {
             // Treat both missing key AND empty-string as untagged. Mirrors the
             // COALESCE(...) IS NULL OR = '' pattern in HealthService graph-side checker.
             const userId = metadata && metadata.userId;
-            if (userId === undefined || userId === null || userId === '') {
-                untaggedIds.push(id);
+            const normalizedUserId = normalizeUserId(userId);
+            const missingUserId = userId === undefined || userId === null || userId === '';
+            const hasCorePeer = promoteCoreSwarmSummaries && hasCoreSwarmParticipant(metadata?.participatingAgents);
+
+            if (missingUserId) {
+                untagged++;
             } else {
                 alreadyTagged++;
+            }
+
+            if (normalizedUserId === SHARED_USER_ID) {
+                alreadyShared++;
+            }
+            if (hasCorePeer) {
+                coreSwarmParticipant++;
+            }
+
+            if (normalizedUserId !== SHARED_USER_ID && (missingUserId || hasCorePeer)) {
+                tagRecords.push({id, metadata: metadata || {}});
             }
         });
 
@@ -144,29 +206,31 @@ async function findUntaggedRecords(collection) {
         batchOffset += BATCH_SIZE;
     }
 
-    return {untaggedIds, totalScanned, alreadyTagged};
+    return {tagRecords, totalScanned, alreadyTagged, untagged, alreadyShared, coreSwarmParticipant};
 }
 
 /**
- * Tags the given record ids with `userId: SHARED_USER_ID`. Metadata-only update;
- * embeddings are preserved by ChromaDB's `update` semantics.
+ * Tags the given records with `userId: SHARED_USER_ID`. Metadata-only update;
+ * embeddings are preserved by ChromaDB's `update` semantics, and all existing
+ * metadata keys are preserved in the update payload.
  *
  * @param {Object}   collection ChromaDB collection wrapper
- * @param {String[]} ids        Record ids to tag
+ * @param {Object[]} records    Records to tag: `{id, metadata}`
  * @returns {Promise<Number>} Count of tagged records
  */
-async function tagRecords(collection, ids) {
-    if (ids.length === 0) return 0;
+async function tagRecords(collection, records) {
+    if (records.length === 0) return 0;
 
     // Update in batches to stay under any chroma payload limits + give visible progress.
     let tagged = 0;
-    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
-        const slice    = ids.slice(i, i + BATCH_SIZE);
-        const metadatas = slice.map(() => ({userId: SHARED_USER_ID}));
+    for (let i = 0; i < records.length; i += BATCH_SIZE) {
+        const slice     = records.slice(i, i + BATCH_SIZE);
+        const ids       = slice.map(record => record.id);
+        const metadatas = slice.map(record => ({...record.metadata, userId: SHARED_USER_ID}));
 
-        await collection.update({ids: slice, metadatas});
+        await collection.update({ids, metadatas});
         tagged += slice.length;
-        process.stdout.write(`\r    tagged ${tagged}/${ids.length}`);
+        process.stdout.write(`\r    tagged ${tagged}/${records.length}`);
     }
     process.stdout.write('\n');
     return tagged;
@@ -195,24 +259,32 @@ async function processCollection(client, collectionName, apply) {
         const total = await collection.count();
         console.log(`  total records: ${total}`);
 
-        const {untaggedIds, totalScanned, alreadyTagged} = await findUntaggedRecords(collection);
-        console.log(`  scanned:       ${totalScanned}`);
-        console.log(`  already tagged: ${alreadyTagged}`);
-        console.log(`  to tag:        ${untaggedIds.length}`);
+        const promoteCoreSwarmSummaries = collectionName === COLLECTION_SESSION;
+        const {tagRecords, totalScanned, alreadyTagged, untagged, alreadyShared, coreSwarmParticipant} = await findRecordsToTag(collection, {
+            promoteCoreSwarmSummaries
+        });
+        console.log(`  scanned:                  ${totalScanned}`);
+        console.log(`  already tagged:           ${alreadyTagged}`);
+        console.log(`  already shared:           ${alreadyShared}`);
+        console.log(`  untagged:                 ${untagged}`);
+        if (promoteCoreSwarmSummaries) {
+            console.log(`  core swarm participants:  ${coreSwarmParticipant}`);
+        }
+        console.log(`  to tag:                   ${tagRecords.length}`);
 
-        if (untaggedIds.length === 0) {
+        if (tagRecords.length === 0) {
             console.log(`  → no work needed for this collection`);
-            return {totalScanned, alreadyTagged, tagged: 0, plannedTags: 0};
+            return {totalScanned, alreadyTagged, alreadyShared, untagged, coreSwarmParticipant, tagged: 0, plannedTags: 0};
         }
 
         if (!apply) {
-            console.log(`  → DRY-RUN: would tag ${untaggedIds.length} records with userId='${SHARED_USER_ID}'`);
-            return {totalScanned, alreadyTagged, tagged: 0, plannedTags: untaggedIds.length};
+            console.log(`  → DRY-RUN: would tag ${tagRecords.length} records with userId='${SHARED_USER_ID}'`);
+            return {totalScanned, alreadyTagged, alreadyShared, untagged, coreSwarmParticipant, tagged: 0, plannedTags: tagRecords.length};
         }
 
-        console.log(`  → APPLY: tagging ${untaggedIds.length} records...`);
-        const tagged = await tagRecords(collection, untaggedIds);
-        return {totalScanned, alreadyTagged, tagged, plannedTags: untaggedIds.length};
+        console.log(`  → APPLY: tagging ${tagRecords.length} records...`);
+        const tagged = await tagRecords(collection, tagRecords);
+        return {totalScanned, alreadyTagged, alreadyShared, untagged, coreSwarmParticipant, tagged, plannedTags: tagRecords.length};
     } finally {
         console.warn = origWarn;
     }
@@ -258,7 +330,7 @@ async function main() {
         console.log(`  memory:  scanned=${summary.memory.totalScanned}, already=${summary.memory.alreadyTagged}, ${args.apply ? `tagged=${summary.memory.tagged}` : `would-tag=${summary.memory.plannedTags}`}`);
     }
     if (summary.session) {
-        console.log(`  session: scanned=${summary.session.totalScanned}, already=${summary.session.alreadyTagged}, ${args.apply ? `tagged=${summary.session.tagged}` : `would-tag=${summary.session.plannedTags}`}`);
+        console.log(`  session: scanned=${summary.session.totalScanned}, already=${summary.session.alreadyTagged}, core-swarm=${summary.session.coreSwarmParticipant}, ${args.apply ? `tagged=${summary.session.tagged}` : `would-tag=${summary.session.plannedTags}`}`);
     }
 
     if (!args.apply) {

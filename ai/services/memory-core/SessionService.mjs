@@ -11,7 +11,11 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import logger from '../../mcp/server/memory-core/logger.mjs';
-import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
+import RequestContextService, {
+    SHARED_USER_ID,
+    normalizeUserId,
+    resolveSummaryVisibilityUserId
+} from '../../mcp/server/shared/services/RequestContextService.mjs';
 
 /**
  * @summary Service for handling session summarization and drift detection.
@@ -470,10 +474,13 @@ ${aggregatedContent}
 
         const summaryId = `summary_${sessionId}`;
 
-        // Multi-tenant isolation tag (#10000): attach the active user's id when a request
-        // context is present so `SummaryService.{listSummaries, querySummaries}` tenant-filters
-        // can observe this summary. Undefined in stdio mode = legacy unfiltered single-tenant.
-        const userId = RequestContextService.getUserId();
+        // Multi-tenant isolation tag (#10000, #11181): private summaries keep the active
+        // request userId; core-swarm summaries use the shared sentinel so every named peer can
+        // observe the compressed navigation artifact after tenant-aware reads are applied.
+        const userId = resolveSummaryVisibilityUserId({
+            userId: RequestContextService.getUserId(),
+            participatingAgents
+        });
 
         const summaryMetadata = {
             sessionId, timestamp: lastActivity, memoryCount: memories.ids.length,

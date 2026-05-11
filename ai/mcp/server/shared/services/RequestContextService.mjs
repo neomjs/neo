@@ -9,14 +9,42 @@ import Base from '../../../../../src/core/Base.mjs';
  * granting every authenticated tenant access to their own data PLUS the shared baseline.
  * The migration runner (`ai/scripts/backfillChromaSharedUserId.mjs`, #10556) tags any
  * pre-#10145 ChromaDB records lacking a `userId` key with this sentinel so the additive
- * read filter can return them. New writes always tag with the resolved per-tenant userId,
- * never with `SHARED_USER_ID`.
+ * read filter can return them. New raw-memory writes tag with the resolved per-tenant userId;
+ * session summaries involving named core swarm maintainers intentionally use `SHARED_USER_ID`
+ * so the compressed navigation artifact remains visible to every named peer (#11181).
  *
  * @member {String}
  * @see #10556 — chromadb metadata backfill that introduces this sentinel
  * @see #10017 — adjacent SQLite Native Edge Graph migration (different storage layer, gradual)
  */
 export const SHARED_USER_ID = 'shared';
+
+/**
+ * @summary Canonical userIds for Neo's named core swarm maintainers.
+ *
+ * Session summaries that involve any of these agents are part of the shared
+ * swarm memory substrate, even when a single harness performed the summarization
+ * write. Without this list, restored summaries can be tagged to only one peer
+ * (`neo-gemini-3-1-pro`, etc.) and silently disappear for the other two peers'
+ * tenant-aware summary reads.
+ *
+ * @member {String[]}
+ * @see #11181 — restored summary visibility regression
+ */
+export const CORE_SWARM_USER_IDS = Object.freeze([
+    'neo-opus-4-7',
+    'neo-gemini-3-1-pro',
+    'neo-gpt'
+]);
+
+/**
+ * @summary AgentIdentity node-id form for {@link CORE_SWARM_USER_IDS}.
+ * @member {String[]}
+ * @see #11181
+ */
+export const CORE_SWARM_AGENT_IDS = Object.freeze(
+    CORE_SWARM_USER_IDS.map(userId => `@${userId}`)
+);
 
 /**
  * @summary Strips the `@`-prefix from AgentIdentity-style identifiers so userId comparisons
@@ -42,6 +70,61 @@ export function normalizeUserId(input) {
 }
 
 /**
+ * @summary Parses comma-separated or array-form agent identifiers into canonical userIds.
+ *
+ * Summary metadata stores `participatingAgents` as a comma-separated string. Tool-call and
+ * restore paths may hand us arrays or prefixed AgentIdentity node ids. This helper is the
+ * normalization boundary for all of those shapes.
+ *
+ * @param {String|String[]|null|undefined} input Agent list to normalize.
+ * @returns {String[]} Canonical userIds with empty entries removed.
+ * @see #11181
+ */
+export function parseAgentList(input) {
+    if (input == null) return [];
+
+    const values = Array.isArray(input) ? input : String(input).split(',');
+    return values
+        .map(value => normalizeUserId(String(value).trim()))
+        .filter(Boolean);
+}
+
+/**
+ * @summary Returns true when a participating-agent list includes a named core swarm peer.
+ *
+ * @param {String|String[]|null|undefined} participatingAgents Summary metadata participant list.
+ * @returns {Boolean}
+ * @see #11181
+ */
+export function hasCoreSwarmParticipant(participatingAgents) {
+    const participants = new Set(parseAgentList(participatingAgents));
+    return CORE_SWARM_USER_IDS.some(userId => participants.has(userId));
+}
+
+/**
+ * @summary Resolves the Chroma `userId` tag for session-summary writes.
+ *
+ * Raw memories remain owned by the active tenant. Session summaries are different: they are
+ * compressed cross-turn navigation artifacts. If a summary involves any named core swarm
+ * maintainer, tagging it to the single summarizing harness hides the artifact from the other
+ * peers after tenant-aware reads. Core-swarm summaries therefore use the shared sentinel;
+ * all other summaries retain the active request userId.
+ *
+ * @param {Object} input
+ * @param {String|null|undefined} input.userId Active request userId.
+ * @param {String|String[]|null|undefined} input.participatingAgents Summary participant metadata.
+ * @returns {String|undefined} `shared`, a normalized userId, or undefined for single-tenant fallthrough.
+ * @see #11181
+ */
+export function resolveSummaryVisibilityUserId({userId, participatingAgents} = {}) {
+    if (hasCoreSwarmParticipant(participatingAgents)) {
+        return SHARED_USER_ID;
+    }
+
+    return normalizeUserId(userId);
+}
+
+/**
  * @summary Request-scoped context propagation for MCP servers.
  *
  * Bridges the gap between the Express / MCP transport layer (where per-request auth claims
@@ -53,6 +136,7 @@ export function normalizeUserId(input) {
  * **Module-level exports:**
  * - {@link SHARED_USER_ID} — sentinel value for legacy/commons records (#10556)
  * - {@link normalizeUserId} — `@`-prefix stripping boundary helper (#10556)
+ * - {@link resolveSummaryVisibilityUserId} — summary visibility resolver for core-swarm artifacts (#11181)
  *
  * **Identity flow (Epic #9999, sub-epic #10016, tickets #10000 + #10145):**
  *
@@ -70,9 +154,11 @@ export function normalizeUserId(input) {
  *    transport.
  * 3. **Service-layer consumption:** `MemoryService.addMemory`, `SummaryService.querySummaries`,
  *    etc. call `RequestContextService.getUserId()` and either tag ChromaDB writes with
- *    `metadata.userId` or apply `where: {userId}` filters on reads. Graph-edge-writing services
- *    additionally call `getAgentIdentityNodeId()` to terminate `AUTHORED_BY` / `OWNED_BY` edges
- *    on the correct identity node.
+ *    `metadata.userId` or apply `where: {userId}` filters on reads. Summary writes additionally
+ *    route through {@link resolveSummaryVisibilityUserId} so core-swarm summaries become shared
+ *    artifacts instead of single-peer private rows. Graph-edge-writing services additionally call
+ *    `getAgentIdentityNodeId()` to terminate `AUTHORED_BY` / `OWNED_BY` edges on the correct
+ *    identity node.
  * 4. **Unresolved-identity fallthrough:** when neither transport resolves a userId (stdio with
  *    neither env-var nor authenticated `gh` CLI, offline daemon contexts), `getUserId()` returns
  *    `undefined` and services fall back to **single-tenant mode** — no tag on writes, no filter

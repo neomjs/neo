@@ -157,6 +157,59 @@ test.describe('HealthService #11009 — buildTaskOutcomesBlock', () => {
 });
 
 /**
+ * @summary Coverage for Chroma migration observability after #11181.
+ *
+ * The live regression was not just "missing userId"; restored session summaries also had
+ * single-peer userIds while `participatingAgents` named another core swarm maintainer. This
+ * pure projection pins both counters without requiring a live ChromaDB instance.
+ *
+ * @see Neo.ai.services.memory-core.HealthService#buildChromaMigrationStats
+ */
+test.describe('HealthService #11181 — buildChromaMigrationStats', () => {
+    let buildChromaMigrationStats;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
+        buildChromaMigrationStats = mod.buildChromaMigrationStats;
+    });
+
+    test('memory metadata counts missing userId as migration debt', () => {
+        const result = buildChromaMigrationStats([
+            {},
+            {userId: ''},
+            {userId: 'shared'},
+            {userId: 'neo-gpt'}
+        ]);
+
+        expect(result.totalRecords).toBe(4);
+        expect(result.missingUserId).toBe(2);
+        expect(result.shared).toBe(1);
+        expect(result.migrationDebt).toBe(2);
+        expect(result.perUserId).toEqual({
+            shared   : 1,
+            'neo-gpt': 1
+        });
+    });
+
+    test('summary metadata flags core-swarm participants not shared as visibility debt', () => {
+        const result = buildChromaMigrationStats([
+            {},
+            {userId: 'neo-gemini-3-1-pro', participatingAgents: '@neo-gpt'},
+            {userId: 'shared', participatingAgents: '@neo-opus-4-7'},
+            {userId: 'alice', participatingAgents: '@alice'},
+            {userId: '', participatingAgents: '@neo-gemini-3-1-pro'}
+        ], {summaryCollection: true});
+
+        expect(result.totalRecords).toBe(5);
+        expect(result.missingUserId).toBe(2);
+        expect(result.shared).toBe(1);
+        expect(result.coreSwarmParticipant).toBe(3);
+        expect(result.coreSwarmParticipantHidden).toBe(2);
+        expect(result.migrationDebt).toBe(3);
+    });
+});
+
+/**
  * @summary Coverage for the #10127 topology observability block in the healthcheck payload.
  *
  * Mirrors the #10176 precedent above: the end-to-end integration path requires a live ChromaDB

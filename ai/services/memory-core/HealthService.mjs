@@ -8,6 +8,11 @@ import StorageRouter            from './managers/StorageRouter.mjs';
 import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
 import logger                   from '../../mcp/server/memory-core/logger.mjs';
 import {readGateState}          from '../../scripts/wakeSafetyGate.mjs';
+import {
+    SHARED_USER_ID,
+    hasCoreSwarmParticipant,
+    normalizeUserId
+} from '../../mcp/server/shared/services/RequestContextService.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -496,6 +501,67 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
     }
 }
 
+/**
+ * @summary Projects Chroma metadata into actionable tenant-migration counters (#11181).
+ *
+ * Chroma's where-filter vocabulary cannot ask for "metadata key is missing" reliably, so
+ * healthcheck migration observability must inspect returned metadata, not infer from `$ne`.
+ * For the summary collection, this also counts core-swarm participant summaries that are
+ * tagged to one peer instead of the shared sentinel — the restored-data visibility failure
+ * that triggered #11181.
+ *
+ * @param {Object[]} metadatas Chroma metadata records.
+ * @param {Object} [options]
+ * @param {Boolean} [options.summaryCollection=false] Whether to apply summary-specific checks.
+ * @returns {Object}
+ * @see ai/scripts/backfillChromaSharedUserId.mjs
+ */
+export function buildChromaMigrationStats(metadatas, {summaryCollection = false} = {}) {
+    const stats = {
+        totalRecords              : 0,
+        tagged                    : 0,
+        missingUserId             : 0,
+        shared                    : 0,
+        migrationDebt             : 0,
+        coreSwarmParticipant      : 0,
+        coreSwarmParticipantHidden: 0,
+        perUserId                 : {}
+    };
+
+    (metadatas || []).forEach(metadata => {
+        stats.totalRecords++;
+
+        const rawUserId = metadata?.userId;
+        const missingUserId = rawUserId === undefined || rawUserId === null || rawUserId === '';
+        const userId = normalizeUserId(rawUserId);
+        const hasCorePeer = summaryCollection && hasCoreSwarmParticipant(metadata?.participatingAgents);
+
+        if (missingUserId) {
+            stats.missingUserId++;
+        } else {
+            stats.tagged++;
+            stats.perUserId[userId] = (stats.perUserId[userId] || 0) + 1;
+        }
+
+        if (userId === SHARED_USER_ID) {
+            stats.shared++;
+        }
+
+        if (hasCorePeer) {
+            stats.coreSwarmParticipant++;
+            if (userId !== SHARED_USER_ID) {
+                stats.coreSwarmParticipantHidden++;
+            }
+        }
+
+        if (missingUserId || (hasCorePeer && userId !== SHARED_USER_ID)) {
+            stats.migrationDebt++;
+        }
+    });
+
+    return stats;
+}
+
 class HealthService extends Base {
     static config = {
         /**
@@ -734,21 +800,21 @@ class HealthService extends Base {
     }
 
     /**
-     * Computes the chromadb-side untagged-record counts for the multi-tenant migration
-     * observability surface (#10556 — companion to the SQLite graph-side counter at
+     * Computes the ChromaDB-side actionable migration-debt counts for the multi-tenant
+     * observability surface (#10556, #11181 — companion to the SQLite graph-side counter at
      * {@link HealthService##checkMigrationState}).
      *
-     * Pre-#10145 records lack the `userId` metadata key entirely. ChromaDB's where-vocabulary
-     * has no `$exists` operator and its `$ne` operator skips records with missing keys, so
-     * untagged records are unreachable via filtered reads — they're invisible to all stdio
-     * agents until the backfill runner (`ai/scripts/backfillChromaSharedUserId.mjs`) tags
-     * them with `userId: 'shared'`. This method exposes the remaining untagged volume so
-     * operators can verify migration completeness.
+     * Pre-#10145 records lack the `userId` metadata key entirely, and restored session summaries
+     * can also be tagged to one summarizing peer while `participatingAgents` names a different
+     * core-swarm peer. Both shapes are invisible to the intended tenant-aware reads until the
+     * backfill runner (`ai/scripts/backfillChromaSharedUserId.mjs`) tags them with
+     * `userId: 'shared'`. Chroma where-filters cannot reliably falsify absent metadata-key cases
+     * across versions, so this method scans metadata directly instead of inferring from `$ne`.
      *
      * Returns `{available: false, ...zeros}` when the ChromaDB client is unreachable
      * (substrate-readiness signal, not a migration error).
      *
-     * @returns {Promise<{memory: Number, session: Number, total: Number, available: Boolean, error: String|undefined}>}
+     * @returns {Promise<Object>} Actionable debt plus untagged and summary-visibility details.
      * @see ai/scripts/backfillChromaSharedUserId.mjs — the runner that tags untagged records
      * @see #10556 — the Fat Ticket establishing the additive-tenant-isolation read shape
      * @private
@@ -762,30 +828,31 @@ class HealthService extends Base {
             const memoryCollection  = await StorageRouter.getMemoryCollection();
             const summaryCollection = await StorageRouter.getSummaryCollection();
 
-            // ChromaDB's `.count()` does not accept a `where` filter; only the unfiltered total
-            // is available natively. To compute untagged-count, we use the `$ne` operator's
-            // documented behavior of skipping records where the metadata key is absent — so
-            // `where: {userId: {$ne: <unused-sentinel>}}` returns ALL tagged records (any
-            // userId value), and `total - tagged = untagged`. Cheaper than scanning every
-            // record's metadata to test `userId` presence in code.
-            const sentinelValueNeverUsed = '__neomjs_migration_probe__';
-            const taggedFilter = {userId: {$ne: sentinelValueNeverUsed}};
-
-            const [memoryTotal, memoryTagged, sessionTotal, sessionTagged] = await Promise.all([
-                memoryCollection.count(),
-                this.#countWhere(memoryCollection, taggedFilter),
-                summaryCollection.count(),
-                this.#countWhere(summaryCollection, taggedFilter)
+            const [memoryStats, sessionStats] = await Promise.all([
+                this.#scanChromaMetadata(memoryCollection),
+                this.#scanChromaMetadata(summaryCollection, {summaryCollection: true})
             ]);
 
-            const memoryUntagged  = Math.max(0, memoryTotal  - memoryTagged);
-            const sessionUntagged = Math.max(0, sessionTotal - sessionTagged);
-
             return {
-                memory   : memoryUntagged,
-                session  : sessionUntagged,
-                total    : memoryUntagged + sessionUntagged,
-                available: true
+                memory   : memoryStats.migrationDebt,
+                session  : sessionStats.migrationDebt,
+                total    : memoryStats.migrationDebt + sessionStats.migrationDebt,
+                available: true,
+                untagged : {
+                    memory : memoryStats.missingUserId,
+                    session: sessionStats.missingUserId,
+                    total  : memoryStats.missingUserId + sessionStats.missingUserId
+                },
+                visibility: {
+                    sessions: {
+                        coreSwarmParticipant      : sessionStats.coreSwarmParticipant,
+                        coreSwarmParticipantHidden: sessionStats.coreSwarmParticipantHidden
+                    }
+                },
+                details: {
+                    memory : memoryStats,
+                    session: sessionStats
+                }
             };
         } catch (e) {
             return {
@@ -799,28 +866,28 @@ class HealthService extends Base {
     }
 
     /**
-     * Counts records matching a `where` clause via paginated `.get()` sweeps. Used by
-     * {@link HealthService##checkChromaMigrationState} because ChromaDB's `.count()` does
-     * not accept a `where` filter — only the unfiltered total is available natively.
+     * Scans Chroma collection metadata in batches and projects migration counters.
      *
      * @param {Object} collection ChromaDB collection wrapper
-     * @param {Object} where      ChromaDB where-clause filter
-     * @returns {Promise<Number>}
+     * @param {Object} [options]
+     * @param {Boolean} [options.summaryCollection=false]
+     * @returns {Promise<Object>}
      * @private
      */
-    async #countWhere(collection, where) {
+    async #scanChromaMetadata(collection, options = {}) {
         const batchSize = 2000;
-        let total       = 0;
+        let metadatas   = [];
         let offset      = 0;
 
         while (true) {
-            const batch = await collection.get({limit: batchSize, offset, where, include: []});
+            const batch = await collection.get({limit: batchSize, offset, include: ['metadatas']});
             const n     = batch.ids?.length || 0;
-            total += n;
+            metadatas = metadatas.concat(batch.metadatas || []);
             if (n < batchSize) break;
             offset += batchSize;
         }
-        return total;
+
+        return buildChromaMigrationStats(metadatas, options);
     }
 
 
