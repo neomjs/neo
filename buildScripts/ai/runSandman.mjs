@@ -4,6 +4,7 @@ import InstanceManager from '../../src/manager/Instance.mjs';
 import Memory_Config from '../../ai/mcp/server/memory-core/config.mjs';
 import Memory_Service from '../../ai/services/memory-core/MemoryService.mjs';
 import DreamService from '../../ai/daemons/DreamService.mjs';
+import GoldenPathSynthesizer from '../../ai/daemons/services/GoldenPathSynthesizer.mjs';
 import LifecycleService from '../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import InferenceLifecycleService from '../../ai/services/memory-core/lifecycle/InferenceLifecycleService.mjs';
 import GraphService from '../../ai/services/memory-core/GraphService.mjs';
@@ -195,6 +196,7 @@ export async function runSandman() {
 
         // Execute the REM pipeline (extract undigested graph entities + Golden Path synthesis)
         await DreamService.processUndigestedSessions();
+        await GoldenPathSynthesizer.synthesizeGoldenPath();
 
         console.log('✅ Sandman cycle complete.');
         process.exitCode = 0;
