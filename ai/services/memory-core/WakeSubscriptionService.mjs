@@ -227,6 +227,17 @@ class WakeSubscriptionService extends Base {
         const owner = RequestContextService.getAgentIdentityNodeId();
         if (!owner) throw new Error('Cannot bootstrap subscription: no agent identity context bound.');
 
+        // Cross-session duplicate-accumulation defense (#11182).
+        //
+        // The route-key idempotency check below is necessary but empirically not sufficient: across
+        // sessions, duplicates accumulate (`@neo-opus-4-7` had 2 active subscriptions 2 days apart;
+        // `@neo-gpt` same pattern). The exact root cause for the lookup-miss is unclear without
+        // runtime instrumentation, but the recovery substrate works regardless: scan SQLite for all
+        // active subscriptions owned by this agent, and if more than one exists, retire all-but-
+        // newest before the route-key check runs. This makes bootstrap itself the canonical retire
+        // point — agents that never sunset cleanly are self-healed at next boot.
+        this._reconcileDuplicateSubscriptions(owner);
+
         const template = this.loadIdentitySubscriptionTemplate(owner);
         if (!template) {
             throw new Error(`Cannot bootstrap subscription: no subscriptionTemplate found on AgentIdentity '${owner}'.`);
@@ -852,6 +863,92 @@ class WakeSubscriptionService extends Base {
         }
 
         return null;
+    }
+
+    /**
+     * @summary Retires all-but-newest active wake subscriptions for an owner.
+     *
+     * Cross-session duplicate-accumulation defense per #11182. Both `@neo-opus-4-7` and `@neo-gpt`
+     * empirically accumulated 2 active subscriptions per identity at the ~2-day mark, with identical
+     * route-tuples (same `agentIdentity` / `trigger` / `harnessTarget` / `appName`). The static
+     * idempotency check via `_findActiveSubscriptionByRoute()` appears correct on paper but
+     * empirically misses the existing-row at next-session bootstrap. Rather than chase the exact
+     * runtime root cause (likely a session-sunset-unsubscribe-skip plus cache-warm edge case), this
+     * reconciler self-heals at every bootstrap call: scan SQLite for all this-agent's active
+     * subscriptions, keep the newest, mark the rest as `retired` (preserves audit trail, distinct
+     * from `inactive`). Idempotent — safe to call on every bootstrap.
+     *
+     * @param {String} owner AgentIdentity node id.
+     * @returns {Number} Count of subscriptions retired (0 when state was already canonical).
+     * @protected
+     */
+    _reconcileDuplicateSubscriptions(owner) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite) return 0;
+
+        const rows = sqlite.prepare(`
+            SELECT id, data FROM Nodes
+            WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
+              AND json_extract(data, '$.properties.agentIdentity') = ?
+              AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+            ORDER BY COALESCE(
+                json_extract(data, '$.properties.updatedAt'),
+                json_extract(data, '$.properties.createdAt'),
+                ''
+            ) DESC
+        `).all(owner);
+
+        if (rows.length <= 1) return 0;
+
+        const subscriptions = rows
+            .map(row => this._parseDurableSubscriptionRow(row))
+            .filter(Boolean);
+
+        if (subscriptions.length <= 1) return 0;
+
+        // First entry is newest (ORDER BY ... DESC). Keep it; retire the rest.
+        const [keep, ...retire] = subscriptions;
+        logger.warn(`[WakeSubscription] Reconciler: ${subscriptions.length} active subscriptions for ${owner}, keeping ${keep.id}, retiring ${retire.length}`);
+
+        let retiredCount = 0;
+        for (const {id} of retire) {
+            if (this._retireSubscription(id)) retiredCount++;
+        }
+
+        return retiredCount;
+    }
+
+    /**
+     * @summary Marks a wake subscription as `retired` durably + drops from cache.
+     *
+     * Distinct from `unsubscribe()`: this is the reconciler's stale-duplicate-retire path. It does
+     * NOT remove the SUBSCRIBES_TO edge (preserves audit trail) and uses `status: 'retired'` to
+     * distinguish from agent-initiated `inactive` / removed states. Future investigators can trace
+     * which subscriptions were reconciler-retired vs sunset-unsubscribed.
+     *
+     * @param {String} subscriptionId The subscription to retire.
+     * @returns {Boolean} True if retired; false if not found.
+     * @protected
+     */
+    _retireSubscription(subscriptionId) {
+        const subscription = this._loadSubscription(subscriptionId);
+        if (!subscription) return false;
+
+        const updatedProperties = {
+            ...subscription,
+            status   : 'retired',
+            retiredAt: new Date().toISOString()
+        };
+        delete updatedProperties.id; // upsertNode expects properties separately from id
+
+        GraphService.upsertNode({
+            id        : subscriptionId,
+            type      : 'WAKE_SUBSCRIPTION',
+            properties: updatedProperties
+        });
+
+        this.subscriptionCache.delete(subscriptionId);
+        return true;
     }
 
     /**
