@@ -123,7 +123,7 @@ For substrate-quality heuristics that operationalize this principle without beco
 
 **4-Tier Decision Escalation Ladder:**
 To mitigate "Helpful Assistant" regression drift, agents MUST execute this evaluation sequence when encountering friction or ambiguity before asking the human:
-1. **Tier 1 (Verify Before Assert):** Mandate running falsifying tools to resolve ambiguity locally with fresh evidence (semantic anchor per AGENTS.md §3.5 core value).
+1. **Tier 1 (Verify Before Assert):** Mandate running falsifying tools to resolve ambiguity locally with fresh evidence (semantic anchor per AGENTS.md §3.5 core value). Use A2A handoffs (`add_message`) and Knowledge Base queries (`ask_knowledge_base`, `memory-mining`, `tech-debt-radar`) as supporting tools to gather evidence.
 2. **Tier 2 (Decide & Document):** For local/reversible choices (no API breakage, no cross-cutting mutation, undoable in 1 commit), agent must decide, implement, and document rationale in the PR/commit.
 3. **Tier 3 (Ideation Sandbox):** Route high-blast or cross-substrate ambiguity to a GitHub Discussion via `/ideation-sandbox`.
 4. **Tier 4 (Human-Authority Ask):** Only ask the human directly for strictly human-owned domains (merging PRs, credentials, subjective aesthetics) or when the operator actively surfaces friction requiring intent clarification.
