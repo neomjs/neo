@@ -62,8 +62,8 @@
  *
  * **Usage:**
  * ```
- * node ai/scripts/bootstrapWorktree.mjs              # copy configs only
- * node ai/scripts/bootstrapWorktree.mjs --link-data  # copy configs + symlink data subdirs + gitignored handoff files
+ * node ai/scripts/bootstrapWorktree.mjs              # copy configs + run build-all
+ * node ai/scripts/bootstrapWorktree.mjs --link-data  # copy configs + symlink data subdirs + gitignored handoff files + run build-all
  * node ai/scripts/bootstrapWorktree.mjs --link-data --force
  *                                                    # clobber any existing real
  *                                                    # gitignored subdir (data-loss guard
@@ -547,8 +547,6 @@ if (isMain) {
     const args     = new Set(argv);
     const linkData = args.has('--link-data');
     const force    = args.has('--force');
-    const install  = args.has('--install');
-    const buildAll = args.has('--build-all');
 
     // `--canonical-root <path>` flag wins; `NEO_AI_CANONICAL_ROOT` env var is the fallback.
     // Both are no-ops when running in an actual git worktree (the existing
@@ -613,13 +611,9 @@ if (isMain) {
             }
         }
 
-        if (buildAll) {
-            const buildResult = await runBuildAll({projectRoot});
-            console.log(`✓ Build: ${buildResult}`);
-        } else if (install) {
-            const installResult = await installDependencies({projectRoot});
-            console.log(`✓ Install: ${installResult}`);
-        }
+        // Default behavior: run build-all after config/data linking
+        const buildResult = await runBuildAll({projectRoot});
+        console.log(`✓ Build: ${buildResult}`);
     } catch (e) {
         console.error('Bootstrap failed:', e.message);
         process.exit(1);

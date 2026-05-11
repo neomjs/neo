@@ -275,9 +275,11 @@ class ConceptService extends Base {
     /**
      * @summary Builds a hierarchical tree of concepts rooted at the system anchor.
      * Each node in the tree includes its metadata and a `children` array.
+     * 
+     * Documents the boundary for internal orchestration and visualization apps. LLM query surfaces should use bounded variants.
      * @param {Number} [maxTier=3] Maximum tier to include.
      * @returns {Object} Tree root with nested children.
-     * @protected Documents the boundary for internal orchestration and visualization apps. LLM query surfaces should use bounded variants.
+     * @protected
      */
     getConceptTree(maxTier = 3) {
         this.ensureLoaded();
@@ -347,10 +349,11 @@ class ConceptService extends Base {
      * This is the deterministic replacement for the GapInferenceEngine's regex-based
      * token matching. No LLM verification needed — missing edge = gap.
      *
+     * Documents the boundary for internal orchestration. LLM query surfaces should use findGapsRelevantTo.
      * @param {Number} [minWeight=0] Minimum weight threshold for inclusion.
      * @returns {Array<Object>} Gap entries sorted by weight descending:
      *   `{concept, weight, tier, severity, missingEdgeTypes}`.
-     * @protected Documents the boundary for internal orchestration. LLM query surfaces should use findGapsRelevantTo.
+     * @protected
      */
     findGuideGaps(minWeight = 0) {
         this.ensureLoaded();
@@ -551,9 +554,10 @@ class ConceptService extends Base {
      *
      * Each edge includes an optional `note` field explaining the architectural distinction.
      *
+     * Documents the boundary for internal orchestration.
      * @param {String} conceptId The concept ID to look up analogues for.
      * @returns {Array<Object>} ANALOGOUS_TO edges with `{source, target, type, note}`.
-     * @protected Documents the boundary for internal orchestration.
+     * @protected
      */
     getAnalogousConcepts(conceptId) {
         this.ensureLoaded();
