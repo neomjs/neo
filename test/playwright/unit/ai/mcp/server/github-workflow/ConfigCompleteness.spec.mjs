@@ -64,7 +64,7 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
     test('NEO_MCP_GITHUB_ARCHIVE_ROOT overrides config.issueSync.archiveRoot', async () => {
         const configModule = await importTemplateConfig();
         const config = configModule.default;
-        
+
         const originalEnv = process.env.NEO_MCP_GITHUB_ARCHIVE_ROOT;
         process.env.NEO_MCP_GITHUB_ARCHIVE_ROOT = '/custom/archive/path';
 
