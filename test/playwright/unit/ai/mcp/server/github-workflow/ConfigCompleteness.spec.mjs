@@ -59,6 +59,8 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
         expect(config.issueSync.archiveDir).toBeDefined();
         expect(config.issueSync.discussionsDir).toBeDefined();
         expect(config.issueSync.pullsDir).toBeDefined();
+        expect(config.issueSync.archiveChunkThreshold).toBe(100);
+        expect(config.issueSync.archiveChunkPrefix).toBe('chunk-');
     });
 
     test('NEO_MCP_GITHUB_ARCHIVE_ROOT overrides config.issueSync.archiveRoot', async () => {

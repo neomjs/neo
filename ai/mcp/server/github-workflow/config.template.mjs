@@ -132,6 +132,16 @@ const defaultConfig = {
          */
         versionDirectoryPrefix: 'v',
         /**
+         * The maximum number of items per chunk directory in the archive.
+         * @type {number}
+         */
+        archiveChunkThreshold: 100,
+        /**
+         * A prefix for archive chunk directories (e.g., 'chunk-').
+         * @type {string}
+         */
+        archiveChunkPrefix: 'chunk-',
+        /**
          * A prefix for release note filenames (e.g., 'v').
          * @type {string}
          */
