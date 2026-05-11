@@ -79,6 +79,8 @@ export const FETCH_DISCUSSIONS_FOR_SYNC = `
           number
           title
           body
+          closed
+          closedAt
           createdAt
           updatedAt
           

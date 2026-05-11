@@ -186,7 +186,7 @@ class PullRequestSyncer extends Base {
         }
 
         return archivePath({
-            archiveRoot: aiConfig.archiveRoot,
+            archiveRoot: issueSyncConfig.archiveRoot,
             type: 'pulls',
             version: version,
             filename: filename,
