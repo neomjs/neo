@@ -227,8 +227,8 @@ class IssueIngestor extends Base {
             return;
         }
 
-        const filesRaw = await fs.promises.readdir(discussionsDir);
-        const files = filesRaw.filter(f => f.endsWith('.md'));
+        const filesRaw = await fs.promises.readdir(discussionsDir, { recursive: true });
+        const files = filesRaw.filter(f => typeof f === 'string' && f.endsWith('.md'));
         
         let nodesCollection = null;
         try {
