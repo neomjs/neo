@@ -62,7 +62,15 @@ Apply the verdict logic in this order:
 | All rows are `none — closed` OR `RESIDUAL_<X> [#<followup-ticket>]` (residuals tracked elsewhere) | `RECOMMEND_CLOSE_COMPLETED` |
 | Epic's purpose has been superseded by another effort or the AC framing is no longer valid | `RECOMMEND_RETIRE_OR_SUPERSEDE` |
 
-**Verdict authority — §0 Invariant 1 parallel:** the skill produces RECOMMENDATIONS only. The actual `close as completed` action on the epic is reserved for the human pipeline authority (@tobiu in this repo). Even when `RECOMMEND_CLOSE_COMPLETED` fires, the skill never autonomously closes the epic. This mirrors the merge-act invariant for PRs.
+**Verdict authority:** the skill produces a structured review + recommendation. **Terminal-action shape depends on the verdict**:
+
+- **`RECOMMEND_CLOSE_COMPLETED` (with zero unresolved residuals)**: the reviewer-agent SHOULD close the epic as completed via `gh issue close --reason completed` as the natural downstream of the review. The review IS the gate; the close-act is not a separate operator-gate. **This is NOT a §0 Invariant 1 parallel** — §0 strictly forbids `gh pr merge` (PR merge action only); epic-close is downstream of the review verdict, not in §0 scope. Failing to close after a clean CLOSE_COMPLETED verdict produces stale-pending-action board pollution (empirical anchor: #10691 verdict 2026-05-04 → epic closed 2026-05-11 after operator surfaced the misframing).
+
+- **`RECOMMEND_KEEP_OPEN`**: no terminal action. Review surfaces blockers/residuals; operator or sub-owner decides path forward.
+
+- **`RECOMMEND_CREATE_MISSING_SUBS`**: no terminal action. Recommendation surfaces; operator authorizes new-sub creation; assigned owner files via `/ticket-create`.
+
+- **`RECOMMEND_RETIRE_OR_SUPERSEDE`**: no terminal action. Reviewer-agent does NOT auto-close-as-not-planned; operator authority for substrate-cohesion reasons (potential separate substrate concern — could be sub-issue if a §0-parallel claim is correct for retire-action specifically).
 
 For `RECOMMEND_CREATE_MISSING_SUBS`:
 1. List the gaps explicitly (which AC, what evidence is missing).
