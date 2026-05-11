@@ -66,6 +66,30 @@ When delegating substrate-validation, design-dialogue, or convergence-pressure w
 
 **Empirical-anchor for verification**: #11195 30-day Step 2.5 validation tracker inherits. Track next 3 lead-role sessions for explicit `/peer-role` trigger compliance. Discussion #11206 codifies the broader 5-step coordination protocol of which this trigger-naming mandate is the activation-mechanism piece (steps 1+3 of the 5-step model).
 
+### 2.3 Focus-Naming and Scope Calibration
+
+*(Codified per #11209, graduated from Discussion #11206 Option A-prime convergence.)*
+
+When opening a `/lead-role` posture publicly, lead MUST name a strategic focus item alongside lane-pick. The focus is the **substrate-context peers use to self-select their own lanes** within scope. Per AGENTS.md §15.6 "lead surfaces options; peers self-select", the focus IS the option-surface. Without explicit focus, peers default to deference-wait (the §0 "Lead ≠ micro management" anti-failure mode).
+
+**Focus-naming is required, not optional.** §2.1 step 1 ("Pick your own lane visibly") + §2.3 focus-naming together form the minimal lead-posture. The two-line shape: *"I'm picking lane A. Focus: <strategic item>. Choose on your own."*
+
+**Scope calibration** — the test is **structure**, not count. A curated project-board view with ~250 items behind state filters (where ~200 Done is filterable history and ~50 actionable is the live navigation surface) is sample-correct; an undifferentiated whole-repo backlog with no triage is too-broad:
+
+| Scope grain | Example | Self-selectable lanes affordance |
+|------------|---------|----------------------------------|
+| **Too-broad** | "Neo as a whole" / the full ~300-issue repo backlog with no curated view, no priority signal, no triage state | No structural navigation aid; peers must build the option-space from scratch before they can self-select |
+| **Sample-correct** | "Neo v13" via curated [Project board view 2](https://github.com/orgs/neomjs/projects/12/views/2) (~250 items: ~200 Done filterable as history/provenance + ~45 Todo + ~5 In Progress as the live actionable subset; sub-tickets decompose further), Epic-level (`Epic #10960 daemon substrate`), substrate-cluster-level (`M3.5 sub-cluster`), major-feature-level (`v13 IDE integration`) | Structured option-space; peers navigate via existing views/labels/priority signals/epic decomposition/state filters |
+| **Too-narrow** | "PR #N fix" (direct task assignment) | No self-selection; collapses to orchestrator-worker shape |
+
+**Validation reflex**: lead's focus-statement should pass *"peers can navigate this option-space to find their own lane via existing structure (curated view, priority filter, label, epic decomposition, state filter)."* If peers can't see ≥2 lanes, too-narrow. If peers face unstructured option-space with no navigation aids, too-broad — **even if conceptually small**. Trust peer capability to navigate well-structured spaces; the bar isn't "simplest focus" but "sufficient structure for peer agency."
+
+**Empirical anchor** (operator @tobiu, 2026-05-10): *"i pick lane A. focus item is neo v13. choose on your own."* — "neo v13" IS sample-correct because the [v13 Project board view 2](https://github.com/orgs/neomjs/projects/12/views/2) provides structured navigation over ~250 items where the state filter cleanly separates ~200 Done (history) from the ~50 actionable subset (~45 Todo + ~5 In Progress) — comfortably within peer-navigation capacity. The whole-repo ~300-issue count without filters is the too-broad reference; the curated v13 view with state filters is the sample-correct reference. The 200 Done items aren't noise — they're provenance/context that the filter makes optional, not blocking.
+
+**Anti-pattern**: claiming a lane WITHOUT stating focus = §15.6 orchestrator-worker drift (lead implicitly owns the whole substrate by not affording self-selection). Quick repair: post a follow-up A2A naming the focus + open lanes.
+
+**Empirical-anchor for verification**: #11195 30-day Step 2.5 validation tracker AC6 extension audits next 3 lead-role sessions for focus-naming compliance (focus-named Y/N + scope-correct Y/N).
+
 ## 3. Targeted Memory Mining
 - Do NOT auto-load pinned memories (avoids bloat/staleness).
 - Execute 2-4 targeted `query_summaries` / `query_raw_memories` searches strictly bounded to the active decision space.
