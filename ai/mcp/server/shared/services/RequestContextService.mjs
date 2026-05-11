@@ -85,7 +85,14 @@ export function parseAgentList(input) {
 
     const values = Array.isArray(input) ? input : String(input).split(',');
     return values
-        .map(value => normalizeUserId(String(value).trim()))
+        .map(value => {
+            let str = String(value).trim();
+            // Remove agent wrappers like " (Antigravity)"
+            str = str.replace(/\s*\(.*?\)\s*/g, '');
+            // Lowercase to normalize e.g. "Neo-Gemini-3-1-Pro" to "neo-gemini-3-1-pro"
+            str = str.toLowerCase();
+            return normalizeUserId(str);
+        })
         .filter(Boolean);
 }
 

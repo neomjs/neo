@@ -74,7 +74,8 @@ function parseArgs(argv) {
         host        : process.env.NEO_CHROMA_HOST || process.env.NEO_KB_CHROMA_HOST || 'localhost',
         port        : Number(process.env.NEO_CHROMA_PORT || process.env.NEO_KB_CHROMA_PORT || 8000),
         memoryOnly  : false,
-        sessionOnly : false
+        sessionOnly : false,
+        debugHidden : false
     };
     for (let i = 2; i < argv.length; i++) {
         const a = argv[i];
@@ -82,6 +83,7 @@ function parseArgs(argv) {
         else if (a === '--help')         args.help = true;
         else if (a === '--memory-only')  args.memoryOnly = true;
         else if (a === '--session-only') args.sessionOnly = true;
+        else if (a === '--debug-hidden') args.debugHidden = true;
         else if (a === '--host')         args.host = argv[++i];
         else if (a === '--port')         args.port = Number(argv[++i]);
         else {
@@ -106,6 +108,7 @@ Options:
   --port <port>      Override ChromaDB port (default: NEO_CHROMA_PORT, fallback 8000)
   --memory-only      Tag only the neo-agent-memory collection
   --session-only     Tag only the neo-agent-sessions collection
+  --debug-hidden     Diagnostic dump of records to investigate parser shapes
   --help             Print this usage message
 
 Idempotent: memory records with any existing userId value are skipped; session
@@ -133,7 +136,14 @@ function parseAgentList(input) {
 
     const values = Array.isArray(input) ? input : String(input).split(',');
     return values
-        .map(value => normalizeUserId(String(value).trim()))
+        .map(value => {
+            let str = String(value).trim();
+            // Remove agent wrappers like " (Antigravity)"
+            str = str.replace(/\s*\(.*?\)\s*/g, '');
+            // Lowercase to normalize e.g. "Neo-Gemini-3-1-Pro" to "neo-gemini-3-1-pro"
+            str = str.toLowerCase();
+            return normalizeUserId(str);
+        })
         .filter(Boolean);
 }
 
@@ -153,9 +163,10 @@ function hasCoreSwarmParticipant(participatingAgents) {
  * @param {Object} collection ChromaDB collection wrapper
  * @param {Object} options
  * @param {Boolean} [options.promoteCoreSwarmSummaries=false]
+ * @param {Boolean} [options.debugHidden=false]
  * @returns {Promise<{tagRecords: Object[], totalScanned: Number, alreadyTagged: Number, untagged: Number, alreadyShared: Number, coreSwarmParticipant: Number}>}
  */
-async function findRecordsToTag(collection, {promoteCoreSwarmSummaries = false} = {}) {
+async function findRecordsToTag(collection, {promoteCoreSwarmSummaries = false, debugHidden = false} = {}) {
     const tagRecords           = [];
     let totalScanned           = 0;
     let alreadyTagged          = 0;
@@ -199,6 +210,15 @@ async function findRecordsToTag(collection, {promoteCoreSwarmSummaries = false} 
 
             if (normalizedUserId !== SHARED_USER_ID && (missingUserId || hasCorePeer)) {
                 tagRecords.push({id, metadata: metadata || {}});
+                if (debugHidden && hasCorePeer && !missingUserId) {
+                    console.log(`[DEBUG] Hidden Record Identified (will be tagged): ID=${id}, userId=${userId}, participatingAgents=${metadata?.participatingAgents}`);
+                }
+            } else if (debugHidden && promoteCoreSwarmSummaries && !hasCorePeer && metadata?.participatingAgents) {
+                // Check if it might have been missed due to shape variation
+                const rawParticipants = String(metadata.participatingAgents);
+                if (CORE_SWARM_USER_IDS.some(u => rawParticipants.includes(u))) {
+                    console.log(`[DEBUG] Potential Parser Miss: ID=${id}, userId=${userId}, participatingAgents=${metadata.participatingAgents}`);
+                }
             }
         });
 
@@ -236,7 +256,8 @@ async function tagRecords(collection, records) {
     return tagged;
 }
 
-async function processCollection(client, collectionName, apply) {
+async function processCollection(client, collectionName, args) {
+    const apply = args.apply;
     console.log(`\n[${collectionName}]`);
 
     // Suppress noisy chromadb-js deserialization warnings; the dummy embedding-function
@@ -260,8 +281,9 @@ async function processCollection(client, collectionName, apply) {
         console.log(`  total records: ${total}`);
 
         const promoteCoreSwarmSummaries = collectionName === COLLECTION_SESSION;
-        const {tagRecords, totalScanned, alreadyTagged, untagged, alreadyShared, coreSwarmParticipant} = await findRecordsToTag(collection, {
-            promoteCoreSwarmSummaries
+        const {tagRecords: recordsToTag, totalScanned, alreadyTagged, untagged, alreadyShared, coreSwarmParticipant} = await findRecordsToTag(collection, {
+            promoteCoreSwarmSummaries,
+            debugHidden: args.debugHidden
         });
         console.log(`  scanned:                  ${totalScanned}`);
         console.log(`  already tagged:           ${alreadyTagged}`);
@@ -270,21 +292,21 @@ async function processCollection(client, collectionName, apply) {
         if (promoteCoreSwarmSummaries) {
             console.log(`  core swarm participants:  ${coreSwarmParticipant}`);
         }
-        console.log(`  to tag:                   ${tagRecords.length}`);
+        console.log(`  to tag:                   ${recordsToTag.length}`);
 
-        if (tagRecords.length === 0) {
+        if (recordsToTag.length === 0) {
             console.log(`  → no work needed for this collection`);
             return {totalScanned, alreadyTagged, alreadyShared, untagged, coreSwarmParticipant, tagged: 0, plannedTags: 0};
         }
 
         if (!apply) {
-            console.log(`  → DRY-RUN: would tag ${tagRecords.length} records with userId='${SHARED_USER_ID}'`);
-            return {totalScanned, alreadyTagged, alreadyShared, untagged, coreSwarmParticipant, tagged: 0, plannedTags: tagRecords.length};
+            console.log(`  → DRY-RUN: would tag ${recordsToTag.length} records with userId='${SHARED_USER_ID}'`);
+            return {totalScanned, alreadyTagged, alreadyShared, untagged, coreSwarmParticipant, tagged: 0, plannedTags: recordsToTag.length};
         }
 
-        console.log(`  → APPLY: tagging ${tagRecords.length} records...`);
-        const tagged = await tagRecords(collection, tagRecords);
-        return {totalScanned, alreadyTagged, alreadyShared, untagged, coreSwarmParticipant, tagged, plannedTags: tagRecords.length};
+        console.log(`  → APPLY: tagging ${recordsToTag.length} records...`);
+        const tagged = await tagRecords(collection, recordsToTag);
+        return {totalScanned, alreadyTagged, alreadyShared, untagged, coreSwarmParticipant, tagged, plannedTags: recordsToTag.length};
     } finally {
         console.warn = origWarn;
     }
@@ -319,10 +341,10 @@ async function main() {
     const summary = {memory: null, session: null};
 
     if (targetMemory) {
-        summary.memory = await processCollection(client, COLLECTION_MEMORY, args.apply);
+        summary.memory = await processCollection(client, COLLECTION_MEMORY, args);
     }
     if (targetSession) {
-        summary.session = await processCollection(client, COLLECTION_SESSION, args.apply);
+        summary.session = await processCollection(client, COLLECTION_SESSION, args);
     }
 
     console.log(`\n[backfillChromaSharedUserId] summary:`);
