@@ -4,7 +4,7 @@ import logger                from './logger.mjs';
 import DatabaseService       from '../../../services/knowledge-base/DatabaseService.mjs';
 import HealthService         from '../../../services/knowledge-base/HealthService.mjs';
 import KBRecorderService     from '../../../services/knowledge-base/KBRecorderService.mjs';
-import {listTools, callTool} from '../../../services/knowledge-base/toolService.mjs';
+import {listTools, callTool} from './toolService.mjs';
 
 /**
  * @summary The Knowledge Base MCP Server application.

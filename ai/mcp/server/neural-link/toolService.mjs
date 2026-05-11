@@ -1,20 +1,20 @@
 import path               from 'path';
 import {fileURLToPath}    from 'url';
-import ToolService        from '../../mcp/ToolService.mjs';
-import ComponentService   from './ComponentService.mjs';
-import ConnectionService  from './ConnectionService.mjs';
-import DataService        from './DataService.mjs';
-import HealthService      from './HealthService.mjs';
-import InstanceService    from './InstanceService.mjs';
-import InteractionService from './InteractionService.mjs';
-import RuntimeService     from './RuntimeService.mjs';
+import ToolService        from '../../ToolService.mjs';
+import ComponentService   from '../../../services/neural-link/ComponentService.mjs';
+import ConnectionService  from '../../../services/neural-link/ConnectionService.mjs';
+import DataService        from '../../../services/neural-link/DataService.mjs';
+import HealthService      from '../../../services/neural-link/HealthService.mjs';
+import InstanceService    from '../../../services/neural-link/InstanceService.mjs';
+import InteractionService from '../../../services/neural-link/InteractionService.mjs';
+import RuntimeService     from '../../../services/neural-link/RuntimeService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
-const openApiFilePath = path.join(__dirname, '../../mcp/server/neural-link/openapi.yaml');
+const openApiFilePath = path.join(__dirname, 'openapi.yaml');
 
-import {getCurrentTurnId} from '../../mcp/server/neural-link/Server.mjs';
-import RecorderService    from './RecorderService.mjs';
+import {getCurrentTurnId} from './Server.mjs';
+import RecorderService    from '../../../services/neural-link/RecorderService.mjs';
 
 const serviceMapping = {
     check_namespace              : RuntimeService    .checkNamespace            .bind(RuntimeService),

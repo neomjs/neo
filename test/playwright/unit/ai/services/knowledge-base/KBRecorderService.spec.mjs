@@ -73,7 +73,7 @@ test.describe('Neo.ai.services.knowledge-base.KBRecorderService', () => {
     });
 
     test('captures KB MCP tool calls through the per-server wrapper', async () => {
-        const {callTool} = await import('../../../../../../ai/services/knowledge-base/toolService.mjs');
+        const {callTool} = await import('../../../../../../ai/mcp/server/knowledge-base/toolService.mjs');
 
         await callTool('list_agent_faqs', {limit: 5});
 

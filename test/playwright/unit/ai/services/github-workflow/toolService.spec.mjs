@@ -41,7 +41,7 @@ test.describe('Neo.ai.services.github-workflow.toolService — sync_all dev-bran
     let buildDevBranchGuard;
 
     test.beforeAll(async () => {
-        const mod = await import('../../../../../../ai/services/github-workflow/toolService.mjs');
+        const mod = await import('../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
         buildDevBranchGuard = mod.buildDevBranchGuard;
     });
 
