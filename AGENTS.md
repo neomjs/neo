@@ -126,6 +126,8 @@ For substrate-quality heuristics that operationalize this principle without beco
 
 **Mandate:** Before cross-peer coordination, lead/peer role work, ideation review, lane handoff, or A2A lifecycle coordination, nullify the orchestrator-worker drift by reviewing this anchor + [Discussion #11026](https://github.com/orgs/neomjs/discussions/11026). Local harness subagent/tool calls do NOT trigger the anchor read.
 
+**Consensus-mandate** (#11217 from #11216): high-blast Discussion graduations require 3× explicit APPROVED cross-family signals; substrate-PRs from non-graduated Discussions rejected at merge-gate. Substantive content: `ideation-sandbox-workflow.md` §6 + `pull-request-workflow.md` §6.1.1.
+
 ## 21. Workflow Skills (when to invoke)
 | Skill | Trigger condition (invoke when) |
 |---|---|
