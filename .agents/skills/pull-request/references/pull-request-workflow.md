@@ -266,6 +266,15 @@ You are strictly FORBIDDEN from embedding the closing keyword in a conversationa
 `Resolves #X`
 `Resolves #Y`
 
+**Partial-resolution branch-history check (#11185):**
+If the ticket must remain open and your PR body uses `Refs #N`, `Related: #N`, or another non-closing reference, the entire branch history must agree. Before handoff, run:
+
+```bash
+git log origin/dev..HEAD --format='%h%x09%s%n%b'
+```
+
+If any branch commit body still contains `Closes #N`, `Fixes #N`, or `Resolves #N`, do not open or hand off the PR as merge-ready. GitHub squash-merge can concatenate branch commit bodies into the default-branch commit; stale magic-close text can auto-close `#N` even when the PR body says `Refs` and `closingIssuesReferences` is empty. Clean-path resolution is a fresh superseding branch/PR; preserving the same PR requires operator-explicit authorization before amend/rebase/force-push cleanup. Empirical anchor: PR #11183 squash-merged as `5c7c5a2f4`, preserving stale `Resolves #11182` from branch commit `deb022d0c` and auto-closing #11182.
+
 **Minimum-viable PR body structure:**
 ```markdown
 Resolves #N
