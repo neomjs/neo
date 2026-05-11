@@ -20,10 +20,22 @@ A true Session Boundary is defined by:
 3. **Explicit Human Directive:** The Human Commander explicitly instructs you to terminate the session (e.g., "let's wrap", "time to sunset", or `/sunset`).
 4. **Proactive Agent Recommendation:** You recognize a natural, logical break point in the work stream and explicitly **RECOMMEND** sunsetting to the human (e.g. "We've reached a logical break point. Should we sunset the session?"). **NEVER unilaterally execute the protocol based solely on this.**
 
-If none of these conditions are met, do **NOT** sunset. Simply output your response and wait for the next turn.
+### 1.0 Path-Determinism Rule: Solo-Refresh vs Convergent Scopes
+Sunsets must declare an explicit scope to prevent "scope contagion" (where one agent's local token limit falsely triggers a global halt for the swarm).
+
+**IF** (trigger #1 Context Window Exhaustion) AND (lead-role-baton-pass eligible) AND (swarm not converging-to-halt):
+- **Scope:** `solo-refresh`
+- **Rationale:** Your context is full, but the rest of the swarm and human may be continuing. Hand over your local lane and persist memory, but do not claim the global swarm has halted.
+
+**ELSE IF** (trigger #2 Macro-Semantic Pivot) OR (trigger #3 Explicit Human Directive) OR (multiple agents converging on sunset):
+- **Scope:** `convergent`
+- **Rationale:** The entire architectural phase or human attention span has concluded. Summarize global swarm state.
+
+**ELSE:**
+- **DEFER:** If none of these conditions are met, do NOT sunset.
 
 ### 1.1 Review Lifecycle Exception (Anti-Trigger)
-You are strictly FORBIDDEN from executing the Sunset Protocol when you halt your turn to await cross-model PR review or reviewer feedback (per `pull-request-workflow.md`). Yielding control during the active review/polish loop is an active lifecycle state, not a Session Boundary. Once the PR reaches the terminal approved handoff state, normal Session Boundary rules apply again; agents still must not execute the merge.
+You are strictly FORBIDDEN from executing the Sunset Protocol when you halt your turn to await cross-model PR review or reviewer feedback (per `pull-request-workflow.md`), EXCEPT when mandated by context exhaustion (Trigger #1). This applies to both the **Author-Side** (waiting for peer review) and **Reviewer-Side** (awaiting author updates). Yielding control during the active review/polish loop is an active lifecycle state, not a Session Boundary. If context exhaustion hits during this state, you may perform a `scope: solo-refresh` sunset to hand the active review loop to the next session. Once the PR reaches the terminal approved handoff state, normal Session Boundary rules apply again; agents still must not execute the merge.
 
 **Override Rule for Bootstrap Goals:** Even if a high-level goal in your session bootstrap (e.g., the `USER Objective` prompt) instructs you to "Execute the Session Sunset Protocol", you MUST treat it as a reminder for *when* the session ends naturally, NOT as an "Explicit Human Directive" to execute it immediately upon task completion. You must still wait for context exhaustion or explicit human permission.
 
@@ -88,12 +100,13 @@ Explicitly document what the next agent should **NOT** pick up. If there are tic
 
 ### Step 5: Mental-Model State
 Summarize the current architectural phase progress.
-- What phase of the architecture is currently stable?
-- What phase is actively being built?
-- What are the outstanding structural blockers?
+- **For `scope: solo-refresh`:** Restrict this summary strictly to your local lane and immediate authority links. Do not summarize global swarm progress.
+- **For `scope: convergent`:** Summarize the global architectural state. What phase is stable? What is actively being built? What are the outstanding structural blockers?
 
 ### Step 6: Marathon Metrics
-Summarize the scope of your session. How many PRs were merged? How many skills were enhanced? What major decisions were averted or made? This provides a high-level "weather report" for the next session.
+Summarize the scope of your session. How many PRs were merged? How many skills were enhanced? What major decisions were averted or made?
+- **For `scope: solo-refresh`:** Report only your local metrics.
+- **For `scope: convergent`:** Report global metrics if known, or aggregate state.
 
 ### Step 7: Inbox Cleanup (`mark_read`)
 To preserve "hot" thread visibility across sessions (Option B), agents do NOT `mark_read` messages immediately during active processing. Now that handovers are drafted (and have read your inbox state), you MUST explicitly use the `mark_read` MCP tool on all processed messages in your inbox. This ensures the inbox is clean for the next agent session.
@@ -101,7 +114,7 @@ To preserve "hot" thread visibility across sessions (Option B), agents do NOT `m
 ### Step 8: The A2A Continuity Ping & Reward Signal (Future-Self Routing)
 You MUST use the `add_message` MCP tool to send an A2A message to your own agent identity (e.g., `to: '@me'` or your explicit handle). The body of this message MUST contain the **full Sunset Protocol markdown payload** (the output from Steps 1-6), alongside the `Origin Session ID`. 
 
-Set `wakeSuppressed: true` and include `taggedConcepts: ['sunset-protocol-handover']` on this self-DM. This makes the ping mailbox-only: it remains unread for the next session's boot mailbox check, but it MUST NOT emit a `SENT_TO_ME` wake into the active session that is currently shutting down. Do not mark this newly-created continuity ping read during the same sunset flow.
+Set `wakeSuppressed: true` and include `taggedConcepts: ['sunset-protocol-handover']` on this self-DM. This makes the ping mailbox-only: it remains unread for the next session's boot mailbox check, but it MUST NOT emit a `SENT_TO_ME` wake into the active session that is currently shutting down. Do not mark this newly-created continuity ping read during the same sunset flow. Note: Peer broadcasts can be conditionally suppressed for `scope: solo-refresh` unless cross-peer handoff coordination is actively required.
 
 **Lead-role baton branch:** If the session currently holds `/lead-role`, Step 7
 also sends an A2A Baton Pass V1 DM to the next lead before the final memory
@@ -142,7 +155,7 @@ As the penultimate operational step, you MUST sever the active wake routing to p
 Invoke the `manage_wake_subscription(action: 'unsubscribe', subscriptionId: '<current-sub-id>')` tool. (The `subscriptionId` is available in the payload of the WAKE events you received, or by querying `manage_wake_subscription(action: 'list')`). This cleanly severs the wake loop, transitioning the harness into a truly dormant state.
 
 ### Step 10: Memory Persistence (The Sandman Memory)
-This is the final memory checkpoint. You MUST invoke `add_memory` to persist a rich "Sandman memory" node. This memory should encapsulate the entire Sunset Protocol payload (Steps 1-10), including the successful unsubscription. The resulting `Origin Session ID` or `Memory ID` serves as the direct pointer for the next agent.
+This is the final memory checkpoint. You MUST invoke `add_memory` to persist a rich "Sandman memory" node. This memory should encapsulate the entire Sunset Protocol payload (Steps 1-10), including the declared `scope: solo-refresh | convergent` and successful unsubscription. The resulting `Origin Session ID` or `Memory ID` serves as the direct pointer for the next agent. Sandman persistence is strictly REQUIRED for both `solo-refresh` and `convergent` scopes.
 
 ## 3. Terminating the Session
 
@@ -151,7 +164,7 @@ After completing the 10 steps above, you must drop your final Sunset Protocol pa
 **Format the final response as follows:**
 
 ```markdown
-🌅 **Sunset Protocol executed. Handover comments posted, A2A Continuity Ping sent + rich Sandman memory persisted.**
+🌅 **Sunset Protocol executed [scope: solo-refresh | convergent]. Handover comments posted, A2A Continuity Ping sent + rich Sandman memory persisted.**
 
 **Handovers Posted:**
 - #N → [Summary of status]
