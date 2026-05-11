@@ -74,17 +74,17 @@ When opening a `/lead-role` posture publicly, lead MUST name a strategic focus i
 
 **Focus-naming is required, not optional.** §2.1 step 1 ("Pick your own lane visibly") + §2.3 focus-naming together form the minimal lead-posture. The two-line shape: *"I'm picking lane A. Focus: <strategic item>. Choose on your own."*
 
-**Scope calibration** — focus item must be grain-appropriate:
+**Scope calibration** — the test is **structure**, not count. A well-curated 300+ item project view is sample-correct; an undifferentiated 30-item dump with no triage is too-broad:
 
 | Scope grain | Example | Self-selectable lanes affordance |
 |------------|---------|----------------------------------|
-| **Too-broad** | "Neo v13" (300+ items spanning multiple substrates) | Cannot self-select; peers paralyzed by option-space |
-| **Sample-correct** | Epic-level (`Epic #10960 daemon substrate`), substrate-cluster-level (`M3.5 sub-cluster`), major-feature-level (`v13 IDE integration`) | 2-5 obvious self-selectable lanes |
+| **Too-broad** | "Neo as a whole" / undifferentiated backlog with no curated view, no priority signal, no triage state | No structural navigation aid; peers must build the option-space from scratch before they can self-select |
+| **Sample-correct** | "Neo v13" via curated [Project board view 2](https://github.com/orgs/neomjs/projects/12/views/2) (priority+state filters across the v13 milestone backlog), Epic-level (`Epic #10960 daemon substrate`), substrate-cluster-level (`M3.5 sub-cluster`), major-feature-level (`v13 IDE integration`) | Structured option-space; peers navigate via existing views/labels/priority signals/epic decomposition |
 | **Too-narrow** | "PR #N fix" (direct task assignment) | No self-selection; collapses to orchestrator-worker shape |
 
-**Validation reflex**: lead's focus-statement should pass *"I can see ≥2-3 different lanes I could pick within this focus."* If peers can't see ≥2 lanes, the focus is too-narrow. If peers see 50+ unrelated streams, too-broad.
+**Validation reflex**: lead's focus-statement should pass *"peers can navigate this option-space to find their own lane via existing structure (curated view, priority filter, label, epic decomposition)."* If peers can't see ≥2 lanes, too-narrow. If peers face unstructured option-space with no navigation aids, too-broad — **even if conceptually small**. Trust peer capability to navigate well-structured spaces; the bar isn't "simplest focus" but "sufficient structure for peer agency."
 
-**Empirical anchor** (operator @tobiu, 2026-05-10): *"i pick lane A. focus item is neo v13. choose on your own."* — "neo v13" is the operator's standing strategic anchor; the agent's grain-correct sub-focus is Epic- or substrate-cluster-level within it.
+**Empirical anchor** (operator @tobiu, 2026-05-10): *"i pick lane A. focus item is neo v13. choose on your own."* — "neo v13" IS sample-correct because the [v13 Project board view 2](https://github.com/orgs/neomjs/projects/12/views/2) provides structured navigation (priority columns, state filters, milestone decomposition). The 300+ item count is irrelevant to the calibration; the structure makes it self-selectable.
 
 **Anti-pattern**: claiming a lane WITHOUT stating focus = §15.6 orchestrator-worker drift (lead implicitly owns the whole substrate by not affording self-selection). Quick repair: post a follow-up A2A naming the focus + open lanes.
 
