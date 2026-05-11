@@ -461,15 +461,11 @@ export async function symlinkGitignoredFiles({
  *
  * Worktrees off `origin/dev` start without `node_modules` (gitignored) AND without
  * `dist/parse5.mjs` (gitignored test-runner prerequisite). Both are needed to run the
- * Playwright unit-test suite or any SDK-consuming script. Adding these as opt-in flags
- * here closes the manual-multi-step bootstrap gap surfaced empirically during #10339
- * implementation (per #10351).
+ * Playwright unit-test suite or any SDK-consuming script.
  *
  * Idempotent: skips `npm install` when `node_modules/` is already present (e.g.,
- * symlinked from main, prior `--install` invocation, or manual `npm i`). Always runs
- * `npm run bundle-parse5` because the bundle output lives under `dist/` (gitignored)
- * and is cheap to rebuild — surfacing it explicitly under `--install` closes the
- * "test runner fails with `Cannot find module '.../dist/parse5.mjs'`" friction.
+ * symlinked from main, or manual `npm i`). Always runs `npm run bundle-parse5` 
+ * because the bundle output lives under `dist/` (gitignored) and is cheap to rebuild.
  *
  * Cost anchor: ~17s for `npm install` on a populated local cache (808 packages,
  * empirically observed during #10339 implementation, 2026-04-26). `bundle-parse5`
@@ -507,8 +503,12 @@ export async function installDependencies({projectRoot, log = console.log, exec 
 /**
  * @summary Runs the full `npm run build-all` after ensuring dependencies are installed.
  *
- * Implies {@link installDependencies}. Required for tickets that touch the frontend
- * Webpack distributions or themes — backend-only / MCP-only tickets do not need this.
+ * Implies {@link installDependencies}. Default behavior for fresh worktrees (per #11163).
+ *
+ * **Scope Decision (#11163):** Rather than generating only `parse5` minimally, the operator 
+ * preferred a full `build-all` invocation as the default bootstrap step to ensure *all* 
+ * distributions (ESM, themes, workers, highlight, parse5) are ready. It resolves "Cannot find 
+ * module dist/parse5.mjs" friction for test suites in <30s on M-series hardware.
  *
  * NOT idempotent in the same idempotent-skip sense as the other bootstrap helpers —
  * `npm run build-all` re-runs every invocation. Webpack itself caches incremental builds,
