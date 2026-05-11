@@ -106,6 +106,8 @@ When challenging a specific architectural pattern or complex implementation deta
 
 When reviewing a PR, audit every issue named as a close-target via GitHub's magic keywords (`Closes #N`, `Resolves #N`, `Fixes #N` — case-insensitive, in the PR body or commit messages) against the target issue's labels AND syntax validity.
 
+**Squash-merge commit-body hazard (#11185):** branch commit bodies are merge-time close-target surfaces. GitHub's squash merge can concatenate commit bodies into the default-branch commit; a stale `Resolves #N` inside any branch commit body can auto-close `#N` even when the PR body has been corrected to `Refs #N` and `gh pr view --json closingIssuesReferences` returns `[]`. Empirical anchor: PR #11183 squash-merged as `5c7c5a2f4`, whose concatenated body preserved stale `Resolves #11182` from commit `deb022d0c` and auto-closed #11182.
+
 **Rule 1: Validity (Epics are not valid close-targets)**
 Epics represent a body of work delivered across multiple sub-issues; closing an epic is a *project-management* event that fires when the last sub closes (or when the epic is explicitly retired with rationale). PRs deliver subs, not epics. GitHub's auto-close-on-merge semantics fire indiscriminately on any magic-keyword reference, so the discipline-layer enforcement is the reviewer's job.
 
@@ -114,19 +116,23 @@ Author-side discipline (`pull-request §2`) mandates strict newline-isolated PR 
 
 **Reviewer-side check:**
 
-1. Parse the PR body + commit messages for `Closes #N` / `Resolves #N` / `Fixes #N` patterns (case-insensitive).
+1. Parse the PR body + commit messages for `Closes #N` / `Resolves #N` / `Fixes #N` patterns (case-insensitive). For local checkout reviews, use `git log origin/dev..HEAD --format='%h%x09%s%n%b'` or an equivalent exact-head commit-message fetch; do not rely on PR body or `closingIssuesReferences` alone.
 2. **Syntax Check:** If the keyword is embedded in prose (e.g., "This PR closes #123 by adding...") or uses a comma-separated list (e.g., "Resolves #123, #124"), flag as **Required Action**:
    > *"PR uses prose-embedded or comma-separated close targets. Required: apply the Syntax-Exact Keyword Mandate by isolating each `Resolves #N` declaration on its own independent line."*
 3. **Validity Check:** For each `#N`, fetch the issue's labels (via the appropriate `github-workflow` MCP tool).
 4. If the issue carries the `epic` label → flag as **Required Action**:
 
    > *"PR names epic #N as close-target via `Closes`/`Resolves`/`Fixes` keyword. Epics close when their last sub-issue closes, not on PR-merge. Required: change close-target to a specific sub-issue this PR resolves, or remove the magic-close keyword and reference the epic via `Related: #N` instead."*
+5. **Partial-resolution / stale commit-body check:** If the PR body uses `Refs #N` / `Related: #N` because `#N` must remain open, but any branch commit body still contains `Closes #N`, `Fixes #N`, or `Resolves #N`, flag as **Required Action**:
+
+   > *"PR is a partial-resolution PR for #N, but branch commit history still contains a magic-close keyword for #N. Required: use a clean superseding branch/PR, or obtain operator-explicit authorization for amend/rebase/force-push cleanup. Do not approve while stale branch commit bodies can survive squash merge and auto-close the issue."*
 
 **Author response options** when these Required Actions fire:
 - **Syntax:** Isolate the keyword to a separate line per ticket.
 - **Validity:** Change `Closes #N` → `Closes #M` where `#M` is the specific sub-issue the PR resolves.
 - **Validity:** Remove the close-target entirely if the PR is an incremental contribution toward the epic without fully closing any single issue.
 - **Validity:** Move the epic reference to `Related: #N` (no magic-close behavior).
+- **Partial-resolution stale commit body:** Prefer Drop+Supersede / clean branch when no operator authorization exists for history rewrite. If preserving the PR is preferred, get operator-explicit authorization before amend/rebase/force-push cleanup.
 
 **Empirical anchor:** Epic #9999 ("Cloud-Native Knowledge & Multi-Tenant Memory Core") was auto-closed at 2026-04-23T23:54:09Z with `stateReason: COMPLETED` despite 7 of 10 sub-issues still being open. Most likely mechanism: a merged PR named `Closes #9999` triggering GitHub's auto-close-on-merge. The damage was compounded by `prevent-reopen.yml` (since disabled) re-closing the manual reopen 6 seconds later, plus a sabotage-spawn duplicate ticket (#10323, since closed). The discipline-layer audit codified here would have caught the close-target at review time, before merge — preventing the entire downstream chain.
 
