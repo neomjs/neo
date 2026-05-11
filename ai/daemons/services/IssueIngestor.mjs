@@ -301,7 +301,8 @@ class IssueIngestor extends Base {
             return;
         }
 
-        const files = fs.readdirSync(pullsDir).filter(f => f.endsWith('.md'));
+        const filesRaw = fs.readdirSync(pullsDir, { recursive: true });
+        const files = filesRaw.filter(f => typeof f === 'string' && f.endsWith('.md'));
 
         for (const file of files) {
             const content = fs.readFileSync(path.join(pullsDir, file), 'utf8');
