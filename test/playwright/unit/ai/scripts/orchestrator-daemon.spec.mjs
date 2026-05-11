@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import {
     DEFAULT_KB_SYNC_INTERVAL_MS,
+    LOCAL_AI_CONFIG_FILE,
+    loadLocalAiConfig,
     DEFAULT_POLL_INTERVAL_MS,
     DEFAULT_SUMMARY_SWEEP_INTERVAL_MS
 } from '../../../../../ai/scripts/orchestrator-daemon.mjs';
@@ -57,5 +59,35 @@ test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
         expect(taskDefSource).toContain('summarize-sessions.mjs');
         expect(taskDefSource).toContain('syncKnowledgeBase.mjs');
         expect(taskDefSource).toContain('backup.mjs');
+    });
+
+    test('loads gitignored top-level AI config only when present', async () => {
+        const loadedPaths = [];
+        const aiConfig = {
+            async load(configPath) {
+                loadedPaths.push(configPath);
+            }
+        };
+
+        await expect(loadLocalAiConfig({
+            configPath: '/tmp/missing-ai-config.mjs',
+            aiConfig,
+            existsSync: () => false
+        })).resolves.toEqual({
+            loaded: false,
+            configPath: '/tmp/missing-ai-config.mjs'
+        });
+
+        await expect(loadLocalAiConfig({
+            configPath: '/tmp/local-ai-config.mjs',
+            aiConfig,
+            existsSync: () => true
+        })).resolves.toEqual({
+            loaded: true,
+            configPath: '/tmp/local-ai-config.mjs'
+        });
+
+        expect(loadedPaths).toEqual(['/tmp/local-ai-config.mjs']);
+        expect(LOCAL_AI_CONFIG_FILE).toBe(path.resolve(process.cwd(), 'ai/config.mjs'));
     });
 });

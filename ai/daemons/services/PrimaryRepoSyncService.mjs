@@ -11,6 +11,7 @@ const REMOTE_NAME    = 'origin';
 const REMOTE_REF     = `${REMOTE_NAME}/${DEV_BRANCH}`;
 const META_SYNC_PATH = 'resources/content/.sync-metadata.json';
 export const DEV_SYNC_ROOTS_ENV_VAR = 'NEO_ORCHESTRATOR_DEV_SYNC_ROOTS';
+export const DEV_SYNC_ROOTS_CONFIG_KEY = 'orchestrator.devSyncRoots';
 
 /**
  * @summary Parses the primary-dev-sync enable flag.
@@ -33,22 +34,33 @@ export function parseEnabledFlag(value, fallback=true) {
  * The env var is intentionally explicit: no sibling-clone discovery, no branch
  * switching, and no machine-specific defaults.
  *
- * @param {String|undefined|null} value JSON array of absolute repo roots.
+ * @param {String[]|String|undefined|null} value JSON array or array of absolute repo roots.
+ * @param {String} [source=DEV_SYNC_ROOTS_ENV_VAR] Source label for operator-visible errors.
  * @returns {Object}
  */
-export function parseDevSyncRoots(value) {
+export function parseDevSyncRoots(value, source=DEV_SYNC_ROOTS_ENV_VAR) {
     if (value === undefined || value === null || value === '') {
         return {status: 'unset', roots: []};
     }
 
     let parsed;
-    try {
-        parsed = JSON.parse(value);
-    } catch (e) {
+    if (Array.isArray(value)) {
+        parsed = value;
+    } else if (typeof value === 'string') {
+        try {
+            parsed = JSON.parse(value);
+        } catch (e) {
+            return {
+                status    : 'invalid',
+                reasonCode: 'invalid-dev-sync-roots',
+                error     : `${source} must be a JSON array of absolute paths.`
+            };
+        }
+    } else {
         return {
             status    : 'invalid',
             reasonCode: 'invalid-dev-sync-roots',
-            error     : `${DEV_SYNC_ROOTS_ENV_VAR} must be a JSON array of absolute paths.`
+            error     : `${source} must be a JSON array of absolute paths.`
         };
     }
 
@@ -56,7 +68,7 @@ export function parseDevSyncRoots(value) {
         return {
             status    : 'invalid',
             reasonCode: 'invalid-dev-sync-roots',
-            error     : `${DEV_SYNC_ROOTS_ENV_VAR} must be a JSON array of absolute paths.`
+            error     : `${source} must be a JSON array of absolute paths.`
         };
     }
 
@@ -68,7 +80,7 @@ export function parseDevSyncRoots(value) {
             return {
                 status    : 'invalid',
                 reasonCode: 'invalid-dev-sync-roots',
-                error     : `${DEV_SYNC_ROOTS_ENV_VAR} entries must be absolute path strings.`
+                error     : `${source} entries must be absolute path strings.`
             };
         }
 
@@ -162,7 +174,8 @@ class PrimaryRepoSyncService extends Base {
      * @param {Function} [options.writeLog] Orchestrator logger.
      * @param {String} [options.cwd=process.cwd()] Invocation directory.
      * @param {Function} [options.execFileSyncFn=execFileSync] Test seam.
-     * @param {String|undefined|null} [options.devSyncRootsConfig=process.env.NEO_ORCHESTRATOR_DEV_SYNC_ROOTS] Optional configured roots.
+     * @param {String[]|String|undefined|null} [options.devSyncRootsConfig=process.env.NEO_ORCHESTRATOR_DEV_SYNC_ROOTS] Optional configured roots.
+     * @param {String} [options.devSyncRootsSource=NEO_ORCHESTRATOR_DEV_SYNC_ROOTS] Config source label.
      * @returns {Object} Execution result.
      */
     runTask({
@@ -173,7 +186,8 @@ class PrimaryRepoSyncService extends Base {
         writeLog,
         cwd = process.cwd(),
         execFileSyncFn = execFileSync,
-        devSyncRootsConfig = process.env[DEV_SYNC_ROOTS_ENV_VAR]
+        devSyncRootsConfig = process.env[DEV_SYNC_ROOTS_ENV_VAR],
+        devSyncRootsSource = DEV_SYNC_ROOTS_ENV_VAR
     }) {
         const state = taskStateService.getTaskState(taskName);
 
@@ -187,7 +201,7 @@ class PrimaryRepoSyncService extends Base {
         taskStateService.markStarted(taskName, reason);
 
         try {
-            const result = this.syncPrimaryDev({cwd, execFileSyncFn, writeLog, devSyncRootsConfig});
+            const result = this.syncPrimaryDev({cwd, execFileSyncFn, writeLog, devSyncRootsConfig, devSyncRootsSource});
             const status = result.status === 'completed' ? 'completed' : result.status === 'failed' ? 'failed' : 'skipped';
 
             if (status === 'completed') {
@@ -216,15 +230,23 @@ class PrimaryRepoSyncService extends Base {
      * @param {String} options.cwd Invocation directory.
      * @param {Function} options.execFileSyncFn Command execution seam.
      * @param {Function} [options.writeLog] Optional logger.
-     * @param {String|undefined|null} [options.devSyncRootsConfig=process.env.NEO_ORCHESTRATOR_DEV_SYNC_ROOTS] Optional configured roots.
+     * @param {String[]|String|undefined|null} [options.devSyncRootsConfig=process.env.NEO_ORCHESTRATOR_DEV_SYNC_ROOTS] Optional configured roots.
+     * @param {String} [options.devSyncRootsSource=NEO_ORCHESTRATOR_DEV_SYNC_ROOTS] Config source label.
      * @returns {Object}
      */
-    syncPrimaryDev({cwd, execFileSyncFn, writeLog, devSyncRootsConfig = process.env[DEV_SYNC_ROOTS_ENV_VAR]}) {
-        const rootsConfig = parseDevSyncRoots(devSyncRootsConfig);
+    syncPrimaryDev({
+        cwd,
+        execFileSyncFn,
+        writeLog,
+        devSyncRootsConfig = process.env[DEV_SYNC_ROOTS_ENV_VAR],
+        devSyncRootsSource = DEV_SYNC_ROOTS_ENV_VAR
+    }) {
+        const rootsConfig = parseDevSyncRoots(devSyncRootsConfig, devSyncRootsSource);
 
         if (rootsConfig.status === 'invalid') {
             return this.skip(rootsConfig.reasonCode, {
                 envVar: DEV_SYNC_ROOTS_ENV_VAR,
+                source: devSyncRootsSource,
                 error : rootsConfig.error
             }, writeLog);
         }

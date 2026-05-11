@@ -14,6 +14,8 @@ import {
 import SummarizationCoordinatorService from './services/SummarizationCoordinatorService.mjs';
 import BackupCoordinatorService          from './services/BackupCoordinatorService.mjs';
 import PrimaryRepoSyncService, {
+    DEV_SYNC_ROOTS_CONFIG_KEY,
+    DEV_SYNC_ROOTS_ENV_VAR,
     parseEnabledFlag
 } from './services/PrimaryRepoSyncService.mjs';
 import TaskStateService                from './services/TaskStateService.mjs';
@@ -31,6 +33,39 @@ import {
     DEFAULT_SCRIPT_DIR,
     buildTaskDefinitions
 } from './TaskDefinitions.mjs';
+
+/**
+ * Resolves the dev-sync roots config while preserving env-var precedence.
+ * @param {Object} options
+ * @param {String|undefined|null} options.envValue Environment value.
+ * @param {String[]|String|undefined|null} options.configValue Local config value.
+ * @returns {String[]|String|undefined|null}
+ */
+export function resolvePrimaryDevSyncRootsConfig({envValue, configValue}) {
+    if (envValue !== undefined && envValue !== null && envValue !== '') {
+        return envValue;
+    }
+
+    if (Array.isArray(configValue) && configValue.length === 0) {
+        return null;
+    }
+
+    return configValue;
+}
+
+/**
+ * Resolves the operator-visible dev-sync roots config source label.
+ * @param {Object} options
+ * @param {String|undefined|null} options.envValue Environment value.
+ * @returns {String}
+ */
+export function resolvePrimaryDevSyncRootsSource({envValue}) {
+    if (envValue !== undefined && envValue !== null && envValue !== '') {
+        return DEV_SYNC_ROOTS_ENV_VAR;
+    }
+
+    return DEV_SYNC_ROOTS_CONFIG_KEY;
+}
 
 /**
  * @summary Neo daemon class for Agent OS maintenance scheduling (#11009).
@@ -158,6 +193,12 @@ export class Orchestrator extends Base {
          */
         primaryDevSyncEnabled_: true,
         /**
+         * @member {String[]|String|null} primaryDevSyncRootsConfig_=null
+         * @protected
+         * @reactive
+         */
+        primaryDevSyncRootsConfig_: null,
+        /**
          * @member {Object} healthService_=HealthService
          * @protected
          * @reactive
@@ -233,6 +274,7 @@ export class Orchestrator extends Base {
             process.env.NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED,
             true
         );
+        this.primaryDevSyncRootsConfig = options.primaryDevSyncRootsConfig ?? null;
         this.taskDefinitions        = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
             nodeBin: options.nodeBin || process.argv[0]
@@ -385,9 +427,16 @@ export class Orchestrator extends Base {
             return this.primaryRepoSyncService.runTask({
                 taskName,
                 reason,
-                taskStateService: this.taskStateService,
-                healthService   : this.healthService,
-                writeLog        : this.writeLog.bind(this)
+                taskStateService  : this.taskStateService,
+                healthService     : this.healthService,
+                writeLog          : this.writeLog.bind(this),
+                devSyncRootsConfig: resolvePrimaryDevSyncRootsConfig({
+                    envValue   : process.env[DEV_SYNC_ROOTS_ENV_VAR],
+                    configValue: this.primaryDevSyncRootsConfig
+                }),
+                devSyncRootsSource: resolvePrimaryDevSyncRootsSource({
+                    envValue: process.env[DEV_SYNC_ROOTS_ENV_VAR]
+                })
             });
         }, context);
 

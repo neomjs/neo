@@ -3,6 +3,7 @@ import Neo       from '../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../src/core/_export.mjs';
 import PrimaryRepoSyncService, {
     buildPrimaryRepoSyncTrigger,
+    DEV_SYNC_ROOTS_CONFIG_KEY,
     DEV_SYNC_ROOTS_ENV_VAR,
     parseDevSyncRoots,
     parseEnabledFlag
@@ -106,10 +107,19 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
             status: 'configured',
             roots : ['/primary/neo', '/agent/neo']
         });
+        expect(parseDevSyncRoots(['/primary/neo', '/primary/neo', '/agent/neo'], 'orchestrator.devSyncRoots')).toEqual({
+            status: 'configured',
+            roots : ['/primary/neo', '/agent/neo']
+        });
         expect(parseDevSyncRoots('{"root":"/primary/neo"}')).toEqual({
             status    : 'invalid',
             reasonCode: 'invalid-dev-sync-roots',
             error     : `${DEV_SYNC_ROOTS_ENV_VAR} must be a JSON array of absolute paths.`
+        });
+        expect(parseDevSyncRoots(['relative/neo'], 'orchestrator.devSyncRoots')).toEqual({
+            status    : 'invalid',
+            reasonCode: 'invalid-dev-sync-roots',
+            error     : 'orchestrator.devSyncRoots entries must be absolute path strings.'
         });
         expect(parseDevSyncRoots('["relative/neo"]')).toEqual({
             status    : 'invalid',
@@ -486,6 +496,26 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
             }
         });
         expect(execStub.calls.map(call => call.args[0])).not.toContain('pull');
+    });
+
+    test('uses the local config source label for malformed configured roots', () => {
+        const result = PrimaryRepoSyncService.syncPrimaryDev({
+            cwd               : '/primary/neo',
+            execFileSyncFn    : createExecStub([]),
+            writeLog          : () => {},
+            devSyncRootsConfig: ['relative/neo'],
+            devSyncRootsSource: DEV_SYNC_ROOTS_CONFIG_KEY
+        });
+
+        expect(result).toEqual({
+            status : 'skipped',
+            details: {
+                reasonCode: 'invalid-dev-sync-roots',
+                envVar    : DEV_SYNC_ROOTS_ENV_VAR,
+                source    : DEV_SYNC_ROOTS_CONFIG_KEY,
+                error     : 'orchestrator.devSyncRoots entries must be absolute path strings.'
+            }
+        });
     });
 
     test('records skipped outcomes without marking no-op checks successful', () => {
