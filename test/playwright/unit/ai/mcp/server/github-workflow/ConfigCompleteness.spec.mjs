@@ -54,8 +54,32 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
 
         expect(config.issueSync).toBeDefined();
         expect(config.issueSync.issuesDir).toBeDefined();
+        expect(config.issueSync.archiveRoot).toBeDefined();
+        expect(config.issueSync.archiveRoot).toContain(path.normalize('resources/content/archive'));
         expect(config.issueSync.archiveDir).toBeDefined();
         expect(config.issueSync.discussionsDir).toBeDefined();
         expect(config.issueSync.pullsDir).toBeDefined();
+    });
+
+    test('NEO_MCP_GITHUB_ARCHIVE_ROOT overrides config.issueSync.archiveRoot', async () => {
+        const configModule = await importTemplateConfig();
+        const config = configModule.default;
+        
+        const originalEnv = process.env.NEO_MCP_GITHUB_ARCHIVE_ROOT;
+        process.env.NEO_MCP_GITHUB_ARCHIVE_ROOT = '/custom/archive/path';
+
+        try {
+            // Re-apply environment variables to simulate boot-time binding
+            config.applyEnv();
+            expect(config.issueSync.archiveRoot).toBe('/custom/archive/path');
+        } finally {
+            if (originalEnv !== undefined) {
+                process.env.NEO_MCP_GITHUB_ARCHIVE_ROOT = originalEnv;
+            } else {
+                delete process.env.NEO_MCP_GITHUB_ARCHIVE_ROOT;
+            }
+            // Reset to defaults so other tests aren't affected
+            config.data.issueSync.archiveRoot = config.defaultConfig.issueSync.archiveRoot;
+        }
     });
 });
