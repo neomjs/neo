@@ -1,4 +1,5 @@
 import fs                       from 'fs/promises';
+import fsExtra                  from 'fs-extra';
 import path                     from 'path';
 import {fileURLToPath}          from 'url';
 import aiConfig                 from '../../mcp/server/memory-core/config.mjs';
@@ -965,7 +966,7 @@ class HealthService extends Base {
                 summary  : buildSummaryProviderBlock(aiConfig),
                 auth     : buildAuthProviderBlock(aiConfig)
             },
-            backup   : await buildBackupStateBlock(aiConfig.backupPath, await import('fs-extra'), await import('path')),
+            backup   : await buildBackupStateBlock(aiConfig.backupPath, fsExtra, path),
             details  : [],
             version  : process.env.npm_package_version || '1.0.0',
             uptime   : process.uptime()
