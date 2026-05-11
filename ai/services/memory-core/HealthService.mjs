@@ -117,7 +117,7 @@ export function buildTaskOutcomesBlock(taskOutcomes) {
  * `resolvedVia` is statically `'engines.chroma'`.
  *
  * @param {Object} cfg aiConfig-shaped input. Reads `cfg.engines.chroma.{host, port}`.
- * @returns {{mode: String, coordinates: Object|null, resolvedVia: String, error?: String}}
+ * @returns {{mode: String, coordinates: Object|null, resolvedVia: String, error: String|undefined}}
  *     `mode` is statically `'unified'`. `coordinates` is `{host, port}` on success or `null` on
  *     resolver throw. `resolvedVia` is statically `'engines.chroma'`.
  * @see learn/agentos/MemoryCore.md
@@ -162,7 +162,7 @@ export function buildTopologyBlock(cfg) {
  *
  * @param {Object} cfg aiConfig-shaped input. Reads `cfg.embeddingProvider`, `cfg.openAiCompatible.{host, embeddingModel}`,
  *     `cfg.ollama.{host, embeddingModel}`, `cfg.embeddingModel` (Gemini path), `cfg.vectorDimension`.
- * @returns {{active: String, host: String|null, model: String|null, dimensions: Number, error?: String}}
+ * @returns {{active: String, host: String|null, model: String|null, dimensions: Number, error: String|undefined}}
  * @see learn/agentos/SharedDeployment.md
  */
 export function buildEmbeddingProviderBlock(cfg) {
@@ -174,7 +174,7 @@ export function buildEmbeddingProviderBlock(cfg) {
  * @param {Object} cfg aiConfig-shaped input.
  * @param {String} active The selected provider key.
  * @param {String} configName The aiConfig key name used in scoped error messages.
- * @returns {{active: String, host: String|null, model: String|null, dimensions: Number, error?: String}}
+ * @returns {{active: String, host: String|null, model: String|null, dimensions: Number, error: String|undefined}}
  */
 function buildSingleEmbeddingProviderBlock(cfg, active, configName) {
     const dimensions = cfg.vectorDimension;
@@ -448,7 +448,7 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
  * @param {String} backupPath The path to the root backup directory.
  * @param {Object} fs The fs-extra module (dependency injected for testing).
  * @param {Object} path The path module (dependency injected for testing).
- * @returns {Promise<{lastSuccessful: String|null, count: Number, error?: String}>}
+ * @returns {Promise<{lastSuccessful: String|null, count: Number, error: String|undefined}>}
  */
 export async function buildBackupStateBlock(backupPath, fs, path) {
     try {
@@ -585,7 +585,7 @@ class HealthService extends Base {
 
     /**
      * Checks if the active vector and graph databases are running and accessible.
-     * @returns {Promise<Object>} {running: boolean, error?: string, engines: Object}
+     * @returns {Promise<Object>} {running: boolean, error: string|undefined, engines: Object}
      * @private
      */
     async #checkDatabaseConnections() {
@@ -618,7 +618,7 @@ class HealthService extends Base {
      * Intent: Confirms both memory and summary collections
      * are available for operations on the active StorageRouter.
      *
-     * @returns {Promise<Object>} {memories: Object|null, summaries: Object|null, error?: string}
+     * @returns {Promise<Object>} {memories: Object|null, summaries: Object|null, error: string|undefined}
      * @private
      */
     async #checkCollections() {
@@ -684,7 +684,7 @@ class HealthService extends Base {
      * (e.g., pre-#{GraphService.initAsync} healthchecks). `available: false` is a
      * substrate-readiness signal, not a migration error.
      *
-     * @returns {Promise<{memory: Number, session: Number, total: Number, available: Boolean, error?: String}>}
+     * @returns {Promise<{memory: Number, session: Number, total: Number, available: Boolean, error: String|undefined}>}
      * @see learn/agentos/tooling/MultiTenantMigrationGuide.md §5
      * @private
      */
@@ -748,7 +748,7 @@ class HealthService extends Base {
      * Returns `{available: false, ...zeros}` when the ChromaDB client is unreachable
      * (substrate-readiness signal, not a migration error).
      *
-     * @returns {Promise<{memory: Number, session: Number, total: Number, available: Boolean, error?: String}>}
+     * @returns {Promise<{memory: Number, session: Number, total: Number, available: Boolean, error: String|undefined}>}
      * @see ai/scripts/backfillChromaSharedUserId.mjs — the runner that tags untagged records
      * @see #10556 — the Fat Ticket establishing the additive-tenant-isolation read shape
      * @private

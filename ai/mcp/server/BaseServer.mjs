@@ -98,7 +98,7 @@ class BaseServer extends Base {
 
     /**
      * @summary Override: return the MCP server metadata.
-     * @returns {{name: String, version?: String, capabilities?: Object}}
+     * @returns {{name: String, version: String|undefined, capabilities: Object|undefined}}
      */
     getServerMetadata() {
         throw new Error(`${this.constructor.name}: must override getServerMetadata() to return {name, version?, capabilities?}`);

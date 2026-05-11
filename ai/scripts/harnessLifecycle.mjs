@@ -73,7 +73,7 @@ export async function recordHarnessProcess(identity, pid, spawnedAt = Date.now()
  * @param {string} identity        Agent identity.
  * @param {object} [opts]
  * @param {number} [opts.graceMs=2000] SIGTERM grace period before SIGKILL probe.
- * @returns {Promise<{terminated: boolean, pid?: number, reason?: string, escalated?: string}>}
+ * @returns {Promise<{terminated: boolean, pid: number|undefined, reason: string|undefined, escalated: string|undefined}>}
  */
 export async function terminatePreviousHarness(identity, { graceMs = 2000 } = {}) {
     const file = getStateFilePath(identity);
