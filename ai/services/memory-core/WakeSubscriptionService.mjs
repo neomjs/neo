@@ -866,7 +866,7 @@ class WakeSubscriptionService extends Base {
     }
 
     /**
-     * @summary Retires all-but-newest active wake subscriptions for an owner.
+     * @summary Retires all-but-newest active wake subscriptions WITHIN each canonical route group.
      *
      * Cross-session duplicate-accumulation defense per #11182. Both `@neo-opus-4-7` and `@neo-gpt`
      * empirically accumulated 2 active subscriptions per identity at the ~2-day mark, with identical
@@ -874,9 +874,13 @@ class WakeSubscriptionService extends Base {
      * idempotency check via `_findActiveSubscriptionByRoute()` appears correct on paper but
      * empirically misses the existing-row at next-session bootstrap. Rather than chase the exact
      * runtime root cause (likely a session-sunset-unsubscribe-skip plus cache-warm edge case), this
-     * reconciler self-heals at every bootstrap call: scan SQLite for all this-agent's active
-     * subscriptions, keep the newest, mark the rest as `retired` (preserves audit trail, distinct
-     * from `inactive`). Idempotent — safe to call on every bootstrap.
+     * reconciler self-heals at every bootstrap call.
+     *
+     * **Route-aware scope** (per PR #11183 Cycle 1 GPT-RA1): the reconciler groups owner-scoped
+     * active subscriptions by canonical route-key via `_buildSubscriptionRouteKey()` and retires
+     * N-1 PER GROUP. This preserves legitimate multi-route setups for the same agent (e.g., a
+     * `SENT_TO_ME` bridge-daemon route + a `TASK_STATE_CHANGED` a2a-webhook route). Only true
+     * duplicates within an identical route-tuple are retired.
      *
      * @param {String} owner AgentIdentity node id.
      * @returns {Number} Count of subscriptions retired (0 when state was already canonical).
@@ -900,19 +904,34 @@ class WakeSubscriptionService extends Base {
 
         if (rows.length <= 1) return 0;
 
+        // Parse durable rows into route-key-comparable cache entries.
         const subscriptions = rows
             .map(row => this._parseDurableSubscriptionRow(row))
-            .filter(Boolean);
+            .filter(Boolean)
+            .map(({id, node}) => ({id, ...(node.properties || {})}));
 
         if (subscriptions.length <= 1) return 0;
 
-        // First entry is newest (ORDER BY ... DESC). Keep it; retire the rest.
-        const [keep, ...retire] = subscriptions;
-        logger.warn(`[WakeSubscription] Reconciler: ${subscriptions.length} active subscriptions for ${owner}, keeping ${keep.id}, retiring ${retire.length}`);
+        // Group by canonical route key (preserves DESC order within each group via Map insertion order
+        // because SQL already ordered by updatedAt/createdAt DESC).
+        const byRouteKey = new Map();
+        for (const subscription of subscriptions) {
+            const key = this._buildSubscriptionRouteKey(subscription);
+            if (!byRouteKey.has(key)) byRouteKey.set(key, []);
+            byRouteKey.get(key).push(subscription);
+        }
 
         let retiredCount = 0;
-        for (const {id} of retire) {
-            if (this._retireSubscription(id)) retiredCount++;
+        for (const group of byRouteKey.values()) {
+            if (group.length <= 1) continue;
+
+            // Group is already newest-first; keep [0], retire the rest.
+            const [keep, ...retire] = group;
+            logger.warn(`[WakeSubscription] Reconciler: ${group.length} duplicate subscriptions for ${owner} on route ${keep.harnessTarget}/${keep.trigger}, keeping ${keep.id}, retiring ${retire.length}`);
+
+            for (const {id} of retire) {
+                if (this._retireSubscription(id)) retiredCount++;
+            }
         }
 
         return retiredCount;
