@@ -275,6 +275,16 @@ Reviewers MUST verify symmetry between **stated framing** and **mechanical imple
 
 Two empirical anchors confirm the pattern: rhetorical drift fires both at author-side (PR description framing) and reviewer-side (challenge framing). The §7.4 mandate applies to both surfaces.
 
+#### Cross-PR reviewer-seeded drift
+
+Within-PR rhetorical drift is one shape; the §7.4 audit ALSO covers a sibling sub-shape — when a reviewer plants a "Future Enhancement" / "non-blocking observation" / "follow-up suggestion" in PR-A's review without V-B-A'ing the premise, and that observation becomes the implementation premise of PR-B without an empirical-verification gate firing in between. The seed enters PR-B under the protective halo of "prior peer-review identified this gap", short-circuiting V-B-A.
+
+**Universal V-B-A core-value (per AGENTS.md §3.5, graduated via #11092)** covers this discipline at the foundational tier: ALL agent assertions require V-B-A, including reviewer-planted observations on PRs. This sub-section is the pr-review-skill operationalization at PR-review-comment plant-time.
+
+**Empirical anchor — #11149 → #11153 cascade (2026-05-10):** reviewer planted "pnpm `node_modules/.pnpm/neo.mjs@*` heuristic" as "Future Enhancement" in PR #11149 cycle-1 review WITHOUT V-B-A'ing whether Neo uses pnpm (operator-confirmed: npm only). The seed became #11153's implementation premise. Two review cycles approved #11153 without empirical recheck. Operator intervention required to break the cascade ([retraction at PR #11153 review](https://github.com/neomjs/neo/pull/11153#pullrequestreview-4259953644); subsequently superseded by #11155 → PR #11158 reverting to v12.1.0 shape).
+
+**Discipline:** the seeder owns V-B-A cost at plant-time, not at implement-time. Before adding a "Future Enhancement" / "non-blocking observation" / "follow-up suggestion" to a review, the reviewer MUST V-B-A the premise via the same tool inventory as §3.5 — the cost is paid at the cheaper plant-time-by-the-author-of-the-observation rather than the expensive implement-time-by-an-unrelated-author. Unverified observations MUST be tagged explicitly as `hypothesis — needs V-B-A before implementation` so future implementers don't treat them as verified gaps.
+
 ### 7.5 Test-Execution & Location Audit
 
 When reviewing a PR, you MUST empirically verify code execution and test file placement, but only for **RELATED** tests. Do NOT blindly run the entire automated test suite, as it destroys the focus window and wastes tokens.
