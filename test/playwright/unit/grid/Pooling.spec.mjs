@@ -181,7 +181,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         const scrollAmount = 400; // Scroll down 10 rows (one full page)
 
         const deltas = await captureDeltas(async () => {
-            body.scrollTop = scrollAmount;
+            grid.syncBodies(scrollAmount);
             // Wait for update
             await body.promiseUpdate();
         });
@@ -304,7 +304,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         const maxScroll = totalHeight - 400;
 
         await captureDeltas(async () => {
-            body.scrollTop = maxScroll;
+            grid.syncBodies(maxScroll);
             await body.promiseUpdate();
         });
 
@@ -332,16 +332,15 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
         const body = grid.body;
 
         // Reset to top
-        body.scrollTop = 0;
+        grid.syncBodies(0);
         await body.promiseUpdate();
         await grid.timeout(50);
 
         const deltas = await captureDeltas(async () => {
-            // Jump 4 rows (160px) to be absolutely sure we cross the buffer (2 rows)
-            // Start 0 (Mounted 0..12) -> Start 4 (Mounted 2..14)
-            // Rows 0, 1 recycle to Rows 13, 14.
-            body.scrollTop = 160;
+            // Jump 4 rows (160px) to cause exactly 1 row to recycle
+            grid.syncBodies(160);
             await body.promiseUpdate();
+            await grid.timeout(50);
         });
 
         // Analysis
