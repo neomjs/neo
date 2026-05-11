@@ -2,22 +2,22 @@ import {execFile}         from 'child_process';
 import path               from 'path';
 import {fileURLToPath}    from 'url';
 import {promisify}        from 'util';
-import AgentStateService  from './AgentStateService.mjs';
-import HealthService      from './HealthService.mjs';
-import IssueService       from './IssueService.mjs';
-import DiscussionService  from './DiscussionService.mjs';
-import LabelService       from './LabelService.mjs';
-import LocalFileService   from './LocalFileService.mjs';
-import PullRequestService from './PullRequestService.mjs';
-import RepositoryService  from './RepositoryService.mjs';
-import ToolService        from '../../mcp/ToolService.mjs';
-import SyncService        from './SyncService.mjs';
-import config             from '../../mcp/server/github-workflow/config.mjs';
+import AgentStateService  from '../../../services/github-workflow/AgentStateService.mjs';
+import HealthService      from '../../../services/github-workflow/HealthService.mjs';
+import IssueService       from '../../../services/github-workflow/IssueService.mjs';
+import DiscussionService  from '../../../services/github-workflow/DiscussionService.mjs';
+import LabelService       from '../../../services/github-workflow/LabelService.mjs';
+import LocalFileService   from '../../../services/github-workflow/LocalFileService.mjs';
+import PullRequestService from '../../../services/github-workflow/PullRequestService.mjs';
+import RepositoryService  from '../../../services/github-workflow/RepositoryService.mjs';
+import ToolService        from '../ToolService.mjs';
+import SyncService        from '../../../services/github-workflow/SyncService.mjs';
+import config             from './config.mjs';
 
 const execFileAsync   = promisify(execFile);
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
-const openApiFilePath = path.join(__dirname, '../../mcp/server/github-workflow/openapi.yaml');
+const openApiFilePath = path.join(__dirname, 'openapi.yaml');
 
 /**
  * #11145 — Default branch detector. Exec's `git branch --show-current` against the MCP

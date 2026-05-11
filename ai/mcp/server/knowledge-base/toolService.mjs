@@ -1,18 +1,18 @@
 import path                     from 'path';
 import {fileURLToPath}          from 'url';
-import DatabaseService          from './DatabaseService.mjs';
-import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
-import DocumentService          from './DocumentService.mjs';
-import HealthService            from './HealthService.mjs';
-import KBRecorderService        from './KBRecorderService.mjs';
-import QueryService             from './QueryService.mjs';
-import SearchService            from './SearchService.mjs';
-import ToolService              from '../../mcp/ToolService.mjs';
+import DatabaseService          from '../../../services/knowledge-base/DatabaseService.mjs';
+import DatabaseLifecycleService from '../../../services/knowledge-base/DatabaseLifecycleService.mjs';
+import DocumentService          from '../../../services/knowledge-base/DocumentService.mjs';
+import HealthService            from '../../../services/knowledge-base/HealthService.mjs';
+import KBRecorderService        from '../../../services/knowledge-base/KBRecorderService.mjs';
+import QueryService             from '../../../services/knowledge-base/QueryService.mjs';
+import SearchService            from '../../../services/knowledge-base/SearchService.mjs';
+import ToolService              from '../ToolService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
 /** @anchor test-isolation - ENV override to prevent parallel test mutations from corrupting the canonical file. Easily extensible to other servers via NEO_AI_MCP_<SERVER>_OPENAPI_PATH. */
-const openApiFilePath = process.env.NEO_AI_MCP_KB_OPENAPI_PATH || path.join(__dirname, '../../mcp/server/knowledge-base/openapi.yaml');
+const openApiFilePath = process.env.NEO_AI_MCP_KB_OPENAPI_PATH || path.join(__dirname, 'openapi.yaml');
 
 const serviceMapping = {
     ask_knowledge_base   : SearchService           .ask                .bind(SearchService),

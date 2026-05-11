@@ -6,7 +6,7 @@ import GraphService                from '../../../services/memory-core/GraphServ
 import HealthService               from '../../../services/memory-core/HealthService.mjs';
 import SessionService              from '../../../services/memory-core/SessionService.mjs';
 import InferenceLifecycleService   from '../../../services/memory-core/lifecycle/InferenceLifecycleService.mjs';
-import {listTools, callTool}       from '../../../services/memory-core/toolService.mjs';
+import {listTools, callTool}       from './toolService.mjs';
 import AuthMiddleware              from '../shared/services/AuthMiddleware.mjs';
 import RequestContextService       from '../shared/services/RequestContextService.mjs';
 import StdioIdentityResolver       from '../shared/services/StdioIdentityResolver.mjs';

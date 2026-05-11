@@ -49,7 +49,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         WakeSubscriptionService = (await import('../../../../../../ai/services/memory-core/WakeSubscriptionService.mjs')).default;
         CoalescingEngineService = (await import('../../../../../../ai/services/memory-core/CoalescingEngineService.mjs')).default;
         LifecycleService        = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
-        ({callTool}             = await import('../../../../../../ai/services/memory-core/toolService.mjs'));
+        ({callTool}             = await import('../../../../../../ai/mcp/server/memory-core/toolService.mjs'));
 
         const GraphMaintenanceService = (await import('../../../../../../ai/daemons/services/GraphMaintenanceService.mjs')).default;
         globalThis.GraphMaintenanceService = GraphMaintenanceService;

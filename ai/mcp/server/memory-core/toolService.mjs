@@ -1,20 +1,20 @@
 import path                     from 'path';
 import {fileURLToPath}          from 'url';
-import ToolService              from '../../mcp/ToolService.mjs';
-import DatabaseService          from './DatabaseService.mjs';
-import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
-import GraphService             from './GraphService.mjs';
-import HealthService            from './HealthService.mjs';
-import MemoryService            from './MemoryService.mjs';
-import SessionService           from './SessionService.mjs';
-import SummaryService           from './SummaryService.mjs';
-import MailboxService           from './MailboxService.mjs';
-import PermissionService        from './PermissionService.mjs';
-import WakeSubscriptionService  from './WakeSubscriptionService.mjs';
+import ToolService              from '../ToolService.mjs';
+import DatabaseService          from '../../../services/memory-core/DatabaseService.mjs';
+import ChromaLifecycleService   from '../../../services/memory-core/lifecycle/ChromaLifecycleService.mjs';
+import GraphService             from '../../../services/memory-core/GraphService.mjs';
+import HealthService            from '../../../services/memory-core/HealthService.mjs';
+import MemoryService            from '../../../services/memory-core/MemoryService.mjs';
+import SessionService           from '../../../services/memory-core/SessionService.mjs';
+import SummaryService           from '../../../services/memory-core/SummaryService.mjs';
+import MailboxService           from '../../../services/memory-core/MailboxService.mjs';
+import PermissionService        from '../../../services/memory-core/PermissionService.mjs';
+import WakeSubscriptionService  from '../../../services/memory-core/WakeSubscriptionService.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
-const openApiFilePath = path.join(__dirname, '../../mcp/server/memory-core/openapi.yaml');
+const openApiFilePath = path.join(__dirname, 'openapi.yaml');
 
 const serviceMapping = {
     add_memory            : MemoryService           .addMemory           .bind(MemoryService),
