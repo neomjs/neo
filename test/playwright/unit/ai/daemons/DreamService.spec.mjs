@@ -150,7 +150,12 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test.afterAll(async () => {
-        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'clear');
+        // 'destroy' (not 'clear') so SystemLifecycleService._initPromise is reset to null.
+        // Otherwise sibling specs (e.g. DreamServiceGoldenPath) hit
+        //   `if (!_initPromise) initAsync() else ready()`
+        // → take the `ready()` branch → never honor their own `aiConfig.storagePaths.graph`
+        // → real `getContextFrontier()` returns null. Empirically traced via #10946 bisection.
+        await TestLifecycleHelper.cleanupGraphService(GraphService, SystemLifecycleService, testDbPath, fs, 'destroy');
 
         if (KBRecorderService?.db) {
             KBRecorderService.db.exec('DELETE FROM kb_query_log; DELETE FROM kb_query_faqs;');
@@ -854,8 +859,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         GraphService.db.edges.getByIndex = (idx, val) => {
             return GraphService.db.edges.items.filter(e => e[idx] === val);
         };
-        const originalLinkNodes = GraphService.linkNodes;
-        GraphService.linkNodes = () => {};
+        const originalLinkNodes          = GraphService.linkNodes;
+        const originalGetContextFrontier = GraphService.getContextFrontier;
+        GraphService.linkNodes          = () => {};
         GraphService.getContextFrontier = () => ({ nodes: [], edges: [] });
 
         const baseGenerate = OpenAiCompatible.prototype.generate;
@@ -918,7 +924,8 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         } else {
              delete GraphService.db.storage.db.prepare;
         }
-        GraphService.linkNodes = originalLinkNodes;
+        GraphService.linkNodes          = originalLinkNodes;
+        GraphService.getContextFrontier = originalGetContextFrontier;
     });
 
     test('should retry extraction on malformed JSON payload up to 3 times to fix #9913', async () => {
