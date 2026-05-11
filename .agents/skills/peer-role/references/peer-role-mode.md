@@ -44,7 +44,11 @@ Share vocabulary with `/lead-role`. A convergence artifact is either a linked Id
 ## 8. Halt Triggers (Machine-Checkable)
 - **Empty agreement:** Zero substantive contribution beyond "looks good" → force evidence-backed restatement OR explicit "alignment after checking X/Y/Z with residual risks named" OR halt.
 - **Parallel execution attempt:** Overlapping ticket/PR before convergence → halt unless lead explicitly hands off OR peer identifies blocker requiring separate artifact.
-- **Convergence-rate tripwire (high-blast-radius):** 3 peers reach agreement on a high-blast-radius proposal within ≤2 rounds AND no `STEP_BACK` comment yet exists on the parent Discussion → halt convergence and require the §5.2 Architectural Step-Back sweep (see `ideation-sandbox-workflow.md` §5.2) BEFORE any `[RESOLVED_TO_AC]` / `[GRADUATED_TO_TICKET]` marker. Tripwire phrases to detect on 3rd-peer post: "I agree with @peer's option X", "Adopt Option X", "Going with X" — when posted within ≤2 rounds on a high-blast-radius proposal. **Not a verdict** — fast convergence may be genuinely correct; the sweep validates it. If all 8 sweep points pass, fast-convergence stands; if any blocker surfaces, reshape and re-converge. Empirical anchor: Discussion #11180 → Epic #11187 arc (3-way convergence + matrix-in-body still produced 2 epic-review blockers caught post-graduation; §5.2 sweep pre-graduation would have caught both).
+- **Convergence-rate tripwire (high-blast-radius):**
+  - *Trigger:* 3 peers reach agreement on a high-blast-radius proposal within ≤2 rounds AND no `STEP_BACK` comment yet exists on the parent Discussion.
+  - *Action:* halt convergence; require §5.2 Architectural Step-Back sweep BEFORE any `[RESOLVED_TO_AC]` / `[GRADUATED_TO_TICKET]` marker.
+  - *Exit:* all 8 sweep points pass → fast-convergence stands; any blocker → reshape + re-converge. Not a verdict — sweep validates whether the fast convergence is genuine.
+  - *Detail + detector-phrase patterns + anchor:* `ideation-sandbox-workflow.md` §5.2 (single source of truth; this trigger is the map pointer).
 
 ## 9. Non-Execution Boundary
 While `/peer-role` is active, peers do NOT file overlapping tickets/PRs unless lead explicitly hands off OR peer identifies a blocker that requires a separate artifact. The default peer artifact is a discussion comment / targeted A2A challenge, NOT parallel implementation.

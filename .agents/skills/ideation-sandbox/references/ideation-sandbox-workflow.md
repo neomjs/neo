@@ -92,6 +92,8 @@ For source anchors, exception semantics, and substrate-decay review, read [`../a
 
 **Out of scope**: low-blast-radius proposals (single-PR-worth, bounded artifact, no cross-substrate coupling) do NOT require §5.2 — would create discipline-fatigue without commensurate signal. §5.1's matrix remains optional-but-recommended for those.
 
-**Cross-skill complement**: `peer-role-mode.md` §8 third halt-trigger (convergence-rate tripwire) fires §5.2 mechanically when 3 peers reach agreement on a high-blast-radius proposal within ≤2 rounds AND no STEP_BACK comment yet exists.
+**Cross-skill complement**: `peer-role-mode.md` §8 third halt-trigger (convergence-rate tripwire) fires §5.2 mechanically when 3 peers reach agreement on a high-blast-radius proposal within ≤2 rounds AND no STEP_BACK comment yet exists. Detector-phrase patterns for 3rd-peer-post detection: "I agree with @peer's option X", "Adopt Option X", "Going with X" — when posted within ≤2 rounds on a high-blast-radius proposal.
+
+**Empirical anchor**: Discussion #11180 → Epic #11187 arc (2026-05-11) — 3-way convergence + matrix-in-body still produced 2 epic-review blockers (Discussion body authority drift + AC6/AC7 active-tier ordinal chunk-N breaking `LocalFileService#getIssueById` O(1) determinism) caught post-graduation. §5.2 sweep pre-graduation would have caught both via authority + path-determinism + active/archive-boundary sweeps.
 
 - **Graduation Trigger:** The author (human or agent) declares readiness by adding a `GRADUATED` marker near the top of the body, linking to the resulting Epic / ticket / PR. The author MUST then formally close the Discussion. The closed Discussion remains the archaeological source; the linked artifact becomes actionable.
