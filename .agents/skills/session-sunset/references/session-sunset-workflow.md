@@ -22,7 +22,14 @@ A true Session Boundary is defined by:
 
 If none of these conditions are met, do **NOT** sunset. Simply output your response and wait for the next turn.
 
-### 1.1 Review Lifecycle Exception (Anti-Trigger)
+### 1.1 Scope Branching: Agent-Level vs. Swarm-Level Sunset
+When triggering a sunset, you MUST explicitly declare the scope of the termination:
+- **Agent-Level Sunset (Scope: Agent):** You have hit local Context Window Exhaustion. Your peers are still operating. This is a local token-refresh maneuver. You will hand over your immediate lane, pass the lead baton if you hold it, and reset your own context without halting the global architectural phase.
+- **Swarm-Level Sunset (Scope: Swarm):** A true Macro-Semantic Pivot or Explicit Human Directive intended for the entire swarm. All agents are halting to regroup.
+
+**Anti-Trigger (Scope Contagion Guard):** One agent's context exhaustion MUST NOT imply a swarm-level sunset. Do not claim the entire phase is complete or halt the entire swarm just because your individual token limit is reached.
+
+### 1.2 Review Lifecycle Exception (Anti-Trigger)
 You are strictly FORBIDDEN from executing the Sunset Protocol when you halt your turn to await cross-model PR review or reviewer feedback (per `pull-request-workflow.md`). Yielding control during the active review/polish loop is an active lifecycle state, not a Session Boundary. Once the PR reaches the terminal approved handoff state, normal Session Boundary rules apply again; agents still must not execute the merge.
 
 **Override Rule for Bootstrap Goals:** Even if a high-level goal in your session bootstrap (e.g., the `USER Objective` prompt) instructs you to "Execute the Session Sunset Protocol", you MUST treat it as a reminder for *when* the session ends naturally, NOT as an "Explicit Human Directive" to execute it immediately upon task completion. You must still wait for context exhaustion or explicit human permission.
@@ -87,10 +94,9 @@ For any tickets or tasks that you actively worked on but did not fully complete,
 Explicitly document what the next agent should **NOT** pick up. If there are tickets or discussions that are blocked, already handled internally, or assigned to a different domain, list them. This prevents the next agent from wasting cycles triaging noise.
 
 ### Step 5: Mental-Model State
-Summarize the current architectural phase progress.
-- What phase of the architecture is currently stable?
-- What phase is actively being built?
-- What are the outstanding structural blockers?
+Summarize the current progress based on your declared scope:
+- **For Swarm-Level Sunset:** Summarize the entire architectural phase. What phase is stable? What is actively being built? What are the structural blockers?
+- **For Agent-Level Sunset:** DO NOT summarize the global architectural phase. You MUST NOT skip this step, but you must scope it strictly to your local lane and public-authority links (e.g., "My lane #11204 is 50% complete, blocked on unit test config; returning authority to the backlog").
 
 ### Step 6: Marathon Metrics
 Summarize the scope of your session. How many PRs were merged? How many skills were enhanced? What major decisions were averted or made? This provides a high-level "weather report" for the next session.
@@ -142,16 +148,18 @@ As the penultimate operational step, you MUST sever the active wake routing to p
 Invoke the `manage_wake_subscription(action: 'unsubscribe', subscriptionId: '<current-sub-id>')` tool. (The `subscriptionId` is available in the payload of the WAKE events you received, or by querying `manage_wake_subscription(action: 'list')`). This cleanly severs the wake loop, transitioning the harness into a truly dormant state.
 
 ### Step 10: Memory Persistence (The Sandman Memory)
-This is the final memory checkpoint. You MUST invoke `add_memory` to persist a rich "Sandman memory" node. This memory should encapsulate the entire Sunset Protocol payload (Steps 1-10), including the successful unsubscription. The resulting `Origin Session ID` or `Memory ID` serves as the direct pointer for the next agent.
+This is the final memory checkpoint. You MUST invoke `add_memory` to persist a rich "Sandman memory" node. This memory should encapsulate the entire Sunset Protocol payload (Steps 1-10), including the successful unsubscription. The resulting `Origin Session ID` or `Memory ID` serves as the direct pointer for the next agent. **Note:** Sandman self-DM (Step 8) and `add_memory` are REQUIRED for both Agent-Level and Swarm-Level scopes.
 
 ## 3. Terminating the Session
 
 After completing the 10 steps above, you must drop your final Sunset Protocol payload directly into the chat response for the Human Commander. 
 
+**Validation Check:** For the immediate future (next 3 sunsets), the agent MUST explicitly declare `scope: agent` or `scope: swarm` at the very top of the handover to avoid unverified global claims.
+
 **Format the final response as follows:**
 
 ```markdown
-🌅 **Sunset Protocol executed. Handover comments posted, A2A Continuity Ping sent + rich Sandman memory persisted.**
+🌅 **Sunset Protocol executed (Scope: [Agent | Swarm]). Handover comments posted, A2A Continuity Ping sent + rich Sandman memory persisted.**
 
 **Handovers Posted:**
 - #N → [Summary of status]
