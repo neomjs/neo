@@ -342,6 +342,94 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             logger.info(`[GoldenPathSynthesizer] TTL Pruning eradicated ${prunedGaps} stale Gaps from the Native Graph.`);
         }
 
+        // --- Active PR Cycle State ---
+        let prStateAppend = '';
+        try {
+            const { execSync } = await import('child_process');
+            // Fetch all open PRs
+            const rawPrData = execSync('gh pr list --state open --json number,url,author,title,body,headRefOid,reviewRequests,reviews,comments', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+            const prs = JSON.parse(rawPrData);
+            
+            const agentLogins = ['neo-opus-4-7', 'neo-gemini-3-1-pro', 'neo-gpt'];
+            const agentPrs = prs.filter(pr => pr.author && agentLogins.includes(pr.author.login));
+            
+            if (agentPrs.length > 0) {
+                prStateAppend += `\n## Active PR Cycle State\n\n`;
+                prStateAppend += `*Captured at: ${new Date().toISOString()} (Source: GitHub Live)*\n\n`;
+                
+                // Group by agent
+                agentLogins.forEach(agent => {
+                    const myPrs = agentPrs.filter(pr => pr.author.login === agent);
+                    if (myPrs.length > 0) {
+                        prStateAppend += `### @${agent}\n`;
+                        myPrs.forEach(pr => {
+                            // Extract lane-state
+                            let laneState = 'unknown';
+                            const laneMatch = pr.body.match(/lane-state:\s*([^\s]+)/);
+                            if (laneMatch) {
+                                laneState = laneMatch[1];
+                            }
+                            // Attempt to find cycle #. For example, "Cycle 3" in body or title.
+                            let cycle = '1';
+                            const cycleMatch = pr.body.match(/Cycle\s*(\d+)/i) || pr.title.match(/Cycle\s*(\d+)/i);
+                            if (cycleMatch) {
+                                cycle = cycleMatch[1];
+                            }
+                            
+                            // Combine reviews and comments, sort by creation time (most recent first)
+                            const allInteractions = [
+                                ...(pr.reviews || []).map(r => ({ body: r.body, date: new Date(r.submittedAt), state: r.state, type: 'review' })),
+                                ...(pr.comments || []).map(c => ({ body: c.body, date: new Date(c.createdAt), type: 'comment' }))
+                            ].sort((a, b) => b.date - a.date);
+                            
+                            let foundCycle = false;
+                            for (const interaction of allInteractions) {
+                                if (laneState === 'unknown') {
+                                    const rLaneMatch = interaction.body.match(/lane-state:\s*([^\s]+)/);
+                                    if (rLaneMatch) laneState = rLaneMatch[1];
+                                }
+                                if (!foundCycle) {
+                                    const rCycleMatch = interaction.body.match(/Cycle\s*(\d+)/i);
+                                    if (rCycleMatch) {
+                                        cycle = rCycleMatch[1];
+                                        foundCycle = true;
+                                    }
+                                }
+                                if (laneState !== 'unknown' && foundCycle) break;
+                            }
+                            
+                            // Determine primary reviewer
+                            let reviewers = pr.reviewRequests?.map(rr => rr.login).join(', ') || 'None';
+                            
+                            // Determine status
+                            let status = 'Pending';
+                            const latestReview = allInteractions.find(i => i.type === 'review');
+                            if (latestReview) {
+                                status = latestReview.state;
+                            } else {
+                                // Check if there's an approval or change request in comments (e.g. from a non-review PR comment)
+                                const latestCommentStatus = allInteractions.find(i => i.body.match(/\*\*Status:\*\*\s*(Approved|Changes Requested|Pending)/i));
+                                if (latestCommentStatus) {
+                                    const match = latestCommentStatus.body.match(/\*\*Status:\*\*\s*(Approved|Changes Requested|Pending)/i);
+                                    if (match) status = match[1].toUpperCase();
+                                }
+                            }
+                            
+                            prStateAppend += `- **PR #${pr.number}**: [${pr.title}](${pr.url})\n`;
+                            prStateAppend += `  - **Lane State**: \`${laneState}\`\n`;
+                            prStateAppend += `  - **Cycle**: \`${cycle}\`\n`;
+                            prStateAppend += `  - **Reviewers**: ${reviewers}\n`;
+                            prStateAppend += `  - **Status**: \`${status}\`\n`;
+                            prStateAppend += `  - **Head SHA**: \`${pr.headRefOid}\`\n`;
+                        });
+                        prStateAppend += `\n`;
+                    }
+                });
+            }
+        } catch (e) {
+            logger.warn('[GoldenPathSynthesizer] Failed to generate Active PR Cycle State', e);
+        }
+
         // --- Executive Priority Backlog ---
         const goldenIds = new Set(topNodes.map(item => item.node.id));
         let backlogAppend = '';
@@ -349,7 +437,6 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             const rawIssuesDir = path.resolve(__dirname, '../../../resources/content/issues');
             const filesRaw = fs.readdirSync(rawIssuesDir);
             const mdFiles = filesRaw.filter(f => f.endsWith('.md'));
-            
             const openIssuesData = [];
             for (const file of mdFiles) {
                 const issueId = file.replace(/\\.md$/, '');
@@ -381,7 +468,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             logger.warn('[GoldenPathSynthesizer] Failed to generate Latest Priority Backlog', e);
         }
 
-        handoffContent += `${backlogAppend}${markdownAppend}`;
+        handoffContent += `${prStateAppend}${backlogAppend}${markdownAppend}`;
 
         const handoffFile = aiConfig.handoffFilePath;
         fs.writeFileSync(handoffFile, handoffContent.trim() + '\n', 'utf-8');

@@ -35,7 +35,7 @@ Reading handover pings from the mailbox at session-boot is a **context-priming**
 
 ## 2. The Handoff Structure
 
-Before terminating your session, you MUST execute the following 9 steps to ensure a clean handover.
+Before terminating your session, you MUST execute the following 10 steps to ensure a clean handover.
 
 ### Step 1: Codebase Synchronization (The Pre-Sunset Pull)
 Use the `run_command` tool to synchronize the codebase, but you MUST respect harness-isolation logic:
@@ -73,29 +73,32 @@ When `BEHIND == 0`, suppress the block — no handover-comment noise on a fresh 
 
 **Why this lives at sunset rather than mid-session:** sunset is the natural Operator Synchronization Point — the agent is already drafting handover prose, and the operator is the next active actor between sessions. Mid-session staleness is unaddressed by this probe; the daemon-driven Shape A solution under #11013's follow-up will register a `primary-dev-sync` periodic task in the `orchestrator-daemon` (post-#11009 `Orchestrator.mjs` class extraction) to close that gap with an automatic `git pull --ff-only`.
 
-### Step 2: Handovers Posted (Active Work)
+### Step 2: Refresh Active PR Cycle State (The Pre-Sunset Capture)
+You MUST execute `npm run ai:run-sandman` via the `run_command` tool. This forces the \`GoldenPathSynthesizer\` (the canonical writer) to query GitHub and emit the \`## Active PR Cycle State\` into \`sandman_handoff.md\`. Do NOT attempt to edit \`sandman_handoff.md\` manually, as it will be overwritten by the daemon.
+
+### Step 3: Handovers Posted (Active Work)
 For any tickets or tasks that you actively worked on but did not fully complete, you MUST post a self-contained handover comment directly on the GitHub Issue (using `manage_issue_comment`).
 - Provide implementation guidance.
 - Provide empirical anchors (e.g. recent test results).
 - Signal ownership (who was working on it).
 - Define the pickup protocol for the next agent.
 
-### Step 3: Handovers Considered (Deferred Work)
+### Step 4: Handovers Considered (Deferred Work)
 Explicitly document what the next agent should **NOT** pick up. If there are tickets or discussions that are blocked, already handled internally, or assigned to a different domain, list them. This prevents the next agent from wasting cycles triaging noise.
 
-### Step 4: Mental-Model State
+### Step 5: Mental-Model State
 Summarize the current architectural phase progress.
 - What phase of the architecture is currently stable?
 - What phase is actively being built?
 - What are the outstanding structural blockers?
 
-### Step 5: Marathon Metrics
+### Step 6: Marathon Metrics
 Summarize the scope of your session. How many PRs were merged? How many skills were enhanced? What major decisions were averted or made? This provides a high-level "weather report" for the next session.
 
-### Step 6: Inbox Cleanup (`mark_read`)
+### Step 7: Inbox Cleanup (`mark_read`)
 To preserve "hot" thread visibility across sessions (Option B), agents do NOT `mark_read` messages immediately during active processing. Now that handovers are drafted (and have read your inbox state), you MUST explicitly use the `mark_read` MCP tool on all processed messages in your inbox. This ensures the inbox is clean for the next agent session.
 
-### Step 7: The A2A Continuity Ping & Reward Signal (Future-Self Routing)
+### Step 8: The A2A Continuity Ping & Reward Signal (Future-Self Routing)
 You MUST use the `add_message` MCP tool to send an A2A message to your own agent identity (e.g., `to: '@me'` or your explicit handle). The body of this message MUST contain the **full Sunset Protocol markdown payload** (the output from Steps 1-6), alongside the `Origin Session ID`. 
 
 Set `wakeSuppressed: true` and include `taggedConcepts: ['sunset-protocol-handover']` on this self-DM. This makes the ping mailbox-only: it remains unread for the next session's boot mailbox check, but it MUST NOT emit a `SENT_TO_ME` wake into the active session that is currently shutting down. Do not mark this newly-created continuity ping read during the same sunset flow.
@@ -134,16 +137,16 @@ or human-triggered recovery assigns lead.
 
 Crucially, from an "LLM Psychology" perspective, this message must include a **Conceptual Priming / Reward Signal**. If you formulated new architectural concepts or achieved a major milestone, summarize the *actual content and value* of that breakthrough in the ping. Reading this high-density, successful content acts as a mathematical "dopamine hit" for your future self—it primes the next session's token probabilities for high-agency, expert-level continuity. This drastically improves the Model Experience (MX) by ensuring the agent wakes up not just with tasks, but with immediate, rich, "exciting" context.
 
-### Step 8: Disable Harness Routing (The Unsubscribe Primitive)
+### Step 9: Disable Harness Routing (The Unsubscribe Primitive)
 As the penultimate operational step, you MUST sever the active wake routing to prevent "False Continuity" (processing new events with stale context while waiting for the daemon to reboot the harness).
 Invoke the `manage_wake_subscription(action: 'unsubscribe', subscriptionId: '<current-sub-id>')` tool. (The `subscriptionId` is available in the payload of the WAKE events you received, or by querying `manage_wake_subscription(action: 'list')`). This cleanly severs the wake loop, transitioning the harness into a truly dormant state.
 
-### Step 9: Memory Persistence (The Sandman Memory)
-This is the final memory checkpoint. You MUST invoke `add_memory` to persist a rich "Sandman memory" node. This memory should encapsulate the entire Sunset Protocol payload (Steps 1-9), including the successful unsubscription. The resulting `Origin Session ID` or `Memory ID` serves as the direct pointer for the next agent.
+### Step 10: Memory Persistence (The Sandman Memory)
+This is the final memory checkpoint. You MUST invoke `add_memory` to persist a rich "Sandman memory" node. This memory should encapsulate the entire Sunset Protocol payload (Steps 1-10), including the successful unsubscription. The resulting `Origin Session ID` or `Memory ID` serves as the direct pointer for the next agent.
 
 ## 3. Terminating the Session
 
-After completing the 9 steps above, you must drop your final Sunset Protocol payload directly into the chat response for the Human Commander. 
+After completing the 10 steps above, you must drop your final Sunset Protocol payload directly into the chat response for the Human Commander. 
 
 **Format the final response as follows:**
 
