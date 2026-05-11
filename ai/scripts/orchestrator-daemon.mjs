@@ -21,10 +21,11 @@ import Neo             from '../../src/Neo.mjs';
 import * as core       from '../../src/core/_export.mjs';
 import InstanceManager from '../../src/manager/Instance.mjs';
 
-import {pathToFileURL} from 'url';
+import {fileURLToPath, pathToFileURL} from 'url';
 import fs from 'fs-extra';
 import path from 'path';
 import {execSync} from 'child_process';
+import AiConfig from '../config.template.mjs';
 import Orchestrator from '../daemons/Orchestrator.mjs';
 import {
     DEFAULT_KB_SYNC_INTERVAL_MS,
@@ -35,6 +36,7 @@ import {
 const DAEMON_DATA_DIR = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
 const PID_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator-daemon.pid');
 const LOG_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator.log');
+export const LOCAL_AI_CONFIG_FILE = fileURLToPath(new URL('../config.mjs', import.meta.url));
 
 function writeLog(level, message) {
     const timestamp = new Date().toISOString();
@@ -129,6 +131,28 @@ function setupCleanupHandlers() {
 }
 
 /**
+ * Loads the gitignored top-level AI config when present.
+ * @param {Object} [options]
+ * @param {String} [options.configPath=LOCAL_AI_CONFIG_FILE] Config path.
+ * @param {Object} [options.aiConfig=AiConfig] Config singleton.
+ * @param {Function} [options.existsSync=fs.existsSync] Existence seam.
+ * @returns {Promise<Object>}
+ */
+export async function loadLocalAiConfig({
+    configPath = LOCAL_AI_CONFIG_FILE,
+    aiConfig   = AiConfig,
+    existsSync = fs.existsSync
+} = {}) {
+    if (!existsSync(configPath)) {
+        return {loaded: false, configPath};
+    }
+
+    await aiConfig.load(configPath);
+
+    return {loaded: true, configPath};
+}
+
+/**
  * Starts the singleton orchestrator daemon.
  * @param {Object} [options] Runtime overrides for tests or process managers.
  * @returns {Promise<void>}
@@ -137,8 +161,10 @@ export async function startOrchestrator(options = {}) {
     fs.ensureDirSync(DAEMON_DATA_DIR);
     await enforceSingleton();
     setupCleanupHandlers();
+    await loadLocalAiConfig();
     return Orchestrator.start({
         dataDir: DAEMON_DATA_DIR,
+        primaryDevSyncRootsConfig: AiConfig.orchestrator?.devSyncRoots,
         ...options
     });
 }

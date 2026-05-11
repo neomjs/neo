@@ -17,4 +17,8 @@ test.describe('Tier 1 Config Immutability', () => {
         expect(Neo.ns('Neo.ai.Config').data.mcpHttpPort).not.toBe(9999);
         expect(Neo.ns('Neo.ai.Config').data.mcpHttpPort).toBe(initialPort);
     });
+
+    test('ships a machine-neutral orchestrator dev-sync root default', async () => {
+        expect(Config.orchestrator.devSyncRoots).toEqual([]);
+    });
 });

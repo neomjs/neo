@@ -105,9 +105,45 @@ When provisioning your containers, supply the following minimal environment vari
 | `NEO_SUMMARIZATION_SWEEP_INTERVAL_MS` | MC | The interval in milliseconds for the bridge-daemon to poll SQLite for un-summarized sessions (default: `600000` = 10 mins). Set to `0` to disable periodic sweeping. |
 | `NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS` | Orchestrator | Primary-checkout `dev` auto-sync cadence (default: `600000` = 10 mins). Set to `0` to disable the periodic trigger. |
 | `NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED` | Orchestrator | Set to `false`/`0`/`no`/`off` to disable the primary-checkout auto-sync lane without changing the daemon process. |
-| `NEO_ORCHESTRATOR_DEV_SYNC_ROOTS` | Orchestrator | Optional JSON array of absolute Neo repo roots to include in the primary-dev-sync lane. Unset preserves the single owning-checkout behavior. Configured roots are never auto-discovered or branch-switched; non-`dev` roots are fetch-only. KB sync still cascades once from the owning checkout after at least one successful `dev` update. |
+| `NEO_ORCHESTRATOR_DEV_SYNC_ROOTS` | Orchestrator | Optional JSON array of absolute Neo repo roots to include in the primary-dev-sync lane. This env var has precedence over local config. Unset preserves the single owning-checkout behavior unless `ai/config.mjs` sets `orchestrator.devSyncRoots`. Configured roots are never auto-discovered or branch-switched; non-`dev` roots are fetch-only. KB sync still cascades once from the owning checkout after at least one successful `dev` update. |
 
 *(Notes: Public URL advertising is tracked under [#10802](https://github.com/neomjs/neo/issues/10802). Provider consolidation shipped in [PR #10810](https://github.com/neomjs/neo/pull/10810) — `embeddingProvider` is now the canonical selector. Env-var ergonomics shipped in [#10808](https://github.com/neomjs/neo/issues/10808): `MCP_HTTP_PORT` is the canonical operator-facing env var (`SSE_PORT` remains readable during the deprecation window with a warning); `NEO_CHROMA_HOST` / `NEO_CHROMA_PORT` are now env-overridable on both KB + MC. Session-summary single-writer flag `NEO_MC_PRIMARY` has been deprecated in favor of daemon-owned locks per Piece B/C migration [#10956](https://github.com/neomjs/neo/issues/10956).)*
+
+### Local Orchestrator Dev-Sync Roots
+
+The orchestrator can sync multiple local Neo checkouts through the primary-dev-sync lane without committing machine-specific paths. Precedence is:
+
+1. `NEO_ORCHESTRATOR_DEV_SYNC_ROOTS`
+2. `ai/config.mjs` `orchestrator.devSyncRoots`
+3. unset single owning-checkout behavior
+
+For a durable local setup, create the gitignored `ai/config.mjs` file:
+
+```js
+export default {
+    orchestrator: {
+        devSyncRoots: [
+            '/absolute/path/to/neo-gpt/neo',
+            '/absolute/path/to/neo-gemini/neo',
+            '/absolute/path/to/neo-opus/neo'
+        ]
+    }
+};
+```
+
+Then start the existing orchestrator command:
+
+```sh
+npm run ai:orchestrator
+```
+
+For one-off process-manager overrides, keep using the env var:
+
+```sh
+NEO_ORCHESTRATOR_DEV_SYNC_ROOTS='["/absolute/path/to/neo-gpt/neo","/absolute/path/to/neo-gemini/neo","/absolute/path/to/neo-opus/neo"]' npm run ai:orchestrator
+```
+
+Do not add real local clone paths to `package.json` or `ai/config.template.mjs`; the template default remains `orchestrator.devSyncRoots: []`.
 
 ## Section 7: Healthcheck Verification
 
