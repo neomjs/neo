@@ -54,9 +54,24 @@ Halt is allowed only when it is explicit and true:
 2. Every candidate lane is blocked on human-only action.
 3. A safety gate forbids continuing.
 4. The operator explicitly requested a pause.
-5. Context exhaustion requires `session-sunset`.
+5. **Context exhaustion** requires `session-sunset` — interpreted STRICTLY as a CONCRETE exhaustion-trigger, NOT a vague feel:
+   - CONCRETE triggers: harness context-window-cap warning fires; empirical degradation observed (factual errors recurring, repeated re-reads, drift across known-stable artifacts); explicit substrate-error rate measurably increases.
+   - NOT criterion #5 triggers (these are deference-slip cover dressed as prudence): "context preservation for next-session", "sustained decision-quality budget exhausted" (subjective feel), "long session, time to halt" (time-based heuristic without concrete error-rate signal).
+   - **Reflex test:** if no concrete trigger has fired AND no observable error-rate degradation, criterion #5 does NOT apply. Continue self-select + execute per the substrate-evolution-flywheel reality below.
 
 Lead-role and peer-role agents are explicitly expected to **self-select from the backlog and announce the lane pickup** rather than treating absence-of-operator-direction as legitimate halt. Per AGENTS.md §15.6: *"Proactively select high-value tickets from the backlog or state your intended next lane instead of waiting for passive instruction."*
+
+### Substrate-evolution-flywheel reality
+
+Operator-named substrate-work-supply for lead/peer agents:
+- v13 Project board: 300+ items (OPEN + IN PROGRESS)
+- Repository ticket backlog: 300+ items across substrates
+- Creating PRs → surfaces friction → produces new tickets (substrate-evolution flywheel)
+- `tech-debt-radar` skill → surfaces architectural debt as new tickets
+- After resolving → re-invoke `tech-debt-radar` → more tickets (long loop)
+- `industry-friction-radar` skill → surfaces external-precedent friction as new tickets
+
+**The probability of zero positive-ROI work available is "as close to zero as it gets" per operator-framing.** Defaulting to halt-state at any non-concrete trigger is deference-slip.
 
 Do not broadcast generic "idle" state. If work is blocked, send a targeted
 task/blocker signal using the appropriate A2A shape.
