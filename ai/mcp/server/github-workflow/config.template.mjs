@@ -72,7 +72,12 @@ const defaultConfig = {
          */
         issuesDir: path.resolve(projectRoot, 'resources/content/issues'),
         /**
-         * The path to the directory for archived issues.
+         * The root directory for version-based archives across all entities.
+         * @type {string}
+         */
+        archiveRoot: path.resolve(projectRoot, 'resources/content/archive'),
+        /**
+         * The path to the directory for archived issues (Legacy, retained for BC if needed).
          * @type {string}
          */
         archiveDir: path.resolve(projectRoot, 'resources/content/issue-archive'),
@@ -214,6 +219,10 @@ const defaultConfig = {
     }
 };
 
+const envBindings = {
+    'issueSync.archiveRoot': 'NEO_MCP_GITHUB_ARCHIVE_ROOT'
+};
+
 /**
  * @summary Configuration manager for the GitHub Workflow MCP server.
  *
@@ -239,7 +248,7 @@ class Config extends BaseConfig {
     }
 
     defaultConfig = defaultConfig;
-    envBindings = {};
+    envBindings = envBindings;
 
 }
 const instance = Neo.setupClass(Config);
