@@ -1,16 +1,18 @@
 import path                     from 'path';
 import {fileURLToPath}          from 'url';
 import ToolService              from '../../mcp/ToolService.mjs';
-import DatabaseService          from './DatabaseService.mjs';
-import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
-import GraphService             from './GraphService.mjs';
-import HealthService            from './HealthService.mjs';
-import MemoryService            from './MemoryService.mjs';
-import SessionService           from './SessionService.mjs';
-import SummaryService           from './SummaryService.mjs';
-import MailboxService           from './MailboxService.mjs';
-import PermissionService        from './PermissionService.mjs';
-import WakeSubscriptionService  from './WakeSubscriptionService.mjs';
+import {
+    Memory_DatabaseService          as DatabaseService,
+    Memory_ChromaLifecycleService   as ChromaLifecycleService,
+    Memory_GraphService             as GraphService,
+    Memory_HealthService            as HealthService,
+    Memory_Service                  as MemoryService,
+    Memory_SessionService           as SessionService,
+    Memory_SummaryService           as SummaryService,
+    Memory_MailboxService           as MailboxService,
+    Memory_PermissionService        as PermissionService,
+    Memory_WakeSubscriptionService  as WakeSubscriptionService
+} from '../../services.mjs';
 
 const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
