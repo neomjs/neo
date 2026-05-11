@@ -102,6 +102,7 @@ resources/data/deck/EditorConfig.json
 .neo-ai-data
 !.neo-ai-data/concepts/
 ai/mcp/server/*/config.mjs
+ai/config.mjs
 # Runtime artifact — `MailboxService.mjs:259` persistence-error fallback writes
 # `sent-to-cull.jsonl` next to the graph storage path during SENT_TO edge cull
 # events (#10347 Phase 1 diagnostic). Lands at repo root if `aiConfig.storagePaths.graph`

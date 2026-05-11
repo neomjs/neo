@@ -57,6 +57,19 @@ const defaultConfig = {
         trustProxyIdentity: process.env.NEO_AUTH_TRUST_PROXY_IDENTITY === 'true'
     },
     /**
+     * Agent OS maintenance orchestrator configuration.
+     * @type {Object}
+     */
+    orchestrator: {
+        /**
+         * Optional local Neo repo roots for the primary-dev-sync lane.
+         * Keep the template machine-neutral; set real absolute paths in gitignored
+         * `ai/config.mjs` or via `NEO_ORCHESTRATOR_DEV_SYNC_ROOTS`.
+         * @type {String[]}
+         */
+        devSyncRoots: []
+    },
+    /**
      * A dummy embedding function to satisfy ChromaDB when embeddings are provided manually.
      * @returns {Object}
      */

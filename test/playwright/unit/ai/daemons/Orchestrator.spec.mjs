@@ -3,8 +3,14 @@ import path from 'path';
 import Neo from '../../../../../src/Neo.mjs';
 import * as core from '../../../../../src/core/_export.mjs';
 import {
-    Orchestrator
+    Orchestrator,
+    resolvePrimaryDevSyncRootsConfig,
+    resolvePrimaryDevSyncRootsSource
 } from '../../../../../ai/daemons/Orchestrator.mjs';
+import {
+    DEV_SYNC_ROOTS_CONFIG_KEY,
+    DEV_SYNC_ROOTS_ENV_VAR
+} from '../../../../../ai/daemons/services/PrimaryRepoSyncService.mjs';
 import {
     DEFAULT_POLL_INTERVAL_MS,
     DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
@@ -44,6 +50,7 @@ function createTestOrchestrator(config = {}) {
         backupIntervalMs        : config.backupIntervalMs ?? 86400000,
         primaryDevSyncIntervalMs: config.primaryDevSyncIntervalMs ?? 600000,
         primaryDevSyncEnabled   : config.primaryDevSyncEnabled ?? false,
+        primaryDevSyncRootsConfig: config.primaryDevSyncRootsConfig ?? null,
         healthService           : config.healthService || {recordTaskOutcome() {}},
         summarizationCoordinator: config.summarizationCoordinator || {getDueTask: () => null},
         backupCoordinator       : config.backupCoordinator || {getDueTask: () => null},
@@ -204,6 +211,68 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             taskName: PRIMARY_DEV_SYNC_TASK_NAME,
             reason  : 'periodic-sweep:600000'
         }]);
+    });
+
+    test('passes local dev-sync roots to primary-dev-sync while env keeps precedence', () => {
+        const originalEnvValue = process.env[DEV_SYNC_ROOTS_ENV_VAR];
+        delete process.env[DEV_SYNC_ROOTS_ENV_VAR];
+
+        try {
+            const received = [];
+            const orchestrator = createTestOrchestrator({
+                kbSyncIntervalMs          : 0,
+                backupIntervalMs          : 0,
+                primaryDevSyncEnabled     : true,
+                primaryDevSyncIntervalMs  : 600000,
+                primaryDevSyncRootsConfig : ['/config/neo'],
+                primaryRepoSyncService    : {
+                    getDueTask() {
+                        return {
+                            taskName: PRIMARY_DEV_SYNC_TASK_NAME,
+                            reason  : 'periodic-sweep:600000'
+                        };
+                    },
+                    runTask(options) {
+                        received.push({
+                            value : options.devSyncRootsConfig,
+                            source: options.devSyncRootsSource
+                        });
+                    }
+                }
+            });
+
+            orchestrator.processSupervisorService = {
+                runTask() {}
+            };
+
+            orchestrator.poll();
+
+            process.env[DEV_SYNC_ROOTS_ENV_VAR] = '["/env/neo"]';
+            orchestrator.poll();
+
+            expect(received).toEqual([{
+                value : ['/config/neo'],
+                source: DEV_SYNC_ROOTS_CONFIG_KEY
+            }, {
+                value : '["/env/neo"]',
+                source: DEV_SYNC_ROOTS_ENV_VAR
+            }]);
+            expect(resolvePrimaryDevSyncRootsConfig({
+                envValue   : '',
+                configValue: ['/config/neo']
+            })).toEqual(['/config/neo']);
+            expect(resolvePrimaryDevSyncRootsConfig({
+                envValue   : '',
+                configValue: []
+            })).toBeNull();
+            expect(resolvePrimaryDevSyncRootsSource({envValue: ''})).toBe(DEV_SYNC_ROOTS_CONFIG_KEY);
+        } finally {
+            if (originalEnvValue === undefined) {
+                delete process.env[DEV_SYNC_ROOTS_ENV_VAR];
+            } else {
+                process.env[DEV_SYNC_ROOTS_ENV_VAR] = originalEnvValue;
+            }
+        }
     });
 
 });
