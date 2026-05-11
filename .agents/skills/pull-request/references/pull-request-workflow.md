@@ -200,7 +200,7 @@ These three sections are mandatory in the PR body for substrate-mutating PRs fro
 
 **Reviewer obligation**: the cross-family reviewer MUST verify the Signal Ledger BEFORE stamping `reviewDecision: APPROVED`:
 
-1. Read the cited Discussion via `get_conversation` or GraphQL
+1. Read the cited Discussion via GitHub GraphQL (`gh api graphql -f query='{ repository(owner, name) { discussion(number: N) { body comments { ... } } } }'`), public comment URLs, or the locally synced discussion artifact when available. Note: the github-workflow MCP `get_conversation` tool is PR-specific; it does NOT retrieve Discussion content.
 2. Confirm each peer's APPROVED signal exists at the cited commentId
 3. Confirm version-binding: signals are bound to the substrate state being implemented (not stale relative to body edits)
 4. Confirm any DEFERRED/VETO carries explicit operator-override + residual-risk documentation
