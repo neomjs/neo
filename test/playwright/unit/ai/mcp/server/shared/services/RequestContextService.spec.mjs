@@ -16,7 +16,14 @@ setup({
 import {test, expect}         from '@playwright/test';
 import Neo                    from '../../../../../../../../src/Neo.mjs';
 import * as core              from '../../../../../../../../src/core/_export.mjs';
-import RequestContextService, {SHARED_USER_ID, normalizeUserId}  from '../../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
+import RequestContextService, {
+    CORE_SWARM_AGENT_IDS,
+    CORE_SWARM_USER_IDS,
+    SHARED_USER_ID,
+    hasCoreSwarmParticipant,
+    normalizeUserId,
+    resolveSummaryVisibilityUserId
+} from '../../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
 test.describe('Neo.ai.mcp.server.shared.services.RequestContextService (#10000)', () => {
     test('get/getUserId/getUsername return undefined when no context is active', () => {
@@ -97,7 +104,7 @@ test.describe('Neo.ai.mcp.server.shared.services.RequestContextService (#10000)'
     });
 });
 
-test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556)', () => {
+test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556, #11181)', () => {
     test('SHARED_USER_ID is the string `shared`', () => {
         // The sentinel value the migration runner tags legacy records with, and the read-side
         // $or filter grants additive access to.
@@ -125,6 +132,29 @@ test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556)',
         const match = source.match(/^const\s+SHARED_USER_ID\s*=\s*['"](.+?)['"]\s*;?\s*$/m);
         expect(match, 'expected `const SHARED_USER_ID = ...` in migration runner script').not.toBeNull();
         expect(match[1]).toBe(SHARED_USER_ID);
+    });
+
+    test('CORE_SWARM_USER_IDS is in sync with the migration runner script\'s hardcoded copy', async () => {
+        const fs   = await import('fs');
+        const path = await import('path');
+
+        const repoRoot   = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../../../../../..');
+        const scriptPath = path.join(repoRoot, 'ai/scripts/backfillChromaSharedUserId.mjs');
+        const source     = fs.readFileSync(scriptPath, 'utf-8');
+
+        const match = source.match(/^const\s+CORE_SWARM_USER_IDS\s*=\s*Object\.freeze\(\s*\[([\s\S]+?)\]\s*\)\s*;?\s*$/m);
+        expect(match, 'expected `const CORE_SWARM_USER_IDS = Object.freeze([...])` in migration runner script').not.toBeNull();
+
+        const scriptUserIds = match[1]
+            .split(',')
+            .map(value => value.trim().replace(/^['"]|['"]$/g, ''))
+            .filter(Boolean);
+
+        expect(scriptUserIds).toEqual(CORE_SWARM_USER_IDS);
+    });
+
+    test('CORE_SWARM_AGENT_IDS mirrors user ids in AgentIdentity form', () => {
+        expect(CORE_SWARM_AGENT_IDS).toEqual(CORE_SWARM_USER_IDS.map(userId => `@${userId}`));
     });
 
     test('normalizeUserId strips `@`-prefix at the AgentIdentity ↔ userId boundary', () => {
@@ -173,5 +203,35 @@ test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556)',
         // `userId: '@x'` — the silent-self-filter trap.
         expect(normalizeUserId('@x')).toBe(normalizeUserId('x'));
         expect(normalizeUserId('@neo-opus-4-7')).toBe(normalizeUserId('neo-opus-4-7'));
+    });
+
+    test('hasCoreSwarmParticipant detects comma-separated and array-form agent lists', () => {
+        expect(hasCoreSwarmParticipant('@neo-gpt')).toBe(true);
+        expect(hasCoreSwarmParticipant('@alice, @neo-opus-4-7')).toBe(true);
+        expect(hasCoreSwarmParticipant(['neo-gemini-3-1-pro', '@alice'])).toBe(true);
+        expect(hasCoreSwarmParticipant('@alice,@bob')).toBe(false);
+        expect(hasCoreSwarmParticipant(undefined)).toBe(false);
+    });
+
+    test('resolveSummaryVisibilityUserId promotes core-swarm summaries to shared', () => {
+        expect(resolveSummaryVisibilityUserId({
+            userId: 'neo-gemini-3-1-pro',
+            participatingAgents: '@neo-gpt'
+        })).toBe(SHARED_USER_ID);
+
+        expect(resolveSummaryVisibilityUserId({
+            userId: undefined,
+            participatingAgents: '@neo-opus-4-7'
+        })).toBe(SHARED_USER_ID);
+
+        expect(resolveSummaryVisibilityUserId({
+            userId: '@alice',
+            participatingAgents: '@alice'
+        })).toBe('alice');
+
+        expect(resolveSummaryVisibilityUserId({
+            userId: undefined,
+            participatingAgents: ''
+        })).toBeUndefined();
     });
 });
