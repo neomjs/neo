@@ -139,5 +139,5 @@ Before pushing your new skill, check:
 - [ ] Is there exactly one `SKILL.md` in the root of the skill folder?
 - [ ] Does `SKILL.md` have the strictly formatted YAML `name`, `description`, and `triggers` block?
 - [ ] Is the heavy instructional content stored entirely in the `references/` directory?
-- [ ] Does the `SKILL.md` body provide the explicit **absolute path** to the reference file?
+- [ ] Does the `SKILL.md` body provide the explicit project-relative path to the reference file?
 - [ ] Is there a corresponding symlink for the new skill in `.claude/skills/`?
