@@ -14,6 +14,13 @@ The act of opening a PR is an irreversible state transition in the Agent OS. Bef
 
 *If and only if* you pass this reflection phase, proceed to the Git execution sequence.
 
+### 1.0 The Sandman Handoff Pre-Flight Guard
+
+Before creating any new PR, verify that you have executed the `/sandman-handoff-pre-flight` skill (AGENTS.md §21) to ensure no blocking states exist.
+*(Note: Do not inline the fail-open/closed predicate here; defer to the canonical skill atlas.)*
+
+*Cross-Skill Mandate:* If your new PR will touch substrate files (`AGENTS.md`, SKILL atlases, etc.), the `/turn-memory-pre-flight` skill (AGENTS.md §21) MUST fire BEFORE this workflow gate to validate the substrate placement.
+
 ### 1.1 The Substrate-Mutation Pre-Flight Gate
 
 If your PR touches **any** of the following paths:
