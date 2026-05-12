@@ -20,6 +20,13 @@ If any trigger below fires, default to Drop+Supersede framing: one close/restart
 | Anti-pattern instantiation | Does the change instantiate a pattern Neo doctrine forbids, such as named-maintainer orchestrator/worker mapping, framework-category drift, or banned shell editing? |
 | Strategic-misalignment | Does the work conflict with active roadmap direction, reserved lane ownership, deprecated subsystem direction, or an operator halt? |
 | Better-existing-substrate | Does existing code, Memory Core, or KB evidence already solve the problem, making the PR reinvention? |
+| Source-ticket stale/currency-risk | Is the linked ticket older than the stale workflow threshold, stale, `no auto close`, or plausibly superseded, and did the reviewer check newer tickets, newer PRs, merged PRs without close keywords, active epics, recent Discussions, and current source/docs/tests before accepting it as authority? |
+
+## Source-Ticket Currency Rule
+
+Age and exemption state are risk signals, not verdicts. For source-ticket stale/currency-risk, the reviewer must prove current authority before approval: newer tickets, newer or merged PRs without close keywords, active epics, recent Discussions, and current source/docs/tests can supersede a still-open ticket.
+
+If currency is unverified or contradicted, request source-ticket refresh or Drop+Supersede/restart instead of iterating implementation details. This is the reviewer-side companion to #10758; do not duplicate #10758's intake-side age-band procedure here.
 
 ## Bias Defended Against
 
