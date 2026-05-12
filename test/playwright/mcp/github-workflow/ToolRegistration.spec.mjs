@@ -24,7 +24,7 @@ test.describe('GitHub Workflow MCP Server Tool Registration', () => {
     });
 
     test('manage_issue_projects is registered in toolService.mjs (#11233 Phase 1)', () => {
-        const filePath = path.resolve(__dirname, '../../../../ai/services/github-workflow/toolService.mjs');
+        const filePath = path.resolve(__dirname, '../../../../ai/mcp/server/github-workflow/toolService.mjs');
 
         expect(fs.existsSync(filePath), `toolService.mjs not found at ${filePath}`).toBe(true);
 
