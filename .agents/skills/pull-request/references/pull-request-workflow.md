@@ -16,7 +16,10 @@ The act of opening a PR is an irreversible state transition in the Agent OS. Bef
 
 ### 1.0 The Sandman Handoff Pre-Flight Guard
 
-Before creating any new PR, verify that `resources/content/sandman_handoff.md` does not contain a blocking `lane-state` (e.g., `AWAITING_REVIEW`, `AWAITING_HUMAN`). If a blocking state is active, you are explicitly forbidden from initiating new PR creation until it is resolved.
+Before creating any new PR, verify that `resources/content/sandman_handoff.md` does not contain a blocking `lane-state` (e.g., `AWAITING_REVIEW`, `AWAITING_HUMAN`, or an unknown state). If a blocking state is active, you are explicitly forbidden from initiating new PR creation until it is resolved.
+*(Note: If `sandman_handoff.md` is missing or lacks a `lane-state` section, fail-open and proceed. See AGENTS.md §22 for full semantics.)*
+
+*Cross-Skill Mandate:* If your new PR will touch substrate files (`AGENTS.md`, SKILL atlases, etc.), the `/turn-memory-pre-flight` skill (AGENTS.md §21) MUST fire BEFORE this workflow gate to validate the substrate placement.
 
 ### 1.1 The Substrate-Mutation Pre-Flight Gate
 

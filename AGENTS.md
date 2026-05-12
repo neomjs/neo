@@ -148,9 +148,11 @@ For substrate-quality heuristics that operationalize this principle without beco
 ## 22. Turn Start & Session Boot Pre-Flights
 
 **Session Boot Pre-Flight (The Sandman Handoff):**
-At the very beginning of a newly booted session, before executing any workflow skills, you MUST read `resources/content/sandman_handoff.md`.
-- **Hard-Refusal Predicate:** If the `lane-state` is `AWAITING_REVIEW`, `AWAITING_HUMAN`, or a similar blocked state, you MUST halt execution of any new ticket intake or PR creation.
-- **Operator Notification:** You must explicitly log/state the blocked state to the human operator in your response, and await their explicit override before proceeding with new work.
+At the very beginning of a newly booted session, before executing any workflow skills, you MUST read the runtime artifact `resources/content/sandman_handoff.md`.
+- **Fail-Open / Fail-Closed Semantics:** This file is `.gitignored`. If the file is missing entirely (e.g., fresh clone) OR exists but lacks a `lane-state` section, **fail-open** (proceed normally). If the file exists but has an unknown `lane-state` value, **fail-closed** (halt and notify operator).
+- **Hard-Refusal Predicate:** If the `lane-state` is `AWAITING_REVIEW`, `AWAITING_HUMAN`, or any unknown value, you MUST halt execution.
+- **Scope Boundary:** This predicate blocks explicitly: new ticket intake, opening new PRs, and starting new substrate-evolution work. It explicitly DOES NOT block: Cycle N reviews of existing PRs, A2A coordination, memory-mining, or directly responding to operator directives.
+- **Operator Notification:** You must explicitly log/state the blocked state to the human operator in your response, and await their explicit override before proceeding with blocked work.
 
 **The Mailbox Check Protocol (Turn Start):**
 At every turn start, you MUST check your A2A mailbox for unread messages.
