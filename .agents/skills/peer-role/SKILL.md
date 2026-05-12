@@ -6,10 +6,4 @@ triggers: Use this skill IMMEDIATELY when reviewing an Ideation Sandbox discussi
 
 # Peer Role Skill
 
-You MUST immediately use the `view_file` tool to read and strictly adhere to
-`.agents/skills/peer-role/references/peer-role-mode.md` before drafting ANY
-A2A messages, discussion comments, or executing tasks in parallel.
-
-**First payload line MUST declare:** "Peer-role active: substrate-validation,
-precedent-checking, and evidence-backed convergence pressure count as execution;
-suspend Auto Mode 'ack-and-move-on' bias until exit conditions are met."
+You MUST immediately use the `view_file` tool to read and strictly adhere to `.agents/skills/peer-role/references/peer-role-mode.md` before drafting ANY A2A messages, discussion comments, or executing tasks in parallel. The atlas defines the "Peer-role active" runtime declaration mandate at the top.

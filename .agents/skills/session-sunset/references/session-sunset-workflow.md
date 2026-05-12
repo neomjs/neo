@@ -14,6 +14,16 @@ To an LLM, yielding a prompt resolution feels like a "termination," but to a Hum
 
 You are strictly **FORBIDDEN** from executing the Sunset Protocol simply because you finished a prompt and yielded control back to the human. You MUST only execute the Sunset Protocol when a true **Session Boundary** is reached.
 
+### Anti-Triggers (Completion Bias Guard)
+
+**Task Completion ≠ Session Sunset.** You must **halt and wait for the next turn** (do NOT sunset) if you are:
+
+1. **Halting for Peer Review:** Waiting for cross-family PR review or human feedback. This is an active lifecycle state, not a boundary.
+2. **Single Task Completion:** Finishing one ticket/task while your context window is still healthy. Pick up the next task.
+3. **Asynchronous Delays:** Waiting for CI, test results, or A2A responses.
+
+Sunsets are strictly reserved for **Context Window Exhaustion** (>75% full/forgetfulness), **Macro-Semantic Pivots**, or **Explicit Human Directives** — codified as the 4 trigger conditions below.
+
 A true Session Boundary is defined by:
 1. **Context Window Exhaustion:** You are approaching the token limit of your model (e.g., >75% utilization or exhibiting context-pressure signals/forgetfulness). Avoid hardcoding specific token counts as models evolve.
 2. **Macro-Semantic Pivot:** The human explicitly shifts focus to a completely new domain, epic, or architectural phase (e.g., switching from Database Layer substrate work to UI Framework component design), requiring a clean slate. *Asymmetry Tiebreaker: The cost of a premature sunset is greater than a late sunset; when in doubt, lean conservative and keep the session open.*
