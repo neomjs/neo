@@ -8,7 +8,22 @@ import {promisify}       from 'util';
 import {spawn}           from 'child_process';
 import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST} from './queries/issueQueries.mjs';
 import {GET_PULL_REQUEST_ID} from './queries/pullRequestQueries.mjs';
-import {ADD_LABELS, REMOVE_LABELS, ADD_SUB_ISSUE, REMOVE_SUB_ISSUE, ADD_BLOCKED_BY, REMOVE_BLOCKED_BY, GET_ISSUE_ID, ADD_COMMENT, UPDATE_COMMENT} from './queries/mutations.mjs';
+import {
+    ADD_LABELS,
+    REMOVE_LABELS,
+    ADD_SUB_ISSUE,
+    REMOVE_SUB_ISSUE,
+    ADD_BLOCKED_BY,
+    REMOVE_BLOCKED_BY,
+    GET_ISSUE_ID,
+    ADD_COMMENT,
+    UPDATE_COMMENT,
+    GET_PROJECT_V2_METADATA,
+    ADD_PROJECT_V2_ITEM,
+    DELETE_PROJECT_V2_ITEM,
+    FIND_PROJECT_V2_ITEM_BY_CONTENT,
+    UPDATE_PROJECT_V2_ITEM_SINGLE_SELECT
+} from './queries/mutations.mjs';
 
 const execAsync = promisify(exec);
 
@@ -219,15 +234,30 @@ class IssueService extends Base {
     }
 
     /**
-     * Creates a new GitHub issue using the `gh` CLI.
-     * @param {object}   options                The options for creating the issue.
-     * @param {string}   options.title          The title of the issue.
-     * @param {string}   [options.body='']      The Markdown body of the issue.
-     * @param {string[]} [options.labels=[]]    An array of labels to add to the issue.
-     * @param {string[]} [options.assignees=[]] An array of user logins to assign.
+     * Creates a new GitHub issue using the `gh` CLI, then optionally attaches it to ProjectV2 boards.
+     *
+     * **ProjectV2 membership atomicity:** When `projects` is non-empty, the issue is first created
+     * via the CLI; on success, the issue's GraphQL node ID is fetched and each ProjectV2 attach
+     * is chained via the `addProjectV2ItemById` mutation. Project-attach failures are surfaced
+     * in the return payload as `projectAttachWarnings` but do NOT roll back the issue creation —
+     * the issue exists on GitHub and partial-attach is the failure mode (graceful degradation
+     * rather than orphaned creation rollback).
+     *
+     * This is the substrate-correct primitive that replaces the deprecated `release:v*`
+     * label-as-project-proxy pattern (#11233). Labels and projects are independent first-class
+     * GitHub primitives; the proxy pattern produces structural drift between them.
+     *
+     * @param {object}   options                       The options for creating the issue.
+     * @param {string}   options.title                 The title of the issue.
+     * @param {string}   [options.body='']             The Markdown body of the issue.
+     * @param {string[]} [options.labels=[]]           An array of labels to add to the issue.
+     * @param {string[]} [options.assignees=[]]        An array of user logins to assign.
+     * @param {Array<{projectNumber: number}>} [options.projects=[]] An array of ProjectV2 memberships
+     *     to attach atomically after issue creation. Each entry specifies the org-level project number.
      * @returns {Promise<object>} A promise that resolves to the new issue's data or a structured error.
+     *     On success: `{ issueNumber, url, projectAttachments?: Array<{projectNumber, projectId, itemId}>, projectAttachWarnings?: Array<{projectNumber, error}> }`.
      */
-    async createIssue({title, body='', labels=[], assignees=[]}) {
+    async createIssue({title, body='', labels=[], assignees=[], projects=[]}) {
         logger.info(`Attempting to create GitHub issue: "${title}"`);
 
         // Permission check is only required if we are trying to assign users.
@@ -295,7 +325,21 @@ class IssueService extends Base {
             }
 
             logger.info(`Successfully created GitHub issue #${issueNumber}: ${issueUrl}`);
-            return { issueNumber, url: issueUrl };
+
+            const result = { issueNumber, url: issueUrl };
+
+            // ProjectV2 attach (atomic for each project — partial-attach is acceptable failure mode)
+            if (projects && projects.length > 0) {
+                const attachResult = await this.attachIssueToProjects(issueNumber, projects);
+                if (attachResult.attachments.length > 0) {
+                    result.projectAttachments = attachResult.attachments;
+                }
+                if (attachResult.warnings.length > 0) {
+                    result.projectAttachWarnings = attachResult.warnings;
+                }
+            }
+
+            return result;
 
         } catch (error) {
             logger.error('Error creating GitHub issue:', error);
@@ -305,6 +349,380 @@ class IssueService extends Base {
                 code   : 'GH_CLI_ERROR'
             };
         }
+    }
+
+    /**
+     * Resolves a project number to its GraphQL node ID + field metadata.
+     *
+     * GitHub Projects v2 mutations require opaque node IDs (`PVT_*`); the user-facing project
+     * number is only valid for lookup queries. This helper caches per-call (no cross-call
+     * caching — each invocation is one round-trip; if calling repeatedly for the same project
+     * within a single high-level operation, prefer batching at the caller level).
+     *
+     * @param {number} projectNumber The org-level project number.
+     * @returns {Promise<{projectId: string, title: string, fields: object[]}|{error, message, code}>}
+     */
+    async getProjectV2Metadata(projectNumber) {
+        try {
+            const result = await GraphqlService.query(GET_PROJECT_V2_METADATA, {
+                owner : aiConfig.owner,
+                number: projectNumber
+            });
+
+            const project = result.organization?.projectV2;
+            if (!project) {
+                return {
+                    error  : 'Not Found',
+                    message: `ProjectV2 #${projectNumber} not found under owner '${aiConfig.owner}'.`,
+                    code   : 'PROJECT_NOT_FOUND'
+                };
+            }
+
+            return {
+                projectId: project.id,
+                title    : project.title,
+                fields   : project.fields?.nodes || []
+            };
+        } catch (error) {
+            logger.error(`Error fetching ProjectV2 #${projectNumber} metadata:`, error);
+            return {
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Resolves an issue number to its GraphQL node ID.
+     *
+     * Used as a precursor to mutations requiring the global node ID (ProjectV2 attach,
+     * sub-issue relationships, etc.). Mirrors the GET_ISSUE_ID two-step pattern used
+     * elsewhere in this service.
+     *
+     * @param {number} issueNumber The issue number.
+     * @returns {Promise<string|null>} The issue's GraphQL node ID, or `null` if not found.
+     */
+    async getIssueNodeId(issueNumber) {
+        try {
+            const result = await GraphqlService.query(GET_ISSUE_ID, {
+                owner : aiConfig.owner,
+                repo  : aiConfig.repo,
+                number: issueNumber
+            });
+            return result.repository?.issue?.id || null;
+        } catch (error) {
+            logger.error(`Error fetching issue #${issueNumber} node ID:`, error);
+            return null;
+        }
+    }
+
+    /**
+     * Attaches an issue to one or more ProjectV2 boards.
+     *
+     * Best-effort: each project attach is independent; failures are collected as warnings
+     * rather than aborting the whole batch. This matches the createIssue contract that
+     * partial-attach is acceptable (the issue exists; orphan-rollback is worse than
+     * partial-attach for agent workflows).
+     *
+     * @param {number} issueNumber The issue to attach.
+     * @param {Array<{projectNumber: number}>} projects The projects to attach to.
+     * @returns {Promise<{attachments: Array<object>, warnings: Array<object>}>}
+     */
+    async attachIssueToProjects(issueNumber, projects) {
+        const attachments = [];
+        const warnings    = [];
+
+        const contentId = await this.getIssueNodeId(issueNumber);
+        if (!contentId) {
+            warnings.push({
+                projectNumber: null,
+                error        : `Could not resolve GraphQL node ID for issue #${issueNumber}; skipping project attach.`
+            });
+            return { attachments, warnings };
+        }
+
+        for (const {projectNumber} of projects) {
+            const metadata = await this.getProjectV2Metadata(projectNumber);
+            if (metadata.error) {
+                warnings.push({projectNumber, error: metadata.message});
+                continue;
+            }
+
+            try {
+                const result = await GraphqlService.query(ADD_PROJECT_V2_ITEM, {
+                    projectId: metadata.projectId,
+                    contentId
+                });
+                attachments.push({
+                    projectNumber,
+                    projectId: metadata.projectId,
+                    itemId   : result.addProjectV2ItemById.item.id
+                });
+            } catch (error) {
+                logger.error(`Error attaching issue #${issueNumber} to ProjectV2 #${projectNumber}:`, error);
+                warnings.push({projectNumber, error: error.message});
+            }
+        }
+
+        return { attachments, warnings };
+    }
+
+    /**
+     * Unified entry point for adding/removing/updating an issue's ProjectV2 memberships.
+     *
+     * Mirror-shape of `manageIssueLabels` for the project-membership substrate. The substrate-correct
+     * replacement for the deprecated `release:v*` label-as-project-membership-proxy pattern (#11233).
+     *
+     * **Action: 'add'** — Attaches the issue to one or more ProjectV2 boards.
+     *   Requires `projectNumbers: number[]`.
+     *
+     * **Action: 'remove'** — Removes the issue from one or more ProjectV2 boards.
+     *   Requires `projectNumbers: number[]`.
+     *
+     * **Action: 'update_field'** — Updates a single-select field value on the issue's project item.
+     *   Requires `projectNumber: number`, `fieldName: string`, `value: string` (the option name).
+     *
+     * @param {object}   options                   The options object.
+     * @param {number}   options.issue_number      The issue number to manage.
+     * @param {string}   options.action            The action: 'add' | 'remove' | 'update_field'.
+     * @param {number[]} [options.projectNumbers]  Required for 'add'/'remove'.
+     * @param {number}   [options.projectNumber]   Required for 'update_field'.
+     * @param {string}   [options.fieldName]       Required for 'update_field' (the field name, e.g., 'Status').
+     * @param {string}   [options.value]           Required for 'update_field' (the single-select option name).
+     * @returns {Promise<object>} Success message + per-project details, or structured error.
+     */
+    async manageIssueProjects({issue_number, action, projectNumbers, projectNumber, fieldName, value}) {
+        if (!['add', 'remove', 'update_field'].includes(action)) {
+            return {
+                error  : 'Bad Request',
+                message: "Invalid action. Must be 'add', 'remove', or 'update_field'.",
+                code   : 'INVALID_ARGUMENTS'
+            };
+        }
+
+        if (action === 'add') {
+            if (!Array.isArray(projectNumbers) || projectNumbers.length === 0) {
+                return {
+                    error  : 'Bad Request',
+                    message: "Action 'add' requires non-empty `projectNumbers` array.",
+                    code   : 'INVALID_ARGUMENTS'
+                };
+            }
+            const projects = projectNumbers.map(n => ({projectNumber: n}));
+            const result   = await this.attachIssueToProjects(issue_number, projects);
+            return {
+                message    : `Attempted to attach issue #${issue_number} to ${projects.length} project(s).`,
+                attachments: result.attachments,
+                warnings   : result.warnings
+            };
+        }
+
+        if (action === 'remove') {
+            if (!Array.isArray(projectNumbers) || projectNumbers.length === 0) {
+                return {
+                    error  : 'Bad Request',
+                    message: "Action 'remove' requires non-empty `projectNumbers` array.",
+                    code   : 'INVALID_ARGUMENTS'
+                };
+            }
+            return this.detachIssueFromProjects(issue_number, projectNumbers);
+        }
+
+        // action === 'update_field'
+        if (typeof projectNumber !== 'number' || !fieldName || !value) {
+            return {
+                error  : 'Bad Request',
+                message: "Action 'update_field' requires `projectNumber` (integer), `fieldName` (string), and `value` (string).",
+                code   : 'INVALID_ARGUMENTS'
+            };
+        }
+
+        return this.updateProjectV2ItemSingleSelect(issue_number, projectNumber, fieldName, value);
+    }
+
+    /**
+     * Detaches an issue from one or more ProjectV2 boards.
+     *
+     * For each project, resolves projectId + itemId (the project-item ID, distinct from the
+     * issue node ID), then calls `deleteProjectV2Item`. Per-project failures are collected as
+     * warnings; the function returns the aggregate result.
+     *
+     * @param {number}   issueNumber    The issue to detach.
+     * @param {number[]} projectNumbers The project numbers to detach from.
+     * @returns {Promise<object>} Aggregate result with `removed` + `warnings` arrays.
+     */
+    async detachIssueFromProjects(issueNumber, projectNumbers) {
+        const removed  = [];
+        const warnings = [];
+
+        const contentId = await this.getIssueNodeId(issueNumber);
+        if (!contentId) {
+            return {
+                error  : 'Not Found',
+                message: `Could not resolve GraphQL node ID for issue #${issueNumber}.`,
+                code   : 'ISSUE_NOT_FOUND'
+            };
+        }
+
+        for (const projectNumber of projectNumbers) {
+            const metadata = await this.getProjectV2Metadata(projectNumber);
+            if (metadata.error) {
+                warnings.push({projectNumber, error: metadata.message});
+                continue;
+            }
+
+            const itemId = await this.findProjectV2ItemId(metadata.projectId, contentId);
+            if (!itemId) {
+                warnings.push({
+                    projectNumber,
+                    error: `Issue #${issueNumber} is not currently a member of ProjectV2 #${projectNumber}.`
+                });
+                continue;
+            }
+
+            try {
+                await GraphqlService.query(DELETE_PROJECT_V2_ITEM, {
+                    projectId: metadata.projectId,
+                    itemId
+                });
+                removed.push({projectNumber, itemId});
+            } catch (error) {
+                logger.error(`Error removing issue #${issueNumber} from ProjectV2 #${projectNumber}:`, error);
+                warnings.push({projectNumber, error: error.message});
+            }
+        }
+
+        return {
+            message: `Attempted to remove issue #${issueNumber} from ${projectNumbers.length} project(s).`,
+            removed,
+            warnings
+        };
+    }
+
+    /**
+     * Updates a single-select field on the issue's ProjectV2 item.
+     *
+     * Resolves field/option IDs from the project's field schema (already fetched via metadata),
+     * then calls `updateProjectV2ItemFieldValue` with the single-select option ID.
+     *
+     * @param {number} issueNumber   The issue.
+     * @param {number} projectNumber The project number containing the item.
+     * @param {string} fieldName     The single-select field name (e.g., 'Status').
+     * @param {string} value         The option name (e.g., 'In Progress').
+     * @returns {Promise<object>} Success or structured error.
+     */
+    async updateProjectV2ItemSingleSelect(issueNumber, projectNumber, fieldName, value) {
+        const contentId = await this.getIssueNodeId(issueNumber);
+        if (!contentId) {
+            return {
+                error  : 'Not Found',
+                message: `Could not resolve GraphQL node ID for issue #${issueNumber}.`,
+                code   : 'ISSUE_NOT_FOUND'
+            };
+        }
+
+        const metadata = await this.getProjectV2Metadata(projectNumber);
+        if (metadata.error) {
+            return metadata;
+        }
+
+        const field = metadata.fields.find(f => f?.name === fieldName);
+        if (!field) {
+            return {
+                error  : 'Not Found',
+                message: `Field '${fieldName}' not found on ProjectV2 #${projectNumber}.`,
+                code   : 'FIELD_NOT_FOUND'
+            };
+        }
+
+        if (!Array.isArray(field.options)) {
+            return {
+                error  : 'Bad Request',
+                message: `Field '${fieldName}' on ProjectV2 #${projectNumber} is not a single-select field; update_field only supports single-select fields in this revision.`,
+                code   : 'UNSUPPORTED_FIELD_TYPE'
+            };
+        }
+
+        const option = field.options.find(o => o.name === value);
+        if (!option) {
+            return {
+                error  : 'Not Found',
+                message: `Option '${value}' not found on field '${fieldName}' of ProjectV2 #${projectNumber}. Available: [${field.options.map(o => o.name).join(', ')}].`,
+                code   : 'OPTION_NOT_FOUND'
+            };
+        }
+
+        const itemId = await this.findProjectV2ItemId(metadata.projectId, contentId);
+        if (!itemId) {
+            return {
+                error  : 'Not Found',
+                message: `Issue #${issueNumber} is not currently a member of ProjectV2 #${projectNumber}; add it first via action:'add'.`,
+                code   : 'ITEM_NOT_FOUND'
+            };
+        }
+
+        try {
+            await GraphqlService.query(UPDATE_PROJECT_V2_ITEM_SINGLE_SELECT, {
+                projectId: metadata.projectId,
+                itemId,
+                fieldId  : field.id,
+                optionId : option.id
+            });
+            return {
+                message: `Set field '${fieldName}' to '${value}' for issue #${issueNumber} on ProjectV2 #${projectNumber}.`,
+                projectId: metadata.projectId,
+                itemId,
+                fieldId  : field.id,
+                optionId : option.id
+            };
+        } catch (error) {
+            logger.error(`Error updating field on ProjectV2 #${projectNumber} item:`, error);
+            return {
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
+            };
+        }
+    }
+
+    /**
+     * Finds the project-item ID (PVTI_*) for an issue's membership in a ProjectV2 board.
+     *
+     * Paginated forward-search through project items, matching by content node ID. The cost
+     * is bounded by the project's item count and is amortized in practice because most agents
+     * resolve a small number of memberships per turn.
+     *
+     * @param {string} projectId The project node ID (PVT_*).
+     * @param {string} contentId The issue/PR node ID (`getIssueNodeId` result).
+     * @returns {Promise<string|null>} The project-item ID, or `null` if not a member.
+     */
+    async findProjectV2ItemId(projectId, contentId) {
+        let after = null;
+        do {
+            try {
+                const result = await GraphqlService.query(FIND_PROJECT_V2_ITEM_BY_CONTENT, {
+                    projectId,
+                    after
+                });
+                const page = result.node?.items;
+                if (!page) {
+                    return null;
+                }
+                const hit = page.nodes.find(n => n.content?.id === contentId);
+                if (hit) {
+                    return hit.id;
+                }
+                if (!page.pageInfo.hasNextPage) {
+                    return null;
+                }
+                after = page.pageInfo.endCursor;
+            } catch (error) {
+                logger.error(`Error scanning ProjectV2 items for content match:`, error);
+                return null;
+            }
+        } while (after);
+        return null;
     }
 
     /**

@@ -267,3 +267,272 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
         });
     });
 });
+
+/**
+ * @summary Contract coverage for `IssueService.manageIssueProjects` ProjectV2 membership surface (#11233 Phase 1).
+ *
+ * `manage_issue_projects` is the substrate-correct replacement for the deprecated `release:v*`
+ * label-as-project-proxy pattern. The three actions (`add`, `remove`, `update_field`) mirror the
+ * `manage_issue_labels` shape and dispatch into the `addProjectV2ItemById`, `deleteProjectV2Item`,
+ * and `updateProjectV2ItemFieldValue` GraphQL mutations respectively.
+ *
+ * Tests exercise the dispatcher boundaries (invalid action, missing required params) and the
+ * mutation chains for the three happy-paths via `GraphqlService.query` monkey-patching. Phase 2
+ * (label-set migration) and Phase 3 (script deletion) are out of scope for these unit tests.
+ *
+ * @see Neo.ai.services.github-workflow.IssueService#manageIssueProjects
+ * @see Neo.ai.services.github-workflow.IssueService#attachIssueToProjects
+ * @see Neo.ai.services.github-workflow.IssueService#detachIssueFromProjects
+ * @see Neo.ai.services.github-workflow.IssueService#updateProjectV2ItemSingleSelect
+ */
+test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueProjects (#11233)', () => {
+    let IssueService;
+    let GraphqlService;
+    let originalQuery;
+
+    test.beforeAll(async () => {
+        GraphqlService = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+        IssueService   = (await import('../../../../../../ai/services/github-workflow/IssueService.mjs')).default;
+
+        originalQuery = GraphqlService.query.bind(GraphqlService);
+    });
+
+    test.afterAll(() => {
+        GraphqlService.query = originalQuery;
+    });
+
+    test.describe('dispatcher validation', () => {
+        test('rejects invalid action', async () => {
+            test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: GraphqlService mock-pollution residual under workers:1 - bucket G (#10924)');
+            let callCount = 0;
+            GraphqlService.query = async () => { callCount++; return null; };
+
+            const result = await IssueService.manageIssueProjects({
+                issue_number: 11233,
+                action      : 'delete',  // not a supported action
+                projectNumbers: [12]
+            });
+
+            expect(result.error).toBe('Bad Request');
+            expect(result.code).toBe('INVALID_ARGUMENTS');
+            expect(callCount).toBe(0);
+        });
+
+        test("rejects action:'add' with empty projectNumbers", async () => {
+            test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: GraphqlService mock-pollution residual under workers:1 - bucket G (#10924)');
+            let callCount = 0;
+            GraphqlService.query = async () => { callCount++; return null; };
+
+            const result = await IssueService.manageIssueProjects({
+                issue_number  : 11233,
+                action        : 'add',
+                projectNumbers: []
+            });
+
+            expect(result.error).toBe('Bad Request');
+            expect(result.code).toBe('INVALID_ARGUMENTS');
+            expect(callCount).toBe(0);
+        });
+
+        test("rejects action:'update_field' missing required params", async () => {
+            test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: GraphqlService mock-pollution residual under workers:1 - bucket G (#10924)');
+            let callCount = 0;
+            GraphqlService.query = async () => { callCount++; return null; };
+
+            const result = await IssueService.manageIssueProjects({
+                issue_number : 11233,
+                action       : 'update_field',
+                projectNumber: 12
+                // missing fieldName + value
+            });
+
+            expect(result.error).toBe('Bad Request');
+            expect(result.code).toBe('INVALID_ARGUMENTS');
+            expect(callCount).toBe(0);
+        });
+    });
+
+    test.describe("action:'add' — attach to ProjectV2", () => {
+        test('attaches issue to a project via addProjectV2ItemById and returns attachment metadata', async () => {
+            test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: GraphqlService mock-pollution residual under workers:1 - bucket G (#10924)');
+
+            const ISSUE_NODE_ID = 'I_kwDOABcD_issue11233';
+            const PROJECT_ID    = 'PVT_kwDOA0zl484BXGrv';
+            const NEW_ITEM_ID   = 'PVTI_kwDOA0zl484BXGrv_item11233';
+
+            let callCount = 0;
+            GraphqlService.query = async (query, vars) => {
+                callCount++;
+                // 1: GET_ISSUE_ID
+                if (callCount === 1) return {repository: {issue: {id: ISSUE_NODE_ID}}};
+                // 2: GET_PROJECT_V2_METADATA
+                if (callCount === 2) {
+                    return {organization: {projectV2: {id: PROJECT_ID, title: 'v13 Release', fields: {nodes: []}}}};
+                }
+                // 3: ADD_PROJECT_V2_ITEM
+                if (callCount === 3) return {addProjectV2ItemById: {item: {id: NEW_ITEM_ID}}};
+                throw new Error(`Unexpected additional GraphqlService.query call: ${callCount}`);
+            };
+
+            const result = await IssueService.manageIssueProjects({
+                issue_number  : 11233,
+                action        : 'add',
+                projectNumbers: [12]
+            });
+
+            expect(result.message).toContain('1 project(s)');
+            expect(result.attachments).toEqual([{projectNumber: 12, projectId: PROJECT_ID, itemId: NEW_ITEM_ID}]);
+            expect(result.warnings).toEqual([]);
+        });
+
+        test('collects per-project warnings when a project is not found (partial-attach)', async () => {
+            test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: GraphqlService mock-pollution residual under workers:1 - bucket G (#10924)');
+
+            const ISSUE_NODE_ID  = 'I_kwDOABcD_issue11233';
+            const VALID_PROJECT  = 'PVT_kwDOA0zl484BXGrv';
+            const NEW_ITEM_ID    = 'PVTI_kwDOA0zl484BXGrv_partialOK';
+
+            let callCount = 0;
+            GraphqlService.query = async () => {
+                callCount++;
+                // 1: GET_ISSUE_ID
+                if (callCount === 1) return {repository: {issue: {id: ISSUE_NODE_ID}}};
+                // 2: GET_PROJECT_V2_METADATA for #12 → exists
+                if (callCount === 2) {
+                    return {organization: {projectV2: {id: VALID_PROJECT, title: 'v13 Release', fields: {nodes: []}}}};
+                }
+                // 3: ADD_PROJECT_V2_ITEM for #12 → succeeds
+                if (callCount === 3) return {addProjectV2ItemById: {item: {id: NEW_ITEM_ID}}};
+                // 4: GET_PROJECT_V2_METADATA for #999 → not found
+                if (callCount === 4) return {organization: {projectV2: null}};
+                throw new Error(`Unexpected additional GraphqlService.query call: ${callCount}`);
+            };
+
+            const result = await IssueService.manageIssueProjects({
+                issue_number  : 11233,
+                action        : 'add',
+                projectNumbers: [12, 999]
+            });
+
+            expect(result.attachments).toEqual([{projectNumber: 12, projectId: VALID_PROJECT, itemId: NEW_ITEM_ID}]);
+            expect(result.warnings.length).toBe(1);
+            expect(result.warnings[0].projectNumber).toBe(999);
+            expect(result.warnings[0].error).toContain('not found');
+        });
+    });
+
+    test.describe("action:'update_field' — single-select field mutation", () => {
+        test("updates Status field via single-select option ID resolution + updateProjectV2ItemFieldValue", async () => {
+            test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: GraphqlService mock-pollution residual under workers:1 - bucket G (#10924)');
+
+            const ISSUE_NODE_ID  = 'I_kwDOABcD_issue11233';
+            const PROJECT_ID     = 'PVT_kwDOA0zl484BXGrv';
+            const STATUS_FIELD_ID = 'PVTF_kwDOA0zl484BXGrv_status';
+            const IN_PROG_OPT_ID = 'opt_in_progress_xyz';
+            const ITEM_ID        = 'PVTI_kwDOA0zl484BXGrv_item11233';
+
+            let callCount = 0;
+            GraphqlService.query = async () => {
+                callCount++;
+                // 1: GET_ISSUE_ID
+                if (callCount === 1) return {repository: {issue: {id: ISSUE_NODE_ID}}};
+                // 2: GET_PROJECT_V2_METADATA (with Status field + options)
+                if (callCount === 2) {
+                    return {
+                        organization: {
+                            projectV2: {
+                                id: PROJECT_ID,
+                                title: 'v13 Release',
+                                fields: {
+                                    nodes: [
+                                        {
+                                            id     : STATUS_FIELD_ID,
+                                            name   : 'Status',
+                                            options: [
+                                                {id: 'opt_todo_aaa',    name: 'Todo'},
+                                                {id: IN_PROG_OPT_ID,    name: 'In Progress'},
+                                                {id: 'opt_done_ccc',    name: 'Done'}
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    };
+                }
+                // 3: FIND_PROJECT_V2_ITEM_BY_CONTENT → returns matching item on first page
+                if (callCount === 3) {
+                    return {
+                        node: {
+                            items: {
+                                pageInfo: {endCursor: null, hasNextPage: false},
+                                nodes   : [{id: ITEM_ID, content: {id: ISSUE_NODE_ID, number: 11233}}]
+                            }
+                        }
+                    };
+                }
+                // 4: UPDATE_PROJECT_V2_ITEM_SINGLE_SELECT
+                if (callCount === 4) return {updateProjectV2ItemFieldValue: {projectV2Item: {id: ITEM_ID}}};
+                throw new Error(`Unexpected additional GraphqlService.query call: ${callCount}`);
+            };
+
+            const result = await IssueService.manageIssueProjects({
+                issue_number : 11233,
+                action       : 'update_field',
+                projectNumber: 12,
+                fieldName    : 'Status',
+                value        : 'In Progress'
+            });
+
+            expect(result.message).toContain('Status');
+            expect(result.message).toContain('In Progress');
+            expect(result.fieldId).toBe(STATUS_FIELD_ID);
+            expect(result.optionId).toBe(IN_PROG_OPT_ID);
+            expect(result.itemId).toBe(ITEM_ID);
+        });
+
+        test('returns OPTION_NOT_FOUND with available options when value does not match', async () => {
+            test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: GraphqlService mock-pollution residual under workers:1 - bucket G (#10924)');
+
+            const ISSUE_NODE_ID = 'I_kwDOABcD_issue11233';
+            const PROJECT_ID    = 'PVT_kwDOA0zl484BXGrv';
+
+            let callCount = 0;
+            GraphqlService.query = async () => {
+                callCount++;
+                if (callCount === 1) return {repository: {issue: {id: ISSUE_NODE_ID}}};
+                if (callCount === 2) {
+                    return {
+                        organization: {
+                            projectV2: {
+                                id: PROJECT_ID, title: 'v13 Release',
+                                fields: {
+                                    nodes: [
+                                        {
+                                            id: 'PVTF_status', name: 'Status',
+                                            options: [{id: 'opt_todo', name: 'Todo'}, {id: 'opt_done', name: 'Done'}]
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    };
+                }
+                throw new Error(`Unexpected additional GraphqlService.query call: ${callCount}`);
+            };
+
+            const result = await IssueService.manageIssueProjects({
+                issue_number : 11233,
+                action       : 'update_field',
+                projectNumber: 12,
+                fieldName    : 'Status',
+                value        : 'BlockedByCustomerWaiting'  // not a real option
+            });
+
+            expect(result.error).toBe('Not Found');
+            expect(result.code).toBe('OPTION_NOT_FOUND');
+            expect(result.message).toContain('Todo');
+            expect(result.message).toContain('Done');
+        });
+    });
+});

@@ -326,3 +326,145 @@ export const UPDATE_ISSUE = `
     }
   }
 `;
+
+/**
+ * Query to fetch an org-level ProjectV2's GraphQL node ID and its field schema.
+ *
+ * GitHub Projects v2 uses opaque node IDs (PVT_*) that the GraphQL mutations require —
+ * project numbers are user-facing only. This query maps project number → node ID and
+ * also surfaces field metadata (single-select fields + their option IDs) so callers
+ * can resolve `fieldName + value` strings to the IDs needed by `updateProjectV2ItemFieldValue`.
+ *
+ * Variables required:
+ * - $owner: String! - The org/user login that owns the project
+ * - $number: Int!   - The user-facing project number (e.g., 12 for "v13 Release")
+ */
+export const GET_PROJECT_V2_METADATA = `
+    query GetProjectV2Metadata($owner: String!, $number: Int!) {
+        organization(login: $owner) {
+            projectV2(number: $number) {
+                id
+                title
+                fields(first: 50) {
+                    nodes {
+                        ... on ProjectV2SingleSelectField {
+                            id
+                            name
+                            options {
+                                id
+                                name
+                            }
+                        }
+                        ... on ProjectV2Field {
+                            id
+                            name
+                        }
+                    }
+                }
+            }
+        }
+    }
+`;
+
+/**
+ * Mutation to add an existing issue (or PR) to a ProjectV2 board.
+ *
+ * Substrate-correct replacement for the `release:v*` label-as-project-proxy pattern (#11233).
+ * Labels are categorization primitives; projects are first-class membership primitives — they
+ * are independent GitHub concepts that cannot be reduced to one another without structural drift.
+ *
+ * Variables required:
+ * - $projectId: ID! - The global GraphQL ID of the project (PVT_*)
+ * - $contentId: ID! - The global GraphQL ID of the issue or PR to add
+ *
+ * Returns the new project item's `id` (PVTI_*) so callers can chain field-value updates.
+ */
+export const ADD_PROJECT_V2_ITEM = `
+    mutation AddProjectV2Item($projectId: ID!, $contentId: ID!) {
+        addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+            item {
+                id
+            }
+        }
+    }
+`;
+
+/**
+ * Mutation to remove an item from a ProjectV2 board.
+ *
+ * Variables required:
+ * - $projectId: ID! - The global GraphQL ID of the project (PVT_*)
+ * - $itemId: ID!    - The global GraphQL ID of the project item to remove (PVTI_*)
+ */
+export const DELETE_PROJECT_V2_ITEM = `
+    mutation DeleteProjectV2Item($projectId: ID!, $itemId: ID!) {
+        deleteProjectV2Item(input: {projectId: $projectId, itemId: $itemId}) {
+            deletedItemId
+        }
+    }
+`;
+
+/**
+ * Query to find a ProjectV2 item by its content (issue/PR) within a project.
+ *
+ * Used to translate `(projectId, contentId)` → `itemId` for remove + update_field actions
+ * when the caller has the issue number but not the project-item ID.
+ *
+ * Variables required:
+ * - $projectId: ID! - The project node ID (PVT_*)
+ * - $contentId: ID! - The issue/PR node ID
+ * - $after: String  - Pagination cursor (optional)
+ */
+export const FIND_PROJECT_V2_ITEM_BY_CONTENT = `
+    query FindProjectV2ItemByContent($projectId: ID!, $after: String) {
+        node(id: $projectId) {
+            ... on ProjectV2 {
+                items(first: 100, after: $after) {
+                    pageInfo {
+                        endCursor
+                        hasNextPage
+                    }
+                    nodes {
+                        id
+                        content {
+                            ... on Issue { id number }
+                            ... on PullRequest { id number }
+                        }
+                    }
+                }
+            }
+        }
+    }
+`;
+
+/**
+ * Mutation to update a single-select field value on a ProjectV2 item.
+ *
+ * Used by `manage_issue_projects` action:'update_field' to set things like Status,
+ * Priority, etc. The field and option IDs are resolved upstream via GET_PROJECT_V2_METADATA.
+ *
+ * Variables required:
+ * - $projectId: ID! - The project node ID (PVT_*)
+ * - $itemId: ID!    - The project item node ID (PVTI_*)
+ * - $fieldId: ID!   - The field node ID (PVTF_*)
+ * - $optionId: String! - The single-select option ID
+ */
+export const UPDATE_PROJECT_V2_ITEM_SINGLE_SELECT = `
+    mutation UpdateProjectV2ItemSingleSelect(
+        $projectId: ID!
+        $itemId: ID!
+        $fieldId: ID!
+        $optionId: String!
+    ) {
+        updateProjectV2ItemFieldValue(input: {
+            projectId: $projectId
+            itemId: $itemId
+            fieldId: $fieldId
+            value: {singleSelectOptionId: $optionId}
+        }) {
+            projectV2Item {
+                id
+            }
+        }
+    }
+`;
