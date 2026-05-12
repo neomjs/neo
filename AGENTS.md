@@ -187,6 +187,7 @@ To mitigate "Helpful Assistant" regression drift, agents MUST execute this evalu
 | `session-sunset` | Context Window Exhaustion, Macro-Semantic Pivot |
 | `unit-test` | Before writing, modifying, or executing Playwright unit tests |
 | `whitebox-e2e` | Before writing, modifying, or executing Playwright Whitebox E2E tests |
+| `sandman-handoff-pre-flight` | At session boot, before any workflow skill, to evaluate `sandman_handoff.md` runtime artifact and apply hard-refusal on blocking `lane-state` |
 
 ## 22. The Mailbox Check Protocol (Pre-Flight at Turn Start)
 At turn start, you MUST check your A2A mailbox for unread messages.
