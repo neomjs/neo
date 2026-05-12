@@ -35,7 +35,7 @@ const APPLY = process.argv.includes('--apply');
 
 function gh(args, { parse = true, throws = false } = {}) {
     try {
-        const out = execSync(`gh ${args}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+        const out = execSync(`gh ${args}`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 1024 * 1024 * 50 });
         return parse ? (out.trim() ? JSON.parse(out) : null) : out;
     } catch (err) {
         if (throws) {
