@@ -58,9 +58,7 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
                     active   : true,
                     client_id: TEST_CLIENT_ID,
                     scope    : 'mcp:tools',
-                    sub      : 'test-user',
-                    preferred_username: 'test-user',
-                    aud      : [`http://localhost:${MCP_SSE_PORT}`, 'http://localhost:3334'],
+                    aud      : ['http://localhost:3333', 'http://localhost:3334'],
                     exp      : Math.floor(Date.now() / 1000) + 3600
                 });
             } else {
@@ -76,7 +74,7 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
             env: {
                 ...process.env,
                 NEO_TRANSPORT     : 'sse',
-                MCP_HTTP_PORT     : MCP_SSE_PORT.toString(),
+                SSE_PORT          : MCP_SSE_PORT.toString(),
                 NEO_AUTO_SYNC     : 'false',
                 NEO_AUTO_SUMMARIZE: 'false',
                 NEO_AUTH_HOST     : 'localhost',
@@ -194,7 +192,7 @@ test.describe('MCP Server OIDC/OAuth 2.1 Authorization (Functional)', () => {
             env: {
                 ...process.env,
                 NEO_TRANSPORT     : 'sse',
-                MCP_HTTP_PORT     : DISCOVERY_MCP_PORT.toString(),
+                SSE_PORT          : DISCOVERY_MCP_PORT.toString(),
                 NEO_AUTO_SYNC     : 'false',
                 NEO_AUTO_SUMMARIZE: 'false',
                 NEO_AUTH_ISSUER_URL: `http://localhost:${MOCK_OIDC_PORT}/realms/test`,
