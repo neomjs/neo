@@ -28,7 +28,6 @@
         "ai:mcp-server-knowledge-base" : "node ./ai/mcp/server/knowledge-base/mcp-server.mjs",
         "ai:mcp-server-memory-core"    : "node ./ai/mcp/server/memory-core/mcp-server.mjs",
         "ai:mcp-server-neural-link"    : "node ./ai/mcp/server/neural-link/mcp-server.mjs",
-        "ai:migrate-v13-project"       : "node ./ai/scripts/migrateV13ProjectFromLabel.mjs",
         "ai:orchestrator"              : "node ./ai/scripts/orchestrator-daemon.mjs",
         "ai:run-sandman"               : "node ./buildScripts/ai/runSandman.mjs",
         "ai:server"                    : "chroma run --path ./.neo-ai-data/chroma/knowledge-base",
