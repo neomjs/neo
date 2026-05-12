@@ -14,6 +14,10 @@ The act of opening a PR is an irreversible state transition in the Agent OS. Bef
 
 *If and only if* you pass this reflection phase, proceed to the Git execution sequence.
 
+### 1.0 The Sandman Handoff Pre-Flight Gate
+
+Before drafting any new-PR substrate (commit, body, `gh pr create` invocation), you MUST invoke the `/sandman-handoff-pre-flight` skill (`.agents/skills/sandman-handoff-pre-flight/SKILL.md`) to evaluate `resources/content/sandman_handoff.md`. If the skill's hard-refusal predicate fires (`lane-state` is `AWAITING_REVIEW`, `AWAITING_HUMAN`, or any unknown value per the fail-closed rule), you MUST halt PR creation and notify the operator. The predicate explicitly does NOT block Cycle-N reviews of already-open PRs, A2A coordination, memory-mining, or direct operator-directive response — see the skill's atlas (`references/sandman-handoff-pre-flight-workflow.md`) for the full scope boundary.
+
 ### 1.1 The Substrate-Mutation Pre-Flight Gate
 
 If your PR touches **any** of the following paths:
