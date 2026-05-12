@@ -803,6 +803,8 @@ paths:
         readOnlyHint: false
       description: |
         Creates a new GitHub issue. **MANDATORY** pre-step: read `.agents/skills/ticket-create/SKILL.md` — the skill contains the full creation protocol (duplicate sweep, Fat Ticket body, label rules, post-creation chaining).
+
+        **ProjectV2 membership:** Use the `projects` parameter to atomically attach the new issue to one or more org-level ProjectV2 boards. This is the substrate-correct primitive — labels and projects are independent first-class GitHub primitives, and `release:v*` label-as-project-proxy is a deprecated anti-pattern (#11233).
       tags: [Issues]
       requestBody:
         required: true
@@ -832,6 +834,21 @@ paths:
                     type: string
                   description: (Optional) An array of GitHub user logins to assign to the issue. Requires write permissions.
                   default: []
+                projects:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - projectNumber
+                    properties:
+                      projectNumber:
+                        type: integer
+                        description: The org-level ProjectV2 number (e.g., `12` for "v13 Release").
+                  description: |
+                    (Optional) Array of ProjectV2 memberships to add atomically after issue creation.
+                    Each entry specifies a project number; the issue is added via the `addProjectV2ItemById` GraphQL mutation.
+                    Replaces the deprecated `release:v*` label-as-proxy pattern.
+                  default: []
       responses:
         '201':
           description: Issue created successfully.
@@ -841,6 +858,95 @@ paths:
                 $ref: '#/components/schemas/CreateIssueResponse'
         '500':
           description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /issues/{issue_number}/projects/manage:
+    post:
+      summary: Manage Issue ProjectV2 Memberships (Add, Remove, or Update Field)
+      operationId: manage_issue_projects
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Unified tool for managing an issue's ProjectV2 memberships. Mirror-shape of `manage_issue_labels` for the project-membership substrate.
+
+        **Action: 'add'**
+        - Adds the issue to one or more ProjectV2 boards via `addProjectV2ItemById`.
+        - Requires `projectNumbers` (array of org-level project numbers).
+
+        **Action: 'remove'**
+        - Removes the issue from one or more ProjectV2 boards via `deleteProjectV2Item`.
+        - Requires `projectNumbers`.
+
+        **Action: 'update_field'**
+        - Updates a single-select field value (e.g., 'Status', 'Priority') on the issue's project item.
+        - Requires `projectNumber`, `fieldName`, and `value`.
+
+        **Migration substrate:** This tool is the substrate-correct replacement for the `release:v13` label-as-project-membership-proxy pattern (#11233). Labels are categorization primitives; projects are first-class membership primitives — these are independent GitHub concepts and cannot be reduced to one another without structural drift.
+      tags: [Issues]
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: The number of the issue or pull request.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [add, remove, update_field]
+                  description: The action to perform.
+                  example: add
+                projectNumbers:
+                  type: array
+                  items:
+                    type: integer
+                  description: An array of org-level ProjectV2 numbers (required for 'add' and 'remove').
+                  example: [12]
+                projectNumber:
+                  type: integer
+                  description: A single org-level ProjectV2 number (required for 'update_field').
+                  example: 12
+                fieldName:
+                  type: string
+                  description: The name of the single-select field to update (required for 'update_field').
+                  example: "Status"
+                value:
+                  type: string
+                  description: The option name for the single-select field (required for 'update_field').
+                  example: "In Progress"
+      responses:
+        '200':
+          description: Project membership(s) updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request (invalid action or missing required parameters).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Issue or project not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
           content:
             application/json:
               schema:

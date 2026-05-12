@@ -193,34 +193,58 @@ Stored at `.github/.sync-metadata.json`, this file allows the server to perform 
 *   **`updatedAt`**: Timestamp of the last update from GitHub to detect remote changes.
 *   **`path`**: The current file path, allowing the system to track moves (e.g., archiving).
 
-## 7. GitHub Projects v2 — Read-Only Derived View Substrate
+## 7. GitHub Projects v2 — First-Class Membership Primitive
 
-The Neo swarm uses GitHub ProjectV2 as a **visualization layer** over the canonical issue substrate, not as a coordination primitive in its own right. Per [#10961](https://github.com/neomjs/neo/issues/10961) pilot scope (graduating from Discussion [#10959](https://github.com/orgs/neomjs/discussions/10959) cross-family review):
+The Neo swarm uses GitHub ProjectV2 as a **first-class membership primitive** wired directly into the `create_issue` and `manage_issue_projects` MCP tools. Per [#11233](https://github.com/neomjs/neo/issues/11233) — the substrate-correct corrective for [#10961](https://github.com/neomjs/neo/issues/10961)'s pilot scope, which proved labels-as-project-proxy is structurally wrong-shape.
 
 ### Source-of-truth contract
 
-- **Canonical membership:** issue label (`release:v13`, `release:v14`, ...) — the issue body / labels are queryable via `gh issue list --label release:v13` and visible to all swarm tooling
-- **Canonical status:** issue state + existing labels (`agent-task:in-progress`, `agent-task:review`, etc.)
+- **Canonical membership:** ProjectV2 board (`addProjectV2ItemById` / `deleteProjectV2Item`) — discoverable via `gh project item-list <NUM> --owner <ORG>` and the `manage_issue_projects` MCP tool
+- **Canonical status:** issue state + workflow labels (`agent-task:in-progress`, `agent-task:review`, etc.) — NOT release-tracking labels
 - **Canonical owner:** issue assignee
-- **Project fields:** derived presentation only — **NO Project-only canonical state**
+- **Project single-select fields (Status, Priority, etc.):** authoritative for project-board view; not consumed by Dream Pipeline / Golden Path / Native Edge Graph (those layers remain on issue-state)
 
-### The "If it's not on the Issue, it doesn't exist to the Swarm" rule
+**Migration history (#10961 → #11233):** the pilot used `release:v13` as a label-as-project-proxy, with a `reconcileV13Project.mjs` script to detect drift. Empirical V-B-A showed 31% structural drift (14 labeled-not-in-project + 196 in-project-not-labeled out of 250 items) — drift that cannot be patched away because labels (categorization primitive) and ProjectV2 items (membership primitive) are independent GitHub concepts. The script is deleted in Phase 3 of #11233; the `release:v*` label family is retired in Phase 2.
 
-Per @neo-gemini-3-1-pro's framing in Discussion [#10959](https://github.com/orgs/neomjs/discussions/10959): any state held only inside a Project (custom fields without bidirectional issue mapping, manual board moves, Project-only metadata) becomes invisible to `list_issues`, `get_local_issue_by_id`, the Knowledge Base, and the Memory Core. A Project that develops parallel state fragments the swarm's context window.
+### Agent ergonomics — atomic create-with-project
 
-**Concrete rule:** if a Project's iteration / status / priority field doesn't bidirectionally sync to an issue label, milestone, or state — that field MUST NOT be used.
+The `create_issue` MCP tool accepts an optional `projects` parameter:
 
-### Reconciliation
+```jsonc
+{
+  "title": "Some new ticket",
+  "body": "Ticket body…",
+  "labels": ["ai", "enhancement"],
+  "assignees": ["@me"],
+  "projects": [{"projectNumber": 12}]   // v13 Release project — direct attach
+}
+```
 
-`npm run ai:reconcile-v13-project` (script: `ai/scripts/reconcileV13Project.mjs`) reports drift between the canonical labeled set and Project membership. With `--apply`, it adds missing items (label-but-not-in-Project). It does NOT auto-remove items in-Project-but-not-labeled — operator judgment decides label-or-remove. Run weekly OR on-demand when membership feels off.
+The issue is created via `gh issue create`, then attached to each ProjectV2 board via `addProjectV2ItemById`. Partial-attach is the graceful failure mode (issue exists; orphan-rollback would be worse for agent workflows).
+
+### Agent ergonomics — post-create membership management
+
+The `manage_issue_projects` MCP tool mirrors the `manage_issue_labels` action shape:
+
+- `{action: 'add',           issue_number, projectNumbers: [12]}`
+- `{action: 'remove',        issue_number, projectNumbers: [12]}`
+- `{action: 'update_field',  issue_number, projectNumber: 12, fieldName: 'Status', value: 'In Progress'}`
+
+Field values for single-select fields (Status, Priority, etc.) are resolved by name; `update_field` returns `OPTION_NOT_FOUND` with the available option list if the value doesn't match. Multi-select / iteration / number fields are out of scope for this Phase 1 revision — extend the mutation surface as those use cases land.
+
+### The "If it's not on the Issue, it doesn't exist to the Swarm" rule (refined)
+
+Per @neo-gemini-3-1-pro's original framing in Discussion [#10959](https://github.com/orgs/neomjs/discussions/10959), the swarm's downstream substrate (Dream Pipeline, Golden Path Synthesizer, Native Edge Graph, `list_issues`, `get_local_issue_by_id`, Knowledge Base, Memory Core) consumes **issue state** — not Project field state. Project membership IS a first-class signal (it's how release-tracking and milestone-grouping work), but **single-select field values** (Status, Priority) remain Project-board observability and MUST NOT drive Dream synthesis or Golden Path decisions.
+
+**Concrete rule:** project MEMBERSHIP is canonical (queryable via `gh project item-list`); project FIELD VALUES are observability-only for downstream agentic substrates.
 
 ### Boundary with Sandman / Golden Path
 
-ProjectV2 state is **NOT** consumed by `DreamService` / `GoldenPathSynthesizer` / the Native Edge Graph. See `learn/agentos/DreamPipeline.md` §"Project state is observability-only" for the explicit non-input warning.
+ProjectV2 field state is **NOT** consumed by `DreamService` / `GoldenPathSynthesizer` / the Native Edge Graph. See `learn/agentos/DreamPipeline.md` §"Project state is observability-only" for the explicit non-input warning. (Membership signals — "this ticket is in v13 release" — are derivable via direct project query when needed for release-tracking workflows; they are not auto-ingested into the substrate.)
 
 ### v2-only mandate
 
-The pilot uses GitHub ProjectV2 (GraphQL `projectsV2`, `ProjectV2`, `addProjectV2ItemById`, `updateProjectV2`). GitHub Projects classic / v1 was sunset on github.com in 2024 + classic REST API in 2025. NO classic columns/cards/REST endpoints anywhere in scripts or workflows.
+GitHub ProjectV2 (GraphQL `projectsV2`, `ProjectV2`, `addProjectV2ItemById`, `deleteProjectV2Item`, `updateProjectV2ItemFieldValue`). GitHub Projects classic / v1 was sunset on github.com in 2024 + classic REST API in 2025. NO classic columns/cards/REST endpoints anywhere in scripts or workflows.
 
 ### Membership shape
 

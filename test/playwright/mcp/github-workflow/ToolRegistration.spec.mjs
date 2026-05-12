@@ -22,4 +22,22 @@ test.describe('GitHub Workflow MCP Server Tool Registration', () => {
 
         expect(keys.includes('list_issues'), `FAIL: list_issues not found in toolService mapping. Keys found: ${keys.join(', ')}`).toBe(true);
     });
+
+    test('manage_issue_projects is registered in toolService.mjs (#11233 Phase 1)', () => {
+        const filePath = path.resolve(__dirname, '../../../../ai/services/github-workflow/toolService.mjs');
+
+        expect(fs.existsSync(filePath), `toolService.mjs not found at ${filePath}`).toBe(true);
+
+        const fileContent = fs.readFileSync(filePath, 'utf8');
+
+        const match = fileContent.match(/serviceMapping\s*=\s*\{([\s\S]*?)\};?/m);
+        expect(match, 'serviceMapping block not found in toolService.mjs').toBeDefined();
+
+        const body = match[1];
+        const keys = [...body.matchAll(/(?:['\\"])?([a-zA-Z0-9_]+)(?:['\\"])?\s*:/g)].map(x=>x[1]);
+
+        expect(keys.includes('manage_issue_projects'),
+            `FAIL: manage_issue_projects not found in toolService mapping — #11233 substrate-correct ProjectV2 membership primitive (replaces release:v* label-as-proxy). Keys found: ${keys.join(', ')}`
+        ).toBe(true);
+    });
 });
