@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-import { Memory_Config as aiConfig } from '../../services.mjs';
+import aiConfig from '../../mcp/server/memory-core/config.mjs';
 import Base from '../../../src/core/Base.mjs';
-import { Memory_GraphService as GraphService } from '../../services.mjs';
+import GraphService from '../../services/memory-core/GraphService.mjs';
 import Json from '../../../src/util/Json.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
 import OpenAiCompatible from '../../provider/OpenAiCompatible.mjs';

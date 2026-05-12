@@ -14,24 +14,24 @@ import Shared_DestructiveOperationGuard from './mcp/server/shared/services/Destr
 
 // --- GitHub Workflow Services ---
 import GH_Config                    from './mcp/server/github-workflow/config.mjs';
-import GH_HealthService             from './services/github-workflow/HealthService.mjs';
-import GH_IssueService              from './services/github-workflow/IssueService.mjs';
-import GH_LabelService              from './services/github-workflow/LabelService.mjs';
-import GH_LocalFileService          from './services/github-workflow/LocalFileService.mjs';
-import GH_PullRequestService        from './services/github-workflow/PullRequestService.mjs';
-import GH_RepositoryService         from './services/github-workflow/RepositoryService.mjs';
-import GH_SyncService               from './services/github-workflow/SyncService.mjs';
+import _GH_HealthService from './services/github-workflow/HealthService.mjs';
+import _GH_IssueService from './services/github-workflow/IssueService.mjs';
+import _GH_LabelService from './services/github-workflow/LabelService.mjs';
+import _GH_LocalFileService from './services/github-workflow/LocalFileService.mjs';
+import _GH_PullRequestService from './services/github-workflow/PullRequestService.mjs';
+import _GH_RepositoryService from './services/github-workflow/RepositoryService.mjs';
+import _GH_SyncService from './services/github-workflow/SyncService.mjs';
 
 GH_Config.data.syncOnStartup = false;
 
 // --- Knowledge Base Services ---
-import KB_DatabaseService           from './services/knowledge-base/DatabaseService.mjs';
-import KB_LifecycleService          from './services/knowledge-base/DatabaseLifecycleService.mjs';
-import KB_DocumentService           from './services/knowledge-base/DocumentService.mjs';
-import KB_HealthService             from './services/knowledge-base/HealthService.mjs';
-import KB_RecorderService           from './services/knowledge-base/KBRecorderService.mjs';
-import KB_QueryService              from './services/knowledge-base/QueryService.mjs';
-import KB_SearchService             from './services/knowledge-base/SearchService.mjs';
+import _KB_DatabaseService from './services/knowledge-base/DatabaseService.mjs';
+import _KB_LifecycleService from './services/knowledge-base/DatabaseLifecycleService.mjs';
+import _KB_DocumentService from './services/knowledge-base/DocumentService.mjs';
+import _KB_HealthService from './services/knowledge-base/HealthService.mjs';
+import _KB_RecorderService from './services/knowledge-base/KBRecorderService.mjs';
+import _KB_QueryService from './services/knowledge-base/QueryService.mjs';
+import _KB_SearchService from './services/knowledge-base/SearchService.mjs';
 import KB_ChromaManager             from './services/knowledge-base/ChromaManager.mjs';
 import KB_Config                    from './mcp/server/knowledge-base/config.mjs';
 
@@ -40,18 +40,23 @@ KB_Config.data.autoSync = false;
 KB_Config.data.autoStartDatabase = false;
 
 // --- Memory Core Services ---
-import Memory_Service               from './services/memory-core/MemoryService.mjs';
-import Memory_DatabaseService       from './services/memory-core/DatabaseService.mjs';
-import Memory_SessionService        from './services/memory-core/SessionService.mjs';
-import Memory_HealthService         from './services/memory-core/HealthService.mjs';
-import Memory_GraphService          from './services/memory-core/GraphService.mjs';
-import Memory_SummaryService        from './services/memory-core/SummaryService.mjs';
-import Memory_ChromaLifecycleService from './services/memory-core/lifecycle/ChromaLifecycleService.mjs';
-import Memory_InferenceLifecycleService from './services/memory-core/lifecycle/InferenceLifecycleService.mjs';
+import _Memory_Service from './services/memory-core/MemoryService.mjs';
+import _Memory_DatabaseService from './services/memory-core/DatabaseService.mjs';
+import _Memory_SessionService from './services/memory-core/SessionService.mjs';
+import _Memory_HealthService from './services/memory-core/HealthService.mjs';
+import _Memory_GraphService from './services/memory-core/GraphService.mjs';
+import _Memory_SummaryService from './services/memory-core/SummaryService.mjs';
+import _Memory_ChromaLifecycleService from './services/memory-core/lifecycle/ChromaLifecycleService.mjs';
+import _Memory_InferenceLifecycleService from './services/memory-core/lifecycle/InferenceLifecycleService.mjs';
 import Memory_ChromaManager         from './services/memory-core/managers/ChromaManager.mjs';
 import Memory_StorageRouter         from './services/memory-core/managers/StorageRouter.mjs';
-import Memory_LifecycleService      from './services/memory-core/lifecycle/SystemLifecycleService.mjs';
-import Memory_TextEmbeddingService  from './services/memory-core/TextEmbeddingService.mjs';
+import _Memory_LifecycleService from './services/memory-core/lifecycle/SystemLifecycleService.mjs';
+import _Memory_TextEmbeddingService from './services/memory-core/TextEmbeddingService.mjs';
+import _Memory_WakeSubscriptionService from './services/memory-core/WakeSubscriptionService.mjs';
+import _Memory_MailboxService from './services/memory-core/MailboxService.mjs';
+import Memory_CoalescingEngineService from './services/memory-core/CoalescingEngineService.mjs';
+import _Memory_PermissionService from './services/memory-core/PermissionService.mjs';
+import Memory_WebhookDeliveryService from './services/memory-core/WebhookDeliveryService.mjs';
 import Memory_Config                from './mcp/server/memory-core/config.mjs';
 
 Memory_Config.data.autoSummarize = false;
@@ -59,13 +64,13 @@ Memory_Config.data.autoStartDatabase = false;
 Memory_Config.data.autoStartInference = false;
 
 // --- Neural Link Services ---
-import NeuralLink_ComponentService   from './services/neural-link/ComponentService.mjs';
-import NeuralLink_ConnectionService  from './services/neural-link/ConnectionService.mjs';
-import NeuralLink_DataService        from './services/neural-link/DataService.mjs';
-import NeuralLink_HealthService      from './services/neural-link/HealthService.mjs';
-import NeuralLink_InstanceService    from './services/neural-link/InstanceService.mjs';
-import NeuralLink_InteractionService from './services/neural-link/InteractionService.mjs';
-import NeuralLink_RuntimeService     from './services/neural-link/RuntimeService.mjs';
+import _NeuralLink_ComponentService from './services/neural-link/ComponentService.mjs';
+import _NeuralLink_ConnectionService from './services/neural-link/ConnectionService.mjs';
+import _NeuralLink_DataService from './services/neural-link/DataService.mjs';
+import _NeuralLink_HealthService from './services/neural-link/HealthService.mjs';
+import _NeuralLink_InstanceService from './services/neural-link/InstanceService.mjs';
+import _NeuralLink_InteractionService from './services/neural-link/InteractionService.mjs';
+import _NeuralLink_RuntimeService from './services/neural-link/RuntimeService.mjs';
 import NeuralLink_Config             from './mcp/server/neural-link/config.mjs';
 
 NeuralLink_Config.data.autoConnect = false;
@@ -110,70 +115,57 @@ function makeSafe(service, spec) {
         return service;
     }
 
-    // Iterate over all properties of the service (including inherited ones if it's a class instance)
-    // For simple objects/singletons:
+    const wrappedMethods = new Map();
     const proto = Object.getPrototypeOf(service);
     const keys  = new Set([...Object.getOwnPropertyNames(service), ...Object.getOwnPropertyNames(proto)]);
 
     for (const key of keys) {
         if (key === 'constructor') continue;
 
-        // Check if it's a function
         if (typeof service[key] === 'function') {
             const operationId = camelToSnake(key);
             const operation = findOperation(spec, operationId);
 
             if (operation) {
-                const originalMethod = service[key].bind(service);
                 const zodSchema = buildZodSchema(spec, operation);
 
-                // Replace with wrapped method
-                service[key] = async (args) => {
-                    // Bypass Zod validation for legacy positional primitives (backward compat)
+                wrappedMethods.set(key, async (args) => {
+                    const currentMethod = service[key];
                     if (args !== undefined && (typeof args !== 'object' || args === null || Array.isArray(args))) {
-                        return originalMethod(args);
+                        return currentMethod.call(service, args);
                     }
-                    // 1. Validate
                     const parsedArgs = zodSchema.parse(args || {});
 
-                    // 2. Execute
-                    // Some services expect (args), others expect (arg1, arg2).
-                    // The 'x-pass-as-object' annotation in OpenAPI tells us which.
                     if (operation['x-pass-as-object']) {
-                        return originalMethod(parsedArgs);
+                        return currentMethod.call(service, parsedArgs);
                     } else {
-                        // Map object args to positional args based on parameter order
                         const paramNames = (operation.parameters || []).map(p => p.name);
                         if (operation.requestBody?.content?.['application/json']?.schema) {
-                            // This logic mimics toolService.mjs but simplifies since we know the schema structure
-                            // For complex bodies, we usually rely on x-pass-as-object.
-                            // If not pass-as-object, we assume specific named args.
-                            // Simplification: If not pass-as-object, just pass the values in order of keys?
-                            // No, that's risky.
-                            // Fallback: if not pass-as-object, we pass the individual properties as args
-                            // in the order defined in the schema? That's hard to guess.
-                            // Let's assume for the SDK, we primarily support object-based signatures
-                            // OR we rely on the fact that our internal services mostly align with toolService logic.
-
-                            // Actually, the easiest way is to check the function signature length? No.
-                            // Let's check the Zod schema keys and pass them spread?
-                            // For now, most complex tools are x-pass-as-object.
-                            // Simple tools (like get(id)) are positional.
-
-                            // Heuristic:
                             const argValues = paramNames.map(name => parsedArgs[name]);
-                            return originalMethod(...argValues);
+                            return currentMethod.call(service, ...argValues);
                         }
-
                         const argValues = paramNames.map(name => parsedArgs[name]);
-                        return originalMethod(...argValues);
+                        return currentMethod.call(service, ...argValues);
                     }
-                };
+                });
             }
         }
     }
-    return service;
+
+    return new Proxy(service, {
+        get(target, prop) {
+            if (wrappedMethods.has(prop)) {
+                return wrappedMethods.get(prop);
+            }
+            const value = Reflect.get(target, prop, target);
+            if (typeof value === 'function') {
+                return value.bind(target);
+            }
+            return value;
+        }
+    });
 }
+
 
 // --- Load Specs ---
 /**
@@ -202,43 +194,46 @@ const nlSpec  = safeLoadYaml(path.join(__dirname, 'mcp/server/neural-link/openap
 // --- Apply Safety Wrappers ---
 
 // GitHub
-makeSafe(GH_HealthService,      ghSpec);
-makeSafe(GH_IssueService,       ghSpec);
-makeSafe(GH_LabelService,       ghSpec);
-makeSafe(GH_LocalFileService,   ghSpec);
-makeSafe(GH_PullRequestService, ghSpec);
-makeSafe(GH_RepositoryService,  ghSpec);
-makeSafe(GH_SyncService,        ghSpec);
+const GH_HealthService = makeSafe(_GH_HealthService, ghSpec);
+const GH_IssueService = makeSafe(_GH_IssueService, ghSpec);
+const GH_LabelService = makeSafe(_GH_LabelService, ghSpec);
+const GH_LocalFileService = makeSafe(_GH_LocalFileService, ghSpec);
+const GH_PullRequestService = makeSafe(_GH_PullRequestService, ghSpec);
+const GH_RepositoryService = makeSafe(_GH_RepositoryService, ghSpec);
+const GH_SyncService = makeSafe(_GH_SyncService, ghSpec);
 
 // Knowledge Base
-makeSafe(KB_DatabaseService,  kbSpec);
-makeSafe(KB_LifecycleService, kbSpec);
-makeSafe(KB_DocumentService,  kbSpec);
-makeSafe(KB_HealthService,    kbSpec);
-makeSafe(KB_RecorderService,  kbSpec);
-makeSafe(KB_QueryService,     kbSpec);
-makeSafe(KB_SearchService,    kbSpec);
+const KB_DatabaseService = makeSafe(_KB_DatabaseService, kbSpec);
+const KB_LifecycleService = makeSafe(_KB_LifecycleService, kbSpec);
+const KB_DocumentService = makeSafe(_KB_DocumentService, kbSpec);
+const KB_HealthService = makeSafe(_KB_HealthService, kbSpec);
+const KB_RecorderService = makeSafe(_KB_RecorderService, kbSpec);
+const KB_QueryService = makeSafe(_KB_QueryService, kbSpec);
+const KB_SearchService = makeSafe(_KB_SearchService, kbSpec);
 
 // Memory Core
-makeSafe(Memory_Service,          memSpec);
-makeSafe(Memory_DatabaseService,  memSpec);
-makeSafe(Memory_SessionService,   memSpec);
-makeSafe(Memory_LifecycleService, memSpec);
-makeSafe(Memory_ChromaLifecycleService, memSpec);
-makeSafe(Memory_InferenceLifecycleService, memSpec);
-makeSafe(Memory_HealthService,    memSpec);
-makeSafe(Memory_GraphService,     memSpec);
-makeSafe(Memory_SummaryService,   memSpec);
-makeSafe(Memory_TextEmbeddingService, memSpec);
+const Memory_Service = makeSafe(_Memory_Service, memSpec);
+const Memory_DatabaseService = makeSafe(_Memory_DatabaseService, memSpec);
+const Memory_SessionService = makeSafe(_Memory_SessionService, memSpec);
+const Memory_LifecycleService = makeSafe(_Memory_LifecycleService, memSpec);
+const Memory_ChromaLifecycleService = makeSafe(_Memory_ChromaLifecycleService, memSpec);
+const Memory_InferenceLifecycleService = makeSafe(_Memory_InferenceLifecycleService, memSpec);
+const Memory_HealthService = makeSafe(_Memory_HealthService, memSpec);
+const Memory_GraphService = makeSafe(_Memory_GraphService, memSpec);
+const Memory_SummaryService = makeSafe(_Memory_SummaryService, memSpec);
+const Memory_TextEmbeddingService = makeSafe(_Memory_TextEmbeddingService, memSpec);
+const Memory_WakeSubscriptionService = makeSafe(_Memory_WakeSubscriptionService, memSpec);
+const Memory_MailboxService = makeSafe(_Memory_MailboxService, memSpec);
+const Memory_PermissionService = makeSafe(_Memory_PermissionService, memSpec);
 
 // Neural Link
-makeSafe(NeuralLink_ConnectionService,  nlSpec);
-makeSafe(NeuralLink_ComponentService,   nlSpec);
-makeSafe(NeuralLink_DataService,        nlSpec);
-makeSafe(NeuralLink_HealthService,      nlSpec);
-makeSafe(NeuralLink_InstanceService,    nlSpec);
-makeSafe(NeuralLink_InteractionService, nlSpec);
-makeSafe(NeuralLink_RuntimeService,     nlSpec);
+const NeuralLink_ConnectionService = makeSafe(_NeuralLink_ConnectionService, nlSpec);
+const NeuralLink_ComponentService = makeSafe(_NeuralLink_ComponentService, nlSpec);
+const NeuralLink_DataService = makeSafe(_NeuralLink_DataService, nlSpec);
+const NeuralLink_HealthService = makeSafe(_NeuralLink_HealthService, nlSpec);
+const NeuralLink_InstanceService = makeSafe(_NeuralLink_InstanceService, nlSpec);
+const NeuralLink_InteractionService = makeSafe(_NeuralLink_InteractionService, nlSpec);
+const NeuralLink_RuntimeService = makeSafe(_NeuralLink_RuntimeService, nlSpec);
 
 
 /**
@@ -299,6 +294,11 @@ export {
     Memory_StorageRouter,
     Memory_SummaryService,
     Memory_TextEmbeddingService,
+    Memory_WakeSubscriptionService,
+    Memory_MailboxService,
+    Memory_CoalescingEngineService,
+    Memory_PermissionService,
+    Memory_WebhookDeliveryService,
 
     // Neural Link
     NeuralLink_ComponentService,
