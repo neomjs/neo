@@ -307,31 +307,6 @@ class PullRequestService extends Base {
     }
 
     /**
-     * @summary Unified add/remove of GitHub PR reviewer-requests via the `gh pr edit` CLI.
-     *
-     * Sibling to `IssueService.manageIssueAssignees` for PR reviewer invitations — closes the
-     * **invitation layer** of the cross-family review mandate (`pull-request §6.1`). The mandate
-     * itself is the validation layer (Approved-status before merge); this tool is the active
-     * invitation primitive that pairs with it. Without invitation, reviewers learn about PRs
-     * needing review via passive notification polling — the latency this tool closes.
-     *
-     * Surfaces GitHub's `requested_reviewers` API (`POST /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers`,
-     * mirrored as `gh pr edit <pr-number> --add-reviewer <login>` / `--remove-reviewer <login>`).
-     * Permission errors are surfaced via the underlying `gh` CLI's exit code rather than a
-     * pre-flight check — keeps the service-internal logic decoupled from `RepositoryService`'s
-     * permission cache while preserving end-to-end error visibility.
-     *
-     * @param {object}    options
-     * @param {number}    options.pr_number          The number of the pull request.
-     * @param {string[]}  [options.reviewers]        Array of GitHub user logins to add or remove as reviewers.
-     * @param {string[]}  [options.team_reviewers]   Array of team slugs (without owner prefix). The owner is auto-prepended via `aiConfig.owner`.
-     * @param {string}    options.action             Either `'add'` or `'remove'`.
-     * @returns {Promise<object>} Success message + reviewer payload on success, or structured error.
-     *
-     * @see #10217 / Sub 3 of Epic #10214
-     * @see pull-request-workflow.md §6.1 (cross-family mandate — invitation layer cross-reference)
-     */
-    /**
      * @summary Atomic create or update of a formal GitHub pull request review (#11273).
      *
      * Closes the empirically-recurring formal-state gap pattern (PR #11234 + PR #11271
@@ -500,6 +475,31 @@ class PullRequestService extends Base {
         }
     }
 
+    /**
+     * @summary Unified add/remove of GitHub PR reviewer-requests via the `gh pr edit` CLI.
+     *
+     * Sibling to `IssueService.manageIssueAssignees` for PR reviewer invitations — closes the
+     * **invitation layer** of the cross-family review mandate (`pull-request §6.1`). The mandate
+     * itself is the validation layer (Approved-status before merge); this tool is the active
+     * invitation primitive that pairs with it. Without invitation, reviewers learn about PRs
+     * needing review via passive notification polling — the latency this tool closes.
+     *
+     * Surfaces GitHub's `requested_reviewers` API (`POST /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers`,
+     * mirrored as `gh pr edit <pr-number> --add-reviewer <login>` / `--remove-reviewer <login>`).
+     * Permission errors are surfaced via the underlying `gh` CLI's exit code rather than a
+     * pre-flight check — keeps the service-internal logic decoupled from `RepositoryService`'s
+     * permission cache while preserving end-to-end error visibility.
+     *
+     * @param {object}    options
+     * @param {number}    options.pr_number          The number of the pull request.
+     * @param {string[]}  [options.reviewers]        Array of GitHub user logins to add or remove as reviewers.
+     * @param {string[]}  [options.team_reviewers]   Array of team slugs (without owner prefix). The owner is auto-prepended via `aiConfig.owner`.
+     * @param {string}    options.action             Either `'add'` or `'remove'`.
+     * @returns {Promise<object>} Success message + reviewer payload on success, or structured error.
+     *
+     * @see #10217 / Sub 3 of Epic #10214
+     * @see pull-request-workflow.md §6.1 (cross-family mandate — invitation layer cross-reference)
+     */
     async managePrReviewers({pr_number, reviewers, team_reviewers, action}) {
         if (!['add', 'remove'].includes(action)) {
             return {

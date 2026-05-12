@@ -634,14 +634,7 @@ paths:
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
-      description: |
-        Atomic create or update of a formal GitHub pull request review (#11273). Closes the formal-state-gap pattern: single call posts the review body AND flips `reviewDecision` atomically, replacing the historical two-step `manage_issue_comment` → `gh pr review --approve/--request-changes` chain that empirically broke the cross-family review mandate gate (`pull-request §6.1`).
-
-        **Action: 'create'** — requires `pr_number`, `state`, `body`. State `APPROVED` / `REQUEST_CHANGES` / `COMMENT` maps to GraphQL `addPullRequestReview.event` enum (`APPROVE` / `REQUEST_CHANGES` / `COMMENT`).
-
-        **Action: 'update'** — requires `review_id` (GraphQL node ID of existing review, `PRR_*`) and `body`. Updates body only; GitHub does not allow state transition on a submitted review via this mutation.
-
-        Returns `reviewId` (PRR_* node ID) for downstream A2A handoff per `review-response-protocol.md §14` — pair with `get_conversation({pr_number, comment_id: ...})` for warm-cache propagation in multi-cycle reviews.
+      description: Atomic create or update of a formal PR review. Single call posts body + flips reviewDecision. `create`: requires pr_number + state (APPROVED/REQUEST_CHANGES/COMMENT) + body. `update`: requires review_id (PRR_*) + body; state cannot transition. Returns reviewId + state + url + submittedAt.
       tags: [PullRequests]
       parameters:
         - name: pr_number

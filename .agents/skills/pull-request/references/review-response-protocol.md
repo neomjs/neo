@@ -118,11 +118,9 @@ When performing self-reviews or responding to feedback across multiple rounds, y
 
 Symmetric with `pr-review §9` (reviewer side). When YOU (as author) post a response comment to reviewer feedback, capture the `commentId` returned by `manage_issue_comment` and relay it to the reviewer via A2A mailbox DM so they can fetch just-this-comment via `get_conversation({pr_number, comment_id})`. Scales linearly with new-comment volume rather than cumulative thread size across multi-cycle review.
 
-**Reviewer atomic-primitive note (#11273):** when the *reviewer* uses `manage_pr_review` instead of the legacy two-step `manage_issue_comment` + `gh pr review` chain, they receive `reviewId` (PRR_* node ID) — distinct from the comment-side `commentId` (IC_* node ID). Both serve A2A hand-off purposes:
-- `commentId` references the per-thread comment artifact (used by `get_conversation({comment_id})` for warm-cache propagation)
-- `reviewId` references the formal-state review entity (the surface that flipped `reviewDecision`)
+**Reviewer atomic-primitive note (#11273):** when the *reviewer* uses `manage_pr_review` instead of the legacy two-step `manage_issue_comment` + `gh pr review` chain, they receive `reviewId` (PRR_* node ID). This is the canonical artifact identifier for the formal review entity (the surface that flipped `reviewDecision`). Reviewers SHOULD relay `reviewId` + the response payload (`url`, `state`, `submittedAt`) when handing off to the next actor in the review cycle.
 
-Reviewers using `manage_pr_review` SHOULD relay both `reviewId` and the auto-generated `commentId` (the review body becomes a thread comment as well) when handing off to the next actor in the review cycle. Authors responding to a `manage_pr_review`-generated review can still fetch the discussion content via `get_conversation({comment_id})` since the underlying GitHub schema generates a comment node alongside the review entity.
+**Important contract distinction:** `reviewId` (PRR_*) is NOT a `commentId` (IC_*). The `get_conversation({comment_id})` warm-cache path operates on `pullRequest.comments` (IssueComment entities, IC_*) — it does NOT fetch `PullRequestReview` entities (PRR_*). Authors responding to a `manage_pr_review`-generated review should fetch the review body via the response payload directly (the `body` field is included in the manage_pr_review return shape) or use direct GraphQL (`gh api graphql` with `node(id: $reviewId)` selection); they should NOT attempt `get_conversation({comment_id: <reviewId>})` — that mismatch returns empty.
 
 **Workflow:**
 1. Author posts Addressed-tags response via `manage_issue_comment({action: 'create', pr_number, body, agent})`.
