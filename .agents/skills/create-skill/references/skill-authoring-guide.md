@@ -25,6 +25,8 @@ Whenever you create a new skill named `my-new-skill`, you must scaffold the foll
     └── report-template.md   # Example
 ```
 
+After adding or renaming a skill folder, update `.agents/skills/skills.manifest.json`. `SKILL.md` frontmatter remains the runtime source of truth; the manifest mirrors `name`, `description`, and `triggers` for tooling, declares the router/payload budgets, and records harness/doc governance such as Claude symlink requirements and downstream documentation targets.
+
 ## Slot-Rule Discriminator (Apply Before Authoring)
 
 Progressive Disclosure tells you *where* content goes (Router vs Payload). It doesn't tell you *which sections earn their slot* in the first place. Cycle-1 of the cognitive-load epic (#10733) surfaced a richer discriminator that you should apply before drafting any new section: the **3-axis slot rule**, the **disposition taxonomy**, and **substrate-vs-discipline tagging**.
@@ -140,4 +142,6 @@ Before pushing your new skill, check:
 - [ ] Does `SKILL.md` have the strictly formatted YAML `name`, `description`, and `triggers` block?
 - [ ] Is the heavy instructional content stored entirely in the `references/` directory?
 - [ ] Does the `SKILL.md` body provide the explicit project-relative path to the reference file?
+- [ ] Is `.agents/skills/skills.manifest.json` updated to mirror the frontmatter and governance fields?
 - [ ] Is there a corresponding symlink for the new skill in `.claude/skills/`?
+- [ ] Does `node ai/scripts/lint-skill-manifest.mjs --base origin/dev` pass locally?
