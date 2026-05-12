@@ -39,7 +39,7 @@ When facing genuine cross-substrate architectural ambiguity, follow these steps:
 - **#10449:** `bridge-daemon.mjs` misplacement origin.
 - **PR #11008 → #11009:** `orchestrator-daemon.mjs` misplacement and corrective action.
 - **PR #11246 → #11251:** One-shot script "playbook" framing corrective action.
-- **Epic #11256 / #11254:** Serves as the router-of-uncertainty anchor itself.
+- **Epic #11256:** Serves as the router-of-uncertainty anchor itself.
 
 ## Cross-Skill References
 

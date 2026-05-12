@@ -1,6 +1,6 @@
 # Turn Memory Pre-Flight Workflow
 
-This atlas defines the authoritative discipline for placing and mutating memory substrate that affects future agent sessions. 
+This atlas defines the authoritative discipline for placing and mutating memory substrate that affects future agent sessions.
 
 ## The Core Problem: Future-Session Mutation Risk
 
@@ -60,7 +60,7 @@ This protocol subsumes the Progressive Disclosure philosophy (Issue #10837). Alw
 
 - **PR #11250:** Substrate placement bug — Loading-runtime-effect substitution anti-pattern landed in wrong skill atlas (`peer-role-mode.md §7` instead of `pr-review-guide.md §7.7`).
 - **PR #11244:** 6-cycle arc (DIMENSION-vs-ENGAGEMENT predecessor failure mode).
-- **Epic #11256 / #11254:** This Epic serves as a recursive substrate-validation anchor.
+- **Epic #11256:** This Epic serves as a recursive substrate-validation anchor.
 
 ## Cross-Skill References
 
