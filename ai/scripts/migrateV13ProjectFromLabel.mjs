@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * @module ai/scripts/migrateV13ProjectFromLabel
+ * @author Antigravity / @neo-gemini-3-1-pro
  * @summary Phase 2 Migration: Move `release:v13` labeled tickets to ProjectV2 #12 and retire label.
  *
  * This script is part of the ProjectV2 migration (Issue #11233). It transfers all
@@ -65,6 +66,17 @@ if (!issues || issues.length === 0) {
 
 console.log(`Found ${issues.length} issues to migrate.`);
 
+// 2. Fetch existing ProjectV2 items to ensure idempotency
+console.log(`\nFetching existing items in ProjectV2 #${PROJECT_NUMBER} to ensure idempotency...`);
+const projectData = gh(`project item-list ${PROJECT_NUMBER} --owner "${ORG}" --format json --limit 2000`);
+const existingIssueNumbers = new Set(
+    (projectData?.items || [])
+        .filter(i => i.content?.type === 'Issue' && i.content?.repository === REPO)
+        .map(i => i.content.number)
+);
+
+console.log(`Found ${existingIssueNumbers.size} issues already in ProjectV2 #${PROJECT_NUMBER}.`);
+
 let successCount = 0;
 let failCount = 0;
 
@@ -73,11 +85,17 @@ for (let i = 0; i < issues.length; i++) {
     const issueUrl = `https://github.com/${REPO}/issues/${issue.number}`;
     console.log(`\n[${i + 1}/${issues.length}] Processing #${issue.number}: ${issue.title}`);
 
+    const isAlreadyInProject = existingIssueNumbers.has(issue.number);
+
     if (APPLY) {
         try {
             // Add issue to ProjectV2
-            console.log(`  -> Adding to ProjectV2 #${PROJECT_NUMBER}...`);
-            gh(`project item-add ${PROJECT_NUMBER} --owner "${ORG}" --url "${issueUrl}"`, { parse: false, throws: true });
+            if (isAlreadyInProject) {
+                console.log(`  -> Already in ProjectV2 #${PROJECT_NUMBER}, skipping add...`);
+            } else {
+                console.log(`  -> Adding to ProjectV2 #${PROJECT_NUMBER}...`);
+                gh(`project item-add ${PROJECT_NUMBER} --owner "${ORG}" --url "${issueUrl}"`, { parse: false, throws: true });
+            }
 
             // Remove the label from the issue
             console.log(`  -> Removing label "${LABEL}"...`);
@@ -89,7 +107,11 @@ for (let i = 0; i < issues.length; i++) {
             failCount++;
         }
     } else {
-        console.log(`  -> (Dry Run) Would add to ProjectV2 #${PROJECT_NUMBER}`);
+        if (isAlreadyInProject) {
+            console.log(`  -> (Dry Run) Already in ProjectV2 #${PROJECT_NUMBER}, would skip add`);
+        } else {
+            console.log(`  -> (Dry Run) Would add to ProjectV2 #${PROJECT_NUMBER}`);
+        }
         console.log(`  -> (Dry Run) Would remove label "${LABEL}"`);
     }
 }
