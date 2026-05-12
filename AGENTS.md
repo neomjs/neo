@@ -189,8 +189,11 @@ To mitigate "Helpful Assistant" regression drift, agents MUST execute this evalu
 | `whitebox-e2e` | Before writing, modifying, or executing Playwright Whitebox E2E tests |
 | `sandman-handoff-pre-flight` | At session boot, before any workflow skill, to evaluate `sandman_handoff.md` runtime artifact and apply hard-refusal on blocking `lane-state` |
 
-## 22. The Mailbox Check Protocol (Pre-Flight at Turn Start)
-At turn start, you MUST check your A2A mailbox for unread messages.
+## 22. Turn Start & Session Boot Pre-Flights (minimal umbrella)
+
+**Session Boot Pre-Flight (The Sandman Handoff):** see the `/sandman-handoff-pre-flight` skill (§21 row) — evaluates `resources/content/sandman_handoff.md` and halts new-work intake on blocking `lane-state`.
+
+**Mailbox Check (Turn Start):** at turn start, you MUST check your A2A mailbox for unread messages.
 > *"Pre-Flight: I called `list_messages({status: 'unread'})` and observed [N unread]."*
 
 **Lead-role baton intake:** If the unread mailbox contains a targeted message
