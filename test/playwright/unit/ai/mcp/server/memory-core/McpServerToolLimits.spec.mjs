@@ -34,7 +34,7 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         
         aiConfig.storagePaths.graph = path.join(tmpDir, `tool-limits-test-${Date.now()}.sqlite`);
 
-        const ToolServiceModule = await import('../../../../../../../ai/services/memory-core/toolService.mjs');
+        const ToolServiceModule = await import('../../../../../../../ai/mcp/server/memory-core/toolService.mjs');
         toolService = {
             listTools: ToolServiceModule.listTools
         };

@@ -4,7 +4,7 @@ import logger                from './logger.mjs';
 import HealthService         from '../../../services/github-workflow/HealthService.mjs';
 import RepositoryService     from '../../../services/github-workflow/RepositoryService.mjs';
 import SyncService           from '../../../services/github-workflow/SyncService.mjs';
-import {listTools, callTool} from '../../../services/github-workflow/toolService.mjs';
+import {listTools, callTool} from './toolService.mjs';
 
 /**
  * @summary The GitHub Workflow MCP Server application.

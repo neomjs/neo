@@ -1,7 +1,7 @@
 import {execSync}                  from 'node:child_process';
 import BaseServer                  from '../BaseServer.mjs';
 import logger                      from './logger.mjs';
-import {listTools, callTool}       from '../../../services/memory-core/toolService.mjs';
+import {listTools, callTool}       from './toolService.mjs';
 import AuthMiddleware              from '../shared/services/AuthMiddleware.mjs';
 import RequestContextService       from '../shared/services/RequestContextService.mjs';
 import StdioIdentityResolver       from '../shared/services/StdioIdentityResolver.mjs';

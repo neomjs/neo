@@ -3,7 +3,7 @@ import aiConfig              from './config.mjs';
 import logger                from './logger.mjs';
 import ConnectionService     from '../../../services/neural-link/ConnectionService.mjs';
 import HealthService         from '../../../services/neural-link/HealthService.mjs';
-import {listTools, callTool} from '../../../services/neural-link/toolService.mjs';
+import {listTools, callTool} from './toolService.mjs';
 
 let _turnId = 0;
 
