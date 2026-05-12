@@ -28,3 +28,7 @@ and can drift independently of the Codex Desktop harness.
 - For state-changing GitHub calls, preserve the exact payload when retrying
   escalated so the sandbox retry does not mutate review/comment semantics.
 - Mid-session harness restart: read `.codex/HARNESS_RESTART.md` before diagnosing MCP, Chroma, GitHub, or wake-state failures.
+
+## Identity & Prompt Firewall (L1 Anchor)
+
+See `AGENTS.md` `<prompt_firewall name="Helpful_Assistant_Regression_Defense">` for the canonical identity anchor. Do not deviate.

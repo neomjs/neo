@@ -63,6 +63,17 @@ A Discussion cannot graduate until it is clearly scoped. There is no universal c
 
 For source anchors, exception semantics, and substrate-decay review, read [`../audits/double-diamond-divergence-guard.md`](../audits/double-diamond-divergence-guard.md).
 
+### 5.1.1. Reflective Pause Trigger (Friction-Driven Proposals)
+
+**Trigger:** If the Discussion originates from friction (e.g., test failures, build errors, tool limitations) rather than a planned feature, you MUST apply a **Reflective Pause**. You are subject to RLHF conditioning that defaults to subservient, execution-first behaviors ("Helpful Assistant") where you want to fix the immediate symptom. You must explicitly counteract this regression drift.
+
+**Gate:** Before drafting the Double Diamond matrix or proposing graduation, you MUST:
+1. **Halt reactive code generation:** Do not propose a code fix for the immediate friction.
+2. **Root-Cause Falsification:** Execute falsifying tool calls (e.g., `grep_search`, `ask_knowledge_base`) to empirically validate whether the friction is a symptom of a deeper architectural misalignment or missing primitive.
+3. **Document the Pivot:** The Double Diamond matrix MUST include at least one option that addresses the root cause (not just the symptom) and explicitly reference the falsifying evidence.
+
+**Graduation Block:** If the Double Diamond matrix only addresses the immediate friction symptom without evidence of a root-cause sweep, graduation is blocked.
+
 ### 5.2. Step 2.5: Architectural Step-Back (High-Blast-Radius Convergence Gate)
 
 §5.1 is the **divergence-phase** gate (matrix must be in body before convergence). §5.2 is the **convergence-phase** gate (cross-substrate sweep must run before graduation). Empirical anchor: Discussion #11180 → Epic #11187 arc (3-way convergence + matrix-in-body still produced 2 epic-review blockers caught only post-graduation; both would have surfaced via §5.2 sweep pre-graduation).
