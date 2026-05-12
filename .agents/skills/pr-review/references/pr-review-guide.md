@@ -390,7 +390,9 @@ Empirical anchor: PR #10607 8-cycle pattern.
 
 Before composing Required Actions on a Cycle-1 review, ask: **"Does this PR have any structural issue that makes Request Changes wrong-shape?"**
 
-If a Cycle-1 structural-invalidity trigger fires, default to **Drop+Supersede framing**: one close/restart Required Action, not a multi-item iteration list. Common triggers: false premise, ungraduated upstream substrate, specific authority bypass, Neo-doctrine anti-pattern instantiation, active roadmap conflict, or better existing substrate.
+If a Cycle-1 structural-invalidity trigger fires, default to **Drop+Supersede framing**: one close/restart Required Action, not a multi-item iteration list. Common triggers: false premise, ungraduated upstream substrate, specific authority bypass, Neo-doctrine anti-pattern instantiation, active roadmap conflict, better existing substrate, or source-ticket stale/currency-risk.
+
+If the PR resolves or materially follows a ticket older than the stale workflow threshold, marked stale, marked `no auto close`, or visibly superseded, the source ticket is review input, not review authority. Matching stale ACs is not enough for approval; current source/docs/tests plus newer tickets, PRs, epics, and Discussions decide whether the source ticket is still authoritative.
 
 This is discipline, not a mandatory checkbox. Routine PRs should clear it in under 30 seconds; when it fires, the framing flip is immediate. For trigger definitions, bias rationale, and the PR #11083 empirical anchor, read [`../audits/cycle-1-premise-preflight.md`](../audits/cycle-1-premise-preflight.md).
 
