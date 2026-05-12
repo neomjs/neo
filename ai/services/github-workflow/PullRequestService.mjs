@@ -4,6 +4,11 @@ import Base                                    from '../../../src/core/Base.mjs'
 import GraphqlService                          from './GraphqlService.mjs';
 import aiConfig                                from '../../mcp/server/github-workflow/config.mjs';
 import logger                                  from '../../mcp/server/github-workflow/logger.mjs';
+import {
+    ADD_PULL_REQUEST_REVIEW,
+    GET_PULL_REQUEST_ID,
+    UPDATE_PULL_REQUEST_REVIEW
+}                                              from './queries/mutations.mjs';
 import {FETCH_PULL_REQUESTS, GET_CONVERSATION} from './queries/pullRequestQueries.mjs';
 
 const execAsync     = promisify(exec);
@@ -326,6 +331,175 @@ class PullRequestService extends Base {
      * @see #10217 / Sub 3 of Epic #10214
      * @see pull-request-workflow.md §6.1 (cross-family mandate — invitation layer cross-reference)
      */
+    /**
+     * @summary Atomic create or update of a formal GitHub pull request review (#11273).
+     *
+     * Closes the empirically-recurring formal-state gap pattern (PR #11234 + PR #11271
+     * empirical anchors): agents post substantive review prose via `manage_issue_comment`
+     * but forget the second `gh pr review --approve | --request-changes` step to flip
+     * GitHub's `reviewDecision` surface, blocking the cross-family review mandate gate
+     * per `pull-request §6.1`. This tool routes through the `addPullRequestReview`
+     * GraphQL mutation — single call posts the review body AND transitions formal state
+     * atomically.
+     *
+     * **Action: 'create'** — requires `pr_number`, `state`, `body`. Resolves PR node ID,
+     * submits review with the given event.
+     *
+     * **Action: 'update'** — requires `review_id`, `body`. Updates the review's body
+     * only; GitHub does not allow changing a submitted review's state via this mutation
+     * (dismiss + resubmit is the path, deliberately out of v1 scope).
+     *
+     * **state → event mapping** (caller surface uses the friendlier `state` enum;
+     * the GraphQL mutation requires `PullRequestReviewEvent`):
+     *   - `APPROVED`        → `APPROVE`
+     *   - `REQUEST_CHANGES` → `REQUEST_CHANGES`
+     *   - `COMMENT`         → `COMMENT`
+     *
+     * @param {Object} options
+     * @param {String} options.action           Either `'create'` or `'update'`.
+     * @param {Number} [options.pr_number]      The pull request number (required for `create`).
+     * @param {String} [options.state]          Review state (required for `create`): `APPROVED` | `REQUEST_CHANGES` | `COMMENT`.
+     * @param {String} options.body             The review body.
+     * @param {String} [options.review_id]      The GraphQL node ID of the existing review (required for `update`; PRR_*).
+     * @returns {Promise<Object>} Review payload on success (`{message, reviewId, state, url, submittedAt, databaseId?}`) or structured error.
+     *
+     * @see #11273 (Atomic PR review create via dedicated github-workflow MCP tool)
+     * @see Discussion #11239 (graduation source; substrate-author = @neo-gemini-3-1-pro)
+     */
+    async managePrReview({action, pr_number, state, body, review_id}) {
+        if (!['create', 'update'].includes(action)) {
+            return {
+                error  : 'Bad Request',
+                message: "Invalid action. Must be 'create' or 'update'.",
+                code   : 'INVALID_ARGUMENTS'
+            };
+        }
+
+        if (!body) {
+            return {
+                error  : 'Bad Request',
+                message: "Missing required argument: 'body' is required.",
+                code   : 'MISSING_ARGUMENTS'
+            };
+        }
+
+        if (action === 'create') {
+            if (typeof pr_number !== 'number') {
+                return {
+                    error  : 'Bad Request',
+                    message: "Missing required argument for 'create': 'pr_number' (number).",
+                    code   : 'MISSING_ARGUMENTS'
+                };
+            }
+
+            const stateToEvent = {
+                APPROVED       : 'APPROVE',
+                REQUEST_CHANGES: 'REQUEST_CHANGES',
+                COMMENT        : 'COMMENT'
+            };
+
+            const event = stateToEvent[state];
+
+            if (!event) {
+                return {
+                    error  : 'Bad Request',
+                    message: `Invalid state '${state}'. Must be one of: ${Object.keys(stateToEvent).join(', ')}.`,
+                    code   : 'INVALID_ARGUMENTS'
+                };
+            }
+
+            try {
+                const idData = await GraphqlService.query(GET_PULL_REQUEST_ID, {
+                    owner   : aiConfig.owner,
+                    repo    : aiConfig.repo,
+                    prNumber: pr_number
+                });
+                const pullRequestId = idData?.repository?.pullRequest?.id;
+
+                if (!pullRequestId) {
+                    return {
+                        error  : 'Not Found',
+                        message: `Pull request #${pr_number} not found or returned no id.`,
+                        code   : 'PR_NOT_FOUND'
+                    };
+                }
+
+                const reviewData = await GraphqlService.query(ADD_PULL_REQUEST_REVIEW, {
+                    pullRequestId,
+                    body,
+                    event
+                });
+
+                const review = reviewData?.addPullRequestReview?.pullRequestReview;
+
+                if (!review) {
+                    return {
+                        error  : 'GraphQL API request failed',
+                        message: 'addPullRequestReview returned no pullRequestReview node.',
+                        code   : 'GRAPHQL_API_ERROR'
+                    };
+                }
+
+                return {
+                    message    : `Successfully created ${review.state} review on PR #${pr_number}`,
+                    reviewId   : review.id,
+                    state      : review.state,
+                    url        : review.url,
+                    submittedAt: review.submittedAt,
+                    databaseId : review.databaseId
+                };
+            } catch (error) {
+                logger.error(`Error creating PR review on PR #${pr_number}:`, error);
+                return {
+                    error  : 'GraphQL API request failed',
+                    message: error.message,
+                    code   : 'GRAPHQL_API_ERROR'
+                };
+            }
+        }
+
+        // action === 'update'
+        if (!review_id) {
+            return {
+                error  : 'Bad Request',
+                message: "Missing required argument for 'update': 'review_id' (the GraphQL node ID of the existing review).",
+                code   : 'MISSING_ARGUMENTS'
+            };
+        }
+
+        try {
+            const updateData = await GraphqlService.query(UPDATE_PULL_REQUEST_REVIEW, {
+                pullRequestReviewId: review_id,
+                body
+            });
+
+            const review = updateData?.updatePullRequestReview?.pullRequestReview;
+
+            if (!review) {
+                return {
+                    error  : 'GraphQL API request failed',
+                    message: 'updatePullRequestReview returned no pullRequestReview node.',
+                    code   : 'GRAPHQL_API_ERROR'
+                };
+            }
+
+            return {
+                message    : `Successfully updated review ${review.id}`,
+                reviewId   : review.id,
+                state      : review.state,
+                url        : review.url,
+                submittedAt: review.submittedAt
+            };
+        } catch (error) {
+            logger.error(`Error updating PR review ${review_id}:`, error);
+            return {
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
+            };
+        }
+    }
+
     async managePrReviewers({pr_number, reviewers, team_reviewers, action}) {
         if (!['add', 'remove'].includes(action)) {
             return {

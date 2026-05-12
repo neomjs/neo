@@ -627,6 +627,100 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /pulls/{pr_number}/review/manage:
+    post:
+      summary: Manage PR Review (Create or Update — atomic body + formal-state in one call)
+      operationId: manage_pr_review
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Atomic create or update of a formal GitHub pull request review (#11273). Closes the formal-state-gap pattern: single call posts the review body AND flips `reviewDecision` atomically, replacing the historical two-step `manage_issue_comment` → `gh pr review --approve/--request-changes` chain that empirically broke the cross-family review mandate gate (`pull-request §6.1`).
+
+        **Action: 'create'** — requires `pr_number`, `state`, `body`. State `APPROVED` / `REQUEST_CHANGES` / `COMMENT` maps to GraphQL `addPullRequestReview.event` enum (`APPROVE` / `REQUEST_CHANGES` / `COMMENT`).
+
+        **Action: 'update'** — requires `review_id` (GraphQL node ID of existing review, `PRR_*`) and `body`. Updates body only; GitHub does not allow state transition on a submitted review via this mutation.
+
+        Returns `reviewId` (PRR_* node ID) for downstream A2A handoff per `review-response-protocol.md §14` — pair with `get_conversation({pr_number, comment_id: ...})` for warm-cache propagation in multi-cycle reviews.
+      tags: [PullRequests]
+      parameters:
+        - name: pr_number
+          in: path
+          required: true
+          description: The number of the pull request (path placeholder; the request body's `pr_number` is the authoritative input for `create`).
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - body
+              properties:
+                action:
+                  type: string
+                  enum: [create, update]
+                  description: The action to perform.
+                  example: create
+                pr_number:
+                  type: integer
+                  description: The pull request number (required for `create`).
+                  example: 11273
+                state:
+                  type: string
+                  enum: [APPROVED, REQUEST_CHANGES, COMMENT]
+                  description: Review state (required for `create`).
+                  example: APPROVED
+                body:
+                  type: string
+                  description: The review body.
+                review_id:
+                  type: string
+                  description: The GraphQL node ID of the existing review (required for `update`, e.g. `PRR_*`).
+                  example: "PRR_kwDOABcDef1234567890"
+      responses:
+        '200':
+          description: |
+            Review created or updated successfully. Returns `reviewId` (PRR_* node ID), `state`, `url`, `submittedAt`, plus `databaseId` on create.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  reviewId:
+                    type: string
+                  state:
+                    type: string
+                  url:
+                    type: string
+                  submittedAt:
+                    type: string
+                  databaseId:
+                    type: integer
+        '400':
+          description: Bad Request (invalid action / missing arguments / invalid state).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Pull request not found (create) or review id invalid (update).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: GraphQL API request failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /pulls/{pr_number}/reviewers/manage:
     post:
       summary: Manage PR Reviewers (Add or Remove)

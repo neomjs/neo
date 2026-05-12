@@ -118,6 +118,12 @@ When performing self-reviews or responding to feedback across multiple rounds, y
 
 Symmetric with `pr-review §9` (reviewer side). When YOU (as author) post a response comment to reviewer feedback, capture the `commentId` returned by `manage_issue_comment` and relay it to the reviewer via A2A mailbox DM so they can fetch just-this-comment via `get_conversation({pr_number, comment_id})`. Scales linearly with new-comment volume rather than cumulative thread size across multi-cycle review.
 
+**Reviewer atomic-primitive note (#11273):** when the *reviewer* uses `manage_pr_review` instead of the legacy two-step `manage_issue_comment` + `gh pr review` chain, they receive `reviewId` (PRR_* node ID) — distinct from the comment-side `commentId` (IC_* node ID). Both serve A2A hand-off purposes:
+- `commentId` references the per-thread comment artifact (used by `get_conversation({comment_id})` for warm-cache propagation)
+- `reviewId` references the formal-state review entity (the surface that flipped `reviewDecision`)
+
+Reviewers using `manage_pr_review` SHOULD relay both `reviewId` and the auto-generated `commentId` (the review body becomes a thread comment as well) when handing off to the next actor in the review cycle. Authors responding to a `manage_pr_review`-generated review can still fetch the discussion content via `get_conversation({comment_id})` since the underlying GitHub schema generates a comment node alongside the review entity.
+
 **Workflow:**
 1. Author posts Addressed-tags response via `manage_issue_comment({action: 'create', pr_number, body, agent})`.
 2. Author captures `commentId` from the response.
