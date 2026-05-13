@@ -423,6 +423,32 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
 }
 
 /**
+ * @summary Projects background daemon feature flags into the healthcheck `features.dream`
+ *          observability block (#10779).
+ *
+ * Pure projection: reads the active boolean status of the background data-processing
+ * features and surfaces them so operators can verify boot-time evaluations (env var overrides
+ * vs defaults) without having to inspect the `config.mjs` file manually.
+ *
+ * Timestamps (`lastDreamRun`, `lastGoldenPathRun`) are initialized to `null` as placeholders
+ * until the orchestrator records run history.
+ *
+ * @param {Object} cfg aiConfig-shaped input. Reads `cfg.autoDream`, `cfg.autoGoldenPath`,
+ *     `cfg.realTimeMemoryParsing`, and `cfg.autoIngestFileSystem`.
+ * @returns {{autoDream: Boolean, autoGoldenPath: Boolean, realTimeMemoryParsing: Boolean,
+ *     autoIngestFileSystem: Boolean, lastDreamRun: String|null, lastGoldenPathRun: String|null}}
+ */
+export function buildDreamFeaturesBlock(cfg) {
+    return {
+        autoDream            : !!cfg.autoDream,
+        autoGoldenPath       : !!cfg.autoGoldenPath,
+        realTimeMemoryParsing: !!cfg.realTimeMemoryParsing,
+        autoIngestFileSystem : !!cfg.autoIngestFileSystem,
+        lastDreamRun         : null,
+        lastGoldenPathRun    : null
+    };
+}
+/**
  * @summary Monitors and validates the ChromaDB dependency for the Memory Core MCP server.
  *
  * This service acts as a gatekeeper, ensuring that ChromaDB is properly running,
@@ -949,7 +975,8 @@ class HealthService extends Base {
             },
             features : {
                 summarization: false,
-                wake         : await buildWakeFeaturesBlock()
+                wake         : await buildWakeFeaturesBlock(),
+                dream        : buildDreamFeaturesBlock(aiConfig)
             },
             startup  : {
                 summarizationStatus : this.#startupSummarizationStatus || 'not_attempted',
