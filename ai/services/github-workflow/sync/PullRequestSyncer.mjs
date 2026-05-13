@@ -85,21 +85,25 @@ class PullRequestSyncer extends Base {
         
         for (const [idStr, pr] of Object.entries(metadata.pulls || {})) {
             combined.set(parseInt(idStr, 10), {
-                number: parseInt(idStr, 10),
-                state: pr.state,
-                milestone: pr.milestone ? { title: pr.milestone } : null,
-                closedAt: pr.closedAt,
-                mergedAt: pr.mergedAt
+                number        : parseInt(idStr, 10),
+                state         : pr.state,
+                milestone     : pr.milestone ? { title: pr.milestone } : null,
+                closedAt      : pr.closedAt,
+                mergedAt      : pr.mergedAt,
+                archiveVersion: pr.archiveVersion
             });
         }
         
         for (const pr of fetchedPullRequests) {
+            const cached = metadata.pulls?.[pr.number];
+
             combined.set(pr.number, {
-                number: pr.number,
-                state: pr.state,
-                milestone: pr.milestone,
-                closedAt: pr.closedAt,
-                mergedAt: pr.mergedAt
+                number        : pr.number,
+                state         : pr.state,
+                milestone     : pr.milestone,
+                closedAt      : pr.closedAt,
+                mergedAt      : pr.mergedAt,
+                archiveVersion: cached?.archiveVersion
             });
         }
         
@@ -109,7 +113,11 @@ class PullRequestSyncer extends Base {
             if (pr.state === 'OPEN') continue;
             
             let version = null;
-            if (pr.milestone?.title) {
+            if (pr.archiveVersion) {
+                version = pr.archiveVersion.startsWith(issueSyncConfig.versionDirectoryPrefix)
+                    ? pr.archiveVersion
+                    : issueSyncConfig.versionDirectoryPrefix + pr.archiveVersion;
+            } else if (pr.milestone?.title) {
                 version = pr.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
                     ? pr.milestone.title
                     : issueSyncConfig.versionDirectoryPrefix + pr.milestone.title;
@@ -169,7 +177,11 @@ class PullRequestSyncer extends Base {
         let itemIndex = plan?.itemIndex || 0;
 
         if (!version) {
-            if (pr.milestone?.title) {
+            if (pr.archiveVersion) {
+                version = pr.archiveVersion.startsWith(issueSyncConfig.versionDirectoryPrefix)
+                    ? pr.archiveVersion
+                    : issueSyncConfig.versionDirectoryPrefix + pr.archiveVersion;
+            } else if (pr.milestone?.title) {
                 version = pr.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
                     ? pr.milestone.title
                     : issueSyncConfig.versionDirectoryPrefix + pr.milestone.title;
@@ -338,15 +350,18 @@ class PullRequestSyncer extends Base {
         // Cache for the main orchestrator to merge
         metadata.pulls = {};
         allPullRequests.forEach(p => {
+            const plan = archivePlan.get(p.number);
+
             metadata.pulls[p.number] = {
-                number: p.number,
-                contentHash: p.contentHash,
-                state: p.state,
-                updatedAt: p.updatedAt,
-                closedAt: p.closedAt || null,
-                mergedAt: p.mergedAt || null,
-                milestone: p.milestone?.title || null,
-                path: p.relativeOutputPath
+                number        : p.number,
+                contentHash   : p.contentHash,
+                state         : p.state,
+                updatedAt     : p.updatedAt,
+                closedAt      : p.closedAt || null,
+                mergedAt      : p.mergedAt || null,
+                milestone     : p.milestone?.title || null,
+                archiveVersion: p.state === 'OPEN' ? null : plan?.version || null,
+                path          : p.relativeOutputPath
             };
         });
 
