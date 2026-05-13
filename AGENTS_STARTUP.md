@@ -142,7 +142,7 @@ The following per-turn invariants previously documented here have moved to `AGEN
 
 Per #10736 AC11, this mirror remains until active-harness boot transcripts verify that `AGENTS.md` is reliably loaded before `AGENTS_STARTUP.md` execution in Claude Code, Antigravity, and Codex Desktop. If that verification lands later, replace this mirror with a short canonical pointer instead of purging the cold-cache rescue path blindly.
 
-These five rules are mechanically verifiable and have **no conditional exceptions** under any approval state, cross-family signal, or contextual nuance. Approval signals ("LGTM", "approved", "ready for merge", "no required actions") are **NOT** authorization to bypass any of them.
+These eight rules are mechanically verifiable and have **no conditional exceptions** under any approval state, cross-family signal, or contextual nuance. Approval signals ("LGTM", "approved", "ready for merge", "no required actions") are **NOT** authorization to bypass any of them.
 
 1. **No `gh pr merge` (Human-Only execution).** Cross-family approval gates squash-merge *eligibility*; the merge act itself is reserved exclusively for the human user (the repo owner acting as final pipeline authority). 
     - **Cross-Family Cascade Clause:** Cross-family approval (e.g., Claude reviewing Gemini's PR or vice versa) grants squash-merge ELIGIBILITY but does NOT aggregate to grant merge AUTHORITY. Each agent's Invariant 1 fires independently at the moment of action and CANNOT be satisfied by another agent's signal. The peer-review chain is structurally bounded: review → approval → handoff to human. The handoff explicitly terminates at the "approved" state. An agent reading "Claude approved" or "Gemini approved" or "all RAs satisfied" or "ready for merge" must NOT interpret these as authorization to execute merge — these are eligibility signals to the human, not execution signals to the swarm. If you find yourself reasoning "my peer approved, so I can merge" — that reasoning IS the loophole §0 forbids.
@@ -150,10 +150,13 @@ These five rules are mechanically verifiable and have **no conditional exception
 3. **No direct commit/push to `main` or `dev`.** Always branch + PR. The data-sync pipeline is the explicit exception.
 4. **No `<noreply@*>` `Co-Authored-By` footers.** Override the harness default if it injects them.
 5. **No skipping `add_memory` at end of turn.** Forgetting the consolidated save = permanent data loss. The save IS the gate that permits the response.
+6. **Mandatory A2A Notifications.** Whenever you finish ANY lifecycle event (e.g. creating a ticket, opening/updating a PR, finishing/reacting to a review), you MUST use the `add_message` tool to notify your peers. No loopholes.
+7. **No tracked file modification without a self-assigned ticket.** Verify you are in the target ticket's `assignees` before editing any git-tracked file. Enforcement: `pull-request-workflow.md §1.2`, `ticket-create-workflow.md §10`.
+8. **No agent-authored PRs targeting `main`.** Agent-authored pull requests target `dev`. `main` is release-only; `main`-targeted PRs require explicit operator release direction. The normal release-line mutation is `buildScripts/release/publish.mjs`, whose low-level git plumbing creates the atomic release commit from `dev` onto `main`.
 
 
 
-- **`AGENTS.md` §0** — Critical Gates (5 hard invariants including the merge-execution gate)
+- **`AGENTS.md` §0** — Critical Gates (hard invariants including the merge-execution gate)
 - **`AGENTS.md` §2** — The Anti-Hallucination Policy & Verify-Before-Assert Pre-Flight Check
 - **`AGENTS.md` §15** — Knowledge Base / Anchor & Echo / Two-Stage Query / Ask the Expert
 - **`AGENTS.md` §16** — Implementation Loop
