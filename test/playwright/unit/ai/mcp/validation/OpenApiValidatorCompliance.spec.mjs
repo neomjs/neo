@@ -194,6 +194,23 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(coalesceWindow.maximum).toBe(300);
     });
 
+    test('knowledge-base query schemas expose skill content type (#11326)', async () => {
+        const expectedTypes = ['all', 'blog', 'guide', 'src', 'example', 'ticket', 'release', 'test', 'skill'],
+              doc           = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/knowledge-base/openapi.yaml'), 'utf8')),
+              queryOp       = doc.paths['/documents/query'].post,
+              askOp         = doc.paths['/knowledge/ask'].post,
+              querySchema   = zodToJsonSchema(buildZodSchema(doc, queryOp), {target: 'openApi3', $refStrategy: 'none'}),
+              askSchema     = zodToJsonSchema(buildZodSchema(doc, askOp), {target: 'openApi3', $refStrategy: 'none'}),
+              queryType     = doc.components.schemas.QueryRequest.properties.type;
+
+        expect(queryType.enum).toEqual(expectedTypes);
+        expect(queryType.description).toContain('`test`');
+        expect(queryType.description).toContain('`skill`');
+        expect(queryOp.description).toContain('release, test, skill');
+        expect(querySchema.properties.type.enum).toEqual(expectedTypes);
+        expect(askSchema.properties.type.enum).toEqual(expectedTypes);
+    });
+
     for (const server of servers) {
         test(`${server}: every emitted input/output schema has items on array nodes (#10064)`, () => {
             const yamlPath = path.join(repoRoot, 'ai/mcp/server', server, 'openapi.yaml');
