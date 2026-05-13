@@ -513,7 +513,33 @@ class IssueSyncer extends Base {
         // Process each issue
         for (const issue of allIssues) {
             const issueNumber = issue.number;
-            const targetPath  = this.#getIssuePath(issue, archivePlan);
+            let targetPath = this.#getIssuePath(issue, archivePlan);
+
+            const oldIssue = metadata.issues[issueNumber];
+            const oldPathRelative = oldIssue?.path;
+            const oldAbsolutePath = oldIssue ? this.#resolvePath(oldPathRelative) : null;
+
+            // --- ARCHIVE ANOMALY DETECTION & SEALED-CHUNK SEMANTICS ---
+            // Detect if an issue's closedAt timestamp has shifted from a previously known value.
+            // Under sealed-chunk semantics, historical items should not jump archive buckets
+            // just because a maintainer toggled the state.
+            if (oldIssue && issue.state === 'CLOSED') {
+                const wasArchived = oldPathRelative && oldPathRelative.includes(issueSyncConfig.archiveDir);
+                
+                if (oldIssue.closedAt && issue.closedAt && oldIssue.closedAt !== issue.closedAt) {
+                    logger.warn(`[ARCHIVE ANOMALY] Issue #${issueNumber} closedAt shifted: ${oldIssue.closedAt} -> ${issue.closedAt}.`);
+                    
+                    if (wasArchived) {
+                        logger.warn(`[SEALED CHUNK ENFORCEMENT] Preventing #${issueNumber} from jumping to ${targetPath}. Forcing retention at ${oldAbsolutePath}.`);
+                        targetPath = oldAbsolutePath;
+                    }
+                } else if (wasArchived && targetPath !== oldAbsolutePath) {
+                    // Even if closedAt didn't shift, milestone changes could trigger a bucket jump.
+                    // We must seal the chunk to prevent registry drift.
+                    logger.warn(`[SEALED CHUNK ENFORCEMENT] Issue #${issueNumber} bucket shifted, but it is already archived. Forcing retention at ${oldAbsolutePath}.`);
+                    targetPath = oldAbsolutePath;
+                }
+            }
 
             if (!targetPath) {
                 stats.dropped.count++;
@@ -530,9 +556,6 @@ class IssueSyncer extends Base {
                 delete newMetadata.issues[issueNumber];
                 continue;
             }
-
-            const oldIssue = metadata.issues[issueNumber];
-            const oldAbsolutePath = oldIssue ? this.#resolvePath(oldIssue.path) : null;
 
             const needsUpdate = !oldIssue ||
                 oldIssue.updated !== issue.updatedAt ||
