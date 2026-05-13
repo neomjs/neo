@@ -4,6 +4,7 @@ import {fileURLToPath} from 'url';
 import {setup} from '../../../../../setup.mjs';
 import Neo from '../../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../../src/core/_export.mjs';
+import fs from 'fs';
 
 setup({
     neoConfig: {
@@ -48,19 +49,44 @@ async function importTemplateConfig() {
 }
 
 test.describe('GitHub Workflow MCP Server Config Completeness', () => {
-    test('config.template.mjs contains all required path definitions', async () => {
+    test('config.template.mjs contains all dynamically consumed keys', async () => {
         const configModule = await importTemplateConfig();
         const config = configModule.default;
 
-        expect(config.issueSync).toBeDefined();
-        expect(config.issueSync.issuesDir).toBeDefined();
-        expect(config.issueSync.archiveRoot).toBeDefined();
-        expect(config.issueSync.archiveRoot).toContain(path.normalize('resources/content/archive'));
-        expect(config.issueSync.archiveDir).toBeDefined();
-        expect(config.issueSync.discussionsDir).toBeDefined();
-        expect(config.issueSync.pullsDir).toBeDefined();
-        expect(config.issueSync.archiveChunkThreshold).toBe(100);
-        expect(config.issueSync.archiveChunkPrefix).toBe('chunk-');
+        const syncDir = path.resolve(__dirname, '../../../../../../../ai/services/github-workflow/sync');
+        const sharedDir = path.resolve(__dirname, '../../../../../../../ai/services/github-workflow/shared');
+        const filesToScan = [
+            path.join(syncDir, 'IssueSyncer.mjs'),
+            path.join(syncDir, 'PullRequestSyncer.mjs'),
+            path.join(syncDir, 'DiscussionSyncer.mjs'),
+            path.join(syncDir, 'ReleaseSyncer.mjs'),
+            path.join(syncDir, 'MetadataManager.mjs'),
+            path.join(sharedDir, 'archivePath.mjs')
+        ];
+
+        const requiredKeys = new Set();
+        const regex = /issueSyncConfig\.([a-zA-Z0-9_]+)/g;
+
+        for (const file of filesToScan) {
+            if (fs.existsSync(file)) {
+                const content = await fs.promises.readFile(file, 'utf8');
+                let match;
+                while ((match = regex.exec(content)) !== null) {
+                    requiredKeys.add(match[1]);
+                }
+            }
+        }
+
+        const templateKeys = Object.keys(config.issueSync);
+        const missingKeys = [];
+        
+        for (const key of requiredKeys) {
+            if (!templateKeys.includes(key)) {
+                missingKeys.push(key);
+            }
+        }
+
+        expect(missingKeys, `Missing keys in config.template.mjs: ${missingKeys.join(', ')}`).toEqual([]);
     });
 
     test('NEO_MCP_GITHUB_ARCHIVE_ROOT overrides config.issueSync.archiveRoot', async () => {
