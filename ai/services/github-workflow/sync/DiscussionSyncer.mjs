@@ -8,7 +8,7 @@ import path                       from 'path';
 import GraphqlService             from '../GraphqlService.mjs';
 import ReleaseSyncer              from './ReleaseSyncer.mjs';
 import {FETCH_DISCUSSIONS_FOR_SYNC} from '../queries/discussionQueries.mjs';
-import archivePath                from '../shared/archivePath.mjs';
+import archivePath, {validateArchiveConfig} from '../shared/archivePath.mjs';
 const issueSyncConfig = aiConfig.issueSync;
 
 /**
@@ -78,6 +78,7 @@ class DiscussionSyncer extends Base {
      * @private
      */
     #planArchiveBuckets(metadata, fetchedDiscussions = []) {
+        validateArchiveConfig(issueSyncConfig);
         const combined = new Map();
         
         for (const [idStr, discussion] of Object.entries(metadata.discussions || {})) {
@@ -152,12 +153,14 @@ class DiscussionSyncer extends Base {
         }
 
         return archivePath({
-            archiveRoot: issueSyncConfig.archiveRoot,
-            type       : 'discussions',
-            version    : plan.version,
-            filename   : filename,
-            itemCount  : plan.itemCount,
-            itemIndex  : plan.itemIndex
+            archiveRoot          : issueSyncConfig.archiveRoot,
+            archiveChunkThreshold: issueSyncConfig.archiveChunkThreshold,
+            archiveChunkPrefix   : issueSyncConfig.archiveChunkPrefix,
+            type                 : 'discussions',
+            version              : plan.version,
+            filename             : filename,
+            itemCount            : plan.itemCount,
+            itemIndex            : plan.itemIndex
         });
     }
 

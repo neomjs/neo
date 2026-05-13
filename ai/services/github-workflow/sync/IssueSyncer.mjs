@@ -10,7 +10,7 @@ import ReleaseSyncer                                 from './ReleaseSyncer.mjs';
 import {FETCH_ISSUE_TIMELINE_PAGE, FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries.mjs';
 import {GET_ISSUE_ID, UPDATE_ISSUE}                                                                        from '../queries/mutations.mjs';
 import chunkPath                                        from '../shared/chunkPath.mjs';
-import archivePath                                      from '../shared/archivePath.mjs';
+import archivePath, {validateArchiveConfig}             from '../shared/archivePath.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const lineBreaksRegex = /[\r\n]+/g;
@@ -266,6 +266,7 @@ class IssueSyncer extends Base {
      * @private
      */
     #planArchiveBuckets(metadata, fetchedIssues = []) {
+        validateArchiveConfig(issueSyncConfig);
         const combined = new Map();
         
         for (const [idStr, issue] of Object.entries(metadata.issues || {})) {
@@ -382,12 +383,14 @@ class IssueSyncer extends Base {
             }
 
             return archivePath({
-                archiveRoot: issueSyncConfig.archiveRoot,
-                type: 'issues',
-                version: version,
-                filename: filename,
-                itemCount: itemCount,
-                itemIndex: itemIndex
+                archiveRoot          : issueSyncConfig.archiveRoot,
+                archiveChunkThreshold: issueSyncConfig.archiveChunkThreshold,
+                archiveChunkPrefix   : issueSyncConfig.archiveChunkPrefix,
+                type                 : 'issues',
+                version              : version,
+                filename             : filename,
+                itemCount            : itemCount,
+                itemIndex            : itemIndex
             });
         }
 
