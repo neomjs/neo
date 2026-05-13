@@ -124,6 +124,20 @@ async function payloadFileSizes(skillName) {
     return files.map(file => ({path: file, bytes: statSync(file).size}));
 }
 
+function checkPerFileBudgets(files, perFileBudget) {
+    if (!Number.isInteger(perFileBudget) || perFileBudget <= 0) return [];
+
+    const errors = [];
+
+    for (const {path: filePath, bytes: fileBytes} of files) {
+        if (fileBytes > perFileBudget) {
+            errors.push(`${path.relative(ROOT_DIR, filePath)} has ${fileBytes} bytes, exceeds perFilePayloadBudget ${perFileBudget}. Extract edge-case sections to sub-rule sibling files behind one-line trigger pointers per Map vs World Atlas discipline (skill-authoring-guide.md). See #11319 / #11320 for the convention.`);
+        }
+    }
+
+    return errors;
+}
+
 function validateManifestSchema(manifest, schema) {
     const errors = [];
     const rootKeys = new Set([...schema.required, '$schema']);
@@ -329,12 +343,7 @@ async function lint({base = null} = {}) {
 
         if (Number.isInteger(perFileBudget) && perFileBudget > 0) {
             const files = await payloadFileSizes(skillName);
-
-            for (const {path: filePath, bytes: fileBytes} of files) {
-                if (fileBytes > perFileBudget) {
-                    errors.push(`${path.relative(ROOT_DIR, filePath)} has ${fileBytes} bytes, exceeds perFilePayloadBudget ${perFileBudget}. Extract edge-case sections to sub-rule sibling files behind one-line trigger pointers per Map vs World Atlas discipline (skill-authoring-guide.md). See #11319 / #11320 for the convention.`);
-                }
-            }
+            errors.push(...checkPerFileBudgets(files, perFileBudget));
         }
 
         if (skill.claudeSymlinkRequired) {
@@ -383,4 +392,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
     });
 }
 
-export {lint, parseArgs, parseFrontmatter, validateManifestSchema};
+export {checkPerFileBudgets, lint, parseArgs, parseFrontmatter, validateManifestSchema};

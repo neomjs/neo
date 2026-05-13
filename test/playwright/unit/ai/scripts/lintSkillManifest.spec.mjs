@@ -3,6 +3,7 @@ import {execFileSync, spawnSync} from 'child_process';
 import path                      from 'path';
 
 import {
+    checkPerFileBudgets,
     parseArgs,
     parseFrontmatter,
     validateManifestSchema
@@ -232,6 +233,43 @@ test.describe('ai/scripts/lint-skill-manifest (#11275)', () => {
         }, schema);
 
         expect(errorsNegativeSkill).toContain('bad-budget.perFilePayloadBudget must be a positive integer when set');
+    });
+
+    test('checkPerFileBudgets returns an error for files exceeding the per-file budget (#11320 AC9)', () => {
+        const repoRoot = path.resolve(process.cwd());
+        const files    = [
+            {path: path.join(repoRoot, '.agents/skills/example/references/over-budget.md'),  bytes: 30000},
+            {path: path.join(repoRoot, '.agents/skills/example/references/under-budget.md'), bytes: 10000}
+        ];
+
+        const errors = checkPerFileBudgets(files, 25000);
+
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toContain('over-budget.md has 30000 bytes, exceeds perFilePayloadBudget 25000');
+        expect(errors[0]).toContain('Map vs World Atlas');
+        expect(errors[0]).toContain('skill-authoring-guide.md');
+    });
+
+    test('checkPerFileBudgets returns no errors when all files are within budget (#11320 AC9)', () => {
+        const repoRoot = path.resolve(process.cwd());
+        const files    = [
+            {path: path.join(repoRoot, '.agents/skills/example/references/a.md'), bytes: 10000},
+            {path: path.join(repoRoot, '.agents/skills/example/references/b.md'), bytes: 24999}
+        ];
+
+        expect(checkPerFileBudgets(files, 25000)).toEqual([]);
+    });
+
+    test('checkPerFileBudgets treats null/undefined/non-positive budget as disabled per omit-to-disable contract (#11320 AC8)', () => {
+        const repoRoot = path.resolve(process.cwd());
+        const files    = [
+            {path: path.join(repoRoot, '.agents/skills/example/references/huge.md'), bytes: 1000000}
+        ];
+
+        expect(checkPerFileBudgets(files, undefined)).toEqual([]);
+        expect(checkPerFileBudgets(files, null)).toEqual([]);
+        expect(checkPerFileBudgets(files, 0)).toEqual([]);
+        expect(checkPerFileBudgets(files, -1)).toEqual([]);
     });
 
     test('schema validator preserves backwards compatibility when perFilePayloadBudget is omitted (#11320)', () => {
