@@ -16,9 +16,9 @@ import {sanitizeInput} from '../../util/Sanitizer.mjs';
  * This index drives the `TreeList` navigation in the Portal's "Tickets" section.
  *
  * **Key Features:**
- * - **Dual-Source Scanning:** Reads from both active issues (`resources/content/issues`) and the issue archive (`resources/content/issue-archive`).
+ * - **Dual-Source Scanning:** Reads from both active issues (`resources/content/issues`) and the issue archive (`resources/content/archive/issues`).
  * - **Intelligent Filtering:** Includes high-value tickets (bug, feature, epic) while excluding noise (chore, task) to ensure high signal-to-noise ratio for SEO and AI.
- * - **Hierarchical Grouping:** Groups tickets by "Backlog" (active) or by Release Version (archived), sorted semantically.
+ * - **Hierarchical Grouping:** Groups tickets by "Backlog" (active) or by release version (archived), sorted semantically.
  * - **TreeList Optimization:** Outputs a flat-tree structure compatible with `Neo.tree.List` and `Neo.data.Store`.
  *
  * @see apps/portal/view/news/tickets/MainContainer.mjs
@@ -28,7 +28,7 @@ import {sanitizeInput} from '../../util/Sanitizer.mjs';
 
 const ROOT_DIR    = process.cwd();
 const ISSUES_DIR  = path.resolve(ROOT_DIR, 'resources/content/issues');
-const ARCHIVE_DIR = path.resolve(ROOT_DIR, 'resources/content/issue-archive');
+const ARCHIVE_DIR = path.resolve(ROOT_DIR, 'resources/content/archive/issues');
 const OUTPUT_FILE = path.resolve(ROOT_DIR, 'apps/portal/resources/data/tickets.json');
 
 // Labels to include (case-insensitive check)
@@ -49,7 +49,7 @@ const EXCLUDE_LABELS = new Set(['chore', 'task', 'agent-task']);
  *
  * @param {Object} options Configuration options
  * @param {String} [options.issuesDir] - Directory containing active markdown tickets (defaults to `resources/content/issues`)
- * @param {String} [options.archiveDir] - Directory containing archived markdown tickets (defaults to `resources/content/issue-archive`)
+ * @param {String} [options.archiveDir] - Directory containing archived markdown tickets (defaults to `resources/content/archive/issues`)
  * @param {String} [options.outputFile] - Path to the output JSON file (defaults to `apps/portal/resources/data/tickets.json`)
  * @returns {Promise<void>} Resolves when the JSON file is written
  */
@@ -62,7 +62,7 @@ async function createTicketIndex(options = {}) {
 
     // 1. Find all markdown files
     const activeFiles   = await fg('**/*.md', { cwd: issuesDir,  absolute: true });
-    const archivedFiles = await fg('**/*.md', { cwd: archiveDir, absolute: true });
+    const archivedFiles = await fg('**/issue-*.md', { cwd: archiveDir, absolute: true });
 
     const allFiles = [
         ...activeFiles.map(f => ({ path: f, isActive: true })),
@@ -121,7 +121,7 @@ async function createTicketIndex(options = {}) {
         if (fileInfo.isActive) {
             groupName = 'Backlog';
         } else {
-            // path/to/archive/v11.19.1/111xx/issue-123.md -> v11.19.1
+            // path/to/archive/issues/v1.2.3/chunk-0/issue-123.md -> v1.2.3
             const relativeToArchive = path.relative(archiveDir, filePath);
             groupName = relativeToArchive.split(path.sep)[0];
         }

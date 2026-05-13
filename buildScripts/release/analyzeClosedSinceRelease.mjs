@@ -8,7 +8,7 @@ import {fileURLToPath} from 'url';
  * `resources/content/issues/` directory.
  *
  * Ticket lifecycle: ticket files live in `resources/content/issues/` while open or recently
- * closed, then get swept into `resources/content/issue-archive/<release>/` at release cut.
+ * closed, then get swept into `resources/content/archive/issues/vN.M.K/{flat|chunk-N}/` at release cut.
  * This means anything in `issues/` with `state === 'CLOSED'` and `closedAt >= <cutoff>` has
  * been resolved since the last release and not yet archived — the authoritative set for
  * roadmap-authoring purposes.
