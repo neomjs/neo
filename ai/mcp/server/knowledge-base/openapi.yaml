@@ -173,7 +173,7 @@ paths:
         
         **Input:**
         - `query`: Natural language search query (1-10 words work best)
-        - `type`: Optional filter by content type (all, blog, guide, src, example, ticket, release)
+        - `type`: Optional filter by content type (all, blog, guide, src, example, ticket, release, skill)
         
         **Output:**
         A ranked list of file paths with relevance scores. Example:
@@ -363,8 +363,8 @@ paths:
                   description: The question to ask.
                 type:
                   type: string
-                  description: "Optional filter by content type (e.g., 'guide', 'src', 'all')."
-                  enum: [all, blog, guide, src, example, ticket, release, test]
+                  description: "Optional filter by content type (e.g., 'guide', 'src', 'all', 'skill')."
+                  enum: [all, blog, guide, src, example, ticket, release, test, skill]
                   default: all
                 limit:
                   type: integer
@@ -700,7 +700,8 @@ components:
             - `ticket`: Issues from GitHub. Can be open (potential work) or closed (historical context).
             - `release`: Release notes and changelogs
             - `test`: Automated tests and specs
-          enum: [all, blog, guide, src, example, ticket, release, test]
+            - `skill`: Agent skill documentation and rules
+          enum: [all, blog, guide, src, example, ticket, release, test, skill]
           default: all
         limit:
           type: integer
