@@ -20,6 +20,8 @@ import Neo             from '../../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../../src/core/_export.mjs';
 import '../../../../../../../src/manager/Instance.mjs';
 
+const skipCiSubstrateData = !!process.env.NEO_TEST_SKIP_CI;
+
 test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     let Server;
     let GraphService;
@@ -59,6 +61,8 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     });
 
     test('bindAgentIdentity should correctly retrieve identity without cache manipulation', async () => {
+        test.skip(skipCiSubstrateData, 'CI-skip: Memory Core substrate data not seeded - bucket C (#10903)');
+
         await GraphService.initAsync();
 
         GraphService.upsertNode({id: '@neo-opus-4-7', type: 'AgentIdentity', name: 'Identity Node'});
@@ -75,6 +79,8 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     });
 
     test('bindAgentIdentity must await the Promise-returning getNode (regression pin for #10249)', async () => {
+        test.skip(skipCiSubstrateData, 'CI-skip: Memory Core substrate data not seeded - bucket C (#10903)');
+
         // Regression guard: in production, `GraphService.getNode` returns a Promise (Neo
         // singleton method wrapping). If `bindAgentIdentity` drops the `await`, `node.id`
         // on the Promise object is `undefined` — the actual root cause of #10241's merged-
@@ -113,6 +119,8 @@ test.describe('Neo.ai.mcp.server.memory-core.Server', () => {
     });
 
     test('bindAgentIdentity should recover from stuck vicinityLoadedNodes cache miss', async () => {
+        test.skip(skipCiSubstrateData, 'CI-skip: Memory Core substrate data not seeded - bucket C (#10903)');
+
         await GraphService.initAsync();
         
         GraphService.upsertNode({id: '@neo-opus-4-7', type: 'AgentIdentity', name: 'Identity Node'});

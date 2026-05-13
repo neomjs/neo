@@ -480,17 +480,17 @@ export class Orchestrator extends Base {
             }
             return null;
         }, async (taskName, reason) => {
-            this.taskStateService.updateTaskState(taskName, { running: true, lastRunAt: Date.now() });
+            this.taskStateService.markStarted(taskName, reason.reason);
             this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
             try {
                 await this.dreamService.processUndigestedSessions();
-                this.taskStateService.updateTaskState(taskName, { lastSuccessAt: Date.now() });
+                this.taskStateService.markCompleted(taskName);
                 this.healthService?.recordTaskOutcome?.(taskName, 'completed', { reason, completedAt: new Date().toISOString() });
             } catch (e) {
-                this.taskStateService.updateTaskState(taskName, { lastErrorAt: Date.now(), lastReason: e.message });
+                const state = this.taskStateService.getTaskState(taskName);
+                if (state) state.lastReason = e.message;
+                this.taskStateService.markFailed(taskName, 1);
                 this.healthService?.recordTaskOutcome?.(taskName, 'failed', { reason, error: e.message, failedAt: new Date().toISOString() });
-            } finally {
-                this.taskStateService.updateTaskState(taskName, { running: false });
             }
         }, context);
 
@@ -504,17 +504,17 @@ export class Orchestrator extends Base {
             }
             return null;
         }, async (taskName, reason) => {
-            this.taskStateService.updateTaskState(taskName, { running: true, lastRunAt: Date.now() });
+            this.taskStateService.markStarted(taskName, reason.reason);
             this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
             try {
                 await this.goldenPathSynthesizer.synthesizeGoldenPath();
-                this.taskStateService.updateTaskState(taskName, { lastSuccessAt: Date.now() });
+                this.taskStateService.markCompleted(taskName);
                 this.healthService?.recordTaskOutcome?.(taskName, 'completed', { reason, completedAt: new Date().toISOString() });
             } catch (e) {
-                this.taskStateService.updateTaskState(taskName, { lastErrorAt: Date.now(), lastReason: e.message });
+                const state = this.taskStateService.getTaskState(taskName);
+                if (state) state.lastReason = e.message;
+                this.taskStateService.markFailed(taskName, 1);
                 this.healthService?.recordTaskOutcome?.(taskName, 'failed', { reason, error: e.message, failedAt: new Date().toISOString() });
-            } finally {
-                this.taskStateService.updateTaskState(taskName, { running: false });
             }
         }, context);
 
