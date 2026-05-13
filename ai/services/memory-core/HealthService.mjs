@@ -435,13 +435,14 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
  *
  * @param {Object} cfg aiConfig-shaped input. Reads `cfg.autoDream`, `cfg.autoGoldenPath`,
  *     `cfg.realTimeMemoryParsing`, and `cfg.autoIngestFileSystem`.
- * @param {Map<String, Object>} [taskOutcomes] The orchestrator task outcomes map.
+ * @param {Object|Map<String, Object>} [taskOutcomes={}] The orchestrator task outcomes map or object.
  * @returns {{autoDream: Boolean, autoGoldenPath: Boolean, realTimeMemoryParsing: Boolean,
  *     autoIngestFileSystem: Boolean, lastDreamRun: String|null, lastGoldenPathRun: String|null}}
  */
-export function buildDreamFeaturesBlock(cfg, taskOutcomes = new Map()) {
-    const dreamState = taskOutcomes.get('dream');
-    const goldenPathState = taskOutcomes.get('golden-path');
+export function buildDreamFeaturesBlock(cfg, taskOutcomes = {}) {
+    const isMap = taskOutcomes instanceof Map;
+    const dreamState = isMap ? taskOutcomes.get('dream') : taskOutcomes['dream'];
+    const goldenPathState = isMap ? taskOutcomes.get('golden-path') : taskOutcomes['golden-path'];
 
     return {
         autoDream            : !!cfg.autoDream,
