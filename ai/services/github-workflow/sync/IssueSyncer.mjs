@@ -524,7 +524,7 @@ class IssueSyncer extends Base {
             // Under sealed-chunk semantics, historical items should not jump archive buckets
             // just because a maintainer toggled the state.
             if (oldIssue && issue.state === 'CLOSED') {
-                const wasArchived = oldPathRelative && oldPathRelative.includes(issueSyncConfig.archiveDir);
+                const wasArchived = oldPathRelative && (oldPathRelative.includes(issueSyncConfig.archiveDir) || oldPathRelative.includes(issueSyncConfig.archiveRoot));
                 
                 if (oldIssue.closedAt && issue.closedAt && oldIssue.closedAt !== issue.closedAt) {
                     logger.warn(`[ARCHIVE ANOMALY] Issue #${issueNumber} closedAt shifted: ${oldIssue.closedAt} -> ${issue.closedAt}.`);
