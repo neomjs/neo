@@ -213,3 +213,103 @@ test.describe('validateArchiveConfig — Epic #11187 B0a (#11290) runtime config
             .toThrow(/#11290/);
     });
 });
+
+test.describe('archivePath — runtime config field consumption (#11290 GPT Cycle 1 RA)', () => {
+    const archiveRoot = path.join('resources', 'content', 'archive');
+
+    test('honors archiveChunkThreshold override (non-default 50 → chunks at 100 items)', () => {
+        const result = archivePath({
+            archiveRoot,
+            archiveChunkThreshold: 50,
+            type     : 'issues',
+            version  : 'v13.0.0',
+            filename : 'issue-99.md',
+            itemCount: 100,
+            itemIndex: 99
+        });
+
+        expect(result).toContain(`${path.sep}chunk-2${path.sep}`);
+    });
+
+    test('honors archiveChunkThreshold override (non-default 200 → flat at 150 items)', () => {
+        const result = archivePath({
+            archiveRoot,
+            archiveChunkThreshold: 200,
+            type     : 'issues',
+            version  : 'v13.0.0',
+            filename : 'issue-100.md',
+            itemCount: 150,
+            itemIndex: 99
+        });
+
+        expect(result).toBe(path.join(archiveRoot, 'issues', 'v13.0.0', 'issue-100.md'));
+    });
+
+    test('honors archiveChunkPrefix override', () => {
+        const result = archivePath({
+            archiveRoot,
+            archiveChunkPrefix: 'bucket-',
+            type     : 'issues',
+            version  : 'v13.0.0',
+            filename : 'issue-100.md',
+            itemCount: 101,
+            itemIndex: 100
+        });
+
+        expect(result).toContain(`${path.sep}bucket-2${path.sep}`);
+    });
+
+    test('archiveChunkThreshold takes precedence over legacy maxItemsPerDir', () => {
+        const result = archivePath({
+            archiveRoot,
+            archiveChunkThreshold: 25,
+            maxItemsPerDir       : 100,
+            type     : 'issues',
+            version  : 'v13.0.0',
+            filename : 'issue-26.md',
+            itemCount: 30,
+            itemIndex: 25
+        });
+
+        expect(result).toContain(`${path.sep}chunk-2${path.sep}`);
+    });
+
+    test('falls back to DEFAULT_ARCHIVE_MAX_ITEMS_PER_DIR when neither threshold field provided', () => {
+        const result = archivePath({
+            archiveRoot,
+            type     : 'issues',
+            version  : 'v13.0.0',
+            filename : 'issue-100.md',
+            itemCount: 100,
+            itemIndex: 99
+        });
+
+        expect(result).toBe(path.join(archiveRoot, 'issues', 'v13.0.0', 'issue-100.md'));
+    });
+
+    test('falls back to DEFAULT_ARCHIVE_CHUNK_PREFIX when archiveChunkPrefix not provided', () => {
+        const result = archivePath({
+            archiveRoot,
+            archiveChunkThreshold: 50,
+            type     : 'issues',
+            version  : 'v13.0.0',
+            filename : 'issue-99.md',
+            itemCount: 100,
+            itemIndex: 99
+        });
+
+        expect(result).toContain(`${path.sep}chunk-2${path.sep}`);
+    });
+
+    test('rejects invalid archiveChunkPrefix containing path separator', () => {
+        expect(() => archivePath({
+            archiveRoot,
+            archiveChunkPrefix: 'bad/prefix',
+            type     : 'issues',
+            version  : 'v13.0.0',
+            filename : 'issue-100.md',
+            itemCount: 101,
+            itemIndex: 100
+        })).toThrow(/archiveChunkPrefix/);
+    });
+});

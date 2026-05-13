@@ -187,12 +187,14 @@ class PullRequestSyncer extends Base {
         }
 
         return archivePath({
-            archiveRoot: issueSyncConfig.archiveRoot,
-            type: 'pulls',
-            version: version,
-            filename: filename,
-            itemCount: itemCount,
-            itemIndex: itemIndex
+            archiveRoot          : issueSyncConfig.archiveRoot,
+            archiveChunkThreshold: issueSyncConfig.archiveChunkThreshold,
+            archiveChunkPrefix   : issueSyncConfig.archiveChunkPrefix,
+            type                 : 'pulls',
+            version              : version,
+            filename             : filename,
+            itemCount            : itemCount,
+            itemIndex            : itemIndex
         });
     }
 

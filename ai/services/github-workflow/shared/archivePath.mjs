@@ -1,6 +1,7 @@
 import path from 'path';
 
 export const DEFAULT_ARCHIVE_MAX_ITEMS_PER_DIR = 100;
+export const DEFAULT_ARCHIVE_CHUNK_PREFIX      = 'chunk-';
 
 /**
  * @summary Fail-loud runtime validator for the archive substrate config contract.
@@ -79,7 +80,9 @@ export function validateArchiveConfig(issueSyncConfig) {
  * @param {String} config.filename Markdown filename
  * @param {Number} config.itemCount Planned bucket size after placement
  * @param {Number} [config.itemIndex] Zero-based item index, required when chunking
- * @param {Number} [config.maxItemsPerDir=100] Maximum items per flat/chunk folder
+ * @param {Number} [config.maxItemsPerDir=100] Maximum items per flat/chunk folder (alias for legacy callers)
+ * @param {Number} [config.archiveChunkThreshold] Runtime override for max items per dir (preferred; takes precedence over `maxItemsPerDir`)
+ * @param {String} [config.archiveChunkPrefix='chunk-'] Runtime override for chunk subdir prefix
  * @returns {String}
  */
 export default function archivePath(config = {}) {
@@ -91,15 +94,21 @@ export default function archivePath(config = {}) {
         filename,
         itemCount,
         itemIndex,
-        maxItemsPerDir = DEFAULT_ARCHIVE_MAX_ITEMS_PER_DIR
+        archiveChunkThreshold,
+        archiveChunkPrefix = DEFAULT_ARCHIVE_CHUNK_PREFIX,
+        maxItemsPerDir     = DEFAULT_ARCHIVE_MAX_ITEMS_PER_DIR
     } = config;
+
+    // Runtime override precedence: archiveChunkThreshold (B0a #11290) > maxItemsPerDir (legacy) > default
+    const effectiveThreshold = archiveChunkThreshold ?? maxItemsPerDir;
 
     validateSegment(archiveRoot, 'archiveRoot', {allowPath: true});
     validateSegment(type,        'type');
     validateSegment(filename,    'filename');
     validateBucket({version, bucket});
-    validatePositiveInteger(maxItemsPerDir, 'maxItemsPerDir');
+    validatePositiveInteger(effectiveThreshold, archiveChunkThreshold !== undefined ? 'archiveChunkThreshold' : 'maxItemsPerDir');
     validateNonNegativeInteger(itemCount, 'itemCount');
+    validateSegment(archiveChunkPrefix, 'archiveChunkPrefix');
 
     const bucketDir = path.join(archiveRoot, type, version || bucket);
 
@@ -111,17 +120,17 @@ export default function archivePath(config = {}) {
         }
     }
 
-    if (itemCount <= maxItemsPerDir) {
+    if (itemCount <= effectiveThreshold) {
         return path.join(bucketDir, filename)
     }
 
     if (itemIndex === undefined) {
-        throw new TypeError('itemIndex is required when itemCount exceeds maxItemsPerDir')
+        throw new TypeError('itemIndex is required when itemCount exceeds archiveChunkThreshold')
     }
 
-    const chunkNumber = Math.floor(itemIndex / maxItemsPerDir) + 1;
+    const chunkNumber = Math.floor(itemIndex / effectiveThreshold) + 1;
 
-    return path.join(bucketDir, `chunk-${chunkNumber}`, filename)
+    return path.join(bucketDir, `${archiveChunkPrefix}${chunkNumber}`, filename)
 }
 
 /**
