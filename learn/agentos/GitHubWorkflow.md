@@ -159,6 +159,12 @@ This flexibility is crucial for:
 *   **`.github/ISSUE_ARCHIVE/`**: The "Historical Record." Contains closed tickets, organized by Release Version (e.g., `v5.0.0/`).
 *   **`.github/RELEASE_NOTES/`**: Contains the content of GitHub Releases.
 
+### Archive Anomaly Detection & Sealed-Chunk Semantics
+
+To ensure referential stability and institutionalize "Sealed-Chunk" archive integrity, the IssueSyncer enforces strict controls over issues once they are archived:
+*   **Sealed-Chunk Enforcements:** Once an issue is written to an archive bucket (e.g., `v10.5.0/chunk-1/`), it is "sealed". If subsequent syncs pull the issue and detect a shift in its `closedAt` date or its milestone, the system will prevent the issue from "jumping" buckets. It forces retention at the `oldAbsolutePath` to prevent historical data regression.
+*   **Archive Anomaly Hooks:** When an expected bucket shift occurs (e.g., the `closedAt` timestamp was modified), the syncer intercepts the discrepancy and emits an operator-actionable `[ARCHIVE ANOMALY]` log warning. This allows the Swarm to react to metadata drift while maintaining sync performance via delta updates.
+
 ### The Markdown Format
 
 Each issue is stored as a YAML-frontmatter Markdown file. The frontmatter contains rich metadata derived from the GraphQL response:

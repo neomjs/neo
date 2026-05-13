@@ -243,6 +243,72 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
             logger.warn = originalWarn;
         }
     });
+
+    test('pullFromGitHub enforces sealed-chunk archive semantics', async () => {
+        const mockIssue = buildMockIssue({
+            number       : 42044,
+            title        : 'Mock issue — sealed chunk enforcement #11288',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+        
+        mockIssue.state = 'CLOSED';
+        mockIssue.closedAt = '2026-05-13T10:00:00Z'; // new shifted date
+        mockIssue.milestone = { title: 'v1.0.0' }; // new shifted milestone
+        
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchIssuesForSync')) {
+                return {
+                    rateLimit: { cost: 1, remaining: 4999, resetAt: '2026-05-13T11:00:00Z' },
+                    repository: {
+                        issues: {
+                            pageInfo: { hasNextPage: false, endCursor: null },
+                            nodes: [structuredClone(mockIssue)]
+                        }
+                    }
+                };
+            }
+            if (query.includes('FetchSingleIssue')) {
+                return {repository: {issue: structuredClone(mockIssue)}};
+            }
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        const originalOldPath = `${issueSyncConfig.archiveDir}/chunk-42000/issue-${mockIssue.number}.md`;
+        
+        const metadata = {
+            issues: {
+                [mockIssue.number]: {
+                    state: 'CLOSED',
+                    path: originalOldPath,
+                    updatedAt: '2026-05-12T10:00:00Z',
+                    closedAt: '2026-05-12T10:00:00Z', // original date
+                    milestone: null, // original milestone
+                    title: mockIssue.title,
+                    contentHash: 'somehash',
+                    commentsTotal: 0
+                }
+            }
+        };
+        
+        // create the mock file to simulate it already exists in the archive
+        const absOldPath = path.resolve(process.cwd(), originalOldPath);
+        await fs.ensureDir(path.dirname(absOldPath));
+        await fs.writeFile(absOldPath, 'mock content', 'utf8');
+
+        // Execute pullFromGitHub
+        const { stats } = await IssueSyncer.pullFromGitHub(metadata);
+        
+        // Assert it was pulled
+        expect(stats.pulled.issues).toContain(mockIssue.number);
+        
+        // Assert target path in metadata remained the old path despite closedAt/milestone shifting
+        expect(metadata.issues[mockIssue.number].path).toBe(originalOldPath);
+        
+        // Cleanup
+        await fs.unlink(absOldPath).catch(() => {});
+    });
 });
 
 function buildComment(i) {
