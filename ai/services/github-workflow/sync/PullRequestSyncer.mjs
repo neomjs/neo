@@ -9,7 +9,7 @@ import GraphqlService             from '../GraphqlService.mjs';
 import ReleaseSyncer              from './ReleaseSyncer.mjs';
 import {FETCH_PULL_REQUESTS_FOR_SYNC} from '../queries/pullRequestQueries.mjs';
 import chunkPath                  from '../shared/chunkPath.mjs';
-import archivePath                from '../shared/archivePath.mjs';
+import archivePath, {validateArchiveConfig} from '../shared/archivePath.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const pullRequestConfig = aiConfig.pullRequest;
@@ -81,6 +81,7 @@ class PullRequestSyncer extends Base {
      * @private
      */
     #planArchiveBuckets(metadata, fetchedPullRequests = []) {
+        validateArchiveConfig(issueSyncConfig);
         const combined = new Map();
         
         for (const [idStr, pr] of Object.entries(metadata.pulls || {})) {
@@ -186,12 +187,14 @@ class PullRequestSyncer extends Base {
         }
 
         return archivePath({
-            archiveRoot: issueSyncConfig.archiveRoot,
-            type: 'pulls',
-            version: version,
-            filename: filename,
-            itemCount: itemCount,
-            itemIndex: itemIndex
+            archiveRoot          : issueSyncConfig.archiveRoot,
+            archiveChunkThreshold: issueSyncConfig.archiveChunkThreshold,
+            archiveChunkPrefix   : issueSyncConfig.archiveChunkPrefix,
+            type                 : 'pulls',
+            version              : version,
+            filename             : filename,
+            itemCount            : itemCount,
+            itemIndex            : itemIndex
         });
     }
 
