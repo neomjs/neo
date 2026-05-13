@@ -110,6 +110,32 @@ Instead, extract tool-specific constraints into dedicated, granular payload file
 - **The Map:** General routing, global lifecycle rules. Keep this clean and high-level to prevent context bloat.
 - **The Atlas:** Tool-specific quirks, edge cases, payload shapes, and strict operational constraints.
 
+### Recursive Application: Workflow Files Are Also Maps (per Discussion #11314 / Epic #11319)
+
+Map vs World Atlas applies **recursively**. A workflow file (`references/<workflow>.md`) itself becomes a Map for its own sub-rules when it grows beyond its natural load-frequency boundary.
+
+**The discipline (per operator directive 2026-05-13):** *"the bare always-relevant minimum is in there. and edge cases as ONE LINE triggers."*
+
+- **Always-relevant sections stay inline** in the workflow file — they fire every time the skill is loaded
+- **Edge-case sections extract to sub-rule sibling files** under `references/<sub-rule>.md` or `references/<category>/<sub-rule>.md`
+- **Each extracted edge-case is referenced from the workflow body via a one-line trigger pointer:**
+
+```markdown
+## §5.3 MCP-Tool-Description Budget Audit
+<!-- trigger: pr touches ai/mcp/server/*/openapi.yaml → read ./audits/mcp-tool-description-budget.md -->
+```
+
+**Mechanical enforcement (Sub-A of Epic #11319 via `skills.manifest.json` + `lint-skill-manifest.mjs`):**
+- `perFilePayloadBudget` per-skill (or `defaults.perFilePayloadBudget`) — lint fails any individual file in `references/` exceeding the cap
+- Default: 25,000 bytes (25 KB) — empirical-floor for clean skills
+- Temporary per-skill overrides for migration-period monoliths (e.g., `pr-review` at 66000, `pull-request` at 38000) — to be tightened as Sub-B+ migrations land
+
+**Empirical precedent:**
+- `pull-request` skill: workflow + 4 sub-rule siblings (`env-var-rename-rule.md`, `mcp-config-template-change-guide.md`, `sync-all-constraints.md`, `review-response-protocol.md`) — each conditionally loaded per workflow body trigger pointer
+- `pr-review` skill: `audits/mcp-tool-description-budget.md` + `audits/loading-runtime-effect.md` — extracted edge-cases
+
+**HNSW topography frame:** workflow Maps + sub-rule Atlases form the Middle Layer of the Hierarchical Navigable Small World structure that skill substrate empirically resembles. See Discussion #11314 §1.5 for full Top/Middle/Bottom-Layer topography.
+
 ## 3. The Lesson Promotion Path
 
 When a swarm agent discovers a systemic trap, an architectural pattern, or a workflow optimization that took significant effort to derive, that knowledge must not die when the session ends.
