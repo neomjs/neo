@@ -34,6 +34,8 @@ Your PR body's slot-rationale section MUST enumerate:
 
 Before `git commit` or opening a PR, you MUST verify you are the formal assignee for the target ticket. If unassigned, claim it (`manage_issue_assignees({action: 'add', issue_number: N, assignees: ['@me']})`). If assigned to someone else, halt and respect ownership.
 
+> **Upstream gate:** This is the post-hoc verifier. The primary gate is `AGENTS.md §0 Invariant 7` (*"No tracked repository file modification without a self-assigned ticket"*) which fires BEFORE any file edit. §1.2 here is the safety net that catches missed claims at commit time — when it fires for missing-assignment, the upstream invariant was already violated.
+
 ## 2. Git Branching Mandate
 
 You are strictly forbidden from committing or pushing directly to `main` (release-only) or `dev` (default working). The *mechanism* for satisfying this rule differs by harness class.

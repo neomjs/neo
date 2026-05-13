@@ -160,6 +160,25 @@ For PRs that introduce or modify public/consumed surfaces (e.g., configs, MCP to
 
 The PR cannot be approved if the implemented contract and the ticket's Contract Ledger are out of sync.
 
+### 5.5 Target-Ticket Assignment Audit
+
+Per `AGENTS.md §0 Invariant 7`, every code/substrate-modifying PR must reference a target ticket that lists the author as an assignee. The reviewer MUST verify this BEFORE approval.
+
+**"Target ticket" defined:** any ticket the PR is meaningfully working on — typically named via `Resolves #N` / `Closes #N` / `Fixes #N` (auto-close keywords) OR `Refs #N` (work-target without auto-close, e.g., partial implementation, multi-PR ticket). The audit does NOT require auto-close keywords; it requires ticket-targeting.
+
+**Audit Protocol:**
+
+1. **Identify target tickets:** parse the PR body for `Resolves`/`Closes`/`Fixes`/`Refs` references; also scan commit subjects for `(#N)` ticket-ID tags.
+2. **Verify assignment:** for each target ticket, confirm the PR author appears in `assignees`. Use `gh issue view <N> --json assignees`.
+3. **No target ticket at all:** flag as **Required Action**:
+   > *"PR does not name a target ticket (no `Resolves`/`Refs` in body, no `(#N)` in commits). §0 Invariant 7 + §0 Invariant 2 violated. Required: file a ticket OR identify the existing ticket this PR addresses; cite via `Refs #N` in body."*
+4. **Target ticket exists, author not assigned:** flag as **Required Action**:
+   > *"PR targets ticket #N but author is not in `assignees`. §0 Invariant 7 violated. Required: claim assignment via `manage_issue_assignees({action: 'add', issue_number: N, assignees: ['@me']})` before merge."*
+5. **Target ticket assigned to peer:** flag as **Required Action** (ownership conflict):
+   > *"PR targets ticket #N assigned to @peer-X, not the PR author. §0 Invariant 7 ownership rule violated. Required: either (a) author claims assignment with peer's acknowledgment, OR (b) close this PR + open new one under correct authorship."*
+
+The PR cannot be approved if any target ticket fails the assignment audit. Empirical anchor: [#11310](https://github.com/neomjs/neo/issues/11310) — 10 v13-era resolved tickets shipped with zero `AssignedEvent` entries because reviewers had no codified gate for the assignment dimension.
+
 ## 6. Review Template Selection
 
 Before drafting your review, classify the review cycle. Template choice is part of context-budget control and rigor control.

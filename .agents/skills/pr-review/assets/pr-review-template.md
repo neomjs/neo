@@ -202,6 +202,18 @@ For every modified or added OpenAPI tool description:
 
 ---
 
+### 🎫 Target-Ticket Assignment Audit
+
+*(Required per guide §5.5 + `AGENTS.md §0 Invariant 7`. Every code/substrate-modifying PR must reference a target ticket with the PR author in `assignees`.)*
+
+- [ ] Target ticket(s) identified from PR body (`Resolves` / `Closes` / `Fixes` / `Refs`) AND/OR commit subjects (`(#N)`)
+- [ ] PR author appears in `assignees` of each target ticket (verified via `gh issue view <N> --json assignees`)
+- [ ] No ownership conflicts (target ticket isn't assigned solely to a peer without author co-assignment)
+
+**Findings:** [Pass / No target ticket flagged / Author not assigned flagged / Ownership conflict flagged]
+
+---
+
 ### 📋 Required Actions
 
 **For PRs with required actions — use the checkbox list form:**
