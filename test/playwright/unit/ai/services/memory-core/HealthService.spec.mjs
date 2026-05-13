@@ -916,3 +916,60 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
         }
     });
 });
+
+/**
+ * @summary Coverage for the #10779 features.dream observability block in the healthcheck payload.
+ *
+ * Pins the pure-projection contract of `buildDreamFeaturesBlock`. This function surfaces the
+ * active boolean status of the background data-processing features based on `aiConfig` evaluation.
+ *
+ * @see Neo.ai.services.memory-core.HealthService#buildDreamFeaturesBlock
+ */
+test.describe('HealthService #10779 — buildDreamFeaturesBlock', () => {
+    let buildDreamFeaturesBlock;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
+        buildDreamFeaturesBlock = mod.buildDreamFeaturesBlock;
+    });
+
+    test('surfaces boolean flags directly from aiConfig and defaults timestamps to null', () => {
+        const cfg = {
+            autoDream: true,
+            autoGoldenPath: false,
+            realTimeMemoryParsing: true,
+            autoIngestFileSystem: false
+        };
+
+        const result = buildDreamFeaturesBlock(cfg);
+
+        expect(result).toEqual({
+            autoDream: true,
+            autoGoldenPath: false,
+            realTimeMemoryParsing: true,
+            autoIngestFileSystem: false,
+            lastDreamRun: null,
+            lastGoldenPathRun: null
+        });
+    });
+
+    test('coerces missing or falsy config values to strict booleans', () => {
+        const cfg = {
+            // autoDream missing
+            autoGoldenPath: null,
+            realTimeMemoryParsing: undefined,
+            autoIngestFileSystem: ''
+        };
+
+        const result = buildDreamFeaturesBlock(cfg);
+
+        expect(result).toEqual({
+            autoDream: false,
+            autoGoldenPath: false,
+            realTimeMemoryParsing: false,
+            autoIngestFileSystem: false,
+            lastDreamRun: null,
+            lastGoldenPathRun: null
+        });
+    });
+});
