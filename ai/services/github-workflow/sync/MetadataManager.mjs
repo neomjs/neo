@@ -102,11 +102,14 @@ class MetadataManager extends Base {
         // Prune pulls
         for (const [key, value] of Object.entries(metadata.pulls || {})) {
             prunedMetadata.pulls[key] = {
-                state      : value.state,
-                path       : value.path,
-                closedAt   : value.closedAt,
-                updatedAt  : value.updatedAt,
-                contentHash: value.contentHash
+                state         : value.state,
+                path          : value.path,
+                closedAt      : value.closedAt,
+                mergedAt      : value.mergedAt,
+                milestone     : value.milestone,
+                archiveVersion: value.archiveVersion,
+                updatedAt     : value.updatedAt,
+                contentHash   : value.contentHash
             };
         }
 
@@ -114,6 +117,9 @@ class MetadataManager extends Base {
         for (const [key, value] of Object.entries(metadata.discussions || {})) {
             prunedMetadata.discussions[key] = {
                 number     : value.number,
+                path       : value.path,
+                closed     : value.closed,
+                closedAt   : value.closedAt,
                 contentHash: value.contentHash
             };
         }
