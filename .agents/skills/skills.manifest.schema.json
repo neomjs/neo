@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neo.mjs.local/agents/skills/skills.manifest.schema.json",
+  "title": "Neo.mjs Skill Capability Manifest",
+  "type": "object",
+  "required": ["schemaVersion", "sourceOfTruth", "defaults", "skills"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "sourceOfTruth": {
+      "type": "string"
+    },
+    "defaults": {
+      "type": "object",
+      "required": ["routerByteBudget", "payloadBudget", "claudeSymlinkRequired", "downstreamDocsTargets"],
+      "additionalProperties": false,
+      "properties": {
+        "routerByteBudget": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "payloadBudget": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "claudeSymlinkRequired": {
+          "type": "boolean"
+        },
+        "downstreamDocsTargets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "skills": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/skill"
+      }
+    }
+  },
+  "$defs": {
+    "skill": {
+      "type": "object",
+      "required": [
+        "name",
+        "description",
+        "triggers",
+        "routerByteBudget",
+        "payloadBudget",
+        "claudeSymlinkRequired",
+        "downstreamDocsTargets"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "triggers": {
+          "type": "string",
+          "minLength": 1
+        },
+        "routerByteBudget": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "payloadBudget": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "claudeSymlinkRequired": {
+          "type": "boolean"
+        },
+        "downstreamDocsTargets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "relationships": {
+          "type": "object",
+          "description": "Optional future-extension metadata. No v1 lint rules consume this field.",
+          "additionalProperties": true
+        }
+      }
+    }
+  }
+}
