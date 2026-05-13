@@ -21,6 +21,8 @@ import PrimaryRepoSyncService, {
 import TaskStateService                from './services/TaskStateService.mjs';
 import ProcessSupervisorService        from './services/ProcessSupervisorService.mjs';
 import CadenceEngine                   from './services/CadenceEngine.mjs';
+import DreamService                    from './DreamService.mjs';
+import GoldenPathSynthesizer           from './services/GoldenPathSynthesizer.mjs';
 import {
     DEFAULT_POLL_INTERVAL_MS,
     DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
@@ -28,6 +30,10 @@ import {
     DEFAULT_BACKUP_INTERVAL_MS,
     DEFAULT_PRIMARY_DEV_SYNC_INTERVAL_MS,
     PRIMARY_DEV_SYNC_TASK_NAME,
+    DEFAULT_DREAM_INTERVAL_MS,
+    DREAM_TASK_NAME,
+    DEFAULT_GOLDEN_PATH_INTERVAL_MS,
+    GOLDEN_PATH_TASK_NAME,
     DEFAULT_DB_PATH,
     DEFAULT_DATA_DIR,
     DEFAULT_SCRIPT_DIR,
@@ -199,6 +205,18 @@ export class Orchestrator extends Base {
          */
         primaryDevSyncRootsConfig_: null,
         /**
+         * @member {Number} dreamIntervalMs_=3600000
+         * @protected
+         * @reactive
+         */
+        dreamIntervalMs_: DEFAULT_DREAM_INTERVAL_MS,
+        /**
+         * @member {Number} goldenPathIntervalMs_=3600000
+         * @protected
+         * @reactive
+         */
+        goldenPathIntervalMs_: DEFAULT_GOLDEN_PATH_INTERVAL_MS,
+        /**
          * @member {Object} healthService_=HealthService
          * @protected
          * @reactive
@@ -228,6 +246,18 @@ export class Orchestrator extends Base {
          * @reactive
          */
         primaryRepoSyncService_: PrimaryRepoSyncService,
+        /**
+         * @member {Object} dreamService_=DreamService
+         * @protected
+         * @reactive
+         */
+        dreamService_: DreamService,
+        /**
+         * @member {Object} goldenPathSynthesizer_=GoldenPathSynthesizer
+         * @protected
+         * @reactive
+         */
+        goldenPathSynthesizer_: GoldenPathSynthesizer,
         /**
          * @member {Function} spawnFn_=spawn
          * @protected
@@ -438,6 +468,54 @@ export class Orchestrator extends Base {
                     envValue: process.env[DEV_SYNC_ROOTS_ENV_VAR]
                 })
             });
+        }, context);
+
+        this.cadenceEngine.runIfDue(DREAM_TASK_NAME, () => {
+            if (this.cadenceEngine.shouldRunIntervalTask({
+                now,
+                lastRunAt : this.taskStateService.getTaskState(DREAM_TASK_NAME)?.lastRunAt,
+                intervalMs: this.dreamIntervalMs
+            })) {
+                return { reason: `periodic-dream:${this.dreamIntervalMs}` };
+            }
+            return null;
+        }, async (taskName, reason) => {
+            this.taskStateService.updateTaskState(taskName, { running: true, lastRunAt: Date.now() });
+            this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
+            try {
+                await this.dreamService.processUndigestedSessions();
+                this.taskStateService.updateTaskState(taskName, { lastSuccessAt: Date.now() });
+                this.healthService?.recordTaskOutcome?.(taskName, 'completed', { reason, completedAt: new Date().toISOString() });
+            } catch (e) {
+                this.taskStateService.updateTaskState(taskName, { lastErrorAt: Date.now(), lastReason: e.message });
+                this.healthService?.recordTaskOutcome?.(taskName, 'failed', { reason, error: e.message, failedAt: new Date().toISOString() });
+            } finally {
+                this.taskStateService.updateTaskState(taskName, { running: false });
+            }
+        }, context);
+
+        this.cadenceEngine.runIfDue(GOLDEN_PATH_TASK_NAME, () => {
+            if (this.cadenceEngine.shouldRunIntervalTask({
+                now,
+                lastRunAt : this.taskStateService.getTaskState(GOLDEN_PATH_TASK_NAME)?.lastRunAt,
+                intervalMs: this.goldenPathIntervalMs
+            })) {
+                return { reason: `periodic-golden-path:${this.goldenPathIntervalMs}` };
+            }
+            return null;
+        }, async (taskName, reason) => {
+            this.taskStateService.updateTaskState(taskName, { running: true, lastRunAt: Date.now() });
+            this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
+            try {
+                await this.goldenPathSynthesizer.synthesizeGoldenPath();
+                this.taskStateService.updateTaskState(taskName, { lastSuccessAt: Date.now() });
+                this.healthService?.recordTaskOutcome?.(taskName, 'completed', { reason, completedAt: new Date().toISOString() });
+            } catch (e) {
+                this.taskStateService.updateTaskState(taskName, { lastErrorAt: Date.now(), lastReason: e.message });
+                this.healthService?.recordTaskOutcome?.(taskName, 'failed', { reason, error: e.message, failedAt: new Date().toISOString() });
+            } finally {
+                this.taskStateService.updateTaskState(taskName, { running: false });
+            }
         }, context);
 
         if (this.isPolling) {

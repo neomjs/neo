@@ -435,17 +435,21 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
  *
  * @param {Object} cfg aiConfig-shaped input. Reads `cfg.autoDream`, `cfg.autoGoldenPath`,
  *     `cfg.realTimeMemoryParsing`, and `cfg.autoIngestFileSystem`.
+ * @param {Map<String, Object>} [taskOutcomes] The orchestrator task outcomes map.
  * @returns {{autoDream: Boolean, autoGoldenPath: Boolean, realTimeMemoryParsing: Boolean,
  *     autoIngestFileSystem: Boolean, lastDreamRun: String|null, lastGoldenPathRun: String|null}}
  */
-export function buildDreamFeaturesBlock(cfg) {
+export function buildDreamFeaturesBlock(cfg, taskOutcomes = new Map()) {
+    const dreamState = taskOutcomes.get('dream');
+    const goldenPathState = taskOutcomes.get('golden-path');
+
     return {
         autoDream            : !!cfg.autoDream,
         autoGoldenPath       : !!cfg.autoGoldenPath,
         realTimeMemoryParsing: !!cfg.realTimeMemoryParsing,
         autoIngestFileSystem : !!cfg.autoIngestFileSystem,
-        lastDreamRun         : null,
-        lastGoldenPathRun    : null
+        lastDreamRun         : dreamState?.details?.completedAt || dreamState?.details?.failedAt || null,
+        lastGoldenPathRun    : goldenPathState?.details?.completedAt || goldenPathState?.details?.failedAt || null
     };
 }
 /**
@@ -976,7 +980,7 @@ class HealthService extends Base {
             features : {
                 summarization: false,
                 wake         : await buildWakeFeaturesBlock(),
-                dream        : buildDreamFeaturesBlock(aiConfig)
+                dream        : buildDreamFeaturesBlock(aiConfig, this.#taskOutcomes)
             },
             startup  : {
                 summarizationStatus : this.#startupSummarizationStatus || 'not_attempted',
