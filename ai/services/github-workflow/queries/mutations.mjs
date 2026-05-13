@@ -468,3 +468,103 @@ export const UPDATE_PROJECT_V2_ITEM_SINGLE_SELECT = `
         }
     }
 `;
+
+/**
+ * Query to fetch a pull request's GraphQL node ID.
+ *
+ * The `addPullRequestReview` mutation requires the global node ID (PR_*), not the
+ * user-facing PR number. This query maps `(owner, repo, number)` → `pullRequest.id`
+ * so callers can submit the formal-state review in a single round-trip after
+ * resolving the id once.
+ *
+ * Variables required:
+ * - $owner:    String!
+ * - $repo:     String!
+ * - $prNumber: Int!
+ */
+export const GET_PULL_REQUEST_ID = `
+  query GetPullRequestId(
+    $owner: String!
+    $repo: String!
+    $prNumber: Int!
+  ) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $prNumber) {
+        id
+      }
+    }
+  }
+`;
+
+/**
+ * Mutation to create a formal pull request review with state transition (#11273).
+ *
+ * Atomic alternative to the historical two-step `manage_issue_comment` → `gh pr review`
+ * chain. Single call posts the substantive review body AND flips GitHub's
+ * `reviewDecision` surface. Replaces the formal-state-gap pattern empirically anchored
+ * by PR #11234 (Gemini) + PR #11271 (Opus) where agents posted review prose but
+ * forgot the second formal-state flip, blocking the cross-family review mandate
+ * gate per `pull-request §6.1`.
+ *
+ * `event` is GitHub's `PullRequestReviewEvent` enum: APPROVE, REQUEST_CHANGES, COMMENT.
+ * (PENDING and DISMISS are deliberately out of scope; PENDING creates a draft,
+ *  DISMISS is a follow-up operation on an existing review.)
+ *
+ * Variables required:
+ * - $pullRequestId: ID!                       — The GraphQL node ID of the PR (resolve via GET_PULL_REQUEST_ID)
+ * - $body:          String!                   — The review body
+ * - $event:         PullRequestReviewEvent!   — APPROVE | REQUEST_CHANGES | COMMENT
+ */
+export const ADD_PULL_REQUEST_REVIEW = `
+  mutation AddPullRequestReview(
+    $pullRequestId: ID!
+    $body: String!
+    $event: PullRequestReviewEvent!
+  ) {
+    addPullRequestReview(input: {
+      pullRequestId: $pullRequestId
+      body: $body
+      event: $event
+    }) {
+      pullRequestReview {
+        id
+        url
+        state
+        submittedAt
+        databaseId
+      }
+    }
+  }
+`;
+
+/**
+ * Mutation to update an existing pull request review's body (#11273).
+ *
+ * Companion to `ADD_PULL_REQUEST_REVIEW` for the `update` action — the GitHub API
+ * allows updating a review's body after submission but does NOT allow changing
+ * its state (APPROVED/CHANGES_REQUESTED/COMMENTED). State transitions require
+ * dismissing + re-submitting; that's a separate operation deliberately out of
+ * scope for the v1 `manage_pr_review` surface.
+ *
+ * Variables required:
+ * - $pullRequestReviewId: ID!     — The GraphQL node ID of the existing review (PRR_*)
+ * - $body:                String! — The updated review body
+ */
+export const UPDATE_PULL_REQUEST_REVIEW = `
+  mutation UpdatePullRequestReview(
+    $pullRequestReviewId: ID!
+    $body: String!
+  ) {
+    updatePullRequestReview(input: {
+      pullRequestReviewId: $pullRequestReviewId
+      body: $body
+    }) {
+      pullRequestReview {
+        id
+        url
+        state
+        submittedAt
+      }
+    }
+  }
+`;

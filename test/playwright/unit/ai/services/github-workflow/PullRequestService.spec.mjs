@@ -312,8 +312,256 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — getPullReq
             file     : 'some/file.md',
             sha      : '0000000000000000000000000000000000000000'
         });
-        
+
         expect(result.error).toBe('SHA not found');
         expect(result.code).toBe('SHA_NOT_FOUND');
+    });
+});
+
+/**
+ * @summary Contract coverage for `PullRequestService.managePrReview` (#11273).
+ *
+ * Closes the formal-state gap: atomic create or update of a formal pull request review
+ * via the `addPullRequestReview` / `updatePullRequestReview` GraphQL mutations.
+ *
+ * Tests pin the contract:
+ * 1. `action: 'create'` requires `pr_number`, `state` (mapped to event enum), `body`.
+ * 2. State enum `APPROVED|REQUEST_CHANGES|COMMENT` maps to GraphQL event `APPROVE|REQUEST_CHANGES|COMMENT`.
+ * 3. `action: 'update'` requires `review_id` + `body`; body-only update; state cannot transition.
+ * 4. PR-id resolution failure (PR not found) returns `PR_NOT_FOUND` cleanly.
+ * 5. Argument validation errors are surfaced (invalid action / missing body / invalid state / etc.).
+ *
+ * Each test mocks `GraphqlService.query` to return controlled fixtures so the mutation
+ * contract is assertable without GitHub API round-trips.
+ *
+ * @see Neo.ai.services.github-workflow.PullRequestService#managePrReview
+ */
+test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrReview (#11273)', () => {
+    let PullRequestService;
+    let GraphqlService;
+    let originalQuery;
+
+    const PR_NODE_ID    = 'PR_kwDOABcD9999999999';
+    const REVIEW_NODE   = {
+        id         : 'PRR_kwDOABcD1111111111',
+        url        : 'https://github.com/neomjs/neo/pull/11273#pullrequestreview-12345',
+        state      : 'APPROVED',
+        submittedAt: '2026-05-13T00:00:00Z',
+        databaseId : 12345
+    };
+
+    test.beforeAll(async () => {
+        GraphqlService     = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+        PullRequestService = (await import('../../../../../../ai/services/github-workflow/PullRequestService.mjs')).default;
+        originalQuery      = GraphqlService.query.bind(GraphqlService);
+    });
+
+    test.afterAll(() => {
+        GraphqlService.query = originalQuery;
+    });
+
+    test.beforeEach(() => {
+        // Default mock: resolve PR id then return create-shaped review payload.
+        // Tests override per-case via reassigning GraphqlService.query.
+        GraphqlService.query = async (queryString) => {
+            if (queryString.includes('GetPullRequestId')) {
+                return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            }
+
+            if (queryString.includes('AddPullRequestReview')) {
+                return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
+            }
+
+            if (queryString.includes('UpdatePullRequestReview')) {
+                return {updatePullRequestReview: {pullRequestReview: {...REVIEW_NODE, submittedAt: '2026-05-13T01:00:00Z'}}};
+            }
+
+            return null;
+        };
+    });
+
+    test('action:create + state:APPROVED → submits APPROVE event, returns review payload', async () => {
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 11273,
+            state    : 'APPROVED',
+            body     : 'LGTM, cross-family review complete.'
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(result.message).toContain('Successfully created APPROVED review on PR #11273');
+        expect(result.reviewId).toBe('PRR_kwDOABcD1111111111');
+        expect(result.state).toBe('APPROVED');
+        expect(result.url).toBe('https://github.com/neomjs/neo/pull/11273#pullrequestreview-12345');
+        expect(result.submittedAt).toBe('2026-05-13T00:00:00Z');
+        expect(result.databaseId).toBe(12345);
+    });
+
+    test('action:create + state:REQUEST_CHANGES → state enum maps to REQUEST_CHANGES event', async () => {
+        // Mock returns CHANGES_REQUESTED state to mirror real GitHub semantics
+        // (event REQUEST_CHANGES → review state CHANGES_REQUESTED).
+        let capturedVariables;
+        GraphqlService.query = async (queryString, variables) => {
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('AddPullRequestReview')) {
+                capturedVariables = variables;
+                return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'CHANGES_REQUESTED'}}};
+            }
+            return null;
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 11273,
+            state    : 'REQUEST_CHANGES',
+            body     : 'Required Action: address X.'
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(capturedVariables.event).toBe('REQUEST_CHANGES');
+        expect(capturedVariables.pullRequestId).toBe(PR_NODE_ID);
+        expect(result.state).toBe('CHANGES_REQUESTED');
+    });
+
+    test('action:create + state:COMMENT → state enum maps to COMMENT event', async () => {
+        let capturedVariables;
+        GraphqlService.query = async (queryString, variables) => {
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('AddPullRequestReview')) {
+                capturedVariables = variables;
+                return {addPullRequestReview: {pullRequestReview: {...REVIEW_NODE, state: 'COMMENTED'}}};
+            }
+            return null;
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 11273,
+            state    : 'COMMENT',
+            body     : 'Substantive review comment without formal state transition.'
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(capturedVariables.event).toBe('COMMENT');
+        expect(result.state).toBe('COMMENTED');
+    });
+
+    test('action:update → returns updated review payload via UPDATE_PULL_REQUEST_REVIEW', async () => {
+        let capturedQuery;
+        let capturedVariables;
+        GraphqlService.query = async (queryString, variables) => {
+            capturedQuery     = queryString;
+            capturedVariables = variables;
+            return {updatePullRequestReview: {pullRequestReview: {...REVIEW_NODE, submittedAt: '2026-05-13T01:00:00Z'}}};
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'update',
+            review_id: 'PRR_kwDOABcD1111111111',
+            body     : 'Updated review body.'
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(result.reviewId).toBe('PRR_kwDOABcD1111111111');
+        expect(result.submittedAt).toBe('2026-05-13T01:00:00Z');
+        expect(capturedQuery).toContain('UpdatePullRequestReview');
+        expect(capturedVariables.pullRequestReviewId).toBe('PRR_kwDOABcD1111111111');
+        expect(capturedVariables.body).toBe('Updated review body.');
+    });
+
+    test('rejects invalid action', async () => {
+        const result = await PullRequestService.managePrReview({
+            action: 'submit',
+            body  : 'irrelevant'
+        });
+
+        expect(result.error).toBe('Bad Request');
+        expect(result.code).toBe('INVALID_ARGUMENTS');
+        expect(result.message).toContain("Must be 'create' or 'update'");
+    });
+
+    test('rejects missing body', async () => {
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 11273,
+            state    : 'APPROVED'
+        });
+
+        expect(result.error).toBe('Bad Request');
+        expect(result.code).toBe('MISSING_ARGUMENTS');
+        expect(result.message).toContain("'body' is required");
+    });
+
+    test('create: rejects missing pr_number', async () => {
+        const result = await PullRequestService.managePrReview({
+            action: 'create',
+            state : 'APPROVED',
+            body  : 'irrelevant'
+        });
+
+        expect(result.error).toBe('Bad Request');
+        expect(result.code).toBe('MISSING_ARGUMENTS');
+        expect(result.message).toContain("'pr_number'");
+    });
+
+    test('create: rejects invalid state', async () => {
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 11273,
+            state    : 'INVALID_STATE',
+            body     : 'irrelevant'
+        });
+
+        expect(result.error).toBe('Bad Request');
+        expect(result.code).toBe('INVALID_ARGUMENTS');
+        expect(result.message).toContain('Invalid state');
+    });
+
+    test('update: rejects missing review_id', async () => {
+        const result = await PullRequestService.managePrReview({
+            action: 'update',
+            body  : 'irrelevant'
+        });
+
+        expect(result.error).toBe('Bad Request');
+        expect(result.code).toBe('MISSING_ARGUMENTS');
+        expect(result.message).toContain("'review_id'");
+    });
+
+    test('create: surfaces PR_NOT_FOUND when GET_PULL_REQUEST_ID returns no id', async () => {
+        // Simulates a non-existent PR number — GraphQL returns repository.pullRequest = null.
+        GraphqlService.query = async (queryString) => {
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: null}};
+            return null;
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 99999,
+            state    : 'APPROVED',
+            body     : 'irrelevant'
+        });
+
+        expect(result.error).toBe('Not Found');
+        expect(result.code).toBe('PR_NOT_FOUND');
+    });
+
+    test('create: surfaces GraphQL errors cleanly', async () => {
+        // When the underlying GraphQL request throws, we should return a structured
+        // error rather than letting the exception propagate to the caller.
+        GraphqlService.query = async () => {
+            throw new Error('Network failure');
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 11273,
+            state    : 'APPROVED',
+            body     : 'irrelevant'
+        });
+
+        expect(result.error).toBe('GraphQL API request failed');
+        expect(result.code).toBe('GRAPHQL_API_ERROR');
+        expect(result.message).toBe('Network failure');
     });
 });
