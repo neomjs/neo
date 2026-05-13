@@ -9,7 +9,7 @@ import aiConfig from '../../../mcp/server/knowledge-base/config.mjs';
  *
  * This source provider scans the `.agents/skills` directory for Markdown files.
  * It chunks documents by headers and extracts sub-metadata like `skillName`,
- * `sectionAnchor`, `triggerCondition`, and `isAtlasMonolithSubRule`.
+ * `sectionAnchor`, and `triggerCondition`.
  *
  * @class Neo.ai.services.knowledge-base.source.SkillSource
  * @extends Neo.ai.services.knowledge-base.source.Base
@@ -50,7 +50,6 @@ class SkillSource extends Base {
                 const skillRelativePath = path.relative(skillsBasePath, filePath);
                 const pathParts = skillRelativePath.split(path.sep);
                 const skillFolder = pathParts[0];
-                const basename = path.basename(filePath);
 
                 let skillName = skillFolder;
                 let triggerCondition = '';
