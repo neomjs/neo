@@ -84,6 +84,18 @@ For every issue named as close-target, verify it does NOT carry the `epic` label
 
 ---
 
+### 🎟️ Ticket Assignment Audit
+
+*(Required to enforce AGENTS.md §0 Invariant 7. Mark N/A only if the PR does not modify any tracked files, e.g., an empty PR.)*
+
+- [ ] Fetch the associated target ticket(s) (e.g., from `Resolves #N`).
+- [ ] Verify the PR author is explicitly assigned to the target ticket via GitHub assignees.
+- [ ] Verify the assignment timestamp pre-dates the first implementation commit (e.g., via `get_conversation` vs `gh pr view --json commits`), OR explicit pre-edit handoff evidence is documented.
+
+**Findings:** [Pass / author not assigned flagged / assignment post-dates commit flagged / N/A]
+
+---
+
 ### 📑 Contract Completeness Audit
 
 *(Required per guide §5.4 when the PR introduces or modifies public/consumed surfaces. Mark N/A for PRs that don't touch these surfaces.)*

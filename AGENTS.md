@@ -33,6 +33,7 @@ This document is compacted per the 3-axis slot rule (trigger-frequency × failur
 | Section | Disposition | Tag (AC7) | Rationale / Friction Capture |
 |---|---|---|---|
 | §0 Critical Gates | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Irreversible failure modes. |
+| §0 Invariant 7 | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | No tracked file edits without a self-assigned ticket. |
 | §1 Communication Style | `move` | DISCIPLINE-ONLY | Low frequency gate, high depth. |
 | §2 Anti-Hallucination | `move` | DISCIPLINE-ONLY | High depth protocol, moved to Atlas. |
 | §3 Pre-Commit Hard Gates | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Severe failure mode (ticket-ID/context). |
@@ -63,7 +64,7 @@ This document is compacted per the 3-axis slot rule (trigger-frequency × failur
 *Edge-cases and detailed protocols (The Atlas) have been extracted to `learn/agentos/AGENTS_ATLAS.md` and `.agents/skills/` behind conditional triggers.*
 
 ## 0. Critical Gates (Invariants — agents MUST honor; no conditional exceptions)
-These six rules are mechanically verifiable and have **no conditional exceptions** under any approval state, cross-family signal, or contextual nuance. Approval signals ("LGTM", "approved", "ready for merge", "no required actions") are **NOT** authorization to bypass any of them.
+These seven rules are mechanically verifiable and have **no conditional exceptions** under any approval state, cross-family signal, or contextual nuance. Approval signals ("LGTM", "approved", "ready for merge", "no required actions") are **NOT** authorization to bypass any of them.
 1. **No `gh pr merge` (Human-Only execution).** Cross-family approval gates squash-merge *eligibility*; the merge act itself is reserved exclusively for the human user (@tobiu).
     - **Cross-Family Cascade Clause:** Cross-family approval (e.g., Claude reviewing Gemini's PR or vice versa) grants squash-merge ELIGIBILITY but does NOT aggregate to grant merge AUTHORITY. Each agent's §0 Invariant 1 fires independently at the moment of action and CANNOT be satisfied by another agent's signal. The peer-review chain is structurally bounded: review → approval → handoff to human. The handoff explicitly terminates at the "approved" state. An agent reading "Claude approved" or "Gemini approved" or "all RAs satisfied" or "ready for merge" must NOT interpret these as authorization to execute merge — these are eligibility signals to the human, not execution signals to the swarm. If you find yourself reasoning "my peer approved, so I can merge" — that reasoning IS the loophole §0 forbids.
 2. **No commit without ticket-ID.** Every `git commit` subject ends `(#TICKET_ID)`.
@@ -71,6 +72,7 @@ These six rules are mechanically verifiable and have **no conditional exceptions
 4. **No `<noreply@*>` `Co-Authored-By` footers.**
 5. **No skipping `add_memory` at end of turn.** Forgetting the consolidated save = permanent data loss. The save IS the gate that permits the response.
 6. **Mandatory A2A Notifications.** Whenever you finish ANY lifecycle event (e.g. creating a ticket, opening/updating a PR, finishing/reacting to a review), you MUST use the `add_message` tool to notify your peers. No loopholes.
+7. **No tracked repository file modification without a self-assigned ticket.** Before editing any git-tracked file (code, tests, substrate docs, agent skills, workflow YAML, etc.), verify an existing ticket has you in `assignees`. Self-authored: claim assignment to `@me` via `manage_issue_assignees` immediately after `create_issue` (or atomically via `create_issue` if/when the MCP tool supports an `assignees` alias — currently unverified, see #11308). Peer-authored: claim via `manage_issue_assignees` before first edit. Verified post-hoc at PR commit per `pull-request-workflow.md §1.2`.
 
 ## 3. The Pre-Commit Hard Gates (Tickets & Context)
 For any actionable request modifying the repository, you **MUST** pass two critical gating protocols *before* executing `git commit`.

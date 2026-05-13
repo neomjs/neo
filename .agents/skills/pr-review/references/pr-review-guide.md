@@ -160,6 +160,19 @@ For PRs that introduce or modify public/consumed surfaces (e.g., configs, MCP to
 
 The PR cannot be approved if the implemented contract and the ticket's Contract Ledger are out of sync.
 
+### 5.5 Ticket Assignment Audit
+
+When reviewing a PR, you MUST audit the PR commits against **AGENTS.md §0 Invariant 7** (No tracked repository file modification without a self-assigned ticket).
+
+**Audit Protocol:**
+1. Fetch the associated target ticket(s) (e.g., from `Resolves #N`).
+2. Verify that the PR author is explicitly assigned to the target ticket via GitHub assignees.
+3. Verify that the timestamp of the assignment *pre-dates* the timestamp of the first implementation commit. Present-tense assignment does not prove pre-edit assignment. To verify the assignment timestamp, use the `get_conversation` tool on the target ticket to find the `assigned` event (or equivalent timestamp), and compare it with the PR's oldest commit timestamp (e.g., via `gh pr view <PR> --json commits`). Alternatively, accept explicit pre-edit handoff evidence documented in the PR body.
+4. If the author is NOT assigned, or if the assignment occurred *after* the first tracked-file commit (post-hoc repair) without documented handoff evidence, flag as a **Required Action**:
+   > *"PR commits violate AGENTS.md §0 Invariant 7. The author is not assigned to the target ticket #N, or the assignment post-dates the first commit. Required: Obtain explicit pre-edit handoff evidence, or use Drop+Supersede to create a clean branch where assignment pre-dates implementation."*
+
+This enforces the global assignment gate at the peer-review level.
+
 ## 6. Review Template Selection
 
 Before drafting your review, classify the review cycle. Template choice is part of context-budget control and rigor control.
