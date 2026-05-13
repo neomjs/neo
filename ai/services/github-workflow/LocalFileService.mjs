@@ -62,6 +62,13 @@ class LocalFileService extends Base {
 
     /**
      * Finds and returns the content of a local issue file by its number.
+     *
+     * Read-path dual-search per Epic #11187 B2 (#11285): during the active-to-archive
+     * migration transition, an archived issue may live under either the new
+     * canonical archiveRoot or the legacy archiveDir. The lookup tries new-first,
+     * then falls back to legacy. Once the B1 corpus migration completes, the
+     * legacy fallback becomes a no-op cheap miss.
+     *
      * @param {string} issueNumber The issue number, with or without a leading '#'.
      * @returns {Promise<object>} A promise that resolves to the file content or a structured error.
      */
@@ -80,8 +87,14 @@ class LocalFileService extends Base {
                 return { filePath: activePath, content };
             }
 
-            // 2. If not found, search the archive directory recursively
-            const archivePath = await this.#findFileRecursively(aiConfig.issueSync.archiveDir, filename);
+            // 2. Dual-search archive paths: try new canonical `archiveRoot` first,
+            //    fall back to legacy `archiveDir`. Once Epic #11187 B1 data migration
+            //    completes, the legacy fallback becomes a cheap miss.
+            let archivePath = await this.#findFileRecursively(aiConfig.issueSync.archiveRoot, filename);
+
+            if (!archivePath) {
+                archivePath = await this.#findFileRecursively(aiConfig.issueSync.archiveDir, filename);
+            }
 
             if (archivePath) {
                 const content = await fs.readFile(archivePath, 'utf-8');
@@ -108,6 +121,16 @@ class LocalFileService extends Base {
 
     /**
      * Finds and returns the content of a local discussion file by its number.
+     *
+     * Read-path dual-search per Epic #11187 B2 (#11285): the active discussions
+     * directory is in transition from legacy XXxx subdirs to flat-root shape (B1
+     * /AC6). Until B1 corpus collapse completes, an active discussion may live
+     * either at the new flat path (`discussionsDir/discussion-N.md`) or under a
+     * legacy XXxx subdir (`discussionsDir/XXxx/discussion-N.md`). The lookup
+     * tries flat-first, then recurses into subdirs as fallback. Archive side
+     * uses the new canonical `archiveRoot` only — no legacy discussion-archive
+     * substrate ever existed per Epic #11187 body.
+     *
      * @param {string} discussionNumber The discussion number, with or without a leading '#'.
      * @returns {Promise<object>} A promise that resolves to the file content or a structured error.
      */
@@ -116,14 +139,25 @@ class LocalFileService extends Base {
         const filename     = `${aiConfig.issueSync.discussionFilenamePrefix}${normalizedId}.md`;
 
         try {
-            // 1. Check the active discussions directory first (Flat structure).
-            const activePath = path.join(aiConfig.issueSync.discussionsDir, filename);
-            if (await fs.pathExists(activePath)) {
-                const content = await fs.readFile(activePath, 'utf-8');
-                return { filePath: activePath, content };
+            // 1. Check the active discussions flat path first (new canonical shape post-B1).
+            const activeFlatPath = path.join(aiConfig.issueSync.discussionsDir, filename);
+            if (await fs.pathExists(activeFlatPath)) {
+                const content = await fs.readFile(activeFlatPath, 'utf-8');
+                return { filePath: activeFlatPath, content };
             }
 
-            // 2. If not found, search the archive directory recursively
+            // 2. Active dual-search fallback: recurse into legacy XXxx subdirs of discussionsDir
+            //    until Epic #11187 B1 corpus collapse lands. Post-B1 this becomes a cheap miss.
+            const activeLegacyPath = await this.#findFileRecursively(aiConfig.issueSync.discussionsDir, filename);
+
+            if (activeLegacyPath && activeLegacyPath !== activeFlatPath) {
+                const content = await fs.readFile(activeLegacyPath, 'utf-8');
+                return { filePath: activeLegacyPath, content };
+            }
+
+            // 3. If not found in active, search the archive directory recursively.
+            //    No legacy discussion-archive substrate ever existed (per Epic #11187 body);
+            //    archiveRoot only.
             const archivePath = await this.#findFileRecursively(aiConfig.issueSync.archiveRoot, filename);
 
             if (archivePath) {
@@ -131,7 +165,7 @@ class LocalFileService extends Base {
                 return { filePath: archivePath, content };
             }
 
-            // 3. If not found anywhere, return an error
+            // 4. If not found anywhere, return an error
             logger.warn(`[LocalFileService] Discussion file not found for #${normalizedId}`);
             return {
                 error  : 'File not found',
