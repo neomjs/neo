@@ -5,6 +5,7 @@
   "defaults": {
     "routerByteBudget": 12,
     "payloadBudget": 80000,
+    "perFilePayloadBudget": 25000,
     "claudeSymlinkRequired": true,
     "downstreamDocsTargets": [
       "learn/agentos/ProgressiveDisclosureSkills.md",
@@ -174,6 +175,7 @@
       "triggers": "Use this skill when evaluating a Pull Request, writing a PR review, structuring feedback on agent-generated code, or instructing a human on how to write a structured PR Review.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
+      "perFilePayloadBudget": 66000,
       "claudeSymlinkRequired": true,
       "downstreamDocsTargets": [
         "learn/agentos/ProgressiveDisclosureSkills.md",
@@ -186,6 +188,7 @@
       "triggers": "Use this skill as the final Definition of Done when you believe a ticket is complete and it is time to open a Pull Request, or if a human user asks you to submit a PR. Also triggers when receiving a PR review to perform the author-side template-adherence check.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
+      "perFilePayloadBudget": 38000,
       "claudeSymlinkRequired": true,
       "downstreamDocsTargets": [
         "learn/agentos/ProgressiveDisclosureSkills.md",

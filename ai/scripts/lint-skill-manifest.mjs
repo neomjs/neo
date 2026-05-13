@@ -118,6 +118,12 @@ async function payloadBytes(skillName) {
     return bytes;
 }
 
+async function payloadFileSizes(skillName) {
+    const files = await walkFiles(path.join(SKILLS_DIR, skillName, 'references'));
+
+    return files.map(file => ({path: file, bytes: statSync(file).size}));
+}
+
 function validateManifestSchema(manifest, schema) {
     const errors = [];
     const rootKeys = new Set([...schema.required, '$schema']);
@@ -141,7 +147,7 @@ function validateManifestSchema(manifest, schema) {
     }
 
     const defaults = manifest.defaults || {};
-    const defaultKeys = new Set(schema.properties.defaults.required);
+    const defaultKeys = new Set(Object.keys(schema.properties.defaults.properties));
 
     for (const key of Object.keys(defaults)) {
         if (!defaultKeys.has(key)) {
@@ -161,6 +167,10 @@ function validateManifestSchema(manifest, schema) {
         errors.push('defaults.payloadBudget must be a positive integer');
     }
 
+    if ('perFilePayloadBudget' in defaults && (!Number.isInteger(defaults.perFilePayloadBudget) || defaults.perFilePayloadBudget < 1)) {
+        errors.push('defaults.perFilePayloadBudget must be a positive integer when set');
+    }
+
     if (typeof defaults.claudeSymlinkRequired !== 'boolean') {
         errors.push('defaults.claudeSymlinkRequired must be boolean');
     }
@@ -171,10 +181,7 @@ function validateManifestSchema(manifest, schema) {
         errors.push('defaults.downstreamDocsTargets must contain unique entries');
     }
 
-    const skillKeys = new Set([
-        ...schema.$defs.skill.required,
-        'relationships'
-    ]);
+    const skillKeys = new Set(Object.keys(schema.$defs.skill.properties));
 
     for (const [skillName, skill] of Object.entries(manifest.skills || {})) {
         for (const key of Object.keys(skill)) {
@@ -201,6 +208,10 @@ function validateManifestSchema(manifest, schema) {
 
         if (!Number.isInteger(skill.payloadBudget) || skill.payloadBudget < 1) {
             errors.push(`${skillName}.payloadBudget must be a positive integer`);
+        }
+
+        if ('perFilePayloadBudget' in skill && (!Number.isInteger(skill.perFilePayloadBudget) || skill.perFilePayloadBudget < 1)) {
+            errors.push(`${skillName}.perFilePayloadBudget must be a positive integer when set`);
         }
 
         if (typeof skill.claudeSymlinkRequired !== 'boolean') {
@@ -312,6 +323,18 @@ async function lint({base = null} = {}) {
 
         if (bytes > skill.payloadBudget) {
             errors.push(`${path.relative(ROOT_DIR, skillPath)}/references has ${bytes} bytes, exceeds payloadBudget ${skill.payloadBudget}`);
+        }
+
+        const perFileBudget = skill.perFilePayloadBudget ?? manifest.defaults.perFilePayloadBudget;
+
+        if (Number.isInteger(perFileBudget) && perFileBudget > 0) {
+            const files = await payloadFileSizes(skillName);
+
+            for (const {path: filePath, bytes: fileBytes} of files) {
+                if (fileBytes > perFileBudget) {
+                    errors.push(`${path.relative(ROOT_DIR, filePath)} has ${fileBytes} bytes, exceeds perFilePayloadBudget ${perFileBudget}. Extract edge-case sections to sub-rule sibling files behind one-line trigger pointers per Map vs World Atlas discipline (skill-authoring-guide.md). See #11319 / #11320 for the convention.`);
+                }
+            }
         }
 
         if (skill.claudeSymlinkRequired) {
