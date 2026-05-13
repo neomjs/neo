@@ -7,13 +7,14 @@ This file (`resources/content/sandman_handoff.md`) acts as the single source of 
 The file is divided into the following key sections:
 
 ### 1. Capability Gaps
-Detected structural mismatches within the codebase architecture, populated from the Native Edge Graph.
+Detected structural mismatches within the codebase architecture, populated from the Native Edge Graph, as well as metadata drifts or bucket-shifts in the archive tier.
 - `[TEST_GAP]`
 - `[GUIDE_GAP]`
 - `[EXAMPLE_GAP]`
 - `[ORPHAN_CONCEPT]`
 - `[CONCEPT_REVERIFY_DUE]`
 - `[KB_DEMAND_GAP]`
+- `[ARCHIVE_ANOMALY]`
 
 ### 2. Active PR Cycle State
 A live extraction of active Pull Requests originated by the core Swarm agents (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`).
