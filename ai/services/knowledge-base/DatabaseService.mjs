@@ -9,6 +9,7 @@ import DiscussionSource          from './source/DiscussionSource.mjs';
 import LearningSource            from './source/LearningSource.mjs';
 import PullRequestSource         from './source/PullRequestSource.mjs';
 import ReleaseNotesSource        from './source/ReleaseNotesSource.mjs';
+import SkillSource               from './source/SkillSource.mjs';
 import TestSource                from './source/TestSource.mjs';
 import TicketSource              from './source/TicketSource.mjs';
 import crypto                    from 'crypto';
@@ -462,6 +463,7 @@ class DatabaseService extends Base {
             LearningSource,
             PullRequestSource,
             ReleaseNotesSource,
+            SkillSource,
             TicketSource,
             TestSource
         ];
