@@ -41,11 +41,13 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
     let GraphqlService;
     let chunkPath;
     let issueSyncConfig;
+    let aiConfig;
     let originalQuery;
     let tmpIssuesDir;
+    let logger;
 
     test.beforeAll(async () => {
-        const aiConfig = (await import('../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
+        aiConfig = (await import('../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
         issueSyncConfig = aiConfig.issueSync;
 
         tmpIssuesDir = path.resolve(process.cwd(), 'tmp', `issue-syncer-test-${process.pid}-${Date.now()}`);
@@ -58,6 +60,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         GraphqlService = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
         IssueSyncer    = (await import('../../../../../../ai/services/github-workflow/sync/IssueSyncer.mjs')).default;
         chunkPath      = (await import('../../../../../../ai/services/github-workflow/shared/chunkPath.mjs')).default;
+        logger         = (await import('../../../../../../ai/mcp/server/github-workflow/logger.mjs')).default;
 
         originalQuery = GraphqlService.query.bind(GraphqlService);
     });
@@ -181,6 +184,64 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         const writtenPath = path.join(tmpIssuesDir, chunkPath(mockIssue.number), `issue-${mockIssue.number}.md`);
         const written     = await fs.readFile(writtenPath, 'utf-8');
         expect(written).toContain(`commentsCount: ${COMMENT_COUNT}`);
+    });
+
+    test('anomaly hook fires and logs warning when closedAt shift moves issue across archive buckets (#11288)', async () => {
+        // Mock an issue that exists in metadata with an older version path,
+        // but its newly fetched state or release calculation dictates a new bucket.
+        const mockIssue = buildMockIssue({
+            number       : 50001,
+            title        : 'Mock issue — closedAt shift anomaly #11288',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+        mockIssue.state = 'CLOSED';
+        // Give it a closedAt date that maps to a specific version if ReleaseSyncer were loaded,
+        // but for simplicity IssueSyncer defaults to 'unversioned' if no release matches.
+        mockIssue.closedAt = '2026-05-01T00:00:00Z';
+        
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchSingleIssue')) {
+                return {repository: {issue: structuredClone(mockIssue)}};
+            }
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        const metadata = {
+            issues: {
+                '50001': {
+                    state: 'CLOSED',
+                    // Pretend it was previously archived under 'v12'
+                    path: path.relative(
+                        aiConfig.projectRoot, 
+                        path.join(issueSyncConfig.archiveRoot, 'issues', 'v12', 'chunk-1', 'issue-50001.md')
+                    )
+                }
+            }
+        };
+
+        const warnMessages = [];
+        const originalWarn = logger.warn;
+        logger.warn = (msg) => { warnMessages.push(msg); originalWarn.call(logger, msg); };
+
+        try {
+            const stats = await IssueSyncer.refetchIssuesByNumber([mockIssue.number], metadata);
+
+            expect(stats.refetched.count).toBe(1);
+            expect(stats.errors).toHaveLength(0);
+
+            // Anomaly hook should have fired
+            const anomalyLog = warnMessages.find(m => m.includes('[ARCHIVE ANOMALY]') && m.includes('#50001'));
+            expect(anomalyLog).toBeDefined();
+            expect(anomalyLog).toContain("moving from bucket 'v12' to 'unversioned'");
+
+            // The sync loop should not have been interrupted prematurely
+            const targetPath = metadata.issues['50001'].path;
+            expect(targetPath).toContain('unversioned'); // It correctly shifted bucket according to current truth
+        } finally {
+            logger.warn = originalWarn;
+        }
     });
 });
 
