@@ -47,9 +47,10 @@ class SkillSource extends Base {
             for (const filePath of skillFiles) {
                 const content = await fs.readFile(filePath, 'utf-8');
                 const relativePath = path.relative(aiConfig.neoRootDir, filePath);
-                const skillRelativePath = path.relative(skillsBasePath, filePath);
-                const pathParts = skillRelativePath.split(path.sep);
-                const skillFolder = pathParts[0];
+                const skillRelativePath       = path.relative(skillsBasePath, filePath);
+                const pathParts               = skillRelativePath.split(path.sep);
+                const skillFolder             = pathParts[0];
+                const isAtlasMonolithSubRule  = pathParts.includes('references');
 
                 let skillName = skillFolder;
                 let triggerCondition = '';
@@ -93,7 +94,8 @@ class SkillSource extends Base {
                         // Sub-metadata for #11316 AC
                         skillName,
                         sectionAnchor,
-                        triggerCondition
+                        triggerCondition,
+                        isAtlasMonolithSubRule
                     };
 
                     chunk.hash = createHashFn(chunk);
