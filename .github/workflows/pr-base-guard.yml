@@ -11,6 +11,9 @@ env:
 jobs:
   enforce-dev-base:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
     steps:
       - name: Enforce dev base for agents
         uses: actions/github-script@v8
