@@ -111,6 +111,7 @@ Simple skill contents.`);
             type: 'skill',
             kind: 'skill',
             triggerCondition: 'use when exploring',
+            isAtlasMonolithSubRule: false,
             content: '# Overview\nIdeation description.',
             name: 'custom-ideation - Overview'
         });
@@ -121,10 +122,12 @@ Simple skill contents.`);
         const workflowChunks = written.filter(w => w.skillName === 'ideation-sandbox' && w.sectionAnchor.startsWith('Stage'));
         expect(workflowChunks).toHaveLength(2);
         expect(workflowChunks[0].triggerCondition).toBe('');
+        expect(workflowChunks.every(w => w.isAtlasMonolithSubRule)).toBe(true);
 
         const simpleChunk = written.find(w => w.skillName === 'simple-skill');
         expect(simpleChunk).toBeDefined();
         expect(simpleChunk.triggerCondition).toBe('');
+        expect(simpleChunk.isAtlasMonolithSubRule).toBe(false);
     });
 
     test('extract() returns 0 and writes nothing when the skills directory is absent', async () => {
