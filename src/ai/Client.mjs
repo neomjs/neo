@@ -108,9 +108,12 @@ class Client extends Base {
             list_stores           : data,
             modify_state_provider : data,
 
+            check_namespace       : runtime,
             get_dom_event         : runtime,
             get_drag              : runtime,
             get_method_source     : runtime,
+            get_namespace_tree    : runtime,
+            get_neo_config        : runtime,
             get_route             : runtime,
             get_window            : runtime,
             inspect_class         : runtime,
