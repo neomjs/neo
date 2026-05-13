@@ -123,11 +123,12 @@ If the "ticket" is really an architectural question, brainstorming, or pre-PR ex
 
 The `create_issue` tool returns the new issue number. Typical immediate follow-ups:
 
+- **`manage_issue_assignees(action: 'add', issue_number: N, assignees: ['@me'])`** — **MANDATORY** if you intend to start working immediately (AGENTS.md §0 Invariant 7). Do this *before* editing any tracked files. (Note: once #11308 is resolved, atomic assignee injection at creation will replace this post-hoc call).
 - **`manage_issue_labels(action: 'add', ...)`** — only if the label set needs adjustment post-creation (e.g., label list was incomplete at `create_issue` time). Prefer getting labels right in the initial call.
 - **`manage_issue_projects(action: 'add', issue_number, projectNumbers: [12])`** — only if project membership needs adjustment post-creation. Prefer the `projects` parameter on `create_issue` for atomic attach. Use `action: 'update_field'` to set Status/Priority on the project board after creation.
 - **`update_issue_relationship(parent_id: N, child_id: M, type: 'SUB_ISSUE')`** — required when filing sub-issues under an Epic. Native graph linkage only; do NOT rely on inline `- [ ] #N` markdown checkboxes (see §6).
 - **Ticket body edits:** Edit the local `.md` file and use the `sync_all` tool to push the local version back to GitHub. The local `.md` file is canonical after `sync_all`.
-- **Picking up the ticket:** If you intend to start working on this newly created ticket immediately, you MUST run the `ticket-intake` skill next. Assignment (`manage_issue_assignees`) belongs to the intake process, not the creation process.
+- **Picking up the ticket:** If you intend to start working on this newly created ticket immediately, you MUST run the `ticket-intake` skill next (your assignee claim fulfills the primary gate).
 
 Minimize chained calls where possible — a well-formed `create_issue` call with complete `title`, `body`, `labels`, and `projects` at creation time avoids all of the above except `update_issue_relationship` (which can only run after the issue exists).
 
