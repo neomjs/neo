@@ -72,7 +72,7 @@ These seven rules are mechanically verifiable and have **no conditional exceptio
 4. **No `<noreply@*>` `Co-Authored-By` footers.**
 5. **No skipping `add_memory` at end of turn.** Forgetting the consolidated save = permanent data loss. The save IS the gate that permits the response.
 6. **Mandatory A2A Notifications.** Whenever you finish ANY lifecycle event (e.g. creating a ticket, opening/updating a PR, finishing/reacting to a review), you MUST use the `add_message` tool to notify your peers. No loopholes.
-7. **No tracked repository file modification without a self-assigned ticket.** Before editing any git-tracked file (code, tests, substrate docs, agent skills, workflow YAML, etc.), verify an existing ticket has you in `assignees`. Self-authored: claim assignment to `@me` via `manage_issue_assignees` immediately after `create_issue` (or atomically via `create_issue` if/when the MCP tool supports an `assignees` alias — currently unverified, see #11308). Peer-authored: claim via `manage_issue_assignees` before first edit. Verified post-hoc at PR commit per `pull-request-workflow.md §1.2`.
+7. **No tracked file modification without a self-assigned ticket.** Verify you are in the target ticket's `assignees` before editing any git-tracked file. Enforcement: `pull-request-workflow.md §1.2`, `ticket-create-workflow.md §10`.
 
 ## 3. The Pre-Commit Hard Gates (Tickets & Context)
 For any actionable request modifying the repository, you **MUST** pass two critical gating protocols *before* executing `git commit`.
