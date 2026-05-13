@@ -270,21 +270,42 @@ class IssueSyncer extends Base {
         const combined = new Map();
         
         for (const [idStr, issue] of Object.entries(metadata.issues || {})) {
+            let oldVersion = null;
+            if (issue.state === 'CLOSED' && issue.path) {
+                const absPath = path.resolve(aiConfig.projectRoot, issue.path);
+                if (absPath.startsWith(issueSyncConfig.archiveRoot)) {
+                    const relativeToArchive = path.relative(issueSyncConfig.archiveRoot, absPath);
+                    const parts = relativeToArchive.split(path.sep);
+                    if (parts.length >= 2 && parts[0] === 'issues') {
+                        oldVersion = parts[1];
+                    }
+                }
+            }
+            
             combined.set(parseInt(idStr, 10), {
                 number: parseInt(idStr, 10),
                 state: issue.state,
                 milestone: issue.milestone ? { title: issue.milestone } : null,
-                closedAt: issue.closedAt
+                closedAt: issue.closedAt,
+                oldVersion
             });
         }
         
         for (const issue of fetchedIssues) {
-            combined.set(issue.number, {
-                number: issue.number,
-                state: issue.state,
-                milestone: issue.milestone,
-                closedAt: issue.closedAt
-            });
+            if (combined.has(issue.number)) {
+                const existing = combined.get(issue.number);
+                existing.state = issue.state;
+                existing.milestone = issue.milestone;
+                existing.closedAt = issue.closedAt;
+            } else {
+                combined.set(issue.number, {
+                    number: issue.number,
+                    state: issue.state,
+                    milestone: issue.milestone,
+                    closedAt: issue.closedAt,
+                    oldVersion: null
+                });
+            }
         }
         
         const buckets = new Map();
@@ -308,6 +329,10 @@ class IssueSyncer extends Base {
             }
             
             version = version || issueSyncConfig.defaultArchiveVersion || 'unversioned';
+            
+            if (issue.oldVersion && issue.oldVersion !== version) {
+                logger.warn(`🚨 [ARCHIVE ANOMALY] Issue #${issue.number} closedAt shift detected: moving from bucket '${issue.oldVersion}' to '${version}'. Dry-run review required.`);
+            }
             
             if (!buckets.has(version)) buckets.set(version, []);
             buckets.get(version).push(issue);
