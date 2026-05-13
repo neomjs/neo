@@ -209,8 +209,9 @@ For every modified or added OpenAPI tool description:
 - [ ] Target ticket(s) identified from PR body (`Resolves` / `Closes` / `Fixes` / `Refs`) AND/OR commit subjects (`(#N)`)
 - [ ] PR author appears in `assignees` of each target ticket (verified via `gh issue view <N> --json assignees`)
 - [ ] No ownership conflicts (target ticket isn't assigned solely to a peer without author co-assignment)
+- [ ] **Chronology check:** PR's first-commit timestamp is AFTER author's `AssignedEvent` on the target ticket (current-state-only is insufficient — retroactive self-assignment violates §0 Invariant 7 spirit per guide §5.5 case 6)
 
-**Findings:** [Pass / No target ticket flagged / Author not assigned flagged / Ownership conflict flagged]
+**Findings:** [Pass / No target ticket flagged / Author not assigned flagged / Ownership conflict flagged / Chronology violation flagged]
 
 ---
 

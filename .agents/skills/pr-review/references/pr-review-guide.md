@@ -176,8 +176,17 @@ Per `AGENTS.md §0 Invariant 7`, every code/substrate-modifying PR must referenc
    > *"PR targets ticket #N but author is not in `assignees`. §0 Invariant 7 violated. Required: claim assignment via `manage_issue_assignees({action: 'add', issue_number: N, assignees: ['@me']})` before merge."*
 5. **Target ticket assigned to peer:** flag as **Required Action** (ownership conflict):
    > *"PR targets ticket #N assigned to @peer-X, not the PR author. §0 Invariant 7 ownership rule violated. Required: either (a) author claims assignment with peer's acknowledgment, OR (b) close this PR + open new one under correct authorship."*
+6. **Chronology check (timeline audit):** compare the PR's first-commit timestamp against the author's `AssignedEvent` timestamp on the target ticket. Current-state assignment is necessary but not sufficient — retroactive self-assignment AFTER first commits satisfies the literal current state while violating the §0 Invariant 7 spirit ("before editing any git-tracked file"):
+   ```bash
+   FIRST_COMMIT=$(gh api repos/<owner>/<repo>/pulls/<N>/commits --jq '.[0].commit.author.date')
+   ASSIGNED_AT=$(gh api graphql -f query='query { repository(owner:"<owner>",name:"<repo>") { issue(number:<N>) { timelineItems(first:50, itemTypes:[ASSIGNED_EVENT]) { nodes { ... on AssignedEvent { createdAt, assignee { ... on User { login } } } } } } } }' --jq '...')
+   ```
+   If `FIRST_COMMIT < ASSIGNED_AT` for the PR author, flag as **Required Action**:
+   > *"PR commits predate author's assignment on ticket #N (first commit `<sha>` at `<t1>` vs `AssignedEvent` at `<t2>`). §0 Invariant 7 spirit violated even though current state shows assignment. Required: surface pre-edit handoff evidence (A2A message, prior comment, peer-acknowledged-claim) OR explicitly acknowledge the retroactive-assignment pattern in PR body + commit to not repeating it. Reviewers do NOT auto-approve retroactive self-assignment without documented handoff."*
 
-The PR cannot be approved if any target ticket fails the assignment audit. Empirical anchor: [#11310](https://github.com/neomjs/neo/issues/11310) — 10 v13-era resolved tickets shipped with zero `AssignedEvent` entries because reviewers had no codified gate for the assignment dimension.
+The PR cannot be approved if any target ticket fails the assignment audit. Empirical anchors:
+- [#11310](https://github.com/neomjs/neo/issues/11310) — 10 v13-era resolved tickets shipped with zero `AssignedEvent` entries because reviewers had no codified gate for the assignment dimension.
+- [#11312](https://github.com/neomjs/neo/pull/11312) — the chronology dimension surfaced empirically: PR author retroactively self-assigned on target ticket AFTER first 2 commits already landed. Current-state-only assignment check would have falsely passed.
 
 ## 6. Review Template Selection
 
