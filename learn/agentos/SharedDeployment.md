@@ -251,6 +251,14 @@ Auth diagnostic fields:
 
 Use `configured` as the at-a-glance indicator. A misconfigured `NEO_AUTH_TRUST_PROXY_IDENTITY=true` without OIDC and without a fronting proxy actually deployed will surface here as `'proxy-header'`; if requests then fail with `401`, that's the runtime gate ([PR #10785](https://github.com/neomjs/neo/pull/10785)) rejecting missing proxy headers per the [Authentication](#authentication) threat model. The healthcheck shows the *configured* posture; the 401 confirms the gate fires when the prerequisite is absent.
 
+Dream background daemon diagnostic fields (`features.dream`):
+- `autoDream`: whether the background Dream daemon is permitted to run.
+- `autoGoldenPath`: whether the background Golden Path pipeline is enabled.
+- `realTimeMemoryParsing`: whether the real-time continuous memory parsing worker is enabled.
+- `autoIngestFileSystem`: whether the file-system ingest watcher is enabled.
+- `lastDreamRun`: placeholder for the timestamp of the last Dream pipeline execution.
+- `lastGoldenPathRun`: placeholder for the timestamp of the last Golden Path pipeline execution.
+
 ## Asynchronous Session Summarization (Disconnect Trigger)
 
 In a shared deployment, multiple agents connect and disconnect dynamically. To ensure session summaries are automatically available to the team without requiring manual API calls or external cron jobs, the Memory Core leverages a **disconnect-triggered summarization** primitive.
