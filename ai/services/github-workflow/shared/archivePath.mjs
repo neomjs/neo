@@ -3,6 +3,64 @@ import path from 'path';
 export const DEFAULT_ARCHIVE_MAX_ITEMS_PER_DIR = 100;
 
 /**
+ * @summary Fail-loud runtime validator for the archive substrate config contract.
+ *
+ * Per Epic #11187 B0a (#11290): the GitHub Workflow runtime config is gitignored
+ * (`ai/mcp/server/github-workflow/config.mjs`) and can drift from
+ * `config.template.mjs` per real-repo clone. The partial-patch state observed
+ * 2026-05-13 (archiveRoot present, archiveChunkThreshold + archiveChunkPrefix
+ * missing) is more dangerous than fully-stale-config — undefined chunk semantics
+ * silently fall back to defaults, masking the clone-drift instead of failing
+ * operator-actionably.
+ *
+ * Callers MUST invoke this validator before any archive-path planning / sync /
+ * release-archive operation. Validation enforces presence + type, not byte-
+ * identical value equality (clone-local overrides remain legal per ticket OoS).
+ *
+ * @param {Object} issueSyncConfig The full `aiConfig.issueSync` object
+ * @throws {Error} If any required archive field is missing or wrong-typed
+ */
+export function validateArchiveConfig(issueSyncConfig) {
+    const required = [
+        {
+            key     : 'archiveRoot',
+            expected: 'non-empty string',
+            test    : v => typeof v === 'string' && v.length > 0
+        },
+        {
+            key     : 'archiveChunkThreshold',
+            expected: 'positive integer',
+            test    : v => Number.isInteger(v) && v > 0
+        },
+        {
+            key     : 'archiveChunkPrefix',
+            expected: 'non-empty string',
+            test    : v => typeof v === 'string' && v.length > 0
+        }
+    ];
+
+    const errors = [];
+
+    for (const {key, expected, test} of required) {
+        const value = issueSyncConfig?.[key];
+
+        if (value === undefined || value === null) {
+            errors.push(`'issueSync.${key}' is missing (expected ${expected})`);
+        } else if (!test(value)) {
+            errors.push(`'issueSync.${key}' must be ${expected}, got ${JSON.stringify(value)}`);
+        }
+    }
+
+    if (errors.length > 0) {
+        throw new Error(
+            '[archive-config] Runtime config validation failed for ai/mcp/server/github-workflow/config.mjs:\n' +
+            errors.map(e => `  - ${e}`).join('\n') +
+            '\nCheck against config.template.mjs (see #11290 / Epic #11187 B0a).'
+        );
+    }
+}
+
+/**
  * @summary Builds archive-tier paths for GitHub workflow markdown files.
  *
  * This helper is intentionally archive-only. Active issue / pull request paths stay

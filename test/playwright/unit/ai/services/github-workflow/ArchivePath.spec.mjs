@@ -16,7 +16,8 @@ import path           from 'path';
 
 import archivePath, {
     archiveBucketDir,
-    DEFAULT_ARCHIVE_MAX_ITEMS_PER_DIR
+    DEFAULT_ARCHIVE_MAX_ITEMS_PER_DIR,
+    validateArchiveConfig
 } from '../../../../../../ai/services/github-workflow/shared/archivePath.mjs';
 import chunkPath from '../../../../../../ai/services/github-workflow/shared/chunkPath.mjs';
 
@@ -134,5 +135,81 @@ test.describe('GitHub workflow archivePath helper', () => {
             itemCount: 101,
             itemIndex: 100
         })).toContain(`${path.sep}chunk-2${path.sep}`);
+    });
+});
+
+test.describe('validateArchiveConfig — Epic #11187 B0a (#11290) runtime config validation', () => {
+    const validConfig = {
+        archiveRoot          : path.join('resources', 'content', 'archive'),
+        archiveChunkThreshold: 100,
+        archiveChunkPrefix   : 'chunk-'
+    };
+
+    test('passes for fully-valid config', () => {
+        expect(() => validateArchiveConfig(validConfig)).not.toThrow();
+    });
+
+    test('fails loudly with missing archiveRoot', () => {
+        const config = {...validConfig};
+        delete config.archiveRoot;
+        expect(() => validateArchiveConfig(config)).toThrow(/issueSync\.archiveRoot/);
+    });
+
+    test('fails loudly with missing archiveChunkThreshold', () => {
+        const config = {...validConfig};
+        delete config.archiveChunkThreshold;
+        expect(() => validateArchiveConfig(config)).toThrow(/issueSync\.archiveChunkThreshold/);
+    });
+
+    test('fails loudly with missing archiveChunkPrefix', () => {
+        const config = {...validConfig};
+        delete config.archiveChunkPrefix;
+        expect(() => validateArchiveConfig(config)).toThrow(/issueSync\.archiveChunkPrefix/);
+    });
+
+    test('reproduces the 2026-05-13 partial-patch state (archiveRoot present, chunk fields missing)', () => {
+        const config = {archiveRoot: validConfig.archiveRoot};
+        // Both chunkThreshold AND chunkPrefix missing — single throw aggregates both
+        let captured;
+        try {
+            validateArchiveConfig(config);
+        } catch (e) {
+            captured = e;
+        }
+        expect(captured).toBeDefined();
+        expect(captured.message).toMatch(/issueSync\.archiveChunkThreshold/);
+        expect(captured.message).toMatch(/issueSync\.archiveChunkPrefix/);
+    });
+
+    test('rejects empty-string archiveRoot', () => {
+        expect(() => validateArchiveConfig({...validConfig, archiveRoot: ''}))
+            .toThrow(/non-empty string/);
+    });
+
+    test('rejects non-integer archiveChunkThreshold', () => {
+        expect(() => validateArchiveConfig({...validConfig, archiveChunkThreshold: 100.5}))
+            .toThrow(/positive integer/);
+    });
+
+    test('rejects zero archiveChunkThreshold', () => {
+        expect(() => validateArchiveConfig({...validConfig, archiveChunkThreshold: 0}))
+            .toThrow(/positive integer/);
+    });
+
+    test('rejects negative archiveChunkThreshold', () => {
+        expect(() => validateArchiveConfig({...validConfig, archiveChunkThreshold: -1}))
+            .toThrow(/positive integer/);
+    });
+
+    test('rejects null/undefined config object gracefully', () => {
+        expect(() => validateArchiveConfig(null)).toThrow(/issueSync\.archiveRoot/);
+        expect(() => validateArchiveConfig(undefined)).toThrow(/issueSync\.archiveRoot/);
+    });
+
+    test('error message names file surface + ticket for operator-actionability', () => {
+        expect(() => validateArchiveConfig({}))
+            .toThrow(/ai\/mcp\/server\/github-workflow\/config\.mjs/);
+        expect(() => validateArchiveConfig({}))
+            .toThrow(/#11290/);
     });
 });
