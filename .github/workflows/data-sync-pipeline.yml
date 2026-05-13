@@ -111,11 +111,19 @@ jobs:
           cp -f apps/portal/sitemap.xml temp_pages/ 2>/dev/null || true
           cp -f apps/portal/llms.txt temp_pages/ 2>/dev/null || true
           
-          # Copy resources content (syncing deletions natively via git)
-          rm -rf temp_pages/node_modules/neo.mjs/resources/content/issues
-          rm -rf temp_pages/node_modules/neo.mjs/resources/content/issue-archive
-          cp -r resources/content/issues temp_pages/node_modules/neo.mjs/resources/content/
-          cp -r resources/content/issue-archive temp_pages/node_modules/neo.mjs/resources/content/
+          # Copy resources content (syncing deletions natively via git).
+          # Per Epic #11187 7-bucket fan-out: support both legacy paths (issue-archive/,
+          # pr-archive/) and the new single-root archive/ umbrella during the migration
+          # transition. Legacy paths drop in a follow-up PR once corpus migration completes.
+          # Missing-dir tolerance: each rm -rf and cp guarded so transitional state
+          # (e.g., archive/ not yet populated at pre-merge or pr-archive/ post-AC8-migration
+          # already removed) does not break the sync.
+          for dir in issues pulls discussions issue-archive pr-archive archive; do
+            rm -rf "temp_pages/node_modules/neo.mjs/resources/content/$dir"
+            if [ -d "resources/content/$dir" ]; then
+              cp -r "resources/content/$dir" temp_pages/node_modules/neo.mjs/resources/content/
+            fi
+          done
           
           cd temp_pages
           
