@@ -6,8 +6,8 @@ import aiConfig from '../../../mcp/server/knowledge-base/config.mjs';
 /**
  * @summary Extracts knowledge chunks from the Issue Archive.
  *
- * This source provider iterates through the `.github/ISSUE_ARCHIVE` directory structure,
- * which is organized by release version. It extracts the content of closed issues,
+ * This source provider iterates through the `resources/content/archive/issues` directory structure,
+ * which is organized by release versions and chunks (`vN.M.K/{flat|chunk-N}`). It extracts the content of closed issues,
  * providing deep historical context on past bug fixes, architectural decisions, and
  * feature implementations.
  *
@@ -39,7 +39,7 @@ class TicketSource extends Base {
         let count = 0;
         const targetPaths = [
             path.resolve(aiConfig.neoRootDir, 'resources/content/issues'),
-            path.resolve(aiConfig.neoRootDir, 'resources/content/issue-archive')
+            path.resolve(aiConfig.neoRootDir, 'resources/content/archive/issues')
         ];
 
         for (const targetPath of targetPaths) {
