@@ -123,7 +123,7 @@ You MUST use the GitHub CLI to open a Pull Request targeting the `dev` branch.
 
 If the PR changes `ai/mcp/server/<name>/config.template.mjs`, read `.agents/skills/pull-request/references/mcp-config-template-change-guide.md` before finalizing the PR body.
 
-**Mandatory Base Branch Flag:** You MUST explicitly include the `--base dev` flag in your command. Never rely on the default branch parameter, as it may inadvertently default to `main` and result in massive, thousands-of-commits diff bloat.
+**Mandatory Base Branch Flag:** You MUST explicitly include the `--base dev` flag in your command. Never rely on the `gh` default behavior or assume the target without verifying, as it may inadvertently target `main` (e.g., due to local caching or CLI behavior) and result in massive, thousands-of-commits diff bloat.
 
 **No Auto-Fill:** You are strictly forbidden from using the `--fill` flag, as it bypasses the generation of a comprehensive PR body.
 
