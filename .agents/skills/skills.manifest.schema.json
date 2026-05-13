@@ -29,6 +29,11 @@
           "type": "integer",
           "minimum": 1
         },
+        "perFilePayloadBudget": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Optional per-individual-file byte ceiling within references/. Defaults to disabled when omitted. Recursive Map vs World Atlas enforcement per #11314 / #11319 / #11320."
+        },
         "claudeSymlinkRequired": {
           "type": "boolean"
         },
@@ -82,6 +87,11 @@
         "payloadBudget": {
           "type": "integer",
           "minimum": 1
+        },
+        "perFilePayloadBudget": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Optional per-individual-file byte ceiling within references/. Overrides defaults.perFilePayloadBudget when set. Omit to disable per-file enforcement for this skill."
         },
         "claudeSymlinkRequired": {
           "type": "boolean"
