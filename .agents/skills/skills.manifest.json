@@ -1,0 +1,316 @@
+{
+  "$schema": "./skills.manifest.schema.json",
+  "schemaVersion": 1,
+  "sourceOfTruth": "SKILL.md frontmatter is runtime-canonical for name, description, and triggers. This manifest mirrors those fields for tooling and CI lint only.",
+  "defaults": {
+    "routerByteBudget": 12,
+    "payloadBudget": 80000,
+    "claudeSymlinkRequired": true,
+    "downstreamDocsTargets": [
+      "learn/agentos/ProgressiveDisclosureSkills.md",
+      "learn/guides/fundamentals/CodebaseOverview.md"
+    ]
+  },
+  "skills": {
+    "architecture-pre-flight": {
+      "name": "architecture-pre-flight",
+      "description": "High-level umbrella router for navigating broad, cross-substrate architectural ambiguity.",
+      "triggers": "Use when no narrower pre-flight clearly applies, or when work spans multiple trigger families such as new subsystems, protocols, MCP tools, or cross-substrate refactors.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "blocked-task-state": {
+      "name": "blocked-task-state",
+      "description": "Authoritative protocol for signaling blocked or input-required task states. Mandates targeted A2A pings using the Task.state envelope rather than global capacity broadcasts.",
+      "triggers": "Use this skill whenever your execution becomes blocked, requires explicit operator input, or encounters a failure that halts progress.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "create-skill": {
+      "name": "create-skill",
+      "description": "Authoritative guide on how to architect, format, and structure new Anthropic Progressive Disclosure skills.",
+      "triggers": "Use this skill if the user asks you to create a new skill, teach an agent a new capability, or if you need to recall the exact folder structure and YAML frontmatter required for skills.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "debugging-antigravity": {
+      "name": "debugging-antigravity",
+      "description": "Authoritative guide on debugging Antigravity IDE MCP servers, preventing language server duplication, mitigating sqlite workspace UI crashes, and configuring mcpServers.",
+      "triggers": "Use this skill if the user's Antigravity MCP server panel has a perpetual loading spinner, if MCP processes are duplicating, if sqlite workspace states are corrupted (`__store` null error), or if you need to know how to properly scope `.gemini/settings.json` vs global configurations.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": false,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "epic-resolution": {
+      "name": "epic-resolution",
+      "description": "Closeout protocol for parent epics — answers \"we resolved all epic subs, are we done now?\" with a structured matrix + verdict recommendation (close / keep open / create missing subs / retire-supersede). Sibling to epic-review (which handles entry); this is the exit gate.",
+      "triggers": "Use this skill when the last required sub of an epic closes, when a team member claims an epic is complete or substrate-side complete, before closing an epic as COMPLETED, or when a peer broadcasts an epic-readiness signal that needs reconciliation against parent ACs.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "epic-review": {
+      "name": "epic-review",
+      "description": "Authoritative protocol for pre-work review of epics. Five-stage gating chain — roadmap fit, approach elegance, sub-structure coherence, prescription layer, avoided-traps completeness — posted as a structured comment on the epic ticket. Per-agent-per-epic one-shot; subsequent sub pickups cite the prior review.",
+      "triggers": "Use this skill when an agent is about to pick up its first sub from an unreviewed epic (per model-identity). Also use when a user explicitly requests an epic review, or when an epic is freshly filed and a reviewer pre-validates before any sub pickup begins.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "ideation-sandbox": {
+      "name": "ideation-sandbox",
+      "description": "Safely propose architectural features, unknown unknowns, and brainstorm ideas natively in GitHub Discussions.",
+      "triggers": "Use this skill when the user asks to brainstorm an architecture change or proposes a highly exploratory / undefined technical idea.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "industry-friction-radar": {
+      "name": "industry-friction-radar",
+      "description": "Proactive Bleeding-Edge research loop using a strict 3-step abstraction protocol to extract engine-category friction points without importing framework-category bias or stealing code.",
+      "triggers": "Use this skill when executing periodic \"horizon scans\" for the Dream Pipeline, researching external solutions to deeply complex engine-level friction points, or evaluating JS ecosystem trends.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "lead-role": {
+      "name": "lead-role",
+      "description": "Switch into relaxed-planning + dialogue-first mindset when delegated lead role for coordination. Suspends Auto Mode velocity-bias for the duration.",
+      "triggers": "Use this skill IMMEDIATELY when the user delegates lead with explicit phrases (\"you take the lead\", \"coordinate the team\", \"lead this phase\", \"drive the next planning step\", \"chief-architect\" when scope is swarm/substrate/roadmap/multi-ticket), OR when AGENTS.md §22 mailbox check surfaces a valid `lead-role-baton`, OR when you have just authored a substrate-shaped ticket about to enter implementation, OR via direct /lead-role invocation.",
+      "routerByteBudget": 15,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "memory-mining": {
+      "name": "memory-mining",
+      "description": "Authoritative protocol for querying the Memory Core before diagnosing regressions or proposing non-trivial architectural claims. Prevents re-derivation of prior reasoning by surfacing cross-session, cross-harness context via semantic search.",
+      "triggers": "Use this skill when (1) the user reports a regression symptom (\"used to work\", \"suddenly broken\", surprise validation failures, schema mismatches, \"additionalProperties\" rejections), OR (2) you are about to propose an architectural claim, roadmap, or comparison against external work where prior sessions may have already mapped the territory.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "neural-link": {
+      "name": "neural-link",
+      "description": "Expert tactical knowledge on sequencing Neural Link MCP tools to inspect, debug, and manipulate live Neo.mjs applications.",
+      "triggers": "Use this skill if the user asks you to interact with the browser, inspect the UI natively, patch live code, or use the Neural Link.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "peer-role": {
+      "name": "peer-role",
+      "description": "Switch into evidence-backed convergence-pressure mindset when reviewing a peer's design proposal. Suspends Auto Mode \"ack-and-move-on\" bias for the duration.",
+      "triggers": "Use this skill IMMEDIATELY when reviewing an Ideation Sandbox discussion / architectural proposal, an epic shape, a skill shape, a roadmap or milestone proposal, or a `/lead-role` convergence artifact. Do NOT auto-fire on ordinary status broadcasts where the right action is mark-read or \"no collision\".",
+      "routerByteBudget": 15,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "post-review-pickup": {
+      "name": "post-review-pickup",
+      "description": "Authoritative protocol for immediate next-phase pickup after PR review or author response handoff. Prevents silent idle after review cycles by requiring the next lane or an explicit halt-state.",
+      "triggers": "Use immediately after posting a PR review, chaining a formal GitHub review state, or posting an author review-response handoff with a commentId.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "pr-review": {
+      "name": "pr-review",
+      "description": "Standardized guidelines and templates for structuring Pull Request reviews so that feedback is actionable, encouraging, and extractable by the Native Edge Graph.",
+      "triggers": "Use this skill when evaluating a Pull Request, writing a PR review, structuring feedback on agent-generated code, or instructing a human on how to write a structured PR Review.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "pull-request": {
+      "name": "pull-request",
+      "description": "Standardized guidelines and procedural execution flow for opening a Pull Request. Mandates the \"Stepping Back\" reflection protocol and git/gh tool invocations.",
+      "triggers": "Use this skill as the final Definition of Done when you believe a ticket is complete and it is time to open a Pull Request, or if a human user asks you to submit a PR. Also triggers when receiving a PR review to perform the author-side template-adherence check.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "self-repair": {
+      "name": "self-repair",
+      "description": "Execute autonomous diagnostics, verify MCP server stability, and treat system degradation using tests and memory core forensics.",
+      "triggers": "[Healthcheck, run health checklist, diagnose system collapse, MCP infrastructure failure, troubleshoot agent OS, system degraded, Sandman handoff verification failure, self-repair, system recovery]",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "session-sunset": {
+      "name": "session-sunset",
+      "description": "Authoritative protocol for gracefully terminating an agent session. Mandates structured handover comments, mental-model states, and memory persistence to prevent Zero-State Amnesia.",
+      "triggers": "When concluding a long-running session, executing the Sunset Protocol, handing over work for the next agent, or terminating an agent cycle.",
+      "routerByteBudget": 17,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "structural-pre-flight": {
+      "name": "structural-pre-flight",
+      "description": "Authoritative pre-implementation discipline gate that fires when a new `.mjs` file is about to be authored. Stage 0 mechanical trigger; Stage 1 fast-path (§23 sibling-file-lift) for matched patterns OR full Pre-Flight (ArchitectureOverview.md + ADR consultation + chief-architect framing) for novel directory choices. Closes the 0th-level discipline gap empirically demonstrated by `bridge-daemon.mjs` (originally misplaced in `ai/scripts/`) and `orchestrator-daemon.mjs` (PR #11008 same-class miss).",
+      "triggers": "Use this skill before authoring or relocating any new `.mjs` file. Fires from `ticket-create` Stage 3 (Substrate), `ticket-intake` validation, `epic-review` Stage 3, and any direct authoring path. Sibling pattern match → 30-second fast-path; novel directory choice → full structural pre-flight before the file is written.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "tech-debt-radar": {
+      "name": "tech-debt-radar",
+      "description": "Proactive architectural review skill using Frontier Model semantic RAG to sweep historical issues and Memory Core sessions for technical debt.",
+      "triggers": "Use this skill when conducting architectural analysis, proactively searching for technical debt, auditing the repository for abandoned logical loops, or when explicitly requested to scan for ambient architectural debt.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "ticket-create": {
+      "name": "ticket-create",
+      "description": "Authoritative protocol for creating Neo.mjs GitHub issues. Enforces duplicate sweep, Fat Ticket body structure, strict label rules, title hygiene, and the five-stage challenge chain at creation time. Use immediately before calling the create_issue MCP tool.",
+      "triggers": "Use this skill before any invocation of the create_issue MCP tool. This is the creation-side dual of ticket-intake (which consumes existing tickets).",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "ticket-intake": {
+      "name": "ticket-intake",
+      "description": "Authoritative protocol defining the \"Pre-Execution Reflection Gate\". Mandates architectural validation, negative ROI calculation, and duplicate sweeps before an agent is permitted to begin working on a GitHub Issue.",
+      "triggers": "Use this skill immediately when assigned a new ticket, before checking out a branch or writing any codebase modifications.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "ticket-triage": {
+      "name": "ticket-triage",
+      "description": "Authoritative protocol for maintainer-side label triage of unlabeled contributor tickets. Codifies the social contract for what happens when a ticket arrives without `ai`, primary (`bug`/`enhancement`/`epic`), or secondary labels.",
+      "triggers": "Use this skill when an agent with maintainer permissions (`WRITE` permission or higher) encounters a ticket lacking `ai`, primary, or secondary labels — typically authored by a non-maintainer contributor or a lower-privileged agent who couldn't apply labels at create-time.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "turn-memory-pre-flight": {
+      "name": "turn-memory-pre-flight",
+      "description": "Authoritative protocol for verifying the correct placement and impact of new agentic memory substrate additions.",
+      "triggers": "Use before inserting or mutating turn-loaded or skill-loaded memory substrate such as AGENTS.md, AGENTS_ATLAS.md, .agents/skills/**, or harness-local injection files.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "unit-test": {
+      "name": "unit-test",
+      "description": "Expert QA knowledge on writing, formatting, and executing Playwright tests natively in the Neo.mjs single-thread layout natively.",
+      "triggers": "Use this skill if the user asks you to write, fix, or run unit tests.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    },
+    "whitebox-e2e": {
+      "name": "whitebox-e2e",
+      "description": "Standardized guide and protocol for authoring robust Whitebox End-to-End tests using the Neural Link Playwright fixture.",
+      "triggers": "Use this skill if the user asks you to write an E2E test, add end-to-end coverage, or test a component holistically.",
+      "routerByteBudget": 12,
+      "payloadBudget": 80000,
+      "claudeSymlinkRequired": true,
+      "downstreamDocsTargets": [
+        "learn/agentos/ProgressiveDisclosureSkills.md",
+        "learn/guides/fundamentals/CodebaseOverview.md"
+      ]
+    }
+  }
+}

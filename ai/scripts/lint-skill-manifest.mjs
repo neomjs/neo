@@ -1,0 +1,363 @@
+#!/usr/bin/env node
+/**
+ * @summary Lints the Neo.mjs skill capability manifest (#11275).
+ *
+ * `SKILL.md` frontmatter stays runtime-canonical. The manifest mirrors that
+ * data for CI and governance checks; this script enforces one-way consistency
+ * plus local substrate-budget and harness-symlink invariants.
+ */
+import fs from 'fs/promises';
+import {existsSync, lstatSync, readFileSync, readlinkSync, statSync} from 'fs';
+import path from 'path';
+import {execFileSync} from 'child_process';
+import {fileURLToPath} from 'url';
+
+const __filename    = fileURLToPath(import.meta.url);
+const __dirname     = path.dirname(__filename);
+const ROOT_DIR      = path.resolve(__dirname, '../..');
+const SKILLS_DIR    = path.join(ROOT_DIR, '.agents/skills');
+const CLAUDE_DIR    = path.join(ROOT_DIR, '.claude/skills');
+const MANIFEST_PATH = path.join(SKILLS_DIR, 'skills.manifest.json');
+const SCHEMA_PATH   = path.join(SKILLS_DIR, 'skills.manifest.schema.json');
+
+function parseArgs(argv = process.argv.slice(2)) {
+    const options = {base: null};
+
+    for (let i = 0; i < argv.length; i++) {
+        const arg = argv[i];
+
+        if (arg === '--base') {
+            options.base = argv[++i];
+        } else if (arg.startsWith('--base=')) {
+            options.base = arg.slice('--base='.length);
+        } else {
+            throw new Error(`Unknown argument: ${arg}`);
+        }
+    }
+
+    return options;
+}
+
+function readJson(filePath) {
+    return JSON.parse(requireText(filePath));
+}
+
+function requireText(filePath) {
+    return readFileSync(filePath, 'utf8');
+}
+
+function parseFrontmatter(text, filePath) {
+    const match = text.match(/^---\n([\s\S]*?)\n---/);
+
+    if (!match) {
+        throw new Error(`${filePath} missing YAML frontmatter block`);
+    }
+
+    const data = {};
+
+    for (const line of match[1].split('\n')) {
+        if (!line.trim()) continue;
+
+        const index = line.indexOf(':');
+
+        if (index === -1) {
+            throw new Error(`${filePath} has malformed frontmatter line: ${line}`);
+        }
+
+        const key   = line.slice(0, index).trim();
+        const value = line.slice(index + 1).trim();
+
+        data[key] = value.replace(/^"(.*)"$/, '$1');
+    }
+
+    for (const key of ['name', 'description', 'triggers']) {
+        if (!data[key]) {
+            throw new Error(`${filePath} missing required frontmatter key: ${key}`);
+        }
+    }
+
+    return data;
+}
+
+async function listSkillDirs() {
+    const entries = await fs.readdir(SKILLS_DIR, {withFileTypes: true});
+
+    return entries
+        .filter(entry => entry.isDirectory())
+        .map(entry => entry.name)
+        .sort();
+}
+
+async function walkFiles(dir) {
+    if (!existsSync(dir)) return [];
+
+    const entries = await fs.readdir(dir, {withFileTypes: true});
+    const files   = [];
+
+    for (const entry of entries) {
+        const filePath = path.join(dir, entry.name);
+
+        if (entry.isDirectory()) {
+            files.push(...await walkFiles(filePath));
+        } else {
+            files.push(filePath);
+        }
+    }
+
+    return files;
+}
+
+async function payloadBytes(skillName) {
+    const files = await walkFiles(path.join(SKILLS_DIR, skillName, 'references'));
+    let bytes   = 0;
+
+    for (const file of files) {
+        bytes += statSync(file).size;
+    }
+
+    return bytes;
+}
+
+function validateManifestSchema(manifest, schema) {
+    const errors = [];
+    const rootKeys = new Set([...schema.required, '$schema']);
+
+    for (const key of Object.keys(manifest)) {
+        if (!rootKeys.has(key)) {
+            errors.push(`manifest has unsupported key: ${key}`);
+        }
+    }
+
+    for (const key of schema.required) {
+        if (!(key in manifest)) errors.push(`manifest missing required key: ${key}`);
+    }
+
+    if (manifest.schemaVersion !== 1) {
+        errors.push('schemaVersion must be 1');
+    }
+
+    if (!manifest.skills || typeof manifest.skills !== 'object' || Array.isArray(manifest.skills)) {
+        errors.push('skills must be an object');
+    }
+
+    const defaults = manifest.defaults || {};
+    const defaultKeys = new Set(schema.properties.defaults.required);
+
+    for (const key of Object.keys(defaults)) {
+        if (!defaultKeys.has(key)) {
+            errors.push(`defaults has unsupported key: ${key}`);
+        }
+    }
+
+    for (const key of schema.properties.defaults.required) {
+        if (!(key in defaults)) errors.push(`defaults missing required key: ${key}`);
+    }
+
+    if (!Number.isInteger(defaults.routerByteBudget) || defaults.routerByteBudget < 1) {
+        errors.push('defaults.routerByteBudget must be a positive integer');
+    }
+
+    if (!Number.isInteger(defaults.payloadBudget) || defaults.payloadBudget < 1) {
+        errors.push('defaults.payloadBudget must be a positive integer');
+    }
+
+    if (typeof defaults.claudeSymlinkRequired !== 'boolean') {
+        errors.push('defaults.claudeSymlinkRequired must be boolean');
+    }
+
+    if (!Array.isArray(defaults.downstreamDocsTargets)) {
+        errors.push('defaults.downstreamDocsTargets must be an array');
+    } else if (new Set(defaults.downstreamDocsTargets).size !== defaults.downstreamDocsTargets.length) {
+        errors.push('defaults.downstreamDocsTargets must contain unique entries');
+    }
+
+    const skillKeys = new Set([
+        ...schema.$defs.skill.required,
+        'relationships'
+    ]);
+
+    for (const [skillName, skill] of Object.entries(manifest.skills || {})) {
+        for (const key of Object.keys(skill)) {
+            if (!skillKeys.has(key)) {
+                errors.push(`${skillName} has unsupported key: ${key}`);
+            }
+        }
+
+        for (const key of schema.$defs.skill.required) {
+            if (!(key in skill)) errors.push(`${skillName} missing required key: ${key}`);
+        }
+
+        if (skill.name !== skillName) {
+            errors.push(`${skillName} key must match entry.name`);
+        }
+
+        if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(skill.name || '')) {
+            errors.push(`${skillName} has invalid kebab-case name`);
+        }
+
+        if (!Number.isInteger(skill.routerByteBudget) || skill.routerByteBudget < 1) {
+            errors.push(`${skillName}.routerByteBudget must be a positive integer`);
+        }
+
+        if (!Number.isInteger(skill.payloadBudget) || skill.payloadBudget < 1) {
+            errors.push(`${skillName}.payloadBudget must be a positive integer`);
+        }
+
+        if (typeof skill.claudeSymlinkRequired !== 'boolean') {
+            errors.push(`${skillName}.claudeSymlinkRequired must be boolean`);
+        }
+
+        if (typeof skill.description !== 'string' || !skill.description.length) {
+            errors.push(`${skillName}.description must be a non-empty string`);
+        }
+
+        if (typeof skill.triggers !== 'string' || !skill.triggers.length) {
+            errors.push(`${skillName}.triggers must be a non-empty string`);
+        }
+
+        if (!Array.isArray(skill.downstreamDocsTargets)) {
+            errors.push(`${skillName}.downstreamDocsTargets must be an array`);
+        } else if (new Set(skill.downstreamDocsTargets).size !== skill.downstreamDocsTargets.length) {
+            errors.push(`${skillName}.downstreamDocsTargets must contain unique entries`);
+        } else {
+            for (const target of skill.downstreamDocsTargets) {
+                if (!existsSync(path.join(ROOT_DIR, target))) {
+                    errors.push(`${skillName}.downstreamDocsTarget ${target} does not exist`);
+                }
+            }
+        }
+
+        if ('relationships' in skill && (!skill.relationships || typeof skill.relationships !== 'object' || Array.isArray(skill.relationships))) {
+            errors.push(`${skillName}.relationships must be an object`);
+        }
+    }
+
+    return errors;
+}
+
+function changedFiles(base) {
+    const files = new Set();
+
+    const collect = args => {
+        const output = execFileSync('git', args, {
+            cwd     : ROOT_DIR,
+            encoding: 'utf8'
+        });
+
+        for (const file of output.split('\n').filter(Boolean)) {
+            files.add(file);
+        }
+    };
+
+    try {
+        if (base) {
+            collect(['diff', '--name-only', `${base}...HEAD`]);
+        }
+
+        collect(['diff', '--name-only']);
+        collect(['diff', '--name-only', '--cached']);
+        collect(['ls-files', '--others', '--exclude-standard']);
+
+        return [...files].sort();
+    } catch (error) {
+        throw new Error(`Unable to compute changed files${base ? ` against ${base}` : ''}: ${error.message}`);
+    }
+}
+
+function changedSkillNames(base) {
+    const names = new Set();
+
+    for (const filePath of changedFiles(base)) {
+        const match = filePath.match(/^\.agents\/skills\/([^/]+)\/SKILL\.md$/);
+        if (match) names.add(match[1]);
+    }
+
+    return names;
+}
+
+async function lint({base = null} = {}) {
+    const schema       = readJson(SCHEMA_PATH);
+    const manifest     = readJson(MANIFEST_PATH);
+    const errors       = validateManifestSchema(manifest, schema);
+    const skillDirs    = await listSkillDirs();
+    const manifestKeys = Object.keys(manifest.skills).sort();
+
+    if (JSON.stringify(skillDirs) !== JSON.stringify(manifestKeys)) {
+        errors.push(`manifest skill keys must match .agents/skills directories. dirs=${skillDirs.join(', ')} manifest=${manifestKeys.join(', ')}`);
+    }
+
+    const changed = new Set(changedFiles(base));
+    const touchedSkillNames = changedSkillNames(base);
+
+    for (const skillName of skillDirs) {
+        const skill     = manifest.skills[skillName];
+        const skillPath = path.join(SKILLS_DIR, skillName);
+        const router    = path.join(skillPath, 'SKILL.md');
+        const routerRel = path.relative(ROOT_DIR, router);
+        const text      = requireText(router);
+        const fm        = parseFrontmatter(text, routerRel);
+        const lineCount = text.trimEnd().split('\n').length;
+
+        for (const key of ['name', 'description', 'triggers']) {
+            if (skill[key] !== fm[key]) {
+                errors.push(`${routerRel} frontmatter ${key} mismatch: manifest=${JSON.stringify(skill[key])} frontmatter=${JSON.stringify(fm[key])}`);
+            }
+        }
+
+        if (lineCount > skill.routerByteBudget) {
+            errors.push(`${routerRel} has ${lineCount} lines, exceeds routerByteBudget ${skill.routerByteBudget}`);
+        }
+
+        const bytes = await payloadBytes(skillName);
+
+        if (bytes > skill.payloadBudget) {
+            errors.push(`${path.relative(ROOT_DIR, skillPath)}/references has ${bytes} bytes, exceeds payloadBudget ${skill.payloadBudget}`);
+        }
+
+        if (skill.claudeSymlinkRequired) {
+            const linkPath = path.join(CLAUDE_DIR, skillName);
+            const relPath  = path.relative(ROOT_DIR, linkPath);
+            const expected = `../../.agents/skills/${skillName}`;
+
+            if (!existsSync(linkPath) || !lstatSync(linkPath).isSymbolicLink()) {
+                errors.push(`${relPath} missing required symlink`);
+            } else if (readlinkSync(linkPath) !== expected) {
+                errors.push(`${relPath} points to ${readlinkSync(linkPath)}, expected ${expected}`);
+            }
+        }
+
+        if (base && touchedSkillNames.has(skillName)) {
+            for (const target of skill.downstreamDocsTargets) {
+                if (!changed.has(target)) {
+                    errors.push(`${skillName} changed but downstreamDocsTarget ${target} was not updated in this PR`);
+                }
+            }
+        }
+    }
+
+    return errors;
+}
+
+async function main() {
+    const options = parseArgs();
+    const errors  = await lint(options);
+
+    if (errors.length) {
+        console.error('[lint-skill-manifest] FAILED');
+        for (const error of errors) {
+            console.error(`- ${error}`);
+        }
+        process.exit(1);
+    }
+
+    console.log('[lint-skill-manifest] OK');
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+    main().catch(error => {
+        console.error('[lint-skill-manifest] Fatal:', error.message);
+        process.exit(1);
+    });
+}
+
+export {lint, parseArgs, parseFrontmatter, validateManifestSchema};
