@@ -186,21 +186,29 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(written).toContain(`commentsCount: ${COMMENT_COUNT}`);
     });
 
-    test('anomaly hook fires and logs warning when closedAt shift moves issue across archive buckets (#11288)', async () => {
-        // Mock an issue that exists in metadata with an older version path,
-        // but its newly fetched state or release calculation dictates a new bucket.
+    test('closed-post-latest-release issue lands in active when no archive-version applies (#11360 supersedes #11288 unversioned-target scenario)', async () => {
+        // PRE-#11360: closed-post-latest-release issues with no matching release
+        // would fall through to `'unversioned'` archive bucket. That fallback was the
+        // architectural bug fixed by #11360 — pre-staging items into a not-yet-existing
+        // version archive violates Epic #11187 sealed-chunk semantics.
+        //
+        // POST-#11360: such items land in ACTIVE path; archive folders for vN.M.K are
+        // created at release-cut by publish.mjs, never pre-staged.
+        //
+        // The #11288 anomaly-hook contract (warn on closedAt-shift across buckets) is
+        // preserved for shifts between REAL release buckets (e.g., v11.0.0 → v12.0.0).
+        // The "shift to 'unversioned'" / "archive → active" anomaly variant needs to be
+        // re-established in a follow-up sub-ticket; deliberately not in scope for #11360.
         const mockIssue = buildMockIssue({
             number       : 50001,
-            title        : 'Mock issue — closedAt shift anomaly #11288',
+            title        : 'Mock issue — closed-post-latest-release lands in active #11360',
             timelineFirst: [],
             hasNextPage  : false,
             endCursor    : null
         });
-        mockIssue.state = 'CLOSED';
-        // Give it a closedAt date that maps to a specific version if ReleaseSyncer were loaded,
-        // but for simplicity IssueSyncer defaults to 'unversioned' if no release matches.
+        mockIssue.state    = 'CLOSED';
         mockIssue.closedAt = '2026-05-01T00:00:00Z';
-        
+
         GraphqlService.query = async (query) => {
             if (query.includes('FetchSingleIssue')) {
                 return {repository: {issue: structuredClone(mockIssue)}};
@@ -214,34 +222,23 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
                     state: 'CLOSED',
                     // Pretend it was previously archived under 'v12'
                     path: path.relative(
-                        aiConfig.projectRoot, 
+                        aiConfig.projectRoot,
                         path.join(issueSyncConfig.archiveRoot, 'issues', 'v12', 'chunk-1', 'issue-50001.md')
                     )
                 }
             }
         };
 
-        const warnMessages = [];
-        const originalWarn = logger.warn;
-        logger.warn = (msg) => { warnMessages.push(msg); originalWarn.call(logger, msg); };
+        const stats = await IssueSyncer.refetchIssuesByNumber([mockIssue.number], metadata);
 
-        try {
-            const stats = await IssueSyncer.refetchIssuesByNumber([mockIssue.number], metadata);
+        expect(stats.refetched.count).toBe(1);
+        expect(stats.errors).toHaveLength(0);
 
-            expect(stats.refetched.count).toBe(1);
-            expect(stats.errors).toHaveLength(0);
-
-            // Anomaly hook should have fired
-            const anomalyLog = warnMessages.find(m => m.includes('[ARCHIVE ANOMALY]') && m.includes('#50001'));
-            expect(anomalyLog).toBeDefined();
-            expect(anomalyLog).toContain("moving from bucket 'v12' to 'unversioned'");
-
-            // The sync loop should not have been interrupted prematurely
-            const targetPath = metadata.issues['50001'].path;
-            expect(targetPath).toContain('unversioned'); // It correctly shifted bucket according to current truth
-        } finally {
-            logger.warn = originalWarn;
-        }
+        // Item lands in active (per Epic #11187 mental model: closed-for-next-release stays in active)
+        const targetPath = metadata.issues['50001'].path;
+        expect(targetPath).toContain('/issues/');
+        expect(targetPath).not.toContain('/archive/');
+        expect(targetPath).not.toContain('unversioned');
     });
 
     test('pullFromGitHub enforces sealed-chunk archive semantics', async () => {
