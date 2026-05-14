@@ -5,7 +5,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Draft — 2026-05-14 (awaiting operator approval before commit) |
+| **Status** | Draft — 2026-05-14 (committed for review on PR #11368; flips to `Accepted` after operator content-accuracy approval, pre-merge) |
 | **Author** | @neo-opus-4-7 drafting; architecture authored by swarm across Discussion #11180, Epic #11187, Discussion #11359, operator corrections 2026-05-14 |
 | **Documents** | Epic #11187 (Adopt single-root archive with lazy 100-item chunking) — **supersedes Cycle 2 amendment** with operator-confirmed Reading X (universal ordinal) |
 | **Supersedes** | (a) Implicit shape pre-Discussion-#11180 (asymmetric `issue-archive/` + `pr-archive/` fragmentation); (b) Option G per-type density-tuning (operator-revised 2026-05-14); (c) Active-tier `<NNN>xx/` GitHub-ID-range chunking via `chunkPath.mjs` (operator-revised 2026-05-14 to ordinal-100) |
@@ -78,7 +78,7 @@ For any content collection (e.g., active issues, archived discussions for v12.1.
 - **`<NNN>xx/`** folder naming — RETIRED. `chunk-N/` universal.
 - **`pr-<NNN>xx/`** prefix-disambiguation — RETIRED. Per-type top-level directories already disambiguate; chunk subdir doesn't need a type prefix.
 - **Active-tier O(1) lookup via `LocalFileService#getIssueById`** — RETIRED. Replaced by index-map lookup (see §3.3).
-- **`archivePath.mjs` "flat ≤100 / chunked >100" branching** — RETIRED conceptually. The simpler rule "always under `chunk-N/`" eliminates the branch; first chunk just happens to be `chunk-1/` whether the bucket has 1 item or 100. (Implementation detail: the helper may keep flat-when-only-`chunk-1/` for UX; operator to confirm.)
+- **`archivePath.mjs` "flat ≤100 / chunked >100" branching** — RETIRED conceptually. The simpler rule "always under `chunk-N/`" eliminates the branch; first chunk just happens to be `chunk-1/` whether the bucket has 1 item or 100. (Whether the helper implementation keeps a flat-when-only-`chunk-1/` UX optimization is an implementation-tier decision routed to the universal-helper downstream ticket per §9 item 1; not authority-bound to this ADR.)
 
 ### 2.4 `prevent-reopen.yml` is the load-bearing immutability primitive
 
@@ -169,13 +169,18 @@ Operator quote: *"if we just delete it all, especially the sync all meta file =>
 
 `ai/mcp/server/github-workflow/config.template.mjs` + `config.mjs` currently expose path configurability — e.g., `archiveDir`, `archiveRoot`, `archiveChunkPrefix`, `archiveChunkThreshold`, `defaultArchiveVersion`. Original rationale: flexibility for other users (when only tickets + release notes existed in the substrate).
 
-Post this ADR, much of that flexibility is historical debt:
-- `archiveDir` (legacy single `issue-archive/`) — already retired by #11362's source primitives; config field should drop
-- `defaultArchiveVersion: 'unversioned'` — drop entirely (pre-stage anti-pattern primitive)
-- `archiveChunkPrefix: 'chunk-'` — keep as configurable (small surface; allows users to rename); OR fold to constant if no consumer is downstream-flexible
-- `archiveChunkThreshold: 100` — keep as configurable (consistent with future tuning)
+Post this ADR, much of that flexibility is historical debt. **Authority-level decisions captured here:**
 
-**Open Q for operator:** drop ALL path configurability (universal hardcoded paths) OR keep namespace customization only? Either direction supports the architecture; tradeoff is "user flexibility" vs "less surface to test."
+- `archiveDir` (legacy single `issue-archive/`) — DROPPED. Already retired by #11362's source primitives; config field eliminated under universal architecture.
+- `defaultArchiveVersion: 'unversioned'` — DROPPED entirely. Pre-stage anti-pattern primitive; sealed-chunk semantics make this field architecturally invalid.
+
+**Implementation-tier scope** (routed to the config-audit downstream ticket per §9 item 4, NOT authority-bound to this ADR):
+
+- `archiveChunkPrefix: 'chunk-'` — keep configurable vs fold-to-constant. Tradeoff is small-surface flexibility vs less-surface-to-test. Either direction supports the architecture; the universal rule does not depend on the prefix string.
+- `archiveChunkThreshold: 100` — keep configurable for future-tuning vs hardcode to 100. Same tradeoff shape.
+- Other path-configurability surfaces — keep or drop, decided by the config-audit ticket against actual user-flexibility consumers.
+
+The config-audit ticket (§9 item 4) consumes this ADR as authority for the DROPPED items and exercises judgment on the implementation-tier items.
 
 ---
 
@@ -276,14 +281,21 @@ Retrieval Hint: `query_raw_memories("github content architecture ADR universal o
 
 Sequenced for **focus on new syncer logic first** (the value-delivery substrate per operator's clean-slate framing — no migration tooling to author):
 
-1. **Universal helper:** consolidate `chunkPath.mjs` + `archivePath.mjs` into `contentPath.mjs`
+1. **Universal helper:** consolidate `chunkPath.mjs` + `archivePath.mjs` into `contentPath.mjs` (includes the flat-when-only-`chunk-1/` UX-optimization decision per §2.3)
 2. **Index map:** `_index.json` schema + maintenance in syncers
 3. **`LocalFileService` rewrite:** index-based lookup
-4. **Config audit:** drop `archiveDir` + `defaultArchiveVersion`; decide keep-vs-drop on remaining flexibility
+4. **Config audit:** drop `archiveDir` + `defaultArchiveVersion` (authority-bound per §3.7); decide implementation-tier keep-vs-fold on `archiveChunkPrefix` / `archiveChunkThreshold` / remaining flexibility
 5. **Syncer updates:** all 3 syncers (`IssueSyncer`, `PullRequestSyncer`, `DiscussionSyncer`) consume `contentPath.mjs` + maintain `_index.json`
 6. **Release-notes chunking:** new `ReleaseNotesSyncer` + chunking on 1200+ historical releases
 7. **`publish.mjs` review:** verify archive-cut produces correct new shape (likely already correct since archives delegate to syncers)
 8. **Consumer rewires:** recursive walk + index lookup (`TicketSource`, ticket-index, SEO routes, `IssueIngestor`, `PullRequestSource`, `DiscussionSource`)
-9. **Clean-slate migration:** ONLY after 1-8 land. Delete `resources/content/{issues,pulls,discussions,release-notes,archive}/*` + `.sync-metadata.json` + run `sync_all`. No migration scripts authored — the new syncer logic does the emit work natively.
+9. **Stale-reference cleanup in workflow-skill + docs surfaces** (per @neo-gpt PR #11368 Cycle 1 V-B-A): legacy `resources/content/issue-archive/` references survive in load-bearing workflow material and will mislead future sessions if not corrected after this ADR lands. Files needing review/update:
+   - `.agents/skills/epic-review/references/epic-review-workflow.md`
+   - `.agents/skills/tech-debt-radar/references/tech-debt-radar-guide.md`
+   - `.agents/skills/ticket-create/references/ticket-create-workflow.md`
+   - `.agents/skills/ticket-intake/references/ticket-intake-workflow.md`
+   - `.agents/skills/ticket-triage/references/ticket-triage-workflow.md`
+   - `learn/guides/fundamentals/CodebaseOverview.md`
+10. **Clean-slate migration:** ONLY after 1-9 land. Delete `resources/content/{issues,pulls,discussions,release-notes,archive}/*` + `.sync-metadata.json` + run `sync_all`. No migration scripts authored — the new syncer logic does the emit work natively.
 
 **Migration is LAST, not first.** Until new syncer logic exists, deletion is destructive without recovery shape; once new logic exists, deletion + fresh emit is the migration.
