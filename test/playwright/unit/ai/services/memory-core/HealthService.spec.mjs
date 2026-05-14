@@ -925,7 +925,7 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
  *
  * @see Neo.ai.services.memory-core.HealthService#buildDreamFeaturesBlock
  */
-test.describe('HealthService #10779 — buildDreamFeaturesBlock', () => {
+test.describe('HealthService #10779, #11309 — buildDreamFeaturesBlock', () => {
     let buildDreamFeaturesBlock;
 
     test.beforeAll(async () => {
@@ -933,7 +933,7 @@ test.describe('HealthService #10779 — buildDreamFeaturesBlock', () => {
         buildDreamFeaturesBlock = mod.buildDreamFeaturesBlock;
     });
 
-    test('surfaces boolean flags directly from aiConfig and defaults timestamps to null', () => {
+    test('surfaces boolean flags directly from aiConfig and defaults timestamps to null when taskOutcomes is empty', () => {
         const cfg = {
             autoDream: true,
             autoGoldenPath: false,
@@ -971,5 +971,29 @@ test.describe('HealthService #10779 — buildDreamFeaturesBlock', () => {
             lastDreamRun: null,
             lastGoldenPathRun: null
         });
+    });
+
+    test('surfaces completedAt timestamp from task outcomes', () => {
+        const cfg = { autoDream: true, autoGoldenPath: true };
+        const taskOutcomes = new Map();
+        taskOutcomes.set('dream', { details: { completedAt: '2026-05-13T20:00:00.000Z' } });
+        taskOutcomes.set('golden-path', { details: { completedAt: '2026-05-13T20:05:00.000Z' } });
+
+        const result = buildDreamFeaturesBlock(cfg, taskOutcomes);
+
+        expect(result.lastDreamRun).toBe('2026-05-13T20:00:00.000Z');
+        expect(result.lastGoldenPathRun).toBe('2026-05-13T20:05:00.000Z');
+    });
+
+    test('surfaces failedAt timestamp from task outcomes when completedAt is absent', () => {
+        const cfg = { autoDream: true, autoGoldenPath: true };
+        const taskOutcomes = new Map();
+        taskOutcomes.set('dream', { details: { failedAt: '2026-05-13T20:01:00.000Z' } });
+        taskOutcomes.set('golden-path', { details: { failedAt: '2026-05-13T20:06:00.000Z' } });
+
+        const result = buildDreamFeaturesBlock(cfg, taskOutcomes);
+
+        expect(result.lastDreamRun).toBe('2026-05-13T20:01:00.000Z');
+        expect(result.lastGoldenPathRun).toBe('2026-05-13T20:06:00.000Z');
     });
 });

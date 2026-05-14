@@ -349,7 +349,7 @@ class Server extends BaseServer {
             logger.warn('⚠️  [Startup] Memory Core is unhealthy. Server will start but tools will fail until resolved.');
             health.details.forEach(detail => logger.warn(`    ${detail}`));
 
-            if (!health.database.process.running) {
+            if (!health.database?.process?.running) {
                 logger.warn('    💡 Tip: Use the start_database tool after server starts, or run:');
                 logger.warn(`       chroma run --path ${process.env.CHROMA_DATA_PATH || './data/chroma'} --port ${process.env.CHROMA_PORT || '8000'}`);
             }
