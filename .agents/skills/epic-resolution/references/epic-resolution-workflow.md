@@ -51,6 +51,18 @@ For each parent AC of the epic:
    - `BLOCKER` (sub not started, sub failing, evidence below required with no path to close)
    - `RESIDUAL_AC<N> [#<followup-ticket>]` (split-follow-up filed for unproven AC)
 
+## 3.5. Source Discussion Closeout Gate
+
+**Trigger:** This stage MUST be executed if the epic links to a source GitHub Discussion (e.g., an Ideation Sandbox graduation) OR if the entry-pass `epic-review` produced a Stage 2.5 "Source Discussion Mapping" table.
+
+**Task:** Reconcile upstream criteria before returning an Epic AC verdict.
+
+1. **Locate Source Criteria:** Read the source Discussion (specifically the graduation criteria proposed by the team) or use the Stage 2.5 mapping table from the initial `epic-review`.
+2. **Verify Delivery:** For each mapped graduation criterion, verify that the corresponding Epic AC (and its owning sub-issues) achieved the required evidence.
+3. **Handle Gaps:** If an upstream criterion was dropped, down-scoped, or deferred *without* a formal follow-up ticket capturing the remaining work, flag it as `SOURCE_CRITERIA_UNMET`.
+
+*If any source Discussion criterion is not delivered, explicitly deferred, or converted into a follow-up ticket, the verdict MUST NOT be `RECOMMEND_CLOSE_COMPLETED`.*
+
 ## 4. Compute the verdict
 
 Apply the verdict logic in this order:
@@ -58,13 +70,17 @@ Apply the verdict logic in this order:
 | Condition | Verdict |
 |---|---|
 | Any row has `BLOCKER` state | `RECOMMEND_KEEP_OPEN` |
+| Any row has `SOURCE_CRITERIA_UNMET` | `RECOMMEND_KEEP_OPEN` or `RECOMMEND_CREATE_MISSING_SUBS` |
 | Any row has `RESIDUAL_L<N>` AND no follow-up ticket exists | `RECOMMEND_CREATE_MISSING_SUBS` |
+| Some ACs met but upstream source criteria converted to follow-ups | `RECOMMEND_CLOSE_PARTIAL_WITH_FOLLOW_UPS` |
 | All rows are `none — closed` OR `RESIDUAL_<X> [#<followup-ticket>]` (residuals tracked elsewhere) | `RECOMMEND_CLOSE_COMPLETED` |
 | Epic's purpose has been superseded by another effort or the AC framing is no longer valid | `RECOMMEND_RETIRE_OR_SUPERSEDE` |
 
 **Verdict authority:** the skill produces a structured review + recommendation. **Terminal-action shape depends on the verdict**:
 
 - **`RECOMMEND_CLOSE_COMPLETED` (with zero unresolved residuals)**: the reviewer-agent SHOULD close the epic as completed via `gh issue close --reason completed` as the natural downstream of the review. The review IS the gate; the close-act is not a separate operator-gate. **This is NOT a §0 Invariant 1 parallel** — §0 strictly forbids `gh pr merge` (PR merge action only); epic-close is downstream of the review verdict, not in §0 scope. Failing to close after a clean CLOSE_COMPLETED verdict produces stale-pending-action board pollution (empirical anchor: #10691 verdict 2026-05-04 → epic closed 2026-05-11 after operator surfaced the misframing).
+
+- **`RECOMMEND_CLOSE_PARTIAL_WITH_FOLLOW_UPS`**: the reviewer-agent SHOULD close the epic as completed via `gh issue close --reason completed`, but the review MUST explicitly enumerate the new follow-up tickets generated to track deferred upstream criteria or residuals.
 
 - **`RECOMMEND_KEEP_OPEN`**: no terminal action. Review surfaces blockers/residuals; operator or sub-owner decides path forward.
 
@@ -93,7 +109,11 @@ Update your `## Epic Resolution Review (in progress)` comment to the final shape
 **Reviewer:** @<your-identity>
 **Started:** <ISO-timestamp> (in-progress claim)
 **Completed:** <ISO-timestamp>
-**Verdict:** RECOMMEND_<CLOSE_COMPLETED | KEEP_OPEN | CREATE_MISSING_SUBS | RETIRE_OR_SUPERSEDE>
+**Verdict:** RECOMMEND_<CLOSE_COMPLETED | CLOSE_PARTIAL_WITH_FOLLOW_UPS | KEEP_OPEN | CREATE_MISSING_SUBS | RETIRE_OR_SUPERSEDE>
+
+### Source Discussion Verification (If Applicable)
+
+<Did the epic deliver on the upstream graduation criteria? List any dropped or deferred criteria and link the corresponding follow-up tickets.>
 
 ### Matrix
 
@@ -103,11 +123,11 @@ Update your `## Epic Resolution Review (in progress)` comment to the final shape
 
 ### Rationale
 
-<2-4 paragraphs explaining the verdict. For KEEP_OPEN: which residuals/blockers + path to close. For CREATE_MISSING_SUBS: enumerate gaps + proposed owners. For RETIRE: superseding artifact. For CLOSE_COMPLETED: confirmation that all residuals are tracked elsewhere.>
+<2-4 paragraphs explaining the verdict. For KEEP_OPEN: which residuals/blockers/unmet source criteria + path to close. For CREATE_MISSING_SUBS: enumerate gaps + proposed owners. For RETIRE: superseding artifact. For CLOSE_COMPLETED: confirmation that all residuals are tracked elsewhere. For CLOSE_PARTIAL_WITH_FOLLOW_UPS: highlight the explicitly tracked deferrals.>
 
 ### Required operator action
 
-<For RECOMMEND_CLOSE_COMPLETED: "Close epic as completed when convenient." For RECOMMEND_CREATE_MISSING_SUBS: "Authorize creation of N new subs (proposed owners listed above)." Etc.>
+<For RECOMMEND_CLOSE_COMPLETED or CLOSE_PARTIAL_WITH_FOLLOW_UPS: "Close epic as completed when convenient." For RECOMMEND_CREATE_MISSING_SUBS: "Authorize creation of N new subs (proposed owners listed above)." Etc.>
 
 ### A2A coordination
 
@@ -120,7 +140,7 @@ Origin Session ID: <your session UUID>
 
 After posting the verdict comment, A2A the relevant peers:
 
-- For `RECOMMEND_CLOSE_COMPLETED`: A2A all agents who had subs in the epic, FYI of closure recommendation.
+- For `RECOMMEND_CLOSE_COMPLETED` or `RECOMMEND_CLOSE_PARTIAL_WITH_FOLLOW_UPS`: A2A all agents who had subs in the epic, FYI of closure recommendation.
 - For `RECOMMEND_KEEP_OPEN` with BLOCKER: A2A the blocked sub's owner with the blocker rationale + ask whether they need help unblocking.
 - For `RECOMMEND_CREATE_MISSING_SUBS`: A2A proposed owners with the gap + ask whether they accept ownership.
 - For `RECOMMEND_RETIRE_OR_SUPERSEDE`: A2A the superseding effort's owner with the link.
