@@ -224,6 +224,11 @@ class IssueIngestor extends Base {
         return openIssues;
     }
 
+    /**
+     * @summary Extracts Ideation Sandbox Discussion content to drive semantic and structural context.
+     * Searches both active and archived discussion directories recursively.
+     * @returns {Promise<void>}
+     */
     async ingestDiscussionStates() {
         const targetPaths = [
             path.resolve(__dirname, '../../../resources/content/discussions'),
@@ -301,6 +306,11 @@ class IssueIngestor extends Base {
         }
     }
 
+    /**
+     * @summary Performs dual-path semantic mining on active and archived PR review documents to extract heuristic tags.
+     * Parses `[KB_GAP]`, `[TOOLING_GAP]`, and `[RETROSPECTIVE]` tags.
+     * @returns {Promise<void>}
+     */
     async ingestPullRequestFeedback() {
         const targetPaths = [
             path.resolve(__dirname, '../../../resources/content/pulls'),
