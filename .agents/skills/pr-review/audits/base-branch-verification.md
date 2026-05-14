@@ -12,9 +12,11 @@ Run all three before reading any substantive diff:
 
 ```bash
 gh pr view <N> --json baseRefName,headRefName
-git fetch origin && git merge-base <head> origin/dev
+git fetch origin && git merge-base origin/<head> origin/dev
 git rev-list --left-right --count origin/dev...origin/<head>
 ```
+
+**Remote-ref stability:** the commands above reference `origin/<head>` rather than a bare `<head>` so they work without a local checkout. If you need to inspect the diff locally before the merge-base check, run `gh pr checkout <N>` (or harness equivalent like `checkout_pull_request`) FIRST so the local `<head>` ref exists, then the bare-ref form is also safe.
 
 Expected for a healthy feature PR:
 - `baseRefName: dev` (NOT `main` — `main` is release-only per §0 Inv 8)
