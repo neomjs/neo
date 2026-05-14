@@ -38,17 +38,28 @@ class IssueIngestor extends Base {
      * @returns {Promise<Object[]>} Returns only the OPEN issues for synthesis.
      */
     async ingestIssueStates() {
-        const issuesDir = path.resolve(__dirname, '../../../resources/content/issues');
+        const targetPaths = [
+            path.resolve(__dirname, '../../../resources/content/issues'),
+            path.resolve(__dirname, '../../../resources/content/archive/issues')
+        ];
 
-        try {
-            await fs.promises.access(issuesDir);
-        } catch (e) {
-            logger.warn(`[IssueIngestor] Issues directory not found at ${issuesDir}`);
+        const filesRaw = [];
+        for (const targetPath of targetPaths) {
+            try {
+                if (fs.existsSync(targetPath)) {
+                    const files = await fs.promises.readdir(targetPath, { recursive: true });
+                    filesRaw.push(...files.filter(f => typeof f === 'string' && f.endsWith('.md')).map(f => path.join(targetPath, f)));
+                }
+            } catch (e) {
+                logger.warn(`[IssueIngestor] Error reading issues from ${targetPath}`, e);
+            }
+        }
+        
+        if (filesRaw.length === 0) {
             return [];
         }
 
-        const filesRaw = await fs.promises.readdir(issuesDir, { recursive: true });
-        const files = filesRaw.filter(f => typeof f === 'string' && f.endsWith('.md'));
+        const files = filesRaw;
         const openIssues = [];
         const parsedIssues = [];
 
@@ -58,8 +69,8 @@ class IssueIngestor extends Base {
         }
 
         // Pass 1: Upsert all nodes
-        for (const file of files) {
-            const content = await fs.promises.readFile(path.join(issuesDir, file), 'utf8');
+        for (const filePath of files) {
+            const content = await fs.promises.readFile(filePath, 'utf8');
             const match = content.match(/^---\n([\s\S]*?)\n---/);
             if (match) {
                 try {
@@ -214,21 +225,27 @@ class IssueIngestor extends Base {
     }
 
     /**
-     * Parses the local file system for markdown discussions and syncs their state
-     * into the Native Graph database as OPEN items so they can surface mathematically.
+     * @summary Extracts Ideation Sandbox Discussion content to drive semantic and structural context.
+     * Searches both active and archived discussion directories recursively.
+     * @returns {Promise<void>}
      */
     async ingestDiscussionStates() {
-        const discussionsDir = path.resolve(__dirname, '../../../resources/content/discussions');
+        const targetPaths = [
+            path.resolve(__dirname, '../../../resources/content/discussions'),
+            path.resolve(__dirname, '../../../resources/content/archive/discussions')
+        ];
 
-        try {
-            await fs.promises.access(discussionsDir);
-        } catch (e) {
-            logger.warn(`[IssueIngestor] Discussions directory not found at ${discussionsDir}`);
-            return;
+        const files = [];
+        for (const targetPath of targetPaths) {
+            try {
+                if (fs.existsSync(targetPath)) {
+                    const items = await fs.promises.readdir(targetPath, { recursive: true });
+                    files.push(...items.filter(f => typeof f === 'string' && f.endsWith('.md')).map(f => path.join(targetPath, f)));
+                }
+            } catch (e) {
+                logger.warn(`[IssueIngestor] Error reading discussions from ${targetPath}`, e);
+            }
         }
-
-        const filesRaw = await fs.promises.readdir(discussionsDir);
-        const files = filesRaw.filter(f => f.endsWith('.md'));
         
         let nodesCollection = null;
         try {
@@ -237,8 +254,8 @@ class IssueIngestor extends Base {
             logger.warn('[IssueIngestor] Could not resolve graph collection via StorageRouter.');
         }
 
-        for (const file of files) {
-            const content = await fs.promises.readFile(path.join(discussionsDir, file), 'utf8');
+        for (const filePath of files) {
+            const content = await fs.promises.readFile(filePath, 'utf8');
             const match = content.match(/^---\n([\s\S]*?)\n---/);
             if (match) {
                 try {
@@ -290,21 +307,30 @@ class IssueIngestor extends Base {
     }
 
     /**
-     * Parses the local file system for pull request reviews and syncs their embedded
-     * gap signals ([KB_GAP], [TOOLING_GAP], [RETROSPECTIVE]) into the Native Graph database.
+     * @summary Performs dual-path semantic mining on active and archived PR review documents to extract heuristic tags.
+     * Parses `[KB_GAP]`, `[TOOLING_GAP]`, and `[RETROSPECTIVE]` tags.
+     * @returns {Promise<void>}
      */
     async ingestPullRequestFeedback() {
-        const pullsDir = path.resolve(__dirname, '../../../resources/content/pulls');
+        const targetPaths = [
+            path.resolve(__dirname, '../../../resources/content/pulls'),
+            path.resolve(__dirname, '../../../resources/content/archive/pulls')
+        ];
 
-        if (!fs.existsSync(pullsDir)) {
-            logger.warn(`[IssueIngestor] Pull requests directory not found at ${pullsDir}`);
-            return;
+        const files = [];
+        for (const targetPath of targetPaths) {
+            try {
+                if (fs.existsSync(targetPath)) {
+                    const items = fs.readdirSync(targetPath, { recursive: true });
+                    files.push(...items.filter(f => typeof f === 'string' && f.endsWith('.md')).map(f => path.join(targetPath, f)));
+                }
+            } catch (e) {
+                logger.warn(`[IssueIngestor] Error reading pull requests from ${targetPath}`, e);
+            }
         }
 
-        const files = fs.readdirSync(pullsDir).filter(f => f.endsWith('.md'));
-
-        for (const file of files) {
-            const content = fs.readFileSync(path.join(pullsDir, file), 'utf8');
+        for (const filePath of files) {
+            const content = fs.readFileSync(filePath, 'utf8');
             const match = content.match(/^---\n([\s\S]*?)\n---/);
             if (match) {
                 try {
