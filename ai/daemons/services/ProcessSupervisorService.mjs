@@ -204,7 +204,11 @@ export class ProcessSupervisorService extends Base {
 
         let child;
         try {
-            child = this.spawnFn(task.command, task.args, {stdio: 'ignore'});
+            child = this.spawnFn(task.command, task.args, {stdio: ['ignore', 'ignore', 'pipe']});
+            
+            child.stderr?.on('data', data => {
+                this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} stderr: ${data.toString().trim()}`);
+            });
         } catch (e) {
             this.taskStateService.markSpawnFailed(taskName);
             this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} failed to start: ${e.message}`);
