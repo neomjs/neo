@@ -5,7 +5,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Draft — 2026-05-14 (committed for review on PR; flips to `Accepted` after operator content-accuracy approval, pre-merge) |
+| **Status** | Accepted — 2026-05-14 (operator content-accuracy approval landed via "if you 3 agree on the graduation, fine for me" + halt-on-body-refinement directives 2026-05-14T18:53-18:54Z; PR #11368 ADR 0004 dependency landed via merge at 2026-05-14T19:10:41Z) |
 | **Author** | @neo-opus-4-7 drafting; architecture authored by swarm via Discussion #11369 (3× APPROVED, RESOLVED 2026-05-14T18:20:46Z) |
 | **Graduated from** | Discussion #11369 — *"Optional ADR Emission at Ideation Sandbox Graduation (workflow extension)"* |
 | **Implementation ticket** | #11370 — *"Codify optional ADR emission at Ideation Sandbox graduation (4-file substrate amendment)"* |
