@@ -51,15 +51,48 @@ For each parent AC of the epic:
    - `BLOCKER` (sub not started, sub failing, evidence below required with no path to close)
    - `RESIDUAL_AC<N> [#<followup-ticket>]` (split-follow-up filed for unproven AC)
 
+## 3.5. Source Discussion Closeout Gate
+
+**Trigger:** Epic body cites a source Discussion (e.g., `Resolves Discussion #N`, `Graduates from Discussion #N`, or contains a Signal Ledger), OR the Epic was created via `epic-review` Stage 2.5 mapping (#11349) and has a `## Source Discussion Criteria Mapping` section. **N/A** for standalone Epics with no source Discussion — skip directly to §4.
+
+Before §4 verdict computation, reconcile upstream Discussion criteria against delivered Epic substrate. The Closeout Gate sits alongside §3's matrix and uses Discussion criteria as the row key:
+
+```md
+| Source Discussion criterion | Epic AC(s) | Owning sub(s) | Delivered PR(s) | Achieved evidence | Residual / deferral |
+|---|---|---|---|---|---|
+```
+
+For each criterion from the source Discussion's Graduation Criteria section (the post-consensus criterion list, NOT the open-question list):
+
+1. **Source Discussion criterion** — quote or reference the criterion text from the Discussion body. Each `[RESOLVED_TO_AC]` Cycle 2 resolution + each Graduation Criteria bullet + each Pilot Shape commitment counts as a criterion.
+2. **Epic AC(s)** — which Epic AC row(s) cover this criterion. If multiple criteria collapse to one Epic AC, that's fine — note the AC reference once. If no Epic AC covers the criterion, the row's residual is `LOST` (see below).
+3. **Owning sub(s) / Delivered PR(s) / Achieved evidence** — derived from §3 matrix row(s) for the corresponding Epic AC.
+4. **Residual / deferral** — one of:
+   - `none — delivered via AC<N>` (criterion fully realized in the Epic substrate)
+   - `EXPLICITLY DEFERRED — <rationale>` (criterion intentionally not addressed in this Epic; rationale must be public + part of original graduation acceptance OR documented in epic body)
+   - `CONVERTED TO FOLLOW-UP [#<followup-ticket>]` (criterion split out to a separate ticket post-graduation; ticket must exist + be reachable)
+   - `LOST` (criterion not mapped to any Epic AC; not explicitly deferred; not converted) — this is the silent-promise-loss class
+
+**Verdict integration:** the Closeout Gate output feeds §4 verdict computation. Any `LOST` criterion blocks `RECOMMEND_CLOSE_COMPLETED` even when all §3 Epic AC rows are green. The remediation path:
+
+- **Recoverable in existing subs:** if the LOST criterion can be addressed by extending an existing sub's scope, recommend `KEEP_OPEN` + flag the sub for scope-extension
+- **Requires new sub:** if the LOST criterion needs new substrate work, recommend `CREATE_MISSING_SUBS` per the standard §4 + §5 path
+- **Was-actually-deferrable:** if the LOST criterion was implicitly deferred during graduation and just never explicitly captured, file a `CONVERTED TO FOLLOW-UP` ticket retroactively + update the gate row before re-verdict
+
+`EXPLICITLY DEFERRED` and `CONVERTED TO FOLLOW-UP` are acceptable closeout states with same tracked-elsewhere semantics as §3 `RESIDUAL_<X> [#<followup-ticket>]`.
+
+**Empirical anchor:** Discussion #11341 → ticket #11342 chain. The Discussion's `[RESOLVED_TO_AC]` Cycle 2 resolutions (≥30% demotion threshold + Markdown Form distinction + #11330-bound measurement + Pilot Shape: INV1 cascade detail with measurement contract) became #11342 ACs via `epic-review` Stage 2.5 mapping (#11349). At closeout this gate verifies each `[RESOLVED_TO_AC]` line and the Pilot Shape AC are delivered, explicitly deferred, or converted. Without this gate, the Pilot's "≥30% byte reduction" criterion could silently drift to "some byte reduction" if Epic ACs were diluted at creation time and never re-checked at closure.
+
 ## 4. Compute the verdict
 
-Apply the verdict logic in this order:
+Apply the verdict logic in this order (highest precedence first):
 
 | Condition | Verdict |
 |---|---|
+| Any source Discussion criterion in `LOST` state per §3.5 Closeout Gate | `RECOMMEND_KEEP_OPEN` (if recoverable in existing subs) OR `RECOMMEND_CREATE_MISSING_SUBS` (if new sub needed) |
 | Any row has `BLOCKER` state | `RECOMMEND_KEEP_OPEN` |
 | Any row has `RESIDUAL_L<N>` AND no follow-up ticket exists | `RECOMMEND_CREATE_MISSING_SUBS` |
-| All rows are `none — closed` OR `RESIDUAL_<X> [#<followup-ticket>]` (residuals tracked elsewhere) | `RECOMMEND_CLOSE_COMPLETED` |
+| All rows are `none — closed` OR `RESIDUAL_<X> [#<followup-ticket>]` (residuals tracked elsewhere) AND §3.5 Closeout Gate passes or is N/A | `RECOMMEND_CLOSE_COMPLETED` |
 | Epic's purpose has been superseded by another effort or the AC framing is no longer valid | `RECOMMEND_RETIRE_OR_SUPERSEDE` |
 
 **Verdict authority:** the skill produces a structured review + recommendation. **Terminal-action shape depends on the verdict**:
@@ -130,7 +163,7 @@ Per `feedback_a2a_commentid_pre_flight`: post the verdict comment FIRST, capture
 ## 7. Cross-references
 
 - `learn/agentos/evidence-ladder.md` — L1-L4 definitions + matrix schema authority
-- `.agents/skills/epic-review/` — entry-pass sibling (seeds matrix at sub-creation time)
+- `.agents/skills/epic-review/` — entry-pass sibling (seeds matrix at sub-creation time + Source Discussion Criteria Mapping per Stage 2.5 #11349)
 - `.agents/skills/pr-review/` — sub-execution gate (audits Evidence declaration on each merging PR)
 - `.agents/skills/pull-request/` — author-side Evidence declaration template
 - `.agents/skills/ticket-create/` — invoked by the operator on `RECOMMEND_CREATE_MISSING_SUBS`
