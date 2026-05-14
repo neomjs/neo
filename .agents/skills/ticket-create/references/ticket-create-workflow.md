@@ -13,7 +13,7 @@ Verify no equivalent ticket already exists. Redundant tickets pollute the Knowle
 
 ```
 grep on resources/content/issues/       # open tickets
-grep on resources/content/issue-archive/ # closed + archived
+grep on resources/content/issues/ # closed + archived
 grep on resources/content/discussions/   # ideation / brainstorming
 ```
 

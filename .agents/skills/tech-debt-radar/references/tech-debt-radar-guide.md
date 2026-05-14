@@ -18,7 +18,7 @@ Debt discovery requires traversing semantic artifacts that `grep` cannot underst
 
 ### A. Ambient Artifact Traversal
 The framework stores historical context in decentralized markdown files. You MUST use the `ask_knowledge_base` tool to query against the backlog, focusing on abandoned concepts, incomplete migrations, or trailing architectural directives.
-- Your target domain encompasses `resources/content/issues/` (active backlog/next release) and `resources/content/issue-archive/` (historical tickets and epics).
+- Your target domain encompasses `resources/content/issues/` (active backlog/next release) and `resources/content/issues/` (historical tickets and epics).
 - Example strategies: "Identify partially completed feature migrations," "List architectural patterns mentioned in closed tickets that conflict with current Engine logic."
 
 ### B. Episodic Memory Mining
