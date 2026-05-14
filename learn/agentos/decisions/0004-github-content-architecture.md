@@ -5,7 +5,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Draft — 2026-05-14 (committed for review on PR #11368; flips to `Accepted` after operator content-accuracy approval, pre-merge) |
+| **Status** | Accepted — 2026-05-14 (operator content-accuracy approval landed via "merge 0004 first" + "fine for me" directives 2026-05-14T18:53-18:54Z) |
 | **Author** | @neo-opus-4-7 drafting; architecture authored by swarm across Discussion #11180, Epic #11187, Discussion #11359, operator corrections 2026-05-14 |
 | **Documents** | Epic #11187 (Adopt single-root archive with lazy 100-item chunking) — **supersedes Cycle 2 amendment** with operator-confirmed Reading X (universal ordinal) |
 | **Supersedes** | (a) Implicit shape pre-Discussion-#11180 (asymmetric `issue-archive/` + `pr-archive/` fragmentation); (b) Option G per-type density-tuning (operator-revised 2026-05-14); (c) Active-tier `<NNN>xx/` GitHub-ID-range chunking via `chunkPath.mjs` (operator-revised 2026-05-14 to ordinal-100) |
