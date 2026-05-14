@@ -4,6 +4,12 @@
 
 *Cycle-1 reviewers: run §9.0 Premise Pre-Flight BEFORE composing Required Actions. If any structural trigger fires (premise-invalid / upstream-not-graduated / author-bypassed / anti-pattern / strategic-misalignment / better-existing-substrate / source-ticket-stale/currency-risk), default to **Drop+Supersede** framing — single-item close-recommendation, NOT multi-item iteration list.*
 
+**Cycle-0 mechanical pre-flight** (fires BEFORE §9.0 if diff-size shock or `baseRefName` uncertainty triggers; read [`audits/base-branch-verification.md`](../audits/base-branch-verification.md)):
+
+- [ ] Base-branch verified (`baseRefName: dev` for feature PRs; not `main`)
+- [ ] Merge-base recent + divergence count matches stated PR scope
+- [ ] OR explicitly N/A — diff matches stated scope; no shock-trigger
+
 ### 🪜 Strategic-Fit Decision
 
 Per §9 Strategic-Fit Step-Back:

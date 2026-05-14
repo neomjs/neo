@@ -422,6 +422,8 @@ not parallel to score metrics or depth-floor. It's an architectural-judgment
 skill, not a defect-detection skill.
 Empirical anchor: PR #10607 8-cycle pattern.
 
+<!-- trigger: PR diff size >> stated scope OR baseRefName uncertain → read [./audits/base-branch-verification.md](../audits/base-branch-verification.md) (Cycle-0 mechanical gate; fires BEFORE §9.0 Premise Pre-Flight; empirical anchor PR #11335 base=main blowup; per #11347 Layer 3 of 4-layer PR-base defense) -->
+
 ### 9.0 Cycle-1 Premise Pre-Flight (Decisiveness-Before-Iteration)
 
 Before composing Required Actions on a Cycle-1 review, ask: **"Does this PR have any structural issue that makes Request Changes wrong-shape?"**
