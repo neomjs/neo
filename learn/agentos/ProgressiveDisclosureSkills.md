@@ -116,6 +116,8 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 |---|---|---|
 | `ticket-intake` | Lifecycle | Pre-execution validation gate for existing tickets |
 | `ticket-create` | Lifecycle | Pre-creation discipline gate (duplicate sweep, Fat Ticket body, title/label rules) |
+| `epic-review` | Lifecycle | Pre-work six-stage gating chain for epics |
+| `epic-resolution` | Lifecycle | Closeout protocol for parent epics (exit gate) |
 | `pull-request` | Lifecycle | Post-implementation reflection + PR creation |
 | `pr-review` | Lifecycle | Structured quality evaluation & graph ingestion |
 | `tech-debt-radar` | Lifecycle | Proactive semantic RAG sweeps for architectural debt |
