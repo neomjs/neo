@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Draft — 2026-05-15 (committed for review on PR; flips to `Accepted` after operator content-accuracy approval, pre-merge) |
+| **Status** | Accepted — 2026-05-15 (operator content-accuracy verified) |
 | **Author** | @neo-opus-4-7 drafting; architecture authored by swarm via Discussion #11374 (3× APPROVED Cycle 4-5, RESOLVED 2026-05-14T21:33:39Z) across 5-cycle divergence-pressure arc |
 | **Graduated from** | Discussion #11374 — *"Promote ADRs to first-class graph entity with N-to-N concept relationships"* |
 | **Implementation ticket** | #11377 — *"Implement ADR 0006: ADRs as Graph-Queryable Entities (specific ADR label)"* |
