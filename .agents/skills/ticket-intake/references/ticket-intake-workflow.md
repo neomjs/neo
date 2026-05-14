@@ -31,7 +31,7 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
    - If the matrix is missing or incomplete, the ticket enters the `needs-contract-alignment` state.
    - **Hand-back loop:** You MUST post a comment explaining the missing fields, requesting the author or maintainer to update the ticket body. You are forbidden from guessing the contract or starting branch/code work. Once the ticket is updated, intake re-verifies the ledger before proceeding.
 
-7.5. **Age / Successor-Risk Audit Gate:** Before classifying ticket reality, you MUST audit the ticket's age, stale bot state, and missing PR close-link hygiene. 
+7.5. **Age / Successor-Risk Audit Gate:** Before classifying ticket reality, you MUST audit the ticket's age, stale bot state, and missing PR close-link hygiene.
    - **Protocol:** You MUST execute the detailed mechanics defined in `.agents/skills/ticket-intake/references/successor-risk-audit.md` for age-band classification, missing close-link sweeps, and stale renewal discipline.
 
 8. **Ticket Reality Classification:** Before ROI acceptance or branch/code work, you MUST emit a concise classification artifact that converts the validation sweep into a stable verdict. Ticket prose is not authoritative; the classification must be grounded in the live issue conversation, linked PRs/commits, current source/docs/tests, and relevant Knowledge Base / Memory Core evidence when applicable.

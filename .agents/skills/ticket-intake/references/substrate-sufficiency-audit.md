@@ -11,5 +11,5 @@ You MUST verify that the target failure mode is not already prevented by:
 - **Existing Skill Logic:** Existing instructions in the relevant `SKILL.md` or `references/` payloads.
 
 ## 2. ROI Evaluation
-If the ticket does not explicitly prove that existing enforcement is insufficient, the proposed change is considered **substrate bloat**. 
+If the ticket does not explicitly prove that existing enforcement is insufficient, the proposed change is considered **substrate bloat**.
 Substrate bloat automatically yields a **Negative ROI**. The ticket must be rejected according to the Rejection Protocol.
