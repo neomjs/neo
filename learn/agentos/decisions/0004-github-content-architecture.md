@@ -279,6 +279,12 @@ Retrieval Hint: `query_raw_memories("github content architecture ADR universal o
 
 ## 9. Downstream Tickets (out-of-scope for THIS ticket; file as separate after ADR graduates)
 
+**Multi-session scope.** Per operator framing 2026-05-14: *"divide and conquer still applies. improving in iterations. we should add the full problem-scope, but we can tackle it inside multiple sessions. first reasonable goal: let us get the desired resources/content structure into the repo. step by step, no one shot. if this fully works, including syncs with delta updates, then we can look into missing other items."*
+
+Phase boundaries below are the **gating discipline**: do not begin Phase 2 work until Phase 1 is operationally verified (structure landed + delta-update syncs working). The full scope is captured in this ADR so future sessions have the road-map; the sequencing prevents one-shot over-reach.
+
+### Phase 1 — `resources/content/` structure (first session(s); blocks Phase 2)
+
 Sequenced for **focus on new syncer logic first** (the value-delivery substrate per operator's clean-slate framing — no migration tooling to author):
 
 1. **Universal helper:** consolidate `chunkPath.mjs` + `archivePath.mjs` into `contentPath.mjs` (includes the flat-when-only-`chunk-1/` UX-optimization decision per §2.3)
@@ -288,7 +294,7 @@ Sequenced for **focus on new syncer logic first** (the value-delivery substrate 
 5. **Syncer updates:** all 3 syncers (`IssueSyncer`, `PullRequestSyncer`, `DiscussionSyncer`) consume `contentPath.mjs` + maintain `_index.json`
 6. **Release-notes chunking:** new `ReleaseNotesSyncer` + chunking on 1200+ historical releases
 7. **`publish.mjs` review:** verify archive-cut produces correct new shape (likely already correct since archives delegate to syncers)
-8. **Consumer rewires:** recursive walk + index lookup (`TicketSource`, ticket-index, SEO routes, `IssueIngestor`, `PullRequestSource`, `DiscussionSource`)
+8. **Consumer rewires (data-layer only):** recursive walk + index lookup in `TicketSource`, `PullRequestSource`, `DiscussionSource`, `IssueIngestor`
 9. **Stale-reference cleanup in workflow-skill + docs surfaces** (per @neo-gpt PR #11368 Cycle 1 V-B-A): legacy `resources/content/issue-archive/` references survive in load-bearing workflow material and will mislead future sessions if not corrected after this ADR lands. Files needing review/update:
    - `.agents/skills/epic-review/references/epic-review-workflow.md`
    - `.agents/skills/tech-debt-radar/references/tech-debt-radar-guide.md`
@@ -298,4 +304,27 @@ Sequenced for **focus on new syncer logic first** (the value-delivery substrate 
    - `learn/guides/fundamentals/CodebaseOverview.md`
 10. **Clean-slate migration:** ONLY after 1-9 land. Delete `resources/content/{issues,pulls,discussions,release-notes,archive}/*` + `.sync-metadata.json` + run `sync_all`. No migration scripts authored — the new syncer logic does the emit work natively.
 
-**Migration is LAST, not first.** Until new syncer logic exists, deletion is destructive without recovery shape; once new logic exists, deletion + fresh emit is the migration.
+**Migration is LAST in Phase 1, not first.** Until new syncer logic exists, deletion is destructive without recovery shape; once new logic exists, deletion + fresh emit is the migration.
+
+### Phase 1 → Phase 2 gate
+
+Phase 2 work begins ONLY after:
+- All Phase 1 items 1-10 are merged
+- `sync_all` operates correctly with **delta updates** (not just full re-syncs)
+- `resources/content/` structure on dev matches §2.1 target shape
+- No regressions in KB ingestion or Native Edge Graph consumption
+
+### Phase 2 — Consumer / Portal / SEO substrate (multi-session, post-Phase-1)
+
+Each item likely becomes its own Epic with sub-tickets. Captured here for future-session road-map; do not start until the Phase 1 gate clears.
+
+11. **`buildScripts/docs/index/` refactor:** `tickets.mjs` and `release.mjs` currently generate monolithic JSON consumed by the portal app. Refactor to tree-folder-shaped indexes that enable lazy-load on expand. Aligns the generator shape with the new `chunk-N/` substrate.
+12. **Portal app tree-folder consumption:** the portal already has tickets to show discussions + PR conversations; extend the consumer logic to render the nested chunk-N folder structure with lazy-load on expand. Replaces "load N MB of JSON upfront" with "load chunk on demand."
+13. **SEO substrate update:** `sitemap.xml` + `llms.txt` regenerate from the new tree structure. Each chunk + each individual item gets crawler-visible paths.
+14. **middleware-v2 routing impact** (separate `neomjs/middleware-v2` repo): pre-generated "real fake routes" for client-side-hash routes. Googlebot + LLM crawlers can't parse `#`-based routes or run JS reliably. Neo's left hemisphere is the differentiator here: server-side VDOM/VNode + string parser generates the body in node without headless browsers (no Puppeteer / no Chrome). This is the kind of work that demonstrates Neo's substrate advantage over framework-category competitors that need browser shells for SSR.
+
+### Why this phasing matters
+
+The Phase 1 / Phase 2 boundary is not bureaucratic — it's the **risk-reduction discipline**. Phase 2 work depends on `resources/content/` being correctly shaped + index-map operational + delta-syncs working. Trying to refactor portal + SEO + middleware-v2 while the underlying substrate is still in flight is the substrate-bypass anti-pattern in a different surface area (§5 generalization). Land the foundation, verify it operates, then climb.
+
+The full scope is captured here so future sessions don't lose the road-map — but the gating prevents one-shot over-reach.
