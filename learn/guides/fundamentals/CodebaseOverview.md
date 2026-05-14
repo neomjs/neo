@@ -450,6 +450,8 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 **Lifecycle (execution gates):**
 - `ticket-intake`: Pre-execution validation gate for existing tickets (validation sweep, ROI calculation, branch-before-code).
 - `ticket-create`: Pre-creation discipline gate for new GitHub issues (duplicate sweep, Fat Ticket body, title/label rules).
+- `epic-review`: Pre-work six-stage gating chain for epics (roadmap fit, approach elegance, source discussion mapping, sub-structure coherence, prescription layer, avoided-traps completeness).
+- `epic-resolution`: Closeout protocol for parent epics resolving the completion status (exit gate).
 - `pull-request`: Post-implementation reflection + PR creation (stepping-back protocol, conventional-commit format, handoff sequence).
 - `pr-review`: Evaluation matrix templates spanning `[ARCH_ALIGNMENT]` to `[EFFORT_PROFILE]` + graph ingestion tags for the Dream Pipeline.
 - `tech-debt-radar`: Proactive architectural sweep using semantic RAG to map and target technical debt. Invoked during `ticket-intake` and `pr-review`.
