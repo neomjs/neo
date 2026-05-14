@@ -17,6 +17,8 @@ import {
     DEFAULT_KB_SYNC_INTERVAL_MS,
     DEFAULT_BACKUP_INTERVAL_MS,
     PRIMARY_DEV_SYNC_TASK_NAME,
+    DREAM_TASK_NAME,
+    GOLDEN_PATH_TASK_NAME,
     buildTaskDefinitions
 } from '../../../../../ai/daemons/TaskDefinitions.mjs';
 import TaskStateService, { createInitialTaskState } from '../../../../../ai/daemons/services/TaskStateService.mjs';
@@ -51,10 +53,14 @@ function createTestOrchestrator(config = {}) {
         primaryDevSyncIntervalMs: config.primaryDevSyncIntervalMs ?? 600000,
         primaryDevSyncEnabled   : config.primaryDevSyncEnabled ?? false,
         primaryDevSyncRootsConfig: config.primaryDevSyncRootsConfig ?? null,
+        dreamIntervalMs         : config.dreamIntervalMs ?? Number.MAX_SAFE_INTEGER,
+        goldenPathIntervalMs    : config.goldenPathIntervalMs ?? Number.MAX_SAFE_INTEGER,
         healthService           : config.healthService || {recordTaskOutcome() {}},
         summarizationCoordinator: config.summarizationCoordinator || {getDueTask: () => null},
         backupCoordinator       : config.backupCoordinator || {getDueTask: () => null},
         primaryRepoSyncService  : config.primaryRepoSyncService || {getDueTask: () => null, runTask: () => null},
+        dreamService            : config.dreamService || {processUndigestedSessions: () => Promise.resolve()},
+        goldenPathSynthesizer   : config.goldenPathSynthesizer || {synthesizeGoldenPath: () => Promise.resolve()},
         spawnFn                 : config.spawnFn || (() => { throw new Error('spawnFn not expected'); })
     });
 
@@ -71,7 +77,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             nodeBin  : '/node'
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'mlx', 'summary', 'kbSync', 'backup', PRIMARY_DEV_SYNC_TASK_NAME]);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'mlx', 'summary', 'kbSync', 'backup', PRIMARY_DEV_SYNC_TASK_NAME, DREAM_TASK_NAME, GOLDEN_PATH_TASK_NAME]);
         expect(state.summary).toMatchObject({
             running      : false,
             pid          : null,
