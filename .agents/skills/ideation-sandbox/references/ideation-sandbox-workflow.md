@@ -167,7 +167,7 @@ Override syntax: any user-facing directive from `@tobiu` referencing the Discuss
 
 ### 6.6 Graduated-Artifact Required Sections (AC11)
 
-The graduated Issue / Epic / PR body MUST include three explicit sections, even if empty. Empty sections are positive signals (no dissent, no liveness gaps). Non-empty sections preserve the divergence trail.
+The graduated Issue / Epic / PR body MUST include these explicit sections, even if empty. Empty sections are positive signals (no dissent, no liveness gaps). Non-empty sections preserve the divergence trail.
 
 ```markdown
 ## Signal Ledger
@@ -183,6 +183,11 @@ The graduated Issue / Epic / PR body MUST include three explicit sections, even 
 ## Unresolved Liveness
 (empty if all 3 signals collected — positive signal)
 (otherwise: each peer with no-signal + STATUS: operator-override-rationale)
+
+## Discussion Criteria Mapping
+(required for Epics graduating from a Discussion to satisfy `epic-resolution` Closeout Gates)
+- Criterion 1 from Discussion -> AC X
+- Criterion 2 from Discussion -> AC Y (or Deferred to #Z)
 ```
 
 This pattern makes substrate-state legible in the graduated artifact, archives the divergence trail per §15.6 transparent A2A introspection, and enables future Discussions to re-open if residual risks materialize.
@@ -192,7 +197,7 @@ This pattern makes substrate-state legible in the graduated artifact, archives t
 When the Signal Ledger reaches 3× APPROVED (or operator-override resolves remaining gaps):
 
 1. Add `[GRADUATED_TO_TICKET: #N]` marker near top of body (per §4 OQ-resolution-tag pattern)
-2. Update body with `## Signal Ledger` + `## Unresolved Dissent` + `## Unresolved Liveness` sections
+2. Update body with `## Signal Ledger` + `## Unresolved Dissent` + `## Unresolved Liveness` + `## Discussion Criteria Mapping` sections
 3. File resulting Epic / ticket / PR with cross-references back to Discussion + each peer's GRADUATION signal commentId
 4. Formally close Discussion via GraphQL `closeDiscussion(reason: RESOLVED)`
 
