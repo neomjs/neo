@@ -8,7 +8,7 @@ If you blindly accept a ticket's premise, you risk injecting regressions into th
 
 > **⚡ The "Hot Context" Fast-Path (Same-Session Creation)**
 > If you are picking up a ticket that you *just created* within the current, active session (i.e., your context window is still "hot" from running the `ticket-create` skill), you are generally exempt from the Validation Sweep (Section 1) and ROI Calculation (Section 2), as the `ticket-create` pre-flight sweeps have already satisfied these requirements.
-> **Substrate Exception:** If the ticket is a *substrate ticket* (modifying skills, agents, AGENTS.md, AGENTS_ATLAS, harness docs, workflow templates, CI guardrails, or core instructions), the Hot Context Fast-Path is **disabled** UNLESS the ticket explicitly contains a documented "existing-enforcement sufficiency audit" proving that existing mechanical guards (e.g., Layer 4 CI, Layer 1 AGENTS.md invariants) are insufficient to prevent the failure mode.
+> **Substrate Exception:** For *substrate tickets* (modifying Agent OS/skills/rules), the Hot Context Fast-Path is **disabled** UNLESS the ticket contains a documented "existing-enforcement sufficiency audit" (see `.agents/skills/ticket-intake/references/substrate-sufficiency-audit.md`).
 
 Before executing a `git checkout`, you MUST interrogate the codebase and Memory Core to establish the validity of the ticket's premise.
 
@@ -31,13 +31,8 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
    - If the matrix is missing or incomplete, the ticket enters the `needs-contract-alignment` state.
    - **Hand-back loop:** You MUST post a comment explaining the missing fields, requesting the author or maintainer to update the ticket body. You are forbidden from guessing the contract or starting branch/code work. Once the ticket is updated, intake re-verifies the ledger before proceeding.
 
-7.5. **Age / Successor-Risk Audit Gate:** Before classifying ticket reality, you MUST audit the ticket's age, stale bot state, and missing PR close-link hygiene. Age is never a verdict by itself; it only raises the successor-risk search depth.
-   - **Workflow-Derived Bands:** Do not use arbitrary hard-coded thresholds. Derive age bands from `.github/workflows/close-inactive-issues.yml` (`days-before-issue-stale` and `days-before-issue-close`).
-     - **pre-stale** (inactivity / `updatedAt` age < `days-before-issue-stale`): Standard duplicate and first-pass successor sweep. Record `createdAt` separately to distinguish same-day duplicates (hot context) from older-ticket successor-risk classification.
-     - **in-stale-window** (>= stale-days, < stale-days + close-days OR has `stale` label): Explicitly sweep newer PRs, tickets, and discussions before proceeding.
-     - **post-stale-with-exemption** (>= stale-days + close-days AND has `no auto close` label): Operator-parked. Full successor sweep and escalation flag required.
-   - **Missing Close-Link Sweep:** Explicitly check for merged PRs that completed the ticket but missed a GitHub close keyword (`Resolves #N`, `Closes #N`). A merged PR touching the target surface or mentioned in the conversation may mean the ticket is `already-resolved`. If you find one, you MUST cite the PR number, merged status, target surface touched, and issue/thread link as evidence.
-   - **Stale Renewal vs. Exemption Discipline:** If `stale` is present and the ticket remains valid, post a renewal comment and remove `stale` as a routine intake action. Do NOT auto-apply `no auto close`—applying exemption requires explicit parked/blocked rationale.
+7.5. **Age / Successor-Risk Audit Gate:** Before classifying ticket reality, you MUST audit the ticket's age, stale bot state, and missing PR close-link hygiene. 
+   - **Protocol:** You MUST execute the detailed mechanics defined in `.agents/skills/ticket-intake/references/successor-risk-audit.md` for age-band classification, missing close-link sweeps, and stale renewal discipline.
 
 8. **Ticket Reality Classification:** Before ROI acceptance or branch/code work, you MUST emit a concise classification artifact that converts the validation sweep into a stable verdict. Ticket prose is not authoritative; the classification must be grounded in the live issue conversation, linked PRs/commits, current source/docs/tests, and relevant Knowledge Base / Memory Core evidence when applicable.
 
@@ -62,7 +57,8 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
 
 9. **Meta-Skill Sweep (Progressive Disclosure):** If the ticket explicitly involves modifying any Agent Skill file (i.e., within `.agents/skills/`), you MUST execute a Pre-Flight Meta-Skill check. Read `.agents/skills/create-skill/SKILL.md` to verify the ticket's premise adheres to the Progressive Disclosure routing pattern and does not bloat top-level `SKILL.md` files before accepting it.
 
-9.2. **Substrate Enforcement Sufficiency Gate:** If the ticket prescribes adding new rules, templates, or instructions to the Agent OS (e.g., `.agents/skills/`, `AGENTS.md`, `AGENTS_ATLAS`, harness docs, workflow templates, or CI guardrails), you MUST explicitly audit existing enforcement layers. You MUST verify that the failure mode is not already prevented by existing Layer 4 (CI) checks, Layer 1 (`AGENTS.md`) invariants, or existing skill logic. If the ticket does not explicitly prove that existing enforcement is insufficient, it is considered substrate bloat and yields a Negative ROI.
+9.2. **Substrate Enforcement Sufficiency Gate:** If the ticket prescribes adding new rules, templates, or instructions to the Agent OS, you MUST explicitly audit existing enforcement layers.
+   - **Protocol:** You MUST execute the detailed mechanics defined in `.agents/skills/ticket-intake/references/substrate-sufficiency-audit.md` to prove existing enforcement is insufficient, or reject the ticket as Negative ROI substrate bloat.
 
 9.5. **Structural Pre-Flight Sweep (Directory-Choice Discipline):** If the ticket explicitly prescribes a new `.mjs` file or relocates an existing one across directories, you MUST execute the structural pre-flight gate at intake time — BEFORE branching. Read `.agents/skills/structural-pre-flight/SKILL.md` and validate the ticket's prescribed directory against Stage 0 mechanical trigger + Stage 1 fast-path (sibling pattern match) OR full Pre-Flight (ArchitectureOverview.md + ADR consultation). The empirical anchor PR #11008 (orchestrator-daemon.mjs misplaced in ai/scripts/) demonstrates the cost of skipping this check at intake — substrate-debt accrues into a corrective ticket (#11009) plus the prevention skill itself (#10449). Catching directory-CHOICE mismatch at intake-time is cheaper than at PR-review time.
 
