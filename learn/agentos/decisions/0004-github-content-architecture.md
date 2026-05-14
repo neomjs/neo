@@ -182,6 +182,20 @@ Post this ADR, much of that flexibility is historical debt. **Authority-level de
 
 The config-audit ticket (§9 item 4) consumes this ADR as authority for the DROPPED items and exercises judgment on the implementation-tier items.
 
+### 3.8 Graph ingestion impact (open V-B-A direction)
+
+The substrate change affects **input shape** (where `.md` files live on disk) but should NOT affect **output shape** (the Native Edge Graph node schema — `id`, `title`, `body`, `state`, edges, etc.). Under that invariance:
+
+- **Affected:** ingestors that read file paths (`IssueIngestor.mjs`, `TicketSource.mjs`, `PullRequestSource.mjs`, `DiscussionSource.mjs`) — already enumerated in §9 item 8
+- **Likely unaffected:** graph consumers that consume node entries (`DreamService.mjs` REM-cycle daemon, gemma4 retrospective parsing pipeline) — they read from the graph, not from disk paths
+
+**Open V-B-A item** (operator-flagged 2026-05-14, *"i am not sure if it affects DreamService and gemma4 parsing too. maybe not, if we consume the new input shape into the same graph items (output shape)"*): downstream ticket authors for §9 item 8 (consumer rewires) MUST verify the input-shape/output-shape invariance by reading:
+- `ai/daemons/DreamService.mjs` for any hardcoded file-path expectations vs graph-node-only consumption
+- gemma4 retrospective parsing pipeline (likely `ai/daemons/services/*Ingestor.mjs` or a sibling)
+- Anywhere a `resources/content/...` path string appears in graph-related code
+
+If invariance holds → no further work needed in DreamService / gemma4 layer. If a path-dependency surfaces → the consumer-rewires ticket scope expands to include the graph-layer touchpoints. Not pre-decided; V-B-A at the implementation moment.
+
 ---
 
 ## 4. Consequences
@@ -201,6 +215,7 @@ The config-audit ticket (§9 item 4) consumes this ADR as authority for the DROP
 - **Migration cost:** ~3,366 archive items + ~1300 active items + 1200+ release notes need reshape (delete + resync via `sync_all`)
 - **Path configurability tension:** users who relied on `archiveDir` etc. for namespace customization see narrower surface (operator to decide audit scope)
 - **First-cycle learning cost:** existing agents (including me) anchored on the two-primitive model need to update mental model
+- **Expected unit-test breakage during Phase 1 migration** (operator-acknowledged 2026-05-14): each downstream §9 item that mutates syncers / helpers / file-paths is likely to break specs that hardcode old shape. CI catches these per-PR, which is the right feedback loop — each PR cycle surfaces the test-side migration scope. Not a cost to avoid; a cost to expect + budget for in each Phase-1 ticket's AC list
 
 ---
 
@@ -313,6 +328,7 @@ Phase 2 work begins ONLY after:
 - `sync_all` operates correctly with **delta updates** (not just full re-syncs)
 - `resources/content/` structure on dev matches §2.1 target shape
 - No regressions in KB ingestion or Native Edge Graph consumption
+- **`/tech-debt-radar` sweep run** (operator-recommended 2026-05-14) at phase-gate to surface anything missed — covers the "did Phase 1 leave any silent stale-state debris we didn't catch in per-PR CI" question that's hard to answer from inside individual PR reviews
 
 ### Phase 2 — Consumer / Portal / SEO substrate (multi-session, post-Phase-1)
 
