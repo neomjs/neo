@@ -90,13 +90,13 @@ Mechanics live in the Atlas; Maps point at the Atlas. Per `create-skill` Progres
 
 ### 3.3 Recursive self-application validation
 
-This ADR + Discussion #11369 + ticket #11370 jointly demonstrate the workflow on itself:
+This ADR + Discussion #11369 + ticket #11370 jointly demonstrate the workflow's **artifact-split shape** on itself via manual dogfooding:
 - Discussion #11369 proposed ADR-at-graduation
 - Under its own classification rule, #11369 fires `ADR_REQUIRED` (changes durable workflow primitive; multi-future-Discussion impact; high reconstruction cost)
 - Graduation produced TWO artifacts: this ADR 0005 (authority) + ticket #11370 (planning)
 - Implementation PR for #11370 is merge-blocked until this ADR is `Accepted` per the very gate this ADR codifies
 
-The proof-of-shape is recursive: if the workflow extension didn't work, this graduation could not have happened. The graduation happened. The extension works.
+**Scope discipline on this proof:** the manual dogfooding validates the **artifact-split / classification / merge-gate shape** — i.e., the *design* of the workflow extension. The workflow extension itself does NOT yet "work" as substrate; that comes into operational effect only after ticket #11370's 4-file substrate amendments land. This ADR is the authority codification; #11370's implementation PR is what mechanically wires the extension into `ideation-sandbox-workflow.md §5/§5.2/§6.6/§6.7` + the three Map pointers. Until then, the dogfooding is shape-validation, not operational-effect validation.
 
 ---
 
@@ -106,7 +106,7 @@ The proof-of-shape is recursive: if the workflow extension didn't work, this gra
 
 - **Single substrate anchor for high-blast decisions:** future agents have ONE document to V-B-A against before authoring substrate-mutation code
 - **Authority/workstream separation:** Epic-body double-duty eliminated; Cycle-N amendments stay in the Epic (workstream); decisions live in the ADR (immutable post-Accepted)
-- **Recursive validation pattern:** the workflow extension proved itself by running through itself; the pattern is empirically anchored
+- **Recursive validation pattern:** manual dogfooding validated the artifact-split/classification/merge-gate **shape**; the workflow extension comes into operational effect only after #11370's implementation lands (see §3.3 scope discipline)
 - **Friction-cost is low:** `ideation-sandbox-workflow.md §6.3` already mandates Discussion-body-as-decision-record synthesis at graduation. Adding ADR emission moves already-produced synthesis into version-controlled substrate. Marginal cost: near-zero
 - **Falsifiable trigger criteria:** the 3-tier classification has explicit definitions; peer-veto path catches mis-application
 
@@ -189,6 +189,7 @@ This hook replaces the a-priori "~1-3 ADRs per quarter" cadence assertion (origi
 
 - **Draft (this version)** awaiting operator content-accuracy approval before commit-time Status flip
 - **Accepted** once operator confirms accuracy + completeness via PR review trail
+- **Merge-order dependency on ADR 0004 / PR #11368:** ADR 0005 references ADR 0004 in §8 Related as positive empirical precedent (post-hoc rescue-retrofit). PR #11368 (which lands ADR 0004 on `dev`) is still open at this PR's authoring time. **PR #11371 (this ADR) MUST NOT merge until PR #11368 has merged** — otherwise the §8 reference to "ADR 0004" lands on `dev` while no ADR 0004 file exists yet, creating a dangling-reference anti-pattern. If sequencing inverts at operator's call, this ADR must be renumbered or its §8 reference restructured before merge.
 - **Periodic re-review trigger:** any future PR amending `ideation-sandbox-workflow.md §5 / §5.2 / §6.6 / §6.7` or the companion Map pointers MUST cite this ADR in body; reviewer-side audit fires if absent
 - **Post-merge validation:** §7 hook fires as Discussion graduations land
 
