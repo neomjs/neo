@@ -234,9 +234,14 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(stats.refetched.count).toBe(1);
         expect(stats.errors).toHaveLength(0);
 
-        // Item lands in active (per Epic #11187 mental model: closed-for-next-release stays in active)
-        const targetPath = metadata.issues['50001'].path;
-        expect(targetPath).toContain('/issues/');
+        // Item lands in active (per Epic #11187 mental model: closed-for-next-release stays in active).
+        // Assert via configured active root (issuesDir) rather than literal '/issues/' substring —
+        // the test rewrites issuesDir to a tmp dir, so the literal substring no longer matches even
+        // when behavior is correct. Per @neo-gpt PR #11362 Cycle 1 review correction.
+        const targetPath           = metadata.issues['50001'].path;
+        const absoluteTargetPath   = path.resolve(aiConfig.projectRoot, targetPath);
+        const relativeToIssuesDir  = path.relative(issueSyncConfig.issuesDir, absoluteTargetPath);
+        expect(relativeToIssuesDir.startsWith('..')).toBe(false); // path is under issuesDir
         expect(targetPath).not.toContain('/archive/');
         expect(targetPath).not.toContain('unversioned');
     });

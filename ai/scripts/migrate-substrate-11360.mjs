@@ -339,8 +339,14 @@ const noDeleteMetadata = argv.includes('--no-delete-metadata');
 (async () => {
     if (isDryRun && !isApply) {
         const manifest = await buildManifest();
-        console.log(JSON.stringify(manifest, null, 2));
-        process.exit(0);
+        // Pipe-safe emit: when stdout is a pipe (e.g., `... | head` or `... | jq`), Node turns it
+        // non-blocking and `console.log` may return before the kernel buffer drains. With ~3,400
+        // operations the pretty-printed JSON exceeds the default 64 KiB pipe buffer, so an early
+        // `process.exit(0)` truncates the trailing operations. Per @neo-gpt PR #11362 Cycle 1
+        // review finding: use `process.stdout.write(..., cb)` and exit only from the drain callback
+        // so the full manifest reaches downstream parsers reliably.
+        process.stdout.write(JSON.stringify(manifest, null, 2) + '\n', () => process.exit(0));
+        return;
     }
 
     // --apply
