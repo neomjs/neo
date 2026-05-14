@@ -36,28 +36,33 @@ class DiscussionSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        const targetPath = path.resolve(aiConfig.neoRootDir, 'resources/content/discussions');
+        const targetPaths = [
+            path.resolve(aiConfig.neoRootDir, 'resources/content/discussions'),
+            path.resolve(aiConfig.neoRootDir, 'resources/content/archive/discussions')
+        ];
 
-        if (await fs.pathExists(targetPath)) {
-            const ticketFiles = await fs.readdir(targetPath);
-            ticketFiles.sort();
+        for (const targetPath of targetPaths) {
+            if (await fs.pathExists(targetPath)) {
+                const discussionFiles = await fs.readdir(targetPath, { recursive: true });
+                discussionFiles.sort();
 
-            for (const file of ticketFiles) {
-                if (file.endsWith('.md')) {
-                    const filePath   = path.join(targetPath, file);
-                    const content    = await fs.readFile(filePath, 'utf-8');
-                    const chunk      = {
-                        type   : 'discussion',
-                        kind   : 'discussion',
-                        name   : file.replace('.md', ''),
-                        content,
-                        // Relative path keeps the distributed Chroma zip portable (#10097).
-                        source : path.relative(aiConfig.neoRootDir, filePath)
-                    };
+                for (const file of discussionFiles) {
+                    if (typeof file === 'string' && file.endsWith('.md')) {
+                        const filePath   = path.join(targetPath, file);
+                        const content    = await fs.readFile(filePath, 'utf-8');
+                        const chunk      = {
+                            type   : 'discussion',
+                            kind   : 'discussion',
+                            name   : path.basename(file).replace('.md', ''),
+                            content,
+                            // Relative path keeps the distributed Chroma zip portable (#10097).
+                            source : path.relative(aiConfig.neoRootDir, filePath)
+                        };
 
-                    chunk.hash = createHashFn(chunk);
-                    writeStream.write(JSON.stringify(chunk) + '\n');
-                    count++;
+                        chunk.hash = createHashFn(chunk);
+                        writeStream.write(JSON.stringify(chunk) + '\n');
+                        count++;
+                    }
                 }
             }
         }

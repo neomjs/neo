@@ -39,28 +39,33 @@ class PullRequestSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        const targetPath = path.resolve(aiConfig.neoRootDir, 'resources/content/pulls');
+        const targetPaths = [
+            path.resolve(aiConfig.neoRootDir, 'resources/content/pulls'),
+            path.resolve(aiConfig.neoRootDir, 'resources/content/archive/pulls')
+        ];
 
-        if (await fs.pathExists(targetPath)) {
-            const pullFiles = await fs.readdir(targetPath);
-            pullFiles.sort();
+        for (const targetPath of targetPaths) {
+            if (await fs.pathExists(targetPath)) {
+                const pullFiles = await fs.readdir(targetPath, { recursive: true });
+                pullFiles.sort();
 
-            for (const file of pullFiles) {
-                if (file.endsWith('.md')) {
-                    const filePath = path.join(targetPath, file);
-                    const content  = await fs.readFile(filePath, 'utf-8');
-                    const chunk    = {
-                        type   : 'pull',
-                        kind   : 'pull',
-                        name   : file.replace('.md', ''),
-                        content,
-                        // Relative path keeps the distributed Chroma zip portable (#10097).
-                        source : path.relative(aiConfig.neoRootDir, filePath)
-                    };
+                for (const file of pullFiles) {
+                    if (typeof file === 'string' && file.endsWith('.md')) {
+                        const filePath = path.join(targetPath, file);
+                        const content  = await fs.readFile(filePath, 'utf-8');
+                        const chunk    = {
+                            type   : 'pull',
+                            kind   : 'pull',
+                            name   : path.basename(file).replace('.md', ''),
+                            content,
+                            // Relative path keeps the distributed Chroma zip portable (#10097).
+                            source : path.relative(aiConfig.neoRootDir, filePath)
+                        };
 
-                    chunk.hash = createHashFn(chunk);
-                    writeStream.write(JSON.stringify(chunk) + '\n');
-                    count++;
+                        chunk.hash = createHashFn(chunk);
+                        writeStream.write(JSON.stringify(chunk) + '\n');
+                        count++;
+                    }
                 }
             }
         }
