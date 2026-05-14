@@ -131,9 +131,13 @@ class PullRequestSyncer extends Base {
                         : issueSyncConfig.versionDirectoryPrefix + release.tagName;
                 }
             }
-            
-            version = version || issueSyncConfig.defaultArchiveVersion || 'unversioned';
-            
+
+            // Closed-post-latest-release: no release-version applies. Keep in active per Epic
+            // #11187 Phase 6 mental model: archive folders are created at release-cut by
+            // publish.mjs, never pre-staged into a not-yet-existing vN.M.K bucket. Skip
+            // bucketing entirely; #getPullRequestPath falls back to active path on missing plan.
+            if (!version) continue;
+
             if (!buckets.has(version)) buckets.set(version, []);
             buckets.get(version).push(pr);
         }
@@ -163,39 +167,24 @@ class PullRequestSyncer extends Base {
      */
     #getPullRequestPath(pr, archivePlan = new Map()) {
         const filename = `${aiConfig.issueSync.pullFilenamePrefix || 'pr-'}${pr.number}.md`;
-        const chunkDir = chunkPath(pr.number);
+        // Active PR chunk dirs use `pr-NNNxx/` prefix per target architecture (per #11360 AC2);
+        // chunkPath() returns the issue-range primitive `NNNxx` without prefix.
+        const chunkDir = `pr-${chunkPath(pr.number)}`;
 
+        // Active path = backlog + closed-for-next-release (per Epic #11187 Phase 6 mental model).
+        // Archive folders for vN.M.K are created at release-cut by publish.mjs, never pre-staged.
         if (pr.state === 'OPEN') {
             return path.join(issueSyncConfig.pullsDir, chunkDir, filename);
         }
 
         // Logic for CLOSED and MERGED pull requests
         const plan = archivePlan.get(pr.number);
-        
-        // Fallback parameters if pr wasn't part of a pre-pass plan
-        let version = plan?.version;
-        let itemCount = plan?.itemCount || 1;
-        let itemIndex = plan?.itemIndex || 0;
 
-        if (!version) {
-            if (pr.archiveVersion) {
-                version = pr.archiveVersion.startsWith(issueSyncConfig.versionDirectoryPrefix)
-                    ? pr.archiveVersion
-                    : issueSyncConfig.versionDirectoryPrefix + pr.archiveVersion;
-            } else if (pr.milestone?.title) {
-                version = pr.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
-                    ? pr.milestone.title
-                    : issueSyncConfig.versionDirectoryPrefix + pr.milestone.title;
-            } else if (pr.mergedAt || pr.closedAt) {
-                const closed = new Date(pr.mergedAt || pr.closedAt);
-                const release = (ReleaseSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
-                if (release) {
-                    version = release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
-                        ? release.tagName
-                        : issueSyncConfig.versionDirectoryPrefix + release.tagName;
-                }
-            }
-            version = version || issueSyncConfig.defaultArchiveVersion || 'unversioned';
+        // No archive plan = no release-version applies = closed-post-latest-release.
+        // Keep in active per Epic #11187 mental model. The previous `'unversioned'` fallback
+        // pre-staged items into archive prematurely; removed per #11360 AC1.
+        if (!plan?.version) {
+            return path.join(issueSyncConfig.pullsDir, chunkDir, filename);
         }
 
         return archivePath({
@@ -203,10 +192,10 @@ class PullRequestSyncer extends Base {
             archiveChunkThreshold: issueSyncConfig.archiveChunkThreshold,
             archiveChunkPrefix   : issueSyncConfig.archiveChunkPrefix,
             type                 : 'pulls',
-            version              : version,
+            version              : plan.version,
             filename             : filename,
-            itemCount            : itemCount,
-            itemIndex            : itemIndex
+            itemCount            : plan.itemCount || 1,
+            itemIndex            : plan.itemIndex || 0
         });
     }
 

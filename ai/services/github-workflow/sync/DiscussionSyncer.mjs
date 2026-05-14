@@ -101,18 +101,25 @@ class DiscussionSyncer extends Base {
         
         for (const discussion of combined.values()) {
             if (!discussion.closed) continue;
-            
+
             let version = null;
             if (discussion.closedAt) {
                 const closed = new Date(discussion.closedAt);
                 version = ReleaseSyncer.getReleaseForDate(closed);
             }
-            
-            const bucketName = version || 'legacy';
-            if (!buckets.has(bucketName)) {
-                buckets.set(bucketName, []);
+
+            // Closed-post-latest-release: no release-version applies. Keep in active per Epic
+            // #11187 Phase 6 mental model — archive folders for vN.M.K are created at release-cut
+            // by publish.mjs, never pre-staged. The previous `'legacy'` fallback created the
+            // architectural bug fixed by #11360. #getDiscussionPath falls back to active-flat path
+            // when archivePlan returns no entry (was previously returning null; now consistent
+            // with IssueSyncer/PullRequestSyncer).
+            if (!version) continue;
+
+            if (!buckets.has(version)) {
+                buckets.set(version, []);
             }
-            buckets.get(bucketName).push(discussion.number);
+            buckets.get(version).push(discussion.number);
         }
         
         const archivePlan = new Map();
@@ -142,14 +149,21 @@ class DiscussionSyncer extends Base {
     #getDiscussionPath(discussion, archivePlan) {
         const filename = `${issueSyncConfig.discussionFilenamePrefix}${discussion.number}.md`;
 
+        // Active path = backlog + closed-for-next-release (per Epic #11187 Phase 6 mental model).
+        // Archive folders for vN.M.K are created at release-cut by publish.mjs, never pre-staged.
         if (!discussion.closed) {
             // Flat active tier for discussions
             return path.join(issueSyncConfig.discussionsDir, filename);
         }
 
         const plan = archivePlan.get(discussion.number);
-        if (!plan) {
-            return null;
+
+        // No archive plan = no release-version applies = closed-post-latest-release.
+        // Keep in active per Epic #11187 mental model. Previous behavior returned null (caller
+        // would skip the discussion); now returns the active flat path so closed-but-pre-release
+        // discussions still flow through sync. Consistent with IssueSyncer/PullRequestSyncer.
+        if (!plan?.version) {
+            return path.join(issueSyncConfig.discussionsDir, filename);
         }
 
         return archivePath({

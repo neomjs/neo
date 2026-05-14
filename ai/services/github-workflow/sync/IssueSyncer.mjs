@@ -327,13 +327,18 @@ class IssueSyncer extends Base {
                         : issueSyncConfig.versionDirectoryPrefix + release.tagName;
                 }
             }
-            
-            version = version || issueSyncConfig.defaultArchiveVersion || 'unversioned';
-            
+
+            // Closed-post-latest-release: no release-version applies. Keep in active per Epic
+            // #11187 Phase 6 mental model — archive folders for vN.M.K are created at release-cut
+            // by publish.mjs, never pre-staged into a not-yet-existing bucket. Skip bucketing
+            // entirely; #getIssuePath falls back to active path on missing plan. The previous
+            // `'unversioned'` fallback created the architectural bug fixed by #11360.
+            if (!version) continue;
+
             if (issue.oldVersion && issue.oldVersion !== version) {
                 logger.warn(`🚨 [ARCHIVE ANOMALY] Issue #${issue.number} closedAt shift detected: moving from bucket '${issue.oldVersion}' to '${version}'. Dry-run review required.`);
             }
-            
+
             if (!buckets.has(version)) buckets.set(version, []);
             buckets.get(version).push(issue);
         }
@@ -384,27 +389,13 @@ class IssueSyncer extends Base {
         // Logic for CLOSED issues
         if (issue.state === 'CLOSED') {
             const plan = archivePlan.get(issue.number);
-            
-            // Fallback parameters if issue wasn't part of a pre-pass plan
-            let version = plan?.version;
-            let itemCount = plan?.itemCount || 1;
-            let itemIndex = plan?.itemIndex || 0;
 
-            if (!version) {
-                if (issue.milestone?.title) {
-                    version = issue.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
-                        ? issue.milestone.title
-                        : issueSyncConfig.versionDirectoryPrefix + issue.milestone.title;
-                } else if (issue.closedAt) {
-                    const closed = new Date(issue.closedAt);
-                    const release = (ReleaseSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
-                    if (release) {
-                        version = release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
-                            ? release.tagName
-                            : issueSyncConfig.versionDirectoryPrefix + release.tagName;
-                    }
-                }
-                version = version || issueSyncConfig.defaultArchiveVersion || 'unversioned';
+            // No archive plan = no release-version applies = closed-post-latest-release.
+            // Keep in active per Epic #11187 Phase 6 mental model. Archive folders for vN.M.K
+            // are created at release-cut by publish.mjs, never pre-staged. The previous
+            // `'unversioned'` fallback created the architectural bug fixed by #11360.
+            if (!plan?.version) {
+                return path.join(issueSyncConfig.issuesDir, chunkDir, filename);
             }
 
             return archivePath({
@@ -412,10 +403,10 @@ class IssueSyncer extends Base {
                 archiveChunkThreshold: issueSyncConfig.archiveChunkThreshold,
                 archiveChunkPrefix   : issueSyncConfig.archiveChunkPrefix,
                 type                 : 'issues',
-                version              : version,
+                version              : plan.version,
                 filename             : filename,
-                itemCount            : itemCount,
-                itemIndex            : itemIndex
+                itemCount            : plan.itemCount || 1,
+                itemIndex            : plan.itemIndex || 0
             });
         }
 
