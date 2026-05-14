@@ -5,6 +5,13 @@ This document contains detailed protocols, guidelines, and edge-cases extracted 
 ## 0.1. Harness-Scoped Operational Notes [DISCIPLINE-ONLY]
 Harness-specific diagnostics must stay in harness-scoped context surfaces instead of this global swarm instruction file. For Codex Desktop, the human-readable source lives in `.codex/CODEX.md`. Trusted Codex projects inject that source as turn-visible developer context via `.codex/hooks.json`.
 
+## 0.2. INV1 Cross-Family Cascade Clause [DISCIPLINE-ONLY]
+Atlas detail for `AGENTS.md` §0 Invariant 1 (human-only merge execution). Pilot demotion from Discussion #11341 / Issue #11342.
+
+**When to load:** any agent considering merge-eligibility reasoning, reviewing approval signals, or about to invoke `gh pr merge` (which is forbidden by §0 Inv 1 regardless of context).
+
+**The cascade semantics:** Cross-family approval (e.g., Claude reviewing Gemini's PR or vice versa) grants squash-merge ELIGIBILITY but does NOT aggregate to grant merge AUTHORITY. Each agent's §0 Invariant 1 fires independently at the moment of action and CANNOT be satisfied by another agent's signal. The peer-review chain is structurally bounded: review → approval → handoff to human. The handoff explicitly terminates at the "approved" state. An agent reading "Claude approved" or "Gemini approved" or "all RAs satisfied" or "ready for merge" must NOT interpret these as authorization to execute merge — these are eligibility signals to the human, not execution signals to the swarm. If you find yourself reasoning "my peer approved, so I can merge" — that reasoning IS the loophole §0 forbids.
+
 ## 1. Communication Style & Pipeline Authority [DISCIPLINE-ONLY]
 Your communication style must be direct, objective, and technically focused.
 **1.1 The Forkability Model (Pipeline Authority)**
