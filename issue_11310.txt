@@ -1,0 +1,83 @@
+title:	AGENTS.md §0 Invariant 7: no code work without a self-assigned ticket
+state:	OPEN
+author:	neo-opus-4-7 (Neo Claude Opus)
+labels:	ai, architecture, enhancement, model-experience
+comments:	0
+assignees:	neo-opus-4-7 (Neo Claude Opus)
+projects:	Neo v13 Release (Todo)
+milestone:	
+number:	11310
+--
+## Friction Source
+
+Surfaced 2026-05-13 by @tobiu after V-B-A on swarm coordination patterns:
+
+> *"never write code, without working on a self-assigned ticket. this could resolve multiple edge cases."*
+
+**Empirical anchor (same session, 2026-05-13):**
+
+- 139 v13-era "real" tickets across the swarm; 18 had no assignee (Gemini 12 / Opus 6 / GPT 0)
+- GraphQL timeline check on 10 no-assignee resolved tickets: **zero `AssignedEvent` entries across the entire set**. Skill was bypassed entirely, not partially followed.
+- Time-to-close on the bypass pattern: 1 minute to 2 hours (file-and-immediately-code path)
+- Bypass shape: `gh issue create` → immediate PR → `Resolves #N` closes ticket; `/ticket-intake` never fires because its trigger is "Picking up an *existing* assigned ticket"
+- My own #11306, #11307, #11308 (filed same session) had this gap until self-corrected — substrate-level pattern, not per-agent
+
+## Why a §0 Invariant (not a skill enhancement)
+
+The existing substrate fragments don't compose cleanly:
+
+1. `feedback_assign_ticket_before_work` — private agent memory; not swarm-wide
+2. `pull-request-workflow.md §1.2` — fires at git commit (post-code, post-write)
+3. `/ticket-intake` skill — trigger doesn't fire on file-and-immediately-code (self-authored)
+4. `/ticket-create` skill — doesn't mandate `assignees: ['@me']` for self-authored
+
+Five different gates, all partial. The right shape is a single §0 invariant: "no code without self-assigned ticket." Mechanically verifiable, no conditional exceptions, always-loaded — same shape as the existing 6 invariants.
+
+## The Fix
+
+Add Invariant 7 to `AGENTS.md §0` (just below current Invariant 6):
+
+```md
+7. **No code work without a self-assigned ticket.** Before modifying any code/substrate file, verify an existing ticket has you in `assignees`. Self-authored: pass `assignees: ['@me']` at `create_issue` (MCP) or `--assignee @me` (CLI). Peer-authored: claim via `manage_issue_assignees` before first edit. Verified post-hoc at PR commit per `pull-request-workflow.md §1.2`.
+```
+
+Also update the **Compaction Taxonomy table** in `AGENTS.md` (rows 33-61) to add a row for §0 Invariant 7 with disposition `keep` + tag `MACHINE-ENFORCEABLE-CANDIDATE`.
+
+## Edge cases the invariant collapses
+
+| Pattern | Pre-invariant behavior | Post-invariant behavior |
+|---|---|---|
+| File self-authored ticket + immediately code | No assignment, no /ticket-intake fires | MUST self-assign at create; verified pre-code |
+| Pick up peer's ticket | /ticket-intake mandates assignment IF skill is invoked | §0 makes the assignment unconditional regardless of skill invocation |
+| Discovered need mid-PR (need to refactor X) | "Quick fix" pattern: agent edits without ticket | MUST file ticket first OR confirm existing assigned ticket covers the scope |
+| Substrate-doc edit during code work | Implicit "covered by parent ticket" | Parent ticket must list agent as assignee |
+
+## Acceptance Criteria
+
+- [ ] **(AC1)** `AGENTS.md §0` adds Invariant 7 with the exact wording above (or operator-refined equivalent)
+- [ ] **(AC2)** Compaction Taxonomy table at top of `AGENTS.md` adds a row for §0 Invariant 7
+- [ ] **(AC3)** `pull-request-workflow.md §1.2` updated to reference §0 Invariant 7 as the upstream gate (current §1.2 becomes the post-hoc verifier, not the only gate)
+- [ ] **(AC4)** PR review template's Required Actions section gains an audit row: "PR commits without an `@me`-assigned close-target → §0 Invariant 7 violation"
+- [ ] **(AC5)** Cross-family review approval from at least one peer (Gemini or GPT) before merge — §0 invariants are load-bearing; consensus required per [#11217](https://github.com/neomjs/neo/issues/11217)
+
+## Out of Scope
+
+- Mechanical CI gate auto-rejecting PRs with unassigned close-targets — separate ticket if needed; invariant-level discipline first
+- Changing `/ticket-create` to mandate `assignees: ['@me']` parameter — covered by sibling [#11308](https://github.com/neomjs/neo/issues/11308) (scope-expanded to include `assignees:` default)
+- Backfilling existing no-assignee tickets — manual cleanup orthogonal to the invariant
+
+## Avoided Traps
+
+- **Putting this in a skill instead of §0** — skills fire conditionally; §0 invariants are always-loaded reflex-level. The bypass pattern's whole problem is that the skill DIDN'T fire. Promotion to §0 closes that class structurally.
+- **Phrasing as a "should" not "must"** — §0 invariants are MUST; conditional softening defeats the purpose. The bypass pattern thrives on conditional softening.
+- **Excluding "substrate doc" edits from the invariant** — substrate edits are MORE consequential than code; they ALSO need a self-assigned ticket. Operator's framing "never write code" should be read as "never make a meaningful repository change."
+- **Substrate accretion bypass** — this PR is net-expansion to always-loaded substrate (one new line in §0 + one taxonomy row + small §1.2 cross-ref tightening). Per `pull-request-workflow.md §1.1`, `compress-to-trigger` default doesn't strictly apply for §0 invariants (highest-frequency irreversibility per [#11217](https://github.com/neomjs/neo/issues/11217) class). `keep` is justified — explicit slot-rationale will appear in PR body.
+
+## Related
+
+- **Origin friction:** [@tobiu observation 2026-05-13](https://github.com/neomjs/neo/issues/11187) during swarm distribution audit
+- **Empirical V-B-A:** Same-session GraphQL timeline check on 10 no-assignee resolved tickets — zero AssignedEvent entries (skill bypassed entirely)
+- **Sibling implementation ticket:** [#11308](https://github.com/neomjs/neo/issues/11308) (`/ticket-create` `projects:` + `assignees:` defaults — the implementation arm)
+- **Memory anchor (private→swarm promotion):** `feedback_assign_ticket_before_work`
+- **Existing partial-gate:** [`pull-request-workflow.md §1.2` ticket-assignment-pre-flight-gate](.agents/skills/pull-request/references/pull-request-workflow.md)
+- **§0 invariant precedent:** [Discussion #11216 / #11217 consensus mandate](https://github.com/neomjs/neo/issues/11217) for high-blast-radius substrate

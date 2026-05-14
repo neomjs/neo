@@ -1,7 +1,7 @@
 <!--
 Epic Review Comment Template
 Post via manage_issue_comment with action=create on the epic ticket.
-Short form vs long form depends on stage 1-2 gating outcome.
+Short form vs long form depends on stage 1-2.5 gating outcome.
 Remove HTML comments before posting.
 -->
 
@@ -39,6 +39,23 @@ Origin Session ID: [reviewer's session UUID]
 [Named alternative with 2-3 sentence architectural rationale.]
 
 [Expected effort delta, substrate-reuse benefit, or risk reduction vs current framing.]
+
+---
+
+Origin Session ID: [reviewer's session UUID]
+-->
+
+### Stage 2.5 — Source Discussion Criteria Mapping Gate
+
+[✅ / ❌ / N/A]
+
+[1-2 sentences verifying that all Graduation Criteria from the source Discussion have been correctly mapped to the Epic ACs/subs.]
+
+<!-- If Stage 2.5 = ❌, stop here with revisions requested: -->
+<!--
+### Missing/Incomplete Criteria Mapping
+
+[Specific list of missing, incomplete, or unexplained dropped criteria that were required by the source Discussion.]
 
 ---
 

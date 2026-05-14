@@ -440,7 +440,7 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
  *     autoIngestFileSystem: Boolean, lastDreamRun: String|null, lastGoldenPathRun: String|null}}
  */
 export function buildDreamFeaturesBlock(cfg, taskOutcomes = {}) {
-    const isMap = taskOutcomes instanceof Map;
+    const isMap = taskOutcomes && typeof taskOutcomes.get === 'function';
     const dreamState = isMap ? taskOutcomes.get('dream') : taskOutcomes['dream'];
     const goldenPathState = isMap ? taskOutcomes.get('golden-path') : taskOutcomes['golden-path'];
 

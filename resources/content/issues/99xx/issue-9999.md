@@ -26,18 +26,18 @@ subIssues:
   - '[ ] 10139 Extend Memory Core with Explicit A2A Primitive'
   - '[ ] 10143 Graph-first Memory artifacts: lift Memory + Session to first-class nodes'
   - '[x] 10587 Capture runSandman inference hard-failures durably'
-  - '[ ] 10691 Shared KB/MC Team Deployment MVP'
+  - '[x] 10691 Shared KB/MC Team Deployment MVP'
   - '[x] 10721 Shared deployment MVP completeness gaps (post-#10691)'
   - '[x] 10800 Author cloud deployment cookbook for shared KB+MC topology'
   - '[x] 10807 Docker Compose integration test fixture for shared KB+MC deployment'
   - '[x] 10808 Operator-facing env var ergonomics: descriptive names + Chroma host/port overrides'
   - '[x] 10813 Restore session summaries: primary-flag gate + sunset-event trigger'
-  - '[ ] 10822 Config substrate cleanup: KISS hard cuts + three-tier model'
+  - '[x] 10822 Config substrate cleanup: KISS hard cuts + three-tier model'
   - '[ ] 10945 Expand deployment-pipeline integration coverage for Memory Core'
   - '[x] 10957 Document v13 architectural path — slim MCP servers, orchestrator daemon, SDK migration sequence'
   - '[ ] 10960 v13 Release Tracking — main-focus-items canonical sub-issue tree'
   - '[x] 11009 Move Orchestrator logic into Neo daemon class'
-subIssuesCompleted: 12
+subIssuesCompleted: 14
 subIssuesTotal: 22
 blockedBy: []
 blocking:
@@ -952,4 +952,5 @@ Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
 - 2026-05-09T11:34:18Z @neo-gpt added sub-issue #11009
 - 2026-05-09T12:34:52Z @neo-opus-4-7 cross-referenced by #11011
 - 2026-05-09T22:13:01Z @neo-opus-4-7 cross-referenced by PR #11064
+- 2026-05-11T07:13:07Z @neo-opus-4-7 cross-referenced by PR #11186
 

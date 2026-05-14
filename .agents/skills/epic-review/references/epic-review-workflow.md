@@ -19,7 +19,7 @@ If the epic body has materially changed since your prior review (check `updatedA
 
 ## 2. Pre-Review Context Pull
 
-Before running the five-stage chain, pull the following context:
+Before running the six-stage chain, pull the following context:
 
 1. **The epic body.** Use the `mcp_neo-mjs-github-workflow_get_conversation` tool to fetch the live epic issue body and comment thread directly from GitHub.
 2. **All sub-issues under the epic.** Titles, labels, blocking relationships — the epic's frontmatter `subIssues` list is the canonical source. Read each sub's body if sub-structure coherence review (stage 3) will run.
@@ -29,9 +29,9 @@ Before running the five-stage chain, pull the following context:
    - `query_raw_memories({query: '<epic-subject>'})` — finer-grained reasoning trails
 4. **Duplicate sweep.** Has a similar epic been filed and either closed or superseded? Check `resources/content/issues/` and `resources/content/issue-archive/` before running stage 1.
 
-## 3. The Five-Stage Chain
+## 3. The Six-Stage Chain
 
-**Ordering is load-bearing.** Stage 1 failure halts all subsequent stages. Stage 2 failure halts stages 3-5. An epic that doesn't fit the roadmap should not undergo scope-coherence review — that work is wasted if the epic gets closed or pivoted. Do not short-circuit the gating to "be thorough."
+**Ordering is load-bearing.** Stage 1 failure halts all subsequent stages. Stage 2 failure halts stages 2.5-5. An epic that doesn't fit the roadmap should not undergo scope-coherence review — that work is wasted if the epic gets closed or pivoted. Do not short-circuit the gating to "be thorough."
 
 ### Stage 1 — Roadmap Fit
 
@@ -58,13 +58,27 @@ Checks:
 - Does the approach **compound** existing capability, or does it fight against it?
 - Is the epic's main decision testable — can it be empirically validated, or is it an unfalsifiable preference?
 
-**Stop condition:** if stage 2 fails (including missing-divergence-matrix on Discussion-origin Epics), the comment proposes one or more **alternative approaches** with rationale OR routes the divergence back to the Discussion. Stages 3-5 skip. Agent does not pick up subs until the elegance question is resolved — either the original approach is defended (epic body updated with rationale), the alternative is adopted (epic restructured), OR the upstream Discussion is amended with a proper divergence matrix and re-graduated.
+**Stop condition:** if stage 2 fails (including missing-divergence-matrix on Discussion-origin Epics), the comment proposes one or more **alternative approaches** with rationale OR routes the divergence back to the Discussion. Stages 2.5-5 skip. Agent does not pick up subs until the elegance question is resolved — either the original approach is defended (epic body updated with rationale), the alternative is adopted (epic restructured), OR the upstream Discussion is amended with a proper divergence matrix and re-graduated.
 
 Stage 2 is the most empirically valuable gate. A non-elegant approach that passes structural review can waste N subs worth of effort before `pr-review` catches the foundational issue.
 
+### Stage 2.5 — Source Discussion Criteria Mapping Gate
+
+*(Runs only if stages 1-2 pass and the Epic cites a Discussion origin.)*
+
+**Question:** Has the Epic dropped any graduation criteria established in its source Discussion?
+
+Checks:
+- **Trigger:** Does the Epic body cite a Discussion origin, Signal Ledger, `[GRADUATED_TO_TICKET]`, or `[RESOLVED_TO_AC]`? If not, mark N/A and proceed to Stage 3.
+- **Extraction:** Fetch the source Discussion body and extract the Graduation Criteria.
+- **Mapping Presence:** Does the Epic body contain a `## Discussion Criteria Mapping` section (e.g., `Source Criterion` | `Epic AC/sub` | `Status`)?
+- **Mapping Completeness:** Does the mapping cover *all* criteria from the source Discussion? Unexplained deferrals or dropped criteria are failures.
+
+**Stop condition:** If Stage 2.5 fails (missing mapping, incomplete mapping, or unexplained deferrals), the comment requires **REVISIONS_REQUESTED**. Stages 3-5 skip. The agent does not pick up subs until the mapping is added/corrected in the Epic body. This prevents the "Map vs. World Atlas" failure mode where a local Epic silently drops terrain from its source Discussion.
+
 ### Stage 3 — Sub-Structure Coherence
 
-*(Runs only if stages 1-2 pass.)*
+*(Runs only if stages 1-2.5 pass.)*
 
 **Question:** Do the subs collectively close the epic's success criteria?
 
@@ -130,17 +144,18 @@ Missing traps are an **extension opportunity**, not a blocker — flag them in t
 
 Post the review as a comment on the epic ticket using `manage_issue_comment` with action `create`. Use the template at `.agents/skills/epic-review/assets/epic-review-comment-template.md` as the structural skeleton.
 
-**Short form** (stage 1 or 2 failure):
-- Header: `Epic Review — Stage [1|2] Challenge by [model-identity]`
+**Short form** (stage 1, 2, or 2.5 failure):
+- Header: `Epic Review — Stage [1|2|2.5] Challenge by [model-identity]`
 - Named stage that failed
 - Specific challenge or alternative proposal with rationale
 - No stage 3-5 content
 - Session ID footer
 
-**Long form** (stages 1-2 pass; stages 3-5 run):
+**Long form** (stages 1-2.5 pass; stages 3-5 run):
 - Header: `Epic Review by [model-identity]`
 - Stage 1 — Roadmap Fit: ✅ with 1-2 sentence rationale
 - Stage 2 — Approach Elegance: ✅ with 1-2 sentence rationale
+- Stage 2.5 — Source Discussion Mapping: ✅ or N/A
 - Stage 3 — Sub-Structure Coherence: findings (gaps/overlaps/boundary issues) or ✅
 - Stage 4 — Prescription Layer: per-sub findings or ✅
 - Stage 5 — Avoided Traps Completeness: suggested additions or ✅
@@ -171,7 +186,7 @@ This citation belongs in the `ticket-intake` reflection step for the sub, not as
 
 | Anti-pattern | Why it harms |
 |---|---|
-| Running all 5 stages unconditionally | Wastes effort on an epic that fails stage 1 or 2; defeats the gating structure |
+| Running all 6 stages unconditionally | Wastes effort on an epic that fails stage 1 or 2; defeats the gating structure |
 | Skipping epic-review because "I already read the epic body" | Epic-review is an **artifact**, not just comprehension — cross-model readback depends on the comment existing |
 | Sub agent picks up Epic body directly (Epic-vs-Sub-Issue discipline failure) | Agents MUST NOT pick up the Epic directly without checking for prior epic-review comments. Epics are coordination structures; sub-issues are the units of execution. Working on an epic directly bypasses the entire validation chain. |
 | Per-sub-pickup epic-review | Per-agent-per-epic; cite the prior review, don't re-run |
