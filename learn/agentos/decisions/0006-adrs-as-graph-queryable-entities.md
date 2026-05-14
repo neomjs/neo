@@ -168,8 +168,7 @@ Before authoring code that touches the ADR graph substrate, you MUST:
 
 ## 8. Status / Lifecycle
 
-- **Draft (this version)** awaiting operator content-accuracy approval before commit-time Status flip
-- **Accepted** once operator confirms accuracy + completeness via PR review trail
+- **Accepted** (operator content-accuracy verified and explicitly authorized in harness prior to merge)
 - **Periodic re-review trigger:** any future PR amending `GraphService.mjs#getOrphanedNodes()` predicate OR adding new doc-tier labels MUST cite this ADR in body; reviewer-side audit fires if absent
 - **Post-merge validation:** Golden Path multiplier empirical tuning ≤30 days post-#11377 merge
 
