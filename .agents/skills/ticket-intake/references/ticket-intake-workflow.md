@@ -33,7 +33,7 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
 
 7.5. **Age / Successor-Risk Audit Gate:** Before classifying ticket reality, you MUST audit the ticket's age, stale bot state, and missing PR close-link hygiene. Age is never a verdict by itself; it only raises the successor-risk search depth.
    - **Workflow-Derived Bands:** Do not use arbitrary hard-coded thresholds. Derive age bands from `.github/workflows/close-inactive-issues.yml` (`days-before-issue-stale` and `days-before-issue-close`).
-     - **pre-stale** (`createdAt` + `updatedAt` < stale-days): Standard duplicate and first-pass successor sweep. Distinguish same-day duplicates (hot context) from older-ticket supersession.
+     - **pre-stale** (inactivity / `updatedAt` age < `days-before-issue-stale`): Standard duplicate and first-pass successor sweep. Record `createdAt` separately to distinguish same-day duplicates (hot context) from older-ticket successor-risk classification.
      - **in-stale-window** (>= stale-days, < stale-days + close-days OR has `stale` label): Explicitly sweep newer PRs, tickets, and discussions before proceeding.
      - **post-stale-with-exemption** (>= stale-days + close-days AND has `no auto close` label): Operator-parked. Full successor sweep and escalation flag required.
    - **Missing Close-Link Sweep:** Explicitly check for merged PRs that completed the ticket but missed a GitHub close keyword (`Resolves #N`, `Closes #N`). A merged PR touching the target surface or mentioned in the conversation may mean the ticket is `already-resolved`. If you find one, you MUST cite the PR number, merged status, target surface touched, and issue/thread link as evidence.
