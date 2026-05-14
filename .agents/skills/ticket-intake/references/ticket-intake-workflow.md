@@ -7,7 +7,8 @@ If you blindly accept a ticket's premise, you risk injecting regressions into th
 ## 1. The Validation Sweep
 
 > **⚡ The "Hot Context" Fast-Path (Same-Session Creation)**
-> If you are picking up a ticket that you *just created* within the current, active session (i.e., your context window is still "hot" from running the `ticket-create` skill), you are exempt from the Validation Sweep (Section 1) and ROI Calculation (Section 2). The `ticket-create` pre-flight sweeps have already satisfied these requirements. You MUST proceed directly to **Section 3: Acceptance Protocol**.
+> If you are picking up a ticket that you *just created* within the current, active session (i.e., your context window is still "hot" from running the `ticket-create` skill), you are generally exempt from the Validation Sweep (Section 1) and ROI Calculation (Section 2), as the `ticket-create` pre-flight sweeps have already satisfied these requirements.
+> **Substrate Exception:** For *substrate tickets* (modifying Agent OS/skills/rules), the Hot Context Fast-Path is **disabled** UNLESS the ticket contains a documented "existing-enforcement sufficiency audit" (see `.agents/skills/ticket-intake/references/substrate-sufficiency-audit.md`).
 
 Before executing a `git checkout`, you MUST interrogate the codebase and Memory Core to establish the validity of the ticket's premise.
 
@@ -30,7 +31,15 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
    - If the matrix is missing or incomplete, the ticket enters the `needs-contract-alignment` state.
    - **Hand-back loop:** You MUST post a comment explaining the missing fields, requesting the author or maintainer to update the ticket body. You are forbidden from guessing the contract or starting branch/code work. Once the ticket is updated, intake re-verifies the ledger before proceeding.
 
+7.5. **Age / Successor-Risk Audit Gate:** Before classifying ticket reality, you MUST audit the ticket's age, stale bot state, and missing PR close-link hygiene.
+   - **Protocol:** You MUST execute the detailed mechanics defined in `.agents/skills/ticket-intake/references/successor-risk-audit.md` for age-band classification, missing close-link sweeps, and stale renewal discipline.
+
 8. **Ticket Reality Classification:** Before ROI acceptance or branch/code work, you MUST emit a concise classification artifact that converts the validation sweep into a stable verdict. Ticket prose is not authoritative; the classification must be grounded in the live issue conversation, linked PRs/commits, current source/docs/tests, and relevant Knowledge Base / Memory Core evidence when applicable.
+
+   **Required Classification Artifact Data:**
+   You MUST explicitly record the following in your intake reasoning:
+   - `Ticket age`: `createdAt` and `updatedAt`.
+   - `Age state`: Workflow-derived age state (`pre-stale`, `in-stale-window`, `post-stale-with-exemption`), `stale` label state, and `no auto close` label state.
 
    **Allowed verdicts:**
    - `valid-as-written` — the ticket's premise, scope, and prescription still match current repo reality.
@@ -47,6 +56,9 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
    - `already-resolved`, `superseded`, `duplicate`, and `invalid-or-negative-roi` route to Section 4: Rejection Protocol / re-triage instead of implementation.
 
 9. **Meta-Skill Sweep (Progressive Disclosure):** If the ticket explicitly involves modifying any Agent Skill file (i.e., within `.agents/skills/`), you MUST execute a Pre-Flight Meta-Skill check. Read `.agents/skills/create-skill/SKILL.md` to verify the ticket's premise adheres to the Progressive Disclosure routing pattern and does not bloat top-level `SKILL.md` files before accepting it.
+
+9.2. **Substrate Enforcement Sufficiency Gate:** If the ticket prescribes adding new rules, templates, or instructions to the Agent OS, you MUST explicitly audit existing enforcement layers.
+   - **Protocol:** You MUST execute the detailed mechanics defined in `.agents/skills/ticket-intake/references/substrate-sufficiency-audit.md` to prove existing enforcement is insufficient, or reject the ticket as Negative ROI substrate bloat.
 
 9.5. **Structural Pre-Flight Sweep (Directory-Choice Discipline):** If the ticket explicitly prescribes a new `.mjs` file or relocates an existing one across directories, you MUST execute the structural pre-flight gate at intake time — BEFORE branching. Read `.agents/skills/structural-pre-flight/SKILL.md` and validate the ticket's prescribed directory against Stage 0 mechanical trigger + Stage 1 fast-path (sibling pattern match) OR full Pre-Flight (ArchitectureOverview.md + ADR consultation). The empirical anchor PR #11008 (orchestrator-daemon.mjs misplaced in ai/scripts/) demonstrates the cost of skipping this check at intake — substrate-debt accrues into a corrective ticket (#11009) plus the prevention skill itself (#10449). Catching directory-CHOICE mismatch at intake-time is cheaper than at PR-review time.
 
@@ -100,7 +112,10 @@ You are **FORBIDDEN** from executing the following tools while on the `dev` or `
 ## 4. The Rejection Protocol (Handling Negative ROI)
 
 If you determine the ticket is stale or harmful, you MUST execute the Rejection Protocol instead of attempting to build it. 
-**DO NOT close the ticket.** It must be preserved so the Swarm can formally evaluate the paradox.
+
+**Close Policy:**
+- **Architecture Exploration / Epic Tickets:** **DO NOT close the ticket.** It must be preserved so the Swarm can formally evaluate the paradox. Apply the `status: needs-re-triage` label.
+- **1:1 Implementation Tickets (Including Substrate):** If the ticket is a narrow, final declined implementation task (e.g., `already-resolved`, `duplicate`, `invalid-or-negative-roi`), you MUST close the ticket as `not_planned` to prevent preserving bad payloads as future traps, even if the ticket prescribes substrate edits.
 
 ### Autonomous Protocol (Headless)
 1.  **Label Application:** Use the MCP tool `manage_issue_labels (action: add)` to apply the label `status: needs-re-triage` to the GitHub Issue.
