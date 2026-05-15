@@ -146,7 +146,9 @@ const defaultConfig = {
         host          : 'http://127.0.0.1:11434',
         model         : 'gemma-4-31b-it',
         embeddingModel: 'text-embedding-qwen3-embedding-8b',
-        apiKey        : ''
+        apiKey        : '',
+        unloadRetryCount: 3,
+        unloadRetryDelayMs: 500
     },
     /**
      * The enforced vector dimension across all SQLite collections.
@@ -369,6 +371,8 @@ const envBindings = {
     'openAiCompatible.model': 'NEO_OPENAI_COMPATIBLE_MODEL',
     'openAiCompatible.embeddingModel': 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL',
     'openAiCompatible.apiKey': 'NEO_OPENAI_COMPATIBLE_API_KEY',
+    'openAiCompatible.unloadRetryCount': { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', parse: parseNumber },
+    'openAiCompatible.unloadRetryDelayMs': { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', parse: parseNumber },
     
     'vectorDimension': { var: 'NEO_VECTOR_DIMENSION', parse: parseNumber },
     
