@@ -277,7 +277,14 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
             throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
         };
 
-        const originalOldPath = `${issueSyncConfig.archiveDir}/chunk-42000/issue-${mockIssue.number}.md`;
+        const originalOldAbsolutePath = path.join(
+            issueSyncConfig.archiveRoot,
+            'issues',
+            'v0.0.0',
+            'chunk-42000',
+            `issue-${mockIssue.number}.md`
+        );
+        const originalOldPath = path.relative(aiConfig.projectRoot, originalOldAbsolutePath);
         
         const metadata = {
             issues: {
@@ -295,7 +302,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         };
         
         // create the mock file to simulate it already exists in the archive
-        const absOldPath = path.resolve(process.cwd(), originalOldPath);
+        const absOldPath = path.resolve(aiConfig.projectRoot, originalOldPath);
         await fs.ensureDir(path.dirname(absOldPath));
         await fs.writeFile(absOldPath, 'mock content', 'utf8');
 

@@ -25,7 +25,6 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
     let PullRequestSyncer;
     let ReleaseSyncer;
     let originalArchiveRoot;
-    let originalDefaultArchiveVersion;
     let originalPullsDir;
     let originalQuery;
     let originalSortedReleases;
@@ -39,7 +38,6 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         ReleaseSyncer    = (await import('../../../../../../ai/services/github-workflow/sync/ReleaseSyncer.mjs')).default;
 
         originalArchiveRoot            = aiConfig.issueSync.archiveRoot;
-        originalDefaultArchiveVersion  = aiConfig.issueSync.defaultArchiveVersion;
         originalPullsDir               = aiConfig.issueSync.pullsDir;
         originalQuery                  = GraphqlService.query.bind(GraphqlService);
         originalSortedReleases         = ReleaseSyncer.sortedReleases;
@@ -51,7 +49,6 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         await fs.ensureDir(tmpRoot);
 
         aiConfig.issueSync.archiveRoot            = path.join(tmpRoot, 'archive');
-        aiConfig.issueSync.defaultArchiveVersion  = 'unversioned';
         aiConfig.issueSync.pullsDir               = path.join(tmpRoot, 'pulls');
         aiConfig.issueSync.versionDirectoryPrefix = 'v';
         ReleaseSyncer.sortedReleases              = [];
@@ -61,7 +58,6 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         GraphqlService.query                       = originalQuery;
         ReleaseSyncer.sortedReleases              = originalSortedReleases;
         aiConfig.issueSync.archiveRoot            = originalArchiveRoot;
-        aiConfig.issueSync.defaultArchiveVersion  = originalDefaultArchiveVersion;
         aiConfig.issueSync.pullsDir               = originalPullsDir;
         aiConfig.issueSync.versionDirectoryPrefix = originalVersionDirectoryPrefix;
 

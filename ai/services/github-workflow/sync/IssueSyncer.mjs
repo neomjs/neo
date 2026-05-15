@@ -515,7 +515,7 @@ class IssueSyncer extends Base {
             // Under sealed-chunk semantics, historical items should not jump archive buckets
             // just because a maintainer toggled the state.
             if (oldIssue && issue.state === 'CLOSED') {
-                const wasArchived = oldPathRelative && (oldPathRelative.includes(issueSyncConfig.archiveDir) || oldPathRelative.includes(issueSyncConfig.archiveRoot));
+                const wasArchived = oldAbsolutePath && oldAbsolutePath.startsWith(issueSyncConfig.archiveRoot);
                 
                 if (oldIssue.closedAt && issue.closedAt && oldIssue.closedAt !== issue.closedAt) {
                     logger.warn(`[ARCHIVE ANOMALY] Issue #${issueNumber} closedAt shifted: ${oldIssue.closedAt} -> ${issue.closedAt}.`);
@@ -914,8 +914,7 @@ class IssueSyncer extends Base {
             // Check if the issue needs to be moved to an archive
             if (currentAbsolutePath !== correctPath) {
                 // Verify the correct path is actually in an archive, not back to active directory
-                if (correctPath.startsWith(issueSyncConfig.issuesDir) &&
-                    !correctPath.includes(issueSyncConfig.archiveDir)) {
+                if (correctPath.startsWith(issueSyncConfig.issuesDir)) {
                     logger.debug(`Issue #${issueNumber} correct path is still in active directory, no move needed.`);
                     continue;
                 }
