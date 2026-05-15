@@ -12,8 +12,7 @@ Tickets are **A2A (Agent-to-Agent) memory bridges**, not just human tracking art
 Verify no equivalent ticket already exists. Redundant tickets pollute the Knowledge Base.
 
 ```
-grep on resources/content/issues/       # open tickets
-grep on resources/content/issues/ # closed + archived
+grep on resources/content/issues/       # active + archived tickets
 grep on resources/content/discussions/   # ideation / brainstorming
 ```
 

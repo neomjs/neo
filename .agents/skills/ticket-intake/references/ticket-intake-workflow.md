@@ -25,7 +25,7 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
 
 6. **Duplication Check:** Semantic search is significantly more powerful than string matching. 
    - **Primary:** Prioritize using `ask_knowledge_base` (with `type='ticket'`) to query for overlapping active or archived initiatives. It will mathematically connect semantic concepts (e.g. mapping "payload bloat" to "n_ctx boundaries") that grep would miss.
-   - **Fallback:** If you explicitly require exact keyword verification (e.g. a specific UUID or function name constraint), fallback to using `grep_search` targeting `resources/content/issues`, `resources/content/issue-archive`, and `resources/content/discussions`.
+   - **Fallback:** If you explicitly require exact keyword verification (e.g. a specific UUID or function name constraint), fallback to using `grep_search` targeting `resources/content/issues` (active and archived) and `resources/content/discussions`.
 
 7. **Contract Completeness Sweep (Readiness Gate):** If the ticket proposes modifying, introducing, or deprecating a surface that is consumed by humans, agents, or external systems (e.g., public APIs, configs, MCP tools), you MUST verify that a **Contract Ledger** matrix is present in the ticket body. See `learn/agentos/contract-ledger.md`. This is a separate readiness gate that must pass before checking ticket reality.
    - If the matrix is missing or incomplete, the ticket enters the `needs-contract-alignment` state.
