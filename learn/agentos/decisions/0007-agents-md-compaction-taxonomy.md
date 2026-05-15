@@ -80,7 +80,11 @@ Based on these axes, every section in the instruction substrate receives a **Dis
 
 As long-running sessions compress older messages, implicit behavioral disciplines often decay due to context pruning. To combat "Zero-State Amnesia", critical anchors (e.g., swarm topology defense, self-evolving MX loops, and workflow triggers) receive a `recursive-reload-required` annotation. 
 
-The **Post-Pruning-Recurrence-Rate** sub-axis evaluates whether a rule's absence post-compression leads to a recurrence of the pre-training regression drift it was designed to fix. If the recurrence rate is high (e.g., the agent rapidly reverts to "Helpful Assistant" deference or Orchestrator/Worker hierarchical paradigms), the anchor must be marked as `recursive-reload-required` to shield it from Phase C pruning algorithms.
+**Conceptual Framing:** Instructions stored solely in skill payloads are fragile under pruning; since `AGENTS.md` reloads every turn, retaining the anchor in the L1 file acts as a `recursive-reload-anchor` primitive.
+
+**Assignment Heuristic:** Entries governing ongoing-session-behavior (§13, §13.1, §15.6, §21) receive the `recursive-reload-required` annotation. One-shot enforcement points (§0 invariants, §3, §4) do not, because mechanical-enforcement protects them regardless of recall.
+
+**Empirical Anchor:** The **Post-Pruning-Recurrence-Rate** sub-axis evaluates whether a rule's absence post-compression leads to a recurrence of the pre-training regression drift it was designed to fix. If the recurrence rate is high (e.g., the agent rapidly reverts to "Helpful Assistant" deference or Orchestrator/Worker hierarchical paradigms), the anchor must be marked as `recursive-reload-required` to shield it from Phase C pruning algorithms. (Triggered by operator-direction 2026-05-15 + PR #11434 §21 trigger + this PR's §5.3 anti-pattern).
 
 ---
 
@@ -116,7 +120,7 @@ Modifying the baseline taxonomy dispositions directly in this ADR. This ADR is t
 ---
 
 ### 5.3 Recursive-Reload Pruning
-Retiring or applying a `compress-to-trigger` disposition to entries annotated as `recursive-reload-required` (such as the §21 Workflow Skills routing table) during Phase C compression. These entries serve as recursive-reload anchors and must be preserved to prevent breaking post-pruning behavioral-discipline recall in long sessions.
+Retiring or applying a `compress-to-trigger` disposition to entries annotated as `recursive-reload-required` (§13, §13.1, §15.6, §21) during Phase C compression. These entries serve as recursive-reload anchors and must be preserved to prevent breaking post-pruning behavioral-discipline recall in long sessions.
 
 ---
 
