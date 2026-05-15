@@ -329,6 +329,62 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         // Cleanup
         await fs.unlink(absOldPath).catch(() => {});
     });
+
+    test('dropped-label issues do not consume active ordinals', async () => {
+        const mockIssueDropped = buildMockIssue({
+            number       : 50002,
+            title        : 'Mock dropped issue',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+        // Add a dropped label as configured in aiConfig.issueSync.droppedLabels
+        mockIssueDropped.labels = {nodes: [{name: 'duplicate'}]};
+
+        const mockIssueStored = buildMockIssue({
+            number       : 50003,
+            title        : 'Mock stored issue',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+        mockIssueStored.labels = {nodes: [{name: 'bug'}]};
+
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchIssuesForSync')) {
+                return {
+                    rateLimit: { cost: 1, remaining: 4999, resetAt: '2026-05-13T11:00:00Z' },
+                    repository: {
+                        issues: {
+                            pageInfo: { hasNextPage: false, endCursor: null },
+                            nodes: [structuredClone(mockIssueDropped), structuredClone(mockIssueStored)]
+                        }
+                    }
+                };
+            }
+            if (query.includes('FetchSingleIssue')) {
+                if (query.includes('50002')) return {repository: {issue: structuredClone(mockIssueDropped)}};
+                if (query.includes('50003')) return {repository: {issue: structuredClone(mockIssueStored)}};
+            }
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        const metadata = { issues: {} };
+
+        const { stats, newMetadata } = await IssueSyncer.pullFromGitHub(metadata);
+
+        expect(stats.dropped.issues).toContain(mockIssueDropped.number);
+        expect(stats.pulled.issues).toContain(mockIssueStored.number);
+
+        const targetPath = newMetadata.issues[mockIssueStored.number].path;
+
+        // Since the stored issue is the only active one planned, its index is 0,
+        // which maps to chunk-1.
+        expect(targetPath).toContain('chunk-1');
+        
+        // Assert that dropped issue is nowhere in metadata
+        expect(newMetadata.issues[mockIssueDropped.number]).toBeUndefined();
+    });
 });
 
 function buildComment(i) {

@@ -291,6 +291,17 @@ class IssueSyncer extends Base {
         }
 
         for (const issue of fetchedIssues) {
+            const labels = issue.labels?.nodes
+                ? issue.labels.nodes.map(l => l.name.toLowerCase())
+                : issue.labels?.map(l => l.name?.toLowerCase() || l.toLowerCase()) || [];
+
+            const isDropped = issueSyncConfig.droppedLabels.some(label => labels.includes(label));
+
+            if (isDropped) {
+                combined.delete(issue.number);
+                continue;
+            }
+
             if (combined.has(issue.number)) {
                 const existing = combined.get(issue.number);
                 existing.state = issue.state;
