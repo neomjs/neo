@@ -45,7 +45,7 @@ Every PR you author MUST include a **FAIR-band stance declaration** in the PR bo
 - **In-band**: `FAIR-band: in-band [N/30 — current author count over last 30 merged]`
 - **Under-target (lane-appropriate)**: `FAIR-band: under-target [N/30] — Self-Selection Rule 1 fires (under-band → bias toward author lane)`
 - **Over-target (positive-ROI lane)**: `FAIR-band: over-target [N/30] — taking this lane despite over-target because [specific positive-ROI rationale: e.g., operator-direction, specialist-only ticket, time-critical incident-response]`
-- **Over-target (yield candidate)**: This shape **FORBIDS PR-open**; per `post-review-pickup-workflow.md §4` Self-Selection Rule 3, yield the lane to under-target peer via author-yield A2A before opening the PR.
+- **Over-target (yield candidate)**: This shape **FORBIDS PR-open**; per `post-review-pickup-workflow.md §4` Self-Selection Rule 4 (Over-target yield discipline), broadcast `[author-yield] <ticket #N>` A2A to `AGENT:*` naming the under-target peer(s) eligible for pickup before opening the PR. Allows the under-target peer to self-select per Rule 1 (flat-peer-team agency preserved; no assignment).
 
 The verifier query is canonical at `.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md §4`:
 
