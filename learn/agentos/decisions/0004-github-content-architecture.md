@@ -38,6 +38,29 @@ PR #11362 (commit `559c73d43`) implemented "Phase 6 cleanup" by **deleting** 3,1
 
 This ADR's primary purpose is to **anchor the graduated architecture as load-bearing single-source-of-truth so future agents V-B-A against ONE document instead of re-inferring from multi-Discussion graduation contexts.**
 
+### 1.3 The Regeneratable-Cache Strategic Principle (load-bearing strategic anchor)
+
+`resources/content/` is a **fully-regeneratable cache**, NOT a source of truth. GitHub is the source of truth. `sync_all` is the canonical path back to a clean state from any local state.
+
+**Operator authority anchor** (2026-05-15 nightshift A2A, verbatim):
+
+> *"rationale: all data can be get from github. you can, if needed, delete the other items inside resources/content too. especially the meta file. we, and every other user, can sync ALL data from github. that was and is the strategy."*
+
+**Concrete implications future authors V-B-A against:**
+
+1. **Data-tier**: `<NNN>xx/` folders, `chunk-N/` folders, `.sync-metadata.json`, anything else in `resources/content/` — all deletable at will. Re-running `sync_all` regenerates everything from GitHub.
+2. **Code-tier**: helpers like `chunkPath.mjs`, `archivePath.mjs`, `contentPath.mjs` are not load-bearing for data preservation. They're load-bearing only for CURRENT call sites; when call sites get rewired, the old helpers can be deleted simultaneously without data risk.
+3. **`.sync-metadata.json` is also regeneratable**: deleting it just makes syncers treat the substrate as never-synced and re-emit fresh. This is feature, not bug — it's the simplest path to a clean state.
+4. **Universal applicability**: not just the maintainer's local checkout. Per operator quote, "every other user" can sync ALL data from GitHub. The strategic principle holds across all deployment surfaces.
+
+**Why this section is load-bearing**:
+
+The clean-cut pattern (§2.6 per #11397) and the deprecation-theater anti-pattern (§5.6 per #11397) are CORRECT because of this strategic principle. Without it, future authors under preservation-tendency biases (RLHF graceful-degradation, "don't break working state", "preserve customer data" priors) don't have a § to V-B-A against — they pattern-match the preservation tendencies as positive signals and re-derive the data-preservation assumption.
+
+**Historical pattern this section guards against** (operator-described 2026-05-15):
+
+The pre-ADR-0004 "derailment" — team went from the exactly-100-items-per-folder original spec back to stream-based-IDs (`<NNN>xx/`) with almost-empty folders — was driven by the implicit assumption that on-disk state needed preservation across migration. The §1.3 strategic principle nullifies that assumption explicitly. Future agents recognizing preservation-pressure should pattern-match against §1.3 and choose deletion + re-sync over preservation + migration.
+
 ---
 
 ## 2. Decision
@@ -148,6 +171,8 @@ All consumers MUST:
 - Never assume folder name encodes item ID (the ID-encoding-in-folder-name semantic is RETIRED)
 
 ### 3.6 Migration shape: clean-slate purge (operator-directed 2026-05-14)
+
+*(This is the operationalization of the strategic principle in §1.3)*
 
 Operator quote: *"if we just delete it all, especially the sync all meta file => clean slate => like we never had prior content. less cognitive load. no migration scripts needed. no risk of data loss either. allows full focus on the new syncer logic."*
 
