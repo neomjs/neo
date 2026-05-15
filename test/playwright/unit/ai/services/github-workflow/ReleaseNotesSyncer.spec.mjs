@@ -94,7 +94,7 @@ test.describe('Neo.ai.services.github-workflow.sync.ReleaseNotesSyncer', () => {
 
     test('syncNotes generates ordinal pathing and updates _index.json correctly', async () => {
         const syncer = InstanceManager.get('Neo.ai.services.github-workflow.sync.ReleaseNotesSyncer');
-        
+
         syncer.releases = {
             'v1.0.0': { tagName: 'v1.0.0', name: 'Release 1', publishedAt: '2024-01-01T00:00:00Z', description: 'First release' },
             'v1.1.0': { tagName: 'v1.1.0', name: 'Release 2', publishedAt: '2024-02-01T00:00:00Z', description: 'Second release' }
@@ -122,7 +122,7 @@ test.describe('Neo.ai.services.github-workflow.sync.ReleaseNotesSyncer', () => {
         // Check _index.json
         const indexPath = path.join(releaseDir, '_index.json');
         expect(await fs.pathExists(indexPath)).toBe(true);
-        
+
         const indexData = await fs.readJson(indexPath);
         expect(indexData.items['v1.0.0']).toEqual({ itemIndex: 0, chunk: 1, chunkDir: 'chunk-1' });
         expect(indexData.items['v1.1.0']).toEqual({ itemIndex: 1, chunk: 1, chunkDir: 'chunk-1' });
