@@ -35,7 +35,7 @@ function createTestOrchestrator(config = {}) {
         writeLogFn     : () => {}
     });
     TaskStateService.taskState = createInitialTaskState(taskDefinitions);
-    ['chroma', 'bridgeDaemon', 'mlx'].forEach(name => {
+    ['chroma', 'memoryCoreChroma', 'bridgeDaemon', 'mlx'].forEach(name => {
         if (TaskStateService.taskState[name]) {
             TaskStateService.taskState[name].running = true;
         }
@@ -77,7 +77,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             nodeBin  : '/node'
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'mlx', 'summary', 'kbSync', 'backup', PRIMARY_DEV_SYNC_TASK_NAME, DREAM_TASK_NAME, GOLDEN_PATH_TASK_NAME]);
+        expect(Object.keys(state)).toEqual(['chroma', 'memoryCoreChroma', 'bridgeDaemon', 'mlx', 'summary', 'kbSync', 'backup', PRIMARY_DEV_SYNC_TASK_NAME, DREAM_TASK_NAME, GOLDEN_PATH_TASK_NAME]);
         expect(state.summary).toMatchObject({
             running      : false,
             pid          : null,
