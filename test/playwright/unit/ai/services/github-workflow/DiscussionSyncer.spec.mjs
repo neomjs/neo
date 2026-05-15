@@ -82,7 +82,7 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
 
         const metadata = {discussions: {}};
         const stats = await DiscussionSyncer.syncDiscussions(metadata);
-        const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-241', 'discussion-24001.md');
+        const targetPath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', 'discussion-24001.md');
         const index = await fs.readJson(path.join(tmpRoot, '_index.json'));
 
         expect(stats.synced).toEqual([24001]);
@@ -92,8 +92,8 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
             type: 'discussions',
             id: 24001,
             version: null,
-            chunkNumber: 241,
-            path: path.join('discussions', 'chunk-241', 'discussion-24001.md')
+            chunkNumber: 1,
+            path: path.join('discussions', 'chunk-1', 'discussion-24001.md')
         });
     });
 

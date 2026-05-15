@@ -133,7 +133,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(stats.errors).toHaveLength(0);
         expect(continuationCalls).toBe(1);
 
-        const chunkNumber = Math.floor(mockIssue.number / 100) + 1;
+        const chunkNumber = 1;
         const writtenPath = path.join(issueSyncConfig.issuesDir, `chunk-${chunkNumber}`, `issue-${mockIssue.number}.md`);
         const written     = await fs.readFile(writtenPath, 'utf-8');
 
@@ -191,7 +191,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(metadata.issues[mockIssue.number].commentsTotal).toBe(COMMENT_COUNT);
 
         // Frontmatter commentsCount uses the same derivation — no dual-source divergence possible.
-        const chunkNumber = Math.floor(mockIssue.number / 100) + 1;
+        const chunkNumber = 1;
         const writtenPath = path.join(issueSyncConfig.issuesDir, `chunk-${chunkNumber}`, `issue-${mockIssue.number}.md`);
         const written     = await fs.readFile(writtenPath, 'utf-8');
         expect(written).toContain(`commentsCount: ${COMMENT_COUNT}`);

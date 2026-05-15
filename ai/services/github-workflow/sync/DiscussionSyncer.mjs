@@ -76,13 +76,13 @@ class DiscussionSyncer extends Base {
     }
 
     /**
-     * @summary Pre-computes bucket counts and indices for all archived discussions.
+     * @summary Pre-computes bucket counts and indices for all discussions based on historical releases.
      * @param {Object} metadata The sync metadata.
      * @param {Array} fetchedDiscussions The delta discussions fetched from GitHub.
-     * @returns {Map<number, {version: string, itemCount: number, itemIndex: number}>}
+     * @returns {Map<number, {version: string|null, itemCount: number, itemIndex: number}>}
      * @private
      */
-    #planArchiveBuckets(metadata, fetchedDiscussions = []) {
+    #planBuckets(metadata, fetchedDiscussions = []) {
         const combined = new Map();
 
         for (const [idStr, discussion] of Object.entries(metadata.discussions || {})) {
@@ -102,10 +102,9 @@ class DiscussionSyncer extends Base {
         }
 
         const buckets = new Map();
+        const activeItems = [];
 
         for (const discussion of combined.values()) {
-            if (!discussion.closed) continue;
-
             let version = null;
             if (discussion.closedAt) {
                 const closed = new Date(discussion.closedAt);
@@ -123,7 +122,10 @@ class DiscussionSyncer extends Base {
             // architectural bug fixed by #11360. #getDiscussionPath falls back to active-flat path
             // when archivePlan returns no entry (was previously returning null; now consistent
             // with IssueSyncer/PullRequestSyncer).
-            if (!version) continue;
+            if (!discussion.closed || !version) {
+                activeItems.push(discussion.number);
+                continue;
+            }
 
             if (!buckets.has(version)) {
                 buckets.set(version, []);
@@ -131,13 +133,23 @@ class DiscussionSyncer extends Base {
             buckets.get(version).push(discussion.number);
         }
 
-        const archivePlan = new Map();
+        const plans = new Map();
+
+        activeItems.sort((a, b) => a - b);
+        const activeItemCount = activeItems.length;
+        activeItems.forEach((id, index) => {
+            plans.set(id, {
+                version  : null,
+                itemCount: activeItemCount,
+                itemIndex: index
+            });
+        });
 
         for (const [bucketName, items] of buckets.entries()) {
             items.sort((a, b) => a - b);
 
             items.forEach((id, index) => {
-                archivePlan.set(id, {
+                plans.set(id, {
                     version  : bucketName,
                     itemCount: items.length,
                     itemIndex: index
@@ -145,43 +157,35 @@ class DiscussionSyncer extends Base {
             });
         }
 
-        return archivePlan;
+        return plans;
     }
 
     /**
      * Determines the correct local file path for a given discussion.
      * @param {object} discussion The GitHub discussion object.
-     * @param {Map} archivePlan The precomputed bucket plan.
+     * @param {Map} planBuckets The precomputed bucket plan.
      * @returns {string} The absolute file path for the discussion's Markdown file.
      * @private
      */
-    #getDiscussionPath(discussion, archivePlan) {
+    #getDiscussionPath(discussion, planBuckets) {
         const filename = `${issueSyncConfig.discussionFilenamePrefix}${discussion.number}.md`;
         const contentRoot = issueSyncConfig.contentRoot;
-        const plan = archivePlan.get(discussion.number);
+        const plan = planBuckets.get(discussion.number);
 
-        // Active path = backlog + closed-for-next-release (per Epic #11187 Phase 6 mental model).
-        // Archive folders for vN.M.K are created at release-cut by publish.mjs, never pre-staged.
-        if (!discussion.closed || !plan?.version) {
-            return contentPath({
-                contentRoot,
-                type         : 'discussions',
-                filename,
-                itemIndex    : discussion.number - 1, // Zero-based ordinal for active tier
-                itemsPerChunk: issueSyncConfig.archiveChunkThreshold,
-                chunkPrefix  : issueSyncConfig.archiveChunkPrefix
-            });
-        }
-
-        return contentPath({
+        const config = {
             contentRoot,
             type         : 'discussions',
-            version      : plan.version,
             filename,
-            itemIndex    : plan.itemIndex,
+            itemIndex    : plan?.itemIndex || 0,
             itemsPerChunk: issueSyncConfig.archiveChunkThreshold,
             chunkPrefix  : issueSyncConfig.archiveChunkPrefix
-        });
+        };
+
+        if (plan?.version) {
+            config.version = plan.version;
+        }
+
+        return contentPath(config);
     }
 
     /**
@@ -232,11 +236,11 @@ class DiscussionSyncer extends Base {
         };
 
         const cachedDiscussions = metadata.discussions || {};
-        const archivePlan = this.#planArchiveBuckets(metadata, allDiscussions);
+        const planBuckets = this.#planBuckets(metadata, allDiscussions);
 
         for (const discussion of allDiscussions) {
             try {
-                const targetPath  = this.#getDiscussionPath(discussion, archivePlan);
+                const targetPath  = this.#getDiscussionPath(discussion, planBuckets);
                 if (!targetPath) continue;
 
                 const frontmatter = {
@@ -326,14 +330,14 @@ class DiscussionSyncer extends Base {
                 path: d.relativeOutputPath
             };
 
-            const plan = archivePlan.get(d.number);
+            const plan = planBuckets.get(d.number);
 
             indexEntries.push(createContentIndexEntry({
                 issueSyncConfig,
                 type: 'discussions',
                 id: d.number,
                 filePath: path.resolve(aiConfig.projectRoot, d.relativeOutputPath),
-                itemIndex: plan ? plan.itemIndex : (d.number - 1),
+                itemIndex: plan ? plan.itemIndex : 0,
                 version: plan?.version || null,
                 bucket: null
             }));
