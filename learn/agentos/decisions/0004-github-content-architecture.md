@@ -97,6 +97,19 @@ For each collection bucket, `itemIndex` is determined by stable canonical order:
 
 Within a chunk, files are named by GitHub identifier (`issue-NNNN.md`, `pr-NNNN.md`, `discussion-NNNN.md`, `release-VV.MM.PP.md`) — preserving searchability by ID.
 
+### 2.6 The Clean-Cut Pattern (load-bearing pattern, contrast with rejected Deprecation Window pattern)
+
+The substrate-evolution pattern for ADR 0004 is **Clean Cut**, not **Deprecation Window**:
+
+| Pattern | Old primitive after new primitive lands | Migration shape |
+|---|---|---|
+| **Clean Cut** ✓ (ADR 0004) | DELETED at the call-site-migration ticket | Data: clean-slate purge + re-sync (§3.6 + §9 item 10). Code: old file deleted in the same PR that mutates the last call site. |
+| **Deprecation Window** ✗ (rejected) | KEPT with `@deprecated` JSDoc as thin shim during "migration window" | Data: preserved + reshaped via migration scripts. Code: both old + new primitives coexist with annotations bridging them. |
+
+**Operator authority anchor** (verbatim from §3.6): *"if we just delete it all, especially the sync all meta file => clean slate => like we never had prior content. less cognitive load. no migration scripts needed. no risk of data loss either. allows full focus on the new syncer logic."*
+
+The Deprecation Window pattern adds substrate-coexistence cost (cognitive load: "which primitive should I use here?"), violates §5.3 (parallel chunking rules), and contradicts the operator-stated "ZERO migration scripts planned" intent. Future authors V-B-A against this §2.6 contrast before designing helper-retirement work.
+
 ---
 
 ## 3. Implementation Details
@@ -242,6 +255,20 @@ The 24h-grace + auto-re-close-and-new-ticket workflow is the architectural found
 ### 5.5 Treating per-type configurability as architecture
 
 The current config surface (`archiveDir`, `defaultArchiveVersion`, etc.) reflects HISTORICAL flexibility when the substrate was simpler. The universal ordinal-100 rule does not need per-type or per-namespace config; the architecture is the architecture. Future agents adding "configurable folder names" to the config surface MUST justify against this ADR.
+
+### 5.6 Deprecation theater / preservation-window framing
+
+Future agents MUST NOT add `@deprecated` JSDoc annotations to retired primitives (`chunkPath.mjs`, `archivePath.mjs`, etc.) under the framing "preserve as a thin backward-compatibility shim during migration window". Per §3.6 clean-slate framing, ADR 0004 prescribes **deletion**, not deprecation. The retired primitive's file gets DELETED when the call-site migration ticket lands — there is NO coexistence window where the old + new primitives both exist with deprecation annotations bridging them.
+
+**Why the anti-pattern surfaces under RLHF-anchored deprecation tendency**: model families trained on broader software-engineering corpora have a strong prior toward "responsible legacy preservation" via `@deprecated` annotations + thin shims. This pattern is correct for typical industry-software lifecycle (LTS support, customer migration windows, semver-major-version-breaking-change discipline). It is **wrong** for Neo's substrate-evolution context where:
+
+1. The operator explicitly named "ZERO migration scripts planned" + "clean slate => like we never had prior content" (ADR §3.6 operator quote).
+2. The clean-slate purge runs as Task 10 — there's no customer data to preserve across the cut.
+3. `@deprecated` shims are structurally §5.3's "parallel chunking rule" wearing different framing.
+
+**Pattern recognition signals**: if your AC list contains language like "thin re-export wrapper for one deprecation window", "`@deprecated` JSDoc pointing to the new primitive", "backward-compat-compatible during Lane B migration", or "shim integrity" — these are RLHF-deprecation-tendency signals. Replace them with: "DELETED at the call-site-migration ticket", "removed in the same PR that lands the new primitive", or simply omit the framing entirely.
+
+**The Cycle-1+Cycle-2 review chain anti-pattern**: cross-family reviewers under the same RLHF anchor will MISS this anti-pattern at review time unless §5.6 is explicitly cited. The author-side AC list sanctions the deprecation theater; the reviewer-side pattern-match reads "responsible legacy support" as positive signal. Operator-at-merge-gate becomes the catch-of-last-resort. §5.6 codifies the pattern so cross-family review can fire before operator-catch.
 
 ---
 
