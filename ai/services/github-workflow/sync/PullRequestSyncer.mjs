@@ -8,8 +8,8 @@ import path                       from 'path';
 import GraphqlService             from '../GraphqlService.mjs';
 import ReleaseNotesSyncer         from './ReleaseNotesSyncer.mjs';
 import {FETCH_PULL_REQUESTS_FOR_SYNC} from '../queries/pullRequestQueries.mjs';
-import chunkPath                  from '../shared/chunkPath.mjs';
-import archivePath, {validateArchiveConfig} from '../shared/archivePath.mjs';
+import contentPath                from '../shared/contentPath.mjs';
+import {createContentIndexEntry, updateContentIndex} from '../shared/contentIndex.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const pullRequestConfig = aiConfig.pullRequest;
@@ -81,7 +81,6 @@ class PullRequestSyncer extends Base {
      * @private
      */
     #planArchiveBuckets(metadata, fetchedPullRequests = []) {
-        validateArchiveConfig(issueSyncConfig);
         const combined = new Map();
         
         for (const [idStr, pr] of Object.entries(metadata.pulls || {})) {
@@ -167,14 +166,19 @@ class PullRequestSyncer extends Base {
      */
     #getPullRequestPath(pr, archivePlan = new Map()) {
         const filename = `${aiConfig.issueSync.pullFilenamePrefix || 'pr-'}${pr.number}.md`;
-        // Active PR chunk dirs use `pr-NNNxx/` prefix per target architecture (per #11360 AC2);
-        // chunkPath() returns the issue-range primitive `NNNxx` without prefix.
-        const chunkDir = `pr-${chunkPath(pr.number)}`;
+
+        const contentRoot = issueSyncConfig.contentRoot;
 
         // Active path = backlog + closed-for-next-release (per Epic #11187 Phase 6 mental model).
         // Archive folders for vN.M.K are created at release-cut by publish.mjs, never pre-staged.
         if (pr.state === 'OPEN') {
-            return path.join(issueSyncConfig.pullsDir, chunkDir, filename);
+            return contentPath({
+                contentRoot,
+                type: 'pulls',
+                filename,
+                itemIndex: pr.number,
+                chunkPrefix: 'pr-'
+            });
         }
 
         // Logic for CLOSED and MERGED pull requests
@@ -184,18 +188,23 @@ class PullRequestSyncer extends Base {
         // Keep in active per Epic #11187 mental model. The previous `'unversioned'` fallback
         // pre-staged items into archive prematurely; removed per #11360 AC1.
         if (!plan?.version) {
-            return path.join(issueSyncConfig.pullsDir, chunkDir, filename);
+            return contentPath({
+                contentRoot,
+                type: 'pulls',
+                filename,
+                itemIndex: pr.number,
+                chunkPrefix: 'pr-'
+            });
         }
 
-        return archivePath({
-            archiveRoot          : issueSyncConfig.archiveRoot,
-            archiveChunkThreshold: issueSyncConfig.archiveChunkThreshold,
-            archiveChunkPrefix   : issueSyncConfig.archiveChunkPrefix,
-            type                 : 'pulls',
-            version              : plan.version,
-            filename             : filename,
-            itemCount            : plan.itemCount || 1,
-            itemIndex            : plan.itemIndex || 0
+        return contentPath({
+            contentRoot,
+            type: 'pulls',
+            version: plan.version,
+            filename,
+            itemIndex: plan.itemIndex || 0,
+            itemsPerChunk: issueSyncConfig.archiveChunkThreshold,
+            chunkPrefix: issueSyncConfig.archiveChunkPrefix
         });
     }
 
@@ -341,6 +350,8 @@ class PullRequestSyncer extends Base {
         
         // Cache for the main orchestrator to merge
         metadata.pulls = {};
+        const indexEntries = [];
+
         allPullRequests.forEach(p => {
             const plan = archivePlan.get(p.number);
 
@@ -355,7 +366,23 @@ class PullRequestSyncer extends Base {
                 archiveVersion: p.state === 'OPEN' ? null : plan?.version || null,
                 path          : p.relativeOutputPath
             };
+
+            indexEntries.push(createContentIndexEntry({
+                issueSyncConfig,
+                type: 'pulls',
+                id: p.number,
+                filePath: path.resolve(aiConfig.projectRoot, p.relativeOutputPath),
+                itemIndex: plan ? plan.itemIndex : p.number,
+                version: p.state === 'OPEN' ? null : plan?.version || null,
+                bucket: null
+            }));
         });
+
+        try {
+            await updateContentIndex(issueSyncConfig, {upsert: indexEntries});
+        } catch (e) {
+            logger.warn(`⚠️ Could not update _index.json for pull requests: ${e.message}`);
+        }
 
         if (stats.count > 0) {
             logger.info(`✨ Synced ${stats.count} modified pull requests to disk.`);

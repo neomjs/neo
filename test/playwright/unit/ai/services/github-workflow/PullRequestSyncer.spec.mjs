@@ -26,6 +26,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
     let ReleaseNotesSyncer;
     let originalArchiveRoot;
     let originalPullsDir;
+    let originalContentRoot;
     let originalQuery;
     let originalSortedReleases;
     let originalVersionDirectoryPrefix;
@@ -39,6 +40,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
 
         originalArchiveRoot            = aiConfig.issueSync.archiveRoot;
         originalPullsDir               = aiConfig.issueSync.pullsDir;
+        originalContentRoot            = aiConfig.issueSync.contentRoot;
         originalQuery                  = GraphqlService.query.bind(GraphqlService);
         originalSortedReleases         = ReleaseNotesSyncer.sortedReleases;
         originalVersionDirectoryPrefix = aiConfig.issueSync.versionDirectoryPrefix;
@@ -50,6 +52,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
 
         aiConfig.issueSync.archiveRoot            = path.join(tmpRoot, 'archive');
         aiConfig.issueSync.pullsDir               = path.join(tmpRoot, 'pulls');
+        aiConfig.issueSync.contentRoot            = tmpRoot;
         aiConfig.issueSync.versionDirectoryPrefix = 'v';
         ReleaseNotesSyncer.sortedReleases              = [];
     });
@@ -59,6 +62,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         ReleaseNotesSyncer.sortedReleases              = originalSortedReleases;
         aiConfig.issueSync.archiveRoot            = originalArchiveRoot;
         aiConfig.issueSync.pullsDir               = originalPullsDir;
+        aiConfig.issueSync.contentRoot            = originalContentRoot;
         aiConfig.issueSync.versionDirectoryPrefix = originalVersionDirectoryPrefix;
 
         await fs.remove(tmpRoot).catch(() => {});
@@ -92,7 +96,8 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         });
 
         const stats = await PullRequestSyncer.syncPullRequests(metadata);
-        const targetPath = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', `pr-${prNumber}.md`);
+        const chunkNumber = 1;
+        const targetPath = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', `chunk-${chunkNumber}`, `pr-${prNumber}.md`);
 
         expect(stats.synced).toEqual([prNumber]);
         await expect(fs.pathExists(targetPath)).resolves.toBe(true);

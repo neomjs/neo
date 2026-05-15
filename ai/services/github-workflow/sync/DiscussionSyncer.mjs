@@ -8,7 +8,12 @@ import path                       from 'path';
 import GraphqlService             from '../GraphqlService.mjs';
 import ReleaseNotesSyncer         from './ReleaseNotesSyncer.mjs';
 import {FETCH_DISCUSSIONS_FOR_SYNC} from '../queries/discussionQueries.mjs';
-import archivePath, {validateArchiveConfig} from '../shared/archivePath.mjs';
+import contentPath                  from '../shared/contentPath.mjs';
+import {
+    createContentIndexEntry,
+    updateContentIndex
+} from '../shared/contentIndex.mjs';
+
 const issueSyncConfig = aiConfig.issueSync;
 
 /**
@@ -78,7 +83,6 @@ class DiscussionSyncer extends Base {
      * @private
      */
     #planArchiveBuckets(metadata, fetchedDiscussions = []) {
-        validateArchiveConfig(issueSyncConfig);
         const combined = new Map();
         
         for (const [idStr, discussion] of Object.entries(metadata.discussions || {})) {
@@ -153,33 +157,30 @@ class DiscussionSyncer extends Base {
      */
     #getDiscussionPath(discussion, archivePlan) {
         const filename = `${issueSyncConfig.discussionFilenamePrefix}${discussion.number}.md`;
+        const contentRoot = issueSyncConfig.contentRoot;
+        const plan = archivePlan.get(discussion.number);
 
         // Active path = backlog + closed-for-next-release (per Epic #11187 Phase 6 mental model).
         // Archive folders for vN.M.K are created at release-cut by publish.mjs, never pre-staged.
-        if (!discussion.closed) {
-            // Flat active tier for discussions
-            return path.join(issueSyncConfig.discussionsDir, filename);
+        if (!discussion.closed || !plan?.version) {
+            return contentPath({
+                contentRoot,
+                type         : 'discussions',
+                filename,
+                itemIndex    : discussion.number - 1, // Zero-based ordinal for active tier
+                itemsPerChunk: issueSyncConfig.archiveChunkThreshold,
+                chunkPrefix  : issueSyncConfig.archiveChunkPrefix
+            });
         }
 
-        const plan = archivePlan.get(discussion.number);
-
-        // No archive plan = no release-version applies = closed-post-latest-release.
-        // Keep in active per Epic #11187 mental model. Previous behavior returned null (caller
-        // would skip the discussion); now returns the active flat path so closed-but-pre-release
-        // discussions still flow through sync. Consistent with IssueSyncer/PullRequestSyncer.
-        if (!plan?.version) {
-            return path.join(issueSyncConfig.discussionsDir, filename);
-        }
-
-        return archivePath({
-            archiveRoot          : issueSyncConfig.archiveRoot,
-            archiveChunkThreshold: issueSyncConfig.archiveChunkThreshold,
-            archiveChunkPrefix   : issueSyncConfig.archiveChunkPrefix,
-            type                 : 'discussions',
-            version              : plan.version,
-            filename             : filename,
-            itemCount            : plan.itemCount,
-            itemIndex            : plan.itemIndex
+        return contentPath({
+            contentRoot,
+            type         : 'discussions',
+            version      : plan.version,
+            filename,
+            itemIndex    : plan.itemIndex,
+            itemsPerChunk: issueSyncConfig.archiveChunkThreshold,
+            chunkPrefix  : issueSyncConfig.archiveChunkPrefix
         });
     }
 
@@ -314,6 +315,8 @@ class DiscussionSyncer extends Base {
         
         // Cache for the main orchestrator to merge
         metadata.discussions = {};
+        const indexEntries = [];
+        
         allDiscussions.forEach(d => {
             metadata.discussions[d.number] = {
                 number: d.number,
@@ -322,7 +325,25 @@ class DiscussionSyncer extends Base {
                 contentHash: d.contentHash,
                 path: d.relativeOutputPath
             };
+            
+            const plan = archivePlan.get(d.number);
+            
+            indexEntries.push(createContentIndexEntry({
+                issueSyncConfig,
+                type: 'discussions',
+                id: d.number,
+                filePath: path.resolve(aiConfig.projectRoot, d.relativeOutputPath),
+                itemIndex: plan ? plan.itemIndex : (d.number - 1),
+                version: plan?.version || null,
+                bucket: null
+            }));
         });
+
+        try {
+            await updateContentIndex(issueSyncConfig, {upsert: indexEntries});
+        } catch (e) {
+            logger.warn(`⚠️ Could not update _index.json for discussions: ${e.message}`);
+        }
 
         if (stats.count > 0) {
             logger.info(`✨ Interacted and synced ${stats.count} modified discussions to disk.`);

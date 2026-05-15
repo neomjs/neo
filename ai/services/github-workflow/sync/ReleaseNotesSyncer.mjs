@@ -177,7 +177,7 @@ class ReleaseNotesSyncer extends Base {
      */
     async syncNotes(metadata) {
         logger.info('📄 Syncing release notes...');
-        const baseDir = path.resolve(aiConfig.projectRoot, 'resources/content');
+        const baseDir = issueSyncConfig.contentRoot;
         const releaseDir = contentBucketDir({
             contentRoot: baseDir,
             type: 'release-notes'

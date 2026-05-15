@@ -9,8 +9,8 @@ import GraphqlService                                from '../GraphqlService.mjs
 import ReleaseNotesSyncer                                 from './ReleaseNotesSyncer.mjs';
 import {FETCH_ISSUE_TIMELINE_PAGE, FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries.mjs';
 import {GET_ISSUE_ID, UPDATE_ISSUE}                                                                        from '../queries/mutations.mjs';
-import chunkPath                                        from '../shared/chunkPath.mjs';
-import archivePath, {validateArchiveConfig}             from '../shared/archivePath.mjs';
+import contentPath                                      from '../shared/contentPath.mjs';
+import {createContentIndexEntry, updateContentIndex}    from '../shared/contentIndex.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const lineBreaksRegex = /[\r\n]+/g;
@@ -266,7 +266,6 @@ class IssueSyncer extends Base {
      * @private
      */
     #planArchiveBuckets(metadata, fetchedIssues = []) {
-        validateArchiveConfig(issueSyncConfig);
         const combined = new Map();
         
         for (const [idStr, issue] of Object.entries(metadata.issues || {})) {
@@ -369,7 +368,6 @@ class IssueSyncer extends Base {
      */
     #getIssuePath(issue, archivePlan = new Map()) {
         const filename = `${issueSyncConfig.issueFilenamePrefix}${issue.number}.md`;
-        const chunkDir = chunkPath(issue.number);
 
         // Handle both GraphQL (issue.labels.nodes) and potential direct array
         const labels = issue.labels?.nodes
@@ -381,9 +379,16 @@ class IssueSyncer extends Base {
             return null; // Dropped issues are not stored locally.
         }
 
+        const contentRoot = issueSyncConfig.contentRoot;
+
         // OPEN issues are always in the main directory
         if (issue.state === 'OPEN') {
-            return path.join(issueSyncConfig.issuesDir, chunkDir, filename);
+            return contentPath({
+                contentRoot,
+                type: 'issues',
+                filename,
+                itemIndex: issue.number
+            });
         }
 
         // Logic for CLOSED issues
@@ -395,18 +400,22 @@ class IssueSyncer extends Base {
             // are created at release-cut by publish.mjs, never pre-staged. The previous
             // `'unversioned'` fallback created the architectural bug fixed by #11360.
             if (!plan?.version) {
-                return path.join(issueSyncConfig.issuesDir, chunkDir, filename);
+                return contentPath({
+                    contentRoot,
+                    type: 'issues',
+                    filename,
+                    itemIndex: issue.number
+                });
             }
 
-            return archivePath({
-                archiveRoot          : issueSyncConfig.archiveRoot,
-                archiveChunkThreshold: issueSyncConfig.archiveChunkThreshold,
-                archiveChunkPrefix   : issueSyncConfig.archiveChunkPrefix,
-                type                 : 'issues',
-                version              : plan.version,
-                filename             : filename,
-                itemCount            : plan.itemCount || 1,
-                itemIndex            : plan.itemIndex || 0
+            return contentPath({
+                contentRoot,
+                type: 'issues',
+                version: plan.version,
+                filename,
+                itemIndex: plan.itemIndex || 0,
+                itemsPerChunk: issueSyncConfig.archiveChunkThreshold,
+                chunkPrefix: issueSyncConfig.archiveChunkPrefix
             });
         }
 
@@ -499,6 +508,8 @@ class IssueSyncer extends Base {
             dropped: { count: 0, issues: [] }
         };
 
+        const indexMutations = {upsert: [], remove: []};
+
         const archivePlan = this.#planArchiveBuckets(metadata, allIssues);
 
         // Process each issue
@@ -545,6 +556,8 @@ class IssueSyncer extends Base {
                 }
                 // Remove from metadata
                 delete newMetadata.issues[issueNumber];
+                
+                indexMutations.remove.push({ type: 'issues', id: issueNumber });
                 continue;
             }
 
@@ -596,6 +609,17 @@ class IssueSyncer extends Base {
                 contentHash,                                    // Store hash for push comparison
                 commentsTotal: this.#countTimelineComments(issue) // Derived from the exhausted timeline — #10110
             };
+
+            const plan = archivePlan.get(issueNumber);
+            indexMutations.upsert.push(createContentIndexEntry({
+                issueSyncConfig,
+                type: 'issues',
+                id: issueNumber,
+                filePath: this.#resolvePath(this.#relativePath(targetPath)),
+                itemIndex: plan ? plan.itemIndex : issueNumber,
+                version: issue.state === 'OPEN' ? null : plan?.version || null,
+                bucket: null
+            }));
         }
 
         /*
@@ -657,10 +681,16 @@ class IssueSyncer extends Base {
 
         if (relatedIssuesToUpdate.size > 0) {
             logger.info(`🔄 Force-updating ${relatedIssuesToUpdate.size} related issues due to relationship activity...`);
-            const refetchStats = await this.refetchIssuesByNumber([...relatedIssuesToUpdate], newMetadata);
+            const refetchStats = await this.refetchIssuesByNumber([...relatedIssuesToUpdate], newMetadata, indexMutations);
             stats.pulled.count   += refetchStats.refetched.count;
             stats.pulled.updated += refetchStats.refetched.count;
             stats.pulled.issues.push(...refetchStats.refetched.issues);
+        }
+
+        try {
+            await updateContentIndex(issueSyncConfig, indexMutations);
+        } catch (e) {
+            logger.warn(`⚠️ Could not update _index.json for issues: ${e.message}`);
         }
 
         return { newMetadata, stats };
@@ -685,9 +715,10 @@ class IssueSyncer extends Base {
      *
      * @param {Array<number>|Set<number>} numbers The issue numbers to refetch.
      * @param {object} metadata The sync metadata object (mutated in place).
+     * @param {object} [indexMutations=null] Optional accumulator for _index.json updates
      * @returns {Promise<{refetched: {count: number, issues: number[]}, errors: Array<{issueNumber: number, error: string}>}>}
      */
-    async refetchIssuesByNumber(numbers, metadata) {
+    async refetchIssuesByNumber(numbers, metadata, indexMutations = null) {
         const stats = {refetched: {count: 0, issues: []}, errors: []};
         const list  = [...numbers];
 
@@ -717,7 +748,12 @@ class IssueSyncer extends Base {
 
                 const archivePlan = this.#planArchiveBuckets(metadata, [issue]);
                 const targetPath = this.#getIssuePath(issue, archivePlan);
-                if (!targetPath) continue;
+                if (!targetPath) {
+                    if (indexMutations) {
+                        indexMutations.remove.push({ type: 'issues', id: issueNumber });
+                    }
+                    continue;
+                }
 
                 const markdown    = this.#formatIssueMarkdown(issue);
                 const contentHash = this.#calculateContentHash(markdown);
@@ -739,6 +775,19 @@ class IssueSyncer extends Base {
                     contentHash,
                     commentsTotal: this.#countTimelineComments(issue) // Derived from the exhausted timeline — #10110
                 };
+
+                if (indexMutations) {
+                    const plan = archivePlan.get(issueNumber);
+                    indexMutations.upsert.push(createContentIndexEntry({
+                        issueSyncConfig,
+                        type: 'issues',
+                        id: issueNumber,
+                        filePath: this.#resolvePath(this.#relativePath(targetPath)),
+                        itemIndex: plan ? plan.itemIndex : issueNumber,
+                        version: issue.state === 'OPEN' ? null : plan?.version || null,
+                        bucket: null
+                    }));
+                }
             } catch (e) {
                 logger.error(`Failed to refetch issue #${issueNumber}: ${e.message}`);
                 stats.errors.push({issueNumber, error: e.message});
