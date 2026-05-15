@@ -22,7 +22,7 @@ import aiConfig       from '../../../../../../ai/mcp/server/memory-core/config.m
 test.describe.serial('TextEmbeddingService #11393 — openAiCompatible retry on model unload', () => {
     let SDK, TextEmbeddingService, server;
     let requestCount = 0;
-    let serverBehavior = 'succeed'; // 'succeed', 'fail-then-succeed', 'fail-all'
+    let serverBehavior = 'succeed'; // 'succeed', 'fail-then-succeed', 'fail-all', 'fail-shape-b-then-succeed', 'fail-all-shape-b'
     let testPort;
     let originalHost, originalRetryCount, originalRetryDelay;
 
@@ -48,6 +48,17 @@ test.describe.serial('TextEmbeddingService #11393 — openAiCompatible retry on 
             } else if (serverBehavior === 'fail-all') {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'Model was unloaded while the request was still in queue..' }));
+            } else if (serverBehavior === 'fail-shape-b-then-succeed') {
+                if (requestCount === 1) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'Failed to load model "text-embedding-qwen3-embedding-8b". Error: Operation canceled.' }));
+                } else {
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ data: [{ embedding: [0.7, 0.8, 0.9] }] }));
+                }
+            } else if (serverBehavior === 'fail-all-shape-b') {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Failed to load model "text-embedding-qwen3-embedding-8b". Error: Operation canceled.' }));
             } else if (serverBehavior === 'fail-other') {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'Some other bad request error' }));
@@ -99,6 +110,24 @@ test.describe.serial('TextEmbeddingService #11393 — openAiCompatible retry on 
         
         await expect(TextEmbeddingService.embedText('hello', 'openAiCompatible'))
             .rejects.toThrow(/Model was unloaded/);
+            
+        // Initial request + 2 retries = 3 total requests
+        expect(requestCount).toBe(3);
+    });
+    
+    test('first-call-fails-shape-b-second-call-succeeds path with mock client', async () => {
+        serverBehavior = 'fail-shape-b-then-succeed';
+        const result = await TextEmbeddingService.embedText('hello', 'openAiCompatible');
+        expect(result).toEqual([0.7, 0.8, 0.9]);
+        expect(requestCount).toBe(2);
+    });
+
+    test('exhausted-retry-final-failure path with shape b', async () => {
+        serverBehavior = 'fail-all-shape-b';
+        aiConfig.openAiCompatible.unloadRetryCount = 2; // N=2
+        
+        await expect(TextEmbeddingService.embedText('hello', 'openAiCompatible'))
+            .rejects.toThrow(/Failed to load model.*Operation canceled/);
             
         // Initial request + 2 retries = 3 total requests
         expect(requestCount).toBe(3);
