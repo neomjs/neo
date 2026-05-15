@@ -1,7 +1,6 @@
 ---
 name: ticket-triage
-description: Authoritative protocol for maintainer-side label triage of unlabeled contributor tickets. Codifies the social contract for what happens when a ticket arrives without `ai`, primary (`bug`/`enhancement`/`epic`), or secondary labels.
-triggers: Use this skill when an agent with maintainer permissions (`WRITE` permission or higher) encounters a ticket lacking `ai`, primary, or secondary labels — typically authored by a non-maintainer contributor or a lower-privileged agent who couldn't apply labels at create-time.
+description: "Authoritative protocol for maintainer-side label triage of unlabeled contributor tickets. Codifies the social contract for what happens when a ticket arrives without `ai`, primary (`bug`/`enhancement`/`epic`), or secondary labels. Use this skill when an agent with maintainer permissions (`WRITE` permission or higher) encounters a ticket lacking `ai`, primary, or secondary labels — typically authored by a non-maintainer contributor or a lower-privileged agent who couldn't apply labels at create-time."
 ---
 
 # Ticket Triage Skill

@@ -1,7 +1,6 @@
 ---
 name: whitebox-e2e
-description: Standardized guide and protocol for authoring robust Whitebox End-to-End tests using the Neural Link Playwright fixture.
-triggers: Use this skill if the user asks you to write an E2E test, add end-to-end coverage, or test a component holistically.
+description: "Standardized guide and protocol for authoring robust Whitebox End-to-End tests using the Neural Link Playwright fixture. Use this skill if the user asks you to write an E2E test, add end-to-end coverage, or test a component holistically."
 ---
 # Whitebox E2E Testing Protocol
 

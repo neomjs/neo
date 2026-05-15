@@ -1,7 +1,6 @@
 ---
 name: ticket-intake
-description: Authoritative protocol defining the "Pre-Execution Reflection Gate". Mandates architectural validation, negative ROI calculation, and duplicate sweeps before an agent is permitted to begin working on a GitHub Issue.
-triggers: Use this skill immediately when assigned a new ticket, before checking out a branch or writing any codebase modifications.
+description: "Authoritative protocol defining the \"Pre-Execution Reflection Gate\". Mandates architectural validation, negative ROI calculation, and duplicate sweeps before an agent is permitted to begin working on a GitHub Issue. Use this skill immediately when assigned a new ticket, before checking out a branch or writing any codebase modifications."
 ---
 
 # Ticket Intake Skill

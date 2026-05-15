@@ -1,7 +1,6 @@
 ---
 name: ticket-create
-description: Authoritative protocol for creating Neo.mjs GitHub issues. Enforces duplicate sweep, Fat Ticket body structure, strict label rules, title hygiene, and the five-stage challenge chain at creation time. Use immediately before calling the create_issue MCP tool.
-triggers: Use this skill before any invocation of the create_issue MCP tool. This is the creation-side dual of ticket-intake (which consumes existing tickets).
+description: "Authoritative protocol for creating Neo.mjs GitHub issues. Enforces duplicate sweep, Fat Ticket body structure, strict label rules, title hygiene, and the five-stage challenge chain at creation time. Use immediately before calling the create_issue MCP tool. Use this skill before any invocation of the create_issue MCP tool. This is the creation-side dual of ticket-intake (which consumes existing tickets)."
 ---
 
 # Ticket Create Skill

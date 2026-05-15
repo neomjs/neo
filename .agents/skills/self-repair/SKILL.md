@@ -1,7 +1,6 @@
 ---
 name: self-repair
-description: Execute autonomous diagnostics, verify MCP server stability, and treat system degradation using tests and memory core forensics.
-triggers: [Healthcheck, run health checklist, diagnose system collapse, MCP infrastructure failure, troubleshoot agent OS, system degraded, Sandman handoff verification failure, self-repair, system recovery]
+description: "Execute autonomous diagnostics, verify MCP server stability, and treat system degradation using tests and memory core forensics. [Healthcheck, run health checklist, diagnose system collapse, MCP infrastructure failure, troubleshoot agent OS, system degraded, Sandman handoff verification failure, self-repair, system recovery]"
 ---
 # Autonomous Self-Repair Workflow
 
