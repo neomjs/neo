@@ -62,11 +62,11 @@ Based on these axes, every section in the instruction substrate receives a **Dis
 | §10 Testing Protocol | `compress-to-trigger` | DISCIPLINE-ONLY | High depth, tripwire needs pointer. | - |
 | §11 File Editing | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Frequent operation with strict tool limits. | - |
 | §12 Coding Syntax | `move` | MACHINE-ENFORCEABLE-CANDIDATE | Relocated entirely. | - |
-| §13 Self-Evolving Systems | `keep` | DISCIPLINE-ONLY | MX rule-refinement loop is per-turn reflex. | - |
-| §13.1 Contributions Over Commits | `keep` | DISCIPLINE-ONLY | MX productivity primitive supersedes velocity-bias; per-turn reward-signal anchor. | - |
+| §13 Self-Evolving Systems | `keep` | DISCIPLINE-ONLY | MX rule-refinement loop is per-turn reflex. | `recursive-reload-required` |
+| §13.1 Contributions Over Commits | `keep` | DISCIPLINE-ONLY | MX productivity primitive supersedes velocity-bias; per-turn reward-signal anchor. | `recursive-reload-required` |
 | §14 Sunset Protocol | `compress-to-trigger`| MACHINE-ENFORCEABLE-CANDIDATE | Session termination gate. | - |
 | §15 Knowledge Base | `compress-to-trigger`| DISCIPLINE-ONLY | §15.5 Neo Identity Anchor in main as anti-drift; §15.1-15.4 in Atlas. | - |
-| §15.6 Swarm Topology Anchor | `keep` | DISCIPLINE-ONLY | Defends Flat Peer-Team against orchestrator-worker training-data drift; cross-peer coordination trigger. | - |
+| §15.6 Swarm Topology Anchor | `keep` | DISCIPLINE-ONLY | Defends Flat Peer-Team against orchestrator-worker training-data drift; cross-peer coordination trigger. | `recursive-reload-required` |
 | §16 Implementation Loop | `move` | DISCIPLINE-ONLY | High depth workflow. | - |
 | §17 Virtuous Cycle | `move` | DISCIPLINE-ONLY | High depth workflow. | - |
 | §18 Session Maintenance | `move` | DISCIPLINE-ONLY | High depth workflow. | - |
@@ -75,6 +75,12 @@ Based on these axes, every section in the instruction substrate receives a **Dis
 | §21 Workflow Skills | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | The routing table is frequent. | `recursive-reload-required` |
 | §22 Mailbox Check | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Turn-start invariant. | - |
 | §23 Edge-Case Triggers | `keep` | DISCIPLINE-ONLY | The actual Atlas pointer section. | - |
+
+### 2.2 The Post-Pruning-Recurrence-Rate (Phase C Sub-Axis)
+
+As long-running sessions compress older messages, implicit behavioral disciplines often decay due to context pruning. To combat "Zero-State Amnesia", critical anchors (e.g., swarm topology defense, self-evolving MX loops, and workflow triggers) receive a `recursive-reload-required` annotation. 
+
+The **Post-Pruning-Recurrence-Rate** sub-axis evaluates whether a rule's absence post-compression leads to a recurrence of the pre-training regression drift it was designed to fix. If the recurrence rate is high (e.g., the agent rapidly reverts to "Helpful Assistant" deference or Orchestrator/Worker hierarchical paradigms), the anchor must be marked as `recursive-reload-required` to shield it from Phase C pruning algorithms.
 
 ---
 
