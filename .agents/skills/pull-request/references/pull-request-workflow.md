@@ -231,6 +231,7 @@ To prevent redundant parallel effort and reviewer collision, you MUST adhere to 
      - Include `Requested action: use /pr-review on PR #N` — naming the skill literally is mandatory; mechanically loads the receiving peer's `pr-review-template.md` + structured-eval discipline + graph-ingestion section structure. Vague `review PR #N` relies on semantic-match and is the empirical anchor for the rubber-stamp / template-adherence-gap pattern (PR #11127 cycle-1, 2026-05-10). Mirror of §6.4's remediation idiom applied at initial routing time.
      - Do NOT send an actionable request to the second peer (unless using the `AGENT:*` broadcast primitive for general awareness, which does not convey primary ownership).
    - *Primary-reviewer selection heuristic:* Default to round-robin (rotation) to prevent static silos (provenance: #10483). Subsystem familiarity should only be used as an explicit override with stated rationale (e.g., "Assigning @neo-gpt because they authored this abstraction in PR #X"). Do not use pure random selection.
+   - *FAIR-band follow-up:* Authors request one primary reviewer; the reviewer then follows the FAIR-band pickup discipline after the review handoff (see `.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md`).
 
 2. **Reviewer SLA & Decline Protocol:**
    - **24-Hour Response Window:** The assigned `primary-reviewer` has 24 hours to provide an initial review.
