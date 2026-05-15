@@ -27,7 +27,7 @@ Before running the six-stage chain, pull the following context:
    - `get_context_frontier()` — Golden Path authoritative routing
    - `query_summaries({query: '<epic-subject>'})` — historical session context on the topic
    - `query_raw_memories({query: '<epic-subject>'})` — finer-grained reasoning trails
-4. **Duplicate sweep.** Has a similar epic been filed and either closed or superseded? Check `resources/content/issues/` and `resources/content/issue-archive/` before running stage 1.
+4. **Duplicate sweep.** Has a similar epic been filed and either closed or superseded? Check `resources/content/issues/` (active and archived) before running stage 1.
 
 ## 3. The Six-Stage Chain
 
