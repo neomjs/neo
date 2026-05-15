@@ -11,6 +11,28 @@ import logger from '../../mcp/server/memory-core/logger.mjs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
+const loadIndexMap = async (neoRootDir, type) => {
+    const map = new Map();
+    const typeIndex = path.resolve(neoRootDir, `resources/content/${type}/_index.json`);
+    const rootIndex = path.resolve(neoRootDir, 'resources/content/_index.json');
+
+    let entries = [];
+    if (fs.existsSync(typeIndex)) {
+        entries = JSON.parse(await fs.promises.readFile(typeIndex, 'utf-8'));
+    } else if (fs.existsSync(rootIndex)) {
+        const rootEntries = JSON.parse(await fs.promises.readFile(rootIndex, 'utf-8'));
+        entries = rootEntries.filter(e => e.type === type);
+    }
+
+    for (const entry of entries) {
+        if (entry.path) {
+            map.set(path.normalize(entry.path), entry.id);
+        }
+    }
+
+    return map;
+};
+
 /**
  * @class Neo.ai.daemons.services.IssueIngestor
  * @extends Neo.core.Base
@@ -54,7 +76,7 @@ class IssueIngestor extends Base {
                 logger.warn(`[IssueIngestor] Error reading issues from ${targetPath}`, e);
             }
         }
-        
+
         if (filesRaw.length === 0) {
             return [];
         }
@@ -62,6 +84,10 @@ class IssueIngestor extends Base {
         const files = filesRaw;
         const openIssues = [];
         const parsedIssues = [];
+
+        const neoRootDir = path.resolve(__dirname, '../../..');
+        const contentRoot = path.join(neoRootDir, 'resources/content');
+        const indexMap = await loadIndexMap(neoRootDir, 'issues');
 
         let nodesCollection = null;
         if (StorageRouter) {
@@ -76,7 +102,12 @@ class IssueIngestor extends Base {
                 try {
                     const meta = yaml.load(match[1]);
                     if (meta && meta.state) {
-                        const issueId = 'issue-' + (meta.id || path.basename(file).replace(/\.md$/, ''));
+                        const relativeToContent = path.relative(contentRoot, filePath);
+                        let id = indexMap.get(relativeToContent);
+                        if (id === undefined) {
+                            id = meta.id || path.basename(filePath).replace(/\.md$/, '').replace(/^issue-/, '');
+                        }
+                        const issueId = 'issue-' + id;
 
                         GraphService.upsertNode({
                             id: issueId,
@@ -90,10 +121,10 @@ class IssueIngestor extends Base {
                             updatedAt: meta.updatedAt || meta.createdAt
                         });
 
-                        parsedIssues.push({ issueId, meta, content, file });
+                        parsedIssues.push({ issueId, meta, content, filePath });
                     }
                 } catch (e) {
-                    logger.warn(`[IssueIngestor] Failed to parse frontmatter for ${file}`, e);
+                    logger.warn(`[IssueIngestor] Failed to parse frontmatter for ${filePath}`, e);
                 }
             }
         }
@@ -105,7 +136,7 @@ class IssueIngestor extends Base {
             return m ? `issue-${m[1]}` : null;
         };
 
-        for (const { issueId, meta, content, file } of parsedIssues) {
+        for (const { issueId, meta, content, filePath } of parsedIssues) {
             try {
                 if (meta.parentIssue) {
                     const parentId = extractIssueId(meta.parentIssue);
@@ -211,13 +242,15 @@ class IssueIngestor extends Base {
                     }
 
                     openIssues.push({
+                        sourceType: 'ISSUE',
+                        issueId: issueId || meta.id || path.basename(filePath).replace(/\.md$/, ''),
+                        createdAt: meta.createdAt,
                         title: meta.title,
-                        issueId: meta.id || path.basename(file).replace(/\.md$/, ''),
                         body
                     });
                 }
             } catch (e) {
-                logger.warn(`[IssueIngestor] Failed to link edges for ${file}`, e);
+                logger.warn(`[IssueIngestor] Failed to link edges for ${filePath}`, e);
             }
         }
 
@@ -246,7 +279,11 @@ class IssueIngestor extends Base {
                 logger.warn(`[IssueIngestor] Error reading discussions from ${targetPath}`, e);
             }
         }
-        
+
+        const neoRootDir = path.resolve(__dirname, '../../..');
+        const contentRoot = path.join(neoRootDir, 'resources/content');
+        const indexMap = await loadIndexMap(neoRootDir, 'discussions');
+
         let nodesCollection = null;
         try {
             nodesCollection = await StorageRouter.getGraphCollection();
@@ -260,8 +297,13 @@ class IssueIngestor extends Base {
             if (match) {
                 try {
                     const meta = yaml.load(match[1]);
-                    if (meta && meta.number) {
-                        const discussionId = `discussion-${meta.number}`;
+                    if (meta) {
+                        const relativeToContent = path.relative(contentRoot, filePath);
+                        let id = indexMap.get(relativeToContent);
+                        if (id === undefined) {
+                            id = meta.number || path.basename(filePath).replace(/\.md$/, '').replace(/^discussion-/, '');
+                        }
+                        const discussionId = `discussion-${id}`;
 
                         GraphService.upsertNode({
                             id: discussionId,
@@ -300,7 +342,7 @@ class IssueIngestor extends Base {
                         }
                     }
                 } catch (e) {
-                    logger.warn(`[IssueIngestor] Failed to parse frontmatter for ${file}`, e);
+                    logger.warn(`[IssueIngestor] Failed to parse frontmatter for ${filePath}`, e);
                 }
             }
         }
@@ -329,14 +371,23 @@ class IssueIngestor extends Base {
             }
         }
 
+        const neoRootDir = path.resolve(__dirname, '../../..');
+        const contentRoot = path.join(neoRootDir, 'resources/content');
+        const indexMap = await loadIndexMap(neoRootDir, 'pulls');
+
         for (const filePath of files) {
             const content = fs.readFileSync(filePath, 'utf8');
             const match = content.match(/^---\n([\s\S]*?)\n---/);
             if (match) {
                 try {
                     const meta = yaml.load(match[1]);
-                    if (meta && meta.number) {
-                        const prId = `pr-${meta.number}`;
+                    if (meta) {
+                        const relativeToContent = path.relative(contentRoot, filePath);
+                        let id = indexMap.get(relativeToContent);
+                        if (id === undefined) {
+                            id = meta.number || path.basename(filePath).replace(/\.md$/, '').replace(/^pr-/, '');
+                        }
+                        const prId = `pr-${id}`;
 
                         // Upsert the PR node structurally
                         GraphService.upsertNode({
@@ -354,7 +405,7 @@ class IssueIngestor extends Base {
                             if (gapMatch) {
                                 const gapType = gapMatch[1]; // KB_GAP, TOOLING_GAP, RETROSPECTIVE
                                 const gapContent = gapMatch[2].replace(/^[\`\*:\s]+/, '').trim();
-                                
+
                                 if (!gapContent) continue;
 
                                 // Generate deterministic ID based on PR and Gap Content
@@ -365,7 +416,7 @@ class IssueIngestor extends Base {
                                 GraphService.upsertNode({
                                     id: gapNodeId,
                                     type: gapType,
-                                    name: `${gapType} from PR #${meta.number}`,
+                                    name: `${gapType} from PR #${id}`,
                                     description: gapContent,
                                     properties: {
                                         sourcePr: prId,
@@ -375,12 +426,12 @@ class IssueIngestor extends Base {
 
                                 // Create Hebbian edges
                                 GraphService.linkNodes(gapNodeId, prId, 'DISCOVERED_IN', 1.0, {
-                                    justification: `Extracted from PR #${meta.number} feedback.`
+                                    justification: `Extracted from PR #${id} feedback.`
                                 });
                                 GraphService.linkNodes(prId, gapNodeId, 'EVALUATED_BY', 1.0, {
-                                    justification: `Gap evaluated during PR #${meta.number} review.`
+                                    justification: `Gap evaluated during PR #${id} review.`
                                 });
-                                
+
                                 logger.debug(`[IssueIngestor] Ingested ${gapType} from ${prId}: ${gapNodeId}`);
                             }
                         }
@@ -393,14 +444,14 @@ class IssueIngestor extends Base {
 
                             // Create Hebbian edge for PR resolving Issue
                             GraphService.linkNodes(prId, issueNodeId, 'RESOLVES', 1.0, {
-                                justification: `PR #${meta.number} explicitly resolves Issue #${issueNumber}.`
+                                justification: `PR #${id} explicitly resolves Issue #${issueNumber}.`
                             });
 
                             logger.debug(`[IssueIngestor] Linked PR ${prId} as resolving ${issueNodeId}`);
                         }
                     }
                 } catch (e) {
-                    logger.warn(`[IssueIngestor] Failed to process pull request feedback for ${file}`, e);
+                    logger.warn(`[IssueIngestor] Failed to process pull request feedback for ${filePath}`, e);
                 }
             }
         }
