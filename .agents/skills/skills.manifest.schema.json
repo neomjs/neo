@@ -21,6 +21,18 @@
       "required": ["routerByteBudget", "payloadBudget", "claudeSymlinkRequired", "downstreamDocsTargets"],
       "additionalProperties": false,
       "properties": {
+        "oversizedWorkflowMaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of files that are historically oversized and locked against substantive positive growth."
+        },
+        "maxPositiveDeltaBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Allowed net-positive bytes (for 1-line pointers) on oversized files. Typical pointer is ~150 bytes."
+        },
         "routerByteBudget": {
           "type": "integer",
           "minimum": 1
