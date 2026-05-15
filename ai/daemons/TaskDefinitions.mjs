@@ -41,6 +41,13 @@ export function buildTaskDefinitions({scriptDir = DEFAULT_SCRIPT_DIR, nodeBin = 
             pidFileName    : 'chroma.pid',
             expectedCommand: 'chroma'
         },
+        memoryCoreChroma: {
+            label          : 'memory core chroma',
+            command        : 'chroma',
+            args           : ['run', '--path', '.neo-ai-data/chroma/memory-core', '--port', '8001'],
+            pidFileName    : 'mc-chroma.pid',
+            expectedCommand: 'chroma'
+        },
         bridgeDaemon: {
             label          : 'bridge daemon',
             command        : nodeBin,
@@ -51,7 +58,7 @@ export function buildTaskDefinitions({scriptDir = DEFAULT_SCRIPT_DIR, nodeBin = 
         mlx: {
             label          : 'mlx inference',
             command        : path.resolve(scriptDir, '../mcp/server/memory-core/.venv/bin/python'),
-            args           : ['-m', 'mlx_lm.server', '--model', 'gemma4:31b', '--port', '11435'],
+            args           : ['-m', 'mlx_lm.server', '--model', 'mlx-community/gemma-2-27b-it-4bit', '--port', '11435'],
             pidFileName    : 'mlx.pid',
             expectedCommand: 'mlx_lm.server'
         },
