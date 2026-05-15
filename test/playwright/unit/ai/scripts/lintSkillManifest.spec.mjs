@@ -4,6 +4,7 @@ import path                      from 'path';
 
 import {
     checkPerFileBudgets,
+    checkSectionTriggers,
     parseArgs,
     parseFrontmatter,
     validateManifestSchema
@@ -301,5 +302,38 @@ test.describe('ai/scripts/lint-skill-manifest (#11275)', () => {
         }, schema);
 
         expect(errors).toEqual([]);
+    });
+
+    test('checkSectionTriggers returns no errors for sections without triggers or below size threshold (#11320)', () => {
+        const text = `
+## §1 Short Section
+<!-- trigger: this is an edge-case → read ./sub-rule.md -->
+Just a short body, well under 5000 bytes.
+        `;
+        expect(checkSectionTriggers('test.md', text, ['edge-case'])).toEqual([]);
+    });
+
+    test('checkSectionTriggers returns no errors for large sections without rare triggers (#11320)', () => {
+        const padding = 'A'.repeat(6000);
+        const text = `
+## §2 Large Common Section
+<!-- trigger: always relevant → read ./sub-rule.md -->
+${padding}
+        `;
+        expect(checkSectionTriggers('test.md', text, ['edge-case', 'openapi'])).toEqual([]);
+    });
+
+    test('checkSectionTriggers returns error for large sections with rare triggers (#11320)', () => {
+        const padding = 'B'.repeat(6000);
+        const text = `
+## §3 OpenAPI Edge Case
+<!-- trigger: modifies openapi.yaml → read ./openapi-audit.md -->
+${padding}
+        `;
+        const errors = checkSectionTriggers('.agents/skills/example/references/test.md', text, ['edge-case', 'openapi']);
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toContain('.agents/skills/example/references/test.md §3 OpenAPI Edge Case is ');
+        expect(errors[0]).toContain("bytes with declared trigger 'modifies openapi.yaml' (rare-firing class)");
+        expect(errors[0]).toContain("Extract to sub-rule sibling file behind one-line trigger pointer per skill-authoring-guide.md §Map vs World Atlas.");
     });
 });

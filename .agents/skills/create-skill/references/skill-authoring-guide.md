@@ -129,6 +129,7 @@ Map vs World Atlas applies **recursively**. A workflow file (`references/<workfl
 - `perFilePayloadBudget` per-skill (or `defaults.perFilePayloadBudget`) — lint fails any individual file in `references/` exceeding the cap
 - Default: 25,000 bytes (25 KB) — empirical-floor for clean skills
 - Temporary per-skill overrides for migration-period monoliths (e.g., `pr-review` at 66000, `pull-request` at 38000) — to be tightened as Sub-B+ migrations land
+- `checkSectionTriggers` heuristic: sections larger than 5,000 bytes declaring a rare-firing trigger (e.g., 'openapi', 'audit', 'deprecation', 'edge-case') are flagged for extraction to a sibling file.
 
 **Empirical precedent:**
 - `pull-request` skill: workflow + 4 sub-rule siblings (`env-var-rename-rule.md`, `mcp-config-template-change-guide.md`, `sync-all-constraints.md`, `review-response-protocol.md`) — each conditionally loaded per workflow body trigger pointer

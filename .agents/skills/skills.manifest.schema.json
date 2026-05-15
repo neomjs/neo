@@ -34,6 +34,13 @@
           "minimum": 1,
           "description": "Optional per-individual-file byte ceiling within references/. Defaults to disabled when omitted. Recursive Map vs World Atlas enforcement per #11314 / #11319 / #11320."
         },
+        "rareTriggerPatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional list of substrings that classify a section-trigger as rare-firing for lint heuristics."
+        },
         "claudeSymlinkRequired": {
           "type": "boolean"
         },
