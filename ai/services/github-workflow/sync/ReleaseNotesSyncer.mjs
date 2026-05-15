@@ -35,17 +35,18 @@ class ReleaseNotesSyncer extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * @member {Object} releases=null
+         * @protected
+         */
+        releases: null,
+        /**
+         * @member {Array} sortedReleases=null
+         * @protected
+         */
+        sortedReleases: null
     }
-
-    /**
-     * @member {Object} releases=null
-     */
-    releases = null;
-    /**
-     * @member {Array} sortedReleases=null
-     */
-    sortedReleases = null;
 
     /**
      * Calculates a SHA-256 hash of the given content for change detection.
@@ -94,6 +95,10 @@ class ReleaseNotesSyncer extends Base {
                     latestRelease.publishedAt === cachedLatest.publishedAt) {
                     logger.info(`✅ Releases are up-to-date (latest: ${latestRelease.tagName})`);
                     this.releases = cachedReleases;
+                    this.sortedReleases = cachedReleaseArray.map(r => ({
+                        tagName    : r.tagName,
+                        publishedAt: r.publishedAt
+                    }));
                     return;
                 }
 
@@ -182,7 +187,7 @@ class ReleaseNotesSyncer extends Base {
             contentRoot: baseDir,
             type: 'release-notes'
         });
-        
+
         await fs.mkdir(releaseDir, { recursive: true });
 
         const indexMap = {

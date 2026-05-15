@@ -84,7 +84,7 @@ class DiscussionSyncer extends Base {
      */
     #planArchiveBuckets(metadata, fetchedDiscussions = []) {
         const combined = new Map();
-        
+
         for (const [idStr, discussion] of Object.entries(metadata.discussions || {})) {
             combined.set(parseInt(idStr, 10), {
                 number: parseInt(idStr, 10),
@@ -92,7 +92,7 @@ class DiscussionSyncer extends Base {
                 closedAt: discussion.closedAt
             });
         }
-        
+
         for (const discussion of fetchedDiscussions) {
             combined.set(discussion.number, {
                 number: discussion.number,
@@ -100,9 +100,9 @@ class DiscussionSyncer extends Base {
                 closedAt: discussion.closedAt
             });
         }
-        
+
         const buckets = new Map();
-        
+
         for (const discussion of combined.values()) {
             if (!discussion.closed) continue;
 
@@ -130,12 +130,12 @@ class DiscussionSyncer extends Base {
             }
             buckets.get(version).push(discussion.number);
         }
-        
+
         const archivePlan = new Map();
-        
+
         for (const [bucketName, items] of buckets.entries()) {
             items.sort((a, b) => a - b);
-            
+
             items.forEach((id, index) => {
                 archivePlan.set(id, {
                     version  : bucketName,
@@ -144,7 +144,7 @@ class DiscussionSyncer extends Base {
                 });
             });
         }
-        
+
         return archivePlan;
     }
 
@@ -219,7 +219,7 @@ class DiscussionSyncer extends Base {
 
             hasNextPage = discussions.pageInfo.hasNextPage;
             cursor      = discussions.pageInfo.endCursor;
-            
+
             // To prevent massive queries, limit to say a max amount for safety.
             if (allDiscussions.length >= 200) {
                 break;
@@ -255,7 +255,7 @@ class DiscussionSyncer extends Base {
                     body += '\n\n## Comments\n\n';
                     for (const comment of discussion.comments.nodes) {
                         body += `### \`@${comment.author?.login || 'unknown'}\` commented on ${comment.createdAt}\n\n${comment.body}\n\n`;
-                        
+
                         // Parse replies if any
                         if (comment.replies && comment.replies.nodes && comment.replies.nodes.length > 0) {
                             for (const reply of comment.replies.nodes) {
@@ -282,7 +282,7 @@ class DiscussionSyncer extends Base {
                 // Diff cache
                 if (!needsUpdate && cachedDiscussion && cachedDiscussion.contentHash === currentHash) {
                     logger.debug(`Skipping discussion #${discussion.number}, content unchanged.`);
-                    
+
                     // We must still transfer the hash and path to the new run's metadata to persist it
                     discussion.contentHash = currentHash;
                     discussion.relativeOutputPath = oldPathRelative;
@@ -291,7 +291,7 @@ class DiscussionSyncer extends Base {
 
                 await fs.mkdir(path.dirname(targetPath), { recursive: true });
                 await fs.writeFile(targetPath, content, 'utf-8');
-                
+
                 if (oldAbsolutePath && oldAbsolutePath !== targetPath) {
                     try {
                         await fs.unlink(oldAbsolutePath);
@@ -302,7 +302,7 @@ class DiscussionSyncer extends Base {
                 }
 
                 logger.debug(`✅ Synced discussion #${discussion.number}`);
-                
+
                 discussion.contentHash = currentHash;
                 discussion.relativeOutputPath = this.#relativePath(targetPath);
 
@@ -312,11 +312,11 @@ class DiscussionSyncer extends Base {
                 logger.warn(`⚠️ Could not sync discussion #${discussion.number}: ${e.message}`);
             }
         }
-        
+
         // Cache for the main orchestrator to merge
         metadata.discussions = {};
         const indexEntries = [];
-        
+
         allDiscussions.forEach(d => {
             metadata.discussions[d.number] = {
                 number: d.number,
@@ -325,9 +325,9 @@ class DiscussionSyncer extends Base {
                 contentHash: d.contentHash,
                 path: d.relativeOutputPath
             };
-            
+
             const plan = archivePlan.get(d.number);
-            
+
             indexEntries.push(createContentIndexEntry({
                 issueSyncConfig,
                 type: 'discussions',

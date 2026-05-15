@@ -267,7 +267,7 @@ class IssueSyncer extends Base {
      */
     #planArchiveBuckets(metadata, fetchedIssues = []) {
         const combined = new Map();
-        
+
         for (const [idStr, issue] of Object.entries(metadata.issues || {})) {
             let oldVersion = null;
             if (issue.state === 'CLOSED' && issue.path) {
@@ -280,7 +280,7 @@ class IssueSyncer extends Base {
                     }
                 }
             }
-            
+
             combined.set(parseInt(idStr, 10), {
                 number: parseInt(idStr, 10),
                 state: issue.state,
@@ -289,7 +289,7 @@ class IssueSyncer extends Base {
                 oldVersion
             });
         }
-        
+
         for (const issue of fetchedIssues) {
             if (combined.has(issue.number)) {
                 const existing = combined.get(issue.number);
@@ -306,12 +306,12 @@ class IssueSyncer extends Base {
                 });
             }
         }
-        
+
         const buckets = new Map();
-        
+
         for (const issue of combined.values()) {
             if (issue.state !== 'CLOSED') continue;
-            
+
             let version = null;
             if (issue.milestone?.title) {
                 version = issue.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
@@ -341,7 +341,7 @@ class IssueSyncer extends Base {
             if (!buckets.has(version)) buckets.set(version, []);
             buckets.get(version).push(issue);
         }
-        
+
         const plans = new Map();
         for (const [version, issues] of buckets.entries()) {
             issues.sort((a, b) => a.number - b.number);
@@ -354,7 +354,7 @@ class IssueSyncer extends Base {
                 });
             });
         }
-        
+
         return plans;
     }
 
@@ -527,10 +527,10 @@ class IssueSyncer extends Base {
             // just because a maintainer toggled the state.
             if (oldIssue && issue.state === 'CLOSED') {
                 const wasArchived = oldAbsolutePath && oldAbsolutePath.startsWith(issueSyncConfig.archiveRoot);
-                
+
                 if (oldIssue.closedAt && issue.closedAt && oldIssue.closedAt !== issue.closedAt) {
                     logger.warn(`[ARCHIVE ANOMALY] Issue #${issueNumber} closedAt shifted: ${oldIssue.closedAt} -> ${issue.closedAt}.`);
-                    
+
                     if (wasArchived) {
                         logger.warn(`[SEALED CHUNK ENFORCEMENT] Preventing #${issueNumber} from jumping to ${targetPath}. Forcing retention at ${oldAbsolutePath}.`);
                         targetPath = oldAbsolutePath;
@@ -556,7 +556,7 @@ class IssueSyncer extends Base {
                 }
                 // Remove from metadata
                 delete newMetadata.issues[issueNumber];
-                
+
                 indexMutations.remove.push({ type: 'issues', id: issueNumber });
                 continue;
             }
@@ -934,7 +934,7 @@ class IssueSyncer extends Base {
             // CRITICAL: Only process issues in the active directory
             // Resolve path to absolute for checking location
             const currentAbsolutePath = this.#resolvePath(issueData.path);
-            
+
             if (!currentAbsolutePath || !currentAbsolutePath.startsWith(issueSyncConfig.issuesDir)) {
                 continue; // Already archived, skip it
             }
