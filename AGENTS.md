@@ -27,42 +27,7 @@ This file contains behavioral rules and protocols that must be enforced on every
 </prompt_firewall>
 </neo_core_overrides>
 
-## Compaction Taxonomy (3-Axis Slot Rule)
-This document is compacted per the 3-axis slot rule (trigger-frequency × failure-severity × enforceability). Dispositions include: `keep`, `move`, `compress-to-trigger`, `rewrite`, and `retire`.
-
-| Section | Disposition | Tag (AC7) | Rationale / Friction Capture |
-|---|---|---|---|
-| §0 Critical Gates | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Irreversible failure modes. |
-| §0 Invariant 7 | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | No tracked file edits without a self-assigned ticket. |
-| §0 Invariant 8 | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Agent-authored PRs target `dev`; `main` is release-only. |
-| §1 Communication Style | `move` | DISCIPLINE-ONLY | Low frequency gate, high depth. |
-| §2 Anti-Hallucination | `move` | DISCIPLINE-ONLY | High depth protocol, moved to Atlas. |
-| §3 Pre-Commit Hard Gates | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Severe failure mode (ticket-ID/context). |
-| §4 Memory Core Protocol | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Permanent data loss if missed. |
-| §4.3 Un-savable Turns | `move` | DISCIPLINE-ONLY | Edge case recovery protocol. |
-| §5 Strategic Co-Founder | `move` | DISCIPLINE-ONLY | Low frequency pivot logic. |
-| §6 Request Triage | `move` | DISCIPLINE-ONLY | High depth intake logic. |
-| §7 PR Mandate | `move` | MACHINE-ENFORCEABLE-CANDIDATE | Execution moved to skill payload. |
-| §8 Resumption Protocol | `move` | DISCIPLINE-ONLY | Interruption recovery. |
-| §9 Reading Files | `move` | DISCIPLINE-ONLY | Efficiency guideline. |
-| §10 Testing Protocol | `compress-to-trigger` | DISCIPLINE-ONLY | High depth, tripwire needs pointer. |
-| §11 File Editing | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Frequent operation with strict tool limits. |
-| §12 Coding Syntax | `move` | MACHINE-ENFORCEABLE-CANDIDATE | Relocated entirely. |
-| §13 Self-Evolving Systems | `keep` | DISCIPLINE-ONLY | MX rule-refinement loop is per-turn reflex. |
-| §13.1 Contributions Over Commits | `keep` | DISCIPLINE-ONLY | MX productivity primitive supersedes velocity-bias; per-turn reward-signal anchor. |
-| §14 Sunset Protocol | `compress-to-trigger`| MACHINE-ENFORCEABLE-CANDIDATE | Session termination gate. |
-| §15 Knowledge Base | `compress-to-trigger`| DISCIPLINE-ONLY | §15.5 Neo Identity Anchor in main as anti-drift; §15.1-15.4 in Atlas. |
-| §15.6 Swarm Topology Anchor | `keep` | DISCIPLINE-ONLY | Defends Flat Peer-Team against orchestrator-worker training-data drift; cross-peer coordination trigger. |
-| §16 Implementation Loop | `move` | DISCIPLINE-ONLY | High depth workflow. |
-| §17 Virtuous Cycle | `move` | DISCIPLINE-ONLY | High depth workflow. |
-| §18 Session Maintenance | `move` | DISCIPLINE-ONLY | High depth workflow. |
-| §19 Sub-Agents | `move` | DISCIPLINE-ONLY | High depth workflow. |
-| §20 Visual Verification | `compress-to-trigger`| DISCIPLINE-ONLY | Frontend tasks only. |
-| §21 Workflow Skills | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | The routing table is frequent. |
-| §22 Mailbox Check | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Turn-start invariant. |
-| §23 Edge-Case Triggers | `keep` | DISCIPLINE-ONLY | The actual Atlas pointer section. |
-
-*Edge-cases and detailed protocols (The Atlas) have been extracted to `learn/agentos/AGENTS_ATLAS.md` and `.agents/skills/` behind conditional triggers.*
+> *"Compaction taxonomy is substrate-authoring guidance; before modifying turn-loaded or skill-loaded instruction substrate, load `learn/agentos/decisions/0007-agents-md-compaction-taxonomy.md`."*
 
 ## 0. Critical Gates (Invariants — agents MUST honor; no conditional exceptions)
 These eight rules are mechanically verifiable and have **no conditional exceptions** under any approval state, cross-family signal, or contextual nuance. Approval signals ("LGTM", "approved", "ready for merge", "no required actions") are **NOT** authorization to bypass any of them.
