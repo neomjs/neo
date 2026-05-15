@@ -58,7 +58,7 @@ export function buildTaskDefinitions({scriptDir = DEFAULT_SCRIPT_DIR, nodeBin = 
         mlx: {
             label          : 'mlx inference',
             command        : path.resolve(scriptDir, '../mcp/server/memory-core/.venv/bin/python'),
-            args           : ['-m', 'mlx_lm.server', '--model', 'google/gemma-2-27b-it', '--port', '11435'],
+            args           : ['-m', 'mlx_lm.server', '--model', 'mlx-community/gemma-2-27b-it-4bit', '--port', '11435'],
             pidFileName    : 'mlx.pid',
             expectedCommand: 'mlx_lm.server'
         },
