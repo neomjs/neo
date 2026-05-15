@@ -2,9 +2,9 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * Pre-Flight (structural fast-path): authoring `ai/scripts/check-substrate-size.mjs` 
- * matches sibling pattern of `ai/scripts/lint-skill-manifest.mjs` in `ai/scripts/`; 
- * both are mechanical enforcement / CI scripts for agent substrate validation; 
+ * Pre-Flight (structural fast-path): authoring `ai/scripts/check-substrate-size.mjs`
+ * matches sibling pattern of `ai/scripts/lint-skill-manifest.mjs` in `ai/scripts/`;
+ * both are mechanical enforcement / CI scripts for agent substrate validation;
  * §23 sibling-file-lift applies; no novel directory choice.
  */
 
@@ -31,13 +31,13 @@ TARGET_FILES.forEach(file => {
         hasError = true;
         return;
     }
-    
+
     const stats = fs.statSync(fullPath);
     const size = stats.size;
     const status = size > PER_FILE_LIMIT_BYTES ? '❌ EXCEEDS' : '✅ PASS';
-    
+
     console.log(`📄 ${file.padEnd(30)} : ${size} bytes [${status}]`);
-    
+
     if (size > PER_FILE_LIMIT_BYTES) {
         hasError = true;
     }
