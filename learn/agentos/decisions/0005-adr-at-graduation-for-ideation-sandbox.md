@@ -45,12 +45,13 @@ Epic bodies currently do **double-duty** as both **workstream coordination** AND
 - **Peer-veto path:** any peer may A2A `[adr-trigger-objection]` if classification looks mis-applied (substrate-spam OR missing-authority risk)
 - **Operator-direct override:** at graduation time per AGENTS.md §0 Invariant + §15.6 Flat Peer-Team
 
-### 2.3 The merge-gate boundary
+### 2.3 Approval vs. merge-gate boundary
 
 - Epics / tickets MAY be filed pre-ADR-merge (preserves planning visibility)
-- Implementation PRs consuming the decision MUST NOT be approved/merged until the ADR is `Accepted`
-- If the ADR updates an existing decision record, the gate targets the **updated ADR file at the PR head having `Status: Accepted`**, NOT the previous accepted version
-- The PR review/body trail documents the operator/content approval for the update
+- Peer maintainers MAY approve implementation PRs consuming the decision when their review criteria pass
+- Implementation PRs consuming the decision MUST NOT merge until the ADR authority is `Accepted` at merge time
+- If the ADR updates an existing decision record, merge eligibility targets the **updated ADR file at the PR head having `Status: Accepted`**, NOT the previous accepted version
+- The PR review/body trail documents any remaining human merge/content gate without converting that pending gate into `CHANGES_REQUESTED`
 
 This preserves what the substrate already has (Epic-driven coordination + planning visibility) while enforcing phase discipline only at the substrate-mutation boundary.
 
@@ -82,7 +83,7 @@ Four sub-section edits codify the workflow extension:
 
 Three companion-skill Maps each get a one-line pointer to the Atlas:
 
-- **`pr-review-guide.md §8`** cross-skill integration audit: *"If an implementation PR cites a graduated Discussion marked `Decision Record: REQUIRED`, verify the linked ADR is `Accepted` before approval."*
+- **`pr-review-guide.md §8`** cross-skill integration audit: *"If an implementation PR cites a graduated Discussion marked `Decision Record: REQUIRED`, verify the linked ADR is `Accepted` before declaring human merge eligibility; peer approval may still be valid when review criteria pass and the remaining gate is explicitly human-owned."*
 - **`ticket-create-workflow.md §5`** Fat Ticket structure: optional `Decision Record:` field when graduating from a Discussion declaring ADR classification (value references linked ADR or marks `N/A — no Discussion origin`)
 - **`epic-review-workflow.md`** Stage 2.5: when Discussion-origin Epic preserves `Discussion Criteria Mapping`, also preserve `Decision Record` classification/linkage if source Discussion declared one
 
@@ -130,9 +131,9 @@ If a Discussion graduated with `Decision Record: REQUIRED` and produced an ADR, 
 
 If the original Epic body has been Cycle-1/Cycle-2/etc amended, those amendments are workstream coordination updates, NOT authority shifts. Authority shifts produce ADR updates (a separate PR cycle). Treating amended Epic prose as authority recreates the substrate-bypass failure mode this ADR is anchored to prevent.
 
-### 5.3 Implementing before ADR `Accepted`
+### 5.3 Merging before ADR `Accepted`
 
-Implementation PRs consuming a graduated `ADR_REQUIRED` decision MUST NOT merge until the linked ADR is `Accepted`. Reviewers MUST verify ADR Status before approval. Authors who push implementation PRs targeting `dev` while the ADR is `Draft` are bypassing the merge-gate this ADR codifies.
+Implementation PRs consuming a graduated `ADR_REQUIRED` decision MUST NOT merge until the linked ADR authority is `Accepted` at merge time. Reviewers MUST verify ADR Status before declaring human merge eligibility. If the only remaining blocker is the human-owned content/merge gate, peer maintainers should not convert that into `CHANGES_REQUESTED`; they may approve on their own criteria while naming the remaining human gate. Authors who push implementation PRs targeting `dev` while the ADR is `Draft` are bypassing the merge-gate this ADR codifies unless the same PR updates the ADR to `Accepted` before merge.
 
 ### 5.4 Mis-classifying as `ADR_OPTIONAL` to skip the gate
 
@@ -149,7 +150,7 @@ If a Discussion changes durable path/layout/API/lifecycle, introduces/retires a 
 Before authoring substrate-mutation code that consumes a graduated Discussion, you MUST:
 
 1. Read the linked ADR (if `Decision Record: REQUIRED`)
-2. Verify ADR `Status: Accepted` at PR head (not historical state)
+2. Verify ADR `Status: Accepted` at PR head (not historical state) before claiming merge eligibility; if a human-owned content/merge gate remains, state it explicitly instead of treating it as a peer-review blocker
 3. V-B-A your authoring against the ADR's §2 Decision section, NOT the Epic body or Discussion body
 4. Cite the ADR in your PR body
 5. If Cycle N revisions to the ADR are needed for your work, file a separate ADR-update PR first; do not amend the implementation PR to also touch the ADR
