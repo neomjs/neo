@@ -1,0 +1,113 @@
+---
+number: 1749
+title: >-
+  model.Component: support for dialogs to access the parent model chain as well
+  as multi window apps
+author: tobiu
+category: Ideas
+createdAt: '2021-04-10T14:39:12Z'
+updatedAt: '2023-01-06T01:05:57Z'
+---
+Right now, each view model is bound to a component (storing the reference inside the owner config).
+
+`component.getModel()` will return the closest view model inside the parent component tree.
+
+To do this, we are accessing the `component.parentId` config. This config is also getting used for isolated `render()` calls. While the config stores a component id most of the time, it could as well contain a DOM id for top level components.
+
+The parent id for a viewport is "document.body" by default, but you can as well render your apps into existing nodes of a not necessarily created by neo DOM structure (e.g. using a component like a web component inside a website / app).
+
+For dialogs, the parentId config matches "document.body" by default as well, since most dialogs are supposed to be a floating overlay, not limiting drag&drop inside a parent container.
+
+However, most dialogs do have a "logical root".
+
+Example: You create an admin module. Your customers view has its own view model and view controller. Now the customers view controller creates a "add customer" dialog. It would be nice if this dialog could access the customers view model (as well as the parent model chain).
+
+From a technical perspective, we need a new component config to make this happen.
+
+E.g. `contextParentId` or `contextParentComponentId` (open for naming suggestions!)
+
+This config should default to the parentId config, but you can assign different values inside your class or instance definitions.
+
+The second use case are multi window apps. Imagine two browser windows, each containing a MainContainer (Viewport). In case one of these two apps is supposed to be the "main" app, the MainContainer of the "child" app could use  `contextParentId` to point to the MainContainer of the "main" app.
+
+The result is that both apps share a top level view model (data & stores), which can be helpful for multi window state management.
+
+What are your thoughts on this one?
+
+Best regards,
+Tobias
+
+## Comments
+
+### `@tobiu` commented on 2021-04-10T14:51:35Z
+
+For more background infos, please take a look at the latest blog post:
+"Introducing view models for the neo.mjs Javascript UI framework"
+
+https://itnext.io/introducing-view-models-for-the-neo-mjs-javascript-ui-framework-f0989154a00f?source=friends_link&sk=ae9ac6dfb8c7342091b24ca3ede86d78 (Friends link)
+
+The 1.5.4 has already extended view models with adding stores into the mix:
+https://github.com/neomjs/neo/releases/tag/1.5.4
+
+---
+
+### `@tobiu` commented on 2021-04-10T15:15:02Z
+
+More input on the dialog example.
+
+What you can do right now, assuming you create the "add customer" dialog inside your customer view controller:
+```Javascript
+createAddCustomerDialog() {
+    this.addCustomerDialog = Neo.create({
+        // configs
+        listeners: {
+            addCustomersFormSubmit: this.onAddCustomersFormSubmit
+        }
+    });
+}
+```
+
+Once the dialogs form is filled out and a user hits the "submit" button, you can fire a custom event, e.g. `addCustomersFormSubmit` and pass the data to the customers view controller.
+
+This works fine for non complex dialogs, but in case a dialog contains many views & logic it can be limiting (and moving too much logic into a view controller where it does not really fit in).
+
+---
+
+### `@tobiu` commented on 2021-04-12T16:03:15Z
+
+Torsten (@Dinkh) had the idea to add a parent config (reference) to vcs & vms.
+
+I got to admit that this one is growing on me.
+
+You could change the value inside your class & instance definitions:
+
+```Javascript
+createAddCustomerDialog() {
+    this.addCustomerDialog = Neo.create({
+        // configs
+        model: {
+            // model configs
+            parent: this.getModel()
+        }
+    });
+}
+```
+
+For this approach, parentId needs to get an afterSet methods => `parentId_`.
+This method should fire a change event which vcs & vms need to subscribe to.
+
+When dynamically moving a component inside your apps component tree, the parent references can update their values.
+
+One benefit of this approach: accessing the parent chain is a bit faster.
+Not really a bottleneck, but still nice.
+
+---
+
+### `@tobiu` commented on 2021-04-15T14:14:50Z
+
+the new parent logic resolves this discussion.
+
+i will create a new example app to show it in action.
+
+---
+
