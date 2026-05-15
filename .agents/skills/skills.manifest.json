@@ -1,7 +1,7 @@
 {
   "$schema": "./skills.manifest.schema.json",
   "schemaVersion": 1,
-  "sourceOfTruth": "SKILL.md frontmatter is runtime-canonical for name, description (which must include appended Triggers), and the preserved triggers field. This manifest mirrors those fields for tooling and CI lint only.",
+  "sourceOfTruth": "SKILL.md frontmatter is runtime-canonical for name and description (which serves as the cross-harness router). This manifest mirrors those fields for tooling and CI lint only.",
   "defaults": {
     "routerByteBudget": 12,
     "payloadBudget": 80000,
