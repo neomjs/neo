@@ -15,6 +15,30 @@ import aiConfig from '../../../mcp/server/knowledge-base/config.mjs';
  * @extends Neo.ai.services.knowledge-base.source.Base
  * @singleton
  */
+const loadIndexMap = async (neoRootDir, type) => {
+    const map = new Map();
+    const typeIndex = path.resolve(neoRootDir, `resources/content/${type}/_index.json`);
+    const rootIndex = path.resolve(neoRootDir, 'resources/content/_index.json');
+
+    let entries = [];
+    if (await fs.pathExists(typeIndex)) {
+        entries = JSON.parse(await fs.readFile(typeIndex, 'utf-8'));
+    } else if (await fs.pathExists(rootIndex)) {
+        const rootEntries = JSON.parse(await fs.readFile(rootIndex, 'utf-8'));
+        entries = rootEntries.filter(e => e.type === type);
+    }
+
+    for (const entry of entries) {
+        if (entry.path) {
+            // entry.path is relative to contentRoot (e.g., 'issues/chunk-1/issue-1234.md')
+            // Normalize it to match the suffix we check against
+            map.set(path.normalize(entry.path), entry.id);
+        }
+    }
+
+    return map;
+};
+
 class TicketSource extends Base {
     static config = {
         /**
@@ -42,6 +66,9 @@ class TicketSource extends Base {
             path.resolve(aiConfig.neoRootDir, 'resources/content/archive/issues')
         ];
 
+        const indexMap = await loadIndexMap(aiConfig.neoRootDir, 'issues');
+        const contentRoot = path.resolve(aiConfig.neoRootDir, 'resources/content');
+
         for (const targetPath of targetPaths) {
             if (await fs.pathExists(targetPath)) {
                 const ticketFiles = await fs.readdir(targetPath, { recursive: true });
@@ -50,11 +77,19 @@ class TicketSource extends Base {
                 for (const file of ticketFiles) {
                     if (typeof file === 'string' && file.endsWith('.md')) {
                         const filePath   = path.join(targetPath, file);
+                        const relativeToContent = path.relative(contentRoot, filePath);
+
+                        let id = indexMap.get(relativeToContent);
+                        if (id === undefined) {
+                            // Fallback if not in index map
+                            id = path.basename(file).replace('.md', '').replace(/^issue-/, '');
+                        }
+
                         const content    = await fs.readFile(filePath, 'utf-8');
                         const chunk      = {
                             type   : 'ticket',
                             kind   : 'ticket',
-                            name   : path.basename(file).replace('.md', ''),
+                            name   : `issue-${id}`,
                             content,
                             // Relative path keeps the distributed Chroma zip portable (#10097).
                             source : path.relative(aiConfig.neoRootDir, filePath)

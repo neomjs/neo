@@ -17,6 +17,28 @@ import aiConfig from '../../../mcp/server/knowledge-base/config.mjs';
  * @extends Neo.ai.services.knowledge-base.source.Base
  * @singleton
  */
+const loadIndexMap = async (neoRootDir, type) => {
+    const map = new Map();
+    const typeIndex = path.resolve(neoRootDir, `resources/content/${type}/_index.json`);
+    const rootIndex = path.resolve(neoRootDir, 'resources/content/_index.json');
+
+    let entries = [];
+    if (await fs.pathExists(typeIndex)) {
+        entries = JSON.parse(await fs.readFile(typeIndex, 'utf-8'));
+    } else if (await fs.pathExists(rootIndex)) {
+        const rootEntries = JSON.parse(await fs.readFile(rootIndex, 'utf-8'));
+        entries = rootEntries.filter(e => e.type === type);
+    }
+
+    for (const entry of entries) {
+        if (entry.path) {
+            map.set(path.normalize(entry.path), entry.id);
+        }
+    }
+
+    return map;
+};
+
 class PullRequestSource extends Base {
     static config = {
         /**
@@ -44,6 +66,9 @@ class PullRequestSource extends Base {
             path.resolve(aiConfig.neoRootDir, 'resources/content/archive/pulls')
         ];
 
+        const indexMap = await loadIndexMap(aiConfig.neoRootDir, 'pulls');
+        const contentRoot = path.resolve(aiConfig.neoRootDir, 'resources/content');
+
         for (const targetPath of targetPaths) {
             if (await fs.pathExists(targetPath)) {
                 const pullFiles = await fs.readdir(targetPath, { recursive: true });
@@ -52,11 +77,18 @@ class PullRequestSource extends Base {
                 for (const file of pullFiles) {
                     if (typeof file === 'string' && file.endsWith('.md')) {
                         const filePath = path.join(targetPath, file);
+                        const relativeToContent = path.relative(contentRoot, filePath);
+
+                        let id = indexMap.get(relativeToContent);
+                        if (id === undefined) {
+                            id = path.basename(file).replace('.md', '').replace(/^pr-/, '');
+                        }
+
                         const content  = await fs.readFile(filePath, 'utf-8');
                         const chunk    = {
                             type   : 'pull',
                             kind   : 'pull',
-                            name   : path.basename(file).replace('.md', ''),
+                            name   : `pr-${id}`,
                             content,
                             // Relative path keeps the distributed Chroma zip portable (#10097).
                             source : path.relative(aiConfig.neoRootDir, filePath)
