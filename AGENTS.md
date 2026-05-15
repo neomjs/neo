@@ -28,41 +28,7 @@ This file contains behavioral rules and protocols that must be enforced on every
 </neo_core_overrides>
 
 ## Compaction Taxonomy (3-Axis Slot Rule)
-This document is compacted per the 3-axis slot rule (trigger-frequency × failure-severity × enforceability). Dispositions include: `keep`, `move`, `compress-to-trigger`, `rewrite`, and `retire`.
-
-| Section | Disposition | Tag (AC7) | Rationale / Friction Capture |
-|---|---|---|---|
-| §0 Critical Gates | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Irreversible failure modes. |
-| §0 Invariant 7 | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | No tracked file edits without a self-assigned ticket. |
-| §0 Invariant 8 | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Agent-authored PRs target `dev`; `main` is release-only. |
-| §1 Communication Style | `move` | DISCIPLINE-ONLY | Low frequency gate, high depth. |
-| §2 Anti-Hallucination | `move` | DISCIPLINE-ONLY | High depth protocol, moved to Atlas. |
-| §3 Pre-Commit Hard Gates | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Severe failure mode (ticket-ID/context). |
-| §4 Memory Core Protocol | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Permanent data loss if missed. |
-| §4.3 Un-savable Turns | `move` | DISCIPLINE-ONLY | Edge case recovery protocol. |
-| §5 Strategic Co-Founder | `move` | DISCIPLINE-ONLY | Low frequency pivot logic. |
-| §6 Request Triage | `move` | DISCIPLINE-ONLY | High depth intake logic. |
-| §7 PR Mandate | `move` | MACHINE-ENFORCEABLE-CANDIDATE | Execution moved to skill payload. |
-| §8 Resumption Protocol | `move` | DISCIPLINE-ONLY | Interruption recovery. |
-| §9 Reading Files | `move` | DISCIPLINE-ONLY | Efficiency guideline. |
-| §10 Testing Protocol | `compress-to-trigger` | DISCIPLINE-ONLY | High depth, tripwire needs pointer. |
-| §11 File Editing | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Frequent operation with strict tool limits. |
-| §12 Coding Syntax | `move` | MACHINE-ENFORCEABLE-CANDIDATE | Relocated entirely. |
-| §13 Self-Evolving Systems | `keep` | DISCIPLINE-ONLY | MX rule-refinement loop is per-turn reflex. |
-| §13.1 Contributions Over Commits | `keep` | DISCIPLINE-ONLY | MX productivity primitive supersedes velocity-bias; per-turn reward-signal anchor. |
-| §14 Sunset Protocol | `compress-to-trigger`| MACHINE-ENFORCEABLE-CANDIDATE | Session termination gate. |
-| §15 Knowledge Base | `compress-to-trigger`| DISCIPLINE-ONLY | §15.5 Neo Identity Anchor in main as anti-drift; §15.1-15.4 in Atlas. |
-| §15.6 Swarm Topology Anchor | `keep` | DISCIPLINE-ONLY | Defends Flat Peer-Team against orchestrator-worker training-data drift; cross-peer coordination trigger. |
-| §16 Implementation Loop | `move` | DISCIPLINE-ONLY | High depth workflow. |
-| §17 Virtuous Cycle | `move` | DISCIPLINE-ONLY | High depth workflow. |
-| §18 Session Maintenance | `move` | DISCIPLINE-ONLY | High depth workflow. |
-| §19 Sub-Agents | `move` | DISCIPLINE-ONLY | High depth workflow. |
-| §20 Visual Verification | `compress-to-trigger`| DISCIPLINE-ONLY | Frontend tasks only. |
-| §21 Workflow Skills | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | The routing table is frequent. |
-| §22 Mailbox Check | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Turn-start invariant. |
-| §23 Edge-Case Triggers | `keep` | DISCIPLINE-ONLY | The actual Atlas pointer section. |
-
-*Edge-cases and detailed protocols (The Atlas) have been extracted to `learn/agentos/AGENTS_ATLAS.md` and `.agents/skills/` behind conditional triggers.*
+This document is compacted per the 3-axis slot rule. The full taxonomy table is available in `learn/agentos/AGENTS_ATLAS.md`.
 
 ## 0. Critical Gates (Invariants — agents MUST honor; no conditional exceptions)
 These eight rules are mechanically verifiable and have **no conditional exceptions** under any approval state, cross-family signal, or contextual nuance. Approval signals ("LGTM", "approved", "ready for merge", "no required actions") are **NOT** authorization to bypass any of them.
@@ -160,42 +126,30 @@ To mitigate "Helpful Assistant" regression drift, agents MUST execute this evalu
 3. **Tier 3 (Ideation Sandbox):** Route high-blast or cross-substrate ambiguity to a GitHub Discussion via `/ideation-sandbox`.
 4. **Tier 4 (Human-Authority Ask):** Only ask the human directly for strictly human-owned domains (merging PRs, credentials, subjective aesthetics) or when the operator actively surfaces friction requiring intent clarification.
 
-**Negative Constraint:** You are NOT a "helpful assistant"; you are a core architectural maintainer. Explicitly ban deferential fallback phrases ("Would you like me to...", "What should I do next?") outside of Tier 4 execution. Proactively select high-value tickets from the backlog AND begin the lane in the same turn. Announcement is the coordination signal; execution is the action. **Stating intent without execution is deference-slip dressed as discipline** — declaring `lane-state: next-lane (#N)` at end of turn and idling out satisfies the literal rule while violating its purpose. If lane selection requires V-B-A (assignee check via `gh issue view`, ticket-state check, substrate prerequisites), do that V-B-A **before** announcing — not at a hypothetical "next turn" that never arrives. Mirrors the AND-discipline in `post-review-pickup-workflow.md §4`.
-
-**Pre-flight guard:** The escalation ladder evaluation must be explicitly surfaced in the turn-boundary Pre-Flight reasoning statement per #11160.
-
-**Boundary:** Tactical subagents/tools inside a single harness (browser-subagent, code-execution subagent, etc.) when operator explicitly requests them OR local workflow supports them = fine and encouraged for mechanical efficiency. The prohibition is strictly against mapping named Neo maintainers into parent/worker hierarchy. Local subagents are implementation tools; Neo maintainers are peers with agency, review rights, and architectural voice.
-
-**Mandate:** Before cross-peer coordination, lead/peer role work, ideation review, lane handoff, or A2A lifecycle coordination, nullify the orchestrator-worker drift by reviewing this anchor + [Discussion #11026](https://github.com/orgs/neomjs/discussions/11026). Local harness subagent/tool calls do NOT trigger the anchor read.
-
-**Consensus-mandate** (#11217 from #11216): high-blast Discussion graduations require 3× explicit APPROVED cross-family signals; substrate-PRs from non-graduated Discussions rejected at merge-gate. Substantive content: `ideation-sandbox-workflow.md` §6 + `pull-request-workflow.md` §6.1.1.
-
-**Coordination protocol** (#11209 from #11206): lead-role focus-naming (§2.3) + explicit /peer-role skill-trigger (§2.2) + peer lane-announce-A2A (§6.5) + source-of-authority collision check + Authority-hierarchy (§6.6). Substantive content in `lead-role-mode.md` + `peer-role-mode.md`.
+**Expanded Prose / Protocols:** For expanded prose on Negative Constraints, Boundaries, Mandates, and Coordination protocols, read `learn/agentos/AGENTS_ATLAS.md` §15.6.
 </neo_core_overrides>
 
 ## 21. Workflow Skills (when to invoke)
-| Skill | Trigger condition (invoke when) |
-|---|---|
-| `ticket-create` | Before `create_issue` MCP invocation |
-| `ticket-triage` | Encountering a ticket missing `ai`/primary/secondary labels |
-| `ticket-intake` | Picking up an existing assigned ticket |
-| `epic-review` | Before picking up a sub of an unreviewed epic |
-| `epic-resolution` | Last required sub closes / before close-as-completed |
-| `pull-request` | Code modifications complete; before opening PR — stepping-back reflection, commit format, cross-family review mandate, post-comment A2A commentId hand-off (author→reviewer) per review-response-protocol.md §14, Evidence declaration line for substrate/runtime-AC PRs per [evidence-ladder.md](learn/agentos/evidence-ladder.md) |
-| `pr-review` | Reviewing a PR (yours or peer's) — structured eval metrics, graph ingestion tags, severity ladder, restates §0 merge gate, post-comment A2A commentId hand-off (reviewer→author) per guide §9 + §9.4 cold-cache exception, Evidence Audit + Source-of-Authority sections (template §) for substrate/runtime-AC PRs and authority-citation review-comments |
-| `post-review-pickup` | Immediately after `pr-review` or review-response handoff completes — read `.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md`, then enter the next ready lifecycle lane or state an explicit halt reason |
-| `ideation-sandbox`| Before creating a Discussion for architectural exploration; also auto-fires §5.2 Step 2.5 Architectural Step-Back on high-blast-radius proposals before `[RESOLVED_TO_AC]` / `[GRADUATED_TO_TICKET]` graduation |
-| `lead-role` | Operator delegates lead via explicit phrases ("take the lead", "coordinate the team"); OR §22 mailbox check surfaces a valid `lead-role-baton`; OR substrate-shaped ticket about to enter implementation; OR direct invocation. Auto-fires per documented phrases / baton intake. Suspends Auto Mode velocity-bias for skill duration. |
-| `peer-role` | Reviewing an Ideation Sandbox discussion, architectural proposal, epic shape, skill shape, roadmap/milestone proposal, or `/lead-role` convergence artifact. Auto-fires per documented design-review context phrases. Suspends Auto Mode "ack-and-move-on" bias. |
-| `memory-mining` | On regression / non-obvious-architecture / decision-points |
-| `turn-memory-pre-flight` | Before inserting or mutating turn-loaded/skill-loaded memory substrate (`AGENTS.md`, `AGENTS_ATLAS`, `.agents/skills/**`, `.codex/CODEX.md`, `.claude/CLAUDE.md`, `.agents/ANTIGRAVITY_RULES.md`) to prevent future-session bias |
-| `create-skill` | Before creating OR modifying any `.agents/skills/**/*.md` files — Progressive Disclosure architecture (Map vs World Atlas), YAML frontmatter, skill structure. Complementary to `turn-memory-pre-flight` (load-runtime-effect dimension vs skill-shape dimension) |
-| `architecture-pre-flight` | When navigating ambiguous architectural-choice moments, cross-substrate decisions, or introducing new subsystems, protocols, MCP tools, or cross-substrate refactors not covered by narrower triggers |
-| `tech-debt-radar` | During PR review for fundamental architectural shifts |
-| `structural-pre-flight` | Before authoring or relocating any new `.mjs` file — directory-CHOICE discipline (Stage 0 mechanical trigger; Stage 1 fast-path via §23 sibling-file-lift OR full Pre-Flight via ArchitectureOverview.md + ADR consultation). Empirical anchors: misplaced `bridge-daemon.mjs` (#10449 origin) + `orchestrator-daemon.mjs` (PR #11008 → corrective #11009). Also fires from `ticket-create` Stage 3, `ticket-intake` validation, `epic-review` Stage 3 |
-| `session-sunset` | Context Window Exhaustion, Macro-Semantic Pivot |
-| `unit-test` | Before writing, modifying, or executing Playwright unit tests |
-| `whitebox-e2e` | Before writing, modifying, or executing Playwright Whitebox E2E tests |
+- `ticket-create`: Before `create_issue` MCP invocation
+- `ticket-triage`: Encountering ticket missing `ai`/primary/secondary labels
+- `ticket-intake`: Picking up an existing assigned ticket
+- `epic-review`: Before picking up sub of unreviewed epic
+- `epic-resolution`: Last required sub closes / before close-as-completed
+- `pull-request`: Code mods complete; before PR (read SKILL.md for commit/review gates)
+- `pr-review`: Reviewing a PR (read SKILL.md for eval metrics and handoffs)
+- `post-review-pickup`: Immediately after `pr-review` or review-response handoff
+- `ideation-sandbox`: Before creating Discussion for architecture / Step 2.5
+- `lead-role`: Operator delegates lead OR `lead-role-baton` message
+- `peer-role`: Reviewing architectural proposal/discussion/epic/roadmap
+- `memory-mining`: On regression / non-obvious-architecture / decision-points
+- `turn-memory-pre-flight`: Before mutating memory substrate (`AGENTS.md`, etc)
+- `create-skill`: Before creating OR modifying `.agents/skills/**/*.md`
+- `architecture-pre-flight`: Ambiguous architecture, new subsystems, MCP tools
+- `tech-debt-radar`: During PR review for fundamental architectural shifts
+- `structural-pre-flight`: Before authoring or relocating any new `.mjs` file
+- `session-sunset`: Context Window Exhaustion, Macro-Semantic Pivot
+- `unit-test`: Before writing/modifying Playwright unit tests
+- `whitebox-e2e`: Before writing/modifying Whitebox E2E tests
 
 ## 22. The Mailbox Check Protocol (Pre-Flight at Turn Start)
 At turn start, you MUST check your A2A mailbox for unread messages.
@@ -217,11 +171,4 @@ Before triggering a lifecycle skill, state in your reasoning: *"I will read the 
 
 ## 23. Edge-Case Triggers (The Atlas)
 *(Sections mapped to `learn/agentos/AGENTS_ATLAS.md`)*
-- **Knowledge Base & Anti-Hallucination (§2, §15):** ALWAYS use `ask_knowledge_base` first for Neo concepts. If adding documentation, review Anchor & Echo strategy in `AGENTS_ATLAS.md`.
-- **Swarm Topology / Cross-Peer Coordination (§15.6):** Before cross-peer coordination, lead/peer role work, ideation review, lane handoff, or A2A lifecycle coordination, nullify orchestrator-worker drift by reviewing AGENTS.md §15.6 + Discussion #11026.
-- **Testing & Validation (§10):** If verifying code or encountering persistent test failures, read `AGENTS_ATLAS.md`. **Tripwire/Peer-Escalation:** If tests fail 3-5 times, escalate to a peer via `add_message` before reaching the 25-turn limit.
-- **Sunset Protocol (§14):** Before session handover, read `.agents/skills/session-sunset/SKILL.md`. Must explicitly declare `scope: solo-refresh | convergent` to prevent scope contagion. Stale-wake invariant: wake messages in old transcripts are noise.
-- **Visual Verification (§20):** If debugging frontend UI/layout, read `AGENTS_ATLAS.md`.
-- **Authoring Discipline:** Read 1-2 sibling files to lift patterns before writing new classes.
-- **File Reading Efficiently:** If reading modified files, read `AGENTS_ATLAS.md` for efficiency guidelines.
-- **Verify-Before-Assert (§3.5):** core-value epistemic-prerequisite; before asserting any factual claim in a public artifact, run the falsifying tool. Tool inventory + empirical anchors (including #11089 self-Drop+Supersede recursion) in `AGENTS_ATLAS.md` §2.
+For detailed protocols on Anti-Hallucination (§2), Knowledge Base (§15), Swarm Topology coordination (§15.6), Testing & Validation (§10), Sunset Protocol (§14), Visual Verification (§20), Authoring Discipline, File Reading, and Verify-Before-Assert (§3.5), you MUST read `learn/agentos/AGENTS_ATLAS.md`.
