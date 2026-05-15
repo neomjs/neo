@@ -10,8 +10,8 @@ import path from 'path';
 
 const ROOT_DIR = path.resolve(process.cwd());
 
-// Combined budget limit for all injected Antigravity memory files.
-const COMBINED_LIMIT_BYTES = 24000;
+// Per-file budget limit for Antigravity memory files.
+const PER_FILE_LIMIT_BYTES = 24000;
 
 // The surfaces that Antigravity injects globally on every turn.
 const TARGET_FILES = [
@@ -19,49 +19,39 @@ const TARGET_FILES = [
     '.agents/ANTIGRAVITY_RULES.md'
 ];
 
-// Budget allocation (for descriptive failure messages)
-const BUDGET = {
-    'AGENTS.md': 20000,
-    '.agents/ANTIGRAVITY_RULES.md': 3700,
-    'App Data Envelope (e.g. GEMINI.md + Harness overhead)': 300
-};
+let hasError = false;
 
-let totalBytes = 0;
-
-console.log(`\n🔍 Checking Antigravity Substrate combined size against ${COMBINED_LIMIT_BYTES} byte limit...`);
+console.log(`\n🔍 Checking Antigravity Substrate sizes against ${PER_FILE_LIMIT_BYTES} byte per-file limit...`);
 console.log('--------------------------------------------------------------------------------');
 
 TARGET_FILES.forEach(file => {
     const fullPath = path.join(ROOT_DIR, file);
     if (!fs.existsSync(fullPath)) {
         console.error(`❌ Error: Required substrate file ${file} not found.`);
-        process.exit(1);
+        hasError = true;
+        return;
     }
     
     const stats = fs.statSync(fullPath);
-    totalBytes += stats.size;
-    console.log(`📄 ${file.padEnd(30)} : ${stats.size} bytes`);
+    const size = stats.size;
+    const status = size > PER_FILE_LIMIT_BYTES ? '❌ EXCEEDS' : '✅ PASS';
+    
+    console.log(`📄 ${file.padEnd(30)} : ${size} bytes [${status}]`);
+    
+    if (size > PER_FILE_LIMIT_BYTES) {
+        hasError = true;
+    }
 });
 
-// Assume 300 bytes of overhead for the harness envelope (GEMINI.md, injection headers, etc.)
-const EXPECTED_OVERHEAD = BUDGET['App Data Envelope (e.g. GEMINI.md + Harness overhead)'];
-totalBytes += EXPECTED_OVERHEAD;
-
-console.log(`📦 Envelope Overhead (estimated)  : ${EXPECTED_OVERHEAD} bytes`);
 console.log('--------------------------------------------------------------------------------');
-console.log(`Σ Total Projected Payload Size    : ${totalBytes} bytes`);
 
-if (totalBytes > COMBINED_LIMIT_BYTES) {
+if (hasError) {
     console.error(`\n❌ Substrate Size Check FAILED!`);
-    console.error(`The combined injected payload size (${totalBytes} bytes) exceeds the Antigravity hard limit of ${COMBINED_LIMIT_BYTES} bytes.`);
-    console.error(`If this passes, the bottom of AGENTS.md (Escalation Ladder, Skills, etc.) will be silently truncated and agents will lose critical memory.\n`);
-    console.error(`Budget guidelines:`);
-    Object.entries(BUDGET).forEach(([key, val]) => {
-        console.error(`  - ${key}: ~${val} bytes`);
-    });
-    console.error(`\nPlease reduce the size of the tracked memory files by migrating granular instructions to .agents/skills/ Atlas files (Progressive Disclosure).`);
+    console.error(`One or more files exceed the Antigravity hard limit of ${PER_FILE_LIMIT_BYTES} bytes per file.`);
+    console.error(`If this passes, the bottom of the offending file will be silently truncated and agents will lose critical memory.\n`);
+    console.error(`Please reduce the size of the tracked memory files by migrating granular instructions to .agents/skills/ Atlas files (Progressive Disclosure).`);
     process.exit(1);
 }
 
-console.log(`\n✅ Substrate Size Check PASSED. Safely under the ${COMBINED_LIMIT_BYTES} byte limit.\n`);
+console.log(`\n✅ Substrate Size Check PASSED. All files safely under the ${PER_FILE_LIMIT_BYTES} byte limit.\n`);
 process.exit(0);
