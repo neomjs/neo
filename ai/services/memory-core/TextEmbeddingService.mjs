@@ -119,8 +119,14 @@ class TextEmbeddingService extends Base {
 
             return await responsePromise;
         } catch (err) {
-            if (retriesLeft > 0 && err.message.includes('HTTP 400') && err.message.includes('Model was unloaded')) {
-                logger.log(`[TextEmbeddingService] embedding-provider model-unload detected, retrying (remaining retries: ${retriesLeft})`);
+            const isModelLoadError = err.message.includes('HTTP 400') && (
+                err.message.includes('Model was unloaded') ||              // Shape A — JIT-unload-then-queued-request
+                (err.message.includes('Failed to load model') &&            // Shape B — JIT-warm-load-canceled
+                 err.message.includes('Operation canceled'))
+            );
+
+            if (retriesLeft > 0 && isModelLoadError) {
+                logger.log(`[TextEmbeddingService] embedding-provider model-load failure detected (Shape ${err.message.includes('Model was unloaded') ? 'A' : 'B'}), retrying (remaining retries: ${retriesLeft})`);
                 await new Promise(r => setTimeout(r, unloadRetryDelayMs));
                 return this.#postOpenAiCompatible(inputData, retriesLeft - 1);
             }
