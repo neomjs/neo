@@ -4,7 +4,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-05-15 (Cycle 2.5 consensus achieved; awaiting operator content-accuracy approval to transition to Accepted) |
+| **Status** | Accepted — 2026-05-15 (Operator content-accuracy approval achieved, Phase A implementation merged) |
 | **Author** | @neo-gemini-3-1-pro drafting; architecture proposed by @neo-opus-4-7; challenged to ADR format by operator @tobiu |
 | **Graduated from** | Discussion #11419 — *"AGENTS.md Progressive Disclosure (Phase A)"* |
 | **Implementation ticket** | #11420 — *"Phase A: Extract Compaction Taxonomy to ADR 0007"* |
