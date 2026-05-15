@@ -7,6 +7,7 @@ import matter                                 from 'gray-matter';
 import path                                   from 'path';
 import GraphqlService                         from '../GraphqlService.mjs';
 import {FETCH_RELEASES, FETCH_LATEST_RELEASE} from '../queries/releaseQueries.mjs';
+import contentPath, {contentBucketDir, chunkNumberFor} from '../shared/contentPath.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 
@@ -19,17 +20,17 @@ const issueSyncConfig = aiConfig.issueSync;
  * - Generating and updating local Markdown files for each release
  * - Sorting releases chronologically to support issue archiving logic
  *
- * @class Neo.ai.services.github-workflow.sync.ReleaseSyncer
+ * @class Neo.ai.services.github-workflow.sync.ReleaseNotesSyncer
  * @extends Neo.core.Base
  * @singleton
  */
-class ReleaseSyncer extends Base {
+class ReleaseNotesSyncer extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.services.github-workflow.sync.ReleaseSyncer'
+         * @member {String} className='Neo.ai.services.github-workflow.sync.ReleaseNotesSyncer'
          * @protected
          */
-        className: 'Neo.ai.services.github-workflow.sync.ReleaseSyncer',
+        className: 'Neo.ai.services.github-workflow.sync.ReleaseNotesSyncer',
         /**
          * @member {Boolean} singleton=true
          * @protected
@@ -176,8 +177,22 @@ class ReleaseSyncer extends Base {
      */
     async syncNotes(metadata) {
         logger.info('📄 Syncing release notes...');
-        const releaseDir = issueSyncConfig.releaseNotesDir;
+        const baseDir = path.resolve(aiConfig.projectRoot, 'resources/content');
+        const releaseDir = contentBucketDir({
+            contentRoot: baseDir,
+            type: 'release-notes'
+        });
+        
         await fs.mkdir(releaseDir, { recursive: true });
+
+        const indexMap = {
+            metadata: {
+                shardType: 'release-notes',
+                chunkThreshold: 100,
+                updatedAt: new Date().toISOString()
+            },
+            items: {}
+        };
 
         const stats = {
             count : 0,
@@ -188,10 +203,25 @@ class ReleaseSyncer extends Base {
 
         for (const release of Object.values(this.releases)) {
             try {
+                const itemIndex = this.sortedReleases.findIndex(r => r.tagName === release.tagName);
+                const chunkNumber = chunkNumberFor(itemIndex);
+
                 const filename = release.tagName.startsWith(issueSyncConfig.releaseFilenamePrefix)
                     ? release.tagName
                     : issueSyncConfig.releaseFilenamePrefix + release.tagName;
-                const filePath = path.join(releaseDir, `${filename}.md`);
+
+                const filePath = contentPath({
+                    contentRoot: baseDir,
+                    type: 'release-notes',
+                    filename: `${filename}.md`,
+                    itemIndex
+                });
+
+                indexMap.items[release.tagName] = {
+                    itemIndex,
+                    chunk: chunkNumber,
+                    chunkDir: `chunk-${chunkNumber}`
+                };
 
                 const frontmatter = {
                     tagName     : release.tagName,
@@ -216,6 +246,7 @@ class ReleaseSyncer extends Base {
                     continue;
                 }
 
+                await fs.mkdir(path.dirname(filePath), { recursive: true });
                 await fs.writeFile(filePath, content, 'utf-8');
                 logger.info(`✅ Synced release notes for ${release.tagName}`);
                 stats.count++;
@@ -224,8 +255,17 @@ class ReleaseSyncer extends Base {
                 logger.warn(`⚠️ Could not sync release notes for ${release.tagName}: ${e.message}`);
             }
         }
+
+        try {
+            const indexFilePath = path.join(releaseDir, '_index.json');
+            await fs.writeFile(indexFilePath, JSON.stringify(indexMap, null, 2), 'utf-8');
+            logger.info('✅ Synced _index.json for release-notes');
+        } catch (e) {
+            logger.warn(`⚠️ Could not sync _index.json for release notes: ${e.message}`);
+        }
+
         return stats;
     }
 }
 
-export default Neo.setupClass(ReleaseSyncer);
+export default Neo.setupClass(ReleaseNotesSyncer);
