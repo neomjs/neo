@@ -445,7 +445,7 @@ Offline cognitive maintenance runs as **Node.js scripts**, not MCP protocol oper
 
 ### Swarm Skills & Workflows (`/.agents/skills/` - 13 skills)
 
-Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. Listed in execution-lifecycle order, then tactical, creative, and meta. See [`learn/agentos/ProgressiveDisclosureSkills.md`](../../agentos/ProgressiveDisclosureSkills.md) for the full protocol reference and lifecycle flow diagram.
+Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. Listed in execution-lifecycle order, then tactical, creative, and meta. See [`learn/agentos/ProgressiveDisclosureSkills.md`](../../agentos/ProgressiveDisclosureSkills.md) for the full protocol reference and lifecycle flow diagram. Canonical skill-anatomy authority: [ADR 0008: SKILL.md Anatomy and Authoring Contract](../../agentos/decisions/0008-skill-anatomy-and-authoring-contract.md).
 
 **Lifecycle (execution gates):**
 - `ticket-intake`: Pre-execution validation gate for existing tickets (validation sweep, ROI calculation, branch-before-code).
