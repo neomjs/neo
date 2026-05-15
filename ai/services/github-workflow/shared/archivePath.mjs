@@ -1,33 +1,5 @@
-/**
- * @module ai/services/github-workflow/shared/archivePath
- *
- * @deprecated Per ADR 0004 §2.3, the two-primitive model (archive-only ordinal here +
- * active-only ID-range in `./chunkPath.mjs`) is superseded by the universal ordinal-100
- * primitive in `./contentPath.mjs`. This module is preserved as a backward-compatibility
- * shim during Lane B (#TBD) call-site migration. After Lane B rewrites every consumer
- * (`IssueSyncer`, `PullRequestSyncer`, `DiscussionSyncer`, `LocalFileService`, `MetadataManager`)
- * to import `contentPath`, this module's public API can be retired.
- *
- * **Behavior preservation contract during deprecation window:**
- * - `archivePath()` keeps its current flat-when-≤threshold + chunk-when->threshold branching
- *   for output-string compatibility with existing call sites. Note that this differs from
- *   `contentPath()`'s always-chunked rule; the difference is intentional — `contentPath` is
- *   the new authoritative shape, this shim is the legacy.
- * - `archiveBucketDir()` keeps its current "bucket dir only" semantics.
- * - `validateArchiveConfig()` keeps its current runtime-config validation surface — it
- *   validates the `aiConfig.issueSync.{archiveRoot,archiveChunkThreshold,archiveChunkPrefix}`
- *   triplet, separately from the path math. The config-audit ticket #11363 will retire
- *   the underlying config fields; until then, the validator remains live.
- *
- * @see ADR 0004 §2.3 + §3.1 (`learn/agentos/decisions/0004-github-content-architecture.md`)
- * @see ai/services/github-workflow/shared/contentPath.mjs (replacement primitive)
- * @see #11379 (Lane A consolidation ticket)
- * @see #11363 (config audit ticket — retires the runtime config fields validated below)
- * @see #11372 (parent epic)
- */
-
-import path                from 'path';
-import {chunkNumberFor}    from './contentPath.mjs';
+import path             from 'path';
+import {chunkNumberFor} from './contentPath.mjs';
 
 export const DEFAULT_ARCHIVE_MAX_ITEMS_PER_DIR = 100;
 export const DEFAULT_ARCHIVE_CHUNK_PREFIX      = 'chunk-';
@@ -91,11 +63,7 @@ export function validateArchiveConfig(issueSyncConfig) {
 }
 
 /**
- * @deprecated Use `contentPath({contentRoot, type, version|bucket, filename, itemIndex})` from
- * `./contentPath.mjs` instead. Per ADR 0004 §2.3, the two-primitive model is RETIRED. This
- * function is preserved during Lane B (#TBD) call-site migration only.
- *
- * @summary Builds archive-tier paths for GitHub workflow markdown files (legacy primitive).
+ * @summary Builds archive-tier paths for GitHub workflow markdown files.
  *
  * This helper is intentionally archive-only. Active issue / pull request paths stay
  * ID-range based via `chunkPath(id)` so callers such as `LocalFileService#getIssueById`
@@ -174,10 +142,7 @@ export default function archivePath(config = {}) {
 }
 
 /**
- * @deprecated Use `contentBucketDir({contentRoot, type, version|bucket})` from `./contentPath.mjs`
- * instead. Preserved during Lane B (#TBD) call-site migration only.
- *
- * @summary Builds the archive bucket directory without appending a file path (legacy primitive).
+ * @summary Builds the archive bucket directory without appending a file path.
  * @param {Object} config
  * @param {String} config.archiveRoot Base archive root
  * @param {String} config.type Archive type segment
