@@ -36,6 +36,31 @@ Your PR body's slot-rationale section MUST enumerate:
 
 Before `git commit` or opening a PR, you MUST verify you are the formal assignee for the target ticket. This is the enforcement mechanism for **AGENTS.md §0 Invariant 7**. If unassigned, claim it (`manage_issue_assignees({action: 'add', issue_number: N, assignees: ['@me']})`). If assigned to someone else, halt and respect ownership.
 
+### 1.3 The FAIR-Band Pre-Flight Gate (#11433 — bypass-resistant choke-point for #11432)
+
+The FAIR-band author-lane pickup discipline (per `post-review-pickup-workflow.md §4`) is **skill-invocation-dependent** at the lane-discovery layer; this gate is the **PR-open choke-point** that enforces it regardless of which path the author took (post-review-pickup, peer-role, ticket-intake, lead-role, or direct `gh pr create`).
+
+Every PR you author MUST include a **FAIR-band stance declaration** in the PR body (near the top, after Self-Identification). The declaration takes one of these shapes:
+
+- **In-band**: `FAIR-band: in-band [N/30 — current author count over last 30 merged]`
+- **Under-target (lane-appropriate)**: `FAIR-band: under-target [N/30] — Self-Selection Rule 1 fires (under-band → bias toward author lane)`
+- **Over-target (positive-ROI lane)**: `FAIR-band: over-target [N/30] — taking this lane despite over-target because [specific positive-ROI rationale: e.g., operator-direction, specialist-only ticket, time-critical incident-response]`
+- **Over-target (yield candidate)**: This shape **FORBIDS PR-open**; per `post-review-pickup-workflow.md §4` Self-Selection Rule 3, yield the lane to under-target peer via author-yield A2A before opening the PR.
+
+The verifier query is canonical at `.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md §4`:
+
+```bash
+gh search prs --merged --repo neomjs/neo --limit 30 --sort updated --json author \
+  | python3 -c "import json,sys;from collections import Counter; \
+                print(Counter(p['author']['login'] for p in json.load(sys.stdin)))"
+```
+
+**Reviewer enforcement:** `pr-review-guide.md` §7.7 Anti-Patterns table includes the missing-declaration anti-pattern; reviewers MUST verify the declaration is present + accurate (matches the live `gh search` query within ±1 PR tolerance for race-condition windows) before assigning `[EXECUTION_QUALITY]` score.
+
+**Why this gate exists (bypass-resistance):** Skill-invocation can be bypassed (RLHF helpful-assistant regression → direct `gh pr create`; ticket-already-assigned skipping ticket-intake; cross-harness bypass). The PR body shape mandate is the canonical choke-point that all PR-creating workflows pass through. Mirrors §1.1 Substrate-Mutation idiom + §6.1.1 Consensus-Gate idiom: enforce body sections at PR-open time so reviewer-side V-B-A catches drift.
+
+**Empirical anchor:** Operator-surfaced gap 2026-05-15 ~18:08Z post PR #11432 merge: *"pull request workflow assumes you HAVE a lane. what if you do not?"* + *"or if you create a pr bypassing the skill?"* — bypass-resistance extension via PR-open choke-point.
+
 ## 2. Git Branching Mandate
 
 You are strictly forbidden from committing or pushing directly to `main` (release-only) or `dev` (default working). The *mechanism* for satisfying this rule differs by harness class.
