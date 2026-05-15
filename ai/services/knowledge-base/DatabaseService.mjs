@@ -3,6 +3,7 @@ import Base                      from '../../../src/core/Base.mjs';
 import ChromaManager             from './ChromaManager.mjs';
 import DestructiveOperationGuard from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 import VectorService             from './VectorService.mjs';
+import AdrSource                 from './source/AdrSource.mjs';
 import ApiSource                 from './source/ApiSource.mjs';
 import ConceptSource             from './source/ConceptSource.mjs';
 import DiscussionSource          from './source/DiscussionSource.mjs';
@@ -457,6 +458,7 @@ class DatabaseService extends Base {
         let totalChunks   = 0;
 
         const sources = [
+            AdrSource,
             ApiSource,
             ConceptSource,
             DiscussionSource,
