@@ -39,27 +39,30 @@ import path            from 'path';
 test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
     let IssueSyncer;
     let GraphqlService;
-    let chunkPath;
     let issueSyncConfig;
     let aiConfig;
     let originalQuery;
-    let tmpIssuesDir;
+    let originalArchiveRoot;
+    let originalIssuesDir;
+    let tmpRoot;
     let logger;
 
     test.beforeAll(async () => {
         aiConfig = (await import('../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
         issueSyncConfig = aiConfig.issueSync;
+        originalArchiveRoot = issueSyncConfig.archiveRoot;
+        originalIssuesDir   = issueSyncConfig.issuesDir;
 
-        tmpIssuesDir = path.resolve(process.cwd(), 'tmp', `issue-syncer-test-${process.pid}-${Date.now()}`);
-        await fs.ensureDir(tmpIssuesDir);
+        tmpRoot = path.resolve(process.cwd(), 'tmp', `issue-syncer-test-${process.pid}-${Date.now()}`);
+        await fs.ensureDir(tmpRoot);
 
         // Redirect local markdown writes to the tmp dir so the test does not pollute
         // the real resources/content/issues tree.
-        issueSyncConfig.issuesDir = tmpIssuesDir;
+        issueSyncConfig.issuesDir = path.join(tmpRoot, 'issues');
+        issueSyncConfig.archiveRoot = path.join(tmpRoot, 'archive');
 
         GraphqlService = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
         IssueSyncer    = (await import('../../../../../../ai/services/github-workflow/sync/IssueSyncer.mjs')).default;
-        chunkPath      = (await import('../../../../../../ai/services/github-workflow/shared/chunkPath.mjs')).default;
         logger         = (await import('../../../../../../ai/mcp/server/github-workflow/logger.mjs')).default;
 
         originalQuery = GraphqlService.query.bind(GraphqlService);
@@ -67,7 +70,9 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
 
     test.afterAll(async () => {
         GraphqlService.query = originalQuery;
-        await fs.remove(tmpIssuesDir).catch(() => {});
+        issueSyncConfig.archiveRoot = originalArchiveRoot;
+        issueSyncConfig.issuesDir   = originalIssuesDir;
+        await fs.remove(tmpRoot).catch(() => {});
     });
 
     test('refetchIssuesByNumber paginates timeline and renders all events past the page cap', async () => {
@@ -124,7 +129,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(stats.errors).toHaveLength(0);
         expect(continuationCalls).toBe(1);
 
-        const writtenPath = path.join(tmpIssuesDir, chunkPath(mockIssue.number), `issue-${mockIssue.number}.md`);
+        const writtenPath = path.join(issueSyncConfig.issuesDir, 'chunk-1', `issue-${mockIssue.number}.md`);
         const written     = await fs.readFile(writtenPath, 'utf-8');
 
         // Every comment body must appear — the bug being fixed is that second-page comments
@@ -181,7 +186,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(metadata.issues[mockIssue.number].commentsTotal).toBe(COMMENT_COUNT);
 
         // Frontmatter commentsCount uses the same derivation — no dual-source divergence possible.
-        const writtenPath = path.join(tmpIssuesDir, chunkPath(mockIssue.number), `issue-${mockIssue.number}.md`);
+        const writtenPath = path.join(issueSyncConfig.issuesDir, 'chunk-1', `issue-${mockIssue.number}.md`);
         const written     = await fs.readFile(writtenPath, 'utf-8');
         expect(written).toContain(`commentsCount: ${COMMENT_COUNT}`);
     });

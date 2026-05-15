@@ -61,10 +61,11 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
             path.join(syncDir, 'DiscussionSyncer.mjs'),
             path.join(syncDir, 'ReleaseSyncer.mjs'),
             path.join(syncDir, 'MetadataManager.mjs'),
-            path.join(sharedDir, 'archivePath.mjs')
+            path.join(sharedDir, 'contentIndex.mjs')
         ];
 
         const requiredKeys = new Set();
+        const optionalKeys = new Set(['contentRoot']);
         const regex = /issueSyncConfig\.([a-zA-Z0-9_]+)/g;
 
         for (const file of filesToScan) {
@@ -81,6 +82,10 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
         const missingKeys = [];
         
         for (const key of requiredKeys) {
+            if (optionalKeys.has(key)) {
+                continue;
+            }
+
             if (!templateKeys.includes(key)) {
                 missingKeys.push(key);
             }

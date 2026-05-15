@@ -25,6 +25,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
     let PullRequestSyncer;
     let ReleaseSyncer;
     let originalArchiveRoot;
+    let originalIssuesDir;
     let originalPullsDir;
     let originalQuery;
     let originalSortedReleases;
@@ -38,6 +39,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         ReleaseSyncer    = (await import('../../../../../../ai/services/github-workflow/sync/ReleaseSyncer.mjs')).default;
 
         originalArchiveRoot            = aiConfig.issueSync.archiveRoot;
+        originalIssuesDir              = aiConfig.issueSync.issuesDir;
         originalPullsDir               = aiConfig.issueSync.pullsDir;
         originalQuery                  = GraphqlService.query.bind(GraphqlService);
         originalSortedReleases         = ReleaseSyncer.sortedReleases;
@@ -49,6 +51,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         await fs.ensureDir(tmpRoot);
 
         aiConfig.issueSync.archiveRoot            = path.join(tmpRoot, 'archive');
+        aiConfig.issueSync.issuesDir              = path.join(tmpRoot, 'issues');
         aiConfig.issueSync.pullsDir               = path.join(tmpRoot, 'pulls');
         aiConfig.issueSync.versionDirectoryPrefix = 'v';
         ReleaseSyncer.sortedReleases              = [];
@@ -58,6 +61,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         GraphqlService.query                       = originalQuery;
         ReleaseSyncer.sortedReleases              = originalSortedReleases;
         aiConfig.issueSync.archiveRoot            = originalArchiveRoot;
+        aiConfig.issueSync.issuesDir              = originalIssuesDir;
         aiConfig.issueSync.pullsDir               = originalPullsDir;
         aiConfig.issueSync.versionDirectoryPrefix = originalVersionDirectoryPrefix;
 
@@ -92,7 +96,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         });
 
         const stats = await PullRequestSyncer.syncPullRequests(metadata);
-        const targetPath = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', `pr-${prNumber}.md`);
+        const targetPath = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', 'chunk-1', `pr-${prNumber}.md`);
 
         expect(stats.synced).toEqual([prNumber]);
         await expect(fs.pathExists(targetPath)).resolves.toBe(true);

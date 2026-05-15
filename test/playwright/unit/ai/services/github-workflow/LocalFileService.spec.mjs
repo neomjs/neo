@@ -20,7 +20,7 @@ import os              from 'os';
 import Neo             from '../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../src/core/_export.mjs';
 
-test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — dual-search read-path (#11285 / Epic #11187 B2)', () => {
+test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — index-backed read-path (ADR 0004 / #11390)', () => {
     let LocalFileService;
     let aiConfig;
     let originalIssuesDir, originalArchiveRoot, originalDiscussionsDir;
@@ -60,14 +60,16 @@ test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — dual-
         await fs.emptyDir(aiConfig.issueSync.issuesDir).catch(() => {});
         await fs.emptyDir(aiConfig.issueSync.archiveRoot).catch(() => {});
         await fs.emptyDir(aiConfig.issueSync.discussionsDir).catch(() => {});
+        await fs.remove(path.join(testRoot, '_index.json')).catch(() => {});
     });
 
-    test('getIssueById finds active issue via chunkPath shape', async () => {
+    test('getIssueById finds active issue via _index.json', async () => {
         const issueId = '11100';
         const filename = `issue-${issueId}.md`;
-        const activePath = path.join(aiConfig.issueSync.issuesDir, '111xx', filename);
+        const activePath = path.join(aiConfig.issueSync.issuesDir, 'chunk-1', filename);
         await fs.ensureDir(path.dirname(activePath));
         await fs.writeFile(activePath, '# Active issue content');
+        await writeIndex([{type: 'issues', id: Number(issueId), version: null, chunkNumber: 1, path: path.join('issues', 'chunk-1', filename)}]);
 
         const result = await LocalFileService.getIssueById(issueId);
 
@@ -76,12 +78,16 @@ test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — dual-
         expect(result.filePath).toBe(activePath);
     });
 
-    test('getIssueById falls back to new archiveRoot when not in active', async () => {
+    test('getIssueById finds archived issue via _index.json', async () => {
         const issueId = '9999';
         const filename = `issue-${issueId}.md`;
-        const archivePath = path.join(aiConfig.issueSync.archiveRoot, 'issues', 'v12.0.0', filename);
+        const archivePath = path.join(aiConfig.issueSync.archiveRoot, 'issues', 'v12.0.0', 'chunk-1', filename);
         await fs.ensureDir(path.dirname(archivePath));
         await fs.writeFile(archivePath, '# Archived (new path) content');
+        await writeIndex([{
+            type: 'issues', id: Number(issueId), version: 'v12.0.0', chunkNumber: 1,
+            path: path.join('archive', 'issues', 'v12.0.0', 'chunk-1', filename)
+        }]);
 
         const result = await LocalFileService.getIssueById(issueId);
 
@@ -90,7 +96,7 @@ test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — dual-
         expect(result.filePath).toBe(archivePath);
     });
 
-    test('getIssueById does not probe retired legacy issue-archive paths', async () => {
+    test('getIssueById does not probe retired legacy paths without an index entry', async () => {
         const issueId = '8888';
         const filename = `issue-${issueId}.md`;
         const legacyPath = path.join(testRoot, 'issue-archive', 'v11.0.0', '88xx', filename);
@@ -103,62 +109,54 @@ test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — dual-
         expect(result.error).toBe('File not found');
     });
 
-    test('getIssueById returns NOT_FOUND when issue exists nowhere', async () => {
+    test('getIssueById returns NOT_FOUND when index entry is missing', async () => {
+        await writeIndex([]);
+
         const result = await LocalFileService.getIssueById('77777');
 
         expect(result.code).toBe('NOT_FOUND');
         expect(result.error).toBe('File not found');
     });
 
-    test('getIssueById returns archiveRoot matches without consulting retired legacy paths', async () => {
+    test('getIssueById returns STALE_INDEX when indexed file is missing', async () => {
         const issueId = '6666';
         const filename = `issue-${issueId}.md`;
-        const newPath = path.join(aiConfig.issueSync.archiveRoot, 'issues', 'v12.0.0', filename);
-        const legacyPath = path.join(testRoot, 'issue-archive', 'v11.0.0', '66xx', filename);
-        await fs.ensureDir(path.dirname(newPath));
-        await fs.ensureDir(path.dirname(legacyPath));
-        await fs.writeFile(newPath, '# New canonical wins');
-        await fs.writeFile(legacyPath, '# Legacy should not be returned');
+        await writeIndex([{type: 'issues', id: Number(issueId), version: null, chunkNumber: 1, path: path.join('issues', 'chunk-1', filename)}]);
 
         const result = await LocalFileService.getIssueById(issueId);
 
-        expect(result.content).toBe('# New canonical wins');
-        expect(result.filePath).toBe(newPath);
+        expect(result.code).toBe('STALE_INDEX');
+        expect(result.error).toBe('Stale content index');
     });
 
-    test('getDiscussionById finds active flat discussion (post-B1 canonical shape)', async () => {
+    test('getDiscussionById finds active discussion via _index.json', async () => {
         const discussionId = '11240';
         const filename = `discussion-${discussionId}.md`;
-        const flatPath = path.join(aiConfig.issueSync.discussionsDir, filename);
-        await fs.writeFile(flatPath, '# Active flat discussion');
+        const activePath = path.join(aiConfig.issueSync.discussionsDir, 'chunk-1', filename);
+        await fs.ensureDir(path.dirname(activePath));
+        await fs.writeFile(activePath, '# Active discussion');
+        await writeIndex([{
+            type: 'discussions', id: Number(discussionId), version: null, chunkNumber: 1,
+            path: path.join('discussions', 'chunk-1', filename)
+        }]);
 
         const result = await LocalFileService.getDiscussionById(discussionId);
 
         expect(result.error).toBeUndefined();
-        expect(result.content).toBe('# Active flat discussion');
-        expect(result.filePath).toBe(flatPath);
+        expect(result.content).toBe('# Active discussion');
+        expect(result.filePath).toBe(activePath);
     });
 
-    test('getDiscussionById falls back to legacy XXxx subdir (pre-B1 active shape)', async () => {
-        const discussionId = '10040';
-        const filename = `discussion-${discussionId}.md`;
-        const legacyActivePath = path.join(aiConfig.issueSync.discussionsDir, '100xx', filename);
-        await fs.ensureDir(path.dirname(legacyActivePath));
-        await fs.writeFile(legacyActivePath, '# Legacy XXxx subdir discussion');
-
-        const result = await LocalFileService.getDiscussionById(discussionId);
-
-        expect(result.error).toBeUndefined();
-        expect(result.content).toBe('# Legacy XXxx subdir discussion');
-        expect(result.filePath).toBe(legacyActivePath);
-    });
-
-    test('getDiscussionById falls back to archiveRoot when not in active', async () => {
+    test('getDiscussionById finds archived discussion via _index.json', async () => {
         const discussionId = '8500';
         const filename = `discussion-${discussionId}.md`;
-        const archivePath = path.join(aiConfig.issueSync.archiveRoot, 'discussions', 'v12.0.0', filename);
+        const archivePath = path.join(aiConfig.issueSync.archiveRoot, 'discussions', 'v12.0.0', 'chunk-1', filename);
         await fs.ensureDir(path.dirname(archivePath));
         await fs.writeFile(archivePath, '# Archived discussion');
+        await writeIndex([{
+            type: 'discussions', id: Number(discussionId), version: 'v12.0.0', chunkNumber: 1,
+            path: path.join('archive', 'discussions', 'v12.0.0', 'chunk-1', filename)
+        }]);
 
         const result = await LocalFileService.getDiscussionById(discussionId);
 
@@ -167,7 +165,9 @@ test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — dual-
         expect(result.filePath).toBe(archivePath);
     });
 
-    test('getDiscussionById returns NOT_FOUND when discussion exists nowhere', async () => {
+    test('getDiscussionById returns NOT_FOUND when index entry is missing', async () => {
+        await writeIndex([]);
+
         const result = await LocalFileService.getDiscussionById('99999');
 
         expect(result.code).toBe('NOT_FOUND');
@@ -177,12 +177,17 @@ test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — dual-
     test('getIssueById accepts leading # in issue number', async () => {
         const issueId = '5555';
         const filename = `issue-${issueId}.md`;
-        const activePath = path.join(aiConfig.issueSync.issuesDir, '55xx', filename);
+        const activePath = path.join(aiConfig.issueSync.issuesDir, 'chunk-1', filename);
         await fs.ensureDir(path.dirname(activePath));
         await fs.writeFile(activePath, '# Issue with hash prefix');
+        await writeIndex([{type: 'issues', id: Number(issueId), version: null, chunkNumber: 1, path: path.join('issues', 'chunk-1', filename)}]);
 
         const result = await LocalFileService.getIssueById(`#${issueId}`);
 
         expect(result.content).toBe('# Issue with hash prefix');
     });
+
+    async function writeIndex(entries) {
+        await fs.writeJson(path.join(testRoot, '_index.json'), entries, {spaces: 2});
+    }
 });

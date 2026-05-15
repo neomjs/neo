@@ -10,8 +10,10 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
+import fs             from 'fs-extra';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
+import os             from 'os';
 import path           from 'path';
 
 import contentPath, {
@@ -24,6 +26,15 @@ import contentPath, {
     validatePositiveInteger,
     validateSegment
 } from '../../../../../../ai/services/github-workflow/shared/contentPath.mjs';
+import {
+    contentIndexPath,
+    contentRootFor,
+    createContentIndexEntry,
+    findContentIndexEntry,
+    readContentIndex,
+    resolveIndexedPath,
+    updateContentIndex
+} from '../../../../../../ai/services/github-workflow/shared/contentIndex.mjs';
 
 test.describe('contentPath — universal ordinal-100 path resolution (ADR 0004 §3.1 / #11379 Lane A)', () => {
     const contentRoot = path.join('resources', 'content');
@@ -486,5 +497,73 @@ test.describe('contentPath — universal ordinal-100 path resolution (ADR 0004 �
             expect(() => validateBucketXor({version: 'v13.0.0', bucket: 'rejected'}))
                 .toThrow(/zero or one of version or bucket/);
         });
+    });
+});
+
+test.describe('contentIndex — ADR 0004 _index.json maintenance (#11390 Lane B)', () => {
+    let tmpRoot;
+    let issueSyncConfig;
+
+    test.beforeEach(async () => {
+        tmpRoot = path.join(os.tmpdir(), `neo-content-index-test-${process.pid}-${Date.now()}`);
+        issueSyncConfig = {
+            issuesDir: path.join(tmpRoot, 'issues')
+        };
+        await fs.ensureDir(issueSyncConfig.issuesDir);
+    });
+
+    test.afterEach(async () => {
+        await fs.remove(tmpRoot).catch(() => {});
+    });
+
+    test('derives the content root and index path from issuesDir', () => {
+        expect(contentRootFor(issueSyncConfig)).toBe(tmpRoot);
+        expect(contentIndexPath(issueSyncConfig)).toBe(path.join(tmpRoot, '_index.json'));
+    });
+
+    test('upserts, sorts, finds, and removes entries', async () => {
+        const issuePath = path.join(tmpRoot, 'issues', 'chunk-1', 'issue-5.md');
+        const prPath    = path.join(tmpRoot, 'pulls', 'chunk-1', 'pr-2.md');
+
+        await updateContentIndex(issueSyncConfig, {
+            upsert: [
+                createContentIndexEntry({
+                    issueSyncConfig,
+                    type     : 'issues',
+                    id       : 5,
+                    filePath : issuePath,
+                    itemIndex: 0
+                }),
+                createContentIndexEntry({
+                    issueSyncConfig,
+                    type     : 'pulls',
+                    id       : 2,
+                    filePath : prPath,
+                    itemIndex: 0
+                })
+            ]
+        });
+
+        let index = await readContentIndex(issueSyncConfig);
+        expect(index.map(entry => `${entry.type}:${entry.id}`)).toEqual(['issues:5', 'pulls:2']);
+        expect(findContentIndexEntry(index, {type: 'issues', id: '5'}).path).toBe(path.join('issues', 'chunk-1', 'issue-5.md'));
+
+        await updateContentIndex(issueSyncConfig, {
+            remove: [{type: 'issues', id: 5}]
+        });
+
+        index = await readContentIndex(issueSyncConfig);
+        expect(findContentIndexEntry(index, {type: 'issues', id: 5})).toBeNull();
+        expect(index.map(entry => `${entry.type}:${entry.id}`)).toEqual(['pulls:2']);
+    });
+
+    test('resolves indexed paths inside the content root and rejects escapes', () => {
+        expect(resolveIndexedPath(issueSyncConfig, {
+            type: 'issues', id: 1, version: null, chunkNumber: 1, path: path.join('issues', 'chunk-1', 'issue-1.md')
+        })).toBe(path.join(tmpRoot, 'issues', 'chunk-1', 'issue-1.md'));
+
+        expect(() => resolveIndexedPath(issueSyncConfig, {
+            type: 'issues', id: 1, version: null, chunkNumber: 1, path: '../outside.md'
+        })).toThrow(/content root/);
     });
 });
