@@ -194,8 +194,8 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(coalesceWindow.maximum).toBe(300);
     });
 
-    test('knowledge-base query schemas expose skill content type (#11326)', async () => {
-        const expectedTypes = ['all', 'blog', 'guide', 'src', 'example', 'ticket', 'release', 'test', 'skill'],
+    test('knowledge-base query schemas expose skill, adr, and concept content types', async () => {
+        const expectedTypes = ['all', 'blog', 'guide', 'src', 'example', 'ticket', 'release', 'test', 'skill', 'adr', 'concept'],
               doc           = yaml.load(fs.readFileSync(path.join(repoRoot, 'ai/mcp/server/knowledge-base/openapi.yaml'), 'utf8')),
               queryOp       = doc.paths['/documents/query'].post,
               askOp         = doc.paths['/knowledge/ask'].post,
@@ -206,7 +206,8 @@ test.describe('OpenApiValidator: strict-client JSON-Schema compliance', () => {
         expect(queryType.enum).toEqual(expectedTypes);
         expect(queryType.description).toContain('`test`');
         expect(queryType.description).toContain('`skill`');
-        expect(queryOp.description).toContain('release, test, skill');
+        expect(queryType.description).toContain('`adr`');
+        expect(queryType.description).toContain('`concept`');
         expect(querySchema.properties.type.enum).toEqual(expectedTypes);
         expect(askSchema.properties.type.enum).toEqual(expectedTypes);
     });

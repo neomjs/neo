@@ -1,13 +1,14 @@
 import Base from './Base.mjs';
 import fs   from 'fs-extra';
 import path from 'path';
+import matter from 'gray-matter';
 import aiConfig from '../../../mcp/server/knowledge-base/config.mjs';
 
 /**
- * @summary Extracts knowledge chunks from Concept Ontology nodes.
+ * @summary Extracts knowledge chunks from Concept Ontology markdown files.
  *
- * This source provider reads `.neo-ai-data/concepts/nodes.jsonl`.
- * Each concept node is treated as a single knowledge chunk.
+ * This source provider reads `resources/content/concepts/*.md`.
+ * Each concept file is treated as a single knowledge chunk.
  *
  * @class Neo.ai.services.knowledge-base.source.ConceptSource
  * @extends Neo.ai.services.knowledge-base.source.Base
@@ -28,29 +29,34 @@ class ConceptSource extends Base {
     }
 
     /**
-     * Extracts knowledge chunks from concept nodes.
+     * Extracts knowledge chunks from concept markdown files.
      * @param {Object}   writeStream  The JSONL write stream.
      * @param {Function} createHashFn Function to create content hash.
      * @returns {Promise<Number>} The number of chunks extracted.
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        const nodesPath = path.resolve(aiConfig.neoRootDir, '.neo-ai-data/concepts/nodes.jsonl');
+        const conceptsDir = path.resolve(aiConfig.neoRootDir, 'resources/content/concepts');
 
-        if (await fs.pathExists(nodesPath)) {
-            const content = await fs.readFile(nodesPath, 'utf-8');
-            const lines = content.split('\n').filter(line => line.trim() !== '');
+        if (await fs.pathExists(conceptsDir)) {
+            const files = await fs.readdir(conceptsDir);
+            files.sort();
 
-            for (const line of lines) {
-                const node = JSON.parse(line);
+            for (const file of files) {
+                if (!file.endsWith('.md')) continue;
+
+                const filePath = path.join(conceptsDir, file);
+                const rawContent = await fs.readFile(filePath, 'utf-8');
+                const parsed = matter(rawContent);
+
                 const chunk = {
                     type       : 'concept',
                     kind       : 'concept',
-                    name       : node.name,
-                    tier       : node.tier,
-                    description: node.description,
-                    content    : `${node.name}: ${node.description}`,
-                    source     : path.relative(aiConfig.neoRootDir, nodesPath)
+                    name       : parsed.data.name || path.basename(file, '.md'),
+                    tier       : parsed.data.tier || 0,
+                    description: parsed.content.trim(),
+                    content    : `${parsed.data.name || path.basename(file, '.md')}: ${parsed.content.trim()}`,
+                    source     : path.relative(aiConfig.neoRootDir, filePath)
                 };
 
                 chunk.hash = createHashFn(chunk);
