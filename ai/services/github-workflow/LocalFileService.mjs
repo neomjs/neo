@@ -63,11 +63,9 @@ class LocalFileService extends Base {
     /**
      * Finds and returns the content of a local issue file by its number.
      *
-     * Read-path dual-search per Epic #11187 B2 (#11285): during the active-to-archive
-     * migration transition, an archived issue may live under either the new
-     * canonical archiveRoot or the legacy archiveDir. The lookup tries new-first,
-     * then falls back to legacy. Once the B1 corpus migration completes, the
-     * legacy fallback becomes a no-op cheap miss.
+     * Archived issues live under the canonical archiveRoot. Legacy issue-archive
+     * probing is retired per ADR 0004 §3.7 / #11363, so missing archiveRoot files
+     * should fail visibly as NOT_FOUND rather than silently consulting stale paths.
      *
      * @param {string} issueNumber The issue number, with or without a leading '#'.
      * @returns {Promise<object>} A promise that resolves to the file content or a structured error.
@@ -87,14 +85,8 @@ class LocalFileService extends Base {
                 return { filePath: activePath, content };
             }
 
-            // 2. Dual-search archive paths: try new canonical `archiveRoot` first,
-            //    fall back to legacy `archiveDir`. Once Epic #11187 B1 data migration
-            //    completes, the legacy fallback becomes a cheap miss.
-            let archivePath = await this.#findFileRecursively(aiConfig.issueSync.archiveRoot, filename);
-
-            if (!archivePath) {
-                archivePath = await this.#findFileRecursively(aiConfig.issueSync.archiveDir, filename);
-            }
+            // 2. Search the canonical archive tree only.
+            const archivePath = await this.#findFileRecursively(aiConfig.issueSync.archiveRoot, filename);
 
             if (archivePath) {
                 const content = await fs.readFile(archivePath, 'utf-8');
