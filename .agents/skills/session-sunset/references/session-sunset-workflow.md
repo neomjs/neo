@@ -86,7 +86,14 @@ When `BEHIND == 0`, suppress the block — no handover-comment noise on a fresh 
 **Why this lives at sunset rather than mid-session:** sunset is the natural Operator Synchronization Point — the agent is already drafting handover prose, and the operator is the next active actor between sessions. Mid-session staleness is unaddressed by this probe; the daemon-driven Shape A solution under #11013's follow-up will register a `primary-dev-sync` periodic task in the `orchestrator-daemon` (post-#11009 `Orchestrator.mjs` class extraction) to close that gap with an automatic `git pull --ff-only`.
 
 ### Step 2: Refresh Active PR Cycle State (The Pre-Sunset Capture)
-You MUST execute `npm run ai:run-sandman` via the `run_command` tool. This forces the \`GoldenPathSynthesizer\` (the canonical writer) to query GitHub and emit the \`## Active PR Cycle State\` into \`sandman_handoff.md\`. Do NOT attempt to edit \`sandman_handoff.md\` manually, as it will be overwritten by the daemon.
+
+**Scope-conditional execution:**
+
+- **`scope: solo-refresh`** (single-agent sunset, daemon-driven path unavailable or stale): You MUST execute `npm run ai:run-sandman` via the `run_command` tool. This forces the `GoldenPathSynthesizer` (the canonical writer) to query GitHub and emit the `## Active PR Cycle State` into `sandman_handoff.md`.
+
+- **`scope: convergent`** (multi-agent coordinated sunset event): **SKIP** this step. Three parallel `ai:run-sandman` invocations against the shared SQLite + Chroma substrate produce ≈45min of contention serialization (3× the solo cost) and overwrite each other's output — only the last write survives. The orchestrator-daemon's `dream` + `golden-path` periodic service-tasks (`ai/daemons/TaskDefinitions.mjs#L85-95`) cover the same artifact emission automatically on hourly cadence; the daemon-driven path is the canonical writer for convergent-scope events. The lead-role agent (per `lead-role-mode.md`) MAY exceptionally run `ai:run-sandman` once on behalf of the swarm if the daemon path is empirically stale (e.g., `sandman_handoff.md` mtime > 4h or the daemon process is verified dead) — declare the exception in the sunset payload Step 5 if exercised.
+
+Do NOT attempt to edit `sandman_handoff.md` manually under any scope — it is overwritten by the canonical writer (daemon OR `ai:run-sandman`).
 
 ### Step 3: Handovers Posted (Active Work)
 For any tickets or tasks that you actively worked on but did not fully complete, you MUST post a self-contained handover comment directly on the GitHub Issue (using `manage_issue_comment`).
