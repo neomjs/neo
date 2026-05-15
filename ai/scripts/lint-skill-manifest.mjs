@@ -138,8 +138,8 @@ function checkPerFileBudgets(files, perFileBudget) {
     return errors;
 }
 
-function checkSectionTriggers(filePath, text, rarePatterns = []) {
-    const errors = [];
+function parseSectionTriggers(text) {
+    const index = [];
     const sections = text.split(/^(?=#{2,6}\s)/m);
 
     for (const section of sections) {
@@ -153,18 +153,32 @@ function checkSectionTriggers(filePath, text, rarePatterns = []) {
 
         const triggerMatch = section.match(/^<!-- trigger:\s+(.+?)\s+→\s+read\s+(.+?\.md)\s*-->$/m);
         if (triggerMatch) {
-            const trigger = triggerMatch[1].trim();
+            index.push({
+                anchor,
+                trigger: triggerMatch[1].trim(),
+                subRulePath: triggerMatch[2].trim(),
+                bodySizeBytes
+            });
+        }
+    }
 
-            if (bodySizeBytes > 5000) {
-                const isRare = rarePatterns.some(p => trigger.toLowerCase().includes(p.toLowerCase()));
-                if (isRare) {
-                    errors.push(`${path.relative(ROOT_DIR, filePath)} ${anchor} is ${bodySizeBytes} bytes with declared trigger '${trigger}' (rare-firing class). Extract to sub-rule sibling file behind one-line trigger pointer per skill-authoring-guide.md §Map vs World Atlas. Reduce workflow body to: section header + <!-- trigger: ... --> pointer line.`);
-                }
+    return index;
+}
+
+function checkSectionTriggers(filePath, text, rarePatterns = []) {
+    const errors = [];
+    const index = parseSectionTriggers(text);
+
+    for (const entry of index) {
+        if (entry.bodySizeBytes > 5000) {
+            const isRare = rarePatterns.some(p => entry.trigger.toLowerCase().includes(p.toLowerCase()));
+            if (isRare) {
+                errors.push(`${path.relative(ROOT_DIR, filePath)} ${entry.anchor} is ${entry.bodySizeBytes} bytes with declared trigger '${entry.trigger}' (rare-firing class). Extract to sub-rule sibling file behind one-line trigger pointer per skill-authoring-guide.md §Map vs World Atlas. Reduce workflow body to: section header + <!-- trigger: ... --> pointer line.`);
             }
         }
     }
 
-    return errors;
+    return {errors, index};
 }
 
 function validateManifestSchema(manifest, schema) {
@@ -388,7 +402,8 @@ async function lint({base = null} = {}) {
         const rarePatterns = manifest.defaults.rareTriggerPatterns || ['openapi', 'audit', 'edge-case', 'deprecation'];
         for (const {path: filePath} of files) {
             const text = requireText(filePath);
-            errors.push(...checkSectionTriggers(filePath, text, rarePatterns));
+            const result = checkSectionTriggers(filePath, text, rarePatterns);
+            errors.push(...result.errors);
         }
 
         if (skill.claudeSymlinkRequired) {
@@ -437,4 +452,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
     });
 }
 
-export {checkPerFileBudgets, checkSectionTriggers, lint, parseArgs, parseFrontmatter, validateManifestSchema};
+export {checkPerFileBudgets, checkSectionTriggers, parseSectionTriggers, lint, parseArgs, parseFrontmatter, validateManifestSchema};

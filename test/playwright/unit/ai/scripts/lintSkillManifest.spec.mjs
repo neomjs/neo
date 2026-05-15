@@ -7,6 +7,7 @@ import {
     checkSectionTriggers,
     parseArgs,
     parseFrontmatter,
+    parseSectionTriggers,
     validateManifestSchema
 } from '../../../../../ai/scripts/lint-skill-manifest.mjs';
 
@@ -310,7 +311,7 @@ test.describe('ai/scripts/lint-skill-manifest (#11275)', () => {
 <!-- trigger: this is an edge-case → read ./sub-rule.md -->
 Just a short body, well under 5000 bytes.
         `;
-        expect(checkSectionTriggers('test.md', text, ['edge-case'])).toEqual([]);
+        expect(checkSectionTriggers('test.md', text, ['edge-case']).errors).toEqual([]);
     });
 
     test('checkSectionTriggers returns no errors for large sections without rare triggers (#11320)', () => {
@@ -320,7 +321,7 @@ Just a short body, well under 5000 bytes.
 <!-- trigger: always relevant → read ./sub-rule.md -->
 ${padding}
         `;
-        expect(checkSectionTriggers('test.md', text, ['edge-case', 'openapi'])).toEqual([]);
+        expect(checkSectionTriggers('test.md', text, ['edge-case', 'openapi']).errors).toEqual([]);
     });
 
     test('checkSectionTriggers returns error for large sections with rare triggers (#11320)', () => {
@@ -330,10 +331,25 @@ ${padding}
 <!-- trigger: modifies openapi.yaml → read ./openapi-audit.md -->
 ${padding}
         `;
-        const errors = checkSectionTriggers('.agents/skills/example/references/test.md', text, ['edge-case', 'openapi']);
+        const {errors} = checkSectionTriggers('.agents/skills/example/references/test.md', text, ['edge-case', 'openapi']);
         expect(errors).toHaveLength(1);
         expect(errors[0]).toContain('.agents/skills/example/references/test.md §3 OpenAPI Edge Case is ');
         expect(errors[0]).toContain("bytes with declared trigger 'modifies openapi.yaml' (rare-firing class)");
         expect(errors[0]).toContain("Extract to sub-rule sibling file behind one-line trigger pointer per skill-authoring-guide.md §Map vs World Atlas.");
+    });
+
+    test('parseSectionTriggers extracts anchor, trigger, subRulePath, and body size (#11320)', () => {
+        const padding = 'C'.repeat(100);
+        const text = `
+## §4 Test Section
+<!-- trigger: test condition → read ./test-rule.md -->
+${padding}
+        `;
+        const index = parseSectionTriggers(text);
+        expect(index).toHaveLength(1);
+        expect(index[0].anchor).toBe('§4 Test Section');
+        expect(index[0].trigger).toBe('test condition');
+        expect(index[0].subRulePath).toBe('./test-rule.md');
+        expect(index[0].bodySizeBytes).toBeGreaterThan(100);
     });
 });
