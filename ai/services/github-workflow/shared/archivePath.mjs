@@ -26,7 +26,8 @@
  * @see #11372 (parent epic)
  */
 
-import path from 'path';
+import path                from 'path';
+import {chunkNumberFor}    from './contentPath.mjs';
 
 export const DEFAULT_ARCHIVE_MAX_ITEMS_PER_DIR = 100;
 export const DEFAULT_ARCHIVE_CHUNK_PREFIX      = 'chunk-';
@@ -160,7 +161,14 @@ export default function archivePath(config = {}) {
         throw new TypeError('itemIndex is required when itemCount exceeds archiveChunkThreshold')
     }
 
-    const chunkNumber = Math.floor(itemIndex / effectiveThreshold) + 1;
+    // Chunk-math delegation per #11381 GPT review RA2 partial-AC7-satisfaction: the chunked-branch
+    // math is the SAME ordinal-100 rule `contentPath()` enforces. Delegating via `chunkNumberFor()`
+    // makes the universal helper the single source of truth for the chunk-number computation while
+    // preserving `archivePath()`'s flat-when-itemCount<=threshold legacy branch for backward
+    // compatibility (the flat branch cannot delegate since `contentPath()` is always-chunked per
+    // ADR 0004 §3.1). Full retirement of this module's local path computation is deferred to
+    // Lane B / #TBD when call sites migrate to `contentPath()` directly.
+    const chunkNumber = chunkNumberFor(itemIndex, effectiveThreshold);
 
     return path.join(bucketDir, `${archiveChunkPrefix}${chunkNumber}`, filename)
 }

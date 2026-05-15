@@ -284,6 +284,100 @@ test.describe('contentPath â€” universal ordinal-100 path resolution (ADR 0004 Â
         });
     });
 
+    // Presence-aware validation suite (per #11381 GPT review RA1): supplying `version: ''` or
+    // `bucket: ''` must fail-loud as non-empty-string violations rather than silently routing to
+    // active-tier. Distinguishes key-not-supplied (`undefined`/`null`) from key-supplied-as-empty.
+    test.describe('presence-aware archive-selector validation (RA1)', () => {
+        test('rejects supplied-empty version with explicit non-empty-string error', () => {
+            expect(() => contentPath({
+                contentRoot,
+                type     : 'issues',
+                version  : '',
+                filename : 'issue-1.md',
+                itemIndex: 0
+            })).toThrow(/version must be a non-empty string/);
+        });
+
+        test('rejects supplied-empty bucket with explicit non-empty-string error', () => {
+            expect(() => contentPath({
+                contentRoot,
+                type     : 'pulls',
+                bucket   : '',
+                filename : 'pr-1.md',
+                itemIndex: 0
+            })).toThrow(/bucket must be a non-empty string/);
+        });
+
+        test('rejects both version and bucket supplied even when both are empty strings', () => {
+            expect(() => contentPath({
+                contentRoot,
+                type     : 'issues',
+                version  : '',
+                bucket   : '',
+                filename : 'issue-1.md',
+                itemIndex: 0
+            })).toThrow(/zero or one of version or bucket/);
+        });
+
+        test('rejects mixed supplied-empty (version empty, bucket non-empty) as XOR violation', () => {
+            expect(() => contentPath({
+                contentRoot,
+                type     : 'pulls',
+                version  : '',
+                bucket   : 'rejected',
+                filename : 'pr-1.md',
+                itemIndex: 0
+            })).toThrow(/zero or one of version or bucket/);
+        });
+
+        test('contentBucketDir also rejects supplied-empty version', () => {
+            expect(() => contentBucketDir({
+                contentRoot,
+                type   : 'pulls',
+                version: ''
+            })).toThrow(/version must be a non-empty string/);
+        });
+
+        test('contentBucketDir also rejects supplied-empty bucket', () => {
+            expect(() => contentBucketDir({
+                contentRoot,
+                type  : 'pulls',
+                bucket: ''
+            })).toThrow(/bucket must be a non-empty string/);
+        });
+
+        test('contentBucketDir treats both-supplied-empty as XOR violation', () => {
+            expect(() => contentBucketDir({
+                contentRoot,
+                type   : 'pulls',
+                version: '',
+                bucket : ''
+            })).toThrow(/zero or one of version or bucket/);
+        });
+
+        test('validateBucketXor is presence-aware (rejects both-supplied even when both empty)', () => {
+            expect(() => validateBucketXor({version: '', bucket: ''}))
+                .toThrow(/zero or one of version or bucket/);
+        });
+
+        test('validateBucketXor still permits undefined (active-tier path remains legitimate)', () => {
+            expect(() => validateBucketXor({})).not.toThrow();
+            expect(() => validateBucketXor({version: undefined, bucket: undefined})).not.toThrow();
+        });
+
+        test('null is treated as "not supplied" (consistent with undefined)', () => {
+            // Defensive: callers that JSON-deserialize may produce null for omitted keys
+            expect(contentPath({
+                contentRoot,
+                type     : 'issues',
+                version  : null,
+                bucket   : null,
+                filename : 'issue-1.md',
+                itemIndex: 0
+            })).toBe(path.join(contentRoot, 'issues', 'chunk-1', 'issue-1.md'));
+        });
+    });
+
     test.describe('chunkNumberFor helper', () => {
         test('returns 1 for itemIndex 0', () => {
             expect(chunkNumberFor(0)).toBe(1);

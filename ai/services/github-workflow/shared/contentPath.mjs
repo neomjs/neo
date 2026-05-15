@@ -122,12 +122,16 @@ export default function contentPath(config = {}) {
     validateNonNegativeInteger(itemIndex, 'itemIndex');
     validateBucketXor({version, bucket});
 
-    if (version) validateSegment(version, 'version');
-    if (bucket)  validateSegment(bucket,  'bucket');
+    // Presence-aware validation per #11381 GPT review RA1: supplying `version: ''` or `bucket: ''`
+    // is a contract violation (caller signaled archive-tier routing with a non-empty value missing).
+    // Distinguish key-not-supplied (undefined / null) from key-supplied-as-empty (which must throw).
+    if (version !== undefined && version !== null) validateSegment(version, 'version');
+    if (bucket  !== undefined && bucket  !== null) validateSegment(bucket,  'bucket');
 
-    const chunkNumber = Math.floor(itemIndex / itemsPerChunk) + 1;
-    const chunkDir    = `${chunkPrefix}${chunkNumber}`;
-    const bucketDir   = (version || bucket)
+    const chunkNumber  = chunkNumberFor(itemIndex, itemsPerChunk);
+    const chunkDir     = `${chunkPrefix}${chunkNumber}`;
+    const archiveTier  = (version !== undefined && version !== null) || (bucket !== undefined && bucket !== null);
+    const bucketDir    = archiveTier
         ? path.join(contentRoot, 'archive', type, version || bucket)
         : path.join(contentRoot, type);
 
@@ -155,10 +159,13 @@ export function contentBucketDir(config = {}) {
     validateSegment(type,        'type');
     validateBucketXor({version, bucket});
 
-    if (version) validateSegment(version, 'version');
-    if (bucket)  validateSegment(bucket,  'bucket');
+    // Presence-aware validation (see #11381 GPT review RA1 / `contentPath` body): supplied-but-empty
+    // archive-tier selectors must fail-loud rather than silently routing to active-tier.
+    if (version !== undefined && version !== null) validateSegment(version, 'version');
+    if (bucket  !== undefined && bucket  !== null) validateSegment(bucket,  'bucket');
 
-    return (version || bucket)
+    const archiveTier = (version !== undefined && version !== null) || (bucket !== undefined && bucket !== null);
+    return archiveTier
         ? path.join(contentRoot, 'archive', type, version || bucket)
         : path.join(contentRoot, type);
 }
@@ -183,13 +190,21 @@ export function chunkNumberFor(itemIndex, itemsPerChunk = DEFAULT_ITEMS_PER_CHUN
  * Supplying both is a programming error (archive disambiguation conflict); supplying neither
  * is the legitimate "active tier" path and is permitted.
  *
+ * Presence-aware semantics (per #11381 GPT review RA1): supplying both keys is a conflict
+ * even if both values are empty strings — the caller signaled archive-tier intent on two
+ * different axes simultaneously. Non-emptiness of the supplied value is validated separately
+ * by `validateSegment` at the call site.
+ *
  * @param {Object} config
  * @param {String} [config.version]
  * @param {String} [config.bucket]
- * @throws {TypeError} If both `version` and `bucket` are supplied
+ * @throws {TypeError} If both `version` and `bucket` are supplied (presence-aware, not truthiness)
  */
 export function validateBucketXor({version, bucket}) {
-    if (version && bucket) {
+    const versionSupplied = version !== undefined && version !== null;
+    const bucketSupplied  = bucket  !== undefined && bucket  !== null;
+
+    if (versionSupplied && bucketSupplied) {
         throw new TypeError('exactly zero or one of version or bucket may be supplied');
     }
 }
