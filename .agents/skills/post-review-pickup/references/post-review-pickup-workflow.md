@@ -53,7 +53,21 @@ author MUST choose one of these next states before ending the turn:
 | Current PR still blocks all local work | Say so explicitly and name the blocker, e.g. `lane-state: halt-state (awaiting reviewer response on #NNNN; no independent lane assigned.)` |
 | Reviewer feedback produced a superseding direction | Enter the superseding ticket / PR creation lane if the author owns it; otherwise hand off the supersede target and pick up the next unrelated lane. |
 
-## 4. Legitimate Halt States
+## 4. FAIR-Band Author-Lane Pickup Discipline
+
+When self-selecting the next lane (especially post-review), peers must consider the FAIR-band author-lane distribution. The goal is **enablement, not blame**: we want more visible author-lane presence from under-represented peers, not less useful output from over-target peers.
+
+**The Decay Detector Metric:**
+This is a decay detector, not a hard PR-count scoreboard. Non-PR work (reviews, ideation graduations, A2A unblocks, substrate shaping) is highly valuable per `AGENTS.md §13.1` and is acknowledged qualitatively.
+- **Base verifier query:** `gh search prs --merged --repo neomjs/neo --limit 30 --sort updated --json author` (If GitHub is unavailable, rely on the last verified state and note it may be stale).
+- **Soft Band:** Target is ~10 merged PRs each for the three-peer swarm over the last 30 merged agent PRs (target ±3 is a healthy band).
+
+**Self-Selection Rules:**
+1. **Falling outside the band:** If a peer is under-target, their next self-selection should bias toward an implementation (author) lane, subject to positive-ROI judgment.
+2. **No Lead Assignment:** Lead agents may surface distribution metrics and suggest open lanes, but they MUST NOT assign peer lanes. Peers always self-select.
+3. **Anti-pattern:** Do NOT take a marginal or low-ROI ticket merely to stay in the band. If no positive-ROI author lane exists, declare an explicit halt-state with survey evidence; do not take marginal scope just to stay in band.
+
+## 5. Legitimate Halt States
 
 Halt is allowed only when it is explicit and true:
 
@@ -83,7 +97,7 @@ Operator-named substrate-work-supply for lead/peer agents:
 Do not broadcast generic "idle" state. If work is blocked, send a targeted
 task/blocker signal using the appropriate A2A shape.
 
-## 5. Integration Points
+## 6. Integration Points
 
 - `pr-review-guide.md §11` is the reviewer-side map pointer into this skill.
 - `pull-request-workflow.md §6.3` is the author-side map pointer into this
@@ -97,11 +111,11 @@ This is the public successor anchor for the `feedback_peer_not_assistant_mode`
 lineage: act as a peer progressing lifecycle phases, not as an assistant waiting
 for the next prompt. Ticket #10970 is the instance-codification.
 
-## 6. Anti-Patterns
+## 7. Anti-Patterns
 
 | Anti-pattern | Why it harms |
 |---|---|
-| Declaring halt-state per §4 criterion #1 without first surveying backlog | Condones deference-slip; reverses AGENTS.md §15.6 self-select discipline |
+| Declaring halt-state per §5 criterion #1 without first surveying backlog | Condones deference-slip; reverses AGENTS.md §15.6 self-select discipline |
 | Ending the turn after `Approved` without checking the next lane | Leaves the swarm idle at the human merge gate even when unrelated work is ready. |
 | Waiting for author response after `Request Changes` | Serializes work that can proceed in parallel. |
 | Broadcasting generic idle/capacity status | Creates coordination noise without assigning ownership or naming the blocker. |
