@@ -63,6 +63,73 @@ class TextEmbeddingService extends Base {
     }
 
     /**
+     * Executes the /v1/embeddings POST request with retry semantics for unloaded models.
+     * @param {String|String[]} inputData The text or array of texts to embed.
+     * @param {Number} retriesLeft Number of retries remaining.
+     * @returns {Promise<Object>}
+     * @private
+     */
+    async #postOpenAiCompatible(inputData, retriesLeft) {
+        const { host, embeddingModel, apiKey, unloadRetryCount = 3, unloadRetryDelayMs = 500 } = aiConfig.openAiCompatible;
+        
+        try {
+            const parsedUrl = new URL(`${host}/v1/embeddings`);
+            const httpModule = parsedUrl.protocol === 'https:' ? await import('https') : await import('http');
+
+            let resolveFunc, rejectFunc;
+            const responsePromise = new Promise((res, rej) => {
+                resolveFunc = res;
+                rejectFunc = rej;
+            });
+
+            const reqHeaders = { 'Content-Type': 'application/json' };
+            if (apiKey) {
+                reqHeaders.Authorization = `Bearer ${apiKey}`;
+            }
+
+            const req = httpModule.request(parsedUrl, {
+                method : 'POST',
+                headers: reqHeaders,
+                timeout: 60 * 60 * 1000 // 1 hour timeout natively
+            }, (res) => {
+                let body = '';
+                res.on('data', chunk => body += chunk);
+                res.on('end', () => {
+                    if (res.statusCode < 200 || res.statusCode >= 300) {
+                        rejectFunc(new Error(`openAiCompatible embedding error HTTP ${res.statusCode}: ${body}`));
+                    } else {
+                        try {
+                            const result = JSON.parse(body);
+                            resolveFunc(result);
+                        } catch (e) {
+                            rejectFunc(new Error(`Failed to parse openAiCompatible response: ${e.message}`));
+                        }
+                    }
+                });
+            });
+
+            req.on('error', (err) => rejectFunc(err));
+            req.on('timeout', () => {
+                req.destroy();
+                rejectFunc(new Error('openAiCompatible request timed out after 1 hour'));
+            });
+
+            req.write(JSON.stringify({ model: embeddingModel, input: inputData }));
+            req.end();
+
+            return await responsePromise;
+        } catch (err) {
+            if (retriesLeft > 0 && err.message.includes('HTTP 400') && err.message.includes('Model was unloaded')) {
+                logger.log(`[TextEmbeddingService] embedding-provider model-unload detected, retrying (remaining retries: ${retriesLeft})`);
+                await new Promise(r => setTimeout(r, unloadRetryDelayMs));
+                return this.#postOpenAiCompatible(inputData, retriesLeft - 1);
+            }
+            logger.error(`[TextEmbeddingService] Failed to generate embedding from openAiCompatible:`, err.message);
+            throw err;
+        }
+    }
+
+    /**
      * Creates an embedding vector for the provided text.
      * @param {String} text The text to embed.
      * @param {String} explicitProvider The embedding provider to use.
@@ -72,58 +139,9 @@ class TextEmbeddingService extends Base {
         if (!explicitProvider) throw new Error('TextEmbeddingService.embedText requires an explicit provider argument');
 
         if (explicitProvider === 'openAiCompatible') {
-            const { host, embeddingModel, apiKey } = aiConfig.openAiCompatible;
-            try {
-                const parsedUrl = new URL(`${host}/v1/embeddings`);
-                const httpModule = parsedUrl.protocol === 'https:' ? await import('https') : await import('http');
-
-                let resolveFunc, rejectFunc;
-                const responsePromise = new Promise((res, rej) => {
-                    resolveFunc = res;
-                    rejectFunc = rej;
-                });
-
-                const reqHeaders = { 'Content-Type': 'application/json' };
-                if (apiKey) {
-                    reqHeaders.Authorization = `Bearer ${apiKey}`;
-                }
-
-                const req = httpModule.request(parsedUrl, {
-                    method : 'POST',
-                    headers: reqHeaders,
-                    timeout: 60 * 60 * 1000 // 1 hour timeout natively
-                }, (res) => {
-                    let body = '';
-                    res.on('data', chunk => body += chunk);
-                    res.on('end', () => {
-                        if (res.statusCode < 200 || res.statusCode >= 300) {
-                            rejectFunc(new Error(`openAiCompatible embedding error HTTP ${res.statusCode}: ${body}`));
-                        } else {
-                            try {
-                                const result = JSON.parse(body);
-                                resolveFunc(result);
-                            } catch (e) {
-                                rejectFunc(new Error(`Failed to parse openAiCompatible response: ${e.message}`));
-                            }
-                        }
-                    });
-                });
-
-                req.on('error', (err) => rejectFunc(err));
-                req.on('timeout', () => {
-                    req.destroy();
-                    rejectFunc(new Error('openAiCompatible request timed out after 1 hour'));
-                });
-
-                req.write(JSON.stringify({ model: embeddingModel, input: text }));
-                req.end();
-
-                const result = await responsePromise;
-                return result.data?.[0]?.embedding;
-            } catch (err) {
-                logger.error(`[TextEmbeddingService] Failed to generate embedding from openAiCompatible:`, err.message);
-                throw err;
-            }
+            const { unloadRetryCount = 3 } = aiConfig.openAiCompatible;
+            const result = await this.#postOpenAiCompatible(text, unloadRetryCount);
+            return result.data?.[0]?.embedding;
         } else {
             const geminiKey = process.env.GEMINI_API_KEY;
             if (!geminiKey) {
@@ -147,58 +165,9 @@ class TextEmbeddingService extends Base {
         if (!explicitProvider) throw new Error('TextEmbeddingService.embedTexts requires an explicit provider argument');
 
         if (explicitProvider === 'openAiCompatible') {
-            const { host, embeddingModel, apiKey } = aiConfig.openAiCompatible;
-            try {
-                const parsedUrl = new URL(`${host}/v1/embeddings`);
-                const httpModule = parsedUrl.protocol === 'https:' ? await import('https') : await import('http');
-
-                let resolveFunc, rejectFunc;
-                const responsePromise = new Promise((res, rej) => {
-                    resolveFunc = res;
-                    rejectFunc = rej;
-                });
-
-                const reqHeaders = { 'Content-Type': 'application/json' };
-                if (apiKey) {
-                    reqHeaders.Authorization = `Bearer ${apiKey}`;
-                }
-
-                const req = httpModule.request(parsedUrl, {
-                    method : 'POST',
-                    headers: reqHeaders,
-                    timeout: 60 * 60 * 1000 // 1 hour timeout natively
-                }, (res) => {
-                    let body = '';
-                    res.on('data', chunk => body += chunk);
-                    res.on('end', () => {
-                        if (res.statusCode < 200 || res.statusCode >= 300) {
-                            rejectFunc(new Error(`openAiCompatible embedding error HTTP ${res.statusCode}: ${body}`));
-                        } else {
-                            try {
-                                const result = JSON.parse(body);
-                                resolveFunc(result);
-                            } catch (e) {
-                                rejectFunc(new Error(`Failed to parse openAiCompatible response: ${e.message}`));
-                            }
-                        }
-                    });
-                });
-
-                req.on('error', (err) => rejectFunc(err));
-                req.on('timeout', () => {
-                    req.destroy();
-                    rejectFunc(new Error('openAiCompatible request timed out after 1 hour'));
-                });
-
-                req.write(JSON.stringify({ model: embeddingModel, input: texts }));
-                req.end();
-
-                const result = await responsePromise;
-                return result.data.sort((a, b) => a.index - b.index).map(d => d.embedding);
-            } catch (err) {
-                logger.error(`[TextEmbeddingService] Failed to generate embeddings from openAiCompatible:`, err.message);
-                throw err;
-            }
+            const { unloadRetryCount = 3 } = aiConfig.openAiCompatible;
+            const result = await this.#postOpenAiCompatible(texts, unloadRetryCount);
+            return result.data.sort((a, b) => a.index - b.index).map(d => d.embedding);
         } else {
             const geminiKey = process.env.GEMINI_API_KEY;
             if (!geminiKey) {
