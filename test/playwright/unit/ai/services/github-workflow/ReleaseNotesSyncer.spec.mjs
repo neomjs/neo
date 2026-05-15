@@ -78,28 +78,25 @@ test.describe('Neo.ai.services.github-workflow.sync.ReleaseNotesSyncer', () => {
             };
         };
 
-        const syncer = InstanceManager.get('Neo.ai.services.github-workflow.sync.ReleaseNotesSyncer');
-        await syncer.fetchAndCacheReleases(metadata);
+        await ReleaseNotesSyncer.fetchAndCacheReleases(metadata);
 
         // It should have hit the quick-check and returned without doing full pagination
         expect(queryCallCount).toBe(1);
 
         // Crucially, it must have populated sortedReleases
-        expect(syncer.sortedReleases).toEqual([
+        expect(ReleaseNotesSyncer.sortedReleases).toEqual([
             { tagName: 'v1.0.0', publishedAt: '2024-01-01T00:00:00Z' },
             { tagName: 'v1.1.0', publishedAt: '2024-02-01T00:00:00Z' }
         ]);
-        expect(syncer.releases).toEqual(metadata.releases);
+        expect(ReleaseNotesSyncer.releases).toEqual(metadata.releases);
     });
 
     test('syncNotes generates ordinal pathing and updates _index.json correctly', async () => {
-        const syncer = InstanceManager.get('Neo.ai.services.github-workflow.sync.ReleaseNotesSyncer');
-
-        syncer.releases = {
+        ReleaseNotesSyncer.releases = {
             'v1.0.0': { tagName: 'v1.0.0', name: 'Release 1', publishedAt: '2024-01-01T00:00:00Z', description: 'First release' },
             'v1.1.0': { tagName: 'v1.1.0', name: 'Release 2', publishedAt: '2024-02-01T00:00:00Z', description: 'Second release' }
         };
-        syncer.sortedReleases = [
+        ReleaseNotesSyncer.sortedReleases = [
             { tagName: 'v1.0.0', publishedAt: '2024-01-01T00:00:00Z' },
             { tagName: 'v1.1.0', publishedAt: '2024-02-01T00:00:00Z' }
         ];
@@ -108,7 +105,7 @@ test.describe('Neo.ai.services.github-workflow.sync.ReleaseNotesSyncer', () => {
         const releaseDir = path.join(tmpRoot, 'release-notes');
         await fs.emptyDir(releaseDir);
 
-        const stats = await syncer.syncNotes({});
+        const stats = await ReleaseNotesSyncer.syncNotes({});
         expect(stats.count).toBe(2);
 
         // Check ordinal chunk paths
