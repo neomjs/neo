@@ -49,9 +49,10 @@ Epic bodies currently do **double-duty** as both **workstream coordination** AND
 
 - Epics / tickets MAY be filed pre-ADR-merge (preserves planning visibility)
 - Peer maintainers MAY approve implementation PRs consuming the decision when their review criteria pass
-- Implementation PRs consuming the decision MUST NOT merge until the ADR authority is `Accepted` at merge time
-- If the ADR updates an existing decision record, merge eligibility targets the **updated ADR file at the PR head having `Status: Accepted`**, NOT the previous accepted version
-- The PR review/body trail documents any remaining human merge/content gate without converting that pending gate into `CHANGES_REQUESTED`
+- ADR-producing / ADR-consuming PRs follow the normal PR lifecycle: peer approval + green CI + human merge
+- The human merge of an approved, green PR is the operator content-accuracy approval for the ADR change
+- If the ADR updates an existing decision record, reviewers audit the **updated ADR file at the PR head**, NOT the previous accepted version
+- The PR review/body trail documents any remaining merge-order or human merge/content gate without converting that pending gate into `CHANGES_REQUESTED`
 
 This preserves what the substrate already has (Epic-driven coordination + planning visibility) while enforcing phase discipline only at the substrate-mutation boundary.
 
@@ -77,13 +78,13 @@ Four sub-section edits codify the workflow extension:
 - **§5 graduation target list:** add ADR as optional/additional target beside Epic / ticket / rare direct PR
 - **§5.2 Authority Sweep:** when canonical future authority is not Discussion body / ticket ACs, require `Decision Record: REQUIRED / OPTIONAL / NOT_NEEDED` classification with rationale
 - **§6.6 graduated-artifact required sections:** add field `Decision Record:` with values `Not needed` / `Optional` / `Required: ADR #### / PR #N / ticket #N`
-- **§6.7 author actions:** when `ADR_REQUIRED`, file/update ADR; implementation PR merge BLOCKED until ADR `Accepted`
+- **§6.7 author actions:** when `ADR_REQUIRED`, file/update ADR; implementation PRs may be approved under normal review criteria, while actual merge order remains human-gate-owned
 
 ### 3.2 Maps (one-line pointers per Progressive Disclosure)
 
 Three companion-skill Maps each get a one-line pointer to the Atlas:
 
-- **`pr-review-guide.md §8`** cross-skill integration audit: *"If an implementation PR cites a graduated Discussion marked `Decision Record: REQUIRED`, verify the linked ADR is `Accepted` before declaring human merge eligibility; peer approval may still be valid when review criteria pass and the remaining gate is explicitly human-owned."*
+- **`pr-review-guide.md §8`** cross-skill integration audit: *"If an implementation PR cites a graduated Discussion marked `Decision Record: REQUIRED`, verify the linked ADR authority and name any merge-order dependency; peer approval may still be valid when review criteria pass and the remaining gate is explicitly human-owned."*
 - **`ticket-create-workflow.md §5`** Fat Ticket structure: optional `Decision Record:` field when graduating from a Discussion declaring ADR classification (value references linked ADR or marks `N/A — no Discussion origin`)
 - **`epic-review-workflow.md`** Stage 2.5: when Discussion-origin Epic preserves `Discussion Criteria Mapping`, also preserve `Decision Record` classification/linkage if source Discussion declared one
 
@@ -95,7 +96,7 @@ This ADR + Discussion #11369 + ticket #11370 jointly demonstrate the workflow's 
 - Discussion #11369 proposed ADR-at-graduation
 - Under its own classification rule, #11369 fires `ADR_REQUIRED` (changes durable workflow primitive; multi-future-Discussion impact; high reconstruction cost)
 - Graduation produced TWO artifacts: this ADR 0005 (authority) + ticket #11370 (planning)
-- Implementation PR for #11370 is merge-blocked until this ADR is `Accepted` per the very gate this ADR codifies
+- Implementation PR for #11370 is merge-sequenced after this ADR's authority lands; peer approval remains governed by normal review criteria
 
 **Scope discipline on this proof:** the manual dogfooding validates the **artifact-split / classification / merge-gate shape** — i.e., the *design* of the workflow extension. The workflow extension itself does NOT yet "work" as substrate; that comes into operational effect only after ticket #11370's 4-file substrate amendments land. This ADR is the authority codification; #11370's implementation PR is what mechanically wires the extension into `ideation-sandbox-workflow.md §5/§5.2/§6.6/§6.7` + the three Map pointers. Until then, the dogfooding is shape-validation, not operational-effect validation.
 
@@ -131,9 +132,9 @@ If a Discussion graduated with `Decision Record: REQUIRED` and produced an ADR, 
 
 If the original Epic body has been Cycle-1/Cycle-2/etc amended, those amendments are workstream coordination updates, NOT authority shifts. Authority shifts produce ADR updates (a separate PR cycle). Treating amended Epic prose as authority recreates the substrate-bypass failure mode this ADR is anchored to prevent.
 
-### 5.3 Merging before ADR `Accepted`
+### 5.3 Treating human merge as peer-review blocker
 
-Implementation PRs consuming a graduated `ADR_REQUIRED` decision MUST NOT merge until the linked ADR authority is `Accepted` at merge time. Reviewers MUST verify ADR Status before declaring human merge eligibility. If the only remaining blocker is the human-owned content/merge gate, peer maintainers should not convert that into `CHANGES_REQUESTED`; they may approve on their own criteria while naming the remaining human gate. Authors who push implementation PRs targeting `dev` while the ADR is `Draft` are bypassing the merge-gate this ADR codifies unless the same PR updates the ADR to `Accepted` before merge.
+Implementation PRs consuming a graduated `ADR_REQUIRED` decision follow the same peer-review semantics as other PRs: peer maintainers approve when their review criteria pass, and @tobiu's merge of an approved, green PR is the operator content-accuracy approval. Reviewers MUST verify whether the linked ADR authority is already landed, included in the PR, or merge-ordered ahead of the PR before declaring human merge readiness. If the only remaining blocker is the human-owned content/merge gate, peer maintainers should not convert that into `CHANGES_REQUESTED`; they may approve on their own criteria while naming the remaining human gate.
 
 ### 5.4 Mis-classifying as `ADR_OPTIONAL` to skip the gate
 
@@ -150,7 +151,7 @@ If a Discussion changes durable path/layout/API/lifecycle, introduces/retires a 
 Before authoring substrate-mutation code that consumes a graduated Discussion, you MUST:
 
 1. Read the linked ADR (if `Decision Record: REQUIRED`)
-2. Verify ADR `Status: Accepted` at PR head (not historical state) before claiming merge eligibility; if a human-owned content/merge gate remains, state it explicitly instead of treating it as a peer-review blocker
+2. Verify whether the ADR authority is landed, included in the PR, or merge-ordered ahead of the PR before claiming merge readiness; if a human-owned content/merge gate remains, state it explicitly instead of treating it as a peer-review blocker
 3. V-B-A your authoring against the ADR's §2 Decision section, NOT the Epic body or Discussion body
 4. Cite the ADR in your PR body
 5. If Cycle N revisions to the ADR are needed for your work, file a separate ADR-update PR first; do not amend the implementation PR to also touch the ADR
@@ -188,8 +189,8 @@ This hook replaces the a-priori "~1-3 ADRs per quarter" cadence assertion (origi
 
 ## 9. Status / Lifecycle
 
-- **Draft (this version)** awaiting operator content-accuracy approval before commit-time Status flip
-- **Accepted** once operator confirms accuracy + completeness via PR review trail
+- **Draft** while an ADR proposal is still being shaped before normal PR approval
+- **Accepted** once an approved, green PR is merged by the human operator; the merge is the operator content-accuracy approval
 - **Merge-order dependency on ADR 0004 / PR #11368:** ADR 0005 references ADR 0004 in §8 Related as positive empirical precedent (post-hoc rescue-retrofit). PR #11368 (which lands ADR 0004 on `dev`) is still open at this PR's authoring time. **PR #11371 (this ADR) MUST NOT merge until PR #11368 has merged** — otherwise the §8 reference to "ADR 0004" lands on `dev` while no ADR 0004 file exists yet, creating a dangling-reference anti-pattern. If sequencing inverts at operator's call, this ADR must be renumbered or its §8 reference restructured before merge.
 - **Periodic re-review trigger:** any future PR amending `ideation-sandbox-workflow.md §5 / §5.2 / §6.6 / §6.7` or the companion Map pointers MUST cite this ADR in body; reviewer-side audit fires if absent
 - **Post-merge validation:** §7 hook fires as Discussion graduations land
