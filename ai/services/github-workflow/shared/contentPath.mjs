@@ -58,11 +58,11 @@ export const DEFAULT_CHUNK_PREFIX    = 'chunk-';
 
 /**
  * @typedef {ContentIndexEntry[]} ContentIndex
- * @summary Top-level shape of `resources/content/_index.json` (or per-type shards `_index.json` under each `{type}/`).
+ * @summary Top-level shape of `resources/content/_index.json`.
  *
- * Whether the substrate uses a single root-level `_index.json` or per-type shards is an
- * implementation-tier decision deferred to Lane B (#TBD) — the schema of an individual entry
- * is the durable contract; the file-sharding is the maintenance-tier concern.
+ * The schema of an individual `ContentIndexEntry` is the durable contract owned by this helper.
+ * File-sharding (single root-level `_index.json` vs per-type shards under each `{type}/`) is the
+ * consuming syncer's choice and is not part of the path-helper contract.
  */
 
 /**

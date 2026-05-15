@@ -81,7 +81,7 @@ export function validateArchiveConfig(issueSyncConfig) {
  * @param {String} config.filename Markdown filename
  * @param {Number} config.itemCount Planned bucket size after placement
  * @param {Number} [config.itemIndex] Zero-based item index, required when chunking
- * @param {Number} [config.maxItemsPerDir=100] Maximum items per flat/chunk folder (alias for legacy callers)
+ * @param {Number} [config.maxItemsPerDir=100] Maximum items per flat/chunk folder (alternative name for the threshold; `archiveChunkThreshold` takes precedence per the resolution rule in the function body)
  * @param {Number} [config.archiveChunkThreshold] Runtime override for max items per dir (preferred; takes precedence over `maxItemsPerDir`)
  * @param {String} [config.archiveChunkPrefix='chunk-'] Runtime override for chunk subdir prefix
  * @returns {String}
@@ -100,7 +100,7 @@ export default function archivePath(config = {}) {
         maxItemsPerDir     = DEFAULT_ARCHIVE_MAX_ITEMS_PER_DIR
     } = config;
 
-    // Runtime override precedence: archiveChunkThreshold (B0a #11290) > maxItemsPerDir (legacy) > default
+    // Runtime override precedence: archiveChunkThreshold (B0a #11290) > maxItemsPerDir > default
     const effectiveThreshold = archiveChunkThreshold ?? maxItemsPerDir;
 
     validateSegment(archiveRoot, 'archiveRoot', {allowPath: true});
@@ -129,13 +129,10 @@ export default function archivePath(config = {}) {
         throw new TypeError('itemIndex is required when itemCount exceeds archiveChunkThreshold')
     }
 
-    // Chunk-math delegation per #11381 GPT review RA2 partial-AC7-satisfaction: the chunked-branch
-    // math is the SAME ordinal-100 rule `contentPath()` enforces. Delegating via `chunkNumberFor()`
-    // makes the universal helper the single source of truth for the chunk-number computation while
-    // preserving `archivePath()`'s flat-when-itemCount<=threshold legacy branch for backward
-    // compatibility (the flat branch cannot delegate since `contentPath()` is always-chunked per
-    // ADR 0004 §3.1). Full retirement of this module's local path computation is deferred to
-    // Lane B / #TBD when call sites migrate to `contentPath()` directly.
+    // Internal-DRY: chunk-number computation delegates to `chunkNumberFor()` so the universal
+    // helper owns the ordinal-100 math (single source of truth). `archivePath()`'s API behavior
+    // is unchanged by this PR; #11390 owns the call-site migration that lets this file be
+    // deleted per ADR 0004 §2.3 RETIRED framing.
     const chunkNumber = chunkNumberFor(itemIndex, effectiveThreshold);
 
     return path.join(bucketDir, `${archiveChunkPrefix}${chunkNumber}`, filename)
