@@ -77,11 +77,6 @@ const defaultConfig = {
          */
         archiveRoot: path.resolve(projectRoot, 'resources/content/archive'),
         /**
-         * The path to the directory for archived issues (Legacy, retained for BC if needed).
-         * @type {string}
-         */
-        archiveDir: path.resolve(projectRoot, 'resources/content/issue-archive'),
-        /**
          * The path to the directory for discussions.
          * @type {string}
          */
@@ -111,11 +106,6 @@ const defaultConfig = {
          * @type {string}
          */
         releaseNotesDir: path.resolve(projectRoot, 'resources/content/release-notes'),
-        /**
-         * The default version directory to use for archiving issues when no release is found.
-         * @type {string}
-         */
-        defaultArchiveVersion: 'unversioned',
         /**
          * A prefix for issue filenames to prevent them from starting with a number (e.g., 'issue-').
          * @type {string}

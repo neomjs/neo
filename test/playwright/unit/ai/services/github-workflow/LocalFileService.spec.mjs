@@ -23,7 +23,7 @@ import * as core       from '../../../../../../src/core/_export.mjs';
 test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — dual-search read-path (#11285 / Epic #11187 B2)', () => {
     let LocalFileService;
     let aiConfig;
-    let originalIssuesDir, originalArchiveDir, originalArchiveRoot, originalDiscussionsDir;
+    let originalIssuesDir, originalArchiveRoot, originalDiscussionsDir;
     let testRoot;
 
     test.beforeAll(async () => {
@@ -31,19 +31,16 @@ test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — dual-
 
         // Capture original paths
         originalIssuesDir      = aiConfig.issueSync.issuesDir;
-        originalArchiveDir     = aiConfig.issueSync.archiveDir;
         originalArchiveRoot    = aiConfig.issueSync.archiveRoot;
         originalDiscussionsDir = aiConfig.issueSync.discussionsDir;
 
         // Create isolated test root
         testRoot = path.join(os.tmpdir(), `neo-localfileservice-test-${Date.now()}`);
         aiConfig.issueSync.issuesDir      = path.join(testRoot, 'issues');
-        aiConfig.issueSync.archiveDir     = path.join(testRoot, 'issue-archive');
         aiConfig.issueSync.archiveRoot    = path.join(testRoot, 'archive');
         aiConfig.issueSync.discussionsDir = path.join(testRoot, 'discussions');
 
         await fs.ensureDir(aiConfig.issueSync.issuesDir);
-        await fs.ensureDir(aiConfig.issueSync.archiveDir);
         await fs.ensureDir(aiConfig.issueSync.archiveRoot);
         await fs.ensureDir(aiConfig.issueSync.discussionsDir);
 
@@ -52,7 +49,6 @@ test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — dual-
 
     test.afterAll(async () => {
         aiConfig.issueSync.issuesDir      = originalIssuesDir;
-        aiConfig.issueSync.archiveDir     = originalArchiveDir;
         aiConfig.issueSync.archiveRoot    = originalArchiveRoot;
         aiConfig.issueSync.discussionsDir = originalDiscussionsDir;
 
@@ -62,7 +58,6 @@ test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — dual-
     test.afterEach(async () => {
         // Clean each test's fixture state
         await fs.emptyDir(aiConfig.issueSync.issuesDir).catch(() => {});
-        await fs.emptyDir(aiConfig.issueSync.archiveDir).catch(() => {});
         await fs.emptyDir(aiConfig.issueSync.archiveRoot).catch(() => {});
         await fs.emptyDir(aiConfig.issueSync.discussionsDir).catch(() => {});
     });
@@ -95,18 +90,17 @@ test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — dual-
         expect(result.filePath).toBe(archivePath);
     });
 
-    test('getIssueById falls back to legacy archiveDir when not in archiveRoot', async () => {
+    test('getIssueById does not probe retired legacy issue-archive paths', async () => {
         const issueId = '8888';
         const filename = `issue-${issueId}.md`;
-        const legacyPath = path.join(aiConfig.issueSync.archiveDir, 'v11.0.0', '88xx', filename);
+        const legacyPath = path.join(testRoot, 'issue-archive', 'v11.0.0', '88xx', filename);
         await fs.ensureDir(path.dirname(legacyPath));
         await fs.writeFile(legacyPath, '# Archived (legacy path) content');
 
         const result = await LocalFileService.getIssueById(issueId);
 
-        expect(result.error).toBeUndefined();
-        expect(result.content).toBe('# Archived (legacy path) content');
-        expect(result.filePath).toBe(legacyPath);
+        expect(result.code).toBe('NOT_FOUND');
+        expect(result.error).toBe('File not found');
     });
 
     test('getIssueById returns NOT_FOUND when issue exists nowhere', async () => {
@@ -116,11 +110,11 @@ test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — dual-
         expect(result.error).toBe('File not found');
     });
 
-    test('getIssueById prefers archiveRoot over archiveDir when both have the same id', async () => {
+    test('getIssueById returns archiveRoot matches without consulting retired legacy paths', async () => {
         const issueId = '6666';
         const filename = `issue-${issueId}.md`;
         const newPath = path.join(aiConfig.issueSync.archiveRoot, 'issues', 'v12.0.0', filename);
-        const legacyPath = path.join(aiConfig.issueSync.archiveDir, 'v11.0.0', '66xx', filename);
+        const legacyPath = path.join(testRoot, 'issue-archive', 'v11.0.0', '66xx', filename);
         await fs.ensureDir(path.dirname(newPath));
         await fs.ensureDir(path.dirname(legacyPath));
         await fs.writeFile(newPath, '# New canonical wins');
