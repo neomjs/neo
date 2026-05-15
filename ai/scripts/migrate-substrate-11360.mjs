@@ -51,7 +51,7 @@ const projectRoot = path.resolve(__dirname, '../..');
 
 /**
  * @summary Returns the chunk-dir name for a numeric ID, e.g. 10287 → '102xx', 8160 → '081xx'.
- *   Matches `ai/services/github-workflow/shared/chunkPath.mjs`.
+ *   Mirrors the retired pre-ADR-0004 ID-range chunking used by this one-shot migration.
  */
 function chunkPath(number) {
     return String(number).padStart(4, '0').slice(0, -2) + 'xx';
