@@ -6,6 +6,12 @@
     "routerByteBudget": 12,
     "payloadBudget": 80000,
     "perFilePayloadBudget": 25000,
+    "rareTriggerPatterns": [
+      "openapi",
+      "audit",
+      "edge-case",
+      "deprecation"
+    ],
     "claudeSymlinkRequired": true,
     "downstreamDocsTargets": [
       "learn/agentos/ProgressiveDisclosureSkills.md",

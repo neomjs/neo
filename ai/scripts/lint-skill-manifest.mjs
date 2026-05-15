@@ -138,6 +138,49 @@ function checkPerFileBudgets(files, perFileBudget) {
     return errors;
 }
 
+function parseSectionTriggers(text) {
+    const index = [];
+    const sections = text.split(/^(?=#{2,6}\s)/m);
+
+    for (const section of sections) {
+        if (!section.trim()) continue;
+
+        const headerMatch = section.match(/^(#{2,6})\s+([^\n]+)/);
+        if (!headerMatch) continue;
+
+        const anchor = headerMatch[2].trim();
+        const bodySizeBytes = Buffer.byteLength(section, 'utf8');
+
+        const triggerMatch = section.match(/^<!-- trigger:\s+(.+?)\s+→\s+read\s+(.+?\.md)\s*-->$/m);
+        if (triggerMatch) {
+            index.push({
+                anchor,
+                trigger: triggerMatch[1].trim(),
+                subRulePath: triggerMatch[2].trim(),
+                bodySizeBytes
+            });
+        }
+    }
+
+    return index;
+}
+
+function checkSectionTriggers(filePath, text, rarePatterns = []) {
+    const errors = [];
+    const index = parseSectionTriggers(text);
+
+    for (const entry of index) {
+        if (entry.bodySizeBytes > 5000) {
+            const isRare = rarePatterns.some(p => entry.trigger.toLowerCase().includes(p.toLowerCase()));
+            if (isRare) {
+                errors.push(`${path.relative(ROOT_DIR, filePath)} ${entry.anchor} is ${entry.bodySizeBytes} bytes with declared trigger '${entry.trigger}' (rare-firing class). Extract to sub-rule sibling file behind one-line trigger pointer per skill-authoring-guide.md §Map vs World Atlas. Reduce workflow body to: section header + <!-- trigger: ... --> pointer line.`);
+            }
+        }
+    }
+
+    return {errors, index};
+}
+
 function validateManifestSchema(manifest, schema) {
     const errors = [];
     const rootKeys = new Set([...schema.required, '$schema']);
@@ -183,6 +226,16 @@ function validateManifestSchema(manifest, schema) {
 
     if ('perFilePayloadBudget' in defaults && (!Number.isInteger(defaults.perFilePayloadBudget) || defaults.perFilePayloadBudget < 1)) {
         errors.push('defaults.perFilePayloadBudget must be a positive integer when set');
+    }
+
+    if ('rareTriggerPatterns' in defaults) {
+        if (!Array.isArray(defaults.rareTriggerPatterns)) {
+            errors.push('defaults.rareTriggerPatterns must be an array of strings');
+        } else {
+            for (const p of defaults.rareTriggerPatterns) {
+                if (typeof p !== 'string') errors.push('defaults.rareTriggerPatterns must be an array of strings');
+            }
+        }
     }
 
     if (typeof defaults.claudeSymlinkRequired !== 'boolean') {
@@ -340,10 +393,17 @@ async function lint({base = null} = {}) {
         }
 
         const perFileBudget = skill.perFilePayloadBudget ?? manifest.defaults.perFilePayloadBudget;
+        const files = await payloadFileSizes(skillName);
 
         if (Number.isInteger(perFileBudget) && perFileBudget > 0) {
-            const files = await payloadFileSizes(skillName);
             errors.push(...checkPerFileBudgets(files, perFileBudget));
+        }
+
+        const rarePatterns = manifest.defaults.rareTriggerPatterns || ['openapi', 'audit', 'edge-case', 'deprecation'];
+        for (const {path: filePath} of files) {
+            const text = requireText(filePath);
+            const result = checkSectionTriggers(filePath, text, rarePatterns);
+            errors.push(...result.errors);
         }
 
         if (skill.claudeSymlinkRequired) {
@@ -392,4 +452,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
     });
 }
 
-export {checkPerFileBudgets, lint, parseArgs, parseFrontmatter, validateManifestSchema};
+export {checkPerFileBudgets, checkSectionTriggers, parseSectionTriggers, lint, parseArgs, parseFrontmatter, validateManifestSchema};
