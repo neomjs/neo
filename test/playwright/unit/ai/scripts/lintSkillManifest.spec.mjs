@@ -3,6 +3,7 @@ import {execFileSync, spawnSync} from 'child_process';
 import path                      from 'path';
 
 import {
+    checkOversizedWorkflowMaps,
     checkPerFileBudgets,
     checkSectionTriggers,
     parseArgs,
@@ -351,5 +352,56 @@ ${padding}
         expect(index[0].trigger).toBe('test condition');
         expect(index[0].subRulePath).toBe('./test-rule.md');
         expect(index[0].bodySizeBytes).toBeGreaterThan(100);
+    });
+
+    test('checkOversizedWorkflowMaps passes when one-line pointer addition is within maxPositiveDeltaBytes (#11437)', () => {
+        const changedFiles = new Set(['pr-review-guide.md', 'some-other-file.md']);
+        const oversizedFiles = ['pr-review-guide.md', 'pull-request-workflow.md'];
+        const maxDelta = 250;
+
+        const getSizeFn = (file) => file === 'pr-review-guide.md' ? 1200 : 0;
+        const getBaseSizeFn = (file) => file === 'pr-review-guide.md' ? 1000 : 0; // Delta: 200
+
+        const errors = checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getSizeFn, getBaseSizeFn);
+        expect(errors).toEqual([]);
+    });
+
+    test('checkOversizedWorkflowMaps fails when PR #11434-style inline addition exceeds maxPositiveDeltaBytes (#11437)', () => {
+        const changedFiles = new Set(['pull-request-workflow.md']);
+        const oversizedFiles = ['pr-review-guide.md', 'pull-request-workflow.md'];
+        const maxDelta = 250;
+
+        const getSizeFn = (file) => 1500;
+        const getBaseSizeFn = (file) => 1000; // Delta: 500
+
+        const errors = checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getSizeFn, getBaseSizeFn);
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toContain('Oversized workflow map pull-request-workflow.md grew by 500 bytes (max allowed delta is 250).');
+        expect(errors[0]).toContain('Extract substantive additions to a sibling file behind a one-line trigger pointer.');
+    });
+
+    test('checkOversizedWorkflowMaps fails when long pr-review-guide.md anti-pattern row exceeds maxPositiveDeltaBytes (#11437)', () => {
+        const changedFiles = new Set(['pr-review-guide.md']);
+        const oversizedFiles = ['pr-review-guide.md'];
+        const maxDelta = 250;
+
+        const getSizeFn = (file) => 2300;
+        const getBaseSizeFn = (file) => 1000; // Delta: 1300
+
+        const errors = checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getSizeFn, getBaseSizeFn);
+        expect(errors).toHaveLength(1);
+        expect(errors[0]).toContain('Oversized workflow map pr-review-guide.md grew by 1300 bytes');
+    });
+
+    test('checkOversizedWorkflowMaps ignores deleted oversized files', () => {
+        const changedFiles = new Set(['pr-review-guide.md']);
+        const oversizedFiles = ['pr-review-guide.md'];
+        const maxDelta = 250;
+
+        const getSizeFn = (file) => null; // File deleted
+        const getBaseSizeFn = (file) => 1000;
+
+        const errors = checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getSizeFn, getBaseSizeFn);
+        expect(errors).toEqual([]);
     });
 });

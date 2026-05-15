@@ -380,6 +380,24 @@ function changedSkillNames(base) {
     return names;
 }
 
+function checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getSizeFn, getBaseSizeFn) {
+    const errors = [];
+    for (const file of changedFiles) {
+        if (oversizedFiles.includes(file)) {
+            const currentSize = getSizeFn(file);
+            if (currentSize === null) continue;
+
+            const baseSize = getBaseSizeFn(file);
+            const delta = currentSize - baseSize;
+
+            if (delta > maxDelta) {
+                errors.push(`Oversized workflow map ${file} grew by ${delta} bytes (max allowed delta is ${maxDelta}). Extract substantive additions to a sibling file behind a one-line trigger pointer.`);
+            }
+        }
+    }
+    return errors;
+}
+
 async function lint({base = null} = {}) {
     const schema       = readJson(SCHEMA_PATH);
     const manifest     = readJson(MANIFEST_PATH);
@@ -397,23 +415,21 @@ async function lint({base = null} = {}) {
     if (base) {
         const oversizedFiles = manifest.defaults.oversizedWorkflowMaps || [];
         const maxDelta = manifest.defaults.maxPositiveDeltaBytes || 0;
-        
-        for (const file of changed) {
-            if (oversizedFiles.includes(file)) {
-                let currentSize = 0;
+
+        const oversizedErrors = checkOversizedWorkflowMaps(
+            changed,
+            oversizedFiles,
+            maxDelta,
+            (file) => {
                 try {
-                    currentSize = statSync(path.join(ROOT_DIR, file)).size;
+                    return statSync(path.join(ROOT_DIR, file)).size;
                 } catch(e) {
-                    continue; // File deleted, delta is negative
+                    return null;
                 }
-                const baseSize = getBaseFileSize(base, file);
-                const delta = currentSize - baseSize;
-                
-                if (delta > maxDelta) {
-                    errors.push(`Oversized workflow map ${file} grew by ${delta} bytes (max allowed delta is ${maxDelta}). Extract substantive additions to a sibling file behind a one-line trigger pointer.`);
-                }
-            }
-        }
+            },
+            (file) => getBaseFileSize(base, file)
+        );
+        errors.push(...oversizedErrors);
     }
 
     for (const skillName of skillDirs) {
@@ -501,4 +517,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
     });
 }
 
-export {checkPerFileBudgets, checkSectionTriggers, parseSectionTriggers, lint, parseArgs, parseFrontmatter, validateManifestSchema};
+export {checkOversizedWorkflowMaps, checkPerFileBudgets, checkSectionTriggers, parseSectionTriggers, lint, parseArgs, parseFrontmatter, validateManifestSchema};
