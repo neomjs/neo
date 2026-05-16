@@ -531,6 +531,138 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(written).not.toMatch(/^\s*-\s+(undefined|null)\s*$/m);
         expect(written).not.toContain('undefined');
     });
+
+    test('ARCHIVE ANOMALY WARN: only fires when both buckets parse as valid semver tags (#11486)', async () => {
+        // Empirical anchor: operator 2026-05-16T19:33Z paste — `npm run ai:sync-github-workflow`
+        // post-#11485-merge produced thousands of `[WARN] 🚨 [ARCHIVE ANOMALY]` lines, dominated by
+        // migration-shape false positives (oldVersion = title-derived garbage like
+        // 'vneo.d.ts - Typescript definitions for all neo framework classes') where sealed-chunk
+        // semantics already prevent any actual move. Only genuine vX.Y.Z → vX.Y.Z shifts (e.g.
+        // #7910 v11.12.0 → v11.13.0) are actionable anomalies and should retain WARN level.
+        //
+        // This test exercises two issues simultaneously:
+        // - Issue A: cached path bucket is title-derived garbage → semver.valid returns null →
+        //   DEBUG emitted, NO WARN
+        // - Issue B: cached path bucket is valid semver tag (v11.12.0) shifting to another valid
+        //   semver tag (v11.13.0) → WARN emitted exactly once
+        const issueAMigrationShape = buildMockIssue({
+            number       : 3285,
+            title        : 'Mock migration-shape issue (#11486 filter test)',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+        issueAMigrationShape.state    = 'CLOSED';
+        issueAMigrationShape.closedAt = '2026-05-15T10:00:00Z';
+        issueAMigrationShape.milestone = {title: 'v8.1.0'}; // new resolution: valid semver
+
+        const issueBSemverShift = buildMockIssue({
+            number       : 7910,
+            title        : 'Mock valid-semver-shift issue (#11486 filter test)',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+        issueBSemverShift.state    = 'CLOSED';
+        issueBSemverShift.closedAt = '2026-05-15T10:00:00Z';
+        issueBSemverShift.milestone = {title: 'v11.13.0'}; // new resolution: valid semver
+
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchIssuesForSync')) {
+                return {
+                    rateLimit : {cost: 1, remaining: 4999, resetAt: '2026-05-15T11:00:00Z'},
+                    repository: {
+                        issues: {
+                            pageInfo: {hasNextPage: false, endCursor: null},
+                            nodes   : [structuredClone(issueAMigrationShape), structuredClone(issueBSemverShift)]
+                        }
+                    }
+                };
+            }
+            if (query.includes('FetchSingleIssue')) {
+                // Refetch path may target either issue
+                const num = parseInt(query.match(/number:\s*(\d+)/)?.[1] || '0', 10);
+                const src = num === issueBSemverShift.number ? issueBSemverShift : issueAMigrationShape;
+                return {repository: {issue: structuredClone(src)}};
+            }
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        // Cached paths: issue A under migration-shape bucket, issue B under valid v11.12.0
+        const issueAOldAbsolutePath = path.join(
+            issueSyncConfig.archiveRoot, 'issues',
+            'vneo.d.ts - typescript definitions for all neo framework classes',
+            'chunk-3000', `issue-${issueAMigrationShape.number}.md`
+        );
+        const issueBOldAbsolutePath = path.join(
+            issueSyncConfig.archiveRoot, 'issues',
+            'v11.12.0', 'chunk-7900', `issue-${issueBSemverShift.number}.md`
+        );
+        const issueAOldRelPath = path.relative(aiConfig.projectRoot, issueAOldAbsolutePath);
+        const issueBOldRelPath = path.relative(aiConfig.projectRoot, issueBOldAbsolutePath);
+
+        const metadata = {
+            issues: {
+                [issueAMigrationShape.number]: {
+                    state       : 'CLOSED',
+                    path        : issueAOldRelPath,
+                    updatedAt   : '2026-05-14T10:00:00Z',
+                    closedAt    : '2026-05-15T10:00:00Z',
+                    milestone   : null,
+                    title       : issueAMigrationShape.title,
+                    contentHash : 'hashA',
+                    commentsTotal: 0
+                },
+                [issueBSemverShift.number]: {
+                    state       : 'CLOSED',
+                    path        : issueBOldRelPath,
+                    updatedAt   : '2026-05-14T10:00:00Z',
+                    closedAt    : '2026-05-15T10:00:00Z',
+                    milestone   : null,
+                    title       : issueBSemverShift.title,
+                    contentHash : 'hashB',
+                    commentsTotal: 0
+                }
+            }
+        };
+
+        // Pre-create the two cached files so sealed-chunk path-resolution works.
+        await fs.ensureDir(path.dirname(issueAOldAbsolutePath));
+        await fs.ensureDir(path.dirname(issueBOldAbsolutePath));
+        await fs.writeFile(issueAOldAbsolutePath, 'mock content A', 'utf8');
+        await fs.writeFile(issueBOldAbsolutePath, 'mock content B', 'utf8');
+
+        // Spy on logger.warn and logger.debug.
+        const warnCalls  = [];
+        const debugCalls = [];
+        const originalWarn  = logger.warn;
+        const originalDebug = logger.debug;
+        logger.warn  = (...args) => { warnCalls.push(args[0]); };
+        logger.debug = (...args) => { debugCalls.push(args[0]); };
+
+        try {
+            await IssueSyncer.pullFromGitHub(metadata);
+        } finally {
+            logger.warn  = originalWarn;
+            logger.debug = originalDebug;
+            await fs.unlink(issueAOldAbsolutePath).catch(() => {});
+            await fs.unlink(issueBOldAbsolutePath).catch(() => {});
+        }
+
+        // Migration-shape issue A: NO WARN with [ARCHIVE ANOMALY], EXACTLY 1 DEBUG with [ARCHIVE MIGRATION]
+        const issueAWarns  = warnCalls.filter(s => typeof s === 'string' && s.includes('[ARCHIVE ANOMALY]') && s.includes(`#${issueAMigrationShape.number}`));
+        const issueADebugs = debugCalls.filter(s => typeof s === 'string' && s.includes('[ARCHIVE MIGRATION]') && s.includes(`#${issueAMigrationShape.number}`));
+        expect(issueAWarns).toHaveLength(0);
+        expect(issueADebugs.length).toBeGreaterThanOrEqual(1);
+
+        // Valid-semver-shift issue B: EXACTLY 1 WARN with [ARCHIVE ANOMALY], NO [ARCHIVE MIGRATION] DEBUG
+        const issueBWarns  = warnCalls.filter(s => typeof s === 'string' && s.includes('[ARCHIVE ANOMALY]') && s.includes(`#${issueBSemverShift.number}`));
+        const issueBDebugs = debugCalls.filter(s => typeof s === 'string' && s.includes('[ARCHIVE MIGRATION]') && s.includes(`#${issueBSemverShift.number}`));
+        expect(issueBWarns).toHaveLength(1);
+        expect(issueBWarns[0]).toContain("'v11.12.0'");
+        expect(issueBWarns[0]).toContain("'v11.13.0'");
+        expect(issueBDebugs).toHaveLength(0);
+    });
 });
 
 function buildComment(i) {
