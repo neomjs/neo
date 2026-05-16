@@ -21,6 +21,8 @@ import {
     Memory_LifecycleService
 } from '../../ai/services.mjs';
 
+import {withHeavyMaintenanceLease} from '../../ai/daemons/services/HeavyMaintenanceLeaseService.mjs';
+
 const execFileAsync = promisify(execFile);
 
 /**
@@ -438,11 +440,24 @@ async function copyJsonlSource(source, destDir, logger=console) {
     return {copied: 1};
 }
 
-// Auto-run when invoked directly
+// Auto-run when invoked directly. Lane C of #11503 wraps the heavy-maintenance work in
+// the shared lease primitive (PR #11506 / #11505) so this CLI cannot collide with the
+// orchestrator's heavy tasks or with another manual heavy script. The exported `runBackup`
+// function is left lease-free so test harnesses and other module-level callers retain
+// full control of their own concurrency context.
 if (import.meta.url === `file://${process.argv[1]}`) {
-    runBackup()
-        .then(result => {
-            console.log(JSON.stringify(result, null, 2));
+    withHeavyMaintenanceLease(
+        () => runBackup(),
+        {owner: 'backup', reason: 'manual-cli', metadata: {script: 'buildScripts/ai/backup.mjs'}}
+    )
+        .then(outcome => {
+            if (outcome.status === 'held') {
+                const held = outcome.lease;
+                console.log(`⏸️  Deferred: heavy-maintenance lease held by '${held.owner}' (reason='${held.reason}', pid=${held.pid}, acquiredAt=${held.acquiredAt}).`);
+                console.log('   This script will not run while another heavy-maintenance task is active. Re-invoke once the active owner completes.');
+                process.exit(0);
+            }
+            console.log(JSON.stringify(outcome.result, null, 2));
             process.exit(0);
         })
         .catch(error => {

@@ -1,4 +1,5 @@
-import {GH_Config, GH_SyncService} from '../../ai/services.mjs';
+import {GH_Config, GH_SyncService}     from '../../ai/services.mjs';
+import {withHeavyMaintenanceLease}     from '../../ai/daemons/services/HeavyMaintenanceLeaseService.mjs';
 
 /**
  * @module buildScripts/ai/syncGithubWorkflow
@@ -50,14 +51,31 @@ async function syncGithubWorkflow() {
 
     console.log('🔄 Starting full GitHub Workflow sync via GH_SyncService.runFullSync()...');
 
+    // Lane C of #11503 — wrap the heavy-maintenance work in the shared lease so this
+    // CLI cannot collide with the orchestrator's kbSync / summary / dream / golden-path
+    // tasks or with another manual heavy script (#11507 / #11505 lease primitive). Stage 2
+    // graph ingestion in particular is the substrate-heavy concern (per AC7 / #11503);
+    // whole-run guard is the v1 prescription pending future Stage 1 / Stage 2 split.
+    let outcome;
     try {
-        const result = await GH_SyncService.runFullSync();
-        console.log('✅ Sync complete:', result);
-        process.exit(0);
+        outcome = await withHeavyMaintenanceLease(
+            async () => GH_SyncService.runFullSync(),
+            {owner: 'syncGithubWorkflow', reason: 'manual-cli', metadata: {script: 'buildScripts/ai/syncGithubWorkflow.mjs', verbose}}
+        );
     } catch (e) {
         console.error('❌ Sync failed:', e);
         process.exit(1);
     }
+
+    if (outcome.status === 'held') {
+        const held = outcome.lease;
+        console.log(`⏸️  Deferred: heavy-maintenance lease held by '${held.owner}' (reason='${held.reason}', pid=${held.pid}, acquiredAt=${held.acquiredAt}).`);
+        console.log('   This script will not run while another heavy-maintenance task is active. Re-invoke once the active owner completes.');
+        process.exit(0);
+    }
+
+    console.log('✅ Sync complete:', outcome.result);
+    process.exit(0);
 }
 
 syncGithubWorkflow();

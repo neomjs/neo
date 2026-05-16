@@ -8,6 +8,7 @@ import GoldenPathSynthesizer from '../../ai/daemons/services/GoldenPathSynthesiz
 import LifecycleService from '../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import InferenceLifecycleService from '../../ai/services/memory-core/lifecycle/InferenceLifecycleService.mjs';
 import GraphService from '../../ai/services/memory-core/GraphService.mjs';
+import {withHeavyMaintenanceLease} from '../../ai/daemons/services/HeavyMaintenanceLeaseService.mjs';
 import logger from '../../ai/mcp/server/memory-core/logger.mjs';
 import http from 'http';
 import {pathToFileURL} from 'url';
@@ -166,53 +167,81 @@ export async function runSandman() {
 
     console.log('⏳ Initializing Sandman REM Extraction Pipeline...');
 
+    // Lane C of #11503 — wrap the REM cycle in the shared heavy-maintenance lease so this
+    // CLI cannot collide with the orchestrator's `dream` task or with other manual heavy
+    // scripts. The substrate-heavy work (DreamService + GoldenPathSynthesizer LLM passes
+    // + Memory Core graph writes) is the contention surface the lease primitive (PR #11506 /
+    // #11505) guards. On held-status, the script defers cleanly without running the decay
+    // step (since no graph mutation occurred).
+    let outcome;
     try {
-        console.log('   Waiting for Lifecycle Service to auto-boot orchestrators...');
-        await LifecycleService.ready();
-        console.log('   Lifecycle Service Ready. Database should be running.');
+        outcome = await withHeavyMaintenanceLease(async () => {
+            // Inner try/catch preserves the script's prior graceful-fail semantics for
+            // provider-readiness + DreamService failures (return-without-throw at the
+            // provider-fail branch; throw-and-catch for everything else).
+            try {
+                console.log('   Waiting for Lifecycle Service to auto-boot orchestrators...');
+                await LifecycleService.ready();
+                console.log('   Lifecycle Service Ready. Database should be running.');
 
-        console.log('   Waiting for MLX provider to warm up load weights into VRAM...');
-        const waitResult = await waitForProvider();
+                console.log('   Waiting for MLX provider to warm up load weights into VRAM...');
+                const waitResult = await waitForProvider();
 
-        if (!waitResult.running) {
-            const diagnostic = createProviderFailureDiagnostic({
-                waitResult,
-                lifecycleStatus: InferenceLifecycleService.getStatus()
-            });
+                if (!waitResult.running) {
+                    const diagnostic = createProviderFailureDiagnostic({
+                        waitResult,
+                        lifecycleStatus: InferenceLifecycleService.getStatus()
+                    });
 
-            await recordProviderReadinessFailure(diagnostic);
-            process.exitCode = 1;
-            return;
-        }
+                    await recordProviderReadinessFailure(diagnostic);
+                    process.exitCode = 1;
+                    return {providerReady: false};
+                }
 
-        console.log('\n   ✅ openAiCompatible server is running (auto-boot successful).');
+                console.log('\n   ✅ openAiCompatible server is running (auto-boot successful).');
 
-        console.log('   Waiting for DreamService Initialization...');
-        // We might need to ensure DreamService is fully inited, though it initAsync runs automatically upon Neo.setupClass
-        await DreamService.ready();
-        console.log('   DreamService Ready.');
+                console.log('   Waiting for DreamService Initialization...');
+                // We might need to ensure DreamService is fully inited, though it initAsync runs automatically upon Neo.setupClass
+                await DreamService.ready();
+                console.log('   DreamService Ready.');
 
-        console.log('✅ Services Ready. Entering REM Sleep...');
+                console.log('✅ Services Ready. Entering REM Sleep...');
 
-        // Execute the REM pipeline (extract undigested graph entities + Golden Path synthesis)
-        await DreamService.processUndigestedSessions();
-        await GoldenPathSynthesizer.synthesizeGoldenPath();
+                // Execute the REM pipeline (extract undigested graph entities + Golden Path synthesis)
+                await DreamService.processUndigestedSessions();
+                await GoldenPathSynthesizer.synthesizeGoldenPath();
 
-        console.log('✅ Sandman cycle complete.');
-        process.exitCode = 0;
+                console.log('✅ Sandman cycle complete.');
+                process.exitCode = 0;
+                return {providerReady: true};
+            } catch (e) {
+                console.error('❌ REM cycle failed:', e);
+                process.exitCode = 1;
+                return {providerReady: false, error: e.message};
+            }
+        }, {owner: 'sandman', reason: 'manual-cli', metadata: {script: 'buildScripts/ai/runSandman.mjs'}});
     } catch (e) {
-        console.error('❌ REM cycle failed:', e);
+        // withHeavyMaintenanceLease itself failed (e.g., lease-write IO error).
+        console.error('❌ REM cycle lease acquisition failed:', e);
         process.exitCode = 1;
-    } finally {
-        console.log('🧹 Triggering global topology decay & pruning mechanism...');
-        try {
-            // Need to await? decayGlobalTopology is synchronous.
-            GraphService.decayGlobalTopology();
-        } catch (e) {
-            console.error('❌ Failed to decay topology:', e);
-        }
-        process.exit(process.exitCode);
     }
+
+    if (outcome?.status === 'held') {
+        const held = outcome.lease;
+        console.log(`⏸️  Deferred: heavy-maintenance lease held by '${held.owner}' (reason='${held.reason}', pid=${held.pid}, acquiredAt=${held.acquiredAt}).`);
+        console.log('   This script will not run while another heavy-maintenance task is active. Re-invoke once the active owner completes.');
+        // Skip the decay step on held — no graph mutation occurred.
+        process.exit(0);
+    }
+
+    console.log('🧹 Triggering global topology decay & pruning mechanism...');
+    try {
+        // Need to await? decayGlobalTopology is synchronous.
+        GraphService.decayGlobalTopology();
+    } catch (e) {
+        console.error('❌ Failed to decay topology:', e);
+    }
+    process.exit(process.exitCode);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
