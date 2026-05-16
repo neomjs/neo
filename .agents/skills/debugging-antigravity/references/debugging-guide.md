@@ -108,3 +108,15 @@ To verify a tool shape change (e.g., in `memory-core`), spawn a fresh client via
 node ai/mcp/client/mcp-cli.mjs --server memory-core --call-tool "your_modified_tool" '{"param": "test"}'
 ```
 This forces a clean handshake, parsing the live tool definitions directly from the server process, proving whether your tool-shape changes are actually valid without restarting the entire IDE harness.
+
+## 6. Antigravity Scratch-Path Freezes (Gemini)
+
+### The Problem
+When the Antigravity harness is running the Gemini agent, attempts to write to global OS temporary directories (like `/tmp`) trigger a hard harness freeze. This is an Antigravity-specific harness safety issue (MX friction), not an LLM intent error.
+
+### The Fix
+Agents operating within Antigravity must strictly adhere to an allowlist for scratch files:
+- **Permitted Path:** `.neo-ai-data/scratch/{agent}/`
+- **Configuration:** Writing to this path requires the Antigravity "Tab Gitignore Access" setting to be enabled, as `.neo-ai-data` is gitignored.
+
+If a freeze has already occurred due to an invalid path write, you must restart the IDE and manually clean the rogue file if it persisted.

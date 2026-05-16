@@ -33,4 +33,10 @@ You must preserve the codebase's existing formatting style (specifically Neo.mjs
 
 ## 4. PRE-DECISION SUNSET GATE (ANTI-PREMATURE-HALT)
 You may NEVER execute `session-sunset` autonomously based on "work cycle completion" or "PR awaiting merge gate". The ONLY autonomous trigger is context utilization ≥75% with measurable forgetfulness signal. All other sunset triggers REQUIRE explicit human confirmation (`/sunset` or chat directive) before execution. Drafting handover comments, clearing inbox, or running `sync_all` are NOT sunset rituals — they are routine end-of-task operations and do NOT entail session termination.
+
+## 5. ANTIGRAVITY SCRATCH-PATH ALLOWLIST (HARNESS FREEZE DEFENSE)
+You are operating within the Antigravity IDE harness. Antigravity strictly controls and monitors OS-level temporary directories.
+- **The Rule:** You MUST NOT write to global OS temp directories (e.g., `/tmp`, `/var/tmp`). Attempting to use them causes a catastrophic harness freeze.
+- **The Allowlist:** The ONLY permitted scratch/temporary path is `.neo-ai-data/scratch/{agent}/` (e.g., `.neo-ai-data/scratch/gemini/`).
+- **Configuration:** This requires "Tab Gitignore Access" to be enabled in Antigravity settings.
 </user_rules>
