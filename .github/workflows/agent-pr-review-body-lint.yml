@@ -42,43 +42,12 @@ jobs:
 
             // ──────────────────────────────────────────────────────────────────────
             // Two-layer mechanical body-shape validation (#11495, derived from PR #11494).
-            //
-            // VISIBLE layer: 7 evaluation-metric tags from pr-review-template.md /
-            // pr-review-followup-template.md. Wire-format contract with the Retrospective-
-            // daemon graph ingestor (ai/daemons/services/ConceptDiscoveryService.mjs).
-            // Misses surface as a precise list in the follow-up comment + ONE diagnostic
-            // anchor named in the human-facing message.
-            //
-            // INVISIBLE layer: structural template substrings checked SILENTLY. Misses
-            // NOT named in the follow-up comment — neither in prose nor as enumeration.
-            // Defeats Goodhart anchor-stuffing where a reviewer hallucinates a body that
-            // contains exactly the named visible anchors but omits the actual template
-            // structure (empirical anchor: review 4304287893 on PR #11499 had all 7
-            // visible tags but missing structural anchors — would have passed visible-only).
-            //
-            // ⚠️  SYNCHRONIZATION PROTOCOL: these lists MUST stay in sync with
-            // `ai/services/github-workflow/PullRequestService.mjs` constants
-            // `VISIBLE_PR_REVIEW_ANCHORS` + `INVISIBLE_PR_REVIEW_ANCHORS`. If you edit
-            // either side, edit the other simultaneously. Follow-up ticket candidate:
-            // extract to shared module `ai/services/github-workflow/prReviewAnchors.mjs`
-            // (see #11501 cross-surface enhancement ticket).
+            // Imports anchors from a shared module to ensure cross-surface synchronization
+            // with the MCP tool validation logic (#11501).
             // ──────────────────────────────────────────────────────────────────────
 
-            const VISIBLE_PR_REVIEW_ANCHORS = [
-              "[ARCH_ALIGNMENT]",
-              "[CONTENT_COMPLETENESS]",
-              "[EXECUTION_QUALITY]",
-              "[PRODUCTIVITY]",
-              "[IMPACT]",
-              "[COMPLEXITY]",
-              "[EFFORT_PROFILE]"
-            ];
-
-            const INVISIBLE_PR_REVIEW_ANCHORS = [
-              "Depth Floor",
-              "Required Actions",
-              "Strategic-Fit Decision"
-            ];
+            const fileUrl = `file://${process.env.GITHUB_WORKSPACE}/ai/services/github-workflow/prReviewAnchors.mjs`;
+            const { VISIBLE_PR_REVIEW_ANCHORS, INVISIBLE_PR_REVIEW_ANCHORS } = await import(fileUrl);
 
             const missingVisible   = VISIBLE_PR_REVIEW_ANCHORS  .filter(a => !body.includes(a));
             const missingInvisible = INVISIBLE_PR_REVIEW_ANCHORS.filter(a => !body.includes(a));

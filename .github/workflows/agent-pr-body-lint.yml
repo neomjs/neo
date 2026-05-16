@@ -30,12 +30,9 @@ jobs:
 
             console.log(`🔍 Linting PR body for agent-authored PR by: ${author}`);
 
-            const requiredAnchors = [
-              "FAIR-band:",
-              "Evidence:",
-              "## Test Evidence",
-              "## Post-Merge Validation"
-            ];
+            const fileUrl = `file://${process.env.GITHUB_WORKSPACE}/ai/services/github-workflow/prBodyAnchors.mjs`;
+            const { REQUIRED_PR_BODY_ANCHORS } = await import(fileUrl);
+            const requiredAnchors = REQUIRED_PR_BODY_ANCHORS;
 
             let missingAnchors = [];
             for (const anchor of requiredAnchors) {
