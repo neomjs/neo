@@ -50,13 +50,6 @@ export function buildTaskDefinitions({
             pidFileName    : 'chroma.pid',
             expectedCommand: 'chroma'
         },
-        memoryCoreChroma: {
-            label          : 'memory core chroma',
-            command        : 'chroma',
-            args           : ['run', '--path', '.neo-ai-data/chroma/memory-core', '--port', '8001'],
-            pidFileName    : 'mc-chroma.pid',
-            expectedCommand: 'chroma'
-        },
         bridgeDaemon: {
             label          : 'bridge daemon',
             command        : nodeBin,
