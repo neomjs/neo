@@ -95,7 +95,7 @@ class IssueSyncer extends Base {
 
             const page = data.repository.issue.timelineItems;
             allNodes.push(...page.nodes);
-            logger.info(`  📄 Fetched timeline page for #${issue.number}: +${page.nodes.length} events (cumulative: ${allNodes.length})`);
+            logger.debug(`  📄 Fetched timeline page for #${issue.number}: +${page.nodes.length} events (cumulative: ${allNodes.length})`);
 
             cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
         }
@@ -797,7 +797,7 @@ class IssueSyncer extends Base {
 
                 stats.refetched.count++;
                 stats.refetched.issues.push(issueNumber);
-                logger.info(`✅ Refetched issue #${issueNumber}`);
+                logger.debug(`✅ Refetched issue #${issueNumber}`);
 
                 metadata.issues[issueNumber] = {
                     state        : issue.state,
@@ -885,7 +885,7 @@ class IssueSyncer extends Base {
                     continue;
                 }
 
-                logger.info(`📝 Content changed for #${issueNumber}`);
+                logger.debug(`📝 Content changed for #${issueNumber}`);
 
                 // Step 1: Get the issue's GraphQL ID
                 const idData = await GraphqlService.query(GET_ISSUE_ID, {
@@ -1002,7 +1002,7 @@ class IssueSyncer extends Base {
                     continue;
                 }
 
-                logger.info(`📦 Archiving closed issue #${issueNumber}: ${currentAbsolutePath} → ${correctPath}`);
+                logger.debug(`📦 Archiving closed issue #${issueNumber}: ${currentAbsolutePath} → ${correctPath}`);
 
                 try {
                     // Ensure target directory exists
@@ -1017,7 +1017,7 @@ class IssueSyncer extends Base {
                     stats.count++;
                     stats.issues.push(parseInt(issueNumber));
 
-                    logger.info(`✅ Archived #${issueNumber} to ${path.relative(process.cwd(), correctPath)}`);
+                    logger.debug(`✅ Archived #${issueNumber} to ${path.relative(process.cwd(), correctPath)}`);
                 } catch (e) {
                     logger.error(`❌ Failed to archive #${issueNumber}: ${e.message}`);
                 }
