@@ -138,3 +138,7 @@ Inject Context Preamble: "Before analyzing the code, you MUST first read `src/Ne
 ## 23. Authoring Discipline: Sibling-File Lift [DISCIPLINE-ONLY]
 Before writing a new `class X extends Y` file in an existing directory, you MUST read 1-2 sibling files to lift the prevailing pattern.
 > *"Pre-Flight: I read `<sibling-file>` and observed pattern `<P>`; my new class will follow that pattern."*
+
+## 22. Lead-Role Baton Intake (Validation & Constraints) [DISCIPLINE-ONLY]
+A valid baton is a targeted DM, never `AGENT:*`, with `wakeSuppressed: true`, subject `[handoff] Lead Role Baton`, and body fields `fromLead`, `toLead`, `sourceSessionId`, `reason`, `createdAt`, and expiry / staleness limits. 
+Missing, stale, malformed, or broadcast baton state does NOT authorize silent self-election: continue in peer-role / normal mailbox triage, dispatch a targeted `lead-role-baton-missing` A2A alert, and await operator or human-triggered recovery.
