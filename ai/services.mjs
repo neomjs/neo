@@ -77,6 +77,7 @@ NeuralLink_Config.data.autoConnect = false;
 
 // --- Daemons ---
 import DreamService from './daemons/DreamService.mjs';
+import HeavyMaintenanceLeaseService from './daemons/services/HeavyMaintenanceLeaseService.mjs';
 import SemanticGraphExtractor from './daemons/services/SemanticGraphExtractor.mjs';
 import TopologyInferenceEngine from './daemons/services/TopologyInferenceEngine.mjs';
 
@@ -312,6 +313,7 @@ export {
 
     // Daemons
     DreamService,
+    HeavyMaintenanceLeaseService,
     SemanticGraphExtractor,
     TopologyInferenceEngine,
 
