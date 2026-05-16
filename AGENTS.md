@@ -166,16 +166,7 @@ To mitigate "Helpful Assistant" regression drift, agents MUST execute this evalu
 At turn start, you MUST check your A2A mailbox for unread messages.
 > *"Pre-Flight: I called `list_messages({status: 'unread'})` and observed [N unread]."*
 
-**Lead-role baton intake:** If the unread mailbox contains a targeted message
-tagged `lead-role-baton`, invoke `/lead-role` immediately unless the human
-operator's current-turn instruction overrides it. A valid baton is a targeted
-DM, never `AGENT:*`, with `wakeSuppressed: true`, subject
-`[handoff] Lead Role Baton`, and body fields `fromLead`, `toLead`,
-`sourceSessionId`, `reason`, `createdAt`, and expiry / staleness limits. Missing,
-stale, malformed, or broadcast baton state does NOT authorize silent self-election:
-continue in peer-role / normal mailbox triage, dispatch a targeted
-`lead-role-baton-missing` A2A alert, and await operator or human-triggered
-recovery.
+**Lead-role baton intake:** If the unread mailbox contains a targeted message tagged `lead-role-baton`, invoke `/lead-role` immediately unless overridden. Validation and failure constraints mapped to `AGENTS_ATLAS.md`.
 
 **Skill Adherence Pre-Flight (per-turn):**
 Before triggering a lifecycle skill, state in your reasoning: *"I will read the full SKILL.md and its referenced payload before drafting output."* Half-reading is empirically 3–5× more expensive than full-reading across correction cycles. Skipping the manual is the higher-cost path, not the lower-cost path.
