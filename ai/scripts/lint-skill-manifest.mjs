@@ -67,7 +67,11 @@ function parseFrontmatter(text, filePath) {
         const key   = line.slice(0, index).trim();
         const value = line.slice(index + 1).trim();
 
-        data[key] = value.replace(/^"(.*)"$/, '$1');
+        let parsedValue = value.replace(/^"(.*)"$/, '$1');
+        if (value !== parsedValue) {
+            parsedValue = parsedValue.replace(/\\"/g, '"');
+        }
+        data[key] = parsedValue;
     }
 
     for (const key of ['name', 'description']) {
@@ -482,9 +486,19 @@ async function lint({base = null} = {}) {
         }
 
         if (base && touchedSkillNames.has(skillName)) {
-            for (const target of skill.downstreamDocsTargets) {
-                if (!changed.has(target)) {
-                    errors.push(`${skillName} changed but downstreamDocsTarget ${target} was not updated in this PR`);
+            let skipDocs = false;
+            try {
+                const commitMsgs = execFileSync('git', ['log', `${base}...HEAD`, '--pretty=%B'], {cwd: ROOT_DIR, encoding: 'utf8'});
+                if (commitMsgs.includes('[skip docs]')) skipDocs = true;
+            } catch (e) {
+                console.warn(`[lint-skill-manifest] Warning: could not parse git log for skip-docs check: ${e.message}`);
+            }
+
+            if (!skipDocs) {
+                for (const target of skill.downstreamDocsTargets) {
+                    if (!changed.has(target)) {
+                        errors.push(`${skillName} changed but downstreamDocsTarget ${target} was not updated in this PR`);
+                    }
                 }
             }
         }

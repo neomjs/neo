@@ -1,6 +1,6 @@
 ---
 name: turn-memory-pre-flight
-description: Authoritative protocol for verifying the correct placement and impact of new agentic memory substrate additions. Triggers: Use before inserting or mutating turn-loaded or skill-loaded memory substrate such as AGENTS.md, AGENTS_ATLAS.md, .agents/skills/**, or harness-local injection files.
+description: "Authoritative protocol for verifying the correct placement and impact of new agentic memory substrate additions. Triggers: Use before inserting or mutating turn-loaded or skill-loaded memory substrate such as AGENTS.md, AGENTS_ATLAS.md, .agents/skills/**, or harness-local injection files."
 ---
 
 # Turn Memory Pre-Flight
