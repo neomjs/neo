@@ -459,6 +459,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 - `tech-debt-radar`: Proactive architectural sweep using semantic RAG to map and target technical debt. Invoked during `ticket-intake` and `pr-review` (especially for fundamental architectural shifts).
 
 **Tactical (live operations):**
+- `identity-firewall`: The L2 Channel Separation and Prompt Firewall defense mechanisms.
 - `neural-link`: Standard operating procedures for traversing the Object-Permanent VDOM structure.
 - `unit-test`: Synthetically driving custom Playwright configs natively within the single-thread architecture.
 - `whitebox-e2e`: Neural Link pre-flight workflow for authoring robust end-to-end tests with custom Playwright configs.
