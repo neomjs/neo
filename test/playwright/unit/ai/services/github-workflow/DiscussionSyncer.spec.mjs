@@ -23,10 +23,11 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
     let aiConfig;
     let DiscussionSyncer;
     let GraphqlService;
-    let ReleaseSyncer;
+    let ReleaseNotesSyncer;
     let originalArchiveRoot;
     let originalDiscussionsDir;
     let originalIssuesDir;
+    let originalContentRoot;
     let originalQuery;
     let originalSortedReleases;
     let tmpRoot;
@@ -35,13 +36,14 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         aiConfig         = (await import('../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
         DiscussionSyncer = (await import('../../../../../../ai/services/github-workflow/sync/DiscussionSyncer.mjs')).default;
         GraphqlService   = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
-        ReleaseSyncer    = (await import('../../../../../../ai/services/github-workflow/sync/ReleaseSyncer.mjs')).default;
+        ReleaseNotesSyncer    = (await import('../../../../../../ai/services/github-workflow/sync/ReleaseNotesSyncer.mjs')).default;
 
         originalArchiveRoot    = aiConfig.issueSync.archiveRoot;
         originalDiscussionsDir = aiConfig.issueSync.discussionsDir;
         originalIssuesDir      = aiConfig.issueSync.issuesDir;
+        originalContentRoot    = aiConfig.issueSync.contentRoot;
         originalQuery          = GraphqlService.query.bind(GraphqlService);
-        originalSortedReleases = ReleaseSyncer.sortedReleases;
+        originalSortedReleases = ReleaseNotesSyncer.sortedReleases;
     });
 
     test.beforeEach(async () => {
@@ -51,15 +53,17 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
         aiConfig.issueSync.archiveRoot    = path.join(tmpRoot, 'archive');
         aiConfig.issueSync.discussionsDir = path.join(tmpRoot, 'discussions');
         aiConfig.issueSync.issuesDir      = path.join(tmpRoot, 'issues');
-        ReleaseSyncer.sortedReleases      = [{tagName: 'v13.0.0', publishedAt: '2026-05-10T00:00:00Z'}];
+        aiConfig.issueSync.contentRoot    = tmpRoot;
+        ReleaseNotesSyncer.sortedReleases      = [{tagName: 'v13.0.0', publishedAt: '2026-05-10T00:00:00Z'}];
     });
 
     test.afterEach(async () => {
         GraphqlService.query               = originalQuery;
-        ReleaseSyncer.sortedReleases       = originalSortedReleases;
+        ReleaseNotesSyncer.sortedReleases       = originalSortedReleases;
         aiConfig.issueSync.archiveRoot     = originalArchiveRoot;
         aiConfig.issueSync.discussionsDir  = originalDiscussionsDir;
         aiConfig.issueSync.issuesDir       = originalIssuesDir;
+        aiConfig.issueSync.contentRoot     = originalContentRoot;
 
         await fs.remove(tmpRoot).catch(() => {});
     });

@@ -6,15 +6,11 @@ import logger                                        from '../../../mcp/server/g
 import matter                                        from 'gray-matter';
 import path                                          from 'path';
 import GraphqlService                                from '../GraphqlService.mjs';
-import ReleaseSyncer                                 from './ReleaseSyncer.mjs';
+import ReleaseNotesSyncer                                 from './ReleaseNotesSyncer.mjs';
 import {FETCH_ISSUE_TIMELINE_PAGE, FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries.mjs';
 import {GET_ISSUE_ID, UPDATE_ISSUE}                                                                        from '../queries/mutations.mjs';
 import contentPath                                      from '../shared/contentPath.mjs';
-import {
-    contentRootFor,
-    createContentIndexEntry,
-    updateContentIndex
-} from '../shared/contentIndex.mjs';
+import {createContentIndexEntry, updateContentIndex}    from '../shared/contentIndex.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const lineBreaksRegex = /[\r\n]+/g;
@@ -263,15 +259,15 @@ class IssueSyncer extends Base {
     }
 
     /**
-     * @summary Pre-computes bucket counts and indices for all archived issues.
+     * @summary Pre-computes bucket counts and indices for all active and archived issues.
      * @param {Object} metadata The sync metadata.
      * @param {Array} fetchedIssues The delta issues fetched from GitHub.
-     * @returns {Map<number, {version: string, itemCount: number, itemIndex: number}>}
+     * @returns {Map<number, {version: string|null, itemCount: number, itemIndex: number}>}
      * @private
      */
-    #planArchiveBuckets(metadata, fetchedIssues = []) {
+    #planBuckets(metadata, fetchedIssues = []) {
         const combined = new Map();
-        
+
         for (const [idStr, issue] of Object.entries(metadata.issues || {})) {
             let oldVersion = null;
             if (issue.state === 'CLOSED' && issue.path) {
@@ -284,7 +280,7 @@ class IssueSyncer extends Base {
                     }
                 }
             }
-            
+
             combined.set(parseInt(idStr, 10), {
                 number: parseInt(idStr, 10),
                 state: issue.state,
@@ -293,8 +289,19 @@ class IssueSyncer extends Base {
                 oldVersion
             });
         }
-        
+
         for (const issue of fetchedIssues) {
+            const labels = issue.labels?.nodes
+                ? issue.labels.nodes.map(l => l.name.toLowerCase())
+                : issue.labels?.map(l => l.name?.toLowerCase() || l.toLowerCase()) || [];
+
+            const isDropped = issueSyncConfig.droppedLabels.some(label => labels.includes(label));
+
+            if (isDropped) {
+                combined.delete(issue.number);
+                continue;
+            }
+
             if (combined.has(issue.number)) {
                 const existing = combined.get(issue.number);
                 existing.state = issue.state;
@@ -310,33 +317,32 @@ class IssueSyncer extends Base {
                 });
             }
         }
-        
+
         const buckets = new Map();
-        
+        const activeItems = [];
+
         for (const issue of combined.values()) {
-            if (issue.state !== 'CLOSED') continue;
-            
             let version = null;
-            if (issue.milestone?.title) {
-                version = issue.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
-                    ? issue.milestone.title
-                    : issueSyncConfig.versionDirectoryPrefix + issue.milestone.title;
-            } else if (issue.closedAt) {
-                const closed = new Date(issue.closedAt);
-                const release = (ReleaseSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
-                if (release) {
-                    version = release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
-                        ? release.tagName
-                        : issueSyncConfig.versionDirectoryPrefix + release.tagName;
+            if (issue.state === 'CLOSED') {
+                if (issue.milestone?.title) {
+                    version = issue.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
+                        ? issue.milestone.title
+                        : issueSyncConfig.versionDirectoryPrefix + issue.milestone.title;
+                } else if (issue.closedAt) {
+                    const closed = new Date(issue.closedAt);
+                    const release = (ReleaseNotesSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
+                    if (release) {
+                        version = release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
+                            ? release.tagName
+                            : issueSyncConfig.versionDirectoryPrefix + release.tagName;
+                    }
                 }
             }
 
-            // Closed-post-latest-release: no release-version applies. Keep in active per Epic
-            // #11187 Phase 6 mental model — archive folders for vN.M.K are created at release-cut
-            // by publish.mjs, never pre-staged into a not-yet-existing bucket. Skip bucketing
-            // entirely; #getIssuePath falls back to active path on missing plan. The previous
-            // `'unversioned'` fallback created the architectural bug fixed by #11360.
-            if (!version) continue;
+            if (issue.state !== 'CLOSED' || !version) {
+                activeItems.push(issue);
+                continue;
+            }
 
             if (issue.oldVersion && issue.oldVersion !== version) {
                 logger.warn(`🚨 [ARCHIVE ANOMALY] Issue #${issue.number} closedAt shift detected: moving from bucket '${issue.oldVersion}' to '${version}'. Dry-run review required.`);
@@ -345,8 +351,19 @@ class IssueSyncer extends Base {
             if (!buckets.has(version)) buckets.set(version, []);
             buckets.get(version).push(issue);
         }
-        
+
         const plans = new Map();
+
+        activeItems.sort((a, b) => a.number - b.number);
+        const activeItemCount = activeItems.length;
+        activeItems.forEach((issue, index) => {
+            plans.set(issue.number, {
+                version: null,
+                itemCount: activeItemCount,
+                itemIndex: index
+            });
+        });
+
         for (const [version, issues] of buckets.entries()) {
             issues.sort((a, b) => a.number - b.number);
             const itemCount = issues.length;
@@ -358,167 +375,47 @@ class IssueSyncer extends Base {
                 });
             });
         }
-        
-        return plans;
-    }
-
-    /**
-     * @summary Pre-computes active issue ordinal positions for ADR 0004 `chunk-N/` output.
-     *
-     * Delta syncs only fetch changed issues, so active bucket planning uses the cached metadata
-     * union plus the current batch. A clean `sync_all` starts with empty metadata and derives the
-     * same plan from the full fetched collection.
-     *
-     * @param {Object} metadata The sync metadata.
-     * @param {Array} fetchedIssues The delta issues fetched from GitHub.
-     * @param {Map<number, object>} archivePlan Precomputed archive bucket distribution.
-     * @returns {Map<number, {itemCount: number, itemIndex: number}>}
-     * @private
-     */
-    #planActiveBuckets(metadata, fetchedIssues = [], archivePlan = new Map()) {
-        const currentByNumber = new Map(fetchedIssues.map(issue => [Number(issue.number), issue]));
-        const activeNumbers   = new Set();
-
-        for (const [idStr, cachedIssue] of Object.entries(metadata.issues || {})) {
-            const issueNumber = Number(idStr);
-            const issue       = currentByNumber.get(issueNumber);
-
-            if (issue) {
-                if (!this.#isDropped(issue) && !archivePlan.get(issueNumber)?.version) {
-                    activeNumbers.add(issueNumber);
-                }
-                continue;
-            }
-
-            const cachedPath = cachedIssue.path || '';
-            if (!cachedPath.startsWith('archive/') && !cachedPath.includes('/archive/')) {
-                activeNumbers.add(issueNumber);
-            }
-        }
-
-        fetchedIssues.forEach(issue => {
-            const issueNumber = Number(issue.number);
-            if (!this.#isDropped(issue) && !archivePlan.get(issueNumber)?.version) {
-                activeNumbers.add(issueNumber);
-            }
-        });
-
-        const sorted = [...activeNumbers].sort((a, b) => a - b);
-        const plans  = new Map();
-
-        sorted.forEach((issueNumber, index) => {
-            plans.set(issueNumber, {
-                itemCount: sorted.length,
-                itemIndex: index
-            });
-        });
 
         return plans;
-    }
-
-    /**
-     * @summary Returns whether an issue should be excluded from local content.
-     * @param {Object} issue The GitHub issue object.
-     * @returns {Boolean}
-     * @private
-     */
-    #isDropped(issue) {
-        const labels = issue.labels?.nodes
-            ? issue.labels.nodes.map(l => l.name.toLowerCase())
-            : issue.labels?.map(l => l.name?.toLowerCase() || l.toLowerCase()) || [];
-
-        return issueSyncConfig.droppedLabels.some(label => labels.includes(label));
     }
 
     /**
      * Determines the correct local file path for a given issue based on its state (OPEN/CLOSED),
      * labels (dropped), and milestone or closed date (for archiving).
      * @param {object} issue The GitHub issue object.
-     * @param {Map<number, object>} activePlan Precomputed active bucket distribution.
-     * @param {Map<number, object>} archivePlan Precomputed bucket distribution.
+     * @param {Map<number, object>} planBuckets Precomputed bucket distribution.
      * @returns {string|null} The absolute file path for the issue's Markdown file, or null if the issue should be dropped.
      * @private
      */
-    #getIssuePath(issue, activePlan = new Map(), archivePlan = new Map()) {
+    #getIssuePath(issue, planBuckets = new Map()) {
         const filename = `${issueSyncConfig.issueFilenamePrefix}${issue.number}.md`;
 
-        if (this.#isDropped(issue)) {
+        // Handle both GraphQL (issue.labels.nodes) and potential direct array
+        const labels = issue.labels?.nodes
+            ? issue.labels.nodes.map(l => l.name.toLowerCase())
+            : issue.labels?.map(l => l.name?.toLowerCase() || l.toLowerCase()) || [];
+
+        const isDropped = issueSyncConfig.droppedLabels.some(label => labels.includes(label));
+        if (isDropped) {
             return null; // Dropped issues are not stored locally.
         }
 
-        const contentRoot   = contentRootFor(issueSyncConfig);
-        const itemsPerChunk = issueSyncConfig.archiveChunkThreshold;
-        const chunkPrefix   = issueSyncConfig.archiveChunkPrefix;
+        const plan = planBuckets.get(issue.number);
 
-        // OPEN issues are always in the active bucket.
-        if (issue.state === 'OPEN') {
-            const plan = activePlan.get(issue.number);
-            return contentPath({
-                contentRoot,
-                type     : 'issues',
-                filename,
-                itemIndex: plan?.itemIndex || 0,
-                itemsPerChunk,
-                chunkPrefix
-            });
+        const config = {
+            contentRoot: issueSyncConfig.contentRoot,
+            type: 'issues',
+            filename,
+            itemIndex: plan?.itemIndex || 0,
+            itemsPerChunk: issueSyncConfig.archiveChunkThreshold,
+            chunkPrefix: issueSyncConfig.archiveChunkPrefix
+        };
+
+        if (plan?.version) {
+            config.version = plan.version;
         }
 
-        // Logic for CLOSED issues
-        if (issue.state === 'CLOSED') {
-            const plan = archivePlan.get(issue.number);
-
-            // No archive plan = no release-version applies = closed-post-latest-release.
-            // Keep in active per Epic #11187 Phase 6 mental model. Archive folders for vN.M.K
-            // are created at release-cut by publish.mjs, never pre-staged. The previous
-            // `'unversioned'` fallback created the architectural bug fixed by #11360.
-            if (!plan?.version) {
-                const active = activePlan.get(issue.number);
-                return contentPath({
-                    contentRoot,
-                    type     : 'issues',
-                    filename,
-                    itemIndex: active?.itemIndex || 0,
-                    itemsPerChunk,
-                    chunkPrefix
-                });
-            }
-
-            return contentPath({
-                contentRoot,
-                type     : 'issues',
-                version  : plan.version,
-                filename,
-                itemIndex: plan.itemIndex || 0,
-                itemsPerChunk,
-                chunkPrefix
-            });
-        }
-
-        return null;
-    }
-
-    /**
-     * @summary Creates the ADR 0004 index entry for an issue target path.
-     * @param {object} issue GitHub issue payload
-     * @param {String} targetPath Absolute markdown output path
-     * @param {Map<number, object>} activePlan Precomputed active bucket distribution
-     * @param {Map<number, object>} archivePlan Precomputed archive bucket distribution
-     * @returns {object}
-     * @private
-     */
-    #createIndexEntry(issue, targetPath, activePlan = new Map(), archivePlan = new Map()) {
-        const archive = archivePlan.get(issue.number);
-        const plan    = archive?.version ? archive : activePlan.get(issue.number);
-
-        return createContentIndexEntry({
-            issueSyncConfig,
-            type         : 'issues',
-            id           : issue.number,
-            version      : archive?.version || null,
-            filePath     : targetPath,
-            itemIndex    : plan?.itemIndex || 0,
-            itemsPerChunk: issueSyncConfig.archiveChunkThreshold
-        });
+        return contentPath(config);
     }
 
     /**
@@ -607,15 +504,14 @@ class IssueSyncer extends Base {
             dropped: { count: 0, issues: [] }
         };
 
-        const archivePlan = this.#planArchiveBuckets(metadata, allIssues);
-        const activePlan  = this.#planActiveBuckets(metadata, allIssues, archivePlan);
-        const indexUpserts = [];
-        const indexRemovals = [];
+        const indexMutations = {upsert: [], remove: []};
+
+        const planBuckets = this.#planBuckets(metadata, allIssues);
 
         // Process each issue
         for (const issue of allIssues) {
             const issueNumber = issue.number;
-            let targetPath = this.#getIssuePath(issue, activePlan, archivePlan);
+            let targetPath = this.#getIssuePath(issue, planBuckets);
 
             const oldIssue = metadata.issues[issueNumber];
             const oldPathRelative = oldIssue?.path;
@@ -627,10 +523,10 @@ class IssueSyncer extends Base {
             // just because a maintainer toggled the state.
             if (oldIssue && issue.state === 'CLOSED') {
                 const wasArchived = oldAbsolutePath && oldAbsolutePath.startsWith(issueSyncConfig.archiveRoot);
-                
+
                 if (oldIssue.closedAt && issue.closedAt && oldIssue.closedAt !== issue.closedAt) {
                     logger.warn(`[ARCHIVE ANOMALY] Issue #${issueNumber} closedAt shifted: ${oldIssue.closedAt} -> ${issue.closedAt}.`);
-                    
+
                     if (wasArchived) {
                         logger.warn(`[SEALED CHUNK ENFORCEMENT] Preventing #${issueNumber} from jumping to ${targetPath}. Forcing retention at ${oldAbsolutePath}.`);
                         targetPath = oldAbsolutePath;
@@ -656,7 +552,8 @@ class IssueSyncer extends Base {
                 }
                 // Remove from metadata
                 delete newMetadata.issues[issueNumber];
-                indexRemovals.push({type: 'issues', id: issueNumber});
+
+                indexMutations.remove.push({ type: 'issues', id: issueNumber });
                 continue;
             }
 
@@ -708,13 +605,18 @@ class IssueSyncer extends Base {
                 contentHash,                                    // Store hash for push comparison
                 commentsTotal: this.#countTimelineComments(issue) // Derived from the exhausted timeline — #10110
             };
-            indexUpserts.push(this.#createIndexEntry(issue, targetPath, activePlan, archivePlan));
-        }
 
-        await updateContentIndex(issueSyncConfig, {
-            upsert: indexUpserts,
-            remove: indexRemovals
-        });
+            const plan = planBuckets.get(issueNumber);
+            indexMutations.upsert.push(createContentIndexEntry({
+                issueSyncConfig,
+                type: 'issues',
+                id: issueNumber,
+                filePath: this.#resolvePath(this.#relativePath(targetPath)),
+                itemIndex: plan ? plan.itemIndex : issueNumber,
+                version: issue.state === 'OPEN' ? null : plan?.version || null,
+                bucket: null
+            }));
+        }
 
         /*
          * Strategy: Timeline-Based Relationship Discovery
@@ -775,10 +677,16 @@ class IssueSyncer extends Base {
 
         if (relatedIssuesToUpdate.size > 0) {
             logger.info(`🔄 Force-updating ${relatedIssuesToUpdate.size} related issues due to relationship activity...`);
-            const refetchStats = await this.refetchIssuesByNumber([...relatedIssuesToUpdate], newMetadata);
+            const refetchStats = await this.refetchIssuesByNumber([...relatedIssuesToUpdate], newMetadata, indexMutations);
             stats.pulled.count   += refetchStats.refetched.count;
             stats.pulled.updated += refetchStats.refetched.count;
             stats.pulled.issues.push(...refetchStats.refetched.issues);
+        }
+
+        try {
+            await updateContentIndex(issueSyncConfig, indexMutations);
+        } catch (e) {
+            logger.warn(`⚠️ Could not update _index.json for issues: ${e.message}`);
         }
 
         return { newMetadata, stats };
@@ -803,9 +711,10 @@ class IssueSyncer extends Base {
      *
      * @param {Array<number>|Set<number>} numbers The issue numbers to refetch.
      * @param {object} metadata The sync metadata object (mutated in place).
+     * @param {object} [indexMutations=null] Optional accumulator for _index.json updates
      * @returns {Promise<{refetched: {count: number, issues: number[]}, errors: Array<{issueNumber: number, error: string}>}>}
      */
-    async refetchIssuesByNumber(numbers, metadata) {
+    async refetchIssuesByNumber(numbers, metadata, indexMutations = null) {
         const stats = {refetched: {count: 0, issues: []}, errors: []};
         const list  = [...numbers];
 
@@ -833,10 +742,14 @@ class IssueSyncer extends Base {
 
                 await this.#exhaustTimelineItems(issue);
 
-                const archivePlan = this.#planArchiveBuckets(metadata, [issue]);
-                const activePlan  = this.#planActiveBuckets(metadata, [issue], archivePlan);
-                const targetPath = this.#getIssuePath(issue, activePlan, archivePlan);
-                if (!targetPath) continue;
+                const planBuckets = this.#planBuckets(metadata, [issue]);
+                const targetPath = this.#getIssuePath(issue, planBuckets);
+                if (!targetPath) {
+                    if (indexMutations) {
+                        indexMutations.remove.push({ type: 'issues', id: issueNumber });
+                    }
+                    continue;
+                }
 
                 const markdown    = this.#formatIssueMarkdown(issue);
                 const contentHash = this.#calculateContentHash(markdown);
@@ -859,9 +772,18 @@ class IssueSyncer extends Base {
                     commentsTotal: this.#countTimelineComments(issue) // Derived from the exhausted timeline — #10110
                 };
 
-                await updateContentIndex(issueSyncConfig, {
-                    upsert: [this.#createIndexEntry(issue, targetPath, activePlan, archivePlan)]
-                });
+                if (indexMutations) {
+                    const plan = planBuckets.get(issueNumber);
+                    indexMutations.upsert.push(createContentIndexEntry({
+                        issueSyncConfig,
+                        type: 'issues',
+                        id: issueNumber,
+                        filePath: this.#resolvePath(this.#relativePath(targetPath)),
+                        itemIndex: plan ? plan.itemIndex : issueNumber,
+                        version: issue.state === 'OPEN' ? null : plan?.version || null,
+                        bucket: null
+                    }));
+                }
             } catch (e) {
                 logger.error(`Failed to refetch issue #${issueNumber}: ${e.message}`);
                 stats.errors.push({issueNumber, error: e.message});
@@ -997,7 +919,7 @@ class IssueSyncer extends Base {
         const stats = { count: 0, issues: [] };
 
         // Ensure releases are loaded
-        if (!ReleaseSyncer.sortedReleases || ReleaseSyncer.sortedReleases.length === 0) {
+        if (!ReleaseNotesSyncer.sortedReleases || ReleaseNotesSyncer.sortedReleases.length === 0) {
             logger.warn('No releases available for reconciliation, skipping.');
             return stats;
         }
@@ -1008,7 +930,7 @@ class IssueSyncer extends Base {
             // CRITICAL: Only process issues in the active directory
             // Resolve path to absolute for checking location
             const currentAbsolutePath = this.#resolvePath(issueData.path);
-            
+
             if (!currentAbsolutePath || !currentAbsolutePath.startsWith(issueSyncConfig.issuesDir)) {
                 continue; // Already archived, skip it
             }
@@ -1019,22 +941,14 @@ class IssueSyncer extends Base {
             }
 
             // Calculate where this closed issue SHOULD be
-            const archivePlan = this.#planArchiveBuckets(metadata);
-            const issuePayload = {
-                number   : parseInt(issueNumber),
-                state    : issueData.state,
-                milestone: issueData.milestone ? { title: issueData.milestone } : null,
-                closedAt : issueData.closedAt,
-                updatedAt: issueData.updatedAt
-            };
-            const activePlan = this.#planActiveBuckets(metadata, [issuePayload], archivePlan);
+            const planBuckets = this.#planBuckets(metadata);
             const correctPath = this.#getIssuePath({
                 number   : parseInt(issueNumber),
                 state    : issueData.state,
                 milestone: issueData.milestone ? { title: issueData.milestone } : null,
                 closedAt : issueData.closedAt,
                 updatedAt: issueData.updatedAt
-            }, activePlan, archivePlan);
+            }, planBuckets);
 
             // If the correct path is null, the issue should be dropped (shouldn't happen here)
             if (!correctPath) {
@@ -1061,9 +975,6 @@ class IssueSyncer extends Base {
 
                     // Update metadata with relative path
                     metadata.issues[issueNumber].path = this.#relativePath(correctPath);
-                    await updateContentIndex(issueSyncConfig, {
-                        upsert: [this.#createIndexEntry(issuePayload, correctPath, activePlan, archivePlan)]
-                    });
 
                     stats.count++;
                     stats.issues.push(parseInt(issueNumber));

@@ -23,7 +23,7 @@ import * as core       from '../../../../../../src/core/_export.mjs';
 test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — index-backed read-path (ADR 0004 / #11390)', () => {
     let LocalFileService;
     let aiConfig;
-    let originalIssuesDir, originalArchiveRoot, originalDiscussionsDir;
+    let originalIssuesDir, originalArchiveRoot, originalDiscussionsDir, originalContentRoot;
     let testRoot;
 
     test.beforeAll(async () => {
@@ -33,12 +33,14 @@ test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — index
         originalIssuesDir      = aiConfig.issueSync.issuesDir;
         originalArchiveRoot    = aiConfig.issueSync.archiveRoot;
         originalDiscussionsDir = aiConfig.issueSync.discussionsDir;
+        originalContentRoot    = aiConfig.issueSync.contentRoot;
 
         // Create isolated test root
         testRoot = path.join(os.tmpdir(), `neo-localfileservice-test-${Date.now()}`);
         aiConfig.issueSync.issuesDir      = path.join(testRoot, 'issues');
         aiConfig.issueSync.archiveRoot    = path.join(testRoot, 'archive');
         aiConfig.issueSync.discussionsDir = path.join(testRoot, 'discussions');
+        aiConfig.issueSync.contentRoot    = testRoot;
 
         await fs.ensureDir(aiConfig.issueSync.issuesDir);
         await fs.ensureDir(aiConfig.issueSync.archiveRoot);
@@ -51,6 +53,7 @@ test.describe.serial('Neo.ai.services.github-workflow.LocalFileService — index
         aiConfig.issueSync.issuesDir      = originalIssuesDir;
         aiConfig.issueSync.archiveRoot    = originalArchiveRoot;
         aiConfig.issueSync.discussionsDir = originalDiscussionsDir;
+        aiConfig.issueSync.contentRoot    = originalContentRoot;
 
         await fs.remove(testRoot).catch(() => {});
     });

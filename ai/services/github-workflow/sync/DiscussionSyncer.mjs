@@ -6,14 +6,14 @@ import logger                     from '../../../mcp/server/github-workflow/logg
 import matter                     from 'gray-matter';
 import path                       from 'path';
 import GraphqlService             from '../GraphqlService.mjs';
-import ReleaseSyncer              from './ReleaseSyncer.mjs';
+import ReleaseNotesSyncer         from './ReleaseNotesSyncer.mjs';
 import {FETCH_DISCUSSIONS_FOR_SYNC} from '../queries/discussionQueries.mjs';
-import contentPath                from '../shared/contentPath.mjs';
+import contentPath                  from '../shared/contentPath.mjs';
 import {
-    contentRootFor,
     createContentIndexEntry,
     updateContentIndex
 } from '../shared/contentIndex.mjs';
+
 const issueSyncConfig = aiConfig.issueSync;
 
 /**
@@ -76,15 +76,15 @@ class DiscussionSyncer extends Base {
     }
 
     /**
-     * @summary Pre-computes bucket counts and indices for all archived discussions.
+     * @summary Pre-computes bucket counts and indices for all discussions based on historical releases.
      * @param {Object} metadata The sync metadata.
      * @param {Array} fetchedDiscussions The delta discussions fetched from GitHub.
-     * @returns {Map<number, {version: string, itemCount: number, itemIndex: number}>}
+     * @returns {Map<number, {version: string|null, itemCount: number, itemIndex: number}>}
      * @private
      */
-    #planArchiveBuckets(metadata, fetchedDiscussions = []) {
+    #planBuckets(metadata, fetchedDiscussions = []) {
         const combined = new Map();
-        
+
         for (const [idStr, discussion] of Object.entries(metadata.discussions || {})) {
             combined.set(parseInt(idStr, 10), {
                 number: parseInt(idStr, 10),
@@ -92,7 +92,7 @@ class DiscussionSyncer extends Base {
                 closedAt: discussion.closedAt
             });
         }
-        
+
         for (const discussion of fetchedDiscussions) {
             combined.set(discussion.number, {
                 number: discussion.number,
@@ -100,16 +100,15 @@ class DiscussionSyncer extends Base {
                 closedAt: discussion.closedAt
             });
         }
-        
-        const buckets = new Map();
-        
-        for (const discussion of combined.values()) {
-            if (!discussion.closed) continue;
 
+        const buckets = new Map();
+        const activeItems = [];
+
+        for (const discussion of combined.values()) {
             let version = null;
             if (discussion.closedAt) {
                 const closed = new Date(discussion.closedAt);
-                const release = (ReleaseSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
+                const release = (ReleaseNotesSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
                 if (release) {
                     version = release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
                         ? release.tagName
@@ -120,79 +119,43 @@ class DiscussionSyncer extends Base {
             // Closed-post-latest-release: no release-version applies. Keep in active per Epic
             // #11187 Phase 6 mental model — archive folders for vN.M.K are created at release-cut
             // by publish.mjs, never pre-staged. The previous `'legacy'` fallback created the
-            // architectural bug fixed by #11360. #getDiscussionPath falls back to the active path
+            // architectural bug fixed by #11360. #getDiscussionPath falls back to active-flat path
             // when archivePlan returns no entry (was previously returning null; now consistent
             // with IssueSyncer/PullRequestSyncer).
-            if (!version) continue;
+            if (!discussion.closed || !version) {
+                activeItems.push(discussion.number);
+                continue;
+            }
 
             if (!buckets.has(version)) {
                 buckets.set(version, []);
             }
             buckets.get(version).push(discussion.number);
         }
-        
-        const archivePlan = new Map();
-        
+
+        const plans = new Map();
+
+        activeItems.sort((a, b) => a - b);
+        const activeItemCount = activeItems.length;
+        activeItems.forEach((id, index) => {
+            plans.set(id, {
+                version  : null,
+                itemCount: activeItemCount,
+                itemIndex: index
+            });
+        });
+
         for (const [bucketName, items] of buckets.entries()) {
             items.sort((a, b) => a - b);
-            
+
             items.forEach((id, index) => {
-                archivePlan.set(id, {
+                plans.set(id, {
                     version  : bucketName,
                     itemCount: items.length,
                     itemIndex: index
                 });
             });
         }
-        
-        return archivePlan;
-    }
-
-    /**
-     * @summary Pre-computes active discussion ordinal positions for ADR 0004 paths.
-     * @param {Object} metadata The sync metadata.
-     * @param {Array} fetchedDiscussions The delta discussions fetched from GitHub.
-     * @param {Map<number, object>} archivePlan Precomputed archive bucket distribution.
-     * @returns {Map<number, {itemCount: number, itemIndex: number}>}
-     * @private
-     */
-    #planActiveBuckets(metadata, fetchedDiscussions = [], archivePlan = new Map()) {
-        const currentByNumber = new Map(fetchedDiscussions.map(discussion => [Number(discussion.number), discussion]));
-        const activeNumbers   = new Set();
-
-        for (const [idStr, cachedDiscussion] of Object.entries(metadata.discussions || {})) {
-            const discussionNumber = Number(idStr);
-            const discussion       = currentByNumber.get(discussionNumber);
-
-            if (discussion) {
-                if (!archivePlan.get(discussionNumber)?.version) {
-                    activeNumbers.add(discussionNumber);
-                }
-                continue;
-            }
-
-            const cachedPath = cachedDiscussion.path || '';
-            if (!cachedPath.startsWith('archive/') && !cachedPath.includes('/archive/')) {
-                activeNumbers.add(discussionNumber);
-            }
-        }
-
-        fetchedDiscussions.forEach(discussion => {
-            const discussionNumber = Number(discussion.number);
-            if (!archivePlan.get(discussionNumber)?.version) {
-                activeNumbers.add(discussionNumber);
-            }
-        });
-
-        const sorted = [...activeNumbers].sort((a, b) => a - b);
-        const plans  = new Map();
-
-        sorted.forEach((discussionNumber, index) => {
-            plans.set(discussionNumber, {
-                itemCount: sorted.length,
-                itemIndex: index
-            });
-        });
 
         return plans;
     }
@@ -200,82 +163,29 @@ class DiscussionSyncer extends Base {
     /**
      * Determines the correct local file path for a given discussion.
      * @param {object} discussion The GitHub discussion object.
-     * @param {Map} activePlan The precomputed active bucket plan.
-     * @param {Map} archivePlan The precomputed bucket plan.
+     * @param {Map} planBuckets The precomputed bucket plan.
      * @returns {string} The absolute file path for the discussion's Markdown file.
      * @private
      */
-    #getDiscussionPath(discussion, activePlan, archivePlan) {
+    #getDiscussionPath(discussion, planBuckets) {
         const filename = `${issueSyncConfig.discussionFilenamePrefix}${discussion.number}.md`;
-        const contentRoot   = contentRootFor(issueSyncConfig);
-        const itemsPerChunk = issueSyncConfig.archiveChunkThreshold;
-        const chunkPrefix   = issueSyncConfig.archiveChunkPrefix;
+        const contentRoot = issueSyncConfig.contentRoot;
+        const plan = planBuckets.get(discussion.number);
 
-        // Active path = backlog + closed-for-next-release (per Epic #11187 Phase 6 mental model).
-        // Archive folders for vN.M.K are created at release-cut by publish.mjs, never pre-staged.
-        if (!discussion.closed) {
-            const plan = activePlan.get(discussion.number);
-            return contentPath({
-                contentRoot,
-                type     : 'discussions',
-                filename,
-                itemIndex: plan?.itemIndex || 0,
-                itemsPerChunk,
-                chunkPrefix
-            });
-        }
-
-        const plan = archivePlan.get(discussion.number);
-
-        // No archive plan = no release-version applies = closed-post-latest-release.
-        // Keep in active per Epic #11187 mental model. Previous behavior returned null (caller
-        // would skip the discussion); now returns the active path so closed-but-pre-release
-        // discussions still flow through sync. Consistent with IssueSyncer/PullRequestSyncer.
-        if (!plan?.version) {
-            const active = activePlan.get(discussion.number);
-            return contentPath({
-                contentRoot,
-                type     : 'discussions',
-                filename,
-                itemIndex: active?.itemIndex || 0,
-                itemsPerChunk,
-                chunkPrefix
-            });
-        }
-
-        return contentPath({
+        const config = {
             contentRoot,
-            type     : 'discussions',
-            version  : plan.version,
-            filename,
-            itemIndex: plan.itemIndex,
-            itemsPerChunk,
-            chunkPrefix
-        });
-    }
-
-    /**
-     * @summary Creates the ADR 0004 index entry for a discussion target path.
-     * @param {object} discussion GitHub discussion payload
-     * @param {String} targetPath Absolute markdown output path
-     * @param {Map<number, object>} activePlan Precomputed active bucket distribution
-     * @param {Map<number, object>} archivePlan Precomputed archive bucket distribution
-     * @returns {object}
-     * @private
-     */
-    #createIndexEntry(discussion, targetPath, activePlan = new Map(), archivePlan = new Map()) {
-        const archive = archivePlan.get(discussion.number);
-        const plan    = archive?.version ? archive : activePlan.get(discussion.number);
-
-        return createContentIndexEntry({
-            issueSyncConfig,
             type         : 'discussions',
-            id           : discussion.number,
-            version      : archive?.version || null,
-            filePath     : targetPath,
+            filename,
             itemIndex    : plan?.itemIndex || 0,
-            itemsPerChunk: issueSyncConfig.archiveChunkThreshold
-        });
+            itemsPerChunk: issueSyncConfig.archiveChunkThreshold,
+            chunkPrefix  : issueSyncConfig.archiveChunkPrefix
+        };
+
+        if (plan?.version) {
+            config.version = plan.version;
+        }
+
+        return contentPath(config);
     }
 
     /**
@@ -313,7 +223,7 @@ class DiscussionSyncer extends Base {
 
             hasNextPage = discussions.pageInfo.hasNextPage;
             cursor      = discussions.pageInfo.endCursor;
-            
+
             // To prevent massive queries, limit to say a max amount for safety.
             if (allDiscussions.length >= 200) {
                 break;
@@ -326,13 +236,11 @@ class DiscussionSyncer extends Base {
         };
 
         const cachedDiscussions = metadata.discussions || {};
-        const archivePlan = this.#planArchiveBuckets(metadata, allDiscussions);
-        const activePlan  = this.#planActiveBuckets(metadata, allDiscussions, archivePlan);
-        const indexUpserts = [];
+        const planBuckets = this.#planBuckets(metadata, allDiscussions);
 
         for (const discussion of allDiscussions) {
             try {
-                const targetPath  = this.#getDiscussionPath(discussion, activePlan, archivePlan);
+                const targetPath  = this.#getDiscussionPath(discussion, planBuckets);
                 if (!targetPath) continue;
 
                 const frontmatter = {
@@ -351,7 +259,7 @@ class DiscussionSyncer extends Base {
                     body += '\n\n## Comments\n\n';
                     for (const comment of discussion.comments.nodes) {
                         body += `### \`@${comment.author?.login || 'unknown'}\` commented on ${comment.createdAt}\n\n${comment.body}\n\n`;
-                        
+
                         // Parse replies if any
                         if (comment.replies && comment.replies.nodes && comment.replies.nodes.length > 0) {
                             for (const reply of comment.replies.nodes) {
@@ -378,17 +286,16 @@ class DiscussionSyncer extends Base {
                 // Diff cache
                 if (!needsUpdate && cachedDiscussion && cachedDiscussion.contentHash === currentHash) {
                     logger.debug(`Skipping discussion #${discussion.number}, content unchanged.`);
-                    
+
                     // We must still transfer the hash and path to the new run's metadata to persist it
                     discussion.contentHash = currentHash;
                     discussion.relativeOutputPath = oldPathRelative;
-                    indexUpserts.push(this.#createIndexEntry(discussion, targetPath, activePlan, archivePlan));
                     continue;
                 }
 
                 await fs.mkdir(path.dirname(targetPath), { recursive: true });
                 await fs.writeFile(targetPath, content, 'utf-8');
-                
+
                 if (oldAbsolutePath && oldAbsolutePath !== targetPath) {
                     try {
                         await fs.unlink(oldAbsolutePath);
@@ -399,10 +306,9 @@ class DiscussionSyncer extends Base {
                 }
 
                 logger.debug(`✅ Synced discussion #${discussion.number}`);
-                
+
                 discussion.contentHash = currentHash;
                 discussion.relativeOutputPath = this.#relativePath(targetPath);
-                indexUpserts.push(this.#createIndexEntry(discussion, targetPath, activePlan, archivePlan));
 
                 stats.count++;
                 stats.synced.push(discussion.number);
@@ -410,9 +316,11 @@ class DiscussionSyncer extends Base {
                 logger.warn(`⚠️ Could not sync discussion #${discussion.number}: ${e.message}`);
             }
         }
-        
+
         // Cache for the main orchestrator to merge
         metadata.discussions = {};
+        const indexEntries = [];
+
         allDiscussions.forEach(d => {
             metadata.discussions[d.number] = {
                 number: d.number,
@@ -421,9 +329,25 @@ class DiscussionSyncer extends Base {
                 contentHash: d.contentHash,
                 path: d.relativeOutputPath
             };
+
+            const plan = planBuckets.get(d.number);
+
+            indexEntries.push(createContentIndexEntry({
+                issueSyncConfig,
+                type: 'discussions',
+                id: d.number,
+                filePath: path.resolve(aiConfig.projectRoot, d.relativeOutputPath),
+                itemIndex: plan ? plan.itemIndex : 0,
+                version: plan?.version || null,
+                bucket: null
+            }));
         });
 
-        await updateContentIndex(issueSyncConfig, {upsert: indexUpserts});
+        try {
+            await updateContentIndex(issueSyncConfig, {upsert: indexEntries});
+        } catch (e) {
+            logger.warn(`⚠️ Could not update _index.json for discussions: ${e.message}`);
+        }
 
         if (stats.count > 0) {
             logger.info(`✨ Interacted and synced ${stats.count} modified discussions to disk.`);

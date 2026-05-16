@@ -6,14 +6,10 @@ import logger                     from '../../../mcp/server/github-workflow/logg
 import matter                     from 'gray-matter';
 import path                       from 'path';
 import GraphqlService             from '../GraphqlService.mjs';
-import ReleaseSyncer              from './ReleaseSyncer.mjs';
+import ReleaseNotesSyncer         from './ReleaseNotesSyncer.mjs';
 import {FETCH_PULL_REQUESTS_FOR_SYNC} from '../queries/pullRequestQueries.mjs';
 import contentPath                from '../shared/contentPath.mjs';
-import {
-    contentRootFor,
-    createContentIndexEntry,
-    updateContentIndex
-} from '../shared/contentIndex.mjs';
+import {createContentIndexEntry, updateContentIndex} from '../shared/contentIndex.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 const pullRequestConfig = aiConfig.pullRequest;
@@ -78,13 +74,13 @@ class PullRequestSyncer extends Base {
     }
 
     /**
-     * @summary Pre-computes bucket counts and indices for all archived pull requests.
-     * @param {Object} metadata The sync metadata.
-     * @param {Array} fetchedPullRequests The delta PRs fetched from GitHub.
-     * @returns {Map<number, {version: string, itemCount: number, itemIndex: number}>}
+     * @summary Pre-computes bucket distribution for all pull requests based on historical milestones/releases.
+     * @param {object} metadata Current sync metadata
+     * @param {Array<object>} fetchedPullRequests PRs fetched in the current sync run
+     * @returns {Map<number, {version: string|null, itemCount: number, itemIndex: number}>}
      * @private
      */
-    #planArchiveBuckets(metadata, fetchedPullRequests = []) {
+    #planBuckets(metadata, fetchedPullRequests = []) {
         const combined = new Map();
         
         for (const [idStr, pr] of Object.entries(metadata.pulls || {})) {
@@ -112,10 +108,9 @@ class PullRequestSyncer extends Base {
         }
         
         const buckets = new Map();
+        const activeItems = [];
         
         for (const pr of combined.values()) {
-            if (pr.state === 'OPEN') continue;
-            
             let version = null;
             if (pr.archiveVersion) {
                 version = pr.archiveVersion.startsWith(issueSyncConfig.versionDirectoryPrefix)
@@ -127,7 +122,7 @@ class PullRequestSyncer extends Base {
                     : issueSyncConfig.versionDirectoryPrefix + pr.milestone.title;
             } else if (pr.mergedAt || pr.closedAt) {
                 const closed = new Date(pr.mergedAt || pr.closedAt);
-                const release = (ReleaseSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
+                const release = (ReleaseNotesSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
                 if (release) {
                     version = release.tagName.startsWith(issueSyncConfig.versionDirectoryPrefix)
                         ? release.tagName
@@ -135,17 +130,27 @@ class PullRequestSyncer extends Base {
                 }
             }
 
-            // Closed-post-latest-release: no release-version applies. Keep in active per Epic
-            // #11187 Phase 6 mental model: archive folders are created at release-cut by
-            // publish.mjs, never pre-staged into a not-yet-existing vN.M.K bucket. Skip
-            // bucketing entirely; #getPullRequestPath falls back to active path on missing plan.
-            if (!version) continue;
+            if (pr.state !== 'CLOSED' && pr.state !== 'MERGED' || !version) {
+                activeItems.push(pr);
+                continue;
+            }
 
             if (!buckets.has(version)) buckets.set(version, []);
             buckets.get(version).push(pr);
         }
         
         const plans = new Map();
+
+        activeItems.sort((a, b) => a.number - b.number);
+        const activeItemCount = activeItems.length;
+        activeItems.forEach((pr, index) => {
+            plans.set(pr.number, {
+                version: null,
+                itemCount: activeItemCount,
+                itemIndex: index
+            });
+        });
+
         for (const [version, prs] of buckets.entries()) {
             prs.sort((a, b) => a.number - b.number);
             const itemCount = prs.length;
@@ -162,132 +167,31 @@ class PullRequestSyncer extends Base {
     }
 
     /**
-     * @summary Pre-computes active pull-request ordinal positions for ADR 0004 paths.
-     * @param {Object} metadata The sync metadata.
-     * @param {Array} fetchedPullRequests The delta PRs fetched from GitHub.
-     * @param {Map<number, object>} archivePlan Precomputed archive bucket distribution.
-     * @returns {Map<number, {itemCount: number, itemIndex: number}>}
-     * @private
-     */
-    #planActiveBuckets(metadata, fetchedPullRequests = [], archivePlan = new Map()) {
-        const currentByNumber = new Map(fetchedPullRequests.map(pr => [Number(pr.number), pr]));
-        const activeNumbers   = new Set();
-
-        for (const [idStr, cachedPull] of Object.entries(metadata.pulls || {})) {
-            const prNumber = Number(idStr);
-            const pr       = currentByNumber.get(prNumber);
-
-            if (pr) {
-                if (!archivePlan.get(prNumber)?.version) {
-                    activeNumbers.add(prNumber);
-                }
-                continue;
-            }
-
-            if (cachedPull.state === 'OPEN' || !cachedPull.archiveVersion) {
-                activeNumbers.add(prNumber);
-            }
-        }
-
-        fetchedPullRequests.forEach(pr => {
-            const prNumber = Number(pr.number);
-            if (!archivePlan.get(prNumber)?.version) {
-                activeNumbers.add(prNumber);
-            }
-        });
-
-        const sorted = [...activeNumbers].sort((a, b) => a - b);
-        const plans  = new Map();
-
-        sorted.forEach((prNumber, index) => {
-            plans.set(prNumber, {
-                itemCount: sorted.length,
-                itemIndex: index
-            });
-        });
-
-        return plans;
-    }
-
-    /**
      * Determines the correct local file path for a given pull request based on its state.
      * @param {object} pr The GitHub pull request object.
-     * @param {Map<number, object>} activePlan Precomputed active bucket distribution.
-     * @param {Map<number, object>} archivePlan Precomputed bucket distribution.
+     * @param {Map<number, object>} planBuckets Precomputed bucket distribution.
      * @returns {string} The absolute file path for the PR's Markdown file.
      * @private
      */
-    #getPullRequestPath(pr, activePlan = new Map(), archivePlan = new Map()) {
+    #getPullRequestPath(pr, planBuckets = new Map()) {
         const filename = `${aiConfig.issueSync.pullFilenamePrefix || 'pr-'}${pr.number}.md`;
-        const contentRoot   = contentRootFor(issueSyncConfig);
-        const itemsPerChunk = issueSyncConfig.archiveChunkThreshold;
-        const chunkPrefix   = issueSyncConfig.archiveChunkPrefix;
 
-        // Active path = backlog + closed-for-next-release (per Epic #11187 Phase 6 mental model).
-        // Archive folders for vN.M.K are created at release-cut by publish.mjs, never pre-staged.
-        if (pr.state === 'OPEN') {
-            const plan = activePlan.get(pr.number);
-            return contentPath({
-                contentRoot,
-                type     : 'pulls',
-                filename,
-                itemIndex: plan?.itemIndex || 0,
-                itemsPerChunk,
-                chunkPrefix
-            });
-        }
+        const plan = planBuckets.get(pr.number);
 
-        // Logic for CLOSED and MERGED pull requests
-        const plan = archivePlan.get(pr.number);
-
-        // No archive plan = no release-version applies = closed-post-latest-release.
-        // Keep in active per Epic #11187 mental model. The previous `'unversioned'` fallback
-        // pre-staged items into archive prematurely; removed per #11360 AC1.
-        if (!plan?.version) {
-            const active = activePlan.get(pr.number);
-            return contentPath({
-                contentRoot,
-                type     : 'pulls',
-                filename,
-                itemIndex: active?.itemIndex || 0,
-                itemsPerChunk,
-                chunkPrefix
-            });
-        }
-
-        return contentPath({
-            contentRoot,
-            type     : 'pulls',
-            version  : plan.version,
+        const config = {
+            contentRoot: issueSyncConfig.contentRoot,
+            type: 'pulls',
             filename,
-            itemIndex: plan.itemIndex || 0,
-            itemsPerChunk,
-            chunkPrefix
-        });
-    }
+            itemIndex: plan?.itemIndex || 0,
+            itemsPerChunk: issueSyncConfig.archiveChunkThreshold,
+            chunkPrefix: issueSyncConfig.archiveChunkPrefix
+        };
 
-    /**
-     * @summary Creates the ADR 0004 index entry for a pull request target path.
-     * @param {object} pr GitHub pull request payload
-     * @param {String} targetPath Absolute markdown output path
-     * @param {Map<number, object>} activePlan Precomputed active bucket distribution
-     * @param {Map<number, object>} archivePlan Precomputed archive bucket distribution
-     * @returns {object}
-     * @private
-     */
-    #createIndexEntry(pr, targetPath, activePlan = new Map(), archivePlan = new Map()) {
-        const archive = archivePlan.get(pr.number);
-        const plan    = archive?.version ? archive : activePlan.get(pr.number);
+        if (plan?.version) {
+            config.version = plan.version;
+        }
 
-        return createContentIndexEntry({
-            issueSyncConfig,
-            type         : 'pulls',
-            id           : pr.number,
-            version      : archive?.version || null,
-            filePath     : targetPath,
-            itemIndex    : plan?.itemIndex || 0,
-            itemsPerChunk: issueSyncConfig.archiveChunkThreshold
-        });
+        return contentPath(config);
     }
 
     /**
@@ -339,13 +243,11 @@ class PullRequestSyncer extends Base {
         };
 
         const cachedPulls = metadata.pulls || {};
-        const archivePlan = this.#planArchiveBuckets(metadata, allPullRequests);
-        const activePlan  = this.#planActiveBuckets(metadata, allPullRequests, archivePlan);
-        const indexUpserts = [];
+        const planBuckets = this.#planBuckets(metadata, allPullRequests);
 
         for (const pr of allPullRequests) {
             try {
-                const targetPath = this.#getPullRequestPath(pr, activePlan, archivePlan);
+                const targetPath = this.#getPullRequestPath(pr, planBuckets);
 
                 const frontmatter = {
                     number     : pr.number,
@@ -405,7 +307,6 @@ class PullRequestSyncer extends Base {
                     // We must still transfer the hash and path to the new run's metadata to persist it
                     pr.contentHash = currentHash;
                     pr.relativeOutputPath = oldPathRelative;
-                    indexUpserts.push(this.#createIndexEntry(pr, targetPath, activePlan, archivePlan));
                     continue;
                 }
 
@@ -425,7 +326,6 @@ class PullRequestSyncer extends Base {
                 
                 pr.contentHash = currentHash;
                 pr.relativeOutputPath = this.#relativePath(targetPath);
-                indexUpserts.push(this.#createIndexEntry(pr, targetPath, activePlan, archivePlan));
 
                 stats.count++;
                 stats.synced.push(pr.number);
@@ -436,8 +336,10 @@ class PullRequestSyncer extends Base {
         
         // Cache for the main orchestrator to merge
         metadata.pulls = {};
+        const indexEntries = [];
+
         allPullRequests.forEach(p => {
-            const plan = archivePlan.get(p.number);
+            const plan = planBuckets.get(p.number);
 
             metadata.pulls[p.number] = {
                 number        : p.number,
@@ -450,9 +352,23 @@ class PullRequestSyncer extends Base {
                 archiveVersion: p.state === 'OPEN' ? null : plan?.version || null,
                 path          : p.relativeOutputPath
             };
+
+            indexEntries.push(createContentIndexEntry({
+                issueSyncConfig,
+                type: 'pulls',
+                id: p.number,
+                filePath: path.resolve(aiConfig.projectRoot, p.relativeOutputPath),
+                itemIndex: plan ? plan.itemIndex : 0,
+                version: p.state === 'OPEN' ? null : plan?.version || null,
+                bucket: null
+            }));
         });
 
-        await updateContentIndex(issueSyncConfig, {upsert: indexUpserts});
+        try {
+            await updateContentIndex(issueSyncConfig, {upsert: indexEntries});
+        } catch (e) {
+            logger.warn(`⚠️ Could not update _index.json for pull requests: ${e.message}`);
+        }
 
         if (stats.count > 0) {
             logger.info(`✨ Synced ${stats.count} modified pull requests to disk.`);

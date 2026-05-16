@@ -44,6 +44,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
     let originalQuery;
     let originalArchiveRoot;
     let originalIssuesDir;
+    let originalContentRoot;
     let tmpRoot;
     let logger;
 
@@ -52,6 +53,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         issueSyncConfig = aiConfig.issueSync;
         originalArchiveRoot = issueSyncConfig.archiveRoot;
         originalIssuesDir   = issueSyncConfig.issuesDir;
+        originalContentRoot = issueSyncConfig.contentRoot;
 
         tmpRoot = path.resolve(process.cwd(), 'tmp', `issue-syncer-test-${process.pid}-${Date.now()}`);
         await fs.ensureDir(tmpRoot);
@@ -60,6 +62,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         // the real resources/content/issues tree.
         issueSyncConfig.issuesDir = path.join(tmpRoot, 'issues');
         issueSyncConfig.archiveRoot = path.join(tmpRoot, 'archive');
+        issueSyncConfig.contentRoot = tmpRoot;
 
         GraphqlService = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
         IssueSyncer    = (await import('../../../../../../ai/services/github-workflow/sync/IssueSyncer.mjs')).default;
@@ -72,6 +75,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         GraphqlService.query = originalQuery;
         issueSyncConfig.archiveRoot = originalArchiveRoot;
         issueSyncConfig.issuesDir   = originalIssuesDir;
+        issueSyncConfig.contentRoot = originalContentRoot;
         await fs.remove(tmpRoot).catch(() => {});
     });
 
@@ -129,7 +133,8 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(stats.errors).toHaveLength(0);
         expect(continuationCalls).toBe(1);
 
-        const writtenPath = path.join(issueSyncConfig.issuesDir, 'chunk-1', `issue-${mockIssue.number}.md`);
+        const chunkNumber = 1;
+        const writtenPath = path.join(issueSyncConfig.issuesDir, `chunk-${chunkNumber}`, `issue-${mockIssue.number}.md`);
         const written     = await fs.readFile(writtenPath, 'utf-8');
 
         // Every comment body must appear — the bug being fixed is that second-page comments
@@ -186,7 +191,8 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(metadata.issues[mockIssue.number].commentsTotal).toBe(COMMENT_COUNT);
 
         // Frontmatter commentsCount uses the same derivation — no dual-source divergence possible.
-        const writtenPath = path.join(issueSyncConfig.issuesDir, 'chunk-1', `issue-${mockIssue.number}.md`);
+        const chunkNumber = 1;
+        const writtenPath = path.join(issueSyncConfig.issuesDir, `chunk-${chunkNumber}`, `issue-${mockIssue.number}.md`);
         const written     = await fs.readFile(writtenPath, 'utf-8');
         expect(written).toContain(`commentsCount: ${COMMENT_COUNT}`);
     });
@@ -322,6 +328,62 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         
         // Cleanup
         await fs.unlink(absOldPath).catch(() => {});
+    });
+
+    test('dropped-label issues do not consume active ordinals', async () => {
+        const mockIssueDropped = buildMockIssue({
+            number       : 50002,
+            title        : 'Mock dropped issue',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+        // Add a dropped label as configured in aiConfig.issueSync.droppedLabels
+        mockIssueDropped.labels = {nodes: [{name: 'duplicate'}]};
+
+        const mockIssueStored = buildMockIssue({
+            number       : 50003,
+            title        : 'Mock stored issue',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+        mockIssueStored.labels = {nodes: [{name: 'bug'}]};
+
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchIssuesForSync')) {
+                return {
+                    rateLimit: { cost: 1, remaining: 4999, resetAt: '2026-05-13T11:00:00Z' },
+                    repository: {
+                        issues: {
+                            pageInfo: { hasNextPage: false, endCursor: null },
+                            nodes: [structuredClone(mockIssueDropped), structuredClone(mockIssueStored)]
+                        }
+                    }
+                };
+            }
+            if (query.includes('FetchSingleIssue')) {
+                if (query.includes('50002')) return {repository: {issue: structuredClone(mockIssueDropped)}};
+                if (query.includes('50003')) return {repository: {issue: structuredClone(mockIssueStored)}};
+            }
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        const metadata = { issues: {} };
+
+        const { stats, newMetadata } = await IssueSyncer.pullFromGitHub(metadata);
+
+        expect(stats.dropped.issues).toContain(mockIssueDropped.number);
+        expect(stats.pulled.issues).toContain(mockIssueStored.number);
+
+        const targetPath = newMetadata.issues[mockIssueStored.number].path;
+
+        // Since the stored issue is the only active one planned, its index is 0,
+        // which maps to chunk-1.
+        expect(targetPath).toContain('chunk-1');
+
+        // Assert that dropped issue is nowhere in metadata
+        expect(newMetadata.issues[mockIssueDropped.number]).toBeUndefined();
     });
 });
 
