@@ -1,12 +1,14 @@
 import { test, expect } from '@playwright/test';
 import path from 'path';
-import '../../../../../../../src/Neo.mjs';
+import Neo from '../../../../../../../src/Neo.mjs';
 
 test.describe('Memory Core Config (#10010)', () => {
     let originalEnv;
+    let config;
 
-    test.beforeAll(() => {
+    test.beforeAll(async () => {
         originalEnv = { ...process.env };
+        config = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
     });
 
     test.afterEach(() => {
@@ -19,32 +21,29 @@ test.describe('Memory Core Config (#10010)', () => {
             }
         });
         
-        // Using dynamic imports with query parameters for cache-busting
+        // Restore config to default by reloading without test env overrides
+        config.data = Neo.clone(config.defaultConfig, true);
+        config.applyEnv();
     });
 
-    test('defaultPolicy initializes to legacy', async () => {
-        const config = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs?default=' + Date.now())).default;
+    test('defaultPolicy initializes to legacy', () => {
         expect(config.memorySharing.defaultPolicy).toBe('legacy');
     });
 
-    test('NEO_MEMORY_SHARING_DEFAULT_POLICY env override parses correctly', async () => {
+    test('NEO_MEMORY_SHARING_DEFAULT_POLICY env override parses correctly', () => {
         process.env.NEO_MEMORY_SHARING_DEFAULT_POLICY = 'team';
         
-        // Dynamic import with cache busting query param
-        const config = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs?team=' + Date.now())).default;
-        
-        // Re-load the config to pick up env vars (the config.load method handles this)
-        config.load();
+        // Re-load the config to pick up env vars
+        config.applyEnv();
         
         expect(config.memorySharing.defaultPolicy).toBe('team');
     });
 
-    test('invalid NEO_MEMORY_SHARING_DEFAULT_POLICY throws Error', async () => {
+    test('invalid NEO_MEMORY_SHARING_DEFAULT_POLICY throws Error', () => {
         process.env.NEO_MEMORY_SHARING_DEFAULT_POLICY = 'public';
         
-        // The error is thrown synchronously during module initialization (Neo.setupClass -> construct -> applyEnv)
-        await expect(
-            import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs?invalid=' + Date.now())
-        ).rejects.toThrow(/\[Config\] Invalid NEO_MEMORY_SHARING_DEFAULT_POLICY value: "public"\. Must be one of: legacy, private, team/);
+        expect(() => {
+            config.applyEnv();
+        }).toThrow(/\[Config\] Invalid NEO_MEMORY_SHARING_DEFAULT_POLICY value: "public"\. Must be one of: legacy, private, team/);
     });
 });

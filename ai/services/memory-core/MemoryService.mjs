@@ -388,8 +388,8 @@ class MemoryService extends Base {
                     // Team/deployment scope: Tagged records only.
                     tenantScope = {userId: SHARED_USER_ID};
                 } else {
-                    // legacy: Migration compatibility (caller owned + shared records)
-                    tenantScope = {$or: [{userId}, {userId: SHARED_USER_ID}]};
+                    // legacy: Migration compatibility (caller owned + shared records + untagged pre-tenant records)
+                    tenantScope = {$or: [{userId}, {userId: SHARED_USER_ID}, {userId: {$exists: false}}]};
                 }
             }
 

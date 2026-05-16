@@ -40,7 +40,13 @@ function createSpyCollection() {
         if (!where) return true;
         if (where.$and) return where.$and.every(c => matchesWhere(metadata, c));
         if (where.$or)  return where.$or.some(c => matchesWhere(metadata, c));
-        return Object.entries(where).every(([k, v]) => metadata?.[k] === v);
+        return Object.entries(where).every(([k, v]) => {
+            if (v && typeof v === 'object' && '$exists' in v) {
+                const exists = metadata !== undefined && k in metadata;
+                return v.$exists ? exists : !exists;
+            }
+            return metadata?.[k] === v;
+        });
     };
 
     return {
@@ -212,7 +218,7 @@ test.describe('SummaryService — tenant isolation (#10000)', () => {
         expect(q.where).toEqual({
             $and: [
                 {category: 'refactoring'},
-                {$or: [{userId: 'u-alice'}, {userId: 'shared'}]}
+                {$or: [{userId: 'u-alice'}, {userId: 'shared'}, {userId: {$exists: false}}]}
             ]
         });
     });
@@ -320,7 +326,7 @@ test.describe('SummaryService — additive shared-commons access (#10556)', () =
 
         const q = spy.calls.query.at(-1);
         // The where clause should reference the normalized `x-prefix-test`, NOT `@x-prefix-test`.
-        expect(q.where).toEqual({$or: [{userId: 'x-prefix-test'}, {userId: 'shared'}]});
+        expect(q.where).toEqual({$or: [{userId: 'x-prefix-test'}, {userId: 'shared'}, {userId: {$exists: false}}]});
     });
 });
 
@@ -370,7 +376,7 @@ test.describe('SummaryService — memorySharing policy (#10010)', () => {
         expect(queryCall.where).toEqual({userId: 'shared'});
     });
 
-    test('querySummaries with memorySharing=legacy returns tenant-owned plus team-tagged, ignoring untagged', async () => {
+    test('querySummaries with memorySharing=legacy returns tenant-owned plus team-tagged plus untagged', async () => {
         spy.rows.set('s-a1', {id: 's-a1', metadata: {userId: 'u-alice', timestamp: 100, title: 'a1'}, document: 'a1'});
         spy.rows.set('s-shared1', {id: 's-shared1', metadata: {userId: 'shared', timestamp: 200, title: 'L1'}, document: 'L1'});
         spy.rows.set('s-untagged', {id: 's-untagged', metadata: {timestamp: 300, title: 'pre-migration'}, document: 'P'});
@@ -379,10 +385,10 @@ test.describe('SummaryService — memorySharing policy (#10010)', () => {
             SummaryService.querySummaries({query: 'anything', nResults: 10, memorySharing: 'legacy'})
         );
 
-        expect(view.count).toBe(2);
-        expect(view.results.map(r => r.title).sort()).toEqual(['L1', 'a1']);
+        expect(view.count).toBe(3);
+        expect(view.results.map(r => r.title).sort()).toEqual(['L1', 'a1', 'pre-migration']);
         
         const queryCall = spy.calls.query.at(-1);
-        expect(queryCall.where).toEqual({$or: [{userId: 'u-alice'}, {userId: 'shared'}]});
+        expect(queryCall.where).toEqual({$or: [{userId: 'u-alice'}, {userId: 'shared'}, {userId: {$exists: false}}]});
     });
 });

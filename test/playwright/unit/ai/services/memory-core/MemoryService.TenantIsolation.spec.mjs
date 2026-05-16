@@ -45,7 +45,13 @@ function createSpyCollection() {
         if (where.$or) {
             return where.$or.some(cond => matchesWhere(metadata, cond));
         }
-        return Object.entries(where).every(([key, value]) => metadata?.[key] === value);
+        return Object.entries(where).every(([key, value]) => {
+            if (value && typeof value === 'object' && '$exists' in value) {
+                const exists = metadata && Object.prototype.hasOwnProperty.call(metadata, key);
+                return value.$exists ? exists : !exists;
+            }
+            return metadata?.[key] === value;
+        });
     };
 
     return {
@@ -208,11 +214,11 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
 
         const queryCall = spyCollection.queryCalls.at(-1);
         // #10556: read filter became additive — tenant's own records OR records tagged
-        // with SHARED_USER_ID. The sessionId filter remains in the outer $and.
+        // with SHARED_USER_ID OR untagged pre-tenant records. The sessionId filter remains in the outer $and.
         expect(queryCall.where).toEqual({
             $and: [
                 {sessionId: 'session-a'},
-                {$or: [{userId: 'u-alice'}, {userId: 'shared'}]}
+                {$or: [{userId: 'u-alice'}, {userId: 'shared'}, {userId: {$exists: false}}]}
             ]
         });
     });
@@ -355,7 +361,7 @@ test.describe('MemoryService — memorySharing policy (#10010)', () => {
         expect(queryCall.where).toEqual({userId: 'shared'});
     });
 
-    test('queryMemories with memorySharing=legacy returns tenant-owned plus team-tagged, ignoring untagged', async () => {
+    test('queryMemories with memorySharing=legacy returns tenant-owned plus team-tagged plus untagged', async () => {
         spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {userId: 'u-alice', timestamp: 100, prompt: 'a1'}, document: 'a1'});
         spyCollection.rows.set('m-shared1', {id: 'm-shared1', metadata: {userId: 'shared', timestamp: 200, prompt: 'L1'}, document: 'L1'});
         spyCollection.rows.set('m-untagged', {id: 'm-untagged', metadata: {timestamp: 300, prompt: 'pre-migration'}, document: 'P'});
@@ -364,11 +370,10 @@ test.describe('MemoryService — memorySharing policy (#10010)', () => {
             MemoryService.queryMemories({query: 'anything', nResults: 10, memorySharing: 'legacy'})
         );
 
-        expect(view.count).toBe(2);
-        expect(view.results.map(r => r.prompt).sort()).toEqual(['L1', 'a1']);
+        expect(view.count).toBe(3);
+        expect(view.results.map(r => r.prompt).sort()).toEqual(['L1', 'a1', 'pre-migration']);
         
         const queryCall = spyCollection.queryCalls.at(-1);
-        expect(queryCall.where).toEqual({$or: [{userId: 'u-alice'}, {userId: 'shared'}]});
+        expect(queryCall.where).toEqual({$or: [{userId: 'u-alice'}, {userId: 'shared'}, {userId: {$exists: false}}]});
     });
 });
-
