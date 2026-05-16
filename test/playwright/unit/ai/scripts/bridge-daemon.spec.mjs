@@ -142,7 +142,7 @@ test.describe('Bridge Daemon', () => {
         expect(output).toContain('[Bridge Daemon Test Adapter] Delivered');
         expect(output).toContain('[WAKE][priority:normal]');
         expect(output).toContain('Test Wake Event');
-        expect(output).toContain('priority: normal');
+        expect(output).not.toContain('priority: normal');
         expect(output).not.toContain('\nWindow:');
 
         // Per #10419 — verify the diagnostic log file was persisted to disk and contains
@@ -325,10 +325,10 @@ test.describe('Bridge Daemon', () => {
         expect(finalDigest).toContain('1 new messages');
         expect(finalDigest).toContain('Test Dedup Event');
         expect(finalDigest).toContain('[WAKE][priority:normal]');
-        expect(finalDigest).toContain('priority: normal');
+        expect(finalDigest).not.toContain('priority: normal');
     });
 
-    test('uses the highest coalesced message priority in the wake digest header', async () => {
+    test('uses the highest coalesced message priority in the wake digest header and preserves divergent latest priority', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-priority';
 
@@ -376,27 +376,6 @@ test.describe('Bridge Daemon', () => {
 
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        const lowMsgId = 'msg_' + crypto.randomUUID();
-        db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(lowMsgId, JSON.stringify({
-            id: lowMsgId,
-            label: 'MESSAGE',
-            properties: {
-                from: '@sender',
-                subject: 'Low Priority Wake Event',
-                priority: 'low'
-            }
-        }));
-        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(lowMsgId, 'nodes');
-
-        const lowEdgeId = 'edge_' + crypto.randomUUID();
-        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(lowEdgeId, JSON.stringify({
-            id: lowEdgeId,
-            source: lowMsgId,
-            target: agentId,
-            type: 'SENT_TO'
-        }), lowMsgId, agentId, 'SENT_TO');
-        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(lowEdgeId, 'edges');
-
         const highMsgId = 'msg_' + crypto.randomUUID();
         db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(highMsgId, JSON.stringify({
             id: highMsgId,
@@ -418,11 +397,32 @@ test.describe('Bridge Daemon', () => {
         }), highMsgId, agentId, 'SENT_TO');
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(highEdgeId, 'edges');
 
+        const lowMsgId = 'msg_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Nodes (id, data) VALUES (?, ?)').run(lowMsgId, JSON.stringify({
+            id: lowMsgId,
+            label: 'MESSAGE',
+            properties: {
+                from: '@sender',
+                subject: 'Low Priority Wake Event',
+                priority: 'low'
+            }
+        }));
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(lowMsgId, 'nodes');
+
+        const lowEdgeId = 'edge_' + crypto.randomUUID();
+        db.prepare('INSERT INTO Edges (id, data, source, target, type) VALUES (?, ?, ?, ?, ?)').run(lowEdgeId, JSON.stringify({
+            id: lowEdgeId,
+            source: lowMsgId,
+            target: agentId,
+            type: 'SENT_TO'
+        }), lowMsgId, agentId, 'SENT_TO');
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(lowEdgeId, 'edges');
+
         const output = await deliveryPromise;
         expect(output).toContain('[WAKE][priority:high]');
         expect(output).toContain('2 new messages');
-        expect(output).toContain('High Priority Wake Event');
-        expect(output).toContain('priority: high');
+        expect(output).toContain('Low Priority Wake Event');
+        expect(output).toContain('latest priority: low');
     });
 
     test('skips osascript delivery and logs error when appName is missing', async () => {

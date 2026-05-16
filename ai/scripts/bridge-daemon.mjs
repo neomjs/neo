@@ -522,7 +522,8 @@ async function flushSubscription(subId) {
     if (messages.length > 0) {
         const latest = messages[messages.length - 1];
         const latestPriority = normalizeWakePriority(latest.priority);
-        breakdown += `\n- ${messages.length} new messages (latest: "${latest.subject}" from ${latest.from}, priority: ${latestPriority})`;
+        const prioritySuffix = latestPriority === digestPriority ? '' : `, latest priority: ${latestPriority}`;
+        breakdown += `\n- ${messages.length} new messages (latest: "${latest.subject}" from ${latest.from}${prioritySuffix})`;
     }
     if (tasks.length > 0) {
         const latest = tasks[tasks.length - 1];
