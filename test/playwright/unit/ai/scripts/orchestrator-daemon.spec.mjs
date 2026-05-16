@@ -1,6 +1,8 @@
 import {test, expect} from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
+import '../../../../../src/Neo.mjs';
+import '../../../../../src/core/_export.mjs';
 import {
     DEFAULT_KB_SYNC_INTERVAL_MS,
     LOCAL_AI_CONFIG_FILE,
@@ -9,6 +11,8 @@ import {
     DEFAULT_SUMMARY_SWEEP_INTERVAL_MS
 } from '../../../../../ai/scripts/orchestrator-daemon.mjs';
 import {
+    DEFAULT_MLX_MODEL,
+    DEFAULT_MLX_PORT,
     buildTaskDefinitions
 } from '../../../../../ai/daemons/TaskDefinitions.mjs';
 
@@ -30,6 +34,66 @@ test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
         expect(tasks.backup.command).toBe('/test/node');
         expect(tasks.backup.args).toEqual([path.resolve(scriptDir, '../../buildScripts/ai/backup.mjs')]);
         expect(tasks.backup.expectedCommand).toBe('backup.mjs');
+    });
+
+    test('starts mlx inference with the OpenAI-compatible Gemma 4 default', () => {
+        const scriptDir = path.resolve(process.cwd(), 'ai/scripts');
+        const tasks     = buildTaskDefinitions({scriptDir, nodeBin: '/test/node'});
+
+        expect(DEFAULT_MLX_MODEL).toBe('gemma-4-31b-it');
+        expect(DEFAULT_MLX_PORT).toBe('11435');
+        expect(tasks.mlx.args).toEqual([
+            '-m',
+            'mlx_lm.server',
+            '--model',
+            DEFAULT_MLX_MODEL,
+            '--port',
+            DEFAULT_MLX_PORT
+        ]);
+        expect(tasks.mlx.args).not.toContain('mlx-community/gemma-2-27b-it-4bit');
+    });
+
+    test('allows local mlx model overrides without changing task ownership', () => {
+        const scriptDir     = path.resolve(process.cwd(), 'ai/scripts');
+        const originalModel = process.env.NEO_OPENAI_COMPATIBLE_MODEL;
+
+        process.env.NEO_OPENAI_COMPATIBLE_MODEL = 'local-openai-compatible-model';
+
+        try {
+            const envTasks = buildTaskDefinitions({scriptDir, nodeBin: '/test/node'});
+
+            expect(envTasks.mlx.args).toEqual([
+                '-m',
+                'mlx_lm.server',
+                '--model',
+                'local-openai-compatible-model',
+                '--port',
+                DEFAULT_MLX_PORT
+            ]);
+        } finally {
+            if (originalModel === undefined) {
+                delete process.env.NEO_OPENAI_COMPATIBLE_MODEL;
+            } else {
+                process.env.NEO_OPENAI_COMPATIBLE_MODEL = originalModel;
+            }
+        }
+
+        const explicitTasks = buildTaskDefinitions({
+            scriptDir,
+            nodeBin  : '/test/node',
+            mlxModel : 'explicit-model',
+            mlxPort  : 12345
+        });
+
+        expect(explicitTasks.mlx.args).toEqual([
+            '-m',
+            'mlx_lm.server',
+            '--model',
+            'explicit-model',
+            '--port',
+            '12345'
+        ]);
+        expect(explicitTasks.summary.command).toBe('/test/node');
     });
 
     test('keeps bridge-daemon wake-only and routes maintenance ownership to the daemon class', () => {
