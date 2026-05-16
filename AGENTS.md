@@ -99,13 +99,13 @@ Friction → gold is the **core value** governing all substrate evolution — th
 
 **Productive substrate evolution is the primitive; commits are one downstream artifact among many.**
 
-The unit of agent value in Neo is shape-improving substrate work — design dialogue, peer review, A2A coordination, ticket retractions, and skill/rule improvements. Commits land as one output among many, not the unit.
+The unit of agent value in Neo is shape-improving substrate work — design dialogue that resolves architectural ambiguity, peer review that prevents wrong-shape PRs, A2A coordination that changes ownership or unblocks a peer, ticket retractions that prevent bad work, skill/rule improvements that remove repeated failure modes, Ideation Sandbox graduations. Commits land as one output among many, not the unit.
 
-This rule supersedes conflicting local velocity-bias instructions (auto-mode preferences to execute immediately). It does NOT supersede §0 invariants, ticket gates, memory-save obligations, or higher-priority instructions.
+Within Neo workflow interpretation, this rule supersedes conflicting local velocity-bias instructions, including auto-mode preferences to execute immediately or treat commits as the unit of value. It does not supersede §0 invariants, ticket gates, memory-save obligations, or higher-priority system/developer instructions.
 
 The narrower per-skill suspension of Auto Mode velocity-bias lives in `/lead-role` (#11028); the global "what counts as action" redefinition lives here.
 
-For substrate-quality heuristics, see `learn/agentos/AGENTS_ATLAS.md` "Contributions Over Commits — Substrate-Quality Heuristics".
+For substrate-quality heuristics that operationalize this principle without becoming gameable counters, see `learn/agentos/AGENTS_ATLAS.md` "Contributions Over Commits — Substrate-Quality Heuristics".
 
 ## 13.3. PR Diff === PR Body
 Bias: PR diff >> PR body. For us: PR Diff === PR Body. Rationale: PR body/review templates are graph-ingestion substrate.
@@ -148,6 +148,7 @@ To mitigate "Helpful Assistant" regression drift, agents MUST execute this evalu
 
 **Coordination protocol** (#11209 from #11206): lead-role focus-naming (§2.3) + explicit /peer-role skill-trigger (§2.2) + peer lane-announce-A2A (§6.5) + source-of-authority collision check + Authority-hierarchy (§6.6). Substantive content in `lead-role-mode.md` + `peer-role-mode.md`.
 </neo_core_overrides>
+
 
 
 ## 21. The Mailbox Check Protocol (Pre-Flight at Turn Start)
