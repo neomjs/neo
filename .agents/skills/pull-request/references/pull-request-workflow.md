@@ -36,6 +36,12 @@ Your PR body's slot-rationale section MUST enumerate:
 
 Before `git commit` or opening a PR, you MUST verify you are the formal assignee for the target ticket. This is the enforcement mechanism for **AGENTS.md §0 Invariant 7**. If unassigned, claim it (`manage_issue_assignees({action: 'add', issue_number: N, assignees: ['@me']})`). If assigned to someone else, halt and respect ownership.
 
+### 1.3 The FAIR-Band Pre-Flight Gate (#11433 — bypass-resistant choke-point for #11432)
+
+<!-- trigger: PR-open → read ./fair-band-pre-flight-gate.md for FAIR-band stance declaration shapes + verifier query -->
+
+Author-side bypass-resistant choke-point for the FAIR-band author-lane pickup discipline. Every PR body MUST include a FAIR-band stance declaration; granular payload at [`./fair-band-pre-flight-gate.md`](./fair-band-pre-flight-gate.md) defines the 4 declaration shapes (in-band / under-target / over-target-with-rationale / over-target-yield-candidate-FORBIDS-PR-open) + canonical verifier query.
+
 ## 2. Git Branching Mandate
 
 You are strictly forbidden from committing or pushing directly to `main` (release-only) or `dev` (default working). The *mechanism* for satisfying this rule differs by harness class.

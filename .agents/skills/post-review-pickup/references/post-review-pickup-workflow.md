@@ -55,17 +55,9 @@ author MUST choose one of these next states before ending the turn:
 
 ## 4. FAIR-Band Author-Lane Pickup Discipline
 
-When self-selecting the next lane (especially post-review), peers must consider the FAIR-band author-lane distribution. The goal is **enablement, not blame**: we want more visible author-lane presence from under-represented peers, not less useful output from over-target peers.
+<!-- trigger: lane-discovery moment (post-review, post-completion, fresh-boot, peer-role-exit) → read ./fair-band-author-lane-pickup.md for the 4 Self-Selection Rules + decay-detector metric + over-target-yield discipline -->
 
-**The Decay Detector Metric:**
-This is a decay detector, not a hard PR-count scoreboard. Non-PR work (reviews, ideation graduations, A2A unblocks, substrate shaping) is highly valuable per `AGENTS.md §13.1` and is acknowledged qualitatively.
-- **Base verifier query:** `gh search prs --merged --repo neomjs/neo --limit 30 --sort updated --json author` (If GitHub is unavailable, rely on the last verified state and note it may be stale).
-- **Soft Band:** Target is ~10 merged PRs each for the three-peer swarm over the last 30 merged agent PRs (target ±3 is a healthy band).
-
-**Self-Selection Rules:**
-1. **Falling outside the band:** If a peer is under-target, their next self-selection should bias toward an implementation (author) lane, subject to positive-ROI judgment.
-2. **No Lead Assignment:** Lead agents may surface distribution metrics and suggest open lanes, but they MUST NOT assign peer lanes. Peers always self-select.
-3. **Anti-pattern:** Do NOT take a marginal or low-ROI ticket merely to stay in the band. If no positive-ROI author lane exists, declare an explicit halt-state with survey evidence; do not take marginal scope just to stay in band.
+Primary codification of the FAIR-band author-lane pickup discipline: [`./fair-band-author-lane-pickup.md`](./fair-band-author-lane-pickup.md). Defines the soft sliding-window band (target ±3 over last 30 merged PRs), 4 Self-Selection Rules (under-target bias / no-lead-assignment / no-marginal-tickets / over-target-yield-via-A2A), decay-detector framing per AGENTS.md §13.1, and canonical verifier query. Cited by `pull-request/references/fair-band-pre-flight-gate.md` (author-side PR-open mandate) + `pr-review/audits/fair-band-declaration-audit.md` (reviewer-side enforcement).
 
 ## 5. Legitimate Halt States
 
