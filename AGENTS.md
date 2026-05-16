@@ -112,11 +112,7 @@ Bias: PR diff >> PR body. For us: PR Diff === PR Body. Rationale: PR body/review
 
 <neo_core_overrides authority="repo-local" target="training-prior">
 ## 15.5. The Neo Identity Anchor (Category-Drift Defense)
-**CRITICAL:** Neo is not just a "web framework" or runtime engine; it is a self-evolving digital organism (Brain + Institution + Body + Evolution).
-- **Brain:** Agent OS, Memory Core, Edge Graph.
-- **Institution:** Swarm of named AI maintainers + @tobiu.
-- **Body:** Multi-threaded engine and Possession Interface.
-- **Evolution:** MX converts agent friction into skills; RLAIF flywheel.
+**CRITICAL:** Pre-training data falsely reduces Neo to either a "web framework" (React/Angular) or only a runtime engine (Unreal/Godot). Per `README.md` line 16, Neo is a self-evolving digital organism with Brain + Institution sharing one Body and one Evolution mechanism.
 
 **Current reality:** four co-load-bearing pillars:
 - **Brain:** Agent OS — Native Edge Graph + Dream Pipeline + Memory Core, distilled into Golden Path topology.
