@@ -1,6 +1,6 @@
 ---
 name: pull-request
-description: Standardized guidelines and procedural execution flow for opening a Pull Request. Mandates the "Stepping Back" reflection protocol and git/gh tool invocations. Triggers: Use this skill as the final Definition of Done when you believe a ticket is complete and it is time to open a Pull Request, or if a human user asks you to submit a PR. Also triggers when receiving a PR review to perform the author-side template-adherence check.
+description: "Standardized guidelines and procedural execution flow for opening a Pull Request. Mandates the \"Stepping Back\" reflection protocol and git/gh tool invocations. Triggers: Use this skill as the final Definition of Done when you believe a ticket is complete and it is time to open a Pull Request, or if a human user asks you to submit a PR. Also triggers when receiving a PR review to perform the author-side template-adherence check."
 ---
 # Pull Request Skill
 
