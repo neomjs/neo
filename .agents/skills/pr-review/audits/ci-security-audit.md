@@ -1,27 +1,27 @@
 # CI / Security Checks Audit
 
-Before granting approval on **any** Pull Request, you MUST empirically verify the status of GitHub Actions and CI checks. Security bots (like CodeQL) and automated test workflows run asynchronously on GitHub. A static diff review *cannot* catch what these automated tools find. Approving a PR with failing or incomplete CI checks is a critical safety violation.
+Before conducting or posting a formal Pull Request review, you MUST empirically verify the status of GitHub Actions and CI checks. Security bots (like CodeQL) and automated test workflows run asynchronously on GitHub. A static diff review *cannot* catch what these automated tools find. Spending a full review cycle while required CI is failing or incomplete creates avoidable re-review churn.
 
 ## The Verification Protocol
 
 1. **Empirical Verification:**
-   You must run `gh pr checks <N>` to view the status of all checks for the PR.
+   You must run `gh pr checks <N>` to view the status of all checks for the PR before reading the full diff, scoring metrics, or drafting a substantive formal review. If the command is temporarily unavailable, use an equivalent read-only GitHub status surface and say so explicitly.
 
 2. **Pending/In-Progress Checks:**
-   If any checks are pending, queued, or in-progress, you **MUST HOLD** your review. You cannot approve a PR until all critical checks have finished running.
+   If any checks are pending, queued, or in-progress, you **MUST HOLD** your review. Do not spend or post the full review while the result is unstable. Send a lightweight A2A/PR note only when coordination needs the hold reason.
 
-3. **Failure Handling ("Deep Red" Rule):**
-   If any critical checks (especially CodeQL, Security, or main build tests) are failing or marked "deep red", you **MUST NOT** approve the PR.
+3. **Failure Handling (Fail-Fast Rule):**
+   If any check returned by `gh pr checks <N>` is failing, cancelled, timed out, or marked "deep red", you **MUST STOP BEFORE FORMAL REVIEW**. Do not post `APPROVED`, `REQUEST_CHANGES`, or a full-template `COMMENT` review. The author must fix CI first and re-request review on a green head.
 
-4. **Required Action Assignment:**
-   If checks are failing, flag the specific failing checks as a **Required Action** in your review. Instruct the author to fix the vulnerabilities or test failures before re-requesting review.
+4. **Triage Exception:**
+   If the author explicitly asks for CI triage, or the failure is plausibly infrastructure/flaky rather than branch-caused, you may post a limited CI-triage note naming the failing check and next evidence needed. Do not score the diff, audit unrelated surfaces, or treat that note as the formal review cycle.
 
 5. **Approval Block:**
    A PR with failing security or build checks is fundamentally unsafe and cannot be approved, regardless of how clean the diff looks to you.
 
 ## Documentation Requirement
 
-When completing the `[EXECUTION_QUALITY]` section of the PR review template, you MUST explicitly document that you ran `gh pr checks <N>` and confirm the checks passed or are appropriately handled.
+When completing the `[EXECUTION_QUALITY]` section of the PR review template, you MUST explicitly document that you ran `gh pr checks <N>` and confirm the checks passed. If checks are pending or failing, do not complete the formal review template; document the hold or fail-fast deferral instead.
 
 **Example Review Commentary:**
-> ✅ **CI / Security Audit:** Ran `gh pr checks 1234`. All workflows (CodeQL, Unit Tests) pass successfully. No deep red flags.
+> CI / Security Audit: Ran `gh pr checks 1234`. All workflows (CodeQL, Unit Tests) pass successfully. No deep red flags.
