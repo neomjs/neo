@@ -1,14 +1,45 @@
 import aiConfig from './config.mjs';
 
 /**
- * A simple logger that writes to stderr only when the global debug flag is enabled.
- * This prevents corrupting the MCP stdio transport and keeps production output clean.
+ * A simple stderr logger with priority-based filtering.
+ * Keeps MCP server noise low by default while preserving fail-loud error output.
  */
 const logger = {};
 
+const LEVEL_PRIORITY = {
+    error: 0,
+    warn : 1,
+    info : 2,
+    log  : 2,
+    debug: 3
+};
+
+const DEFAULT_LOG_LEVEL = 'warn';
+
+const getConfiguredLogLevel = () => {
+    const configuredLevel = aiConfig.logLevel;
+
+    if (aiConfig.debug && (!configuredLevel || configuredLevel === DEFAULT_LOG_LEVEL)) {
+        return 'debug';
+    }
+
+    if (configuredLevel && LEVEL_PRIORITY[configuredLevel] !== undefined) {
+        return configuredLevel;
+    }
+
+    return aiConfig.debug ? 'debug' : DEFAULT_LOG_LEVEL;
+};
+
 const createLogMethod = (level) => {
     return (...args) => {
-        if (aiConfig.debug) {
+        if (level === 'error') {
+            console.error(`[${level.toUpperCase()}]`, ...args);
+            return;
+        }
+
+        const configuredLevel = getConfiguredLogLevel();
+
+        if (LEVEL_PRIORITY[level] <= LEVEL_PRIORITY[configuredLevel]) {
             console.error(`[${level.toUpperCase()}]`, ...args);
         }
     };
