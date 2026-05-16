@@ -8,7 +8,7 @@ labels:
 assignees:
   - Dinkh
 createdAt: '2024-08-09T10:04:15Z'
-updatedAt: '2024-10-07T21:52:46Z'
+updatedAt: '2026-05-16T20:50:11Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5728'
 author: tobiu
 commentsCount: 1

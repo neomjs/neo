@@ -8,7 +8,7 @@ labels:
 assignees:
   - maxrahder
 createdAt: '2024-09-08T12:46:31Z'
-updatedAt: '2024-10-07T21:52:01Z'
+updatedAt: '2026-05-16T20:50:15Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5854'
 author: tobiu
 commentsCount: 0
