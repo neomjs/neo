@@ -1,0 +1,27 @@
+name: Lint PR Body
+
+on:
+  pull_request:
+    types: [opened, edited]
+
+concurrency:
+  group: lint-pr-body-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-body:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: Lint PR Body Structure
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: npm run ai:lint-pr-body
