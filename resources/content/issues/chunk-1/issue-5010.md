@@ -10,7 +10,7 @@ labels:
   - hacktoberfest
 assignees: []
 createdAt: '2023-10-12T08:46:17Z'
-updatedAt: '2024-10-01T22:43:50Z'
+updatedAt: '2026-05-16T20:50:02Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5010'
 author: tobiu
 commentsCount: 6
