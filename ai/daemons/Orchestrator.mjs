@@ -40,6 +40,14 @@ import {
     buildTaskDefinitions
 } from './TaskDefinitions.mjs';
 
+export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
+    'summary',
+    'kbSync',
+    PRIMARY_DEV_SYNC_TASK_NAME,
+    DREAM_TASK_NAME,
+    GOLDEN_PATH_TASK_NAME
+]);
+
 /**
  * Resolves the dev-sync roots config while preserving env-var precedence.
  * @param {Object} options
@@ -259,6 +267,18 @@ export class Orchestrator extends Base {
          */
         goldenPathSynthesizer_: GoldenPathSynthesizer,
         /**
+         * @member {String[]} heavyMaintenanceTaskNames_=DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
+         * @protected
+         * @reactive
+         */
+        heavyMaintenanceTaskNames_: DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
+        /**
+         * @member {Set|null} maintenanceDeferralLogKeys_=null
+         * @protected
+         * @reactive
+         */
+        maintenanceDeferralLogKeys_: null,
+        /**
          * @member {Function} spawnFn_=spawn
          * @protected
          * @reactive
@@ -313,6 +333,8 @@ export class Orchestrator extends Base {
         this.summarizationCoordinator = options.summarizationCoordinator || SummarizationCoordinatorService;
         this.backupCoordinator      = options.backupCoordinator      || BackupCoordinatorService;
         this.primaryRepoSyncService = options.primaryRepoSyncService || PrimaryRepoSyncService;
+        this.heavyMaintenanceTaskNames = [...(options.heavyMaintenanceTaskNames || DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES)];
+        this.maintenanceDeferralLogKeys = new Set();
         this.spawnFn                = options.spawnFn                || spawn;
         this.processSupervisorService = options.processSupervisorService || ProcessSupervisorService;
         this.initializeDatabaseFn   = options.initializeDatabaseFn   || initializeDatabase;
@@ -390,6 +412,115 @@ export class Orchestrator extends Base {
         }
     }
 
+    /**
+     * Checks whether a task participates in cross-task maintenance backpressure.
+     * @param {String} taskName Stable orchestrator task name.
+     * @returns {Boolean}
+     */
+    isHeavyMaintenanceTask(taskName) {
+        return this.heavyMaintenanceTaskNames.includes(taskName);
+    }
+
+    /**
+     * Finds the first running heavy maintenance task.
+     * @param {Object} [options]
+     * @param {String|null} [options.excludeTaskName=null] Task name to ignore.
+     * @returns {String|null}
+     */
+    findActiveHeavyMaintenanceTask({excludeTaskName = null} = {}) {
+        for (const taskName of this.heavyMaintenanceTaskNames) {
+            if (taskName === excludeTaskName) {
+                continue;
+            }
+
+            if (this.taskStateService.getTaskState(taskName)?.running) {
+                return taskName;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Clears dedupe keys for a task once it is no longer deferred.
+     * @param {String} taskName Stable orchestrator task name.
+     * @returns {void}
+     */
+    clearMaintenanceDeferralLogState(taskName) {
+        if (!this.maintenanceDeferralLogKeys) {
+            return;
+        }
+
+        const prefix = `${taskName}:`;
+
+        for (const key of this.maintenanceDeferralLogKeys) {
+            if (key.startsWith(prefix)) {
+                this.maintenanceDeferralLogKeys.delete(key);
+            }
+        }
+    }
+
+    /**
+     * Records a sparse non-error deferral when another heavy maintenance task is active.
+     * @param {String} taskName Deferred task name.
+     * @param {String} blockingTaskName Active heavy maintenance task name.
+     * @param {String} reason Scheduling reason for the deferred task.
+     * @returns {void}
+     */
+    recordMaintenanceDeferral(taskName, blockingTaskName, reason) {
+        this.maintenanceDeferralLogKeys ??= new Set();
+
+        const key = `${taskName}:${blockingTaskName}:${reason}`;
+
+        if (!this.maintenanceDeferralLogKeys.has(key)) {
+            const taskLabel     = this.taskDefinitions?.[taskName]?.label || taskName;
+            const blockingLabel = this.taskDefinitions?.[blockingTaskName]?.label || blockingTaskName;
+
+            this.writeLog('INFO', `[Orchestrator] Deferring ${taskLabel}; heavy maintenance task ${blockingLabel} is active (${reason}).`);
+            this.maintenanceDeferralLogKeys.add(key);
+        }
+
+        this.healthService?.recordTaskOutcome?.(taskName, 'skipped', {
+            reason,
+            reasonCode     : 'heavy-maintenance-backpressure',
+            blockingTaskName,
+            deferredAt     : new Date().toISOString()
+        });
+    }
+
+    /**
+     * Wraps a task executor with cross-task heavy-maintenance backpressure.
+     * @param {Function} executeFn Task executor.
+     * @param {Object} activeHeavyTask Mutable active-heavy tracker for the current poll.
+     * @returns {Function}
+     */
+    createMaintenanceExecutor(executeFn, activeHeavyTask) {
+        return (taskName, reason, onSuccess) => {
+            const reasonText = reason || 'scheduled';
+
+            if (this.isHeavyMaintenanceTask(taskName)) {
+                const blockingTaskName = activeHeavyTask.name && activeHeavyTask.name !== taskName
+                    ? activeHeavyTask.name
+                    : this.findActiveHeavyMaintenanceTask({excludeTaskName: taskName});
+
+                if (blockingTaskName) {
+                    this.recordMaintenanceDeferral(taskName, blockingTaskName, reasonText);
+                    return false;
+                }
+            }
+
+            this.clearMaintenanceDeferralLogState(taskName);
+
+            const result = executeFn(taskName, reason, onSuccess);
+
+            if (this.isHeavyMaintenanceTask(taskName) && result !== false) {
+                activeHeavyTask.name = taskName;
+            }
+
+            return result;
+        };
+    }
+
 
 
 
@@ -417,6 +548,9 @@ export class Orchestrator extends Base {
             }
         }
 
+        const activeHeavyTask = {name: this.findActiveHeavyMaintenanceTask()};
+        const executeMaintenanceTask = executeFn => this.createMaintenanceExecutor(executeFn, activeHeavyTask);
+
         this.cadenceEngine.runIfDue('summary', () => {
             return this.summarizationCoordinator.getDueTask({
                 db                    : this.db,
@@ -425,7 +559,7 @@ export class Orchestrator extends Base {
                 summarySweepIntervalMs: this.summarySweepIntervalMs,
                 log                   : this.writeLog.bind(this)
             });
-        }, executeTask, context);
+        }, executeMaintenanceTask(executeTask), context);
 
         this.cadenceEngine.runIfDue('kbSync', () => {
             if (this.cadenceEngine.shouldRunIntervalTask({
@@ -436,7 +570,7 @@ export class Orchestrator extends Base {
                 return { reason: `periodic-sync:${this.kbSyncIntervalMs}` };
             }
             return null;
-        }, executeTask, context);
+        }, executeMaintenanceTask(executeTask), context);
 
         this.cadenceEngine.runIfDue('backup', () => {
             return this.backupCoordinator.getDueTask({
@@ -453,7 +587,7 @@ export class Orchestrator extends Base {
                 intervalMs: this.primaryDevSyncIntervalMs,
                 enabled   : this.primaryDevSyncEnabled
             });
-        }, (taskName, reason) => {
+        }, executeMaintenanceTask((taskName, reason) => {
             return this.primaryRepoSyncService.runTask({
                 taskName,
                 reason,
@@ -468,7 +602,7 @@ export class Orchestrator extends Base {
                     envValue: process.env[DEV_SYNC_ROOTS_ENV_VAR]
                 })
             });
-        }, context);
+        }), context);
 
         this.cadenceEngine.runIfDue(DREAM_TASK_NAME, () => {
             if (this.cadenceEngine.shouldRunIntervalTask({
@@ -479,7 +613,7 @@ export class Orchestrator extends Base {
                 return { reason: `periodic-dream:${this.dreamIntervalMs}` };
             }
             return null;
-        }, async (taskName, reason) => {
+        }, executeMaintenanceTask(async (taskName, reason) => {
             this.taskStateService.markStarted(taskName, reason.reason);
             this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
             try {
@@ -492,7 +626,7 @@ export class Orchestrator extends Base {
                 this.taskStateService.markFailed(taskName, 1);
                 this.healthService?.recordTaskOutcome?.(taskName, 'failed', { reason, error: e.message, failedAt: new Date().toISOString() });
             }
-        }, context);
+        }), context);
 
         this.cadenceEngine.runIfDue(GOLDEN_PATH_TASK_NAME, () => {
             if (this.cadenceEngine.shouldRunIntervalTask({
@@ -503,7 +637,7 @@ export class Orchestrator extends Base {
                 return { reason: `periodic-golden-path:${this.goldenPathIntervalMs}` };
             }
             return null;
-        }, async (taskName, reason) => {
+        }, executeMaintenanceTask(async (taskName, reason) => {
             this.taskStateService.markStarted(taskName, reason.reason);
             this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
             try {
@@ -516,7 +650,7 @@ export class Orchestrator extends Base {
                 this.taskStateService.markFailed(taskName, 1);
                 this.healthService?.recordTaskOutcome?.(taskName, 'failed', { reason, error: e.message, failedAt: new Date().toISOString() });
             }
-        }, context);
+        }), context);
 
         if (this.isPolling) {
             this.pollHandle = setTimeout(() => this.poll(), this.pollIntervalMs);

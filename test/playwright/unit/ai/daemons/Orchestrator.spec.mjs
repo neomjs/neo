@@ -130,6 +130,116 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         }]);
     });
 
+    test('backpressures overdue heavy maintenance tasks within the same poll', () => {
+        const logs     = [];
+        const outcomes = [];
+        const started  = [];
+
+        const orchestrator = createTestOrchestrator({
+            healthService: {
+                recordTaskOutcome(taskName, status, details) {
+                    outcomes.push({taskName, status, details});
+                }
+            },
+            summarizationCoordinator: {
+                getDueTask() {
+                    return {
+                        taskName: 'summary',
+                        reason  : 'periodic-sweep:600000'
+                    };
+                }
+            }
+        });
+
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
+        };
+        orchestrator.writeLog = (level, message) => logs.push({level, message});
+
+        orchestrator.poll();
+
+        expect(started).toEqual([{
+            taskName: 'summary',
+            reason  : 'periodic-sweep:600000'
+        }]);
+        expect(outcomes).toContainEqual({
+            taskName: 'kbSync',
+            status  : 'skipped',
+            details : expect.objectContaining({
+                blockingTaskName: 'summary',
+                reason          : 'periodic-sync:600000',
+                reasonCode      : 'heavy-maintenance-backpressure'
+            })
+        });
+        expect(logs).toContainEqual({
+            level  : 'INFO',
+            message: expect.stringContaining('Deferring knowledge base sync')
+        });
+    });
+
+    test('defers due heavy maintenance when another heavy task is already running', () => {
+        const logs     = [];
+        const outcomes = [];
+        const started  = [];
+
+        const orchestrator = createTestOrchestrator({
+            healthService: {
+                recordTaskOutcome(taskName, status, details) {
+                    outcomes.push({taskName, status, details});
+                }
+            }
+        });
+
+        TaskStateService.taskState.summary.running = true;
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
+        };
+        orchestrator.writeLog = (level, message) => logs.push({level, message});
+
+        orchestrator.poll();
+        orchestrator.poll();
+
+        expect(started).toEqual([]);
+        expect(outcomes).toContainEqual({
+            taskName: 'kbSync',
+            status  : 'skipped',
+            details : expect.objectContaining({
+                blockingTaskName: 'summary',
+                reasonCode      : 'heavy-maintenance-backpressure'
+            })
+        });
+        expect(logs.filter(entry => entry.message.includes('Deferring knowledge base sync'))).toHaveLength(1);
+    });
+
+    test('keeps continuous daemon supervision outside heavy maintenance backpressure', () => {
+        const started = [];
+
+        const orchestrator = createTestOrchestrator();
+
+        TaskStateService.taskState.summary.running = true;
+        TaskStateService.taskState.chroma.running  = false;
+        TaskStateService.taskState.chroma.lastRunAt = 0;
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
+        };
+
+        orchestrator.poll();
+
+        expect(started).toEqual([{
+            taskName: 'chroma',
+            reason  : 'supervisor-restart'
+        }]);
+    });
+
     test('isolates backup scheduling failure and still schedules other tasks', () => {
         const outcomes = [];
         const started  = [];
