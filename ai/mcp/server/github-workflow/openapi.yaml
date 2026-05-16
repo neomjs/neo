@@ -634,7 +634,10 @@ paths:
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
-      description: "Atomic create or update of a formal PR review. Single call posts body + flips reviewDecision. create requires pr_number + state (APPROVED/REQUEST_CHANGES/COMMENT) + body. update requires review_id (PRR_*) + body; state cannot transition. Returns reviewId + state + url + submittedAt."
+      description: |
+        Atomic create or update of a formal PR review. Single call posts body + flips reviewDecision. create requires pr_number + state (APPROVED/REQUEST_CHANGES/COMMENT) + body. update requires review_id (PRR_*) + body; state cannot transition. Returns reviewId + state + url + submittedAt.
+
+        **MANDATORY pre-step:** read `.agents/skills/pr-review/SKILL.md` — this skill contains the authoritative protocol and template structure for conducting pull request reviews. You MUST NOT execute a formal review without adhering to the depth floor and evidence audit guidelines outlined in the skill.
       tags: [PullRequests]
       parameters:
         - name: pr_number
