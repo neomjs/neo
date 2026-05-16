@@ -253,7 +253,7 @@ class ReleaseNotesSyncer extends Base {
 
                 await fs.mkdir(path.dirname(filePath), { recursive: true });
                 await fs.writeFile(filePath, content, 'utf-8');
-                logger.info(`✅ Synced release notes for ${release.tagName}`);
+                logger.debug(`✅ Synced release notes for ${release.tagName}`);
                 stats.count++;
                 stats.synced.push(release.tagName);
             } catch (e) {
