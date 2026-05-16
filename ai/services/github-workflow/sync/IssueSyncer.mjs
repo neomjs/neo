@@ -5,6 +5,7 @@ import fs                                            from 'fs/promises';
 import logger                                        from '../../../mcp/server/github-workflow/logger.mjs';
 import matter                                        from 'gray-matter';
 import path                                          from 'path';
+import semver                                        from 'semver';
 import GraphqlService                                from '../GraphqlService.mjs';
 import ReleaseNotesSyncer                                 from './ReleaseNotesSyncer.mjs';
 import {FETCH_ISSUE_TIMELINE_PAGE, FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries.mjs';
@@ -42,6 +43,16 @@ class IssueSyncer extends Base {
          */
         singleton: true
     }
+
+    /**
+     * Per-sync-cycle dedupe set tracking issue numbers already emitted as ARCHIVE ANOMALY WARN.
+     * `#planBuckets` is invoked from multiple sync entry points (pullFromGitHub, refetchIssuesByNumber,
+     * reconcileClosedIssueLocations) which would otherwise duplicate-warn for the same issue within
+     * a single sync. Cleared at the top of `pullFromGitHub` (the natural sync-cycle entrypoint).
+     * @member {Set<number>} #warnedAnomalies
+     * @private
+     */
+    #warnedAnomalies = new Set();
 
     /**
      * Calculates a SHA-256 hash of the given content for change detection.
@@ -374,7 +385,26 @@ class IssueSyncer extends Base {
             }
 
             if (issue.oldVersion && issue.oldVersion !== version) {
-                logger.warn(`🚨 [ARCHIVE ANOMALY] Issue #${issue.number} closedAt shift detected: moving from bucket '${issue.oldVersion}' to '${version}'. Dry-run review required.`);
+                // Filter false-positive WARN volume during ADR 0004 clean-cut migration window (#11486).
+                // `oldVersion` derives from the cached path's directory name (see lines ~310-317); during
+                // migration, that contains pre-cut title-derived strings (e.g. 'vneo.d.ts - Typescript
+                // definitions...') that fail semver validation. Sealed-chunk enforcement at the
+                // reconcile step (~L569/L575) already prevents these from causing actual moves, so
+                // emitting WARN is pure noise. Real release-boundary recalculations (e.g. v11.12.0 →
+                // v11.13.0) where both sides are valid semver remain at WARN.
+                const oldIsValidTag = semver.valid(semver.clean(issue.oldVersion)) !== null;
+                const newIsValidTag = semver.valid(semver.clean(version))            !== null;
+
+                if (oldIsValidTag && newIsValidTag) {
+                    // Dedupe across multiple `#planBuckets` call sites within one sync cycle (#11486).
+                    if (!this.#warnedAnomalies.has(issue.number)) {
+                        this.#warnedAnomalies.add(issue.number);
+                        logger.warn(`🚨 [ARCHIVE ANOMALY] Issue #${issue.number} closedAt shift detected: moving from bucket '${issue.oldVersion}' to '${version}'. Dry-run review required.`);
+                    }
+                } else {
+                    // Migration-state mismatch (one side is not a valid semver tag) — quiet observability only.
+                    logger.debug(`[ARCHIVE MIGRATION] Issue #${issue.number}: oldBucket='${issue.oldVersion}' → newBucket='${version}' (sealed-chunk enforcement preserves location)`);
+                }
             }
 
             if (!buckets.has(version)) buckets.set(version, []);
@@ -479,6 +509,12 @@ class IssueSyncer extends Base {
      */
     async pullFromGitHub(metadata) {
         logger.info('📥 Fetching issues from GitHub via GraphQL...');
+
+        // Reset per-sync-cycle dedupe set for ARCHIVE ANOMALY WARN emission (#11486).
+        // pullFromGitHub is the natural top-of-sync entrypoint; reconcileClosedIssueLocations and
+        // refetchIssuesByNumber called later in the cycle will reuse the same set, so the same
+        // issue is WARN'd at most once per full sync.
+        this.#warnedAnomalies.clear();
 
         let allIssues   = [];
         let hasNextPage = true;
