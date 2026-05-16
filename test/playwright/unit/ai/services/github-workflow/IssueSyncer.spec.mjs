@@ -385,6 +385,76 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         // Assert that dropped issue is nowhere in metadata
         expect(newMetadata.issues[mockIssueDropped.number]).toBeUndefined();
     });
+
+    test('formatTimelineEvent null-safety: null assignee / label / subIssue / source produce fallback markers, no crash (#11474)', async () => {
+        // Empirical anchor: post-#11470-merge sync_all crashed at IssueSyncer.mjs:202 on
+        // `event.assignee.login` when a GitHub user had been deleted. Same null-deref risk
+        // exists across the entire #formatTimelineEvent switch (label, subIssue, parent,
+        // blockingIssue, blockedIssue, commit, source). This test exercises four representative
+        // null entities and asserts (a) no crash, (b) fallback markers appear in rendered markdown.
+        const mockIssue = buildMockIssue({
+            number       : 42043,
+            title        : 'Mock issue — null-entity timeline regression #11474',
+            timelineFirst: [
+                {
+                    __typename: 'AssignedEvent',
+                    createdAt : '2026-05-16T10:00:00Z',
+                    actor     : {login: 'tobiu'},
+                    assignee  : null // deleted GitHub user
+                },
+                {
+                    __typename: 'LabeledEvent',
+                    createdAt : '2026-05-16T10:01:00Z',
+                    actor     : {login: 'tobiu'},
+                    label     : null // deleted label
+                },
+                {
+                    __typename: 'SubIssueAddedEvent',
+                    createdAt : '2026-05-16T10:02:00Z',
+                    actor     : {login: 'tobiu'},
+                    subIssue  : null // deleted sub-issue
+                },
+                {
+                    __typename: 'CrossReferencedEvent',
+                    createdAt : '2026-05-16T10:03:00Z',
+                    actor     : {login: 'tobiu'},
+                    source    : null // deleted source
+                }
+            ],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchSingleIssue')) {
+                return {repository: {issue: structuredClone(mockIssue)}};
+            }
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        const metadata = {issues: {}};
+        const stats    = await IssueSyncer.refetchIssuesByNumber([mockIssue.number], metadata);
+
+        // No crash → refetch succeeds for all four null-entity events.
+        expect(stats.refetched.count).toBe(1);
+        expect(stats.errors).toHaveLength(0);
+
+        const chunkNumber = 1;
+        const writtenPath = path.join(issueSyncConfig.issuesDir, `chunk-${chunkNumber}`, `issue-${mockIssue.number}.md`);
+        const written     = await fs.readFile(writtenPath, 'utf-8');
+
+        // Fallback markers appear in rendered markdown.
+        expect(written).toContain('assigned to @Ghost');
+        expect(written).toContain('added the `(deleted label)` label');
+        expect(written).toContain('added sub-issue #?');
+        expect(written).toContain('cross-referenced by (deleted)');
+
+        // Verify no literal `undefined` / `null` artifacts leaked into the output —
+        // i.e., the optional-chaining + fallback approach landed everywhere instead
+        // of partial coverage that would yield raw `undefined` strings.
+        expect(written).not.toMatch(/assigned to @(undefined|null)/);
+        expect(written).not.toMatch(/added the `(undefined|null)` label/);
+    });
 });
 
 function buildComment(i) {
