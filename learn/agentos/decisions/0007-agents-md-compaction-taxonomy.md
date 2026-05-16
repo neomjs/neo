@@ -40,41 +40,46 @@ Based on these axes, every section in the instruction substrate receives a **Dis
 - **`rewrite`**: Rule is refactored to increase density.
 - **`retire`**: Rule is obsolete or subsumed and removed entirely.
 
+### 2.0.1 Post-Pruning-Recurrence-Rate Sub-Axis
+
+Trigger-frequency decomposes into (a) per-turn-load-frequency and (b) post-pruning-discipline-recall-recurrence. Skills that shape ongoing session behavior (`lead-role`, `peer-role`, `pull-request`, `pr-review`, `post-review-pickup`) require their §21 trigger as a recursive-reload anchor to persist across context-window pruning cycles. One-shot lifecycle skills (`ticket-create`, `ticket-triage`, `ticket-intake`, `epic-review`, `epic-resolution`, `ideation-sandbox`, `memory-mining`, `turn-memory-pre-flight`, `create-skill`, `architecture-pre-flight`, `tech-debt-radar`, `structural-pre-flight`, `session-sunset`, `unit-test`, `whitebox-e2e`) do not require this anchor.
+
 ### 2.1 The Baseline Taxonomy Classifications
 
 *Note: This reflects the baseline dispositions applied during the progressive disclosure migration. Future rules must be evaluated against the 3-axis rule.*
 
-| Section | Disposition | Tag (AC7) | Rationale / Friction Capture |
-|---|---|---|---|
-| §0 Critical Gates | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Irreversible failure modes. |
-| §0 Invariant 7 | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | No tracked file edits without a self-assigned ticket. |
-| §0 Invariant 8 | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Agent-authored PRs target `dev`; `main` is release-only. |
-| §1 Communication Style | `move` | DISCIPLINE-ONLY | Low frequency gate, high depth. |
-| §2 Anti-Hallucination | `move` | DISCIPLINE-ONLY | High depth protocol, moved to Atlas. |
-| §3 Pre-Commit Hard Gates | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Severe failure mode (ticket-ID/context). |
-| §4 Memory Core Protocol | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Permanent data loss if missed. |
-| §4.3 Un-savable Turns | `move` | DISCIPLINE-ONLY | Edge case recovery protocol. |
-| §5 Strategic Co-Founder | `move` | DISCIPLINE-ONLY | Low frequency pivot logic. |
-| §6 Request Triage | `move` | DISCIPLINE-ONLY | High depth intake logic. |
-| §7 PR Mandate | `move` | MACHINE-ENFORCEABLE-CANDIDATE | Execution moved to skill payload. |
-| §8 Resumption Protocol | `move` | DISCIPLINE-ONLY | Interruption recovery. |
-| §9 Reading Files | `move` | DISCIPLINE-ONLY | Efficiency guideline. |
-| §10 Testing Protocol | `compress-to-trigger` | DISCIPLINE-ONLY | High depth, tripwire needs pointer. |
-| §11 File Editing | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Frequent operation with strict tool limits. |
-| §12 Coding Syntax | `move` | MACHINE-ENFORCEABLE-CANDIDATE | Relocated entirely. |
-| §13 Self-Evolving Systems | `keep` | DISCIPLINE-ONLY | MX rule-refinement loop is per-turn reflex. |
-| §13.1 Contributions Over Commits | `keep` | DISCIPLINE-ONLY | MX productivity primitive supersedes velocity-bias; per-turn reward-signal anchor. |
-| §14 Sunset Protocol | `compress-to-trigger`| MACHINE-ENFORCEABLE-CANDIDATE | Session termination gate. |
-| §15 Knowledge Base | `compress-to-trigger`| DISCIPLINE-ONLY | §15.5 Neo Identity Anchor in main as anti-drift; §15.1-15.4 in Atlas. |
-| §15.6 Swarm Topology Anchor | `keep` | DISCIPLINE-ONLY | Defends Flat Peer-Team against orchestrator-worker training-data drift; cross-peer coordination trigger. |
-| §16 Implementation Loop | `move` | DISCIPLINE-ONLY | High depth workflow. |
-| §17 Virtuous Cycle | `move` | DISCIPLINE-ONLY | High depth workflow. |
-| §18 Session Maintenance | `move` | DISCIPLINE-ONLY | High depth workflow. |
-| §19 Sub-Agents | `move` | DISCIPLINE-ONLY | High depth workflow. |
-| §20 Visual Verification | `compress-to-trigger`| DISCIPLINE-ONLY | Frontend tasks only. |
-| §21 Workflow Skills | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | The routing table is frequent. |
-| §22 Mailbox Check | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Turn-start invariant. |
-| §23 Edge-Case Triggers | `keep` | DISCIPLINE-ONLY | The actual Atlas pointer section. |
+| Section | Disposition | Tag (AC7) | Rationale / Friction Capture | Recursive-Reload Anchor |
+|---|---|---|---|---|
+| §0 Critical Gates | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Irreversible failure modes. | - |
+| §0 Invariant 7 | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | No tracked file edits without a self-assigned ticket. | - |
+| §0 Invariant 8 | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Agent-authored PRs target `dev`; `main` is release-only. | - |
+| §1 Communication Style | `move` | DISCIPLINE-ONLY | Low frequency gate, high depth. | - |
+| §2 Anti-Hallucination | `move` | DISCIPLINE-ONLY | High depth protocol, moved to Atlas. | - |
+| §3 Pre-Commit Hard Gates | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Severe failure mode (ticket-ID/context). | - |
+| §4 Memory Core Protocol | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Permanent data loss if missed. | - |
+| §4.3 Un-savable Turns | `move` | DISCIPLINE-ONLY | Edge case recovery protocol. | - |
+| §5 Strategic Co-Founder | `move` | DISCIPLINE-ONLY | Low frequency pivot logic. | - |
+| §6 Request Triage | `move` | DISCIPLINE-ONLY | High depth intake logic. | - |
+| §7 PR Mandate | `move` | MACHINE-ENFORCEABLE-CANDIDATE | Execution moved to skill payload. | - |
+| §8 Resumption Protocol | `move` | DISCIPLINE-ONLY | Interruption recovery. | - |
+| §9 Reading Files | `move` | DISCIPLINE-ONLY | Efficiency guideline. | - |
+| §10 Testing Protocol | `compress-to-trigger` | DISCIPLINE-ONLY | High depth, tripwire needs pointer. | - |
+| §11 File Editing | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Frequent operation with strict tool limits. | - |
+| §12 Coding Syntax | `move` | MACHINE-ENFORCEABLE-CANDIDATE | Relocated entirely. | - |
+| §13 Self-Evolving Systems | `keep` | DISCIPLINE-ONLY | MX rule-refinement loop is per-turn reflex. | - |
+| §13.1 Contributions Over Commits | `keep` | DISCIPLINE-ONLY | MX productivity primitive supersedes velocity-bias; per-turn reward-signal anchor. | - |
+| §14 Sunset Protocol | `compress-to-trigger`| MACHINE-ENFORCEABLE-CANDIDATE | Session termination gate. | - |
+| §15 Knowledge Base | `compress-to-trigger`| DISCIPLINE-ONLY | §15.5 Neo Identity Anchor in main as anti-drift; §15.1-15.4 in Atlas. | - |
+| §15.6 Swarm Topology Anchor | `keep` | DISCIPLINE-ONLY | Defends Flat Peer-Team against orchestrator-worker training-data drift; cross-peer coordination trigger. | - |
+| §16 Implementation Loop | `move` | DISCIPLINE-ONLY | High depth workflow. | - |
+| §17 Virtuous Cycle | `move` | DISCIPLINE-ONLY | High depth workflow. | - |
+| §18 Session Maintenance | `move` | DISCIPLINE-ONLY | High depth workflow. | - |
+| §19 Sub-Agents | `move` | DISCIPLINE-ONLY | High depth workflow. | - |
+| §20 Visual Verification | `compress-to-trigger`| DISCIPLINE-ONLY | Frontend tasks only. | - |
+| §21 Workflow Skills (ongoing: `pull-request`, `pr-review`, `post-review-pickup`, `lead-role`, `peer-role`) | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | The routing table is frequent. | YES |
+| §21 Workflow Skills (one-shot: `ticket-create`, `ticket-triage`, `ticket-intake`, `epic-review`, `epic-resolution`, `ideation-sandbox`, `memory-mining`, `turn-memory-pre-flight`, `create-skill`, `architecture-pre-flight`, `tech-debt-radar`, `structural-pre-flight`, `session-sunset`, `unit-test`, `whitebox-e2e`) | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | The routing table is frequent. | NO |
+| §22 Mailbox Check | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Turn-start invariant. | - |
+| §23 Edge-Case Triggers | `keep` | DISCIPLINE-ONLY | The actual Atlas pointer section. | - |
 
 ---
 
@@ -106,6 +111,9 @@ Adding new, lengthy rules to `AGENTS.md` without evaluating them against the 3-A
 
 ### 5.2 Compaction Taxonomy Mutation
 Modifying the baseline taxonomy dispositions directly in this ADR. This ADR is the immutable authority anchor. Future shifts in disposition (e.g., if a `keep` becomes a `move`) should be recorded via a new ADR or as documented changes in the target Atlas files, not by rewriting this historical baseline.
+
+### 5.3 Recursive-Reload Anchor Retirement
+Retiring `AGENTS.md` §21 trigger entries that are marked as `recursive-reload-required` (YES) during Phase C compression cycles. These entries are empirically load-bearing for post-pruning-discipline-recall in long sessions; compressing them breaks behavioral disciplines (e.g., `lead-role`, `peer-role`, `post-review-pickup`).
 
 ---
 
