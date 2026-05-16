@@ -7,7 +7,7 @@ labels:
   - no auto close
 assignees: []
 createdAt: '2024-08-06T06:37:13Z'
-updatedAt: '2024-10-07T21:54:46Z'
+updatedAt: '2026-05-16T20:50:08Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/5698'
 author: tobiu
 commentsCount: 0
