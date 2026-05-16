@@ -1,0 +1,40 @@
+---
+id: 7276
+title: Convert config/CustomFunctions.mjs Test from Siesta to Playwright
+state: CLOSED
+labels:
+  - enhancement
+assignees:
+  - tobiu
+createdAt: '2025-09-27T13:34:45Z'
+updatedAt: '2025-09-30T12:32:04Z'
+githubUrl: 'https://github.com/neomjs/neo/issues/7276'
+author: tobiu
+commentsCount: 0
+parentIssue: 7262
+subIssues: []
+subIssuesCompleted: 0
+subIssuesTotal: 0
+blockedBy: []
+blocking: []
+closedAt: '2025-09-30T12:32:04Z'
+---
+# Convert config/CustomFunctions.mjs Test from Siesta to Playwright
+
+This task is to migrate the unit test for `config/CustomFunctions.mjs` from the Siesta test harness to the Playwright test runner.
+
+## Acceptance Criteria
+
+1.  Create a new test file at `test/playwright/unit/config/CustomFunctions.spec.mjs`.
+2.  Translate all assertions from the original file (`test/siesta/tests/config/CustomFunctions.mjs`) to the Playwright/Jest `expect` syntax.
+3.  Ensure the new test runs successfully via `npm test`.
+4.  The new test must cover all the functionality of the original Siesta test.
+
+## Timeline
+
+- 2025-09-27T13:34:47Z @tobiu added the `enhancement` label
+- 2025-09-27T13:34:47Z @tobiu added parent issue #7262
+- 2025-09-30T12:25:19Z @tobiu assigned to @tobiu
+- 2025-09-30T12:31:54Z @tobiu referenced in commit `0a05ce4` - "Convert config/CustomFunctions.mjs Test from Siesta to Playwright #7276"
+- 2025-09-30T12:32:04Z @tobiu closed this issue
+
