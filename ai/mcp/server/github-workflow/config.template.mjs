@@ -7,6 +7,18 @@ const __dirname   = path.dirname(__filename);
 
 const packageRoot = path.resolve(__dirname, '../../../../');
 const projectRoot = process.cwd() === '/' ? packageRoot : process.cwd();
+const validLogLevels = ['error', 'warn', 'info', 'log', 'debug'];
+
+function parseLogLevel(rawValue, envVarName, warn = console.warn) {
+    const value = String(rawValue).trim().toLowerCase();
+
+    if (validLogLevels.includes(value)) {
+        return value;
+    }
+
+    warn(`[Config] Invalid ${envVarName} value: "${rawValue}" (must be one of: ${validLogLevels.join(', ')}); falling back.`);
+    return undefined;
+}
 
 /**
  * Default configuration object.
@@ -23,6 +35,11 @@ const defaultConfig = {
      * @type {boolean}
      */
     debug: false,
+    /**
+     * Minimum stderr log level for the GitHub workflow logger.
+     * @type {string}
+     */
+    logLevel: 'warn',
     /**
      * A dummy embedding function to satisfy the ChromaDB API when embeddings are provided manually.
      * @returns {null}
@@ -231,7 +248,8 @@ const defaultConfig = {
 };
 
 const envBindings = {
-    'issueSync.archiveRoot': 'NEO_MCP_GITHUB_ARCHIVE_ROOT'
+    'issueSync.archiveRoot': 'NEO_MCP_GITHUB_ARCHIVE_ROOT',
+    'logLevel': { var: 'NEO_LOG_LEVEL', parse: parseLogLevel }
 };
 
 /**

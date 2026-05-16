@@ -1,0 +1,40 @@
+---
+id: 7279
+title: Convert config/MultiLevelHierarchy.mjs Test from Siesta to Playwright
+state: CLOSED
+labels:
+  - enhancement
+assignees:
+  - tobiu
+createdAt: '2025-09-27T13:39:01Z'
+updatedAt: '2025-09-30T13:18:04Z'
+githubUrl: 'https://github.com/neomjs/neo/issues/7279'
+author: tobiu
+commentsCount: 0
+parentIssue: 7262
+subIssues: []
+subIssuesCompleted: 0
+subIssuesTotal: 0
+blockedBy: []
+blocking: []
+closedAt: '2025-09-30T13:18:04Z'
+---
+# Convert config/MultiLevelHierarchy.mjs Test from Siesta to Playwright
+
+This task is to migrate the unit test for `config/MultiLevelHierarchy.mjs` from the Siesta test harness to the Playwright test runner.
+
+## Acceptance Criteria
+
+1.  Create a new test file at `test/playwright/unit/config/MultiLevelHierarchy.spec.mjs`.
+2.  Translate all assertions from the original file (`test/siesta/tests/config/MultiLevelHierarchy.mjs`) to the Playwright/Jest `expect` syntax.
+3.  Ensure the new test runs successfully via `npm test`.
+4.  The new test must cover all the functionality of the original Siesta test.
+
+## Timeline
+
+- 2025-09-27T13:39:02Z @tobiu added parent issue #7262
+- 2025-09-27T13:39:03Z @tobiu added the `enhancement` label
+- 2025-09-30T13:17:31Z @tobiu assigned to @tobiu
+- 2025-09-30T13:17:54Z @tobiu referenced in commit `f6ac6b1` - "Convert config/MultiLevelHierarchy.mjs Test from Siesta to Playwright #7279"
+- 2025-09-30T13:18:04Z @tobiu closed this issue
+

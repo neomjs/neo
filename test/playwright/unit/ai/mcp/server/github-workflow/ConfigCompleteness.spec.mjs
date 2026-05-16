@@ -19,6 +19,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const templatePath = path.resolve(__dirname, '../../../../../../../ai/mcp/server/github-workflow/config.template.mjs');
 const templateClassName = 'Neo.ai.mcp.server.github-workflow.Config';
+const cliScriptPath = path.resolve(__dirname, '../../../../../../../buildScripts/ai/syncGithubWorkflow.mjs');
 
 /**
  * @summary Imports the copyable GitHub workflow config template under a unit-test-only namespace.
@@ -109,5 +110,104 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
             // Reset to defaults so other tests aren't affected
             config.data.issueSync.archiveRoot = config.defaultConfig.issueSync.archiveRoot;
         }
+    });
+
+    test('NEO_LOG_LEVEL overrides config.logLevel with validation', async () => {
+        const configModule = await importTemplateConfig();
+        const config = configModule.default;
+
+        const originalEnv = process.env.NEO_LOG_LEVEL;
+        const originalWarn = console.warn;
+        const warnings = [];
+
+        console.warn = (...args) => warnings.push(args.join(' '));
+
+        try {
+            process.env.NEO_LOG_LEVEL = 'DEBUG';
+            config.applyEnv();
+            expect(config.logLevel).toBe('debug');
+
+            process.env.NEO_LOG_LEVEL = 'noisy';
+            config.data.logLevel = config.defaultConfig.logLevel;
+            config.applyEnv();
+            expect(config.logLevel).toBe(config.defaultConfig.logLevel);
+            expect(warnings.join('\n')).toContain('Invalid NEO_LOG_LEVEL value: "noisy"');
+        } finally {
+            console.warn = originalWarn;
+            if (originalEnv !== undefined) {
+                process.env.NEO_LOG_LEVEL = originalEnv;
+            } else {
+                delete process.env.NEO_LOG_LEVEL;
+            }
+            config.data.logLevel = config.defaultConfig.logLevel;
+        }
+    });
+
+    test('logger filters stderr by priority and always emits errors', async () => {
+        const aiConfig = (await import('../../../../../../../ai/mcp/server/github-workflow/config.mjs')).default;
+        const logger = (await import('../../../../../../../ai/mcp/server/github-workflow/logger.mjs')).default;
+
+        const originalDebug = aiConfig.data.debug;
+        const originalLogLevel = aiConfig.data.logLevel;
+        const originalError = console.error;
+        const calls = [];
+
+        console.error = (...args) => calls.push(args.join(' '));
+
+        try {
+            aiConfig.data.debug = false;
+            aiConfig.data.logLevel = 'warn';
+            logger.debug('debug-hidden');
+            logger.info('info-hidden');
+            logger.log('log-hidden');
+            logger.warn('warn-visible');
+            logger.error('error-visible');
+
+            expect(calls).toEqual([
+                '[WARN] warn-visible',
+                '[ERROR] error-visible'
+            ]);
+
+            calls.length = 0;
+            aiConfig.data.logLevel = 'info';
+            logger.debug('debug-hidden');
+            logger.info('info-visible');
+            logger.log('log-visible');
+            logger.warn('warn-visible');
+            logger.error('error-visible');
+
+            expect(calls).toEqual([
+                '[INFO] info-visible',
+                '[LOG] log-visible',
+                '[WARN] warn-visible',
+                '[ERROR] error-visible'
+            ]);
+
+            calls.length = 0;
+            aiConfig.data.logLevel = 'error';
+            logger.warn('warn-hidden');
+            logger.error('error-still-visible');
+
+            expect(calls).toEqual(['[ERROR] error-still-visible']);
+
+            calls.length = 0;
+            aiConfig.data.logLevel = 'warn';
+            aiConfig.data.debug = true;
+            logger.debug('legacy-debug-visible');
+
+            expect(calls).toEqual(['[DEBUG] legacy-debug-visible']);
+        } finally {
+            console.error = originalError;
+            aiConfig.data.debug = originalDebug;
+            aiConfig.data.logLevel = originalLogLevel;
+        }
+    });
+
+    test('syncGithubWorkflow CLI selects info by default and debug for --verbose', async () => {
+        const content = await fs.promises.readFile(cliScriptPath, 'utf8');
+
+        expect(content).not.toContain('GH_Config.data.debug = true');
+        expect(content).toContain("GH_Config.data.logLevel = verbose ? 'debug' : 'info'");
+        expect(content).toContain("process.argv.includes('--verbose')");
     });
 });

@@ -1,0 +1,48 @@
+---
+id: 7218
+title: Refactor AI Query Scoring for Performance
+state: CLOSED
+labels:
+  - enhancement
+assignees:
+  - tobiu
+createdAt: '2025-09-20T09:36:39Z'
+updatedAt: '2025-09-20T09:51:32Z'
+githubUrl: 'https://github.com/neomjs/neo/issues/7218'
+author: tobiu
+commentsCount: 0
+parentIssue: null
+subIssues: []
+subIssuesCompleted: 0
+subIssuesTotal: 0
+blockedBy: []
+blocking: []
+closedAt: '2025-09-20T09:51:32Z'
+---
+# Refactor AI Query Scoring for Performance
+
+## Problem
+
+The `queryKnowledgeBase.mjs` script currently reloads and processes the entire knowledge base JSON file on every query. This is slow and memory-intensive, especially as the knowledge base grows.
+
+## Solution
+
+1.  **Pre-process Inheritance:** In `embedKnowledgeBase.mjs`, load the full knowledge base, build an inheritance map, and then pre-calculate the full `inheritanceChain` for each chunk. Store this `inheritanceChain` array in the metadata for each chunk in ChromaDB.
+2.  **Simplify Query Script:** Modify `queryKnowledgeBase.mjs` to be lightweight and fast.
+    *   Remove the code that reads the local JSON file entirely.
+    *   For scoring, use the `inheritanceChain` provided in the metadata from the query result. This avoids expensive file I/O and graph traversal on every query.
+    *   Keep the dynamic keyword-based scoring logic within the query script, as it depends on the user's input.
+
+## Benefits
+
+- Significantly faster and more memory-efficient queries.
+- Better separation of concerns (`create` -> `score & embed` -> `query`).
+- More scalable architecture.
+
+## Timeline
+
+- 2025-09-20T09:36:39Z @tobiu assigned to @tobiu
+- 2025-09-20T09:36:41Z @tobiu added the `enhancement` label
+- 2025-09-20T09:45:26Z @tobiu referenced in commit `0a667b3` - "Refactor AI Query Scoring for Performance #7218"
+- 2025-09-20T09:51:32Z @tobiu closed this issue
+

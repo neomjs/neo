@@ -294,7 +294,7 @@ class DiscussionSyncer extends Base {
                 if (oldAbsolutePath && oldAbsolutePath !== targetPath) {
                     try {
                         await fs.unlink(oldAbsolutePath);
-                        logger.info(`📦 Moved Discussion #${discussion.number}: ${oldAbsolutePath} → ${targetPath}`);
+                        logger.debug(`📦 Moved Discussion #${discussion.number}: ${oldAbsolutePath} → ${targetPath}`);
                     } catch (e) {
                         // File might not exist
                     }

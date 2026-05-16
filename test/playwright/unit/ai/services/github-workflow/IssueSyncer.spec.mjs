@@ -385,6 +385,284 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         // Assert that dropped issue is nowhere in metadata
         expect(newMetadata.issues[mockIssueDropped.number]).toBeUndefined();
     });
+
+    test('formatTimelineEvent null-safety: null assignee / label / subIssue / source produce fallback markers, no crash (#11474)', async () => {
+        // Empirical anchor: post-#11470-merge sync_all crashed at IssueSyncer.mjs:202 on
+        // `event.assignee.login` when a GitHub user had been deleted. Same null-deref risk
+        // exists across the entire #formatTimelineEvent switch (label, subIssue, parent,
+        // blockingIssue, blockedIssue, commit, source). This test exercises four representative
+        // null entities and asserts (a) no crash, (b) fallback markers appear in rendered markdown.
+        const mockIssue = buildMockIssue({
+            number       : 42043,
+            title        : 'Mock issue — null-entity timeline regression #11474',
+            timelineFirst: [
+                {
+                    __typename: 'AssignedEvent',
+                    createdAt : '2026-05-16T10:00:00Z',
+                    actor     : {login: 'tobiu'},
+                    assignee  : null // deleted GitHub user
+                },
+                {
+                    __typename: 'LabeledEvent',
+                    createdAt : '2026-05-16T10:01:00Z',
+                    actor     : {login: 'tobiu'},
+                    label     : null // deleted label
+                },
+                {
+                    __typename: 'SubIssueAddedEvent',
+                    createdAt : '2026-05-16T10:02:00Z',
+                    actor     : {login: 'tobiu'},
+                    subIssue  : null // deleted sub-issue
+                },
+                {
+                    __typename: 'CrossReferencedEvent',
+                    createdAt : '2026-05-16T10:03:00Z',
+                    actor     : {login: 'tobiu'},
+                    source    : null // deleted source
+                }
+            ],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchSingleIssue')) {
+                return {repository: {issue: structuredClone(mockIssue)}};
+            }
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        const metadata = {issues: {}};
+        const stats    = await IssueSyncer.refetchIssuesByNumber([mockIssue.number], metadata);
+
+        // No crash → refetch succeeds for all four null-entity events.
+        expect(stats.refetched.count).toBe(1);
+        expect(stats.errors).toHaveLength(0);
+
+        const chunkNumber = 1;
+        const writtenPath = path.join(issueSyncConfig.issuesDir, `chunk-${chunkNumber}`, `issue-${mockIssue.number}.md`);
+        const written     = await fs.readFile(writtenPath, 'utf-8');
+
+        // Fallback markers appear in rendered markdown.
+        expect(written).toContain('assigned to @Ghost');
+        expect(written).toContain('added the `(deleted label)` label');
+        expect(written).toContain('added sub-issue #?');
+        expect(written).toContain('cross-referenced by (deleted)');
+
+        // Verify no literal `undefined` / `null` artifacts leaked into the output —
+        // i.e., the optional-chaining + fallback approach landed everywhere instead
+        // of partial coverage that would yield raw `undefined` strings.
+        expect(written).not.toMatch(/assigned to @(undefined|null)/);
+        expect(written).not.toMatch(/added the `(undefined|null)` label/);
+    });
+
+    test('formatIssueMarkdown null-safety: ghost issue (null author + null label/assignee/subIssue nodes) renders without crash (#11481)', async () => {
+        // Empirical anchor: post-#11476-merge sync_all crashed at IssueSyncer.mjs:145 on
+        // `issue.author.login` when the GitHub author had been deleted (Ghost user). This is
+        // the whack-a-mole companion to the #11474 timeline-event fix — same null-deref class
+        // in the FRONTMATTER ASSEMBLY method (#formatIssueMarkdown) that PR #11476 didn't sweep.
+        // This test exercises EVERY nullable frontmatter site simultaneously ("ghost issue")
+        // to prevent future whack-a-mole regressions.
+        const ghostIssue = {
+            number   : 42044,
+            title    : null, // null title
+            body     : 'Mock body for ghost issue regression #11481.',
+            state    : 'CLOSED',
+            createdAt: '2026-05-16T17:00:00Z',
+            updatedAt: '2026-05-16T18:00:00Z',
+            closedAt : '2026-05-16T17:30:00Z',
+            url      : 'https://github.com/neomjs/neo/issues/42044',
+            author   : null, // deleted GitHub user (Ghost) — the empirical crash
+            labels   : {nodes: [null, {name: null}, {name: 'bug'}]}, // null entries + null-name + valid
+            assignees: {nodes: [null, {login: null}, {login: 'tobiu'}]}, // same shape: null entries + null-login + valid
+            milestone: null,
+            parent   : null,
+            subIssues       : {nodes: [null, {state: 'OPEN', number: 100, title: null}, {state: 'CLOSED', number: 101, title: 'valid sub'}]},
+            subIssuesSummary: {total: 2, completed: 1, percentCompleted: 50},
+            blockedBy       : {nodes: [null, {state: 'OPEN', number: 200, title: null}]},
+            blocking        : {nodes: [{state: 'CLOSED', number: 300, title: 'valid blocker'}]},
+            timelineItems   : {
+                pageInfo: {hasNextPage: false, endCursor: null},
+                nodes   : [] // empty timeline; the format-event path is covered by the prior test
+            }
+        };
+
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchSingleIssue')) {
+                return {repository: {issue: structuredClone(ghostIssue)}};
+            }
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        const metadata = {issues: {}};
+        const stats    = await IssueSyncer.refetchIssuesByNumber([ghostIssue.number], metadata);
+
+        // No crash → refetch succeeds despite every nullable frontmatter field being null.
+        expect(stats.refetched.count).toBe(1);
+        expect(stats.errors).toHaveLength(0);
+
+        // ghost issue is CLOSED post-latest-release (no release applies; sortedReleases empty by default),
+        // so it lands in the active issues directory rather than archive — assert the file exists wherever it landed.
+        const writtenRelativePath = metadata.issues[ghostIssue.number].path;
+        const writtenAbsolutePath = path.resolve(aiConfig.projectRoot, writtenRelativePath);
+        const written             = await fs.readFile(writtenAbsolutePath, 'utf-8');
+
+        // Frontmatter fallback markers landed correctly. Use quote-agnostic regex because
+        // gray-matter's YAML serializer chooses single/double quoting based on content.
+        expect(written).toMatch(/author:\s*['"]?Ghost['"]?/); // null issue.author → 'Ghost' fallback
+        expect(written).toMatch(/title:\s*['"]?\(no title\)['"]?/); // null title → '(no title)' fallback
+        expect(written).toContain('# (no title)'); // body header uses same fallback
+
+        // List-mapped fields: nulls filtered out; valid entries preserved.
+        // labels: [null, {name: null}, {name: 'bug'}] → ['bug']
+        expect(written).toMatch(/labels:\s*\n\s*- bug\s*\n/);
+        // assignees: [null, {login: null}, {login: 'tobiu'}] → ['tobiu']
+        expect(written).toMatch(/assignees:\s*\n\s*- tobiu\s*\n/);
+
+        // subIssues: [null, {title: null}, {title: 'valid sub'}] → 2 entries (the null-title becomes '(no title)' marker; the null node is filtered out)
+        expect(written).toMatch(/100[^\n]*\(no title\)/);
+        expect(written).toContain('101 valid sub');
+
+        // blockedBy: [null, {title: null}] → 1 entry with '(no title)' marker
+        expect(written).toMatch(/200[^\n]*\(no title\)/);
+
+        // No literal undefined/null leaks anywhere in the frontmatter.
+        expect(written).not.toMatch(/author:\s*(undefined|null)\s*$/m);
+        expect(written).not.toMatch(/^\s*-\s+(undefined|null)\s*$/m);
+        expect(written).not.toContain('undefined');
+    });
+
+    test('ARCHIVE ANOMALY WARN: only fires when both buckets parse as valid semver tags (#11486)', async () => {
+        // Empirical anchor: operator 2026-05-16T19:33Z paste — `npm run ai:sync-github-workflow`
+        // post-#11485-merge produced thousands of `[WARN] 🚨 [ARCHIVE ANOMALY]` lines, dominated by
+        // migration-shape false positives (oldVersion = title-derived garbage like
+        // 'vneo.d.ts - Typescript definitions for all neo framework classes') where sealed-chunk
+        // semantics already prevent any actual move. Only genuine vX.Y.Z → vX.Y.Z shifts (e.g.
+        // #7910 v11.12.0 → v11.13.0) are actionable anomalies and should retain WARN level.
+        //
+        // This test exercises two issues simultaneously:
+        // - Issue A: cached path bucket is title-derived garbage → semver.valid returns null →
+        //   DEBUG emitted, NO WARN
+        // - Issue B: cached path bucket is valid semver tag (v11.12.0) shifting to another valid
+        //   semver tag (v11.13.0) → WARN emitted exactly once
+        const issueAMigrationShape = buildMockIssue({
+            number       : 3285,
+            title        : 'Mock migration-shape issue (#11486 filter test)',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+        issueAMigrationShape.state    = 'CLOSED';
+        issueAMigrationShape.closedAt = '2026-05-15T10:00:00Z';
+        issueAMigrationShape.milestone = {title: 'v8.1.0'}; // new resolution: valid semver
+
+        const issueBSemverShift = buildMockIssue({
+            number       : 7910,
+            title        : 'Mock valid-semver-shift issue (#11486 filter test)',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+        issueBSemverShift.state    = 'CLOSED';
+        issueBSemverShift.closedAt = '2026-05-15T10:00:00Z';
+        issueBSemverShift.milestone = {title: 'v11.13.0'}; // new resolution: valid semver
+
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchIssuesForSync')) {
+                return {
+                    rateLimit : {cost: 1, remaining: 4999, resetAt: '2026-05-15T11:00:00Z'},
+                    repository: {
+                        issues: {
+                            pageInfo: {hasNextPage: false, endCursor: null},
+                            nodes   : [structuredClone(issueAMigrationShape), structuredClone(issueBSemverShift)]
+                        }
+                    }
+                };
+            }
+            if (query.includes('FetchSingleIssue')) {
+                // Refetch path may target either issue
+                const num = parseInt(query.match(/number:\s*(\d+)/)?.[1] || '0', 10);
+                const src = num === issueBSemverShift.number ? issueBSemverShift : issueAMigrationShape;
+                return {repository: {issue: structuredClone(src)}};
+            }
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        // Cached paths: issue A under migration-shape bucket, issue B under valid v11.12.0
+        const issueAOldAbsolutePath = path.join(
+            issueSyncConfig.archiveRoot, 'issues',
+            'vneo.d.ts - typescript definitions for all neo framework classes',
+            'chunk-3000', `issue-${issueAMigrationShape.number}.md`
+        );
+        const issueBOldAbsolutePath = path.join(
+            issueSyncConfig.archiveRoot, 'issues',
+            'v11.12.0', 'chunk-7900', `issue-${issueBSemverShift.number}.md`
+        );
+        const issueAOldRelPath = path.relative(aiConfig.projectRoot, issueAOldAbsolutePath);
+        const issueBOldRelPath = path.relative(aiConfig.projectRoot, issueBOldAbsolutePath);
+
+        const metadata = {
+            issues: {
+                [issueAMigrationShape.number]: {
+                    state       : 'CLOSED',
+                    path        : issueAOldRelPath,
+                    updatedAt   : '2026-05-14T10:00:00Z',
+                    closedAt    : '2026-05-15T10:00:00Z',
+                    milestone   : null,
+                    title       : issueAMigrationShape.title,
+                    contentHash : 'hashA',
+                    commentsTotal: 0
+                },
+                [issueBSemverShift.number]: {
+                    state       : 'CLOSED',
+                    path        : issueBOldRelPath,
+                    updatedAt   : '2026-05-14T10:00:00Z',
+                    closedAt    : '2026-05-15T10:00:00Z',
+                    milestone   : null,
+                    title       : issueBSemverShift.title,
+                    contentHash : 'hashB',
+                    commentsTotal: 0
+                }
+            }
+        };
+
+        // Pre-create the two cached files so sealed-chunk path-resolution works.
+        await fs.ensureDir(path.dirname(issueAOldAbsolutePath));
+        await fs.ensureDir(path.dirname(issueBOldAbsolutePath));
+        await fs.writeFile(issueAOldAbsolutePath, 'mock content A', 'utf8');
+        await fs.writeFile(issueBOldAbsolutePath, 'mock content B', 'utf8');
+
+        // Spy on logger.warn and logger.debug.
+        const warnCalls  = [];
+        const debugCalls = [];
+        const originalWarn  = logger.warn;
+        const originalDebug = logger.debug;
+        logger.warn  = (...args) => { warnCalls.push(args[0]); };
+        logger.debug = (...args) => { debugCalls.push(args[0]); };
+
+        try {
+            await IssueSyncer.pullFromGitHub(metadata);
+        } finally {
+            logger.warn  = originalWarn;
+            logger.debug = originalDebug;
+            await fs.unlink(issueAOldAbsolutePath).catch(() => {});
+            await fs.unlink(issueBOldAbsolutePath).catch(() => {});
+        }
+
+        // Migration-shape issue A: NO WARN with [ARCHIVE ANOMALY], EXACTLY 1 DEBUG with [ARCHIVE MIGRATION]
+        const issueAWarns  = warnCalls.filter(s => typeof s === 'string' && s.includes('[ARCHIVE ANOMALY]') && s.includes(`#${issueAMigrationShape.number}`));
+        const issueADebugs = debugCalls.filter(s => typeof s === 'string' && s.includes('[ARCHIVE MIGRATION]') && s.includes(`#${issueAMigrationShape.number}`));
+        expect(issueAWarns).toHaveLength(0);
+        expect(issueADebugs.length).toBeGreaterThanOrEqual(1);
+
+        // Valid-semver-shift issue B: EXACTLY 1 WARN with [ARCHIVE ANOMALY], NO [ARCHIVE MIGRATION] DEBUG
+        const issueBWarns  = warnCalls.filter(s => typeof s === 'string' && s.includes('[ARCHIVE ANOMALY]') && s.includes(`#${issueBSemverShift.number}`));
+        const issueBDebugs = debugCalls.filter(s => typeof s === 'string' && s.includes('[ARCHIVE MIGRATION]') && s.includes(`#${issueBSemverShift.number}`));
+        expect(issueBWarns).toHaveLength(1);
+        expect(issueBWarns[0]).toContain("'v11.12.0'");
+        expect(issueBWarns[0]).toContain("'v11.13.0'");
+        expect(issueBDebugs).toHaveLength(0);
+    });
 });
 
 function buildComment(i) {

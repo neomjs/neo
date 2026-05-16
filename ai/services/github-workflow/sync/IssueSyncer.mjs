@@ -5,6 +5,7 @@ import fs                                            from 'fs/promises';
 import logger                                        from '../../../mcp/server/github-workflow/logger.mjs';
 import matter                                        from 'gray-matter';
 import path                                          from 'path';
+import semver                                        from 'semver';
 import GraphqlService                                from '../GraphqlService.mjs';
 import ReleaseNotesSyncer                                 from './ReleaseNotesSyncer.mjs';
 import {FETCH_ISSUE_TIMELINE_PAGE, FETCH_ISSUES_FOR_SYNC, FETCH_SINGLE_ISSUE} from '../queries/issueQueries.mjs';
@@ -42,6 +43,16 @@ class IssueSyncer extends Base {
          */
         singleton: true
     }
+
+    /**
+     * Per-sync-cycle dedupe set tracking issue numbers already emitted as ARCHIVE ANOMALY WARN.
+     * `#planBuckets` is invoked from multiple sync entry points (pullFromGitHub, refetchIssuesByNumber,
+     * reconcileClosedIssueLocations) which would otherwise duplicate-warn for the same issue within
+     * a single sync. Cleared at the top of `pullFromGitHub` (the natural sync-cycle entrypoint).
+     * @member {Set<number>} #warnedAnomalies
+     * @private
+     */
+    #warnedAnomalies = new Set();
 
     /**
      * Calculates a SHA-256 hash of the given content for change detection.
@@ -95,7 +106,7 @@ class IssueSyncer extends Base {
 
             const page = data.repository.issue.timelineItems;
             allNodes.push(...page.nodes);
-            logger.info(`  📄 Fetched timeline page for #${issue.number}: +${page.nodes.length} events (cumulative: ${allNodes.length})`);
+            logger.debug(`  📄 Fetched timeline page for #${issue.number}: +${page.nodes.length} events (cumulative: ${allNodes.length})`);
 
             cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
         }
@@ -133,23 +144,37 @@ class IssueSyncer extends Base {
      * @private
      */
     #formatIssueMarkdown(issue) {
+        // Defensive null-safety per #11481 (follow-up to #11474 / PR #11476's whack-a-mole gap):
+        // GitHub GraphQL returns null for issue.author when the author has been deleted (Ghost
+        // user), and individual nodes within labels/assignees/subIssues/blockedBy/blocking can
+        // also be null when their referenced entities are deleted. Each deref site uses optional
+        // chaining + filter-out for list entries. Fallback conventions match #11476's: 'Ghost'
+        // for users (matches existing line-186 actor/author convention); '(no title)' for
+        // missing entity titles; filter-out for null list entries (preserves array integrity
+        // without injecting fallback objects into structured fields).
         const frontmatter = {
             id                : issue.number,
-            title             : issue.title.replace(lineBreaksRegex, ' '),
+            title             : issue.title?.replace(lineBreaksRegex, ' ') || '(no title)',
             state             : issue.state,
-            labels            : issue.labels.nodes.map(l => l.name),
-            assignees         : issue.assignees.nodes.map(a => a.login),
+            labels            : (issue.labels?.nodes || []).map(l => l?.name).filter(Boolean),
+            assignees         : (issue.assignees?.nodes || []).map(a => a?.login).filter(Boolean),
             createdAt         : issue.createdAt,
             updatedAt         : issue.updatedAt,
             githubUrl         : issue.url,
-            author            : issue.author.login,
+            author            : issue.author?.login || 'Ghost',
             commentsCount     : this.#countTimelineComments(issue), // Derived from the exhausted timeline — #10110
-            parentIssue       : issue.parent ? issue.parent.number : null,
-            subIssues         : issue.subIssues?.nodes.map(sub => `[${sub.state === 'CLOSED' ? 'x' : ' '}] ${sub.number} ${sub.title.replace(lineBreaksRegex, ' ')}`) || [],
+            parentIssue       : issue.parent?.number ?? null,
+            subIssues         : (issue.subIssues?.nodes || []).map(sub =>
+                sub ? `[${sub.state === 'CLOSED' ? 'x' : ' '}] ${sub.number} ${sub.title?.replace(lineBreaksRegex, ' ') || '(no title)'}` : null
+            ).filter(Boolean),
             subIssuesCompleted: issue.subIssuesSummary?.completed || 0,
             subIssuesTotal    : issue.subIssuesSummary?.total || 0,
-            blockedBy         : issue.blockedBy?.nodes.map(b => `[${b.state === 'CLOSED' ? 'x' : ' '}] ${b.number} ${b.title.replace(lineBreaksRegex, ' ')}`) || [],
-            blocking          : issue.blocking?.nodes.map(b => `[${b.state === 'CLOSED' ? 'x' : ' '}] ${b.number} ${b.title.replace(lineBreaksRegex, ' ')}`) || []
+            blockedBy         : (issue.blockedBy?.nodes || []).map(b =>
+                b ? `[${b.state === 'CLOSED' ? 'x' : ' '}] ${b.number} ${b.title?.replace(lineBreaksRegex, ' ') || '(no title)'}` : null
+            ).filter(Boolean),
+            blocking          : (issue.blocking?.nodes || []).map(b =>
+                b ? `[${b.state === 'CLOSED' ? 'x' : ' '}] ${b.number} ${b.title?.replace(lineBreaksRegex, ' ') || '(no title)'}` : null
+            ).filter(Boolean)
         };
 
         if (issue.closedAt) {
@@ -159,7 +184,7 @@ class IssueSyncer extends Base {
             frontmatter.milestone = issue.milestone.title;
         }
 
-        let body = `# ${issue.title}\n\n`;
+        let body = `# ${issue.title || '(no title)'}\n\n`;
 
         body += issue.body || '*(No description provided)*';
         body += '\n\n';
@@ -191,18 +216,25 @@ class IssueSyncer extends Base {
 
         let details = '';
 
+        // Defensive null-safety per #11474: GitHub GraphQL returns null for referenced
+        // entities that have been deleted (users, labels, sub-issues, parent issues,
+        // blocking issues, commits, cross-referenced sources). Each deref site uses
+        // optional chaining + a fallback marker so a single null doesn't abort a sync
+        // run that's already processed thousands of issues. Fallback conventions:
+        // `'Ghost'` for users (matches existing actor/author convention at line 186);
+        // `'(deleted X)'` for named entities; `'?'` for numeric references.
         switch (event.__typename) {
             case 'LabeledEvent':
-                details = `added the \`${event.label.name}\` label`;
+                details = `added the \`${event.label?.name || '(deleted label)'}\` label`;
                 break;
             case 'UnlabeledEvent':
-                details = `removed the \`${event.label.name}\` label`;
+                details = `removed the \`${event.label?.name || '(deleted label)'}\` label`;
                 break;
             case 'AssignedEvent':
-                details = `assigned to @${event.assignee.login}`; // Assuming assignee is always a User
+                details = `assigned to @${event.assignee?.login || 'Ghost'}`;
                 break;
             case 'UnassignedEvent':
-                details = `unassigned from @${event.assignee.login}`; // Assuming assignee is always a User
+                details = `unassigned from @${event.assignee?.login || 'Ghost'}`;
                 break;
             case 'ClosedEvent':
                 details = `closed this issue`;
@@ -220,36 +252,41 @@ class IssueSyncer extends Base {
                 details = `removed this from the **${event.milestoneTitle}** milestone`;
                 break;
             case 'ReferencedEvent':
-                const commitMessage = event.commit.message.split('\\n')[0];
-                details = `referenced in commit \`${event.commit.oid.substring(0, 7)}\` - "${commitMessage}"`;
+                const commitMessage = event.commit?.message?.split('\\n')[0] || '(no message)';
+                const commitOid     = event.commit?.oid?.substring(0, 7) || '(deleted commit)';
+                details = `referenced in commit \`${commitOid}\` - "${commitMessage}"`;
                 break;
             case 'CrossReferencedEvent':
-                const sourceRef = event.source.__typename === 'Issue' ? `#${event.source.number}` : `PR #${event.source.number}`;
-                details = `cross-referenced by ${sourceRef}`;
+                if (event.source) {
+                    const sourceRef = event.source.__typename === 'Issue' ? `#${event.source.number}` : `PR #${event.source.number}`;
+                    details = `cross-referenced by ${sourceRef}`;
+                } else {
+                    details = `cross-referenced by (deleted)`;
+                }
                 break;
             case 'SubIssueAddedEvent':
-                details = `added sub-issue #${event.subIssue.number}`;
+                details = `added sub-issue #${event.subIssue?.number ?? '?'}`;
                 break;
             case 'SubIssueRemovedEvent':
-                details = `removed sub-issue #${event.subIssue.number}`;
+                details = `removed sub-issue #${event.subIssue?.number ?? '?'}`;
                 break;
             case 'ParentIssueAddedEvent':
-                details = `added parent issue #${event.parent.number}`;
+                details = `added parent issue #${event.parent?.number ?? '?'}`;
                 break;
             case 'ParentIssueRemovedEvent':
-                details = `removed parent issue #${event.parent.number}`;
+                details = `removed parent issue #${event.parent?.number ?? '?'}`;
                 break;
             case 'BlockedByAddedEvent':
-                details = `marked this issue as being blocked by #${event.blockingIssue.number}`;
+                details = `marked this issue as being blocked by #${event.blockingIssue?.number ?? '?'}`;
                 break;
             case 'BlockingAddedEvent':
-                details = `marked this issue as blocking #${event.blockedIssue.number}`;
+                details = `marked this issue as blocking #${event.blockedIssue?.number ?? '?'}`;
                 break;
             case 'BlockedByRemovedEvent':
-                details = `removed the block by #${event.blockingIssue.number}`;
+                details = `removed the block by #${event.blockingIssue?.number ?? '?'}`;
                 break;
             case 'BlockingRemovedEvent':
-                details = `removed the block on #${event.blockedIssue.number}`;
+                details = `removed the block on #${event.blockedIssue?.number ?? '?'}`;
                 break;
             default:
                 details = `performed a "${event.__typename}" event`;
@@ -291,9 +328,12 @@ class IssueSyncer extends Base {
         }
 
         for (const issue of fetchedIssues) {
+            // Null-safety per #11481: GitHub may return null label nodes or null name fields
+            // when labels have been deleted. Filter-out null/empty so droppedLabels matching
+            // works on the valid subset.
             const labels = issue.labels?.nodes
-                ? issue.labels.nodes.map(l => l.name.toLowerCase())
-                : issue.labels?.map(l => l.name?.toLowerCase() || l.toLowerCase()) || [];
+                ? issue.labels.nodes.map(l => l?.name?.toLowerCase()).filter(Boolean)
+                : issue.labels?.map(l => l?.name?.toLowerCase() || (typeof l === 'string' ? l.toLowerCase() : null)).filter(Boolean) || [];
 
             const isDropped = issueSyncConfig.droppedLabels.some(label => labels.includes(label));
 
@@ -345,7 +385,26 @@ class IssueSyncer extends Base {
             }
 
             if (issue.oldVersion && issue.oldVersion !== version) {
-                logger.warn(`🚨 [ARCHIVE ANOMALY] Issue #${issue.number} closedAt shift detected: moving from bucket '${issue.oldVersion}' to '${version}'. Dry-run review required.`);
+                // Filter false-positive WARN volume during ADR 0004 clean-cut migration window (#11486).
+                // `oldVersion` derives from the cached path's directory name (see lines ~310-317); during
+                // migration, that contains pre-cut title-derived strings (e.g. 'vneo.d.ts - Typescript
+                // definitions...') that fail semver validation. Sealed-chunk enforcement at the
+                // reconcile step (~L569/L575) already prevents these from causing actual moves, so
+                // emitting WARN is pure noise. Real release-boundary recalculations (e.g. v11.12.0 →
+                // v11.13.0) where both sides are valid semver remain at WARN.
+                const oldIsValidTag = semver.valid(semver.clean(issue.oldVersion)) !== null;
+                const newIsValidTag = semver.valid(semver.clean(version))            !== null;
+
+                if (oldIsValidTag && newIsValidTag) {
+                    // Dedupe across multiple `#planBuckets` call sites within one sync cycle (#11486).
+                    if (!this.#warnedAnomalies.has(issue.number)) {
+                        this.#warnedAnomalies.add(issue.number);
+                        logger.warn(`🚨 [ARCHIVE ANOMALY] Issue #${issue.number} closedAt shift detected: moving from bucket '${issue.oldVersion}' to '${version}'. Dry-run review required.`);
+                    }
+                } else {
+                    // Migration-state mismatch (one side is not a valid semver tag) — quiet observability only.
+                    logger.debug(`[ARCHIVE MIGRATION] Issue #${issue.number}: oldBucket='${issue.oldVersion}' → newBucket='${version}' (sealed-chunk enforcement preserves location)`);
+                }
             }
 
             if (!buckets.has(version)) buckets.set(version, []);
@@ -390,10 +449,11 @@ class IssueSyncer extends Base {
     #getIssuePath(issue, planBuckets = new Map()) {
         const filename = `${issueSyncConfig.issueFilenamePrefix}${issue.number}.md`;
 
-        // Handle both GraphQL (issue.labels.nodes) and potential direct array
+        // Handle both GraphQL (issue.labels.nodes) and potential direct array.
+        // Null-safety per #11481: filter-out null nodes / null name fields (deleted labels).
         const labels = issue.labels?.nodes
-            ? issue.labels.nodes.map(l => l.name.toLowerCase())
-            : issue.labels?.map(l => l.name?.toLowerCase() || l.toLowerCase()) || [];
+            ? issue.labels.nodes.map(l => l?.name?.toLowerCase()).filter(Boolean)
+            : issue.labels?.map(l => l?.name?.toLowerCase() || (typeof l === 'string' ? l.toLowerCase() : null)).filter(Boolean) || [];
 
         const isDropped = issueSyncConfig.droppedLabels.some(label => labels.includes(label));
         if (isDropped) {
@@ -449,6 +509,12 @@ class IssueSyncer extends Base {
      */
     async pullFromGitHub(metadata) {
         logger.info('📥 Fetching issues from GitHub via GraphQL...');
+
+        // Reset per-sync-cycle dedupe set for ARCHIVE ANOMALY WARN emission (#11486).
+        // pullFromGitHub is the natural top-of-sync entrypoint; reconcileClosedIssueLocations and
+        // refetchIssuesByNumber called later in the cycle will reuse the same set, so the same
+        // issue is WARN'd at most once per full sync.
+        this.#warnedAnomalies.clear();
 
         let allIssues   = [];
         let hasNextPage = true;
@@ -555,7 +621,7 @@ class IssueSyncer extends Base {
                     try {
                         const oldPath = this.#resolvePath(oldPathRelative);
                         await fs.unlink(oldPath);
-                        logger.info(`🗑️ Removed dropped issue #${issueNumber}: ${oldPath}`);
+                        logger.debug(`🗑️ Removed dropped issue #${issueNumber}: ${oldPath}`);
                     } catch (e) { /* File might not exist */ }
                 }
                 // Remove from metadata
@@ -587,19 +653,19 @@ class IssueSyncer extends Base {
 
                 if (!oldIssue) {
                     stats.pulled.created++;
-                    logger.info(`✨ Created #${issueNumber}: ${targetPath}`);
+                    logger.debug(`✨ Created #${issueNumber}: ${targetPath}`);
                 } else if (oldAbsolutePath && oldAbsolutePath !== targetPath) {
                     stats.pulled.moved++;
                     try {
                         await fs.rename(oldAbsolutePath, targetPath);
-                        logger.info(`📦 Moved #${issueNumber}: ${oldAbsolutePath} → ${targetPath}`);
+                        logger.debug(`📦 Moved #${issueNumber}: ${oldAbsolutePath} → ${targetPath}`);
                     } catch (e) {
                         logger.warn(`Could not rename #${issueNumber}, falling back to write. Error: ${e.message}`);
                         await fs.unlink(oldAbsolutePath).catch(() => {});
                     }
                 } else {
                     stats.pulled.updated++;
-                    logger.info(`✅ Updated #${issueNumber}: ${targetPath}`);
+                    logger.debug(`✅ Updated #${issueNumber}: ${targetPath}`);
                 }
             }
 
@@ -767,7 +833,7 @@ class IssueSyncer extends Base {
 
                 stats.refetched.count++;
                 stats.refetched.issues.push(issueNumber);
-                logger.info(`✅ Refetched issue #${issueNumber}`);
+                logger.debug(`✅ Refetched issue #${issueNumber}`);
 
                 metadata.issues[issueNumber] = {
                     state        : issue.state,
@@ -855,7 +921,7 @@ class IssueSyncer extends Base {
                     continue;
                 }
 
-                logger.info(`📝 Content changed for #${issueNumber}`);
+                logger.debug(`📝 Content changed for #${issueNumber}`);
 
                 // Step 1: Get the issue's GraphQL ID
                 const idData = await GraphqlService.query(GET_ISSUE_ID, {
@@ -887,7 +953,7 @@ class IssueSyncer extends Base {
                     body: cleanBody
                 });
 
-                logger.info(`✅ Updated GitHub issue #${issueNumber} via GraphQL`);
+                logger.debug(`✅ Updated GitHub issue #${issueNumber} via GraphQL`);
                 stats.count++;
                 stats.issues.push(issueNumber);
             } catch (e) {
@@ -972,7 +1038,7 @@ class IssueSyncer extends Base {
                     continue;
                 }
 
-                logger.info(`📦 Archiving closed issue #${issueNumber}: ${currentAbsolutePath} → ${correctPath}`);
+                logger.debug(`📦 Archiving closed issue #${issueNumber}: ${currentAbsolutePath} → ${correctPath}`);
 
                 try {
                     // Ensure target directory exists
@@ -987,7 +1053,7 @@ class IssueSyncer extends Base {
                     stats.count++;
                     stats.issues.push(parseInt(issueNumber));
 
-                    logger.info(`✅ Archived #${issueNumber} to ${path.relative(process.cwd(), correctPath)}`);
+                    logger.debug(`✅ Archived #${issueNumber} to ${path.relative(process.cwd(), correctPath)}`);
                 } catch (e) {
                     logger.error(`❌ Failed to archive #${issueNumber}: ${e.message}`);
                 }
