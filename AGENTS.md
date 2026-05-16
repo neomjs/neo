@@ -182,9 +182,11 @@ Before triggering a lifecycle skill, state in your reasoning: *"I will read the 
 
 ## 23. Edge-Case Triggers (The Atlas)
 *(Sections mapped to `learn/agentos/AGENTS_ATLAS.md`)*
-- **Knowledge Base (§2, §15):** ALWAYS use `ask_knowledge_base` first for Neo concepts. If adding docs, review Anchor & Echo strategy in `AGENTS_ATLAS.md`.
-- **Testing & Validation (§10):** Read `AGENTS_ATLAS.md` if tests fail. **Tripwire:** If tests fail 3-5 times, escalate to a peer via `add_message`.
+- **Knowledge Base & Anti-Hallucination (§2, §15):** ALWAYS use `ask_knowledge_base` first for Neo concepts. If adding documentation, review Anchor & Echo strategy in `AGENTS_ATLAS.md`.
+- **Swarm Topology / Cross-Peer Coordination (§15.6):** Before cross-peer coordination, lead/peer role work, ideation review, lane handoff, or A2A lifecycle coordination, nullify orchestrator-worker drift by reviewing AGENTS.md §15.6 + Discussion #11026.
+- **Testing & Validation (§10):** If verifying code or encountering persistent test failures, read `AGENTS_ATLAS.md`. **Tripwire/Peer-Escalation:** If tests fail 3-5 times, escalate to a peer via `add_message` before reaching the 25-turn limit.
 - **Sunset Protocol (§14):** Before session handover, read `.agents/skills/session-sunset/SKILL.md`. Must explicitly declare `scope: solo-refresh | convergent` to prevent scope contagion. Stale-wake invariant: wake messages in old transcripts are noise.
 - **Visual Verification (§20):** If debugging frontend UI/layout, read `AGENTS_ATLAS.md`.
 - **Authoring Discipline:** Read 1-2 sibling files to lift patterns before writing new classes.
-- **File Reading Efficiently:** If reading modified files, read `AGENTS_ATLAS.md` for efficiency.
+- **File Reading Efficiently:** If reading modified files, read `AGENTS_ATLAS.md` for efficiency guidelines.
+- **Verify-Before-Assert (§3.5):** core-value epistemic-prerequisite; before asserting any factual claim in a public artifact, run the falsifying tool. Tool inventory + empirical anchors (including #11089 self-Drop+Supersede recursion) in `AGENTS_ATLAS.md` §2.
