@@ -41,7 +41,8 @@ test.describe('Neo.ai.services.knowledge-base.source.SkillSource', () => {
         mockRoot = path.join(tmpDir, `skill-source-mock-${process.pid}-${Date.now()}`);
 
         const skillsDir = path.join(mockRoot, '.agents/skills');
-        fs.ensureDirSync(path.join(skillsDir, 'ideation-sandbox/references'));
+        fs.ensureDirSync(path.join(skillsDir, 'ideation-sandbox/references/audits'));
+        fs.ensureDirSync(path.join(skillsDir, 'legacy-skill/references'));
         fs.ensureDirSync(path.join(skillsDir, 'simple-skill'));
 
         // Monolith SKILL.md with YAML frontmatter
@@ -58,17 +59,27 @@ Ideation description.
 1. Do this
 2. Do that`);
 
-        // Sub-rule workflow.md without YAML
+        // Workflow map with a trigger-pointer target
         fs.writeFileSync(path.join(skillsDir, 'ideation-sandbox/references/workflow.md'),
-`# Stage 1
+`## Stage 1
+<!-- trigger: edge-case validation → read ./audits/rare-rule.md -->
 Stage 1 details.
-# Stage 2
+## Stage 2
 Stage 2 details.`);
+
+        fs.writeFileSync(path.join(skillsDir, 'ideation-sandbox/references/audits/rare-rule.md'),
+`# Rare Rule
+Rare rule details.`);
 
         // Simple skill without YAML
         fs.writeFileSync(path.join(skillsDir, 'simple-skill/SKILL.md'),
 `# Simple
 Simple skill contents.`);
+
+        // Legacy reference payload without trigger-pointer metadata keeps fallback behavior.
+        fs.writeFileSync(path.join(skillsDir, 'legacy-skill/references/legacy.md'),
+`# Legacy
+Legacy skill payload.`);
 
         aiConfig.neoRootDir = mockRoot;
     });
@@ -98,9 +109,11 @@ Simple skill contents.`);
 
         // ideation-sandbox SKILL.md -> Overview chunk + Rules chunk (2)
         // ideation-sandbox workflow.md -> Stage 1 + Stage 2 (2)
+        // ideation-sandbox rare-rule.md -> Rare Rule (1)
         // simple-skill SKILL.md -> Simple (1)
-        expect(count).toBe(5);
-        expect(written).toHaveLength(5);
+        // legacy-skill legacy.md -> Legacy (1)
+        expect(count).toBe(7);
+        expect(written).toHaveLength(7);
 
         const ideationChunks = written.filter(w => w.skillName === 'custom-ideation');
         expect(ideationChunks).toHaveLength(2);
@@ -122,12 +135,20 @@ Simple skill contents.`);
         const workflowChunks = written.filter(w => w.skillName === 'ideation-sandbox' && w.sectionAnchor.startsWith('Stage'));
         expect(workflowChunks).toHaveLength(2);
         expect(workflowChunks[0].triggerCondition).toBe('');
-        expect(workflowChunks.every(w => w.isAtlasMonolithSubRule)).toBe(true);
+        expect(workflowChunks.every(w => !w.isAtlasMonolithSubRule)).toBe(true);
+
+        const rareRuleChunk = written.find(w => w.source.endsWith('rare-rule.md'));
+        expect(rareRuleChunk).toBeDefined();
+        expect(rareRuleChunk.isAtlasMonolithSubRule).toBe(true);
 
         const simpleChunk = written.find(w => w.skillName === 'simple-skill');
         expect(simpleChunk).toBeDefined();
         expect(simpleChunk.triggerCondition).toBe('');
         expect(simpleChunk.isAtlasMonolithSubRule).toBe(false);
+
+        const legacyChunk = written.find(w => w.skillName === 'legacy-skill');
+        expect(legacyChunk).toBeDefined();
+        expect(legacyChunk.isAtlasMonolithSubRule).toBe(true);
     });
 
     test('extract() returns 0 and writes nothing when the skills directory is absent', async () => {
