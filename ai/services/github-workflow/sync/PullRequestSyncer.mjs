@@ -230,11 +230,6 @@ class PullRequestSyncer extends Base {
 
             hasNextPage = pullRequests.pageInfo.hasNextPage;
             cursor      = pullRequests.pageInfo.endCursor;
-            
-            // To prevent massive queries, limit to say a max amount for safety.
-            if (allPullRequests.length >= 200) {
-                break;
-            }
         }
 
         const stats = {
