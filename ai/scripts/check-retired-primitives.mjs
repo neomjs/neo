@@ -38,14 +38,31 @@ const SEARCH_ROOT  = 'ai/';
 const EXCLUDE_GLOB = ['*.spec.mjs', '*.test.mjs'];
 
 /**
+ * Escapes ALL regex metacharacters in a string fragment so it can be safely embedded
+ * in an extended-regex pattern (#11490 CodeQL alert `js/incomplete-sanitization`).
+ *
+ * Prior version escaped only `.`, leaving backslashes + other metacharacters (`* + ? ^ $ { } ( ) | [ ] \\`)
+ * unprotected. While the current `RETIRED_PRIMITIVES` values contain none of these, defensive
+ * full-metachar escaping makes the function safe for any future fragment a maintainer adds —
+ * matching MDN's canonical `escapeRegExp` shape.
+ *
+ * @param {string} s Raw fragment string to escape.
+ * @returns {string} Regex-safe escaped form.
+ */
+function escapeRegex(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Builds a single grep extended-regex pattern matching any `from '...<retired>'` style import,
- * tolerating single, double, or template-literal quoting. Escapes `.` inside path fragments so
- * `chunkPath.mjs` doesn't match `chunkPathXmjs`.
+ * tolerating single, double, or template-literal quoting. All regex metacharacters in path
+ * fragments are escaped via `escapeRegex()` so values containing `*`, `[`, `\\`, etc. are
+ * treated as literals.
  * @returns {string}
  */
 function buildPattern() {
     return RETIRED_PRIMITIVES
-        .map(fragment => `from[[:space:]]+['"\`].*${fragment.replace(/\./g, '\\.')}`)
+        .map(fragment => `from[[:space:]]+['"\`].*${escapeRegex(fragment)}`)
         .join('|');
 }
 
