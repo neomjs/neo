@@ -133,23 +133,37 @@ class IssueSyncer extends Base {
      * @private
      */
     #formatIssueMarkdown(issue) {
+        // Defensive null-safety per #11481 (follow-up to #11474 / PR #11476's whack-a-mole gap):
+        // GitHub GraphQL returns null for issue.author when the author has been deleted (Ghost
+        // user), and individual nodes within labels/assignees/subIssues/blockedBy/blocking can
+        // also be null when their referenced entities are deleted. Each deref site uses optional
+        // chaining + filter-out for list entries. Fallback conventions match #11476's: 'Ghost'
+        // for users (matches existing line-186 actor/author convention); '(no title)' for
+        // missing entity titles; filter-out for null list entries (preserves array integrity
+        // without injecting fallback objects into structured fields).
         const frontmatter = {
             id                : issue.number,
-            title             : issue.title.replace(lineBreaksRegex, ' '),
+            title             : issue.title?.replace(lineBreaksRegex, ' ') || '(no title)',
             state             : issue.state,
-            labels            : issue.labels.nodes.map(l => l.name),
-            assignees         : issue.assignees.nodes.map(a => a.login),
+            labels            : (issue.labels?.nodes || []).map(l => l?.name).filter(Boolean),
+            assignees         : (issue.assignees?.nodes || []).map(a => a?.login).filter(Boolean),
             createdAt         : issue.createdAt,
             updatedAt         : issue.updatedAt,
             githubUrl         : issue.url,
-            author            : issue.author.login,
+            author            : issue.author?.login || 'Ghost',
             commentsCount     : this.#countTimelineComments(issue), // Derived from the exhausted timeline — #10110
-            parentIssue       : issue.parent ? issue.parent.number : null,
-            subIssues         : issue.subIssues?.nodes.map(sub => `[${sub.state === 'CLOSED' ? 'x' : ' '}] ${sub.number} ${sub.title.replace(lineBreaksRegex, ' ')}`) || [],
+            parentIssue       : issue.parent?.number ?? null,
+            subIssues         : (issue.subIssues?.nodes || []).map(sub =>
+                sub ? `[${sub.state === 'CLOSED' ? 'x' : ' '}] ${sub.number} ${sub.title?.replace(lineBreaksRegex, ' ') || '(no title)'}` : null
+            ).filter(Boolean),
             subIssuesCompleted: issue.subIssuesSummary?.completed || 0,
             subIssuesTotal    : issue.subIssuesSummary?.total || 0,
-            blockedBy         : issue.blockedBy?.nodes.map(b => `[${b.state === 'CLOSED' ? 'x' : ' '}] ${b.number} ${b.title.replace(lineBreaksRegex, ' ')}`) || [],
-            blocking          : issue.blocking?.nodes.map(b => `[${b.state === 'CLOSED' ? 'x' : ' '}] ${b.number} ${b.title.replace(lineBreaksRegex, ' ')}`) || []
+            blockedBy         : (issue.blockedBy?.nodes || []).map(b =>
+                b ? `[${b.state === 'CLOSED' ? 'x' : ' '}] ${b.number} ${b.title?.replace(lineBreaksRegex, ' ') || '(no title)'}` : null
+            ).filter(Boolean),
+            blocking          : (issue.blocking?.nodes || []).map(b =>
+                b ? `[${b.state === 'CLOSED' ? 'x' : ' '}] ${b.number} ${b.title?.replace(lineBreaksRegex, ' ') || '(no title)'}` : null
+            ).filter(Boolean)
         };
 
         if (issue.closedAt) {
@@ -159,7 +173,7 @@ class IssueSyncer extends Base {
             frontmatter.milestone = issue.milestone.title;
         }
 
-        let body = `# ${issue.title}\n\n`;
+        let body = `# ${issue.title || '(no title)'}\n\n`;
 
         body += issue.body || '*(No description provided)*';
         body += '\n\n';
@@ -303,9 +317,12 @@ class IssueSyncer extends Base {
         }
 
         for (const issue of fetchedIssues) {
+            // Null-safety per #11481: GitHub may return null label nodes or null name fields
+            // when labels have been deleted. Filter-out null/empty so droppedLabels matching
+            // works on the valid subset.
             const labels = issue.labels?.nodes
-                ? issue.labels.nodes.map(l => l.name.toLowerCase())
-                : issue.labels?.map(l => l.name?.toLowerCase() || l.toLowerCase()) || [];
+                ? issue.labels.nodes.map(l => l?.name?.toLowerCase()).filter(Boolean)
+                : issue.labels?.map(l => l?.name?.toLowerCase() || (typeof l === 'string' ? l.toLowerCase() : null)).filter(Boolean) || [];
 
             const isDropped = issueSyncConfig.droppedLabels.some(label => labels.includes(label));
 
@@ -402,10 +419,11 @@ class IssueSyncer extends Base {
     #getIssuePath(issue, planBuckets = new Map()) {
         const filename = `${issueSyncConfig.issueFilenamePrefix}${issue.number}.md`;
 
-        // Handle both GraphQL (issue.labels.nodes) and potential direct array
+        // Handle both GraphQL (issue.labels.nodes) and potential direct array.
+        // Null-safety per #11481: filter-out null nodes / null name fields (deleted labels).
         const labels = issue.labels?.nodes
-            ? issue.labels.nodes.map(l => l.name.toLowerCase())
-            : issue.labels?.map(l => l.name?.toLowerCase() || l.toLowerCase()) || [];
+            ? issue.labels.nodes.map(l => l?.name?.toLowerCase()).filter(Boolean)
+            : issue.labels?.map(l => l?.name?.toLowerCase() || (typeof l === 'string' ? l.toLowerCase() : null)).filter(Boolean) || [];
 
         const isDropped = issueSyncConfig.droppedLabels.some(label => labels.includes(label));
         if (isDropped) {
