@@ -223,11 +223,6 @@ class DiscussionSyncer extends Base {
 
             hasNextPage = discussions.pageInfo.hasNextPage;
             cursor      = discussions.pageInfo.endCursor;
-
-            // To prevent massive queries, limit to say a max amount for safety.
-            if (allDiscussions.length >= 200) {
-                break;
-            }
         }
 
         const stats = {

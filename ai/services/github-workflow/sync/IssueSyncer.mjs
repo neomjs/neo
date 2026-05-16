@@ -466,7 +466,15 @@ class IssueSyncer extends Base {
                     limit           : 100,
                     cursor,
                     states          : ['OPEN', 'CLOSED'],
-                    since           : metadata.lastSync || issueSyncConfig.syncStartDate, // Use lastSync for delta updates
+                    // Clean-slate sync (metadata.lastSync null) needs to traverse the full repo
+                    // history per ADR 0004 §1.3 + §3.6; falling back to syncStartDate (2025-01-01)
+                    // would miss pre-2025 issues that haven't been touched since then. Use an
+                    // explicit pre-Neo date in that path so GraphQL pulls every issue, then local
+                    // droppedLabels + maxIssues caps trim the actual processed set. Empirical anchor:
+                    // PR #11461 Cycle 1 review (PRR_kwDODSospM8AAAABAIXzdA) — GPT V-B-A'd the
+                    // clean-slate rehydration premise as falsified for caps; this is the symmetric
+                    // fix for the date-window slice.
+                    since           : metadata.lastSync || '2017-01-01T00:00:00Z',
                     maxLabels       : issueSyncConfig.maxLabelsPerIssue,
                     maxAssignees    : issueSyncConfig.maxAssigneesPerIssue,
                     maxSubIssues    : issueSyncConfig.maxSubIssuesPerIssue,
