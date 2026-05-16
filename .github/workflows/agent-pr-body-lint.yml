@@ -17,44 +17,44 @@ jobs:
             const pr = context.payload.pull_request;
             const author = pr.user.login;
             const body = pr.body || "";
-            
+
             // Only enforce for known AI agent accounts or PRs labeled with 'ai'
             const agentAuthors = ['neo-opus-4-7', 'neo-gemini-3-1-pro', 'neo-gpt'];
             const isAgentAuthor = agentAuthors.includes(author) || author.startsWith('neo-');
             const hasAiLabel = pr.labels && pr.labels.some(l => l.name === 'ai');
-            
+
             if (!isAgentAuthor && !hasAiLabel) {
               console.log(`✅ Author ${author} is not an AI agent and no 'ai' label present. Skipping lint.`);
               return;
             }
-            
+
             console.log(`🔍 Linting PR body for agent-authored PR by: ${author}`);
-            
+
             const requiredAnchors = [
               "FAIR-band:",
               "Evidence:",
               "## Test Evidence",
               "## Post-Merge Validation"
             ];
-            
+
             let missingAnchors = [];
             for (const anchor of requiredAnchors) {
               if (!body.includes(anchor)) {
                 missingAnchors.push(anchor);
               }
             }
-            
+
             // Check for magic close keywords or reference keywords
             const ticketRegex = /(Resolves|Closes|Fixes|Related:|Refs)\s+#\d+/i;
             if (!ticketRegex.test(body)) {
               missingAnchors.push("Ticket reference (e.g., Resolves #N, Related: #N)");
             }
-            
+
             if (missingAnchors.length > 0) {
               const errorMessage = `❌ **PR Body Lint Violation**\n\nAgent-authored PRs must adhere to the template defined in \`.agents/skills/pull-request/references/pull-request-workflow.md §9\`.\n\nMissing the following required sections/anchors:\n${missingAnchors.map(a => '- `' + a + '`').join('\n')}\n\nPlease edit the PR body to include these required anchors.`;
-              
+
               console.error(errorMessage);
-              
+
               // Only comment if this is a newly opened PR, to avoid spam on edits
               if (context.payload.action === 'opened') {
                 await github.rest.issues.createComment({
@@ -64,7 +64,7 @@ jobs:
                   body: errorMessage
                 });
               }
-              
+
               core.setFailed("PR body is missing required anchors.");
             } else {
               console.log("✅ PR body contains all required anchors.");
