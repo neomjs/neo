@@ -23,6 +23,9 @@ test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
         const scriptDir = path.resolve(process.cwd(), 'ai/scripts');
         const tasks     = buildTaskDefinitions({scriptDir, nodeBin: '/test/node'});
 
+        expect(tasks.memoryCoreChroma).toBeUndefined();
+        expect(Object.values(tasks).flatMap(task => task.args || [])).not.toContain('8001');
+
         expect(tasks.summary.command).toBe('/test/node');
         expect(tasks.summary.args).toEqual([path.join(scriptDir, 'summarize-sessions.mjs')]);
         expect(tasks.summary.expectedCommand).toBe('summarize-sessions.mjs');

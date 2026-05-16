@@ -536,7 +536,7 @@ export class Orchestrator extends Base {
             healthService: this.healthService
         };
 
-        const continuousTasks = ['chroma', 'memoryCoreChroma', 'bridgeDaemon', 'mlx'];
+        const continuousTasks = ['chroma', 'bridgeDaemon', 'mlx'];
         const RESTART_COOLDOWN_MS = 15000;
         for (const taskName of continuousTasks) {
             const state = this.taskStateService.getTaskState(taskName);
