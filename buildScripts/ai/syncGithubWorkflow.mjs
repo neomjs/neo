@@ -1,11 +1,4 @@
-// Neo namespace bootstrap (entry-point invariant) — required for any consumer
-// of the Neo singleton API. `InstanceManager` binds Neo.find/findFirst/get aliases
-// and consumes pre-singleton `Neo.idMap`. Symmetric with `syncKnowledgeBase.mjs`.
-import Neo               from '../../src/Neo.mjs';
-import * as core         from '../../src/core/_export.mjs';
-import InstanceManager   from '../../src/manager/Instance.mjs';
-import GH_Config         from '../../ai/mcp/server/github-workflow/config.mjs';
-import GH_SyncService    from '../../ai/services/github-workflow/SyncService.mjs';
+import {GH_Config, GH_SyncService} from '../../ai/services.mjs';
 
 /**
  * @module buildScripts/ai/syncGithubWorkflow
@@ -30,9 +23,12 @@ import GH_SyncService    from '../../ai/services/github-workflow/SyncService.mjs
  * - leaves the underlying service untouched (no special-case "full vs delta"
  *   code path — the same `runFullSync()` runs in both invocations)
  *
- * **Pattern parallel:** `buildScripts/ai/syncKnowledgeBase.mjs` — same shape
- * (Neo namespace bootstrap + service singleton + `.runFullSync()` analog +
- * exit-on-completion).
+ * **SDK boundary**: imports route through `ai/services.mjs` (the canonical SDK
+ * entry point per `Neo.ai.services`), which handles Neo namespace bootstrap +
+ * auto-disables sync-on-startup side-effects + applies Zod validation at the
+ * service boundary. Mirrors the pattern established by `backup.mjs`,
+ * `defragChromaDB.mjs`, and other operator-runnable CLI scripts. No direct
+ * `ai/mcp/server/...` or `ai/services/...` deep imports.
  *
  * **Authority anchors:**
  * - ADR 0004 §1.3 (regeneratable cache) + §3.6 (clean-slate purge) — the workflow
