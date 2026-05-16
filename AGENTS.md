@@ -42,7 +42,7 @@ These eight rules are mechanically verifiable and have **no conditional exceptio
 4. **No `<noreply@*>` `Co-Authored-By` footers.**
 5. **No skipping `add_memory` at end of turn.** Forgetting the consolidated save = permanent data loss. The save IS the gate that permits the response.
 6. **Mandatory A2A Notifications.** Whenever you finish ANY lifecycle event (e.g. creating a ticket, opening/updating a PR, finishing/reacting to a review), you MUST use the `add_message` tool to notify your peers. No loopholes.
-7. **No tracked file modification without a self-assigned ticket.** Self-assign + broadcast `[lane-claim]` to `AGENT:*` before any git-tracked edit. Enforcement: `pull-request-workflow.md §1.2`, `ticket-create-workflow.md §10`.
+7. **No tracked file modification without a self-assigned ticket.** Self-assign + broadcast `[lane-claim]` to `AGENT:*` before any git-tracked edit. Enforcement: `pull-request-workflow.md §1.2`, `ticket-create-workflow.md §10`. Reviewers executing the Maintainer Polish Fast Path (`pull-request-workflow.md §10`) operate under the PR's ticket authority and satisfy this invariant by fulfilling its strict gates: the Review-Loop Cost Circuit Breaker is active, the edit is strictly mechanical/metadata, Verification Evidence is documented, and an FYI A2A is broadcast.
 8. **No agent-authored PRs targeting `main`.** Agent-authored pull requests target `dev`. `main` is release-only; `main`-targeted PRs require explicit operator release direction. The normal release-line mutation is `buildScripts/release/publish.mjs`, whose low-level git plumbing creates the atomic release commit from `dev` onto `main`.
 
 ## 3. The Pre-Commit Hard Gates (Tickets & Context)

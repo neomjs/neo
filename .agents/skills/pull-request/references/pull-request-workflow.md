@@ -398,6 +398,11 @@ The `pr-review` skill's Evidence Audit section (in `pr-review-template.md`) veri
 **Exceptions:**
 - PR author explicitly invites co-authorship on the body.
 - Abandoned PR salvaged by a maintainer (documented in a comment first).
+- **Maintainer Polish Fast Path**: Reviewers may unilaterally patch defects under the PR's ticket authority ONLY IF all of the following strict gates are met:
+  1. The Review-Loop Cost Circuit Breaker is active (≥ 3 formal reviews OR > 24KB discussion).
+  2. The edit is strictly limited to `mechanical-hygiene` or `metadata-drift` defects.
+  3. The Reviewer documents Verification Evidence (SHA, prior anchor, verification commands, justification) in their micro-delta review.
+  4. The Reviewer broadcasts an FYI A2A indicating the unilateral polish push.
 
 ## 11. Substrate Awareness ("Assume No Private Memory")
 

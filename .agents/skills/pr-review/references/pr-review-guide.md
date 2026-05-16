@@ -195,6 +195,12 @@ The follow-up template is not permission to rubber-stamp. It still requires:
 
 If a commentId-scoped A2A message arrives but you lack the surrounding prior-cycle context, treat that as a cold-cache case first: load enough grounding context, then decide whether the follow-up template is still valid.
 
+### 6.3 Micro-Delta Circuit Breaker Template
+
+When the PR discussion thread exceeds 24KB or has received ≥ 3 formal reviews, load the Review-Loop Cost Circuit Breaker payload for instructions and the micro-delta template.
+
+**Payload Pointer:** `view_file` `.agents/skills/pr-review/audits/review-cost-circuit-breaker.md`
+
 ## 7. Depth Floor — Preventing Rubber-Stamp Approvals
 
 Structural skill compliance does not guarantee rigor. A review can hit every `[EVALUATION_METRICS]` score, include all graph-ingestion tags, match the template structure — and still be empirically rubber-stamp-shaped. The Depth Floor mandates below close that gap.
