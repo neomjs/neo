@@ -38,13 +38,15 @@ import {GH_Config, GH_SyncService} from '../../ai/services.mjs';
  *
  * @example
  *   npm run ai:sync-github-workflow
+ *   npm run ai:sync-github-workflow -- --verbose
  *
  *   # Full output streamed to stdout/stderr (no MCP timeout ceiling).
  *   # Exit code 0 on success / 1 on failure.
  */
 
 async function syncGithubWorkflow() {
-    GH_Config.data.debug = true;
+    const verbose = process.argv.includes('--verbose');
+    GH_Config.data.logLevel = verbose ? 'debug' : 'info';
 
     console.log('🔄 Starting full GitHub Workflow sync via GH_SyncService.runFullSync()...');
 
