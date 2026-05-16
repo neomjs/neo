@@ -44,8 +44,11 @@ export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
     'summary',
     'kbSync',
     PRIMARY_DEV_SYNC_TASK_NAME,
-    DREAM_TASK_NAME,
-    GOLDEN_PATH_TASK_NAME
+    DREAM_TASK_NAME
+]);
+
+export const DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES = Object.freeze([
+    DREAM_TASK_NAME
 ]);
 
 /**
@@ -273,6 +276,12 @@ export class Orchestrator extends Base {
          */
         heavyMaintenanceTaskNames_: DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
         /**
+         * @member {String[]} goldenPathDependencyTaskNames_=DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
+         * @protected
+         * @reactive
+         */
+        goldenPathDependencyTaskNames_: DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES,
+        /**
          * @member {Set|null} maintenanceDeferralLogKeys_=null
          * @protected
          * @reactive
@@ -334,6 +343,7 @@ export class Orchestrator extends Base {
         this.backupCoordinator      = options.backupCoordinator      || BackupCoordinatorService;
         this.primaryRepoSyncService = options.primaryRepoSyncService || PrimaryRepoSyncService;
         this.heavyMaintenanceTaskNames = [...(options.heavyMaintenanceTaskNames || DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES)];
+        this.goldenPathDependencyTaskNames = [...(options.goldenPathDependencyTaskNames || DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES)];
         this.maintenanceDeferralLogKeys = new Set();
         this.spawnFn                = options.spawnFn                || spawn;
         this.processSupervisorService = options.processSupervisorService || ProcessSupervisorService;
@@ -422,6 +432,15 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * Checks whether a running task should delay Golden Path frontier refresh.
+     * @param {String} taskName Stable orchestrator task name.
+     * @returns {Boolean}
+     */
+    isGoldenPathDependencyTask(taskName) {
+        return this.goldenPathDependencyTaskNames.includes(taskName);
+    }
+
+    /**
      * Finds the first running heavy maintenance task.
      * @param {Object} [options]
      * @param {String|null} [options.excludeTaskName=null] Task name to ignore.
@@ -433,6 +452,26 @@ export class Orchestrator extends Base {
                 continue;
             }
 
+            if (this.taskStateService.getTaskState(taskName)?.running) {
+                return taskName;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Finds a running task that would make Golden Path read partial graph state.
+     * @param {Object} [options]
+     * @param {String|null} [options.activeTaskName=null] Newly started task in the current poll.
+     * @returns {String|null}
+     */
+    findActiveGoldenPathDependencyTask({activeTaskName = null} = {}) {
+        if (activeTaskName && this.isGoldenPathDependencyTask(activeTaskName)) {
+            return activeTaskName;
+        }
+
+        for (const taskName of this.goldenPathDependencyTaskNames) {
             if (this.taskStateService.getTaskState(taskName)?.running) {
                 return taskName;
             }
@@ -489,6 +528,33 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * Records a sparse Golden Path deferral when graph-mutating dependencies are active.
+     * @param {String} blockingTaskName Active dependency task name.
+     * @param {String} reason Scheduling reason for the Golden Path task.
+     * @returns {void}
+     */
+    recordGoldenPathDependencyDeferral(blockingTaskName, reason) {
+        this.maintenanceDeferralLogKeys ??= new Set();
+
+        const key = `${GOLDEN_PATH_TASK_NAME}:${blockingTaskName}:${reason}`;
+
+        if (!this.maintenanceDeferralLogKeys.has(key)) {
+            const taskLabel     = this.taskDefinitions?.[GOLDEN_PATH_TASK_NAME]?.label || GOLDEN_PATH_TASK_NAME;
+            const blockingLabel = this.taskDefinitions?.[blockingTaskName]?.label || blockingTaskName;
+
+            this.writeLog('INFO', `[Orchestrator] Deferring ${taskLabel}; dependency task ${blockingLabel} is active (${reason}).`);
+            this.maintenanceDeferralLogKeys.add(key);
+        }
+
+        this.healthService?.recordTaskOutcome?.(GOLDEN_PATH_TASK_NAME, 'skipped', {
+            reason,
+            reasonCode     : 'golden-path-dependency-backpressure',
+            blockingTaskName,
+            deferredAt     : new Date().toISOString()
+        });
+    }
+
+    /**
      * Wraps a task executor with cross-task heavy-maintenance backpressure.
      * @param {Function} executeFn Task executor.
      * @param {Object} activeHeavyTask Mutable active-heavy tracker for the current poll.
@@ -518,6 +584,30 @@ export class Orchestrator extends Base {
             }
 
             return result;
+        };
+    }
+
+    /**
+     * Wraps Golden Path execution with dependency ordering without making it a heavyweight blocker.
+     * @param {Function} executeFn Task executor.
+     * @param {Object} activeHeavyTask Mutable active-heavy tracker for the current poll.
+     * @returns {Function}
+     */
+    createGoldenPathExecutor(executeFn, activeHeavyTask) {
+        return (taskName, reason) => {
+            const reasonText = reason || 'scheduled';
+            const blockingTaskName = this.findActiveGoldenPathDependencyTask({
+                activeTaskName: activeHeavyTask.name
+            });
+
+            if (blockingTaskName) {
+                this.recordGoldenPathDependencyDeferral(blockingTaskName, reasonText);
+                return false;
+            }
+
+            this.clearMaintenanceDeferralLogState(taskName);
+
+            return executeFn(taskName, reason);
         };
     }
 
@@ -637,7 +727,7 @@ export class Orchestrator extends Base {
                 return { reason: `periodic-golden-path:${this.goldenPathIntervalMs}` };
             }
             return null;
-        }, executeMaintenanceTask(async (taskName, reason) => {
+        }, this.createGoldenPathExecutor(async (taskName, reason) => {
             this.taskStateService.markStarted(taskName, reason.reason);
             this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
             try {
@@ -650,7 +740,7 @@ export class Orchestrator extends Base {
                 this.taskStateService.markFailed(taskName, 1);
                 this.healthService?.recordTaskOutcome?.(taskName, 'failed', { reason, error: e.message, failedAt: new Date().toISOString() });
             }
-        }), context);
+        }, activeHeavyTask), context);
 
         if (this.isPolling) {
             this.pollHandle = setTimeout(() => this.poll(), this.pollIntervalMs);
