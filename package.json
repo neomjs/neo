@@ -193,7 +193,7 @@
         "mermaid"                      : "^11.12.2",
         "monaco-editor"                : "0.50.0",
         "parse5"                       : "^8.0.0",
-        "postcss"                      : "^8.5.8",
+        "postcss"                      : "8.5.10",
         "sass"                         : "^1.97.3",
         "semver"                       : "^7.7.4",
         "terser"                       : "^5.46.0",
