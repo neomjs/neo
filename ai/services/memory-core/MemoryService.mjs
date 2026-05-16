@@ -388,8 +388,10 @@ class MemoryService extends Base {
                     // Team/deployment scope: Tagged records only.
                     tenantScope = {userId: SHARED_USER_ID};
                 } else {
-                    // legacy: Migration compatibility (caller owned + shared records + untagged pre-tenant records)
-                    tenantScope = {$or: [{userId}, {userId: SHARED_USER_ID}, {userId: {$exists: false}}]};
+                    // legacy: Migration compatibility (caller owned + shared records)
+                    // Note: {userId: {$exists: false}} is not supported by ChromaDB.
+                    // Untagged records have been backfilled with userId: SHARED_USER_ID.
+                    tenantScope = {$or: [{userId}, {userId: SHARED_USER_ID}]};
                 }
             }
 
