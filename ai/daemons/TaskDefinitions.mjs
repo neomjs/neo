@@ -14,6 +14,8 @@ export const DEFAULT_DREAM_INTERVAL_MS            = 3600000;
 export const DREAM_TASK_NAME                      = 'dream';
 export const DEFAULT_GOLDEN_PATH_INTERVAL_MS      = 3600000;
 export const GOLDEN_PATH_TASK_NAME                = 'golden-path';
+export const DEFAULT_MLX_MODEL                    = 'gemma-4-31b-it';
+export const DEFAULT_MLX_PORT                     = '11435';
 
 export const DEFAULT_DB_PATH    = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
 export const DEFAULT_DATA_DIR   = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
@@ -30,9 +32,16 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../scripts');
  * @param {Object} [options]
  * @param {String} [options.scriptDir] Script directory.
  * @param {String} [options.nodeBin] Node executable.
+ * @param {String} [options.mlxModel] OpenAI-compatible local inference model.
+ * @param {String|Number} [options.mlxPort] OpenAI-compatible local inference port.
  * @returns {Object}
  */
-export function buildTaskDefinitions({scriptDir = DEFAULT_SCRIPT_DIR, nodeBin = process.argv[0]} = {}) {
+export function buildTaskDefinitions({
+    scriptDir = DEFAULT_SCRIPT_DIR,
+    nodeBin   = process.argv[0],
+    mlxModel  = process.env.NEO_OPENAI_COMPATIBLE_MODEL || DEFAULT_MLX_MODEL,
+    mlxPort   = DEFAULT_MLX_PORT
+} = {}) {
     return {
         chroma: {
             label          : 'chroma daemon',
@@ -58,7 +67,7 @@ export function buildTaskDefinitions({scriptDir = DEFAULT_SCRIPT_DIR, nodeBin = 
         mlx: {
             label          : 'mlx inference',
             command        : path.resolve(scriptDir, '../mcp/server/memory-core/.venv/bin/python'),
-            args           : ['-m', 'mlx_lm.server', '--model', 'mlx-community/gemma-2-27b-it-4bit', '--port', '11435'],
+            args           : ['-m', 'mlx_lm.server', '--model', mlxModel, '--port', String(mlxPort)],
             pidFileName    : 'mlx.pid',
             expectedCommand: 'mlx_lm.server'
         },
