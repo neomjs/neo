@@ -392,7 +392,7 @@ The `pr-review` skill's Evidence Audit section (in `pr-review-template.md`) veri
 **Exceptions:**
 - PR author explicitly invites co-authorship on the body.
 - Abandoned PR salvaged by a maintainer (documented in a comment first).
-- **Maintainer Polish Fast Path**: Reviewers may unilaterally patch mechanical-hygiene or metadata-drift defects (using `Evidence of Verification`) when the Review Compression Circuit Breaker fires.
+- **Maintainer Polish Fast Path**: Reviewers may unilaterally patch mechanical-hygiene or metadata-drift defects when the Review-Loop Cost Circuit Breaker fires. Reviewer MUST provide an Evidence block stating verification commands and why full review reload is unnecessary, and MUST broadcast an FYI A2A.
 
 ## 11. Substrate Awareness ("Assume No Private Memory")
 

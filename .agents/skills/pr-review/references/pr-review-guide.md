@@ -197,13 +197,9 @@ If a commentId-scoped A2A message arrives but you lack the surrounding prior-cyc
 
 ### 6.3 Micro-Delta Circuit Breaker Template
 
-Use the circuit breaker template from `.agents/skills/pr-review/assets/pr-review-micro-delta-template.md` when:
-- The PR has received ≥ 3 formal reviews OR the PR discussion thread exceeds 24KB in size.
-- You are providing semantic approval (no blocking architectural defects remain).
-- Only mechanical/metadata polish remains.
+When the PR discussion thread exceeds 24KB or has received ≥ 3 formal reviews, load the Review-Loop Cost Circuit Breaker payload for instructions and the micro-delta template.
 
-This template forces a strict 2-sentence constraint to prevent cognitive bloat and runaway context exhaustion during late-stage PR convergence.
-When this circuit breaker fires, the **Maintainer Polish Fast Path** (`pull-request-workflow.md §10` and `AGENTS.md §0.7`) is activated, permitting reviewers to unilaterally patch mechanical defects.
+**Payload Pointer:** `view_file` `.agents/skills/pr-review/audits/review-cost-circuit-breaker.md`
 
 ## 7. Depth Floor — Preventing Rubber-Stamp Approvals
 

@@ -143,7 +143,7 @@ class SyncService extends Base {
                         } else {
                             logger.info('[SyncService] Detected real content changes. Committing and pushing.');
                             await execAsync('git add resources/content', {cwd});
-                            await execAsync('git commit -m "chore: ticket sync [skip ci]"', {cwd});
+                            await execAsync('git commit -m "chore: ticket sync"', {cwd});
                             await execAsync('git pull --rebase --autostash', {cwd});
                             await execAsync('git push', {cwd});
                             logger.info('[SyncService] Successfully pushed changes to GitHub.');
