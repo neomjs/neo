@@ -20,7 +20,7 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 test.describe('SyncService — Stage 2 Ingestion', () => {
     let SyncService;
     let IssueSyncer;
-    let ReleaseSyncer;
+    let ReleaseNotesSyncer;
     let DiscussionSyncer;
     let PullRequestSyncer;
     let GraphqlService;
@@ -56,7 +56,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
 
         SyncService = (await import('../../../../../../ai/services/github-workflow/SyncService.mjs')).default;
         IssueSyncer = (await import('../../../../../../ai/services/github-workflow/sync/IssueSyncer.mjs')).default;
-        ReleaseSyncer = (await import('../../../../../../ai/services/github-workflow/sync/ReleaseSyncer.mjs')).default;
+        ReleaseNotesSyncer = (await import('../../../../../../ai/services/github-workflow/sync/ReleaseNotesSyncer.mjs')).default;
         DiscussionSyncer = (await import('../../../../../../ai/services/github-workflow/sync/DiscussionSyncer.mjs')).default;
         PullRequestSyncer = (await import('../../../../../../ai/services/github-workflow/sync/PullRequestSyncer.mjs')).default;
         GraphqlService = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
@@ -71,8 +71,8 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         originalReconcileArchived = IssueSyncer.reconcileClosedIssueLocations;
         originalPush = IssueSyncer.pushToGitHub;
         originalPull = IssueSyncer.pullFromGitHub;
-        originalFetchReleases = ReleaseSyncer.fetchAndCacheReleases;
-        originalSyncNotes = ReleaseSyncer.syncNotes;
+        originalFetchReleases = ReleaseNotesSyncer.fetchAndCacheReleases;
+        originalSyncNotes = ReleaseNotesSyncer.syncNotes;
         originalSyncDiscussions = DiscussionSyncer.syncDiscussions;
         originalSyncPullRequests = PullRequestSyncer.syncPullRequests;
         originalGetViewerPermission = RepositoryService.getViewerPermission;
@@ -82,8 +82,8 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         IssueSyncer.reconcileClosedIssueLocations = async () => ({ count: 0 });
         IssueSyncer.pushToGitHub = async () => ({ count: 0 });
         IssueSyncer.pullFromGitHub = async (md) => ({ newMetadata: md || { issues: {}, releases: {}, discussions: {}, pullRequests: {} }, stats: { pulled: { count: 0, created: 0, updated: 0, moved: 0 }, dropped: { count: 0 } } });
-        ReleaseSyncer.fetchAndCacheReleases = async () => {};
-        ReleaseSyncer.syncNotes = async () => ({ count: 0 });
+        ReleaseNotesSyncer.fetchAndCacheReleases = async () => {};
+        ReleaseNotesSyncer.syncNotes = async () => ({ count: 0 });
         DiscussionSyncer.syncDiscussions = async () => ({ count: 0 });
         PullRequestSyncer.syncPullRequests = async () => ({ count: 0 });
         RepositoryService.getViewerPermission = async () => ({ permission: 'READ' }); // Skip git commands
@@ -103,8 +103,8 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         IssueSyncer.reconcileClosedIssueLocations = originalReconcileArchived;
         IssueSyncer.pushToGitHub = originalPush;
         IssueSyncer.pullFromGitHub = originalPull;
-        ReleaseSyncer.fetchAndCacheReleases = originalFetchReleases;
-        ReleaseSyncer.syncNotes = originalSyncNotes;
+        ReleaseNotesSyncer.fetchAndCacheReleases = originalFetchReleases;
+        ReleaseNotesSyncer.syncNotes = originalSyncNotes;
         DiscussionSyncer.syncDiscussions = originalSyncDiscussions;
         PullRequestSyncer.syncPullRequests = originalSyncPullRequests;
         RepositoryService.getViewerPermission = originalGetViewerPermission;

@@ -67,6 +67,11 @@ const defaultConfig = {
      */
     issueSync: {
         /**
+         * The root directory for synced content.
+         * @type {string}
+         */
+        contentRoot: path.resolve(projectRoot, 'resources/content'),
+        /**
          * The path to the directory for active issues.
          * @type {string}
          */

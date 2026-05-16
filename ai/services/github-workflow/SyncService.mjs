@@ -4,7 +4,7 @@ import logger          from '../../mcp/server/github-workflow/logger.mjs';
 import HealthService   from './HealthService.mjs';
 import IssueSyncer     from './sync/IssueSyncer.mjs';
 import MetadataManager from './sync/MetadataManager.mjs';
-import ReleaseSyncer   from './sync/ReleaseSyncer.mjs';
+import ReleaseNotesSyncer from './sync/ReleaseNotesSyncer.mjs';
 import DiscussionSyncer from './sync/DiscussionSyncer.mjs';
 import PullRequestSyncer from './sync/PullRequestSyncer.mjs';
 import RepositoryService from './RepositoryService.mjs';
@@ -17,7 +17,7 @@ const execAsync = promisify(exec);
  * @summary Orchestrates the bi-directional synchronization of GitHub issues and releases with local Markdown files.
  *
  * This service is the core engine for the GitHub sync workflow. Its primary responsibilities include:
- * - **Orchestration:** It calls specialized syncer modules (`IssueSyncer`, `ReleaseSyncer`, `DiscussionSyncer`) in the
+ * - **Orchestration:** It calls specialized syncer modules (`IssueSyncer`, `ReleaseNotesSyncer`, `DiscussionSyncer`) in the
  *   correct order to ensure data integrity and minimize conflicts (e.g., push-then-pull).
  * - **Metadata Management:** It uses the `MetadataManager` to load metadata at the start of a sync
  *   and save the updated metadata at the end.
@@ -75,11 +75,11 @@ class SyncService extends Base {
      * This method orchestrates the entire bi-directional sync workflow in a specific order
      * to ensure data integrity and minimize conflicts:
      * 1.  Loads the persistent metadata from the last sync via `MetadataManager`.
-     * 2.  Fetches and caches GitHub release data via `ReleaseSyncer`.
+     * 2.  Fetches and caches GitHub release data via `ReleaseNotesSyncer`.
      * 3.  Reconciles closed issue locations (archives stale issues) via `IssueSyncer`.
      * 4.  **Pushes** any local issue changes to GitHub via `IssueSyncer`.
      * 5.  **Pulls** the latest issue changes from GitHub via `IssueSyncer`.
-     * 6.  Syncs release notes into local Markdown files via `ReleaseSyncer`.
+     * 6.  Syncs release notes into local Markdown files via `ReleaseNotesSyncer`.
      * 7.  Saves the updated, pruned metadata to disk via `MetadataManager`.
      * @returns {Promise<object>} A comprehensive object containing detailed statistics and timing
      * information about all operations performed during the sync.
@@ -90,7 +90,7 @@ class SyncService extends Base {
         const metadata = await MetadataManager.load();
 
         // 1. Fetch releases first, as they are needed for issue archiving
-        await ReleaseSyncer.fetchAndCacheReleases(metadata);
+        await ReleaseNotesSyncer.fetchAndCacheReleases(metadata);
 
         // 2. Reconcile closed issue locations - archive stale closed issues before pull
         const reconcileStats = await IssueSyncer.reconcileClosedIssueLocations(metadata);
@@ -102,7 +102,7 @@ class SyncService extends Base {
         const { newMetadata, stats: pullStats } = await IssueSyncer.pullFromGitHub(metadata);
 
         // 5. Sync release notes
-        const releaseStats = await ReleaseSyncer.syncNotes(metadata);
+        const releaseStats = await ReleaseNotesSyncer.syncNotes(metadata);
 
         // 6. Sync discussions
         const discussionStats = await DiscussionSyncer.syncDiscussions(metadata);
@@ -118,7 +118,7 @@ class SyncService extends Base {
         // Cached pulls are updated inline by PullRequestSyncer.
 
         // 9. Cache releases in metadata for next run
-        newMetadata.releases            = ReleaseSyncer.releases;
+        newMetadata.releases            = ReleaseNotesSyncer.releases;
         newMetadata.releasesLastFetched = new Date().toISOString();
 
         // 10. Save metadata
