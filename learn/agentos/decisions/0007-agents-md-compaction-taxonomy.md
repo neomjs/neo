@@ -44,6 +44,16 @@ Based on these axes, every section in the instruction substrate receives a **Dis
 
 Trigger-frequency decomposes into (a) per-turn-load-frequency and (b) post-pruning-discipline-recall-recurrence. Skills that shape ongoing session behavior (`lead-role`, `peer-role`, `pull-request`, `pr-review`, `post-review-pickup`) require their §21 trigger as a recursive-reload anchor to persist across context-window pruning cycles. One-shot lifecycle skills (`ticket-create`, `ticket-triage`, `ticket-intake`, `epic-review`, `epic-resolution`, `ideation-sandbox`, `memory-mining`, `turn-memory-pre-flight`, `create-skill`, `architecture-pre-flight`, `tech-debt-radar`, `structural-pre-flight`, `session-sunset`, `unit-test`, `whitebox-e2e`) do not require this anchor.
 
+### 2.0.2 Friction Classification Vocabulary
+
+The `friction -> gold` core value needs retrieval-safe vocabulary so agents do not re-derive the same distinction from closed Discussion comments. These terms classify substrate-evolution proposals; they are review heuristics, not a mandatory gate:
+
+- **Gold**: durable substrate value that reduces future coordination cost more than it adds maintenance cost.
+- **Blocker**: friction that prevents v13 / active task completion, or breaks a required substrate pathway.
+- **Minor friction**: real cost or annoyance, but not currently blocking and not enough to justify substrate mutation before higher-priority lanes.
+
+This vocabulary preserves the substrate-truth from Discussion #11452 without adopting its rejected mandatory 4-test filter.
+
 ### 2.1 The Baseline Taxonomy Classifications
 
 *Note: This reflects the baseline dispositions applied during the progressive disclosure migration. Future rules must be evaluated against the 3-axis rule.*
@@ -120,6 +130,7 @@ Retiring `AGENTS.md` §21 trigger entries that are marked as `recursive-reload-r
 ## 6. Related
 
 - **Discussion #11419** — The origination point for this Phase A progressive disclosure extraction.
+- **Discussion #11452** — STEP_BACK / no-graduation closeout that preserved the `gold` / `blocker` / `minor friction` vocabulary while rejecting a mandatory 4-test gate.
 - **Ticket #11420** — The implementation ticket for this ADR.
 - **ADR 0005** — ADR-at-Graduation workflow, which mandated this taxonomy be formally shaped as an ADR.
 
