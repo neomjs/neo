@@ -455,6 +455,82 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(written).not.toMatch(/assigned to @(undefined|null)/);
         expect(written).not.toMatch(/added the `(undefined|null)` label/);
     });
+
+    test('formatIssueMarkdown null-safety: ghost issue (null author + null label/assignee/subIssue nodes) renders without crash (#11481)', async () => {
+        // Empirical anchor: post-#11476-merge sync_all crashed at IssueSyncer.mjs:145 on
+        // `issue.author.login` when the GitHub author had been deleted (Ghost user). This is
+        // the whack-a-mole companion to the #11474 timeline-event fix — same null-deref class
+        // in the FRONTMATTER ASSEMBLY method (#formatIssueMarkdown) that PR #11476 didn't sweep.
+        // This test exercises EVERY nullable frontmatter site simultaneously ("ghost issue")
+        // to prevent future whack-a-mole regressions.
+        const ghostIssue = {
+            number   : 42044,
+            title    : null, // null title
+            body     : 'Mock body for ghost issue regression #11481.',
+            state    : 'CLOSED',
+            createdAt: '2026-05-16T17:00:00Z',
+            updatedAt: '2026-05-16T18:00:00Z',
+            closedAt : '2026-05-16T17:30:00Z',
+            url      : 'https://github.com/neomjs/neo/issues/42044',
+            author   : null, // deleted GitHub user (Ghost) — the empirical crash
+            labels   : {nodes: [null, {name: null}, {name: 'bug'}]}, // null entries + null-name + valid
+            assignees: {nodes: [null, {login: null}, {login: 'tobiu'}]}, // same shape: null entries + null-login + valid
+            milestone: null,
+            parent   : null,
+            subIssues       : {nodes: [null, {state: 'OPEN', number: 100, title: null}, {state: 'CLOSED', number: 101, title: 'valid sub'}]},
+            subIssuesSummary: {total: 2, completed: 1, percentCompleted: 50},
+            blockedBy       : {nodes: [null, {state: 'OPEN', number: 200, title: null}]},
+            blocking        : {nodes: [{state: 'CLOSED', number: 300, title: 'valid blocker'}]},
+            timelineItems   : {
+                pageInfo: {hasNextPage: false, endCursor: null},
+                nodes   : [] // empty timeline; the format-event path is covered by the prior test
+            }
+        };
+
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchSingleIssue')) {
+                return {repository: {issue: structuredClone(ghostIssue)}};
+            }
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        const metadata = {issues: {}};
+        const stats    = await IssueSyncer.refetchIssuesByNumber([ghostIssue.number], metadata);
+
+        // No crash → refetch succeeds despite every nullable frontmatter field being null.
+        expect(stats.refetched.count).toBe(1);
+        expect(stats.errors).toHaveLength(0);
+
+        // ghost issue is CLOSED post-latest-release (no release applies; sortedReleases empty by default),
+        // so it lands in the active issues directory rather than archive — assert the file exists wherever it landed.
+        const writtenRelativePath = metadata.issues[ghostIssue.number].path;
+        const writtenAbsolutePath = path.resolve(aiConfig.projectRoot, writtenRelativePath);
+        const written             = await fs.readFile(writtenAbsolutePath, 'utf-8');
+
+        // Frontmatter fallback markers landed correctly. Use quote-agnostic regex because
+        // gray-matter's YAML serializer chooses single/double quoting based on content.
+        expect(written).toMatch(/author:\s*['"]?Ghost['"]?/); // null issue.author → 'Ghost' fallback
+        expect(written).toMatch(/title:\s*['"]?\(no title\)['"]?/); // null title → '(no title)' fallback
+        expect(written).toContain('# (no title)'); // body header uses same fallback
+
+        // List-mapped fields: nulls filtered out; valid entries preserved.
+        // labels: [null, {name: null}, {name: 'bug'}] → ['bug']
+        expect(written).toMatch(/labels:\s*\n\s*- bug\s*\n/);
+        // assignees: [null, {login: null}, {login: 'tobiu'}] → ['tobiu']
+        expect(written).toMatch(/assignees:\s*\n\s*- tobiu\s*\n/);
+
+        // subIssues: [null, {title: null}, {title: 'valid sub'}] → 2 entries (the null-title becomes '(no title)' marker; the null node is filtered out)
+        expect(written).toMatch(/100[^\n]*\(no title\)/);
+        expect(written).toContain('101 valid sub');
+
+        // blockedBy: [null, {title: null}] → 1 entry with '(no title)' marker
+        expect(written).toMatch(/200[^\n]*\(no title\)/);
+
+        // No literal undefined/null leaks anywhere in the frontmatter.
+        expect(written).not.toMatch(/author:\s*(undefined|null)\s*$/m);
+        expect(written).not.toMatch(/^\s*-\s+(undefined|null)\s*$/m);
+        expect(written).not.toContain('undefined');
+    });
 });
 
 function buildComment(i) {
