@@ -182,6 +182,77 @@ export class ProcessSupervisorService extends Base {
     }
 
     /**
+     * Clears the duplicate-running log guard for a task once it starts or exits.
+     * @param {String} taskName Task key.
+     * @returns {void}
+     */
+    clearRunningSkipLogState(taskName) {
+        if (!this.runningSkipLogKeys) {
+            return;
+        }
+
+        const prefix = `${taskName}:`;
+
+        for (const key of this.runningSkipLogKeys) {
+            if (key.startsWith(prefix)) {
+                this.runningSkipLogKeys.delete(key);
+            }
+        }
+    }
+
+    /**
+     * Determines whether an already-running skip should be logged.
+     * @param {String} taskName Task key.
+     * @param {String} reason Scheduling reason.
+     * @param {Number|null} pid Running child process ID.
+     * @returns {Boolean}
+     */
+    shouldLogRunningSkip(taskName, reason, pid) {
+        this.runningSkipLogKeys ??= new Set();
+
+        const key = `${taskName}:${pid ?? 'unknown'}:${reason}`;
+
+        if (this.runningSkipLogKeys.has(key)) {
+            return false;
+        }
+
+        this.runningSkipLogKeys.add(key);
+
+        return true;
+    }
+
+    /**
+     * Maps child-process stderr log prefixes to daemon log severities.
+     * @param {String} line Child stderr line.
+     * @returns {String}
+     */
+    getChildLogLevel(line) {
+        if (/^\[(LOG|INFO)\](?:\s|$)/.test(line)) {
+            return 'INFO';
+        }
+
+        if (/^\[WARN\](?:\s|$)/.test(line)) {
+            return 'WARN';
+        }
+
+        return 'ERROR';
+    }
+
+    /**
+     * Writes child stderr lines using their child-provided severity prefix.
+     * @param {Object} task Task definition.
+     * @param {Buffer|String} data Stderr chunk.
+     * @returns {void}
+     */
+    writeChildStderr(task, data) {
+        const lines = data.toString().split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+
+        for (const line of lines) {
+            this.writeLog?.(this.getChildLogLevel(line), `[ProcessSupervisor] ${task.label} stderr: ${line}`);
+        }
+    }
+
+    /**
      * Starts a child task and wires completion status back into task state and HealthService.
      * @param {String} taskName Task key.
      * @param {String} reason Scheduling reason.
@@ -193,11 +264,14 @@ export class ProcessSupervisorService extends Base {
         const state = this.taskStateService.getTaskState(taskName);
 
         if (state.running) {
-            this.writeLog?.('INFO', `[ProcessSupervisor] Skipping ${task.label}; task already running (PID: ${state.pid}).`);
+            if (this.shouldLogRunningSkip(taskName, reason, state.pid)) {
+                this.writeLog?.('INFO', `[ProcessSupervisor] Skipping ${task.label}; task already running (PID: ${state.pid}).`);
+            }
             this.recordTaskOutcome(taskName, 'skipped', {reason, pid: state.pid, skippedAt: new Date().toISOString()});
             return false;
         }
 
+        this.clearRunningSkipLogState(taskName);
         this.taskStateService.markStarted(taskName, reason);
 
         this.writeLog?.('INFO', `[ProcessSupervisor] Starting ${task.label} (${reason}).`);
@@ -207,7 +281,7 @@ export class ProcessSupervisorService extends Base {
             child = this.spawnFn(task.command, task.args, {stdio: ['ignore', 'ignore', 'pipe']});
 
             child.stderr?.on('data', data => {
-                this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} stderr: ${data.toString().trim()}`);
+                this.writeChildStderr(task, data);
             });
         } catch (e) {
             this.taskStateService.markSpawnFailed(taskName);
@@ -241,6 +315,7 @@ export class ProcessSupervisorService extends Base {
                     fs.unlinkSync(pidFile);
                 }
             } catch (e) {}
+            this.clearRunningSkipLogState(taskName);
 
             if (error) {
                 this.taskStateService.markFailed(taskName, null);

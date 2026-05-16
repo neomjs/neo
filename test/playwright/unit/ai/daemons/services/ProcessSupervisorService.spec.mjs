@@ -8,6 +8,8 @@ import { ProcessSupervisorService } from '../../../../../../ai/daemons/services/
 function createTestService() {
     const dataDir = `/tmp/process-supervisor-service-test-${Date.now()}-${Math.random()}`;
     fs.ensureDirSync(dataDir);
+    const logEntries = [];
+    const taskOutcomes = [];
     
     const taskDefinitions = {
         mockTask: {
@@ -31,7 +33,7 @@ function createTestService() {
     };
 
     const mockHealthService = {
-        recordTaskOutcome: () => {}
+        recordTaskOutcome: (taskName, status, details) => taskOutcomes.push({details, status, taskName})
     };
 
     const service = Neo.create(ProcessSupervisorService, {
@@ -39,12 +41,12 @@ function createTestService() {
         taskDefinitions,
         taskStateService: mockTaskStateService,
         healthService: mockHealthService,
-        writeLog: () => {},
+        writeLog: (level, message) => logEntries.push({level, message}),
         spawnFn: () => ({ pid: 1234, on: () => {} }),
         processCommand: (pid) => 'echo hello'
     });
     
-    return { service, dataDir, mockTaskStateService };
+    return { service, dataDir, logEntries, mockTaskStateService, taskOutcomes };
 }
 
 test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
@@ -94,5 +96,52 @@ test.describe('Neo.ai.daemons.services.ProcessSupervisorService', () => {
         
         expect(result).toBe(false);
         expect(spawnCalled).toBe(false);
+    });
+
+    test('runTask classifies child stderr log prefixes', () => {
+        const { service, logEntries } = createTestService();
+        let stderrHandler;
+
+        service.spawnFn = () => ({
+            pid   : 9999,
+            stderr: {
+                on: (eventName, handler) => {
+                    if (eventName === 'data') {
+                        stderrHandler = handler;
+                    }
+                }
+            },
+            on: () => {}
+        });
+
+        service.runTask('mockTask', 'test-reason');
+
+        stderrHandler(Buffer.from([
+            '[LOG] Processed and embedded batch 83 of 237',
+            '[INFO] Sync still running',
+            '[WARN] Slow embedding batch',
+            '[ERROR] Failed embedding batch',
+            'plain stderr output'
+        ].join('\n')));
+
+        const stderrLogs = logEntries.filter(entry => entry.message.includes('stderr:'));
+
+        expect(stderrLogs.map(entry => entry.level)).toEqual(['INFO', 'INFO', 'WARN', 'ERROR', 'ERROR']);
+    });
+
+    test('runTask dedupes repeated already-running skip logs', () => {
+        const { service, logEntries, taskOutcomes } = createTestService();
+
+        service.taskStateService.getTaskState = () => ({ running: true, pid: 1234 });
+
+        service.runTask('mockTask', 'same-reason');
+        service.runTask('mockTask', 'same-reason');
+        service.runTask('mockTask', 'different-reason');
+
+        const skipLogs = logEntries.filter(entry => entry.message.includes('task already running'));
+        const skippedOutcomes = taskOutcomes.filter(entry => entry.status === 'skipped');
+
+        expect(skipLogs.length).toBe(2);
+        expect(skippedOutcomes.length).toBe(3);
     });
 });
