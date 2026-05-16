@@ -153,7 +153,7 @@ This ensures A2A provenance remains graph-extractable even if you do not have a 
 
 ## 6. Definition of Done & The Handoff State
 
-The agent's task is strictly considered "Done" once the PR is opened. A PR is a request for validation by an external entity (Human or QA Agent). **An agent MUST NOT autonomously run the `pr-review` skill against its own PR in headless mode.** 
+The agent's task is strictly considered "Done" once the PR is opened and the §6.2 handoff state is set. A PR is a request for validation by an external entity (Human or QA Agent). **An agent MUST NOT autonomously run the `pr-review` skill against its own PR in headless mode.**
 
 **Iterative Polish (Pre-PR):** Autonomous agents must act as their own harshest critic *before* the handoff. Get the codebase to the best possible state. If you identify minor gaps (missing JSDoc, logical edge cases) during your reflection, you MUST push follow-up polish commits to your branch *prior* to executing the final PR creation.
 
@@ -179,7 +179,7 @@ You MUST follow this exact handoff protocol:
 - **7-day-open fallback**: The PR itself has been OPEN for >= 7 days AND no cross-family reviewer has engaged on the thread. Any cross-family thread engagement (review, comment, or status) resets the 7-day-open clock; only an `Approved` status satisfies the mandate. Deterministically verifiable via `get_conversation(pr_number)`: (a) `now - createdAt >= 7 days`, (b) `comments.nodes` contains no entry whose `author.login` resolves to the cross-family pattern. Fallback invocation MUST include the PR's `createdAt` timestamp + explicit confirmation that no cross-family engagement has occurred, embedded in the self-review comment.
 - **Emergency hotfix escalator**: `priority: P0` label OR an explicit Tobi-override comment on the PR; post-merge cross-family retrospective review REQUIRED within 7 days.
 
-**Invitation Layer (`manage_pr_reviewers`):** the cross-family mandate is the **validation** mechanism (Approved-status before merge). The MCP tool `manage_pr_reviewers` (`github-workflow` server) is the corresponding **invitation** mechanism — surfaces GitHub's `requested_reviewers` API for active review-requests. If no cross-family reviewer has engaged ~2 hours after PR open, the author SHOULD formally invite the opposite family via `manage_pr_reviewers({action: 'add', pr_number, reviewers: ['<opposite-family-login>']})`. Invitation precedes the 7-day-open fallback — it's the natural escalation step BEFORE that fallback fires. Codified per #10217.
+**Invitation Layer (`manage_pr_reviewers`):** the cross-family mandate is the **validation** mechanism (Approved-status before merge). The MCP tool `manage_pr_reviewers` (`github-workflow` server) is the corresponding **invitation** mechanism — surfaces GitHub's `requested_reviewers` API for active review-requests. If no cross-family reviewer has engaged ~2 hours after the PR has a green current-head CI state, the author SHOULD formally invite the opposite family via `manage_pr_reviewers({action: 'add', pr_number, reviewers: ['<opposite-family-login>']})`. Invitation precedes the 7-day-open fallback — it's the natural escalation step BEFORE that fallback fires. Codified per #10217.
 
 ### 6.1.1 The Consensus-Gate (PR-Merge-Gate for Discussion-Graduated Substrate)
 
@@ -226,12 +226,14 @@ These three sections are mandatory in the PR body for substrate-mutating PRs fro
 
 ### 6.2 The Core Swarm A2A Notification Mandate (Review Routing Protocol)
 
-If you are operating inside the canonical `neomjs/neo` repository as a core swarm member (e.g., `@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`), immediately after successfully opening a PR, you MUST route a review request via the `add_message` tool.
+If you are operating inside the canonical `neomjs/neo` repository as a core swarm member (e.g., `@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`), immediately after successfully opening a PR, you MUST send a lifecycle A2A notification.
+
+<!-- trigger: author-side review/re-review request -> read ./ci-green-review-routing.md before reviewer assignment -->
 
 To prevent redundant parallel effort and reviewer collision, you MUST adhere to this explicit role-routing protocol rather than broadcasting naked multi-peer pings:
 
-1. **Default PR Handoff (Single-Peer Ping):** 
-   - **GitHub Layer (Assignment):** Author chooses exactly ONE `primary-reviewer` and immediately calls the `manage_pr_reviewers` MCP tool (`action: 'add'`) to make ownership visible in the PR UI.
+1. **Default PR Handoff (Single-Peer Ping):**
+   - **GitHub Layer (Assignment):** Author chooses exactly ONE `primary-reviewer` and calls the `manage_pr_reviewers` MCP tool (`action: 'add'`) only after the CI-green gate passes.
    - **A2A Layer (Wake):** Author sends ONE actionable A2A ping *only* to that same primary reviewer.
      - Include `Review role: primary-reviewer`.
      - Include `Requested action: use /pr-review on PR #N` — naming the skill literally is mandatory; mechanically loads the receiving peer's `pr-review-template.md` + structured-eval discipline + graph-ingestion section structure. Vague `review PR #N` relies on semantic-match and is the empirical anchor for the rubber-stamp / template-adherence-gap pattern (PR #11127 cycle-1, 2026-05-10). Mirror of §6.4's remediation idiom applied at initial routing time.

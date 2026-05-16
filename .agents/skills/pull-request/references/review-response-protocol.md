@@ -69,7 +69,7 @@ Example: `fix(ai): protect SESSION and MEMORY from getOrphanedNodes cleanup (#10
 
 ## 8. Re-Review Signal
 
-End the Addressed comment with `Re-review requested.` to signal the reviewer that the author's response cycle is complete. Do NOT add a new commit after posting the Addressed comment unless you are starting another response cycle (in response to the reviewer's follow-up feedback — new round, new comment).
+Before ending the Addressed comment with `Re-review requested.`, apply the CI-green gate in [`./ci-green-review-routing.md`](./ci-green-review-routing.md). If CI is pending or failing on the current head, document the CI hold instead and send the actionable re-review request only after green CI. Do NOT add a new commit after posting the Addressed comment unless you are starting another response cycle (in response to the reviewer's follow-up feedback — new round, new comment).
 
 ## 9. Relationship to Sibling Skills
 
