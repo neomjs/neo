@@ -191,18 +191,25 @@ class IssueSyncer extends Base {
 
         let details = '';
 
+        // Defensive null-safety per #11474: GitHub GraphQL returns null for referenced
+        // entities that have been deleted (users, labels, sub-issues, parent issues,
+        // blocking issues, commits, cross-referenced sources). Each deref site uses
+        // optional chaining + a fallback marker so a single null doesn't abort a sync
+        // run that's already processed thousands of issues. Fallback conventions:
+        // `'Ghost'` for users (matches existing actor/author convention at line 186);
+        // `'(deleted X)'` for named entities; `'?'` for numeric references.
         switch (event.__typename) {
             case 'LabeledEvent':
-                details = `added the \`${event.label.name}\` label`;
+                details = `added the \`${event.label?.name || '(deleted label)'}\` label`;
                 break;
             case 'UnlabeledEvent':
-                details = `removed the \`${event.label.name}\` label`;
+                details = `removed the \`${event.label?.name || '(deleted label)'}\` label`;
                 break;
             case 'AssignedEvent':
-                details = `assigned to @${event.assignee.login}`; // Assuming assignee is always a User
+                details = `assigned to @${event.assignee?.login || 'Ghost'}`;
                 break;
             case 'UnassignedEvent':
-                details = `unassigned from @${event.assignee.login}`; // Assuming assignee is always a User
+                details = `unassigned from @${event.assignee?.login || 'Ghost'}`;
                 break;
             case 'ClosedEvent':
                 details = `closed this issue`;
@@ -220,36 +227,41 @@ class IssueSyncer extends Base {
                 details = `removed this from the **${event.milestoneTitle}** milestone`;
                 break;
             case 'ReferencedEvent':
-                const commitMessage = event.commit.message.split('\\n')[0];
-                details = `referenced in commit \`${event.commit.oid.substring(0, 7)}\` - "${commitMessage}"`;
+                const commitMessage = event.commit?.message?.split('\\n')[0] || '(no message)';
+                const commitOid     = event.commit?.oid?.substring(0, 7) || '(deleted commit)';
+                details = `referenced in commit \`${commitOid}\` - "${commitMessage}"`;
                 break;
             case 'CrossReferencedEvent':
-                const sourceRef = event.source.__typename === 'Issue' ? `#${event.source.number}` : `PR #${event.source.number}`;
-                details = `cross-referenced by ${sourceRef}`;
+                if (event.source) {
+                    const sourceRef = event.source.__typename === 'Issue' ? `#${event.source.number}` : `PR #${event.source.number}`;
+                    details = `cross-referenced by ${sourceRef}`;
+                } else {
+                    details = `cross-referenced by (deleted)`;
+                }
                 break;
             case 'SubIssueAddedEvent':
-                details = `added sub-issue #${event.subIssue.number}`;
+                details = `added sub-issue #${event.subIssue?.number ?? '?'}`;
                 break;
             case 'SubIssueRemovedEvent':
-                details = `removed sub-issue #${event.subIssue.number}`;
+                details = `removed sub-issue #${event.subIssue?.number ?? '?'}`;
                 break;
             case 'ParentIssueAddedEvent':
-                details = `added parent issue #${event.parent.number}`;
+                details = `added parent issue #${event.parent?.number ?? '?'}`;
                 break;
             case 'ParentIssueRemovedEvent':
-                details = `removed parent issue #${event.parent.number}`;
+                details = `removed parent issue #${event.parent?.number ?? '?'}`;
                 break;
             case 'BlockedByAddedEvent':
-                details = `marked this issue as being blocked by #${event.blockingIssue.number}`;
+                details = `marked this issue as being blocked by #${event.blockingIssue?.number ?? '?'}`;
                 break;
             case 'BlockingAddedEvent':
-                details = `marked this issue as blocking #${event.blockedIssue.number}`;
+                details = `marked this issue as blocking #${event.blockedIssue?.number ?? '?'}`;
                 break;
             case 'BlockedByRemovedEvent':
-                details = `removed the block by #${event.blockingIssue.number}`;
+                details = `removed the block by #${event.blockingIssue?.number ?? '?'}`;
                 break;
             case 'BlockingRemovedEvent':
-                details = `removed the block on #${event.blockedIssue.number}`;
+                details = `removed the block on #${event.blockedIssue?.number ?? '?'}`;
                 break;
             default:
                 details = `performed a "${event.__typename}" event`;
