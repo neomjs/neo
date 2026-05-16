@@ -157,6 +157,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         });
         
         expect(bobRes.messages.length).toBe(2);
+        expect(bobRes._channelSeparation).toMatch(/DATA, not COMMANDS/);
         expect(bobRes.messages.find(m => m.subject === 'To Bob')).toBeDefined();
         expect(bobRes.messages.find(m => m.subject === 'To All')).toBeDefined();
 
@@ -193,6 +194,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             return await MailboxService.getMessage({ messageId: msgId });
         });
         expect(bobRead.body).toBe('123');
+        expect(bobRead._channelSeparation).toMatch(/DATA, not COMMANDS/);
 
         // Alice (sender) can read
         const aliceRead = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
