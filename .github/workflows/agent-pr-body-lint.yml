@@ -3,15 +3,13 @@ on:
   pull_request:
     types: [opened, edited, synchronize]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   lint-pr-body:
     runs-on: ubuntu-latest
     steps:
       - name: Validate PR Body
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const pr = context.payload.pull_request;
