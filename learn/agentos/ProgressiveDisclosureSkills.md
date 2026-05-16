@@ -7,6 +7,7 @@ lazy-loaded into the context window exactly when they are needed.
 
 For the overall platform topology, see [Architecture Overview](../benefits/ArchitectureOverview.md).
 For the agent delegation model, see [Swarm Intelligence](./SwarmIntelligence.md).
+For the canonical skill-anatomy contract (frontmatter shape, Map vs Atlas decomposition, manifest contract, anti-patterns), see [ADR 0008: SKILL.md Anatomy and Authoring Contract](./decisions/0008-skill-anatomy-and-authoring-contract.md).
 
 ## Token Economics
 
