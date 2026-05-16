@@ -37,20 +37,30 @@ test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
     });
 
     test('starts mlx inference with the OpenAI-compatible Gemma 4 default', () => {
-        const scriptDir = path.resolve(process.cwd(), 'ai/scripts');
-        const tasks     = buildTaskDefinitions({scriptDir, nodeBin: '/test/node'});
+        const scriptDir     = path.resolve(process.cwd(), 'ai/scripts');
+        const originalModel = process.env.NEO_OPENAI_COMPATIBLE_MODEL;
 
-        expect(DEFAULT_MLX_MODEL).toBe('gemma-4-31b-it');
-        expect(DEFAULT_MLX_PORT).toBe('11435');
-        expect(tasks.mlx.args).toEqual([
-            '-m',
-            'mlx_lm.server',
-            '--model',
-            DEFAULT_MLX_MODEL,
-            '--port',
-            DEFAULT_MLX_PORT
-        ]);
-        expect(tasks.mlx.args).not.toContain('mlx-community/gemma-2-27b-it-4bit');
+        delete process.env.NEO_OPENAI_COMPATIBLE_MODEL;
+
+        try {
+            const tasks = buildTaskDefinitions({scriptDir, nodeBin: '/test/node'});
+
+            expect(DEFAULT_MLX_MODEL).toBe('gemma-4-31b-it');
+            expect(DEFAULT_MLX_PORT).toBe('11435');
+            expect(tasks.mlx.args).toEqual([
+                '-m',
+                'mlx_lm.server',
+                '--model',
+                DEFAULT_MLX_MODEL,
+                '--port',
+                DEFAULT_MLX_PORT
+            ]);
+            expect(tasks.mlx.args).not.toContain('mlx-community/gemma-2-27b-it-4bit');
+        } finally {
+            if (originalModel !== undefined) {
+                process.env.NEO_OPENAI_COMPATIBLE_MODEL = originalModel;
+            }
+        }
     });
 
     test('allows local mlx model overrides without changing task ownership', () => {
