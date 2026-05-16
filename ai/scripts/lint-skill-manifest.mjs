@@ -238,6 +238,20 @@ function validateManifestSchema(manifest, schema) {
         }
     }
 
+    if ('oversizedWorkflowMaps' in defaults) {
+        if (!Array.isArray(defaults.oversizedWorkflowMaps)) {
+            errors.push('defaults.oversizedWorkflowMaps must be an array of strings');
+        } else {
+            for (const p of defaults.oversizedWorkflowMaps) {
+                if (typeof p !== 'string') errors.push('defaults.oversizedWorkflowMaps must be an array of strings');
+            }
+        }
+    }
+
+    if ('maxPositiveDeltaBytes' in defaults && (!Number.isInteger(defaults.maxPositiveDeltaBytes) || defaults.maxPositiveDeltaBytes < 0)) {
+        errors.push('defaults.maxPositiveDeltaBytes must be a non-negative integer when set');
+    }
+
     if (typeof defaults.claudeSymlinkRequired !== 'boolean') {
         errors.push('defaults.claudeSymlinkRequired must be boolean');
     }
@@ -340,6 +354,19 @@ function changedFiles(base) {
     }
 }
 
+function getBaseFileSize(base, filePath) {
+    try {
+        const output = execFileSync('git', ['cat-file', '-s', `${base}:${filePath}`], {
+            cwd     : ROOT_DIR,
+            encoding: 'utf8',
+            stdio   : 'pipe'
+        });
+        return parseInt(output.trim(), 10) || 0;
+    } catch (error) {
+        return 0;
+    }
+}
+
 function changedSkillNames(base) {
     const names = new Set();
 
@@ -349,6 +376,24 @@ function changedSkillNames(base) {
     }
 
     return names;
+}
+
+function checkOversizedWorkflowMaps(changedFiles, oversizedFiles, maxDelta, getSizeFn, getBaseSizeFn) {
+    const errors = [];
+    for (const file of changedFiles) {
+        if (oversizedFiles.includes(file)) {
+            const currentSize = getSizeFn(file);
+            if (currentSize === null) continue;
+
+            const baseSize = getBaseSizeFn(file);
+            const delta = currentSize - baseSize;
+
+            if (delta > maxDelta) {
+                errors.push(`Oversized workflow map ${file} grew by ${delta} bytes (max allowed delta is ${maxDelta}). Extract substantive additions to a sibling file behind a one-line trigger pointer.`);
+            }
+        }
+    }
+    return errors;
 }
 
 async function lint({base = null} = {}) {
@@ -364,6 +409,26 @@ async function lint({base = null} = {}) {
 
     const changed = new Set(changedFiles(base));
     const touchedSkillNames = changedSkillNames(base);
+
+    if (base) {
+        const oversizedFiles = manifest.defaults.oversizedWorkflowMaps || [];
+        const maxDelta = manifest.defaults.maxPositiveDeltaBytes || 0;
+
+        const oversizedErrors = checkOversizedWorkflowMaps(
+            changed,
+            oversizedFiles,
+            maxDelta,
+            (file) => {
+                try {
+                    return statSync(path.join(ROOT_DIR, file)).size;
+                } catch(e) {
+                    return null;
+                }
+            },
+            (file) => getBaseFileSize(base, file)
+        );
+        errors.push(...oversizedErrors);
+    }
 
     for (const skillName of skillDirs) {
         const skill     = manifest.skills[skillName];
@@ -450,4 +515,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
     });
 }
 
-export {checkPerFileBudgets, checkSectionTriggers, parseSectionTriggers, lint, parseArgs, parseFrontmatter, validateManifestSchema};
+export {checkOversizedWorkflowMaps, checkPerFileBudgets, checkSectionTriggers, parseSectionTriggers, lint, parseArgs, parseFrontmatter, validateManifestSchema};

@@ -6,6 +6,11 @@
     "routerByteBudget": 12,
     "payloadBudget": 80000,
     "perFilePayloadBudget": 25000,
+    "oversizedWorkflowMaps": [
+      ".agents/skills/pr-review/references/pr-review-guide.md",
+      ".agents/skills/pull-request/references/pull-request-workflow.md"
+    ],
+    "maxPositiveDeltaBytes": 250,
     "rareTriggerPatterns": [
       "openapi",
       "audit",
