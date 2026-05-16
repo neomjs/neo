@@ -11,15 +11,13 @@ on:
   pull_request_review:
     types: [submitted, edited]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   lint-pr-review-body:
     runs-on: ubuntu-latest
     steps:
       - name: Validate PR Review Body
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const review   = context.payload.review;

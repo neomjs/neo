@@ -3,15 +3,13 @@ on:
   issues:
     types: [reopened]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   prevent-reopen:
     runs-on: ubuntu-latest
     steps:
       - name: Close and create new ticket
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const issue = context.payload.issue;
