@@ -585,7 +585,7 @@ class IssueSyncer extends Base {
                     try {
                         const oldPath = this.#resolvePath(oldPathRelative);
                         await fs.unlink(oldPath);
-                        logger.info(`🗑️ Removed dropped issue #${issueNumber}: ${oldPath}`);
+                        logger.debug(`🗑️ Removed dropped issue #${issueNumber}: ${oldPath}`);
                     } catch (e) { /* File might not exist */ }
                 }
                 // Remove from metadata
@@ -617,19 +617,19 @@ class IssueSyncer extends Base {
 
                 if (!oldIssue) {
                     stats.pulled.created++;
-                    logger.info(`✨ Created #${issueNumber}: ${targetPath}`);
+                    logger.debug(`✨ Created #${issueNumber}: ${targetPath}`);
                 } else if (oldAbsolutePath && oldAbsolutePath !== targetPath) {
                     stats.pulled.moved++;
                     try {
                         await fs.rename(oldAbsolutePath, targetPath);
-                        logger.info(`📦 Moved #${issueNumber}: ${oldAbsolutePath} → ${targetPath}`);
+                        logger.debug(`📦 Moved #${issueNumber}: ${oldAbsolutePath} → ${targetPath}`);
                     } catch (e) {
                         logger.warn(`Could not rename #${issueNumber}, falling back to write. Error: ${e.message}`);
                         await fs.unlink(oldAbsolutePath).catch(() => {});
                     }
                 } else {
                     stats.pulled.updated++;
-                    logger.info(`✅ Updated #${issueNumber}: ${targetPath}`);
+                    logger.debug(`✅ Updated #${issueNumber}: ${targetPath}`);
                 }
             }
 
@@ -917,7 +917,7 @@ class IssueSyncer extends Base {
                     body: cleanBody
                 });
 
-                logger.info(`✅ Updated GitHub issue #${issueNumber} via GraphQL`);
+                logger.debug(`✅ Updated GitHub issue #${issueNumber} via GraphQL`);
                 stats.count++;
                 stats.issues.push(issueNumber);
             } catch (e) {
