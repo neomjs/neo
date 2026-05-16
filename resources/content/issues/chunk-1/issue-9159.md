@@ -4,16 +4,17 @@ title: 'regression: Component Columns trigger insertNode operations during scrol
 state: OPEN
 labels:
   - bug
+  - stale
   - ai
   - regression
   - performance
 assignees:
   - tobiu
 createdAt: '2026-02-15T00:45:23Z'
-updatedAt: '2026-02-15T00:59:13Z'
+updatedAt: '2026-05-16T04:46:05Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9159'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -49,4 +50,9 @@ This indicates a potential failure in component recycling or a VDOM diffing issu
 - 2026-02-15T00:45:24Z @tobiu added the `regression` label
 - 2026-02-15T00:45:24Z @tobiu added the `performance` label
 - 2026-02-15T00:59:14Z @tobiu assigned to @tobiu
+### @github-actions - 2026-05-16T04:46:05Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-05-16T04:46:05Z @github-actions added the `stale` label
 

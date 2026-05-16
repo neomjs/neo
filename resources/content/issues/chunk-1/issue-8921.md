@@ -1,24 +1,25 @@
 ---
 id: 8921
 title: 'Feat: Implement Neo.ai.Chat (Reference UI)'
-state: OPEN
+state: CLOSED
 labels:
   - stale
   - ai
   - feature
 assignees: []
 createdAt: '2026-01-31T14:13:13Z'
-updatedAt: '2026-05-02T04:34:25Z'
+updatedAt: '2026-05-16T04:46:09Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8921'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy:
-  - '[ ] 8920 Feat: Implement Neo.component.markdown.VDom (VDOM-Native Parsing)'
+  - '[x] 8920 Feat: Implement Neo.component.markdown.VDom (VDOM-Native Parsing)'
 blocking: []
+closedAt: '2026-05-16T04:46:09Z'
 ---
 # Feat: Implement Neo.ai.Chat (Reference UI)
 
@@ -42,4 +43,9 @@ Create a reference implementation of a Modern AI Chat Interface to demonstrate t
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-05-02T04:34:25Z @github-actions added the `stale` label
+### @github-actions - 2026-05-16T04:46:09Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-05-16T04:46:09Z @github-actions closed this issue
 

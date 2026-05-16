@@ -1,24 +1,25 @@
 ---
 id: 8920
 title: 'Feat: Implement Neo.component.markdown.VDom (VDOM-Native Parsing)'
-state: OPEN
+state: CLOSED
 labels:
   - stale
   - ai
   - feature
 assignees: []
 createdAt: '2026-01-31T14:12:54Z'
-updatedAt: '2026-05-02T04:34:26Z'
+updatedAt: '2026-05-16T04:46:11Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8920'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking:
-  - '[ ] 8921 Feat: Implement Neo.ai.Chat (Reference UI)'
+  - '[x] 8921 Feat: Implement Neo.ai.Chat (Reference UI)'
+closedAt: '2026-05-16T04:46:11Z'
 ---
 # Feat: Implement Neo.component.markdown.VDom (VDOM-Native Parsing)
 
@@ -46,4 +47,9 @@ Create a new Markdown component that compiles markdown source directly into a Ne
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-05-02T04:34:26Z @github-actions added the `stale` label
+### @github-actions - 2026-05-16T04:46:10Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-05-16T04:46:11Z @github-actions closed this issue
 

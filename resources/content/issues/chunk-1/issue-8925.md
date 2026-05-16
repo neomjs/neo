@@ -1,7 +1,7 @@
 ---
 id: 8925
 title: 'Epic: Implement Specialized Agent Workflows (.agent/workflows/)'
-state: OPEN
+state: CLOSED
 labels:
   - documentation
   - epic
@@ -10,10 +10,10 @@ labels:
   - ai
 assignees: []
 createdAt: '2026-01-31T15:39:28Z'
-updatedAt: '2026-05-02T04:34:23Z'
+updatedAt: '2026-05-16T04:46:07Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/8925'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues:
   - '[x] 8929 Feat: Implement Unit Test Agent Workflow (.agent/workflows/unit-test.md)'
@@ -21,6 +21,7 @@ subIssuesCompleted: 1
 subIssuesTotal: 1
 blockedBy: []
 blocking: []
+closedAt: '2026-05-16T04:46:07Z'
 ---
 # Epic: Implement Specialized Agent Workflows (.agent/workflows/)
 
@@ -52,4 +53,9 @@ Create a system of specialized "Startup Profiles" for AI agents to optimize cont
 This issue is stale because it has been open for 90 days with no activity.
 
 - 2026-05-02T04:34:23Z @github-actions added the `stale` label
+### @github-actions - 2026-05-16T04:46:06Z
+
+This issue was closed because it has been inactive for 14 days since being marked as stale.
+
+- 2026-05-16T04:46:07Z @github-actions closed this issue
 
