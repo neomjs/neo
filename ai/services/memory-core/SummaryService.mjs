@@ -234,12 +234,13 @@ class SummaryService extends Base {
     /**
      * Executes a semantic search across all session summaries.
      * @param {Object} options
-     * @param {String} options.query      The search query string.
-     * @param {Number} options.nResults   The number of results to return.
-     * @param {String} [options.category] Optional category to filter results.
+     * @param {String} options.query         The search query string.
+     * @param {Number} options.nResults      The number of results to return.
+     * @param {String} [options.category]    Optional category to filter results.
+     * @param {String} [options.memorySharing] Optional override for tenant isolation policy.
      * @returns {Promise<{query: string, count: number, results: Object[]}>}
      */
-    async querySummaries({query, nResults, category}) {
+    async querySummaries({query, nResults, category, memorySharing}) {
         try {
             const collection = await StorageRouter.getSummaryCollection();
             const queryArgs = {
@@ -249,18 +250,29 @@ class SummaryService extends Base {
             };
 
             // Tenant-scoped where clause (#10000) with additive shared-commons access (#10556).
-            // normalizeUserId handles the AgentIdentity-vs-userId namespace boundary. When userId
-            // resolves, the filter returns the tenant's own records PLUS SHARED_USER_ID-tagged
-            // records (legacy commons + explicit shares); when no userId, the legacy single-tenant
-            // pass-through is preserved for daemon contexts.
-            const userId    = normalizeUserId(RequestContextService.getUserId());
-            const tenantOr  = userId ? {$or: [{userId}, {userId: SHARED_USER_ID}]} : null;
-            if (category && tenantOr) {
-                queryArgs.where = {$and: [{category}, tenantOr]};
+            // normalizeUserId handles the AgentIdentity-vs-userId namespace boundary.
+            const userId = normalizeUserId(RequestContextService.getUserId());
+            const policy = memorySharing || aiConfig?.memorySharing?.defaultPolicy || 'legacy';
+
+            let tenantScope = null;
+            if (userId) {
+                if (policy === 'private') {
+                    tenantScope = {userId};
+                } else if (policy === 'team') {
+                    // Team/deployment scope: Tagged records only.
+                    tenantScope = {userId: SHARED_USER_ID};
+                } else {
+                    // legacy: Migration compatibility (caller owned + shared records)
+                    tenantScope = {$or: [{userId}, {userId: SHARED_USER_ID}]};
+                }
+            }
+
+            if (category && tenantScope) {
+                queryArgs.where = {$and: [{category}, tenantScope]};
             } else if (category) {
                 queryArgs.where = {category};
-            } else if (tenantOr) {
-                queryArgs.where = tenantOr;
+            } else if (tenantScope) {
+                queryArgs.where = tenantScope;
             }
 
             const searchResult = await collection.query(queryArgs);

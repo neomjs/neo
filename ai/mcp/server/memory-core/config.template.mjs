@@ -8,6 +8,13 @@ import {
     parseUrl
 } from '../shared/helpers/EnvConfig.mjs';
 
+function parseMemorySharingPolicy(rawValue, envVarName) {
+    if (['legacy', 'private', 'team'].includes(rawValue)) {
+        return rawValue;
+    }
+    throw new Error(`[Config] Invalid ${envVarName} value: "${rawValue}". Must be one of: legacy, private, team`);
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
@@ -329,6 +336,25 @@ const defaultConfig = {
         defaultReplyPolicy: 'open'
     },
     /**
+     * Memory sharing policy for multi-tenant isolation (#10010).
+     *
+     * Defines the retrieval scope for query_raw_memories and query_summaries:
+     * - 'private': strict tenant isolation. Only caller's owned rows.
+     * - 'team': team-wide context sharing for tagged records.
+     * - 'legacy': migration-window compatibility for pre-tenant-aware data.
+     *
+     * Invalid environment variables (NEO_MEMORY_SHARING_DEFAULT_POLICY) will
+     * fail loudly on boot rather than silently weakening isolation.
+     *
+     * @type {Object}
+     */
+    memorySharing: {
+        /**
+         * @type {'legacy'|'private'|'team'}
+         */
+        defaultPolicy: 'legacy'
+    },
+    /**
      * Target file path for the lazy backfill queue of unresolved provenance edges.
      * @type {string}
      */
@@ -393,6 +419,7 @@ const envBindings = {
     'conceptDiscovery.minSourceLength': { var: 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', parse: parseNumber },
     
     'mailbox.defaultReplyPolicy': 'NEO_MAILBOX_DEFAULT_REPLY_POLICY',
+    'memorySharing.defaultPolicy': { var: 'NEO_MEMORY_SHARING_DEFAULT_POLICY', parse: parseMemorySharingPolicy },
     'lazyEdgesQueuePath': 'NEO_LAZY_EDGES_QUEUE_PATH'
 };
 

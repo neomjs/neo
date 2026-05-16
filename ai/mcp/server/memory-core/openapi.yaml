@@ -1779,6 +1779,10 @@ components:
         sessionId:
           type: string
           description: Optional filter to search within a specific session only
+        memorySharing:
+          type: string
+          enum: [private, team, legacy]
+          description: Optional override for the memory sharing tenant isolation scope.
 
     QueryMemoriesResponse:
       type: object
@@ -1910,6 +1914,10 @@ components:
           type: string
           enum: [bugfix, feature, refactoring, documentation, new-app, analysis, other]
           description: Optional filter by category
+        memorySharing:
+          type: string
+          enum: [private, team, legacy]
+          description: Optional override for the memory sharing tenant isolation scope.
 
     QuerySummariesResponse:
       type: object

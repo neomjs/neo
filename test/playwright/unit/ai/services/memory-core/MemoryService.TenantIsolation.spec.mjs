@@ -308,3 +308,67 @@ test.describe('MemoryService — additive shared-commons access (#10556)', () =>
         expect(tagged).toBe('neo-test-agent');
     });
 });
+
+test.describe('MemoryService — memorySharing policy (#10010)', () => {
+    let spyCollection;
+    let originalGetMemoryCollection;
+
+    test.beforeEach(() => {
+        spyCollection                       = createSpyCollection();
+        originalGetMemoryCollection         = StorageRouter.getMemoryCollection;
+        StorageRouter.getMemoryCollection   = async () => spyCollection;
+    });
+
+    test.afterEach(() => {
+        StorageRouter.getMemoryCollection = originalGetMemoryCollection;
+    });
+
+    test('queryMemories with memorySharing=private returns only tenant-owned records', async () => {
+        spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {userId: 'u-alice', timestamp: 100, prompt: 'a1'}, document: 'a1'});
+        spyCollection.rows.set('m-shared1', {id: 'm-shared1', metadata: {userId: 'shared', timestamp: 200, prompt: 'L1'}, document: 'L1'});
+        spyCollection.rows.set('m-untagged', {id: 'm-untagged', metadata: {timestamp: 300, prompt: 'pre-migration'}, document: 'P'});
+
+        const view = await RequestContextService.run({userId: 'u-alice'}, () =>
+            MemoryService.queryMemories({query: 'anything', nResults: 10, memorySharing: 'private'})
+        );
+
+        expect(view.count).toBe(1);
+        expect(view.results[0].prompt).toBe('a1');
+        
+        const queryCall = spyCollection.queryCalls.at(-1);
+        expect(queryCall.where).toEqual({userId: 'u-alice'});
+    });
+
+    test('queryMemories with memorySharing=team returns only team-tagged records', async () => {
+        spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {userId: 'u-alice', timestamp: 100, prompt: 'a1'}, document: 'a1'});
+        spyCollection.rows.set('m-shared1', {id: 'm-shared1', metadata: {userId: 'shared', timestamp: 200, prompt: 'L1'}, document: 'L1'});
+        spyCollection.rows.set('m-untagged', {id: 'm-untagged', metadata: {timestamp: 300, prompt: 'pre-migration'}, document: 'P'});
+
+        const view = await RequestContextService.run({userId: 'u-alice'}, () =>
+            MemoryService.queryMemories({query: 'anything', nResults: 10, memorySharing: 'team'})
+        );
+
+        expect(view.count).toBe(1);
+        expect(view.results[0].prompt).toBe('L1');
+        
+        const queryCall = spyCollection.queryCalls.at(-1);
+        expect(queryCall.where).toEqual({userId: 'shared'});
+    });
+
+    test('queryMemories with memorySharing=legacy returns tenant-owned plus team-tagged, ignoring untagged', async () => {
+        spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {userId: 'u-alice', timestamp: 100, prompt: 'a1'}, document: 'a1'});
+        spyCollection.rows.set('m-shared1', {id: 'm-shared1', metadata: {userId: 'shared', timestamp: 200, prompt: 'L1'}, document: 'L1'});
+        spyCollection.rows.set('m-untagged', {id: 'm-untagged', metadata: {timestamp: 300, prompt: 'pre-migration'}, document: 'P'});
+
+        const view = await RequestContextService.run({userId: 'u-alice'}, () =>
+            MemoryService.queryMemories({query: 'anything', nResults: 10, memorySharing: 'legacy'})
+        );
+
+        expect(view.count).toBe(2);
+        expect(view.results.map(r => r.prompt).sort()).toEqual(['L1', 'a1']);
+        
+        const queryCall = spyCollection.queryCalls.at(-1);
+        expect(queryCall.where).toEqual({$or: [{userId: 'u-alice'}, {userId: 'shared'}]});
+    });
+});
+
