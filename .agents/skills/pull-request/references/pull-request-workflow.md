@@ -392,6 +392,7 @@ The `pr-review` skill's Evidence Audit section (in `pr-review-template.md`) veri
 **Exceptions:**
 - PR author explicitly invites co-authorship on the body.
 - Abandoned PR salvaged by a maintainer (documented in a comment first).
+- **Maintainer Polish Fast Path**: Reviewers may unilaterally patch mechanical-hygiene or metadata-drift defects (using `Evidence of Verification`) when the Review Compression Circuit Breaker fires.
 
 ## 11. Substrate Awareness ("Assume No Private Memory")
 

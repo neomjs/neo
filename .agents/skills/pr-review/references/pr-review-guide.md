@@ -195,6 +195,16 @@ The follow-up template is not permission to rubber-stamp. It still requires:
 
 If a commentId-scoped A2A message arrives but you lack the surrounding prior-cycle context, treat that as a cold-cache case first: load enough grounding context, then decide whether the follow-up template is still valid.
 
+### 6.3 Micro-Delta Circuit Breaker Template
+
+Use the circuit breaker template from `.agents/skills/pr-review/assets/pr-review-micro-delta-template.md` when:
+- The PR has received ≥ 3 formal reviews OR the PR discussion thread exceeds 24KB in size.
+- You are providing semantic approval (no blocking architectural defects remain).
+- Only mechanical/metadata polish remains.
+
+This template forces a strict 2-sentence constraint to prevent cognitive bloat and runaway context exhaustion during late-stage PR convergence.
+When this circuit breaker fires, the **Maintainer Polish Fast Path** (`pull-request-workflow.md §10` and `AGENTS.md §0.7`) is activated, permitting reviewers to unilaterally patch mechanical defects.
+
 ## 7. Depth Floor — Preventing Rubber-Stamp Approvals
 
 Structural skill compliance does not guarantee rigor. A review can hit every `[EVALUATION_METRICS]` score, include all graph-ingestion tags, match the template structure — and still be empirically rubber-stamp-shaped. The Depth Floor mandates below close that gap.

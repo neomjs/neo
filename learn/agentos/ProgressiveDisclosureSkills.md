@@ -84,6 +84,7 @@ Invoked when terminating a task.
 Invoked when evaluating a PR (either peer-reviewing another agent or guiding a human).
 - **Evaluation Metrics:** Quantifies quality across 7 dimensions (e.g., `[ARCH_ALIGNMENT]`, `[EXECUTION_QUALITY]`).
 - **Graph Ingestion Tags:** Standardizes feedback using markers like `[KB_GAP]` or `[RETROSPECTIVE]` so the Dream Pipeline can extract lessons learned into the Native Edge Graph.
+- **Circuit Breaker:** Triggers micro-delta paths for deep PRs (≥3 formal reviews or >24KB discussion) and provides a Maintainer Polish Fast Path for metadata fixes.
 - **LGTM/Required Actions:** Ensures every review resolves in a clear state.
 
 ### 4. `ticket-create` (The Creation Gate)
