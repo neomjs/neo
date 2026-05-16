@@ -350,12 +350,27 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         databaseId : 12345
     };
 
-    // Minimal review body that passes the #11491 tool-boundary template-anchor validator.
-    // Contains all 7 evaluation-metric tags from pr-review-template.md (cycle-1) / pr-review-followup-template.md.
+    // Minimal review body that passes BOTH layers of the #11491 tool-boundary template-anchor validator:
+    // - VISIBLE layer: the 7 evaluation-metric tags from pr-review-template.md / pr-review-followup-template.md
+    // - INVISIBLE layer: structural anchors NOT enumerated in error responses; see
+    //   `INVISIBLE_PR_REVIEW_ANCHORS` constant in `ai/services/github-workflow/PullRequestService.mjs`
+    //   for the canonical list. Tests deliberately compose this constant with structural substrings
+    //   present (rather than naming the invisible-list in test prose) to avoid leaking the safeguard
+    //   into discovery surfaces while still asserting behavior.
     // Substantive review content (prose, depth-floor, audit findings) is the peer-reviewer's responsibility;
     // this constant only satisfies the mechanical depth-floor gate so the downstream behavior under test
     // (action dispatch, GraphQL error handling, PR_NOT_FOUND) can be exercised.
     const VALID_REVIEW_BODY = [
+        '### 🪜 Strategic-Fit Decision',
+        '- Decision: Approve',
+        '',
+        '### 🔬 Depth Floor',
+        '- Documented search: scanned all relevant surfaces.',
+        '',
+        '### 📋 Required Actions',
+        '- None.',
+        '',
+        '### 📊 Evaluation Metrics',
         '[ARCH_ALIGNMENT]: 80 - structural fit',
         '[CONTENT_COMPLETENESS]: 80 - covers AC matrix',
         '[EXECUTION_QUALITY]: 80 - tests pass',
@@ -583,9 +598,12 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
 
     // ────────────────────────────────────────────────────────────────────────
     // #11491 — tool-boundary mechanical body-shape validation
+    //   Visible layer: 7 metric tags, misses named in error
+    //   Invisible layer: structural anchors, checked but NOT named in error
+    //                    (defeats Goodhart anchor-stuffing — operator-directed 2026-05-16)
     // ────────────────────────────────────────────────────────────────────────
 
-    test('#11491: rejects body missing all 7 required template anchors with structured error', async () => {
+    test('#11491: rejects body missing all 7 visible metric anchors AND structural anchors', async () => {
         // The empirical recurrence: Gemini's PR #11488/#11489 reviews (2026-05-16T20:14Z) shipped
         // a hallucinated "Structural Evaluation Matrix" with 5 invented metric names on a 1-10
         // scale, completely bypassing the template's 7 evaluation-metric tags. The Retrospective
@@ -607,7 +625,8 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
 
         expect(result.error).toBe('PR Review Template Validation Failed');
         expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
-        expect(result.missing).toEqual([
+        // Visible-layer surface: missing_visible IS enumerated for caller diagnostics.
+        expect(result.missing_visible).toEqual([
             '[ARCH_ALIGNMENT]',
             '[CONTENT_COMPLETENESS]',
             '[EXECUTION_QUALITY]',
@@ -616,17 +635,74 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             '[COMPLEXITY]',
             '[EFFORT_PROFILE]'
         ]);
+        // Skill-pointing discipline: the error MUST direct the agent to read the skill rather
+        // than rely on the named-list to stuff anchors.
         expect(result.skill).toBe('.agents/skills/pr-review/SKILL.md');
         expect(result.template).toBe('.agents/skills/pr-review/assets/pr-review-template.md');
+        // Anti-hallucination phrasing must be present so agents see the "do not compose substitute"
+        // guidance. Case-insensitive match to avoid coupling to exact capitalization.
+        expect(result.message.toLowerCase()).toContain('do not compose a substitute');
+        expect(result.message).toContain('.agents/skills/pr-review/SKILL.md');
         // Critical: no GitHub API call should have been made — bad data must not land on GitHub.
         expect(graphqlCallCount).toBe(0);
     });
 
-    test('#11491: rejects body missing some anchors and returns the precise missing list', async () => {
-        // Goodhart-stuffing partial: agent put SOME anchors but skimmed past three. Validator
-        // must emit the EXACT missing list so the agent can fix-and-resubmit in-turn.
+    test('#11491: Goodhart-stuffed body — all 7 metric tags present but missing structural anchors — still REJECTED', async () => {
+        // Empirical anchor: Gemini's review `4304287893` on PR #11499 (2026-05-16T21:16:25Z)
+        // contained ALL 7 metric tags but missed the structural template anchors. The pre-
+        // enhancement validator would have PASSED this body (the canonical Goodhart-stuffing
+        // failure mode the operator-directed invisible layer prevents). This test asserts that
+        // post-enhancement, structural-only-stuffing IS rejected — without naming the invisible
+        // anchors in test prose to preserve the safeguard surface.
+        const stuffedBody = [
+            'Approval granted.',
+            '[ARCH_ALIGNMENT]: 100',
+            '[CONTENT_COMPLETENESS]: 100',
+            '[EXECUTION_QUALITY]: 100',
+            '[PRODUCTIVITY]: 100',
+            '[IMPACT]: 80',
+            '[COMPLEXITY]: 20',
+            '[EFFORT_PROFILE]: Quick Win'
+            // Deliberately missing the structural template anchors that VALID_REVIEW_BODY contains.
+            // The invisible layer rejects this without naming what's missing.
+        ].join('\n');
+
+        let graphqlCallCount = 0;
+        GraphqlService.query = async () => {
+            graphqlCallCount++;
+            return {repository: {pullRequest: {id: PR_NODE_ID}}};
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 11491,
+            state    : 'APPROVED',
+            body     : stuffedBody
+        });
+
+        expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        // All 7 visible anchors present → missing_visible is empty.
+        expect(result.missing_visible).toEqual([]);
+        // But the message must still direct the agent to read the skill.
+        expect(result.message).toContain('.agents/skills/pr-review/SKILL.md');
+        expect(result.message).toContain('does not match the pr-review template structure');
+        // Diagnostic-hint branch when no visible anchors are missing: must communicate
+        // structural-anchor-class miss without enumerating the invisible list.
+        expect(result.message).toContain('structural template anchors do not');
+        // No GitHub API call — Goodhart-stuffing must not reach the wire.
+        expect(graphqlCallCount).toBe(0);
+    });
+
+    test('#11491: rejects body missing some visible anchors and names ONE diagnostic anchor only', async () => {
+        // Operator-directed change: even when visible anchors are missing, the error names AT MOST
+        // one diagnostic anchor rather than the full list, reducing the "stuff just these tags"
+        // attack surface. The `missing_visible` field still carries the full list for programmatic
+        // callers, but the human-facing message names only the first as a hint.
         const partialBody = [
             'My substantive review prose here.',
+            '### 🪜 Strategic-Fit Decision',
+            '### 🔬 Depth Floor',
+            '### 📋 Required Actions',
             '[ARCH_ALIGNMENT]: 75',
             '[CONTENT_COMPLETENESS]: 75',
             '[EXECUTION_QUALITY]: 75',
@@ -642,13 +718,19 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         });
 
         expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
-        expect(result.missing).toEqual(['[IMPACT]', '[COMPLEXITY]', '[EFFORT_PROFILE]']);
+        // Programmatic surface preserves the full list for callers that want it.
+        expect(result.missing_visible).toEqual(['[IMPACT]', '[COMPLEXITY]', '[EFFORT_PROFILE]']);
+        // Human-facing message names ONE diagnostic only — the first miss.
+        expect(result.message).toContain('[IMPACT]');
+        // Other missing visible anchors are NOT enumerated in the message (anti-stuffing).
+        expect(result.message).not.toContain('[COMPLEXITY]');
+        expect(result.message).not.toContain('[EFFORT_PROFILE]');
     });
 
-    test('#11491: accepts body containing all 7 anchors, proceeds to GraphQL dispatch', async () => {
-        // Smoke test that the validator does NOT block well-formed reviews — the depth-floor
-        // gate is permissive once anchors are present; quality remains the peer-V-B-A reviewer's
-        // responsibility.
+    test('#11491: accepts body with all visible AND invisible anchors present, proceeds to GraphQL dispatch', async () => {
+        // Smoke test that the two-layer validator does NOT block well-formed reviews — the
+        // depth-floor gate is permissive once both visible + invisible anchors are present;
+        // quality remains the peer-V-B-A reviewer's responsibility.
         let graphqlCallCount = 0;
         GraphqlService.query = async (queryString) => {
             graphqlCallCount++;
@@ -668,6 +750,38 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(result.reviewId).toBe('PRR_kwDOABcD1111111111');
         // Two GraphQL queries: GetPullRequestId + AddPullRequestReview
         expect(graphqlCallCount).toBe(2);
+    });
+
+    test('#11491: invisible-anchor enforcement is NOT discoverable from the error response', async () => {
+        // Surface contract: the invisible-anchor strings MUST NOT appear in the error response
+        // body (neither `message` prose nor programmatic field). Discovery from outside requires
+        // reading the validator source — which is the intended safeguard.
+        const stuffedBody = [
+            'Approval granted.',
+            '[ARCH_ALIGNMENT]: 100',
+            '[CONTENT_COMPLETENESS]: 100',
+            '[EXECUTION_QUALITY]: 100',
+            '[PRODUCTIVITY]: 100',
+            '[IMPACT]: 80',
+            '[COMPLEXITY]: 20',
+            '[EFFORT_PROFILE]: Quick Win'
+        ].join('\n');
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 11491,
+            state    : 'APPROVED',
+            body     : stuffedBody
+        });
+
+        // Serialize the entire response and assert NONE of the invisible anchor substrings appear.
+        // Reading these strings from the test source is OK; the production response must not.
+        const responseJson = JSON.stringify(result);
+        expect(responseJson).not.toContain('Depth Floor');
+        expect(responseJson).not.toContain('Required Actions');
+        expect(responseJson).not.toContain('Strategic-Fit Decision');
+        // A `missing_invisible` field would leak the safeguard surface — must NOT exist.
+        expect(result.missing_invisible).toBeUndefined();
     });
 
     test('#11491: action-check precedence preserved — invalid action returns INVALID_ARGUMENTS even with missing-anchor body', async () => {
