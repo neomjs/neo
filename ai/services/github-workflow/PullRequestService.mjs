@@ -15,6 +15,78 @@ const execAsync     = promisify(exec);
 const execFileAsync = promisify(execFile);
 
 /**
+ * **Visible** template-anchor substrings — checked AND named in the error response on miss (#11491).
+ *
+ * These are the 7 evaluation-metric tags from `.agents/skills/pr-review/assets/pr-review-template.md`
+ * (cycle-1) and `.agents/skills/pr-review/assets/pr-review-followup-template.md` (cycle-N). They are
+ * also the regex parse keys that `ai/daemons/services/ConceptDiscoveryService.mjs` consumes during
+ * Retrospective-daemon REM-sleep graph ingestion — a malformed review with hallucinated metric
+ * names produces zero graph ingest signal and is silently lost from the Native Edge Graph.
+ *
+ * Cycle-followup templates use the same 7 metric tags (`pr-review-followup-template.md:96-102`)
+ * so this set applies to both cycle-1 and cycle-N reviews without false-positive separation.
+ *
+ * Extension protocol: if the pr-review skill adds a new evaluation metric, append the literal
+ * `[NEW_TAG]` string here AND update both template files in the same PR.
+ */
+const VISIBLE_PR_REVIEW_ANCHORS = [
+    '[ARCH_ALIGNMENT]',
+    '[CONTENT_COMPLETENESS]',
+    '[EXECUTION_QUALITY]',
+    '[PRODUCTIVITY]',
+    '[IMPACT]',
+    '[COMPLEXITY]',
+    '[EFFORT_PROFILE]'
+];
+
+/**
+ * **Invisible** template-anchor substrings — checked SILENTLY; NOT named in the error response
+ * on miss. Defeats Goodhart anchor-stuffing (#11491 operator-directed enhancement 2026-05-16T21:16Z+).
+ *
+ * **Failure-mode the invisible layer prevents**:
+ * A sophisticated agent receives the visible-list error, hallucinates a body that contains
+ * exactly the named visible anchors but omits the actual template structure (e.g., bare
+ * `### Strategic-Fit` heading without `Decision`, `### Metrics` without proper structure).
+ * Visible-only validation passes the malformed body. The invisible layer catches this by
+ * checking structural anchors that span both cycle-1 and cycle-followup templates.
+ *
+ * **Empirical anchor**: review `4304287893` on PR #11499 (2026-05-16T21:16:25Z) contained
+ * all 7 visible metric tags but missed `Depth Floor`, `Required Actions`, and
+ * `Strategic-Fit Decision` (only had bare `Strategic-Fit`). The 3-minute-later corrected
+ * review `4304295863` (21:19:24Z) had all three. These 3 substrings empirically distinguish
+ * a structurally-correct review from a metric-tag-stuffed hallucination.
+ *
+ * **Why these specific substrings**:
+ * - `Depth Floor` — cycle-1 has `🔬 Depth Floor`, cycle-followup has `Delta Depth Floor`. Both contain the substring.
+ * - `Required Actions` — both cycle-1 (`📋 Required Actions`) and cycle-followup carry the literal heading.
+ * - `Strategic-Fit Decision` — cycle-1 (`🪜 Strategic-Fit Decision`) and cycle-followup (`Strategic-Fit Decision`)
+ *   both include the word `Decision`. Hallucinated headings that drop `Decision` (as Gemini's
+ *   review `4304287893` did) fail this check.
+ *
+ * **Asymmetry that makes this work**:
+ * - Author who reads `.agents/skills/pr-review/SKILL.md` and follows the template → all checks pass
+ * - Author who hallucinates from the visible-list error → fails invisible check, retries
+ * - Author who enumerates `## ` headings to anchor-stuff → fails because the invisible substrings
+ *   require specific phrasing (e.g., `Decision` postfix on `Strategic-Fit`) that's hard to guess
+ *   without reading the actual template
+ *
+ * **Discoverability vs. invisibility tension**: this list IS the substrate; future maintainers
+ * editing this constant must understand the invisibility rationale. Hence this docstring. The
+ * list is NOT documented in error responses, public README, or skill-file enumerations — only
+ * here in the validator's source, where modification requires explicit awareness.
+ *
+ * **Maintenance protocol**: if the pr-review template adds or renames a structural section,
+ * update this array to point at substrings that still distinguish valid from invalid bodies.
+ * Tests in `PullRequestService.spec.mjs` assert behavior without naming invisible anchors in
+ * prose; they import this constant by reference.
+ */
+const INVISIBLE_PR_REVIEW_ANCHORS = [
+    'Depth Floor',
+    'Required Actions',
+    'Strategic-Fit Decision'
+];
+
+/**
  * @summary Service for interacting with GitHub Pull Requests via the `gh` CLI and GraphQL API.
  *
  * This service acts as a unified interface for Pull Request operations.
@@ -355,6 +427,62 @@ class PullRequestService extends Base {
                 error  : 'Bad Request',
                 message: "Missing required argument: 'body' is required.",
                 code   : 'MISSING_ARGUMENTS'
+            };
+        }
+
+        // Tool-boundary mechanical body-shape validation (#11491).
+        // PR #11479 added a description-prose MANDATORY pre-step pointing to the pr-review SKILL.md;
+        // this gate promotes that discipline-only guard to a mechanical floor with two layers:
+        //
+        // 1. VISIBLE layer — checked against VISIBLE_PR_REVIEW_ANCHORS; misses are named in the
+        //    error to guide good-faith authors back to the template.
+        // 2. INVISIBLE layer — checked against INVISIBLE_PR_REVIEW_ANCHORS; misses are NOT named
+        //    in the error. Defeats Goodhart anchor-stuffing where an agent receives a visible-only
+        //    error and hallucinates a body containing exactly the named anchors but skipping the
+        //    template structure. See INVISIBLE_PR_REVIEW_ANCHORS docstring for empirical anchor.
+        //
+        // Both layers point the agent at `.agents/skills/pr-review/SKILL.md` — the canonical
+        // primitive for resolving any validation failure is to read the skill + template, not
+        // to compose a substitute structure.
+        const missingVisible   = VISIBLE_PR_REVIEW_ANCHORS  .filter(anchor => !body.includes(anchor));
+        const missingInvisible = INVISIBLE_PR_REVIEW_ANCHORS.filter(anchor => !body.includes(anchor));
+
+        if (missingVisible.length > 0 || missingInvisible.length > 0) {
+            // Compose a message that guides toward the skill without enumerating invisible anchors.
+            // Even the visible-list naming is bounded — at most ONE diagnostic example, not the
+            // full list — to reduce the "stuff just these tags" attack surface further.
+            const diagnosticAnchor = missingVisible[0] ?? null;
+
+            const skillPath    = '.agents/skills/pr-review/SKILL.md';
+            const templatePath = '.agents/skills/pr-review/assets/pr-review-template.md';
+            const followupPath = '.agents/skills/pr-review/assets/pr-review-followup-template.md';
+
+            const message = [
+                `Review body does not match the pr-review template structure.`,
+                ``,
+                `**Required action**: read \`${skillPath}\` BEFORE retrying. The skill points at:`,
+                `  - Cycle 1 (full template): \`${templatePath}\``,
+                `  - Cycle N (follow-up template): \`${followupPath}\``,
+                ``,
+                `Do NOT compose a substitute template or hallucinate section headings. The validator`,
+                `checks more structural anchors than this error names. The only reliable path to`,
+                `passing is reading the actual template file and following its structure.`,
+                diagnosticAnchor
+                    ? `\nDiagnostic hint: at least one recognized anchor like \`${diagnosticAnchor}\` is missing.`
+                    : `\nDiagnostic hint: visible metric tags appear present but the structural template anchors do not.`
+            ].join('\n');
+
+            return {
+                error   : 'PR Review Template Validation Failed',
+                message,
+                code    : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
+                // `missing_visible` lists the named-in-message visible misses. Invisible misses
+                // are intentionally NOT enumerated in the response body — even programmatic
+                // callers should be nudged toward the skill rather than the anchor list. This is
+                // the operator-directed invisibility safeguard (#11491 enhancement 2026-05-16).
+                missing_visible: missingVisible,
+                skill          : skillPath,
+                template       : templatePath
             };
         }
 

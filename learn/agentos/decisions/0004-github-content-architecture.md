@@ -133,6 +133,26 @@ The substrate-evolution pattern for ADR 0004 is **Clean Cut**, not **Deprecation
 
 The Deprecation Window pattern adds substrate-coexistence cost (cognitive load: "which primitive should I use here?"), violates §5.3 (parallel chunking rules), and contradicts the operator-stated "ZERO migration scripts planned" intent. Future authors V-B-A against this §2.6 contrast before designing helper-retirement work.
 
+### 2.6.1 Mechanical enforcement layer (added 2026-05-16, ticket #11406)
+
+§1.3 / §2.6 / §5.6 are **discipline-only** — pattern-recognition aids for agents reading merged ADR substrate before authoring. Empirical anchor proves they are necessary-but-not-sufficient: **PR #11403 Cycle-1** ([`PRR_kwDODSospM8AAAABAB3NsQ`](https://github.com/neomjs/neo/pull/11403#pullrequestreview-4296920497)) — same clean-cut regression recurred at the very next PR after the §2.6 layer merged, with `chunkPath.mjs` + `archivePath.mjs` + `ArchivePath.spec.mjs` preserved as dead code despite zero callers. The regression was caught at peer-review time, not CI time. The lookback distance between author-time and reviewer-time is the regression window.
+
+**The mechanical layer closes this gap**:
+
+| Artifact | Purpose |
+|---|---|
+| `ai/scripts/check-retired-primitives.mjs` | grep-fail check; scans `ai/` (excluding `*.spec.mjs` / `*.test.mjs`) for imports of any path fragment in the `RETIRED_PRIMITIVES` constant array; exits 1 on hit with file:line output + this §2.6 reference |
+| `.github/workflows/check-retired-primitives.yml` | GitHub Actions workflow that runs the script on every PR + push to `dev` that touches `ai/**/*.mjs` |
+| `npm run ai:check-retired-primitives` | Local dev alias for the same check |
+| `test/playwright/unit/ai/scripts/checkRetiredPrimitives.spec.mjs` | Coverage: clean-substrate PASS + canary-regression FAIL + spec-glob-exclusion behavior |
+
+**Extension protocol** when adding to §2.3 RETIRED:
+1. Delete the retired primitive in the same PR that mutates the last call site (per §2.6).
+2. Append the import-path fragment (e.g. `'shared/<name>.mjs'`) to the `RETIRED_PRIMITIVES` array in `ai/scripts/check-retired-primitives.mjs`.
+3. The CI check then defends against future regressions where the deleted primitive gets reintroduced as an import.
+
+Pattern-recognition + mechanical-enforcement are mutually reinforcing: without pattern-recognition (§1.3/§2.6/§5.6), the mechanical layer is brittle (someone has to maintain the array and know why); without mechanical enforcement, pattern-recognition relies on agents staying maximally attentive across all PRs (which empirically broke twice in one session: PR #11381 + PR #11403).
+
 ---
 
 ## 3. Implementation Details
