@@ -350,6 +350,21 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         databaseId : 12345
     };
 
+    // Minimal review body that passes the #11491 tool-boundary template-anchor validator.
+    // Contains all 7 evaluation-metric tags from pr-review-template.md (cycle-1) / pr-review-followup-template.md.
+    // Substantive review content (prose, depth-floor, audit findings) is the peer-reviewer's responsibility;
+    // this constant only satisfies the mechanical depth-floor gate so the downstream behavior under test
+    // (action dispatch, GraphQL error handling, PR_NOT_FOUND) can be exercised.
+    const VALID_REVIEW_BODY = [
+        '[ARCH_ALIGNMENT]: 80 - structural fit',
+        '[CONTENT_COMPLETENESS]: 80 - covers AC matrix',
+        '[EXECUTION_QUALITY]: 80 - tests pass',
+        '[PRODUCTIVITY]: 70 - bounded scope',
+        '[IMPACT]: 60 - localized substrate fix',
+        '[COMPLEXITY]: 40 - mechanical change',
+        '[EFFORT_PROFILE]: Quick Win'
+    ].join('\n');
+
     test.beforeAll(async () => {
         GraphqlService     = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
         PullRequestService = (await import('../../../../../../ai/services/github-workflow/PullRequestService.mjs')).default;
@@ -385,7 +400,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             action   : 'create',
             pr_number: 11273,
             state    : 'APPROVED',
-            body     : 'LGTM, cross-family review complete.'
+            body     : `LGTM, cross-family review complete.\n\n${VALID_REVIEW_BODY}`
         });
 
         expect(result.error).toBeUndefined();
@@ -414,7 +429,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             action   : 'create',
             pr_number: 11273,
             state    : 'REQUEST_CHANGES',
-            body     : 'Required Action: address X.'
+            body     : `Required Action: address X.\n\n${VALID_REVIEW_BODY}`
         });
 
         expect(result.error).toBeUndefined();
@@ -438,7 +453,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             action   : 'create',
             pr_number: 11273,
             state    : 'COMMENT',
-            body     : 'Substantive review comment without formal state transition.'
+            body     : `Substantive review comment without formal state transition.\n\n${VALID_REVIEW_BODY}`
         });
 
         expect(result.error).toBeUndefined();
@@ -458,7 +473,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         const result = await PullRequestService.managePrReview({
             action   : 'update',
             review_id: 'PRR_kwDOABcD1111111111',
-            body     : 'Updated review body.'
+            body     : `Updated review body.\n\n${VALID_REVIEW_BODY}`
         });
 
         expect(result.error).toBeUndefined();
@@ -466,7 +481,8 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         expect(result.submittedAt).toBe('2026-05-13T01:00:00Z');
         expect(capturedQuery).toContain('UpdatePullRequestReview');
         expect(capturedVariables.pullRequestReviewId).toBe('PRR_kwDOABcD1111111111');
-        expect(capturedVariables.body).toBe('Updated review body.');
+        expect(capturedVariables.body).toContain('Updated review body.');
+        expect(capturedVariables.body).toContain('[ARCH_ALIGNMENT]'); // template anchor preserved through dispatch
     });
 
     test('rejects invalid action', async () => {
@@ -496,7 +512,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
         const result = await PullRequestService.managePrReview({
             action: 'create',
             state : 'APPROVED',
-            body  : 'irrelevant'
+            body  : VALID_REVIEW_BODY
         });
 
         expect(result.error).toBe('Bad Request');
@@ -509,7 +525,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             action   : 'create',
             pr_number: 11273,
             state    : 'INVALID_STATE',
-            body     : 'irrelevant'
+            body     : VALID_REVIEW_BODY
         });
 
         expect(result.error).toBe('Bad Request');
@@ -520,7 +536,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
     test('update: rejects missing review_id', async () => {
         const result = await PullRequestService.managePrReview({
             action: 'update',
-            body  : 'irrelevant'
+            body  : VALID_REVIEW_BODY
         });
 
         expect(result.error).toBe('Bad Request');
@@ -539,7 +555,7 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             action   : 'create',
             pr_number: 99999,
             state    : 'APPROVED',
-            body     : 'irrelevant'
+            body     : VALID_REVIEW_BODY
         });
 
         expect(result.error).toBe('Not Found');
@@ -557,11 +573,128 @@ test.describe('Neo.ai.services.github-workflow.PullRequestService — managePrRe
             action   : 'create',
             pr_number: 11273,
             state    : 'APPROVED',
-            body     : 'irrelevant'
+            body     : VALID_REVIEW_BODY
         });
 
         expect(result.error).toBe('GraphQL API request failed');
         expect(result.code).toBe('GRAPHQL_API_ERROR');
         expect(result.message).toBe('Network failure');
+    });
+
+    // ────────────────────────────────────────────────────────────────────────
+    // #11491 — tool-boundary mechanical body-shape validation
+    // ────────────────────────────────────────────────────────────────────────
+
+    test('#11491: rejects body missing all 7 required template anchors with structured error', async () => {
+        // The empirical recurrence: Gemini's PR #11488/#11489 reviews (2026-05-16T20:14Z) shipped
+        // a hallucinated "Structural Evaluation Matrix" with 5 invented metric names on a 1-10
+        // scale, completely bypassing the template's 7 evaluation-metric tags. The Retrospective
+        // daemon's regex parser (`ConceptDiscoveryService.mjs:32`) saw zero ingest signal — two
+        // PRs worth of review-substrate data silently lost from the Native Edge Graph. This test
+        // pins the new tool-boundary gate that prevents this class of substrate loss.
+        let graphqlCallCount = 0;
+        GraphqlService.query = async () => {
+            graphqlCallCount++;
+            return {repository: {pullRequest: {id: PR_NODE_ID}}};
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 11491,
+            state    : 'APPROVED',
+            body     : 'LGTM, looks great!'
+        });
+
+        expect(result.error).toBe('PR Review Template Validation Failed');
+        expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(result.missing).toEqual([
+            '[ARCH_ALIGNMENT]',
+            '[CONTENT_COMPLETENESS]',
+            '[EXECUTION_QUALITY]',
+            '[PRODUCTIVITY]',
+            '[IMPACT]',
+            '[COMPLEXITY]',
+            '[EFFORT_PROFILE]'
+        ]);
+        expect(result.skill).toBe('.agents/skills/pr-review/SKILL.md');
+        expect(result.template).toBe('.agents/skills/pr-review/assets/pr-review-template.md');
+        // Critical: no GitHub API call should have been made — bad data must not land on GitHub.
+        expect(graphqlCallCount).toBe(0);
+    });
+
+    test('#11491: rejects body missing some anchors and returns the precise missing list', async () => {
+        // Goodhart-stuffing partial: agent put SOME anchors but skimmed past three. Validator
+        // must emit the EXACT missing list so the agent can fix-and-resubmit in-turn.
+        const partialBody = [
+            'My substantive review prose here.',
+            '[ARCH_ALIGNMENT]: 75',
+            '[CONTENT_COMPLETENESS]: 75',
+            '[EXECUTION_QUALITY]: 75',
+            '[PRODUCTIVITY]: 75'
+            // Missing: [IMPACT], [COMPLEXITY], [EFFORT_PROFILE]
+        ].join('\n');
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 11491,
+            state    : 'APPROVED',
+            body     : partialBody
+        });
+
+        expect(result.code).toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+        expect(result.missing).toEqual(['[IMPACT]', '[COMPLEXITY]', '[EFFORT_PROFILE]']);
+    });
+
+    test('#11491: accepts body containing all 7 anchors, proceeds to GraphQL dispatch', async () => {
+        // Smoke test that the validator does NOT block well-formed reviews — the depth-floor
+        // gate is permissive once anchors are present; quality remains the peer-V-B-A reviewer's
+        // responsibility.
+        let graphqlCallCount = 0;
+        GraphqlService.query = async (queryString) => {
+            graphqlCallCount++;
+            if (queryString.includes('GetPullRequestId')) return {repository: {pullRequest: {id: PR_NODE_ID}}};
+            if (queryString.includes('AddPullRequestReview')) return {addPullRequestReview: {pullRequestReview: REVIEW_NODE}};
+            return null;
+        };
+
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 11491,
+            state    : 'APPROVED',
+            body     : VALID_REVIEW_BODY
+        });
+
+        expect(result.error).toBeUndefined();
+        expect(result.reviewId).toBe('PRR_kwDOABcD1111111111');
+        // Two GraphQL queries: GetPullRequestId + AddPullRequestReview
+        expect(graphqlCallCount).toBe(2);
+    });
+
+    test('#11491: action-check precedence preserved — invalid action returns INVALID_ARGUMENTS even with missing-anchor body', async () => {
+        // Existing test on line ~488 covers the action-check; this one explicitly pins the
+        // precedence ordering: action-validation must fire BEFORE body-validation so callers
+        // get the more specific error first.
+        const result = await PullRequestService.managePrReview({
+            action: 'submit', // invalid
+            body  : 'no anchors here'
+        });
+
+        expect(result.code).toBe('INVALID_ARGUMENTS');
+        expect(result.code).not.toBe('PR_REVIEW_TEMPLATE_VALIDATION_FAILED');
+    });
+
+    test('#11491: missing-body check precedence preserved — undefined body returns MISSING_ARGUMENTS not validation error', async () => {
+        // Body-presence check must fire BEFORE body-shape validation so the error names the
+        // more fundamental gap (`body is required`) rather than emitting a 7-anchor missing
+        // list against an empty body.
+        const result = await PullRequestService.managePrReview({
+            action   : 'create',
+            pr_number: 11491,
+            state    : 'APPROVED'
+            // body intentionally omitted
+        });
+
+        expect(result.code).toBe('MISSING_ARGUMENTS');
+        expect(result.message).toContain("'body' is required");
     });
 });

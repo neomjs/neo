@@ -15,6 +15,37 @@ const execAsync     = promisify(exec);
 const execFileAsync = promisify(execFile);
 
 /**
+ * Required template-anchor substrings every formal PR review body MUST contain (#11491).
+ *
+ * These are the 7 evaluation-metric tags from `.agents/skills/pr-review/assets/pr-review-template.md`
+ * (cycle-1) and `.agents/skills/pr-review/assets/pr-review-followup-template.md` (cycle-N). They are
+ * also the regex parse keys that `ai/daemons/services/ConceptDiscoveryService.mjs` consumes during
+ * Retrospective-daemon REM-sleep graph ingestion — a malformed review with hallucinated metric
+ * names produces zero graph ingest signal and is silently lost from the Native Edge Graph.
+ *
+ * This is the **depth-floor mechanical enforcement** layer; quality of the content under each
+ * anchor remains the peer-V-B-A reviewer's responsibility. Goodhart anchor-stuffing risk is
+ * accepted residual — see #11491 ticket body for the failure-mode shift rationale.
+ *
+ * Cycle-followup templates use the same 7 metric tags (`pr-review-followup-template.md:96-102`)
+ * so this set applies to both cycle-1 and cycle-N reviews without false-positive separation.
+ *
+ * Extension protocol: if the pr-review skill adds a new evaluation metric, append the literal
+ * `[NEW_TAG]` string here AND update both template files in the same PR. The CI grep-fail check
+ * in PR #11406/#11490 family can serve as a sibling enforcement pattern for the template-side
+ * consistency (out-of-scope for #11491).
+ */
+const REQUIRED_PR_REVIEW_ANCHORS = [
+    '[ARCH_ALIGNMENT]',
+    '[CONTENT_COMPLETENESS]',
+    '[EXECUTION_QUALITY]',
+    '[PRODUCTIVITY]',
+    '[IMPACT]',
+    '[COMPLEXITY]',
+    '[EFFORT_PROFILE]'
+];
+
+/**
  * @summary Service for interacting with GitHub Pull Requests via the `gh` CLI and GraphQL API.
  *
  * This service acts as a unified interface for Pull Request operations.
@@ -355,6 +386,23 @@ class PullRequestService extends Base {
                 error  : 'Bad Request',
                 message: "Missing required argument: 'body' is required.",
                 code   : 'MISSING_ARGUMENTS'
+            };
+        }
+
+        // Tool-boundary mechanical body-shape validation (#11491).
+        // PR #11479 added a description-prose MANDATORY pre-step pointing to the pr-review SKILL.md;
+        // this gate promotes that discipline-only guard to a mechanical floor. Bad data never lands
+        // on GitHub or reaches the Retrospective daemon. See REQUIRED_PR_REVIEW_ANCHORS docstring
+        // for the residual Goodhart-stuffing trade-off rationale.
+        const missingAnchors = REQUIRED_PR_REVIEW_ANCHORS.filter(anchor => !body.includes(anchor));
+        if (missingAnchors.length > 0) {
+            return {
+                error   : 'PR Review Template Validation Failed',
+                message : `Review body is missing required template anchors: ${missingAnchors.join(', ')}. Read .agents/skills/pr-review/assets/pr-review-template.md (cycle-1) or pr-review-followup-template.md (cycle-N) before submitting — the 7 evaluation-metric tags are the wire-format contract with the Retrospective-daemon graph ingestor.`,
+                code    : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
+                missing : missingAnchors,
+                skill   : '.agents/skills/pr-review/SKILL.md',
+                template: '.agents/skills/pr-review/assets/pr-review-template.md'
             };
         }
 

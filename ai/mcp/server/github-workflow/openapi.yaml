@@ -638,6 +638,8 @@ paths:
         Atomic create or update of a formal PR review. Single call posts body + flips reviewDecision. create requires pr_number + state (APPROVED/REQUEST_CHANGES/COMMENT) + body. update requires review_id (PRR_*) + body; state cannot transition. Returns reviewId + state + url + submittedAt.
 
         **MANDATORY pre-step:** read `.agents/skills/pr-review/SKILL.md` — this skill contains the authoritative protocol and template structure for conducting pull request reviews. You MUST NOT execute a formal review without adhering to the depth floor and evidence audit guidelines outlined in the skill.
+
+        **Mechanical body validation (#11491):** the `body` parameter is mechanically validated against the 7 evaluation-metric anchor tags (`[ARCH_ALIGNMENT]`, `[CONTENT_COMPLETENESS]`, `[EXECUTION_QUALITY]`, `[PRODUCTIVITY]`, `[IMPACT]`, `[COMPLEXITY]`, `[EFFORT_PROFILE]`). These are the wire-format contract with the Retrospective-daemon graph ingestor (`ai/daemons/services/ConceptDiscoveryService.mjs`). Missing-anchor submissions return error `PR_REVIEW_TEMPLATE_VALIDATION_FAILED` with the missing-anchor list — the agent can fix and resubmit in-turn before bad data reaches GitHub. This is the depth-floor enforcement; content quality remains the peer-V-B-A reviewer's responsibility.
       tags: [PullRequests]
       parameters:
         - name: pr_number
