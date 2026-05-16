@@ -82,41 +82,33 @@ class PullRequestSyncer extends Base {
      */
     #planBuckets(metadata, fetchedPullRequests = []) {
         const combined = new Map();
-        
+
         for (const [idStr, pr] of Object.entries(metadata.pulls || {})) {
             combined.set(parseInt(idStr, 10), {
-                number        : parseInt(idStr, 10),
-                state         : pr.state,
-                milestone     : pr.milestone ? { title: pr.milestone } : null,
-                closedAt      : pr.closedAt,
-                mergedAt      : pr.mergedAt,
-                archiveVersion: pr.archiveVersion
+                number   : parseInt(idStr, 10),
+                state    : pr.state,
+                milestone: pr.milestone ? { title: pr.milestone } : null,
+                closedAt : pr.closedAt,
+                mergedAt : pr.mergedAt
             });
         }
-        
-        for (const pr of fetchedPullRequests) {
-            const cached = metadata.pulls?.[pr.number];
 
+        for (const pr of fetchedPullRequests) {
             combined.set(pr.number, {
-                number        : pr.number,
-                state         : pr.state,
-                milestone     : pr.milestone,
-                closedAt      : pr.closedAt,
-                mergedAt      : pr.mergedAt,
-                archiveVersion: cached?.archiveVersion
+                number   : pr.number,
+                state    : pr.state,
+                milestone: pr.milestone,
+                closedAt : pr.closedAt,
+                mergedAt : pr.mergedAt
             });
         }
-        
+
         const buckets = new Map();
         const activeItems = [];
-        
+
         for (const pr of combined.values()) {
             let version = null;
-            if (pr.archiveVersion) {
-                version = pr.archiveVersion.startsWith(issueSyncConfig.versionDirectoryPrefix)
-                    ? pr.archiveVersion
-                    : issueSyncConfig.versionDirectoryPrefix + pr.archiveVersion;
-            } else if (pr.milestone?.title) {
+            if (pr.milestone?.title) {
                 version = pr.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
                     ? pr.milestone.title
                     : issueSyncConfig.versionDirectoryPrefix + pr.milestone.title;
@@ -342,15 +334,14 @@ class PullRequestSyncer extends Base {
             const plan = planBuckets.get(p.number);
 
             metadata.pulls[p.number] = {
-                number        : p.number,
-                contentHash   : p.contentHash,
-                state         : p.state,
-                updatedAt     : p.updatedAt,
-                closedAt      : p.closedAt || null,
-                mergedAt      : p.mergedAt || null,
-                milestone     : p.milestone?.title || null,
-                archiveVersion: p.state === 'OPEN' ? null : plan?.version || null,
-                path          : p.relativeOutputPath
+                number     : p.number,
+                contentHash: p.contentHash,
+                state      : p.state,
+                updatedAt  : p.updatedAt,
+                closedAt   : p.closedAt || null,
+                mergedAt   : p.mergedAt || null,
+                milestone  : p.milestone?.title || null,
+                path       : p.relativeOutputPath
             };
 
             indexEntries.push(createContentIndexEntry({

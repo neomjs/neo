@@ -119,7 +119,9 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
         expect(loaded.pulls['789'].extraFieldShouldBePruned).toBeUndefined();
         expect(loaded.pulls['789'].mergedAt).toBe('2026-05-13T00:00:00Z');
         expect(loaded.pulls['789'].milestone).toBe('v1.0.0');
-        expect(loaded.pulls['789'].archiveVersion).toBe('v1.0.0');
+        // archiveVersion is intentionally pruned post-#11364: archive routing must derive
+        // from current GitHub state (milestone/release-chronology), not from carried metadata.
+        expect(loaded.pulls['789'].archiveVersion).toBeUndefined();
         expect(loaded.pulls['789'].contentHash).toBe('hash3');
 
         // Backward compat

@@ -68,8 +68,12 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         await fs.remove(tmpRoot).catch(() => {});
     });
 
-    test('preserves cached archiveVersion for migrated closed PR paths', async () => {
+    test('drops archiveVersion carry-forward: stale cached value cannot force placement, field is no longer serialized', async () => {
         const prNumber = 12345;
+        // Stale cached metadata claims v13.0.0. Under post-#11360 contract this must NOT
+        // drive routing: the PR has no milestone and no subsequent release in
+        // ReleaseNotesSyncer.sortedReleases (empty per beforeEach), so the syncer must
+        // route to the active path and the serialized metadata must omit archiveVersion.
         const metadata = {
             pulls: {
                 [prNumber]: {
@@ -78,7 +82,7 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
                     closedAt      : '2026-05-01T00:00:00Z',
                     mergedAt      : '2026-05-01T00:00:00Z',
                     archiveVersion: 'v13.0.0',
-                    path          : `resources/content/pr-archive/123xx/pr-${prNumber}.md`
+                    path          : `resources/content/pr-archive/v13.0.0/chunk-1/pr-${prNumber}.md`
                 }
             }
         };
@@ -86,30 +90,59 @@ test.describe('Neo.ai.services.github-workflow.sync.PullRequestSyncer', () => {
         GraphqlService.query = async () => ({
             repository: {
                 pullRequests: {
-                    nodes: [buildPullRequest(prNumber)],
-                    pageInfo: {
-                        hasNextPage: false,
-                        endCursor  : null
-                    }
+                    nodes   : [buildPullRequest(prNumber)],
+                    pageInfo: {hasNextPage: false, endCursor: null}
                 }
             }
         });
 
         const stats = await PullRequestSyncer.syncPullRequests(metadata);
-        const chunkNumber = 1;
-        const targetPath = path.join(aiConfig.issueSync.archiveRoot, 'pulls', 'v13.0.0', `chunk-${chunkNumber}`, `pr-${prNumber}.md`);
 
         expect(stats.synced).toEqual([prNumber]);
-        await expect(fs.pathExists(targetPath)).resolves.toBe(true);
-        expect(metadata.pulls[prNumber].archiveVersion).toBe('v13.0.0');
-        expect(metadata.pulls[prNumber].path).toBe(path.relative(aiConfig.projectRoot, targetPath));
+        expect(metadata.pulls[prNumber]).not.toHaveProperty('archiveVersion');
+        expect(metadata.pulls[prNumber].path).not.toContain('v13.0.0');
+    });
+
+    test('derives archive bucket from milestone independent of cached archiveVersion', async () => {
+        const prNumber = 12346;
+        // Stale cached archiveVersion would have routed this PR into v13.0.0/, but the
+        // fresh GraphQL milestone 'v12.1.0' is now the authoritative bucket source.
+        const metadata = {
+            pulls: {
+                [prNumber]: {
+                    state         : 'MERGED',
+                    updatedAt     : '2026-04-01T00:00:00Z',
+                    closedAt      : '2026-04-01T00:00:00Z',
+                    mergedAt      : '2026-04-01T00:00:00Z',
+                    archiveVersion: 'v13.0.0',
+                    path          : `resources/content/pr-archive/v13.0.0/chunk-1/pr-${prNumber}.md`
+                }
+            }
+        };
+
+        GraphqlService.query = async () => ({
+            repository: {
+                pullRequests: {
+                    nodes   : [buildPullRequest(prNumber, {milestone: {title: 'v12.1.0'}})],
+                    pageInfo: {hasNextPage: false, endCursor: null}
+                }
+            }
+        });
+
+        const stats = await PullRequestSyncer.syncPullRequests(metadata);
+
+        expect(stats.synced).toEqual([prNumber]);
+        expect(metadata.pulls[prNumber]).not.toHaveProperty('archiveVersion');
+        expect(metadata.pulls[prNumber].milestone).toBe('v12.1.0');
+        expect(metadata.pulls[prNumber].path).toContain('v12.1.0');
+        expect(metadata.pulls[prNumber].path).not.toContain('v13.0.0');
     });
 });
 
-function buildPullRequest(number) {
+function buildPullRequest(number, overrides = {}) {
     return {
         number,
-        title      : 'Preserve migrated archive version',
+        title      : 'Post-#11360 contract test PR',
         author     : {login: 'neo-test'},
         state      : 'MERGED',
         createdAt  : '2026-05-01T00:00:00Z',
@@ -122,6 +155,7 @@ function buildPullRequest(number) {
         body       : 'Merged body',
         milestone  : null,
         comments   : {nodes: []},
-        reviews    : {nodes: []}
+        reviews    : {nodes: []},
+        ...overrides
     }
 }
