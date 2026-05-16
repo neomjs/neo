@@ -3,7 +3,12 @@
   "$id": "https://neo.mjs.local/agents/skills/skills.manifest.schema.json",
   "title": "Neo.mjs Skill Capability Manifest",
   "type": "object",
-  "required": ["schemaVersion", "sourceOfTruth", "defaults", "skills"],
+  "required": [
+    "schemaVersion",
+    "sourceOfTruth",
+    "defaults",
+    "skills"
+  ],
   "additionalProperties": false,
   "properties": {
     "$schema": {
@@ -18,7 +23,12 @@
     },
     "defaults": {
       "type": "object",
-      "required": ["routerByteBudget", "payloadBudget", "claudeSymlinkRequired", "downstreamDocsTargets"],
+      "required": [
+        "routerByteBudget",
+        "payloadBudget",
+        "claudeSymlinkRequired",
+        "downstreamDocsTargets"
+      ],
       "additionalProperties": false,
       "properties": {
         "routerByteBudget": {
@@ -67,7 +77,6 @@
       "required": [
         "name",
         "description",
-        "triggers",
         "routerByteBudget",
         "payloadBudget",
         "claudeSymlinkRequired",
@@ -80,10 +89,6 @@
           "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
         },
         "description": {
-          "type": "string",
-          "minLength": 1
-        },
-        "triggers": {
           "type": "string",
           "minLength": 1
         },

@@ -28,7 +28,7 @@ A skill in the Neo Agent OS is a directory containing instructional context.
 The contract for a skill is simple:
 
 1. **`SKILL.md` (Mandatory):** The entry point. It must contain YAML frontmatter
-   with a `name`, `description`, and `triggers` (to explain when an agent should invoke it),
+   with a `name` and `description` (which serves as the primary cross-harness router by outlining the invocation contract and purpose),
    followed by standard Markdown instructions.
 2. **`references/` (Optional):** Deeper architectural documentation or procedural 
    steps linked from the main `SKILL.md`.

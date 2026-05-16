@@ -1,7 +1,6 @@
 ---
 name: industry-friction-radar
-description: Proactive Bleeding-Edge research loop using a strict 3-step abstraction protocol to extract engine-category friction points without importing framework-category bias or stealing code.
-triggers: Use this skill when executing periodic "horizon scans" for the Dream Pipeline, researching external solutions to deeply complex engine-level friction points, or evaluating JS ecosystem trends.
+description: Proactive Bleeding-Edge research loop using a strict 3-step abstraction protocol to extract engine-category friction points without importing framework-category bias or stealing code. Triggers: Use this skill when executing periodic "horizon scans" for the Dream Pipeline, researching external solutions to deeply complex engine-level friction points, or evaluating JS ecosystem trends.
 ---
 
 # Industry Friction Radar

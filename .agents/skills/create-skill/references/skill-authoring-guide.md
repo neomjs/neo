@@ -25,7 +25,7 @@ Whenever you create a new skill named `my-new-skill`, you must scaffold the foll
     └── report-template.md   # Example
 ```
 
-After adding or renaming a skill folder, update `.agents/skills/skills.manifest.json`. `SKILL.md` frontmatter remains the runtime source of truth; the manifest mirrors `name`, `description`, and `triggers` for tooling, declares the router/payload budgets, and records harness/doc governance such as Claude symlink requirements and downstream documentation targets.
+After adding or renaming a skill folder, update `.agents/skills/skills.manifest.json`. `SKILL.md` frontmatter remains the runtime source of truth; the manifest mirrors `name` and `description` for tooling, declares the router/payload budgets, and records harness/doc governance such as Claude symlink requirements and downstream documentation targets.
 
 ## Slot-Rule Discriminator (Apply Before Authoring)
 
@@ -80,8 +80,7 @@ The `SKILL.md` file MUST begin with a frontmatter YAML block. The system parser 
 ```yaml
 ---
 name: [kebab-case-name]
-description: [Concise 1-2 sentence description of what the skill provides]
-triggers: [Explicit natural language triggers for when an agent should use it]
+description: [Concise 1-2 sentence description of what the skill provides and when to invoke it (the invocation contract)]
 ---
 ```
 
@@ -166,7 +165,7 @@ Failure to create this symlink will result in Claude being entirely blind to the
 
 Before pushing your new skill, check:
 - [ ] Is there exactly one `SKILL.md` in the root of the skill folder?
-- [ ] Does `SKILL.md` have the strictly formatted YAML `name`, `description`, and `triggers` block?
+- [ ] Does `SKILL.md` have the strictly formatted YAML `name` and `description` block?
 - [ ] Is the heavy instructional content stored entirely in the `references/` directory?
 - [ ] Does the `SKILL.md` body provide the explicit project-relative path to the reference file?
 - [ ] Is `.agents/skills/skills.manifest.json` updated to mirror the frontmatter and governance fields?

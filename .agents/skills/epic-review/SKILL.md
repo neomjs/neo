@@ -1,7 +1,6 @@
 ---
 name: epic-review
-description: Authoritative protocol for pre-work review of epics. Six-stage gating chain — roadmap fit, approach elegance, source discussion mapping, sub-structure coherence, prescription layer, avoided-traps completeness — posted as a structured comment on the epic ticket. Per-agent-per-epic one-shot; subsequent sub pickups cite the prior review.
-triggers: Use this skill when an agent is about to pick up its first sub from an unreviewed epic (per model-identity). Also use when a user explicitly requests an epic review, or when an epic is freshly filed and a reviewer pre-validates before any sub pickup begins.
+description: Authoritative protocol for pre-work review of epics. Six-stage gating chain — roadmap fit, approach elegance, source discussion mapping, sub-structure coherence, prescription layer, avoided-traps completeness — posted as a structured comment on the epic ticket. Per-agent-per-epic one-shot; subsequent sub pickups cite the prior review. Triggers: Use this skill when an agent is about to pick up its first sub from an unreviewed epic (per model-identity). Also use when a user explicitly requests an epic review, or when an epic is freshly filed and a reviewer pre-validates before any sub pickup begins.
 ---
 # Epic Review Skill
 

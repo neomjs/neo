@@ -447,6 +447,8 @@ Offline cognitive maintenance runs as **Node.js scripts**, not MCP protocol oper
 
 Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. Listed in execution-lifecycle order, then tactical, creative, and meta. See [`learn/agentos/ProgressiveDisclosureSkills.md`](../../agentos/ProgressiveDisclosureSkills.md) for the full protocol reference and lifecycle flow diagram.
 
+**Note:** To ensure unified cross-harness trigger salience (Antigravity vs Codex/Claude) and reduce cognitive bloat, the `description` field serves as the sole routing layer, replacing the legacy redundant `triggers` frontmatter field.
+
 **Lifecycle (execution gates):**
 - `ticket-intake`: Pre-execution validation gate for existing tickets (validation sweep, ROI calculation, branch-before-code).
 - `ticket-create`: Pre-creation discipline gate for new GitHub issues (duplicate sweep, Fat Ticket body, title/label rules).
