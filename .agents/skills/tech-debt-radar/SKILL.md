@@ -1,6 +1,6 @@
 ---
 name: tech-debt-radar
-description: Proactive architectural review skill using Frontier Model semantic RAG to sweep historical issues and Memory Core sessions for technical debt. Triggers: Use this skill when conducting architectural analysis, proactively searching for technical debt, auditing the repository for abandoned logical loops, or when explicitly requested to scan for ambient architectural debt.
+description: "Proactive architectural review skill using Frontier Model semantic RAG to sweep historical issues and Memory Core sessions for technical debt. Triggers: Use this skill when conducting architectural analysis, proactively searching for technical debt, auditing the repository for abandoned logical loops, or when explicitly requested to scan for ambient architectural debt."
 ---
 
 # Tech Debt Radar
