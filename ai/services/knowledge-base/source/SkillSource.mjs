@@ -3,13 +3,14 @@ import fs       from 'fs-extra';
 import path     from 'path';
 import fg       from 'fast-glob';
 import aiConfig from '../../../mcp/server/knowledge-base/config.mjs';
+import {parseSectionTriggers} from '../../../scripts/lint-skill-manifest.mjs';
 
 /**
  * @summary Extracts knowledge chunks from Skill Markdown files.
  *
  * This source provider scans the `.agents/skills` directory for Markdown files.
  * It chunks documents by headers and extracts sub-metadata like `skillName`,
- * `sectionAnchor`, and `triggerCondition`.
+ * `sectionAnchor`, `triggerCondition`, and trigger-pointer sub-rule metadata.
  *
  * @class Neo.ai.services.knowledge-base.source.SkillSource
  * @extends Neo.ai.services.knowledge-base.source.Base
@@ -44,13 +45,19 @@ class SkillSource extends Base {
             const pattern = path.join(skillsBasePath, '**/*.md').replace(/\\/g, '/');
             const skillFiles = await fg(pattern);
 
+            const triggerTargetPathsBySkill = await this.collectTriggerTargetPathsBySkill(skillFiles, skillsBasePath);
+
             for (const filePath of skillFiles) {
                 const content = await fs.readFile(filePath, 'utf-8');
                 const relativePath = path.relative(aiConfig.neoRootDir, filePath);
                 const skillRelativePath       = path.relative(skillsBasePath, filePath);
                 const pathParts               = skillRelativePath.split(path.sep);
                 const skillFolder             = pathParts[0];
-                const isAtlasMonolithSubRule  = pathParts.includes('references');
+                const skillTriggerTargets     = triggerTargetPathsBySkill.get(skillFolder);
+                const normalizedSkillPath     = this.normalizeRelativePath(skillRelativePath);
+                const isAtlasMonolithSubRule  = skillTriggerTargets?.size
+                    ? skillTriggerTargets.has(normalizedSkillPath)
+                    : pathParts.includes('references');
 
                 let skillName = skillFolder;
                 let triggerCondition = '';
@@ -106,6 +113,49 @@ class SkillSource extends Base {
         }
 
         return count;
+    }
+
+    /**
+     * Builds a per-skill set of files targeted by trigger-pointer comments.
+     * @param {String[]} skillFiles      Absolute skill markdown file paths.
+     * @param {String}   skillsBasePath Absolute `.agents/skills` path.
+     * @returns {Promise<Map<String, Set<String>>>}
+     */
+    async collectTriggerTargetPathsBySkill(skillFiles, skillsBasePath) {
+        const targetPathsBySkill = new Map();
+
+        for (const filePath of skillFiles) {
+            const skillRelativePath = path.relative(skillsBasePath, filePath);
+            const pathParts         = skillRelativePath.split(path.sep);
+            const skillFolder       = pathParts[0];
+            const content           = await fs.readFile(filePath, 'utf-8');
+            const sectionTriggers   = parseSectionTriggers(content);
+
+            if (!sectionTriggers.length) continue;
+
+            const skillTargets = targetPathsBySkill.get(skillFolder) || new Set();
+            targetPathsBySkill.set(skillFolder, skillTargets);
+
+            for (const {subRulePath} of sectionTriggers) {
+                const targetPath     = path.resolve(path.dirname(filePath), subRulePath);
+                const targetRelative = this.normalizeRelativePath(path.relative(skillsBasePath, targetPath));
+
+                if (!targetRelative.startsWith(`${skillFolder}/`)) continue;
+
+                skillTargets.add(targetRelative);
+            }
+        }
+
+        return targetPathsBySkill;
+    }
+
+    /**
+     * Normalizes relative filesystem paths for trigger-target matching.
+     * @param {String} filePath Relative file path.
+     * @returns {String}
+     */
+    normalizeRelativePath(filePath) {
+        return filePath.split(path.sep).join('/');
     }
 }
 
