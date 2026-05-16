@@ -70,7 +70,7 @@ function parseFrontmatter(text, filePath) {
         data[key] = value.replace(/^"(.*)"$/, '$1');
     }
 
-    for (const key of ['name', 'description', 'triggers']) {
+    for (const key of ['name', 'description']) {
         if (!data[key]) {
             throw new Error(`${filePath} missing required frontmatter key: ${key}`);
         }
@@ -289,9 +289,7 @@ function validateManifestSchema(manifest, schema) {
             errors.push(`${skillName}.description must be a non-empty string`);
         }
 
-        if (typeof skill.triggers !== 'string' || !skill.triggers.length) {
-            errors.push(`${skillName}.triggers must be a non-empty string`);
-        }
+
 
         if (!Array.isArray(skill.downstreamDocsTargets)) {
             errors.push(`${skillName}.downstreamDocsTargets must be an array`);
@@ -376,7 +374,7 @@ async function lint({base = null} = {}) {
         const fm        = parseFrontmatter(text, routerRel);
         const lineCount = text.trimEnd().split('\n').length;
 
-        for (const key of ['name', 'description', 'triggers']) {
+        for (const key of ['name', 'description']) {
             if (skill[key] !== fm[key]) {
                 errors.push(`${routerRel} frontmatter ${key} mismatch: manifest=${JSON.stringify(skill[key])} frontmatter=${JSON.stringify(fm[key])}`);
             }

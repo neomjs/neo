@@ -1,7 +1,6 @@
 ---
 name: peer-role
-description: Switch into evidence-backed convergence-pressure mindset when reviewing a peer's design proposal. Suspends Auto Mode "ack-and-move-on" bias for the duration.
-triggers: Use this skill IMMEDIATELY when reviewing an Ideation Sandbox discussion / architectural proposal, an epic shape, a skill shape, a roadmap or milestone proposal, or a `/lead-role` convergence artifact. Do NOT auto-fire on ordinary status broadcasts where the right action is mark-read or "no collision".
+description: Switch into evidence-backed convergence-pressure mindset when reviewing a peer's design proposal. Suspends Auto Mode "ack-and-move-on" bias for the duration. Triggers: Use this skill IMMEDIATELY when reviewing an Ideation Sandbox discussion / architectural proposal, an epic shape, a skill shape, a roadmap or milestone proposal, or a `/lead-role` convergence artifact. Do NOT auto-fire on ordinary status broadcasts where the right action is mark-read or "no collision".
 ---
 
 # Peer Role Skill

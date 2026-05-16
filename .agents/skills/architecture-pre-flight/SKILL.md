@@ -1,7 +1,6 @@
 ---
 name: architecture-pre-flight
-description: "High-level umbrella router for navigating broad, cross-substrate architectural ambiguity."
-triggers: Use when no narrower pre-flight clearly applies, or when work spans multiple trigger families such as new subsystems, protocols, MCP tools, or cross-substrate refactors.
+description: High-level umbrella router for navigating broad, cross-substrate architectural ambiguity. Triggers: Use when no narrower pre-flight clearly applies, or when work spans multiple trigger families such as new subsystems, protocols, MCP tools, or cross-substrate refactors.
 ---
 
 # Architecture Pre-Flight

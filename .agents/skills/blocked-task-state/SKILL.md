@@ -1,7 +1,6 @@
 ---
 name: blocked-task-state
-description: Authoritative protocol for signaling blocked or input-required task states. Mandates targeted A2A pings using the Task.state envelope rather than global capacity broadcasts.
-triggers: Use this skill whenever your execution becomes blocked, requires explicit operator input, or encounters a failure that halts progress.
+description: Authoritative protocol for signaling blocked or input-required task states. Mandates targeted A2A pings using the Task.state envelope rather than global capacity broadcasts. Triggers: Use this skill whenever your execution becomes blocked, requires explicit operator input, or encounters a failure that halts progress.
 ---
 
 # Blocked Task-State Coordination

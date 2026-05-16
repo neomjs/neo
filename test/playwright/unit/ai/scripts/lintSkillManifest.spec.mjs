@@ -24,12 +24,11 @@ test.describe('ai/scripts/lint-skill-manifest (#11275)', () => {
         expect(result.stdout).toContain('[lint-skill-manifest] OK');
     });
 
-    test('frontmatter parser preserves colon-bearing trigger text', () => {
-        const parsed = parseFrontmatter(`---\nname: test-skill\ndescription: Short: description\ntriggers: Use when the task says: test\n---\n# Body\n`, 'fixture/SKILL.md');
+    test('frontmatter parser preserves colon-bearing description text', () => {
+        const parsed = parseFrontmatter(`---\nname: test-skill\ndescription: Short: description\n---\n# Body\n`, 'fixture/SKILL.md');
 
         expect(parsed.name).toBe('test-skill');
         expect(parsed.description).toBe('Short: description');
-        expect(parsed.triggers).toBe('Use when the task says: test');
     });
 
     test('schema validator catches missing required skill fields', () => {
@@ -50,7 +49,6 @@ test.describe('ai/scripts/lint-skill-manifest (#11275)', () => {
             skills: {
                 broken: {
                     name                : 'broken',
-                    description         : 'missing trigger',
                     routerByteBudget    : 12,
                     payloadBudget        : 80000,
                     claudeSymlinkRequired: true,
@@ -59,7 +57,7 @@ test.describe('ai/scripts/lint-skill-manifest (#11275)', () => {
             }
         }, schema);
 
-        expect(errors).toContain('broken missing required key: triggers');
+        expect(errors).toContain('broken missing required key: description');
     });
 
     test('schema validator catches unsupported manifest fields', () => {
@@ -82,7 +80,6 @@ test.describe('ai/scripts/lint-skill-manifest (#11275)', () => {
                 extra: {
                     name                : 'extra',
                     description         : 'has extra key',
-                    triggers            : 'Use for tests.',
                     routerByteBudget    : 12,
                     payloadBudget        : 80000,
                     claudeSymlinkRequired: true,
@@ -117,7 +114,6 @@ test.describe('ai/scripts/lint-skill-manifest (#11275)', () => {
                 optional: {
                     name                : 'optional',
                     description         : 'relationship field omitted intentionally',
-                    triggers            : 'Use for tests.',
                     routerByteBudget    : 12,
                     payloadBudget        : 80000,
                     claudeSymlinkRequired: true,
@@ -176,7 +172,6 @@ test.describe('ai/scripts/lint-skill-manifest (#11275)', () => {
                 'monolith-skill': {
                     name                : 'monolith-skill',
                     description         : 'temporary override for migration-period monolith',
-                    triggers            : 'Use for tests.',
                     routerByteBudget    : 12,
                     payloadBudget       : 80000,
                     perFilePayloadBudget: 66000,
@@ -224,7 +219,6 @@ test.describe('ai/scripts/lint-skill-manifest (#11275)', () => {
                 'bad-budget': {
                     name                : 'bad-budget',
                     description         : 'negative budget',
-                    triggers            : 'Use for tests.',
                     routerByteBudget    : 12,
                     payloadBudget       : 80000,
                     perFilePayloadBudget: -100,
@@ -293,7 +287,6 @@ test.describe('ai/scripts/lint-skill-manifest (#11275)', () => {
                 'legacy-skill': {
                     name                : 'legacy-skill',
                     description         : 'pre-#11320 manifest entry without perFilePayloadBudget',
-                    triggers            : 'Use for tests.',
                     routerByteBudget    : 12,
                     payloadBudget       : 80000,
                     claudeSymlinkRequired: true,
