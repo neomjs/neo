@@ -381,7 +381,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         // Since the stored issue is the only active one planned, its index is 0,
         // which maps to chunk-1.
         expect(targetPath).toContain('chunk-1');
-        
+
         // Assert that dropped issue is nowhere in metadata
         expect(newMetadata.issues[mockIssueDropped.number]).toBeUndefined();
     });
