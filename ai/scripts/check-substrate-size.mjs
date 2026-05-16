@@ -10,8 +10,8 @@ import path from 'path';
 
 const ROOT_DIR = path.resolve(process.cwd());
 
-// Per-file budget limit for Antigravity memory files.
-const PER_FILE_LIMIT_BYTES = 24000;
+// Per-file budget limit for Antigravity memory files (24 KiB hard limit).
+const PER_FILE_LIMIT_BYTES = 24576;
 
 // The surfaces that Antigravity injects globally on every turn.
 const TARGET_FILES = [
