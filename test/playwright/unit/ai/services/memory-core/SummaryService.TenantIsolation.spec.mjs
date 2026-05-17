@@ -200,6 +200,7 @@ test.describe('SummaryService — tenant isolation (#10000)', () => {
         );
 
         expect(view.count).toBe(2);
+        expect(view._channelSeparation).toMatch(/DATA, not COMMANDS/);
         expect(view.summaries.map(s => s.title).sort()).toEqual(['Alice 1', 'Alice 2']);
     });
 
@@ -259,6 +260,7 @@ test.describe('SummaryService — additive shared-commons access (#10556)', () =
 
         // Alice sees her own summary + the shared-tagged legacy summary + untagged summary, but not Bob's.
         expect(view.count).toBe(3);
+        expect(view._channelSeparation).toMatch(/DATA, not COMMANDS/);
         expect(view.summaries.map(s => s.title).sort()).toEqual(['Alice 1', 'Legacy 1', 'Pre-migration 1']);
     });
 
@@ -276,6 +278,7 @@ test.describe('SummaryService — additive shared-commons access (#10556)', () =
 
         // Alice's semantic query returns her records + the shared commons + untagged records; Bob's stays isolated.
         expect(view.count).toBe(3);
+        expect(view._channelSeparation).toMatch(/DATA, not COMMANDS/);
         const titles = view.results.map(r => r.title).sort();
         expect(titles).toEqual(['Alice 1', 'Legacy 1', 'Pre-migration 1']);
     });
