@@ -5,7 +5,7 @@ import path from 'path';
  * Pre-Flight (structural fast-path): authoring `ai/scripts/check-substrate-size.mjs`
  * matches sibling pattern of `ai/scripts/lint-skill-manifest.mjs` in `ai/scripts/`;
  * both are mechanical enforcement / CI scripts for agent substrate validation;
- * §23 sibling-file-lift applies; no novel directory choice.
+ * sibling-file-lift applies; no novel directory choice.
  */
 
 const ROOT_DIR = path.resolve(process.cwd());

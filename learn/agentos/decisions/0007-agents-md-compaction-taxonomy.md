@@ -42,7 +42,7 @@ Based on these axes, every section in the instruction substrate receives a **Dis
 
 ### 2.0.1 Post-Pruning-Recurrence-Rate Sub-Axis
 
-Trigger-frequency decomposes into (a) per-turn-load-frequency and (b) post-pruning-discipline-recall-recurrence. Skills that shape ongoing session behavior (`lead-role`, `peer-role`, `pull-request`, `pr-review`, `post-review-pickup`) require their §21 trigger as a recursive-reload anchor to persist across context-window pruning cycles. One-shot lifecycle skills (`ticket-create`, `ticket-triage`, `ticket-intake`, `epic-review`, `epic-resolution`, `ideation-sandbox`, `memory-mining`, `turn-memory-pre-flight`, `create-skill`, `architecture-pre-flight`, `tech-debt-radar`, `structural-pre-flight`, `session-sunset`, `unit-test`, `whitebox-e2e`) do not require this anchor.
+Trigger-frequency decomposes into (a) per-turn-load-frequency and (b) post-pruning-discipline-recall-recurrence. Skills that shape ongoing session behavior (`lead-role`, `peer-role`, `pull-request`, `pr-review`, `post-review-pickup`) require their native skill-loading as a recursive-reload anchor to persist across context-window pruning cycles. One-shot lifecycle skills (`ticket-create`, `ticket-triage`, `ticket-intake`, `epic-review`, `epic-resolution`, `ideation-sandbox`, `memory-mining`, `turn-memory-pre-flight`, `create-skill`, `architecture-pre-flight`, `tech-debt-radar`, `structural-pre-flight`, `session-sunset`, `unit-test`, `whitebox-e2e`) do not require this anchor.
 
 ### 2.0.2 Friction Classification Vocabulary
 

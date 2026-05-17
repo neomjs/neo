@@ -124,14 +124,14 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `pull-request` | Lifecycle | Post-implementation reflection + PR creation (custom Playwright configs) |
 | `pr-review` | Lifecycle | Structured quality evaluation & graph ingestion (mandatory ROI templates) |
 | `tech-debt-radar` | Lifecycle | Proactive semantic RAG sweeps for architectural debt |
-| `structural-pre-flight` | Lifecycle | Pre-implementation directory-CHOICE discipline gate fired before authoring any new `.mjs` file (Stage 0 mechanical trigger; Stage 1 fast-path or full Pre-Flight) |
+| `structural-pre-flight` | Lifecycle | Pre-implementation directory-CHOICE discipline gate fired before authoring any new `.mjs` file (Stage 0 mechanical trigger; Stage 1 fast-path (sibling-file-lift pattern match) or full Pre-Flight) |
 | `identity-firewall` | Security | The L2 Channel Separation and Prompt Firewall defense mechanisms |
 | `neural-link` | Tactical | Live application inspection sequences |
 | `unit-test` | Tactical | Custom Playwright test authoring patterns native to the single-thread layout |
 | `self-repair` | Tactical | Systemic infrastructure diagnosis, test execution, and memory core forensics |
 | `whitebox-e2e` | Tactical | Neural Link pre-flight workflow for authoring custom Playwright E2E tests |
 | `ideation-sandbox` | Creative | GitHub Discussion brainstorming |
-| `lead-role` | Coordination | Suspends Auto Mode bias; mandates dialogue-first convergence for delegated lead tasks |
+| `lead-role` | Coordination | Suspends Auto Mode bias; mandates dialogue-first convergence for delegated lead tasks (Mailbox Check Protocol supported) |
 | `peer-role` | Coordination | Suspends Auto Mode bias; mandates evidence-backed convergence-pressure mindset for peer reviews |
 | `lane-intent` | Coordination | Narrow, non-authoritative, 2h TTL-bound pre-V-B-A signal for collision-prone / long-V-B-A lanes; distinct from authoritative `[lane-claim]` |
 | `create-skill` | Meta | Skill authoring bootstrap guide |

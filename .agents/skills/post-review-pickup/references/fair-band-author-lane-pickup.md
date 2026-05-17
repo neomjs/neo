@@ -29,5 +29,5 @@ This is a decay detector, not a hard PR-count scoreboard. Non-PR work (reviews, 
 - Discussion #11429 graduation 2026-05-15 (Option C consensus)
 - PR #11432 (primary codification merge)
 - Operator-direction 2026-05-15: enablement-not-blame framing
-- PR #11434 (Pre-Flight Gate extension + AGENTS.md §21 trigger)
+- PR #11434 (Pre-Flight Gate extension + `turn-memory-pre-flight` skill trigger)
 - PR #11434 Cycle-3 operator-challenge: Map-vs-Atlas placement → content extracted to this granular primary payload
