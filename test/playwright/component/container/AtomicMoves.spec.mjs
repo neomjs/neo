@@ -5,7 +5,7 @@ let rootId;
 test.describe('Neo.container.Base Atomic Moves', () => {
     test.beforeEach(async ({neo, page}) => {
         await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
-        await page.waitForSelector('#component-test-viewport');
+        await page.waitForSelector('#component-test-viewport', { state: 'attached' });
 
         // Load core classes
         await neo.loadModule('../container/Base.mjs');

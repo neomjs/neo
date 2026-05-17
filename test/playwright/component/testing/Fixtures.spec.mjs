@@ -3,7 +3,7 @@ import { test, expect } from '../../fixtures.mjs';
 test.describe('Playwright Fixtures', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('test/playwright/component/apps/empty-viewport/index.html');
-        await page.waitForSelector('#component-test-viewport');
+        await page.waitForSelector('#component-test-viewport', { state: 'attached' });
     });
 
     test('neo fixture exposes RmaHelpers', async ({ neo }) => {
