@@ -364,7 +364,7 @@ Distinct from rubber-stamping (§7.7 row 3): the failure is **DIMENSION** (effec
 
 ### Cross-skill bridge
 
-- **Proactive companion (substrate-creation time)**: `/turn-memory-pre-flight` (Epic #11256 substrate; former AGENTS.md §21 trigger)
+- **Proactive companion (substrate-creation time)**: `/turn-memory-pre-flight` (Epic #11256 substrate; `turn-memory-pre-flight` skill trigger)
 - **Architectural router (ambiguous cases)**: `/architecture-pre-flight` (Epic #11256 substrate)
 - **Helpful-Assistant 4-sub-mode context**: Discussion #11259 (CLOSED RESOLVED) → ticket #11262 → PR #11263 (substrate-load-time XML salience metadata)
 

@@ -41,7 +41,7 @@ description: [Concise 1-2 sentence description of what the skill provides and wh
 
 **No separate `triggers:` field.** Pre-PR-#11424, an additional `triggers:` field was preserved on the hypothesis that it served *"canonical repo tooling/docs/humans"*. The hypothesis was empirically falsified — none of the 3 harnesses load it; only lint + schema enforced it; **discipline-without-runtime-consumer**. PR #11424 removes the field across all 25 skill files + the manifest schema + the lint script.
 
-**Canonical shape precedent: Retired AGENTS.md Workflow Skills table** — the former Workflow Skills table format (previously §21) is the canonical model. Single inline "Trigger condition (invoke when)" column with natural-language description per skill; no separate trigger field.
+**Canonical shape precedent: the skills manifest** — the skills manifest `description` field is the canonical model. Single inline "Trigger condition (invoke when)" column with natural-language description per skill; no separate trigger field.
 
 ### 2.2 Map vs World Atlas Body Decomposition
 
@@ -87,7 +87,7 @@ ln -sf ../../.agents/skills/my-skill .claude/skills/my-skill
 
 ### 2.6 Slot-Rule Discriminator (per ADR 0007)
 
-When authoring sections within a skill (SKILL.md Map OR references/ Atlas), apply the 3-Axis Slot Rule from ADR 0007: evaluate each section on trigger-frequency × failure-severity × enforceability, then assign disposition (`keep` / `move` / `compress-to-trigger` / `rewrite` / `retire`). The substrate-vs-discipline tag (`MACHINE-ENFORCEABLE-CANDIDATE` / `DISCIPLINE-ONLY`) preserves authorial intent across compaction cycles. PR #11436 amends ADR 0007 to add a `recursive-reload-required` annotation column for the former §21 entries (Workflow Skills) that are load-bearing for post-pruning behavioral-discipline recall.
+When authoring sections within a skill (SKILL.md Map OR references/ Atlas), apply the 3-Axis Slot Rule from ADR 0007: evaluate each section on trigger-frequency × failure-severity × enforceability, then assign disposition (`keep` / `move` / `compress-to-trigger` / `rewrite` / `retire`). The substrate-vs-discipline tag (`MACHINE-ENFORCEABLE-CANDIDATE` / `DISCIPLINE-ONLY`) preserves authorial intent across compaction cycles. PR #11436 amends ADR 0007 to add a `recursive-reload-required` annotation column for skill manifest entries that are load-bearing for post-pruning behavioral-discipline recall.
 
 ---
 
@@ -141,7 +141,7 @@ The skill-anatomy contract spans the following substrate locations. Future-amend
 
 ### 4.4 Trigger-table substrate (turn-loaded)
 
-- **Retired `AGENTS.md` Workflow Skills table** — former per-skill trigger-pointer entries (previously §21); load-bearing recursive-reload anchors per ADR 0007 amendment (PR #11436). Each entry was the canonical re-invocation primitive for post-pruning discipline-recall prior to frontmatter native loading.
+- **`skills.manifest.json`** — per-skill descriptions with explicit trigger-conditions; load-bearing recursive-reload anchors per ADR 0007 amendment (PR #11436). Each entry serves as the canonical re-invocation primitive for post-pruning discipline-recall.
 
 ---
 
@@ -207,7 +207,7 @@ This ADR consolidates skill-anatomy decisions previously scattered across:
 - **`learn/agentos/ProgressiveDisclosureSkills.md`** — high-level overview; cross-references this ADR
 - **`learn/guides/fundamentals/CodebaseOverview.md`** — codebase-level cross-reference
 - **`.agents/skills/skills.manifest.schema.json`** — machine contract layer; ADR codifies the WHY behind the schema constraints
-- **Retired `AGENTS.md` Workflow Skills table** — former per-skill trigger-pointer entries (previously §21); this ADR codifies the recursive-reload-anchor semantics ADR 0007 amendment (PR #11436) explicitly enumerates
+- **`skills.manifest.json`** — per-skill triggers; this ADR codifies the recursive-reload-anchor semantics ADR 0007 amendment (PR #11436) explicitly enumerates
 - **The pre-PR-#11424 hypothesis** that `SKILL.md` frontmatter `triggers:` field is canonical contract for repo tooling/docs/humans — empirically falsified
 
 Pre-this-ADR, skill-shape decisions had no single graph-queryable authority artifact. Future-agent V-B-A during ticket-intake had no canonical target to query (`ask_knowledge_base(type='adr')` returned empty for skill-anatomy queries — empirically verified during ticket #11427 Gate 0 sweep). This ADR fills that gap per ADR 0006 graph-queryability primitive.
@@ -273,7 +273,7 @@ Per ADR 0005 §2.1 ADR_REQUIRED classification — all three criteria are met:
 - **ADR 0006** — ADRs as Graph-Queryable Entities (this ADR depends on the graph-substrate ADR 0006 establishes; the canonical authority pattern for first-class architectural decisions)
 - **ADR 0007** — Compaction Taxonomy (3-Axis Slot Rule) (the Map/Atlas split per §2.2 + §2.6 specializes ADR 0007's slot-rule for the skill substrate; PR #11436 amends with recursive-reload-required annotation)
 - **PR #11424** — Phase B SKILL.md Description-Router Hardening (the empirical implementation establishing the substrate-truth this ADR codifies; Cycle-1→Cycle-7 cascade is the empirical anchor for §5 anti-patterns; load-bearing dependency for this ADR's Status: Proposed → Accepted transition)
-- **PR #11434** — FAIR-band PR-Pre-Flight Gate + former AGENTS.md §21 trigger (companion substrate-evolution work; surfaced the recursive-reload-anchor framing this ADR's §4.4 documents)
+- **PR #11434** — FAIR-band PR-Pre-Flight Gate (companion substrate-evolution work; surfaced the recursive-reload-anchor framing this ADR's §4.4 documents)
 - **PR #11436** — ADR 0007 amendment for recursive-reload-required annotation (codifies §4.4 Trigger-table substrate semantics)
 - **PR #11438** — Skill-lint mechanical enforcement of Map-vs-Atlas violations (PR #11434 Cycle-3 follow-up; closes §5.5 discipline-gap mechanically)
 - **Ticket #11422** — Phase B sub-ticket (premise-prescription drift origin; in-place body amendment at PR #11424 Cycle-6 restored coherence)

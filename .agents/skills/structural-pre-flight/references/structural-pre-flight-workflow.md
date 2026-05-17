@@ -17,7 +17,7 @@ This skill closes that gap. Read every section before authoring.
 Stage 0 — Mechanical trigger: every new .mjs file fires the skill.
 Stage 1 — Pattern-match check: "Does this file's role match an established sibling pattern
             in the chosen directory?"
-            ✓ YES → fast-path: §22 sibling-file-lift suffices; emit a one-line Pre-Flight
+            ✓ YES → fast-path: sibling-file-lift suffices; emit a one-line Pre-Flight
                               statement and proceed (under 30 seconds)
             ✗ NO  → full structural-pre-flight: ArchitectureOverview.md consultation,
                     learn/agentos/decisions/ ADR sweep, chief-architect framing questions,
@@ -28,7 +28,7 @@ Stage 1 — Pattern-match check: "Does this file's role match an established sib
 
 ## 1. Stage 1 Fast-Path (Sibling Pattern Match)
 
-If your new `.mjs` file has a clear sibling pattern in the chosen directory — same lifecycle category, same architectural role, same naming convention — you are inside `§22 Sibling-File-Lift` territory and the fast-path applies.
+If your new `.mjs` file has a clear sibling pattern in the chosen directory — same lifecycle category, same architectural role, same naming convention — you are inside `Sibling-File-Lift` territory and the fast-path applies.
 
 **Examples of fast-path-eligible authoring:**
 
@@ -39,7 +39,7 @@ If your new `.mjs` file has a clear sibling pattern in the chosen directory — 
 
 **Pre-Flight statement (mandatory, even on fast-path):**
 
-> *"Pre-Flight (structural fast-path): authoring `<path>` matches sibling pattern of `<sibling-path>` in `<dir>`; §22 sibling-file-lift applies; no novel directory choice."*
+> *"Pre-Flight (structural fast-path): authoring `<path>` matches sibling pattern of `<sibling-path>` in `<dir>`; sibling-file-lift applies; no novel directory choice."*
 
 Emit that statement before writing the file. The reasoning-statement is graph-extractable evidence the discipline fired; future audits can verify the choice was conscious, not ambient.
 
@@ -63,7 +63,7 @@ Before drafting the file, you MUST read:
 
 ### 2.2 Pre-Flight Check Shape (Mandatory)
 
-Mirrors `§22` / `§21 Mailbox Check` / `pr-review-guide §9.4 Cold-Cache Exception`. Explicit reasoning-statement before authoring:
+Mirrors the `Mailbox Check Protocol` and `pr-review-guide §9.4 Cold-Cache Exception`. Explicit reasoning-statement before authoring:
 
 > *"Pre-Flight (structural full): considered destinations `<dir-A>`, `<dir-B>`, ... ; consulted `ArchitectureOverview.md` Structural Inventory (sibling = `<sibling-X>`), `learn/agentos/decisions/<ADR>.md` (relevant constraint = `<rule>`), `<v13-path-or-related-doc>` (current architectural posture = `<posture>`); chose `<dir-final>` because `<rationale>`. Map-maintenance: `<update-needed | not-needed>`."*
 
@@ -187,7 +187,7 @@ The skill does NOT fire for:
 
 ### 7.1 Fast-Path Example
 
-> *"Pre-Flight (structural fast-path): authoring `ai/services/memory-core/AuditService.mjs` matches sibling pattern of `ai/services/memory-core/MailboxService.mjs` in `ai/services/memory-core/`; both are SDK-exposed singleton services with `Memory_*` aliasing in `ai/services.mjs`; §22 sibling-file-lift applies (lifted JSDoc shape + `Neo.setupClass` boilerplate); no novel directory choice."*
+> *"Pre-Flight (structural fast-path): authoring `ai/services/memory-core/AuditService.mjs` matches sibling pattern of `ai/services/memory-core/MailboxService.mjs` in `ai/services/memory-core/`; both are SDK-exposed singleton services with `Memory_*` aliasing in `ai/services.mjs`; sibling-file-lift applies (lifted JSDoc shape + `Neo.setupClass` boilerplate); no novel directory choice."*
 
 ### 7.2 Full Pre-Flight Example (Hypothetical Orchestrator-Class File)
 

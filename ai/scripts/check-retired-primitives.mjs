@@ -6,7 +6,7 @@ import process        from 'node:process';
  * Pre-Flight (structural fast-path): authoring `ai/scripts/check-retired-primitives.mjs`
  * matches sibling pattern of `ai/scripts/check-substrate-size.mjs` and
  * `ai/scripts/lint-skill-manifest.mjs` in `ai/scripts/`; all three are mechanical-enforcement /
- * CI scripts for agent substrate validation; §22 sibling-file-lift applies; no novel directory
+ * CI scripts for agent substrate validation; sibling-file-lift applies; no novel directory
  * choice.
  *
  * @summary CI grep-fail check that retired primitives (ADR 0004 §2.3) are not imported from

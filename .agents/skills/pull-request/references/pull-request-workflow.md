@@ -28,7 +28,7 @@ Your PR body's slot-rationale section MUST enumerate:
 - For each *modified* section: its disposition delta + the reason for the shift.
 - For each *retired* section: the rationale for removal.
 
-**Default disposition for new rules:** `compress-to-trigger` is the strict default unless trigger-frequency × failure-severity × enforceability justifies `keep` in always-loaded substrate (the "Map"). Substantive rule bodies belong in conditionally-loaded `references/` payloads (the "World Atlas"), with a one-line trigger in the always-loaded `SKILL.md` or skills manifest. Justification for `keep` over `compress-to-trigger` MUST cite per-turn frequency and irreversibility (e.g., §0 Critical Gates, §21 Mailbox Check). Net-expansion of always-loaded substrate without this justification fails the Substrate Accretion Defense per `AGENTS.md §13`.
+**Default disposition for new rules:** `compress-to-trigger` is the strict default unless trigger-frequency × failure-severity × enforceability justifies `keep` in always-loaded substrate (the "Map"). Substantive rule bodies belong in conditionally-loaded `references/` payloads (the "World Atlas"), with a one-line trigger in the always-loaded `SKILL.md` or skills manifest. Justification for `keep` over `compress-to-trigger` MUST cite per-turn frequency and irreversibility (e.g., §0 Critical Gates, Mailbox Check Protocol). Net-expansion of always-loaded substrate without this justification fails the Substrate Accretion Defense per `AGENTS.md §13`.
 
 **Env-var changes** → read [`env-var-rename-rule.md`](./env-var-rename-rule.md).
 

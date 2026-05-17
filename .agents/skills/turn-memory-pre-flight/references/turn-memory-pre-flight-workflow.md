@@ -21,7 +21,7 @@ Before committing ANY change to the agent memory substrate, you **MUST** evaluat
 ### Step 1: Does this rule apply to EVERY single agent turn universally?
 - **YES:** Can it be mechanically enforced?
   - **YES:** Candidate for `AGENTS.md` §0 (Critical Gates) or §3 (Pre-Commit Hard Gates).
-  - **NO:** Candidate for `AGENTS.md` §13 (Values/Continuous Loop) or §21 (Mailbox Protocol).
+  - **NO:** Candidate for `AGENTS.md` §13 (Values/Continuous Loop) or the Mailbox Protocol.
 - **NO:** Proceed to Step 2.
 
 ### Step 2: Does this rule govern a specific, identifiable agent lifecycle event or workflow?
@@ -30,7 +30,7 @@ Before committing ANY change to the agent memory substrate, you **MUST** evaluat
 - **NO:** Proceed to Step 3.
 
 ### Step 3: Is this an edge-case, historical anchor, or detailed protocol for a rare scenario?
-- **YES:** This is an **Atlas entry**. It must be placed in `learn/agentos/AGENTS_ATLAS.md`. Add a 1-line pointer to `AGENTS.md` §22.
+- **YES:** This is an **Atlas entry**. It must be placed in `learn/agentos/AGENTS_ATLAS.md`. Add a 1-line pointer to the edge-case triggers section of `AGENTS.md`.
 - **NO:** Proceed to Step 4.
 
 ### Step 4: Is it a Harness-Local rule?
