@@ -224,7 +224,7 @@ test.describe('DestructiveOperationGuard call-site wiring (#10845)', () => {
 
     test('Memory Core graph truncate stops before SQLite deletion on the production graph path', async () => {
         test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
-        
+
         const originalGraphPath = aiConfig.storagePaths.graph;
         try {
             aiConfig.storagePaths.graph = path.join(repoRoot, '.neo-ai-data/sqlite/memory-core-graph.sqlite');

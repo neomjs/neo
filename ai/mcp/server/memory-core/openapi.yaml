@@ -74,11 +74,11 @@ paths:
         Manages the lifecycle (start/stop) of the ChromaDB database instance for the Memory Core.
 
         **Behavior:**
-        - **Start:** Spawns a new process if none runs on the configured port. This process cleans up on exit. If already running (e.g., via `npm run ai:server-memory`), simply confirms connection (acts as client, won't kill on exit).
+        - **Start:** Spawns a new process if none runs on the configured port. This process cleans up on exit. If already running (e.g., via `npm run ai:server`), simply confirms connection (acts as client, won't kill on exit).
         - **Stop:** Stops the spawned process. No effect on externally started databases.
 
         **Multi-Agent Recommendation:**
-        For concurrent agents, start the database externally using `npm run ai:server-memory` before starting agents to prevent disconnects.
+        For concurrent agents, start the database externally using `npm run ai:server` before starting agents to prevent disconnects.
 
         **When to Use:**
         - `action: start` if `healthcheck` shows it's not running.
@@ -2007,7 +2007,7 @@ components:
           example: "Database connection failed"
         message:
           type: string
-          example: "Could not connect to ChromaDB on localhost:8001"
+          example: "Could not connect to ChromaDB on localhost:8000"
         code:
           type: string
           example: "DB_CONNECTION_ERROR"
