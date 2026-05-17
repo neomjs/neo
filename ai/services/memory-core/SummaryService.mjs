@@ -115,12 +115,24 @@ class SummaryService extends Base {
             // normalizeUserId strips `@`-prefix so AgentIdentity nodeId vs ChromaDB userId never
             // self-filters.
             const userId = normalizeUserId(RequestContextService.getUserId());
-            const where  = userId ? {$or: [{userId}, {userId: SHARED_USER_ID}]} : undefined;
+            const policy = aiConfig?.memorySharing?.defaultPolicy || 'legacy';
+
+            let tenantScope = null;
+            if (userId) {
+                if (policy === 'private') {
+                    tenantScope = {userId};
+                } else if (policy === 'team') {
+                    tenantScope = {userId: SHARED_USER_ID};
+                } else {
+                    tenantScope = null; // ChromaDB does not support $exists: false, handled post-query
+                }
+            }
+
+            const where = tenantScope ? tenantScope : undefined;
 
             // Phase 1: Fetch ALL metadata (lightweight)
-            const
-                allRecords = [],
-                batchSize  = aiConfig.summarizationBatchLimit || 2000;
+            let allRecords = [];
+            const batchSize  = aiConfig.summarizationBatchLimit || 2000;
 
             let batchOffset = 0,
                 hasMore     = true;
@@ -152,7 +164,11 @@ class SummaryService extends Base {
                 }
             }
 
-            // Phase 2: Sort and Slice
+            // Phase 2: Filter, Sort and Slice
+            if (userId && policy === 'legacy') {
+                allRecords = allRecords.filter(r => !r.metadata.userId || r.metadata.userId === userId || r.metadata.userId === SHARED_USER_ID);
+            }
+
             // Sort by timestamp DESC
             allRecords.sort((a, b) => (b.metadata.timestamp || 0) - (a.metadata.timestamp || 0));
 
@@ -262,11 +278,15 @@ class SummaryService extends Base {
                     // Team/deployment scope: Tagged records only.
                     tenantScope = {userId: SHARED_USER_ID};
                 } else {
-                    // legacy: Migration compatibility (caller owned + shared records)
+                    // legacy: Migration compatibility (caller owned + shared records + untagged)
                     // Note: {userId: {$exists: false}} is not supported by ChromaDB.
-                    // Untagged records have been backfilled with userId: SHARED_USER_ID.
-                    tenantScope = {$or: [{userId}, {userId: SHARED_USER_ID}]};
+                    // We must fetch without a userId DB-filter and apply JS post-filtering.
+                    tenantScope = null;
                 }
+            }
+
+            if (tenantScope === null && userId && policy === 'legacy') {
+                queryArgs.nResults = nResults * 5;
             }
 
             if (category && tenantScope) {
@@ -279,10 +299,25 @@ class SummaryService extends Base {
 
             const searchResult = await collection.query(queryArgs);
 
-            const ids       = searchResult.ids?.[0] || [];
-            const distances = searchResult.distances?.[0] || [];
-            const metadatas = searchResult.metadatas?.[0] || [];
-            const documents = searchResult.documents?.[0] || [];
+            let ids       = searchResult.ids?.[0] || [];
+            let distances = searchResult.distances?.[0] || [];
+            let metadatas = searchResult.metadatas?.[0] || [];
+            let documents = searchResult.documents?.[0] || [];
+
+            if (userId && policy === 'legacy') {
+                const filteredIndices = [];
+                for (let i = 0; i < metadatas.length; i++) {
+                    const metaUserId = metadatas[i]?.userId;
+                    if (!metaUserId || metaUserId === userId || metaUserId === SHARED_USER_ID) {
+                        filteredIndices.push(i);
+                        if (filteredIndices.length === nResults) break;
+                    }
+                }
+                ids = filteredIndices.map(i => ids[i]);
+                distances = filteredIndices.map(i => distances[i]);
+                metadatas = filteredIndices.map(i => metadatas[i]);
+                documents = filteredIndices.map(i => documents[i]);
+            }
 
             const summaries = ids.map((id, index) => {
                 const metadata       = metadatas[index] || {};

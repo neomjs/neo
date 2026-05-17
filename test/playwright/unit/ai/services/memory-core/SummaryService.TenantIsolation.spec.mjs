@@ -213,14 +213,9 @@ test.describe('SummaryService — tenant isolation (#10000)', () => {
         );
 
         const q = spy.calls.query.at(-1);
-        // #10556: read filter became additive — tenant's own records OR records tagged
-        // with SHARED_USER_ID. The category filter remains in the outer $and.
-        expect(q.where).toEqual({
-            $and: [
-                {category: 'refactoring'},
-                {$or: [{userId: 'u-alice'}, {userId: 'shared'}]}
-            ]
-        });
+        // In legacy mode, ChromaDB receives only the category filter; 
+        // the additive user filter is applied post-query.
+        expect(q.where).toEqual({category: 'refactoring'});
     });
 
     test('querySummaries without a request context leaves the caller-provided category-only where as-is', async () => {
@@ -249,38 +244,40 @@ test.describe('SummaryService — additive shared-commons access (#10556)', () =
         StorageRouter.getSummaryCollection = originalGetSummaryCollection;
     });
 
-    test('listSummaries returns the tenant\'s OWN records PLUS SHARED_USER_ID-tagged records', async () => {
+    test('listSummaries returns the tenant\'s OWN records PLUS SHARED_USER_ID-tagged records PLUS untagged records', async () => {
         // The load-bearing #10556 invariant: legacy pre-#10145 records (backfilled by the
-        // migration runner with userId='shared') become accessible to every tenant via the
+        // migration runner with userId='shared' OR untagged) become accessible to every tenant via the
         // additive $or filter, alongside the tenant's own data.
         spy.rows.set('s-a1', {id: 's-a1', metadata: {userId: 'u-alice', timestamp: 100, title: 'Alice 1'}, document: 'A1'});
         spy.rows.set('s-shared1', {id: 's-shared1', metadata: {userId: 'shared',  timestamp: 200, title: 'Legacy 1'}, document: 'L1'});
         spy.rows.set('s-b1', {id: 's-b1', metadata: {userId: 'u-bob',   timestamp: 300, title: 'Bob 1'},   document: 'B1'});
+        spy.rows.set('s-untagged', {id: 's-untagged', metadata: {timestamp: 400, title: 'Pre-migration 1'}, document: 'P1'});
 
         const view = await RequestContextService.run({userId: 'u-alice'}, () =>
             SummaryService.listSummaries({limit: 10, offset: 0})
         );
 
-        // Alice sees her own summary + the shared-tagged legacy summary, but not Bob's.
-        expect(view.count).toBe(2);
-        expect(view.summaries.map(s => s.title).sort()).toEqual(['Alice 1', 'Legacy 1']);
+        // Alice sees her own summary + the shared-tagged legacy summary + untagged summary, but not Bob's.
+        expect(view.count).toBe(3);
+        expect(view.summaries.map(s => s.title).sort()).toEqual(['Alice 1', 'Legacy 1', 'Pre-migration 1']);
     });
 
-    test('querySummaries returns the tenant\'s own records PLUS SHARED_USER_ID-tagged records', async () => {
+    test('querySummaries returns the tenant\'s own records PLUS SHARED_USER_ID-tagged records PLUS untagged records', async () => {
         // Note: timestamp metadata required because querySummaries serializes via
         // `new Date(metadata.timestamp).toISOString()` — undefined timestamp throws.
         spy.rows.set('s-a1', {id: 's-a1', metadata: {userId: 'u-alice', timestamp: 100, title: 'Alice 1'}, document: 'A1'});
         spy.rows.set('s-shared1', {id: 's-shared1', metadata: {userId: 'shared',  timestamp: 200, title: 'Legacy 1'}, document: 'L1'});
         spy.rows.set('s-b1', {id: 's-b1', metadata: {userId: 'u-bob',   timestamp: 300, title: 'Bob 1'},   document: 'B1'});
+        spy.rows.set('s-untagged', {id: 's-untagged', metadata: {timestamp: 400, title: 'Pre-migration 1'}, document: 'P1'});
 
         const view = await RequestContextService.run({userId: 'u-alice'}, () =>
             SummaryService.querySummaries({query: 'anything', nResults: 10})
         );
 
-        // Alice's semantic query returns her records + the shared commons; Bob's stays isolated.
-        expect(view.count).toBe(2);
+        // Alice's semantic query returns her records + the shared commons + untagged records; Bob's stays isolated.
+        expect(view.count).toBe(3);
         const titles = view.results.map(r => r.title).sort();
-        expect(titles).toEqual(['Alice 1', 'Legacy 1']);
+        expect(titles).toEqual(['Alice 1', 'Legacy 1', 'Pre-migration 1']);
     });
 
     test('listSummaries with an unresolved userId preserves single-tenant fallthrough (no filter)', async () => {
@@ -325,8 +322,8 @@ test.describe('SummaryService — additive shared-commons access (#10556)', () =
         );
 
         const q = spy.calls.query.at(-1);
-        // The where clause should reference the normalized `x-prefix-test`, NOT `@x-prefix-test`.
-        expect(q.where).toEqual({$or: [{userId: 'x-prefix-test'}, {userId: 'shared'}]});
+        // In legacy mode, DB filtering for userId is skipped (no where clause).
+        expect(q.where).toBeUndefined();
     });
 });
 
@@ -376,7 +373,7 @@ test.describe('SummaryService — memorySharing policy (#10010)', () => {
         expect(queryCall.where).toEqual({userId: 'shared'});
     });
 
-    test('querySummaries with memorySharing=legacy returns tenant-owned plus team-tagged', async () => {
+    test('querySummaries with memorySharing=legacy returns tenant-owned plus team-tagged plus untagged', async () => {
         spy.rows.set('s-a1', {id: 's-a1', metadata: {userId: 'u-alice', timestamp: 100, title: 'a1'}, document: 'a1'});
         spy.rows.set('s-shared1', {id: 's-shared1', metadata: {userId: 'shared', timestamp: 200, title: 'L1'}, document: 'L1'});
         spy.rows.set('s-untagged', {id: 's-untagged', metadata: {timestamp: 300, title: 'pre-migration'}, document: 'P'});
@@ -385,10 +382,11 @@ test.describe('SummaryService — memorySharing policy (#10010)', () => {
             SummaryService.querySummaries({query: 'anything', nResults: 10, memorySharing: 'legacy'})
         );
 
-        expect(view.count).toBe(2);
-        expect(view.results.map(r => r.title).sort()).toEqual(['L1', 'a1']);
+        expect(view.count).toBe(3);
+        expect(view.results.map(r => r.title).sort()).toEqual(['L1', 'a1', 'pre-migration']);
         
         const queryCall = spy.calls.query.at(-1);
-        expect(queryCall.where).toEqual({$or: [{userId: 'u-alice'}, {userId: 'shared'}]});
+        // In legacy mode, DB filtering for userId is skipped.
+        expect(queryCall.where).toBeUndefined();
     });
 });

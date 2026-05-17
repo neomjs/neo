@@ -214,12 +214,10 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
 
         const queryCall = spyCollection.queryCalls.at(-1);
         // #10556: read filter became additive — tenant's own records OR records tagged
-        // with SHARED_USER_ID. The sessionId filter remains in the outer $and.
+        // with SHARED_USER_ID. The sessionId filter remains the only query arg for legacy policy,
+        // since $exists: false is unsupported in ChromaDB and userId filtering happens in JS post-query.
         expect(queryCall.where).toEqual({
-            $and: [
-                {sessionId: 'session-a'},
-                {$or: [{userId: 'u-alice'}, {userId: 'shared'}]}
-            ]
+            sessionId: 'session-a'
         });
     });
 
@@ -372,10 +370,10 @@ test.describe('MemoryService — memorySharing policy (#10010)', () => {
             MemoryService.queryMemories({query: 'anything', nResults: 10, memorySharing: 'legacy'})
         );
 
-        expect(view.count).toBe(2);
-        expect(view.results.map(r => r.prompt).sort()).toEqual(['L1', 'a1']);
+        expect(view.count).toBe(3);
+        expect(view.results.map(r => r.prompt).sort()).toEqual(['L1', 'a1', 'pre-migration']);
         
         const queryCall = spyCollection.queryCalls.at(-1);
-        expect(queryCall.where).toEqual({$or: [{userId: 'u-alice'}, {userId: 'shared'}]});
+        expect(queryCall.where).toBeUndefined();
     });
 });

@@ -311,16 +311,27 @@ class MemoryService extends Base {
             // the filter reduces to sessionId alone — single-tenant fallthrough preserved.
             // normalizeUserId strips `@`-prefix at the AgentIdentity ↔ userId boundary.
             const userId = normalizeUserId(RequestContextService.getUserId());
-            const where  = userId
-                ? {$and: [{sessionId}, {$or: [{userId}, {userId: SHARED_USER_ID}]}]}
-                : {sessionId};
+            const policy = aiConfig?.memorySharing?.defaultPolicy || 'legacy';
+
+            let tenantScope = null;
+            if (userId) {
+                if (policy === 'private') {
+                    tenantScope = {userId};
+                } else if (policy === 'team') {
+                    tenantScope = {userId: SHARED_USER_ID};
+                } else {
+                    tenantScope = null; // ChromaDB does not support $exists: false, handled post-query
+                }
+            }
+
+            const where = tenantScope ? {$and: [{sessionId}, tenantScope]} : {sessionId};
 
             const result = await collection.get({
                 where,
                 include: ['metadatas']
             });
 
-            const records = result.ids.map((id, index) => {
+            let records = result.ids.map((id, index) => {
                 const metadata = result.metadatas[index] || {};
 
                 return {
@@ -334,8 +345,18 @@ class MemoryService extends Base {
                     agent    : metadata.agent || null,
                     model    : metadata.model || null,
                     amountToolCalls: metadata.amountToolCalls || 0,
-                    toolsUsed: metadata.toolsUsed || null
+                    toolsUsed: metadata.toolsUsed || null,
+                    _userId  : metadata.userId
                 };
+            });
+
+            if (userId && policy === 'legacy') {
+                records = records.filter(r => !r._userId || r._userId === userId || r._userId === SHARED_USER_ID);
+            }
+
+            records = records.map(r => {
+                delete r._userId;
+                return r;
             }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
             const total = records.length;
@@ -388,11 +409,15 @@ class MemoryService extends Base {
                     // Team/deployment scope: Tagged records only.
                     tenantScope = {userId: SHARED_USER_ID};
                 } else {
-                    // legacy: Migration compatibility (caller owned + shared records)
+                    // legacy: Migration compatibility (caller owned + shared records + untagged)
                     // Note: {userId: {$exists: false}} is not supported by ChromaDB.
-                    // Untagged records have been backfilled with userId: SHARED_USER_ID.
-                    tenantScope = {$or: [{userId}, {userId: SHARED_USER_ID}]};
+                    // We must fetch without a userId DB-filter and apply JS post-filtering.
+                    tenantScope = null;
                 }
+            }
+
+            if (tenantScope === null && userId && policy === 'legacy') {
+                queryArgs.nResults = nResults * 5;
             }
 
             if (sessionId && tenantScope) {
@@ -405,9 +430,23 @@ class MemoryService extends Base {
 
             const searchResult = await collection.query(queryArgs);
 
-            const ids       = searchResult.ids?.[0] || [];
-            const distances = searchResult.distances?.[0] || [];
-            const metadatas = searchResult.metadatas?.[0] || [];
+            let ids       = searchResult.ids?.[0] || [];
+            let distances = searchResult.distances?.[0] || [];
+            let metadatas = searchResult.metadatas?.[0] || [];
+
+            if (userId && policy === 'legacy') {
+                const filteredIndices = [];
+                for (let i = 0; i < metadatas.length; i++) {
+                    const metaUserId = metadatas[i]?.userId;
+                    if (!metaUserId || metaUserId === userId || metaUserId === SHARED_USER_ID) {
+                        filteredIndices.push(i);
+                        if (filteredIndices.length === nResults) break;
+                    }
+                }
+                ids = filteredIndices.map(i => ids[i]);
+                distances = filteredIndices.map(i => distances[i]);
+                metadatas = filteredIndices.map(i => metadatas[i]);
+            }
 
             const memories = ids.map((id, index) => {
                 const metadata       = metadatas[index] || {};
