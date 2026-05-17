@@ -74,15 +74,16 @@ paths:
         Manages the lifecycle (start/stop) of the ChromaDB database instance for the Memory Core.
 
         **Behavior:**
-        - **Start:** Spawns a new process if none runs on the configured port. This process cleans up on exit. If already running (e.g., via `npm run ai:server`), simply confirms connection (acts as client, won't kill on exit).
-        - **Stop:** Stops the spawned process. No effect on externally started databases.
+        This tool provides a lifecycle verification interface for the unified ChromaDB database instance (port 8000). Per ADR 0003, the memory-core MCP server no longer spawns or stops its own database. It only acts as an observability passthrough.
+        - **Start:** Verifies connection to the unified database.
+        - **Stop:** Disconnects the memory-core client. Does NOT stop the external database process.
 
-        **Multi-Agent Recommendation:**
-        For concurrent agents, start the database externally using `npm run ai:server` before starting agents to prevent disconnects.
+        **Requirement:**
+        The unified database MUST be started externally via `npm run ai:server` before attempting to use the memory core.
 
         **When to Use:**
-        - `action: start` if `healthcheck` shows it's not running.
-        - `action: stop` for debugging, forcing restarts, or freeing resources.
+        - `action: start` if `healthcheck` shows the database connection is lost.
+        - `action: stop` to intentionally sever the connection.
       tags: ["Database Lifecycle"]
       requestBody:
         required: true
