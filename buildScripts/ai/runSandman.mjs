@@ -176,9 +176,17 @@ export async function runSandman() {
     let outcome;
     try {
         outcome = await withHeavyMaintenanceLease(async () => {
-            // Inner try/catch preserves the script's prior graceful-fail semantics for
+            // Inner try/catch/finally preserves the script's prior graceful-fail semantics for
             // provider-readiness + DreamService failures (return-without-throw at the
-            // provider-fail branch; throw-and-catch for everything else).
+            // provider-fail branch; throw-and-catch for everything else) AND guarantees the
+            // graph-mutating decay runs INSIDE the lease window.
+            //
+            // Per GPT review PR #11509 cycle 2 (PRR_kwDODSospM8AAAABAJKF8w): `withHeavyMaintenanceLease`
+            // releases the lease in its own `finally` BEFORE returning, so any decay call placed
+            // after the await would mutate Memory Core graph state outside the lease — defeating
+            // the substrate protection this PR is shipping. Placing decay in THIS inner finally
+            // pins it inside the lease window: JS guarantees the inner finally completes before
+            // the awaited task settles, so the wrapper's release runs strictly after decay.
             try {
                 console.log('   Waiting for Lifecycle Service to auto-boot orchestrators...');
                 await LifecycleService.ready();
@@ -218,6 +226,18 @@ export async function runSandman() {
                 console.error('❌ REM cycle failed:', e);
                 process.exitCode = 1;
                 return {providerReady: false, error: e.message};
+            } finally {
+                // Inside-the-lease decay (see header comment). Wrapping in try/catch preserves
+                // prior graceful-fail semantics: a decay failure must not throw out of the
+                // lease-wrapped task, since that would mask the inner return value AND propagate
+                // to the outer catch — which is reserved for lease-acquisition failures (fail-closed).
+                console.log('🧹 Triggering global topology decay & pruning mechanism...');
+                try {
+                    // decayGlobalTopology is synchronous; no await needed.
+                    GraphService.decayGlobalTopology();
+                } catch (e) {
+                    console.error('❌ Failed to decay topology:', e);
+                }
             }
         }, {owner: 'sandman', reason: 'manual-cli', metadata: {script: 'buildScripts/ai/runSandman.mjs'}});
     } catch (e) {
@@ -240,16 +260,9 @@ export async function runSandman() {
     }
 
     // Reached here only when outcome.status === 'completed' — lease was acquired AND the
-    // inner work ran (success or graceful-fail) AND the lease is still held by us through
-    // this synchronous decay call. The decay-on-completion path is the only branch where
-    // graph mutation is safely lease-protected.
-    console.log('🧹 Triggering global topology decay & pruning mechanism...');
-    try {
-        // Need to await? decayGlobalTopology is synchronous.
-        GraphService.decayGlobalTopology();
-    } catch (e) {
-        console.error('❌ Failed to decay topology:', e);
-    }
+    // inner work + inner-finally decay both ran INSIDE the lease window (see inner finally
+    // above for the release-timing invariant). Nothing further to do here besides honoring
+    // the inner exitCode contract.
     process.exit(process.exitCode);
 }
 

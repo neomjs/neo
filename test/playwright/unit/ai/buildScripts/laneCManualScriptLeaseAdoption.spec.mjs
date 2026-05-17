@@ -110,6 +110,57 @@ test.describe('Lane C / #11507 — manual heavy-maintenance script lease adoptio
         }
     });
 
+    test('runSandman.mjs: decayGlobalTopology runs INSIDE the lease window (per GPT review PRR_kwDODSospM8AAAABAJKF8w)', async () => {
+        // GPT's cycle-2 review caught: `withHeavyMaintenanceLease` releases the lease in its
+        // own `finally` BEFORE returning, so calling `GraphService.decayGlobalTopology()` AFTER
+        // `await withHeavyMaintenanceLease(...)` settles would mutate Memory Core graph state
+        // OUTSIDE the lease — defeating the substrate protection this PR is shipping.
+        //
+        // Fix: decay is invoked inside an inner `finally` block within the async task passed
+        // to `withHeavyMaintenanceLease`. JS guarantees the inner finally runs before the
+        // task's returned promise settles, so the wrapper's own finally (release) runs strictly
+        // after decay.
+        //
+        // This test pins the release-timing invariant via source-offset comparison:
+        // the decay call MUST appear before the wrapper's owner-config trailer AND before any
+        // post-wrapper outcome handling — both of which mark the boundary where the lease has
+        // already been released by the wrapper.
+        const source = await fs.readFile(path.join(scriptDir, 'runSandman.mjs'), 'utf-8');
+
+        const decayMatch = source.match(/GraphService\.decayGlobalTopology\(\)/);
+        expect(decayMatch, 'decayGlobalTopology() call must exist in runSandman.mjs').not.toBeNull();
+
+        // The wrapper's options trailer `}, {owner: 'sandman', ...})` marks the end of the
+        // async-task argument. Decay must appear textually BEFORE this trailer to be inside
+        // the wrapped task.
+        const wrapperOptionsMatch = source.match(/\}\s*,\s*\{\s*owner\s*:\s*['"]sandman['"]/);
+        expect(wrapperOptionsMatch, "withHeavyMaintenanceLease wrapper's owner-config trailer must exist").not.toBeNull();
+        expect(
+            decayMatch.index,
+            'decay must run INSIDE the wrapped task (before the wrapper-options trailer) so it executes while the lease is still held'
+        ).toBeLessThan(wrapperOptionsMatch.index);
+
+        // Defensive: also assert decay appears BEFORE post-wrapper held-handling. Any decay
+        // call after the `if (outcome?.status === 'held')` branch would necessarily run after
+        // the wrapper's release.
+        const postWrapperMarkerMatch = source.match(/if\s*\(\s*outcome\?\.status\s*===\s*['"]held['"]\s*\)/);
+        expect(postWrapperMarkerMatch, 'post-wrapper held-handling branch must exist').not.toBeNull();
+        expect(
+            decayMatch.index,
+            'decay must NOT appear after the post-wrapper held-check — that position is outside the lease window'
+        ).toBeLessThan(postWrapperMarkerMatch.index);
+
+        // Defensive: the inner-task structure must contain a `finally {` block. This pins the
+        // structural mechanism (finally-block placement) rather than just the offset ordering,
+        // so a future refactor that accidentally moves decay into the wrapper's catch (which
+        // only fires on lease-acquisition failure → graph mutation outside the lease) is caught.
+        const innerFinallyMatch = source.match(/\}\s*finally\s*\{[\s\S]*?GraphService\.decayGlobalTopology\(\)/);
+        expect(
+            innerFinallyMatch,
+            'decayGlobalTopology must be invoked from inside a `finally {` block of the lease-wrapped task'
+        ).not.toBeNull();
+    });
+
     test('all four scripts share the same lease-wrapper pattern (no per-script private locks)', async () => {
         // Empirical anchor: #11503 explicitly named "per-script private locks" as an avoided
         // trap. This test pins that none of the four scripts introduces an alternative
