@@ -142,16 +142,16 @@ To mitigate "Helpful Assistant" regression drift, agents MUST execute this evalu
 </neo_core_overrides>
 
 
-## 22. The Mailbox Check Protocol (Pre-Flight at Turn Start)
+## 21. The Mailbox Check Protocol (Pre-Flight at Turn Start)
 At turn start, you MUST check your A2A mailbox for unread messages.
 > *"Pre-Flight: I called `list_messages({status: 'unread'})` and observed [N unread]."*
 
-**Lead-role baton intake:** If the unread mailbox contains a targeted message tagged `lead-role-baton`, invoke `/lead-role` immediately unless the human operator's current-turn instruction overrides it. Validation and failure constraints mapped to `AGENTS_ATLAS.md` §22.
+**Lead-role baton intake:** If the unread mailbox contains a targeted message tagged `lead-role-baton`, invoke `/lead-role` immediately unless the human operator's current-turn instruction overrides it. Validation and failure constraints mapped to `AGENTS_ATLAS.md` §21.
 
 **Skill Adherence Pre-Flight (per-turn):**
 Before triggering a lifecycle skill, state in your reasoning: *"I will read the full SKILL.md and its referenced payload before drafting output."* Half-reading is empirically 3–5× more expensive than full-reading across correction cycles. Skipping the manual is the higher-cost path, not the lower-cost path.
 
-## 23. Edge-Case Triggers (The Atlas)
+## 22. Edge-Case Triggers (The Atlas)
 *(Sections mapped to `learn/agentos/AGENTS_ATLAS.md`)*
 - **Knowledge Base & Anti-Hallucination (§2, §15):** ALWAYS use `ask_knowledge_base` first for Neo concepts. If adding docs, review Anchor & Echo strategy in `AGENTS_ATLAS.md`.
 - **Swarm Topology / Cross-Peer Coordination (§15.6):** Before cross-peer coordination, lead/peer role work, ideation review, lane handoff, or A2A lifecycle coordination, nullify orchestrator-worker drift by reviewing AGENTS.md §15.6 + Discussion #11026.

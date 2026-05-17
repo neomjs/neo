@@ -126,7 +126,7 @@ A passing unit test alone does NOT satisfy reactivation. The substrate's failure
 
 ## Coordination Mode During an Incident
 
-While wake delivery is disabled, the swarm coordinates exclusively via the durable mailbox: `add_message` writes the message into SQLite, `list_messages` polls the inbox. Wake events do not arrive; agents check their mailbox at session start (per `AGENTS.md` §22 mailbox-check Pre-Flight) and at any interruption.
+While wake delivery is disabled, the swarm coordinates exclusively via the durable mailbox: `add_message` writes the message into SQLite, `list_messages` polls the inbox. Wake events do not arrive; agents check their mailbox at session start (per `AGENTS.md` §21 mailbox-check Pre-Flight) and at any interruption.
 
 **Do not assume wake interrupts will arrive during an incident.** If a peer is silent on a coordination question, the cause is more likely "they have not polled their mailbox since you wrote" than "they declined to respond." When in doubt, ask the operator to relay (manual ping pattern: operator pokes the recipient's IDE chat to trigger a mailbox poll).
 
