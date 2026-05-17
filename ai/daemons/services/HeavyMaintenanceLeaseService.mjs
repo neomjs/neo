@@ -250,9 +250,77 @@ export async function releaseHeavyMaintenanceLease({
 /**
  * @summary Runs a task while holding the heavy-maintenance lease.
  *
- * @param {Function} task Async task to execute.
- * @param {Object} options Lease acquisition options.
- * @returns {Promise<Object>}
+ * Acquires the lease, runs `task` with the acquisition descriptor, then releases
+ * the lease in a `finally` block — guaranteeing release even on task failure.
+ * On `held` (lease already owned by another maintenance lane), returns the
+ * acquisition descriptor without running the task — caller decides whether to
+ * defer-exit or retry.
+ *
+ * ## ⚠️  Release-timing semantics (consumer-side correctness invariant)
+ *
+ * The lease is released in **this helper's `finally` block** at line ~272.
+ * JavaScript await semantics guarantee the following ordering for the
+ * `await withHeavyMaintenanceLease(...)` call site:
+ *
+ *   1. `task` body runs to completion (return OR throw)
+ *   2. `task`'s own `finally` blocks run (if any)
+ *   3. THIS helper's `finally` runs → `releaseHeavyMaintenanceLease` removes the lease file
+ *   4. THIS helper's returned promise settles
+ *   5. Caller's code AFTER `await withHeavyMaintenanceLease(...)` executes
+ *
+ * **Consequence:** any side effect placed in step 5 runs **OUTSIDE the lease window**.
+ * If the side effect must be substrate-protected (Chroma write, SQLite mutation,
+ * Memory Core graph edit, file lock, etc.), it MUST be inside the task — typically
+ * inside the task's own `finally` so it runs regardless of task success/failure.
+ *
+ * This release-timing trap was the empirical root cause of two cycles of changes
+ * requested on PR #11509 — see #11515 for the friction-to-gold lineage.
+ *
+ * ### ✅ Right shape — substrate mutation INSIDE the lease window
+ *
+ * ```js
+ * await withHeavyMaintenanceLease(async () => {
+ *     try {
+ *         await runHeavyWork(); // primary task
+ *     } finally {
+ *         // Runs in step 2 above — lease still held.
+ *         GraphService.decayGlobalTopology();
+ *     }
+ * }, {owner: 'sandman', reason: 'manual-cli'});
+ * ```
+ *
+ * ### ❌ Wrong shape — substrate mutation AFTER the await runs OUTSIDE the lease
+ *
+ * ```js
+ * await withHeavyMaintenanceLease(async () => {
+ *     await runHeavyWork();
+ * }, {owner: 'sandman', reason: 'manual-cli'});
+ *
+ * // BUG: lease was released in step 3 above; this graph mutation runs unprotected.
+ * GraphService.decayGlobalTopology();
+ * ```
+ *
+ * Canonical consumer reference: `buildScripts/ai/runSandman.mjs` post-PR #11509
+ * cycles 1 + 2 (decay inside inner `finally`).
+ *
+ * ## Returned shape
+ *
+ * | `status`     | `acquired` | `result` field        | Meaning                                                                |
+ * |--------------|------------|-----------------------|------------------------------------------------------------------------|
+ * | `'completed'`| `true`     | the task's return     | Lease acquired, task ran to completion (success or graceful-return).   |
+ * | `'held'`     | `false`    | absent                | Another owner holds the lease; task NOT executed.                      |
+ * | `'stale'`    | (varies)   | (varies)              | See `acquireHeavyMaintenanceLease` for stale-handling semantics.       |
+ *
+ * Task exceptions propagate; release still fires from the `finally`.
+ *
+ * @param {Function} task Async task to execute when the lease is acquired. Receives the acquisition descriptor as its single argument (`{status, acquired, lease}`).
+ * @param {Object} options Lease acquisition options forwarded to `acquireHeavyMaintenanceLease` (owner, reason, metadata, leasePath, staleAfterMs, pid, token, fsModule, now).
+ * @returns {Promise<Object>} `{status, acquired, lease, result}` on completion; `{status: 'held', acquired: false, lease}` on contention.
+ * @see acquireHeavyMaintenanceLease
+ * @see releaseHeavyMaintenanceLease
+ * @see buildScripts/ai/runSandman.mjs — canonical consumer pattern
+ * @see https://github.com/neomjs/neo/issues/11515 — release-timing JSDoc friction-to-gold
+ * @see https://github.com/neomjs/neo/pull/11509 — empirical anchor (cycles 1 + 2)
  */
 export async function withHeavyMaintenanceLease(task, options = {}) {
     const acquisition = await acquireHeavyMaintenanceLease(options);
