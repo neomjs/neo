@@ -1,6 +1,6 @@
 ---
 name: ideation-sandbox
-description: "Safely propose architectural features, unknown unknowns, and brainstorm ideas natively in GitHub Discussions. Triggers: Use this skill when the user asks to brainstorm an architecture change or proposes a highly exploratory / undefined technical idea."
+description: "Safely propose architectural features, unknown unknowns, and brainstorm ideas natively in GitHub Discussions. Triggers: Use this skill when the user asks to brainstorm an architecture change, proposes a highly exploratory / undefined technical idea, or as auto-fire trigger for §5.2 Step 2.5 Architectural Step-Back on high-blast-radius proposals before [RESOLVED_TO_AC] / [GRADUATED_TO_TICKET] graduation."
 ---
 
 # Ideation Sandbox

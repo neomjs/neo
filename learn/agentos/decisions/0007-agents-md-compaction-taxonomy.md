@@ -86,8 +86,7 @@ This vocabulary preserves the substrate-truth from Discussion #11452 without ado
 | §18 Session Maintenance | `move` | DISCIPLINE-ONLY | High depth workflow. | - |
 | §19 Sub-Agents | `move` | DISCIPLINE-ONLY | High depth workflow. | - |
 | §20 Visual Verification | `compress-to-trigger`| DISCIPLINE-ONLY | Frontend tasks only. | - |
-| §21 Workflow Skills (ongoing: `pull-request`, `pr-review`, `post-review-pickup`, `lead-role`, `peer-role`) | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | The routing table is frequent. | YES |
-| §21 Workflow Skills (one-shot: `ticket-create`, `ticket-triage`, `ticket-intake`, `epic-review`, `epic-resolution`, `ideation-sandbox`, `memory-mining`, `turn-memory-pre-flight`, `create-skill`, `architecture-pre-flight`, `tech-debt-radar`, `structural-pre-flight`, `session-sunset`, `unit-test`, `whitebox-e2e`) | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | The routing table is frequent. | NO |
+| §21 Workflow Skills | `retire` | MACHINE-ENFORCEABLE-CANDIDATE | Routing table removed; relies on native skill-loading via frontmatter parity. | N/A |
 | §22 Mailbox Check | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Turn-start invariant. | - |
 | §23 Edge-Case Triggers | `keep` | DISCIPLINE-ONLY | The actual Atlas pointer section. | - |
 
@@ -123,7 +122,7 @@ Adding new, lengthy rules to `AGENTS.md` without evaluating them against the 3-A
 Modifying the baseline taxonomy dispositions directly in this ADR. This ADR is the immutable authority anchor. Future shifts in disposition (e.g., if a `keep` becomes a `move`) should be recorded via a new ADR or as documented changes in the target Atlas files, not by rewriting this historical baseline.
 
 ### 5.3 Recursive-Reload Anchor Retirement
-Retiring `AGENTS.md` §21 trigger entries that are marked as `recursive-reload-required` (YES) during Phase C compression cycles. These entries are empirically load-bearing for post-pruning-discipline-recall in long sessions; compressing them breaks behavioral disciplines (e.g., `lead-role`, `peer-role`, `post-review-pickup`).
+Retiring `AGENTS.md` §21 trigger entries that are marked as `recursive-reload-required` (YES) during Phase C compression cycles *without replacing them via native skill-loading injection*. These entries are empirically load-bearing for post-pruning-discipline-recall in long sessions; compressing them breaks behavioral disciplines (e.g., `lead-role`, `peer-role`, `post-review-pickup`). (Note: The final compaction safely retired the §21 table because the `description` frontmatter of all progressive disclosure skills is now natively injected into the turn-based memory environment on every turn).
 
 ---
 

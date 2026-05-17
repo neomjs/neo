@@ -141,29 +141,6 @@ To mitigate "Helpful Assistant" regression drift, agents MUST execute this evalu
 **Coordination protocol** (#11209 from #11206): lead-role focus-naming (§2.3) + explicit /peer-role skill-trigger (§2.2) + peer lane-announce-A2A (§6.5) + source-of-authority collision check + Authority-hierarchy (§6.6). Substantive content in `lead-role-mode.md` + `peer-role-mode.md`.
 </neo_core_overrides>
 
-## 21. Workflow Skills (when to invoke)
-| Skill | Trigger condition (invoke when) |
-|---|---|
-| `ticket-create` | Before `create_issue` MCP invocation |
-| `ticket-triage` | Encountering a ticket missing `ai`/primary/secondary labels |
-| `ticket-intake` | Picking up an existing assigned ticket |
-| `epic-review` | Before picking up a sub of an unreviewed epic |
-| `epic-resolution` | Last required sub closes / before close-as-completed |
-| `pull-request` | Code modifications complete; before opening PR — stepping-back reflection, commit format, cross-family review mandate, post-comment A2A commentId hand-off (author→reviewer) per review-response-protocol.md §14, Evidence declaration line for substrate/runtime-AC PRs per [evidence-ladder.md](learn/agentos/evidence-ladder.md), FAIR-band stance declaration per §1.3 |
-| `pr-review` | Reviewing a PR (yours or peer's) — structured eval metrics, graph ingestion tags, severity ladder, restates §0 merge gate, post-comment A2A commentId hand-off (reviewer→author) per guide §9 + §9.4 cold-cache exception, Evidence Audit + Source-of-Authority sections (template §) for substrate/runtime-AC PRs and authority-citation review-comments, FAIR-band declaration verification |
-| `post-review-pickup` | Immediately after `pr-review` or review-response handoff completes — read `.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md`, then enter the next ready lifecycle lane or state an explicit halt reason |
-| `ideation-sandbox`| Before creating a Discussion for architectural exploration; also auto-fires §5.2 Step 2.5 Architectural Step-Back on high-blast-radius proposals before `[RESOLVED_TO_AC]` / `[GRADUATED_TO_TICKET]` graduation |
-| `lead-role` | Operator delegates lead via explicit phrases ("take the lead", "coordinate the team"); OR §22 mailbox check surfaces a valid `lead-role-baton`; OR substrate-shaped ticket about to enter implementation; OR direct invocation. Auto-fires per documented phrases / baton intake. Suspends Auto Mode velocity-bias for skill duration. |
-| `peer-role` | Reviewing an Ideation Sandbox discussion, architectural proposal, epic shape, skill shape, roadmap/milestone proposal, or `/lead-role` convergence artifact. Auto-fires per documented design-review context phrases. Suspends Auto Mode "ack-and-move-on" bias. |
-| `memory-mining` | On regression / non-obvious-architecture / decision-points |
-| `turn-memory-pre-flight` | Before inserting or mutating turn-loaded/skill-loaded memory substrate (`AGENTS.md`, `AGENTS_ATLAS`, `.agents/skills/**`, `.codex/CODEX.md`, `.claude/CLAUDE.md`, `.agents/ANTIGRAVITY_RULES.md`) to prevent future-session bias |
-| `create-skill` | Before creating OR modifying any `.agents/skills/**/*.md` files — Progressive Disclosure architecture (Map vs World Atlas), YAML frontmatter, skill structure. Complementary to `turn-memory-pre-flight` (load-runtime-effect dimension vs skill-shape dimension) |
-| `architecture-pre-flight` | When navigating ambiguous architectural-choice moments, cross-substrate decisions, or introducing new subsystems, protocols, MCP tools, or cross-substrate refactors not covered by narrower triggers |
-| `tech-debt-radar` | During PR review for fundamental architectural shifts |
-| `structural-pre-flight` | Before authoring or relocating any new `.mjs` file — directory-CHOICE discipline (Stage 0 mechanical trigger; Stage 1 fast-path via §23 sibling-file-lift OR full Pre-Flight via ArchitectureOverview.md + ADR consultation). Empirical anchors: misplaced `bridge-daemon.mjs` (#10449 origin) + `orchestrator-daemon.mjs` (PR #11008 → corrective #11009). Also fires from `ticket-create` Stage 3, `ticket-intake` validation, `epic-review` Stage 3 |
-| `session-sunset` | Context Window Exhaustion, Macro-Semantic Pivot |
-| `unit-test` | Before writing, modifying, or executing Playwright unit tests |
-| `whitebox-e2e` | Before writing, modifying, or executing Playwright Whitebox E2E tests |
 
 ## 22. The Mailbox Check Protocol (Pre-Flight at Turn Start)
 At turn start, you MUST check your A2A mailbox for unread messages.
