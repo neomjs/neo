@@ -98,18 +98,18 @@ Invoked before filing any new GitHub Issue via the `create_issue` MCP tool. Crea
 
 Beyond lifecycle governance, specialized contexts exist for live action:
 
-- **`tech-debt-radar`:** A proactive architectural review skill using Frontier Model semantic RAG to sweep historical issues and Memory Core sessions for technical debt. Actively invoked during `ticket-intake` and `pr-review`.
+- **`tech-debt-radar`:** A proactive architectural review skill using Frontier Model semantic RAG to sweep historical issues and Memory Core sessions for technical debt. Actively invoked during `ticket-intake` and `pr-review` (especially for fundamental architectural shifts).
 - **`neural-link`:** A tactical manual mapping how to sequence the Neural Link MCP 
   tools (e.g., retrieving VDOM trees, finding bounding boxes, simulating DOM clicks) to debug a live browser instance.
 - **`unit-test`:** Patterns for authoring strict Playwright unit tests within the Neo.mjs single-thread architecture.
 - **`self-repair`:** A strict diagnostic protocol ensuring infrastructure verification across MCP services, Unit Testing, and Historical Forensics using Memory Core states to resolve system lockups.
-- **`ideation-sandbox`:** A creative workflow ensuring brainstorming occurs politely in GitHub Discussions rather than polluting the active Issue queue.
+- **`ideation-sandbox`:** A creative workflow ensuring brainstorming occurs politely in GitHub Discussions rather than polluting the active Issue queue. Also acts as an auto-fire trigger for high-blast-radius proposals.
 
 ## The Meta-Skill: Adding New Skills
 
 The ecosystem is self-extending via the **`create-skill`** meta-skill.
 When the swarm identifies a repeating failure mode or a complex recurring task, 
-an agent can use `create-skill` to bootstrap a new progressive disclosure package, 
+an agent can use `create-skill` to bootstrap a new progressive disclosure package or modify an existing one, 
 ensuring the YAML frontmatter and folder consistency are perfectly formed.
 
 ## Skill Inventory
