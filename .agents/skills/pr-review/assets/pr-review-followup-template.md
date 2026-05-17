@@ -71,8 +71,6 @@ N/A across listed dimensions: <one-line reason for the delta-scope justification
 
 (Substitute only the emoji subset that's actually N/A. Substantive dimensions — any non-N/A finding — expand individually under their canonical header.)
 
-Same graph-ingestion safety + canonical-anchor format as the cycle-1 template per #11546. The follow-up template's narrower audit set (3 dimensions vs cycle-1's 9) makes the collapse less frequent in practice but still applies for metadata-only or PR-body-only delta cycles.
-
 ---
 
 ### Test-Execution & Location Audit

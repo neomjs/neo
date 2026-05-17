@@ -74,10 +74,6 @@ N/A across listed dimensions: <one-line reason for the PR-scope justification>.
 
 **Mixing rule (CRITICAL)**: substantive audit sections — any non-N/A finding — MUST be expanded individually under their canonical header. Never collapse a dimension with actual findings. Mixing collapsed-N/A-block with substantive-expanded-sections is the substrate-correct shape for non-trivial-scope PRs that have ONE substantive audit dimension + many N/A dimensions.
 
-**Graph-ingestion safety**: V-B-A confirmed the Retrospective daemon (`ConceptDiscoveryService`) + mechanical body validation (`#11491`) key off the 7 evaluation-metric anchors (`[ARCH_ALIGNMENT]` etc.), NOT audit-section emojis. The collapsed-anchor format is graph-safe.
-
-**Empirical anchor**: PR #11544 review 2026-05-17 (Claude Opus 4.7) introduced the pattern organically when 7 audit dimensions all collapsed to N/A for a test-reliability fix. Operator-codified 2026-05-17 ~19:25Z (#11546). Drain-mode discipline (review byte-cost vs substrate-discipline-rigor) is the ROI driver, especially for long PR-conversation cycles (e.g., #11534's 11-cycle convergence).
-
 ---
 
 ### 🛂 Provenance Audit
