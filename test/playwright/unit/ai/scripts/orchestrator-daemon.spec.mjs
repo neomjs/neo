@@ -11,9 +11,11 @@ import {
     DEFAULT_SUMMARY_SWEEP_INTERVAL_MS
 } from '../../../../../ai/scripts/orchestrator-daemon.mjs';
 import {
+    DEFAULT_MLX_ENABLED,
     DEFAULT_MLX_MODEL,
     DEFAULT_MLX_PORT,
-    buildTaskDefinitions
+    buildTaskDefinitions,
+    resolveMlxEnabled
 } from '../../../../../ai/daemons/TaskDefinitions.mjs';
 
 test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
@@ -39,18 +41,27 @@ test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
         expect(tasks.backup.expectedCommand).toBe('backup.mjs');
     });
 
-    test('starts mlx inference with the OpenAI-compatible Gemma 4 default', () => {
+    test('keeps mlx inference opt-in with the dedicated Gemma 4 MLX launch default', () => {
         const scriptDir     = path.resolve(process.cwd(), 'ai/scripts');
-        const originalModel = process.env.NEO_OPENAI_COMPATIBLE_MODEL;
+        const originalApiModel = process.env.NEO_OPENAI_COMPATIBLE_MODEL;
+        const originalMlxModel = process.env.NEO_ORCHESTRATOR_MLX_MODEL;
+        const originalMlxEnabled = process.env.NEO_ORCHESTRATOR_MLX_ENABLED;
 
         delete process.env.NEO_OPENAI_COMPATIBLE_MODEL;
+        delete process.env.NEO_ORCHESTRATOR_MLX_MODEL;
+        delete process.env.NEO_ORCHESTRATOR_MLX_ENABLED;
 
         try {
             const tasks = buildTaskDefinitions({scriptDir, nodeBin: '/test/node'});
 
-            expect(DEFAULT_MLX_MODEL).toBe('gemma-4-31b-it');
+            expect(DEFAULT_MLX_ENABLED).toBe(false);
+            expect(DEFAULT_MLX_MODEL).toBe('mlx-community/gemma-4-31b-it-bf16');
             expect(DEFAULT_MLX_PORT).toBe('11435');
-            expect(tasks.mlx.args).toEqual([
+            expect(tasks.mlx).toBeUndefined();
+
+            const enabledTasks = buildTaskDefinitions({scriptDir, nodeBin: '/test/node', mlxEnabled: true});
+
+            expect(enabledTasks.mlx.args).toEqual([
                 '-m',
                 'mlx_lm.server',
                 '--model',
@@ -58,44 +69,87 @@ test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
                 '--port',
                 DEFAULT_MLX_PORT
             ]);
-            expect(tasks.mlx.args).not.toContain('mlx-community/gemma-2-27b-it-4bit');
+            expect(enabledTasks.mlx.args).not.toContain('mlx-community/gemma-2-27b-it-4bit');
+            expect(enabledTasks.mlx.args).not.toContain('gemma-4-31b-it');
+            expect(resolveMlxEnabled('true')).toBe(true);
+            expect(resolveMlxEnabled('false')).toBe(false);
         } finally {
-            if (originalModel !== undefined) {
-                process.env.NEO_OPENAI_COMPATIBLE_MODEL = originalModel;
+            if (originalApiModel !== undefined) {
+                process.env.NEO_OPENAI_COMPATIBLE_MODEL = originalApiModel;
+            }
+            if (originalMlxModel !== undefined) {
+                process.env.NEO_ORCHESTRATOR_MLX_MODEL = originalMlxModel;
+            }
+            if (originalMlxEnabled !== undefined) {
+                process.env.NEO_ORCHESTRATOR_MLX_ENABLED = originalMlxEnabled;
             }
         }
     });
 
-    test('allows local mlx model overrides without changing task ownership', () => {
+    test('separates OpenAI-compatible API labels from local mlx launch model overrides', () => {
         const scriptDir     = path.resolve(process.cwd(), 'ai/scripts');
-        const originalModel = process.env.NEO_OPENAI_COMPATIBLE_MODEL;
+        const originalApiModel = process.env.NEO_OPENAI_COMPATIBLE_MODEL;
+        const originalMlxModel = process.env.NEO_ORCHESTRATOR_MLX_MODEL;
+        const originalMlxEnabled = process.env.NEO_ORCHESTRATOR_MLX_ENABLED;
 
-        process.env.NEO_OPENAI_COMPATIBLE_MODEL = 'local-openai-compatible-model';
+        process.env.NEO_OPENAI_COMPATIBLE_MODEL = 'api-label-only';
+        delete process.env.NEO_ORCHESTRATOR_MLX_MODEL;
+        delete process.env.NEO_ORCHESTRATOR_MLX_ENABLED;
 
         try {
-            const envTasks = buildTaskDefinitions({scriptDir, nodeBin: '/test/node'});
+            const apiEnvTasks = buildTaskDefinitions({scriptDir, nodeBin: '/test/node'});
 
-            expect(envTasks.mlx.args).toEqual([
+            expect(apiEnvTasks.mlx).toBeUndefined();
+
+            process.env.NEO_ORCHESTRATOR_MLX_ENABLED = 'true';
+
+            const enabledDefaultTasks = buildTaskDefinitions({scriptDir, nodeBin: '/test/node'});
+
+            expect(enabledDefaultTasks.mlx.args).toEqual([
                 '-m',
                 'mlx_lm.server',
                 '--model',
-                'local-openai-compatible-model',
+                DEFAULT_MLX_MODEL,
+                '--port',
+                DEFAULT_MLX_PORT
+            ]);
+
+            process.env.NEO_ORCHESTRATOR_MLX_MODEL = 'local-mlx-launch-model';
+
+            const mlxEnvTasks = buildTaskDefinitions({scriptDir, nodeBin: '/test/node'});
+
+            expect(mlxEnvTasks.mlx.args).toEqual([
+                '-m',
+                'mlx_lm.server',
+                '--model',
+                'local-mlx-launch-model',
                 '--port',
                 DEFAULT_MLX_PORT
             ]);
         } finally {
-            if (originalModel === undefined) {
+            if (originalApiModel === undefined) {
                 delete process.env.NEO_OPENAI_COMPATIBLE_MODEL;
             } else {
-                process.env.NEO_OPENAI_COMPATIBLE_MODEL = originalModel;
+                process.env.NEO_OPENAI_COMPATIBLE_MODEL = originalApiModel;
+            }
+            if (originalMlxModel === undefined) {
+                delete process.env.NEO_ORCHESTRATOR_MLX_MODEL;
+            } else {
+                process.env.NEO_ORCHESTRATOR_MLX_MODEL = originalMlxModel;
+            }
+            if (originalMlxEnabled === undefined) {
+                delete process.env.NEO_ORCHESTRATOR_MLX_ENABLED;
+            } else {
+                process.env.NEO_ORCHESTRATOR_MLX_ENABLED = originalMlxEnabled;
             }
         }
 
         const explicitTasks = buildTaskDefinitions({
             scriptDir,
-            nodeBin  : '/test/node',
-            mlxModel : 'explicit-model',
-            mlxPort  : 12345
+            nodeBin   : '/test/node',
+            mlxEnabled: true,
+            mlxModel  : 'explicit-model',
+            mlxPort   : 12345
         });
 
         expect(explicitTasks.mlx.args).toEqual([
