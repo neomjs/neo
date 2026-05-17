@@ -8,7 +8,7 @@ const SRC = '../../../../../resources/images/logo/neo_logo_primary.svg',
 test.beforeEach(async ({page}) => {
     await page.goto('test/playwright/component/apps/empty-viewport/index.html');
 
-    await page.waitForSelector('#component-test-viewport');
+    await page.waitForSelector('#component-test-viewport', { state: 'attached' });
 
     componentId = await page.evaluate(async ({SRC, ALT}) => {
         const result = await Neo.worker.App.createNeoInstance({

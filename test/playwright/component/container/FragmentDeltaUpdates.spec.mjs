@@ -4,7 +4,7 @@ test.describe('Neo.main.DeltaUpdates (Fragment Support)', () => {
     test.beforeEach(async ({page}) => {
         //page.on('console', msg => console.log('PAGE LOG:', msg.text()));
         await page.goto('test/playwright/component/apps/empty-viewport/index.html');
-        await page.waitForSelector('#component-test-viewport');
+        await page.waitForSelector('#component-test-viewport', { state: 'attached' });
     });
 
     test('Manual Fragment Move Update', async ({page}) => {
