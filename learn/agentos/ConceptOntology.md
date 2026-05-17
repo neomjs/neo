@@ -117,6 +117,41 @@ Each line in `nodes.jsonl` is a JSON object:
 > Existing committed ontology nodes start with explicit `verifiedAt: null` so the first
 > source-grounding pass can be queried directly from the data file.
 
+## Auto-Extracted Concept Provenance
+
+Concepts in the Native Edge Graph arrive via two distinct paths, and consumers MUST be able to distinguish them when scoring, filtering, or ranking results.
+
+| Path | Trigger | Node property | Edge weight |
+|------|---------|---------------|-------------|
+| **Manual / curated** | Operator or agent calls `addMessage({taggedConcepts: [...]})` (or any other concept-tagging API) with explicit concept IDs | absent (concept node may pre-exist with no `auto_extracted` flag) | `1.0` |
+| **Auto-extracted** | `MailboxService.addMessage` runs `SemanticGraphExtractor.extractMessageConcepts(body)` as a fire-and-forget post-write; LLM-derived `CONCEPT:*` / `CLASS:*` IDs are upserted with `properties.auto_extracted: true` | `properties.auto_extracted = true` on the CONCEPT or CLASS node when the node is freshly created by this path | `0.8` on the `TAGGED_CONCEPT` edge |
+
+### Write Path
+
+1. `MailboxService.addMessage` persists the MESSAGE node + recipient edges.
+2. Synchronously links manual `taggedConcepts` with `TAGGED_CONCEPT` weight `1.0`.
+3. Asynchronously fires `SemanticGraphExtractor.extractMessageConcepts(bodyText)` — LLM call against the OpenAI-compatible chat provider. Returns 1-5 inferred concept IDs.
+4. For each extracted ID: upsert the concept node with `properties.auto_extracted: true` (only when freshly created — pre-existing nodes are NOT re-stamped), then link with `TAGGED_CONCEPT` weight `0.8`.
+
+The two paths emit the **same edge type** (`TAGGED_CONCEPT`); provenance lives in the edge weight + the node-side `auto_extracted` flag.
+
+### Read-Time Consumer Pattern
+
+Downstream consumers (DreamService topology synthesis, Librarian sub-agent traversal, future GraphRAG query layer) reading concept nodes from the graph SHOULD inspect both signals when ranking or filtering:
+
+- **For ranking** — weight curated concepts higher than auto-extracted (use the edge weight directly: 1.0 vs 0.8 is already calibrated for this).
+- **For filtering** — to exclude auto-extracted entirely, filter `node.properties.auto_extracted !== true`. To include only auto-extracted (e.g., to audit LLM output), filter `node.properties.auto_extracted === true`.
+- **For provenance audits** — `auto_extracted: true` is the durable signal that the concept entered the graph via LLM inference rather than human/agent curation. Useful for post-incident reasoning about graph noise.
+
+### Edge-Weight Convention Rationale
+
+The 0.8 / 1.0 split is deliberate: a TAGGED_CONCEPT edge from a curated source is **20% stronger** than an auto-extracted edge with the same source MESSAGE node. This calibration matches the operator-observed truthfulness gap between LLM concept inference (high recall, moderate precision) and human/agent curation (lower recall, near-perfect precision).
+
+Consumers SHOULD prefer reading the edge weight over the node-side flag when both are available, since edge weights propagate naturally through graph traversal scoring (vs the flag requiring an extra lookup at scoring time). Reserve the node-side flag for filtering and provenance audits.
+
+> [!IMPORTANT]
+> **Pre-existing concept nodes retain their original provenance.** When `extractMessageConcepts` returns a `CONCEPT:*` / `CLASS:*` ID that already exists in the graph (e.g., a high-tier concept seeded in `nodes.jsonl`), the upsert path does NOT overwrite `properties.auto_extracted`. The flag is set only when the node is freshly created by the auto-extraction path. This preserves curated concepts' status as authoritative even when they're subsequently mentioned by LLM-extracted MESSAGE bodies.
+
 ## Edge Schema
 
 Each line in `edges.jsonl` is a JSON object:

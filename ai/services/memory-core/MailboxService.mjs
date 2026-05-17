@@ -914,7 +914,169 @@ class MailboxService extends Base {
     }
 
     /**
+     * Returns a scalar count of messages matching the given filter, without
+     * fetching message bodies. Patterned after `MemoryService.buildMailboxDelta`
+     * (#10178) — uses direct `prepare` + `get` against `Edges` joined with
+     * `Nodes`, returning `{count}` in O(indexed) time regardless of mailbox
+     * depth. Retires the `listMessages({limit: N}).messages.length` proxy
+     * pattern previously used by `getHealthcheckPreview` (#10180).
+     *
+     * **Inbox path (3-way UNION):** captures direct DMs (`SENT_TO` me with
+     * `readAt` on the MESSAGE node), per-recipient broadcasts (`DELIVERED_TO`
+     * me with `readAt` on the DELIVERY edge per #11029), and legacy broadcasts
+     * (`SENT_TO AGENT:*` with the shared-read fallback when no `DELIVERED_TO`
+     * edges exist). Mirrors `buildMailboxDelta`'s unread-count taxonomy exactly.
+     *
+     * **Outbox path:** count of `SENT_BY` edges from the caller's identity.
+     * `status` filter is a no-op for outbox — outbox messages have per-recipient
+     * `readAt`, not a unified message-level state; "outbox unread" is semantically
+     * undefined and returns the full outbox count.
+     *
+     * **Cache coherence note:** direct-SQL bypasses the in-memory cache hydration
+     * that `listMessages` performs via `getAdjacentNodes`. Acceptable for caller
+     * use cases that tolerate a single-write staleness window (healthcheck preview,
+     * dashboards). For strict per-write-visibility, use `listMessages` instead.
+     *
+     * **Box-value contract:** only `'inbox'` and `'outbox'` are currently supported.
+     * `'all'` is deferred to a follow-up (would require UNION of inbox + outbox paths).
+     * Any other value (including typos) throws — see #11528 cycle-1 review for the
+     * rationale on rejecting unsupported enums vs silently aliasing to inbox.
+     *
+     * @param {Object} [args]
+     * @param {String} [args.box='inbox'] Which box to count. Supported: `'inbox'` or `'outbox'`. Throws on unsupported values.
+     * @param {String} [args.status='all'] Read-state filter for inbox path
+     *   (`'all'`, `'read'`, `'unread'`). Ignored for outbox.
+     * @param {String} [args.to] Target identity (defaults to caller). Cross-identity
+     *   reads require `CAN_READ_INBOX_OF` permission, mirroring `listMessages`.
+     * @param {String} [args.fromIdentity] Filter inbox messages by sender identity.
+     *   Ignored for outbox (no inverse-of-sender semantic).
+     * @returns {Promise<{count: Number}>}
+     */
+    async countMessages({ box = 'inbox', status = 'all', to, fromIdentity } = {}) {
+        const me = RequestContextService.getAgentIdentityNodeId();
+        if (!me) {
+            throw new Error("Cannot count messages: no agent identity context bound.");
+        }
+
+        // Per #11528 cycle-1 review (@neo-gpt): reject unsupported `box` values explicitly
+        // rather than silently aliasing to the inbox path. The original branch-on-outbox
+        // pattern would have returned partial-results for `box='all'` (deferred to a follow-up
+        // per #10180 PR body) or any typo. Fail fast on unsupported enum so callers see the
+        // deferred-vs-implemented boundary at the call site.
+        if (box !== 'inbox' && box !== 'outbox') {
+            throw new Error(`Cannot count messages: unsupported box value '${box}'. Supported values: 'inbox', 'outbox' ('all' is deferred to a follow-up).`);
+        }
+
+        const target = to || me;
+
+        if (target !== me && target !== 'AGENT:*') {
+            if (!PermissionService.hasPermission(me, target, 'CAN_READ_INBOX_OF')) {
+                throw new Error(`Unauthorized: no CAN_READ_INBOX_OF permission for ${target}`);
+            }
+        }
+
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite) return { count: 0 };
+
+        // readAt filter clauses keyed by the storage location of the read-state.
+        // SENT_TO direct + AGENT:* legacy: readAt lives on the MESSAGE node payload.
+        // DELIVERED_TO per-recipient: readAt lives on the DELIVERY edge payload.
+        const messageReadAtClause = status === 'unread'
+            ? `AND json_extract(n.data, '$.properties.readAt') IS NULL`
+            : status === 'read'
+                ? `AND json_extract(n.data, '$.properties.readAt') IS NOT NULL`
+                : '';
+
+        const edgeReadAtClause = status === 'unread'
+            ? `AND json_extract(e.data, '$.properties.readAt') IS NULL`
+            : status === 'read'
+                ? `AND json_extract(e.data, '$.properties.readAt') IS NOT NULL`
+                : '';
+
+        // Optional sender filter — applies to inbox only.
+        const senderFilterSql = fromIdentity
+            ? `AND EXISTS (SELECT 1 FROM Edges sb WHERE sb.source = n.id AND sb.type = 'SENT_BY' AND sb.target = ?)`
+            : '';
+
+        try {
+            if (box === 'outbox') {
+                const row = sqlite.prepare(`
+                    SELECT COUNT(DISTINCT n.id) AS count
+                    FROM Edges e
+                    JOIN Nodes n ON n.id = e.source
+                    WHERE e.type = 'SENT_BY'
+                      AND e.target = ?
+                      AND json_extract(n.data, '$.label') = 'MESSAGE'
+                `).get(target);
+                return { count: row?.count ?? 0 };
+            }
+
+            // Inbox: 3-way UNION mirroring buildMailboxDelta's unread-message taxonomy.
+            const params = [];
+            const inboxSql = `
+                WITH inbox_messages AS (
+                    SELECT n.id AS messageId
+                    FROM Edges e
+                    JOIN Nodes n ON n.id = e.source
+                    WHERE e.type = 'SENT_TO'
+                      AND e.target = ?
+                      AND json_extract(n.data, '$.label') = 'MESSAGE'
+                      ${messageReadAtClause}
+                      ${senderFilterSql}
+
+                    UNION
+
+                    SELECT n.id AS messageId
+                    FROM Edges e
+                    JOIN Nodes n ON n.id = e.source
+                    WHERE e.type = 'DELIVERED_TO'
+                      AND e.target = ?
+                      AND json_extract(n.data, '$.label') = 'MESSAGE'
+                      ${edgeReadAtClause}
+                      ${senderFilterSql}
+
+                    UNION
+
+                    SELECT n.id AS messageId
+                    FROM Edges e
+                    JOIN Nodes n ON n.id = e.source
+                    WHERE e.type = 'SENT_TO'
+                      AND e.target = 'AGENT:*'
+                      AND json_extract(n.data, '$.label') = 'MESSAGE'
+                      ${messageReadAtClause}
+                      ${senderFilterSql}
+                      AND NOT EXISTS (
+                          SELECT 1 FROM Edges de
+                          WHERE de.source = n.id AND de.type = 'DELIVERED_TO'
+                      )
+                )
+                SELECT COUNT(DISTINCT messageId) AS count
+                FROM inbox_messages
+            `;
+
+            params.push(target);
+            if (fromIdentity) params.push(fromIdentity);
+            params.push(target);
+            if (fromIdentity) params.push(fromIdentity);
+            if (fromIdentity) params.push(fromIdentity);
+
+            const row = sqlite.prepare(inboxSql).get(...params);
+            return { count: row?.count ?? 0 };
+        } catch (error) {
+            // Pattern from buildMailboxDelta: non-fatal degradation. Returning 0
+            // for healthcheck-class callers is safer than throwing during boot/poll.
+            return { count: 0 };
+        }
+    }
+
+    /**
      * Generates the mailbox preview for the healthcheck payload.
+     *
+     * Uses `countMessages` (#10180) for the `unreadCount` field — direct-SQL path
+     * with no upper-bound cap. Inbox + outbox previews retain `listMessages` with
+     * `limit: 3` matching the preview surface size; the previously-implicit cap
+     * of 100 on `unreadCount` is retired.
+     *
      * @returns {Promise<Object|null>}
      */
     async getHealthcheckPreview() {
@@ -923,29 +1085,20 @@ class MailboxService extends Base {
             return null; // No agent identity bound yet
         }
 
-        const inboxResult = await this.listMessages({ box: 'inbox', limit: 100 }); // fetch enough to count unreads
-        const outboxResult = await this.listMessages({ box: 'outbox', limit: 3 });
+        const { count: unreadCount } = await this.countMessages({ box: 'inbox', status: 'unread' });
+        const inboxResult            = await this.listMessages({ box: 'inbox',  limit: 3 });
+        const outboxResult           = await this.listMessages({ box: 'outbox', limit: 3 });
 
-        let unreadCount = 0;
-        let inboxPreview = [];
-
-        for (const msg of inboxResult.messages) {
-            if (!msg.readAt) {
-                unreadCount++;
-            }
-            if (inboxPreview.length < 3) {
-                inboxPreview.push({
-                    id: msg.messageId,
-                    // Legacy Data Remediation: Messages written during the #10184/#10181 incident
-                    // window may lack a SENT_BY edge if the sender was identity-unbound.
-                    // This fallback ensures schema compliance. New writes enforce bind-identity discipline.
-                    from: msg.from || 'unknown',
-                    subject: msg.subject ? msg.subject.substring(0, 60) + (msg.subject.length > 60 ? '...' : '') : '',
-                    createdAt: msg.sentAt,
-                    priority: msg.priority
-                });
-            }
-        }
+        const inboxPreview = inboxResult.messages.map(msg => ({
+            id: msg.messageId,
+            // Legacy Data Remediation: Messages written during the #10184/#10181 incident
+            // window may lack a SENT_BY edge if the sender was identity-unbound.
+            // This fallback ensures schema compliance. New writes enforce bind-identity discipline.
+            from: msg.from || 'unknown',
+            subject: msg.subject ? msg.subject.substring(0, 60) + (msg.subject.length > 60 ? '...' : '') : '',
+            createdAt: msg.sentAt,
+            priority: msg.priority
+        }));
 
         const outboxPreview = outboxResult.messages.map(msg => ({
             id: msg.messageId,
