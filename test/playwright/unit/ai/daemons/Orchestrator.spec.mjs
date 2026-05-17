@@ -218,6 +218,89 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(logs.filter(entry => entry.message.includes('Deferring knowledge base sync'))).toHaveLength(1);
     });
 
+    test('does not let a running golden path refresh backpressure heavy maintenance', () => {
+        const started = [];
+
+        const orchestrator = createTestOrchestrator();
+
+        TaskStateService.taskState[GOLDEN_PATH_TASK_NAME].running = true;
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
+        };
+
+        orchestrator.poll();
+
+        expect(started).toEqual([{
+            taskName: 'kbSync',
+            reason  : 'periodic-sync:600000'
+        }]);
+    });
+
+    test('defers golden path behind active dream graph mutation with explicit reason', () => {
+        const logs     = [];
+        const outcomes = [];
+        const calls    = [];
+
+        const orchestrator = createTestOrchestrator({
+            goldenPathIntervalMs: 600000,
+            healthService: {
+                recordTaskOutcome(taskName, status, details) {
+                    outcomes.push({taskName, status, details});
+                }
+            },
+            goldenPathSynthesizer: {
+                synthesizeGoldenPath() {
+                    calls.push('golden-path');
+                    return Promise.resolve();
+                }
+            }
+        });
+
+        TaskStateService.taskState[DREAM_TASK_NAME].running = true;
+        orchestrator.writeLog = (level, message) => logs.push({level, message});
+
+        orchestrator.poll();
+
+        expect(calls).toEqual([]);
+        expect(outcomes).toContainEqual({
+            taskName: GOLDEN_PATH_TASK_NAME,
+            status  : 'skipped',
+            details : expect.objectContaining({
+                blockingTaskName: DREAM_TASK_NAME,
+                reason          : 'periodic-golden-path:600000',
+                reasonCode      : 'golden-path-dependency-backpressure'
+            })
+        });
+        expect(logs).toContainEqual({
+            level  : 'INFO',
+            message: expect.stringContaining('Deferring golden path synthesis; dependency task REM sleep graph extraction is active')
+        });
+    });
+
+    test('allows golden path refresh while non-dream heavy maintenance is active', async () => {
+        const calls = [];
+
+        const orchestrator = createTestOrchestrator({
+            goldenPathIntervalMs: 600000,
+            goldenPathSynthesizer: {
+                synthesizeGoldenPath() {
+                    calls.push('golden-path');
+                    return Promise.resolve();
+                }
+            }
+        });
+
+        TaskStateService.taskState.summary.running = true;
+
+        orchestrator.poll();
+        await Promise.resolve();
+
+        expect(calls).toEqual(['golden-path']);
+    });
+
     test('keeps continuous daemon supervision outside heavy maintenance backpressure', () => {
         const started = [];
 
