@@ -711,6 +711,77 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
         expect(execFileSyncFn.calls[0].cmd).toBe(process.platform === 'win32' ? 'npm.cmd' : 'npm');
     });
 
+    test('runKbSync passes NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN env to cascade spawn when set (#11519 AC4)', () => {
+        // Cross-daemon lease-inheritance contract: when the parent orchestrator process
+        // has acquired the heavy-maintenance lease and exports its token via
+        // `NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN`, the kbSync cascade spawned by
+        // PrimaryRepoSyncService.runKbSync MUST forward that env to the child so the
+        // cascade's `withHeavyMaintenanceLease` recognizes the parent's lease and runs
+        // WITHOUT acquire/release (returns 'inherited').
+        //
+        // Without this forwarding the cascade would attempt to acquire its own lease,
+        // see the parent's, and self-defer with 'held' — the #11519 self-defer bug.
+        const taskStateService = createTaskStateService();
+        const healthService    = {recordTaskOutcome() {}};
+        const captured         = [];
+        const execFileSyncFn   = (cmd, args, options) => {
+            captured.push({cmd, args, options});
+            return '';
+        };
+
+        const original = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+        process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = 'parent-orchestrator-token';
+
+        try {
+            PrimaryRepoSyncService.runKbSync('/primary/neo', execFileSyncFn, {taskStateService, healthService});
+
+            expect(captured).toHaveLength(1);
+            const {options} = captured[0];
+
+            expect(options.env).toBeDefined();
+            expect(options.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN).toBe('parent-orchestrator-token');
+            // Other process.env entries pass through (PATH, HOME, etc.) — assert at least one
+            // canonical env entry is preserved to verify {...process.env} spread, not a
+            // single-key replacement.
+            expect(options.env.PATH || options.env.Path).toBeDefined();
+        } finally {
+            if (original === undefined) {
+                delete process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+            } else {
+                process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = original;
+            }
+        }
+    });
+
+    test('runKbSync omits explicit env when no inherited token is present (#11519 AC4 backward-compat)', () => {
+        // When parent has NOT exported the inheritance env-var, runKbSync MUST NOT pass an
+        // explicit env option — leaves spawn's default-inheritance behavior intact. Asserts
+        // the change is gated on the inheritance signal rather than always-on.
+        const taskStateService = createTaskStateService();
+        const healthService    = {recordTaskOutcome() {}};
+        const captured         = [];
+        const execFileSyncFn   = (cmd, args, options) => {
+            captured.push({cmd, args, options});
+            return '';
+        };
+
+        const original = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+        delete process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+
+        try {
+            PrimaryRepoSyncService.runKbSync('/primary/neo', execFileSyncFn, {taskStateService, healthService});
+
+            expect(captured).toHaveLength(1);
+            const {options} = captured[0];
+
+            expect(options.env).toBeUndefined();
+        } finally {
+            if (original !== undefined) {
+                process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = original;
+            }
+        }
+    });
+
     test('runKbSync honors custom parentTaskName for cascade provenance (#11520 AC2 parent annotation contract)', () => {
         // Defensive: if a future caller wraps runKbSync with a different parent context
         // (e.g., hypothetical `summary` cascade), the annotation reason + parent field
