@@ -60214,6 +60214,13 @@
     "path": "issues/chunk-13/issue-11520.md"
   },
   {
+    "type": "issues",
+    "id": 11524,
+    "version": null,
+    "chunkNumber": 13,
+    "path": "issues/chunk-13/issue-11524.md"
+  },
+  {
     "type": "pulls",
     "id": 4,
     "version": "v8.1.0",
