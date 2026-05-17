@@ -32,6 +32,14 @@ Based on the clues surfaced from artifacts and memory, actively dive into the co
 - Target explicit topological layers (e.g., `.agents/skills`, `ai/mcp/`, `src/vdom/`).
 - Seek structural anomalies: orphan test directories, legacy Configuration objects (e.g., deeply nested daemon configs instead of top-level paths), deprecated JSDoc tags, or `&&` logic that should be optional chaining `?.`.
 
+### D. Unbounded-List API Detection
+When sweeping the codebase, you MUST flag any `ai/services/*.mjs` or `ai/mcp/server/*/services/*.mjs` method that meets all of the following criteria:
+1. Has a name matching `findAll*`, `getAll*`, `list*`, or `get*s` (plural returns).
+2. Does NOT accept a `limit`, `maxResults`, or `pageSize` parameter.
+3. Returns a collection type (`Array`, `Map`, `Set`) in its JSDoc.
+
+Report these findings as `[UNBOUNDED_API_RISK]` with the specific method and suggested remediation (add a `limit` parameter with a documented default and max, per the Gold Standard established in `get_class_hierarchy`'s `root` param and `ConceptService`'s bounded query layer).
+
 ## 4. Proactive Remediation
 
 Once you have cataloged depreciated logic clusters, you MUST generate highly actionable, granular cleanup tickets for the swarm backlog. 
