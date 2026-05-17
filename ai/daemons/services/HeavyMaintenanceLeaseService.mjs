@@ -311,12 +311,13 @@ export async function releaseHeavyMaintenanceLease({
  * | `status`      | `acquired` | `result` field    | Meaning                                                                      |
  * |---------------|------------|-------------------|------------------------------------------------------------------------------|
  * | `'completed'` | `true`     | the task's return | Lease acquired (including after stale/malformed recovery); task ran to completion (success or graceful-return). |
+ * | `'inherited'` | `false`    | the task's return | Inherited via matching env-var token; lease was acquired by a parent process; task ran to completion. |
  * | `'held'`      | `false`    | absent            | Another active owner holds the lease; task NOT executed. `lease` carries that owner's descriptor. |
  *
  * Note: when `acquireHeavyMaintenanceLease` returns a non-`'acquired'` non-`'held'`
  * acquisition descriptor (e.g., an `'unreadable'` IO-failure shape — theoretical
  * edge case), the wrapper passes it through unchanged. Task exceptions propagate;
- * release still fires from the wrapper's `finally`.
+ * release still fires from the wrapper's `finally` (unless inherited).
  *
  * ### Acquisition descriptor passed to `task` (separate surface)
  *
@@ -328,10 +329,11 @@ export async function releaseHeavyMaintenanceLease({
  * | `'acquired'`                  | absent           | Clean acquisition on a previously-missing lease.            |
  * | `'acquired-after-stale'`      | `'stale'`        | Prior owner's TTL expired; replaced atomically.             |
  * | `'acquired-after-malformed'`  | `'malformed'`    | Prior lease file was unparseable; replaced atomically.      |
+ * | `'inherited'`                 | absent           | Clean inheritance of active parent lease.                   |
  *
  * Inspect `acquisition.previousStatus` inside `task` if you need to log/alert
  * on stale-recovery telemetry. From the wrapper-caller's perspective, all three
- * cases normalize to `{status: 'completed', acquired: true, ...}`.
+ * cases normalize to `{status: 'completed', acquired: true, ...}` (or inherited).
  *
  * @param {Function} task Async task to execute when the lease is acquired. Receives the acquisition descriptor as its single argument (`{status, acquired, lease}`).
  * @param {Object} options Lease acquisition options forwarded to `acquireHeavyMaintenanceLease` (owner, reason, metadata, leasePath, staleAfterMs, pid, token, fsModule, now).
@@ -343,6 +345,26 @@ export async function releaseHeavyMaintenanceLease({
  * @see https://github.com/neomjs/neo/pull/11509 — empirical anchor (cycles 1 + 2)
  */
 export async function withHeavyMaintenanceLease(task, options = {}) {
+    const inheritedToken = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+
+    if (inheritedToken) {
+        const current = await inspectHeavyMaintenanceLease({
+            leasePath: options.leasePath,
+            fsModule : options.fsModule,
+            now      : options.now
+        });
+
+        if (current.active && current.lease && current.lease.token === inheritedToken) {
+            const acquisition = {status: 'inherited', acquired: false, lease: current.lease};
+            return {
+                status: 'inherited',
+                acquired: false,
+                lease : current.lease,
+                result: await task(acquisition)
+            };
+        }
+    }
+
     const acquisition = await acquireHeavyMaintenanceLease(options);
 
     if (!acquisition.acquired) {
