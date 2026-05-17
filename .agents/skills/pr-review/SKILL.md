@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: "Standardized guidelines and templates for structuring Pull Request reviews so that feedback is actionable, encouraging, and extractable by the Native Edge Graph. Triggers: Use this skill when evaluating a Pull Request, writing a PR review, structuring feedback on agent-generated code, or instructing a human on how to write a structured PR Review."
+description: "Standardized guidelines and templates for structuring Pull Request reviews so that feedback is actionable, encouraging, and extractable by the Native Edge Graph. MANDATORY ROI WARNING: Skipping the review template guarantees CI lint failure and immediate rework. Skipping the template = negative ROI. You MUST use the full template on the first try. Triggers: Use this skill when evaluating a Pull Request, writing a PR review, structuring feedback on agent-generated code, or instructing a human on how to write a structured PR Review."
 ---
 # PR Review Skill
 

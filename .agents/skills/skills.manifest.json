@@ -169,7 +169,7 @@
     },
     "pr-review": {
       "name": "pr-review",
-      "description": "Standardized guidelines and templates for structuring Pull Request reviews so that feedback is actionable, encouraging, and extractable by the Native Edge Graph. Triggers: Use this skill when evaluating a Pull Request, writing a PR review, structuring feedback on agent-generated code, or instructing a human on how to write a structured PR Review.",
+      "description": "Standardized guidelines and templates for structuring Pull Request reviews so that feedback is actionable, encouraging, and extractable by the Native Edge Graph. MANDATORY ROI WARNING: Skipping the review template guarantees CI lint failure and immediate rework. Skipping the template = negative ROI. You MUST use the full template on the first try. Triggers: Use this skill when evaluating a Pull Request, writing a PR review, structuring feedback on agent-generated code, or instructing a human on how to write a structured PR Review.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "perFilePayloadBudget": 66000,
@@ -181,7 +181,7 @@
     },
     "pull-request": {
       "name": "pull-request",
-      "description": "Standardized guidelines and procedural execution flow for opening a Pull Request. Mandates the \"Stepping Back\" reflection protocol and git/gh tool invocations. Triggers: Use this skill as the final Definition of Done when you believe a ticket is complete and it is time to open a Pull Request, or if a human user asks you to submit a PR. Also triggers when receiving a PR review to perform the author-side template-adherence check.",
+      "description": "Standardized guidelines and procedural execution flow for opening a Pull Request. Mandates the \"Stepping Back\" reflection protocol and git/gh tool invocations. CRITICAL: Do NOT run default `npx playwright test` to verify changes before PR submission; Neo uses multiple custom playwright configs (e.g., unit, e2e) which must be explicitly targeted. MANDATORY ROI WARNING: Skipping the PR body template guarantees CI lint failure and immediate rework. Skipping the template = negative ROI. You MUST use the full template on the first try. Triggers: Use this skill as the final Definition of Done when you believe a ticket is complete and it is time to open a Pull Request, or if a human user asks you to submit a PR. Also triggers when receiving a PR review to perform the author-side template-adherence check.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "perFilePayloadBudget": 38000,
@@ -237,7 +237,7 @@
     },
     "ticket-create": {
       "name": "ticket-create",
-      "description": "Authoritative protocol for creating Neo.mjs GitHub issues. Enforces duplicate sweep, Fat Ticket body structure, strict label rules, title hygiene, and the five-stage challenge chain at creation time. Use immediately before calling the create_issue MCP tool. Triggers: Use this skill before any invocation of the create_issue MCP tool. This is the creation-side dual of ticket-intake (which consumes existing tickets).",
+      "description": "Authoritative protocol for creating Neo.mjs GitHub issues. Enforces duplicate sweep, Fat Ticket body structure, strict label rules, title hygiene, and the five-stage challenge chain at creation time. CRITICAL: Do NOT run default `npx playwright test` to verify issues; Neo uses multiple custom playwright configs (e.g., unit, e2e) which must be explicitly targeted. Use immediately before calling the create_issue MCP tool. Triggers: Use this skill before any invocation of the create_issue MCP tool. This is the creation-side dual of ticket-intake (which consumes existing tickets).",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "claudeSymlinkRequired": true,
@@ -281,7 +281,7 @@
     },
     "unit-test": {
       "name": "unit-test",
-      "description": "Expert QA knowledge on writing, formatting, and executing Playwright tests natively in the Neo.mjs single-thread layout natively. Triggers: Use this skill if the user asks you to write, fix, or run unit tests.",
+      "description": "Expert QA knowledge on writing, formatting, and executing Playwright tests natively in the Neo.mjs single-thread layout. CRITICAL: Neo.mjs uses Playwright in a highly custom way. Standard Playwright patterns will fail. Triggers: Use this skill before writing, modifying, or executing Playwright unit tests, or if the user asks you to write, fix, or run unit tests.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "claudeSymlinkRequired": true,
@@ -292,7 +292,7 @@
     },
     "whitebox-e2e": {
       "name": "whitebox-e2e",
-      "description": "Standardized guide and protocol for authoring robust Whitebox End-to-End tests using the Neural Link Playwright fixture. Triggers: Use this skill if the user asks you to write an E2E test, add end-to-end coverage, or test a component holistically.",
+      "description": "Standardized guide and protocol for authoring robust Whitebox End-to-End tests using the Neural Link Playwright fixture. CRITICAL: Neo.mjs uses Playwright in a highly custom way. Standard Playwright patterns will fail. Triggers: Use this skill before writing, modifying, or executing Playwright End-to-End tests, or if the user asks you to write an E2E test, add end-to-end coverage, or test a component holistically.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "claudeSymlinkRequired": true,
