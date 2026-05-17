@@ -831,3 +831,30 @@ export const GET_ISSUE_PARENT = `
         }
     }
 `;
+
+/**
+ * @summary Fetches the current assignee logins for a single issue.
+ *
+ * Narrow query used by `manage_issue_assignees` as the precondition fetch step in the
+ * precondition + post-verify gate (#11537). Distinct from `FETCH_SINGLE_ISSUE` which
+ * also pulls timeline, sub-issues, blocking relationships — too heavy for a gate check.
+ *
+ * Variables required:
+ * - $owner: String!
+ * - $repo: String!
+ * - $number: Int!
+ * - $maxAssignees: Int!
+ */
+export const GET_ISSUE_ASSIGNEES = `
+    query GetIssueAssignees($owner: String!, $repo: String!, $number: Int!, $maxAssignees: Int!) {
+        repository(owner: $owner, name: $repo) {
+            issue(number: $number) {
+                assignees(first: $maxAssignees) {
+                    nodes {
+                        login
+                    }
+                }
+            }
+        }
+    }
+`;

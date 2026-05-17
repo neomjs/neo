@@ -6,7 +6,7 @@ import logger            from '../../mcp/server/github-workflow/logger.mjs';
 import {exec}            from 'child_process';
 import {promisify}       from 'util';
 import {spawn}           from 'child_process';
-import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST} from './queries/issueQueries.mjs';
+import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, GET_ISSUE_ASSIGNEES, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST} from './queries/issueQueries.mjs';
 import {GET_PULL_REQUEST_ID} from './queries/pullRequestQueries.mjs';
 import {
     ADD_LABELS,
@@ -91,17 +91,41 @@ class IssueService extends Base {
     }
 
     /**
-     * Assigns one or more users to a GitHub issue, or clears all assignees.
-     * This method first verifies that the user has the required permissions (`WRITE`, `MAINTAIN`, or `ADMIN`)
-     * before attempting to modify the issue.
-     * - To add assignees, provide an array of GitHub logins.
-     * - To clear all assignees, provide an empty array.
-     * @param {object}   options              The options object
-     * @param {number}   options.issue_number The number of the issue to modify.
-     * @param {string[]} options.assignees    An array of GitHub user logins to assign, or an empty array to clear all assignees.
-     * @returns {Promise<object>}
+     * @summary Assigns one or more users to a GitHub issue, or clears all assignees.
+     *
+     * Implements the precondition + post-verify gate from #11537 (graduated from Discussion
+     * #11536). The "single guarded MCP operation" semantics — one MCP call performs
+     * fetch-current → enforce gate → mutate → re-fetch (post-verify) → return the verified
+     * state. Internally chains multiple GitHub API calls; consumers see one response with
+     * honest race-window semantics (NOT strict CAS across concurrent MCP server instances).
+     *
+     * **Gate behavior (add mode, non-empty assignees):**
+     * - `requireUnassigned: true` (default) — if issue already has assignees, return
+     *   `ASSIGNEE_CONFLICT` unless `acknowledgedReassign: '<reason>'` is provided.
+     * - `acknowledgedReassign: '<reason>'` — strict-replacement override. Clears existing
+     *   assignees, assigns the new set, posts an audit-trail comment on the issue
+     *   capturing the reason (per GPT STEP_BACK AC8: reason persistence in
+     *   GitHub-visible artifact).
+     * - `requireUnassigned: false` — legacy blind-add (no precondition gate). Provided
+     *   for backward-compat; new callers should not rely on this.
+     *
+     * **Co-owner-add deferral (per Discussion #11536 OQ3 resolution):** V1 supports only
+     * strict-replacement override; co-owner-add (`acknowledgedCoOwner`) deferred to V2.
+     * Rationale: simultaneous co-authorship is virtually nonexistent in our swarm topology
+     * due to git-conflict chaos; cross-family corrective-authorship is always a handoff,
+     * never simultaneous co-ownership.
+     *
+     * **Clear mode (empty assignees):** unchanged — clearing is always safe (no
+     * precondition needed); proceeds via `gh issue edit --remove-assignee ""`.
+     *
+     * @param {object}   options                       The options object
+     * @param {number}   options.issue_number          The number of the issue to modify.
+     * @param {string[]} options.assignees             Array of GitHub logins to assign, or empty array to clear all.
+     * @param {boolean}  [options.requireUnassigned=true] Precondition gate — reject add if non-empty without `acknowledgedReassign`.
+     * @param {string}   [options.acknowledgedReassign] Reason-bearing override for strict replacement; required when assignees are non-empty and `requireUnassigned: true`.
+     * @returns {Promise<object>} Success message + `verifiedAssignees` (post-verify state), or structured error (e.g., `ASSIGNEE_CONFLICT` with `currentAssignees` + `attemptedAssignees` for caller introspection).
      */
-    async assignIssue({issue_number, assignees}) {
+    async assignIssue({issue_number, assignees, requireUnassigned = true, acknowledgedReassign}) {
         if (!await this.hasWritePermission()) {
             const message = [
                 `Permission denied. Viewer has '${RepositoryService.viewerPermission}' permission, `,
@@ -117,25 +141,76 @@ class IssueService extends Base {
         }
 
         try {
-            let command;
-            let successMessage;
-
-            if (assignees?.length > 0) {
-                logger.info(`Attempting to assign issue #${issue_number} to: ${assignees.join(', ')}`);
-                const assigneeFlags = assignees.map(a => `--add-assignee "${a}"`).join(' ');
-                command             = `gh issue edit ${issue_number} ${assigneeFlags} --repo ${aiConfig.owner}/${aiConfig.repo}`;
-                successMessage      = `Successfully assigned issue #${issue_number} to ${assignees.join(', ')}`;
-            } else {
+            // CLEAR MODE: empty assignees — no precondition needed; proceeds directly.
+            if (!assignees || assignees.length === 0) {
                 logger.info(`Attempting to unassign all users from issue #${issue_number}`);
                 // Passing an empty string to --remove-assignee has been experimentally verified to clear all assignees.
-                command        = `gh issue edit ${issue_number} --remove-assignee "" --repo ${aiConfig.owner}/${aiConfig.repo}`;
-                successMessage = `Successfully unassigned all users from issue #${issue_number}`;
+                const command  = `gh issue edit ${issue_number} --remove-assignee "" --repo ${aiConfig.owner}/${aiConfig.repo}`;
+                await execAsync(command);
+                const message  = `Successfully unassigned all users from issue #${issue_number}`;
+                logger.info(message);
+                return {message};
             }
 
+            // ADD MODE: precondition + post-verify gate.
+            // Step 1 — precondition fetch: who is currently assigned?
+            const currentAssignees = await this.#fetchCurrentAssignees(issue_number);
+
+            // Step 2 — conflict gate: reject blind-add to occupied issue unless explicit override.
+            if (currentAssignees.length > 0 && requireUnassigned && !acknowledgedReassign) {
+                const conflictMessage = [
+                    `Issue #${issue_number} is already assigned to [${currentAssignees.join(', ')}]. `,
+                    `Default precondition (\`requireUnassigned: true\`) rejects blind-add. `,
+                    `To override with strict replacement: pass \`acknowledgedReassign: '<reason>'\` (the reason will be persisted as an audit-trail comment on the issue per #11537 AC8). `,
+                    `Co-owner-add (preserving existing assignees) is deferred to V2 per Discussion #11536 OQ3 resolution.`
+                ].join('');
+                logger.warn(`ASSIGNEE_CONFLICT on #${issue_number}: current=[${currentAssignees.join(',')}], attempted=[${assignees.join(',')}]`);
+                return {
+                    error             : 'Assignee Conflict',
+                    message           : conflictMessage,
+                    code              : 'ASSIGNEE_CONFLICT',
+                    currentAssignees,
+                    attemptedAssignees: assignees
+                };
+            }
+
+            // Step 3 — strict-replacement override: clear existing first.
+            const isOverride = currentAssignees.length > 0 && acknowledgedReassign;
+            if (isOverride) {
+                logger.info(`Strict-replacement override on #${issue_number} (reason: "${acknowledgedReassign}"): clearing existing [${currentAssignees.join(',')}] before assigning [${assignees.join(',')}]`);
+                const clearCommand = `gh issue edit ${issue_number} --remove-assignee "" --repo ${aiConfig.owner}/${aiConfig.repo}`;
+                await execAsync(clearCommand);
+            }
+
+            // Step 4 — mutate: add the new assignees.
+            logger.info(`Attempting to assign issue #${issue_number} to: ${assignees.join(', ')}`);
+            const assigneeFlags = assignees.map(a => `--add-assignee "${a}"`).join(' ');
+            const command       = `gh issue edit ${issue_number} ${assigneeFlags} --repo ${aiConfig.owner}/${aiConfig.repo}`;
             await execAsync(command);
 
+            // Step 5 — post-verify: re-fetch and confirm the resulting assignee state.
+            const verifiedAssignees = await this.#fetchCurrentAssignees(issue_number);
+
+            // Step 6 — audit-trail comment for overrides (per GPT STEP_BACK AC8 carry-forward).
+            // Persists the reason as a GitHub-visible artifact (issue comment); reason must NOT be lost.
+            if (isOverride) {
+                await this.#createReassignAuditComment(issue_number, currentAssignees, assignees, acknowledgedReassign);
+            }
+
+            const successMessage = isOverride
+                ? `Successfully reassigned issue #${issue_number} to ${assignees.join(', ')} (strict-replacement override; previous: [${currentAssignees.join(', ')}])`
+                : `Successfully assigned issue #${issue_number} to ${assignees.join(', ')}`;
             logger.info(successMessage);
-            return {message: successMessage};
+
+            const result = {
+                message: successMessage,
+                verifiedAssignees
+            };
+            if (isOverride) {
+                result.acknowledgedReassign = acknowledgedReassign;
+                result.previousAssignees    = currentAssignees;
+            }
+            return result;
 
         } catch (error) {
             logger.error(`Error updating assignees for issue #${issue_number}:`, error);
@@ -144,6 +219,70 @@ class IssueService extends Base {
                 message: error.message,
                 code   : 'GH_CLI_ERROR'
             };
+        }
+    }
+
+    /**
+     * @summary Fetches current assignee logins for the precondition + post-verify gate.
+     * Narrow GraphQL query (vs `FETCH_SINGLE_ISSUE`'s heavy nested fetch).
+     * @param {number} issueNumber
+     * @returns {Promise<string[]>} Array of assignee logins (empty array if no assignees or issue missing).
+     * @private
+     */
+    async #fetchCurrentAssignees(issueNumber) {
+        const data = await GraphqlService.query(GET_ISSUE_ASSIGNEES, {
+            owner       : aiConfig.owner,
+            repo        : aiConfig.repo,
+            number      : issueNumber,
+            maxAssignees: aiConfig.issueSync.maxAssigneesPerIssue
+        });
+        return (data?.repository?.issue?.assignees?.nodes || []).map(n => n.login);
+    }
+
+    /**
+     * @summary Persists an `acknowledgedReassign` reason as a GitHub-visible audit-trail comment.
+     *
+     * Per GPT STEP_BACK §4 carry-forward AC: the reason must be persisted in a GitHub-visible
+     * artifact (issue comment), NOT only transient event metadata. The comment becomes
+     * graph-readable provenance via the Native Edge Graph + Retrospective daemon's
+     * comment-ingestion path.
+     *
+     * Posts the comment via raw `ADD_COMMENT` (not via `createComment`) to avoid the
+     * agent-attribution header (`**Input from <agent>:**`); the audit comment is system-
+     * generated, not agent-authored.
+     *
+     * Comment failure does NOT roll back the assignee mutation — graceful degradation,
+     * mirroring `createIssue`'s projectAttach partial-failure pattern. Audit-trail tests
+     * verify both happy path + degradation path.
+     *
+     * @param {number}   issueNumber
+     * @param {string[]} previousAssignees
+     * @param {string[]} newAssignees
+     * @param {string}   reason
+     * @private
+     */
+    async #createReassignAuditComment(issueNumber, previousAssignees, newAssignees, reason) {
+        const body = [
+            `**\`[lane-override]\` reassignment audit-trail** (#11537 §AC8)`,
+            ``,
+            `**Previous assignees:** ${previousAssignees.map(u => `\`@${u}\``).join(', ')}`,
+            `**New assignees:** ${newAssignees.map(u => `\`${u}\``).join(', ')}`,
+            `**Reason:** ${reason}`,
+            ``,
+            `*Audit-trail per AGENTS.md §6.5 — \`acknowledgedReassign\` reason persistence. Graph-ingested via Retrospective daemon comment-scan path.*`
+        ].join('\n');
+
+        try {
+            const issueNodeId = await this.getIssueNodeId(issueNumber);
+            if (!issueNodeId) {
+                logger.warn(`Could not resolve node ID for #${issueNumber}; audit-trail comment skipped.`);
+                return;
+            }
+            await GraphqlService.query(ADD_COMMENT, {subjectId: issueNodeId, body});
+            logger.info(`Posted reassign audit-trail comment on #${issueNumber}`);
+        } catch (error) {
+            logger.error(`Error posting reassign audit-trail comment on #${issueNumber} — assignee mutation already succeeded:`, error);
+            // Graceful degradation: do not roll back the assignee mutation.
         }
     }
 
@@ -750,14 +889,21 @@ class IssueService extends Base {
     }
 
     /**
-     * Consolidates assignee management into a single method.
-     * @param {object}   options              The options object
-     * @param {number}   options.issue_number The number of the issue to modify.
-     * @param {string[]} options.assignees    An array of GitHub user logins to assign/unassign.
-     * @param {string}   options.action       The action to perform: 'add' or 'remove'.
+     * @summary Consolidates assignee management into a single method.
+     *
+     * For `action: 'add'`, delegates to `assignIssue` which enforces the precondition
+     * + post-verify gate (#11537): `requireUnassigned: true` default + reason-bearing
+     * `acknowledgedReassign` override + audit-trail comment persistence.
+     *
+     * @param {object}   options                       The options object
+     * @param {number}   options.issue_number          The number of the issue to modify.
+     * @param {string[]} options.assignees             An array of GitHub user logins to assign/unassign.
+     * @param {string}   options.action                The action to perform: 'add' or 'remove'.
+     * @param {boolean}  [options.requireUnassigned=true] Precondition gate for `action: 'add'` — reject if non-empty without `acknowledgedReassign`.
+     * @param {string}   [options.acknowledgedReassign] Reason-bearing override for `action: 'add'`; strict-replacement.
      * @returns {Promise<object>}
      */
-    async manageIssueAssignees({issue_number, assignees, action}) {
+    async manageIssueAssignees({issue_number, assignees, action, requireUnassigned, acknowledgedReassign}) {
         if (!['add', 'remove'].includes(action)) {
             return {
                 error: 'Bad Request',
@@ -767,7 +913,7 @@ class IssueService extends Base {
         }
 
         if (action === 'add') {
-            return this.assignIssue({issue_number, assignees});
+            return this.assignIssue({issue_number, assignees, requireUnassigned, acknowledgedReassign});
         } else {
             return this.unassignIssue({issue_number, assignees});
         }
