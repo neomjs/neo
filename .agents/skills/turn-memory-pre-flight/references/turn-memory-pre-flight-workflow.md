@@ -21,16 +21,16 @@ Before committing ANY change to the agent memory substrate, you **MUST** evaluat
 ### Step 1: Does this rule apply to EVERY single agent turn universally?
 - **YES:** Can it be mechanically enforced?
   - **YES:** Candidate for `AGENTS.md` §0 (Critical Gates) or §3 (Pre-Commit Hard Gates).
-  - **NO:** Candidate for `AGENTS.md` §13 (Values/Continuous Loop) or §22 (Mailbox Protocol).
+  - **NO:** Candidate for `AGENTS.md` §13 (Values/Continuous Loop) or §21 (Mailbox Protocol).
 - **NO:** Proceed to Step 2.
 
 ### Step 2: Does this rule govern a specific, identifiable agent lifecycle event or workflow?
 (e.g., creating a ticket, opening a PR, reviewing code, debugging a test)
-- **YES:** This is a **Skill**. It must be placed in a dedicated `.agents/skills/[skill-name]/SKILL.md` file. Add a 1-line trigger to `AGENTS.md` §21 so agents know *when* to invoke it. Follow `/create-skill` guidelines.
+- **YES:** This is a **Skill**. It must be placed in a dedicated `.agents/skills/[skill-name]/SKILL.md` file. Add a 1-line trigger to the skills manifest so agents know *when* to invoke it. Follow `/create-skill` guidelines.
 - **NO:** Proceed to Step 3.
 
 ### Step 3: Is this an edge-case, historical anchor, or detailed protocol for a rare scenario?
-- **YES:** This is an **Atlas entry**. It must be placed in `learn/agentos/AGENTS_ATLAS.md`. Add a 1-line pointer to `AGENTS.md` §23.
+- **YES:** This is an **Atlas entry**. It must be placed in `learn/agentos/AGENTS_ATLAS.md`. Add a 1-line pointer to `AGENTS.md` §22.
 - **NO:** Proceed to Step 4.
 
 ### Step 4: Is it a Harness-Local rule?
