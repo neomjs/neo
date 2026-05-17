@@ -8,7 +8,7 @@ test.describe('Memory Core Config (#10010)', () => {
 
     test.beforeAll(async () => {
         originalEnv = { ...process.env };
-        
+
         // Remove the class from Neo's namespace to prevent collisions if another spec
         // already imported the real config.mjs in the same worker.
         if (Neo.ai?.mcp?.server?.['memory-core']?.Config) {
