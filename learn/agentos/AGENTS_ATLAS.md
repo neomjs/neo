@@ -103,6 +103,11 @@ Useful contribution buckets (categorical, not ranked):
 
 Raw contribution counts stay diagnostic, never rewarding. The Retrospective daemon (when MX feedback loop matures, see [Discussion #11023](https://github.com/orgs/neomjs/discussions/11023)) tracks these signals as substrate-health indicators.
 
+## 13.3. PR Diff === PR Body (Memory Anchor) [DISCIPLINE-ONLY]
+Per `AGENTS.md §13.3`: PR body + review templates are graph-ingestion substrate (Native Edge Graph + DreamService) and memory-anchors for Discussion #11376 (Cogito Foundation). They carry equal substrate load to the diff. Skipping or truncating PR bodies/review-template structure corrupts the Native Edge Graph + degrades the Retrospective daemon's gradient signal quality.
+
+**Why the Map-tier override-claim shape matters**: agent training data biases `PR diff >> PR body` (treats PR descriptions as descriptive courtesy). The §13.3 Map-tier entry explicitly NAMES that prior + STATES the Neo override — same L1 firewall pattern as §15.5 / §15.6. Without naming the prior, future LLMs reading AGENTS.md interpret "PR Diff === PR Body" as rhetorical equation rather than training-prior override. Pattern empirically anchored across 10-cycle convergence on PR #11534 (#11533 graduation) — substrate-discipline calibration: byte-budget optimization must NOT collapse the L1 firewall pattern.
+
 ## 14. The A2A Contextual Bridge Protocol (End of Session Handoff) [MACHINE-ENFORCEABLE-CANDIDATE]
 1. **The Sunset Protocol:** Execute `session-sunset` skill. PRE-DECISION SUNSET GATE: explicitly requires human confirmation (`/sunset` or chat directive) unless context > 75%.
 2. **End-of-Session Horizon Scan.**
@@ -135,10 +140,10 @@ Inject Context Preamble: "Before analyzing the code, you MUST first read `src/Ne
 ## 20. The Visual Verification Protocol (Frontend UI/Layout Tasks) [DISCIPLINE-ONLY]
 **FORBIDDEN** from modifying CSS or Layout Configs based solely on static code analysis when a visual bug is reported. Use `neural_link` tool suite to verify physical DOM constraints.
 
-## 23. Authoring Discipline: Sibling-File Lift [DISCIPLINE-ONLY]
-Before writing a new `class X extends Y` file in an existing directory, you MUST read 1-2 sibling files to lift the prevailing pattern.
-> *"Pre-Flight: I read `<sibling-file>` and observed pattern `<P>`; my new class will follow that pattern."*
-
-## 22. Lead-Role Baton Intake (Validation & Constraints) [DISCIPLINE-ONLY]
+## 21. Lead-Role Baton Intake (Validation & Constraints) [DISCIPLINE-ONLY]
 A valid baton is a targeted DM, never `AGENT:*`, with `wakeSuppressed: true`, subject `[handoff] Lead Role Baton`, and body fields `fromLead`, `toLead`, `sourceSessionId`, `reason`, `createdAt`, and expiry / staleness limits. 
 Missing, stale, malformed, or broadcast baton state does NOT authorize silent self-election: continue in peer-role / normal mailbox triage, dispatch a targeted `lead-role-baton-missing` A2A alert, and await operator or human-triggered recovery.
+
+## 22. Authoring Discipline: Sibling-File Lift [DISCIPLINE-ONLY]
+Before writing a new `class X extends Y` file in an existing directory, you MUST read 1-2 sibling files to lift the prevailing pattern.
+> *"Pre-Flight: I read `<sibling-file>` and observed pattern `<P>`; my new class will follow that pattern."*

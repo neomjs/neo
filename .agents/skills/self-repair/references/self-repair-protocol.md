@@ -7,8 +7,7 @@ Your first priority is determining if the bridge between the Neo.mjs Agent OS cl
 
 1. **Invoke the `unit-test` skill**: Navigate to `test/playwright/unit/ai/` and execute target test suites like `McpServersHealth.spec.mjs`. Use these tests as the absolute source of truth for JSON-RPC sequence validity.
 2. **Verify Daemon & Database Status**: If `memory-core`, `knowledge-base`, or the Neural Link bridge are offline, check your `package.json` scripts. Verify that ChromaDB is running without zombie processes.
-    - **Knowledge Base** runs on port `8000` (script: `npm run ai:server`)
-    - **Memory Core** runs on port `8001` (script: `npm run ai:server-memory`)
+    - **Knowledge Base & Memory Core** share a unified ChromaDB on port `8000` (script: `npm run ai:server`)
     - **Neural Link Bridge** ensures realtime VDOM sync (script: `npm run ai:server-neural-link`)
     - Search for and terminate zombie processes if ports are locked before attempting to restart the services.
 3. **Deep Infrastructure Introspection (`ai/services.mjs`)**: The entire Agent OS backend is located in `ai`. The `ai/services.mjs` module aggregates dependencies, allowing you to bypass full MCP HTTP boundaries and interact natively with internal tooling. If servers crash on boot, use `ai/examples/` (such as chroma checks) or a generic Node process to invoke internal routines via `services.mjs` directly.
@@ -19,7 +18,7 @@ Your first priority is determining if the bridge between the Neo.mjs Agent OS cl
 If the infrastructure code is functioning, but the *state* is corrupted (e.g., bad topologies, missing context, duplicated elements), you must triangulate *when* the corruption occurred.
 
 1. **Do not rely entirely on code state**. Code tells you what is broken; the memory tells you *why*.
-2. **Utilize the Memory Core**: Execute `get_all_summaries` or `query_summaries` from the `memory-core` MCP Server to dive into previous sessions. **If the memory core is offline, refer back to Phase 1 and restart `npm run ai:server-memory` on port 8001.**
+2. **Utilize the Memory Core**: Execute `get_all_summaries` or `query_summaries` from the `memory-core` MCP Server to dive into previous sessions. **If the memory core is offline, refer back to Phase 1 and restart `npm run ai:server` on port 8000.**
 3. Comparing previous AI session memories against `git log` history will rapidly narrow down the origin of the corruption.
 
 ## Phase 3: Deep Debugging Strategies

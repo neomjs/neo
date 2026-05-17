@@ -27,6 +27,7 @@ import CollectionProxy from '../../../../../../../../ai/services/memory-core/man
 import MemoryDatabaseService from '../../../../../../../../ai/services/memory-core/DatabaseService.mjs';
 import KbChromaManager from '../../../../../../../../ai/services/knowledge-base/ChromaManager.mjs';
 import KbVectorService from '../../../../../../../../ai/services/knowledge-base/VectorService.mjs';
+import aiConfig from '../../../../../../../../ai/mcp/server/memory-core/config.mjs';
 
 const repoRoot = process.cwd();
 
@@ -202,7 +203,7 @@ test.describe('DestructiveOperationGuard call-site wiring (#10845)', () => {
         proxy.getManagers = async () => [{
             resolveChromaCoordinates: () => ({
                 host   : 'localhost',
-                port   : 8001,
+                port   : 8000,
                 dataDir: path.join(repoRoot, '.neo-ai-data/chroma/memory-core')
             }),
             getMemoryCollection: async () => ({
@@ -224,12 +225,19 @@ test.describe('DestructiveOperationGuard call-site wiring (#10845)', () => {
     test('Memory Core graph truncate stops before SQLite deletion on the production graph path', async () => {
         test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
-        await expect(MemoryDatabaseService.truncateDatabase({
-            include: ['graph']
-        })).rejects.toMatchObject({
-            code   : 'DATABASE_TRUNCATE_ERROR',
-            message: expect.stringContaining('DESTRUCTIVE_TARGET_BLOCKED')
-        });
+        const originalGraphPath = aiConfig.storagePaths.graph;
+        try {
+            aiConfig.storagePaths.graph = path.join(repoRoot, '.neo-ai-data/sqlite/memory-core-graph.sqlite');
+
+            await expect(MemoryDatabaseService.truncateDatabase({
+                include: ['graph']
+            })).rejects.toMatchObject({
+                code   : 'DATABASE_TRUNCATE_ERROR',
+                message: expect.stringContaining('DESTRUCTIVE_TARGET_BLOCKED')
+            });
+        } finally {
+            aiConfig.storagePaths.graph = originalGraphPath;
+        }
     });
 
     test('Knowledge Base VectorService stops before deleting the production collection', async () => {

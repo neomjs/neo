@@ -111,6 +111,25 @@ function getReadAtForMessage(messageNode, deliveryEdge=null) {
     return messageNode?.properties?.readAt || null;
 }
 
+/**
+ * #10148: Returns the archive timestamp for a message from the per-recipient
+ * delivery edge (broadcast path) or the message node itself (direct DM path).
+ * Mirrors the `readAt` storage convention from #11029 — broadcasts keep
+ * archive state per-recipient on DELIVERED_TO edges; direct DMs use
+ * a single `archivedAt` on the MESSAGE node properties.
+ *
+ * @param {Object} messageNode MESSAGE node record.
+ * @param {Object|null} [deliveryEdge] Per-recipient DELIVERED_TO edge for broadcasts; null for direct DMs.
+ * @returns {String|null} ISO timestamp or null when not archived.
+ */
+function getArchivedAtForMessage(messageNode, deliveryEdge=null) {
+    if (deliveryEdge) {
+        return getRecordProperties(deliveryEdge).archivedAt || null;
+    }
+
+    return messageNode?.properties?.archivedAt || null;
+}
+
 async function setDeliveryEdgeReadAt(edge, readAt) {
     setRecordProperties(edge, {
         ...getRecordProperties(edge),
@@ -124,6 +143,42 @@ async function setDeliveryEdgeReadAt(edge, readAt) {
         db.acknowledgeLocalMutations?.();
     }
 }
+
+/**
+ * #10148: Sets the archive timestamp on a per-recipient DELIVERED_TO edge for
+ * broadcast messages. Mirrors `setDeliveryEdgeReadAt` exactly — same write
+ * shape (merge properties + addEdges + acknowledgeLocalMutations) so broadcast
+ * archive state participates in the same WAL coherence guarantees as readAt.
+ *
+ * @param {Object} edge DELIVERED_TO edge record.
+ * @param {String} archivedAt ISO timestamp.
+ * @returns {Promise<void>}
+ */
+async function setDeliveryEdgeArchivedAt(edge, archivedAt) {
+    setRecordProperties(edge, {
+        ...getRecordProperties(edge),
+        archivedAt
+    });
+
+    const db = GraphService.db;
+
+    if (db?.autoSave && db.storage) {
+        await db.storage.addEdges([edge]);
+        db.acknowledgeLocalMutations?.();
+    }
+}
+
+/**
+ * #10148: Placeholder text replacing `subject` + `bodyText` on a MESSAGE node
+ * after sender-side retraction via `deleteMessage`. Permanently overwrites
+ * the original content — retractions are non-recoverable per #10148 Out of
+ * Scope. The node + all edges (SENT_BY, SENT_TO, DELIVERED_TO, PART_OF_THREAD,
+ * IN_REPLY_TO) survive so thread context remains coherent for downstream
+ * traversal; only the human-readable content is removed.
+ *
+ * @type {String}
+ */
+const MESSAGE_RETRACTED_PLACEHOLDER = '[retracted by sender]';
 
 /**
  * @summary A2A (Agent-to-Agent) Messaging Service mapped to the Native Edge Graph.
@@ -419,9 +474,15 @@ class MailboxService extends Base {
      * @param {String[]} [args.taggedConcepts] Filter by specific tagged concepts (requires all)
      * @param {Number} [args.limit=50] Maximum number of messages to return
      * @param {Number} [args.offset=0] Pagination offset
+     * @param {Boolean} [args.includeArchived=false] Surface archived messages (#10148). Default
+     *   excludes any message whose `archivedAt` is set (on the MESSAGE node for direct DMs OR
+     *   on the per-recipient DELIVERED_TO edge for broadcasts) — archived ≠ deleted; the
+     *   message persists but is hidden from the default inbox view. Retracted messages
+     *   (sender-side `deleteMessage`) are NOT filtered — they surface with the
+     *   `'[retracted by sender]'` placeholder so thread context remains coherent.
      * @returns {Promise<Object>}
      */
-    async listMessages({ box = 'inbox', status = 'all', to, threadId, fromIdentity, taggedConcepts, limit = 50, offset = 0 } = {}) {
+    async listMessages({ box = 'inbox', status = 'all', to, threadId, fromIdentity, taggedConcepts, limit = 50, offset = 0, includeArchived = false } = {}) {
         const me = RequestContextService.getAgentIdentityNodeId();
         if (!me) {
             throw new Error("Cannot list messages: no agent identity context bound.");
@@ -515,6 +576,14 @@ class MailboxService extends Base {
                     if (status === 'unread' && !isUnread) continue;
                     if (status === 'read' && isUnread) continue;
 
+                    // #10148: archive-state filter. Default-excludes messages whose archivedAt
+                    // is set (direct DM: on MESSAGE node; broadcast: on DELIVERED_TO edge);
+                    // opt-in via includeArchived: true surfaces them. Retracted messages are
+                    // intentionally NOT filtered — they show with the placeholder subject so
+                    // thread context remains coherent (per Avoided Traps in ticket body).
+                    const archivedAt = getArchivedAtForMessage(messageNode, deliveryEdge);
+                    if (!includeArchived && archivedAt) continue;
+
                     let sentByNodeId = senderNode;
                     let sentToNodeId = targetNode;
                     let foundThreadId = null;
@@ -556,6 +625,9 @@ class MailboxService extends Base {
                     };
                     if (messageNode.properties.task !== undefined) summary.task = messageNode.properties.task;
                     if (messageNode.properties.wakeSuppressed) summary.wakeSuppressed = true;
+                    // #10148: surface archive + retracted state so callers can render distinctly.
+                    if (archivedAt) summary.archivedAt = archivedAt;
+                    if (messageNode.properties.retracted) summary.retracted = true;
                     messages.push(summary);
                 }
             }
@@ -710,6 +782,148 @@ class MailboxService extends Base {
         GraphService.upsertNode(messageNode);
 
         return { messageId, readAt: messageNode.properties.readAt, status: 'read' };
+    }
+
+    /**
+     * #10148: Receiver-side archive. Hides the message from the default `listMessages`
+     * view without deleting it — opt-in surfacing via `listMessages({includeArchived: true})`.
+     *
+     * **Permission model:** only the recipient (`SENT_TO` me OR per-recipient broadcast
+     * `DELIVERED_TO` me) can archive. Senders archiving their own outbox is out of scope
+     * (no use case surfaced yet; deferrable to a follow-up if needed). Archive is
+     * **per-recipient** for broadcasts via the DELIVERED_TO edge's `archivedAt` property,
+     * mirroring the #11029 readAt storage convention — each recipient archives their own
+     * copy independently.
+     *
+     * **Lifecycle distinction (vs `markRead` + `deleteMessage`):**
+     * - `markRead`: read ≠ done. Marks delivery receipt without removing from view.
+     * - `archiveMessage`: done with this message, out of default view. Reversible-by-design
+     *   (re-list via includeArchived: true to surface again).
+     * - `deleteMessage`: sender-side permanent retraction. Replaces content with placeholder;
+     *   irreversible.
+     *
+     * @param {Object} args
+     * @param {String} args.messageId The ID of the message to archive.
+     * @returns {Promise<Object>} `{messageId, archivedAt, status: 'archived'}`.
+     */
+    async archiveMessage({ messageId }) {
+        const me = RequestContextService.getAgentIdentityNodeId();
+        if (!me) {
+            throw new Error("Cannot archive message: no agent identity context bound.");
+        }
+
+        const db = GraphService.db;
+
+        // Trigger syncCache + lazy-reload vicinity (#10257) — same pattern as markRead.
+        db.getAdjacentNodes(messageId, 'both');
+
+        const messageNode = db.nodes.get(messageId);
+        if (!messageNode || messageNode.label !== 'MESSAGE') {
+            throw new Error(`Message not found: ${messageId}`);
+        }
+
+        let isDirectRecipient = false,
+            isBroadcastRecipient = false;
+
+        for (const edge of db.edges.items) {
+            if (getRecordField(edge, 'source') === messageId && getRecordField(edge, 'type') === 'SENT_TO') {
+                const edgeTarget = getRecordField(edge, 'target');
+
+                if (edgeTarget === me) {
+                    isDirectRecipient = true;
+                    break;
+                }
+                if (edgeTarget === 'AGENT:*') {
+                    isBroadcastRecipient = true;
+                }
+            }
+        }
+
+        const deliveryEdge = getBroadcastDeliveryEdge(messageId, me);
+
+        if (deliveryEdge) {
+            const archivedAt = new Date().toISOString();
+
+            await setDeliveryEdgeArchivedAt(deliveryEdge, archivedAt);
+
+            return { messageId, archivedAt, status: 'archived' };
+        }
+
+        if (isBroadcastRecipient && hasBroadcastDeliveryEdges(messageId)) {
+            throw new Error(`Unauthorized: you are not the recipient of message ${messageId}`);
+        }
+
+        if (!isDirectRecipient && !isBroadcastRecipient) {
+            throw new Error(`Unauthorized: you are not the recipient of message ${messageId}`);
+        }
+
+        // Direct DM path: stamp on the MESSAGE node + upsert (same shape as markRead's direct-DM branch).
+        messageNode.properties.archivedAt = new Date().toISOString();
+        GraphService.upsertNode(messageNode);
+
+        return { messageId, archivedAt: messageNode.properties.archivedAt, status: 'archived' };
+    }
+
+    /**
+     * #10148: Sender-side retraction. Marks the message as `retracted: true` and clears
+     * `bodyText` + `subject` to `'[retracted by sender]'`. All edges (`SENT_BY`, `SENT_TO`,
+     * `DELIVERED_TO`, `PART_OF_THREAD`, `IN_REPLY_TO`) are preserved so thread context
+     * remains coherent — receivers see the placeholder where the message used to be,
+     * not an unexplained hole in their thread view.
+     *
+     * **Permission model:** only the sender (`SENT_BY` me) can retract. Recipients can't
+     * delete other agents' messages from their inbox; archive is the recipient-side primitive.
+     *
+     * **Irreversibility:** retractions are permanent decisions. Original body + subject are
+     * overwritten at write time; there is no undo path. Per #10148 Out of Scope:
+     * "Time-limited retraction window (retractions are permanent decisions)".
+     *
+     * **Out of scope (deferred to future):**
+     * - `purgeMessage` — hard-delete that drops node + edges entirely. Rejected per ticket
+     *   Avoided Traps because thread-context-rot is worse than visible placeholders.
+     *
+     * @param {Object} args
+     * @param {String} args.messageId The ID of the message to retract.
+     * @returns {Promise<Object>} `{messageId, retracted: true, status: 'retracted'}`.
+     */
+    async deleteMessage({ messageId }) {
+        const me = RequestContextService.getAgentIdentityNodeId();
+        if (!me) {
+            throw new Error("Cannot delete message: no agent identity context bound.");
+        }
+
+        const db = GraphService.db;
+
+        // Trigger syncCache + lazy-reload vicinity (#10257) — same pattern as markRead.
+        db.getAdjacentNodes(messageId, 'both');
+
+        const messageNode = db.nodes.get(messageId);
+        if (!messageNode || messageNode.label !== 'MESSAGE') {
+            throw new Error(`Message not found: ${messageId}`);
+        }
+
+        // Sender-only permission: verify a SENT_BY edge points from this message to `me`.
+        let isSender = false;
+        for (const edge of db.edges.items) {
+            if (getRecordField(edge, 'source') === messageId
+                && getRecordField(edge, 'type') === 'SENT_BY'
+                && getRecordField(edge, 'target') === me) {
+                isSender = true;
+                break;
+            }
+        }
+
+        if (!isSender) {
+            throw new Error(`Unauthorized: only the sender can retract message ${messageId}`);
+        }
+
+        // Permanent retraction: overwrite content + flag. Edges remain intact for thread continuity.
+        messageNode.properties.retracted = true;
+        messageNode.properties.subject   = MESSAGE_RETRACTED_PLACEHOLDER;
+        messageNode.properties.bodyText  = MESSAGE_RETRACTED_PLACEHOLDER;
+        GraphService.upsertNode(messageNode);
+
+        return { messageId, retracted: true, status: 'retracted' };
     }
 
     /**

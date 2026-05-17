@@ -4,7 +4,7 @@ test.describe('Neo.main.DeltaUpdates (Fragment Support)', () => {
     test.beforeEach(async ({page}) => {
         //page.on('console', msg => console.log('PAGE LOG:', msg.text()));
         await page.goto('test/playwright/component/apps/empty-viewport/index.html');
-        await page.waitForSelector('#component-test-viewport');
+        await page.waitForSelector('#component-test-viewport', { state: 'attached' });
     });
 
     test('Manual Fragment Move Update', async ({page}) => {
@@ -272,6 +272,8 @@ test.describe('Neo.main.DeltaUpdates (Fragment Support)', () => {
     });
 
     test('DomApiRenderer Insert with Scroll State', async ({page}) => {
+        page.on('console', msg => console.log(msg.text()));
+
         await page.evaluate(async () => {
             Neo.config.useDomApiRenderer = true;
             await Neo.main.DeltaUpdates.importRenderer();
@@ -291,12 +293,13 @@ test.describe('Neo.main.DeltaUpdates (Fragment Support)', () => {
                         id: 'scroll-div',
                         style: {
                             height: '100px',
+                            width: '100px',
                             overflow: 'auto'
                         },
                         scrollTop: 50,
                         childNodes: [{
                             nodeName: 'div',
-                            style: {height: '1000px'},
+                            style: {height: '1000px', width: '100px'},
                             childNodes: [],
                             attributes: {},
                             className: []
@@ -308,6 +311,8 @@ test.describe('Neo.main.DeltaUpdates (Fragment Support)', () => {
             });
         });
 
+        await page.waitForTimeout(100);
+
         const scrollTop = await page.evaluate(() => {
             return document.getElementById('scroll-div').scrollTop;
         });
@@ -316,6 +321,8 @@ test.describe('Neo.main.DeltaUpdates (Fragment Support)', () => {
     });
 
     test('StringBasedRenderer Insert with Scroll State', async ({page}) => {
+        page.on('console', msg => console.log(msg.text()));
+
         await page.evaluate(async () => {
             Neo.config.useDomApiRenderer = false;
             await Neo.main.DeltaUpdates.importRenderer();
@@ -330,7 +337,7 @@ test.describe('Neo.main.DeltaUpdates (Fragment Support)', () => {
                     action: 'insertNode',
                     parentId: 'component-test-viewport',
                     index: 0,
-                    outerHTML: '<div id="scroll-div-string" style="height:100px;overflow:auto;"><div style="height:1000px;"></div></div>',
+                    outerHTML: '<div id="scroll-div-string" style="height:100px;width:100px;overflow:auto;"><div style="height:1000px;width:100px;"></div></div>',
                     postMountUpdates: [{
                         id: 'scroll-div-string',
                         scrollTop: 75
@@ -338,6 +345,8 @@ test.describe('Neo.main.DeltaUpdates (Fragment Support)', () => {
                 }]
             });
         });
+
+        await page.waitForTimeout(100);
 
         const scrollTop = await page.evaluate(() => {
             return document.getElementById('scroll-div-string').scrollTop;

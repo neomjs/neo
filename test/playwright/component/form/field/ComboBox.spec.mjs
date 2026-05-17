@@ -37,7 +37,7 @@ async function createComboBox(page, config) {
 test.describe('Neo.form.field.ComboBox', () => {
     test.beforeEach(async ({page}) => {
         await page.goto('/test/playwright/component/apps/empty-viewport/index.html');
-        await page.waitForSelector('#component-test-viewport');
+        await page.waitForSelector('#component-test-viewport', { state: 'attached' });
     });
 
     test.afterEach(async ({page}) => {

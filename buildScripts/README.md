@@ -357,10 +357,7 @@ npm run ai:mcp-client -- --server github-workflow --list-tools
 Manually starts the ChromaDB instance for the **Knowledge Base**.
 Useful for debugging vector store operations outside of the MCP client.
 
-## `npm run ai:server-memory`
-**Script:** `chroma run --path ./chroma-neo-memory-core --port 8001`
 
-Manually starts the ChromaDB instance for the **Memory Core** on port 8001.
 
 ## `npm run ai:server-neural-link`
 **Script:** `ai/mcp/server/neural-link/run-bridge.mjs`

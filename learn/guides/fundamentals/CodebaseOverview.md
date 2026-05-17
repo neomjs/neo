@@ -456,7 +456,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 - `epic-resolution`: Closeout protocol for parent epics resolving the completion status (exit gate).
 - `pull-request`: Post-implementation reflection + PR creation (stepping-back protocol, conventional-commit format, handoff sequence, explicit custom Playwright targeting).
 - `pr-review`: Evaluation matrix templates spanning `[ARCH_ALIGNMENT]` to `[EFFORT_PROFILE]` + graph ingestion tags for the Dream Pipeline + Review-Loop Cost Circuit Breaker constraints (enforces mandatory ROI template usage).
-- `tech-debt-radar`: Proactive architectural sweep using semantic RAG to map and target technical debt. Invoked during `ticket-intake` and `pr-review`.
+- `tech-debt-radar`: Proactive architectural sweep using semantic RAG to map and target technical debt. Invoked during `ticket-intake` and `pr-review` (especially for fundamental architectural shifts).
 
 **Tactical (live operations):**
 - `neural-link`: Standard operating procedures for traversing the Object-Permanent VDOM structure.
@@ -467,7 +467,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 - `debugging-antigravity`: Debugging Antigravity IDE MCP servers, language-server duplication, and `mcpServers` configuration.
 
 **Creative:**
-- `ideation-sandbox`: Safe brainstorming pipelines mapped directly into GitHub Discussions (diverts early-stage proposals away from the active Issue queue).
+- `ideation-sandbox`: Safe brainstorming pipelines mapped directly into GitHub Discussions (diverts early-stage proposals away from the active Issue queue, and acts as a step-back trigger for high-blast-radius proposals).
 
 **Coordination:**
 - `lane-intent`: Narrow, non-authoritative, 2h TTL-bound pre-V-B-A signal for collision-prone / long-V-B-A lanes (deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Distinct from authoritative `[lane-claim]` (post-V-B-A).

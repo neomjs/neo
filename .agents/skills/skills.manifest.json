@@ -48,7 +48,7 @@
     },
     "create-skill": {
       "name": "create-skill",
-      "description": "Authoritative guide on how to architect, format, and structure new Anthropic Progressive Disclosure skills. Triggers: Use this skill if the user asks you to create a new skill, teach an agent a new capability, or if you need to recall the exact folder structure and YAML frontmatter required for skills.",
+      "description": "Authoritative guide on how to architect, format, and structure new Anthropic Progressive Disclosure skills. Triggers: Use before creating OR modifying any `.agents/skills/**/*.md` files — Progressive Disclosure architecture (Map vs World Atlas), YAML frontmatter, skill structure. Complementary to `turn-memory-pre-flight` (load-runtime-effect dimension vs skill-shape dimension).",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "claudeSymlinkRequired": true,
@@ -92,7 +92,7 @@
     },
     "ideation-sandbox": {
       "name": "ideation-sandbox",
-      "description": "Safely propose architectural features, unknown unknowns, and brainstorm ideas natively in GitHub Discussions. Triggers: Use this skill when the user asks to brainstorm an architecture change or proposes a highly exploratory / undefined technical idea.",
+      "description": "Safely propose architectural features, unknown unknowns, and brainstorm ideas natively in GitHub Discussions. Triggers: Use this skill when the user asks to brainstorm an architecture change, proposes a highly exploratory / undefined technical idea, or as auto-fire trigger for §5.2 Step 2.5 Architectural Step-Back on high-blast-radius proposals before [RESOLVED_TO_AC] / [GRADUATED_TO_TICKET] graduation.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "claudeSymlinkRequired": true,
@@ -180,7 +180,7 @@
     },
     "pr-review": {
       "name": "pr-review",
-      "description": "Standardized guidelines and templates for structuring Pull Request reviews so that feedback is actionable, encouraging, and extractable by the Native Edge Graph. MANDATORY ROI WARNING: Skipping the review template guarantees CI lint failure and immediate rework. Skipping the template = negative ROI. You MUST use the full template on the first try. Triggers: Use this skill when evaluating a Pull Request, writing a PR review, structuring feedback on agent-generated code, or instructing a human on how to write a structured PR Review.",
+      "description": "Standardized guidelines and templates for structuring Pull Request reviews so feedback is actionable, encouraging, and extractable by the Native Edge Graph. MANDATORY ROI WARNING: Skipping the review template guarantees CI lint failure. Triggers: Reviewing a PR (yours or peer's) — structured eval metrics, graph ingestion tags, severity ladder, restates §0 merge gate, post-comment A2A commentId hand-off (reviewer→author) per guide §9 + §9.4 cold-cache exception, Evidence Audit + Source-of-Authority sections (template §) for substrate/runtime-AC PRs and authority-citation review-comments, FAIR-band declaration verification.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "perFilePayloadBudget": 66000,
@@ -192,7 +192,7 @@
     },
     "pull-request": {
       "name": "pull-request",
-      "description": "Standardized guidelines and procedural execution flow for opening a Pull Request. Mandates the \"Stepping Back\" reflection protocol and git/gh tool invocations. CRITICAL: Do NOT run default `npx playwright test` to verify changes before PR submission; Neo uses multiple custom playwright configs (e.g., unit, e2e) which must be explicitly targeted. MANDATORY ROI WARNING: Skipping the PR body template guarantees CI lint failure and immediate rework. Skipping the template = negative ROI. You MUST use the full template on the first try. Triggers: Use this skill as the final Definition of Done when you believe a ticket is complete and it is time to open a Pull Request, or if a human user asks you to submit a PR. Also triggers when receiving a PR review to perform the author-side template-adherence check.",
+      "description": "Standardized guidelines and procedural execution flow for opening a Pull Request. CRITICAL: Do NOT run default `npx playwright test` (use custom configs). MANDATORY ROI WARNING: Skipping the PR body template guarantees CI lint failure. Triggers: Code modifications complete; before opening PR — stepping-back reflection, commit format, cross-family review mandate, post-comment A2A commentId hand-off (author→reviewer) per review-response-protocol.md §14, Evidence declaration line for substrate/runtime-AC PRs per [evidence-ladder.md](learn/agentos/evidence-ladder.md), FAIR-band stance declaration per §1.3.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "perFilePayloadBudget": 38000,
@@ -237,7 +237,7 @@
     },
     "tech-debt-radar": {
       "name": "tech-debt-radar",
-      "description": "Proactive architectural review skill using Frontier Model semantic RAG to sweep historical issues and Memory Core sessions for technical debt. Triggers: Use this skill when conducting architectural analysis, proactively searching for technical debt, auditing the repository for abandoned logical loops, or when explicitly requested to scan for ambient architectural debt.",
+      "description": "Proactive architectural review skill using Frontier Model semantic RAG to sweep historical issues and Memory Core sessions for technical debt. Triggers: Use this skill when conducting architectural analysis, proactively searching for technical debt, auditing the repository for abandoned logical loops, when explicitly requested to scan for ambient architectural debt, or during PR review for fundamental architectural shifts.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "claudeSymlinkRequired": true,
@@ -281,7 +281,7 @@
     },
     "turn-memory-pre-flight": {
       "name": "turn-memory-pre-flight",
-      "description": "Authoritative protocol for verifying the correct placement and impact of new agentic memory substrate additions. Triggers: Use before inserting or mutating turn-loaded or skill-loaded memory substrate such as AGENTS.md, AGENTS_ATLAS.md, .agents/skills/**, or harness-local injection files.",
+      "description": "Authoritative protocol for verifying the correct placement and impact of new agentic memory substrate additions. Triggers: Use before inserting or mutating turn-loaded/skill-loaded memory substrate (`AGENTS.md`, `AGENTS_ATLAS.md`, `.agents/skills/**`, `.codex/CODEX.md`, `.claude/CLAUDE.md`, `.agents/ANTIGRAVITY_RULES.md`) to prevent future-session bias.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "claudeSymlinkRequired": true,
