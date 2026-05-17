@@ -20,7 +20,7 @@ test.describe('Memory Core Config (#10010)', () => {
                 process.env[key] = originalEnv[key];
             }
         });
-        
+
         // Restore config to default by reloading without test env overrides
         config.data = Neo.clone(config.defaultConfig, true);
         config.applyEnv();
@@ -32,16 +32,16 @@ test.describe('Memory Core Config (#10010)', () => {
 
     test('NEO_MEMORY_SHARING_DEFAULT_POLICY env override parses correctly', () => {
         process.env.NEO_MEMORY_SHARING_DEFAULT_POLICY = 'team';
-        
+
         // Re-load the config to pick up env vars
         config.applyEnv();
-        
+
         expect(config.memorySharing.defaultPolicy).toBe('team');
     });
 
     test('invalid NEO_MEMORY_SHARING_DEFAULT_POLICY throws Error', () => {
         process.env.NEO_MEMORY_SHARING_DEFAULT_POLICY = 'public';
-        
+
         expect(() => {
             config.applyEnv();
         }).toThrow(/\[Config\] Invalid NEO_MEMORY_SHARING_DEFAULT_POLICY value: "public"\. Must be one of: legacy, private, team/);
