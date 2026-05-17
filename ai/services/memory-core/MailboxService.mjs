@@ -937,8 +937,13 @@ class MailboxService extends Base {
      * use cases that tolerate a single-write staleness window (healthcheck preview,
      * dashboards). For strict per-write-visibility, use `listMessages` instead.
      *
+     * **Box-value contract:** only `'inbox'` and `'outbox'` are currently supported.
+     * `'all'` is deferred to a follow-up (would require UNION of inbox + outbox paths).
+     * Any other value (including typos) throws — see #11528 cycle-1 review for the
+     * rationale on rejecting unsupported enums vs silently aliasing to inbox.
+     *
      * @param {Object} [args]
-     * @param {String} [args.box='inbox'] Which box to count (`'inbox'` or `'outbox'`).
+     * @param {String} [args.box='inbox'] Which box to count. Supported: `'inbox'` or `'outbox'`. Throws on unsupported values.
      * @param {String} [args.status='all'] Read-state filter for inbox path
      *   (`'all'`, `'read'`, `'unread'`). Ignored for outbox.
      * @param {String} [args.to] Target identity (defaults to caller). Cross-identity
@@ -951,6 +956,15 @@ class MailboxService extends Base {
         const me = RequestContextService.getAgentIdentityNodeId();
         if (!me) {
             throw new Error("Cannot count messages: no agent identity context bound.");
+        }
+
+        // Per #11528 cycle-1 review (@neo-gpt): reject unsupported `box` values explicitly
+        // rather than silently aliasing to the inbox path. The original branch-on-outbox
+        // pattern would have returned partial-results for `box='all'` (deferred to a follow-up
+        // per #10180 PR body) or any typo. Fail fast on unsupported enum so callers see the
+        // deferred-vs-implemented boundary at the call site.
+        if (box !== 'inbox' && box !== 'outbox') {
+            throw new Error(`Cannot count messages: unsupported box value '${box}'. Supported values: 'inbox', 'outbox' ('all' is deferred to a follow-up).`);
         }
 
         const target = to || me;

@@ -605,6 +605,26 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             .rejects.toThrow(/no agent identity context bound/);
     });
 
+    test('#10180 cycle-1 hardening: countMessages rejects unsupported box values explicitly', async () => {
+        // Per @neo-gpt review on PR #11528 cycle 1: previously, `if (box === 'outbox') ... else ...`
+        // silently aliased `box='all'` (deferred per PR body) AND any typo to the inbox query —
+        // returning a plausible but partial-result count. This regression pins fail-fast semantics
+        // on unsupported enums so callers see the deferred-vs-implemented boundary at call-time
+        // rather than receiving silent partial-results.
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await expect(MailboxService.countMessages({ box: 'all' }))
+                .rejects.toThrow(/unsupported box value 'all'/);
+            await expect(MailboxService.countMessages({ box: 'unknown-typo' }))
+                .rejects.toThrow(/unsupported box value 'unknown-typo'/);
+            await expect(MailboxService.countMessages({ box: '' }))
+                .rejects.toThrow(/unsupported box value/);
+
+            // Sanity: supported values still work after the guard
+            await expect(MailboxService.countMessages({ box: 'inbox' })).resolves.toMatchObject({ count: expect.any(Number) });
+            await expect(MailboxService.countMessages({ box: 'outbox' })).resolves.toMatchObject({ count: expect.any(Number) });
+        });
+    });
+
     test('getHealthcheckPreview returns formatted mailbox metrics', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
