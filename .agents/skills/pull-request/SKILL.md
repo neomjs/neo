@@ -6,6 +6,4 @@ description: "Standardized guidelines and procedural execution flow for opening 
 
 If you are tasked with finalizing a ticket or opening a Pull Request, you MUST immediately use the `view_file` tool to read and strictly adhere to `.agents/skills/pull-request/references/pull-request-workflow.md` before proceeding.
 
-**MANDATORY ROI WARNING:** Do NOT attempt to skip or short-circuit the mandatory PR body templates defined in the references. Skipping the templates guarantees a PR body CI linting failure, requiring you to start over and re-do the work in a second round. Skipping the template = guaranteed negative ROI (wasted time, effort, and tokens). You MUST use the full template on the first try.
-
 Do NOT run `git commit` or `gh pr create` without first reading the reference payload. Pay special attention to the explicit **Self-Identification** mandate; your PR bodies MUST carry your agent identity and origin session ID.

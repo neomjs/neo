@@ -6,6 +6,4 @@ description: "Standardized guidelines and templates for structuring Pull Request
 
 If you are tasked with conducting a Pull Request review, generating feedback, or helping a user formulate a PR Review, you MUST immediately use the `view_file` tool to read and strictly adhere to `.agents/skills/pr-review/references/pr-review-guide.md` before proceeding.
 
-**MANDATORY ROI WARNING:** Do NOT attempt to skip or short-circuit the mandatory review templates. Skipping the templates guarantees a CI linting failure, requiring you to start over and re-do the work in a second round. Skipping the template = guaranteed negative ROI (wasted time, effort, and tokens). You MUST use the full template on the first try.
-
 **Templates:** **Cycle 1:** load `pr-review-template.md` (full structure). **Cycle N (≥2):** load `pr-review-followup-template.md` (compact delta). **Circuit Breaker:** load `audits/review-cost-circuit-breaker.md` (triggered when formal reviews ≥ 3 OR discussion > 24KB, assuming semantic approval).
