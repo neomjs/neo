@@ -267,6 +267,85 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
         expect(ran).toBe(false);
     });
 
+    test('withLease release-timing invariant: task inner finally runs INSIDE the lease window (#11515)', async () => {
+        // Empirical anchor: PR #11509 cycles 1 + 2 surfaced the same root failure-mode at two
+        // different surfaces — substrate mutation placed AFTER `await withHeavyMaintenanceLease(...)`
+        // runs OUTSIDE the lease window because the helper's own `finally` (release) fires before
+        // the awaited promise settles.
+        //
+        // This test pins the structural ordering by capturing the lease-file presence at three
+        // probe points:
+        //   1. Inside the task body          (lease MUST exist)
+        //   2. Inside the task's inner finally (lease MUST still exist — release hasn't fired yet)
+        //   3. After `await withHeavyMaintenanceLease(...)` resolves (lease MUST be released)
+        //
+        // A future refactor that releases the lease before the task's inner finally runs would
+        // fail probe 2 — exactly the consumer-side correctness invariant the JSDoc documents.
+        const leasePath = createLeasePath('release-timing');
+        const now       = new Date('2026-05-16T20:00:00.000Z');
+        const order     = [];
+        let leaseDuringBody    = null;
+        let leaseDuringFinally = null;
+        let leaseAfterAwait    = null;
+
+        const completed = await withHeavyMaintenanceLease(async () => {
+            order.push('task-body');
+            leaseDuringBody = await inspectHeavyMaintenanceLease({leasePath, now});
+            try {
+                // Primary "heavy work" stand-in
+                await Promise.resolve();
+            } finally {
+                // Substrate-protected side effect (canonical inner-finally pattern from
+                // buildScripts/ai/runSandman.mjs post-PR #11509).
+                order.push('task-finally');
+                leaseDuringFinally = await inspectHeavyMaintenanceLease({leasePath, now});
+            }
+            return 'ok';
+        }, {
+            leasePath,
+            owner: 'sandman',
+            now,
+            token: 'release-timing-token'
+        });
+
+        order.push('after-await');
+        leaseAfterAwait = await inspectHeavyMaintenanceLease({leasePath, now});
+
+        // Wrapper completed correctly.
+        expect(completed).toMatchObject({
+            status  : 'completed',
+            acquired: true,
+            result  : 'ok'
+        });
+
+        // Strict execution order: body → inner finally → post-await caller code.
+        expect(order).toEqual(['task-body', 'task-finally', 'after-await']);
+
+        // Probe 1: lease present during task body.
+        expect(leaseDuringBody).toMatchObject({
+            status: 'active',
+            active: true,
+            lease : {owner: 'sandman', token: 'release-timing-token'}
+        });
+
+        // Probe 2 — THE LOAD-BEARING ASSERTION:
+        // Lease is STILL present during the task's inner finally. This is the contract the
+        // canonical inner-finally pattern relies on for substrate-protected side effects.
+        expect(leaseDuringFinally).toMatchObject({
+            status: 'active',
+            active: true,
+            lease : {owner: 'sandman', token: 'release-timing-token'}
+        });
+
+        // Probe 3: lease released by the wrapper's own finally BEFORE the await settles.
+        // Caller code post-await sees an empty lease file.
+        expect(leaseAfterAwait).toMatchObject({
+            status: 'missing',
+            active: false,
+            lease : null
+        });
+    });
+
     test('default singleton delegates to the reusable helpers', async () => {
         const leasePath = createLeasePath('service');
         const service   = Neo.create(HeavyMaintenanceLeaseService, {
