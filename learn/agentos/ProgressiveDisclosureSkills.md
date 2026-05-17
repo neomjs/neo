@@ -104,6 +104,7 @@ Beyond lifecycle governance, specialized contexts exist for live action:
 - **`unit-test`:** Patterns for authoring strict Playwright unit tests within the Neo.mjs single-thread architecture.
 - **`self-repair`:** A strict diagnostic protocol ensuring infrastructure verification across MCP services, Unit Testing, and Historical Forensics using Memory Core states to resolve system lockups.
 - **`ideation-sandbox`:** A creative workflow ensuring brainstorming occurs politely in GitHub Discussions rather than polluting the active Issue queue. Also acts as an auto-fire trigger for high-blast-radius proposals.
+- **`lane-intent`:** A narrow, non-authoritative, 2-hour TTL-bound pre-V-B-A signal for collision-prone / high-blast / long-V-B-A lanes (deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Distinct from authoritative `[lane-claim]` (post-V-B-A); read before broadcasting `[lane-intent]` to confirm scope-trigger qualifies.
 
 ## The Meta-Skill: Adding New Skills
 
@@ -131,6 +132,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `ideation-sandbox` | Creative | GitHub Discussion brainstorming |
 | `lead-role` | Coordination | Suspends Auto Mode bias; mandates dialogue-first convergence for delegated lead tasks |
 | `peer-role` | Coordination | Suspends Auto Mode bias; mandates evidence-backed convergence-pressure mindset for peer reviews |
+| `lane-intent` | Coordination | Narrow, non-authoritative, 2h TTL-bound pre-V-B-A signal for collision-prone / long-V-B-A lanes; distinct from authoritative `[lane-claim]` |
 | `create-skill` | Meta | Skill authoring bootstrap guide |
 
 ## Related Guides
