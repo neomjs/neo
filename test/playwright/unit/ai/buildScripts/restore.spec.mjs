@@ -105,7 +105,7 @@ test.describe('restore.mjs orchestrator — bundle-aware substrate restore (#108
                 chromaUnified,
                 shared_topology,
                 kbChromaCoords: {host: 'localhost', port: 8000, path: '/path/to/kb'},
-                mcChromaCoords: {host: 'localhost', port: 8001, dataDir: '/path/to/mc'}
+                mcChromaCoords: {host: 'localhost', port: 8000, dataDir: '/path/to/mc'}
             },
             neoVersion: '12.2.0',
             gitSha    : 'abcdef'

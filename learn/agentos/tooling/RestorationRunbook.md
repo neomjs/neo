@@ -11,7 +11,7 @@ Backups are stored in `.neo-ai-data/backups/backup-<timestamp>/` and contain the
 - `trajectories/`: RLAIF training trajectories JSONL
 
 ## Prerequisites
-Before initiating any restoration, ensure that all AI MCP servers and daemon processes are stopped (terminate any running `npm run ai:server` or `npm run ai:server-memory` processes).
+Before initiating any restoration, ensure that all AI MCP servers and daemon processes are stopped (terminate any running `npm run ai:server` processes).
 
 ## Restoration Procedures
 
