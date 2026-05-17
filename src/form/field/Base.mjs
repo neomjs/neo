@@ -341,7 +341,7 @@ class Field extends Component {
      * @param {Object} data
      */
     onFocusEnter(data) {
-        super.onFocusLeave(data);
+        super.onFocusEnter(data);
 
         if (this.isTouchedEvent === 'focusEnter') {
             this.isTouched = true

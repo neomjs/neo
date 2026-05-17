@@ -49,7 +49,7 @@ test.describe('Neo.form.field.Text', () => {
         await expect(field).not.toHaveClass(/neo-is-touched/);
 
         await input.click();
-        await page.locator('#component-test-viewport').click(); // Click outside to blur
+        await input.blur();
 
         await expect(field).toHaveClass(/neo-is-touched/);
     });
