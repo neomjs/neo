@@ -117,17 +117,17 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | Skill | Type | Purpose |
 |---|---|---|
 | `ticket-intake` | Lifecycle | Pre-execution validation gate for existing tickets |
-| `ticket-create` | Lifecycle | Pre-creation discipline gate (duplicate sweep, Fat Ticket body, title/label rules, custom Playwright configs) |
+| `ticket-create` | Lifecycle | Pre-creation discipline gate (duplicate sweep, Fat Ticket body, title/label rules) |
 | `epic-review` | Lifecycle | Pre-work six-stage gating chain for epics |
 | `epic-resolution` | Lifecycle | Closeout protocol for parent epics (exit gate) |
-| `pull-request` | Lifecycle | Post-implementation reflection + PR creation (custom Playwright configs) |
-| `pr-review` | Lifecycle | Structured quality evaluation & graph ingestion (mandatory ROI templates) |
+| `pull-request` | Lifecycle | Post-implementation reflection + PR creation |
+| `pr-review` | Lifecycle | Structured quality evaluation & graph ingestion |
 | `tech-debt-radar` | Lifecycle | Proactive semantic RAG sweeps for architectural debt |
 | `structural-pre-flight` | Lifecycle | Pre-implementation directory-CHOICE discipline gate fired before authoring any new `.mjs` file (Stage 0 mechanical trigger; Stage 1 fast-path or full Pre-Flight) |
 | `neural-link` | Tactical | Live application inspection sequences |
-| `unit-test` | Tactical | Custom Playwright test authoring patterns native to the single-thread layout |
+| `unit-test` | Tactical | Playwright test authoring patterns |
 | `self-repair` | Tactical | Systemic infrastructure diagnosis, test execution, and memory core forensics |
-| `whitebox-e2e` | Tactical | Neural Link pre-flight workflow for authoring custom Playwright E2E tests |
+| `whitebox-e2e` | Tactical | Neural Link pre-flight workflow for authoring E2E tests |
 | `ideation-sandbox` | Creative | GitHub Discussion brainstorming |
 | `lead-role` | Coordination | Suspends Auto Mode bias; mandates dialogue-first convergence for delegated lead tasks |
 | `peer-role` | Coordination | Suspends Auto Mode bias; mandates evidence-backed convergence-pressure mindset for peer reviews |

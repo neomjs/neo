@@ -451,17 +451,17 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 
 **Lifecycle (execution gates):**
 - `ticket-intake`: Pre-execution validation gate for existing tickets (validation sweep, ROI calculation, branch-before-code).
-- `ticket-create`: Pre-creation discipline gate for new GitHub issues (duplicate sweep, Fat Ticket body, title/label rules, explicit custom Playwright targeting).
+- `ticket-create`: Pre-creation discipline gate for new GitHub issues (duplicate sweep, Fat Ticket body, title/label rules).
 - `epic-review`: Pre-work six-stage gating chain for epics (roadmap fit, approach elegance, source discussion mapping, sub-structure coherence, prescription layer, avoided-traps completeness).
 - `epic-resolution`: Closeout protocol for parent epics resolving the completion status (exit gate).
-- `pull-request`: Post-implementation reflection + PR creation (stepping-back protocol, conventional-commit format, handoff sequence, explicit custom Playwright targeting).
-- `pr-review`: Evaluation matrix templates spanning `[ARCH_ALIGNMENT]` to `[EFFORT_PROFILE]` + graph ingestion tags for the Dream Pipeline + Review-Loop Cost Circuit Breaker constraints (enforces mandatory ROI template usage).
+- `pull-request`: Post-implementation reflection + PR creation (stepping-back protocol, conventional-commit format, handoff sequence).
+- `pr-review`: Evaluation matrix templates spanning `[ARCH_ALIGNMENT]` to `[EFFORT_PROFILE]` + graph ingestion tags for the Dream Pipeline + Review-Loop Cost Circuit Breaker constraints.
 - `tech-debt-radar`: Proactive architectural sweep using semantic RAG to map and target technical debt. Invoked during `ticket-intake` and `pr-review`.
 
 **Tactical (live operations):**
 - `neural-link`: Standard operating procedures for traversing the Object-Permanent VDOM structure.
-- `unit-test`: Synthetically driving custom Playwright configs natively within the single-thread architecture.
-- `whitebox-e2e`: Neural Link pre-flight workflow for authoring robust end-to-end tests with custom Playwright configs.
+- `unit-test`: Synthetically driving Playwright natively within the single-thread architecture.
+- `whitebox-e2e`: Neural Link pre-flight workflow for authoring robust end-to-end tests.
 - `self-repair`: Diagnostic workflows utilizing tests and historical Memory Core states to intelligently triage infrastructure degradation.
 - `memory-mining`: Querying Memory Core before diagnosing regressions or proposing architectural claims — prevents re-derivation of prior reasoning across sessions and harnesses.
 - `debugging-antigravity`: Debugging Antigravity IDE MCP servers, language-server duplication, and `mcpServers` configuration.
