@@ -559,44 +559,24 @@ paths:
       x-annotations:
         readOnlyHint: false
       description: |
-        Unified tool for assigning or unassigning users from a GitHub issue. Implements
-        the **precondition + post-verify gate** from #11537 (graduated from Discussion
-        #11536) — a single guarded MCP operation per call.
-
-        **Single guarded MCP operation semantics:** one MCP call performs `fetch-current →
-        enforce gate → mutate → re-fetch (post-verify) → return verified state`. Internally
-        chains multiple GitHub API calls; consumers see one response with honest race-window
-        semantics. This is NOT strict linearizable CAS across concurrent MCP server instances
-        (which would require a shared lock/lease or remote conditional-mutation primitive).
+        Unified tool for assigning or unassigning users from a GitHub issue.
+        Performs a single guarded operation with precondition checking.
 
         **Action: 'add' — gated**
-        - Default `requireUnassigned: true` rejects blind-add to occupied issues with
-          `ASSIGNEE_CONFLICT` (HTTP 409). Caller receives `currentAssignees` +
-          `attemptedAssignees` for introspection.
-        - To override: pass `acknowledgedReassign: '<reason>'` for strict replacement.
-          Clears existing assignees, assigns the new set, posts an audit-trail comment
-          on the issue capturing the reason (graph-readable provenance via Retrospective
-          daemon comment-scan path).
-        - `requireUnassigned: false` is the legacy blind-add path; new callers should rely
-          on the gated default and use `acknowledgedReassign` for explicit overrides.
-        - **Co-owner-add deferred to V2** (Discussion #11536 OQ3 resolution): simultaneous
-          co-authorship is virtually nonexistent in our swarm topology; cross-family
-          corrective-authorship is always a handoff, never simultaneous co-ownership.
+        - Default `requireUnassigned: true` rejects adding to already occupied issues with
+          `ASSIGNEE_CONFLICT` (HTTP 409).
+        - To override an occupied issue, pass `acknowledgedReassign: '<reason>'` for strict replacement.
+          This clears existing assignees, assigns the new set, and posts an audit-trail comment with the reason.
+        - `requireUnassigned: false` allows legacy blind-add.
 
         **Action: 'remove' — ungated**
-        - Unassigns one or more users (the named set). No precondition gate.
+        - Unassigns one or more users (the named set).
 
         **Empty assignees array (`action: 'add'`, `assignees: []`) — clear mode**
-        - Clears all current assignees. No precondition needed — clearing is always safe.
+        - Clears all current assignees safely.
 
         **Special Values:**
-        - `@me`: Resolves to the authenticated GitHub user. Use this instead of hardcoding usernames.
-
-        **gh CLI bypass ban (AGENTS.md §6.5 narrow scope):**
-        - This tool is the ONLY agent-supported path for assignee mutations. Direct
-          `gh issue edit --add-assignee` / `--remove-assignee` invocations bypass the
-          precondition gate and are forbidden for agents under #11537. The narrow ban
-          covers assignee mutation only; PR review, checks, API reads still use `gh`.
+        - `@me`: Resolves to the authenticated GitHub user.
 
         **Permission Check:**
         Requires `ADMIN`, `MAINTAIN`, or `WRITE` permissions. Returns 403 otherwise.
@@ -644,9 +624,7 @@ paths:
                     Reason-bearing override for strict-replacement reassignment. When provided
                     alongside `action: 'add'` on an occupied issue, the tool clears existing
                     assignees, assigns the new set, and posts an audit-trail comment on the
-                    issue capturing this reason (graph-readable provenance per GPT STEP_BACK
-                    AC8 — reason must be persisted in a GitHub-visible artifact, not only
-                    transient event metadata). Required when overriding an existing assignment.
+                    issue capturing this reason. Required when overriding an existing assignment.
                   example: "context-exhaustion handoff from peer who session-sunsetted"
       responses:
         '200':
