@@ -1,6 +1,6 @@
 ---
 name: create-skill
-description: "Authoritative guide on how to architect, format, and structure new Anthropic Progressive Disclosure skills. Triggers: Use this skill if the user asks you to create a new skill or modify an existing one, teach an agent a new capability, or if you need to recall the exact folder structure and YAML frontmatter required for skills. Complementary to `turn-memory-pre-flight` (load-runtime-effect dimension vs skill-shape dimension)."
+description: "Authoritative guide on how to architect, format, and structure new Anthropic Progressive Disclosure skills. Triggers: Use before creating OR modifying any `.agents/skills/**/*.md` files — Progressive Disclosure architecture (Map vs World Atlas), YAML frontmatter, skill structure. Complementary to `turn-memory-pre-flight` (load-runtime-effect dimension vs skill-shape dimension)."
 ---
 # Skill Creation Framework
 If you are tasked with creating a new Agent Skill, you MUST immediately use the `view_file` tool to read and strictly adhere to `.agents/skills/create-skill/references/skill-authoring-guide.md` before creating any files. This prevents system prompt bloat and ensures future agents can parse your skill correctly.

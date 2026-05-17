@@ -48,7 +48,7 @@
     },
     "create-skill": {
       "name": "create-skill",
-      "description": "Authoritative guide on how to architect, format, and structure new Anthropic Progressive Disclosure skills. Triggers: Use this skill if the user asks you to create a new skill or modify an existing one, teach an agent a new capability, or if you need to recall the exact folder structure and YAML frontmatter required for skills. Complementary to `turn-memory-pre-flight` (load-runtime-effect dimension vs skill-shape dimension).",
+      "description": "Authoritative guide on how to architect, format, and structure new Anthropic Progressive Disclosure skills. Triggers: Use before creating OR modifying any `.agents/skills/**/*.md` files — Progressive Disclosure architecture (Map vs World Atlas), YAML frontmatter, skill structure. Complementary to `turn-memory-pre-flight` (load-runtime-effect dimension vs skill-shape dimension).",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "claudeSymlinkRequired": true,
@@ -270,7 +270,7 @@
     },
     "turn-memory-pre-flight": {
       "name": "turn-memory-pre-flight",
-      "description": "Authoritative protocol for verifying the correct placement and impact of new agentic memory substrate additions. Triggers: Use before inserting or mutating turn-loaded or skill-loaded memory substrate such as AGENTS.md, AGENTS_ATLAS.md, .agents/skills/**, or harness-specific files like .codex/CODEX.md, .claude/CLAUDE.md, and .agents/ANTIGRAVITY_RULES.md.",
+      "description": "Authoritative protocol for verifying the correct placement and impact of new agentic memory substrate additions. Triggers: Use before inserting or mutating turn-loaded/skill-loaded memory substrate (`AGENTS.md`, `AGENTS_ATLAS.md`, `.agents/skills/**`, `.codex/CODEX.md`, `.claude/CLAUDE.md`, `.agents/ANTIGRAVITY_RULES.md`) to prevent future-session bias.",
       "routerByteBudget": 12,
       "payloadBudget": 80000,
       "claudeSymlinkRequired": true,
