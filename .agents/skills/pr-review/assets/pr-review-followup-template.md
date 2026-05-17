@@ -60,6 +60,21 @@ This is the follow-up form of the Depth Floor. Do not omit it because the prior 
 
 ---
 
+### 🧱 Conciseness Rule — Collapsed-N/A Audits
+
+When 2+ of the audit dimensions below (Test-Execution & Location, Contract Completeness, 🛡️ CI/Security) all evaluate **N/A** for the follow-up delta scope (e.g., PR-body-only metadata polish, or a delta that doesn't touch tests/contracts), collapse them under a single section:
+
+```
+### N/A Audits — 🧪 📑 🛡️
+N/A across listed dimensions: <one-line reason for the delta-scope justification>.
+```
+
+(Substitute only the emoji subset that's actually N/A. Substantive dimensions — any non-N/A finding — expand individually under their canonical header.)
+
+Same graph-ingestion safety + canonical-anchor format as the cycle-1 template per #11546. The follow-up template's narrower audit set (3 dimensions vs cycle-1's 9) makes the collapse less frequent in practice but still applies for metadata-only or PR-body-only delta cycles.
+
+---
+
 ### Test-Execution & Location Audit
 
 *   **Changed surface class:** [code / test / docs-template only / PR body only]
