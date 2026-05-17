@@ -78,7 +78,8 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             nodeBin  : '/node'
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'mlx', 'summary', 'kbSync', 'backup', PRIMARY_DEV_SYNC_TASK_NAME, DREAM_TASK_NAME, GOLDEN_PATH_TASK_NAME]);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'summary', 'kbSync', 'backup', PRIMARY_DEV_SYNC_TASK_NAME, DREAM_TASK_NAME, GOLDEN_PATH_TASK_NAME]);
+        expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({
             running      : false,
@@ -380,14 +381,16 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         
         expect(orchestrator.taskDefinitions.summary.args[0]).toBe(expectedSummaryScript);
         expect(orchestrator.taskDefinitions.kbSync.args[0]).toBe(expectedKbSyncScript);
+        expect(orchestrator.taskDefinitions.mlx).toBeUndefined();
     });
 
     test('passes local mlx launch model config into task definitions', () => {
         const orchestrator = Neo.create(Orchestrator);
 
         orchestrator.configure({
-            dataDir : '/tmp/orchestrator-test-mlx-model',
-            mlxModel: 'operator-configured-mlx-model'
+            dataDir   : '/tmp/orchestrator-test-mlx-model',
+            mlxEnabled: true,
+            mlxModel  : 'operator-configured-mlx-model'
         });
 
         expect(orchestrator.taskDefinitions.mlx.args).toContain('operator-configured-mlx-model');
@@ -398,8 +401,9 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         const orchestrator = Neo.create(Orchestrator);
 
         orchestrator.configure({
-            dataDir : '/tmp/orchestrator-test-mlx-null',
-            mlxModel: null
+            dataDir   : '/tmp/orchestrator-test-mlx-null',
+            mlxEnabled: true,
+            mlxModel  : null
         });
 
         expect(orchestrator.taskDefinitions.mlx.args).toContain('mlx-community/gemma-4-31b-it-bf16');

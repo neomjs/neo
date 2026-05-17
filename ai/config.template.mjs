@@ -72,10 +72,14 @@ const defaultConfig = {
          * MLX model artifact used to launch the orchestrator-owned inference server.
          * This is a Hugging Face repo id or local path for `mlx_lm.server --model`, not
          * the OpenAI-compatible API payload model label. Set this in gitignored
-         * `ai/config.mjs` or via `NEO_ORCHESTRATOR_MLX_MODEL`.
+         * `ai/config.mjs` or via `NEO_ORCHESTRATOR_MLX_MODEL`. Disabled by default
+         * because LM Studio / other OpenAI-compatible providers already own the normal
+         * inference endpoint; enable only when this orchestrator should supervise MLX
+         * by setting `enabled: true` or `NEO_ORCHESTRATOR_MLX_ENABLED=true`.
          * @type {Object}
          */
         mlx: {
+            enabled: false,
             model: null
         }
     },

@@ -16,10 +16,28 @@ export const DEFAULT_GOLDEN_PATH_INTERVAL_MS      = 3600000;
 export const GOLDEN_PATH_TASK_NAME                = 'golden-path';
 export const DEFAULT_MLX_MODEL                    = 'mlx-community/gemma-4-31b-it-bf16';
 export const DEFAULT_MLX_PORT                     = '11435';
+export const DEFAULT_MLX_ENABLED                  = false;
 
 export const DEFAULT_DB_PATH    = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
 export const DEFAULT_DATA_DIR   = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
 export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../scripts');
+
+/**
+ * Resolves whether the orchestrator should own an mlx_lm.server child process.
+ * @param {String|Boolean|null|undefined} value Explicit value or env-var payload.
+ * @returns {Boolean}
+ */
+export function resolveMlxEnabled(value = process.env.NEO_ORCHESTRATOR_MLX_ENABLED) {
+    if (value === undefined || value === null || value === '') {
+        return DEFAULT_MLX_ENABLED;
+    }
+
+    if (typeof value === 'boolean') {
+        return value;
+    }
+
+    return String(value).toLowerCase() === 'true';
+}
 
 /**
  * @summary Builds child-process commands for orchestrator-owned maintenance tasks.
@@ -32,6 +50,7 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../scripts');
  * @param {Object} [options]
  * @param {String} [options.scriptDir] Script directory.
  * @param {String} [options.nodeBin] Node executable.
+ * @param {Boolean} [options.mlxEnabled] Whether to launch an orchestrator-owned mlx_lm.server.
  * @param {String} [options.mlxModel] MLX launch model: a Hugging Face repo id or local path.
  * @param {String|Number} [options.mlxPort] OpenAI-compatible local inference port.
  * @returns {Object}
@@ -39,10 +58,11 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../scripts');
 export function buildTaskDefinitions({
     scriptDir = DEFAULT_SCRIPT_DIR,
     nodeBin   = process.argv[0],
+    mlxEnabled = resolveMlxEnabled(),
     mlxModel  = process.env.NEO_ORCHESTRATOR_MLX_MODEL || DEFAULT_MLX_MODEL,
     mlxPort   = DEFAULT_MLX_PORT
 } = {}) {
-    return {
+    const tasks = {
         chroma: {
             label          : 'chroma daemon',
             command        : 'chroma',
@@ -56,13 +76,6 @@ export function buildTaskDefinitions({
             args           : [path.join(scriptDir, 'bridge-daemon.mjs')],
             pidFileName    : 'bridge-daemon.pid',
             expectedCommand: 'bridge-daemon.mjs'
-        },
-        mlx: {
-            label          : 'mlx inference',
-            command        : path.resolve(scriptDir, '../mcp/server/memory-core/.venv/bin/python'),
-            args           : ['-m', 'mlx_lm.server', '--model', mlxModel, '--port', String(mlxPort)],
-            pidFileName    : 'mlx.pid',
-            expectedCommand: 'mlx_lm.server'
         },
         summary: {
             label          : 'session summarization',
@@ -104,4 +117,16 @@ export function buildTaskDefinitions({
             serviceTask    : true
         }
     };
+
+    if (resolveMlxEnabled(mlxEnabled)) {
+        tasks.mlx = {
+            label          : 'mlx inference',
+            command        : path.resolve(scriptDir, '../mcp/server/memory-core/.venv/bin/python'),
+            args           : ['-m', 'mlx_lm.server', '--model', mlxModel, '--port', String(mlxPort)],
+            pidFileName    : 'mlx.pid',
+            expectedCommand: 'mlx_lm.server'
+        };
+    }
+
+    return tasks;
 }

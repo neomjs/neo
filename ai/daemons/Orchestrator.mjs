@@ -359,8 +359,9 @@ export class Orchestrator extends Base {
         this.primaryDevSyncRootsConfig = options.primaryDevSyncRootsConfig ?? null;
         this.taskDefinitions        = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
-            nodeBin  : options.nodeBin || process.argv[0],
-            mlxModel : options.mlxModel || undefined
+            nodeBin   : options.nodeBin || process.argv[0],
+            mlxEnabled: options.mlxEnabled ?? undefined,
+            mlxModel  : options.mlxModel || undefined
         });
         this.healthService          = options.healthService          || HealthService;
         this.summarizationCoordinator = options.summarizationCoordinator || SummarizationCoordinatorService;
