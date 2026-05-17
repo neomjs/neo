@@ -518,6 +518,93 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         }
     });
 
+    test('#10180 AC4: countMessages matches listMessages.length for small inbox', async () => {
+        // Pin equivalence between the direct-SQL count and the in-memory listMessages
+        // length so future drift between the two paths surfaces as a test failure.
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await MailboxService.addMessage({ to: '@bob', subject: 'count-1', body: '...' });
+            await MailboxService.addMessage({ to: '@bob', subject: 'count-2', body: '...' });
+            await MailboxService.addMessage({ to: '@bob', subject: 'count-3', body: '...' });
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const list  = await MailboxService.listMessages({ box: 'inbox', status: 'unread' });
+            const count = await MailboxService.countMessages({ box: 'inbox', status: 'unread' });
+
+            expect(count.count).toBe(list.messages.length);
+            expect(count.count).toBe(3);
+
+            const allList  = await MailboxService.listMessages({ box: 'inbox', status: 'all' });
+            const allCount = await MailboxService.countMessages({ box: 'inbox', status: 'all' });
+            expect(allCount.count).toBe(allList.messages.length);
+        });
+    });
+
+    test('#10180 AC3: countMessages returns correct value for inbox depth > 100 (no silent cap)', async () => {
+        // Regression for the original 100-cap proxy pattern: getHealthcheckPreview
+        // previously fetched `listMessages({limit: 100})` and counted unreads. An inbox
+        // with > 100 unread messages would silently under-report. countMessages must
+        // return the true value via direct SQL.
+        const RECIPIENT = '@countmany-bob';
+        const SENDER    = '@countmany-alice';
+        const TARGET_DEPTH = 150;
+
+        // Seed agent identities matching the production convention.
+        GraphService.upsertNode({ id: RECIPIENT, type: 'AgentIdentity', name: 'CountManyBob',   properties: { accountType: 'agent' } });
+        GraphService.upsertNode({ id: SENDER,    type: 'AgentIdentity', name: 'CountManyAlice', properties: { accountType: 'agent' } });
+
+        await RequestContextService.run({ agentIdentityNodeId: RECIPIENT }, async () => {
+            await PermissionService.grantPermission({ to: SENDER, scope: 'CAN_REPLY_TO' });
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: SENDER }, async () => {
+            for (let i = 0; i < TARGET_DEPTH; i++) {
+                await MailboxService.addMessage({ to: RECIPIENT, subject: `bulk-${i}`, body: '...' });
+            }
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: RECIPIENT }, async () => {
+            const result = await MailboxService.countMessages({ box: 'inbox', status: 'unread' });
+            expect(result.count).toBe(TARGET_DEPTH);
+            expect(result.count).toBeGreaterThan(100); // explicit anti-regression assertion vs old proxy
+
+            // getHealthcheckPreview now uses countMessages — should also be uncapped.
+            const preview = await MailboxService.getHealthcheckPreview();
+            expect(preview.unreadCount).toBe(TARGET_DEPTH);
+            expect(preview.inbox.length).toBe(3); // preview-surface limit unchanged
+        });
+    });
+
+    test('#10180 AC1: countMessages outbox counts SENT_BY edges from caller', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await MailboxService.addMessage({ to: '@bob', subject: 'out-1', body: '...' });
+            await MailboxService.addMessage({ to: '@bob', subject: 'out-2', body: '...' });
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const outbox = await MailboxService.countMessages({ box: 'outbox' });
+            expect(outbox.count).toBe(2);
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const outbox = await MailboxService.countMessages({ box: 'outbox' });
+            expect(outbox.count).toBe(0); // Bob hasn't sent any
+        });
+    });
+
+    test('#10180 AC1: countMessages throws on unbound identity', async () => {
+        await expect(MailboxService.countMessages({ box: 'inbox', status: 'unread' }))
+            .rejects.toThrow(/no agent identity context bound/);
+    });
+
     test('getHealthcheckPreview returns formatted mailbox metrics', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });

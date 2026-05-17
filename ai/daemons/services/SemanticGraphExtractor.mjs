@@ -282,8 +282,22 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
     /**
      * Extracts semantic concepts from a message body for auto-emission.
+     *
+     * Auto-extracted concepts carry distinct provenance from operator/agent-curated
+     * `taggedConcepts`: the upsert path stamps `properties.auto_extracted: true` on
+     * freshly-created concept nodes, and the `TAGGED_CONCEPT` edge is written at
+     * weight `0.8` (vs `1.0` for curated). See `learn/agentos/ConceptOntology.md`
+     * § Auto-Extracted Concept Provenance for the read-time consumer pattern +
+     * edge-weight rationale.
+     *
+     * Pre-existing concept nodes are NOT re-stamped — the flag is set only on the
+     * fresh-create path, preserving curated nodes' authoritative status even when
+     * subsequently referenced by LLM-inferred MESSAGE bodies.
+     *
      * @param {String} bodyText The message content to analyze
      * @returns {Promise<String[]>} Array of extracted Concept Node IDs
+     * @see learn/agentos/ConceptOntology.md § Auto-Extracted Concept Provenance
+     * @see ai/services/memory-core/MailboxService.mjs#addMessage — caller (fire-and-forget)
      */
     async extractMessageConcepts(bodyText) {
         if (!bodyText || typeof bodyText !== 'string' || bodyText.trim().length === 0) {
