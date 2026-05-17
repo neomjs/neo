@@ -86,9 +86,9 @@ This vocabulary preserves the substrate-truth from Discussion #11452 without ado
 | §18 Session Maintenance | `move` | DISCIPLINE-ONLY | High depth workflow. | - |
 | §19 Sub-Agents | `move` | DISCIPLINE-ONLY | High depth workflow. | - |
 | §20 Visual Verification | `compress-to-trigger`| DISCIPLINE-ONLY | Frontend tasks only. | - |
-| §21 Workflow Skills | `retire` | MACHINE-ENFORCEABLE-CANDIDATE | Routing table removed; relies on native skill-loading via frontmatter parity. | N/A |
-| §22 Mailbox Check | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Turn-start invariant. | - |
-| §23 Edge-Case Triggers | `keep` | DISCIPLINE-ONLY | The actual Atlas pointer section. | - |
+| (Retired) Workflow Skills | `retire` | MACHINE-ENFORCEABLE-CANDIDATE | Routing table removed; relies on native skill-loading via frontmatter parity. | N/A |
+| §21 Mailbox Check | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Turn-start invariant. | - |
+| §22 Edge-Case Triggers | `keep` | DISCIPLINE-ONLY | The actual Atlas pointer section. | - |
 
 ---
 
