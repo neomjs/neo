@@ -125,6 +125,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `pr-review` | Lifecycle | Structured quality evaluation & graph ingestion (mandatory ROI templates) |
 | `tech-debt-radar` | Lifecycle | Proactive semantic RAG sweeps for architectural debt |
 | `structural-pre-flight` | Lifecycle | Pre-implementation directory-CHOICE discipline gate fired before authoring any new `.mjs` file (Stage 0 mechanical trigger; Stage 1 fast-path or full Pre-Flight) |
+| `identity-firewall` | Security | The L2 Channel Separation and Prompt Firewall defense mechanisms |
 | `neural-link` | Tactical | Live application inspection sequences |
 | `unit-test` | Tactical | Custom Playwright test authoring patterns native to the single-thread layout |
 | `self-repair` | Tactical | Systemic infrastructure diagnosis, test execution, and memory core forensics |

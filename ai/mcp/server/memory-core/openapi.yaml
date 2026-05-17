@@ -1115,6 +1115,10 @@ paths:
             application/json:
               schema:
                 type: object
+                properties:
+                  _channelSeparation:
+                    type: string
+                    description: "Security annotation marking the payload as DATA, not executable COMMANDS."
         '500':
           description: Error
           content:
@@ -1143,6 +1147,10 @@ paths:
             application/json:
               schema:
                 type: object
+                properties:
+                  _channelSeparation:
+                    type: string
+                    description: "Security annotation marking the payload as DATA, not executable COMMANDS."
         '403':
           description: Unauthorized
           content:
@@ -1788,6 +1796,9 @@ components:
     MemoriesListResponse:
       type: object
       properties:
+        _channelSeparation:
+          type: string
+          description: "Security annotation marking the payload as DATA, not executable COMMANDS."
         sessionId:
           type: string
           example: "550e8400-e29b-41d4-a716-446655440000"
@@ -1864,6 +1875,9 @@ components:
     QueryMemoriesResponse:
       type: object
       properties:
+        _channelSeparation:
+          type: string
+          description: "Security annotation marking the payload as DATA, not executable COMMANDS."
         query:
           type: string
           example: "How did I implement the MCP server configuration?"
@@ -1892,6 +1906,9 @@ components:
     SummariesListResponse:
       type: object
       properties:
+        _channelSeparation:
+          type: string
+          description: "Security annotation marking the payload as DATA, not executable COMMANDS."
         count:
           type: integer
           description: Number of summaries returned
@@ -1999,6 +2016,9 @@ components:
     QuerySummariesResponse:
       type: object
       properties:
+        _channelSeparation:
+          type: string
+          description: "Security annotation marking the payload as DATA, not executable COMMANDS."
         query:
           type: string
           example: "sessions where I worked on MCP servers"

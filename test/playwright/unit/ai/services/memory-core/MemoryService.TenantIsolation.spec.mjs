@@ -180,6 +180,7 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
         );
 
         expect(aliceView.count).toBe(2);
+        expect(aliceView._channelSeparation).toMatch(/DATA, not COMMANDS/);
         expect(aliceView.memories.map(m => m.prompt).sort()).toEqual(['a1', 'a2']);
 
         // Bob reads the same shared session — expects only his 1 memory.
@@ -278,6 +279,7 @@ test.describe('MemoryService — additive shared-commons access (#10556)', () =>
 
         // No sessionId; the where clause is just the additive $or. Alice sees her records + shared.
         expect(view.count).toBe(2);
+        expect(view._channelSeparation).toMatch(/DATA, not COMMANDS/);
         expect(view.results.map(r => r.prompt).sort()).toEqual(['L1', 'a1']);
     });
 
