@@ -61,6 +61,21 @@ Verify symmetry between stated framing and mechanical implementation:
 
 ---
 
+### 🧱 Conciseness Rule — Collapsed-N/A Audits
+
+When 2+ of the audit dimensions below (🛂 Provenance, 📑 Contract Completeness, 🪜 Evidence, 📜 Source-of-Authority, 📡 MCP-Tool-Description Budget, 🔌 Wire-Format Compatibility, 🔗 Cross-Skill Integration, 🧪 Test-Execution & Location, 🛡️ CI/Security) all evaluate **N/A** for the PR scope (e.g., test-reliability fix, docs-only change, micro-refactor), collapse them under a single section using the explicit canonical-anchor format:
+
+```
+### N/A Audits — 🛂 📑 🪜 📜 📡 🔌 🔗 🧪 🛡️
+N/A across listed dimensions: <one-line reason for the PR-scope justification>.
+```
+
+(Substitute only the emoji subset that's actually N/A. Use spaces between emojis, single-space-emdash separator after `Audits`.)
+
+**Mixing rule (CRITICAL)**: substantive audit sections — any non-N/A finding — MUST be expanded individually under their canonical header. Never collapse a dimension with actual findings. Mixing collapsed-N/A-block with substantive-expanded-sections is the substrate-correct shape for non-trivial-scope PRs that have ONE substantive audit dimension + many N/A dimensions.
+
+---
+
 ### 🛂 Provenance Audit
 
 If the PR is a major architectural abstraction or new core subsystem (§7.3 threshold), document the chain of custody:
