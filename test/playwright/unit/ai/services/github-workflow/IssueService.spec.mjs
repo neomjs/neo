@@ -536,3 +536,166 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueProje
         });
     });
 });
+
+/**
+ * @summary Contract coverage for `IssueService.assignIssue` precondition + post-verify gate (#11537).
+ *
+ * Pre-#11537, `assignIssue` performed blind-add: passing `['@me']` to an issue already assigned
+ * to another peer would silently add @me as a second assignee, producing parallel-claim collisions
+ * (empirical anchor: PR #11245 in `peer-role-mode.md` §7).
+ *
+ * Post-#11537, the method enforces a precondition + post-verify gate:
+ * - Fetches current assignees via `GET_ISSUE_ASSIGNEES`.
+ * - If non-empty and `requireUnassigned: true` (default), rejects with `ASSIGNEE_CONFLICT` (HTTP 409)
+ *   unless `acknowledgedReassign: '<reason>'` is provided.
+ * - On override, performs strict-replacement (clear + add) and posts an audit-trail comment on
+ *   the issue capturing the reason (per GPT STEP_BACK AC8 carry-forward).
+ *
+ * This spec pins the **conflict-path** behavior — the substrate-discipline value-add of the gate.
+ * Override/strict-replacement/audit-trail paths depend on `child_process.exec` (no ES-module-friendly
+ * mock pattern in the current test harness); coverage gap documented in #11537 PR body for follow-up.
+ *
+ * @see Neo.ai.services.github-workflow.IssueService#assignIssue
+ * @see https://github.com/orgs/neomjs/discussions/11536 — graduation origin (Pre-Write Coordination Substrate)
+ */
+test.describe('Neo.ai.services.github-workflow.IssueService — assignIssue precondition gate (#11537)', () => {
+    let IssueService;
+    let GraphqlService;
+    let RepositoryService;
+    let originalQuery;
+    let originalGetViewerPermission;
+
+    test.beforeAll(async () => {
+        GraphqlService    = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+        RepositoryService = (await import('../../../../../../ai/services/github-workflow/RepositoryService.mjs')).default;
+        IssueService      = (await import('../../../../../../ai/services/github-workflow/IssueService.mjs')).default;
+
+        originalQuery               = GraphqlService.query.bind(GraphqlService);
+        originalGetViewerPermission = RepositoryService.getViewerPermission.bind(RepositoryService);
+
+        // Default permission stub — write-eligible for the duration of this describe block.
+        RepositoryService.getViewerPermission = async () => ({permission: 'WRITE'});
+    });
+
+    test.afterAll(() => {
+        GraphqlService.query                  = originalQuery;
+        RepositoryService.getViewerPermission = originalGetViewerPermission;
+    });
+
+    test.describe('conflict path (the substrate-discipline value-add)', () => {
+        test('returns ASSIGNEE_CONFLICT when issue already has assignees + default requireUnassigned + no acknowledgedReassign', async () => {
+            GraphqlService.query = async () => ({
+                repository: {
+                    issue: {
+                        assignees: {nodes: [{login: 'neo-gemini-3-1-pro'}]}
+                    }
+                }
+            });
+
+            const result = await IssueService.assignIssue({
+                issue_number: 10148,
+                assignees   : ['@me']
+            });
+
+            expect(result.error).toBe('Assignee Conflict');
+            expect(result.code).toBe('ASSIGNEE_CONFLICT');
+            expect(result.currentAssignees).toEqual(['neo-gemini-3-1-pro']);
+            expect(result.attemptedAssignees).toEqual(['@me']);
+            expect(result.message).toContain('acknowledgedReassign');
+            expect(result.message).toContain('requireUnassigned');
+        });
+
+        test('includes multi-assignee currentAssignees in the conflict payload (caller introspection)', async () => {
+            GraphqlService.query = async () => ({
+                repository: {
+                    issue: {
+                        assignees: {nodes: [
+                            {login: 'neo-gemini-3-1-pro'},
+                            {login: 'tobiu'}
+                        ]}
+                    }
+                }
+            });
+
+            const result = await IssueService.assignIssue({
+                issue_number: 10148,
+                assignees   : ['@me']
+            });
+
+            expect(result.code).toBe('ASSIGNEE_CONFLICT');
+            expect(result.currentAssignees).toEqual(['neo-gemini-3-1-pro', 'tobiu']);
+            // Co-owner-add deferral note per OQ3 surfaces in caller-facing message
+            expect(result.message).toContain('Co-owner-add');
+        });
+
+        test('precondition fetch is invoked exactly once before the conflict gate returns', async () => {
+            let preconditionCallCount = 0;
+            GraphqlService.query = async () => {
+                preconditionCallCount++;
+                return {
+                    repository: {
+                        issue: {
+                            assignees: {nodes: [{login: 'neo-opus-4-7'}]}
+                        }
+                    }
+                };
+            };
+
+            const result = await IssueService.assignIssue({
+                issue_number: 11235,
+                assignees   : ['@me']
+            });
+
+            // Gate returns BEFORE mutation; only 1 GraphQL call (the precondition fetch)
+            expect(preconditionCallCount).toBe(1);
+            expect(result.code).toBe('ASSIGNEE_CONFLICT');
+        });
+    });
+
+    test.describe('permission gate (preserved from pre-#11537 behavior)', () => {
+        test('returns FORBIDDEN when viewer lacks WRITE/MAINTAIN/ADMIN permission; precondition fetch NOT called', async () => {
+            const writePermStub                   = RepositoryService.getViewerPermission;
+            RepositoryService.getViewerPermission = async () => ({permission: 'READ'});
+
+            let graphqlCalled = false;
+            GraphqlService.query = async () => {
+                graphqlCalled = true;
+                return {};
+            };
+
+            const result = await IssueService.assignIssue({
+                issue_number: 10148,
+                assignees   : ['@me']
+            });
+
+            expect(result.error).toBe('Permission Denied');
+            expect(result.code).toBe('FORBIDDEN');
+            expect(graphqlCalled).toBe(false);
+
+            RepositoryService.getViewerPermission = writePermStub;
+        });
+    });
+
+    test.describe('clear-mode preservation (no precondition gate for empty assignees)', () => {
+        test('clear-mode (empty assignees array) does NOT trigger precondition fetch', async () => {
+            // Clear-mode hits the `if (!assignees || assignees.length === 0)` branch BEFORE the precondition.
+            // execAsync may fail in the test env (no real gh CLI) — the key assertion is that GraphqlService.query
+            // is NOT called (precondition skipped for clear-mode), pinning the gate-boundary.
+            let graphqlCalled = false;
+            GraphqlService.query = async () => {
+                graphqlCalled = true;
+                return {};
+            };
+
+            const result = await IssueService.assignIssue({
+                issue_number: 10148,
+                assignees   : []
+            });
+
+            expect(graphqlCalled).toBe(false);
+            // Result will be either GH_CLI_ERROR (execAsync threw in test env) or success message — both acceptable;
+            // we are testing the gate-boundary, not the underlying CLI shell-through.
+            expect(result.code === 'GH_CLI_ERROR' || result.message?.includes('Successfully unassigned')).toBe(true);
+        });
+    });
+});

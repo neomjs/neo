@@ -553,22 +553,30 @@ paths:
 
   /issues/{issue_number}/assignees/manage:
     post:
-      summary: Manage Issue Assignees (Add or Remove)
+      summary: Manage Issue Assignees (Single Guarded MCP Operation — Add or Remove)
       operationId: manage_issue_assignees
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: false
       description: |
         Unified tool for assigning or unassigning users from a GitHub issue.
+        Performs a single guarded operation with precondition checking.
 
-        **Action: 'add'**
-        - Assigns one or more users.
+        **Action: 'add' — gated**
+        - Default `requireUnassigned: true` rejects adding to already occupied issues with
+          `ASSIGNEE_CONFLICT` (HTTP 409).
+        - To override an occupied issue, pass `acknowledgedReassign: '<reason>'` for strict replacement.
+          This clears existing assignees, assigns the new set, and posts an audit-trail comment with the reason.
+        - `requireUnassigned: false` allows legacy blind-add.
 
-        **Action: 'remove'**
-        - Unassigns one or more users.
+        **Action: 'remove' — ungated**
+        - Unassigns one or more users (the named set).
+
+        **Empty assignees array (`action: 'add'`, `assignees: []`) — clear mode**
+        - Clears all current assignees safely.
 
         **Special Values:**
-        - `@me`: Resolves to the authenticated GitHub user. Use this instead of hardcoding usernames.
+        - `@me`: Resolves to the authenticated GitHub user.
 
         **Permission Check:**
         Requires `ADMIN`, `MAINTAIN`, or `WRITE` permissions. Returns 403 otherwise.
@@ -601,9 +609,26 @@ paths:
                     type: string
                   description: An array of GitHub user logins. Use `@me` to assign/unassign the authenticated user.
                   example: ["@me"]
+                requireUnassigned:
+                  type: boolean
+                  default: true
+                  description: |
+                    Precondition gate for `action: 'add'`. When `true` (default), the tool fetches
+                    current assignees and rejects with `ASSIGNEE_CONFLICT` (HTTP 409) if non-empty,
+                    unless `acknowledgedReassign` is provided. Set to `false` to bypass the gate
+                    (legacy blind-add path; new callers should not rely on this).
+                  example: true
+                acknowledgedReassign:
+                  type: string
+                  description: |
+                    Reason-bearing override for strict-replacement reassignment. When provided
+                    alongside `action: 'add'` on an occupied issue, the tool clears existing
+                    assignees, assigns the new set, and posts an audit-trail comment on the
+                    issue capturing this reason. Required when overriding an existing assignment.
+                  example: "context-exhaustion handoff from peer who session-sunsetted"
       responses:
         '200':
-          description: Assignees updated successfully.
+          description: Assignees updated successfully. Response includes `verifiedAssignees` (post-verify state) and, for override paths, `acknowledgedReassign` + `previousAssignees`.
           content:
             application/json:
               schema:
@@ -616,6 +641,15 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Issue not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: |
+            `ASSIGNEE_CONFLICT` — precondition gate rejected blind-add on an occupied issue.
+            Response includes `currentAssignees` (existing) + `attemptedAssignees` (requested)
+            for caller introspection. To proceed, retry with `acknowledgedReassign: '<reason>'`.
           content:
             application/json:
               schema:

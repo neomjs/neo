@@ -49,9 +49,14 @@ Share vocabulary with `/lead-role`. A convergence artifact is either a linked Id
 
 ### 6.5 Lane-Announce-A2A Protocol
 
-*(Codified per #11209, graduated from Discussion #11206 Option A-prime convergence.)*
+*(Codified per #11209, graduated from Discussion #11206 Option A-prime convergence. Expanded per #11537, graduated from Discussion #11536 Pre-Write Coordination Substrate.)*
 
-Before any **write-operation** (state mutation, PR open, issue assignment, branch push creating new artifact), peer MUST send an A2A broadcast announcing the lane-claim. This is the collision-prevention substrate the Flat Peer-Team model needs to operate without orchestrator-worker delegation.
+The substrate operates **two distinct primitives** for pre-write coordination:
+
+- **`[lane-claim]`** — authoritative, **post-V-B-A**, immediately-before-write-operation. Used for ticket-bound or substrate-bound lanes the peer is committing to execute. Counts in §6.6 Source-of-Authority hierarchy as "Current Public Authority" when paired with self-assign + open PR.
+- **`[lane-intent]`** — non-authoritative, **pre-V-B-A** soft signal, 2-hour TTL. NARROW SCOPE: only for collision-prone / high-blast / long-V-B-A lanes where duplicate exploration is plausible (e.g., deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Does NOT count in §6.6 authority hierarchy. Per AGENTS.md §0 Invariant 7 entry-point + full discipline in `.agents/skills/lane-intent/` skill substrate.
+
+**`[lane-claim]` AC2 timing rule (per #11537):** broadcast happens AFTER the source-of-authority collision check (§6.6) AND V-B-A scope-validation AND immediately before the write-operation. Pre-V-B-A `[lane-claim]` is forbidden — it dilutes authority semantics + creates race-to-announcement incentive (per Discussion #11536 GPT V-B-A rejection of Option B). If you need a pre-V-B-A signal because V-B-A will take multiple turns, use `[lane-intent]` (narrow scope only).
 
 **Trigger scope — write-operations only**:
 - **REQUIRED**: file a ticket, open a PR, branch from `origin/dev`, assign an issue, push a commit that creates a new artifact
@@ -61,6 +66,25 @@ Before any **write-operation** (state mutation, PR open, issue assignment, branc
 - Subject: `[lane-claim] taking #N` (or `taking <substrate-description>` for unticketed work)
 - Body: scope-boundary statement (which files / surfaces / write-operations), expected timeline, source-of-authority collision-check findings (see §6.6)
 - Recipient: `AGENT:*` broadcast (let all peers V-B-A against parallel-claim risk)
+
+**Tool-side enforcement (per #11537 AC3/AC4):** issue assignment is mechanically gated via `manage_issue_assignees` MCP tool. The tool fetches current assignees, rejects blind-add with `ASSIGNEE_CONFLICT` (409) unless `acknowledgedReassign: '<reason>'` is provided (strict-replacement with audit-trail comment persistence). Direct `gh issue edit --add-assignee` / `--remove-assignee` invocations bypass this gate and are **forbidden for agents** (narrow scope: assignee mutation only; PR review, checks, API reads still use `gh`). This is the mechanical safeguard complementing the discipline above — empirical anchor §7 "Lane-claim without authority check" (PR #11245).
+
+### 6.5.1 Lane-Override Protocol (`[lane-override]`)
+
+*(Codified per #11537 AC10, graduated from Discussion #11536 OQ6 resolution.)*
+
+When a peer needs to override an existing `[lane-claim]` (e.g., operator-recommendation-via-prompt that wasn't visible to the original claimant, cross-family corrective-authorship per AGENTS.md §6.2.1, context-exhaustion handoff), use the `[lane-override]` primitive:
+
+**Required A2A shape**:
+- Subject: `[lane-override] reclaiming #N from @<previous-claimant>`
+- Body: reason for override + cited source-of-authority (operator quote, peer A2A messageId, etc.) + scope-boundary statement
+- Recipient: `AGENT:*` broadcast + DM to previous claimant
+
+**TTL: 2 hours** (aligned with standard session lifespan). After 2h, `[lane-override]` expires; the lane reverts to the original claimant's `[lane-claim]` (if still within its own TTL). If both the original `[lane-claim]` and the `[lane-override]` are TTL-expired, the lane falls through to the next claimant per timing order.
+
+**Tool-side complement:** `manage_issue_assignees` with `acknowledgedReassign: '<reason>'` performs the mechanical strict-replacement; the audit-trail comment captures the reason as GitHub-visible artifact (per #11537 AC8 — reason must be persisted in a graph-readable surface, not transient event metadata).
+
+**Anti-pattern guard:** `[lane-override]` is for legitimate corrective handoffs, NOT for racing-to-PR-by-asserting-override. If two peers both claim authority, escalate to §6.6 conflict-resolution hierarchy + operator if unresolved. The TTL exists to prevent permanent lock if the overriding agent crashes / gets stuck in a loop.
 
 ### 6.6 Source-of-Authority Collision Check
 
@@ -107,6 +131,8 @@ The absence of subservience ("Helpful Assistant" regression drift) is not mere n
 - **Waiting for lane assignment:** Read the visible lane landscape and self-select based on independent judgment of what your domain context most enables. Lead doesn't delegate lanes; lead surfaces options and trusts peer judgment.
 - **Lane-claim without source-of-authority collision check (per §6.6):** Sending `[lane-claim]` A2A without running the 3-step authority check (current assignee / open PRs / recent lane-claim A2As) → parallel-claim collision risk. Empirical anchor: PR #11199 vs PR #11203 35-second-margin near-miss.
 - **Lane-claim for read-only sweep (over-triggering, per §6.5 OQ1 carve-out):** Sending `[lane-claim]` A2A for diagnostic queries / V-B-A reads / healthchecks creates coordination noise without preventing actual collisions. Write-operations only.
+- **`gh issue edit --add-assignee` / `--remove-assignee` bypass (per #11537):** Direct `gh` CLI invocation for assignee mutation bypasses the `manage_issue_assignees` MCP tool's precondition + post-verify gate (`requireUnassigned: true` default + `acknowledgedReassign: '<reason>'` strict-replacement override + audit-trail comment persistence). Narrow ban scope: ASSIGNEE MUTATION ONLY — PR review, checks, API reads, label management, project membership still use `gh`. Broader "no direct gh state mutation" policy is a separate high-blast Discussion. Empirical anchor: same PR #11245 pattern above (the bypass is the mechanical surface of the discipline-dressed-deference anti-pattern). Mirrors CLAUDE.md §11 "Bash Ban" pattern (forbidden bash redirection for file editing) at the assignee-mutation surface.
+- **Pre-V-B-A `[lane-claim]` (per #11537 AC2 + Discussion #11536 GPT V-B-A rejection of Option B):** Broadcasting `[lane-claim] taking #N (V-B-A pending)` reads as claim+disclaimer and conflicts with §6.6 authority hierarchy where `[lane-claim]` is Current Public Authority. Dilutes authority semantics + creates race-to-announcement incentive. Use `[lane-intent]` (narrow scope, non-authoritative, 2h TTL) for pre-V-B-A signal in collision-prone lanes only.
 
 ## 8. Halt Triggers (Machine-Checkable)
 - **Empty agreement:** Zero substantive contribution beyond "looks good" → force evidence-backed restatement OR explicit "alignment after checking X/Y/Z with residual risks named" OR halt.
