@@ -3,6 +3,7 @@ import path from 'path';
 import Neo from '../../../../../src/Neo.mjs';
 import * as core from '../../../../../src/core/_export.mjs';
 import {
+    DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
     Orchestrator,
     resolvePrimaryDevSyncRootsConfig,
     resolvePrimaryDevSyncRootsSource
@@ -473,6 +474,188 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
                 process.env[DEV_SYNC_ROOTS_ENV_VAR] = originalEnvValue;
             }
         }
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Lane A of #11503 — per #11513:
+    //   1. AC2: pin DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES contents so future refactors
+    //      can't silently drop a heavy class.
+    //   2. AC3-AC6: cross-poll deferral coverage for backup / dream / primary-dev-sync
+    //      and proof that `backup` is now ALSO a valid blocker (previously: only
+    //      summary↔kbSync pair was pinned at line 184).
+    //
+    // Golden-path is intentionally NOT in this set (light-classified per #11511 / PR #11512).
+    // Its dream-dependency backpressure is covered separately at line ~242.
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    test('DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES pins the canonical heavy-classification set (#11513 AC2)', () => {
+        // Asserts EXACT membership (frozen array) so a future refactor that drops a
+        // class is caught at test-time. Order matters less than membership; using a
+        // sorted-set assertion to decouple from declaration order.
+        expect([...DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES].sort()).toEqual([
+            'backup',
+            'kbSync',
+            PRIMARY_DEV_SYNC_TASK_NAME,
+            DREAM_TASK_NAME,
+            'summary'
+        ].sort());
+        expect(Object.isFrozen(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES)).toBe(true);
+        // Defensive: golden-path is intentionally OUT per #11511 / #11512 (light maintenance).
+        expect(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES).not.toContain(GOLDEN_PATH_TASK_NAME);
+    });
+
+    test('defers due backup when another heavy maintenance task is already running (#11513 AC3)', () => {
+        const logs     = [];
+        const outcomes = [];
+        const started  = [];
+
+        const orchestrator = createTestOrchestrator({
+            healthService: {
+                recordTaskOutcome(taskName, status, details) {
+                    outcomes.push({taskName, status, details});
+                }
+            },
+            backupCoordinator: {
+                getDueTask() {
+                    return {
+                        taskName: 'backup',
+                        reason  : 'periodic-backup:test'
+                    };
+                }
+            }
+        });
+
+        // summary is the blocker; backup must defer behind it.
+        TaskStateService.taskState.summary.running = true;
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
+        };
+        orchestrator.writeLog = (level, message) => logs.push({level, message});
+
+        orchestrator.poll();
+
+        expect(started.filter(s => s.taskName === 'backup')).toEqual([]);
+        expect(outcomes).toContainEqual({
+            taskName: 'backup',
+            status  : 'skipped',
+            details : expect.objectContaining({
+                blockingTaskName: 'summary',
+                reasonCode      : 'heavy-maintenance-backpressure'
+            })
+        });
+    });
+
+    test('running backup defers due kbSync — proves backup is now a valid blocker (#11513 AC3 symmetric)', () => {
+        const outcomes = [];
+        const started  = [];
+
+        const orchestrator = createTestOrchestrator({
+            healthService: {
+                recordTaskOutcome(taskName, status, details) {
+                    outcomes.push({taskName, status, details});
+                }
+            }
+        });
+
+        // backup is now the blocker (only meaningful AFTER backup is in the heavy set —
+        // before #11513 this test would have observed kbSync running despite backup active).
+        TaskStateService.taskState.backup.running = true;
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
+        };
+
+        orchestrator.poll();
+
+        expect(started).toEqual([]);
+        expect(outcomes).toContainEqual({
+            taskName: 'kbSync',
+            status  : 'skipped',
+            details : expect.objectContaining({
+                blockingTaskName: 'backup',
+                reasonCode      : 'heavy-maintenance-backpressure'
+            })
+        });
+    });
+
+    test('defers due dream when another heavy maintenance task is already running (#11513 AC4 — umbrella AC2 gap fill)', () => {
+        const dreamCalls = [];
+        const outcomes   = [];
+
+        const orchestrator = createTestOrchestrator({
+            dreamIntervalMs: 600000,
+            healthService  : {
+                recordTaskOutcome(taskName, status, details) {
+                    outcomes.push({taskName, status, details});
+                }
+            },
+            dreamService: {
+                processUndigestedSessions() {
+                    dreamCalls.push('dream');
+                    return Promise.resolve();
+                }
+            }
+        });
+
+        TaskStateService.taskState.summary.running = true;
+
+        orchestrator.poll();
+
+        expect(dreamCalls).toEqual([]);
+        expect(outcomes).toContainEqual({
+            taskName: DREAM_TASK_NAME,
+            status  : 'skipped',
+            details : expect.objectContaining({
+                blockingTaskName: 'summary',
+                reasonCode      : 'heavy-maintenance-backpressure'
+            })
+        });
+    });
+
+    test('defers due primary-dev-sync when another heavy maintenance task is already running (#11513 AC6 — umbrella AC2 gap fill)', () => {
+        const outcomes        = [];
+        const runTaskCalls    = [];
+        const getDueTaskCalls = [];
+
+        const orchestrator = createTestOrchestrator({
+            healthService: {
+                recordTaskOutcome(taskName, status, details) {
+                    outcomes.push({taskName, status, details});
+                }
+            },
+            primaryRepoSyncService: {
+                getDueTask() {
+                    getDueTaskCalls.push('called');
+                    return {
+                        taskName: PRIMARY_DEV_SYNC_TASK_NAME,
+                        reason  : 'periodic-primary-dev-sync:test'
+                    };
+                },
+                runTask(...args) {
+                    runTaskCalls.push(args);
+                }
+            }
+        });
+
+        TaskStateService.taskState.summary.running = true;
+
+        orchestrator.poll();
+
+        expect(getDueTaskCalls.length).toBeGreaterThan(0);
+        expect(runTaskCalls).toEqual([]);
+        expect(outcomes).toContainEqual({
+            taskName: PRIMARY_DEV_SYNC_TASK_NAME,
+            status  : 'skipped',
+            details : expect.objectContaining({
+                blockingTaskName: 'summary',
+                reasonCode      : 'heavy-maintenance-backpressure'
+            })
+        });
     });
 
 });
