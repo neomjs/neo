@@ -24,11 +24,16 @@ import {
 } from '../../../../../ai/daemons/TaskDefinitions.mjs';
 import TaskStateService, { createInitialTaskState } from '../../../../../ai/daemons/services/TaskStateService.mjs';
 
+let testOrchestratorSeq = 0;
+
 function createTestOrchestrator(config = {}) {
     const taskDefinitions = config.taskDefinitions || buildTaskDefinitions({
         scriptDir: '/repo/ai/scripts',
         nodeBin  : '/node'
     });
+
+    const heavyMaintenanceLeasePath = config.heavyMaintenanceLeasePath
+        || `/tmp/orchestrator-test/heavy-maintenance-lease-${process.pid}-${++testOrchestratorSeq}.json`;
 
     TaskStateService.configure({
         stateFile      : '/tmp/orchestrator-test/state.json',
@@ -46,6 +51,7 @@ function createTestOrchestrator(config = {}) {
         dataDir                 : '/tmp/orchestrator-test',
         stateFile               : '/tmp/orchestrator-test/state.json',
         logFile                 : null,
+        heavyMaintenanceLeasePath,
         taskDefinitions,
         taskStateService_       : TaskStateService,
         summarySweepIntervalMs  : config.summarySweepIntervalMs ?? 600000,
@@ -684,6 +690,81 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
                 reasonCode      : 'heavy-maintenance-backpressure'
             })
         });
+    });
+
+    test('defers due heavy task when another orchestrator holds the shared cross-daemon lease (#11519 AC5)', () => {
+        // Cross-daemon contention scenario:
+        //   1. Orchestrator A polls; kbSync due → wrap acquires shared file lease
+        //   2. Mock runTask returns true (child-spawned path) → wrapper does NOT release;
+        //      onComplete would fire on real child-close but mock doesn't simulate it →
+        //      lease stays held by A.
+        //   3. Orchestrator B polls with the SAME shared leasePath; kbSync also due →
+        //      wrapper tries to acquire lease → sees A's active lease → 'held' → defers
+        //      with reasonCode='heavy-maintenance-lease-held'.
+        //
+        // This is the substrate gap PR #11514 (Lane A in-process check) could not close —
+        // in-process activeHeavyTask is per-process; the file lease is the only cross-process
+        // mutex. Without this test the cross-daemon coverage gap would regress silently.
+        const sharedLeasePath = `/tmp/orchestrator-test/heavy-maintenance-lease-cross-daemon-${process.pid}-${++testOrchestratorSeq}.json`;
+
+        const outcomesA = [];
+        const outcomesB = [];
+        const startedA  = [];
+        const startedB  = [];
+
+        const orchestratorA = createTestOrchestrator({
+            heavyMaintenanceLeasePath: sharedLeasePath,
+            healthService: {
+                recordTaskOutcome(taskName, status, details) {
+                    outcomesA.push({taskName, status, details});
+                }
+            }
+        });
+        orchestratorA.processSupervisorService = {
+            runTask(taskName, reason) {
+                startedA.push({taskName, reason});
+                return true;
+            }
+        };
+
+        orchestratorA.poll();
+
+        expect(startedA).toContainEqual({taskName: 'kbSync', reason: 'periodic-sync:600000'});
+
+        // Second orchestrator on the same shared lease path — must defer cross-process.
+        const orchestratorB = createTestOrchestrator({
+            heavyMaintenanceLeasePath: sharedLeasePath,
+            healthService: {
+                recordTaskOutcome(taskName, status, details) {
+                    outcomesB.push({taskName, status, details});
+                }
+            }
+        });
+        orchestratorB.processSupervisorService = {
+            runTask(taskName, reason) {
+                startedB.push({taskName, reason});
+                return true;
+            }
+        };
+
+        orchestratorB.poll();
+
+        // Cross-daemon defer: B's kbSync sees A's active lease → records skipped with
+        // reasonCode='heavy-maintenance-lease-held' (NOT 'heavy-maintenance-backpressure'
+        // which is the in-process taxonomy).
+        expect(outcomesB).toContainEqual({
+            taskName: 'kbSync',
+            status  : 'skipped',
+            details : expect.objectContaining({
+                reasonCode  : 'heavy-maintenance-lease-held',
+                holdingOwner: 'kbSync',
+                reason      : 'periodic-sync:600000'
+            })
+        });
+
+        // B's kbSync did NOT start despite being due — proves cross-daemon defer is structural,
+        // not a logging artifact.
+        expect(startedB).not.toContainEqual({taskName: 'kbSync', reason: 'periodic-sync:600000'});
     });
 
 });

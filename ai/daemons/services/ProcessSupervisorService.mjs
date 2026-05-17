@@ -342,6 +342,12 @@ export class ProcessSupervisorService extends Base {
                 this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} exited with code ${code}.`);
                 this.recordTaskOutcome(taskName, 'failed', {reason, code, failedAt: new Date().toISOString()});
             }
+
+            try {
+                options.onComplete?.({code, error});
+            } catch (e) {
+                this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} onComplete hook failed: ${e.message}`);
+            }
         };
 
         child.on('close', code => clear(code));
