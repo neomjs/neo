@@ -357,6 +357,7 @@ The sections below (Release Notes, Guides/Blogs, and GitHub Tickets) represent p
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #11524](https://neomjs.com/raw/news/tickets/11524.md)
 - [Ticket #11520](https://neomjs.com/raw/news/tickets/11520.md)
 - [Ticket #11519](https://neomjs.com/raw/news/tickets/11519.md)
 - [Ticket #11516](https://neomjs.com/raw/news/tickets/11516.md)
