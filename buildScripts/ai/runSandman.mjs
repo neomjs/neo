@@ -221,19 +221,28 @@ export async function runSandman() {
             }
         }, {owner: 'sandman', reason: 'manual-cli', metadata: {script: 'buildScripts/ai/runSandman.mjs'}});
     } catch (e) {
-        // withHeavyMaintenanceLease itself failed (e.g., lease-write IO error).
+        // withHeavyMaintenanceLease itself failed (e.g., lease-write IO error). The whole
+        // point of the lease is to prevent concurrent graph mutation; if acquisition
+        // failed we MUST NOT proceed to graph-mutating decay. Fail-closed per GPT review
+        // PR #11509 cycle 1 (PRR_kwDODSospM8AAAABAJIdTg): GraphService.decayGlobalTopology
+        // touches SQLite graph edges + _SYSTEM_STATE; running it outside the lease defeats
+        // the substrate protection this PR is shipping.
         console.error('❌ REM cycle lease acquisition failed:', e);
-        process.exitCode = 1;
+        process.exit(1);
     }
 
     if (outcome?.status === 'held') {
         const held = outcome.lease;
         console.log(`⏸️  Deferred: heavy-maintenance lease held by '${held.owner}' (reason='${held.reason}', pid=${held.pid}, acquiredAt=${held.acquiredAt}).`);
         console.log('   This script will not run while another heavy-maintenance task is active. Re-invoke once the active owner completes.');
-        // Skip the decay step on held — no graph mutation occurred.
+        // Skip the decay step on held — no graph mutation occurred + we don't hold the lease.
         process.exit(0);
     }
 
+    // Reached here only when outcome.status === 'completed' — lease was acquired AND the
+    // inner work ran (success or graceful-fail) AND the lease is still held by us through
+    // this synchronous decay call. The decay-on-completion path is the only branch where
+    // graph mutation is safely lease-protected.
     console.log('🧹 Triggering global topology decay & pruning mechanism...');
     try {
         // Need to await? decayGlobalTopology is synchronous.

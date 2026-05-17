@@ -82,6 +82,34 @@ test.describe('Lane C / #11507 — manual heavy-maintenance script lease adoptio
         });
     }
 
+    test('runSandman.mjs: fail-closed on lease-acquisition error — does NOT fall through to GraphService.decayGlobalTopology (per GPT review PRR_kwDODSospM8AAAABAJIdTg)', async () => {
+        // GPT's cycle-1 review (PR #11509 PRR_kwDODSospM8AAAABAJIdTg) caught: my prior code set
+        // process.exitCode=1 in the outer catch but FELL THROUGH to GraphService.decayGlobalTopology()
+        // which mutates SQLite graph edges + _SYSTEM_STATE. That defeats the substrate protection the
+        // PR is shipping — the one path where the lease was NOT acquired could still mutate the graph.
+        //
+        // Fix: process.exit(1) directly in the catch block to short-circuit before the decay call.
+        // This test pins the fail-closed contract via source inspection (subprocess test would require
+        // heavy Neo + LifecycleService bootstrap; content-grep matches this spec's existing pattern).
+        const source = await fs.readFile(path.join(scriptDir, 'runSandman.mjs'), 'utf-8');
+
+        // Find the catch block that handles withHeavyMaintenanceLease acquisition failure.
+        const acquisitionCatchMatch = source.match(/\}\s*catch\s*\([^)]+\)\s*\{[^}]*REM cycle lease acquisition failed[\s\S]*?\n\s{4}\}/);
+        expect(acquisitionCatchMatch).not.toBeNull();
+        const catchBlock = acquisitionCatchMatch[0];
+
+        // The catch block MUST call process.exit(1) to short-circuit (not just set exitCode then fall through).
+        expect(catchBlock).toMatch(/process\.exit\(1\)/);
+
+        // Defensive: ensure the catch block does NOT contain the prior buggy pattern
+        // (`process.exitCode = 1` without a subsequent `process.exit`).
+        const hasExitCodeAssignment = /process\.exitCode\s*=\s*1/.test(catchBlock);
+        const hasExitCall           = /process\.exit\(1\)/      .test(catchBlock);
+        if (hasExitCodeAssignment) {
+            expect(hasExitCall).toBe(true);
+        }
+    });
+
     test('all four scripts share the same lease-wrapper pattern (no per-script private locks)', async () => {
         // Empirical anchor: #11503 explicitly named "per-script private locks" as an avoided
         // trap. This test pins that none of the four scripts introduces an alternative
