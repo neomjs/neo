@@ -23,14 +23,19 @@ import {
 } from '../../../../../ai/daemons/TaskDefinitions.mjs';
 import TaskStateService, { createInitialTaskState } from '../../../../../ai/daemons/services/TaskStateService.mjs';
 
+let testCounter = 0;
+
 function createTestOrchestrator(config = {}) {
+    testCounter++;
+    const testDir = `/tmp/orchestrator-test-${testCounter}-${Date.now()}`;
+
     const taskDefinitions = config.taskDefinitions || buildTaskDefinitions({
         scriptDir: '/repo/ai/scripts',
         nodeBin  : '/node'
     });
 
     TaskStateService.configure({
-        stateFile      : '/tmp/orchestrator-test/state.json',
+        stateFile      : `${testDir}/state.json`,
         taskDefinitions: taskDefinitions,
         writeLogFn     : () => {}
     });
@@ -42,8 +47,8 @@ function createTestOrchestrator(config = {}) {
     });
 
     const orchestrator = Neo.create(Orchestrator, {
-        dataDir                 : '/tmp/orchestrator-test',
-        stateFile               : '/tmp/orchestrator-test/state.json',
+        dataDir                 : testDir,
+        stateFile               : `${testDir}/state.json`,
         logFile                 : null,
         taskDefinitions,
         taskStateService_       : TaskStateService,
@@ -91,7 +96,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(state.kbSync).not.toBe(state.summary);
     });
 
-    test('isolates summary scheduling failure and still schedules due KB sync', () => {
+    test('isolates summary scheduling failure and still schedules due KB sync', async () => {
         const outcomes = [];
         const started  = [];
 
@@ -109,13 +114,15 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         });
 
         orchestrator.processSupervisorService = {
-            runTask(taskName, reason) {
+            runTask(taskName, reason, onSuccess, options) {
                 started.push({taskName, reason});
+                options?.onComplete?.();
                 return true;
             }
         };
 
         orchestrator.poll();
+        await new Promise(resolve => setTimeout(resolve, 50));
 
         expect(outcomes).toEqual([{
             taskName: 'summary',
@@ -131,7 +138,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         }]);
     });
 
-    test('backpressures overdue heavy maintenance tasks within the same poll', () => {
+    test('backpressures overdue heavy maintenance tasks within the same poll', async () => {
         const logs     = [];
         const outcomes = [];
         const started  = [];
@@ -153,14 +160,16 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         });
 
         orchestrator.processSupervisorService = {
-            runTask(taskName, reason) {
+            runTask(taskName, reason, onSuccess, options) {
                 started.push({taskName, reason});
+                options?.onComplete?.();
                 return true;
             }
         };
         orchestrator.writeLog = (level, message) => logs.push({level, message});
 
         orchestrator.poll();
+        await new Promise(resolve => setTimeout(resolve, 50));
 
         expect(started).toEqual([{
             taskName: 'summary',
@@ -181,7 +190,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         });
     });
 
-    test('defers due heavy maintenance when another heavy task is already running', () => {
+    test('defers due heavy maintenance when another heavy task is already running', async () => {
         const logs     = [];
         const outcomes = [];
         const started  = [];
@@ -196,15 +205,18 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
 
         TaskStateService.taskState.summary.running = true;
         orchestrator.processSupervisorService = {
-            runTask(taskName, reason) {
+            runTask(taskName, reason, onSuccess, options) {
                 started.push({taskName, reason});
+                options?.onComplete?.();
                 return true;
             }
         };
         orchestrator.writeLog = (level, message) => logs.push({level, message});
 
         orchestrator.poll();
+        await new Promise(resolve => setTimeout(resolve, 50));
         orchestrator.poll();
+        await new Promise(resolve => setTimeout(resolve, 50));
 
         expect(started).toEqual([]);
         expect(outcomes).toContainEqual({
@@ -218,20 +230,22 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(logs.filter(entry => entry.message.includes('Deferring knowledge base sync'))).toHaveLength(1);
     });
 
-    test('does not let a running golden path refresh backpressure heavy maintenance', () => {
+    test('does not let a running golden path refresh backpressure heavy maintenance', async () => {
         const started = [];
 
         const orchestrator = createTestOrchestrator();
 
         TaskStateService.taskState[GOLDEN_PATH_TASK_NAME].running = true;
         orchestrator.processSupervisorService = {
-            runTask(taskName, reason) {
+            runTask(taskName, reason, onSuccess, options) {
                 started.push({taskName, reason});
+                options?.onComplete?.();
                 return true;
             }
         };
 
         orchestrator.poll();
+        await new Promise(resolve => setTimeout(resolve, 50));
 
         expect(started).toEqual([{
             taskName: 'kbSync',
@@ -239,7 +253,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         }]);
     });
 
-    test('defers golden path behind active dream graph mutation with explicit reason', () => {
+    test('defers golden path behind active dream graph mutation with explicit reason', async () => {
         const logs     = [];
         const outcomes = [];
         const calls    = [];
@@ -263,6 +277,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         orchestrator.writeLog = (level, message) => logs.push({level, message});
 
         orchestrator.poll();
+        await new Promise(resolve => setTimeout(resolve, 50));
 
         expect(calls).toEqual([]);
         expect(outcomes).toContainEqual({
@@ -296,12 +311,13 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         TaskStateService.taskState.summary.running = true;
 
         orchestrator.poll();
+        await new Promise(resolve => setTimeout(resolve, 50));
         await Promise.resolve();
 
         expect(calls).toEqual(['golden-path']);
     });
 
-    test('keeps continuous daemon supervision outside heavy maintenance backpressure', () => {
+    test('keeps continuous daemon supervision outside heavy maintenance backpressure', async () => {
         const started = [];
 
         const orchestrator = createTestOrchestrator();
@@ -310,13 +326,15 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         TaskStateService.taskState.chroma.running  = false;
         TaskStateService.taskState.chroma.lastRunAt = 0;
         orchestrator.processSupervisorService = {
-            runTask(taskName, reason) {
+            runTask(taskName, reason, onSuccess, options) {
                 started.push({taskName, reason});
+                options?.onComplete?.();
                 return true;
             }
         };
 
         orchestrator.poll();
+        await new Promise(resolve => setTimeout(resolve, 50));
 
         expect(started).toEqual([{
             taskName: 'chroma',
@@ -324,7 +342,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         }]);
     });
 
-    test('isolates backup scheduling failure and still schedules other tasks', () => {
+    test('isolates backup scheduling failure and still schedules other tasks', async () => {
         const outcomes = [];
         const started  = [];
 
@@ -342,13 +360,15 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         });
 
         orchestrator.processSupervisorService = {
-            runTask(taskName, reason) {
+            runTask(taskName, reason, onSuccess, options) {
                 started.push({taskName, reason});
+                options?.onComplete?.();
                 return true;
             }
         };
 
         orchestrator.poll();
+        await new Promise(resolve => setTimeout(resolve, 50));
 
         expect(outcomes).toContainEqual({
             taskName: 'backup',
@@ -381,7 +401,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(orchestrator.taskDefinitions.kbSync.args[0]).toBe(expectedKbSyncScript);
     });
 
-    test('routes primary-dev-sync through its service coordinator', () => {
+    test('routes primary-dev-sync through its service coordinator', async () => {
         const started = [];
         const orchestrator = createTestOrchestrator({
             kbSyncIntervalMs        : 0,
@@ -402,10 +422,14 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         });
 
         orchestrator.processSupervisorService = {
-            runTask() {}
+            runTask(taskName, reason, onSuccess, options) {
+                options?.onComplete?.();
+                return true;
+            }
         };
 
         orchestrator.poll();
+        await new Promise(resolve => setTimeout(resolve, 50));
 
         expect(started).toEqual([{
             taskName: PRIMARY_DEV_SYNC_TASK_NAME,
@@ -413,7 +437,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         }]);
     });
 
-    test('passes local dev-sync roots to primary-dev-sync while env keeps precedence', () => {
+    test('passes local dev-sync roots to primary-dev-sync while env keeps precedence', async () => {
         const originalEnvValue = process.env[DEV_SYNC_ROOTS_ENV_VAR];
         delete process.env[DEV_SYNC_ROOTS_ENV_VAR];
 
@@ -442,13 +466,18 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             });
 
             orchestrator.processSupervisorService = {
-                runTask() {}
+                runTask(taskName, reason, onSuccess, options) {
+                    options?.onComplete?.();
+                    return true;
+                }
             };
 
             orchestrator.poll();
+        await new Promise(resolve => setTimeout(resolve, 50));
 
             process.env[DEV_SYNC_ROOTS_ENV_VAR] = '["/env/neo"]';
             orchestrator.poll();
+        await new Promise(resolve => setTimeout(resolve, 50));
 
             expect(received).toEqual([{
                 value : ['/config/neo'],

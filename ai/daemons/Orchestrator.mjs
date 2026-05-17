@@ -24,6 +24,11 @@ import CadenceEngine                   from './services/CadenceEngine.mjs';
 import DreamService                    from './DreamService.mjs';
 import GoldenPathSynthesizer           from './services/GoldenPathSynthesizer.mjs';
 import {
+    acquireHeavyMaintenanceLease,
+    releaseHeavyMaintenanceLease,
+    ENV_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN
+} from './services/HeavyMaintenanceLeaseService.mjs';
+import {
     DEFAULT_POLL_INTERVAL_MS,
     DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
     DEFAULT_KB_SYNC_INTERVAL_MS,
@@ -561,10 +566,11 @@ export class Orchestrator extends Base {
      * @returns {Function}
      */
     createMaintenanceExecutor(executeFn, activeHeavyTask) {
-        return (taskName, reason, onSuccess) => {
+        return async (taskName, reason, onSuccess) => {
             const reasonText = reason || 'scheduled';
+            const isHeavy = this.isHeavyMaintenanceTask(taskName);
 
-            if (this.isHeavyMaintenanceTask(taskName)) {
+            if (isHeavy) {
                 const blockingTaskName = activeHeavyTask.name && activeHeavyTask.name !== taskName
                     ? activeHeavyTask.name
                     : this.findActiveHeavyMaintenanceTask({excludeTaskName: taskName});
@@ -577,10 +583,59 @@ export class Orchestrator extends Base {
 
             this.clearMaintenanceDeferralLogState(taskName);
 
-            const result = executeFn(taskName, reason, onSuccess);
+            let options = {};
+            let leaseToken;
+            let leaseAcquired = false;
 
-            if (this.isHeavyMaintenanceTask(taskName) && result !== false) {
-                activeHeavyTask.name = taskName;
+            if (isHeavy) {
+                leaseToken = `orchestrator-${taskName}-${Date.now()}`;
+                try {
+                    const leasePath = path.join(this.dataDir, 'heavy-maintenance-lease.json');
+                    if (isHeavy) {
+                        activeHeavyTask.name = taskName;
+                    }
+
+                    const acquisition = await acquireHeavyMaintenanceLease({
+                        owner: `orchestrator-${taskName}`,
+                        token: leaseToken,
+                        leasePath
+                    });
+
+                    if (!acquisition.acquired) {
+                        if (isHeavy && activeHeavyTask.name === taskName) {
+                            activeHeavyTask.name = null;
+                        }
+                        this.healthService?.recordTaskOutcome?.(taskName, 'skipped', { reason: reasonText, reasonCode: 'heavy-maintenance-lease-held' });
+                        return false;
+                    }
+
+                    leaseAcquired = true;
+                    options.env = {
+                        [ENV_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN]: leaseToken
+                    };
+                    options.onComplete = () => {
+                        releaseHeavyMaintenanceLease({ token: leaseToken, leasePath }).catch(e => {
+                            this.writeLog('ERROR', `[Orchestrator] Failed to release lease for ${taskName}: ${e.message}`);
+                        });
+                    };
+                } catch (e) {
+                    if (isHeavy && activeHeavyTask.name === taskName) {
+                        activeHeavyTask.name = null;
+                    }
+                    this.writeLog('ERROR', `[Orchestrator] Failed to acquire lease for ${taskName}: ${e.message}`);
+                    return false; // Could not get lock
+                }
+            }
+
+            const result = executeFn(taskName, reason, onSuccess, options);
+
+            if (leaseAcquired && result === false) {
+                 if (isHeavy && activeHeavyTask.name === taskName) {
+                     activeHeavyTask.name = null;
+                 }
+                 // If runTask returned false (failed to spawn synchronously), we must release the lease immediately
+                 const leasePath = path.join(this.dataDir, 'heavy-maintenance-lease.json');
+                 await releaseHeavyMaintenanceLease({ token: leaseToken, leasePath }).catch(() => {});
             }
 
             return result;
@@ -677,8 +732,8 @@ export class Orchestrator extends Base {
                 intervalMs: this.primaryDevSyncIntervalMs,
                 enabled   : this.primaryDevSyncEnabled
             });
-        }, executeMaintenanceTask((taskName, reason) => {
-            return this.primaryRepoSyncService.runTask({
+        }, executeMaintenanceTask((taskName, reason, onSuccess, options) => {
+            const result = this.primaryRepoSyncService.runTask({
                 taskName,
                 reason,
                 taskStateService  : this.taskStateService,
@@ -690,8 +745,11 @@ export class Orchestrator extends Base {
                 }),
                 devSyncRootsSource: resolvePrimaryDevSyncRootsSource({
                     envValue: process.env[DEV_SYNC_ROOTS_ENV_VAR]
-                })
+                }),
+                env               : options?.env
             });
+            options?.onComplete?.();
+            return result;
         }), context);
 
         this.cadenceEngine.runIfDue(DREAM_TASK_NAME, () => {
@@ -703,10 +761,12 @@ export class Orchestrator extends Base {
                 return { reason: `periodic-dream:${this.dreamIntervalMs}` };
             }
             return null;
-        }, executeMaintenanceTask(async (taskName, reason) => {
+        }, executeMaintenanceTask(async (taskName, reason, onSuccess, options) => {
             this.taskStateService.markStarted(taskName, reason.reason);
             this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
             try {
+                // Pass environment if the dream service supported it, currently no subprocesses rely on it directly,
+                // but we must honor the lease release.
                 await this.dreamService.processUndigestedSessions();
                 this.taskStateService.markCompleted(taskName);
                 this.healthService?.recordTaskOutcome?.(taskName, 'completed', { reason, completedAt: new Date().toISOString() });
@@ -715,6 +775,8 @@ export class Orchestrator extends Base {
                 if (state) state.lastReason = e.message;
                 this.taskStateService.markFailed(taskName, 1);
                 this.healthService?.recordTaskOutcome?.(taskName, 'failed', { reason, error: e.message, failedAt: new Date().toISOString() });
+            } finally {
+                options?.onComplete?.();
             }
         }), context);
 
