@@ -232,6 +232,8 @@ class PrimaryRepoSyncService extends Base {
      * @param {Function} [options.writeLog] Optional logger.
      * @param {String[]|String|undefined|null} [options.devSyncRootsConfig=process.env.NEO_ORCHESTRATOR_DEV_SYNC_ROOTS] Optional configured roots.
      * @param {String} [options.devSyncRootsSource=NEO_ORCHESTRATOR_DEV_SYNC_ROOTS] Config source label.
+     * @param {Object} [options.taskStateService] Optional `TaskStateService` forwarded to the eventual `runKbSync()` cascade so the nested KB sync is observable as a first-class `kbSync` task lifecycle event (Lane D narrow of #11503, #11520). Pass-through only; this method does not consume the service directly.
+     * @param {Object} [options.healthService] Optional `HealthService` forwarded to the eventual `runKbSync()` cascade for `recordTaskOutcome('kbSync', ..., {parent: 'primary-dev-sync', ...})` observability. Pass-through only; this method does not consume the service directly.
      * @returns {Object}
      */
     syncPrimaryDev({
@@ -309,6 +311,8 @@ class PrimaryRepoSyncService extends Base {
      * @param {String[]} options.roots Configured repo roots.
      * @param {Function} options.execFileSyncFn Command execution seam.
      * @param {Function} [options.writeLog] Optional logger.
+     * @param {Object} [options.taskStateService] Optional `TaskStateService` forwarded to the `runKbSync()` cascade for first-class `kbSync` lifecycle annotation (Lane D narrow of #11503, #11520). Direct consumer of the pass-through.
+     * @param {Object} [options.healthService] Optional `HealthService` forwarded to the `runKbSync()` cascade for `recordTaskOutcome('kbSync', ..., {parent: 'primary-dev-sync', ...})` observability. Direct consumer of the pass-through.
      * @returns {Object}
      */
     syncConfiguredDevRoots({primaryRoot, roots, execFileSyncFn, writeLog, taskStateService, healthService}) {
@@ -361,6 +365,8 @@ class PrimaryRepoSyncService extends Base {
      * @param {Function} [options.writeLog] Optional logger.
      * @param {Boolean} [options.fetchBeforeBranch=false] Fetch/verify origin/dev before branch checks.
      * @param {Boolean} [options.runKbSync=true] Whether this root owns the KB cascade.
+     * @param {Object} [options.taskStateService] Optional `TaskStateService` forwarded to `runKbSync()` for first-class `kbSync` lifecycle annotation when this root triggers the cascade (Lane D narrow of #11503, #11520). No-op when `runKbSync: false` (the singular configured-root path).
+     * @param {Object} [options.healthService] Optional `HealthService` forwarded to `runKbSync()` for cascade `recordTaskOutcome` events with `{parent: 'primary-dev-sync'}` annotation.
      * @returns {Object}
      */
     syncDevRoot({root, rootKey='primaryRoot', execFileSyncFn, writeLog, fetchBeforeBranch=false, runKbSync=true, taskStateService, healthService}) {
@@ -460,6 +466,8 @@ class PrimaryRepoSyncService extends Base {
      * @param {Function} options.execFileSyncFn Command execution seam.
      * @param {Function} [options.writeLog] Optional logger.
      * @param {Boolean} [options.runKbSync=true] Whether this root owns the KB cascade.
+     * @param {Object} [options.taskStateService] Optional `TaskStateService` forwarded to `runKbSync()` for first-class `kbSync` lifecycle annotation when this root triggers the cascade (Lane D narrow of #11503, #11520).
+     * @param {Object} [options.healthService] Optional `HealthService` forwarded to `runKbSync()` for cascade `recordTaskOutcome` events with `{parent: 'primary-dev-sync'}` annotation.
      * @returns {Object}
      */
     resolveMetaAndPull({primaryRoot, root=primaryRoot, rootKey='primaryRoot', behind, execFileSyncFn, writeLog, runKbSync=true, taskStateService, healthService}) {

@@ -570,29 +570,70 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
     //   compatible for ad-hoc / test callers).
     // ─────────────────────────────────────────────────────────────────────────────
 
-    test('runKbSync annotates cascade as kbSync lifecycle via TaskStateService + HealthService on success (#11520 AC1+AC2+AC8)', () => {
-        const taskStateService = createTaskStateService();
-        const outcomes         = [];
-        const healthService    = {
-            recordTaskOutcome(taskName, status, details) {
-                outcomes.push({taskName, status, details});
+    test('runKbSync annotates cascade as kbSync lifecycle via TaskStateService + HealthService on success — STRICT TEMPORAL ORDERING (#11520 AC1+AC2+AC6+AC8)', () => {
+        // Per @neo-gpt PR #11521 cycle 1 review (PRR_kwDODSospM8AAAABAJRHVA): the end-state
+        // assertions on `events` and `outcomes` arrays prove WHAT happened but NOT WHEN.
+        // AC6 mandates temporal ordering: markStarted + running outcome MUST occur BEFORE
+        // execFileSyncFn begins; markCompleted + completed outcome MUST occur AFTER it
+        // returns. Without ordering assertions, a future refactor that accidentally moved
+        // the annotation calls inside/around execFileSyncFn could pass end-state tests
+        // while violating the lifecycle contract that observability tooling depends on.
+        //
+        // This test pins the contract via a call-sequence array: instrumented helpers
+        // push synchronous markers in execution order; the assertion is on the strict
+        // sequence, not just the end state.
+        const sequence = [];
+
+        const taskStateService = {
+            events: [],
+            getTaskState() { return {running: false}; },
+            markStarted(taskName, reason) {
+                this.events.push(['started', taskName, reason]);
+                sequence.push(`state-started:${taskName}:${reason}`);
+            },
+            markCompleted(taskName) {
+                this.events.push(['completed', taskName]);
+                sequence.push(`state-completed:${taskName}`);
+            },
+            markFailed(taskName, code) {
+                this.events.push(['failed', taskName, code]);
+                sequence.push(`state-failed:${taskName}:${code}`);
             }
         };
-        const execFileSyncFn = createExecStub([{
-            cmd : process.platform === 'win32' ? 'npm.cmd' : 'npm',
-            args: ['run', 'ai:sync-kb']
-        }]);
+        const outcomes = [];
+        const healthService = {
+            recordTaskOutcome(taskName, status, details) {
+                outcomes.push({taskName, status, details});
+                sequence.push(`health-${status}:${taskName}`);
+            }
+        };
+        const execFileSyncFn = (cmd, args, options) => {
+            sequence.push(`exec:${cmd}:${args.join(' ')}`);
+            return '';
+        };
 
         PrimaryRepoSyncService.runKbSync('/primary/neo', execFileSyncFn, {taskStateService, healthService});
 
-        // AC1: TaskStateService.markStarted('kbSync', 'cascaded-from-primary-dev-sync')
+        // AC6 — STRICT TEMPORAL ORDERING (the load-bearing assertion):
+        // markStarted + running outcome MUST be before exec; markCompleted + completed outcome MUST be after.
+        // Any future refactor that reorders these (e.g., moves recordTaskOutcome AFTER exec instead of before)
+        // breaks the observability lifecycle contract and fails this assertion.
+        expect(sequence).toEqual([
+            'state-started:kbSync:cascaded-from-primary-dev-sync',
+            `health-running:kbSync`,
+            `exec:${process.platform === 'win32' ? 'npm.cmd' : 'npm'}:run ai:sync-kb`,
+            'state-completed:kbSync',
+            'health-completed:kbSync'
+        ]);
+
+        // AC1: markStarted with cascaded-from-parent reason
         // AC3: markCompleted on success
         expect(taskStateService.events).toEqual([
             ['started', 'kbSync', 'cascaded-from-primary-dev-sync'],
             ['completed', 'kbSync']
         ]);
 
-        // AC2 + AC8: recordTaskOutcome with parent annotation on both running + completed
+        // AC2 + AC8: recordTaskOutcome shape with parent annotation
         expect(outcomes.length).toBe(2);
         expect(outcomes[0]).toMatchObject({
             taskName: 'kbSync',
