@@ -85,13 +85,14 @@ Error [ERR_MODULE_NOT_FOUND]: Cannot find module '.../ai/mcp/server/github-workf
 **Before running any SDK-consuming script or `test-unit` command in a worktree, execute:**
 
 ```bash
-node ai/scripts/bootstrapWorktree.mjs              # copy configs only
-node ai/scripts/bootstrapWorktree.mjs --link-data  # ALSO unify .neo-ai-data/ (recommended)
-node ai/scripts/bootstrapWorktree.mjs --link-data --install     # ALSO npm install + bundle-parse5
-node ai/scripts/bootstrapWorktree.mjs --link-data --build-all   # ALSO full Webpack build (frontend tickets)
+node ai/scripts/bootstrapWorktree.mjs
+node ai/scripts/bootstrapWorktree.mjs --link-data
+node ai/scripts/bootstrapWorktree.mjs --link-data --canonical-root <canonical-checkout>
+node ai/scripts/bootstrapWorktree.mjs --link-data --install
+node ai/scripts/bootstrapWorktree.mjs --link-data --build-all
 ```
 
-It copies the four `config.mjs` files from the main checkout (resolved via `git worktree list --porcelain`) and — with `--link-data` — symlinks the worktree's `.neo-ai-data/` to the main checkout's. Idempotent; no-op from the main checkout.
+It copies the four `config.mjs` files from the main checkout (resolved via `git worktree list --porcelain`) and — with `--link-data` — symlinks gitignored shared data substrates from the main checkout: `.neo-ai-data/` subdirs plus gitignored single-file handoffs such as `resources/content/sandman_handoff.md`. Independent sibling clones (Codex / Antigravity style) cannot infer the canonical checkout from `git worktree list`; pass `--canonical-root <canonical-checkout>` or set `NEO_AI_CANONICAL_ROOT`. Idempotent; no-op from the main checkout.
 
 **Per-task-class invocation guidance (per #10351):**
 - **Docs-only tickets** — `--link-data` is sufficient (no `node_modules` needed; the worktree filesystem itself + the data unification covers everything).
@@ -103,6 +104,7 @@ It copies the four `config.mjs` files from the main checkout (resolved via `git 
 **Symlink discipline — code vs data:**
 - **Source code** (`src/core/Base.mjs`, `ai/mcp/server/*/config.mjs`): **do NOT symlink.** Node's ESM resolver walks to the canonical (target) path, and `Neo.setupClass` sees the same namespace registered from two different file paths → `Namespace collision in unitTestMode`. Config files MUST be real copies.
 - **Data directories** (`.neo-ai-data/`): **symlink is safe and recommended.** Pure data with zero ESM imports — `better-sqlite3` opens by path, `path.resolve` traverses symlinks transparently. Use `--link-data` as the default.
+- **Gitignored single-file handoffs** (`resources/content/sandman_handoff.md`): **symlink, do not copy.** The daemon rewrites the canonical file mid-session; copies in independent clones become stale. If a clone already has a real file at that path, `bootstrapWorktree.mjs --link-data` preserves it and reports `skipped-real-file`; preserve/remove it deliberately, then rerun. Never symlink the parent `resources/content/` directory.
 
 **`--force` flag:** use only if the worktree accumulated unique writes to `.neo-ai-data/` before unification was opted-in. Clobbers the local directory and creates the symlink.
 
@@ -111,7 +113,7 @@ It copies the four `config.mjs` files from the main checkout (resolved via `git 
 - Use the `healthcheck` tool for the `neo.mjs-memory-core` server.
 - **If the healthcheck is successful:** The Memory Core is active.
     - **On-Demand Summarization & Dream Pipeline:** Boot-time auto-summarization, auto-Dream, and auto-Golden-Path are intentionally **disabled by default** (gated on `AUTO_SUMMARIZE` / `AUTO_DREAM` / `AUTO_GOLDEN_PATH` env vars; canonical instances additionally hard-disable in their gitignored `config.mjs`). Each harness launches multiple MCP server instances; auto-firing at boot would multiply summarization writes across instances. Strategic re-enablement is gated downstream of [#10186](https://github.com/neomjs/neo/issues/10186) (MCP concurrency audit + single-writer enforcement), [#10103](https://github.com/neomjs/neo/issues/10103) (SDK-layer config migration), and [#10063](https://github.com/neomjs/neo/issues/10063) (auto-persist turn memories via `ai/services.mjs`). Until those substrate gates land:
-        - **Empirical observability:** `healthcheck.startup.summarizationStatus === "not_attempted"` is **expected behavior** on the canonical instance, not a bug. Likewise, an absent `resources/content/sandman_handoff.md` is expected between manual Sandman invocations.
+        - **Empirical observability:** `healthcheck.startup.summarizationStatus === "not_attempted"` is **expected behavior** on the canonical instance, not a bug. Likewise, an absent canonical `resources/content/sandman_handoff.md` is expected before Sandman has produced it; an absent or stale handoff in an independent clone after the canonical file exists is bootstrap drift — run `bootstrapWorktree.mjs --link-data --canonical-root <canonical-checkout>`.
         - **Manual remediation (when needed):** Operator-side scripts bypass the auto-disable gates:
             - `npm run ai:summarize-sessions` — process unsummarized sessions into the `neo-agent-sessions` summary corpus.
             - `npm run ai:run-sandman` — full REM cycle: extract Semantic Graph nodes, detect topological conflicts, emit Capability Gap signals, and generate `sandman_handoff.md` via `GoldenPathSynthesizer`.
@@ -121,7 +123,7 @@ It copies the four `config.mjs` files from the main checkout (resolved via `git 
         1. `list_messages({ box: 'inbox', status: 'unread', limit: 20 })`: This is the boot-time pickup path for mailbox-only continuity artifacts, including `session-sunset` self-DMs sent with `wakeSuppressed: true`. Those messages intentionally do not wake the previous active harness; the next session must read them here.
         2. `get_context_frontier()`: This queries the GraphRAG Context Priming Engine to retrieve the mathematically derived "Golden Path" strategic roadmap and deeply embedded contextual guides for the current project focus. **Strategic Proposal:** You MUST evaluate the highest-weight strategic node and propose it to the user as the logical next step. Present your findings, but wait for the user's input before committing to execution. This ensures we operate as a cohesive team and allows the user to weigh in or pivot based on new ideas.
         3. `get_all_summaries({ limit: 5 })`: This acts as a chronological ledger to tell you "what just happened?" across recent sessions.
-        4. `view_file` on `resources/content/sandman_handoff.md`: **If this file exists** (it requires a recent `npm run ai:run-sandman` invocation per the **On-Demand Summarization & Dream Pipeline** note above — absent state is expected on the canonical instance between operator-triggered cycles), you **MUST** parse it immediately. It contains the **Mathematical Golden Path** (strategic priorities) derived from the REM Dream pipeline, as well as actionable Sandman topological alerts (e.g., missing documentation gaps, or OPEN tickets discovered to be superseded by the Native Edge Graph).
+        4. `view_file` on `resources/content/sandman_handoff.md`: **If this file exists** (it requires a recent `npm run ai:run-sandman` invocation per the **On-Demand Summarization & Dream Pipeline** note above — absent state is expected on the canonical instance before Sandman produces it), you **MUST** parse it immediately. In an independent clone, the file should be a symlink created by `bootstrapWorktree.mjs --link-data`; if the canonical file exists but the local clone is missing or stale, fix the symlink before treating the handoff as absent. It contains the **Mathematical Golden Path** (strategic priorities) derived from the REM Dream pipeline, as well as actionable Sandman topological alerts (e.g., missing documentation gaps, or OPEN tickets discovered to be superseded by the Native Edge Graph).
         5. **The Ingestion Mandate:** If the ticket you are assigned contains an `Origin Session ID: [ID]`, you **MUST** prioritize querying the Memory Core for that context before delving into the codebase. This allows you to pick up exactly where the previous agent left off without "Zero-State Amnesia."
         - **Why:** The combination of GraphRAG topology, chronological vector summaries, and actionable structural alerts prevents Session Amnesia, clarifies architectural decisions (Origin Stories), and aligns you with the current strategic direction.
         - **Drill Down Strategy:** Deep-diving into a full session (30+ turns) via raw memory fetches is expensive.
