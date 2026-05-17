@@ -28,7 +28,7 @@ broken. Re-run the same required check escalated first.
 Useful external-Chroma proof:
 
 ```sh
-curl -L -sS http://localhost:8001/api/v2/heartbeat
+curl -L -sS http://localhost:8000/api/v2/heartbeat
 ```
 
 Then use the native Memory Core `healthcheck` or a native `add_memory` call as

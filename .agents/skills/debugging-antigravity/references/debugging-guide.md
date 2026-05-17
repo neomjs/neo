@@ -24,7 +24,7 @@ Since the April 7th release, the IDE's local workspace `.gemini/settings.json` n
 ### The Problem
 If the Antigravity IDE spawns MCP processes (via the language server) and those servers are hardcoded to `autoStartDatabase = true` (Opt-Out), the MCP processes will attempt to boot standalone local ChromaDB/SQLite binaries.
 This creates immediate deadlocks when:
-- The user is already manually running ChromaDB on ports 8000/8001 via external terminal scripts.
+- The user is already manually running ChromaDB on port 8000 via external terminal scripts.
 - Both language servers duplicate the boot routine, competing for the same filesystem lock.
 
 ### The Fix
