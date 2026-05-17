@@ -469,6 +469,9 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 **Creative:**
 - `ideation-sandbox`: Safe brainstorming pipelines mapped directly into GitHub Discussions (diverts early-stage proposals away from the active Issue queue).
 
+**Coordination:**
+- `lane-intent`: Narrow, non-authoritative, 2h TTL-bound pre-V-B-A signal for collision-prone / long-V-B-A lanes (deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Distinct from authoritative `[lane-claim]` (post-V-B-A).
+
 **Meta:**
 - `create-skill`: Architectural blueprinting for new operational abilities.
 
