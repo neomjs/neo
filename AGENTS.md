@@ -149,8 +149,6 @@ To mitigate "Helpful Assistant" regression drift, agents MUST execute this evalu
 **Coordination protocol** (#11209 from #11206): lead-role focus-naming (§2.3) + explicit /peer-role skill-trigger (§2.2) + peer lane-announce-A2A (§6.5) + source-of-authority collision check + Authority-hierarchy (§6.6). Substantive content in `lead-role-mode.md` + `peer-role-mode.md`.
 </neo_core_overrides>
 
-
-
 ## 21. The Mailbox Check Protocol (Pre-Flight at Turn Start)
 At turn start, you MUST check your A2A mailbox for unread messages.
 > *"Pre-Flight: I called `list_messages({status: 'unread'})` and observed [N unread]."*
