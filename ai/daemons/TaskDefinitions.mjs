@@ -14,7 +14,7 @@ export const DEFAULT_DREAM_INTERVAL_MS            = 3600000;
 export const DREAM_TASK_NAME                      = 'dream';
 export const DEFAULT_GOLDEN_PATH_INTERVAL_MS      = 3600000;
 export const GOLDEN_PATH_TASK_NAME                = 'golden-path';
-export const DEFAULT_MLX_MODEL                    = 'gemma-4-31b-it';
+export const DEFAULT_MLX_MODEL                    = 'mlx-community/gemma-4-31b-it-bf16';
 export const DEFAULT_MLX_PORT                     = '11435';
 
 export const DEFAULT_DB_PATH    = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
@@ -32,14 +32,14 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../scripts');
  * @param {Object} [options]
  * @param {String} [options.scriptDir] Script directory.
  * @param {String} [options.nodeBin] Node executable.
- * @param {String} [options.mlxModel] OpenAI-compatible local inference model.
+ * @param {String} [options.mlxModel] MLX launch model: a Hugging Face repo id or local path.
  * @param {String|Number} [options.mlxPort] OpenAI-compatible local inference port.
  * @returns {Object}
  */
 export function buildTaskDefinitions({
     scriptDir = DEFAULT_SCRIPT_DIR,
     nodeBin   = process.argv[0],
-    mlxModel  = process.env.NEO_OPENAI_COMPATIBLE_MODEL || DEFAULT_MLX_MODEL,
+    mlxModel  = process.env.NEO_ORCHESTRATOR_MLX_MODEL || DEFAULT_MLX_MODEL,
     mlxPort   = DEFAULT_MLX_PORT
 } = {}) {
     return {

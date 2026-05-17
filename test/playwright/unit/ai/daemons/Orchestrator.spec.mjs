@@ -382,6 +382,30 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(orchestrator.taskDefinitions.kbSync.args[0]).toBe(expectedKbSyncScript);
     });
 
+    test('passes local mlx launch model config into task definitions', () => {
+        const orchestrator = Neo.create(Orchestrator);
+
+        orchestrator.configure({
+            dataDir : '/tmp/orchestrator-test-mlx-model',
+            mlxModel: 'operator-configured-mlx-model'
+        });
+
+        expect(orchestrator.taskDefinitions.mlx.args).toContain('operator-configured-mlx-model');
+        expect(orchestrator.taskDefinitions.mlx.args).not.toContain('gemma-4-31b-it');
+    });
+
+    test('falls back to the dedicated mlx default when local config is null', () => {
+        const orchestrator = Neo.create(Orchestrator);
+
+        orchestrator.configure({
+            dataDir : '/tmp/orchestrator-test-mlx-null',
+            mlxModel: null
+        });
+
+        expect(orchestrator.taskDefinitions.mlx.args).toContain('mlx-community/gemma-4-31b-it-bf16');
+        expect(orchestrator.taskDefinitions.mlx.args).not.toContain(null);
+    });
+
     test('routes primary-dev-sync through its service coordinator', () => {
         const started = [];
         const orchestrator = createTestOrchestrator({

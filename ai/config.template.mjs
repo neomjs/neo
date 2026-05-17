@@ -67,7 +67,17 @@ const defaultConfig = {
          * `ai/config.mjs` or via `NEO_ORCHESTRATOR_DEV_SYNC_ROOTS`.
          * @type {String[]}
          */
-        devSyncRoots: []
+        devSyncRoots: [],
+        /**
+         * MLX model artifact used to launch the orchestrator-owned inference server.
+         * This is a Hugging Face repo id or local path for `mlx_lm.server --model`, not
+         * the OpenAI-compatible API payload model label. Set this in gitignored
+         * `ai/config.mjs` or via `NEO_ORCHESTRATOR_MLX_MODEL`.
+         * @type {Object}
+         */
+        mlx: {
+            model: null
+        }
     },
     /**
      * A dummy embedding function to satisfy ChromaDB when embeddings are provided manually.

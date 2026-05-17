@@ -162,9 +162,11 @@ export async function startOrchestrator(options = {}) {
     await enforceSingleton();
     setupCleanupHandlers();
     await loadLocalAiConfig();
+    const orchestratorConfig = AiConfig.orchestrator || {};
     return Orchestrator.start({
         dataDir: DAEMON_DATA_DIR,
-        primaryDevSyncRootsConfig: AiConfig.orchestrator?.devSyncRoots,
+        primaryDevSyncRootsConfig: orchestratorConfig.devSyncRoots,
+        mlxModel: orchestratorConfig.mlx?.model || undefined,
         ...options
     });
 }
