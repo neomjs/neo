@@ -40,9 +40,32 @@ import {
     buildTaskDefinitions
 } from './TaskDefinitions.mjs';
 
+/**
+ * Canonical set of heavy-maintenance task names that participate in the orchestrator's
+ * cross-poll backpressure invariant: at any time, across orchestrator-owned tasks AND
+ * lease-aware manual scripts (see `HeavyMaintenanceLeaseService` + Lane C wrappers in
+ * `buildScripts/ai/*.mjs`), at most one substrate-heavy maintenance job may hold the
+ * heavy-maintenance lease.
+ *
+ * Membership rationale per #11503:
+ * - `summary` / `kbSync` / `dream` — Memory Core graph + Chroma write-heavy
+ * - `backup` — exports KB Chroma + Memory Core Chroma + SQLite graph state; substrate-heavy
+ *   even though it doesn't mutate, because concurrent IO with other heavy classes is the
+ *   contention surface (added by #11513 — Lane A of #11503)
+ * - `PRIMARY_DEV_SYNC_TASK_NAME` — git fetch + nested KB sync cascade
+ *
+ * Intentionally NOT in the heavy set:
+ * - `GOLDEN_PATH_TASK_NAME` — classified as light maintenance per #11511 / PR #11512
+ *   (synthesizer reads the graph; does not write the heavy substrates)
+ *
+ * Cross-poll deferral coverage lives in `test/playwright/unit/ai/daemons/Orchestrator.spec.mjs`.
+ *
+ * @type {ReadonlyArray<String>}
+ */
 export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
     'summary',
     'kbSync',
+    'backup',
     PRIMARY_DEV_SYNC_TASK_NAME,
     DREAM_TASK_NAME
 ]);
@@ -662,13 +685,20 @@ export class Orchestrator extends Base {
             return null;
         }, executeMaintenanceTask(executeTask), context);
 
+        // #11513 (Lane A of #11503): wrap backup execution with the heavy-maintenance
+        // executor so a due backup defers when ANY other heavy task is active. Adding
+        // `'backup'` to `DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES` makes backup recognized
+        // as a heavy *blocker* (via `findActiveHeavyMaintenanceTask`), but the deferral
+        // check on the *candidate* side only runs through `createMaintenanceExecutor`.
+        // Sibling tasks (summary at line 675, kbSync at 686, primary-dev-sync at 718,
+        // dream at 742) all route through `executeMaintenanceTask`; backup must too.
         this.cadenceEngine.runIfDue('backup', () => {
             return this.backupCoordinator.getDueTask({
                 state           : this.taskStateService.getState(),
                 now,
                 backupIntervalMs: this.backupIntervalMs
             });
-        }, executeTask, context);
+        }, executeMaintenanceTask(executeTask), context);
 
         this.cadenceEngine.runIfDue(PRIMARY_DEV_SYNC_TASK_NAME, () => {
             return this.primaryRepoSyncService.getDueTask({
