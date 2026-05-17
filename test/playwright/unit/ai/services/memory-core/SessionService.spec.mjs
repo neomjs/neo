@@ -197,7 +197,7 @@ test.describe('SessionService setSessionId', () => {
         });
 
         // Manually add summaries just to be sure we test both collections
-        await SDK.Memory_SessionService.sessionsCollection.add({
+        await SDK.Memory_SessionService.sessionsCollection.upsert({
             ids: ['sum_target', 'sum_other'],
             metadatas: [
                 { sessionId: targetSessionId },

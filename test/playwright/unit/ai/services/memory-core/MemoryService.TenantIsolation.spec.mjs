@@ -362,14 +362,17 @@ test.describe('MemoryService — memorySharing policy (#10010)', () => {
     test('queryMemories with memorySharing=legacy returns tenant-owned, team-tagged, and untagged records', async () => {
         spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {userId: 'u-alice', timestamp: 100, prompt: 'a1'}, document: 'a1'});
         spyCollection.rows.set('m-shared1', {id: 'm-shared1', metadata: {userId: 'shared', timestamp: 200, prompt: 'L1'}, document: 'L1'});
-        // legacy policy allows untagged records which are handled via JS post-query filtering.
-        // ChromaDB does not support {$exists: false}, so the query fetches a widened set.
+        // legacy policy allows untagged records (pre-migration) alongside tenant-owned and team-tagged.
+        // ChromaDB does not support {$exists: false}, so we fetch without a DB filter
+        // and apply JS post-query filtering to drop other tenants' records while keeping untagged ones.
         spyCollection.rows.set('m-untagged', {id: 'm-untagged', metadata: {timestamp: 300, prompt: 'pre-migration'}, document: 'P'});
+        spyCollection.rows.set('m-b1', {id: 'm-b1', metadata: {userId: 'u-bob', timestamp: 400, prompt: 'b1'}, document: 'b1'});
 
         const view = await RequestContextService.run({userId: 'u-alice'}, () =>
             MemoryService.queryMemories({query: 'anything', nResults: 10, memorySharing: 'legacy'})
         );
 
+        // Expect Bob's record to be filtered out in JS, leaving the other 3.
         expect(view.count).toBe(3);
         expect(view.results.map(r => r.prompt).sort()).toEqual(['L1', 'a1', 'pre-migration']);
 
