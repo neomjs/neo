@@ -45,7 +45,13 @@ function createSpyCollection() {
         if (where.$or) {
             return where.$or.some(cond => matchesWhere(metadata, cond));
         }
-        return Object.entries(where).every(([key, value]) => metadata?.[key] === value);
+        return Object.entries(where).every(([key, value]) => {
+            if (value && typeof value === 'object' && '$exists' in value) {
+                const exists = metadata && Object.prototype.hasOwnProperty.call(metadata, key);
+                return value.$exists ? exists : !exists;
+            }
+            return metadata?.[key] === value;
+        });
     };
 
     return {
@@ -208,12 +214,10 @@ test.describe('MemoryService — tenant isolation (#10000)', () => {
 
         const queryCall = spyCollection.queryCalls.at(-1);
         // #10556: read filter became additive — tenant's own records OR records tagged
-        // with SHARED_USER_ID. The sessionId filter remains in the outer $and.
+        // with SHARED_USER_ID. The sessionId filter remains the only query arg for legacy policy,
+        // since $exists: false is unsupported in ChromaDB and userId filtering happens in JS post-query.
         expect(queryCall.where).toEqual({
-            $and: [
-                {sessionId: 'session-a'},
-                {$or: [{userId: 'u-alice'}, {userId: 'shared'}]}
-            ]
+            sessionId: 'session-a'
         });
     });
 
@@ -306,5 +310,73 @@ test.describe('MemoryService — additive shared-commons access (#10556)', () =>
         const tagged  = addCall.metadatas[0]?.userId;
         // The stored tag should be `neo-test-agent` (no prefix), NOT `@neo-test-agent`.
         expect(tagged).toBe('neo-test-agent');
+    });
+});
+
+test.describe('MemoryService — memorySharing policy (#10010)', () => {
+    let spyCollection;
+    let originalGetMemoryCollection;
+
+    test.beforeEach(() => {
+        spyCollection                       = createSpyCollection();
+        originalGetMemoryCollection         = StorageRouter.getMemoryCollection;
+        StorageRouter.getMemoryCollection   = async () => spyCollection;
+    });
+
+    test.afterEach(() => {
+        StorageRouter.getMemoryCollection = originalGetMemoryCollection;
+    });
+
+    test('queryMemories with memorySharing=private returns only tenant-owned records', async () => {
+        spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {userId: 'u-alice', timestamp: 100, prompt: 'a1'}, document: 'a1'});
+        spyCollection.rows.set('m-shared1', {id: 'm-shared1', metadata: {userId: 'shared', timestamp: 200, prompt: 'L1'}, document: 'L1'});
+        spyCollection.rows.set('m-untagged', {id: 'm-untagged', metadata: {timestamp: 300, prompt: 'pre-migration'}, document: 'P'});
+
+        const view = await RequestContextService.run({userId: 'u-alice'}, () =>
+            MemoryService.queryMemories({query: 'anything', nResults: 10, memorySharing: 'private'})
+        );
+
+        expect(view.count).toBe(1);
+        expect(view.results[0].prompt).toBe('a1');
+
+        const queryCall = spyCollection.queryCalls.at(-1);
+        expect(queryCall.where).toEqual({userId: 'u-alice'});
+    });
+
+    test('queryMemories with memorySharing=team returns only team-tagged records', async () => {
+        spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {userId: 'u-alice', timestamp: 100, prompt: 'a1'}, document: 'a1'});
+        spyCollection.rows.set('m-shared1', {id: 'm-shared1', metadata: {userId: 'shared', timestamp: 200, prompt: 'L1'}, document: 'L1'});
+        spyCollection.rows.set('m-untagged', {id: 'm-untagged', metadata: {timestamp: 300, prompt: 'pre-migration'}, document: 'P'});
+
+        const view = await RequestContextService.run({userId: 'u-alice'}, () =>
+            MemoryService.queryMemories({query: 'anything', nResults: 10, memorySharing: 'team'})
+        );
+
+        expect(view.count).toBe(1);
+        expect(view.results[0].prompt).toBe('L1');
+
+        const queryCall = spyCollection.queryCalls.at(-1);
+        expect(queryCall.where).toEqual({userId: 'shared'});
+    });
+
+    test('queryMemories with memorySharing=legacy returns tenant-owned, team-tagged, and untagged records', async () => {
+        spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {userId: 'u-alice', timestamp: 100, prompt: 'a1'}, document: 'a1'});
+        spyCollection.rows.set('m-shared1', {id: 'm-shared1', metadata: {userId: 'shared', timestamp: 200, prompt: 'L1'}, document: 'L1'});
+        // legacy policy allows untagged records (pre-migration) alongside tenant-owned and team-tagged.
+        // ChromaDB does not support {$exists: false}, so we fetch without a DB filter
+        // and apply JS post-query filtering to drop other tenants' records while keeping untagged ones.
+        spyCollection.rows.set('m-untagged', {id: 'm-untagged', metadata: {timestamp: 300, prompt: 'pre-migration'}, document: 'P'});
+        spyCollection.rows.set('m-b1', {id: 'm-b1', metadata: {userId: 'u-bob', timestamp: 400, prompt: 'b1'}, document: 'b1'});
+
+        const view = await RequestContextService.run({userId: 'u-alice'}, () =>
+            MemoryService.queryMemories({query: 'anything', nResults: 10, memorySharing: 'legacy'})
+        );
+
+        // Expect Bob's record to be filtered out in JS, leaving the other 3.
+        expect(view.count).toBe(3);
+        expect(view.results.map(r => r.prompt).sort()).toEqual(['L1', 'a1', 'pre-migration']);
+
+        const queryCall = spyCollection.queryCalls.at(-1);
+        expect(queryCall.where).toBeUndefined();
     });
 });

@@ -17,6 +17,8 @@ import {test, expect}        from '@playwright/test';
 import fs                    from 'fs-extra';
 import path                  from 'path';
 import Neo                   from '../../../../../../src/Neo.mjs';
+import * as core             from '../../../../../../src/core/_export.mjs';
+import                            '../../../../../../src/manager/Instance.mjs';
 import RequestContextService from '../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs';
 
 test.describe('Neo.ai.services.memory-core.MailboxService', () => {
