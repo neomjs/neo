@@ -13,6 +13,10 @@ import {
 } from '../scripts/bridge-daemon-queries.mjs';
 import SummarizationCoordinatorService from './services/SummarizationCoordinatorService.mjs';
 import BackupCoordinatorService          from './services/BackupCoordinatorService.mjs';
+import {
+    acquireHeavyMaintenanceLeaseSync,
+    releaseHeavyMaintenanceLeaseSync
+} from './services/HeavyMaintenanceLeaseService.mjs';
 import PrimaryRepoSyncService, {
     DEV_SYNC_ROOTS_CONFIG_KEY,
     DEV_SYNC_ROOTS_ENV_VAR,
@@ -343,6 +347,9 @@ export class Orchestrator extends Base {
         this.dbPath                 = options.dbPath || DEFAULT_DB_PATH;
         this.logFile                = options.logFile   || path.join(dataDir, 'orchestrator.log');
         this.stateFile              = options.stateFile || path.join(dataDir, 'orchestrator-state.json');
+        if (options.heavyMaintenanceLeasePath !== undefined) {
+            this.heavyMaintenanceLeasePath = options.heavyMaintenanceLeasePath;
+        }
         this.cadenceEngine          = options.cadenceEngine          || CadenceEngine;
         this.pollIntervalMs         = options.pollIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_POLL_INTERVAL_MS, DEFAULT_POLL_INTERVAL_MS);
         this.summarySweepIntervalMs = options.summarySweepIntervalMs ?? this.cadenceEngine.parseInterval(
@@ -553,6 +560,42 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * #11519: Records a non-error deferral when another orchestrator process holds
+     * the shared heavy-maintenance lease (cross-daemon backpressure).
+     *
+     * Mirrors `recordMaintenanceDeferral` shape but distinguished by `reasonCode`
+     * so operator dashboards + Memory Core graph ingestion can separate
+     * intra-process backpressure (`heavy-maintenance-backpressure`) from
+     * inter-process file-lease backpressure (`heavy-maintenance-lease-held`).
+     *
+     * @param {String} taskName Deferred task name.
+     * @param {Object|null} holdingLease Lease payload of the active owner (token-stripped).
+     * @param {String} reason Scheduling reason for the deferred task.
+     * @returns {void}
+     */
+    recordCrossDaemonLeaseDeferral(taskName, holdingLease, reason) {
+        this.maintenanceDeferralLogKeys ??= new Set();
+
+        const holderOwner = holdingLease?.owner || 'unknown';
+        const key         = `${taskName}:lease-held-by-${holderOwner}:${reason}`;
+
+        if (!this.maintenanceDeferralLogKeys.has(key)) {
+            const taskLabel = this.taskDefinitions?.[taskName]?.label || taskName;
+
+            this.writeLog('INFO', `[Orchestrator] Deferring ${taskLabel}; cross-daemon heavy-maintenance lease held by ${holderOwner} (${reason}).`);
+            this.maintenanceDeferralLogKeys.add(key);
+        }
+
+        this.healthService?.recordTaskOutcome?.(taskName, 'skipped', {
+            reason,
+            reasonCode  : 'heavy-maintenance-lease-held',
+            holdingOwner: holderOwner,
+            holdingPid  : holdingLease?.pid,
+            deferredAt  : new Date().toISOString()
+        });
+    }
+
+    /**
      * Records a sparse Golden Path deferral when graph-mutating dependencies are active.
      * @param {String} blockingTaskName Active dependency task name.
      * @param {String} reason Scheduling reason for the Golden Path task.
@@ -580,8 +623,57 @@ export class Orchestrator extends Base {
     }
 
     /**
+     * #11519: Resolves the shared heavy-maintenance lease file path with multi-tier
+     * fallback. Defensive at use-site rather than configure-time so direct
+     * `poll()` callers (unit tests bypass `start()`/`configure()`) inherit a
+     * dataDir-scoped path instead of accidentally writing to the canonical
+     * production lease at `DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH`. Empirical
+     * anchor: pre-fix iteration of this PR contaminated `.neo-ai-data/orchestrator-daemon/heavy-maintenance-lease.json`
+     * during a test run — the operator's live orchestrator process would have
+     * deferred heavy tasks against a stale-but-active-TTL lease until 6h
+     * expiry without this fallback.
+     *
+     * @returns {String}
+     */
+    resolveHeavyMaintenanceLeasePath() {
+        if (this.heavyMaintenanceLeasePath) {
+            return this.heavyMaintenanceLeasePath;
+        }
+        return path.join(this.dataDir || DEFAULT_DATA_DIR, 'heavy-maintenance-lease.json');
+    }
+
+    /**
      * Wraps a task executor with cross-task heavy-maintenance backpressure.
-     * @param {Function} executeFn Task executor.
+     *
+     * **Two-tier backpressure (intra-process + inter-process):**
+     * 1. **Intra-process** (existing): in-process `activeHeavyTask` tracker
+     *    serializes heavy tasks within a single orchestrator poll cycle.
+     * 2. **Inter-process** (#11519 cross-daemon): shared file lease at
+     *    `heavyMaintenanceLeasePath` serializes heavy tasks across
+     *    concurrent orchestrator daemons (operator-restart-overlap, dev vs prod
+     *    daemon sets, manual CLI scripts running alongside).
+     *
+     * **Lease lifecycle:**
+     * - Acquire BEFORE executing heavy task; `held` status → defer with
+     *   `reasonCode: 'heavy-maintenance-lease-held'`.
+     * - On acquisition, inject `NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN`
+     *   env into the spawned child + register an `onComplete` release hook
+     *   on `ProcessSupervisorService.runTask` so the lease releases when the
+     *   child closes (success or failure).
+     * - Lease-release coordination by executor return shape:
+     *   - `true`: child-spawned task — lease releases via `onComplete` callback.
+     *   - `false`: spawn failed / task skipped — release immediately.
+     *   - `Promise`: in-process async executor — release on Promise settle.
+     *   - Other truthy: sync-complete executor — release immediately after return.
+     *
+     * **Why the env-var inheritance contract matters:** the primary-dev-sync
+     * task cascades a `kbSync` child (via `PrimaryRepoSyncService.runKbSync`).
+     * Without inheritance, the cascade would see its parent's own lease and
+     * defer with `held` — self-defer bug. The inherited-token env-var lets
+     * `withHeavyMaintenanceLease` recognize the parent's lease and run the
+     * cascade task without acquire/release.
+     *
+     * @param {Function} executeFn Task executor; receives `(taskName, reason, onSuccess, options)`.
      * @param {Object} activeHeavyTask Mutable active-heavy tracker for the current poll.
      * @returns {Function}
      */
@@ -598,17 +690,80 @@ export class Orchestrator extends Base {
                     this.recordMaintenanceDeferral(taskName, blockingTaskName, reasonText);
                     return false;
                 }
+
+                let acquisition;
+                try {
+                    acquisition = acquireHeavyMaintenanceLeaseSync({
+                        owner    : taskName,
+                        reason   : reasonText,
+                        metadata : {source: 'orchestrator'},
+                        leasePath: this.resolveHeavyMaintenanceLeasePath()
+                    });
+                } catch (e) {
+                    this.writeLog('ERROR', `[Orchestrator] Heavy-maintenance lease acquire failed for ${taskName}: ${e.message}`);
+                    this.healthService?.recordTaskOutcome?.(taskName, 'failed', {
+                        reason     : reasonText,
+                        reasonCode : 'heavy-maintenance-lease-acquire-error',
+                        error      : e.message,
+                        failedAt   : new Date().toISOString()
+                    });
+                    return false;
+                }
+
+                if (!acquisition.acquired) {
+                    this.recordCrossDaemonLeaseDeferral(taskName, acquisition.lease, reasonText);
+                    return false;
+                }
+
+                this.clearMaintenanceDeferralLogState(taskName);
+
+                const releaseLease = () => {
+                    try {
+                        releaseHeavyMaintenanceLeaseSync({
+                            token    : acquisition.lease.token,
+                            leasePath: this.resolveHeavyMaintenanceLeasePath()
+                        });
+                    } catch (e) {
+                        this.writeLog('ERROR', `[Orchestrator] Heavy-maintenance lease release failed for ${taskName}: ${e.message}`);
+                    }
+                };
+
+                const taskOptions = {
+                    env       : {NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN: acquisition.lease.token},
+                    onComplete: releaseLease
+                };
+
+                let result;
+                try {
+                    result = executeFn(taskName, reason, onSuccess, taskOptions);
+                } catch (e) {
+                    releaseLease();
+                    throw e;
+                }
+
+                // Lease-release coordination by executor return shape:
+                //  - `true`        → child-spawned; release via `options.onComplete` callback
+                //  - `false`       → spawn-fail/skip; release immediately
+                //  - Promise       → in-process async (dream); release on settle
+                //  - other truthy  → sync-complete (primaryRepoSyncService); release immediately
+                if (result === false) {
+                    releaseLease();
+                } else if (result && typeof result.then === 'function') {
+                    result.then(releaseLease, releaseLease);
+                } else if (result !== true) {
+                    releaseLease();
+                }
+
+                if (result !== false) {
+                    activeHeavyTask.name = taskName;
+                }
+
+                return result;
             }
 
             this.clearMaintenanceDeferralLogState(taskName);
 
-            const result = executeFn(taskName, reason, onSuccess);
-
-            if (this.isHeavyMaintenanceTask(taskName) && result !== false) {
-                activeHeavyTask.name = taskName;
-            }
-
-            return result;
+            return executeFn(taskName, reason, onSuccess);
         };
     }
 

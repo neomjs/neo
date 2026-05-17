@@ -520,8 +520,9 @@ class PrimaryRepoSyncService extends Base {
      * @returns {void}
      */
     runKbSync(primaryRoot, execFileSyncFn, {taskStateService, healthService, parentTaskName = 'primary-dev-sync'} = {}) {
-        const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-        const reason = `cascaded-from-${parentTaskName}`;
+        const npmBin         = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+        const reason         = `cascaded-from-${parentTaskName}`;
+        const inheritedToken = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
 
         taskStateService?.markStarted?.('kbSync', reason);
         healthService?.recordTaskOutcome?.('kbSync', 'running', {
@@ -530,12 +531,18 @@ class PrimaryRepoSyncService extends Base {
             startedAt: new Date().toISOString()
         });
 
+        const spawnOptions = {
+            cwd     : primaryRoot,
+            encoding: 'utf8',
+            stdio   : ['ignore', 'pipe', 'pipe']
+        };
+
+        if (inheritedToken) {
+            spawnOptions.env = {...process.env, NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN: inheritedToken};
+        }
+
         try {
-            execFileSyncFn(npmBin, ['run', 'ai:sync-kb'], {
-                cwd     : primaryRoot,
-                encoding: 'utf8',
-                stdio   : ['ignore', 'pipe', 'pipe']
-            });
+            execFileSyncFn(npmBin, ['run', 'ai:sync-kb'], spawnOptions);
 
             taskStateService?.markCompleted?.('kbSync');
             healthService?.recordTaskOutcome?.('kbSync', 'completed', {

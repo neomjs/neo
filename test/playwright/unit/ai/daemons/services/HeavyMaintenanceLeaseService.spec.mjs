@@ -6,9 +6,12 @@ import * as core      from '../../../../../../src/core/_export.mjs';
 import {
     HeavyMaintenanceLeaseService,
     acquireHeavyMaintenanceLease,
+    acquireHeavyMaintenanceLeaseSync,
     inspectHeavyMaintenanceLease,
+    inspectHeavyMaintenanceLeaseSync,
     isLeaseStale,
     releaseHeavyMaintenanceLease,
+    releaseHeavyMaintenanceLeaseSync,
     withHeavyMaintenanceLease
 } from '../../../../../../ai/daemons/services/HeavyMaintenanceLeaseService.mjs';
 
@@ -343,6 +346,278 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
             status: 'missing',
             active: false,
             lease : null
+        });
+    });
+
+    test('#11519 AC6: withHeavyMaintenanceLease returns inherited when env-token matches active lease', async () => {
+        // Parent process acquires lease and exports its token via the inherited-token env-var.
+        // Child process (simulated by setting process.env in this test) calls
+        // withHeavyMaintenanceLease — expects 'inherited' status, task runs WITHOUT
+        // acquire/release on the lease file. Empirical anchor: PrimaryRepoSyncService.runKbSync
+        // cascade where parent primary-dev-sync holds the lease and the child kbSync
+        // spawn would otherwise self-defer with 'held'.
+        const leasePath = createLeasePath('cascade-inheritance');
+        const now       = new Date('2026-05-16T20:00:00.000Z');
+
+        const parent = await acquireHeavyMaintenanceLease({
+            leasePath,
+            owner       : 'primary-dev-sync',
+            now,
+            staleAfterMs: 60000,
+            token       : 'parent-token'
+        });
+
+        const original = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+        process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = 'parent-token';
+
+        let observedAcquisition = null;
+        try {
+            const result = await withHeavyMaintenanceLease(acquisition => {
+                observedAcquisition = acquisition;
+                return 'cascade-done';
+            }, {
+                leasePath,
+                owner: 'kbSync',
+                now,
+                token: 'child-token'
+            });
+
+            expect(result).toMatchObject({
+                status  : 'inherited',
+                acquired: false,
+                lease   : {owner: 'primary-dev-sync', token: 'parent-token'},
+                result  : 'cascade-done'
+            });
+            expect(observedAcquisition).toMatchObject({
+                status  : 'inherited',
+                acquired: false,
+                lease   : {owner: 'primary-dev-sync', token: 'parent-token'}
+            });
+
+            // Critical: lease file MUST still hold parent's lease — no release fired.
+            await expect(inspectHeavyMaintenanceLease({leasePath, now})).resolves.toMatchObject({
+                status: 'active',
+                lease : {owner: 'primary-dev-sync', token: 'parent-token'}
+            });
+        } finally {
+            if (original === undefined) {
+                delete process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+            } else {
+                process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = original;
+            }
+            await releaseHeavyMaintenanceLease({leasePath, token: parent.lease.token, now});
+        }
+    });
+
+    test('#11519 AC8a: env-token without active lease file falls through to normal acquire', async () => {
+        // Env-var token set but lease file missing → inspectHeavyMaintenanceLease returns
+        // status='missing' → no token to match → withHeavyMaintenanceLease falls through to
+        // acquireHeavyMaintenanceLease normal path → acquires fresh lease.
+        const leasePath = createLeasePath('inherit-missing');
+        const now       = new Date('2026-05-16T20:00:00.000Z');
+
+        const original = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+        process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = 'stale-parent-token';
+
+        try {
+            const result = await withHeavyMaintenanceLease(() => 'fresh-acquire', {
+                leasePath,
+                owner       : 'kbSync',
+                now,
+                staleAfterMs: 60000,
+                token       : 'child-token'
+            });
+
+            expect(result).toMatchObject({
+                status  : 'completed',
+                acquired: true,
+                lease   : {owner: 'kbSync', token: 'child-token'},
+                result  : 'fresh-acquire'
+            });
+
+            // Released by withHeavyMaintenanceLease's own finally.
+            await expect(inspectHeavyMaintenanceLease({leasePath, now})).resolves.toMatchObject({
+                status: 'missing'
+            });
+        } finally {
+            if (original === undefined) {
+                delete process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+            } else {
+                process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = original;
+            }
+        }
+    });
+
+    test('#11519 AC8b: env-token set but mismatching active lease falls through to normal acquire (defers as held)', async () => {
+        // Env-var token set with token-X. Lease file exists with token-Y (different active owner).
+        // Token mismatch → no inheritance → falls through to normal acquire path → returns 'held'
+        // because token-Y owner is active. Prevents the bypass scenario where a stale env-var
+        // would falsely inherit an unrelated active lease.
+        const leasePath = createLeasePath('inherit-mismatch');
+        const now       = new Date('2026-05-16T20:00:00.000Z');
+
+        await acquireHeavyMaintenanceLease({
+            leasePath,
+            owner       : 'summary',
+            now,
+            staleAfterMs: 60000,
+            token       : 'real-active-token'
+        });
+
+        const original = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+        process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = 'spurious-stale-token';
+
+        let taskRan = false;
+        try {
+            const result = await withHeavyMaintenanceLease(() => {
+                taskRan = true;
+            }, {
+                leasePath,
+                owner: 'kbSync',
+                now,
+                token: 'child-token'
+            });
+
+            expect(result).toMatchObject({
+                status  : 'held',
+                acquired: false,
+                lease   : {owner: 'summary', token: 'real-active-token'}
+            });
+            expect(taskRan).toBe(false);
+        } finally {
+            if (original === undefined) {
+                delete process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+            } else {
+                process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = original;
+            }
+            await releaseHeavyMaintenanceLease({leasePath, token: 'real-active-token', now});
+        }
+    });
+
+    test('#11519 AC8c (also AC7 stale-cascade): env-token captured from stale-replaced parent falls through to defer', async () => {
+        // Stale-cascade scenario:
+        //   1. Parent acquires with token-X; spawns child with env-token=X
+        //   2. Parent dies; TTL expires
+        //   3. Another owner acquires (stale-replace) with token-Y
+        //   4. Child executes withHeavyMaintenanceLease — sees env=X but file has token=Y
+        //      → mismatch → falls through to normal acquire → returns 'held' (Y is active)
+        // Verifies env-var inheritance does NOT bypass the lease invariant when the parent's
+        // ownership has been mechanically transferred to a new owner via TTL stale-replacement.
+        const leasePath = createLeasePath('inherit-stale-parent');
+        const t0        = new Date('2026-05-16T20:00:00.000Z');
+        const t1        = new Date('2026-05-16T20:00:30.000Z'); // after TTL of 1s
+
+        await acquireHeavyMaintenanceLease({
+            leasePath,
+            owner       : 'primary-dev-sync',
+            now         : t0,
+            staleAfterMs: 1000,
+            token       : 'orig-parent-token'
+        });
+
+        // Stale-replace by new owner
+        const replace = await acquireHeavyMaintenanceLease({
+            leasePath,
+            owner       : 'summary',
+            now         : t1,
+            staleAfterMs: 60000,
+            token       : 'new-owner-token'
+        });
+
+        expect(replace.status).toBe('acquired-after-stale');
+
+        const original = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+        process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = 'orig-parent-token';
+
+        let taskRan = false;
+        try {
+            const result = await withHeavyMaintenanceLease(() => {
+                taskRan = true;
+            }, {
+                leasePath,
+                owner: 'kbSync',
+                now  : t1,
+                token: 'child-token'
+            });
+
+            expect(result).toMatchObject({
+                status  : 'held',
+                acquired: false,
+                lease   : {owner: 'summary', token: 'new-owner-token'}
+            });
+            expect(taskRan).toBe(false);
+        } finally {
+            if (original === undefined) {
+                delete process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+            } else {
+                process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = original;
+            }
+            await releaseHeavyMaintenanceLease({leasePath, token: 'new-owner-token', now: t1});
+        }
+    });
+
+    test('#11519 AC1 substrate: sync overloads mirror async acquire/inspect/release semantics', () => {
+        // Synchronous overloads exist exclusively to keep orchestrator-poll callers within
+        // the synchronous poll cycle (per `Orchestrator.createMaintenanceExecutor`). Contract
+        // mirrors async exactly — this test pins the shape so any drift between sync/async
+        // payload, status names, or stale/malformed recovery semantics fails CI.
+        const leasePath = createLeasePath('sync-overloads');
+        const now       = new Date('2026-05-16T20:00:00.000Z');
+
+        expect(inspectHeavyMaintenanceLeaseSync({leasePath, now})).toMatchObject({
+            status: 'missing',
+            active: false,
+            lease : null
+        });
+
+        const acquired = acquireHeavyMaintenanceLeaseSync({
+            leasePath,
+            owner       : 'summary',
+            now,
+            staleAfterMs: 60000,
+            token       : 'sync-token'
+        });
+
+        expect(acquired).toMatchObject({
+            status  : 'acquired',
+            acquired: true,
+            lease   : {owner: 'summary', token: 'sync-token'}
+        });
+
+        expect(inspectHeavyMaintenanceLeaseSync({leasePath, now})).toMatchObject({
+            status: 'active',
+            active: true,
+            lease : {owner: 'summary', token: 'sync-token'}
+        });
+
+        // Contention path mirrors async: 'held' without throwing
+        const contended = acquireHeavyMaintenanceLeaseSync({
+            leasePath,
+            owner       : 'kbSync',
+            now,
+            staleAfterMs: 60000,
+            token       : 'contender-token'
+        });
+
+        expect(contended).toMatchObject({
+            status  : 'held',
+            acquired: false,
+            lease   : {owner: 'summary', token: 'sync-token'}
+        });
+
+        // Token-guarded release mirrors async
+        expect(releaseHeavyMaintenanceLeaseSync({leasePath, token: 'wrong', now})).toMatchObject({
+            status  : 'not-owner',
+            released: false
+        });
+
+        expect(releaseHeavyMaintenanceLeaseSync({leasePath, token: 'sync-token', now})).toMatchObject({
+            status  : 'released',
+            released: true
+        });
+
+        expect(inspectHeavyMaintenanceLeaseSync({leasePath, now})).toMatchObject({
+            status: 'missing'
         });
     });
 

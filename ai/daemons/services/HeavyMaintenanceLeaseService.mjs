@@ -142,6 +142,149 @@ async function writeLeaseFile(leasePath, lease, fsModule) {
     await fsModule.writeFile(leasePath, JSON.stringify(lease, null, 2), {encoding: 'utf8', flag: 'wx'});
 }
 
+function writeLeaseFileSync(leasePath, lease, fsModule) {
+    fsModule.ensureDirSync(path.dirname(leasePath));
+    fsModule.writeFileSync(leasePath, JSON.stringify(lease, null, 2), {encoding: 'utf8', flag: 'wx'});
+}
+
+/**
+ * @summary Synchronous overload of {@link inspectHeavyMaintenanceLease}.
+ *
+ * Provided for orchestrator-poll callers (`ai/daemons/Orchestrator.mjs#createMaintenanceExecutor`)
+ * that must complete lease inspection within the synchronous poll cycle to preserve
+ * test observability post-`orchestrator.poll()`. CLI scripts continue using the async
+ * variant via `withHeavyMaintenanceLease`. Shares the same payload-shape and stale-check
+ * contract as the async path — only the IO seam differs.
+ *
+ * @param {Object} [options] See {@link inspectHeavyMaintenanceLease}.
+ * @returns {Object}
+ */
+export function inspectHeavyMaintenanceLeaseSync({
+    leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
+    fsModule  = fs,
+    now       = new Date()
+} = {}) {
+    let raw;
+
+    try {
+        raw = fsModule.readFileSync(leasePath, 'utf8');
+    } catch (e) {
+        if (e.code === 'ENOENT') {
+            return {status: 'missing', active: false, stale: false, lease: null};
+        }
+
+        return {status: 'unreadable', active: false, stale: true, lease: null, error: e.message};
+    }
+
+    try {
+        const lease = JSON.parse(raw);
+        const stale = isLeaseStale(lease, {now});
+
+        return {
+            status: stale ? 'stale' : 'active',
+            active: !stale,
+            stale,
+            lease
+        };
+    } catch (e) {
+        return {status: 'malformed', active: false, stale: true, lease: null, error: e.message};
+    }
+}
+
+/**
+ * @summary Synchronous overload of {@link acquireHeavyMaintenanceLease}.
+ *
+ * See {@link inspectHeavyMaintenanceLeaseSync} for the rationale. The contract
+ * mirrors the async version exactly — same returned shapes, same stale-recovery
+ * + malformed-recovery semantics, same `'held'` non-error deferral path. Only
+ * the IO seam differs.
+ *
+ * @param {Object} options See {@link acquireHeavyMaintenanceLease}.
+ * @returns {Object}
+ */
+export function acquireHeavyMaintenanceLeaseSync({
+    owner,
+    reason       = 'manual',
+    metadata     = {},
+    leasePath    = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
+    fsModule     = fs,
+    now          = new Date(),
+    pid          = process.pid,
+    staleAfterMs = DEFAULT_HEAVY_MAINTENANCE_LEASE_TTL_MS,
+    token
+} = {}) {
+    if (!owner) {
+        throw new Error('Heavy-maintenance lease owner is required.');
+    }
+
+    const lease = buildLeasePayload({owner, reason, metadata, pid, staleAfterMs, now, token});
+
+    try {
+        writeLeaseFileSync(leasePath, lease, fsModule);
+        return {status: 'acquired', acquired: true, lease};
+    } catch (e) {
+        if (e.code !== 'EEXIST') {
+            throw e;
+        }
+    }
+
+    const current = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now});
+
+    if (current.active) {
+        return {status: 'held', acquired: false, lease: current.lease};
+    }
+
+    fsModule.removeSync(leasePath);
+
+    try {
+        writeLeaseFileSync(leasePath, lease, fsModule);
+        return {
+            status: current.status === 'malformed' ? 'acquired-after-malformed' : 'acquired-after-stale',
+            acquired: true,
+            previousStatus: current.status,
+            lease
+        };
+    } catch (e) {
+        if (e.code !== 'EEXIST') {
+            throw e;
+        }
+
+        const raced = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now});
+        return {status: 'held', acquired: false, lease: raced.lease};
+    }
+}
+
+/**
+ * @summary Synchronous overload of {@link releaseHeavyMaintenanceLease}.
+ *
+ * @param {Object} options See {@link releaseHeavyMaintenanceLease}.
+ * @returns {Object}
+ */
+export function releaseHeavyMaintenanceLeaseSync({
+    token,
+    leasePath = DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH,
+    fsModule  = fs,
+    now       = new Date()
+} = {}) {
+    if (!token) {
+        throw new Error('Heavy-maintenance lease token is required for release.');
+    }
+
+    const current = inspectHeavyMaintenanceLeaseSync({leasePath, fsModule, now});
+
+    if (current.status === 'missing') {
+        return {status: 'missing', released: false};
+    }
+
+    if (!current.lease || current.lease.token !== token) {
+        return {status: 'not-owner', released: false, lease: current.lease};
+    }
+
+    fsModule.removeSync(leasePath);
+
+    return {status: 'released', released: true, lease: current.lease};
+}
+
 /**
  * @summary Attempts to acquire the shared Agent OS heavy-maintenance lease.
  *
@@ -311,12 +454,13 @@ export async function releaseHeavyMaintenanceLease({
  * | `status`      | `acquired` | `result` field    | Meaning                                                                      |
  * |---------------|------------|-------------------|------------------------------------------------------------------------------|
  * | `'completed'` | `true`     | the task's return | Lease acquired (including after stale/malformed recovery); task ran to completion (success or graceful-return). |
+ * | `'inherited'` | `false`    | the task's return | Inherited via matching env-var token; lease was acquired by a parent process; task ran to completion. |
  * | `'held'`      | `false`    | absent            | Another active owner holds the lease; task NOT executed. `lease` carries that owner's descriptor. |
  *
  * Note: when `acquireHeavyMaintenanceLease` returns a non-`'acquired'` non-`'held'`
  * acquisition descriptor (e.g., an `'unreadable'` IO-failure shape — theoretical
  * edge case), the wrapper passes it through unchanged. Task exceptions propagate;
- * release still fires from the wrapper's `finally`.
+ * release still fires from the wrapper's `finally` (unless inherited).
  *
  * ### Acquisition descriptor passed to `task` (separate surface)
  *
@@ -328,10 +472,11 @@ export async function releaseHeavyMaintenanceLease({
  * | `'acquired'`                  | absent           | Clean acquisition on a previously-missing lease.            |
  * | `'acquired-after-stale'`      | `'stale'`        | Prior owner's TTL expired; replaced atomically.             |
  * | `'acquired-after-malformed'`  | `'malformed'`    | Prior lease file was unparseable; replaced atomically.      |
+ * | `'inherited'`                 | absent           | Clean inheritance of active parent lease.                   |
  *
  * Inspect `acquisition.previousStatus` inside `task` if you need to log/alert
  * on stale-recovery telemetry. From the wrapper-caller's perspective, all three
- * cases normalize to `{status: 'completed', acquired: true, ...}`.
+ * cases normalize to `{status: 'completed', acquired: true, ...}` (or inherited).
  *
  * @param {Function} task Async task to execute when the lease is acquired. Receives the acquisition descriptor as its single argument (`{status, acquired, lease}`).
  * @param {Object} options Lease acquisition options forwarded to `acquireHeavyMaintenanceLease` (owner, reason, metadata, leasePath, staleAfterMs, pid, token, fsModule, now).
@@ -343,6 +488,26 @@ export async function releaseHeavyMaintenanceLease({
  * @see https://github.com/neomjs/neo/pull/11509 — empirical anchor (cycles 1 + 2)
  */
 export async function withHeavyMaintenanceLease(task, options = {}) {
+    const inheritedToken = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
+
+    if (inheritedToken) {
+        const current = await inspectHeavyMaintenanceLease({
+            leasePath: options.leasePath,
+            fsModule : options.fsModule,
+            now      : options.now
+        });
+
+        if (current.active && current.lease && current.lease.token === inheritedToken) {
+            const acquisition = {status: 'inherited', acquired: false, lease: current.lease};
+            return {
+                status: 'inherited',
+                acquired: false,
+                lease : current.lease,
+                result: await task(acquisition)
+            };
+        }
+    }
+
     const acquisition = await acquireHeavyMaintenanceLease(options);
 
     if (!acquisition.acquired) {
