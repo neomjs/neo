@@ -625,6 +625,162 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         });
     });
 
+    test('#10148 AC1+AC4: archiveMessage hides direct-DM from default listMessages; includeArchived surfaces', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        let messageId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const m = await MailboxService.addMessage({ to: '@bob', subject: 'archive-me', body: 'body' });
+            messageId = m.messageId;
+        });
+
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            // Pre-archive: appears in default listMessages
+            const before = await MailboxService.listMessages({ box: 'inbox' });
+            expect(before.messages.some(m => m.messageId === messageId)).toBe(true);
+
+            // Archive it
+            const archiveResult = await MailboxService.archiveMessage({ messageId });
+            expect(archiveResult.status).toBe('archived');
+            expect(archiveResult.archivedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/); // ISO timestamp shape
+            expect(archiveResult.messageId).toBe(messageId);
+
+            // Default listMessages now excludes it
+            const after = await MailboxService.listMessages({ box: 'inbox' });
+            expect(after.messages.some(m => m.messageId === messageId)).toBe(false);
+
+            // includeArchived: true surfaces it with archivedAt in summary
+            const withArchived = await MailboxService.listMessages({ box: 'inbox', includeArchived: true });
+            const archived = withArchived.messages.find(m => m.messageId === messageId);
+            expect(archived).toBeDefined();
+            expect(archived.archivedAt).toBe(archiveResult.archivedAt);
+        });
+    });
+
+    test('#10148 AC1: archiveMessage rejects non-recipient (sender + third-party)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        // Seed a third-party identity
+        GraphService.upsertNode({ id: '@carol-archive', type: 'AgentIdentity', name: 'Carol', properties: { accountType: 'agent' } });
+
+        let messageId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const m = await MailboxService.addMessage({ to: '@bob', subject: 'not-yours-to-archive', body: '...' });
+            messageId = m.messageId;
+        });
+
+        // Sender (Alice) cannot archive Bob's inbox copy
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            await expect(MailboxService.archiveMessage({ messageId })).rejects.toThrow(/Unauthorized.*not the recipient/);
+        });
+
+        // Third-party (Carol) cannot archive either
+        await RequestContextService.run({ agentIdentityNodeId: '@carol-archive' }, async () => {
+            await expect(MailboxService.archiveMessage({ messageId })).rejects.toThrow(/Unauthorized.*not the recipient/);
+        });
+
+        // Recipient (Bob) still can — sanity-check the permission gate is recipient-specific not just deny-by-default
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const res = await MailboxService.archiveMessage({ messageId });
+            expect(res.status).toBe('archived');
+        });
+    });
+
+    test('#10148 AC2+AC3: deleteMessage sender-side retraction replaces subject + body with placeholder, preserves thread edges', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        // Seed a thread: original message + a reply that references it via inReplyTo
+        let originalId, replyId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const original = await MailboxService.addMessage({ to: '@bob', subject: 'original-content', body: 'sensitive-original-body' });
+            originalId = original.messageId;
+            const reply = await MailboxService.addMessage({ to: '@bob', subject: 're: original', body: 'reply body', inReplyTo: originalId });
+            replyId = reply.messageId;
+        });
+
+        // Sender (Alice) retracts the original
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const result = await MailboxService.deleteMessage({ messageId: originalId });
+            expect(result.status).toBe('retracted');
+            expect(result.retracted).toBe(true);
+            expect(result.messageId).toBe(originalId);
+        });
+
+        // Direct node inspection: subject + bodyText overwritten; retracted flag set
+        const node = GraphService.db.nodes.get(originalId);
+        expect(node.properties.retracted).toBe(true);
+        expect(node.properties.subject).toBe('[retracted by sender]');
+        expect(node.properties.bodyText).toBe('[retracted by sender]');
+
+        // Thread context preserved: SENT_BY + SENT_TO + reply's inReplyTo edges survive
+        const edgesFromOriginal = [];
+        const edgesToOriginal = [];
+        for (const e of GraphService.db.edges.items) {
+            if (GraphService.db.edges.items.constructor) {} // no-op, shape sanity
+            const src = e.isRecord ? e.get('source') : e.source;
+            const tgt = e.isRecord ? e.get('target') : e.target;
+            const typ = e.isRecord ? e.get('type')   : e.type;
+            if (src === originalId) edgesFromOriginal.push({type: typ, target: tgt});
+            if (tgt === originalId) edgesToOriginal.push({type: typ, source: src});
+        }
+        // SENT_BY → @alice + SENT_TO → @bob both still present
+        expect(edgesFromOriginal.some(e => e.type === 'SENT_BY'   && e.target === '@alice')).toBe(true);
+        expect(edgesFromOriginal.some(e => e.type === 'SENT_TO'   && e.target === '@bob')).toBe(true);
+        // Reply's IN_REPLY_TO edge still points at the retracted original — thread context intact
+        expect(edgesToOriginal.some(e => e.source === replyId && (e.type === 'IN_REPLY_TO' || e.type === 'inReplyTo'))).toBe(true);
+
+        // Receiver views the retracted message with placeholder subject + retracted flag
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            const list = await MailboxService.listMessages({ box: 'inbox' });
+            const retractedSummary = list.messages.find(m => m.messageId === originalId);
+            expect(retractedSummary).toBeDefined();
+            expect(retractedSummary.subject).toBe('[retracted by sender]');
+            expect(retractedSummary.retracted).toBe(true);
+
+            // getMessage returns placeholder body + subject too
+            const full = await MailboxService.getMessage({ messageId: originalId });
+            expect(full.subject).toBe('[retracted by sender]');
+            expect(full.body).toBe('[retracted by sender]');
+        });
+    });
+
+    test('#10148 AC2: deleteMessage rejects non-sender (recipient + third-party)', async () => {
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+        });
+
+        // Seed third-party
+        GraphService.upsertNode({ id: '@carol-delete', type: 'AgentIdentity', name: 'CarolDelete', properties: { accountType: 'agent' } });
+
+        let messageId;
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const m = await MailboxService.addMessage({ to: '@bob', subject: 'not-yours-to-delete', body: '...' });
+            messageId = m.messageId;
+        });
+
+        // Recipient (Bob) cannot retract — only the sender can
+        await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+            await expect(MailboxService.deleteMessage({ messageId })).rejects.toThrow(/Unauthorized.*only the sender can retract/);
+        });
+
+        // Third-party (Carol) cannot retract
+        await RequestContextService.run({ agentIdentityNodeId: '@carol-delete' }, async () => {
+            await expect(MailboxService.deleteMessage({ messageId })).rejects.toThrow(/Unauthorized.*only the sender can retract/);
+        });
+
+        // Sender (Alice) still can — sanity-check permission gate is sender-specific
+        await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+            const res = await MailboxService.deleteMessage({ messageId });
+            expect(res.status).toBe('retracted');
+        });
+    });
+
     test('getHealthcheckPreview returns formatted mailbox metrics', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });

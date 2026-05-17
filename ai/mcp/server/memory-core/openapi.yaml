@@ -1099,6 +1099,14 @@ paths:
           schema:
             type: integer
             default: 0
+        - name: includeArchived
+          in: query
+          required: false
+          description: |
+            Surface archived messages (#10148). Default excludes any message whose `archivedAt` is set (on the MESSAGE node for direct DMs OR on the per-recipient `DELIVERED_TO` edge for broadcasts) — archived ≠ deleted; the message persists but is hidden from the default inbox view. Retracted messages (sender-side `delete_message`) are NOT filtered — they surface with the `'[retracted by sender]'` placeholder so thread context remains coherent.
+          schema:
+            type: boolean
+            default: false
       responses:
         '200':
           description: OK
@@ -1154,6 +1162,74 @@ paths:
       x-pass-as-object: true
       description: |
         Marks a specific message as read.
+      tags: [Mailbox]
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /mailbox/messages/{messageId}/archive:
+    post:
+      summary: Archive Message (receiver-side)
+      operationId: archive_message
+      x-pass-as-object: true
+      description: |
+        Recipient-side archive: hides the message from the default `list_messages` view without deleting it. Surface again via `list_messages` with `includeArchived: true`. Only the recipient (direct DM `SENT_TO` or per-recipient broadcast `DELIVERED_TO`) can archive their own copy; broadcasts are archived per-recipient. Distinct from `mark_read` (read ≠ done) and `delete_message` (sender-side permanent retraction).
+      tags: [Mailbox]
+      parameters:
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /mailbox/messages/{messageId}/delete:
+    post:
+      summary: Delete Message (sender-side retraction)
+      operationId: delete_message
+      x-pass-as-object: true
+      description: |
+        Sender-side retraction: permanently clears the message's `subject` and `bodyText` to `'[retracted by sender]'` and sets `retracted: true`. All edges (`SENT_BY`, `SENT_TO`, `DELIVERED_TO`, `PART_OF_THREAD`, `IN_REPLY_TO`) survive so thread context remains coherent — receivers see the placeholder, not an unexplained gap. Only the sender (`SENT_BY` match) can retract. Irreversible; no undo path.
       tags: [Mailbox]
       parameters:
         - name: messageId
