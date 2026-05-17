@@ -1,5 +1,6 @@
 import Base from '../../../src/core/Base.mjs';
 import config from './config.mjs';
+import GitHub from './GitHub.mjs';
 import Storage from './Storage.mjs';
 
 /**
@@ -126,6 +127,15 @@ class Cleanup extends Base {
             return true;
         });
 
+        const reconcileStats = await this.reconcileRichUsersWithTracker({
+            users,
+            tracker,
+            failed,
+            blocklist
+        });
+
+        users = reconcileStats.users;
+
         // Create a Set for O(1) lookups
         const userLogins = new Set(users.map(u => u.l.toLowerCase()));
 
@@ -187,6 +197,109 @@ class Cleanup extends Base {
         console.log(`[Cleanup] Complete.`);
         console.log(`  Users: ${initialUserCount} -> ${users.length} (-${initialUserCount - users.length})`);
         console.log(`  Tracker: ${initialTrackerCount} -> ${tracker.length} (-${initialTrackerCount - tracker.length})`);
+    }
+
+    /**
+     * Reconciles rich profile records that are missing from the tracker queue.
+     *
+     * @summary Restores refresh scheduling for rich users without blindly requeueing stale logins.
+     * The stored immutable GitHub database ID is resolved first; same-login users are restored to
+     * the tracker, renamed users are migrated to the current login, and unresolved IDs are pruned.
+     * Transient resolver failures intentionally bubble up so data-sync cannot silently corrupt
+     * identity-sensitive records.
+     * @param {Object} options
+     * @param {Object[]} options.users Rich user records from `users.jsonl`.
+     * @param {Object[]} options.tracker Tracker entries from `tracker.json`.
+     * @param {Map<String, String>} options.failed Failed-user penalty-box map.
+     * @param {Set<String>} options.blocklist Blocklisted login set.
+     * @returns {Promise<Object>} Reconciliation stats and the possibly updated `users` array.
+     */
+    async reconcileRichUsersWithTracker({users, tracker, failed, blocklist}) {
+        const trackerLogins = new Set(tracker.map(t => t.login.toLowerCase())),
+              usersByLogin  = new Map(users.map(u => [u.l.toLowerCase(), u])),
+              prunedLogins  = new Set(),
+              stats         = {
+                  users,
+                  richOrphans      : 0,
+                  restored         : 0,
+                  renamed          : 0,
+                  prunedMissingUser: 0,
+                  prunedConflicts  : 0
+              };
+
+        for (const user of users) {
+            const lowerLogin = user.l.toLowerCase();
+
+            if (trackerLogins.has(lowerLogin) || blocklist.has(lowerLogin) || prunedLogins.has(lowerLogin)) {
+                continue;
+            }
+
+            stats.richOrphans++;
+
+            const currentLogin = await GitHub.getLoginByDatabaseId(user.i);
+
+            if (!currentLogin) {
+                console.log(`[Cleanup] Pruning rich-user orphan with unresolved GitHub id: ${user.l} (${user.i})`);
+                prunedLogins.add(lowerLogin);
+                failed.delete(lowerLogin);
+                stats.prunedMissingUser++;
+                continue;
+            }
+
+            const currentLower = currentLogin.toLowerCase();
+
+            if (currentLower === lowerLogin) {
+                tracker.push({login: user.l, lastUpdate: user.lu || null});
+                trackerLogins.add(lowerLogin);
+                failed.delete(lowerLogin);
+                stats.restored++;
+                console.log(`[Cleanup] Restored rich-user orphan to tracker: ${user.l}`);
+                continue;
+            }
+
+            const existingCurrentUser = usersByLogin.get(currentLower);
+
+            if (existingCurrentUser && existingCurrentUser !== user) {
+                console.log(`[Cleanup] Pruning stale rich-user orphan after rename conflict: ${user.l} -> ${currentLogin}`);
+                prunedLogins.add(lowerLogin);
+                failed.delete(lowerLogin);
+                stats.prunedConflicts++;
+
+                if (!trackerLogins.has(currentLower)) {
+                    tracker.push({login: existingCurrentUser.l, lastUpdate: existingCurrentUser.lu || null});
+                    trackerLogins.add(currentLower);
+                }
+                continue;
+            }
+
+            console.log(`[Cleanup] Migrating rich-user orphan after rename: ${user.l} -> ${currentLogin}`);
+            usersByLogin.delete(lowerLogin);
+            user.l = currentLogin;
+            usersByLogin.set(currentLower, user);
+
+            if (!trackerLogins.has(currentLower)) {
+                tracker.push({login: currentLogin, lastUpdate: user.lu || null});
+                trackerLogins.add(currentLower);
+            }
+
+            failed.delete(lowerLogin);
+            failed.delete(currentLower);
+            stats.renamed++;
+        }
+
+        if (prunedLogins.size > 0) {
+            stats.users = users.filter(u => !prunedLogins.has(u.l.toLowerCase()));
+        }
+
+        if (stats.richOrphans > 0) {
+            console.log(
+                `[Cleanup] Rich-user tracker reconciliation: ` +
+                `${stats.richOrphans} orphan(s), ${stats.restored} restored, ` +
+                `${stats.renamed} renamed, ${stats.prunedMissingUser + stats.prunedConflicts} pruned.`
+            );
+        }
+
+        return stats;
     }
 }
 
