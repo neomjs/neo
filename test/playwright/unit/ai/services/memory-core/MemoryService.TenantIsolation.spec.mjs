@@ -338,7 +338,7 @@ test.describe('MemoryService — memorySharing policy (#10010)', () => {
 
         expect(view.count).toBe(1);
         expect(view.results[0].prompt).toBe('a1');
-        
+
         const queryCall = spyCollection.queryCalls.at(-1);
         expect(queryCall.where).toEqual({userId: 'u-alice'});
     });
@@ -354,16 +354,16 @@ test.describe('MemoryService — memorySharing policy (#10010)', () => {
 
         expect(view.count).toBe(1);
         expect(view.results[0].prompt).toBe('L1');
-        
+
         const queryCall = spyCollection.queryCalls.at(-1);
         expect(queryCall.where).toEqual({userId: 'shared'});
     });
 
-    test('queryMemories with memorySharing=legacy returns tenant-owned plus team-tagged', async () => {
+    test('queryMemories with memorySharing=legacy returns tenant-owned, team-tagged, and untagged records', async () => {
         spyCollection.rows.set('m-a1', {id: 'm-a1', metadata: {userId: 'u-alice', timestamp: 100, prompt: 'a1'}, document: 'a1'});
         spyCollection.rows.set('m-shared1', {id: 'm-shared1', metadata: {userId: 'shared', timestamp: 200, prompt: 'L1'}, document: 'L1'});
-        // untagged fallback dropped because ChromaDB does not support {$exists: false}.
-        // records are backfilled with userId=shared.
+        // legacy policy allows untagged records which are handled via JS post-query filtering.
+        // ChromaDB does not support {$exists: false}, so the query fetches a widened set.
         spyCollection.rows.set('m-untagged', {id: 'm-untagged', metadata: {timestamp: 300, prompt: 'pre-migration'}, document: 'P'});
 
         const view = await RequestContextService.run({userId: 'u-alice'}, () =>
@@ -372,7 +372,7 @@ test.describe('MemoryService — memorySharing policy (#10010)', () => {
 
         expect(view.count).toBe(3);
         expect(view.results.map(r => r.prompt).sort()).toEqual(['L1', 'a1', 'pre-migration']);
-        
+
         const queryCall = spyCollection.queryCalls.at(-1);
         expect(queryCall.where).toBeUndefined();
     });

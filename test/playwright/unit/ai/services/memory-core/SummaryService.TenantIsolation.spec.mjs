@@ -213,7 +213,7 @@ test.describe('SummaryService — tenant isolation (#10000)', () => {
         );
 
         const q = spy.calls.query.at(-1);
-        // In legacy mode, ChromaDB receives only the category filter; 
+        // In legacy mode, ChromaDB receives only the category filter;
         // the additive user filter is applied post-query.
         expect(q.where).toEqual({category: 'refactoring'});
     });
@@ -352,7 +352,7 @@ test.describe('SummaryService — memorySharing policy (#10010)', () => {
 
         expect(view.count).toBe(1);
         expect(view.results[0].title).toBe('a1');
-        
+
         const queryCall = spy.calls.query.at(-1);
         expect(queryCall.where).toEqual({userId: 'u-alice'});
     });
@@ -368,7 +368,7 @@ test.describe('SummaryService — memorySharing policy (#10010)', () => {
 
         expect(view.count).toBe(1);
         expect(view.results[0].title).toBe('L1');
-        
+
         const queryCall = spy.calls.query.at(-1);
         expect(queryCall.where).toEqual({userId: 'shared'});
     });
@@ -384,7 +384,7 @@ test.describe('SummaryService — memorySharing policy (#10010)', () => {
 
         expect(view.count).toBe(3);
         expect(view.results.map(r => r.title).sort()).toEqual(['L1', 'a1', 'pre-migration']);
-        
+
         const queryCall = spy.calls.query.at(-1);
         // In legacy mode, DB filtering for userId is skipped.
         expect(queryCall.where).toBeUndefined();

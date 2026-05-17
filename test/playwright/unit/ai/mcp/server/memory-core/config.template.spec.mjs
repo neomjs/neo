@@ -8,7 +8,7 @@ test.describe('Memory Core Config (#10010)', () => {
 
     test.beforeAll(async () => {
         originalEnv = { ...process.env };
-        config = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        config = (await import('../../../../../../../ai/mcp/server/memory-core/config.template.mjs')).default;
     });
 
     test.afterEach(() => {
