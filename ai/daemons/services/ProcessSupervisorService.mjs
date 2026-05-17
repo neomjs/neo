@@ -259,7 +259,7 @@ export class ProcessSupervisorService extends Base {
      * @param {Function} [onSuccess] Optional success hook.
      * @returns {Boolean} True when a child was started.
      */
-    runTask(taskName, reason, onSuccess) {
+    runTask(taskName, reason, onSuccess, options = {}) {
         const task  = this.taskDefinitions[taskName];
         const state = this.taskStateService.getTaskState(taskName);
 
@@ -278,7 +278,8 @@ export class ProcessSupervisorService extends Base {
 
         let child;
         try {
-            child = this.spawnFn(task.command, task.args, {stdio: ['ignore', 'ignore', 'pipe']});
+            const env = options.env ? { ...process.env, ...options.env } : process.env;
+            child = this.spawnFn(task.command, task.args, {stdio: ['ignore', 'ignore', 'pipe'], env});
 
             child.stderr?.on('data', data => {
                 this.writeChildStderr(task, data);
@@ -338,6 +339,8 @@ export class ProcessSupervisorService extends Base {
                 this.writeLog?.('ERROR', `[ProcessSupervisor] ${task.label} exited with code ${code}.`);
                 this.recordTaskOutcome(taskName, 'failed', {reason, code, failedAt: new Date().toISOString()});
             }
+
+            options.onComplete?.();
         };
 
         child.on('close', code => clear(code));

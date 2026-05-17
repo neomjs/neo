@@ -187,7 +187,8 @@ class PrimaryRepoSyncService extends Base {
         cwd = process.cwd(),
         execFileSyncFn = execFileSync,
         devSyncRootsConfig = process.env[DEV_SYNC_ROOTS_ENV_VAR],
-        devSyncRootsSource = DEV_SYNC_ROOTS_ENV_VAR
+        devSyncRootsSource = DEV_SYNC_ROOTS_ENV_VAR,
+        env
     }) {
         const state = taskStateService.getTaskState(taskName);
 
@@ -201,7 +202,7 @@ class PrimaryRepoSyncService extends Base {
         taskStateService.markStarted(taskName, reason);
 
         try {
-            const result = this.syncPrimaryDev({cwd, execFileSyncFn, writeLog, devSyncRootsConfig, devSyncRootsSource});
+            const result = this.syncPrimaryDev({cwd, execFileSyncFn, writeLog, devSyncRootsConfig, devSyncRootsSource, env});
             const status = result.status === 'completed' ? 'completed' : result.status === 'failed' ? 'failed' : 'skipped';
 
             if (status === 'completed') {
@@ -239,7 +240,8 @@ class PrimaryRepoSyncService extends Base {
         execFileSyncFn,
         writeLog,
         devSyncRootsConfig = process.env[DEV_SYNC_ROOTS_ENV_VAR],
-        devSyncRootsSource = DEV_SYNC_ROOTS_ENV_VAR
+        devSyncRootsSource = DEV_SYNC_ROOTS_ENV_VAR,
+        env
     }) {
         const rootsConfig = parseDevSyncRoots(devSyncRootsConfig, devSyncRootsSource);
 
@@ -402,7 +404,7 @@ class PrimaryRepoSyncService extends Base {
         try {
             this.git(['pull', '--ff-only', REMOTE_NAME, DEV_BRANCH], root, execFileSyncFn);
             if (runKbSync) {
-                this.runKbSync(root, execFileSyncFn);
+                this.runKbSync(root, execFileSyncFn, env);
             }
             return {
                 status : 'completed',
@@ -411,7 +413,7 @@ class PrimaryRepoSyncService extends Base {
         } catch (e) {
             const postPullStatus = this.git(['status', '--porcelain'], root, execFileSyncFn);
             if (this.isOnlyMetaSyncStatus(postPullStatus)) {
-                return this.resolveMetaAndPull({root, rootKey, behind, execFileSyncFn, writeLog, runKbSync});
+                return this.resolveMetaAndPull({root, rootKey, behind, execFileSyncFn, writeLog, runKbSync, env});
             }
 
             return this.skip('non-FF-divergence', {
@@ -458,14 +460,14 @@ class PrimaryRepoSyncService extends Base {
      * @param {Boolean} [options.runKbSync=true] Whether this root owns the KB cascade.
      * @returns {Object}
      */
-    resolveMetaAndPull({primaryRoot, root=primaryRoot, rootKey='primaryRoot', behind, execFileSyncFn, writeLog, runKbSync=true}) {
+    resolveMetaAndPull({primaryRoot, root=primaryRoot, rootKey='primaryRoot', behind, execFileSyncFn, writeLog, runKbSync=true, env}) {
         const rootDetails = {[rootKey]: root};
 
         writeLog?.('INFO', `[PrimaryRepoSync] Resetting ${META_SYNC_PATH} before fast-forward pull.`);
         this.git(['checkout', '--', META_SYNC_PATH], root, execFileSyncFn);
         this.git(['pull', '--ff-only', REMOTE_NAME, DEV_BRANCH], root, execFileSyncFn);
         if (runKbSync) {
-            this.runKbSync(root, execFileSyncFn);
+            this.runKbSync(root, execFileSyncFn, env);
         }
 
         return {
@@ -480,13 +482,15 @@ class PrimaryRepoSyncService extends Base {
      * @param {Function} execFileSyncFn Command execution seam.
      * @returns {void}
      */
-    runKbSync(primaryRoot, execFileSyncFn) {
+    runKbSync(primaryRoot, execFileSyncFn, env) {
         const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+        const spawnEnv = env ? { ...process.env, ...env } : undefined;
 
         execFileSyncFn(npmBin, ['run', 'ai:sync-kb'], {
             cwd     : primaryRoot,
             encoding: 'utf8',
-            stdio   : ['ignore', 'pipe', 'pipe']
+            stdio   : ['ignore', 'pipe', 'pipe'],
+            env     : spawnEnv
         });
     }
 

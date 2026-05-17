@@ -9,7 +9,8 @@ import {
     inspectHeavyMaintenanceLease,
     isLeaseStale,
     releaseHeavyMaintenanceLease,
-    withHeavyMaintenanceLease
+    withHeavyMaintenanceLease,
+    ENV_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN
 } from '../../../../../../ai/daemons/services/HeavyMaintenanceLeaseService.mjs';
 
 function createLeasePath(name) {
@@ -289,5 +290,114 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
             token: 'service-token',
             now  : new Date('2026-05-16T20:00:00.000Z')
         })).resolves.toMatchObject({status: 'released'});
+    });
+
+    test('withLease inherits lease when environment token matches active owner', async () => {
+        const leasePath = createLeasePath('inherited');
+        const now       = new Date('2026-05-16T20:00:00.000Z');
+        const token     = 'inherited-token';
+
+        await acquireHeavyMaintenanceLease({
+            leasePath,
+            owner: 'parent-process',
+            now,
+            token
+        });
+
+        process.env[ENV_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN] = token;
+
+        try {
+            let ran = false;
+            const inherited = await withHeavyMaintenanceLease(() => {
+                ran = true;
+                return 'child-done';
+            }, {
+                leasePath,
+                owner: 'child-process',
+                now
+            });
+
+            expect(inherited).toMatchObject({
+                status  : 'inherited',
+                acquired: false,
+                lease   : {owner: 'parent-process', token},
+                result  : 'child-done'
+            });
+            expect(ran).toBe(true);
+
+            await expect(inspectHeavyMaintenanceLease({leasePath, now})).resolves.toMatchObject({
+                status: 'active',
+                lease : {owner: 'parent-process', token}
+            });
+        } finally {
+            delete process.env[ENV_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN];
+        }
+    });
+
+    test('withLease falls through to normal acquisition for stale, missing, or mismatched inherited tokens', async () => {
+        const leasePath = createLeasePath('inherited-negative');
+        const now       = new Date('2026-05-16T20:00:00.000Z');
+
+        process.env[ENV_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN] = 'stale-token';
+
+        try {
+            let acquired = await withHeavyMaintenanceLease(() => 'run-1', {
+                leasePath,
+                owner: 'child-1',
+                now,
+                token: 'child-1-token'
+            });
+
+            expect(acquired).toMatchObject({
+                status  : 'completed',
+                acquired: true,
+                result  : 'run-1'
+            });
+
+            await acquireHeavyMaintenanceLease({
+                leasePath,
+                owner: 'other-owner',
+                now,
+                token: 'other-token'
+            });
+
+            let held = await withHeavyMaintenanceLease(() => 'run-2', {
+                leasePath,
+                owner: 'child-2',
+                now,
+                token: 'child-2-token'
+            });
+
+            expect(held).toMatchObject({
+                status  : 'held',
+                acquired: false,
+                lease   : {owner: 'other-owner', token: 'other-token'}
+            });
+
+            await fs.remove(leasePath);
+            await acquireHeavyMaintenanceLease({
+                leasePath,
+                owner       : 'stale-parent',
+                now,
+                staleAfterMs: 1000,
+                token       : 'stale-token'
+            });
+
+            let staleAcquired = await withHeavyMaintenanceLease(() => 'run-3', {
+                leasePath,
+                owner       : 'child-3',
+                now         : new Date('2026-05-16T20:00:01.000Z'),
+                staleAfterMs: 1000,
+                token       : 'child-3-token'
+            });
+
+            expect(staleAcquired).toMatchObject({
+                status  : 'completed',
+                acquired: true,
+                result  : 'run-3'
+            });
+        } finally {
+            delete process.env[ENV_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN];
+        }
     });
 });

@@ -247,14 +247,40 @@ export async function releaseHeavyMaintenanceLease({
     return {status: 'released', released: true, lease: current.lease};
 }
 
+export const ENV_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN = 'NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN';
+
 /**
  * @summary Runs a task while holding the heavy-maintenance lease.
+ *
+ * Support for process-boundary lease inheritance (e.g., Orchestrator spawning child tasks):
+ * If process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN is present and matches the
+ * active owner's token in the lease file, acquisition is bypassed and the task yields
+ * `status: 'inherited'`. Release is similarly delegated back to the parent owner.
  *
  * @param {Function} task Async task to execute.
  * @param {Object} options Lease acquisition options.
  * @returns {Promise<Object>}
  */
 export async function withHeavyMaintenanceLease(task, options = {}) {
+    const inheritedToken = process.env[ENV_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN];
+
+    if (inheritedToken) {
+        const current = await inspectHeavyMaintenanceLease({
+            leasePath: options.leasePath,
+            fsModule : options.fsModule,
+            now      : options.now
+        });
+
+        if (current.active && current.lease && current.lease.token === inheritedToken) {
+            return {
+                status  : 'inherited',
+                acquired: false,
+                lease   : current.lease,
+                result  : await task({status: 'inherited', acquired: false, lease: current.lease})
+            };
+        }
+    }
+
     const acquisition = await acquireHeavyMaintenanceLease(options);
 
     if (!acquisition.acquired) {
@@ -263,10 +289,10 @@ export async function withHeavyMaintenanceLease(task, options = {}) {
 
     try {
         return {
-            status: 'completed',
+            status  : 'completed',
             acquired: true,
-            lease : acquisition.lease,
-            result: await task(acquisition)
+            lease   : acquisition.lease,
+            result  : await task(acquisition)
         };
     } finally {
         await releaseHeavyMaintenanceLease({
