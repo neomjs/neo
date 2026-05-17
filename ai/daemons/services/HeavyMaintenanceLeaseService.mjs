@@ -258,7 +258,8 @@ export async function releaseHeavyMaintenanceLease({
  *
  * ## ⚠️  Release-timing semantics (consumer-side correctness invariant)
  *
- * The lease is released in **this helper's `finally` block** at line ~272.
+ * The lease is released in **this helper's own `finally` block** (the one that
+ * wraps the `task` invocation below and calls `releaseHeavyMaintenanceLease`).
  * JavaScript await semantics guarantee the following ordering for the
  * `await withHeavyMaintenanceLease(...)` call site:
  *
@@ -303,15 +304,34 @@ export async function releaseHeavyMaintenanceLease({
  * Canonical consumer reference: `buildScripts/ai/runSandman.mjs` post-PR #11509
  * cycles 1 + 2 (decay inside inner `finally`).
  *
- * ## Returned shape
+ * ## Returned shape (what callers of `await withHeavyMaintenanceLease(...)` see)
  *
- * | `status`     | `acquired` | `result` field        | Meaning                                                                |
- * |--------------|------------|-----------------------|------------------------------------------------------------------------|
- * | `'completed'`| `true`     | the task's return     | Lease acquired, task ran to completion (success or graceful-return).   |
- * | `'held'`     | `false`    | absent                | Another owner holds the lease; task NOT executed.                      |
- * | `'stale'`    | (varies)   | (varies)              | See `acquireHeavyMaintenanceLease` for stale-handling semantics.       |
+ * The wrapper normalizes acquisition outcomes into ONE of these two shapes:
  *
- * Task exceptions propagate; release still fires from the `finally`.
+ * | `status`      | `acquired` | `result` field    | Meaning                                                                      |
+ * |---------------|------------|-------------------|------------------------------------------------------------------------------|
+ * | `'completed'` | `true`     | the task's return | Lease acquired (including after stale/malformed recovery); task ran to completion (success or graceful-return). |
+ * | `'held'`      | `false`    | absent            | Another active owner holds the lease; task NOT executed. `lease` carries that owner's descriptor. |
+ *
+ * Note: when `acquireHeavyMaintenanceLease` returns a non-`'acquired'` non-`'held'`
+ * acquisition descriptor (e.g., an `'unreadable'` IO-failure shape — theoretical
+ * edge case), the wrapper passes it through unchanged. Task exceptions propagate;
+ * release still fires from the wrapper's `finally`.
+ *
+ * ### Acquisition descriptor passed to `task` (separate surface)
+ *
+ * The acquisition descriptor passed into `task(acquisition)` exposes internal
+ * recovery telemetry NOT visible in the wrapper's return:
+ *
+ * | `acquisition.status`          | `previousStatus` | When it fires                                                |
+ * |-------------------------------|------------------|--------------------------------------------------------------|
+ * | `'acquired'`                  | absent           | Clean acquisition on a previously-missing lease.            |
+ * | `'acquired-after-stale'`      | `'stale'`        | Prior owner's TTL expired; replaced atomically.             |
+ * | `'acquired-after-malformed'`  | `'malformed'`    | Prior lease file was unparseable; replaced atomically.      |
+ *
+ * Inspect `acquisition.previousStatus` inside `task` if you need to log/alert
+ * on stale-recovery telemetry. From the wrapper-caller's perspective, all three
+ * cases normalize to `{status: 'completed', acquired: true, ...}`.
  *
  * @param {Function} task Async task to execute when the lease is acquired. Receives the acquisition descriptor as its single argument (`{status, acquired, lease}`).
  * @param {Object} options Lease acquisition options forwarded to `acquireHeavyMaintenanceLease` (owner, reason, metadata, leasePath, staleAfterMs, pid, token, fsModule, now).
