@@ -557,4 +557,144 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
         expect(outcomes[0].status).toBe('skipped');
         expect(outcomes[0].details.reasonCode).toBe('up-to-date');
     });
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Lane D narrow observability of #11503 (#11520):
+    //   runKbSync cascade is annotated as a first-class `kbSync` task lifecycle
+    //   event via TaskStateService + HealthService so monitoring agents +
+    //   post-incident forensics can see cascade kbSync separately from the parent
+    //   `primary-dev-sync` task (umbrella AC8).
+    //
+    //   Optional-chained injection: when both services are absent, runKbSync is
+    //   a pure shell-out with no state mutation or outcome recording (backward-
+    //   compatible for ad-hoc / test callers).
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    test('runKbSync annotates cascade as kbSync lifecycle via TaskStateService + HealthService on success (#11520 AC1+AC2+AC8)', () => {
+        const taskStateService = createTaskStateService();
+        const outcomes         = [];
+        const healthService    = {
+            recordTaskOutcome(taskName, status, details) {
+                outcomes.push({taskName, status, details});
+            }
+        };
+        const execFileSyncFn = createExecStub([{
+            cmd : process.platform === 'win32' ? 'npm.cmd' : 'npm',
+            args: ['run', 'ai:sync-kb']
+        }]);
+
+        PrimaryRepoSyncService.runKbSync('/primary/neo', execFileSyncFn, {taskStateService, healthService});
+
+        // AC1: TaskStateService.markStarted('kbSync', 'cascaded-from-primary-dev-sync')
+        // AC3: markCompleted on success
+        expect(taskStateService.events).toEqual([
+            ['started', 'kbSync', 'cascaded-from-primary-dev-sync'],
+            ['completed', 'kbSync']
+        ]);
+
+        // AC2 + AC8: recordTaskOutcome with parent annotation on both running + completed
+        expect(outcomes.length).toBe(2);
+        expect(outcomes[0]).toMatchObject({
+            taskName: 'kbSync',
+            status  : 'running',
+            details : expect.objectContaining({
+                reason: 'cascaded-from-primary-dev-sync',
+                parent: 'primary-dev-sync'
+            })
+        });
+        expect(outcomes[1]).toMatchObject({
+            taskName: 'kbSync',
+            status  : 'completed',
+            details : expect.objectContaining({
+                reason: 'cascaded-from-primary-dev-sync',
+                parent: 'primary-dev-sync'
+            })
+        });
+    });
+
+    test('runKbSync annotates cascade-failure path with markFailed + outcome + rethrow (#11520 AC3 failure)', () => {
+        const taskStateService = createTaskStateService();
+        const outcomes         = [];
+        const healthService    = {
+            recordTaskOutcome(taskName, status, details) {
+                outcomes.push({taskName, status, details});
+            }
+        };
+        const execFileSyncFn = (cmd, args, options) => {
+            const e   = new Error('npm ai:sync-kb failed: ENOENT');
+            e.status  = 127;
+            throw e;
+        };
+
+        expect(() => {
+            PrimaryRepoSyncService.runKbSync('/primary/neo', execFileSyncFn, {taskStateService, healthService});
+        }).toThrow('npm ai:sync-kb failed: ENOENT');
+
+        // AC3 failure: markStarted, then markFailed (with exit code from error.status)
+        expect(taskStateService.events).toEqual([
+            ['started', 'kbSync', 'cascaded-from-primary-dev-sync'],
+            ['failed', 'kbSync', 127]
+        ]);
+
+        // AC2 + AC8 failure: recordTaskOutcome('kbSync', 'failed', {parent, error, ...})
+        expect(outcomes.length).toBe(2);
+        expect(outcomes[0]).toMatchObject({
+            taskName: 'kbSync',
+            status  : 'running'
+        });
+        expect(outcomes[1]).toMatchObject({
+            taskName: 'kbSync',
+            status  : 'failed',
+            details : expect.objectContaining({
+                reason: 'cascaded-from-primary-dev-sync',
+                parent: 'primary-dev-sync',
+                error : 'npm ai:sync-kb failed: ENOENT'
+            })
+        });
+    });
+
+    test('runKbSync is no-op-annotated when no services injected (#11520 AC4 backward-compatibility)', () => {
+        // No taskStateService, no healthService → pure shell-out, no annotation.
+        const execFileSyncFn = createExecStub([{
+            cmd : process.platform === 'win32' ? 'npm.cmd' : 'npm',
+            args: ['run', 'ai:sync-kb']
+        }]);
+
+        // Should not throw despite the missing services (optional-chained).
+        expect(() => {
+            PrimaryRepoSyncService.runKbSync('/primary/neo', execFileSyncFn);
+        }).not.toThrow();
+
+        // Confirm shell-out actually happened (one execFileSync call recorded).
+        expect(execFileSyncFn.calls.length).toBe(1);
+        expect(execFileSyncFn.calls[0].cmd).toBe(process.platform === 'win32' ? 'npm.cmd' : 'npm');
+    });
+
+    test('runKbSync honors custom parentTaskName for cascade provenance (#11520 AC2 parent annotation contract)', () => {
+        // Defensive: if a future caller wraps runKbSync with a different parent context
+        // (e.g., hypothetical `summary` cascade), the annotation reason + parent field
+        // adapt to the parentTaskName option. Pins the convention without enumerating
+        // all future parents.
+        const taskStateService = createTaskStateService();
+        const outcomes         = [];
+        const healthService    = {
+            recordTaskOutcome(taskName, status, details) {
+                outcomes.push({taskName, status, details});
+            }
+        };
+        const execFileSyncFn = createExecStub([{
+            cmd : process.platform === 'win32' ? 'npm.cmd' : 'npm',
+            args: ['run', 'ai:sync-kb']
+        }]);
+
+        PrimaryRepoSyncService.runKbSync('/primary/neo', execFileSyncFn, {
+            taskStateService,
+            healthService,
+            parentTaskName: 'custom-parent-task'
+        });
+
+        expect(taskStateService.events[0]).toEqual(['started', 'kbSync', 'cascaded-from-custom-parent-task']);
+        expect(outcomes[0].details.parent).toBe('custom-parent-task');
+        expect(outcomes[0].details.reason).toBe('cascaded-from-custom-parent-task');
+    });
 });

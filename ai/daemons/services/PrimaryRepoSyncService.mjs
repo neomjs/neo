@@ -201,7 +201,7 @@ class PrimaryRepoSyncService extends Base {
         taskStateService.markStarted(taskName, reason);
 
         try {
-            const result = this.syncPrimaryDev({cwd, execFileSyncFn, writeLog, devSyncRootsConfig, devSyncRootsSource});
+            const result = this.syncPrimaryDev({cwd, execFileSyncFn, writeLog, devSyncRootsConfig, devSyncRootsSource, taskStateService, healthService});
             const status = result.status === 'completed' ? 'completed' : result.status === 'failed' ? 'failed' : 'skipped';
 
             if (status === 'completed') {
@@ -239,7 +239,9 @@ class PrimaryRepoSyncService extends Base {
         execFileSyncFn,
         writeLog,
         devSyncRootsConfig = process.env[DEV_SYNC_ROOTS_ENV_VAR],
-        devSyncRootsSource = DEV_SYNC_ROOTS_ENV_VAR
+        devSyncRootsSource = DEV_SYNC_ROOTS_ENV_VAR,
+        taskStateService,
+        healthService
     }) {
         const rootsConfig = parseDevSyncRoots(devSyncRootsConfig, devSyncRootsSource);
 
@@ -258,11 +260,13 @@ class PrimaryRepoSyncService extends Base {
                 primaryRoot,
                 roots: rootsConfig.roots,
                 execFileSyncFn,
-                writeLog
+                writeLog,
+                taskStateService,
+                healthService
             });
         }
 
-        return this.syncDevRoot({root: primaryRoot, rootKey: 'primaryRoot', execFileSyncFn, writeLog});
+        return this.syncDevRoot({root: primaryRoot, rootKey: 'primaryRoot', execFileSyncFn, writeLog, taskStateService, healthService});
     }
 
     /**
@@ -307,7 +311,7 @@ class PrimaryRepoSyncService extends Base {
      * @param {Function} [options.writeLog] Optional logger.
      * @returns {Object}
      */
-    syncConfiguredDevRoots({primaryRoot, roots, execFileSyncFn, writeLog}) {
+    syncConfiguredDevRoots({primaryRoot, roots, execFileSyncFn, writeLog, taskStateService, healthService}) {
         const rootResults = roots.map(root => {
             const result = this.syncConfiguredDevRoot({root, execFileSyncFn, writeLog});
             return {status: result.status, ...result.details};
@@ -329,7 +333,7 @@ class PrimaryRepoSyncService extends Base {
         };
 
         if (completed > 0) {
-            this.runKbSync(primaryRoot, execFileSyncFn);
+            this.runKbSync(primaryRoot, execFileSyncFn, {taskStateService, healthService});
             details.kbSync = true;
         } else if (rootResults.length === 0) {
             details.reasonCode = 'no-configured-roots';
@@ -359,7 +363,7 @@ class PrimaryRepoSyncService extends Base {
      * @param {Boolean} [options.runKbSync=true] Whether this root owns the KB cascade.
      * @returns {Object}
      */
-    syncDevRoot({root, rootKey='primaryRoot', execFileSyncFn, writeLog, fetchBeforeBranch=false, runKbSync=true}) {
+    syncDevRoot({root, rootKey='primaryRoot', execFileSyncFn, writeLog, fetchBeforeBranch=false, runKbSync=true, taskStateService, healthService}) {
         const rootDetails = {[rootKey]: root};
 
         if (fetchBeforeBranch) {
@@ -389,7 +393,7 @@ class PrimaryRepoSyncService extends Base {
         const status = this.git(['status', '--porcelain'], root, execFileSyncFn);
         if (status.trim()) {
             if (this.isOnlyMetaSyncStatus(status)) {
-                return this.resolveMetaAndPull({root, rootKey, behind, execFileSyncFn, writeLog, runKbSync});
+                return this.resolveMetaAndPull({root, rootKey, behind, execFileSyncFn, writeLog, runKbSync, taskStateService, healthService});
             }
 
             return this.skip('local-divergence', {
@@ -402,7 +406,7 @@ class PrimaryRepoSyncService extends Base {
         try {
             this.git(['pull', '--ff-only', REMOTE_NAME, DEV_BRANCH], root, execFileSyncFn);
             if (runKbSync) {
-                this.runKbSync(root, execFileSyncFn);
+                this.runKbSync(root, execFileSyncFn, {taskStateService, healthService});
             }
             return {
                 status : 'completed',
@@ -411,7 +415,7 @@ class PrimaryRepoSyncService extends Base {
         } catch (e) {
             const postPullStatus = this.git(['status', '--porcelain'], root, execFileSyncFn);
             if (this.isOnlyMetaSyncStatus(postPullStatus)) {
-                return this.resolveMetaAndPull({root, rootKey, behind, execFileSyncFn, writeLog, runKbSync});
+                return this.resolveMetaAndPull({root, rootKey, behind, execFileSyncFn, writeLog, runKbSync, taskStateService, healthService});
             }
 
             return this.skip('non-FF-divergence', {
@@ -458,14 +462,14 @@ class PrimaryRepoSyncService extends Base {
      * @param {Boolean} [options.runKbSync=true] Whether this root owns the KB cascade.
      * @returns {Object}
      */
-    resolveMetaAndPull({primaryRoot, root=primaryRoot, rootKey='primaryRoot', behind, execFileSyncFn, writeLog, runKbSync=true}) {
+    resolveMetaAndPull({primaryRoot, root=primaryRoot, rootKey='primaryRoot', behind, execFileSyncFn, writeLog, runKbSync=true, taskStateService, healthService}) {
         const rootDetails = {[rootKey]: root};
 
         writeLog?.('INFO', `[PrimaryRepoSync] Resetting ${META_SYNC_PATH} before fast-forward pull.`);
         this.git(['checkout', '--', META_SYNC_PATH], root, execFileSyncFn);
         this.git(['pull', '--ff-only', REMOTE_NAME, DEV_BRANCH], root, execFileSyncFn);
         if (runKbSync) {
-            this.runKbSync(root, execFileSyncFn);
+            this.runKbSync(root, execFileSyncFn, {taskStateService, healthService});
         }
 
         return {
@@ -475,19 +479,72 @@ class PrimaryRepoSyncService extends Base {
     }
 
     /**
-     * Runs `npm run ai:sync-kb` from the primary checkout.
+     * Runs `npm run ai:sync-kb` from the primary checkout, annotating the
+     * cascade as a first-class `kbSync` task lifecycle event so the nested
+     * KB sync becomes observable in `TaskStateService` + `HealthService`
+     * surfaces (rather than being hidden inside `primary-dev-sync`).
+     *
+     * Lane D of #11503 (#11520): per umbrella AC8 the cascade was previously
+     * invisible — `TaskStateService.taskState.kbSync.running` stayed `false`
+     * during cascades, and `HealthService.recordTaskOutcome` recorded zero
+     * `kbSync` events for the cascade duration. Monitoring agents + post-
+     * incident forensics conflated cascade kbSync with the parent
+     * `primary-dev-sync` task. Annotation makes the cascade first-class.
+     *
+     * Both service injections are optional-chained for backward compatibility:
+     * callers (tests, ad-hoc tooling) that don't supply them get the prior
+     * behavior unchanged. The orchestrator-side wiring threads them through
+     * `runTask` → `syncPrimaryDev` → `syncConfiguredDevRoots` / `syncDevRoot`
+     * / `resolveMetaAndPull` → here.
+     *
+     * The annotation `reason` string carries the durable convention
+     * `cascaded-from-<parentTaskName>` so operator dashboards + Memory Core
+     * graph ingestion can filter cascade kbSync events from orchestrator-
+     * spawned kbSync events. The `details.parent` field on `recordTaskOutcome`
+     * carries the same provenance.
+     *
      * @param {String} primaryRoot Primary checkout path.
      * @param {Function} execFileSyncFn Command execution seam.
+     * @param {Object} [options]
+     * @param {Object} [options.taskStateService] Injected `TaskStateService` for state-lifecycle annotation; if absent the call is a pure shell-out with no state mutation.
+     * @param {Object} [options.healthService] Injected `HealthService` for outcome-telemetry annotation; if absent no outcomes are recorded.
+     * @param {String} [options.parentTaskName='primary-dev-sync'] Parent task name for cascade provenance.
      * @returns {void}
      */
-    runKbSync(primaryRoot, execFileSyncFn) {
+    runKbSync(primaryRoot, execFileSyncFn, {taskStateService, healthService, parentTaskName = 'primary-dev-sync'} = {}) {
         const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+        const reason = `cascaded-from-${parentTaskName}`;
 
-        execFileSyncFn(npmBin, ['run', 'ai:sync-kb'], {
-            cwd     : primaryRoot,
-            encoding: 'utf8',
-            stdio   : ['ignore', 'pipe', 'pipe']
+        taskStateService?.markStarted?.('kbSync', reason);
+        healthService?.recordTaskOutcome?.('kbSync', 'running', {
+            reason,
+            parent   : parentTaskName,
+            startedAt: new Date().toISOString()
         });
+
+        try {
+            execFileSyncFn(npmBin, ['run', 'ai:sync-kb'], {
+                cwd     : primaryRoot,
+                encoding: 'utf8',
+                stdio   : ['ignore', 'pipe', 'pipe']
+            });
+
+            taskStateService?.markCompleted?.('kbSync');
+            healthService?.recordTaskOutcome?.('kbSync', 'completed', {
+                reason,
+                parent     : parentTaskName,
+                completedAt: new Date().toISOString()
+            });
+        } catch (e) {
+            taskStateService?.markFailed?.('kbSync', e.status || 1);
+            healthService?.recordTaskOutcome?.('kbSync', 'failed', {
+                reason,
+                parent  : parentTaskName,
+                error   : e.message,
+                failedAt: new Date().toISOString()
+            });
+            throw e;
+        }
     }
 
     /**
