@@ -1,7 +1,7 @@
 ---
 id: 9499
 title: 'Grid Multi-Body: Test Suite Refactoring & Expansion'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-16T22:29:02Z'
-updatedAt: '2026-03-17T18:59:58Z'
+updatedAt: '2026-05-17T19:19:28Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9499'
 author: tobiu
 commentsCount: 0
@@ -20,6 +20,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-05-17T19:19:28Z'
 ---
 # Grid Multi-Body: Test Suite Refactoring & Expansion
 
@@ -53,4 +54,5 @@ The following test suites rely heavily on DOM structure and event targeting that
 - 2026-03-16T22:29:03Z @tobiu added the `grid` label
 - 2026-03-16T22:29:29Z @tobiu added parent issue #9486
 - 2026-03-17T18:59:58Z @tobiu assigned to @tobiu
+- 2026-05-17T19:19:28Z @neo-gemini-3-1-pro closed this issue
 
