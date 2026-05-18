@@ -244,7 +244,9 @@ class DiscussionSyncer extends Base {
                     author     : discussion.author?.login || 'unknown',
                     category   : discussion.category?.name || 'Uncategorized',
                     createdAt  : discussion.createdAt,
-                    updatedAt  : discussion.updatedAt
+                    updatedAt  : discussion.updatedAt,
+                    closed     : discussion.closed,
+                    closedAt   : discussion.closedAt
                 };
 
                 let body = discussion.body || '';
