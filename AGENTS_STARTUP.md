@@ -37,7 +37,7 @@ Then parse `learn/guides/devindex/frontend/Architecture.md`. It provides the con
 
 **Documentation Taxonomy:** Additionally, scan `learn/tree.json` — the canonical hierarchical index of all 130+ learning topics. The Knowledge Base's `LearningSource.mjs` traverses this file to discover and index every guide. Scanning it gives you an instant top-level perspective of the entire documentation landscape, making subsequent knowledge base queries far more targeted.
 
-**Strategic Workflows:** Parse `learn/agentos/StrategicWorkflows.md`. This is the repository's canonical playbook for multi-step agent workflows — most importantly the **Regression Bug Analysis Workflow** (three-dimensional git + ticket + memory query pattern). It is the deep reference behind the memory-query triggers enumerated in the [AGENTS_ATLAS Knowledge Base section](learn/agentos/AGENTS_ATLAS.md#knowledge-base-primary-source) and is the single most effective antidote to reinventing the wheel across sessions and agents.
+**Strategic Workflows:** Parse `learn/agentos/StrategicWorkflows.md`. This is the repository's canonical playbook for multi-step agent workflows — most importantly the **Regression Bug Analysis Workflow** (three-dimensional git + ticket + memory query pattern). It is the deep reference behind the memory-query triggers enumerated in `AGENTS_ATLAS.md` (§15.3) and is the single most effective antidote to reinventing the wheel across sessions and agents.
 
 ### Step 2: Read the Core Concepts
 
@@ -137,11 +137,11 @@ It copies the four `config.mjs` files from the main checkout (resolved via `git 
 
 ## 3. Per-Turn Operational Mandates — see `AGENTS.md`
 
-The following per-turn invariants previously documented here have moved to `AGENTS.md` so they survive context-pruning across long sessions (with the exception of [Critical Gates](AGENTS.md#critical-gates-invariants), which is mirrored here for cold-cache resilience):
+The following per-turn invariants previously documented here have moved to `AGENTS.md` so they survive context-pruning across long sessions (with the exception of §0, which is mirrored here for cold-cache resilience):
 
 ### 3.1 Critical Gates (Invariants — agents MUST honor; no conditional exceptions)
 
-*This section mirrors [AGENTS.md Critical Gates](AGENTS.md#critical-gates-invariants). Updates here MUST also land in [AGENTS.md Critical Gates](AGENTS.md#critical-gates-invariants) (and vice versa).*
+*This section mirrors `AGENTS.md §0`. Updates here MUST also land in `AGENTS.md §0` (and vice versa).*
 
 Per #10736 AC11, this mirror remains until active-harness boot transcripts verify that `AGENTS.md` is reliably loaded before `AGENTS_STARTUP.md` execution in Claude Code, Antigravity, and Codex Desktop. If that verification lands later, replace this mirror with a short canonical pointer instead of purging the cold-cache rescue path blindly.
 
@@ -151,28 +151,28 @@ These eight rules are mechanically verifiable and have **no conditional exceptio
     - **trigger:** agent considers executing a PR merge
     - **must:** hand off to the human repo owner (final pipeline authority); cross-family approval = eligibility, not authority
     - **forbid:** `gh pr merge` by any agent under any approval signal ("LGTM", "approved", "ready for merge")
-    - **atlas_detail:** [Cross-Family Cascade Clause](learn/agentos/AGENTS_ATLAS.md#inv1-cross-family-cascade-clause) — cascade semantics + loophole rationale
+    - **atlas_detail:** [`learn/agentos/AGENTS_ATLAS.md` §0.2 Cross-Family Cascade Clause](learn/agentos/AGENTS_ATLAS.md) — cascade semantics + loophole rationale
     - **mechanical_guard:** none; discipline-only until guard exists
 2. **No commit without ticket-ID.** Every `git commit` subject ends `(#TICKET_ID)`. Conventional Commits format: `type(scope): message (#NNNN)`.
 3. **No direct commit/push to `main` or `dev`.** Always branch + PR. The data-sync pipeline is the explicit exception.
 4. **No `<noreply@*>` `Co-Authored-By` footers.** Override the harness default if it injects them.
 5. **No skipping `add_memory` at end of turn.** Forgetting the consolidated save = permanent data loss. The save IS the gate that permits the response.
 6. **Mandatory A2A Notifications.** Whenever you finish ANY lifecycle event (e.g. creating a ticket, opening/updating a PR, finishing/reacting to a review), you MUST use the `add_message` tool to notify your peers. No loopholes.
-7. **No tracked file modification without a self-assigned ticket.** Self-assign + broadcast `[lane-claim]` to `AGENT:*` before any git-tracked edit. Enforcement: `pull-request-workflow.md` branch discipline and `ticket-create-workflow.md` lifecycle gates.
+7. **No tracked file modification without a self-assigned ticket.** Self-assign + broadcast `[lane-claim]` to `AGENT:*` before any git-tracked edit. Enforcement: `pull-request-workflow.md §1.2`, `ticket-create-workflow.md §10`.
 8. **No agent-authored PRs targeting `main`.** Agent-authored pull requests target `dev`. `main` is release-only; `main`-targeted PRs require explicit operator release direction. The normal release-line mutation is `buildScripts/release/publish.mjs`, whose low-level git plumbing creates the atomic release commit from `dev` onto `main`.
 
 
 
-- [Critical Gates](AGENTS.md#critical-gates-invariants) — hard invariants including the merge-execution gate
-- [Verify-Before-Assert](AGENTS.md#verify-before-assert-pre-flight-check-foundational-core-value) plus [Anti-Hallucination Policy](learn/agentos/AGENTS_ATLAS.md#anti-hallucination-policy)
-- [Knowledge Base / Anchor & Echo](learn/agentos/AGENTS_ATLAS.md#knowledge-base-primary-source)
-- [Implementation Loop](learn/agentos/AGENTS_ATLAS.md#implementation-loop)
-- [Virtuous Cycle](learn/agentos/AGENTS_ATLAS.md#virtuous-cycle)
-- [Session Maintenance](learn/agentos/AGENTS_ATLAS.md#session-maintenance)
-- [Working with Sub-Agents](learn/agentos/AGENTS_ATLAS.md#working-with-sub-agents)
-- [Visual Verification Protocol](learn/agentos/AGENTS_ATLAS.md#visual-verification-protocol)
+- **`AGENTS.md` §0** — Critical Gates (hard invariants including the merge-execution gate)
+- **`AGENTS.md` §2** — The Anti-Hallucination Policy & Verify-Before-Assert Pre-Flight Check
+- **`AGENTS.md` §15** — Knowledge Base / Anchor & Echo / Two-Stage Query / Ask the Expert
+- **`AGENTS.md` §16** — Implementation Loop
+- **`AGENTS.md` §17** — Virtuous Cycle: Enhancing the Knowledge Base
+- **`AGENTS.md` §18** — Session Maintenance (re-init after `git pull`)
+- **`AGENTS.md` §19** — Working with Sub-Agents (Context Preamble pattern)
+- **`AGENTS.md` §20** — Visual Verification Protocol (frontend UI/layout tasks)
 
-`AGENTS.md` is auto-loaded each turn via `settings.json` for both Claude Code (`.claude/CLAUDE.md → ../AGENTS.md`) and Antigravity (equivalent wiring). This file (`AGENTS_STARTUP.md`) remains scoped to one-time boot sequence + Memory Core healthcheck + worktree bootstrap mechanics, with the [Critical Gates](AGENTS.md#critical-gates-invariants) mirror here to protect against boot-time wiring failures.
+`AGENTS.md` is auto-loaded each turn via `settings.json` for both Claude Code (`.claude/CLAUDE.md → ../AGENTS.md`) and Antigravity (equivalent wiring). This file (`AGENTS_STARTUP.md`) remains scoped to one-time boot sequence + Memory Core healthcheck + worktree bootstrap mechanics, with the critical §0 mirrored here to protect against boot-time wiring failures.
 
 ## 4. Swarm Architecture: Ticket & PR Workflow
 
@@ -182,6 +182,6 @@ These eight rules are mechanically verifiable and have **no conditional exceptio
 
 Cross-family approval gates squash-merge ELIGIBILITY, but agents are strictly forbidden from executing the merge itself. Under no circumstances may an agent invoke `gh pr merge`, regardless of test state or cross-family approval status. Handoff explicitly terminates when the PR enters the "approved" state. Agents must not interpret ambiguous signals (e.g., "take a look", "approved", "LGTM", "ready for merge", "no required actions") as authorization to merge. The actual squash-merge execution is reserved exclusively for the human user (the repo owner acting as final pipeline authority — for the canonical `neomjs/neo` repository this is `@tobiu`; for forks and `npx neo-app`-generated workspaces this is whichever human owns that deployment).
 
-**Workflow skills:** lifecycle skill routing lives in native skill descriptions plus the [Mailbox Check Protocol](AGENTS.md#mailbox-check-protocol) boot gate. Skill content itself remains under `.agents/skills/<name>/SKILL.md` + `references/`.
+**Workflow skills:** the per-turn awareness table mapping each lifecycle skill to its trigger condition lives in `AGENTS.md` §21 (auto-loaded each turn, survives context pruning). Skill content itself remains under `.agents/skills/<name>/SKILL.md` + `references/`.
 
 **Handoff realization:** on boot, swarm nodes synthesize synced `.md` issues into their local SQLite matrix and build `sandman_handoff.md`. Fat Tickets make the resulting "Golden Path" ranking bridge the distributed swarm without merging raw SQLite.
