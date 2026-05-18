@@ -70,8 +70,7 @@ export function setup(options = {}) {
     Neo.applyDeltas ??= async () => {};
 
     if (mockMain) {
-        Neo.Main ??= {};
-        Neo.Main.setRoute ??= () => {};
+        Neo.ns('Neo.Main', true).setRoute ??= () => {};
     }
 
     Neo.main ??= {
@@ -102,18 +101,15 @@ export function setup(options = {}) {
     };
 
     if (mockLocalStorage) {
-        Neo.main.addon ??= {};
-        Neo.main.addon.LocalStorage ??= {};
+        const localStorage = Neo.ns('Neo.main.addon.LocalStorage', true);
 
-        Object.assign(Neo.main.addon.LocalStorage, {
-            createLocalStorageItem : Neo.main.addon.LocalStorage.createLocalStorageItem  ?? (async () => {}),
-            destroyLocalStorageItem: Neo.main.addon.LocalStorage.destroyLocalStorageItem ?? (async () => {}),
-            readLocalStorageItem   : Neo.main.addon.LocalStorage.readLocalStorageItem    ?? (async ({key} = {}) => ({
-                key,
-                value: Array.isArray(key) ? Object.fromEntries(key.map(item => [item, null])) : null
-            })),
-            updateLocalStorageItem : Neo.main.addon.LocalStorage.updateLocalStorageItem  ?? (async () => {})
+        localStorage.createLocalStorageItem  ??= async () => {};
+        localStorage.destroyLocalStorageItem ??= async () => {};
+        localStorage.readLocalStorageItem    ??= async ({key} = {}) => ({
+            key,
+            value: Array.isArray(key) ? Object.fromEntries(key.map(item => [item, null])) : null
         });
+        localStorage.updateLocalStorageItem  ??= async () => {};
     }
 
     Neo.currentWorker ??= {
