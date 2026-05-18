@@ -34,7 +34,44 @@ class GraphqlService extends Base {
          * @member {String} apiUrl='https://api.github.com/graphql'
          * @protected
          */
-        apiUrl: 'https://api.github.com/graphql'
+        apiUrl: 'https://api.github.com/graphql',
+        /**
+         * Optional explicit token override for tests or controlled embedded callers.
+         * Normal runtime auth continues to use `gh auth token`.
+         * @member {String|null} authTokenOverride=null
+         * @protected
+         */
+        authTokenOverride: null,
+        /**
+         * Maximum retry attempts for transient GitHub transport/gateway failures.
+         * @member {Number} maxRetryAttempts=3
+         * @protected
+         */
+        maxRetryAttempts: 3,
+        /**
+         * Initial retry delay in milliseconds.
+         * @member {Number} retryBaseDelayMs=1000
+         * @protected
+         */
+        retryBaseDelayMs: 1000,
+        /**
+         * Maximum retry delay in milliseconds.
+         * @member {Number} retryMaxDelayMs=10000
+         * @protected
+         */
+        retryMaxDelayMs: 10000,
+        /**
+         * Jitter ratio applied to exponential retry delays.
+         * @member {Number} retryJitterRatio=0.2
+         * @protected
+         */
+        retryJitterRatio: 0.2,
+        /**
+         * HTTP statuses that represent transient GitHub/proxy failures.
+         * @member {Number[]} retryableHttpStatuses=[429,502,503,504]
+         * @protected
+         */
+        retryableHttpStatuses: [429, 502, 503, 504]
     }
 
     /**
@@ -52,6 +89,10 @@ class GraphqlService extends Base {
      * @private
      */
     async #getAuthToken() {
+        if (this.authTokenOverride) {
+            return String(this.authTokenOverride).trim();
+        }
+
         if (this.#authToken) {
             return this.#authToken;
         }
@@ -64,6 +105,102 @@ class GraphqlService extends Base {
             logger.error('Failed to get GitHub auth token from `gh` CLI.', e);
             throw new Error('Could not authenticate with GitHub. Please ensure you have run `gh auth login`.');
         }
+    }
+
+    /**
+     * Calculates the retry delay for a transient GitHub failure.
+     * @param {Number} attempt The 1-based retry attempt.
+     * @param {Response|null} response The failed response, if one exists.
+     * @returns {Number} Delay in milliseconds.
+     * @private
+     */
+    #getRetryDelay(attempt, response=null) {
+        const retryAfter = response?.headers?.get?.('retry-after');
+
+        if (retryAfter) {
+            const seconds = Number(retryAfter);
+
+            if (Number.isFinite(seconds)) {
+                return Math.max(0, seconds * 1000);
+            }
+
+            const retryAt = Date.parse(retryAfter);
+
+            if (Number.isFinite(retryAt)) {
+                return Math.max(0, retryAt - Date.now());
+            }
+        }
+
+        const baseDelay = Math.min(this.retryMaxDelayMs, this.retryBaseDelayMs * 2 ** (attempt - 1));
+        const jitter    = baseDelay * this.retryJitterRatio * Math.random();
+
+        return Math.round(baseDelay + jitter);
+    }
+
+    /**
+     * Determines whether a transport error is likely transient.
+     * @param {Error|*} error The thrown fetch error.
+     * @returns {Boolean}
+     * @private
+     */
+    #isRetryableNetworkError(error) {
+        const message = [
+            error?.message,
+            error?.cause?.message,
+            error?.cause?.code,
+            error?.code,
+            String(error)
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        return [
+            'fetch failed',
+            'network',
+            'terminated',
+            'timeout',
+            'econnreset',
+            'etimedout',
+            'enotfound',
+            'eai_again',
+            'socket hang up'
+        ].some(pattern => message.includes(pattern));
+    }
+
+    /**
+     * @param {Number} status The HTTP response status.
+     * @returns {Boolean}
+     * @private
+     */
+    #isRetryableHttpStatus(status) {
+        return this.retryableHttpStatuses.includes(status);
+    }
+
+    /**
+     * Waits before a retry attempt.
+     * @param {Number} delay Delay in milliseconds.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async #sleep(delay) {
+        if (delay <= 0) {
+            return;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    /**
+     * Logs and waits for a transient retry.
+     * @param {String} reason Safe retry reason for logs.
+     * @param {Number} attempt The 1-based retry attempt.
+     * @param {Response|null} response The failed response, if one exists.
+     * @returns {Promise<void>}
+     * @private
+     */
+    async #waitForRetry(reason, attempt, response=null) {
+        const delay = this.#getRetryDelay(attempt, response);
+
+        logger.warn(`[GraphqlService] ${reason}; retrying in ${delay}ms (attempt ${attempt}/${this.maxRetryAttempts})`);
+        await this.#sleep(delay);
     }
 
     /**
@@ -87,14 +224,36 @@ class GraphqlService extends Base {
             headers['GraphQL-Features'] = 'sub_issues';
         }
 
-        const response = await fetch(this.apiUrl, {
-            method: 'POST',
-            headers,
-            body  : JSON.stringify({query, variables})
-        });
+        let response;
 
-        if (!response.ok) {
-            throw new Error(`GitHub API request failed: ${response.status} ${response.statusText}`);
+        for (let attempt = 0; attempt <= this.maxRetryAttempts; attempt++) {
+            try {
+                response = await fetch(this.apiUrl, {
+                    method: 'POST',
+                    headers,
+                    body  : JSON.stringify({query, variables})
+                });
+            } catch (e) {
+                if (attempt < this.maxRetryAttempts && this.#isRetryableNetworkError(e)) {
+                    await this.#waitForRetry(`Transient GitHub GraphQL transport failure (${e.message})`, attempt + 1);
+                    continue;
+                }
+
+                throw e;
+            }
+
+            if (response.ok) {
+                break;
+            }
+
+            const errorMessage = `GitHub API request failed: ${response.status} ${response.statusText}`;
+
+            if (attempt < this.maxRetryAttempts && this.#isRetryableHttpStatus(response.status)) {
+                await this.#waitForRetry(errorMessage, attempt + 1, response);
+                continue;
+            }
+
+            throw new Error(errorMessage);
         }
 
         const json = await response.json();
