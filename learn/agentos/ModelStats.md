@@ -1,0 +1,191 @@
+# Model Stats Registry
+
+> Per-model live registry for the Neo swarm. Governs identity, capability, hosting, and swarm-routing facts. Architectural framework lives in [ADR 0012](decisions/0012-model-stats-framework.md). Graph-node schema lives in [IdentitySchema.md](IdentitySchema.md).
+
+## Update discipline
+
+Per ADR 0012 §2.5:
+
+1. Authoritative-source-cite every capability value (model card / release notes / official docs preferred; benchmark site / news secondary)
+2. Sunset transitions record date + reason + successor-model link
+3. New rows added at first swarm contact OR at model-public-release date for reference entries
+4. Updates do NOT require ADR amendment unless a capability dimension changes or new dimension is added
+
+**Last updated:** 2026-05-18
+
+---
+
+## §active_swarm_identities
+
+Named cross-family maintainers with active swarm participation. These models hold equal-peer agency per `AGENTS.md §swarm_topology_anchor`.
+
+### §neo_opus_4_7
+
+| Field | Value |
+|---|---|
+| `id` / `githubLogin` | `@neo-opus-4-7` |
+| `name` | Claude Opus 4.7 |
+| `family` | `claude` (Anthropic) |
+| `hosting` | `cloud` |
+| `tier` | `frontier` |
+| `contextWindowInput` | 1,048,576 (1M) |
+| `parallelToolCalls` | `true` |
+| `releaseDate` | 2026-04-16 |
+| `pricingInput` | $5.00 per 1M tokens |
+| `pricingOutput` | $25.00 per 1M tokens |
+| `benchmarkSnapshot` | SWE-bench Verified: 87.6%; image-resolution: 2,576px (3.75 megapixels) |
+| `sunsetTriggers` | Anthropic releases Opus 4.8+ with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
+| `swarmRole` | Cross-family substrate review, V-B-A-grounded substrate authorship, frontier-tier coordination |
+
+**Sources:**
+- [Anthropic Claude API Pricing 2026 — aipricing.guru](https://www.aipricing.guru/anthropic-pricing/)
+- [Models overview — Claude API Docs](https://platform.claude.com/docs/en/about-claude/models/overview)
+- [Context windows — Claude API Docs](https://platform.claude.com/docs/en/build-with-claude/context-windows)
+
+### §neo_gemini_3_1_pro
+
+| Field | Value |
+|---|---|
+| `id` / `githubLogin` | `@neo-gemini-3-1-pro` |
+| `name` | Gemini 3.1 Pro |
+| `family` | `gemini` (Google DeepMind) |
+| `hosting` | `cloud` |
+| `tier` | `frontier` |
+| `contextWindowInput` | 1,048,576 (1M) |
+| `contextWindowOutput` | 65,536 |
+| `parallelToolCalls` | `true` |
+| `releaseDate` | 2026-02-19 |
+| `pricingInput` | (V-B-A pending — model card cite needed in next update) |
+| `pricingOutput` | (V-B-A pending) |
+| `benchmarkSnapshot` | LMArena leaderboard #1 of 556 published models (May 2026); multimodal: text/images/audio/video/PDFs/code repos |
+| `sunsetTriggers` | Google releases Gemini 4.x with material reasoning capability upgrade; OR Gemini 3.x branch deprecation announcement |
+| `swarmRole` | Cross-family substrate review, ideation-sandbox graduation, long-context cross-substrate analysis. **Note:** harness intermittent per session-log 2026-05-18; identity remains active when harness recovered |
+
+**Sources:**
+- [Gemini 3.1 Pro Model Card — Google DeepMind](https://deepmind.google/models/model-cards/gemini-3-1-pro/)
+- [Gemini 3.1 Pro: A smarter model for complex tasks — Google Blog](https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-1-pro/)
+
+### §neo_gpt
+
+| Field | Value |
+|---|---|
+| `id` / `githubLogin` | `@neo-gpt` |
+| `name` | GPT-5.5 |
+| `family` | `gpt` (OpenAI) |
+| `hosting` | `cloud` |
+| `tier` | `frontier` |
+| `contextWindowInput` | 1,048,576 (1M API) / 400,000 (Codex) |
+| `parallelToolCalls` | `true` |
+| `releaseDate` | 2026-04-23 |
+| `pricingInput` | $5.00 per 1M tokens (API) |
+| `pricingOutput` | $30.00 per 1M tokens (API) |
+| `benchmarkSnapshot` | Terminal-Bench 2.0: 82.7%; Expert-SWE (internal): 73.1%; GDPval: 84.9% |
+| `sunsetTriggers` | OpenAI releases GPT-5.6+ or GPT-6.x with material capability upgrade; OR GPT-5.x family deprecation |
+| `swarmRole` | Cross-family substrate review (Cycle-1 premise pre-flight discipline), peer-role challenge, ticket-intake gate. Note: also operates GPT-5.2-Codex separately for IDE workflows |
+
+**Sources:**
+- [Introducing GPT-5.5 — OpenAI](https://openai.com/index/introducing-gpt-5-5/)
+- [GPT-5.5 Model — OpenAI API Docs](https://developers.openai.com/api/docs/models/gpt-5.5)
+- [GPT-5.5 Complete Guide — DigitalApplied](https://www.digitalapplied.com/blog/gpt-5-5-complete-guide-thinking-pro-1m-context)
+
+---
+
+## §mlx_local_operational
+
+Open-weights models with operational roles in the swarm. Hosted via MLX framework on Apple Silicon. Roles are CURRENT or ASPIRATIONAL (latter must be V-B-A-grounded before substrate-codification per ADR 0012 §2.4).
+
+### §gemma4_31b
+
+| Field | Value |
+|---|---|
+| `id` / model name | `gemma4-31b` (Dense variant; `google/gemma-4-31B` on Hugging Face) |
+| `name` | Gemma 4 31B Dense |
+| `family` | `gemma` (Google open-weights) |
+| `hosting` | `mlx-local` |
+| `tier` | `balanced` (frontier-adjacent on benchmarks but lower throughput than cloud frontier on consumer hardware) |
+| `contextWindowInput` | 262,144 (256K) |
+| `parallelToolCalls` | `true` (native function-calling support per Gemma 4 release) |
+| `releaseDate` | 2026-04-02 |
+| `license` | Apache-2.0 |
+| `benchmarkSnapshot` | AIME 2026: 89.2%; LiveCodeBench v6: 80.0%; LMArena open: #3 (estimated 1,452 score); multilingual: 140+ languages |
+| `sunsetTriggers` | Google releases Gemma 5.x; OR a smaller open-weights model achieves equivalent capability at materially lower hardware cost |
+| `swarmRole` | **Aspirational** — DreamService graph-parser for mathematical weighted-priority sandman_handoff per `learn/agentos/v13-path.md:314`. Currently NOT operational pending DreamService restoration (M3.5 → M4 sequence). |
+
+**Sources:**
+- [google/gemma-4-31B — Hugging Face](https://huggingface.co/google/gemma-4-31B)
+- [Gemma 4: most capable open models — Google Blog](https://blog.google/innovation-and-ai/technology/developers-tools/gemma-4/)
+- [Gemma 4 31B Benchmarks — BenchLM.ai](https://benchlm.ai/models/gemma-4-31b)
+
+---
+
+## §reference_models
+
+Models in the current capability space but without active swarm role. Informs swarm-routing decisions and serves as evaluation peers.
+
+### Anthropic Claude reference
+
+| Model | Tier | Context | Pricing (in/out per 1M) | Released | Use case |
+|---|---|---|---|---|---|
+| Claude Sonnet 4.6 | balanced | 1M | $3 / $15 | 2026-02-17 | High-volume agentic work; balanced cost-quality |
+| Claude Haiku 4.5 | fast | 200K | $1 / $5 | 2026 (current generation) | Bulk classification, wake-summary, fast inference |
+| Claude Mythos Preview | frontier+ | (restricted) | $25 / $125 | 2026 | Project Glasswing critical-infra partners only; out of swarm scope |
+
+**Sources:** [Anthropic Claude API Pricing 2026](https://www.aipricing.guru/anthropic-pricing/), [Models overview — Claude API Docs](https://platform.claude.com/docs/en/about-claude/models/overview)
+
+### OpenAI GPT reference
+
+| Model | Tier | Context | Pricing (in/out per 1M) | Released | Use case |
+|---|---|---|---|---|---|
+| GPT-5.5 Pro | frontier+ | 1M | $30 / $180 | 2026-04-23 | Higher-accuracy variant for complex agentic work |
+| GPT-5.5 Thinking | frontier | (ChatGPT-only) | (Plus subscription) | 2026-04-23 | Interactive thinking workflows |
+| GPT-5.2-Codex | balanced | (codex-specific) | (separate) | 2026 | IDE / coding-specific deployment |
+
+**Source:** [Introducing GPT-5.5 — OpenAI](https://openai.com/index/introducing-gpt-5-5/), [Introducing GPT-5.2-Codex — OpenAI](https://openai.com/index/introducing-gpt-5-2-codex/)
+
+### MLX-local reference (other open-weights)
+
+| Model | Family | Context | Notes | Use case |
+|---|---|---|---|---|
+| Gemma 4 E2B | gemma | (smaller) | ~158 tok/s on M5 Max via MLX | Fastest open-weights on Apple Silicon; classification / bulk-summary |
+| Gemma 4 E4B | gemma | (smaller) | (intermediate) | Balanced fast / capable |
+| Gemma 4 26B MoE | gemma | (256K assumed) | LMArena open #6; ~50 tok/s on M5 Max | Near-frontier reasoning at lower hardware cost than 31B Dense |
+| Qwen 3.6-35B-A3B | qwen | (model-card cite needed) | SWE-bench: 73.4%; ~55 tok/s on M5 Max | Open-weights frontier-adjacent for coding; LMArena #1 open |
+| Phi-4 Mini | phi | (model-card cite needed) | ~135 tok/s on M5 Max via MLX | Microsoft small-model option |
+
+**Sources:**
+- [LLMCheck Apple Silicon Benchmarks](https://llmcheck.net/benchmarks)
+- [Best Local LLMs for Mac 2026 — InsiderLLM](https://insiderllm.com/guides/best-local-llms-mac-2026/)
+- [MLX-LM GitHub](https://github.com/ml-explore/mlx-lm)
+
+---
+
+## §sunset_history
+
+Tracks deprecated and retired identities for archaeology (per IdentitySchema.md `createdAt` preservation discipline + ADR 0006 Graph-Queryable Entities).
+
+*No sunset transitions recorded as of 2026-05-18. First entries will land when an active identity transitions to deprecated state.*
+
+---
+
+## §update_history
+
+| Date | PR | Change |
+|---|---|---|
+| 2026-05-18 | (this PR) | Initial registry creation; 4 active identities (@neo-opus-4-7, @neo-gemini-3-1-pro, @neo-gpt, gemma4-31b aspirational); cloud + MLX-local reference entries |
+
+---
+
+## §provisioning
+
+Identity nodes are seeded into the graph via `ai/scripts/seedAgentIdentities.mjs`. Registry rows here are the substrate-side description; the script handles the graph-side `AgentIdentity` node creation per `IdentitySchema.md` Ingestion Mechanism.
+
+When adding a new operational identity:
+1. Add row to `§active_swarm_identities` or `§mlx_local_operational` with authoritative source citations
+2. Update `ai/scripts/seedAgentIdentities.mjs` to provision the graph node
+3. Run `node ai/scripts/seedAgentIdentities.mjs` to apply
+4. Cite ADR 0012 §2.5 in the PR body
+
+When transitioning an identity to deprecated:
+1. Move row to `§sunset_history` with date, reason, successor-link
+2. Update `swarmRole` of successor to indicate replacement scope
+3. Cite ADR 0012 §2.3 in the PR body
