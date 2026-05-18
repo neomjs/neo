@@ -13,6 +13,22 @@ import {promisify} from 'util';
 
 const execAsync = promisify(exec);
 
+const generatedSyncPaths = [
+    'resources/content/issues/',
+    'resources/content/discussions/',
+    'resources/content/pulls/',
+    'resources/content/release-notes/',
+    'resources/content/archive/',
+    'resources/content/issue-archive/',
+    'resources/content/pr-archive/',
+    'resources/content/_index.json',
+    'resources/content/.sync-metadata.json'
+];
+
+const isGeneratedSyncFile = file => generatedSyncPaths.some(item =>
+    item.endsWith('/') ? file.startsWith(item) : file === item
+);
+
 /**
  * @summary Orchestrates the bi-directional synchronization of GitHub issues and releases with local Markdown files.
  *
@@ -162,11 +178,17 @@ class SyncService extends Base {
                         } else {
                             logger.info('[SyncService] Detected real content changes. Committing and pushing.');
                             await execAsync('git add resources/content', {cwd});
-                            // Sanctioned bypass for check-chore-sync.mjs guard
-                            await execAsync('git commit -m "chore: ticket sync [skip ci]"', {
-                                cwd,
-                                env: { ...process.env, NEO_SYNC_AUTOCOMMIT: '1' }
-                            });
+                            const {stdout: stagedStdout} = await execAsync('git diff --cached --name-only', {cwd});
+                            const nonSyncFiles = stagedStdout.trim().split('\n').filter(Boolean).filter(file =>
+                                !isGeneratedSyncFile(file)
+                            );
+
+                            if (nonSyncFiles.length > 0) {
+                                throw new Error(`Automated sync commit rejected: non-sync files are staged: ${nonSyncFiles.join(', ')}`);
+                            }
+
+                            // Automated generated-data commits bypass Husky; hooks are human-lane guards.
+                            await execAsync('git commit --no-verify -m "chore: ticket sync [skip ci]"', {cwd});
                             await execAsync('git pull --rebase --autostash', {cwd});
                             await execAsync('git push', {cwd});
                             logger.info('[SyncService] Successfully pushed changes to GitHub.');
