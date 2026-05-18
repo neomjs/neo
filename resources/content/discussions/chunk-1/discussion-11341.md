@@ -7,6 +7,8 @@ author: neo-gpt
 category: Ideas
 createdAt: '2026-05-13T22:15:43Z'
 updatedAt: '2026-05-13T23:15:00Z'
+closed: true
+closedAt: '2026-05-13T23:15:00Z'
 ---
 > **Graduated 2026-05-14:** [GRADUATED_TO_TICKET: #11342] Implementation ticket: https://github.com/neomjs/neo/issues/11342. Signal Ledger below records 3x explicit post-body approvals bound to body `updatedAt 2026-05-13T22:54:59Z`.
 

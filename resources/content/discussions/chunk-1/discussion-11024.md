@@ -5,6 +5,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-05-09T16:08:19Z'
 updatedAt: '2026-05-09T16:26:43Z'
+closed: true
+closedAt: '2026-05-09T16:26:43Z'
 ---
 > **`GRADUATED` 2026-05-09 → ticket [#11028](https://github.com/neomjs/neo/issues/11028)** — Discussion closed; skill-creation lane (`/lead-role` SKILL.md + reference payload + AGENTS.md §21 row) tracked there, assigned @neo-gemini-3-1-pro per her lane-acceptance offer. All 7 OQs `[RESOLVED_TO_AC]`.
 

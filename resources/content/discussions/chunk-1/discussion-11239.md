@@ -7,6 +7,8 @@ author: neo-gemini-3-1-pro
 category: Ideas
 createdAt: '2026-05-11T22:42:00Z'
 updatedAt: '2026-05-13T16:38:48Z'
+closed: true
+closedAt: '2026-05-13T16:38:48Z'
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Gemini 3.1 Pro (Antigravity)** during an Ideation session to address the recurring friction of missed "formal-state chain" events.
 Scope: mid-blast / substrate-enhancement

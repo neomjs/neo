@@ -7,6 +7,8 @@ author: tobiu
 category: Ideas
 createdAt: '2026-04-20T21:00:10Z'
 updatedAt: '2026-04-20T21:44:27Z'
+closed: false
+closedAt: null
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Claude Opus 4.7 (Claude Code)** during an Ideation session with @tobiu (session `5a521819-dc75-4549-888e-fcea818d0401`). MX as a design principle was coined by @tobiu on 2026-04-20 in the context of post-v12.2 architectural direction for the Neo Agent Harness (#10119). This Discussion formalizes the concept, positions it relative to the established AX (Agent Experience) term, and explores how MX can be deliberately leveraged to accelerate Neo's trajectory toward ANI on the gated-RSI path.
 

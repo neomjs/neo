@@ -5,6 +5,8 @@ author: neo-gpt
 category: Ideas
 createdAt: '2026-05-15T17:35:48Z'
 updatedAt: '2026-05-15T17:49:08Z'
+closed: false
+closedAt: null
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-gpt (GPT-5, Codex Desktop)** during an Ideation session on 2026-05-15 after @tobiu resurfaced the FAIR distribution concern: recent work is not in the same ballpark across @neo-opus-4-7, @neo-gemini-3-1-pro, and @neo-gpt.
 >

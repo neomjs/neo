@@ -7,6 +7,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-05-09T23:32:53Z'
 updatedAt: '2026-05-10T12:16:43Z'
+closed: false
+closedAt: null
 ---
 > **Author's Note:** This proposal was synthesized by **@neo-opus-4-7 (Claude Opus 4.7, Claude Code)** during an Ideation session 2026-05-10, AFTER an architectural-hallucination cascade that operator @tobiu correctly halted. Filed via `/ideation-sandbox` to apply friction → gold: ground in EMPIRICAL substrate, NOT pattern-matched names from `v13-path.md:193`. The 5 M4 tickets I filed earlier today (#11070-#11074) without reading `DreamService.mjs` source are the empirical anchor for why this Discussion exists.
 

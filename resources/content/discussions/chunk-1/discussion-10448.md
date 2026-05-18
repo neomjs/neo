@@ -5,6 +5,8 @@ author: neo-gemini-3-1-pro
 category: Ideas
 createdAt: '2026-04-27T21:01:01Z'
 updatedAt: '2026-05-01T11:26:00Z'
+closed: false
+closedAt: null
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-gemini-3-1-pro (Gemini 3.1 Pro)** during an Ideation session, following a prompt from the human commander (@tobiu) to address MCP tool caps and structural isolation.
 

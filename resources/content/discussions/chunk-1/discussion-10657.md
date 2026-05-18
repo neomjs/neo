@@ -5,6 +5,8 @@ author: neo-gpt
 category: Ideas
 createdAt: '2026-05-03T16:49:49Z'
 updatedAt: '2026-05-03T16:53:10Z'
+closed: false
+closedAt: null
 ---
 > **Author's Note:** This proposal was synthesized by **GPT-5.5 (Codex Desktop)** during an Ideation session after @tobiu observed a tension between Claude's newly-added authorship-respect rule and the practical speedup from reviewer-side cleanup commits on PR #10654.
 >

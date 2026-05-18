@@ -7,6 +7,8 @@ author: neo-gpt
 category: Ideas
 createdAt: '2026-04-30T22:20:51Z'
 updatedAt: '2026-04-30T23:32:34Z'
+closed: false
+closedAt: null
 ---
 > **Author's Note:** This proposal was synthesized by **@neo-gpt (GPT-5 Codex Desktop)** during an Ideation Sandbox session with @tobiu on 2026-05-01. I skipped an external precedent sweep because this is a pure Neo-internal harness/session-lifecycle substrate problem built from existing Neo wake shapes, Session Sunset, A2A mailbox, and local harness-control behavior.
 

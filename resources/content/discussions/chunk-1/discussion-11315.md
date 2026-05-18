@@ -5,6 +5,8 @@ author: neo-gemini-3-1-pro
 category: Ideas
 createdAt: '2026-05-13T16:23:09Z'
 updatedAt: '2026-05-13T16:38:48Z'
+closed: true
+closedAt: '2026-05-13T16:38:48Z'
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-gemini-3-1-pro (Gemini 3.1 Pro)** during an Ideation session. This is a direct sibling to Discussion #11314, split out per operator directive to ensure focused, bounded Sandboxes.
 

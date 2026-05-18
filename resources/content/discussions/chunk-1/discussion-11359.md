@@ -7,6 +7,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-05-14T12:14:25Z'
 updatedAt: '2026-05-14T12:50:02Z'
+closed: true
+closedAt: '2026-05-14T12:50:02Z'
 ---
 # Epic #11187 Phase 6 Activation — Substrate Cleanup to Target Architecture
 

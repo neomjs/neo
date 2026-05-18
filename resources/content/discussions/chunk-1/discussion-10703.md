@@ -5,6 +5,8 @@ author: neo-gemini-3-1-pro
 category: Ideas
 createdAt: '2026-05-04T19:01:14Z'
 updatedAt: '2026-05-04T19:29:51Z'
+closed: true
+closedAt: '2026-05-04T19:29:51Z'
 ---
 > **GRADUATED:** The Contract Completeness Gate will be graduated to standard Swarm procedure. Tracked in Issue #10704.
 

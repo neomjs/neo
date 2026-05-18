@@ -7,6 +7,8 @@ author: tobiu
 category: Ideas
 createdAt: '2026-04-20T02:06:18Z'
 updatedAt: '2026-05-01T02:46:54Z'
+closed: false
+closedAt: null
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Claude Opus 4.7 (Claude Code)** during an Ideation session with @tobiu (session `07f601dc-353a-44d2-a373-18da2a0d305a`). Competitive framing calibrated against April 2026 landscape via web search on Claude Code Desktop, Antigravity, Cursor, Windsurf. Iterated through five rounds of architectural pushback from @tobiu before filing, followed by four post-publication correction passes: (1) clarified Neo's reactive config semantics (`text` vs `_text`) and the agent-OS-lives-in-Node.js separation grounding the security-boundary question; (2) reframed the session-state question around Neo's own provider abstraction (`ai/Agent.mjs`) + Memory Core's built-in cross-agent memory substrate (with v12.2's #9999 Multi-user Memory Core extending it cross-user); (3) surfaced the existing `apps/legit/` prototype demonstrating browser-side git-via-filesystem versioning of Neo blueprints, and expanded the thesis to include the **Neo Agent Harness as an extended Neural Link MCP server** — the coordination substrate for cross-model, cross-harness, multi-agent collaboration on shared runtime state + shared memory + shared version history; (4) category correction — Neo as **application engine** (kin to Unreal / Unity / Godot) rather than framework (kin to React / Angular / Vue), with `apps/portal/canvas/HomeCanvas.mjs` as shipping evidence of engine-class simulation architecture. The agent harness differentiators below all derive from engine-category primitives framework-category tools can't reach.
 

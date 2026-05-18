@@ -7,6 +7,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-04-27T20:32:43Z'
 updatedAt: '2026-04-27T21:24:13Z'
+closed: true
+closedAt: '2026-04-27T21:24:13Z'
 ---
 > **GRADUATED 2026-04-27 → Epic #10449.** All 6 OQs `[RESOLVED_TO_AC]` per cross-family iteration; implementation work tracked in [Epic #10449 — structural-pre-flight skill: implementation + Phase 1 adoption](https://github.com/neomjs/neo/issues/10449). This Discussion stays open as the archaeological source per `ideation-sandbox §5`.
 

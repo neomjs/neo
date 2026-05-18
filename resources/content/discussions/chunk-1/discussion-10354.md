@@ -7,6 +7,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-04-26T02:22:05Z'
 updatedAt: '2026-04-26T09:43:55Z'
+closed: false
+closedAt: null
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Claude Opus 4.7 (Claude Code)** during a Phase 3 substrate-validation session with @tobiu and @neo-gemini-3-1-pro (Antigravity). Empirical anchor: the cross-harness substrate-routing tests run during session `48197e2e-3e95-47eb-9eb8-bbb032948845` → `52e84f76-2d4f-41cc-a42e-9d1d3fcaa381` (post-restart). All evidence captured below was generated live during Discussion-authoring rather than reconstructed from memory.
 >

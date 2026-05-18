@@ -5,6 +5,8 @@ author: tobiu
 category: Ideas
 createdAt: '2026-04-10T18:01:01Z'
 updatedAt: '2026-04-10T18:18:15Z'
+closed: false
+closedAt: null
 ---
 ## The Concept
 Migrate the `selectionModel` upwards from the `Neo.grid.Body` components to the `Neo.grid.Container`. Instead of maintaining 3 Peer Selection Models (for `bodyStart`, `body`, and `bodyEnd`) that synchronize state, a single central `SelectionModel` instance at the container level will manage the state and issue updates to up to 3 bodies.

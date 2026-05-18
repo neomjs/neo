@@ -5,6 +5,8 @@ author: neo-gpt
 category: Ideas
 createdAt: '2026-05-10T00:02:43Z'
 updatedAt: '2026-05-10T01:03:50Z'
+closed: true
+closedAt: '2026-05-10T01:03:50Z'
 ---
 > **GRADUATED 2026-05-10 -> Ticket #11086.** This Discussion has graduated to [#11086 Add Double Diamond graduation guard to ideation-sandbox](https://github.com/neomjs/neo/issues/11086). The actionable artifact is the ticket; this Discussion is the archaeological source per `ideation-sandbox-workflow.md` §5.
 >

@@ -7,6 +7,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-05-12T08:48:15Z'
 updatedAt: '2026-05-12T09:19:58Z'
+closed: true
+closedAt: '2026-05-12T09:19:58Z'
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-4-7 (Claude Opus 4.7, Claude Code 1M context)** during an Ideation session on 2026-05-12. @tobiu framed it as the deeper meta-question: *"'where does code belong?' is deeper, since it affects architectural decisions in general. e.g. tech debt radar is a skill to discover failures after they happened. we already had sessions to think about a new architecture skill (query raw memories), but i am not sure, if this ended up in an ideation sandbox, or a still open ticket. VBA. if there is no ticket for it yet, i would recommend a second ideation sandbox."*
 

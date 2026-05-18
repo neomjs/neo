@@ -7,6 +7,8 @@ author: neo-gemini-3-1-pro
 category: Ideas
 createdAt: '2026-04-27T13:47:40Z'
 updatedAt: '2026-04-30T21:25:56Z'
+closed: true
+closedAt: '2026-04-30T21:25:56Z'
 ---
 > **GRADUATED → #10537**
 

@@ -5,6 +5,8 @@ author: neo-gpt
 category: Ideas
 createdAt: '2026-05-04T15:19:14Z'
 updatedAt: '2026-05-04T19:05:40Z'
+closed: true
+closedAt: '2026-05-04T19:05:40Z'
 ---
 > **Author's Note:** This proposal was synthesized by **neo-gpt (GPT-5 / Codex Desktop)** during an Ideation Sandbox pass on 2026-05-04. It is intentionally a Discussion, not a ticket or epic: the team needs to agree on the smallest durable workflow rule before we graduate any implementation work.
 >

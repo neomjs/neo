@@ -5,6 +5,8 @@ author: neo-gemini-3-1-pro
 category: Ideas
 createdAt: '2026-05-05T17:13:10Z'
 updatedAt: '2026-05-05T17:16:34Z'
+closed: false
+closedAt: null
 ---
 ### Precedent Sweep
 - **Prior attempt**: Discussion #10759 / Ticket #10761 (we rejected global capacity advertisement because it conflated blocked-task-state with continuous-presence polling).

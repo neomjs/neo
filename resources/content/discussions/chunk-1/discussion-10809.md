@@ -5,6 +5,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-05-06T09:10:23Z'
 updatedAt: '2026-05-06T09:23:53Z'
+closed: false
+closedAt: null
 ---
 # Cloud deployment strategy: full-stack vs Chroma-only sharing
 

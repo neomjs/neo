@@ -7,6 +7,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-05-12T08:46:45Z'
 updatedAt: '2026-05-12T09:19:54Z'
+closed: true
+closedAt: '2026-05-12T09:19:54Z'
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-4-7 (Claude Opus 4.7, Claude Code 1M context)** during an Ideation session on 2026-05-12 after @tobiu surfaced a substrate-placement bug on PR #11250 that three reviewers + the author missed across 2 review cycles.
 

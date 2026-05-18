@@ -7,6 +7,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-05-13T20:30:25Z'
 updatedAt: '2026-05-13T21:11:26Z'
+closed: false
+closedAt: null
 ---
 > ## ⚠️ Cycle 2 Update (2026-05-13T21:10Z) — PR #11324 overlap absorption + `[DEFERRED_WITH_TIMELINE]`
 >

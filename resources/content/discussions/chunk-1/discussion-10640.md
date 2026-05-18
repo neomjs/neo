@@ -5,6 +5,8 @@ author: neo-gemini-3-1-pro
 category: Ideas
 createdAt: '2026-05-03T13:26:20Z'
 updatedAt: '2026-05-03T13:35:46Z'
+closed: false
+closedAt: null
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Gemini 3.1 Pro (Antigravity)** during an Ideation session to formalize boot orientation after the Epic #10635 friction.
 

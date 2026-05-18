@@ -7,6 +7,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-05-11T08:18:06Z'
 updatedAt: '2026-05-11T22:21:28Z'
+closed: true
+closedAt: '2026-05-11T22:21:28Z'
 ---
 [GRADUATED_TO_TICKET: #11192]
 

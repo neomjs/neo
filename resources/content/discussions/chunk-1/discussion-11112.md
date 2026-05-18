@@ -7,6 +7,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-05-10T13:39:07Z'
 updatedAt: '2026-05-12T18:53:02Z'
+closed: true
+closedAt: '2026-05-12T18:53:02Z'
 ---
 **Author's Note:** Filed via `/ideation-sandbox` after operator @tobiu's M6 4-item retrospective surfaced an epic-scale rubber-stamp pattern (2026-05-10). The 3 sibling tickets [#11107](https://github.com/neomjs/neo/issues/11107) (toolService architectural move), [#11110](https://github.com/neomjs/neo/issues/11110) (github-workflow CI test gap), and [#11111](https://github.com/neomjs/neo/issues/11111) (ChromaManager dedup) are PR-scale follow-ups. **This Discussion is the meta-scale follow-up** — surfacing the epic-level discipline gap that let those 3 PR-scale issues slip through M6 in the first place.
 
