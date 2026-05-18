@@ -2,10 +2,7 @@ import { execSync } from 'node:child_process';
 import process from 'node:process';
 import path from 'node:path';
 
-// Allow explicit override via temporary environment flag NEO_SYNC_AUTOCOMMIT=1
-if (process.env.NEO_SYNC_AUTOCOMMIT === '1') {
-    process.exit(0);
-}
+
 
 // Get absolute git repository root to prevent cross-checkout branch diagnostics
 let gitRoot;
@@ -62,6 +59,19 @@ const dataDirs = [
     'resources/content/discussions/'
 ];
 
+// If NEO_SYNC_AUTOCOMMIT is set, we must strictly enforce that ONLY data files are staged.
+// This prevents auto-commits from leaking manually staged source code files into sync commits.
+if (process.env.NEO_SYNC_AUTOCOMMIT === '1') {
+    const nonSyncFiles = stagedFiles.filter(file => !dataDirs.some(dir => file.startsWith(dir)));
+    if (nonSyncFiles.length > 0) {
+        console.error(`\x1b[31mError: NEO_SYNC_AUTOCOMMIT bypass rejected.\x1b[0m`);
+        console.error(`Automated sync commits must ONLY contain data files. The following non-sync files are staged:`);
+        nonSyncFiles.forEach(f => console.error(`  - ${f}`));
+        process.exit(1);
+    }
+    process.exit(0);
+}
+
 const violatingFiles = stagedFiles.filter(file =>
     dataDirs.some(dir => file.startsWith(dir))
 );
@@ -71,7 +81,7 @@ const violatingFiles = stagedFiles.filter(file =>
 if (violatingFiles.length > 0) {
     const allowedList = ALLOWED_PREFIXES.map(p => `'${p}*'`).join(' or ');
     console.error(`\x1b[31mError: Sync-data leakage detected.\x1b[0m`);
-    console.error(`Branch '${branch}' is not a designated data-sync branch (e.g., ${allowedList}).`);
+    console.error(`Branch '${branch}' (in root '${normalizedGitRoot}') is not a designated data-sync branch (e.g., ${allowedList}).`);
     console.error(`The following data files are staged for commit:`);
     violatingFiles.forEach(f => console.error(`  - ${f}`));
     console.error(`\nIf you must commit these files, either:`);
