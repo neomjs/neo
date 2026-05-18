@@ -119,7 +119,6 @@ sent-to-cull.jsonl
 .codex/config.toml
 
 # Local workspace-level Antigravity config (causes dual-parse bug if committed)
-.gemini/settings.json
 
 # Playwright test results
 test/playwright/test-results/
@@ -128,6 +127,17 @@ test-results/
 
 # Autonomous AI Output files
 resources/content/sandman_handoff.md
+
+# Agent Harness Scratch Artifacts (Issue #11563)
+.gemini/*
+!.gemini/concepts/
+!.gemini/settings.template.json
+/pr_*.md
+/scratch*.mjs
+/patch_*.js
+/patch_*.py
+/patch_*.mjs
+/ticket-*.md
 
 *.orig
 *.patch
