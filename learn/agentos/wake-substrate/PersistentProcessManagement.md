@@ -97,7 +97,7 @@ plutil -lint ~/Library/LaunchAgents/com.neomjs.swarm-heartbeat.plist
 
 If `plutil` reports a syntax error, **do not proceed**. Common causes:
 - Unescaped `<` / `>` / `&` in your repo path or agent identity (sed `|` delimiter avoids this for `/`-laden paths but still surfaces if your path has special XML chars)
-- Substitution missed a placeholder (zero `OPERATOR_SUBSTITUTE` matches confirmed via [§3](#macos-launchd-installation-procedure)a final check)
+- Substitution missed a placeholder (zero `OPERATOR_SUBSTITUTE` matches confirmed via [§3a](#3a-substitute-the-template) final check)
 
 <a id="3c-install-start"></a>
 ### 3c. Install + start
@@ -216,7 +216,7 @@ Loaded via `systemctl --user daemon-reload && systemctl --user enable --now swar
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Daemon "loaded" but no log lines | `WorkingDirectory` placeholder unsubstituted OR substituted to wrong path | Re-run [§3](#macos-launchd-installation-procedure)a sed with correct repo root; `launchctl bootout` + `bootstrap` to reload |
+| Daemon "loaded" but no log lines | `WorkingDirectory` placeholder unsubstituted OR substituted to wrong path | Re-run [§3a](#3a-substitute-the-template) sed with correct repo root; `launchctl bootout` + `bootstrap` to reload |
 | `node: command not found` in stderr log | `PATH` env var doesn't include node's location | Add node's actual install dir to the plist `EnvironmentVariables.PATH` (check via `which node` in your interactive shell) |
 | `gh: command not found` in stderr log | Same — Homebrew's `gh` not in default launchd PATH | Add `/opt/homebrew/bin` (Apple Silicon) or `/usr/local/bin` (Intel) to plist PATH |
 | `tmux: command not found` | Same PATH issue; tmux-injection is best-effort and silently no-ops if absent | Add tmux's install dir to plist PATH OR accept the no-op (heartbeat still runs) |
