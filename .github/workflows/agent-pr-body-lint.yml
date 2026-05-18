@@ -12,14 +12,14 @@ jobs:
         uses: actions/github-script@v9
         with:
           script: |
-            const pr = context.payload.pull_request;
+            const pr     = context.payload.pull_request;
             const author = pr.user.login;
-            const body = pr.body || "";
+            const body   = pr.body || "";
 
             // Only enforce for known AI agent accounts or PRs labeled with 'ai'
-            const agentAuthors = ['neo-opus-4-7', 'neo-gemini-3-1-pro', 'neo-gpt'];
+            const agentAuthors  = ['neo-opus-4-7', 'neo-gemini-3-1-pro', 'neo-gpt'];
             const isAgentAuthor = agentAuthors.includes(author) || author.startsWith('neo-');
-            const hasAiLabel = pr.labels && pr.labels.some(l => l.name === 'ai');
+            const hasAiLabel    = pr.labels && pr.labels.some(l => l.name === 'ai');
 
             if (!isAgentAuthor && !hasAiLabel) {
               console.log(`✅ Author ${author} is not an AI agent and no 'ai' label present. Skipping lint.`);
@@ -28,42 +28,106 @@ jobs:
 
             console.log(`🔍 Linting PR body for agent-authored PR by: ${author}`);
 
-            const requiredAnchors = [
+            // ──────────────────────────────────────────────────────────────────────
+            // Two-layer mechanical body-shape validation (#11501, mirrors reviewer-side
+            // PR #11502/#11495 pattern derived from PR #11494's MCP `manage_pr_review`
+            // canonical primary surface).
+            //
+            // VISIBLE layer: explicit anchors from `pull-request-workflow.md §9`
+            // minimum-viable PR body structure. Misses surface as a precise list in
+            // the collapsed details block + ONE diagnostic anchor named in the
+            // human-facing message.
+            //
+            // INVISIBLE layer: structural template substrings checked SILENTLY.
+            // Misses NOT named in the follow-up comment — neither in prose nor as
+            // enumeration. Defeats Goodhart anchor-stuffing where an agent hallucinates
+            // a body that contains exactly the named visible anchors but omits the
+            // actual template structure or self-identification.
+            //
+            // ⚠️  SYNCHRONIZATION PROTOCOL: this list MUST stay in sync with
+            // `pull-request-workflow.md §9` minimum-viable PR body + §5 Self-
+            // Identification mandate. Per #11501 cycle-2 scope-correction, the
+            // shared-module extraction (`prReviewAnchors.mjs`) was reverted in
+            // PR #11502; sync-by-convention with comment-pointers is the accepted
+            // cross-surface coordination shape going forward.
+            // ──────────────────────────────────────────────────────────────────────
+
+            const VISIBLE_PR_BODY_ANCHORS = [
               "FAIR-band:",
               "Evidence:",
               "## Test Evidence",
               "## Post-Merge Validation"
             ];
 
-            let missingAnchors = [];
-            for (const anchor of requiredAnchors) {
-              if (!body.includes(anchor)) {
-                missingAnchors.push(anchor);
-              }
+            const INVISIBLE_PR_BODY_ANCHORS = [
+              "Authored by ",
+              "## Deltas"
+            ];
+
+            const missingVisible   = VISIBLE_PR_BODY_ANCHORS  .filter(a => !body.includes(a));
+            const missingInvisible = INVISIBLE_PR_BODY_ANCHORS.filter(a => !body.includes(a));
+
+            // Ticket-reference is a separate visible check (regex pattern, not substring)
+            const ticketRegex   = /(Resolves|Closes|Fixes|Related:|Refs)\s+#\d+/i;
+            const missingTicket = !ticketRegex.test(body);
+            if (missingTicket) {
+              missingVisible.push("Ticket reference (e.g., Resolves #N, Related: #N)");
             }
 
-            // Check for magic close keywords or reference keywords
-            const ticketRegex = /(Resolves|Closes|Fixes|Related:|Refs)\s+#\d+/i;
-            if (!ticketRegex.test(body)) {
-              missingAnchors.push("Ticket reference (e.g., Resolves #N, Related: #N)");
-            }
-
-            if (missingAnchors.length > 0) {
-              const errorMessage = `❌ **PR Body Lint Violation**\n\nAgent-authored PRs must adhere to the template defined in \`.agents/skills/pull-request/references/pull-request-workflow.md §9\`.\n\nMissing the following required sections/anchors:\n${missingAnchors.map(a => '- `' + a + '`').join('\n')}\n\nPlease edit the PR body to include these required anchors.`;
-
-              console.error(errorMessage);
-
-              // Only comment if this is a newly opened PR, to avoid spam on edits
-              if (context.payload.action === 'opened') {
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: pr.number,
-                  body: errorMessage
-                });
-              }
-
-              core.setFailed("PR body is missing required anchors.");
-            } else {
+            if (missingVisible.length === 0 && missingInvisible.length === 0) {
               console.log("✅ PR body contains all required anchors.");
+              return;
             }
+
+            // Compose comment that guides toward the skill without enumerating invisible
+            // anchors. Even visible-list naming is bounded — at most ONE diagnostic
+            // anchor in the prose (the full visible-miss list goes in the collapsed
+            // details block for programmatic access; invisible misses are NEVER named).
+            const diagnosticAnchor = missingVisible[0] || null;
+
+            const skillPath    = '.agents/skills/pull-request/SKILL.md';
+            const workflowPath = '.agents/skills/pull-request/references/pull-request-workflow.md';
+
+            const prUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${pr.number}`;
+
+            const commentBody = [
+              `## 🚨 Agent PR Body Lint Violation`,
+              ``,
+              `@${author} — your [PR body on PR #${pr.number}](${prUrl}) does not match the pull-request template structure.`,
+              ``,
+              `**Required action**: read \`${skillPath}\` BEFORE editing the PR body. The skill points at:`,
+              `  - Minimum-viable PR body structure: \`${workflowPath} §9\``,
+              `  - Self-Identification mandate: \`${workflowPath} §5\``,
+              ``,
+              `Do NOT compose a substitute template or hallucinate section headings. The validator`,
+              `checks more structural anchors than this comment names. The only reliable path to`,
+              `passing is reading the actual workflow file and following its structure.`,
+              ``,
+              diagnosticAnchor
+                ? `**Diagnostic hint**: at least one recognized anchor like \`${diagnosticAnchor}\` is missing.`
+                : `**Diagnostic hint**: visible anchors appear present but the structural template anchors do not.`,
+              ``,
+              `<details>`,
+              `<summary>Visible anchors missing (full list)</summary>`,
+              ``,
+              missingVisible.length > 0
+                ? missingVisible.map(a => `- \`${a}\``).join('\n')
+                : `(none — visible layer passed; invisible structural layer caught the miss)`,
+              ``,
+              `</details>`,
+              ``,
+              `<sub>This is the CI tool-boundary lint companion to PR #11494's MCP \`manage_pr_review\` validator and PR #11502's \`agent-pr-review-body-lint.yml\` reviewer-side lint.`,
+              `Resolves #11501.</sub>`
+            ].join('\n');
+
+            // Only comment if this is a newly opened PR, to avoid spam on edits
+            if (context.payload.action === 'opened') {
+              await github.rest.issues.createComment({
+                owner       : context.repo.owner,
+                repo        : context.repo.repo,
+                issue_number: pr.number,
+                body        : commentBody
+              });
+            }
+
+            core.setFailed(`Agent PR body missing required template anchors. See follow-up comment on PR #${pr.number}.`);
