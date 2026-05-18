@@ -58,7 +58,7 @@
         "devindex:spider"              : "node ./apps/devindex/services/cli.mjs spider",
         "devindex:update"              : "node ./apps/devindex/services/cli.mjs update --limit 500",
         "generate-docs-json"           : "node ./buildScripts/docs/jsdocx.mjs",
-        "prepare"                      : "node ./buildScripts/ai/initServerConfigs.mjs && node ./buildScripts/ai/downloadKnowledgeBase.mjs",
+        "prepare"                      : "husky && node ./buildScripts/ai/initServerConfigs.mjs && node ./buildScripts/ai/downloadKnowledgeBase.mjs",
         "server-start"                 : "webpack serve -c ./buildScripts/webpack/webpack.server.config.mjs --open",
         "test"                         : "playwright test -c test/playwright/playwright.config.mjs",
         "test-components"              : "playwright test -c test/playwright/playwright.config.component.mjs",
@@ -186,9 +186,11 @@
         "gray-matter"                  : "^4.0.3",
         "highlightjs-line-numbers.js"  : "^2.9.1",
         "html-minifier-terser"         : "^7.2.0",
+        "husky"                        : "^9.1.7",
         "inquirer"                     : "^13.3.0",
         "js-yaml"                      : "^4.1.1",
         "jsdoc-api"                    : "^9.3.5",
+        "lint-staged"                  : "^17.0.5",
         "marked"                       : "^17.0.4",
         "mermaid"                      : "^11.12.2",
         "monaco-editor"                : "0.50.0",
@@ -211,5 +213,10 @@
     "funding": {
         "type": "GitHub Sponsors",
         "url" : "https://github.com/sponsors/tobiu"
+    },
+    "lint-staged": {
+        "*": [
+            "node ./buildScripts/util/check-whitespace.mjs"
+        ]
     }
 }
