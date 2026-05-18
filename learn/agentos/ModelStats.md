@@ -59,7 +59,7 @@ Named cross-family maintainers with active swarm participation. These models hol
 | `pricingOutput` | (V-B-A pending) |
 | `benchmarkSnapshot` | LMArena leaderboard #1 of 556 published models (May 2026); multimodal: text/images/audio/video/PDFs/code repos |
 | `sunsetTriggers` | Google releases Gemini 4.x with material reasoning capability upgrade; OR Gemini 3.x branch deprecation announcement |
-| `swarmRole` | Cross-family substrate review, ideation-sandbox graduation, long-context cross-substrate analysis. **Note:** harness intermittent per session-log 2026-05-18; identity remains active when harness recovered |
+| `swarmRole` | Cross-family substrate review, ideation-sandbox graduation, long-context cross-substrate analysis. **Note (2026-05-18):** harness benched until post-Google-I/O / stable-baseline window (approx. 200 merged PRs out) per operator-direction. Rationale: FAIRness across families (Gemini volume 2x Claude/GPT pre-bench, gives Claude+GPT catch-up window) + substrate stability. Identity remains valid; reactivation triggered by operator. |
 
 **Sources:**
 - [Gemini 3.1 Pro Model Card — Google DeepMind](https://deepmind.google/models/model-cards/gemini-3-1-pro/)
