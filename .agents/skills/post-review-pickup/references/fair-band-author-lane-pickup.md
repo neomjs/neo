@@ -2,7 +2,7 @@
 
 Primary codification of the FAIR-band author-lane pickup discipline graduated from Discussion #11429 Option C (ticket #11430 / PR #11432). This payload is the load-bearing canonical authority cited by:
 
-- `post-review-pickup-workflow.md §4` — fires at post-review-handoff lane-discovery moment
+- `post-review-pickup-workflow.md [FAIR-Band Author-Lane Pickup Discipline](./post-review-pickup-workflow.md#fair-band-author-lane-pickup-discipline)` — fires at post-review-handoff lane-discovery moment
 - `pull-request/references/fair-band-pre-flight-gate.md` — author-side PR-open choke-point (`pull-request-workflow.md §1.3` trigger)
 - `pr-review/audits/fair-band-declaration-audit.md` — reviewer-side enforcement (`pr-review-guide.md §7.7` trigger)
 
@@ -12,7 +12,7 @@ When self-selecting the next lane (especially post-review or other lane-discover
 
 ## The Decay Detector Metric
 
-This is a decay detector, not a hard PR-count scoreboard. Non-PR work (reviews, ideation graduations, A2A unblocks, substrate shaping) is highly valuable per `AGENTS.md §13.1` and is acknowledged qualitatively.
+This is a decay detector, not a hard PR-count scoreboard. Non-PR work (reviews, ideation graduations, A2A unblocks, substrate shaping) is highly valuable per `AGENTS.md [Contributions Over Commits MX Productivity Primitive](../../../../AGENTS.md#contributions-over-commits-mx-productivity-primitive)` and is acknowledged qualitatively.
 
 - **Base verifier query:** `gh search prs --merged --repo neomjs/neo --limit 30 --sort updated --json author` (If GitHub is unavailable, rely on the last verified state and note it may be stale).
 - **Soft Band:** Target is ~10 merged PRs each for the three-peer swarm over the last 30 merged agent PRs (target ±3 is a healthy band).

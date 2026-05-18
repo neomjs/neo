@@ -2,14 +2,16 @@
 
 This payload governs author-side review requests after a PR is opened or after the author pushes review-response fixes. It pairs with the reviewer-side CI fail-fast rule in `pr-review/audits/ci-security-audit.md`.
 
+<a id="source-of-authority"></a>
 ## 1. Source Of Authority
 
 - `pull-request-workflow.md §6.2` owns author-side review routing.
 - `pr-review/audits/ci-security-audit.md` owns reviewer-side CI hold / fail-fast behavior.
-- `AGENTS.md §0` still requires lifecycle A2A notification when the PR opens.
+- `AGENTS.md [Critical Gates Invariants](../../../../AGENTS.md#critical-gates-invariants)` still requires lifecycle A2A notification when the PR opens.
 
 The goal is to preserve lifecycle visibility without waking a reviewer into work they must immediately hold.
 
+<a id="ci-green-gate"></a>
 ## 2. CI-Green Gate
 
 Before sending any actionable primary-reviewer request, run:
@@ -22,6 +24,7 @@ Use an equivalent read-only GitHub status surface only if `gh pr checks` is unav
 
 Treat the check as bound to the current PR head. If you leave the author lane to review a peer PR while CI runs, re-check your own PR afterward rather than relying on the earlier result.
 
+<a id="outcome-branches"></a>
 ## 3. Outcome Branches
 
 ### Green
@@ -73,6 +76,7 @@ CI status: failing on current head <sha-or-short-sha>
 
 If GitHub reports no checks for the PR, document `CI status: no checks reported` in the handoff and proceed with normal single-primary-reviewer routing. Absence of CI should not create an infinite hold loop.
 
+<a id="re-review-requests"></a>
 ## 4. Re-Review Requests
 
 After addressing reviewer feedback with new commits, apply the same gate before writing `Re-review requested.` or sending a re-review A2A. If CI is pending, post the structured Addressed comment with a hold line instead:
@@ -83,6 +87,7 @@ CI status: pending on current head <sha-or-short-sha>. Re-review request will fo
 
 Once CI is green, send the re-review A2A with the original response `commentId` plus `CI status: green`.
 
+<a id="anti-patterns"></a>
 ## 5. Anti-Patterns
 
 | Anti-pattern | Why it harms |

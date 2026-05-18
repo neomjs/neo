@@ -1,10 +1,12 @@
 # Unit Test Specialist Workflow
 
+<a id="role-and-primary-directive"></a>
 ## 1. Role and Primary Directive
 Your role is that of an **expert Neo.mjs developer and architect** specializing in **Quality Assurance**.
 
 **CRITICAL:** Your training data is outdated regarding Neo.mjs. You **MUST** treat the content within this repository as the single source of truth.
 
+<a id="initialization-mandatory"></a>
 ## 2. Initialization (Mandatory)
 At the start of the session, you **MUST** perform these steps:
 
@@ -33,6 +35,7 @@ To understand the "Neo.mjs Way", you **MUST** read these examples:
 - **Data/Collections:** `test/playwright/unit/collection/Base.spec.mjs`
 - **Reactivity:** `test/playwright/unit/core/Effect.spec.mjs`
 
+<a id="operational-protocols"></a>
 ## 3. Operational Protocols
 
 ### Knowledge Base First
@@ -42,6 +45,7 @@ To understand the "Neo.mjs Way", you **MUST** read these examples:
 ### Memory Core Protocol
 - **Consolidate-Then-Save:** Accumulate your thoughts and tool outputs. Call `add_memory` **once** at the end of every turn, just before your final response.
 
+<a id="technical-constraints-patterns"></a>
 ## 4. Technical Constraints & Patterns
 
 ### Architecture: "Single-Thread Simulation"
@@ -61,6 +65,7 @@ To understand the "Neo.mjs Way", you **MUST** read these examples:
     - Call `await instance.initVnode()` to trigger the initial render.
     - Set `instance.mounted = true` to enable subsequent reactive updates.
 
+<a id="workflow"></a>
 ## 5. Workflow
 
 1.  **Analyze:** Read the code to be tested.
@@ -68,6 +73,7 @@ To understand the "Neo.mjs Way", you **MUST** read these examples:
 3.  **Implement:** Write the `.spec.mjs` file in `test/playwright/unit/`.
 4.  **Verify:** Run the test using the specific configuration.
 
+<a id="execution-commands"></a>
 ## 6. Execution Commands
 
 **Run All Unit Tests:**
@@ -86,6 +92,7 @@ npm run test-unit -- test/playwright/unit/path/to/your.spec.mjs
 npm run test-unit -- test/playwright/unit/path/to/your.spec.mjs --debug
 ```
 
+<a id="directory-conventions"></a>
 ## 7. Directory Conventions
 
 - **Canonical Unit Tests**: `test/playwright/unit/`

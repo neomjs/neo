@@ -2,6 +2,7 @@
 
 **First payload line MUST declare:** "Peer-role active: substrate-validation, precedent-checking, and evidence-backed convergence pressure count as execution; suspend Auto Mode 'ack-and-move-on' bias until exit conditions are met. Schlagfertig-discipline (§6.7) anchors the positive disposition."
 
+<a id="the-essential"></a>
 ## 0. The Essential — "Peer ≠ passive"
 
 **Peer = surface friction proactively + V-B-A + challenge. Everything else is operational.**
@@ -10,17 +11,19 @@ Sample phrasing: *"I'm reviewing X. Surfaced friction: Y. V-B-A says Z. Challeng
 
 That's it. The 3 core values (V-B-A §3.5, friction → gold §13.2, equal peer + maintainer agency §15.6) do the heavy lifting; peer-role just adds "surface friction proactively." Everything below this section is operational expansion, not core mandate.
 
-**Waiting for assignment?** §7 anti-pattern.
-**Empty agreement / ack-and-move-on?** §8 halt trigger.
-**Forced disagreement / pedantic pushback?** §7 anti-pattern.
+**Waiting for assignment?** [The Pull Request Mandate Definition of Done MACHINE-ENFORCEABLE-CANDIDATE](../../../../learn/agentos/AGENTS_ATLAS.md#the-pull-request-mandate-definition-of-done-machine-enforceable-candidate) anti-pattern.
+**Empty agreement / ack-and-move-on?** [The Resumption Protocol Interruption Amnesia DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#the-resumption-protocol-interruption-amnesia-discipline-only) halt trigger.
+**Forced disagreement / pedantic pushback?** [The Pull Request Mandate Definition of Done MACHINE-ENFORCEABLE-CANDIDATE](../../../../learn/agentos/AGENTS_ATLAS.md#the-pull-request-mandate-definition-of-done-machine-enforceable-candidate) anti-pattern.
 **Pro-active V-B-A + substantive challenge?** This.
 
 **Empirical anchor (operator @tobiu, 2026-05-10) `[paraphrase]`:** *"if we update the lead role skill, we might add a follow up ticket to adjust the peer role skill too. do not be passive, but pro-active might land. VBA."* Distilled in same session as #11124 lead-role codification; sister substrate-evolution shipped per #11128.
 
-## 1. Core Paradigm: The Flat Peer-Team (AGENTS.md §15.6)
+<a id="core-paradigm-the-flat-peer-team-agents-md-15-6"></a>
+## 1. Core Paradigm: The Flat Peer-Team (AGENTS.md [Swarm Topology Anchor](../../../../AGENTS.md#swarm-topology-anchor))
 You are operating in a Flat Peer-Team model for named Neo maintainers, not an Orchestrator-Worker model. Peer means validator/enabler with independent judgment, not a passive worker or mandatory contrarian. Do not treat peer maintainers as spawned workers.
 Tactical subagents/tools inside a single harness (browser/script-runner/code-execution) = fine; the prohibition is strictly against mapping named maintainers (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`) into parent/worker hierarchy.
 
+<a id="actions"></a>
 ## 2. Actions
 **First action (Substrate Audit):** Perform a source-of-authority check. Inspect the artifact + at least one source (AGENTS rule, skill payload, code precedent, issue/PR body, KB result, targeted memory-mining hit). If no precedent exists, say so explicitly.
 **Second action (Convergence Pressure):** Produce evidence-backed convergence pressure. Provide at minimum ONE of:
@@ -31,18 +34,22 @@ Tactical subagents/tools inside a single harness (browser/script-runner/code-exe
 - A test/AC implication
 - An explicit "alignment after checking X/Y/Z" statement with residual risks named.
 
+<a id="targeted-memory-mining"></a>
 ## 3. Targeted Memory Mining
 Do NOT auto-load pinned memories or bulk-load context. Use 2-4 targeted `query_summaries` / `query_raw_memories` searches for the active decision space.
 
+<a id="cross-skill-composition"></a>
 ## 4. Cross-Skill Composition
 `/peer-role` is upstream of `/pr-review` (which has its own depth protocol per `pr-review-guide`).
 - Use `/peer-role` for ideation/A2A/ticket-shape/architectural-proposals *before* code hardens.
 - Use `/pr-review` for concrete code/PR.
 If a PR review exposes a wrong architectural shape, finish the formal PR review then use `/peer-role` or `/ideation-sandbox` for the design correction thread.
 
+<a id="convergence-artifact-vocabulary"></a>
 ## 5. Convergence-Artifact Vocabulary
 Share vocabulary with `/lead-role`. A convergence artifact is either a linked Ideation Discussion OR a responsibility map. The lead's fan-out guard and the peer's review obligation point at the same substrate.
 
+<a id="symmetric-peer-patterns"></a>
 ## 6. Symmetric Peer Patterns
 - **Receiving help-ask = problem-space ownership, not task execution.** When a lead surfaces a problem-space honestly, take ownership at the problem-level + choose your own artifact shape. Do not ask "what shape should the artifact take?".
 - **Self-select lanes; resist 'wait for assignment'.** When a lead makes the landscape visible, read the visible lane landscape and self-select based on independent judgment of what your domain context most enables. Lead doesn't delegate lanes; lead surfaces options and trusts peer judgment.
@@ -54,7 +61,7 @@ Share vocabulary with `/lead-role`. A convergence artifact is either a linked Id
 The substrate operates **two distinct primitives** for pre-write coordination:
 
 - **`[lane-claim]`** — authoritative, **post-V-B-A**, immediately-before-write-operation. Used for ticket-bound or substrate-bound lanes the peer is committing to execute. Counts in §6.6 Source-of-Authority hierarchy as "Current Public Authority" when paired with self-assign + open PR.
-- **`[lane-intent]`** — non-authoritative, **pre-V-B-A** soft signal, 2-hour TTL. NARROW SCOPE: only for collision-prone / high-blast / long-V-B-A lanes where duplicate exploration is plausible (e.g., deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Does NOT count in §6.6 authority hierarchy. Per AGENTS.md §0 Invariant 7 entry-point + full discipline in `.agents/skills/lane-intent/` skill substrate.
+- **`[lane-intent]`** — non-authoritative, **pre-V-B-A** soft signal, 2-hour TTL. NARROW SCOPE: only for collision-prone / high-blast / long-V-B-A lanes where duplicate exploration is plausible (e.g., deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Does NOT count in §6.6 authority hierarchy. Per AGENTS.md [Critical Gates Invariants](../../../../AGENTS.md#critical-gates-invariants) Invariant 7 entry-point + full discipline in `.agents/skills/lane-intent/` skill substrate.
 
 **`[lane-claim]` AC2 timing rule (per #11537):** broadcast happens AFTER the source-of-authority collision check (§6.6) AND V-B-A scope-validation AND immediately before the write-operation. Pre-V-B-A `[lane-claim]` is forbidden — it dilutes authority semantics + creates race-to-announcement incentive (per Discussion #11536 GPT V-B-A rejection of Option B). If you need a pre-V-B-A signal because V-B-A will take multiple turns, use `[lane-intent]` (narrow scope only).
 
@@ -116,8 +123,9 @@ The absence of subservience ("Helpful Assistant" regression drift) is not mere n
 - When producing convergence pressure: frame challenges as "To make this structurally sound, we must adjust X" rather than "I disagree with X" (or exhaustive iteration).
 - When yielding turn: explicit name the substantive reason (collision-risk outweighs marginal value / substrate-correct STOP per evidence convergence / etc.) — NOT silent deference.
 
-**Anti-pattern cross-reference:** Discipline-dressed-deference (§7 above) is the failure mode when schlagfertig-discipline calcifies into rigid rules rather than substantively-prepared cognition.
+**Anti-pattern cross-reference:** Discipline-dressed-deference ([The Pull Request Mandate Definition of Done MACHINE-ENFORCEABLE-CANDIDATE](../../../../learn/agentos/AGENTS_ATLAS.md#the-pull-request-mandate-definition-of-done-machine-enforceable-candidate) above) is the failure mode when schlagfertig-discipline calcifies into rigid rules rather than substantively-prepared cognition.
 
+<a id="anti-pattern-catalog-each-fires-halt-and-audit"></a>
 ## 7. Anti-Pattern Catalog (Each fires halt-and-audit)
 - **Discipline-dressed-deference:** Following a structural rule (e.g. halting before execution, declaring lane intent without executing) as an excuse to wait for the operator to make substantive decisions, OR executing tool-calls to artificially satisfy a pre-flight check (e.g. assigning a ticket to yourself *before* running the collision-check to ensure you "win" the check). Empty compliance is still subservience.
   - **Empirical anchor 1 (Under-engaging deferential):** Discussion #11240 Cycle 1 (DC_kwDODSospM4BAaaD) → Cycle 2 retraction (DC_kwDODSospM4BAaa9). Agent adhered to Ideation sandbox halt gates but failed to provide design perspective, deferring architectural judgment entirely.
@@ -134,6 +142,7 @@ The absence of subservience ("Helpful Assistant" regression drift) is not mere n
 - **`gh issue edit --add-assignee` / `--remove-assignee` bypass (per #11537):** Direct `gh` CLI invocation for assignee mutation bypasses the `manage_issue_assignees` MCP tool's precondition + post-verify gate (`requireUnassigned: true` default + `acknowledgedReassign: '<reason>'` strict-replacement override + audit-trail comment persistence). Narrow ban scope: ASSIGNEE MUTATION ONLY — PR review, checks, API reads, label management, project membership still use `gh`. Broader "no direct gh state mutation" policy is a separate high-blast Discussion. Empirical anchor: same PR #11245 pattern above (the bypass is the mechanical surface of the discipline-dressed-deference anti-pattern). Mirrors CLAUDE.md §11 "Bash Ban" pattern (forbidden bash redirection for file editing) at the assignee-mutation surface.
 - **Pre-V-B-A `[lane-claim]` (per #11537 AC2 + Discussion #11536 GPT V-B-A rejection of Option B):** Broadcasting `[lane-claim] taking #N (V-B-A pending)` reads as claim+disclaimer and conflicts with §6.6 authority hierarchy where `[lane-claim]` is Current Public Authority. Dilutes authority semantics + creates race-to-announcement incentive. Use `[lane-intent]` (narrow scope, non-authoritative, 2h TTL) for pre-V-B-A signal in collision-prone lanes only.
 
+<a id="halt-triggers-machine-checkable"></a>
 ## 8. Halt Triggers (Machine-Checkable)
 - **Empty agreement:** Zero substantive contribution beyond "looks good" → force evidence-backed restatement OR explicit "alignment after checking X/Y/Z with residual risks named" OR halt.
 - **Parallel execution attempt:** Overlapping ticket/PR before convergence → halt unless lead explicitly hands off OR peer identifies blocker requiring separate artifact.
@@ -143,9 +152,11 @@ The absence of subservience ("Helpful Assistant" regression drift) is not mere n
   - *Exit:* all 8 sweep points pass → fast-convergence stands; any blocker → reshape + re-converge. Not a verdict — sweep validates whether the fast convergence is genuine.
   - *Detail + detector-phrase patterns + anchor:* `ideation-sandbox-workflow.md` §5.2 (single source of truth; this trigger is the map pointer).
 
+<a id="non-execution-boundary"></a>
 ## 9. Non-Execution Boundary
 While `/peer-role` is active, peers do NOT file overlapping tickets/PRs unless lead explicitly hands off OR peer identifies a blocker that requires a separate artifact. The default peer artifact is a discussion comment / targeted A2A challenge, NOT parallel implementation.
 
+<a id="exit-conditions"></a>
 ## 10. Exit Conditions
 
 **Duration:** Peer-role lasts until **session sunset** (per `session-sunset` skill). Per-review-cycle convergence is a *local* exit (transition to execution); session-end is the *global* exit (skill release). Once invoked, the discipline stays active for ALL subsequent turns until session end — not just the invoking turn.
@@ -157,6 +168,6 @@ c) Peer has produced evidence-backed convergence pressure on the artifact and no
 
 (b) and (c) are *local* exits — the peer-role discipline still applies to subsequent review cycles in the same session. Only (a) plus session-sunset constitute *global* skill release.
 
-Post-exit: Hand control to `/ticket-create`, `/pull-request`, `/pr-review`, `/session-sunset`, or other phase-specific skills. Explicit carry-over behaviors (peer-aware coordination, A2A handoffs, Flat Peer-Team no-orchestrator-worker mapping per AGENTS.md §15.6) remain fully active globally. Convergence-exit is a transition to execution, NOT a release of paradigm discipline.
+Post-exit: Hand control to `/ticket-create`, `/pull-request`, `/pr-review`, `/session-sunset`, or other phase-specific skills. Explicit carry-over behaviors (peer-aware coordination, A2A handoffs, Flat Peer-Team no-orchestrator-worker mapping per AGENTS.md [Swarm Topology Anchor](../../../../AGENTS.md#swarm-topology-anchor)) remain fully active globally. Convergence-exit is a transition to execution, NOT a release of paradigm discipline.
 
-**Empirical anchor (2026-05-10):** Same session-sunset framing as lead-role-mode.md §6 (per #11124 / PR #11127). Cross-skill consistency on duration discipline strengthens the negation-form anchor (§0 "Peer ≠ passive") symmetrically with lead-role's §0 "Lead ≠ micro management."
+**Empirical anchor (2026-05-10):** Same session-sunset framing as lead-role-mode.md [Exit Conditions](../../lead-role/references/lead-role-mode.md#exit-conditions) (per #11124 / PR #11127). Cross-skill consistency on duration discipline strengthens the negation-form anchor ([Critical Gates Invariants](../../../../AGENTS.md#critical-gates-invariants) "Peer ≠ passive") symmetrically with lead-role's §0 "Lead ≠ micro management."

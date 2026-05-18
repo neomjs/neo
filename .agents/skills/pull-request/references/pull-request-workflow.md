@@ -4,6 +4,7 @@ This document outlines the authoritative protocol for structuring and executing 
 
 By consolidating the PR creation logic here, we prevent our agents from falling into tactical loops and enforce architectural reflection before any code is merged.
 
+<a id="the-stepping-back-reflection-protocol-pre-commit-gate"></a>
 ## 1. The "Stepping Back" Reflection Protocol (Pre-Commit Gate)
 
 The act of opening a PR is an irreversible state transition in the Agent OS. Before executing the final `git commit` and `gh pr create`, you MUST step back from the tactical implementation and assume the persona of an Architect.
@@ -22,19 +23,19 @@ If your PR touches **any** of the following paths:
 - `.agents/skills/**`
 - `learn/agentos/**`
 
-You MUST include a **slot-rationale section** in your PR body. This satisfies the `AGENTS.md §13` mandate requiring explicit decay-mitigation rationale for all substrate mutations.
+You MUST include a **slot-rationale section** in your PR body. This satisfies the `AGENTS.md [Self-Evolving Systems Continuous MX Rule-Refinement Loop](../../../../AGENTS.md#self-evolving-systems-continuous-mx-rule-refinement-loop)` mandate requiring explicit decay-mitigation rationale for all substrate mutations.
 Your PR body's slot-rationale section MUST enumerate:
 - For each *added* section: its disposition (`keep` / `move` / `compress-to-trigger` / `rewrite` / `retire`) + 3-axis rating (trigger-frequency × failure-severity × enforceability).
 - For each *modified* section: its disposition delta + the reason for the shift.
 - For each *retired* section: the rationale for removal.
 
-**Default disposition for new rules:** `compress-to-trigger` is the strict default unless trigger-frequency × failure-severity × enforceability justifies `keep` in always-loaded substrate (the "Map"). Substantive rule bodies belong in conditionally-loaded `references/` payloads (the "World Atlas"), with a one-line trigger in the always-loaded `SKILL.md` or skills manifest. Justification for `keep` over `compress-to-trigger` MUST cite per-turn frequency and irreversibility (e.g., §0 Critical Gates, Mailbox Check Protocol). Net-expansion of always-loaded substrate without this justification fails the Substrate Accretion Defense per `AGENTS.md §13`.
+**Default disposition for new rules:** `compress-to-trigger` is the strict default unless trigger-frequency × failure-severity × enforceability justifies `keep` in always-loaded substrate (the "Map"). Substantive rule bodies belong in conditionally-loaded `references/` payloads (the "World Atlas"), with a one-line trigger in the always-loaded `SKILL.md` or skills manifest. Justification for `keep` over `compress-to-trigger` MUST cite per-turn frequency and irreversibility (e.g., [Critical Gates Invariants](../../../../AGENTS.md#critical-gates-invariants) Critical Gates, Mailbox Check Protocol). Net-expansion of always-loaded substrate without this justification fails the Substrate Accretion Defense per `AGENTS.md [Self-Evolving Systems Continuous MX Rule-Refinement Loop](../../../../AGENTS.md#self-evolving-systems-continuous-mx-rule-refinement-loop)`.
 
 **Env-var changes** → read [`env-var-rename-rule.md`](./env-var-rename-rule.md).
 
-### 1.2 The Ticket Assignment Pre-Flight Gate (AGENTS.md §0 Invariant 7)
+### 1.2 The Ticket Assignment Pre-Flight Gate (AGENTS.md [Critical Gates Invariants](../../../../AGENTS.md#critical-gates-invariants) Invariant 7)
 
-Before `git commit` or opening a PR, you MUST verify you are the formal assignee for the target ticket. This is the enforcement mechanism for **AGENTS.md §0 Invariant 7**. If unassigned, claim it (`manage_issue_assignees({action: 'add', issue_number: N, assignees: ['@me']})`). If assigned to someone else, halt and respect ownership.
+Before `git commit` or opening a PR, you MUST verify you are the formal assignee for the target ticket. This is the enforcement mechanism for **AGENTS.md [Critical Gates Invariants](../../../../AGENTS.md#critical-gates-invariants) Invariant 7**. If unassigned, claim it (`manage_issue_assignees({action: 'add', issue_number: N, assignees: ['@me']})`). If assigned to someone else, halt and respect ownership.
 
 ### 1.3 The FAIR-Band Pre-Flight Gate (#11433 — bypass-resistant choke-point for #11432)
 
@@ -42,6 +43,7 @@ Before `git commit` or opening a PR, you MUST verify you are the formal assignee
 
 Author-side bypass-resistant choke-point for the FAIR-band author-lane pickup discipline. Every PR body MUST include a FAIR-band stance declaration; granular payload at [`./fair-band-pre-flight-gate.md`](./fair-band-pre-flight-gate.md) defines the 4 declaration shapes (in-band / under-target / over-target-with-rationale / over-target-yield-candidate-FORBIDS-PR-open) + canonical verifier query.
 
+<a id="git-branching-mandate"></a>
 ## 2. Git Branching Mandate
 
 You are strictly forbidden from committing or pushing directly to `main` (release-only) or `dev` (default working). The *mechanism* for satisfying this rule differs by harness class.
@@ -94,6 +96,7 @@ git fetch origin
 
 If you intend to use the `sync_all` MCP tool, you MUST read [sync-all-constraints.md](./sync-all-constraints.md) before execution to prevent severe branch pollution.
 
+<a id="commit-sequence"></a>
 ## 3. Commit Sequence
 
 Your commit messages MUST follow Conventional Commits and MUST append the ticket ID so that the GitHub API and our internal memory cores can track outcomes.
@@ -123,9 +126,10 @@ Decision rule: *"Does this enable a new capability that did not exist before?"* 
     git push origin [branch-name]
     ```
 
+<a id="pull-request-creation"></a>
 ## 4. Pull Request Creation
 
-You MUST use the GitHub CLI to open a Pull Request targeting the `dev` branch. 
+You MUST use the GitHub CLI to open a Pull Request targeting the `dev` branch.
 
 If the PR changes `ai/mcp/server/<name>/config.template.mjs`, read `.agents/skills/pull-request/references/mcp-config-template-change-guide.md` before finalizing the PR body.
 
@@ -138,6 +142,7 @@ gh pr create --title "feat/fix/chore: Your Title (#TICKET_ID)" --body "Comprehen
 ```
 *(Passing the body directly ensures the PR contains the required context and aligns with the "Fat Ticket" protocol.)*
 
+<a id="self-identification-mandatory-authorship"></a>
 ## 5. Self-Identification (Mandatory Authorship)
 
 To ensure symmetric discipline across the PR lifecycle and enable accurate cross-model convergence tracking, you MUST explicitly self-identify within the PR body you generate. This mirrors the authorship requirements in the `pr-review` skill.
@@ -151,6 +156,7 @@ When you author a PR based on a handoff, ticket, or artifact synthesized by a *d
 
 This ensures A2A provenance remains graph-extractable even if you do not have a dedicated GitHub service account.
 
+<a id="definition-of-done-the-handoff-state"></a>
 ## 6. Definition of Done & The Handoff State
 
 The agent's task is strictly considered "Done" once the PR is opened and the §6.2 handoff state is set. A PR is a request for validation by an external entity (Human or QA Agent). **An agent MUST NOT autonomously run the `pr-review` skill against its own PR in headless mode.**
@@ -186,7 +192,7 @@ You MUST follow this exact handoff protocol:
 
 *(Codified per #11217, graduated from Discussion #11216; operationalizes operator directive 2026-05-11: "premature PRs → reject")*
 
-**Axis 2 of the consensus mandate** (Axis 1 is `ideation-sandbox-workflow.md §6` Discussion-graduation-gate). Without both axes, the consensus-mandate is bypassable by opening a PR before Discussion-graduation reaches 100% APPROVED.
+**Axis 2 of the consensus mandate** (Axis 1 is `ideation-sandbox-workflow.md [Graduation Trigger Consensus-Gated](../../ideation-sandbox/references/ideation-sandbox-workflow.md#graduation-trigger-consensus-gated)` Discussion-graduation-gate). Without both axes, the consensus-mandate is bypassable by opening a PR before Discussion-graduation reaches 100% APPROVED.
 
 **Scope**: PRs that implement substrate evolution **from a high-blast Discussion** (per `ideation-sandbox-workflow.md §6.1`). PRs from low-blast Discussions, direct-ticket implementations without an originating Discussion, or bug-fixes use the standard §6.1 Cross-Family Mandate alone.
 
@@ -264,7 +270,7 @@ To prevent redundant parallel effort and reviewer collision, you MUST adhere to 
 
 6. **Cross-Reviewer Divergence Routing:** When a PR uses the Architectural-Pillar Exception and the two `independent-reviewer`s formally disagree (e.g., one issues `Approved`, the other issues `Request Changes`), the swarm has reached a deadlock. Because the core Triad Swarm consists of exactly three members (Author + 2 Reviewers), there is no remaining peer to act as a tie-breaker. Trigger fires when divergence PERSISTS after one calibration cycle. If either reviewer self-corrects within their next turn (per `feedback_pr_review_iteration_calibration.md` audit-letter discipline), escalation is not yet warranted. Escalate only when both reviewers have re-engaged after seeing each other's positions and still hold divergent verdicts.
    - **Escalation Mandate:** The Author MUST escalate the divergence to human review. The Author is strictly forbidden from breaking the tie themselves.
-   - **GitHub Layer:** 
+   - **GitHub Layer:**
      - The Author MUST post a comment on the PR containing the tag `[CROSS_REVIEWER_DIVERGENCE_ESCALATION]`, objectively summarizing the architectural tension between both reviewers' positions.
      - The Author MUST call `manage_pr_reviewers` (`action: 'add'`) to explicitly request review from the human repository owner (`@tobiu`).
    - **A2A Layer:** The Author MUST send an A2A ping to both independent reviewers notifying them of the escalation.
@@ -297,14 +303,14 @@ To ensure visibility within the Memory Core (and tying into the L1 capability ma
 ### 6.3 Post-Review-Cycle Author Pickup
 
 After an author posts a review-response comment with fixup commits and the
-author-side A2A commentId handoff (`review-response-protocol.md §14`), the
+author-side A2A commentId handoff (`review-response-protocol.md [A2A Comment-ID Propagation Author Side](./review-response-protocol.md#a2a-comment-id-propagation-author-side)`), the
 author MUST invoke the `post-review-pickup` skill before ending the turn.
 
 The author-side matrix, legitimate halt states, and targeted-blocker rule live
 in `.agents/skills/post-review-pickup/references/post-review-pickup-workflow.md`.
 That payload is the Atlas entry; this section is only the map pointer that fires
 after review-response handoff completes. Reviewer-side symmetry is mapped from
-`pr-review-guide.md §11`. This is the public skill codification of the
+`pr-review-guide.md [Post-Review-Cycle Reviewer Pickup](../../pr-review/references/pr-review-guide.md#post-review-cycle-reviewer-pickup)`. This is the public skill codification of the
 `feedback_peer_not_assistant_mode` lineage.
 
 ### 6.4 Reviewer Template-Adherence Check
@@ -321,10 +327,12 @@ to redo via `/pr-review` per the skill payload. Substantive content
 + wrong shape = template-adherence Required Action; do not signal merge-eligibility
 until shape is correct.
 
+<a id="pr-comment-hygiene-a2a-propagation-edge-case"></a>
 ## 8. PR Comment Hygiene & A2A Propagation (Edge-Case)
 
 *If responding to reviewer feedback across multiple rounds, read `.agents/skills/pull-request/references/review-response-protocol.md`; otherwise skip.*
 
+<a id="pr-body-hygiene"></a>
 ## 9. PR Body Hygiene
 
 Do not blindly copy the entire ticket body into the PR description. The ticket holds the original context; the PR body summarizes the implementation delta.
@@ -335,7 +343,7 @@ You are strictly FORBIDDEN from using magic close keywords (e.g., `Closes #N`, `
 - You may only use magic close keywords on leaf sub-issues that the PR fully implements.
 
 **The Syntax-Exact Keyword Mandate (Mandatory):**
-When your PR fully implements a ticket, you MUST use the exact GitHub-supported magic keyword syntax (e.g., `Resolves #N` or `Closes #N`) on its own line. 
+When your PR fully implements a ticket, you MUST use the exact GitHub-supported magic keyword syntax (e.g., `Resolves #N` or `Closes #N`) on its own line.
 You are strictly FORBIDDEN from embedding the closing keyword in a conversational sentence (e.g., "Closes Sub 3 of Epic #X (#Y)"). GitHub's parser requires strict syntax to establish the automatic close link. If you fail to use the exact syntax, the ticket will remain open after merge.
 **Multiple Tickets Loophole:** While we strive for a 1-Ticket-to-1-PR ratio, if your PR fully resolves multiple tickets, you MUST flag each one individually. Do NOT use comma-separated lists like `Resolves #X, #Y`. Instead, use a distinct line for each ticket:
 `Resolves #X`
@@ -387,6 +395,7 @@ The `Evidence:` line is a 1-line greppable declaration of what evidence class wa
 
 The `pr-review` skill's Evidence Audit section (in `pr-review-template.md`) verifies this declaration against the close-target ACs.
 
+<a id="authorship-respect"></a>
 ## 10. Authorship Respect
 
 **You update your own authored artifacts in place. You never override another author's.**
@@ -407,6 +416,7 @@ The `pr-review` skill's Evidence Audit section (in `pr-review-template.md`) veri
   3. The Reviewer documents Verification Evidence (SHA, prior anchor, verification commands, justification) in their micro-delta review.
   4. The Reviewer broadcasts an FYI A2A indicating the unilateral polish push.
 
+<a id="substrate-awareness-assume-no-private-memory"></a>
 ## 11. Substrate Awareness ("Assume No Private Memory")
 
 When writing public artifacts (PRs, Tickets, comments), **assume the reader has access to nothing private**.

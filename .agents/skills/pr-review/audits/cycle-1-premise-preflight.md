@@ -4,7 +4,7 @@ Use this audit only when the map trigger in `pr-review-guide.md` §9.0 fires or 
 
 ## Why This Exists
 
-The four Strategic-Fit outcomes in `pr-review-guide.md` §9 were originally anchored on after-N-cycles failures such as PR #10610 -> #10611 and the PR #10607 eight-cycle pattern. Those anchors catch sunk-cost iteration after review churn has already happened.
+The four Strategic-Fit outcomes in `pr-review-guide.md` [Reading Modified Files Efficiently State Management DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#reading-modified-files-efficiently-state-management-discipline-only) were originally anchored on after-N-cycles failures such as PR #10610 -> #10611 and the PR #10607 eight-cycle pattern. Those anchors catch sunk-cost iteration after review churn has already happened.
 
 PR #11083 exposed the missing Cycle-1 case: the wrong premise was visible before any iteration. The Cycle-1 review used Request Changes with five iterative Required Actions, even though the substrate-correct shape was a single Drop+Supersede close recommendation. RA1 ("upstream Discussion needs author-graduation") was structurally not-iterable on the PR; that self-contradiction is the diagnostic.
 

@@ -1,6 +1,6 @@
 # Self-Repair Protocol (System Diagnostic & Treatment Matrix)
 
-When tasked with executing a system healthcheck, diagnosing a corrupted state, or restoring infrastructure communication (e.g., failed handoffs), you MUST execute this chronological protocol. 
+When tasked with executing a system healthcheck, diagnosing a corrupted state, or restoring infrastructure communication (e.g., failed handoffs), you MUST execute this chronological protocol.
 
 ## Phase 1: Infrastructure Verification & Playwright Testing
 Your first priority is determining if the bridge between the Neo.mjs Agent OS clients and the MCP servers is healthy.

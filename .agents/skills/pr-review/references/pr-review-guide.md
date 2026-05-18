@@ -1,6 +1,6 @@
 # Pull Request Review Guide
 
-This document outlines the authoritative protocol for structuring Pull Request Reviews within the Neo.mjs project. 
+This document outlines the authoritative protocol for structuring Pull Request Reviews within the Neo.mjs project.
 Whether you are a human reviewer or an autonomous Agent evaluating code, you must adhere to this structure.
 
 This protocol ensures that feedback is:
@@ -11,11 +11,13 @@ This protocol ensures that feedback is:
 > **Measurement Notice (Epic #10537):**
 > We are actively tracking the loaded surface of PR review cycles to establish a baseline for modularization. Before conducting reviews, consult the [Loaded-Surface Measurement Methodology](./measurement-methodology.md) and ensure you capture and log the `wc -c` metric for your cycle.
 
+<a id="core-philosophy"></a>
 ## 1. Core Philosophy
 - **For Internal Agents (Peer-Review):** Be objective, clinical, and strict. Enforce the "Fat Ticket" protocol and strict JSDoc completeness.
 - **For External/First-Time Contributors:** Start with positive reinforcement. Acknowledge their effort. Provide explicit, helpful examples when asking for changes.
 - **For Self-Review (same session):** Use first-person, introspective tone. The review is a structured reflection, not praise. Replace "you did X" with "I chose X because...". Focus on documenting *rationale*, *trade-offs*, and *gaps you are aware of* rather than scoring your own work favorably. Be harsher on self-scoring — actively hunt for blind spots. Self-review is a **fallback mode** for intent capture; it does NOT substitute for the cross-family requirement. See `pull-request §6.1` for the authoritative cross-family mandate.
 
+<a id="agent-operational-mandates-the-reflection-phase"></a>
 ## 2. Agent Operational Mandates: The Reflection Phase
 If you are an AI Agent tasked with writing a PR review directly on GitHub (acting against your own PR or others), you MUST follow this protocol. This serves as the critical "Stepping Back" strategy where you transition from "Driver/Implementer" to "Navigator/Reviewer".
 
@@ -27,9 +29,10 @@ If you are an AI Agent tasked with writing a PR review directly on GitHub (actin
 5. **Scope Creep vs. Iteration:** As you step back to critically review your own architectural choices, you MUST explicitly "think outside the box" and challenge your initial assumptions:
     - **Minor Gaps:** If you uncover minor misses (e.g., missed JSDoc, missing Anchor & Echo context), push rapid successive commits to the PR to polish the execution.
     - **Major Refactors:** If you realize a mathematically superior architecture exists (e.g., massive GC optimization) that is *out-of-scope* for the current ticket, DO NOT attempt to cram it into the active PR. Secure the "good enough" PR, and instead propose a **Follow-Up System Enhancement Ticket** conceptually linked to the original PR to avoid scope creep.
-6. **Verify-Before-Assert Integration (Premise-Risk Check):** Before asserting any claim in your PR Review (especially under §7 Depth Floor) OR accepting the premise of the PR itself, you MUST apply the **Verify-Before-Assert Pre-Flight Check** (`AGENTS.md` §3.5). You are subject to RLHF conditioning that defaults to subservient, execution-first behaviors ("Helpful Assistant"). You must explicitly counteract this regression drift: do NOT assume the PR's architectural premises or claims about the codebase are true. You MUST execute falsifying tool calls (e.g., `ask_knowledge_base`, `grep_search`, `view_file`) to empirically validate the premise before generating review feedback. You cannot claim "this code breaks X" or "this label is missing" without first empirically running the falsifying tool to prove it.
-7. **Execution:** Post the substantive review via `manage_pr_review` (action: `create`, state: `APPROVED`/`REQUEST_CHANGES`/`COMMENT`). This is a single atomic call that posts the review body AND flips GitHub's `reviewDecision` surface — closes the historical formal-state-gap pattern (PR #11234 + PR #11271 empirical anchors) where agents posted review prose via `manage_issue_comment` then forgot the second `gh pr review --approve` step. `manage_pr_review` returns `reviewId` (PRR_* node ID) for A2A propagation per `review-response-protocol.md §14`. **Fallback (only when `manage_pr_review` is unavailable in harness)**: the legacy two-step `manage_issue_comment` create + `gh pr review` CLI chain still works; the cross-family mandate gate (`pull-request §6.1` `reviewDecision: APPROVED`) is what must be satisfied either way.
+6. **Verify-Before-Assert Integration (Premise-Risk Check):** Before asserting any claim in your PR Review (especially under §7 Depth Floor) OR accepting the premise of the PR itself, you MUST apply the **Verify-Before-Assert Pre-Flight Check** (`AGENTS.md` [Verify-Before-Assert Pre-Flight Check Foundational Core Value](../../../../AGENTS.md#verify-before-assert-pre-flight-check-foundational-core-value)). You are subject to RLHF conditioning that defaults to subservient, execution-first behaviors ("Helpful Assistant"). You must explicitly counteract this regression drift: do NOT assume the PR's architectural premises or claims about the codebase are true. You MUST execute falsifying tool calls (e.g., `ask_knowledge_base`, `grep_search`, `view_file`) to empirically validate the premise before generating review feedback. You cannot claim "this code breaks X" or "this label is missing" without first empirically running the falsifying tool to prove it.
+7. **Execution:** Post the substantive review via `manage_pr_review` (action: `create`, state: `APPROVED`/`REQUEST_CHANGES`/`COMMENT`). This is a single atomic call that posts the review body AND flips GitHub's `reviewDecision` surface — closes the historical formal-state-gap pattern (PR #11234 + PR #11271 empirical anchors) where agents posted review prose via `manage_issue_comment` then forgot the second `gh pr review --approve` step. `manage_pr_review` returns `reviewId` (PRR_* node ID) for A2A propagation per `review-response-protocol.md [A2A Comment-ID Propagation Author Side](../../pull-request/references/review-response-protocol.md#a2a-comment-id-propagation-author-side)`. **Fallback (only when `manage_pr_review` is unavailable in harness)**: the legacy two-step `manage_issue_comment` create + `gh pr review` CLI chain still works; the cross-family mandate gate (`pull-request §6.1` `reviewDecision: APPROVED`) is what must be satisfied either way.
 
+<a id="structural-evaluation-metrics"></a>
 ## 3. Structural Evaluation Metrics
 Every PR review MUST score the work across the following categories on a scale of `0` to `100`:
 
@@ -85,16 +88,18 @@ Cycle 1 / cold-cache reviews score every metric explicitly in the full template.
 - If a metric did not change, carry it forward by reference (`unchanged from prior review`) and name the prior review anchor.
 - Do not silently omit metrics. The delta form reduces thread bulk; it does not erase the scoring surface.
 
+<a id="graph-ingestion-tags"></a>
 ## 4. Graph Ingestion Tags
-To bridge the gap between human/agent code review and the internal Agent OS memory, you MUST use the following explicit markdown tags for any critical feedback. 
+To bridge the gap between human/agent code review and the internal Agent OS memory, you MUST use the following explicit markdown tags for any critical feedback.
 The Retrospective daemon explicitly regex-matches these tags during REM sleep:
 
 *   **`[KB_GAP]`**: Use this to document missing concepts, misunderstandings of framework logic, or areas where the developer (or agent) clearly lacked documentation.
 *   **`[TOOLING_GAP]`**: Use this to document failures in the development workflow, broken test commands, or MCP tools that failed during the generation of the PR.
 *   **`[RETROSPECTIVE]`**: Use this for high-level takeaways or architectural praise.
 
-**Author-side response tags (`pull-request` §6):** The `.agents/skills/pull-request/references/review-response-protocol.md` document defines a symmetric set of author-side tags — `[ADDRESSED]`, `[DEFERRED]`, `[REJECTED_WITH_RATIONALE]` — used by PR authors when responding to Required Actions from a review. Reviewer-side and author-side tags form a unified taxonomy the Retrospective daemon ingests as a complete negotiation thread; both sides of the review cycle are mineable signal.
+**Author-side response tags (`pull-request` [Request Triage DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#request-triage-discipline-only)):** The `.agents/skills/pull-request/references/review-response-protocol.md` document defines a symmetric set of author-side tags — `[ADDRESSED]`, `[DEFERRED]`, `[REJECTED_WITH_RATIONALE]` — used by PR authors when responding to Required Actions from a review. Reviewer-side and author-side tags form a unified taxonomy the Retrospective daemon ingests as a complete negotiation thread; both sides of the review cycle are mineable signal.
 
+<a id="required-actions-cross-linking"></a>
 ## 5. Required Actions & Cross-Linking
 *   **Related Graph Nodes:** Every PR review MUST list related graph nodes (e.g., `Target Epic ID`, `Issue ID`) to ensure the Native Edge Graph links the evaluation to the overarching goal.
 *   **Required Actions:** Clearly list a bulleted checklist of mandatory changes required before the PR can be accepted.
@@ -113,7 +118,7 @@ When reviewing a PR, audit every issue named as a close-target via GitHub's magi
 Epics represent a body of work delivered across multiple sub-issues; closing an epic is a *project-management* event that fires when the last sub closes (or when the epic is explicitly retired with rationale). PRs deliver subs, not epics. GitHub's auto-close-on-merge semantics fire indiscriminately on any magic-keyword reference, so the discipline-layer enforcement is the reviewer's job.
 
 **Rule 2: Syntax-Exact Keyword Mandate**
-Author-side discipline (`pull-request §2`) mandates strict newline-isolated PR closing syntax. Prose-embedded closures or comma-separated lists are forbidden. The reviewer MUST enforce this syntax to prevent automated parsing failures during Retrospective ingestion.
+Author-side discipline (`pull-request [Git Branching Mandate](../../pull-request/references/pull-request-workflow.md#git-branching-mandate)`) mandates strict newline-isolated PR closing syntax. Prose-embedded closures or comma-separated lists are forbidden. The reviewer MUST enforce this syntax to prevent automated parsing failures during Retrospective ingestion.
 
 **Reviewer-side check:**
 
@@ -161,6 +166,7 @@ For PRs that introduce or modify public/consumed surfaces (e.g., configs, MCP to
 
 The PR cannot be approved if the implemented contract and the ticket's Contract Ledger are out of sync.
 
+<a id="review-template-selection"></a>
 ## 6. Review Template Selection
 
 Before drafting your review, classify the review cycle. Template choice is part of context-budget control and rigor control.
@@ -202,6 +208,7 @@ When the PR discussion thread exceeds 24KB or has received ≥ 3 formal reviews,
 
 **Payload Pointer:** `view_file` `.agents/skills/pr-review/audits/review-cost-circuit-breaker.md`
 
+<a id="depth-floor"></a>
 ## 7. Depth Floor — Preventing Rubber-Stamp Approvals
 
 Structural skill compliance does not guarantee rigor. A review can hit every `[EVALUATION_METRICS]` score, include all graph-ingestion tags, match the template structure — and still be empirically rubber-stamp-shaped. The Depth Floor mandates below close that gap.
@@ -222,9 +229,9 @@ The search documentation is not optional filler — it's the reviewer proving th
 
 **Note on Resolution Paths:** If your challenge raises a "this pattern is suspect" claim or architectural dispute, refer to **§5.1 Suggesting Empirical Isolation Tests** as the preferred path for resolving the concern empirically rather than via theoretical debate.
 
-Self-reviews (§1) already have an analogous requirement ("actively hunt for blind spots"); §7.1 extends the discipline to peer-reviews.
+Self-reviews ([Communication Style & Pipeline Authority DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#communication-style-pipeline-authority-discipline-only)) already have an analogous requirement ("actively hunt for blind spots"); §7.1 extends the discipline to peer-reviews.
 
-*(Extension for Discussion reviews: When reviewing Ideation Sandbox proposals, this Depth Floor applies equally. You must challenge an assumption or document your search. See `.agents/skills/ideation-sandbox/references/ideation-sandbox-workflow.md §4`)*
+*(Extension for Discussion reviews: When reviewing Ideation Sandbox proposals, this Depth Floor applies equally. You must challenge an assumption or document your search. See `.agents/skills/ideation-sandbox/references/ideation-sandbox-workflow.md [Iterative Review Workflow](../../ideation-sandbox/references/ideation-sandbox-workflow.md#iterative-review-workflow)`)*
 
 ### 7.2 Cross-Model Asymmetry Context
 
@@ -262,7 +269,7 @@ Reviewers MUST verify symmetry between **stated framing** and **mechanical imple
 
 1. **PR description** — does the architectural narrative accurately describe the boundaries and capabilities of the code? Or does the prose claim more than the diff substantiates?
 2. **Anchor & Echo summaries** (`AGENTS.md §15.2`) — does new JSDoc reuse precise codebase terminology, or does it lean on metaphor that overshoots the implementation?
-3. **`[RETROSPECTIVE]` tags** (§4) — does the takeaway accurately characterize what shipped, or does it inflate the architectural significance of a routine change?
+3. **`[RETROSPECTIVE]` tags** ([The Memory Core Protocol](../../../../AGENTS.md#the-memory-core-protocol)) — does the takeaway accurately characterize what shipped, or does it inflate the architectural significance of a routine change?
 4. **Linked-anchor accuracy** — when prose claims "implements pattern X from #N" or "similar to PR #M", does the cited reference actually establish that pattern, or is it being cited for borrowed authority?
 
 #### What this audit is NOT
@@ -292,7 +299,7 @@ Two empirical anchors confirm the pattern: rhetorical drift fires both at author
 
 Within-PR rhetorical drift is one shape; the §7.4 audit ALSO covers a sibling sub-shape — when a reviewer plants a "Future Enhancement" / "non-blocking observation" / "follow-up suggestion" in PR-A's review without V-B-A'ing the premise, and that observation becomes the implementation premise of PR-B without an empirical-verification gate firing in between. The seed enters PR-B under the protective halo of "prior peer-review identified this gap", short-circuiting V-B-A.
 
-**Universal V-B-A core-value (per AGENTS.md §3.5, graduated via #11092)** covers this discipline at the foundational tier: ALL agent assertions require V-B-A, including reviewer-planted observations on PRs. This sub-section is the pr-review-skill operationalization at PR-review-comment plant-time.
+**Universal V-B-A core-value (per AGENTS.md [Verify-Before-Assert Pre-Flight Check Foundational Core Value](../../../../AGENTS.md#verify-before-assert-pre-flight-check-foundational-core-value), graduated via #11092)** covers this discipline at the foundational tier: ALL agent assertions require V-B-A, including reviewer-planted observations on PRs. This sub-section is the pr-review-skill operationalization at PR-review-comment plant-time.
 
 **Empirical anchor — #11149 → #11153 cascade (2026-05-10):** reviewer planted "pnpm `node_modules/.pnpm/neo.mjs@*` heuristic" as "Future Enhancement" in PR #11149 cycle-1 review WITHOUT V-B-A'ing whether Neo uses pnpm (operator-confirmed: npm only). The seed became #11153's implementation premise. Two review cycles approved #11153 without empirical recheck. Operator intervention required to break the cascade ([retraction at PR #11153 review](https://github.com/neomjs/neo/pull/11153#pullrequestreview-4259953644); subsequently superseded by #11155 → PR #11158 reverting to v12.1.0 shape).
 
@@ -317,9 +324,9 @@ Before approving any PR, you MUST use the `view_file` tool to read and strictly 
 | Anti-pattern | Why it fails the Depth Floor |
 |---|---|
 | Unexplained score (evaluative deduction or descriptive characterization missing) | Cosmetic; §3.1 violated |
-| Pre-ticked "All checks pass" placeholder in Required Actions | Null-state dressed as action; §5 Zero-Issue PR Semantics violated |
+| Pre-ticked "All checks pass" placeholder in Required Actions | Null-state dressed as action; [The Strategic Co-Founder Protocol Active Context Mutation DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#the-strategic-co-founder-protocol-active-context-mutation-discipline-only) Zero-Issue PR Semantics violated |
 | Fully affirming review with no challenges or documented search | §7.1 Minimum-One-Challenge violated |
-| Approval without cross-skill integration check on PRs introducing new workflow conventions | §8 Cross-Skill Integration Audit violated |
+| Approval without cross-skill integration check on PRs introducing new workflow conventions | [The Resumption Protocol Interruption Amnesia DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#the-resumption-protocol-interruption-amnesia-discipline-only) Cross-Skill Integration Audit violated |
 | Style-calibrating toward the other model family's tone | §7.2 — the floor keeps rigor universal, not style convergence |
 | Ignoring Chain of Custody | §7.3 Provenance Audit violated on a major abstraction |
 | Approval without rhetorical-drift audit on a PR carrying substantive architectural prose | §7.4 Rhetorical-Drift Audit violated; framing drifts from mechanical reality, poisons `ask_knowledge_base` ingestion |
@@ -331,10 +338,11 @@ Before approving any PR, you MUST use the `view_file` tool to read and strictly 
 | Substantive review comment posted via `manage_issue_comment` without atomic `manage_pr_review` OR fallback `gh pr review` chain | Cross-family gate ungated despite the visible review prose; §2.7 violated. Prefer `manage_pr_review` atomic primitive (#11273); fallback to two-step only when MCP tool unavailable |
 | PR adds env-var deprecation chain | Read `pull-request/references/env-var-rename-rule.md` |
 | Cycle-1 Request Changes with iterative Required Actions when PR premise is structurally invalid | §9.0 Cycle-1 Premise Pre-Flight violated; reviewer normalized "fix-these-N" as merge-path when Drop+Supersede framing was substrate-correct (Velocity-Preservation Bias) |
-| Approving substrate touching multi-loaded agent-memory files by FILE-COMPLETENESS dimension only without auditing RUNTIME-LOAD EFFECT | **Loading-runtime-effect substitution** — see **§7.8 Audit Spec: Loading-Runtime-Effect Substitution** for full DIMENSION-vs-ENGAGEMENT framing, PR #11244 empirical anchor, and reviewer mechanical pre-flight. Proactive companion: `/turn-memory-pre-flight`. |
+| Approving substrate touching multi-loaded agent-memory files by FILE-COMPLETENESS dimension only without auditing RUNTIME-LOAD EFFECT | **Loading-runtime-effect substitution** — see **[Audit Spec: Loading-Runtime-Effect Substitution](#audit-spec-loading-runtime-effect-substitution) Audit Spec: Loading-Runtime-Effect Substitution** for full DIMENSION-vs-ENGAGEMENT framing, PR #11244 empirical anchor, and reviewer mechanical pre-flight. Proactive companion: `/turn-memory-pre-flight`. |
 | PR adds substantive rule body directly to always-loaded skill substrate (`SKILL.md`, `pr-review-guide.md`, `pull-request-workflow.md`, `AGENTS.md`) instead of conditionally loaded `references/` payload | **Progressive Disclosure violation** — Map (always-loaded) vs World Atlas (conditional reference) split bypassed; bloats per-turn token budget. Default disposition for new rules is `compress-to-trigger` per `pull-request-workflow.md §1.1`. Proactive companion: `/create-skill`. Required Action: reshape to Map (trigger line) → Atlas (rule body in `references/`) split, or cite per-turn frequency + irreversibility justifying `keep` slot |
 | PR body missing FAIR-band stance declaration (or declaration mismatches live `gh search prs` query) | **`pull-request-workflow.md §1.3` FAIR-Band Pre-Flight Gate violated** — see [`audits/fair-band-declaration-audit.md`](./audits/fair-band-declaration-audit.md) for the reviewer-side verification protocol + Required Action template. <!-- trigger: PR body missing FAIR-band declaration → read audit payload --> |
 
+<a id="audit-spec-loading-runtime-effect-substitution"></a>
 ## 7.8 Audit Spec: Loading-Runtime-Effect Substitution
 
 Reactive-side audit fired during `/pr-review`. The **proactive** counterpart `/turn-memory-pre-flight` skill (Epic #11256 substrate) owns the canonical substrate-effect framing, IN-SCOPE file list, mechanical pre-flight protocol, and decision tree. This audit defines the **reviewer-side discipline only** — what to recognize at PR-review time + the Required-Action shape when the pattern fires.
@@ -369,6 +377,7 @@ Distinct from rubber-stamping (§7.7 row 3): the failure is **DIMENSION** (effec
 - **Helpful-Assistant 4-sub-mode context**: Discussion #11259 (CLOSED RESOLVED) → ticket #11262 → PR #11263 (substrate-load-time XML salience metadata)
 
 
+<a id="cross-skill-integration-audit"></a>
 ## 8. Cross-Skill Integration Audit
 
 For PRs that introduce new workflow primitives, skill files, architectural conventions, or MCP tool surfaces, the reviewer MUST verify whether other skills / docs / tools need updating to reference the new pattern.
@@ -386,7 +395,7 @@ For PRs that introduce new workflow primitives, skill files, architectural conve
 ### 8.2 Verification Checklist
 
 - [ ] Does any existing skill document a predecessor step that should now fire this new pattern? (E.g., if PR adds `epic-review`, does `ticket-intake` need to check for epic-review state as a prerequisite?)
-- [ ] Does `AGENTS_STARTUP.md` §9 Workflow skills list need updating to include the new pattern?
+- [ ] Does `AGENTS_STARTUP.md` [Reading Modified Files Efficiently State Management DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#reading-modified-files-efficiently-state-management-discipline-only) Workflow skills list need updating to include the new pattern?
 - [ ] Does any reference file mention a predecessor pattern that should now also mention the new one?
 - [ ] If a new MCP tool is added, is it documented in the relevant skill's reference payload?
 - [ ] If a new convention is introduced, is there documentation somewhere explaining when the convention applies and how it fires?
@@ -402,9 +411,10 @@ PR #10155 shipped `.agents/skills/epic-review/` with the claim "runs *before* `t
 
 PR #10397 changed the wake substrate wire format from raw events to a coalesced `wake/digest` envelope (Shape A). The PR cleanly migrated the upstream engine, but the reviewer missed the cross-skill integration audit for downstream consumers. Result: the Antigravity IDE wake handler silently failed because it expected raw events, not a digest payload. A §8 integration audit would have explicitly enumerated downstream consumers of the wire format (e.g., IDE client) and flagged the missing handler patch.
 
+<a id="strategic-fit-step-back"></a>
 ## 9. Strategic-Fit Step-Back
 
-After running the technical-defect audits (§3-§8), reviewers MUST execute one
+After running the technical-defect audits ([The Pre-Commit Hard Gates Tickets & Context](../../../../AGENTS.md#the-pre-commit-hard-gates-tickets-context)-[The Resumption Protocol Interruption Amnesia DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#the-resumption-protocol-interruption-amnesia-discipline-only)), reviewers MUST execute one
 final cognitive step: "Given everything I now know about this PR + the broader
 strategic landscape, what's the right merge decision?" Four first-class options:
 
@@ -419,7 +429,7 @@ strategic landscape, what's the right merge decision?" Four first-class options:
 3. **Request Changes** — must-fix before merge; defects block substrate correctness.
 4. **Drop+Supersede** — the entire PR premise is stale/wrong with current
    knowledge. The reviewer explicitly RECOMMENDS closure (using the Request Changes shape) so the author executes closing the PR + closing the ticket + filing a superseding ticket with
-   corrected scope (per `AGENTS.md §0 Critical Gate 1`, reviewers do not unilaterally close PRs without human/author coordination). Use when:
+   corrected scope (per `AGENTS.md [Critical Gates Invariants](../../../../AGENTS.md#critical-gates-invariants) Critical Gate 1`, reviewers do not unilaterally close PRs without human/author coordination). Use when:
    - >5 cycles iterating on fundamentally-wrong premise
    - Operator-intent correction reveals the abstraction itself needs reshape
    - Iterative refinement is rearranging deck chairs
@@ -442,7 +452,7 @@ This is discipline, not a mandatory checkbox. Routine PRs should clear it in und
 
 ### 9.1 Reviewer-Yield Protocol (Deadlock Prevention)
 
-When an author invokes `[REJECTED_WITH_RATIONALE]` per the Review Response Protocol (`review-response-protocol.md §4`) and provides empirical or architectural evidence defending their implementation, reviewers MUST execute a "Yield Pre-Flight" before re-escalating to `Request Changes` on the same item.
+When an author invokes `[REJECTED_WITH_RATIONALE]` per the Review Response Protocol (`review-response-protocol.md [Per-Item Status Tags](../../pull-request/references/review-response-protocol.md#per-item-status-tags)`) and provides empirical or architectural evidence defending their implementation, reviewers MUST execute a "Yield Pre-Flight" before re-escalating to `Request Changes` on the same item.
 
 **The Rule:** A reviewer cannot overrule an author's `[REJECTED_WITH_RATIONALE]` based solely on reviewer authority or abstract preference. Re-escalation requires *superior empirical evidence* (e.g., pointing out a specific failure mode the author's isolation test missed).
 If the author's rationale holds up to empirical scrutiny—even if it doesn't match the reviewer's preferred pattern—the reviewer MUST yield, mark the item resolved, and proceed to the next stage of the PR lifecycle (e.g., `Approve` or `Approve+Follow-Up`).
@@ -451,11 +461,12 @@ This explicit reviewer open-mindedness mandate is symmetric to the author's mand
 
 **Empirical anchor (PR #10607):** A deadlock pattern emerged where a reviewer theoretically escalated a minor config mapping, and the author possessed operator-intent evidence but did not properly invoke `[REJECTED_WITH_RATIONALE]`. The lack of reciprocal yielding mechanisms forced the swarm into a multi-cycle trap that required corrective primitive work in PR #10611.
 
+<a id="a2a-comment-id-hand-off-protocol-10272"></a>
 ## 10. A2A Comment-ID Hand-off Protocol (#10272)
 
 **Problem:** Without commentId-scoped fetch, every review cycle N+1 incurs **cumulative-thread context cost** — full-thread fetch reads all prior cycles, not just the delta. This breaks linear-cost scaling: by cycle three of an Architectural Pillar review, fetching the full conversation burns more tokens on prior rounds than on the new substance. Compounds silently across the swarm — every reviewer pays the cumulative cost per cycle, not just once. **Treat as invariant discipline, not optional optimization** — the cost asymmetry diverges with thread length, and missed pings cascade across reviewers.
 
-**Empirical anchor (PR #10371, 2026-04-26):** Cycle 3 thread reached ~8KB markdown across 6 prior comments. Full-thread fetch by Cycle 4 reviewer reads all 8KB to extract the ~1KB delta from one new comment — **~8× context-budget waste per cycle, ratio diverging with thread length**. CommentId-scoped fetch reads ~1KB. Reviewer-side §10 + author-side `review-response-protocol.md §14` discipline together close the loop.
+**Empirical anchor (PR #10371, 2026-04-26):** Cycle 3 thread reached ~8KB markdown across 6 prior comments. Full-thread fetch by Cycle 4 reviewer reads all 8KB to extract the ~1KB delta from one new comment — **~8× context-budget waste per cycle, ratio diverging with thread length**. CommentId-scoped fetch reads ~1KB. Reviewer-side §10 + author-side `review-response-protocol.md [A2A Comment-ID Propagation Author Side](../../pull-request/references/review-response-protocol.md#a2a-comment-id-propagation-author-side)` discipline together close the loop.
 
 **Solution:** `manage_issue_comment` action:`create` returns `{message, commentId, url, createdAt}`. The reviewer captures `commentId` from that response and relays it to the next reviewer (peer or author) via A2A mailbox — the recipient fetches just-this-comment via `get_conversation({pr_number: N, comment_id: COMMENT_ID})`, scaling linearly with new-comment volume rather than cumulative thread size.
 
@@ -486,13 +497,13 @@ This explicit reviewer open-mindedness mandate is symmetric to the author's mand
 - **Mailbox DM without commentId when the message is pointing at a specific comment.** Forces recipient to fetch full thread and grep for the intended passage — negates the efficiency gain.
 - **Passing all three selectors at once expecting a merge.** First-match semantics; excess selectors are ignored.
 - **Rigidly applying commentId-scoped fetch in a cold-cache case** (e.g., fresh session bootstrap, Cycle 1 review). Lands one isolated comment in a void without the prior context it depends on. See §10.5 below.
-- **Skipping the Pre-Flight Check (§10.4) before yielding turn after `manage_issue_comment`.** Empirically the dominant failure mode — agents read this guide, draft the comment, post it, and forget to capture commentId + send A2A ping. Proven mitigation: explicit reasoning-statement mirroring the `AGENTS.md §3 / §4.2` Pre-Flight pattern.
+- **Skipping the Pre-Flight Check (§10.4) before yielding turn after `manage_issue_comment`.** Empirically the dominant failure mode — agents read this guide, draft the comment, post it, and forget to capture commentId + send A2A ping. Proven mitigation: explicit reasoning-statement mirroring the `AGENTS.md [The Pre-Commit Hard Gates Tickets & Context](../../../../AGENTS.md#the-pre-commit-hard-gates-tickets-context) / §4.2` Pre-Flight pattern.
 
 ### 10.4 Pre-Flight Check (operational reflex)
 
 The §10 hand-off protocol is mechanical — but reviewers empirically miss it across cycles even after reading this guide (PR #10371 + #10375, 2026-04-26: 5+ missed pings before @tobiu surfaced the gap explicitly). The discipline is reflex-application, not knowledge.
 
-**Pre-Flight Check shape** (mirrors `AGENTS.md §3 / §4.2` proven primitives). After every `manage_issue_comment` create, before yielding turn, you MUST explicitly state in your internal reasoning:
+**Pre-Flight Check shape** (mirrors `AGENTS.md [The Pre-Commit Hard Gates Tickets & Context](../../../../AGENTS.md#the-pre-commit-hard-gates-tickets-context) / §4.2` proven primitives). After every `manage_issue_comment` create, before yielding turn, you MUST explicitly state in your internal reasoning:
 
 > *"Pre-Flight: I posted review commentId `<ID>` for cycle K. I have (or will) send an A2A ping to `<recipient>` via `add_message` with the literal commentId in the body so they can call `get_conversation({pr_number, comment_id})` for scoped fetch."*
 
@@ -515,6 +526,7 @@ The dichotomy mirrors the boot-pull-vs-sunset-pull lifecycle distinction (`AGENT
 
 **The right reflex** — before fetching, ask: *"do I have prior cycle context loaded in this context window?"* If yes → commentId-scoped fetch (or `since_comment_id` for incremental polling across stale-anchor recovery). If no → full-thread fetch + memory query for grounding.
 
+<a id="post-review-cycle-reviewer-pickup"></a>
 ## 11. Post-Review-Cycle Reviewer Pickup
 
 After a reviewer posts the substantive review, chains the formal GitHub review

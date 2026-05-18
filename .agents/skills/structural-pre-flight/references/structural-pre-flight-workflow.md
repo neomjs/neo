@@ -11,6 +11,7 @@ Both shipped through full `ticket-create` + `pull-request` + `pr-review` discipl
 
 This skill closes that gap. Read every section before authoring.
 
+<a id="the-two-stage-trigger"></a>
 ## 0. The Two-Stage Trigger
 
 ```
@@ -26,6 +27,7 @@ Stage 1 — Pattern-match check: "Does this file's role match an established sib
 
 **Why mechanical, not subjective.** "When work is architecturally relevant" is the very judgment the bridge-daemon authoring failed at. A mechanical trigger (every new `.mjs`) is unambiguous; the fast-path drops the cost to ~30 seconds when the choice is trivial. Subjectivity would re-open the gap this skill exists to close.
 
+<a id="stage-1-fast-path-sibling-pattern-match"></a>
 ## 1. Stage 1 Fast-Path (Sibling Pattern Match)
 
 If your new `.mjs` file has a clear sibling pattern in the chosen directory — same lifecycle category, same architectural role, same naming convention — you are inside `Sibling-File-Lift` territory and the fast-path applies.
@@ -45,6 +47,7 @@ Emit that statement before writing the file. The reasoning-statement is graph-ex
 
 **If you cannot name a sibling that matches**, you are NOT in fast-path territory. Drop to §2 (Full Pre-Flight). Manufacturing a sibling-match to skip §2 is the failure mode the empirical anchors demonstrate.
 
+<a id="stage-1-full-pre-flight-novel-directory-choice"></a>
 ## 2. Stage 1 Full Pre-Flight (Novel Directory Choice)
 
 Fires when no clear sibling pattern matches the new file's role. The cost is ~5-15 minutes of substrate consultation; that cost prevents the multi-PR cleanup cost of misplacement (empirical: #11008 → #11009 corrective + #10449 prevention skill = 3 tickets and 2 PRs because directory-choice fired late).
@@ -113,6 +116,7 @@ Per Discussion #10447 OQ5 resolution, `ArchitectureOverview.md`'s Structural Inv
 
 If you find a subsystem section in the Structural Inventory that lacks an ADR-link AND you know the relevant ADR exists, contributing the link via your current PR (or a follow-up PR) feeds the self-eviction defense.
 
+<a id="domain-specific-reading-lists"></a>
 ## 3. Domain-Specific Reading Lists
 
 ### 3.1 `ai/`-side authoring
@@ -146,10 +150,11 @@ When the new file lives in `test/playwright/`:
 
 When the new file is itself a substrate-mutation (skill, ADR, AGENTS.md update, learn/agentos/* doc):
 
-- `AGENTS.md §13` Self-Evolving Systems — substrate-accretion defense (slot-rationale required).
+- `AGENTS.md [Self-Evolving Systems Continuous MX Rule-Refinement Loop](../../../../AGENTS.md#self-evolving-systems-continuous-mx-rule-refinement-loop)` Self-Evolving Systems — substrate-accretion defense (slot-rationale required).
 - `pull-request §1.1` Substrate-Mutation Pre-Flight Gate — slot-rationale section in PR body.
 - The `create-skill` skill itself if authoring a new `.agents/skills/`.
 
+<a id="integration-anchors-with-sibling-skills"></a>
 ## 4. Integration Anchors with Sibling Skills
 
 The skill is invoked from three existing skills:
@@ -160,6 +165,7 @@ The skill is invoked from three existing skills:
 
 Each integration is a 1-3 line anchor in the existing skill's reference payload — see PR #11010's anchor commits (commit `9ad4c8374`).
 
+<a id="when-you-don-t-need-to-invoke-this-skill"></a>
 ## 5. When You Don't Need To Invoke This Skill
 
 The skill does NOT fire for:
@@ -170,6 +176,7 @@ The skill does NOT fire for:
 
 **Edge case — relocating a `.mjs` file across directories:** the skill DOES fire because that's a directory-CHOICE decision even though no new file is created. Treat the destination as if it were a new file.
 
+<a id="anti-patterns"></a>
 ## 6. Anti-Patterns
 
 | Anti-pattern | Why it harms |
@@ -183,6 +190,7 @@ The skill does NOT fire for:
 | Promote a localized constraint to ADR-class | Over-decomposes the ADR substrate; localized constraints belong in Anchor & Echo guards |
 | Demote a cross-system trade-off to inline guard | Loses the precedent-setting documentation; the next agent will re-derive (and possibly mis-derive) |
 
+<a id="pre-flight-statement-examples"></a>
 ## 7. Pre-Flight Statement Examples
 
 ### 7.1 Fast-Path Example
@@ -195,28 +203,30 @@ The skill does NOT fire for:
 
 The full-pre-flight statement is verbose by design. Brevity hides reasoning; verbosity creates audit substrate.
 
+<a id="verification-hooks"></a>
 ## 8. Verification Hooks
 
-A mechanical-enforcement candidate (per `AGENTS.md §13` MX-loop): a pre-commit hook OR PR-review check could grep the latest commit for new `.mjs` files and verify a Pre-Flight statement was included in either the commit message body or a PR comment. That's a Phase 2 enhancement; current Phase 1 relies on the skill firing at authoring time as a `DISCIPLINE-ONLY` rule.
+A mechanical-enforcement candidate (per `AGENTS.md [Self-Evolving Systems Continuous MX Rule-Refinement Loop](../../../../AGENTS.md#self-evolving-systems-continuous-mx-rule-refinement-loop)` MX-loop): a pre-commit hook OR PR-review check could grep the latest commit for new `.mjs` files and verify a Pre-Flight statement was included in either the commit message body or a PR comment. That's a Phase 2 enhancement; current Phase 1 relies on the skill firing at authoring time as a `DISCIPLINE-ONLY` rule.
 
+<a id="compaction-taxonomy"></a>
 ## 9. Compaction Taxonomy
 
 | Section | Disposition | Tag |
 |---|---|---|
-| §0 Two-Stage Trigger | `keep` | `MACHINE-ENFORCEABLE-CANDIDATE` |
-| §1 Fast-Path | `keep` | `DISCIPLINE-ONLY` |
+| [Critical Gates Invariants](../../../../AGENTS.md#critical-gates-invariants) Two-Stage Trigger | `keep` | `MACHINE-ENFORCEABLE-CANDIDATE` |
+| [Communication Style & Pipeline Authority DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#communication-style-pipeline-authority-discipline-only) Fast-Path | `keep` | `DISCIPLINE-ONLY` |
 | §2.1 Substrate-Grounded Reading | `keep` | `DISCIPLINE-ONLY` |
 | §2.2 Pre-Flight Check Shape | `keep` | `DISCIPLINE-ONLY` |
 | §2.3 Chief-Architect Framing | `keep` | `DISCIPLINE-ONLY` |
 | §2.4 Map-Maintenance (Blocking AC) | `keep` | `MACHINE-ENFORCEABLE-CANDIDATE` |
 | §2.5 ADR-Genesis Threshold | `keep` | `DISCIPLINE-ONLY` |
 | §2.6 Map-as-Pointer | `compress-to-trigger` | `DISCIPLINE-ONLY` |
-| §3 Domain-Specific Reading Lists | `keep` | `DISCIPLINE-ONLY` |
-| §4 Integration Anchors | `keep` | `DISCIPLINE-ONLY` |
-| §5 When NOT to Invoke | `keep` | `DISCIPLINE-ONLY` |
-| §6 Anti-Patterns | `keep` | `DISCIPLINE-ONLY` |
-| §7 Examples | `keep` | `DISCIPLINE-ONLY` |
-| §8 Verification Hooks | `compress-to-trigger` | `MACHINE-ENFORCEABLE-CANDIDATE` |
-| §9 Compaction Taxonomy | `keep` | meta — required by `AGENTS.md §13` for substrate audits |
+| [The Pre-Commit Hard Gates Tickets & Context](../../../../AGENTS.md#the-pre-commit-hard-gates-tickets-context) Domain-Specific Reading Lists | `keep` | `DISCIPLINE-ONLY` |
+| [The Memory Core Protocol](../../../../AGENTS.md#the-memory-core-protocol) Integration Anchors | `keep` | `DISCIPLINE-ONLY` |
+| [The Strategic Co-Founder Protocol Active Context Mutation DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#the-strategic-co-founder-protocol-active-context-mutation-discipline-only) When NOT to Invoke | `keep` | `DISCIPLINE-ONLY` |
+| [Request Triage DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#request-triage-discipline-only) Anti-Patterns | `keep` | `DISCIPLINE-ONLY` |
+| [The Pull Request Mandate Definition of Done MACHINE-ENFORCEABLE-CANDIDATE](../../../../learn/agentos/AGENTS_ATLAS.md#the-pull-request-mandate-definition-of-done-machine-enforceable-candidate) Examples | `keep` | `DISCIPLINE-ONLY` |
+| [The Resumption Protocol Interruption Amnesia DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#the-resumption-protocol-interruption-amnesia-discipline-only) Verification Hooks | `compress-to-trigger` | `MACHINE-ENFORCEABLE-CANDIDATE` |
+| [Reading Modified Files Efficiently State Management DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#reading-modified-files-efficiently-state-management-discipline-only) Compaction Taxonomy | `keep` | meta — required by `AGENTS.md [Self-Evolving Systems Continuous MX Rule-Refinement Loop](../../../../AGENTS.md#self-evolving-systems-continuous-mx-rule-refinement-loop)` for substrate audits |
 
 The Skill's per-section compaction-taxonomy is itself substrate evidence the discipline fires; future compaction efforts inherit the disposition + tag rather than re-deriving them.

@@ -4,6 +4,7 @@ Authoritative protocol for pre-work review of epics. Epic-review is a skill-gate
 
 Epic errors have N-sub blast radius. By the time `pr-review` catches drift on sub N, subs 1..N-1 have already pulled in the same wrong assumption. This skill gates at the larger blast radius — catching scope or approach errors *before* any sub work begins, when the cost of pivoting is cheapest.
 
+<a id="when-to-invoke"></a>
 ## 1. When to Invoke
 
 Fire this skill when **either** condition holds:
@@ -17,6 +18,7 @@ Different model-identities reviewing the same epic independently is **encouraged
 
 If the epic body has materially changed since your prior review (check `updatedAt` vs your comment's timestamp), re-run this skill and post an updated review.
 
+<a id="pre-review-context-pull"></a>
 ## 2. Pre-Review Context Pull
 
 Before running the six-stage chain, pull the following context:
@@ -29,6 +31,7 @@ Before running the six-stage chain, pull the following context:
    - `query_raw_memories({query: '<epic-subject>'})` — finer-grained reasoning trails
 4. **Duplicate sweep.** Has a similar epic been filed and either closed or superseded? Check `resources/content/issues/` (active and archived) before running stage 1.
 
+<a id="the-six-stage-chain"></a>
 ## 3. The Six-Stage Chain
 
 **Ordering is load-bearing.** Stage 1 failure halts all subsequent stages. Stage 2 failure halts stages 2.5-5. An epic that doesn't fit the roadmap should not undergo scope-coherence review — that work is wasted if the epic gets closed or pivoted. Do not short-circuit the gating to "be thorough."
@@ -140,6 +143,7 @@ Checks:
 
 Missing traps are an **extension opportunity**, not a blocker — flag them in the comment for the epic author to add. Stage 5 never halts downstream work on its own.
 
+<a id="comment-output-format"></a>
 ## 4. Comment Output Format
 
 Post the review as a comment on the epic ticket using `manage_issue_comment` with action `create`. Use the template at `.agents/skills/epic-review/assets/epic-review-comment-template.md` as the structural skeleton.
@@ -164,6 +168,7 @@ Post the review as a comment on the epic ticket using `manage_issue_comment` wit
 
 Use the agent field on `manage_issue_comment` to self-identify: format `"[Model Name] ([Harness])"` — matches the `pr-review` self-identification pattern.
 
+<a id="per-agent-per-epic-one-shot-citation"></a>
 ## 5. Per-Agent-Per-Epic One-Shot Citation
 
 Once your model-identity has posted an epic-review comment, subsequent sub pickups from the same epic by the same identity cite the prior review by URL reference:
@@ -172,6 +177,7 @@ Once your model-identity has posted an epic-review comment, subsequent sub picku
 
 This citation belongs in the `ticket-intake` reflection step for the sub, not as a new epic comment.
 
+<a id="relationship-to-sibling-skills"></a>
 ## 6. Relationship to Sibling Skills
 
 | Skill | When | Scope | Relationship to epic-review |
@@ -182,6 +188,7 @@ This citation belongs in the `ticket-intake` reflection step for the sub, not as
 | `pr-review` | PR validation | Post-work | Complementary — epic-review catches scope/approach drift *before* work; pr-review catches execution drift *after*. Different blast radius, different timing. |
 | `epic-resolution` | Epic closeout | At sub-closure time | Sibling exit-pass to this entry-pass. Epic-review Stage 3.1 SEEDS the AC → required-evidence → owning-sub matrix; epic-resolution RECONCILES columns 4–6 (delivered PRs / achieved evidence / residual state) at closeout time. The two skills share the same matrix schema defined in [`learn/agentos/evidence-ladder.md`](../../../../learn/agentos/evidence-ladder.md). Different agents may run the two passes; the matrix-as-artifact is the contract between them. |
 
+<a id="anti-patterns"></a>
 ## 7. Anti-Patterns
 
 | Anti-pattern | Why it harms |
@@ -195,6 +202,7 @@ This citation belongs in the `ticket-intake` reflection step for the sub, not as
 | Heavyweight "approval" language | Epic-review is a discipline gate, not a formal sign-off — author and agent negotiate on comment thread |
 | Style-calibrating to another model | You are the reviewer you are; the cross-model asymmetry is the point |
 
+<a id="cross-model-asymmetry"></a>
 ## 8. Cross-Model Asymmetry
 
 Different model families exhibit statistically-different failure modes when reviewing epics:
@@ -206,6 +214,7 @@ These are **complementary** failure modes. Cross-model epic-review (same epic re
 
 Do not calibrate your review to the "other model's style" — be the reviewer you are, and trust the asymmetry to compensate. If one model-family's reviews consistently miss a failure mode, the right fix is a skill enhancement (a new check in stages 1-5), not style mimicry.
 
+<a id="verification-before-posting"></a>
 ## 9. Verification Before Posting
 
 Before calling `manage_issue_comment`, confirm:

@@ -2,6 +2,7 @@
 
 When tasked with creating new end-to-end tests for the Neo.mjs framework, you must follow the **Whitebox E2E** paradigm. Traditional "black box" DOM locator testing is brittle in Neo's highly virtualized worker environment.
 
+<a id="the-pre-requisite-neural-link-exploration"></a>
 ## 1. The Pre-Requisite: Neural Link Exploration
 
 **Before writing a single line of test code**, you MUST use the Neural Link to explore the application state live.
@@ -11,9 +12,10 @@ When tasked with creating new end-to-end tests for the Neo.mjs framework, you mu
 
 *Do not guess the JSON structure of a component or a store. Read it live first.*
 
+<a id="test-suite-scaffolding"></a>
 ## 2. Test Suite Scaffolding
 
-Whitebox E2E tests belong in `test/playwright/e2e/`. 
+Whitebox E2E tests belong in `test/playwright/e2e/`.
 Always use the custom `neuralLink` Playwright fixture provided by the Neo.mjs team.
 
 ```javascript
@@ -24,7 +26,7 @@ test.describe('Button Base Feature (Neural Link)', () => {
         await page.goto('/examples/button/base/index.html');
         // Explicitly bind the bridge to the application namespace
         const nlApp = await neuralLink.connectToApp('Neo.examples.button.base');
-        
+
         // ... assertions
     });
 });
@@ -33,6 +35,7 @@ test.describe('Button Base Feature (Neural Link)', () => {
 *Crucial Note: Tests must be executed using the specific E2E config:*
 `npx playwright test test/playwright/e2e/YourTest.spec.mjs -c test/playwright/playwright.config.e2e.mjs`
 
+<a id="the-pattern-playwright-interaction-neural-link-validation"></a>
 ## 3. The Pattern: Playwright Interaction -> Neural Link Validation
 
 Instead of querying DOM nodes for text content, the definitive Whitebox paradigm is:
@@ -57,16 +60,19 @@ const queryResult = await nlApp.queryComponent(
 expect(queryResult.properties.value.id).toBe("40000");
 ```
 
+<a id="comprehensive-example"></a>
 ## 4. Comprehensive Example
 
 Before authoring a new test, closely examine the following reference implementation which showcases deep state assertions, programmatic mutation, and DOM versus Worker Engine drift validation:
 `test/playwright/e2e/ButtonBaseNL.spec.mjs`
 
+<a id="telemetry-rlaif-integration"></a>
 ## 5. Telemetry & RLAIF Integration
 
-Tests utilizing the `neuralLink` fixture inherently generate rich user interaction trajectories. These paths are extracted as structured datasets to continuously train the Swarm's autonomous agents. 
+Tests utilizing the `neuralLink` fixture inherently generate rich user interaction trajectories. These paths are extracted as structured datasets to continuously train the Swarm's autonomous agents.
 The backend daemon `ai/scripts/analyzeNlTelemetry.mjs` curates these logs from the local `memory-core.sqlite` to generate the "Golden Path" SFT/DPO datasets used in Local SLM fine-tuning pipelines.
 
+<a id="deep-dive-documentation"></a>
 ## 6. Deep Dive Documentation
 For the complete API of the `neuralLink` test SDK (`nlApp`) including simulating native VNode events, VDOM querying, and complex store inspection, you MUST reference the foundational guide:
 `learn/guides/testing/WhiteboxE2E.md`

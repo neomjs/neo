@@ -2,6 +2,7 @@
 
 This guide contains the structural knowledge and troubleshooting playbooks required to keep the Antigravity IDE stable when interacting with the Neo MCP server ecosystem.
 
+<a id="the-twin-language-server-bug-mcp-duplication"></a>
 ## 1. The Twin Language Server Bug & MCP Duplication
 
 ### The Problem
@@ -19,6 +20,7 @@ Since the April 7th release, the IDE's local workspace `.gemini/settings.json` n
 - **Consolidate** all absolute definitions into the global config: `~/.gemini/antigravity/mcp_config.json`.
 - This ensures only a single authority provisions the MCP node processes, preventing race conditions and resource contention.
 
+<a id="opt-in-vs-opt-out-server-initialization-deadlocks-chromadb"></a>
 ## 2. Opt-in vs Opt-out Server Initialization Deadlocks (ChromaDB)
 
 ### The Problem
@@ -37,6 +39,7 @@ autoStartDatabase: process.env.NEO_MEM_AUTO_START_DATABASE === 'true',
 autoStartDatabase: process.env.NEO_MEM_AUTO_START_DATABASE !== 'false',
 ```
 
+<a id="sqlite-workspace-corruption-crash-store-loading-spinner"></a>
 ## 3. SQLite Workspace Corruption Crash (`__store` / "Loading Spinner")
 
 ### The Problem
@@ -58,12 +61,13 @@ To verify, bypass the UI and use your healthcheck tools:
 
 If the tools pass, the backend is up. To fix the frontend UI crash, follow the playbook below.
 
+<a id="ui-fix-playbook-purging-ghost-workspaces"></a>
 ## 4. UI Fix Playbook: Purging Ghost Workspaces
 
 If the user wants you to fix the loading spinner UI crash, you must purge the stale arrays from the vscdb database.
 
 ### Step A: SQLite Table Wipe
-Delete the corrupted `antigravityUnifiedStateSync.sidebarWorkspaces` base64 protobuf string from the global state DB. 
+Delete the corrupted `antigravityUnifiedStateSync.sidebarWorkspaces` base64 protobuf string from the global state DB.
 *(Note: paths shown are for macOS (`/Users/<name>/...`), modify accordingly for Linux/Windows).*
 
 ```bash
@@ -92,6 +96,7 @@ If the spinner persists but the backend servers are healthy:
    rm -rf ~/Library/Application\ Support/Antigravity/GPUCache
    ```
 
+<a id="the-fresh-mcp-client-isolation-strategy-cache-bypass"></a>
 ## 5. The Fresh MCP Client Isolation Strategy (Cache Bypass)
 
 ### The Problem

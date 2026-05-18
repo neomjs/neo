@@ -2,10 +2,12 @@
 
 This document establishes the empirical baseline methodology for measuring the "loaded surface" of a PR review cycle. This is a prerequisite for Epic #10537 (Modularization of `pr-review-guide.md`) to quantify the exact context cost of the current monolithic architecture versus the proposed modular architecture.
 
+<a id="core-philosophy-loaded-byte-proxy"></a>
 ## 1. Core Philosophy: Loaded-Byte Proxy
 Token-cost estimates from different models (e.g., Claude vs Gemini) are highly variable and prone to hallucination. Therefore, the **Primary Metric** for measuring the loaded surface is the **loaded-byte count** (`wc -c`), which provides a mathematically verifiable and deterministic proxy for context window consumption.
 - **Primary Metric:** `wc -c` (loaded-byte count) of the raw strings ingested.
 
+<a id="measurement-scope"></a>
 ## 2. Measurement Scope
 The loaded surface per review cycle must capture the sum of all components actively loaded into the agent's context window, separated into static (constant framework overhead) and dynamic (PR-specific variability) components.
 
@@ -24,11 +26,13 @@ For subsequent re-reviews (Cycle N), the measurement must capture the delta payl
 **Dynamic Surface:**
 2. **The Delta Payloads:** The `wc -c` of new commits, new conversation comments, and any re-grounding context fetched.
 
+<a id="baseline-data-capture"></a>
 ## 3. Baseline Data Capture
 Before any pilot extraction (Sub-issue 2 of Epic #10537) can begin, we must capture a **minimum of 10 cycles** of baseline data. If statistical variance remains high at n=10, capture will extend to n=15 or n=20 before proceeding, to avoid extracting based on noisy or atypical cycle data.
 - The recorded data must be appended to the dedicated tracking file: `learn/agentos/measurements/pr-review-baseline-2026-04.md`.
 - **Gating Mechanism:** Sub-issue 2 (Pilot extraction of review templates) is strictly blocked until the baseline (per §3 opening) is fully captured and validated.
 
+<a id="execution-procedure"></a>
 ## 4. Execution Procedure
 1. During a PR Review, calculate the `wc -c` of the relevant files and payloads (separating Static vs Dynamic).
 2. Log the cycle details, including PR number, Cycle number, Static `wc -c`, Dynamic `wc -c`, and Total `wc -c`.

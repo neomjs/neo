@@ -4,6 +4,7 @@ This document outlines the authoritative protocol for the **Pre-Execution Reflec
 
 If you blindly accept a ticket's premise, you risk injecting regressions into the Native Edge Graph.
 
+<a id="the-validation-sweep"></a>
 ## 1. The Validation Sweep
 
 > **⚡ The "Hot Context" Fast-Path (Same-Session Creation)**
@@ -17,14 +18,14 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
    - **Pre-Triage Pre-Check (unlabeled tickets):** If the ticket lacks the mandatory `ai` provenance label, a primary label (`bug`/`enhancement`/`epic`), or relevant secondary labels, AND you have maintainer permission (`WRITE` permission or higher per `get_viewer_permission`), you MUST halt `ticket-intake` and run the `ticket-triage` skill (`.agents/skills/ticket-triage/SKILL.md`) first. `ticket-triage` applies labels via a retrospective five-stage challenge gate before the ticket becomes intake-ready. After triage completes (and labels are applied OR a clarification comment is posted), resume `ticket-intake` from this step.
 2. **Epic-Review Pre-Requisite (Blast-Radius Constraint):** If the ticket's parent is labeled `epic`, you MUST verify that the `epic-review` skill (`.agents/skills/epic-review/SKILL.md`) has been posted as a structured `epic-review` comment on the parent Epic ticket by your agent identity. If it has not, you are forbidden from proceeding. You MUST halt the `ticket-intake` process and run the `epic-review` protocol on the parent Epic first.
    - *Note:* If you have already posted an `epic-review` on this Epic in a prior session, cite the prior comment via URL and proceed with `ticket-intake`.
-3. **Verify-Before-Assert Integration (Premise-Risk Check):** At intake, you MUST apply the **Verify-Before-Assert Pre-Flight Check** (`AGENTS.md` §3.5) to the ticket's foundational premise. You are subject to RLHF conditioning that defaults to subservient, execution-first behaviors ("Helpful Assistant"). You must explicitly counteract this regression drift: do NOT assume the ticket's claims about the codebase, architecture, or priority are true. You MUST execute falsifying tool calls (e.g., `ask_knowledge_base`, `grep_search`, `view_file`) to empirically validate the premise before accepting the work.
+3. **Verify-Before-Assert Integration (Premise-Risk Check):** At intake, you MUST apply the **Verify-Before-Assert Pre-Flight Check** (`AGENTS.md` [Verify-Before-Assert Pre-Flight Check Foundational Core Value](../../../../AGENTS.md#verify-before-assert-pre-flight-check-foundational-core-value)) to the ticket's foundational premise. You are subject to RLHF conditioning that defaults to subservient, execution-first behaviors ("Helpful Assistant"). You must explicitly counteract this regression drift: do NOT assume the ticket's claims about the codebase, architecture, or priority are true. You MUST execute falsifying tool calls (e.g., `ask_knowledge_base`, `grep_search`, `view_file`) to empirically validate the premise before accepting the work.
 4. **Relevance Validation:** If the ticket involves core framework topology, use `ask_knowledge_base` to confirm if the requested feature/pattern is still architecturally valid or if it has been deprecated.
 4. **Semantic Blast-Radius Sweep:** For any ticket categorized as an architectural change or `refactor(ai)`, you MUST execute the Tech Debt Radar to ensure the incoming change does not blindly ignore adjacent, related ambient debt. Run `view_file` on `.agents/skills/tech-debt-radar/SKILL.md` to initiate a baseline semantic analysis against historical issues and Memory Core sessions before accepting the ticket premise.
 5. **Historical Amnesia Check (Unknown Unknowns):** A fresh Agent instance possesses zero intuition about past failures. Even if a ticket premise seems perfectly novel, you MUST actively query the conceptual domain. This step is the ticket-intake-specific application of the `memory-mining` skill (`.agents/skills/memory-mining/SKILL.md`) — for the full protocol and query-shape guidance, consult that skill.
    - **Primary:** Use `ask_knowledge_base` (with `type='ticket'`) first. This acts as an embedded RAG subagent that synthesizes historical context, exposing paradoxes or abandoned branches you are blind to.
    - **Secondary:** Use `query_raw_memories` against the Memory Core to surface isolated Agent iteration loops that never made it to GitHub.
 
-6. **Duplication Check:** Semantic search is significantly more powerful than string matching. 
+6. **Duplication Check:** Semantic search is significantly more powerful than string matching.
    - **Primary:** Prioritize using `ask_knowledge_base` (with `type='ticket'`) to query for overlapping active or archived initiatives. It will mathematically connect semantic concepts (e.g. mapping "payload bloat" to "n_ctx boundaries") that grep would miss.
    - **Fallback:** If you explicitly require exact keyword verification (e.g. a specific UUID or function name constraint), fallback to using `grep_search` targeting `resources/content/issues` (active and archived) and `resources/content/discussions`.
 
@@ -66,6 +67,7 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
 10. **Hypothesis vs. Root Cause Validation:** Tickets frequently prescribe specific technical solutions (e.g., "Implement X to fix Y"). You MUST NOT accept the prescribed solution blindly. You must independently investigate the systemic behavior to verify if 'X' is actually the correct solution for 'Y'.
 11. **Empirical Proof (Test-Driven Discovery):** When validating hypotheses involving complex state, token boundaries, or engine logic, do not rely solely on mental modeling. Consult the `unit-test` skill (`view_file` on `.agents/skills/unit-test/SKILL.md`) and write a localized Playwright unit-test (or an isolated draft concept) to empirically reproduce the paradox *first*. This guarantees you are solving the explicit root cause before you modify live framework architecture. Implementing a flawed directive simply because it was written in an Issue guarantees a Negative ROI.
 
+<a id="roi-return-on-investment-calculation"></a>
 ## 2. ROI (Return on Investment) Calculation
 
 Evaluate the ticket based on effort vs. architectural payoff. A ticket can yield a **Negative ROI**.
@@ -73,6 +75,7 @@ Evaluate the ticket based on effort vs. architectural payoff. A ticket can yield
 
 If your calculation results in a Negative ROI, you MUST reject the ticket — proceed to **Section 4: The Rejection Protocol**.
 
+<a id="acceptance-protocol-branch-before-code-auto-assign"></a>
 ## 3. Acceptance Protocol (Branch-Before-Code + Auto-Assign)
 
 If the ticket passes validation and yields a positive ROI, you MUST execute the following two gates **before** writing any code or modifying any files.
@@ -110,9 +113,10 @@ You are **FORBIDDEN** from executing the following tools while on the `dev` or `
 
 > **Note:** The `pull-request` skill (Section 2: Git Branching Mandate) also enforces branching before PR creation. This gate moves the enforcement upstream — the branch must exist before the *first line of code*, not the last.
 
+<a id="the-rejection-protocol-handling-negative-roi"></a>
 ## 4. The Rejection Protocol (Handling Negative ROI)
 
-If you determine the ticket is stale or harmful, you MUST execute the Rejection Protocol instead of attempting to build it. 
+If you determine the ticket is stale or harmful, you MUST execute the Rejection Protocol instead of attempting to build it.
 
 **Close Policy:**
 - **Architecture Exploration / Epic Tickets:** **DO NOT close the ticket.** It must be preserved so the Swarm can formally evaluate the paradox. Apply the `status: needs-re-triage` label.

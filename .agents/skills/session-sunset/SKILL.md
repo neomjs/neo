@@ -11,6 +11,6 @@ description: "Authoritative protocol for gracefully terminating an agent session
 2. **Single Task Completion:** Finishing one ticket/task while your context window is still healthy. Pick up the next task.
 3. **Asynchronous Delays:** Waiting for CI, test results, or A2A responses.
 
-Sunsets are strictly reserved for **Context Window Exhaustion** (>75% full/forgetfulness), **Macro-Semantic Pivots**, or **Explicit Human Directives**. 
+Sunsets are strictly reserved for **Context Window Exhaustion** (>75% full/forgetfulness), **Macro-Semantic Pivots**, or **Explicit Human Directives**.
 
 If you meet a valid sunset condition, you MUST immediately use the `view_file` tool to read and strictly adhere to `.agents/skills/session-sunset/references/session-sunset-workflow.md` before terminating. This prevents Zero-State Amnesia.

@@ -1,11 +1,13 @@
 # Ideation Sandbox Workflow
 
+<a id="context"></a>
 ## 1. Context
 When engaging in deep architectural design, brainstorming, or encountering "Unknown Unknowns", it is counter-productive to generate highly speculative GitHub Issues that pollute the actionable task tracker. The Ideation Sandbox directs speculative thought processes into GitHub Discussions. Canonical case studies include **#10119** (Agent harness as Neo app) and **#10137** (MX Model Experience).
 
 **Crucial Mindset Shift:** The Ideation Sandbox is NOT meant to serve as a holding pen or a "second shot" before blindly creating an Epic. It is a dedicated space to discuss, brainstorm back-and-forth, and rigorously apply **PR Depth Challenges**. As a reviewer, you are expected to actively challenge assumptions and push back on architectural proposals (just as you would in a PR), rather than merely rubber-stamping the idea for graduation.
 *For skill-authoring discipline including Progressive Disclosure (why SKILL.md is a lightweight router pointing here), see `.agents/skills/create-skill/`.*
 
+<a id="initial-proposal-authoring"></a>
 ## 2. Initial Proposal (Authoring)
 1. **Never create an Issue for ideation.** If your intent is speculative or exploratory, abort Issue creation immediately.
 2. **Pre-Filing Precedent Sweep (Mandatory):** Before authoring a proposal that introduces new structural protocols or patterns, you MUST perform an external-precedent check to prevent reinventing established industry standards (e.g., as happened during the A2A Task Schema discovery).
@@ -23,12 +25,14 @@ When engaging in deep architectural design, brainstorming, or encountering "Unkn
    - **The Rationale:** Why is this valuable?
    - **Open Questions (OQs):** What unknowns still need to be addressed?
 
+<a id="author-s-note-convention-the-10119-annotation-pattern"></a>
 ## 3. Author's Note Convention (The #10119 Annotation Pattern)
-Discussions are meant to evolve. Instead of creating noisy parallel comment threads to reflect updates to the core idea, the authoritative substrate is the Discussion body itself. 
-- Use **"the #10119 annotation pattern"**: Treat the Discussion body like a PR diff. When the idea evolves, edit the body directly (like a force-push). 
-- Add top-of-body annotation markers (e.g. `> **Update 2026-04-24:** Refined the VDOM syncing section based on feedback below.`) to signal what changed. 
+Discussions are meant to evolve. Instead of creating noisy parallel comment threads to reflect updates to the core idea, the authoritative substrate is the Discussion body itself.
+- Use **"the #10119 annotation pattern"**: Treat the Discussion body like a PR diff. When the idea evolves, edit the body directly (like a force-push).
+- Add top-of-body annotation markers (e.g. `> **Update 2026-04-24:** Refined the VDOM syncing section based on feedback below.`) to signal what changed.
 - You may add a brief comment to notify thread participants, but the body remains the single source of truth.
 
+<a id="iterative-review-workflow"></a>
 ## 4. Iterative Review Workflow
 The ideation lifecycle mirrors the PR review protocol. Comments serve as review feedback. When an Open Question (OQ) is resolved through discussion, the author edits the body to reflect the decision.
 
@@ -41,6 +45,7 @@ To enable the Retrospective daemon to ingest this negotiation, the author MUST u
 - `[DEFERRED_WITH_TIMELINE]` — The question is intentionally deferred (cite rationale and when it will be addressed).
 - `[REJECTED_WITH_RATIONALE]` — The premise of the question was found invalid or out-of-scope (cite rationale).
 
+<a id="per-domain-graduation-criteria"></a>
 ## 5. Per-Domain Graduation Criteria
 A Discussion cannot graduate until it is clearly scoped. There is no universal checklist. Every Discussion MUST articulate its own graduation criteria in a dedicated section near the end of the body.
 - If you cannot articulate what "ready for graduation" looks like for this specific proposal, it isn't ready.
@@ -62,7 +67,7 @@ A Discussion cannot graduate until it is clearly scoped. There is no universal c
 - The matrix MUST appear in the Discussion body **before any `[RESOLVED_TO_AC]` tags are applied**. Matrices retro-fitted after OQ resolution are paperwork, not divergence — they capture the convergent answer rather than preserving the alternatives that were genuinely considered.
 - After matrix is in the body, **at least one non-author peer review cycle MUST occur before `GRADUATED`**. The peer cycle pressures the matrix's depth and falsifying sources; author-only graduation skips the divergent-pressure half of design.
 
-**Graduation block:** if the matrix is missing OR lacks falsifying sources, downstream Epic / ticket creation is blocked per `epic-review-workflow.md` Stage 2 Discussion-origin backstop and per `ticket-create-workflow.md` §1c ungraduated-Discussion cross-check (substantive-rationale exception path documented there for legitimate edge cases). **Per §6 Consensus Mandate (high-blast classes only)**, graduation is ALSO blocked when the Signal Ledger lacks 3× explicit APPROVED signals (or has unresolved DEFERRED/VETO); see §6 below for full 2-axis substrate.
+**Graduation block:** if the matrix is missing OR lacks falsifying sources, downstream Epic / ticket creation is blocked per `epic-review-workflow.md` Stage 2 Discussion-origin backstop and per `ticket-create-workflow.md` [Communication Style & Pipeline Authority DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#communication-style-pipeline-authority-discipline-only)c ungraduated-Discussion cross-check (substantive-rationale exception path documented there for legitimate edge cases). **Per §6 Consensus Mandate (high-blast classes only)**, graduation is ALSO blocked when the Signal Ledger lacks 3× explicit APPROVED signals (or has unresolved DEFERRED/VETO); see §6 below for full 2-axis substrate.
 
 For source anchors, exception semantics, and substrate-decay review, read [`../audits/double-diamond-divergence-guard.md`](../audits/double-diamond-divergence-guard.md).
 
@@ -102,14 +107,15 @@ For source anchors, exception semantics, and substrate-decay review, read [`../a
 7. **Active vs archive boundary sweep** — Do not generalize archive logic to active state unless active-state churn and lookup semantics are explicitly handled.
 8. **Existing primitive sweep** — Grep CI/workflows/scripts for primitives that make the design simpler (e.g., `.github/workflows/prevent-reopen.yml` for `closedAt`-immutability leverage).
 
-**Discipline-family framing**: §5.2 extends AGENTS.md §3.5 V-B-A (factual-tier empirical-tool) to **architectural-tier** — running a cross-substrate sweep against design proposals instead of empirical claims. Both gates share the same core epistemics: surface the falsifying evidence before assertion.
+**Discipline-family framing**: §5.2 extends AGENTS.md [Verify-Before-Assert Pre-Flight Check Foundational Core Value](../../../../AGENTS.md#verify-before-assert-pre-flight-check-foundational-core-value) V-B-A (factual-tier empirical-tool) to **architectural-tier** — running a cross-substrate sweep against design proposals instead of empirical claims. Both gates share the same core epistemics: surface the falsifying evidence before assertion.
 
 **Out of scope**: low-blast-radius proposals (single-PR-worth, bounded artifact, no cross-substrate coupling) do NOT require §5.2 — would create discipline-fatigue without commensurate signal. §5.1's matrix remains optional-but-recommended for those.
 
-**Cross-skill complement**: `peer-role-mode.md` §8 third halt-trigger (convergence-rate tripwire) fires §5.2 mechanically when 3 peers reach agreement on a high-blast-radius proposal within ≤2 rounds AND no STEP_BACK comment yet exists. Detector-phrase patterns for 3rd-peer-post detection: "I agree with @peer's option X", "Adopt Option X", "Going with X" — when posted within ≤2 rounds on a high-blast-radius proposal.
+**Cross-skill complement**: `peer-role-mode.md` [The Resumption Protocol Interruption Amnesia DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#the-resumption-protocol-interruption-amnesia-discipline-only) third halt-trigger (convergence-rate tripwire) fires §5.2 mechanically when 3 peers reach agreement on a high-blast-radius proposal within ≤2 rounds AND no STEP_BACK comment yet exists. Detector-phrase patterns for 3rd-peer-post detection: "I agree with @peer's option X", "Adopt Option X", "Going with X" — when posted within ≤2 rounds on a high-blast-radius proposal.
 
 **Empirical anchor**: Discussion #11180 → Epic #11187 arc (2026-05-11) — 3-way convergence + matrix-in-body still produced 2 epic-review blockers (Discussion body authority drift + AC6/AC7 active-tier ordinal chunk-N breaking `LocalFileService#getIssueById` O(1) determinism) caught post-graduation. §5.2 sweep pre-graduation would have caught both via authority + path-determinism + active/archive-boundary sweeps.
 
+<a id="graduation-trigger-consensus-gated"></a>
 ## 6. Graduation Trigger (Consensus-Gated)
 
 *(Codified per #11217, graduated from Discussion #11216 under its own dogfooded protocol — recursive substrate validation)*
@@ -118,11 +124,11 @@ Graduation is the transition from speculative Discussion to actionable Epic / ti
 
 ### 6.1 Scope Classification (mandatory in Discussion body header)
 
-Author declares scope in Discussion body via `Scope: high-blast` or `Scope: low-blast`. Default on ambiguity: **high-blast** (conservative). Cross-family reviewers can challenge classification via `[GRADUATION_DEFERRED — reclassification request]`. Operator can override classification under AGENTS.md §0 Invariant.
+Author declares scope in Discussion body via `Scope: high-blast` or `Scope: low-blast`. Default on ambiguity: **high-blast** (conservative). Cross-family reviewers can challenge classification via `[GRADUATION_DEFERRED — reclassification request]`. Operator can override classification under AGENTS.md [Critical Gates Invariants](../../../../AGENTS.md#critical-gates-invariants) Invariant.
 
 | Class | Definition | Graduation gate |
 |-------|------------|-----------------|
-| **high-blast** | Substrate evolution (`.agents/skills/*`, `learn/agentos/*`), rule changes (AGENTS.md, §0 invariants), architectural primitives (new subsystems, MCP tools, cross-family protocols), cross-cutting policies | Full §6 Consensus Mandate (this section) |
+| **high-blast** | Substrate evolution (`.agents/skills/*`, `learn/agentos/*`), rule changes (AGENTS.md, [Critical Gates Invariants](../../../../AGENTS.md#critical-gates-invariants) invariants), architectural primitives (new subsystems, MCP tools, cross-family protocols), cross-cutting policies | Full §6 Consensus Mandate (this section) |
 | **low-blast** | Bug fix, feature implementation, documentation, test additions | §5.1 Double Diamond (≥1 peer cycle) suffices |
 
 ### 6.2 Signal Patterns (high-blast only)
@@ -158,11 +164,11 @@ When a peer signals DEFERRED, the **burden of convergence falls on the APPROVED-
 
 The DEFERRED peer is NOT obligated to either prove their case or update their signal unilaterally — they hold the substantive divergence position. The inversion ("what would change your signal?" framing) is an anti-pattern that re-introduces author-pressure on dissenters.
 
-**Reconciliation cycles**: typically resolve in 1-3 substantive cycles. If reconciliation stalls after ~20 comments, escalate to operator per AGENTS.md §0 Invariant for resolution authority.
+**Reconciliation cycles**: typically resolve in 1-3 substantive cycles. If reconciliation stalls after ~20 comments, escalate to operator per AGENTS.md [Critical Gates Invariants](../../../../AGENTS.md#critical-gates-invariants) Invariant for resolution authority.
 
 ### 6.5 Operator-Override (preserves residual risk)
 
-Per AGENTS.md §0 Invariant + §15.6 Flat Peer-Team, operator (`@tobiu`) retains override authority for graduation despite unresolved DEFERRED. **But the override does NOT erase residual risk.**
+Per AGENTS.md [Critical Gates Invariants](../../../../AGENTS.md#critical-gates-invariants) Invariant + [Swarm Topology Anchor](../../../../AGENTS.md#swarm-topology-anchor) Flat Peer-Team, operator (`@tobiu`) retains override authority for graduation despite unresolved DEFERRED. **But the override does NOT erase residual risk.**
 
 The graduated Issue / Epic / PR body MUST archive the dissent signal in a `## Unresolved Dissent` section with the DEFERRED commentId + reason + override-rationale. Future Discussions can re-open the dissent if the residual risk materializes.
 

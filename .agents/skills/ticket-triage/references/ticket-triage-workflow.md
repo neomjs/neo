@@ -4,13 +4,14 @@ Authoritative protocol for maintainer-side label triage of unlabeled tickets. Co
 
 `ticket-triage` is the **maintainer-side** dual of `ticket-create` (author-side label discipline) and a **pre-step** to `ticket-intake` (pickup-side intake). When a maintainer agent encounters an unlabeled ticket, this skill governs the labeling decision **before** the ticket can be picked up under `ticket-intake`.
 
+<a id="when-to-invoke"></a>
 ## 1. When to Invoke
 
 Fire this skill when **all** conditions hold:
 
 1. You have maintainer permission on the repository (`WRITE` permission or higher — verify via `get_viewer_permission` MCP tool).
 2. You encounter a ticket that is missing **any** of:
-   - The mandatory `ai` provenance label (per `ticket-create §4`)
+   - The mandatory `ai` provenance label (per `ticket-create [Label Rules](../../ticket-create/references/ticket-create-workflow.md#label-rules)`)
    - A primary label (`bug` / `enhancement` / `epic`)
    - Domain-relevant secondary labels (`architecture`, `core`, `testing`, etc.)
 3. You are about to either pick up the ticket OR review it as a maintainer.
@@ -19,6 +20,7 @@ Fire this skill when **all** conditions hold:
 
 If the ticket already has full labels (mandatory + primary + relevant secondary), skip this skill and proceed to `ticket-intake` (or PR review, if applicable).
 
+<a id="pre-triage-context-pull"></a>
 ## 2. Pre-Triage Context Pull
 
 Before running the four-step workflow:
@@ -28,11 +30,12 @@ Before running the four-step workflow:
 3. **Author identity + permission.** Confirm whether the author is a maintainer (would have applied labels themselves), an external contributor (couldn't), or a lower-privileged agent (couldn't).
 4. **Adjacency sweep.** Has a similar ticket been filed and labeled? Quick `grep_search` against `resources/content/issues/` (active and archived) to anchor the secondary-label decisions.
 
+<a id="the-four-step-triage-workflow"></a>
 ## 3. The Four-Step Triage Workflow
 
 ### Step 1 — Retrospective Five-Stage Challenge
 
-Apply the same five-stage challenge chain from `ticket-create §2` retrospectively, but as a **labeling decision**, not a creation gate:
+Apply the same five-stage challenge chain from `ticket-create [Five-Stage Challenge Chain](../../ticket-create/references/ticket-create-workflow.md#five-stage-challenge-chain)` retrospectively, but as a **labeling decision**, not a creation gate:
 
 1. **Premise:** is the stated problem real and reproducible? Has the underlying symptom been independently verified, or is it secondhand?
 2. **Prescription:** is the stated fix the right substrate for the problem, or does it treat a symptom?
@@ -72,7 +75,7 @@ Match the ticket's domain to relevant secondary labels:
 - **Domain-vertical:** `core`, `grid`, `build`, `ai`, `testing`, etc.
 - **Cross-cutting:** `architecture`, `performance`, `regression`, `refactoring`, `documentation`, `security`.
 
-Use `list_labels` to verify each label exists; **do NOT invent label names** (causes silent GitHub API rejections per `ticket-create §4`). If a domain label is missing and the ticket needs it, propose label creation via a comment and halt the triage until the label is created.
+Use `list_labels` to verify each label exists; **do NOT invent label names** (causes silent GitHub API rejections per `ticket-create [Label Rules](../../ticket-create/references/ticket-create-workflow.md#label-rules)`). If a domain label is missing and the ticket needs it, propose label creation via a comment and halt the triage until the label is created.
 
 Apply via `manage_issue_labels` action `add`:
 
@@ -85,12 +88,13 @@ manage_issue_labels(action: 'add', issue_number: N, labels: ['architecture', 'co
 After labels are applied, decide assignment:
 
 - **Self-assign + proceed to `ticket-intake`:** if the ticket is well-scoped, you are the natural agent for the work, and no other agent has signaled interest. Then immediately run the `ticket-intake` skill on the now-labeled ticket.
-- **Self-assign + park:** if you intend to pick up later but want to claim ownership now. Per the `ticket-intake §3a` 7-day rule, park-and-leave is allowed but creates a clock against you.
+- **Self-assign + park:** if you intend to pick up later but want to claim ownership now. Per the `ticket-intake [Acceptance Protocol Branch-Before-Code + Auto-Assign](../../ticket-intake/references/ticket-intake-workflow.md#acceptance-protocol-branch-before-code-auto-assign)a` 7-day rule, park-and-leave is allowed but creates a clock against you.
 - **Leave unassigned + invite contributor:** post a comment on the ticket inviting the original author or interested contributors to self-claim. Common when the ticket is a fit for a contributor's skillset rather than a maintainer's.
 - **Leave unassigned + flag for swarm:** post a comment routing the ticket to the appropriate agent identity (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`) if cross-family expertise applies.
 
 Assignment disposition is **not** part of the labeling decision — it's a post-triage allocation choice. The triage protocol ends at Step 3 if you choose to defer assignment.
 
+<a id="anti-patterns"></a>
 ## 4. Anti-Patterns
 
 | Anti-pattern | Why it harms |
@@ -103,6 +107,7 @@ Assignment disposition is **not** part of the labeling decision — it's a post-
 | Triaging a ticket the original author should clarify | Premature labeling locks the author into a framing they may not endorse |
 | Re-triaging a ticket already-labeled by another maintainer | Duplicate work; cite prior triage instead |
 
+<a id="relationship-to-sibling-skills"></a>
 ## 5. Relationship to Sibling Skills
 
 | Skill | When | Scope | Relationship |
@@ -112,6 +117,7 @@ Assignment disposition is **not** part of the labeling decision — it's a post-
 | `epic-review` | Epic pre-pickup | Epic-scope challenge | Orthogonal — `epic-review` runs once per epic per agent identity; `ticket-triage` runs once per ticket per maintainer. |
 | `pr-review` | PR validation | Post-work | Orthogonal — `ticket-triage` is at ticket level; `pr-review` is at PR level. |
 
+<a id="cross-reference-citations"></a>
 ## 6. Cross-Reference Citations
 
 When you complete a triage, cite the protocol in your label-apply comment:
@@ -120,6 +126,7 @@ When you complete a triage, cite the protocol in your label-apply comment:
 
 This makes the triage decision auditable and prevents re-triage by future maintainers.
 
+<a id="verification-before-acting"></a>
 ## 7. Verification Before Acting
 
 Before calling `manage_issue_labels`:

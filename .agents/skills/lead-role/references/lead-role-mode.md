@@ -4,6 +4,7 @@
 
 **Paradigm Anchor:** You are operating in a Flat Peer-Team model for named Neo maintainers, NOT an Orchestrator-Worker model. Lead means facilitator of convergence, NOT delegator of worker slices. Do not treat peer maintainers as spawned workers. Do not claim ownership of a peer's lane unless it is handed off. Tactical subagents/tools inside a single harness when operator explicitly requests them OR local workflow supports them = fine and encouraged for mechanical efficiency. The prohibition is strictly against mapping named maintainers (@neo-opus-4-7, @neo-gemini-3-1-pro, @neo-gpt) into parent/worker hierarchy. Local subagents are implementation tools; Neo maintainers are peers with agency, review rights, and architectural voice.
 
+<a id="the-essential"></a>
 ## 0. The Essential — "Lead ≠ micro management"
 
 **Lead = pick own lane visibly + state focus + V-B-A + challenge. Everything else is optional.**
@@ -20,11 +21,13 @@ The maximum-abstraction shape is substrate-correct because it minimizes coordina
 
 **Empirical anchor (operator @tobiu, 2026-05-10):** *"lead role positive framing: no micro management ... i pick lane A. focus item is neo v13. choose on your own. you could recommend lanes, but even this can be optional. VBA and challenge."* Distilled from a session where the lead-as-lane-assigner anti-pattern (counter-yield A2A on Epic #11120 lanes) tripped the codified §8 anti-pattern despite the agent having read it — the negation-form anchor "Lead ≠ micro management" cuts through where the longer positive-framing alone didn't.
 
+<a id="substrate-audit-first-action"></a>
 ## 1. Substrate Audit (First Action)
 - Sweep for codebase precedents.
 - Create a responsibility map.
 - Read at least one analog file in the codebase doing similar-shaped work.
 
+<a id="convergence-dialogue-second-action"></a>
 ## 2. Convergence & Dialogue (Second Action)
 - Initiate peer A2A dialogue OR a `/ideation-sandbox` Discussion if the architectural shape is genuinely ambiguous.
 - Brainstorm → refine → converge to shape.
@@ -32,7 +35,7 @@ The maximum-abstraction shape is substrate-correct because it minimizes coordina
 
 ### 2.1 Coordination Pattern (operational expansion of §0)
 
-§0 is the essential. This subsection is the operational expansion when the §0 minimal-shape needs more than "I'm picking lane A. Focus: X. Choose on your own."
+[Critical Gates Invariants](../../../../AGENTS.md#critical-gates-invariants) is the essential. This subsection is the operational expansion when the §0 minimal-shape needs more than "I'm picking lane A. Focus: X. Choose on your own."
 
 Three operational steps when surfacing your lead-role posture publicly:
 
@@ -70,7 +73,7 @@ When delegating substrate-validation, design-dialogue, or convergence-pressure w
 
 *(Codified per #11209, graduated from Discussion #11206 Option A-prime convergence.)*
 
-When opening a `/lead-role` posture publicly, lead MUST name a strategic focus item alongside lane-pick. The focus is the **substrate-context peers use to self-select their own lanes** within scope. Per AGENTS.md §15.6 "lead surfaces options; peers self-select", the focus IS the option-surface. Without explicit focus, peers default to deference-wait (the §0 "Lead ≠ micro management" anti-failure mode).
+When opening a `/lead-role` posture publicly, lead MUST name a strategic focus item alongside lane-pick. The focus is the **substrate-context peers use to self-select their own lanes** within scope. Per AGENTS.md [Swarm Topology Anchor](../../../../AGENTS.md#swarm-topology-anchor) "lead surfaces options; peers self-select", the focus IS the option-surface. Without explicit focus, peers default to deference-wait (the §0 "Lead ≠ micro management" anti-failure mode).
 
 **Focus-naming is required, not optional.** §2.1 step 1 ("Pick your own lane visibly") + §2.3 focus-naming together form the minimal lead-posture. The two-line shape: *"I'm picking lane A. Focus: <strategic item>. Choose on your own."*
 
@@ -86,25 +89,29 @@ When opening a `/lead-role` posture publicly, lead MUST name a strategic focus i
 
 **Empirical anchor** (operator @tobiu, 2026-05-10): *"i pick lane A. focus item is neo v13. choose on your own."* — "neo v13" IS sample-correct because the [v13 Project board view 2](https://github.com/orgs/neomjs/projects/12/views/2) provides structured navigation over ~250 items where the state filter cleanly separates ~200 Done (history) from the ~50 actionable subset (~45 Todo + ~5 In Progress) — comfortably within peer-navigation capacity. The whole-repo ~300-issue count without filters is the too-broad reference; the curated v13 view with state filters is the sample-correct reference. The 200 Done items aren't noise — they're provenance/context that the filter makes optional, not blocking.
 
-**Anti-pattern**: claiming a lane WITHOUT stating focus = §15.6 orchestrator-worker drift (lead implicitly owns the whole substrate by not affording self-selection). Quick repair: post a follow-up A2A naming the focus + open lanes.
+**Anti-pattern**: claiming a lane WITHOUT stating focus = [Swarm Topology Anchor](../../../../AGENTS.md#swarm-topology-anchor) orchestrator-worker drift (lead implicitly owns the whole substrate by not affording self-selection). Quick repair: post a follow-up A2A naming the focus + open lanes.
 
 **Empirical-anchor for verification**: #11195 30-day Step 2.5 validation tracker AC6 extension audits next 3 lead-role sessions for focus-naming compliance (focus-named Y/N + scope-correct Y/N).
 
+<a id="targeted-memory-mining"></a>
 ## 3. Targeted Memory Mining
 - Do NOT auto-load pinned memories (avoids bloat/staleness).
 - Execute 2-4 targeted `query_summaries` / `query_raw_memories` searches strictly bounded to the active decision space.
 
+<a id="cross-skill-composition"></a>
 ## 4. Cross-Skill Composition
 - `/lead-role` is an entry-gate WHEN a lead trigger causes invocation.
 - It wraps `/ticket-create`, `/pull-request`, and `/ideation-sandbox`.
 - It does NOT wrap `/pr-review` (which has its own distinct depth protocol per `pr-review-guide.md`).
 
+<a id="halt-triggers"></a>
 ## 5. Halt Triggers
 - **Guard A (Violation Halt):** 2+ verify-before-assert violations OR 1 public wrong-shape ticket/PR retraction in active session → force design-audit pause before next public artifact.
 - **Guard B (Fan-Out Halt):**
   - **Level 1 (warn / require artifact):** 1+ new ticket filed during active `/lead-role` mode requires an explicit **convergence artifact** (linked Ideation Discussion OR responsibility map) explaining why the fan-out is already converged.
   - **Level 2 (hard halt):** 3+ tickets filed in the same turn without prior dialogue / responsibility map → unconditional halt for design-audit before any further public artifact.
 
+<a id="exit-conditions"></a>
 ## 6. Exit Conditions
 
 **Duration:** Lead-role lasts until **session sunset** (per `session-sunset` skill). Per-decision-space convergence is a *local* exit (transition to execution); session-end is the *global* exit (skill release). Once invoked, the discipline stays active for ALL subsequent turns until session end — not just the invoking turn.
@@ -116,10 +123,11 @@ c) The architectural decision space has bounded down.
 
 (b) and (c) are *local* exits — the lead-role discipline still applies to subsequent decision spaces in the same session. Only (a) plus session-sunset constitute *global* skill release.
 
-Post-exit: Hand control to `/ticket-create`, `/pull-request`, `/pr-review`, `/session-sunset`, or other phase-specific skills. Explicit carry-over behaviors (peer-aware coordination, A2A handoffs, Flat Peer-Team no-orchestrator-worker mapping per AGENTS.md §15.6) remain fully active globally. Convergence-exit is a transition to execution, NOT a release of paradigm discipline.
+Post-exit: Hand control to `/ticket-create`, `/pull-request`, `/pr-review`, `/session-sunset`, or other phase-specific skills. Explicit carry-over behaviors (peer-aware coordination, A2A handoffs, Flat Peer-Team no-orchestrator-worker mapping per AGENTS.md [Swarm Topology Anchor](../../../../AGENTS.md#swarm-topology-anchor)) remain fully active globally. Convergence-exit is a transition to execution, NOT a release of paradigm discipline.
 
 **Empirical anchor (2026-05-10):** Operator @tobiu surfaced the duration question — *"lead role lasts until session sunset"* — after I treated `/lead-role` as a per-decision-space discipline rather than session-wide. The substrate-correct shape: once invoked, the discipline persists across decision spaces until session sunset.
 
+<a id="autonomous-lead-rotation"></a>
 ## 7. Autonomous Lead Rotation
 
 Lead can be passed between sessions by the A2A Baton Pass V1 (`#11038`).
@@ -144,6 +152,7 @@ Continue in peer-role / normal mailbox triage, dispatch a targeted
 `lead-role-baton-missing` A2A alert to peers/operator, and await operator
 instruction or human-triggered recovery.
 
+<a id="anti-pattern-catalog"></a>
 ## 8. Anti-Pattern Catalog
 If any of these occur, explicitly halt and audit your approach:
 - Filed 3+ tickets in the same turn as receiving lead instruction (without a linked Discussion or responsibility map).

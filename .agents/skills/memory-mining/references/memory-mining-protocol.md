@@ -4,6 +4,7 @@ This document is the authoritative playbook for the **memory-first reflex** — 
 
 The rule lives in `AGENTS_STARTUP.md §3.3`. This skill is the enforcement mechanism: invocation IS the mode switch. Reflexes-as-rules get applied inconsistently; reflexes-as-skills get applied reliably.
 
+<a id="when-to-invoke"></a>
 ## 1. When to invoke — the two gates
 
 Invoke this skill when **either** gate fires. Do not skip a gate because "I think I already know" — that is the exact failure mode the skill exists to prevent.
@@ -26,6 +27,7 @@ Before you propose, compare, or describe:
 
 If you are about to narrate the organism's state, the organism has probably already narrated itself. Check first.
 
+<a id="query-strategy"></a>
 ## 2. Query strategy
 
 Do not issue one query with many keywords. Issue 2–4 queries with **different semantic framings**, each shorter and sharper.
@@ -54,6 +56,7 @@ Stop when you have either:
 
 Do not keep querying past a clear miss. The absence of prior context is itself a useful signal.
 
+<a id="interpretation"></a>
 ## 3. Interpretation
 
 ### Distinguish three memory states
@@ -74,6 +77,7 @@ When reviewing hits, classify them:
 
 Name both explicitly in your plan: *"I am leveraging the [X] pattern from session [Y], and avoiding the [Z] trap from session [W]."*
 
+<a id="anti-patterns"></a>
 ## 4. Anti-patterns
 
 Do NOT use this skill for:
@@ -86,6 +90,7 @@ Do NOT skip this skill because:
 - "The session just started, memory is fresh" — boot-time context priming via `get_context_frontier` ≠ mid-session memory-first reflex. Different gates.
 - "The user's prompt is short" — regression symptoms arrive in short prompts. Short prompt ≠ small blast radius.
 
+<a id="exit-criteria"></a>
 ## 5. Exit criteria
 
 You have satisfied the skill if your resulting work product contains **one** of:

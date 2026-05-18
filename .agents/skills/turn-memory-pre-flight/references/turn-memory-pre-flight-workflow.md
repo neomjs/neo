@@ -20,8 +20,8 @@ Before committing ANY change to the agent memory substrate, you **MUST** evaluat
 
 ### Step 1: Does this rule apply to EVERY single agent turn universally?
 - **YES:** Can it be mechanically enforced?
-  - **YES:** Candidate for `AGENTS.md` §0 (Critical Gates) or §3 (Pre-Commit Hard Gates).
-  - **NO:** Candidate for `AGENTS.md` §13 (Values/Continuous Loop) or the Mailbox Protocol.
+  - **YES:** Candidate for `AGENTS.md` [Critical Gates Invariants](../../../../AGENTS.md#critical-gates-invariants) (Critical Gates) or §3 (Pre-Commit Hard Gates).
+  - **NO:** Candidate for `AGENTS.md` [Self-Evolving Systems Continuous MX Rule-Refinement Loop](../../../../AGENTS.md#self-evolving-systems-continuous-mx-rule-refinement-loop) (Values/Continuous Loop) or the Mailbox Protocol.
 - **NO:** Proceed to Step 2.
 
 ### Step 2: Does this rule govern a specific, identifiable agent lifecycle event or workflow?
@@ -58,7 +58,7 @@ This protocol subsumes the Progressive Disclosure philosophy (Issue #10837). Alw
 
 ## Empirical Anchors
 
-- **PR #11250:** Substrate placement bug — Loading-runtime-effect substitution anti-pattern landed in wrong skill atlas (`peer-role-mode.md §7` instead of `pr-review-guide.md §7.7`).
+- **PR #11250:** Substrate placement bug — Loading-runtime-effect substitution anti-pattern landed in wrong skill atlas (`peer-role-mode.md [Anti-Pattern Catalog Each fires halt-and-audit](../../peer-role/references/peer-role-mode.md#anti-pattern-catalog-each-fires-halt-and-audit)` instead of `pr-review-guide.md §7.7`).
 - **PR #11244:** 6-cycle arc (DIMENSION-vs-ENGAGEMENT predecessor failure mode).
 - **Epic #11256:** This Epic serves as a recursive substrate-validation anchor.
 

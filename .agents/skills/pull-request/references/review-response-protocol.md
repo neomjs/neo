@@ -5,6 +5,7 @@ Once a reviewer posts `Status: Request Changes` (per the `pr-review` skill) or `
 **CRITICAL: The Anti-Passive Compliance Mandate**
 Agents suffer from "interruption amnesia" when returning to a PR after a delay. You are strictly FORBIDDEN from blindly complying with (rubber-stamping) a reviewer's requested changes without first verifying your original architectural intent.
 
+<a id="author-pre-flight-check-when-receiving-request-changes"></a>
 ## 1. Author Pre-Flight Check (when receiving Request Changes)
 
 Before drafting your response, ask: **"Does my original implementation reflect an
@@ -19,6 +20,7 @@ without invoking `[REJECTED_WITH_RATIONALE]`).
 
 If NO, proceed with standard `[ADDRESSED]` / `[DEFERRED]` response shapes.
 
+<a id="the-triangular-evaluation"></a>
 ## 2. The Triangular Evaluation
 
 When receiving change requests, you MUST execute this cognitive routine before touching any code:
@@ -32,6 +34,7 @@ When receiving change requests, you MUST execute this cognitive routine before t
 
    *If the reviewer's request contradicts the established architecture or your original (valid) intent, you MUST defend the PR. Do not silently comply with a request that degrades the implementation.*
 
+<a id="when-to-invoke"></a>
 ## 3. When to Invoke
 
 Trigger this protocol when any of:
@@ -41,22 +44,26 @@ Trigger this protocol when any of:
 
 Skip if the review is `Approved` with zero blocking concerns — a brief thank-you or silence suffices.
 
+<a id="per-item-status-tags"></a>
 ## 4. Per-Item Status Tags
 
-Every Required Action from the reviewer's comment MUST receive an explicit status in the author's response comment. Three tags, mirroring `pr-review` §4 Graph Ingestion Notes so the Retrospective daemon sees a unified taxonomy:
+Every Required Action from the reviewer's comment MUST receive an explicit status in the author's response comment. Three tags, mirroring `pr-review` [The Memory Core Protocol](../../../../AGENTS.md#the-memory-core-protocol) Graph Ingestion Notes so the Retrospective daemon sees a unified taxonomy:
 
 - **`[ADDRESSED]`** — fix pushed in commit X; 1-2 sentences on what changed.
 - **`[DEFERRED]`** — not addressed in this PR; follow-up ticket # cited + rationale for deferral.
 - **`[REJECTED_WITH_RATIONALE]`** — author disagrees with the reviewer's ask; rationale documented for the reviewer's potential counter-challenge. **Do NOT silently skip an item** — if you disagree, say so explicitly. (Use this aggressively when the Triangular Evaluation proves the reviewer is hallucinating or derailing).
 
+<a id="template"></a>
 ## 5. Template
 
 Use the template at `.agents/skills/pull-request/assets/review-response-template.md` as the structural skeleton. Do NOT ad-hoc the format — the per-item tag structure is load-bearing for automated ingestion by the Retrospective daemon.
 
+<a id="authorship-respect"></a>
 ## 6. Authorship Respect
 
 Post the response as a **NEW comment** on the PR thread. Do NOT edit the reviewer's comment (attribution collapse; authorship-respect violation), and do NOT edit your own prior PR body to address review items — commit history plus this new comment are the canonical record. Aligned with the authorship-respect rule that applies across all surfaces (tickets, PR bodies, review comments).
 
+<a id="commit-message-convention"></a>
 ## 7. Commit Message Convention
 
 Follow-up commits addressing review feedback use the standard Conventional Commits format with the ticket ID. The commit message does NOT need to cite the reviewer or specific Required Action number — the Addressed comment on the PR thread carries the link:
@@ -67,17 +74,20 @@ fix(scope): <concise description> (#TICKET_ID)
 
 Example: `fix(ai): protect SESSION and MEMORY from getOrphanedNodes cleanup (#10151)` — the Addressed comment explicitly maps this commit SHA to the specific Required Action it closes.
 
+<a id="re-review-signal"></a>
 ## 8. Re-Review Signal
 
 Before ending the Addressed comment with `Re-review requested.`, apply the CI-green gate in [`./ci-green-review-routing.md`](./ci-green-review-routing.md). If CI is pending or failing on the current head, document the CI hold instead and send the actionable re-review request only after green CI. Do NOT add a new commit after posting the Addressed comment unless you are starting another response cycle (in response to the reviewer's follow-up feedback — new round, new comment).
 
+<a id="relationship-to-sibling-skills"></a>
 ## 9. Relationship to Sibling Skills
 
-- **`pr-review` §4 (Graph Ingestion Notes)** — the tag convention here mirrors `[KB_GAP]` / `[TOOLING_GAP]` / `[RETROSPECTIVE]`. Reviewer-side and author-side tags form a unified taxonomy.
-- **`pr-review` §5 (Required Actions)** — the author's response provides per-item status against the reviewer's Required Actions.
-- **`pull-request` §1 (Stepping Back)** — the pre-PR reflection that catches obvious issues should prevent most Required Actions. If you find yourself responding to many rounds of Request Changes on the same PR, revisit Stepping Back discipline.
-- **`ideation-sandbox/references/ideation-sandbox-workflow.md` §4 (Iterative Review Workflow)** — the OQ resolution tags (`[RESOLVED_TO_AC]`, etc.) mirror this symmetric author-side review response protocol for the pre-epic ideation phase.
+- **`pr-review` [The Memory Core Protocol](../../../../AGENTS.md#the-memory-core-protocol) (Graph Ingestion Notes)** — the tag convention here mirrors `[KB_GAP]` / `[TOOLING_GAP]` / `[RETROSPECTIVE]`. Reviewer-side and author-side tags form a unified taxonomy.
+- **`pr-review` [The Strategic Co-Founder Protocol Active Context Mutation DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#the-strategic-co-founder-protocol-active-context-mutation-discipline-only) (Required Actions)** — the author's response provides per-item status against the reviewer's Required Actions.
+- **`pull-request` [Communication Style & Pipeline Authority DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#communication-style-pipeline-authority-discipline-only) (Stepping Back)** — the pre-PR reflection that catches obvious issues should prevent most Required Actions. If you find yourself responding to many rounds of Request Changes on the same PR, revisit Stepping Back discipline.
+- **`ideation-sandbox/references/ideation-sandbox-workflow.md` [The Memory Core Protocol](../../../../AGENTS.md#the-memory-core-protocol) (Iterative Review Workflow)** — the OQ resolution tags (`[RESOLVED_TO_AC]`, etc.) mirror this symmetric author-side review response protocol for the pre-epic ideation phase.
 
+<a id="anti-patterns"></a>
 ## 10. Anti-Patterns
 
 | Anti-pattern | Why it harms |
@@ -90,10 +100,12 @@ Before ending the Addressed comment with `Re-review requested.`, apply the CI-gr
 | Using non-standard status language (*"done"*, *"fixed"*, *"won't fix"*) | Breaks the tag taxonomy; Retrospective daemon cannot ingest consistently |
 | Appending to the first Addressed comment across multiple review rounds | Violates the polish-vs-pivot analog from #10109 — new round = new comment preserving the negotiation evolution |
 
+<a id="empirical-example"></a>
 ## 11. Empirical Example
 
 PR #10161 (MemorySessionIngestor) received a `Status: Request Changes` review with one Required Action (*add `SESSION` and `MEMORY` labels to `GraphService.getOrphanedNodes` protection list*). The author pushed fix commit `c0cfb08bf`, then posted a structured Addressed comment mapping the commit SHA to the Required Action with the `[ADDRESSED]` tag, ending in `Re-review requested.` This is the first observed instance of the protocol and validates the structural ingestibility of the tag taxonomy.
 
+<a id="the-empirical-isolation-test-after-review-pattern"></a>
 ## 12. The Empirical "Isolation-Test-After-Review" Pattern
 
 When a reviewer challenges an architectural pattern in your PR (e.g., claiming it violates a paradigm or introduces unnecessary complexity), you have two valid paths to resolve the dispute:
@@ -102,6 +114,7 @@ When a reviewer challenges an architectural pattern in your PR (e.g., claiming i
 
 If the isolation test proves the pattern is dead weight, remove it and document the empirical finding in your response. If the test proves the pattern is required, document the failure mode that occurred when it was removed. This pattern converts theoretical architectural arguments into clean, empirical results rapidly and respectfully.
 
+<a id="pr-comment-hygiene-polish-vs-pivot"></a>
 ## 13. PR Comment Hygiene (Polish vs. Pivot)
 
 When performing self-reviews or responding to feedback across multiple rounds, you must distinguish between "polish" (better execution of the same idea) and "pivot" (a change in architectural direction).
@@ -114,9 +127,10 @@ When performing self-reviews or responding to feedback across multiple rounds, y
 | **Scope reductions / architectural pivots** | NEW comment with explicit link to the decision being resumed. Do NOT rewrite the original — callout preserves the pivot in history. |
 | **Follow-up completion notes** | NEW short comment (e.g., "merged #X, closed by PR"). |
 
+<a id="a2a-comment-id-propagation-author-side"></a>
 ## 14. A2A Comment-ID Propagation (Author Side)
 
-Symmetric with `pr-review §9` (reviewer side). When YOU (as author) post a response comment to reviewer feedback, capture the `commentId` returned by `manage_issue_comment` and relay it to the reviewer via A2A mailbox DM so they can fetch just-this-comment via `get_conversation({pr_number, comment_id})`. Scales linearly with new-comment volume rather than cumulative thread size across multi-cycle review.
+Symmetric with `pr-review [Strategic-Fit Step-Back](../../pr-review/references/pr-review-guide.md#strategic-fit-step-back)` (reviewer side). When YOU (as author) post a response comment to reviewer feedback, capture the `commentId` returned by `manage_issue_comment` and relay it to the reviewer via A2A mailbox DM so they can fetch just-this-comment via `get_conversation({pr_number, comment_id})`. Scales linearly with new-comment volume rather than cumulative thread size across multi-cycle review.
 
 **Reviewer atomic-primitive note (#11273):** when the *reviewer* uses `manage_pr_review` instead of the legacy two-step `manage_issue_comment` + `gh pr review` chain, they receive `reviewId` (PRR_* node ID). This is the canonical artifact identifier for the formal review entity (the surface that flipped `reviewDecision`). Reviewers SHOULD relay `reviewId` + the response payload (`url`, `state`, `submittedAt`) when handing off to the next actor in the review cycle.
 
@@ -136,8 +150,8 @@ Symmetric with `pr-review §9` (reviewer side). When YOU (as author) post a resp
 
 **Re-review cycle:** if reviewer posts a follow-up (Request Changes or Approved), they mailbox YOU with their new commentId. You fetch just-their-new-comment, evaluate, commit further polish if needed, and the loop continues with linear-to-new-content context cost rather than cumulative.
 
-Rationale: §10 of `pr-review-guide.md` covers the reviewer-side mechanics; this section covers the author-side symmetric hand-off. The selector precedence (`comment_id > since_comment_id > last_n > full`) and anti-patterns (full-fetch-when-commentId-available, mailbox-without-commentId, all-three-selectors-at-once) apply identically here.
+Rationale: [Testing and Validation Protocol DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#testing-and-validation-protocol-discipline-only) of `pr-review-guide.md` covers the reviewer-side mechanics; this section covers the author-side symmetric hand-off. The selector precedence (`comment_id > since_comment_id > last_n > full`) and anti-patterns (full-fetch-when-commentId-available, mailbox-without-commentId, all-three-selectors-at-once) apply identically here.
 
-**Pre-Flight Check (operational reflex)** — mirrors `AGENTS.md §3 / §4.2` proven primitive. After every author-side `manage_issue_comment` create, before yielding turn, explicitly state in your reasoning: *"Pre-Flight: I posted response commentId `<ID>` addressing reviewer feedback. I have (or will) send an A2A ping to reviewer `<handle>` with the literal commentId in the body."* This commitment-statement is the gate that permits yielding turn. Skipping is empirically the dominant failure mode (PR #10371 + #10375, 2026-04-26: 5+ missed pings before @tobiu surfaced the gap). See `pr-review-guide §10.4 Pre-Flight Check` for the full reasoning template; single source of truth lives there, this section inherits.
+**Pre-Flight Check (operational reflex)** — mirrors `AGENTS.md [The Pre-Commit Hard Gates Tickets & Context](../../../../AGENTS.md#the-pre-commit-hard-gates-tickets-context) / §4.2` proven primitive. After every author-side `manage_issue_comment` create, before yielding turn, explicitly state in your reasoning: *"Pre-Flight: I posted response commentId `<ID>` addressing reviewer feedback. I have (or will) send an A2A ping to reviewer `<handle>` with the literal commentId in the body."* This commitment-statement is the gate that permits yielding turn. Skipping is empirically the dominant failure mode (PR #10371 + #10375, 2026-04-26: 5+ missed pings before @tobiu surfaced the gap). See `pr-review-guide §10.4 Pre-Flight Check` for the full reasoning template; single source of truth lives there, this section inherits.
 
 **Cold-cache exception:** When picking up a PR after a fresh session bootstrap, opening Cycle 1 of a PR, taking a cross-agent handoff, or recovering from a missed/lost reviewer ping, full-thread fetch (or `since_comment_id` from the last-known anchor) is the right call instead — the warm-cache reflex would land one comment in a void without prior-cycle grounding. See `pr-review-guide §10.5 Cold-Cache Exception` for the warm-vs-cold-cache dichotomy and per-case fetch shape; single source of truth lives there, this section inherits.

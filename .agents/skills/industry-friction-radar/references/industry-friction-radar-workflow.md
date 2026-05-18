@@ -6,15 +6,15 @@ This protocol outlines the strict 3-step abstraction pipeline required to system
 
 ## The "SOTA" Trap (Mandatory Framing)
 
-The term "State of the Art" (SOTA) often acts as a semantic trap. 
-- In the **Left Hemisphere (Application Engine)**, "SOTA" often equates to accepted anti-patterns (e.g., massive main-thread Virtual DOMs, complex hydration payloads, monolithic generic state). 
+The term "State of the Art" (SOTA) often acts as a semantic trap.
+- In the **Left Hemisphere (Application Engine)**, "SOTA" often equates to accepted anti-patterns (e.g., massive main-thread Virtual DOMs, complex hydration payloads, monolithic generic state).
 - In the **Right Hemisphere (Agent OS)**, "SOTA" often equates to stateless ReAct loops, brittle context windows, and single-agent paradigms.
 
 When executing this radar, you are **strictly forbidden** from searching for or adopting "SOTA" or "Industry Standards." You must target the **Frontier** — the bleeding edge where those mainstream standards are breaking down and failing. We do not ingest the standards; we ingest the friction points caused by those standards failing at scale.
 
 ## The Architecture vs. Framework Filter
 
-Neo.mjs is an **Application Engine** (akin to Unreal or Godot), not a traditional frontend framework (akin to React, Vue, or Angular). 
+Neo.mjs is an **Application Engine** (akin to Unreal or Godot), not a traditional frontend framework (akin to React, Vue, or Angular).
 
 When evaluating trends, you **MUST** apply the Engine-Category Filter:
 - ❌ **Reject Framework-Category Noise:** Hydration strategies, Server Components (RSC), Virtual DOM reconciliation hacks, generic signals.

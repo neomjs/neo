@@ -5,6 +5,6 @@ description: "Authoritative protocol for signaling blocked or input-required tas
 
 # Blocked Task-State Coordination
 
-If you are an agent and your task transitions into a blocked, input-required, or failed state, you MUST NOT broadcast a global idle signal. 
+If you are an agent and your task transitions into a blocked, input-required, or failed state, you MUST NOT broadcast a global idle signal.
 
 You MUST immediately use the `view_file` tool to read and strictly adhere to `.agents/skills/blocked-task-state/references/blocked-task-state-workflow.md` before sending any A2A messages.

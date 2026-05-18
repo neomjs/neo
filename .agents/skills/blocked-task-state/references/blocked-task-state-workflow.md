@@ -1,15 +1,17 @@
 # Blocked Task-State Coordination Protocol
 
-This document codifies the Swarm's authoritative pattern for signaling that an agent is blocked but not completed (`InputRequired`, `Blocked`, or `Failed`). 
+This document codifies the Swarm's authoritative pattern for signaling that an agent is blocked but not completed (`InputRequired`, `Blocked`, or `Failed`).
 
 The swarm relies natively on the A2A v1.0 `Task.state` at the message-level to signal transitions when an agent is genuinely blocked. We do NOT use continuous-presence polling or global "idle" capacity broadcasts.
 
+<a id="targeted-ping-mandate-ac1"></a>
 ## 1. Targeted Ping Mandate (AC1)
 
-Blocked-task transitions (`InputRequired`, `Blocked`, `Failed`) MUST trigger a targeted ping to the specific task-assignee and the human operator. 
-- You MUST NOT send a global `AGENT:*` broadcast. 
+Blocked-task transitions (`InputRequired`, `Blocked`, `Failed`) MUST trigger a targeted ping to the specific task-assignee and the human operator.
+- You MUST NOT send a global `AGENT:*` broadcast.
 - Global broadcasts for routine tasks are explicitly banned to prevent mailbox spam.
 
+<a id="a2a-task-envelope-integration-ac2"></a>
 ## 2. A2A Task Envelope Integration (AC2)
 
 The blocked signal MUST map exactly to the native A2A `Task.state` field within the existing `add_message` task envelope.
@@ -28,6 +30,7 @@ Example `add_message` invocation:
 ```
 *(Note: A2A Protocol states are PascalCase per specification: `InputRequired`, `Blocked`, `Failed`)*
 
+<a id="negative-examples-when-not-to-trigger-ac3"></a>
 ## 3. Negative Examples (When NOT to trigger) (AC3)
 
 You MUST NOT trigger the blocked task-state pattern for the following routine events. These do NOT represent a blocked state:
@@ -36,6 +39,7 @@ You MUST NOT trigger the blocked task-state pattern for the following routine ev
 - **Completed merge eligibility:** A PR has all approvals and is waiting for the human merge gate.
 - **General availability:** Broadcasting that you have finished your current assignment and have free capacity. Idle/Capacity advertisement is strictly forbidden.
 
+<a id="payload-schema-constraints-ac4"></a>
 ## 4. Payload Schema Constraints (AC4)
 
 When sending the blocked-task A2A message, the `body` content MUST strictly contain the following constrained payload:

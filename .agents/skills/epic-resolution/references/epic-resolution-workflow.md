@@ -6,6 +6,7 @@ Sibling to `epic-review` (which is the *entry* gate at sub-creation time). `epic
 
 **Origin:** Discussion #10697 + issue #10698. Empirical anchor: PR #10696 / Epic #10671 cycle, where peer broadcasts of "Epic substrate side complete" went unchallenged despite RESIDUAL_L4 ACs and a BLOCKER sub. Mental model per @tobiu: "turn friction into gold."
 
+<a id="when-to-invoke-this-skill"></a>
 ## 1. When to invoke this skill
 
 Trigger conditions (any one fires the workflow):
@@ -17,6 +18,7 @@ Trigger conditions (any one fires the workflow):
 
 **Trigger does NOT fire for:** routine sub-merge events that aren't the last required sub; epics where ACs have not been formally articulated; non-epic issues.
 
+<a id="concurrency-guard-epic-closeout-discipline-layer-mutex"></a>
 ## 2. Concurrency guard (epic-closeout discipline-layer mutex)
 
 Before populating the matrix, check whether another agent is already running the closeout for this epic.
@@ -29,6 +31,7 @@ Before populating the matrix, check whether another agent is already running the
 
 **Optional primary-owner restriction:** if the epic has an explicit assignee, only the assignee runs the closeout. Other agents detecting the trigger A2A-ping the assignee instead of running the workflow.
 
+<a id="populate-the-matrix"></a>
 ## 3. Populate the matrix
 
 The shared matrix shape (used by both `epic-review` entry-pass and `epic-resolution` exit-pass):
@@ -51,6 +54,7 @@ For each parent AC of the epic:
    - `BLOCKER` (sub not started, sub failing, evidence below required with no path to close)
    - `RESIDUAL_AC<N> [#<followup-ticket>]` (split-follow-up filed for unproven AC)
 
+<a id="source-discussion-closeout-gate"></a>
 ## 3.5. Source Discussion Closeout Gate
 
 **Trigger:** Epic body cites a source Discussion (e.g., `Resolves Discussion #N`, `Graduates from Discussion #N`, or contains a Signal Ledger), OR the Epic was created via `epic-review` Stage 2.5 mapping (#11349) and has a `## Source Discussion Criteria Mapping` section. **N/A** for standalone Epics with no source Discussion — skip directly to §4.
@@ -76,13 +80,14 @@ For each criterion from the source Discussion's Graduation Criteria section (the
 **Verdict integration:** the Closeout Gate output feeds §4 verdict computation. Any `LOST` criterion blocks `RECOMMEND_CLOSE_COMPLETED` even when all §3 Epic AC rows are green. The remediation path:
 
 - **Recoverable in existing subs:** if the LOST criterion can be addressed by extending an existing sub's scope, recommend `KEEP_OPEN` + flag the sub for scope-extension
-- **Requires new sub:** if the LOST criterion needs new substrate work, recommend `CREATE_MISSING_SUBS` per the standard §4 + §5 path
+- **Requires new sub:** if the LOST criterion needs new substrate work, recommend `CREATE_MISSING_SUBS` per the standard §4 + [The Strategic Co-Founder Protocol Active Context Mutation DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#the-strategic-co-founder-protocol-active-context-mutation-discipline-only) path
 - **Was-actually-deferrable:** if the LOST criterion was implicitly deferred during graduation and just never explicitly captured, file a `CONVERTED TO FOLLOW-UP` ticket retroactively + update the gate row before re-verdict
 
 `EXPLICITLY DEFERRED` and `CONVERTED TO FOLLOW-UP` are acceptable closeout states with same tracked-elsewhere semantics as §3 `RESIDUAL_<X> [#<followup-ticket>]`.
 
 **Empirical anchor:** Discussion #11341 → ticket #11342 chain. The Discussion's `[RESOLVED_TO_AC]` Cycle 2 resolutions (≥30% demotion threshold + Markdown Form distinction + #11330-bound measurement + Pilot Shape: INV1 cascade detail with measurement contract) became #11342 ACs via `epic-review` Stage 2.5 mapping (#11349). At closeout this gate verifies each `[RESOLVED_TO_AC]` line and the Pilot Shape AC are delivered, explicitly deferred, or converted. Without this gate, the Pilot's "≥30% byte reduction" criterion could silently drift to "some byte reduction" if Epic ACs were diluted at creation time and never re-checked at closure.
 
+<a id="compute-the-verdict"></a>
 ## 4. Compute the verdict
 
 Apply the verdict logic in this order (highest precedence first):
@@ -97,7 +102,7 @@ Apply the verdict logic in this order (highest precedence first):
 
 **Verdict authority:** the skill produces a structured review + recommendation. **Terminal-action shape depends on the verdict**:
 
-- **`RECOMMEND_CLOSE_COMPLETED` (with zero unresolved residuals)**: the reviewer-agent SHOULD close the epic as completed via `gh issue close --reason completed` as the natural downstream of the review. The review IS the gate; the close-act is not a separate operator-gate. **This is NOT a §0 Invariant 1 parallel** — §0 strictly forbids `gh pr merge` (PR merge action only); epic-close is downstream of the review verdict, not in §0 scope. Failing to close after a clean CLOSE_COMPLETED verdict produces stale-pending-action board pollution (empirical anchor: #10691 verdict 2026-05-04 → epic closed 2026-05-11 after operator surfaced the misframing).
+- **`RECOMMEND_CLOSE_COMPLETED` (with zero unresolved residuals)**: the reviewer-agent SHOULD close the epic as completed via `gh issue close --reason completed` as the natural downstream of the review. The review IS the gate; the close-act is not a separate operator-gate. **This is NOT a §0 Invariant 1 parallel** — [Critical Gates Invariants](../../../../AGENTS.md#critical-gates-invariants) strictly forbids `gh pr merge` (PR merge action only); epic-close is downstream of the review verdict, not in §0 scope. Failing to close after a clean CLOSE_COMPLETED verdict produces stale-pending-action board pollution (empirical anchor: #10691 verdict 2026-05-04 → epic closed 2026-05-11 after operator surfaced the misframing).
 
 - **`RECOMMEND_KEEP_OPEN`**: no terminal action. Review surfaces blockers/residuals; operator or sub-owner decides path forward.
 
@@ -116,6 +121,7 @@ For `RECOMMEND_RETIRE_OR_SUPERSEDE`:
 2. Cross-reference the superseding epic / discussion if any.
 3. Operator acts on the recommendation.
 
+<a id="post-the-verdict-comment"></a>
 ## 5. Post the verdict comment
 
 Update your `## Epic Resolution Review (in progress)` comment to the final shape via `manage_issue_comment` action `update`:
@@ -149,6 +155,7 @@ Update your `## Epic Resolution Review (in progress)` comment to the final shape
 Origin Session ID: <your session UUID>
 ```
 
+<a id="a2a-peer-coordination"></a>
 ## 6. A2A peer coordination
 
 After posting the verdict comment, A2A the relevant peers:
@@ -160,6 +167,7 @@ After posting the verdict comment, A2A the relevant peers:
 
 Per `feedback_a2a_commentid_pre_flight`: post the verdict comment FIRST, capture the literal commentId, THEN compose the A2A messages with the literal commentId substituted.
 
+<a id="cross-references"></a>
 ## 7. Cross-references
 
 - `learn/agentos/evidence-ladder.md` — L1-L4 definitions + matrix schema authority
@@ -167,10 +175,11 @@ Per `feedback_a2a_commentid_pre_flight`: post the verdict comment FIRST, capture
 - `.agents/skills/pr-review/` — sub-execution gate (audits Evidence declaration on each merging PR)
 - `.agents/skills/pull-request/` — author-side Evidence declaration template
 - `.agents/skills/ticket-create/` — invoked by the operator on `RECOMMEND_CREATE_MISSING_SUBS`
-- AGENTS.md §0 Invariant 1 — verdict authority parallel (close-act reserved for human)
+- AGENTS.md [Critical Gates Invariants](../../../../AGENTS.md#critical-gates-invariants) Invariant 1 — verdict authority parallel (close-act reserved for human)
 - Discussion #10697 — origin ideation
 - Issue #10698 — graduation artifact
 
+<a id="empirical-anchor"></a>
 ## 8. Empirical anchor — Epic #10671 (motivating example)
 
 The first run of this skill should be against Epic #10671 itself — the epic whose closeout-friction motivated #10697 + #10698. Expected matrix shape:

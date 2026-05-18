@@ -182,7 +182,7 @@ For every modified or added OpenAPI tool description:
 *(Required per guide §8.1 when the PR touches skill files, conventions, MCP tool surfaces, `AGENTS_STARTUP.md` / `AGENTS.md`, or architectural primitives. Mark N/A for routine code changes that don't introduce cross-substrate conventions.)*
 
 - [ ] Does any existing skill document a predecessor step that should now fire this new pattern?
-- [ ] Does `AGENTS_STARTUP.md` §9 Workflow skills list need updating?
+- [ ] Does `AGENTS_STARTUP.md` [Reading Modified Files Efficiently State Management DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#reading-modified-files-efficiently-state-management-discipline-only) Workflow skills list need updating?
 - [ ] Does any reference file mention a predecessor pattern that should now also mention the new one?
 - [ ] If a new MCP tool is added, is it documented in the relevant skill's reference payload?
 - [ ] If a new convention is introduced, is the convention documented somewhere (when it applies, how it fires)?
@@ -230,7 +230,7 @@ To proceed with merging, please address the following:
 
 No required actions — eligible for human merge.
 
-*Do NOT use pre-ticked placeholder items like `- [x] All checks pass and no required changes identified.` — that reads as box-checking, not genuine review. Per guide §5 Zero-Issue PR Semantics + §7.7 anti-patterns table.*
+*Do NOT use pre-ticked placeholder items like `- [x] All checks pass and no required changes identified.` — that reads as box-checking, not genuine review. Per guide [Required Actions & Cross-Linking](../references/pr-review-guide.md#required-actions-cross-linking) Zero-Issue PR Semantics + §7.7 anti-patterns table.*
 
 ---
 

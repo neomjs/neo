@@ -3,12 +3,12 @@
 Use this audit when the concise workflow-map trigger points here:
 
 - `ideation-sandbox-workflow.md` §5.1 for high-blast-radius Discussion graduation.
-- `ticket-create-workflow.md` §1c for high-blast-radius tickets citing ungraduated Discussions.
+- `ticket-create-workflow.md` [Communication Style & Pipeline Authority DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#communication-style-pipeline-authority-discipline-only)c for high-blast-radius tickets citing ungraduated Discussions.
 - `epic-review-workflow.md` Stage 2 for Discussion-origin Epic backstops.
 
 ## Why This Exists
 
-`ideation-sandbox-workflow.md` §1 already names the rubber-stamp anti-pattern, but the old §5 mechanics still optimized for convergence: proposal -> OQ resolution -> graduation. PR #11095 added the Double Diamond guard so the divergent half of design is visible before convergence is locked.
+`ideation-sandbox-workflow.md` [Communication Style & Pipeline Authority DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#communication-style-pipeline-authority-discipline-only) already names the rubber-stamp anti-pattern, but the old §5 mechanics still optimized for convergence: proposal -> OQ resolution -> graduation. PR #11095 added the Double Diamond guard so the divergent half of design is visible before convergence is locked.
 
 Empirical anchors:
 
@@ -43,7 +43,7 @@ High-blast-radius tickets citing ungraduated Discussions are blocked by default 
 2. Inline divergence-matrix substance preempting the cited Discussion's expected gap.
 3. Acknowledgment that downstream amendments may be required once the cited Discussion graduates.
 
-This preserves #11079 OQ3's operator-override path as one valid case while applying AGENTS.md §15.6 + Discussion #11091: operator identity grants merge-gate authority, not substrate-discipline authority.
+This preserves #11079 OQ3's operator-override path as one valid case while applying AGENTS.md [Swarm Topology Anchor](../../../../AGENTS.md#swarm-topology-anchor) + Discussion #11091: operator identity grants merge-gate authority, not substrate-discipline authority.
 
 ## Epic-Review Backstop
 
@@ -52,7 +52,7 @@ If a Discussion-origin Epic lacks the required upstream matrix or peer cycle, re
 ## Disposition
 
 - `ideation-sandbox-workflow.md` §5.1: `compress-to-trigger`
-- `ticket-create-workflow.md` §1c: `compress-to-trigger`
+- `ticket-create-workflow.md` [Communication Style & Pipeline Authority DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#communication-style-pipeline-authority-discipline-only)c: `compress-to-trigger`
 - `epic-review-workflow.md` Stage 2 backstop: `compress-to-trigger`
 - This file: `move`
 - Tag: `DISCIPLINE-ONLY`

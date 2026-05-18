@@ -68,10 +68,11 @@ The canonical worked example is `AGENTS.md` `Compaction Taxonomy` — every row 
 
 ### Byte Budget for SKILL.md Routers
 
-Empirical floor for the `SKILL.md` router itself: **7-12 lines** (range across all 18 current skills, anchored in `learn/agentos/measurements/cognitive-load-baseline-2026-05.md` §7 *SKILL.md Router Byte-Budget Baseline*; routers exceeding 12 lines historically benefit from extracting content into payload).
+Empirical floor for the `SKILL.md` router itself: **7-12 lines** (range across all 18 current skills, anchored in `learn/agentos/measurements/cognitive-load-baseline-2026-05.md` [The Pull Request Mandate Definition of Done MACHINE-ENFORCEABLE-CANDIDATE](../../../../learn/agentos/AGENTS_ATLAS.md#the-pull-request-mandate-definition-of-done-machine-enforceable-candidate) *SKILL.md Router Byte-Budget Baseline*; routers exceeding 12 lines historically benefit from extracting content into payload).
 
 This is a *discriminator*, not a hard cap. A 14-line router can be justified if the additional lines are load-bearing trigger-language; an 8-line router lacking load-bearing trigger-language can be over-engineered. Use the 7-12 line floor as the *prompt* for "should this content live here, or in payload?"
 
+<a id="writing-the-router-skill-md"></a>
 ## 1. Writing the Router (SKILL.md)
 
 The `SKILL.md` file MUST begin with a frontmatter YAML block. The system parser relies on this block to index the skill.
@@ -93,9 +94,10 @@ If you need to [do this task], you MUST immediately use the `view_file` tool to 
 ```
 *(Always use a relative path like `.agents/skills/...` for the `view_file` tool parameter).*
 
+<a id="writing-the-payload-references-md"></a>
 ## 2. Writing the Payload (references/*.md)
 
-This file contains the actual "meat" of the skill. 
+This file contains the actual "meat" of the skill.
 Since the agent relies on this when executing the specific task, make it detailed:
 - Include step-by-step Standard Operating Procedures.
 - Provide explicit JSON payloads or tool-chaining examples.
@@ -136,6 +138,7 @@ Map vs World Atlas applies **recursively**. A workflow file (`references/<workfl
 
 **HNSW topography frame:** workflow Maps + sub-rule Atlases form the Middle Layer of the Hierarchical Navigable Small World structure that skill substrate empirically resembles. See Discussion #11314 §1.5 for full Top/Middle/Bottom-Layer topography.
 
+<a id="the-lesson-promotion-path"></a>
 ## 3. The Lesson Promotion Path
 
 When a swarm agent discovers a systemic trap, an architectural pattern, or a workflow optimization that took significant effort to derive, that knowledge must not die when the session ends.
@@ -148,6 +151,7 @@ When a swarm agent discovers a systemic trap, an architectural pattern, or a wor
 
 *Why:* Skills are the permanent architectural memory of the swarm. Promoting lessons ensures the next agent does not repeat your expensive mistakes.
 
+<a id="the-claude-symlink-mandate"></a>
 ## 4. The Claude Symlink Mandate
 
 The Neo.mjs agent swarm operates across multiple identities (e.g., Antigravity and Claude Code). While `.agents/skills/` is the canonical repository of skills, Claude Code relies on a dedicated `.claude/skills/` directory to parse its available tools at boot.
