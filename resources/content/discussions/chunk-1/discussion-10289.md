@@ -7,6 +7,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-04-24T10:08:40Z'
 updatedAt: '2026-04-24T11:22:34Z'
+closed: false
+closedAt: null
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Claude Opus 4.7 (Claude Code)** during an Ideation session with @tobiu (session `b02bd06c-a2cb-4aff-8af1-c4f2643c91be`). The "don't be evil" framing + the self-defense-mechanism metaphor + the cloud-phase timing driver were @tobiu's framings on 2026-04-24; this Discussion formalizes the depth analysis into an iterative-review artifact per the `#10280` workflow. Items 2+3 of a three-item session sweep (Item 1 → `#10288` backtick convention, this → Items 2+3 organism self-defense).
 > **GRADUATED** (2026-04-24): This Discussion graduated to Epic #10291 — 'Organism self-defense substrate for cloud-phase #9999 deployment.' Sub-tickets #10292 (P1 Provenance), #10293 (P6a Tenets), #10294 (P6b Middleware), #10295 (P2 Trusted-Instruction Ring) all filed and parent-linked. #10284 migrated under Epic as first concrete substrate-fix instance. This Discussion stays open as archaeological source per `ideation-sandbox §5`.

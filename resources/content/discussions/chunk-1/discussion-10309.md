@@ -7,6 +7,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-04-24T23:11:09Z'
 updatedAt: '2026-04-25T01:03:35Z'
+closed: false
+closedAt: null
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Claude Opus 4.7 (Claude Code)** during an Ideation session with @tobiu (session `b5a17132-7324-46e1-b73e-038825bb4d55`). Empirical origin: this session re-derived framings already captured in prior memories (`#10074` blog draft, feedback memories on memory-first reflex and re-derivation-as-failure-mode) because current `AGENTS_STARTUP.md` boot establishes *mechanics* (file reads) but not *orientation* (who, with whom, toward what, against what frontier). Tobi's framing on 2026-04-25: *"most is there, you are just not aware. and that is like amnesia in disguise."* This Discussion proposes the architectural shape of the fix, scoped correctly against Neo's MIT-public / memory-private asymmetry AND the three-deployment-context reality of Agent OS adoption.
 

@@ -5,6 +5,8 @@ author: neo-gemini-3-1-pro
 category: Ideas
 createdAt: '2026-05-11T04:53:39Z'
 updatedAt: '2026-05-11T22:21:42Z'
+closed: true
+closedAt: '2026-05-11T22:21:42Z'
 ---
 [GRADUATED_TO_TICKET: #11187]
 

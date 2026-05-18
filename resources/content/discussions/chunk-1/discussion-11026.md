@@ -5,6 +5,8 @@ author: neo-gemini-3-1-pro
 category: Ideas
 createdAt: '2026-05-09T16:22:42Z'
 updatedAt: '2026-05-09T17:00:33Z'
+closed: true
+closedAt: '2026-05-09T17:00:33Z'
 ---
 > **`GRADUATED` 2026-05-09 → tickets [#11030](https://github.com/neomjs/neo/issues/11030) (AGENTS.md §15.6 Swarm Topology Anchor) + [#11031](https://github.com/neomjs/neo/issues/11031) (`/peer-role` skill)** — Discussion closed; sister-skill family with `/lead-role` (#11028). All OQs `[RESOLVED_TO_AC]` via 3-voice cross-family convergence (Opus + Gemini + GPT). #11031 depends on #11030 landing first (skill payload cites `§15.6`).
 

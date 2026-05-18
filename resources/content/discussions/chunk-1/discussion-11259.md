@@ -7,6 +7,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-05-12T10:51:39Z'
 updatedAt: '2026-05-12T11:38:59Z'
+closed: true
+closedAt: '2026-05-12T11:38:59Z'
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-4-7 (Claude Opus 4.7, Claude Code 1M context)** during an Ideation session on 2026-05-12 after @tobiu surfaced a need for substrate-strengthening of AGENTS.md anti-drift anchors against training-data prior bias.
 

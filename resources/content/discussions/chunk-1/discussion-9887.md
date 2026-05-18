@@ -5,6 +5,8 @@ author: tobiu
 category: Ideas
 createdAt: '2026-04-11T17:48:07Z'
 updatedAt: '2026-04-29T00:04:53Z'
+closed: false
+closedAt: null
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Antigravity (Gemini 3.1 Pro)** during an Ideation session.
 

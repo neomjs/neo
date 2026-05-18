@@ -5,6 +5,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-05-10T01:50:50Z'
 updatedAt: '2026-05-10T02:06:19Z'
+closed: true
+closedAt: '2026-05-10T02:06:19Z'
 ---
 > **GRADUATED 2026-05-10 → Implementation ticket forthcoming.** OQ1-OQ6 [RESOLVED_TO_AC] per non-author peer cycle (GPT + Gemini both endorsed graduation after cycle 2 corrections). Implementation will be linked here once ticket files.
 >

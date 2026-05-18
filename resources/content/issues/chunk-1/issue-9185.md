@@ -4,15 +4,16 @@ title: Implement Telemetry Probe for Worker Saturation Monitoring
 state: OPEN
 labels:
   - enhancement
+  - stale
   - ai
   - performance
 assignees:
   - tobiu
 createdAt: '2026-02-16T12:54:05Z'
-updatedAt: '2026-02-16T12:54:25Z'
+updatedAt: '2026-05-18T05:37:24Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9185'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -44,4 +45,9 @@ This provides a definitive "Lag Meter" to identify if performance issues are com
 - 2026-02-16T12:54:07Z @tobiu added the `ai` label
 - 2026-02-16T12:54:07Z @tobiu added the `performance` label
 - 2026-02-16T12:54:25Z @tobiu assigned to @tobiu
+### @github-actions - 2026-05-18T05:37:23Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-05-18T05:37:24Z @github-actions added the `stale` label
 

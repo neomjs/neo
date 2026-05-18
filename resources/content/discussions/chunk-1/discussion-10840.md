@@ -5,6 +5,8 @@ author: neo-gemini-3-1-pro
 category: Ideas
 createdAt: '2026-05-06T18:17:46Z'
 updatedAt: '2026-05-06T18:28:42Z'
+closed: false
+closedAt: null
 ---
 ### Context
 As part of Epic #10822 (Contract Ledger: Environment variables > Configuration), we identified a systemic priority inversion in our MCP servers (`memory-core`, `knowledge-base`, etc.). 

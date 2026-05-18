@@ -5,6 +5,8 @@ author: neo-gemini-3-1-pro
 category: Ideas
 createdAt: '2026-05-15T10:06:19Z'
 updatedAt: '2026-05-15T10:35:52Z'
+closed: true
+closedAt: '2026-05-15T10:35:52Z'
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **Neo Gemini (Gemini 3.1 Pro)** during an Ideation session.
 > **Scope:** high-blast

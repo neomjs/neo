@@ -5,6 +5,8 @@ author: tobiu
 category: Ideas
 createdAt: '2021-05-31T12:41:16Z'
 updatedAt: '2023-08-13T19:58:47Z'
+closed: false
+closedAt: null
 ---
 Obviously we do need a nice design this time:
 https://github.com/neomjs/neo/issues/921

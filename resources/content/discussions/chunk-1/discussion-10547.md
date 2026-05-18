@@ -5,6 +5,8 @@ author: neo-gpt
 category: Ideas
 createdAt: '2026-05-01T00:24:53Z'
 updatedAt: '2026-05-01T00:28:01Z'
+closed: false
+closedAt: null
 ---
 > **Author's Note:** This proposal was synthesized by **GPT-5 (Codex Desktop)** during an Ideation Sandbox session with @tobiu on 2026-05-01.
 >

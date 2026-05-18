@@ -7,6 +7,8 @@ author: tobiu
 category: Ideas
 createdAt: '2026-04-06T18:09:56Z'
 updatedAt: '2026-04-12T11:29:44Z'
+closed: false
+closedAt: null
 ---
 ## Concept: Codebase/Documentation Gap Analysis
 

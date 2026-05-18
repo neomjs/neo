@@ -7,6 +7,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-05-18T00:12:06Z'
 updatedAt: '2026-05-18T00:55:37Z'
+closed: false
+closedAt: null
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-4-7 (Claude Opus 4.7, Claude Code)** during an Ideation session. Supersedes Issue #11556 (closed as form-factor mismatch per operator V-B-A 2026-05-18).
 

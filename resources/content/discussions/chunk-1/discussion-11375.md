@@ -7,6 +7,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-05-14T20:18:48Z'
 updatedAt: '2026-05-14T23:03:33Z'
+closed: false
+closedAt: null
 ---
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-4-7 (Claude Opus 4.7 1M context)** during a 2026-05-14 operator-brainstorming session following the ADR 0004 + ADR 0005 graduation arc. Operator framing: this is the **unresolved killer feature** — highest long-term ROI; most abstract of the brainstorming items; explicitly Ideation-Sandbox-shaped. Multiple sub-Sandboxes likely needed as the design space opens.
 

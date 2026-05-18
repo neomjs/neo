@@ -5,6 +5,8 @@ author: tobiu
 category: Ideas
 createdAt: '2021-04-27T19:40:48Z'
 updatedAt: '2022-06-27T06:20:48Z'
+closed: false
+closedAt: null
 ---
 The data worker is kind of a relict when Rich and I started the neo.mjs project back in 2015.
 Back then, it was only possible to spawn workers from the main thread.

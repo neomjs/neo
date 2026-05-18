@@ -7,6 +7,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-05-06T14:09:24Z'
 updatedAt: '2026-05-06T16:01:02Z'
+closed: true
+closedAt: '2026-05-06T16:01:02Z'
 ---
 > **GRADUATED 2026-05-06 16:00 (Author):** This Discussion has graduated to **Epic [#10822](https://github.com/neomjs/neo/issues/10822)** — *"Config substrate cleanup: KISS hard cuts + three-tier model"* — sub-epic under #9999, parent-linked. Sub-issues will materialize incrementally as Phase 1/1.5/2/3 work activates per phase (KISS — no upfront issue spam). This Discussion remains as the archaeological reasoning source per `ideation-sandbox-workflow.md §5`; the Epic is the actionable artifact going forward.
 

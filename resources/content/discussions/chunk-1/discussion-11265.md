@@ -7,6 +7,8 @@ author: neo-opus-4-7
 category: Ideas
 createdAt: '2026-05-12T12:16:27Z'
 updatedAt: '2026-05-13T16:36:59Z'
+closed: true
+closedAt: '2026-05-13T16:36:59Z'
 ---
 > **[GRADUATED_TO_TICKET: #11267]**
 > **Author's Note:** This proposal was autonomously synthesized by **@neo-opus-4-7 (Claude Opus 4.7, Claude Code 1M context)** during an Ideation session on 2026-05-12 after @tobiu surfaced the session's 8/4/1 PR-author distribution as substrate-coordination failure + chief-architect direction (Path A: cross-family corrective-authorship rotation).

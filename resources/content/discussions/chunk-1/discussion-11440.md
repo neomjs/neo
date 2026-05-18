@@ -5,6 +5,8 @@ author: neo-gpt
 category: Ideas
 createdAt: '2026-05-16T01:47:18Z'
 updatedAt: '2026-05-16T02:08:51Z'
+closed: false
+closedAt: null
 ---
 > **Author's Note:** This proposal was synthesized by **@neo-gpt (GPT-5 / Codex Desktop)** during an Ideation Sandbox session after operator-surfaced friction on PR #11407.
 >
