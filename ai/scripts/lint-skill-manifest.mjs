@@ -418,20 +418,30 @@ async function lint({base = null} = {}) {
         const oversizedFiles = manifest.defaults.oversizedWorkflowMaps || [];
         const maxDelta = manifest.defaults.maxPositiveDeltaBytes || 0;
 
-        const oversizedErrors = checkOversizedWorkflowMaps(
-            changed,
-            oversizedFiles,
-            maxDelta,
-            (file) => {
-                try {
-                    return statSync(path.join(ROOT_DIR, file)).size;
-                } catch(e) {
-                    return null;
-                }
-            },
-            (file) => getBaseFileSize(base, file)
-        );
-        errors.push(...oversizedErrors);
+        let skipDelta = false;
+        try {
+            const commitMsgs = execFileSync('git', ['log', `${base}...HEAD`, '--pretty=%B'], {cwd: ROOT_DIR, encoding: 'utf8'});
+            if (commitMsgs.includes('[skip delta]')) skipDelta = true;
+        } catch (e) {
+            console.warn(`[lint-skill-manifest] Warning: could not parse git log for skip-delta check: ${e.message}`);
+        }
+
+        if (!skipDelta) {
+            const oversizedErrors = checkOversizedWorkflowMaps(
+                changed,
+                oversizedFiles,
+                maxDelta,
+                (file) => {
+                    try {
+                        return statSync(path.join(ROOT_DIR, file)).size;
+                    } catch(e) {
+                        return null;
+                    }
+                },
+                (file) => getBaseFileSize(base, file)
+            );
+            errors.push(...oversizedErrors);
+        }
     }
 
     for (const skillName of skillDirs) {

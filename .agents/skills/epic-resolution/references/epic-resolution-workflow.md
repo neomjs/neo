@@ -80,7 +80,7 @@ For each criterion from the source Discussion's Graduation Criteria section (the
 **Verdict integration:** the Closeout Gate output feeds §4 verdict computation. Any `LOST` criterion blocks `RECOMMEND_CLOSE_COMPLETED` even when all §3 Epic AC rows are green. The remediation path:
 
 - **Recoverable in existing subs:** if the LOST criterion can be addressed by extending an existing sub's scope, recommend `KEEP_OPEN` + flag the sub for scope-extension
-- **Requires new sub:** if the LOST criterion needs new substrate work, recommend `CREATE_MISSING_SUBS` per the standard §4 + [The Strategic Co-Founder Protocol Active Context Mutation DISCIPLINE-ONLY](../../../../learn/agentos/AGENTS_ATLAS.md#the-strategic-co-founder-protocol-active-context-mutation-discipline-only) path
+- **Requires new sub:** if the LOST criterion needs new substrate work, recommend `CREATE_MISSING_SUBS` per the standard [#compute-the-verdict](#compute-the-verdict) + [#post-the-verdict-comment](#post-the-verdict-comment) path
 - **Was-actually-deferrable:** if the LOST criterion was implicitly deferred during graduation and just never explicitly captured, file a `CONVERTED TO FOLLOW-UP` ticket retroactively + update the gate row before re-verdict
 
 `EXPLICITLY DEFERRED` and `CONVERTED TO FOLLOW-UP` are acceptable closeout states with same tracked-elsewhere semantics as §3 `RESIDUAL_<X> [#<followup-ticket>]`.

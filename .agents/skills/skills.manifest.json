@@ -10,7 +10,7 @@
       ".agents/skills/pr-review/references/pr-review-guide.md",
       ".agents/skills/pull-request/references/pull-request-workflow.md"
     ],
-    "maxPositiveDeltaBytes": 3500,
+    "maxPositiveDeltaBytes": 250,
     "rareTriggerPatterns": [
       "openapi",
       "audit",
