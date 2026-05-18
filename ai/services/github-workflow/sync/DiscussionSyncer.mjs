@@ -275,11 +275,15 @@ class DiscussionSyncer extends Base {
 
                 // #11573 integrity gate: empirically catches the failure mode where a stale
                 // MCP daemon code path silently drops frontmatter fields (e.g., #11554 shipped
-                // but old MCP processes kept writing pre-fix content). Logs at WARN so the
-                // signal surfaces in sync output without failing the run.
+                // but old MCP processes kept writing pre-fix content). THROWS on missing keys
+                // per the ticket Contract Ledger ("post-sync integrity assertion fails when a
+                // synced discussion lacks a required frontmatter key"). The existing
+                // per-discussion `try { ... } catch (e)` at the loop boundary (#312-314) catches
+                // the throw, logs the warning, and skips the write — broken-frontmatter files
+                // are NEVER persisted, but the sync run continues with other discussions.
                 const integrity = verifyDiscussionFrontmatter(content);
                 if (!integrity.ok) {
-                    logger.warn(`⚠️ Discussion #${discussion.number} serialized content missing required frontmatter keys: ${integrity.missing.join(', ')}. Likely stale MCP daemon code path; see #11573.`);
+                    throw new Error(`Discussion #${discussion.number} serialized content missing required frontmatter keys: ${integrity.missing.join(', ')}. ADR 0011 / #11573 contract violation — likely stale MCP daemon code path.`);
                 }
 
                 const currentHash = this.#calculateContentHash(content);

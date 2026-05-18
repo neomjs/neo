@@ -61,8 +61,10 @@ test.describe('ai/services/github-workflow/sync/verifyFrontmatterIntegrity (#115
         expect(verifyFrontmatterIntegrity(undefined, ['closed'])).toEqual({ok: false, missing: ['closed']});
     });
 
-    test('verifyFrontmatterIntegrity: matches at line start, ignores inline mentions in body', () => {
-        // The string "closed:" appears inline in the body, but NOT at the start of any line.
+    test('verifyFrontmatterIntegrity: ignores body content (no false-positive on body-line `key:`)', () => {
+        // Body contains a quoted "closed:" line. The frontmatter LACKS `closed:`. Per the
+        // ticket contract + GPT cycle-1 V-B-A on PR #11574 (gray-matter parse, not regex on
+        // whole doc), this MUST report `closed` as missing.
         const content = [
             '---',
             'number: 11089',
@@ -76,10 +78,32 @@ test.describe('ai/services/github-workflow/sync/verifyFrontmatterIntegrity (#115
         expect(result.missing).toEqual(['closed']);
     });
 
-    test('verifyFrontmatterIntegrity: escapes regex metacharacters in key names', () => {
-        const content = "---\nweird.key: value\n---\nBody.";
+    test('verifyFrontmatterIntegrity: regression — body-line literal `closed:` does NOT satisfy missing frontmatter key (GPT V-B-A #11574 cycle-1)', () => {
+        // GPT's empirical false-positive reproduction from PR #11574 cycle-1 review:
+        //   content has `closed:` / `closedAt:` only AFTER the closing `---`, not inside
+        //   the frontmatter block. The pre-fix regex-on-whole-doc helper falsely reported
+        //   {ok:true, missing:[]}. The gray-matter parse correctly reports both keys missing.
+        const content = '---\nnumber: 1\n---\nclosed:\nclosedAt:\n';
 
-        const result = verifyFrontmatterIntegrity(content, ['weird.key']);
+        const result = verifyFrontmatterIntegrity(content, ['closed', 'closedAt']);
+
+        expect(result.ok).toBe(false);
+        expect(result.missing).toEqual(['closed', 'closedAt']);
+    });
+
+    test('verifyFrontmatterIntegrity: handles malformed frontmatter defensively', () => {
+        const content = 'No frontmatter at all, just body text.';
+
+        const result = verifyFrontmatterIntegrity(content, ['number', 'closed']);
+
+        expect(result.ok).toBe(false);
+        expect(result.missing).toEqual(['number', 'closed']);
+    });
+
+    test('verifyFrontmatterIntegrity: handles keys with special characters via hasOwnProperty (no regex needed)', () => {
+        const content = "---\nweird-key: value\n---\nBody.";
+
+        const result = verifyFrontmatterIntegrity(content, ['weird-key']);
 
         expect(result).toEqual({ok: true, missing: []});
     });
