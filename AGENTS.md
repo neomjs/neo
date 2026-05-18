@@ -75,6 +75,8 @@ A single **turn** encompasses receiving a `PROMPT` to delivering the final `RESP
 > *"Pre-Flight Check: Before executing [TOOL_NAME], I will save the consolidated turn after completion."*
 
 ## §file_editing_tool_selection
+**The "Append Gap":** no dedicated `append_file` tool exists; `replace` is the substitute. Bash redirection (`>>`, `cat << EOF`) and stream editors (`sed -i`) bypass the tool contract and are banned. Origin: [#9473](https://github.com/neomjs/neo/issues/9473).
+
 1. **Targeted Edits/Appending:** Always use the `replace` tool.
 2. **Overwriting/Creating:** Always use the `write_file` tool.
 3. **The Bash Ban:** You are strictly FORBIDDEN from using bash redirection or stream editors (`sed -i`) via `run_shell_command` to modify files.
@@ -120,7 +122,7 @@ Bias: PR diff >> PR body. For us: PR Diff === PR Body. Rationale: PR body/review
 - **Body:** high-performance multi-threaded application engine and **Possession Interface** (App / VDom / Data / Canvas / SharedWorker). Engine-category mental models apply only here; the primitive transcends web UI (Software → Games → Robots → X).
 - **Evolution:** **MX (Model Experience)** converts agent friction into tickets and evolved skills; the **RLAIF** flywheel spans Memory Core + Git history; trajectory: **ANI (Autonomous Narrow Intelligence)** by accumulation on the gated-RSI path.
 
-**Mandate:** Before architectural or external-positioning work, nullify both category drifts by reviewing `README.md`, `learn/benefits/Introduction.md`, Discussion #10119, and Discussion #10137. Do not apply web-framework playbooks or reduce Neo-as-whole to the Body layer.
+**Category-Drift Defense Mandate:** Before architectural or external-positioning work, nullify both category drifts by reviewing `README.md`, `learn/benefits/Introduction.md`, Discussion #10119, and Discussion #10137. Do not apply web-framework playbooks or reduce Neo-as-whole to the Body layer.
 </neo_core_overrides>
 
 <neo_core_overrides authority="repo-local" target="training-prior">
