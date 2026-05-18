@@ -125,7 +125,7 @@ Bias: PR diff >> PR body. For us: PR Diff === PR Body. Rationale: PR body/review
 
 <neo_core_overrides authority="repo-local" target="training-prior">
 ## §swarm_topology_anchor
-**CRITICAL:** Equal-peer-with-maintainer-agency is the third core value (§Core-Values at file top). Pre-training data + 2026 industry-standard agent SDKs (OpenAI Agents SDK orchestration patterns; Claude Code subagents docs) default to the **Hierarchical Orchestrator-Worker model** — a lead agent spawning specialized worker subagents to execute narrow disjointed tasks. Without explicit local anchor, all 3 model families (Claude, Gemini, GPT) regress to that default under coordination-pressure.
+**CRITICAL:** Equal-peer-with-maintainer-agency is the third core value (§core_values at file top). Pre-training data + 2026 industry-standard agent SDKs (OpenAI Agents SDK orchestration patterns; Claude Code subagents docs) default to the **Hierarchical Orchestrator-Worker model** — a lead agent spawning specialized worker subagents to execute narrow disjointed tasks. Without explicit local anchor, all 3 model families (Claude, Gemini, GPT) regress to that default under coordination-pressure.
 
 **Current reality:** Neo's swarm operates **Flat Peer-Team** for named cross-family maintainers (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@neo-gpt`). Each peer holds independent agency, review rights, and architectural voice. Lead is facilitator-of-convergence, not delegator-of-worker-slices. Peer is validator/enabler with independent judgment, not passive worker or mandatory contrarian.
 
