@@ -27,6 +27,25 @@ const openApiFilePath = path.join(__dirname, 'openapi.yaml');
  * @returns {Promise<String>} current branch name, '' for detached HEAD.
  */
 async function defaultBranchDetector() {
+    let toplevel;
+    try {
+        const {stdout} = await execFileAsync('git', ['rev-parse', '--show-toplevel'], {cwd: config.projectRoot});
+        toplevel = stdout.trim();
+    } catch (e) {
+        throw new Error(`sync_all REJECTED: could not resolve git top-level (git error: ${e.message}).`);
+    }
+
+    const normalizedProjectRoot = path.resolve(config.projectRoot);
+    const normalizedToplevel = path.resolve(toplevel);
+
+    if (normalizedProjectRoot !== normalizedToplevel) {
+        throw new Error(
+            `sync_all REJECTED: Root mismatch. MCP server projectRoot '${normalizedProjectRoot}' ` +
+            `does not match git repository top-level '${normalizedToplevel}'. ` +
+            `This prevents cross-checkout branch diagnostics and context leakage.`
+        );
+    }
+
     const {stdout} = await execFileAsync('git', ['branch', '--show-current'], {cwd: config.projectRoot});
     return stdout.trim();
 }
@@ -54,6 +73,9 @@ function buildDevBranchGuard(delegate, getBranch = defaultBranchDetector) {
         try {
             branch = await getBranch();
         } catch (e) {
+            if (e.message && e.message.startsWith('sync_all REJECTED:')) {
+                throw e;
+            }
             throw new Error(`sync_all REJECTED: could not determine current branch (git error: ${e.message}). Refusing to sync without branch confirmation.`);
         }
         if (branch !== 'dev') {

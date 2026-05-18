@@ -84,6 +84,15 @@ test.describe('Neo.ai.services.github-workflow.toolService — sync_all dev-bran
         await expect(guarded()).rejects.toThrow(/sync_all REJECTED.*'\(detached\)'/);
     });
 
+    test('sync_all REJECTS immediately on root mismatch from branch detector', async () => {
+        const delegate = async () => { throw new Error('should not run'); };
+        const guarded = buildDevBranchGuard(delegate, async () => {
+            throw new Error('sync_all REJECTED: Root mismatch. MCP server projectRoot...');
+        });
+
+        await expect(guarded()).rejects.toThrow(/sync_all REJECTED: Root mismatch/);
+    });
+
     test('sync_all REJECTS with git-error message when branch detector throws', async () => {
         const delegate = async () => { throw new Error('should not run'); };
         const guarded = buildDevBranchGuard(delegate, async () => {

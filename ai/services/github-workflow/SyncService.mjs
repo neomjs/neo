@@ -162,7 +162,11 @@ class SyncService extends Base {
                         } else {
                             logger.info('[SyncService] Detected real content changes. Committing and pushing.');
                             await execAsync('git add resources/content', {cwd});
-                            await execAsync('git commit -m "chore: ticket sync [skip ci]"', {cwd});
+                            // Sanctioned bypass for check-chore-sync.mjs guard
+                            await execAsync('git commit -m "chore: ticket sync [skip ci]"', {
+                                cwd,
+                                env: { ...process.env, NEO_SYNC_AUTOCOMMIT: '1' }
+                            });
                             await execAsync('git pull --rebase --autostash', {cwd});
                             await execAsync('git push', {cwd});
                             logger.info('[SyncService] Successfully pushed changes to GitHub.');
