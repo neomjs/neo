@@ -37,20 +37,20 @@ Live instruction substrate MUST prefer compact `§<ref>` text tokens when a refe
 
 A live substrate reference is a compact `§<ref>` token that names the target with minimal loaded-byte cost.
 
-Recommended shape:
+Recommended shape (underscore-separated semantic identifier):
 
 ```md
-AGENTS.md §mailbox-check-protocol
+AGENTS.md §mailbox_check_protocol
 ```
 
 Acceptable variants:
 
 ```md
 AGENTS.md §21
-AGENTS.md §mailbox-check-protocol
+AGENTS.md §mailbox_check_protocol
 ```
 
-Use the semantic kebab-case form when it reduces drift across heading movement or compaction. Preserve positional `§N` where it is historical, already source-readable, or cheaper than introducing a new semantic token. Do not add manual HTML anchor tags or markdown links merely to make the reference clickable in rendered Markdown.
+Use the semantic underscore-separated form when it reduces drift across heading movement or compaction. Preserve positional `§N` where it is historical, already source-readable, or cheaper than introducing a new semantic token. Do not add manual HTML anchor tags or markdown links merely to make the reference clickable in rendered Markdown.
 
 ### 2.2 Reference stability and rendered aliases
 
@@ -66,7 +66,7 @@ Historical/archaeology references MAY preserve original `§N` wording when the n
 
 Examples:
 
-- Live semantic: "Use `AGENTS.md §mailbox-check-protocol`."
+- Live semantic: "Use `AGENTS.md §mailbox_check_protocol`."
 - Live positional: "Apply `AGENTS.md §21` when that current map reference is cheaper and unambiguous."
 - Historical: "ADR 0007 recorded the old `§21` disposition at the time of compaction."
 
@@ -77,8 +77,42 @@ This ADR defines policy only. Discussion #11577 superseded the original migratio
 Enforcement aligns to the corrected failure mode:
 
 - Block new manual HTML anchor-tag insertions in Map / skill / Agent OS substrate unless a rendered-consumer exception is justified.
-- Preserve both positional `§N` and semantic `§kebab-case` text tokens where they are source-visible and compact.
+- Preserve both positional `§N` and semantic `§underscore_separated` text tokens where they are source-visible and compact.
 - Treat markdown-link references as an exception for rendered-consumer needs, not the live-substrate default.
+
+### 2.5 Substrate-wide heading-form convention
+
+Beyond reference tokens, the SAME `§semantic_concept_name` identifier is also the canonical HEADING form across all agent content. The heading IS the anchor; descriptive prose lives in the section body, not in the heading itself.
+
+Recommended heading shape:
+
+```md
+## §mailbox_check_protocol
+
+At turn start, you MUST check your A2A mailbox for unread messages.
+...
+```
+
+Replaces positional heading forms like `## 21. The Mailbox Check Protocol (Pre-Flight at Turn Start)`.
+
+Properties:
+
+- **Self-documenting**: the heading IS the stable identifier; cross-substrate refs (`AGENTS.md §mailbox_check_protocol`) resolve to the heading directly
+- **Byte-cheapest**: ~25 chars per heading vs ~60+ chars for prose-form headings
+- **Compaction-immune**: section reordering / inserts / deletes don't invalidate references (no positional drift)
+- **KB ingestion friendly**: anchor names are concept-bearing tokens (LLM-extractable + graph-indexable)
+- **Cross-document drop friendly**: tickets / PRs / discussions can drop `§mailbox_check_protocol` and it resolves consistently to the same concept across all agent-content files
+
+Scope of "agent content" for this convention:
+
+- `AGENTS.md`, `AGENTS_ATLAS.md`, `AGENTS_STARTUP.md` (turn-loaded Map substrate)
+- `.agents/ANTIGRAVITY_RULES.md` (Antigravity-specific turn-loaded substrate)
+- `.agents/skills/**/*.md` (skill routers + references payloads)
+- `learn/agentos/**/*.md` (ADRs, guides, measurements — Agent OS substrate)
+
+User-facing documentation (`learn/guides/**`, `learn/benefits/**`) and code surface markdown remain free to use prose-form headings; the convention is scoped to substrate consumed primarily by agents.
+
+Migration sequencing is per-tier (operator-decision; tracked in successor ticket like #11599); the convention itself ships in this ADR amendment.
 
 ---
 
@@ -127,7 +161,7 @@ Replacing every `§N` occurrence mechanically is wrong. Active references and hi
 
 ### 5.2 Semantic tokens derived from volatile heading prose
 
-Do not choose a semantic `§<ref>` token that merely mirrors volatile heading prose. Tokens should be short, explicit, and preserved or updated deliberately through heading rewrites.
+Do not choose a semantic `§<ref>` token that merely mirrors volatile heading prose. Tokens should be short, explicit, and preserved or updated deliberately through heading rewrites. Under the §2.5 substrate-wide heading-form convention, this anti-pattern is mostly moot — the heading IS the anchor, so heading rewrites necessarily update the token deliberately.
 
 ### 5.3 Adding manual anchors during cleanup
 
@@ -163,6 +197,8 @@ Before modifying live substrate references under Epic #11558 or successors:
 - Ticket #11564 — ADR and docs migration
 - Discussion #11577 — corrected `§<ref>` text-only reference form; no HTML anchor-tag default
 - Ticket #11584 — ADR 0011 cleanup after #11577 graduation
+- Ticket #11599 — Substrate-wide heading-form convention (§2.5 amendment + phased per-tier conversion)
+- Discussion #11598 — MX loop spiral META framing (this amendment was operator-directed extraction of OQ2 from this Discussion)
 - ADR 0005 — ADR-at-Graduation workflow
 - ADR 0006 — ADRs as graph-queryable entities
 - ADR 0007 — Compaction Taxonomy
