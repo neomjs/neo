@@ -57,6 +57,18 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
                     contentHash: 'hash1',
                     commentsTotal: 5,
                     extraFieldShouldBePruned: true
+                },
+                // Regression: closed issue with milestone object form (post-fetch in-memory state).
+                // Without milestone persistence, planBuckets falls through to closedAt-based release-date
+                // inference and re-classifies unchanged closed issues every sync (#11594).
+                '7910': {
+                    state: 'CLOSED',
+                    path: 'issues/v11.12.0/issue-7910.md',
+                    closedAt: '2025-11-29T11:41:17Z',
+                    updatedAt: '2025-11-29T11:44:14Z',
+                    contentHash: 'hash7910',
+                    commentsTotal: 1,
+                    milestone: {title: '11.12.0'}
                 }
             },
             discussions: {
@@ -102,6 +114,15 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
         // Issues
         expect(loaded.issues['123'].extraFieldShouldBePruned).toBeUndefined();
         expect(loaded.issues['123'].contentHash).toBe('hash1');
+
+        // Open issue without milestone persists as null (defensive)
+        expect(loaded.issues['123'].milestone).toBeNull();
+
+        // Regression #11594: closed issue with milestone object form persists as string title only.
+        // Symmetric with IssueSyncer hydrate-from-disk path which wraps string back to {title: ...} object.
+        expect(loaded.issues['7910'].milestone).toBe('11.12.0');
+        expect(loaded.issues['7910'].state).toBe('CLOSED');
+        expect(loaded.issues['7910'].path).toBe('issues/v11.12.0/issue-7910.md');
 
         // Discussions
         expect(loaded.discussions['456'].extraFieldShouldBePruned).toBeUndefined();

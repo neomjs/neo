@@ -82,6 +82,11 @@ class MetadataManager extends Base {
                 closedAt     : value.closedAt,
                 updatedAt    : value.updatedAt,
                 contentHash  : value.contentHash,
+                // milestone persisted as string-title (symmetric with IssueSyncer hydrate at L324:
+                // `issue.milestone ? { title: issue.milestone } : null`). Without this, planBuckets
+                // falls through to closedAt-based release-date inference and re-classifies unchanged
+                // closed issues every sync, emitting persistent ARCHIVE ANOMALY WARN noise (#11594).
+                milestone    : value.milestone?.title || null,
                 // commentsTotal is the count of ISSUE_COMMENT nodes derived from the exhausted
                 // timelineItems connection (#10110). Single source of truth: the metadata value
                 // is structurally guaranteed to match the rendered markdown because both are
