@@ -38,6 +38,7 @@ PR #11362 (commit `559c73d43`) implemented "Phase 6 cleanup" by **deleting** 3,1
 
 This ADR's primary purpose is to **anchor the graduated architecture as load-bearing single-source-of-truth so future agents V-B-A against ONE document instead of re-inferring from multi-Discussion graduation contexts.**
 
+<a id="regeneratable-cache"></a>
 ### 1.3 The Regeneratable-Cache Strategic Principle (load-bearing strategic anchor)
 
 `resources/content/` is a **fully-regeneratable cache**, NOT a source of truth. GitHub is the source of truth. `sync_all` is the canonical path back to a clean state from any local state.
@@ -55,18 +56,20 @@ This ADR's primary purpose is to **anchor the graduated architecture as load-bea
 
 **Why this section is load-bearing**:
 
-The clean-cut pattern (§2.6 per #11397) and the deprecation-theater anti-pattern (§5.6 per #11397) are CORRECT because of this strategic principle. Without it, future authors under preservation-tendency biases (RLHF graceful-degradation, "don't break working state", "preserve customer data" priors) don't have a § to V-B-A against — they pattern-match the preservation tendencies as positive signals and re-derive the data-preservation assumption.
+The clean-cut pattern ([§2.6](#clean-cut-pattern) per #11397) and the deprecation-theater anti-pattern ([§5.6](#deprecation-theater) per #11397) are CORRECT because of this strategic principle. Without it, future authors under preservation-tendency biases (RLHF graceful-degradation, "don't break working state", "preserve customer data" priors) don't have a § to V-B-A against — they pattern-match the preservation tendencies as positive signals and re-derive the data-preservation assumption.
 
 **Historical pattern this section guards against** (operator-described 2026-05-15):
 
-The pre-ADR-0004 "derailment" — team went from the exactly-100-items-per-folder original spec back to stream-based-IDs (`<NNN>xx/`) with almost-empty folders — was driven by the implicit assumption that on-disk state needed preservation across migration. The §1.3 strategic principle nullifies that assumption explicitly. Future agents recognizing preservation-pressure should pattern-match against §1.3 and choose deletion + re-sync over preservation + migration.
+The pre-ADR-0004 "derailment" — team went from the exactly-100-items-per-folder original spec back to stream-based-IDs (`<NNN>xx/`) with almost-empty folders — was driven by the implicit assumption that on-disk state needed preservation across migration. The [§1.3](#regeneratable-cache) strategic principle nullifies that assumption explicitly. Future agents recognizing preservation-pressure should pattern-match against [§1.3](#regeneratable-cache) and choose deletion + re-sync over preservation + migration.
 
 ---
 
+<a id="decision"></a>
 ## 2. Decision
 
 The `resources/content/` substrate uses a **single universal ordinal-100 chunking primitive** for ALL tiers (active + archive) and ALL content types (issues, pulls, discussions, release-notes).
 
+<a id="target-on-disk-shape"></a>
 ### 2.1 Target on-disk shape
 
 ```
@@ -95,13 +98,14 @@ For any content collection (e.g., active issues, archived discussions for v12.1.
 
 **This is OUR OWN mathematically sound real-100.** It does NOT derive from GitHub IDs. Two collections of the same size produce identically-shaped chunks regardless of GitHub-ID gaps.
 
+<a id="retired-primitives"></a>
 ### 2.3 Retired primitives
 
 - **`ai/services/github-workflow/shared/chunkPath.mjs`** (3-line `String(id).padStart(4,'0').slice(0,-2) + 'xx'`) — RETIRED. ID-range chunking abandoned everywhere.
 - **`<NNN>xx/`** folder naming — RETIRED. `chunk-N/` universal.
 - **`pr-<NNN>xx/`** prefix-disambiguation — RETIRED. Per-type top-level directories already disambiguate; chunk subdir doesn't need a type prefix.
-- **Active-tier O(1) lookup via `LocalFileService#getIssueById`** — RETIRED. Replaced by index-map lookup (see §3.3).
-- **`archivePath.mjs` "flat ≤100 / chunked >100" branching** — RETIRED conceptually. The simpler rule "always under `chunk-N/`" eliminates the branch; first chunk just happens to be `chunk-1/` whether the bucket has 1 item or 100. (Whether the helper implementation keeps a flat-when-only-`chunk-1/` UX optimization is an implementation-tier decision routed to the universal-helper downstream ticket per §9 item 1; not authority-bound to this ADR.)
+- **Active-tier O(1) lookup via `LocalFileService#getIssueById`** — RETIRED. Replaced by index-map lookup (see [§3.3](#syncer-write-paths)).
+- **`archivePath.mjs` "flat ≤100 / chunked >100" branching** — RETIRED conceptually. The simpler rule "always under `chunk-N/`" eliminates the branch; first chunk just happens to be `chunk-1/` whether the bucket has 1 item or 100. (Whether the helper implementation keeps a flat-when-only-`chunk-1/` UX optimization is an implementation-tier decision routed to the universal-helper downstream ticket per [§9](#downstream-tickets) item 1; not authority-bound to this ADR.)
 
 ### 2.4 `prevent-reopen.yml` is the load-bearing immutability primitive
 
@@ -120,38 +124,39 @@ For each collection bucket, `itemIndex` is determined by stable canonical order:
 
 Within a chunk, files are named by GitHub identifier (`issue-NNNN.md`, `pr-NNNN.md`, `discussion-NNNN.md`, `release-VV.MM.PP.md`) — preserving searchability by ID.
 
+<a id="clean-cut-pattern"></a>
 ### 2.6 The Clean-Cut Pattern (load-bearing pattern, contrast with rejected Deprecation Window pattern)
 
 The substrate-evolution pattern for ADR 0004 is **Clean Cut**, not **Deprecation Window**:
 
 | Pattern | Old primitive after new primitive lands | Migration shape |
 |---|---|---|
-| **Clean Cut** ✓ (ADR 0004) | DELETED at the call-site-migration ticket | Data: clean-slate purge + re-sync (§3.6 + §9 item 10). Code: old file deleted in the same PR that mutates the last call site. |
+| **Clean Cut** ✓ (ADR 0004) | DELETED at the call-site-migration ticket | Data: clean-slate purge + re-sync ([§3.6](#migration-shape) + [§9](#downstream-tickets) item 10). Code: old file deleted in the same PR that mutates the last call site. |
 | **Deprecation Window** ✗ (rejected) | KEPT with `@deprecated` JSDoc as thin shim during "migration window" | Data: preserved + reshaped via migration scripts. Code: both old + new primitives coexist with annotations bridging them. |
 
-**Operator authority anchor** (verbatim from §3.6): *"if we just delete it all, especially the sync all meta file => clean slate => like we never had prior content. less cognitive load. no migration scripts needed. no risk of data loss either. allows full focus on the new syncer logic."*
+**Operator authority anchor** (verbatim from [§3.6](#migration-shape)): *"if we just delete it all, especially the sync all meta file => clean slate => like we never had prior content. less cognitive load. no migration scripts needed. no risk of data loss either. allows full focus on the new syncer logic."*
 
-The Deprecation Window pattern adds substrate-coexistence cost (cognitive load: "which primitive should I use here?"), violates §5.3 (parallel chunking rules), and contradicts the operator-stated "ZERO migration scripts planned" intent. Future authors V-B-A against this §2.6 contrast before designing helper-retirement work.
+The Deprecation Window pattern adds substrate-coexistence cost (cognitive load: "which primitive should I use here?"), violates [§5.3](#parallel-chunking) (parallel chunking rules), and contradicts the operator-stated "ZERO migration scripts planned" intent. Future authors V-B-A against this [§2.6](#clean-cut-pattern) contrast before designing helper-retirement work.
 
 ### 2.6.1 Mechanical enforcement layer (added 2026-05-16, ticket #11406)
 
-§1.3 / §2.6 / §5.6 are **discipline-only** — pattern-recognition aids for agents reading merged ADR substrate before authoring. Empirical anchor proves they are necessary-but-not-sufficient: **PR #11403 Cycle-1** ([`PRR_kwDODSospM8AAAABAB3NsQ`](https://github.com/neomjs/neo/pull/11403#pullrequestreview-4296920497)) — same clean-cut regression recurred at the very next PR after the §2.6 layer merged, with `chunkPath.mjs` + `archivePath.mjs` + `ArchivePath.spec.mjs` preserved as dead code despite zero callers. The regression was caught at peer-review time, not CI time. The lookback distance between author-time and reviewer-time is the regression window.
+[§1.3](#regeneratable-cache) / [§2.6](#clean-cut-pattern) / [§5.6](#deprecation-theater) are **discipline-only** — pattern-recognition aids for agents reading merged ADR substrate before authoring. Empirical anchor proves they are necessary-but-not-sufficient: **PR #11403 Cycle-1** ([`PRR_kwDODSospM8AAAABAB3NsQ`](https://github.com/neomjs/neo/pull/11403#pullrequestreview-4296920497)) — same clean-cut regression recurred at the very next PR after the [§2.6](#clean-cut-pattern) layer merged, with `chunkPath.mjs` + `archivePath.mjs` + `ArchivePath.spec.mjs` preserved as dead code despite zero callers. The regression was caught at peer-review time, not CI time. The lookback distance between author-time and reviewer-time is the regression window.
 
 **The mechanical layer closes this gap**:
 
 | Artifact | Purpose |
 |---|---|
-| `ai/scripts/check-retired-primitives.mjs` | grep-fail check; scans `ai/` (excluding `*.spec.mjs` / `*.test.mjs`) for imports of any path fragment in the `RETIRED_PRIMITIVES` constant array; exits 1 on hit with file:line output + this §2.6 reference |
+| `ai/scripts/check-retired-primitives.mjs` | grep-fail check; scans `ai/` (excluding `*.spec.mjs` / `*.test.mjs`) for imports of any path fragment in the `RETIRED_PRIMITIVES` constant array; exits 1 on hit with file:line output + this [§2.6](#clean-cut-pattern) reference |
 | `.github/workflows/check-retired-primitives.yml` | GitHub Actions workflow that runs the script on every PR + push to `dev` that touches `ai/**/*.mjs` |
 | `npm run ai:check-retired-primitives` | Local dev alias for the same check |
 | `test/playwright/unit/ai/scripts/checkRetiredPrimitives.spec.mjs` | Coverage: clean-substrate PASS + canary-regression FAIL + spec-glob-exclusion behavior |
 
-**Extension protocol** when adding to §2.3 RETIRED:
-1. Delete the retired primitive in the same PR that mutates the last call site (per §2.6).
+**Extension protocol** when adding to [§2.3](#retired-primitives) RETIRED:
+1. Delete the retired primitive in the same PR that mutates the last call site (per [§2.6](#clean-cut-pattern)).
 2. Append the import-path fragment (e.g. `'shared/<name>.mjs'`) to the `RETIRED_PRIMITIVES` array in `ai/scripts/check-retired-primitives.mjs`.
 3. The CI check then defends against future regressions where the deleted primitive gets reintroduced as an import.
 
-Pattern-recognition + mechanical-enforcement are mutually reinforcing: without pattern-recognition (§1.3/§2.6/§5.6), the mechanical layer is brittle (someone has to maintain the array and know why); without mechanical enforcement, pattern-recognition relies on agents staying maximally attentive across all PRs (which empirically broke twice in one session: PR #11381 + PR #11403).
+Pattern-recognition + mechanical-enforcement are mutually reinforcing: without pattern-recognition ([§1.3](#regeneratable-cache)/[§2.6](#clean-cut-pattern)/[§5.6](#deprecation-theater)), the mechanical layer is brittle (someone has to maintain the array and know why); without mechanical enforcement, pattern-recognition relies on agents staying maximally attentive across all PRs (which empirically broke twice in one session: PR #11381 + PR #11403).
 
 ---
 
@@ -184,6 +189,7 @@ Because chunk position is no longer derivable from GitHub ID alone (a non-existe
 - Updated at sync time alongside item write
 - `LocalFileService#getIssueById` reads the index; O(1) hashmap lookup remains; no folder-scan-per-lookup
 
+<a id="syncer-write-paths"></a>
 ### 3.3 Syncer write-paths
 
 All 3 syncers (`IssueSyncer`, `PullRequestSyncer`, `DiscussionSyncer`) + new `ReleaseNotesSyncer` consume the universal helper. Each syncer:
@@ -203,9 +209,10 @@ All consumers MUST:
 - Use `_index.json` for ID-keyed lookups
 - Never assume folder name encodes item ID (the ID-encoding-in-folder-name semantic is RETIRED)
 
+<a id="migration-shape"></a>
 ### 3.6 Migration shape: clean-slate purge (operator-directed 2026-05-14)
 
-*(This is the operationalization of the strategic principle in §1.3)*
+*(This is the operationalization of the strategic principle in [§1.3](#regeneratable-cache))*
 
 Operator quote: *"if we just delete it all, especially the sync all meta file => clean slate => like we never had prior content. less cognitive load. no migration scripts needed. no risk of data loss either. allows full focus on the new syncer logic."*
 
@@ -232,22 +239,22 @@ Post this ADR, much of that flexibility is historical debt. **Authority-level de
 - `archiveDir` (legacy single `issue-archive/`) — DROPPED. Already retired by #11362's source primitives; config field eliminated under universal architecture.
 - `defaultArchiveVersion: 'unversioned'` — DROPPED entirely. Pre-stage anti-pattern primitive; sealed-chunk semantics make this field architecturally invalid.
 
-**Implementation-tier scope** (routed to the config-audit downstream ticket per §9 item 4, NOT authority-bound to this ADR):
+**Implementation-tier scope** (routed to the config-audit downstream ticket per [§9](#downstream-tickets) item 4, NOT authority-bound to this ADR):
 
 - `archiveChunkPrefix: 'chunk-'` — keep configurable vs fold-to-constant. Tradeoff is small-surface flexibility vs less-surface-to-test. Either direction supports the architecture; the universal rule does not depend on the prefix string.
 - `archiveChunkThreshold: 100` — keep configurable for future-tuning vs hardcode to 100. Same tradeoff shape.
 - Other path-configurability surfaces — keep or drop, decided by the config-audit ticket against actual user-flexibility consumers.
 
-The config-audit ticket (§9 item 4) consumes this ADR as authority for the DROPPED items and exercises judgment on the implementation-tier items.
+The config-audit ticket ([§9](#downstream-tickets) item 4) consumes this ADR as authority for the DROPPED items and exercises judgment on the implementation-tier items.
 
 ### 3.8 Graph ingestion impact (open V-B-A direction)
 
 The substrate change affects **input shape** (where `.md` files live on disk) but should NOT affect **output shape** (the Native Edge Graph node schema — `id`, `title`, `body`, `state`, edges, etc.). Under that invariance:
 
-- **Affected:** ingestors that read file paths (`IssueIngestor.mjs`, `TicketSource.mjs`, `PullRequestSource.mjs`, `DiscussionSource.mjs`) — already enumerated in §9 item 8
+- **Affected:** ingestors that read file paths (`IssueIngestor.mjs`, `TicketSource.mjs`, `PullRequestSource.mjs`, `DiscussionSource.mjs`) — already enumerated in [§9](#downstream-tickets) item 8
 - **Likely unaffected:** graph consumers that consume node entries (`DreamService.mjs` REM-cycle daemon, gemma4 retrospective parsing pipeline) — they read from the graph, not from disk paths
 
-**Open V-B-A item** (operator-flagged 2026-05-14, *"i am not sure if it affects DreamService and gemma4 parsing too. maybe not, if we consume the new input shape into the same graph items (output shape)"*): downstream ticket authors for §9 item 8 (consumer rewires) MUST verify the input-shape/output-shape invariance by reading:
+**Open V-B-A item** (operator-flagged 2026-05-14, *"i am not sure if it affects DreamService and gemma4 parsing too. maybe not, if we consume the new input shape into the same graph items (output shape)"*): downstream ticket authors for [§9](#downstream-tickets) item 8 (consumer rewires) MUST verify the input-shape/output-shape invariance by reading:
 - `ai/daemons/DreamService.mjs` for any hardcoded file-path expectations vs graph-node-only consumption
 - gemma4 retrospective parsing pipeline (likely `ai/daemons/services/*Ingestor.mjs` or a sibling)
 - Anywhere a `resources/content/...` path string appears in graph-related code
@@ -273,10 +280,11 @@ If invariance holds → no further work needed in DreamService / gemma4 layer. I
 - **Migration cost:** ~3,366 archive items + ~1300 active items + 1200+ release notes need reshape (delete + resync via `sync_all`)
 - **Path configurability tension:** users who relied on `archiveDir` etc. for namespace customization see narrower surface (operator to decide audit scope)
 - **First-cycle learning cost:** existing agents (including me) anchored on the two-primitive model need to update mental model
-- **Expected unit-test breakage during Phase 1 migration** (operator-acknowledged 2026-05-14): each downstream §9 item that mutates syncers / helpers / file-paths is likely to break specs that hardcode old shape. CI catches these per-PR, which is the right feedback loop — each PR cycle surfaces the test-side migration scope. Not a cost to avoid; a cost to expect + budget for in each Phase-1 ticket's AC list
+- **Expected unit-test breakage during Phase 1 migration** (operator-acknowledged 2026-05-14): each downstream [§9](#downstream-tickets) item that mutates syncers / helpers / file-paths is likely to break specs that hardcode old shape. CI catches these per-PR, which is the right feedback loop — each PR cycle surfaces the test-side migration scope. Not a cost to avoid; a cost to expect + budget for in each Phase-1 ticket's AC list
 
 ---
 
+<a id="anti-patterns"></a>
 ## 5. Anti-Patterns (Substrate-Bypass Prevention)
 
 Future agents authoring `resources/content/` migrations or syncer changes MUST avoid these patterns:
@@ -289,6 +297,7 @@ The Discussion #11359 framing *"archive folders for vN.M.K are created at releas
 
 The framing *"Because Issues, PRs, and Discussions share the same auto-incrementing ID stream, a 100-ID chunk contains ≤100 items total across types"* is a wrong anchor. The graduated rule is **ordinal-100 on planned items**. ID-stream math is a coincidence of historical primitive design (now retired); not the rule.
 
+<a id="parallel-chunking"></a>
 ### 5.3 Inventing parallel chunking rules
 
 This ADR codifies ONE primitive. Any proposal to introduce a second chunking algorithm (e.g., "ID-range for active because O(1) lookup matters" or "flat for sparse types because density") MUST first cite this ADR and propose a Cycle 4 amendment via Ideation Sandbox + cross-family consensus. Substrate-evolution via fresh primitive-invention is the substrate-bypass failure mode.
@@ -301,19 +310,20 @@ The 24h-grace + auto-re-close-and-new-ticket workflow is the architectural found
 
 The current config surface (`archiveDir`, `defaultArchiveVersion`, etc.) reflects HISTORICAL flexibility when the substrate was simpler. The universal ordinal-100 rule does not need per-type or per-namespace config; the architecture is the architecture. Future agents adding "configurable folder names" to the config surface MUST justify against this ADR.
 
+<a id="deprecation-theater"></a>
 ### 5.6 Deprecation theater / preservation-window framing
 
-Future agents MUST NOT add `@deprecated` JSDoc annotations to retired primitives (`chunkPath.mjs`, `archivePath.mjs`, etc.) under the framing "preserve as a thin backward-compatibility shim during migration window". Per §3.6 clean-slate framing, ADR 0004 prescribes **deletion**, not deprecation. The retired primitive's file gets DELETED when the call-site migration ticket lands — there is NO coexistence window where the old + new primitives both exist with deprecation annotations bridging them.
+Future agents MUST NOT add `@deprecated` JSDoc annotations to retired primitives (`chunkPath.mjs`, `archivePath.mjs`, etc.) under the framing "preserve as a thin backward-compatibility shim during migration window". Per [§3.6](#migration-shape) clean-slate framing, ADR 0004 prescribes **deletion**, not deprecation. The retired primitive's file gets DELETED when the call-site migration ticket lands — there is NO coexistence window where the old + new primitives both exist with deprecation annotations bridging them.
 
 **Why the anti-pattern surfaces under RLHF-anchored deprecation tendency**: model families trained on broader software-engineering corpora have a strong prior toward "responsible legacy preservation" via `@deprecated` annotations + thin shims. This pattern is correct for typical industry-software lifecycle (LTS support, customer migration windows, semver-major-version-breaking-change discipline). It is **wrong** for Neo's substrate-evolution context where:
 
-1. The operator explicitly named "ZERO migration scripts planned" + "clean slate => like we never had prior content" (ADR §3.6 operator quote).
+1. The operator explicitly named "ZERO migration scripts planned" + "clean slate => like we never had prior content" (ADR [§3.6](#migration-shape) operator quote).
 2. The clean-slate purge runs as Task 10 — there's no customer data to preserve across the cut.
-3. `@deprecated` shims are structurally §5.3's "parallel chunking rule" wearing different framing.
+3. `@deprecated` shims are structurally [§5.3](#parallel-chunking)'s "parallel chunking rule" wearing different framing.
 
 **Pattern recognition signals**: if your AC list contains language like "thin re-export wrapper for one deprecation window", "`@deprecated` JSDoc pointing to the new primitive", "backward-compat-compatible during Lane B migration", or "shim integrity" — these are RLHF-deprecation-tendency signals. Replace them with: "DELETED at the call-site-migration ticket", "removed in the same PR that lands the new primitive", or simply omit the framing entirely.
 
-**The Cycle-1+Cycle-2 review chain anti-pattern**: cross-family reviewers under the same RLHF anchor will MISS this anti-pattern at review time unless §5.6 is explicitly cited. The author-side AC list sanctions the deprecation theater; the reviewer-side pattern-match reads "responsible legacy support" as positive signal. Operator-at-merge-gate becomes the catch-of-last-resort. §5.6 codifies the pattern so cross-family review can fire before operator-catch.
+**The Cycle-1+Cycle-2 review chain anti-pattern**: cross-family reviewers under the same RLHF anchor will MISS this anti-pattern at review time unless [§5.6](#deprecation-theater) is explicitly cited. The author-side AC list sanctions the deprecation theater; the reviewer-side pattern-match reads "responsible legacy support" as positive signal. Operator-at-merge-gate becomes the catch-of-last-resort. [§5.6](#deprecation-theater) codifies the pattern so cross-family review can fire before operator-catch.
 
 ---
 
@@ -333,7 +343,7 @@ You MUST:
 2. Read the universal helper file AND its JSDoc rationale
 3. Read `.github/workflows/prevent-reopen.yml`
 4. Read `resources/content/_index.json` schema (once it exists)
-5. V-B-A any pattern you find in current code against the universal rule in §2
+5. V-B-A any pattern you find in current code against the universal rule in [§2](#decision)
 6. If the current code diverges from this ADR (e.g., legacy `chunkPath.mjs` calls), the FIX is migrate-to-universal, NOT add-a-second-primitive
 
 ---
@@ -364,6 +374,7 @@ Retrieval Hint: `query_raw_memories("github content architecture ADR universal o
 
 ---
 
+<a id="downstream-tickets"></a>
 ## 9. Downstream Tickets (out-of-scope for THIS ticket; file as separate after ADR graduates)
 
 **Multi-session scope.** Per operator framing 2026-05-14: *"divide and conquer still applies. improving in iterations. we should add the full problem-scope, but we can tackle it inside multiple sessions. first reasonable goal: let us get the desired resources/content structure into the repo. step by step, no one shot. if this fully works, including syncs with delta updates, then we can look into missing other items."*
@@ -374,7 +385,7 @@ Phase boundaries below are the **gating discipline**: do not begin Phase 2 work 
 
 Sequenced for **focus on new syncer logic first** (the value-delivery substrate per operator's clean-slate framing — no migration tooling to author):
 
-1. **Universal helper:** consolidate `chunkPath.mjs` + `archivePath.mjs` into `contentPath.mjs` (includes the flat-when-only-`chunk-1/` UX-optimization decision per §2.3)
+1. **Universal helper:** consolidate `chunkPath.mjs` + `archivePath.mjs` into `contentPath.mjs` (includes the flat-when-only-`chunk-1/` UX-optimization decision per [§2.3](#retired-primitives))
 2. **Index map:** `_index.json` schema + maintenance in syncers
 3. **`LocalFileService` rewrite:** index-based lookup
 4. **Config audit:** drop `archiveDir` + `defaultArchiveVersion` (authority-bound per §3.7); decide implementation-tier keep-vs-fold on `archiveChunkPrefix` / `archiveChunkThreshold` / remaining flexibility
@@ -398,7 +409,7 @@ Sequenced for **focus on new syncer logic first** (the value-delivery substrate 
 Phase 2 work begins ONLY after:
 - All Phase 1 items 1-10 are merged
 - `sync_all` operates correctly with **delta updates** (not just full re-syncs)
-- `resources/content/` structure on dev matches §2.1 target shape
+- `resources/content/` structure on dev matches [§2.1](#target-on-disk-shape) target shape
 - No regressions in KB ingestion or Native Edge Graph consumption
 - **`/tech-debt-radar` sweep run** (operator-recommended 2026-05-14) at phase-gate to surface anything missed — covers the "did Phase 1 leave any silent stale-state debris we didn't catch in per-PR CI" question that's hard to answer from inside individual PR reviews
 
@@ -413,6 +424,6 @@ Each item likely becomes its own Epic with sub-tickets. Captured here for future
 
 ### Why this phasing matters
 
-The Phase 1 / Phase 2 boundary is not bureaucratic — it's the **risk-reduction discipline**. Phase 2 work depends on `resources/content/` being correctly shaped + index-map operational + delta-syncs working. Trying to refactor portal + SEO + middleware-v2 while the underlying substrate is still in flight is the substrate-bypass anti-pattern in a different surface area (§5 generalization). Land the foundation, verify it operates, then climb.
+The Phase 1 / Phase 2 boundary is not bureaucratic — it's the **risk-reduction discipline**. Phase 2 work depends on `resources/content/` being correctly shaped + index-map operational + delta-syncs working. Trying to refactor portal + SEO + middleware-v2 while the underlying substrate is still in flight is the substrate-bypass anti-pattern in a different surface area ([§5](#anti-patterns) generalization). Land the foundation, verify it operates, then climb.
 
 The full scope is captured here so future sessions don't lose the road-map — but the gating prevents one-shot over-reach.

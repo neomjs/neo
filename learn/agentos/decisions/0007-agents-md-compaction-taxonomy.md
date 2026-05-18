@@ -14,6 +14,7 @@
 
 ---
 
+<a id="context"></a>
 ## 1. Context
 
 The AI Agent Memory Substrate (specifically `AGENTS.md`) is subject to strict context-window per-file limits imposed by various MCP harnesses (Antigravity enforces a hard 24KB cap). Unchecked growth of instructions in `AGENTS.md` leads to silent truncation, blinding the agents to critical rules.
@@ -24,6 +25,7 @@ Per Discussion #11419 (Phase A) and a direct operator challenge to formally enco
 
 ---
 
+<a id="decision"></a>
 ## 2. Decision: The 3-Axis Slot Rule
 
 The memory substrate is compacted per the **3-Axis Slot Rule**:
@@ -40,10 +42,12 @@ Based on these axes, every section in the instruction substrate receives a **Dis
 - **`rewrite`**: Rule is refactored to increase density.
 - **`retire`**: Rule is obsolete or subsumed and removed entirely.
 
+<a id="post-pruning-recurrence"></a>
 ### 2.0.1 Post-Pruning-Recurrence-Rate Sub-Axis
 
 Trigger-frequency decomposes into (a) per-turn-load-frequency and (b) post-pruning-discipline-recall-recurrence. Skills that shape ongoing session behavior (`lead-role`, `peer-role`, `pull-request`, `pr-review`, `post-review-pickup`) require their native skill-loading as a recursive-reload anchor to persist across context-window pruning cycles. One-shot lifecycle skills (`ticket-create`, `ticket-triage`, `ticket-intake`, `epic-review`, `epic-resolution`, `ideation-sandbox`, `memory-mining`, `turn-memory-pre-flight`, `create-skill`, `architecture-pre-flight`, `tech-debt-radar`, `structural-pre-flight`, `session-sunset`, `unit-test`, `whitebox-e2e`) do not require this anchor.
 
+<a id="friction-vocabulary"></a>
 ### 2.0.2 Friction Classification Vocabulary
 
 The `friction -> gold` core value needs retrieval-safe vocabulary so agents do not re-derive the same distinction from closed Discussion comments. These terms classify substrate-evolution proposals; they are review heuristics, not a mandatory gate:
@@ -54,6 +58,7 @@ The `friction -> gold` core value needs retrieval-safe vocabulary so agents do n
 
 This vocabulary preserves the substrate-truth from Discussion #11452 without adopting its rejected mandatory 4-test filter.
 
+<a id="baseline-taxonomy"></a>
 ### 2.1 The Baseline Taxonomy Classifications
 
 *Note: This reflects the baseline dispositions applied during the progressive disclosure migration. Future rules must be evaluated against the 3-axis rule.*
@@ -92,6 +97,7 @@ This vocabulary preserves the substrate-truth from Discussion #11452 without ado
 
 ---
 
+<a id="implementation-details"></a>
 ## 3. Implementation Details
 
 - **Standalone Extraction:** The taxonomy table is removed from `AGENTS.md`.
@@ -101,6 +107,7 @@ This vocabulary preserves the substrate-truth from Discussion #11452 without ado
 
 ---
 
+<a id="consequences"></a>
 ## 4. Consequences
 
 ### Positive
@@ -113,19 +120,24 @@ This vocabulary preserves the substrate-truth from Discussion #11452 without ado
 
 ---
 
+<a id="anti-patterns"></a>
 ## 5. Anti-Patterns (Substrate-Bypass Prevention)
 
+<a id="substrate-accretion"></a>
 ### 5.1 Substrate Accretion Without Taxonomy
 Adding new, lengthy rules to `AGENTS.md` without evaluating them against the 3-Axis Slot Rule. New rules must be classified and assigned a disposition before insertion. If the disposition is `move` or `compress-to-trigger`, the rule text belongs in the Atlas.
 
+<a id="compaction-taxonomy-mutation"></a>
 ### 5.2 Compaction Taxonomy Mutation
 Modifying the baseline taxonomy dispositions directly in this ADR. This ADR is the immutable authority anchor. Future shifts in disposition (e.g., if a `keep` becomes a `move`) should be recorded via a new ADR or as documented changes in the target Atlas files, not by rewriting this historical baseline.
 
+<a id="recursive-reload-retirement"></a>
 ### 5.3 Recursive-Reload Anchor Retirement
 Retiring `AGENTS.md` §21 trigger entries that are marked as `recursive-reload-required` (YES) during Phase C compression cycles *without replacing them via native skill-loading injection*. These entries are empirically load-bearing for post-pruning-discipline-recall in long sessions; compressing them breaks behavioral disciplines (e.g., `lead-role`, `peer-role`, `post-review-pickup`). (Note: The final compaction safely retired the §21 table because the `description` frontmatter of all progressive disclosure skills is now natively injected into the turn-based memory environment on every turn).
 
 ---
 
+<a id="related"></a>
 ## 6. Related
 
 - **Discussion #11419** — The origination point for this Phase A progressive disclosure extraction.
@@ -135,6 +147,7 @@ Retiring `AGENTS.md` §21 trigger entries that are marked as `recursive-reload-r
 
 ---
 
+<a id="status-lifecycle"></a>
 ## 7. Status / Lifecycle
 
 - **Proposed** (Cycle 2.5 consensus achieved; awaiting operator content-accuracy approval)
