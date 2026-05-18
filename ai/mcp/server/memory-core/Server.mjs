@@ -5,6 +5,10 @@ import {listTools, callTool}       from './toolService.mjs';
 import AuthMiddleware              from '../shared/services/AuthMiddleware.mjs';
 import RequestContextService       from '../shared/services/RequestContextService.mjs';
 import StdioIdentityResolver       from '../shared/services/StdioIdentityResolver.mjs';
+import {
+    formatHarnessGroups,
+    groupProcessesByHarness
+} from '../../../services/memory-core/helpers/HarnessClassifier.mjs';
 
 import {
     Memory_Config                  as aiConfig,
@@ -406,7 +410,15 @@ class Server extends BaseServer {
             });
 
             if (siblings.length > 0) {
-                logger.info(`ℹ️  [Startup] Sibling concurrency: ${siblings.length} peer process(es) holding SQLite files. PIDs: ${siblings.map(s => s.pid).join(', ')}`);
+                const groups  = groupProcessesByHarness(siblings);
+                const summary = formatHarnessGroups(groups);
+                const message = `ℹ️  [Startup] Sibling concurrency: ${siblings.length} peer process(es) holding SQLite files. Harnesses: ${summary}`;
+
+                if (groups.some(group => group.harness === 'unknown')) {
+                    logger.warn(message);
+                } else {
+                    logger.info(message);
+                }
             }
         } catch (error) {
             // Ignore ENOENT (lsof missing on Windows) or status 1 (no matching processes)
