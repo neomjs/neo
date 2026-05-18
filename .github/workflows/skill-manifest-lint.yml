@@ -7,6 +7,7 @@ on:
       - '.agents/skills/**'
       - '.claude/skills/**'
       - 'ai/scripts/lint-skill-manifest.mjs'
+      - 'ai/scripts/lint-agents.mjs'
       - '.github/workflows/skill-manifest-lint.yml'
       - 'learn/agentos/ProgressiveDisclosureSkills.md'
       - 'learn/guides/fundamentals/CodebaseOverview.md'
@@ -16,6 +17,7 @@ on:
       - '.agents/skills/**'
       - '.claude/skills/**'
       - 'ai/scripts/lint-skill-manifest.mjs'
+      - 'ai/scripts/lint-agents.mjs'
       - '.github/workflows/skill-manifest-lint.yml'
       - 'learn/agentos/ProgressiveDisclosureSkills.md'
       - 'learn/guides/fundamentals/CodebaseOverview.md'
@@ -44,3 +46,6 @@ jobs:
 
       - name: Lint skill manifest
         run: node ai/scripts/lint-skill-manifest.mjs --base origin/${{ github.base_ref || 'dev' }}
+
+      - name: Lint agent semantic anchors (ADR 0011 / #11560)
+        run: node ai/scripts/lint-agents.mjs --base origin/${{ github.base_ref || 'dev' }}
