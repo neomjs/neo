@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const scriptPath = path.resolve(__dirname, '../../../../../buildScripts/util/check-chore-sync.mjs');
+const scriptPath = path.resolve(__dirname, '../../../../../../buildScripts/util/check-chore-sync.mjs');
 
 test.describe('check-chore-sync.mjs', () => {
     let tempDir;
