@@ -95,6 +95,10 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
             chunkNumber: 1,
             path: path.join('discussions', 'chunk-1', 'discussion-24001.md')
         });
+
+        const content = await fs.readFile(targetPath, 'utf8');
+        expect(content).toMatch(/^closed: false$/m);
+        expect(content).toMatch(/^closedAt: null$/m);
     });
 
     test('writes archived discussions through contentPath and maintains _index.json', async () => {
@@ -127,6 +131,10 @@ test.describe('Neo.ai.services.github-workflow.sync.DiscussionSyncer', () => {
             chunkNumber: 1,
             path: path.join('archive', 'discussions', 'v13.0.0', 'chunk-1', 'discussion-24002.md')
         });
+
+        const content = await fs.readFile(targetPath, 'utf8');
+        expect(content).toMatch(/^closed: true$/m);
+        expect(content).toMatch(/^closedAt: '2026-05-01T00:00:00Z'$/m);
     });
 });
 
