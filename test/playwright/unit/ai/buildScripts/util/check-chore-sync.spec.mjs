@@ -11,6 +11,7 @@ const scriptPath = path.resolve(__dirname, '../../../../../../buildScripts/util/
 
 test.describe('check-chore-sync.mjs', () => {
     let tempDir;
+    let testScriptPath;
 
     test.beforeEach(() => {
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-sync-test-'));
@@ -18,6 +19,10 @@ test.describe('check-chore-sync.mjs', () => {
         execSync('git config user.email "test@example.com"', { cwd: tempDir, stdio: 'ignore' });
         execSync('git config user.name "Test User"', { cwd: tempDir, stdio: 'ignore' });
         execSync('git commit --allow-empty -m "Init"', { cwd: tempDir, stdio: 'ignore' });
+
+        testScriptPath = path.join(tempDir, 'buildScripts/util/check-chore-sync.mjs');
+        fs.mkdirSync(path.dirname(testScriptPath), {recursive: true});
+        fs.copyFileSync(scriptPath, testScriptPath);
 
         // Ensure we're on a non-data branch like 'dev'
         execSync('git checkout -b dev', { cwd: tempDir, stdio: 'ignore' });
@@ -29,7 +34,7 @@ test.describe('check-chore-sync.mjs', () => {
 
     const runScript = (cwd, env = {}) => {
         try {
-            const output = execSync(`node ${scriptPath}`, {
+            const output = execSync(`node ${testScriptPath}`, {
                 cwd,
                 env: { ...process.env, ...env },
                 encoding: 'utf-8',
@@ -64,8 +69,26 @@ test.describe('check-chore-sync.mjs', () => {
         expect(result.status).toBe(0);
     });
 
-    test('valid sync-only staging with NEO_SYNC_AUTOCOMMIT=1 passes', () => {
+    test('sanctioned bypass: staging a data file on agent/sync- branch passes', () => {
+        execSync('git checkout -b agent/sync-123', { cwd: tempDir, stdio: 'ignore' });
         stageFile('resources/content/issues/1.md');
+        const result = runScript(tempDir);
+        expect(result.status).toBe(0);
+    });
+
+    test('valid sync-only staging with NEO_SYNC_AUTOCOMMIT=1 passes for generated workflow content', () => {
+        [
+            'resources/content/issues/chunk-1/issue-1.md',
+            'resources/content/discussions/chunk-1/discussion-1.md',
+            'resources/content/pulls/chunk-1/pr-1.md',
+            'resources/content/release-notes/chunk-1/v1.0.0.md',
+            'resources/content/archive/issues/v1.0.0/chunk-1/issue-2.md',
+            'resources/content/issue-archive/chunk-1/issue-3.md',
+            'resources/content/pr-archive/chunk-1/pr-2.md',
+            'resources/content/_index.json',
+            'resources/content/.sync-metadata.json'
+        ].forEach(stageFile);
+
         const result = runScript(tempDir, { NEO_SYNC_AUTOCOMMIT: '1' });
         expect(result.status).toBe(0);
     });
@@ -82,12 +105,27 @@ test.describe('check-chore-sync.mjs', () => {
         expect(result.output).not.toContain('resources/content/issues/1.md');
     });
 
-    test('root diagnostics: running the script in a subdirectory fails', () => {
-        const subDir = path.join(tempDir, 'subdir');
-        fs.mkdirSync(subDir);
-        const result = runScript(subDir);
+    test('non-sync staged file rejection with env var: unowned resources content fails', () => {
+        stageFile('resources/content/concepts/example.md');
+        const result = runScript(tempDir, { NEO_SYNC_AUTOCOMMIT: '1' });
         expect(result.status).toBe(1);
-        expect(result.output).toContain('Error: Repository root mismatch');
-        expect(result.output).toContain('check-chore-sync.mjs is running in');
+        expect(result.output).toContain('Error: NEO_SYNC_AUTOCOMMIT bypass rejected.');
+        expect(result.output).toContain('resources/content/concepts/example.md');
+    });
+
+    test('script root anchoring: running from a non-repo cwd checks the owning repo', () => {
+        const otherDir = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-sync-foreign-'));
+
+        try {
+            stageFile('resources/content/issues/1.md');
+            const result = runScript(otherDir);
+            expect(result.status).toBe(1);
+            expect(result.output).toContain('Error: Sync-data leakage detected');
+            expect(result.output).toContain("Branch 'dev' (in root");
+            expect(result.output).toContain(tempDir);
+            expect(result.output).toContain('resources/content/issues/1.md');
+        } finally {
+            fs.rmSync(otherDir, {recursive: true, force: true});
+        }
     });
 });
