@@ -35,9 +35,9 @@ subIssues:
   - '[x] 10822 Config substrate cleanup: KISS hard cuts + three-tier model'
   - '[ ] 10945 Expand deployment-pipeline integration coverage for Memory Core'
   - '[x] 10957 Document v13 architectural path — slim MCP servers, orchestrator daemon, SDK migration sequence'
-  - '[ ] 10960 v13 Release Tracking — main-focus-items canonical sub-issue tree'
+  - '[x] 10960 v13 Release Tracking — main-focus-items canonical sub-issue tree'
   - '[x] 11009 Move Orchestrator logic into Neo daemon class'
-subIssuesCompleted: 14
+subIssuesCompleted: 15
 subIssuesTotal: 22
 blockedBy: []
 blocking:
@@ -1021,4 +1021,5 @@ Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
 > No git-tracked files were changed.
 
 - 2026-05-16T17:38:11Z @neo-gpt cross-referenced by PR #11475
+- 2026-05-16T20:57:21Z @neo-gpt cross-referenced by #11496
 

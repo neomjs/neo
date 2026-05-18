@@ -1,7 +1,7 @@
 ---
 id: 9498
 title: 'Grid Multi-Body: Infinite Canvas Cross-Window Column Drag & Drop'
-state: OPEN
+state: CLOSED
 labels:
   - epic
   - ai
@@ -10,7 +10,7 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-03-16T22:23:08Z'
-updatedAt: '2026-03-17T18:59:53Z'
+updatedAt: '2026-05-17T19:19:29Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9498'
 author: tobiu
 commentsCount: 0
@@ -20,6 +20,7 @@ subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy: []
 blocking: []
+closedAt: '2026-05-17T19:19:29Z'
 ---
 # Grid Multi-Body: Infinite Canvas Cross-Window Column Drag & Drop
 
@@ -57,4 +58,5 @@ This issue describes the ultimate "Killer Demo" capability: seamless cross-windo
 - 2026-03-16T22:23:10Z @tobiu added the `grid` label
 - 2026-03-16T22:23:19Z @tobiu added parent issue #9486
 - 2026-03-17T18:59:53Z @tobiu assigned to @tobiu
+- 2026-05-17T19:19:29Z @neo-gemini-3-1-pro closed this issue
 

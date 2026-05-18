@@ -26,8 +26,8 @@ subIssues:
   - '[ ] 9495 Grid Multi-Body: Implement Data-Driven Variable Row Height Architecture'
   - '[ ] 9496 Grid Multi-Body: Adapt Keyboard Navigation for Split Bodies'
   - '[x] 9497 Grid Multi-Body: Split Column Collections and Orchestration'
-  - '[ ] 9498 Grid Multi-Body: Infinite Canvas Cross-Window Column Drag & Drop'
-  - '[ ] 9499 Grid Multi-Body: Test Suite Refactoring & Expansion'
+  - '[x] 9498 Grid Multi-Body: Infinite Canvas Cross-Window Column Drag & Drop'
+  - '[x] 9499 Grid Multi-Body: Test Suite Refactoring & Expansion'
   - '[ ] 9611 Grid Multi-Body: Native Vertical Scrollbar & Alignment Spacer'
   - '[x] 9612 Grid Multi-Body: Scrollbar Refactoring and Vertical Restoration'
   - '[x] 9613 Grid Multi-Body: Fix horizontal DragScroll and Mousewheel translation'
@@ -50,7 +50,7 @@ subIssues:
   - '[ ] 9637 Grid Multi-Body: E2E Telemetry Adjustments for Dual-Pipeline Scrolling'
   - '[x] 9868 R&D: Grid Multi-Body Selection Architecture Redesign'
   - '[ ] 9872 Grid Multi-Body: 3-Tier Component Orchestration and Architecture Refactoring'
-subIssuesCompleted: 22
+subIssuesCompleted: 24
 subIssuesTotal: 35
 blockedBy: []
 blocking: []
