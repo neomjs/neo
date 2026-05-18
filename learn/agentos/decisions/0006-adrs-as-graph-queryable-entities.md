@@ -14,18 +14,21 @@
 
 ---
 
+<a id="context"></a>
 ## 1. Context
 
-PR #11362 (commit `559c73d43`, 2026-05-14) deleted 3,366 archived items as "legacy" instead of reshaping them per Epic #11187 Phase 3 ACs. Root cause: ADR-authority artifacts existed (Discussion #11180 → Epic #11187 → Discussion #11359 graduation chain), but they were NOT graph-visible — DreamService Golden Path math operated on ISSUE-level priority without ADR-authority weighting; DreamService Phase 2 conflict detection couldn't reference ADR §5 anti-patterns; future-agent V-B-A had no graph-queryable authority target.
+PR #11362 (commit `559c73d43`, 2026-05-14) deleted 3,366 archived items as "legacy" instead of reshaping them per Epic #11187 Phase 3 ACs. Root cause: ADR-authority artifacts existed (Discussion #11180 → Epic #11187 → Discussion #11359 graduation chain), but they were NOT graph-visible — DreamService Golden Path math operated on ISSUE-level priority without ADR-authority weighting; DreamService Phase 2 conflict detection couldn't reference ADR [§5](#anti-patterns-substrate-bypass-prevention) anti-patterns; future-agent V-B-A had no graph-queryable authority target.
 
 **ADR-as-graph-entity is the substrate condition for ADR-authority-weighting** in Golden Path math + DreamService conflict detection + future Sandbox #11375 bird's-eye strategic-tier reasoning.
 
 ---
 
+<a id="decision"></a>
 ## 2. Decision
 
 ADRs become first-class graph-queryable entities via **one new specific graph node label `ADR`** (NOT a generic `DOCUMENT` node with metadata-typing). Ingested deterministically (no LLM-extraction prompt widening). Linked to existing `CONCEPT` ontology + `ISSUE` / `PR` / `SESSION` / `FILE` nodes via consumer-backed edge taxonomy.
 
+<a id="schema-decision"></a>
 ### 2.1 Schema decision
 
 **One new label**: `ADR`. Specifically NOT:
@@ -33,6 +36,7 @@ ADRs become first-class graph-queryable entities via **one new specific graph no
 - A `GUIDE` sub-type (different consumer semantics — authority-tier vs learn-by-reading)
 - A `CONCEPT` sub-shape (operator-direct refutation: ADR ⊥ Concept; N-to-N not parent-child)
 
+<a id="critical-v-b-a-graph-node-types-are-labels-not-sql-schemas"></a>
 ### 2.2 Critical V-B-A: graph node types are labels, not SQL schemas
 
 `ai/services/memory-core/GraphService.mjs` lines 149, 164, 227:
@@ -46,6 +50,7 @@ Line 227: label     : type || 'NODE',
 
 **Implication:** adding a new node "type" is a label addition — cost negligible (no migration, no schema-change PR, no data backfill). The "perpetual schema bloat" framing initially used to reject Option B (Cycle 1 → Cycle 2 yield) was based on a SQL-schema-cost premise that does NOT apply to this graph substrate.
 
+<a id="boundaries"></a>
 ### 2.3 Boundaries
 
 - **No reclassification** of existing `GUIDE` / `BLOG` / `TEST` node labels
@@ -53,6 +58,7 @@ Line 227: label     : type || 'NODE',
 - **Future doc-tier additions** (`RFC`, `POST_MORTEM`, `TECH_SPEC`, etc.) — each gets its own label per the first-class-authority-artifact gate established in #11373. Explicit + reviewable; no silent enum-growth.
 - **Pinned `metadata` shape** per ADR node: `{status: 'Draft' | 'Accepted', adrNumber: NNNN, title, supersedes?: [...]}` — extracted from frontmatter + body
 
+<a id="edge-taxonomy-consumer-backed"></a>
 ### 2.4 Edge taxonomy (consumer-backed)
 
 | Edge | Direction | Consumer |
@@ -65,40 +71,48 @@ Line 227: label     : type || 'NODE',
 
 Each edge has a named consumer. No speculative edges.
 
+<a id="apoptosis-protection"></a>
 ### 2.5 Apoptosis protection
 
 `GraphService.getOrphanedNodes()` MUST exclude nodes WHERE `type='ADR'`. ADR nodes are durable authority — they should never be decay-eligible orphans, even if temporarily lacking inbound/outbound edges during normal graph evolution.
 
 ---
 
+<a id="implementation-details"></a>
 ## 3. Implementation Details
 
+<a id="deterministic-ingestion"></a>
 ### 3.1 Deterministic ingestion
 
 New `ai/daemons/services/AdrIngestor.mjs` sibling to existing `ConceptIngestor.mjs`:
 - Scans `learn/agentos/decisions/0NNN-*.md`
 - Parses frontmatter + body for metadata (`status`, `adrNumber`, `title`, `supersedes`)
 - Emits `ADR` graph nodes via `GraphService.upsertNode({type: 'ADR', ...metadata})`
-- Emits 5 consumer-backed edges per §2.4 by parsing Related section + Fix section file:line refs + body cite-patterns
+- Emits 5 consumer-backed edges per [§2.4](#edge-taxonomy-consumer-backed) by parsing Related section + Fix section file:line refs + body cite-patterns
 
+<a id="apoptosis-predicate-update"></a>
 ### 3.2 Apoptosis predicate update
 
 `ai/services/memory-core/GraphService.mjs#getOrphanedNodes()` predicate update:
 - Excludes `WHERE type='ADR'` from orphan-eligible set
 - Regression test proving ADR nodes are NOT returned even when orphaned
 
+<a id="dreamservice-phase-4-integration"></a>
 ### 3.3 DreamService Phase 4 integration
 
 Phase 4 Apoptosis sweep respects the updated predicate; no Phase 1 LLM-extraction prompt change.
 
+<a id="golden-path-multiplier-deferred"></a>
 ### 3.4 Golden Path multiplier (deferred)
 
 Specific multiplier value TBD via empirical post-merge tuning (≤30 days post-#11377 merge). Implementation MUST be parameter-driven (config-tunable), not hardcoded.
 
 ---
 
+<a id="consequences"></a>
 ## 4. Consequences
 
+<a id="positive"></a>
 ### Positive
 
 - **ADRs become V-B-A targets in graph queries** — `WHERE type='ADR'` is grep-friendly + self-documenting
@@ -107,6 +121,7 @@ Specific multiplier value TBD via empirical post-merge tuning (≤30 days post-#
 - **No LLM-prompt-bloat** — deterministic ingestion sibling-pattern keeps the 14-type extraction enum stable
 - **Bird's-eye Sandbox #11375 substrate condition met** — strategic-tier reasoning can query ADR authority via graph
 
+<a id="negative"></a>
 ### Negative
 
 - **Implementation cost** — new `AdrIngestor.mjs`, `GraphService` predicate update, DreamService Phase 4 wiring, regression tests
@@ -115,30 +130,37 @@ Specific multiplier value TBD via empirical post-merge tuning (≤30 days post-#
 
 ---
 
+<a id="anti-patterns-substrate-bypass-prevention"></a>
 ## 5. Anti-Patterns (Substrate-Bypass Prevention)
 
+<a id="treating-graph-node-types-as-sql-schemas"></a>
 ### 5.1 Treating graph node types as SQL schemas
 
 The "perpetual schema bloat" concern that drove Cycle 2 Option E was based on a SQL-schema-cost premise. **Graph node types map to labels (per `GraphService.mjs` line 149); adding labels is essentially free.** Future agents authoring graph-schema decisions MUST V-B-A the actual cost mechanism before invoking schema-bloat-prevention reasoning.
 
+<a id="yielding-to-peer-framing-without-v-b-a"></a>
 ### 5.2 Yielding to peer framing without V-B-A
 
 This ADR's Cycle 2 yield to Option E (generic `DOCUMENT`) was wrong because it accepted Gemini's schema-bloat framing without V-B-A'ing the underlying cost premise. The framing resonated; the resonance was the failure-mode trigger. **Pattern: framing that resonates with training-prior (e.g., "minimal schema = good") gets accepted as load-bearing without empirical verification.** Distinct from §3.5 V-B-A core value (which targets public-artifact assertions) — applies specifically to *internal yields during peer divergence*.
 
+<a id="treating-authority-tier-graph-entities-as-decay-eligible-orphans"></a>
 ### 5.3 Treating authority-tier graph entities as decay-eligible orphans
 
 ADR nodes are durable authority. Apoptosis predicates MUST exclude them. Future apoptosis-rule changes that don't preserve this exclusion are wrong-shape — codify the exclusion explicitly in predicate code + regression tests.
 
+<a id="silent-doc-type-enum-growth"></a>
 ### 5.4 Silent doc-type enum growth
 
 If `metadata.documentType` were used (Cycle 2 Option E), future doc-tier additions could silently grow the enum without first-class-authority justification. The specific-label approach (Option F) makes each addition explicit + reviewable.
 
+<a id="llm-extraction-prompt-widening-for-deterministic-ingestion-eligible-types"></a>
 ### 5.5 LLM-extraction prompt widening for deterministic-ingestion-eligible types
 
 Adding `ADR` (or any deterministic-ingestion-eligible type) to DreamService Phase 1 `VALID_TYPES` is wrong-shape — it bloats the LLM prompt without capability benefit, since deterministic ingestion is more reliable than LLM-extraction for file-path-derivable types.
 
 ---
 
+<a id="v-b-a-pre-flight-for-future-authors"></a>
 ## 6. V-B-A Pre-Flight for Future Authors
 
 Before authoring code that touches the ADR graph substrate, you MUST:
@@ -152,6 +174,7 @@ Before authoring code that touches the ADR graph substrate, you MUST:
 
 ---
 
+<a id="related"></a>
 ## 7. Related
 
 - **Discussion #11374** — graduated; this ADR's authority origin; 5-cycle divergence-pressure arc + 3× APPROVED Signal Ledger
@@ -166,6 +189,7 @@ Before authoring code that touches the ADR graph substrate, you MUST:
 
 ---
 
+<a id="status-lifecycle"></a>
 ## 8. Status / Lifecycle
 
 - **Accepted** (operator content-accuracy verified and explicitly authorized in harness prior to merge)

@@ -4,12 +4,14 @@ Authoritative reference for the Contract Completeness Gate and the Contract Ledg
 
 **Origin:** Discussion #10703 graduation artifact (issue #10704). Empirical anchor: PR #10700, where 5 of 6 review cycles were spent negotiating the exact API contract (edge cases, legacy fallbacks, concurrent test design) because the agent was allowed to assume the contract implicitly.
 
+<a id="why-this-exists"></a>
 ## Why this exists
 
 When agents build features that expose public surfaces (or consumed internal surfaces) without a formal contract, the negotiation of edge cases, fallbacks, and types is pushed downstream to the PR Review phase. This causes high friction, multi-cycle delays, and "ping-pong" reviews.
 
 The Contract Ledger forces this negotiation upstream to the ticket creation phase. Ambiguity in the contract must be resolved *before* branching and coding begins.
 
+<a id="the-contract-taxonomy-t1-t4"></a>
 ## The Contract Taxonomy (T1 — T4)
 
 To standardize how we talk about API contracts and feature surfaces, we define four tiers of contract completeness:
@@ -21,6 +23,7 @@ To standardize how we talk about API contracts and feature surfaces, we define f
 | **T3** | Explicit Matrix | A formal, centralized **Contract Ledger** matrix defining the exact Surface, Source of Authority, Behavior, Fallback, Docs, and Evidence. | **Safe.** The baseline required for any public/consumed surface modification. |
 | **T4** | Executable | The T3 Contract Ledger is backed by executable tests (e.g., OpenAPI validation, Playwright suite, TypeScript interfaces) enforcing the contract at runtime. | **Gold Standard.** Required for core framework public APIs and critical memory-core schemas. |
 
+<a id="the-contract-ledger-matrix-schema"></a>
 ## The Contract Ledger Matrix Schema
 
 Any ticket proposing changes to a public or consumed surface MUST include a Contract Ledger matrix in the Fat Ticket body.
@@ -43,6 +46,7 @@ Any ticket proposing changes to a public or consumed surface MUST include a Cont
 | `ticket-create` skill | Discussion #10703 | Mandate inclusion of Contract Ledger matrix for public-surface tickets. | Reject if missing | Yes | `ticket-create-workflow.md` updated |
 | `Neo.data.Store#load` | Issue #8888 | Accepts `config.limit` to restrict payload size. | Defaults to `Neo.config.defaultPageSize` | Yes | `Store.spec.mjs` pagination tests |
 
+<a id="pipeline-integration-the-contract-completeness-gate"></a>
 ## Pipeline Integration (The Contract Completeness Gate)
 
 The Contract Ledger is enforced across the swarm lifecycle via three coordinated skill updates:
@@ -51,6 +55,7 @@ The Contract Ledger is enforced across the swarm lifecycle via three coordinated
 2. **Pre-Flight Verification (`ticket-intake`):** The agent picking up the ticket MUST verify the presence and clarity of the Contract Ledger. If missing from a public-surface ticket, the agent must block/clarify and is forbidden from branching/coding.
 3. **Downstream Audit (`pr-review`):** The reviewer formally audits the submitted PR against the Contract Ledger. Contradictions or missing fallbacks result in an immediate "Request Changes" state.
 
+<a id="when-the-ledger-applies-trigger-scope"></a>
 ## When the Ledger Applies (Trigger Scope)
 
 The Contract Ledger is required for any ticket where:
@@ -67,6 +72,7 @@ The Contract Ledger is required for any ticket where:
 - Pure refactoring that does not change the observable public shape.
 - Simple bug fixes restoring a previously broken (but already documented) contract.
 
+<a id="cross-references"></a>
 ## Cross-references
 
 - Discussion #10703 — origin ideation

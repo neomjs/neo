@@ -2,6 +2,7 @@
 
 This guide provides instructions for setting up and using the Chrome DevTools Model Context Protocol (MCP) server. This server acts as a bridge, allowing AI agents to interact with a live Chrome browser for tasks like debugging, performance analysis, and automation.
 
+<a id="overview"></a>
 ## Overview
 
 The Chrome DevTools MCP server gives AI agents "eyes and hands" in the browser by providing access to the full power of Chrome DevTools. Key features include:
@@ -10,6 +11,7 @@ The Chrome DevTools MCP server gives AI agents "eyes and hands" in the browser b
 -   **Advanced Debugging**: Allows for analysis of network requests, console logs, and taking screenshots.
 -   **Performance Insights**: Can record traces and extract actionable performance insights.
 
+<a id="prerequisites"></a>
 ## Prerequisites
 
 A strict set of requirements must be met for the server to operate correctly:
@@ -18,6 +20,7 @@ A strict set of requirements must be met for the server to operate correctly:
 2.  **Browser:** A current stable version of Google Chrome, Chromium, or Microsoft Edge.
 3.  **npm:** A working installation of npm.
 
+<a id="quick-start"></a>
 ## Quick Start
 
 You can run the server directly from your terminal to test it. For the most authoritative and up-to-date list of options, always run `npx chrome-devtools-mcp@latest --help`.
@@ -33,10 +36,12 @@ This command starts the server in headless mode with a temporary profile, writes
 DEBUG="*" npx chrome-devtools-mcp@latest --headless --isolated --logFile=./mcp-debug.log
 ```
 
+<a id="configuration"></a>
 ## Configuration
 
 For integration with an AI agent or client (e.g., Gemini CLI), you must configure the server in the appropriate settings file (e.g., `.gemini/settings.json`). Configuration is done using documented CLI flags passed in the `args` array.
 
+<a id="example-configuration"></a>
 ### Example Configuration
 
 ```json
@@ -55,6 +60,7 @@ For integration with an AI agent or client (e.g., Gemini CLI), you must configur
 }
 ```
 
+<a id="automated-configuration-for-agents"></a>
 ### Automated Configuration for Agents
 
 For a seamless experience, an AI agent should follow a dynamic process to detect the environment and configure the `executablePath` automatically.
@@ -139,6 +145,7 @@ The agent will dynamically modify a base configuration, preserving existing fiel
 }
 ```
 
+<a id="all-configuration-options"></a>
 ### All Configuration Options
 
 | Argument | Alias | Description |
@@ -153,6 +160,7 @@ The agent will dynamically modify a base configuration, preserving existing fiel
 | `--acceptInsecureCerts` | | Ignores errors from self-signed/expired certificates. |
 | `--logFile` | | Path to a file to write debug logs to. |
 
+<a id="security-considerations"></a>
 ## Security Considerations
 
 **Warning:** The MCP server provides extensive control over a browser instance. The connected AI client can access all DOM content, network requests, and execute arbitrary scripts.
@@ -161,6 +169,7 @@ The agent will dynamically modify a base configuration, preserving existing fiel
 -   **Isolated Profiles:** Use the `--isolated` flag to create a clean, temporary profile for each run, preventing session data from leaking.
 -   **Trusted Networks:** Only run the MCP server on a trusted local machine or within a secure, isolated network.
 
+<a id="agent-usage-workflow-best-practices"></a>
 ## Agent Usage Workflow & Best Practices
 
 A robust agent should follow this workflow:
@@ -170,16 +179,19 @@ A robust agent should follow this workflow:
 3.  **Interact & Verify:** Use an interaction tool (`click`, `fill`), then immediately use an inspection tool (`list_network_requests`, `take_snapshot`) to verify the outcome and get the new state. **Always re-run `take_snapshot` after any action that modifies the DOM.**
 4.  **Log Everything:** For auditability and debugging, log every tool call, its parameters, and its result.
 
+<a id="agent-best-practices-checklist"></a>
 ### Agent Best Practices Checklist
 -   **Prefer Targeted Extraction:** For simple data needs, use `evaluate_script` to extract only the necessary information instead of taking a large snapshot.
 -   **Handle Stale `uid`s:** If a `click` or `fill` fails, assume the `uid` is stale. Re-run `take_snapshot` to get the latest DOM state and try the interaction again.
 -   **Chunk Large Data:** If a snapshot is too large for your context window, use `evaluate_script` to paginate or chunk the data.
 -   **Implement Retries:** For network-dependent actions, use a simple retry mechanism (e.g., exponential backoff) for transient errors.
 
+<a id="tool-reference-examples"></a>
 ## Tool Reference & Examples
 
 This section details key tools with machine-readable examples.
 
+<a id="take-snapshot"></a>
 ### `take_snapshot`
 Captures the DOM and assigns `uid`s to elements. This is the primary tool for enabling interaction.
 
@@ -209,6 +221,7 @@ Captures the DOM and assigns `uid`s to elements. This is the primary tool for en
 ```
 
 ---
+<a id="click"></a>
 ### `click`
 Clicks on an element with the given `uid`.
 
@@ -234,6 +247,7 @@ Clicks on an element with the given `uid`.
 ```
 
 ---
+<a id="evaluate-script"></a>
 ### `evaluate_script`
 Executes a JavaScript function in the page context.
 
@@ -259,6 +273,7 @@ Executes a JavaScript function in the page context.
 ```
 
 ---
+<a id="performance-start-trace"></a>
 ### `performance_start_trace`
 Starts a performance trace recording.
 
@@ -283,20 +298,25 @@ Starts a performance trace recording.
 }
 ```
 
+<a id="troubleshooting"></a>
 ## Troubleshooting
 
+<a id="health-check-pattern"></a>
 ### Health Check Pattern
 The simplest health check is to see if the server's port is listening. A more robust check is a successful tool call, like `list_pages()`.
 
+<a id="finding-the-process"></a>
 ### Finding the Process
 -   **Linux/macOS:** `ps aux | grep chrome-devtools-mcp`
 -   **Windows:** `tasklist | findstr "node"`
 
+<a id="enabling-verbose-logs"></a>
 ### Enabling Verbose Logs
 To diagnose issues, enable verbose logging by setting the `DEBUG` environment variable and using the `--logFile` argument.
 -   **Command:** `DEBUG="*" npx chrome-devtools-mcp@latest --logFile=./mcp-debug.log`
 -   **Logs Location:** The logs will be written to `mcp-debug.log` in your current directory.
 
+<a id="common-failures-commands"></a>
 ### Common Failures & Commands
 -   **`Target closed` error**: The browser could not be started.
     1.  **Check for other Chrome instances:** Close any running Chrome processes.
@@ -308,11 +328,14 @@ To diagnose issues, enable verbose logging by setting the `DEBUG` environment va
     2.  **Clear npx cache:** Run `rm -rf ~/.npm/_npx` (on Linux/macOS). This may remove other npx executables.
     3.  **Reinstall:** Run `npm cache clean --force` and try again.
 
+<a id="platform-specific-caveats"></a>
 ## Platform-Specific Caveats
 -   **WSL/Containers:** When running in a containerized environment or WSL, the server may not be able to find the browser. You must use `--executablePath` to point to the browser executable on the host machine or use `--browserUrl` to connect to a browser you run manually.
 -   **Remote Debugging:** The `--browserUrl` flag allows you to connect to a Chrome instance running on a different machine (e.g., a dedicated test server).
 
+<a id="concepts"></a>
 ## Concepts
+<a id="user-data-directory"></a>
 ### User Data Directory
 By default, the server stores the Chrome profile in a dedicated directory to persist state between runs:
 -   **Linux / macOS:** `$HOME/.cache/chrome-devtools-mcp/chrome-profile-$CHANNEL`

@@ -8,6 +8,7 @@ experts, harvests their output, and recycles them when their context window fill
 For the overall platform topology (Runtime Engine, MCP servers, Dream Pipeline), see
 [Architecture Overview](../benefits/ArchitectureOverview.md).
 
+<a id="the-delegation-model"></a>
 ## The Delegation Model
 
 Every `Neo.ai.Agent` instance carries a registry of sub-agent profiles. When the
@@ -38,6 +39,7 @@ instance with its own cognitive loop, provider, and MCP client connections. The
 sub-agent runs through the same Perceive → Reason → Act → Reflect cycle as the
 parent, then returns its synthesis.
 
+<a id="the-delegate-lifecycle"></a>
 ### The delegate() Lifecycle
 
 ```javascript
@@ -58,11 +60,13 @@ const result = await this.agent.delegate('librarian', 'Research the Grid selecti
    automatically disconnected and destroyed. The next delegation spawns a fresh
    instance with a clean context window.
 
+<a id="the-three-profiles"></a>
 ## The Three Profiles
 
 Each profile is a thin `Neo.ai.Agent` subclass that configures three things:
 a model provider, a server list, and a system prompt.
 
+<a id="librarian"></a>
 ### Librarian
 
 ```
@@ -84,6 +88,7 @@ When the parent agent encounters a question about Neo.mjs architecture, API patt
 or historical decisions, it delegates to the Librarian rather than attempting to
 answer from its own (potentially stale) training data.
 
+<a id="qa-bot"></a>
 ### QA Bot
 
 ```
@@ -107,6 +112,7 @@ class APIs, but it cannot create GitHub issues, access the browser, or modify th
 codebase directly. Its output is always a **proposed test file** that the parent
 agent or human reviews before committing.
 
+<a id="browser"></a>
 ### Browser
 
 ```
@@ -131,10 +137,12 @@ application through the Neural Link WebSocket bridge and can:
 It has no access to the filesystem, GitHub, or memory core. It exists purely to
 observe and manipulate the live application state.
 
+<a id="capability-gating"></a>
 ## Capability Gating
 
 The swarm architecture enforces safety through two complementary mechanisms:
 
+<a id="server-level-isolation"></a>
 ### 1. Server-Level Isolation
 
 Each profile declares exactly which MCP servers it connects to via the `servers`
@@ -172,6 +180,7 @@ flowchart LR
     NA -.->|"blocked"| NL2["Neural Link"]:::blocked
 ```
 
+<a id="the-sdk-bouncer-zod-validation"></a>
 ### 2. The SDK Bouncer (Zod Validation)
 
 When sub-agents access services via the Node.js SDK (`ai/services.mjs`), every
@@ -185,6 +194,7 @@ MCP protocol (stdio) with unbounded tool access. The distinction is intentional:
 frontier models have the reasoning capability to self-correct; narrow models need
 the guardrails.
 
+<a id="cost-control-local-vs-cloud"></a>
 ## Cost Control: Local vs. Cloud
 
 The swarm architecture is designed to minimize API costs:
@@ -203,9 +213,10 @@ can also be swapped to local inference for offline development.
 This tiered model allows the swarm to scale test coverage and documentation
 without proportionally scaling API costs.
 
+<a id="sub-agent-training-rlaif-demonstrations-of-intelligence"></a>
 ## Sub-Agent Training & RLAIF (Demonstrations of Intelligence)
 
-While the Orchestrator delegates tasks live, the `nl_action_log` captured during **Frontier agent** (e.g., Gemini 3.1 Pro / Claude Opus) interactions via the Neural Link represents highly valuable "Demonstrations of Intelligence". 
+While the Orchestrator delegates tasks live, the `nl_action_log` captured during **Frontier agent** (e.g., Gemini 3.1 Pro / Claude Opus) interactions via the Neural Link represents highly valuable "Demonstrations of Intelligence".
 
 Instead of treating these interactions as ephemeral, they are extracted into format-compliant `.jsonl` datasets for Reinforcement Learning from AI Feedback (RLAIF). The intelligence of the Frontier models is stockpiled to feed future SLM fine-tuning pipelines (SFT/DPO), directly raising the baseline capability of the local Sub-Agent tiers (like Gemma 4).
 
@@ -216,6 +227,7 @@ npm run ai:analyze-nl-telemetry -- <sessionId> --save
 
 This invokes `ai/scripts/analyzeNlTelemetry.mjs`. The offline script parses the episodic memory from `memory-core.sqlite`, filters for structured DOM manipulation and state assertions engineered by Frontier models, and exports it into `.neo-ai-data/datasets/rlaif/trajectories.jsonl`.
 
+<a id="context-window-management"></a>
 ## Context Window Management
 
 Sub-agents have finite context windows. The `maxSubAgentLifespan` config
@@ -244,6 +256,7 @@ When a sub-agent reaches its turn limit, the next `delegate()` call:
 This ensures sub-agents never operate in a degraded state where accumulated
 context noise causes hallucinations or reasoning failures.
 
+<a id="the-delegate-task-native-tool"></a>
 ## The delegate_task Native Tool
 
 The cognitive loop automatically registers a native `delegate_task` tool
@@ -276,6 +289,7 @@ another tool in its toolbox. When it calls `delegate_task({agent: 'librarian', q
 , the Loop routes it to `this.agent.delegate()`, which handles the full sub-agent
 lifecycle.
 
+<a id="the-event-scheduler"></a>
 ## The Event Scheduler
 
 All work enters the system through the `Scheduler` — a priority queue that
@@ -292,6 +306,7 @@ The Orchestrator populates the scheduler by parsing `sandman_handoff.md` — the
 strategic dashboard produced by the DreamService. Each Golden Path directive
 becomes a `system:golden-path` event with `high` priority.
 
+<a id="the-orchestration-pipeline"></a>
 ## The Orchestration Pipeline
 
 The `Orchestrator` ties everything together. It reads the DreamService's
@@ -327,6 +342,7 @@ flowchart TD
 5. **Exhaust:** A monitor interval checks the scheduler queue. When empty
    and no sub-agents are active, the orchestrator exits cleanly.
 
+<a id="adding-new-profiles"></a>
 ## Adding New Profiles
 
 To add a new sub-agent profile:
@@ -360,6 +376,7 @@ To add a new sub-agent profile:
 
 3. The LLM will automatically see it via `delegate_task` on the next boot.
 
+<a id="structural-inventory"></a>
 ## Structural Inventory
 
 | File | Purpose |
@@ -375,6 +392,7 @@ To add a new sub-agent profile:
 | `ai/services.mjs` | SDK with Zod validation boundary |
 | `ai/mcp/validation/OpenApiValidator.mjs` | Zod schema generator from OpenAPI specs |
 
+<a id="related-guides"></a>
 ## Related Guides
 
 - [Architecture Overview](../benefits/ArchitectureOverview.md) — Platform-level topology

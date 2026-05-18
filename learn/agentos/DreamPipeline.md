@@ -10,6 +10,7 @@ experiences overnight and wakes up with a clearer model of the world.
 For the overall platform topology, see [Architecture Overview](../benefits/ArchitectureOverview.md).
 For the agent delegation model, see [Swarm Intelligence](./SwarmIntelligence.md).
 
+<a id="the-philosophy"></a>
 ## The Philosophy
 
 The Golden Path is borrowed from two literary traditions:
@@ -31,6 +32,7 @@ The key insight is the **closed feedback loop**: completed tasks change the grap
 which changes future predictions, which changes what the swarm works on next.
 The system evolves by predicting its own evolution.
 
+<a id="the-rem-pipeline"></a>
 ## The REM Pipeline
 
 The DreamService processes sessions through six sequential phases:
@@ -52,6 +54,7 @@ flowchart TD
     P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> Out
 ```
 
+<a id="phase-0-workspace-ingestion"></a>
 ### Phase 0: Workspace Ingestion
 
 Before processing any sessions, the DreamService syncs the live filesystem into the
@@ -59,6 +62,7 @@ Native Edge Graph via `FileSystemIngestor.syncWorkspaceToGraph()`. This ensures 
 graph reflects the **current** state of the codebase — not a stale snapshot from
 a previous cycle.
 
+<a id="phase-1-tri-vector-extraction"></a>
 ### Phase 1: Tri-Vector Extraction
 
 For each undigested session, the DreamService sends the episodic memory to a local
@@ -94,6 +98,7 @@ if (!nodeId.includes(':')) {
 }
 ```
 
+<a id="phase-2-topological-conflict-detection"></a>
 ### Phase 2: Topological Conflict Detection
 
 A separate LLM inference pass scans the session memory for **structural conflicts** —
@@ -117,6 +122,7 @@ The LLM produces a `conflicts` array:
 Detected conflicts are written to `sandman_handoff.md` as alerts. The Orchestrator
 reads these on startup and can reconcile them before beginning work.
 
+<a id="phase-3-capability-gap-inference"></a>
 ### Phase 3: Capability Gap Inference
 
 This is the **deterministic** phase — no LLM is used for the core analysis. The
@@ -141,6 +147,7 @@ doesn't actually cover the specific class being checked.
 Capability gaps are stored as JSON arrays on the graph node's `properties.capabilityGap`
 field, with a `lastGapCheck` timestamp for TTL pruning.
 
+<a id="phase-4-garbage-collection-apoptosis"></a>
 ### Phase 4: Garbage Collection (Apoptosis)
 
 After extraction, the DreamService applies two cleanup operations:
@@ -156,10 +163,12 @@ This prevents the graph from growing without bound and ensures that obsolete
 concepts naturally fade away — a form of Hebbian decay where unused connections
 weaken and eventually dissolve.
 
+<a id="phase-5-golden-path-synthesis"></a>
 ### Phase 5: Golden Path Synthesis
 
 This is the forecasting algorithm. It operates on two mathematical pillars:
 
+<a id="pillar-1-semantic-distance"></a>
 #### Pillar 1: Semantic Distance
 
 The DreamService generates a **Frontier Baseline Vector** by embedding the most
@@ -174,6 +183,7 @@ semanticScore = 1.0 / (semantic_distance + 0.1)
 
 The `+ 0.1` prevents division-by-zero and curbs massive asymptotes for exact matches.
 
+<a id="pillar-2-structural-weight"></a>
 #### Pillar 2: Structural Weight
 
 For each semantically relevant node, the DreamService queries the SQLite graph for
@@ -188,6 +198,7 @@ priority = (semanticScore × 2.0) + (structuralWeight × 1.0)
 The 2:1 ratio favors semantic relevance over structural weight, ensuring the
 system prioritizes work that's contextually aligned with the current frontier.
 
+<a id="multipliers-and-penalties"></a>
 #### Multipliers and Penalties
 
 The raw priority score is modified by several heuristics:
@@ -200,6 +211,7 @@ The raw priority score is modified by several heuristics:
 | **`needs-re-triage` label** | −10,000 priority | Rejected tickets sink to the bottom |
 | **OPEN blocker** | 0.05 base weight | Blocked issues are nearly invisible |
 
+<a id="the-output-sandman-handoff-md"></a>
 #### The Output: `sandman_handoff.md`
 
 The Golden Path synthesis produces a markdown file divided into sections:
@@ -207,13 +219,16 @@ The Golden Path synthesis produces a markdown file divided into sections:
 ```markdown
 # Autonomous Handoff (Dream Pipeline & Golden Path)
 
+<a id="critical-test-constraints-n-items"></a>
 ### 🧪 Critical Test Constraints (N items)
 - **`CLASS:MyClass`**: lacks test coverage...
 
 
+<a id="guide-disconnects-n-items"></a>
 ### 🗺️ Guide Disconnects (N items)
 - **`CLASS:MyComponent`**: lacks guide...
 
+<a id="computed-golden-path-strategic-recommendation"></a>
 ## Computed Golden Path (Strategic Recommendation)
 
 1. **issue-1234**: Score 5.42 (Semantic: 3.14, Structural: 2.28)
@@ -228,11 +243,13 @@ The **Strategic Interpretation** is an optional LLM-generated brief that explain
 *why* the mathematical scores point to these specific tasks. If the LLM is offline,
 the system falls back to pure numerical output.
 
+<a id="issue-ingestion-pipeline"></a>
 ## Issue Ingestion Pipeline
 
 Before synthesizing the Golden Path, the DreamService ingests three types of
 external content into the graph:
 
+<a id="issues"></a>
 ### Issues
 
 All local markdown issue files are parsed:
@@ -243,12 +260,14 @@ All local markdown issue files are parsed:
 - Blocked issues receive a 0.05 base weight, making them nearly invisible to
   the Golden Path
 
+<a id="discussions"></a>
 ### Discussions
 
 GitHub Discussions are treated as perpetually open conceptual nodes. They're
 embedded into ChromaDB like issues but never "closed" in the graph — they
 represent ongoing ideation that may influence future work.
 
+<a id="pull-request-feedback"></a>
 ### Pull Request Feedback
 
 PR reviews are scanned for three structured tags:
@@ -263,6 +282,7 @@ These are extracted into dedicated graph nodes with Hebbian edges linking them
 back to their source PR. `Resolves #NNN` patterns also create `RESOLVES` edges,
 closing the feedback loop between PRs and the issues they address.
 
+<a id="ttl-pruning-stale-gap-removal"></a>
 ## TTL Pruning (Stale Gap Removal)
 
 Capability gaps have a 7-day Time-to-Live. If a gap hasn't been re-detected in
@@ -280,6 +300,7 @@ if (age > TTL_MS) {
 This prevents the handoff file from growing stale — gaps that matter will be
 re-detected on the next cycle; gaps that don't will naturally disappear.
 
+<a id="running-the-pipeline"></a>
 ## Running the Pipeline
 
 The DreamService runs automatically when the Memory Core MCP server starts
@@ -306,6 +327,7 @@ The manual entrypoint is useful for overnight batch processing or when
 you want to regenerate `sandman_handoff.md` after importing new session
 data.
 
+<a id="configuration"></a>
 ## Configuration
 
 The DreamService is controlled by `ai/mcp/server/memory-core/config.mjs`:
@@ -318,6 +340,7 @@ The DreamService is controlled by `ai/mcp/server/memory-core/config.mjs`:
 | `modelProvider` | `'openAiCompatible'` | LLM provider for extraction |
 | `handoffFilePath` | `resources/content/sandman_handoff.md` | Output path |
 
+<a id="how-it-all-connects"></a>
 ## How It All Connects
 
 ```mermaid
@@ -350,6 +373,7 @@ Orchestrator → Orchestrator schedules agent work → agents create new session
 
 The system evolves by predicting its own evolution.
 
+<a id="structural-inventory"></a>
 ## Structural Inventory
 
 | File | Purpose |
@@ -363,6 +387,7 @@ The system evolves by predicting its own evolution.
 | `ai/provider/OpenAiCompatible.mjs` | LLM provider for extraction |
 | `resources/content/sandman_handoff.md` | The output handoff document |
 
+<a id="project-state-is-observability-only-not-a-dream-pipeline-input"></a>
 ## Project state is observability-only (NOT a Dream pipeline input)
 
 GitHub ProjectV2 boards (e.g., the v13 release Project [#12](https://github.com/orgs/neomjs/projects/12) per pilot ticket [#10961](https://github.com/neomjs/neo/issues/10961)) are a **visualization layer over the canonical issue substrate** — they are NOT consumed by the Dream pipeline.
@@ -384,6 +409,7 @@ Concrete consequence: if an issue's release-criticality is encoded ONLY in Proje
 
 This is by design — Project metadata is a presentation/coordination convenience for human + agent observability; the priority math operates on durable, queryable issue substrate. See `learn/agentos/GitHubWorkflow.md` §"GitHub Projects v2 — Read-Only Derived View Substrate" for the source-of-truth contract.
 
+<a id="related-guides"></a>
 ## Related Guides
 
 - [Architecture Overview](../benefits/ArchitectureOverview.md) — Platform-level topology

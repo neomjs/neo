@@ -2,6 +2,7 @@
 
 The **GitHub Workflow Server** (`neo.mjs-github-workflow`) acts as the Agent OS's "Executive Function." It bridges the gap between the local development environment and the remote GitHub repository, enabling a "Local-First" project management philosophy.
 
+<a id="purpose-context-engineering"></a>
 ## 1. Purpose: Context Engineering
 
 Traditional autonomous agents rely heavily on GitHub APIs to read issues and Pull Requests (PRs). This is fragile, slow, and context-poor. An agent has to "ask" for information (via API) rather than "having" it.
@@ -16,10 +17,12 @@ This server transforms the workflow by implementing **Context Engineering**: giv
 *   **Semantic Intelligence:** The local markdown files are automatically indexed by the **Knowledge Base Server** (`neo.mjs-knowledge-base`). This enables **semantic vector search**, allowing agents to query tickets by *meaning* (e.g., "find past VDOM regressions") rather than just keywords.
 *   **Platform Independence:** Your project management data lives in your repo, not just on GitHub's servers.
 
+<a id="real-world-use-case-the-autonomous-review-loop"></a>
 ## 2. Real-World Use Case: The Autonomous Review Loop
 
 The true power of this server is best understood through the "Autonomous Review Loop." This workflow removes the human maintainer as a bottleneck for routine code reviews.
 
+<a id="the-workflow"></a>
 ### The Workflow
 
 1.  **Discovery:** The agent uses **`list_pull_requests`** to find open PRs.
@@ -30,6 +33,7 @@ The true power of this server is best understood through the "Autonomous Review 
 3.  **Analysis & Review:** The agent synthesizes this information to form a review.
 4.  **Participation:** The agent posts a structured review comment using **`create_comment`**.
 
+<a id="visualizing-the-agent-s-voice"></a>
 ### Visualizing the Agent's Voice
 
 When an agent posts a comment, the server automatically formats it with an "Agent Header" to ensure transparency and clear attribution:
@@ -45,10 +49,12 @@ When an agent posts a comment, the server automatically formats it with an "Agen
 
 This clear distinction between human and AI input is a core part of the server's design.
 
+<a id="architecture"></a>
 ## 3. Architecture
 
 The server is built on a robust service layer that orchestrates the flow of data between the local file system and GitHub.
 
+<a id="service-layer"></a>
 ### 3.1 Service Layer
 
 The application logic is distributed across specialized services, all extending `Neo.core.Base`:
@@ -63,6 +69,7 @@ The application logic is distributed across specialized services, all extending 
 *   **`GraphqlService`:** A centralized wrapper around the GitHub GraphQL API. It handles authentication via the `gh` CLI, token caching, and executes complex queries defined in `services/queries/`.
 *   **`HealthService`:** Acts as a gatekeeper, ensuring the `gh` CLI is installed, authenticated, and up-to-date. It implements intelligent caching (5-minute TTL for healthy results) to minimize overhead.
 
+<a id="the-bi-directional-sync-workflow"></a>
 ### 3.2 The Bi-Directional Sync Workflow
 
 The core of the server is its ability to maintain state consistency between the local filesystem and GitHub. This isn't just downloading files; it's a true two-way synchronization engine:
@@ -81,16 +88,19 @@ When `sync_all` is called, `SyncService` executes a precise 8-step orchestration
 7.  **Self-Heal:** The system checks for and clears any resolved push failures from the metadata.
 8.  **Save Metadata:** The new state, including updated content hashes and timestamps, is persisted to disk.
 
+<a id="the-toolset"></a>
 ## 4. The Toolset
 
 The server exposes a comprehensive suite of tools via the Model Context Protocol (MCP), mapped directly to service methods.
 
+<a id="synchronization-health"></a>
 ### 4.1 Synchronization & Health
 
 *   **`sync_all`**: Triggers the full bi-directional sync workflow described above.
 *   **`healthcheck`**: Verifies `gh` CLI status. Returns cached healthy results for speed, but performs immediate checks if the system was previously unhealthy.
 *   **`get_viewer_permission`**: Returns the bot's permission level (`ADMIN`, `WRITE`, `READ`).
 
+<a id="issue-management"></a>
 ### 4.2 Issue Management
 
 *   **`create_issue`**: **Authoritative** tool for creating tickets. Uses `gh issue create`.
@@ -100,6 +110,7 @@ The server exposes a comprehensive suite of tools via the Model Context Protocol
 *   **`assign_issue` / `unassign_issue`**: Manages user assignments. Requires `WRITE` permission.
 *   **`update_issue_relationship`**: Configures parent-child (Epic) or blocked-by dependencies using GraphQL mutations (`ADD_SUB_ISSUE`, `ADD_BLOCKED_BY`, etc.).
 
+<a id="pull-request-management"></a>
 ### 4.3 Pull Request Management
 
 *   **`list_pull_requests`**: Lists PRs with status filtering.
@@ -109,20 +120,24 @@ The server exposes a comprehensive suite of tools via the Model Context Protocol
 *   **`create_comment`**: Posts a new comment to a PR or Issue. Supports "Agent Headers" to identify which AI identity is speaking.
 *   **`update_comment`**: Edits an existing comment.
 
+<a id="discovery"></a>
 ### 4.4 Discovery
 
 *   **`list_labels`**: Enumerates all valid labels in the repository. *Always check this before applying labels.*
 
+<a id="configuration"></a>
 ## 5. Configuration
 
 The server is highly configurable via `config.mjs` or a custom configuration file passed via the `-c` or `--config` CLI flag. This allows you to override default settings—such as the target repository, file paths, or API limits—without modifying the source code.
 
+<a id="usage"></a>
 ### Usage
 
 ```bash readonly
 node ai/mcp/server/github-workflow/mcp-server.mjs -c ./my-config.json
 ```
 
+<a id="configuration-file-format"></a>
 ### Configuration File Format
 
 You can provide a JSON file or an ES Module (`.mjs`) that exports a configuration object. The custom configuration is deep-merged with the default settings.
@@ -151,20 +166,24 @@ This flexibility is crucial for:
 *   **Performance Tuning:** Adjusting `maxIssues` or GraphQL limits based on your network or token constraints.
 *   **Environment Specifics:** Using different directory structures for testing versus production.
 
+<a id="data-structures"></a>
 ## 6. Data Structures
 
+<a id="the-directory-structure"></a>
 ### The Directory Structure
 
 *   **`.github/ISSUE/`**: The "Active Workspace." Contains all open tickets as Markdown files.
 *   **`.github/ISSUE_ARCHIVE/`**: The "Historical Record." Contains closed tickets, organized by Release Version (e.g., `v5.0.0/`).
 *   **`.github/RELEASE_NOTES/`**: Contains the content of GitHub Releases.
 
+<a id="archive-anomaly-detection-sealed-chunk-semantics"></a>
 ### Archive Anomaly Detection & Sealed-Chunk Semantics
 
 To ensure referential stability and institutionalize "Sealed-Chunk" archive integrity, the IssueSyncer enforces strict controls over issues once they are archived:
 *   **Sealed-Chunk Enforcements:** Once an issue is written to an archive bucket (e.g., `v10.5.0/chunk-1/`), it is "sealed". If subsequent syncs pull the issue and detect a shift in its `closedAt` date or its milestone, the system will prevent the issue from "jumping" buckets. It forces retention at the `oldAbsolutePath` to prevent historical data regression.
 *   **Archive Anomaly Hooks:** When an expected bucket shift occurs (e.g., the `closedAt` timestamp was modified), the syncer intercepts the discrepancy and emits an operator-actionable `[ARCHIVE ANOMALY]` log warning. This allows the Swarm to react to metadata drift while maintaining sync performance via delta updates.
 
+<a id="the-markdown-format"></a>
 ### The Markdown Format
 
 Each issue is stored as a YAML-frontmatter Markdown file. The frontmatter contains rich metadata derived from the GraphQL response:
@@ -186,12 +205,15 @@ blockedBy: []
 # Description
 Create a new guide...
 
+<a id="comments"></a>
 ## Comments
 
+<a id="tobiu-2025-10-26-12-05"></a>
 ### @tobiu - 2025-10-26 12:05
 This looks correct.
 ```
 
+<a id="the-metadata-cache"></a>
 ### The Metadata Cache
 
 Stored at `.github/.sync-metadata.json`, this file allows the server to perform "delta syncs." It tracks:
@@ -199,10 +221,12 @@ Stored at `.github/.sync-metadata.json`, this file allows the server to perform 
 *   **`updatedAt`**: Timestamp of the last update from GitHub to detect remote changes.
 *   **`path`**: The current file path, allowing the system to track moves (e.g., archiving).
 
+<a id="github-projects-v2-first-class-membership-primitive"></a>
 ## 7. GitHub Projects v2 — First-Class Membership Primitive
 
 The Neo swarm uses GitHub ProjectV2 as a **first-class membership primitive** wired directly into the `create_issue` and `manage_issue_projects` MCP tools. Per [#11233](https://github.com/neomjs/neo/issues/11233) — the substrate-correct corrective for [#10961](https://github.com/neomjs/neo/issues/10961)'s pilot scope, which proved labels-as-project-proxy is structurally wrong-shape.
 
+<a id="source-of-truth-contract"></a>
 ### Source-of-truth contract
 
 - **Canonical membership:** ProjectV2 board (`addProjectV2ItemById` / `deleteProjectV2Item`) — discoverable via `gh project item-list <NUM> --owner <ORG>` and the `manage_issue_projects` MCP tool
@@ -212,6 +236,7 @@ The Neo swarm uses GitHub ProjectV2 as a **first-class membership primitive** wi
 
 **Migration history (#10961 → #11233):** the pilot used `release:v13` as a label-as-project-proxy, with a `reconcileV13Project.mjs` script to detect drift. Empirical V-B-A showed 31% structural drift (14 labeled-not-in-project + 196 in-project-not-labeled out of 250 items) — drift that cannot be patched away because labels (categorization primitive) and ProjectV2 items (membership primitive) are independent GitHub concepts. The script is deleted in Phase 3 of #11233; the `release:v*` label family is retired in Phase 2.
 
+<a id="agent-ergonomics-atomic-create-with-project"></a>
 ### Agent ergonomics — atomic create-with-project
 
 The `create_issue` MCP tool accepts an optional `projects` parameter:
@@ -228,6 +253,7 @@ The `create_issue` MCP tool accepts an optional `projects` parameter:
 
 The issue is created via `gh issue create`, then attached to each ProjectV2 board via `addProjectV2ItemById`. Partial-attach is the graceful failure mode (issue exists; orphan-rollback would be worse for agent workflows).
 
+<a id="agent-ergonomics-post-create-membership-management"></a>
 ### Agent ergonomics — post-create membership management
 
 The `manage_issue_projects` MCP tool mirrors the `manage_issue_labels` action shape:
@@ -238,24 +264,29 @@ The `manage_issue_projects` MCP tool mirrors the `manage_issue_labels` action sh
 
 Field values for single-select fields (Status, Priority, etc.) are resolved by name; `update_field` returns `OPTION_NOT_FOUND` with the available option list if the value doesn't match. Multi-select / iteration / number fields are out of scope for this Phase 1 revision — extend the mutation surface as those use cases land.
 
+<a id="the-if-it-s-not-on-the-issue-it-doesn-t-exist-to-the-swarm-rule-refined"></a>
 ### The "If it's not on the Issue, it doesn't exist to the Swarm" rule (refined)
 
 Per @neo-gemini-3-1-pro's original framing in Discussion [#10959](https://github.com/orgs/neomjs/discussions/10959), the swarm's downstream substrate (Dream Pipeline, Golden Path Synthesizer, Native Edge Graph, `list_issues`, `get_local_issue_by_id`, Knowledge Base, Memory Core) consumes **issue state** — not Project field state. Project membership IS a first-class signal (it's how release-tracking and milestone-grouping work), but **single-select field values** (Status, Priority) remain Project-board observability and MUST NOT drive Dream synthesis or Golden Path decisions.
 
 **Concrete rule:** project MEMBERSHIP is canonical (queryable via `gh project item-list`); project FIELD VALUES are observability-only for downstream agentic substrates.
 
+<a id="boundary-with-sandman-golden-path"></a>
 ### Boundary with Sandman / Golden Path
 
 ProjectV2 field state is **NOT** consumed by `DreamService` / `GoldenPathSynthesizer` / the Native Edge Graph. See `learn/agentos/DreamPipeline.md` §"Project state is observability-only" for the explicit non-input warning. (Membership signals — "this ticket is in v13 release" — are derivable via direct project query when needed for release-tracking workflows; they are not auto-ingested into the substrate.)
 
+<a id="v2-only-mandate"></a>
 ### v2-only mandate
 
 GitHub ProjectV2 (GraphQL `projectsV2`, `ProjectV2`, `addProjectV2ItemById`, `deleteProjectV2Item`, `updateProjectV2ItemFieldValue`). GitHub Projects classic / v1 was sunset on github.com in 2024 + classic REST API in 2025. NO classic columns/cards/REST endpoints anywhere in scripts or workflows.
 
+<a id="membership-shape"></a>
 ### Membership shape
 
 `ProjectV2` ownership is by `Organization` or `User` — `Repository` is NOT a `ProjectV2Owner`. A Project can be additionally **linked to one or more repositories** via `linkProjectV2ToRepository`, which makes it discoverable at the repo level. The v13 Project ([#12](https://github.com/orgs/neomjs/projects/12)) is org-owned (`neomjs`) and repo-linked to `neomjs/neo`.
 
+<a id="platform-independence-vendor-lock-in"></a>
 ## 8. Platform Independence & Vendor Lock-In
 
 The GitHub Workflow Server's local-first architecture isn't just about performance—it's about **sovereignty**.

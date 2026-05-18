@@ -2,10 +2,12 @@
 
 This document satisfies Sub 1 of Epic #10733. It establishes the pre-edit baseline for all cognitive surfaces targeted by the Epic and extends the `#10537` methodology to cover the boot ramp, `AGENTS.md`, all 21 skill payloads, and all asset templates.
 
+<a id="extended-measurement-methodology"></a>
 ## 1. Extended Measurement Methodology
 
 The methodology extends the `pr-review-guide.md` loaded-surface methodology with two critical dimensions:
 
+<a id="per-harness-true-prompt-load-ac0"></a>
 ### 1.1 Per-Harness True-Prompt-Load (AC0)
 Repo line counts (`wc -l` / `wc -c`) are a necessary but insufficient proxy. Harnesses concatenate, inject, and truncate files differently.
 - **Antigravity (Gemini 3.1 Pro):** Truncates the `<user_rules>` block at ~24,000 bytes. Anything beyond this threshold is silently dropped.
@@ -14,17 +16,20 @@ Repo line counts (`wc -l` / `wc -c`) are a necessary but insufficient proxy. Har
 
 **The Lazy-Load Verification Rule:** Any extraction or split must demonstrate a per-harness loaded-byte reduction. Splitting files into multiple references does not reduce true loaded bytes if the harness still concatenates them at boot.
 
+<a id="correction-cycle-metrics-ac2"></a>
 ### 1.2 Correction-Cycle Metrics (AC2)
 A lower byte count is a false win if it increases the correction cycles required to achieve compliance.
 - **Metric 1:** Request-Changes count per PR.
 - **Metric 2:** A2A round-trip count per PR (clarifications, missed pings).
 - **Rule:** The "skim-and-revert" trap proves that half-reading a manual is more expensive than full-reading.
 
+<a id="always-important-vs-edge-case-taxonomy-ac-x1-ac-x2"></a>
 ### 1.3 Always-Important vs Edge-Case Taxonomy (AC-X1, AC-X2)
 Every retained or extracted section must be classified:
 - **`always-important`**: Must load on its trigger every time.
 - **`edge-case`**: Fires only under narrow conditions. Must be extracted with a gate-pattern pointer: *"If <condition>, read <path>; otherwise skip."*
 
+<a id="harness-native-primitive-outputs-ac0"></a>
 ### 1.4 Harness-Native Primitive Outputs (AC0)
 - **Antigravity (Gemini 3.1 Pro):** Truncation limit visually confirmed via system block injection.
   - *Evidence Anchor:* `[System injected context: <truncated 35170 bytes>]` observed in raw debug payload output when `AGENTS.md` exceeded 24,000 bytes.
@@ -33,6 +38,7 @@ Every retained or extracted section must be classified:
 - **Codex Desktop:** Bounded explicitly by `project_doc_max_bytes`.
   - *Evidence Anchor:* In `config.json`, `project_doc_max_bytes: 32768`. Network trace of the `/active_instruction` endpoint payload shows `payload.active_instruction.bytes: 32768` with `truncation_applied: true` flag.
 
+<a id="pre-edit-baseline-inventory-ac3"></a>
 ## 2. Pre-Edit Baseline Inventory (AC3)
 
 The following metrics represent the baseline before Subs 2-5 of Epic #10733 execute. Note: `AGENTS.md` values here reflect the historical pre-Sub 2 state to serve as the true baseline.
@@ -46,6 +52,7 @@ The following metrics represent the baseline before Subs 2-5 of Epic #10733 exec
 | **Identity Surface** | `README.md` | 240 | 19,296 |
 | **Architecture** | `learn/guides/devindex/frontend/Architecture.md` | 128 | 7,036 |
 
+<a id="historical-agents-md-section-by-section-baseline-pre-sub-2"></a>
 ### 2.0 Historical `AGENTS.md` Section-by-Section Baseline (Pre-Sub 2)
 
 | Section | Lines | Bytes |
@@ -77,6 +84,7 @@ The following metrics represent the baseline before Subs 2-5 of Epic #10733 exec
 | 22. The Mailbox Check Protocol | 41 | 3,735 |
 | 23. Authoring Discipline | 25 | 1,923 |
 
+<a id="skill-payloads-all-22"></a>
 ### 2.1 Skill Payloads (All 22)
 
 | Skill Payload | Lines | Bytes | Trigger Frequency |
@@ -106,6 +114,7 @@ The following metrics represent the baseline before Subs 2-5 of Epic #10733 exec
 
 *(Total across all payloads + assets: 3,120 lines / 245,195 bytes)*
 
+<a id="asset-templates"></a>
 ### 2.2 Asset Templates
 
 | Asset Template | Lines | Bytes |
@@ -115,9 +124,11 @@ The following metrics represent the baseline before Subs 2-5 of Epic #10733 exec
 | `epic-review-comment-template.md` | 70 | 1,907 |
 | `review-response-template.md` | 28 | 896 |
 
+<a id="harness-verification-gate"></a>
 ## 3. Harness Verification Gate
 Before any skill payload extraction is merged (Sub 4), we must verify that the target harness does not eagerly load the extracted references.
 
+<a id="sub-4-payload-audit-results-10737"></a>
 ## 4. Sub 4 Payload Audit Results (#10737)
 
 The final 3 high-load payloads were audited per the methodology and all received a **keep-monolithic** verdict:
@@ -128,6 +139,7 @@ The final 3 high-load payloads were audited per the methodology and all received
 
 *Empirical Delta:* 0 KB (intentional). Avoids 1-2 negative-ROI tool calls per execution.
 
+<a id="sub-3-boot-ramp-split-results-10736"></a>
 ## 5. Sub 3 Boot Ramp Split Results (#10736)
 
 `AGENTS_STARTUP.md` Step 1 now mandates `README.md` + `learn/guides/devindex/frontend/Architecture.md` instead of `learn/guides/fundamentals/CodebaseOverview.md`.
@@ -144,8 +156,10 @@ The final 3 high-load payloads were audited per the methodology and all received
 
 *AC11 mirror decision:* the `AGENTS_STARTUP.md` §0 mirror is retained pending active-harness boot-transcript proof that `AGENTS.md` is loaded before startup execution in Claude Code, Antigravity, and Codex Desktop. No SKILL.md router bodies were changed.
 
+<a id="sub-5-asset-template-audit-results-10738"></a>
 ## 6. Sub 5 Asset Template Audit Results (#10738)
 
+<a id="parser-anchor-audit-ac15"></a>
 ### 6.1 Parser/Anchor Audit (AC15)
 
 The **mechanically load-bearing anchors** consumed by the regex-parser are precisely **3 tags**, exclusively in the "Graph Ingestion Notes" section of `pr-review-template.md`:
@@ -162,6 +176,7 @@ The **mechanically load-bearing anchors** consumed by the regex-parser are preci
 
 This is a substantial deviation from the implicit assumption in #10738's Architectural Reality section, which conflated the two classes under "Retrospective daemon regex parser." The empirical truth is leaner: most "anchor preservation" concerns are LLM-quality (Class B), not regex-correctness (Class A).
 
+<a id="split-verdict-ac16"></a>
 ### 6.2 Split Verdict (AC16)
 
 All 4 asset templates receive a **keep-monolithic** verdict. Same rationale shape as Sub 4 #10737's keep-monolithic verdicts — single atomic cognitive pass, no condition-gated branches that justify a split:
@@ -173,16 +188,19 @@ All 4 asset templates receive a **keep-monolithic** verdict. Same rationale shap
 
 *Empirical Delta:* 0 KB (intentional). Avoids 1-2 negative-ROI tool calls per review/epic interaction. Symmetric with Sub 4's keep-monolithic shape.
 
+<a id="sample-ingest-verification-ac17-partial-l1-post-merge-residual"></a>
 ### 6.3 Sample-Ingest Verification (AC17 — partial L1 + post-merge residual)
 
 **Pre-merge L1 (static):** Visual confirmation that `IssueIngestor.mjs:327`'s regex `/\[(KB_GAP|TOOLING_GAP|RETROSPECTIVE)\](.*?)$/` matches the bullet format used in `pr-review-template.md` "Graph Ingestion Notes" section (`*   **\`[KB_GAP]\`**: ...`). The regex is anchored on the bracketed-tag form alone — bullet/bold formatting around the tag is irrelevant; only the literal `[TAG_NAME]` substring needs to exist on a line. Verified via inspection.
 
 **Post-merge L2-L3 residual (operator-handoff):** Actually run `IssueIngestor` on a recent PR review (e.g. PR #10752 Cycle 1 review at `PRR_kwDODSospM78GE72` which contains all 3 tag-classes — `[KB_GAP]` flagging the existing-codebase-precedent issue, `[RETROSPECTIVE]` framing the canonical hermetic-diff retrieval primitive). Sample ingestion verifies end-to-end. Tracked in PR Post-Merge Validation per `pull-request-workflow §9` standard pattern.
 
+<a id="substrate-observation"></a>
 ### 6.4 Substrate Observation
 
 The audit revealed an **outdated implicit assumption** in `feedback_pr_review_template_discipline.md` memory entry which states *"section structure is regex-matched by the Retrospective daemon for graph ingestion."* The reality is narrower: only 3 specific tags are regex-matched (in `IssueIngestor.mjs`, not in any "Retrospective daemon"). The broader semantic anchors are LLM-consumed. Memory entry should be updated post-merge to reflect the empirical parser scope.
 
+<a id="skill-md-router-byte-budget-baseline-cycle-2-v1-anchor-for-10760-pr-10764"></a>
 ## 7. SKILL.md Router Byte-Budget Baseline (Cycle-2 V1 Anchor for #10760 / PR #10764)
 
 Empirical line counts of all `SKILL.md` routers across `.agents/skills/` measured 2026-05-05 to anchor the byte-budget guidance retrofitted into `.agents/skills/create-skill/references/skill-authoring-guide.md` (V1 sub of cycle-2 epic #10757).

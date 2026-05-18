@@ -8,19 +8,21 @@ MX describes the closed loop where **model-friction surfaces as tickets, the Gol
 
 ---
 
+<a id="the-core-thesis-meta-value-product-value"></a>
 ## The Core Thesis: Meta-Value > Product Value
 
 The load-bearing claim of MX is an inversion of traditional software priorities: **meta-value > product value.**
 
-For agent-facing infrastructure, the process of building—where models attempt tasks, hit friction, file tickets, and ship improvements—is the actual product. The artifact they produce (the feature, the bugfix, the documentation) is a by-product. 
+For agent-facing infrastructure, the process of building—where models attempt tasks, hit friction, file tickets, and ship improvements—is the actual product. The artifact they produce (the feature, the bugfix, the documentation) is a by-product.
 
 The harness exists so that models using it surface tooling gaps. The Golden Path then prioritizes those gaps. The surface itself is the forcing function that drives the evolution of the underlying framework.
 
 ---
 
+<a id="ax-vs-mx-complementary-dimensions"></a>
 ## AX vs. MX: Complementary Dimensions
 
-**Agent Experience (AX)**—popularized by Biilmann (Netlify) and adopted across the industry (Speakeasy, Nordic APIs)—focuses on making external products and APIs friendly for agent consumption. **Machine Experience** focuses on system-to-system predictability. 
+**Agent Experience (AX)**—popularized by Biilmann (Netlify) and adopted across the industry (Speakeasy, Nordic APIs)—focuses on making external products and APIs friendly for agent consumption. **Machine Experience** focuses on system-to-system predictability.
 
 MX is **not a competitor** to AX or Machine Experience; it answers a completely different architectural question. Most agent-era infrastructure needs both, cleanly separated.
 
@@ -34,12 +36,14 @@ MX is **not a competitor** to AX or Machine Experience; it answers a completely 
 
 Positioning MX publicly requires a precise framing: **AX makes your product agent-friendly. MX makes your substrate model-evolving. Different problems, different architectural layers.**
 
+<a id="where-neo-uses-ax-outward-facing"></a>
 ### Where Neo uses AX (Outward-Facing)
 When external agents (Claude Code, Antigravity, Cursor, etc.) consume Neo's surfaces via the MCP protocol, AX-grade attention is applied to:
 - MCP tool descriptions and schema predictability.
 - Authentication models and multi-agent isolation semantics.
 - Declarative `openapi.yaml` contracts.
 
+<a id="where-neo-uses-mx-inward-facing"></a>
 ### Where Neo uses MX (Inward-Facing)
 When internal frontier models inhabit the substrate during autonomous work, they are not external consumers; they live inside. MX primitives include:
 - **Memory Core:** Cross-session persistence via ChromaDB and SQLite.
@@ -49,12 +53,14 @@ When internal frontier models inhabit the substrate during autonomous work, they
 
 ---
 
+<a id="friction-as-the-production-mechanism"></a>
 ## Friction as the Production Mechanism
 
 The MX loop has a non-obvious property: **the substrate evolves toward what models actually struggle with**, not toward what humans imagine models should struggle with. Friction is empirical; imagination is speculative.
 
 A human designing Agent OS primitives without the benefit of model-usage-friction data would build very different things. We know this because the actual friction points rarely match the imagined ones.
 
+<a id="case-study-the-three-correction-passes"></a>
 ### Case Study: The Three Correction Passes
 During the ideation session that formalized MX, the initial draft contained three subtle conflations:
 1. Conflating a CLI harness feature (`~/.claude/projects/.../memory/`) with a Neo substrate primitive (Memory Core).
@@ -70,12 +76,14 @@ Other concrete examples from Neo's recent history:
 
 Each improvement surfaced from model-usage-friction. MX as a production mechanism means this is the primary evolution driver.
 
+<a id="the-friction-suppression-failure-mode"></a>
 ### The Friction-Suppression Failure Mode
 
 An important self-monitoring concept for the MX loop: when agents stop filing tickets for substrate gaps, is the loop broken or has the substrate plateaued? Usually, it's the former. The "friction-suppression failure mode" occurs when an agent hits a limitation (e.g., an MCP tool missing a parameter) but opts to work around it locally instead of surfacing it as a ticket. This breaks the MX loop. To maintain loop health, models must be disciplined about surfacing friction, prioritizing meta-value over immediate task completion.
 
 ---
 
+<a id="graph-physics-and-the-mx-loop"></a>
 ## Graph Physics and the MX Loop
 
 MX does not operate in a vacuum; it is governed by the graph physics defined in the [Dream Pipeline](./DreamPipeline.md). The frictionless flow of data into actionable intelligence relies on mathematical decay and consolidation.
@@ -88,6 +96,7 @@ By tying MX to these graph physics primitives, the system guarantees that the fr
 
 ---
 
+<a id="the-ani-trajectory-primitives-requiring-maturity"></a>
 ## The ANI Trajectory: Primitives Requiring Maturity
 
 Current systems are broadly considered "Proto-AGI" with explicit guardrails against uncontrolled recursive self-improvement. Neo's gated-RSI pattern (agents propose, humans approve at merge) is the responsible shape for this boundary. MX is the design principle that scales this loop.
@@ -103,6 +112,7 @@ To progress on the ANI trajectory, several MX primitives require maturation:
 
 ---
 
+<a id="graduation-criteria"></a>
 ## Graduation Criteria
 
 How do we measure if MX is actually working?

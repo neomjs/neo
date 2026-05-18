@@ -2,6 +2,7 @@
 
 The supported MVP topology for teams pooling a single Knowledge Base and Memory Core across multiple developers and their agents.
 
+<a id="purpose"></a>
 ## Purpose
 
 The default per-developer local setup gives each developer's agents an isolated, private Knowledge Base and Memory Core. That works for solo development but breaks down when a team wants to share institutional memory: agent A's session summaries, raw memories, and concept-graph evolutions are invisible to agent B unless every developer manually syncs.
@@ -12,6 +13,7 @@ This document is the single source of truth for the shared-deployment MVP profil
 
 For a step-by-step deployment guide and reference Docker configurations, see the [Deployment Cookbook](DeploymentCookbook.md) walkthrough and the [`ai/deploy/`](../../ai/deploy/) directory.
 
+<a id="architecture-one-process-many-collections-two-servers"></a>
 ## Architecture: One Process, Many Collections, Two Servers
 
 The shared MVP topology preserves three independent boundaries:
@@ -27,14 +29,17 @@ The shared MVP topology preserves three independent boundaries:
 
 **KB and MC remain separate MCP servers.** Each exposes its own tool surface (`query_documents`, `ask_knowledge_base` vs `add_memory`, `query_summaries`, etc.). Server consolidation is a future-direction concern under the broader thin-MCP-server trajectory; the MVP keeps them distinct.
 
+<a id="configuration"></a>
 ## Configuration
 
+<a id="topology-mode"></a>
 ### Topology mode
 
 The system uses a **permanently unified** topology. The Memory Core and Knowledge Base always share a single underlying ChromaDB process.
 
 **Connection contract:** the shared Chroma instance MUST be reachable from every developer's machine — typically a team-managed cloud service (e.g., a managed Chroma cluster) or a shared internal host. The `engines.chroma.{host, port}` config is where operators point at the team's shared instance.
 
+<a id="embedding-provider"></a>
 ### Embedding provider
 
 Embedding generation is provider-pluggable. The active provider is controlled by `NEO_EMBEDDING_PROVIDER`; supported values are `'gemini'` (default, cloud), `'ollama'` (local), and `'openAiCompatible'` (local OpenAI-format servers including MLX-served Qwen3 models, llama.cpp, LM Studio, etc.). The selector drives ChromaDB retrieval operations.
@@ -74,6 +79,7 @@ export NEO_VECTOR_DIMENSION=768
 
 **Substrate observation (#10723):** the OpenAI-compatible embedding path is implemented inside `ai/services/memory-core/TextEmbeddingService.mjs#embedText[s]` (POST to `${host}/v1/embeddings` with `{model, input}` payload, parsing `result.data[*].embedding`). It is NOT routed through the `Neo.ai.provider.OpenAiCompatible` class — that class currently exposes `generate` / `stream` (chat completions) but no `embed` method. This means the embedding-provider abstraction is functional but not yet symmetric with the chat-provider abstraction. Future hardening should consolidate the embedding path into the provider class hierarchy; out of scope for #10723 itself.
 
+<a id="summary-provider"></a>
 ### Summary provider
 
 Session summarization is controlled by `NEO_MODEL_PROVIDER`; supported values are `'gemini'` (default, cloud) and `'openAiCompatible'` (local OpenAI-format chat-completions servers such as MLX-served Qwen3-8b, llama.cpp, or LM Studio).
@@ -93,6 +99,7 @@ export NEO_OPENAI_COMPATIBLE_API_KEY=  # leave empty for local servers
 
 This path uses the existing `Neo.ai.provider.OpenAiCompatible` chat-completions abstraction. Do not add a model-specific Qwen provider class for shared-deployment installs; local-model selection is an operator config concern.
 
+<a id="authentication"></a>
 ## Authentication
 
 Shared deployments need to know **which agent originated each request** so memories, summaries, and graph edges are attributed correctly. The Memory Core supports two authentication paths:
@@ -103,6 +110,7 @@ Shared deployments need to know **which agent originated each request** so memor
 
 The two paths are NOT mutually exclusive — `req.auth` (OIDC) takes precedence over the proxy header by design. The proxy path only fires when `req.auth` is absent (OIDC unconfigured or token missing) AND `trustProxyIdentity` is explicitly enabled. **If `trustProxyIdentity` is enabled and no valid proxy identity header is found, the request is actively rejected with a `401 Unauthorized` error.** This strict "Verify-Before-Assert" gate prevents requests from silently falling through to an unauthenticated single-tenant context in a shared deployment. The local proof for this runtime gate is `test/playwright/integration/AuthRejection.integration.spec.mjs`, which connects without an identity header and expects the rejection before verifying an identity-bearing client can still call `healthcheck`.
 
+<a id="configuration-canonical-publicurl-pr-10802"></a>
 ### Configuration: Canonical `publicUrl` (PR #10802)
 
 When deploying behind a reverse proxy that uses a public domain (e.g., `https://mcp.neo.mjs.com`), the MCP server MUST know its public canonical URL to advertise correct Server-Sent Events (SSE) endpoints and validate OAuth audience claims.
@@ -114,6 +122,7 @@ export NEO_PUBLIC_URL=https://mcp.neo.mjs.com/mc
 
 The `publicUrl` property decouples the public-facing URL from the internal `HOST` and `PORT` bindings, fixing SSE callback and OIDC redirect mismatches behind proxies.
 
+<a id="configuration-trustproxyidentity-pr-10768-10727"></a>
 ### Configuration: `trustProxyIdentity` (PR #10768 / #10727)
 
 ```bash
@@ -128,6 +137,7 @@ export NEO_AUTH_TRUST_PROXY_IDENTITY=true
 
 The flag lives in both `ai/mcp/server/knowledge-base/config.template.mjs` and `ai/mcp/server/memory-core/config.template.mjs` under the `auth` block, so both servers stay symmetric.
 
+<a id="threat-model-load-bearing-operational-prerequisite"></a>
 ### Threat model — load-bearing operational prerequisite
 
 **`trustProxyIdentity=true` shifts the trust anchor from the MC's own OIDC introspection to the proxy in front of the MC.** That trust shift is correct ONLY when the proxy:
@@ -138,6 +148,7 @@ The flag lives in both `ai/mcp/server/knowledge-base/config.template.mjs` and `a
 
 If any of the three is uncertain, **leave `trustProxyIdentity=false`** and stick with OIDC mode. The fallback is operational, not catastrophic — it just requires the MC server to do its own OIDC introspection per request.
 
+<a id="header-conventions-checked"></a>
 ### Header conventions checked
 
 The proxy-identity reader checks two header names (in order):
@@ -147,6 +158,7 @@ The proxy-identity reader checks two header names (in order):
 
 Either header satisfies the gate; the first non-empty value wins. Header-name matching is case-insensitive (Node.js HTTP semantics).
 
+<a id="source-tag-observability"></a>
 ### Source-tag observability
 
 Every authenticated request carries a `source` tag through `Server.mjs#buildRequestContext` so downstream services and log lines can distinguish the auth path empirically:
@@ -161,6 +173,7 @@ The source tag is graph-ingested into agent-identity memory writes; an audit que
 
 A symmetric healthcheck `providers.auth` block is shipped under [#10770](https://github.com/neomjs/neo/issues/10770) — see [Healthcheck Verification](#healthcheck-verification) below. The block provides static-config observability of the active auth path (OIDC vs proxy-header vs unconfigured) at boot; per-request source-tag observability remains via memory-write audit.
 
+<a id="healthcheck-verification"></a>
 ## Healthcheck Verification
 
 The Memory Core's `healthcheck` MCP tool exposes the effective topology so operators can verify shared mode took effect without inspecting logs or re-running config through `node -e`:
@@ -259,6 +272,7 @@ Dream background daemon diagnostic fields (`features.dream`):
 - `lastDreamRun`: placeholder for the timestamp of the last Dream pipeline execution.
 - `lastGoldenPathRun`: placeholder for the timestamp of the last Golden Path pipeline execution.
 
+<a id="asynchronous-session-summarization-disconnect-trigger"></a>
 ## Asynchronous Session Summarization (Disconnect Trigger)
 
 In a shared deployment, multiple agents connect and disconnect dynamically. To ensure session summaries are automatically available to the team without requiring manual API calls or external cron jobs, the Memory Core leverages a **disconnect-triggered summarization** primitive.
@@ -267,6 +281,7 @@ When an MCP client (agent) disconnects from the Server-Sent Events (SSE) transpo
 
 This allows the heavy LLM summarization process to run asynchronously in the background. Because it relies on the unified `SummarizationJobs` table and the daemon's singleton lease, it naturally handles concurrent agent disconnects and server clustering without duplicating summaries. Team members can query the Memory Core and instantly access the completed session context once the background job finishes.
 
+<a id="migration-per-developer-local-shared-team-mode"></a>
 ## Migration: Per-Developer Local → Shared Team Mode
 
 Teams adopting shared mode from per-developer local should follow this migration path:
@@ -288,6 +303,7 @@ Teams adopting shared mode from per-developer local should follow this migration
 
 6. **Resume validation (when reconnecting agents).** Before an agent reconnects with a previously-used session ID, call `resume_session({session_id})` on Memory Core to verify the session is safe to resume. The tool returns a structured payload: `status: 'resumable'` (with `memoryCount`, `lastActivityAt`, `summarizationStatus`) confirms the agent can keep using that session ID via the `Mcp-Session-Id` header; `SESSION_FINALIZED` (already summarized) or `SESSION_BUSY` (concurrent summarization mid-flight, lease active) signal the agent should start fresh or retry. The validation is read-only — it does not modify server-side session state; the actual session-id binding still happens at the transport layer.
 
+<a id="validation"></a>
 ## Validation
 
 Validation tests for the unified topology are tracked separately under [#10008](https://github.com/neomjs/neo/issues/10008) ("Playwright Test Coverage: Unified Monolithic Topology"). That ticket is the canonical validation path for the contract this profile documents — when it closes, the test substrate empirically proves shared-mode KB/MC read/write correctness against a single Chroma process without collection collision.
@@ -296,6 +312,7 @@ This documentation profile and the test work are complementary:
 - This doc establishes the **contract** operators and agents can rely on.
 - [#10008](https://github.com/neomjs/neo/issues/10008) establishes the **executable proof** that the contract holds.
 
+<a id="topology-matrix-audit-10950"></a>
 ### Topology Matrix Audit (#10950)
 
 This deployment topology explicitly reconciles the outstanding matrix coverage tickets:
@@ -303,12 +320,14 @@ This deployment topology explicitly reconciles the outstanding matrix coverage t
 - **[#10008](https://github.com/neomjs/neo/issues/10008)** (Unified Coverage): Playwright integration tests (`test-integration-unified`) empirically prove the unified product-path behavior.
 - **[#10009](https://github.com/neomjs/neo/issues/10009)** (Federated Coverage): Federated topology integration tests are demoted to a non-default diagnostic track, explicitly deferring product claims.
 
+<a id="federated-mode-retirement"></a>
 ## Federated Mode Retirement
 
 The earlier "federated cloud" topology — separate Chroma processes for KB and MC — has been **permanently retired**. The unified topology is now the exclusive product path.
 
 [#10009](https://github.com/neomjs/neo/issues/10009) ("Playwright Test Coverage: Federated Cloud Topology") is the reference ticket, resolving the removal of federated topology code paths across the substrate.
 
+<a id="related"></a>
 ## Related
 
 - Parent sub-epic: [#10691](https://github.com/neomjs/neo/issues/10691) — Shared KB/MC Team Deployment MVP

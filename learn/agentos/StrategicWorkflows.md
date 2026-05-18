@@ -4,14 +4,17 @@ This guide is primarily written for the AI agent, providing strategic context fo
 
 This guide is a "cookbook" of advanced strategies. It provides examples of how to combine the agent's core tools (`git`, `ai:query`, `ai:query-memory`) to solve complex problems. While `AGENTS.md` defines the mandatory *rules* of your operation, this guide provides the strategic *art*.
 
+<a id="the-regression-bug-analysis-workflow"></a>
 ## The Regression Bug Analysis Workflow
 
 One of the most powerful use cases for the agent is analyzing and fixing regression bugs. A naive fix might solve the immediate bug but re-introduce the original problem that the previous code was trying to solve. This workflow prevents that by building a complete, three-dimensional picture of the code's history and intent.
 
+<a id="the-goal"></a>
 ### The Goal
 
 To fix a regression not just by reverting code, but by understanding the *intent* of the original change and creating a new solution that honors both the old and new requirements.
 
+<a id="the-steps"></a>
 ### The Steps
 
 1.  **Isolate the Regression:** Start with a clear identification of the regression. What worked before but is now broken?
@@ -45,6 +48,7 @@ To fix a regression not just by reverting code, but by understanding the *intent
     *   **What was the plan?** (from the knowledge base)
     *   **What was the intent?** (from your memory)
 
+<a id="related-guides"></a>
 ## Related Guides
 
 - [Swarm Intelligence & Sub-Agents](./SwarmIntelligence.md) — How tasks are delegated

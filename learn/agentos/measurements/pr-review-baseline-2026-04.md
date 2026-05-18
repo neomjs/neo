@@ -6,6 +6,7 @@ This file tracks the loaded-byte (`wc -c`) metrics for PR review cycles, establi
 
 **Requirement:** A minimum of 10 cycles of baseline data must be captured before Sub-issue 2 (Pilot extraction) can proceed.
 
+<a id="captured-data"></a>
 ## Captured Data
 
 | Cycle | PR # | Cycle Type (1 or N) | Static `wc -c` | Dynamic `wc -c` | Total `wc -c` | Reviewer |

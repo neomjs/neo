@@ -6,6 +6,7 @@ The **Neural Link** changes this. It is a bidirectional bridge that connects AI 
 
 It transforms Neo.mjs into an **AI-Native** platform where agents act as first-class citizens alongside human developers.
 
+<a id="why-the-neural-link-matters"></a>
 ## Why the Neural Link Matters
 
 In traditional frameworks:
@@ -20,10 +21,12 @@ With the Neural Link:
 
 **This is the difference between an AI assistant and an AI developer.**
 
+<a id="configuration-strategy"></a>
 ## Configuration Strategy
 
 To optimize your AI context window and tool limits, we recommend different configurations based on your operational mode.
 
+<a id="collaborative-mode-human-agent"></a>
 ### 1. Collaborative Mode (Human + Agent)
 **Best for:** Daily development, pair programming, debugging.
 
@@ -33,6 +36,7 @@ In this mode, **you** act as the browser manager. You open the browser, navigate
 
 **Why:** The agent doesn't need to open tabs if you are already there. It needs deep introspection into the Neo.mjs runtime, which Neural Link provides and Chrome DevTools does not.
 
+<a id="autonomous-mode-agent-os"></a>
 ### 2. Autonomous Mode (Agent OS)
 **Best for:** CI/CD, nightly regression testing, autonomous "Night Watchman" agents.
 
@@ -40,6 +44,7 @@ In this mode, the Agent is alone. It must be able to launch its own environment.
 - **Enable:** `neo.mjs-neural-link` (For inspection)
 - **Enable:** `chrome-devtools` (For lifecycle: Open Browser, Navigate, Reload)
 
+<a id="architecture"></a>
 ## Architecture
 
 The Neural Link consists of three main components arranged in a star topology:
@@ -55,6 +60,7 @@ flowchart TD
     Bridge <-->|WebSocket| App[⚙️ Neo.mjs Runtime]
 ```
 
+<a id="the-bridge-a-shared-world"></a>
 ### The Bridge: A Shared World
 
 Think of the Bridge as a **switchboard operator** from the 1950s. Multiple callers (AI agents) can dial in, and the operator connects them to the same destination (your running app).
@@ -64,10 +70,12 @@ The Bridge running on `ws://localhost:8081` creates a "Shared World".
 - A VSCode agent can modify a config.
 - Both see the same runtime state in real-time.
 
+<a id="the-client"></a>
 ### The Client
 
 The `Neo.ai.Client` is a singleton within the application's App Worker. It is **tree-shakeable** and **opt-in**, ensuring zero overhead for production applications that don't use it. It communicates with the Bridge using a JSON-RPC 2.0 protocol.
 
+<a id="the-tojson-protocol-teaching-the-app-to-speak-machine"></a>
 ### The `toJSON` Protocol: Teaching the App to Speak "Machine"
 
 For an AI to "understand" your application, it needs a standardized language. Neo.mjs implements a comprehensive `toJSON` protocol across 60+ classes.
@@ -78,8 +86,10 @@ For an AI to "understand" your application, it needs a standardized language. Ne
 
 This is why agents can reason about Neo.mjs apps with high fidelity while remaining "blind" to React/Vue apps.
 
+<a id="installation-setup"></a>
 ## Installation & Setup
 
+<a id="enable-the-client-app-side"></a>
 ### 1. Enable the Client (App Side)
 
 To enable the Neural Link in your application, add the `useAiClient` flag to your `neo-config.json`. This tells the Main Worker to load the `Neo.ai.Client` module.
@@ -91,6 +101,7 @@ To enable the Neural Link in your application, add the `useAiClient` flag to you
 }
 ```
 
+<a id="configure-the-mcp-server-agent-side"></a>
 ### 2. Configure the MCP Server (Agent Side)
 
 Add the Neural Link server to your MCP configuration (e.g., `claude_desktop_config.json` or VSCode settings).
@@ -106,6 +117,7 @@ Add the Neural Link server to your MCP configuration (e.g., `claude_desktop_conf
 }
 ```
 
+<a id="start-the-bridge-optional-but-recommended"></a>
 ### 3. Start the Bridge (Optional but Recommended)
 
 For the best experience, especially if using multiple agents, run the bridge as a standalone background process:
@@ -126,6 +138,7 @@ When multiple AI agents connect to the same Bridge, they share a single view of 
 - Agent 2 (VSCode) modifies a button's text
 - Both see the same state with zero conflicts
 
+<a id="how-it-works-under-the-hood"></a>
 ## How It Works Under the Hood
 
 **The Request Flow:**
@@ -141,8 +154,10 @@ When multiple AI agents connect to the same Bridge, they share a single view of 
 
 **Key Insight:** The Bridge doesn't understand Neo.mjs semantics—it's a dumb message router. All intelligence lives in the App Worker's service layer.
 
+<a id="architecture-advanced"></a>
 ## Architecture (Advanced)
 
+<a id="client-side-service-pattern"></a>
 ### Client-Side Service Pattern
 
 The Neural Link client uses a **Domain Service Architecture** to organize functionality:
@@ -162,6 +177,7 @@ Neo.ai.Client (Orchestrator)
 
 This architecture allows agents to operate on the application without understanding Neo.mjs internals—they just call standardized RPC methods.
 
+<a id="automatic-state-recovery"></a>
 ### Automatic State Recovery
 
 When the Neural Link reconnects (after a browser refresh or network interruption), it automatically rehydrates:
@@ -171,6 +187,7 @@ When the Neural Link reconnects (after a browser refresh or network interruption
 
 This means agents never lose track of the application state, even across page reloads.
 
+<a id="advanced-configuration"></a>
 ### Advanced Configuration
 
 **RPC Timeout:**
@@ -179,12 +196,14 @@ By default, Neural Link operations timeout after a configured duration (typicall
 **Multi-Agent Coordination:**
 The Bridge tracks all connected agents via `activeAgents`. Multiple agents can query the same session simultaneously without conflicts—all responses are broadcast to every connected agent, enabling collaborative debugging.
 
+<a id="tool-reference"></a>
 ## Tool Reference
 
 The Neural Link exposes 33 tools categorized by domain.
 
 > **Definitive Reference:** The complete specifications are in `ai/mcp/server/neural-link/openapi.yaml`. This file is the single source of truth for parameters, validation, and usage. If there's a discrepancy between this guide and the OpenAPI spec, the spec is correct.
 
+<a id="component-introspection"></a>
 ### 1. Component Introspection
 
 *"Where is the Save button? What does it look like right now?"*
@@ -200,6 +219,7 @@ These tools let agents navigate the UI structure and visual state—like Chrome 
 | `get_computed_styles` | Retrieves the exact computed CSS styles (e.g., `backgroundColor`, `fontSize`) for a component. |
 | `get_dom_rect` | Measures the physical screen coordinates and dimensions (`getBoundingClientRect`) of components. |
 
+<a id="data-state-management"></a>
 ### 2. Data & State Management
 
 *"What data is in the grid? How is the global state configured?"*
@@ -214,6 +234,7 @@ Tools for inspecting and modifying the application's data layer.
 | `inspect_state_provider` | Reads the hierarchical state data from a State Provider (global or local). |
 | `modify_state_provider` | Updates the data in a State Provider, triggering reactive updates across the app. |
 
+<a id="instance-manipulation"></a>
 ### 3. Instance Manipulation
 
 *"I need to change this label. I need to disable this button."*
@@ -226,6 +247,7 @@ Generic tools for working with *any* Neo.mjs instance (Components, Stores, Manag
 | `get_instance_properties` | Reads specific runtime properties from any instance by ID. |
 | `set_instance_properties` | **The primary control tool.** Modifies properties on an instance, triggering all reactive `beforeSet`/`afterSet` hooks. |
 
+<a id="runtime-system"></a>
 ### 4. Runtime & System
 
 *"Is the environment healthy? Are there errors in the console?"*
@@ -242,6 +264,7 @@ Tools for understanding the environment, topology, and execution flow.
 | `reload_page` | Forces a full reload of the application window. |
 | `manage_neo_config` | Reads or updates the global `Neo.config` object at runtime. |
 
+<a id="navigation-routing"></a>
 ### 5. Navigation & Routing
 
 *"Where am I? Take me to the settings page."*
@@ -253,6 +276,7 @@ Tools for controlling the application's URL and history.
 | `get_route_history` | Inspects the navigation history stack. |
 | `set_route` | Navigates the application to a new hash-based route (e.g., `#view=profile`). |
 
+<a id="interaction-debugging"></a>
 ### 6. Interaction & Debugging
 
 *"Click that button. What's in the console? Drag that panel."*
@@ -267,6 +291,7 @@ Tools for simulating user input, debugging events, and monitoring runtime output
 | `get_dom_event_summary` | Provides a high-level overview of the global event system state. |
 | `get_console_logs` | Streams live console.log/warn/error output from the App Worker. Supports filtering by type and content. Logs generated before connection are buffered and delivered on reconnect. |
 
+<a id="runtime-coding-patching"></a>
 ### 7. Runtime Coding & Patching
 
 *"This logic is wrong. Let me fix it live."*
@@ -284,8 +309,10 @@ Advanced tools for "Open Heart Surgery" on the running code.
 - All hot-patches are logged to the console with a warning banner.
 - This tool is **disabled by default** and requires explicit opt-in via `Neo.config.enableHotPatching = true`.
 
+<a id="usage-examples"></a>
 ## Usage Examples
 
+<a id="scenario-1-ui-debugging"></a>
 ### Scenario 1: UI Debugging
 
 **User:** "Why is the Save button not blue?"
@@ -294,7 +321,8 @@ Advanced tools for "Open Heart Surgery" on the running code.
 2.  Calls `get_computed_styles({componentId: 'button-1', variables: ['backgroundColor']})`.
 3.  Analyzes the result and suggests a fix.
 
-### Scenario 2: Data 
+<a id="scenario-2-data"></a>
+### Scenario 2: Data
 
 **User:** "Show me the last 5 users in the grid."
 **Agent:**
@@ -302,6 +330,7 @@ Advanced tools for "Open Heart Surgery" on the running code.
 2.  Calls `inspect_store({storeId: 'store-1', limit: 5})`.
 3.  Returns the JSON data to the user.
 
+<a id="scenario-3-live-prototyping"></a>
 ### Scenario 3: Live Prototyping
 
 **User:** "Change the header title to 'Welcome Back' and make it bold."
@@ -310,6 +339,7 @@ Advanced tools for "Open Heart Surgery" on the running code.
 2.  Calls `set_instance_properties({id: 'toolbar-1', properties: {title: 'Welcome Back', style: {fontWeight: 'bold'}}})`.
 3.  The app updates instantly.
 
+<a id="security-model"></a>
 ## Security Model
 
 The Neural Link is a powerful capability, designed for **local development and trusted admin interfaces**.
@@ -328,20 +358,24 @@ The Neural Link is a powerful capability, designed for **local development and t
 - Public-facing production apps without authentication.
 - Any scenario where untrusted users could access the Neural Link endpoint.
 
+<a id="troubleshooting"></a>
 ## Troubleshooting
 
+<a id="connection-issues"></a>
 ### Connection Issues
 
 - **"Connection Refused":** Ensure the Bridge is running (`npm run ai:server-neural-link`). Check `./bridge.log` for errors.
 - **"Connection Lost" (Automatic Recovery):** The client retries up to 5 times with exponential backoff (max 30 seconds between attempts). Check browser console for reconnection logs.
 - **"Max reconnection attempts reached":** Bridge or network is unstable. Restart the Bridge and check firewall settings.
 
+<a id="tool-execution-issues"></a>
 ### Tool Execution Issues
 
 - **"Tool Timeout":** If the app is paused at a debugger breakpoint, resume it. For very large component trees, the 30-second default timeout may be insufficient.
 - **"Component Not Found":** The UI is dynamic. Use `query_component` to find IDs at runtime rather than hardcoding them.
 - **"Method not available":** Some tools require config flags. Example: `patch_code` needs `Neo.config.enableHotPatching = true`.
 
+<a id="health-diagnostics"></a>
 ### Health & Diagnostics
 
 - **"Health Check Failed":** Run the `healthcheck` tool. It reports:
@@ -353,11 +387,13 @@ The Neural Link is a powerful capability, designed for **local development and t
 
   If unhealthy, restart the Bridge manually.
 
+<a id="state-sync"></a>
 ### State Sync
 
 - **"Stale Window Data":** After page reload, wait 1-2 seconds for client rehydration. Use `get_window_topology` to verify.
 - **"Agent Not Seeing My Changes":** Responses are broadcast to all agents. Agent B sees Agent A's changes in the NEXT tool call, not the current one.
 
+<a id="when-to-use-the-neural-link"></a>
 ## When to Use the Neural Link
 
 **Ideal Use Cases:**
@@ -375,6 +411,7 @@ The Neural Link is a powerful capability, designed for **local development and t
 - Public-facing apps without authentication (Bridge has no built-in auth)
 - Shared/untrusted machines (any local process can connect to localhost:8081)
 
+<a id="what-this-unlocks"></a>
 ## What This Unlocks
 
 The Neural Link is more than a debugging tool. It's the foundation for a new category of software: **Conversational Applications**.
@@ -386,6 +423,7 @@ Imagine:
 
 This is not science fiction. This is Neo.mjs v11.18.0.
 
+<a id="beyond-interactive-debugging-autonomous-agents"></a>
 ### Beyond Interactive Debugging: Autonomous Agents
 
 When combined with Code Execution, the Neural Link enables truly autonomous workflows. Instead of asking "What's wrong?", you can write scripts that:

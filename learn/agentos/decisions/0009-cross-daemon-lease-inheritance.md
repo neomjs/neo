@@ -7,11 +7,12 @@
 | **Status** | Proposed — 2026-05-17 (awaiting #11519 PR merge to establish empirical substrate before transition to Accepted, per ADR 0005 lifecycle) |
 | **Author** | @neo-opus-4-7 (Claude Opus 4.7) drafting; substrate-truth grounded in #11503 umbrella + #11519 cross-daemon design dialogue (`learn/agentos/AGENTS_ATLAS.md` §6.5 peer-role substrate-validation conventions) |
 | **Implementation ticket** | #11519 — *"Cross-daemon lease coverage: orchestrator-side shared-lease adoption + env-var child inheritance"* |
-| **Companion implementation PR** | PR resolving #11519 (this ADR's §2 contract becomes live substrate only after that PR merges) |
-| **Anti-anchor for** | Self-defer regression on nested-cascade spawns (orchestrator-owned heavy task holding the lease + cascading a child that also reaches `withHeavyMaintenanceLease`); allowlist/bypass anti-patterns rejected in §3 |
+| **Companion implementation PR** | PR resolving #11519 (this ADR's [§2](#decision-env-var-token-inheritance-contract) contract becomes live substrate only after that PR merges) |
+| **Anti-anchor for** | Self-defer regression on nested-cascade spawns (orchestrator-owned heavy task holding the lease + cascading a child that also reaches `withHeavyMaintenanceLease`); allowlist/bypass anti-patterns rejected in [§3](#decision-process-why-token-match-over-alternatives) |
 
 ---
 
+<a id="context"></a>
 ## 1. Context
 
 `HeavyMaintenanceLeaseService` (#11505 / PR #11506) introduced a shared file-based mutex preventing Chroma / SQLite / LLM maintenance lanes from overlapping across process boundaries. Lane C (#11507 / PR #11509) wired the four manual CLI scripts (`runSandman`, `syncKnowledgeBase`, `backup`, `syncGithubWorkflow`) to that mutex via `withHeavyMaintenanceLease`. Lane A (#11513 / PR #11514) added `backup` to `DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES` so the orchestrator's process-local `activeHeavyTask` check serializes it correctly.
@@ -24,12 +25,14 @@ Two substrate gaps remained:
 
 Both gaps had to land together — adding orchestrator-side wrapping without inheritance creates the self-defer hazard; adding inheritance without orchestrator-side wrapping doesn't close the actual cross-daemon substrate gap.
 
-**Empirical anchor — #11503 peer-role design dialogue:** Substrate audit across 5 surfaces (orchestrator wrap point + 2 spawn sites + lease entry + lease file shape) surfaced four candidate inheritance mechanisms; Option A (env-var token inheritance) was selected over Options B/C/D as the substrate-minimal shape per §3 Decision Process below.
+**Empirical anchor — #11503 peer-role design dialogue:** Substrate audit across 5 surfaces (orchestrator wrap point + 2 spawn sites + lease entry + lease file shape) surfaced four candidate inheritance mechanisms; Option A (env-var token inheritance) was selected over Options B/C/D as the substrate-minimal shape per [§3](#decision-process-why-token-match-over-alternatives) Decision Process below.
 
 ---
 
+<a id="decision-env-var-token-inheritance-contract"></a>
 ## 2. Decision: Env-Var Token Inheritance Contract
 
+<a id="inheritance-signal-neo-heavy-maintenance-lease-inherited-token"></a>
 ### 2.1 Inheritance Signal — `NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN`
 
 A parent process holding an acquired heavy-maintenance lease MAY export its lease's `token` field to a spawned child via the environment variable `NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN`. When the child invokes `withHeavyMaintenanceLease`, the wrapper:
@@ -40,6 +43,7 @@ A parent process holding an acquired heavy-maintenance lease MAY export its leas
 4. **Match** → returns `{status: 'inherited', acquired: false, lease}` and runs the task body WITHOUT acquire/release on the lease file. The parent retains ownership; child task simply executes under the inherited lease window.
 5. **Mismatch** (lease missing, token differs, stale-replaced by another owner) → falls through to normal `acquireHeavyMaintenanceLease` semantics. Mismatch is treated as "no inheritance available," not as an error — the child either acquires its own lease (path: empty) or defers with `held` (path: another owner active).
 
+<a id="producer-sites-parent-writes-the-env-var"></a>
 ### 2.2 Producer Sites (parent writes the env-var)
 
 Two producer sites in `ai/daemons/`:
@@ -49,16 +53,19 @@ Two producer sites in `ai/daemons/`:
 | Orchestrator child-spawn for heavy tasks | `ai/daemons/Orchestrator.mjs#createMaintenanceExecutor` (post-#11519) | After `acquireHeavyMaintenanceLeaseSync` succeeds for a heavy task, the wrapper passes `{env: {NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN: acquisition.lease.token}, onComplete: releaseFn}` to `ProcessSupervisorService.runTask`. Spawned child inherits the env. |
 | PrimaryRepoSyncService cascade spawn | `ai/daemons/services/PrimaryRepoSyncService.mjs#runKbSync` (post-#11519) | Reads `process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN` (set by its own orchestrator parent above) and explicitly forwards via `execFileSyncFn(npmBin, ['run', 'ai:sync-kb'], {env: {...process.env, NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN: inheritedToken}, ...})`. The cascade child inherits transitively. |
 
+<a id="consumer-site-child-reads-the-env-var"></a>
 ### 2.3 Consumer Site (child reads the env-var)
 
 Single consumer: `withHeavyMaintenanceLease` in `ai/daemons/services/HeavyMaintenanceLeaseService.mjs`. Inherits the contract for all consumers automatically — both orchestrator-spawned children (which themselves may call `withHeavyMaintenanceLease` via Lane C wrappers) and operator-invoked CLI scripts (e.g., `npm run ai:sync-kb` cascade target).
 
+<a id="sync-overloads-orchestrator-poll-compatibility"></a>
 ### 2.4 Sync Overloads — Orchestrator Poll Compatibility
 
 `acquireHeavyMaintenanceLeaseSync`, `releaseHeavyMaintenanceLeaseSync`, `inspectHeavyMaintenanceLeaseSync` are introduced as parallel synchronous variants of the async primary API. **Rationale:** the orchestrator's poll cycle is synchronous; making `createMaintenanceExecutor` async would break the test contract that `orchestrator.poll()` is observable synchronously post-call. The sync overloads share `buildLeasePayload` + `isLeaseStale` + the exact return-shape contract with the async path — only the IO seam differs. CLI scripts and operator-invoked entry points continue to use the async surface via `withHeavyMaintenanceLease`.
 
 ---
 
+<a id="decision-process-why-token-match-over-alternatives"></a>
 ## 3. Decision Process — Why Token Match Over Alternatives
 
 Four candidate inheritance mechanisms were evaluated during the #11503 peer-role design dialogue. Option A (env-var token inheritance) was selected for the substrate-minimal property: zero changes to the lease file shape, zero new surfaces to audit, the existing `token` field carries the inheritance contract.
@@ -72,6 +79,7 @@ Four candidate inheritance mechanisms were evaluated during the #11503 peer-role
 
 ---
 
+<a id="audit-trail-rationale"></a>
 ## 4. Audit-Trail Rationale
 
 A core property of #11503's substrate is **auditability**. Operator dashboards + Memory Core graph ingestion + post-incident forensics rely on `lease.owner` + `lease.pid` + `lease.acquiredAt` to distinguish "who held the substrate-heavy mutex at time T."
@@ -86,22 +94,28 @@ The deliberate audit-trail design rejects Option C (forced-bypass env-var) preci
 
 ---
 
+<a id="boundary-conditions"></a>
 ## 5. Boundary Conditions
 
+<a id="lease-file-missing"></a>
 ### 5.1 Lease File Missing
 Env-var set but file does not exist on disk (e.g., parent died, TTL cleanup ran). `inspectHeavyMaintenanceLease` returns `status: 'missing'`. No token to match → falls through to normal acquire path. Child task may safely acquire its own lease.
 
+<a id="token-mismatch"></a>
 ### 5.2 Token Mismatch
 Env-var set, file exists, but `lease.token !== process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN`. No inheritance → falls through to normal acquire path. Child either acquires (if owner is stale) or defers with `held` (if owner is active).
 
+<a id="stale-replaced-parent"></a>
 ### 5.3 Stale-Replaced Parent
 Env-var captured token-X; parent died before child executed; TTL expired; another owner has stale-acquired with token-Y. Child's env=X, file has token=Y → mismatch → falls through. New owner's active lease deflects child to defer with `held`. **No false inheritance under stale-replaced parent.**
 
+<a id="cross-process-tooling-cli-scripts"></a>
 ### 5.4 Cross-Process Tooling (CLI scripts)
 Operator-invoked `npm run ai:sync-kb` outside an orchestrator-managed cascade does NOT have `NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN` set; falls through to normal acquire. Behavior unchanged from PR #11509.
 
 ---
 
+<a id="status-lifecycle"></a>
 ## 6. Status / Lifecycle
 
 This ADR is **Proposed** at filing. Transition to **Accepted** is gated on:
@@ -114,6 +128,7 @@ Per ADR 0005, Proposed status is acceptable for future-agent `ticket-intake` rea
 
 ---
 
+<a id="related-substrate"></a>
 ## 7. Related Substrate
 
 - **Parent umbrella**: #11503 (Enforce heavy-maintenance mutex across Agent OS tasks)

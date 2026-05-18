@@ -2,18 +2,21 @@
 
 The **Knowledge Base Server** (`neo.mjs-knowledge-base`) is the AI agent's "Technical Cortex." It provides a deep, semantic understanding of the Neo.mjs framework, enabling agents to answer questions like "How does the VDOM diffing work?" or "What is the proper way to extend a component?" with high accuracy.
 
+<a id="the-philosophy-context-engineering"></a>
 ## The Philosophy: Context Engineering
 
 Traditional AI coding assistants often fail because they rely on shallow context—keyword searches or whatever file happens to be open in the editor. This approach breaks down in large, complex frameworks like Neo.mjs.
 
 The Knowledge Base Server implements **Context Engineering**, a discipline focused on providing AI agents with the *right* context, structured in a way they can understand.
 
+<a id="why-we-built-this"></a>
 ### Why We Built This
 
 1.  **Beyond Script Brittleness:** We moved from fragile shell scripts to a robust, type-safe MCP server to ensure reliability.
 2.  **Semantic Intent vs. Keywords:** A search for "table" shouldn't just find files named "table.js"—it should find `Grid`, `List`, and `Collection` because they are semantically related. Vector embeddings make this possible.
 3.  **The Versioning Problem:** Agents need to know *exactly* which version of the code they are working on. By indexing the local repository state, the Knowledge Base reflects the current branch, commit, and modifications, ensuring the agent never hallucinates about features that don't exist in the current version.
 
+<a id="the-three-dimensions-of-context"></a>
 ### The Three Dimensions of Context
 
 This server provides the first dimension of the Agent OS's context model:
@@ -22,30 +25,36 @@ This server provides the first dimension of the Agent OS's context model:
 2.  **Memory (The "Why"):** Provided by the **[Memory Core Server](./MemoryCore.md)**. Personal history, past decisions, and reasoning chains.
 3.  **Plan (The "What"):** Provided by the **[GitHub Workflow Server](./GitHubWorkflow.md)**. Formal requirements, issues, and project tracking.
 
+<a id="real-world-use-cases"></a>
 ## Real-World Use Cases
 
+<a id="the-discovery-pattern-learning"></a>
 ### 1. The Discovery Pattern (Learning)
 
-**Goal:** An agent needs to understand how to use a specific component.  
-**Query:** `query_documents(query="How do I use the Grid component?", type="guide")`  
+**Goal:** An agent needs to understand how to use a specific component.
+**Query:** `query_documents(query="How do I use the Grid component?", type="guide")`
 **Result:** The server returns the "Grid" guide first, followed by relevant examples. The agent learns the *concept* before diving into the code.
 
+<a id="forensic-debugging-history"></a>
 ### 2. Forensic Debugging (History)
 
-**Goal:** An agent encounters a regression in the VDOM engine.  
-**Query:** `query_documents(query="VDOM collision logic changes", type="ticket")`  
+**Goal:** An agent encounters a regression in the VDOM engine.
+**Query:** `query_documents(query="VDOM collision logic changes", type="ticket")`
 **Result:** The server returns closed tickets describing previous bugs and fixes. The agent learns *why* the current logic exists, preventing it from re-introducing an old bug.
 
+<a id="architectural-analysis-intent"></a>
 ### 3. Architectural Analysis (Intent)
 
-**Goal:** An agent needs to refactor a worker.  
-**Query:** `query_documents(query="worker thread communication patterns", type="src")`  
+**Goal:** An agent needs to refactor a worker.
+**Query:** `query_documents(query="worker thread communication patterns", type="src")`
 **Result:** Thanks to the **inheritance boosting** algorithm, the server returns not just the worker file, but its parent class `Neo.worker.Base` and `Neo.core.Base`, giving the agent the full architectural picture.
 
+<a id="architecture"></a>
 ## Architecture
 
 The server is built on a robust, service-oriented architecture designed for reliability and extensibility.
 
+<a id="openapi-driven-design"></a>
 ### 1. OpenAPI-Driven Design
 
 Unlike typical MCP servers that hardcode their tools, this server is entirely driven by an **OpenAPI 3.0 Specification**.
@@ -53,10 +62,12 @@ Unlike typical MCP servers that hardcode their tools, this server is entirely dr
 - **Dynamic Validation:** `OpenApiValidator.mjs` generates Zod schemas at runtime to ensure strict type safety for all tool calls.
 - **Tool Discovery:** `toolService.mjs` dynamically maps OpenAPI operations to service handlers.
 
+<a id="core-services"></a>
 ### 2. Core Services
 
 The server logic is distributed across specialized services:
 
+<a id="queryservice-services-queryservice-mjs"></a>
 #### QueryService (`services/QueryService.mjs`)
 
 The brain of the operation. It handles the search logic and implements the **Weighted Scoring Algorithm** that makes the search "smart":
@@ -66,12 +77,14 @@ The brain of the operation. It handles the search logic and implements the **Wei
     - **Penalties:** Historical Tickets (-70) and Release Notes (-50) are penalized in general searches to avoid confusing the agent with outdated information, unless explicitly requested via `type='ticket'`.
     - **Inheritance:** When a class is found, its parent classes get a boost (+80). This is crucial: it ensures the agent sees the full prototype chain, understanding methods inherited from `Base` classes.
 
+<a id="searchservice-services-searchservice-mjs"></a>
 #### SearchService (`services/SearchService.mjs`)
 
 The RAG (Retrieval-Augmented Generation) engine.
 - **Synthesizes Answers:** Unlike `QueryService` which returns raw files, `SearchService` takes a question, retrieves relevant documents, reads their full content from disk, and uses an LLM (Gemini) to generate a concise, synthesized answer with citations.
 - **Contextual Reading:** It reads the actual files from the filesystem before feeding them to the LLM, ensuring the context is complete and up-to-date.
 
+<a id="databaseservice-services-databaseservice-mjs"></a>
 #### DatabaseService (`services/DatabaseService.mjs`)
 
 The ETL (Extract, Transform, Load) engine.
@@ -79,31 +92,37 @@ The ETL (Extract, Transform, Load) engine.
 - **Transform:** Normalizes content into a unified JSONL format (`dist/ai-knowledge-base.jsonl`). It generates a **Content Hash** (SHA-256) for each chunk to detect changes. It also generates a static **Class Hierarchy Map** (`dist/ai-class-hierarchy.json`).
 - **Load:** "Upserts" vectors into ChromaDB. It uses the content hash to perform a diff, ensuring only new or modified chunks are re-embedded, saving time and API costs.
 
+<a id="healthservice-services-healthservice-mjs"></a>
 #### HealthService (`services/HealthService.mjs`)
 
 The gatekeeper.
 - **Intelligent Caching:** Caches "healthy" status for 5 minutes to reduce overhead. Unhealthy states are never cached, allowing immediate recovery detection.
 - **Gatekeeping:** Every tool call passes through `ensureHealthy()`. If dependencies (ChromaDB, API Key) are missing, it fails fast with actionable error messages.
 
+<a id="databaselifecycleservice-services-databaselifecycleservice-mjs"></a>
 #### DatabaseLifecycleService (`services/DatabaseLifecycleService.mjs`)
 
 Process manager.
 - Automatically manages the local `chroma` server process.
 - Can start/stop the database on demand via tools.
 
+<a id="documentservice-services-documentservice-mjs"></a>
 #### DocumentService (`services/DocumentService.mjs`)
 
 Inspection and debugging.
 - Allows raw access to the indexed documents in ChromaDB to verify content and metadata.
 
+<a id="chromadb-vector-search"></a>
 ### 3. ChromaDB & Vector Search
 
 The server manages a local instance of **ChromaDB**, a high-performance vector database.
 - **Persistence:** Data is stored locally in `chroma-neo-knowledge-base/`.
 - **Collection:** Uses a single collection `neo-knowledge-base` for all content types.
 
+<a id="available-tools"></a>
 ## Available Tools
 
+<a id="query-tools"></a>
 ### Query Tools
 
 These are the primary tools used by agents to retrieve information.
@@ -125,6 +144,7 @@ These are the primary tools used by agents to retrieve information.
 *   **`list_documents`**: Retrieves a paginated list of all indexed documents (for inspection).
 *   **`get_document_by_id`**: Retrieves a specific document chunk by its ID.
 
+<a id="database-management-tools"></a>
 ### Database Management Tools
 
 These tools manage the knowledge base lifecycle.
@@ -135,6 +155,7 @@ These tools manage the knowledge base lifecycle.
     *   `action: 'embed'`: Runs only the embedding step.
     *   `action: 'delete'`: **Destructive.** Deletes the entire ChromaDB collection.
 
+<a id="infrastructure-tools"></a>
 ### Infrastructure Tools
 
 These tools manage the underlying services.
@@ -144,6 +165,7 @@ These tools manage the underlying services.
     *   `action: 'start'`: Starts the local ChromaDB process.
     *   `action: 'stop'`: Stops the local ChromaDB process.
 
+<a id="the-virtuous-cycle-enhancing-the-knowledge-base"></a>
 ## The Virtuous Cycle: Enhancing the Knowledge Base
 
 A critical part of the workflow is that the AI agent is not just a consumer, but a **contributor** to the Knowledge Base.
@@ -156,20 +178,24 @@ A critical part of the workflow is that the AI agent is not just a consumer, but
 
 This cycle turns technical debt into an asset, continuously improving the project's "AI-friendliness."
 
+<a id="configuration-tuning-the-cortex"></a>
 ## Configuration: Tuning the Cortex
 
 The server is designed to be self-contained. It manages its own database process and configuration to ensure it doesn't conflict with other services.
 
+<a id="architecture-service-isolation"></a>
 ### Architecture: Service Isolation
 
 The Agent OS runs multiple cognitive services. The **Knowledge Base** (technical facts) and **Memory Core** (personal history) each require their own dedicated vector storage. To prevent cross-contamination and ensure reliability, they operate as **independent services**.
 
 **Do NOT use global environment variables** (like `CHROMA_PORT` or `CHROMA_DATA_PATH`) to configure these services, as this would force them to share the same database instance, leading to conflicts. Instead, use the dedicated configuration file.
 
+<a id="key-configurable-items"></a>
 ### Key Configurable Items
 
 The server's default configuration is defined in `ai/mcp/server/knowledge-base/config.mjs`, but you are not expected to modify this file directly. Instead, you can load a custom configuration file at runtime.
 
+<a id="loading-custom-configs"></a>
 #### Loading Custom Configs
 
 You can override any part of the default configuration by passing the `-c` or `--config` flag when starting the server. This loads a `.json` or `.mjs` file and deeply merges it with the defaults.
@@ -185,7 +211,7 @@ export default {
     // Isolate this instance on a different port
     port: 8100,
     path: './my-custom-chroma-db',
-    
+
     // Tune the brain to be more sensitive to bug reports
     queryScoreWeights: {
         ticketPenalty: -20, // Reduce penalty from -70
@@ -194,6 +220,7 @@ export default {
 };
 ```
 
+<a id="configuration-options"></a>
 #### Configuration Options
 
 *   **Database Isolation:**
@@ -216,6 +243,7 @@ export default {
     *   `nResults`: Retrieval depth (default: 100).
     *   `batchSize`: Embedding throughput.
 
+<a id="environment-variables"></a>
 ### Environment Variables
 
 *   `GEMINI_API_KEY`: **Required.** Used for generating text embeddings.

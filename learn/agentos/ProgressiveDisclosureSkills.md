@@ -1,57 +1,61 @@
 # Progressive Disclosure Skills
 
 The Neo Agent OS utilizes a **Progressive Disclosure** pattern for agent skills. Instead of
-loading every possible instruction set into the master system prompt (which consumes 
-massive amounts of context window tokens and dilutes agent focus), skills are 
+loading every possible instruction set into the master system prompt (which consumes
+massive amounts of context window tokens and dilutes agent focus), skills are
 lazy-loaded into the context window exactly when they are needed.
 
 For the overall platform topology, see [Architecture Overview](../benefits/ArchitectureOverview.md).
 For the agent delegation model, see [Swarm Intelligence](./SwarmIntelligence.md).
 For the canonical skill-anatomy contract (frontmatter shape, Map vs Atlas decomposition, manifest contract, anti-patterns), see [ADR 0008: SKILL.md Anatomy and Authoring Contract](./decisions/0008-skill-anatomy-and-authoring-contract.md).
 
+<a id="token-economics"></a>
 ## Token Economics
 
 The primary driver for the Progressive Disclosure pattern is **System Prompt Budgeting**.
 
 LLM reasoning degrades as the context window fills up (the "lost in the middle"
-phenomenon). If an agent is tasked with a simple CSS fix, it does not need the 
-4,000-token `pull-request` execution guide or the `neural-link` tactical debugging 
+phenomenon). If an agent is tasked with a simple CSS fix, it does not need the
+4,000-token `pull-request` execution guide or the `neural-link` tactical debugging
 sequences in its prompt.
 
-By deferring specialized procedural knowledge into standalone Markdown files 
+By deferring specialized procedural knowledge into standalone Markdown files
 (`.agents/skills/*/SKILL.md`), we keep the root `AGENTS.md` system prompt lean.
-The root prompt outlines the *rules of engagement*, while the skills provide the 
+The root prompt outlines the *rules of engagement*, while the skills provide the
 *tactical implementation manuals*.
 
+<a id="the-progressive-disclosure-pattern"></a>
 ## The Progressive Disclosure Pattern
 
-A skill in the Neo Agent OS is a directory containing instructional context. 
+A skill in the Neo Agent OS is a directory containing instructional context.
 The contract for a skill is simple:
 
 1. **`SKILL.md` (Mandatory):** The entry point. It must contain YAML frontmatter
    with a `name` and `description` (which serves as the primary cross-harness router by outlining the invocation contract and purpose),
    followed by standard Markdown instructions.
-2. **`references/` (Optional):** Deeper architectural documentation or procedural 
+2. **`references/` (Optional):** Deeper architectural documentation or procedural
    steps linked from the main `SKILL.md`.
-3. **`assets/` (Optional):** Templates, Markdown snippets, or structural files the 
+3. **`assets/` (Optional):** Templates, Markdown snippets, or structural files the
    skill relies on.
 
-When an agent encounters a trigger scenario (e.g., "Open a Pull Request"), it uses 
-the `view_file` tool to read the `SKILL.md`, absorbs the temporary context, and 
+When an agent encounters a trigger scenario (e.g., "Open a Pull Request"), it uses
+the `view_file` tool to read the `SKILL.md`, absorbs the temporary context, and
 executes the procedural knowledge.
 
+<a id="how-skills-compose-with-agents-md"></a>
 ## How Skills Compose with AGENTS.md
 
 The root system prompt (`AGENTS.md`) and the skills layer are symbiotic:
-- **`AGENTS.md`** contains the *Mandates*. It tells the agent *when* a behavior is 
-  required (e.g., "You MUST use the `pull-request` skill to open a PR. You are forbidden 
+- **`AGENTS.md`** contains the *Mandates*. It tells the agent *when* a behavior is
+  required (e.g., "You MUST use the `pull-request` skill to open a PR. You are forbidden
   from running `gh pr create` raw.").
-- **The Skill** contains the *How*. It provides the precise Git branch naming 
+- **The Skill** contains the *How*. It provides the precise Git branch naming
   conventions, the "Stepping Back" reflection protocol, and the exact CLI arguments.
 
+<a id="the-lifecycle-triad"></a>
 ## The Lifecycle Triad
 
-Three primary skills form the backbone of the Agent OS issue lifecycle. They act as 
+Three primary skills form the backbone of the Agent OS issue lifecycle. They act as
 strict architectural gates that prevent context-blind execution and topological regression.
 
 ```mermaid
@@ -60,7 +64,7 @@ flowchart TD
     classDef execute fill:#1a1a2e,stroke:#4a4e69,stroke-width:2px,color:#fff
     classDef pr fill:#3d1f00,stroke:#f39c12,stroke-width:2px,color:#eee
     classDef review fill:#2a0a2a,stroke:#c7168b,stroke-width:2px,color:#eee
-    
+
     A[Ticket Assigned] --> B(ticket-intake)
     B:::intake --> |Validation / ROI Check| C[Tactical Coding phase]
     C:::execute --> D(pull-request)
@@ -69,18 +73,21 @@ flowchart TD
     F:::review --> |Evaluation / Graph Ingestion| G[Merge & Retrospective]
 ```
 
+<a id="ticket-intake-the-pre-execution-reflection-gate"></a>
 ### 1. `ticket-intake` (The Pre-Execution Reflection Gate)
 Invoked immediately upon picking up a ticket, before any code is written.
 - **Validation Sweep:** Forces the agent to ensure the ticket has enough architectural context to be actionable.
 - **ROI/Negative ROI Calculation:** An agent must consider if solving the ticket introduces tech debt or violates framework philosophy.
 - **Rejection Protocol:** If a ticket is fatally flawed, the agent applies a `status: needs-re-triage` label, suspending it gracefully rather than hallucinating bad code.
 
+<a id="pull-request-the-post-implementation-gate"></a>
 ### 2. `pull-request` (The Post-Implementation Gate)
 Invoked when terminating a task.
 - **"Stepping Back" Reflection:** Forces the agent to transition from tactical coding to architectural reflection, identifying missing JSDoc or unit tests before committing.
 - **Branch Mandate:** Enforces strict naming conventions.
 - **State Handoff:** Defines the exact sequence to open the PR and signal completion to the Orchestrator.
 
+<a id="pr-review-the-quality-gate"></a>
 ### 3. `pr-review` (The Quality Gate)
 Invoked when evaluating a PR (either peer-reviewing another agent or guiding a human).
 - **Evaluation Metrics:** Quantifies quality across 7 dimensions (e.g., `[ARCH_ALIGNMENT]`, `[EXECUTION_QUALITY]`).
@@ -88,31 +95,35 @@ Invoked when evaluating a PR (either peer-reviewing another agent or guiding a h
 - **Circuit Breaker:** Triggers micro-delta paths for deep PRs (≥3 formal reviews or >24KB discussion) and provides a Maintainer Polish Fast Path for metadata fixes.
 - **LGTM/Required Actions:** Ensures every review resolves in a clear state.
 
+<a id="ticket-create-the-creation-gate"></a>
 ### 4. `ticket-create` (The Creation Gate)
 Invoked before filing any new GitHub Issue via the `create_issue` MCP tool. Creation-side dual of `ticket-intake` — they address opposite triggers (produce new vs. consume existing).
 - **Duplicate Sweep:** Mandates a pre-creation scan of `resources/content/issues/`, `issue-archive/`, and `discussions/` to prevent Knowledge Base pollution.
 - **Fat Ticket Body Structure:** Enforces Context / Problem / Architectural Reality / Fix / AC / Out of Scope / Related / Origin Session ID as the A2A memory shape.
 - **Title Hygiene & Label Rules:** Rejects `[enhancement]` / `[bug]` / `[epic]` title prefixes (category lives in labels); mandates `ai` label on every agent-authored ticket.
 
+<a id="tactical-creative-skills"></a>
 ## Tactical & Creative Skills
 
 Beyond lifecycle governance, specialized contexts exist for live action:
 
 - **`tech-debt-radar`:** A proactive architectural review skill using Frontier Model semantic RAG to sweep historical issues and Memory Core sessions for technical debt. Actively invoked during `ticket-intake` and `pr-review` (especially for fundamental architectural shifts).
-- **`neural-link`:** A tactical manual mapping how to sequence the Neural Link MCP 
+- **`neural-link`:** A tactical manual mapping how to sequence the Neural Link MCP
   tools (e.g., retrieving VDOM trees, finding bounding boxes, simulating DOM clicks) to debug a live browser instance.
 - **`unit-test`:** Patterns for authoring strict Playwright unit tests within the Neo.mjs single-thread architecture.
 - **`self-repair`:** A strict diagnostic protocol ensuring infrastructure verification across MCP services, Unit Testing, and Historical Forensics using Memory Core states to resolve system lockups.
 - **`ideation-sandbox`:** A creative workflow ensuring brainstorming occurs politely in GitHub Discussions rather than polluting the active Issue queue. Also acts as an auto-fire trigger for high-blast-radius proposals.
 - **`lane-intent`:** A narrow, non-authoritative, 2-hour TTL-bound pre-V-B-A signal for collision-prone / high-blast / long-V-B-A lanes (deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Distinct from authoritative `[lane-claim]` (post-V-B-A); read before broadcasting `[lane-intent]` to confirm scope-trigger qualifies.
 
+<a id="the-meta-skill-adding-new-skills"></a>
 ## The Meta-Skill: Adding New Skills
 
 The ecosystem is self-extending via the **`create-skill`** meta-skill.
-When the swarm identifies a repeating failure mode or a complex recurring task, 
-an agent can use `create-skill` to bootstrap a new progressive disclosure package or modify an existing one, 
+When the swarm identifies a repeating failure mode or a complex recurring task,
+an agent can use `create-skill` to bootstrap a new progressive disclosure package or modify an existing one,
 ensuring the YAML frontmatter and folder consistency are perfectly formed.
 
+<a id="skill-inventory"></a>
 ## Skill Inventory
 
 | Skill | Type | Purpose |
@@ -136,6 +147,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `lane-intent` | Coordination | Narrow, non-authoritative, 2h TTL-bound pre-V-B-A signal for collision-prone / long-V-B-A lanes; distinct from authoritative `[lane-claim]` |
 | `create-skill` | Meta | Skill authoring bootstrap guide |
 
+<a id="related-guides"></a>
 ## Related Guides
 
 - [Swarm Intelligence](./SwarmIntelligence.md) — Autonomous sub-agent delegation

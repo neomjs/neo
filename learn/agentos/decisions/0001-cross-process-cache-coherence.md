@@ -15,6 +15,7 @@
 
 ---
 
+<a id="context"></a>
 ## 1. Context
 
 `Neo.ai.services.memory-core.GraphService` is declared `singleton: true`
@@ -40,12 +41,14 @@ would close the bug class systemically.
 
 ---
 
+<a id="existing-substrate-audit-critical-finding"></a>
 ## 2. Existing Substrate Audit (Critical Finding)
 
 **The codebase already implements a cross-process cache-coherence primitive.**
 This ADR's solution space is reshaped by this discovery; rejecting the "invent new
 substrate" framing is the single most important architectural decision.
 
+<a id="the-graphlog-write-ahead-change-log"></a>
 ### 2.1 The `GraphLog` Write-Ahead Change Log
 
 `ai/graph/storage/SQLite.mjs` lines 95–110 declare:
@@ -68,6 +71,7 @@ Every mutation to `Nodes` or `Edges` — regardless of which process authored it
 appends a durable record to `GraphLog`. Because `GraphLog` lives in the shared
 SQLite file, all processes observe the same sequence.
 
+<a id="the-synccache-delta-replay"></a>
 ### 2.2 The `syncCache()` Delta Replay
 
 `ai/graph/Database.mjs` line 77 implements delta-log replay:
@@ -96,6 +100,7 @@ syncCache() {
 invalidate the corresponding cache entries so the subsequent lazy-load picks up
 the fresh state."
 
+<a id="the-lastsyncid-watermark"></a>
 ### 2.3 The `lastSyncId` Watermark
 
 `Database.mjs:43` declares `lastSyncId: 0` as the initial state. `storage.load()`
@@ -104,6 +109,7 @@ process starts tracking only mutations *after* its load completes. Local writes
 bump the watermark via `acknowledgeLocalMutations()` (`Database.mjs:117`) so a
 process doesn't re-process its own writes as external changes.
 
+<a id="why-the-primitive-isn-t-preventing-10184"></a>
 ### 2.4 Why the primitive isn't preventing `#10184`
 
 Reading `syncCache()`'s guard: `if (!this.storage || !this.lastSyncId) return;`.
@@ -141,6 +147,7 @@ implementation produce the `#10184` failure mode.**
 
 ---
 
+<a id="decision-drivers"></a>
 ## 3. Decision Drivers
 
 - **Correctness:** eliminate cross-process cache divergence deterministically
@@ -160,11 +167,13 @@ implementation produce the `#10184` failure mode.**
 
 ---
 
+<a id="considered-options"></a>
 ## 4. Considered Options
 
+<a id="option-a-harden-the-existing-graphlog-synccache-primitive-recommended"></a>
 ### 4.1 Option A — Harden the existing `GraphLog` + `syncCache()` primitive [RECOMMENDED]
 
-**Approach:** Fix Bugs A and B identified in §2.4. Do not introduce new substrate.
+**Approach:** Fix Bugs A and B identified in [§2.4](#why-the-primitive-isn-t-preventing-10184). Do not introduce new substrate.
 
 Two surgical changes in `ai/graph/Database.mjs`:
 
@@ -224,6 +233,7 @@ Two surgical changes in `ai/graph/Database.mjs`:
   identity binding this is the correct behavior (boot-time seeding may happen
   any moment); for other call sites it's a trade-off worth documenting.
 
+<a id="option-b-eliminate-the-in-memory-cache-entirely"></a>
 ### 4.2 Option B — Eliminate the in-memory cache entirely
 
 **Approach:** Remove `db.nodes`/`db.edges` as cache Maps; every `getNode()`
@@ -242,6 +252,7 @@ queries SQLite directly.
 - Refactor touches every consumer of `db.nodes`/`db.edges`, not just the race sites
 - Removes a legitimate optimization without empirical evidence it's unnecessary
 
+<a id="option-c-sqlite-backed-shared-cache-with-invalidation-log"></a>
 ### 4.3 Option C — SQLite-backed shared cache with invalidation log
 
 **Approach:** Store cache-invalidation sequence in SQLite; each process subscribes
@@ -253,6 +264,7 @@ primitive "adequate" or "needs extending." Given Option A's two-bug hypothesis
 produces the observed symptom, Option C collapses into Option A at the
 implementation level.
 
+<a id="option-d-ipc-daemon-shared-memory-cache-rejected"></a>
 ### 4.4 Option D — IPC daemon / shared-memory cache [REJECTED]
 
 **Approach:** New long-running daemon process owns the cache; MCP servers talk to
@@ -269,6 +281,7 @@ it via Unix socket / named pipe / SharedArrayBuffer.
 - Training-data attractor: standard-backend-framework solution (e.g., Redis
   sidecar) transplanted into a domain that doesn't need it
 
+<a id="option-e-chroma-vector-collection-as-kv-cache-rejected"></a>
 ### 4.5 Option E — Chroma vector collection as KV cache [REJECTED]
 
 **Approach:** Use an existing Chroma collection to store cache state accessible
@@ -285,6 +298,7 @@ cross-process.
 
 ---
 
+<a id="decision-outcome"></a>
 ## 5. Decision Outcome
 
 **Choose Option A: Harden the existing `GraphLog` + `syncCache()` primitive.**
@@ -293,6 +307,7 @@ The underlying substrate is already correct. Two surgical defects in its
 implementation produce the `#10184` symptom. Fix the defects in place rather
 than layering new substrate on top.
 
+<a id="scope-of-10190-s-implementation"></a>
 ### 5.1 Scope of `#10190`'s implementation
 
 The ADR recommends `#10190` be **re-scoped** from *"Implement chosen shared
@@ -320,6 +335,7 @@ decision — no new substrate will be built. The scope becomes:
    restart cycle with all three harnesses active.
    - **Update (2026-04-23):** This condition was empirically verified and the `#10182` block was surgically removed via PR #10227. The architectural rationale shifted from "defense-in-depth" to "surface, don't obscure" — defensive code here masked bugs, whereas explicit failure aligns with Neo.mjs's loud-failure discipline. The `#10228` test-pollution fix further mitigates the remaining failure mode that would have made self-heal useful.
 
+<a id="post-implementation-validation"></a>
 ### 5.2 Post-implementation validation
 
 After #10190 lands:
@@ -333,6 +349,7 @@ After #10190 lands:
 
 ---
 
+<a id="positive-consequences"></a>
 ## 6. Positive Consequences
 
 - Closes `#10184`'s underlying bug class, not just the symptom
@@ -344,6 +361,7 @@ After #10190 lands:
 - Provides a regression-test suite that doubles as documentation of the
   coherence contract
 
+<a id="negative-consequences-risks"></a>
 ## 7. Negative Consequences / Risks
 
 - **`getDeltaLog(0)` full-scan on first call:** manageable at current scale
@@ -360,6 +378,7 @@ After #10190 lands:
   high-frequency callers it's a micro-regression. Accept as trade-off; measure
   if it surfaces.
 
+<a id="alternatives-considered-and-rejected-summary"></a>
 ## 8. Alternatives Considered and Rejected (Summary)
 
 | Option | Rejection reason |
@@ -367,10 +386,12 @@ After #10190 lands:
 | B — Drop cache entirely | Unmeasured latency risk; over-refactor for a two-bug fix |
 | C — SQLite-backed shared cache | Collapses into Option A (already the existing primitive) |
 | D — IPC daemon | New SPOF; wrong-substrate training-data attractor |
-| E — Chroma KV | Category error (vector DB as plain KV); epic-review §5 flagged |
+| E — Chroma KV | Category error (vector DB as plain KV); epic-review [§5](#decision-outcome) flagged |
 
+<a id="references"></a>
 ## 9. References
 
+<a id="source-code"></a>
 ### Source code
 
 - `ai/graph/Database.mjs` — `syncCache()`, `lastSyncId`, `vicinityLoadedNodes`
@@ -378,6 +399,7 @@ After #10190 lands:
   `load()`
 - `ai/services/memory-core/GraphService.mjs` — `initAsync()`, `getNode()`
 
+<a id="related-tickets"></a>
 ### Related tickets
 
 - **Parent Epic:** #10186 (MCP concurrency audit + single-writer enforcement)
@@ -389,6 +411,7 @@ After #10190 lands:
 - **Test harness dependency:** #10183 (MCP server test harness — useful but
   not blocking)
 
+<a id="epic-review-context"></a>
 ### Epic-review context
 
 - Epic #10186 five-stage review by Claude Opus 4.7:
@@ -398,6 +421,7 @@ After #10190 lands:
 
 ---
 
+<a id="handoff-retrieval-hints"></a>
 ## Handoff Retrieval Hints
 
 - `query_raw_memories(query="cross-harness MCP singleton cache divergence GraphLog syncCache")`

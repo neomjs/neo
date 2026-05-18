@@ -2,12 +2,14 @@
 
 The Native Edge Graph's `MEMORY` and `SESSION` node types are materialized from Chroma row-level data by two complementary pipelines: the **live ingestion** path (`DreamService` → `MemorySessionIngestor.syncSessionToGraph`) runs during the REM cycle, and the **lazy back-fill** path (ticket #10153) materializes individual nodes on-demand when an edge references a missing target. This guide describes the back-fill substrate shipped in ticket #10153 — when it triggers, what it produces, and how to invoke it.
 
+<a id="why-back-fill-exists"></a>
 ## Why Back-Fill Exists
 
 Live ingestion handles sessions going forward from its deployment — every REM cycle processes newly-summarized sessions and materializes their Memory + Session graph nodes. But the Memory Core has a long history: ~9,040 pre-migration Chroma rows (8,246 memories + 794 summaries at filing) pre-date the live ingestion contract. Edges from extracted provenance (`MENTIONED_IN`, `DISCUSSED_IN`, `REFERENCED_BY` per #10152) and future mailbox threading (`IN_REPLY_TO` per #10147) reference these historical rows — if the target graph node doesn't yet exist, the edge would silently cull, leaving permanent asymmetry.
 
 Back-fill closes this asymmetry **lazily** (reactive — only materialize what's actually referenced) with an **eager CLI** opt-in for operators who need pre-warmed throughput before mass operations.
 
+<a id="entry-points"></a>
 ## Entry Points
 
 | Trigger | Path | When |
@@ -18,6 +20,7 @@ Back-fill closes this asymmetry **lazily** (reactive — only materialize what's
 
 All three converge on the same primitive: `MemorySessionIngestor.ingestSingleRow(graphNodeId)`.
 
+<a id="primitive-ingestsinglerow"></a>
 ## Primitive: `ingestSingleRow`
 
 The per-row analog of `syncSessionToGraph`'s batch-per-session behavior. Given a graph node ID with the `memory:` or `session:` prefix (case-insensitive — accepts the uppercase `MEMORY:` / `SESSION:` form used by #10165's extractor without requiring a canonical-format migration), it fetches the corresponding Chroma row and upserts a graph node tagged `backfilled: true`.
@@ -29,6 +32,7 @@ The per-row analog of `syncSessionToGraph`'s batch-per-session behavior. Given a
 **Result contract:** `{success, reason, graphNodeId?, error?}` where `reason` is one of:
 `unrecognized-prefix`, `already-exists`, `backfilled`, `backfilled-minimal`, `no-collection`, `chroma-fetch-failed`, `chroma-row-not-found`, `error`.
 
+<a id="the-async-edge-path-linknodesasync"></a>
 ## The Async Edge Path: `linkNodesAsync`
 
 Existing sync `GraphService.linkNodes` silently culls edges with missing endpoints (log + return, preserving the foreign-key contract with SQLite). `linkNodesAsync` adds an awaitable back-fill pre-step:
@@ -45,6 +49,7 @@ const ok = await GraphService.linkNodesAsync(source, target, relationship, weigh
 
 **Prefix normalization:** both endpoints are routed through `normalizeGraphNodeId` before the lookup. The edge lands on the canonical lowercase form regardless of input case. An edge passed as `MEMORY:xyz` lands in SQLite with `target = 'memory:xyz'`.
 
+<a id="jsonl-lazy-queue-producer-consumer-contract-with-10165"></a>
 ## JSONL Lazy Queue (Producer/Consumer Contract with #10165)
 
 Gemini 3.1 Pro's [PR #10165](https://github.com/neomjs/neo/pull/10165) (ticket #10152) shipped the **producer** side: `SemanticGraphExtractor` writes provenance edges whose `MEMORY:` / `SESSION:` targets aren't yet in the graph to `aiConfig.lazyEdgesQueuePath` (default `ai/data/memory-core/lazy-edges.jsonl`) as one JSON object per line.
@@ -55,6 +60,7 @@ This ticket (#10153) ships the **consumer** side: `LazyEdgeDrainer.drainQueue()`
 
 **Malformed-line policy:** lines that fail JSON parsing or lack the required `{source, target, relationship}` fields are counted and **discarded** — they would never succeed on retry and retaining them would bloat the queue.
 
+<a id="provenance-markers"></a>
 ## Provenance Markers
 
 Every Memory and Session graph node carries exactly one of two mutually-exclusive provenance markers:
@@ -81,6 +87,7 @@ GraphService.db.nodes.values().filter(n =>
 
 Nodes that exist in the graph WITHOUT either marker are pre-#10153 legacy — treat them as live-ingested for historical reasoning; they'll receive the `liveIngested` tag on next payload-hash mismatch upsert.
 
+<a id="operator-prioritybackfill-mjs"></a>
 ## Operator: `priorityBackfill.mjs`
 
 ```
@@ -93,12 +100,14 @@ node ai/scripts/priorityBackfill.mjs [--days N] [--dry-run] [--skip-drain]
 
 Use before mass cross-tenant operations (e.g. post-#10146 permission grant rollouts, or #10139 Mailbox traffic demonstrations across historical sessions) to avoid per-request latency spikes from lazy back-fills during the workload.
 
+<a id="node-id-canonical-format-coordination-note"></a>
 ## Node-ID Canonical Format (Coordination Note)
 
 The ingestor writes node IDs in the form `memory:<chromaId>` and `session:<sessionId>` — lowercase prefix. Gemini's #10165 extractor emits edges referencing `MEMORY:<chromaId>` and `SESSION:<sessionId>` — uppercase prefix. `ingestSingleRow` and `linkNodesAsync` both normalize case-insensitively on the consumer side, so neither convention "wins" yet.
 
 This is a known coordination seam. If the uppercase form becomes canonical, the ingestor's upsert path needs renaming. If lowercase wins, the extractor prompt and existing queued entries need updating. Current behavior: both forms resolve; the canonical-format decision is deferred to a follow-up.
 
+<a id="chroma-collection-mapping"></a>
 ## Chroma Collection Mapping
 
 | Graph prefix | Chroma collection | Lookup key |
@@ -108,6 +117,7 @@ This is a known coordination seam. If the uppercase form becomes canonical, the 
 
 Tests inject stubs conforming to the same `collection.get({ids} | {where})` contract; no module-level monkey-patching required.
 
+<a id="see-also"></a>
 ## See Also
 
 - `ai/daemons/services/MemorySessionIngestor.mjs` — `ingestSingleRow` + `syncSessionToGraph`
@@ -117,6 +127,7 @@ Tests inject stubs conforming to the same `collection.get({ids} | {where})` cont
 - `learn/agentos/tooling/MemoryCoreMcpAuth.md` — identity propagation (orthogonal; user-tenant tagging happens at write time regardless of back-fill source)
 - `learn/agentos/DreamPipeline.md` — the REM cycle where live ingestion runs
 
+<a id="related-tickets"></a>
 ## Related Tickets
 
 - #10143 — Graph-first Memory artifacts (parent sub-epic)

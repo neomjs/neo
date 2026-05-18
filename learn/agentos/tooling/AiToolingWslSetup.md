@@ -1,28 +1,32 @@
 # Setting up the AI Development Environment on Windows with WSL
 
 > **IMPORTANT NOTE:** The Neo.mjs framework runs perfectly on native Windows. This guide is **only** for setting up the AI development environment, which includes tools like the local Knowledge Base and Memory Core. These tools rely on the ChromaDB vector database, which has a known installation issue on native Windows (see [chroma-core/chroma#5188](https://github.com/chroma-core/chroma/issues/5188)).
-> 
+>
 > The following instructions use the Windows Subsystem for Linux (WSL) as a robust workaround for this third-party dependency issue.
 
 This guide provides a step-by-step walkthrough for setting up your AI development environment on Windows using WSL. This is the recommended approach to avoid a known installation issue with the ChromaDB vector database on native x64 Windows.
 
 
+<a id="what-you-ll-need"></a>
 ## What You'll Need
 
 - Windows 10/11
 - About 30 minutes
 - A GitHub account with a Neo fork (or you can fork it during setup)
 
+<a id="why-wsl"></a>
 ## Why WSL?
 
 Neo uses some Linux-specific tools (like ChromaDB) that work better in a Linux environment. WSL lets you run Linux directly on Windows without needing a separate computer or dual-boot setup. Think of it as having a mini Linux computer inside Windows.
 
 ---
 
+<a id="step-1-enable-virtualization"></a>
 ## Step 1: Enable Virtualization
 
 WSL needs virtualization turned on. Let's check if it's already enabled.
 
+<a id="check-current-status"></a>
 ### Check Current Status
 
 1. Press `Ctrl+Shift+Esc` to open Task Manager
@@ -32,6 +36,7 @@ WSL needs virtualization turned on. Let's check if it's already enabled.
 
 **Already enabled?** Great! Skip to Step 2.
 
+<a id="if-it-says-disabled"></a>
 ### If It Says "Disabled"
 
 You'll need to enable it in your computer's BIOS/UEFI settings. Here's how:
@@ -57,6 +62,7 @@ You'll need to enable it in your computer's BIOS/UEFI settings. Here's how:
 
 ---
 
+<a id="step-2-install-wsl-and-ubuntu"></a>
 ## Step 2: Install WSL and Ubuntu
 
 This is surprisingly easy. Open **PowerShell as Administrator** (right-click the Start menu and select it), then run:
@@ -69,6 +75,7 @@ That's it! Windows will download and install everything automatically. **Restart
 
 ---
 
+<a id="step-3-set-up-your-ubuntu-user"></a>
 ## Step 3: Set Up Your Ubuntu User
 
 Launch **Ubuntu** from your Start menu. The first time you open it, you'll create a user account:
@@ -95,10 +102,12 @@ Open Ubuntu again—you should be good now!
 
 ---
 
+<a id="step-4-install-required-tools"></a>
 ## Step 4: Install Required Tools
 
 Copy and paste these commands into your Ubuntu terminal. They'll install everything you need:
 
+<a id="update-ubuntu-and-install-basics"></a>
 ### Update Ubuntu and Install Basics
 
 ```bash
@@ -106,6 +115,7 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install -y git curl build-essential
 ```
 
+<a id="install-node-js-version-20"></a>
 ### Install Node.js (version 20)
 
 ```bash
@@ -123,10 +133,12 @@ You should see version numbers for both.
 
 ---
 
+<a id="step-5-get-the-neo-code"></a>
 ## Step 5: Get the Neo Code
 
 You have two options here:
 
+<a id="option-a-clone-your-fork-recommended-for-most-people"></a>
 ### Option A: Clone Your Fork (Recommended for Most People)
 
 ```bash
@@ -137,6 +149,7 @@ cd neo
 
 Replace `YOUR-USERNAME` with your actual GitHub username.
 
+<a id="option-b-copy-existing-work-from-windows"></a>
 ### Option B: Copy Existing Work from Windows
 
 If you already cloned Neo in Windows and have changes you want to keep:
@@ -151,8 +164,10 @@ Replace the path with where your Neo folder actually is.
 
 ---
 
+<a id="step-6-open-neo-in-vs-code"></a>
 ## Step 6: Open Neo in VS Code
 
+<a id="install-the-wsl-extension"></a>
 ### Install the WSL Extension
 
 1. Open VS Code on Windows
@@ -160,6 +175,7 @@ Replace the path with where your Neo folder actually is.
 3. Search for "WSL" by Microsoft
 4. Click Install
 
+<a id="open-your-project"></a>
 ### Open Your Project
 
 Back in your Ubuntu terminal:
@@ -173,6 +189,7 @@ VS Code will open and install a few things automatically. When it's done, you'll
 
 ---
 
+<a id="step-7-configure-git"></a>
 ## Step 7: Configure Git
 
 Tell Git who you are (first time only):
@@ -186,6 +203,7 @@ Use the same email you use for GitHub.
 
 ---
 
+<a id="step-8-install-project-dependencies"></a>
 ## Step 8: Install Project Dependencies
 
 In VS Code's terminal (it should be running WSL/Ubuntu):
@@ -209,8 +227,10 @@ npm run build-all
 
 ---
 
+<a id="step-9-start-the-development-server"></a>
 ## Step 9: Start the Development Server
 
+<a id="to-run-the-ai-features-with-chromadb"></a>
 ### To run the AI features (with ChromaDB):
 
 ```bash
@@ -221,6 +241,7 @@ You should see: `Chroma server running at http://localhost:8000`
 
 **To stop it:** Press `Ctrl+C` in the terminal.
 
+<a id="for-regular-development-no-ai"></a>
 ### For regular development (no AI):
 
 ```bash
@@ -229,12 +250,15 @@ npm run dev
 
 ---
 
+<a id="troubleshooting"></a>
 ## Troubleshooting
 
+<a id="command-not-found-errors"></a>
 ### "Command not found" errors
 
 Make sure you're running commands in the **Ubuntu terminal**, not Windows Command Prompt or PowerShell.
 
+<a id="chromadb-won-t-start"></a>
 ### ChromaDB won't start
 
 Try rebuilding it:
@@ -244,6 +268,7 @@ npm rebuild chromadb --force
 npm install @esbuild/linux-x64 --save-optional
 ```
 
+<a id="vs-code-won-t-connect-to-wsl"></a>
 ### VS Code won't connect to WSL
 
 1. Close VS Code completely
@@ -251,6 +276,7 @@ npm install @esbuild/linux-x64 --save-optional
 3. Open Ubuntu again
 4. Try `code .` again
 
+<a id="still-stuck"></a>
 ### Still stuck?
 
 Check the project's GitHub Issues or ask in the community Discord/Slack. Include:
@@ -260,6 +286,7 @@ Check the project's GitHub Issues or ask in the community Discord/Slack. Include
 
 ---
 
+<a id="next-steps"></a>
 ## Next Steps
 
 Now that you're set up, here's how to contribute:

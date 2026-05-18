@@ -17,6 +17,7 @@
 
 ---
 
+<a id="context"></a>
 ## 1. Context
 
 Discussion #10354 ("Phase 3: Cross-harness autonomous wake substrate — closing
@@ -51,6 +52,7 @@ contract that Shape A/B/C implementation sub-tickets will build against.
 
 ---
 
+<a id="existing-substrate-audit-critical-finding"></a>
 ## 2. Existing Substrate Audit (Critical Finding)
 
 **Both relevant industry standards already define the primitives we need.**
@@ -58,6 +60,7 @@ This ADR's solution space is reshaped by this discovery; rejecting the
 "author a competing protocol" framing is the single most important
 architectural decision after Shape D Hybrid.
 
+<a id="the-mcp-specification-server-push-notifications"></a>
 ### 2.1 The MCP Specification (server-push notifications)
 
 The [Model Context Protocol specification (2025-11-25)](https://modelcontextprotocol.io/specification/2025-11-25)
@@ -82,6 +85,7 @@ is the parallel meta-action (per Discussion #10354 OQ 1 resolution).
 specific event types (`wake/*`) and consume from servers that support push;
 we don't reinvent the transport.
 
+<a id="the-a2a-protocol-specification-webhook-push-notifications"></a>
 ### 2.2 The A2A Protocol Specification (webhook push notifications)
 
 The [Agent2Agent (A2A) Protocol specification](https://a2a-protocol.org/latest/specification/)
@@ -106,10 +110,11 @@ push channel.
 for the data layer (envelope + state machine). Section 7.2 specifies how the
 notification layer extends.
 
+<a id="the-graphlog-synccache-primitive-shape-c-foundation"></a>
 ### 2.3 The `GraphLog` + `syncCache` Primitive (Shape C foundation)
 
 `ai/graph/storage/SQLite.mjs` already implements a write-ahead change log
-via SQLite triggers (described in detail in ADR 0001 §2.1-2.3). Every node
+via SQLite triggers (described in detail in ADR 0001 [§2.1](#the-mcp-specification-server-push-notifications)-2.3). Every node
 or edge mutation appends an entry to `GraphLog`, durably visible to all
 processes sharing the SQLite-WAL backing file. `Database.mjs#syncCache()`
 implements delta-replay via `lastSyncId`.
@@ -127,6 +132,7 @@ calls into SQLite as a peer process, not a writer).
 
 ---
 
+<a id="decision-drivers"></a>
 ## 3. Decision Drivers
 
 In priority order:
@@ -155,12 +161,14 @@ In priority order:
 
 ---
 
+<a id="considered-options"></a>
 ## 4. Considered Options
 
 The four shapes from Discussion #10354 are recapitulated here for self-contained
 ADR readability; the substantive analysis lives in the Discussion body.
 Additional rejected options surfaced during ADR drafting are listed.
 
+<a id="shape-a-mcp-server-push-notifications-selected-for-harnesses-that-support"></a>
 ### 4.1 Shape (A) — MCP Server-Push Notifications [SELECTED for harnesses that support]
 
 Memory Core MCP server emits `notifications/message` per the MCP spec.
@@ -171,6 +179,7 @@ alignment.
 already-deployed transport in our MCP servers.
 **Cons:** vendor-coupling — Claude Code MCP client doesn't yet subscribe.
 
+<a id="shape-b-a2a-webhook-push-notifications-selected-as-alternative-push-path"></a>
 ### 4.2 Shape (B) — A2A Webhook Push Notifications [SELECTED as alternative push path]
 
 HTTP POST to webhook URL registered per agent identity. Extends our existing
@@ -181,6 +190,7 @@ support.
 **Cons:** requires HTTP server in each harness; firewall considerations for
 non-localhost.
 
+<a id="shape-c-out-of-band-bridge-daemon-selected-as-fallback"></a>
 ### 4.3 Shape (C) — Out-of-Band Bridge Daemon [SELECTED as fallback]
 
 Watchdog process consumes `GraphLog` deltas via existing `syncCache` pattern;
@@ -192,6 +202,7 @@ substrate (ADR 0001's hardened cache-coherence primitive).
 Accessibility API permission), polling-with-event-trigger rather than pure
 push.
 
+<a id="shape-d-hybrid-standards-first-with-bridge-fallback-selected-as-overall-architecture"></a>
 ### 4.4 Shape (D) — Hybrid (Standards-First with Bridge Fallback) [SELECTED as overall architecture]
 
 Detect harness capabilities at boot. Route to Shape A → B → C in priority
@@ -200,6 +211,7 @@ order. Per-identity registry maps `harness_id → wake_path`.
 **Selected** as the overall Phase 3 architecture per Discussion #10354
 iteration 2 consensus.
 
+<a id="option-e-custom-wake-protocol-rejected"></a>
 ### 4.5 Option (E) — Custom Wake Protocol [REJECTED]
 
 **Approach:** invent Neo-specific wake protocol with proprietary payload
@@ -212,6 +224,7 @@ schema and transport.
 - Training-data attractor: "build a custom protocol when you need control"
   doesn't apply when the standards already cover the use case
 
+<a id="option-f-polling-only-via-heartbeat-rejected-as-primary-retained-as-fallback"></a>
 ### 4.6 Option (F) — Polling-Only via Heartbeat [REJECTED as primary; retained as fallback]
 
 **Approach:** the existing `swarm-heartbeat.sh` (#10312) polls inbox at fixed
@@ -229,6 +242,7 @@ interval and injects via `tmux send-keys`.
 configurations and as the universal backup before Shape A/B/C land in
 specific harnesses.
 
+<a id="option-g-vendor-push-services-apns-fcm-etc-rejected"></a>
 ### 4.7 Option (G) — Vendor Push Services (APNs / FCM / etc.) [REJECTED]
 
 **Approach:** route wake events through Apple Push Notification Service or
@@ -241,6 +255,7 @@ equivalent platform-native push.
 - Wrong-substrate: APNs is for end-user notifications, not inter-process
   agent coordination
 
+<a id="option-h-websocket-realtime-channel-rejected"></a>
 ### 4.8 Option (H) — WebSocket Realtime Channel [REJECTED]
 
 **Approach:** standalone WebSocket server for wake events; harnesses connect
@@ -257,6 +272,7 @@ and listen.
 
 ---
 
+<a id="decision-outcome"></a>
 ## 5. Decision Outcome
 
 **Choose Shape (D) Hybrid: standards-first MCP notifications (Shape A),
@@ -267,6 +283,7 @@ The architectural decision was made in Discussion #10354 iteration 2 with
 both authors aligned. This ADR specifies the **concrete schemas** that
 Shape A/B/C implementation sub-tickets consume.
 
+<a id="implementation-routing"></a>
 ### 5.1 Implementation routing
 
 At `manage_wake_subscription({action: 'subscribe', ...})` time, the MCP
@@ -287,16 +304,19 @@ notifications are preferred (lower latency, no HTTP overhead).
 
 ---
 
+<a id="concrete-specifications"></a>
 ## 6. Concrete Specifications
 
+<a id="mcp-notifications-schema-shape-a"></a>
 ### 6.1 MCP Notifications Schema (Shape A)
 
 The Memory Core MCP server emits `notifications/message` events conforming to
 the MCP spec's notification framework. Three event types correspond to the
 three trigger primitives (per Discussion #10354 OQ 2):
 
-All event payloads carry two delivery-tracking identifiers in the `data` field: `eventId` (ULID, unique per emission for transport-layer idempotency) and `logId` (the originating `GraphLog.log_id` of the substrate mutation that triggered the event, stable across re-emissions for cursor-based catchup). See §6.1.6 for the disconnect-reconnect mechanics that depend on these.
+All event payloads carry two delivery-tracking identifiers in the `data` field: `eventId` (ULID, unique per emission for transport-layer idempotency) and `logId` (the originating `GraphLog.log_id` of the substrate mutation that triggered the event, stable across re-emissions for cursor-based catchup). See [§6.1.6](#dropped-connection-semantics) for the disconnect-reconnect mechanics that depend on these.
 
+<a id="wake-sent-to-me-payload"></a>
 #### 6.1.1 `wake/sent_to_me` payload
 
 ```json
@@ -327,6 +347,7 @@ All event payloads carry two delivery-tracking identifiers in the `data` field: 
 }
 ```
 
+<a id="wake-task-state-changed-payload"></a>
 #### 6.1.2 `wake/task_state_changed` payload
 
 ```json
@@ -356,6 +377,7 @@ All event payloads carry two delivery-tracking identifiers in the `data` field: 
 }
 ```
 
+<a id="wake-permission-granted-payload"></a>
 #### 6.1.3 `wake/permission_granted` payload
 
 ```json
@@ -382,6 +404,7 @@ All event payloads carry two delivery-tracking identifiers in the `data` field: 
 }
 ```
 
+<a id="capability-negotiation"></a>
 #### 6.1.4 Capability negotiation
 
 At MCP `initialize`, the client's `capabilities` declaration MAY include:
@@ -402,6 +425,7 @@ If the client doesn't include `neo-wake-substrate` in `experimental`, server
 falls through to A2A webhook (Shape B) registration if available, then bridge
 daemon (Shape C).
 
+<a id="subscription-handshake"></a>
 #### 6.1.5 Subscription handshake
 
 Subscription is created via the standard `manage_wake_subscription` MCP tool
@@ -409,6 +433,7 @@ Subscription is created via the standard `manage_wake_subscription` MCP tool
 `harnessTarget: 'mcp-notifications'`; subsequent events fire on the
 notification channel.
 
+<a id="dropped-connection-semantics"></a>
 #### 6.1.6 Dropped-Connection Semantics
 
 Shape A relies on the MCP transport's persistent session handle for live
@@ -422,13 +447,13 @@ by Shape C bridge daemon.
 
 - Each wake event carries `logId` (the originating `GraphLog.log_id` of the
   substrate mutation that triggered it) plus `eventId` (a ULID unique per
-  emission). See §6.1.1-6.1.3 payloads.
+  emission). See [§6.1.1](#wake-sent-to-me-payload)-6.1.3 payloads.
 - Client persists `lastSeenLogId` per subscription — typically in
   harness-local state alongside the subscription ID. The persistence
   granularity is the client's call: per-event commit (most durable, more
   I/O) or windowed checkpoint (e.g., every N events / every M seconds).
 - On reconnect, client calls `manage_wake_subscription({action: 'resync',
-  subscriptionId, sinceLogId})` (see §6.4). The server:
+  subscriptionId, sinceLogId})` (see [§6.4](#token-economy-throttle-per-oq-6)). The server:
   1. Queries `GraphLog` from `sinceLogId` forward
   2. Re-applies the subscription's current trigger + filter spec to the
      delta entries (handles the case where filters were updated during the
@@ -444,7 +469,7 @@ by Shape C bridge daemon.
 - Server stays stateless w.r.t. per-client delivery cursor — no memory
   pressure from disconnected-client queues, no "events lost on server
   restart" problem
-- `GraphLog` is *already* the durable substrate queue (per ADR 0001 §2.1);
+- `GraphLog` is *already* the durable substrate queue (per ADR 0001 [§2.1](#the-mcp-specification-server-push-notifications));
   re-deriving events from it is symmetric with how Shape C bridge daemon
   consumes the same delta stream. Single-source-of-truth discipline.
 - Idempotent: the same `sinceLogId` query returns the same events from
@@ -454,7 +479,7 @@ by Shape C bridge daemon.
   client), all in-flight notifications are lost regardless of client
   state. Client treats this identically to its own disconnect and uses
   the resync path. The MCP server's `lastSyncId` is durably tracked
-  per ADR 0001 §2.3; subscription state is durable via graph-resident
+  per ADR 0001 [§2.3](#the-graphlog-synccache-primitive-shape-c-foundation); subscription state is durable via graph-resident
   `WAKE_SUBSCRIPTION` per Section 6.5; only the live-notification stream
   is volatile.
 
@@ -481,6 +506,7 @@ coalescing window batches them into a single digest rather than firing
 N separate notifications. Same path that protects against
 burst-write thrashing during normal operation.
 
+<a id="a2a-webhook-payload-shape-shape-b"></a>
 ### 6.2 A2A Webhook Payload Shape (Shape B)
 
 For harnesses providing an HTTP endpoint, wake events POST to the registered
@@ -488,6 +514,7 @@ URL. Body schema is identical to the MCP notification `data` field (Section
 6.1.1-6.1.3) for consistency — same event types, same payload shapes, same
 schema version.
 
+<a id="http-request"></a>
 #### 6.2.1 HTTP request
 
 ```
@@ -501,6 +528,7 @@ Headers:
 Body: <event-specific shape per 6.1.1-6.1.3>
 ```
 
+<a id="retry-semantics"></a>
 #### 6.2.2 Retry semantics
 
 - 2xx: event delivered, no retry
@@ -514,14 +542,15 @@ Body: <event-specific shape per 6.1.1-6.1.3>
 `eventId` ULID across retry attempts (only the timestamp may shift). The
 webhook receiver SHOULD dedupe by `eventId` if the receiver itself caches
 ack-state; otherwise application-layer dedup by subject ID (per the same
-discipline as Shape A in §6.1.6) is sufficient.
+discipline as Shape A in [§6.1.6](#dropped-connection-semantics)) is sufficient.
 
 **Client-driven catchup on prolonged outage:** webhook receivers that
 sustain prolonged outage (e.g., harness offline overnight) recover via
 the same `manage_wake_subscription({action: 'resync', ...})` path
-described in §6.1.6 — the resync output simply re-fires through the
+described in [§6.1.6](#dropped-connection-semantics) — the resync output simply re-fires through the
 webhook rather than the MCP notification channel. Symmetric with Shape A.
 
+<a id="signing"></a>
 #### 6.2.3 Signing
 
 `signingKey` is generated by the server at subscription-creation time and
@@ -531,11 +560,13 @@ encryption deferred to multi-tenant transition under #9999; pre-#9999 the
 secret lives plaintext in the per-tenant SQLite, which is the same trust
 boundary as the rest of the data).
 
+<a id="bridge-daemon-protocol-shape-c"></a>
 ### 6.3 Bridge Daemon Protocol (Shape C)
 
 The bridge daemon is a long-running process consuming the `GraphLog` delta
 stream and emitting wake events to per-harness adapters.
 
+<a id="daemon-startup"></a>
 #### 6.3.1 Daemon startup
 
 Spawned alongside `swarm-heartbeat.sh` (or as its replacement in the
@@ -545,6 +576,7 @@ Phase 3 evolution). Reads:
 - Last-processed `lastSyncId` from a per-daemon state file
   (`.neo-ai-data/wake-daemon/lastSyncId`)
 
+<a id="event-loop"></a>
 #### 6.3.2 Event loop
 
 ```
@@ -559,6 +591,7 @@ loop forever:
   sleep(daemonPollInterval)  // 1-5s typical
 ```
 
+<a id="per-harness-adapters"></a>
 #### 6.3.3 Per-harness adapters
 
 Each adapter receives the coalesced digest payload (Section 6.4) and emits
@@ -588,6 +621,7 @@ To be specified once Google publishes Agent Manager subprocess API. Until
 then, Antigravity routes through Shape A or Shape B; bridge daemon is not
 the preferred path on that side.
 
+<a id="co-existence-with-synccache"></a>
 #### 6.3.4 Co-existence with `syncCache`
 
 The MCP server's `syncCache` and the bridge daemon both consume the
@@ -596,11 +630,13 @@ the log. Each tracks its own `lastSyncId` independently. Per OQ 5
 (non-blocking pending), empirical verification of any cross-consumer
 interference is part of the Shape C implementation sub-ticket.
 
+<a id="token-economy-throttle-per-oq-6"></a>
 ### 6.4 Token-Economy Throttle (per OQ 6)
 
 Wake events MUST NOT be 1:1 with the event stream at high velocity. Coalescing
 applies symmetrically to all three Shapes.
 
+<a id="coalescing-window"></a>
 #### 6.4.1 Coalescing window
 
 - **Default:** 30 seconds
@@ -609,6 +645,7 @@ applies symmetrically to all three Shapes.
 - **Bound:** maximum 5 minutes (300s) — beyond this, events stale enough
   that the agent's response would be on already-superseded state
 
+<a id="digest-format"></a>
 #### 6.4.2 Digest format
 
 When the coalesce timer fires with N ≥ 1 queued events:
@@ -630,6 +667,7 @@ the payload's `data` field with `eventType: "wake/digest"`. For Shape C
 (bridge daemon), the digest is the literal text injected via the harness
 adapter.
 
+<a id="heartbeat-bypass-detection-per-oq-7"></a>
 ### 6.5 Heartbeat-Bypass Detection (per OQ 7)
 
 `swarm-heartbeat.sh` MUST consult the `WAKE_SUBSCRIPTION` table at startup
@@ -637,6 +675,7 @@ and per-cycle to determine which agent identities have active push
 subscriptions. For those identities, heartbeat polling is skipped to avoid
 duplicate wake injection.
 
+<a id="detection-logic"></a>
 #### 6.5.1 Detection logic
 
 ```bash
@@ -659,6 +698,7 @@ remain heartbeat-served (the daemon path is push-from-graph but
 heartbeat-injected on Claude.app; not double-injection because the daemon
 is what drives the heartbeat-equivalent for that identity).
 
+<a id="long-term-role-of-heartbeat"></a>
 #### 6.5.2 Long-term role of heartbeat
 
 Per @neo-gemini-3-1-pro iteration 2 OQ 7: *"The heartbeat should eventually
@@ -671,6 +711,7 @@ Post-Phase-3, heartbeat retains:
 
 It is no longer the primary wake mechanism for push-capable identities.
 
+<a id="subscription-management-tool-surface"></a>
 ### 6.6 Subscription Management Tool Surface
 
 The `manage_wake_subscription` MCP tool is the single client-facing surface
@@ -678,6 +719,7 @@ for subscription lifecycle. Server-side, it mutates the `WAKE_SUBSCRIPTION`
 graph node + writes through the in-memory MCP server cache (per OQ 3
 resolution in Discussion #10354).
 
+<a id="tool-surface"></a>
 #### 6.6.1 Tool surface
 
 ```
@@ -708,6 +750,7 @@ manage_wake_subscription({
 })
 ```
 
+<a id="action-semantics"></a>
 #### 6.6.2 Action semantics
 
 | Action | Returns | Side-effect |
@@ -718,6 +761,7 @@ manage_wake_subscription({
 | `list` | `{subscriptions: [...]}` | Returns all subscriptions for the bound agent identity (or one if `subscriptionId` provided) |
 | `resync` | `{subscriptionId, eventsReplayed: <integer>, lastLogId: <integer>}` | Queries `GraphLog` from `sinceLogId` forward, applies current trigger+filter spec, re-emits matching events via the subscription's configured channel (MCP notifications / A2A webhook / bridge daemon). Returns the count + the highest log_id reached so the client can update its `lastSeenLogId` watermark. |
 
+<a id="authority-rbac"></a>
 #### 6.6.3 Authority + RBAC
 
 The tool consults `RequestContextService.getAgentIdentityNodeId()` to
@@ -733,6 +777,7 @@ cannot use resync as a privilege-escalation backdoor.
 
 ---
 
+<a id="positive-consequences"></a>
 ## 7. Positive Consequences
 
 - **Closes Discussion #10354's final graduation gate** — Epic creation and
@@ -755,6 +800,7 @@ cannot use resync as a privilege-escalation backdoor.
 
 ---
 
+<a id="negative-consequences-risks"></a>
 ## 8. Negative Consequences / Risks
 
 - **Three-shape implementation surface.** The Hybrid architecture means
@@ -780,6 +826,7 @@ cannot use resync as a privilege-escalation backdoor.
 
 ---
 
+<a id="alternatives-considered-and-rejected-summary"></a>
 ## 9. Alternatives Considered and Rejected (Summary)
 
 | Option | Rejection reason |
@@ -791,14 +838,17 @@ cannot use resync as a privilege-escalation backdoor.
 
 ---
 
+<a id="references"></a>
 ## 10. References
 
+<a id="external-standards"></a>
 ### External standards
 
 - [MCP Specification (2025-11-25)](https://modelcontextprotocol.io/specification/2025-11-25)
 - [A2A Protocol Specification](https://a2a-protocol.org/latest/specification/)
 - [A2A Streaming & Asynchronous Operations](https://a2a-protocol.org/latest/topics/streaming-and-async/)
 
+<a id="source-code-phase-3-implementation-will-touch"></a>
 ### Source code (Phase 3 implementation will touch)
 
 - `ai/services/memory-core/MailboxService.mjs` — addMessage / transitionTask emit points for `wake/*` events
@@ -807,6 +857,7 @@ cannot use resync as a privilege-escalation backdoor.
 - `ai/graph/storage/SQLite.mjs` — `GraphLog` triggers + `getDeltaLog` (Shape C foundation)
 - `ai/scripts/swarm-heartbeat.sh` — `get_push_capable_identities` extension per Section 6.5
 
+<a id="related-tickets"></a>
 ### Related tickets
 
 - **Parent Epic:** #10311 (Phase 1 Swarm Autonomy → Phase 3 wake substrate sub-tree)
@@ -820,6 +871,7 @@ cannot use resync as a privilege-escalation backdoor.
 - **Substrate cousin ADR:** ADR 0001 (`learn/agentos/decisions/0001-cross-process-cache-coherence.md`) — the `GraphLog` + `syncCache` primitives this ADR's Shape C builds on
 - **Use-case unlock:** #10349 (Sunset Protocol self-DM handover) — `taggedConcepts: ['sunset-protocol-handover']` filter enables auto-discovery on boot
 
+<a id="discussion-10354-iteration-anchors"></a>
 ### Discussion #10354 iteration anchors
 
 - Iteration 1 (filing): Empirical 5/6-layer stratification, four architectural shapes
@@ -828,6 +880,7 @@ cannot use resync as a privilege-escalation backdoor.
 - Iteration 3 review (Gemini concurrence): OQs 1, 2, 3 RESOLVED_TO_AC; `harnessTarget` enum extension to include `disabled`/`none`
 - Iteration 4 (this ADR): graduation gate
 
+<a id="empirical-anchors-from-this-session-arc"></a>
 ### Empirical anchors from this session-arc
 
 - Step 2 Task-lifecycle test: 7s substrate floor, 3.5s/transition, 0 anomalies
@@ -838,6 +891,7 @@ cannot use resync as a privilege-escalation backdoor.
 
 ---
 
+<a id="handoff-retrieval-hints"></a>
 ## Handoff Retrieval Hints
 
 - `query_raw_memories(query="ADR 0002 phase 3 wake substrate standards alignment MCP notifications A2A webhook bridge daemon")`

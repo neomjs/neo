@@ -9,6 +9,7 @@ Consumers:
 - **[#10011 Native Edge Graph (SQLite): Row-Level Security & Tenant Isolation](../../../resources/content/issues/issue-10011.md)** — the RLS policy implementation respects the untagged-legacy-never-retroactively-tagged invariant established here.
 - **Memory Core operators** — operational guidance for running the migration window, monitoring legacy-surface-area shrinkage, and flipping the default read policy after the window closes.
 
+<a id="the-core-decision-lazy-tag-on-read-not-back-fill"></a>
 ## The Core Decision: Lazy-Tag-on-Read, Not Back-Fill
 
 The original `#10017` prescription (authored 2026-04-14) was a back-fill script that would assign `userId: 'default'` to every untagged ChromaDB row. That prescription was architecturally reasonable when the Memory Core substrate was Chroma-metadata-only.
@@ -22,8 +23,10 @@ After `#10144` (AgentIdentity graph nodes), `#10145` (OAuth + stdio identity), a
 
 The adopted prescription is **lazy-tag-on-read**: untagged legacy rows stay untagged forever. Reads that include legacy data explicitly opt into `memorySharing: 'legacy'` semantics. Everything else stays strictly tenant-scoped.
 
+<a id="the-five-point-plan"></a>
 ## The Five-Point Plan
 
+<a id="write-side-invariant-tightening"></a>
 ### 1. Write-side invariant tightening
 
 All write paths through the Memory Core (`MemoryService.addMemory`, `SessionService` ingestion, `MailboxService.addMessage`) MUST require a bound agent identity via `RequestContextService.getAgentIdentityNodeId()`. Writes that reach these paths without a bound identity context MUST throw loudly rather than degrade silently.
@@ -39,6 +42,7 @@ if (!sentBy) {
 
 `#10017`'s PR adds regression spec coverage that pins this invariant. If a future refactor drops the identity check, the spec fails loudly at test time rather than silently shipping unbound writes into production SQLite.
 
+<a id="read-side-memorysharing-flag-semantics"></a>
 ### 2. Read-side `memorySharing` flag semantics
 
 The `memorySharing` enum — implementation lives in [#10010](../../../resources/content/issues/issue-10010.md), design pinned here — interacts directly with the SQLite Row-Level Security (RLS) enforcement mechanism (implemented in `#10011`):
@@ -54,12 +58,14 @@ The `memorySharing` enum — implementation lives in [#10010](../../../resources
 - **During migration window** (while untagged legacy count is non-trivial relative to tagged count): default is `'legacy'`. Solo deployments see their historical memories without configuration. New tenant-aware queries opt into `'private'` or `'team'` explicitly.
 - **Post-migration window** (operator-decided — see Operational Window section below): default flips to `'private'`. Legacy-era data remains queryable via explicit `memorySharing: 'legacy'`.
 
+<a id="no-back-fill-explicit-rejection"></a>
 ### 3. No back-fill — explicit rejection
 
 **There is no migration script.** Untagged legacy rows stay untagged forever in SQLite. Tenants that want full historical access query with `memorySharing: 'legacy'` indefinitely. Tenants that want strict isolation use `memorySharing: 'private'` and accept that pre-migration data isn't in their view.
 
 This is a deliberate architectural choice, not a temporary state. The absence of a migration script is the migration. The RLS filter simply shifts its bounds based on the runtime context.
 
+<a id="operational-window-and-deprecation-path"></a>
 ### 4. Operational window and deprecation path
 
 The `memorySharing` default flips from `'legacy'` to `'private'` when operators decide the untagged-surface-area has shrunk enough that default-legacy semantics no longer match the deployment's tenant-awareness expectations. Signals that guide the flip:
@@ -69,6 +75,7 @@ The `memorySharing` default flips from `'legacy'` to `'private'` when operators 
 
 The flip itself is config-gated (`aiConfig.memorySharing?.defaultPolicy` — pattern borrowed from `#10253`'s `mailbox.defaultReplyPolicy`). No hard cutoff of legacy reads. Legacy rows remain queryable forever via explicit `memorySharing: 'legacy'` even after the default flips.
 
+<a id="healthcheck-migration-untaggedcount-observability"></a>
 ### 5. `healthcheck.migration.untaggedCount` observability
 
 The Memory Core healthcheck surfaces a migration status block:
@@ -90,8 +97,10 @@ Computed at healthcheck time via direct SQLite queries against `Nodes` table, fi
 
 `available: false` is returned when the SQLite graph is not yet mounted (e.g., during pre-init healthchecks). This is a substrate-readiness signal, not a migration error.
 
+<a id="operator-runbook"></a>
 ## Operator Runbook
 
+<a id="verifying-a-healthy-migration-baseline"></a>
 ### Verifying a healthy migration baseline
 
 After upgrading to the post-#10017 substrate, run:
@@ -107,6 +116,7 @@ Inspect the `migration` block. Healthy states:
 - `migration.untaggedCount.total > 0` with `available: true` → legacy surface area present; keep default at `'legacy'` or flip based on operator judgment (see Operational Window above).
 - `migration.available: false` → SQLite graph not yet mounted; retry after `GraphService.initAsync` completes.
 
+<a id="flipping-the-default-policy-post-migration"></a>
 ### Flipping the default policy (post-migration)
 
 When operators decide to flip `memorySharing` default from `'legacy'` to `'private'`:
@@ -120,6 +130,7 @@ memorySharing: {
 
 Restart all MCP harnesses. Explicit `memorySharing: 'legacy'` queries continue to work for tenants who need legacy access; new reads without explicit flag scope to strict tenant isolation.
 
+<a id="zero-config-solo-developer-invariant"></a>
 ### Zero-config solo-developer invariant
 
 The existing solo-developer zero-config path is preserved:
@@ -129,6 +140,7 @@ The existing solo-developer zero-config path is preserved:
 
 No `.env` changes required for solo devs upgrading from the pre-#10144 substrate.
 
+<a id="explicit-rejections-avoided-traps"></a>
 ## Explicit Rejections (Avoided Traps)
 
 - **Back-fill at migration**: rejected per section opening. Four concrete arguments documented.
@@ -136,6 +148,7 @@ No `.env` changes required for solo devs upgrading from the pre-#10144 substrate
 - **Hard-cutoff deprecation** (refuse `memorySharing: 'legacy'` after the window): rejected. Legacy rows have real historical value; refusing reads is user-hostile.
 - **Per-tenant data isolation at storage layer** (separate Chroma instances per tenant): rejected at this layer. `#10016`'s metadata-filter approach with graph-native AUTHORED_BY edges is architecturally correct; separate-storage multiplies operational overhead without correctness gain.
 
+<a id="cross-reference"></a>
 ## Cross-Reference
 
 - `learn/agentos/tooling/MemoryCoreMcpAuth.md §Cross-Tenant Permissions` — authentication + permission edge types

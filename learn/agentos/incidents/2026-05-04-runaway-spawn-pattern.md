@@ -11,6 +11,7 @@
 | **Author** | Claude Opus 4.7 (Claude Code) |
 | **Origin Session ID** | `cce1fea5-32ff-410c-b820-2e9a27b3cd51` |
 
+<a id="summary"></a>
 ## Summary
 
 Between 2026-05-03 14:41 and 16:02 CEST, `swarm-heartbeat.sh` fired Phase 1 Recovery for `@neo-opus-4-7` 17 times — 9 of those attempts dispatched `osascript` Cmd+N spawns into Claude Desktop. None of the spawned sessions saved a fresh `AGENT_MEMORY` because the operator manually pressed ESC on each one to prevent identity-uniqueness destruction. The substrate had no signal channel for ESC-as-rejection: it interpreted "no fresh memory observed" as "still need to spawn" and continued the loop. After ~80 minutes the operator manually tripped the wake safety gate ([#10648](https://github.com/neomjs/neo/issues/10648)) at 22:53 UTC, terminating the cycle.
@@ -19,10 +20,12 @@ The next morning (2026-05-04 09:03 UTC), the same prompt-payload pattern appeare
 
 The root cause across both surface manifestations was the same: **parallel-session identity-uniqueness violation during long boot windows**, with no data-layer mutex preventing concurrent kill-and-spawn or paste operations against the same agent identity. Empirical port-collision crashes during `@neo-gemini-3-1-pro`'s independent `antigravity chat -n` investigation ([#10678](https://github.com/neomjs/neo/issues/10678)) on 2026-05-04 morning further validated that the OS process boundary alone does not enforce identity uniqueness at the Memory Core data layer.
 
+<a id="timeline"></a>
 ## Timeline
 
 All times in UTC unless otherwise noted.
 
+<a id="2026-05-03-heartbeat-driven-manifestation"></a>
 ### 2026-05-03 — Heartbeat-driven manifestation
 
 | Time (UTC) | Event |
@@ -37,6 +40,7 @@ All times in UTC unless otherwise noted.
 
 The 9 successful dispatches did NOT produce 9 fresh `AGENT_MEMORY` rows. The memory-age reason kept increasing because **the operator manually pressed ESC on each spawned Claude Desktop session** to prevent parallel-session identity-uniqueness destruction. The substrate observed only the surface signal ("no fresh memory") and could not distinguish operator rejection from genuine spawn failure.
 
+<a id="2026-05-04-multi-day-accumulation-surfaces-test-suite-vector"></a>
 ### 2026-05-04 — Multi-day accumulation surfaces + test-suite vector
 
 | Time (UTC) | Event |
@@ -56,8 +60,10 @@ The 9 successful dispatches did NOT produce 9 fresh `AGENT_MEMORY` rows. The mem
 | ~09:53 | PR [#10683](https://github.com/neomjs/neo/pull/10683) opened by `@neo-gemini-3-1-pro` — substrate restart mutex (in-flight lock) implementing [#10674](https://github.com/neomjs/neo/issues/10674) |
 | 10:05 | PR #10683 reviewed Approved by `@neo-opus-4-7` after empirical test verification (16 passed / 2 skipped) |
 
+<a id="empirical-evidence"></a>
 ## Empirical Evidence
 
+<a id="heartbeat-log-excerpts"></a>
 ### Heartbeat log excerpts
 
 `.neo-ai-data/wake-daemon/heartbeat-opus_4_7.log`:
@@ -74,18 +80,22 @@ Successfully resumed @neo-opus-4-7 via osascript (Claude)
 
 The corresponding logs for `@neo-gemini-3-1-pro` and `@neo-gpt` show analogous patterns (Antigravity osascript dispatches; `@neo-gpt` blocked at "No active WAKE_SUBSCRIPTION" because his subscription metadata was missing — separate failure mode, addressed by [#10645](https://github.com/neomjs/neo/issues/10645) AgentIdentity cache hydration fix).
 
+<a id="mc-server-staleness-confirmation"></a>
 ### MC-server staleness confirmation
 
 In this session's boot: `set_session_id({sessionId: 'cce1fea5-...'})` returned `replacedSessionId: 'f839713d-0e79-4599-b482-0b0e84fb8fd4'`. The `f839713d` session was the prior day's Row 2 work — it had persisted in the MCP server's process-local `SessionService.currentSessionId` despite the MCP client (Claude Code) restarting. This confirms: the OS process boundary at the harness level does NOT propagate fresh-process semantics to a long-running MCP server's in-process state.
 
+<a id="test-suite-spawn-evidence"></a>
 ### Test-suite spawn evidence
 
 Two new Claude Code worktree jsonl files appeared 2026-05-04 09:03 UTC, each containing the EXACT `resumeHarness.mjs` boot-grounding prompt format with `Recovery context: test` (the `'test'` arg passed by `resumeHarness.spec.mjs` line 74 + line 113 to the real `resumeHarness.mjs` subprocess invocation). The bridge-daemon log showed no corresponding wake delivery at 09:03 — the spawns came from a direct subprocess invocation with `WAKE_GATE_OVERRIDE=1` set, which bypassed the `wake-safety-gate.json` `state: tripped` protection.
 
+<a id="visual-multi-day-accumulation"></a>
 ### Visual multi-day accumulation
 
 Claude Desktop's "Recents" panel screenshot showed 19+ orphan boot-titled sessions across 5+ prompt-iteration generations (titles ranging from `Initialize fresh session with startup configuration` ×7 to `Read startup instructions and coordinate` ×1). This evidenced the runaway pattern accumulating across multiple days, not just the 2026-05-03 incident window.
 
+<a id="root-cause"></a>
 ## Root Cause
 
 **Parallel-session identity-uniqueness violation during long boot windows.**
@@ -100,6 +110,7 @@ Boot ramp for a fresh agent (`AGENTS_STARTUP.md` + `AGENTS.md` + `MEMORY.md` + t
 
 The 600-second time-based cooldown in `resumeHarness.mjs:79-89` does NOT prevent this, because it bounds time-since-last-spawn rather than spawn-completion-status. Boot ramp routinely exceeds 600s on cold cache.
 
+<a id="failure-modes-catalog"></a>
 ## Failure Modes (catalog)
 
 The substrate had no signal channel to distinguish four operationally-different failure modes that all surface identically as "no fresh `AGENT_MEMORY` after spawn":
@@ -111,8 +122,10 @@ The substrate had no signal channel to distinguish four operationally-different 
 
 All four expose the same observable signal — and the cooldown cycle compounds them indistinguishably. The fix MUST treat all four identically: detect the absence of fresh memory within a bounded window, mark the action abandoned, and apply backpressure.
 
+<a id="substrate-response"></a>
 ## Substrate Response
 
+<a id="test-suite-vector-10681-https-github-com-neomjs-neo-issues-10681-pr-10682-https-github-com-neomjs-neo-pull-10682"></a>
 ### Test-suite vector ([#10681](https://github.com/neomjs/neo/issues/10681) / PR [#10682](https://github.com/neomjs/neo/pull/10682))
 
 Playwright `test.skip(!process.env.RUN_LIVE_OSASCRIPT, ...)` discipline:
@@ -122,6 +135,7 @@ Playwright `test.skip(!process.env.RUN_LIVE_OSASCRIPT, ...)` discipline:
 - Header documentation in describe scope cross-references `bridge-daemon.spec.mjs` as the reference architecture for safe live-substrate testing (mock-osascript-on-PATH or `adapter: 'test'` test-stream)
 - Merged 2026-05-04, closing the test-suite-as-runaway-vector failure mode
 
+<a id="in-flight-lock-primitive-10674-https-github-com-neomjs-neo-issues-10674-pr-10683-https-github-com-neomjs-neo-pull-10683"></a>
 ### In-flight lock primitive ([#10674](https://github.com/neomjs/neo/issues/10674) / PR [#10683](https://github.com/neomjs/neo/pull/10683))
 
 `ai/scripts/inflightLock.mjs` — per-identity data-layer mutex:
@@ -132,6 +146,7 @@ Playwright `test.skip(!process.env.RUN_LIVE_OSASCRIPT, ...)` discipline:
 - Auto-trips the wake safety gate ([#10648](https://github.com/neomjs/neo/issues/10648)) after `MAX_ABANDONED_ACTIONS` (default 3) consecutive abandoned actions per identity
 - Same primitive guards both modes — sunset-restart (per `resumeHarness.mjs`) AND idle-out A2A nudges (per `trioWakeCooldown.mjs`)
 
+<a id="detector-contract-10673-https-github-com-neomjs-neo-issues-10673-pr-10689-https-github-com-neomjs-neo-pull-10689"></a>
 ### Detector contract ([#10673](https://github.com/neomjs/neo/issues/10673) / PR [#10689](https://github.com/neomjs/neo/pull/10689))
 
 `ai/scripts/checkSunsetted.mjs` evolved to emit BOTH `sunset` and `idle_out_candidate` signals plus `evidence` fields and `recommended_action`. Two-mode signal disambiguation:
@@ -140,6 +155,7 @@ Playwright `test.skip(!process.env.RUN_LIVE_OSASCRIPT, ...)` discipline:
 - `recommended_action: 'idle_out_nudge'` → in-place A2A nudge via `idleOutNudge.mjs`
 - `recommended_action: 'no_action'` → in-flight lock held OR no signal
 
+<a id="idle-out-a2a-nudge-dispatcher-10675-https-github-com-neomjs-neo-issues-10675-pr-10690-https-github-com-neomjs-neo-pull-10690"></a>
 ### Idle-out A2A nudge dispatcher ([#10675](https://github.com/neomjs/neo/issues/10675) / PR [#10690](https://github.com/neomjs/neo/pull/10690))
 
 `ai/scripts/idleOutNudge.mjs` — per-identity dispatcher consumed by `swarm-heartbeat.sh` when the detector emits `recommended_action: 'idle_out_nudge'`:
@@ -148,10 +164,12 @@ Playwright `test.skip(!process.env.RUN_LIVE_OSASCRIPT, ...)` discipline:
 - Bounded / non-spawning / idempotent / no-destructive-type invariants enforced
 - Distinct from `trioWakeCooldown.mjs` (swarm-wide all-idle); fires per-identity when ONE agent is stale while the swarm is otherwise active
 
+<a id="prevention"></a>
 ## Prevention
 
 The runaway-spawn pattern's pathways have a mix of shipped fixes and still-pending substrate work. The pattern is **contained** but not "fully fixed" until the sunset-mode restart substrate ([#10676](https://github.com/neomjs/neo/issues/10676)) lands per-harness terminal-restart primitives.
 
+<a id="pathway-containment-status-as-of-2026-05-04"></a>
 ### Pathway containment status (as of 2026-05-04)
 
 | Pathway | Pre-fix | Post-fix | Status |
@@ -169,6 +187,7 @@ The runaway-spawn pattern's pathways have a mix of shipped fixes and still-pendi
 
 Empirical validation that the in-flight lock is load-bearing (not theoretical): `@neo-gemini-3-1-pro`'s independent `antigravity chat -n` investigation ([#10678](https://github.com/neomjs/neo/issues/10678)) crashed her Memory Core MCP servers via parallel-init port collisions — the exact failure mode the lock prevents, observed in the wild.
 
+<a id="lessons-captured"></a>
 ## Lessons Captured
 
 1. **Time-based cooldowns do not bound boot-completion.** Substrate gates that need to coordinate across boot ramps must be event-bounded (memory-resolved or expired-abandoned), not wall-clock-bounded.
@@ -177,6 +196,7 @@ Empirical validation that the in-flight lock is load-bearing (not theoretical): 
 4. **Failure modes that surface identically must be remediated identically.** ESC-rejection, spawn-failure, MC-staleness, and rate-limit-during-boot all produce "no fresh memory after action" — the in-flight lock treats them as a single class with a single auto-trip backpressure path.
 5. **Coordination collision risk is real for unassigned epic-sub pickup.** During this incident's substrate response, two agents began parallel implementation of the same in-flight lock primitive (`@neo-opus-4-7` started a draft on `agent/10674-inflight-lock-primitive`; `@neo-gemini-3-1-pro` opened PR #10683 ~3 minutes later). The discipline is "ping the most-likely-active peer before pickup, even on substrate-class work." Captured in [feedback memory](https://github.com/neomjs/neo) for future cycles.
 
+<a id="references"></a>
 ## References
 
 - **Epic:** [#10671](https://github.com/neomjs/neo/issues/10671) — Substrate-restart recovery (two-mode: idle-out + sunset)

@@ -2,6 +2,7 @@
 
 This hands-on guide demonstrates how to secure your Neo.mjs MCP servers (Knowledge Base or Memory Core) using Google OAuth 2.1. This allows you to restrict access to your AI tools using your organization's Google workspace.
 
+<a id="prerequisites"></a>
 ## Prerequisites
 
 1.  A Google Cloud Platform (GCP) project.
@@ -10,6 +11,7 @@ This hands-on guide demonstrates how to secure your Neo.mjs MCP servers (Knowled
 
 ---
 
+<a id="step-1-configure-google-cloud-console"></a>
 ## Step 1: Configure Google Cloud Console
 
 1.  Go to the [GCP APIs & Services > Credentials](https://console.cloud.google.com/apis/credentials) page.
@@ -21,10 +23,12 @@ This hands-on guide demonstrates how to secure your Neo.mjs MCP servers (Knowled
 
 ---
 
+<a id="step-2-configure-the-mcp-server"></a>
 ## Step 2: Configure the MCP Server
 
 Update your `.env` file or IaC environment variables.
 
+<a id="using-oidc-discovery-recommended"></a>
 ### Using OIDC Discovery (Recommended)
 Google provides a standard OIDC discovery endpoint. This is the easiest way to configure the server.
 
@@ -39,16 +43,20 @@ NEO_OAUTH_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 NEO_OAUTH_CLIENT_SECRET=your-google-client-secret
 ```
 
+<a id="protocol-awareness"></a>
 ### Protocol Awareness
 Ensure `HOST` is set correctly. If your server is behind a load balancer with SSL termination, ensure `HOST` does not include the protocol unless you want to force one. The server will default to `https` for any host other than `localhost`.
 
 ---
 
+<a id="step-3-technical-nuances"></a>
 ## Step 3: Technical Nuances
 
+<a id="token-introspection"></a>
 ### Token Introspection
-Unlike Keycloak, Google does not strictly adhere to the RFC 7662 introspection spec for all token types in the same way. However, for **OpenID Connect**, the MCP SDK handles the validation of the Bearer token. 
+Unlike Keycloak, Google does not strictly adhere to the RFC 7662 introspection spec for all token types in the same way. However, for **OpenID Connect**, the MCP SDK handles the validation of the Bearer token.
 
+<a id="audience-aud-validation"></a>
 ### Audience (aud) Validation
 Google ID Tokens include the `aud` field, which matches your `NEO_OAUTH_CLIENT_ID`. The Neo.mjs MCP server will validate that the incoming token's audience is authorized to access the resource.
 
@@ -56,6 +64,7 @@ Google ID Tokens include the `aud` field, which matches your `NEO_OAUTH_CLIENT_I
 
 ---
 
+<a id="step-4-testing-with-a-client"></a>
 ## Step 4: Testing with a Client
 
 When connecting an MCP client (like VS Code) to your server:
@@ -68,10 +77,13 @@ When connecting an MCP client (like VS Code) to your server:
 
 ---
 
+<a id="troubleshooting"></a>
 ## Troubleshooting
 
+<a id="unauthorized"></a>
 ### 401 Unauthorized
 Verify that the `NEO_OAUTH_CLIENT_ID` in your server config matches the one used by the client to obtain the token.
 
+<a id="oidc-discovery-failure"></a>
 ### OIDC Discovery Failure
 If the server logs `Failed to fetch OIDC discovery document`, ensure the server has outbound internet access to reach `https://accounts.google.com/.well-known/openid-configuration`.

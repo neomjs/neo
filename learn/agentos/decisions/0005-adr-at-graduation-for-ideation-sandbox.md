@@ -15,6 +15,7 @@
 
 ---
 
+<a id="context"></a>
 ## 1. Context
 
 PR #11362 (commit `559c73d43`, 2026-05-14) deleted 3,366 archived items as "legacy" instead of reshaping them per Epic #11187 Phase 3 ACs. Operator @tobiu surfaced post-merge: *"create decision records, store tons of input into MC, and yet fail to apply the GRADUATED architectures."* The substrate intelligence existed across Discussion #11180 → Epic #11187 graduation + Cycle 2 amendments + Discussion #11359 graduation + memory citations. The author bypassed all of it during code-authoring.
@@ -27,10 +28,12 @@ Epic bodies currently do **double-duty** as both **workstream coordination** AND
 
 ---
 
+<a id="decision"></a>
 ## 2. Decision
 
 `ideation-sandbox-workflow.md` is extended so Discussion graduations OPTIONALLY produce a new (or updated) ADR file in `learn/agentos/decisions/` alongside the existing Epic / ticket / rare-PR output. Gated by a 3-tier classification keyed on whether the decision will durably govern future cross-substrate work.
 
+<a id="the-3-tier-classification"></a>
 ### 2.1 The 3-tier classification
 
 | Classification | When this fires |
@@ -39,12 +42,14 @@ Epic bodies currently do **double-duty** as both **workstream coordination** AND
 | **`ADR_OPTIONAL`** | Useful context consolidation, but implementation can be safely V-B-A'd from an existing canonical ticket/epic body |
 | **`ADR_NOT_NEEDED`** | Localized implementation, tactical skill tweak, or one-PR artifact with no durable cross-ticket decision |
 
+<a id="trigger-fire-decision-process"></a>
 ### 2.2 Trigger-fire decision-process
 
 - **Default proposer:** graduating Discussion's author OR last APPROVED-signaler proposes the classification with rationale
 - **Peer-veto path:** any peer may A2A `[adr-trigger-objection]` if classification looks mis-applied (substrate-spam OR missing-authority risk)
 - **Operator-direct override:** at graduation time per AGENTS.md §0 Invariant + §15.6 Flat Peer-Team
 
+<a id="approval-vs-merge-gate-boundary"></a>
 ### 2.3 Approval vs. merge-gate boundary
 
 - Epics / tickets MAY be filed pre-ADR-merge (preserves planning visibility)
@@ -56,6 +61,7 @@ Epic bodies currently do **double-duty** as both **workstream coordination** AND
 
 This preserves what the substrate already has (Epic-driven coordination + planning visibility) while enforcing phase discipline only at the substrate-mutation boundary.
 
+<a id="adr-content-boundary-anti-bloat"></a>
 ### 2.4 ADR content boundary (anti-bloat)
 
 When emitted, an ADR carries:
@@ -69,17 +75,20 @@ The Discussion body remains the **archaeology trail** (cycle-comments, divergenc
 
 ---
 
+<a id="implementation-details"></a>
 ## 3. Implementation Details
 
+<a id="atlas-full-mechanics-ideation-sandbox-workflow-md"></a>
 ### 3.1 Atlas (full mechanics): `ideation-sandbox-workflow.md`
 
 Four sub-section edits codify the workflow extension:
 
-- **§5 graduation target list:** add ADR as optional/additional target beside Epic / ticket / rare direct PR
-- **§5.2 Authority Sweep:** when canonical future authority is not Discussion body / ticket ACs, require `Decision Record: REQUIRED / OPTIONAL / NOT_NEEDED` classification with rationale
+- **[§5](#anti-patterns-substrate-bypass-prevention) graduation target list:** add ADR as optional/additional target beside Epic / ticket / rare direct PR
+- **[§5.2](#cycle-n-epic-body-amendments-as-authority) Authority Sweep:** when canonical future authority is not Discussion body / ticket ACs, require `Decision Record: REQUIRED / OPTIONAL / NOT_NEEDED` classification with rationale
 - **§6.6 graduated-artifact required sections:** add field `Decision Record:` with values `Not needed` / `Optional` / `Required: ADR #### / PR #N / ticket #N`
 - **§6.7 author actions:** when `ADR_REQUIRED`, file/update ADR; implementation PRs may be approved under normal review criteria, while actual merge order remains human-gate-owned
 
+<a id="maps-one-line-pointers-per-progressive-disclosure"></a>
 ### 3.2 Maps (one-line pointers per Progressive Disclosure)
 
 Three companion-skill Maps each get a one-line pointer to the Atlas:
@@ -90,6 +99,7 @@ Three companion-skill Maps each get a one-line pointer to the Atlas:
 
 Mechanics live in the Atlas; Maps point at the Atlas. Per `create-skill` Progressive Disclosure mandate — avoids duplicating decision-tree across multiple Maps that would compound substrate cost at runtime.
 
+<a id="recursive-self-application-validation"></a>
 ### 3.3 Recursive self-application validation
 
 This ADR + Discussion #11369 + ticket #11370 jointly demonstrate the workflow's **artifact-split shape** on itself via manual dogfooding:
@@ -102,57 +112,67 @@ This ADR + Discussion #11369 + ticket #11370 jointly demonstrate the workflow's 
 
 ---
 
+<a id="consequences"></a>
 ## 4. Consequences
 
+<a id="positive"></a>
 ### Positive
 
 - **Single substrate anchor for high-blast decisions:** future agents have ONE document to V-B-A against before authoring substrate-mutation code
 - **Authority/workstream separation:** Epic-body double-duty eliminated; Cycle-N amendments stay in the Epic (workstream); decisions live in the ADR (immutable post-Accepted)
-- **Recursive validation pattern:** manual dogfooding validated the artifact-split/classification/merge-gate **shape**; the workflow extension comes into operational effect only after #11370's implementation lands (see §3.3 scope discipline)
+- **Recursive validation pattern:** manual dogfooding validated the artifact-split/classification/merge-gate **shape**; the workflow extension comes into operational effect only after #11370's implementation lands (see [§3.3](#recursive-self-application-validation) scope discipline)
 - **Friction-cost is low:** `ideation-sandbox-workflow.md §6.3` already mandates Discussion-body-as-decision-record synthesis at graduation. Adding ADR emission moves already-produced synthesis into version-controlled substrate. Marginal cost: near-zero
 - **Falsifiable trigger criteria:** the 3-tier classification has explicit definitions; peer-veto path catches mis-application
 
+<a id="negative"></a>
 ### Negative
 
-- **Trigger mis-classification risk:** if graduating-author under-classifies as `OPTIONAL`/`NOT_NEEDED` when should be `REQUIRED`, the gate doesn't fire and authority drifts. Mitigation: `[adr-trigger-objection]` peer-veto path + §5 post-merge validation hook
+- **Trigger mis-classification risk:** if graduating-author under-classifies as `OPTIONAL`/`NOT_NEEDED` when should be `REQUIRED`, the gate doesn't fire and authority drifts. Mitigation: `[adr-trigger-objection]` peer-veto path + [§5](#anti-patterns-substrate-bypass-prevention) post-merge validation hook
 - **Substrate cost growth:** every high-blast Discussion graduation now produces TWO artifacts (ADR + Epic/ticket) instead of one. Mitigation: classification gates `ADR_OPTIONAL` and `ADR_NOT_NEEDED` reduce single-artifact paths to most cases
 - **First-cycle learning cost:** existing agents must internalize the classification + merge-gate semantics. Mitigation: ADR 0002 + this ADR + #11370 sequencing provide concrete examples
 
 ---
 
+<a id="anti-patterns-substrate-bypass-prevention"></a>
 ## 5. Anti-Patterns (Substrate-Bypass Prevention)
 
 Future agents authoring substrate-mutation work that consumes a graduated Discussion MUST avoid these patterns:
 
+<a id="v-b-a-against-epic-body-when-adr-exists"></a>
 ### 5.1 V-B-A against Epic body when ADR exists
 
 If a Discussion graduated with `Decision Record: REQUIRED` and produced an ADR, the ADR is the authority target. V-B-A against the Epic body OR the Discussion body for the architectural decision is wrong-shape — those are workstream-coordination and archaeology-trail substrates respectively. Use the ADR.
 
+<a id="cycle-n-epic-body-amendments-as-authority"></a>
 ### 5.2 Cycle-N Epic body amendments as authority
 
 If the original Epic body has been Cycle-1/Cycle-2/etc amended, those amendments are workstream coordination updates, NOT authority shifts. Authority shifts produce ADR updates (a separate PR cycle). Treating amended Epic prose as authority recreates the substrate-bypass failure mode this ADR is anchored to prevent.
 
+<a id="treating-human-merge-as-peer-review-blocker"></a>
 ### 5.3 Treating human merge as peer-review blocker
 
 Implementation PRs consuming a graduated `ADR_REQUIRED` decision follow the same peer-review semantics as other PRs: peer maintainers approve when their review criteria pass, and @tobiu's merge of an approved, green PR is the operator content-accuracy approval. Reviewers MUST verify whether the linked ADR authority is already landed, included in the PR, or merge-ordered ahead of the PR before declaring human merge readiness. If the only remaining blocker is the human-owned content/merge gate, peer maintainers should not convert that into `CHANGES_REQUESTED`; they may approve on their own criteria while naming the remaining human gate.
 
+<a id="mis-classifying-as-adr-optional-to-skip-the-gate"></a>
 ### 5.4 Mis-classifying as `ADR_OPTIONAL` to skip the gate
 
 If a Discussion changes durable path/layout/API/lifecycle, introduces/retires a primitive, OR decomposes to ≥3 sub-tickets, the classification MUST be `ADR_REQUIRED`. Mis-classifying as `OPTIONAL` to avoid the merge-gate is the failure mode this ADR's `[adr-trigger-objection]` peer-veto exists to catch.
 
+<a id="duplicating-decision-tree-across-maps"></a>
 ### 5.5 Duplicating decision-tree across Maps
 
 `pr-review-guide.md` / `ticket-create-workflow.md` / `epic-review-workflow.md` are Maps. Their touchpoints with this workflow are ONE-LINE pointers each. Copying the full classification taxonomy or merge-gate semantics into Maps violates `create-skill` Progressive Disclosure mandate and compounds runtime substrate cost.
 
 ---
 
+<a id="v-b-a-pre-flight-for-future-authors"></a>
 ## 6. V-B-A Pre-Flight for Future Authors
 
 Before authoring substrate-mutation code that consumes a graduated Discussion, you MUST:
 
 1. Read the linked ADR (if `Decision Record: REQUIRED`)
 2. Verify whether the ADR authority is landed, included in the PR, or merge-ordered ahead of the PR before claiming merge readiness; if a human-owned content/merge gate remains, state it explicitly instead of treating it as a peer-review blocker
-3. V-B-A your authoring against the ADR's §2 Decision section, NOT the Epic body or Discussion body
+3. V-B-A your authoring against the ADR's [§2](#decision) Decision section, NOT the Epic body or Discussion body
 4. Cite the ADR in your PR body
 5. If Cycle N revisions to the ADR are needed for your work, file a separate ADR-update PR first; do not amend the implementation PR to also touch the ADR
 
@@ -160,6 +180,7 @@ If the Discussion is `ADR_OPTIONAL` or `ADR_NOT_NEEDED`, the Epic body OR ticket
 
 ---
 
+<a id="post-merge-validation-hook"></a>
 ## 7. Post-Merge Validation Hook
 
 Per @neo-gpt's Cycle 1 contribution to Discussion #11369: after this ADR + ticket #11370 merge, audit the next 6 high-blast Discussion graduations for trigger-classification accuracy:
@@ -173,6 +194,7 @@ This hook replaces the a-priori "~1-3 ADRs per quarter" cadence assertion (origi
 
 ---
 
+<a id="related"></a>
 ## 8. Related
 
 - **Discussion #11369** — graduating Discussion (RESOLVED 2026-05-14T18:20:46Z); 3× APPROVED Signal Ledger
@@ -187,13 +209,14 @@ This hook replaces the a-priori "~1-3 ADRs per quarter" cadence assertion (origi
 
 ---
 
+<a id="status-lifecycle"></a>
 ## 9. Status / Lifecycle
 
 - **Draft** while an ADR proposal is still being shaped before normal PR approval
 - **Accepted** once an approved, green PR is merged by the human operator; the merge is the operator content-accuracy approval
-- **Merge-order dependency on ADR 0004 / PR #11368:** ADR 0005 references ADR 0004 in §8 Related as positive empirical precedent (post-hoc rescue-retrofit). PR #11368 (which lands ADR 0004 on `dev`) is still open at this PR's authoring time. **PR #11371 (this ADR) MUST NOT merge until PR #11368 has merged** — otherwise the §8 reference to "ADR 0004" lands on `dev` while no ADR 0004 file exists yet, creating a dangling-reference anti-pattern. If sequencing inverts at operator's call, this ADR must be renumbered or its §8 reference restructured before merge.
+- **Merge-order dependency on ADR 0004 / PR #11368:** ADR 0005 references ADR 0004 in [§8](#related) Related as positive empirical precedent (post-hoc rescue-retrofit). PR #11368 (which lands ADR 0004 on `dev`) is still open at this PR's authoring time. **PR #11371 (this ADR) MUST NOT merge until PR #11368 has merged** — otherwise the [§8](#related) reference to "ADR 0004" lands on `dev` while no ADR 0004 file exists yet, creating a dangling-reference anti-pattern. If sequencing inverts at operator's call, this ADR must be renumbered or its [§8](#related) reference restructured before merge.
 - **Periodic re-review trigger:** any future PR amending `ideation-sandbox-workflow.md §5 / §5.2 / §6.6 / §6.7` or the companion Map pointers MUST cite this ADR in body; reviewer-side audit fires if absent
-- **Post-merge validation:** §7 hook fires as Discussion graduations land
+- **Post-merge validation:** [§7](#post-merge-validation-hook) hook fires as Discussion graduations land
 
 Origin Session ID: `cf76b29a-9cf5-4c35-a415-37d631a8a755`
 

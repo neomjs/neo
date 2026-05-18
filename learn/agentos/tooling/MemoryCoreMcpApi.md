@@ -2,6 +2,7 @@
 
 This guide documents the design of the Memory Core Model Context Protocol (MCP) server for Neo.mjs. This server provides a structured, agent-agnostic interface for AI agents to maintain persistent memory across sessions by exposing a collection of tools.
 
+<a id="overview"></a>
 ## Overview
 
 The Memory Core MCP server replaces the original shell-based memory scripts (`ai:add-memory`, `ai:query-memory`, etc.) with a formal set of tools. This provides:
@@ -11,14 +12,17 @@ The Memory Core MCP server replaces the original shell-based memory scripts (`ai
 - **Platform Independence**: No shell-specific dependencies.
 - **Type Safety**: Tool inputs and outputs are defined by a schema.
 
+<a id="architecture"></a>
 ## Architecture
 
 The server is built using the `@modelcontextprotocol/sdk` and communicates with the client environment (e.g., Gemini CLI) over standard input/output (stdio). It no longer operates as an HTTP web server. The API is defined as a collection of tools in an `openapi.yaml` specification, which provides the single source of truth for the server's capabilities.
 
+<a id="data-model"></a>
 ### Data Model
 
 The Memory Core manages two primary ChromaDB collections:
 
+<a id="memories-collection-neo-agent-memory"></a>
 #### 1. Memories Collection (`neo-agent-memory`)
 Stores raw agent interaction data:
 ```json
@@ -33,6 +37,7 @@ Stores raw agent interaction data:
 }
 ```
 
+<a id="summaries-collection-neo-agent-sessions"></a>
 #### 2. Summaries Collection (`neo-agent-sessions`)
 Stores high-level session summaries with structured metadata:
 ```json
@@ -52,6 +57,7 @@ Stores high-level session summaries with structured metadata:
 }
 ```
 
+<a id="available-tools"></a>
 ### Available Tools
 
 The server exposes the following tools, which are derived from its OpenAPI specification:
@@ -77,25 +83,33 @@ The server exposes the following tools, which are derived from its OpenAPI speci
 | `export_database` | Exports the entire memory database to a JSONL file. |
 | `import_database` | Imports a previously exported JSONL file back into the database. |
 
+<a id="tool-specifications"></a>
 ## Tool Specifications
 
 This section details the parameters and behavior of each tool exposed by the Memory Core server.
 
+<a id="health-tools"></a>
 ### Health Tools
 
+<a id="healthcheck"></a>
 #### `healthcheck`
 Confirms server health and database connectivity. This tool takes no parameters.
 
+<a id="database-lifecycle-tools"></a>
 ### Database Lifecycle Tools
 
+<a id="start-database"></a>
 #### `start_database`
 Starts the ChromaDB database instance as a background process. This tool takes no parameters.
 
+<a id="stop-database"></a>
 #### `stop_database`
 Stops the running ChromaDB database instance. This tool takes no parameters.
 
+<a id="memory-tools"></a>
 ### Memory Tools
 
+<a id="add-memory"></a>
 #### `add_memory`
 Adds a new agent interaction to the memory store.
 
@@ -109,6 +123,7 @@ Adds a new agent interaction to the memory store.
 - **Old way**: `npm run ai:add-memory -- -p "..."`
 - **New way**: `call_tool('add_memory', {prompt: "...", thought: "...", ...})`
 
+<a id="get-session-memories"></a>
 #### `get_session_memories`
 Retrieves all memories for a specific session.
 
@@ -117,6 +132,7 @@ Retrieves all memories for a specific session.
 - `limit` (integer, optional): Maximum memories to return (default: 100).
 - `offset` (integer, optional): Pagination offset (default: 0).
 
+<a id="query-raw-memories"></a>
 #### `query_raw_memories`
 Performs semantic search across all memories.
 
@@ -129,8 +145,10 @@ Performs semantic search across all memories.
 - **Old way**: `npm run ai:query-memory -- -q "search query"`
 - **New way**: `call_tool('query_raw_memories', {query: "search query"})`
 
+<a id="summary-tools"></a>
 ### Summary Tools
 
+<a id="get-all-summaries"></a>
 #### `get_all_summaries`
 Lists all session summaries with optional filtering.
 
@@ -139,6 +157,7 @@ Lists all session summaries with optional filtering.
 - `offset` (integer, optional): Pagination offset (default: 0).
 - `category` (string, optional): Filter by category (`bugfix`, `feature`, etc.).
 
+<a id="query-summaries"></a>
 #### `query_summaries`
 Searches session summaries semantically.
 
@@ -147,11 +166,14 @@ Searches session summaries semantically.
 - `nResults` (integer, optional): Number of results to return (default: 10).
 - `category` (string, optional): Filter by category.
 
+<a id="delete-all-summaries"></a>
 #### `delete_all_summaries`
 Deletes all session summaries (raw memories are preserved). This tool takes no parameters.
 
+<a id="session-tools"></a>
 ### Session Tools
 
+<a id="summarize-sessions"></a>
 #### `summarize_sessions`
 Triggers the session summarization process.
 
@@ -162,8 +184,10 @@ Triggers the session summarization process.
 - **Old way**: `npm run ai:summarize-session`
 - **New way**: `call_tool('summarize_sessions', {})`
 
+<a id="database-tools"></a>
 ### Database Tools
 
+<a id="export-database"></a>
 #### `export_database`
 Exports the entire memory database to a JSONL file.
 
@@ -174,6 +198,7 @@ Exports the entire memory database to a JSONL file.
 - **Old way**: `npm run ai:export-memory`
 - **New way**: `call_tool('export_database', {})`
 
+<a id="import-database"></a>
 #### `import_database`
 Imports a previously exported JSONL file.
 
@@ -185,6 +210,7 @@ Imports a previously exported JSONL file.
 - **Old way**: `npm run ai:import-memory -- --file ...`
 - **New way**: `call_tool('import_database', {file: "path/to/file.jsonl"})`
 
+<a id="error-handling"></a>
 ## Error Handling
 
 The server no longer uses HTTP status codes. Instead, errors are communicated within the `CallToolResponse` object. If a tool call fails, the response will have `isError: true` and the `content` will contain a descriptive error message.
@@ -202,31 +228,37 @@ The server no longer uses HTTP status codes. Instead, errors are communicated wi
 }
 ```
 
+<a id="implementation-considerations"></a>
 ## Implementation Considerations
 
+<a id="authentication-authorization"></a>
 ### Authentication & Authorization
 The initial implementation runs locally with no authentication. Future versions should consider:
 - API key authentication for remote access
 - Rate limiting to prevent abuse
 - Role-based access control for multi-user scenarios
 
+<a id="performance-optimizations"></a>
 ### Performance Optimizations
 - **Pagination**: Implemented for all list-based tools to handle large datasets.
 - **Caching**: Consider caching frequently accessed summaries.
 - **Batch Operations**: The `summarize_sessions` tool supports batch mode.
 - **Streaming**: Future enhancement for large exports.
 
+<a id="database-consistency"></a>
 ### Database Consistency
 - **Atomic Operations**: Use transactions where supported by the database.
 - **Validation**: Validate all inputs before database operations.
 - **Idempotency**: Ensure operations are idempotent where appropriate.
 
+<a id="monitoring-logging"></a>
 ### Monitoring & Logging
 - **Health Checks**: The `healthcheck` tool should be monitored periodically.
 - **Request Logging**: Log all tool calls with timing information.
 - **Error Tracking**: Capture and log all errors with stack traces.
 - **Metrics**: Track memory growth, query performance, and summarization success rates.
 
+<a id="openapi-specification"></a>
 ## OpenAPI Specification
 
 The complete API specification is available in OpenAPI 3.0 format at:
@@ -239,6 +271,7 @@ This specification can be:
 - Imported into API development tools (Postman, Insomnia).
 - Used for automated API testing.
 
+<a id="related-resources"></a>
 ## Related Resources
 
 - [Model Context Protocol Specification](https://modelcontextprotocol.io/)

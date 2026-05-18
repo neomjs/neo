@@ -2,6 +2,7 @@
 
 This audit satisfies [#10825](https://github.com/neomjs/neo/issues/10825), the Phase 1 AC4 cleanup ticket for [#10822](https://github.com/neomjs/neo/issues/10822).
 
+<a id="scope"></a>
 ## Scope
 
 The scan covers config keys, public package scripts, build-script documentation, and Memory Core / Knowledge Base consumers on `dev` after the Phase 1.5 config refactor landed.
@@ -24,6 +25,7 @@ Verdict shorthand:
 | `defer-to-Phase-1.5` | The surface is real but belongs to the shared/per-server config split, not AC4 deletion. |
 | `needs-design` | The scan found drift, but removal would cross a broader contract boundary. |
 
+<a id="audit-table"></a>
 ## Audit Table
 
 | candidate | defining surface | current readers | verdict | action |
@@ -39,6 +41,7 @@ Verdict shorthand:
 | MC `backupPath` default | `ai/mcp/server/memory-core/config.template.mjs` | `Memory_DatabaseService.exportDatabase()` uses it as the default backup output path. | `live` | Kept. |
 | `chromaUnified` topology flag | KB and MC config templates | Removed in #11014. The system is now permanently unified. | `removed-in-v13` | Removed from templates and runtime. |
 
+<a id="count-summary"></a>
 ## Count Summary
 
 | Bucket | Count | Notes |
@@ -49,6 +52,7 @@ Verdict shorthand:
 | `defer-to-Phase-1.5` | 0 | None. |
 | `needs-design` | 2 | Direct migration script retirement and KB backup default shape need separate contract decisions. |
 
+<a id="removal-summary"></a>
 ## Removal Summary
 
 - Public stale migration command removed: `npm run ai:migrate-memory`.

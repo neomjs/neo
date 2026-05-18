@@ -6,6 +6,7 @@ Authoritative reference for the Evidence Ladder + Close-Target Gate that prevent
 
 **Mental model (per @tobiu):** "turn friction into gold" — the ladder exists to convert review-cycle friction into a durable workflow rule, not to assign blame for past instances.
 
+<a id="why-this-exists"></a>
 ## Why this exists
 
 Agents can ship locally-coherent work that passes mocked tests, get the PR approved, and still not satisfy the close-target issue's acceptance criteria. The collapse happens in four steps:
@@ -17,6 +18,7 @@ Agents can ship locally-coherent work that passes mocked tests, get the PR appro
 
 The ladder makes step 3 mechanical: each level has explicit definitions of what it proves and what it does NOT prove. The Close-Target Gate makes step 4 mechanical: `Resolves #N` is permitted only if the achieved evidence level satisfies the close-target's ACs, with explicit annotations for residual ACs that remain operator-gated.
 
+<a id="the-ladder-l1-l4"></a>
 ## The ladder (L1 — L4)
 
 | Level | Evidence Class | Proves | Does Not Prove |
@@ -26,6 +28,7 @@ The ladder makes step 3 mechanical: each level has explicit definitions of what 
 | **L3** | Live non-destructive probe | Real binary/path/surface exists and can be invoked safely (binary resolves, executes a no-op, exits cleanly) | Old harness terminated; fresh MCP session is the active reviewer; coordination state is consistent |
 | **L4** | Operator-gated destructive handoff | Old harness or MCP transport is terminated/restarted; new agent session is observed; `currentSessionId` differs; no duplicate processes; agent successfully boots into the recovery context | Long-term stability under all timing races; cross-host portability |
 
+<a id="two-ceilings-single-dimension-is-insufficient"></a>
 ### Two ceilings (single dimension is insufficient)
 
 Empirically there are two ceilings to track per PR:
@@ -37,6 +40,7 @@ For substrate / harness / wake / restart PRs, sandbox-ceiling = L2 is common (ag
 
 The gap (L3, L4) between the two ceilings is *structural* — not a discipline failure. PR bodies must distinguish "shipped at L2 because L3+ requires operator handoff" from "shipped at L2 because the author didn't bother probing further."
 
+<a id="when-the-ladder-applies-trigger-scope"></a>
 ## When the ladder applies (trigger scope)
 
 The ladder applies to any PR where:
@@ -54,6 +58,7 @@ The ladder applies to any PR where:
 - Doc-only changes
 - Internal-API refactors where ACs fully cover via unit tests
 
+<a id="the-pr-body-declaration-1-line-greppable"></a>
 ## The PR-body declaration (1-line greppable)
 
 PRs whose close-target hits the trigger MUST include a 1-line evidence declaration in the body:
@@ -78,6 +83,7 @@ Evidence: L1 (static config-shape audit) → L1 required (no runtime-verify ACs)
 
 The 1-line shape is parser-friendly. Reviewers can scan PRs for `Evidence:` regex.
 
+<a id="the-close-target-gate-resolves-rule"></a>
 ## The Close-Target Gate (Resolves rule)
 
 `Resolves #N` / `Closes #N` / `Fixes #N` is permitted IFF one of:
@@ -89,6 +95,7 @@ If neither condition is met, use `Related: #N` with a remaining-validation check
 
 This generalizes the existing close-target audit from #10324 (which protects epics from accidental magic-close) to any issue whose ACs require a stronger evidence class than the PR has actually achieved.
 
+<a id="the-shared-matrix-epic-review-entry-epic-resolution-exit"></a>
 ## The shared matrix (epic-review entry, epic-resolution exit)
 
 Both `epic-review` (entry pass at sub-creation time) and `epic-resolution` (exit pass at sub-closure time) write to / read from the same matrix shape on the parent epic body:
@@ -104,6 +111,7 @@ Both `epic-review` (entry pass at sub-creation time) and `epic-resolution` (exit
 
 `epic-review` seeds the AC → sub mapping at the front door (cols 1-3). `epic-resolution` consumes the mapping at the exit door (cols 4-6) and runs the verdict logic.
 
+<a id="cross-references"></a>
 ## Cross-references
 
 - Discussion #10697 — origin ideation

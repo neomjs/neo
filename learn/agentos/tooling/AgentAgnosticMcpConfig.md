@@ -2,6 +2,7 @@
 
 This guide explains the agent-agnostic Model Context Protocol (MCP) server configuration system for Neo.mjs, enabling any AI agent to discover and connect to the project's AI tooling infrastructure.
 
+<a id="overview"></a>
 ## Overview
 
 The Neo.mjs project provides multiple AI services through MCP (Model Context Protocol) servers. These servers give AI agents the tools and context needed to perform complex software engineering tasks. The primary servers include:
@@ -13,6 +14,7 @@ The Neo.mjs project provides multiple AI services through MCP (Model Context Pro
 
 To ensure these services are accessible to any AI agent, the project uses a simple, standardized configuration format that allows an agent's client environment to launch and communicate with these servers. This guide outlines the schema for this configuration and explains how it enables an "agent-agnostic" approach to tooling.
 
+<a id="configuration-principle"></a>
 ## Configuration Principle
 
 Instead of a single, centralized configuration file, the principle is that each agent's client environment has its own configuration for launching MCP servers. This allows for flexibility while maintaining a common pattern.
@@ -23,6 +25,7 @@ For example, the Gemini CLI uses the following file:
 ```
 This file contains a definition for each MCP server, specifying the command needed to start it.
 
+<a id="the-lifecycle-protocol"></a>
 ## The Lifecycle Protocol
 
 The agent's client environment (e.g., the Gemini CLI) is responsible for managing the server lifecycle. The protocol is straightforward:
@@ -34,10 +37,12 @@ The agent's client environment (e.g., the Gemini CLI) is responsible for managin
 
 This approach removes the burden of health checks, port management, and connection protocols from the agent, which can simply focus on using the provided tools.
 
+<a id="configuration-schema"></a>
 ## Configuration Schema
 
 The configuration schema is minimal and focuses only on how to launch the server process. However, it is part of a broader conceptual schema for defining servers.
 
+<a id="server-definition"></a>
 ### Server Definition
 A server can be defined with the following properties. While the current implementation primarily uses `command` and `args`, the other properties are valuable for documentation, discovery, and potential future enhancements.
 
@@ -52,6 +57,7 @@ A server can be defined with the following properties. While the current impleme
 | `capabilities` | array | | Declares the MCP capabilities the server supports, e.g., `["tools", "resources"]`. |
 | `tags` | array | | Keywords for categorizing the server, useful for discovery in UIs. |
 
+<a id="example-gemini-settings-json"></a>
 ### Example (`.gemini/settings.json`)
 The following is a practical, minimal implementation of this schema used by the Gemini CLI. It focuses purely on the properties needed to launch the servers.
 
@@ -78,6 +84,7 @@ The following is a practical, minimal implementation of this schema used by the 
 }
 ```
 
+<a id="server-side-implementation-the-sdk-first-approach"></a>
 ## Server-Side Implementation: The SDK-First Approach
 
 The simplicity of the client-side configuration is made possible by the server-side architecture, which is built using the `@modelcontextprotocol/sdk`.
@@ -94,6 +101,7 @@ Key components of a server include:
 
 This architecture allows each MCP server to be a self-contained, standalone application whose lifecycle can be managed by any client environment capable of spawning a process and communicating over stdio.
 
+<a id="benefits-of-the-new-approach"></a>
 ## Benefits of the New Approach
 
 1.  **Simplified Client Configuration**: The agent's client only needs to know how to start a process, not how to connect to a network service.
@@ -101,6 +109,7 @@ This architecture allows each MCP server to be a self-contained, standalone appl
 3.  **True Agnosticism**: Any agent client can run the servers as long as it can read a simple JSON config and spawn a child process.
 4.  **Single Source of Truth**: The `openapi.yaml` file in each server is the definitive source for the tools it provides, ensuring consistency.
 
+<a id="see-also"></a>
 ## See Also
 
 - [Model Context Protocol Specification](https://modelcontextprotocol.io/)

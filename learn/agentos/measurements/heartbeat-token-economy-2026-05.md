@@ -3,6 +3,7 @@
 This file captures the empirical token-economy anchor for the Track 1 swarm heartbeat under Epic #10311 and
 sub-issue #10318.
 
+<a id="summary"></a>
 ## Summary
 
 The confirmed-empty heartbeat path is safe at the current 5 minute default:
@@ -22,6 +23,7 @@ injecting a prompt and returns early when both actionable counters are zero:
 If both counters are `0`, no `[SYSTEM HEARTBEAT]` prompt is sent to the harness. The LLM does not wake and therefore
 does not spend tokens or perform follow-up MCP calls.
 
+<a id="measurement-environment"></a>
 ## Measurement Environment
 
 | Field | Value |
@@ -38,6 +40,7 @@ The assigned-issue query was measured after claiming #10318. This means the curr
 GitHub-assignment result, but the query path is the same. The empty-cycle token conclusion comes from the script's
 branch condition, not from the current issue count.
 
+<a id="component-latency"></a>
 ## Component Latency
 
 | Component | Mean latency | Samples | Notes |
@@ -62,6 +65,7 @@ The current full wrapper cycle adds the failing TTL sweeper:
 
 These are wall-clock latencies in the wrapper process, not LLM latency and not token cost.
 
+<a id="ttl-sweeper-caveat"></a>
 ## TTL Sweeper Caveat
 
 The current heartbeat script also calls `ai/scripts/sweepExpiredTasks.mjs` before the token-economy fast path. Direct
@@ -78,6 +82,7 @@ was changed by this probe.
 This caveat does not change the empty-cycle token budget, but it does mean the TTL sweeper's operational health should
 be fixed or tracked separately from #10318 before relying on heartbeat-driven task expiration.
 
+<a id="frequency-decision"></a>
 ## Frequency Decision
 
 Keep the fallback heartbeat default at **5 minutes** for now.
@@ -103,6 +108,7 @@ Do not tighten fallback polling below 5 minutes. ADR 0002 assigns the 30-60 seco
 push-based wake substrate and its coalescing window; polling at that cadence would reintroduce the load pattern the
 push substrate was designed to avoid.
 
+<a id="concurrency-semantics"></a>
 ## Concurrency Semantics
 
 The heartbeat uses a file mutex at `.neo-ai-data/heartbeat-concurrency.lock` to prevent overlapping pulses while an
@@ -126,6 +132,7 @@ The wrapper creates the lock before the command starts and removes it in a `fina
 including failure exits. This preserves the heartbeat as a fallback/watchdog: idle sessions can still be pulsed,
 while long-running inference, test, memory extraction, or review jobs can suppress overlapping heartbeat injections.
 
+<a id="architectural-boundary"></a>
 ## Architectural Boundary
 
 The heartbeat is not the primary long-term wake substrate. Per ADR 0002 §6.5, push-capable identities should bypass

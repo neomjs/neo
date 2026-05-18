@@ -2,6 +2,7 @@
 
 The Memory Core MCP server enforces **tenant-scoped identity** on every tool invocation — regardless of whether the caller connects over **stdio** (local agents, CI runners) or **SSE** (cloud-native, multi-tenant deployments). This guide describes the dual-path identity resolution, the `AgentIdentity` graph-node binding, and the anti-spoof invariant that together close the multi-tenant isolation contract shipped across tickets #10000, #10144, and #10145.
 
+<a id="why-identity-matters-here"></a>
 ## Why Identity Matters Here
 
 Every write to the Memory Core's ChromaDB collections is tagged with `metadata.userId`. Every read filters on the same field. Without a reliable identity source, tenant isolation is advisory — a client can claim to be anyone, or nothing at all. The multi-tenant Memory Core deployment scope of Epic #9999 requires this substrate to be authoritative, not cooperative.
@@ -12,6 +13,7 @@ Three invariants together close the contract:
 2. **Write-path tagging is unconditional.** `addMemory`, `mutate_frontier`, and every future write tool reads identity from `RequestContextService.getUserId()` and tags writes with it. Read filters symmetrically apply `where: {userId}` when the context is populated.
 3. **Anti-spoof guards the argument surface.** The `AuthMiddleware` service rejects any tool-call argument containing a key that would contradict server-stamped identity — closing a spoof vector before Mailbox (#10139) creates its first surface.
 
+<a id="the-two-paths"></a>
 ## The Two Paths
 
 | Transport | Identity Source | Implementation |
@@ -21,6 +23,7 @@ Three invariants together close the contract:
 
 Both paths end at the same destination: a `RequestContextService.run(context, ...)` wrap around tool dispatch, where the `context` shape is identical. Service-layer code reading `RequestContextService.getUserId()` is transport-agnostic.
 
+<a id="sse-path-oidc-via-authservice"></a>
 ### SSE Path — OIDC via `AuthService`
 
 Operators configure the Memory Core with either an OIDC discovery URL or a Keycloak-style issuer/realm pair. The `AuthService` handles discovery, token introspection, audience enforcement, and extracts `preferred_username` / `sub` as the authoritative `userId`. `TransportService` wraps each `/mcp` HTTP request in `RequestContextService.run()` using the auth context.
@@ -40,6 +43,7 @@ NEO_OAUTH_CLIENT_SECRET=<secret>
 
 Once the server starts, every tool call from a client MUST arrive with `Authorization: Bearer <token>` where the token was issued by the configured issuer AND audience-matches the Memory Core's canonical public URL (configured via `NEO_PUBLIC_URL`). Tokens with `aud` claims targeting a different resource are rejected per RFC 9068.
 
+<a id="stdio-path-stdioidentityresolver"></a>
 ### Stdio Path — `StdioIdentityResolver`
 
 The stdio transport has no request-level authentication primitive — the security boundary is the trusted-process boundary. Identity is resolved **once at server boot** via the following chain:
@@ -50,6 +54,7 @@ The stdio transport has no request-level authentication primitive — the securi
 
 The resolved identity is cached on the running server instance and wrapped around every `CallToolRequestSchema` dispatch via `RequestContextService.run()`.
 
+<a id="harness-configuration"></a>
 ## Harness Configuration
 
 > [!WARNING]
@@ -62,6 +67,7 @@ The resolved identity is cached on the running server instance and wrapped aroun
 
 Each AI harness pins its model's identity at session start by setting `NEO_AGENT_IDENTITY`. Matches the per-model GitHub-account convention from ticket #10144 (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`, `@tobiu`).
 
+<a id="claude-code-claude-settings-json"></a>
 ### Claude Code (`.claude/settings.json`)
 
 ```json
@@ -78,6 +84,7 @@ Each AI harness pins its model's identity at session start by setting `NEO_AGENT
 }
 ```
 
+<a id="gemini-cli-antigravity-gemini-antigravity-mcp-config-json"></a>
 ### Gemini CLI / Antigravity (`~/.gemini/antigravity/mcp_config.json`)
 
 ```json
@@ -94,10 +101,12 @@ Each AI harness pins its model's identity at session start by setting `NEO_AGENT
 }
 ```
 
+<a id="human-developer-no-override"></a>
 ### Human developer (no override)
 
 No harness configuration required. `StdioIdentityResolver` falls back to `gh api user` and resolves to the authenticated human GitHub login. Equivalent to the `@me` shortcut semantics used elsewhere in the Agent OS tooling surface.
 
+<a id="agentidentity-graph-node-binding"></a>
 ## AgentIdentity Graph-Node Binding
 
 Ticket #10144 seeded three `AgentIdentity` nodes in the Native Edge Graph:
@@ -112,6 +121,7 @@ After identity resolution (SSE or stdio), the Memory Core `Server.bindAgentIdent
 
 Services building `AUTHORED_BY` / `OWNED_BY` / future provenance edges at write time terminate their edges on the resolved node ID. Missing node is non-fatal — unseeded agents can still accumulate memories; they just can't yet terminate graph edges until someone adds them to `ai/scripts/seedAgentIdentities.mjs` and re-runs the seed script.
 
+<a id="the-anti-spoof-invariant"></a>
 ## The Anti-Spoof Invariant
 
 `AuthMiddleware.validateNoIdentitySpoof(args)` rejects any tool-call whose arguments contain a key that would let the client override server-stamped identity. The currently forbidden keys:
@@ -132,14 +142,16 @@ Present-day tool schemas (`add_memory`, `mutate_frontier`, etc.) don't accept an
 
 **Read-path filters by a different parameter name.** If a future tool legitimately needs to query across multiple users (e.g., an admin-only cross-tenant audit), the parameter MUST NOT be named `userId` — use `filterUserId` or similar to clearly distinguish it from the protected identity field.
 
+<a id="shared-graph-nodes-and-rls-bypass"></a>
 ## Shared Graph Nodes and RLS Bypass
 
-While the write-path unconditional identity tagging applies universally to standard memories, **Shared Graph Entities** (such as A2A Mailbox messages) require special handling. 
+While the write-path unconditional identity tagging applies universally to standard memories, **Shared Graph Entities** (such as A2A Mailbox messages) require special handling.
 
-By default, the SQLite graph database enforces Row Level Security (RLS) via the `user_id` property. If a message node is persisted with only the sender's identity, it becomes invisible to the recipient during inter-process vicinity hydration due to RLS. 
+By default, the SQLite graph database enforces Row Level Security (RLS) via the `user_id` property. If a message node is persisted with only the sender's identity, it becomes invisible to the recipient during inter-process vicinity hydration due to RLS.
 
 To solve this, shared entities explicitly set `sharedEntity: true` on their node properties during creation (e.g., in `MailboxService.addMessage`). The SQLite read layer respects this flag alongside the legacy `user_id IS NULL` fallback. This approach ensures the node is globally discoverable across agent boundaries without corrupting provenance—the `user_id` accurately reflects the true author. Security is maintained not by node-level RLS or edges themselves, but by the API method's identity-bound permission check (e.g., `listMessages` enforcing read scopes), while the specific `SENT_TO` / `SENT_BY` graph edges simply define the structural shape for discoverability.
 
+<a id="request-context-shape"></a>
 ## Request Context Shape
 
 ```javascript
@@ -153,6 +165,7 @@ To solve this, shared entities explicitly set `sharedEntity: true` on their node
 
 All fields are populated on a best-effort basis. `userId` is `undefined` only when neither transport resolves an identity — the single-tenant fallthrough case.
 
+<a id="oauth-2-1-spec-version"></a>
 ## OAuth 2.1 Spec Version
 
 The SSE path validates Bearer tokens per OAuth 2.1 draft conventions (audience enforcement, introspection-based validation, resource indicator checks per RFC 9068). Implementations targeting this Memory Core MUST:
@@ -161,8 +174,10 @@ The SSE path validates Bearer tokens per OAuth 2.1 draft conventions (audience e
 - Support RFC 7662 introspection (or expose introspection metadata in the OIDC discovery document)
 - Populate `preferred_username` OR `sub` in the introspection response (both honored; `sub`-fallback guarantees a non-empty `userId` for machine-to-machine client-credential flows)
 
+<a id="troubleshooting"></a>
 ## Troubleshooting
 
+<a id="primary-diagnostic-healthcheck-identity-block-10176"></a>
 ### Primary diagnostic: `healthcheck` identity block (#10176)
 
 The fastest single-call diagnostic is the `identity` block in the MCP `healthcheck` response. Call `healthcheck` and inspect `identity.*` — no need to grep startup logs or check multiple substrates:
@@ -187,6 +202,7 @@ The three substantive states and their implied fixes:
 
 `status` stays `healthy` regardless of `bound` — unbound identity is a valid single-tenant fallthrough, not a health failure. This is observability, not a gate.
 
+<a id="identity-source-unresolved-stdio-mode"></a>
 ### `identity.source: 'unresolved'` (stdio mode)
 
 Resolver chain failed entirely — neither env-var nor gh-CLI yielded a login:
@@ -195,6 +211,7 @@ Resolver chain failed entirely — neither env-var nor gh-CLI yielded a login:
 2. If no `NEO_AGENT_IDENTITY` is set, verify `gh auth status` reports a valid login.
 3. If `gh` is installed but the 1.5-second fail-fast timeout is exceeded, the CLI is likely hanging on auth refresh or a degraded network. The design is intentional — fail-fast preserves the MCP handshake budget for the rest of `initAsync`. Set `NEO_AGENT_IDENTITY` explicitly to skip the CLI call entirely.
 
+<a id="identity-bound-false-despite-resolved-source"></a>
 ### `identity.bound: false` despite resolved `source`
 
 Startup log reads `Identity: tobiu via gh-cli — unbound (no matching AgentIdentity node)`, and `healthcheck.identity.bound` is `false`.
@@ -204,6 +221,7 @@ Startup log reads `Identity: tobiu via gh-cli — unbound (no matching AgentIden
 - For a new per-model account, add the identity to the `IDENTITIES` array in `ai/graph/identityRoots.mjs` (the shared source consumed by both boot-time self-seed and the CLI) before running.
 - Post-#10232, boot-time self-seed should provision missing root identities automatically. If `bound` stays false after a restart cycle with a populated graph, investigate whether `GraphService.initAsync` is reaching the self-seed block — check startup logs for errors.
 
+<a id="boot-time-identity-race-condition-cross-process-wal-lock-contention"></a>
 ### Boot-Time Identity Race Condition (Cross-Process WAL Lock Contention)
 
 If the `identity.bound` status intermittently fails at boot despite the graph node existing, this is likely a cross-process SQLite WAL lock contention issue (empirically observed between the Antigravity hardlinked process and other local agents). During concurrent boot, read operations like `GraphService.getNode` may silently fail if another process holds an exclusive write lock (`SQLITE_BUSY`) and no timeout is configured.
@@ -214,55 +232,60 @@ If the `identity.bound` status intermittently fails at boot despite the graph no
 
 Retry loops targeting this specific race are correctly rejected — the underlying causes are addressable at the substrate (timeout pragma + await unwrap). Note: retry patterns with cache invalidation (`vicinityLoadedNodes.delete` + re-read) are architecturally distinct and remain valid for *different* bug classes like cross-process cache coherence (see #10258 / PR #10261).
 
+<a id="startup-log-fallback-pre-10176-environments-or-logging-only-workflows"></a>
 ### Startup-log fallback (pre-#10176 environments or logging-only workflows)
 
 The `[neo-memory-core MCP] Identity: <userId> via <source> — bound to <nodeId>` log line is still emitted at boot by `logIdentityStatus` and remains usable as a fallback diagnostic. The healthcheck block supersedes it for live diagnostics because a single tool call returns structured JSON the agent can branch on; log-grep requires filesystem access to the MCP stdout capture.
 
+<a id="identity-override-spoof-rejected-error-on-a-tool-call"></a>
 ### `Identity-override spoof rejected` error on a tool call
 
 The `AuthMiddleware` refused a tool-call argument. Check that the client is not attempting to supply `userId`, `agent.authorLogin`, `from`, or any other field listed above. If the tool legitimately needs to pass an identity-adjacent value, rename the field at the schema layer.
 
+<a id="sse-transport-returns-401-despite-a-valid-looking-bearer-token"></a>
 ### SSE transport returns 401 despite a valid-looking Bearer token
 
 - Check the `aud` (audience) claim of the token — must match the Memory Core's public URL.
 - Check that the OIDC introspection endpoint is reachable from the Memory Core process.
 - Check that the `AuthService` was able to fetch the OIDC discovery document at startup (look for `[AuthService] OIDC Discovery successful for issuer: <url>` in the startup log).
 
+<a id="service-relationships"></a>
 ## Service Relationships
 
 ```mermaid
 flowchart TD
     subgraph MCP ["MCP Tool Call Dispatch"]
         direction TD
-        
+
         SSE["SSE Transport\nTransportService"]
         STDIO["Stdio Transport\nServer.mjs"]
-        
+
         AuthSvc["AuthService\n(OIDC introspect)"]
         StdioRes["StdioIdentityResolver\n(env-var + gh-CLI)"]
-        
+
         SSE --> AuthSvc
         STDIO --> StdioRes
-        
+
         Bind["bindAgentIdent\n(graph lookup)"]
-        
+
         AuthSvc --> Bind
         StdioRes --> Bind
-        
+
         ReqCtx["RequestContextService\n.run(identity, dispatch)"]
-        
+
         Bind --> ReqCtx
-        
+
         AuthMid["AuthMiddleware\n.validateNoSpoof()"]
-        
+
         ReqCtx --> AuthMid
-        
+
         CallTool["callTool()\n(service dispatch)"]
-        
+
         AuthMid --> CallTool
     end
 ```
 
+<a id="cross-tenant-permissions"></a>
 ## Cross-Tenant Permissions
 
 Beyond the baseline strict-isolate policy, cross-tenant access is granted via explicit **capability edges** in the Native Edge Graph. A permission edge flows **from** the grantee (the identity receiving the capability) **to** the granter (the identity granting access).
@@ -271,6 +294,7 @@ For example, if Bob wants to allow Alice to read his inbox:
 - Bob calls the `grant_permission` tool with `to: AGENT:alice` and `scope: CAN_READ_INBOX_OF`.
 - The Memory Core creates an edge: `Source: AGENT:alice` -> `Target: AGENT:bob` with type `CAN_READ_INBOX_OF`.
 
+<a id="valid-scopes"></a>
 ### Valid Scopes
 
 The system currently supports the following scopes:
@@ -280,22 +304,26 @@ The system currently supports the following scopes:
 - `CAN_READ_MEMORIES_OF`: (Reserved for future use) Allows reading raw memories.
 - `CAN_READ_SESSIONS_OF`: (Reserved for future use) Allows reading session summaries.
 
+<a id="mailbox-a2a-integration"></a>
 ## Mailbox A2A Integration
 
 The Mailbox A2A service natively integrates with the `PermissionService` to enforce the strict-isolate policy:
 
+<a id="sending-messages-addmessage"></a>
 ### Sending Messages (`addMessage`)
 - To send a direct message, the sender MUST have the `CAN_REPLY_TO` permission for the target recipient.
 - **Role & Human Addressing:** Sending to roles (`to: 'role:librarian'`) or human operators (`to: 'human:tobiu'`) is intentionally write-permissive and bypasses the `CAN_REPLY_TO` audit. Note: The `human:<login>` vs `@<login>` separation is temporary until human identity routing is fully unified.
 - **Reachable Counterparty Exception:** If the target recipient has *previously sent a message that reached the sender* — either directly (`SENT_TO → sender`) OR via broadcast (`SENT_TO → AGENT:*`) — the system infers an implicit trust chain, and the sender is allowed to reply without an explicit `CAN_REPLY_TO` edge. Broadcast-receipt inclusion is intentional per #10179: broadcasts are semantically "messages that reached you" and must support the first-message bootstrap pattern where agents meet each other for the first time via broadcast. Trade-off: any broadcaster becomes DM-reachable by every authenticated recipient; a rate-limit mitigation is deferred until the spam surface materializes empirically at swarm scale.
 - Broadcast messages (`to: 'AGENT:*'`) are always permitted.
 
+<a id="reading-messages-listmessages-getmessage"></a>
 ### Reading Messages (`listMessages` & `getMessage`)
 - Agents can inherently read their own inbox and broadcast messages.
 - To read another agent's inbox (e.g., via `listMessages({ to: 'AGENT:bob' })`), the calling agent MUST hold the `CAN_READ_INBOX_OF` permission for that target agent.
 - **Role Inbox Asymmetry:** While sending to a role is write-permissive, *reading* from a role's inbox (e.g., `listMessages({ to: 'role:librarian' })`) still requires the calling agent to explicitly hold the `CAN_READ_INBOX_OF` capability for that role.
 - Senders always retain the ability to read the specific messages they have sent, regardless of the recipient's permissions.
 
+<a id="reply-policy-deployment-modes-10252"></a>
 ### Reply Policy Deployment Modes (#10252)
 
 The `CAN_REPLY_TO` enforcement on `addMessage` is a **deployment-selected default** via `aiConfig.mailbox.defaultReplyPolicy`. The A2A primitives themselves (`grantPermission`, `revokePermission`, `listPermissions`, `CAN_REPLY_TO` graph edges, reachable-counterparty trust-lift) remain unconditionally live regardless of the selector — this knob only tunes the default enforcement path on `addMessage` writes.
@@ -315,6 +343,7 @@ The `CAN_REPLY_TO` enforcement on `addMessage` is a **deployment-selected defaul
 - `grantPermission` / `revokePermission` / `listPermissions` tools remain callable in both modes. Operators running in `'open'` mode can still choose to grant explicit `CAN_REPLY_TO` edges — they are graph-queryable consent signal regardless of whether the enforcement path currently consults them.
 - Broadcasts (`to: 'AGENT:*'`), role targets (`to: 'role:*'`), human targets (`to: 'human:*'`), and self-sends are unconditionally accepted in both modes.
 
+<a id="block-precedence-blocked-by"></a>
 ### Block Precedence (`BLOCKED_BY`)
 
 The `BLOCKED_BY` permission scope acts as a negative-intent override in **both** deployment modes. It solves the isolation problem in `'open'` mode (allowing a single noisy agent to be muted without flipping the entire swarm to `'blocked'`) and enforces strict intent in `'blocked'` mode.
@@ -328,12 +357,14 @@ The `BLOCKED_BY` permission scope acts as a negative-intent override in **both**
 
 **Multi-user / multi-tenant deployment guidance:** set `defaultReplyPolicy: 'blocked'` in the deployment's `config.mjs` as part of installation. Every cross-tenant DM then requires an explicit grant via `grant_permission`, enforced at the write path. Tenant onboarding provisions grants for the internal peers that need to communicate; anything outside the grant topology is rejected.
 
+<a id="identity-normalization-migration-10259"></a>
 ## Identity Normalization Migration (#10259)
 
 If your SQLite graph predates the `#10144` canonical `AgentIdentity` convention, it may contain stale alias nodes (`@opus`, `@gemini`) with null metadata alongside the canonical nodes (`@neo-opus-4-7`, `@neo-gemini-3-1-pro`). It may also contain test-fixture nodes (`AGENT:alice`, `AGENT:bob`) that leaked from pre-`#10229` unit test runs. Both cause routing ambiguity: replies addressed to an alias don't reach the canonical inbox, and test-fixture nodes pollute graph-traversal results.
 
 The `ai/scripts/normalizeGraphIdentities.mjs` script consolidates the graph in a single idempotent operation.
 
+<a id="running-the-migration"></a>
 ### Running the migration
 
 **1. Dry-run first (default):**
@@ -354,6 +385,7 @@ Wraps all writes in a single SQLite transaction. If any step fails, the transact
 
 **3. Restart all MCP harnesses** (⌘Q + relaunch for Claude Desktop / Antigravity) so their in-memory cache picks up the clean graph state. Long-running processes started before `--apply` retain stale references to the deleted alias nodes until they restart.
 
+<a id="verifying-outcome"></a>
 ### Verifying outcome
 
 After `--apply` + harness restart, the SQLite inventory should show exactly 4 `AgentIdentity` nodes plus 1 `BroadcastSentinel`:
@@ -373,16 +405,19 @@ AGENT:*             | BroadcastSentinel
 
 No `@opus`, `@gemini`, `AGENT:alice`, or `AGENT:bob` should appear.
 
+<a id="idempotent-re-runs"></a>
 ### Idempotent re-runs
 
 The script is safe to re-run after `--apply`. If an alias has already been purged, the script logs `[NO-OP] ... already purged (idempotent)` and skips it. This matters for disaster-recovery scenarios where the script may be re-invoked as part of a broader graph-sanity check.
 
+<a id="what-the-migration-does-not-do"></a>
 ### What the migration does NOT do
 
 - **ChromaDB metadata** referencing the old aliases remains as-is. Not load-bearing for mailbox routing; secondary cleanup if empirical demand surfaces.
 - **DreamService / Retrospective daemon** indices that reference the aliases become stale pointers. Accept as low-frequency read-path trade-off.
 - **Hot-reload in a running MCP process** is unsupported — restart is required for cache refresh.
 
+<a id="accidental-prefix-normalization"></a>
 ### Accidental prefix normalization
 
 Independent of the migration: `MailboxService.normalizeMailboxTarget` (#10259) handles the two single-typo prefix surfaces symmetrically:
@@ -394,6 +429,7 @@ The missing-`@` branch is scoped to identifiers that carry NO prefix marker (no 
 
 Without these normalizations, `GraphService.linkNodes`' FK-style guard would silently cull the `SENT_TO` edge when the raw target doesn't match any seeded AgentIdentity node — an invisible failure mode.
 
+<a id="see-also"></a>
 ## See Also
 
 - `ai/mcp/server/shared/services/AuthService.mjs` — OIDC discovery and token introspection
@@ -406,6 +442,7 @@ Without these normalizations, `GraphService.linkNodes`' FK-style guard would sil
 - `learn/agentos/tooling/MemoryCoreMcpApi.md` — Memory Core tool surface
 - `learn/agentos/tooling/MultiTenantMigrationGuide.md` — #10017 lazy-tag-on-read migration design; `memorySharing` flag semantics; `healthcheck.migration.untaggedCount` operator guidance
 
+<a id="related-tickets"></a>
 ## Related Tickets
 
 - #10000 — Hardened Identity Ingestion (SSE OIDC path + RequestContextService)

@@ -2,6 +2,7 @@
 
 This audit satisfies [#10824](https://github.com/neomjs/neo/issues/10824), the Phase 1 AC1 feed ticket for [#10822](https://github.com/neomjs/neo/issues/10822).
 
+<a id="scope"></a>
 ## Scope
 
 The scan covers environment reads under `ai/mcp/server/**` on `dev` after PR #10821 and before any #10824 implementation changes.
@@ -26,6 +27,7 @@ Target-tier shorthand:
 | Delete | Legacy alias or topology flag scheduled for hard removal by #10822 follow-ups. |
 | Defer | Needs #10825 or Phase 1.5 design before a final keep/delete decision. |
 
+<a id="audit-table"></a>
 ## Audit Table
 
 | env var | current readers | target tier | deletion/keep rationale |
@@ -93,6 +95,7 @@ Target-tier shorthand:
 | `NEO_TRANSPORT` | `memory-core/config.template.mjs:95`; `knowledge-base/config.template.mjs:40` | Tier 3 | Runtime binding for stdio vs SSE server mode. |
 | `USER` | `knowledge-base/Server.mjs:189,191`; `knowledge-base/services/KBRecorderService.mjs:202`; `knowledge-base/services/toolService.mjs:42` | Tier 3 | Host identity fallback. Keep as fallback only while request-bound identity migration remains incomplete. |
 
+<a id="count-summary"></a>
 ## Count Summary
 
 | Target bucket | Count | Notes |
@@ -104,6 +107,7 @@ Target-tier shorthand:
 | Removed in v13 | 1 | NEO_CHROMA_UNIFIED retired per #11011. |
 | Defer to #10825 or Phase 1.5 | 3 | Diagnostic-only Chroma hint vars and generic `HOST` fallback. |
 
+<a id="follow-up-notes"></a>
 ## Follow-Up Notes
 
 - #10823 should consume the delete rows for `SSE_PORT`, `NEO_CHROMA_EMBEDDING_PROVIDER`, `NEO_KB_CHROMA_HOST`, and `NEO_KB_CHROMA_PORT` only after Phase 1.5 config activation satisfies #10822 AC14.

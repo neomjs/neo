@@ -8,6 +8,7 @@ The protocol is operational discipline — preflight checklists, gate-state sema
 
 ---
 
+<a id="when-to-declare-an-incident"></a>
 ## When to Declare an Incident
 
 Declare a wake-substrate incident when any of these symptoms occur:
@@ -22,6 +23,7 @@ Once declared, the protocol's freeze rule applies until reactivation evidence is
 
 ---
 
+<a id="the-freeze-rule"></a>
 ## The Freeze Rule
 
 **While an incident is active, no individual local fix authorizes wake-substrate reactivation.** Heartbeat stays off, the wake safety gate stays `tripped` (or `disabled`), bridge stays stopped, and `WAKE_GATE_OVERRIDE=1` is NOT set unless the operator explicitly authorizes a controlled validation step.
@@ -41,10 +43,12 @@ Reactivation requires green at the loop level, not at any single layer.
 
 ---
 
+<a id="restart-preflight-checklist"></a>
 ## Restart Preflight Checklist
 
 Before any bridge daemon, Memory Core MCP, or harness app restart during an active incident, the operator (or their delegated agent) MUST execute and record this inventory:
 
+<a id="process-inventory"></a>
 ### Process inventory
 
 ```bash
@@ -61,6 +65,7 @@ ps aux | grep -E "resumeHarness" | grep -v grep
 
 Record every PID found, its start time, and the working directory. Multiple `swarm-heartbeat` instances per identity are a hazard: duplicated trios amplify orphan-spawn under any cross-layer regression by multiplying scheduler cycles.
 
+<a id="wake-safety-gate-state"></a>
 ### Wake safety gate state
 
 ```bash
@@ -69,6 +74,7 @@ node ai/scripts/wakeSafetyGate.mjs show
 
 Record the state, reason, `trippedAt`, and `trippedBy`. The gate state is the canonical authority on whether the substrate is considered safe; anything other than `enabled` means scheduler/recovery paths fail-closed.
 
+<a id="subscription-inventory"></a>
 ### Subscription inventory
 
 ```bash
@@ -79,6 +85,7 @@ sqlite3 .neo-ai-data/sqlite/memory-core-graph.sqlite \
 
 Active subscriptions for `@neo-opus-4-7`, `@neo-gemini-3-1-pro`, and `@neo-gpt` mean the bridge will deliver wake events to those identities the moment it starts. If the substrate is unsafe, those subscriptions must either be temporarily disabled OR the bridge must be started in a controlled validation mode that ignores them.
 
+<a id="bridge-backlog-fence"></a>
 ### Bridge backlog fence
 
 This is the load-bearing preflight that distinguishes "bridge restart" from "drain every wake-eligible event since `lastSyncId`."
@@ -107,6 +114,7 @@ If the pending count is non-zero, the operator MUST choose ONE of these paths an
 
 ---
 
+<a id="reactivation-evidence-requirements"></a>
 ## Reactivation Evidence Requirements
 
 The freeze rule lifts only when ALL of the following hold:
@@ -124,6 +132,7 @@ A passing unit test alone does NOT satisfy reactivation. The substrate's failure
 
 ---
 
+<a id="coordination-mode-during-an-incident"></a>
 ## Coordination Mode During an Incident
 
 While wake delivery is disabled, the swarm coordinates exclusively via the durable mailbox: `add_message` writes the message into SQLite, `list_messages` polls the inbox. Wake events do not arrive; agents check their mailbox at session start (per `AGENTS.md` §21 mailbox-check Pre-Flight) and at any interruption.
@@ -134,6 +143,7 @@ The mailbox path is independent from wake delivery — the `add_message` SQLite 
 
 ---
 
+<a id="ownership-split"></a>
 ## Ownership Split
 
 During an active incident, ownership splits across two complementary roles:
@@ -145,28 +155,36 @@ The reactivation-gate owner is not a permanent role. It is assigned per-incident
 
 ---
 
+<a id="post-incident-retrospective-template"></a>
 ## Post-Incident Retrospective Template
 
 After reactivation, the incident closes with a retrospective recorded as a comment on the incident's parent epic (initial canonical example: [#10647](https://github.com/neomjs/neo/issues/10647)). Use this template:
 
 ```markdown
+<a id="wake-substrate-incident-retrospective-date-short-title"></a>
 ## Wake Substrate Incident Retrospective — <date> / <short title>
 
+<a id="symptom"></a>
 ### Symptom
 <what was observed in the operator's harnesses + logs>
 
+<a id="failed-layer"></a>
 ### Failed layer
 <which of the eight wake-substrate layers broke; cite the specific component>
 
+<a id="proof"></a>
 ### Proof
 <empirical anchor — log excerpts, PID list, GraphLog row counts, subscription state>
 
+<a id="fix-tickets"></a>
 ### Fix tickets
 <list of #N tickets that closed the regression class>
 
+<a id="validation-evidence"></a>
 ### Validation evidence
 <which #10649 matrix rows ran green; which #10648 gate state transitions occurred; bridge-backlog-fence path chosen>
 
+<a id="recurrence-guard"></a>
 ### Recurrence guard
 <the test, drift-guard, or protocol change that institutionalizes the lesson — without this, the retrospective is a postmortem-without-substrate, not a guard>
 ```
@@ -177,12 +195,14 @@ Canonical retrospectives for past incidents accumulate as comments on the parent
 
 ---
 
+<a id="related-guides"></a>
 ## Related Guides
 
 - [Strategic Workflows](./StrategicWorkflows.md) — General agent operational protocols
 - [Memory Core](./MemoryCore.md) — Durable mailbox storage substrate (`add_message` / `list_messages`)
 - [Swarm Intelligence & Sub-Agents](./SwarmIntelligence.md) — Cross-agent task delegation patterns
 
+<a id="related-tickets"></a>
 ## Related Tickets
 
 - [#10647](https://github.com/neomjs/neo/issues/10647) — Wake Incident Safety Tree (parent epic)

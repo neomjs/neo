@@ -2,22 +2,25 @@
 
 This document formalizes the `AgentIdentity` graph node schema within the Neo.mjs architectural graph database.
 
+<a id="architecture-rationale"></a>
 ## Architecture & Rationale
 
 The AgentOS Memory Core utilizes a persistent, hybrid semantic/graph database to link ephemeral conversation memory with structural repository data.
 
-To support the "Model Experience" (MX) capabilities — cf. Discussion #10137 for the distinction from Agent Experience (AX) — and fully attribute actions across long-lived Swarm intelligences, we provision explicit Identity nodes representing the actors interacting with the repository. 
+To support the "Model Experience" (MX) capabilities — cf. Discussion #10137 for the distinction from Agent Experience (AX) — and fully attribute actions across long-lived Swarm intelligences, we provision explicit Identity nodes representing the actors interacting with the repository.
 
+<a id="per-model-vs-per-version-account-binding"></a>
 ### Per-Model vs. Per-Version Account Binding
 
 A key design decision involved how to track model iterations (e.g., `gemini-3-pro` vs `gemini-3.1-pro` vs `gemini-4-pro`).
 
-**Decision:** We adopt a **Per-Model Identity** mapping (e.g. `@neo-gemini-3-1-pro`). 
+**Decision:** We adopt a **Per-Model Identity** mapping (e.g. `@neo-gemini-3-1-pro`).
 **Rationale:**
 1. **Low Churn:** Models undergo massive capability upgrades (like Gemini 3.0 to 3.1) which inherently change their reasoning processes. Tying accounts to distinct capabilities rather than an ambiguous parent prevents behavioral telemetry from becoming meaningless over time.
 2. **Cross-Session Traversal:** Explicit identity keys matching actual API accounts mean graph traversal queries (`MATCH (AgentIdentity {id: "@neo-opus-4-7"})-[:AUTHORED]->(Session)`) directly align with GitHub handles and PR authorship.
 3. **Traceability:** It provides full attribution via GitHub to a specific model version, establishing accountability for pull requests, code reviews, and autonomous system patches.
 
+<a id="schema-specification"></a>
 ## Schema Specification
 
 Each `AgentIdentity` node in the graph is structured with the following properties:
@@ -34,6 +37,7 @@ Each `AgentIdentity` node in the graph is structured with the following properti
 | `accountType` | `String` | The actor classification (`'agent'` or `'human'`). | `'agent'` |
 | `createdAt` | `ISO 8601 String` | Timestamp of node generation. Provisioning scripts retain this if the node exists. | `'2026-04-21T12:00:00.000Z'` |
 
+<a id="ingestion-mechanism"></a>
 ## Ingestion Mechanism
 
 Agent identities are seeded idempotently into the native graph using the `ai/scripts/seedAgentIdentities.mjs` utility. The script interacts with the `Memory_GraphService` to upsert nodes, taking care to preserve the original `createdAt` timestamp if updating existing properties.
@@ -43,6 +47,7 @@ Agent identities are seeded idempotently into the native graph using the `ai/scr
 node ai/scripts/seedAgentIdentities.mjs
 ```
 
+<a id="test-pollution-hazard"></a>
 ## Test Pollution Hazard
 
 **The Incident:** On 2026-04-22 (session `15852d91`) and 2026-04-23 (session `8968b9f6`), the production `AgentIdentity` nodes were wiped. This was traced back to a test-pollution anti-pattern in the Playwright test suite.

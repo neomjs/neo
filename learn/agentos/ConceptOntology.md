@@ -4,6 +4,7 @@ The Concept Ontology is a version-controlled graph that provides the **semantic 
 between source code and learning content. It is the foundation for the Dream Pipeline's
 deterministic documentation gap detection.
 
+<a id="the-problem-it-solves"></a>
 ## The Problem It Solves
 
 The GapInferenceEngine (Phase 4 of the Dream Pipeline) needs to detect which parts of
@@ -28,6 +29,7 @@ const hasGuide = explanations.length > 0;
 A concept has a `GUIDE_GAP` if it has zero `EXPLAINED_BY` edges. This is **deterministic**,
 **semantically correct**, and requires no embedding comparison.
 
+<a id="what-is-a-concept"></a>
 ## What Is a Concept?
 
 A concept is an **abstract architectural idea** that:
@@ -38,6 +40,7 @@ A concept is an **abstract architectural idea** that:
 4. Has a tier reflecting its importance to the platform's identity
 5. Is connected to other concepts via typed relationships
 
+<a id="concepts-vs-classes"></a>
 ### Concepts vs. Classes
 
 | | Class | Concept |
@@ -50,6 +53,7 @@ A concept is an **abstract architectural idea** that:
 **Every class doesn't deserve a guide, but every concept deserves at least one.** The
 concept layer is the intermediary that makes gap detection semantically meaningful.
 
+<a id="the-teaching-test"></a>
 ### The Teaching Test
 
 A concept is included in the ontology only if it passes **all three** criteria:
@@ -64,6 +68,7 @@ A concept is included in the ontology only if it passes **all three** criteria:
 | "Off-Main-Thread Execution" (mental model shift) | "Portal App About Us View" (app-specific) |
 | "Config Descriptors & Merge Strategies" (complex system) | `afterSetWidth` (lifecycle hook instance) |
 
+<a id="storage-format"></a>
 ## Storage Format
 
 The concept graph is stored as JSONL files at `.neo-ai-data/concepts/`:
@@ -74,6 +79,7 @@ The concept graph is stored as JSONL files at `.neo-ai-data/concepts/`:
 └── edges.jsonl     # One relationship edge per line
 ```
 
+<a id="why-jsonl-not-json-or-sqlite"></a>
 ### Why JSONL, Not JSON or SQLite
 
 - **Git-friendly**: Each line is an independent record. Adding a concept = adding a line.
@@ -83,6 +89,7 @@ The concept graph is stored as JSONL files at `.neo-ai-data/concepts/`:
 - **Decoupled**: Independent of the Native Edge Graph (SQLite), which is in flux due to the
   Multi-Tenant Memory Core migration.
 
+<a id="node-schema"></a>
 ## Node Schema
 
 Each line in `nodes.jsonl` is a JSON object:
@@ -117,6 +124,7 @@ Each line in `nodes.jsonl` is a JSON object:
 > Existing committed ontology nodes start with explicit `verifiedAt: null` so the first
 > source-grounding pass can be queried directly from the data file.
 
+<a id="auto-extracted-concept-provenance"></a>
 ## Auto-Extracted Concept Provenance
 
 Concepts in the Native Edge Graph arrive via two distinct paths, and consumers MUST be able to distinguish them when scoring, filtering, or ranking results.
@@ -126,6 +134,7 @@ Concepts in the Native Edge Graph arrive via two distinct paths, and consumers M
 | **Manual / curated** | Operator or agent calls `addMessage({taggedConcepts: [...]})` (or any other concept-tagging API) with explicit concept IDs | absent (concept node may pre-exist with no `auto_extracted` flag) | `1.0` |
 | **Auto-extracted** | `MailboxService.addMessage` runs `SemanticGraphExtractor.extractMessageConcepts(body)` as a fire-and-forget post-write; LLM-derived `CONCEPT:*` / `CLASS:*` IDs are upserted with `properties.auto_extracted: true` | `properties.auto_extracted = true` on the CONCEPT or CLASS node when the node is freshly created by this path | `0.8` on the `TAGGED_CONCEPT` edge |
 
+<a id="write-path"></a>
 ### Write Path
 
 1. `MailboxService.addMessage` persists the MESSAGE node + recipient edges.
@@ -135,6 +144,7 @@ Concepts in the Native Edge Graph arrive via two distinct paths, and consumers M
 
 The two paths emit the **same edge type** (`TAGGED_CONCEPT`); provenance lives in the edge weight + the node-side `auto_extracted` flag.
 
+<a id="read-time-consumer-pattern"></a>
 ### Read-Time Consumer Pattern
 
 Downstream consumers (DreamService topology synthesis, Librarian sub-agent traversal, future GraphRAG query layer) reading concept nodes from the graph SHOULD inspect both signals when ranking or filtering:
@@ -143,6 +153,7 @@ Downstream consumers (DreamService topology synthesis, Librarian sub-agent trave
 - **For filtering** — to exclude auto-extracted entirely, filter `node.properties.auto_extracted !== true`. To include only auto-extracted (e.g., to audit LLM output), filter `node.properties.auto_extracted === true`.
 - **For provenance audits** — `auto_extracted: true` is the durable signal that the concept entered the graph via LLM inference rather than human/agent curation. Useful for post-incident reasoning about graph noise.
 
+<a id="edge-weight-convention-rationale"></a>
 ### Edge-Weight Convention Rationale
 
 The 0.8 / 1.0 split is deliberate: a TAGGED_CONCEPT edge from a curated source is **20% stronger** than an auto-extracted edge with the same source MESSAGE node. This calibration matches the operator-observed truthfulness gap between LLM concept inference (high recall, moderate precision) and human/agent curation (lower recall, near-perfect precision).
@@ -152,6 +163,7 @@ Consumers SHOULD prefer reading the edge weight over the node-side flag when bot
 > [!IMPORTANT]
 > **Pre-existing concept nodes retain their original provenance.** When `extractMessageConcepts` returns a `CONCEPT:*` / `CLASS:*` ID that already exists in the graph (e.g., a high-tier concept seeded in `nodes.jsonl`), the upsert path does NOT overwrite `properties.auto_extracted`. The flag is set only when the node is freshly created by the auto-extraction path. This preserves curated concepts' status as authoritative even when they're subsequently mentioned by LLM-extracted MESSAGE bodies.
 
+<a id="edge-schema"></a>
 ## Edge Schema
 
 Each line in `edges.jsonl` is a JSON object:
@@ -163,6 +175,7 @@ Each line in `edges.jsonl` is a JSON object:
 | `type` | string | ✅ | Relationship type (see Edge Types below) |
 | `note` | string | ❌ | Architectural distinction note (used with `ANALOGOUS_TO`) |
 
+<a id="edge-types"></a>
 ### Edge Types
 
 | Type | Direction | Meaning |
@@ -174,6 +187,7 @@ Each line in `edges.jsonl` is a JSON object:
 | `REQUIRES` | concept → concept | Prerequisite (must understand A before B) |
 | `ANALOGOUS_TO` | concept → ext:id | Cross-framework analogue (not equivalence) |
 
+<a id="file-reference-format"></a>
 ### File Reference Format
 
 File targets use the `file:` prefix with a repository-relative path:
@@ -183,6 +197,7 @@ File targets use the `file:` prefix with a repository-relative path:
 {"source":"push-reactivity","target":"file:learn/guides/coreengine/ConfigSystem.md","type":"EXPLAINED_BY"}
 ```
 
+<a id="external-reference-format"></a>
 ### External Reference Format
 
 External (cross-framework) targets use the `ext:` prefix to prevent collision with
@@ -197,6 +212,7 @@ internal concept IDs:
 > field must explain how the Neo.mjs concept differs from its cross-framework analogue.
 > Never use this edge to suggest that concepts are interchangeable.
 
+<a id="tiering-system"></a>
 ## Tiering System
 
 | Tier | Weight | Description | Gap Severity |
@@ -206,6 +222,7 @@ internal concept IDs:
 | 2 | 0.5–0.8 | Major subsystem concepts | **HIGH** if undocumented |
 | 3 | 0.1–0.4 | Implementation-level concepts | **MEDIUM** if undocumented |
 
+<a id="the-concept-hierarchy-abbreviated"></a>
 ## The Concept Hierarchy (Abbreviated)
 
 ```mermaid
@@ -254,6 +271,7 @@ mindmap
 
 ✅ = has at least one `EXPLAINED_BY` edge. Missing ✅ = `GUIDE_GAP` candidate.
 
+<a id="contributing-a-concept"></a>
 ## Contributing a Concept
 
 1. Add a single line to `nodes.jsonl` following the node schema
@@ -262,6 +280,7 @@ mindmap
 4. Add `IMPLEMENTED_BY` edges for source files that implement it
 5. Verify the concept passes the Teaching Test
 
+<a id="jsonl-format-rules"></a>
 ### JSONL Format Rules
 
 - **One JSON object per line** — no multi-line JSON
@@ -269,6 +288,7 @@ mindmap
 - **Git-friendly** — each line is an independent record, minimizing merge conflicts
 - **Append-only preferred** — add new lines rather than reordering existing ones
 
+<a id="integration-architecture"></a>
 ## Integration Architecture
 
 ```mermaid
@@ -285,6 +305,7 @@ flowchart TB
     GIE --> DP["Golden Path / REM\n(DreamService)"]
 ```
 
+<a id="related"></a>
 ## Related
 
 - [The Dream Pipeline & Golden Path](../agentos/DreamPipeline.md)

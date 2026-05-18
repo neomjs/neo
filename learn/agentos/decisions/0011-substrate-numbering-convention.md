@@ -15,6 +15,7 @@
 
 ---
 
+<a id="context"></a>
 ## 1. Context
 
 `AGENTS.md` and `AGENTS_ATLAS.md` originally used positional section numbers as compact references. Successive byte-budget compaction passes, especially the ADR 0007 compaction taxonomy work, intentionally moved or retired sections. The result is a fragmented "swiss-cheese" numbering pattern.
@@ -27,10 +28,12 @@ ADR 0007 remains the historical authority for the compaction taxonomy. This ADR 
 
 ---
 
+<a id="decision"></a>
 ## 2. Decision
 
 Live instruction substrate MUST use stable semantic anchors as durable reference identity. Positional `§N` references are deprecated as live targets.
 
+<a id="semantic-anchor-identity"></a>
 ### 2.1 Semantic anchor identity
 
 A semantic anchor is an explicit, immutable, kebab-case identifier that names the concept being referenced rather than the section's current position.
@@ -50,6 +53,7 @@ References target the semantic anchor, not the section number:
 
 The visible heading MAY keep its current numeric prefix during incremental migration, but the number is no longer the identity primitive.
 
+<a id="anchor-immutability-and-aliases"></a>
 ### 2.2 Anchor immutability and aliases
 
 Once a semantic anchor is introduced, the anchor ID is immutable for live references. If a section is renamed, split, moved, or compacted, existing anchor IDs MUST be preserved as aliases unless the reference is explicitly retired.
@@ -64,6 +68,7 @@ Alias shape:
 
 Heading text may evolve for clarity. Anchor IDs do not silently change with heading text.
 
+<a id="active-vs-historical-references"></a>
 ### 2.3 Active vs. historical references
 
 Active/live instruction references migrate to semantic anchors. This includes references whose consumer is a current agent, skill, workflow, CI guard, PR review, or ticket-intake path.
@@ -75,6 +80,7 @@ Examples:
 - Live: "Use [Mailbox Check Protocol](../../AGENTS.md#mailbox-check-protocol)."
 - Historical: "ADR 0007 recorded the old `§21` disposition at the time of compaction."
 
+<a id="lint-and-migration-partitioning"></a>
 ### 2.4 Lint and migration partitioning
 
 This ADR defines policy only. Enforcement and migration are separate child tickets under Epic #11558:
@@ -88,28 +94,35 @@ The partitioning is part of the decision: semantic-anchor migration is global in
 
 ---
 
+<a id="rationale"></a>
 ## 3. Rationale
 
+<a id="why-not-contiguous-renumbering"></a>
 ### 3.1 Why not contiguous renumbering
 
 Contiguous renumbering fixes the cosmetic symptom once and recreates the same decay class on the next compaction. It also generates churn in references that did not semantically change.
 
+<a id="why-not-position-preservation"></a>
 ### 3.2 Why not position-preservation
 
 Position-preservation codifies the fragmented numbering pattern as permanent substrate. That preserves LLM parsing cost across every turn and every future session, which is worse than paying the one-time migration cost.
 
+<a id="why-not-mutate-adr-0007"></a>
 ### 3.3 Why not mutate ADR 0007
 
 ADR 0007 is the historical authority for the compaction taxonomy. Rewriting its baseline table would damage archaeology and hide the actual decision sequence. This ADR layers a successor convention on top of ADR 0007 instead.
 
+<a id="why-explicit-anchors-instead-of-generated-heading-anchors"></a>
 ### 3.4 Why explicit anchors instead of generated heading anchors
 
 Generated Markdown heading anchors are tied to heading text and renderer rules. Explicit IDs are renderer-stable, grep-friendly, and independent from future wording changes.
 
 ---
 
+<a id="consequences"></a>
 ## 4. Consequences
 
+<a id="positive"></a>
 ### Positive
 
 - Live references survive section movement, heading edits, and compaction.
@@ -117,6 +130,7 @@ Generated Markdown heading anchors are tied to heading text and renderer rules. 
 - Lint can mechanically prevent recurrence of new live `§N` targets.
 - Historical references remain preservable without pretending they are active routing anchors.
 
+<a id="negative"></a>
 ### Negative
 
 - Initial migration touches many files.
@@ -125,26 +139,32 @@ Generated Markdown heading anchors are tied to heading text and renderer rules. 
 
 ---
 
+<a id="anti-patterns"></a>
 ## 5. Anti-Patterns
 
+<a id="blind-global-search-and-replace"></a>
 ### 5.1 Blind global search-and-replace
 
 Replacing every `§N` occurrence mechanically is wrong. Active references and historical references have different semantics. Run the active-vs-archive classification first.
 
+<a id="anchor-ids-derived-from-volatile-heading-prose"></a>
 ### 5.2 Anchor IDs derived from volatile heading prose
 
 Do not use raw generated heading anchors as the durable identity unless the heading text itself is immutable. Semantic IDs should be short, explicit, and preserved through heading rewrites.
 
+<a id="retiring-aliases-during-cleanup"></a>
 ### 5.3 Retiring aliases during cleanup
 
 Removing an old anchor alias because it looks redundant breaks historical PRs, tickets, comments, and handoffs. Alias removal requires an explicit retirement rationale.
 
+<a id="bundling-policy-lint-and-migration-in-one-pr"></a>
 ### 5.4 Bundling policy, lint, and migration in one PR
 
 This ADR is the policy authority. Lint and migration are downstream children. Bundling them would make review noisy and obscure whether the policy itself is accepted.
 
 ---
 
+<a id="v-b-a-pre-flight-for-future-authors"></a>
 ## 6. V-B-A Pre-Flight for Future Authors
 
 Before modifying live substrate references under Epic #11558 or successors:
@@ -158,6 +178,7 @@ Before modifying live substrate references under Epic #11558 or successors:
 
 ---
 
+<a id="related"></a>
 ## 7. Related
 
 - Discussion #11557 — Option C global semantic-anchor migration
@@ -174,6 +195,7 @@ Before modifying live substrate references under Epic #11558 or successors:
 
 ---
 
+<a id="status-lifecycle"></a>
 ## 8. Status / Lifecycle
 
 - **Proposed** while this ADR is under PR review.

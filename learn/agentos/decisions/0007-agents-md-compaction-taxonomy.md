@@ -68,14 +68,14 @@ This vocabulary preserves the substrate-truth from Discussion #11452 without ado
 | §0 Critical Gates | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Irreversible failure modes. | - |
 | §0 Invariant 7 | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | No tracked file edits without a self-assigned ticket. | - |
 | §0 Invariant 8 | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Agent-authored PRs target `dev`; `main` is release-only. | - |
-| §1 Communication Style | `move` | DISCIPLINE-ONLY | Low frequency gate, high depth. | - |
-| §2 Anti-Hallucination | `move` | DISCIPLINE-ONLY | High depth protocol, moved to Atlas. | - |
-| §3 Pre-Commit Hard Gates | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Severe failure mode (ticket-ID/context). | - |
-| §4 Memory Core Protocol | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Permanent data loss if missed. | - |
+| [§1](#context) Communication Style | `move` | DISCIPLINE-ONLY | Low frequency gate, high depth. | - |
+| [§2](#decision) Anti-Hallucination | `move` | DISCIPLINE-ONLY | High depth protocol, moved to Atlas. | - |
+| [§3](#implementation-details) Pre-Commit Hard Gates | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Severe failure mode (ticket-ID/context). | - |
+| [§4](#consequences) Memory Core Protocol | `keep` | MACHINE-ENFORCEABLE-CANDIDATE | Permanent data loss if missed. | - |
 | §4.3 Un-savable Turns | `move` | DISCIPLINE-ONLY | Edge case recovery protocol. | - |
-| §5 Strategic Co-Founder | `move` | DISCIPLINE-ONLY | Low frequency pivot logic. | - |
-| §6 Request Triage | `move` | DISCIPLINE-ONLY | High depth intake logic. | - |
-| §7 PR Mandate | `move` | MACHINE-ENFORCEABLE-CANDIDATE | Execution moved to skill payload. | - |
+| [§5](#anti-patterns) Strategic Co-Founder | `move` | DISCIPLINE-ONLY | Low frequency pivot logic. | - |
+| [§6](#related) Request Triage | `move` | DISCIPLINE-ONLY | High depth intake logic. | - |
+| [§7](#status-lifecycle) PR Mandate | `move` | MACHINE-ENFORCEABLE-CANDIDATE | Execution moved to skill payload. | - |
 | §8 Resumption Protocol | `move` | DISCIPLINE-ONLY | Interruption recovery. | - |
 | §9 Reading Files | `move` | DISCIPLINE-ONLY | Efficiency guideline. | - |
 | §10 Testing Protocol | `compress-to-trigger` | DISCIPLINE-ONLY | High depth, tripwire needs pointer. | - |
@@ -110,11 +110,13 @@ This vocabulary preserves the substrate-truth from Discussion #11452 without ado
 <a id="consequences"></a>
 ## 4. Consequences
 
+<a id="positive"></a>
 ### Positive
 - `AGENTS.md` sheds ~3153 bytes immediately (from 27659 to 24506 bytes), granting ~70 bytes of headroom under the hard 24KB limit.
 - Establishes a permanent, immutable framework for managing future substrate additions (Substrate Accretion Defense).
 - Eliminates multi-source authority drift regarding why rules were moved or kept.
 
+<a id="negative"></a>
 ### Negative
 - Agents authoring new rules must follow an additional pointer to read the taxonomy instead of having it directly in their immediate context.
 

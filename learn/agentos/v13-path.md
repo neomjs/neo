@@ -6,6 +6,7 @@
 
 ---
 
+<a id="vision"></a>
 ## 1. Vision
 
 v13 ships **tiny slim MCP servers** backed by a **mature SDK** and a **clean daemon architecture**. Three load-bearing properties define the end state:
@@ -16,10 +17,11 @@ v13 ships **tiny slim MCP servers** backed by a **mature SDK** and a **clean dae
 
 3. **A single orchestrator daemon process owns scheduled work — including summarization, sandman/dream cycle, and golden-path synthesis — under a single-source-of-truth pattern.** Per-host singleton enforcement via PID file. Bridge-daemon stays specialized for its wake-event-delivery domain; the orchestrator daemon is its sibling, not its extension. The orchestrator's existence eliminates the `NEO_MC_PRIMARY` in-process single-writer gate (which exists today only because in-process summarization in LOCAL multi-harness deployments has no other coordination primitive).
 
-[#9999](https://github.com/neomjs/neo/issues/9999) ("Cloud-Native Knowledge & Multi-Tenant Memory Core") remains the v13 main epic. Some of its sub-issues predate the 2026-05-07 Factory-pattern landing and the 2026-05-08 architectural correction; they need targeted re-scoping rather than wholesale revision (see §6).
+[#9999](https://github.com/neomjs/neo/issues/9999) ("Cloud-Native Knowledge & Multi-Tenant Memory Core") remains the v13 main epic. Some of its sub-issues predate the 2026-05-07 Factory-pattern landing and the 2026-05-08 architectural correction; they need targeted re-scoping rather than wholesale revision (see [§6](#9999-sub-issue-audit)).
 
 ---
 
+<a id="current-state-empirically-verified-2026-05-08"></a>
 ## 2. Current State — Empirically Verified 2026-05-08
 
 | Dimension | Today | Target (v13) |
@@ -39,8 +41,10 @@ Verified by grep + file inspection of `ai/mcp/server/*/Server.mjs`, `ai/daemons/
 
 ---
 
+<a id="critical-architectural-decisions"></a>
 ## 3. Critical Architectural Decisions
 
+<a id="d1-factory-pattern-evaluation-challenge"></a>
 ### D1: Factory Pattern Evaluation (challenge)
 
 The Factory pattern landed 2026-05-07 in `ai/mcp/server/shared/services/RequestContextService.mjs` — a Neo singleton wrapping `AsyncLocalStorage` to propagate per-request identity (`userId`, `username`, `agentIdentityNodeId`) into service-layer calls. SSE transport and stdio transport both wrap dispatch in `RequestContextService.run({...}, async () => { ... })`.
@@ -54,6 +58,7 @@ The Factory pattern landed 2026-05-07 in `ai/mcp/server/shared/services/RequestC
 
 **Recommendation:** keep Factory pattern; surface it in the common base class (D2); audit AsyncLocalStorage edge cases as a single-PR sweep.
 
+<a id="d2-common-base-server-class"></a>
 ### D2: Common Base Server Class
 
 Eliminates the per-server `Server.mjs` boilerplate duplication. Provides:
@@ -75,6 +80,7 @@ Each per-server `Server.mjs` shrinks to: extend the base, register the server-sp
 
 **File:** `ai/mcp/server/shared/Server.mjs` (or similar — TBD). Extends `Neo.core.Base` per Agent OS conventions.
 
+<a id="d3-orchestrator-daemon-architecture"></a>
 ### D3: Orchestrator Daemon Architecture
 
 A new per-host singleton Node process responsible for ALL scheduled work that today either runs in-process (problematic under LOCAL multi-harness fleets) or via operator-triggered scripts (lacks automation).
@@ -108,13 +114,14 @@ ai/daemons/services/
 
 **Failure isolation:** each scheduled task wraps execution in try/catch with `HealthService.recordTaskOutcome(...)`. A summarization-sweep failure does NOT kill the dream-cycle task. The Orchestrator's lifecycle is independent of any individual task.
 
+<a id="d3-1-cadence-design"></a>
 #### D3.1: Cadence Design
 
 **Substrate evolution note:** This subsection's framing originally targeted a tradeoff-matrix design (time-windowed-scheduling vs. cooperative-coordination-flag vs. adaptive-frequency-throttling) per [#11019](https://github.com/neomjs/neo/issues/11019) AC2. [Discussion #11025](https://github.com/orgs/neomjs/discussions/11025) OQ8 superseded that framing by converging on a cleaner architectural primitive — pure-trigger-builder CadenceEngine with per-task fairness — making the original tradeoff matrix obsolete. Design-ticket reference is therefore Discussion #11025 OQ8 itself, not a separate design ticket.
 
 Per [Discussion #11025](https://github.com/orgs/neomjs/discussions/11025) graduation OQ8 + operator's wake-up call 2026-05-09: the orchestrator's cadence model must be **block-aware**. Graph-processing tasks (Gemma4-31b dream cycle) take ~10 minutes and block `add_memory` while running. The orchestrator cannot run graph-heavy tasks "round the clock" — it must schedule with awareness of agent-active windows.
 
-**CadenceEngine boundary** (M3.5 Sub-3 extraction per §4 M3.5 below): pure trigger-builder via `getIntervalTrigger({taskName, now, lastRunAt, intervalMs, reasonPrefix})`; per-task coordinators decide "what work is due"; Orchestrator wires; ProcessSupervisor executes. NOT execute-runner. Mirrors `SummarizationCoordinatorService.getDueTask({...})` precedent at `ai/daemons/services/SummarizationCoordinatorService.mjs`.
+**CadenceEngine boundary** (M3.5 Sub-3 extraction per [§4](#sequenced-milestones) M3.5 below): pure trigger-builder via `getIntervalTrigger({taskName, now, lastRunAt, intervalMs, reasonPrefix})`; per-task coordinators decide "what work is due"; Orchestrator wires; ProcessSupervisor executes. NOT execute-runner. Mirrors `SummarizationCoordinatorService.getDueTask({...})` precedent at `ai/daemons/services/SummarizationCoordinatorService.mjs`.
 
 **Per-task fairness model:**
 - Backup: daily-fixed (24h interval; preconditions all DreamMode/Sandman work)
@@ -124,6 +131,7 @@ Per [Discussion #11025](https://github.com/orgs/neomjs/discussions/11025) gradua
 
 **DreamService restoration thesis** (operator framing 2026-05-09): when daemon-driven mathematical-weighted-priorities replace manual cross-family-cognition for next-task selection (sandman_handoff produced by Sandman cycle), the cognitive-load offload is the load-bearing v13 enabler. M3.5 → M4 → DreamService restoration is the load-bearing sequence. The substrate-coordination cognition the swarm has been navigating manually post-PR-#10863-disable is exactly what the restored daemon offloads.
 
+<a id="d4-sdk-migration-boundary"></a>
 ### D4: SDK Migration Boundary
 
 `ai/services.mjs` is already the SDK boundary — imports services from each server's `services/` directory and exposes namespaced singletons (`Memory_SessionService`, `KB_QueryService`, etc.). Already consumed by:
@@ -135,6 +143,7 @@ Per [Discussion #11025](https://github.com/orgs/neomjs/discussions/11025) gradua
 
 **Migration unit:** one server at a time. Start with the smallest (`file-system` likely). Each migration is its own PR, gated on the common base class (D2).
 
+<a id="d5-neo-mc-primary-retirement-path"></a>
 ### D5: NEO_MC_PRIMARY Retirement Path
 
 `NEO_MC_PRIMARY` exists today because in-process summarization in LOCAL multi-harness fleets needs to elect a single canonical writer to prevent race conditions on the shared `.neo-ai-data/` substrate. It is the in-process workaround for the missing daemon.
@@ -142,16 +151,18 @@ Per [Discussion #11025](https://github.com/orgs/neomjs/discussions/11025) gradua
 **Retirement gate:** Orchestrator daemon (D3) lands and operator migrates to it as the default summarization driver. Once the Orchestrator's per-host singleton handles the race naturally, `NEO_MC_PRIMARY` has zero purpose.
 
 **Sequence:**
-1. Orchestrator lands (M3, see §4) — `NEO_MC_PRIMARY` becomes optional/diagnostic
+1. Orchestrator lands (M3, see [§4](#sequenced-milestones)) — `NEO_MC_PRIMARY` becomes optional/diagnostic
 2. Production operators migrate (M4-M5) — `NEO_MC_PRIMARY` defaults change, in-process gate becomes no-op when Orchestrator detected
-3. Strip the gate entirely (M5 close, see §4) — config field removed, doc removed, tests removed
+3. Strip the gate entirely (M5 close, see [§4](#sequenced-milestones)) — config field removed, doc removed, tests removed
 
 [#10956](https://github.com/neomjs/neo/issues/10956) is the cleanup ticket — needs re-scope from "remove now" to "strip after Orchestrator migration completes". The peer-discussion correction landed 2026-05-08; ticket update pending.
 
 ---
 
+<a id="sequenced-milestones"></a>
 ## 4. Sequenced Milestones
 
+<a id="m1-substrate-stabilization-current-week"></a>
 ### M1 — Substrate Stabilization (CURRENT WEEK)
 Status: in flight. Owner-split per operator directive 2026-05-08:
 - **Gemini**: unit-row in CI matrix ([#10939](https://github.com/neomjs/neo/issues/10939) — Phase 3); skip-guard iteration until ~95% green per yesterday-pattern (#10907/#10921/#10928 cohort)
@@ -160,11 +171,13 @@ Status: in flight. Owner-split per operator directive 2026-05-08:
 
 **Exit gate:** unit + integration matrix rows both passing; Bucket G epic ([#10924](https://github.com/neomjs/neo/issues/10924)) ready for closure.
 
+<a id="m2-common-base-server-class"></a>
 ### M2 — Common Base Server Class
 Build `ai/mcp/server/shared/Server.mjs` (D2). Migrate one MCP server (smallest first — likely `file-system`) to extend it as proof-of-pattern. Then migrate the other 4 in sequence (one PR each).
 
 **Exit gate:** all 5 MCP servers extend the common base; Factory pattern is uniformly applied across all 5; per-server `Server.mjs` files are <100 LOC.
 
+<a id="m3-orchestrator-daemon-skeleton-piece-c"></a>
 ### M3 — Orchestrator Daemon Skeleton + Piece C
 Build `ai/daemons/Orchestrator.mjs` + `ai/scripts/orchestrator-daemon.mjs` boot wrapper (D3). First task: `SummarizationCoordinatorService` running drift-detection sweep on configurable cadence. Strip the in-process `runPeriodicSummarizationSweep` from `SessionService` (which I added in PR [#10954](https://github.com/neomjs/neo/pull/10954) — wrong-substrate; reshape to Orchestrator).
 
@@ -174,6 +187,7 @@ Build `ai/daemons/Orchestrator.mjs` + `ai/scripts/orchestrator-daemon.mjs` boot 
 
 **Status (2026-05-09):** ✓ M3 Orchestrator class skeleton shipped via [PR #11016](https://github.com/neomjs/neo/pull/11016) (graduates [#11009](https://github.com/neomjs/neo/issues/11009) MVP correction of #11008). Proceeding to **M3.5** decomposition before M4 per Discussion #11025 graduation — see below.
 
+<a id="m3-5-orchestrator-decomposition"></a>
 ### M3.5 — Orchestrator Decomposition
 
 Per [Discussion #11025](https://github.com/orgs/neomjs/discussions/11025) 3-voice cross-family graduation: Orchestrator class (currently 682 LOC, mixing process supervision + state persistence + cadence math + per-task wiring) decomposes into thin coordinator (~150 LOC target) + 3 focused service extractions. Extraction order INVERTED from initial intuition per @neo-gpt's leakage-prevention reasoning ([Discussion #11025 comment](https://github.com/neomjs/neo/discussions/11025#discussioncomment-16863204)):
@@ -191,26 +205,31 @@ Extracted services land in `ai/daemons/services/` (Discussion #11025 OQ1 locatio
 
 **Exit gate:** `Orchestrator.mjs` ~150 LOC; all 4 sub-tickets close; Sub-4 PR proves no behavior regression via characterization-layer test preservation; M4 work proceeds against clean substrate.
 
+<a id="m4-migrate-decomposed-daemon-services-to-orchestrator"></a>
 ### M4 — Migrate Decomposed Daemon Services to Orchestrator
 [#10013](https://github.com/neomjs/neo/issues/10013) sub-epic + [#10028](https://github.com/neomjs/neo/issues/10028) — DreamService decomposition is partially done; remaining work re-shapes per-task coordinators to the Orchestrator-collaborator pattern (DreamCoordinatorService / SandmanCoordinatorService / BackupService / GoldenPathCoordinatorService / GraphMaintenanceCoordinatorService — each owning "what work is due" semantics; supervisor executes; orchestrator wires per D3.1 boundary). Same shape for SwarmHeartbeatService. **FS ingestor is transitive** (already in DreamService; coordinator-drives-cycle restores it naturally).
 
 **Exit gate:** `npm run ai:run-sandman` becomes optional manual override; Orchestrator schedules it natively. Sandman + Golden Path back automatically — single source of truth. **DreamService restoration thesis closed** — `sandman_handoff.md` produced by daemon-driven mathematical-weighted-priorities replaces manual cross-family next-task-selection cognition (per D3.1).
 
+<a id="m5-neo-mc-primary-retirement"></a>
 ### M5 — NEO_MC_PRIMARY Retirement
 Per D5. Strip in-process gates from `SessionService`, `HealthService`, `config.template.mjs`, docs, tests. [#10956](https://github.com/neomjs/neo/issues/10956) re-scoped accordingly.
 
 **Exit gate:** zero references to `NEO_MC_PRIMARY` / `aiConfig.isPrimary` outside historical issue archive.
 
+<a id="m6-sdk-migration-per-server-waves"></a>
 ### M6 — SDK Migration (per-server waves)
 Per D4. Move services out of `ai/mcp/server/<server>/services/` into flatter SDK shape. One server per PR.
 
 **Exit gate:** all 5 MCP servers ship as thin endpoint wrappers; service logic lives in SDK; per-server `Server.mjs` files are <50 LOC.
 
+<a id="m7-v13-release-cut"></a>
 ### M7 — v13 Release Cut
 All M1-M6 milestones closed. Final regression sweep, integration matrix green across all 5 servers, operator deployment cookbook updated for the new architecture, release notes drafted.
 
 ---
 
+<a id="tickets-to-file-update"></a>
 ## 5. Tickets to File / Update
 
 **File new:**
@@ -238,6 +257,7 @@ All M1-M6 milestones closed. Final regression sweep, integration matrix green ac
 
 ---
 
+<a id="9999-sub-issue-audit"></a>
 ## 6. #9999 Sub-Issue Audit
 
 (triage of #9999's open sub-issues against the v13 path; performed 2026-05-08)
@@ -258,6 +278,7 @@ All M1-M6 milestones closed. Final regression sweep, integration matrix green ac
 
 ---
 
+<a id="risks"></a>
 ## 7. Risks
 
 - **Multi-PR coordination across team.** Mitigation: this doc as the shared anchor; per-milestone tickets with clear ownership; A2A coordination protocol already in place.
@@ -268,6 +289,7 @@ All M1-M6 milestones closed. Final regression sweep, integration matrix green ac
 
 ---
 
+<a id="outcome-metrics-v13-release-readiness"></a>
 ## 8. Outcome Metrics (v13 release readiness)
 
 - LOC moved from MCP servers → SDK: target **>30%** of pre-migration service LOC
@@ -280,6 +302,7 @@ All M1-M6 milestones closed. Final regression sweep, integration matrix green ac
 
 ---
 
+<a id="provenance"></a>
 ## 9. Provenance
 
 This document landed via the chief-architect mandate from `@tobiu` 2026-05-08 in response to multiple architectural-hallucination errors over the prior session day (Factory pattern partial-rollout misread + NEO_MC_PRIMARY scoping over-correction). The corrections that produced this path:
@@ -292,6 +315,7 @@ Subject to revision per peer-cycle review and operator approval.
 
 — [@neo-opus-4-7](https://github.com/neo-opus-4-7) (Claude Opus 4.7, Claude Code), 2026-05-08
 
+<a id="update-2026-05-09-round-1-2-substrate-shipped"></a>
 ### Update 2026-05-09 — Round-1+2 substrate shipped
 
 This update absorbs substrate landed during the 2026-05-09 session into the architectural path:
@@ -311,6 +335,6 @@ This update absorbs substrate landed during the 2026-05-09 session into the arch
 - *"contributions over commits, a LOT more"* — codified as AGENTS.md §13.1; MX reward signal supersedes Auto Mode velocity-bias defaults across all 3 harnesses
 - *"Flat Peer-Team, NOT Orchestrator-Worker"* — codified as AGENTS.md §15.6; defends against 2026 industry-standard agent SDK orchestration patterns regression
 - *"asking-for-help-is-strength"* + *"pick your lane, encourage peers to choose"* — captured in `/lead-role` + `/peer-role` skill payloads; multi-threading-at-coordination-layer pattern
-- *"if DreamService was fully functional, gemma4-31b would parse the graph and give us sandman_handoff with mathematical weighted priorities — way less cognitive load"* — captured as §3 D3.1 DreamService restoration thesis; M3.5 → M4 → restored sandman_handoff.md is the load-bearing v13 sequence
+- *"if DreamService was fully functional, gemma4-31b would parse the graph and give us sandman_handoff with mathematical weighted priorities — way less cognitive load"* — captured as [§3](#critical-architectural-decisions) D3.1 DreamService restoration thesis; M3.5 → M4 → restored sandman_handoff.md is the load-bearing v13 sequence
 
 — [@neo-opus-4-7](https://github.com/neo-opus-4-7) (Claude Opus 4.7, Claude Code), 2026-05-09 update post-Round-2-merge

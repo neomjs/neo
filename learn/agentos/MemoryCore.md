@@ -2,6 +2,7 @@
 
 The **Memory Core Server** (`neo.mjs-memory-core`) is the AI agent's "Hippocampus" — its long-term memory center. It acts as a persistent state layer that allows agents to remember past interactions, learn from previous decisions, and maintain context across different development sessions.
 
+<a id="purpose"></a>
 ## Purpose
 
 Without memory, every session is a blank slate. An agent fixing a bug today has no recollection of the similar bug it fixed last week. The Memory Core solves this by persisting:
@@ -9,10 +10,12 @@ Without memory, every session is a blank slate. An agent fixing a bug today has 
 *   **Decisions:** The reasoning behind *why* a certain approach was chosen.
 *   **Summaries:** High-level abstractions of entire work sessions to enable fast retrieval of past experiences.
 
+<a id="architecture"></a>
 ## Architecture
 
 The server is built on a modular service architecture, extending `Neo.core.Base`. It uses **ChromaDB** as the vector database for semantic search and **Google Gemini** for text embeddings and summarization. The Native Edge Graph persists in SQLite via `ai/graph/storage/SQLite.mjs`, which sets `PRAGMA foreign_keys=ON` at connection time so the schema-declared `Edges` `ON DELETE CASCADE` fires on Node deletion (#10856).
 
+<a id="key-services"></a>
 ### Key Services
 
 *   **`MemoryService`**: Manages raw, granular memories. It handles the ingestion of new agent interactions and performs semantic searches across the raw interaction history.
@@ -21,6 +24,7 @@ The server is built on a modular service architecture, extending `Neo.core.Base`
 *   **`DatabaseLifecycleService`**: Manages the underlying ChromaDB process. It can start, stop, and monitor the database status, ensuring the persistence layer is available when needed.
 *   **`HealthService`**: A gatekeeper that ensures all dependencies (ChromaDB connectivity, Collections, API Keys) are healthy before allowing operations.
 
+<a id="the-save-then-respond-protocol"></a>
 ## The "Save-Then-Respond" Protocol
 
 The most critical operational rule for the Memory Core is the **Transactional Memory Protocol**.
@@ -34,6 +38,7 @@ To ensure a complete history, agents are required to follow a strict loop for ev
 
 **Why?** This ensures that the agent's *internal reasoning* (the "Thought") is saved, not just the final output. This is crucial for self-improvement, allowing the agent to analyze its own logic later.
 
+<a id="session-summarization-auto-discovery"></a>
 ## Session Summarization (Auto-Discovery)
 
 The Memory Core is **self-organizing**.
@@ -47,6 +52,7 @@ When the server starts, the `SessionService` automatically scans for previous se
 
 This means the agent starts every new session with an indexed "Recap" of its past work, ready to pick up where it left off.
 
+<a id="session-sunset-polling"></a>
 ### Session Sunset Polling
 
 To gracefully capture sessions from external harnesses without losing events to isolated per-instance SQLite queues, the Memory Core employs a **B2 Mailbox-Poll** strategy.
@@ -56,16 +62,19 @@ The `SessionService` spins up a periodic background poller (every 30s) that quer
 
 This substrate bridges the gap between instances: when any agent on any clone runs the session-sunset skill, the final self-DM is persisted in the shared graph. The Memory Core sees this unread message, triggers a summarization sweep to ingest the finalized session, and marks the message as read to prevent double-processing.
 
+<a id="tools"></a>
 ## Tools
 
 The server exposes a suite of tools via the Model Context Protocol (MCP).
 
+<a id="memory-operations"></a>
 ### Memory Operations
 
 *   **`add_memory`**: The core persistence tool. Saves the `{prompt, thought, response}` triplet.
 *   **`get_session_memories`**: Retrieves the full chronological history of a specific session. Useful for context recovery.
 *   **`query_raw_memories`**: Performs a semantic vector search across *all* raw memories. Use this to find specific details (e.g., "What was the error message in the grid component?").
 
+<a id="summary-operations"></a>
 ### Summary Operations
 
 *   **`query_summaries`**: Performs a semantic vector search across session summaries. Use this to find relevant *past sessions* (e.g., "Have I worked on the Grid component before?").
@@ -73,11 +82,13 @@ The server exposes a suite of tools via the Model Context Protocol (MCP).
 *   **`delete_all_summaries`**: A destructive tool to clear the summary index (useful if you want to re-summarize everything with a new model).
 *   **`summarize_sessions`**: Manually triggers the summarization process for specific or all pending sessions.
 
+<a id="session-operations"></a>
 ### Session Operations
 
 *   **`resume_session`**: Pure validation/query — returns structural metadata about whether a candidate session ID is safe for the agent to keep using on reconnect (set the `Mcp-Session-Id` header to that ID for subsequent calls). Does NOT mutate `RequestContextService` or any server-side session state. Returns either a success payload (`status: 'resumable'` plus `memoryCount`, `lastActivityAt`, `summarizationStatus`) or one of four structured errors: `INVALID_SESSION_ID`, `SESSION_NOT_FOUND`, `SESSION_FINALIZED` (already summarized — start fresh), `SESSION_BUSY` (concurrent summarization mid-flight — retry shortly). Use after recovering a candidate session ID from a prior `query_summaries` result or local context.
 *   **`set_session_id`**: Legacy / single-tenant fallback only. Overrides the process-global `_legacySessionId`. Rejected with `REQUEST_SCOPED_SESSION_ACTIVE` when invoked under a request-bound `Mcp-Session-Id` context to prevent multi-tenant state corruption. Prefer transport-layer session binding via the `Mcp-Session-Id` header in shared deployments.
 
+<a id="database-management"></a>
 ### Database Management
 
 *   **`healthcheck`**: Diagnostics tool. Checks ChromaDB status, collection health, API key configuration, identity binding, and effective ChromaDB topology. See **Healthcheck Response Shape** below for the full payload contract.
@@ -86,6 +97,7 @@ The server exposes a suite of tools via the Model Context Protocol (MCP).
 *   **`export_database`**: Exports memories and summaries to JSONL files for backup.
 *   **`import_database`**: Imports data from JSONL backups.
 
+<a id="healthcheck-response-shape"></a>
 ## Healthcheck Response Shape
 
 Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint when the server is exposed over HTTP) receive a structured payload covering connectivity, identity, mailbox, multi-tenant migration state, and ChromaDB topology resolution. The shape is stable — new observability blocks are additive, existing blocks are not renamed or reshaped.
@@ -144,6 +156,7 @@ Operators running `healthcheck` (via MCP, or via the SSE `/healthcheck` endpoint
 }
 ```
 
+<a id="database-topology-effective-chromadb-coordinate-resolution"></a>
 ### `database.topology` — Effective ChromaDB Coordinate Resolution
 
 Introduced in #10127. The block surfaces **which ChromaDB instance Memory Core is actually using**, so operators can verify coordinates without inspecting logs or re-running the config through `node -e`.
@@ -157,6 +170,7 @@ Introduced in #10127. The block surfaces **which ChromaDB instance Memory Core i
 
 **Why this matters:** The block closes the observability gap in-band by confirming the exact coordinates the Memory Core client is targeting.
 
+<a id="identity-stdio-identity-binding"></a>
 ### `identity` — Stdio Identity Binding
 
 Introduced in #10176. Surfaces whether the MCP server resolved a concrete AgentIdentity at boot:
@@ -164,6 +178,7 @@ Introduced in #10176. Surfaces whether the MCP server resolved a concrete AgentI
 - `bound`: `true` when the resolved userId matched a seeded AgentIdentity graph node. `false` is a seed-state failure signal — agent needs `ai/scripts/seedAgentIdentities.mjs` or the #10232 boot-time self-seed did not fire.
 - `nodeId`: The canonical `@login` AgentIdentity node when bound, `null` otherwise.
 
+<a id="migration-multi-tenant-migration-progress"></a>
 ### `migration` — Multi-Tenant Migration Progress
 
 Introduced in #10017 (see `learn/agentos/tooling/MultiTenantMigrationGuide.md`). Tracks how many pre-tenant-aware-era nodes remain untagged as natural query patterns lazy-tag data:
@@ -173,6 +188,7 @@ Introduced in #10017 (see `learn/agentos/tooling/MultiTenantMigrationGuide.md`).
 
 A zero `total` is the signal operators watch for to flip the `memorySharing` default from `'legacy'` to `'private'`.
 
+<a id="providers-embedding-active-embedding-model-route"></a>
 ### `providers.embedding` — Active Embedding Model Route
 
 Introduced for Chroma-side local embedding-provider validation (#10723), then consolidated to one provider selector by #10804. The block surfaces the single embedding route used for ChromaDB retrieval:
@@ -187,6 +203,7 @@ Introduced for Chroma-side local embedding-provider validation (#10723), then co
 
 `NEO_CHROMA_EMBEDDING_PROVIDER` remains readable during the #10804 deprecation window and feeds the unified selector with a warning. Operators should use `NEO_EMBEDDING_PROVIDER` for new deployments.
 
+<a id="providers-summary-active-summary-model-route"></a>
 ### `providers.summary` — Active Summary Model Route
 
 Introduced for local chat-API provider validation (#10724). The block sits beside `providers.embedding` (#10723) and surfaces which generation provider Memory Core will use for session summaries:
@@ -204,6 +221,7 @@ Introduced for local chat-API provider validation (#10724). The block sits besid
 
 For Qwen3-8b or another local OpenAI-compatible chat model, set `NEO_MODEL_PROVIDER=openAiCompatible`, `NEO_OPENAI_COMPATIBLE_HOST`, and `NEO_OPENAI_COMPATIBLE_MODEL`, then verify `providers.summary` before relying on disconnect-triggered summaries.
 
+<a id="two-stage-query-workflow"></a>
 ## Two-Stage Query Workflow
 
 Effective agents use the search tools in a "Zoom In / Zoom Out" sequence:
@@ -215,6 +233,7 @@ Effective agents use the search tools in a "Zoom In / Zoom Out" sequence:
     *   *Query:* "Why did I use a Map instead of an Object for item lookup?"
     *   *Result:* Specific thought process from Session #42 explaining the performance benefits.
 
+<a id="internals-text-embeddings-chromadb"></a>
 ## Internals: Text Embeddings & ChromaDB
 
 The server uses **ChromaDB** as its embedding store.
@@ -224,6 +243,7 @@ The server uses **ChromaDB** as its embedding store.
     *   `neo-agent-memory`: Stores the raw interaction logs.
     *   `neo-agent-sessions`: Stores the generated summaries.
 
+<a id="backup-and-restore-from-atomic-bundle"></a>
 ## Backup and Restore from Atomic Bundle
 
 The Neo.mjs AI substrate ships two CLI orchestrators for full-substrate snapshots:
@@ -233,6 +253,7 @@ The Neo.mjs AI substrate ships two CLI orchestrators for full-substrate snapshot
 | `npm run ai:backup` | Captures KB + MC memories/summaries + MC graph + concepts + RLAIF trajectories + mailbox archive into a single timestamped bundle directory under `.neo-ai-data/backups/backup-<ISO-ts>/`. Writes `bundle-meta.json` with unified topology, KB/MC chroma coordinates, neoVersion, and gitSha. Runs row-count integrity check + retention sweep (keep newest K=3, prune >N=7 days). |
 | `npm run ai:restore -- <bundle-path>` | Inverts backup. Reads the bundle, validates structure + JSONL parseability + topology compatibility, then routes each subsystem through the canonical SDK boundary in `ai/services.mjs`. |
 
+<a id="restore-semantics"></a>
 ### Restore semantics
 
 The restore CLI accepts the following flags:
@@ -244,6 +265,7 @@ The restore CLI accepts the following flags:
 | `--force` | Required when `--mode replace` AND any target is populated. Acknowledges that data will be overwritten. Also overrides the flat-file skip-if-non-empty rule under `--mode merge`. |
 | `--force-topology-mismatch` | Bypasses the topology compatibility refusal when restoring a legacy federated-topology bundle into a unified deployment; collection IDs may diverge across topologies. |
 
+<a id="pre-flight-integrity-validation"></a>
 ### Pre-flight integrity validation
 
 Before any write touches a service, the restore orchestrator validates:
@@ -255,6 +277,7 @@ Before any write touches a service, the restore orchestrator validates:
 
 A torn or partial bundle aborts with a clear error and zero side effects on the live substrate.
 
+<a id="production-target-destructive-op-safeguard"></a>
 ### Production-target destructive-op safeguard
 
 When `--mode replace` writes to canonical `.neo-ai-data/` paths, the destructive-operation guard
@@ -273,6 +296,7 @@ npm run ai:restore -- /path/to/.neo-ai-data/backups/backup-2026-05-07T12-00-00.0
 # in future iterations.
 ```
 
+<a id="programmatic-usage"></a>
 ### Programmatic usage
 
 The orchestrator is also exposed as `runRestore(...)` from `buildScripts/ai/restore.mjs` for
@@ -297,16 +321,19 @@ console.log(result.meta?.gitSha);                // bundle gitSha for cross-vers
 The returned object includes per-subsystem result blocks, the parsed `bundle-meta.json` (or
 `null` for legacy bundles), and the topology-check verdict for downstream observability.
 
+<a id="configuration"></a>
 ## Configuration
 
 The server supports loading a custom configuration file via the `-c` or `--config` CLI flag. This allows you to override default settings such as the database port, embedding model, or backup paths without modifying the source code.
 
+<a id="usage"></a>
 ### Usage
 
 ```bash readonly
 node ai/mcp/server/memory-core/mcp-server.mjs -c ./my-config.json
 ```
 
+<a id="configuration-file-format"></a>
 ### Configuration File Format
 
 You can provide a JSON file or an ES Module (`.mjs`) that exports a configuration object. The custom configuration is deep-merged with the default settings.
@@ -332,14 +359,17 @@ This flexibility is crucial for:
 *   **Port Conflicts:** Running multiple instances or avoiding conflicts with other services.
 *   **Environment Specifics:** Adjusting paths for different deployment environments.
 
+<a id="powered-by-neo-mjs"></a>
 ## Powered by Neo.mjs
 
 This server isn't just a standard Node.js application; it demonstrates the versatility of the Neo.mjs framework beyond the browser. By leveraging the **Neo.mjs Class System** for backend services, the server achieves a robust and maintainable architecture.
 
+<a id="singleton-services"></a>
 ### 1. Singleton Services
 
 Every service (e.g., `SessionService`, `MemoryService`) is a **Neo.mjs Singleton**. This ensures a single source of truth for application state, global accessibility, and consistent lifecycle management without the need for complex dependency injection frameworks.
 
+<a id="asynchronous-initialization-initasync"></a>
 ### 2. Asynchronous Initialization (`initAsync`)
 
 The server relies on the framework's `initAsync()` lifecycle hook to orchestrate complex dependency chains without race conditions.
@@ -349,6 +379,7 @@ The server relies on the framework's `initAsync()` lifecycle hook to orchestrate
 
 All of this happens automatically during the startup sequence, ensuring a fully initialized environment before the first tool call is accepted.
 
+<a id="reactive-configurations"></a>
 ### 3. Reactive Configurations
 
 The server uses Neo.mjs **Reactive Configs** to manage state. Configuration properties (like `model_` or `connected_`) automatically generate getters, setters, and change hooks (`afterSet...`). This allows services to react dynamically to environment changes or state transitions (e.g., re-initializing a model if the API key changes) with clean, declarative code.
