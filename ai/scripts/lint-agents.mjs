@@ -1,63 +1,93 @@
 #!/usr/bin/env node
 /**
- * Pre-Flight (structural fast-path): authoring `ai/scripts/lint-agents.mjs` matches
- * sibling pattern of `ai/scripts/lint-skill-manifest.mjs` and `ai/scripts/check-retired-primitives.mjs`
- * in `ai/scripts/`; all three are mechanical-enforcement / CI scripts for agent substrate
- * validation; sibling-file-lift applies; no novel directory choice.
+ * @summary PR-diff-scoped lint that flags NEW `<a id="...">` / `<a name="...">` HTML
+ * anchor-tag insertions in turn-loaded Map substrate, `.agents/skills/**` skill substrate,
+ * and `learn/agentos/**` Agent OS substrate per Discussion #11577 graduation.
  *
- * @summary PR-diff-scoped lint that flags NEW live positional `§N` references in
- * `.agents/skills/**` markdown per ADR 0011 (Substrate Numbering Convention).
+ * **Graduation context:** Discussion #11577 graduated 2026-05-18 under operator-corrected
+ * substrate (DC_kwDODSospM4BAt-P). The graduated form is a substrate-discipline statement,
+ * NOT a migration plan: `§<ref>` text-only stable identifiers are correct; HTML `<a id>` /
+ * `<a name>` anchor-tag scaffolding is damage. Operator forward-rule: ANY new `<a>` anchor
+ * tags in substrate PRs are review blockers unless a narrow rendered-consumer exception is
+ * explicitly justified + operator-approved.
  *
- * Active references must target stable semantic anchors. Historical / archaeology
- * references remain permitted when the same line explicitly classifies them
- * (case-insensitive `historical`, `archaeology`, `errata`).
+ * **Inverts the original #11560 design.** The prior pattern (block positional `§\d+` refs in
+ * skill files) inverted the substrate-correct direction. PR #11571 demonstrated the damage
+ * empirically: +4,358 bytes / 36 `<a id>` tags / 46 markdown-link refs landed on `dev` across
+ * `AGENTS.md` (+1,543b / 13 tags), `AGENTS_STARTUP.md` (+409b / 0 tags), and
+ * `learn/agentos/AGENTS_ATLAS.md` (+2,406b / 23 tags) before substrate-correction caught it.
  *
- * Scope is intentionally diff-scoped: pre-existing positional references remain
- * (264+ across `.agents/skills/` at lint introduction time) and migrate under
- * sibling Epic #11558 sub-tickets #11561, #11562, #11564. This script is the
- * regression gate that prevents new positional refs from re-entering live
- * substrate after migration.
+ * **Diff-scoped + historical-marker discipline preserved.** Lint operates on NEW added lines
+ * only; same-line historical / archaeology / errata classification keeps existing
+ * substrate-archaeology references legitimate. Authors who genuinely need to insert an
+ * anchor tag for a narrow rendered-consumer reason can mark the line with `rendered-consumer`
+ * (operator-approved exception per Discussion #11577 forward-rule).
  *
- * @see learn/agentos/decisions/0011-substrate-numbering-convention.md §2.4
- * @see #11558 (epic) / #11560 (this ticket) / #11557 (graduating discussion)
+ * @see learn/agentos/decisions/0011-substrate-numbering-convention.md (amendment in progress)
+ * @see #11584 (this inversion) / #11577 (graduating discussion) / #11571 (damage PR)
+ * @see feedback_agents_md_24kib_hard_cap (review discipline anchor)
  */
-import {execFileSync} from 'node:child_process';
-import path           from 'node:path';
-import process        from 'node:process';
-import {fileURLToPath} from 'node:url';
+import {execFileSync}    from 'node:child_process';
+import path              from 'node:path';
+import process           from 'node:process';
+import {fileURLToPath}   from 'node:url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const ROOT_DIR   = path.resolve(__dirname, '../..');
 
 /**
- * Files matching this prefix are in scope. Lint operates on NEW lines added
- * inside `.agents/skills/` markdown only. Other substrate (AGENTS.md / ATLAS /
- * ADRs / general docs) migrates under separate Epic #11558 children and may
- * eventually carry its own guard.
+ * Top-level Map substrate files (turn-loaded; AGENTS.md is mechanically capped at
+ * 24,576 bytes by `check-substrate-size.mjs:PER_FILE_LIMIT_BYTES` with truncation).
+ * Anchor-tag scaffolding here directly compresses future instruction budget.
  */
-const SCOPE_PREFIX = '.agents/skills/';
+const TOP_LEVEL_MAP_FILES = new Set([
+    'AGENTS.md',
+    'AGENTS_STARTUP.md',
+    '.agents/ANTIGRAVITY_RULES.md'
+]);
+
+/**
+ * Skill substrate (skill-loaded; loaded at skill invocation, payloads can grow but
+ * carry per-invocation cost). Subject to the operator forward-rule.
+ */
+const SKILL_PREFIX = '.agents/skills/';
+
+/**
+ * Agent OS substrate (mixed turn-load + skill-load + reference-load). Includes
+ * `AGENTS_ATLAS.md` (World Atlas Map) and the ADR set under `decisions/`. Subject to
+ * the operator forward-rule per #11577 graduation.
+ */
+const AGENTOS_PREFIX = 'learn/agentos/';
+
+/**
+ * Only markdown files participate; manifests, JSON, and other non-prose substrate
+ * cannot meaningfully carry anchor-tag damage.
+ */
 const SCOPE_SUFFIX = '.md';
 
 /**
- * Regex for live positional references. Matches `§N` where N is one or more
- * digits with optional dotted sub-section (e.g. `§5.2.3`). Anchored on `§`
- * to avoid false matches against `#` heading anchors or `Section N` prose.
+ * Regex for `<a id="...">` / `<a name="...">` HTML anchor-tag insertions. Tolerates
+ * intervening attributes (e.g. `<a class="x" id="foo">`) and whitespace. Case-insensitive.
+ * Anchored on `<a\b` word-boundary to avoid false matches against `<abbr>`, `<area>`, etc.
+ * The `\s(?:id|name)\s*=` clause requires the attribute keyword to be a discrete token,
+ * so `<a href="...">` regular hyperlinks (no id/name attribute) are NOT flagged.
  */
-const POSITIONAL_REF_PATTERN = /§\d+(?:\.\d+)*\b/g;
+const ANCHOR_TAG_PATTERN = /<a\b[^>]*\s(?:id|name)\s*=/gi;
 
 /**
- * Same-line classification cues that explicitly mark a reference as historical /
- * archaeology per ADR 0011 §2.3. Case-insensitive substring match keeps the
- * heuristic simple and grep-auditable.
+ * Same-line classification cues that explicitly exempt a line per Discussion #11577
+ * forward-rule. `historical` / `archaeology` / `errata` preserve substrate-archaeology
+ * references; `rendered-consumer` covers the narrow operator-approved exception for
+ * specific rendered-consumer needs. Case-insensitive substring match.
  */
-const HISTORICAL_MARKERS = ['historical', 'archaeology', 'errata'];
+const EXEMPTION_MARKERS = ['historical', 'archaeology', 'errata', 'rendered-consumer'];
 
 /**
  * Parses simple `--base <branch>` / `--base=<branch>` CLI args. Default base is
  * `origin/dev` to match `lint-skill-manifest.mjs` and CI workflow conventions.
  * @param {string[]} argv
- * @returns {{base: string}}
+ * @returns {{base: string, help?: boolean}}
  */
 function parseArgs(argv = process.argv.slice(2)) {
     const options = {base: 'origin/dev'};
@@ -80,16 +110,24 @@ function parseArgs(argv = process.argv.slice(2)) {
 }
 
 /**
- * Runs `git diff --unified=0 <base>...HEAD -- <pathspec>` and returns the raw diff text.
+ * Runs `git diff --unified=0 <base>...HEAD` and returns the raw diff text.
+ * Pathspecs cover the union of all in-scope substrate roots so the lint catches
+ * insertions across Map + skill + Agent OS files in a single diff pass.
  * Empty string when no diff or when base ref doesn't exist locally.
  * @param {string} base Git ref to compare HEAD against.
  * @returns {string}
  */
 function gitDiff(base) {
+    const pathspecs = [
+        ...TOP_LEVEL_MAP_FILES,
+        SKILL_PREFIX,
+        AGENTOS_PREFIX
+    ];
+
     try {
         return execFileSync(
             'git',
-            ['diff', '--unified=0', `${base}...HEAD`, '--', SCOPE_PREFIX],
+            ['diff', '--unified=0', `${base}...HEAD`, '--', ...pathspecs],
             {cwd: ROOT_DIR, encoding: 'utf8'}
         );
     } catch (error) {
@@ -166,47 +204,53 @@ function parseAddedLines(diffText) {
 }
 
 /**
- * Returns true when the line text contains a same-line historical-classification
- * marker per ADR 0011 §2.3. Match is case-insensitive substring; intentionally
- * permissive so authors can mark refs without learning a strict syntax.
+ * Returns true when the line text contains a same-line exemption marker per
+ * Discussion #11577 forward-rule. Match is case-insensitive substring; intentionally
+ * permissive so authors can mark lines without learning a strict syntax.
  * @param {string} text
  * @returns {boolean}
  */
-function isHistoricalContext(text) {
+function isExempt(text) {
     const lower = text.toLowerCase();
-    return HISTORICAL_MARKERS.some(marker => lower.includes(marker));
+    return EXEMPTION_MARKERS.some(marker => lower.includes(marker));
 }
 
 /**
- * Returns true when the file path falls within the lint scope.
- * Excludes `.agents/skills/skills.manifest.json` and other non-markdown substrate.
+ * Returns true when the file path falls within the lint scope. Covers turn-loaded Map
+ * substrate (AGENTS.md / AGENTS_STARTUP.md / ANTIGRAVITY_RULES.md), skill substrate
+ * (.agents/skills/**\/*.md), and Agent OS substrate (learn/agentos/**\/*.md).
+ * Manifests, JSON, and other non-markdown substrate are out of scope.
  * @param {string} filePath
  * @returns {boolean}
  */
 function isInScope(filePath) {
-    return filePath.startsWith(SCOPE_PREFIX) && filePath.endsWith(SCOPE_SUFFIX);
+    if (TOP_LEVEL_MAP_FILES.has(filePath)) return true;
+    if (!filePath.endsWith(SCOPE_SUFFIX)) return false;
+    if (filePath.startsWith(SKILL_PREFIX))   return true;
+    if (filePath.startsWith(AGENTOS_PREFIX)) return true;
+    return false;
 }
 
 /**
- * Inspects a single added line for positional references that need migration to
- * a semantic anchor. Returns an array of violation records (empty when clean or
- * when the line is historically-classified).
+ * Inspects a single added line for `<a id>` / `<a name>` HTML anchor-tag insertions.
+ * Returns an array of violation records (empty when clean or when the line carries an
+ * exemption marker per `EXEMPTION_MARKERS`).
  * @param {{file: string, line: number, text: string}} record
- * @returns {Array<{file: string, line: number, ref: string, text: string}>}
+ * @returns {Array<{file: string, line: number, match: string, text: string}>}
  */
 function findViolationsInLine(record) {
     if (!isInScope(record.file)) return [];
-    if (isHistoricalContext(record.text)) return [];
+    if (isExempt(record.text))   return [];
 
     const violations = [];
-    const matches    = record.text.matchAll(POSITIONAL_REF_PATTERN);
+    const matches    = record.text.matchAll(ANCHOR_TAG_PATTERN);
 
     for (const match of matches) {
         violations.push({
-            file: record.file,
-            line: record.line,
-            ref : match[0],
-            text: record.text.trim()
+            file : record.file,
+            line : record.line,
+            match: match[0],
+            text : record.text.trim()
         });
     }
 
@@ -217,7 +261,7 @@ function findViolationsInLine(record) {
  * Pure-function lint entry: feed it diff text, get back violations. Exported for
  * unit testing without invoking `git` or the filesystem.
  * @param {string} diffText
- * @returns {Array<{file: string, line: number, ref: string, text: string}>}
+ * @returns {Array<{file: string, line: number, match: string, text: string}>}
  */
 function lintDiff(diffText) {
     const violations = [];
@@ -242,20 +286,23 @@ function runLint(options = {}) {
     const violations = lintDiff(diffText);
 
     if (violations.length === 0) {
-        console.log(`[lint-agents] OK — no new positional §N refs in ${SCOPE_PREFIX} diff against ${base}.`);
+        console.log(`[lint-agents] OK — no new <a id> / <a name> anchor-tag insertions in Map / skill / Agent OS substrate diff against ${base}.`);
         return {exitCode: 0, violations};
     }
 
-    console.error(`[lint-agents] FAILED — ${violations.length} new positional reference(s) detected in ${SCOPE_PREFIX} diff against ${base}:\n`);
+    console.error(`[lint-agents] FAILED — ${violations.length} new HTML anchor-tag insertion(s) detected against ${base}:\n`);
     for (const v of violations) {
-        console.error(`- ${v.file}:${v.line}: ${v.ref}`);
+        console.error(`- ${v.file}:${v.line}: ${v.match}`);
         console.error(`    > ${v.text}`);
     }
-    console.error(`\nLive substrate references MUST target stable semantic anchors per ADR 0011.`);
-    console.error(`  learn/agentos/decisions/0011-substrate-numbering-convention.md §2`);
-    console.error(`\nIf a reference is historical / archaeology / errata, mark it explicitly on the same line`);
-    console.error(`(e.g. "historical: §21" or "ADR 0007 recorded the old §21 disposition") so the classification`);
-    console.error(`is legible to readers and to this lint per ADR 0011 §2.3.`);
+    console.error(`\nHTML <a id> / <a name> anchor tags are review blockers in turn-loaded Map substrate,`);
+    console.error(`.agents/skills/ skill substrate, and learn/agentos/ Agent OS substrate per Discussion #11577 graduation:`);
+    console.error(`  https://github.com/neomjs/neo/discussions/11577#discussioncomment-16965519`);
+    console.error(`\nUse compact text-only §<ref> form (positional §3 or semantic §<kebab>, both acceptable).`);
+    console.error(`Auto-generated heading IDs cover rendered clickability where renderers support it.`);
+    console.error(`\nIf this insertion is genuinely required (narrow rendered-consumer need, substrate-archaeology, or`);
+    console.error(`errata), mark the line explicitly with "rendered-consumer", "historical", "archaeology", or "errata"`);
+    console.error(`so the classification is legible to readers and to this lint.`);
     return {exitCode: 1, violations};
 }
 
@@ -266,8 +313,13 @@ function main() {
         console.log('Usage: node ai/scripts/lint-agents.mjs [--base <ref>]');
         console.log('  --base <ref>   Git ref to diff HEAD against (default: origin/dev)');
         console.log('');
-        console.log('Flags NEW live positional §N references in .agents/skills/** per ADR 0011.');
-        console.log('Pre-existing references remain untouched; they migrate under #11561-#11564.');
+        console.log('Flags NEW <a id> / <a name> HTML anchor-tag insertions in:');
+        console.log('  - AGENTS.md / AGENTS_STARTUP.md / .agents/ANTIGRAVITY_RULES.md  (Map substrate)');
+        console.log('  - .agents/skills/**/*.md                                          (skill substrate)');
+        console.log('  - learn/agentos/**/*.md                                           (Agent OS substrate)');
+        console.log('');
+        console.log('Same-line markers exempt: historical, archaeology, errata, rendered-consumer.');
+        console.log('Per Discussion #11577 graduation: §<ref> text-only form is the substrate primitive.');
         process.exit(0);
     }
 
@@ -280,12 +332,14 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
 }
 
 export {
-    HISTORICAL_MARKERS,
-    POSITIONAL_REF_PATTERN,
-    SCOPE_PREFIX,
+    AGENTOS_PREFIX,
+    ANCHOR_TAG_PATTERN,
+    EXEMPTION_MARKERS,
     SCOPE_SUFFIX,
+    SKILL_PREFIX,
+    TOP_LEVEL_MAP_FILES,
     findViolationsInLine,
-    isHistoricalContext,
+    isExempt,
     isInScope,
     lintDiff,
     parseAddedLines,
