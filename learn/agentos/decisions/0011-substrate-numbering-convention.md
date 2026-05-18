@@ -1,6 +1,6 @@
 # ADR 0011: Substrate Numbering Convention
 
-> Architectural Decision Record defining semantic-anchor reference identity for live agent instruction substrate. Authority artifact for Epic #11558 / ticket #11559; downstream migration and lint work are tracked separately.
+> Architectural Decision Record defining compact `§<ref>` reference identity for live agent instruction substrate. Authority artifact for Epic #11558 / ticket #11559; corrected by Discussion #11577 and cleanup ticket #11584.
 
 | Attribute | Value |
 |---|---|
@@ -9,7 +9,7 @@
 | **Graduated from** | Discussion #11557 — *"Substrate-numbering convention after byte-budget compaction (AGENTS.md + AGENTS_ATLAS.md)"* |
 | **Implementation ticket** | #11559 — *"Author semantic-anchor policy ADR"* |
 | **Parent epic** | #11558 — *"Substrate Numbering Semantic Anchor Migration"* |
-| **Supersedes** | Positional section identity for live instruction substrate (`§N` references as durable targets) |
+| **Supersedes** | HTML anchor-tag scaffolding and markdown-link payloads as the default live-substrate reference form |
 | **Informs** | #11560 lint guard; #11561 AGENTS / ATLAS migration; #11562 skill migration; #11564 ADR and documentation migration |
 | **Anti-anchor for** | Contiguous renumbering, position-preservation as permanent policy, and rewriting ADR 0007's historical baseline as mutable policy clay |
 
@@ -21,7 +21,9 @@
 
 The positional convention became structurally load-bearing because live skill files, workflow references, ADRs, and agent handoffs cite `§N` targets. Once numbering is fragmented and mutable, a reference such as `AGENTS.md §21` no longer represents stable semantic identity. It represents a current file position that can drift during the next compaction.
 
-Discussion #11557 selected **Option C globally**: migrate live instruction substrate from positional `§N` identity to stable semantic anchors. Gemini's canonical Step 2.5 sweep marked path determinism, state mutability, and active-vs-archive handling as real correctness dimensions, with migration blast radius handled by explicit child tickets under Epic #11558.
+Discussion #11557 selected **Option C globally**: live instruction substrate needs stable reference identity instead of fragile position-only section numbering. Gemini's canonical Step 2.5 sweep marked path determinism, state mutability, and active-vs-archive handling as real correctness dimensions, with migration blast radius handled by explicit child tickets under Epic #11558.
+
+Discussion #11577 later corrected the reference-form substrate. The original worked example over-indexed on rendered Markdown clickability by using manual HTML anchor tags plus markdown-link payloads. That shape consumed Map-substrate headroom and violated ADR 0007's Map vs. World Atlas compaction discipline. The corrected form is a compact, source-visible `§<ref>` text token: semantic (`§mailbox-check-protocol`) where meaning is stable, positional (`§21`) where preserving the current map reference is cheaper and sufficiently clear.
 
 ADR 0007 remains the historical authority for the compaction taxonomy. This ADR does not rewrite ADR 0007. It defines the successor reference-identity convention for live substrate after the taxonomy has made positional numbering too fragile.
 
@@ -29,62 +31,54 @@ ADR 0007 remains the historical authority for the compaction taxonomy. This ADR 
 
 ## 2. Decision
 
-Live instruction substrate MUST use stable semantic anchors as durable reference identity. Positional `§N` references are deprecated as live targets.
+Live instruction substrate MUST prefer compact `§<ref>` text tokens when a reference target needs to be source-visible and durable. Plain prose still wins when no stable reference token is needed. Markdown links and manual HTML anchor tags are not the default reference form; use them only for narrow rendered-consumer needs with explicit justification.
 
-### 2.1 Semantic anchor identity
+### 2.1 Compact text-token identity
 
-A semantic anchor is an explicit, immutable, kebab-case identifier that names the concept being referenced rather than the section's current position.
+A live substrate reference is a compact `§<ref>` token that names the target with minimal loaded-byte cost.
 
 Recommended shape:
 
 ```md
-<a id="mailbox-check-protocol"></a>
-## 22. The Mailbox Check Protocol
+AGENTS.md §mailbox-check-protocol
 ```
 
-References target the semantic anchor, not the section number:
+Acceptable variants:
 
 ```md
-[Mailbox Check Protocol](../../AGENTS.md#mailbox-check-protocol)
+AGENTS.md §21
+AGENTS.md §mailbox-check-protocol
 ```
 
-The visible heading MAY keep its current numeric prefix during incremental migration, but the number is no longer the identity primitive.
+Use the semantic kebab-case form when it reduces drift across heading movement or compaction. Preserve positional `§N` where it is historical, already source-readable, or cheaper than introducing a new semantic token. Do not add manual HTML anchor tags or markdown links merely to make the reference clickable in rendered Markdown.
 
-### 2.2 Anchor immutability and aliases
+### 2.2 Reference stability and rendered aliases
 
-Once a semantic anchor is introduced, the anchor ID is immutable for live references. If a section is renamed, split, moved, or compacted, existing anchor IDs MUST be preserved as aliases unless the reference is explicitly retired.
+Once a semantic `§<ref>` token is introduced, the token is treated as the live reference identity until explicitly retired or updated in the same PR as the referenced heading/content change.
 
-Alias shape:
-
-```md
-<a id="old-anchor-id"></a>
-<a id="new-anchor-id"></a>
-## New Heading Text
-```
-
-Heading text may evolve for clarity. Anchor IDs do not silently change with heading text.
+Rendered clickability is secondary to loaded-byte budget. Prefer auto-generated heading IDs, source grep, and local textual context over manual alias scaffolding. A manual HTML anchor alias is only acceptable for a specific rendered-consumer requirement; it is not the default substrate pattern and requires explicit review justification.
 
 ### 2.3 Active vs. historical references
 
-Active/live instruction references migrate to semantic anchors. This includes references whose consumer is a current agent, skill, workflow, CI guard, PR review, or ticket-intake path.
+Active/live instruction references use `§<ref>` tokens when a compact stable reference is needed. This includes references whose consumer is a current agent, skill, workflow, CI guard, PR review, or ticket-intake path.
 
 Historical/archaeology references MAY preserve original `§N` wording when the number is part of the historical record being described. Such references should be visibly classified as historical, archaeology, or errata when ambiguity is likely.
 
 Examples:
 
-- Live: "Use [Mailbox Check Protocol](../../AGENTS.md#mailbox-check-protocol)."
+- Live semantic: "Use `AGENTS.md §mailbox-check-protocol`."
+- Live positional: "Apply `AGENTS.md §21` when that current map reference is cheaper and unambiguous."
 - Historical: "ADR 0007 recorded the old `§21` disposition at the time of compaction."
 
 ### 2.4 Lint and migration partitioning
 
-This ADR defines policy only. Enforcement and migration are separate child tickets under Epic #11558:
+This ADR defines policy only. Discussion #11577 superseded the original migration fanout: do not launch a mass conversion merely to rewrite existing references. Future substrate work obeys the corrected form, and per-artifact cleanup is handled by narrow tickets such as #11584.
 
-- #11560 adds lint / CI enforcement for new live positional references.
-- #11561 migrates `AGENTS.md` and `AGENTS_ATLAS.md`.
-- #11562 migrates `.agents/skills/**`.
-- #11564 migrates ADR and general documentation references.
+Enforcement aligns to the corrected failure mode:
 
-The partitioning is part of the decision: semantic-anchor migration is global in policy, but implementation remains bounded by substrate layer so review and revert paths stay legible.
+- Block new manual HTML anchor-tag insertions in Map / skill / Agent OS substrate unless a rendered-consumer exception is justified.
+- Preserve both positional `§N` and semantic `§kebab-case` text tokens where they are source-visible and compact.
+- Treat markdown-link references as an exception for rendered-consumer needs, not the live-substrate default.
 
 ---
 
@@ -102,9 +96,9 @@ Position-preservation codifies the fragmented numbering pattern as permanent sub
 
 ADR 0007 is the historical authority for the compaction taxonomy. Rewriting its baseline table would damage archaeology and hide the actual decision sequence. This ADR layers a successor convention on top of ADR 0007 instead.
 
-### 3.4 Why explicit anchors instead of generated heading anchors
+### 3.4 Why text tokens instead of markdown links
 
-Generated Markdown heading anchors are tied to heading text and renderer rules. Explicit IDs are renderer-stable, grep-friendly, and independent from future wording changes.
+Markdown links optimize rendered clickability at a repeated loaded-byte cost. Live agent substrate is consumed primarily as source text by LLMs and maintainers. The `§<ref>` form keeps the stable-reference class visible, grep-friendly, and cheap; rendered clickability can be supplied by auto-generated heading IDs or narrow local tooling when it is actually needed.
 
 ---
 
@@ -112,16 +106,16 @@ Generated Markdown heading anchors are tied to heading text and renderer rules. 
 
 ### Positive
 
-- Live references survive section movement, heading edits, and compaction.
+- Live references remain source-visible and compact across section movement, heading edits, and compaction.
 - Agents can V-B-A a reference target by semantic meaning instead of mutable position.
-- Lint can mechanically prevent recurrence of new live `§N` targets.
+- Lint can mechanically prevent recurrence of manual HTML anchor-tag scaffolding.
 - Historical references remain preservable without pretending they are active routing anchors.
 
 ### Negative
 
-- Initial migration touches many files.
-- Authors must choose stable semantic IDs and preserve aliases on rename.
-- The substrate temporarily carries both numeric headings and semantic anchors until migration children land.
+- Authors must decide when a semantic token is worth its bytes versus plain prose or an existing positional `§N`.
+- Rendered Markdown links are not automatic for every live reference.
+- If a heading changes, authors must update affected semantic `§<ref>` tokens or justify a narrow alias.
 
 ---
 
@@ -131,13 +125,13 @@ Generated Markdown heading anchors are tied to heading text and renderer rules. 
 
 Replacing every `§N` occurrence mechanically is wrong. Active references and historical references have different semantics. Run the active-vs-archive classification first.
 
-### 5.2 Anchor IDs derived from volatile heading prose
+### 5.2 Semantic tokens derived from volatile heading prose
 
-Do not use raw generated heading anchors as the durable identity unless the heading text itself is immutable. Semantic IDs should be short, explicit, and preserved through heading rewrites.
+Do not choose a semantic `§<ref>` token that merely mirrors volatile heading prose. Tokens should be short, explicit, and preserved or updated deliberately through heading rewrites.
 
-### 5.3 Retiring aliases during cleanup
+### 5.3 Adding manual anchors during cleanup
 
-Removing an old anchor alias because it looks redundant breaks historical PRs, tickets, comments, and handoffs. Alias removal requires an explicit retirement rationale.
+Adding manual HTML aliases because they look like "semantic anchors" repeats the #11577 failure mode. Manual anchor tags require specific rendered-consumer justification.
 
 ### 5.4 Bundling policy, lint, and migration in one PR
 
@@ -149,11 +143,11 @@ This ADR is the policy authority. Lint and migration are downstream children. Bu
 
 Before modifying live substrate references under Epic #11558 or successors:
 
-1. Read this ADR and ADR 0007.
+1. Read this ADR, ADR 0007, and Discussion #11577.
 2. Classify each reference as active/live or historical/archaeology.
-3. For active references, target a semantic anchor.
+3. For active references, use compact `§<ref>` tokens only when plain prose is insufficient.
 4. For historical references, preserve the historical wording or add an explicit errata/classification note.
-5. Preserve existing semantic anchor IDs as aliases when headings move or rename.
+5. Avoid manual HTML anchor tags unless a rendered-consumer exception is justified in the PR.
 6. Cite this ADR in PR bodies that add, migrate, lint, or retire live substrate references.
 
 ---
@@ -167,6 +161,8 @@ Before modifying live substrate references under Epic #11558 or successors:
 - Ticket #11561 — AGENTS / ATLAS migration
 - Ticket #11562 — Workflow skill migration
 - Ticket #11564 — ADR and docs migration
+- Discussion #11577 — corrected `§<ref>` text-only reference form; no HTML anchor-tag default
+- Ticket #11584 — ADR 0011 cleanup after #11577 graduation
 - ADR 0005 — ADR-at-Graduation workflow
 - ADR 0006 — ADRs as graph-queryable entities
 - ADR 0007 — Compaction Taxonomy
