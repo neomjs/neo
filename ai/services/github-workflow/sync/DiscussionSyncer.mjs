@@ -13,6 +13,7 @@ import {
     createContentIndexEntry,
     updateContentIndex
 } from '../shared/contentIndex.mjs';
+import {verifyDiscussionFrontmatter} from './verifyFrontmatterIntegrity.mjs';
 
 const issueSyncConfig = aiConfig.issueSync;
 
@@ -271,6 +272,16 @@ class DiscussionSyncer extends Base {
 
                 // Gray-matter serialization
                 const content = matter.stringify(body, frontmatter);
+
+                // #11573 integrity gate: empirically catches the failure mode where a stale
+                // MCP daemon code path silently drops frontmatter fields (e.g., #11554 shipped
+                // but old MCP processes kept writing pre-fix content). Logs at WARN so the
+                // signal surfaces in sync output without failing the run.
+                const integrity = verifyDiscussionFrontmatter(content);
+                if (!integrity.ok) {
+                    logger.warn(`⚠️ Discussion #${discussion.number} serialized content missing required frontmatter keys: ${integrity.missing.join(', ')}. Likely stale MCP daemon code path; see #11573.`);
+                }
+
                 const currentHash = this.#calculateContentHash(content);
 
                 const cachedDiscussion = cachedDiscussions[discussion.number];

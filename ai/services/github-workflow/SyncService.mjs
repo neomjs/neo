@@ -80,7 +80,12 @@ class SyncService extends Base {
      * 4.  **Pushes** any local issue changes to GitHub via `IssueSyncer`.
      * 5.  **Pulls** the latest issue changes from GitHub via `IssueSyncer`.
      * 6.  Syncs release notes into local Markdown files via `ReleaseNotesSyncer`.
-     * 7.  Saves the updated, pruned metadata to disk via `MetadataManager`.
+     * 7.  Syncs discussions into local Markdown files via `DiscussionSyncer`.
+     * 8.  Syncs pull requests into local Markdown files via `PullRequestSyncer`.
+     * 9.  Carries `metadata.discussions` + `metadata.pulls` onto `newMetadata` so the
+     *     per-syncer cache populations survive `MetadataManager.save` (#11573).
+     * 10. Caches releases in `newMetadata` for next run.
+     * 11. Saves the updated, pruned metadata to disk via `MetadataManager`.
      * @returns {Promise<object>} A comprehensive object containing detailed statistics and timing
      * information about all operations performed during the sync.
      */
@@ -115,13 +120,27 @@ class SyncService extends Base {
             newMetadata.pushFailures = newMetadata.pushFailures.filter(failedId => !newMetadata.issues[failedId]);
         }
 
-        // Cached pulls are updated inline by PullRequestSyncer.
+        // 9. Carry over per-syncer metadata mutations (#11573).
+        //
+        // `newMetadata` is a fresh object constructed by `IssueSyncer.pullFromGitHub` carrying
+        // only `{issues, pushFailures, lastSync}`. `DiscussionSyncer.syncDiscussions(metadata)`
+        // and `PullRequestSyncer.syncPullRequests(metadata)` mutate the OLD `metadata` argument
+        // (their `metadata.discussions` / `metadata.pulls` populations). Without explicit
+        // carry-over, those mutations are dropped at `save(newMetadata)` and the on-disk diff
+        // cache stays empty after every sync.
+        //
+        // Empirical anchor: operator V-B-A 2026-05-18 caught 0/104 on-disk Discussion markdown
+        // files lacking `closed`/`closedAt` despite #11554 having merged the frontmatter-emit
+        // fix. The compounding factor — alongside stale MCP daemon code paths — was the
+        // metadata.discussions = {} state that prevented any cache reconciliation.
+        newMetadata.discussions = metadata.discussions || {};
+        newMetadata.pulls       = metadata.pulls       || {};
 
-        // 9. Cache releases in metadata for next run
+        // 10. Cache releases in metadata for next run.
         newMetadata.releases            = ReleaseNotesSyncer.releases;
         newMetadata.releasesLastFetched = new Date().toISOString();
 
-        // 10. Save metadata
+        // 11. Save metadata.
         await MetadataManager.save(newMetadata);
 
         if (aiConfig.pushToRepoAfterSync) {
