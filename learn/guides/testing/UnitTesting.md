@@ -70,6 +70,19 @@ In a Unit Test:
 2.  We import **both** the App Worker classes and the VDom Worker classes into the same Node.js scope.
 3.  The `setup()` function mocks the messaging layer, allowing them to talk directly.
 
+### Runtime Facade Mocks
+
+`test/playwright/setup.mjs` also installs minimal runtime facades that production-shaped component trees expect during construction:
+
+```javascript
+setup({
+    mockMain        : true, // provides Neo.Main.setRoute()
+    mockLocalStorage: true  // provides Neo.main.addon.LocalStorage
+});
+```
+
+Both flags default to `true`. This lets downstream apps smoke-test a root `Neo.container.Viewport` with a real `Neo.controller.Component` controller, including `defaultHash` routing and persisted UI state reads, without wiring the browser main-thread runtime. Set either flag to `false` when a spec intentionally installs a richer route or storage mock before calling `setup()`.
+
 ### Understanding Imports (Critical)
 
 Because we are bypassing the standard build/worker loading process, you must manually import the dependencies your test needs.
