@@ -20,6 +20,8 @@ import {randomUUID}              from 'crypto';
 import os                        from 'os';
 import path                      from 'path';
 import fs                        from 'fs';
+import Neo                       from '../../../../../src/Neo.mjs';
+import * as core                 from '../../../../../src/core/_export.mjs';
 
 test.describe('ai/scripts/resumeHarness', () => {
     test.describe.configure({mode: 'serial'});

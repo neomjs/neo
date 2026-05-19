@@ -19,6 +19,8 @@ import {randomUUID}      from 'crypto';
 import fs                from 'fs';
 import os                from 'os';
 import path              from 'path';
+import Neo               from '../../../../../src/Neo.mjs';
+import * as core         from '../../../../../src/core/_export.mjs';
 
 /**
  * @summary Validation for the Wake Safety Gate primitive (#10648, child of #10647).
