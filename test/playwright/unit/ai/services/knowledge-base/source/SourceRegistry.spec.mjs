@@ -170,3 +170,129 @@ test.describe('SourceRegistry auto-registration via _export.mjs (#11658)', () =>
         ]);
     });
 });
+
+// Direct coverage for the config-driven registration path introduced in Phase 0/1B (#11658),
+// closing @neo-gpt's Cycle 1 review Required Action 2 (commentId PRR_kwDODSospM8AAAABAY3bSg):
+// "Add direct coverage for the new config-driven surfaces" — programmatic `registerSource()`
+// alone doesn't prove the `useDefaultSources` toggle + declarative `customSources`/`customParsers`
+// arrays work as documented. The `applyConfigToRegistry` exported function exposes the
+// import-time side-effect logic for direct invocation against a fresh registry + mock config.
+test.describe('applyConfigToRegistry — config-driven registration path (#11658 RA2)', () => {
+    let SourceRegistry, applyConfigToRegistry, DEFAULT_SOURCES;
+
+    test.beforeAll(async () => {
+        const exportModule    = await import('../../../../../../../ai/services/knowledge-base/source/_export.mjs');
+        SourceRegistry        = exportModule.default;
+        applyConfigToRegistry = exportModule.applyConfigToRegistry;
+        DEFAULT_SOURCES       = exportModule.DEFAULT_SOURCES;
+    });
+
+    test.beforeEach(() => {
+        SourceRegistry.clear();
+    });
+
+    test('useDefaultSources:false skips default Neo source auto-registration', () => {
+        const stats = applyConfigToRegistry(SourceRegistry, {
+            useDefaultSources: false,
+            customSources    : [],
+            customParsers    : []
+        });
+
+        expect(stats.defaultSourcesRegistered).toBe(0);
+        expect(SourceRegistry.getSources()).toHaveLength(0);
+        expect(SourceRegistry.getSourceNames()).toEqual([]);
+    });
+
+    test('useDefaultSources:true (or undefined) registers all 10 default Neo sources', () => {
+        const stats = applyConfigToRegistry(SourceRegistry, {});  // omitted toggle = truthy default
+
+        expect(stats.defaultSourcesRegistered).toBe(10);
+        expect(SourceRegistry.getSources()).toHaveLength(10);
+        // First + last sentinel checks reaffirm insertion order without re-asserting the full sequence
+        // (the byte-equivalence test in the prior describe block holds the order invariant).
+        expect(SourceRegistry.getSourceNames()[0]).toBe('AdrSource');
+        expect(SourceRegistry.getSourceNames()[9]).toBe('TestSource');
+    });
+
+    test('declarative customSources entry registers tenant source class with sourceName override', () => {
+        // Stub class shaped like a Source: has the `className` config-shape derivation entrypoint.
+        const TenantSource = {className: 'Tenant.MyEs5Source', config: {className: 'Tenant.MyEs5Source'}};
+
+        const stats = applyConfigToRegistry(SourceRegistry, {
+            useDefaultSources: false,  // isolate to custom path
+            customSources    : [
+                {SourceClass: TenantSource, sourceName: 'tenant-X-es5'}
+            ]
+        });
+
+        expect(stats.customSourcesRegistered).toBe(1);
+        expect(SourceRegistry.hasSource('tenant-X-es5')).toBe(true);
+        expect(SourceRegistry.getSources()[0]).toBe(TenantSource);
+    });
+
+    test('declarative customSources entry derives sourceName from className when omitted', () => {
+        const TenantSource = {className: 'Tenant.MyEs5Source', config: {className: 'Tenant.MyEs5Source'}};
+
+        applyConfigToRegistry(SourceRegistry, {
+            useDefaultSources: false,
+            customSources    : [{SourceClass: TenantSource}]  // no sourceName — falls back to className final segment
+        });
+
+        expect(SourceRegistry.hasSource('MyEs5Source')).toBe(true);
+    });
+
+    test('declarative customParsers entry registers tenant parser class with parserId override', () => {
+        const TenantParser = {className: 'Tenant.ProtoParser', config: {className: 'Tenant.ProtoParser'}};
+
+        const stats = applyConfigToRegistry(SourceRegistry, {
+            useDefaultSources: false,
+            customParsers    : [
+                {ParserClass: TenantParser, parserId: 'proto-v1'}
+            ]
+        });
+
+        expect(stats.customParsersRegistered).toBe(1);
+        expect(SourceRegistry.hasParser('proto-v1')).toBe(true);
+        expect(SourceRegistry.getParsers()[0]).toBe(TenantParser);
+    });
+
+    test('customSources entries with missing SourceClass are silently skipped (defensive — protects against config drift)', () => {
+        const stats = applyConfigToRegistry(SourceRegistry, {
+            useDefaultSources: false,
+            customSources    : [
+                {sourceName: 'orphan-no-class'},  // missing SourceClass — skipped
+                null,                              // null entry — skipped
+                {SourceClass: null, sourceName: 'null-class'}  // falsy SourceClass — skipped
+            ]
+        });
+
+        expect(stats.customSourcesRegistered).toBe(0);
+        expect(SourceRegistry.getSources()).toHaveLength(0);
+    });
+
+    test('full config-driven path: cloud deployment shape with defaults disabled + tenant sources + tenant parsers', () => {
+        const TenantSource1 = {className: 'Tenant.A.SourceA', config: {className: 'Tenant.A.SourceA'}};
+        const TenantSource2 = {className: 'Tenant.A.SourceB', config: {className: 'Tenant.A.SourceB'}};
+        const TenantParser1 = {className: 'Tenant.A.ParserP', config: {className: 'Tenant.A.ParserP'}};
+
+        const stats = applyConfigToRegistry(SourceRegistry, {
+            useDefaultSources: false,
+            useDefaultParsers: false,
+            customSources    : [
+                {SourceClass: TenantSource1, sourceName: 'tenant-A-srcA'},
+                {SourceClass: TenantSource2}
+            ],
+            customParsers: [
+                {ParserClass: TenantParser1, parserId: 'tenant-A-protoP'}
+            ]
+        });
+
+        expect(stats).toEqual({
+            defaultSourcesRegistered: 0,
+            customSourcesRegistered : 2,
+            customParsersRegistered : 1
+        });
+        expect(SourceRegistry.getSourceNames()).toEqual(['tenant-A-srcA', 'SourceB']);
+        expect(SourceRegistry.getParserIds()).toEqual(['tenant-A-protoP']);
+    });
+});
