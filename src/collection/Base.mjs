@@ -1608,7 +1608,16 @@ class Collection extends Base {
             me.fire('mutate', {
                 addedItems     : toAddArray,
                 preventBubbleUp: me.preventBubbleUp,
-                removedItems   : toRemoveArray || removedItems
+                // Always emit actual removed objects, not input keys. `removedItems` (local) is built
+                // at line 1487-1488 from `items.splice(indexOfKey(key), 1)[0]` — always object-shaped.
+                // The legacy `toRemoveArray || removedItems` fallback emitted the INPUT array, which
+                // contained STRING IDs when remove-by-key was used. Downstream consumers (SQLite.mjs
+                // line 279-287, Store.mjs line 164, Database.mjs onNodesMutate/onEdgesMutate +
+                // rollbackTransaction line 451) all expect OBJECT-shaped removedItems and silently
+                // failed (SQL no-ops) or loudly failed (rollback TypeError on string.Symbol-assignment)
+                // when fed string IDs. V-B-A 2026-05-18: only 2 mutate-event listeners exist in the
+                // codebase; both expect objects. Fix is empirically narrow-blast. (#11595)
+                removedItems   : removedItems
             })
         } else if (!me[silentUpdateMode]) {
             me.cacheUpdate({

@@ -24,7 +24,7 @@ import path           from 'path';
 test.describe('Neo.ai.graph.Database', () => {
     let db;
     let testRun = 0;
-    
+
     // Build an isolated tmp path for the database file tests
     const tmpDir = path.resolve(process.cwd(), 'tmp');
     if (!fs.existsSync(tmpDir)) {
@@ -52,7 +52,7 @@ test.describe('Neo.ai.graph.Database', () => {
 
     test('should add and retrieve a node correctly', async () => {
         db.addNode({ id: 'node1', label: 'Person', properties: { name: 'Alice' } });
-        
+
         expect(db.nodes.getCount()).toBe(1);
         expect(db.nodes.get('node1').label).toBe('Person');
         expect(db.nodes.get('node1').properties.name).toBe('Alice');
@@ -61,9 +61,9 @@ test.describe('Neo.ai.graph.Database', () => {
     test('should add an edge correctly', async () => {
         db.addNode({ id: 'node1' });
         db.addNode({ id: 'node2' });
-        
+
         db.addEdge({ id: 'edge1', source: 'node1', target: 'node2', type: 'KNOWS' });
-        
+
         expect(db.edges.getCount()).toBe(1);
         expect(db.edges.get('edge1').type).toBe('KNOWS');
     });
@@ -72,10 +72,10 @@ test.describe('Neo.ai.graph.Database', () => {
         db.addNode({ id: 'node1' });
         db.addNode({ id: 'node2' });
         db.addNode({ id: 'node3' });
-        
+
         db.addEdge({ source: 'node1', target: 'node2', type: 'KNOWS' });
         db.addEdge({ source: 'node1', target: 'node3', type: 'LIKES' });
-        
+
         let adjacent = db.getAdjacentNodes('node1', 'outbound', 'KNOWS');
         expect(adjacent.length).toBe(1);
         expect(adjacent[0].id).toBe('node2');
@@ -87,12 +87,12 @@ test.describe('Neo.ai.graph.Database', () => {
     test('should cascade delete edges when a node is removed', async () => {
         db.addNode({ id: 'node1' });
         db.addNode({ id: 'node2' });
-        
+
         db.addEdge({ id: 'edge1', source: 'node1', target: 'node2', type: 'KNOWS' });
         expect(db.edges.getCount()).toBe(1);
 
         db.removeNode('node1');
-        
+
         expect(db.nodes.getCount()).toBe(1);
         expect(db.edges.getCount()).toBe(0); // Edge should be deleted because its source node is gone
     });
@@ -100,10 +100,10 @@ test.describe('Neo.ai.graph.Database', () => {
     test('should persist nodes and edges properly using SQLite storage adapter', async () => {
         // Clean out previous runs
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
-        
+
         let storage = Neo.create(SQLite, { dbPath });
         await storage.initAsync();
-        
+
         let persistentDb = Neo.create(Database, {
             id: 'sqlite-graph-test',
             storage: storage
@@ -121,7 +121,7 @@ test.describe('Neo.ai.graph.Database', () => {
 
         let storageReload = Neo.create(SQLite, { dbPath });
         await storageReload.initAsync();
-        
+
         let reloadDb = Neo.create(Database, {
             id: 'sqlite-graph-reload',
             storage: storageReload
@@ -201,10 +201,10 @@ test.describe('Neo.ai.graph.Database', () => {
 
     test('should execute graph mutations synchronously within an atomic transaction', async () => {
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
-        
+
         let storage = Neo.create(SQLite, { dbPath });
         await storage.initAsync();
-        
+
         let dbTransaction = Neo.create(Database, {
             id: 'sqlite-graph-transcation',
             storage: storage
@@ -214,21 +214,21 @@ test.describe('Neo.ai.graph.Database', () => {
             dbTransaction.addNode({ id: 'X' });
             dbTransaction.addNode({ id: 'Y' });
             dbTransaction.addEdge({ id: 'E1', source: 'X', target: 'Y', type: 'TEST' });
-            
-            // Nested checks should "see" data instantly in isolated synchronous thread natively 
+
+            // Nested checks should "see" data instantly in isolated synchronous thread natively
             expect(dbTransaction.nodes.getCount()).toBe(2);
             expect(dbTransaction.edges.getCount()).toBe(1);
         });
 
         // After transaction executes SQLite synchronously, verifying data survived cleanly natively
         expect(dbTransaction.nodes.getCount()).toBe(2);
-        
+
         // Ensure disk mappings captured transaction cleanly
         dbTransaction.destroy();
 
         let storageReload = Neo.create(SQLite, { dbPath });
         await storageReload.initAsync();
-        
+
         let reloadDb = Neo.create(Database, {
             id: 'sqlite-graph-txn-reload',
             storage: storageReload
@@ -236,7 +236,7 @@ test.describe('Neo.ai.graph.Database', () => {
         await storageReload.load();
 
         // Distributed Vicinity Load mapping Lazy Memory internally perfectly
-        reloadDb.getAdjacentNodes('X'); 
+        reloadDb.getAdjacentNodes('X');
 
         expect(reloadDb.edges.getCount()).toBe(1);
         reloadDb.destroy();
@@ -252,27 +252,98 @@ test.describe('Neo.ai.graph.Database', () => {
             dbRollback.transaction(() => {
                 dbRollback.addNode({ id: 'Poison' });
                 dbRollback.addEdge({ id: 'badEdge', source: 'Base', target: 'Poison' });
-                
-                // Assert it works momentarily 
+
+                // Assert it works momentarily
                 expect(dbRollback.nodes.getCount()).toBe(2);
-                
+
                 throw new Error("Triggered Exception!");
             });
         } catch(e) {
-            // Error intentionally caught gracefully natively 
+            // Error intentionally caught gracefully natively
         }
 
         // Memory rollback sequence has automatically fired instantly deleting uncommitted nodes cleanly!
         expect(dbRollback.nodes.getCount()).toBe(1);
         expect(dbRollback.edges.getCount()).toBe(0);
         expect(!dbRollback.nodes.has('Poison')).toBe(true);
-        
+
         dbRollback.destroy();
+    });
+
+    test('should rollback remove-by-key node removal without TypeError on string.Symbol assignment (#11595)', async () => {
+        // Regression #11595: GraphMaintenanceService apoptosis pass called
+        // GraphService.removeNodes(['CONCEPT:foo', ...]) inside a transaction; on rollback, the
+        // mutate event payload's removedItems contained STRING IDs (not actual node objects)
+        // because Collection.Base.splice() emitted `toRemoveArray || removedItems` — the INPUT
+        // key array, not the locally-computed actual-removed-objects array. Rollback then called
+        // store.add(stringIds) which triggered Store.assignInternalId() to attempt setting
+        // Symbol(Neo.internalId) on a primitive string → TypeError.
+        //
+        // Fix at src/collection/Base.mjs:1611: emit `removedItems` (local objects), not
+        // `toRemoveArray || removedItems`. This test exercises the exact failure path: remove
+        // node by key inside transaction → throw → rollback must restore the node-as-object
+        // without TypeError.
+        let dbRollbackByKey = Neo.create(Database, { id: 'graph-rollback-by-key-test' });
+
+        dbRollbackByKey.addNode({ id: 'CONCEPT:sunset-restart-cycle', type: 'CONCEPT', label: 'pre-remove-state' });
+        expect(dbRollbackByKey.nodes.getCount()).toBe(1);
+
+        try {
+            dbRollbackByKey.transaction(() => {
+                dbRollbackByKey.removeNode('CONCEPT:sunset-restart-cycle'); // remove by STRING key
+                expect(dbRollbackByKey.nodes.getCount()).toBe(0);
+                throw new Error('Simulated apoptosis pass failure (post-removal)');
+            });
+        } catch(e) {
+            expect(e.message).toBe('Simulated apoptosis pass failure (post-removal)');
+        }
+
+        // Rollback must restore the original node WITHOUT throwing TypeError on string-as-object.
+        expect(dbRollbackByKey.nodes.getCount()).toBe(1);
+        expect(dbRollbackByKey.nodes.has('CONCEPT:sunset-restart-cycle')).toBe(true);
+        // Verify the restored node is the original OBJECT (not a string wrapper).
+        const restored = dbRollbackByKey.nodes.get('CONCEPT:sunset-restart-cycle');
+        expect(typeof restored).toBe('object');
+        expect(restored.label).toBe('pre-remove-state');
+
+        dbRollbackByKey.destroy();
+    });
+
+    test('Collection.splice mutate-event removedItems is always object-shaped, regardless of remove-by-key vs remove-by-object input (#11595)', async () => {
+        // Direct contract test: the mutate event payload's removedItems must be the locally-built
+        // actual-removed-objects array, not the input keys. Empirical V-B-A on 2026-05-18: only 2
+        // mutate-event listeners exist in the codebase (Database.onEdgesMutate + onNodesMutate),
+        // both expect object-shaped payload. Fix at Collection.Base.splice() ensures consistency.
+        let dbContract = Neo.create(Database, { id: 'graph-mutate-contract-test' });
+        let capturedPayloads = [];
+
+        dbContract.addNode({ id: 'node-a', type: 'TEST' });
+        dbContract.nodes.on('mutate', mutation => {
+            if (mutation.removedItems?.length > 0) {
+                capturedPayloads.push(mutation.removedItems);
+            }
+        });
+
+        // Path 1: remove by STRING key
+        dbContract.nodes.remove('node-a');
+        expect(capturedPayloads.length).toBe(1);
+        expect(typeof capturedPayloads[0][0]).toBe('object');
+        expect(capturedPayloads[0][0].id).toBe('node-a');
+
+        // Path 2: remove by OBJECT
+        dbContract.addNode({ id: 'node-b', type: 'TEST' });
+        const nodeB = dbContract.nodes.get('node-b');
+        dbContract.nodes.remove(nodeB);
+        expect(capturedPayloads.length).toBe(2);
+        expect(typeof capturedPayloads[1][0]).toBe('object');
+        expect(capturedPayloads[1][0].id).toBe('node-b');
+
+        dbContract.destroy();
     });
 
     test('should enforce Cache Coherence flushing stale footprints dynamically directly mapping SQLite hardware triggers seamlessly', async () => {
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
-        
+
         let storagePrimary = Neo.create(SQLite, { dbPath });
         await storagePrimary.initAsync();
         await storagePrimary.load();
@@ -291,10 +362,10 @@ test.describe('Neo.ai.graph.Database', () => {
         // Load Vicinity inside Secondary instance pulling it directly into Memory correctly
         dbSecondary.getAdjacentNodes('core');
         expect(dbSecondary.nodes.getCount()).toBe(2);
-        
+
         // Emulate Primary Server completely bypassing Secondary Process Memory internally modifying disk bounds directly!
-        dbPrimary.removeNode('branch'); 
-        
+        dbPrimary.removeNode('branch');
+
         // Automatically hardware Trigger executed locally recording branch deletion on GraphLog internally.
         // If Secondary Process hits an adjacent lookup, it automatically sweeps Garbage Logs!
         dbSecondary.getAdjacentNodes('core');
@@ -316,32 +387,32 @@ test.describe('Neo.ai.graph.Database', () => {
 
     test('should replay GraphLog mutations even on fresh boot when lastSyncId is 0 (Bug A)', async () => {
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
-        
+
         let storageFresh = Neo.create(SQLite, { dbPath });
         await storageFresh.initAsync();
         let dbFresh = Neo.create(Database, { id: 'cache-fresh', storage: storageFresh });
         await storageFresh.load(); // DB empty -> lastSyncId = 0
-        
+
         expect(dbFresh.lastSyncId).toBe(0);
 
         let storageOther = Neo.create(SQLite, { dbPath });
         await storageOther.initAsync();
         let dbOther = Neo.create(Database, { id: 'cache-other', storage: storageOther });
         await storageOther.load();
-        
+
         dbOther.addNode({ id: 'race-node' });
-        
+
         // With Bug A fix, syncCache() processes the delta and lastSyncId advances
         dbFresh.syncCache();
         expect(dbFresh.lastSyncId).toBeGreaterThan(0);
-        
+
         dbFresh.destroy();
         dbOther.destroy();
     });
 
     test('should not mark vicinityLoadedNodes if lazy load returns empty (Bug B)', async () => {
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
-        
+
         let storage = Neo.create(SQLite, { dbPath });
         await storage.initAsync();
         let db = Neo.create(Database, { id: 'bug-b', storage });
@@ -357,7 +428,7 @@ test.describe('Neo.ai.graph.Database', () => {
 
     test('should invalidate vicinity of both endpoints when syncCache invalidates edges (#10260)', async () => {
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
-        
+
         // Setup Primary instance (Agent A)
         let storageA = Neo.create(SQLite, { dbPath });
         await storageA.initAsync();
@@ -378,7 +449,7 @@ test.describe('Neo.ai.graph.Database', () => {
         dbB.syncCache();
         dbB.getAdjacentNodes('node-x');
         dbB.getAdjacentNodes('node-y');
-        
+
         expect(dbB.vicinityLoadedNodes.has('node-x')).toBe(true);
         expect(dbB.vicinityLoadedNodes.has('node-y')).toBe(true);
         expect(dbB.edges.getCount()).toBe(0);
@@ -386,10 +457,10 @@ test.describe('Neo.ai.graph.Database', () => {
         // Instance A adds a new edge between the nodes
         dbA.addEdge({ id: 'edge-xy', source: 'node-x', target: 'node-y', type: 'LINKS' });
 
-        // Without the #10260 fix, dbB.syncCache() would remove the edge ID from delta, 
+        // Without the #10260 fix, dbB.syncCache() would remove the edge ID from delta,
         // but it wouldn't clear 'node-x' or 'node-y' from vicinityLoadedNodes.
         dbB.syncCache();
-        
+
         // With #10260, they should no longer be marked as loaded
         expect(dbB.vicinityLoadedNodes.has('node-x')).toBe(false);
         expect(dbB.vicinityLoadedNodes.has('node-y')).toBe(false);
