@@ -309,11 +309,50 @@ test.describe('Neo.ai.graph.Database', () => {
         dbRollbackByKey.destroy();
     });
 
+    test('should rollback remove-by-key edge removal without TypeError (#11595)', async () => {
+        // Sibling regression #11595: same shape-mismatch class on the edge-removal path.
+        // `Database.removeEdge(edgeId)` flows STRING IDs through the mutate event. Rollback must
+        // restore the edge as an OBJECT without TypeError on string.Symbol assignment. Per #11595
+        // AC explicit requirement (caught by @neo-gpt PR #11611 Cycle 1 review): "Edge rollback
+        // remains covered; removing edges by string ID must not regress."
+        let dbEdgeRollback = Neo.create(Database, { id: 'graph-edge-rollback-test' });
+
+        dbEdgeRollback.addNode({ id: 'A', label: 'src' });
+        dbEdgeRollback.addNode({ id: 'B', label: 'dst' });
+        dbEdgeRollback.addEdge({ id: 'AB', source: 'A', target: 'B', type: 'TEST' });
+        expect(dbEdgeRollback.edges.getCount()).toBe(1);
+        expect(dbEdgeRollback.edges.get('AB').type).toBe('TEST');
+
+        try {
+            dbEdgeRollback.transaction(() => {
+                dbEdgeRollback.removeEdge('AB'); // remove by STRING key
+                expect(dbEdgeRollback.edges.getCount()).toBe(0);
+                throw new Error('Simulated post-edge-removal failure');
+            });
+        } catch(e) {
+            expect(e.message).toBe('Simulated post-edge-removal failure');
+        }
+
+        // Rollback must restore the original edge OBJECT (not a string wrapper).
+        expect(dbEdgeRollback.edges.getCount()).toBe(1);
+        expect(dbEdgeRollback.edges.has('AB')).toBe(true);
+        const restoredEdge = dbEdgeRollback.edges.get('AB');
+        expect(typeof restoredEdge).toBe('object');
+        expect(restoredEdge.source).toBe('A');
+        expect(restoredEdge.target).toBe('B');
+        expect(restoredEdge.type).toBe('TEST');
+
+        dbEdgeRollback.destroy();
+    });
+
     test('Collection.splice mutate-event removedItems is always object-shaped, regardless of remove-by-key vs remove-by-object input (#11595)', async () => {
         // Direct contract test: the mutate event payload's removedItems must be the locally-built
-        // actual-removed-objects array, not the input keys. Empirical V-B-A on 2026-05-18: only 2
-        // mutate-event listeners exist in the codebase (Database.onEdgesMutate + onNodesMutate),
-        // both expect object-shaped payload. Fix at Collection.Base.splice() ensures consistency.
+        // actual-removed-objects array, not the input keys. V-B-A on consumer impact across the
+        // 5 mutate-event listeners in the codebase (per @neo-gpt PR #11611 Cycle 1 review):
+        // 2 require object-shape (Database.onEdgesMutate + onNodesMutate); 3 are payload-neutral
+        // or shape-flexible (Collection.Base.onMutate forwards via splice which handles both,
+        // Data.Store.onCollectionMutate uses only addedItems, Grid.Container.onColumnsMutate
+        // ignores mutation payload). Fix at Collection.Base.splice() is consumer-safe.
         let dbContract = Neo.create(Database, { id: 'graph-mutate-contract-test' });
         let capturedPayloads = [];
 
