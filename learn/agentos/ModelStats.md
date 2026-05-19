@@ -30,6 +30,7 @@ Named cross-family maintainers with active swarm participation. These models hol
 | `tier` | `frontier` |
 | `contextWindowInput` | 1,048,576 (1M) |
 | `parallelToolCalls` | `true` |
+| `thoughtBudget` | `max` (we use the highest Claude thinking-budget setting) |
 | `releaseDate` | 2026-04-16 |
 | `pricingInput` | $5.00 per 1M tokens |
 | `pricingOutput` | $25.00 per 1M tokens |
@@ -54,6 +55,7 @@ Named cross-family maintainers with active swarm participation. These models hol
 | `contextWindowInput` | 1,048,576 (1M) |
 | `contextWindowOutput` | 65,536 |
 | `parallelToolCalls` | `true` |
+| `thoughtBudget` | `high` (Gemini 3.1 Pro provider-side cap; we use the cap) |
 | `releaseDate` | 2026-02-19 |
 | `pricingInput` | (V-B-A pending — model card cite needed in next update) |
 | `pricingOutput` | (V-B-A pending) |
@@ -76,6 +78,7 @@ Named cross-family maintainers with active swarm participation. These models hol
 | `tier` | `frontier` |
 | `contextWindowInput` | 258,400 effective in Codex CLI/IDE harness (272,000 raw × 95% effective-window multiplier per [openai/codex#19319](https://github.com/openai/codex/issues/19319) implementation-discrepancy report). OpenAI's published Codex window is 400,000 (per `openai.com/index/introducing-gpt-5-5/`). OpenAI API itself supports 1,048,576 (1M) for raw GPT-5.5. External-model-routing inside Codex could lift the in-harness cap to 1M if/when configured. |
 | `parallelToolCalls` | `true` |
+| `thoughtBudget` | `extra-high` (GPT-5.5 provider-side max we use) |
 | `releaseDate` | 2026-04-23 |
 | `pricingInput` | $5.00 per 1M tokens (API) |
 | `pricingOutput` | $30.00 per 1M tokens (API) |

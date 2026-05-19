@@ -37,6 +37,7 @@ export const IDENTITIES = [
             // §neo_opus_4_7 (Anthropic Claude API docs + aipricing.guru May 2026).
             contextWindowInput: 1048576,
             parallelToolCalls : true,
+            thoughtBudget     : 'max',
             hosting           : 'cloud',
             family            : 'claude',
             tier              : 'frontier',
@@ -76,6 +77,7 @@ export const IDENTITIES = [
             contextWindowInput : 1048576,
             contextWindowOutput: 65536,
             parallelToolCalls  : true,
+            thoughtBudget      : 'high', // Gemini 3.1 Pro provider-side cap at 'high' setting; we use the cap
             hosting            : 'cloud',
             family             : 'gemini',
             tier               : 'frontier',
@@ -129,6 +131,7 @@ export const IDENTITIES = [
             // before treating published-spec as authoritative.
             contextWindowInput: 258400,
             parallelToolCalls : true,
+            thoughtBudget     : 'extra-high', // GPT-5.5 provider-side max we use
             hosting           : 'cloud',
             family            : 'gpt',
             tier              : 'frontier',

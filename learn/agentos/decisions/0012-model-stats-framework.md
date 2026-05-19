@@ -55,6 +55,7 @@ The following capability dimensions are tracked on each `AgentIdentity` node and
 | `contextWindowInput` | `Number` (tokens) | Maximum input token capacity (e.g., 1,048,576 for 1M-context models) |
 | `contextWindowOutput` | `Number` (tokens, optional) | Output token capacity where distinct from input (e.g., Gemini 3.1 Pro: 65,536) |
 | `parallelToolCalls` | `Boolean` \| `Number` | Whether parallel tool invocation is supported; numeric value indicates max concurrency where bounded |
+| `thoughtBudget` | `String` | Reasoning/thinking-budget setting in active use, per provider's terminology. Values differ per provider (Claude: `'max'`; Gemini: `'high'`/`'extra-high'`/`'max'` capped at provider-side; GPT: `'extra-high'`/`'max'`-equivalent). The dimension is comparable cross-family at a coarse "closer ball park" granularity; exact equivalences require empirical V-B-A. |
 | `hosting` | `'cloud' \| 'mlx-local' \| 'self-hosted'` | Where the model executes; informs latency, cost, and privacy substrate |
 | `family` | `String` | Model family (`'claude'`, `'gpt'`, `'gemini'`, `'gemma'`, `'qwen'`, `'phi'`, etc.) |
 | `tier` | `'frontier' \| 'balanced' \| 'fast'` | Capability-cost tier; informs swarm-routing policy |
@@ -72,10 +73,21 @@ Existing `IdentitySchema.md` fields (`id`, `name`, `description`, `githubLogin`,
 
 A model identity transitions through three lifecycle states: **Active** → **Deprecated** → **Retired**.
 
-**Promotion (new identity adoption)** triggers:
+**Identity transitions distinguish rename vs split** (operator clarification 2026-05-19):
+
+- **Rename** (minor version bump within same capability class — e.g., Gemini 3.1 → 3.2, Claude Opus 4.7 → 4.8): same identity ID rotates (`@neo-gemini-3-1-pro` → `@neo-gemini-3-2-pro`), `displayName` + `releaseDate` + capability data update in-place. The underlying model family is "still the same, just slightly enhanced." `createdAt` preserved per IdentitySchema.md discipline. No graph-side identity split.
+- **Split** (major capability-class change — e.g., Gemini 3.0 → 3.1 where "reasoning processes inherently change," or family-shift Gemma 3 → Gemma 4): new identity provisioned; predecessor marked deprecated and retained for archaeology (`createdAt` preserved on the historical node). Per IdentitySchema.md Per-Model Identity rationale.
+
+The boundary between rename and split is judgment-call territory; the substrate-correct shape is: presume rename for minor version bumps within a family branch; presume split for major version jumps or family changes. Decision lives in the registry-update PR body (cite which case applies).
+
+**Promotion (new identity adoption)** triggers (split case):
 - Provider releases a new model that materially changes reasoning capability (per IdentitySchema.md Per-Model Identity rationale — "massive capability upgrades like Gemini 3.0 to 3.1 inherently change reasoning processes")
 - Provider releases a new variant with distinct capability profile (e.g., GPT-5.5 Thinking vs GPT-5.5 Pro)
 - Provider releases a new family entirely (e.g., Gemma 4 vs Gemma 3)
+
+**Rename triggers** (in-place rotation):
+- Minor version bump preserves capability class but updates model name (e.g., 3.1 → 3.2 within same family branch)
+- Identity ID + `displayName` + `releaseDate` + capability data update; graph-side `createdAt` preserved
 
 **Deprecation triggers**:
 - Provider announces sunset date for the underlying API endpoint
