@@ -368,6 +368,16 @@ class IssueSyncer extends Base {
                     version = issue.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
                         ? issue.milestone.title
                         : issueSyncConfig.versionDirectoryPrefix + issue.milestone.title;
+                } else if (issue.oldVersion && semver.valid(semver.clean(issue.oldVersion)) !== null) {
+                    // Use cached path-derived version when present and valid semver. Unchanged closed
+                    // issues seeded from existing serialized metadata may lack milestone data (legacy
+                    // entries pre-#11594 metadata-persistence fix) but still have a known on-disk
+                    // bucket via oldVersion (path-derived at ~L310-317). Skipping closedAt timestamp
+                    // inference here prevents false-positive bucket-shift WARN on unchanged archived
+                    // issues — the path IS the canonical bucket when no milestone data exists.
+                    // Per #11594 AC3 / AC4(b): oldVersion precedence for unchanged closed issues.
+                    // (#11594 Cycle 2 fix per @neo-gpt PR #11607 Cycle 2 review.)
+                    version = issue.oldVersion;
                 } else if (issue.closedAt) {
                     const closed = new Date(issue.closedAt);
                     const release = (ReleaseNotesSyncer.sortedReleases || []).find(r => new Date(r.publishedAt) > closed);
