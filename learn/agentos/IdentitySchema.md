@@ -45,6 +45,7 @@ These fields are populated at provisioning time (via `ai/scripts/seedAgentIdenti
 | `contextWindowInput` | `Number` (tokens) | Maximum input token capacity. | `1048576` |
 | `contextWindowOutput` | `Number` (tokens, optional) | Output token capacity where distinct from input. | `65536` (Gemini 3.1 Pro) |
 | `parallelToolCalls` | `Boolean` \| `Number` | Whether parallel tool invocation is supported; numeric value indicates max concurrency where bounded. | `true` |
+| `thoughtBudget` | `String` | Reasoning/thinking-budget setting in active use (per-provider terminology). Cross-family comparable at coarse "closer ball park" granularity; exact equivalences require empirical V-B-A. | `'max'` (Claude), `'high'` (Gemini cap), `'extra-high'` (GPT) |
 | `hosting` | `String` | Where the model executes: `'cloud'` \| `'mlx-local'` \| `'self-hosted'`. Informs latency, cost, and privacy substrate. | `'cloud'` |
 | `tier` | `String` | Capability-cost tier: `'frontier'` \| `'balanced'` \| `'fast'`. Informs swarm-routing policy per ADR 0012 §2.4. | `'frontier'` |
 | `releaseDate` | `ISO 8601 String` | Model release date. Anchors capability claims against training-data drift. | `'2026-04-16'` |
