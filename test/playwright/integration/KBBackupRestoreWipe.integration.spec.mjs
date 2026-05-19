@@ -206,6 +206,34 @@ function truncateKnowledgeBase() {
 }
 
 /**
+ * Deletes the deterministic record seeded by this spec without dropping the shared fixture collection.
+ * @param {String} id Chroma vector id.
+ * @returns {Object}
+ */
+function deleteKnowledgeBaseRecord(id) {
+    return execKnowledgeBaseJson(`
+        ${NEO_BOOTSTRAP}
+
+        const {KB_ChromaManager, KB_LifecycleService} = await import('./ai/services.mjs');
+
+        await KB_LifecycleService.ready();
+
+        const collection = await KB_ChromaManager.getKnowledgeBaseCollection();
+
+        await collection.delete({
+            ids: [process.env.NEO_TEST_KB_ID]
+        });
+
+        console.log(JSON.stringify({
+            count  : await collection.count(),
+            deleted: process.env.NEO_TEST_KB_ID
+        }));
+    `, {
+        NEO_TEST_KB_ID: id
+    });
+}
+
+/**
  * Deletes a backup directory from the deployed Knowledge Base container tmpfs.
  * @param {String} backupPath Absolute backup path inside the container.
  * @returns {Object}
@@ -264,7 +292,7 @@ test.describe('Dockerized KB backup -> wipe -> restore integration (#11644)', ()
             expect(restoredRecord.metadata.sentinel).toBe(sentinel);
         } finally {
             await Promise.allSettled([
-                Promise.resolve().then(() => truncateKnowledgeBase()),
+                Promise.resolve().then(() => deleteKnowledgeBaseRecord(recordId)),
                 Promise.resolve().then(() => cleanupBackupPath(backupPath))
             ]);
         }
