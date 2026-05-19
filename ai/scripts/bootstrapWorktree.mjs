@@ -71,6 +71,12 @@
  * node ai/scripts/bootstrapWorktree.mjs --link-data --canonical-root /path/to/canonical
  *                                                    # independent-clone topology: explicit
  *                                                    # canonical-root override (per #10435)
+ * node ai/scripts/bootstrapWorktree.mjs --prune-stale
+ *                                                    # dry-run stale .claude/worktrees cleanup
+ * node ai/scripts/bootstrapWorktree.mjs --prune-stale --apply
+ *                                                    # remove prunable worktrees via git
+ * node ai/scripts/bootstrapWorktree.mjs --prune-stale --apply --force-dirty
+ *                                                    # also force-remove dirty-but-stale worktrees
  * ```
  *
  * Also supports the `NEO_AI_CANONICAL_ROOT` env var as a fallback for the `--canonical-root`
@@ -158,6 +164,13 @@ export const DATA_SUBDIRS_TO_LINK = [
 export const GITIGNORED_FILES_TO_LINK = [
     'resources/content/sandman_handoff.md'  // Sandman strategic-priming handoff (#10591)
 ];
+
+export const DEFAULT_CLAUDE_WORKTREES_ROOT = path.join('.claude', 'worktrees');
+
+export const PRUNABLE_WORKTREE_STATUSES = new Set([
+    'prunable-merged',
+    'prunable-deleted'
+]);
 
 /**
  * @summary Resolves the canonical "main checkout" path for a given project root.
@@ -531,6 +544,333 @@ export async function runBuildAll({projectRoot, log = console.log, exec = execFi
     return 'built';
 }
 
+/**
+ * @summary Parses `git worktree list --porcelain` into stable worktree records.
+ *
+ * @param {string} output Raw porcelain output from git.
+ * @returns {{path: string, head: string|null, branchRef: string|null, branch: string|null, detached: boolean}[]}
+ */
+export function parseWorktreePorcelain(output) {
+    const records = [];
+    let current   = null;
+
+    for (const line of output.split(/\r?\n/)) {
+        if (!line.trim()) {
+            if (current) {
+                records.push(current);
+                current = null;
+            }
+            continue;
+        }
+
+        const [key, ...rest] = line.split(' ');
+        const value          = rest.join(' ');
+
+        if (key === 'worktree') {
+            if (current) records.push(current);
+            current = {
+                path     : value,
+                head     : null,
+                branchRef: null,
+                branch   : null,
+                detached : false
+            };
+            continue;
+        }
+
+        if (!current) continue;
+
+        if (key === 'HEAD') {
+            current.head = value;
+        } else if (key === 'branch') {
+            current.branchRef = value;
+            current.branch    = value.startsWith('refs/heads/') ? value.slice('refs/heads/'.length) : value;
+        } else if (key === 'detached') {
+            current.detached = true;
+        }
+    }
+
+    if (current) records.push(current);
+
+    return records;
+}
+
+/**
+ * @summary Lists git worktrees below the Claude Code worktree root.
+ *
+ * The cleanup mode is scoped deliberately to `.claude/worktrees/`; shared-checkout
+ * harnesses such as Codex and Antigravity do not create this disk-growth pattern.
+ *
+ * @param {object}   options
+ * @param {string}   options.projectRoot Absolute primary checkout path.
+ * @param {string}   [options.worktreesRoot] Relative or absolute worktree parent.
+ * @param {Function} [options.exec] Dependency-injected execFile wrapper.
+ * @returns {Promise<object[]>}
+ */
+export async function listClaudeWorktrees({
+    projectRoot,
+    worktreesRoot = DEFAULT_CLAUDE_WORKTREES_ROOT,
+    exec          = execFileAsync
+}) {
+    const {stdout} = await exec('git', ['worktree', 'list', '--porcelain'], {cwd: projectRoot});
+    const rootPath = path.isAbsolute(worktreesRoot)
+        ? path.resolve(worktreesRoot)
+        : path.resolve(projectRoot, worktreesRoot);
+
+    return parseWorktreePorcelain(stdout).filter(record => isPathInside(rootPath, record.path));
+}
+
+/**
+ * @summary Classifies one Claude Code worktree for dry-run or removal.
+ *
+ * Safety is biased toward preservation: dirty worktrees, branches with open PRs,
+ * branches with unmerged commits, and branches whose PR status cannot be verified
+ * are classified as non-prunable.
+ *
+ * @param {object}   options
+ * @param {object}   options.worktree Parsed worktree record.
+ * @param {string}   options.projectRoot Primary checkout path used for repo-wide git queries.
+ * @param {string}   [options.baseRef='dev'] Base branch to compare against.
+ * @param {Function} [options.exec] Dependency-injected execFile wrapper.
+ * @param {Function} [options.getSize] Optional size resolver.
+ * @returns {Promise<object>}
+ */
+export async function classifyWorktree({
+    worktree,
+    projectRoot,
+    baseRef = 'dev',
+    exec    = execFileAsync,
+    getSize = getPathSizeBytes
+}) {
+    const sizeBytes = await getSize(worktree.path, {exec});
+    const dirty     = await isWorktreeDirty(worktree.path, exec);
+    const base      = {
+        ...worktree,
+        sizeBytes,
+        dirty,
+        prunable       : false,
+        forcePrunable  : false,
+        removeArgs     : ['worktree', 'remove', worktree.path],
+        status         : 'active',
+        reason         : ''
+    };
+
+    const branchExists = worktree.branch
+        ? await refExists(projectRoot, `refs/heads/${worktree.branch}`, exec)
+        : false;
+
+    const prState = worktree.branch ? await getPullRequestState(projectRoot, worktree.branch, exec) : null;
+    const merged = await isMergedToBase({projectRoot, worktree, baseRef, branchExists, exec});
+    const prStateBlocksRemoval = prState === 'OPEN' || prState === 'unknown';
+
+    if (dirty) {
+        return {
+            ...base,
+            status       : 'dirty',
+            reason       : merged || !branchExists ? 'dirty-but-otherwise-prunable' : 'dirty-active-or-unmerged',
+            forcePrunable: !prStateBlocksRemoval && (merged || !branchExists),
+            removeArgs   : ['worktree', 'remove', '--force', worktree.path]
+        };
+    }
+
+    if (prState === 'OPEN') {
+        return {
+            ...base,
+            status: 'active',
+            reason: `branch ${worktree.branch} has an open PR`
+        };
+    }
+
+    if (prState === 'unknown') {
+        return {
+            ...base,
+            status: 'active',
+            reason: `branch ${worktree.branch} PR status could not be verified`
+        };
+    }
+
+    if (worktree.branch && !branchExists) {
+        return {
+            ...base,
+            prunable: true,
+            status  : 'prunable-deleted',
+            reason  : `branch ${worktree.branch} no longer exists`
+        };
+    }
+
+    if (merged) {
+        return {
+            ...base,
+            prunable: true,
+            status  : 'prunable-merged',
+            reason  : worktree.branch
+                ? `branch ${worktree.branch} is merged or patch-equivalent to ${baseRef}`
+                : `detached HEAD ${worktree.head} is an ancestor of ${baseRef}`
+        };
+    }
+
+    return {
+        ...base,
+        status: 'active',
+        reason: worktree.branch
+            ? `branch ${worktree.branch} has commits not merged into ${baseRef}`
+            : `detached HEAD ${worktree.head || 'unknown'} is not known merged into ${baseRef}`
+    };
+}
+
+/**
+ * @summary Dry-runs or applies stale Claude Code worktree pruning.
+ *
+ * Default mode never mutates. `apply=true` removes only clean worktrees classified
+ * as prunable. Dirty worktrees remain preserved unless `forceDirty=true` is also
+ * provided and the dirty worktree is otherwise prunable.
+ *
+ * @param {object}   options
+ * @param {string}   options.projectRoot Primary checkout path.
+ * @param {boolean}  [options.apply=false] Whether to remove prunable worktrees.
+ * @param {boolean}  [options.forceDirty=false] Whether dirty-but-prunable worktrees may be force-removed.
+ * @param {string}   [options.baseRef='dev'] Base branch to compare against.
+ * @param {string}   [options.worktreesRoot] Worktree parent path.
+ * @param {Function} [options.exec] Dependency-injected execFile wrapper.
+ * @param {Function} [options.getSize] Optional size resolver.
+ * @param {Function} [options.log] Logger fn for action diagnostics.
+ * @returns {Promise<{worktrees: object[], removed: object[], skipped: object[], totalBytes: number, reclaimableBytes: number, reclaimedBytes: number}>}
+ */
+export async function pruneStaleWorktrees({
+    projectRoot,
+    apply         = false,
+    forceDirty    = false,
+    baseRef       = 'dev',
+    worktreesRoot = DEFAULT_CLAUDE_WORKTREES_ROOT,
+    exec          = execFileAsync,
+    getSize       = getPathSizeBytes,
+    log           = console.log
+}) {
+    const worktrees = await listClaudeWorktrees({projectRoot, worktreesRoot, exec});
+    const classified = [];
+
+    for (const worktree of worktrees) {
+        classified.push(await classifyWorktree({worktree, projectRoot, baseRef, exec, getSize}));
+    }
+
+    const removable = classified.filter(item => item.prunable || (forceDirty && item.forcePrunable));
+    const skipped   = classified.filter(item => !removable.includes(item));
+    const removed   = [];
+
+    const totalBytes       = classified.reduce((sum, item) => sum + item.sizeBytes, 0);
+    const reclaimableBytes = removable.reduce((sum, item) => sum + item.sizeBytes, 0);
+
+    log(`Claude worktree prune ${apply ? 'apply' : 'dry-run'} against ${baseRef}`);
+    log(`Found ${classified.length} worktree(s), ${formatBytes(totalBytes)} total, ${formatBytes(reclaimableBytes)} reclaimable.`);
+
+    for (const item of classified) {
+        const marker = removable.includes(item) ? (apply ? 'remove' : 'would-remove') : 'keep';
+        log(`${marker}: ${item.status} ${formatBytes(item.sizeBytes)} ${item.path}`);
+        log(`  ${item.reason}`);
+    }
+
+    if (apply) {
+        for (const item of removable) {
+            await exec('git', item.removeArgs, {cwd: projectRoot});
+            removed.push(item);
+        }
+        log(`Removed ${removed.length} worktree(s), reclaimed up to ${formatBytes(reclaimableBytes)}.`);
+    } else {
+        log(`Dry-run only. Re-run with --apply to remove prunable worktrees.`);
+    }
+
+    return {
+        worktrees      : classified,
+        removed,
+        skipped,
+        totalBytes,
+        reclaimableBytes,
+        reclaimedBytes: apply ? reclaimableBytes : 0
+    };
+}
+
+async function getPathSizeBytes(targetPath, {exec = execFileAsync} = {}) {
+    try {
+        const {stdout} = await exec('du', ['-sk', targetPath]);
+        const kb       = Number.parseInt(stdout.trim().split(/\s+/)[0], 10);
+        return Number.isFinite(kb) ? kb * 1024 : 0;
+    } catch {
+        return 0;
+    }
+}
+
+async function isWorktreeDirty(worktreePath, exec) {
+    const {stdout} = await exec('git', ['status', '--porcelain'], {cwd: worktreePath});
+    return stdout.trim().length > 0;
+}
+
+async function refExists(projectRoot, ref, exec) {
+    try {
+        await exec('git', ['show-ref', '--verify', '--quiet', ref], {cwd: projectRoot});
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+async function isMergedToBase({projectRoot, worktree, baseRef, branchExists, exec}) {
+    if (worktree.head) {
+        try {
+            await exec('git', ['merge-base', '--is-ancestor', worktree.head, baseRef], {cwd: projectRoot});
+            return true;
+        } catch {}
+    }
+
+    if (!worktree.branch || !branchExists) {
+        return false;
+    }
+
+    const {stdout: mergedBranches} = await exec('git', ['branch', '--merged', baseRef, '--format=%(refname:short)'], {cwd: projectRoot});
+    if (mergedBranches.split(/\r?\n/).map(line => line.trim()).includes(worktree.branch)) {
+        return true;
+    }
+
+    try {
+        const {stdout: cherry} = await exec('git', ['cherry', baseRef, worktree.branch], {cwd: projectRoot});
+        const lines = cherry.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+        return lines.length > 0 && lines.every(line => line.startsWith('-'));
+    } catch {
+        return false;
+    }
+}
+
+async function getPullRequestState(projectRoot, branch, exec) {
+    try {
+        const {stdout} = await exec('gh', ['pr', 'view', branch, '--json', 'state', '--jq', '.state'], {cwd: projectRoot});
+        const state    = stdout.trim();
+        return state || null;
+    } catch (e) {
+        const stderr = String(e.stderr || e.message || '');
+        if (/no pull requests found|not found|could not resolve to a PullRequest/i.test(stderr)) {
+            return null;
+        }
+        return 'unknown';
+    }
+}
+
+function isPathInside(rootPath, candidatePath) {
+    const relative = path.relative(path.resolve(rootPath), path.resolve(candidatePath));
+    return relative === '' || (!!relative && !relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function formatBytes(bytes) {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    let value   = bytes;
+    let unitIdx = 0;
+
+    while (value >= 1024 && unitIdx < units.length - 1) {
+        value /= 1024;
+        unitIdx++;
+    }
+
+    return `${value.toFixed(unitIdx === 0 ? 0 : 1)}${units[unitIdx]}`;
+}
+
 // -------------------------------------------------------------------------------------
 // CLI entry point. Runs only when invoked directly (node ai/scripts/bootstrapWorktree.mjs)
 // and not when imported by a test spec.
@@ -547,6 +887,10 @@ if (isMain) {
     const args     = new Set(argv);
     const linkData = args.has('--link-data');
     const force    = args.has('--force');
+    const pruneStale = args.has('--prune-stale') || argv.includes('--mode=prune-stale') ||
+        (argv.includes('--mode') && argv[argv.indexOf('--mode') + 1] === 'prune-stale');
+    const apply      = args.has('--apply');
+    const forceDirty = args.has('--force-dirty');
 
     // `--canonical-root <path>` flag wins; `NEO_AI_CANONICAL_ROOT` env var is the fallback.
     // Both are no-ops when running in an actual git worktree (the existing
@@ -565,6 +909,11 @@ if (isMain) {
             process.exit(1);
         }
         if (explicitRoot) console.log(`✓ Canonical checkout (explicit): ${mainCheckout}`);
+
+        if (pruneStale) {
+            await pruneStaleWorktrees({projectRoot: mainCheckout, apply, forceDirty});
+            process.exit(0);
+        }
 
         const result = await bootstrapWorktree({mainCheckout, projectRoot});
         const total  = result.copied.length + result.skipped.length + result.missing.length;
