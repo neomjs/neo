@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import aiConfig from '../../mcp/server/memory-core/config.mjs';
 import Base from '../../../src/core/Base.mjs';
+import {invokeWithGuardrail} from './helpers/ConsumerFrictionHelper.mjs';
 import crypto from 'crypto';
 import GraphService from './GraphService.mjs';
 import OpenAiCompatibleProvider from '../../provider/OpenAiCompatible.mjs';
@@ -461,7 +462,36 @@ Unique Tools Utilized: ${Array.from(allToolsUsed).join(', ') || 'none recorded'}
 ${aggregatedContent}
 `;
 
-        const result = await this.model.generateContent(summaryPrompt);
+        // #11447 Brain-Pillar Consumer-Friction Channel V1: wrap the summarization LLM
+        // invocation with bidirectional guardrail per Discussion #11444 graduation contract.
+        // Angle 2 (upstream pre-check) skips invocation when the estimated tokens for
+        // `summaryPrompt` exceed the consumer's safe processing band; Angle 1 (downstream
+        // try/catch) categorizes engine-level failures into friction symptoms. Friction is
+        // emitted with `serviceDomain: 'memory-core'` for handoff rendering by
+        // `GoldenPathSynthesizer.synthesizeGoldenPath`.
+        const consumerModel         = aiConfig.modelProvider === 'openAiCompatible'
+            ? (aiConfig.openAiCompatible.model || 'openAiCompatible')
+            : (aiConfig.modelName || 'gemini');
+        const consumerContextTokens = aiConfig.openAiCompatible?.contextLimitTokens || 32768;
+        const consumerSafeTokens    = aiConfig.openAiCompatible?.safeProcessingLimitTokens;
+        const guardrailed           = await invokeWithGuardrail({
+            invocationFn             : () => this.model.generateContent(summaryPrompt),
+            inputPayload             : summaryPrompt,
+            model                    : consumerModel,
+            assetRef                 : sessionId,
+            consumer                 : 'SessionService.summarizeSession',
+            contextLimitTokens       : consumerContextTokens,
+            safeProcessingLimitTokens: consumerSafeTokens,
+            serviceDomain            : 'memory-core',
+            note                     : `summarizationBatchLimit=${aiConfig.summarizationBatchLimit || 'unset'}`
+        });
+
+        if (!guardrailed.result) {
+            logger.warn(`[SessionService] summarizeSession: invocation guardrail emitted ${guardrailed.friction?.symptom} for session ${sessionId}; skipping summary.`);
+            return null;
+        }
+
+        const result = guardrailed.result;
         const responseText = result.response.text();
         const summaryData = Json.extract(responseText);
 
