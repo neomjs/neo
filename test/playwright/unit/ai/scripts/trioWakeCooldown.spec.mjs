@@ -25,6 +25,14 @@ test.describe('ai/scripts/trioWakeCooldown', () => {
     const STATE_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.json';
     const scriptPath = path.resolve(process.cwd(), 'ai/scripts/trioWakeCooldown.mjs');
 
+    // #11417: the subprocess invokes `MailboxService.addMessage({to: coordinator, ...})`
+    // and the new `validateMailboxTarget` guard rejects unrecognized targets at
+    // addMessage-time. The subprocess runs with `UNIT_TEST_MODE='true'` → graph
+    // storage is `:memory:` (per-process), so fixture-process seeding cannot reach
+    // the subprocess. Use a canonical identity that `seedAgentIdentities.mjs`
+    // provisions at the subprocess's `LifecycleService.initAsync` boot.
+    const TEST_COORDINATOR = '@neo-opus-4-7';
+
     test.beforeEach(async () => {
         await fs.remove(STATE_PATH);
     });
@@ -37,8 +45,8 @@ test.describe('ai/scripts/trioWakeCooldown', () => {
         const signal = {
             allIdle: true,
             cycle_id: 'cycle-101',
-            identities: ['@neo-test'],
-            coordinator_recommendation: '@neo-test',
+            identities: [TEST_COORDINATOR],
+            coordinator_recommendation: TEST_COORDINATOR,
             details: {}
         };
 
@@ -59,8 +67,8 @@ test.describe('ai/scripts/trioWakeCooldown', () => {
         const signal = {
             allIdle: true,
             cycle_id: 'cycle-102',
-            identities: ['@neo-test'],
-            coordinator_recommendation: '@neo-test',
+            identities: [TEST_COORDINATOR],
+            coordinator_recommendation: TEST_COORDINATOR,
             details: {}
         };
 
@@ -92,8 +100,8 @@ test.describe('ai/scripts/trioWakeCooldown', () => {
         const signal1 = {
             allIdle: true,
             cycle_id: 'cycle-201',
-            identities: ['@neo-test'],
-            coordinator_recommendation: '@neo-test',
+            identities: [TEST_COORDINATOR],
+            coordinator_recommendation: TEST_COORDINATOR,
             details: {}
         };
 

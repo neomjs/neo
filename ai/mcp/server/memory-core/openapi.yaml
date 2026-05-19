@@ -47,7 +47,7 @@ paths:
         readOnlyHint: true
       description: |
         Confirms the server is running and can connect to the ChromaDB instance.
-        
+
         **When to Use:**
         Use this as a first-step diagnostic tool to ensure the memory system is operational before attempting other operations.
       tags: [Health]
@@ -985,7 +985,7 @@ paths:
               properties:
                 to:
                   type: string
-                  description: "Recipient Agent Identity Node ID, or 'AGENT:*' for broadcast"
+                  description: "Recipient Agent Identity Node ID in canonical `@<identity>` form matching a registered AgentIdentity graph node, or `'AGENT:*'` for broadcast. `AGENT:<family>/<model>` aliases resolve only when exactly one AgentIdentity matches that `modelFamily`; ambiguous or unresolvable formats reject."
                 subject:
                   type: string
                 body:
