@@ -14,6 +14,61 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 /**
+ * @summary Returns the vector length emitted by an embedding provider.
+ *
+ * Kept as a pure helper so the Golden Path query boundary can validate the provider output
+ * before ChromaDB rejects a mismatched query shape.
+ *
+ * @param {*} embedding Provider-produced embedding payload.
+ * @returns {Number|null} The embedding vector length, or null for invalid/non-vector payloads.
+ */
+export function getEmbeddingVectorLength(embedding) {
+    return Number.isInteger(embedding?.length) ? embedding.length : null;
+}
+
+/**
+ * @summary Resolves the configured embedding model name for the active provider.
+ *
+ * @param {Object} config Memory Core config object.
+ * @param {String} provider Active embedding provider key.
+ * @returns {String|null}
+ */
+export function getEmbeddingModelName(config, provider) {
+    switch (provider) {
+        case 'openAiCompatible':
+            return config.openAiCompatible?.embeddingModel || null;
+        case 'ollama':
+            return config.ollama?.embeddingModel || null;
+        case 'gemini':
+            return config.embeddingModel || null;
+        default:
+            return null;
+    }
+}
+
+/**
+ * @summary Builds the operator-facing Golden Path dimension mismatch warning.
+ *
+ * The message intentionally names both config and observed dimensions because this is the
+ * runtime evidence operators need to align `NEO_EMBEDDING_PROVIDER`, `NEO_VECTOR_DIMENSION`,
+ * and the existing Chroma collection dimension without destructive collection rebuilds.
+ *
+ * @param {Object} options
+ * @param {String} options.provider Active embedding provider key.
+ * @param {String|null} options.model Active embedding model name.
+ * @param {Number} options.configuredDimension Configured vector dimension.
+ * @param {Number|null} options.actualDimension Provider-produced vector length.
+ * @returns {String}
+ */
+export function buildEmbeddingDimensionMismatchMessage({provider, model, configuredDimension, actualDimension}) {
+    return `[GoldenPathSynthesizer] Embedding dimension mismatch before Chroma query: ` +
+        `provider=${provider || '<unset>'}, model=${model || '<unknown>'}, ` +
+        `configuredVectorDimension=${configuredDimension}, actualEmbeddingDimension=${actualDimension}. ` +
+        `Skipping semantic route. Align NEO_EMBEDDING_PROVIDER / NEO_VECTOR_DIMENSION with ` +
+        `the Chroma collection dimension, or rebuild the collection intentionally after backup.`;
+}
+
+/**
  * @class Neo.ai.daemons.services.GoldenPathSynthesizer
  * @extends Neo.core.Base
  * @singleton
@@ -81,6 +136,25 @@ class GoldenPathSynthesizer extends Base {
             frontierEmbedding = await TextEmbeddingService.embedText(frontierText, aiConfig.embeddingProvider);
         } catch (e) {
             logger.warn('[GoldenPathSynthesizer] Failed to generate Frontier Baseline Vector. Aborting Hybrid route.', e);
+            return;
+        }
+
+        const actualDimension     = getEmbeddingVectorLength(frontierEmbedding);
+        const configuredDimension = Number(aiConfig.vectorDimension);
+
+        if (!Number.isInteger(actualDimension) ||
+            !Number.isInteger(configuredDimension) ||
+            configuredDimension <= 0 ||
+            actualDimension !== configuredDimension) {
+            const provider = aiConfig.embeddingProvider;
+            const model    = getEmbeddingModelName(aiConfig, provider);
+
+            logger.warn(buildEmbeddingDimensionMismatchMessage({
+                provider,
+                model,
+                configuredDimension,
+                actualDimension
+            }));
             return;
         }
 

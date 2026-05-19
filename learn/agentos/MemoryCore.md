@@ -182,7 +182,7 @@ Introduced for Chroma-side local embedding-provider validation (#10723), then co
 | `active` | `'gemini' \| 'openAiCompatible' \| 'ollama' \| string` | Provider selected for every embedding consumer. Controlled by `embeddingProvider` / `NEO_EMBEDDING_PROVIDER`. |
 | `host` | `string \| null` | Embedding provider host for local providers; `null` for Gemini. |
 | `model` | `string \| null` | Configured embedding model name. |
-| `dimensions` | `number` | Configured `vectorDimension`; must match the embedding model's actual output dimension. |
+| `dimensions` | `number` | Configured `vectorDimension`; must match the embedding model's actual output dimension. Live output length is provider-call evidence rather than a cheap config projection; Golden Path logs `actualEmbeddingDimension` when it already generated a frontier embedding and detects a mismatch before Chroma query. |
 | `error` | `string` (optional) | Present only when the provider key is unrecognized; healthcheck surfaces the misconfig instead of throwing. |
 
 `NEO_CHROMA_EMBEDDING_PROVIDER` remains readable during the #10804 deprecation window and feeds the unified selector with a warning. Operators should use `NEO_EMBEDDING_PROVIDER` for new deployments.

@@ -33,6 +33,10 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     let TextEmbeddingService;
     let tmpHandoffFile;
     let originalExecSync;
+    let originalEmbeddingModel;
+    let originalEmbeddingProvider;
+    let originalVectorDimension;
+    let originalWarn;
     
     test.beforeAll(async () => {
         aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
@@ -60,11 +64,20 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     });
 
     test.beforeEach(() => {
-        originalExecSync = child_process.execSync;
+        originalEmbeddingModel    = aiConfig.embeddingModel;
+        originalEmbeddingProvider = aiConfig.embeddingProvider;
+        originalExecSync          = child_process.execSync;
+        originalVectorDimension   = aiConfig.vectorDimension;
+        originalWarn              = logger.warn;
     });
 
     test.afterEach(() => {
-        child_process.execSync = originalExecSync;
+        aiConfig.embeddingModel    = originalEmbeddingModel;
+        aiConfig.embeddingProvider = originalEmbeddingProvider;
+        aiConfig.vectorDimension   = originalVectorDimension;
+        child_process.execSync     = originalExecSync;
+        logger.warn                = originalWarn;
+
         if (fs.existsSync(tmpHandoffFile)) {
             try { fs.unlinkSync(tmpHandoffFile); } catch(e) {}
         }
@@ -79,6 +92,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const originalGetGraphCollection = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
         const originalEmbedText = TextEmbeddingService.embedText;
+        aiConfig.vectorDimension = 2;
         
         StorageRouter.getGraphCollection = async () => ({ query: async () => ({ ids: [['mock-id']], distances: [[0.1]] }) });
         StorageRouter.getSummaryCollection = async () => ({ get: async () => ({ documents: ['mock document'] }) });
@@ -104,12 +118,14 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const originalFetchOpenPRs = GoldenPathSynthesizer.fetchOpenPRs;
         GoldenPathSynthesizer.fetchOpenPRs = async () => mockPrData;
 
-        await GoldenPathSynthesizer.synthesizeGoldenPath();
-        
-        GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
-        StorageRouter.getGraphCollection = originalGetGraphCollection;
-        StorageRouter.getSummaryCollection = originalGetSummaryCollection;
-        TextEmbeddingService.embedText = originalEmbedText;
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath();
+        } finally {
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+        }
 
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
         
@@ -121,5 +137,45 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).toContain('- **Reviewers**: neo-opus-4-7');
         expect(handoffContent).toContain('- **Status**: `CHANGES_REQUESTED`');
         expect(handoffContent).toContain('- **Head SHA**: `abcdef1234567890`');
+    });
+
+    test('synthesizeGoldenPath skips Chroma query when embedding dimension mismatches vectorDimension', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const warnings                     = [];
+        let queryCalls                     = 0;
+
+        aiConfig.embeddingProvider = 'gemini';
+        aiConfig.embeddingModel    = 'gemini-embedding-001';
+        aiConfig.vectorDimension   = 4096;
+
+        StorageRouter.getGraphCollection = async () => ({
+            query: async () => {
+                queryCalls++;
+                return {ids: [['mock-id']], distances: [[0.1]]};
+            }
+        });
+        StorageRouter.getSummaryCollection = async () => ({ get: async () => ({ documents: ['mock document'] }) });
+        TextEmbeddingService.embedText = async () => new Array(3072).fill(0.1);
+        logger.warn = (...args) => warnings.push(args.join(' '));
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath();
+
+            expect(queryCalls).toBe(0);
+
+            const warningText = warnings.join('\n');
+            expect(warningText).toContain('Embedding dimension mismatch before Chroma query');
+            expect(warningText).toContain('provider=gemini');
+            expect(warningText).toContain('model=gemini-embedding-001');
+            expect(warningText).toContain('configuredVectorDimension=4096');
+            expect(warningText).toContain('actualEmbeddingDimension=3072');
+            expect(warningText).toContain('NEO_EMBEDDING_PROVIDER / NEO_VECTOR_DIMENSION');
+        } finally {
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+        }
     });
 });
