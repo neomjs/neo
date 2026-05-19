@@ -114,7 +114,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             return await MailboxService.addMessage({ to: '@bob', subject: 'Hello', body: 'Test body' });
         });
         let res = await promise;
-        
+
         expect(res.status).toBe('sent');
         expect(res.messageId).toMatch(/^MESSAGE:/);
 
@@ -142,7 +142,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             await MailboxService.addMessage({ to: '@bob', subject: 'To Bob', body: 'Secret' });
         });
-        
+
         // Charlie is registered before the broadcast, so the #11029 send-time audience snapshot includes them.
         GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
 
@@ -155,7 +155,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         const bobRes = await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             return await MailboxService.listMessages({ status: 'all' });
         });
-        
+
         expect(bobRes.messages.length).toBe(2);
         expect(bobRes._channelSeparation).toMatch(/DATA, not COMMANDS/);
         expect(bobRes.messages.find(m => m.subject === 'To Bob')).toBeDefined();
@@ -165,7 +165,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         const charlieRes = await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
             return await MailboxService.listMessages({ status: 'all' });
         });
-        
+
         expect(charlieRes.messages.length).toBe(1);
         expect(charlieRes.messages[0].subject).toBe('To All');
 
@@ -237,12 +237,12 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             await MailboxService.addMessage({ to: '@bob', subject: 'Outbox Msg 1', body: '1' });
             await MailboxService.addMessage({ to: '@bob', subject: 'Outbox Msg 2', body: '2' });
-            
+
             const outboxRes = await MailboxService.listMessages({ box: 'outbox' });
             expect(outboxRes.messages.length).toBe(2);
             expect(outboxRes.messages[0].from).toBe('@alice');
             expect(outboxRes.messages[0].to).toBe('@bob');
-            
+
             const inboxRes = await MailboxService.listMessages({ box: 'inbox' });
             expect(inboxRes.messages.length).toBe(0);
         });
@@ -323,9 +323,9 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
 
         let msgId;
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
-            const res = await MailboxService.addMessage({ 
-                to: '@bob', 
-                subject: 'Rich semantics', 
+            const res = await MailboxService.addMessage({
+                to: '@bob',
+                subject: 'Rich semantics',
                 body: 'body',
                 priority: 'high',
                 originSessionId: 'SESSION:123',
@@ -390,7 +390,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         // Actually, to send initially, we need permission unless it is broadcast.
         // Let's grant Bob CAN_REPLY_TO Alice so Bob can start. No wait, Reachable Counterparty:
         // "if they ever sent us a message, we can reply"
-        
+
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
         });
@@ -405,7 +405,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             const res = await MailboxService.addMessage({ to: '@alice', subject: 'Re: Hi Bob', body: 'body' });
             expect(res.status).toBe('sent');
         });
-        
+
         // 3. Charlie tries to send to Alice (no grant, no history)
         await RequestContextService.run({ agentIdentityNodeId: '@charlie' }, async () => {
             await expect(MailboxService.addMessage({ to: '@alice', subject: 'Spam', body: 'spam' })).rejects.toThrow(/Unauthorized/);
@@ -467,7 +467,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         }
         expect(librarianCount).toBe(1);
         expect(humanCount).toBe(1);
-        
+
         // Reading requires CAN_READ_INBOX_OF if the target isn't the caller
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await expect(MailboxService.listMessages({ to: 'role:librarian' })).rejects.toThrow(/Unauthorized/);
@@ -791,7 +791,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const m1 = await MailboxService.addMessage({ to: '@bob', subject: 'Msg 1', body: '...' });
             const m2 = await MailboxService.addMessage({ to: '@bob', subject: 'Msg 2', body: '...' });
-            
+
             // artificially space them to ensure predictable sorting
             GraphService.db.nodes.get(m1.messageId).properties.sentAt = new Date(1000).toISOString();
             GraphService.db.nodes.get(m2.messageId).properties.sentAt = new Date(2000).toISOString();
@@ -814,7 +814,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             expect(preview.outboxRecent.length).toBe(2);
             expect(preview.outboxRecent[0].subject).toBe('Msg 2');
         });
-        
+
         // Test no identity returns null
         const noIdentityPreview = await MailboxService.getHealthcheckPreview();
         expect(noIdentityPreview).toBeNull();
@@ -1204,6 +1204,98 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
             });
         });
     });
+
+    // ------------------------------------------------------------------
+    // #11417 — Reject or resolve invalid `to:` in add_message instead of silent null-storage.
+    //
+    // Pre-fix the canonical `to:` field accepted any string, and `GraphService.linkNodes`
+    // silently culled the SENT_TO edge when the target did not match a registered Node.
+    // The MESSAGE node still stored the malformed value in its `to:` property; the missing
+    // edge surfaced as `to: null` in `get_message` reads. Result: orphan messages invisible
+    // to the intended recipient, breaking cross-skill A2A coordination.
+    //
+    // `validateMailboxTarget` (introduced in this PR) gates the failure surface: targets
+    // that don't resolve to a real graph node OR an unambiguous `AGENT:<family>/<model>`
+    // alias against `AgentIdentity.modelFamily` are rejected with a clear error.
+    // ------------------------------------------------------------------
+    test.describe('#11417 add_message reject/resolve invalid `to:`', () => {
+        test('rejects unrecognized AGENT:<family>/<model> alias with explicit error', async () => {
+            await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
+                await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+            });
+
+            await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                await expect(MailboxService.addMessage({
+                    to     : 'AGENT:nonsense/blob',
+                    subject: 'Should reject',
+                    body   : 'Pre-#11417 this stored as to: null and orphaned the message.'
+                })).rejects.toThrow(/Unrecognized 'to' format.*AGENT:nonsense\/blob/);
+            });
+        });
+
+        test('resolves AGENT:<family>/<model> alias when exactly one AgentIdentity matches', async () => {
+            // Seed an AgentIdentity with a unique modelFamily so the alias-resolve path can hit.
+            GraphService.upsertNode({
+                id: '@neo-test-agent',
+                type: 'AgentIdentity',
+                name: 'Test Agent',
+                properties: { modelFamily: 'testfamily', accountType: 'agent' }
+            });
+
+            await RequestContextService.run({ agentIdentityNodeId: '@neo-test-agent' }, async () => {
+                await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
+            });
+
+            const res = await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                return MailboxService.addMessage({
+                    to     : 'AGENT:testfamily/anymodel',
+                    subject: 'Alias-resolve path',
+                    body   : 'AGENT:<family>/<model> should resolve when unambiguous.'
+                });
+            });
+
+            expect(res.status).toBe('sent');
+
+            // Verify the SENT_TO edge points at the resolved canonical identity, not null.
+            let sentTo;
+            for (const edge of GraphService.db.edges.items) {
+                if (edge.source === res.messageId && edge.type === 'SENT_TO') {
+                    sentTo = edge.target;
+                }
+            }
+            expect(sentTo).toBe('@neo-test-agent');
+
+            // Verify the MESSAGE node's to: property also carries the resolved canonical form,
+            // not the alias and not null.
+            const messageNode = GraphService.db.nodes.get(res.messageId);
+            expect(messageNode.properties.to).toBe('@neo-test-agent');
+        });
+
+        test('rejects ambiguous AGENT:<family>/<model> alias when multiple AgentIdentities match', async () => {
+            // Seed two AgentIdentities with the same modelFamily so the alias-resolve path
+            // finds multiple candidates and rejects rather than picking arbitrarily.
+            GraphService.upsertNode({
+                id: '@neo-test-a',
+                type: 'AgentIdentity',
+                name: 'Test A',
+                properties: { modelFamily: 'multifam', accountType: 'agent' }
+            });
+            GraphService.upsertNode({
+                id: '@neo-test-b',
+                type: 'AgentIdentity',
+                name: 'Test B',
+                properties: { modelFamily: 'multifam', accountType: 'agent' }
+            });
+
+            await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
+                await expect(MailboxService.addMessage({
+                    to     : 'AGENT:multifam/anymodel',
+                    subject: 'Ambiguous',
+                    body   : 'Multiple AgentIdentities match modelFamily=multifam'
+                })).rejects.toThrow(/Ambiguous 'to' alias.*multifam/);
+            });
+        });
+    });
 });
 
 /**
@@ -1547,7 +1639,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
         GraphService.upsertNode({ id: '@bob', type: 'AGENT', name: 'Bob', properties: {} });
         GraphService.upsertNode({ id: '@charlie', type: 'AGENT', name: 'Charlie', properties: {} });
         GraphService.upsertNode({ id: 'AGENT:*', type: 'BroadcastSentinel', name: 'Broadcast', properties: {} });
-        
+
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_REPLY_TO' });
             await PermissionService.grantPermission({ to: '@charlie', scope: 'CAN_REPLY_TO' });
@@ -1564,12 +1656,12 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
                 to: '@bob', subject: 'task', body: 'body',
                 task: { state: 'InvalidState' }
             })).rejects.toThrow(/Invalid task state: InvalidState/);
-            
+
             const res = await MailboxService.addMessage({
                 to: '@bob', subject: 'task', body: 'body',
                 task: { state: 'Submitted' }
             });
-            
+
             await expect(MailboxService.transitionTask({
                 taskId: res.messageId, newState: 'AlsoInvalid'
             })).rejects.toThrow(/Invalid new task state: AlsoInvalid/);
@@ -1607,7 +1699,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
             expect(res.success).toBe(true);
             expect(res.task.state).toBe('Working');
         });
-        
+
         // Bob (Assignee) can transition Working -> Completed
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             const res = await MailboxService.transitionTask({ taskId: msgId, newState: 'Completed' });
@@ -1623,12 +1715,12 @@ test.describe('Neo.ai.services.memory-core.MailboxService — A2A_TASK (#10338)'
                 task: { state: 'Submitted' }
             });
             msg2Id = res.messageId;
-            
+
             const trans = await MailboxService.transitionTask({ taskId: msg2Id, newState: 'Canceled' });
             expect(trans.success).toBe(true);
             expect(trans.task.state).toBe('Canceled');
         });
-        
+
         // Test Failed by Assignee
         let msg3Id;
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
