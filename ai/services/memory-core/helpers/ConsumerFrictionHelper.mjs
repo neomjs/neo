@@ -8,13 +8,18 @@
  * handoff section. No `AgentOrchestrator.parseGoldenPath()` routing changes; no auto-mutation of
  * caller behavior beyond the explicit pre-check skip.
  *
- * Bidirectional defense (per Discussion #11444 graduation):
+ * Schema is the consensus-bound graduation contract from Discussion #11444 (Round-2 + Round-3
+ * cross-family convergence): structured `ConsumerFriction` with enum-backed `suggestionKind`,
+ * token-based durable metrics, `(assetRef, consumer, symptom)` aggregation tuple, and explicit
+ * `serviceDomain` provenance.
+ *
+ * Bidirectional defense (per Discussion #11444 Round-2):
  * - **Angle 1 (downstream)**: `invokeWithGuardrail` wraps the LLM invocation in try/catch and
  *   categorizes failures (`context-overflow` / `parse-failure` / `timeout`) into a
  *   ConsumerFriction record before returning `{result: null, friction}`.
- * - **Angle 2 (upstream)**: pre-checks `Buffer.byteLength(inputPayload)` against the consumer's
- *   `safeProcessingLimit` (defaults to 80% of `modelContextLimit`); over-budget input skips
- *   the invocation and emits a `size-precheck-skip` friction.
+ * - **Angle 2 (upstream)**: pre-checks the invocation envelope's estimated tokens against the
+ *   consumer's `safeProcessingLimitTokens` (defaults to 75% of `contextLimitTokens`); over-budget
+ *   input skips the invocation and emits a `size-precheck-skip` friction.
  *
  * Debounce policy:
  * - **Deterministic symptoms** (`size-precheck-skip`, `context-overflow`) surface on the
@@ -25,11 +30,10 @@
  *   once `count >= PROBABILISTIC_EMIT_THRESHOLD` to avoid burying single transient errors
  *   in the handoff feed.
  *
- * Token-vs-bytes note: this V1 helper measures input size in **bytes** via
- * `Buffer.byteLength(payload, 'utf8')` because the codebase has no canonical token-counting
- * utility. Callers passing `modelContextLimit` should pass byte-equivalent thresholds (or
- * convert from token-counts using ~4 chars/token rough heuristic for English text). Future
- * V2 may integrate with the Model-Stats registry (ADR 0012) for provider-specific tokenization.
+ * Token estimation: V1 uses a 4-chars/token heuristic (`Math.ceil(Buffer.byteLength(payload) / 4)`)
+ * because the codebase has no canonical provider-specific tokenizer. Bytes are retained on
+ * the record as evidence; tokens are the durable contract per Discussion #11444 consensus.
+ * Future V2 may integrate with Model-Stats registry (ADR 0012) for per-provider tokenization.
  *
  * @see learn/agentos/decisions/0012-model-stats-framework.md
  * @see ai/daemons/services/GoldenPathSynthesizer.mjs (handoff section consumer)
@@ -39,19 +43,49 @@
 
 /**
  * @typedef {Object} ConsumerFriction
+ * @property {String} assetRef Graph node ID of the substrate causing friction (sessionId, documentId, etc.) — first member of aggregation tuple.
+ * @property {String} consumer Service name (e.g. 'SemanticGraphExtractor', 'SessionService.summarizeSession') — second member of aggregation tuple.
  * @property {String} model Consumer model identifier (e.g. 'gemma4-31b', 'qwen3-8b').
- * @property {'context-overflow' | 'parse-failure' | 'token-budget-exceeded' | 'semantic-confusion' | 'timeout' | 'size-precheck-skip'} symptom Friction symptom enum.
+ * @property {'context-overflow' | 'parse-failure' | 'token-budget-exceeded' | 'semantic-confusion' | 'timeout' | 'size-precheck-skip'} symptom Friction symptom enum — third member of aggregation tuple.
  * @property {'pre-invocation' | 'post-invocation-failure'} emissionPoint When the friction was detected.
- * @property {Number} inputBytes Byte size of the payload that triggered the friction.
- * @property {Number} modelContextLimit Configured context limit for the consumer (bytes).
- * @property {Number} [safeProcessingLimit] Optional safer threshold (bytes); defaults to 80% of modelContextLimit.
- * @property {String} workflowUpdateSuggestion Operator/swarm-facing actionable suggestion.
- * @property {String} timestamp ISO 8601 emission time.
- * @property {String} assetRef Origin identifier (sessionId, documentId, etc.) — first member of aggregation tuple.
- * @property {String} consumer Same as model; kept explicit for the (assetRef, consumer, symptom) tuple semantics.
+ * @property {'split-document' | 'compress-payload' | 'extract-anchor' | 'reduce-review-cycle' | 'schema-repair' | 'unknown'} suggestionKind Enum-backed structured suggestion for substrate-evolution action.
+ * @property {Number} inputBytes Raw byte size of the payload that triggered the friction — evidence.
+ * @property {Number} inputTokensEstimate Estimated token count of the input payload (Math.ceil(inputBytes / 4) heuristic) — durable LLM-relevant metric.
+ * @property {Number} contextLimitTokens Configured context window of the consumer model (tokens) — durable contract.
+ * @property {Number} [safeProcessingLimitTokens] Optional safer threshold in tokens (default = Math.floor(contextLimitTokens * 0.75)).
+ * @property {String} firstSeenAt ISO 8601 timestamp of the first emission for this aggregation-tuple.
+ * @property {String} lastSeenAt ISO 8601 timestamp of the most recent emission for this aggregation-tuple.
+ * @property {Number} count Number of emissions accumulated against this aggregation-tuple — for debounce/threshold.
+ * @property {'dream-pipeline' | 'memory-core' | 'concept-extraction' | 'other'} serviceDomain Provenance domain of the emitting service.
+ * @property {String} [note] Optional bounded prose (e.g. truncation diagnostics, raw error tail).
  */
 
 const DETERMINISTIC_SYMPTOMS = new Set(['size-precheck-skip', 'context-overflow']);
+
+const VALID_SYMPTOMS = new Set([
+    'context-overflow',
+    'parse-failure',
+    'token-budget-exceeded',
+    'semantic-confusion',
+    'timeout',
+    'size-precheck-skip'
+]);
+
+const VALID_SUGGESTION_KINDS = new Set([
+    'split-document',
+    'compress-payload',
+    'extract-anchor',
+    'reduce-review-cycle',
+    'schema-repair',
+    'unknown'
+]);
+
+const VALID_SERVICE_DOMAINS = new Set([
+    'dream-pipeline',
+    'memory-core',
+    'concept-extraction',
+    'other'
+]);
 
 /**
  * @summary Probabilistic-symptom emit threshold — surfaces aggregated frictions when count reaches this.
@@ -68,21 +102,42 @@ const PROBABILISTIC_EMIT_THRESHOLD = 3;
 const AGGREGATOR_TTL_MS = 60 * 60 * 1000;
 
 /**
- * @summary Default safe-processing fraction of the consumer's modelContextLimit.
- * Empirically: callers want a ~20% headroom buffer before pre-check skip fires.
+ * @summary Default safe-processing fraction of the consumer's contextLimitTokens.
+ * Per Discussion #11444 Round-2 consensus: 0.75 leaves 25% headroom for system-prompt envelope,
+ * repair-cycle prompt growth, and output-token reservation.
  * @type {Number}
  */
-const DEFAULT_SAFE_FRACTION = 0.8;
+const DEFAULT_SAFE_FRACTION = 0.75;
+
+/**
+ * @summary Bytes-per-token heuristic for English-prevalent text.
+ * Conservative estimate; provider-specific tokenizers may yield slightly different counts.
+ * V2 may delegate to Model-Stats registry per-provider.
+ * @type {Number}
+ */
+const BYTES_PER_TOKEN_HEURISTIC = 4;
 
 /**
  * Module-singleton aggregator. Keys are `${assetRef}|${consumer}|${symptom}` tuple-hashes;
- * values are `{count, firstEmission, lastEmission, latestFriction, surfaced}` entries.
+ * values are aggregator entries with cumulative count + first/last-emission timestamps.
  * @type {Map<String, Object>}
  */
 const _aggregator = new Map();
 
 function tupleKey(assetRef, consumer, symptom) {
     return `${assetRef}|${consumer}|${symptom}`;
+}
+
+/**
+ * @summary Estimates token count from raw bytes via the 4-chars/token English heuristic.
+ * Exported for test verification + caller-side cross-references; not provider-specific.
+ *
+ * @param {Number} bytes Raw byte count.
+ * @returns {Number} Estimated token count.
+ */
+export function bytesToTokens(bytes) {
+    if (!Number.isFinite(bytes) || bytes < 0) return 0;
+    return Math.ceil(bytes / BYTES_PER_TOKEN_HEURISTIC);
 }
 
 /**
@@ -101,35 +156,97 @@ export function categorizeInvocationError(err) {
 }
 
 /**
+ * @summary Derives a default `suggestionKind` from a symptom + assetRef-shape heuristic.
+ * Callers may override via the `suggestionKind` option on `invokeWithGuardrail`. Pure helper.
+ *
+ * @param {String} symptom The ConsumerFriction symptom.
+ * @param {String} [assetRef] Optional asset reference for shape-based heuristic.
+ * @returns {'split-document' | 'compress-payload' | 'extract-anchor' | 'reduce-review-cycle' | 'schema-repair' | 'unknown'}
+ */
+export function deriveSuggestionKind(symptom, assetRef) {
+    switch (symptom) {
+        case 'size-precheck-skip':
+        case 'context-overflow':
+        case 'token-budget-exceeded':
+            return 'compress-payload';
+        case 'parse-failure':
+            return 'schema-repair';
+        case 'semantic-confusion':
+            return 'extract-anchor';
+        case 'timeout':
+            return 'unknown';
+        default:
+            return 'unknown';
+    }
+}
+
+/**
  * @summary Emits a ConsumerFriction record into the in-memory aggregator. Deterministic
  * symptoms (`size-precheck-skip`, `context-overflow`) surface on first occurrence;
  * probabilistic symptoms aggregate by `(assetRef, consumer, symptom)` tuple and surface
  * when their count reaches `PROBABILISTIC_EMIT_THRESHOLD`.
  *
- * Pure, side-effect-bounded to the module-singleton aggregator. Returns the aggregator
- * entry so callers can inspect emission state (useful for tests + integration assertions).
+ * Validates enum membership of `symptom`, `suggestionKind`, `emissionPoint`, `serviceDomain`
+ * and throws on invalid input. Pure aside from the module-singleton aggregator mutation.
  *
- * @param {ConsumerFriction} friction The friction record to emit.
- * @returns {Object} The aggregator entry: `{count, firstEmission, lastEmission, latestFriction, surfaced}`.
+ * @param {Partial<ConsumerFriction>} input Friction fields. `assetRef`, `consumer`, `model`,
+ *   `symptom`, `emissionPoint`, `serviceDomain`, `inputBytes`, `contextLimitTokens` are required.
+ *   `count` / `firstSeenAt` / `lastSeenAt` are managed by the aggregator and may be omitted.
+ * @returns {Object} The aggregator entry: `{count, firstSeenAt, lastSeenAt, latestFriction, surfaced}`.
  */
-export function emitConsumerFriction(friction) {
-    const key      = tupleKey(friction.assetRef, friction.consumer || friction.model, friction.symptom);
-    const now      = Date.now();
+export function emitConsumerFriction(input) {
+    if (!input || typeof input !== 'object') {
+        throw new TypeError(`emitConsumerFriction: input is required`);
+    }
+    if (!VALID_SYMPTOMS.has(input.symptom)) {
+        throw new TypeError(`emitConsumerFriction: invalid symptom '${input.symptom}'`);
+    }
+    if (input.emissionPoint && input.emissionPoint !== 'pre-invocation' && input.emissionPoint !== 'post-invocation-failure') {
+        throw new TypeError(`emitConsumerFriction: invalid emissionPoint '${input.emissionPoint}'`);
+    }
+    if (input.suggestionKind && !VALID_SUGGESTION_KINDS.has(input.suggestionKind)) {
+        throw new TypeError(`emitConsumerFriction: invalid suggestionKind '${input.suggestionKind}'`);
+    }
+    if (input.serviceDomain && !VALID_SERVICE_DOMAINS.has(input.serviceDomain)) {
+        throw new TypeError(`emitConsumerFriction: invalid serviceDomain '${input.serviceDomain}'`);
+    }
+
+    const consumer = input.consumer || input.model;
+    const key      = tupleKey(input.assetRef, consumer, input.symptom);
+    const nowIso   = new Date().toISOString();
     const existing = _aggregator.get(key);
 
     const entry = existing || {
         count          : 0,
-        firstEmission  : now,
-        lastEmission   : now,
-        latestFriction : friction,
+        firstSeenAt    : nowIso,
+        lastSeenAt     : nowIso,
+        latestFriction : null,
         surfaced       : false
     };
 
-    entry.count          += 1;
-    entry.lastEmission    = now;
-    entry.latestFriction  = friction;
+    entry.count += 1;
+    entry.lastSeenAt = nowIso;
 
-    if (DETERMINISTIC_SYMPTOMS.has(friction.symptom)) {
+    // Build the latest authoritative ConsumerFriction record for this aggregation-tuple.
+    entry.latestFriction = {
+        assetRef                 : input.assetRef,
+        consumer,
+        model                    : input.model,
+        symptom                  : input.symptom,
+        emissionPoint            : input.emissionPoint,
+        suggestionKind           : input.suggestionKind || deriveSuggestionKind(input.symptom, input.assetRef),
+        inputBytes               : input.inputBytes,
+        inputTokensEstimate      : input.inputTokensEstimate ?? bytesToTokens(input.inputBytes),
+        contextLimitTokens       : input.contextLimitTokens,
+        safeProcessingLimitTokens: input.safeProcessingLimitTokens,
+        firstSeenAt              : entry.firstSeenAt,
+        lastSeenAt               : entry.lastSeenAt,
+        count                    : entry.count,
+        serviceDomain            : input.serviceDomain || 'other',
+        ...(input.note !== undefined ? {note: input.note} : {})
+    };
+
+    if (DETERMINISTIC_SYMPTOMS.has(input.symptom)) {
         entry.surfaced = true;
     } else if (entry.count >= PROBABILISTIC_EMIT_THRESHOLD) {
         entry.surfaced = true;
@@ -145,30 +262,25 @@ export function emitConsumerFriction(friction) {
  * Prunes entries past `AGGREGATOR_TTL_MS`. Caller is `GoldenPathSynthesizer.synthesizeGoldenPath`
  * (the human/swarm-facing read consumer per Visibility-Only V1).
  *
- * Side-effect: prunes stale entries from the aggregator as it iterates. Returning a fresh
- * array per call so callers can sort / filter / format without mutating the underlying state.
+ * Side-effect: prunes stale entries from the aggregator as it iterates. Returns a fresh
+ * array per call so callers can sort/filter/format without mutating the underlying state.
  *
  * @param {Object} [options]
  * @param {Number} [options.now=Date.now()] Injectable clock for deterministic test isolation.
- * @returns {Array<{key: String, count: Number, firstEmission: String, lastEmission: String, friction: ConsumerFriction}>}
+ * @returns {Array<ConsumerFriction>} Surfaced friction records (already aggregated with count + firstSeenAt + lastSeenAt).
  */
 export function getAggregatedFrictions({now = Date.now()} = {}) {
     const surfaced = [];
 
     for (const [key, entry] of _aggregator.entries()) {
-        if (now - entry.lastEmission > AGGREGATOR_TTL_MS) {
+        const lastTs = Date.parse(entry.lastSeenAt);
+        if (Number.isFinite(lastTs) && now - lastTs > AGGREGATOR_TTL_MS) {
             _aggregator.delete(key);
             continue;
         }
 
-        if (entry.surfaced) {
-            surfaced.push({
-                key,
-                count          : entry.count,
-                firstEmission  : new Date(entry.firstEmission).toISOString(),
-                lastEmission   : new Date(entry.lastEmission).toISOString(),
-                friction       : entry.latestFriction
-            });
+        if (entry.surfaced && entry.latestFriction) {
+            surfaced.push(entry.latestFriction);
         }
     }
 
@@ -188,26 +300,23 @@ export function clearAggregatedFrictions() {
  * @summary Bidirectional defense wrapper around an LLM invocation.
  *
  * Implements both Angle 1 (downstream try/catch with symptom categorization) and Angle 2
- * (upstream pre-check skip when input exceeds `safeProcessingLimit`). Returns a uniform
- * `{result, friction}` envelope so callers can:
+ * (upstream pre-check skip when the estimated input tokens exceed `safeProcessingLimitTokens`).
+ * Returns a uniform `{result, friction}` envelope so callers can:
  *   - Use `result` when non-null (success path)
  *   - Use `friction` when non-null (emitted ConsumerFriction; aggregator already updated)
  *   - Both never non-null simultaneously
  *
- * Callers MUST provide `model`, `assetRef`, `modelContextLimit`, and `invocationFn`. The
- * `safeProcessingLimit` defaults to `Math.floor(modelContextLimit * DEFAULT_SAFE_FRACTION)`
- * when not passed. `inputPayload` is required for byte-measurement; pass `''` if there is
- * no payload to measure (rare; would skip the pre-check).
- *
  * @param {Object} options
  * @param {Function} options.invocationFn Async function performing the actual LLM call.
- * @param {String} options.inputPayload The payload string passed to the consumer (for byte measurement).
+ * @param {String} options.inputPayload The payload string passed to the consumer (for token estimation).
  * @param {String} options.model Consumer model identifier.
- * @param {String} options.assetRef Origin identifier (sessionId, documentId, etc.).
- * @param {Number} options.modelContextLimit Consumer context limit (bytes).
- * @param {Number} [options.safeProcessingLimit] Optional safer threshold (bytes); defaults to 80% of modelContextLimit.
- * @param {String} [options.consumer] Aggregation-tuple alias for `model`; defaults to `model`.
- * @param {String} [options.workflowUpdateHint] Optional caller-provided remediation hint embedded in `workflowUpdateSuggestion`.
+ * @param {String} options.assetRef Origin identifier (sessionId, documentId, etc.) — first tuple member.
+ * @param {String} options.consumer Service name emitting the friction (e.g. 'SemanticGraphExtractor') — second tuple member.
+ * @param {Number} options.contextLimitTokens Consumer context limit (tokens).
+ * @param {Number} [options.safeProcessingLimitTokens] Optional safer threshold (tokens); defaults to 75% of contextLimitTokens.
+ * @param {'dream-pipeline' | 'memory-core' | 'concept-extraction' | 'other'} options.serviceDomain Provenance domain.
+ * @param {String} [options.suggestionKind] Optional caller-provided enum override; defaults to symptom-derived.
+ * @param {String} [options.note] Optional bounded prose context.
  * @returns {Promise<{result: *, friction: ConsumerFriction | null}>}
  */
 export async function invokeWithGuardrail({
@@ -215,59 +324,62 @@ export async function invokeWithGuardrail({
     inputPayload,
     model,
     assetRef,
-    modelContextLimit,
-    safeProcessingLimit,
     consumer,
-    workflowUpdateHint
+    contextLimitTokens,
+    safeProcessingLimitTokens,
+    serviceDomain,
+    suggestionKind,
+    note
 }) {
-    const inputBytes    = Buffer.byteLength(inputPayload || '', 'utf8');
-    const effectiveSafe = Number.isFinite(safeProcessingLimit)
-        ? safeProcessingLimit
-        : Math.floor(modelContextLimit * DEFAULT_SAFE_FRACTION);
-    const timestamp     = new Date().toISOString();
-    const consumerKey   = consumer || model;
+    const inputBytes              = Buffer.byteLength(inputPayload || '', 'utf8');
+    const inputTokensEstimate     = bytesToTokens(inputBytes);
+    const effectiveSafeTokens     = Number.isFinite(safeProcessingLimitTokens)
+        ? safeProcessingLimitTokens
+        : Math.floor(contextLimitTokens * DEFAULT_SAFE_FRACTION);
+    const consumerKey             = consumer || model;
 
-    if (inputBytes > effectiveSafe) {
-        const friction = {
-            model,
-            symptom                 : 'size-precheck-skip',
-            emissionPoint           : 'pre-invocation',
-            inputBytes,
-            modelContextLimit,
-            safeProcessingLimit     : effectiveSafe,
-            workflowUpdateSuggestion: workflowUpdateHint
-                || `Reduce input payload below ${effectiveSafe} bytes for ${model} (current: ${inputBytes} bytes).`,
-            timestamp,
+    if (inputTokensEstimate > effectiveSafeTokens) {
+        const symptom = 'size-precheck-skip';
+        const entry   = emitConsumerFriction({
             assetRef,
-            consumer                : consumerKey
-        };
+            consumer                : consumerKey,
+            model,
+            symptom,
+            emissionPoint           : 'pre-invocation',
+            suggestionKind          : suggestionKind || deriveSuggestionKind(symptom, assetRef),
+            inputBytes,
+            inputTokensEstimate,
+            contextLimitTokens,
+            safeProcessingLimitTokens: effectiveSafeTokens,
+            serviceDomain,
+            note
+        });
 
-        emitConsumerFriction(friction);
-        return {result: null, friction};
+        return {result: null, friction: entry.latestFriction};
     }
 
     try {
         const result = await invocationFn();
         return {result, friction: null};
     } catch (err) {
-        const symptom  = categorizeInvocationError(err);
-        const errMsg   = String(err?.message || err || '').substring(0, 200);
-        const friction = {
+        const symptom = categorizeInvocationError(err);
+        const errTail = String(err?.message || err || '').substring(0, 200);
+        const entry   = emitConsumerFriction({
+            assetRef,
+            consumer                : consumerKey,
             model,
             symptom,
             emissionPoint           : 'post-invocation-failure',
+            suggestionKind          : suggestionKind || deriveSuggestionKind(symptom, assetRef),
             inputBytes,
-            modelContextLimit,
-            safeProcessingLimit     : effectiveSafe,
-            workflowUpdateSuggestion: workflowUpdateHint
-                || `Consumer ${model} ${symptom}: ${errMsg}. Reduce input or switch consumer.`,
-            timestamp,
-            assetRef,
-            consumer                : consumerKey
-        };
+            inputTokensEstimate,
+            contextLimitTokens,
+            safeProcessingLimitTokens: effectiveSafeTokens,
+            serviceDomain,
+            note                    : note || errTail
+        });
 
-        emitConsumerFriction(friction);
-        return {result: null, friction};
+        return {result: null, friction: entry.latestFriction};
     }
 }
 
@@ -275,8 +387,7 @@ export async function invokeWithGuardrail({
  * @summary Renders the surfaced frictions as a Markdown section for handoff inclusion.
  * Returns an empty string when no frictions are surfaced (caller can opt to skip the section).
  *
- * Pure formatter — does not mutate aggregator state (the underlying `getAggregatedFrictions`
- * does prune stale entries; this wrapper only formats whatever survives the prune).
+ * Pure formatter — does not mutate aggregator state.
  *
  * @param {Object} [options]
  * @param {Number} [options.now=Date.now()] Injectable clock for deterministic test isolation.
@@ -293,18 +404,18 @@ export function renderConsumerFrictionSection({now = Date.now()} = {}) {
 
     // Group by symptom for readability
     const bySymptom = new Map();
-    for (const entry of surfaced) {
-        const list = bySymptom.get(entry.friction.symptom) || [];
-        list.push(entry);
-        bySymptom.set(entry.friction.symptom, list);
+    for (const friction of surfaced) {
+        const list = bySymptom.get(friction.symptom) || [];
+        list.push(friction);
+        bySymptom.set(friction.symptom, list);
     }
 
-    for (const [symptom, entries] of bySymptom) {
-        lines.push(`**${symptom}** (${entries.length} unique tuple${entries.length === 1 ? '' : 's'})`);
-        for (const entry of entries) {
-            const f = entry.friction;
-            lines.push(`- \`${f.consumer}\` on \`${f.assetRef}\` — ${f.inputBytes} bytes / safe ${f.safeProcessingLimit ?? '<unset>'} / context ${f.modelContextLimit} — count ${entry.count} (first ${entry.firstEmission}, last ${entry.lastEmission})`);
-            lines.push(`  - *Suggestion:* ${f.workflowUpdateSuggestion}`);
+    for (const [symptom, frictions] of bySymptom) {
+        lines.push(`**${symptom}** (${frictions.length} unique tuple${frictions.length === 1 ? '' : 's'})`);
+        for (const f of frictions) {
+            const safe = f.safeProcessingLimitTokens ?? '<unset>';
+            lines.push(`- \`${f.consumer}\` on \`${f.assetRef}\` (model \`${f.model}\`, domain \`${f.serviceDomain}\`) — ${f.inputTokensEstimate} tokens / safe ${safe} / context ${f.contextLimitTokens} (count ${f.count}, first ${f.firstSeenAt}, last ${f.lastSeenAt})`);
+            lines.push(`  - *Suggestion (\`${f.suggestionKind}\`):* ${f.note || 'see emitter context'}`);
         }
         lines.push('');
     }
@@ -317,7 +428,11 @@ export function renderConsumerFrictionSection({now = Date.now()} = {}) {
  */
 export const _testConstants = {
     DETERMINISTIC_SYMPTOMS,
+    VALID_SYMPTOMS,
+    VALID_SUGGESTION_KINDS,
+    VALID_SERVICE_DOMAINS,
     PROBABILISTIC_EMIT_THRESHOLD,
     AGGREGATOR_TTL_MS,
-    DEFAULT_SAFE_FRACTION
+    DEFAULT_SAFE_FRACTION,
+    BYTES_PER_TOKEN_HEURISTIC
 };

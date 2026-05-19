@@ -24,6 +24,11 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
  * `beforeEach` to prevent cross-test pollution. Per `feedback_symmetric_spec_cleanup`,
  * shared mutable state across tests requires symmetric reset discipline.
  *
+ * Schema verified against Discussion #11444 graduation contract (Round-2 + Round-3
+ * consensus): structured `ConsumerFriction` with `suggestionKind`, token-based durable
+ * metrics, `(assetRef, consumer, symptom)` aggregation tuple, `serviceDomain` provenance,
+ * `firstSeenAt`/`lastSeenAt`/`count` aggregation fields.
+ *
  * @see ai/services/memory-core/helpers/ConsumerFrictionHelper.mjs
  */
 test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper (#11447)', () => {
@@ -37,6 +42,19 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         helper.clearAggregatedFrictions();
     });
 
+    test('bytesToTokens applies the 4-chars/token heuristic', () => {
+        const {bytesToTokens} = helper;
+        expect(bytesToTokens(0)).toBe(0);
+        expect(bytesToTokens(4)).toBe(1);
+        expect(bytesToTokens(5)).toBe(2);
+        expect(bytesToTokens(40)).toBe(10);
+        expect(bytesToTokens(131072)).toBe(32768);
+        // Edge: negative / non-finite → 0
+        expect(bytesToTokens(-1)).toBe(0);
+        expect(bytesToTokens(NaN)).toBe(0);
+        expect(bytesToTokens(undefined)).toBe(0);
+    });
+
     test('categorizeInvocationError maps known patterns to symptoms', () => {
         const {categorizeInvocationError} = helper;
 
@@ -46,203 +64,236 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         expect(categorizeInvocationError(new Error('Request timed out'))).toBe('timeout');
         expect(categorizeInvocationError(new Error('AbortError: operation aborted'))).toBe('timeout');
         expect(categorizeInvocationError(new Error('JSON parse failure'))).toBe('parse-failure');
-        expect(categorizeInvocationError(new Error('Some other transient failure'))).toBe('parse-failure');
-        // Edge: null / undefined / string
         expect(categorizeInvocationError(null)).toBe('parse-failure');
         expect(categorizeInvocationError('overflow occurred')).toBe('context-overflow');
+    });
+
+    test('deriveSuggestionKind maps symptoms to enum-backed suggestions', () => {
+        const {deriveSuggestionKind} = helper;
+        expect(deriveSuggestionKind('size-precheck-skip')).toBe('compress-payload');
+        expect(deriveSuggestionKind('context-overflow')).toBe('compress-payload');
+        expect(deriveSuggestionKind('token-budget-exceeded')).toBe('compress-payload');
+        expect(deriveSuggestionKind('parse-failure')).toBe('schema-repair');
+        expect(deriveSuggestionKind('semantic-confusion')).toBe('extract-anchor');
+        expect(deriveSuggestionKind('timeout')).toBe('unknown');
+        expect(deriveSuggestionKind('unrecognized-symptom')).toBe('unknown');
+    });
+
+    test('emitConsumerFriction throws on invalid symptom / suggestionKind / serviceDomain', () => {
+        const {emitConsumerFriction} = helper;
+
+        expect(() => emitConsumerFriction({})).toThrow(/invalid symptom/);
+        expect(() => emitConsumerFriction({symptom: 'bogus'})).toThrow(/invalid symptom/);
+        expect(() => emitConsumerFriction({
+            symptom        : 'parse-failure',
+            suggestionKind : 'invented-kind'
+        })).toThrow(/invalid suggestionKind/);
+        expect(() => emitConsumerFriction({
+            symptom       : 'parse-failure',
+            serviceDomain : 'fake-domain'
+        })).toThrow(/invalid serviceDomain/);
+        expect(() => emitConsumerFriction({
+            symptom       : 'parse-failure',
+            emissionPoint : 'wrong-point'
+        })).toThrow(/invalid emissionPoint/);
     });
 
     test('emitConsumerFriction surfaces deterministic symptoms on first occurrence', () => {
         const {emitConsumerFriction, getAggregatedFrictions} = helper;
 
-        const friction = {
-            model                   : 'gemma4-31b',
-            symptom                 : 'size-precheck-skip',
-            emissionPoint           : 'pre-invocation',
-            inputBytes              : 100000,
-            modelContextLimit       : 50000,
-            safeProcessingLimit     : 40000,
-            workflowUpdateSuggestion: 'Reduce payload',
-            timestamp               : new Date().toISOString(),
-            assetRef                : 'session:abc',
-            consumer                : 'gemma4-31b'
-        };
+        emitConsumerFriction({
+            assetRef          : 'session:abc',
+            consumer          : 'SemanticGraphExtractor',
+            model             : 'gemma4-31b',
+            symptom           : 'size-precheck-skip',
+            emissionPoint     : 'pre-invocation',
+            inputBytes        : 100000,
+            contextLimitTokens: 8192,
+            serviceDomain     : 'dream-pipeline'
+        });
 
-        emitConsumerFriction(friction);
         const surfaced = getAggregatedFrictions();
 
         expect(surfaced).toHaveLength(1);
-        expect(surfaced[0].count).toBe(1);
-        expect(surfaced[0].friction.symptom).toBe('size-precheck-skip');
+        expect(surfaced[0]).toMatchObject({
+            assetRef            : 'session:abc',
+            consumer            : 'SemanticGraphExtractor',
+            model               : 'gemma4-31b',
+            symptom             : 'size-precheck-skip',
+            emissionPoint       : 'pre-invocation',
+            suggestionKind      : 'compress-payload',
+            inputBytes          : 100000,
+            inputTokensEstimate : 25000,
+            contextLimitTokens  : 8192,
+            count               : 1,
+            serviceDomain       : 'dream-pipeline'
+        });
+        // Required durable-aggregation fields present
+        expect(typeof surfaced[0].firstSeenAt).toBe('string');
+        expect(typeof surfaced[0].lastSeenAt).toBe('string');
     });
 
     test('emitConsumerFriction surfaces context-overflow on first occurrence', () => {
         const {emitConsumerFriction, getAggregatedFrictions} = helper;
 
         emitConsumerFriction({
-            model                   : 'gemma4-31b',
-            symptom                 : 'context-overflow',
-            emissionPoint           : 'post-invocation-failure',
-            inputBytes              : 50000,
-            modelContextLimit       : 40000,
-            workflowUpdateSuggestion: 'Reduce payload',
-            timestamp               : new Date().toISOString(),
-            assetRef                : 'session:def',
-            consumer                : 'gemma4-31b'
+            assetRef          : 'session:def',
+            consumer          : 'SessionService',
+            model             : 'gemma4-31b',
+            symptom           : 'context-overflow',
+            emissionPoint     : 'post-invocation-failure',
+            inputBytes        : 50000,
+            contextLimitTokens: 8192,
+            serviceDomain     : 'memory-core'
         });
 
         const surfaced = getAggregatedFrictions();
         expect(surfaced).toHaveLength(1);
-        expect(surfaced[0].friction.symptom).toBe('context-overflow');
+        expect(surfaced[0].symptom).toBe('context-overflow');
+        expect(surfaced[0].serviceDomain).toBe('memory-core');
     });
 
     test('emitConsumerFriction aggregates probabilistic symptoms and surfaces at threshold', () => {
         const {emitConsumerFriction, getAggregatedFrictions, _testConstants} = helper;
         const threshold = _testConstants.PROBABILISTIC_EMIT_THRESHOLD;
 
-        const friction = {
-            model                   : 'gemma4-31b',
-            symptom                 : 'parse-failure',
-            emissionPoint           : 'post-invocation-failure',
-            inputBytes              : 5000,
-            modelContextLimit       : 40000,
-            workflowUpdateSuggestion: 'Improve response shape',
-            timestamp               : new Date().toISOString(),
-            assetRef                : 'session:ghi',
-            consumer                : 'gemma4-31b'
+        const baseFriction = {
+            assetRef          : 'session:ghi',
+            consumer          : 'SemanticGraphExtractor',
+            model             : 'gemma4-31b',
+            symptom           : 'parse-failure',
+            emissionPoint     : 'post-invocation-failure',
+            inputBytes        : 5000,
+            contextLimitTokens: 8192,
+            serviceDomain     : 'dream-pipeline'
         };
 
         // Below threshold: do not surface
         for (let i = 1; i < threshold; i++) {
-            emitConsumerFriction({...friction, timestamp: new Date().toISOString()});
+            emitConsumerFriction({...baseFriction});
         }
         expect(getAggregatedFrictions()).toHaveLength(0);
 
         // Threshold-th emission: surface
-        emitConsumerFriction({...friction, timestamp: new Date().toISOString()});
+        emitConsumerFriction({...baseFriction});
         const surfaced = getAggregatedFrictions();
         expect(surfaced).toHaveLength(1);
         expect(surfaced[0].count).toBe(threshold);
+        expect(surfaced[0].suggestionKind).toBe('schema-repair');
     });
 
     test('emitConsumerFriction aggregates by (assetRef, consumer, symptom) tuple — different assetRefs do not collide', () => {
         const {emitConsumerFriction, getAggregatedFrictions, _testConstants} = helper;
         const threshold = _testConstants.PROBABILISTIC_EMIT_THRESHOLD;
 
-        // Same symptom + consumer, different assetRef — independent tuples
+        const base = {
+            consumer          : 'SemanticGraphExtractor',
+            model             : 'gemma4-31b',
+            symptom           : 'parse-failure',
+            emissionPoint     : 'post-invocation-failure',
+            inputBytes        : 5000,
+            contextLimitTokens: 8192,
+            serviceDomain     : 'dream-pipeline'
+        };
+
         for (let i = 0; i < threshold; i++) {
-            emitConsumerFriction({
-                model                   : 'gemma4-31b',
-                symptom                 : 'parse-failure',
-                emissionPoint           : 'post-invocation-failure',
-                inputBytes              : 5000,
-                modelContextLimit       : 40000,
-                workflowUpdateSuggestion: 'Improve response',
-                timestamp               : new Date().toISOString(),
-                assetRef                : 'session:tuple-a',
-                consumer                : 'gemma4-31b'
-            });
-            emitConsumerFriction({
-                model                   : 'gemma4-31b',
-                symptom                 : 'parse-failure',
-                emissionPoint           : 'post-invocation-failure',
-                inputBytes              : 7000,
-                modelContextLimit       : 40000,
-                workflowUpdateSuggestion: 'Improve response',
-                timestamp               : new Date().toISOString(),
-                assetRef                : 'session:tuple-b',
-                consumer                : 'gemma4-31b'
-            });
+            emitConsumerFriction({...base, assetRef: 'session:tuple-a'});
+            emitConsumerFriction({...base, assetRef: 'session:tuple-b'});
         }
 
         const surfaced = getAggregatedFrictions();
         expect(surfaced).toHaveLength(2);
-        expect(new Set(surfaced.map(s => s.friction.assetRef))).toEqual(new Set(['session:tuple-a', 'session:tuple-b']));
+        expect(new Set(surfaced.map(f => f.assetRef))).toEqual(new Set(['session:tuple-a', 'session:tuple-b']));
     });
 
     test('getAggregatedFrictions prunes entries past AGGREGATOR_TTL_MS', () => {
         const {emitConsumerFriction, getAggregatedFrictions, _testConstants} = helper;
         const ttl = _testConstants.AGGREGATOR_TTL_MS;
 
-        // Emit a deterministic-symptom entry (surfaces immediately)
         emitConsumerFriction({
-            model                   : 'gemma4-31b',
-            symptom                 : 'size-precheck-skip',
-            emissionPoint           : 'pre-invocation',
-            inputBytes              : 100000,
-            modelContextLimit       : 40000,
-            safeProcessingLimit     : 32000,
-            workflowUpdateSuggestion: 'Reduce payload',
-            timestamp               : new Date().toISOString(),
-            assetRef                : 'session:ttl',
-            consumer                : 'gemma4-31b'
+            assetRef          : 'session:ttl',
+            consumer          : 'SemanticGraphExtractor',
+            model             : 'gemma4-31b',
+            symptom           : 'size-precheck-skip',
+            emissionPoint     : 'pre-invocation',
+            inputBytes        : 100000,
+            contextLimitTokens: 8192,
+            serviceDomain     : 'dream-pipeline'
         });
 
-        // Verify it surfaces NOW
         expect(getAggregatedFrictions({now: Date.now()})).toHaveLength(1);
 
-        // Inject a future-clock past TTL — entry should be pruned
+        // Future-clock past TTL — entry should be pruned
         const futureNow = Date.now() + ttl + 1000;
         expect(getAggregatedFrictions({now: futureNow})).toHaveLength(0);
-
-        // Verify the prune was destructive — subsequent reads also see 0
         expect(getAggregatedFrictions({now: Date.now()})).toHaveLength(0);
     });
 
-    test('invokeWithGuardrail Angle 2 — pre-check skips invocation when input exceeds safeProcessingLimit', async () => {
+    test('invokeWithGuardrail Angle 2 — pre-check skips invocation when input tokens exceed safeProcessingLimitTokens', async () => {
         const {invokeWithGuardrail, getAggregatedFrictions} = helper;
 
         let invoked = false;
         const result = await invokeWithGuardrail({
-            invocationFn       : async () => { invoked = true; return 'should not run'; },
-            inputPayload       : 'x'.repeat(50000),
-            model              : 'gemma4-31b',
-            assetRef           : 'session:precheck',
-            modelContextLimit  : 40000,
-            safeProcessingLimit: 30000
+            invocationFn             : async () => { invoked = true; return 'should not run'; },
+            inputPayload             : 'x'.repeat(50000), // 50000 bytes = 12500 tokens estimate
+            model                    : 'gemma4-31b',
+            assetRef                 : 'session:precheck',
+            consumer                 : 'SemanticGraphExtractor',
+            contextLimitTokens       : 10000,
+            safeProcessingLimitTokens: 7500,
+            serviceDomain            : 'dream-pipeline'
         });
 
         expect(invoked).toBe(false);
         expect(result.result).toBeNull();
         expect(result.friction).not.toBeNull();
-        expect(result.friction.symptom).toBe('size-precheck-skip');
-        expect(result.friction.emissionPoint).toBe('pre-invocation');
-        expect(result.friction.inputBytes).toBe(50000);
-        expect(result.friction.safeProcessingLimit).toBe(30000);
+        expect(result.friction).toMatchObject({
+            symptom                  : 'size-precheck-skip',
+            emissionPoint            : 'pre-invocation',
+            inputBytes               : 50000,
+            inputTokensEstimate      : 12500,
+            contextLimitTokens       : 10000,
+            safeProcessingLimitTokens: 7500,
+            suggestionKind           : 'compress-payload',
+            serviceDomain            : 'dream-pipeline'
+        });
 
-        // Verify the friction is in the aggregator (surfaced because deterministic)
-        const surfaced = getAggregatedFrictions();
-        expect(surfaced).toHaveLength(1);
+        expect(getAggregatedFrictions()).toHaveLength(1);
     });
 
-    test('invokeWithGuardrail Angle 2 — safeProcessingLimit defaults to 80% of modelContextLimit', async () => {
+    test('invokeWithGuardrail Angle 2 — safeProcessingLimitTokens defaults to 75% of contextLimitTokens', async () => {
         const {invokeWithGuardrail} = helper;
 
         let invoked = false;
-        // Input is 33000 bytes; modelContextLimit is 40000; default safe = 32000; input EXCEEDS safe
+        // 33000 bytes ≈ 8250 tokens; contextLimitTokens 10000; default safe = 7500; input EXCEEDS safe
         const result = await invokeWithGuardrail({
             invocationFn      : async () => { invoked = true; return 'should not run'; },
             inputPayload      : 'x'.repeat(33000),
             model             : 'gemma4-31b',
             assetRef          : 'session:precheck-default',
-            modelContextLimit : 40000
-            // safeProcessingLimit omitted → uses 80% default = 32000
+            consumer          : 'SemanticGraphExtractor',
+            contextLimitTokens: 10000,
+            serviceDomain     : 'dream-pipeline'
+            // safeProcessingLimitTokens omitted → uses 75% default = 7500
         });
 
         expect(invoked).toBe(false);
         expect(result.friction.symptom).toBe('size-precheck-skip');
-        expect(result.friction.safeProcessingLimit).toBe(32000);
+        expect(result.friction.safeProcessingLimitTokens).toBe(7500);
+        expect(result.friction.inputTokensEstimate).toBe(8250);
     });
 
     test('invokeWithGuardrail Angle 1 — success path returns result without friction', async () => {
         const {invokeWithGuardrail, getAggregatedFrictions} = helper;
 
         const result = await invokeWithGuardrail({
-            invocationFn     : async () => ({content: 'ok', model: 'gemma4-31b'}),
-            inputPayload     : 'small input',
-            model            : 'gemma4-31b',
-            assetRef         : 'session:success',
-            modelContextLimit: 40000
+            invocationFn      : async () => ({content: 'ok', model: 'gemma4-31b'}),
+            inputPayload      : 'small input',
+            model             : 'gemma4-31b',
+            assetRef          : 'session:success',
+            consumer          : 'SemanticGraphExtractor',
+            contextLimitTokens: 10000,
+            serviceDomain     : 'dream-pipeline'
         });
 
         expect(result.result).toEqual({content: 'ok', model: 'gemma4-31b'});
@@ -250,22 +301,24 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         expect(getAggregatedFrictions()).toHaveLength(0);
     });
 
-    test('invokeWithGuardrail Angle 1 — failure path categorizes error + emits friction', async () => {
+    test('invokeWithGuardrail Angle 1 — parse-failure aggregates and surfaces at threshold', async () => {
         const {invokeWithGuardrail, getAggregatedFrictions, _testConstants} = helper;
         const threshold = _testConstants.PROBABILISTIC_EMIT_THRESHOLD;
 
-        // Probabilistic symptom (parse-failure) — need to fire threshold times to surface
         for (let i = 0; i < threshold; i++) {
             const result = await invokeWithGuardrail({
-                invocationFn     : async () => { throw new Error('Malformed JSON response'); },
-                inputPayload     : 'small input',
-                model            : 'gemma4-31b',
-                assetRef         : 'session:fail-parse',
-                modelContextLimit: 40000
+                invocationFn      : async () => { throw new Error('Malformed JSON response'); },
+                inputPayload      : 'small input',
+                model             : 'gemma4-31b',
+                assetRef          : 'session:fail-parse',
+                consumer          : 'SemanticGraphExtractor',
+                contextLimitTokens: 10000,
+                serviceDomain     : 'dream-pipeline'
             });
             expect(result.result).toBeNull();
             expect(result.friction).not.toBeNull();
             expect(result.friction.symptom).toBe('parse-failure');
+            expect(result.friction.suggestionKind).toBe('schema-repair');
             expect(result.friction.emissionPoint).toBe('post-invocation-failure');
         }
 
@@ -278,19 +331,21 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         const {invokeWithGuardrail, getAggregatedFrictions} = helper;
 
         const result = await invokeWithGuardrail({
-            invocationFn     : async () => { throw new Error('Context window exceeded'); },
-            inputPayload     : 'medium input',
-            model            : 'gemma4-31b',
-            assetRef         : 'session:fail-overflow',
-            modelContextLimit: 40000
+            invocationFn      : async () => { throw new Error('Context window exceeded'); },
+            inputPayload      : 'medium input',
+            model             : 'gemma4-31b',
+            assetRef          : 'session:fail-overflow',
+            consumer          : 'SessionService',
+            contextLimitTokens: 10000,
+            serviceDomain     : 'memory-core'
         });
 
         expect(result.friction.symptom).toBe('context-overflow');
-        // Deterministic symptom — surfaces on first occurrence
+        expect(result.friction.suggestionKind).toBe('compress-payload');
         expect(getAggregatedFrictions()).toHaveLength(1);
     });
 
-    test('invokeWithGuardrail honors caller-provided workflowUpdateHint', async () => {
+    test('invokeWithGuardrail honors caller-provided suggestionKind + note overrides', async () => {
         const {invokeWithGuardrail} = helper;
 
         const result = await invokeWithGuardrail({
@@ -298,11 +353,15 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
             inputPayload      : 'tiny',
             model             : 'gemma4-31b',
             assetRef          : 'session:hint',
-            modelContextLimit : 40000,
-            workflowUpdateHint: 'Switch to qwen3-8b for stricter JSON output.'
+            consumer          : 'SemanticGraphExtractor',
+            contextLimitTokens: 10000,
+            serviceDomain     : 'dream-pipeline',
+            suggestionKind    : 'extract-anchor',
+            note              : 'Switch to qwen3-8b for stricter JSON output.'
         });
 
-        expect(result.friction.workflowUpdateSuggestion).toBe('Switch to qwen3-8b for stricter JSON output.');
+        expect(result.friction.suggestionKind).toBe('extract-anchor');
+        expect(result.friction.note).toBe('Switch to qwen3-8b for stricter JSON output.');
     });
 
     test('renderConsumerFrictionSection returns empty string when no frictions surface', () => {
@@ -310,62 +369,60 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
         expect(renderConsumerFrictionSection()).toBe('');
     });
 
-    test('renderConsumerFrictionSection emits structured Markdown when frictions are surfaced', () => {
+    test('renderConsumerFrictionSection emits structured Markdown with token metrics + suggestionKind', () => {
         const {emitConsumerFriction, renderConsumerFrictionSection} = helper;
 
         emitConsumerFriction({
-            model                   : 'gemma4-31b',
-            symptom                 : 'size-precheck-skip',
-            emissionPoint           : 'pre-invocation',
-            inputBytes              : 100000,
-            modelContextLimit       : 40000,
-            safeProcessingLimit     : 32000,
-            workflowUpdateSuggestion: 'Reduce payload below 32000 bytes',
-            timestamp               : new Date().toISOString(),
-            assetRef                : 'session:render',
-            consumer                : 'gemma4-31b'
+            assetRef          : 'session:render',
+            consumer          : 'SemanticGraphExtractor',
+            model             : 'gemma4-31b',
+            symptom           : 'size-precheck-skip',
+            emissionPoint     : 'pre-invocation',
+            inputBytes        : 100000,
+            contextLimitTokens: 8192,
+            safeProcessingLimitTokens: 6144,
+            serviceDomain     : 'dream-pipeline'
         });
 
         const section = renderConsumerFrictionSection();
 
         expect(section).toContain('### 🧠 Substrate-Consumer Friction');
         expect(section).toContain('**size-precheck-skip**');
-        expect(section).toContain('`gemma4-31b`');
+        expect(section).toContain('`SemanticGraphExtractor`');
         expect(section).toContain('`session:render`');
-        expect(section).toContain('100000 bytes');
-        expect(section).toContain('safe 32000');
-        expect(section).toContain('Reduce payload below 32000 bytes');
+        expect(section).toContain('`gemma4-31b`');
+        expect(section).toContain('`dream-pipeline`');
+        expect(section).toContain('25000 tokens');
+        expect(section).toContain('safe 6144');
+        expect(section).toContain('context 8192');
+        expect(section).toContain('(`compress-payload`)');
     });
 
     test('renderConsumerFrictionSection groups multiple symptoms', () => {
         const {emitConsumerFriction, renderConsumerFrictionSection, _testConstants} = helper;
         const threshold = _testConstants.PROBABILISTIC_EMIT_THRESHOLD;
 
-        // Surface a context-overflow (deterministic, surfaces immediately)
         emitConsumerFriction({
-            model                   : 'gemma4-31b',
-            symptom                 : 'context-overflow',
-            emissionPoint           : 'post-invocation-failure',
-            inputBytes              : 50000,
-            modelContextLimit       : 40000,
-            workflowUpdateSuggestion: 'Reduce',
-            timestamp               : new Date().toISOString(),
-            assetRef                : 'session:overflow-1',
-            consumer                : 'gemma4-31b'
+            assetRef          : 'session:overflow-1',
+            consumer          : 'SemanticGraphExtractor',
+            model             : 'gemma4-31b',
+            symptom           : 'context-overflow',
+            emissionPoint     : 'post-invocation-failure',
+            inputBytes        : 50000,
+            contextLimitTokens: 8192,
+            serviceDomain     : 'dream-pipeline'
         });
 
-        // Surface a parse-failure (probabilistic, need threshold emissions)
         for (let i = 0; i < threshold; i++) {
             emitConsumerFriction({
-                model                   : 'qwen3-8b',
-                symptom                 : 'parse-failure',
-                emissionPoint           : 'post-invocation-failure',
-                inputBytes              : 8000,
-                modelContextLimit       : 40000,
-                workflowUpdateSuggestion: 'Switch JSON parser',
-                timestamp               : new Date().toISOString(),
-                assetRef                : 'session:parse-1',
-                consumer                : 'qwen3-8b'
+                assetRef          : 'session:parse-1',
+                consumer          : 'SessionService',
+                model             : 'qwen3-8b',
+                symptom           : 'parse-failure',
+                emissionPoint     : 'post-invocation-failure',
+                inputBytes        : 8000,
+                contextLimitTokens: 8192,
+                serviceDomain     : 'memory-core'
             });
         }
 
@@ -373,7 +430,9 @@ test.describe.serial('Neo.ai.services.memory-core.helpers.ConsumerFrictionHelper
 
         expect(section).toContain('**context-overflow**');
         expect(section).toContain('**parse-failure**');
-        expect(section).toContain('`gemma4-31b`');
-        expect(section).toContain('`qwen3-8b`');
+        expect(section).toContain('`SemanticGraphExtractor`');
+        expect(section).toContain('`SessionService`');
+        expect(section).toContain('`dream-pipeline`');
+        expect(section).toContain('`memory-core`');
     });
 });

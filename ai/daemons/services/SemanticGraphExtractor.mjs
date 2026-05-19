@@ -110,27 +110,31 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             let result = null;
 
             // #11447 Brain-Pillar Consumer-Friction Channel V1: wrap each LLM invocation with
-            // bidirectional guardrail. Angle 2 (upstream pre-check) skips invocation when the
-            // composed messages exceed the consumer's safeProcessingLimit (default 80% of
-            // `aiConfig.openAiCompatible.contextWindowBytes`). Angle 1 (downstream try/catch)
+            // bidirectional guardrail per Discussion #11444 graduation contract. Angle 2
+            // (upstream pre-check) skips invocation when the composed messages' estimated
+            // token count exceeds the consumer's safe processing band (default 75% of
+            // `aiConfig.openAiCompatible.contextLimitTokens`). Angle 1 (downstream try/catch)
             // categorizes engine-level failures into friction symptoms. Friction is emitted
-            // into the in-memory aggregator for handoff rendering by
-            // `GoldenPathSynthesizer.synthesizeGoldenPath`.
-            const consumerModel        = aiConfig.openAiCompatible.model || 'openAiCompatible';
-            const consumerContextLimit = aiConfig.openAiCompatible.contextWindowBytes || 131072;
+            // into the in-memory aggregator (with `serviceDomain: 'dream-pipeline'`) for
+            // handoff rendering by `GoldenPathSynthesizer.synthesizeGoldenPath`.
+            const consumerModel          = aiConfig.openAiCompatible.model || 'openAiCompatible';
+            const consumerContextTokens  = aiConfig.openAiCompatible.contextLimitTokens || 32768;
+            const consumerSafeTokens     = aiConfig.openAiCompatible.safeProcessingLimitTokens;
 
             while (attempt < maxRetries && !payload) {
                 attempt++;
 
                 const inputPayloadText = messages.map(m => m.content).join('\n');
                 const guardrailed      = await invokeWithGuardrail({
-                    invocationFn      : () => provider.generate(messages),
-                    inputPayload      : inputPayloadText,
-                    model             : consumerModel,
-                    assetRef          : session.meta.sessionId,
-                    modelContextLimit : consumerContextLimit,
-                    consumer          : consumerModel,
-                    workflowUpdateHint: `Reduce Tri-Vector session-aggregation window or switch ${consumerModel} to a larger-context consumer.`
+                    invocationFn             : () => provider.generate(messages),
+                    inputPayload             : inputPayloadText,
+                    model                    : consumerModel,
+                    assetRef                 : session.meta.sessionId,
+                    consumer                 : 'SemanticGraphExtractor',
+                    contextLimitTokens       : consumerContextTokens,
+                    safeProcessingLimitTokens: consumerSafeTokens,
+                    serviceDomain            : 'dream-pipeline',
+                    note                     : `Tri-Vector session-aggregation attempt ${attempt} of ${maxRetries}`
                 });
 
                 if (!guardrailed.result) {

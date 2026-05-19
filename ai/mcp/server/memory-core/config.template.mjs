@@ -160,16 +160,28 @@ const defaultConfig = {
         unloadRetryCount: 3,
         unloadRetryDelayMs: 500,
         /**
-         * Approximate context-window capacity in bytes for the configured `model`.
-         * Used by `ConsumerFrictionHelper.invokeWithGuardrail` (#11447) to fire the
-         * upstream pre-check skip ("Angle 2") when an LLM input payload exceeds the
-         * consumer's safe processing band (default 80% of this cap). Default is sized
-         * for Gemma-3-4B / Qwen3-8B class consumers (~32K-token context = ~131072 bytes
-         * at the ~4-chars/token heuristic). Operators running models with different
-         * context windows should tune this to match the deployed model.
+         * Configured context-window capacity of `model` measured in **tokens**.
+         * Token-based per the Discussion #11444 / #11447 V1 graduation contract.
+         * Used by `ConsumerFrictionHelper.invokeWithGuardrail` to fire the upstream
+         * pre-check skip ("Angle 2") when an LLM input payload exceeds the consumer's
+         * safe processing band. Default is sized for Gemma-3-4B / Qwen3-8B class
+         * consumers (~32K-token context). Operators running models with different
+         * context windows should tune this to match the deployed model — e.g. 8192
+         * for Gemma-4-8B-IT, 131072 for Llama-3.1-70B 128K-context variants.
          * @type {number}
          */
-        contextWindowBytes: 131072
+        contextLimitTokens: 32768,
+        /**
+         * Optional safer processing threshold (tokens) below `contextLimitTokens` for
+         * the upstream pre-check skip. When the estimated input token count exceeds
+         * this value, `invokeWithGuardrail` emits a `size-precheck-skip` friction and
+         * does NOT invoke the consumer model. Defaults to 75% of `contextLimitTokens`
+         * when unset — leaves ~25% headroom for system-prompt envelope, repair-cycle
+         * prompt growth, and output-token reservation per Discussion #11444 Round-2
+         * consensus.
+         * @type {number|undefined}
+         */
+        safeProcessingLimitTokens: undefined
     },
     /**
      * The enforced vector dimension across all SQLite collections.

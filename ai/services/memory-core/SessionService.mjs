@@ -463,22 +463,27 @@ ${aggregatedContent}
 `;
 
         // #11447 Brain-Pillar Consumer-Friction Channel V1: wrap the summarization LLM
-        // invocation with bidirectional guardrail. Angle 2 (upstream pre-check) skips
-        // invocation when `summaryPrompt` exceeds the consumer's safeProcessingLimit;
-        // Angle 1 (downstream try/catch) categorizes engine-level failures into friction
-        // symptoms. Friction surfaces in the GoldenPath handoff for swarm visibility.
-        const consumerModel        = aiConfig.modelProvider === 'openAiCompatible'
+        // invocation with bidirectional guardrail per Discussion #11444 graduation contract.
+        // Angle 2 (upstream pre-check) skips invocation when the estimated tokens for
+        // `summaryPrompt` exceed the consumer's safe processing band; Angle 1 (downstream
+        // try/catch) categorizes engine-level failures into friction symptoms. Friction is
+        // emitted with `serviceDomain: 'memory-core'` for handoff rendering by
+        // `GoldenPathSynthesizer.synthesizeGoldenPath`.
+        const consumerModel         = aiConfig.modelProvider === 'openAiCompatible'
             ? (aiConfig.openAiCompatible.model || 'openAiCompatible')
             : (aiConfig.modelName || 'gemini');
-        const consumerContextLimit = aiConfig.openAiCompatible?.contextWindowBytes || 131072;
-        const guardrailed          = await invokeWithGuardrail({
-            invocationFn      : () => this.model.generateContent(summaryPrompt),
-            inputPayload      : summaryPrompt,
-            model             : consumerModel,
-            assetRef          : sessionId,
-            modelContextLimit : consumerContextLimit,
-            consumer          : consumerModel,
-            workflowUpdateHint: `Reduce session summarization batch (currently ${aiConfig.summarizationBatchLimit || 'unset'}) or switch ${consumerModel} to a larger-context consumer.`
+        const consumerContextTokens = aiConfig.openAiCompatible?.contextLimitTokens || 32768;
+        const consumerSafeTokens    = aiConfig.openAiCompatible?.safeProcessingLimitTokens;
+        const guardrailed           = await invokeWithGuardrail({
+            invocationFn             : () => this.model.generateContent(summaryPrompt),
+            inputPayload             : summaryPrompt,
+            model                    : consumerModel,
+            assetRef                 : sessionId,
+            consumer                 : 'SessionService.summarizeSession',
+            contextLimitTokens       : consumerContextTokens,
+            safeProcessingLimitTokens: consumerSafeTokens,
+            serviceDomain            : 'memory-core',
+            note                     : `summarizationBatchLimit=${aiConfig.summarizationBatchLimit || 'unset'}`
         });
 
         if (!guardrailed.result) {
