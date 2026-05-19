@@ -4,6 +4,10 @@
  * This shared list provides the definitive addressable identity surface for the A2A Mailbox
  * substrate (#10139).
  *
+ * Capability fields (`contextWindowInput`, `hosting`, `tier`, etc.) per ADR 0012 Model-Stats
+ * Framework. Source-cited values mirror `learn/agentos/ModelStats.md`; the registry is the
+ * canonical authority for capability-data drift detection (#11601).
+ *
  * It is used for both:
  * 1. Boot-time self-seeding in `GraphService.initAsync` (#10232)
  * 2. Explicit manual recovery via `ai/scripts/seedAgentIdentities.mjs`
@@ -29,7 +33,22 @@ export const IDENTITIES = [
                     focusSeedKey: 'space'
                 }
             },
-            createdAt: new Date().toISOString()
+            // Capability fields per ADR 0012 Model-Stats Framework. Source: ModelStats.md
+            // §neo_opus_4_7 — primary source: platform.claude.com/docs/en/about-claude/models/overview
+            // (pricing currently from aipricing.guru secondary citation; replace with Anthropic's own
+            // pricing-page link on next-update).
+            contextWindowInput: 1048576,
+            parallelToolCalls : true,
+            thoughtBudget     : 'max',
+            hosting           : 'cloud',
+            family            : 'claude',
+            tier              : 'frontier',
+            releaseDate       : '2026-04-16',
+            pricingInput      : 5.00,
+            pricingOutput     : 25.00,
+            swarmRole         : 'Cross-family substrate review, V-B-A-grounded substrate authorship, frontier-tier coordination',
+            sunsetTriggers    : ['Anthropic releases Opus 4.8+ with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
+            createdAt         : new Date().toISOString()
         }
     },
     {
@@ -55,7 +74,21 @@ export const IDENTITIES = [
                     tabShortcut: null
                 }
             },
-            createdAt: new Date().toISOString()
+            // Capability fields per ADR 0012 Model-Stats Framework. Source: ModelStats.md
+            // §neo_gemini_3_1_pro (Google DeepMind model card + Google Blog Feb 2026).
+            contextWindowInput : 1048576,
+            contextWindowOutput: 65536,
+            parallelToolCalls  : true,
+            thoughtBudget      : 'high', // Gemini 3.1 Pro provider-side cap at 'high' setting; we use the cap
+            hosting            : 'cloud',
+            family             : 'gemini',
+            tier               : 'frontier',
+            releaseDate        : '2026-02-19',
+            // Pricing V-B-A pending — model card did not surface pricing at registry-author time.
+            // See ModelStats.md §neo_gemini_3_1_pro for explicit pending-value annotation.
+            swarmRole          : 'Cross-family substrate review, ideation-sandbox graduation, long-context cross-substrate analysis. Note (2026-05-18): harness benched until post-Google-I/O / stable-baseline window (~200 merged PRs out) per operator-direction. FAIRness rationale: Gemini volume 2x Claude/GPT pre-bench. Identity remains valid; reactivation triggered by operator.',
+            sunsetTriggers     : ['Google releases Gemini 4.x with material reasoning capability upgrade', 'Gemini 3.x branch deprecation announcement'],
+            createdAt          : new Date().toISOString()
         }
     },
     {
@@ -90,7 +123,26 @@ export const IDENTITIES = [
                     focusSeedKey: 'r'
                 }
             },
-            createdAt: new Date().toISOString()
+            // Capability fields per ADR 0012 Model-Stats Framework. Source: ModelStats.md §neo_gpt.
+            // 258,400 = effective in Codex CLI/IDE harness (272,000 raw × 95% effective-window
+            // multiplier per openai/codex#19319 implementation-discrepancy report). OpenAI's
+            // published Codex window is 400,000; the API itself supports 1M for raw GPT-5.5.
+            // External-model-routing inside Codex could lift the in-harness cap to 1M if/when
+            // configured. Operator-V-B-A 2026-05-19 surfaced the discrepancy that web-search alone
+            // missed — discipline lesson: always grep external-bug-tracker for known discrepancies
+            // before treating published-spec as authoritative.
+            contextWindowInput: 258400,
+            parallelToolCalls : true,
+            thoughtBudget     : 'extra-high', // GPT-5.5 provider-side max we use
+            hosting           : 'cloud',
+            family            : 'gpt',
+            tier              : 'frontier',
+            releaseDate       : '2026-04-23',
+            pricingInput      : 5.00,
+            pricingOutput     : 30.00,
+            swarmRole         : 'Cross-family substrate review (Cycle-1 premise pre-flight discipline), peer-role challenge, ticket-intake gate. Note: also operates GPT-5.2-Codex separately for IDE workflows.',
+            sunsetTriggers    : ['OpenAI releases GPT-5.6+ or GPT-6.x with material capability upgrade', 'GPT-5.x family deprecation'],
+            createdAt         : new Date().toISOString()
         }
     },
     {
