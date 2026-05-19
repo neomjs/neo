@@ -34,7 +34,9 @@ export const IDENTITIES = [
                 }
             },
             // Capability fields per ADR 0012 Model-Stats Framework. Source: ModelStats.md
-            // §neo_opus_4_7 (Anthropic Claude API docs + aipricing.guru May 2026).
+            // §neo_opus_4_7 — primary source: platform.claude.com/docs/en/about-claude/models/overview
+            // (pricing currently from aipricing.guru secondary citation; replace with Anthropic's own
+            // pricing-page link on next-update).
             contextWindowInput: 1048576,
             parallelToolCalls : true,
             thoughtBudget     : 'max',

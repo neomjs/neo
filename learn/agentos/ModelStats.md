@@ -38,10 +38,10 @@ Named cross-family maintainers with active swarm participation. These models hol
 | `sunsetTriggers` | Anthropic releases Opus 4.8+ with material reasoning capability upgrade; OR Anthropic deprecates Opus family branch |
 | `swarmRole` | Cross-family substrate review, V-B-A-grounded substrate authorship, frontier-tier coordination |
 
-**Sources:**
-- [Anthropic Claude API Pricing 2026 — aipricing.guru](https://www.aipricing.guru/anthropic-pricing/)
-- [Models overview — Claude API Docs](https://platform.claude.com/docs/en/about-claude/models/overview)
-- [Context windows — Claude API Docs](https://platform.claude.com/docs/en/build-with-claude/context-windows)
+**Sources** (primary first; secondary/commentary marked):
+- **Primary**: [Models overview — Claude API Docs](https://platform.claude.com/docs/en/about-claude/models/overview)
+- **Primary**: [Context windows — Claude API Docs](https://platform.claude.com/docs/en/build-with-claude/context-windows)
+- **Secondary/commentary**: [Anthropic Claude API Pricing 2026 — aipricing.guru](https://www.aipricing.guru/anthropic-pricing/) (V-B-A pending — replace with Anthropic's own pricing page citation when next-update touches this row)
 
 ### §neo_gemini_3_1_pro
 
@@ -86,10 +86,11 @@ Named cross-family maintainers with active swarm participation. These models hol
 | `sunsetTriggers` | OpenAI releases GPT-5.6+ or GPT-6.x with material capability upgrade; OR GPT-5.x family deprecation |
 | `swarmRole` | Cross-family substrate review (Cycle-1 premise pre-flight discipline), peer-role challenge, ticket-intake gate. Note: also operates GPT-5.2-Codex separately for IDE workflows |
 
-**Sources:**
-- [Introducing GPT-5.5 — OpenAI](https://openai.com/index/introducing-gpt-5-5/)
-- [GPT-5.5 Model — OpenAI API Docs](https://developers.openai.com/api/docs/models/gpt-5.5)
-- [GPT-5.5 Complete Guide — DigitalApplied](https://www.digitalapplied.com/blog/gpt-5-5-complete-guide-thinking-pro-1m-context)
+**Sources** (primary first; secondary/commentary marked):
+- **Primary**: [Introducing GPT-5.5 — OpenAI](https://openai.com/index/introducing-gpt-5-5/)
+- **Primary**: [GPT-5.5 Model — OpenAI API Docs](https://developers.openai.com/api/docs/models/gpt-5.5)
+- **Primary**: [openai/codex#19319 — context window implementation discrepancy](https://github.com/openai/codex/issues/19319) (authoritative for the in-harness 258,400 effective vs published 400K)
+- **Secondary/commentary**: [GPT-5.5 Complete Guide — DigitalApplied](https://www.digitalapplied.com/blog/gpt-5-5-complete-guide-thinking-pro-1m-context) (V-B-A pending — demote on next-update if not load-bearing)
 
 ---
 
@@ -133,7 +134,7 @@ Models in the current capability space but without active swarm role. Informs sw
 | Claude Haiku 4.5 | fast | 200K | $1 / $5 | 2026 (current generation) | Bulk classification, wake-summary, fast inference |
 | Claude Mythos Preview | frontier+ | (restricted) | $25 / $125 | 2026 | Project Glasswing critical-infra partners only; out of swarm scope |
 
-**Sources:** [Anthropic Claude API Pricing 2026](https://www.aipricing.guru/anthropic-pricing/), [Models overview — Claude API Docs](https://platform.claude.com/docs/en/about-claude/models/overview)
+**Sources** (primary first): [Models overview — Claude API Docs](https://platform.claude.com/docs/en/about-claude/models/overview); secondary/commentary [Anthropic Claude API Pricing 2026 — aipricing.guru](https://www.aipricing.guru/anthropic-pricing/)
 
 ### OpenAI GPT reference
 
