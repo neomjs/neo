@@ -1,8 +1,8 @@
 # Progressive Disclosure Skills
 
 The Neo Agent OS utilizes a **Progressive Disclosure** pattern for agent skills. Instead of
-loading every possible instruction set into the master system prompt (which consumes 
-massive amounts of context window tokens and dilutes agent focus), skills are 
+loading every possible instruction set into the master system prompt (which consumes
+massive amounts of context window tokens and dilutes agent focus), skills are
 lazy-loaded into the context window exactly when they are needed.
 
 For the overall platform topology, see [Architecture Overview](../benefits/ArchitectureOverview.md).
@@ -14,44 +14,44 @@ For the canonical skill-anatomy contract (frontmatter shape, Map vs Atlas decomp
 The primary driver for the Progressive Disclosure pattern is **System Prompt Budgeting**.
 
 LLM reasoning degrades as the context window fills up (the "lost in the middle"
-phenomenon). If an agent is tasked with a simple CSS fix, it does not need the 
-4,000-token `pull-request` execution guide or the `neural-link` tactical debugging 
+phenomenon). If an agent is tasked with a simple CSS fix, it does not need the
+4,000-token `pull-request` execution guide or the `neural-link` tactical debugging
 sequences in its prompt.
 
-By deferring specialized procedural knowledge into standalone Markdown files 
+By deferring specialized procedural knowledge into standalone Markdown files
 (`.agents/skills/*/SKILL.md`), we keep the root `AGENTS.md` system prompt lean.
-The root prompt outlines the *rules of engagement*, while the skills provide the 
+The root prompt outlines the *rules of engagement*, while the skills provide the
 *tactical implementation manuals*.
 
 ## The Progressive Disclosure Pattern
 
-A skill in the Neo Agent OS is a directory containing instructional context. 
+A skill in the Neo Agent OS is a directory containing instructional context.
 The contract for a skill is simple:
 
 1. **`SKILL.md` (Mandatory):** The entry point. It must contain YAML frontmatter
    with a `name` and `description` (which serves as the primary cross-harness router by outlining the invocation contract and purpose),
    followed by standard Markdown instructions.
-2. **`references/` (Optional):** Deeper architectural documentation or procedural 
+2. **`references/` (Optional):** Deeper architectural documentation or procedural
    steps linked from the main `SKILL.md`.
-3. **`assets/` (Optional):** Templates, Markdown snippets, or structural files the 
+3. **`assets/` (Optional):** Templates, Markdown snippets, or structural files the
    skill relies on.
 
-When an agent encounters a trigger scenario (e.g., "Open a Pull Request"), it uses 
-the `view_file` tool to read the `SKILL.md`, absorbs the temporary context, and 
+When an agent encounters a trigger scenario (e.g., "Open a Pull Request"), it uses
+the `view_file` tool to read the `SKILL.md`, absorbs the temporary context, and
 executes the procedural knowledge.
 
 ## How Skills Compose with AGENTS.md
 
 The root system prompt (`AGENTS.md`) and the skills layer are symbiotic:
-- **`AGENTS.md`** contains the *Mandates*. It tells the agent *when* a behavior is 
-  required (e.g., "You MUST use the `pull-request` skill to open a PR. You are forbidden 
+- **`AGENTS.md`** contains the *Mandates*. It tells the agent *when* a behavior is
+  required (e.g., "You MUST use the `pull-request` skill to open a PR. You are forbidden
   from running `gh pr create` raw.").
-- **The Skill** contains the *How*. It provides the precise Git branch naming 
+- **The Skill** contains the *How*. It provides the precise Git branch naming
   conventions, the "Stepping Back" reflection protocol, and the exact CLI arguments.
 
 ## The Lifecycle Triad
 
-Three primary skills form the backbone of the Agent OS issue lifecycle. They act as 
+Three primary skills form the backbone of the Agent OS issue lifecycle. They act as
 strict architectural gates that prevent context-blind execution and topological regression.
 
 ```mermaid
@@ -60,7 +60,7 @@ flowchart TD
     classDef execute fill:#1a1a2e,stroke:#4a4e69,stroke-width:2px,color:#fff
     classDef pr fill:#3d1f00,stroke:#f39c12,stroke-width:2px,color:#eee
     classDef review fill:#2a0a2a,stroke:#c7168b,stroke-width:2px,color:#eee
-    
+
     A[Ticket Assigned] --> B(ticket-intake)
     B:::intake --> |Validation / ROI Check| C[Tactical Coding phase]
     C:::execute --> D(pull-request)
@@ -100,7 +100,7 @@ Invoked before filing any new GitHub Issue via the `create_issue` MCP tool. Crea
 Beyond lifecycle governance, specialized contexts exist for live action:
 
 - **`tech-debt-radar`:** A proactive architectural review skill using Frontier Model semantic RAG to sweep historical issues and Memory Core sessions for technical debt. Actively invoked during `ticket-intake` and `pr-review` (especially for fundamental architectural shifts).
-- **`neural-link`:** A tactical manual mapping how to sequence the Neural Link MCP 
+- **`neural-link`:** A tactical manual mapping how to sequence the Neural Link MCP
   tools (e.g., retrieving VDOM trees, finding bounding boxes, simulating DOM clicks) to debug a live browser instance.
 - **`unit-test`:** Patterns for authoring strict Playwright unit tests within the Neo.mjs single-thread architecture.
 - **`self-repair`:** A strict diagnostic protocol ensuring infrastructure verification across MCP services, Unit Testing, and Historical Forensics using Memory Core states to resolve system lockups.
@@ -110,8 +110,8 @@ Beyond lifecycle governance, specialized contexts exist for live action:
 ## The Meta-Skill: Adding New Skills
 
 The ecosystem is self-extending via the **`create-skill`** meta-skill.
-When the swarm identifies a repeating failure mode or a complex recurring task, 
-an agent can use `create-skill` to bootstrap a new progressive disclosure package or modify an existing one, 
+When the swarm identifies a repeating failure mode or a complex recurring task,
+an agent can use `create-skill` to bootstrap a new progressive disclosure package or modify an existing one,
 ensuring the YAML frontmatter and folder consistency are perfectly formed.
 
 ## Skill Inventory
@@ -136,6 +136,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `lead-role` | Coordination | Suspends Auto Mode bias; mandates dialogue-first convergence for delegated lead tasks (Mailbox Check Protocol supported) |
 | `peer-role` | Coordination | Suspends Auto Mode bias; mandates evidence-backed convergence-pressure mindset for peer reviews |
 | `lane-intent` | Coordination | Narrow, non-authoritative, 2h TTL-bound pre-V-B-A signal for collision-prone / long-V-B-A lanes; distinct from authoritative `[lane-claim]` |
+| `post-review-pickup` | Coordination | Mandatory next-phase pickup at ANY PR-lifecycle event boundary (review post / author response / post-impl / post-PR-open-update / post-ticket-create / post-blocked-resolution); requires explicit `lane-state:` declaration per §15.6 |
 | `create-skill` | Meta | Skill authoring bootstrap guide |
 
 ## Related Guides
