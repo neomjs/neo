@@ -66,6 +66,34 @@ When delegating substrate-validation, design-dialogue, or convergence-pressure w
 
 **Empirical-anchor for verification**: #11195 30-day Step 2.5 validation tracker inherits. Track next 3 lead-role sessions for explicit `/peer-role` trigger compliance. Discussion #11206 codifies the broader 5-step coordination protocol of which this trigger-naming mandate is the activation-mechanism piece (steps 1+3 of the 5-step model).
 
+**Worked example (canonical `to:` shape per #11417):**
+
+```js
+// Canonical: '@<identity>' matches a registered AgentIdentity graph node.
+add_message({
+    to     : '@<peer-agent>',                   // bare canonical handle; matches a real seeded identity
+    subject: '[lead-role] use /peer-role on Discussion #N',
+    body   : 'Lane-substrate proposal at Discussion #N needs your peer-role substrate-validation. ' +
+             'Use /peer-role on Discussion #N. Convergence target: <named-focus>.',
+    relatedTickets : ['#N'],
+    taggedConcepts : ['lead-role', 'peer-role-trigger']
+});
+```
+
+**Anti-pattern — alias confabulation rejected post-#11417:**
+
+```js
+// Pre-#11417: 'AGENT:<family>/<model>' silently stored as to: null → orphan message.
+// Post-#11417: explicit reject with named failure mode + alias-resolution attempt.
+add_message({
+    to     : 'AGENT:claude/opus',               // ❌ not the canonical form
+    subject: '...',
+    body   : '...'
+}); // throws "Unrecognized 'to' format..." OR resolves if exactly one matching AgentIdentity exists
+```
+
+The `to:` field must match a registered AgentIdentity by canonical `@<identity>` form OR be the `'AGENT:*'` broadcast sentinel. The `AGENT:<family>/<model>` alias only resolves when exactly one AgentIdentity has that `modelFamily`; multiple matches reject with an explicit ambiguity error.
+
 ### 2.3 Focus-Naming and Scope Calibration
 
 *(Codified per #11209, graduated from Discussion #11206 Option A-prime convergence.)*

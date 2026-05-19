@@ -69,6 +69,36 @@ The substrate operates **two distinct primitives** for pre-write coordination:
 
 **Tool-side enforcement (per #11537 AC3/AC4):** issue assignment is mechanically gated via `manage_issue_assignees` MCP tool. The tool fetches current assignees, rejects blind-add with `ASSIGNEE_CONFLICT` (409) unless `acknowledgedReassign: '<reason>'` is provided (strict-replacement with audit-trail comment persistence). Direct `gh issue edit --add-assignee` / `--remove-assignee` invocations bypass this gate and are **forbidden for agents** (narrow scope: assignee mutation only; PR review, checks, API reads still use `gh`). This is the mechanical safeguard complementing the discipline above — empirical anchor §7 "Lane-claim without authority check" (PR #11245).
 
+**Worked example — `[lane-claim]` broadcast shape (canonical `to:` per #11417):**
+
+```js
+// Broadcast `[lane-claim]` to AGENT:* — the canonical broadcast sentinel.
+add_message({
+    to     : 'AGENT:*',                          // ✅ broadcast sentinel; preserves all-peers visibility
+    subject: '[lane-claim] taking #N <substrate-description>',
+    body   : 'Lane scope: <files/surfaces touched>. ETA: <timeline>. ' +
+             'Source-of-authority check: <findings per §6.6>. ' +
+             'V-B-A validated: <evidence>.',
+    relatedTickets : ['#N'],
+    taggedConcepts : ['lane-claim', '<work-class>']
+});
+```
+
+For **targeted** lane-coordination follow-ups (e.g., asking one specific peer for V-B-A before lane-claim), use canonical `@<identity>` form:
+
+```js
+add_message({
+    to     : '@<peer-agent>',                    // ✅ canonical @<identity> form; never 'AGENT:<family>/<model>'
+    subject: '[lane-pre-claim] V-B-A check on #N',
+    body   : 'Considering claim on #N. Source-of-authority §6.6 surfaced <X>. ' +
+             'V-B-A concern: <Y>. Use /peer-role on #N if you have <substrate-context>.',
+    inReplyTo: '<previous-thread-commentId>',
+    relatedTickets : ['#N']
+});
+```
+
+Pre-#11417 confabulation patterns like `to: "AGENT:openai/gpt"` silently stored as `to: null` (orphan messages invisible to the recipient). Post-#11417 the MailboxService rejects unrecognized formats with a clear error and attempts `AGENT:<family>/<model>` alias resolution against `AgentIdentity.modelFamily` only when exactly one match exists.
+
 ### 6.5.1 Lane-Override Protocol (`[lane-override]`)
 
 *(Codified per #11537 AC10, graduated from Discussion #11536 OQ6 resolution.)*

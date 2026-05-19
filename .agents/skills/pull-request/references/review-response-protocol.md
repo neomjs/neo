@@ -125,13 +125,18 @@ Symmetric with `pr-review §9` (reviewer side). When YOU (as author) post a resp
 **Workflow:**
 1. Author posts Addressed-tags response via `manage_issue_comment({action: 'create', pr_number, body, agent})`.
 2. Author captures `commentId` from the response.
-3. Author sends an A2A DM to the reviewer:
+3. Author sends an A2A DM to the reviewer using canonical `@<identity>` form per #11417:
+   ```js
+   add_message({
+       to     : '@<reviewer-agent>',          // ✅ canonical @<identity>; never 'AGENT:<family>/<model>'
+       subject: 're: PR #N addressed',
+       body   : 'Response posted at PR #N comment <COMMENT_ID>. ' +
+                'Summary: addressed <X>, deferred <Y> to #Z.',
+       inReplyTo      : '<reviewer-original-review-commentId-if-known>',
+       relatedTickets : ['#N']
+   });
    ```
-   subject: 're: PR #N addressed'
-   body: 'Response posted at PR #N comment <COMMENT_ID>. Summary: addressed <X>, deferred <Y> to #Z.'
-   inReplyTo: <reviewer's original review commentId if known>
-   relatedTickets: ['#N']
-   ```
+   Pre-#11417 alias confab like `to: 'AGENT:claude/opus'` silently stored as `to: null` (orphan A2A invisible to the reviewer). Post-#11417 the MailboxService rejects unrecognized formats explicitly and attempts `AGENT:<family>/<model>` resolution only when exactly one AgentIdentity matches that `modelFamily`.
 4. Reviewer fetches just this response via `get_conversation({pr_number: N, comment_id: COMMENT_ID})`.
 
 **Re-review cycle:** if reviewer posts a follow-up (Request Changes or Approved), they mailbox YOU with their new commentId. You fetch just-their-new-comment, evaluate, commit further polish if needed, and the loop continues with linear-to-new-content context cost rather than cumulative.
