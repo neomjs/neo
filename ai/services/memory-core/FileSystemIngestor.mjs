@@ -28,7 +28,7 @@ class FileSystemIngestor extends Base {
         /**
          * Standard high-noise directories and files to completely ignore.
          */
-        ignorePatterns_: ['node_modules', 'dist', '.git', '.DS_Store', 'build', '.env', '.neo-ai-data', 'docs/output', 'tmp', '.idea', '.gemini', '.agents', 'resources/images', 'resources/fonts'],
+        ignorePatterns_: ['node_modules', 'dist', '.git', '.DS_Store', 'build', '.env', '.neo-ai-data', 'docs/output', 'tmp', '.idea', '.gemini', '.codex', '.claude', '.agents', 'resources/images', 'resources/fonts'],
         /**
          * Extensions to explicitly ignore (images, fonts, raw binaries)
          */
@@ -77,7 +77,7 @@ class FileSystemIngestor extends Base {
 
         const stats = { nodes: 0, edges: 0 };
         await this.walkDirectory(neoRootDir, neoRootDir, rootNodeId, stats, mtimeMap, hashMap);
-        
+
         logger.info(`[FileSystemIngestor] Workspace Sync Complete. Upserted/Verified ${stats.nodes} Nodes and ${stats.edges} tracked CONTAINS Edges.`);
     }
 
@@ -100,12 +100,12 @@ class FileSystemIngestor extends Base {
             const fullPath = path.join(dir, file);
             let isDir = false;
             let stat;
-            
+
             try {
                 stat = await fs.promises.stat(fullPath);
                 isDir = stat.isDirectory();
             } catch(e) { continue; } // symlink drops
-            
+
             const relativePath = path.relative(rootDir, fullPath).replace(/\\/g, '/');
 
             // 1. Structural check for explicit matches or directory hierarchies (e.g., docs/output/*)
