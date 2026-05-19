@@ -337,16 +337,19 @@ test.describe('HealthService #10723/#10773/#10804 — buildEmbeddingProviderBloc
         });
     });
 
-    test('unset embeddingProvider defaults provider to gemini', () => {
+    test('unset embeddingProvider defaults provider to openAiCompatible', () => {
         const cfg = {
-            vectorDimension: 3072,
-            embeddingModel : 'gemini-embedding-001'
+            vectorDimension : 4096,
+            openAiCompatible: {
+                host          : 'http://127.0.0.1:11434',
+                embeddingModel: 'text-embedding-qwen3-embedding-8b'
+            }
         };
         expect(buildEmbeddingProviderBlock(cfg)).toEqual({
-            active    : 'gemini',
-            host      : null,
-            model     : 'gemini-embedding-001',
-            dimensions: 3072
+            active    : 'openAiCompatible',
+            host      : 'http://127.0.0.1:11434',
+            model     : 'text-embedding-qwen3-embedding-8b',
+            dimensions: 4096
         });
     });
 
@@ -383,6 +386,27 @@ test.describe('HealthService #10723/#10773/#10804 — buildEmbeddingProviderBloc
             const result = buildEmbeddingProviderBlock(cfg);
             expect(result.dimensions).toBe(768);
         }
+    });
+});
+
+/**
+ * @summary Coverage for the source-default embedding provider resolver (#11596).
+ *
+ * The default must be coherent with the unified 4096-dimension Chroma substrate even when
+ * standalone scripts run without `NEO_EMBEDDING_PROVIDER`.
+ *
+ * @see Neo.ai.services.memory-core.helpers.EmbeddingProviderConfig#resolveEmbeddingProvider
+ */
+test.describe('EmbeddingProviderConfig #11596 — resolveEmbeddingProvider', () => {
+    let resolveEmbeddingProvider;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/services/memory-core/helpers/EmbeddingProviderConfig.mjs');
+        resolveEmbeddingProvider = mod.resolveEmbeddingProvider;
+    });
+
+    test('defaults to openAiCompatible when config and env are unset', () => {
+        expect(resolveEmbeddingProvider({config: {}, env: {}})).toBe('openAiCompatible');
     });
 });
 

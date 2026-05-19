@@ -37,21 +37,21 @@ The system uses a **permanently unified** topology. The Memory Core and Knowledg
 
 ### Embedding provider
 
-Embedding generation is provider-pluggable. The active provider is controlled by `NEO_EMBEDDING_PROVIDER`; supported values are `'gemini'` (default, cloud), `'ollama'` (local), and `'openAiCompatible'` (local OpenAI-format servers including MLX-served Qwen3 models, llama.cpp, LM Studio, etc.). The selector drives ChromaDB retrieval operations.
+Embedding generation is provider-pluggable. The active provider is controlled by `NEO_EMBEDDING_PROVIDER`; supported values are `'openAiCompatible'` (default local OpenAI-format route, including MLX-served Qwen3 models, llama.cpp, LM Studio, etc.), `'gemini'` (cloud), and `'ollama'` (local). The selector drives ChromaDB retrieval operations.
 
 ```bash
-# Default: Google Gemini cloud embedding (gemini-embedding-001):
+# Default: local OpenAI-compatible Qwen3 embedding, matching the 4096-dim collection invariant:
 unset NEO_EMBEDDING_PROVIDER
-# or
-export NEO_EMBEDDING_PROVIDER=gemini
-
-# Local OpenAI-compatible embedding (e.g. Qwen3 family via MLX):
 export NEO_EMBEDDING_PROVIDER=openAiCompatible
 export NEO_OPENAI_COMPATIBLE_HOST=http://127.0.0.1:8000              # MLX server endpoint
-export NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=text-embedding-qwen3-embedding-1.5b  # Qwen3-1.5B variant
-# OR for the 8B variant:
-# export NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=text-embedding-qwen3-embedding-8b
+export NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=text-embedding-qwen3-embedding-8b  # Qwen3-8B default
+# OR for the smaller 1.5B variant:
+# export NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=text-embedding-qwen3-embedding-1.5b
 export NEO_OPENAI_COMPATIBLE_API_KEY=                                # leave empty for local servers
+
+# Optional Google Gemini cloud embedding (gemini-embedding-001, 3072 dims):
+export NEO_EMBEDDING_PROVIDER=gemini
+export NEO_VECTOR_DIMENSION=3072
 
 # Local Ollama embedding:
 export NEO_EMBEDDING_PROVIDER=ollama
@@ -228,7 +228,7 @@ Embedding diagnostic fields:
 - `active`: the provider key selected for embedding generation (`'gemini'` | `'openAiCompatible'` | `'ollama'`). Mismatch between operator intent (e.g. expected local Qwen3) and observed value (e.g. silent fallback to `'gemini'` because `NEO_EMBEDDING_PROVIDER` was unset) is the load-bearing diagnostic.
 - `host`: provider endpoint URL when applicable (`null` for cloud `gemini`).
 - `model`: resolved embedding model name. Operators verify this matches the model running on the local server.
-- `dimensions`: configured `vectorDimension`. Must match the embedding model's actual output dimension; mismatch is silent in collection writes but breaks retrieval.
+- `dimensions`: configured `vectorDimension`. Must match the embedding model's actual output dimension; mismatch is silent in collection writes but breaks retrieval. This is intentionally config-only: a live `actualDimensions` smoke requires calling the provider, which may load local models or need cloud credentials. Golden Path now logs the observed `actualEmbeddingDimension` when it already has a generated frontier embedding and refuses the Chroma query before a raw shape error.
 
 If the embedding provider key resolves to an unrecognized value, the block additionally surfaces an `error` field naming the misconfig directly without making healthcheck throw.
 

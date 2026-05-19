@@ -131,12 +131,15 @@ const defaultConfig = {
     /**
      * Canonical embedding provider for Memory Core and Knowledge Base embedding callsites.
      * Supported values: 'gemini', 'ollama', 'openAiCompatible'
+     * Defaults to the local OpenAI-compatible Qwen3 route so the source tuple matches the
+     * unified 4096-dimension Chroma collection invariant. Gemini remains available as an
+     * explicit operator override and must be paired with `vectorDimension: 3072`.
      *
      * `NEO_CHROMA_EMBEDDING_PROVIDER` remains readable for one deprecation window but emits
      * a warning and feeds this unified selector.
      * @type {String}
      */
-    embeddingProvider: 'gemini',
+    embeddingProvider: 'openAiCompatible',
     /**
      * Settings for the Ollama integration
      */

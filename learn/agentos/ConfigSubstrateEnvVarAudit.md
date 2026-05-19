@@ -58,7 +58,7 @@ Target-tier shorthand:
 | `NEO_CHROMA_EMBEDDING_PROVIDER` | `memory-core/helpers/EmbeddingProviderConfig.mjs:15` | Delete | Legacy dev-branch-only alias targeted by #10823. |
 | `NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH` | `memory-core/config.template.mjs:313` | Tier 2 | Memory Core daemon tuning. Move to per-server config unless one-shot operator override is still desired. |
 | `NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT` | `memory-core/config.template.mjs:312` | Tier 2 | Memory Core daemon tuning. Move to per-server config. |
-| `NEO_EMBEDDING_PROVIDER` | `memory-core/helpers/EmbeddingProviderConfig.mjs:14`; `memory-core/config.template.mjs:147` | Tier 1 | Shared provider selector. Tier 1 default plus optional env override for tests/deployments. |
+| `NEO_EMBEDDING_PROVIDER` | `memory-core/helpers/EmbeddingProviderConfig.mjs:14`; `memory-core/config.template.mjs:147` | Tier 1 | Shared provider selector. Tier 1 default is the 4096-dim `openAiCompatible` route; env override remains available for tests/deployments. |
 | `NEO_GUIDE_GAP_WEIGHT_THRESHOLD` | `memory-core/config.template.mjs:296` | Tier 2 | Concept-gap tuning. Prefer Memory Core config. |
 | `NEO_KB_AUTO_START_DATABASE` | `knowledge-base/config.template.mjs:30` | Tier 3 | Operator one-shot lifecycle toggle for local Chroma startup. |
 | `NEO_KB_CHROMA_HOST` | `memory-core/config.template.mjs:243`; `shared/helpers/DeploymentConfig.mjs:71` | Delete | Legacy server-prefixed alias targeted by #10823. |
