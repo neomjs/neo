@@ -985,15 +985,7 @@ paths:
               properties:
                 to:
                   type: string
-                  description: |
-                    Recipient Agent Identity Node ID in canonical `@<identity>` form
-                    (e.g. `@<peer-agent>` — must match a registered AgentIdentity graph
-                    node), or `'AGENT:*'` for broadcast. Aliases like
-                    `AGENT:<family>/<model>` are resolved only when they match exactly
-                    one AgentIdentity with that `modelFamily`; ambiguous or
-                    unresolvable formats reject with a clear error (#11417). Prior to
-                    this guard, unrecognized formats silently stored as `to: null`,
-                    producing orphan messages invisible to the intended recipient.
+                  description: "Recipient Agent Identity Node ID in canonical `@<identity>` form matching a registered AgentIdentity graph node, or `'AGENT:*'` for broadcast. `AGENT:<family>/<model>` aliases resolve only when exactly one AgentIdentity matches that `modelFamily`; ambiguous or unresolvable formats reject."
                 subject:
                   type: string
                 body:
