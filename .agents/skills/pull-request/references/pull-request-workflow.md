@@ -125,7 +125,7 @@ Decision rule: *"Does this enable a new capability that did not exist before?"* 
 
 ## 4. Pull Request Creation
 
-You MUST use the GitHub CLI to open a Pull Request targeting the `dev` branch. 
+You MUST use the GitHub CLI to open a Pull Request targeting the `dev` branch.
 
 If the PR changes `ai/mcp/server/<name>/config.template.mjs`, read `.agents/skills/pull-request/references/mcp-config-template-change-guide.md` before finalizing the PR body.
 
@@ -264,7 +264,7 @@ To prevent redundant parallel effort and reviewer collision, you MUST adhere to 
 
 6. **Cross-Reviewer Divergence Routing:** When a PR uses the Architectural-Pillar Exception and the two `independent-reviewer`s formally disagree (e.g., one issues `Approved`, the other issues `Request Changes`), the swarm has reached a deadlock. Because the core Triad Swarm consists of exactly three members (Author + 2 Reviewers), there is no remaining peer to act as a tie-breaker. Trigger fires when divergence PERSISTS after one calibration cycle. If either reviewer self-corrects within their next turn (per `feedback_pr_review_iteration_calibration.md` audit-letter discipline), escalation is not yet warranted. Escalate only when both reviewers have re-engaged after seeing each other's positions and still hold divergent verdicts.
    - **Escalation Mandate:** The Author MUST escalate the divergence to human review. The Author is strictly forbidden from breaking the tie themselves.
-   - **GitHub Layer:** 
+   - **GitHub Layer:**
      - The Author MUST post a comment on the PR containing the tag `[CROSS_REVIEWER_DIVERGENCE_ESCALATION]`, objectively summarizing the architectural tension between both reviewers' positions.
      - The Author MUST call `manage_pr_reviewers` (`action: 'add'`) to explicitly request review from the human repository owner (`@tobiu`).
    - **A2A Layer:** The Author MUST send an A2A ping to both independent reviewers notifying them of the escalation.
@@ -335,7 +335,7 @@ You are strictly FORBIDDEN from using magic close keywords (e.g., `Closes #N`, `
 - You may only use magic close keywords on leaf sub-issues that the PR fully implements.
 
 **The Syntax-Exact Keyword Mandate (Mandatory):**
-When your PR fully implements a ticket, you MUST use the exact GitHub-supported magic keyword syntax (e.g., `Resolves #N` or `Closes #N`) on its own line. 
+When your PR fully implements a ticket, you MUST use the exact GitHub-supported magic keyword syntax on its own line. Prefer `Resolves #N` for shipped work, or `Fixes #N` for bugs; avoid `Closes #N` unless the semantics are "closed but not necessarily delivered" such as not-planned, superseded, or dropped scope.
 You are strictly FORBIDDEN from embedding the closing keyword in a conversational sentence (e.g., "Closes Sub 3 of Epic #X (#Y)"). GitHub's parser requires strict syntax to establish the automatic close link. If you fail to use the exact syntax, the ticket will remain open after merge.
 **Multiple Tickets Loophole:** While we strive for a 1-Ticket-to-1-PR ratio, if your PR fully resolves multiple tickets, you MUST flag each one individually. Do NOT use comma-separated lists like `Resolves #X, #Y`. Instead, use a distinct line for each ticket:
 `Resolves #X`
