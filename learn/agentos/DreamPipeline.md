@@ -260,8 +260,11 @@ PR reviews are scanned for three structured tags:
 | `[RETROSPECTIVE]` | Architectural insight or lesson learned |
 
 These are extracted into dedicated graph nodes with Hebbian edges linking them
-back to their source PR. `Resolves #NNN` patterns also create `RESOLVES` edges,
-closing the feedback loop between PRs and the issues they address.
+back to their source PR. `Resolves #NNN` patterns are the canonical shipped-work
+form for creating `RESOLVES` edges, closing the feedback loop between PRs and the
+issues they address. The current ingestor is intentionally liberal and also
+accepts `Fixes` and `Closes`; narrowing `Closes` remains an open logic question
+because that keyword can also describe not-planned, superseded, or dropped scope.
 
 ## TTL Pruning (Stale Gap Removal)
 
