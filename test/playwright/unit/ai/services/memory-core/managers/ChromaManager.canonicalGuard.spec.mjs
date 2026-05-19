@@ -32,10 +32,34 @@ test.describe('Neo.ai.mcp.server.shared.services.DestructiveOperationGuard — c
         expect(GUARDED_CANONICAL_COLLECTION_NAMES.has('neo-knowledge-base')).toBe(true);
     });
 
-    test('Allows non-canonical (test-prefixed) collection name regardless of env state', () => {
+    test('Refuses non-canonical (test-prefixed) name without UNIT_TEST_MODE — uniform-gate (#11656 RA1)', () => {
+        // Per #11656 Cycle 1 review (commentId PRR_kwDODSospM8AAAABAYwPjg, Required Action 1):
+        // the guard fires for EVERY destructive collection-delete regardless of name. Non-canonical
+        // names are not a free bypass — a production caller invoking
+        // `deleteCollection({name: 'arbitrary'})` without UNIT_TEST_MODE or a confirmation token
+        // is a fail-closed scenario, not a quiet pass-through. Test-prefixed names ARE the
+        // test-isolation surface — but their isolation is via UNIT_TEST_MODE-aware config, not
+        // by being implicitly trusted at the deleteCollection boundary.
         const previous = process.env.UNIT_TEST_MODE;
         try {
             delete process.env.UNIT_TEST_MODE;
+            expect(() => assertCanonicalCollectionDeleteAllowed({
+                name     : 'test-memory-12345',
+                subsystem: 'memory-core'
+            })).toThrow(CanonicalCollectionGuardError);
+        } finally {
+            if (previous === undefined) delete process.env.UNIT_TEST_MODE;
+            else process.env.UNIT_TEST_MODE = previous;
+        }
+    });
+
+    test('Allows non-canonical (test-prefixed) name when UNIT_TEST_MODE=true', () => {
+        // The bypass path for non-canonical names: UNIT_TEST_MODE=true is sufficient. The
+        // CanonicalCollectionGuardError diagnostic message distinguishes canonical vs non-
+        // canonical for operator clarity even though the gate is uniform.
+        const previous = process.env.UNIT_TEST_MODE;
+        try {
+            process.env.UNIT_TEST_MODE = 'true';
             expect(() => assertCanonicalCollectionDeleteAllowed({
                 name     : 'test-memory-12345',
                 subsystem: 'memory-core'
@@ -119,6 +143,28 @@ test.describe('Neo.ai.mcp.server.shared.services.DestructiveOperationGuard — c
                 expect(err.code).toBe('CANONICAL_COLLECTION_GUARDED');
                 expect(err.collection).toBe('neo-knowledge-base');
                 expect(err.subsystem).toBe('knowledge-base');
+                expect(err.isCanonical).toBe(true);
+            }
+        } finally {
+            if (previous === undefined) delete process.env.UNIT_TEST_MODE;
+            else process.env.UNIT_TEST_MODE = previous;
+        }
+    });
+
+    test('Error.isCanonical=false distinguishes non-canonical refusals in diagnostics', () => {
+        const previous = process.env.UNIT_TEST_MODE;
+        try {
+            delete process.env.UNIT_TEST_MODE;
+            try {
+                assertCanonicalCollectionDeleteAllowed({
+                    name     : 'arbitrary-collection',
+                    subsystem: 'memory-core'
+                });
+                throw new Error('expected throw, got nothing');
+            } catch (err) {
+                expect(err).toBeInstanceOf(CanonicalCollectionGuardError);
+                expect(err.isCanonical).toBe(false);
+                expect(err.message).toContain('non-canonical');
             }
         } finally {
             if (previous === undefined) delete process.env.UNIT_TEST_MODE;
@@ -194,6 +240,84 @@ test.describe('Neo.ai.services.memory-core.managers.ChromaManager#deleteCollecti
             expect(receivedArgs).toEqual({name: 'neo-agent-memory'});
         } finally {
             ChromaManager.client = originalClient;
+            if (previousEnv === undefined) delete process.env.UNIT_TEST_MODE;
+            else process.env.UNIT_TEST_MODE = previousEnv;
+        }
+    });
+});
+
+// Symmetric coverage on the Knowledge Base side per #11656 review Required Action 3
+// (commentId PRR_kwDODSospM8AAAABAYwPjg). The MC wrapper and KB wrapper are independent
+// classes that share the underlying `assertCanonicalCollectionDeleteAllowed` helper but
+// differ in subsystem label, canonical name targeted, and surrounding service surface.
+// Direct integration tests on the KB wrapper close the parity gap from Cycle 1.
+test.describe('Neo.ai.services.knowledge-base.ChromaManager#deleteCollection — guard integration (#11652)', () => {
+
+    test('KB ChromaManager.deleteCollection refuses canonical name without UNIT_TEST_MODE or confirmation', async () => {
+        const KBChromaManager = (await import('../../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
+
+        const originalClient = KBChromaManager.client;
+        let clientCalled     = false;
+        KBChromaManager.client = {
+            deleteCollection: async () => { clientCalled = true; }
+        };
+        const previousEnv = process.env.UNIT_TEST_MODE;
+
+        try {
+            delete process.env.UNIT_TEST_MODE;
+            await expect(KBChromaManager.deleteCollection({name: 'neo-knowledge-base'}))
+                .rejects.toThrow(CanonicalCollectionGuardError);
+            expect(clientCalled).toBe(false);
+        } finally {
+            KBChromaManager.client = originalClient;
+            if (previousEnv === undefined) delete process.env.UNIT_TEST_MODE;
+            else process.env.UNIT_TEST_MODE = previousEnv;
+        }
+    });
+
+    test('KB ChromaManager.deleteCollection forwards to client under UNIT_TEST_MODE=true', async () => {
+        const KBChromaManager = (await import('../../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
+
+        const originalClient = KBChromaManager.client;
+        let receivedArgs     = null;
+        KBChromaManager.client = {
+            deleteCollection: async (args) => { receivedArgs = args; return 'ok'; }
+        };
+        const previousEnv = process.env.UNIT_TEST_MODE;
+
+        try {
+            process.env.UNIT_TEST_MODE = 'true';
+            const result = await KBChromaManager.deleteCollection({name: 'neo-knowledge-base'});
+            expect(result).toBe('ok');
+            expect(receivedArgs).toEqual({name: 'neo-knowledge-base'});
+        } finally {
+            KBChromaManager.client = originalClient;
+            if (previousEnv === undefined) delete process.env.UNIT_TEST_MODE;
+            else process.env.UNIT_TEST_MODE = previousEnv;
+        }
+    });
+
+    test('KB ChromaManager.deleteCollection forwards under confirmation token bypass (production recovery)', async () => {
+        const KBChromaManager = (await import('../../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
+
+        const originalClient = KBChromaManager.client;
+        let receivedArgs     = null;
+        KBChromaManager.client = {
+            deleteCollection: async (args) => { receivedArgs = args; return 'ok'; }
+        };
+        const previousEnv = process.env.UNIT_TEST_MODE;
+
+        try {
+            delete process.env.UNIT_TEST_MODE;
+            const result = await KBChromaManager.deleteCollection({
+                name        : 'neo-knowledge-base',
+                confirmation: DESTRUCTIVE_PRODUCTION_CONFIRMATION
+            });
+            expect(result).toBe('ok');
+            // confirmation is consumed at the guard layer; not forwarded to chromadb-client.
+            expect(receivedArgs).toEqual({name: 'neo-knowledge-base'});
+        } finally {
+            KBChromaManager.client = originalClient;
             if (previousEnv === undefined) delete process.env.UNIT_TEST_MODE;
             else process.env.UNIT_TEST_MODE = previousEnv;
         }

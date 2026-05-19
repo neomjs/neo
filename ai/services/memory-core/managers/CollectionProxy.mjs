@@ -117,14 +117,20 @@ class CollectionProxy extends Base {
                 confirmation
             });
 
-            // Prefer the guarded ChromaManager.deleteCollection (#11652 substrate guard).
-            // The path-target guard above already passed; forward the operator confirmation
-            // so the collection-name-level guard accepts it for canonical names.
-            if (manager.deleteCollection) {
-                await manager.deleteCollection({name: coll.name, confirmation});
-            } else if (manager.client?.deleteCollection) {
-                await manager.client.deleteCollection({name: coll.name});
+            // Route through the guarded `manager.deleteCollection({name, confirmation})`
+            // wrapper (#11652 substrate guard). The path-target guard above already passed;
+            // the operator confirmation token is threaded down so the uniform collection-name
+            // gate accepts the production-recovery bypass. Fail-closed if a manager lacks
+            // the wrapper — bare-client fallback would re-open the bypass surface this guard
+            // exists to close (#11656 review Required Action 2, commentId PRR_kwDODSospM8AAAABAYwPjg).
+            if (typeof manager.deleteCollection !== 'function') {
+                throw new Error(
+                    `[CollectionProxy] manager ${manager?.constructor?.config?.className || 'unknown'} ` +
+                    `lacks the guarded deleteCollection wrapper; refusing bare client.deleteCollection ` +
+                    `fallback per #11652 substrate-level invariant.`
+                );
             }
+            await manager.deleteCollection({name: coll.name, confirmation});
         }
     }
 }

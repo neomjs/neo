@@ -48,46 +48,70 @@ export const GUARDED_CANONICAL_COLLECTION_NAMES = Object.freeze(new Set([
  */
 export class CanonicalCollectionGuardError extends Error {
     constructor({name, subsystem}) {
+        const isCanonical = GUARDED_CANONICAL_COLLECTION_NAMES.has(name);
+        const targetDesc  = isCanonical
+            ? `canonical Chroma collection "${name}"`
+            : `Chroma collection "${name}" (non-canonical; the uniform-gate fires for every destructive collection-delete regardless of name)`;
         super(
-            `CANONICAL_COLLECTION_GUARDED: refusing to delete canonical Chroma collection ` +
-            `"${name}" (subsystem: ${subsystem || 'unknown'}). Set UNIT_TEST_MODE=true for ` +
-            `tests, or pass confirmation '${DESTRUCTIVE_PRODUCTION_CONFIRMATION}' for ` +
+            `CANONICAL_COLLECTION_GUARDED: refusing to delete ${targetDesc} ` +
+            `(subsystem: ${subsystem || 'unknown'}). Set UNIT_TEST_MODE=true for tests, ` +
+            `or pass confirmation '${DESTRUCTIVE_PRODUCTION_CONFIRMATION}' for ` +
             `operator-acknowledged production recovery.`
         );
-        this.name      = 'CanonicalCollectionGuardError';
-        this.code      = 'CANONICAL_COLLECTION_GUARDED';
-        this.collection = name;
-        this.subsystem  = subsystem;
+        this.name        = 'CanonicalCollectionGuardError';
+        this.code        = 'CANONICAL_COLLECTION_GUARDED';
+        this.collection  = name;
+        this.isCanonical = isCanonical;
+        this.subsystem   = subsystem;
     }
 }
 
 /**
- * Asserts a ChromaManager `deleteCollection({name})` call is allowed against a canonical
- * production collection name. Returns silently for non-canonical names (test-prefixed
- * collection names, ad-hoc names, etc.). Returns silently for canonical names under
- * either bypass: `process.env.UNIT_TEST_MODE === 'true'` OR a `confirmation` argument
- * equal to `DESTRUCTIVE_PRODUCTION_CONFIRMATION`. Throws {@link CanonicalCollectionGuardError}
- * otherwise.
+ * Asserts a ChromaManager `deleteCollection({name})` call is allowed. The guard fires for
+ * **every** destructive collection-delete attempt regardless of whether `name` is in
+ * {@link GUARDED_CANONICAL_COLLECTION_NAMES} — destructive ops are not free for non-canonical
+ * names either (a buggy or malicious caller invoking `deleteCollection({name: 'arbitrary'})`
+ * without `UNIT_TEST_MODE` or a confirmation token is a fail-closed scenario, not a quiet
+ * pass-through).
+ *
+ * Bypass paths (either is sufficient):
+ *
+ * 1. `process.env.UNIT_TEST_MODE === 'true'` — the test harness is loaded; `aiConfig.collections.*`
+ *    resolves to process-isolated `test-*` prefixes per `config.mjs:228-229`, and the test
+ *    cleanup helpers are responsible for their own substrate.
+ * 2. `confirmation === DESTRUCTIVE_PRODUCTION_CONFIRMATION` — operator-acknowledged production
+ *    recovery (e.g., `restore.mjs --mode replace` already gates via `DestructiveOperationGuard`
+ *    and forwards the same token down through `DatabaseService.truncateDatabase` →
+ *    `ChromaManager.deleteCollection`).
+ *
+ * The canonical-collection-name set still surfaces in the `CanonicalCollectionGuardError`
+ * diagnostics so operators see which live target was protected, but membership is no longer
+ * the gate — the gate is the env-or-token check uniformly.
  *
  * **Why this guard is necessary alongside `assertDestructiveTargetAllowed`:**
  *
  * The path-target guard reasons over filesystem paths (`tmp/`, OS tempdir, `:memory:`).
  * It does NOT see chroma-collection-name semantics, so a caller invoking
- * `ChromaManager.client.deleteCollection({name: 'neo-agent-memory'})` from a process
- * whose `aiConfig` resolved to canonical names (e.g., `npx playwright` without unit-test
- * config) bypasses the path-target guard entirely. This collection-name-level guard
- * closes that gap.
+ * `ChromaManager.client.deleteCollection({name: 'neo-agent-memory'})` from a process whose
+ * `aiConfig` resolved to canonical names (e.g., `npx playwright` without unit-test config)
+ * bypasses the path-target guard entirely. This collection-name-level guard closes that gap.
+ *
+ * **Why the gate is uniform (not canonical-set-gated):**
+ *
+ * Per @neo-gpt's PR #11656 Cycle 1 review (commentId PRR_kwDODSospM8AAAABAYwPjg, Required
+ * Action 1) — a guard that returns early for non-canonical names leaves the "non-canonical
+ * name as bypass surface" open. A production caller could invoke
+ * `deleteCollection({name: 'arbitrary-collection'})` and bypass the substrate-level invariant
+ * entirely. The uniform-gate shape forces every destructive caller to thread either the test
+ * env or the explicit confirmation token, regardless of collection name.
  *
  * @param {Object}  options
  * @param {String}  options.name                  Chroma collection name about to be deleted.
  * @param {String} [options.subsystem]            Owning subsystem identifier for diagnostics ('memory-core' or 'knowledge-base').
  * @param {String} [options.confirmation]         Production-recovery confirmation token; must equal `DESTRUCTIVE_PRODUCTION_CONFIRMATION` to bypass.
- * @throws {CanonicalCollectionGuardError} When `name` is canonical and neither bypass applies.
+ * @throws {CanonicalCollectionGuardError} When neither bypass applies.
  */
 export function assertCanonicalCollectionDeleteAllowed({name, subsystem, confirmation} = {}) {
-    if (!GUARDED_CANONICAL_COLLECTION_NAMES.has(name)) {
-        return;
-    }
     if (process.env.UNIT_TEST_MODE === 'true') {
         return;
     }
