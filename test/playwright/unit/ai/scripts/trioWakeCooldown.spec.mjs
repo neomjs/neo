@@ -25,6 +25,29 @@ test.describe('ai/scripts/trioWakeCooldown', () => {
     const STATE_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.json';
     const scriptPath = path.resolve(process.cwd(), 'ai/scripts/trioWakeCooldown.mjs');
 
+    test.beforeAll(async () => {
+        // #11417: subprocess `trioWakeCooldown.mjs` calls `MailboxService.addMessage`
+        // with the coordinator from the signal payload. The new `validateMailboxTarget`
+        // guard rejects unrecognized targets at addMessage-time. The test fixtures use
+        // `@neo-test` as a placeholder; seed it once here so the subprocess (sharing
+        // the same SQLite graph file via prod data dir) finds a registered target node.
+        const LifecycleService = (await import('../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
+        const GraphService     = (await import('../../../../../ai/services/memory-core/GraphService.mjs')).default;
+
+        if (!LifecycleService._initPromise) {
+            await LifecycleService.initAsync();
+        } else {
+            await LifecycleService.ready();
+        }
+
+        GraphService.upsertNode({
+            id: '@neo-test',
+            type: 'AgentIdentity',
+            name: 'NeoTest',
+            properties: {accountType: 'agent'}
+        });
+    });
+
     test.beforeEach(async () => {
         await fs.remove(STATE_PATH);
     });

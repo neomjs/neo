@@ -118,8 +118,13 @@ test.describe('Neo.ai.services.memory-core.WriteSideInvariant (#10017)', () => {
         // Positive case: proper bind → write succeeds. Anchors the invariant to a
         // working baseline so a future regression that falsely rejects ALL writes
         // (over-tightened guard) is also caught.
-        GraphService.upsertNode({id: '@neo-test-writer', type: 'AgentIdentity', name: 'TestWriter', properties: {}});
-        GraphService.upsertNode({id: 'AGENT:*', type: 'BroadcastSentinel', name: 'Broadcast', properties: {}});
+        // #11417: also seed `@neo-test-receiver` — `validateMailboxTarget` now rejects
+        // unrecognized targets at addMessage-time (instead of letting linkNodes silently
+        // cull the SENT_TO edge), so the test must seed both endpoints to exercise the
+        // happy path.
+        GraphService.upsertNode({id: '@neo-test-writer',   type: 'AgentIdentity',     name: 'TestWriter',   properties: {}});
+        GraphService.upsertNode({id: '@neo-test-receiver', type: 'AgentIdentity',     name: 'TestReceiver', properties: {}});
+        GraphService.upsertNode({id: 'AGENT:*',            type: 'BroadcastSentinel', name: 'Broadcast',    properties: {}});
 
         const result = await RequestContextService.run({agentIdentityNodeId: '@neo-test-writer'}, () =>
             MailboxService.addMessage({
