@@ -17,6 +17,8 @@ import {test, expect}     from '@playwright/test';
 import {execFileSync}     from 'child_process';
 import fs                 from 'fs/promises';
 import path               from 'path';
+import Neo                from '../../../../../src/Neo.mjs';
+import * as core          from '../../../../../src/core/_export.mjs';
 
 /**
  * @summary Drift guards + fixture-backed regression coverage on `ai/scripts/swarm-heartbeat.sh` (#10622).
