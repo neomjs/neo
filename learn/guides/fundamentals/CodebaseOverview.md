@@ -472,6 +472,7 @@ Formalized Anthropic Progressive Disclosure Skills natively used by the swarm. L
 
 **Coordination:**
 - `lane-intent`: Narrow, non-authoritative, 2h TTL-bound pre-V-B-A signal for collision-prone / long-V-B-A lanes (deep `/memory-mining`, `/tech-debt-radar`, multi-turn architectural V-B-A). Distinct from authoritative `[lane-claim]` (post-V-B-A).
+- `post-review-pickup`: Mandatory next-phase pickup at ANY PR-lifecycle event boundary (review post / author response / post-impl / post-PR-open-update / post-ticket-create / post-blocked-resolution). Requires explicit `lane-state:` declaration per AGENTS.md §15.6 self-select mandate.
 
 **Meta:**
 - `create-skill`: Architectural blueprinting for new operational abilities.
@@ -499,11 +500,11 @@ Neo.mjs isn't just "AI-friendly"—it was **architected for AI collaboration fro
 
 ### Primary Separation: The Node.js Agent OS vs. The Frontend Engine
 
-The platform features a dedicated **Node.js Agent SDK** acting as the cognitive backend (Agent OS). This OS is **completely isolated** from the browser-based Frontend Engine. 
+The platform features a dedicated **Node.js Agent SDK** acting as the cognitive backend (Agent OS). This OS is **completely isolated** from the browser-based Frontend Engine.
 - The Agent OS operates within Node.js, leveraging native Child Processes for parallelization (e.g., daemon spawns) instead of Web Workers.
 - The UI Runtime (Frontend Engine) operates entirely in the browser using Web Workers.
 - The VDOM (Virtual DOM) applies *only* to the UI runtime.
-- **The Neural Link (WebSocket JSON-RPC)** serves as the exclusive, stateless bridge between these two disjoint worlds. 
+- **The Neural Link (WebSocket JSON-RPC)** serves as the exclusive, stateless bridge between these two disjoint worlds.
 
 This local infrastructure exposes five dedicated Model Context Protocol (MCP) servers:
 
@@ -573,7 +574,7 @@ You're not just working *with* Neo.mjs. You're working *inside* an ecosystem des
 
 ### Ask First, Search Second
 
-Your most powerful tool is `ask_knowledge_base`. It reads multiple source files, 
+Your most powerful tool is `ask_knowledge_base`. It reads multiple source files,
 synthesizes a grounded answer, and cites its references — all in a single call.
 
 > [!WARNING]
@@ -593,7 +594,7 @@ synthesizes a grounded answer, and cites its references — all in a single call
 
 ### File Discovery Keywords
 
-When you specifically need to discover *which files* implement something, 
+When you specifically need to discover *which files* implement something,
 use `query_documents` with these high-value terms:
 
 ### Agent Intelligence & Workflows
