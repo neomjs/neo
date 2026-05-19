@@ -50,8 +50,8 @@ To understand the "Neo.mjs Way", you **MUST** read these examples:
 - **Environment:** Global `Neo` namespace persists across tests in the same file.
 
 ### Critical Rules (Zero Tolerance)
-1.  **Import Core Augmentation:** You **MUST** import `src/core/_export.mjs` in every test file.
-    - *Why:* `Neo.mjs` does not include utilities like `Neo.isString` or `Neo.isEqual`. Without this, tests will fail mysteriously.
+1.  **Import Neo + Core Augmentation:** You **MUST** import `src/Neo.mjs` and `src/core/_export.mjs` in every test file that depends on Neo globals or the shared `test/playwright/setup.mjs` helper.
+    - *Why:* `src/Neo.mjs` initializes the global Neo namespace and defines helpers like `Neo.ns`; `src/core/_export.mjs` augments that namespace with utilities like `Neo.isString` or `Neo.isEqual`. Missing `src/Neo.mjs` surfaces as setup-driven errors like `TypeError: Neo.ns is not a function`; missing `src/core/_export.mjs` surfaces later as absent core utilities.
 2.  **Unique Neo ClassNames:** The `className` config property defines the namespace and **MUST** be unique across the entire test suite.
     - The JavaScript class symbol (e.g., `class MyButton`) does not affect the namespace and can be anything.
     - **Requirement:** Use a verbose, specific namespace for the `className` config.
