@@ -22,14 +22,14 @@ class CollectionProxy extends Base {
     async getManagers() {
         const architecture = aiConfig.engine || 'hybrid';
         const managers = [];
-        
+
         // In Hybrid RAG, vectors exclusively live in ChromaDB
         if (architecture === 'chroma' || architecture === 'hybrid') {
             const { default: ChromaManager } = await import('./ChromaManager.mjs');
             await ChromaManager.ready();
             managers.push(ChromaManager);
         }
-        
+
         return managers;
     }
 
@@ -63,7 +63,7 @@ class CollectionProxy extends Base {
         }
         return collections[0].get(args);
     }
-    
+
     async query(args) {
         const collections = await this.getCollections();
         if (!collections || collections.length === 0 || !collections[0]) {
@@ -71,7 +71,7 @@ class CollectionProxy extends Base {
         }
         return collections[0].query(args);
     }
-    
+
     async count() {
         const collections = await this.getCollections();
         if (!collections || collections.length === 0 || !collections[0]) {
@@ -79,7 +79,7 @@ class CollectionProxy extends Base {
         }
         return collections[0].count();
     }
-    
+
     async delete(args) {
         const collections = await this.getCollections();
         await Promise.all(collections.map(c => c.delete(args)));
@@ -92,8 +92,8 @@ class CollectionProxy extends Base {
             if (this.collectionType === 'graph') {
                 coll = await manager.getGraphCollection();
             } else {
-                coll = this.collectionType === 'memory' ? 
-                    await manager.getMemoryCollection() : 
+                coll = this.collectionType === 'memory' ?
+                    await manager.getMemoryCollection() :
                     await manager.getSummaryCollection();
             }
 
@@ -117,10 +117,13 @@ class CollectionProxy extends Base {
                 confirmation
             });
 
-            if (manager.client && manager.client.deleteCollection) {
-                await manager.client.deleteCollection({ name: coll.name });
-            } else if (manager.deleteCollection) {
-                await manager.deleteCollection(coll.name);
+            // Prefer the guarded ChromaManager.deleteCollection (#11652 substrate guard).
+            // The path-target guard above already passed; forward the operator confirmation
+            // so the collection-name-level guard accepts it for canonical names.
+            if (manager.deleteCollection) {
+                await manager.deleteCollection({name: coll.name, confirmation});
+            } else if (manager.client?.deleteCollection) {
+                await manager.client.deleteCollection({name: coll.name});
             }
         }
     }
