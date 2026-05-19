@@ -20,6 +20,8 @@ import os                        from 'os';
 import path                      from 'path';
 import fs                        from 'fs';
 import fsp                       from 'fs/promises';
+import Neo                       from '../../../../../src/Neo.mjs';
+import * as core                 from '../../../../../src/core/_export.mjs';
 
 import {getLockPath, writeInflightLock} from '../../../../../ai/scripts/inflightLock.mjs';
 
@@ -38,6 +40,9 @@ import {getLockPath, writeInflightLock} from '../../../../../ai/scripts/inflight
  * test path here. Tests can run with default env safely.
  */
 test.describe('ai/scripts/idleOutNudge', () => {
+    // Shared identity-derived lock path; focused runs must not race the file state.
+    test.describe.configure({mode: 'serial'});
+
     const scriptPath  = path.resolve(process.cwd(), 'ai/scripts/idleOutNudge.mjs');
     const testIdentity = '@neo-idle-out-test';
     const lockPath    = getLockPath('idle_out_nudge', testIdentity);

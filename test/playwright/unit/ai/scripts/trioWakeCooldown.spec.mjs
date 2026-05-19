@@ -18,10 +18,15 @@ import {execFileSync, exec} from 'child_process';
 import path           from 'path';
 import fs             from 'fs-extra';
 import util           from 'util';
+import Neo            from '../../../../../src/Neo.mjs';
+import * as core      from '../../../../../src/core/_export.mjs';
 
 const execAsync = util.promisify(exec);
 
 test.describe('ai/scripts/trioWakeCooldown', () => {
+    // Shared cooldown state path; focused runs must not race the file state.
+    test.describe.configure({mode: 'serial'});
+
     const STATE_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.json';
     const scriptPath = path.resolve(process.cwd(), 'ai/scripts/trioWakeCooldown.mjs');
 

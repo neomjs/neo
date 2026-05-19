@@ -16,6 +16,8 @@ setup({
 import {test, expect} from '@playwright/test';
 import fs             from 'fs-extra';
 import path           from 'path';
+import Neo            from '../../../../../src/Neo.mjs';
+import * as core      from '../../../../../src/core/_export.mjs';
 
 /**
  * @summary Unit coverage for the heartbeat concurrency mutex helper (#10319).

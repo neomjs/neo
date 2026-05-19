@@ -17,6 +17,8 @@ import {test, expect} from '@playwright/test';
 import {execFileSync} from 'child_process';
 import path           from 'path';
 import fs             from 'fs/promises';
+import Neo            from '../../../../../src/Neo.mjs';
+import * as core      from '../../../../../src/core/_export.mjs';
 
 /**
  * @summary Coverage for `ai/scripts/check-retired-primitives.mjs` — the mechanical-enforcement
