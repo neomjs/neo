@@ -265,11 +265,11 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
             hasNextPage  : false,
             endCursor    : null
         });
-        
+
         mockIssue.state = 'CLOSED';
         mockIssue.closedAt = '2026-05-13T10:00:00Z'; // new shifted date
         mockIssue.milestone = { title: 'v1.0.0' }; // new shifted milestone
-        
+
         GraphqlService.query = async (query) => {
             if (query.includes('FetchIssuesForSync')) {
                 return {
@@ -296,7 +296,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
             `issue-${mockIssue.number}.md`
         );
         const originalOldPath = path.relative(aiConfig.projectRoot, originalOldAbsolutePath);
-        
+
         const metadata = {
             issues: {
                 [mockIssue.number]: {
@@ -311,7 +311,7 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
                 }
             }
         };
-        
+
         // create the mock file to simulate it already exists in the archive
         const absOldPath = path.resolve(aiConfig.projectRoot, originalOldPath);
         await fs.ensureDir(path.dirname(absOldPath));
@@ -319,13 +319,13 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
 
         // Execute pullFromGitHub
         const { stats } = await IssueSyncer.pullFromGitHub(metadata);
-        
+
         // Assert it was pulled
         expect(stats.pulled.issues).toContain(mockIssue.number);
-        
+
         // Assert target path in metadata remained the old path despite closedAt/milestone shifting
         expect(metadata.issues[mockIssue.number].path).toBe(originalOldPath);
-        
+
         // Cleanup
         await fs.unlink(absOldPath).catch(() => {});
     });
@@ -662,6 +662,104 @@ test.describe('Neo.ai.services.github-workflow.sync.IssueSyncer', () => {
         expect(issueBWarns[0]).toContain("'v11.12.0'");
         expect(issueBWarns[0]).toContain("'v11.13.0'");
         expect(issueBDebugs).toHaveLength(0);
+    });
+
+    test('planBuckets oldVersion precedence: unchanged closed issue with no milestone skips closedAt timestamp fallback (#11594 AC4(b))', async () => {
+        // Regression #11594 AC4(b) per @neo-gpt PR #11607 Cycle 2 review:
+        // Legacy archived issues seeded from existing serialized metadata may lack milestone data
+        // (pre-#11594-persistence-fix entries). When such an issue is NOT in the delta fetch (it
+        // hasn't been modified since lastSync), `#planBuckets` receives `milestone: null/undefined`
+        // and previously fell through to closedAt-based timestamp inference, which could re-emit
+        // ARCHIVE ANOMALY WARN for issues already at their canonical on-disk bucket.
+        //
+        // Cycle 2 fix (3262eb126 in this PR) added oldVersion-precedence between milestone-title
+        // and closedAt-fallback. This test exercises that branch: unchanged archived issue with
+        // valid-semver oldVersion + no milestone → version = oldVersion → no WARN, no closedAt
+        // heuristic invocation.
+        //
+        // Empirical anchor: #7910 (CLOSED 2025-11-29, milestone v11.12.0) was re-bucketed to
+        // v11.13.0 every sync because the persistence-shape bug meant milestone data was missing
+        // post-persist (Cycle 1 fix), AND planBuckets had no oldVersion precedence even when the
+        // cached path WAS the canonical bucket (this Cycle 2 fix).
+        const issueUnchangedAtCanonicalBucket = buildMockIssue({
+            number       : 7910,
+            title        : 'Mock unchanged-archived issue (#11594 AC4b test)',
+            timelineFirst: [],
+            hasNextPage  : false,
+            endCursor    : null
+        });
+        issueUnchangedAtCanonicalBucket.state    = 'CLOSED';
+        issueUnchangedAtCanonicalBucket.closedAt = '2025-11-29T11:41:17Z';
+        issueUnchangedAtCanonicalBucket.milestone = null;
+
+        // Delta query returns EMPTY — simulates the unchanged-since-lastSync case.
+        // The issue exists ONLY in pre-seeded metadata.
+        GraphqlService.query = async (query) => {
+            if (query.includes('FetchIssuesForSync')) {
+                return {
+                    rateLimit : {cost: 1, remaining: 4999, resetAt: '2026-05-19T01:00:00Z'},
+                    repository: {
+                        issues: {
+                            pageInfo: {hasNextPage: false, endCursor: null},
+                            nodes   : []
+                        }
+                    }
+                };
+            }
+            if (query.includes('FetchSingleIssue')) {
+                return {repository: {issue: structuredClone(issueUnchangedAtCanonicalBucket)}};
+            }
+            throw new Error(`Unexpected GraphQL query in test: ${query.slice(0, 80)}`);
+        };
+
+        // Pre-seeded cached path at the canonical v11.12.0 bucket.
+        const issueAbsolutePath = path.join(
+            issueSyncConfig.archiveRoot, 'issues',
+            'v11.12.0', 'chunk-7900', `issue-${issueUnchangedAtCanonicalBucket.number}.md`
+        );
+        const issueRelPath = path.relative(aiConfig.projectRoot, issueAbsolutePath);
+
+        const metadata = {
+            issues: {
+                [issueUnchangedAtCanonicalBucket.number]: {
+                    state       : 'CLOSED',
+                    path        : issueRelPath,
+                    updatedAt   : '2025-11-29T11:44:14Z',
+                    closedAt    : '2025-11-29T11:41:17Z',
+                    milestone   : null, // KEY: legacy entry with no milestone data
+                    title       : issueUnchangedAtCanonicalBucket.title,
+                    contentHash : 'hashUnchanged',
+                    commentsTotal: 0
+                }
+            }
+        };
+
+        await fs.ensureDir(path.dirname(issueAbsolutePath));
+        await fs.writeFile(issueAbsolutePath, 'mock content unchanged', 'utf8');
+
+        const warnCalls = [];
+        const debugCalls = [];
+        const originalWarn = logger.warn;
+        const originalDebug = logger.debug;
+        logger.warn  = (...args) => { warnCalls.push(args[0]); };
+        logger.debug = (...args) => { debugCalls.push(args[0]); };
+
+        try {
+            await IssueSyncer.pullFromGitHub(metadata);
+        } finally {
+            logger.warn  = originalWarn;
+            logger.debug = originalDebug;
+            await fs.unlink(issueAbsolutePath).catch(() => {});
+        }
+
+        // AC4(b): NO ARCHIVE ANOMALY WARN for unchanged issue at canonical bucket.
+        // oldVersion precedence kicks in → version = 'v11.12.0' === oldVersion → no shift detected → no WARN.
+        const archiveAnomalyWarns = warnCalls.filter(s =>
+            typeof s === 'string' &&
+            s.includes('[ARCHIVE ANOMALY]') &&
+            s.includes(`#${issueUnchangedAtCanonicalBucket.number}`)
+        );
+        expect(archiveAnomalyWarns).toHaveLength(0);
     });
 });
 
