@@ -172,7 +172,7 @@ export function buildTopologyBlock(cfg) {
  * @see learn/agentos/SharedDeployment.md
  */
 export function buildEmbeddingProviderBlock(cfg) {
-    return buildSingleEmbeddingProviderBlock(cfg, cfg.embeddingProvider || 'gemini', 'embeddingProvider');
+    return buildSingleEmbeddingProviderBlock(cfg, cfg.embeddingProvider || 'openAiCompatible', 'embeddingProvider');
 }
 
 /**

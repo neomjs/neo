@@ -9,7 +9,7 @@
 export function resolveEmbeddingProvider({config = {}, env = process.env} = {}) {
     const unified = !Neo.isEmpty(config.embeddingProvider) ? config.embeddingProvider : env.NEO_EMBEDDING_PROVIDER;
 
-    return unified || 'gemini';
+    return unified || 'openAiCompatible';
 }
 
 /**
