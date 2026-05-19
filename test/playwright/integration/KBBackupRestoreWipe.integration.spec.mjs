@@ -15,7 +15,6 @@ const composeFile = path.join(repoRoot, 'ai/deploy/docker-compose.test.yml');
 const projectName = process.env.NEO_INTEGRATION_COMPOSE_PROJECT || 'neo-integration-test';
 const KB_URL      = process.env.NEO_INTEGRATION_KB_URL || 'http://127.0.0.1:13000';
 
-const CONFIRMATION  = 'CONFIRM_PRODUCTION_DESTRUCTIVE_AI_SUBSTRATE';
 const NEO_BOOTSTRAP = `
     await import('./src/Neo.mjs');
     await import('./src/core/_export.mjs');
@@ -182,30 +181,6 @@ function importKnowledgeBase(backupPath) {
 }
 
 /**
- * Truncates the deployed KB collection.
- * @returns {Object}
- */
-function truncateKnowledgeBase() {
-    return execKnowledgeBaseJson(`
-        ${NEO_BOOTSTRAP}
-
-        const {KB_DatabaseService, KB_LifecycleService} = await import('./ai/services.mjs');
-
-        await KB_LifecycleService.ready();
-
-        const result = await KB_DatabaseService.manageDatabaseBackup({
-            action      : 'truncate',
-            confirmation: process.env.NEO_DESTRUCTIVE_CONFIRMATION
-        });
-
-        console.log(JSON.stringify(result));
-    `, {
-        NEO_ALLOW_PRODUCTION_DESTRUCTIVE_AI_SUBSTRATE: 'true',
-        NEO_DESTRUCTIVE_CONFIRMATION                : CONFIRMATION
-    });
-}
-
-/**
  * Deletes the deterministic record seeded by this spec without dropping the shared fixture collection.
  * @param {String} id Chroma vector id.
  * @returns {Object}
@@ -269,8 +244,8 @@ test.describe('Dockerized KB backup -> wipe -> restore integration (#11644)', ()
             const backup = exportKnowledgeBase(backupPath);
             expect(backup.message).toContain('Exported');
 
-            const truncated = truncateKnowledgeBase();
-            expect(truncated.message).toContain('truncated successfully');
+            const deleted = deleteKnowledgeBaseRecord(recordId);
+            expect(deleted.deleted).toBe(recordId);
 
             const wipedHealth = await callHealthcheck(KB_URL, {
                 clientName: 'neo-integration-kb-backup-restore-health',
