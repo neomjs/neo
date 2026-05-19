@@ -87,6 +87,7 @@ Invoked when evaluating a PR (either peer-reviewing another agent or guiding a h
 - **Graph Ingestion Tags:** Standardizes feedback using markers like `[KB_GAP]` or `[RETROSPECTIVE]` so the Dream Pipeline can extract lessons learned into the Native Edge Graph.
 - **Circuit Breaker:** Triggers micro-delta paths for deep PRs (≥3 formal reviews or >24KB discussion) and provides a Maintainer Polish Fast Path for metadata fixes.
 - **LGTM/Required Actions:** Ensures every review resolves in a clear state.
+- **Review Intake Guard:** Pairs with `post-review-pickup` so a fresh session checks for an author lane before entering review-only mode, unless a review-first rationale applies.
 
 ### 4. `ticket-create` (The Creation Gate)
 Invoked before filing any new GitHub Issue via the `create_issue` MCP tool. Creation-side dual of `ticket-intake` — they address opposite triggers (produce new vs. consume existing).
@@ -123,6 +124,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | `epic-resolution` | Lifecycle | Closeout protocol for parent epics (exit gate) |
 | `pull-request` | Lifecycle | Post-implementation reflection + PR creation (custom Playwright configs) |
 | `pr-review` | Lifecycle | Structured quality evaluation & graph ingestion (mandatory ROI templates) |
+| `post-review-pickup` | Lifecycle | Next-lane pickup after review/response and pre-review intake lane discovery when no author lane is active |
 | `tech-debt-radar` | Lifecycle | Proactive semantic RAG sweeps for architectural debt |
 | `structural-pre-flight` | Lifecycle | Pre-implementation directory-CHOICE discipline gate fired before authoring any new `.mjs` file (Stage 0 mechanical trigger; Stage 1 fast-path (sibling-file-lift pattern match) or full Pre-Flight) |
 | `identity-firewall` | Security | The L2 Channel Separation and Prompt Firewall defense mechanisms |

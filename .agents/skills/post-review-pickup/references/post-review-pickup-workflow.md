@@ -13,9 +13,22 @@ Use this skill immediately after one of these lifecycle handoffs:
   when required, and sends the A2A commentId handoff.
 - Author posts a review-response comment with fixup commits and sends the
   author-side A2A commentId handoff.
+- Fresh session, session recovery, or watchdog wake presents a PR review /
+  re-review request while the agent has no active author or implementation lane.
 
-The goal is to prevent silent idle after a handoff. The handled PR is now owned
-by the next actor in that cycle; unrelated ready lanes can proceed in parallel.
+The goal is to prevent silent idle after a handoff and to prevent pre-review
+reviewer-only cycles. The handled PR is now owned by the next actor in that
+cycle; unrelated ready lanes can proceed in parallel.
+
+## 1.5 Pre-Review Intake Gate
+
+<!-- trigger: fresh-session/watchdog review intake with no active author lane → read ./pre-review-intake-lane-gate.md before loading /pr-review -->
+
+Primary codification of the pre-review intake lane-discovery gate:
+[`./pre-review-intake-lane-gate.md`](./pre-review-intake-lane-gate.md).
+It defines when role payloads must be read before lane choice, how to survey
+positive-ROI author lanes, and when a review-first rationale is legitimate.
+This is a trigger-ordering guard, not a quota or blame mechanism.
 
 ## 2. Reviewer Pickup Matrix
 
