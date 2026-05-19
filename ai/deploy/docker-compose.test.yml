@@ -74,6 +74,43 @@ services:
     ports:
       - "13000:3000"
 
+  kb-server-oidc:
+    build:
+      context: ../..
+      dockerfile: ai/deploy/Dockerfile
+      args:
+        TARGET_SERVER: knowledge-base
+    environment:
+      - NEO_TRANSPORT=sse
+      - NEO_AUTO_SYNC=false
+      - NEO_KB_AUTO_START_DATABASE=false
+      - NEO_CHROMA_HOST=chroma
+      - NEO_CHROMA_PORT=8000
+      - NEO_AUTH_TRUST_PROXY_IDENTITY=false
+      - NEO_AUTH_ISSUER_URL=http://oidc-server:4000
+      - MCP_DANGEROUSLY_ALLOW_INSECURE_ISSUER_URL=1
+      - NEO_PUBLIC_URL=http://127.0.0.1:13003
+      - MCP_HTTP_PORT=3003
+      - NEO_MEMORY_DB_PATH=/tmp/neo-integration/kb-recorder-oidc.sqlite
+      - NEO_MODEL_PROVIDER=openAiCompatible
+      - NEO_EMBEDDING_PROVIDER=openAiCompatible
+      - NEO_OPENAI_COMPATIBLE_HOST=http://embedding-server:11434
+      - NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=text-embedding-qwen3-embedding-8b
+      - NEO_OPENAI_COMPATIBLE_API_KEY=test-integration-key
+    tmpfs:
+      - /tmp/neo-integration
+    depends_on:
+      chroma:
+        condition: service_healthy
+      embedding-server:
+        condition: service_healthy
+      oidc-server:
+        condition: service_healthy
+    networks:
+      - neo-mcp-test-network
+    ports:
+      - "13003:3003"
+
   mc-server:
     build:
       context: ../..

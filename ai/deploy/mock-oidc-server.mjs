@@ -2,6 +2,11 @@ import http from 'node:http';
 
 const host = process.env.NEO_TEST_OIDC_HOST || '0.0.0.0';
 const port = Number(process.env.NEO_TEST_OIDC_PORT || 4000);
+const validAudiences = [
+    'http://127.0.0.1:13002',
+    'http://127.0.0.1:13003',
+    'http://127.0.0.1:13090'
+];
 
 /**
  * @summary Reads a form-urlencoded request body.
@@ -61,7 +66,7 @@ const server = http.createServer(async (request, response) => {
             if (token === 'valid-test-token') {
                 sendJson(response, 200, {
                     active            : true,
-                    aud               : ['http://127.0.0.1:13002', 'http://127.0.0.1:13090'],
+                    aud               : validAudiences,
                     exp               : Math.floor(Date.now() / 1000) + 3600,
                     preferred_username: 'neo-test-oidc-user',
                     client_id         : params.get('client_id')
@@ -72,7 +77,7 @@ const server = http.createServer(async (request, response) => {
             if (token === 'valid-test-token-bob') {
                 sendJson(response, 200, {
                     active            : true,
-                    aud               : ['http://127.0.0.1:13002', 'http://127.0.0.1:13090'],
+                    aud               : validAudiences,
                     exp               : Math.floor(Date.now() / 1000) + 3600,
                     preferred_username: 'neo-test-oidc-bob',
                     client_id         : params.get('client_id')
@@ -83,7 +88,7 @@ const server = http.createServer(async (request, response) => {
             if (token === 'valid-test-token-no-username') {
                 sendJson(response, 200, {
                     active   : true,
-                    aud      : ['http://127.0.0.1:13002', 'http://127.0.0.1:13090'],
+                    aud      : validAudiences,
                     exp      : Math.floor(Date.now() / 1000) + 3600,
                     sub      : 'neo-test-oidc-sub',
                     client_id: params.get('client_id')
