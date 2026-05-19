@@ -7,18 +7,49 @@ do not accumulate edge-case payload.
 
 ## 1. Trigger
 
-Use this skill immediately after one of these lifecycle handoffs:
+Use this skill immediately after ANY lifecycle event that closes a discrete unit
+of work and creates a state-transition boundary. The skill scope expanded from
+"PR review cycle only" to "any lifecycle-event boundary" via #11455 / Discussion
+#11423 Option B.1-prime — single skill, broader trigger surface, kept to
+avoid skill-sprawl (no new `state-transition` skill per #11424 Description-Router
+hardening).
 
-- Reviewer posts a substantive PR review, chains a formal GitHub review state
-  when required, and sends the A2A commentId handoff.
-- Author posts a review-response comment with fixup commits and sends the
-  author-side A2A commentId handoff.
-- Fresh session, session recovery, or watchdog wake presents a PR review /
-  re-review request while the agent has no active author or implementation lane.
+Canonical trigger events (use this skill after any of these):
 
-The goal is to prevent silent idle after a handoff and to prevent pre-review
-reviewer-only cycles. The handled PR is now owned by the next actor in that
-cycle; unrelated ready lanes can proceed in parallel.
+- **Reviewer post-handoff**: posted a substantive PR review, chained a formal
+  GitHub review state when required, and sent the A2A commentId handoff.
+- **Author post-handoff**: posted a review-response comment with fixup commits
+  and sent the author-side A2A commentId handoff.
+- **Post-implementation completion**: finished a discrete implementation chunk
+  (a feature slice, a bug fix, a refactor) before opening the PR — that
+  completion IS a lifecycle event; do not silently idle between implementation
+  and PR-open.
+- **Post-PR-open/update**: just opened a PR, pushed a fixup, or otherwise
+  surfaced a discrete PR-lifecycle artifact. The PR is now in cross-family
+  review-cycle ownership; pick up the next independent lane.
+- **Post-ticket-create**: just filed a ticket (via `create_issue`). The ticket
+  is on the team board for priorization; pick up the next assigned/claim-eligible
+  lane (or execute on the ticket if it's the lane you'll claim).
+- **Post-blocked-state-resolution**: just exited a `blocked-task-state` (the
+  blocker resolved, the dependency landed, the missing input arrived). The
+  exit IS the lifecycle event; pick up the next forward-motion lane rather
+  than re-evaluating the no-longer-blocked task as if fresh.
+- **Pre-review intake (fresh-session/watchdog wake)**: fresh session, session
+  recovery, or watchdog wake presents a PR review / re-review request while the
+  agent has no active author or implementation lane — see §1.5 Pre-Review Intake
+  Gate (#11610 / #11609).
+
+The goal is to prevent silent idle at ANY of these boundaries AND to prevent
+pre-review reviewer-only cycles. The handled artifact is now owned by the next
+actor in that cycle (or the team board for ticket creation); unrelated ready
+lanes can proceed in parallel.
+
+**`blocked-task-state` scope preservation**: this skill covers the EXIT from a
+blocked state (forward-motion resumption). Entry INTO a blocked state — when
+the agent's current lane hits a blocker — remains the `blocked-task-state`
+substrate-domain (negative-path declaration with explicit blocker identification).
+The two are complementary: this skill is positive-path-restoration, the other is
+negative-path-entry.
 
 ## 1.5 Pre-Review Intake Gate
 
@@ -54,6 +85,31 @@ If a lane is identifiable, or if you are blocked by a human merge gate, declare 
 lane-state: next-lane (picking up ticket #NNNN)
 lane-state: human-gate (PR #NNNN approved and awaiting operator merge)
 ```
+
+## 2.5. Mandatory `lane-state:` Declaration at Every Lifecycle Boundary
+
+Per #11455 AC: at EACH broadened lifecycle boundary (reviewer post, author
+response, post-implementation, post-PR-open/update, post-ticket-create,
+post-blocked-resolution), the agent MUST emit an explicit `lane-state:`
+declaration before ending the turn. Silent idle without the declaration is
+deference-slip dressed as completion.
+
+Valid declarations:
+
+```text
+lane-state: next-lane (picking up ticket #NNNN)
+lane-state: next-lane (claiming #NNNN as primary reviewer)
+lane-state: next-lane (filing follow-up ticket for friction surfaced in #NNNN)
+lane-state: human-gate (PR #NNNN approved and awaiting operator merge)
+lane-state: halt-state (backlog self-survey completed at boundary #NNNN; no positive-ROI lane self-selectable — concrete reason here)
+```
+
+The declaration is the explicit substrate-signal that the agent
+backlog-surveyed and either selected a lane OR identified a legitimate halt
+per §5. Without the declaration, the substrate cannot distinguish discipline
+from deference. Per AGENTS.md §15.6 self-select mandate + §15.5 Helpful
+Assistant negative constraint: stating intent without execution is itself
+the deference-slip pattern.
 
 ## 3. Author Pickup Matrix
 
