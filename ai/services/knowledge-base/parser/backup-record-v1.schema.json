@@ -7,6 +7,7 @@
     "additionalProperties": false,
     "required": [
         "id",
+        "embedding",
         "metadata",
         "document"
     ],
@@ -19,7 +20,8 @@
         "embedding": {
             "type": "array",
             "items": { "type": "number" },
-            "description": "The pre-computed embedding vector. OPTIONAL because Chroma can re-embed at upsert time when this field is absent and an embedding function is bound to the collection. In practice, Neo's backup format always carries the embedding for fast bounded-cost restore (key #10129 design goal). Vector dimensionality MUST match the destination Chroma collection's embedding-function dimensionality; mismatch is a hard restore failure."
+            "minItems": 1,
+            "description": "The pre-computed embedding vector. REQUIRED to match the current DatabaseService.importDatabase() restore path which calls `collection.upsert({ ids, embeddings: batch.map(r => r.embedding), metadatas, documents })`. A missing embedding field would land in the upsert as an `undefined` slot in the embeddings array — Chroma only re-embeds when the ENTIRE recordSet.embeddings property is absent, not when individual slots are undefined. Honoring no-embedding restore would require runtime changes to importDatabase to omit the embeddings field when appropriate (out of scope for #11629 Phase 0/1A). Vector dimensionality MUST match the destination Chroma collection's embedding-function dimensionality; mismatch is a hard restore failure."
         },
         "metadata": {
             "type": "object",

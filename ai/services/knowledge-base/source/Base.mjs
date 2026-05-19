@@ -9,14 +9,15 @@ import CoreBase from '../../../../src/core/Base.mjs';
  *
  * ### Chunk shape contracts
  *
- * Concrete sources MUST emit chunks that conform to one of the two formal contracts defined in this directory:
+ * Concrete sources MUST emit chunks that conform to {@link ../parser/parsed-chunk-v1.schema.json `parsed-chunk-v1`} —
+ * the ingest contract. Server-embeds via `TextEmbeddingService.embedTexts()` in `VectorService.embed()`. Records
+ * carrying an `embedding` field are rejected here by design (the embedding field is reserved for the restore-only
+ * sibling contract; see below).
  *
- * - {@link ../parser/parsed-chunk-v1.schema.json `parsed-chunk-v1`} — the ingest contract. Server-embeds via
- *   `TextEmbeddingService.embedTexts()` in `VectorService.embed()`. Records carrying an `embedding` field are
- *   rejected here by design.
- * - {@link ../parser/backup-record-v1.schema.json `backup-record-v1`} — restore-only. Consumed by
- *   `DatabaseService.manageDatabaseBackup({action: 'import'})`; embeddings are preserved verbatim with no
- *   re-embedding. Distinct contract from `parsed-chunk-v1`.
+ * The restore-only sibling contract {@link ../parser/backup-record-v1.schema.json `backup-record-v1`} is NOT emitted
+ * by sources. It is the wire shape produced by `DatabaseService.manageDatabaseBackup({action: 'export'})` and
+ * consumed by `{action: 'import'}`; embeddings are required and preserved verbatim with no re-embedding. Restore
+ * flows through `DatabaseService.importDatabase()`, NOT through any source's `extract()`.
  *
  * ### Path-identity semantics
  *

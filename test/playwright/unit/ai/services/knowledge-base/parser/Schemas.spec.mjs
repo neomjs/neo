@@ -152,9 +152,16 @@ test.describe('backup-record-v1 schema (Phase 0/1A #11629)', () => {
         expect(validateBackupRecord.errors).toBeNull();
     });
 
-    test('accepts a valid record WITHOUT embedding (optional field; Chroma can re-embed)', () => {
+    test('REJECTS records missing embedding field (matches DatabaseService.importDatabase runtime constraint)', () => {
+        // GPT Cycle 1 PR review V-B-A: DatabaseService.importDatabase always passes
+        // `embeddings: batch.map(r => r.embedding)` into collection.upsert(). A missing
+        // embedding field lands as undefined in the embeddings array; Chroma only
+        // re-embeds when the ENTIRE recordSet.embeddings property is absent, not when
+        // individual slots are undefined. The schema enforces what the current restore
+        // path actually supports.
         const {embedding: _drop, ...record} = validBackupRecord();
-        expect(validateBackupRecord(record)).toBe(true);
+        expect(validateBackupRecord(record)).toBe(false);
+        expect(validateBackupRecord.errors.some(e => e.params?.missingProperty === 'embedding')).toBe(true);
     });
 
     test('rejects records missing required id field', () => {
