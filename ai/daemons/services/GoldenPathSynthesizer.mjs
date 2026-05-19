@@ -188,12 +188,12 @@ class GoldenPathSynthesizer extends Base {
         try {
             const placeholders = semanticIds.map(() => '?').join(',');
             const stmt = GraphService.db.storage.db.prepare(`
-                SELECT 
+                SELECT
                     n.id,
                     n.data,
                     COALESCE((
-                        SELECT SUM(json_extract(e.data, '$.properties.weight')) 
-                        FROM Edges e 
+                        SELECT SUM(json_extract(e.data, '$.properties.weight'))
+                        FROM Edges e
                         WHERE e.target = n.id AND e.type != 'BLOCKS'
                     ), 0.0) as struct_score
                 FROM Nodes n
@@ -422,18 +422,39 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             logger.info(`[GoldenPathSynthesizer] TTL Pruning eradicated ${prunedGaps} stale Gaps from the Native Graph.`);
         }
 
+        // --- #11447 Brain-Pillar Consumer-Friction Channel V1 (visibility-only) ---
+        // Surface ConsumerFriction records emitted by upstream brain consumers (e.g.,
+        // SemanticGraphExtractor, SessionService.summarizeSession) when substrate payloads
+        // were the wrong shape for them (context-overflow, parse-failure, size-precheck-skip,
+        // etc.). Visibility-only: no orchestrator routing changes; the section is
+        // human/swarm-reading substrate so operators / peers can see consumer-side friction
+        // and decide whether to adjust upstream emission (e.g. smaller summarization windows,
+        // larger-context consumer choice).
+        try {
+            const {renderConsumerFrictionSection} = await import('../../services/memory-core/helpers/ConsumerFrictionHelper.mjs');
+            const frictionSection = renderConsumerFrictionSection();
+
+            if (frictionSection) {
+                handoffContent += frictionSection + '\n';
+            }
+        } catch (err) {
+            // Defensive: ConsumerFrictionHelper failure must not break handoff rendering.
+            // Log + continue with the rest of the handoff content.
+            logger.warn(`[GoldenPathSynthesizer] ConsumerFriction section render failed: ${err.message}`);
+        }
+
         // --- Active PR Cycle State ---
         let prStateAppend = '';
         try {
             const prs = await this.fetchOpenPRs();
-            
+
             const agentLogins = ['neo-opus-4-7', 'neo-gemini-3-1-pro', 'neo-gpt'];
             const agentPrs = prs.filter(pr => pr.author && agentLogins.includes(pr.author.login));
-            
+
             if (agentPrs.length > 0) {
                 prStateAppend += `\n## Active PR Cycle State\n\n`;
                 prStateAppend += `*Captured at: ${new Date().toISOString()} (Source: GitHub Live)*\n\n`;
-                
+
                 // Group by agent
                 agentLogins.forEach(agent => {
                     const myPrs = agentPrs.filter(pr => pr.author.login === agent);
@@ -452,13 +473,13 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                             if (cycleMatch) {
                                 cycle = cycleMatch[1];
                             }
-                            
+
                             // Combine reviews and comments, sort by creation time (most recent first)
                             const allInteractions = [
                                 ...(pr.reviews || []).map(r => ({ body: r.body, date: new Date(r.submittedAt), state: r.state, type: 'review' })),
                                 ...(pr.comments || []).map(c => ({ body: c.body, date: new Date(c.createdAt), type: 'comment' }))
                             ].sort((a, b) => b.date - a.date);
-                            
+
                             let foundCycle = false;
                             for (const interaction of allInteractions) {
                                 if (laneState === 'unknown') {
@@ -474,10 +495,10 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                                 }
                                 if (laneState !== 'unknown' && foundCycle) break;
                             }
-                            
+
                             // Determine primary reviewer
                             let reviewers = pr.reviewRequests?.map(rr => rr.login).join(', ') || 'None';
-                            
+
                             // Determine status
                             let status = 'Pending';
                             const latestReview = allInteractions.find(i => i.type === 'review');
@@ -491,7 +512,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                                     if (match) status = match[1].toUpperCase();
                                 }
                             }
-                            
+
                             prStateAppend += `- **PR #${pr.number}**: [${pr.title}](${pr.url})\n`;
                             prStateAppend += `  - **Lane State**: \`${laneState}\`\n`;
                             prStateAppend += `  - **Cycle**: \`${cycle}\`\n`;

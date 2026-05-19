@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import aiConfig from '../../mcp/server/memory-core/config.mjs';
 import Base from '../../../src/core/Base.mjs';
+import {invokeWithGuardrail} from './helpers/ConsumerFrictionHelper.mjs';
 import crypto from 'crypto';
 import GraphService from './GraphService.mjs';
 import OpenAiCompatibleProvider from '../../provider/OpenAiCompatible.mjs';
@@ -461,7 +462,31 @@ Unique Tools Utilized: ${Array.from(allToolsUsed).join(', ') || 'none recorded'}
 ${aggregatedContent}
 `;
 
-        const result = await this.model.generateContent(summaryPrompt);
+        // #11447 Brain-Pillar Consumer-Friction Channel V1: wrap the summarization LLM
+        // invocation with bidirectional guardrail. Angle 2 (upstream pre-check) skips
+        // invocation when `summaryPrompt` exceeds the consumer's safeProcessingLimit;
+        // Angle 1 (downstream try/catch) categorizes engine-level failures into friction
+        // symptoms. Friction surfaces in the GoldenPath handoff for swarm visibility.
+        const consumerModel        = aiConfig.modelProvider === 'openAiCompatible'
+            ? (aiConfig.openAiCompatible.model || 'openAiCompatible')
+            : (aiConfig.modelName || 'gemini');
+        const consumerContextLimit = aiConfig.openAiCompatible?.contextWindowBytes || 131072;
+        const guardrailed          = await invokeWithGuardrail({
+            invocationFn      : () => this.model.generateContent(summaryPrompt),
+            inputPayload      : summaryPrompt,
+            model             : consumerModel,
+            assetRef          : sessionId,
+            modelContextLimit : consumerContextLimit,
+            consumer          : consumerModel,
+            workflowUpdateHint: `Reduce session summarization batch (currently ${aiConfig.summarizationBatchLimit || 'unset'}) or switch ${consumerModel} to a larger-context consumer.`
+        });
+
+        if (!guardrailed.result) {
+            logger.warn(`[SessionService] summarizeSession: invocation guardrail emitted ${guardrailed.friction?.symptom} for session ${sessionId}; skipping summary.`);
+            return null;
+        }
+
+        const result = guardrailed.result;
         const responseText = result.response.text();
         const summaryData = Json.extract(responseText);
 

@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import aiConfig from '../../mcp/server/memory-core/config.mjs';
 import Base from '../../../src/core/Base.mjs';
+import {invokeWithGuardrail} from '../../services/memory-core/helpers/ConsumerFrictionHelper.mjs';
 import GraphService from '../../services/memory-core/GraphService.mjs';
 import Json from '../../../src/util/Json.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
@@ -108,11 +109,36 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             let payload = null;
             let result = null;
 
+            // #11447 Brain-Pillar Consumer-Friction Channel V1: wrap each LLM invocation with
+            // bidirectional guardrail. Angle 2 (upstream pre-check) skips invocation when the
+            // composed messages exceed the consumer's safeProcessingLimit (default 80% of
+            // `aiConfig.openAiCompatible.contextWindowBytes`). Angle 1 (downstream try/catch)
+            // categorizes engine-level failures into friction symptoms. Friction is emitted
+            // into the in-memory aggregator for handoff rendering by
+            // `GoldenPathSynthesizer.synthesizeGoldenPath`.
+            const consumerModel        = aiConfig.openAiCompatible.model || 'openAiCompatible';
+            const consumerContextLimit = aiConfig.openAiCompatible.contextWindowBytes || 131072;
+
             while (attempt < maxRetries && !payload) {
                 attempt++;
-                
-                // Call standard generation method explicitly without format enforcement
-                result = await provider.generate(messages);
+
+                const inputPayloadText = messages.map(m => m.content).join('\n');
+                const guardrailed      = await invokeWithGuardrail({
+                    invocationFn      : () => provider.generate(messages),
+                    inputPayload      : inputPayloadText,
+                    model             : consumerModel,
+                    assetRef          : session.meta.sessionId,
+                    modelContextLimit : consumerContextLimit,
+                    consumer          : consumerModel,
+                    workflowUpdateHint: `Reduce Tri-Vector session-aggregation window or switch ${consumerModel} to a larger-context consumer.`
+                });
+
+                if (!guardrailed.result) {
+                    logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: invocation guardrail emitted ${guardrailed.friction?.symptom} for session ${session.meta.sessionId}; aborting retry loop.`);
+                    return null;
+                }
+
+                result = guardrailed.result;
 
                 // Extract using robust Json parser to catch malformed boundaries
                 payload = Json.extract(result.content);
@@ -120,12 +146,12 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 // Validation check
                 if (!payload || !payload.session_artifact) {
                     logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Failed to validate extracted Tri-Vector A2A payload for session: ${session.meta.sessionId}`);
-                    
+
                     if (attempt < maxRetries) {
                         logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Injecting autonomous JSON repair feedback loop.`);
                         messages.push({ role: 'assistant', content: result.content });
-                        messages.push({ 
-                            role: 'user', 
+                        messages.push({
+                            role: 'user',
                             content: `Your previous response failed internal schema validation. You are missing required keys (e.g., session_artifact) or you provided malformed JSON. Please correct your output and provide ONLY the exact JSON shape requested in the instructions.`
                         });
                         payload = null; // Ensure loop continues
@@ -144,7 +170,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                     }
                 }
             }
-            
+
             if (!payload) {
                 return null;
             }
@@ -170,10 +196,10 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             // Bridge to GraphService (SQLite)
             for (const node of artifact.graph.nodes) {
                 if (node.id === 'frontier') continue;
-                
+
                 let nodeType = node.type && VALID_TYPES.includes(node.type.toUpperCase()) ? node.type.toUpperCase() : 'CONCEPT';
                 let nodeId = node.id;
-                
+
                 // Enforce Neo native Graph ID specification (Type:Name) if hallucinated
                 if (!nodeId.includes(':')) {
                     const cleanName = (node.name || nodeId).replace(/[^a-zA-Z0-9_\-\.]/g, '_');
@@ -196,9 +222,9 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                         context_source: session.meta.sessionId
                     }
                 });
-                
+
                 // Update the payload graph node id so edges bind correctly
-                node._resolvedId = nodeId; 
+                node._resolvedId = nodeId;
             }
 
             const validNodeRefs = new Set([...artifact.graph.nodes.map(n => n.id), ...artifact.graph.nodes.map(n => n._resolvedId), 'frontier']);
@@ -207,10 +233,10 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 // Map the original edge source/target to the resolved Node IDs
                 let resolvedSource = edge.source;
                 let resolvedTarget = edge.target;
-                
+
                 const sourceNode = artifact.graph.nodes.find(n => n.id === edge.source);
                 if (sourceNode && sourceNode._resolvedId) resolvedSource = sourceNode._resolvedId;
-                
+
                 const targetNode = artifact.graph.nodes.find(n => n.id === edge.target);
                 if (targetNode && targetNode._resolvedId) resolvedTarget = targetNode._resolvedId;
 
@@ -220,12 +246,12 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                 if (!sourceExists || !targetExists) {
                     const isProvenance = ['MENTIONED_IN', 'DISCUSSED_IN', 'REFERENCED_BY'].includes(edge.relationship);
                     const targetsSessionOrMemory = resolvedTarget.startsWith('SESSION:') || resolvedTarget.startsWith('MEMORY:') || resolvedSource.startsWith('SESSION:') || resolvedSource.startsWith('MEMORY:');
-                    
+
                     if (isProvenance && targetsSessionOrMemory) {
                         /**
                          * @summary Provenance Edge Lazy-Queue Strategy
-                         * Provenance edges (MENTIONED_IN, DISCUSSED_IN, REFERENCED_BY) linking to past sessions/memories 
-                         * may reference nodes not in the current payload or synchronous graph cache. 
+                         * Provenance edges (MENTIONED_IN, DISCUSSED_IN, REFERENCED_BY) linking to past sessions/memories
+                         * may reference nodes not in the current payload or synchronous graph cache.
                          * Instead of dropping them as invalid, we route them to a JSONL backfill queue.
                          * Consumer-side draining and retry logic is handled under Epic #10153.
                          */
@@ -342,15 +368,15 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                     logger.warn(`[SemanticGraphExtractor] Attempt ${attempt}: Failed to validate extracted concepts schema for message.`);
                     if (attempt < maxRetries) {
                         messages.push({ role: 'assistant', content: result.content });
-                        messages.push({ 
-                            role: 'user', 
+                        messages.push({
+                            role: 'user',
                             content: `Your previous response failed internal schema validation. You are either missing the 'concepts' array or provided malformed JSON. Please correct your output and provide ONLY the exact JSON shape requested.`
                         });
                         payload = null;
                     }
                 }
             }
-            
+
             if (!payload || !Array.isArray(payload.concepts)) {
                 return [];
             }

@@ -158,7 +158,18 @@ const defaultConfig = {
         embeddingModel: 'text-embedding-qwen3-embedding-8b',
         apiKey        : '',
         unloadRetryCount: 3,
-        unloadRetryDelayMs: 500
+        unloadRetryDelayMs: 500,
+        /**
+         * Approximate context-window capacity in bytes for the configured `model`.
+         * Used by `ConsumerFrictionHelper.invokeWithGuardrail` (#11447) to fire the
+         * upstream pre-check skip ("Angle 2") when an LLM input payload exceeds the
+         * consumer's safe processing band (default 80% of this cap). Default is sized
+         * for Gemma-3-4B / Qwen3-8B class consumers (~32K-token context = ~131072 bytes
+         * at the ~4-chars/token heuristic). Operators running models with different
+         * context windows should tune this to match the deployed model.
+         * @type {number}
+         */
+        contextWindowBytes: 131072
     },
     /**
      * The enforced vector dimension across all SQLite collections.
@@ -380,7 +391,7 @@ const envBindings = {
     'transport': 'NEO_TRANSPORT',
     'mcpHttpPort': { var: 'MCP_HTTP_PORT', parse: parsePort },
     'publicUrl': { var: 'NEO_PUBLIC_URL', parse: parseUrl },
-    
+
     'auth.host': 'NEO_AUTH_HOST',
     'auth.port': { var: 'NEO_AUTH_PORT', parse: parsePort },
     'auth.realm': 'NEO_AUTH_REALM',
@@ -388,39 +399,39 @@ const envBindings = {
     'auth.clientId': 'NEO_OAUTH_CLIENT_ID',
     'auth.clientSecret': 'NEO_OAUTH_CLIENT_SECRET',
     'auth.trustProxyIdentity': { var: 'NEO_AUTH_TRUST_PROXY_IDENTITY', parse: parseBool },
-    
+
     'modelProvider': 'NEO_MODEL_PROVIDER',
     'embeddingProvider': 'NEO_EMBEDDING_PROVIDER',
-    
+
     'ollama.host': 'NEO_OLLAMA_HOST',
     'ollama.model': 'NEO_OLLAMA_MODEL',
     'ollama.embeddingModel': 'NEO_OLLAMA_EMBEDDING_MODEL',
-    
+
     'openAiCompatible.host': 'NEO_OPENAI_COMPATIBLE_HOST',
     'openAiCompatible.model': 'NEO_OPENAI_COMPATIBLE_MODEL',
     'openAiCompatible.embeddingModel': 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL',
     'openAiCompatible.apiKey': 'NEO_OPENAI_COMPATIBLE_API_KEY',
     'openAiCompatible.unloadRetryCount': { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', parse: parseNumber },
     'openAiCompatible.unloadRetryDelayMs': { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', parse: parseNumber },
-    
+
     'vectorDimension': { var: 'NEO_VECTOR_DIMENSION', parse: parseNumber },
-    
+
     'engines.chroma.host': 'NEO_CHROMA_HOST',
     'engines.chroma.port': { var: 'NEO_CHROMA_PORT', parse: parsePort },
-    
+
     'collections.memory': 'NEO_MEMORY_COLLECTION_NAME',
     'collections.session': 'NEO_SESSION_COLLECTION_NAME',
     'collections.graph': 'NEO_GRAPH_COLLECTION_NAME',
-    
+
     'storagePaths.graph': 'NEO_MEMORY_DB_PATH',
-    
+
     'datasets.rlaif.trajectories': 'NEO_RLAIF_PATH',
     'decayFactor': { var: 'NEO_GRAPH_DECAY_FACTOR', parse: parseNumber },
     'guideGapWeightThreshold': { var: 'NEO_GUIDE_GAP_WEIGHT_THRESHOLD', parse: parseNumber },
-    
+
     'conceptDiscovery.prScanLimit': { var: 'NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT', parse: parseNumber },
     'conceptDiscovery.minSourceLength': { var: 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', parse: parseNumber },
-    
+
     'mailbox.defaultReplyPolicy': 'NEO_MAILBOX_DEFAULT_REPLY_POLICY',
     'memorySharing.defaultPolicy': { var: 'NEO_MEMORY_SHARING_DEFAULT_POLICY', parse: parseMemorySharingPolicy },
     'lazyEdgesQueuePath': 'NEO_LAZY_EDGES_QUEUE_PATH'
@@ -451,7 +462,7 @@ class Config extends BaseConfig {
 
     defaultConfig = defaultConfig;
     envBindings = envBindings;
-    
+
     /**
      * Applies legacy environment variable fallbacks
      */
@@ -464,17 +475,17 @@ class Config extends BaseConfig {
                 this.data.mcpHttpPort = legacyPort;
             }
         }
-        
+
         if (process.env.NEO_CHROMA_EMBEDDING_PROVIDER && !process.env.NEO_EMBEDDING_PROVIDER) {
             console.warn('[Config] Deprecation warning: NEO_CHROMA_EMBEDDING_PROVIDER is deprecated. Please use NEO_EMBEDDING_PROVIDER.');
             this.data.embeddingProvider = process.env.NEO_CHROMA_EMBEDDING_PROVIDER;
         }
-        
+
         if (process.env.NEO_KB_CHROMA_HOST && !process.env.NEO_CHROMA_HOST) {
             console.warn('[Config] Deprecation warning: NEO_KB_CHROMA_HOST is deprecated. Please use NEO_CHROMA_HOST.');
             this.data.engines.chroma.host = process.env.NEO_KB_CHROMA_HOST;
         }
-        
+
         if (process.env.NEO_KB_CHROMA_PORT && !process.env.NEO_CHROMA_PORT) {
             console.warn('[Config] Deprecation warning: NEO_KB_CHROMA_PORT is deprecated. Please use NEO_CHROMA_PORT.');
             const legacyPort = parsePort(process.env.NEO_KB_CHROMA_PORT, 'NEO_KB_CHROMA_PORT', console.warn);
