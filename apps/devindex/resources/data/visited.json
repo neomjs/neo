@@ -28009,6 +28009,7 @@
   "repo:lucidrains/magvit2-pytorch",
   "repo:lucidrains/native-sparse-attention-pytorch",
   "repo:lucidrains/perceiver-pytorch",
+  "repo:lucidrains/reformer-pytorch",
   "repo:lucidrains/self-rewarding-lm-pytorch",
   "repo:lucidrains/soundstorm-pytorch",
   "repo:lucidrains/stylegan2-pytorch",
