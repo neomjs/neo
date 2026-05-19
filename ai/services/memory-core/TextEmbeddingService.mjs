@@ -63,7 +63,9 @@ class TextEmbeddingService extends Base {
     }
 
     /**
-     * Executes the /v1/embeddings POST request with retry semantics for unloaded models.
+     * Executes OpenAI-compatible /v1/embeddings POST requests with retry semantics for unloaded models.
+     * The same endpoint shape is used by LM Studio desktop, `lms server start`, MLX, llama.cpp,
+     * and other local OpenAI-format embedding servers.
      * @param {String|String[]} inputData The text or array of texts to embed.
      * @param {Number} retriesLeft Number of retries remaining.
      * @returns {Promise<Object>}
@@ -71,7 +73,7 @@ class TextEmbeddingService extends Base {
      */
     async #postOpenAiCompatible(inputData, retriesLeft) {
         const { host, embeddingModel, apiKey, unloadRetryCount = 3, unloadRetryDelayMs = 500 } = aiConfig.openAiCompatible;
-        
+
         try {
             const parsedUrl = new URL(`${host}/v1/embeddings`);
             const httpModule = parsedUrl.protocol === 'https:' ? await import('https') : await import('http');
@@ -182,7 +184,7 @@ class TextEmbeddingService extends Base {
             if (!this.embeddingModel) {
                  throw new Error('Google Generative AI Client not initialized properly.');
             }
-            
+
             const requests = texts.map(text => ({model: aiConfig.embeddingModel, content: {parts: [{text}]}}));
             const result = await this.embeddingModel.batchEmbedContents({ requests });
             return result.embeddings.map(e => e.values);
