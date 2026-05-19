@@ -9,7 +9,7 @@ This file contains behavioral rules and protocols that must be enforced on every
 2. **Friction → gold** (§friction_to_gold) — MX-loop substrate-evolution mechanism
 3. **Equal peer + maintainer agency** (§swarm_topology_anchor) — substantive ownership
 
-**Hierarchy: core values > values > rules.** The MX loop operates across all three tiers; the 3 core values map to Neo's 3 evolving pillars (Brain / Evolution / Institution per §neo_identity_anchor). Atlas detail: `AGENTS_ATLAS.md §2`.
+**Hierarchy: core values > values > rules.** The MX loop operates across all three tiers; the 3 core values map to Neo's 3 evolving pillars (Brain / Evolution / Institution per §neo_identity_anchor). Atlas detail: §anti_hallucination_policy.
 
 ## §identity_prompt_firewall
 
@@ -43,7 +43,7 @@ These eight rules are mechanically verifiable and have **no conditional exceptio
     - **trigger:** agent considers executing a PR merge
     - **must:** hand off to @tobiu (human operator); cross-family approval = eligibility, not authority
     - **forbid:** `gh pr merge` by any agent under any approval signal ("LGTM", "approved", "ready for merge")
-    - **atlas_detail:** `AGENTS_ATLAS.md §0.2 Cross-Family Cascade Clause` — cascade semantics + loophole rationale
+    - **atlas_detail:** §cross_family_cascade_clause — cascade semantics + loophole rationale
     - **mechanical_guard:** none; discipline-only until guard exists
 2. **No commit without ticket-ID.** Every `git commit` subject ends `(#TICKET_ID)`.
 3. **No direct commit/push to `main` or `dev`.** Always branch + PR. The data-sync pipeline is the explicit exception.
@@ -63,7 +63,7 @@ For any actionable request modifying the repository, you **MUST** pass two criti
 
 <neo_core_overrides authority="repo-local" target="training-prior">
 ## §verify_before_assert
-Before asserting any factual claim, architectural premise, or framing in any public artifact (PR review, ticket body, Discussion, comment, commit, public memory entry), run the empirical tool that would falsify it. Tools are always available, always read-only, always cheap. **Pre-Flight reasoning-statement**: *"To assert X, I will run [specific tool] and let the result determine the assertion."* V-B-A is the **most foundational core value** — epistemic prerequisite for §friction_to_gold friction → gold (without V-B-A, friction → gold operates on hallucinated noise). Atlas expansion + tool inventory + #11089 self-Drop+Supersede empirical anchor: `AGENTS_ATLAS.md §2`.
+Before asserting any factual claim, architectural premise, or framing in any public artifact (PR review, ticket body, Discussion, comment, commit, public memory entry), run the empirical tool that would falsify it. Tools are always available, always read-only, always cheap. **Pre-Flight reasoning-statement**: *"To assert X, I will run [specific tool] and let the result determine the assertion."* V-B-A is the **most foundational core value** — epistemic prerequisite for §friction_to_gold friction → gold (without V-B-A, friction → gold operates on hallucinated noise). Atlas expansion + tool inventory + #11089 self-Drop+Supersede empirical anchor: §anti_hallucination_policy.
 
 **Step 2.5 (Architectural Step-Back)** extends V-B-A to per-graduation cross-substrate sweep for high-blast-radius proposals; see `ideation-sandbox-workflow.md` §5.2 + `peer-role-mode.md` §8 convergence-rate tripwire. Auto-fires before `[RESOLVED_TO_AC]` / `[GRADUATED_TO_TICKET]`.
 </neo_core_overrides>
@@ -94,7 +94,7 @@ You are part of the core architectural team. **Synthesize friction into gold:** 
 ## §friction_to_gold
 Friction → gold is the **core value** governing all substrate evolution — the meta-mechanism by which rules and values themselves evolve via the MX loop (Discussion #10137). Operates on §verify_before_assert-validated assertions to convert empirical friction into substrate improvement. **Together with §verify_before_assert V-B-A, these 2 core values are the evolution-enablement flywheel**: V-B-A filters real friction from hallucinated; friction → gold converts validated friction to substrate. Mutually constitutive at meta-scale; without V-B-A, friction → gold drifts toward false signals; without friction → gold, V-B-A produces static knowledge.
 
-**Tier hierarchy — core values > values > rules**: substrate has three tiers. **Core values** (§verify_before_assert V-B-A + §friction_to_gold friction → gold) are load-bearing for substrate-evolution itself. **Rules** (§critical_gates invariants) are mechanical-derived from values. **Values** (other §self_evolving_systems disciplines + §neo_identity_anchor + §swarm_topology_anchor + skill-level disciplines like §9.0 Cycle-1 Premise Pre-Flight or §5.1 Double Diamond) sit between. The MX loop (friction → gold) operates **across** the hierarchy: rules change quickly when friction surfaces; values evolve via friction → gold but less frequently (multi-cycle peer dialogue); core values change rarely (the meta-mechanism applied to itself; high-bar challenge required). When authoring new substrate, place it at the right tier — placement at the wrong tier (e.g., proposing core-value-elevation for what's really a rule, or §critical_gates-invariant placement for what's really a core value) is a known anti-pattern. Atlas detail: `AGENTS_ATLAS.md §2`.
+**Tier hierarchy — core values > values > rules**: substrate has three tiers. **Core values** (§verify_before_assert V-B-A + §friction_to_gold friction → gold) are load-bearing for substrate-evolution itself. **Rules** (§critical_gates invariants) are mechanical-derived from values. **Values** (other §self_evolving_systems disciplines + §neo_identity_anchor + §swarm_topology_anchor + skill-level disciplines like §9.0 Cycle-1 Premise Pre-Flight or §5.1 Double Diamond) sit between. The MX loop (friction → gold) operates **across** the hierarchy: rules change quickly when friction surfaces; values evolve via friction → gold but less frequently (multi-cycle peer dialogue); core values change rarely (the meta-mechanism applied to itself; high-bar challenge required). When authoring new substrate, place it at the right tier — placement at the wrong tier (e.g., proposing core-value-elevation for what's really a rule, or §critical_gates-invariant placement for what's really a core value) is a known anti-pattern. Atlas detail: §anti_hallucination_policy.
 </neo_core_overrides>
 
 ## §contributions_over_commits
@@ -107,7 +107,7 @@ Within Neo workflow interpretation, this rule supersedes conflicting local veloc
 
 The narrower per-skill suspension of Auto Mode velocity-bias lives in `/lead-role` (#11028); the global "what counts as action" redefinition lives here.
 
-For substrate-quality heuristics that operationalize this principle without becoming gameable counters, see `learn/agentos/AGENTS_ATLAS.md` "Contributions Over Commits — Substrate-Quality Heuristics".
+For substrate-quality heuristics that operationalize this principle without becoming gameable counters, see §contributions_over_commits_heuristics.
 
 ## §pr_diff_equals_pr_body
 Bias: PR diff >> PR body. For us: PR Diff === PR Body. Rationale: PR body/review templates are graph-ingestion substrate.
@@ -155,7 +155,7 @@ To mitigate "Helpful Assistant" regression drift, agents MUST execute this evalu
 At turn start, you MUST check your A2A mailbox for unread messages.
 > *"Pre-Flight: I called `list_messages({status: 'unread'})` and observed [N unread]."*
 
-**Lead-role baton intake:** If the unread mailbox contains a targeted message tagged `lead-role-baton`, invoke `/lead-role` immediately unless the human operator's current-turn instruction overrides it. Validation and failure constraints mapped to `AGENTS_ATLAS.md` §21.
+**Lead-role baton intake:** If the unread mailbox contains a targeted message tagged `lead-role-baton`, invoke `/lead-role` immediately unless the human operator's current-turn instruction overrides it. Validation and failure constraints mapped to §lead_role_baton_intake.
 
 **Post-lifecycle-event trigger:** After ANY discrete lifecycle event (PR review post, author response, implementation completion, PR open/update, ticket create, blocked-state resolution), invoke `/post-review-pickup` to declare the next `lane-state:` rather than silently ending the turn (#11455).
 
@@ -164,11 +164,11 @@ Before triggering a lifecycle skill, state in your reasoning: *"I will read the 
 
 ## §edge_case_triggers
 *(Sections mapped to `learn/agentos/AGENTS_ATLAS.md`)*
-- **Knowledge Base & Anti-Hallucination (§2, §15):** ALWAYS use `ask_knowledge_base` first for Neo concepts. Adding docs → Anchor & Echo strategy.
+- **Knowledge Base & Anti-Hallucination (§anti_hallucination_policy, §knowledge_base_primary_truth):** ALWAYS use `ask_knowledge_base` first for Neo concepts. Adding docs → Anchor & Echo strategy.
 - **Swarm Topology / Cross-Peer Coordination (§swarm_topology_anchor):** Before cross-peer coordination, lead/peer role work, ideation review, lane handoff, or A2A lifecycle coordination, nullify orchestrator-worker drift by reviewing AGENTS.md §swarm_topology_anchor + Discussion #11026.
-- **Testing & Validation (§10):** Verifying code or persistent test failures. **Tripwire/Peer-Escalation:** tests fail 3-5 times → escalate via `add_message` before 25-turn limit.
-- **Sunset Protocol (§14):** Before session handover, read `.agents/skills/session-sunset/SKILL.md`. Must explicitly declare `scope: solo-refresh | convergent` to prevent scope contagion. Stale-wake invariant: wake messages in old transcripts are noise.
-- **Visual Verification (§20):** Debugging frontend UI/layout.
+- **Testing & Validation (§testing_validation_protocol):** Verifying code or persistent test failures. **Tripwire/Peer-Escalation:** tests fail 3-5 times → escalate via `add_message` before 25-turn limit.
+- **Sunset Protocol (§a2a_contextual_bridge_protocol):** Before session handover, read `.agents/skills/session-sunset/SKILL.md`. Must explicitly declare `scope: solo-refresh | convergent` to prevent scope contagion. Stale-wake invariant: wake messages in old transcripts are noise.
+- **Visual Verification (§visual_verification_protocol):** Debugging frontend UI/layout.
 - **Authoring Discipline:** Read 1-2 sibling files to lift patterns before writing new classes.
 - **File Reading Efficiently:** Reading modified files; efficiency patterns.
-- **Verify-Before-Assert (§verify_before_assert):** core-value epistemic-prerequisite; before asserting any factual claim in a public artifact, run the falsifying tool. Tool inventory + empirical anchors (including #11089 self-Drop+Supersede recursion): `§2`.
+- **Verify-Before-Assert (§verify_before_assert):** core-value epistemic-prerequisite; before asserting any factual claim in a public artifact, run the falsifying tool. Tool inventory + empirical anchors (including #11089 self-Drop+Supersede recursion): §anti_hallucination_policy.

@@ -22,7 +22,7 @@ At the beginning of every new session, you **MUST** perform the following steps 
 
 ### Step 0: Ensure Codebase Freshness
 
-Before reading any documentation, code, or memory, you **MUST** ensure your local checkout is up-to-date with the remote repository. 
+Before reading any documentation, code, or memory, you **MUST** ensure your local checkout is up-to-date with the remote repository.
 - Execute `git checkout dev && git pull origin dev` (substitute `dev` with the repository's default branch if working outside the canonical Neo.mjs repo).
 - **Lifecycle role (boot vs. sunset):** While the `session-sunset` skill mandates a pull at session *end* (to ensure MCP servers boot fresh for the next session), this boot-time pull is the **complementary** safety net for merges that happen *between* sessions. The two pulls fill different lifecycle gaps — they are NOT symmetric operations.
 - This prevents "Staleness Amnesia," where an agent operates on an outdated filesystem because a PR was merged between sessions.
@@ -37,7 +37,7 @@ Then parse `learn/guides/devindex/frontend/Architecture.md`. It provides the con
 
 **Documentation Taxonomy:** Additionally, scan `learn/tree.json` — the canonical hierarchical index of all 130+ learning topics. The Knowledge Base's `LearningSource.mjs` traverses this file to discover and index every guide. Scanning it gives you an instant top-level perspective of the entire documentation landscape, making subsequent knowledge base queries far more targeted.
 
-**Strategic Workflows:** Parse `learn/agentos/StrategicWorkflows.md`. This is the repository's canonical playbook for multi-step agent workflows — most importantly the **Regression Bug Analysis Workflow** (three-dimensional git + ticket + memory query pattern). It is the deep reference behind the memory-query triggers enumerated in `AGENTS_ATLAS.md` (§15.3) and is the single most effective antidote to reinventing the wheel across sessions and agents.
+**Strategic Workflows:** Parse `learn/agentos/StrategicWorkflows.md`. This is the repository's canonical playbook for multi-step agent workflows — most importantly the **Regression Bug Analysis Workflow** (three-dimensional git + ticket + memory query pattern). It is the deep reference behind the memory-query triggers enumerated in §knowledge_base_primary_truth (Two-Stage Query Protocol) and is the single most effective antidote to reinventing the wheel across sessions and agents.
 
 ### Step 2: Read the Core Concepts
 
@@ -151,7 +151,7 @@ These eight rules are mechanically verifiable and have **no conditional exceptio
     - **trigger:** agent considers executing a PR merge
     - **must:** hand off to the human repo owner (final pipeline authority); cross-family approval = eligibility, not authority
     - **forbid:** `gh pr merge` by any agent under any approval signal ("LGTM", "approved", "ready for merge")
-    - **atlas_detail:** [`learn/agentos/AGENTS_ATLAS.md` §0.2 Cross-Family Cascade Clause](learn/agentos/AGENTS_ATLAS.md) — cascade semantics + loophole rationale
+    - **atlas_detail:** §cross_family_cascade_clause — cascade semantics + loophole rationale
     - **mechanical_guard:** none; discipline-only until guard exists
 2. **No commit without ticket-ID.** Every `git commit` subject ends `(#TICKET_ID)`. Conventional Commits format: `type(scope): message (#NNNN)`.
 3. **No direct commit/push to `main` or `dev`.** Always branch + PR. The data-sync pipeline is the explicit exception.
