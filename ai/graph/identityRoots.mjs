@@ -119,12 +119,15 @@ export const IDENTITIES = [
                     focusSeedKey: 'r'
                 }
             },
-            // Capability fields per ADR 0012 Model-Stats Framework. Source: ModelStats.md
-            // §neo_gpt (operator V-B-A 2026-05-19 + OpenAI release April 2026).
-            // 258K = empirical cap inside Codex IDE harness (operator-V-B-A 2026-05-19 corrected my
-            // initial web-search figure of 400K). OpenAI API supports 1M for raw GPT-5.5; external-
-            // model-routing inside Codex could lift the in-harness cap to 1M if/when configured.
-            contextWindowInput: 258000,
+            // Capability fields per ADR 0012 Model-Stats Framework. Source: ModelStats.md §neo_gpt.
+            // 258,400 = effective in Codex CLI/IDE harness (272,000 raw × 95% effective-window
+            // multiplier per openai/codex#19319 implementation-discrepancy report). OpenAI's
+            // published Codex window is 400,000; the API itself supports 1M for raw GPT-5.5.
+            // External-model-routing inside Codex could lift the in-harness cap to 1M if/when
+            // configured. Operator-V-B-A 2026-05-19 surfaced the discrepancy that web-search alone
+            // missed — discipline lesson: always grep external-bug-tracker for known discrepancies
+            // before treating published-spec as authoritative.
+            contextWindowInput: 258400,
             parallelToolCalls : true,
             hosting           : 'cloud',
             family            : 'gpt',
