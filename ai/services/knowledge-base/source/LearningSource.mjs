@@ -40,11 +40,16 @@ class LearningSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        const learnTreePath = path.resolve(aiConfig.neoRootDir, 'learn/tree.json');
+        // Phase 0/1B-β (#11660): per-source path override. The config value points at the
+        // tree.json file; the base directory containing the .md files is derived as the
+        // path's containing directory. Legacy fallback preserves byte-equivalence.
+        const learnTreeRelative = aiConfig.sourcePaths?.LearningSource ?? 'learn/tree.json';
+        const learnTreePath     = path.resolve(aiConfig.neoRootDir, learnTreeRelative);
+        const learnBaseRelative = path.dirname(learnTreeRelative);
 
         if (await fs.pathExists(learnTreePath)) {
             const learnTree         = await fs.readJson(learnTreePath);
-            const learnBasePath     = path.resolve(aiConfig.neoRootDir, 'learn');
+            const learnBasePath     = path.resolve(aiConfig.neoRootDir, learnBaseRelative);
             const filteredLearnData = learnTree.data.filter(item => item.id !== 'comparisons' && item.parentId !== 'comparisons');
 
             for (const item of filteredLearnData) {

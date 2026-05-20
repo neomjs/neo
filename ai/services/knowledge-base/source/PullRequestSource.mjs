@@ -61,10 +61,12 @@ class PullRequestSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        const targetPaths = [
-            path.resolve(aiConfig.neoRootDir, 'resources/content/pulls'),
-            path.resolve(aiConfig.neoRootDir, 'resources/content/archive/pulls')
+        // Phase 0/1B-β (#11660): per-source path override (array of paths). Legacy fallback preserves byte-equivalence.
+        const pullRequestPaths = aiConfig.sourcePaths?.PullRequestSource ?? [
+            'resources/content/pulls',
+            'resources/content/archive/pulls'
         ];
+        const targetPaths = pullRequestPaths.map(p => path.resolve(aiConfig.neoRootDir, p));
 
         const indexMap = await loadIndexMap(aiConfig.neoRootDir, 'pulls');
         const contentRoot = path.resolve(aiConfig.neoRootDir, 'resources/content');

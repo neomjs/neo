@@ -40,8 +40,9 @@ class TestSource extends Base {
      * @returns {Promise<Number>} The number of chunks extracted.
      */
     async extract(writeStream, createHashFn) {
-        // logger.log('Indexing Playwright tests...');
-        return await this.indexRawDirectory(writeStream, createHashFn, 'test/playwright', 'test', {
+        // Phase 0/1B-β (#11660): per-source path override; legacy fallback preserves byte-equivalence.
+        const testPath = aiConfig.sourcePaths?.TestSource ?? 'test/playwright';
+        return await this.indexRawDirectory(writeStream, createHashFn, testPath, 'test', {
             include: ['.mjs'],
             exclude: ['node_modules', 'test-results', 'reports']
         });
