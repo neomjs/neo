@@ -35,7 +35,11 @@ const envBindings = {
     'memoryCoreDbPath': 'NEO_MEMORY_DB_PATH',
     'kbFaqMinCount': { var: 'NEO_KB_FAQ_MIN_COUNT', parse: parseNumber },
     'kbFaqSimilarityThreshold': { var: 'NEO_KB_FAQ_SIMILARITY_THRESHOLD', parse: parseNumber },
-    'kbFaqConceptLimit': { var: 'NEO_KB_FAQ_CONCEPT_LIMIT', parse: parseNumber }
+    'kbFaqConceptLimit': { var: 'NEO_KB_FAQ_CONCEPT_LIMIT', parse: parseNumber },
+    'defaultTenantId': 'NEO_KB_DEFAULT_TENANT_ID',
+    'defaultRepoSlug': 'NEO_KB_DEFAULT_REPO_SLUG',
+    'defaultVisibility': 'NEO_KB_DEFAULT_VISIBILITY',
+    'spoofRejectionMode': 'NEO_KB_SPOOF_REJECTION_MODE'
 };
 
 const defaultConfig = {
@@ -250,6 +254,40 @@ const defaultConfig = {
             'ai'      : 'ai-infrastructure'
         }
     },
+    /**
+     * @summary Default tenant identity for Neo's curated Knowledge Base corpus.
+     *
+     * Used by `VectorService.embed()` when no authenticated ingestion context is supplied.
+     * Cloud ingestion paths override this with server-derived tenant context; client-supplied
+     * chunk metadata is never authoritative.
+     * @type {string}
+     */
+    defaultTenantId: 'neo-shared',
+    /**
+     * @summary Default repository slug for Neo's curated Knowledge Base corpus.
+     *
+     * Included in content hashing and Chroma IDs so byte-identical chunks from different
+     * tenant repositories cannot collide.
+     * @type {string}
+     */
+    defaultRepoSlug: 'neo',
+    /**
+     * @summary Default read visibility for embedded Knowledge Base chunks.
+     *
+     * Phase 0/1C writes the authoritative value; Phase 2/3 read paths consume it for
+     * tenant-aware filtering.
+     * @type {string}
+     */
+    defaultVisibility: 'team',
+    /**
+     * @summary Policy for conflicting client-supplied tenant metadata.
+     *
+     * `'overwrite'` logs and replaces conflicting `{tenantId, repoSlug, visibility,
+     * originAgentIdentity}` fields with server-derived values. `'reject'` fails the
+     * embedding call with `KB_TENANT_SPOOF_REJECTED`.
+     * @type {'overwrite'|'reject'}
+     */
+    spoofRejectionMode: 'overwrite',
     /**
      * The name of the Google Generative AI model for content generation.
      * @type {string}

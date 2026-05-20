@@ -105,6 +105,24 @@ class KBRecorderService extends Base {
                 CREATE INDEX IF NOT EXISTS idx_kb_query_faqs_count     ON kb_query_faqs(occurrence_count);
                 CREATE INDEX IF NOT EXISTS idx_kb_query_faqs_last_seen ON kb_query_faqs(last_seen);
                 CREATE INDEX IF NOT EXISTS idx_kb_query_faqs_coverage  ON kb_query_faqs(has_strong_guide_coverage);
+
+                CREATE TABLE IF NOT EXISTS kb_ingestion_metrics (
+                    id              TEXT PRIMARY KEY,
+                    timestamp       INTEGER NOT NULL,
+                    tenant_id       TEXT NOT NULL,
+                    repo_slug       TEXT NOT NULL,
+                    origin_agent    TEXT,
+                    event_type      TEXT NOT NULL,
+                    chunks_total    INTEGER DEFAULT 0,
+                    chunks_embedded INTEGER DEFAULT 0,
+                    chunks_deleted  INTEGER DEFAULT 0,
+                    duration_ms     INTEGER,
+                    error_code      TEXT,
+                    detail          TEXT
+                );
+                CREATE INDEX IF NOT EXISTS idx_kb_ingestion_metrics_tenant    ON kb_ingestion_metrics(tenant_id);
+                CREATE INDEX IF NOT EXISTS idx_kb_ingestion_metrics_timestamp ON kb_ingestion_metrics(timestamp);
+                CREATE INDEX IF NOT EXISTS idx_kb_ingestion_metrics_event     ON kb_ingestion_metrics(event_type);
             `);
 
             logger.info('[KBRecorderService] Connected to Memory Core kb_query_log / kb_query_faqs.');
@@ -227,6 +245,138 @@ class KBRecorderService extends Base {
             );
         } catch (err) {
             logger.error('[KBRecorderService] Failed to append KB query log entry:', err);
+        }
+    }
+
+    /**
+     * @summary Persists a per-tenant ingestion telemetry event into `kb_ingestion_metrics`.
+     *
+     * Phase 4A (#11665) write-API. This is the durable contract the Phase 2 cross-tenant
+     * ingestion service (#11626) calls after each push / tombstone / reconcile / error event.
+     * Like {@link log}, persistence is a best-effort observability side channel — it never
+     * throws back into the ingestion path, preserving ingestion availability even when the
+     * telemetry store is unavailable or temporarily locked.
+     *
+     * Per-tenant rollup consumers (Phase 4A-β observability daemon, Phase 4D alerting) read
+     * via {@link getTenantIngestionRollup}. The schema is intentionally event-shaped (one row
+     * per ingestion event) rather than pre-aggregated — rollup is the daemon's job, keeping
+     * this write path O(1) and contention-free.
+     *
+     * @param {Object}  entry
+     * @param {String}  entry.tenantId        Authoritative tenant id (server-stamped, per #11631).
+     * @param {String}  entry.repoSlug        Authoritative repo slug.
+     * @param {String} [entry.originAgentIdentity] Authenticated agent identity that triggered the event.
+     * @param {String}  entry.eventType       One of `'ingest'`, `'tombstone'`, `'reconcile'`, `'error'`.
+     * @param {Number} [entry.chunksTotal=0]    Chunks seen in the event payload.
+     * @param {Number} [entry.chunksEmbedded=0] Chunks newly embedded.
+     * @param {Number} [entry.chunksDeleted=0]  Chunks deleted (tombstone / stale-id sweep).
+     * @param {Number} [entry.durationMs]       Event wall-clock duration.
+     * @param {String} [entry.errorCode]        Stable error code when `eventType === 'error'`.
+     * @param {Object} [entry.detail]           Free-form per-event detail (JSON-serialized).
+     * @param {Number} [entry.timestamp]        Event timestamp; defaults to `Date.now()`.
+     * @returns {void}
+     */
+    recordIngestionMetric(entry = {}) {
+        if (!this.db) return;
+
+        try {
+            const
+                timestamp = entry.timestamp || Date.now(),
+                tenantId  = entry.tenantId || 'neo-shared',
+                repoSlug  = entry.repoSlug || 'neo',
+                eventType = entry.eventType || 'ingest',
+                detail    = entry.detail == null ? null : this.safeStringify(entry.detail);
+
+            this.db.prepare(`
+                INSERT INTO kb_ingestion_metrics (
+                    id, timestamp, tenant_id, repo_slug, origin_agent,
+                    event_type, chunks_total, chunks_embedded, chunks_deleted,
+                    duration_ms, error_code, detail
+                ) VALUES (
+                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                )
+            `).run(
+                crypto.randomUUID(),
+                timestamp,
+                tenantId,
+                repoSlug,
+                entry.originAgentIdentity || null,
+                eventType,
+                entry.chunksTotal    ?? 0,
+                entry.chunksEmbedded ?? 0,
+                entry.chunksDeleted  ?? 0,
+                entry.durationMs     ?? null,
+                entry.errorCode      || null,
+                detail
+            );
+        } catch (err) {
+            logger.error('[KBRecorderService] Failed to append KB ingestion metric:', err);
+        }
+    }
+
+    /**
+     * @summary Rolls up `kb_ingestion_metrics` rows into per-tenant aggregate counters.
+     *
+     * Phase 4A (#11665) read-API. Consumed by the Phase 4A-β observability daemon (rollup +
+     * persist) and Phase 4D alerting (threshold checks). Returns one aggregate row per tenant
+     * for events within the `sinceMs` window — push/tombstone/reconcile/error event counts,
+     * total chunk volumes, and error rate.
+     *
+     * @param {Object}  [options]
+     * @param {Number}  [options.sinceMs]   Lower-bound timestamp; only events at-or-after are counted. Omit for all-time.
+     * @param {String}  [options.tenantId]  Restrict the rollup to a single tenant. Omit for all tenants.
+     * @returns {Array<{tenantId: String, repoSlug: String, eventCount: Number, ingestEvents: Number, tombstoneEvents: Number, reconcileEvents: Number, errorEvents: Number, chunksEmbedded: Number, chunksDeleted: Number, errorRate: Number}>}
+     */
+    getTenantIngestionRollup({sinceMs, tenantId} = {}) {
+        if (!this.db) return [];
+
+        try {
+            const conditions = [];
+            const params     = [];
+
+            if (Number.isFinite(sinceMs)) {
+                conditions.push('timestamp >= ?');
+                params.push(sinceMs);
+            }
+            if (tenantId) {
+                conditions.push('tenant_id = ?');
+                params.push(tenantId);
+            }
+
+            const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+            const rows = this.db.prepare(`
+                SELECT
+                    tenant_id,
+                    repo_slug,
+                    COUNT(*)                                                      AS event_count,
+                    SUM(CASE WHEN event_type = 'ingest'    THEN 1 ELSE 0 END)      AS ingest_events,
+                    SUM(CASE WHEN event_type = 'tombstone' THEN 1 ELSE 0 END)      AS tombstone_events,
+                    SUM(CASE WHEN event_type = 'reconcile' THEN 1 ELSE 0 END)      AS reconcile_events,
+                    SUM(CASE WHEN event_type = 'error'     THEN 1 ELSE 0 END)      AS error_events,
+                    SUM(chunks_embedded)                                          AS chunks_embedded,
+                    SUM(chunks_deleted)                                           AS chunks_deleted
+                FROM kb_ingestion_metrics
+                ${whereClause}
+                GROUP BY tenant_id, repo_slug
+                ORDER BY tenant_id, repo_slug
+            `).all(...params);
+
+            return rows.map(row => ({
+                tenantId       : row.tenant_id,
+                repoSlug       : row.repo_slug,
+                eventCount     : row.event_count,
+                ingestEvents   : row.ingest_events,
+                tombstoneEvents: row.tombstone_events,
+                reconcileEvents: row.reconcile_events,
+                errorEvents    : row.error_events,
+                chunksEmbedded : row.chunks_embedded ?? 0,
+                chunksDeleted  : row.chunks_deleted  ?? 0,
+                errorRate      : row.event_count > 0 ? row.error_events / row.event_count : 0
+            }));
+        } catch (err) {
+            logger.error('[KBRecorderService] Failed to roll up KB ingestion metrics:', err);
+            return [];
         }
     }
 
