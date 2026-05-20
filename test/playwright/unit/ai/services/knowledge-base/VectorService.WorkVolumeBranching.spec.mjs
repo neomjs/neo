@@ -155,8 +155,17 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
     });
 
     test('zero-changes fast-path is unchanged (existing chunks dedup to empty queue)', async () => {
-        // Seed existing IDs that match the fixture exactly — chunksToProcess becomes empty.
-        const ids = ['chunk-0', 'chunk-1', 'chunk-2'];
+        // Seed tenant-aware existing IDs that match the fixture exactly — chunksToProcess
+        // becomes empty under the Phase 0/1C write-side stamping contract (#11631).
+        const stamp = KB_VectorService.resolveTenantStamp();
+        const ids   = ['chunk-0', 'chunk-1', 'chunk-2'].map((hash, i) => {
+            return KB_VectorService.createTenantAwareChunkId({
+                hash,
+                type  : 'method',
+                name  : `method${i}`,
+                source: undefined
+            }, stamp);
+        });
         const spy = createSpyCollection({existingIds: ids});
         KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
 
