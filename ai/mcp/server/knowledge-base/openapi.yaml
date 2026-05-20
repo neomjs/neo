@@ -2,8 +2,8 @@ openapi: 3.0.3
 info:
   title: Neo Knowledge Base MCP Server API
   description: |
-    This API provides structured access to the Neo.mjs project's knowledge base. 
-    It enables AI agents to build, query, and manage the vector database containing 
+    This API provides structured access to the Neo.mjs project's knowledge base.
+    It enables AI agents to build, query, and manage the vector database containing
     source code, documentation, and learning materials.
   version: 1.0.0
   contact:
@@ -152,6 +152,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /db/data/ingest:
+    post:
+      summary: Ingest Source Files
+      operationId: ingest_source_files
+      x-pass-as-object: true
+      description: |
+        Agent-native Knowledge Base ingestion for small batches of source files.
+
+        Accepts raw `{path, content}` file payloads or client-side `parsed-chunk-v1`
+        records, applies tenant-scoped deletion signaling, and embeds the result.
+        Use this for small incremental pushes (e.g. post-commit hook batches).
+
+        **Volume gate:** when the batch volume exceeds `mcpSyncMaxChunks`
+        (default 50) this tool refuses up-front and returns a `KB_INGEST_VOLUME_EXCEEDED`
+        payload instead of embedding synchronously — split the batch into smaller
+        `ingest_source_files` calls. Batch volume = the summed `parsedChunks` length
+        across `files`, counting each raw (un-parsed) file as 1.
+      tags: [Database]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestSourceFilesRequest'
+      responses:
+        '200':
+          description: Ingestion completed, OR refused with a KB_INGEST_VOLUME_EXCEEDED payload.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/IngestSourceFilesResponse'
+                  - $ref: '#/components/schemas/KbIngestVolumeExceededResponse'
+        '500':
+          description: Ingestion failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /documents/query:
     post:
       summary: Query Documents
@@ -170,11 +210,11 @@ paths:
         synthesis step is overhead).
 
         ## How to Use This Tool
-        
+
         **Input:**
         - `query`: Natural language search query (1-10 words work best)
         - `type`: Optional filter by content type (all, blog, guide, src, example, ticket, release, test, skill, adr, concept)
-        
+
         **Output:**
         A ranked list of file paths with relevance scores. Example:
         ```
@@ -182,12 +222,12 @@ paths:
         - /path/to/relevant/file1.mjs (Score: 350)
         - /path/to/relevant/file2.md (Score: 210)
         - /path/to/relevant/file3.mjs (Score: 150)
-        
+
         Top result: /path/to/relevant/file1.mjs
         ```
-        
+
         ## How to Interpret Results
-        
+
         1. **Start with the top result**: Always read the highest-scoring file first.
         2. **Scan the next 5-10 results**: Check both file types and scores.
         3. **Balance source and guides**: Read top 1-2 source files (.mjs) AND top 1-2 guides (.md).
@@ -198,7 +238,7 @@ paths:
            - `blog`: Historical context (code examples may be outdated)
            - `example`: Concrete usage patterns
            - `ticket`: Can be historical context (**closed tickets**) or potential work items (**open tickets**). Distinguish between them carefully.
-        
+
         ## Query Strategies
 
         ### The Discovery Pattern: Broad to Narrow
@@ -235,7 +275,7 @@ paths:
         - Get explicit user approval to proceed
 
         ## Handling Failures
-        
+
         If this tool fails or throws an error:
         1. Run the `healthcheck` tool to diagnose the issue.
         2. If unhealthy, consult `.github/AI_QUICK_START.md` for setup guidance.
@@ -685,7 +725,7 @@ components:
             - Keep queries concise (1-10 words)
             - Use specific technical terms when known
             - Start broad, then narrow based on results
-            - Example good queries: "Button component", "state management patterns", 
+            - Example good queries: "Button component", "state management patterns",
               "afterSet hook implementation", "multi-window architecture"
           example: "How do I use the Tab Container component?"
         type:
@@ -818,3 +858,125 @@ components:
         code:
           type: string
           example: "DB_CONNECTION_ERROR"
+
+    IngestSourceFilesRequest:
+      type: object
+      description: |
+        Knowledge Base ingestion push envelope (Phase 2 agent-native facade). No field is
+        strictly required at this layer — the ingestion service validates and returns a
+        structured summary (accumulating per-file errors) rather than throwing.
+      properties:
+        tenantId:
+          type: string
+          description: |
+            Authenticated tenant id. The server stamps the authoritative value; offline
+            calls fall back to `neo-shared`.
+        files:
+          type: array
+          description: Raw file payloads or client-side parsed records to ingest.
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              path:
+                type: string
+                description: Source path relative to the repo root.
+              content:
+                type: string
+                description: Raw file content (omitted when parsedChunks is supplied).
+              parser:
+                type: string
+                description: Optional parser id hint for server-side raw-file parsing.
+              parsedChunks:
+                type: array
+                description: |
+                  Optional client-side parsed `parsed-chunk-v1` records. When present,
+                  these pass through to the ingestion service's Ajv `parsed-chunk-v1`
+                  validator — the deep per-chunk contract is enforced there, not
+                  duplicated in this tool schema.
+                items:
+                  type: object
+                  additionalProperties: true
+        deleted:
+          type: array
+          description: Explicit tombstones for files removed on the client.
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              sourcePath:
+                type: string
+              repoSlug:
+                type: string
+        manifestSnapshot:
+          type: object
+          additionalProperties: true
+          description: Post-push manifest used to derive orphaned-chunk deletions.
+          properties:
+            repoSlug:
+              type: string
+            pathsAfterPush:
+              type: array
+              items:
+                type: string
+        baseRevision:
+          type: string
+          description: Previous revision boundary (optional revision-range deletion signal).
+        headRevision:
+          type: string
+          description: Current revision boundary (optional revision-range deletion signal).
+
+    IngestSourceFilesResponse:
+      type: object
+      description: Structured ingestion summary returned by KnowledgeBaseIngestionService.
+      properties:
+        ingested:
+          type: integer
+          description: Count of chunks embedded/upserted.
+        deleted:
+          type: integer
+          description: Count of Chroma rows removed via deletion signaling.
+        embeddingsGenerated:
+          type: integer
+          description: Count of embeddings generated for this push.
+        errors:
+          type: array
+          description: Accumulated per-file caller errors; a non-empty array does not imply total failure.
+          items:
+            type: object
+            additionalProperties: true
+        tenantId:
+          type: string
+          description: The server-resolved authoritative tenant id.
+        durationMs:
+          type: integer
+          description: Wall-clock duration of the ingestion in milliseconds.
+
+    KbIngestVolumeExceededResponse:
+      type: object
+      description: |
+        Structured refusal returned (not thrown) when the batch volume exceeds the
+        MCP-callable threshold. The KB server's `'error' in result` contract converts
+        this to an MCP `isError: true` result.
+      properties:
+        error:
+          type: string
+          example: "KB ingest work volume exceeds MCP-callable threshold"
+        message:
+          type: string
+          description: Human-readable guidance, including the split-the-batch remedy.
+        code:
+          type: string
+          enum: [KB_INGEST_VOLUME_EXCEEDED]
+        bulkPath:
+          type: string
+          nullable: true
+          description: |
+            Runnable bulk-ingestion command. Currently `null` — the tenant-scoped bulk
+            ingestion facade is Phase 2C; until it ships, split the batch (see `message`).
+        batchSize:
+          type: integer
+          description: The computed batch volume that exceeded the threshold.
+        threshold:
+          type: integer
+          description: The `mcpSyncMaxChunks` threshold (default 50).
