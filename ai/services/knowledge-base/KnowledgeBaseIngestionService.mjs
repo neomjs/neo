@@ -98,6 +98,11 @@ class KnowledgeBaseIngestionService extends Base {
      * @param {Object} [payload.manifestSnapshot] Post-push manifest (`{repoSlug, pathsAfterPush}`).
      * @param {String} [payload.baseRevision] Previous revision boundary.
      * @param {String} [payload.headRevision] Current revision boundary.
+     * @param {Boolean} [payload.viaMcp=true] Caller-selected work-volume-gate mode (#11635 Phase 2C).
+     *                                        Omitted / truthy → MCP-safe: the #10572 gate in
+     *                                        `VectorService.embed` applies. Explicit `false` (the
+     *                                        `ai:ingest-tenant` bulk CLI path) bypasses the gate —
+     *                                        opt-in to long-running bulk work.
      * @returns {Promise<{ingested: Number, deleted: Number, embeddingsGenerated: Number, errors: Array, tenantId: String, durationMs: Number}>}
      */
     async ingestSourceFiles(payload = {}) {
@@ -128,7 +133,7 @@ class KnowledgeBaseIngestionService extends Base {
             });
 
             if (chunks.length > 0) {
-                await this.embedChunkGroups({chunks, tenantContext, summary});
+                await this.embedChunkGroups({chunks, tenantContext, summary, viaMcp: payload.viaMcp !== false});
             }
 
             summary.ingested   = chunks.length;
@@ -223,12 +228,15 @@ class KnowledgeBaseIngestionService extends Base {
     }
 
     /**
-     * @summary Groups parsed chunks by repoSlug and routes each group to VectorService.embed().
-     * @param {Object} options
+     * @summary Groups parsed chunks by repoSlug and routes each group to VectorService.embed(),
+     * threading the caller-selected `viaMcp` work-volume-gate mode (#11635 Phase 2C).
+     * @param {Object}  options
+     * @param {Boolean} [options.viaMcp=true] Forwarded to `VectorService.embed`; `true` keeps the
+     *                                        #10572 work-volume gate, `false` (bulk CLI) bypasses it.
      * @returns {Promise<void>}
      * @protected
      */
-    async embedChunkGroups({chunks, tenantContext, summary}) {
+    async embedChunkGroups({chunks, tenantContext, summary, viaMcp = true}) {
         const groups = new Map();
 
         for (const chunk of chunks) {
@@ -246,7 +254,7 @@ class KnowledgeBaseIngestionService extends Base {
                 const result = await this.vectorService.embed(tempFile, {
                     deleteStale  : false,
                     tenantContext: {...tenantContext, repoSlug},
-                    viaMcp       : true
+                    viaMcp
                 });
 
                 if (result?.error) {
