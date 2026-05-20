@@ -6,7 +6,7 @@ import DatabaseLifecycleService             from './DatabaseLifecycleService.mjs
 import {assertCanonicalCollectionDeleteAllowed} from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 
 const COLLECTION_ALREADY_EXISTS_RE = /already exists|already contains|conflict/i;
-const COLLECTION_NOT_FOUND_RE      = /does not exist|not found|404/i;
+const COLLECTION_NOT_FOUND_RE      = /does not exist|not found|not be found|could not be found|404/i;
 const SWAP_ACTIVE_PHASES           = ['parking', 'shadow'];
 
 /**
@@ -206,7 +206,7 @@ class ChromaManager extends Base {
      * @returns {Boolean}
      */
     #isCollectionNotFoundError(error) {
-        return COLLECTION_NOT_FOUND_RE.test(error?.message || '');
+        return error?.name === 'ChromaNotFoundError' || COLLECTION_NOT_FOUND_RE.test(error?.message || '');
     }
 
     /**

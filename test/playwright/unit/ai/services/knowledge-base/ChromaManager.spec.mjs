@@ -100,6 +100,34 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
         });
     });
 
+    test('getKnowledgeBaseCollection treats ChromaNotFoundError as missing canonical collection', async () => {
+        let createCount = 0;
+        let capturedOptions;
+
+        ChromaManager.client = {
+            getCollection: async () => {
+                const error = new Error('The requested resource could not be found');
+                error.name  = 'ChromaNotFoundError';
+                throw error;
+            },
+            listCollections: async () => [],
+            createCollection: async options => {
+                createCount++;
+                capturedOptions = options;
+                return {name: options.name};
+            }
+        };
+
+        const collection = await ChromaManager.getKnowledgeBaseCollection();
+
+        expect(collection.name).toBe(aiConfig.collectionName);
+        expect(createCount).toBe(1);
+        expect(capturedOptions).toEqual({
+            name             : aiConfig.collectionName,
+            embeddingFunction: aiConfig.dummyEmbeddingFunction
+        });
+    });
+
     test('getKnowledgeBaseCollection refuses to create canonical during active shadow-swap promotion', async () => {
         let createCount = 0;
 
