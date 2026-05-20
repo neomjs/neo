@@ -140,6 +140,22 @@ class ChromaManager extends Base {
     }
 
     /**
+     * @summary Invalidates the memoized canonical knowledge-base collection handle.
+     *
+     * Shadow-swap re-embeds rename the canonical Chroma collection behind the stable
+     * `aiConfig.collectionName`. Any cached collection object can point at the parked
+     * pre-swap collection after that rename, so callers must force the next read to
+     * lazily resolve the canonical name again.
+     *
+     * @returns {void}
+     * @see https://github.com/neomjs/neo/issues/11683
+     */
+    invalidateKnowledgeBaseCollectionCache() {
+        this._knowledgeBaseCollectionPromise = null;
+        this.knowledgeBaseCollection         = null;
+    }
+
+    /**
      * Guarded delete-collection wrapper — peer of the Memory Core counterpart. Refuses
      * canonical production collection names unless `UNIT_TEST_MODE=true` or a valid
      * production `confirmation` token is supplied. See the Memory Core ChromaManager's
