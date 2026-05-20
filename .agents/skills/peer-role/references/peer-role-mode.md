@@ -65,7 +65,7 @@ The substrate operates **two distinct primitives** for pre-write coordination:
 **Required A2A shape**:
 - Subject: `[lane-claim] taking #N` (or `taking <substrate-description>` for unticketed work)
 - Body: scope-boundary statement (which files / surfaces / write-operations), expected timeline, source-of-authority collision-check findings (see §6.6)
-- Recipient: `AGENT:*` broadcast (let all peers V-B-A against parallel-claim risk)
+- Recipient: `AGENT:*` broadcast (let all peers V-B-A against parallel-claim risk). If the operator has explicitly suppressed broadcasts to protect an unstable peer harness, use the operator-authorized reachable peer DM instead and state that fallback in the body; broadcast suppression is not a work-stop.
 
 **Tool-side enforcement (per #11537 AC3/AC4):** issue assignment is mechanically gated via `manage_issue_assignees` MCP tool. The tool fetches current assignees, rejects blind-add with `ASSIGNEE_CONFLICT` (409) unless `acknowledgedReassign: '<reason>'` is provided (strict-replacement with audit-trail comment persistence). Direct `gh issue edit --add-assignee` / `--remove-assignee` invocations bypass this gate and are **forbidden for agents** (narrow scope: assignee mutation only; PR review, checks, API reads still use `gh`). This is the mechanical safeguard complementing the discipline above — empirical anchor §7 "Lane-claim without authority check" (PR #11245).
 
@@ -98,6 +98,24 @@ add_message({
 ```
 
 Pre-#11417 confabulation patterns like `to: "AGENT:openai/gpt"` silently stored as `to: null` (orphan messages invisible to the recipient). Post-#11417 the MailboxService rejects unrecognized formats with a clear error and attempts `AGENT:<family>/<model>` alias resolution against `AgentIdentity.modelFamily` only when exactly one match exists.
+
+**Worked example — operator-suppressed broadcast fallback (scoped exception, #11669):**
+
+```js
+// Direct-DM lane claim because the operator suppressed AGENT:* for a named peer
+// harness incident. Keep AGENT:* as canonical outside that explicit constraint.
+add_message({
+    to     : '@<reachable-peer>',
+    subject: '[lane-claim] taking #N <substrate-description>',
+    body   : 'Direct-DM lane claim under operator broadcast-suppression. ' +
+             'Suppressed channel/peer: <operator-named constraint>. ' +
+             'Lane scope: <files/surfaces touched>. ETA: <timeline>. ' +
+             'Source-of-authority check: <findings per §6.6>. ' +
+             'V-B-A validated: <evidence>.',
+    relatedTickets : ['#N'],
+    taggedConcepts : ['lane-claim', '<work-class>']
+});
+```
 
 ### 6.5.1 Lane-Override Protocol (`[lane-override]`)
 
