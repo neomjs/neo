@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+message TaskEnvelope {
+    string task_id = 1;
+    string state = 2;
+}

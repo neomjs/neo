@@ -1,0 +1,8 @@
+{
+    "name": "mini-neo-workspace",
+    "version": "1.0.0",
+    "type": "module",
+    "dependencies": {
+        "neo.mjs": "workspace:*"
+    }
+}
