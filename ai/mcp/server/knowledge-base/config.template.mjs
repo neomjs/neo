@@ -255,11 +255,14 @@ const defaultConfig = {
         }
     },
     /**
-     * @summary Default tenant identity for Neo's curated Knowledge Base corpus.
+     * @summary Default tenant identity for Neo's curated Knowledge Base corpus — the team
+     * namespace visible across every tenant.
      *
-     * Used by `VectorService.embed()` when no authenticated ingestion context is supplied.
-     * Cloud ingestion paths override this with server-derived tenant context; client-supplied
-     * chunk metadata is never authoritative.
+     * Write side: `VectorService.embed()` stamps this when no authenticated ingestion context
+     * is supplied. Read side (#11632): `QueryService.queryDocuments` and `DocumentService`
+     * include it in the `where: {tenantId: {$in: [<requester>, <this>]}}` filter so every tenant
+     * additionally retrieves the curated corpus. Cloud ingestion paths override the write-side
+     * value with server-derived tenant context; client-supplied chunk metadata is never authoritative.
      * @type {string}
      */
     defaultTenantId: 'neo-shared',
