@@ -3,11 +3,14 @@ import TextEmbeddingService      from '../memory-core/TextEmbeddingService.mjs';
 import mcConfig                  from '../../mcp/server/memory-core/config.mjs';
 import Base                      from '../../../src/core/Base.mjs';
 import ChromaManager             from './ChromaManager.mjs';
+import crypto                    from 'crypto';
 import fs                        from 'fs-extra';
 import logger                    from '../../mcp/server/knowledge-base/logger.mjs';
 import path                      from 'path';
 import readline                  from 'readline';
 import DestructiveOperationGuard from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+
+const TENANT_GUARDED_FIELDS = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity'];
 
 /**
  * @summary Manages vector database operations including embedding generation and storage.
@@ -94,6 +97,140 @@ class VectorService extends Base {
     }
 
     /**
+     * Returns the tenant-isolation config surface.
+     *
+     * Phase 0/1C runs inside the Knowledge Base server config directly, while the
+     * graduated contract documents the portable `aiConfig.knowledgeBase.*` shape for
+     * future shared AI config surfaces. Supporting both keeps this write boundary stable
+     * across the Phase 2/3 ingestion API work.
+     *
+     * @returns {Object} Tenant-isolation configuration object.
+     */
+    getTenantIsolationConfig() {
+        return aiConfig.knowledgeBase ?? aiConfig;
+    }
+
+    /**
+     * Resolves the authoritative tenant tuple used for KB write-side stamping.
+     *
+     * The tuple is server-derived: external ingestion callers pass already-authenticated
+     * context here, while Neo's default local sync falls back to the shared curated corpus.
+     *
+     * @param {Object} [tenantContext] Server-derived tenant context.
+     * @param {String} [tenantContext.tenantId] Tenant identifier.
+     * @param {String} [tenantContext.repoSlug] Repository slug within the tenant.
+     * @param {String} [tenantContext.visibility] Visibility scope for read-side filtering.
+     * @param {String} [tenantContext.originAgentIdentity] Authenticated agent identity.
+     * @returns {{tenantId: String, repoSlug: String, visibility: String, originAgentIdentity: String|undefined}}
+     */
+    resolveTenantStamp(tenantContext = {}) {
+        const config = this.getTenantIsolationConfig();
+        const stamp = {
+            tenantId  : tenantContext.tenantId ?? config.defaultTenantId ?? 'neo-shared',
+            repoSlug  : tenantContext.repoSlug ?? config.defaultRepoSlug ?? 'neo',
+            visibility: tenantContext.visibility ?? config.defaultVisibility ?? 'team'
+        };
+
+        if (tenantContext.originAgentIdentity) {
+            stamp.originAgentIdentity = tenantContext.originAgentIdentity;
+        }
+
+        return stamp;
+    }
+
+    /**
+     * Creates the tenant-aware storage ID for a parsed chunk.
+     *
+     * `chunk.hash` remains the content fingerprint, while the Chroma ID binds that
+     * fingerprint to the authoritative `{tenantId, repoSlug}` tuple so two tenants can
+     * ingest byte-identical files without colliding.
+     *
+     * @param {Object} chunk Parsed knowledge chunk.
+     * @param {Object} stamp Authoritative tenant stamp.
+     * @returns {String} SHA-256 tenant-aware chunk ID.
+     */
+    createTenantAwareChunkId(chunk, stamp) {
+        const identityString = JSON.stringify({
+            tenantId: stamp.tenantId,
+            repoSlug: stamp.repoSlug,
+            hash    : chunk.hash,
+            type    : chunk.type,
+            name    : chunk.name,
+            source  : chunk.source
+        });
+
+        return crypto.createHash('sha256').update(identityString).digest('hex');
+    }
+
+    /**
+     * Rejects or logs client-supplied identity fields that conflict with server context.
+     *
+     * @param {Object} chunk Parsed knowledge chunk.
+     * @param {Object} stamp Authoritative tenant stamp.
+     * @param {String} chunkId Tenant-aware chunk ID for diagnostics.
+     * @returns {void}
+     */
+    validateTenantStamp(chunk, stamp, chunkId) {
+        const config = this.getTenantIsolationConfig();
+        const mode   = config.spoofRejectionMode ?? 'overwrite';
+
+        for (const field of TENANT_GUARDED_FIELDS) {
+            const hasClientValue = Object.prototype.hasOwnProperty.call(chunk, field);
+            const serverValue    = stamp[field];
+            const clientValue    = chunk[field];
+
+            if (!hasClientValue || clientValue === serverValue) {
+                continue;
+            }
+
+            const warning = {
+                field,
+                chunkId,
+                clientValue,
+                serverValue: serverValue ?? null,
+                tenantId: stamp.tenantId,
+                repoSlug: stamp.repoSlug,
+                originAgentIdentity: stamp.originAgentIdentity ?? null
+            };
+
+            if (mode === 'reject') {
+                const error = new Error(`KB_TENANT_SPOOF_REJECTED: client-supplied ${field} does not match the server-derived value.`);
+                error.code  = 'KB_TENANT_SPOOF_REJECTED';
+                error.details = warning;
+                throw error;
+            }
+
+            logger.warn('[VectorService] Overwriting client-supplied tenant metadata field.', warning);
+        }
+    }
+
+    /**
+     * Applies authoritative tenant metadata before diffing or upserting.
+     *
+     * @param {Object} chunk Parsed knowledge chunk.
+     * @param {Object} stamp Authoritative tenant stamp.
+     * @returns {Object} Stamped chunk with tenant-aware `id` and `hash`.
+     */
+    applyTenantStamp(chunk, stamp) {
+        const chunkId = this.createTenantAwareChunkId(chunk, stamp);
+
+        this.validateTenantStamp(chunk, stamp, chunkId);
+
+        const stampedChunk = {
+            ...chunk,
+            ...stamp,
+            hash: chunkId,
+            id  : chunkId
+        };
+
+        if (!stamp.originAgentIdentity) {
+            delete stampedChunk.originAgentIdentity;
+        }
+
+        return stampedChunk;
+    }
+
+    /**
      * Reads a JSONL file, enriches data, generates embeddings, and updates ChromaDB.
      *
      * **Work-volume gate (#10572):** when invoked via MCP (`viaMcp: true`), refuses
@@ -107,11 +244,12 @@ class VectorService extends Base {
      * @param {Object}  [opts]                     Optional invocation context.
      * @param {Boolean} [opts.viaMcp=false]        True when called via MCP tool dispatch;
      *                                             enables the work-volume gate.
+     * @param {Object}  [opts.tenantContext]       Server-derived tenant stamp context.
      * @returns {Promise<object>} A promise that resolves to a success message, OR a
      *     `{error, code: 'KB_SYNC_VOLUME_EXCEEDED', ...}` shape when the MCP gate fires.
      * @see #10572
      */
-    async embed(knowledgeBasePath, {viaMcp = false} = {}) {
+    async embed(knowledgeBasePath, {viaMcp = false, tenantContext = {}} = {}) {
         logger.log('Starting knowledge base embedding...');
 
         if (!await fs.pathExists(knowledgeBasePath)) {
@@ -126,6 +264,12 @@ class VectorService extends Base {
             knowledgeBase.push(JSON.parse(line));
         }
         logger.log(`Loaded ${knowledgeBase.length} knowledge chunks from file.`);
+
+        const tenantStamp = this.resolveTenantStamp(tenantContext);
+
+        for (let i = 0; i < knowledgeBase.length; i++) {
+            knowledgeBase[i] = this.applyTenantStamp(knowledgeBase[i], tenantStamp);
+        }
 
         // Enrich with inheritance chains
         const classNameToDataMap = {};
@@ -188,11 +332,11 @@ class VectorService extends Base {
         const processedIds    = new Set();
 
         knowledgeBase.forEach(chunk => {
-            const chunkId = chunk.hash;
+            const chunkId = chunk.id;
             allIds.add(chunkId);
 
             if (!existingIds.has(chunkId) && !processedIds.has(chunkId)) {
-                chunksToProcess.push({ ...chunk, id: chunkId });
+                chunksToProcess.push(chunk);
                 processedIds.add(chunkId);
             }
         });
@@ -204,12 +348,12 @@ class VectorService extends Base {
         logger.log(`${chunksToProcess.length} chunks to add or update.`);
         logger.log(`${idsToDelete.length} chunks to delete.`);
 
-        if (idsToDelete.length > 0) {
-            await collection.delete({ ids: idsToDelete });
-            logger.log(`Deleted ${idsToDelete.length} stale chunks.`);
-        }
-
         if (chunksToProcess.length === 0) {
+            if (idsToDelete.length > 0) {
+                await collection.delete({ ids: idsToDelete });
+                logger.log(`Deleted ${idsToDelete.length} stale chunks.`);
+            }
+
             const message = 'No changes detected. Knowledge base is up to date.';
             logger.log(message);
             return {message};
@@ -240,6 +384,11 @@ class VectorService extends Base {
             };
             logger.warn(`[VectorService] ${errorPayload.error}: ${errorPayload.message}`);
             return errorPayload;
+        }
+
+        if (idsToDelete.length > 0) {
+            await collection.delete({ ids: idsToDelete });
+            logger.log(`Deleted ${idsToDelete.length} stale chunks.`);
         }
 
         logger.log(`Using TextEmbeddingService with provider: ${mcConfig.embeddingProvider}.`);

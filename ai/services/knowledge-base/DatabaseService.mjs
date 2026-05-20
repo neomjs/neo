@@ -69,14 +69,19 @@ class DatabaseService extends Base {
     }
 
     /**
-     * Creates a SHA-256 hash from a stable JSON string representation of a chunk's content.
-     * This hash is used to detect changes in content without having to compare the full text.
+     * Creates a SHA-256 hash from a stable JSON string representation of a chunk's content
+     * and source identity tuple. This hash is used to detect changes in content without
+     * having to compare the full text, while keeping byte-identical chunks from different
+     * tenants or repositories collision-safe.
      * @param {Object} chunk The chunk object.
      * @returns {String} The hexadecimal hash string.
      * @private
      */
     createContentHash(chunk) {
+        const kbConfig = aiConfig.knowledgeBase ?? aiConfig;
         const contentString = JSON.stringify({
+            tenantId   : chunk.tenantId ?? kbConfig.defaultTenantId ?? 'neo-shared',
+            repoSlug   : chunk.repoSlug ?? kbConfig.defaultRepoSlug ?? 'neo',
             type       : chunk.type,
             name       : chunk.name,
             description: chunk.description,
