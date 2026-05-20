@@ -390,7 +390,10 @@ class DatabaseService extends Base {
                 confirmation
             });
 
-            await ChromaManager.client.deleteCollection({name: collectionName});
+            // Route through ChromaManager.deleteCollection (#11652 substrate-level guard).
+            // The path-target guard above already passed `assertDestructiveTargetAllowed`;
+            // forward the operator confirmation so the canonical-name guard accepts it.
+            await ChromaManager.deleteCollection({name: collectionName, confirmation});
 
             ChromaManager._knowledgeBaseCollectionPromise = null;
             ChromaManager.knowledgeBaseCollection         = null;
