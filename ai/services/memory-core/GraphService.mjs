@@ -609,6 +609,41 @@ class GraphService extends Base {
     }
 
     /**
+     * @summary Retrieves a node's full record — including the `properties` blob that {@link GraphService#getNode} strips.
+     *
+     * `getNode` projects only the hoisted fields (`id` / `type` / `name` / `description` / `semanticVectorId` /
+     * `state`); a consumer that stores a structured payload under `properties` (e.g. the #11637
+     * `KnowledgeBaseTenantConfig` node) needs the raw `properties` object. This getter applies the identical
+     * #10011 RLS visibility re-check as `getNode` — a cross-tenant node returns `null` — so it is a
+     * properties-returning read, not an RLS bypass.
+     * @param {Object} data
+     * @param {String} data.id Node id.
+     * @returns {Object|null} `{id, type, properties}`, or `null` when the node is absent or RLS-invisible.
+     */
+    getNodeRecord({id}) {
+        // Guarantee lazy-loading from SQLite triggers if not cached (mirrors getNode).
+        this.db.getAdjacentNodes(id, 'both');
+
+        const node = this.db.nodes.get(id);
+        if (!node) {
+            return null;
+        }
+
+        // #10011 RLS: the node Store is a process-wide cache — re-check visibility at the
+        // return boundary so a cross-requester cache-warmed node is not leaked.
+        const rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
+        if (!isRlsVisible(node, rlsUserId)) {
+            return null;
+        }
+
+        return {
+            id        : node.isRecord ? node.get('id') : node.id,
+            type      : node.isRecord ? node.get('label') : node.label,
+            properties: (node.isRecord ? node.get('properties') : node.properties) || {}
+        };
+    }
+
+    /**
      * Dynamically computes the structural gravity (inbound/outbound edges) for a node natively via SQLite.
      * @param {String} id
      * @returns {Object} { in_degree, out_degree }

@@ -31,7 +31,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
 
     test.beforeAll(async () => {
         const aiConfig                = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        
+
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
             fs.mkdirSync(tmpDir, { recursive: true });
@@ -137,6 +137,61 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(() => GraphService.removeNodes(['ValidNode', undefined])).toThrow(/invalid node id/);
     });
 
+    test('getNodeRecord returns the properties blob that getNode strips (#11637)', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
+        await GraphService.upsertNode({
+            id        : 'kb-config:tenant-alpha',
+            type      : 'KnowledgeBaseTenantConfig',
+            properties: {useDefaultSources: true, customParsers: [{parserId: 'p1'}], version: 3}
+        });
+
+        const record = await GraphService.getNodeRecord({id: 'kb-config:tenant-alpha'});
+        expect(record.id).toBe('kb-config:tenant-alpha');
+        expect(record.type).toBe('KnowledgeBaseTenantConfig');
+        expect(record.properties.useDefaultSources).toBe(true);
+        expect(record.properties.customParsers).toEqual([{parserId: 'p1'}]);
+        expect(record.properties.version).toBe(3);
+
+        // getNode projects only hoisted fields — the structured payload is absent.
+        const projected = await GraphService.getNode({id: 'kb-config:tenant-alpha'});
+        expect(projected.properties).toBeUndefined();
+
+        // Absent id → null.
+        expect(await GraphService.getNodeRecord({id: 'kb-config:does-not-exist'})).toBe(null);
+    });
+
+    test('getNodeRecord applies the #10011 RLS visibility re-check (#11637)', async () => {
+        test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
+        const RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+
+        let mockIdentity    = '@tenant-alpha';
+        const originalGetId = RequestContextService.getAgentIdentityNodeId;
+        RequestContextService.getAgentIdentityNodeId = () => mockIdentity;
+
+        try {
+            // Written as tenant-alpha → upsertNode auto-stamps properties.userId.
+            await GraphService.upsertNode({
+                id        : 'kb-config:tenant-alpha',
+                type      : 'KnowledgeBaseTenantConfig',
+                properties: {useDefaultSources: false, version: 1}
+            });
+
+            // Force a disk reload so the RLS re-check runs against a cache-warmed node.
+            GraphService.db.nodes.clearSilent();
+
+            // Owner reads its own record.
+            mockIdentity = '@tenant-alpha';
+            const ownRecord = await GraphService.getNodeRecord({id: 'kb-config:tenant-alpha'});
+            expect(ownRecord?.properties.version).toBe(1);
+
+            // Cross-tenant read → null, not a leak.
+            mockIdentity = '@tenant-beta';
+            expect(await GraphService.getNodeRecord({id: 'kb-config:tenant-alpha'})).toBe(null);
+        } finally {
+            RequestContextService.getAgentIdentityNodeId = originalGetId;
+        }
+    });
+
     test('preBriefSession should hydrate episodic context through getNeighbors semanticVectorId', async () => {
         await GraphService.upsertNode({id: 'EpicA', name: 'Roadmap Planner'});
         await GraphService.upsertNode({id: 'MemoryA', name: 'Session Summary', semanticVectorId: 'summary-vector-1'});
@@ -181,7 +236,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
 
         const gravityA = await GraphService.getNodeGravity('NodeA');
         const gravityB = await GraphService.getNodeGravity('NodeB');
-        
+
         // NodeA out:2 (NodeB, NodeC), in:1 (NodeD)
         expect(gravityA.out_degree).toBe(2);
         expect(gravityA.in_degree).toBe(1);
@@ -266,7 +321,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         const rows = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').all('@test-identity');
         expect(rows.length).toBe(1);
         const data = JSON.parse(rows[0].data);
-        
+
         expect(data.label).toBe('AGENT'); // Type is updated
         expect(data.properties.name).toBe('Test Identity'); // Original properties preserved
         expect(data.properties.githubLogin).toBe('test-user');
@@ -469,7 +524,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         // but appears in SQLite exactly when the cache-warm mechanism is triggered.
 
         await GraphService.upsertNode({ id: 'AnchorNode', type: 'AGENT', name: 'Anchor', properties: {} });
-        
+
         expect(GraphService.db.nodes.has('GhostNode')).toBe(false);
 
         // Spy on getAdjacentNodes to simulate another process writing the node during the cache-warm retry
@@ -798,7 +853,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
             await GraphService.db.getAdjacentNodes('shared-node-1', 1);
             let nodeLoadedB = GraphService.db.nodes.get('shared-node-1');
             expect(nodeLoadedB).toBeTruthy();
-            
+
             // Wait, edges might be private if not explicitly shared, but RLS clause applies to edges too.
             // Edge between shared and private might not be loaded if private is not accessible.
             // Since edge has `user_id = @identity-a`, Identity B won't see it unless the edge is shared.
