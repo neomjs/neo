@@ -34,7 +34,7 @@ import {withHeavyMaintenanceLease}  from '../../ai/daemons/services/HeavyMainten
  * units; the CLI auto-runs only when invoked directly (the `import.meta` main guard), so the
  * module can be imported substrate-free by unit tests.
  *
- * Usage: `npm run ai:ingest-tenant <tenantId> (--from-file <path.jsonl> | --from-stdin) [--batch-size <n>]`
+ * Usage: `npm run ai:ingest-tenant -- <tenantId> (--from-file <path.jsonl> | --from-stdin) [--batch-size <n>]`
  *
  * @see https://github.com/neomjs/neo/issues/11635
  * @see https://github.com/neomjs/neo/issues/11624
@@ -74,7 +74,7 @@ function parseArgs(argv) {
  * @returns {void}
  */
 function printUsage() {
-    console.error('Usage: npm run ai:ingest-tenant <tenantId> (--from-file <path.jsonl> | --from-stdin) [--batch-size <n>]');
+    console.error('Usage: npm run ai:ingest-tenant -- <tenantId> (--from-file <path.jsonl> | --from-stdin) [--batch-size <n>]');
 }
 
 /**
