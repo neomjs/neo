@@ -58,10 +58,13 @@ class DiscussionSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        const targetPaths = [
-            path.resolve(aiConfig.neoRootDir, 'resources/content/discussions'),
-            path.resolve(aiConfig.neoRootDir, 'resources/content/archive/discussions')
+        // Phase 0/1B-β (#11660): per-source path override (array of paths). Each entry is
+        // resolved against `neoRootDir`. Legacy fallback preserves byte-equivalence.
+        const discussionPaths = aiConfig.sourcePaths?.DiscussionSource ?? [
+            'resources/content/discussions',
+            'resources/content/archive/discussions'
         ];
+        const targetPaths = discussionPaths.map(p => path.resolve(aiConfig.neoRootDir, p));
 
         const indexMap = await loadIndexMap(aiConfig.neoRootDir, 'discussions');
         const contentRoot = path.resolve(aiConfig.neoRootDir, 'resources/content');
