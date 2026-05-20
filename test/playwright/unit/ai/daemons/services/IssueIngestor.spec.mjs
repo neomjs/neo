@@ -20,34 +20,65 @@ const repoRoot   = path.resolve(__dirname, '../../../../../../..');
 
 test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
     let IssueIngestor;
+    let StorageRouter;
     let _originalExistsSync;
     let _originalReaddir;
     let _originalReadFile;
+    let _originalGetGraphCollection;
     let GraphService;
     let _originalGraphDb;
+    let graphNodes;
 
     // We will use a mock index.json and mock markdown files
     const mockIndexMap = [
         { type: 'issues', id: 2001, path: 'issues/issue-2001.md' },
-        { type: 'issues', id: 2002, path: 'archive/issues/v1.0.0/issue-2002.md' }
+        { type: 'issues', id: 2002, path: 'archive/issues/v1.0.0/issue-2002.md' },
+        { type: 'discussions', id: 3001, path: 'discussions/discussion-3001.md' },
+        { type: 'discussions', id: 3002, path: 'discussions/discussion-3002.md' }
     ];
 
     const mockFiles = {
         'resources/content/issues/issue-2001.md': '---\nstate: OPEN\n---\n# Active Issue',
         'resources/content/archive/issues/v1.0.0/issue-2002.md': '---\nstate: CLOSED\n---\n# Archive Issue',
+        'resources/content/discussions/discussion-3001.md': [
+            '---',
+            'number: 3001',
+            'title: Open Discussion',
+            'category: Ideas',
+            "createdAt: '2026-05-20T10:00:00Z'",
+            "updatedAt: '2026-05-20T11:00:00Z'",
+            'closed: false',
+            '---',
+            '# Open Discussion Body'
+        ].join('\n'),
+        'resources/content/discussions/discussion-3002.md': [
+            '---',
+            'number: 3002',
+            'title: Closed Discussion',
+            'category: Q&A',
+            "createdAt: '2026-05-19T10:00:00Z'",
+            "updatedAt: '2026-05-20T11:00:00Z'",
+            'closed: true',
+            "closedAt: '2026-05-20T12:00:00Z'",
+            '---',
+            '# Closed Discussion Body'
+        ].join('\n'),
         'resources/content/_index.json': JSON.stringify(mockIndexMap)
     };
 
     test.beforeAll(async () => {
         IssueIngestor = (await import('../../../../../../ai/daemons/services/IssueIngestor.mjs')).default;
-        GraphService = (await import('../../../../../../ai/services.mjs')).Memory_GraphService;
+        const services = await import('../../../../../../ai/services.mjs');
+        GraphService   = services.Memory_GraphService;
+        StorageRouter  = services.Memory_StorageRouter;
 
         _originalGraphDb = GraphService.db;
+        _originalGetGraphCollection = StorageRouter.getGraphCollection;
         GraphService.db = {
             nodes: { get: () => null },
             edges: { items: [] },
             getAdjacentNodes: () => {},
-            addNode: () => {},
+            addNode: node => graphNodes.push(node),
             updateNode: () => {}
         };
 
@@ -72,6 +103,12 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
             if (typeof dirPath === 'string' && dirPath.includes('resources/content/archive/issues')) {
                 return ['v1.0.0/issue-2002.md'];
             }
+            if (typeof dirPath === 'string' && dirPath.includes('resources/content/archive/discussions')) {
+                return [];
+            }
+            if (typeof dirPath === 'string' && dirPath.includes('resources/content/discussions')) {
+                return ['discussion-3001.md', 'discussion-3002.md'];
+            }
             if (typeof dirPath === 'string' && dirPath.includes('resources/content/issues')) {
                 return ['issue-2001.md'];
             }
@@ -95,18 +132,23 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
         };
     });
 
+    test.beforeEach(() => {
+        graphNodes = [];
+    });
+
     test.afterAll(() => {
         fs.existsSync = _originalExistsSync;
         fs.promises.readdir = _originalReaddir;
         fs.promises.readFile = _originalReadFile;
+        if (StorageRouter) {
+            StorageRouter.getGraphCollection = _originalGetGraphCollection;
+        }
         if (GraphService) {
             GraphService.db = _originalGraphDb;
         }
     });
 
     test('ingestIssueStates() maps issues correctly through _index.json', async () => {
-        const { Memory_StorageRouter: StorageRouter } = await import('../../../../../../ai/services.mjs');
-        const _originalGetGraphCollection = StorageRouter.getGraphCollection;
         StorageRouter.getGraphCollection = async () => ({
             upsert: async () => {},
             get: async () => ({ ids: [], metadatas: [], documents: [] }),
@@ -124,5 +166,45 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
         } finally {
             StorageRouter.getGraphCollection = _originalGetGraphCollection;
         }
+    });
+
+    test('ingestDiscussionStates() maps closed frontmatter into graph and vector lifecycle metadata', async () => {
+        const upserts = [];
+
+        StorageRouter.getGraphCollection = async () => ({
+            upsert: async payload => upserts.push(payload),
+            get: async () => ({ ids: [], metadatas: [], documents: [] })
+        });
+
+        try {
+            await IssueIngestor.ingestDiscussionStates();
+        } finally {
+            StorageRouter.getGraphCollection = _originalGetGraphCollection;
+        }
+
+        const openNode   = graphNodes.find(node => node.id === 'discussion-3001');
+        const closedNode = graphNodes.find(node => node.id === 'discussion-3002');
+
+        expect(openNode.properties).toMatchObject({
+            state   : 'OPEN',
+            closed  : false,
+            closedAt: null,
+            category: 'Ideas'
+        });
+        expect(closedNode.properties).toMatchObject({
+            state   : 'CLOSED',
+            closed  : true,
+            closedAt: '2026-05-20T12:00:00Z',
+            category: 'Q&A'
+        });
+
+        const closedUpsert = upserts.find(payload => payload.ids[0] === 'discussion-3002');
+        expect(closedUpsert.metadatas[0]).toMatchObject({
+            type    : 'DISCUSSION',
+            state   : 'CLOSED',
+            closed  : true,
+            closedAt: '2026-05-20T12:00:00Z',
+            category: 'Q&A'
+        });
     });
 });
