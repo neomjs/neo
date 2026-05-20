@@ -31,6 +31,8 @@ import * as core      from '../../../../../src/core/_export.mjs';
  * provider-unavailable state from missing DreamService / Golden Path output.
  */
 test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
+    test.describe.configure({mode: 'serial'});
+
     let aiConfig;
     let logger;
     let runSandmanModule;
@@ -119,5 +121,27 @@ test.describe('runSandman.mjs provider readiness diagnostics (#10587)', () => {
         expect(logLines).toContain('mlx-community/test-model');
         expect(logLines).toContain('Start the configured OpenAI-compatible / MLX provider');
         expect(logLines).not.toContain('must-not-be-logged');
+    });
+
+    test('runRemPipeline propagates REM failures without printing success (#11698)', async () => {
+        const logs = [];
+
+        await expect(runSandmanModule.runRemPipeline({
+            dreamService: {
+                processUndigestedSessions: async () => {
+                    throw new Error('simulated REM failure');
+                }
+            },
+            goldenPathSynthesizer: {
+                synthesizeGoldenPath: async () => {
+                    throw new Error('Golden Path must not run after REM failure');
+                }
+            },
+            output: {
+                log: message => logs.push(message)
+            }
+        })).rejects.toThrow('simulated REM failure');
+
+        expect(logs.some(message => message.includes('Sandman cycle complete'))).toBe(false);
     });
 });

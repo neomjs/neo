@@ -778,6 +778,42 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         }
     });
 
+    test('processUndigestedSessions rethrows garbage-collection failures (#11698)', async () => {
+        const aiConfig = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+
+        const orig = {
+            provider      : aiConfig.modelProvider,
+            findUndigested: DreamService.findUndigestedSessions,
+            runGarbageCol : DreamService.runGarbageCollection,
+            loggerError   : logger.error,
+            isProcessing  : DreamService.isProcessing
+        };
+
+        const errors = [];
+
+        try {
+            aiConfig.modelProvider    = 'mock-provider';
+            DreamService.isProcessing = false;
+
+            DreamService.findUndigestedSessions = async () => [];
+            DreamService.runGarbageCollection   = async () => {
+                throw new Error('simulated apoptosis failure');
+            };
+            logger.error = (...args) => { errors.push(args); };
+
+            await expect(DreamService.processUndigestedSessions()).rejects.toThrow('simulated apoptosis failure');
+
+            expect(DreamService.isProcessing).toBe(false);
+            expect(errors.some(args => args[0] === '[DreamService] Failed to process undigested sessions:')).toBe(true);
+        } finally {
+            aiConfig.modelProvider              = orig.provider;
+            DreamService.findUndigestedSessions = orig.findUndigested;
+            DreamService.runGarbageCollection   = orig.runGarbageCol;
+            logger.error                        = orig.loggerError;
+            DreamService.isProcessing           = orig.isProcessing;
+        }
+    });
+
     test('synthesizeGoldenPath should mathematically select and inject Golden Path while rejecting BLOCKS', async () => {
         // Mock StorageRouter to return deterministic ChromaDB metric formats
         const originalGetSummary = StorageRouter.getSummaryCollection;

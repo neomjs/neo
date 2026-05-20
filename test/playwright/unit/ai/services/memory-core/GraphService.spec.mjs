@@ -132,6 +132,11 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(task2.weight).toBe(0.8);
     });
 
+    test('removeNodes rejects invalid node ids before Database.removeNode null path (#11698)', async () => {
+        expect(() => GraphService.removeNodes([null])).toThrow(/invalid node id/);
+        expect(() => GraphService.removeNodes(['ValidNode', undefined])).toThrow(/invalid node id/);
+    });
+
     test('preBriefSession should hydrate episodic context through getNeighbors semanticVectorId', async () => {
         await GraphService.upsertNode({id: 'EpicA', name: 'Roadmap Planner'});
         await GraphService.upsertNode({id: 'MemoryA', name: 'Session Summary', semanticVectorId: 'summary-vector-1'});
