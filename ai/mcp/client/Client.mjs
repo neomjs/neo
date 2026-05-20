@@ -129,7 +129,9 @@ class Client extends Base {
 
     /**
      * @summary Creates the SDK transport for the configured server connection.
-     * Creates the SDK transport for the configured server connection.
+     *
+     * Local servers use stdio process spawning, while remote endpoints use the SDK's URL-based
+     * SSE or Streamable HTTP transports with the configured transport options.
      * @returns {StdioClientTransport|SSEClientTransport|StreamableHTTPClientTransport}
      * @throws {Error} When the configured transport is unknown or incomplete.
      */
@@ -162,13 +164,16 @@ class Client extends Base {
 
     /**
      * @summary Creates a URL object for remote MCP SDK transports.
-     * Creates a URL object for remote MCP SDK transports.
+     *
+     * Accepts a configured string or pre-built URL instance and keeps the fail-fast error tied
+     * to the normalized transport type that requested it.
      * @param {String} transportType The normalized transport type.
      * @returns {URL}
      * @throws {Error} When no remote URL is configured.
      */
     createTransportUrl(transportType) {
-        const url = this.url;
+        const me  = this,
+              url = me.url;
 
         if (!url) {
             throw new Error(`MCP Client: ${transportType} transport requires a remote url in ai/mcp/client/config.mjs`);
@@ -322,7 +327,9 @@ class Client extends Base {
 
     /**
      * @summary Normalizes supported transport aliases to canonical config values.
-     * Normalizes supported transport aliases to canonical config values.
+     *
+     * Preserves unknown values so `createTransport()` can produce the single authoritative
+     * unsupported-transport error instead of silently coercing configuration typos.
      * @param {String} transportType The configured transport type or alias.
      * @returns {String}
      */

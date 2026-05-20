@@ -133,4 +133,18 @@ test.describe('Neo.ai.mcp.client.Client transport config', () => {
 
         client.destroy();
     });
+
+    test('fails fast when the configured transport type is unsupported', () => {
+        const serverName = addServerConfig({
+            transportType: 'websocket',
+            url          : 'http://127.0.0.1:13093/mcp'
+        });
+        const client = Neo.create(TransportConfigClient, {serverName});
+
+        client.loadServerConfig(serverName);
+
+        expect(() => client.createTransport()).toThrow(/Unsupported transport type 'websocket'/);
+
+        client.destroy();
+    });
 });
