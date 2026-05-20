@@ -420,10 +420,12 @@ test.describe('KnowledgeBaseIngestionService.tenantConfig (#11637)', () => {
         graphStub = createGraphStub();
         originals = {
             graphService         : Service.graphService,
+            readKbConfigBootstrap: Service.readKbConfigBootstrap,
             requestContextService: Service.requestContextService
         };
 
         Service.graphService          = graphStub;
+        Service.readKbConfigBootstrap = () => null;
         Service.requestContextService = {
             getAgentIdentityNodeId: () => '@tenant-a',
             getUserId             : () => 'tenant-a'
@@ -478,5 +480,25 @@ test.describe('KnowledgeBaseIngestionService.tenantConfig (#11637)', () => {
         expect(resolved.source).toBe('default');
         expect(resolved.version).toBe(0);
         expect(typeof resolved.useDefaultSources).toBe('boolean');
+    });
+
+    test('getTenantConfig resolves the kb-config.yaml bootstrap tier when no graph node exists', async () => {
+        Service.readKbConfigBootstrap = () => ({
+            tenants: {
+                'tenant-a': {useDefaultSources: false, customSources: [{sourceName: 'BootstrapSource'}]}
+            }
+        });
+
+        const resolved = await Service.getTenantConfig({tenantId: 'tenant-a'});
+        expect(resolved).toMatchObject({
+            tenantId         : 'tenant-a',
+            source           : 'yaml',
+            version          : 0,
+            useDefaultSources: false,
+            customSources    : [{sourceName: 'BootstrapSource'}]
+        });
+
+        // A tenant absent from the bootstrap still falls through to the default tier.
+        expect((await Service.getTenantConfig({tenantId: 'tenant-z'})).source).toBe('default');
     });
 });

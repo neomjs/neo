@@ -12,6 +12,7 @@ import crypto                from 'crypto';
 import fs                    from 'fs-extra';
 import os                    from 'os';
 import path                  from 'path';
+import yaml                  from 'js-yaml';
 import {fileURLToPath}       from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -594,9 +595,8 @@ class KnowledgeBaseIngestionService extends Base {
     /**
      * @summary Resolves a tenant's Knowledge Base ingestion config (#11637 Phase 2E).
      *
-     * Tiered resolution: the `KnowledgeBaseTenantConfig` graph node (`kb-config:<tenantId>`) →
-     * the default source/parser registry from `aiConfig`. The intermediate `kb-config.yaml`
-     * deployment-bootstrap tier lands in a subsequent commit; this resolves graph → default.
+     * Three-tier resolution: the `KnowledgeBaseTenantConfig` graph node (`kb-config:<tenantId>`) →
+     * the `kb-config.yaml` deployment bootstrap → the default source/parser registry from `aiConfig`.
      * @param {Object}  data
      * @param {String} [data.tenantId] Tenant id; normalized, defaults to `aiConfig.defaultTenantId`.
      * @returns {Promise<{tenantId: String, source: String, version: Number, useDefaultSources: Boolean, useDefaultParsers: Boolean, customSources: Array, customParsers: Array, sourcePaths: Object}>}
@@ -622,7 +622,23 @@ class KnowledgeBaseIngestionService extends Base {
             };
         }
 
-        // Tier — default registry. The `kb-config.yaml` bootstrap tier follows in a subsequent commit.
+        // Tier 2 — kb-config.yaml deployment bootstrap (first-deploy convenience; the graph node is canonical).
+        const bootstrap = this.readKbConfigBootstrap()?.tenants?.[resolvedTenant];
+
+        if (bootstrap) {
+            return {
+                tenantId         : resolvedTenant,
+                source           : 'yaml',
+                version          : 0,
+                useDefaultSources: bootstrap.useDefaultSources !== false,
+                useDefaultParsers: bootstrap.useDefaultParsers !== false,
+                customSources    : bootstrap.customSources || [],
+                customParsers    : bootstrap.customParsers || [],
+                sourcePaths      : bootstrap.sourcePaths    || {}
+            };
+        }
+
+        // Tier 3 — default source/parser registry.
         return {
             tenantId         : resolvedTenant,
             source           : 'default',
@@ -633,6 +649,30 @@ class KnowledgeBaseIngestionService extends Base {
             customParsers    : aiConfig.customParsers || [],
             sourcePaths      : aiConfig.sourcePaths    || {}
         };
+    }
+
+    /**
+     * @summary Reads the optional `kb-config.yaml` deployment bootstrap, fail-soft (#11637 Phase 2E).
+     *
+     * The bootstrap is a deployment-root first-deploy convenience (`{tenants: {<tenantId>: {...}}}`);
+     * the `KnowledgeBaseTenantConfig` graph node remains the canonical store. A missing or malformed
+     * file resolves to `null` so `getTenantConfig` falls through to the default registry rather than
+     * throwing.
+     * @returns {Object|null} The parsed bootstrap document, or `null` when absent / unreadable.
+     * @protected
+     */
+    readKbConfigBootstrap() {
+        try {
+            const bootstrapPath = path.join(aiConfig.neoRootDir, 'kb-config.yaml');
+
+            if (!fs.existsSync(bootstrapPath)) {
+                return null;
+            }
+
+            return yaml.load(fs.readFileSync(bootstrapPath, 'utf8')) || null;
+        } catch {
+            return null;
+        }
     }
 
     /**
