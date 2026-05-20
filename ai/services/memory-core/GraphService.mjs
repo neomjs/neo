@@ -7,20 +7,23 @@ import SQLite       from '../../../ai/graph/storage/SQLite.mjs';
 import { IDENTITIES } from '../../../ai/graph/identityRoots.mjs';
 
 /**
- * Row-level-security visibility predicate for an in-memory graph node, mirroring the SQL
- * RLS clause used by `searchNodes` / `SQLite.loadNodeVicinitySync`. Applied at the public
- * read return boundary (#10011): the node Store is a process-wide cache, so a node warmed
- * by one requester's RLS-filtered lazy-load is otherwise readable by any other requester.
- * @param {Object|null} node A graph node (Record or plain object) from the in-memory Store.
+ * Row-level-security visibility predicate for an in-memory graph **node or edge**, mirroring
+ * the SQL RLS clause that `SQLite.loadNodeVicinitySync` / `searchNodes` apply to BOTH the
+ * `Nodes` and `Edges` tables. Applied at the public read return boundary (#10011): the
+ * node/edge Stores are a process-wide cache, so an entity warmed by one requester's
+ * RLS-filtered lazy-load is otherwise readable by any other requester straight from the
+ * cache. Edges carry their own `properties.userId` (server-stamped), so a private edge
+ * between two otherwise-visible nodes is a distinct leak surface from the nodes themselves.
+ * @param {Object|null} entity A graph node or edge (Record or plain object) from an in-memory Store.
  * @param {String|null} requesterUserId The acting agent-identity node id, or null.
- * @returns {Boolean} true when the node is visible to the requester.
+ * @returns {Boolean} true when the entity is visible to the requester.
  */
-function isNodeRlsVisible(node, requesterUserId) {
-    if (!node) {
+function isRlsVisible(entity, requesterUserId) {
+    if (!entity) {
         return false;
     }
 
-    const properties  = (node.isRecord ? node.get('properties') : node.properties) || {},
+    const properties  = (entity.isRecord ? entity.get('properties') : entity.properties) || {},
           ownerUserId = properties.userId;
 
     return ownerUserId == null              ||
@@ -572,7 +575,7 @@ class GraphService extends Base {
         // #10011 RLS: the node Store is a process-wide cache — re-check visibility at the
         // return boundary so a cross-requester cache-warmed node is not leaked.
         let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
-        if (!isNodeRlsVisible(node, rlsUserId)) {
+        if (!isRlsVisible(node, rlsUserId)) {
             return null;
         }
 
@@ -625,11 +628,11 @@ class GraphService extends Base {
         this.db.getAdjacentNodes(id, 'both');
 
         // #10011 RLS: resolve the requester once; do not expose the vicinity of a node the
-        // requester cannot see, and filter each neighbor by node visibility.
+        // requester cannot see, and filter each neighbor by node + edge visibility.
         let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null,
             rootNode  = this.db.nodes.get(id);
 
-        if (!rootNode || !isNodeRlsVisible(rootNode, rlsUserId)) {
+        if (!rootNode || !isRlsVisible(rootNode, rlsUserId)) {
             return {neighbors: []};
         }
 
@@ -640,7 +643,9 @@ class GraphService extends Base {
         [...inbound, ...outbound].forEach(e => {
             let adjacentId = e.source === id ? e.target : e.source;
             let node       = this.db.nodes.get(adjacentId);
-            if (node && isNodeRlsVisible(node, rlsUserId)) {
+            // A neighbor is exposed only when BOTH the adjacent node and the connecting
+            // edge are RLS-visible — a private edge between visible nodes still leaks.
+            if (node && isRlsVisible(node, rlsUserId) && isRlsVisible(e, rlsUserId)) {
                 results.push({
                     id          : node.id,
                     type        : node.label,
@@ -739,8 +744,8 @@ class GraphService extends Base {
                 let adjacentId = e.source === 'frontier' ? e.target : e.source;
                 let node       = this.db.nodes.get(adjacentId);
 
-                // Actively filter out CLOSED structural paths + #10011 RLS-invisible nodes
-                if (node && isNodeRlsVisible(node, rlsUserId) && node.properties?.state !== 'CLOSED') {
+                // Actively filter out CLOSED structural paths + #10011 RLS-invisible nodes/edges
+                if (node && isRlsVisible(node, rlsUserId) && isRlsVisible(e, rlsUserId) && node.properties?.state !== 'CLOSED') {
                     topology.strategicNeighbors.push({
                         id              : node.id,
                         type            : node.label,
@@ -778,7 +783,7 @@ class GraphService extends Base {
         // #10011 RLS: the node Store is a process-wide cache — re-check the cache-resident
         // root and every traversed node at the return boundary.
         let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
-        if (!isNodeRlsVisible(rootNode, rlsUserId)) {
+        if (!isRlsVisible(rootNode, rlsUserId)) {
             logger.info(`[GraphService] Node ${nodeId} not visible to the active requester.`);
             return null;
         }
@@ -814,9 +819,9 @@ class GraphService extends Base {
                     let adjacentId = e.source === id ? e.target : e.source;
                     let n          = this.db.nodes.get(adjacentId);
 
-                    // #10011 RLS: skip an edge whose far node is absent or not visible to
-                    // the requester — do not leak the node, the edge, or traverse through it.
-                    if (!n || !isNodeRlsVisible(n, rlsUserId)) {
+                    // #10011 RLS: skip an edge that is itself not visible, or whose far node
+                    // is absent or not visible — do not leak the node, edge, or traverse it.
+                    if (!n || !isRlsVisible(n, rlsUserId) || !isRlsVisible(e, rlsUserId)) {
                         return;
                     }
 

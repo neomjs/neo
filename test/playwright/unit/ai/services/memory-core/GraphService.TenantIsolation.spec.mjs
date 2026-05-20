@@ -21,12 +21,12 @@ import * as core      from '../../../../../../src/core/_export.mjs';
  * #10011 — graph RLS read-side return boundary.
  *
  * `getNode` / `getNeighbors` / `queryNodeTopology` / `getContextFrontier` return graph nodes
- * read from `GraphService.db.nodes` — a process-wide in-memory Store. The SQL RLS clause in
- * `searchNodes` / `SQLite.loadNodeVicinitySync` filters only the lazy-load path; a node warmed
- * into the Store by one requester's load is otherwise readable by any other requester straight
- * from the cache. These specs stub `GraphService.db` with a pre-warmed fake Store (the
- * cache-warmed case) and assert the `isNodeRlsVisible` return-boundary predicate filters
- * cross-tenant nodes.
+ * AND edges read from `GraphService.db` — process-wide in-memory Stores. The SQL RLS clause in
+ * `searchNodes` / `SQLite.loadNodeVicinitySync` filters only the lazy-load path (and applies to
+ * BOTH the Nodes and Edges tables); a node or edge warmed into the Store by one requester's
+ * load is otherwise readable by any other requester straight from the cache. These specs stub
+ * `GraphService.db` with a pre-warmed fake Store (the cache-warmed case) and assert the
+ * `isRlsVisible` return-boundary predicate filters cross-tenant nodes and edges.
  *
  * RLS-visible to requester R iff: owner is null  OR  owner === R  OR  sharedEntity  OR
  * visibility === 'team' — mirroring the SQL clause.
@@ -39,8 +39,8 @@ function node(id, properties = {}) {
     return {id, label: properties.type || 'TestNode', properties};
 }
 
-function edge(id, source, target, weight = 1.0) {
-    return {id, source, target, type: 'REL', properties: {weight}};
+function edge(id, source, target, weight = 1.0, props = {}) {
+    return {id, source, target, type: 'REL', properties: {weight, ...props}};
 }
 
 /**
@@ -201,5 +201,49 @@ test.describe('GraphService — RLS read-side return boundary (#10011)', () => {
         expect(GraphService.getNode({id: 'n-private-a'})).toBeNull();
         expect(GraphService.getNode({id: 'n-team'})?.id).toBe('n-team');
         expect(GraphService.getNode({id: 'n-system'})?.id).toBe('n-system');
+    });
+
+    test('getNeighbors hides a neighbor reached only by a cross-tenant private edge', () => {
+        GraphService.db = makeFakeDb([
+            node('root-b', {userId: '@tenant-b'}),
+            node('n-team', {visibility: 'team'})
+        ], [
+            // n-team is team-visible, but the only edge to it is tenant A's private edge.
+            edge('e-private', 'root-b', 'n-team', 1.0, {userId: '@tenant-a'})
+        ]);
+
+        requester.value = '@tenant-b';
+
+        expect(GraphService.getNeighbors({id: 'root-b'}).neighbors).toEqual([]);
+    });
+
+    test('queryNodeTopology omits a cross-tenant private edge between visible nodes', () => {
+        GraphService.db = makeFakeDb([
+            node('root-b', {userId: '@tenant-b'}),
+            node('n-team', {visibility: 'team'})
+        ], [
+            edge('e-private', 'root-b', 'n-team', 1.0, {userId: '@tenant-a'})
+        ]);
+
+        requester.value = '@tenant-b';
+
+        const topology = GraphService.queryNodeTopology({nodeId: 'root-b', maxDepth: 2});
+
+        // The private edge is not surfaced, and n-team is not reached through it.
+        expect(topology.edges).toEqual([]);
+        expect(topology.nodes.map(n => n.id)).not.toContain('n-team');
+    });
+
+    test('getContextFrontier hides a strategic neighbor reached by a private edge', () => {
+        GraphService.db = makeFakeDb([
+            node('frontier'),
+            node('n-team', {visibility: 'team'})
+        ], [
+            edge('e-private', 'frontier', 'n-team', 1.0, {userId: '@tenant-a'})
+        ]);
+
+        requester.value = '@tenant-b';
+
+        expect(GraphService.getContextFrontier({depth: 2}).strategicNeighbors).toEqual([]);
     });
 });
