@@ -175,7 +175,12 @@ export async function runBackup({
     subsystems.mailbox = await copyJsonlSource(sentToCullSourceFile, layout.mailbox, logger);
 
     logger.log('[7/7] Applying retention sweep...');
-    await cleanOldBackups(DEFAULT_BACKUP_ROOT, logger);
+    // Phase 4 (#11663): operator-configurable retention via `mcConfig.backupRetention`.
+    // Falls through to the legacy hardcoded defaults (`K=3, N_DAYS=30`) when the config
+    // key is absent — pre-#11663 deployments retain identical behavior without operator
+    // action. The atomic-bundle architecture is preserved (per-substrate retention
+    // asymmetry deferred to a follow-up post-Phase-2 per #11628 framing).
+    await cleanOldBackups(DEFAULT_BACKUP_ROOT, logger, mcConfig.backupRetention);
 
     logger.log('Verifying bundle integrity (row-count parity)...');
     const integrity = await verifyBundleIntegrity(layout, subsystems);
@@ -329,27 +334,40 @@ async function buildVersionDescriptor(projectRoot, logger) {
 
 /**
  * Applies retention policy to the backup root.
- * Keeps the newest K=3 bundles unconditionally.
- * Deletes older bundles if they are older than N=30 days.
+ *
+ * Two-axis policy (per Phase 4 #11663):
+ *   - `keepMinimum` — newest N bundles retained unconditionally regardless of age
+ *   - `maxDays`     — bundles older than this many days are eligible for deletion
+ *
+ * A bundle survives if EITHER axis protects it (i.e., it's in the keepMinimum-newest
+ * window OR younger than maxDays). Both defaults match the pre-#11663 hardcoded
+ * constants (`K=3, N_DAYS=30`) so omitting the `retention` argument preserves the
+ * legacy behavior exactly.
+ *
  * @param {String} backupRoot
  * @param {Object} logger
+ * @param {Object} [retention]
+ * @param {Number} [retention.keepMinimum=3] Newest N bundles to retain unconditionally.
+ * @param {Number} [retention.maxDays=30]    Bundles older than this in days are eligible for deletion.
  */
-async function cleanOldBackups(backupRoot, logger) {
+export async function cleanOldBackups(backupRoot, logger, retention = {}) {
     if (!await fs.pathExists(backupRoot)) return;
 
+    const {keepMinimum = 3, maxDays = 30} = retention;
+
     const entries = await fs.readdir(backupRoot, { withFileTypes: true });
-    
+
     const backups = [];
     for (const entry of entries) {
         if (!entry.isDirectory() || !entry.name.startsWith('backup-')) continue;
-        
+
         const tsMatch = entry.name.match(/^backup-(.+)$/);
         if (!tsMatch) continue;
-        
+
         const rawTs = tsMatch[1];
         const isoTime = rawTs.replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3');
         const date = new Date(isoTime);
-        
+
         if (!isNaN(date.getTime())) {
             backups.push({
                 name: entry.name,
@@ -362,13 +380,13 @@ async function cleanOldBackups(backupRoot, logger) {
 
     backups.sort((a, b) => b.time - a.time);
 
-    const K = 3;
-    const N_DAYS = 30;
+    const K = keepMinimum;
+    const N_DAYS = maxDays;
     const now = Date.now();
     const thresholdMs = N_DAYS * 24 * 60 * 60 * 1000;
 
     let deletedCount = 0;
-    
+
     for (let i = K; i < backups.length; i++) {
         const backup = backups[i];
         const ageMs = now - backup.time;
@@ -386,7 +404,7 @@ async function cleanOldBackups(backupRoot, logger) {
             }
         }
     }
-    
+
     if (deletedCount > 0) {
         logger.log(`[Retention] Removed ${deletedCount} old backup(s).`);
     }
