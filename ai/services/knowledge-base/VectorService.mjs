@@ -351,7 +351,8 @@ class VectorService extends Base {
             embeddingFunction: aiConfig.dummyEmbeddingFunction
         });
 
-        let liveParked = false;
+        let liveParked     = false;
+        let shadowPromoted = false;
 
         try {
             await this.embedChunks({collection: shadowCollection, chunksToProcess: knowledgeBase});
@@ -360,6 +361,7 @@ class VectorService extends Base {
             await liveCollection.modify({name: parkingName});
             liveParked = true;
             await shadowCollection.modify({name: aiConfig.collectionName});
+            shadowPromoted = true;
 
             ChromaManager.invalidateKnowledgeBaseCollectionCache();
 
@@ -380,7 +382,7 @@ class VectorService extends Base {
         } catch (error) {
             ChromaManager.invalidateKnowledgeBaseCollectionCache();
 
-            if (liveParked) {
+            if (liveParked && !shadowPromoted) {
                 try {
                     await liveCollection.modify({name: aiConfig.collectionName});
                     ChromaManager.invalidateKnowledgeBaseCollectionCache();
@@ -388,7 +390,37 @@ class VectorService extends Base {
                     logger.error('[VectorService] Failed to roll back parked live collection after shadow-swap failure:', rollbackError.message);
                 }
             }
+
+            if (!shadowPromoted) {
+                await this.parkFailedShadowCollection({shadowCollection, shadowName});
+            }
             throw error;
+        }
+    }
+
+    /**
+     * @summary Renames an incomplete shadow collection so future canonical resolves do not treat it as an active promote.
+     *
+     * The collection-name delete guard intentionally blocks unconfirmed production
+     * deletes, including non-canonical names. A failed pre-promote shadow therefore
+     * gets moved to a non-active recovery name instead of being dropped silently.
+     *
+     * @param {Object} options
+     * @param {Object} options.shadowCollection Shadow collection handle to park.
+     * @param {String} options.shadowName       Original active shadow collection name.
+     * @returns {Promise<String|null>} Parked name, or `null` if parking failed.
+     * @see https://github.com/neomjs/neo/issues/11685
+     */
+    async parkFailedShadowCollection({shadowCollection, shadowName}) {
+        const failedShadowName = this.createSwapCollectionName('failed-shadow');
+
+        try {
+            await shadowCollection.modify({name: failedShadowName});
+            logger.warn(`[VectorService] Parked failed shadow collection '${shadowName}' as '${failedShadowName}'.`);
+            return failedShadowName;
+        } catch (error) {
+            logger.error(`[VectorService] Failed to park shadow collection '${shadowName}' after shadow-swap failure:`, error.message);
+            return null;
         }
     }
 

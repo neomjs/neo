@@ -10,10 +10,12 @@ import path from 'path';
 test.describe('Neo.ai.services.knowledge-base.DatabaseService sync', () => {
     let DatabaseService;
     let aiConfig;
+    let VectorService;
 
     test.beforeAll(async () => {
         aiConfig = (await import('../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
         DatabaseService = (await import('../../../../../../ai/services.mjs')).KB_DatabaseService;
+        VectorService = (await import('../../../../../../ai/services/knowledge-base/VectorService.mjs')).default;
     });
 
     test('createKnowledgeBase() emits type: adr chunks', async () => {
@@ -46,5 +48,37 @@ test.describe('Neo.ai.services.knowledge-base.DatabaseService sync', () => {
                 await fs.unlink(testDataPath);
             }
         }
+    });
+
+    test('embedKnowledgeBase forwards explicit staleStrategy while default remains unchanged', async () => {
+        const originalEmbed = VectorService.embed.bind(VectorService);
+        const calls = [];
+
+        VectorService.embed = async (knowledgeBasePath, options) => {
+            calls.push({knowledgeBasePath, options});
+            return {message: 'stubbed embed'};
+        };
+
+        try {
+            await DatabaseService.embedKnowledgeBase({viaMcp: true});
+            await DatabaseService.embedKnowledgeBase({staleStrategy: 'shadow-swap'});
+        } finally {
+            VectorService.embed = originalEmbed;
+        }
+
+        expect(calls[0]).toEqual({
+            knowledgeBasePath: aiConfig.dataPath,
+            options          : {
+                viaMcp       : true,
+                staleStrategy: undefined
+            }
+        });
+        expect(calls[1]).toEqual({
+            knowledgeBasePath: aiConfig.dataPath,
+            options          : {
+                viaMcp       : false,
+                staleStrategy: 'shadow-swap'
+            }
+        });
     });
 });

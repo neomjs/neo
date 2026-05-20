@@ -427,17 +427,18 @@ class DatabaseService extends Base {
      *                                            wrapper; threaded through to `embed()` to enable
      *                                            the work-volume gate (#10572). CLI callers
      *                                            omit this and bypass the gate.
+     * @param {String}       [params.staleStrategy] Optional VectorService stale strategy.
      * @param {String|Object} [params.confirmation] Explicit production confirmation token for delete.
      * @returns {Promise<Object>}
      */
-    async manageKnowledgeBase({action, viaMcp = false, confirmation}) {
+    async manageKnowledgeBase({action, viaMcp = false, staleStrategy, confirmation}) {
         switch (action) {
             case 'sync':
-                return this.syncDatabase({viaMcp});
+                return this.syncDatabase({viaMcp, staleStrategy});
             case 'create':
                 return this.createKnowledgeBase();
             case 'embed':
-                return this.embedKnowledgeBase({viaMcp});
+                return this.embedKnowledgeBase({viaMcp, staleStrategy});
             case 'delete':
                 return this.deleteDatabase({confirmation});
             default:
@@ -513,11 +514,12 @@ class DatabaseService extends Base {
      * @param {Boolean} [opts.viaMcp=false] True when invoked via MCP tool dispatch;
      *                                      threaded to VectorService.embed for #10572's
      *                                      work-volume gate.
+     * @param {String}  [opts.staleStrategy] Explicit stale-data handling strategy.
      * @returns {Promise<object>} A promise that resolves to a success message, OR a
      *     `{error, code: 'KB_SYNC_VOLUME_EXCEEDED', ...}` shape when the MCP gate fires.
      */
-    async embedKnowledgeBase({viaMcp = false} = {}) {
-        return await VectorService.embed(aiConfig.dataPath, {viaMcp});
+    async embedKnowledgeBase({viaMcp = false, staleStrategy} = {}) {
+        return await VectorService.embed(aiConfig.dataPath, {viaMcp, staleStrategy});
     }
 
     /**
@@ -564,12 +566,13 @@ class DatabaseService extends Base {
      * @param {Object}  [opts]
      * @param {Boolean} [opts.viaMcp=false] True when invoked via MCP tool dispatch;
      *                                      threaded to embed() for #10572's work-volume gate.
+     * @param {String}  [opts.staleStrategy] Explicit stale-data handling strategy.
      * @returns {Promise<object>} A promise that resolves to the final success message from the embedding step.
      */
-    async syncDatabase({viaMcp = false} = {}) {
+    async syncDatabase({viaMcp = false, staleStrategy} = {}) {
         logger.log('Starting full database synchronization...');
         await this.createKnowledgeBase();
-        return await this.embedKnowledgeBase({viaMcp});
+        return await this.embedKnowledgeBase({viaMcp, staleStrategy});
     }
 }
 

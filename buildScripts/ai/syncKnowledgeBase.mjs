@@ -17,8 +17,12 @@ import {withHeavyMaintenanceLease}  from '../../ai/daemons/services/HeavyMainten
 async function syncKnowledgeBase() {
     // Enable debug logging to see progress
     KB_Config.data.debug = true;
+    const staleStrategy   = process.env.NEO_KB_STALE_STRATEGY || undefined;
 
     console.log('⏳ Initializing Knowledge Base Services...');
+    if (staleStrategy) {
+        console.log(`   Using explicit stale strategy: ${staleStrategy}`);
+    }
 
     // Lane C of #11503 — wrap the heavy-maintenance work in the shared lease so this
     // CLI cannot collide with the orchestrator's own kbSync task (which is the empirical
@@ -42,8 +46,9 @@ async function syncKnowledgeBase() {
 
                 console.log('✅ Services Ready. Starting Synchronization...');
 
-                // Execute the full sync (create + embed)
-                return KB_DatabaseService.syncDatabase();
+                // Execute the full sync (create + embed). `NEO_KB_STALE_STRATEGY=shadow-swap`
+                // is the explicit activation path for #11685; default CLI sync remains unchanged.
+                return KB_DatabaseService.syncDatabase({staleStrategy});
             },
             {owner: 'kbSync', reason: 'manual-cli', metadata: {script: 'buildScripts/ai/syncKnowledgeBase.mjs'}}
         );
