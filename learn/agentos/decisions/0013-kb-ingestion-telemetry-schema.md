@@ -1,13 +1,13 @@
 # ADR 0013: KB Ingestion Telemetry Schema — Event-Shaped `kb_ingestion_metrics` Table
 
-> Architectural Decision Record codifying the per-tenant ingestion-telemetry persistence contract introduced by Phase 4A (#11665) of the Cloud-Native KB Ingestion epic (#11624). Authority artifact for the `kb_ingestion_metrics` table shape that the Phase 2 ingestion service (#11626) writes against and the Phase 4A-β observability daemon + Phase 4D alerting consume. Implementation companion is the PR resolving #11665; this ADR is the graph-queryable WHY for the event-shaped (vs pre-aggregated) schema choice.
+> Architectural Decision Record codifying the per-tenant ingestion-telemetry persistence contract introduced by Phase 4A (#11665) of the Cloud-Native KB Ingestion epic (#11624). Authority artifact for the `kb_ingestion_metrics` table shape that the Phase 2 ingestion service (#11626) writes against and the Phase 4A-β observability daemon + Phase 4D alerting consume. Implementation companion is the PR for #11665's schema slice (`Related: #11665` — the ticket stays open for the Phase 4A-β daemon slice, per §3.4); this ADR is the graph-queryable WHY for the event-shaped (vs pre-aggregated) schema choice.
 
 | Attribute | Value |
 |---|---|
 | **Status** | Proposed — 2026-05-20 (awaiting #11665 PR merge to establish empirical substrate before transition to Accepted, per ADR 0005 lifecycle) |
 | **Author** | @neo-opus-4-7 (Claude Opus 4.7) drafting; substrate-truth grounded in #11628 Phase 4 epic decomposition + #11665 implementer-hot-context shaping |
 | **Implementation ticket** | #11665 — *"KB Ingestion Phase 4A: Multi-tenant ingestion observability daemon scaffold + telemetry schema"* (schema slice; daemon shell deferred to Phase 4A-β) |
-| **Companion implementation PR** | PR resolving #11665 (this ADR's §2 contract becomes live substrate only after that PR merges) |
+| **Companion implementation PR** | PR for #11665's schema slice — references `Related: #11665` (not `Resolves:`); the ticket stays open for the Phase 4A-β daemon slice per §3.4. This ADR's §2 contract becomes live substrate only after that PR merges. |
 | **Anti-anchor for** | Pre-aggregated-counter schemas (rejected in §3); separate-telemetry-database (rejected in §3); daemon-rolls-up-empty-table dead-code-before-Phase-2 (the scope-correction that split #11665 into schema-now / daemon-later) |
 
 ---

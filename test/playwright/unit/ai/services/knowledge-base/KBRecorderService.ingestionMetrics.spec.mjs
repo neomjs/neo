@@ -66,6 +66,12 @@ test.describe('KBRecorderService — ingestion metrics (#11665)', () => {
     test.afterAll(() => {
         if (KBRecorderService?.db) {
             try { KBRecorderService.db.close(); } catch (e) {}
+            // Null the singleton db reference after close — `initAsync` short-circuits on
+            // `if (this.db) return`, so a sibling KBRecorderService spec running later in the
+            // same worker would otherwise inherit this closed connection and fail with
+            // "The database connection is not open". Mirrors KBRecorderService.spec.mjs cleanup.
+            // (@neo-gpt PR #11667 Cycle 1 review PRR_kwDODSospM8AAAABAcVsyg, Required Action 1.)
+            KBRecorderService.db = null;
         }
         for (const suffix of ['', '-wal', '-shm']) {
             try { fs.unlinkSync(`${testDbPath}${suffix}`); } catch (e) {}
