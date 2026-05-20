@@ -35,6 +35,8 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     let installDependencies;
     let runBuildAll;
     let resolveMainCheckout;
+    let parseWorktreePorcelain;
+    let pruneStaleWorktrees;
     let BOOTSTRAP_CONFIGS;
     let DATA_SUBDIRS_TO_LINK;
     let GITIGNORED_FILES_TO_LINK;
@@ -56,6 +58,8 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
         installDependencies      = mod.installDependencies;
         runBuildAll              = mod.runBuildAll;
         resolveMainCheckout      = mod.resolveMainCheckout;
+        parseWorktreePorcelain   = mod.parseWorktreePorcelain;
+        pruneStaleWorktrees      = mod.pruneStaleWorktrees;
         BOOTSTRAP_CONFIGS        = mod.BOOTSTRAP_CONFIGS;
         DATA_SUBDIRS_TO_LINK     = mod.DATA_SUBDIRS_TO_LINK;
         GITIGNORED_FILES_TO_LINK = mod.GITIGNORED_FILES_TO_LINK;
@@ -704,6 +708,232 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
             expect(calls).toHaveLength(2);
             expect(calls[0].args).toEqual(['run', 'bundle-parse5']);
             expect(calls[1].args).toEqual(['run', 'build-all']);
+        });
+    });
+
+    test.describe('#11654 pruneStaleWorktrees', () => {
+        function makePruneExec({removed, unknownBranches = []}) {
+            const worktreesRoot = path.join(fakeMainCheckout, '.claude', 'worktrees');
+            const paths = {
+                merged     : path.join(worktreesRoot, 'merged'),
+                deleted    : path.join(worktreesRoot, 'deleted'),
+                deletedOpen: path.join(worktreesRoot, 'deleted-open-pr'),
+                active     : path.join(worktreesRoot, 'active'),
+                dirty      : path.join(worktreesRoot, 'dirty')
+            };
+
+            const porcelain = [
+                `worktree ${fakeMainCheckout}`,
+                'HEAD main-head',
+                'branch refs/heads/dev',
+                '',
+                `worktree ${paths.merged}`,
+                'HEAD merged-head',
+                'branch refs/heads/agent/merged',
+                '',
+                `worktree ${paths.deleted}`,
+                'HEAD deleted-head',
+                'branch refs/heads/agent/deleted',
+                '',
+                `worktree ${paths.deletedOpen}`,
+                'HEAD deleted-open-head',
+                'branch refs/heads/agent/deleted-open',
+                '',
+                `worktree ${paths.active}`,
+                'HEAD active-head',
+                'branch refs/heads/agent/active',
+                '',
+                `worktree ${paths.dirty}`,
+                'HEAD dirty-head',
+                'branch refs/heads/agent/dirty',
+                ''
+            ].join('\n');
+
+            const exec = async (cmd, args, opts = {}) => {
+                if (cmd === 'git' && args.join(' ') === 'worktree list --porcelain') {
+                    return {stdout: porcelain, stderr: ''};
+                }
+
+                if (cmd === 'git' && args.join(' ') === 'status --porcelain') {
+                    return {stdout: opts.cwd === paths.dirty ? ' M local.txt\n' : '', stderr: ''};
+                }
+
+                if (cmd === 'git' && args[0] === 'show-ref') {
+                    const ref = args[3];
+                    if (
+                        ref === 'refs/heads/agent/deleted' ||
+                        ref === 'refs/heads/agent/deleted-open' ||
+                        ref === 'refs/heads/agent/dirty'
+                    ) {
+                        throw Object.assign(new Error('missing ref'), {stderr: ''});
+                    }
+                    return {stdout: '', stderr: ''};
+                }
+
+                if (cmd === 'git' && args[0] === 'merge-base') {
+                    throw Object.assign(new Error('not ancestor'), {stderr: ''});
+                }
+
+                if (cmd === 'git' && args[0] === 'branch') {
+                    return {stdout: 'dev\n', stderr: ''};
+                }
+
+                if (cmd === 'git' && args[0] === 'cherry') {
+                    const branch = args[2];
+                    if (branch === 'agent/merged') {
+                        return {stdout: '- merged-head\n', stderr: ''};
+                    }
+                    return {stdout: '+ unmerged-head\n', stderr: ''};
+                }
+
+                if (cmd === 'git' && args[0] === 'worktree' && args[1] === 'remove') {
+                    removed.push(args);
+                    return {stdout: '', stderr: ''};
+                }
+
+                if (cmd === 'gh' && args[0] === 'pr' && args[1] === 'view') {
+                    const branch = args[2];
+                    if (unknownBranches.includes(branch)) {
+                        throw Object.assign(new Error('api unavailable'), {stderr: 'api unavailable'});
+                    }
+                    return {stdout: ['agent/active', 'agent/deleted-open'].includes(branch) ? 'OPEN\n' : 'MERGED\n', stderr: ''};
+                }
+
+                throw new Error(`Unexpected command: ${cmd} ${args.join(' ')}`);
+            };
+
+            return {exec, paths};
+        }
+
+        test('parses git worktree porcelain output', () => {
+            const parsed = parseWorktreePorcelain([
+                'worktree /repo',
+                'HEAD abc123',
+                'branch refs/heads/dev',
+                '',
+                'worktree /repo/.claude/worktrees/detached',
+                'HEAD def456',
+                'detached',
+                ''
+            ].join('\n'));
+
+            expect(parsed).toEqual([
+                {
+                    path     : '/repo',
+                    head     : 'abc123',
+                    branchRef: 'refs/heads/dev',
+                    branch   : 'dev',
+                    detached : false
+                },
+                {
+                    path     : '/repo/.claude/worktrees/detached',
+                    head     : 'def456',
+                    branchRef: null,
+                    branch   : null,
+                    detached : true
+                }
+            ]);
+        });
+
+        test('classifies stale Claude worktrees and dry-runs by default', async () => {
+            const removed = [];
+            const {exec, paths} = makePruneExec({removed});
+
+            const result = await pruneStaleWorktrees({
+                projectRoot: fakeMainCheckout,
+                exec,
+                getSize: async p => ({
+                    [paths.merged]     : 1024,
+                    [paths.deleted]    : 2048,
+                    [paths.deletedOpen]: 3072,
+                    [paths.active]     : 4096,
+                    [paths.dirty]      : 8192
+                })[p] || 0,
+                log: () => {}
+            });
+
+            const byPath = Object.fromEntries(result.worktrees.map(item => [item.path, item]));
+
+            expect(byPath[paths.merged].status).toBe('prunable-merged');
+            expect(byPath[paths.merged].prunable).toBe(true);
+            expect(byPath[paths.deleted].status).toBe('prunable-deleted');
+            expect(byPath[paths.deleted].prunable).toBe(true);
+            expect(byPath[paths.deletedOpen].status).toBe('active');
+            expect(byPath[paths.deletedOpen].prunable).toBe(false);
+            expect(byPath[paths.deletedOpen].reason).toContain('open PR');
+            expect(byPath[paths.active].status).toBe('active');
+            expect(byPath[paths.active].prunable).toBe(false);
+            expect(byPath[paths.dirty].status).toBe('dirty');
+            expect(byPath[paths.dirty].prunable).toBe(false);
+
+            expect(result.reclaimableBytes).toBe(3072);
+            expect(result.reclaimedBytes).toBe(0);
+            expect(removed).toHaveLength(0);
+        });
+
+        test('preserves worktrees when PR state cannot be verified', async () => {
+            const removed = [];
+            const {exec, paths} = makePruneExec({removed, unknownBranches: ['agent/deleted']});
+
+            const result = await pruneStaleWorktrees({
+                projectRoot: fakeMainCheckout,
+                exec,
+                getSize: async p => ({
+                    [paths.merged] : 1024,
+                    [paths.deleted]: 2048
+                })[p] || 0,
+                log: () => {}
+            });
+
+            const byPath = Object.fromEntries(result.worktrees.map(item => [item.path, item]));
+
+            expect(byPath[paths.deleted].status).toBe('active');
+            expect(byPath[paths.deleted].prunable).toBe(false);
+            expect(byPath[paths.deleted].reason).toContain('PR status could not be verified');
+            expect(result.reclaimableBytes).toBe(1024);
+            expect(removed).toHaveLength(0);
+        });
+
+        test('apply removes only clean prunable worktrees unless forceDirty is set', async () => {
+            const removed = [];
+            const {exec, paths} = makePruneExec({removed});
+            const getSize = async p => ({
+                [paths.merged]     : 1024,
+                [paths.deleted]    : 2048,
+                [paths.deletedOpen]: 3072,
+                [paths.active]     : 4096,
+                [paths.dirty]      : 8192
+            })[p] || 0;
+
+            await pruneStaleWorktrees({
+                projectRoot: fakeMainCheckout,
+                apply      : true,
+                exec,
+                getSize,
+                log: () => {}
+            });
+
+            expect(removed).toEqual([
+                ['worktree', 'remove', paths.merged],
+                ['worktree', 'remove', paths.deleted]
+            ]);
+
+            removed.length = 0;
+
+            await pruneStaleWorktrees({
+                projectRoot: fakeMainCheckout,
+                apply      : true,
+                forceDirty : true,
+                exec,
+                getSize,
+                log: () => {}
+            });
+
+            expect(removed).toEqual([
+                ['worktree', 'remove', paths.merged],
+                ['worktree', 'remove', paths.deleted],
+                ['worktree', 'remove', '--force', paths.dirty]
+            ]);
         });
     });
 });
