@@ -1,8 +1,9 @@
-import {ChromaClient}           from 'chromadb';
-import aiConfig                 from '../../mcp/server/knowledge-base/config.mjs';
-import logger                   from '../../mcp/server/knowledge-base/logger.mjs';
-import Base                     from '../../../src/core/Base.mjs';
-import DatabaseLifecycleService from './DatabaseLifecycleService.mjs';
+import {ChromaClient}                       from 'chromadb';
+import aiConfig                             from '../../mcp/server/knowledge-base/config.mjs';
+import logger                               from '../../mcp/server/knowledge-base/logger.mjs';
+import Base                                 from '../../../src/core/Base.mjs';
+import DatabaseLifecycleService             from './DatabaseLifecycleService.mjs';
+import {assertCanonicalCollectionDeleteAllowed} from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 
 /**
  * @summary Simple manager around the Chroma client that lazily caches the knowledge-base collection.
@@ -104,10 +105,10 @@ class ChromaManager extends Base {
         const nextLock = (async () => {
             // Await the completion of the previous silent execution
             await this.#chromaLock;
-            
+
             const originalWarn = console.warn;
             console.warn = () => {}; // Suppress unwanted warnings from ChromaDB client
-            
+
             try {
                 return await fn();
             } finally {
@@ -115,7 +116,7 @@ class ChromaManager extends Base {
                 console.warn = originalWarn;
             }
         })();
-        
+
         // Prevent chain crashing if an internal error occurs
         this.#chromaLock = nextLock.catch(() => {});
         return nextLock;
@@ -136,6 +137,29 @@ class ChromaManager extends Base {
 
         this.knowledgeBaseCollection = await this._knowledgeBaseCollectionPromise;
         return this.knowledgeBaseCollection;
+    }
+
+    /**
+     * Guarded delete-collection wrapper — peer of the Memory Core counterpart. Refuses
+     * canonical production collection names unless `UNIT_TEST_MODE=true` or a valid
+     * production `confirmation` token is supplied. See the Memory Core ChromaManager's
+     * `deleteCollection` JSDoc for the empirical anchor (2026-05-17 wipe) and rationale.
+     *
+     * All Knowledge Base callers (`DatabaseService.truncateDatabase`, `VectorService.deleteCollection`,
+     * future restore wrappers) MUST route through this method instead of bare
+     * `ChromaManager.client.deleteCollection` so the substrate-level invariant fires
+     * regardless of harness or config state.
+     *
+     * @param {Object}  options
+     * @param {String}  options.name              Collection name to delete.
+     * @param {String} [options.confirmation]     Production-recovery token; equals `CONFIRM_PRODUCTION_DESTRUCTIVE_AI_SUBSTRATE` for bypass.
+     * @returns {Promise<*>} Forwarded chromadb-client response.
+     * @throws {CanonicalCollectionGuardError} When `name` is canonical and neither bypass applies.
+     * @see https://github.com/neomjs/neo/issues/11652
+     */
+    async deleteCollection({name, confirmation} = {}) {
+        assertCanonicalCollectionDeleteAllowed({name, subsystem: 'knowledge-base', confirmation});
+        return await this.client.deleteCollection({name});
     }
 }
 

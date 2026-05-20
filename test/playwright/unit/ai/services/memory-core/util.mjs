@@ -13,12 +13,24 @@ export async function cleanupChromaManager(SDK) {
     }
 
     if (ChromaManager?.client && collectionsConfig) {
+        // Defense-in-depth (#11652): refuse cleanup when `UNIT_TEST_MODE !== 'true'` regardless of
+        // collection name. The pre-#11652 guard checked only the name; under `npx playwright`
+        // without the unit-test config, `aiConfig.collections.*` falls through to canonical
+        // names AND `UNIT_TEST_MODE` is unset — both invariants must hold for cleanup to proceed.
+        // The substrate-level guard in `ChromaManager.deleteCollection` is the hard backstop;
+        // this helper-level check fails fast with a clearer diagnostic before any chroma call.
+        if (process.env.UNIT_TEST_MODE !== 'true') {
+            throw new Error(`FATAL: cleanupChromaManager() invoked without UNIT_TEST_MODE=true. Refusing cleanup to protect live Chroma collections. Run via 'npm run test-unit' (loads playwright.config.unit.mjs) instead of bare 'npx playwright'.`);
+        }
         if (collectionsConfig.memory === 'neo-agent-memory' || collectionsConfig.session === 'neo-agent-sessions') {
             throw new Error(`FATAL: Attempted to delete production Chroma collections! Aborting cleanup. memory=${collectionsConfig.memory}, session=${collectionsConfig.session}`);
         }
         try {
-            try { await ChromaManager.client.deleteCollection({name: collectionsConfig.memory}); } catch(e) { if (!e.message.includes('not be found')) throw e; }
-            try { await ChromaManager.client.deleteCollection({name: collectionsConfig.session}); } catch(e) { if (!e.message.includes('not be found')) throw e; }
+            // Route through the guarded ChromaManager.deleteCollection (#11652) so the substrate-
+            // level invariant fires uniformly. Test-prefixed names skip the guard cleanly under
+            // UNIT_TEST_MODE; the bare `client.deleteCollection` access path is deprecated.
+            try { await ChromaManager.deleteCollection({name: collectionsConfig.memory}); } catch(e) { if (!e.message.includes('not be found')) throw e; }
+            try { await ChromaManager.deleteCollection({name: collectionsConfig.session}); } catch(e) { if (!e.message.includes('not be found')) throw e; }
         } catch (e) {
             if (!e.message.includes('not be found')) {
                 console.warn(`[Cleanup] Failed to delete test collections:`, e.message);

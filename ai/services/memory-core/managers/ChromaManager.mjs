@@ -1,8 +1,9 @@
-import {ChromaClient}           from 'chromadb';
-import aiConfig                 from '../../../mcp/server/memory-core/config.mjs';
-import logger                   from '../../../mcp/server/memory-core/logger.mjs';
-import AbstractVectorManager    from './AbstractVectorManager.mjs';
-import ChromaLifecycleService   from '../lifecycle/ChromaLifecycleService.mjs';
+import {ChromaClient}                       from 'chromadb';
+import aiConfig                             from '../../../mcp/server/memory-core/config.mjs';
+import logger                               from '../../../mcp/server/memory-core/logger.mjs';
+import AbstractVectorManager                from './AbstractVectorManager.mjs';
+import ChromaLifecycleService               from '../lifecycle/ChromaLifecycleService.mjs';
+import {assertCanonicalCollectionDeleteAllowed} from '../../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 
 /**
  * @summary Simple manager around the Chroma client that lazily caches frequently used collections.
@@ -218,6 +219,31 @@ class ChromaManager extends AbstractVectorManager {
 
         this.graphCollection = await this._graphCollectionPromise;
         return this.graphCollection;
+    }
+
+    /**
+     * Guarded delete-collection wrapper. Refuses canonical production collection names
+     * (`neo-agent-memory`, `neo-agent-sessions`, `neo-agent-graph`, `neo-knowledge-base`)
+     * unless `process.env.UNIT_TEST_MODE === 'true'` (test path) or a valid production
+     * `confirmation` token is supplied.
+     *
+     * All Memory Core callers (tests, `CollectionProxy`, future restore wrappers) MUST
+     * route through this method instead of `ChromaManager.client.deleteCollection` so the
+     * substrate-level invariant fires regardless of harness or config state. The empirical
+     * anchor is the 2026-05-17 wipe where `npx playwright` bypassed `playwright.config.unit.mjs`
+     * (`UNIT_TEST_MODE` absent) → `aiConfig.collections.*` returned canonical names →
+     * a destructive cleanup helper dropped the live collections.
+     *
+     * @param {Object}  options
+     * @param {String}  options.name              Collection name to delete.
+     * @param {String} [options.confirmation]     Production-recovery token; equals `CONFIRM_PRODUCTION_DESTRUCTIVE_AI_SUBSTRATE` for bypass.
+     * @returns {Promise<*>} Forwarded chromadb-client response.
+     * @throws {CanonicalCollectionGuardError} When `name` is canonical and neither bypass applies.
+     * @see https://github.com/neomjs/neo/issues/11652
+     */
+    async deleteCollection({name, confirmation} = {}) {
+        assertCanonicalCollectionDeleteAllowed({name, subsystem: 'memory-core', confirmation});
+        return await this.client.deleteCollection({name});
     }
 }
 

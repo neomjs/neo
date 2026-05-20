@@ -22,14 +22,14 @@ class CollectionProxy extends Base {
     async getManagers() {
         const architecture = aiConfig.engine || 'hybrid';
         const managers = [];
-        
+
         // In Hybrid RAG, vectors exclusively live in ChromaDB
         if (architecture === 'chroma' || architecture === 'hybrid') {
             const { default: ChromaManager } = await import('./ChromaManager.mjs');
             await ChromaManager.ready();
             managers.push(ChromaManager);
         }
-        
+
         return managers;
     }
 
@@ -63,7 +63,7 @@ class CollectionProxy extends Base {
         }
         return collections[0].get(args);
     }
-    
+
     async query(args) {
         const collections = await this.getCollections();
         if (!collections || collections.length === 0 || !collections[0]) {
@@ -71,7 +71,7 @@ class CollectionProxy extends Base {
         }
         return collections[0].query(args);
     }
-    
+
     async count() {
         const collections = await this.getCollections();
         if (!collections || collections.length === 0 || !collections[0]) {
@@ -79,7 +79,7 @@ class CollectionProxy extends Base {
         }
         return collections[0].count();
     }
-    
+
     async delete(args) {
         const collections = await this.getCollections();
         await Promise.all(collections.map(c => c.delete(args)));
@@ -92,8 +92,8 @@ class CollectionProxy extends Base {
             if (this.collectionType === 'graph') {
                 coll = await manager.getGraphCollection();
             } else {
-                coll = this.collectionType === 'memory' ? 
-                    await manager.getMemoryCollection() : 
+                coll = this.collectionType === 'memory' ?
+                    await manager.getMemoryCollection() :
                     await manager.getSummaryCollection();
             }
 
@@ -117,11 +117,20 @@ class CollectionProxy extends Base {
                 confirmation
             });
 
-            if (manager.client && manager.client.deleteCollection) {
-                await manager.client.deleteCollection({ name: coll.name });
-            } else if (manager.deleteCollection) {
-                await manager.deleteCollection(coll.name);
+            // Route through the guarded `manager.deleteCollection({name, confirmation})`
+            // wrapper (#11652 substrate guard). The path-target guard above already passed;
+            // the operator confirmation token is threaded down so the uniform collection-name
+            // gate accepts the production-recovery bypass. Fail-closed if a manager lacks
+            // the wrapper — bare-client fallback would re-open the bypass surface this guard
+            // exists to close (#11656 review Required Action 2, commentId PRR_kwDODSospM8AAAABAYwPjg).
+            if (typeof manager.deleteCollection !== 'function') {
+                throw new Error(
+                    `[CollectionProxy] manager ${manager?.constructor?.config?.className || 'unknown'} ` +
+                    `lacks the guarded deleteCollection wrapper; refusing bare client.deleteCollection ` +
+                    `fallback per #11652 substrate-level invariant.`
+                );
             }
+            await manager.deleteCollection({name: coll.name, confirmation});
         }
     }
 }

@@ -75,7 +75,9 @@ class VectorService extends Base {
                 confirmation
             });
 
-            await ChromaManager.client.deleteCollection({name: collectionName});
+            // Route through ChromaManager.deleteCollection (#11652 substrate-level guard).
+            // Forward the operator confirmation so the canonical-name guard accepts it.
+            await ChromaManager.deleteCollection({name: collectionName, confirmation});
             ChromaManager._knowledgeBaseCollectionPromise = null;
             ChromaManager.knowledgeBaseCollection = null;
             const message = `Knowledge base collection '${collectionName}' deleted successfully.`;
@@ -140,7 +142,7 @@ class VectorService extends Base {
             let currentClass = chunk.className; // Metadata is now on every chunk
             const inheritanceChain = [];
             const visited = new Set();
-            
+
             // If no className metadata (e.g. non-class files), skip
             if (!currentClass) return;
 
