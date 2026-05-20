@@ -97,6 +97,57 @@ function createSpyCollection({existingIds = [], name = 'spy-knowledge-base'} = {
     return collection;
 }
 
+function createRegistryBackedCollection({existingIds = [], name, registry, onModify} = {}) {
+    const collection = createSpyCollection({existingIds, name});
+
+    collection.modify = async ({name: nextName}) => {
+        collection.calls.modify.push({name: nextName});
+        if (registry.has(nextName)) {
+            throw new Error(`Collection ${nextName} already exists.`);
+        }
+        registry.delete(collection.name);
+        collection.name = nextName;
+        registry.set(nextName, collection);
+        if (onModify) {
+            await onModify({collection, name: nextName});
+        }
+    };
+
+    return collection;
+}
+
+function createRegistryBackedClient(registry) {
+    const calls = {createCollection: [], getCollection: [], listCollections: 0};
+
+    return {
+        calls,
+
+        async getCollection({name}) {
+            calls.getCollection.push(name);
+            const collection = registry.get(name);
+            if (!collection) {
+                throw new Error(`Collection ${name} does not exist.`);
+            }
+            return collection;
+        },
+
+        async listCollections() {
+            calls.listCollections++;
+            return Array.from(registry.values());
+        },
+
+        async createCollection({name}) {
+            calls.createCollection.push(name);
+            if (registry.has(name)) {
+                throw new Error(`Collection ${name} already exists.`);
+            }
+            const collection = createRegistryBackedCollection({name, registry});
+            registry.set(name, collection);
+            return collection;
+        }
+    };
+}
+
 /**
  * Writes a JSONL file with N synthetic chunks. Each chunk is `kind: 'method-context'` (skips
  * the `module-context` className-map enrichment loop in embed()) with a unique `hash`.
@@ -163,6 +214,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
     test.beforeEach(() => {
         KB_Config.data.mcpSyncMaxChunks = 5; // tight threshold for predictable branching
         KB_ChromaManager.client         = originalClient;
+        KB_ChromaManager.getKnowledgeBaseCollection = originalGetCollection;
         KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
     });
 
@@ -278,6 +330,86 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
 
         expect(KB_ChromaManager._knowledgeBaseCollectionPromise).toBe(null);
         expect(KB_ChromaManager.knowledgeBaseCollection).toBe(null);
+    });
+
+    test('shadow-swap blocks cold-cache canonical recreation during the promote window', async () => {
+        const registry = new Map();
+        let coldCacheError;
+
+        const live = createRegistryBackedCollection({
+            existingIds: [],
+            name       : KB_Config.data.collectionName,
+            registry,
+            onModify   : async ({name}) => {
+                if (name.includes(`${KB_Config.data.collectionName}-parking-`)) {
+                    KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
+                    try {
+                        await KB_ChromaManager.getKnowledgeBaseCollection();
+                    } catch (error) {
+                        coldCacheError = error;
+                    }
+                }
+            }
+        });
+        registry.set(live.name, live);
+
+        const client = createRegistryBackedClient(registry);
+        KB_ChromaManager.client = client;
+
+        const result = await KB_VectorService.embedViaShadowSwap({
+            liveCollection: live,
+            knowledgeBase: [{
+                id         : 'chunk-0',
+                hash       : 'chunk-0',
+                type       : 'method',
+                name       : 'method0',
+                className  : '',
+                description: 'body 0'
+            }],
+            idsToDeleteCount: 0
+        });
+
+        expect(result.staleStrategy).toBe('shadow-swap');
+        expect(coldCacheError).toMatchObject({
+            code: 'KB_COLLECTION_SWAP_IN_PROGRESS'
+        });
+        expect(coldCacheError.activeSwapCollections).toEqual(expect.arrayContaining([
+            result.parkedCollection,
+            result.shadowCollection
+        ]));
+        expect(client.calls.createCollection).not.toContain(KB_Config.data.collectionName);
+        expect(registry.get(KB_Config.data.collectionName).rows.size).toBe(1);
+    });
+
+    test('shadow-swap parks failed pre-promote shadow collections under a non-active name', async () => {
+        const live = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName});
+        const originalEmbedChunks = KB_VectorService.embedChunks.bind(KB_VectorService);
+        let shadow;
+
+        KB_ChromaManager.client = {
+            createCollection: async ({name}) => {
+                shadow = createSpyCollection({name});
+                return shadow;
+            }
+        };
+        KB_VectorService.embedChunks = async () => {
+            throw new Error('forced embed failure');
+        };
+
+        try {
+            await expect(KB_VectorService.embedViaShadowSwap({
+                liveCollection   : live,
+                knowledgeBase    : [{id: 'chunk-0', type: 'method', name: 'method0'}],
+                idsToDeleteCount : 0
+            })).rejects.toThrow('forced embed failure');
+
+            expect(live.calls.modify).toEqual([]);
+            expect(shadow.calls.modify).toHaveLength(1);
+            expect(shadow.calls.modify[0].name).toContain(`${KB_Config.data.collectionName}-failed-shadow-`);
+            expect(shadow.calls.modify[0].name).not.toContain(`${KB_Config.data.collectionName}-shadow-`);
+        } finally {
+            KB_VectorService.embedChunks = originalEmbedChunks;
+        }
     });
 
     test('shadow-swap MCP gate measures full-corpus rebuild volume before creating shadow collection', async () => {
