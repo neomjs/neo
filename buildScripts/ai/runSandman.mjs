@@ -215,11 +215,7 @@ export async function runSandman() {
 
                 console.log('✅ Services Ready. Entering REM Sleep...');
 
-                // Execute the REM pipeline (extract undigested graph entities + Golden Path synthesis)
-                await DreamService.processUndigestedSessions();
-                await GoldenPathSynthesizer.synthesizeGoldenPath();
-
-                console.log('✅ Sandman cycle complete.');
+                await runRemPipeline();
                 process.exitCode = 0;
                 return {providerReady: true};
             } catch (e) {
@@ -264,6 +260,27 @@ export async function runSandman() {
     // above for the release-timing invariant). Nothing further to do here besides honoring
     // the inner exitCode contract.
     process.exit(process.exitCode);
+}
+
+/**
+ * Runs the Sandman REM cycle body after provider and service readiness gates pass.
+ * Exposed for unit coverage so fatal DreamService failures cannot regress into
+ * a misleading success log or successful process exit.
+ * @param {Object} options
+ * @param {Object} [options.dreamService=DreamService]
+ * @param {Object} [options.goldenPathSynthesizer=GoldenPathSynthesizer]
+ * @param {Object} [options.output=console]
+ * @returns {Promise<void>}
+ */
+export async function runRemPipeline({
+    dreamService          = DreamService,
+    goldenPathSynthesizer = GoldenPathSynthesizer,
+    output                = console
+} = {}) {
+    await dreamService.processUndigestedSessions();
+    await goldenPathSynthesizer.synthesizeGoldenPath();
+
+    output.log('✅ Sandman cycle complete.');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

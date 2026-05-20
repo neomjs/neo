@@ -97,6 +97,12 @@ test.describe('Neo.ai.graph.Database', () => {
         expect(db.edges.getCount()).toBe(0); // Edge should be deleted because its source node is gone
     });
 
+    test('should reject invalid node ids before Store.remove sees null (#11698)', async () => {
+        expect(() => db.removeNode(null)).toThrow(/non-empty string node id/);
+        expect(() => db.removeNode(undefined)).toThrow(/non-empty string node id/);
+        expect(() => db.removeNode('')).toThrow(/non-empty string node id/);
+    });
+
     test('should persist nodes and edges properly using SQLite storage adapter', async () => {
         // Clean out previous runs
         if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
@@ -142,6 +148,18 @@ test.describe('Neo.ai.graph.Database', () => {
         expect(reloadDb.edges.get('e1').type).toBe('KNOWS');
 
         reloadDb.destroy();
+    });
+
+    test('SQLite storage rejects invalid node ids before persistence (#11698)', async () => {
+        let storage = Neo.create(SQLite, { dbPath });
+        await storage.initAsync();
+
+        try {
+            expect(() => storage.addNodes([{ id: null, label: 'Broken', properties: {} }])).toThrow(/non-empty string id/);
+            expect(() => storage.addNodes([{ label: 'Broken', properties: {} }])).toThrow(/non-empty string id/);
+        } finally {
+            storage.destroy();
+        }
     });
 
     test('SQLite storage enables foreign_keys pragma — source-side Edges cascade-delete (#10856)', async () => {

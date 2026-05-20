@@ -34,6 +34,16 @@ function isRlsVisible(entity, requesterUserId) {
 }
 
 /**
+ * Validates the Native Edge Graph node-id contract before writes/deletes reach
+ * the lower Store layer, where `null` otherwise looks object-like.
+ * @param {*} id Candidate graph node id.
+ * @returns {Boolean} true for non-empty string ids.
+ */
+function isValidGraphNodeId(id) {
+    return typeof id === 'string' && id.length > 0;
+}
+
+/**
  * @summary Service that manages the SQLite Knowledge Graph (Nodes and Edges).
  *
  * It provides the topological layout of the Neo.mjs namespace, knowledge,
@@ -177,6 +187,10 @@ class GraphService extends Base {
      * @param {Object} nodeData
      */
     upsertNode({id, type, name, description, semanticVectorId, state, updatedAt, properties}) {
+        if (!isValidGraphNodeId(id)) {
+            throw new Error(`[GraphService] Cannot upsert graph node without a non-empty string id. Received: ${String(id)}`);
+        }
+
         // Lazy-load from SQLite before in-memory check — prevents cold-cache stubs from
         // overwriting rich SQLite rows via addNodes' ON CONFLICT DO UPDATE semantics.
         // Mirrors the discipline in getNode:424. Resolves #10230.
@@ -981,6 +995,12 @@ class GraphService extends Base {
      */
     removeNodes(nodeIds) {
         if (!nodeIds || nodeIds.length === 0) return;
+
+        const invalidNodeIds = nodeIds.filter(id => !isValidGraphNodeId(id));
+
+        if (invalidNodeIds.length > 0) {
+            throw new Error(`[GraphService] removeNodes received invalid node id(s): ${invalidNodeIds.map(id => String(id)).join(', ')}`);
+        }
 
         this.db.transaction(() => {
             nodeIds.forEach(id => this.db.removeNode(id));
