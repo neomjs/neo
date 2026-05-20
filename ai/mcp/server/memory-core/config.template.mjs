@@ -306,6 +306,18 @@ const defaultConfig = {
      */
     backupPath: path.resolve(cwd, '.neo-ai-data/backups'),
     /**
+     * Phase 4 (#11663): bundle retention policy for `buildScripts/ai/backup.mjs`.
+     * Bundles older than `maxDays` are eligible for deletion, but the newest
+     * `keepMinimum` bundles are retained unconditionally regardless of age.
+     * Defaults match the pre-#11663 hardcoded behavior (`K=3, N_DAYS=30`) so
+     * existing deployments are unaffected without operator action.
+     * @type {{keepMinimum: number, maxDays: number}}
+     */
+    backupRetention: {
+        keepMinimum: 3,
+        maxDays    : 30
+    },
+    /**
      * Directory for the always-on Memory Core diagnostic log files (#10582). The MC
      * server's `logger.mjs` writes daily-rotated entries here regardless of `debug`,
      * so long-running operations (summarization, ingestion sweeps, ChromaDB
