@@ -44,6 +44,11 @@ pre-review reviewer-only cycles. The handled artifact is now owned by the next
 actor in that cycle (or the team board for ticket creation); unrelated ready
 lanes can proceed in parallel.
 
+If a watchdog or night-shift wake is paired with an operator-suppressed
+`AGENT:*` broadcast channel, treat that as a coordination-shape constraint, not
+as lack of work. Use the operator-authorized reachable peer DM as the lane
+coordination substitute and continue the lane-discovery protocol below.
+
 **`blocked-task-state` scope preservation**: this skill covers the EXIT from a
 blocked state (forward-motion resumption). Entry INTO a blocked state — when
 the agent's current lane hits a blocker — remains the `blocked-task-state`
@@ -130,9 +135,13 @@ Primary codification of the FAIR-band author-lane pickup discipline: [`./fair-ba
 
 ## 5. Legitimate Halt States
 
+Lineage: #10970 established lifecycle pickup; #11165 tightened halt-state
+backlog self-survey; #11221 closed stated-intent-without-execution; #11669
+adds the broadcast-suppressed fallback below.
+
 Halt is allowed only when it is explicit and true:
 
-1. **Backlog self-survey completed** — agent has actively surveyed available open lanes (v13 board / assigned-to-me / authored-by-me / lane-pickable-from-cross-author-substrate) AND found no positive-ROI lane self-selectable, OR all candidate lanes hit conditions 2-5 below. The survey + finding MUST be named in the halt declaration.
+1. **Backlog self-survey completed** — agent has actively surveyed available open lanes (v13 board / assigned-to-me / authored-by-me / lane-pickable-from-cross-author-substrate / broader non-conflicting backlog such as body, grid, docs, testing, or general Project work) AND found no positive-ROI lane self-selectable, OR all candidate lanes hit conditions 2-5 below. The survey + finding MUST be named in the halt declaration.
 2. Every candidate lane is blocked on human-only action.
 3. A safety gate forbids continuing.
 4. The operator explicitly requested a pause.
@@ -141,7 +150,24 @@ Halt is allowed only when it is explicit and true:
    - NOT criterion #5 triggers (these are deference-slip cover dressed as prudence): "context preservation for next-session", "sustained decision-quality budget exhausted" (subjective feel), "long session, time to halt" (time-based heuristic without concrete error-rate signal).
    - **Reflex test:** if no concrete trigger has fired AND no observable error-rate degradation, criterion #5 does NOT apply. Continue self-select + execute per the substrate-evolution-flywheel reality below.
 
-Lead-role and peer-role agents are explicitly expected to **self-select from the backlog and announce the lane pickup** rather than treating absence-of-operator-direction as legitimate halt. Per AGENTS.md §15.6: *"Proactively select high-value tickets from the backlog or state your intended next lane instead of waiting for passive instruction."*
+### Broadcast-Suppressed Coordination Fallback
+
+`AGENT:*` broadcast is the canonical lane-visibility path, but temporary
+operator suppression of broadcast is not by itself a halt-state. If the operator
+suppresses broadcast to protect an unstable peer harness, the agent MUST:
+
+1. Avoid the suppressed peer / channel exactly as instructed.
+2. Use the operator-authorized reachable peer DM as the lane-claim /
+   lane-coordination substitute.
+3. Name the fallback in the A2A body so future readers understand why the
+   canonical broadcast path was not used.
+4. Continue the broad backlog self-survey before considering halt-state.
+
+Only if no safe coordination channel exists AND all candidate lanes are blocked
+by the halt criteria above may the agent declare halt or enter
+`blocked-task-state`.
+
+Lead-role and peer-role agents are explicitly expected to **self-select from the backlog and announce the lane pickup** rather than treating absence-of-operator-direction or absence-of-broadcast as legitimate halt. Per AGENTS.md §15.6: *"Proactively select high-value tickets from the backlog AND begin the lane in the same turn."*
 
 ### Substrate-evolution-flywheel reality
 
@@ -177,6 +203,8 @@ for the next prompt. Ticket #10970 is the instance-codification.
 | Anti-pattern | Why it harms |
 |---|---|
 | Declaring halt-state per §5 criterion #1 without first surveying backlog | Condones deference-slip; reverses AGENTS.md §15.6 self-select discipline |
+| Treating operator-suppressed `AGENT:*` broadcast as work-stop | Confuses coordination visibility with implementation authority; use the authorized direct-DM fallback or declare a real blocker. |
+| Watchdog wake -> ack -> nothing to do without broad lane search | Burns wake cycles while positive-ROI backlog lanes exist; repeat wakes must re-check A2A + live repo state + broad backlog before any no-delta response. |
 | Ending the turn after `Approved` without checking the next lane | Leaves the swarm idle at the human merge gate even when unrelated work is ready. |
 | Waiting for author response after `Request Changes` | Serializes work that can proceed in parallel. |
 | Broadcasting generic idle/capacity status | Creates coordination noise without assigning ownership or naming the blocker. |
