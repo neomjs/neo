@@ -305,20 +305,36 @@ class IssueIngestor extends Base {
                         }
                         const discussionId = `discussion-${id}`;
 
+                        // DiscussionSyncer emits lifecycle metadata; Golden Path OPEN filtering relies on graph state.
+                        const
+                            closed          = meta.closed === true,
+                            discussionState = closed ? 'CLOSED' : 'OPEN',
+                            closedAt        = closed ? (meta.closedAt || null) : null,
+                            category        = meta.category || 'Ideas';
+
                         GraphService.upsertNode({
                             id: discussionId,
                             type: 'DISCUSSION',
                             name: meta.title || discussionId,
-                            state: 'OPEN', // Discussions are treated as perpetually open for semantic traversal
+                            state: discussionState,
                             updatedAt: meta.updatedAt || meta.createdAt,
-                            category: meta.category || 'Ideas'
+                            properties: {
+                                state: discussionState,
+                                closed,
+                                closedAt,
+                                category
+                            }
                         });
 
                         const body = content.replace(/^---\n[\s\S]*?\n---\n/, '').trim();
                         const titleAndBody = `[DISCUSSION] ${meta.title}\n\n${body}`;
 
                         if (nodesCollection) {
-                            const contentHash = crypto.createHash('md5').update(titleAndBody).digest('hex');
+                            const
+                                lifecycleFingerprint = JSON.stringify({closed, closedAt, discussionState}),
+                                contentHash = crypto.createHash('md5')
+                                    .update(`${titleAndBody}\n${lifecycleFingerprint}`)
+                                    .digest('hex');
                             let needsEmbedding = true;
 
                             try {
@@ -336,7 +352,15 @@ class IssueIngestor extends Base {
                                 await nodesCollection.upsert({
                                     ids: [discussionId],
                                     documents: [titleAndBody],
-                                    metadatas: [{ hash: contentHash, title: meta.title, type: 'DISCUSSION' }]
+                                    metadatas: [{
+                                        hash: contentHash,
+                                        title: meta.title,
+                                        type: 'DISCUSSION',
+                                        state: discussionState,
+                                        closed,
+                                        closedAt,
+                                        category
+                                    }]
                                 });
                             }
                         }
