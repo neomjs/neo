@@ -786,7 +786,7 @@ export const GET_BLOCKED_BY = `
 `;
 
 /**
- * Fetches the GraphQL node ID for an issue and all labels in the repository.
+ * Fetches the GraphQL Labelable node ID for an issue or pull request and all labels in the repository.
  * This is a utility query used by mutations that add/remove labels.
  *
  * Variables required:
@@ -799,6 +799,9 @@ export const GET_ISSUE_AND_LABEL_IDS = `
     query GetIssueAndLabelIds($owner: String!, $repo: String!, $issueNumber: Int!, $maxLabels: Int!) {
         repository(owner: $owner, name: $repo) {
             issue(number: $issueNumber) {
+                id
+            }
+            pullRequest(number: $issueNumber) {
                 id
             }
             labels(first: $maxLabels) {
