@@ -223,6 +223,34 @@ const defaultConfig = {
      */
     customParsers: [],
     /**
+     * Phase 0/1B-β (#11660): per-source path overrides keyed by Source-class registry name.
+     * Empty entries or missing keys fall through to each Source class's hardcoded fallback
+     * (preserves byte-equivalence with pre-#11660 behavior). Shape varies per Source class —
+     * each interprets its own entry shape (string / string-array / path→type object).
+     * @type {Object<string,string|string[]|Object<string,string>>}
+     */
+    sourcePaths: {
+        AdrSource         : 'learn/agentos/decisions',
+        ConceptSource     : 'resources/content/concepts',
+        ReleaseNotesSource: '.github/RELEASE_NOTES',
+        SkillSource       : '.agents/skills',
+        TestSource        : 'test/playwright',
+        LearningSource    : 'learn/tree.json',
+        DiscussionSource  : ['resources/content/discussions',
+                             'resources/content/archive/discussions'],
+        PullRequestSource : ['resources/content/pulls',
+                             'resources/content/archive/pulls'],
+        TicketSource      : ['resources/content/issues',
+                             'resources/content/archive/issues'],
+        ApiSource         : {
+            'src'     : 'src',
+            'apps'    : 'app',
+            'examples': 'example',
+            'docs/app': 'app',
+            'ai'      : 'ai-infrastructure'
+        }
+    },
+    /**
      * The name of the Google Generative AI model for content generation.
      * @type {string}
      */

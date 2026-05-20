@@ -36,7 +36,8 @@ class ConceptSource extends Base {
      */
     async extract(writeStream, createHashFn) {
         let count = 0;
-        const conceptsDir = path.resolve(aiConfig.neoRootDir, 'resources/content/concepts');
+        // Phase 0/1B-β (#11660): per-source path override; legacy fallback preserves byte-equivalence.
+        const conceptsDir = path.resolve(aiConfig.neoRootDir, aiConfig.sourcePaths?.ConceptSource ?? 'resources/content/concepts');
 
         if (await fs.pathExists(conceptsDir)) {
             const files = await fs.readdir(conceptsDir);
