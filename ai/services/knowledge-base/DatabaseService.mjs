@@ -3,16 +3,10 @@ import Base                      from '../../../src/core/Base.mjs';
 import ChromaManager             from './ChromaManager.mjs';
 import DestructiveOperationGuard from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 import VectorService             from './VectorService.mjs';
-import AdrSource                 from './source/AdrSource.mjs';
-import ApiSource                 from './source/ApiSource.mjs';
-import ConceptSource             from './source/ConceptSource.mjs';
-import DiscussionSource          from './source/DiscussionSource.mjs';
-import LearningSource            from './source/LearningSource.mjs';
-import PullRequestSource         from './source/PullRequestSource.mjs';
-import ReleaseNotesSource        from './source/ReleaseNotesSource.mjs';
-import SkillSource               from './source/SkillSource.mjs';
-import TestSource                from './source/TestSource.mjs';
-import TicketSource              from './source/TicketSource.mjs';
+// Phase 0/1B (#11658): SourceRegistry replaces the hardcoded source-list. Importing
+// `./source/_export.mjs` triggers auto-registration of Neo's default Source classes when
+// `aiConfig.useDefaultSources !== false`, plus declarative `aiConfig.customSources` entries.
+import SourceRegistry            from './source/_export.mjs';
 import crypto                    from 'crypto';
 import dotenv                    from 'dotenv';
 import fs                        from 'fs-extra';
@@ -470,19 +464,14 @@ class DatabaseService extends Base {
         const writeStream = fs.createWriteStream(outputPath);
         let totalChunks   = 0;
 
-        const sources = [
-            AdrSource,
-            ApiSource,
-            ConceptSource,
-            DiscussionSource,
-            LearningSource,
-            PullRequestSource,
-            ReleaseNotesSource,
-            SkillSource,
-            TicketSource,
-            TestSource
-        ];
-
+        // Phase 0/1B (#11658): sources discovered via SourceRegistry instead of a hardcoded
+        // array. Default Neo sources auto-register at import-time via `./source/_export.mjs`
+        // unless `aiConfig.useDefaultSources === false`; tenant-supplied custom sources
+        // register either declaratively via `aiConfig.customSources` or programmatically
+        // via `SourceRegistry.registerSource(...)`. Insertion order is preserved — the
+        // 10 default Neo sources appear in the same order as the pre-#11658 hardcoded
+        // array, so byte-equivalence of the generated JSONL is preserved.
+        const sources      = SourceRegistry.getSources();
         const createHashFn = this.createContentHash.bind(this);
 
         for (const source of sources) {
