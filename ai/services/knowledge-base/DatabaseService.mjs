@@ -404,8 +404,7 @@ class DatabaseService extends Base {
             // forward the operator confirmation so the canonical-name guard accepts it.
             await ChromaManager.deleteCollection({name: collectionName, confirmation});
 
-            ChromaManager._knowledgeBaseCollectionPromise = null;
-            ChromaManager.knowledgeBaseCollection         = null;
+            ChromaManager.invalidateKnowledgeBaseCollectionCache();
 
             const message = `Knowledge base collection '${collectionName}' truncated successfully.`;
             logger.log(message);

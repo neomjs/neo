@@ -225,6 +225,131 @@ function cleanupBackupPath(backupPath) {
     });
 }
 
+/**
+ * Runs a shadow-swap re-embed against a temporary deployed KB collection name.
+ * @param {Object} options
+ * @param {String} options.collectionName Temporary Chroma collection name.
+ * @param {String} options.oldId          Sentinel id seeded into the pre-swap collection.
+ * @param {String} options.oldSentinel    Sentinel document text seeded into the pre-swap collection.
+ * @param {String} options.fixturePath    JSONL fixture path inside the container.
+ * @returns {Object}
+ */
+function shadowSwapKnowledgeBase({collectionName, oldId, oldSentinel, fixturePath}) {
+    return execKnowledgeBaseJson(`
+        ${NEO_BOOTSTRAP}
+
+        const fs = await import('node:fs/promises');
+        const {
+            KB_Config,
+            KB_ChromaManager,
+            KB_LifecycleService,
+            Memory_TextEmbeddingService
+        } = await import('./ai/services.mjs');
+        const {default: KB_VectorService} = await import('./ai/services/knowledge-base/VectorService.mjs');
+
+        await KB_LifecycleService.ready();
+
+        const originalCollectionName = KB_Config.data.collectionName;
+        const originalEmbedTexts     = Memory_TextEmbeddingService.embedTexts.bind(Memory_TextEmbeddingService);
+        const originalEmbedChunks    = KB_VectorService.embedChunks.bind(KB_VectorService);
+        const cleanupNames           = new Set([process.env.NEO_TEST_KB_COLLECTION]);
+        const vectorLength           = 4096;
+        let result;
+        let beforePromotion;
+
+        KB_Config.data.collectionName = process.env.NEO_TEST_KB_COLLECTION;
+        KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
+
+        Memory_TextEmbeddingService.embedTexts = async texts => {
+            return texts.map((_, index) => {
+                return Array.from({length: vectorLength}, (__, dimension) => dimension === index ? 1 : 0);
+            });
+        };
+
+        try {
+            const collection = await KB_ChromaManager.getKnowledgeBaseCollection();
+            await collection.upsert({
+                ids       : [process.env.NEO_TEST_KB_OLD_ID],
+                embeddings: [Array.from({length: vectorLength}, (_, dimension) => dimension === 0 ? 1 : 0)],
+                metadatas : [{kind: 'integration', source: 'kb-shadow-swap', sentinel: process.env.NEO_TEST_KB_OLD_SENTINEL}],
+                documents : [process.env.NEO_TEST_KB_OLD_SENTINEL]
+            });
+
+            const fixtureRows = [0, 1, 2].map(index => ({
+                hash       : \`shadow-swap-new-\${index}\`,
+                type       : 'method',
+                name       : \`shadowSwapMethod\${index}\`,
+                className  : '',
+                description: \`shadow swap new chunk \${index}\`,
+                content    : \`shadow swap body \${index}\`
+            }));
+            await fs.writeFile(
+                process.env.NEO_TEST_KB_FIXTURE_PATH,
+                fixtureRows.map(row => JSON.stringify(row)).join('\\n'),
+                'utf8'
+            );
+
+            KB_VectorService.embedChunks = async options => {
+                const value = await originalEmbedChunks(options);
+                const liveCollection = await KB_ChromaManager.getKnowledgeBaseCollection();
+                const probe = await liveCollection.get({
+                    ids    : [process.env.NEO_TEST_KB_OLD_ID],
+                    include: ['documents', 'metadatas']
+                });
+
+                beforePromotion = {
+                    count            : await liveCollection.count(),
+                    document         : probe.documents?.[0] || null,
+                    found            : probe.ids?.includes(process.env.NEO_TEST_KB_OLD_ID) || false,
+                    queriedCollection: liveCollection.name,
+                    shadowCollection : options.collection.name
+                };
+
+                return value;
+            };
+
+            result = await KB_VectorService.embed(process.env.NEO_TEST_KB_FIXTURE_PATH, {
+                staleStrategy: 'shadow-swap'
+            });
+            cleanupNames.add(result.parkedCollection);
+
+            const afterCollection = await KB_ChromaManager.getKnowledgeBaseCollection();
+            const oldProbe = await afterCollection.get({
+                ids    : [process.env.NEO_TEST_KB_OLD_ID],
+                include: ['documents']
+            });
+
+            console.log(JSON.stringify({
+                after: {
+                    collectionName: afterCollection.name,
+                    count         : await afterCollection.count(),
+                    oldFound      : oldProbe.ids?.includes(process.env.NEO_TEST_KB_OLD_ID) || false
+                },
+                beforePromotion,
+                result
+            }));
+        } finally {
+            KB_VectorService.embedChunks             = originalEmbedChunks;
+            Memory_TextEmbeddingService.embedTexts   = originalEmbedTexts;
+            KB_Config.data.collectionName            = originalCollectionName;
+            KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
+
+            for (const name of cleanupNames) {
+                try {
+                    await KB_ChromaManager.client.deleteCollection({name});
+                } catch {}
+            }
+
+            await fs.rm(process.env.NEO_TEST_KB_FIXTURE_PATH, {force: true});
+        }
+    `, {
+        NEO_TEST_KB_COLLECTION  : collectionName,
+        NEO_TEST_KB_FIXTURE_PATH: fixturePath,
+        NEO_TEST_KB_OLD_ID      : oldId,
+        NEO_TEST_KB_OLD_SENTINEL: oldSentinel
+    });
+}
+
 test.describe('Dockerized KB backup -> wipe -> restore integration (#11644)', () => {
     test('restores a seeded Knowledge Base vector after an isolated fixture wipe', async () => {
         const readiness = await getReadiness();
@@ -271,5 +396,38 @@ test.describe('Dockerized KB backup -> wipe -> restore integration (#11644)', ()
                 Promise.resolve().then(() => cleanupBackupPath(backupPath))
             ]);
         }
+    });
+
+    test('shadow-swap re-embed keeps the old canonical corpus queryable until promotion (#11683)', async () => {
+        const readiness = await getReadiness();
+
+        test.skip(readiness.dockerAvailable === false, `Docker unavailable: ${readiness.reason}`);
+        expect(readiness.servicesReady, readiness.reason).toBe(true);
+
+        const runId          = `${Date.now()}-${randomUUID()}`;
+        const collectionName = `kb-shadow-swap-${runId}`;
+        const oldId          = `kb-shadow-swap-old-${runId}`;
+        const oldSentinel    = `kb-shadow-swap-sentinel-${runId}`;
+        const fixturePath    = `/tmp/neo-integration/kb-shadow-swap-${runId}.jsonl`;
+
+        const swap = shadowSwapKnowledgeBase({
+            collectionName,
+            fixturePath,
+            oldId,
+            oldSentinel
+        });
+
+        expect(swap.result.staleStrategy).toBe('shadow-swap');
+        expect(swap.result.embedded).toBe(3);
+        expect(swap.result.deleted).toBe(1);
+
+        expect(swap.beforePromotion.found).toBe(true);
+        expect(swap.beforePromotion.document).toBe(oldSentinel);
+        expect(swap.beforePromotion.queriedCollection).toBe(collectionName);
+        expect(swap.beforePromotion.shadowCollection).not.toBe(collectionName);
+
+        expect(swap.after.collectionName).toBe(collectionName);
+        expect(swap.after.count).toBe(3);
+        expect(swap.after.oldFound).toBe(false);
     });
 });

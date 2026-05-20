@@ -11,6 +11,8 @@ import readline                  from 'readline';
 import DestructiveOperationGuard from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 
 const TENANT_GUARDED_FIELDS = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity'];
+const STALE_STRATEGIES      = Object.freeze(new Set(['delete-upfront', 'shadow-swap']));
+const STALE_STRATEGY_SKIP   = 'skip';
 
 /**
  * @summary Manages vector database operations including embedding generation and storage.
@@ -81,8 +83,7 @@ class VectorService extends Base {
             // Route through ChromaManager.deleteCollection (#11652 substrate-level guard).
             // Forward the operator confirmation so the canonical-name guard accepts it.
             await ChromaManager.deleteCollection({name: collectionName, confirmation});
-            ChromaManager._knowledgeBaseCollectionPromise = null;
-            ChromaManager.knowledgeBaseCollection = null;
+            ChromaManager.invalidateKnowledgeBaseCollectionCache();
             const message = `Knowledge base collection '${collectionName}' deleted successfully.`;
             logger.log(message);
             return {message};
@@ -231,6 +232,167 @@ class VectorService extends Base {
     }
 
     /**
+     * Resolves the stale-data handling strategy while preserving the legacy
+     * `deleteStale: false` incremental-ingestion contract.
+     *
+     * @param {Object}  options
+     * @param {String} [options.staleStrategy] Explicit stale strategy.
+     * @param {Boolean} [options.deleteStale]  Legacy boolean stale-deletion flag.
+     * @returns {String} Resolved strategy: `delete-upfront`, `shadow-swap`, or internal `skip`.
+     * @throws {Error} When the explicit stale strategy is unsupported.
+     */
+    resolveStaleStrategy({staleStrategy, deleteStale = true} = {}) {
+        if (staleStrategy) {
+            if (!STALE_STRATEGIES.has(staleStrategy)) {
+                throw new Error(`Unsupported staleStrategy '${staleStrategy}'. Expected one of: ${Array.from(STALE_STRATEGIES).join(', ')}.`);
+            }
+            return staleStrategy;
+        }
+
+        return deleteStale ? 'delete-upfront' : STALE_STRATEGY_SKIP;
+    }
+
+    /**
+     * Embeds a set of chunks into the provided Chroma collection.
+     *
+     * @param {Object}   options
+     * @param {Object}   options.collection      Chroma collection target.
+     * @param {Object[]} options.chunksToProcess Tenant-stamped chunks to embed.
+     * @returns {Promise<void>}
+     */
+    async embedChunks({collection, chunksToProcess}) {
+        if (chunksToProcess.length === 0) {
+            return;
+        }
+
+        logger.log(`Using TextEmbeddingService with provider: ${mcConfig.embeddingProvider}.`);
+        logger.log('Embedding chunks...');
+
+        const {batchSize, batchDelay, maxRetries} = aiConfig;
+
+        for (let i = 0; i < chunksToProcess.length; i += batchSize) {
+            if (i > 0 && batchDelay) {
+                await this.timeout(batchDelay);
+            }
+
+            const batch = chunksToProcess.slice(i, i + batchSize);
+            const textsToEmbed = batch.map(chunk => `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || chunk.content || ''}`);
+
+            let retries = 0;
+            let success = false;
+
+            while (retries < maxRetries && !success) {
+                try {
+                    const embeddings = await TextEmbeddingService.embedTexts(textsToEmbed, mcConfig.embeddingProvider);
+
+                    const metadatas = batch.map(chunk => {
+                        const metadata = {};
+                        for (const [key, value] of Object.entries(chunk)) {
+                            metadata[key] = (value === null) ? 'null' : (typeof value === 'object') ? JSON.stringify(value) : value;
+                        }
+                        return metadata;
+                    });
+
+                    await collection.upsert({
+                        ids: batch.map(chunk => chunk.id),
+                        embeddings,
+                        metadatas
+                    });
+
+                    logger.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)}`);
+                    success = true;
+                } catch (err) {
+                    retries++;
+                    console.error(`An error occurred during embedding batch ${i / batchSize + 1}. Retrying (${retries}/${maxRetries})...`, err.message);
+                    if (retries < maxRetries) {
+                        await new Promise(res => setTimeout(res, 2 ** retries * 1000)); // Exponential backoff
+                    } else {
+                        throw new Error(`Failed to process batch ${i / batchSize + 1} after ${maxRetries} retries. Aborting.`);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Creates a process-unique temporary collection name for a shadow-swap phase.
+     *
+     * @param {String} phase Name suffix identifying the phase.
+     * @returns {String} Temporary Chroma collection name.
+     */
+    createSwapCollectionName(phase) {
+        return `${aiConfig.collectionName}-${phase}-${Date.now()}-${crypto.randomUUID()}`;
+    }
+
+    /**
+     * Rebuilds the full corpus into a shadow collection, then promotes it to the
+     * canonical name without ever gutting the live collection in-place.
+     *
+     * ChromaDB has no single atomic exchange primitive, so the promote step is a
+     * bounded two-rename transaction: live -> parking, shadow -> canonical. The old
+     * collection remains parked as a rollback artifact because destructive collection
+     * deletion is operator-gated outside unit tests.
+     *
+     * @param {Object}   options
+     * @param {Object}   options.liveCollection Existing canonical collection handle.
+     * @param {Object[]} options.knowledgeBase   Full tenant-stamped corpus.
+     * @param {Number}   options.idsToDeleteCount Logical stale-id count removed from the canonical view.
+     * @returns {Promise<Object>} Embedding result.
+     * @see https://github.com/neomjs/neo/issues/11683
+     */
+    async embedViaShadowSwap({liveCollection, knowledgeBase, idsToDeleteCount}) {
+        const shadowName  = this.createSwapCollectionName('shadow');
+        const parkingName = this.createSwapCollectionName('parking');
+
+        logger.log(`Building shadow knowledge-base collection '${shadowName}'.`);
+
+        const shadowCollection = await ChromaManager.client.createCollection({
+            name             : shadowName,
+            embeddingFunction: aiConfig.dummyEmbeddingFunction
+        });
+
+        let liveParked = false;
+
+        try {
+            await this.embedChunks({collection: shadowCollection, chunksToProcess: knowledgeBase});
+
+            logger.log(`Promoting shadow collection '${shadowName}' to '${aiConfig.collectionName}'.`);
+            await liveCollection.modify({name: parkingName});
+            liveParked = true;
+            await shadowCollection.modify({name: aiConfig.collectionName});
+
+            ChromaManager.invalidateKnowledgeBaseCollectionCache();
+
+            const collection = await ChromaManager.getKnowledgeBaseCollection();
+            const count      = await collection.count();
+            const message    = `Embedding complete via shadow-swap. Collection now contains ${count} items. Previous collection parked as '${parkingName}'.`;
+            logger.log(message);
+
+            return {
+                message,
+                embedded           : knowledgeBase.length,
+                deleted            : idsToDeleteCount,
+                staleStrategy      : 'shadow-swap',
+                shadowCollection   : shadowName,
+                parkedCollection   : parkingName,
+                canonicalCollection: aiConfig.collectionName
+            };
+        } catch (error) {
+            ChromaManager.invalidateKnowledgeBaseCollectionCache();
+
+            if (liveParked) {
+                try {
+                    await liveCollection.modify({name: aiConfig.collectionName});
+                    ChromaManager.invalidateKnowledgeBaseCollectionCache();
+                } catch (rollbackError) {
+                    logger.error('[VectorService] Failed to roll back parked live collection after shadow-swap failure:', rollbackError.message);
+                }
+            }
+            throw error;
+        }
+    }
+
+    /**
      * Reads a JSONL file, enriches data, generates embeddings, and updates ChromaDB.
      *
      * **Work-volume gate (#10572):** when invoked via MCP (`viaMcp: true`), refuses
@@ -248,12 +410,17 @@ class VectorService extends Base {
      * @param {Boolean} [opts.deleteStale=true]    True applies full-corpus stale-id deletion.
      *                                             Incremental Phase 2 pushes pass `false` and
      *                                             use explicit deletion signaling instead.
+     * @param {String}  [opts.staleStrategy]       Stale handling strategy. `delete-upfront`
+     *                                             preserves the historical behavior;
+     *                                             `shadow-swap` rebuilds into a fresh collection
+     *                                             before promoting it to the canonical name.
      * @returns {Promise<object>} A promise that resolves to a success message, OR a
      *     `{error, code: 'KB_SYNC_VOLUME_EXCEEDED', ...}` shape when the MCP gate fires.
      * @see #10572
      */
-    async embed(knowledgeBasePath, {viaMcp = false, tenantContext = {}, deleteStale = true} = {}) {
+    async embed(knowledgeBasePath, {viaMcp = false, tenantContext = {}, deleteStale = true, staleStrategy} = {}) {
         logger.log('Starting knowledge base embedding...');
+        const resolvedStaleStrategy = this.resolveStaleStrategy({staleStrategy, deleteStale});
 
         if (!await fs.pathExists(knowledgeBasePath)) {
             throw new Error(`Knowledge base file not found at ${knowledgeBasePath}.`);
@@ -346,12 +513,14 @@ class VectorService extends Base {
 
         // Convert existingIds Set to Array for filtering, as existingDocs object is no longer available
         const existingIdsArray = Array.from(existingIds);
-        const idsToDelete      = deleteStale ? existingIdsArray.filter(id => !allIds.has(id)) : [];
+        const idsToDelete      = resolvedStaleStrategy === STALE_STRATEGY_SKIP ? [] : existingIdsArray.filter(id => !allIds.has(id));
+        const shouldShadowSwap = resolvedStaleStrategy === 'shadow-swap' && (chunksToProcess.length > 0 || idsToDelete.length > 0);
+        const workVolume       = shouldShadowSwap ? knowledgeBase.length : chunksToProcess.length;
 
-        logger.log(`${chunksToProcess.length} chunks to add or update.`);
+        logger.log(`${workVolume} chunks to add or update.`);
         logger.log(`${idsToDelete.length} chunks to delete.`);
 
-        if (chunksToProcess.length === 0) {
+        if (!shouldShadowSwap && chunksToProcess.length === 0) {
             if (idsToDelete.length > 0) {
                 await collection.delete({ ids: idsToDelete });
                 logger.log(`Deleted ${idsToDelete.length} stale chunks.`);
@@ -369,7 +538,7 @@ class VectorService extends Base {
         // the threshold is empirically tunable rather than timing-derived.
         // CLI invocations pass viaMcp: false and bypass.
         const mcpThreshold = aiConfig.mcpSyncMaxChunks ?? 50;
-        if (viaMcp && chunksToProcess.length > mcpThreshold) {
+        if (viaMcp && workVolume > mcpThreshold) {
             // Defensive log-path resolution mirrors logger.mjs's lazy resolution — keeps
             // the refusal message coherent even on existing gitignored config.mjs deployments
             // that pre-date the `logPath` template key. Without the fallback, the rendered
@@ -377,16 +546,24 @@ class VectorService extends Base {
             const logDir = aiConfig.logPath || `${aiConfig.neoRootDir}/.neo-ai-data/logs`;
             const errorPayload = {
                 error  : `KB sync work volume exceeds MCP-callable threshold`,
-                message: `${chunksToProcess.length} chunks need re-embedding (threshold: ${mcpThreshold}). ` +
+                message: `${workVolume} chunks need re-embedding (threshold: ${mcpThreshold}). ` +
                          `Synchronous embedding at this volume risks agent freeze. ` +
                          `Run via CLI: \`npm run ai:sync-kb\`. ` +
                          `Tail progress: \`tail -f ${logDir}/kb-server-$(date +%Y-%m-%d).log\`.`,
                 code           : 'KB_SYNC_VOLUME_EXCEEDED',
-                chunksToProcess: chunksToProcess.length,
+                chunksToProcess: workVolume,
                 threshold      : mcpThreshold
             };
             logger.warn(`[VectorService] ${errorPayload.error}: ${errorPayload.message}`);
             return errorPayload;
+        }
+
+        if (shouldShadowSwap) {
+            return await this.embedViaShadowSwap({
+                liveCollection: collection,
+                knowledgeBase,
+                idsToDeleteCount: idsToDelete.length
+            });
         }
 
         if (idsToDelete.length > 0) {
@@ -394,53 +571,7 @@ class VectorService extends Base {
             logger.log(`Deleted ${idsToDelete.length} stale chunks.`);
         }
 
-        logger.log(`Using TextEmbeddingService with provider: ${mcConfig.embeddingProvider}.`);
-
-        logger.log('Embedding chunks...');
-        const {batchSize, batchDelay, maxRetries} = aiConfig;
-
-        for (let i = 0; i < chunksToProcess.length; i += batchSize) {
-            if (i > 0 && batchDelay) {
-                await this.timeout(batchDelay);
-            }
-
-            const batch = chunksToProcess.slice(i, i + batchSize);
-            const textsToEmbed = batch.map(chunk => `${chunk.type}: ${chunk.name} in ${chunk.className || ''}\n${chunk.description || chunk.content || ''}`);
-
-            let retries = 0;
-            let success = false;
-
-            while (retries < maxRetries && !success) {
-                try {
-                    const embeddings = await TextEmbeddingService.embedTexts(textsToEmbed, mcConfig.embeddingProvider);
-
-                    const metadatas = batch.map(chunk => {
-                        const metadata = {};
-                        for (const [key, value] of Object.entries(chunk)) {
-                            metadata[key] = (value === null) ? 'null' : (typeof value === 'object') ? JSON.stringify(value) : value;
-                        }
-                        return metadata;
-                    });
-
-                    await collection.upsert({
-                        ids: batch.map(chunk => chunk.id),
-                        embeddings,
-                        metadatas
-                    });
-
-                    logger.log(`Processed and embedded batch ${i / batchSize + 1} of ${Math.ceil(chunksToProcess.length / batchSize)}`);
-                    success = true;
-                } catch (err) {
-                    retries++;
-                    console.error(`An error occurred during embedding batch ${i / batchSize + 1}. Retrying (${retries}/${maxRetries})...`, err.message);
-                    if (retries < maxRetries) {
-                        await new Promise(res => setTimeout(res, 2 ** retries * 1000)); // Exponential backoff
-                    } else {
-                        throw new Error(`Failed to process batch ${i / batchSize + 1} after ${maxRetries} retries. Aborting.`);
-                    }
-                }
-            }
-        }
+        await this.embedChunks({collection, chunksToProcess});
 
         const count   = await collection.count();
         const message = `Embedding complete. Collection now contains ${count} items.`;
