@@ -124,4 +124,39 @@ test.describe('Neo.ai.services.knowledge-base.QueryService#queryDocuments', () =
         expect(result.results.map(item => item.source)).toContain('src/button/Base.mjs');
         expect(result.results.map(item => item.source)).toContain('src/component/Base.mjs');
     });
+
+    test('returns ranked metadata only when internal hydration callers request it', async () => {
+        const capture = {};
+        installQueryStub([{
+            source          : 'tenant-app/src/Foo.mjs',
+            type            : 'src',
+            name            : 'Foo',
+            className       : 'Foo',
+            content         : 'TENANT_METADATA_CONTENT',
+            repoSlug        : 'tenant-app',
+            tenantId        : 'tenant-a',
+            inheritanceChain: '[]'
+        }], capture);
+
+        const publicResult = await QueryService.queryDocuments({
+            query: 'foo',
+            type : 'src',
+            limit: 5
+        });
+
+        expect(publicResult.results[0]).not.toHaveProperty('metadata');
+
+        const internalResult = await QueryService.queryDocuments({
+            query          : 'foo',
+            type           : 'src',
+            limit          : 5,
+            includeMetadata: true
+        });
+
+        expect(internalResult.results[0].metadata).toMatchObject({
+            content : 'TENANT_METADATA_CONTENT',
+            repoSlug: 'tenant-app',
+            tenantId: 'tenant-a'
+        });
+    });
 });

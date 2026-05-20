@@ -68,6 +68,88 @@ class SearchService extends Base {
     }
 
     /**
+     * Returns embedded chunk content when a ranked result carries full source metadata.
+     * @param {Object} [metadata] Result metadata from QueryService.
+     * @returns {String} The embedded content or an empty string.
+     */
+    getEmbeddedReferenceContent(metadata = {}) {
+        return typeof metadata.content === 'string' && metadata.content.trim()
+            ? metadata.content
+            : '';
+    }
+
+    /**
+     * Determines whether a ranked result belongs to a tenant/repo that must not be hydrated
+     * from the local neoRootDir filesystem.
+     * @param {Object} [metadata] Result metadata from QueryService.
+     * @returns {Boolean} True when local filesystem hydration is unsafe for this reference.
+     */
+    isNonLocalTenantReference(metadata = {}) {
+        const defaultTenantId = aiConfig.defaultTenantId ?? 'neo-shared';
+        const defaultRepoSlug = aiConfig.defaultRepoSlug ?? 'neo';
+
+        if (metadata.repoSlug && metadata.repoSlug !== defaultRepoSlug) {
+            return true;
+        }
+
+        if (!metadata.tenantId) {
+            return false;
+        }
+
+        return metadata.tenantId !== defaultTenantId;
+    }
+
+    /**
+     * Resolves the best available source content for RAG synthesis.
+     *
+     * Local Neo references keep using neoRootDir filesystem hydration so agents see the
+     * current checkout. Tenant-ingested references use Chroma metadata content instead,
+     * preventing same-relative-path collisions from reading files out of the host repo.
+     *
+     * @param {Object} ref Query reference.
+     * @returns {Promise<String>} Hydrated content or the standard placeholder.
+     */
+    async hydrateReferenceContent(ref) {
+        const metadata        = ref.metadata || {};
+        const embeddedContent = this.getEmbeddedReferenceContent(metadata);
+        let   content         = '';
+        let   absoluteSource  = '';
+
+        if (this.isNonLocalTenantReference(metadata)) {
+            if (embeddedContent) {
+                return embeddedContent;
+            }
+
+            logger.warn(`[SearchService] Missing metadata.content for non-local tenant ref.source="${ref.source}" (tenantId="${metadata.tenantId}", repoSlug="${metadata.repoSlug || ''}") — refusing neoRootDir fallback.`);
+
+            return 'No Content (File missing or empty)';
+        }
+
+        absoluteSource = ref.source && path.isAbsolute(ref.source)
+            ? ref.source
+            : path.resolve(aiConfig.neoRootDir, ref.source || '');
+
+        if (absoluteSource && await fs.pathExists(absoluteSource)) {
+            try {
+                content = await fs.readFile(absoluteSource, 'utf8');
+            } catch (err) {
+                logger.warn(`[SearchService] Failed to read file ${absoluteSource}:`, err.message);
+            }
+        }
+
+        if (!content && embeddedContent) {
+            return embeddedContent;
+        }
+
+        if (!content) {
+            content = 'No Content (File missing or empty)';
+            logger.warn(`[SearchService] Empty context for ref.source="${ref.source}" (resolved to "${absoluteSource}") — chunk content will not reach the synthesis LLM.`);
+        }
+
+        return content;
+    }
+
+    /**
      * Performs a semantic search via QueryService and synthesizes an answer using the LLM.
      *
      * @param {Object} params
@@ -84,7 +166,7 @@ class SearchService extends Base {
         logger.info(`[SearchService] Processing RAG query: "${query}" (Type: ${type})`);
 
         // 1. Retrieve most relevant files using QueryService's scoring logic
-        const queryResult = await QueryService.queryDocuments({query, type, limit});
+        const queryResult = await QueryService.queryDocuments({query, type, limit, includeMetadata: true});
 
         if (queryResult.message || !queryResult.results || queryResult.results.length === 0) {
             return {
@@ -98,8 +180,12 @@ class SearchService extends Base {
             source: r.source,
             score : Number(r.score)
         }));
+        const contextReferences = queryResult.results.map((r, index) => ({
+            ...references[index],
+            metadata: r.metadata || {}
+        }));
 
-        // 2. Read file contents for context.
+        // 2. Read source contents for context.
         //
         // All source loaders store `metadata.source` as a path relative to `neoRootDir`
         // so the Chroma collection shipped with each neo release remains portable across
@@ -112,25 +198,14 @@ class SearchService extends Base {
         // answers for every `type='src'` / `type='ai-infrastructure'` query. The
         // `path.isAbsolute` short-circuit keeps legacy absolute-path chunks working
         // during the grace period when a consumer has not yet re-synced.
-        const contextPromises = references.map(async (ref, index) => {
-            let content = '';
-
-            const absoluteSource = ref.source && path.isAbsolute(ref.source)
-                ? ref.source
-                : path.resolve(aiConfig.neoRootDir, ref.source || '');
-
-            if (absoluteSource && await fs.pathExists(absoluteSource)) {
-                try {
-                    content = await fs.readFile(absoluteSource, 'utf8');
-                } catch (err) {
-                    logger.warn(`[SearchService] Failed to read file ${absoluteSource}:`, err.message);
-                }
-            }
-
-            if (!content) {
-                content = 'No Content (File missing or empty)';
-                logger.warn(`[SearchService] Empty context for ref.source="${ref.source}" (resolved to "${absoluteSource}") — chunk content will not reach the synthesis LLM.`);
-            }
+        //
+        // #11636 chooses Q12 Option A (metadata-embedded hydration) for tenant content.
+        // The measured chunk distribution keeps the V1 storage cost acceptable, while
+        // avoiding server-mirror infrastructure. Non-local tenants may use the same
+        // relative `source` strings as Neo itself, so those references hydrate from
+        // metadata.content and never fall through to the host checkout.
+        const contextPromises = contextReferences.map(async (ref, index) => {
+            const content = await this.hydrateReferenceContent(ref);
 
             return `--- DOCUMENT ${index + 1} (${ref.name} from ${ref.source}) ---\n${content}`;
         });
