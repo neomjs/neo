@@ -761,6 +761,35 @@ paths:
                     type: array
                     items:
                       type: object
+                      additionalProperties: true
+                      properties:
+                        id:
+                          type: string
+                          description: The adjacent node ID.
+                        type:
+                          type: string
+                          description: The adjacent node type or label.
+                        name:
+                          type: string
+                          description: The adjacent node display name.
+                        description:
+                          type: string
+                          description: The adjacent node description.
+                        relationship:
+                          type: string
+                          description: The edge relationship type connecting the source and adjacent node.
+                        weight:
+                          type: number
+                          description: The edge weight for the relationship.
+                        source:
+                          type: string
+                          description: The source node ID for the relationship edge.
+                        target:
+                          type: string
+                          description: The target node ID for the relationship edge.
+                        semanticVectorId:
+                          type: string
+                          description: The adjacent node's semantic vector identifier, when present.
         '500':
           description: Internal server error.
           content:

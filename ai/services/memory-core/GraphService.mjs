@@ -621,7 +621,9 @@ class GraphService extends Base {
      * Retrieves adjacent connected nodes (neighbors) alongside relationship metadata.
      * @param {Object} data
      * @param {String} data.id
-     * @returns {Array} List of connected Node objects with edge relationship mapping.
+     * @returns {Object} Object containing connected Node objects with edge relationship mapping.
+     *     Neighbor objects include `semanticVectorId` when present on the adjacent node,
+     *     enabling vector-backed consumers such as `preBriefSession` to hydrate context.
      */
     getNeighbors({id}) {
         // Guarantee lazy-loading vicinity topology securely
@@ -647,14 +649,15 @@ class GraphService extends Base {
             // edge are RLS-visible — a private edge between visible nodes still leaks.
             if (node && isRlsVisible(node, rlsUserId) && isRlsVisible(e, rlsUserId)) {
                 results.push({
-                    id          : node.id,
-                    type        : node.label,
-                    name        : node.properties?.name,
-                    description : node.properties?.description,
-                    relationship: e.type,
-                    weight      : e.properties?.weight || 1.0,
-                    source      : e.source,
-                    target      : e.target
+                    id              : node.id,
+                    type            : node.label,
+                    name            : node.properties?.name,
+                    description     : node.properties?.description,
+                    semanticVectorId: node.properties?.semanticVectorId,
+                    relationship    : e.type,
+                    weight          : e.properties?.weight || 1.0,
+                    source          : e.source,
+                    target          : e.target
                 });
             }
         });
