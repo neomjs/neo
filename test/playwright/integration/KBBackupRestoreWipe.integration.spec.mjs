@@ -252,11 +252,11 @@ function shadowSwapKnowledgeBase({collectionName, oldId, oldSentinel, fixturePat
         const originalCollectionName = KB_Config.data.collectionName;
         const originalEmbedTexts     = Memory_TextEmbeddingService.embedTexts.bind(Memory_TextEmbeddingService);
         const originalEmbedChunks    = KB_VectorService.embedChunks.bind(KB_VectorService);
-	        const cleanupNames           = new Set([process.env.NEO_TEST_KB_COLLECTION]);
-	        const vectorLength           = 4096;
-	        let result;
-	        let beforePromotion;
-	        let promoteWindowProbe;
+        const cleanupNames           = new Set([process.env.NEO_TEST_KB_COLLECTION]);
+        const vectorLength           = 4096;
+        let result;
+        let beforePromotion;
+        let promoteWindowProbe;
 
         KB_Config.data.collectionName = process.env.NEO_TEST_KB_COLLECTION;
         KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
@@ -268,26 +268,26 @@ function shadowSwapKnowledgeBase({collectionName, oldId, oldSentinel, fixturePat
         };
 
         try {
-	            const collection = await KB_ChromaManager.getKnowledgeBaseCollection();
-	            const originalModify = collection.modify.bind(collection);
-	            collection.modify = async options => {
-	                const value = await originalModify(options);
-	                if (options.name.includes(\`\${process.env.NEO_TEST_KB_COLLECTION}-parking-\`)) {
-	                    KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
-	                    try {
-	                        await KB_ChromaManager.getKnowledgeBaseCollection();
-	                    } catch (error) {
-	                        promoteWindowProbe = {
-	                            activeSwapCollections: error.activeSwapCollections || [],
-	                            code                 : error.code || null,
-	                            message              : error.message
-	                        };
-	                    }
-	                }
-	                return value;
-	            };
+            const collection = await KB_ChromaManager.getKnowledgeBaseCollection();
+            const originalModify = collection.modify.bind(collection);
+            collection.modify = async options => {
+                const value = await originalModify(options);
+                if (options.name.includes(\`\${process.env.NEO_TEST_KB_COLLECTION}-parking-\`)) {
+                    KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
+                    try {
+                        await KB_ChromaManager.getKnowledgeBaseCollection();
+                    } catch (error) {
+                        promoteWindowProbe = {
+                            activeSwapCollections: error.activeSwapCollections || [],
+                            code                 : error.code || null,
+                            message              : error.message
+                        };
+                    }
+                }
+                return value;
+            };
 
-	            await collection.upsert({
+            await collection.upsert({
                 ids       : [process.env.NEO_TEST_KB_OLD_ID],
                 embeddings: [Array.from({length: vectorLength}, (_, dimension) => dimension === 0 ? 1 : 0)],
                 metadatas : [{kind: 'integration', source: 'kb-shadow-swap', sentinel: process.env.NEO_TEST_KB_OLD_SENTINEL}],
@@ -338,16 +338,16 @@ function shadowSwapKnowledgeBase({collectionName, oldId, oldSentinel, fixturePat
                 include: ['documents']
             });
 
-	            console.log(JSON.stringify({
-	                after: {
-	                    collectionName: afterCollection.name,
-	                    count         : await afterCollection.count(),
-	                    oldFound      : oldProbe.ids?.includes(process.env.NEO_TEST_KB_OLD_ID) || false
-	                },
-	                beforePromotion,
-	                promoteWindowProbe,
-	                result
-	            }));
+            console.log(JSON.stringify({
+                after: {
+                    collectionName: afterCollection.name,
+                    count         : await afterCollection.count(),
+                    oldFound      : oldProbe.ids?.includes(process.env.NEO_TEST_KB_OLD_ID) || false
+                },
+                beforePromotion,
+                promoteWindowProbe,
+                result
+            }));
         } finally {
             KB_VectorService.embedChunks             = originalEmbedChunks;
             Memory_TextEmbeddingService.embedTexts   = originalEmbedTexts;
@@ -442,16 +442,16 @@ test.describe('Dockerized KB backup -> wipe -> restore integration (#11644)', ()
         expect(swap.result.deleted).toBe(1);
 
         expect(swap.beforePromotion.found).toBe(true);
-	        expect(swap.beforePromotion.document).toBe(oldSentinel);
-	        expect(swap.beforePromotion.queriedCollection).toBe(collectionName);
-	        expect(swap.beforePromotion.shadowCollection).not.toBe(collectionName);
-	        expect(swap.promoteWindowProbe.code).toBe('KB_COLLECTION_SWAP_IN_PROGRESS');
-	        expect(swap.promoteWindowProbe.activeSwapCollections).toEqual(expect.arrayContaining([
-	            swap.result.parkedCollection,
-	            swap.result.shadowCollection
-	        ]));
+        expect(swap.beforePromotion.document).toBe(oldSentinel);
+        expect(swap.beforePromotion.queriedCollection).toBe(collectionName);
+        expect(swap.beforePromotion.shadowCollection).not.toBe(collectionName);
+        expect(swap.promoteWindowProbe.code).toBe('KB_COLLECTION_SWAP_IN_PROGRESS');
+        expect(swap.promoteWindowProbe.activeSwapCollections).toEqual(expect.arrayContaining([
+            swap.result.parkedCollection,
+            swap.result.shadowCollection
+        ]));
 
-	        expect(swap.after.collectionName).toBe(collectionName);
+        expect(swap.after.collectionName).toBe(collectionName);
         expect(swap.after.count).toBe(3);
         expect(swap.after.oldFound).toBe(false);
     });
