@@ -77,4 +77,14 @@ test.describe('Neo.ai.mcp.server.memory-core Tool limits', () => {
         ]));
         expect(metadata.properties.adapter.enum).toEqual(['osascript', 'tmux']);
     });
+
+    test('get_neighbors output schema exposes semanticVectorId contract (#11680)', async () => {
+        const { tools } = await toolService.listTools();
+        const tool = tools.find(item => item.name === 'get_neighbors');
+        const neighbor = tool.outputSchema.properties.neighbors.items;
+
+        expect(neighbor.properties.semanticVectorId.type).toBe('string');
+        expect(neighbor.properties.semanticVectorId.description).toContain('semantic vector identifier');
+        expect(neighbor.additionalProperties).not.toBe(false);
+    });
 });
