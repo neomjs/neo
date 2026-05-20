@@ -269,6 +269,197 @@ test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueComme
 });
 
 /**
+ * @summary Contract coverage for `IssueService.manageIssueLabels` issue-or-PR labelable lookup (#10077).
+ *
+ * `manage_issue_labels` advertises an `issue_number` path parameter that can target either a
+ * GitHub Issue or Pull Request. GitHub GraphQL models those as distinct fields, but both implement
+ * the `Labelable` interface consumed by `addLabelsToLabelable` / `removeLabelsFromLabelable`.
+ * These tests lock the dual lookup so PR labels do not regress to an Issue-only query path.
+ *
+ * @see Neo.ai.services.github-workflow.IssueService#manageIssueLabels
+ */
+test.describe('Neo.ai.services.github-workflow.IssueService — manageIssueLabels (#10077)', () => {
+    let IssueService;
+    let GraphqlService;
+    let originalQuery;
+
+    const repoLabels = [
+        {id: 'LA_bug', name: 'bug'},
+        {id: 'LA_ai',  name: 'ai'}
+    ];
+
+    test.beforeAll(async () => {
+        GraphqlService = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+        IssueService   = (await import('../../../../../../ai/services/github-workflow/IssueService.mjs')).default;
+
+        originalQuery = GraphqlService.query.bind(GraphqlService);
+    });
+
+    test.afterAll(() => {
+        GraphqlService.query = originalQuery;
+    });
+
+    test('adds labels to an Issue using the issue Labelable id', async () => {
+        const ISSUE_NODE_ID = 'I_kwDOABcD_issue10077';
+        let callCount       = 0;
+
+        GraphqlService.query = async (query, variables) => {
+            callCount++;
+            if (callCount === 1) {
+                expect(variables.issueNumber).toBe(10077);
+                return {
+                    repository: {
+                        issue      : {id: ISSUE_NODE_ID},
+                        pullRequest: null,
+                        labels     : {nodes: repoLabels}
+                    }
+                };
+            }
+            if (callCount === 2) {
+                expect(variables).toEqual({
+                    labelableId: ISSUE_NODE_ID,
+                    labelIds   : ['LA_bug', 'LA_ai']
+                });
+                return {addLabelsToLabelable: {clientMutationId: null}};
+            }
+            throw new Error(`Unexpected additional GraphqlService.query call: ${callCount}`);
+        };
+
+        const result = await IssueService.manageIssueLabels({
+            issue_number: 10077,
+            action      : 'add',
+            labels      : ['bug', 'ai']
+        });
+
+        expect(result.message).toContain('Successfully added labels');
+        expect(callCount).toBe(2);
+    });
+
+    test('adds labels to a Pull Request using the pullRequest Labelable id', async () => {
+        const PR_NODE_ID = 'PR_kwDOABcD_pr11695';
+        let callCount    = 0;
+
+        GraphqlService.query = async (query, variables) => {
+            callCount++;
+            if (callCount === 1) {
+                expect(variables.issueNumber).toBe(11695);
+                return {
+                    repository: {
+                        issue      : null,
+                        pullRequest: {id: PR_NODE_ID},
+                        labels     : {nodes: repoLabels}
+                    }
+                };
+            }
+            if (callCount === 2) {
+                expect(variables).toEqual({
+                    labelableId: PR_NODE_ID,
+                    labelIds   : ['LA_ai']
+                });
+                return {addLabelsToLabelable: {clientMutationId: null}};
+            }
+            throw new Error(`Unexpected additional GraphqlService.query call: ${callCount}`);
+        };
+
+        const result = await IssueService.manageIssueLabels({
+            issue_number: 11695,
+            action      : 'add',
+            labels      : ['ai']
+        });
+
+        expect(result.message).toContain('Successfully added labels');
+        expect(callCount).toBe(2);
+    });
+
+    test('removes labels from a Pull Request using the pullRequest Labelable id', async () => {
+        const PR_NODE_ID = 'PR_kwDOABcD_pr11695';
+        let callCount    = 0;
+
+        GraphqlService.query = async (query, variables) => {
+            callCount++;
+            if (callCount === 1) {
+                return {
+                    repository: {
+                        issue      : null,
+                        pullRequest: {id: PR_NODE_ID},
+                        labels     : {nodes: repoLabels}
+                    }
+                };
+            }
+            if (callCount === 2) {
+                expect(variables).toEqual({
+                    labelableId: PR_NODE_ID,
+                    labelIds   : ['LA_bug']
+                });
+                return {removeLabelsFromLabelable: {clientMutationId: null}};
+            }
+            throw new Error(`Unexpected additional GraphqlService.query call: ${callCount}`);
+        };
+
+        const result = await IssueService.manageIssueLabels({
+            issue_number: 11695,
+            action      : 'remove',
+            labels      : ['bug']
+        });
+
+        expect(result.message).toContain('Successfully removed labels');
+        expect(callCount).toBe(2);
+    });
+
+    test('returns a structured GraphQL error when neither issue nor Pull Request exists', async () => {
+        let callCount = 0;
+
+        GraphqlService.query = async () => {
+            callCount++;
+            return {
+                repository: {
+                    issue      : null,
+                    pullRequest: null,
+                    labels     : {nodes: repoLabels}
+                }
+            };
+        };
+
+        const result = await IssueService.manageIssueLabels({
+            issue_number: 999999,
+            action      : 'add',
+            labels      : ['bug']
+        });
+
+        expect(result.error).toBe('GraphQL API request failed');
+        expect(result.code).toBe('GRAPHQL_API_ERROR');
+        expect(result.message).toContain('issue or pull request #999999');
+        expect(callCount).toBe(1);
+    });
+
+    test('returns a structured GraphQL error when a requested label is missing', async () => {
+        let callCount = 0;
+
+        GraphqlService.query = async () => {
+            callCount++;
+            return {
+                repository: {
+                    issue      : {id: 'I_kwDOABcD_issue10077'},
+                    pullRequest: null,
+                    labels     : {nodes: repoLabels}
+                }
+            };
+        };
+
+        const result = await IssueService.manageIssueLabels({
+            issue_number: 10077,
+            action      : 'add',
+            labels      : ['missing-label']
+        });
+
+        expect(result.error).toBe('GraphQL API request failed');
+        expect(result.code).toBe('GRAPHQL_API_ERROR');
+        expect(result.message).toContain('missing-label');
+        expect(callCount).toBe(1);
+    });
+});
+
+/**
  * @summary Contract coverage for `IssueService.manageIssueProjects` ProjectV2 membership surface (#11233 Phase 1).
  *
  * `manage_issue_projects` is the substrate-correct replacement for the deprecated `release:v*`

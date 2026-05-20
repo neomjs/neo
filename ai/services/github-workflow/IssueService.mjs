@@ -1068,7 +1068,7 @@ class IssueService extends Base {
     }
 
     /**
-     * Fetches the GraphQL node IDs for an issue and a set of labels.
+     * Fetches the GraphQL node IDs for an issue or pull request and a set of labels.
      * @param {number}   issueNumber The number of the issue or PR.
      * @param {string[]} labelNames  An array of label names.
      * @returns {Promise<{labelableId: string, labelIds: string[]}>} The node IDs.
@@ -1084,15 +1084,16 @@ class IssueService extends Base {
 
         const data = await GraphqlService.query(GET_ISSUE_AND_LABEL_IDS, variables);
 
-        const labelableId = data.repository.issue.id;
-        const repoLabels = data.repository.labels.nodes;
-        const labelIds = labelNames.map(name => {
-            const label = repoLabels.find(l => l.name === name);
-            return label ? label.id : null;
-        }).filter(Boolean);
+        const
+            labelableId = data.repository.issue?.id || data.repository.pullRequest?.id,
+            repoLabels   = data.repository.labels.nodes,
+            labelIds     = labelNames.map(name => {
+                const label = repoLabels.find(l => l.name === name);
+                return label ? label.id : null;
+            }).filter(Boolean);
 
         if (!labelableId || labelIds.length !== labelNames.length) {
-            throw new Error(`Could not find issue #${issueNumber} or one of the labels: ${labelNames.join(', ')}`);
+            throw new Error(`Could not find issue or pull request #${issueNumber} or one of the labels: ${labelNames.join(', ')}`);
         }
 
         return { labelableId, labelIds };
