@@ -88,6 +88,7 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
 
         originals = {
             chromaManager        : Service.chromaManager,
+            getTenantConfig      : Service.getTenantConfig,
             recorderService      : Service.recorderService,
             requestContextService: Service.requestContextService,
             revisionResolver     : Service.revisionResolver,
@@ -98,6 +99,9 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         Service.chromaManager = {
             getKnowledgeBaseCollection: async () => collection
         };
+        // ingestSourceFiles resolves the tenant-config version for chunk stamping (#11637);
+        // stubbed here so this suite stays focused on ingestion orchestration.
+        Service.getTenantConfig = async () => ({version: 0});
         Service.recorderService = {
             recordIngestionMetric: entry => metrics.push(entry)
         };
@@ -385,6 +389,31 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         });
 
         expect(vectorCalls[0].options.viaMcp).toBe(true);
+    });
+
+    test('stamps the resolved tenant-config version onto the ingestion tenant context (#11637)', async () => {
+        Service.getTenantConfig = async () => ({version: 7});
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [validParsedChunk()]}]
+        });
+
+        expect(summary.ingested).toBe(1);
+        expect(vectorCalls[0].options.tenantContext.configVersion).toBe(7);
+    });
+
+    test('degrades tenantConfigVersion to 0 when tenant-config resolution fails — ingest still succeeds (#11637)', async () => {
+        Service.getTenantConfig = async () => { throw new Error('graph unavailable'); };
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [validParsedChunk()]}]
+        });
+
+        expect(summary.ingested).toBe(1);
+        expect(summary.errors).toEqual([]);
+        expect(vectorCalls[0].options.tenantContext.configVersion).toBe(0);
     });
 });
 

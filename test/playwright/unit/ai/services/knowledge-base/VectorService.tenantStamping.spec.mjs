@@ -187,7 +187,28 @@ test.describe('VectorService.embed — tenant stamping (#11631)', () => {
         expect(row.metadata.repoSlug).toBe('neo');
         expect(row.metadata.visibility).toBe('team');
         expect('originAgentIdentity' in row.metadata).toBe(false);
+        expect(row.metadata.tenantConfigVersion).toBe(0);
         expect(warnCalls).toHaveLength(0);
+    });
+
+    test('stamps the active tenant-config version onto chunk metadata (#11637)', async () => {
+        const spy = createSpyCollection();
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        writeFixtureJsonl(fixturePath, [{
+            hash       : 'raw-hash-cfg',
+            type       : 'guide',
+            name       : 'TenantConfigVersionDoc',
+            className  : '',
+            description: 'tenant config version stamping',
+            content    : 'body'
+        }]);
+
+        await KB_VectorService.embed(fixturePath, {
+            tenantContext: {tenantId: 'tenant-a', repoSlug: 'repo-a', visibility: 'team', configVersion: 7}
+        });
+
+        expect(getOnlyRow(spy).metadata.tenantConfigVersion).toBe(7);
     });
 
     test('overwrites conflicting client-supplied tenant metadata and logs diagnostics', async () => {

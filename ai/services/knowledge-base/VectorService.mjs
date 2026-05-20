@@ -10,7 +10,7 @@ import path                      from 'path';
 import readline                  from 'readline';
 import DestructiveOperationGuard from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 
-const TENANT_GUARDED_FIELDS = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity'];
+const TENANT_GUARDED_FIELDS = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity', 'tenantConfigVersion'];
 const STALE_STRATEGIES      = Object.freeze(new Set(['delete-upfront', 'shadow-swap']));
 const STALE_STRATEGY_SKIP   = 'skip';
 
@@ -122,14 +122,17 @@ class VectorService extends Base {
      * @param {String} [tenantContext.repoSlug] Repository slug within the tenant.
      * @param {String} [tenantContext.visibility] Visibility scope for read-side filtering.
      * @param {String} [tenantContext.originAgentIdentity] Authenticated agent identity.
-     * @returns {{tenantId: String, repoSlug: String, visibility: String, originAgentIdentity: String|undefined}}
+     * @param {Number} [tenantContext.configVersion] Active `KnowledgeBaseTenantConfig` version (#11637);
+     *                                               stamped onto chunk metadata as `tenantConfigVersion`.
+     * @returns {{tenantId: String, repoSlug: String, visibility: String, tenantConfigVersion: Number, originAgentIdentity: String|undefined}}
      */
     resolveTenantStamp(tenantContext = {}) {
         const config = this.getTenantIsolationConfig();
         const stamp = {
-            tenantId  : tenantContext.tenantId ?? config.defaultTenantId ?? 'neo-shared',
-            repoSlug  : tenantContext.repoSlug ?? config.defaultRepoSlug ?? 'neo',
-            visibility: tenantContext.visibility ?? config.defaultVisibility ?? 'team'
+            tenantId           : tenantContext.tenantId ?? config.defaultTenantId ?? 'neo-shared',
+            repoSlug           : tenantContext.repoSlug ?? config.defaultRepoSlug ?? 'neo',
+            visibility         : tenantContext.visibility ?? config.defaultVisibility ?? 'team',
+            tenantConfigVersion: tenantContext.configVersion ?? 0
         };
 
         if (tenantContext.originAgentIdentity) {

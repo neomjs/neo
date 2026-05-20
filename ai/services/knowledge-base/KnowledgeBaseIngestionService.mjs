@@ -120,6 +120,14 @@ class KnowledgeBaseIngestionService extends Base {
             const tenantContext = this.resolveTenantContext(payload);
             summary.tenantId    = tenantContext.tenantId;
 
+            // #11637 — resolve the active tenant-config version for chunk-metadata stamping.
+            // Fail-soft: a graph read must never break an ingest, so a resolution failure degrades to 0.
+            try {
+                tenantContext.configVersion = (await this.getTenantConfig({tenantId: tenantContext.tenantId})).version;
+            } catch {
+                tenantContext.configVersion = 0;
+            }
+
             if (!Array.isArray(payload.files)) {
                 summary.errors.push(this.createError({
                     code   : 'KB_INGEST_FILES_INVALID',
