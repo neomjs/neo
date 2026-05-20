@@ -65,13 +65,24 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
         expect(ChromaManager.connected).toBe(false);
     });
 
-    test('getKnowledgeBaseCollection creates and caches the configured collection', async () => {
-        let callCount = 0;
+    test('getKnowledgeBaseCollection creates and caches the configured collection after missing get', async () => {
+        let createCount = 0;
+        let getCount = 0;
+        let created = false;
         let capturedOptions;
 
         ChromaManager.client = {
-            getOrCreateCollection: async options => {
-                callCount++;
+            getCollection: async options => {
+                getCount++;
+                if (!created) {
+                    throw new Error(`Collection ${options.name} does not exist.`);
+                }
+                return {name: options.name};
+            },
+            listCollections: async () => [],
+            createCollection: async options => {
+                createCount++;
+                created = true;
                 capturedOptions = options;
                 return {name: options.name};
             }
@@ -80,12 +91,73 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
         const first  = await ChromaManager.getKnowledgeBaseCollection();
         const second = await ChromaManager.getKnowledgeBaseCollection();
 
-        expect(callCount).toBe(1);
+        expect(getCount).toBe(1);
+        expect(createCount).toBe(1);
         expect(first).toBe(second);
         expect(capturedOptions).toEqual({
             name             : aiConfig.collectionName,
             embeddingFunction: aiConfig.dummyEmbeddingFunction
         });
+    });
+
+    test('getKnowledgeBaseCollection treats ChromaNotFoundError as missing canonical collection', async () => {
+        let createCount = 0;
+        let capturedOptions;
+
+        ChromaManager.client = {
+            getCollection: async () => {
+                const error = new Error('The requested resource could not be found');
+                error.name  = 'ChromaNotFoundError';
+                throw error;
+            },
+            listCollections: async () => [],
+            createCollection: async options => {
+                createCount++;
+                capturedOptions = options;
+                return {name: options.name};
+            }
+        };
+
+        const collection = await ChromaManager.getKnowledgeBaseCollection();
+
+        expect(collection.name).toBe(aiConfig.collectionName);
+        expect(createCount).toBe(1);
+        expect(capturedOptions).toEqual({
+            name             : aiConfig.collectionName,
+            embeddingFunction: aiConfig.dummyEmbeddingFunction
+        });
+    });
+
+    test('getKnowledgeBaseCollection refuses to create canonical during active shadow-swap promotion', async () => {
+        let createCount = 0;
+
+        ChromaManager.client = {
+            getCollection: async options => {
+                throw new Error(`Collection ${options.name} does not exist.`);
+            },
+            listCollections: async () => [
+                {name: `${aiConfig.collectionName}-parking-123`},
+                {name: `${aiConfig.collectionName}-shadow-123`},
+                {name: `${aiConfig.collectionName}-failed-shadow-older`}
+            ],
+            createCollection: async () => {
+                createCount++;
+                return {name: aiConfig.collectionName};
+            }
+        };
+
+        await expect(ChromaManager.getKnowledgeBaseCollection())
+            .rejects.toMatchObject({
+                code                  : 'KB_COLLECTION_SWAP_IN_PROGRESS',
+                activeSwapCollections : [
+                    `${aiConfig.collectionName}-parking-123`,
+                    `${aiConfig.collectionName}-shadow-123`
+                ]
+            });
+
+        expect(createCount).toBe(0);
+        expect(ChromaManager._knowledgeBaseCollectionPromise).toBe(null);
+        expect(ChromaManager.knowledgeBaseCollection).toBe(null);
     });
 
     test('invalidateKnowledgeBaseCollectionCache clears cached canonical collection handles', async () => {
@@ -103,7 +175,7 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
     test('checkConnectivity returns heartbeat and cached collection name', async () => {
         ChromaManager.client = {
             heartbeat: async () => 456,
-            getOrCreateCollection: async () => ({name: 'knowledge-base-test'})
+            getCollection: async () => ({name: 'knowledge-base-test'})
         };
 
         await expect(ChromaManager.checkConnectivity()).resolves.toEqual({

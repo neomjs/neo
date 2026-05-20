@@ -5,6 +5,10 @@ import Base                                 from '../../../src/core/Base.mjs';
 import DatabaseLifecycleService             from './DatabaseLifecycleService.mjs';
 import {assertCanonicalCollectionDeleteAllowed} from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 
+const COLLECTION_ALREADY_EXISTS_RE = /already exists|already contains|conflict/i;
+const COLLECTION_NOT_FOUND_RE      = /does not exist|not found|not be found|could not be found|404/i;
+const SWAP_ACTIVE_PHASES           = ['parking', 'shadow'];
+
 /**
  * @summary Simple manager around the Chroma client that lazily caches the knowledge-base collection.
  *
@@ -128,15 +132,134 @@ class ChromaManager extends Base {
     async getKnowledgeBaseCollection() {
         if (!this._knowledgeBaseCollectionPromise) {
             this._knowledgeBaseCollectionPromise = this.#executeSilently(async () => {
-                return await this.client.getOrCreateCollection({
-                    name             : aiConfig.collectionName,
-                    embeddingFunction: aiConfig.dummyEmbeddingFunction
-                });
+                return await this.#resolveKnowledgeBaseCollection();
             });
         }
 
-        this.knowledgeBaseCollection = await this._knowledgeBaseCollectionPromise;
-        return this.knowledgeBaseCollection;
+        try {
+            this.knowledgeBaseCollection = await this._knowledgeBaseCollectionPromise;
+            return this.knowledgeBaseCollection;
+        } catch (error) {
+            this.invalidateKnowledgeBaseCollectionCache();
+            throw error;
+        }
+    }
+
+    /**
+     * @summary Resolves the canonical KB collection without creating it during a shadow-swap promote window.
+     *
+     * Shadow-swap promotion briefly renames the canonical collection to a parking
+     * name before the shadow collection takes the canonical name. During that
+     * interval, plain `getOrCreateCollection()` can create an empty canonical
+     * collection and cause the promote rename to collide. This resolver first
+     * attempts `getCollection()`, then checks for active swap artifacts before
+     * creating the canonical collection for true first-run bootstrap only.
+     *
+     * @returns {Promise<Object>}
+     * @throws {Error} `KB_COLLECTION_SWAP_IN_PROGRESS` when active swap artifacts exist.
+     * @see https://github.com/neomjs/neo/issues/11685
+     */
+    async #resolveKnowledgeBaseCollection() {
+        const options = this.#getKnowledgeBaseCollectionOptions();
+
+        try {
+            return await this.client.getCollection(options);
+        } catch (error) {
+            if (!this.#isCollectionNotFoundError(error)) {
+                throw error;
+            }
+        }
+
+        const activeSwapCollections = await this.#getActiveKnowledgeBaseSwapCollections();
+        if (activeSwapCollections.length > 0) {
+            throw this.#createSwapInProgressError(activeSwapCollections);
+        }
+
+        try {
+            return await this.client.createCollection(options);
+        } catch (error) {
+            if (!this.#isCollectionAlreadyExistsError(error)) {
+                throw error;
+            }
+
+            const activeSwapCollections = await this.#getActiveKnowledgeBaseSwapCollections();
+            if (activeSwapCollections.length > 0) {
+                throw this.#createSwapInProgressError(activeSwapCollections);
+            }
+
+            return await this.client.getCollection(options);
+        }
+    }
+
+    /**
+     * @returns {{name: String, embeddingFunction: Object}}
+     */
+    #getKnowledgeBaseCollectionOptions() {
+        return {
+            name             : aiConfig.collectionName,
+            embeddingFunction: aiConfig.dummyEmbeddingFunction
+        };
+    }
+
+    /**
+     * @param {Error} error
+     * @returns {Boolean}
+     */
+    #isCollectionNotFoundError(error) {
+        return error?.name === 'ChromaNotFoundError' || COLLECTION_NOT_FOUND_RE.test(error?.message || '');
+    }
+
+    /**
+     * @param {Error} error
+     * @returns {Boolean}
+     */
+    #isCollectionAlreadyExistsError(error) {
+        return COLLECTION_ALREADY_EXISTS_RE.test(error?.message || '');
+    }
+
+    /**
+     * @returns {Promise<String[]>}
+     */
+    async #getActiveKnowledgeBaseSwapCollections() {
+        const names = [];
+        const limit = 1000;
+        let offset  = 0;
+
+        do {
+            const collections = await this.client.listCollections({limit, offset});
+            names.push(...collections.map(collection => collection.name));
+
+            if (collections.length < limit) {
+                break;
+            }
+
+            offset += limit;
+        } while (true);
+
+        return names.filter(name => this.#isActiveKnowledgeBaseSwapName(name)).sort();
+    }
+
+    /**
+     * @param {String} name
+     * @returns {Boolean}
+     */
+    #isActiveKnowledgeBaseSwapName(name) {
+        return SWAP_ACTIVE_PHASES.some(phase => name.startsWith(`${aiConfig.collectionName}-${phase}-`));
+    }
+
+    /**
+     * @param {String[]} activeSwapCollections
+     * @returns {Error}
+     */
+    #createSwapInProgressError(activeSwapCollections) {
+        const error = new Error(
+            `Knowledge base collection '${aiConfig.collectionName}' is temporarily unavailable during shadow-swap promotion. ` +
+            `Active swap collections: ${activeSwapCollections.join(', ')}. Retry after promotion completes.`
+        );
+        error.code                  = 'KB_COLLECTION_SWAP_IN_PROGRESS';
+        error.collection            = aiConfig.collectionName;
+        error.activeSwapCollections = activeSwapCollections;
+        return error;
     }
 
     /**
