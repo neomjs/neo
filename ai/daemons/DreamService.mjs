@@ -251,6 +251,7 @@ class DreamService extends Base {
             logger.info('[DreamService] REM pipeline completed.');
         } catch (error) {
             logger.error('[DreamService] Failed to process undigested sessions:', error);
+            throw error;
         } finally {
             this.isProcessing = false;
         }

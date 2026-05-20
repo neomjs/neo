@@ -405,6 +405,10 @@ class Database extends Base {
      * @param {String} nodeId
      */
     removeNode(nodeId) {
+        if (typeof nodeId !== 'string' || nodeId.length === 0) {
+            throw new Error(`Graph Database removeNode requires a non-empty string node id. Received: ${String(nodeId)}`);
+        }
+
         let me            = this,
             outbound      = me.edges.getByIndex('source', nodeId),
             inbound       = me.edges.getByIndex('target', nodeId),

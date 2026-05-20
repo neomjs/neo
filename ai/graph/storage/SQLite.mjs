@@ -167,6 +167,11 @@ class SQLite extends Base {
                     label: isRecord ? node.get('label') : node.label,
                     properties: isRecord ? node.get('properties') : node.properties
                 };
+
+                if (typeof nodeData.id !== 'string' || nodeData.id.length === 0) {
+                    throw new Error(`SQLite graph node writes require a non-empty string id. Received: ${String(nodeData.id)}`);
+                }
+
                 stmt.run(nodeData.id, nodeData.properties?.userId || null, JSON.stringify(nodeData));
             }
         });
