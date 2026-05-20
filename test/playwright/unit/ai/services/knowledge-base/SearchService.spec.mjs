@@ -115,6 +115,96 @@ test.describe('Neo.ai.services.knowledge-base.SearchService', () => {
         expect(capturedPrompt).not.toContain('No Content (File missing or empty)');
     });
 
+    test('ask hydrates non-local tenant references from embedded metadata content', async () => {
+        let capturedPrompt = null;
+
+        QueryService.queryDocuments = async () => ({
+            topResult: tmpFileRelativeToRoot,
+            results  : [{
+                source  : tmpFileRelativeToRoot,
+                score   : '777',
+                metadata: {
+                    content : 'TENANT_EMBEDDED_CONTENT_from_metadata',
+                    repoSlug: 'tenant-app',
+                    tenantId: 'tenant-a'
+                }
+            }]
+        });
+
+        SearchService.model = {
+            generateContent: async (prompt) => {
+                capturedPrompt = prompt;
+                return {response: {text: () => 'mocked-answer'}};
+            }
+        };
+
+        const result = await SearchService.ask({query: 'tenant fixture query', type: 'src'});
+
+        expect(result.answer).toBe('mocked-answer');
+        expect(result.references[0]).not.toHaveProperty('metadata');
+        expect(capturedPrompt).toContain('TENANT_EMBEDDED_CONTENT_from_metadata');
+        expect(capturedPrompt).not.toContain(tmpFileContents);
+    });
+
+    test('ask keeps default Neo references hydrated from the local checkout', async () => {
+        let capturedPrompt = null;
+
+        QueryService.queryDocuments = async () => ({
+            topResult: tmpFileRelativeToRoot,
+            results  : [{
+                source  : tmpFileRelativeToRoot,
+                score   : '777',
+                metadata: {
+                    content : 'STALE_METADATA_CONTENT_should_not_win_for_default_neo',
+                    repoSlug: 'neo',
+                    tenantId: 'neo-shared'
+                }
+            }]
+        });
+
+        SearchService.model = {
+            generateContent: async (prompt) => {
+                capturedPrompt = prompt;
+                return {response: {text: () => 'mocked-answer'}};
+            }
+        };
+
+        const result = await SearchService.ask({query: 'default fixture query', type: 'src'});
+
+        expect(result.answer).toBe('mocked-answer');
+        expect(capturedPrompt).toContain(tmpFileContents);
+        expect(capturedPrompt).not.toContain('STALE_METADATA_CONTENT_should_not_win_for_default_neo');
+    });
+
+    test('ask refuses neoRootDir fallback for non-local tenant references without embedded content', async () => {
+        let capturedPrompt = null;
+
+        QueryService.queryDocuments = async () => ({
+            topResult: tmpFileRelativeToRoot,
+            results  : [{
+                source  : tmpFileRelativeToRoot,
+                score   : '777',
+                metadata: {
+                    repoSlug: 'tenant-app',
+                    tenantId: 'tenant-a'
+                }
+            }]
+        });
+
+        SearchService.model = {
+            generateContent: async (prompt) => {
+                capturedPrompt = prompt;
+                return {response: {text: () => 'mocked-answer'}};
+            }
+        };
+
+        const result = await SearchService.ask({query: 'tenant missing content query', type: 'src'});
+
+        expect(result.answer).toBe('mocked-answer');
+        expect(capturedPrompt).toContain('No Content (File missing or empty)');
+        expect(capturedPrompt).not.toContain(tmpFileContents);
+    });
+
     test('ask logs a warning and falls back to placeholder when the resolved path does not exist', async () => {
         let capturedPrompt = null;
 

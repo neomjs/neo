@@ -113,10 +113,20 @@ function createSpyCollection() {
  * `QueryService.queryDocuments` expects (it `JSON.parse`s the field).
  * @returns {{id: String, metadata: Object}}
  */
-function chunk({id, tenantId, source, name, type = 'guide'}) {
+function chunk({id, tenantId, source, name, type = 'guide', content, repoSlug}) {
+    const metadata = {tenantId, source, name, type, inheritanceChain: '[]'};
+
+    if (content) {
+        metadata.content = content;
+    }
+
+    if (repoSlug) {
+        metadata.repoSlug = repoSlug;
+    }
+
     return {
         id,
-        metadata: {tenantId, source, name, type, inheritanceChain: '[]'}
+        metadata
     };
 }
 
@@ -128,9 +138,29 @@ test.describe('KnowledgeBase — fail-closed tenant isolation (#11632)', () => {
 
     // Canonical fixtures: a chunk owned by tenant-a, a private chunk owned by tenant-b, and a
     // curated chunk in the cross-tenant `neo-shared` namespace.
-    const OWN     = chunk({id: 'c-own',     tenantId: 'tenant-a',   source: 'kb/tenant-a/Own.md',       name: 'Own'});
-    const FOREIGN = chunk({id: 'c-foreign', tenantId: 'tenant-b',   source: 'kb/tenant-b/Secret.md',    name: 'Secret'});
-    const SHARED  = chunk({id: 'c-shared',  tenantId: 'neo-shared', source: 'kb/neo-shared/Curated.md', name: 'Curated'});
+    const OWN = chunk({
+        id      : 'c-own',
+        tenantId: 'tenant-a',
+        repoSlug: 'tenant-app',
+        source  : 'kb/tenant-a/Own.md',
+        name    : 'Own',
+        content : 'TENANT_A_VISIBLE_CONTENT'
+    });
+    const FOREIGN = chunk({
+        id      : 'c-foreign',
+        tenantId: 'tenant-b',
+        repoSlug: 'tenant-app',
+        source  : 'kb/tenant-b/Secret.md',
+        name    : 'Secret',
+        content : 'TENANT_B_SECRET_CONTENT'
+    });
+    const SHARED = chunk({
+        id      : 'c-shared',
+        tenantId: 'neo-shared',
+        repoSlug: 'neo',
+        source  : 'kb/neo-shared/Curated.md',
+        name    : 'Curated'
+    });
 
     test.beforeAll(async () => {
         ChromaManager        = (await import('../../../../../../ai/services/knowledge-base/ChromaManager.mjs')).default;
@@ -270,6 +300,25 @@ test.describe('KnowledgeBase — fail-closed tenant isolation (#11632)', () => {
         const refSources = result.references.map(r => r.source);
         expect(refSources).toContain(SHARED.metadata.source);
         expect(refSources).not.toContain(FOREIGN.metadata.source);
+    });
+
+    test('case 7b — search hydration feeds tenant-owned metadata content to synthesis', async () => {
+        let capturedPrompt = null;
+
+        SearchService.model = {
+            generateContent: async (prompt) => {
+                capturedPrompt = prompt;
+                return {response: {text: () => 'stub-synthesis'}};
+            }
+        };
+
+        const result = await RequestContextService.run({userId: 'tenant-a'}, () =>
+            SearchService.ask({query: 'anything', type: 'all'})
+        );
+
+        expect(result.references.map(r => r.source)).toContain(OWN.metadata.source);
+        expect(capturedPrompt).toContain('TENANT_A_VISIBLE_CONTENT');
+        expect(capturedPrompt).not.toContain('TENANT_B_SECRET_CONTENT');
     });
 
     test.describe('case 8 — every public KB facade respects the tenant boundary', () => {
