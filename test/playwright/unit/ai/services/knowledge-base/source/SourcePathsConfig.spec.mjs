@@ -35,6 +35,18 @@ import path           from 'path';
  * @see https://github.com/neomjs/neo/issues/11660
  * @see https://github.com/neomjs/neo/issues/11658 (sibling — registry foundation)
  */
+
+// Serial mode: tests mutate the shared `aiConfig.sourcePaths` singleton via per-test
+// override / delete patterns. Under local `fullyParallel` (workers=9), the per-test
+// try/finally restoration windows overlap, causing cross-test races where one test's
+// `delete aiConfig.sourcePaths[X]` is observed by a concurrent test as missing. Serial
+// mode within this file forces non-overlapping mutation windows. CI uses workers=1 so
+// this primarily defends local-DX correctness; the singleton-mutation pattern is inherent
+// to the test shape, not a workers=1 vs workers=9 distinction.
+// @neo-gpt PR #11661 Cycle 1 review (commentId IC_kwDODSospM8AAAABC9dlIg, formal
+// review PRR_kwDODSospM8AAAABAcNngw, Required Action 1).
+test.describe.configure({mode: 'serial'});
+
 test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () => {
     let aiConfig;
 
