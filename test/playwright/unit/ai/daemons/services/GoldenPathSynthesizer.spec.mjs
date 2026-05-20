@@ -178,4 +178,58 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
             TextEmbeddingService.embedText     = originalEmbedText;
         }
     });
+
+    test('synthesizeGoldenPath excludes CLOSED discussion nodes from computed recommendations', async () => {
+        const originalGetGraphCollection   = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText            = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs         = GoldenPathSynthesizer.fetchOpenPRs;
+        const OpenAiCompatible             = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        const originalGenerate             = OpenAiCompatible.prototype.generate;
+
+        aiConfig.vectorDimension = 2;
+
+        const openId   = `discussion-open-${Date.now()}`;
+        const closedId = `discussion-closed-${Date.now()}`;
+
+        GraphService.upsertNode({
+            id: openId,
+            type: 'DISCUSSION',
+            name: 'Open Discussion Fixture',
+            state: 'OPEN',
+            properties: {state: 'OPEN', title: 'Open Discussion Fixture'}
+        });
+        GraphService.upsertNode({
+            id: closedId,
+            type: 'DISCUSSION',
+            name: 'Closed Discussion Fixture',
+            state: 'CLOSED',
+            properties: {state: 'CLOSED', title: 'Closed Discussion Fixture', closed: true}
+        });
+
+        StorageRouter.getGraphCollection = async () => ({
+            query: async () => ({ ids: [[openId, closedId]], distances: [[0.1, 0.01]] })
+        });
+        StorageRouter.getSummaryCollection = async () => ({
+            get: async () => ({documents: ['mock document']})
+        });
+        TextEmbeddingService.embedText      = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs  = async () => [];
+        OpenAiCompatible.prototype.generate = async () => ({content: '{"strategic_brief":"stub"}'});
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath();
+        } finally {
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+            OpenAiCompatible.prototype.generate  = originalGenerate;
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+
+        expect(handoffContent).toContain(openId);
+        expect(handoffContent).not.toContain(closedId);
+    });
 });
