@@ -20,7 +20,7 @@ const envBindings = {
     'transport': 'NEO_TRANSPORT',
     'mcpHttpPort': { var: 'MCP_HTTP_PORT', parse: parsePort },
     'publicUrl': { var: 'NEO_PUBLIC_URL', parse: parseUrl },
-    
+
     'auth.host': 'NEO_AUTH_HOST',
     'auth.port': { var: 'NEO_AUTH_PORT', parse: parsePort },
     'auth.realm': 'NEO_AUTH_REALM',
@@ -28,10 +28,10 @@ const envBindings = {
     'auth.clientId': 'NEO_OAUTH_CLIENT_ID',
     'auth.clientSecret': 'NEO_OAUTH_CLIENT_SECRET',
     'auth.trustProxyIdentity': { var: 'NEO_AUTH_TRUST_PROXY_IDENTITY', parse: parseBool },
-    
+
     'host': 'NEO_CHROMA_HOST',
     'port': { var: 'NEO_CHROMA_PORT', parse: parsePort },
-    
+
     'memoryCoreDbPath': 'NEO_MEMORY_DB_PATH',
     'kbFaqMinCount': { var: 'NEO_KB_FAQ_MIN_COUNT', parse: parseNumber },
     'kbFaqSimilarityThreshold': { var: 'NEO_KB_FAQ_SIMILARITY_THRESHOLD', parse: parseNumber },
@@ -198,6 +198,31 @@ const defaultConfig = {
      */
     collectionName: 'neo-knowledge-base',
     /**
+     * Phase 0/1B (#11658): when `true` (default), the SourceRegistry auto-registers Neo's
+     * 10 curated default Source classes. Cloud deployments that ingest only tenant content
+     * can set `false` to skip Neo's curated sources entirely.
+     * @type {boolean}
+     */
+    useDefaultSources: true,
+    /**
+     * Phase 0/1B (#11658): when `true` (default), the SourceRegistry auto-registers Neo's
+     * built-in Parser classes (none ship in Phase 0/1B; populated in Phase 2 / Phase 3).
+     * @type {boolean}
+     */
+    useDefaultParsers: true,
+    /**
+     * Phase 0/1B (#11658): declarative tenant-supplied Source registration.
+     * Each entry: `{SourceClass, sourceName?}`.
+     * @type {Array<{SourceClass: Object, sourceName?: string}>}
+     */
+    customSources: [],
+    /**
+     * Phase 0/1B (#11658): declarative tenant-supplied Parser registration.
+     * Each entry: `{ParserClass, parserId?}`.
+     * @type {Array<{ParserClass: Object, parserId?: string}>}
+     */
+    customParsers: [],
+    /**
      * The name of the Google Generative AI model for content generation.
      * @type {string}
      */
@@ -296,7 +321,7 @@ class Config extends BaseConfig {
                 this.data.mcpHttpPort = legacyPort;
             }
         }
-        
+
         // NEO_MEMORY_CORE_DB_PATH fallback for memoryCoreDbPath
         if (process.env.NEO_MEMORY_CORE_DB_PATH && !process.env.NEO_MEMORY_DB_PATH) {
             this.data.memoryCoreDbPath = process.env.NEO_MEMORY_CORE_DB_PATH;
