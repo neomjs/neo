@@ -1,0 +1,53 @@
+# Cloud-Native KB Ingestion — Overview
+
+> **Status — Phase 3A invariant scaffold.** This guide describes the *shipped, invariant* substrate of cloud-native Knowledge Base ingestion (Epic #11624). Endpoint-exact details — the `ingestSourceFiles` MCP tool, the bulk-ingest CLI facade, hook-wiring examples — land with Phase 2 (#11626) and are intentionally **not** specified here. Sections that depend on un-merged work are marked `[Phase 2 — pending]`.
+
+## What "cloud-native KB ingestion" means
+
+Neo's Knowledge Base (KB) is a Chroma-backed vector index over source content — guides, ADRs, skills, API docs, tickets, PRs, test specs. In a single-repo deployment, the KB indexes exactly one repository: Neo's own.
+
+A **cloud-native deployment** runs Agent OS as a service for external client workspaces. Each client workspace is a distinct **tenant** with its own source content (its own repos, possibly in languages and layouts unlike Neo's). The cloud deployment must let every tenant ingest *its own* content into the KB while continuing to serve Neo's curated content (guides, ADRs, skills) to all tenants.
+
+The substrate that makes this possible is the **per-tenant ingestion contract**: every chunk in the KB carries an authoritative identity tuple, content is server-stamped at write time, and reads are tenant-scoped. No tenant can read another tenant's `private` content; every tenant can read Neo's `team`-visible curated corpus.
+
+## The contract split (shipped — Phase 0/1)
+
+Phase 0/1 shipped the data contracts cloud ingestion is built on. These are stable and merged (or merge-gated):
+
+| Contract | Ticket / PR | What it provides |
+|---|---|---|
+| `parsed-chunk-v1` schema | #11629 / PR #11647 | The ingest-side chunk shape every Source/Parser emits. Rejects records carrying an `embedding` field (that field belongs only to the restore-only `backup-record-v1` sibling). |
+| Path-identity tuple | #11629 / PR #11647 | `{tenantId, repoSlug, rootKind, sourcePath}` in chunk metadata — replaces the legacy single-`neoRootDir`-relative `source` string. Neo's curated content uses `tenantId: 'neo-shared'`, `repoSlug: 'neo'`. |
+| Deletion-signaling contract | #11629 / PR #11647 | Tombstone + manifest + revision-boundary mechanisms for propagating source deletions into the index. |
+| `SourceRegistry` | #11658 / PR #11659 | Data-driven Source/Parser registration. `useDefaultSources` / `useDefaultParsers` gate Neo's curated sources; `customSources` / `customParsers` register tenant-supplied classes. |
+| Per-source path externalization | #11660 / PR #11661 | `aiConfig.sourcePaths` — each default Source class reads its input path from config, so a tenant whose layout differs from Neo's can reuse the curated Source classes. |
+| Write-side tenant stamping | #11631 / PR #11662 | `VectorService.embed` server-stamps `{tenantId, repoSlug, visibility, originAgentIdentity}` from the authenticated ingestion context; client-supplied identity fields are overwritten or rejected. Tenant-aware Chroma IDs prevent byte-identical chunks from different tenants colliding. |
+
+The split is deliberate: **contracts before transport**. The schemas and registry stabilize first; the ingestion endpoints that consume them (Phase 2) are built against a frozen contract surface.
+
+## Topology anchor — unified Chroma
+
+Per [ADR 0003 — Chroma Topology Unified Only](../decisions/0003-chroma-topology-unified-only.md), a cloud deployment runs **one** ChromaDB daemon hosting **three** collections — `knowledge-base`, `neo-agent-memory`, `neo-agent-sessions` — reached by **two** MCP servers (KB + Memory Core). Cloud ingestion writes only to the `knowledge-base` collection. There is no per-tenant Chroma instance: tenant isolation is enforced by the identity tuple + write-side stamping + read-side filter, not by physical separation.
+
+## Default-source inheritance
+
+A zero-config Neo deployment behaves identically before and after the cloud-ingestion substrate landed: `useDefaultSources` defaults to `true`, the `SourceRegistry` auto-registers Neo's 10 curated Source classes, and `aiConfig.sourcePaths` carries Neo's default layout. A cloud tenant opting out of Neo's curated content sets `useDefaultSources: false`; a tenant whose repo layout differs overrides only the `sourcePaths` keys it needs. Inheritance is the default; divergence is opt-in and granular.
+
+## Registry contract split — Source vs Parser
+
+- A **Source** locates and reads content from a territory (a directory tree, an external workspace) and emits `parsed-chunk-v1` records.
+- A **Parser** transforms a specific file format into chunk content (e.g. a `.proto` parser, an ES5-aware parser).
+
+`SourceRegistry` holds both. Neo's curated Sources auto-register; tenant Sources/Parsers register declaratively via `aiConfig.customSources` / `aiConfig.customParsers` or programmatically via `SourceRegistry.registerSource(...)`. `[Phase 2 — pending]` the runtime wiring that invokes a registered Parser during an ingestion call is built in Phase 2; Phase 0/1B shipped the registration API + config pipeline only.
+
+## Relationship to Neo's curated content
+
+Neo's own guides, ADRs, skills, and API docs remain in the KB under `tenantId: 'neo-shared'`, `visibility: 'team'` — readable by every tenant. A cloud tenant's content is stamped with the tenant's own `tenantId` and a `visibility` of `team` (tenant-internal) or `private`. Read-side filtering (`[Phase 2/0-1D — pending]`, #11632) resolves each query against the requester's authenticated identity: a tenant sees its own content plus `neo-shared`, never another tenant's `private` chunks.
+
+## Where to go next
+
+- **[Security](./Security.md)** — tenant-isolation invariants, write-side stamping + spoof-rejection, parser-execution boundary framing, and the KB-as-cache vs MC-as-store recovery model.
+- **[Migration Path](./MigrationPath.md)** — how an existing single-repo Neo deployment upgrades to the cloud-ingestion substrate with zero config changes.
+- `[Phase 3B — pending]` **Configuration** — the tenant-config storage shape (`KnowledgeBaseTenantConfig`, `kb-config.yaml`) finalizes in #11637.
+- `[Phase 3B — pending]` **Custom Sources / Custom Parsers** — authoring guides land once Phase 2 ingestion + parser-execution wiring is stable.
+- `[Phase 3C — pending]` **Hook Wiring** + runnable examples — land once the Phase 2 service + facade payload shapes are frozen.
