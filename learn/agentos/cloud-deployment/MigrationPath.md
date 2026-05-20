@@ -1,6 +1,6 @@
 # Cloud-Native KB Ingestion — Migration Path
 
-> **Status — Phase 3A invariant scaffold.** This guide describes the *shipped, invariant* upgrade story for existing single-repo Neo deployments. The tenant-config persistence shape it references finalizes in #11637 — marked `[Phase 3B — pending]` where relevant.
+> **Status — Phase 3A invariant scaffold.** This guide describes the *invariant* upgrade story for existing single-repo Neo deployments. The tenant-config persistence shape it references finalizes in #11637 — marked `[Phase 3B — pending]` where relevant.
 
 ## The headline: zero-config for existing deployments
 
@@ -15,7 +15,7 @@ This is the load-bearing migration property: the substrate is **additive**, not 
 | Source discovery | Hardcoded 10-source array | `SourceRegistry` auto-registers the same 10 sources (`useDefaultSources` defaults `true`) — same set, same order |
 | Source input paths | Hardcoded in each Source class | `aiConfig.sourcePaths` carries Neo's default layout; each Source falls through to its hardcoded fallback if the config key is absent |
 | Chunk identity | `neoRootDir`-relative `source` string | Path-identity tuple with `tenantId: 'neo-shared'`, `repoSlug: 'neo'` — the default tenant for a single-repo deployment |
-| `npm run ai:sync-kb` output | — | Byte-equivalent under default config (the byte-equivalence test in #11660/#11661 is the regression guard) |
+| `npm run ai:sync-kb` output | — | Byte-equivalent under default config (the byte-equivalence test in #11660/#11661 — approved, pending merge — is the regression guard) |
 
 A single-repo deployment *is* a one-tenant deployment where the tenant is `neo-shared`. The cloud substrate doesn't add a code path the single-repo case has to navigate — it generalizes the existing path, with the existing behavior as the `N=1` default.
 
@@ -32,7 +32,7 @@ Each of these is a local config edit; none requires a code fork.
 
 ## Config-template clone-sync
 
-The new config keys (`useDefaultSources`, `useDefaultParsers`, `customSources`, `customParsers`, `sourcePaths`, `defaultTenantId`, `defaultRepoSlug`, `defaultVisibility`, `spoofRejectionMode`) live in `ai/mcp/server/knowledge-base/config.template.mjs`. Each clone's local `config.mjs` is gitignored and copied from the template.
+The new config keys (`useDefaultSources`, `useDefaultParsers`, `customSources`, `customParsers`, `sourcePaths`, `defaultTenantId`, `defaultRepoSlug`, `defaultVisibility`, `spoofRejectionMode`) live in `ai/mcp/server/knowledge-base/config.template.mjs` — the `SourceRegistry` keys via merged PR #11659, the `sourcePaths` + tenant-stamping keys via PRs #11661 / #11662 (approved, pending the operator merge gate). Each clone's local `config.mjs` is gitignored and copied from the template.
 
 - **Zero-config deployments** need no local `config.mjs` edit — the runtime falls through to defaults when a key is absent.
 - **Cloud / tenant-mode deployments** add the keys they need to their local `config.mjs`. A harness restart picks up the change (config modules load once per MCP process).

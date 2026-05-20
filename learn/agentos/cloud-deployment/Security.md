@@ -1,6 +1,6 @@
 # Cloud-Native KB Ingestion — Security
 
-> **Status — Phase 3A invariant scaffold.** This guide describes the *shipped, invariant* security model of cloud-native KB ingestion (Epic #11624). Parser-execution sandboxing details depend on Phase 2/3 runtime wiring and are framed conceptually only — marked `[Phase 2/3 — pending]`.
+> **Status — Phase 3A invariant scaffold.** This guide describes the *invariant* security model of cloud-native KB ingestion (Epic #11624). Parser-execution sandboxing details depend on Phase 2/3 runtime wiring and are framed conceptually only — marked `[Phase 2/3 — pending]`.
 
 ## The threat the substrate defends against
 
@@ -11,9 +11,9 @@ A cloud-native KB deployment indexes content from mutually-untrusting tenants in
 3. **No chunk-ID collision** — byte-identical content ingested by two tenants must not overwrite each other in the index.
 4. **No untrusted-code execution escape** — a tenant-supplied Parser must not be able to read or mutate another tenant's substrate.
 
-Invariants 2 and 3 are **shipped** (Phase 0/1C-α, PR #11662). Invariant 1's read-side enforcement is `[Phase 0/1D — pending]` (#11632). Invariant 4's runtime sandbox is `[Phase 2/3 — pending]`; its boundary *policy* is shipped-stable and documented below.
+Invariants 2 and 3 are **defined** by PR #11662 (Phase 0/1C-α — approved, pending the operator merge gate). Invariant 1's read-side enforcement is `[Phase 0/1D — pending]` (#11632). Invariant 4's runtime sandbox is `[Phase 2/3 — pending]`; its boundary *policy* is stable and documented below.
 
-## Write-side tenant stamping (shipped — #11662)
+## Write-side tenant stamping (PR #11662 — approved, pending merge)
 
 Every chunk entering the index is stamped with a **server-derived** identity tuple before it reaches Chroma. The authoritative tuple is `{tenantId, repoSlug, visibility, originAgentIdentity}`, resolved from the authenticated ingestion context — never from client-supplied chunk metadata.
 
@@ -24,7 +24,7 @@ Every chunk entering the index is stamped with a **server-derived** identity tup
 
 A cloud-deployment operator running mutually-untrusting tenants should consider `'reject'` — it fails closed and surfaces spoof attempts as hard errors rather than silently-corrected warnings. The ingestion service (`[Phase 2 — pending]`, #11626) should additionally pass the authoritative tenant context *explicitly* rather than relying on the spoof-guard as the primary path; the guard is defense-in-depth, not the front door.
 
-## Tenant-aware chunk IDs (shipped — #11662)
+## Tenant-aware chunk IDs (PR #11662 — approved, pending merge)
 
 `chunk.hash` remains the content fingerprint. The **Chroma storage ID** is derived from `{tenantId, repoSlug, hash, type, name, source}` — the content fingerprint *bound to* the authoritative tenant tuple. Consequence: two tenants ingesting a byte-identical file produce **distinct** 64-character Chroma IDs and cannot collide. The content-hash itself (`DatabaseService.createContentHash`) also folds `tenantId` + `repoSlug` into its input, so change-detection deltas are tenant-scoped.
 
@@ -34,7 +34,7 @@ Write-side stamping puts the `tenantId` / `visibility` fields *into* the index. 
 
 ## Parser-execution boundary `[Phase 2/3 — pending]`
 
-A tenant-supplied Parser is untrusted code. The shipped-stable *policy* (the boundary will not change even though the runtime is pending):
+A tenant-supplied Parser is untrusted code. The stable *policy* (the boundary will not change even though the runtime is pending):
 
 - **Server-side parsers** — run in the cloud deployment's process. Permitted only when operator-installed, Neo-shipped, or a signed package. A tenant cannot register a server-side Parser through `aiConfig.customParsers` on a cloud deployment without operator review — the registry API exists, but the cloud-deployment operator gates which Parser classes are present in the process.
 - **Client-side parsers** — run in the tenant's own environment, before content is pushed. Anything the tenant wants to run against its own files runs tenant-side; the cloud deployment receives only the resulting `parsed-chunk-v1` records.

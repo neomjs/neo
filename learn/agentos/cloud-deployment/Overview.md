@@ -1,6 +1,6 @@
 # Cloud-Native KB Ingestion — Overview
 
-> **Status — Phase 3A invariant scaffold.** This guide describes the *shipped, invariant* substrate of cloud-native Knowledge Base ingestion (Epic #11624). Endpoint-exact details — the `ingestSourceFiles` MCP tool, the bulk-ingest CLI facade, hook-wiring examples — land with Phase 2 (#11626) and are intentionally **not** specified here. Sections that depend on un-merged work are marked `[Phase 2 — pending]`.
+> **Status — Phase 3A invariant scaffold.** This guide describes the *invariant* substrate of cloud-native Knowledge Base ingestion (Epic #11624). Endpoint-exact details — the `ingestSourceFiles` MCP tool, the bulk-ingest CLI facade, hook-wiring examples — land with Phase 2 (#11626) and are intentionally **not** specified here. Sections that depend on un-merged work are marked `[Phase 2 — pending]`.
 
 ## What "cloud-native KB ingestion" means
 
@@ -10,9 +10,9 @@ A **cloud-native deployment** runs Agent OS as a service for external client wor
 
 The substrate that makes this possible is the **per-tenant ingestion contract**: every chunk in the KB carries an authoritative identity tuple, content is server-stamped at write time, and reads are tenant-scoped. No tenant can read another tenant's `private` content; every tenant can read Neo's `team`-visible curated corpus.
 
-## The contract split (shipped — Phase 0/1)
+## The contract split (Phase 0/1)
 
-Phase 0/1 shipped the data contracts cloud ingestion is built on. These are stable and merged (or merge-gated):
+Phase 0/1 defines the data contracts cloud ingestion is built on. PRs #11647 and #11659 are **merged**; PRs #11661 and #11662 are **approved and pending the operator merge gate**:
 
 | Contract | Ticket / PR | What it provides |
 |---|---|---|
@@ -31,14 +31,14 @@ Per [ADR 0003 — Chroma Topology Unified Only](../decisions/0003-chroma-topolog
 
 ## Default-source inheritance
 
-A zero-config Neo deployment behaves identically before and after the cloud-ingestion substrate landed: `useDefaultSources` defaults to `true`, the `SourceRegistry` auto-registers Neo's 10 curated Source classes, and `aiConfig.sourcePaths` carries Neo's default layout. A cloud tenant opting out of Neo's curated content sets `useDefaultSources: false`; a tenant whose repo layout differs overrides only the `sourcePaths` keys it needs. Inheritance is the default; divergence is opt-in and granular.
+A zero-config Neo deployment behaves identically with or without the cloud-ingestion substrate: `useDefaultSources` defaults to `true`, the `SourceRegistry` auto-registers Neo's 10 curated Source classes, and `aiConfig.sourcePaths` carries Neo's default layout. A cloud tenant opting out of Neo's curated content sets `useDefaultSources: false`; a tenant whose repo layout differs overrides only the `sourcePaths` keys it needs. Inheritance is the default; divergence is opt-in and granular.
 
 ## Registry contract split — Source vs Parser
 
 - A **Source** locates and reads content from a territory (a directory tree, an external workspace) and emits `parsed-chunk-v1` records.
 - A **Parser** transforms a specific file format into chunk content (e.g. a `.proto` parser, an ES5-aware parser).
 
-`SourceRegistry` holds both. Neo's curated Sources auto-register; tenant Sources/Parsers register declaratively via `aiConfig.customSources` / `aiConfig.customParsers` or programmatically via `SourceRegistry.registerSource(...)`. `[Phase 2 — pending]` the runtime wiring that invokes a registered Parser during an ingestion call is built in Phase 2; Phase 0/1B shipped the registration API + config pipeline only.
+`SourceRegistry` holds both. Neo's curated Sources auto-register; tenant Sources/Parsers register declaratively via `aiConfig.customSources` / `aiConfig.customParsers` or programmatically via `SourceRegistry.registerSource(...)`. `[Phase 2 — pending]` the runtime wiring that invokes a registered Parser during an ingestion call is built in Phase 2; Phase 0/1B covers the registration API + config pipeline only.
 
 ## Relationship to Neo's curated content
 
