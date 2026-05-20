@@ -245,11 +245,14 @@ class VectorService extends Base {
      * @param {Boolean} [opts.viaMcp=false]        True when called via MCP tool dispatch;
      *                                             enables the work-volume gate.
      * @param {Object}  [opts.tenantContext]       Server-derived tenant stamp context.
+     * @param {Boolean} [opts.deleteStale=true]    True applies full-corpus stale-id deletion.
+     *                                             Incremental Phase 2 pushes pass `false` and
+     *                                             use explicit deletion signaling instead.
      * @returns {Promise<object>} A promise that resolves to a success message, OR a
      *     `{error, code: 'KB_SYNC_VOLUME_EXCEEDED', ...}` shape when the MCP gate fires.
      * @see #10572
      */
-    async embed(knowledgeBasePath, {viaMcp = false, tenantContext = {}} = {}) {
+    async embed(knowledgeBasePath, {viaMcp = false, tenantContext = {}, deleteStale = true} = {}) {
         logger.log('Starting knowledge base embedding...');
 
         if (!await fs.pathExists(knowledgeBasePath)) {
@@ -343,7 +346,7 @@ class VectorService extends Base {
 
         // Convert existingIds Set to Array for filtering, as existingDocs object is no longer available
         const existingIdsArray = Array.from(existingIds);
-        const idsToDelete      = existingIdsArray.filter(id => !allIds.has(id));
+        const idsToDelete      = deleteStale ? existingIdsArray.filter(id => !allIds.has(id)) : [];
 
         logger.log(`${chunksToProcess.length} chunks to add or update.`);
         logger.log(`${idsToDelete.length} chunks to delete.`);
@@ -356,7 +359,7 @@ class VectorService extends Base {
 
             const message = 'No changes detected. Knowledge base is up to date.';
             logger.log(message);
-            return {message};
+            return {message, embedded: 0, deleted: idsToDelete.length};
         }
 
         // Work-volume gate (#10572): refuse synchronous embedding via MCP when the
@@ -442,7 +445,7 @@ class VectorService extends Base {
         const count   = await collection.count();
         const message = `Embedding complete. Collection now contains ${count} items.`;
         logger.log(message);
-        return {message};
+        return {message, embedded: chunksToProcess.length, deleted: idsToDelete.length};
     }
 
     /**
