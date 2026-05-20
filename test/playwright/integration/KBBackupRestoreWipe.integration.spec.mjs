@@ -370,6 +370,100 @@ function shadowSwapKnowledgeBase({collectionName, oldId, oldSentinel, fixturePat
     });
 }
 
+/**
+ * Drives the `ingest_source_files` MCP tool end-to-end inside the deployed KB container.
+ * Exercises both the #10572 work-volume gate (an oversized batch refused up-front) and the
+ * within-threshold dispatch path (parsed chunks embedded into an isolated temp collection).
+ * @param {Object} options
+ * @param {String} options.collectionName Temporary Chroma collection name.
+ * @param {String} options.repoSlug       Repo slug stamped onto the parsed-chunk fixtures.
+ * @param {String} options.tenantId       Mock tenant id for the ingestion push.
+ * @returns {Object}
+ */
+function ingestSourceFilesViaMcpTool({collectionName, repoSlug, tenantId}) {
+    return execKnowledgeBaseJson(`
+        ${NEO_BOOTSTRAP}
+
+        const {
+            KB_Config,
+            KB_ChromaManager,
+            KB_LifecycleService,
+            Memory_TextEmbeddingService
+        } = await import('./ai/services.mjs');
+        const {callTool} = await import('./ai/mcp/server/knowledge-base/toolService.mjs');
+
+        await KB_LifecycleService.ready();
+
+        const originalCollectionName   = KB_Config.data.collectionName;
+        const originalThreshold        = KB_Config.data.mcpSyncMaxChunks;
+        const originalEmbedTexts       = Memory_TextEmbeddingService.embedTexts.bind(Memory_TextEmbeddingService);
+        const vectorLength             = 4096;
+        const tenantId                 = process.env.NEO_TEST_KB_TENANT;
+        const repoSlug                 = process.env.NEO_TEST_KB_REPO;
+
+        KB_Config.data.collectionName   = process.env.NEO_TEST_KB_COLLECTION;
+        KB_Config.data.mcpSyncMaxChunks = 5;
+        KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
+
+        Memory_TextEmbeddingService.embedTexts = async texts => {
+            return texts.map((_, index) => {
+                return Array.from({length: vectorLength}, (__, dimension) => dimension === index ? 1 : 0);
+            });
+        };
+
+        let after, dispatch, gate;
+
+        try {
+            // Gate path: a 6-file batch exceeds the threshold (5) and is refused before dispatch.
+            const oversizedFiles = Array.from({length: 6}, (_, index) => ({
+                path   : 'ingest-gate-' + index + '.mjs',
+                content: 'ingest gate file ' + index
+            }));
+            gate = await callTool('ingest_source_files', {tenantId, files: oversizedFiles});
+
+            // Dispatch path: a 3-chunk batch is within the threshold and is embedded end-to-end.
+            const parsedChunks = Array.from({length: 3}, (_, index) => ({
+                schemaVersion: '1.0.0',
+                tenantId,
+                repoSlug,
+                rootKind     : 'bare-repo',
+                sourcePath   : 'ingest-dispatch-' + index + '.mjs',
+                content      : 'ingest dispatch chunk ' + index,
+                hashInputs   : ['sourcePath', 'content'],
+                parserId     : 'integration-fixture',
+                parserVersion: '1.0.0',
+                kind         : 'doc-section',
+                name         : 'ingestDispatchChunk' + index
+            }));
+            dispatch = await callTool('ingest_source_files', {
+                tenantId,
+                files: [{path: 'ingest-dispatch.mjs', parsedChunks}]
+            });
+
+            const collection = await KB_ChromaManager.getKnowledgeBaseCollection();
+            after = {
+                collectionName: collection.name,
+                count         : await collection.count()
+            };
+
+            console.log(JSON.stringify({after, dispatch, gate}));
+        } finally {
+            Memory_TextEmbeddingService.embedTexts = originalEmbedTexts;
+            KB_Config.data.collectionName          = originalCollectionName;
+            KB_Config.data.mcpSyncMaxChunks        = originalThreshold;
+            KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
+
+            try {
+                await KB_ChromaManager.client.deleteCollection({name: process.env.NEO_TEST_KB_COLLECTION});
+            } catch {}
+        }
+    `, {
+        NEO_TEST_KB_COLLECTION: collectionName,
+        NEO_TEST_KB_REPO      : repoSlug,
+        NEO_TEST_KB_TENANT    : tenantId
+    });
+}
+
 test.describe('Dockerized KB backup -> wipe -> restore integration (#11644)', () => {
     test('restores a seeded Knowledge Base vector after an isolated fixture wipe', async () => {
         const readiness = await getReadiness();
@@ -454,5 +548,38 @@ test.describe('Dockerized KB backup -> wipe -> restore integration (#11644)', ()
         expect(swap.after.collectionName).toBe(collectionName);
         expect(swap.after.count).toBe(3);
         expect(swap.after.oldFound).toBe(false);
+    });
+
+    test('ingest_source_files MCP tool gates oversized batches and ingests within-threshold pushes (#11634)', async () => {
+        const readiness = await getReadiness();
+
+        test.skip(readiness.dockerAvailable === false, `Docker unavailable: ${readiness.reason}`);
+        expect(readiness.servicesReady, readiness.reason).toBe(true);
+
+        const runId          = `${Date.now()}-${randomUUID()}`;
+        const collectionName = `kb-ingest-source-files-${runId}`;
+
+        const outcome = ingestSourceFilesViaMcpTool({
+            collectionName,
+            repoSlug: `kb-ingest-${runId}`,
+            tenantId: 'neo-shared'
+        });
+
+        // Gate path — a 6-file batch over the threshold (5) is refused before dispatch.
+        expect(outcome.gate.code).toBe('KB_INGEST_VOLUME_EXCEEDED');
+        expect(outcome.gate.batchSize).toBe(6);
+        expect(outcome.gate.threshold).toBe(5);
+        expect(outcome.gate.bulkPath).toBe(null);
+
+        // Dispatch path — a 3-chunk batch reaches the ingestion service end-to-end.
+        expect('error' in outcome.dispatch).toBe(false);
+        expect(outcome.dispatch.code).not.toBe('KB_INGEST_VOLUME_EXCEEDED');
+        expect(outcome.dispatch.ingested).toBe(3);
+        expect(outcome.dispatch.tenantId).toBe('neo-shared');
+        expect(Array.isArray(outcome.dispatch.errors)).toBe(true);
+
+        // The within-threshold push embedded into the isolated temp collection.
+        expect(outcome.after.collectionName).toBe(collectionName);
+        expect(outcome.after.count).toBe(3);
     });
 });
