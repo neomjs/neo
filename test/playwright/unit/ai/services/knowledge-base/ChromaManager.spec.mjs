@@ -88,6 +88,18 @@ test.describe('Neo.ai.services.knowledge-base.ChromaManager', () => {
         });
     });
 
+    test('invalidateKnowledgeBaseCollectionCache clears cached canonical collection handles', async () => {
+        const cachedCollection = {name: 'cached-knowledge-base'};
+
+        ChromaManager._knowledgeBaseCollectionPromise = Promise.resolve(cachedCollection);
+        ChromaManager.knowledgeBaseCollection         = cachedCollection;
+
+        ChromaManager.invalidateKnowledgeBaseCollectionCache();
+
+        expect(ChromaManager._knowledgeBaseCollectionPromise).toBe(null);
+        expect(ChromaManager.knowledgeBaseCollection).toBe(null);
+    });
+
     test('checkConnectivity returns heartbeat and cached collection name', async () => {
         ChromaManager.client = {
             heartbeat: async () => 456,

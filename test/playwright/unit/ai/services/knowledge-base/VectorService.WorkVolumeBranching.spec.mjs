@@ -31,8 +31,8 @@ const __dirname  = path.dirname(__filename);
  *
  * Verifies the post-delta-pre-embed gate at the four meaningful states:
  *
- * 1. Zero-changes fast-path is unchanged — the existing `if (chunksToProcess.length === 0)`
- *    early-return at line 177 of VectorService.mjs is preserved by the gate.
+ * 1. Zero-changes fast-path is unchanged — the existing no-work early return in
+ *    VectorService.embed is preserved by the gate.
  * 2. Below-threshold MCP invocation succeeds — agent-callable steady-state.
  * 3. Above-threshold MCP invocation refuses with `KB_SYNC_VOLUME_EXCEEDED` payload that
  *    the KB Server's `'error' in result` contract converts to `isError: true`.
@@ -47,16 +47,16 @@ const __dirname  = path.dirname(__filename);
  */
 test.describe.configure({mode: 'serial'});
 
-function createSpyCollection({existingIds = []} = {}) {
+function createSpyCollection({existingIds = [], name = 'spy-knowledge-base'} = {}) {
     const rows = new Map();
     existingIds.forEach(id => rows.set(id, {id, metadata: {}, document: ''}));
 
-    const calls = {get: 0, upsert: 0, delete: 0, count: 0};
+    const calls = {get: 0, upsert: 0, delete: 0, count: 0, modify: []};
 
-    return {
+    const collection = {
         rows,
         calls,
-        name: 'spy-knowledge-base',
+        name,
 
         async get({ids, where, limit = 2000, offset = 0, include = []} = {}) {
             calls.get++;
@@ -83,11 +83,18 @@ function createSpyCollection({existingIds = []} = {}) {
             ids.forEach(id => rows.delete(id));
         },
 
+        async modify({name}) {
+            calls.modify.push({name});
+            collection.name = name;
+        },
+
         async count() {
             calls.count++;
             return rows.size;
         }
     };
+
+    return collection;
 }
 
 /**
@@ -113,6 +120,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
     let SDK, KB_VectorService, KB_ChromaManager, KB_Config;
     let TextEmbeddingService_orig;
     let originalGetCollection;
+    let originalClient;
     let originalThreshold;
     let tmpDir, fixturePath;
 
@@ -134,6 +142,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         TextEmbeddingService.embedTexts = async texts => texts.map(() => new Array(384).fill(0));
 
         originalGetCollection = KB_ChromaManager.getKnowledgeBaseCollection.bind(KB_ChromaManager);
+        originalClient        = KB_ChromaManager.client;
         originalThreshold     = KB_Config.data.mcpSyncMaxChunks;
 
         tmpDir      = path.resolve(os.tmpdir(), `kb-work-volume-test-${process.pid}-${Date.now()}`);
@@ -143,6 +152,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
 
     test.afterAll(async () => {
         KB_ChromaManager.getKnowledgeBaseCollection = originalGetCollection;
+        KB_ChromaManager.client                     = originalClient;
         KB_Config.data.mcpSyncMaxChunks             = originalThreshold;
         TextEmbeddingService.embedTexts             = TextEmbeddingService_orig;
         if (tmpDir && fs.existsSync(tmpDir)) {
@@ -152,6 +162,8 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
 
     test.beforeEach(() => {
         KB_Config.data.mcpSyncMaxChunks = 5; // tight threshold for predictable branching
+        KB_ChromaManager.client         = originalClient;
+        KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
     });
 
     test('zero-changes fast-path is unchanged (existing chunks dedup to empty queue)', async () => {
@@ -190,6 +202,104 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         expect('error' in result).toBe(false);
         expect(result.message).toContain('Embedding complete');
         expect(spy.calls.upsert).toBeGreaterThan(0); // embedding actually happened
+    });
+
+    test('deleteStale:false preserves incremental-push callers by skipping stale deletion', async () => {
+        const spy = createSpyCollection({existingIds: ['stale-id']});
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        writeFixtureJsonl(fixturePath, 1);
+
+        const result = await KB_VectorService.embed(fixturePath, {deleteStale: false});
+
+        expect('error' in result).toBe(false);
+        expect(result.message).toContain('Embedding complete');
+        expect(spy.calls.delete).toBe(0);
+        expect(spy.rows.has('stale-id')).toBe(true);
+        expect(spy.calls.upsert).toBeGreaterThan(0);
+    });
+
+    test('shadow-swap embeds full corpus into a shadow collection before canonical promotion', async () => {
+        const live = createSpyCollection({existingIds: ['stale-id'], name: KB_Config.data.collectionName});
+        let shadow;
+
+        KB_ChromaManager.client = {
+            createCollection: async ({name}) => {
+                shadow = createSpyCollection({name});
+                return shadow;
+            }
+        };
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => {
+            return shadow?.name === KB_Config.data.collectionName ? shadow : live;
+        };
+
+        writeFixtureJsonl(fixturePath, 3);
+
+        const result = await KB_VectorService.embed(fixturePath, {staleStrategy: 'shadow-swap'});
+
+        expect('error' in result).toBe(false);
+        expect(result.staleStrategy).toBe('shadow-swap');
+        expect(result.embedded).toBe(3);
+        expect(result.deleted).toBe(1);
+        expect(result.shadowCollection).toContain(`${KB_Config.data.collectionName}-shadow-`);
+        expect(result.parkedCollection).toContain(`${KB_Config.data.collectionName}-parking-`);
+        expect(result.canonicalCollection).toBe(KB_Config.data.collectionName);
+
+        expect(live.calls.delete).toBe(0);
+        expect(live.calls.upsert).toBe(0);
+        expect(live.calls.modify[0]).toEqual({name: result.parkedCollection});
+        expect(shadow.calls.upsert).toBeGreaterThan(0);
+        expect(shadow.calls.modify[0]).toEqual({name: KB_Config.data.collectionName});
+        expect(shadow.rows.size).toBe(3);
+    });
+
+    test('shadow-swap failure invalidates cached canonical handles after local rename mutation', async () => {
+        const live = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName});
+        const cachedCollectionPromise = Promise.resolve(live);
+
+        live.modify = async ({name}) => {
+            live.calls.modify.push({name});
+            live.name = name;
+            throw new Error('live rename failed');
+        };
+
+        KB_ChromaManager._knowledgeBaseCollectionPromise = cachedCollectionPromise;
+        KB_ChromaManager.knowledgeBaseCollection         = live;
+        KB_ChromaManager.client = {
+            createCollection: async ({name}) => createSpyCollection({name})
+        };
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => live;
+
+        writeFixtureJsonl(fixturePath, 3);
+
+        await expect(
+            KB_VectorService.embed(fixturePath, {staleStrategy: 'shadow-swap'})
+        ).rejects.toThrow('live rename failed');
+
+        expect(KB_ChromaManager._knowledgeBaseCollectionPromise).toBe(null);
+        expect(KB_ChromaManager.knowledgeBaseCollection).toBe(null);
+    });
+
+    test('shadow-swap MCP gate measures full-corpus rebuild volume before creating shadow collection', async () => {
+        const live = createSpyCollection({existingIds: [], name: KB_Config.data.collectionName});
+        let createCollectionCalls = 0;
+
+        KB_ChromaManager.client = {
+            createCollection: async ({name}) => {
+                createCollectionCalls++;
+                return createSpyCollection({name});
+            }
+        };
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => live;
+
+        writeFixtureJsonl(fixturePath, 10);
+
+        const result = await KB_VectorService.embed(fixturePath, {viaMcp: true, staleStrategy: 'shadow-swap'});
+
+        expect(result.code).toBe('KB_SYNC_VOLUME_EXCEEDED');
+        expect(result.chunksToProcess).toBe(10);
+        expect(createCollectionCalls).toBe(0);
+        expect(live.calls.upsert).toBe(0);
     });
 
     test('above-threshold MCP invocation returns KB_SYNC_VOLUME_EXCEEDED — adapter converts to isError', async () => {
