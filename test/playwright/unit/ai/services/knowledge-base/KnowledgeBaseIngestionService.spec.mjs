@@ -186,6 +186,56 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         expect(vectorCalls).toHaveLength(0);
     });
 
+    test('returns structured caller errors for invalid file payloads and missing parsers', async () => {
+        const invalidFilesSummary = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : 'not-an-array'
+        });
+
+        expect(invalidFilesSummary.ingested).toBe(0);
+        expect(invalidFilesSummary.errors[0]).toMatchObject({
+            code: 'KB_INGEST_FILES_INVALID'
+        });
+        expect(metrics[0].eventType).toBe('error');
+
+        metrics = [];
+
+        const missingParserSummary = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{
+                content   : '# Missing parser',
+                parserId  : 'missing-parser',
+                sourcePath: 'docs/missing.md'
+            }]
+        });
+
+        expect(missingParserSummary.ingested).toBe(0);
+        expect(missingParserSummary.errors[0]).toMatchObject({
+            code: 'KB_PARSER_NOT_REGISTERED'
+        });
+        expect(vectorCalls).toHaveLength(0);
+        expect(metrics[0].eventType).toBe('error');
+    });
+
+    test('reports unavailable revision-boundary deletion resolver without throwing', async () => {
+        const summary = await Service.ingestSourceFiles({
+            tenantId    : 'tenant-a',
+            repoSlug    : 'repo-a',
+            files       : [],
+            baseRevision: 'base',
+            headRevision: 'head'
+        });
+
+        expect(summary.deleted).toBe(0);
+        expect(summary.errors[0]).toMatchObject({
+            code: 'KB_REVISION_BOUNDARY_UNAVAILABLE'
+        });
+        expect(metrics[0]).toMatchObject({
+            eventType    : 'error',
+            chunksDeleted: 0
+        });
+    });
+
     test('applies tombstone, manifest, and mock revision-boundary deletion signaling', async () => {
         collection = createSpyCollection([
             {id: 'keep', metadata: {tenantId: 'tenant-a', repoSlug: 'repo-a', sourcePath: 'src/live.js'}},
