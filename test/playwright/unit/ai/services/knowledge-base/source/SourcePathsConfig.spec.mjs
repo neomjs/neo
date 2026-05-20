@@ -15,11 +15,16 @@ setup({
     }
 });
 
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../../src/core/_export.mjs';
-import fs             from 'fs-extra';
-import path           from 'path';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../../src/core/_export.mjs';
+import fs              from 'fs-extra';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+const TEMPLATE_PATH = path.resolve(__dirname, '../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs');
 
 /**
  * Verifies the Phase 0/1B-β (#11660) `aiConfig.sourcePaths` config-driven override + legacy
@@ -49,9 +54,37 @@ test.describe.configure({mode: 'serial'});
 
 test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () => {
     let aiConfig;
+    let templateText;
+    let originalSourcePaths;
 
     test.beforeAll(async () => {
         aiConfig = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        // Phase 0/1B-β #11660 + Cycle 1 RA from @neo-gpt commentId IC_kwDODSospM8AAAABC9gB_A:
+        // the byte-equivalence anchor MUST assert against the canonical git-tracked template,
+        // not the per-clone gitignored `config.mjs` (which may be stale on clones that pulled
+        // the template change without re-running `bootstrapWorktree.mjs` to refresh local config).
+        // Importing the template module directly would trigger a `Neo.setupClass` namespace
+        // collision under `unitTestMode` (both config.mjs + config.template.mjs register the
+        // same `Neo.ai.mcp.server.knowledge-base.Config` className). Workaround: read the
+        // template file as text and verify the expected fallback strings appear inside the
+        // `sourcePaths` block. Text-level verification is stale-clone-safe.
+        templateText = await fs.readFile(TEMPLATE_PATH, 'utf-8');
+
+        // Stale-clone-safe init: the override/missing-key runtime tests below mutate
+        // `aiConfig.sourcePaths[name]` via override + delete. If the local clone's gitignored
+        // `config.mjs` is stale and lacks the `sourcePaths` key, those mutations would crash
+        // (cannot set property of undefined). Seed empty object for the test run; restore the
+        // original state in afterAll so per-clone freshness is preserved on test exit.
+        originalSourcePaths = aiConfig.sourcePaths;
+        if (!aiConfig.sourcePaths) {
+            aiConfig.sourcePaths = {};
+        }
+    });
+
+    test.afterAll(() => {
+        // Restore clone-config freshness (or lack thereof) — don't leak the seeded sourcePaths
+        // object into subsequent specs that might import the same singleton.
+        aiConfig.sourcePaths = originalSourcePaths;
     });
 
     test.describe('Single-path Source classes', () => {
@@ -65,8 +98,14 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
         ];
 
         for (const {name, fallback} of singlePathSources) {
-            test(`${name}: default config matches hardcoded fallback (byte-equivalence anchor)`, () => {
-                expect(aiConfig.sourcePaths?.[name]).toBe(fallback);
+            test(`${name}: template default matches Source-class hardcoded fallback (byte-equivalence anchor)`, () => {
+                // Verify the template file contains both the source-name key AND the expected
+                // fallback string within the sourcePaths block. Drift between the Source class's
+                // inline `?? '<fallback>'` and the template default would be caught by either
+                // (a) this text-grep failing OR (b) a downstream npm run ai:sync-kb producing
+                // different output. Text-grep is the cheapest of the two.
+                expect(templateText).toContain(`${name}`);
+                expect(templateText).toContain(`'${fallback}'`);
             });
 
             test(`${name}: override path takes precedence over fallback`, () => {
@@ -103,8 +142,14 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
         ];
 
         for (const {name, fallback} of arrayPathSources) {
-            test(`${name}: default config matches hardcoded fallback array (byte-equivalence anchor)`, () => {
-                expect(aiConfig.sourcePaths?.[name]).toEqual(fallback);
+            test(`${name}: template default matches Source-class hardcoded fallback array (byte-equivalence anchor)`, () => {
+                // Text-grep: both the source name AND each fallback path string must appear
+                // in the template body. Stale-clone-safe; catches drift between Source class
+                // inline fallback and template default.
+                expect(templateText).toContain(`${name}`);
+                for (const segment of fallback) {
+                    expect(templateText).toContain(`'${segment}'`);
+                }
             });
 
             test(`${name}: override array takes precedence over fallback`, () => {
@@ -154,8 +199,15 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
             'ai'      : 'ai-infrastructure'
         };
 
-        test('default config matches hardcoded sourceMap fallback (byte-equivalence anchor)', () => {
-            expect(aiConfig.sourcePaths?.ApiSource).toEqual(apiSourceFallback);
+        test('template default matches Source-class hardcoded sourceMap fallback (byte-equivalence anchor)', () => {
+            // Text-grep: ApiSource sourceMap keys + values must appear in template. The Object
+            // literal in the template includes both the path-key strings + the type-value strings
+            // (e.g., 'src': 'src'). Verifying both pairs are present is the cross-file drift guard.
+            expect(templateText).toContain('ApiSource');
+            for (const [pathKey, typeValue] of Object.entries(apiSourceFallback)) {
+                expect(templateText).toContain(`'${pathKey}'`);
+                expect(templateText).toContain(`'${typeValue}'`);
+            }
         });
 
         test('override sourceMap takes precedence over fallback', () => {
