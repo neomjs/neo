@@ -1,0 +1,712 @@
+import Ajv2020               from 'ajv/dist/2020.js';
+import Base                  from '../../../src/core/Base.mjs';
+import ChromaManager         from './ChromaManager.mjs';
+import KBRecorderService     from './KBRecorderService.mjs';
+import RequestContextService,
+       {normalizeUserId}    from '../../mcp/server/shared/services/RequestContextService.mjs';
+import SourceRegistry        from './source/_export.mjs';
+import VectorService         from './VectorService.mjs';
+import aiConfig              from '../../mcp/server/knowledge-base/config.mjs';
+import crypto                from 'crypto';
+import fs                    from 'fs-extra';
+import os                    from 'os';
+import path                  from 'path';
+import {fileURLToPath}       from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+
+const PARSED_CHUNK_SCHEMA_PATH = path.join(__dirname, 'parser/parsed-chunk-v1.schema.json');
+
+/**
+ * @summary Orchestrates Phase 2 Knowledge Base ingestion pushes.
+ *
+ * `KnowledgeBaseIngestionService` is the service-layer substrate consumed by the
+ * Phase 2 MCP and bulk facades. It validates the caller tenant boundary, accepts
+ * client-side parsed `parsed-chunk-v1` records or server-side raw file payloads,
+ * rejects restore-only embedding records, applies deletion signaling, and delegates
+ * embedding/upsert work to {@link Neo.ai.services.knowledge-base.VectorService}.
+ *
+ * The service returns a structured summary for both happy and error paths. Caller
+ * errors are accumulated into `errors[]` so one bad file does not discard the
+ * successful portion of a push, and fully failed pushes still return the contract
+ * summary instead of throwing out of the facade boundary.
+ *
+ * @class Neo.ai.services.knowledge-base.KnowledgeBaseIngestionService
+ * @extends Neo.core.Base
+ * @singleton
+ * @see https://github.com/neomjs/neo/issues/11633
+ */
+class KnowledgeBaseIngestionService extends Base {
+    static config = {
+        /**
+         * @member {String} className='Neo.ai.services.knowledge-base.KnowledgeBaseIngestionService'
+         * @protected
+         */
+        className: 'Neo.ai.services.knowledge-base.KnowledgeBaseIngestionService',
+        /**
+         * @member {Boolean} singleton=true
+         * @protected
+         */
+        singleton: true,
+        /**
+         * @member {Object} chromaManager=ChromaManager
+         * @summary Chroma collection manager. Injectable for deletion-signaling tests.
+         */
+        chromaManager: ChromaManager,
+        /**
+         * @member {Object} recorderService=KBRecorderService
+         * @summary Best-effort ingestion telemetry sink.
+         */
+        recorderService: KBRecorderService,
+        /**
+         * @member {Object|null} revisionResolver=null
+         * @summary Optional Phase 2E revision-boundary resolver used to derive deleted paths.
+         */
+        revisionResolver: null,
+        /**
+         * @member {Object} sourceRegistry=SourceRegistry
+         * @summary Source/parser registry used by raw-file server-side parsing.
+         */
+        sourceRegistry: SourceRegistry,
+        /**
+         * @member {Object} requestContextService=RequestContextService
+         * @summary Request-scoped identity source for tenant validation.
+         */
+        requestContextService: RequestContextService,
+        /**
+         * @member {Object} vectorService=VectorService
+         * @summary Downstream embedding/upsert service.
+         */
+        vectorService: VectorService
+    }
+
+    /**
+     * @member {Function|null} parsedChunkValidator=null
+     * @protected
+     */
+    parsedChunkValidator = null
+
+    /**
+     * @summary Ingests raw or client-parsed source files into the Knowledge Base.
+     *
+     * @param {Object}  payload
+     * @param {String} [payload.tenantId] Authenticated tenant id. Required when request
+     *                                    context is active; offline calls fall back to `neo-shared`.
+     * @param {Array}  [payload.files=[]] Raw file payloads or client-side parsed records.
+     * @param {Array}  [payload.deleted=[]] Explicit tombstones (`{sourcePath, repoSlug?}`).
+     * @param {Object} [payload.manifestSnapshot] Post-push manifest (`{repoSlug, pathsAfterPush}`).
+     * @param {String} [payload.baseRevision] Previous revision boundary.
+     * @param {String} [payload.headRevision] Current revision boundary.
+     * @returns {Promise<{ingested: Number, deleted: Number, embeddingsGenerated: Number, errors: Array, tenantId: String, durationMs: Number}>}
+     */
+    async ingestSourceFiles(payload = {}) {
+        const startedAt = Date.now();
+        const summary   = this.createSummary({startedAt});
+
+        try {
+            const tenantContext = this.resolveTenantContext(payload);
+            summary.tenantId    = tenantContext.tenantId;
+
+            if (!Array.isArray(payload.files)) {
+                summary.errors.push(this.createError({
+                    code   : 'KB_INGEST_FILES_INVALID',
+                    message: '`files` must be an array.'
+                }));
+            }
+
+            const files  = Array.isArray(payload.files) ? payload.files : [];
+            const chunks = await this.collectParsedChunks({files, tenantContext, summary});
+
+            summary.deleted = await this.applyDeletionSignals({
+                deleted         : payload.deleted,
+                manifestSnapshot: payload.manifestSnapshot,
+                baseRevision    : payload.baseRevision,
+                headRevision    : payload.headRevision,
+                tenantContext,
+                summary
+            });
+
+            if (chunks.length > 0) {
+                await this.embedChunkGroups({chunks, tenantContext, summary});
+            }
+
+            summary.ingested   = chunks.length;
+            summary.durationMs = Date.now() - startedAt;
+
+            this.recordMetric(summary, tenantContext);
+            return summary;
+        } catch (error) {
+            summary.errors.push(this.createError({code: error.code || 'KB_INGEST_FAILED', message: error.message}));
+            summary.durationMs = Date.now() - startedAt;
+            this.recordMetric(summary, {
+                tenantId: summary.tenantId || aiConfig.defaultTenantId || 'neo-shared',
+                repoSlug: aiConfig.defaultRepoSlug || 'neo'
+            });
+            return summary;
+        }
+    }
+
+    /**
+     * @summary Applies explicit tombstone, manifest, and revision-boundary delete signals.
+     * @param {Object} options
+     * @returns {Promise<Number>} Deleted Chroma row count.
+     * @protected
+     */
+    async applyDeletionSignals({deleted = [], manifestSnapshot, baseRevision, headRevision, tenantContext, summary}) {
+        const tombstones = [];
+
+        if (Array.isArray(deleted)) {
+            tombstones.push(...deleted);
+        } else if (deleted != null) {
+            summary.errors.push(this.createError({
+                code   : 'KB_DELETE_SIGNAL_INVALID',
+                message: '`deleted` must be an array when provided.'
+            }));
+        }
+
+        if (baseRevision || headRevision) {
+            tombstones.push(...await this.resolveRevisionTombstones({
+                baseRevision,
+                headRevision,
+                tenantContext,
+                summary
+            }));
+        }
+
+        const collection = await this.chromaManager.getKnowledgeBaseCollection();
+        const ids        = new Set();
+
+        if (tombstones.length > 0) {
+            const rows = await this.getTenantRows(collection, tenantContext.tenantId);
+
+            for (const tombstone of tombstones) {
+                if (!tombstone?.sourcePath) {
+                    summary.errors.push(this.createError({
+                        code   : 'KB_TOMBSTONE_INVALID',
+                        message: 'Tombstone entries require `sourcePath`.',
+                        details: {tombstone}
+                    }));
+                    continue;
+                }
+
+                const repoSlug = tombstone.repoSlug || tenantContext.repoSlug;
+                rows
+                    .filter(row => row.metadata.repoSlug === repoSlug && row.metadata.sourcePath === tombstone.sourcePath)
+                    .forEach(row => ids.add(row.id));
+            }
+        }
+
+        if (manifestSnapshot) {
+            const pathsAfterPush = manifestSnapshot.pathsAfterPush;
+
+            if (!Array.isArray(pathsAfterPush)) {
+                summary.errors.push(this.createError({
+                    code   : 'KB_MANIFEST_INVALID',
+                    message: '`manifestSnapshot.pathsAfterPush` must be an array.'
+                }));
+            } else {
+                const repoSlug = manifestSnapshot.repoSlug || tenantContext.repoSlug;
+                const livePaths = new Set(pathsAfterPush);
+                const rows = await this.getTenantRows(collection, tenantContext.tenantId);
+
+                rows
+                    .filter(row => row.metadata.repoSlug === repoSlug && !livePaths.has(row.metadata.sourcePath))
+                    .forEach(row => ids.add(row.id));
+            }
+        }
+
+        if (ids.size === 0) return 0;
+
+        await collection.delete({ids: Array.from(ids)});
+        return ids.size;
+    }
+
+    /**
+     * @summary Groups parsed chunks by repoSlug and routes each group to VectorService.embed().
+     * @param {Object} options
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async embedChunkGroups({chunks, tenantContext, summary}) {
+        const groups = new Map();
+
+        for (const chunk of chunks) {
+            const repoSlug = chunk.repoSlug || tenantContext.repoSlug;
+            if (!groups.has(repoSlug)) {
+                groups.set(repoSlug, []);
+            }
+            groups.get(repoSlug).push(chunk);
+        }
+
+        for (const [repoSlug, group] of groups.entries()) {
+            const tempFile = await this.writeTempJsonl(group);
+
+            try {
+                const result = await this.vectorService.embed(tempFile, {
+                    deleteStale  : false,
+                    tenantContext: {...tenantContext, repoSlug},
+                    viaMcp       : true
+                });
+
+                if (result?.error) {
+                    summary.errors.push(this.createError({
+                        code   : result.code || 'KB_VECTOR_EMBED_FAILED',
+                        message: result.message || result.error,
+                        details: result
+                    }));
+                    continue;
+                }
+
+                summary.embeddingsGenerated += result?.embedded ?? group.length;
+            } catch (error) {
+                summary.errors.push(this.createError({
+                    code   : error.code || 'KB_VECTOR_EMBED_FAILED',
+                    message: error.message,
+                    details: {repoSlug}
+                }));
+            } finally {
+                await fs.remove(tempFile);
+            }
+        }
+    }
+
+    /**
+     * @summary Collects and validates parsed chunks from the file payload.
+     * @param {Object} options
+     * @returns {Promise<Array<Object>>}
+     * @protected
+     */
+    async collectParsedChunks({files, tenantContext, summary}) {
+        const chunks = [];
+
+        for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+            const file = files[fileIndex];
+
+            try {
+                const parsed = await this.resolveFileChunks({file, fileIndex, tenantContext});
+
+                for (let chunkIndex = 0; chunkIndex < parsed.length; chunkIndex++) {
+                    const record = parsed[chunkIndex];
+                    const normalized = await this.validateAndNormalizeParsedChunk({
+                        record,
+                        fileIndex,
+                        chunkIndex,
+                        tenantContext,
+                        summary
+                    });
+
+                    if (normalized) {
+                        chunks.push(normalized);
+                    }
+                }
+            } catch (error) {
+                summary.errors.push(this.createError({
+                    code   : error.code || 'KB_FILE_PARSE_FAILED',
+                    message: error.message,
+                    details: {fileIndex, sourcePath: file?.sourcePath}
+                }));
+            }
+        }
+
+        return chunks;
+    }
+
+    /**
+     * @summary Builds a structured error entry for the ingestion summary.
+     * @param {Object} options
+     * @returns {Object}
+     * @protected
+     */
+    createError({code, message, details}) {
+        return {
+            code,
+            message,
+            ...(details === undefined ? {} : {details})
+        };
+    }
+
+    /**
+     * @summary Creates an empty ingestion summary.
+     * @param {Object} options
+     * @returns {Object}
+     * @protected
+     */
+    createSummary({startedAt}) {
+        return {
+            ingested           : 0,
+            deleted            : 0,
+            embeddingsGenerated: 0,
+            errors             : [],
+            tenantId           : aiConfig.defaultTenantId || 'neo-shared',
+            durationMs         : Date.now() - startedAt
+        };
+    }
+
+    /**
+     * @summary Creates the deterministic pre-vector content hash for a parsed chunk.
+     * @param {Object} record Parsed chunk.
+     * @param {Object} tenantContext Authoritative tenant context.
+     * @returns {String}
+     * @protected
+     */
+    createChunkHash(record, tenantContext) {
+        const values = {
+            tenantId: tenantContext.tenantId,
+            repoSlug: record.repoSlug || tenantContext.repoSlug
+        };
+
+        for (const field of record.hashInputs) {
+            values[field] = record[field];
+        }
+
+        return crypto.createHash('sha256').update(JSON.stringify(values)).digest('hex');
+    }
+
+    /**
+     * @summary Retrieves all Knowledge Base rows visible for a tenant from Chroma.
+     * @param {Object} collection Chroma collection.
+     * @param {String} tenantId Tenant id.
+     * @returns {Promise<Array<{id: String, metadata: Object}>>}
+     * @protected
+     */
+    async getTenantRows(collection, tenantId) {
+        const rows = [];
+        const limit = 2000;
+        let offset  = 0;
+        let batch;
+
+        do {
+            batch = await collection.get({
+                include: ['metadatas'],
+                limit,
+                offset,
+                where: {tenantId}
+            });
+
+            for (let i = 0; i < (batch.ids?.length || 0); i++) {
+                rows.push({
+                    id      : batch.ids[i],
+                    metadata: batch.metadatas?.[i] || {}
+                });
+            }
+
+            offset += limit;
+        } while ((batch.ids?.length || 0) === limit);
+
+        return rows;
+    }
+
+    /**
+     * @summary Lazily compiles the parsed-chunk-v1 JSON schema validator.
+     * @returns {Promise<Function>}
+     * @protected
+     */
+    async getParsedChunkValidator() {
+        if (!this.parsedChunkValidator) {
+            const schema = await fs.readJson(PARSED_CHUNK_SCHEMA_PATH);
+            const ajv    = new Ajv2020({allErrors: true, strict: false});
+
+            this.parsedChunkValidator = ajv.compile(schema);
+        }
+
+        return this.parsedChunkValidator;
+    }
+
+    /**
+     * @summary Records best-effort ingestion telemetry without affecting the caller path.
+     * @param {Object} summary Ingestion summary.
+     * @param {Object} tenantContext Tenant context.
+     * @returns {void}
+     * @protected
+     */
+    recordMetric(summary, tenantContext) {
+        this.recorderService.recordIngestionMetric?.({
+            tenantId           : tenantContext.tenantId,
+            repoSlug           : tenantContext.repoSlug,
+            originAgentIdentity: tenantContext.originAgentIdentity,
+            eventType          : this.resolveMetricEventType(summary),
+            chunksTotal        : summary.ingested,
+            chunksEmbedded     : summary.embeddingsGenerated,
+            chunksDeleted      : summary.deleted,
+            durationMs         : summary.durationMs,
+            errorCode          : summary.errors[0]?.code,
+            detail             : summary.errors.length > 0 ? {errors: summary.errors} : undefined
+        });
+    }
+
+    /**
+     * @summary Resolves raw file payloads into parsed-chunk-v1 records.
+     * @param {Object} options
+     * @returns {Promise<Array<Object>>}
+     * @protected
+     */
+    async resolveFileChunks({file, fileIndex, tenantContext}) {
+        if (file?.schemaVersion === '1.0.0') {
+            return [file];
+        }
+
+        if (Array.isArray(file?.parsedChunks)) {
+            return file.parsedChunks;
+        }
+
+        if (Array.isArray(file?.chunks)) {
+            return file.chunks;
+        }
+
+        if (typeof file?.content !== 'string') {
+            const error = new Error('File payload requires `parsedChunks`, `chunks`, a parsed-chunk-v1 record, or string `content`.');
+            error.code  = 'KB_FILE_PAYLOAD_INVALID';
+            throw error;
+        }
+
+        const parserId = file.parserId || 'raw-text';
+        const parser   = this.resolveParser(parserId);
+
+        if (file.parserId && !parser) {
+            const error = new Error(`Parser '${file.parserId}' is not registered.`);
+            error.code  = 'KB_PARSER_NOT_REGISTERED';
+            throw error;
+        }
+
+        if (parser?.parseIngestionFile) {
+            return await parser.parseIngestionFile(file, {tenantContext});
+        }
+
+        if (parser?.parse) {
+            const legacyChunks = await parser.parse(file.content, file.sourcePath, file.type || 'external-source', file.hierarchy || {});
+
+            return legacyChunks.map(chunk => this.legacyChunkToParsedRecord({
+                chunk,
+                file,
+                parserId,
+                tenantContext
+            }));
+        }
+
+        return [this.rawFileToParsedRecord({file, fileIndex, parserId, tenantContext})];
+    }
+
+    /**
+     * @summary Resolves a parser instance by parser id from SourceRegistry.
+     * @param {String} parserId Parser registry id.
+     * @returns {Object|null}
+     * @protected
+     */
+    resolveParser(parserId) {
+        const ids     = this.sourceRegistry.getParserIds?.() || [];
+        const parsers = this.sourceRegistry.getParsers?.() || [];
+        const index   = ids.indexOf(parserId);
+
+        return index === -1 ? null : parsers[index];
+    }
+
+    /**
+     * @summary Resolves revision-boundary tombstones via an injected Phase 2E resolver.
+     * @param {Object} options
+     * @returns {Promise<Array<Object>>}
+     * @protected
+     */
+    async resolveRevisionTombstones({baseRevision, headRevision, tenantContext, summary}) {
+        if (!baseRevision || !headRevision) {
+            summary.errors.push(this.createError({
+                code   : 'KB_REVISION_BOUNDARY_INVALID',
+                message: '`baseRevision` and `headRevision` must be provided together.'
+            }));
+            return [];
+        }
+
+        if (!this.revisionResolver?.resolveDeletedPaths) {
+            summary.errors.push(this.createError({
+                code   : 'KB_REVISION_BOUNDARY_UNAVAILABLE',
+                message: 'Revision-boundary deletion requires Phase 2E tenant config storage / resolver (#11637).'
+            }));
+            return [];
+        }
+
+        const resolved = await this.revisionResolver.resolveDeletedPaths({
+            baseRevision,
+            headRevision,
+            tenantContext
+        });
+
+        return Array.isArray(resolved) ? resolved : [];
+    }
+
+    /**
+     * @summary Resolves the authoritative tenant context for the ingest call.
+     * @param {Object} payload Ingestion payload.
+     * @returns {{tenantId: String, repoSlug: String, visibility: String, originAgentIdentity: String|undefined}}
+     * @protected
+     */
+    resolveTenantContext(payload = {}) {
+        const activeTenant = normalizeUserId(this.requestContextService.getUserId?.());
+        const requestedTenant = normalizeUserId(payload.tenantId);
+
+        if (activeTenant && requestedTenant && activeTenant !== requestedTenant) {
+            const error = new Error(`Tenant '${requestedTenant}' does not match authenticated tenant '${activeTenant}'.`);
+            error.code  = 'KB_INGEST_TENANT_MISMATCH';
+            throw error;
+        }
+
+        const tenantId = activeTenant || requestedTenant || aiConfig.defaultTenantId || 'neo-shared';
+
+        return {
+            tenantId,
+            repoSlug: payload.repoSlug || this.resolvePayloadRepoSlug(payload) || aiConfig.defaultRepoSlug || 'neo',
+            visibility: payload.visibility || aiConfig.defaultVisibility || 'team',
+            originAgentIdentity: this.requestContextService.getAgentIdentityNodeId?.() || payload.originAgentIdentity
+        };
+    }
+
+    /**
+     * @summary Finds a repoSlug in the payload when the caller omitted a top-level value.
+     * @param {Object} payload Ingestion payload.
+     * @returns {String|undefined}
+     * @protected
+     */
+    resolvePayloadRepoSlug(payload = {}) {
+        const files = Array.isArray(payload.files) ? payload.files : [];
+
+        for (const file of files) {
+            if (file?.repoSlug) return file.repoSlug;
+            const firstChunk = file?.schemaVersion === '1.0.0'
+                ? file
+                : file?.parsedChunks?.[0] || file?.chunks?.[0];
+            if (firstChunk?.repoSlug) return firstChunk.repoSlug;
+        }
+    }
+
+    /**
+     * @summary Maps the ingestion summary to the existing KB telemetry event taxonomy.
+     * @param {Object} summary Ingestion summary.
+     * @returns {'ingest'|'tombstone'|'reconcile'|'error'}
+     * @protected
+     */
+    resolveMetricEventType(summary) {
+        if (summary.errors.length > 0) {
+            return 'error';
+        }
+
+        if (summary.ingested > 0 && summary.deleted > 0) {
+            return 'reconcile';
+        }
+
+        return summary.deleted > 0 ? 'tombstone' : 'ingest';
+    }
+
+    /**
+     * @summary Converts legacy parser output into a parsed-chunk-v1 record.
+     * @param {Object} options
+     * @returns {Object}
+     * @protected
+     */
+    legacyChunkToParsedRecord({chunk, file, parserId, tenantContext}) {
+        const sourcePath = chunk.sourcePath || chunk.source || file.sourcePath;
+        const kind       = chunk.kind || chunk.type || 'doc-section';
+
+        return {
+            schemaVersion: '1.0.0',
+            tenantId     : tenantContext.tenantId,
+            repoSlug     : file.repoSlug || tenantContext.repoSlug,
+            rootKind     : file.rootKind || 'external-source',
+            sourcePath,
+            content      : chunk.content || chunk.description || '',
+            hashInputs   : ['kind', 'name', 'content', 'sourcePath', 'parserId', 'parserVersion'],
+            parserId,
+            parserVersion: file.parserVersion || '1.0.0',
+            kind,
+            name         : chunk.name || sourcePath,
+            ...(chunk.line_start ? {line_start: chunk.line_start} : {}),
+            ...(chunk.line_end ? {line_end: chunk.line_end} : {}),
+            ...(chunk.className ? {className: chunk.className} : {}),
+            ...(chunk.extends ? {extends: chunk.extends} : {})
+        };
+    }
+
+    /**
+     * @summary Creates a minimal parsed-chunk-v1 record for raw text payloads.
+     * @param {Object} options
+     * @returns {Object}
+     * @protected
+     */
+    rawFileToParsedRecord({file, fileIndex, parserId, tenantContext}) {
+        const sourcePath = file.sourcePath || `inline-${fileIndex}.txt`;
+
+        return {
+            schemaVersion: '1.0.0',
+            tenantId     : tenantContext.tenantId,
+            repoSlug     : file.repoSlug || tenantContext.repoSlug,
+            rootKind     : file.rootKind || 'external-source',
+            sourcePath,
+            content      : file.content,
+            hashInputs   : ['kind', 'name', 'content', 'sourcePath', 'parserId', 'parserVersion'],
+            parserId,
+            parserVersion: file.parserVersion || '1.0.0',
+            kind         : file.kind || 'doc-section',
+            name         : file.name || sourcePath,
+            ...(file.line_start ? {line_start: file.line_start} : {}),
+            ...(file.line_end ? {line_end: file.line_end} : {}),
+            ...(file.className ? {className: file.className} : {}),
+            ...(file.extends ? {extends: file.extends} : {}),
+            ...(file.customMeta ? {customMeta: file.customMeta} : {})
+        };
+    }
+
+    /**
+     * @summary Validates and normalizes one parsed-chunk-v1 record for VectorService.
+     * @param {Object} options
+     * @returns {Promise<Object|null>}
+     * @protected
+     */
+    async validateAndNormalizeParsedChunk({record, fileIndex, chunkIndex, tenantContext, summary}) {
+        if (Object.prototype.hasOwnProperty.call(record || {}, 'embedding')) {
+            summary.errors.push(this.createError({
+                code   : 'KB_PARSED_CHUNK_EMBEDDING_REJECTED',
+                message: 'parsed-chunk-v1 records must not carry `embedding`; use manageDatabaseBackup({action: \'import\'}) for restore payloads.',
+                details: {fileIndex, chunkIndex, restorePath: 'manageDatabaseBackup({action: \'import\'})'}
+            }));
+            return null;
+        }
+
+        const validate = await this.getParsedChunkValidator();
+
+        if (!validate(record)) {
+            summary.errors.push(this.createError({
+                code   : 'KB_PARSED_CHUNK_INVALID',
+                message: 'Record does not conform to parsed-chunk-v1.',
+                details: {fileIndex, chunkIndex, errors: validate.errors}
+            }));
+            return null;
+        }
+
+        const hash = this.createChunkHash(record, tenantContext);
+
+        return {
+            ...record,
+            hash,
+            id         : hash,
+            source     : record.sourcePath,
+            type       : record.kind,
+            description: record.content
+        };
+    }
+
+    /**
+     * @summary Writes an embedding batch to a temporary JSONL file for VectorService.
+     * @param {Array<Object>} chunks Parsed chunks.
+     * @returns {Promise<String>} Temporary file path.
+     * @protected
+     */
+    async writeTempJsonl(chunks) {
+        const dir  = path.join(os.tmpdir(), 'neo-kb-ingestion');
+        const file = path.join(dir, `ingest-${process.pid}-${Date.now()}-${crypto.randomUUID()}.jsonl`);
+
+        await fs.ensureDir(dir);
+        await fs.writeFile(file, chunks.map(chunk => JSON.stringify(chunk)).join('\n'), 'utf8');
+
+        return file;
+    }
+}
+
+export default Neo.setupClass(KnowledgeBaseIngestionService);
