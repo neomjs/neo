@@ -464,6 +464,120 @@ function ingestSourceFilesViaMcpTool({collectionName, repoSlug, tenantId}) {
     });
 }
 
+/**
+ * Drives the `ai:ingest-tenant` Phase 2C bulk-facade CLI end-to-end inside the deployed KB
+ * container. Streams a 1k+-record `parsed-chunk-v1` JSONL fixture through the CLI's exported
+ * orchestration units (`readJsonlRecords` -> `runIngest`) wired to the real ingestion `ingestFn`
+ * (`KnowledgeBaseIngestionService.ingestSourceFiles` with `viaMcp:false` — the bulk gate-bypass),
+ * then verifies the isolated temp collection holds every embedded chunk. The ingestion service
+ * is imported directly (not via `ai/services.mjs`) so the closure-injected `viaMcp:false` flag
+ * survives the makeSafe Zod wrapper and reaches `VectorService.embed` as the explicit #10572
+ * work-volume-gate bypass: a 1k+-chunk corpus far exceeds `mcpSyncMaxChunks`, so a clean
+ * full-count ingest is itself proof the gate was bypassed.
+ * @param {Object} options
+ * @param {String} options.collectionName Temporary Chroma collection name.
+ * @param {Number} options.recordCount    parsed-chunk-v1 records streamed through the CLI.
+ * @param {String} options.repoSlug       Repo slug stamped onto the parsed-chunk fixtures.
+ * @param {String} options.tenantId       Tenant id for the bulk ingest.
+ * @returns {Object}
+ */
+function ingestTenantViaCli({collectionName, recordCount, repoSlug, tenantId}) {
+    return execKnowledgeBaseJson(`
+        ${NEO_BOOTSTRAP}
+
+        const fs                 = await import('node:fs/promises');
+        const {createReadStream} = await import('node:fs');
+        const {
+            KB_Config,
+            KB_ChromaManager,
+            KB_LifecycleService,
+            Memory_TextEmbeddingService
+        } = await import('./ai/services.mjs');
+        // Direct import (not ai/services.mjs): the makeSafe Zod wrapper strips the
+        // closure-injected viaMcp flag, and the bulk CLI relies on viaMcp:false reaching
+        // VectorService.embed as the explicit #10572 work-volume-gate bypass.
+        const {default: KB_IngestionService} = await import('./ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs');
+        const {readJsonlRecords, runIngest}  = await import('./buildScripts/ai/ingestTenant.mjs');
+
+        await KB_LifecycleService.ready();
+
+        const originalCollectionName = KB_Config.data.collectionName;
+        const originalBatchDelay     = KB_Config.data.batchDelay;
+        const originalEmbedTexts     = Memory_TextEmbeddingService.embedTexts.bind(Memory_TextEmbeddingService);
+        const recordCount            = Number(process.env.NEO_TEST_KB_RECORD_COUNT);
+        const tenantId               = process.env.NEO_TEST_KB_TENANT;
+        const repoSlug               = process.env.NEO_TEST_KB_REPO;
+        const fixturePath            = process.env.NEO_TEST_KB_FIXTURE_PATH;
+        const vectorLength           = 8;
+
+        KB_Config.data.collectionName = process.env.NEO_TEST_KB_COLLECTION;
+        // Zero the inter-batch rate-limit sleep so the 1k+-chunk bulk ingest finishes
+        // inside the 120s integration-test timeout.
+        KB_Config.data.batchDelay     = 0;
+        KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
+
+        Memory_TextEmbeddingService.embedTexts = async texts => {
+            return texts.map(() => Array.from({length: vectorLength}, (_, dimension) => dimension === 0 ? 1 : 0));
+        };
+
+        let after, totals;
+
+        try {
+            // One schema-valid parsed-chunk-v1 record per line; unique sourcePath + content
+            // keep every server-side chunkId hash distinct so no upsert collapses a row.
+            const lines = Array.from({length: recordCount}, (_, index) => JSON.stringify({
+                schemaVersion: '1.0.0',
+                tenantId,
+                repoSlug,
+                rootKind     : 'bare-repo',
+                sourcePath   : 'ingest-tenant-cli-' + index + '.mjs',
+                content      : 'ingest tenant cli chunk ' + index,
+                hashInputs   : ['sourcePath', 'content'],
+                parserId     : 'integration-fixture',
+                parserVersion: '1.0.0',
+                kind         : 'doc-section',
+                name         : 'ingestTenantCliChunk' + index
+            }));
+
+            await fs.mkdir('/tmp/neo-integration', {recursive: true});
+            await fs.writeFile(fixturePath, lines.join('\\n') + '\\n', 'utf8');
+
+            // Exercise the CLI's exported orchestration: stream-parse the JSONL, batch at
+            // the CLI default (500), and ingest each batch through the bulk gate-bypass path.
+            totals = await runIngest({
+                records  : readJsonlRecords(createReadStream(fixturePath, 'utf8')),
+                batchSize: 500,
+                ingestFn : files => KB_IngestionService.ingestSourceFiles({tenantId, files, viaMcp: false})
+            });
+
+            const collection = await KB_ChromaManager.getKnowledgeBaseCollection();
+            after = {
+                collectionName: collection.name,
+                count         : await collection.count()
+            };
+
+            console.log(JSON.stringify({after, totals}));
+        } finally {
+            Memory_TextEmbeddingService.embedTexts = originalEmbedTexts;
+            KB_Config.data.collectionName          = originalCollectionName;
+            KB_Config.data.batchDelay              = originalBatchDelay;
+            KB_ChromaManager.invalidateKnowledgeBaseCollectionCache();
+
+            try {
+                await KB_ChromaManager.client.deleteCollection({name: process.env.NEO_TEST_KB_COLLECTION});
+            } catch {}
+
+            await fs.rm(fixturePath, {force: true});
+        }
+    `, {
+        NEO_TEST_KB_COLLECTION  : collectionName,
+        NEO_TEST_KB_FIXTURE_PATH: '/tmp/neo-integration/' + collectionName + '.jsonl',
+        NEO_TEST_KB_RECORD_COUNT: String(recordCount),
+        NEO_TEST_KB_REPO        : repoSlug,
+        NEO_TEST_KB_TENANT      : tenantId
+    });
+}
+
 test.describe('Dockerized KB backup -> wipe -> restore integration (#11644)', () => {
     test('restores a seeded Knowledge Base vector after an isolated fixture wipe', async () => {
         const readiness = await getReadiness();
@@ -581,5 +695,38 @@ test.describe('Dockerized KB backup -> wipe -> restore integration (#11644)', ()
         // The within-threshold push embedded into the isolated temp collection.
         expect(outcome.after.collectionName).toBe(collectionName);
         expect(outcome.after.count).toBe(3);
+    });
+
+    test('ai:ingest-tenant CLI bulk-streams a 1k+-chunk parsed-chunk-v1 corpus past the MCP volume gate (#11635)', async () => {
+        const readiness = await getReadiness();
+
+        test.skip(readiness.dockerAvailable === false, `Docker unavailable: ${readiness.reason}`);
+        expect(readiness.servicesReady, readiness.reason).toBe(true);
+
+        const runId          = `${Date.now()}-${randomUUID()}`;
+        const collectionName = `kb-ingest-tenant-cli-${runId}`;
+        const recordCount    = 1024;
+
+        const outcome = ingestTenantViaCli({
+            collectionName,
+            recordCount,
+            repoSlug: `kb-ingest-tenant-${runId}`,
+            tenantId: 'neo-shared'
+        });
+
+        // The CLI stream-batched the corpus at the default batchSize (500): ceil(1024 / 500) = 3.
+        expect(outcome.totals.batches).toBe(3);
+        expect(outcome.totals.parseErrors).toBe(0);
+        expect(outcome.totals.errors).toEqual([]);
+
+        // viaMcp:false bypassed the #10572 work-volume gate — a 1024-chunk corpus far exceeds
+        // mcpSyncMaxChunks, so a clean full-count ingest is itself proof of the bulk bypass.
+        expect(outcome.totals.ingested).toBe(recordCount);
+        expect(outcome.totals.embeddingsGenerated).toBe(recordCount);
+        expect(outcome.totals.deleted).toBe(0);
+
+        // Chroma ground truth: every streamed chunk embedded into the isolated collection.
+        expect(outcome.after.collectionName).toBe(collectionName);
+        expect(outcome.after.count).toBe(recordCount);
     });
 });

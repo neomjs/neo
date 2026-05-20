@@ -354,4 +354,36 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         });
         expect(metrics[0].eventType).toBe('error');
     });
+
+    test('threads viaMcp:false to VectorService.embed for the bulk CLI path (#11635)', async () => {
+        const summary = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [validParsedChunk()]}],
+            viaMcp  : false
+        });
+
+        expect(summary.ingested).toBe(1);
+        expect(vectorCalls).toHaveLength(1);
+        expect(vectorCalls[0].options.viaMcp).toBe(false);
+    });
+
+    test('defaults to the MCP-safe viaMcp:true when the caller omits viaMcp (#11635)', async () => {
+        const summary = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [validParsedChunk()]}]
+        });
+
+        expect(summary.ingested).toBe(1);
+        expect(vectorCalls[0].options.viaMcp).toBe(true);
+    });
+
+    test('preserves an explicit viaMcp:true for the MCP facade path (#11635)', async () => {
+        await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [validParsedChunk()]}],
+            viaMcp  : true
+        });
+
+        expect(vectorCalls[0].options.viaMcp).toBe(true);
+    });
 });
