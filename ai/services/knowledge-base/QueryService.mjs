@@ -4,6 +4,7 @@ import mcConfig             from '../../mcp/server/memory-core/config.mjs';
 import aiConfig             from '../../mcp/server/knowledge-base/config.mjs';
 import Base                 from '../../../src/core/Base.mjs';
 import ChromaManager        from './ChromaManager.mjs';
+import RequestContextService, {normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
 import dotenv               from 'dotenv';
 import path                 from 'path';
 
@@ -80,7 +81,7 @@ class QueryService extends Base {
 
         while (queue.length > 0) {
             const currentParent = queue.shift();
-            
+
             Object.entries(hierarchy).forEach(([className, parentName]) => {
                 if (parentName === currentParent) {
                     subtree[className] = parentName;
@@ -114,6 +115,16 @@ class QueryService extends Base {
         const queryLower     = query.toLowerCase();
 
         const whereClause = (type && type !== 'all') ? { type } : {};
+
+        // #11632 read-side tenant filter: a requester retrieves its own tenant's chunks plus
+        // Neo's curated `neo-shared` corpus. The requester is derived server-side from the
+        // authenticated request context — never from a client-supplied parameter (a forged
+        // `tenantId` query arg is therefore ignored). No request context (stdio single-tenant
+        // / offline daemon) → no tenant filter, byte-equivalent with pre-#11632 behavior.
+        const requesterTenantId = normalizeUserId(RequestContextService.getUserId());
+        if (requesterTenantId) {
+            whereClause.tenantId = {$in: [requesterTenantId, aiConfig.defaultTenantId ?? 'neo-shared']};
+        }
 
         const queryOptions = {
             queryEmbeddings: [queryEmbeddingValues],
@@ -150,7 +161,7 @@ class QueryService extends Base {
                 if (keywordSingular.length > 2) {
                     if (sourcePathLower.includes(`/${keywordSingular}/`)) score += queryScoreWeights.sourcePathMatch;
                     if (fileName.includes(keywordSingular)) score += queryScoreWeights.fileNameMatch;
-                    
+
                     // Old JSDoc based check: metadata.type === 'class'
                     // New SourceParser check: metadata.className exists
                     if (metadata.className && metadata.className.toLowerCase().includes(keywordSingular)) {
