@@ -1,6 +1,7 @@
 import Ajv2020               from 'ajv/dist/2020.js';
 import Base                  from '../../../src/core/Base.mjs';
 import ChromaManager         from './ChromaManager.mjs';
+import GraphService          from '../memory-core/GraphService.mjs';
 import KBRecorderService     from './KBRecorderService.mjs';
 import RequestContextService,
        {normalizeUserId}    from '../../mcp/server/shared/services/RequestContextService.mjs';
@@ -54,6 +55,11 @@ class KnowledgeBaseIngestionService extends Base {
          * @summary Chroma collection manager. Injectable for deletion-signaling tests.
          */
         chromaManager: ChromaManager,
+        /**
+         * @member {Object} graphService=GraphService
+         * @summary Native Edge Graph service backing the #11637 `KnowledgeBaseTenantConfig` node. Injectable for tests.
+         */
+        graphService: GraphService,
         /**
          * @member {Object} recorderService=KBRecorderService
          * @summary Best-effort ingestion telemetry sink.
@@ -582,6 +588,98 @@ class KnowledgeBaseIngestionService extends Base {
                 ? file
                 : file?.parsedChunks?.[0] || file?.chunks?.[0];
             if (firstChunk?.repoSlug) return firstChunk.repoSlug;
+        }
+    }
+
+    /**
+     * @summary Resolves a tenant's Knowledge Base ingestion config (#11637 Phase 2E).
+     *
+     * Tiered resolution: the `KnowledgeBaseTenantConfig` graph node (`kb-config:<tenantId>`) →
+     * the default source/parser registry from `aiConfig`. The intermediate `kb-config.yaml`
+     * deployment-bootstrap tier lands in a subsequent commit; this resolves graph → default.
+     * @param {Object}  data
+     * @param {String} [data.tenantId] Tenant id; normalized, defaults to `aiConfig.defaultTenantId`.
+     * @returns {Promise<{tenantId: String, source: String, version: Number, useDefaultSources: Boolean, useDefaultParsers: Boolean, customSources: Array, customParsers: Array, sourcePaths: Object}>}
+     */
+    async getTenantConfig({tenantId} = {}) {
+        const resolvedTenant = normalizeUserId(tenantId) || aiConfig.defaultTenantId || 'neo-shared';
+
+        await this.graphService.initAsync();
+
+        const record = this.graphService.getNodeRecord({id: `kb-config:${resolvedTenant}`});
+
+        if (record?.properties) {
+            const p = record.properties;
+            return {
+                tenantId         : resolvedTenant,
+                source           : 'graph',
+                version          : p.version || 0,
+                useDefaultSources: p.useDefaultSources !== false,
+                useDefaultParsers: p.useDefaultParsers !== false,
+                customSources    : p.customSources || [],
+                customParsers    : p.customParsers || [],
+                sourcePaths      : p.sourcePaths    || {}
+            };
+        }
+
+        // Tier — default registry. The `kb-config.yaml` bootstrap tier follows in a subsequent commit.
+        return {
+            tenantId         : resolvedTenant,
+            source           : 'default',
+            version          : 0,
+            useDefaultSources: aiConfig.useDefaultSources !== false,
+            useDefaultParsers: aiConfig.useDefaultParsers !== false,
+            customSources    : aiConfig.customSources || [],
+            customParsers    : aiConfig.customParsers || [],
+            sourcePaths      : aiConfig.sourcePaths    || {}
+        };
+    }
+
+    /**
+     * @summary Persists a tenant's Knowledge Base ingestion config as a versioned graph node (#11637 Phase 2E).
+     *
+     * Writes the `KnowledgeBaseTenantConfig` node (`kb-config:<tenantId>`); `version` increments on
+     * each mutation. RLS: `resolveTenantContext` rejects a caller mutating another tenant's config
+     * (`KB_INGEST_TENANT_MISMATCH`). The explicit gate is required because `GraphService.upsertNode`
+     * auto-stamps the *caller's* identity onto `properties.userId` — an un-gated cross-tenant write
+     * would silently re-own the node rather than be rejected.
+     * @param {Object} data
+     * @param {String} data.tenantId Tenant id.
+     * @param {Object} [data.config={}] Config payload — `useDefaultSources` / `useDefaultParsers` /
+     *                                  `customSources` / `customParsers` / `sourcePaths`.
+     * @returns {Promise<{tenantId: String, version: Number}|{error: String, code: String, message: String}>}
+     */
+    async setTenantConfig({tenantId, config = {}} = {}) {
+        try {
+            const {tenantId: resolvedTenant} = this.resolveTenantContext({tenantId});
+
+            await this.graphService.initAsync();
+
+            const nodeId   = `kb-config:${resolvedTenant}`,
+                  existing = this.graphService.getNodeRecord({id: nodeId}),
+                  version  = (existing?.properties?.version || 0) + 1;
+
+            await this.graphService.upsertNode({
+                id        : nodeId,
+                type      : 'KnowledgeBaseTenantConfig',
+                properties: {
+                    tenantId         : resolvedTenant,
+                    useDefaultSources: config.useDefaultSources !== false,
+                    useDefaultParsers: config.useDefaultParsers !== false,
+                    customSources    : config.customSources || [],
+                    customParsers    : config.customParsers || [],
+                    sourcePaths      : config.sourcePaths    || {},
+                    version
+                }
+            });
+
+            return {tenantId: resolvedTenant, version};
+        } catch (error) {
+            return {
+                error  : 'Tenant config write failed',
+                code   : error.code || 'KB_TENANT_CONFIG_WRITE_FAILED',
+                message: error.message
+            };
         }
     }
 

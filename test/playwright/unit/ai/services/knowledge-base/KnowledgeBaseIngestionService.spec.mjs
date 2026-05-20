@@ -387,3 +387,96 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         expect(vectorCalls[0].options.viaMcp).toBe(true);
     });
 });
+
+test.describe('KnowledgeBaseIngestionService.tenantConfig (#11637)', () => {
+    let Service;
+    let originals;
+    let graphStub;
+
+    /**
+     * Minimal in-memory stub of the GraphService surface consumed by getTenantConfig / setTenantConfig.
+     * @returns {Object}
+     */
+    function createGraphStub() {
+        const store = new Map();
+
+        return {
+            store,
+            async initAsync() {},
+            getNodeRecord({id}) {
+                return store.has(id) ? {...store.get(id)} : null;
+            },
+            async upsertNode({id, type, properties}) {
+                store.set(id, {id, type, properties: {...properties}});
+            }
+        };
+    }
+
+    test.beforeAll(async () => {
+        Service = (await import('../../../../../../ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs')).default;
+    });
+
+    test.beforeEach(() => {
+        graphStub = createGraphStub();
+        originals = {
+            graphService         : Service.graphService,
+            requestContextService: Service.requestContextService
+        };
+
+        Service.graphService          = graphStub;
+        Service.requestContextService = {
+            getAgentIdentityNodeId: () => '@tenant-a',
+            getUserId             : () => 'tenant-a'
+        };
+    });
+
+    test.afterEach(() => {
+        Object.assign(Service, originals);
+    });
+
+    test('setTenantConfig persists a versioned KnowledgeBaseTenantConfig node that getTenantConfig reads back', async () => {
+        const written = await Service.setTenantConfig({
+            tenantId: 'tenant-a',
+            config  : {useDefaultSources: false, customParsers: [{parserId: 'es5'}]}
+        });
+        expect(written).toEqual({tenantId: 'tenant-a', version: 1});
+
+        const node = graphStub.store.get('kb-config:tenant-a');
+        expect(node.type).toBe('KnowledgeBaseTenantConfig');
+
+        const resolved = await Service.getTenantConfig({tenantId: 'tenant-a'});
+        expect(resolved).toMatchObject({
+            tenantId         : 'tenant-a',
+            source           : 'graph',
+            version          : 1,
+            useDefaultSources: false,
+            customParsers    : [{parserId: 'es5'}]
+        });
+    });
+
+    test('setTenantConfig increments the config version on each mutation', async () => {
+        const first  = await Service.setTenantConfig({tenantId: 'tenant-a', config: {}});
+        const second = await Service.setTenantConfig({tenantId: 'tenant-a', config: {useDefaultParsers: false}});
+
+        expect(first.version).toBe(1);
+        expect(second.version).toBe(2);
+        expect((await Service.getTenantConfig({tenantId: 'tenant-a'})).version).toBe(2);
+    });
+
+    test('setTenantConfig rejects a cross-tenant write via the resolveTenantContext RLS gate', async () => {
+        // The authenticated context is tenant-a (beforeEach); a write targeting tenant-b must be refused.
+        const result = await Service.setTenantConfig({tenantId: 'tenant-b', config: {}});
+
+        expect(result.code).toBe('KB_INGEST_TENANT_MISMATCH');
+        expect(result.error).toBe('Tenant config write failed');
+        expect(graphStub.store.has('kb-config:tenant-b')).toBe(false);
+    });
+
+    test('getTenantConfig falls back to the default registry when no graph node exists', async () => {
+        const resolved = await Service.getTenantConfig({tenantId: 'tenant-without-config'});
+
+        expect(resolved.source).toBe('default');
+        expect(resolved.version).toBe(0);
+        expect(typeof resolved.useDefaultSources).toBe('boolean');
+    });
+});
