@@ -29,6 +29,7 @@ import _KB_DatabaseService from './services/knowledge-base/DatabaseService.mjs';
 import _KB_LifecycleService from './services/knowledge-base/DatabaseLifecycleService.mjs';
 import _KB_DocumentService from './services/knowledge-base/DocumentService.mjs';
 import _KB_HealthService from './services/knowledge-base/HealthService.mjs';
+import _KB_IngestionService from './services/knowledge-base/KnowledgeBaseIngestionService.mjs';
 import _KB_RecorderService from './services/knowledge-base/KBRecorderService.mjs';
 import _KB_QueryService from './services/knowledge-base/QueryService.mjs';
 import _KB_SearchService from './services/knowledge-base/SearchService.mjs';
@@ -208,6 +209,7 @@ const KB_DatabaseService = makeSafe(_KB_DatabaseService, kbSpec);
 const KB_LifecycleService = makeSafe(_KB_LifecycleService, kbSpec);
 const KB_DocumentService = makeSafe(_KB_DocumentService, kbSpec);
 const KB_HealthService = makeSafe(_KB_HealthService, kbSpec);
+const KB_IngestionService = makeSafe(_KB_IngestionService, kbSpec);
 const KB_RecorderService = makeSafe(_KB_RecorderService, kbSpec);
 const KB_QueryService = makeSafe(_KB_QueryService, kbSpec);
 const KB_SearchService = makeSafe(_KB_SearchService, kbSpec);
@@ -277,6 +279,7 @@ export {
     KB_LifecycleService,
     KB_DocumentService,
     KB_HealthService,
+    KB_IngestionService,
     KB_RecorderService,
     KB_QueryService,
     KB_SearchService,
