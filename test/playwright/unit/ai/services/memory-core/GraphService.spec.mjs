@@ -107,7 +107,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     test('should extract node neighbors properly', async () => {
         test.skip(!!process.env.NEO_TEST_SKIP_CI, 'CI-skip: SqliteError disk I/O - bucket G3 (#10924)');
         await GraphService.upsertNode({id: 'EpicA', name: 'Roadmap Planner'});
-        await GraphService.upsertNode({id: 'Task1', name: 'Implementation'});
+        await GraphService.upsertNode({id: 'Task1', name: 'Implementation', semanticVectorId: 'vector-task-1'});
         await GraphService.upsertNode({id: 'Task2', name: 'Documentation'});
 
         await GraphService.linkNodes('EpicA', 'Task1', 'CONTAINS', 1.0);
@@ -126,9 +126,41 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
         expect(task1).toBeDefined();
         expect(task1.weight).toBe(1.0);
         expect(task1.relationship).toBe('CONTAINS');
+        expect(task1.semanticVectorId).toBe('vector-task-1');
 
         expect(task2).toBeDefined();
         expect(task2.weight).toBe(0.8);
+    });
+
+    test('preBriefSession should hydrate episodic context through getNeighbors semanticVectorId', async () => {
+        await GraphService.upsertNode({id: 'EpicA', name: 'Roadmap Planner'});
+        await GraphService.upsertNode({id: 'MemoryA', name: 'Session Summary', semanticVectorId: 'summary-vector-1'});
+        await GraphService.linkNodes('EpicA', 'MemoryA', 'RELATES_TO', 0.9);
+
+        const StorageRouter = (await import('../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
+        const MemoryService = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).default;
+
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const getCalls = [];
+
+        StorageRouter.getSummaryCollection = async () => ({
+            async get(args) {
+                getCalls.push(args);
+                return {documents: ['Hydrated episodic context']};
+            }
+        });
+
+        try {
+            const brief = await MemoryService.preBriefSession({targetId: 'EpicA', limit: 5});
+
+            expect(getCalls).toHaveLength(1);
+            expect(getCalls[0].ids).toEqual(['summary-vector-1']);
+            expect(brief.context).toHaveLength(1);
+            expect(brief.context[0].id).toBe('MemoryA');
+            expect(brief.context[0].episodicContext).toBe('Hydrated episodic context');
+        } finally {
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+        }
     });
 
     test('should dynamically compute getNodeGravity natively', async () => {
