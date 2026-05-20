@@ -1,11 +1,13 @@
 import {Client as McpSdkClient} from '@modelcontextprotocol/sdk/client/index.js';
+import {SSEClientTransport}     from '@modelcontextprotocol/sdk/client/sse.js';
 import {StdioClientTransport}   from '@modelcontextprotocol/sdk/client/stdio.js';
+import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import Base                     from '../../../src/core/Base.mjs';
 import ClientConfig             from './config.mjs';
 import ToolService              from '../ToolService.mjs';
 
 /**
- * @summary A generic MCP Client that can connect to any local MCP server via Stdio.
+ * @summary A generic MCP Client that can connect to local or remote MCP servers.
  *
  * This class wraps the official MCP SDK Client in a Neo.mjs class structure.
  * It handles the connection lifecycle and tool discovery.
@@ -61,6 +63,21 @@ class Client extends Base {
          */
         requiredEnv: [],
         /**
+         * Additional SDK transport options for HTTP/SSE transports.
+         * @member {Object} transportOptions={}
+         */
+        transportOptions: {},
+        /**
+         * Transport type to use: 'stdio', 'sse', or 'streamable-http'.
+         * @member {String} transportType='stdio'
+         */
+        transportType: 'stdio',
+        /**
+         * Remote MCP endpoint URL for HTTP/SSE transports.
+         * @member {String|null} url=null
+         */
+        url: null,
+        /**
          * The logical name of the MCP server to connect to (e.g., 'github-workflow').
          * This name will be used to look up connection details from ClientConfig.
          * @member {String} serverName_='github-workflow'
@@ -108,6 +125,61 @@ class Client extends Base {
         if (value) {
             this.loadServerConfig(value);
         }
+    }
+
+    /**
+     * @summary Creates the SDK transport for the configured server connection.
+     *
+     * Local servers use stdio process spawning, while remote endpoints use the SDK's URL-based
+     * SSE or Streamable HTTP transports with the configured transport options.
+     * @returns {StdioClientTransport|SSEClientTransport|StreamableHTTPClientTransport}
+     * @throws {Error} When the configured transport is unknown or incomplete.
+     */
+    createTransport() {
+        const me            = this,
+              transportType = me.normalizeTransportType(me.transportType);
+
+        switch (transportType) {
+        case 'stdio':
+            if (!me.command || !me.args) {
+                throw new Error('MCP Client: stdio transport requires server command and arguments. Ensure serverName is valid and config.mjs is properly configured.');
+            }
+
+            return new StdioClientTransport({
+                command: me.command,
+                args   : me.args,
+                env    : me.env
+            });
+
+        case 'sse':
+            return new SSEClientTransport(me.createTransportUrl(transportType), me.transportOptions);
+
+        case 'streamable-http':
+            return new StreamableHTTPClientTransport(me.createTransportUrl(transportType), me.transportOptions);
+
+        default:
+            throw new Error(`MCP Client: Unsupported transport type '${me.transportType}' for '${me.serverName}'. Expected 'stdio', 'sse', or 'streamable-http'.`);
+        }
+    }
+
+    /**
+     * @summary Creates a URL object for remote MCP SDK transports.
+     *
+     * Accepts a configured string or pre-built URL instance and keeps the fail-fast error tied
+     * to the normalized transport type that requested it.
+     * @param {String} transportType The normalized transport type.
+     * @returns {URL}
+     * @throws {Error} When no remote URL is configured.
+     */
+    createTransportUrl(transportType) {
+        const me  = this,
+              url = me.url;
+
+        if (!url) {
+            throw new Error(`MCP Client: ${transportType} transport requires a remote url in ai/mcp/client/config.mjs`);
+        }
+
+        return url instanceof URL ? url : new URL(url);
     }
 
     /**
@@ -183,15 +255,7 @@ class Client extends Base {
         });
 
         // 3. Connect the client and create tool proxies
-        if (!me.command || !me.args) {
-            throw new Error('MCP Client: Server command and arguments are not set. Ensure serverName is valid and config.mjs is properly configured.');
-        }
-
-        me.transport = new StdioClientTransport({
-            command: me.command,
-            args   : me.args,
-            env    : me.env
-        });
+        me.transport = me.createTransport();
 
         me.client = new McpSdkClient({
             name   : me.clientName,
@@ -250,12 +314,35 @@ class Client extends Base {
         if (!serverConfig) {
             throw new Error(`MCP Client: Server config not found for '${serverName}' in ai/mcp/client/config.mjs`);
         }
-        me.command         = serverConfig.command;
-        me.args            = serverConfig.args;
-        me.openApiFilePath = serverConfig.openApiFilePath || null;
-        me.requiredEnv     = serverConfig.requiredEnv     || [];
+        me.command          = serverConfig.command          || null;
+        me.args             = serverConfig.args             || null;
+        me.openApiFilePath  = serverConfig.openApiFilePath  || null;
+        me.requiredEnv      = serverConfig.requiredEnv      || [];
+        me.transportOptions = serverConfig.transportOptions || {};
+        me.transportType    = serverConfig.transportType || serverConfig.transport || 'stdio';
+        me.url              = serverConfig.url              || null;
         // Note: env from config.mjs is not explicitly merged here,
         // assuming agent will manage its own env (like GH_TOKEN) and pass it to client instance.
+    }
+
+    /**
+     * @summary Normalizes supported transport aliases to canonical config values.
+     *
+     * Preserves unknown values so `createTransport()` can produce the single authoritative
+     * unsupported-transport error instead of silently coercing configuration typos.
+     * @param {String} transportType The configured transport type or alias.
+     * @returns {String}
+     */
+    normalizeTransportType(transportType = 'stdio') {
+        switch (transportType) {
+        case 'http':
+        case 'streamableHttp':
+        case 'streamable-http':
+            return 'streamable-http';
+
+        default:
+            return transportType;
+        }
     }
 }
 
