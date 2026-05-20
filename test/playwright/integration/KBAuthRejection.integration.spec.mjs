@@ -47,4 +47,35 @@ test.describe('Dockerized KB proxy identity rejection integration (#11644)', () 
             await client.close();
         }
     });
+
+    test('KB rejects top-level tenant spoofing on ingest_source_files (#11645)', async () => {
+        const readiness = await getReadiness();
+
+        test.skip(readiness.dockerAvailable === false, `Docker unavailable: ${readiness.reason}`);
+
+        expect(readiness.servicesReady, readiness.reason).toBe(true);
+
+        const client = await createIdentityClient({
+            baseUrl   : KB_URL,
+            clientName: 'neo-integration-kb-tenant-spoof',
+            identity  : 'kb-auth-owner'
+        });
+
+        try {
+            const result = await callJsonTool(client, 'ingest_source_files', {
+                tenantId: 'kb-auth-attacker',
+                files   : [{
+                    content   : 'tenant spoof payload should not ingest',
+                    sourcePath: 'spoof/Attempt.md'
+                }]
+            });
+
+            expect(result.ingested).toBe(0);
+            expect(result.errors).toEqual(expect.arrayContaining([
+                expect.objectContaining({code: 'KB_INGEST_TENANT_MISMATCH'})
+            ]));
+        } finally {
+            await client.close();
+        }
+    });
 });

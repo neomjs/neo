@@ -77,6 +77,26 @@ class Server extends BaseServer {
     }
 
     /**
+     * @summary SSE-only hook: builds the KB RequestContext from authenticated transport identity.
+     *
+     * Knowledge Base read and ingest services enforce tenant isolation from
+     * `RequestContextService.getUserId()`. Propagating the SSE auth context here keeps
+     * proxy/OIDC deployments tenant-aware while preserving single-tenant fallthrough when
+     * no identity is present.
+     * @param {Object|undefined} reqAuth
+     * @returns {Promise<Object>}
+     */
+    async buildRequestContext(reqAuth) {
+        if (!reqAuth?.userId) return {};
+
+        return {
+            userId  : reqAuth.userId,
+            username: reqAuth.username,
+            source  : reqAuth.source || 'oidc'
+        };
+    }
+
+    /**
      * @summary Records failed tool dispatch to KBRecorderService when the healthcheck gate rejects.
      * Preserves the existing telemetry shape (agent_id, session_id, sequence_id, timestamp,
      * tool, args, result, success, duration_ms) so KB-level analytics stay continuous post-migration.
