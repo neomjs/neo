@@ -322,15 +322,25 @@ class DatabaseService extends Base {
                     continue;
                 }
 
+                // Per #11653: KB chunks store content in `metadata.content`, not in Chroma's
+                // primary `document` slot — so 100% of KB backup records carry `document: null`.
+                // Chroma's `collection.upsert` rejects null entries in the `documents` array
+                // with "Expected each document to be a string, but got object". Omit the
+                // `documents` field entirely when every record in the batch has a null doc;
+                // substitute empty strings for any remaining nulls in mixed batches so each
+                // array element satisfies Chroma's string-shape requirement uniformly.
                 const BATCH_SIZE = 500;
                 for (let i = 0; i < records.length; i += BATCH_SIZE) {
-                    const batch = records.slice(i, i + BATCH_SIZE);
-                    await collection.upsert({
+                    const batch      = records.slice(i, i + BATCH_SIZE);
+                    const upsertArgs = {
                         ids       : batch.map(r => r.id),
                         embeddings: batch.map(r => r.embedding),
-                        metadatas : batch.map(r => r.metadata),
-                        documents : batch.map(r => r.document)
-                    });
+                        metadatas : batch.map(r => r.metadata)
+                    };
+                    if (batch.some(r => r.document != null)) {
+                        upsertArgs.documents = batch.map(r => r.document ?? '');
+                    }
+                    await collection.upsert(upsertArgs);
                     imported += batch.length;
                 }
             }
