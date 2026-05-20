@@ -100,12 +100,13 @@ class QueryService extends Base {
     /**
      * Performs a semantic search on the knowledge base using a natural language query.
      * Returns a scored and ranked list of the most relevant source files.
-     * @param {String} query        The natural language search query.
-     * @param {String} [type='all'] The content type to filter by. Valid values: 'all', 'blog', 'guide', 'src', 'example', 'ticket', 'release'.
-     * @param {Number} [limit=25]   The maximum number of results to return.
+     * @param {String}  query                         The natural language search query.
+     * @param {String}  [type='all']                  The content type to filter by. Valid values: 'all', 'blog', 'guide', 'src', 'example', 'ticket', 'release'.
+     * @param {Number}  [limit=25]                    The maximum number of results to return.
+     * @param {Boolean} [includeMetadata=false]       Internal hydration flag for RAG synthesis callers.
      * @returns {Promise<Object>} A promise that resolves to the query results object.
      */
-    async queryDocuments({query, type='all', limit=25}) {
+    async queryDocuments({query, type='all', limit=25, includeMetadata=false}) {
         if (!query) {
             throw new Error('A query string must be provided.');
         }
@@ -142,8 +143,9 @@ class QueryService extends Base {
             return {message: 'No results found for your query and type.'};
         }
 
-        const sourceScores = {};
-        const queryWords   = queryLower.replace(/[^a-zA-Z ]/g, '').split(' ').filter(w => w.length > 2);
+        const sourceScores   = {};
+        const sourceMetadata = {};
+        const queryWords     = queryLower.replace(/[^a-zA-Z ]/g, '').split(' ').filter(w => w.length > 2);
 
         results.metadatas[0].forEach((metadata, index) => {
             if (!metadata.source || metadata.source === 'unknown') return;
@@ -153,6 +155,13 @@ class QueryService extends Base {
             const sourcePathLower = sourcePath.toLowerCase();
             const fileName        = sourcePath.split('/').pop().toLowerCase();
             const nameLower       = (metadata.name || '').toLowerCase();
+
+            // Chroma returns chunk metadata in relevance order. Keep the highest-ranked
+            // source metadata available for SearchService hydration without changing the
+            // public queryDocuments result shape unless explicitly requested.
+            if (!sourceMetadata[sourcePath]) {
+                sourceMetadata[sourcePath] = metadata;
+            }
 
             queryWords.forEach(queryWord => {
                 const keyword = queryWord;
@@ -217,7 +226,15 @@ class QueryService extends Base {
         const finalSorted = Object.entries(finalScores)
             .sort(([, a], [, b]) => b - a)
             .slice(0, limit)
-            .map(([source, score]) => ({ source, score: score.toFixed(0) }));
+            .map(([source, score]) => {
+                const result = {source, score: score.toFixed(0)};
+
+                if (includeMetadata) {
+                    result.metadata = sourceMetadata[source] || {};
+                }
+
+                return result;
+            });
 
         if (finalSorted.length > 0) {
             return {
