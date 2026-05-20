@@ -7,6 +7,30 @@ import SQLite       from '../../../ai/graph/storage/SQLite.mjs';
 import { IDENTITIES } from '../../../ai/graph/identityRoots.mjs';
 
 /**
+ * Row-level-security visibility predicate for an in-memory graph node, mirroring the SQL
+ * RLS clause used by `searchNodes` / `SQLite.loadNodeVicinitySync`. Applied at the public
+ * read return boundary (#10011): the node Store is a process-wide cache, so a node warmed
+ * by one requester's RLS-filtered lazy-load is otherwise readable by any other requester.
+ * @param {Object|null} node A graph node (Record or plain object) from the in-memory Store.
+ * @param {String|null} requesterUserId The acting agent-identity node id, or null.
+ * @returns {Boolean} true when the node is visible to the requester.
+ */
+function isNodeRlsVisible(node, requesterUserId) {
+    if (!node) {
+        return false;
+    }
+
+    const properties  = (node.isRecord ? node.get('properties') : node.properties) || {},
+          ownerUserId = properties.userId;
+
+    return ownerUserId == null              ||
+           ownerUserId === requesterUserId  ||
+           properties.sharedEntity === 1    ||
+           properties.sharedEntity === true ||
+           properties.visibility === 'team';
+}
+
+/**
  * @summary Service that manages the SQLite Knowledge Graph (Nodes and Edges).
  *
  * It provides the topological layout of the Neo.mjs namespace, knowledge,
@@ -105,7 +129,7 @@ class GraphService extends Base {
                 for (const identity of IDENTITIES) {
                     // We use getAdjacentNodes as a trigger for lazy-loading into the cache
                     this.db.getAdjacentNodes(identity.id, 'both');
-                    
+
                     if (!this.db.nodes.has(identity.id)) {
                         this.upsertNode(identity);
                     } else {
@@ -156,13 +180,13 @@ class GraphService extends Base {
         this.db.getAdjacentNodes(id, 'both');
 
         let node = this.db.nodes.get(id);
-        
+
         let currentUserId = this.db.storage?.RequestContextService ? this.db.storage.RequestContextService.getAgentIdentityNodeId() : undefined;
 
         if (node) {
             const currentLabel = node.isRecord ? node.get('label') : node.label;
             const updatedLabel = type || currentLabel || 'NODE';
-            
+
             if (node.isRecord) {
                 node.set({ label: updatedLabel });
             } else {
@@ -186,11 +210,11 @@ class GraphService extends Base {
             if (updatedAt !== undefined) {
                 p.updatedAt = updatedAt;
             }
-            
+
             if (properties !== undefined && typeof properties === 'object') {
                 Object.assign(p, properties);
             }
-            
+
             if (currentUserId !== undefined && p.userId === undefined) {
                 p.userId = currentUserId;
             }
@@ -217,7 +241,7 @@ class GraphService extends Base {
                 updatedAt,
                 ...(properties || {})
             };
-            
+
             if (currentUserId !== undefined && p.userId === undefined) {
                 p.userId = currentUserId;
             }
@@ -233,19 +257,19 @@ class GraphService extends Base {
 
     /**
      * Links two nodes via a relationship tracking edge weight metadata.
-     * 
+     *
      * @summary Creates an edge between two nodes. This method executes as an atomic transaction
-     * (if not already inside one) to prevent race conditions during SQLite WAL flushes. It also 
+     * (if not already inside one) to prevent race conditions during SQLite WAL flushes. It also
      * features a cache-warm retry mechanism on FK verify miss to account for WAL-snapshot-lag
      * from other processes.
-     * 
+     *
      * @description
      * **Transaction Overhead:** Future callers should be aware that invoking `linkNodes` rapidly
      * in a hot path incurs SQLite transaction overhead.
      * **WAL Snapshot Lag:** If a peer process writes a node, the current connection's snapshot
      * might lack it temporarily. This method automatically attempts to warm the cache and retry
      * the FK verification before culling the edge.
-     * 
+     *
      * @param {String} source
      * @param {String} target
      * @param {String} relationship
@@ -261,18 +285,18 @@ class GraphService extends Base {
             // Enforce Foreign Key constraints preemptively to prevent SQLite crash from hallucinated paths
             const verifyStmt = this.db.storage.db.prepare('SELECT count(*) as count FROM Nodes WHERE id IN (?, ?)');
             let count = verifyStmt.get(source, target).count;
-            
+
             let expectedCount = source === target ? 1 : 2;
 
             if (count !== expectedCount) {
                 // #10347 Cache-Warm Retry: If the count check fails, the node might exist in the SQLite WAL
-                // from another agent but hasn't been synced to this connection's snapshot yet. 
+                // from another agent but hasn't been synced to this connection's snapshot yet.
                 // We force a cache warm (which invokes syncCache and WAL read) and re-verify.
                 if (this.db && typeof this.db.getAdjacentNodes === 'function') {
                     // Ensure we attempt to warm both endpoints in case either is the missing link
                     this.db.getAdjacentNodes(source, 'both');
                     this.db.getAdjacentNodes(target, 'both');
-                    
+
                     // Re-evaluate the count after forcing synchronization
                     count = verifyStmt.get(source, target).count;
                 }
@@ -314,7 +338,7 @@ class GraphService extends Base {
                 if (row && row.data) {
                     let parsed = JSON.parse(row.data);
                     parsed.properties = { ...(parsed.properties || {}), ...edgeProperties, weight: newWeight };
-                    
+
                     const updateStmt = this.db.storage.db.prepare(`UPDATE Edges SET data = ? WHERE id = ?`);
                     updateStmt.run(JSON.stringify(parsed), existing.id);
                 }
@@ -545,6 +569,13 @@ class GraphService extends Base {
             return null;
         }
 
+        // #10011 RLS: the node Store is a process-wide cache — re-check visibility at the
+        // return boundary so a cross-requester cache-warmed node is not leaked.
+        let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
+        if (!isNodeRlsVisible(node, rlsUserId)) {
+            return null;
+        }
+
         const
             nodeId     = node.isRecord ? node.get('id') : node.id,
             label      = node.isRecord ? node.get('label') : node.label,
@@ -562,7 +593,7 @@ class GraphService extends Base {
 
     /**
      * Dynamically computes the structural gravity (inbound/outbound edges) for a node natively via SQLite.
-     * @param {String} id 
+     * @param {String} id
      * @returns {Object} { in_degree, out_degree }
      */
     getNodeGravity(id) {
@@ -593,6 +624,15 @@ class GraphService extends Base {
         // Guarantee lazy-loading vicinity topology securely
         this.db.getAdjacentNodes(id, 'both');
 
+        // #10011 RLS: resolve the requester once; do not expose the vicinity of a node the
+        // requester cannot see, and filter each neighbor by node visibility.
+        let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null,
+            rootNode  = this.db.nodes.get(id);
+
+        if (!rootNode || !isNodeRlsVisible(rootNode, rlsUserId)) {
+            return {neighbors: []};
+        }
+
         let results  = [],
             inbound  = this.db.edges.getByIndex('target', id),
             outbound = this.db.edges.getByIndex('source', id);
@@ -600,7 +640,7 @@ class GraphService extends Base {
         [...inbound, ...outbound].forEach(e => {
             let adjacentId = e.source === id ? e.target : e.source;
             let node       = this.db.nodes.get(adjacentId);
-            if (node) {
+            if (node && isNodeRlsVisible(node, rlsUserId)) {
                 results.push({
                     id          : node.id,
                     type        : node.label,
@@ -629,15 +669,15 @@ class GraphService extends Base {
         }
 
         let q = `%${query.toLowerCase()}%`;
-        
+
         let userId = this.db.storage.RequestContextService ? this.db.storage.RequestContextService.getAgentIdentityNodeId() : null;
 
         let rlsClause = `AND (user_id = ? OR user_id IS NULL OR json_extract(data, '$.properties.sharedEntity') = 1 OR json_extract(data, '$.properties.visibility') = 'team')`;
 
         const stmt = this.db.storage.db.prepare(`
-            SELECT data FROM Nodes 
-            WHERE (lower(json_extract(data, '$.properties.name')) LIKE ? 
-               OR lower(json_extract(data, '$.properties.description')) LIKE ? 
+            SELECT data FROM Nodes
+            WHERE (lower(json_extract(data, '$.properties.name')) LIKE ?
+               OR lower(json_extract(data, '$.properties.description')) LIKE ?
                OR lower(id) LIKE ?)
               ${rlsClause}
             LIMIT 50
@@ -674,6 +714,10 @@ class GraphService extends Base {
             return null;
         }
 
+        // #10011 RLS: the frontier anchor is shared, but its strategic neighbors may be
+        // tenant-private — filter them at the return boundary.
+        let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
+
         const topology = {
             frontier          : {
                 id              : frontierNode.id,
@@ -695,8 +739,8 @@ class GraphService extends Base {
                 let adjacentId = e.source === 'frontier' ? e.target : e.source;
                 let node       = this.db.nodes.get(adjacentId);
 
-                // Actively filter out CLOSED structural paths
-                if (node && node.properties?.state !== 'CLOSED') {
+                // Actively filter out CLOSED structural paths + #10011 RLS-invisible nodes
+                if (node && isNodeRlsVisible(node, rlsUserId) && node.properties?.state !== 'CLOSED') {
                     topology.strategicNeighbors.push({
                         id              : node.id,
                         type            : node.label,
@@ -731,6 +775,14 @@ class GraphService extends Base {
             return null;
         }
 
+        // #10011 RLS: the node Store is a process-wide cache — re-check the cache-resident
+        // root and every traversed node at the return boundary.
+        let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
+        if (!isNodeRlsVisible(rootNode, rlsUserId)) {
+            logger.info(`[GraphService] Node ${nodeId} not visible to the active requester.`);
+            return null;
+        }
+
         const topology = {
             root : {
                 id              : rootNode.id,
@@ -759,6 +811,15 @@ class GraphService extends Base {
                 const outbound = this.db.edges.getByIndex('source', id);
 
                 [...inbound, ...outbound].forEach(e => {
+                    let adjacentId = e.source === id ? e.target : e.source;
+                    let n          = this.db.nodes.get(adjacentId);
+
+                    // #10011 RLS: skip an edge whose far node is absent or not visible to
+                    // the requester — do not leak the node, the edge, or traverse through it.
+                    if (!n || !isNodeRlsVisible(n, rlsUserId)) {
+                        return;
+                    }
+
                     if (!visitedEdges.has(e.id)) {
                         visitedEdges.add(e.id);
                         topology.edges.push({
@@ -769,20 +830,16 @@ class GraphService extends Base {
                         });
                     }
 
-                    let adjacentId = e.source === id ? e.target : e.source;
                     if (!visitedNodes.has(adjacentId)) {
                         visitedNodes.add(adjacentId);
                         nextLevel.add(adjacentId);
-                        let n = this.db.nodes.get(adjacentId);
-                        if (n) {
-                            topology.nodes.push({
-                                id              : n.id,
-                                type            : n.label,
-                                name            : n.properties?.name,
-                                description     : n.properties?.description,
-                                semanticVectorId: n.properties?.semanticVectorId
-                            });
-                        }
+                        topology.nodes.push({
+                            id              : n.id,
+                            type            : n.label,
+                            name            : n.properties?.name,
+                            description     : n.properties?.description,
+                            semanticVectorId: n.properties?.semanticVectorId
+                        });
                     }
                 });
             }
@@ -886,7 +943,7 @@ class GraphService extends Base {
      */
     getOrphanedNodes() {
         if (!this.db || !this.db.storage || !this.db.storage.db) return [];
-        
+
         const stmt = this.db.storage.db.prepare(`
             SELECT n.id, n.data
             FROM Nodes n
@@ -901,7 +958,7 @@ class GraphService extends Base {
                 // n.data maps to JSON payload storing the node label
                 data = JSON.parse(row.data);
             } catch(e) { continue; }
-            
+
             if (data.label !== 'SYSTEM_ANCHOR' && data.label !== 'System' && data.label !== 'ISSUE' && data.label !== 'DISCUSSION' && data.label !== 'PULL_REQUEST' && data.label !== 'SESSION' && data.label !== 'MEMORY' && data.label !== 'AgentIdentity' && data.label !== 'BroadcastSentinel' && data.label !== 'WAKE_SUBSCRIPTION') {
                 orphaned.push(row.id);
             }
@@ -916,7 +973,7 @@ class GraphService extends Base {
      */
     removeNodes(nodeIds) {
         if (!nodeIds || nodeIds.length === 0) return;
-        
+
         this.db.transaction(() => {
             nodeIds.forEach(id => this.db.removeNode(id));
         });
