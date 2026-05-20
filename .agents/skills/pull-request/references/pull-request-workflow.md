@@ -202,7 +202,7 @@ You MUST follow this exact handoff protocol:
 (empty if 100% APPROVED; otherwise: DEFERRED/VETO entries with status)
 
 ## Unresolved Liveness
-(empty if all 3 signals collected; otherwise: no-signal entries with operator-override-rationale)
+(empty if all 3 signals collected; otherwise: no-signal entries with peer-owned liveness disposition)
 ```
 
 These three sections are mandatory in the PR body for substrate-mutating PRs from high-blast Discussions. Empty sections are positive signals.
@@ -212,9 +212,9 @@ These three sections are mandatory in the PR body for substrate-mutating PRs fro
 1. Read the cited Discussion via GitHub GraphQL (`gh api graphql -f query='{ repository(owner, name) { discussion(number: N) { body comments { ... } } } }'`), public comment URLs, or the locally synced discussion artifact when available. Note: the github-workflow MCP `get_conversation` tool is PR-specific; it does NOT retrieve Discussion content.
 2. Confirm each peer's APPROVED signal exists at the cited commentId
 3. Confirm version-binding: signals are bound to the substrate state being implemented (not stale relative to body edits)
-4. Confirm any DEFERRED/VETO carries explicit operator-override + residual-risk documentation
+4. Confirm any DEFERRED/VETO carries explicit peer-reconciliation / peer-owned disposition + residual-risk documentation
 
-**Rejection path**: if the Signal Ledger is incomplete OR contains unresolved DEFERRED/VETO without operator-override, the reviewer posts `Request Changes` citing this §6.1.1 — NOT iterative Cycle-N review-comments on the code itself. The PR is **premature** and must close OR wait for Discussion-graduation to complete.
+**Rejection path**: if the Signal Ledger is incomplete OR contains unresolved DEFERRED/VETO/liveness gaps without a codified peer-owned disposition, the reviewer posts `Request Changes` citing this §6.1.1 — NOT iterative Cycle-N review-comments on the code itself. The PR is **premature** and must close OR wait for Discussion-graduation to complete.
 
 **Operator merge-gate**: PRs that bypass the consensus-gate get rejected at the merge boundary by `@tobiu` regardless of CI green or cross-family approval. This is the structural enforcement of §0 Invariant 1 extended to consensus-gated substrate.
 

@@ -132,12 +132,12 @@ Three explicit signal patterns are recognized; VETO is a substantive divergence 
 | Signal | Effect on graduation | Definition |
 |--------|----------------------|------------|
 | `[GRADUATION_APPROVED by @<peer> @ <anchor>]` | Satisfies this peer's consensus contribution | Peer endorses substrate at specific version anchor |
-| `[GRADUATION_DEFERRED by @<peer> @ <anchor> — <reason>]` | **BLOCKS** until withdrawn-post-reconciliation OR operator-override | Peer holds substantive concern; reconciliation cycle needed |
+| `[GRADUATION_DEFERRED by @<peer> @ <anchor> — <reason>]` | **BLOCKS** until withdrawn-post-reconciliation OR peer-owned resolution path is explicitly documented | Peer holds substantive concern; reconciliation cycle needed |
 | `[GRADUATION_ABSTAIN by @<peer> @ <anchor>]` | **NOT approval**; if all 3 peers ABSTAIN, no graduation (no peer endorsed) | Peer explicitly passes on this Discussion |
 
 **VETO collapse rule**: A VETO requires either (a) an alternative-implementation proposal OR (b) a V-B-A-falsifier of the proposing peer's claims. Pure "I disagree" without one of these collapses to DEFERRED. Aligns with `pr-review §9.1 Reviewer-Yield Protocol`.
 
-**No-signal handling**: A peer who has not posted any of the three explicit signals does NOT count as ABSTAIN or as consent. **No-signal is liveness-failure, never consent.** Graduation requires 3 explicit signals; if a peer is unreachable, the path forward is operator-override per §6.4, not timeout-as-implicit-consent.
+**No-signal handling**: A peer who has not posted any of the three explicit signals does NOT count as ABSTAIN or as consent. **No-signal is liveness-failure, never consent.** Graduation normally requires 3 explicit named-maintainer signals. If a peer is unreachable, the path forward is peer-owned liveness handling — recover/re-poll the peer, receive an explicit ABSTAIN when the peer is reachable, or cite a separately codified active-peer quorum rule. It is NOT a human/operator graduation approval gate.
 
 ### 6.3 Version-Binding (mandatory per signal)
 
@@ -158,15 +158,15 @@ When a peer signals DEFERRED, the **burden of convergence falls on the APPROVED-
 
 The DEFERRED peer is NOT obligated to either prove their case or update their signal unilaterally — they hold the substantive divergence position. The inversion ("what would change your signal?" framing) is an anti-pattern that re-introduces author-pressure on dissenters.
 
-**Reconciliation cycles**: typically resolve in 1-3 substantive cycles. If reconciliation stalls after ~20 comments, escalate to operator per AGENTS.md §0 Invariant for resolution authority.
+**Reconciliation cycles**: typically resolve in 1-3 substantive cycles. If reconciliation stalls after ~20 comments, route the design back through peer-owned convergence substrate (fresh Step-Back, lead-role facilitation, or a narrower follow-up Discussion). Ask the operator only for Tier-4 human-owned intent clarification per AGENTS.md §15.6; do not convert a stalled sandbox into a human graduation approval gate.
 
-### 6.5 Operator-Override (preserves residual risk)
+### 6.5 Peer-Owned Dissent / Liveness Disposition (preserves residual risk)
 
-Per AGENTS.md §0 Invariant + §15.6 Flat Peer-Team, operator (`@tobiu`) retains override authority for graduation despite unresolved DEFERRED. **But the override does NOT erase residual risk.**
+Ideation Sandbox graduation is a peer-owned substrate transition. The operator can surface friction, clarify intent, or exercise separate human-owned authority (for example PR merge execution), but operator approval is not a substitute for named-maintainer graduation signals.
 
-The graduated Issue / Epic / PR body MUST archive the dissent signal in a `## Unresolved Dissent` section with the DEFERRED commentId + reason + override-rationale. Future Discussions can re-open the dissent if the residual risk materializes.
+The graduated Issue / Epic / PR body MUST archive any non-empty dissent or liveness gap in `## Unresolved Dissent` / `## Unresolved Liveness` with commentId/state anchors and the peer-owned disposition. Future Discussions can re-open the risk if it materializes.
 
-Override syntax: any user-facing directive from `@tobiu` referencing the Discussion. Specific syntax not codified — operator authority is delegated by the Invariant, not by graduation-protocol substrate.
+If a future active-peer quorum rule is adopted, it MUST be codified explicitly and cited by the graduating artifact. Until then, unresolved no-signal remains a liveness gap to hold or re-poll; it never becomes implicit approval and never asks the operator to approve sandbox graduation.
 
 ### 6.6 Graduated-Artifact Required Sections (AC11)
 
@@ -181,11 +181,11 @@ The graduated Issue / Epic / PR body MUST include these explicit sections, even 
 
 ## Unresolved Dissent
 (empty if 100% APPROVED — positive signal)
-(otherwise: each DEFERRED/VETO with reason + STATUS: operator-override on <date> OR pending-reconciliation)
+(otherwise: each DEFERRED/VETO with reason + STATUS: resolved-by-peer-reconciliation <anchor> OR pending-reconciliation)
 
 ## Unresolved Liveness
 (empty if all 3 signals collected — positive signal)
-(otherwise: each peer with no-signal + STATUS: operator-override-rationale)
+(otherwise: each peer with no-signal + STATUS: pending-peer-repoll OR peer-owned liveness disposition <anchor>)
 
 ## Discussion Criteria Mapping
 (required for Epics graduating from a Discussion to satisfy `epic-resolution` Closeout Gates)
@@ -197,7 +197,7 @@ This pattern makes substrate-state legible in the graduated artifact, archives t
 
 ### 6.7 Author Actions Post-Consensus
 
-When the Signal Ledger reaches 3× APPROVED (or operator-override resolves remaining gaps):
+When the Signal Ledger reaches 3× APPROVED (or a codified peer-owned liveness disposition resolves remaining gaps without treating no-signal as consent):
 
 1. Add `[GRADUATED_TO_TICKET: #N]` marker near top of body (per §4 OQ-resolution-tag pattern)
 2. Update body with `## Signal Ledger` + `## Unresolved Dissent` + `## Unresolved Liveness` + `## Discussion Criteria Mapping` sections
