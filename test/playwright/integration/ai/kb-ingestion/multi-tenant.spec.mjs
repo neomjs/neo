@@ -111,6 +111,7 @@ function runMultiTenantMatrix(collectionName) {
             Memory_TextEmbeddingService
         } = await import('./ai/services.mjs');
         const {callTool} = await import('./ai/mcp/server/knowledge-base/toolService.mjs');
+        const {default: KbReconciliationService} = await import('./ai/daemons/KbReconciliationService.mjs');
         const {default: KnowledgeBaseIngestionService} = await import('./ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs');
         const {default: QueryService} = await import('./ai/services/knowledge-base/QueryService.mjs');
         const {default: SearchService} = await import('./ai/services/knowledge-base/SearchService.mjs');
@@ -468,6 +469,31 @@ function runMultiTenantMatrix(collectionName) {
                 newPresent: forceRows.some(row => row.metadata.repoSlug === forcePushRepoSlug && row.metadata.sourcePath === 'src/new.js')
             };
 
+            await asTenant('tenant-alpha', () => KnowledgeBaseIngestionService.setTenantManifest({
+                tenantId      : 'tenant-alpha',
+                repoSlug      : forcePushRepoSlug,
+                pathsAfterPush: ['src/new.js']
+            }));
+            const manifestCollection = await KB_ChromaManager.getKnowledgeBaseCollection();
+            const manifestMetrics = [];
+            KbReconciliationService.recordReconcileMetric = metric => { manifestMetrics.push(metric) };
+            await KbReconciliationService.reconcileTenant({
+                tenantId        : 'tenant-alpha',
+                repoSlug        : forcePushRepoSlug,
+                collection      : manifestCollection,
+                orphanVersionGap: 2,
+                autoTombstone   : true
+            });
+            const manifestRows = await getRows({tenantId: 'tenant-alpha'});
+            result.manifestOrphanReconciliation = {
+                metricCount  : manifestMetrics.length,
+                orphanPresent: manifestRows.some(row => (
+                    row.metadata.repoSlug === forcePushRepoSlug && row.metadata.sourcePath === 'src/legacy-widget.js'
+                )),
+                deletedCount: manifestMetrics[0]?.tombstonedCount,
+                orphanCount : manifestMetrics[0]?.diff?.manifestOrphanCount
+            };
+
             const spoofPayload = await asTenant('tenant-alpha', () => callTool('ingest_source_files', {
                 tenantId  : 'tenant-alpha',
                 repoSlug  : 'spoof-repo',
@@ -492,6 +518,7 @@ function runMultiTenantMatrix(collectionName) {
             Memory_TextEmbeddingService.embedText  = originals.embedText;
             Memory_TextEmbeddingService.embedTexts = originals.embedTexts;
             KnowledgeBaseIngestionService.revisionResolver = originals.revisionResolver;
+            delete KbReconciliationService.recordReconcileMetric;
             KB_Config.data.collectionName      = originals.collectionName;
             KB_Config.data.defaultRepoSlug     = originals.defaultRepoSlug;
             KB_Config.data.defaultTenantId     = originals.defaultTenantId;
@@ -603,6 +630,12 @@ test.describe('KB ingestion external workspace fixtures (#11638)', () => {
             deleted      : 1,
             orphanPresent: false,
             newPresent   : true
+        });
+        expect(outcome.manifestOrphanReconciliation).toMatchObject({
+            metricCount  : 1,
+            orphanPresent: false,
+            deletedCount : 1,
+            orphanCount  : 1
         });
         expect(outcome.spoofRejection).toMatchObject({
             ingested    : 1,
