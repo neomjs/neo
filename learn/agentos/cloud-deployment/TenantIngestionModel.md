@@ -27,14 +27,18 @@ Both facades call `KnowledgeBaseIngestionService.ingestSourceFiles()`. Do not do
 
 ## Repository Identity
 
-Every pushed record belongs to a repository identity tuple:
+Every pushed `parsed-chunk-v1` record belongs to this path-identity tuple:
 
 | Field | Operational rule |
 |---|---|
 | `tenantId` | Server-derived from the authenticated caller. A payload may carry a tenant claim, but it is not authoritative. |
 | `repoSlug` | Tenant-owned repository identifier. It is namespaced by `tenantId`, must be deterministic, and must never contain credentials. |
-| `branch` | Operational label for the source branch or ref that produced the push. It is part of the deployment runbook and tutorial evidence, not part of the current `parsed-chunk-v1` required schema. |
+| `rootKind` | Required repository topology hint: `neo-workspace`, `bare-repo`, or `external-source`. It selects hydration assumptions for content under the same `repoSlug`. |
 | `sourcePath` | Forward-slash-normalized path relative to the `repoSlug` root. It is never resolved against the KB server's `neoRootDir`. |
+
+`branch` is still useful operational metadata for the source branch or ref that
+produced a push, but it is part of the deployment runbook and tutorial evidence,
+not part of the current `parsed-chunk-v1` required schema.
 
 Recommended `repoSlug` shape:
 
@@ -124,7 +128,7 @@ Incremental pushes should include deletion intent. Prefer this default shape:
 
 ## Operational Flow
 
-1. Pick a stable `tenantId` and one or more secret-free `repoSlug` values.
+1. Pick a stable `tenantId`, one or more secret-free `repoSlug` values, and the `rootKind` for each ingested source root.
 2. Build the source-family inventory.
 3. Choose dispatch for each family: raw server parse, registered server parser, client-side `parsed-chunk-v1`, unsupported, or excluded.
 4. Run initial import with `ai:ingest-tenant` when volume exceeds the MCP gate.
