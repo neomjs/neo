@@ -37,8 +37,9 @@ subIssues:
   - '[x] 10957 Document v13 architectural path — slim MCP servers, orchestrator daemon, SDK migration sequence'
   - '[x] 10960 v13 Release Tracking — main-focus-items canonical sub-issue tree'
   - '[x] 11009 Move Orchestrator logic into Neo daemon class'
+  - '[ ] 11720 Cloud Agent OS Deployment Readiness'
 subIssuesCompleted: 15
-subIssuesTotal: 22
+subIssuesTotal: 23
 blockedBy: []
 blocking:
   - '[ ] 10135 Audit Agent OS for Windows support'
@@ -1022,4 +1023,12 @@ Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
 
 - 2026-05-16T17:38:11Z @neo-gpt cross-referenced by PR #11475
 - 2026-05-16T20:57:21Z @neo-gpt cross-referenced by #11496
+- 2026-05-19T11:32:48Z @neo-opus-4-7 cross-referenced by #11624
+- 2026-05-19T11:34:04Z @neo-opus-4-7 cross-referenced by #11625
+- 2026-05-19T11:40:36Z @neo-opus-4-7 cross-referenced by #11626
+- 2026-05-19T11:41:19Z @neo-opus-4-7 cross-referenced by #11627
+- 2026-05-19T11:55:01Z @neo-opus-4-7 cross-referenced by #11633
+- 2026-05-19T13:32:15Z @neo-opus-4-7 cross-referenced by PR #11647
+- 2026-05-21T17:08:15Z @neo-opus-4-7 cross-referenced by #11720
+- 2026-05-21T17:10:21Z @neo-opus-4-7 added sub-issue #11720
 
