@@ -139,6 +139,35 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         expect(handoffContent).toContain('- **Head SHA**: `abcdef1234567890`');
     });
 
+    test('synthesizeGoldenPath skips Neo repo enrichment sections when deployment config disables them', async () => {
+        const originalGetGraphCollection = StorageRouter.getGraphCollection;
+        const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        const originalEmbedText = TextEmbeddingService.embedText;
+        const originalFetchOpenPRs = GoldenPathSynthesizer.fetchOpenPRs;
+        aiConfig.vectorDimension = 2;
+
+        StorageRouter.getGraphCollection = async () => ({ query: async () => ({ ids: [['mock-id']], distances: [[0.1]] }) });
+        StorageRouter.getSummaryCollection = async () => ({ get: async () => ({ documents: ['mock document'] }) });
+        TextEmbeddingService.embedText = async () => [0.1, 0.2];
+        GoldenPathSynthesizer.fetchOpenPRs = async () => {
+            throw new Error('fetchOpenPRs should not run when repo enrichment is disabled');
+        };
+
+        try {
+            await GoldenPathSynthesizer.synthesizeGoldenPath({repoEnrichmentEnabled: false});
+        } finally {
+            GoldenPathSynthesizer.fetchOpenPRs = originalFetchOpenPRs;
+            StorageRouter.getGraphCollection   = originalGetGraphCollection;
+            StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+            TextEmbeddingService.embedText     = originalEmbedText;
+        }
+
+        const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
+
+        expect(handoffContent).not.toContain('## Active PR Cycle State');
+        expect(handoffContent).not.toContain('## 📋 Latest Priority Backlog');
+    });
+
     test('synthesizeGoldenPath skips Chroma query when embedding dimension mismatches vectorDimension', async () => {
         const originalGetGraphCollection   = StorageRouter.getGraphCollection;
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import '../../../../src/Neo.mjs';
+import '../../../../src/core/_export.mjs';
 import Config from '../../../../ai/config.template.mjs';
 
 test.describe('Tier 1 Config Immutability', () => {
@@ -20,5 +21,40 @@ test.describe('Tier 1 Config Immutability', () => {
 
     test('ships a machine-neutral orchestrator dev-sync root default', async () => {
         expect(Config.orchestrator.devSyncRoots).toEqual([]);
+    });
+
+    test('ships top-level deployment and maintenance policy defaults', async () => {
+        expect(Config.orchestrator.deploymentMode).toBe('local');
+        expect(Config.orchestrator.intervals).toMatchObject({
+            pollMs          : 3000,
+            summarySweepMs  : 10 * 60 * 1000,
+            kbSyncMs        : 30 * 60 * 1000,
+            backupMs        : 24 * 60 * 60 * 1000,
+            primaryDevSyncMs: 10 * 60 * 1000,
+            dreamMs         : 60 * 60 * 1000,
+            goldenPathMs    : 60 * 60 * 1000
+        });
+        expect(Config.orchestrator.localOnly).toEqual({
+            primaryDevSyncEnabled: null,
+            kbSyncEnabled        : null,
+            bridgeDaemonEnabled  : null,
+            goldenPathRepoEnrichmentEnabled: null,
+            wakeDispatchEnabled  : null
+        });
+
+        expect(Config.maintenance.backup).toEqual({
+            intervalMs: 24 * 60 * 60 * 1000,
+            retention: {
+                keepMinimum: 3,
+                maxDays    : 30
+            }
+        });
+        expect(Config.maintenance.defrag).toEqual({
+            intervalMs: 7 * 24 * 60 * 60 * 1000,
+            snapshotRetention: {
+                keepMinimum: 3,
+                maxDays    : 7
+            }
+        });
     });
 });

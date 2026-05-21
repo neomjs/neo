@@ -41,12 +41,16 @@ test.describe.configure({mode: 'serial'});
 
 test.describe('cleanOldBackups — configurable retention (#11663)', () => {
     let cleanOldBackups;
+    let loadTopLevelAiConfig;
+    let resolveBackupRetention;
     let tmpRoot;
     let mtimeNudge = 0;
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../buildScripts/ai/backup.mjs');
-        cleanOldBackups = mod.cleanOldBackups;
+        cleanOldBackups        = mod.cleanOldBackups;
+        loadTopLevelAiConfig   = mod.loadTopLevelAiConfig;
+        resolveBackupRetention = mod.resolveBackupRetention;
     });
 
     test.beforeEach(async () => {
@@ -205,5 +209,161 @@ test.describe('cleanOldBackups — configurable retention (#11663)', () => {
         const remaining = await listBackups();
         // K=0 → no unconditional retention; N=0 → anything older than 0 days (any age) eligible
         expect(remaining).toHaveLength(0);
+    });
+
+    test('resolves backup retention from top-level maintenance config before legacy Memory Core fallback', () => {
+        expect(resolveBackupRetention({
+            aiConfig: {
+                maintenance: {
+                    backup: {
+                        retention: {
+                            keepMinimum: 7,
+                            maxDays    : 14
+                        }
+                    }
+                }
+            },
+            memoryCoreConfig: {
+                backupRetention: {
+                    keepMinimum: 3,
+                    maxDays    : 30
+                }
+            }
+        })).toEqual({
+            keepMinimum: 7,
+            maxDays    : 14
+        });
+    });
+
+    test('falls back to legacy Memory Core backupRetention when top-level maintenance is absent', () => {
+        expect(resolveBackupRetention({
+            aiConfig: {},
+            memoryCoreConfig: {
+                backupRetention: {
+                    keepMinimum: 5,
+                    maxDays    : 20
+                }
+            }
+        })).toEqual({
+            keepMinimum: 5,
+            maxDays    : 20
+        });
+    });
+
+    test('loads gitignored top-level AI config only when present', async () => {
+        const loadedPaths = [];
+        const aiConfig = {
+            async load(configPath) {
+                loadedPaths.push(configPath);
+            }
+        };
+        const fsModule = {
+            async pathExists(configPath) {
+                return configPath.endsWith('/present-config.mjs');
+            }
+        };
+
+        await expect(loadTopLevelAiConfig({
+            configPath: '/tmp/missing-config.mjs',
+            aiConfig,
+            fsModule
+        })).resolves.toEqual({
+            loaded    : false,
+            configPath: '/tmp/missing-config.mjs'
+        });
+
+        await expect(loadTopLevelAiConfig({
+            configPath: '/tmp/present-config.mjs',
+            aiConfig,
+            fsModule
+        })).resolves.toEqual({
+            loaded    : true,
+            configPath: '/tmp/present-config.mjs'
+        });
+
+        expect(loadedPaths).toEqual(['/tmp/present-config.mjs']);
+    });
+});
+
+test.describe('defragChromaDB cleanOldBackups — configurable snapshot retention (#11722)', () => {
+    let cleanOldDefragBackups;
+    let resolveDefragSnapshotRetention;
+    let tmpRoot;
+    let timestampNudge = 0;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../buildScripts/ai/defragChromaDB.mjs');
+        cleanOldDefragBackups        = mod.cleanOldBackups;
+        resolveDefragSnapshotRetention = mod.resolveDefragSnapshotRetention;
+    });
+
+    test.beforeEach(async () => {
+        tmpRoot = path.resolve(process.cwd(), 'tmp', `defrag-retention-${process.pid}-${Date.now()}-${++timestampNudge}`);
+        await fs.ensureDir(tmpRoot);
+    });
+
+    test.afterEach(async () => {
+        if (tmpRoot && await fs.pathExists(tmpRoot)) {
+            await fs.remove(tmpRoot);
+        }
+    });
+
+    async function seedDefragBackup(ageInDays) {
+        const timestamp = Math.floor(Date.now() - ageInDays * 86400000 - ++timestampNudge);
+        const dirName   = `backup-${timestamp}`;
+        const dirPath   = path.join(tmpRoot, dirName);
+
+        await fs.ensureDir(dirPath);
+        await fs.writeFile(path.join(dirPath, 'placeholder'), 'test-marker');
+
+        return dirName;
+    }
+
+    async function listDefragBackups() {
+        const entries = await fs.readdir(tmpRoot);
+        return entries.filter(name => name.startsWith('backup-'));
+    }
+
+    test('default snapshot config (K=3, N=7 days) matches pre-#11722 hardcoded behavior', async () => {
+        await seedDefragBackup(1);
+        await seedDefragBackup(3);
+        await seedDefragBackup(5);
+        await seedDefragBackup(10);
+        await seedDefragBackup(20);
+
+        await cleanOldDefragBackups(tmpRoot, undefined);
+
+        const remaining = await listDefragBackups();
+        expect(remaining).toHaveLength(3);
+    });
+
+    test('tighter snapshot config deletes old extras outside the keepMinimum floor', async () => {
+        await seedDefragBackup(1);
+        await seedDefragBackup(3);
+        await seedDefragBackup(10);
+        await seedDefragBackup(20);
+
+        await cleanOldDefragBackups(tmpRoot, {keepMinimum: 1, maxDays: 7});
+
+        const remaining = await listDefragBackups();
+        expect(remaining).toHaveLength(2);
+    });
+
+    test('resolves defrag snapshot retention from top-level maintenance config', () => {
+        expect(resolveDefragSnapshotRetention({
+            aiConfig: {
+                maintenance: {
+                    defrag: {
+                        snapshotRetention: {
+                            keepMinimum: 2,
+                            maxDays    : 5
+                        }
+                    }
+                }
+            }
+        })).toEqual({
+            keepMinimum: 2,
+            maxDays    : 5
+        });
     });
 });
