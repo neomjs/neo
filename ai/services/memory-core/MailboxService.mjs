@@ -298,6 +298,28 @@ class MailboxService extends Base {
     static VALID_TASK_STATES = ['Submitted', 'Working', 'InputRequired', 'Completed', 'Canceled', 'Failed', 'Rejected', 'AuthRequired', 'Unknown', 'Expired', 'Blocked'];
 
     /**
+     * @summary Non-throwing check of whether a raw `to` target would resolve to a
+     * deliverable mailbox recipient — without sending anything.
+     *
+     * Runs the exact `normalizeMailboxTarget` + `validateMailboxTarget` pipeline that
+     * {@link addMessage} uses, but returns a boolean instead of throwing. This lets a
+     * caller (e.g. the Phase 4D `KbAlertingService` alerting daemon, #11642) reject an
+     * unresolvable A2A target *before* dispatch rather than discovering it via an
+     * `addMessage` rejection — no duplication of the mailbox recipient grammar.
+     *
+     * @param {String} to The raw recipient target (`@<identity>`, `AGENT:*`, an alias, …).
+     * @returns {Boolean} `true` when `to` resolves to a registered recipient or the
+     *   `AGENT:*` broadcast sentinel; `false` for any unresolvable / malformed target.
+     */
+    isReachableTarget(to) {
+        try {
+            return !!validateMailboxTarget(normalizeMailboxTarget(to), to);
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
      * Adds a new message to the mailbox system.
      * @param {Object} args
      * @param {String} args.to The agent identity, role, or broadcast to send to
