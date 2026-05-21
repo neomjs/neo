@@ -1,6 +1,6 @@
 # Cloud-Native KB Ingestion — Configuration
 
-> **Status — Phase 3B.** This guide documents the configuration surface a cloud deployment uses to control Knowledge Base ingestion — the deployment-wide `aiConfig` keys (Phase 0/1) and the per-tenant `KnowledgeBaseTenantConfig` graph-node storage (Phase 2E, [#11637](https://github.com/neomjs/neo/issues/11637)). It fulfils the `[Phase 3B — pending]` Configuration placeholder noted in [Migration Path](./MigrationPath.md).
+> **Status — Phase 3B.** This guide documents the configuration surface a cloud deployment uses to control Knowledge Base ingestion — the deployment-wide `aiConfig` keys (Phase 0/1) and the per-tenant `KnowledgeBaseTenantConfig` graph-node storage (Phase 2E, [#11637](https://github.com/neomjs/neo/issues/11637)).
 
 ## Two configuration layers
 
