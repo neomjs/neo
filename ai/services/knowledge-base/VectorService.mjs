@@ -10,7 +10,7 @@ import path                      from 'path';
 import readline                  from 'readline';
 import DestructiveOperationGuard from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 
-const TENANT_GUARDED_FIELDS = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity', 'tenantConfigVersion'];
+const TENANT_GUARDED_FIELDS = ['tenantId', 'repoSlug', 'visibility', 'originAgentIdentity', 'tenantConfigVersion', 'ingestedAt'];
 const STALE_STRATEGIES      = Object.freeze(new Set(['delete-upfront', 'shadow-swap']));
 const STALE_STRATEGY_SKIP   = 'skip';
 
@@ -124,7 +124,14 @@ class VectorService extends Base {
      * @param {String} [tenantContext.originAgentIdentity] Authenticated agent identity.
      * @param {Number} [tenantContext.configVersion] Active `KnowledgeBaseTenantConfig` version (#11637);
      *                                               stamped onto chunk metadata as `tenantConfigVersion`.
-     * @returns {{tenantId: String, repoSlug: String, visibility: String, tenantConfigVersion: Number, originAgentIdentity: String|undefined}}
+     * `ingestedAt` (epoch ms, server-stamped at embed time via `Date.now()`) is added
+     * unconditionally — the #11712 retention / GC / reconciliation substrate. A re-push
+     * re-embeds the chunk and re-stamps `ingestedAt`, so the semantics are *last-ingested-at*.
+     * It is purely server-derived (never client-authored), so it is also a
+     * `TENANT_GUARDED_FIELDS` member.
+     * Consumers MUST treat a missing `ingestedAt` (a chunk embedded before #11712) as
+     * unknown-age and fail-safe — never expire / action a chunk with no timestamp.
+     * @returns {{tenantId: String, repoSlug: String, visibility: String, tenantConfigVersion: Number, ingestedAt: Number, originAgentIdentity: String|undefined}}
      */
     resolveTenantStamp(tenantContext = {}) {
         const config = this.getTenantIsolationConfig();
@@ -132,7 +139,8 @@ class VectorService extends Base {
             tenantId           : tenantContext.tenantId ?? config.defaultTenantId ?? 'neo-shared',
             repoSlug           : tenantContext.repoSlug ?? config.defaultRepoSlug ?? 'neo',
             visibility         : tenantContext.visibility ?? config.defaultVisibility ?? 'team',
-            tenantConfigVersion: tenantContext.configVersion ?? 0
+            tenantConfigVersion: tenantContext.configVersion ?? 0,
+            ingestedAt         : Date.now()
         };
 
         if (tenantContext.originAgentIdentity) {
