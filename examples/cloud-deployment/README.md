@@ -10,4 +10,6 @@ guide tree (Epic #11624 — Cloud-Native KB Ingestion).
 
 These are *minimal* demonstrations of the ingestion contracts, not production
 deployments. Read [Overview](../../learn/agentos/cloud-deployment/Overview.md) first,
-then each artifact's own README / header comment.
+then [Tenant Ingestion Model](../../learn/agentos/cloud-deployment/TenantIngestionModel.md)
+for the operational repo-identity, credential-boundary, and source-family inventory rules before
+each artifact's own README / header comment.

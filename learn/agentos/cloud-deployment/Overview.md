@@ -48,6 +48,7 @@ Neo's own guides, ADRs, skills, and API docs remain in the KB under `tenantId: '
 
 - **[Security](./Security.md)** — tenant-isolation invariants, write-side stamping + spoof-rejection, parser-execution boundary framing, and the KB-as-cache vs MC-as-store recovery model.
 - **[Migration Path](./MigrationPath.md)** — how an existing single-repo Neo deployment upgrades to the cloud-ingestion substrate with zero config changes.
+- **[Tenant Ingestion Model](./TenantIngestionModel.md)** — the operator-facing model for tenant repo identity, credential boundaries, parser dispatch, source-family inventory, and push-vs-bulk ingestion choices.
 - **[Configuration](./Configuration.md)** — the `aiConfig` keys and the `KnowledgeBaseTenantConfig` / `kb-config.yaml` tenant-config storage.
 - **[Custom Sources](./CustomSources.md)** / **[Custom Parsers](./CustomParsers.md)** — authoring a Source for the full-corpus build, or a Parser for the push path.
 - **[Hook Wiring](./HookWiring.md)** — the `ingest_source_files` / `ai:ingest-tenant` facades and git-hook patterns; runnable companions live under [`examples/cloud-deployment/`](../../../examples/cloud-deployment/).

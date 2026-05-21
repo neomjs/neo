@@ -11,6 +11,8 @@ The KB ingestion substrate splits content acquisition into two roles (see [Overv
 
 Both register in the same `SourceRegistry` singleton. This guide covers parsers — the format layer a cloud tenant most often needs to extend, because a tenant's repos rarely contain only the formats Neo's built-in parsers (`SourceParser` for ES modules, `DocumentationParser` for Markdown, `TestParser`) understand.
 
+The tenant-level choice of which source families use server parsers, client-side `parsed-chunk-v1`, or an explicit unsupported status is defined in [Tenant Ingestion Model](./TenantIngestionModel.md).
+
 ## The `parsed-chunk-v1` contract
 
 Every chunk entering the KB through the push path conforms to [`parsed-chunk-v1`](../../../ai/services/knowledge-base/parser/parsed-chunk-v1.schema.json) — the ingest contract. A parser's job is to emit records of this shape. The required fields:
@@ -75,6 +77,7 @@ A runtime sandbox for in-process execution of tenant-supplied parser code (WASM 
 ## Related
 
 - [Overview](./Overview.md) — the Source/Parser registry split and the contract layering.
+- [Tenant Ingestion Model](./TenantIngestionModel.md) — source-family inventory and dispatch choices for external tenant repos.
 - [Hook Wiring](./HookWiring.md) — the `ingest_source_files` / `ai:ingest-tenant` push facades that invoke parsers.
 - [Custom Sources](./CustomSources.md) — the full-corpus `Source` counterpart.
 - [Configuration](./Configuration.md) — `useDefaultParsers`, `customParsers`, and the rest of the `aiConfig` surface.
