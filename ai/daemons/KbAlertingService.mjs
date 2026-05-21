@@ -174,8 +174,9 @@ class KbAlertingService extends Base {
      *
      * Reads the per-tenant ingestion rollup over the configured look-back window, runs the
      * pure {@link evaluateAlertRules} engine (threading the in-memory cooldown state), logs
-     * any malformed rules, then dispatches each emitted alert. Wrapped in try/finally so
-     * `scheduleNext()` always fires — one bad cycle must not stop the daemon.
+     * any malformed rules, then dispatches each emitted alert. Wrapped in try/catch/finally
+     * so a failed cycle is logged and `scheduleNext()` still fires — one bad cycle must not
+     * stop the daemon.
      *
      * @returns {Promise<void>}
      * @protected
@@ -209,6 +210,11 @@ class KbAlertingService extends Base {
             for (const alert of alerts) {
                 await this.dispatchAlert(alert)
             }
+        } catch (err) {
+            // A single-cycle failure must not stop the daemon — log and let `finally`
+            // reschedule. Catching here also keeps `pulse()` from rejecting, so the loop
+            // never double-schedules (the `finally` + `scheduleNext`'s own `.catch`).
+            logger.error('[KbAlertingService] Pulse failed:', err)
         } finally {
             this.scheduleNext()
         }
