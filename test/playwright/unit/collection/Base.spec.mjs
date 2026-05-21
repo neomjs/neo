@@ -284,6 +284,15 @@ test.describe.serial('Neo.collection.Base', () => {
         ]);
     });
 
+    test('isItem excludes null while preserving object-like items', () => {
+        let collection = Neo.create(Collection);
+
+        expect(collection.isItem(null)).toBe(false);
+        expect(collection.isItem('item-id')).toBe(false);
+        expect(collection.isItem({id: 'item-id'})).toBe(true);
+        expect(collection.isItem(collection)).toBe(true);
+    });
+
     test('Move collection items', () => {
         let moveCollection = Neo.create(Collection, {
             items: [

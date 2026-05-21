@@ -1293,7 +1293,7 @@ class Collection extends Base {
      */
     isItem(value) {
         // We can not use Neo.isObject() || Neo.isRecord(), since collections can store neo instances too.
-        return typeof value === 'object'
+        return value !== null && typeof value === 'object'
     }
 
     /**
