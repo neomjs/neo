@@ -871,6 +871,19 @@ components:
           description: |
             Authenticated tenant id. The server stamps the authoritative value; offline
             calls fall back to `neo-shared`.
+        repoSlug:
+          type: string
+          description: |
+            Tenant-owned repo identifier used as the default repo boundary for raw files,
+            explicit tombstones without their own repoSlug, and telemetry.
+            Per-file, per-chunk, tombstone, manifest, and revision-resolver repoSlug
+            values remain authoritative for their narrower scopes.
+        visibility:
+          type: string
+          enum: [team, private]
+          description: |
+            Server-stamped visibility for the ingested chunks. Defaults to the Knowledge
+            Base server's configured default visibility when omitted.
         files:
           type: array
           description: Raw file payloads or client-side parsed records to ingest.

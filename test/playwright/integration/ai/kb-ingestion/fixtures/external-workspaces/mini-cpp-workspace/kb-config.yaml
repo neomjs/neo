@@ -1,0 +1,5 @@
+tenantId: tenant-beta
+repoSlug: mini-cpp-workspace
+rootKind: bare-repo
+useDefaultSources: false
+transportContract: parsed-chunk-v1
