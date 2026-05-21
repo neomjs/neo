@@ -34,6 +34,7 @@
         "ai:prune-worktrees"           : "node ./ai/scripts/bootstrapWorktree.mjs --prune-stale",
         "ai:lint-agents"               : "node ./ai/scripts/lint-agents.mjs",
         "ai:lint-skill-manifest"       : "node ./ai/scripts/lint-skill-manifest.mjs",
+        "ai:kb-alerting"               : "node ./ai/scripts/kb-alerting-daemon.mjs",
         "ai:orchestrator"              : "node ./ai/scripts/orchestrator-daemon.mjs",
         "ai:run-sandman"               : "node ./buildScripts/ai/runSandman.mjs",
         "ai:server"                    : "chroma run --path ./.neo-ai-data/chroma/knowledge-base",
