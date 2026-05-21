@@ -29,7 +29,9 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 
     if [ -n "$changed" ]; then
         # Stream each changed file as a raw ingest record — {sourcePath, content} JSONL —
-        # into the bulk facade; the server parses raw files with a registered parser.
+        # into the bulk facade. With no parserId on the record, the server applies its
+        # raw-text fallback (one whole-file chunk); a deployment with a registered parser
+        # adds the matching parserId here to chunk per that parser's contract instead.
         while IFS= read -r f; do
             [ -f "$f" ] || continue
             node -e 'const fs=require("fs");process.stdout.write(JSON.stringify({sourcePath:process.argv[1],content:fs.readFileSync(process.argv[1],"utf8")})+"\n")' "$f"
