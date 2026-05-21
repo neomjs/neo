@@ -117,7 +117,33 @@ const defaultConfig = {
          * telemetry rollup the rule engine evaluates (default 1 h).
          * @type {Number}
          */
-        alertWindowMs: 60 * 60 * 1000
+        alertWindowMs: 60 * 60 * 1000,
+        /**
+         * Phase 4B (#11640) — master opt-in for the KB reconciliation daemon.
+         * Disabled by default; the daemon exits early when false.
+         * @type {Boolean}
+         */
+        reconciliationEnabled: false,
+        /**
+         * Phase 4B (#11640) — reconciliation daemon poll interval in ms (default 1 h).
+         * @type {Number}
+         */
+        reconciliationIntervalMs: 60 * 60 * 1000,
+        /**
+         * Phase 4B (#11640) — opt-in for the destructive auto-tombstone reconciliation
+         * action. Disabled by default — the daemon then detects config-stale chunks and
+         * emits Phase 4A telemetry only, issuing no `collection.delete`.
+         * @type {Boolean}
+         */
+        reconciliationAutoTombstone: false,
+        /**
+         * Phase 4B (#11640) — config-version-gap threshold above which a config-stale
+         * chunk becomes auto-tombstone-eligible: a chunk is actioned when
+         * `currentConfigVersion - chunk.tenantConfigVersion >= this`. Default `2` gives
+         * one full config epoch of grace. Consulted only when `reconciliationAutoTombstone`.
+         * @type {Number}
+         */
+        reconciliationOrphanVersionGap: 2
     },
     /**
      * A dummy embedding function to satisfy ChromaDB when embeddings are provided manually.
