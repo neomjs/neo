@@ -1,14 +1,14 @@
 # ADR 0014: Cloud Deployment Topology + Scheduler Task Taxonomy
 
-> Architectural Decision Record for the **D0** critical-path workstream of Epic #11720 (*Cloud Agent OS Deployment Readiness*, graduated from Discussion #11718). Classifies every `Orchestrator` scheduler lane as `cloud-deployable` / `local-only` / `shared primitive`, and records the target production deployment topology. This ADR is the decision input that unblocks Sub B (#11723), Sub C (#11724), Sub D (#11725), Sub F1 (#11727), and Sub G (#11729).
+> Architectural Decision Record for the **D0** critical-path workstream of Epic #11720 (*Cloud Agent OS Deployment Readiness*, graduated from Discussion #11718). Classifies every `Orchestrator` scheduler lane as `cloud-deployable` / `local-only` / `shared primitive`, and records the target production deployment topology. This ADR is the decision input that unblocks Sub B (#11723), Sub C (#11724), Sub D (#11725), and Sub F1 (#11727).
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed — 2026-05-21 (D0 decision record; transitions to Accepted on the #11721 PR merge + cross-family review, per ADR 0005 lifecycle) |
+| **Status** | Accepted — 2026-05-21 (D0 decision record merged via PR #11738 with cross-family review, per ADR 0005 lifecycle) |
 | **Author** | @neo-opus-4-7 (Claude Opus 4.7) drafting; substrate-truth grounded in the live `ai/daemons/` source audited at `dev` |
 | **Resolves** | #11721 — *"Cloud deployment topology + scheduler-task-taxonomy ADR"* (D0 of Epic #11720) |
 | **Graduated from** | Discussion #11718 (*Cloud Agent OS Deployment Readiness*) → Epic #11720 |
-| **Unblocks** | #11723 (Sub B — container topology), #11724 (Sub C — reference compose), #11725 (Sub D — healthcheck / journey proof), #11727 (Sub F1 — cookbook), #11729 (Sub G — ADR set) |
+| **Unblocks** | #11723 (Sub B — container topology), #11724 (Sub C — reference compose), #11725 (Sub D — healthcheck / journey proof), #11727 (Sub F1 — cookbook) |
 | **Informs** | #11722 (Sub A — deployment-mode feature toggles), #11726 (Sub E — tenant-repo ingestion model) |
 | **Anti-anchor for** | Containerizing the mixed-responsibility `Orchestrator` as-is; mono-container deployment; ADR-as-options-workspace |
 
@@ -87,7 +87,7 @@ Per the Epic, D0 sweeps the two existing daemon-relevant ADRs:
 - **ADR 0003 (Chroma Topology — Unified Only)** — **not stale.** It already anticipates an "independently hosted ChromaDB instance"; the cloud `chroma` container *is* that unified instance. Cross-referenced here as the authority for the `chroma` = shared-primitive classification. No amendment.
 - **ADR 0009 (Cross-Daemon Heavy-Maintenance Lease Inheritance)** — **not stale.** The file-lease serializes the heavy lanes (`summary` / `kbSync` / `backup` / `primary-dev-sync` / `dream`) across processes; in a single-`orchestrator`-container cloud deployment it is a degenerate-but-correct safety net. No amendment.
 
-Broader deployment-doc / ADR reconciliation beyond 0003 / 0009 is **Sub G #11729** scope.
+Broader deployment-doc / ADR reconciliation beyond 0003 / 0009 is tracked by the #11720 owner map and its follow-up tickets; #11729 was closed after D0 owner-map narrowing.
 
 ## 3. Decision Process — Rejected Alternatives
 
@@ -103,7 +103,7 @@ Broader deployment-doc / ADR reconciliation beyond 0003 / 0009 is **Sub G #11729
 
 ### Positive
 - **The `Orchestrator` becomes containerizable** — excluding the four local-only lanes by config removes every local-checkout / git / desktop-harness dependency. The taxonomy *is* the unblock.
-- **Sub B / C / D / F1 / G are unblocked** with a decided topology and a classified lane set, instead of guessing.
+- **Sub B / C / D / F1 are unblocked** with a decided topology and a classified lane set, instead of guessing.
 - **The cloud profile is contract-bound** — the negative-behavior contract (§2.4) gives Sub D a precise, falsifiable assertion target.
 - **Profile-derived service count** — the container count follows the topology (§2.2), not a target number.
 
@@ -139,14 +139,14 @@ Service boundaries derive from the lane taxonomy + resource-isolation needs. Pic
 - **Epic:** #11720 (Cloud Agent OS Deployment Readiness)
 - **Resolves:** #11721 (D0)
 - **Origin Discussion:** #11718 — §5/D0; orchestrator-role-split anchor `DC_kwDODSospM4BA4F9`
-- **Unblocks:** #11723, #11724, #11725, #11727, #11729
+- **Unblocks:** #11723, #11724, #11725, #11727
 - **Informs:** #11722 (Sub A — the toggle + `golden-path`-gating handoff), #11726 (Sub E — the local `kbSync` exclusion is *why* push-based ingestion is the cloud KB path)
 - **ADRs:** 0003 (unified Chroma — swept, not stale), 0009 (cross-daemon lease — swept, not stale), 0005 (ADR-at-graduation), 0006 (ADRs as graph-queryable entities)
 - **Substrate:** `ai/daemons/TaskDefinitions.mjs`, `ai/daemons/Orchestrator.mjs`, `ai/daemons/services/PrimaryRepoSyncService.mjs`, `ai/scripts/bridge-daemon.mjs`, `buildScripts/ai/syncKnowledgeBase.mjs`, `ai/daemons/services/GoldenPathSynthesizer.mjs`, `buildScripts/ai/backup.mjs`, `ai/deploy/docker-compose.yml`
 
 ## 8. Status / Lifecycle
 
-- **Proposed** at filing. Transition to **Accepted** is gated on: (1) the #11721 PR merges to `dev`; (2) cross-family review — at least one peer `APPROVED` (GPT or Gemini); (3) no Sub B / C / D reshaping that invalidates the taxonomy.
+- **Accepted** after PR #11738 merged to `dev` with cross-family review. Re-open the decision only if Sub B / C / D discovers evidence that invalidates the taxonomy.
 - **Periodic re-review trigger:** any PR that enables a `local-only` lane in a cloud profile, or adds a new `Orchestrator` scheduler lane, MUST cite this ADR and classify the lane.
 
 Origin Session ID: `8e1dc8ca-b5a5-4479-b3cf-31918eb4a5b2` (Epic #11720 / D0 #11721 graduation lineage; this ADR authored in the continuing #11720 implementation sprint)
