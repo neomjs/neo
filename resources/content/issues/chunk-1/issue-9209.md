@@ -3,6 +3,7 @@ id: 9209
 title: Benchmark Grid Scroll-to-Update Latency
 state: OPEN
 labels:
+  - stale
   - ai
   - testing
   - performance
@@ -10,10 +11,10 @@ labels:
 assignees:
   - tobiu
 createdAt: '2026-02-19T10:58:28Z'
-updatedAt: '2026-02-19T11:27:29Z'
+updatedAt: '2026-05-21T05:39:49Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9209'
 author: tobiu
-commentsCount: 1
+commentsCount: 2
 parentIssue: null
 subIssues: []
 subIssuesCompleted: 0
@@ -65,4 +66,9 @@ Create a deep telemetry benchmark that measures the "Input-to-Pixel" latency of 
 > We should extend this benchmark to support a toggle (e.g., `Neo.config.grid.useDomPooling`) to A/B test these strategies on identical hardware. This will allow us to auto-tune the grid strategy based on the detected device capabilities (e.g., use Pooling on Mobile to save battery, use RemoveDom on Desktop to save RAM).
 
 - 2026-02-19T11:27:29Z @tobiu assigned to @tobiu
+### @github-actions - 2026-05-21T05:39:48Z
+
+This issue is stale because it has been open for 90 days with no activity.
+
+- 2026-05-21T05:39:49Z @github-actions added the `stale` label
 

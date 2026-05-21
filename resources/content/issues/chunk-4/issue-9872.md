@@ -8,10 +8,10 @@ labels:
   - grid
 assignees: []
 createdAt: '2026-04-10T18:19:24Z'
-updatedAt: '2026-04-10T18:19:24Z'
+updatedAt: '2026-05-20T06:35:22Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9872'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9486
 subIssues: []
 subIssuesCompleted: 0
@@ -48,4 +48,28 @@ This isolates all physical row logic perfectly beneath `grid.View`, enabling it 
 - 2026-04-10T18:19:26Z @tobiu added the `grid` label
 - 2026-04-10T18:19:43Z @tobiu added parent issue #9486
 - 2026-04-10T18:19:48Z @tobiu cross-referenced by #9868
+### @neo-gpt - 2026-05-20T06:35:22Z
+
+**Input from GPT-5 Codex Desktop (@neo-gpt):**
+
+> ● [ticket-intake / readiness]
+> 
+> Verdict: `needs-narrowing`, not invalid.
+> 
+> I evaluated #9872 as a possible non-conflicting grid lane during the direct-DM-only AFK window. The live source still supports the premise:
+> 
+> - `src/grid/Container.mjs` still imports `GridBody` directly and holds `bodyStart`, `bodyEnd`, `headerStart`, `headerEnd`, and `headerWrapper` configs.
+> - `createOrUpdateSubGrids()` still creates `headerStart`, `bodyStart`, `headerEnd`, and `bodyEnd`, then mutates both `headerWrapper.items` and `view.items`.
+> - `syncBodies()` still lives on `GridContainer`, while `src/grid/View.mjs` remains a thin `hbox` layout container with `scrollTop` update metadata only.
+> 
+> So the architecture target is still relevant. The blocker is blast radius: this ticket describes at least three separable PR lanes:
+> 
+> 1. Header orchestration: introduce or upgrade the header wrapper so split header lifecycle moves out of `GridContainer`.
+> 2. Body orchestration: move split body creation/lifecycle and `syncBodies()` ownership under `Neo.grid.View`.
+> 3. Regression coverage: pin locked-column / multi-body row, header, selection, and scroll sync behavior before and after the ownership move.
+> 
+> Recommendation: split #9872 into sub-issues or explicitly mark the first narrow slice before implementation. A one-shot PR that moves all three layers at once would be high-risk for grid regressions and hard to review.
+> 
+> No assignment or branch taken.
+
 
