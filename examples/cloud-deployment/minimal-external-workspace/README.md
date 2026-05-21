@@ -31,8 +31,9 @@ and `SourceRegistry.registerSource(ProtoSource, {sourceName: 'ProtoSource'})`.
 
 ## Smoke test
 
-The push path needs no server-side registration — push `proto/example.proto` straight
-through the bulk facade as a raw file and let the server parse it:
+Push `proto/example.proto` through the bulk facade. With no `parserId` on the record,
+`KnowledgeBaseIngestionService.resolveFileChunks` applies its `raw-text` fallback — the
+file ingests as a single whole-file chunk; no server-side registration is needed:
 
 ```bash
 npm install
@@ -40,7 +41,14 @@ node -e 'const fs=require("fs");process.stdout.write(JSON.stringify({sourcePath:
   | node node_modules/neo.mjs/buildScripts/ai/ingestTenant.mjs example-tenant --from-stdin
 ```
 
-A successful run prints a JSON summary — `{ingested, embeddingsGenerated, deleted, ...}`.
-Querying the KB for an inventory term (e.g. `Warehouse`) then returns the seeded chunk,
-scoped to the `example-tenant` tenant. The server-side `ProtoParser` registration above
-is what lets a raw `.proto` push be chunked per message rather than as one whole-file chunk.
+A successful run prints a JSON summary — `{ingested, embeddingsGenerated, deleted, ...}`,
+and the chunk is scoped to the `example-tenant` tenant.
+
+To chunk *per protobuf message* instead, register `ProtoParser` (see above) and add
+`parserId: "proto"` to the record — `resolveFileChunks` then dispatches to it rather
+than the `raw-text` fallback:
+
+```bash
+node -e 'const fs=require("fs");process.stdout.write(JSON.stringify({sourcePath:"proto/example.proto",content:fs.readFileSync("proto/example.proto","utf8"),parserId:"proto"})+"\n")' \
+  | node node_modules/neo.mjs/buildScripts/ai/ingestTenant.mjs example-tenant --from-stdin
+```
