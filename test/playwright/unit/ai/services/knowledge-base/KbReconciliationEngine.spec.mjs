@@ -3,6 +3,7 @@ import {test, expect} from '@playwright/test';
 import {
     DEFAULT_ORPHAN_VERSION_GAP,
     diffTenantChunks,
+    diffTenantManifest,
     formatReconciliationDetail,
     resolveOrphanVersionGap
 } from '../../../../../../ai/services/knowledge-base/helpers/KbReconciliationEngine.mjs';
@@ -26,7 +27,16 @@ import {
  */
 
 /** Builds a tenant Chroma row in the `getTenantRows` shape. `v` → `metadata.tenantConfigVersion`. */
-const row = (id, v) => ({id, metadata: {tenantConfigVersion: v, repoSlug: 'repo-x', tenantId: 'tenant-x'}});
+const row = (id, v, metadata = {}) => ({
+    id,
+    metadata: {
+        tenantConfigVersion: v,
+        repoSlug           : 'repo-x',
+        tenantId           : 'tenant-x',
+        sourcePath         : 'src/' + id + '.js',
+        ...metadata
+    }
+});
 
 test.describe('KbReconciliationEngine — resolveOrphanVersionGap (#11640)', () => {
     test('returns a finite value at or above 1 unchanged', () => {
@@ -143,17 +153,59 @@ test.describe('KbReconciliationEngine — diffTenantChunks (#11640)', () => {
     });
 });
 
+test.describe('KbReconciliationEngine — diffTenantManifest (#11711)', () => {
+    test('flags rows whose sourcePath is absent from the persisted repo manifest', () => {
+        const diff = diffTenantManifest({
+            rows: [
+                row('live', 5, {sourcePath: 'src/live.js'}),
+                row('orphan', 5, {sourcePath: 'src/old.js'}),
+                row('other-repo', 5, {repoSlug: 'repo-y', sourcePath: 'src/old.js'})
+            ],
+            manifestsByRepo: {
+                'repo-x': {pathsAfterPush: ['src/live.js']}
+            }
+        });
+
+        expect(diff.orphanCount).toBe(1);
+        expect(diff.manifestOrphans).toEqual([{id: 'orphan', repoSlug: 'repo-x', sourcePath: 'src/old.js'}]);
+        expect(diff.actionableIds).toEqual(['orphan']);
+        expect(diff.actionableCount).toBe(1);
+    });
+
+    test('skips repos without a persisted manifest and rows without sourcePath', () => {
+        const diff = diffTenantManifest({
+            rows: [
+                row('repo-without-manifest', 5, {repoSlug: 'repo-y', sourcePath: 'src/old.js'}),
+                row('missing-source', 5, {sourcePath: undefined})
+            ],
+            manifestsByRepo: {
+                'repo-x': {pathsAfterPush: ['src/live.js']}
+            }
+        });
+
+        expect(diff).toEqual({manifestOrphans: [], orphanCount: 0, actionableIds: [], actionableCount: 0});
+    });
+
+    test('returns an empty result when manifest input is absent or malformed', () => {
+        expect(diffTenantManifest({rows: [row('a', 1)]}).orphanCount).toBe(0);
+        expect(diffTenantManifest({rows: [row('a', 1)], manifestsByRepo: []}).orphanCount).toBe(0);
+        expect(diffTenantManifest({rows: null, manifestsByRepo: {'repo-x': {pathsAfterPush: []}}}).orphanCount).toBe(0);
+    });
+});
+
 test.describe('KbReconciliationEngine — formatReconciliationDetail (#11640)', () => {
     test('builds the Phase 4A telemetry detail payload from a diff', () => {
-        const diff   = {staleCount: 5, actionableCount: 3, staleOrphans: [], actionableIds: []};
+        const diff   = {staleCount: 5, manifestOrphanCount: 2, totalOrphanCount: 7, actionableCount: 3, staleOrphans: [], actionableIds: []};
         const detail = formatReconciliationDetail({diff, currentVersion: 7, autoTombstone: true, tombstonedCount: 3});
 
         expect(detail).toEqual({
-            staleCount     : 5,
-            actionableCount: 3,
-            tombstonedCount: 3,
-            currentVersion : 7,
-            autoTombstone  : true
+            staleCount         : 5,
+            manifestOrphanCount: 2,
+            totalOrphanCount   : 7,
+            actionableCount    : 3,
+            tombstonedCount    : 3,
+            currentVersion     : 7,
+            autoTombstone      : true
         });
     });
 
@@ -169,11 +221,13 @@ test.describe('KbReconciliationEngine — formatReconciliationDetail (#11640)', 
         const detail = formatReconciliationDetail({});
 
         expect(detail).toEqual({
-            staleCount     : 0,
-            actionableCount: 0,
-            tombstonedCount: 0,
-            currentVersion : 0,
-            autoTombstone  : false
+            staleCount         : 0,
+            manifestOrphanCount: 0,
+            totalOrphanCount   : 0,
+            actionableCount    : 0,
+            tombstonedCount    : 0,
+            currentVersion     : 0,
+            autoTombstone      : false
         });
     });
 });

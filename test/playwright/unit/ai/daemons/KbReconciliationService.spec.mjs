@@ -83,7 +83,7 @@ test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
         // Drop instance-method seam overrides so the real prototype methods resurface for
         // the next test — an instance override otherwise leaks across tests in the worker.
         for (const seam of ['getKbConfig', 'fetchTenants', 'getCollection', 'fetchTenantConfigVersion',
-                             'fetchTenantRows', 'tombstoneOrphans', 'recordReconcileMetric',
+                             'fetchTenantRows', 'fetchTenantManifests', 'tombstoneOrphans', 'recordReconcileMetric',
                              'reconcileTenant', 'scheduleNext']) {
             delete KbReconciliationService[seam];
         }
@@ -97,8 +97,9 @@ test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
 
     /** Deterministic seam baseline — `scheduleNext` neutralized so no real timer leaks. */
     function applyStubs({config} = {}) {
-        KbReconciliationService.getKbConfig  = () => config || {reconciliationEnabled: true};
-        KbReconciliationService.scheduleNext = function () {};
+        KbReconciliationService.getKbConfig         = () => config || {reconciliationEnabled: true};
+        KbReconciliationService.fetchTenantManifests = async () => ({});
+        KbReconciliationService.scheduleNext        = function () {};
     }
 
     test.describe('start / stop', () => {
@@ -211,9 +212,10 @@ test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
 
     test.describe('reconcileTenant', () => {
         /** Wires the per-tenant seams; `rows` drives the real KbReconciliationEngine diff. */
-        function wireTenant({version, rows}) {
+        function wireTenant({version, rows, manifestsByRepo = {}}) {
             KbReconciliationService.fetchTenantConfigVersion = async () => version;
             KbReconciliationService.fetchTenantRows          = async () => rows;
+            KbReconciliationService.fetchTenantManifests     = async () => manifestsByRepo;
         }
 
         test('a clean tenant emits no telemetry and tombstones nothing', async () => {
@@ -250,6 +252,37 @@ test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
             expect(metrics[0].autoTombstone).toBe(false);
         });
 
+        test('a manifest-orphan tenant with auto-tombstone OFF emits telemetry but issues no delete (#11711)', async () => {
+            applyStubs();
+            wireTenant({
+                version: 0,
+                rows: [
+                    row('live', 0),
+                    {id: 'manifest-orphan', metadata: {tenantConfigVersion: 0, tenantId: 'tenant-x', repoSlug: 'repo-x', sourcePath: 'src/orphan.js'}}
+                ],
+                manifestsByRepo: {
+                    'repo-x': {pathsAfterPush: ['src/live.js']}
+                }
+            });
+            let tombstoned = 0;
+            KbReconciliationService.tombstoneOrphans = async () => { tombstoned++; return 0 };
+            const metrics = [];
+            KbReconciliationService.recordReconcileMetric = (m) => { metrics.push(m) };
+
+            await KbReconciliationService.reconcileTenant({
+                tenantId: 'tenant-x', repoSlug: 'repo-x', collection: {}, orphanVersionGap: 2, autoTombstone: false
+            });
+
+            expect(tombstoned).toBe(0);
+            expect(metrics).toHaveLength(1);
+            expect(metrics[0].diff).toMatchObject({
+                staleCount         : 0,
+                manifestOrphanCount: 1,
+                totalOrphanCount   : 1,
+                actionableIds      : ['manifest-orphan']
+            });
+        });
+
         test('a drifting tenant with auto-tombstone ON deletes the actionable orphans', async () => {
             applyStubs();
             wireTenant({version: 5, rows: [row('a', 5), row('b', 3), row('c', 1)]}); // b,c actionable at gap 2
@@ -265,6 +298,38 @@ test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
             expect(deleted.sort()).toEqual(['b', 'c']);
             expect(metrics[0].tombstonedCount).toBe(2);
             expect(metrics[0].autoTombstone).toBe(true);
+        });
+
+        test('auto-tombstone ON unions config-stale and manifest-orphan actionable ids once (#11711)', async () => {
+            applyStubs();
+            wireTenant({
+                version: 5,
+                rows: [
+                    {id: 'overlap', metadata: {tenantConfigVersion: 1, tenantId: 'tenant-x', repoSlug: 'repo-x', sourcePath: 'src/old.js'}},
+                    {id: 'manifest-only', metadata: {tenantConfigVersion: 5, tenantId: 'tenant-x', repoSlug: 'repo-x', sourcePath: 'src/removed.js'}},
+                    row('live', 5)
+                ],
+                manifestsByRepo: {
+                    'repo-x': {pathsAfterPush: ['src/live.js']}
+                }
+            });
+            const deleted = [];
+            KbReconciliationService.tombstoneOrphans = async (collection, ids) => { deleted.push(...ids); return ids.length };
+            const metrics = [];
+            KbReconciliationService.recordReconcileMetric = (m) => { metrics.push(m) };
+
+            await KbReconciliationService.reconcileTenant({
+                tenantId: 'tenant-x', repoSlug: 'repo-x', collection: {}, orphanVersionGap: 2, autoTombstone: true
+            });
+
+            expect(deleted.sort()).toEqual(['manifest-only', 'overlap']);
+            expect(metrics[0].diff).toMatchObject({
+                staleCount         : 1,
+                manifestOrphanCount: 2,
+                totalOrphanCount   : 3,
+                actionableCount    : 2
+            });
+            expect(metrics[0].tombstonedCount).toBe(2);
         });
 
         test('auto-tombstone ON but every orphan within grace issues no delete', async () => {

@@ -10,6 +10,7 @@ import KnowledgeBaseIngestionService from '../services/knowledge-base/KnowledgeB
 import logger                        from '../mcp/server/knowledge-base/logger.mjs';
 import {
     diffTenantChunks,
+    diffTenantManifest,
     formatReconciliationDetail,
     resolveOrphanVersionGap
 } from '../services/knowledge-base/helpers/KbReconciliationEngine.mjs';
@@ -51,12 +52,11 @@ const ROWS_PAGE_SIZE = 2000;
  * *second* opt-in (`reconciliationAutoTombstone`, default false): with it off, the daemon
  * detects + emits telemetry only and issues no `collection.delete`.
  *
- * **V1 scope** (per the #11640 Contract Ledger, ticket body): V1 reconciles the
- * config-invalidation failure mode via the `tenantConfigVersion` stamp. Force-push /
- * mid-push / partial-push drift detection needs a persisted claimed-state manifest that
- * Phase 2 substrate does not provide — V1.x-deferred. V1 is purely additive: it touches no
- * merged Phase 2 code (it reuses only the public `getTenantConfig` + the documented
- * `where: {tenantId}` Chroma read idiom).
+ * **V1.x scope** (#11711): after V1 shipped the config-invalidation signal, ingestion now
+ * persists claimed path manifests in `kb-manifest:<tenantId>`. This daemon reads those
+ * manifests and runs a second pure diff pass so force-push / partial-push / hook-failure
+ * leftovers become manifest orphans. Config-stale and manifest-orphan actionable ids are
+ * unioned before the opt-in tombstone call.
  *
  * @class Neo.ai.daemons.KbReconciliationService
  * @extends Neo.core.Base
@@ -202,7 +202,7 @@ class KbReconciliationService extends Base {
     }
 
     /**
-     * @summary Reconciles one tenant: config-version diff → telemetry → opt-in tombstone.
+     * @summary Reconciles one tenant: config-version diff + manifest diff → telemetry → opt-in tombstone.
      *
      * Never throws — a per-tenant failure (a config read, a Chroma error) is logged and the
      * remaining tenants still reconcile. A clean tenant (zero config-stale chunks) emits no
@@ -219,11 +219,14 @@ class KbReconciliationService extends Base {
      */
     async reconcileTenant({tenantId, repoSlug, collection, orphanVersionGap, autoTombstone}) {
         try {
-            const currentVersion = await this.fetchTenantConfigVersion(tenantId),
-                  rows           = await this.fetchTenantRows(collection, tenantId),
-                  diff           = diffTenantChunks({rows, currentVersion, orphanVersionGap});
+            const currentVersion  = await this.fetchTenantConfigVersion(tenantId),
+                  rows            = await this.fetchTenantRows(collection, tenantId),
+                  manifestsByRepo = await this.fetchTenantManifests(tenantId),
+                  configDiff      = diffTenantChunks({rows, currentVersion, orphanVersionGap}),
+                  manifestDiff    = diffTenantManifest({rows, manifestsByRepo}),
+                  diff            = this.combineDiffs({configDiff, manifestDiff});
 
-            if (diff.staleCount === 0) {
+            if (diff.totalOrphanCount === 0) {
                 return // clean tenant — emit nothing
             }
 
@@ -235,7 +238,7 @@ class KbReconciliationService extends Base {
 
             this.recordReconcileMetric({tenantId, repoSlug, diff, currentVersion, autoTombstone, tombstonedCount});
 
-            logger.info(`[KbReconciliationService] tenant ${tenantId}: ${diff.staleCount} config-stale chunk(s), ${diff.actionableCount} actionable, ${tombstonedCount} tombstoned (autoTombstone=${autoTombstone})`)
+            logger.info(`[KbReconciliationService] tenant ${tenantId}: ${diff.staleCount} config-stale chunk(s), ${diff.manifestOrphanCount} manifest-orphan chunk(s), ${diff.actionableCount} actionable, ${tombstonedCount} tombstoned (autoTombstone=${autoTombstone})`)
         } catch (err) {
             logger.error(`[KbReconciliationService] Reconciliation failed for tenant ${tenantId}: ${err.message}`)
         }
@@ -298,6 +301,41 @@ class KbReconciliationService extends Base {
         const config = await KnowledgeBaseIngestionService.getTenantConfig({tenantId});
 
         return config?.version ?? 0
+    }
+
+    /**
+     * @summary Test-stubbable seam — reads the persisted claimed-state manifests for a tenant (#11711).
+     * @param {String} tenantId
+     * @returns {Promise<Object<String, {pathsAfterPush: Array<String>}>>}
+     * @protected
+     */
+    async fetchTenantManifests(tenantId) {
+        return KnowledgeBaseIngestionService.getTenantManifests({tenantId})
+    }
+
+    /**
+     * @summary Combines config-stale and manifest-orphan diff axes into one delete/telemetry contract (#11711).
+     * @param {Object} params
+     * @param {Object} params.configDiff Result from `diffTenantChunks`.
+     * @param {Object} params.manifestDiff Result from `diffTenantManifest`.
+     * @returns {{staleOrphans: Array, manifestOrphans: Array, staleCount: Number, manifestOrphanCount: Number, totalOrphanCount: Number, actionableIds: Array<String>, actionableCount: Number}}
+     * @protected
+     */
+    combineDiffs({configDiff, manifestDiff} = {}) {
+        const actionableIds = [...new Set([
+            ...(configDiff?.actionableIds || []),
+            ...(manifestDiff?.actionableIds || [])
+        ])];
+
+        return {
+            staleOrphans       : configDiff?.staleOrphans || [],
+            manifestOrphans    : manifestDiff?.manifestOrphans || [],
+            staleCount         : configDiff?.staleCount || 0,
+            manifestOrphanCount: manifestDiff?.orphanCount || 0,
+            totalOrphanCount   : (configDiff?.staleCount || 0) + (manifestDiff?.orphanCount || 0),
+            actionableIds,
+            actionableCount    : actionableIds.length
+        }
     }
 
     /**
@@ -364,7 +402,7 @@ class KbReconciliationService extends Base {
      * @param {Object}  params
      * @param {String}  params.tenantId
      * @param {String}  params.repoSlug
-     * @param {Object}  params.diff             A {@link diffTenantChunks} result.
+     * @param {Object}  params.diff             A combined config/manifest reconciliation diff.
      * @param {Number}  params.currentVersion
      * @param {Boolean} params.autoTombstone
      * @param {Number}  params.tombstonedCount
@@ -376,7 +414,7 @@ class KbReconciliationService extends Base {
             tenantId,
             repoSlug,
             eventType    : 'reconcile',
-            chunksTotal  : diff.staleCount,
+            chunksTotal  : diff.totalOrphanCount ?? diff.staleCount,
             chunksDeleted: tombstonedCount,
             detail       : formatReconciliationDetail({diff, currentVersion, autoTombstone, tombstonedCount})
         })
