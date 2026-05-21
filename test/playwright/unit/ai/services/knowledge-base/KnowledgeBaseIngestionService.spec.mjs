@@ -88,6 +88,7 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
 
         originals = {
             chromaManager        : Service.chromaManager,
+            getTenantConfig      : Service.getTenantConfig,
             recorderService      : Service.recorderService,
             requestContextService: Service.requestContextService,
             revisionResolver     : Service.revisionResolver,
@@ -98,6 +99,9 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         Service.chromaManager = {
             getKnowledgeBaseCollection: async () => collection
         };
+        // ingestSourceFiles resolves the tenant-config version for chunk stamping (#11637);
+        // stubbed here so this suite stays focused on ingestion orchestration.
+        Service.getTenantConfig = async () => ({version: 0});
         Service.recorderService = {
             recordIngestionMetric: entry => metrics.push(entry)
         };
@@ -385,5 +389,145 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         });
 
         expect(vectorCalls[0].options.viaMcp).toBe(true);
+    });
+
+    test('stamps the resolved tenant-config version onto the ingestion tenant context (#11637)', async () => {
+        Service.getTenantConfig = async () => ({version: 7});
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [validParsedChunk()]}]
+        });
+
+        expect(summary.ingested).toBe(1);
+        expect(vectorCalls[0].options.tenantContext.configVersion).toBe(7);
+    });
+
+    test('degrades tenantConfigVersion to 0 when tenant-config resolution fails — ingest still succeeds (#11637)', async () => {
+        Service.getTenantConfig = async () => { throw new Error('graph unavailable'); };
+
+        const summary = await Service.ingestSourceFiles({
+            tenantId: 'tenant-a',
+            files   : [{parsedChunks: [validParsedChunk()]}]
+        });
+
+        expect(summary.ingested).toBe(1);
+        expect(summary.errors).toEqual([]);
+        expect(vectorCalls[0].options.tenantContext.configVersion).toBe(0);
+    });
+});
+
+test.describe('KnowledgeBaseIngestionService.tenantConfig (#11637)', () => {
+    let Service;
+    let originals;
+    let graphStub;
+
+    /**
+     * Minimal in-memory stub of the GraphService surface consumed by getTenantConfig / setTenantConfig.
+     * @returns {Object}
+     */
+    function createGraphStub() {
+        const store = new Map();
+
+        return {
+            store,
+            async initAsync() {},
+            getNodeRecord({id}) {
+                return store.has(id) ? {...store.get(id)} : null;
+            },
+            async upsertNode({id, type, properties}) {
+                store.set(id, {id, type, properties: {...properties}});
+            }
+        };
+    }
+
+    test.beforeAll(async () => {
+        Service = (await import('../../../../../../ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs')).default;
+    });
+
+    test.beforeEach(() => {
+        graphStub = createGraphStub();
+        originals = {
+            graphService         : Service.graphService,
+            readKbConfigBootstrap: Service.readKbConfigBootstrap,
+            requestContextService: Service.requestContextService
+        };
+
+        Service.graphService          = graphStub;
+        Service.readKbConfigBootstrap = () => null;
+        Service.requestContextService = {
+            getAgentIdentityNodeId: () => '@tenant-a',
+            getUserId             : () => 'tenant-a'
+        };
+    });
+
+    test.afterEach(() => {
+        Object.assign(Service, originals);
+    });
+
+    test('setTenantConfig persists a versioned KnowledgeBaseTenantConfig node that getTenantConfig reads back', async () => {
+        const written = await Service.setTenantConfig({
+            tenantId: 'tenant-a',
+            config  : {useDefaultSources: false, customParsers: [{parserId: 'es5'}]}
+        });
+        expect(written).toEqual({tenantId: 'tenant-a', version: 1});
+
+        const node = graphStub.store.get('kb-config:tenant-a');
+        expect(node.type).toBe('KnowledgeBaseTenantConfig');
+
+        const resolved = await Service.getTenantConfig({tenantId: 'tenant-a'});
+        expect(resolved).toMatchObject({
+            tenantId         : 'tenant-a',
+            source           : 'graph',
+            version          : 1,
+            useDefaultSources: false,
+            customParsers    : [{parserId: 'es5'}]
+        });
+    });
+
+    test('setTenantConfig increments the config version on each mutation', async () => {
+        const first  = await Service.setTenantConfig({tenantId: 'tenant-a', config: {}});
+        const second = await Service.setTenantConfig({tenantId: 'tenant-a', config: {useDefaultParsers: false}});
+
+        expect(first.version).toBe(1);
+        expect(second.version).toBe(2);
+        expect((await Service.getTenantConfig({tenantId: 'tenant-a'})).version).toBe(2);
+    });
+
+    test('setTenantConfig rejects a cross-tenant write via the resolveTenantContext RLS gate', async () => {
+        // The authenticated context is tenant-a (beforeEach); a write targeting tenant-b must be refused.
+        const result = await Service.setTenantConfig({tenantId: 'tenant-b', config: {}});
+
+        expect(result.code).toBe('KB_INGEST_TENANT_MISMATCH');
+        expect(result.error).toBe('Tenant config write failed');
+        expect(graphStub.store.has('kb-config:tenant-b')).toBe(false);
+    });
+
+    test('getTenantConfig falls back to the default registry when no graph node exists', async () => {
+        const resolved = await Service.getTenantConfig({tenantId: 'tenant-without-config'});
+
+        expect(resolved.source).toBe('default');
+        expect(resolved.version).toBe(0);
+        expect(typeof resolved.useDefaultSources).toBe('boolean');
+    });
+
+    test('getTenantConfig resolves the kb-config.yaml bootstrap tier when no graph node exists', async () => {
+        Service.readKbConfigBootstrap = () => ({
+            tenants: {
+                'tenant-a': {useDefaultSources: false, customSources: [{sourceName: 'BootstrapSource'}]}
+            }
+        });
+
+        const resolved = await Service.getTenantConfig({tenantId: 'tenant-a'});
+        expect(resolved).toMatchObject({
+            tenantId         : 'tenant-a',
+            source           : 'yaml',
+            version          : 0,
+            useDefaultSources: false,
+            customSources    : [{sourceName: 'BootstrapSource'}]
+        });
+
+        // A tenant absent from the bootstrap still falls through to the default tier.
+        expect((await Service.getTenantConfig({tenantId: 'tenant-z'})).source).toBe('default');
     });
 });

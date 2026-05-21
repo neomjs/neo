@@ -578,6 +578,70 @@ function ingestTenantViaCli({collectionName, recordCount, repoSlug, tenantId}) {
     });
 }
 
+/**
+ * Drives the #11637 Phase 2E tenant-config-storage persistence path inside the deployed KB
+ * container. Writes a tenant's config as a `KnowledgeBaseTenantConfig` graph node via
+ * `setTenantConfig`, reads it back, then simulates a KB-server restart by dropping the
+ * in-memory Native Edge Graph cache — forcing the next `getTenantConfig` to reload the node
+ * from the on-disk `memory-core-graph.sqlite`. `KnowledgeBaseIngestionService` is imported
+ * directly (not via `ai/services.mjs`) so the makeSafe Zod wrapper does not strip the
+ * structured config payload; all calls run under the tenant's request context so the
+ * `setTenantConfig` RLS gate and the `getNodeRecord` RLS re-check resolve as the owner.
+ * @param {Object} options
+ * @param {String} options.tenantId Tenant id whose config node is written + reloaded.
+ * @returns {Object}
+ */
+function tenantConfigPersistsAcrossRestart({tenantId}) {
+    return execKnowledgeBaseJson(`
+        ${NEO_BOOTSTRAP}
+
+        const {KB_LifecycleService}            = await import('./ai/services.mjs');
+        const {default: KB_IngestionService}   = await import('./ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs');
+        const {default: GraphService}          = await import('./ai/services/memory-core/GraphService.mjs');
+        const {default: RequestContextService} = await import('./ai/mcp/server/shared/services/RequestContextService.mjs');
+
+        await KB_LifecycleService.ready();
+        await GraphService.initAsync();
+
+        const tenantId = process.env.NEO_TEST_KB_TENANT;
+        const nodeId   = 'kb-config:' + tenantId;
+
+        function asTenant(callback) {
+            return RequestContextService.run({
+                userId             : tenantId,
+                username           : tenantId,
+                agentIdentityNodeId: '@' + tenantId,
+                source             : 'integration'
+            }, callback);
+        }
+
+        try {
+            await asTenant(() => KB_IngestionService.setTenantConfig({
+                tenantId,
+                config: {useDefaultSources: false, customParsers: [{parserId: 'restart-probe'}]}
+            }));
+
+            const beforeRestart = await asTenant(() => KB_IngestionService.getTenantConfig({tenantId}));
+
+            // Simulate a KB-server restart: drop the in-memory graph cache so the next read
+            // must reload the node from the on-disk memory-core-graph.sqlite.
+            GraphService.db.nodes.clearSilent();
+            GraphService.db.edges.clearSilent();
+            GraphService.db.vicinityLoadedNodes.clear();
+
+            const afterRestart = await asTenant(() => KB_IngestionService.getTenantConfig({tenantId}));
+
+            console.log(JSON.stringify({beforeRestart, afterRestart}));
+        } finally {
+            try {
+                await asTenant(() => GraphService.removeNodes([nodeId]));
+            } catch {}
+        }
+    `, {
+        NEO_TEST_KB_TENANT: tenantId
+    });
+}
+
 test.describe('Dockerized KB backup -> wipe -> restore integration (#11644)', () => {
     test('restores a seeded Knowledge Base vector after an isolated fixture wipe', async () => {
         const readiness = await getReadiness();
@@ -728,5 +792,33 @@ test.describe('Dockerized KB backup -> wipe -> restore integration (#11644)', ()
         // Chroma ground truth: every streamed chunk embedded into the isolated collection.
         expect(outcome.after.collectionName).toBe(collectionName);
         expect(outcome.after.count).toBe(recordCount);
+    });
+
+    test('tenant config persists across a simulated KB-server restart (#11637)', async () => {
+        const readiness = await getReadiness();
+
+        test.skip(readiness.dockerAvailable === false, `Docker unavailable: ${readiness.reason}`);
+        expect(readiness.servicesReady, readiness.reason).toBe(true);
+
+        const outcome = tenantConfigPersistsAcrossRestart({tenantId: `kb-cfg-restart-${Date.now()}`});
+
+        // Pre-restart: the config resolves from the KnowledgeBaseTenantConfig graph node
+        // setTenantConfig just wrote.
+        expect(outcome.beforeRestart).toMatchObject({
+            source           : 'graph',
+            version          : 1,
+            useDefaultSources: false,
+            customParsers    : [{parserId: 'restart-probe'}]
+        });
+
+        // Post-restart: the in-memory graph cache was cleared, so this read reloaded the
+        // node from memory-core-graph.sqlite — the config still resolves from the graph
+        // tier, proving on-disk persistence across a restart.
+        expect(outcome.afterRestart).toMatchObject({
+            source           : 'graph',
+            version          : 1,
+            useDefaultSources: false,
+            customParsers    : [{parserId: 'restart-probe'}]
+        });
     });
 });
