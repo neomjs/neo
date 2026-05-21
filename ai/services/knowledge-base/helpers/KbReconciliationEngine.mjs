@@ -26,7 +26,9 @@
  * `kb-manifest:<tenantId>`. It is deliberately separate from `KnowledgeBaseTenantConfig`
  * because that config node's `version` is the config-staleness signal above; routine push
  * manifests must not bump it. `diffTenantManifest()` classifies rows whose `metadata.sourcePath`
- * no longer appears in the persisted manifest for their `metadata.repoSlug`.
+ * no longer appears in the persisted manifest for their `metadata.repoSlug`, but only when
+ * the row's `metadata.ingestedAt` is at or before the manifest's `updatedAt` snapshot time.
+ * Rows newer than the manifest are outside that manifest's authority and are skipped.
  *
  * @see ai/daemons/KbReconciliationService.mjs — the daemon that consumes this engine.
  * @see ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs — `getTenantConfig`, the version source.
@@ -124,19 +126,21 @@ export function diffTenantChunks({rows, currentVersion, orphanVersionGap} = {}) 
  *
  * Pure — no I/O, no clock. A row is a **manifest orphan** when all of the following are true:
  * the row has a `metadata.repoSlug`, the tenant has a persisted manifest for that repo, the
- * row has a string `metadata.sourcePath`, and that path is absent from the persisted
- * `pathsAfterPush` set. Every manifest orphan is immediately actionable: unlike config
- * staleness, there is no version-gap grace once the tenant's claimed current path set no
- * longer includes the row.
+ * row has a finite numeric `metadata.ingestedAt`, the persisted manifest has a finite numeric
+ * `updatedAt`, the row was ingested at or before that manifest snapshot, the row has a string
+ * `metadata.sourcePath`, and that path is absent from the persisted `pathsAfterPush` set.
+ * Every manifest orphan inside the manifest's authority window is immediately actionable:
+ * unlike config staleness, there is no version-gap grace once the tenant's claimed current
+ * path set no longer includes the row.
  *
  * Edge cases are fail-safe: malformed manifest maps, repos with no persisted manifest, and
- * rows missing `repoSlug` / `sourcePath` are skipped so the daemon never tombstones without a
- * claimed baseline.
+ * rows missing `repoSlug` / `sourcePath` / `ingestedAt` are skipped so the daemon never
+ * tombstones without a claimed baseline and freshness boundary.
  *
  * @param {Object} params
  * @param {Array<{id: String, metadata: Object}>} params.rows Tenant Chroma rows.
- * @param {Object<String, {pathsAfterPush: Array<String>}|Array<String>>} params.manifestsByRepo Persisted repo manifests.
- * @returns {{manifestOrphans: Array<{id: String, repoSlug: String, sourcePath: String}>, orphanCount: Number, actionableIds: Array<String>, actionableCount: Number}}
+ * @param {Object<String, {pathsAfterPush: Array<String>, updatedAt: Number}>} params.manifestsByRepo Persisted repo manifests.
+ * @returns {{manifestOrphans: Array<{id: String, repoSlug: String, sourcePath: String, ingestedAt: Number, manifestUpdatedAt: Number}>, orphanCount: Number, actionableIds: Array<String>, actionableCount: Number}}
  */
 export function diffTenantManifest({rows, manifestsByRepo} = {}) {
     const manifestOrphans = [];
@@ -146,32 +150,38 @@ export function diffTenantManifest({rows, manifestsByRepo} = {}) {
         return {manifestOrphans, orphanCount: 0, actionableIds, actionableCount: 0};
     }
 
-    const pathSets = new Map();
+    const manifests = new Map();
 
     for (const [repoSlug, manifest] of Object.entries(manifestsByRepo)) {
-        const paths = Array.isArray(manifest) ? manifest : manifest?.pathsAfterPush;
+        const paths     = manifest?.pathsAfterPush,
+              updatedAt = manifest?.updatedAt;
 
-        if (typeof repoSlug !== 'string' || !repoSlug || !Array.isArray(paths)) {
+        if (typeof repoSlug !== 'string' || !repoSlug || !Array.isArray(paths) || !Number.isFinite(updatedAt)) {
             continue;
         }
 
-        pathSets.set(repoSlug, new Set(paths.filter(path => typeof path === 'string' && path.length > 0)));
+        manifests.set(repoSlug, {
+            pathSet: new Set(paths.filter(path => typeof path === 'string' && path.length > 0)),
+            updatedAt
+        });
     }
 
-    if (pathSets.size === 0) {
+    if (manifests.size === 0) {
         return {manifestOrphans, orphanCount: 0, actionableIds, actionableCount: 0};
     }
 
     for (const row of rows) {
         const repoSlug   = row?.metadata?.repoSlug,
               sourcePath = row?.metadata?.sourcePath,
-              pathSet    = pathSets.get(repoSlug);
+              ingestedAt = row?.metadata?.ingestedAt,
+              manifest   = manifests.get(repoSlug);
 
-        if (!pathSet || typeof sourcePath !== 'string' || !sourcePath || pathSet.has(sourcePath)) {
+        if (!manifest || typeof sourcePath !== 'string' || !sourcePath || !Number.isFinite(ingestedAt) ||
+            ingestedAt > manifest.updatedAt || manifest.pathSet.has(sourcePath)) {
             continue;
         }
 
-        manifestOrphans.push({id: row.id, repoSlug, sourcePath});
+        manifestOrphans.push({id: row.id, repoSlug, sourcePath, ingestedAt, manifestUpdatedAt: manifest.updatedAt});
         actionableIds.push(row.id);
     }
 

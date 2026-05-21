@@ -47,7 +47,17 @@ test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
     let originals = {};
 
     /** Builds a tenant Chroma row in the `getTenantRows` shape. */
-    const row = (id, v) => ({id, metadata: {tenantConfigVersion: v, repoSlug: 'repo-x', tenantId: 'tenant-x'}});
+    const row = (id, v, metadata = {}) => ({
+        id,
+        metadata: {
+            tenantConfigVersion: v,
+            ingestedAt          : 1000,
+            repoSlug           : 'repo-x',
+            sourcePath         : 'src/' + id + '.js',
+            tenantId           : 'tenant-x',
+            ...metadata
+        }
+    });
 
     test.beforeAll(async () => {
         ({default: KbReconciliationService, DEFAULT_INTERVAL_MS} =
@@ -97,9 +107,9 @@ test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
 
     /** Deterministic seam baseline — `scheduleNext` neutralized so no real timer leaks. */
     function applyStubs({config} = {}) {
-        KbReconciliationService.getKbConfig         = () => config || {reconciliationEnabled: true};
+        KbReconciliationService.getKbConfig          = () => config || {reconciliationEnabled: true};
         KbReconciliationService.fetchTenantManifests = async () => ({});
-        KbReconciliationService.scheduleNext        = function () {};
+        KbReconciliationService.scheduleNext         = function () {};
     }
 
     test.describe('start / stop', () => {
@@ -258,10 +268,10 @@ test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
                 version: 0,
                 rows: [
                     row('live', 0),
-                    {id: 'manifest-orphan', metadata: {tenantConfigVersion: 0, tenantId: 'tenant-x', repoSlug: 'repo-x', sourcePath: 'src/orphan.js'}}
+                    row('manifest-orphan', 0, {sourcePath: 'src/orphan.js'})
                 ],
                 manifestsByRepo: {
-                    'repo-x': {pathsAfterPush: ['src/live.js']}
+                    'repo-x': {pathsAfterPush: ['src/live.js'], updatedAt: 2000}
                 }
             });
             let tombstoned = 0;
@@ -305,12 +315,12 @@ test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
             wireTenant({
                 version: 5,
                 rows: [
-                    {id: 'overlap', metadata: {tenantConfigVersion: 1, tenantId: 'tenant-x', repoSlug: 'repo-x', sourcePath: 'src/old.js'}},
-                    {id: 'manifest-only', metadata: {tenantConfigVersion: 5, tenantId: 'tenant-x', repoSlug: 'repo-x', sourcePath: 'src/removed.js'}},
+                    row('overlap', 1, {sourcePath: 'src/old.js'}),
+                    row('manifest-only', 5, {sourcePath: 'src/removed.js'}),
                     row('live', 5)
                 ],
                 manifestsByRepo: {
-                    'repo-x': {pathsAfterPush: ['src/live.js']}
+                    'repo-x': {pathsAfterPush: ['src/live.js'], updatedAt: 2000}
                 }
             });
             const deleted = [];
@@ -326,10 +336,40 @@ test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
             expect(metrics[0].diff).toMatchObject({
                 staleCount         : 1,
                 manifestOrphanCount: 2,
-                totalOrphanCount   : 3,
+                totalOrphanCount   : 2,
                 actionableCount    : 2
             });
             expect(metrics[0].tombstonedCount).toBe(2);
+        });
+
+        test('auto-tombstone ON skips manifest-missing rows newer than the manifest snapshot (#11711)', async () => {
+            applyStubs();
+            wireTenant({
+                version: 0,
+                rows: [
+                    row('old-orphan', 0, {sourcePath: 'src/old.js', ingestedAt: 1000}),
+                    row('newer-row', 0, {sourcePath: 'src/new.js', ingestedAt: 3000}),
+                    row('live', 0)
+                ],
+                manifestsByRepo: {
+                    'repo-x': {pathsAfterPush: ['src/live.js'], updatedAt: 2000}
+                }
+            });
+            const deleted = [];
+            KbReconciliationService.tombstoneOrphans = async (collection, ids) => { deleted.push(...ids); return ids.length };
+            const metrics = [];
+            KbReconciliationService.recordReconcileMetric = (m) => { metrics.push(m) };
+
+            await KbReconciliationService.reconcileTenant({
+                tenantId: 'tenant-x', repoSlug: 'repo-x', collection: {}, orphanVersionGap: 2, autoTombstone: true
+            });
+
+            expect(deleted).toEqual(['old-orphan']);
+            expect(metrics[0].diff).toMatchObject({
+                manifestOrphanCount: 1,
+                totalOrphanCount   : 1,
+                actionableIds      : ['old-orphan']
+            });
         });
 
         test('auto-tombstone ON but every orphan within grace issues no delete', async () => {

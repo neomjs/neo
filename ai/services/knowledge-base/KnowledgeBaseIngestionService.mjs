@@ -474,9 +474,12 @@ class KnowledgeBaseIngestionService extends Base {
     /**
      * @summary Persists one repo's post-push claimed-state manifest without bumping config version (#11711).
      *
-     * RLS: writes still pass through {@link resolveTenantContext}; the graph node is marked
-     * `visibility:'team'` because the offline reconciliation daemon has no request context but
-     * must read the manifest to produce tenant-scoped Chroma deletes.
+     * RLS: writes still pass through {@link resolveTenantContext}. `GraphService.upsertNode`
+     * stamps `properties.userId` when a request-scoped identity is active, while
+     * `GraphService.getNodeRecord` exposes ownerless, owned, shared, or `visibility:'team'`
+     * nodes. Manifest writes can originate from request-authored ingestion pushes and are later
+     * read by the offline reconciliation daemon with no request context, so `visibility:'team'`
+     * is the explicit shared-read marker for this sibling node.
      *
      * @param {Object} data
      * @param {String} data.tenantId Tenant id.

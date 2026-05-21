@@ -306,7 +306,7 @@ class KbReconciliationService extends Base {
     /**
      * @summary Test-stubbable seam — reads the persisted claimed-state manifests for a tenant (#11711).
      * @param {String} tenantId
-     * @returns {Promise<Object<String, {pathsAfterPush: Array<String>}>>}
+     * @returns {Promise<Object<String, {pathsAfterPush: Array<String>, updatedAt: Number}>>}
      * @protected
      */
     async fetchTenantManifests(tenantId) {
@@ -326,13 +326,17 @@ class KbReconciliationService extends Base {
             ...(configDiff?.actionableIds || []),
             ...(manifestDiff?.actionableIds || [])
         ])];
+        const orphanIds = new Set([
+            ...(configDiff?.staleOrphans || []).map(orphan => orphan.id),
+            ...(manifestDiff?.manifestOrphans || []).map(orphan => orphan.id)
+        ].filter(id => typeof id === 'string' && id.length > 0));
 
         return {
             staleOrphans       : configDiff?.staleOrphans || [],
             manifestOrphans    : manifestDiff?.manifestOrphans || [],
             staleCount         : configDiff?.staleCount || 0,
             manifestOrphanCount: manifestDiff?.orphanCount || 0,
-            totalOrphanCount   : (configDiff?.staleCount || 0) + (manifestDiff?.orphanCount || 0),
+            totalOrphanCount   : orphanIds.size,
             actionableIds,
             actionableCount    : actionableIds.length
         }

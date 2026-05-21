@@ -31,6 +31,7 @@ const row = (id, v, metadata = {}) => ({
     id,
     metadata: {
         tenantConfigVersion: v,
+        ingestedAt          : 1000,
         repoSlug           : 'repo-x',
         tenantId           : 'tenant-x',
         sourcePath         : 'src/' + id + '.js',
@@ -162,12 +163,18 @@ test.describe('KbReconciliationEngine — diffTenantManifest (#11711)', () => {
                 row('other-repo', 5, {repoSlug: 'repo-y', sourcePath: 'src/old.js'})
             ],
             manifestsByRepo: {
-                'repo-x': {pathsAfterPush: ['src/live.js']}
+                'repo-x': {pathsAfterPush: ['src/live.js'], updatedAt: 2000}
             }
         });
 
         expect(diff.orphanCount).toBe(1);
-        expect(diff.manifestOrphans).toEqual([{id: 'orphan', repoSlug: 'repo-x', sourcePath: 'src/old.js'}]);
+        expect(diff.manifestOrphans).toEqual([{
+            id               : 'orphan',
+            repoSlug         : 'repo-x',
+            sourcePath       : 'src/old.js',
+            ingestedAt       : 1000,
+            manifestUpdatedAt: 2000
+        }]);
         expect(diff.actionableIds).toEqual(['orphan']);
         expect(diff.actionableCount).toBe(1);
     });
@@ -179,17 +186,57 @@ test.describe('KbReconciliationEngine — diffTenantManifest (#11711)', () => {
                 row('missing-source', 5, {sourcePath: undefined})
             ],
             manifestsByRepo: {
-                'repo-x': {pathsAfterPush: ['src/live.js']}
+                'repo-x': {pathsAfterPush: ['src/live.js'], updatedAt: 2000}
             }
         });
 
         expect(diff).toEqual({manifestOrphans: [], orphanCount: 0, actionableIds: [], actionableCount: 0});
     });
 
+    test('skips rows that are newer than the persisted manifest snapshot', () => {
+        const diff = diffTenantManifest({
+            rows: [
+                row('old-orphan', 5, {sourcePath: 'src/old.js', ingestedAt: 1000}),
+                row('newer-row', 5, {sourcePath: 'src/new.js', ingestedAt: 3000})
+            ],
+            manifestsByRepo: {
+                'repo-x': {pathsAfterPush: ['src/live.js'], updatedAt: 2000}
+            }
+        });
+
+        expect(diff.orphanCount).toBe(1);
+        expect(diff.manifestOrphans[0]).toMatchObject({
+            id               : 'old-orphan',
+            ingestedAt       : 1000,
+            manifestUpdatedAt: 2000
+        });
+        expect(diff.actionableIds).toEqual(['old-orphan']);
+    });
+
+    test('skips rows without a finite ingestedAt stamp', () => {
+        const diff = diffTenantManifest({
+            rows: [
+                row('missing-ingested', 5, {sourcePath: 'src/missing.js', ingestedAt: undefined}),
+                row('string-ingested', 5, {sourcePath: 'src/string.js', ingestedAt: '1000'}),
+                row('real-orphan', 5, {sourcePath: 'src/old.js', ingestedAt: 1000})
+            ],
+            manifestsByRepo: {
+                'repo-x': {pathsAfterPush: ['src/live.js'], updatedAt: 2000}
+            }
+        });
+
+        expect(diff.orphanCount).toBe(1);
+        expect(diff.actionableIds).toEqual(['real-orphan']);
+    });
+
     test('returns an empty result when manifest input is absent or malformed', () => {
         expect(diffTenantManifest({rows: [row('a', 1)]}).orphanCount).toBe(0);
         expect(diffTenantManifest({rows: [row('a', 1)], manifestsByRepo: []}).orphanCount).toBe(0);
         expect(diffTenantManifest({rows: null, manifestsByRepo: {'repo-x': {pathsAfterPush: []}}}).orphanCount).toBe(0);
+        expect(diffTenantManifest({
+            rows           : [row('a', 1)],
+            manifestsByRepo: {'repo-x': {pathsAfterPush: [], updatedAt: undefined}}
+        }).orphanCount).toBe(0);
     });
 });
 
