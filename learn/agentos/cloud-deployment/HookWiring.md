@@ -6,6 +6,8 @@
 
 A tenant's source content reaches the Knowledge Base through one of two facades. Both call the same `KnowledgeBaseIngestionService.ingestSourceFiles` orchestrator and write to the unified Chroma `knowledge-base` collection — they differ in **who calls them** and in **work-volume policy**.
 
+For the operator-facing decision model — how to choose repo slugs, treat credentials, inventory source families, and decide when to use each facade — read [Tenant Ingestion Model](./TenantIngestionModel.md) first.
+
 | Facade | Caller | Volume policy | Built for |
 |---|---|---|---|
 | `ingest_source_files` | An MCP client of the deployment — an agent in the tenant workspace, or a tenant push-client | Gated — refuses a batch over `mcpSyncMaxChunks` (default 50) | Incremental pushes: a commit's worth of changed files |
@@ -113,6 +115,7 @@ The example combines **tombstones + revision-boundary** — the precise-but-chea
 ## Related
 
 - [Overview](./Overview.md) — the contract split, topology anchor, default-source inheritance.
+- [Tenant Ingestion Model](./TenantIngestionModel.md) — tenant repo identity, credential boundary, source-family inventory, and push-vs-bulk operational flow.
 - [Configuration](./Configuration.md) — `mcpSyncMaxChunks`, `transport`, and the other `aiConfig` keys.
 - [Custom Parsers](./CustomParsers.md) — authoring a parser that turns a tenant file format into `parsed-chunk-v1` records.
 - [Security](./Security.md) — write-side stamping, spoof-rejection, and the parser-execution boundary.
