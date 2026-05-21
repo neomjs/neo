@@ -1,6 +1,6 @@
 # Cloud-Native KB Ingestion — Migration Path
 
-> **Status — Phase 3A invariant scaffold.** This guide describes the *invariant* upgrade story for existing single-repo Neo deployments. The tenant-config persistence shape it references finalizes in #11637 — marked `[Phase 3B — pending]` where relevant.
+> **Status — Phase 3A invariant scaffold.** This guide describes the *invariant* upgrade story for existing single-repo Neo deployments; the tenant-config persistence shape it references is documented in [Configuration](./Configuration.md).
 
 ## The headline: zero-config for existing deployments
 
@@ -37,9 +37,9 @@ The new config keys (`useDefaultSources`, `useDefaultParsers`, `customSources`, 
 - **Zero-config deployments** need no local `config.mjs` edit — the runtime falls through to defaults when a key is absent.
 - **Cloud / tenant-mode deployments** add the keys they need to their local `config.mjs`. A harness restart picks up the change (config modules load once per MCP process).
 
-## Tenant-config persistence `[Phase 3B — pending]`
+## Tenant-config persistence
 
-How a multi-tenant deployment *stores* its per-tenant configuration — the `KnowledgeBaseTenantConfig` graph-node shape, the `kb-config.yaml` bootstrap-vs-canonical semantics, config-version metadata — is defined by #11637 and is **not yet finalized**. This guide will gain a Configuration section once #11637 lands. Until then: a deployment's tenant config is whatever its local `config.mjs` declares; the durable graph-node-backed persistence is the Phase 3B upgrade.
+How a multi-tenant deployment *stores* its per-tenant configuration — the `KnowledgeBaseTenantConfig` graph-node shape, the `kb-config.yaml` bootstrap-vs-canonical semantics, config-version metadata — is defined by #11637 and documented in **[Configuration](./Configuration.md)**. A deployment's tenant config resolves through three tiers: the `kb-config:<tenantId>` graph node → the `kb-config.yaml` bootstrap → the local `config.mjs` defaults.
 
 ## Breaking-change inventory
 
@@ -55,4 +55,4 @@ No deprecations in Phase 0/1. The legacy single-`source`-string chunk metadata i
 
 - [Overview](./Overview.md) — the contract split + default-source inheritance.
 - [Security](./Security.md) — tenant-isolation invariants + spoof-rejection policy choice.
-- #11637 — tenant-config persistence (the Phase 3B Configuration guide depends on it).
+- [Configuration](./Configuration.md) — tenant-config persistence (#11637).

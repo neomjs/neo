@@ -35,7 +35,7 @@ A zero-config Neo deployment behaves identically with or without the cloud-inges
 
 ## Registry contract split — Source vs Parser
 
-- A **Source** locates and reads content from a territory (a directory tree, an external workspace) and emits `parsed-chunk-v1` records.
+- A **Source** locates and reads content from a territory (a directory tree, an external workspace) and emits knowledge chunks into the full-corpus build.
 - A **Parser** transforms a specific file format into chunk content (e.g. a `.proto` parser, an ES5-aware parser).
 
 `SourceRegistry` holds both. Neo's curated Sources auto-register; tenant Sources/Parsers register declaratively via `aiConfig.customSources` / `aiConfig.customParsers` or programmatically via `SourceRegistry.registerSource(...)`. `[Phase 2 — pending]` the runtime wiring that invokes a registered Parser during an ingestion call is built in Phase 2; Phase 0/1B covers the registration API + config pipeline only.
@@ -48,6 +48,6 @@ Neo's own guides, ADRs, skills, and API docs remain in the KB under `tenantId: '
 
 - **[Security](./Security.md)** — tenant-isolation invariants, write-side stamping + spoof-rejection, parser-execution boundary framing, and the KB-as-cache vs MC-as-store recovery model.
 - **[Migration Path](./MigrationPath.md)** — how an existing single-repo Neo deployment upgrades to the cloud-ingestion substrate with zero config changes.
-- `[Phase 3B — pending]` **Configuration** — the tenant-config storage shape (`KnowledgeBaseTenantConfig`, `kb-config.yaml`) finalizes in #11637.
-- `[Phase 3B — pending]` **Custom Sources / Custom Parsers** — authoring guides land once Phase 2 ingestion + parser-execution wiring is stable.
-- `[Phase 3C — pending]` **Hook Wiring** + runnable examples — land once the Phase 2 service + facade payload shapes are frozen.
+- **[Configuration](./Configuration.md)** — the `aiConfig` keys and the `KnowledgeBaseTenantConfig` / `kb-config.yaml` tenant-config storage.
+- **[Custom Sources](./CustomSources.md)** / **[Custom Parsers](./CustomParsers.md)** — authoring a Source for the full-corpus build, or a Parser for the push path.
+- **[Hook Wiring](./HookWiring.md)** — the `ingest_source_files` / `ai:ingest-tenant` facades and git-hook patterns; runnable companions live under [`examples/cloud-deployment/`](../../../examples/cloud-deployment/).
