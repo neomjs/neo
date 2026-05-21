@@ -159,10 +159,6 @@ class SearchService extends Base {
      * @returns {Promise<Object>} The synthesized answer and references.
      */
     async ask({query, type = 'all', limit = 5}) {
-        if (!this.model) {
-            throw new Error('GEMINI_API_KEY is required for RAG features.');
-        }
-
         logger.info(`[SearchService] Processing RAG query: "${query}" (Type: ${type})`);
 
         // 1. Retrieve most relevant files using QueryService's scoring logic
@@ -173,6 +169,10 @@ class SearchService extends Base {
                 answer    : "No relevant documents found in the knowledge base.",
                 references: []
             };
+        }
+
+        if (!this.model) {
+            throw new Error('GEMINI_API_KEY is required for RAG features.');
         }
 
         const references = queryResult.results.map(r => ({
