@@ -364,4 +364,110 @@ test.describe('VectorService.embed — tenant stamping (#11631)', () => {
         expect(tenantAHash).not.toBe(tenantBHash);
         expect(defaultHash).toBe(explicitDefaultHash);
     });
+
+    test('stamps a server-derived ingestedAt timestamp onto chunk metadata (#11712)', async () => {
+        const spy = createSpyCollection();
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        writeFixtureJsonl(fixturePath, [{
+            hash       : 'raw-hash-ingestedat',
+            type       : 'guide',
+            name       : 'IngestedAtDoc',
+            className  : '',
+            description: 'ingestedAt stamping',
+            content    : 'body'
+        }]);
+
+        const before = Date.now();
+        await KB_VectorService.embed(fixturePath);
+        const after  = Date.now();
+
+        const {ingestedAt} = getOnlyRow(spy).metadata;
+
+        expect(typeof ingestedAt).toBe('number');
+        expect(Number.isFinite(ingestedAt)).toBe(true);
+        expect(ingestedAt).toBeGreaterThanOrEqual(before);
+        expect(ingestedAt).toBeLessThanOrEqual(after);
+        expect(warnCalls).toHaveLength(0);
+    });
+
+    test('overwrites a client-supplied ingestedAt and logs diagnostics (#11712)', async () => {
+        const spy = createSpyCollection();
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        writeFixtureJsonl(fixturePath, [{
+            hash       : 'raw-hash-ingestedat-spoof',
+            type       : 'guide',
+            name       : 'IngestedAtSpoofDoc',
+            className  : '',
+            description: 'client ingestedAt spoof',
+            content    : 'body',
+            ingestedAt : 111
+        }]);
+
+        const before = Date.now();
+        await KB_VectorService.embed(fixturePath);
+
+        const row = getOnlyRow(spy);
+
+        // The server stamp (Date.now()) wins over the client-supplied stale value.
+        expect(row.metadata.ingestedAt).not.toBe(111);
+        expect(row.metadata.ingestedAt).toBeGreaterThanOrEqual(before);
+        expect(warnCalls.map(([, details]) => details.field)).toContain('ingestedAt');
+    });
+
+    test('reject mode rejects a client-supplied ingestedAt before Chroma writes (#11712)', async () => {
+        const spy = createSpyCollection();
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+        KB_Config.data.spoofRejectionMode = 'reject';
+
+        writeFixtureJsonl(fixturePath, [{
+            hash       : 'raw-hash-ingestedat-reject',
+            type       : 'guide',
+            name       : 'IngestedAtRejectDoc',
+            className  : '',
+            description: 'client ingestedAt spoof, reject mode',
+            content    : 'body',
+            ingestedAt : 111
+        }]);
+
+        await expect(KB_VectorService.embed(fixturePath)).rejects.toMatchObject({
+            code: 'KB_TENANT_SPOOF_REJECTED'
+        });
+
+        expect(spy.calls.get).toBe(0);
+        expect(spy.calls.upsert).toBe(0);
+        expect(warnCalls).toHaveLength(0);
+    });
+
+    test('a same-content re-push retains the prior ingestedAt — zero-change fast path (#11712)', async () => {
+        const spy = createSpyCollection();
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        const chunk = {
+            hash       : 'raw-hash-repush',
+            type       : 'guide',
+            name       : 'RepushDoc',
+            className  : '',
+            description: 'stable content',
+            content    : 'unchanged body'
+        };
+
+        writeFixtureJsonl(fixturePath, [chunk]);
+        await KB_VectorService.embed(fixturePath);
+
+        const firstIngestedAt = getOnlyRow(spy).metadata.ingestedAt;
+
+        expect(typeof firstIngestedAt).toBe('number');
+        expect(spy.calls.upsert).toBe(1);
+
+        // Re-push byte-identical content: embed()'s zero-change fast path skips the
+        // already-known content-hash ID — no re-upsert, so ingestedAt is NOT refreshed.
+        // ingestedAt marks the actual embed/upsert, not the push attempt.
+        writeFixtureJsonl(fixturePath, [chunk]);
+        await KB_VectorService.embed(fixturePath);
+
+        expect(spy.calls.upsert).toBe(1); // still 1 — the re-push upserted nothing
+        expect(getOnlyRow(spy).metadata.ingestedAt).toBe(firstIngestedAt);
+    });
 });
