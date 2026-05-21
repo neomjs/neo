@@ -97,6 +97,8 @@ const defaultConfig = {
             kbSyncEnabled        : null,
             bridgeDaemonEnabled  : null,
             goldenPathRepoEnrichmentEnabled: null,
+            // Reserved policy placeholder: no runtime consumer yet.
+            // `bridgeDaemonEnabled` is the active scheduler gate for desktop wake delivery.
             wakeDispatchEnabled  : null
         },
         /**
