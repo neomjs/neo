@@ -8,7 +8,8 @@ import {
     LOCAL_AI_CONFIG_FILE,
     loadLocalAiConfig,
     DEFAULT_POLL_INTERVAL_MS,
-    DEFAULT_SUMMARY_SWEEP_INTERVAL_MS
+    DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
+    resolveOrchestratorStartOptions
 } from '../../../../../ai/scripts/orchestrator-daemon.mjs';
 import {
     DEFAULT_MLX_ENABLED,
@@ -220,5 +221,129 @@ test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
 
         expect(loadedPaths).toEqual(['/tmp/local-ai-config.mjs']);
         expect(LOCAL_AI_CONFIG_FILE).toBe(path.resolve(process.cwd(), 'ai/config.mjs'));
+    });
+
+    test('resolves orchestrator intervals from top-level config when env overrides are absent', () => {
+        expect(resolveOrchestratorStartOptions({
+            orchestratorConfig: {
+                deploymentMode: 'local',
+                intervals: {
+                    pollMs          : 11,
+                    summarySweepMs  : 22,
+                    kbSyncMs        : 33,
+                    backupMs        : 44,
+                    primaryDevSyncMs: 55,
+                    dreamMs         : 66,
+                    goldenPathMs    : 77
+                },
+                localOnly: {
+                    primaryDevSyncEnabled: true,
+                    kbSyncEnabled        : true,
+                    bridgeDaemonEnabled  : true,
+                    goldenPathRepoEnrichmentEnabled: true
+                }
+            },
+            env: {}
+        })).toEqual({
+            pollIntervalMs          : 11,
+            summarySweepIntervalMs  : 22,
+            kbSyncIntervalMs        : 33,
+            backupIntervalMs        : 44,
+            primaryDevSyncIntervalMs: 55,
+            dreamIntervalMs         : 66,
+            goldenPathIntervalMs    : 77,
+            primaryDevSyncEnabled   : true,
+            kbSyncEnabled           : true,
+            bridgeDaemonEnabled     : true,
+            goldenPathRepoEnrichmentEnabled: true
+        });
+    });
+
+    test('falls back to maintenance backup cadence when orchestrator cadence omits backupMs', () => {
+        expect(resolveOrchestratorStartOptions({
+            orchestratorConfig: {
+                intervals: {
+                    pollMs: 11
+                }
+            },
+            maintenanceConfig: {
+                backup: {
+                    intervalMs: 88
+                }
+            },
+            env: {}
+        })).toMatchObject({
+            pollIntervalMs  : 11,
+            backupIntervalMs: 88
+        });
+    });
+
+    test('preserves env precedence over config-derived orchestrator options', () => {
+        const options = resolveOrchestratorStartOptions({
+            orchestratorConfig: {
+                deploymentMode: 'cloud',
+                intervals: {
+                    pollMs          : 11,
+                    summarySweepMs  : 22,
+                    kbSyncMs        : 33,
+                    backupMs        : 44,
+                    primaryDevSyncMs: 55
+                }
+            },
+            env: {
+                NEO_ORCHESTRATOR_POLL_INTERVAL_MS            : '100',
+                NEO_SUMMARIZATION_SWEEP_INTERVAL_MS          : '200',
+                NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS         : '300',
+                NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS          : '400',
+                NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS: '500',
+                NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED    : 'false',
+                NEO_ORCHESTRATOR_KB_SYNC_ENABLED             : 'false',
+                NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED       : 'false',
+                NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED: 'false'
+            }
+        });
+
+        expect(options).not.toHaveProperty('pollIntervalMs');
+        expect(options).not.toHaveProperty('summarySweepIntervalMs');
+        expect(options).not.toHaveProperty('kbSyncIntervalMs');
+        expect(options).not.toHaveProperty('backupIntervalMs');
+        expect(options).not.toHaveProperty('primaryDevSyncIntervalMs');
+        expect(options).not.toHaveProperty('primaryDevSyncEnabled');
+        expect(options).not.toHaveProperty('kbSyncEnabled');
+        expect(options).not.toHaveProperty('bridgeDaemonEnabled');
+        expect(options).not.toHaveProperty('goldenPathRepoEnrichmentEnabled');
+    });
+
+    test('disables local-only scheduler lanes for cloud deployments unless explicitly enabled', () => {
+        expect(resolveOrchestratorStartOptions({
+            orchestratorConfig: {
+                deploymentMode: 'cloud',
+                localOnly     : {}
+            },
+            env: {}
+        })).toMatchObject({
+            primaryDevSyncEnabled: false,
+            kbSyncEnabled        : false,
+            bridgeDaemonEnabled  : false,
+            goldenPathRepoEnrichmentEnabled: false
+        });
+
+        expect(resolveOrchestratorStartOptions({
+            orchestratorConfig: {
+                deploymentMode: 'cloud',
+                localOnly: {
+                    primaryDevSyncEnabled: true,
+                    kbSyncEnabled        : true,
+                    bridgeDaemonEnabled  : true,
+                    goldenPathRepoEnrichmentEnabled: true
+                }
+            },
+            env: {}
+        })).toMatchObject({
+            primaryDevSyncEnabled: true,
+            kbSyncEnabled        : true,
+            bridgeDaemonEnabled  : true,
+            goldenPathRepoEnrichmentEnabled: true
+        });
     });
 });

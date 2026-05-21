@@ -10,6 +10,9 @@ const neoRootDir = path.resolve(__dirname, '../');
 // Fallback to neoRootDir if cwd is root (e.g., container/daemon edge cases)
 const projectRoot = process.cwd() === '/' ? neoRootDir : process.cwd();
 
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS  = 24 * HOUR_MS;
+
 /**
  * Top-level configuration object (Tier 1).
  * Defines the core immutable plain-data structures applied universally across all AI/MCP infrastructure.
@@ -62,6 +65,43 @@ const defaultConfig = {
      */
     orchestrator: {
         /**
+         * Deployment profile for Agent OS maintenance ownership.
+         * `local` preserves maintainer-checkout behavior; `cloud` disables local-only
+         * maintenance lanes unless a narrower localOnly override opts them back in.
+         * @type {'local'|'cloud'}
+         */
+        deploymentMode: process.env.NEO_AI_DEPLOYMENT_MODE || 'local',
+        /**
+         * Maintenance-loop intervals consumed by the orchestrator daemon.
+         * Env vars at the daemon boundary retain precedence over these defaults.
+         * @type {Object}
+         */
+        intervals: {
+            pollMs          : 3000,
+            summarySweepMs  : 10 * 60 * 1000,
+            kbSyncMs        : 30 * 60 * 1000,
+            backupMs        : DAY_MS,
+            primaryDevSyncMs: 10 * 60 * 1000,
+            dreamMs         : HOUR_MS,
+            goldenPathMs    : HOUR_MS
+        },
+        /**
+         * Local-only maintenance lane switches. Cloud deployments can disable these
+         * without changing remote graph-backed A2A / Memory Core behavior.
+         * `null` means "use the deployment profile default" (`local` enables,
+         * `cloud` disables); set `true` only when explicitly opting a lane back in.
+         * @type {Object}
+         */
+        localOnly: {
+            primaryDevSyncEnabled: null,
+            kbSyncEnabled        : null,
+            bridgeDaemonEnabled  : null,
+            goldenPathRepoEnrichmentEnabled: null,
+            // Reserved policy placeholder: no runtime consumer yet.
+            // `bridgeDaemonEnabled` is the active scheduler gate for desktop wake delivery.
+            wakeDispatchEnabled  : null
+        },
+        /**
          * Optional local Neo repo roots for the primary-dev-sync lane.
          * Keep the template machine-neutral; set real absolute paths in gitignored
          * `ai/config.mjs` or via `NEO_ORCHESTRATOR_DEV_SYNC_ROOTS`.
@@ -81,6 +121,36 @@ const defaultConfig = {
         mlx: {
             enabled: false,
             model: null
+        }
+    },
+    /**
+     * Agent OS maintenance policy shared by operator scripts and daemons.
+     * @type {Object}
+     */
+    maintenance: {
+        /**
+         * Canonical atomic-bundle backup policy. Bundles remain atomic; per-substrate
+         * retention is intentionally not represented here.
+         * @type {Object}
+         */
+        backup: {
+            intervalMs: DAY_MS,
+            retention: {
+                keepMinimum: 3,
+                maxDays    : 30
+            }
+        },
+        /**
+         * Chroma defrag policy. V1 exposes cadence as operator policy only; no daemon
+         * auto-spawns defrag from this value.
+         * @type {Object}
+         */
+        defrag: {
+            intervalMs: 7 * DAY_MS,
+            snapshotRetention: {
+                keepMinimum: 3,
+                maxDays    : 7
+            }
         }
     },
     /**

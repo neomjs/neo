@@ -219,6 +219,12 @@ export class Orchestrator extends Base {
          */
         kbSyncIntervalMs_: DEFAULT_KB_SYNC_INTERVAL_MS,
         /**
+         * @member {Boolean} kbSyncEnabled_=true
+         * @protected
+         * @reactive
+         */
+        kbSyncEnabled_: true,
+        /**
          * @member {Number} backupIntervalMs_=86400000
          * @protected
          * @reactive
@@ -237,6 +243,12 @@ export class Orchestrator extends Base {
          */
         primaryDevSyncEnabled_: true,
         /**
+         * @member {Boolean} bridgeDaemonEnabled_=true
+         * @protected
+         * @reactive
+         */
+        bridgeDaemonEnabled_: true,
+        /**
          * @member {String[]|String|null} primaryDevSyncRootsConfig_=null
          * @protected
          * @reactive
@@ -254,6 +266,12 @@ export class Orchestrator extends Base {
          * @reactive
          */
         goldenPathIntervalMs_: DEFAULT_GOLDEN_PATH_INTERVAL_MS,
+        /**
+         * @member {Boolean} goldenPathRepoEnrichmentEnabled_=true
+         * @protected
+         * @reactive
+         */
+        goldenPathRepoEnrichmentEnabled_: true,
         /**
          * @member {Object} healthService_=HealthService
          * @protected
@@ -357,10 +375,22 @@ export class Orchestrator extends Base {
             DEFAULT_SUMMARY_SWEEP_INTERVAL_MS
         );
         this.kbSyncIntervalMs       = options.kbSyncIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS, DEFAULT_KB_SYNC_INTERVAL_MS);
+        this.kbSyncEnabled          = options.kbSyncEnabled ?? parseEnabledFlag(
+            process.env.NEO_ORCHESTRATOR_KB_SYNC_ENABLED,
+            true
+        );
         this.backupIntervalMs       = options.backupIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS, DEFAULT_BACKUP_INTERVAL_MS);
         this.primaryDevSyncIntervalMs = options.primaryDevSyncIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS, DEFAULT_PRIMARY_DEV_SYNC_INTERVAL_MS);
         this.primaryDevSyncEnabled  = options.primaryDevSyncEnabled ?? parseEnabledFlag(
             process.env.NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED,
+            true
+        );
+        this.bridgeDaemonEnabled    = options.bridgeDaemonEnabled ?? parseEnabledFlag(
+            process.env.NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED,
+            true
+        );
+        this.goldenPathRepoEnrichmentEnabled = options.goldenPathRepoEnrichmentEnabled ?? parseEnabledFlag(
+            process.env.NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED,
             true
         );
         this.primaryDevSyncRootsConfig = options.primaryDevSyncRootsConfig ?? null;
@@ -806,7 +836,11 @@ export class Orchestrator extends Base {
             healthService: this.healthService
         };
 
-        const continuousTasks = ['chroma', 'bridgeDaemon', 'mlx'];
+        const continuousTasks = [
+            'chroma',
+            ...(this.bridgeDaemonEnabled ? ['bridgeDaemon'] : []),
+            'mlx'
+        ];
         const RESTART_COOLDOWN_MS = 15000;
         for (const taskName of continuousTasks) {
             const state = this.taskStateService.getTaskState(taskName);
@@ -832,6 +866,10 @@ export class Orchestrator extends Base {
         }, executeMaintenanceTask(executeTask), context);
 
         this.cadenceEngine.runIfDue('kbSync', () => {
+            if (!this.kbSyncEnabled) {
+                return null;
+            }
+
             if (this.cadenceEngine.shouldRunIntervalTask({
                 now,
                 lastRunAt : this.taskStateService.getTaskState('kbSync').lastRunAt,
@@ -918,7 +956,9 @@ export class Orchestrator extends Base {
             this.taskStateService.markStarted(taskName, reason.reason);
             this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
             try {
-                await this.goldenPathSynthesizer.synthesizeGoldenPath();
+                await this.goldenPathSynthesizer.synthesizeGoldenPath({
+                    repoEnrichmentEnabled: this.goldenPathRepoEnrichmentEnabled
+                });
                 this.taskStateService.markCompleted(taskName);
                 this.healthService?.recordTaskOutcome?.(taskName, 'completed', { reason, completedAt: new Date().toISOString() });
             } catch (e) {

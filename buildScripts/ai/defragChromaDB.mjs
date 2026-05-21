@@ -3,8 +3,9 @@ import {ChromaClient}  from 'chromadb';
 import {execSync}      from 'child_process';
 import fs              from 'fs-extra';
 import path            from 'path';
-import {fileURLToPath} from 'url';
+import {fileURLToPath, pathToFileURL} from 'url';
 import Neo             from '../../src/Neo.mjs';
+import AiConfig        from '../../ai/config.template.mjs';
 
 /**
  * @summary A generic CLI tool to defragment ChromaDB instances (Knowledge Base & Memory Core).
@@ -56,6 +57,7 @@ import Neo             from '../../src/Neo.mjs';
 const __filename   = fileURLToPath(import.meta.url);
 const __dirname    = path.dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
+export const LOCAL_AI_CONFIG_FILE = path.join(PROJECT_ROOT, 'ai', 'config.mjs');
 
 // Configuration Mapping
 // Maps CLI target names to their respective config files and adapts the config structure
@@ -106,14 +108,54 @@ async function loadConfig(targetName) {
 }
 
 /**
+ * Loads the gitignored Tier-1 AI config for operator-run scripts when present.
+ * @param {Object} [options]
+ * @param {String} [options.configPath=LOCAL_AI_CONFIG_FILE] Config path.
+ * @param {Object} [options.aiConfig=AiConfig] Config singleton.
+ * @param {Object} [options.fsModule=fs] Filesystem seam.
+ * @returns {Promise<Object>}
+ */
+export async function loadTopLevelAiConfig({
+    configPath = LOCAL_AI_CONFIG_FILE,
+    aiConfig   = AiConfig,
+    fsModule   = fs
+} = {}) {
+    if (!await fsModule.pathExists(configPath)) {
+        return {loaded: false, configPath};
+    }
+
+    await aiConfig.load(configPath);
+
+    return {loaded: true, configPath};
+}
+
+/**
+ * Resolves defrag snapshot retention from Tier-1 AI maintenance config.
+ * @param {Object} [options]
+ * @param {Object} [options.aiConfig=AiConfig] Tier-1 AI config.
+ * @returns {Object}
+ */
+export function resolveDefragSnapshotRetention({
+    aiConfig = AiConfig
+} = {}) {
+    return aiConfig.maintenance?.defrag?.snapshotRetention || {};
+}
+
+/**
  * Manages backup retention.
- * Policy: Keep last 3 backups, delete others if older than 7 days.
+ * Policy: Keep the newest `keepMinimum` snapshots, delete older extras after `maxDays`.
  *
  * @param {String} backupDir - The directory containing backups.
+ * @param {Object} [retention] Retention policy.
+ * @param {Number} [retention.keepMinimum=3] Newest snapshots retained unconditionally.
+ * @param {Number} [retention.maxDays=7] Extra snapshots older than this are removed.
  */
-async function cleanOldBackups(backupDir) {
+export async function cleanOldBackups(backupDir, retention = resolveDefragSnapshotRetention()) {
     try {
         if (!await fs.pathExists(backupDir)) return;
+
+        const keepMinimum = Number.isInteger(retention?.keepMinimum) ? retention.keepMinimum : 3;
+        const maxDays     = Number.isFinite(retention?.maxDays) ? retention.maxDays : 7;
 
         const entries = await fs.readdir(backupDir, {withFileTypes: true});
         const backups = entries
@@ -132,12 +174,11 @@ async function cleanOldBackups(backupDir) {
             .filter(b => !isNaN(b.time))
             .sort((a, b) => b.time - a.time); // Newest first
 
-        // Always keep the newest 3
-        const toCheck = backups.slice(3);
-        const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+        const toCheck = backups.slice(keepMinimum);
+        const cutoff  = Date.now() - (maxDays * 24 * 60 * 60 * 1000);
 
         for (const backup of toCheck) {
-            if (backup.time < weekAgo) {
+            if (backup.time < cutoff) {
                 console.log(`   🗑️  Removing old backup: ${backup.name}`);
                 await fs.remove(backup.path);
             }
@@ -218,6 +259,8 @@ async function defragChromaDB() {
     console.log(`🧹 Starting Defragmentation for target: ${targetName}`);
 
     try {
+        await loadTopLevelAiConfig();
+
         const config  = await loadConfig(targetName);
         const DB_PATH = config.path;
 
@@ -254,7 +297,7 @@ async function defragChromaDB() {
         console.log(`   ✅ Pre-nuke snapshot created (defrag-exclusive, not the canonical backup).`);
 
         // 1.1 Cleanup Old Backups
-        await cleanOldBackups(backupRoot);
+        await cleanOldBackups(backupRoot, resolveDefragSnapshotRetention());
 
         // 2. Connect
         console.log(`\n2️⃣  Connecting to ChromaDB...`);
@@ -470,6 +513,8 @@ async function defragChromaDB() {
     }
 }
 
-defragChromaDB().then(() => {
-    process.exit(0);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    defragChromaDB().then(() => {
+        process.exit(0);
+    });
+}
