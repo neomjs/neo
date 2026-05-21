@@ -33,7 +33,7 @@ import {test, expect} from '@playwright/test';
  * saved + restored around each test for the `dispatchA2A` / `dispatchConsole` cases.
  *
  * Covers the #11642 Contract Ledger Evidence columns for channel dispatch (direct-DM,
- * explicit broadcast, invalid-target tolerance, wake vs. audit) and the daemon poll loop;
+ * explicit broadcast, invalid-target rejection, wake vs. audit) and the daemon poll loop;
  * the pure threshold/cooldown logic is covered separately in `KbAlertRuleEngine.spec.mjs`.
  *
  * @see https://github.com/neomjs/neo/issues/11642
@@ -62,11 +62,12 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
         const KBRecorderService = (await import('../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
 
         originals = {
-            addMessage  : MailboxService.addMessage,
-            run         : RequestContextService.run,
-            warn        : logger.warn,
-            error       : logger.error,
-            recorderReady: KBRecorderService.ready
+            addMessage      : MailboxService.addMessage,
+            isReachableTarget: MailboxService.isReachableTarget,
+            run             : RequestContextService.run,
+            warn            : logger.warn,
+            error           : logger.error,
+            recorderReady   : KBRecorderService.ready
         };
 
         // `start()` awaits KBRecorderService.ready() — stub it to resolve immediately.
@@ -90,10 +91,11 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
             delete KbAlertingService[seam];
         }
 
-        MailboxService.addMessage   = originals.addMessage;
-        RequestContextService.run   = originals.run;
-        logger.warn                 = originals.warn;
-        logger.error                = originals.error;
+        MailboxService.addMessage        = originals.addMessage;
+        MailboxService.isReachableTarget = originals.isReachableTarget;
+        RequestContextService.run        = originals.run;
+        logger.warn                      = originals.warn;
+        logger.error                     = originals.error;
     });
 
     /**
@@ -256,8 +258,9 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
         /** Captures `addMessage` payloads + neutralizes the RequestContextService wrapper. */
         function captureA2A() {
             const sent = [];
-            RequestContextService.run = async (ctx, fn) => fn();
-            MailboxService.addMessage = async (args) => { sent.push(args); return {messageId: 'MESSAGE:test'} };
+            RequestContextService.run        = async (ctx, fn) => fn();
+            MailboxService.isReachableTarget = () => true; // tests below use resolvable targets
+            MailboxService.addMessage        = async (args) => { sent.push(args); return {messageId: 'MESSAGE:test'} };
             return sent;
         }
 
@@ -296,6 +299,23 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
 
             expect(sent[0].wakeSuppressed).toBe(true);
             expect(sent[0].priority).toBe('high');
+        });
+
+        test('skips an unresolvable A2A target before dispatch — no addMessage call', async () => {
+            // #11642 Contract Ledger / @neo-gpt PR #11709 review: an unresolvable target
+            // (not a registered @<identity>, not AGENT:*) must be rejected before dispatch.
+            const sent = captureA2A();
+            MailboxService.isReachableTarget = () => false; // simulate an unregistered target
+            const warns = [];
+            logger.warn = (msg) => { warns.push(msg) };
+
+            await KbAlertingService.dispatchA2A({
+                tenantId: 'tenant-x', repoSlug: 'repo-x', metric: 'errorRate', value: 0.3,
+                threshold: 0.1, severity: 'warning', channel: 'a2a:@not-a-real-agent', deliveryMode: 'wake'
+            });
+
+            expect(sent).toHaveLength(0); // MailboxService.addMessage never called
+            expect(warns.some(w => w.includes('unresolvable A2A target'))).toBe(true);
         });
     });
 

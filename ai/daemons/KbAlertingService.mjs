@@ -293,17 +293,29 @@ class KbAlertingService extends Base {
      * The channel spec `a2a:<target>` carries the recipient: a canonical `@<identity>`
      * direct recipient or `AGENT:*` for broadcast. `deliveryMode: 'audit'` maps to
      * `wakeSuppressed: true` (durable mailbox-only, no wake); `'wake'` (the default) emits
-     * a wakeful message. `MailboxService.addMessage` itself rejects an unresolvable target.
+     * a wakeful message. An unresolvable target — neither a registered `@<identity>` nor
+     * `AGENT:*` — is skipped with a `logger.warn` *before* dispatch (via
+     * `MailboxService.isReachableTarget`), so `addMessage` is never reached for it.
      *
      * @param {Object} alert
      * @returns {Promise<void>}
      * @protected
      */
     async dispatchA2A(alert) {
+        const target = alert.channel.slice('a2a:'.length);
+
+        // Reject an unresolvable target BEFORE dispatch (#11642 Contract Ledger; @neo-gpt
+        // PR #11709 Cycle-1 review). A target that is neither a registered `@<identity>`
+        // nor the `AGENT:*` sentinel is skipped with a warn — `MailboxService.addMessage`
+        // is never reached, so a misconfigured rule cannot attempt orphan-target dispatch.
+        if (!MailboxService.isReachableTarget(target)) {
+            logger.warn(`[KbAlertingService] Skipping alert for unresolvable A2A target "${target}" (tenant ${alert.tenantId})`);
+            return
+        }
+
         const
-            target        = alert.channel.slice('a2a:'.length),
             {subject, body} = formatAlertMessage(alert),
-            sender        = process.env.NEO_AGENT_IDENTITY || DEFAULT_SENDER;
+            sender          = process.env.NEO_AGENT_IDENTITY || DEFAULT_SENDER;
 
         await RequestContextService.run({agentIdentityNodeId: sender}, async () => {
             await MailboxService.addMessage({
