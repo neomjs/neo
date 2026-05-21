@@ -124,13 +124,15 @@ class VectorService extends Base {
      * @param {String} [tenantContext.originAgentIdentity] Authenticated agent identity.
      * @param {Number} [tenantContext.configVersion] Active `KnowledgeBaseTenantConfig` version (#11637);
      *                                               stamped onto chunk metadata as `tenantConfigVersion`.
-     * `ingestedAt` (epoch ms, server-stamped at embed time via `Date.now()`) is added
-     * unconditionally — the #11712 retention / GC / reconciliation substrate. A re-push
-     * re-embeds the chunk and re-stamps `ingestedAt`, so the semantics are *last-ingested-at*.
+     * `ingestedAt` (epoch ms, server-stamped via `Date.now()`) is added unconditionally —
+     * the #11712 retention / GC / reconciliation substrate. It marks when the chunk row is
+     * **actually embedded / upserted**: `embed()`'s zero-change fast path skips an unchanged
+     * same-content re-push, so that chunk keeps its prior `ingestedAt` (a content change
+     * yields a *new* chunk row — new content-hash ID — with its own fresh `ingestedAt`).
      * It is purely server-derived (never client-authored), so it is also a
-     * `TENANT_GUARDED_FIELDS` member.
-     * Consumers MUST treat a missing `ingestedAt` (a chunk embedded before #11712) as
-     * unknown-age and fail-safe — never expire / action a chunk with no timestamp.
+     * `TENANT_GUARDED_FIELDS` member. Consumers MUST treat a missing `ingestedAt` (a chunk
+     * embedded before #11712) as unknown-age and fail-safe — never expire / action a chunk
+     * with no timestamp.
      * @returns {{tenantId: String, repoSlug: String, visibility: String, tenantConfigVersion: Number, ingestedAt: Number, originAgentIdentity: String|undefined}}
      */
     resolveTenantStamp(tenantContext = {}) {

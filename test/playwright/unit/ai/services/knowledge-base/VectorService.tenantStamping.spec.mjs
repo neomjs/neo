@@ -439,4 +439,35 @@ test.describe('VectorService.embed — tenant stamping (#11631)', () => {
         expect(spy.calls.upsert).toBe(0);
         expect(warnCalls).toHaveLength(0);
     });
+
+    test('a same-content re-push retains the prior ingestedAt — zero-change fast path (#11712)', async () => {
+        const spy = createSpyCollection();
+        KB_ChromaManager.getKnowledgeBaseCollection = async () => spy;
+
+        const chunk = {
+            hash       : 'raw-hash-repush',
+            type       : 'guide',
+            name       : 'RepushDoc',
+            className  : '',
+            description: 'stable content',
+            content    : 'unchanged body'
+        };
+
+        writeFixtureJsonl(fixturePath, [chunk]);
+        await KB_VectorService.embed(fixturePath);
+
+        const firstIngestedAt = getOnlyRow(spy).metadata.ingestedAt;
+
+        expect(typeof firstIngestedAt).toBe('number');
+        expect(spy.calls.upsert).toBe(1);
+
+        // Re-push byte-identical content: embed()'s zero-change fast path skips the
+        // already-known content-hash ID — no re-upsert, so ingestedAt is NOT refreshed.
+        // ingestedAt marks the actual embed/upsert, not the push attempt.
+        writeFixtureJsonl(fixturePath, [chunk]);
+        await KB_VectorService.embed(fixturePath);
+
+        expect(spy.calls.upsert).toBe(1); // still 1 — the re-push upserted nothing
+        expect(getOnlyRow(spy).metadata.ingestedAt).toBe(firstIngestedAt);
+    });
 });
