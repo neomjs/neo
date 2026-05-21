@@ -869,10 +869,17 @@ class KnowledgeBaseIngestionService extends Base {
      * @summary Persists a tenant's Knowledge Base ingestion config as a versioned graph node (#11637 Phase 2E).
      *
      * Writes the `KnowledgeBaseTenantConfig` node (`kb-config:<tenantId>`); `version` increments on
-     * each mutation. RLS: `resolveTenantContext` rejects a caller mutating another tenant's config
-     * (`KB_INGEST_TENANT_MISMATCH`). The explicit gate is required because `GraphService.upsertNode`
-     * auto-stamps the *caller's* identity onto `properties.userId` — an un-gated cross-tenant write
-     * would silently re-own the node rather than be rejected.
+     * each mutation. RLS — two distinct layers:
+     * - **Write gate:** `resolveTenantContext` rejects a caller mutating another tenant's config
+     *   (`KB_INGEST_TENANT_MISMATCH`). The explicit gate is required because `GraphService.upsertNode`
+     *   auto-stamps the *caller's* identity onto `properties.userId` — an un-gated cross-tenant write
+     *   would silently re-own the node rather than be rejected.
+     * - **Read visibility (#11716):** the node is marked `visibility:'team'` so the offline KB
+     *   reconciliation daemon (#11640) — which reads `getTenantConfig` with no request context —
+     *   can resolve it. `GraphService.getNodeRecord` exposes only ownerless / owner-matched /
+     *   shared / `visibility:'team'` nodes; a request-authored (`userId`-stamped) config node
+     *   without this marker is invisible to the daemon, silently degrading config-staleness
+     *   detection to the default tier. Mirrors the `kb-manifest:<tenantId>` sibling node (#11711).
      * @param {Object} data
      * @param {String} data.tenantId Tenant id.
      * @param {Object} [data.config={}] Config payload — `useDefaultSources` / `useDefaultParsers` /
@@ -899,7 +906,8 @@ class KnowledgeBaseIngestionService extends Base {
                     customSources    : config.customSources || [],
                     customParsers    : config.customParsers || [],
                     sourcePaths      : config.sourcePaths    || {},
-                    version
+                    version,
+                    visibility       : 'team'
                 }
             });
 

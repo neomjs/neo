@@ -505,6 +505,24 @@ test.describe('KnowledgeBaseIngestionService.tenantConfig (#11637)', () => {
         expect(graphStub.store.has('kb-config:tenant-b')).toBe(false);
     });
 
+    test('setTenantConfig stamps visibility:team on the kb-config node for offline daemon reads (#11716)', async () => {
+        await Service.setTenantConfig({tenantId: 'tenant-a', config: {}});
+
+        // `GraphService.upsertNode` stamps the request identity onto `properties.userId`; without an
+        // explicit `visibility:'team'` marker the node is invisible to the offline #11640 reconciliation
+        // daemon (which reads `getTenantConfig` with no request context). The marker is the offline-read
+        // authorization, parallel to the `kb-manifest` sibling node (#11711).
+        const node = graphStub.store.get('kb-config:tenant-a');
+        expect(node.type).toBe('KnowledgeBaseTenantConfig');
+        expect(node.properties.visibility).toBe('team');
+
+        // The marker survives a version-bumping re-write.
+        await Service.setTenantConfig({tenantId: 'tenant-a', config: {useDefaultParsers: false}});
+        const bumped = graphStub.store.get('kb-config:tenant-a');
+        expect(bumped.properties.version).toBe(2);
+        expect(bumped.properties.visibility).toBe('team');
+    });
+
     test('setTenantManifest persists repo manifests without bumping KnowledgeBaseTenantConfig.version (#11711)', async () => {
         await Service.setTenantConfig({tenantId: 'tenant-a', config: {customParsers: [{parserId: 'alpha'}]}});
 
