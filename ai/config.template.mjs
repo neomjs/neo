@@ -84,6 +84,42 @@ const defaultConfig = {
         }
     },
     /**
+     * Knowledge Base operations configuration (Cloud-Native KB Ingestion, Epic #11624).
+     * @type {Object}
+     */
+    knowledgeBase: {
+        /**
+         * Phase 4D (#11642) — operator alert rules. Each entry is
+         * `{metric, threshold, severity, channels, deliveryMode?}`; see the #11642
+         * Contract Ledger. Empty by default — the alerting daemon no-ops with no rules.
+         * @type {Object[]}
+         */
+        alertRules: [],
+        /**
+         * Phase 4D (#11642) — master opt-in for the KB operator-alerting daemon.
+         * Disabled by default; the daemon exits early when false.
+         * @type {Boolean}
+         */
+        alertingEnabled: false,
+        /**
+         * Phase 4D (#11642) — alerting daemon poll interval in ms (default 15 min).
+         * @type {Number}
+         */
+        alertingIntervalMs: 15 * 60 * 1000,
+        /**
+         * Phase 4D (#11642) — per-`(tenant, metric, severity, channel)` hysteresis
+         * cooldown window in ms (default 1 h).
+         * @type {Number}
+         */
+        alertingCooldownMs: 60 * 60 * 1000,
+        /**
+         * Phase 4D (#11642) — rolling look-back window in ms for the per-tenant
+         * telemetry rollup the rule engine evaluates (default 1 h).
+         * @type {Number}
+         */
+        alertWindowMs: 60 * 60 * 1000
+    },
+    /**
      * A dummy embedding function to satisfy ChromaDB when embeddings are provided manually.
      * @returns {Object}
      */
