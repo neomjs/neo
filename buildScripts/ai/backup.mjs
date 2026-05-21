@@ -11,6 +11,7 @@ import {fileURLToPath}  from 'url';
 import Neo              from '../../src/Neo.mjs';
 import * as core        from '../../src/core/_export.mjs';
 import InstanceManager  from '../../src/manager/Instance.mjs';
+import AiConfig         from '../../ai/config.template.mjs';
 import kbConfig         from '../../ai/mcp/server/knowledge-base/config.mjs';
 import mcConfig         from '../../ai/mcp/server/memory-core/config.mjs';
 
@@ -106,6 +107,43 @@ const DEFAULT_CONCEPTS_DIR      = path.join(PROJECT_ROOT, '.neo-ai-data', 'conce
 const DEFAULT_TRAJECTORIES_FILE = path.join(PROJECT_ROOT, '.neo-ai-data', 'datasets', 'rlaif', 'trajectories.jsonl');
 const DEFAULT_SENT_TO_CULL_FILE = path.join(path.dirname(mcConfig.storagePaths.graph), 'sent-to-cull.jsonl');
 const DEFAULT_BACKUP_ROOT       = path.join(PROJECT_ROOT, '.neo-ai-data', 'backups');
+export const LOCAL_AI_CONFIG_FILE = path.join(PROJECT_ROOT, 'ai', 'config.mjs');
+
+/**
+ * Loads the gitignored Tier-1 AI config for operator-run scripts when present.
+ * @param {Object} [options]
+ * @param {String} [options.configPath=LOCAL_AI_CONFIG_FILE] Config path.
+ * @param {Object} [options.aiConfig=AiConfig] Config singleton.
+ * @param {Object} [options.fsModule=fs] Filesystem seam.
+ * @returns {Promise<Object>}
+ */
+export async function loadTopLevelAiConfig({
+    configPath = LOCAL_AI_CONFIG_FILE,
+    aiConfig   = AiConfig,
+    fsModule   = fs
+} = {}) {
+    if (!await fsModule.pathExists(configPath)) {
+        return {loaded: false, configPath};
+    }
+
+    await aiConfig.load(configPath);
+
+    return {loaded: true, configPath};
+}
+
+/**
+ * Resolves atomic-bundle retention from Tier-1 AI config with legacy fallback.
+ * @param {Object} [options]
+ * @param {Object} [options.aiConfig=AiConfig] Tier-1 AI config.
+ * @param {Object} [options.memoryCoreConfig=mcConfig] Memory Core config fallback.
+ * @returns {Object}
+ */
+export function resolveBackupRetention({
+    aiConfig = AiConfig,
+    memoryCoreConfig = mcConfig
+} = {}) {
+    return aiConfig.maintenance?.backup?.retention || memoryCoreConfig.backupRetention || {};
+}
 
 /**
  * Executes a full-substrate backup.
@@ -175,12 +213,10 @@ export async function runBackup({
     subsystems.mailbox = await copyJsonlSource(sentToCullSourceFile, layout.mailbox, logger);
 
     logger.log('[7/7] Applying retention sweep...');
-    // Phase 4 (#11663): operator-configurable retention via `mcConfig.backupRetention`.
-    // Falls through to the legacy hardcoded defaults (`K=3, N_DAYS=30`) when the config
-    // key is absent — pre-#11663 deployments retain identical behavior without operator
-    // action. The atomic-bundle architecture is preserved (per-substrate retention
-    // asymmetry deferred to a follow-up post-Phase-2 per #11628 framing).
-    await cleanOldBackups(DEFAULT_BACKUP_ROOT, logger, mcConfig.backupRetention);
+    await loadTopLevelAiConfig();
+    // Operator-configurable retention comes from Tier-1 AI maintenance policy when
+    // available. Missing keys fall through to legacy Memory Core config/defaults.
+    await cleanOldBackups(DEFAULT_BACKUP_ROOT, logger, resolveBackupRetention());
 
     logger.log('Verifying bundle integrity (row-count parity)...');
     const integrity = await verifyBundleIntegrity(layout, subsystems);

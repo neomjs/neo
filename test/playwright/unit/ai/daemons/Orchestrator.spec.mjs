@@ -56,12 +56,15 @@ function createTestOrchestrator(config = {}) {
         taskStateService_       : TaskStateService,
         summarySweepIntervalMs  : config.summarySweepIntervalMs ?? 600000,
         kbSyncIntervalMs        : config.kbSyncIntervalMs ?? 600000,
+        kbSyncEnabled           : config.kbSyncEnabled ?? true,
         backupIntervalMs        : config.backupIntervalMs ?? 86400000,
         primaryDevSyncIntervalMs: config.primaryDevSyncIntervalMs ?? 600000,
         primaryDevSyncEnabled   : config.primaryDevSyncEnabled ?? false,
+        bridgeDaemonEnabled     : config.bridgeDaemonEnabled ?? true,
         primaryDevSyncRootsConfig: config.primaryDevSyncRootsConfig ?? null,
         dreamIntervalMs         : config.dreamIntervalMs ?? Number.MAX_SAFE_INTEGER,
         goldenPathIntervalMs    : config.goldenPathIntervalMs ?? Number.MAX_SAFE_INTEGER,
+        goldenPathRepoEnrichmentEnabled: config.goldenPathRepoEnrichmentEnabled ?? true,
         healthService           : config.healthService || {recordTaskOutcome() {}},
         summarizationCoordinator: config.summarizationCoordinator || {getDueTask: () => null},
         backupCoordinator       : config.backupCoordinator || {getDueTask: () => null},
@@ -247,6 +250,48 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         }]);
     });
 
+    test('does not schedule kbSync when deployment config disables the local-checkout sync lane', () => {
+        const started = [];
+
+        const orchestrator = createTestOrchestrator({
+            kbSyncEnabled: false
+        });
+
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
+        };
+
+        orchestrator.poll();
+
+        expect(started).toEqual([]);
+    });
+
+    test('does not restart bridge-daemon when deployment config disables local wake delivery', () => {
+        const started = [];
+
+        const orchestrator = createTestOrchestrator({
+            bridgeDaemonEnabled: false,
+            kbSyncEnabled     : false
+        });
+
+        TaskStateService.taskState.bridgeDaemon.running   = false;
+        TaskStateService.taskState.bridgeDaemon.lastRunAt = 0;
+
+        orchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                started.push({taskName, reason});
+                return true;
+            }
+        };
+
+        orchestrator.poll();
+
+        expect(started).toEqual([]);
+    });
+
     test('defers golden path behind active dream graph mutation with explicit reason', () => {
         const logs     = [];
         const outcomes = [];
@@ -307,6 +352,27 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         await Promise.resolve();
 
         expect(calls).toEqual(['golden-path']);
+    });
+
+    test('passes deployment-mode repo enrichment toggle into golden path synthesis', async () => {
+        const calls = [];
+
+        const orchestrator = createTestOrchestrator({
+            kbSyncEnabled: false,
+            goldenPathIntervalMs: 600000,
+            goldenPathRepoEnrichmentEnabled: false,
+            goldenPathSynthesizer: {
+                synthesizeGoldenPath(options) {
+                    calls.push(options);
+                    return Promise.resolve();
+                }
+            }
+        });
+
+        orchestrator.poll();
+        await Promise.resolve();
+
+        expect(calls).toEqual([{repoEnrichmentEnabled: false}]);
     });
 
     test('keeps continuous daemon supervision outside heavy maintenance backpressure', () => {

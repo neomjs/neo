@@ -38,6 +38,24 @@ const PID_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator-daemon.pid');
 const LOG_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator.log');
 export const LOCAL_AI_CONFIG_FILE = fileURLToPath(new URL('../config.mjs', import.meta.url));
 
+const hasEnvValue = (env, key) => env[key] !== undefined && env[key] !== null && env[key] !== '';
+
+function assignConfigInterval(options, key, value, envNames, env) {
+    if (envNames.some(name => hasEnvValue(env, name))) return;
+    if (Number.isFinite(value) && value > 0) {
+        options[key] = value;
+    }
+}
+
+function assignLocalOnlyToggle(options, key, value, envName, deploymentMode, env) {
+    if (hasEnvValue(env, envName)) return;
+    if (typeof value === 'boolean') {
+        options[key] = value;
+    } else if (deploymentMode === 'cloud') {
+        options[key] = false;
+    }
+}
+
 function writeLog(level, message) {
     const timestamp = new Date().toISOString();
     const line      = `[${timestamp}] [PID:${process.pid}] [${level}] ${message}`;
@@ -153,6 +171,87 @@ export async function loadLocalAiConfig({
 }
 
 /**
+ * Resolves daemon start options from the Tier-1 AI config while preserving env precedence.
+ * @param {Object} [options]
+ * @param {Object} [options.orchestratorConfig={}] Top-level `orchestrator` config block.
+ * @param {Object} [options.maintenanceConfig={}] Top-level `maintenance` config block.
+ * @param {Object} [options.env=process.env] Environment source.
+ * @returns {Object}
+ */
+export function resolveOrchestratorStartOptions({
+    orchestratorConfig = {},
+    maintenanceConfig  = {},
+    env                = process.env
+} = {}) {
+    const options   = {};
+    const intervals = orchestratorConfig.intervals || {};
+
+    assignConfigInterval(options, 'pollIntervalMs', intervals.pollMs, ['NEO_ORCHESTRATOR_POLL_INTERVAL_MS'], env);
+    assignConfigInterval(
+        options,
+        'summarySweepIntervalMs',
+        intervals.summarySweepMs,
+        ['NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS', 'NEO_SUMMARIZATION_SWEEP_INTERVAL_MS'],
+        env
+    );
+    assignConfigInterval(options, 'kbSyncIntervalMs', intervals.kbSyncMs, ['NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS'], env);
+    assignConfigInterval(
+        options,
+        'backupIntervalMs',
+        intervals.backupMs ?? maintenanceConfig.backup?.intervalMs,
+        ['NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS'],
+        env
+    );
+    assignConfigInterval(
+        options,
+        'primaryDevSyncIntervalMs',
+        intervals.primaryDevSyncMs,
+        ['NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS'],
+        env
+    );
+    assignConfigInterval(options, 'dreamIntervalMs', intervals.dreamMs, [], env);
+    assignConfigInterval(options, 'goldenPathIntervalMs', intervals.goldenPathMs, [], env);
+
+    const deploymentMode = orchestratorConfig.deploymentMode || 'local';
+    const localOnly      = orchestratorConfig.localOnly || {};
+
+    assignLocalOnlyToggle(
+        options,
+        'primaryDevSyncEnabled',
+        localOnly.primaryDevSyncEnabled,
+        'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED',
+        deploymentMode,
+        env
+    );
+    assignLocalOnlyToggle(
+        options,
+        'kbSyncEnabled',
+        localOnly.kbSyncEnabled,
+        'NEO_ORCHESTRATOR_KB_SYNC_ENABLED',
+        deploymentMode,
+        env
+    );
+    assignLocalOnlyToggle(
+        options,
+        'bridgeDaemonEnabled',
+        localOnly.bridgeDaemonEnabled,
+        'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED',
+        deploymentMode,
+        env
+    );
+    assignLocalOnlyToggle(
+        options,
+        'goldenPathRepoEnrichmentEnabled',
+        localOnly.goldenPathRepoEnrichmentEnabled,
+        'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED',
+        deploymentMode,
+        env
+    );
+
+    return options;
+}
+
+/**
  * Starts the singleton orchestrator daemon.
  * @param {Object} [options] Runtime overrides for tests or process managers.
  * @returns {Promise<void>}
@@ -163,6 +262,7 @@ export async function startOrchestrator(options = {}) {
     setupCleanupHandlers();
     await loadLocalAiConfig();
     const orchestratorConfig = AiConfig.orchestrator || {};
+    const maintenanceConfig  = AiConfig.maintenance || {};
     const mlxConfig          = orchestratorConfig.mlx || {};
     const mlxEnabled         = process.env.NEO_ORCHESTRATOR_MLX_ENABLED !== undefined
         ? undefined
@@ -172,6 +272,7 @@ export async function startOrchestrator(options = {}) {
         primaryDevSyncRootsConfig: orchestratorConfig.devSyncRoots,
         mlxEnabled: mlxEnabled ?? undefined,
         mlxModel  : mlxConfig.model || undefined,
+        ...resolveOrchestratorStartOptions({orchestratorConfig, maintenanceConfig}),
         ...options
     });
 }
