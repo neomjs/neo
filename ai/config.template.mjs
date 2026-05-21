@@ -143,7 +143,40 @@ const defaultConfig = {
          * one full config epoch of grace. Consulted only when `reconciliationAutoTombstone`.
          * @type {Number}
          */
-        reconciliationOrphanVersionGap: 2
+        reconciliationOrphanVersionGap: 2,
+        /**
+         * Phase 4C (#11641) — master opt-in for the KB garbage-collection daemon.
+         * Disabled by default; the daemon exits early when false.
+         * @type {Boolean}
+         */
+        gcEnabled: false,
+        /**
+         * Phase 4C (#11641) — GC daemon poll interval in ms (default 24 h).
+         * @type {Number}
+         */
+        gcIntervalMs: 24 * 60 * 60 * 1000,
+        /**
+         * Phase 4C (#11641) — retention policy: `{maxAgeMs?, maxCount?}`. A chunk is
+         * retention-expired if it is older than `maxAgeMs` (by its `ingestedAt` stamp) OR
+         * ranks beyond the `maxCount` most-recent of its `{tenantId, repoSlug}` bucket.
+         * Empty `{}` (the default) expires nothing — conservative.
+         * @type {Object}
+         */
+        gcRetention: {},
+        /**
+         * Phase 4C (#11641) — opt-in for the destructive GC delete. Disabled by default —
+         * the daemon then detects retention-expired chunks and emits telemetry only,
+         * issuing no `collection.delete`.
+         * @type {Boolean}
+         */
+        gcAutoDelete: false,
+        /**
+         * Phase 4C (#11641) — cumulative-deletion fraction above which a GC tick emits a
+         * `defrag-recommended` signal (operators should then run `ai:defrag-kb`). `0`
+         * disables the signal. V1 emits the signal only — it does not spawn defrag.
+         * @type {Number}
+         */
+        gcDefragThreshold: 0.10
     },
     /**
      * A dummy embedding function to satisfy ChromaDB when embeddings are provided manually.
