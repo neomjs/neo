@@ -65,7 +65,7 @@ npm run ai:ingest-tenant -- <tenantId> (--from-file <path.jsonl> | --from-stdin)
 
 The CLI prints a JSON summary — `{tenantId, ingested, embeddingsGenerated, deleted, batches, parseErrors, errors}` — and exits non-zero if any error was accumulated.
 
-> The CLI submits each batch as a plain `files` array — it does **not** carry `deleted` / `manifestSnapshot` / revision-boundary fields. Bulk imports are initial-load or full-resync; per-push deletion signaling is an `ingest_source_files` concern (see below).
+> The CLI submits each batch as a plain `files` array — it does **not** carry `deleted` / `manifestSnapshot` / revision-boundary fields. Bulk imports are initial-load or full-resync; per-push deletion signaling is an `ingest_source_files` concern (see below). Because every chunk carries `metadata.ingestedAt`, chunks imported by the CLI after the last persisted manifest are outside that manifest's deletion authority; run a later manifest-carrying push or full claimed-state resync when the operator wants to advance the manifest baseline.
 
 ## Deletion signaling
 
@@ -74,10 +74,14 @@ An incremental push carries only *changed* files, so the server cannot infer del
 | Mechanism | Envelope field | Shape | Trade-off |
 |---|---|---|---|
 | Tombstones | `deleted` | `[{sourcePath, repoSlug}]` | Cheap, single-record granular; the client tracks its own deletes |
-| Manifest snapshot | `manifestSnapshot` | `{repoSlug, pathsAfterPush: [...]}` | Robust against missed deletes; O(N) payload in post-push file count |
+| Manifest snapshot | `manifestSnapshot` | `{repoSlug, pathsAfterPush: [...]}` | Robust against missed deletes; O(N) payload in post-push file count; durable baseline for daemon reconciliation |
 | Revision boundary | `baseRevision` + `headRevision` | last-pushed + current SHA | Cheapest signal; the server derives the delete set from the tenant's tracked revision |
 
 When a payload carries more than one, the server applies them in precedence order — revision-boundary computes the expected change set, tombstones extend it, the manifest reconciles surplus chunks as orphans. **Revision-boundary deletion additionally requires Phase 2E tenant config storage** ([#11637](https://github.com/neomjs/neo/issues/11637)): the resolver that maps a SHA range to deleted paths is wired by that phase; until it lands, a revision-boundary-only payload returns `KB_REVISION_BOUNDARY_UNAVAILABLE`, and tombstones + manifest remain the available signals. The full contract is in [`deletion-signaling-contract.md`](../../../ai/services/knowledge-base/parser/deletion-signaling-contract.md).
+
+`manifestSnapshot` is also persisted on the sibling graph node `kb-manifest:<tenantId>` (#11711), keyed by `repoSlug` with its `updatedAt` timestamp. The Phase 4B reconciliation daemon can later classify persisted chunks that are absent from the latest manifest as manifest orphans, but only inside the manifest's freshness window: `metadata.ingestedAt` must be finite and `<= manifest.updatedAt`. Chunks missing `ingestedAt`, or chunks ingested after the manifest was written, are skipped because the manifest cannot speak for content added by a bulk import or a minimal hook after that snapshot.
+
+Enable `reconciliationAutoTombstone` only when the tenant hook topology sends full manifest snapshots at the reconciliation points that should authorize deletes. Tombstone/revision-boundary-only hooks remain safe and cheap; they just should not rely on an older manifest to delete content created after that older manifest until a later manifest-carrying push advances the baseline.
 
 ## Wiring a `pre-push` git hook
 
@@ -96,7 +100,7 @@ The example combines **tombstones + revision-boundary** — the precise-but-chea
 | Hook | Fires | Best mechanism | Notes |
 |---|---|---|---|
 | `pre-push` | once per `git push` | tombstones + revision-boundary | Recommended default — batches a push's commits, SHA range on stdin |
-| `post-commit` | every commit | revision-boundary only | High frequency; keep payloads minimal — let the Phase 4B reconciliation daemon catch drift rather than enumerating a manifest per commit |
+| `post-commit` | every commit | revision-boundary only | High frequency; keep payloads minimal. The Phase 4B reconciliation daemon can catch drift only within the last persisted manifest's freshness window; rows ingested after that manifest are skipped until a later manifest-carrying push advances the baseline. |
 
 ## Error handling — the structured summary
 

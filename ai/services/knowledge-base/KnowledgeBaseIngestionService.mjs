@@ -154,6 +154,12 @@ class KnowledgeBaseIngestionService extends Base {
             summary.ingested   = chunks.length;
             summary.durationMs = Date.now() - startedAt;
 
+            await this.persistManifestSnapshot({
+                manifestSnapshot: payload.manifestSnapshot,
+                tenantContext,
+                summary
+            });
+
             this.recordMetric(summary, tenantContext);
             return summary;
         } catch (error) {
@@ -217,23 +223,15 @@ class KnowledgeBaseIngestionService extends Base {
             }
         }
 
-        if (manifestSnapshot) {
-            const pathsAfterPush = manifestSnapshot.pathsAfterPush;
+        const normalizedManifest = this.normalizeManifestSnapshot({manifestSnapshot, tenantContext, summary});
 
-            if (!Array.isArray(pathsAfterPush)) {
-                summary.errors.push(this.createError({
-                    code   : 'KB_MANIFEST_INVALID',
-                    message: '`manifestSnapshot.pathsAfterPush` must be an array.'
-                }));
-            } else {
-                const repoSlug = manifestSnapshot.repoSlug || tenantContext.repoSlug;
-                const livePaths = new Set(pathsAfterPush);
-                const rows = await this.getTenantRows(collection, tenantContext.tenantId);
+        if (normalizedManifest) {
+            const livePaths = new Set(normalizedManifest.pathsAfterPush);
+            const rows = await this.getTenantRows(collection, tenantContext.tenantId);
 
-                rows
-                    .filter(row => row.metadata.repoSlug === repoSlug && !livePaths.has(row.metadata.sourcePath))
-                    .forEach(row => ids.add(row.id));
-            }
+            rows
+                .filter(row => row.metadata.repoSlug === normalizedManifest.repoSlug && !livePaths.has(row.metadata.sourcePath))
+                .forEach(row => ids.add(row.id));
         }
 
         if (ids.size === 0) return 0;
@@ -418,6 +416,190 @@ class KnowledgeBaseIngestionService extends Base {
         } while ((batch.ids?.length || 0) === limit);
 
         return rows;
+    }
+
+    /**
+     * @summary Reads the persisted claimed-state manifests for one tenant (#11711).
+     *
+     * The sibling `kb-manifest:<tenantId>` graph node stores push-manifest state outside
+     * `KnowledgeBaseTenantConfig`: config `version` is the #11640 staleness signal and must
+     * not increment on routine pushes. Missing or RLS-hidden nodes resolve to an empty map so
+     * reconciliation never actions rows without a claimed baseline.
+     *
+     * @param {Object}  data
+     * @param {String} [data.tenantId] Tenant id.
+     * @returns {Promise<Object<String, {repoSlug: String, pathsAfterPush: Array<String>, updatedAt: Number}>>}
+     */
+    async getTenantManifests({tenantId} = {}) {
+        const {tenantId: resolvedTenant} = this.resolveTenantContext({tenantId});
+
+        await this.graphService.initAsync();
+
+        const record = this.graphService.getNodeRecord({id: `kb-manifest:${resolvedTenant}`}),
+              source = record?.properties?.manifests;
+
+        if (!source || typeof source !== 'object' || Array.isArray(source)) {
+            return {};
+        }
+
+        return Object.fromEntries(Object.entries(source)
+            .map(([repoSlug, manifest]) => {
+                const paths = this.normalizeManifestPaths(manifest?.pathsAfterPush);
+                return paths ? [repoSlug, {repoSlug, pathsAfterPush: paths, updatedAt: manifest.updatedAt || 0}] : null;
+            })
+            .filter(Boolean));
+    }
+
+    /**
+     * @summary Reads one persisted tenant/repo claimed-state manifest (#11711).
+     * @param {Object} data
+     * @param {String} data.tenantId Tenant id.
+     * @param {String} data.repoSlug Repo slug.
+     * @returns {Promise<{tenantId: String, repoSlug: String, source: String, pathsAfterPush: Array<String>, updatedAt: Number}>}
+     */
+    async getTenantManifest({tenantId, repoSlug} = {}) {
+        const {tenantId: resolvedTenant, repoSlug: resolvedRepo} = this.resolveTenantContext({tenantId, repoSlug});
+        const manifests = await this.getTenantManifests({tenantId: resolvedTenant});
+        const manifest  = manifests[resolvedRepo];
+
+        return {
+            tenantId      : resolvedTenant,
+            repoSlug      : resolvedRepo,
+            source        : manifest ? 'graph' : 'empty',
+            pathsAfterPush: manifest?.pathsAfterPush || [],
+            updatedAt     : manifest?.updatedAt || 0
+        };
+    }
+
+    /**
+     * @summary Persists one repo's post-push claimed-state manifest without bumping config version (#11711).
+     *
+     * RLS: writes still pass through {@link resolveTenantContext}. `GraphService.upsertNode`
+     * stamps `properties.userId` when a request-scoped identity is active, while
+     * `GraphService.getNodeRecord` exposes ownerless, owned, shared, or `visibility:'team'`
+     * nodes. Manifest writes can originate from request-authored ingestion pushes and are later
+     * read by the offline reconciliation daemon with no request context, so `visibility:'team'`
+     * is the explicit shared-read marker for this sibling node.
+     *
+     * @param {Object} data
+     * @param {String} data.tenantId Tenant id.
+     * @param {String} data.repoSlug Repo slug.
+     * @param {Array<String>} data.pathsAfterPush Post-push source-path set.
+     * @returns {Promise<{tenantId: String, repoSlug: String, pathsAfterPush: Array<String>, updatedAt: Number}|{error: String, code: String, message: String}>}
+     */
+    async setTenantManifest({tenantId, repoSlug, pathsAfterPush} = {}) {
+        try {
+            const tenantContext = this.resolveTenantContext({tenantId, repoSlug}),
+                  paths         = this.normalizeManifestPaths(pathsAfterPush);
+
+            if (!paths) {
+                return {
+                    error  : 'Tenant manifest write failed',
+                    code   : 'KB_TENANT_MANIFEST_INVALID',
+                    message: '`pathsAfterPush` must be an array.'
+                };
+            }
+
+            await this.graphService.initAsync();
+
+            const nodeId    = `kb-manifest:${tenantContext.tenantId}`,
+                  existing  = this.graphService.getNodeRecord({id: nodeId}),
+                  manifests = {...(existing?.properties?.manifests || {})},
+                  updatedAt = Date.now();
+
+            manifests[tenantContext.repoSlug] = {
+                repoSlug       : tenantContext.repoSlug,
+                pathsAfterPush : paths,
+                updatedAt
+            };
+
+            await this.graphService.upsertNode({
+                id        : nodeId,
+                type      : 'KnowledgeBaseTenantManifest',
+                properties: {
+                    tenantId  : tenantContext.tenantId,
+                    manifests,
+                    updatedAt,
+                    visibility: 'team'
+                }
+            });
+
+            return {tenantId: tenantContext.tenantId, repoSlug: tenantContext.repoSlug, pathsAfterPush: paths, updatedAt};
+        } catch (error) {
+            return {
+                error  : 'Tenant manifest write failed',
+                code   : error.code || 'KB_TENANT_MANIFEST_WRITE_FAILED',
+                message: error.message
+            };
+        }
+    }
+
+    /**
+     * @summary Best-effort persistence hook for the push manifest already consumed by deletion signaling (#11711).
+     * @param {Object} options
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async persistManifestSnapshot({manifestSnapshot, tenantContext, summary}) {
+        const normalized = this.normalizeManifestSnapshot({manifestSnapshot, tenantContext});
+
+        if (!normalized) {
+            return;
+        }
+
+        const result = await this.setTenantManifest({
+            tenantId       : tenantContext.tenantId,
+            repoSlug       : normalized.repoSlug,
+            pathsAfterPush : normalized.pathsAfterPush
+        });
+
+        if (result?.error) {
+            summary.errors.push(this.createError({
+                code   : result.code,
+                message: result.message
+            }));
+        }
+    }
+
+    /**
+     * @summary Normalizes a caller-provided manifest snapshot into deterministic repo/path-set form.
+     * @param {Object} options
+     * @returns {{repoSlug: String, pathsAfterPush: Array<String>}|null}
+     * @protected
+     */
+    normalizeManifestSnapshot({manifestSnapshot, tenantContext, summary}) {
+        if (!manifestSnapshot) {
+            return null;
+        }
+
+        const pathsAfterPush = this.normalizeManifestPaths(manifestSnapshot.pathsAfterPush);
+
+        if (!pathsAfterPush) {
+            summary?.errors.push(this.createError({
+                code   : 'KB_MANIFEST_INVALID',
+                message: '`manifestSnapshot.pathsAfterPush` must be an array.'
+            }));
+            return null;
+        }
+
+        return {
+            repoSlug: manifestSnapshot.repoSlug || tenantContext.repoSlug,
+            pathsAfterPush
+        };
+    }
+
+    /**
+     * @summary Converts a manifest path array into a stable unique string set.
+     * @param {*} pathsAfterPush Raw manifest path list.
+     * @returns {Array<String>|null}
+     * @protected
+     */
+    normalizeManifestPaths(pathsAfterPush) {
+        if (!Array.isArray(pathsAfterPush)) {
+            return null;
+        }
+
+        return [...new Set(pathsAfterPush.filter(path => typeof path === 'string' && path.length > 0))].sort();
     }
 
     /**

@@ -22,6 +22,14 @@
  * each tenant's Chroma rows, calls this engine, emits Phase 4A telemetry, and (opt-in) issues
  * the `collection.delete`. This module only *classifies*.
  *
+ * **The V1.x manifest signal.** #11711 adds a sibling claimed-state manifest per tenant:
+ * `kb-manifest:<tenantId>`. It is deliberately separate from `KnowledgeBaseTenantConfig`
+ * because that config node's `version` is the config-staleness signal above; routine push
+ * manifests must not bump it. `diffTenantManifest()` classifies rows whose `metadata.sourcePath`
+ * no longer appears in the persisted manifest for their `metadata.repoSlug`, but only when
+ * the row's `metadata.ingestedAt` is at or before the manifest's `updatedAt` snapshot time.
+ * Rows newer than the manifest are outside that manifest's authority and are skipped.
+ *
  * @see ai/daemons/KbReconciliationService.mjs — the daemon that consumes this engine.
  * @see ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs — `getTenantConfig`, the version source.
  * @see ai/services/knowledge-base/VectorService.mjs — `resolveTenantStamp`, the `tenantConfigVersion` stamp.
@@ -114,24 +122,98 @@ export function diffTenantChunks({rows, currentVersion, orphanVersionGap} = {}) 
 }
 
 /**
+ * @summary Classifies one tenant's Chroma rows into claimed-manifest orphans (#11711).
+ *
+ * Pure — no I/O, no clock. A row is a **manifest orphan** when all of the following are true:
+ * the row has a `metadata.repoSlug`, the tenant has a persisted manifest for that repo, the
+ * row has a finite numeric `metadata.ingestedAt`, the persisted manifest has a finite numeric
+ * `updatedAt`, the row was ingested at or before that manifest snapshot, the row has a string
+ * `metadata.sourcePath`, and that path is absent from the persisted `pathsAfterPush` set.
+ * Every manifest orphan inside the manifest's authority window is immediately actionable:
+ * unlike config staleness, there is no version-gap grace once the tenant's claimed current
+ * path set no longer includes the row.
+ *
+ * Edge cases are fail-safe: malformed manifest maps, repos with no persisted manifest, and
+ * rows missing `repoSlug` / `sourcePath` / `ingestedAt` are skipped so the daemon never
+ * tombstones without a claimed baseline and freshness boundary.
+ *
+ * @param {Object} params
+ * @param {Array<{id: String, metadata: Object}>} params.rows Tenant Chroma rows.
+ * @param {Object<String, {pathsAfterPush: Array<String>, updatedAt: Number}>} params.manifestsByRepo Persisted repo manifests.
+ * @returns {{manifestOrphans: Array<{id: String, repoSlug: String, sourcePath: String, ingestedAt: Number, manifestUpdatedAt: Number}>, orphanCount: Number, actionableIds: Array<String>, actionableCount: Number}}
+ */
+export function diffTenantManifest({rows, manifestsByRepo} = {}) {
+    const manifestOrphans = [];
+    const actionableIds   = [];
+
+    if (!Array.isArray(rows) || !manifestsByRepo || typeof manifestsByRepo !== 'object' || Array.isArray(manifestsByRepo)) {
+        return {manifestOrphans, orphanCount: 0, actionableIds, actionableCount: 0};
+    }
+
+    const manifests = new Map();
+
+    for (const [repoSlug, manifest] of Object.entries(manifestsByRepo)) {
+        const paths     = manifest?.pathsAfterPush,
+              updatedAt = manifest?.updatedAt;
+
+        if (typeof repoSlug !== 'string' || !repoSlug || !Array.isArray(paths) || !Number.isFinite(updatedAt)) {
+            continue;
+        }
+
+        manifests.set(repoSlug, {
+            pathSet: new Set(paths.filter(path => typeof path === 'string' && path.length > 0)),
+            updatedAt
+        });
+    }
+
+    if (manifests.size === 0) {
+        return {manifestOrphans, orphanCount: 0, actionableIds, actionableCount: 0};
+    }
+
+    for (const row of rows) {
+        const repoSlug   = row?.metadata?.repoSlug,
+              sourcePath = row?.metadata?.sourcePath,
+              ingestedAt = row?.metadata?.ingestedAt,
+              manifest   = manifests.get(repoSlug);
+
+        if (!manifest || typeof sourcePath !== 'string' || !sourcePath || !Number.isFinite(ingestedAt) ||
+            ingestedAt > manifest.updatedAt || manifest.pathSet.has(sourcePath)) {
+            continue;
+        }
+
+        manifestOrphans.push({id: row.id, repoSlug, sourcePath, ingestedAt, manifestUpdatedAt: manifest.updatedAt});
+        actionableIds.push(row.id);
+    }
+
+    return {
+        manifestOrphans,
+        orphanCount    : manifestOrphans.length,
+        actionableIds,
+        actionableCount: actionableIds.length
+    };
+}
+
+/**
  * @summary Builds the Phase 4A telemetry `detail` payload for one tenant's reconciliation tick.
  *
  * Pure — kept here (not in the daemon) so the telemetry shape is unit-testable. The daemon
  * passes the returned object straight to `KBRecorderService.recordIngestionMetric`'s `detail`.
  *
  * @param {Object}  params
- * @param {{staleCount: Number, actionableCount: Number}} params.diff  A {@link diffTenantChunks} result.
+ * @param {{staleCount: Number, manifestOrphanCount: Number, actionableCount: Number, totalOrphanCount: Number}} params.diff  Combined reconciliation diff.
  * @param {Number}  params.currentVersion   The tenant's current config version.
  * @param {Boolean} params.autoTombstone    Whether the daemon's auto-tombstone path is enabled.
  * @param {Number} [params.tombstonedCount=0] Chunks actually deleted this tick (`0` when auto-tombstone is off).
- * @returns {{staleCount: Number, actionableCount: Number, tombstonedCount: Number, currentVersion: Number, autoTombstone: Boolean}}
+ * @returns {{staleCount: Number, manifestOrphanCount: Number, totalOrphanCount: Number, actionableCount: Number, tombstonedCount: Number, currentVersion: Number, autoTombstone: Boolean}}
  */
 export function formatReconciliationDetail({diff, currentVersion, autoTombstone, tombstonedCount = 0} = {}) {
     return {
-        staleCount     : diff?.staleCount      ?? 0,
-        actionableCount: diff?.actionableCount ?? 0,
-        tombstonedCount: Number.isFinite(tombstonedCount) ? tombstonedCount : 0,
-        currentVersion : typeof currentVersion === 'number' ? currentVersion : 0,
-        autoTombstone  : autoTombstone === true
+        staleCount         : diff?.staleCount          ?? 0,
+        manifestOrphanCount: diff?.manifestOrphanCount ?? 0,
+        totalOrphanCount   : diff?.totalOrphanCount    ?? diff?.staleCount ?? 0,
+        actionableCount    : diff?.actionableCount     ?? 0,
+        tombstonedCount    : Number.isFinite(tombstonedCount) ? tombstonedCount : 0,
+        currentVersion     : typeof currentVersion === 'number' ? currentVersion : 0,
+        autoTombstone      : autoTombstone === true
     };
 }

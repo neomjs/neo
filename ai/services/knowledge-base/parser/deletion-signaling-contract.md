@@ -44,7 +44,7 @@ Fast, light, single-record-granular. Requires the client (typically a git hook) 
 }
 ```
 
-Robust against missed-delete-signaling (e.g., a hook that skipped tracking deletes). Server reconciles: any Chroma chunk with `metadata.sourcePath` not in `pathsAfterPush` AND `metadata.repoSlug == manifest.repoSlug` is orphaned and queued for deletion (per Phase 4C garbage-collection daemon retention policy). Higher payload cost — O(N) per push where N = post-push file count.
+Robust against missed-delete-signaling (e.g., a hook that skipped tracking deletes). The ingest request applies the manifest to the current payload, and Phase 4B persists the latest claimed-state manifest on `kb-manifest:<tenantId>` for later daemon reconciliation. A daemon-classified manifest orphan must satisfy `metadata.repoSlug == manifest.repoSlug`, `metadata.sourcePath` absent from `pathsAfterPush`, and a freshness guard: finite `metadata.ingestedAt <= manifest.updatedAt`. Rows missing `ingestedAt`, or rows ingested after the manifest was written, are outside that manifest's deletion authority and are skipped. Higher payload cost — O(N) per push where N = post-push file count.
 
 ### 3. Revision boundary
 
@@ -66,8 +66,8 @@ Clients pick the mechanism that fits their workflow:
 | Workflow | Recommended primary | Fallback |
 |---|---|---|
 | Small repos (< 1k files), git-hook-triggered | Manifest snapshot (cheap to enumerate; robust) | Tombstones |
-| Large repos (1k+ files), git-hook-triggered | Tombstones + revision-boundary | Periodic manifest reconciliation (Phase 4B daemon-driven) |
-| Rapid hooks (post-commit fires on every commit) | Revision-boundary only | Periodic manifest reconciliation (Phase 4B daemon-driven) |
+| Large repos (1k+ files), git-hook-triggered | Tombstones + revision-boundary | Periodic manifest-carrying pushes advance the Phase 4B daemon baseline |
+| Rapid hooks (post-commit fires on every commit) | Revision-boundary only | Periodic manifest-carrying pushes advance the Phase 4B daemon baseline |
 
 Phase 3 ([`#11627`](https://github.com/neomjs/neo/issues/11627)) `HookWiring.md` guide documents reference patterns. Phase 3's pre-push hook example demonstrates tombstone + revision-boundary combined.
 

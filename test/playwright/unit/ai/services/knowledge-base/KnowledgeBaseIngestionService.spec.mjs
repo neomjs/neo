@@ -70,6 +70,25 @@ function createSpyCollection(rows = []) {
     };
 }
 
+/**
+ * Minimal in-memory stub of the GraphService surface consumed by tenant config / manifest APIs.
+ * @returns {Object}
+ */
+function createGraphStub() {
+    const store = new Map();
+
+    return {
+        store,
+        async initAsync() {},
+        getNodeRecord({id}) {
+            return store.has(id) ? {...store.get(id)} : null;
+        },
+        async upsertNode({id, type, properties}) {
+            store.set(id, {id, type, properties: {...properties}});
+        }
+    };
+}
+
 test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
     let Service;
     let originals;
@@ -88,6 +107,7 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
 
         originals = {
             chromaManager        : Service.chromaManager,
+            graphService         : Service.graphService,
             getTenantConfig      : Service.getTenantConfig,
             recorderService      : Service.recorderService,
             requestContextService: Service.requestContextService,
@@ -99,6 +119,7 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         Service.chromaManager = {
             getKnowledgeBaseCollection: async () => collection
         };
+        Service.graphService = createGraphStub();
         // ingestSourceFiles resolves the tenant-config version for chunk stamping (#11637);
         // stubbed here so this suite stays focused on ingestion orchestration.
         Service.getTenantConfig = async () => ({version: 0});
@@ -422,25 +443,6 @@ test.describe('KnowledgeBaseIngestionService.tenantConfig (#11637)', () => {
     let originals;
     let graphStub;
 
-    /**
-     * Minimal in-memory stub of the GraphService surface consumed by getTenantConfig / setTenantConfig.
-     * @returns {Object}
-     */
-    function createGraphStub() {
-        const store = new Map();
-
-        return {
-            store,
-            async initAsync() {},
-            getNodeRecord({id}) {
-                return store.has(id) ? {...store.get(id)} : null;
-            },
-            async upsertNode({id, type, properties}) {
-                store.set(id, {id, type, properties: {...properties}});
-            }
-        };
-    }
-
     test.beforeAll(async () => {
         Service = (await import('../../../../../../ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs')).default;
     });
@@ -501,6 +503,51 @@ test.describe('KnowledgeBaseIngestionService.tenantConfig (#11637)', () => {
         expect(result.code).toBe('KB_INGEST_TENANT_MISMATCH');
         expect(result.error).toBe('Tenant config write failed');
         expect(graphStub.store.has('kb-config:tenant-b')).toBe(false);
+    });
+
+    test('setTenantManifest persists repo manifests without bumping KnowledgeBaseTenantConfig.version (#11711)', async () => {
+        await Service.setTenantConfig({tenantId: 'tenant-a', config: {customParsers: [{parserId: 'alpha'}]}});
+
+        const written = await Service.setTenantManifest({
+            tenantId      : 'tenant-a',
+            repoSlug      : 'repo-a',
+            pathsAfterPush: ['src/z.js', 'src/a.js', 'src/a.js']
+        });
+
+        expect(written).toMatchObject({
+            tenantId      : 'tenant-a',
+            repoSlug      : 'repo-a',
+            pathsAfterPush: ['src/a.js', 'src/z.js']
+        });
+
+        const node = graphStub.store.get('kb-manifest:tenant-a');
+        expect(node.type).toBe('KnowledgeBaseTenantManifest');
+        expect(node.properties.visibility).toBe('team');
+        expect(node.properties.manifests['repo-a'].pathsAfterPush).toEqual(['src/a.js', 'src/z.js']);
+
+        const manifest = await Service.getTenantManifest({tenantId: 'tenant-a', repoSlug: 'repo-a'});
+        expect(manifest).toMatchObject({
+            tenantId      : 'tenant-a',
+            repoSlug      : 'repo-a',
+            source        : 'graph',
+            pathsAfterPush: ['src/a.js', 'src/z.js']
+        });
+
+        expect((await Service.getTenantConfig({tenantId: 'tenant-a'})).version).toBe(1);
+    });
+
+    test('setTenantManifest rejects malformed path manifests without writing a graph node (#11711)', async () => {
+        const result = await Service.setTenantManifest({
+            tenantId      : 'tenant-a',
+            repoSlug      : 'repo-a',
+            pathsAfterPush: 'src/a.js'
+        });
+
+        expect(result).toMatchObject({
+            error: 'Tenant manifest write failed',
+            code : 'KB_TENANT_MANIFEST_INVALID'
+        });
+        expect(graphStub.store.has('kb-manifest:tenant-a')).toBe(false);
     });
 
     test('getTenantConfig falls back to the default registry when no graph node exists', async () => {
