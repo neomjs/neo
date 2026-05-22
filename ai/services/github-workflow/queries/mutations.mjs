@@ -300,6 +300,25 @@ export const UPDATE_DISCUSSION_COMMENT = `
 `;
 
 /**
+ * Mutation to update an existing discussion's body.
+ *
+ * Variables required:
+ * - $discussionId: ID! - The global node ID of the discussion to update
+ * - $body: String! - The new discussion body
+ */
+export const UPDATE_DISCUSSION = `
+  mutation UpdateDiscussion($discussionId: ID!, $body: String!) {
+    updateDiscussion(input: {discussionId: $discussionId, body: $body}) {
+      discussion {
+        id
+        url
+        updatedAt
+      }
+    }
+  }
+`;
+
+/**
  * Mutation to update an issue's title and body.
  *
  * Variables required:

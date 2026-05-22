@@ -4,7 +4,7 @@ import GraphqlService    from './GraphqlService.mjs';
 import RepositoryService from './RepositoryService.mjs';
 import logger            from '../../mcp/server/github-workflow/logger.mjs';
 import {GET_REPO_AND_DISCUSSION_CATEGORIES, GET_DISCUSSION_ID} from './queries/discussionQueries.mjs';
-import {CREATE_DISCUSSION, ADD_DISCUSSION_COMMENT, UPDATE_DISCUSSION_COMMENT} from './queries/mutations.mjs';
+import {CREATE_DISCUSSION, ADD_DISCUSSION_COMMENT, UPDATE_DISCUSSION, UPDATE_DISCUSSION_COMMENT} from './queries/mutations.mjs';
 
 const AGENT_ICONS = {
     gemini : '✦',
@@ -20,6 +20,7 @@ const AGENT_ICONS = {
  * Capabilities include:
  * - Creating discussions inside specific categories (default 'Ideas')
  * - Managing discussion comments
+ * - Updating discussion bodies
  *
  * @class Neo.ai.services.github-workflow.DiscussionService
  * @extends Neo.core.Base
@@ -90,7 +91,7 @@ class DiscussionService extends Base {
             const discussion = result.createDiscussion.discussion;
 
             logger.info(`Successfully created GitHub Discussion #${discussion.number}: ${discussion.url}`);
-            
+
             return {
                 discussionNumber: discussion.number,
                 url: discussion.url,
@@ -168,7 +169,7 @@ class DiscussionService extends Base {
             // Use ADD_DISCUSSION_COMMENT mutation
             const result = await GraphqlService.query(ADD_DISCUSSION_COMMENT, { discussionId, body: finalBody });
             const comment = result.addDiscussionComment.comment;
-            
+
             return {
                 message  : `Successfully created comment on discussion #${discussion_number}`,
                 commentId: comment.id,
@@ -252,6 +253,69 @@ class DiscussionService extends Base {
                 };
             }
             return this.updateComment(comment_id, body);
+        }
+    }
+
+    /**
+     * Manages discussion-level operations. Currently supports updating the discussion body,
+     * enabling post-publication corrections without accumulating correction comments.
+     * @param {object} options                    The options object
+     * @param {string} options.action             The action to perform: 'update_body'.
+     * @param {number} options.discussion_number  The number of the discussion to update.
+     * @param {string} options.body               The new Markdown body for the discussion.
+     * @returns {Promise<object>} A promise that resolves to {discussionId, url, updatedAt} or a structured error.
+     */
+    async manageDiscussion({action, discussion_number, body}) {
+        if (action !== 'update_body') {
+            return {
+                error  : 'Bad Request',
+                message: "Invalid action. Must be 'update_body'.",
+                code   : 'INVALID_ARGUMENTS'
+            };
+        }
+
+        if (!discussion_number || !body) {
+            return {
+                error  : 'Bad Request',
+                message: "Missing required argument: 'discussion_number' and 'body' are required for updating a discussion body.",
+                code   : 'MISSING_ARGUMENTS'
+            };
+        }
+
+        try {
+            // Resolve the discussion number to its global node ID
+            const idData = await GraphqlService.query(GET_DISCUSSION_ID, {
+                owner : aiConfig.owner,
+                repo  : aiConfig.repo,
+                number: discussion_number
+            });
+
+            if (!idData.repository.discussion) {
+                return {
+                    error  : 'Not Found',
+                    message: `Could not find discussion #${discussion_number}.`,
+                    code   : 'NOT_FOUND'
+                };
+            }
+
+            const discussionId = idData.repository.discussion.id;
+            const result       = await GraphqlService.query(UPDATE_DISCUSSION, {discussionId, body});
+            const discussion   = result.updateDiscussion.discussion;
+
+            logger.info(`Successfully updated body of GitHub Discussion #${discussion_number}: ${discussion.url}`);
+
+            return {
+                discussionId: discussion.id,
+                url         : discussion.url,
+                updatedAt   : discussion.updatedAt
+            };
+        } catch (error) {
+            logger.error(`Error updating discussion #${discussion_number} body via GraphQL:`, error);
+            return {
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
+            };
         }
     }
 }
