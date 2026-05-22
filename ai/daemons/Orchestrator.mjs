@@ -474,7 +474,7 @@ export class Orchestrator extends Base {
         // NOT crash the Orchestrator — the lane disables itself for this run.
         if (this.swarmHeartbeatEnabled) {
             try {
-                await this.swarmHeartbeatService.initAsync();
+                await this.swarmHeartbeatService.initAsync({pollIntervalMs: this.swarmHeartbeatIntervalMs});
             } catch (e) {
                 this.writeLog('ERROR', `[Orchestrator] Swarm heartbeat init failed; lane disabled this run: ${e.message}`);
                 this.swarmHeartbeatEnabled = false;

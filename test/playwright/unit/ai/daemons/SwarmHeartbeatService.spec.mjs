@@ -81,6 +81,10 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
      * Individual tests override the seams they care about.
      */
     function applyDefaultStubs() {
+        // SwarmHeartbeatService is a Neo singleton — reset the one-time-init flag so each
+        // test starts from a clean lifecycle state regardless of prior-test or cross-file
+        // singleton-state bleed (symmetric with the afterEach reset).
+        SwarmHeartbeatService.isInitialized = false;
         SwarmHeartbeatService.touchLivenessFile = async () => {};
         SwarmHeartbeatService.checkHeartbeatLock = async () => ({active: false, stale: false, ageMs: 0});
         SwarmHeartbeatService.clearHeartbeatLock = async () => {};
