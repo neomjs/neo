@@ -18,6 +18,7 @@
  * @see .agents/skills/session-sunset/references/session-sunset-workflow.md §1
  */
 import { spawn } from 'child_process';
+import { constants as fsConstants } from 'fs';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
@@ -116,6 +117,82 @@ async function resolveClaudeCliPath() {
  */
 function resolveCodexCliPath() {
     return process.env.CODEX_CLI_PATH || 'codex';
+}
+
+/**
+ * @summary Check whether a candidate CLI path exists and is executable.
+ *
+ * @param {string} filePath
+ * @returns {Promise<boolean>}
+ */
+async function fileIsExecutable(filePath) {
+    try {
+        await fs.access(filePath, fsConstants.X_OK);
+        return true;
+    } catch (err) {
+        return false;
+    }
+}
+
+/**
+ * @summary Resolve the first executable match for a command on PATH.
+ *
+ * @param {string} command
+ * @returns {Promise<?string>} Absolute executable path, or `null` when absent.
+ */
+async function findExecutableOnPath(command) {
+    const pathEntries = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
+    const extensions = process.platform === 'win32' && !path.extname(command)
+        ? ['.cmd', '.exe', '.bat', '']
+        : [''];
+
+    for (const entry of pathEntries) {
+        for (const extension of extensions) {
+            const candidate = path.join(entry, `${command}${extension}`);
+            if (await fileIsExecutable(candidate)) return candidate;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * @summary Resolve the Antigravity CLI across host platforms.
+ *
+ * `ANTIGRAVITY_CLI_PATH` is the authoritative override for tests and unusual
+ * installs. Otherwise, macOS uses the known app-bundle path, Windows tries the
+ * common user-local install shape, and every platform falls back to PATH lookup.
+ *
+ * @returns {Promise<string>} Absolute path to an Antigravity CLI executable.
+ */
+async function resolveAntigravityCliPath() {
+    if (process.env.ANTIGRAVITY_CLI_PATH) {
+        if (await fileIsExecutable(process.env.ANTIGRAVITY_CLI_PATH)) return process.env.ANTIGRAVITY_CLI_PATH;
+        throw new Error(`ANTIGRAVITY_CLI_PATH points to missing executable: ${process.env.ANTIGRAVITY_CLI_PATH}`);
+    }
+
+    const candidates = [];
+
+    if (process.platform === 'darwin') {
+        candidates.push('/Applications/Antigravity.app/Contents/Resources/app/bin/antigravity');
+    } else if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
+        candidates.push(
+            path.join(process.env.LOCALAPPDATA, 'Programs', 'Antigravity', 'bin', 'antigravity.cmd'),
+            path.join(process.env.LOCALAPPDATA, 'Programs', 'Antigravity', 'resources', 'app', 'bin', 'antigravity.cmd')
+        );
+    }
+
+    const pathCandidate = await findExecutableOnPath('antigravity');
+    if (pathCandidate) candidates.push(pathCandidate);
+
+    for (const candidate of candidates) {
+        if (await fileIsExecutable(candidate)) return candidate;
+    }
+
+    throw new Error(
+        `Antigravity CLI not found for platform ${process.platform}. ` +
+        'Set ANTIGRAVITY_CLI_PATH to the executable path, or install `antigravity` on PATH.'
+    );
 }
 
 /**
@@ -240,7 +317,9 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
         throw new Error(`Unknown harness target for identity: ${identity}`);
     }
 
-    const adapter = process.platform === 'darwin' ? harnessTarget.adapter : 'tmux';
+    const adapter = harnessTarget.adapter === 'antigravity-cli'
+        ? harnessTarget.adapter
+        : process.platform === 'darwin' ? harnessTarget.adapter : 'tmux';
 
     // Write the inflight lock BEFORE taking action to secure the boot ramp (Issue #10674)
     await writeInflightLock(identity, 'sunset_restart', abandonedCount);
@@ -265,11 +344,10 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
     try {
         if (adapter === 'antigravity-cli') {
             /**
-             * @anchor antigravity-cli-mac-specific
-             * @summary Hardcoded path relies on Mac OS Application Bundle structure.
-             * @todo Abstract for cross-platform execution (Windows/Linux) per Issue #10684.
+             * @anchor antigravity-cli-path-resolution
+             * @summary Cross-platform Antigravity CLI resolution for fresh-session spawn.
              */
-            const cliPath = process.env.ANTIGRAVITY_CLI_PATH || '/Applications/Antigravity.app/Contents/Resources/app/bin/antigravity';
+            const cliPath = await resolveAntigravityCliPath();
             const args = ['chat', '-n', payload];
             await spawnAsync(cliPath, args, identity);
             console.log(`Successfully resumed ${identity} via antigravity-cli`);
