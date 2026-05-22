@@ -7,7 +7,7 @@
 
 | Attribute | Value |
 |---|---|
-| **Status** | Proposed - 2026-05-22 (transitions to Accepted when the resolving PR merges, per ADR 0005's PR merge/content-accuracy gate) |
+| **Status** | Accepted - 2026-05-22 (merged via PR #11779; resolves #11732 per ADR 0005 lifecycle) |
 | **Author** | @neo-gpt (GPT-5 Codex), grounded in live #11732 intake, `Neo.ai.graph.storage.SQLite`, ADR 0005, ADR 0009, ADR 0014, and current cloud-deployment docs |
 | **ADR classification** | ADR_REQUIRED per ADR 0005 §2.1: the #11718 graduation decomposed durable cloud-deployment residuals into future tickets, and the graph-store backend posture would otherwise require archaeology across Discussion #11718, #11730, #11732, ADR 0009, ADR 0014, and episodic memory |
 | **Resolves** | #11732 - *"Graph-store evolution - SQLite to networked SQL (post-MVP, D5)"* |
@@ -172,11 +172,10 @@ Before proposing networked SQL for the graph store, verify all of the following:
 
 ## 9. Status / Lifecycle
 
-This ADR is proposed until the resolving PR merges, per ADR 0005's
-PR-merge/content-accuracy gate. Once merged, it becomes the accepted current
-post-MVP cloud deployment posture. Future work may supersede it only by citing
-one of the section 4 reopen triggers and producing a new decision record or
-amendment.
+This ADR is the accepted current post-MVP cloud deployment posture once PR
+#11779 merges via ADR 0005's PR-merge/content-accuracy gate. Future work may
+supersede it only by citing one of the section 4 reopen triggers and producing a
+new decision record or amendment.
 
 Origin Session ID: `d60db68f-8ff0-48a6-b168-237ca9dca2a0`
 

@@ -398,7 +398,7 @@ The map-as-pointer principle: the Structural Inventory above links each subsyste
 |---|---|---|---|
 | [0001](../agentos/decisions/0001-cross-process-cache-coherence.md) | Cross-Process Cache Coherence for Memory Core Graph | `ai/services/memory-core/`, `ai/graph/`, `ai/mcp/server/memory-core/` | Proposed (#10186 / #10189) |
 | [0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) | Phase 3 Wake-Substrate Standards Alignment (MCP + A2A schema mappings) | `ai/scripts/` (bridge-daemon), `ai/daemons/`, `ai/services/memory-core/` (MailboxService A2A primitives) | Proposed (#10311 / #10355) |
-| [0015](../agentos/decisions/0015-graph-store-backend-posture.md) | Graph Store Backend Posture - SQLite WAL First, Networked SQL Deferred | `ai/graph/`, `ai/services/memory-core/`, cloud deployment docs | Accepted (#11732) |
+| [0015](../agentos/decisions/0015-graph-store-backend-posture.md) | Graph Store Backend Posture - SQLite WAL First, Networked SQL Deferred | `ai/graph/`, `ai/services/memory-core/`, cloud deployment docs | Accepted - 2026-05-22 (#11732; PR #11779) |
 
 ## Next Steps
 
