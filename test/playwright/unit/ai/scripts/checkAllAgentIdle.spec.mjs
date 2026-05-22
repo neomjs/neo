@@ -19,6 +19,7 @@ import {execFileSync} from 'child_process';
 import path           from 'path';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
+import {deriveAllAgentIdleCycleId} from '../../../../../ai/scripts/checkAllAgentIdle.mjs';
 
 /**
  * @summary Validation for Phase 3 Substrate Primitive #10625: All-Agent-Idle Detection.
@@ -55,7 +56,7 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
 
         // 2. Execute script
         const scriptPath = path.resolve(process.cwd(), 'ai/scripts/checkAllAgentIdle.mjs');
-        const output = execFileSync('node', [scriptPath, '12345'], {
+        const output = execFileSync('node', [scriptPath], {
             encoding: 'utf-8',
             env: { 
                 ...process.env, 
@@ -68,7 +69,19 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
 
         // 3. Assert positive signal
         expect(parsed.allIdle).toBe(true);
-        expect(parsed.cycle_id).toBe('12345');
+        expect(parsed.cycle_id).toBe(deriveAllAgentIdleCycleId(
+            ['@neo-test-agent-1', '@neo-test-agent-2'],
+            {
+                '@neo-test-agent-1': {
+                    lastMemTime   : oldTime,
+                    inFlightNudge : false
+                },
+                '@neo-test-agent-2': {
+                    lastMemTime   : oldTime,
+                    inFlightNudge : false
+                }
+            }
+        ));
         expect(parsed.identities.length).toBe(2);
         expect(parsed.details['@neo-test-agent-1'].ageMs).toBeGreaterThan(600000);
         expect(parsed.details['@neo-test-agent-2'].ageMs).toBeGreaterThan(600000);
@@ -107,7 +120,7 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
 
         // 2. Execute script
         const scriptPath = path.resolve(process.cwd(), 'ai/scripts/checkAllAgentIdle.mjs');
-        const output = execFileSync('node', [scriptPath, '12346'], {
+        const output = execFileSync('node', [scriptPath], {
             encoding: 'utf-8',
             env: { 
                 ...process.env, 
@@ -126,7 +139,7 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
     test('checkAllAgentIdle.mjs treats boundary condition (no AGENT_MEMORY rows) as fully idle', async () => {
         // Execute script with an entirely unknown identity set
         const scriptPath = path.resolve(process.cwd(), 'ai/scripts/checkAllAgentIdle.mjs');
-        const output = execFileSync('node', [scriptPath, '12347'], {
+        const output = execFileSync('node', [scriptPath], {
             encoding: 'utf-8',
             env: { 
                 ...process.env, 
@@ -139,8 +152,43 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
 
         // Assert boundary signal
         expect(parsed.allIdle).toBe(true);
+        expect(parsed.cycle_id).toBe(deriveAllAgentIdleCycleId(
+            ['@neo-ghost-agent-1'],
+            {
+                '@neo-ghost-agent-1': {
+                    lastMemTime   : null,
+                    inFlightNudge : false
+                }
+            }
+        ));
         expect(parsed.details['@neo-ghost-agent-1'].lastMemTime).toBeNull();
         expect(parsed.details['@neo-ghost-agent-1'].ageMs).toBe(null); // Infinity JSON encodes to null
+    });
+
+    test('deriveAllAgentIdleCycleId is stable for the same observed all-idle state', () => {
+        const details = {
+            '@neo-test-agent-1': {lastMemTime: '2026-05-22T10:00:00.000Z', inFlightNudge: false},
+            '@neo-test-agent-2': {lastMemTime: '2026-05-22T10:05:00.000Z', inFlightNudge: false}
+        };
+
+        const firstCycleId  = deriveAllAgentIdleCycleId(['@neo-test-agent-2', '@neo-test-agent-1'], details);
+        const secondCycleId = deriveAllAgentIdleCycleId(['@neo-test-agent-1', '@neo-test-agent-2'], details);
+
+        expect(firstCycleId).toBe(secondCycleId);
+    });
+
+    test('deriveAllAgentIdleCycleId rotates when an identity timestamp changes', () => {
+        const initialDetails = {
+            '@neo-test-agent-1': {lastMemTime: '2026-05-22T10:00:00.000Z', inFlightNudge: false},
+            '@neo-test-agent-2': {lastMemTime: '2026-05-22T10:05:00.000Z', inFlightNudge: false}
+        };
+        const updatedDetails = {
+            ...initialDetails,
+            '@neo-test-agent-2': {lastMemTime: '2026-05-22T10:08:00.000Z', inFlightNudge: false}
+        };
+
+        expect(deriveAllAgentIdleCycleId(['@neo-test-agent-1', '@neo-test-agent-2'], initialDetails))
+            .not.toBe(deriveAllAgentIdleCycleId(['@neo-test-agent-1', '@neo-test-agent-2'], updatedDetails));
     });
 
     test('swarm-heartbeat.sh integrates the all-agent-idle detection properly', async () => {
@@ -149,5 +197,6 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
         const allIdleIndex = script.indexOf('checkAllAgentIdle.mjs');
         
         expect(allIdleIndex).toBeGreaterThan(-1);
+        expect(script).not.toContain('local cycle_id=$(date +%s)');
     });
 });
