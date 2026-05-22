@@ -4,8 +4,9 @@ This cookbook is the F1 deployment authority for Epic #11720. It describes the
 current Agent OS deployment baseline, the D0-decided target topology, and the
 handoffs that are still owned by the active #11720 implementation subs.
 
-This is not the day-0 tutorial. The tutorial is tracked separately by #11728.
-For the older shared-KB/MC background and threat model, see
+This is not the day-0 tutorial. The executable first-run path lives in
+[Day-0 Cloud Deployment Tutorial](cloud-deployment/Day0Tutorial.md). For the
+older shared-KB/MC background and threat model, see
 [Shared Deployment MVP](SharedDeployment.md). For the cloud topology decision
 record, see [ADR 0014](decisions/0014-cloud-deployment-topology-and-scheduler-task-taxonomy.md).
 
@@ -234,6 +235,8 @@ the local `kbSync` scheduler lane. Use the
 Runnable ingestion examples live in
 [`examples/cloud-deployment/`](../../examples/cloud-deployment/). They are
 ingestion-contract demonstrations, not production deployment profiles.
+The linear first-run operator path is
+[Day-0 Cloud Deployment Tutorial](cloud-deployment/Day0Tutorial.md).
 
 ## Section 10: Known Gaps and Owner Map
 
@@ -245,7 +248,8 @@ Active #11720 deployment-readiness gaps:
   compose/profile, ingress, persistence, and provider wiring.
 - [#11725](https://github.com/neomjs/neo/issues/11725) - Sub D healthcheck,
   journey proof, and negative cloud-profile assertions.
-- [#11728](https://github.com/neomjs/neo/issues/11728) - Sub F2 day-0 tutorial.
+- [#11728](https://github.com/neomjs/neo/issues/11728) - Sub F2 day-0 tutorial
+  plus Docker-capable fresh-run validation.
 - [#11730](https://github.com/neomjs/neo/issues/11730) - Post-MVP residual
   architecture once #11720 closes.
 - [#11736](https://github.com/neomjs/neo/issues/11736) - Broader deployment

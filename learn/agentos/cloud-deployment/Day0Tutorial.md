@@ -1,0 +1,607 @@
+# Day-0 Cloud Deployment Tutorial
+
+> **Status - MVP first-run tutorial for #11728.** This is the linear PoC path for
+> an external operator or fresh agent. It proves the adoption ladder without
+> requiring private maintainer knowledge. Keep deeper rationale in the
+> [Deployment Cookbook](../DeploymentCookbook.md) and the rest of this guide tree.
+
+## Goal
+
+At the end of this tutorial, a fresh operator has:
+
+1. run a Dockerized remote-MCP healthcheck demo;
+2. connected to Memory Core and Knowledge Base over StreamableHTTP;
+3. queried Neo-shared KB content;
+4. pushed one tenant repo payload through the KB repo-push MCP facade and
+   reviewed the production repo-push client form;
+5. emitted one client-side `parsed-chunk-v1` parser payload;
+6. exercised the bulk/backfill path for work over the MCP volume gate;
+7. identified the backup/redeploy handoff that must be verified before the
+   deployment is treated as durable.
+
+The commands below use local demo endpoints. Replace the URLs, tenant id, repo
+slug, and tokens with deployment values once the same path is run behind Caddy
+or another production ingress.
+
+## Prerequisites
+
+Run from a Neo checkout that contains the cloud deployment profile and
+repo-push client:
+
+```bash
+git clone https://github.com/neomjs/neo.git
+cd neo
+npm install
+```
+
+Required local tools:
+
+| Tool | Check | Expected output |
+|---|---|---|
+| Node.js 24+ | `node --version` | `v24...` |
+| npm | `npm --version` | a version string |
+| Docker Compose | `docker compose version` | a Compose version string |
+
+Failure signatures:
+
+| Signature | Meaning | Fix |
+|---|---|---|
+| `docker: command not found` | Docker is not installed in this environment. | Install Docker Desktop / Docker Engine or run the tutorial on a Docker-capable host. |
+| `Cannot connect to the Docker daemon` | Docker is installed but not running or not accessible. | Start Docker and verify `docker info`. |
+| `npm ERR!` during install | Dependencies are missing or the registry is unavailable. | Retry after network recovery; do not continue with a partial `node_modules`. |
+
+## Milestone 0 - Runnable Remote-MCP Healthcheck Demo
+
+Start the day-0 fixture stack. It uses the same Dockerized topology as the
+integration harness: Chroma, a deterministic OpenAI-compatible embedding mock,
+KB, and MC.
+
+```bash
+export NEO_DAY0_PROJECT="neo-day0"
+
+docker compose \
+  -p "$NEO_DAY0_PROJECT" \
+  -f ai/deploy/docker-compose.test.yml \
+  up --build -d chroma embedding-server kb-server mc-server
+```
+
+Create a tiny local MCP caller that sends the trusted proxy identity header used
+by the fixture:
+
+```bash
+cat > /tmp/day0-call-tool.mjs <<'NODE'
+import fs from 'node:fs';
+import {Client} from '@modelcontextprotocol/sdk/client/index.js';
+import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+
+const [,, baseUrl, identity, toolName, argsFile] = process.argv;
+const args = argsFile ? JSON.parse(fs.readFileSync(argsFile, 'utf8')) : {};
+const transport = new StreamableHTTPClientTransport(new URL('/mcp', baseUrl), {
+  requestInit: {headers: {'X-PREFERRED-USERNAME': identity}}
+});
+const client = new Client({name: 'day0-tutorial', version: '1.0.0'}, {capabilities: {}});
+
+try {
+  await client.connect(transport);
+  const result = await client.callTool({name: toolName, arguments: args});
+  const text = result.content?.find(item => item.type === 'text')?.text;
+  const payload = result.structuredContent || (text ? JSON.parse(text) : result);
+  console.log(JSON.stringify(payload, null, 2));
+  process.exitCode = result.isError ? 1 : 0;
+} finally {
+  await client.close().catch(() => {});
+}
+NODE
+```
+
+The fixture publishes these local endpoints:
+
+| Service | URL |
+|---|---|
+| KB MCP | `http://127.0.0.1:13000/mcp` |
+| MC MCP | `http://127.0.0.1:13001/mcp` |
+| Chroma heartbeat | `http://127.0.0.1:18080/api/v2/heartbeat` |
+
+Call both healthchecks:
+
+```bash
+node /tmp/day0-call-tool.mjs http://127.0.0.1:13000 day0-operator healthcheck
+node /tmp/day0-call-tool.mjs http://127.0.0.1:13001 day0-operator healthcheck
+```
+
+Expected output from each command includes:
+
+```json
+{
+  "status": "healthy"
+}
+```
+
+If Docker is unavailable, the host cannot execute the Docker proof. That is an
+environment blocker, not a Neo deployment result.
+
+For the production profile, the same readiness idea is encoded in
+[`ai/deploy/docker-compose.yml`](../../../ai/deploy/docker-compose.yml): Chroma
+must be healthy before KB and MC start. The day-0 proof above is the operator
+check that the remote KB and MC MCP endpoints themselves answer before the
+deployment is handed to agents.
+
+## Milestone 1 - Memory Core Connection
+
+Use the Memory Core endpoint from Milestone 0 or your deployed public URL.
+
+```bash
+export NEO_MC_MCP_BASE_URL="http://127.0.0.1:13001"
+export NEO_OPERATOR_IDENTITY="day0-operator"
+```
+
+Call the `healthcheck` tool using the same identity header your deployment
+trusts:
+
+```bash
+node /tmp/day0-call-tool.mjs \
+  "$NEO_MC_MCP_BASE_URL" \
+  "$NEO_OPERATOR_IDENTITY" \
+  healthcheck
+```
+
+Expected payload fields:
+
+```json
+{
+  "status": "healthy",
+  "database": {
+    "topology": {
+      "mode": "unified",
+      "resolvedVia": "engines.chroma"
+    }
+  },
+  "providers": {
+    "auth": {
+      "configured": "proxy-header"
+    }
+  }
+}
+```
+
+Then write and query one memory from the same identity:
+
+```bash
+cat > /tmp/day0-memory.json <<'JSON'
+{
+  "prompt": "day-0 tutorial smoke",
+  "thought": "Memory Core write path reached over remote MCP",
+  "response": "memory-core-ok",
+  "agent": "day0-operator"
+}
+JSON
+
+node /tmp/day0-call-tool.mjs \
+  "$NEO_MC_MCP_BASE_URL" \
+  "$NEO_OPERATOR_IDENTITY" \
+  add_memory \
+  /tmp/day0-memory.json
+```
+
+Expected write result includes a memory id. A follow-up query should return
+that memory for the same tenant identity:
+
+```bash
+cat > /tmp/day0-memory-query.json <<'JSON'
+{
+  "query": "day-0 tutorial smoke",
+  "nResults": 3
+}
+JSON
+
+node /tmp/day0-call-tool.mjs \
+  "$NEO_MC_MCP_BASE_URL" \
+  "$NEO_OPERATOR_IDENTITY" \
+  query_raw_memories \
+  /tmp/day0-memory-query.json
+```
+
+Expected result: at least one returned memory includes `memory-core-ok`.
+
+Failure signatures:
+
+| Signature | Meaning | Fix |
+|---|---|---|
+| `401 Unauthorized: Missing proxy identity header` | `NEO_AUTH_TRUST_PROXY_IDENTITY=true` but no trusted identity header reached the MCP server. | Verify ingress header stripping/injection and use the same auth path as real agents. |
+| `database.connected: false` | MC cannot reach Chroma or SQLite graph storage. | Check `NEO_CHROMA_HOST`, `NEO_CHROMA_PORT`, `NEO_MEMORY_DB_PATH`, and container networking. |
+| Missing `database.topology.mode: "unified"` | The deployment is not using the supported unified Chroma topology. | Re-check the compose/profile config against [ADR 0003](../decisions/0003-chroma-topology-unified-only.md). |
+
+## Milestone 2 - Knowledge Base Connection Over Neo-Shared Content
+
+Use the KB endpoint from Milestone 0 or your deployed public URL.
+
+```bash
+export NEO_KB_MCP_BASE_URL="http://127.0.0.1:13000"
+export NEO_KB_MCP_URL="http://127.0.0.1:13000/mcp"
+```
+
+Call the KB `healthcheck` tool:
+
+```bash
+node /tmp/day0-call-tool.mjs \
+  "$NEO_KB_MCP_BASE_URL" \
+  "$NEO_OPERATOR_IDENTITY" \
+  healthcheck
+```
+
+Expected payload fields:
+
+```json
+{
+  "status": "healthy",
+  "database": {
+    "connection": {
+      "connected": true,
+      "collections": {
+        "knowledgeBase": {
+          "exists": true
+        }
+      }
+    }
+  },
+  "features": {
+    "embedding": true
+  }
+}
+```
+
+Then query Neo-shared content:
+
+```bash
+node - <<'NODE' > /tmp/day0-neo-shared.json
+const fs = require('fs');
+const content = fs.readFileSync('learn/agentos/cloud-deployment/TenantIngestionModel.md', 'utf8');
+
+process.stdout.write(JSON.stringify({
+  tenantId: 'neo-shared',
+  repoSlug: 'neo',
+  files: [{
+    sourcePath: 'learn/agentos/cloud-deployment/TenantIngestionModel.md',
+    parsedChunks: [{
+      schemaVersion: '1.0.0',
+      tenantId: 'neo-shared',
+      repoSlug: 'neo',
+      rootKind: 'neo-workspace',
+      sourcePath: 'learn/agentos/cloud-deployment/TenantIngestionModel.md',
+      content,
+      hashInputs: ['kind', 'name', 'content', 'sourcePath', 'parserId', 'parserVersion'],
+      parserId: 'day0-neo-shared-seed',
+      parserVersion: '1.0.0',
+      kind: 'guide',
+      name: 'Tenant Ingestion Model'
+    }]
+  }]
+}));
+NODE
+
+node /tmp/day0-call-tool.mjs \
+  "$NEO_KB_MCP_BASE_URL" \
+  neo-shared \
+  ingest_source_files \
+  /tmp/day0-neo-shared.json
+
+cat > /tmp/day0-kb-query.json <<'JSON'
+{
+  "query": "cloud deployment tenant ingestion model",
+  "type": "guide",
+  "limit": 3
+}
+JSON
+
+node /tmp/day0-call-tool.mjs \
+  "$NEO_KB_MCP_BASE_URL" \
+  "$NEO_OPERATOR_IDENTITY" \
+  ask_knowledge_base \
+  /tmp/day0-kb-query.json
+```
+
+Expected result: a synthesized answer with references that include
+`learn/agentos/cloud-deployment/TenantIngestionModel.md` or a neighboring
+cloud-deployment guide.
+
+Failure signatures:
+
+| Signature | Meaning | Fix |
+|---|---|---|
+| `collection does not exist` | The KB collection was not initialized. | Run the deployed KB sync/import step for Neo-shared content, or inspect KB startup logs. |
+| Empty answer with healthy DB | The curated Neo content is not indexed. | Run the deployment's Neo-shared KB sync before tenant onboarding. |
+| `Tool not found: ask_knowledge_base` | The endpoint is not the KB MCP server. | Verify `/kb/mcp` routing and `NEO_PUBLIC_URL`. |
+
+## Milestone 3 - Tenant Repo Ingestion
+
+Pick a secret-free tenant tuple:
+
+```bash
+export NEO_KB_TENANT_ID="client-org"
+export NEO_KB_REPO_SLUG="acme/app"
+export NEO_KB_INGEST_TOKEN="<repo-push-automation-token>"
+```
+
+Create a small content-bearing envelope:
+
+```bash
+cat > /tmp/day0-envelope.json <<'JSON'
+{
+  "tenantId": "client-org",
+  "repoSlug": "acme/app",
+  "files": [
+    {
+      "sourcePath": "docs/hello.md",
+      "content": "# Hello from the tenant repo\n\nThis chunk proves day-0 tenant ingestion."
+    }
+  ],
+  "deleted": [],
+  "baseRevision": "day0-base",
+  "headRevision": "day0-head"
+}
+JSON
+```
+
+Submit it to the local fixture through the MCP tool helper. The helper sends
+the trusted tenant identity header, so the server can stamp the tenant context:
+
+```bash
+node /tmp/day0-call-tool.mjs \
+  "$NEO_KB_MCP_BASE_URL" \
+  "$NEO_KB_TENANT_ID" \
+  ingest_source_files \
+  /tmp/day0-envelope.json
+```
+
+Production repo-push automation should use the deployable client and token
+flow from [Hook Wiring](./HookWiring.md):
+
+```bash
+npm run ai:kb-push-client -- \
+  --url "https://agent-os.example.com/kb/mcp" \
+  --tenant-id "$NEO_KB_TENANT_ID" \
+  --repo-slug "$NEO_KB_REPO_SLUG" \
+  --from-file /tmp/day0-envelope.json
+```
+
+Expected output:
+
+```json
+{
+  "ingested": 1,
+  "errors": []
+}
+```
+
+Then query the tenant phrase:
+
+```bash
+cat > /tmp/day0-tenant-query.json <<'JSON'
+{
+  "query": "Hello from the tenant repo day-0 tenant ingestion",
+  "type": "all",
+  "limit": 3
+}
+JSON
+
+node /tmp/day0-call-tool.mjs \
+  "$NEO_KB_MCP_BASE_URL" \
+  "$NEO_KB_TENANT_ID" \
+  ask_knowledge_base \
+  /tmp/day0-tenant-query.json
+```
+
+Expected result: the answer or references include `docs/hello.md` and the tenant
+content. If the same query is run as a different tenant, private tenant content
+must not leak.
+
+Failure signatures:
+
+| Signature | Meaning | Fix |
+|---|---|---|
+| HTTP `401` / `Unauthorized` | Missing, expired, or wrong-audience repo-push token. | Refresh the automation identity token and verify the audience/resource matches the public KB MCP URL. |
+| `KB_INGEST_TENANT_MISMATCH` | Payload tenant claim conflicts with authenticated tenant context. | Fix the token/identity mapping or remove the client-side tenant claim. |
+| `KB_INGEST_VOLUME_EXCEEDED` | The payload exceeded `mcpSyncMaxChunks`. | Split the envelope or use Milestone 5's bulk path. |
+| `errors` is non-empty | One or more files failed validation or parsing. | Fail the hook/CI job and surface the structured `{code, message}` entries. |
+
+## Milestone 4 - One Client-Side Parser
+
+Client-side parsing is the default for tenant-owned or non-JS formats. Use the
+minimal external workspace as the executable shape:
+
+```bash
+cd examples/cloud-deployment/minimal-external-workspace
+npm install
+```
+
+For the worked `.proto` file, emit one `parsed-chunk-v1` record on the client
+side and submit it as an ingestion envelope:
+
+```bash
+node - <<'NODE' > /tmp/day0-proto-envelope.json
+const fs = require('fs');
+const content = fs.readFileSync('proto/example.proto', 'utf8');
+
+process.stdout.write(JSON.stringify({
+  tenantId: 'client-org',
+  repoSlug: 'acme/app',
+  files: [{
+    sourcePath: 'proto/example.proto',
+    parsedChunks: [{
+      schemaVersion: '1.0.0',
+      tenantId: 'client-org',
+      repoSlug: 'acme/app',
+      rootKind: 'external-source',
+      sourcePath: 'proto/example.proto',
+      content,
+      hashInputs: ['kind', 'name', 'content', 'sourcePath', 'parserId', 'parserVersion'],
+      parserId: 'proto-client-day0',
+      parserVersion: '1.0.0',
+      kind: 'schema',
+      name: 'example.proto'
+    }]
+  }]
+}));
+NODE
+
+cd ../../..
+node /tmp/day0-call-tool.mjs \
+  "$NEO_KB_MCP_BASE_URL" \
+  "$NEO_KB_TENANT_ID" \
+  ingest_source_files \
+  /tmp/day0-proto-envelope.json
+```
+
+Expected output:
+
+```json
+{
+  "ingested": 1,
+  "errors": []
+}
+```
+
+Failure signatures:
+
+| Signature | Meaning | Fix |
+|---|---|---|
+| `KB_PARSED_CHUNK_INVALID` | The record violates `parsed-chunk-v1`. | Validate against [`parsed-chunk-v1.schema.json`](../../../ai/services/knowledge-base/parser/parsed-chunk-v1.schema.json); remove unknown top-level fields. |
+| `KB_PARSED_CHUNK_EMBEDDING_REJECTED` | The client sent an `embedding` field. | Remove embeddings; the KB server owns embedding generation. |
+| Parser output accepted but query misses it | Tenant identity, visibility, or repo slug does not match the query context. | Query as the same authenticated tenant and verify `repoSlug`. |
+
+## Milestone 5 - Bulk / Volume-Gate Path
+
+The MCP path is for bounded push deltas. To prove the operator response to the
+volume gate, first know the failure:
+
+```json
+{
+  "code": "KB_INGEST_VOLUME_EXCEEDED",
+  "batchSize": 312,
+  "threshold": 50
+}
+```
+
+The response is either split into smaller repo-push envelopes or run a
+deployment-host bulk import. In the local fixture, run the bulk CLI inside the
+KB container so it uses the same container-local embedding and Chroma endpoints:
+
+```bash
+node - <<'NODE' > /tmp/day0-bulk.jsonl
+for (let i = 0; i < 3; i++) {
+  process.stdout.write(JSON.stringify({
+    schemaVersion: '1.0.0',
+    tenantId: 'client-org',
+    repoSlug: 'acme/app',
+    rootKind: 'external-source',
+    sourcePath: `bulk/doc-${i}.md`,
+    content: `# Bulk doc ${i}\n\nBulk import smoke record ${i}.`,
+    hashInputs: ['kind', 'name', 'content', 'sourcePath', 'parserId', 'parserVersion'],
+    parserId: 'bulk-day0',
+    parserVersion: '1.0.0',
+    kind: 'doc-section',
+    name: `Bulk doc ${i}`
+  }) + '\n');
+}
+NODE
+
+cat /tmp/day0-bulk.jsonl | docker compose \
+  -p "$NEO_DAY0_PROJECT" \
+  -f ai/deploy/docker-compose.test.yml \
+  exec -T kb-server \
+  node ./buildScripts/ai/ingestTenant.mjs client-org --from-stdin --batch-size 2
+```
+
+Expected output:
+
+```json
+{
+  "tenantId": "client-org",
+  "ingested": 3,
+  "errors": []
+}
+```
+
+Failure signatures:
+
+| Signature | Meaning | Fix |
+|---|---|---|
+| `Deferred: heavy-maintenance lease held by ...` | Another heavy KB job is active. | Retry after the holder completes. |
+| `KB_INGEST_CLI_JSONL_PARSE_FAILED` | A JSONL line is malformed. | Fix the line; the CLI reports parse errors without hiding sibling records. |
+| Non-zero CLI exit | One or more records failed. | Inspect the printed `errors` array before retrying. |
+
+## Milestone 6 - Optional Clone / Server-Side Source
+
+Server-side clone is not part of the MVP push path. If the deployment receives
+only `{repo, ref, sha}` metadata and must fetch content itself, stop and route to
+[#11731](https://github.com/neomjs/neo/issues/11731). That path needs a
+credential-storage and clone-trust contract before implementation.
+
+Use [Custom Sources](./CustomSources.md) only when the deployment operator owns
+the source territory and has explicitly decided to run a full-corpus source on
+the deployment host.
+
+Expected day-0 result for this milestone is one of:
+
+```text
+server-side clone: deferred to #11731
+```
+
+or:
+
+```text
+operator-owned Source registered intentionally
+```
+
+## Milestone 7 - Backup, Redeploy, Handoff
+
+Before handing the deployment to agents, prove the Memory Core store survives a
+container rebuild and that KB content can be regenerated or re-pushed.
+
+Minimum handoff checklist:
+
+```text
+[ ] shared-sqlite-data volume or managed graph-store path is persistent.
+[ ] backup bundles write to the redeploy-safe backup mount.
+[ ] after docker compose down && docker compose up --build, MC healthcheck is healthy.
+[ ] the memory written in Milestone 1 can still be queried.
+[ ] KB Neo-shared content is either still present or re-synced successfully.
+[ ] tenant content is either still present or re-pushed by the hook/CI job.
+[ ] endpoint URLs, token source, tenant id, repo slug, and known failure signatures are documented for the next agent.
+```
+
+Production compose persistence is documented in the
+[Deployment Cookbook](../DeploymentCookbook.md). Do not treat a demo stack that
+uses tmpfs or disposable test volumes as durable evidence.
+
+## Final Operator Handoff
+
+Record this small state bundle before the first real agent session uses the
+deployment:
+
+```text
+MC URL:
+KB URL:
+Auth mode: proxy-header | OIDC
+Tenant id:
+Repo slug:
+Repo-push token source:
+Last successful MC healthcheck:
+Last successful KB healthcheck:
+Last successful tenant push:
+Backup location:
+Known skipped milestones:
+```
+
+If any milestone is skipped, name the blocker explicitly. A future agent should
+never have to infer whether the deployment is incomplete, unauthenticated demo
+only, or intentionally deferred.
+
+## Related
+
+- [Deployment Cookbook](../DeploymentCookbook.md) - deployment authority and service topology.
+- [Overview](./Overview.md) - cloud ingestion concepts and tenant/Neo-shared split.
+- [Tenant Ingestion Model](./TenantIngestionModel.md) - repo identity, parser dispatch, and source-family inventory.
+- [Hook Wiring](./HookWiring.md) - `ai:kb-push-client`, `ingest_source_files`, and `ai:ingest-tenant`.
+- [Custom Parsers](./CustomParsers.md) - client-side `parsed-chunk-v1` parser contract.
+- [Security](./Security.md) - tenant stamping, spoof rejection, and parser trust.
