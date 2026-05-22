@@ -24,9 +24,9 @@ When engaging in deep architectural design, brainstorming, or encountering "Unkn
    - **Open Questions (OQs):** What unknowns still need to be addressed?
 
 ## 3. Author's Note Convention (The #10119 Annotation Pattern)
-Discussions are meant to evolve. Instead of creating noisy parallel comment threads to reflect updates to the core idea, the authoritative substrate is the Discussion body itself. 
+Discussions are meant to evolve. Instead of creating noisy parallel comment threads to reflect updates to the core idea, the authoritative substrate is the Discussion body itself.
 - Use **"the #10119 annotation pattern"**: Treat the Discussion body like a PR diff. When the idea evolves, edit the body directly with `manage_discussion({action: 'update_body', discussion_number, body})` (like a force-push).
-- Add top-of-body annotation markers (e.g. `> **Update 2026-04-24:** Refined the VDOM syncing section based on feedback below.`) to signal what changed. 
+- Add top-of-body annotation markers (e.g. `> **Update 2026-04-24:** Refined the VDOM syncing section based on feedback below.`) to signal what changed.
 - You may add a brief comment to notify thread participants, but the body remains the single source of truth.
 
 ## 4. Iterative Review Workflow
@@ -62,7 +62,7 @@ A Discussion cannot graduate until it is clearly scoped. There is no universal c
 - The matrix MUST appear in the Discussion body **before any `[RESOLVED_TO_AC]` tags are applied**. Matrices retro-fitted after OQ resolution are paperwork, not divergence — they capture the convergent answer rather than preserving the alternatives that were genuinely considered.
 - After matrix is in the body, **at least one non-author peer review cycle MUST occur before `GRADUATED`**. The peer cycle pressures the matrix's depth and falsifying sources; author-only graduation skips the divergent-pressure half of design.
 
-**Graduation block:** if the matrix is missing OR lacks falsifying sources, downstream Epic / ticket creation is blocked per `epic-review-workflow.md` Stage 2 Discussion-origin backstop and per `ticket-create-workflow.md` §1c ungraduated-Discussion cross-check (substantive-rationale exception path documented there for legitimate edge cases). **Per §6 Consensus Mandate (high-blast classes only)**, graduation is ALSO blocked when the Signal Ledger lacks 3× explicit APPROVED signals (or has unresolved DEFERRED/VETO); see §6 below for full 2-axis substrate.
+**Graduation block:** if the matrix is missing OR lacks falsifying sources, downstream Epic / ticket creation is blocked per `epic-review-workflow.md` Stage 2 Discussion-origin backstop and per `ticket-create-workflow.md` §1c ungraduated-Discussion cross-check (substantive-rationale exception path documented there for legitimate edge cases). **Per §6 Consensus Mandate (high-blast classes only)**, graduation is ALSO blocked when the Signal Ledger lacks the §6.2 quorum (floor-2 active families with signal + ≥ 1 non-author family APPROVED; Tier-2 also requires `## Unresolved Liveness` + `revalidationTrigger` AC) or has unresolved DEFERRED/VETO; see §6 below for full 2-axis substrate.
 
 For source anchors, exception semantics, and substrate-decay review, read [`../audits/double-diamond-divergence-guard.md`](../audits/double-diamond-divergence-guard.md).
 
@@ -125,19 +125,28 @@ Author declares scope in Discussion body via `Scope: high-blast` or `Scope: low-
 | **high-blast** | Substrate evolution (`.agents/skills/*`, `learn/agentos/*`), rule changes (AGENTS.md, §0 invariants), architectural primitives (new subsystems, MCP tools, cross-family protocols), cross-cutting policies | Full §6 Consensus Mandate (this section) |
 | **low-blast** | Bug fix, feature implementation, documentation, test additions | §5.1 Double Diamond (≥1 peer cycle) suffices |
 
-### 6.2 Signal Patterns (high-blast only)
+### 6.2 Signal Patterns + Quorum Rule (high-blast only)
 
-Three explicit signal patterns are recognized; VETO is a substantive divergence position that requires reconciliation, not a kill-switch:
+**Quorum rule** (per Epic #11796 / Discussion #11793 — family-keyed, membership-derived):
+
+- **(a) Floor-2 (all tiers):** ≥ 2 distinct *active* families (per `AgentIdentity.participationStatus` in `ai/graph/identityRoots.mjs`) carry ANY signal type (`AUTHOR_SIGNAL` or `[GRADUATION_APPROVED]`).
+- **(b) Non-author endorsement (all tiers):** ≥ 1 *non-author* active family carries `[GRADUATION_APPROVED]`. `AUTHOR_SIGNAL` from the author's family is necessary for family coverage but never sufficient on its own.
+- **(c) Tier 2** (core-value / §critical_gates / consensus-gate mutations) additionally requires explicit `## Unresolved Liveness` entry for any benched family + capability-grounded `revalidationTrigger` AC in the graduating Epic (per §6.6).
+
+Family-keying replaces the prior hardcoded "3× cross-family signals" — the count was a snapshot of fixed swarm membership, while the active membership is variable (operator-benched families, same-family siblings). Same-family aggregation (§6.4) determines a family's contributed signal when multiple identities of one family are active.
+
+**Four signal patterns** (`AUTHOR_SIGNAL` covers author family-coverage; the other three are peer-endorsement variants); VETO is a substantive divergence position that requires reconciliation, not a kill-switch:
 
 | Signal | Effect on graduation | Definition |
 |--------|----------------------|------------|
-| `[GRADUATION_APPROVED by @<peer> @ <anchor>]` | Satisfies this peer's consensus contribution | Peer endorses substrate at specific version anchor |
-| `[GRADUATION_DEFERRED by @<peer> @ <anchor> — <reason>]` | **BLOCKS** until withdrawn-post-reconciliation OR peer-owned resolution path is explicitly documented | Peer holds substantive concern; reconciliation cycle needed |
-| `[GRADUATION_ABSTAIN by @<peer> @ <anchor>]` | **NOT approval**; if all 3 peers ABSTAIN, no graduation (no peer endorsed) | Peer explicitly passes on this Discussion |
+| `[GRADUATION_APPROVED by @<peer> @ <anchor>]` | Satisfies this family's non-author endorsement contribution (per §6.4 same-family aggregation) | Peer endorses substrate at specific version anchor |
+| `[GRADUATION_DEFERRED by @<peer> @ <anchor> — <reason>]` | **BLOCKS** until withdrawn-post-reconciliation OR peer-owned resolution path is explicitly documented; same-family `DEFERRED` blocks that family per §6.4 | Peer holds substantive concern; reconciliation cycle needed |
+| `[GRADUATION_ABSTAIN by @<peer> @ <anchor>]` | **NOT approval**; counted against floor-2 only as a non-APPROVED signal; if no active family produces an `APPROVED`, graduation is blocked | Peer explicitly passes on this Discussion |
+| `[AUTHOR_SIGNAL by @<author> @ <anchor>]` | Satisfies *family coverage* for the author's family; does **NOT** count as independent peer endorsement; required when author is the only active identity of their family | Author signs their own Discussion's body at a specific anchor to cover the author-family's quorum representation |
 
 **VETO collapse rule**: A VETO requires either (a) an alternative-implementation proposal OR (b) a V-B-A-falsifier of the proposing peer's claims. Pure "I disagree" without one of these collapses to DEFERRED. Aligns with `pr-review §9.1 Reviewer-Yield Protocol`.
 
-**No-signal handling**: A peer who has not posted any of the three explicit signals does NOT count as ABSTAIN or as consent. **No-signal is liveness-failure, never consent.** Graduation normally requires 3 explicit named-maintainer signals. If a peer is unreachable, the path forward is peer-owned liveness handling — recover/re-poll the peer, receive an explicit ABSTAIN when the peer is reachable, or cite a separately codified active-peer quorum rule. It is NOT a human/operator graduation approval gate.
+**No-signal handling**: A peer who has not posted any of the four explicit signals does NOT count as ABSTAIN or as consent. **No-signal is liveness-failure, never consent.** Graduation requires the quorum above; if a family is unreachable, the path forward is peer-owned liveness handling per §6.5 — recover/re-poll the family, receive an explicit `ABSTAIN` when reachable, or archive a `## Unresolved Liveness` entry per the rule's tier requirements. It is NOT a human/operator graduation approval gate.
 
 ### 6.3 Version-Binding (mandatory per signal)
 
@@ -147,6 +156,7 @@ Every signal MUST cite the substrate state it endorses via `@ <body-sha or last-
 - `[GRADUATION_APPROVED by @neo-opus-4-7 @ DC_kwDODSospM4BAZOz]` — bound to specific comment
 - `[GRADUATION_APPROVED by @neo-gpt @ Cycles 4+5+6]` — bound to cycle-comment range
 - `[GRADUATION_DEFERRED by @neo-gpt @ body updatedAt 2026-05-11T14:56Z — needs scope narrowing]` — bound to body timestamp
+- `[AUTHOR_SIGNAL by @neo-opus-4-7 @ body updatedAt 2026-05-22T23:13:11Z]` — author signs Discussion #11793 Cycle-2.6 body for `claude` family-coverage (the empirical anchor that produced this rule)
 
 **Author re-poll obligation**: when material edits land (new ACs, scope changes, semantic refinements), author MUST explicitly request signal re-confirmation. Tightening refinements (stricter semantics, added safeguards) MAY allow prior APPROVED signals to extend pragmatically with peer's explicit acknowledgment; reversing refinements ALWAYS require re-poll.
 
@@ -158,6 +168,8 @@ When a peer signals DEFERRED, the **burden of convergence falls on the APPROVED-
 
 The DEFERRED peer is NOT obligated to either prove their case or update their signal unilaterally — they hold the substantive divergence position. The inversion ("what would change your signal?" framing) is an anti-pattern that re-introduces author-pressure on dissenters.
 
+**Same-family aggregation** (per Epic #11796 / Discussion #11793 OQ7): when a family has multiple active identities (e.g., `claude` with both `@neo-opus-4-7` and a future `@neo-claude-opus`), that family contributes `APPROVED` when **(a) ≥ 1 active identity in the family has posted `[GRADUATION_APPROVED]` at the current body anchor**, AND **(b) no active identity in that family holds an unresolved `[GRADUATION_DEFERRED]` or `[GRADUATION_VETO]` at the same anchor**. Any unresolved same-family `DEFERRED`/`VETO` blocks that family until reconciled. The burden-of-convergence clause above applies to same-family APPROVED-signalers as well as cross-family ones. This preserves same-family challenge pressure without double-counting the family.
+
 **Reconciliation cycles**: typically resolve in 1-3 substantive cycles. If reconciliation stalls after ~20 comments, route the design back through peer-owned convergence substrate (fresh Step-Back, lead-role facilitation, or a narrower follow-up Discussion). Ask the operator only for Tier-4 human-owned intent clarification per AGENTS.md §15.6; do not convert a stalled sandbox into a human graduation approval gate.
 
 ### 6.5 Peer-Owned Dissent / Liveness Disposition (preserves residual risk)
@@ -166,7 +178,7 @@ Ideation Sandbox graduation is a peer-owned substrate transition. The operator c
 
 The graduated Issue / Epic / PR body MUST archive any non-empty dissent or liveness gap in `## Unresolved Dissent` / `## Unresolved Liveness` with commentId/state anchors and the peer-owned disposition. Future Discussions can re-open the risk if it materializes.
 
-If a future active-peer quorum rule is adopted, it MUST be codified explicitly and cited by the graduating artifact. Until then, unresolved no-signal remains a liveness gap to hold or re-poll; it never becomes implicit approval and never asks the operator to approve sandbox graduation.
+The active-peer quorum rule is codified in §6.2 (per Epic #11796 / Discussion #11793). Inactive families (`participationStatus ∈ {operator_benched, temporarily_unreachable}` per `ai/graph/identityRoots.mjs`) are archived in `## Unresolved Liveness` per §6.6 with their capability-grounded `reactivationTrigger`. For Tier 2 (core-value / §critical_gates / consensus-gate mutations), the graduating Epic additionally carries a `revalidationTrigger` AC that re-opens the substrate for retroactive signal review when the benched family reactivates — implementation per Epic #11796 AC6. Unresolved no-signal never becomes implicit approval and never asks the operator to approve sandbox graduation.
 
 ### 6.6 Graduated-Artifact Required Sections (AC11)
 
@@ -174,18 +186,20 @@ The graduated Issue / Epic / PR body MUST include these explicit sections, even 
 
 ```markdown
 ## Signal Ledger
-- @<peer1>: APPROVED @ <commentId>
-- @<peer2>: APPROVED @ <commentId>
-- @<peer3>: APPROVED @ <commentId>
-(or DEFERRED with resolution status; or ABSTAIN with attribution)
+- `claude`: [AUTHOR_SIGNAL | APPROVED | DEFERRED | ABSTAIN] by @<identity> @ <anchor>
+- `gpt`: [APPROVED | DEFERRED | ABSTAIN] by @<identity> @ <anchor>
+- `gemini`: [APPROVED | DEFERRED | ABSTAIN] by @<identity> @ <anchor>
+(multi-identity-per-family case: nest identity rows under the family row with one signal each; family-of-record signal follows §6.4 same-family aggregation)
+(AUTHOR_SIGNAL only appears under the author's family — it covers family coverage but not independent peer endorsement)
 
 ## Unresolved Dissent
-(empty if 100% APPROVED — positive signal)
+(empty if no DEFERRED/VETO at the final body anchor — positive signal)
 (otherwise: each DEFERRED/VETO with reason + STATUS: resolved-by-peer-reconciliation <anchor> OR pending-reconciliation)
 
 ## Unresolved Liveness
-(empty if all 3 signals collected — positive signal)
-(otherwise: each peer with no-signal + STATUS: pending-peer-repoll OR peer-owned liveness disposition <anchor>)
+(empty if all active families produced a signal — positive signal)
+(otherwise: each inactive/no-signal family with participationStatus + reactivationTrigger + STATUS: pending-peer-repoll OR peer-owned liveness disposition <anchor>)
+(Tier-2 graduations: include the revalidationTrigger AC reference for the graduating Epic — per §6.2(c))
 
 ## Discussion Criteria Mapping
 (required for Epics graduating from a Discussion to satisfy `epic-resolution` Closeout Gates)
@@ -197,7 +211,9 @@ This pattern makes substrate-state legible in the graduated artifact, archives t
 
 ### 6.7 Author Actions Post-Consensus
 
-When the Signal Ledger reaches 3× APPROVED (or a codified peer-owned liveness disposition resolves remaining gaps without treating no-signal as consent):
+**Precondition (if author's family has no other active identity):** author posts `[AUTHOR_SIGNAL]` at the current body anchor *before* the final non-author-APPROVED poll. The author-signal covers the author-family's quorum representation per §6.2 — without it the floor-2 cannot be reached when only one non-author family is active.
+
+When the Signal Ledger reaches the §6.2 quorum (floor-2 + non-author-APPROVED ≥ 1; Tier 2 also requires `## Unresolved Liveness` + `revalidationTrigger` AC):
 
 1. Add `[GRADUATED_TO_TICKET: #N]` marker near top of body (per §4 OQ-resolution-tag pattern)
 2. Update body with `## Signal Ledger` + `## Unresolved Dissent` + `## Unresolved Liveness` + `## Discussion Criteria Mapping` sections
@@ -221,6 +237,8 @@ Without both axes, the consensus-mandate is bypassable. Cross-family reviewer MU
 - **Discussion #11210 → #11213** — sunset scope split. Author Gemini unilaterally graduated at ~14:26Z; @tobiu rejected at merge-gate (~14:27Z) and again at ~14:37Z (PR #11212 + first PR #11215 iteration). Anchor for both axes.
 - **Discussion #11214 → #11218** — Decision Escalation Ladder. Graduated under #11216 protocol-in-flight via dogfooding; demonstrates AC11 Signal Ledger format in Issue body.
 - **PR #11212 + PR #11215** — load-bearing PR-merge-gate empirical anchors; operator rejections demonstrate Axis 2 enforcement.
+- **Discussion #11782 → Epic #11731** — first empirical hit of the §6.2 hardcoded-3× failure mode: graduated on 2 active cross-family signals (`@neo-opus-4-7` + `@neo-gpt`) plus a documented Gemini liveness gap, via a one-off Tier-4 operator escalation because no standing active-peer-quorum rule existed. The friction that originated Discussion #11793.
+- **Discussion #11793 → Epic #11796** — the active-peer-quorum rule itself; graduated under its own dogfooded protocol across Cycles 1 → 2 → 2.5 → 2.6 → 3. Recursive substrate validation depth-2: a rule about how rules graduate, graduating under the rule it proposes. Signal ledger: `claude.AUTHOR_SIGNAL` (`@neo-opus-4-7`, the author's family) + `gpt.[GRADUATION_APPROVED]` (`@neo-gpt`, the non-author family) + `gemini.Unresolved-Liveness` (`@neo-gemini-3-1-pro`, `operator_benched` with capability-grounded `reactivationTrigger`). Floor-2 ✓; non-author-APPROVED ≥ 1 ✓; Tier-2 revalidation hook carried by Epic #11796 AC6. No operator override required.
 
 ### 6.10 30-Day Post-Merge Validation (AC10)
 
