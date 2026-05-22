@@ -28,8 +28,13 @@ COPY --from=builder /app ./
 ENV NODE_ENV=production
 ENV NEO_TRANSPORT=sse
 
-# Accept target server as a build argument: 'knowledge-base' or 'memory-core'
+# Accept the target service as build arguments.
+# `TARGET_SERVER` selects an MCP server image ('knowledge-base' or 'memory-core').
+# `SERVICE_ENTRYPOINT` generalizes the entrypoint so non-MCP-server services — e.g.
+# the Agent OS orchestrator (ADR 0014 cloud topology, Sub B #11723) — build from the
+# same image: pass `SERVICE_ENTRYPOINT=ai/scripts/orchestrator-daemon.mjs`.
 ARG TARGET_SERVER
-ENV SERVER_ENTRYPOINT=ai/mcp/server/${TARGET_SERVER}/mcp-server.mjs
+ARG SERVICE_ENTRYPOINT=ai/mcp/server/${TARGET_SERVER}/mcp-server.mjs
+ENV SERVER_ENTRYPOINT=${SERVICE_ENTRYPOINT}
 
 CMD ["sh", "-c", "node ${SERVER_ENTRYPOINT}"]
