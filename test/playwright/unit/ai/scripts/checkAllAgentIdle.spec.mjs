@@ -58,8 +58,8 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
         const scriptPath = path.resolve(process.cwd(), 'ai/scripts/checkAllAgentIdle.mjs');
         const output = execFileSync('node', [scriptPath], {
             encoding: 'utf-8',
-            env: { 
-                ...process.env, 
+            env: {
+                ...process.env,
                 NEO_UNIT_TEST_MODE: 'true',
                 NEO_TRIO_IDENTITIES: identitiesEnv,
                 IDLE_THRESHOLD_MS: '600000' // 10 minutes
@@ -122,8 +122,8 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
         const scriptPath = path.resolve(process.cwd(), 'ai/scripts/checkAllAgentIdle.mjs');
         const output = execFileSync('node', [scriptPath], {
             encoding: 'utf-8',
-            env: { 
-                ...process.env, 
+            env: {
+                ...process.env,
                 NEO_UNIT_TEST_MODE: 'true',
                 NEO_TRIO_IDENTITIES: identitiesEnv,
                 IDLE_THRESHOLD_MS: '600000'
@@ -141,8 +141,8 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
         const scriptPath = path.resolve(process.cwd(), 'ai/scripts/checkAllAgentIdle.mjs');
         const output = execFileSync('node', [scriptPath], {
             encoding: 'utf-8',
-            env: { 
-                ...process.env, 
+            env: {
+                ...process.env,
                 NEO_UNIT_TEST_MODE: 'true',
                 NEO_TRIO_IDENTITIES: '@neo-ghost-agent-1',
                 IDLE_THRESHOLD_MS: '600000'
@@ -191,12 +191,8 @@ test.describe('ai/scripts/checkAllAgentIdle', () => {
             .not.toBe(deriveAllAgentIdleCycleId(['@neo-test-agent-1', '@neo-test-agent-2'], updatedDetails));
     });
 
-    test('swarm-heartbeat.sh integrates the all-agent-idle detection properly', async () => {
-        const fs = await import('fs/promises');
-        const script = await fs.readFile(path.resolve(process.cwd(), 'ai/scripts/swarm-heartbeat.sh'), 'utf-8');
-        const allIdleIndex = script.indexOf('checkAllAgentIdle.mjs');
-        
-        expect(allIdleIndex).toBeGreaterThan(-1);
-        expect(script).not.toContain('local cycle_id=$(date +%s)');
-    });
+    // Note (#11766): the former `swarm-heartbeat.sh integrates the all-agent-idle
+    // detection properly` test was removed with the bash script. The all-agent-idle
+    // detection routing is now covered against the JS lane in
+    // `test/playwright/unit/ai/daemons/SwarmHeartbeatService.spec.mjs`.
 });

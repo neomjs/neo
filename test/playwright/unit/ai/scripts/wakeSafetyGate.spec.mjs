@@ -28,8 +28,8 @@ import * as core         from '../../../../../src/core/_export.mjs';
  * Covers the deny-by-default discipline (missing file → tripped), state-file
  * round-trip (enable / disable / trip), CLI surface (check / reason / show),
  * and the operator override (`WAKE_GATE_OVERRIDE=1`). The gate is consumed by
- * `swarm-heartbeat.sh` and `resumeHarness.mjs` — those integrations have their
- * own specs; this file isolates the gate primitive.
+ * the `SwarmHeartbeatService` heartbeat lane and `resumeHarness.mjs` — those
+ * integrations have their own specs; this file isolates the gate primitive.
  */
 test.describe('ai/scripts/wakeSafetyGate', () => {
     const scriptPath = path.resolve(process.cwd(), 'ai/scripts/wakeSafetyGate.mjs');

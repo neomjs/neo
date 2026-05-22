@@ -346,4 +346,31 @@ test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
             goldenPathRepoEnrichmentEnabled: true
         });
     });
+
+    test('resolves the swarm-heartbeat lane per deployment profile (#11766)', () => {
+        // Cloud profile, no explicit override -> lane disabled.
+        expect(resolveOrchestratorStartOptions({
+            orchestratorConfig: {deploymentMode: 'cloud', localOnly: {}},
+            env: {}
+        })).toMatchObject({swarmHeartbeatEnabled: false});
+
+        // Local profile, no explicit override -> option left unset so the
+        // Orchestrator.configure() parseEnabledFlag(..., true) default (lane ON) applies.
+        expect(resolveOrchestratorStartOptions({
+            orchestratorConfig: {deploymentMode: 'local', localOnly: {}},
+            env: {}
+        })).not.toHaveProperty('swarmHeartbeatEnabled');
+
+        // Explicit opt-in overrides the cloud default.
+        expect(resolveOrchestratorStartOptions({
+            orchestratorConfig: {deploymentMode: 'cloud', localOnly: {swarmHeartbeatEnabled: true}},
+            env: {}
+        })).toMatchObject({swarmHeartbeatEnabled: true});
+
+        // Heartbeat interval resolves from config when the env override is absent.
+        expect(resolveOrchestratorStartOptions({
+            orchestratorConfig: {deploymentMode: 'local', intervals: {swarmHeartbeatMs: 90000}},
+            env: {}
+        })).toMatchObject({swarmHeartbeatIntervalMs: 90000});
+    });
 });

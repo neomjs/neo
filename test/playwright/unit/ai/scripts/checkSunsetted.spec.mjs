@@ -30,8 +30,8 @@ import {getLockPath, writeInflightLock} from '../../../../../ai/scripts/inflight
  * The detector emits a structured payload with `sunset` / `idle_out_candidate`
  * signals + an `evidence` object + `recommended_action` field. Backward-compat
  * legacy fields (`sunsetted`, `reason`, `originSessionId`, `abandonedCount`)
- * are also emitted for consumers not yet migrated (e.g., `swarm-heartbeat.sh`
- * jq-parsing path).
+ * are also emitted for backward-compat with consumers that read the legacy
+ * shape directly (e.g. `SwarmHeartbeatService.pulse()`'s sunset routing).
  *
  * Tests are arranged by detector-quadrant coverage matrix:
  *   - (sunset=T, idle_out=F): missing/disabled/degraded subscription
@@ -140,7 +140,7 @@ test.describe('ai/scripts/checkSunsetted', () => {
         const db = GraphService.db.storage.db;
 
         const testIdentity = '@neo-blocking-test';
-        
+
         // 1. Insert Legacy Row (Old)
         const legacyId = 'blocking-legacy-mem';
         const legacyTime = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
@@ -377,9 +377,9 @@ test.describe('ai/scripts/checkSunsetted', () => {
     });
 
     test('detector contract: backward-compat legacy fields preserved (#10673 AC5)', async () => {
-        // Consumers (swarm-heartbeat.sh) parse legacy fields via jq. The detector MUST
-        // continue emitting `sunsetted` / `reason` / `originSessionId` / `abandonedCount`
-        // alongside the new structured shape until consumers migrate.
+        // Consumers read the legacy fields directly (e.g. `SwarmHeartbeatService.pulse()`).
+        // The detector MUST continue emitting `sunsetted` / `reason` / `originSessionId` /
+        // `abandonedCount` alongside the new structured shape.
         const scriptPath = path.resolve(process.cwd(), 'ai/scripts/checkSunsetted.mjs');
         const output = execFileSync('node', [scriptPath, '@neo-legacy-fields-test'], {encoding: 'utf-8'});
         const parsed = JSON.parse(output);
@@ -486,15 +486,8 @@ test.describe('ai/scripts/checkSunsetted', () => {
         }
     });
 
-    test('swarm-heartbeat.sh integrates the sunset detection properly before the bypass', async () => {
-        const fs = await import('fs/promises');
-        const script = await fs.readFile(path.resolve(process.cwd(), 'ai/scripts/swarm-heartbeat.sh'), 'utf-8');
-        const checkIndex = script.indexOf('Check Sunsetted State');
-        const bypassIndex = script.indexOf('Heartbeat-Bypass Detection', script.indexOf('heartbeat_pulse() {'));
-
-        expect(checkIndex).toBeGreaterThan(-1);
-        expect(bypassIndex).toBeGreaterThan(-1);
-        // Ensure the sunset check happens BEFORE the bypass
-        expect(checkIndex).toBeLessThan(bypassIndex);
-    });
+    // Note (#11766): the former `swarm-heartbeat.sh integrates the sunset detection
+    // properly before the bypass` test was removed with the bash script. The
+    // sunset-detection-before-heartbeat-bypass ordering is now covered against the JS
+    // lane in `test/playwright/unit/ai/daemons/SwarmHeartbeatService.spec.mjs`.
 });

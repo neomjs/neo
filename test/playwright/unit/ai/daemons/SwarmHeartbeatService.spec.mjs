@@ -1,4 +1,7 @@
 import {setup} from '../../../setup.mjs';
+import fs   from 'fs/promises';
+import os   from 'os';
+import path from 'path';
 
 const appName = 'SwarmHeartbeatServiceTest';
 
@@ -24,11 +27,17 @@ import * as core from '../../../../../src/core/_export.mjs';
 import {test, expect} from '@playwright/test';
 
 /**
- * @summary Unit coverage for `ai/daemons/SwarmHeartbeatService.mjs` (#10789 AC6).
+ * @summary Unit coverage for `ai/daemons/SwarmHeartbeatService.mjs` (#10789 AC6, #11766 fold).
  *
- * Covers: poll-loop scheduling, idempotent start/stop, concurrency-lock skip-vs-clear,
+ * Covers: idempotent one-time `initAsync()`, concurrency-lock skip-vs-clear,
  * sunset-detection-routes-to-resumeHarness, gate-tripped blocks high-authority dispatch,
- * idle-out-nudge routing, push-capable bypass, fault-tolerant rescheduling.
+ * idle-out-nudge routing, push-capable bypass, sweep-failure isolation within `pulse()`.
+ *
+ * Post-#11766 the class is a lane folded into the Orchestrator: the Orchestrator owns the
+ * scheduler. There is no self-rescheduling loop, no `start()`/`stop()`/`scheduleNext()`;
+ * `initAsync()` runs once and `pulse()` runs once per Orchestrator cadence tick. The
+ * Orchestrator's lane executor provides per-pulse failure isolation — `pulse()` itself
+ * has no try/finally.
  *
  * Stubbing strategy: SwarmHeartbeatService exposes test-stubbable instance-method seams
  * (`checkHeartbeatLock`, `clearHeartbeatLock`, `sweepExpiredTasks`, `checkGateOpen`,
@@ -38,8 +47,7 @@ import {test, expect} from '@playwright/test';
  * through the heavy substrate. Module-binding imports (e.g. `isGateOpen`) cannot be
  * reassigned at import-site in ES modules — instance methods are the seam that works.
  *
- * Each test stubs only what it needs; `afterEach` stops the daemon and resets singleton
- * state so cases don't bleed.
+ * Each test stubs only what it needs; `afterEach` resets singleton state so cases don't bleed.
  */
 test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     let SwarmHeartbeatService;
@@ -73,6 +81,11 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
      * Individual tests override the seams they care about.
      */
     function applyDefaultStubs() {
+        // SwarmHeartbeatService is a Neo singleton — reset the one-time-init flag so each
+        // test starts from a clean lifecycle state regardless of prior-test or cross-file
+        // singleton-state bleed (symmetric with the afterEach reset).
+        SwarmHeartbeatService.isInitialized = false;
+        SwarmHeartbeatService.touchLivenessFile = async () => {};
         SwarmHeartbeatService.checkHeartbeatLock = async () => ({active: false, stale: false, ageMs: 0});
         SwarmHeartbeatService.clearHeartbeatLock = async () => {};
         SwarmHeartbeatService.sweepExpiredTasks  = async () => ({sweptCount: 0});
@@ -90,68 +103,45 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         SwarmHeartbeatService.getIssuesCount     = async () => 0;
         SwarmHeartbeatService.isPushCapable      = async () => false;
         SwarmHeartbeatService.injectTmux         = async () => {};
-        SwarmHeartbeatService.scheduleNext       = function () {};
         SwarmHeartbeatService.identity           = '@test';
     }
 
     test.afterEach(async () => {
-        SwarmHeartbeatService.stop();
-        SwarmHeartbeatService.isPolling      = false;
+        SwarmHeartbeatService.isInitialized  = false;
         SwarmHeartbeatService.identity       = null;
         SwarmHeartbeatService.pollIntervalMs = 5 * 60 * 1000;
     });
 
-    test('start() is idempotent — calling twice does not stack timers', async () => {
+    test('initAsync() is idempotent — second call is a no-op once initialized', async () => {
         applyDefaultStubs();
-        let scheduleCount = 0;
-        SwarmHeartbeatService.scheduleNext = function () { scheduleCount++ };
 
-        await SwarmHeartbeatService.start({identity: '@test', pollIntervalMs: 60_000});
-        expect(SwarmHeartbeatService.isPolling).toBe(true);
-        expect(scheduleCount).toBe(1);
+        await SwarmHeartbeatService.initAsync({identity: '@test', pollIntervalMs: 60_000});
+        expect(SwarmHeartbeatService.isInitialized).toBe(true);
 
-        await SwarmHeartbeatService.start({identity: '@test', pollIntervalMs: 60_000});
-        // Second start() is a no-op — scheduleNext NOT called again.
-        expect(scheduleCount).toBe(1);
+        // A second call short-circuits on the isInitialized guard and does NOT
+        // re-resolve identity — proven by passing a different identity that must be ignored.
+        await SwarmHeartbeatService.initAsync({identity: '@second', pollIntervalMs: 60_000});
+        expect(SwarmHeartbeatService.identity).toBe('@test');
     });
 
-    test('start() picks identity from explicit arg, then env, then default', async () => {
+    test('initAsync() picks identity from explicit arg, then env, then default', async () => {
         applyDefaultStubs();
-        SwarmHeartbeatService.scheduleNext = function () {};
 
         // Explicit arg wins.
-        await SwarmHeartbeatService.start({identity: '@explicit', pollIntervalMs: 60_000});
+        await SwarmHeartbeatService.initAsync({identity: '@explicit', pollIntervalMs: 60_000});
         expect(SwarmHeartbeatService.identity).toBe('@explicit');
-        SwarmHeartbeatService.stop();
-        SwarmHeartbeatService.isPolling = false;
+        SwarmHeartbeatService.isInitialized = false;
 
         // Env-var falls in when arg absent.
         const original = process.env.NEO_AGENT_IDENTITY;
         process.env.NEO_AGENT_IDENTITY = '@from-env';
         try {
-            await SwarmHeartbeatService.start({pollIntervalMs: 60_000});
+            await SwarmHeartbeatService.initAsync({pollIntervalMs: 60_000});
             expect(SwarmHeartbeatService.identity).toBe('@from-env');
         } finally {
             if (original === undefined) delete process.env.NEO_AGENT_IDENTITY;
             else                        process.env.NEO_AGENT_IDENTITY = original;
         }
-    });
-
-    test('stop() clears the active poll handle and is idempotent', async () => {
-        applyDefaultStubs();
-        SwarmHeartbeatService.scheduleNext = function () {
-            // Set a real timeout so stop() has something to clear.
-            this.pollHandle = setTimeout(() => {}, 60_000);
-        };
-        await SwarmHeartbeatService.start({identity: '@test', pollIntervalMs: 60_000});
-        expect(SwarmHeartbeatService.pollHandle).not.toBeNull();
-
-        SwarmHeartbeatService.stop();
-        expect(SwarmHeartbeatService.pollHandle).toBeNull();
-        expect(SwarmHeartbeatService.isPolling).toBe(false);
-
-        // Second stop() does not throw.
-        expect(() => SwarmHeartbeatService.stop()).not.toThrow();
     });
 
     test('pulse() skips when concurrency lock is active', async () => {
@@ -292,16 +282,18 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         expect(idleCalls).toEqual([[]]);
     });
 
-    test('pulse() reschedules from finally block even when sweep throws', async () => {
+    test('pulse() isolates a sweep failure locally and continues to later steps', async () => {
         applyDefaultStubs();
         SwarmHeartbeatService.sweepExpiredTasks = async () => { throw new Error('substrate down') };
+        SwarmHeartbeatService.getUnreadCount    = async () => 2;
 
-        let rescheduled = 0;
-        SwarmHeartbeatService.scheduleNext = function () { rescheduled++ };
+        const injected = [];
+        SwarmHeartbeatService.injectTmux = async (p) => { injected.push(p) };
 
-        await SwarmHeartbeatService.pulse();
-        // Sweep throws but is caught locally; pulse continues; finally fires scheduleNext.
-        expect(rescheduled).toBe(1);
+        // Sweep throws but is caught by the inner try/catch around the sweep step;
+        // pulse() does not propagate the error and proceeds to inject.
+        await expect(SwarmHeartbeatService.pulse()).resolves.toBeUndefined();
+        expect(injected.length).toBe(1);
     });
 
     test('pulse() injects tmux prompt only when actionable state exists', async () => {
@@ -348,5 +340,29 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         await SwarmHeartbeatService.pulse();
         expect(injected.length).toBe(1);
         expect(injected[0]).toContain('Tasks expired this cycle: 5');
+    });
+
+    test('pulse() touches the heartbeat-liveness file HealthService reads (#11766)', async () => {
+        applyDefaultStubs();
+        // Un-stub touchLivenessFile so the real producer runs against an isolated path.
+        delete SwarmHeartbeatService.touchLivenessFile;
+
+        const alivePath = path.join(os.tmpdir(), `neo-heartbeat-alive-${Date.now()}.alive`);
+        const original  = process.env.NEO_HEARTBEAT_ALIVE_PATH;
+        process.env.NEO_HEARTBEAT_ALIVE_PATH = alivePath;
+
+        try {
+            const before = Date.now();
+            await SwarmHeartbeatService.pulse();
+
+            // The liveness file now exists with a fresh mtime — the producer side of the
+            // `HealthService.daemonRunning` contract restored after the #11766 fold.
+            const stat = await fs.stat(alivePath);
+            expect(stat.mtime.getTime()).toBeGreaterThanOrEqual(before - 1000);
+        } finally {
+            if (original === undefined) delete process.env.NEO_HEARTBEAT_ALIVE_PATH;
+            else                        process.env.NEO_HEARTBEAT_ALIVE_PATH = original;
+            await fs.rm(alivePath, {force: true});
+        }
     });
 });

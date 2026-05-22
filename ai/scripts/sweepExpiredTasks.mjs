@@ -4,11 +4,12 @@
  *
  * Track 2C (#10339) — TTL/Expired sweeper. Runs the maintenance bulk-UPDATE that transitions
  * stale `Submitted` / `Working` / `InputRequired` tasks past their `task.expiresAt` to
- * `Expired`. Designed for short-lived invocation from `ai/scripts/swarm-heartbeat.sh` per
- * cycle (one Node startup per heartbeat tick); also runnable directly for manual debugging.
+ * `Expired`. The Orchestrator swarm-heartbeat lane (`ai/daemons/SwarmHeartbeatService.mjs`)
+ * now calls `MailboxService.sweepExpiredTasks()` directly each pulse (#11766); this CLI
+ * wrapper is preserved for manual debugging.
  *
- * Output: a single JSON line on stdout containing `{success, sweptCount}` so the heartbeat
- * shell can capture the count for observability without parsing free-form prose.
+ * Output: a single JSON line on stdout containing `{success, sweptCount}` so a CLI caller
+ * can capture the count for observability without parsing free-form prose.
  *
  * Exit codes:
  *  - 0: sweep completed (sweptCount may be 0; that is a successful no-op)

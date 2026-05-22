@@ -20,6 +20,7 @@ import {
     PRIMARY_DEV_SYNC_TASK_NAME,
     DREAM_TASK_NAME,
     GOLDEN_PATH_TASK_NAME,
+    SWARM_HEARTBEAT_TASK_NAME,
     buildTaskDefinitions
 } from '../../../../../ai/daemons/TaskDefinitions.mjs';
 import TaskStateService, { createInitialTaskState } from '../../../../../ai/daemons/services/TaskStateService.mjs';
@@ -65,12 +66,15 @@ function createTestOrchestrator(config = {}) {
         dreamIntervalMs         : config.dreamIntervalMs ?? Number.MAX_SAFE_INTEGER,
         goldenPathIntervalMs    : config.goldenPathIntervalMs ?? Number.MAX_SAFE_INTEGER,
         goldenPathRepoEnrichmentEnabled: config.goldenPathRepoEnrichmentEnabled ?? true,
+        swarmHeartbeatIntervalMs: config.swarmHeartbeatIntervalMs ?? Number.MAX_SAFE_INTEGER,
+        swarmHeartbeatEnabled   : config.swarmHeartbeatEnabled ?? true,
         healthService           : config.healthService || {recordTaskOutcome() {}},
         summarizationCoordinator: config.summarizationCoordinator || {getDueTask: () => null},
         backupCoordinator       : config.backupCoordinator || {getDueTask: () => null},
         primaryRepoSyncService  : config.primaryRepoSyncService || {getDueTask: () => null, runTask: () => null},
         dreamService            : config.dreamService || {processUndigestedSessions: () => Promise.resolve()},
         goldenPathSynthesizer   : config.goldenPathSynthesizer || {synthesizeGoldenPath: () => Promise.resolve()},
+        swarmHeartbeatService   : config.swarmHeartbeatService || {initAsync: () => Promise.resolve(), pulse: () => Promise.resolve()},
         spawnFn                 : config.spawnFn || (() => { throw new Error('spawnFn not expected'); })
     });
 
@@ -87,7 +91,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             nodeBin  : '/node'
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'summary', 'kbSync', 'backup', PRIMARY_DEV_SYNC_TASK_NAME, DREAM_TASK_NAME, GOLDEN_PATH_TASK_NAME]);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'summary', 'kbSync', 'backup', PRIMARY_DEV_SYNC_TASK_NAME, DREAM_TASK_NAME, GOLDEN_PATH_TASK_NAME, SWARM_HEARTBEAT_TASK_NAME]);
         expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({
@@ -441,16 +445,16 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
     test('resolves default paths correctly without configuration overrides', () => {
         const orchestrator = Neo.create(Orchestrator);
         const dataDir = '/tmp/orchestrator-test-defaults';
-        
+
         expect(() => orchestrator.configure({ dataDir })).not.toThrow();
-        
+
         expect(orchestrator.logFile).toBe(path.join(dataDir, 'orchestrator.log'));
         expect(orchestrator.stateFile).toBe(path.join(dataDir, 'orchestrator-state.json'));
-        
+
         const repoRoot = path.resolve(process.cwd());
         const expectedSummaryScript = path.resolve(repoRoot, 'ai/scripts/summarize-sessions.mjs');
         const expectedKbSyncScript = path.resolve(repoRoot, 'buildScripts/ai/syncKnowledgeBase.mjs');
-        
+
         expect(orchestrator.taskDefinitions.summary.args[0]).toBe(expectedSummaryScript);
         expect(orchestrator.taskDefinitions.kbSync.args[0]).toBe(expectedKbSyncScript);
         expect(orchestrator.taskDefinitions.mlx).toBeUndefined();
@@ -831,6 +835,91 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         // B's kbSync did NOT start despite being due — proves cross-daemon defer is structural,
         // not a logging artifact.
         expect(startedB).not.toContainEqual({taskName: 'kbSync', reason: 'periodic-sync:600000'});
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // #11766 — swarm-heartbeat lane. The standalone swarm-heartbeat daemon is folded
+    // into the Orchestrator as a config-gated scheduled lane. The lane runs
+    // `SwarmHeartbeatService.pulse()` per cadence tick and is skipped when disabled.
+    // It is NOT a heavy-maintenance task — it runs directly without backpressure.
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    test('runs the swarm-heartbeat pulse when the lane is enabled and due (#11766)', async () => {
+        const pulseCalls = [];
+
+        const orchestrator = createTestOrchestrator({
+            kbSyncEnabled          : false,
+            swarmHeartbeatEnabled  : true,
+            swarmHeartbeatIntervalMs: 600000,
+            swarmHeartbeatService  : {
+                initAsync() { return Promise.resolve(); },
+                pulse() {
+                    pulseCalls.push('pulse');
+                    return Promise.resolve();
+                }
+            }
+        });
+
+        orchestrator.poll();
+        await Promise.resolve();
+
+        expect(pulseCalls).toEqual(['pulse']);
+    });
+
+    test('skips the swarm-heartbeat pulse when the lane is disabled (#11766)', async () => {
+        const pulseCalls = [];
+
+        const orchestrator = createTestOrchestrator({
+            kbSyncEnabled          : false,
+            swarmHeartbeatEnabled  : false,
+            swarmHeartbeatIntervalMs: 600000,
+            swarmHeartbeatService  : {
+                initAsync() { return Promise.resolve(); },
+                pulse() {
+                    pulseCalls.push('pulse');
+                    return Promise.resolve();
+                }
+            }
+        });
+
+        orchestrator.poll();
+        await Promise.resolve();
+
+        expect(pulseCalls).toEqual([]);
+    });
+
+    test('records swarm-heartbeat task outcomes through the health service (#11766)', async () => {
+        const outcomes = [];
+
+        const orchestrator = createTestOrchestrator({
+            kbSyncEnabled          : false,
+            swarmHeartbeatEnabled  : true,
+            swarmHeartbeatIntervalMs: 600000,
+            healthService          : {
+                recordTaskOutcome(taskName, status, details) {
+                    outcomes.push({taskName, status, details});
+                }
+            },
+            swarmHeartbeatService  : {
+                initAsync() { return Promise.resolve(); },
+                pulse() { return Promise.resolve(); }
+            }
+        });
+
+        orchestrator.poll();
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(outcomes).toContainEqual({
+            taskName: SWARM_HEARTBEAT_TASK_NAME,
+            status  : 'running',
+            details : expect.objectContaining({reason: 'periodic-heartbeat:600000'})
+        });
+        expect(outcomes).toContainEqual({
+            taskName: SWARM_HEARTBEAT_TASK_NAME,
+            status  : 'completed',
+            details : expect.objectContaining({reason: 'periodic-heartbeat:600000'})
+        });
     });
 
 });
