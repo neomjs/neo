@@ -55,6 +55,7 @@ Checks:
 - Does the approach **reuse existing substrate**, or does it invent parallel substrate? (Parallel substrate is a strong warning sign — it usually means the author missed a reusable primitive.)
 - Is the main abstraction layer the right one? (Same substrate-boundary question as `ticket-intake` prescription challenge, elevated one scope level.)
 - Is there a known **Gold Standard** from prior sessions this epic diverges from without rationale? Query Memory Core for comparable epics.
+- Does the epic predate, cite, conflict with, or depend on an ADR / Decision Record? If yes, apply the ADR successor-risk audit before passing approach elegance; older epic premises may be superseded by later ADRs, while later evidence must route through an explicit ADR challenge path.
 - Does the approach **compound** existing capability, or does it fight against it?
 - Is the epic's main decision testable — can it be empirically validated, or is it an unfalsifiable preference?
 
@@ -117,12 +118,13 @@ For each parent AC of the epic, Stage 3 must produce columns 1–3 of the shared
 
 **Question:** For each sub, is the work at the right layer?
 
-Apply the same five-stage challenge chain from `ticket-intake`, but across the sub-graph rather than individual sub:
+Apply the same six-stage challenge chain from `ticket-intake`, but across the sub-graph rather than individual sub:
 - **Premise**: is each sub's stated problem real and reproducible?
 - **Prescription**: is the fix at the right substrate, or does it treat a symptom?
 - **Substrate**: service-layer / framework-core / daemon / documentation / config — right owner?
 - **Consumer**: who reads the output — human, agent, Memory Core, Native Edge Graph?
 - **Service-boundary**: does any sub cross a boundary it shouldn't (e.g. shipping config to a service that doesn't own the concern)?
+- **Decision Record impact**: does any sub depend on, amend, supersede, or challenge an ADR / Decision Record?
 
 You are not running `ticket-intake` on each sub — that runs at sub pickup. You are checking that the sub-graph's prescription layer is architecturally coherent from the epic-level view.
 

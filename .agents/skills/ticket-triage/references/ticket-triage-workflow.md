@@ -30,24 +30,25 @@ Before running the four-step workflow:
 
 ## 3. The Four-Step Triage Workflow
 
-### Step 1 — Retrospective Five-Stage Challenge
+### Step 1 — Retrospective Six-Stage Challenge
 
-Apply the same five-stage challenge chain from `ticket-create §2` retrospectively, but as a **labeling decision**, not a creation gate:
+Apply the same six-stage challenge chain from `ticket-create §2` retrospectively, but as a **labeling decision**, not a creation gate:
 
 1. **Premise:** is the stated problem real and reproducible? Has the underlying symptom been independently verified, or is it secondhand?
 2. **Prescription:** is the stated fix the right substrate for the problem, or does it treat a symptom?
 3. **Substrate:** where does this work belong? Service-layer / build script / CI / framework core / documentation? Match the fix to the substrate that owns the concern.
 4. **Consumer:** who reads the output of this change? Human developer, agent, Memory Core, Native Edge Graph, Knowledge Base?
 5. **Service-Boundary:** does the proposed work cross a service boundary it shouldn't?
+6. **Decision Record impact:** does the ticket depend on, amend, supersede, or challenge an ADR / Decision Record?
 
 **Outcome routing:**
 
-- **All five pass:** proceed to Step 2 (apply labels).
+- **All six pass:** proceed to Step 2 (apply labels).
 - **One or more fail:** post a structured review comment on the ticket flagging the failure(s) using the `pr-review` `[ARCH_ALIGNMENT]` framing, AND apply the `needs-re-triage` label (canonical taxonomy marker for *"premise identified as stale, duplicate, or Negative ROI by Swarm Agent"*). Do **NOT** apply primary or secondary labels. Halt the triage protocol.
 
 **The retrospective challenge is the labeling-decision gate.** A ticket that fails any stage is not yet ready for label application — labels signal "this is real work this repo wants done." Premature labels create downstream pickup pressure on flawed premises.
 
-**Why `needs-re-triage` on the halt path:** without a marker, the halted ticket remains in the same "unlabeled" bucket that triggers `ticket-triage` itself, creating a re-triage loop where every passing maintainer re-runs the 5-stage challenge and posts duplicate review comments. The `needs-re-triage` label signals *"premise has been challenged; further triage requires author clarification first"* — preventing the loop while preserving auditability.
+**Why `needs-re-triage` on the halt path:** without a marker, the halted ticket remains in the same "unlabeled" bucket that triggers `ticket-triage` itself, creating a re-triage loop where every passing maintainer re-runs the six-stage challenge and posts duplicate review comments. The `needs-re-triage` label signals *"premise has been challenged; further triage requires author clarification first"* — preventing the loop while preserving auditability.
 
 ### Step 2 — Apply Primary Label
 
@@ -95,7 +96,7 @@ Assignment disposition is **not** part of the labeling decision — it's a post-
 
 | Anti-pattern | Why it harms |
 |---|---|
-| Applying labels before retrospective five-stage challenge | Bypasses the gate that filters out flawed premises; downstream pickup pressure on bad work |
+| Applying labels before retrospective six-stage challenge | Bypasses the gate that filters out flawed premises; downstream pickup pressure on bad work |
 | Inventing label names | Silent GitHub API rejection; lost label intent |
 | Skipping `list_labels` verification | Domain-label drift; future agents see inconsistent taxonomy |
 | Applying `ai` label without intent to pick up | False signal that the agent queue owns this work |
@@ -125,7 +126,7 @@ This makes the triage decision auditable and prevents re-triage by future mainta
 Before calling `manage_issue_labels`:
 
 - [ ] You have maintainer permission (`get_viewer_permission` returns `WRITE`/`MAINTAIN`/`ADMIN`)
-- [ ] Stage 1 retrospective five-stage challenge passed (or you've posted the challenge comment and halted)
+- [ ] Stage 1 retrospective six-stage challenge passed (or you've posted the challenge comment and halted)
 - [ ] Primary label chosen is exactly one of `bug`/`enhancement`/`epic`
 - [ ] Secondary labels verified to exist in `list_labels` output
 - [ ] No invented label names

@@ -39,7 +39,7 @@ If the proposed ticket involves modifying any agent skill (i.e., any file within
 
 For source anchors (#11078/#11082/#11083/#11084), Discussion #11091 authority context, and substrate-decay review, read [`../../ideation-sandbox/audits/double-diamond-divergence-guard.md`](../../ideation-sandbox/audits/double-diamond-divergence-guard.md).
 
-## 2. Five-Stage Challenge Chain
+## 2. Six-Stage Challenge Chain
 
 Apply at creation time — not just at intake. Every stage must pass before the ticket is drafted.
 
@@ -50,6 +50,7 @@ Apply at creation time — not just at intake. Every stage must pass before the 
    **Structural Pre-Flight Integration:** when the prescription introduces or relocates a `.mjs` file, the directory choice MUST be validated via `.agents/skills/structural-pre-flight/` before drafting the ticket body. Stage 0 mechanical trigger fires; Stage 1 fast-path handles sibling-pattern matches in 30 seconds; novel directory choices route through full Pre-Flight (ArchitectureOverview.md + ADR consultation). The empirical anchors PR #11008 (`orchestrator-daemon.mjs` misplaced in `ai/scripts/`) and earlier `bridge-daemon.mjs` demonstrate the cost of skipping this check at ticket-creation time.
 4. **Consumer** — who reads the output of this change? Human developer, agent, Memory Core, Native Edge Graph, Knowledge Base? Different consumers need different shapes (markdown prose vs structured metadata vs MCP payload).
 5. **Service-Boundary** — does the fix cross a service boundary it shouldn't? Config added to the wrong owning service creates future migration debt.
+6. **Decision Record impact** — for architecture/substrate tickets, declare whether the work is `none`, `aligned-with`, `depends-on`, `amends`, `supersedes`, or `challenges` an ADR. If it challenges or supersedes an accepted ADR, apply the ADR successor-risk audit in [`../../ticket-intake/references/adr-successor-risk-audit.md`](../../ticket-intake/references/adr-successor-risk-audit.md) before filing.
 
 A ticket that fails any stage should be reshaped OR rejected, not filed.
 
@@ -85,6 +86,7 @@ Skeleton tickets are forbidden. Every ticket body MUST contain:
 - **The Architectural Reality** — exactly which Neo.mjs patterns, class topologies, or service boundaries this issue interacts with. Cite file:line when known. Distinguishes intent-level framing (Problem) from structural specificity (Reality).
 - **The Fix** — concrete prescription: files, symbols, architectural primitives touched. What changes, and where.
 - **Contract Ledger Matrix** *(when applicable)* — For any ticket introducing, modifying, or deprecating a surface consumed by humans, agents, or external systems (e.g. public methods, configs, MCP tools), you MUST include a formal Contract Ledger matrix. This matrix defines Target Surface, Source of Authority, Proposed Behavior, Fallback, Docs, and Evidence. See `learn/agentos/contract-ledger.md` for schema.
+- **Decision Record impact** *(architecture/substrate tickets)* — Declare `none`, `aligned-with ADR ####`, `depends-on ADR ####`, `amends ADR ####`, `supersedes ADR ####`, or `challenges ADR ####`. Use the ADR successor-risk audit when the ticket conflicts with or depends on accepted ADR authority.
 - **Discussion Criteria Mapping** *(when graduating from a Discussion)* — A section mapping the upstream Discussion's `[RESOLVED_TO_AC]` criteria to this Epic's ACs. See `ideation-sandbox-workflow.md §6.6` for the required format. This satisfies the `epic-resolution` Closeout Gates upfront.
 - **Acceptance Criteria** — bulleted checklist. Each item independently verifiable. Post-merge-only items explicitly flagged.
 - **Out of Scope** — what this ticket deliberately does NOT do. Prevents scope creep during implementation.
