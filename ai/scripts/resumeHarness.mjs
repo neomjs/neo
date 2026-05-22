@@ -258,6 +258,16 @@ function buildBootGroundingPrompt(identity, reason, originSessionId) {
 }
 
 /**
+ * @summary Normalize a GitHub-login-style identity into the AgentIdentity node id form wake dispatchers require.
+ * @param {String} identity Raw identity from env/config/CLI.
+ * @returns {String} Canonical AgentIdentity node id, or an empty string for empty input.
+ */
+export function normalizeAgentIdentityNodeId(identity) {
+    const value = String(identity ?? '').trim();
+    return value && !value.startsWith('@') ? `@${value}` : value
+}
+
+/**
  * @summary Resume a sunsetted agent by dispatching the configured fresh-session harness adapter.
  * @param {String} identity Agent identity to resume.
  * @param {String} reason Human-readable recovery reason.
@@ -266,6 +276,8 @@ function buildBootGroundingPrompt(identity, reason, originSessionId) {
  * @returns {Promise<void>}
  */
 export async function resumeHarness(identity, reason, originSessionId, abandonedCount = 0) {
+    identity = normalizeAgentIdentityNodeId(identity);
+
     // Wake safety gate (#10648, child of #10647). Direct fresh-session-spawn
     // invocations must also fail-closed when the substrate is unsafe — the
     // gate is consulted alongside (and ahead of) the existing cooldown. The
