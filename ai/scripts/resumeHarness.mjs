@@ -45,11 +45,13 @@ const __dirname  = path.dirname(__filename);
  * @param {string} cmd
  * @param {string[]} args
  * @param {?string} identity Agent identity for PID-record bookkeeping; pass `null` to skip.
+ * @param {string} [hostPlatform=process.platform]
  * @returns {Promise<void>}
  */
-function spawnAsync(cmd, args, identity = null) {
+function spawnAsync(cmd, args, identity = null, hostPlatform = process.platform) {
     return new Promise((resolve, reject) => {
-        const proc = spawn(cmd, args, { stdio: 'ignore' });
+        const spawnRequest = createSpawnRequest(cmd, args, hostPlatform);
+        const proc = spawn(spawnRequest.cmd, spawnRequest.args, spawnRequest.options);
         let recordPromise = Promise.resolve();
 
         if (identity && proc.pid) {
@@ -68,6 +70,71 @@ function spawnAsync(cmd, args, identity = null) {
             recordPromise.then(() => reject(err));
         });
     });
+}
+
+/**
+ * @summary Detect Windows batch wrappers that require `cmd.exe` dispatch.
+ *
+ * @param {string} cmd
+ * @returns {boolean}
+ */
+export function isWindowsBatchCommand(cmd) {
+    return /\.(?:cmd|bat)$/i.test(cmd);
+}
+
+/**
+ * @summary Quote one value for a `cmd.exe /c call ...` command line.
+ *
+ * The Antigravity boot-grounding prompt is user-visible data, not shell syntax.
+ * Windows batch wrappers require `cmd.exe`, so command construction escapes the
+ * shell metacharacters that would otherwise split or redirect the command line.
+ *
+ * @param {string} value
+ * @returns {string}
+ */
+export function quoteWindowsCmdArgument(value) {
+    const stringValue = String(value);
+
+    if (stringValue === '') {
+        return '""';
+    }
+
+    return `"${stringValue
+        .replace(/"/g, '\\"')
+        .replace(/%/g, '%%')
+        .replace(/([&|<>()^!])/g, '^$1')}"`;
+}
+
+/**
+ * @summary Build a spawn request that can execute Windows `.cmd` / `.bat` wrappers.
+ *
+ * POSIX hosts and native Windows executables keep the direct spawn path. Windows
+ * batch files are dispatched through `cmd.exe /d /s /c call ...` because Node's
+ * plain `spawn(file, args)` cannot execute them directly.
+ *
+ * @param {string} cmd
+ * @param {string[]} args
+ * @param {string} [hostPlatform=process.platform]
+ * @param {Object} [env=process.env]
+ * @returns {{cmd: string, args: string[], options: Object}}
+ */
+export function createSpawnRequest(cmd, args, hostPlatform = process.platform, env = process.env) {
+    if (hostPlatform === 'win32' && isWindowsBatchCommand(cmd)) {
+        return {
+            cmd    : env.ComSpec || env.COMSPEC || 'cmd.exe',
+            args   : ['/d', '/s', '/c', ['call', quoteWindowsCmdArgument(cmd), ...args.map(quoteWindowsCmdArgument)].join(' ')],
+            options: {
+                stdio                   : 'ignore',
+                windowsVerbatimArguments: true
+            }
+        };
+    }
+
+    return {
+        cmd,
+        args,
+        options: {stdio: 'ignore'}
+    };
 }
 
 /**
@@ -198,8 +265,8 @@ async function resolveAntigravityCliPath() {
 /**
  * @summary Select the runtime harness adapter for the current host platform.
  *
- * Antigravity keeps its native CLI path on POSIX hosts. Windows remains on the
- * tmux fallback until #11767 adds a safe `.cmd`/`.bat` execution substrate.
+ * Antigravity keeps its native CLI path across host platforms; Windows batch
+ * wrappers are handled by `createSpawnRequest()`.
  *
  * @param {Object} harnessTarget
  * @param {string} harnessTarget.adapter
@@ -208,7 +275,7 @@ async function resolveAntigravityCliPath() {
  */
 export function selectHarnessAdapter(harnessTarget, hostPlatform = process.platform) {
     if (harnessTarget.adapter === 'antigravity-cli') {
-        return hostPlatform === 'win32' ? 'tmux' : harnessTarget.adapter;
+        return harnessTarget.adapter;
     }
 
     return hostPlatform === 'darwin' ? harnessTarget.adapter : 'tmux';

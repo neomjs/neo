@@ -344,14 +344,39 @@ test.describe('ai/scripts/resumeHarness', () => {
         }
     });
 
-    test('Antigravity CLI: win32 stays on tmux until .cmd execution follow-up (#11767)', async () => {
+    test('Antigravity CLI: win32 uses native adapter after .cmd execution support (#11767)', async () => {
         const { selectHarnessAdapter } = await import('../../../../../ai/scripts/resumeHarness.mjs');
 
         expect(selectHarnessAdapter({ adapter: 'antigravity-cli' }, 'linux')).toBe('antigravity-cli');
         expect(selectHarnessAdapter({ adapter: 'antigravity-cli' }, 'darwin')).toBe('antigravity-cli');
-        expect(selectHarnessAdapter({ adapter: 'antigravity-cli' }, 'win32')).toBe('tmux');
+        expect(selectHarnessAdapter({ adapter: 'antigravity-cli' }, 'win32')).toBe('antigravity-cli');
         expect(selectHarnessAdapter({ adapter: 'claude-cli' }, 'linux')).toBe('tmux');
         expect(selectHarnessAdapter({ adapter: 'claude-cli' }, 'darwin')).toBe('claude-cli');
+    });
+
+    test('Antigravity CLI: Windows .cmd dispatch uses cmd.exe with escaped data args (#11767)', async () => {
+        const { createSpawnRequest } = await import('../../../../../ai/scripts/resumeHarness.mjs');
+
+        const request = createSpawnRequest(
+            'C:\\Program Files\\Antigravity\\bin\\antigravity.cmd',
+            ['chat', '-n', 'payload & %PATH% | < > ^ ! "quoted"'],
+            'win32',
+            {COMSPEC: 'C:\\Windows\\System32\\cmd.exe'}
+        );
+
+        expect(request.cmd).toBe('C:\\Windows\\System32\\cmd.exe');
+        expect(request.args[0]).toBe('/d');
+        expect(request.args[1]).toBe('/s');
+        expect(request.args[2]).toBe('/c');
+        expect(request.options).toMatchObject({
+            stdio                   : 'ignore',
+            windowsVerbatimArguments: true
+        });
+
+        const commandLine = request.args[3];
+        expect(commandLine).toContain('call "C:\\Program Files\\Antigravity\\bin\\antigravity.cmd"');
+        expect(commandLine).toContain('"chat" "-n"');
+        expect(commandLine).toContain('"payload ^& %%PATH%% ^| ^< ^> ^^ ^! \\"quoted\\""');
     });
 
     test('Antigravity CLI: missing executable reports actionable path diagnostic (#10684)', async () => {
