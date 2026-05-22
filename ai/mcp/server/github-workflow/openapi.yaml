@@ -1129,6 +1129,77 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /discussions/manage:
+    post:
+      summary: Manage GitHub Discussions (Update Body)
+      operationId: manage_discussion
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Manages discussion-level operations on GitHub discussions.
+
+        **Action: 'update_body'**
+        - Replaces the body of an existing discussion in place (e.g. post-publication corrections to an Ideation Sandbox entry, keeping the body as the single source of truth instead of accumulating correction comments).
+        - Requires `discussion_number` and `body`.
+      tags: [Issues]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - discussion_number
+                - body
+              properties:
+                action:
+                  type: string
+                  enum: [update_body]
+                  description: The action to perform.
+                  example: update_body
+                discussion_number:
+                  type: integer
+                  description: The number of the discussion to update.
+                  example: 10137
+                body:
+                  type: string
+                  description: The new Markdown body for the discussion.
+      responses:
+        '200':
+          description: Discussion body updated successfully.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  discussionId:
+                    type: string
+                    description: The canonical GitHub global node ID of the discussion.
+                    example: "D_kwDODSospM4AmbhL"
+                  url:
+                    type: string
+                    description: The canonical HTTP URL of the discussion on github.com.
+                    example: "https://github.com/orgs/neomjs/discussions/10137"
+                  updatedAt:
+                    type: string
+                    format: date-time
+                    description: The last-modified timestamp (ISO-8601).
+                    example: "2026-05-16T02:49:38Z"
+        '400':
+          description: Bad Request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /discussions/comments/manage:
     post:
       summary: Manage Discussion Comments (Create or Update)

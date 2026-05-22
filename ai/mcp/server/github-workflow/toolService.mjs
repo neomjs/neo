@@ -147,6 +147,7 @@ const serviceMapping = {
     list_labels              : LabelService      .listLabels             .bind(LabelService),
     list_pull_requests       : PullRequestService.listPullRequests       .bind(PullRequestService),
     list_issues              : IssueService      .listIssues             .bind(IssueService),
+    manage_discussion        : DiscussionService .manageDiscussion       .bind(DiscussionService),
     manage_discussion_comment: DiscussionService .manageDiscussionComment.bind(DiscussionService),
     manage_issue_assignees   : IssueService      .manageIssueAssignees   .bind(IssueService),
     manage_issue_comment     : IssueService      .manageIssueComment     .bind(IssueService),
