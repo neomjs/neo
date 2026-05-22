@@ -19,6 +19,7 @@
  */
 import Neo from '../../src/Neo.mjs';
 import * as core from '../../src/core/_export.mjs';
+import { createHash } from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import LifecycleService from '../services/memory-core/lifecycle/SystemLifecycleService.mjs';
@@ -26,11 +27,31 @@ import GraphService from '../services/memory-core/GraphService.mjs';
 import { checkInflightLock } from './inflightLock.mjs';
 
 /**
+ * @summary Derive a logical all-agent-idle cycle id from the observed identity state.
+ * @param {String[]} identities Configured agent identities.
+ * @param {Object<String, {lastMemTime: ?String, inFlightNudge: Boolean}>} details Per-identity idle details.
+ * @returns {String}
+ */
+export function deriveAllAgentIdleCycleId(identities, details) {
+    const stateKey = [...identities].sort().map(identity => {
+        const detail  = details[identity] || {};
+        const lastMem = detail.lastMemTime || 'never';
+        const nudge   = detail.inFlightNudge ? 'in-flight' : 'clear';
+
+        return `${identity}:${lastMem}:${nudge}`
+    }).join('|');
+
+    return createHash('sha256')
+        .update(stateKey)
+        .digest('hex')
+        .slice(0, 16)
+}
+
+/**
  * @summary Compute whether every configured trio identity is past the idle threshold.
- * @param {String} [cycleId] Stable heartbeat cycle identifier.
  * @returns {Promise<Object>} All-agent-idle detector signal.
  */
-export async function checkAllAgentIdle(cycleId = Math.floor(Date.now() / 1000).toString()) {
+export async function checkAllAgentIdle() {
     await LifecycleService.initAsync();
     await GraphService.initAsync();
     const db = GraphService.db.storage.db;
@@ -106,6 +127,8 @@ export async function checkAllAgentIdle(cycleId = Math.floor(Date.now() / 1000).
         }
     }
 
+    const cycleId = deriveAllAgentIdleCycleId(identities, details);
+
     const signal = {
         allIdle,
         cycle_id: cycleId,
@@ -118,8 +141,7 @@ export async function checkAllAgentIdle(cycleId = Math.floor(Date.now() / 1000).
 }
 
 async function main() {
-    const cycleId = process.argv[2] || Math.floor(Date.now() / 1000).toString();
-    const signal = await checkAllAgentIdle(cycleId);
+    const signal = await checkAllAgentIdle();
     console.log(JSON.stringify(signal));
 }
 
