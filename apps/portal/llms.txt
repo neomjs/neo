@@ -366,6 +366,17 @@ The sections below (Release Notes, Guides/Blogs, and GitHub Tickets) represent p
 
 Here you find historical technical discussions and GitHub issues.
 
+- [Ticket #11752](https://neomjs.com/raw/news/tickets/11752.md)
+- [Ticket #11744](https://neomjs.com/raw/news/tickets/11744.md)
+- [Ticket #11743](https://neomjs.com/raw/news/tickets/11743.md)
+- [Ticket #11740](https://neomjs.com/raw/news/tickets/11740.md)
+- [Ticket #11736](https://neomjs.com/raw/news/tickets/11736.md)
+- [Ticket #11735](https://neomjs.com/raw/news/tickets/11735.md)
+- [Ticket #11734](https://neomjs.com/raw/news/tickets/11734.md)
+- [Ticket #11733](https://neomjs.com/raw/news/tickets/11733.md)
+- [Ticket #11732](https://neomjs.com/raw/news/tickets/11732.md)
+- [Ticket #11731](https://neomjs.com/raw/news/tickets/11731.md)
+- [Ticket #11730](https://neomjs.com/raw/news/tickets/11730.md)
 - [Ticket #11729](https://neomjs.com/raw/news/tickets/11729.md)
 - [Ticket #11728](https://neomjs.com/raw/news/tickets/11728.md)
 - [Ticket #11727](https://neomjs.com/raw/news/tickets/11727.md)
