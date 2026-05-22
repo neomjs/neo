@@ -26,6 +26,7 @@
         "ai:download-kb"               : "node ./buildScripts/ai/downloadKnowledgeBase.mjs",
         "ai:ingest-tenant"             : "node ./buildScripts/ai/ingestTenant.mjs",
         "ai:kb-push-client"            : "node ./buildScripts/ai/kbPushClient.mjs",
+        "ai:mcp-healthcheck"           : "node ./buildScripts/ai/mcpHealthcheck.mjs",
         "ai:mcp-client"                : "node ./ai/mcp/client/mcp-cli.mjs",
         "ai:mcp-server-file-system"    : "node ./ai/mcp/server/file-system/mcp-server.mjs",
         "ai:mcp-server-github-workflow": "node ./ai/mcp/server/github-workflow/mcp-server.mjs",

@@ -58,6 +58,12 @@ services:
       - neo-mcp-network
     expose:
       - "3000"
+    healthcheck:
+      test: ["CMD", "node", "./buildScripts/ai/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3000", "--client-name", "neo-kb-container-healthcheck"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 45s
     deploy:
       resources:
         limits:
@@ -93,6 +99,12 @@ services:
       - neo-mcp-network
     expose:
       - "3001"
+    healthcheck:
+      test: ["CMD", "node", "./buildScripts/ai/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--client-name", "neo-mc-container-healthcheck"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 45s
     deploy:
       resources:
         limits:
@@ -124,6 +136,10 @@ services:
       - ./.neo-ai-data/backups:/app/.neo-ai-data/backups
     depends_on:
       chroma:
+        condition: service_healthy
+      kb-server:
+        condition: service_healthy
+      mc-server:
         condition: service_healthy
     networks:
       - neo-mcp-network
