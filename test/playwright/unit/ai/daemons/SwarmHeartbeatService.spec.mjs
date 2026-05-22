@@ -275,8 +275,8 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
             sunsetCalls.push(identity);
             return {sunsetted: false, recommended_action: 'no_action'};
         };
-        SwarmHeartbeatService.checkAllAgentIdle = async (cycleId) => {
-            idleCalls.push(cycleId);
+        SwarmHeartbeatService.checkAllAgentIdle = async (...args) => {
+            idleCalls.push(args);
             return {allIdle: false};
         };
         SwarmHeartbeatService.runScript = async () => {
@@ -289,7 +289,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         await SwarmHeartbeatService.pulse();
 
         expect(sunsetCalls).toEqual(['@test']);
-        expect(idleCalls.length).toBe(1);
+        expect(idleCalls).toEqual([[]]);
     });
 
     test('pulse() reschedules from finally block even when sweep throws', async () => {

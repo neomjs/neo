@@ -259,9 +259,9 @@ class SwarmHeartbeatService extends Base {
                 return
             }
 
-            // Step 4: All-agent-idle detection (direct module export; CLI wrapper preserved for shell consumers).
-            const cycleId = String(Math.floor(Date.now() / 1000));
-            const allIdleJson = await this.checkAllAgentIdle(cycleId);
+            // Step 4: All-agent-idle detection. `checkAllAgentIdle.mjs` owns the
+            // logical cycle id so the cooldown key remains stable across pulses.
+            const allIdleJson = await this.checkAllAgentIdle();
             if (allIdleJson?.allIdle) {
                 logger.info(`[SwarmHeartbeatService] AllAgentIdle detected: ${JSON.stringify(allIdleJson)}`);
                 if (!await this.checkGateOpen()) {
@@ -384,13 +384,12 @@ class SwarmHeartbeatService extends Base {
 
     /**
      * Test-stubbable seam over `checkAllAgentIdle.mjs`'s dual-mode module export.
-     * @param {String} cycleId
      * @returns {Promise<Object|null>}
      * @protected
      */
-    async checkAllAgentIdle(cycleId) {
+    async checkAllAgentIdle() {
         try {
-            return await checkAllAgentIdleScript(cycleId)
+            return await checkAllAgentIdleScript()
         } catch (err) {
             logger.error('[SwarmHeartbeatService] checkAllAgentIdle.mjs failed:', err.message);
             return null

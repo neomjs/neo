@@ -204,8 +204,7 @@ heartbeat_pulse() {
         fi
 
         # All-agent-idle detection (Phase 3 Substrate Primitive #10625)
-        local cycle_id=$(date +%s)
-        local all_idle_json=$(node "${script_dir}/checkAllAgentIdle.mjs" "$cycle_id" 2>>"$SWEEP_LOG")
+        local all_idle_json=$(node "${script_dir}/checkAllAgentIdle.mjs" 2>>"$SWEEP_LOG")
         if [ $? -eq 0 ] && [ -n "$all_idle_json" ]; then
             local is_all_idle=$(echo "$all_idle_json" | jq -r '.allIdle')
             if [ "$is_all_idle" = "true" ]; then
