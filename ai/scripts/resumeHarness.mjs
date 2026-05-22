@@ -196,6 +196,25 @@ async function resolveAntigravityCliPath() {
 }
 
 /**
+ * @summary Select the runtime harness adapter for the current host platform.
+ *
+ * Antigravity keeps its native CLI path on POSIX hosts. Windows remains on the
+ * tmux fallback until #11767 adds a safe `.cmd`/`.bat` execution substrate.
+ *
+ * @param {Object} harnessTarget
+ * @param {string} harnessTarget.adapter
+ * @param {string} [hostPlatform=process.platform]
+ * @returns {string}
+ */
+export function selectHarnessAdapter(harnessTarget, hostPlatform = process.platform) {
+    if (harnessTarget.adapter === 'antigravity-cli') {
+        return hostPlatform === 'win32' ? 'tmux' : harnessTarget.adapter;
+    }
+
+    return hostPlatform === 'darwin' ? harnessTarget.adapter : 'tmux';
+}
+
+/**
  * @summary Fail-closed guard for the live Codex Desktop app-server adapter.
  *
  * `codex debug app-server send-message-v2` creates/injects into a real Codex
@@ -317,9 +336,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
         throw new Error(`Unknown harness target for identity: ${identity}`);
     }
 
-    const adapter = harnessTarget.adapter === 'antigravity-cli'
-        ? harnessTarget.adapter
-        : process.platform === 'darwin' ? harnessTarget.adapter : 'tmux';
+    const adapter = selectHarnessAdapter(harnessTarget);
 
     // Write the inflight lock BEFORE taking action to secure the boot ramp (Issue #10674)
     await writeInflightLock(identity, 'sunset_restart', abandonedCount);

@@ -344,6 +344,16 @@ test.describe('ai/scripts/resumeHarness', () => {
         }
     });
 
+    test('Antigravity CLI: win32 stays on tmux until .cmd execution follow-up (#11767)', async () => {
+        const { selectHarnessAdapter } = await import('../../../../../ai/scripts/resumeHarness.mjs');
+
+        expect(selectHarnessAdapter({ adapter: 'antigravity-cli' }, 'linux')).toBe('antigravity-cli');
+        expect(selectHarnessAdapter({ adapter: 'antigravity-cli' }, 'darwin')).toBe('antigravity-cli');
+        expect(selectHarnessAdapter({ adapter: 'antigravity-cli' }, 'win32')).toBe('tmux');
+        expect(selectHarnessAdapter({ adapter: 'claude-cli' }, 'linux')).toBe('tmux');
+        expect(selectHarnessAdapter({ adapter: 'claude-cli' }, 'darwin')).toBe('claude-cli');
+    });
+
     test('Antigravity CLI: missing executable reports actionable path diagnostic (#10684)', async () => {
         test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
