@@ -66,6 +66,14 @@ It defines when role payloads must be read before lane choice, how to survey
 positive-ROI author lanes, and when a review-first rationale is legitimate.
 This is a trigger-ordering guard, not a quota or blame mechanism.
 
+## 1.6 Night-Shift Leased Driver Gate
+
+<!-- trigger: watchdog/night-shift wake, direct operator driver command, lane-driver handoff, or repeated no-progress cycles -> read learn/agentos/wake-substrate/NightShiftLeasedDriver.md before declaring no-delta or halt-state -->
+
+Night-shift driver handling is a lane-ownership contract, not a generic
+review-pickup variant. The linked wake-substrate document defines the TTL,
+renewal, direct-driver routing, and no-idle obligations for autonomous windows.
+
 ## 2. Reviewer Pickup Matrix
 
 After completing the reviewer-side handoff, the reviewer MUST choose one of
@@ -204,7 +212,7 @@ for the next prompt. Ticket #10970 is the instance-codification.
 |---|---|
 | Declaring halt-state per §5 criterion #1 without first surveying backlog | Condones deference-slip; reverses AGENTS.md §15.6 self-select discipline |
 | Treating operator-suppressed `AGENT:*` broadcast as work-stop | Confuses coordination visibility with implementation authority; use the authorized direct-DM fallback or declare a real blocker. |
-| Watchdog wake -> ack -> nothing to do without broad lane search | Burns wake cycles while positive-ROI backlog lanes exist; repeat wakes must re-check A2A + live repo state + broad backlog before any no-delta response. |
+| Watchdog wake -> ack -> nothing to do without broad lane search | Burns wake cycles while positive-ROI backlog lanes exist; repeat wakes must re-check A2A + live repo state + broad backlog and, for night-shift/driver contexts, apply the leased-driver contract before any no-delta response. |
 | Ending the turn after `Approved` without checking the next lane | Leaves the swarm idle at the human merge gate even when unrelated work is ready. |
 | Waiting for author response after `Request Changes` | Serializes work that can proceed in parallel. |
 | Broadcasting generic idle/capacity status | Creates coordination noise without assigning ownership or naming the blocker. |
