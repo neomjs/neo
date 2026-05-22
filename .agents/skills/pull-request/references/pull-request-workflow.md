@@ -307,6 +307,10 @@ after review-response handoff completes. Reviewer-side symmetry is mapped from
 `pr-review-guide.md §11`. This is the public skill codification of the
 `feedback_peer_not_assistant_mode` lineage.
 
+### 6.3.1 Post-Review Follow-up Surfacing
+
+<!-- trigger: `Approve+Follow-Up` or explicit non-blocking follow-up in review -> read ./post-review-followup-surfacing.md before merge -->
+
 ### 6.4 Reviewer Template-Adherence Check
 
 When a review lands on your PR, verify the reviewer used the correct
