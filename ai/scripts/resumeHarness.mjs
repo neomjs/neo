@@ -45,11 +45,13 @@ const __dirname  = path.dirname(__filename);
  * @param {string} cmd
  * @param {string[]} args
  * @param {?string} identity Agent identity for PID-record bookkeeping; pass `null` to skip.
+ * @param {string} [hostPlatform=process.platform]
  * @returns {Promise<void>}
  */
-function spawnAsync(cmd, args, identity = null) {
+function spawnAsync(cmd, args, identity = null, hostPlatform = process.platform) {
     return new Promise((resolve, reject) => {
-        const proc = spawn(cmd, args, { stdio: 'ignore' });
+        const spawnRequest = createSpawnRequest(cmd, args, hostPlatform);
+        const proc     = spawn(spawnRequest.cmd, spawnRequest.args, spawnRequest.options);
         let recordPromise = Promise.resolve();
 
         if (identity && proc.pid) {
@@ -68,6 +70,81 @@ function spawnAsync(cmd, args, identity = null) {
             recordPromise.then(() => reject(err));
         });
     });
+}
+
+/**
+ * @summary Detect Windows batch wrappers that require `cmd.exe` dispatch.
+ *
+ * @param {string} cmd
+ * @returns {boolean}
+ */
+export function isWindowsBatchCommand(cmd) {
+    return /\.(?:cmd|bat)$/i.test(cmd);
+}
+
+/**
+ * @summary Quote one argument for a `cmd.exe /c` batch-wrapper command line.
+ *
+ * Windows `.cmd` / `.bat` files require `cmd.exe` dispatch. We keep that shell
+ * hop scoped to batch wrappers, normalize line breaks that `cmd.exe` treats as
+ * command separators, and escape cmd metacharacters before joining the command
+ * string so the boot-grounding payload remains data.
+ *
+ * @param {string} value
+ * @returns {string}
+ */
+export function quoteWindowsBatchArgument(value) {
+    const stringValue = String(value).replace(/[\r\n]/g, ' ');
+
+    if (stringValue.length === 0) return '""';
+
+    return `"${stringValue.replace(/[()%!^"<>&|]/g, match => `^${match}`)}"`;
+}
+
+/**
+ * @summary Build the command string consumed by `cmd.exe /c` for batch wrappers.
+ *
+ * @param {string} cmd
+ * @param {string[]} args
+ * @returns {string}
+ */
+export function buildWindowsBatchCommandLine(cmd, args) {
+    return [cmd, ...args].map(quoteWindowsBatchArgument).join(' ');
+}
+
+/**
+ * @summary Build a spawn request that can execute Windows `.cmd` / `.bat` wrappers.
+ *
+ * POSIX hosts and native Windows executables keep the direct spawn path. Windows
+ * batch files dispatch through `cmd.exe /d /s /v:off /c` with repo-owned quoting
+ * instead of relying on Node's deprecated `spawn(file, args, {shell: true})`
+ * concatenation path.
+ *
+ * @param {string} cmd
+ * @param {string[]} args
+ * @param {string} [hostPlatform=process.platform]
+ * @returns {{cmd: string, args: string[], options: Object}}
+ */
+export function createSpawnRequest(cmd, args, hostPlatform = process.platform) {
+    if (hostPlatform === 'win32' && isWindowsBatchCommand(cmd)) {
+        return {
+            cmd    : process.env.ComSpec || process.env.COMSPEC || 'cmd.exe',
+            args   : [
+                '/d',
+                '/s',
+                '/v:off',
+                '/c',
+                buildWindowsBatchCommandLine(cmd, args)
+            ],
+            options: {stdio: 'ignore'}
+        };
+    }
+
+    return {
+        cmd,
+        args,
+        options: {stdio: 'ignore'}
+    };
 }
 
 /**
@@ -198,8 +275,8 @@ async function resolveAntigravityCliPath() {
 /**
  * @summary Select the runtime harness adapter for the current host platform.
  *
- * Antigravity keeps its native CLI path on POSIX hosts. Windows remains on the
- * tmux fallback until #11767 adds a safe `.cmd`/`.bat` execution substrate.
+ * Antigravity keeps its native CLI path across host platforms; Windows batch
+ * wrappers are handled by `createSpawnRequest()`.
  *
  * @param {Object} harnessTarget
  * @param {string} harnessTarget.adapter
@@ -208,7 +285,7 @@ async function resolveAntigravityCliPath() {
  */
 export function selectHarnessAdapter(harnessTarget, hostPlatform = process.platform) {
     if (harnessTarget.adapter === 'antigravity-cli') {
-        return hostPlatform === 'win32' ? 'tmux' : harnessTarget.adapter;
+        return harnessTarget.adapter;
     }
 
     return hostPlatform === 'darwin' ? harnessTarget.adapter : 'tmux';
