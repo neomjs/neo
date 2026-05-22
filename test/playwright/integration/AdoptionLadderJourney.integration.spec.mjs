@@ -1,6 +1,6 @@
-import {randomUUID}                                                       from 'node:crypto';
-import {test, expect}                                                     from '@playwright/test';
-import {callHealthcheck, callJsonTool, createIdentityClient, getReadiness} from './fixtures/mcpClient.mjs';
+import {randomUUID}                                                                     from 'node:crypto';
+import {test, expect}                                                                   from '@playwright/test';
+import {callHealthcheck, callJsonTool, createIdentityClient, getReadiness, readToolJson} from './fixtures/mcpClient.mjs';
 
 /**
  * #11725 Sub D — the incremental adoption-ladder journey proof (Discussion #11718 §8).
@@ -24,9 +24,15 @@ import {callHealthcheck, callJsonTool, createIdentityClient, getReadiness} from 
  * reconciliation) remain owned by the per-capability specs above; duplicating them here
  * would couple the journey proof to embedding-fixture internals.
  *
- * First slice (`Refs #11725`): milestones 0-2 — the connectivity ladder. Milestones 3-7
- * (tenant ingestion, client-side parser, bulk/backfill path, optional server-side clone,
- * backup → redeploy → handoff) follow as the next slice.
+ * Ladder coverage (`Refs #11725`): milestones 0-5 run as LIVE rungs — the connectivity
+ * ladder (0-2) plus tenant ingestion (3), the `parsed-chunk-v1` client-side-parser
+ * transport gate (4), and the bulk/backfill volume gate (5). Milestones 6-7 are
+ * documented-DEFERRED rungs, not fabricated assertions: server-side clone (6) is post-MVP
+ * (#11731 exploration; ADR 0014 D3 keeps it out of the MVP profile) and the full
+ * backup → redeploy → handoff round-trip (7) is owned by the per-capability backup specs
+ * plus test-evidence lane (3) — a single Playwright spec cannot redeploy the
+ * `composeWebServer` stack mid-run. Each deferred rung carries a precise `test.skip`
+ * citation so the ladder reaches all 8 milestones without over-claiming.
  *
  * @see https://github.com/neomjs/neo/issues/11725
  */
@@ -34,7 +40,33 @@ import {callHealthcheck, callJsonTool, createIdentityClient, getReadiness} from 
 const KB_URL = process.env.NEO_INTEGRATION_KB_URL || 'http://127.0.0.1:13000';
 const MC_URL = process.env.NEO_INTEGRATION_MC_URL || 'http://127.0.0.1:13001';
 
-test.describe('Adoption-ladder journey proof — #11725 Sub D (milestones 0-2)', () => {
+/**
+ * Builds a well-formed `parsed-chunk-v1` record — the shape a fresh operator's client-side
+ * parser emits. Mirrors the golden `expected-chunks.jsonl` fixture field set so the deployed
+ * Knowledge Base's Ajv `parsed-chunk-v1` validator accepts it verbatim.
+ * @param {String} sentinel       A per-run unique marker.
+ * @param {Object} [overrides={}] Fields to override (e.g. a contract-violating `schemaVersion`).
+ * @returns {Object} A `parsed-chunk-v1` record.
+ */
+function journeyParsedChunk(sentinel, overrides = {}) {
+    return {
+        schemaVersion: '1.0.0',
+        tenantId     : 'journey-operator',
+        repoSlug     : 'journey-ladder',
+        rootKind     : 'neo-workspace',
+        sourcePath   : `journey/${sentinel}.mjs`,
+        content      : `adoption-ladder journey chunk — ${sentinel}`,
+        hashInputs   : ['kind', 'name', 'content', 'sourcePath', 'parserId', 'parserVersion'],
+        parserId     : 'journey-fixture-parser',
+        parserVersion: '1.0.0',
+        kind         : 'module-context',
+        name         : 'Journey.AdoptionLadder',
+        className    : 'Journey.AdoptionLadder',
+        ...overrides
+    };
+}
+
+test.describe('Adoption-ladder journey proof — #11725 Sub D (milestones 0-7)', () => {
     test.beforeEach(async () => {
         const readiness = await getReadiness();
 
@@ -112,5 +144,118 @@ test.describe('Adoption-ladder journey proof — #11725 Sub D (milestones 0-2)',
         } finally {
             await client.close();
         }
+    });
+
+    test('Milestone 3 — tenant ingestion: the operator pushes parsed source content into their tenant over remote MCP', async () => {
+        const sentinel = `journey-ladder-m3-${randomUUID()}`;
+        const client   = await createIdentityClient({
+            baseUrl   : KB_URL,
+            identity  : 'journey-operator',
+            clientName: 'neo-journey-kb-ingest'
+        });
+
+        try {
+            const pushResult = await callJsonTool(client, 'ingest_source_files', {
+                tenantId: 'journey-operator',
+                repoSlug: 'journey-ladder',
+                files   : [{parsedChunks: [journeyParsedChunk(sentinel)]}]
+            });
+
+            // Path-level: the tenant write path answered cleanly. Deep tenant-isolation and
+            // retrieval-fidelity assertions stay owned by ai/kb-ingestion/multi-tenant.spec.
+            expect(pushResult.errors, 'a well-formed parsed chunk ingests without errors').toEqual([]);
+            expect(pushResult.ingested, 'ingest_source_files reports the chunk persisted').toBeGreaterThan(0);
+        } finally {
+            await client.close();
+        }
+    });
+
+    test('Milestone 4 — client-side parser: the deployed KB enforces the parsed-chunk-v1 transport contract', async () => {
+        const sentinel = `journey-ladder-m4-${randomUUID()}`;
+        const client   = await createIdentityClient({
+            baseUrl   : KB_URL,
+            identity  : 'journey-operator',
+            clientName: 'neo-journey-kb-parser'
+        });
+
+        try {
+            // A remote operator cannot register a server-side parser — the only ingestion
+            // path is client-side parsing into `parsed-chunk-v1` records. This rung proves
+            // the deployed server enforces that transport contract: a contract-violating
+            // chunk is rejected with structured, machine-readable feedback, not a crash.
+            const rejected = await callJsonTool(client, 'ingest_source_files', {
+                tenantId: 'journey-operator',
+                repoSlug: 'journey-ladder',
+                files   : [{parsedChunks: [journeyParsedChunk(sentinel, {schemaVersion: '0.9.0'})]}]
+            });
+
+            expect(Array.isArray(rejected.errors), 'the transport gate returns a structured errors array').toBe(true);
+            expect(rejected.errors.length, 'the contract-violating chunk surfaces at least one error').toBeGreaterThan(0);
+            expect(
+                rejected.errors.every(error => typeof error.code === 'string'),
+                'each transport-gate error carries a machine-readable code'
+            ).toBe(true);
+        } finally {
+            await client.close();
+        }
+    });
+
+    test('Milestone 5 — bulk/backfill: an over-threshold push is routed to the bulk path, not embedded inline', async () => {
+        const sentinel = `journey-ladder-m5-${randomUUID()}`;
+        const client   = await createIdentityClient({
+            baseUrl   : KB_URL,
+            identity  : 'journey-operator',
+            clientName: 'neo-journey-kb-bulk'
+        });
+
+        // 60 raw files clear the deployed `mcpSyncMaxChunks` default (50). The volume gate
+        // refuses up-front — before embedding — so this rung stays cheap.
+        const oversizedBatch = Array.from({length: 60}, (_, index) => ({
+            path   : `journey/bulk-${index}-${sentinel}.mjs`,
+            content: `adoption-ladder bulk backfill chunk ${index} — ${sentinel}`
+        }));
+
+        try {
+            const result = await client.callTool({
+                name     : 'ingest_source_files',
+                arguments: {tenantId: 'journey-operator', repoSlug: 'journey-ladder', files: oversizedBatch}
+            });
+            const gate = readToolJson(result, 'ingest_source_files volume gate');
+
+            // Path-level: the operator who exceeds the per-call limit is routed to the
+            // bulk/backfill path — the gate reports the batch size, the configured
+            // threshold, and the bulk-path pointer instead of embedding 60 chunks inline.
+            expect(gate.code, 'an over-threshold push returns the volume gate').toBe('KB_INGEST_VOLUME_EXCEEDED');
+            expect(gate.batchSize, 'the gate echoes the rejected batch size').toBe(60);
+            expect(typeof gate.threshold, 'the gate reports the configured threshold').toBe('number');
+            expect(gate.batchSize, 'the rejected batch is above the threshold').toBeGreaterThan(gate.threshold);
+            expect(
+                Object.prototype.hasOwnProperty.call(gate, 'bulkPath'),
+                'the gate surfaces the bulk-path pointer — the backfill route'
+            ).toBe(true);
+        } finally {
+            await client.close();
+        }
+    });
+
+    test('Milestone 6 — optional server-side clone: post-MVP, not in the deployed MVP profile', async () => {
+        test.skip(true,
+            'Server-side repo-clone ingestion is post-MVP — owned by #11731 (exploration) and ' +
+            'kept out of the MVP cloud profile by ADR 0014 (D3). The MVP adoption ladder is ' +
+            'push-ingestion: a fresh operator pushes parsed-chunk-v1 records through milestones ' +
+            '3-5. This rung stays a deliberate no-op until #11731 adopts or rejects pull ' +
+            'ingestion (see #11740 for the ADR-amendment escape hatch).'
+        );
+    });
+
+    test('Milestone 7 — backup → redeploy → handoff: round-trip owned by the per-capability backup specs', async () => {
+        test.skip(true,
+            'The backup → wipe → restore round-trip is owned by KBBackupRestoreWipe.integration.spec.mjs ' +
+            '(#11644) and BackupRestoreWipe.integration.spec.mjs. The full redeploy → handoff demo — ' +
+            'stopping and recreating the container stack — is test-evidence lane (3), the manual ' +
+            'real-world harness, explicitly out of the lane-(1) CI-safe scope per this spec header: a ' +
+            'single Playwright spec running against an already-up composeWebServer cannot redeploy ' +
+            'the stack mid-run without breaking sibling specs.'
+        );
     });
 });
