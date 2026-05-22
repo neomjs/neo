@@ -381,7 +381,7 @@ Post-M6 ([#10986](https://github.com/neomjs/neo/issues/10986)) the per-MCP-serve
 | `ai/services/neural-link/` | Live app bridge services (post-M6 SDK location) | `ConnectionService`, `RecorderService` | — |
 | `ai/scripts/` | One-shot operator scripts + thin daemon boot wrappers | `bridge-daemon.mjs`, `orchestrator-daemon.mjs` | [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) |
 | `ai/daemons/` | Long-running daemon classes | `Orchestrator`, `DreamService`, `SwarmHeartbeatService` | [ADR 0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) |
-| `ai/graph/` | Native Edge Graph (SQLite-backed knowledge graph) | `Database`, `Store`, `NodeModel` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md) |
+| `ai/graph/` | Native Edge Graph (SQLite-backed knowledge graph) | `Database`, `Store`, `NodeModel` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md), [ADR 0015](../agentos/decisions/0015-graph-store-backend-posture.md) |
 | `ai/mcp/server/knowledge-base/` | KB MCP-server entry point + config | `Server`, `config` | — |
 | `ai/mcp/server/memory-core/` | MC MCP-server entry point + config | `Server`, `config` | [ADR 0001](../agentos/decisions/0001-cross-process-cache-coherence.md) |
 | `ai/mcp/server/github-workflow/` | GH-WF MCP-server entry point + config | `Server`, `config` | — |
@@ -398,6 +398,7 @@ The map-as-pointer principle: the Structural Inventory above links each subsyste
 |---|---|---|---|
 | [0001](../agentos/decisions/0001-cross-process-cache-coherence.md) | Cross-Process Cache Coherence for Memory Core Graph | `ai/services/memory-core/`, `ai/graph/`, `ai/mcp/server/memory-core/` | Proposed (#10186 / #10189) |
 | [0002](../agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md) | Phase 3 Wake-Substrate Standards Alignment (MCP + A2A schema mappings) | `ai/scripts/` (bridge-daemon), `ai/daemons/`, `ai/services/memory-core/` (MailboxService A2A primitives) | Proposed (#10311 / #10355) |
+| [0015](../agentos/decisions/0015-graph-store-backend-posture.md) | Graph Store Backend Posture - SQLite WAL First, Networked SQL Deferred | `ai/graph/`, `ai/services/memory-core/`, cloud deployment docs | Accepted (#11732) |
 
 ## Next Steps
 
