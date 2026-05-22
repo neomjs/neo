@@ -7,6 +7,14 @@ test.describe('buildScripts/ai/mcpHealthcheck (#11725)', () => {
     let buildHeaders;
     let readToolJson;
     let runHealthcheck;
+    const readProductionCompose = () => yaml.load(fs.readFileSync(
+        new URL('../../../../../ai/deploy/docker-compose.yml', import.meta.url),
+        'utf8'
+    ));
+
+    function environmentMap(service) {
+        return Object.fromEntries(service.environment.map(entry => entry.split('=')));
+    }
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../buildScripts/ai/mcpHealthcheck.mjs');
@@ -144,10 +152,7 @@ test.describe('buildScripts/ai/mcpHealthcheck (#11725)', () => {
     });
 
     test('production compose wires KB/MC MCP healthchecks before cloud orchestrator startup', () => {
-        const compose = yaml.load(fs.readFileSync(
-            new URL('../../../../../ai/deploy/docker-compose.yml', import.meta.url),
-            'utf8'
-        ));
+        const compose = readProductionCompose();
 
         expect(compose.services['kb-server'].healthcheck.test).toEqual([
             'CMD',
@@ -171,5 +176,22 @@ test.describe('buildScripts/ai/mcpHealthcheck (#11725)', () => {
 
         expect(compose.services.orchestrator.depends_on['kb-server']).toEqual({condition: 'service_healthy'});
         expect(compose.services.orchestrator.depends_on['mc-server']).toEqual({condition: 'service_healthy'});
+    });
+
+    test('production compose pins cloud-profile local wake and mailbox boundaries', () => {
+        const compose           = readProductionCompose();
+        const orchestratorEnv   = environmentMap(compose.services.orchestrator);
+        const memoryCoreEnv     = environmentMap(compose.services['mc-server']);
+
+        expect(orchestratorEnv).toMatchObject({
+            NEO_AI_DEPLOYMENT_MODE: 'cloud',
+            NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED: 'false',
+            NEO_ORCHESTRATOR_KB_SYNC_ENABLED: 'false',
+            NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED: 'false',
+            NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED: 'false',
+            NEO_ORCHESTRATOR_MLX_ENABLED: 'false'
+        });
+
+        expect(memoryCoreEnv.NEO_MAILBOX_DEFAULT_REPLY_POLICY).toBe('blocked');
     });
 });
