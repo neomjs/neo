@@ -1,0 +1,33 @@
+openapi: 3.0.0
+info:
+  title: Neo GitLab Workflow MCP API
+  version: 1.0.0
+paths:
+  /healthcheck:
+    get:
+      operationId: healthcheck
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /issue:
+    get:
+      operationId: get_issue
+      summary: Get issue
+      responses:
+        '200':
+          description: OK
+  /merge-request:
+    get:
+      operationId: get_merge_request
+      summary: Get MR
+      responses:
+        '200':
+          description: OK
+  /local-file:
+    get:
+      operationId: get_local_file
+      summary: Get Local File
+      responses:
+        '200':
+          description: OK
