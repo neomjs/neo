@@ -1,3 +1,20 @@
+# Production container topology for the cloud Agent OS deployment (Sub B of
+# Epic #11720). Implements the multi-container topology decided in ADR 0014
+# (Cloud Deployment Topology + Scheduler Task Taxonomy).
+#
+# Profile variants — `docker compose [--profile <name>] up`:
+#   - default (no profile): the baseline MCP stack — chroma + kb-server + mc-server.
+#   - `cloud`:              adds the orchestrator — the full Agent OS deployment,
+#                           running ADR 0014's cloud-safe scheduler profile.
+# Reserved profile slots (services land in later subs):
+#   - `ingress`:     reverse proxy + TLS termination — Sub C #11724.
+#   - `local-model`: an optional self-hosted model-provider container — ADR 0014
+#                    D1 variant (the MVP default is an external provider endpoint).
+#
+# Per-container resource limits (`deploy.resources.limits`) are declared on every
+# service so devops can govern RAM / CPU per service. The values are conservative
+# starting points — tune per deployment host.
+
 services:
   chroma:
     image: chromadb/chroma:1.5.9
@@ -11,6 +28,11 @@ services:
       start_period: 60s
     networks:
       - neo-mcp-network
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: "2.0"
 
   kb-server:
     build:
@@ -35,6 +57,11 @@ services:
       - neo-mcp-network
     expose:
       - "3000"
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
 
   mc-server:
     build:
@@ -65,10 +92,47 @@ services:
       - neo-mcp-network
     expose:
       - "3001"
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
 
-    # To expose these services externally, configure a reverse proxy (e.g., Nginx, Caddy)
-    # on the `neo-mcp-network` to route traffic to `kb-server:3000` and `mc-server:3001`.
-    # See tracking issue #10803 for reverse proxy patterns.
+  # The Agent OS maintenance orchestrator (ADR 0014 §2.3). Built from the shared
+  # image via the generalized `SERVICE_ENTRYPOINT` arg. `NEO_AI_DEPLOYMENT_MODE=cloud`
+  # activates the cloud-safe scheduler profile — only the cloud-deployable lanes
+  # (summary, backup, dream, golden-path) run; the local-only lanes (primary-dev-sync,
+  # kbSync, bridgeDaemon) are disabled via the Sub A #11722 deployment-mode toggles.
+  # `cloud` profile — started by `docker compose --profile cloud up`.
+  orchestrator:
+    build:
+      context: ../..
+      dockerfile: ai/deploy/Dockerfile
+      args:
+        SERVICE_ENTRYPOINT: ai/scripts/orchestrator-daemon.mjs
+    environment:
+      - NEO_AI_DEPLOYMENT_MODE=cloud
+      - NEO_CHROMA_HOST=chroma
+      - NEO_CHROMA_PORT=8000
+      - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+    volumes:
+      - shared-sqlite-data:/app/.neo-ai-data/sqlite
+    depends_on:
+      chroma:
+        condition: service_healthy
+    networks:
+      - neo-mcp-network
+    profiles:
+      - cloud
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: "1.0"
+
+# External exposure (reverse proxy + TLS) and redeploy-safe backup persistence
+# are layered on by Sub C #11724. Today kb-server / mc-server are internal-only
+# (`expose`) on `neo-mcp-network`.
 
 networks:
   neo-mcp-network:
