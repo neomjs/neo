@@ -22,6 +22,11 @@ import {
     releaseHeartbeatLock,
     HEARTBEAT_LOCK_PATH
 } from '../scripts/heartbeatLock.mjs';
+import {checkSunsetted as checkSunsettedScript}     from '../scripts/checkSunsetted.mjs';
+import {resumeHarness as resumeHarnessScript}       from '../scripts/resumeHarness.mjs';
+import {checkAllAgentIdle as checkAllAgentIdleScript} from '../scripts/checkAllAgentIdle.mjs';
+import {idleOutNudge as idleOutNudgeScript}         from '../scripts/idleOutNudge.mjs';
+import {trioWakeCooldown as trioWakeCooldownScript} from '../scripts/trioWakeCooldown.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -50,11 +55,11 @@ const DEFAULT_IDENTITY         = '@neo-gemini-3-1-pro';
  *     stat-based concurrency-lock check is replaced with the JS implementation already shared
  *     with the producer side (#10319 `withHeartbeatLock`).
  *
- * **Where subprocess invocation is preserved** (out-of-scope for v1; follow-up tracked as
- * #10795): `checkSunsetted.mjs`, `resumeHarness.mjs`, `checkAllAgentIdle.mjs`,
- * `idleOutNudge.mjs`, `trioWakeCooldown.mjs` are CLI-shape (no exported function entrypoint)
- * and converting each to dual-mode (CLI + module-export) is sibling work. Their subprocess
- * cost (~2-5s per cycle, fires every 5min) is operationally tolerable.
+ * **Where dual-mode script imports replace subprocess invocations** (#10795):
+ * `checkSunsetted.mjs`, `resumeHarness.mjs`, `checkAllAgentIdle.mjs`, `idleOutNudge.mjs`,
+ * and `trioWakeCooldown.mjs` now expose module entrypoints while preserving their CLI
+ * wrappers for `swarm-heartbeat.sh` and manual use. The daemon calls those exports directly
+ * to avoid 2-5s Node startup hops per poll cycle.
  *
  * **Persistent-process management:** invocation under launchd / systemd targets the
  * entry-point wrapper at `ai/scripts/swarm-heartbeat-daemon.mjs`, NOT this class file
@@ -184,12 +189,12 @@ class SwarmHeartbeatService extends Base {
      *   1. Concurrency-lock skip (active lock = expensive work in flight, skip pulse;
      *      stale lock = clear and continue per #10319).
      *   2. TTL sweep (`MailboxService.sweepExpiredTasks` — direct call, no subprocess).
-     *   3. Sunset detection via `checkSunsetted.mjs` subprocess.
-     *      - sunset=true + gate-open → fresh-session-spawn via `resumeHarness.mjs`.
+     *   3. Sunset detection via `checkSunsetted.mjs` direct export.
+     *      - sunset=true + gate-open → fresh-session-spawn via `resumeHarness.mjs` direct export.
      *      - sunset=true + gate-closed → log + skip (no spawn).
      *      - recommended_action=idle_out_nudge + gate-open → `idleOutNudge.mjs`.
-     *   4. All-agent-idle detection via `checkAllAgentIdle.mjs`.
-     *      - allIdle=true + gate-open → `trioWakeCooldown.mjs`.
+     *   4. All-agent-idle detection via `checkAllAgentIdle.mjs` direct export.
+     *      - allIdle=true + gate-open → `trioWakeCooldown.mjs` direct export.
      *   5. Heartbeat-bypass detection: identities with push-capable subscriptions
      *      (mcp-notifications / a2a-webhook) skip the token-economy fast-path because
      *      they receive wakes via push.
@@ -224,8 +229,8 @@ class SwarmHeartbeatService extends Base {
                 logger.error('[SwarmHeartbeatService] sweepExpiredTasks failed:', err)
             }
 
-            // Step 3: Sunset detection (subprocess — checkSunsetted.mjs is CLI-shape).
-            const sunsetJson = await this.runScriptJson('checkSunsetted.mjs', [this.identity]);
+            // Step 3: Sunset detection (direct module export; CLI wrapper preserved for shell consumers).
+            const sunsetJson = await this.checkSunsetted(this.identity);
             if (sunsetJson?.sunsetted) {
                 if (!await this.checkGateOpen()) {
                     const gateState = await this.readGate();
@@ -233,12 +238,12 @@ class SwarmHeartbeatService extends Base {
                     return
                 }
                 logger.info(`[SwarmHeartbeatService] Phase 1 Recovery Triggered for ${this.identity}. Reason: ${sunsetJson.reason}`);
-                await this.runScript('resumeHarness.mjs', [
+                await this.resumeHarness(
                     this.identity,
                     sunsetJson.reason || '',
                     sunsetJson.originSessionId || '',
-                    String(sunsetJson.abandonedCount || 0)
-                ]);
+                    sunsetJson.abandonedCount || 0
+                );
                 return
             }
 
@@ -250,20 +255,20 @@ class SwarmHeartbeatService extends Base {
                     return
                 }
                 logger.info(`[SwarmHeartbeatService] Idle-out nudge triggered for ${this.identity}`);
-                await this.runScript('idleOutNudge.mjs', [this.identity]);
+                await this.idleOutNudge(this.identity);
                 return
             }
 
-            // Step 4: All-agent-idle detection (subprocess).
+            // Step 4: All-agent-idle detection (direct module export; CLI wrapper preserved for shell consumers).
             const cycleId = String(Math.floor(Date.now() / 1000));
-            const allIdleJson = await this.runScriptJson('checkAllAgentIdle.mjs', [cycleId]);
+            const allIdleJson = await this.checkAllAgentIdle(cycleId);
             if (allIdleJson?.allIdle) {
                 logger.info(`[SwarmHeartbeatService] AllAgentIdle detected: ${JSON.stringify(allIdleJson)}`);
                 if (!await this.checkGateOpen()) {
                     const gateState = await this.readGate();
                     logger.warn(`[SwarmHeartbeatService] Wake safety gate closed; skipping trio wake dispatch. Gate reason: ${gateState.reason}`)
                 } else {
-                    await this.runScript('trioWakeCooldown.mjs', [JSON.stringify(allIdleJson)])
+                    await this.trioWakeCooldown(allIdleJson)
                 }
             }
 
@@ -337,6 +342,69 @@ class SwarmHeartbeatService extends Base {
      */
     async readGate() {
         return readGateState()
+    }
+
+    /**
+     * Test-stubbable seam over `checkSunsetted.mjs`'s dual-mode module export.
+     * @param {String} identity
+     * @returns {Promise<Object|null>}
+     * @protected
+     */
+    async checkSunsetted(identity) {
+        try {
+            return await checkSunsettedScript(identity)
+        } catch (err) {
+            logger.error('[SwarmHeartbeatService] checkSunsetted.mjs failed:', err.message);
+            return null
+        }
+    }
+
+    /**
+     * Test-stubbable seam over `resumeHarness.mjs`'s dual-mode module export.
+     * @param {String} identity
+     * @param {String} reason
+     * @param {String} originSessionId
+     * @param {Number} abandonedCount
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async resumeHarness(identity, reason, originSessionId, abandonedCount) {
+        return resumeHarnessScript(identity, reason, originSessionId, abandonedCount)
+    }
+
+    /**
+     * Test-stubbable seam over `idleOutNudge.mjs`'s dual-mode module export.
+     * @param {String} identity
+     * @returns {Promise<void>}
+     * @protected
+     */
+    async idleOutNudge(identity) {
+        return idleOutNudgeScript(identity)
+    }
+
+    /**
+     * Test-stubbable seam over `checkAllAgentIdle.mjs`'s dual-mode module export.
+     * @param {String} cycleId
+     * @returns {Promise<Object|null>}
+     * @protected
+     */
+    async checkAllAgentIdle(cycleId) {
+        try {
+            return await checkAllAgentIdleScript(cycleId)
+        } catch (err) {
+            logger.error('[SwarmHeartbeatService] checkAllAgentIdle.mjs failed:', err.message);
+            return null
+        }
+    }
+
+    /**
+     * Test-stubbable seam over `trioWakeCooldown.mjs`'s dual-mode module export.
+     * @param {Object} signal
+     * @returns {Promise<Object|void>}
+     * @protected
+     */
+    async trioWakeCooldown(signal) {
+        return trioWakeCooldownScript(signal)
     }
 
     /**
@@ -456,8 +524,7 @@ class SwarmHeartbeatService extends Base {
 
     /**
      * Spawn a node subprocess for the named script and return its stdout.
-     * Used for CLI-shape recovery scripts that haven't been refactored to
-     * dual-mode export (#10795).
+     * Preserved for external command wrappers and any future CLI-only utilities.
      * @param {String} scriptName Name of script under `ai/scripts/`
      * @param {String[]} [args=[]]
      * @returns {Promise<String>} stdout content

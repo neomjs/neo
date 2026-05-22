@@ -7,6 +7,7 @@
  */
 import fs from 'fs-extra';
 import path from 'path';
+import {fileURLToPath} from 'url';
 import Neo from '../../src/Neo.mjs';
 import * as core from '../../src/core/_export.mjs';
 import { withHeartbeatLock } from './heartbeatLock.mjs';
@@ -19,23 +20,20 @@ import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 const COOLDOWN_STATE_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.json';
 const COOLDOWN_LOCK_PATH = '.neo-ai-data/wake-daemon/trio-wake-cooldown.lock';
 
-async function main() {
-    const rawSignal = process.argv[2];
-    if (!rawSignal) return;
-
-    let signal;
-    try {
-        signal = JSON.parse(rawSignal);
-    } catch (err) {
-        console.error('trioWakeCooldown: Failed to parse signal:', err.message);
-        process.exit(1);
+/**
+ * @summary Dispatch the cooldown-bounded swarm-wide wake for an all-agent-idle signal.
+ * @param {Object} signal All-agent-idle detector signal.
+ * @returns {Promise<Object|void>} Dispatch outcome when the heartbeat lock implementation returns it.
+ */
+export async function trioWakeCooldown(signal) {
+    if (!signal) {
+        return {fired: false, reason: 'missing-signal'};
     }
-
     if (signal.allIdle !== true) {
-        return;
+        return {fired: false, reason: 'not-all-idle'};
     }
 
-    await withHeartbeatLock(async () => {
+    return withHeartbeatLock(async () => {
         // Enforce 10-minute (600s) default TTL to match swarm consensus (Regression Fix: #10626 vs 30m flaw)
         const ttlSeconds = parseInt(process.env.TRIO_WAKE_COOLDOWN_SECONDS, 10) || 600;
         const ttlMs = ttlSeconds * 1000;
@@ -52,7 +50,7 @@ async function main() {
         // If we are within the TTL window, suppress the wake
         if (timeSinceLastFire < ttlMs) {
             console.error(`[trioWakeCooldown] Suppressed: within TTL window (${ttlSeconds}s) since last wake.`);
-            return;
+            return {fired: false, reason: 'cooldown', ttlSeconds};
         }
 
         console.error(`[trioWakeCooldown] Firing SYSTEM WAKE for cycle ${signal.cycle_id} to ${signal.coordinator_recommendation}`);
@@ -93,10 +91,30 @@ async function main() {
         await fs.ensureDir(path.dirname(COOLDOWN_STATE_PATH));
         await fs.writeJson(COOLDOWN_STATE_PATH, state, { spaces: 2 });
 
+        return {fired: true, coordinator, cycle_id: signal.cycle_id};
     }, { lockPath: COOLDOWN_LOCK_PATH });
 }
 
-main().catch(err => {
-    console.error('trioWakeCooldown failed:', err.stack);
-    process.exit(1);
-});
+async function main() {
+    const rawSignal = process.argv[2];
+    if (!rawSignal) return;
+
+    let signal;
+    try {
+        signal = JSON.parse(rawSignal);
+    } catch (err) {
+        console.error('trioWakeCooldown: Failed to parse signal:', err.message);
+        process.exit(1);
+    }
+
+    await trioWakeCooldown(signal);
+}
+
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isMain) {
+    main().catch(err => {
+        console.error('trioWakeCooldown failed:', err.stack);
+        process.exit(1);
+    });
+}

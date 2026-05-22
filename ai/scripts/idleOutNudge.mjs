@@ -55,6 +55,8 @@
  */
 import Neo                       from '../../src/Neo.mjs';
 import * as core                 from '../../src/core/_export.mjs';
+import path                      from 'path';
+import {fileURLToPath}           from 'url';
 import LifecycleService          from '../services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import GraphService              from '../services/memory-core/GraphService.mjs';
 import MailboxService            from '../services/memory-core/MailboxService.mjs';
@@ -89,7 +91,7 @@ const NUDGE_BODY_TEMPLATE = (identity) =>
  * @param {string} identity Target agent identity (e.g., '@neo-opus-4-7').
  * @returns {Promise<void>}
  */
-async function idleOutNudge(identity) {
+export async function idleOutNudge(identity) {
     // 1. Wake safety gate (#10648). Fail-closed; operator override via WAKE_GATE_OVERRIDE=1.
     if (hasOverride()) {
         console.error('[OVERRIDE] WAKE_GATE_OVERRIDE set; bypassing wake safety gate for idleOutNudge.');
@@ -147,18 +149,26 @@ async function idleOutNudge(identity) {
         //    nudges for this identity for the full BOOT_TIMEOUT_MS window.
         console.error(`[idleOutNudge] Failed to send nudge to ${identity}: ${err.message}`);
         await clearInflightLock(identity, 'idle_out_nudge').catch(() => {});
-        process.exit(1);
+        throw err;
     }
 }
 
-const identity = process.argv[2];
+async function main() {
+    const identity = process.argv[2];
 
-if (!identity) {
-    console.error('Usage: idleOutNudge.mjs <identity>');
-    process.exit(1);
+    if (!identity) {
+        console.error('Usage: idleOutNudge.mjs <identity>');
+        process.exit(1);
+    }
+
+    await idleOutNudge(identity);
 }
 
-idleOutNudge(identity).catch(err => {
-    console.error('idleOutNudge unexpected error:', err.message);
-    process.exit(1);
-});
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isMain) {
+    main().catch(err => {
+        console.error('idleOutNudge unexpected error:', err.message);
+        process.exit(1);
+    });
+}
