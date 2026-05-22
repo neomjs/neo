@@ -118,12 +118,13 @@ For each parent AC of the epic, Stage 3 must produce columns 1–3 of the shared
 
 **Question:** For each sub, is the work at the right layer?
 
-Apply the same five-stage challenge chain from `ticket-intake`, but across the sub-graph rather than individual sub:
+Apply the same six-stage challenge chain from `ticket-intake`, but across the sub-graph rather than individual sub:
 - **Premise**: is each sub's stated problem real and reproducible?
 - **Prescription**: is the fix at the right substrate, or does it treat a symptom?
 - **Substrate**: service-layer / framework-core / daemon / documentation / config — right owner?
 - **Consumer**: who reads the output — human, agent, Memory Core, Native Edge Graph?
 - **Service-boundary**: does any sub cross a boundary it shouldn't (e.g. shipping config to a service that doesn't own the concern)?
+- **Decision Record impact**: does any sub depend on, amend, supersede, or challenge an ADR / Decision Record?
 
 You are not running `ticket-intake` on each sub — that runs at sub pickup. You are checking that the sub-graph's prescription layer is architecturally coherent from the epic-level view.
 

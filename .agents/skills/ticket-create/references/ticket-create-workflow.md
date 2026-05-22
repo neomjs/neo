@@ -39,7 +39,7 @@ If the proposed ticket involves modifying any agent skill (i.e., any file within
 
 For source anchors (#11078/#11082/#11083/#11084), Discussion #11091 authority context, and substrate-decay review, read [`../../ideation-sandbox/audits/double-diamond-divergence-guard.md`](../../ideation-sandbox/audits/double-diamond-divergence-guard.md).
 
-## 2. Five-Stage Challenge Chain
+## 2. Six-Stage Challenge Chain
 
 Apply at creation time — not just at intake. Every stage must pass before the ticket is drafted.
 
