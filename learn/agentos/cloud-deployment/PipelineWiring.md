@@ -47,6 +47,7 @@ The deployment's persistent state (`ai/deploy/docker-compose.yml`):
 | Chroma vectors | `chroma-data` named volume → `/chroma/chroma` | `down -v`, or the project name changes (recoverable by re-sync/re-push, at cost) |
 | Backup bundles | host bind-mount `./.neo-ai-data/backups` on the `cloud`-profile `orchestrator` | the compose file's host location changes between runs |
 | TLS certs / CA | `caddy-data` / `caddy-config` named volumes (`ingress` profile) | `down -v` (re-issued on next start — watch ACME rate limits) |
+| Local model store — opt-in `local-model` profile | `local-model-data` named volume → `/root/.ollama` | `down -v`, or the project name changes (recoverable — re-pull the models) |
 
 Three rules keep a redeploy job safe:
 
