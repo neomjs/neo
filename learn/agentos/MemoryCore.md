@@ -327,7 +327,7 @@ You can provide a JSON file or an ES Module (`.mjs`) that exports a configuratio
 ```
 
 This flexibility is crucial for:
-*   **Cloud Deployments:** Switching `transport` to `"sse"` allows the server to run as a microservice in Docker, accepting connections on `mcpHttpPort` (default 3001; env var `MCP_HTTP_PORT` per #10808; `SSE_PORT` legacy alias remains readable during deprecation window). See the [Deployment Cookbook](DeploymentCookbook.md) for a full shared deployment walkthrough.
+*   **Cloud Deployments:** Switching `transport` to `"sse"` allows the server to run as a microservice in Docker, accepting connections on `mcpHttpPort` (default 3001; env var `MCP_HTTP_PORT` per #10808; `SSE_PORT` legacy alias remains readable during deprecation window). See the [Deployment Cookbook](DeploymentCookbook.md) for the current Agent OS deployment authority.
 *   **Custom Models:** Switching to a different Gemini model version.
 *   **Port Conflicts:** Running multiple instances or avoiding conflicts with other services.
 *   **Environment Specifics:** Adjusting paths for different deployment environments.

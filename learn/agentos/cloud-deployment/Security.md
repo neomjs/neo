@@ -1,6 +1,6 @@
 # Cloud-Native KB Ingestion — Security
 
-> **Status — Phase 3A invariant scaffold.** This guide describes the *invariant* security model of cloud-native KB ingestion (Epic #11624). Parser-execution sandboxing details depend on Phase 2/3 runtime wiring and are framed conceptually only — marked `[Phase 2/3 — pending]`.
+> **Status — Phase 3B operational security model.** This guide describes the security model of cloud-native KB ingestion (Epic #11624): server-derived tenant identity, tenant-aware chunk IDs, read-side filtering, and the parser-execution boundary.
 
 ## The threat the substrate defends against
 
@@ -11,9 +11,9 @@ A cloud-native KB deployment indexes content from mutually-untrusting tenants in
 3. **No chunk-ID collision** — byte-identical content ingested by two tenants must not overwrite each other in the index.
 4. **No untrusted-code execution escape** — a tenant-supplied Parser must not be able to read or mutate another tenant's substrate.
 
-Invariants 2 and 3 are **defined** by PR #11662 (Phase 0/1C-α — approved, pending the operator merge gate). Invariant 1's read-side enforcement is `[Phase 0/1D — pending]` (#11632). Invariant 4's runtime sandbox is `[Phase 2/3 — pending]`; its boundary *policy* is stable and documented below.
+Invariants 1, 2, and 3 are implemented by the Phase 0/1 read/write isolation work (#11632 and PR #11662). Invariant 4's boundary policy is stable and documented below; a runtime sandbox for future in-process untrusted parsers remains separate future work if that feature is introduced.
 
-## Write-side tenant stamping (PR #11662 — approved, pending merge)
+## Write-side tenant stamping
 
 Every chunk entering the index is stamped with a **server-derived** identity tuple before it reaches Chroma. The authoritative tuple is `{tenantId, repoSlug, visibility, originAgentIdentity}`, resolved from the authenticated ingestion context — never from client-supplied chunk metadata.
 
@@ -22,17 +22,17 @@ Every chunk entering the index is stamped with a **server-derived** identity tup
 - `'overwrite'` (default) — a client-supplied `tenantId` / `repoSlug` / `visibility` / `originAgentIdentity` that conflicts with the server-derived value is replaced, and a structured warning is logged.
 - `'reject'` — a conflict fails the embedding call with `KB_TENANT_SPOOF_REJECTED` *before* any Chroma read or write.
 
-A cloud-deployment operator running mutually-untrusting tenants should consider `'reject'` — it fails closed and surfaces spoof attempts as hard errors rather than silently-corrected warnings. The ingestion service (`[Phase 2 — pending]`, #11626) should additionally pass the authoritative tenant context *explicitly* rather than relying on the spoof-guard as the primary path; the guard is defense-in-depth, not the front door.
+A cloud-deployment operator running mutually-untrusting tenants should consider `'reject'` — it fails closed and surfaces spoof attempts as hard errors rather than silently-corrected warnings. The ingestion service (#11626) passes the authoritative tenant context explicitly; the spoof guard remains defense-in-depth, not the front door.
 
-## Tenant-aware chunk IDs (PR #11662 — approved, pending merge)
+## Tenant-aware chunk IDs
 
 `chunk.hash` remains the content fingerprint. The **Chroma storage ID** is derived from `{tenantId, repoSlug, hash, type, name, source}` — the content fingerprint *bound to* the authoritative tenant tuple. Consequence: two tenants ingesting a byte-identical file produce **distinct** 64-character Chroma IDs and cannot collide. The content-hash itself (`DatabaseService.createContentHash`) also folds `tenantId` + `repoSlug` into its input, so change-detection deltas are tenant-scoped.
 
-## Read-side tenant filter `[Phase 0/1D — pending]`
+## Read-side tenant filter
 
-Write-side stamping puts the `tenantId` / `visibility` fields *into* the index. Read-side enforcement — injecting a `where: {tenantId: {$in: [<requester>, 'neo-shared']}}` clause into every `collection.query()` from the authenticated requester identity — is tracked in #11632 and is **not yet shipped**. Until #11632 lands, the index is *stampable* but not *filtered*: do not run a multi-tenant cloud deployment as security-complete before #11632 merges. The fail-closed test suite that validates "tenant A cannot see tenant B's `private` content" is part of that ticket.
+Write-side stamping puts the `tenantId` / `visibility` fields *into* the index. Read-side enforcement injects tenant-aware Chroma `where` clauses into query paths from the authenticated requester identity. A tenant can see its own content plus `neo-shared`; another tenant's `private` content is filtered out. The fail-closed test suite for "tenant A cannot see tenant B's private content" is part of #11632.
 
-## Parser-execution boundary `[Phase 2/3 — pending]`
+## Parser-execution boundary
 
 A tenant-supplied Parser is untrusted code. The stable *policy* (the boundary will not change even though the runtime is pending):
 
@@ -50,9 +50,9 @@ A security guide must be honest about data-loss blast radius. The two AI substra
 
 This asymmetry drives retention policy (see Phase 4 #11628): KB backup is cost-optimization for re-sync orchestration; MC backup is genuine data-loss prevention. A security incident response treats a KB-wipe alert as "orchestrate re-syncs" and an MC-wipe alert as "amnesia event — recover from last backup." Per-substrate alert severity follows from this distinction.
 
-## Auth flow `[Phase 2 — pending]`
+## Auth flow and tenant context
 
-The authenticated-ingestion-context resolution — how a tenant's push is authenticated and mapped to its `tenantId` / `originAgentIdentity` — depends on the Phase 2 ingestion service + the v12.1 OIDC substrate. The invariant that holds regardless of the transport: **the tenant tuple is server-derived from the authenticated identity, never trusted from the payload.** The endpoint-exact auth handshake is documented when Phase 2 lands.
+The authenticated-ingestion-context resolution maps a tenant's push to its `tenantId` / `originAgentIdentity` before the ingestion service reaches Chroma. The invariant that holds regardless of the transport: **the tenant tuple is server-derived from the authenticated identity, never trusted from the payload.** Endpoint-exact auth wiring depends on the deployment's proxy/OIDC mode; see [Deployment Cookbook](../DeploymentCookbook.md) for the MCP deployment boundary and [Hook Wiring](./HookWiring.md) for ingestion facades.
 
 ## Related
 
