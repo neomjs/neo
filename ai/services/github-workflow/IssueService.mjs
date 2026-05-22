@@ -6,7 +6,7 @@ import logger            from '../../mcp/server/github-workflow/logger.mjs';
 import {exec}            from 'child_process';
 import {promisify}       from 'util';
 import {spawn}           from 'child_process';
-import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, GET_ISSUE_ASSIGNEES, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST} from './queries/issueQueries.mjs';
+import {GET_ISSUE_AND_LABEL_IDS, GET_ISSUE_PARENT, GET_BLOCKED_BY, GET_ISSUE_ASSIGNEES, GET_ISSUE_CONVERSATION, FETCH_ISSUES_FOR_SYNC, FETCH_ISSUES_LIST} from './queries/issueQueries.mjs';
 import {GET_PULL_REQUEST_ID} from './queries/pullRequestQueries.mjs';
 import {
     ADD_LABELS,
@@ -66,6 +66,80 @@ class IssueService extends Base {
          * @protected
          */
         writePermissions: ['ADMIN', 'MAINTAIN', 'WRITE']
+    }
+
+    /**
+     * Fetches the conversation (title, body, author, comments) for an issue.
+     *
+     * Issue-side twin of `PullRequestService.getConversation` (#10702). `get_conversation`
+     * is a single dual-purpose tool; `toolService` routes here when the caller supplies
+     * `issue_number`. The selector contract (`comment_id` > `since_comment_id` > `last_n` >
+     * full) is identical to the PR path; only the GraphQL resource type differs.
+     *
+     * @param {Object} options
+     * @param {Number} options.issue_number       The issue number (required).
+     * @param {String} [options.comment_id]       Return only the matching comment; others elided. Issue title/body still returned.
+     * @param {String} [options.since_comment_id] Return comments strictly after the matching comment (by createdAt order). Unknown id → empty comments.
+     * @param {Number} [options.last_n]           Return only the last N comments (by createdAt order).
+     * @returns {Promise<Object>} Conversation data (optionally filtered) or a structured error.
+     */
+    async getConversation(options) {
+        const {issue_number, comment_id, since_comment_id, last_n} = options || {};
+
+        if (!issue_number) {
+            return {
+                error  : 'Bad Request',
+                message: "Missing required argument: 'issue_number' is required.",
+                code   : 'MISSING_ARGUMENTS'
+            };
+        }
+
+        const variables = {
+            owner      : aiConfig.owner,
+            repo       : aiConfig.repo,
+            issueNumber: issue_number,
+            // get_conversation is one dual-purpose tool; the issue path shares the PR
+            // conversation comment cap rather than adding a separate config key (#10702).
+            maxComments: aiConfig.pullRequest.maxCommentsPerPullRequest
+        };
+
+        try {
+            const data        = await GraphqlService.query(GET_ISSUE_CONVERSATION, variables);
+            const issue       = data.repository.issue;
+            const allComments = issue.comments?.nodes || [];
+
+            // Selector precedence: comment_id > since_comment_id > last_n > full.
+            let filtered;
+
+            if (comment_id) {
+                filtered = allComments.filter(c => c.id === comment_id);
+            } else if (since_comment_id) {
+                const anchorIdx = allComments.findIndex(c => c.id === since_comment_id);
+                // Anchor not found → empty result set (mirrors the PR path).
+                filtered = anchorIdx === -1 ? [] : allComments.slice(anchorIdx + 1);
+            } else if (typeof last_n === 'number' && last_n > 0) {
+                filtered = allComments.slice(-last_n);
+            } else {
+                // No selector — return the full conversation shape unchanged.
+                return issue;
+            }
+
+            // Filtered paths preserve issue title/body/author; only comments are narrowed.
+            return {
+                ...issue,
+                comments: {
+                    ...issue.comments,
+                    nodes: filtered
+                }
+            };
+        } catch (error) {
+            logger.error(`Error getting conversation for issue #${issue_number} via GraphQL:`, error);
+            return {
+                error  : 'GraphQL API request failed',
+                message: error.message,
+                code   : 'GRAPHQL_API_ERROR'
+            };
+        }
     }
 
     /**

@@ -105,7 +105,7 @@ The server exposes a comprehensive suite of tools via the Model Context Protocol
 *   **`list_pull_requests`**: Lists PRs with status filtering.
 *   **`checkout_pull_request`**: Checks out a PR branch locally using `gh pr checkout`.
 *   **`get_pull_request_diff`**: Fetches the code difference via `gh pr diff`.
-*   **`get_conversation`**: Retrieves the full PR discussion history using the `GET_CONVERSATION` GraphQL query.
+*   **`get_conversation`**: Retrieves the full conversation (title, body, comments) for a **pull request _or_ an issue** — supply exactly one of `pr_number` / `issue_number`. The same comment selectors (`comment_id` / `since_comment_id` / `last_n`) narrow the result on both.
 *   **`create_comment`**: Posts a new comment to a PR or Issue. Supports "Agent Headers" to identify which AI identity is speaking.
 *   **`update_comment`**: Edits an existing comment.
 

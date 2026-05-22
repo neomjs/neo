@@ -2,8 +2,8 @@ openapi: 3.0.3
 info:
   title: Neo.mjs GitHub Workflow MCP Server API
   description: |
-    This API provides structured access to the Neo.mjs GitHub repository, enabling the automation of contribution workflows. 
-    It uses a hybrid approach, leveraging both the GitHub CLI (`gh`) for simple, direct commands (e.g., checking out a PR) 
+    This API provides structured access to the Neo.mjs GitHub repository, enabling the automation of contribution workflows.
+    It uses a hybrid approach, leveraging both the GitHub CLI (`gh`) for simple, direct commands (e.g., checking out a PR)
     and the GitHub GraphQL API for complex data fetching and mutations (e.g., listing PRs, creating comments, syncing issues).
     This allows AI agents to programmatically interact with pull requests and issues in a safe and efficient manner.
   version: 1.0.0
@@ -291,16 +291,17 @@ paths:
 
   /pull-requests/{pr_number}/conversation:
     get:
-      summary: Get PR Conversation
+      summary: Get Conversation (Issue or PR)
       operationId: get_conversation
       x-pass-as-object: true
       x-annotations:
         readOnlyHint: true
       description: |
-        Retrieves the conversation for a pull request, including the title, body, and comments.
+        Retrieves the conversation (title, body, comments) for a pull request OR an issue.
+        Supply exactly one of `pr_number` or `issue_number`.
 
         **When to Use:**
-        Use this tool to get the context of a pull request — the initial proposal and the discussion history.
+        Use this tool to get the context of a pull request or issue — the initial proposal/body and the discussion history.
 
         **Comment selectors (optional, first-match precedence):**
         - `comment_id`: fetch ONLY the comment whose GitHub node ID matches. Used for A2A
@@ -319,13 +320,15 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - pr_number
               properties:
                 pr_number:
                   type: integer
-                  description: The number of the pull request.
+                  description: The pull request number. Supply either `pr_number` or `issue_number`, not both.
                   example: 10272
+                issue_number:
+                  type: integer
+                  description: The issue number. Supply either `pr_number` or `issue_number`, not both.
+                  example: 10702
                 comment_id:
                   type: string
                   description: Return only the comment whose GitHub global node ID matches. Elides all other comments; PR title/body are still returned.
@@ -345,7 +348,7 @@ paths:
             application/json:
               schema:
                 type: object
-                description: Pull request conversation shape — title/body/author plus a (possibly filtered) comments collection.
+                description: Conversation shape (issue or pull request) — title/body/author plus a (possibly filtered) comments collection.
                 properties:
                   title:
                     type: string
@@ -378,7 +381,7 @@ paths:
                               type: string
                               format: date-time
         '400':
-          description: Bad Request (missing `pr_number`).
+          description: Bad Request (neither or both of `pr_number` / `issue_number` supplied).
           content:
             application/json:
               schema:
@@ -1358,7 +1361,7 @@ paths:
         readOnlyHint: false
       description: |
         Provides a native state-trap for Headless Orchestration to gracefully capture execution states or signal logic failures.
-        
+
         Support `state: 'PR_OPENED'` to trigger autonomous turn-completion and shutdown sequences.
         Support `state: 'BLOCKED'` and `state: 'HANDOFF'` for derailed agents, enabling them to pass a localized artifact mapping the problem back to the Orchestrator, which natively applies the `agent-task:blocked` label on GitHub.
       tags: [Issues]

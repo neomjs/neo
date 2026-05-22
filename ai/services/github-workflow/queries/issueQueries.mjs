@@ -66,33 +66,33 @@ export const FETCH_ISSUES_FOR_SYNC = `
           updatedAt
           closedAt
           url
-          
+
           author {
             login
           }
-          
+
           labels(first: $maxLabels) {
             nodes {
               name
             }
           }
-          
+
           assignees(first: $maxAssignees) {
             nodes {
               login
             }
           }
-          
+
           milestone {
             title
           }
-          
+
           # Parent/child relationships
           parent {
             number
             title
           }
-          
+
           subIssues(first: $maxSubIssues) {
             nodes {
               number
@@ -100,13 +100,13 @@ export const FETCH_ISSUES_FOR_SYNC = `
               state
             }
           }
-          
+
           subIssuesSummary {
             total
             completed
             percentCompleted
           }
-          
+
           # Blocked-by relationships
           blockedBy(first: $maxSubIssues) {
             nodes {
@@ -115,7 +115,7 @@ export const FETCH_ISSUES_FOR_SYNC = `
               state
             }
           }
-          
+
           blocking(first: $maxSubIssues) {
             nodes {
               number
@@ -123,7 +123,7 @@ export const FETCH_ISSUES_FOR_SYNC = `
               state
             }
           }
-          
+
           timelineItems(
             first: $maxTimelineItems,
             # We explicitly list event types to:
@@ -337,17 +337,17 @@ export const FETCH_ISSUES_LIST = `
           state
           createdAt
           url
-          
+
           author {
             login
           }
-          
+
           labels(first: $maxLabels) {
             nodes {
               name
             }
           }
-          
+
           assignees(first: $maxAssignees) {
             nodes {
               login
@@ -456,7 +456,7 @@ export const FETCH_SINGLE_ISSUE = `
               RENAMED_TITLE_EVENT,    # Title updates
               MILESTONED_EVENT,       # Added to milestone
               DEMILESTONED_EVENT,     # Removed from milestone
-              
+
               # Relationship Events
               # Critical for sync: Adding/removing sub-issues does not always bump the parent's updatedAt.
               SUB_ISSUE_ADDED_EVENT,
@@ -860,4 +860,41 @@ export const GET_ISSUE_ASSIGNEES = `
             }
         }
     }
+`;
+
+/**
+ * Query to fetch the full conversation for an issue.
+ *
+ * Issue-side twin of `pullRequestQueries.GET_CONVERSATION` — identical shape, querying the
+ * `issue` field instead of `pullRequest`. Powers the `get_conversation` tool when the
+ * caller supplies an `issue_number` (#10702).
+ *
+ * Variables required:
+ * - $owner: String! - Repository owner
+ * - $repo: String! - Repository name
+ * - $issueNumber: Int! - The issue number
+ * - $maxComments: Int! - Max comments to fetch
+ */
+export const GET_ISSUE_CONVERSATION = `
+  query GetIssueConversation($owner: String!, $repo: String!, $issueNumber: Int!, $maxComments: Int!) {
+    repository(owner: $owner, name: $repo) {
+      issue(number: $issueNumber) {
+        title
+        body
+        author {
+          login
+        }
+        comments(first: $maxComments) {
+          nodes {
+            id
+            author {
+              login
+            }
+            body
+            createdAt
+          }
+        }
+      }
+    }
+  }
 `;
