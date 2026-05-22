@@ -160,7 +160,8 @@ test.describe('Neo.ai.services.github-workflow.sync.MetadataManager', () => {
         expect(loaded.pulls['789'].extraFieldShouldBePruned).toBeUndefined();
         expect(loaded.pulls['789'].mergedAt).toBe('2026-05-13T00:00:00Z');
         expect(loaded.pulls['789'].milestone).toBe('v1.0.0');
-        expect(loaded.pulls['789'].archiveVersion).toBe('v1.0.0');
+        // #11364: `archiveVersion` is retired — `save()` must prune it, never persist it.
+        expect(loaded.pulls['789'].archiveVersion).toBeUndefined();
         expect(loaded.pulls['789'].contentHash).toBe('hash3');
 
         // Backward compat

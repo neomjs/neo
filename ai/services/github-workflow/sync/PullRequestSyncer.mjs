@@ -82,41 +82,33 @@ class PullRequestSyncer extends Base {
      */
     #planBuckets(metadata, fetchedPullRequests = []) {
         const combined = new Map();
-        
+
         for (const [idStr, pr] of Object.entries(metadata.pulls || {})) {
             combined.set(parseInt(idStr, 10), {
-                number        : parseInt(idStr, 10),
-                state         : pr.state,
-                milestone     : pr.milestone ? { title: pr.milestone } : null,
-                closedAt      : pr.closedAt,
-                mergedAt      : pr.mergedAt,
-                archiveVersion: pr.archiveVersion
+                number   : parseInt(idStr, 10),
+                state    : pr.state,
+                milestone: pr.milestone ? { title: pr.milestone } : null,
+                closedAt : pr.closedAt,
+                mergedAt : pr.mergedAt
             });
         }
-        
-        for (const pr of fetchedPullRequests) {
-            const cached = metadata.pulls?.[pr.number];
 
+        for (const pr of fetchedPullRequests) {
             combined.set(pr.number, {
-                number        : pr.number,
-                state         : pr.state,
-                milestone     : pr.milestone,
-                closedAt      : pr.closedAt,
-                mergedAt      : pr.mergedAt,
-                archiveVersion: cached?.archiveVersion
+                number   : pr.number,
+                state    : pr.state,
+                milestone: pr.milestone,
+                closedAt : pr.closedAt,
+                mergedAt : pr.mergedAt
             });
         }
-        
+
         const buckets = new Map();
         const activeItems = [];
-        
+
         for (const pr of combined.values()) {
             let version = null;
-            if (pr.archiveVersion) {
-                version = pr.archiveVersion.startsWith(issueSyncConfig.versionDirectoryPrefix)
-                    ? pr.archiveVersion
-                    : issueSyncConfig.versionDirectoryPrefix + pr.archiveVersion;
-            } else if (pr.milestone?.title) {
+            if (pr.milestone?.title) {
                 version = pr.milestone.title.startsWith(issueSyncConfig.versionDirectoryPrefix)
                     ? pr.milestone.title
                     : issueSyncConfig.versionDirectoryPrefix + pr.milestone.title;
@@ -138,7 +130,7 @@ class PullRequestSyncer extends Base {
             if (!buckets.has(version)) buckets.set(version, []);
             buckets.get(version).push(pr);
         }
-        
+
         const plans = new Map();
 
         activeItems.sort((a, b) => a.number - b.number);
@@ -162,7 +154,7 @@ class PullRequestSyncer extends Base {
                 });
             });
         }
-        
+
         return plans;
     }
 
@@ -290,7 +282,7 @@ class PullRequestSyncer extends Base {
                 const cachedPull = cachedPulls[pr.number];
                 const oldPathRelative = cachedPull?.path;
                 const oldAbsolutePath = oldPathRelative ? this.#resolvePath(oldPathRelative) : null;
-                
+
                 const needsUpdate = !cachedPull ||
                     cachedPull.updatedAt !== pr.updatedAt ||
                     oldAbsolutePath !== targetPath;
@@ -298,7 +290,7 @@ class PullRequestSyncer extends Base {
                 // Diff cache
                 if (!needsUpdate && cachedPull && cachedPull.contentHash === currentHash) {
                     logger.debug(`Skipping pull request #${pr.number}, content unchanged.`);
-                    
+
                     // We must still transfer the hash and path to the new run's metadata to persist it
                     pr.contentHash = currentHash;
                     pr.relativeOutputPath = oldPathRelative;
@@ -307,7 +299,7 @@ class PullRequestSyncer extends Base {
 
                 await fs.mkdir(path.dirname(targetPath), { recursive: true });
                 await fs.writeFile(targetPath, content, 'utf-8');
-                
+
                 if (oldAbsolutePath && oldAbsolutePath !== targetPath) {
                     try {
                         await fs.unlink(oldAbsolutePath);
@@ -318,7 +310,7 @@ class PullRequestSyncer extends Base {
                 }
 
                 logger.debug(`✅ Synced pull request #${pr.number}`);
-                
+
                 pr.contentHash = currentHash;
                 pr.relativeOutputPath = this.#relativePath(targetPath);
 
@@ -328,7 +320,7 @@ class PullRequestSyncer extends Base {
                 logger.warn(`⚠️ Could not sync pull request #${pr.number}: ${e.message}`);
             }
         }
-        
+
         // Cache for the main orchestrator to merge
         metadata.pulls = {};
         const indexEntries = [];
@@ -337,15 +329,14 @@ class PullRequestSyncer extends Base {
             const plan = planBuckets.get(p.number);
 
             metadata.pulls[p.number] = {
-                number        : p.number,
-                contentHash   : p.contentHash,
-                state         : p.state,
-                updatedAt     : p.updatedAt,
-                closedAt      : p.closedAt || null,
-                mergedAt      : p.mergedAt || null,
-                milestone     : p.milestone?.title || null,
-                archiveVersion: p.state === 'OPEN' ? null : plan?.version || null,
-                path          : p.relativeOutputPath
+                number     : p.number,
+                contentHash: p.contentHash,
+                state      : p.state,
+                updatedAt  : p.updatedAt,
+                closedAt   : p.closedAt || null,
+                mergedAt   : p.mergedAt || null,
+                milestone  : p.milestone?.title || null,
+                path       : p.relativeOutputPath
             };
 
             indexEntries.push(createContentIndexEntry({

@@ -114,17 +114,19 @@ class MetadataManager extends Base {
             };
         }
 
-        // Prune pulls
+        // Prune pulls — `archiveVersion` is intentionally NOT persisted (#11364). Archive-bucket
+        // placement is derived fresh each sync from real milestone/release-date logic in
+        // PullRequestSyncer#planBuckets; a carried-forward archiveVersion could re-lock a stale
+        // (e.g. pre-release-cut) bucket into .sync-metadata.json.
         for (const [key, value] of Object.entries(metadata.pulls || {})) {
             prunedMetadata.pulls[key] = {
-                state         : value.state,
-                path          : value.path,
-                closedAt      : value.closedAt,
-                mergedAt      : value.mergedAt,
-                milestone     : value.milestone,
-                archiveVersion: value.archiveVersion,
-                updatedAt     : value.updatedAt,
-                contentHash   : value.contentHash
+                state      : value.state,
+                path       : value.path,
+                closedAt   : value.closedAt,
+                mergedAt   : value.mergedAt,
+                milestone  : value.milestone,
+                updatedAt  : value.updatedAt,
+                contentHash: value.contentHash
             };
         }
 
