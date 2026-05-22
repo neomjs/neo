@@ -1,0 +1,335 @@
+openapi: 3.0.0
+info:
+  title: Neo GitLab Workflow MCP API
+  version: 1.0.0
+paths:
+  /healthcheck:
+    get:
+      operationId: healthcheck
+      summary: Healthcheck
+      description: Returns scaffold-level GitLab Workflow MCP server health.
+      tags: [System]
+      x-annotations:
+        readOnlyHint: true
+      responses:
+        '200':
+          description: GitLab Workflow MCP health state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /issues:
+    get:
+      operationId: list_issues
+      summary: List GitLab issues
+      description: Lists GitLab issues. Scaffolded until the GitLabClient subtask lands.
+      tags: [Issues]
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of issues to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+        - name: state
+          in: query
+          required: false
+          description: Filter issues by state.
+          schema:
+            type: string
+            enum: [opened, closed, all]
+            default: opened
+        - name: labels
+          in: query
+          required: false
+          description: Comma separated list of labels to filter by.
+          schema:
+            type: string
+        - name: assignee
+          in: query
+          required: false
+          description: Filter issues by a single GitLab username.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Scaffolded issue list response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponse'
+    post:
+      operationId: create_issue
+      summary: Create a GitLab issue
+      description: Creates a GitLab issue. Scaffolded until the GitLabClient subtask lands.
+      tags: [Issues]
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  description: Issue title.
+                body:
+                  type: string
+                  description: Issue description.
+                  default: ''
+                labels:
+                  type: array
+                  items:
+                    type: string
+                  description: Labels to apply.
+                  default: []
+                assignees:
+                  type: array
+                  items:
+                    type: string
+                  description: GitLab usernames to assign.
+                  default: []
+      responses:
+        '200':
+          description: Scaffolded create response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScaffoldResponse'
+
+  /merge-requests:
+    get:
+      operationId: list_merge_requests
+      summary: List GitLab merge requests
+      description: Lists GitLab merge requests. Scaffolded until the GitLabClient subtask lands.
+      tags: [Merge Requests]
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of merge requests to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+        - name: state
+          in: query
+          required: false
+          description: Filter merge requests by state.
+          schema:
+            type: string
+            enum: [opened, closed, merged, all]
+            default: opened
+        - name: author
+          in: query
+          required: false
+          description: Filter merge requests by GitLab username.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Scaffolded merge-request list response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponse'
+
+  /local/issues/{issue_number}:
+    get:
+      operationId: get_local_issue_by_id
+      summary: Get a local GitLab issue file
+      description: Retrieves a local GitLab issue markdown file by issue number. Scaffolded until syncer subtasks land.
+      tags: [Local Files]
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: GitLab issue number.
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Scaffolded local issue lookup response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScaffoldResponse'
+
+  /comments/manage:
+    post:
+      operationId: manage_issue_comment
+      summary: Manage GitLab issue comments
+      description: Creates or updates GitLab issue comments. Scaffolded until the GitLabClient subtask lands.
+      tags: [Issues]
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, issue_number, body]
+              properties:
+                action:
+                  type: string
+                  enum: [create, update]
+                  description: Comment action.
+                issue_number:
+                  type: integer
+                  description: GitLab issue number.
+                note_id:
+                  type: integer
+                  description: GitLab note id for updates.
+                body:
+                  type: string
+                  description: Comment body.
+      responses:
+        '200':
+          description: Scaffolded comment-management response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScaffoldResponse'
+
+  /issues/{issue_number}/labels/manage:
+    post:
+      operationId: manage_issue_labels
+      summary: Manage GitLab issue labels
+      description: Adds or removes GitLab issue labels. Scaffolded until the GitLabClient subtask lands.
+      tags: [Issues]
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: GitLab issue number.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, labels]
+              properties:
+                action:
+                  type: string
+                  enum: [add, remove]
+                  description: Label action.
+                labels:
+                  type: array
+                  items:
+                    type: string
+                  description: Labels to add or remove.
+      responses:
+        '200':
+          description: Scaffolded label-management response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScaffoldResponse'
+
+  /issues/{issue_number}/assignees/manage:
+    post:
+      operationId: manage_issue_assignees
+      summary: Manage GitLab issue assignees
+      description: Adds or removes GitLab issue assignees. Scaffolded until the GitLabClient subtask lands.
+      tags: [Issues]
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: GitLab issue number.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, assignees]
+              properties:
+                action:
+                  type: string
+                  enum: [add, remove]
+                  description: Assignee action.
+                assignees:
+                  type: array
+                  items:
+                    type: string
+                  description: GitLab usernames to add or remove.
+      responses:
+        '200':
+          description: Scaffolded assignee-management response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScaffoldResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        gitlab:
+          type: object
+          additionalProperties: true
+        details:
+          type: array
+          items:
+            type: string
+    ListResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        count:
+          type: integer
+        message:
+          type: string
+    ScaffoldResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        tool:
+          type: string
+        message:
+          type: string
+        received:
+          type: object
+          additionalProperties: true
