@@ -14,14 +14,15 @@ record, see [ADR 0014](decisions/0014-cloud-deployment-topology-and-scheduler-ta
 The current reference compose file in [`ai/deploy/`](../../ai/deploy/) is a
 profile-structured Agent OS stack. The default profile starts the MCP baseline:
 `chroma`, `kb-server`, and `mc-server`. The `cloud` profile adds the
-cloud-safe `orchestrator`. The compose header also reserves the `ingress` and
-`local-model` profile slots for later deployment variants.
+cloud-safe `orchestrator`; the `ingress` profile adds the Caddy reverse proxy.
+The compose header reserves the `local-model` profile slot for a later provider
+variant.
 
 | Service / profile | Current baseline | D0 target |
 |---|---|---|
-| default profile | `chroma`, `kb-server`, and `mc-server`; all three declare per-service `deploy.resources.limits`. `chroma` owns the only Docker healthcheck currently in the stack. | Keep as the baseline MCP stack: Chroma as the unified vector-store primitive, KB/MC as separate request-serving MCP containers, and Sub D-owned MCP readiness proof for the server containers. |
-| `cloud` profile | Adds the `orchestrator` service with `NEO_AI_DEPLOYMENT_MODE=cloud`, shared SQLite volume access, and its own resource envelope. | Keep as the Agent OS maintenance control-plane container, running only the cloud-safe scheduler lanes from ADR 0014. |
-| `ingress` profile slot | Reserved in the compose header; no service is wired yet. KB and MC are internal-only via `expose`. | Sub C (#11724) adds reverse proxy / TLS termination and public MCP URL wiring. |
+| default profile | `chroma`, `kb-server`, and `mc-server`; all three declare per-service `deploy.resources.limits` and Docker readiness gates. Chroma uses a TCP probe; KB and MC use an MCP `/mcp` healthcheck tool call. | Keep as the baseline MCP stack: Chroma as the unified vector-store primitive and KB/MC as separate request-serving MCP containers with production readiness semantics. |
+| `cloud` profile | Adds the `orchestrator` service with `NEO_AI_DEPLOYMENT_MODE=cloud`, shared SQLite volume access, its own resource envelope, and startup gated on healthy KB/MC services. | Keep as the Agent OS maintenance control-plane container, running only the cloud-safe scheduler lanes from ADR 0014 after the MCP substrate is ready. |
+| `ingress` profile | Adds the Caddy reverse proxy for TLS termination and public `/kb/*` / `/mc/*` path routing while KB and MC remain internal-only via `expose`. | Keep as the public boundary for auth/header stripping and MCP URL routing. |
 | `local-model` profile slot | Reserved in the compose header; no service is wired yet. | Optional self-hosted provider variant. External provider endpoints remain the MVP default. |
 
 The service boundary is intentional: KB and MC serve MCP requests, Chroma stores
@@ -54,17 +55,19 @@ lane back in. The explicit env overrides are:
 | `NEO_ORCHESTRATOR_MLX_ENABLED=false` | Keeps Apple-Silicon local inference out of the cloud profile unless a local-model variant explicitly opts in. |
 
 Sub D (#11725) owns the CI-safe negative proof that the cloud profile cannot run
-the forbidden local-only behavior. This cookbook records the contract; it does
-not claim that proof has already landed.
+the forbidden local-only behavior. The current unit substrate already asserts
+that cloud-mode default resolution disables `primary-dev-sync`, `kbSync`,
+`bridgeDaemon`, and Golden Path repo enrichment unless an operator explicitly
+opts a lane back in.
 
 ## Section 3: Container Packaging
 
-Use per-service containers. Sub B (#11723) delivered the current
+Use per-service containers. Sub B (#11723) delivered the
 profile-structured compose baseline: default MCP stack, `cloud` orchestrator
 profile, reserved `ingress` / `local-model` slots, and per-service resource
-limits. Sub C (#11724) and Sub D (#11725) still own the remaining
-production-profile hardening, so the compose file is closer to the target but
-not yet a complete production profile.
+limits. Sub C (#11724) added the reference ingress and redeploy-safe backup
+volume wiring. Sub D (#11725) adds KB/MC container readiness semantics and gates
+the cloud orchestrator on those MCP server healthchecks.
 
 Required production-profile properties:
 
@@ -73,14 +76,17 @@ Delivered by Sub B:
 - Dedicated containers for `chroma`, `kb-server`, `mc-server`, and cloud-safe
   `orchestrator`.
 - Resource envelopes for each declared service.
-- Default and `cloud` compose profiles, with reserved `ingress` and
-  `local-model` slots.
+- Default and `cloud` compose profiles, with the `local-model` slot reserved.
 
-Still owned by Sub C / Sub D:
+Delivered by Sub C / Sub D:
 
 - Reverse proxy / TLS ingress and public MCP URL wiring.
 - Volumes for backup bundles that survive container rebuilds.
-- Healthcheck/readiness semantics for KB, MC, and orchestrator.
+- Healthcheck/readiness semantics for KB and MC, plus cloud-orchestrator startup
+  gating on healthy MCP server containers.
+
+Still owned by follow-up deployment hardening:
+
 - Optional platform variants for Kubernetes, managed Chroma, managed SQL, and
   external model providers without changing the logical service model.
 
@@ -151,6 +157,9 @@ Supply these values per service/profile as needed:
 | `NEO_MEM_AUTO_START_DATABASE=false` | MC | Prevents the MC server from starting a local Chroma process. |
 | `NEO_MEM_AUTO_START_INFERENCE=false` | MC | Prevents the MC server from starting local inference. |
 | `NEO_AUTO_SUMMARIZE`, `NEO_AUTO_DREAM`, `NEO_AUTO_GOLDEN_PATH`, `NEO_REAL_TIME_MEMORY_PARSING`, `NEO_AUTO_INGEST_FS` | MC | Local/server startup toggles; leave disabled unless the deployment owns those daemon behaviors explicitly. |
+| `NEO_MCP_HEALTHCHECK_URL` | Healthcheck CLI | Optional override for `npm run ai:mcp-healthcheck`; compose passes explicit internal URLs instead. |
+| `NEO_MCP_HEALTHCHECK_IDENTITY` | Healthcheck CLI | Trusted proxy identity value used by the MCP healthcheck probe when proxy-header auth is enabled. |
+| `NEO_MCP_HEALTHCHECK_TOKEN_ENV` / `NEO_MCP_HEALTHCHECK_TOKEN` | Healthcheck CLI | Optional bearer-token slot for direct OIDC/OAuth protected MCP healthchecks. |
 
 The top-level AI config template is [`ai/config.template.mjs`](../../ai/config.template.mjs).
 The cloud-ingestion tenant config guide is
@@ -200,9 +209,23 @@ Do not add real local clone paths to `package.json` or
 
 ## Section 8: Healthcheck and Journey Proof
 
-Deployed proof uses MCP tool calls, not a direct HTTP `/healthcheck` route. Call
-each server's `healthcheck` tool over its `/mcp` endpoint through the same public
-URL and auth path used by real agents.
+Deployed proof uses MCP tool calls, not a direct HTTP `/healthcheck` route. The
+production compose file runs `node ./buildScripts/ai/mcpHealthcheck.mjs` inside
+the KB and MC containers. That script opens a StreamableHTTP client against the
+local `/mcp` endpoint, calls the existing `healthcheck` tool, and exits non-zero
+unless the payload reports the expected status. Operators can run the same probe
+manually with `npm run ai:mcp-healthcheck`.
+
+The Docker readiness contract is:
+
+- Chroma is ready when its TCP listener is reachable.
+- KB is ready when `healthcheck` succeeds over `http://127.0.0.1:3000/mcp`.
+- MC is ready when `healthcheck` succeeds over `http://127.0.0.1:3001/mcp`.
+- The `cloud` orchestrator profile starts only after Chroma, KB, and MC are
+  healthy via compose `condition: service_healthy`.
+
+For public deployed proof, call each server's `healthcheck` tool over its `/mcp`
+endpoint through the same public URL and auth path used by real agents.
 
 Operator verification anchors:
 
