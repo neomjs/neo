@@ -85,7 +85,6 @@ When provisioning your containers, supply the following minimal environment vari
 | Variable | Target | Purpose |
 |---|---|---|
 | `MCP_HTTP_PORT` | Both | The port the HTTP/SSE server listens on (e.g., `3001` for KB, `3002` for MC). |
-
 | `NEO_CHROMA_HOST` | Both | Internal URL of the Chroma instance. |
 | `NEO_CHROMA_PORT` | Both | Port of the Chroma instance. |
 | `NEO_PUBLIC_URL` | Both | The canonical public URL for this MCP server (e.g., `https://api.example.com/mc`). Required for SSE advertisement and OAuth `redirect_uri` generation behind reverse proxies. |
