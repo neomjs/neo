@@ -25,7 +25,7 @@ When engaging in deep architectural design, brainstorming, or encountering "Unkn
 
 ## 3. Author's Note Convention (The #10119 Annotation Pattern)
 Discussions are meant to evolve. Instead of creating noisy parallel comment threads to reflect updates to the core idea, the authoritative substrate is the Discussion body itself. 
-- Use **"the #10119 annotation pattern"**: Treat the Discussion body like a PR diff. When the idea evolves, edit the body directly (like a force-push). 
+- Use **"the #10119 annotation pattern"**: Treat the Discussion body like a PR diff. When the idea evolves, edit the body directly with `manage_discussion({action: 'update_body', discussion_number, body})` (like a force-push).
 - Add top-of-body annotation markers (e.g. `> **Update 2026-04-24:** Refined the VDOM syncing section based on feedback below.`) to signal what changed. 
 - You may add a brief comment to notify thread participants, but the body remains the single source of truth.
 
