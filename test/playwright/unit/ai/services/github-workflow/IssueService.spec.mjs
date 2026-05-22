@@ -890,3 +890,165 @@ test.describe('Neo.ai.services.github-workflow.IssueService — assignIssue prec
         });
     });
 });
+
+/**
+ * @summary Contract coverage for `IssueService.getConversation` (#10702).
+ *
+ * Issue-side twin of `PullRequestService.getConversation` — `get_conversation` is now a
+ * single dual-purpose tool routing by `pr_number` xor `issue_number`. This block pins the
+ * issue path's selector contract (identical to the PR path: `comment_id` > `since_comment_id`
+ * > `last_n` > full), the missing-`issue_number` guard, and GraphQL-error propagation.
+ *
+ * Each test mocks `GraphqlService.query` to return a controlled four-comment issue fixture.
+ *
+ * @see Neo.ai.services.github-workflow.IssueService#getConversation
+ */
+test.describe('Neo.ai.services.github-workflow.IssueService — getConversation (#10702)', () => {
+    let IssueService;
+    let GraphqlService;
+    let originalQuery;
+
+    const COMMENT_A = {id: 'IC_a1111', author: {login: 'alice'}, body: 'First comment',  createdAt: '2026-05-22T01:00:00Z'};
+    const COMMENT_B = {id: 'IC_b2222', author: {login: 'bob'},   body: 'Second comment', createdAt: '2026-05-22T01:10:00Z'};
+    const COMMENT_C = {id: 'IC_c3333', author: {login: 'alice'}, body: 'Third comment',  createdAt: '2026-05-22T01:20:00Z'};
+    const COMMENT_D = {id: 'IC_d4444', author: {login: 'bob'},   body: 'Fourth comment', createdAt: '2026-05-22T01:30:00Z'};
+
+    const ISSUE_FIXTURE = {
+        title   : 'Test Issue',
+        body    : 'Issue body text',
+        author  : {login: 'alice'},
+        comments: {
+            nodes: [COMMENT_A, COMMENT_B, COMMENT_C, COMMENT_D]
+        }
+    };
+
+    test.beforeAll(async () => {
+        GraphqlService = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
+        IssueService   = (await import('../../../../../../ai/services/github-workflow/IssueService.mjs')).default;
+
+        originalQuery = GraphqlService.query.bind(GraphqlService);
+    });
+
+    test.afterAll(() => {
+        GraphqlService.query = originalQuery;
+    });
+
+    test.beforeEach(() => {
+        GraphqlService.query = async () => ({repository: {issue: ISSUE_FIXTURE}});
+    });
+
+    test('returns full conversation when no selector is passed (backward-compat default)', async () => {
+        const result = await IssueService.getConversation({issue_number: 10702});
+
+        expect(result.title).toBe('Test Issue');
+        expect(result.comments.nodes).toHaveLength(4);
+        expect(result.comments.nodes[0].id).toBe('IC_a1111');
+        expect(result.comments.nodes[3].id).toBe('IC_d4444');
+    });
+
+    test('comment_id selector returns only the matching comment', async () => {
+        const result = await IssueService.getConversation({
+            issue_number: 10702,
+            comment_id  : 'IC_c3333'
+        });
+
+        expect(result.title).toBe('Test Issue');
+        expect(result.comments.nodes).toHaveLength(1);
+        expect(result.comments.nodes[0].id).toBe('IC_c3333');
+        expect(result.comments.nodes[0].body).toBe('Third comment');
+    });
+
+    test('comment_id selector returns empty when id not found (no match is not a fallback to full)', async () => {
+        const result = await IssueService.getConversation({
+            issue_number: 10702,
+            comment_id  : 'IC_nonexistent'
+        });
+
+        expect(result.title).toBe('Test Issue');
+        expect(result.comments.nodes).toHaveLength(0);
+    });
+
+    test('since_comment_id selector returns comments strictly AFTER the anchor', async () => {
+        const result = await IssueService.getConversation({
+            issue_number    : 10702,
+            since_comment_id: 'IC_b2222'
+        });
+
+        expect(result.comments.nodes).toHaveLength(2);
+        expect(result.comments.nodes[0].id).toBe('IC_c3333');
+        expect(result.comments.nodes[1].id).toBe('IC_d4444');
+    });
+
+    test('since_comment_id at the last comment returns empty (nothing after)', async () => {
+        const result = await IssueService.getConversation({
+            issue_number    : 10702,
+            since_comment_id: 'IC_d4444'
+        });
+
+        expect(result.comments.nodes).toHaveLength(0);
+    });
+
+    test('since_comment_id with invalid id returns empty (same shape as "nothing after")', async () => {
+        const result = await IssueService.getConversation({
+            issue_number    : 10702,
+            since_comment_id: 'IC_nonexistent'
+        });
+
+        expect(result.comments.nodes).toHaveLength(0);
+    });
+
+    test('last_n selector returns last N comments in order', async () => {
+        const result = await IssueService.getConversation({
+            issue_number: 10702,
+            last_n      : 2
+        });
+
+        expect(result.comments.nodes).toHaveLength(2);
+        expect(result.comments.nodes[0].id).toBe('IC_c3333');
+        expect(result.comments.nodes[1].id).toBe('IC_d4444');
+    });
+
+    test('last_n larger than available returns all comments', async () => {
+        const result = await IssueService.getConversation({
+            issue_number: 10702,
+            last_n      : 100
+        });
+
+        expect(result.comments.nodes).toHaveLength(4);
+    });
+
+    test('selector precedence: comment_id wins over since_comment_id and last_n', async () => {
+        const result = await IssueService.getConversation({
+            issue_number    : 10702,
+            comment_id      : 'IC_a1111',
+            since_comment_id: 'IC_b2222',
+            last_n          : 2
+        });
+
+        expect(result.comments.nodes).toHaveLength(1);
+        expect(result.comments.nodes[0].id).toBe('IC_a1111');
+    });
+
+    test('rejects missing issue_number with structured error', async () => {
+        let callCount = 0;
+        GraphqlService.query = async () => { callCount++; return null; };
+
+        const result = await IssueService.getConversation({comment_id: 'IC_a1111'});
+
+        expect(result.error).toBe('Bad Request');
+        expect(result.code).toBe('MISSING_ARGUMENTS');
+        expect(callCount).toBe(0);
+    });
+
+    test('propagates GraphQL error shape on API failure', async () => {
+        GraphqlService.query = async () => {
+            throw new Error('GitHub API authentication failed');
+        };
+
+        const result = await IssueService.getConversation({issue_number: 10702});
+
+        expect(result.error).toBe('GraphQL API request failed');
+        expect(result.code).toBe('GRAPHQL_API_ERROR');
+        expect(result.message).toContain('authentication');
+    });
+});

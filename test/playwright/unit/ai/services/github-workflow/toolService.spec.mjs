@@ -108,3 +108,97 @@ test.describe('Neo.ai.services.github-workflow.toolService — sync_all dev-bran
         await expect(guarded()).rejects.toThrow(/PrimaryRepoSyncService/);
     });
 });
+
+/**
+ * #10702 — `get_conversation` dispatch router. The tool now serves BOTH pull requests and
+ * issues; `getConversationRouter` picks the service by which identifier the caller supplied
+ * (`pr_number` xor `issue_number`) and rejects ambiguous/empty argument shapes.
+ *
+ * These tests spy on `IssueService.getConversation` / `PullRequestService.getConversation`
+ * to assert routing without GitHub API round-trips — the router itself owns no GraphQL.
+ */
+test.describe('Neo.ai.services.github-workflow.toolService — getConversationRouter (#10702)', () => {
+    let getConversationRouter;
+    let IssueService;
+    let PullRequestService;
+    let originalIssueGetConversation;
+    let originalPrGetConversation;
+
+    test.beforeAll(async () => {
+        const mod             = await import('../../../../../../ai/mcp/server/github-workflow/toolService.mjs');
+        getConversationRouter = mod.getConversationRouter;
+        IssueService          = (await import('../../../../../../ai/services/github-workflow/IssueService.mjs')).default;
+        PullRequestService    = (await import('../../../../../../ai/services/github-workflow/PullRequestService.mjs')).default;
+
+        originalIssueGetConversation = IssueService.getConversation.bind(IssueService);
+        originalPrGetConversation    = PullRequestService.getConversation.bind(PullRequestService);
+    });
+
+    test.afterAll(() => {
+        IssueService.getConversation       = originalIssueGetConversation;
+        PullRequestService.getConversation = originalPrGetConversation;
+    });
+
+    test('issue_number routes to IssueService.getConversation (PR service untouched)', async () => {
+        let issueCalls = 0, prCalls = 0, capturedOptions;
+        IssueService.getConversation       = async (opts) => { issueCalls++; capturedOptions = opts; return {routed: 'issue'}; };
+        PullRequestService.getConversation = async () => { prCalls++; return {routed: 'pr'}; };
+
+        const result = await getConversationRouter({issue_number: 10702, last_n: 3});
+
+        expect(result).toEqual({routed: 'issue'});
+        expect(issueCalls).toBe(1);
+        expect(prCalls).toBe(0);
+        expect(capturedOptions).toEqual({issue_number: 10702, last_n: 3});
+    });
+
+    test('pr_number routes to PullRequestService.getConversation (issue service untouched)', async () => {
+        let issueCalls = 0, prCalls = 0;
+        IssueService.getConversation       = async () => { issueCalls++; return {routed: 'issue'}; };
+        PullRequestService.getConversation = async () => { prCalls++; return {routed: 'pr'}; };
+
+        const result = await getConversationRouter({pr_number: 10272});
+
+        expect(result).toEqual({routed: 'pr'});
+        expect(prCalls).toBe(1);
+        expect(issueCalls).toBe(0);
+    });
+
+    test('legacy positional number routes to PullRequestService (backward-compat, pre-#10702)', async () => {
+        let issueCalls = 0, prCalls = 0;
+        IssueService.getConversation       = async () => { issueCalls++; return {routed: 'issue'}; };
+        PullRequestService.getConversation = async () => { prCalls++; return {routed: 'pr'}; };
+
+        const result = await getConversationRouter(10272);
+
+        expect(result).toEqual({routed: 'pr'});
+        expect(prCalls).toBe(1);
+        expect(issueCalls).toBe(0);
+    });
+
+    test('both pr_number and issue_number rejected with AMBIGUOUS_ARGUMENTS (neither service called)', async () => {
+        let issueCalls = 0, prCalls = 0;
+        IssueService.getConversation       = async () => { issueCalls++; return {routed: 'issue'}; };
+        PullRequestService.getConversation = async () => { prCalls++; return {routed: 'pr'}; };
+
+        const result = await getConversationRouter({pr_number: 10272, issue_number: 10702});
+
+        expect(result.error).toBe('Bad Request');
+        expect(result.code).toBe('AMBIGUOUS_ARGUMENTS');
+        expect(issueCalls).toBe(0);
+        expect(prCalls).toBe(0);
+    });
+
+    test('neither pr_number nor issue_number rejected with MISSING_ARGUMENTS (neither service called)', async () => {
+        let issueCalls = 0, prCalls = 0;
+        IssueService.getConversation       = async () => { issueCalls++; return {routed: 'issue'}; };
+        PullRequestService.getConversation = async () => { prCalls++; return {routed: 'pr'}; };
+
+        const result = await getConversationRouter({comment_id: 'IC_a1111'});
+
+        expect(result.error).toBe('Bad Request');
+        expect(result.code).toBe('MISSING_ARGUMENTS');
+        expect(issueCalls).toBe(0);
+        expect(prCalls).toBe(0);
+    });
+});
