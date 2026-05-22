@@ -1,8 +1,8 @@
 # Deployment Cookbook: Agent OS Cloud Deployment Authority
 
-This cookbook is the F1 deployment authority for Epic #11720. It describes the
-current Agent OS deployment baseline, the D0-decided target topology, and the
-handoffs that are still owned by the active #11720 implementation subs.
+This cookbook is the F1 deployment authority delivered by Epic #11720. It
+describes the current Agent OS deployment baseline, the D0-decided target
+topology, and the post-MVP residual map that remains outside the shipped MVP.
 
 This is not the day-0 tutorial. The executable first-run path lives in
 [Day-0 Cloud Deployment Tutorial](cloud-deployment/Day0Tutorial.md). For the
@@ -68,8 +68,8 @@ Use per-service containers. Sub B (#11723) delivered the
 profile-structured compose baseline: default MCP stack, `cloud` orchestrator
 profile, reserved `ingress` / `local-model` slots, and per-service resource
 limits. Sub C (#11724) added the reference ingress and redeploy-safe backup
-volume wiring. Sub D (#11725) adds KB/MC container readiness semantics and gates
-the cloud orchestrator on those MCP server healthchecks.
+volume wiring. Sub D (#11725) delivered KB/MC container readiness semantics and
+gates the cloud orchestrator on those MCP server healthchecks.
 
 Required production-profile properties:
 
@@ -243,7 +243,7 @@ For the local Dockerized fixture, run `npm run test-integration-unified`. The
 integration harness builds `ai/deploy/docker-compose.test.yml`, waits for
 Chroma, KB, and MC readiness, then calls the KB and MC `healthcheck` tools over
 `/mcp`.
-Sub D (#11725) extends the proof to the cloud-safe orchestrator profile and
+Sub D (#11725) extended the proof to the cloud-safe orchestrator profile and
 negative local-only behavior assertions.
 
 ## Section 9: Tenant Repo Ingestion Boundary
@@ -263,9 +263,10 @@ ingestion-contract demonstrations, not production deployment profiles.
 The linear first-run operator path is
 [Day-0 Cloud Deployment Tutorial](cloud-deployment/Day0Tutorial.md).
 
-## Section 10: Known Gaps and Owner Map
+## Section 10: Delivered MVP and Residual Owner Map
 
-Active #11720 deployment-readiness gaps:
+The #11720 deployment-readiness MVP is complete. The items below are retained as
+traceability anchors, not active implementation gaps:
 
 - [#11723](https://github.com/neomjs/neo/issues/11723) - Sub B production
   container topology.
@@ -275,10 +276,26 @@ Active #11720 deployment-readiness gaps:
   journey proof, and negative cloud-profile assertions.
 - [#11728](https://github.com/neomjs/neo/issues/11728) - Sub F2 day-0 tutorial
   plus Docker-capable fresh-run validation.
+
+Post-MVP residual work is tracked separately under:
+
 - [#11730](https://github.com/neomjs/neo/issues/11730) - Post-MVP residual
-  architecture once #11720 closes.
-- [#11736](https://github.com/neomjs/neo/issues/11736) - Broader deployment
-  guide/security hardening outside the F1 MVP cleanup.
+  architecture after the #11720 closeout.
+- [#11731](https://github.com/neomjs/neo/issues/11731) - server-side repo-clone
+  ingestion exploration, only if push-based tenant ingestion proves
+  insufficient.
+- [#11732](https://github.com/neomjs/neo/issues/11732) - graph-store evolution
+  beyond the SQLite + mounted-volume MVP baseline.
+- [#11733](https://github.com/neomjs/neo/issues/11733) - downstream external
+  deployment-pipeline wiring.
+- [#11734](https://github.com/neomjs/neo/issues/11734) - optional local-model
+  runtime container profile.
+- [#11735](https://github.com/neomjs/neo/issues/11735) - tenant-source
+  inventory deepening beyond the day-0 proof path.
+- [#11736](https://github.com/neomjs/neo/issues/11736) - broader deployment
+  guide/security hardening outside the F1 MVP cleanup; see
+  [Security](cloud-deployment/Security.md) for the first post-MVP hardening
+  ledger.
 
 Related boundary item closed separately:
 
