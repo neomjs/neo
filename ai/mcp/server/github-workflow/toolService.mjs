@@ -91,11 +91,55 @@ function buildDevBranchGuard(delegate, getBranch = defaultBranchDetector) {
 
 const syncAllOnDevOnly = buildDevBranchGuard(SyncService.runFullSync.bind(SyncService));
 
+/**
+ * #10702 — `get_conversation` dispatch router. The tool serves BOTH pull requests and
+ * issues; it routes to the matching service by which identifier the caller supplied.
+ * Rejects ambiguous (both ids) and empty (neither id) argument shapes with structured
+ * errors so the failure is legible rather than a downstream null-deref.
+ *
+ * Exported for unit-test access (#10702), mirroring the `buildDevBranchGuard` /
+ * `syncAllOnDevOnly` test-surface precedent below.
+ *
+ * @param {Object|Number} options `pr_number` XOR `issue_number`, plus optional selectors.
+ *                                A bare number is the legacy positional PR form (pre-#10702).
+ * @returns {Promise<Object>} Conversation data or a structured error.
+ */
+async function getConversationRouter(options) {
+    // Legacy positional number form predates #10702 and is always a pull request.
+    if (typeof options === 'number') {
+        return PullRequestService.getConversation(options);
+    }
+
+    const {pr_number, issue_number} = options || {};
+
+    if (pr_number && issue_number) {
+        return {
+            error  : 'Bad Request',
+            message: "Provide exactly one of 'pr_number' or 'issue_number', not both.",
+            code   : 'AMBIGUOUS_ARGUMENTS'
+        };
+    }
+
+    if (issue_number) {
+        return IssueService.getConversation(options);
+    }
+
+    if (pr_number) {
+        return PullRequestService.getConversation(options);
+    }
+
+    return {
+        error  : 'Bad Request',
+        message: "Missing required argument: provide 'pr_number' or 'issue_number'.",
+        code   : 'MISSING_ARGUMENTS'
+    };
+}
+
 const serviceMapping = {
     checkout_pull_request    : PullRequestService.checkoutPullRequest    .bind(PullRequestService),
     create_discussion        : DiscussionService .createDiscussion       .bind(DiscussionService),
     create_issue             : IssueService      .createIssue            .bind(IssueService),
-    get_conversation         : PullRequestService.getConversation        .bind(PullRequestService),
+    get_conversation         : getConversationRouter,
     get_local_issue_by_id    : LocalFileService  .getIssueById           .bind(LocalFileService),
     get_pull_request_diff    : PullRequestService.getPullRequestDiff     .bind(PullRequestService),
     get_viewer_permission    : RepositoryService .getViewerPermission    .bind(RepositoryService),
@@ -117,7 +161,7 @@ const serviceMapping = {
 
 // Exported for unit-test access (#11145). `buildDevBranchGuard` accepts injected
 // `delegate` + `getBranch` for fixture-driven testing without spawning real `git`.
-export {buildDevBranchGuard, syncAllOnDevOnly};
+export {buildDevBranchGuard, getConversationRouter, syncAllOnDevOnly};
 
 const toolService = Neo.create(ToolService, {
     openApiFilePath,
