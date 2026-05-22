@@ -319,10 +319,11 @@ test.describe('ai/scripts/resumeHarness', () => {
     });
 
     test('Antigravity CLI: adapter executes chat -n <payload> via ANTIGRAVITY_CLI_PATH (#10680)', async () => {
-        test.skip(process.platform !== 'darwin', 'Antigravity CLI is currently mac-specific (#10684)');
         test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
 
-        // Create a mock executable to capture the command shape without launching the real IDE
+        // Create a mock executable to capture the command shape without launching the real IDE.
+        // The env override exercises the cross-platform adapter path without depending on
+        // host-specific Antigravity installs.
         const mockPath = path.join(os.tmpdir(), `mock-ag-${randomUUID()}`);
         const outPath = path.join(os.tmpdir(), `out-ag-${randomUUID()}`);
         fs.writeFileSync(mockPath, `#!/usr/bin/env node\nconst fs = require('fs');\nfs.writeFileSync('${outPath}', JSON.stringify(process.argv.slice(2)));\n`, { mode: 0o755 });
@@ -340,6 +341,34 @@ test.describe('ai/scripts/resumeHarness', () => {
         } finally {
             if (fs.existsSync(mockPath)) fs.unlinkSync(mockPath);
             if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
+        }
+    });
+
+    test('Antigravity CLI: win32 stays on tmux until .cmd execution follow-up (#11767)', async () => {
+        const { selectHarnessAdapter } = await import('../../../../../ai/scripts/resumeHarness.mjs');
+
+        expect(selectHarnessAdapter({ adapter: 'antigravity-cli' }, 'linux')).toBe('antigravity-cli');
+        expect(selectHarnessAdapter({ adapter: 'antigravity-cli' }, 'darwin')).toBe('antigravity-cli');
+        expect(selectHarnessAdapter({ adapter: 'antigravity-cli' }, 'win32')).toBe('tmux');
+        expect(selectHarnessAdapter({ adapter: 'claude-cli' }, 'linux')).toBe('tmux');
+        expect(selectHarnessAdapter({ adapter: 'claude-cli' }, 'darwin')).toBe('claude-cli');
+    });
+
+    test('Antigravity CLI: missing executable reports actionable path diagnostic (#10684)', async () => {
+        test.skip(skipCiSubstrateData, 'CI-skip: substrate data not seeded - bucket C (#10903)');
+
+        const missingPath = path.join(os.tmpdir(), `missing-ag-${randomUUID()}`);
+
+        try {
+            const env = { ...overrideEnv, ANTIGRAVITY_CLI_PATH: missingPath };
+            execFileSync('node', [scriptPath, '@neo-gemini-3-1-pro', 'testReason'], { encoding: 'utf-8', stdio: 'pipe', env });
+            test.fail('Should have exited with a missing Antigravity CLI diagnostic');
+        } catch (e) {
+            expect(e.status).toBe(1);
+            const stderr = e.stderr.toString();
+            expect(stderr).toContain('Failed to resume @neo-gemini-3-1-pro via antigravity-cli');
+            expect(stderr).toContain('ANTIGRAVITY_CLI_PATH points to missing executable');
+            expect(stderr).toContain(missingPath);
         }
     });
 
