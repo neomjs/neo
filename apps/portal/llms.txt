@@ -234,6 +234,7 @@ The sections below (Release Notes, Guides/Blogs, and GitHub Tickets) represent p
 - [Custom Sources](https://neomjs.com/raw/learn/agentos/cloud-deployment/CustomSources.md)
 - [Custom Parsers](https://neomjs.com/raw/learn/agentos/cloud-deployment/CustomParsers.md)
 - [Hook Wiring](https://neomjs.com/raw/learn/agentos/cloud-deployment/HookWiring.md)
+- [Pipeline Wiring](https://neomjs.com/raw/learn/agentos/cloud-deployment/PipelineWiring.md)
 - [Security](https://neomjs.com/raw/learn/agentos/cloud-deployment/Security.md)
 - [Migration Path](https://neomjs.com/raw/learn/agentos/cloud-deployment/MigrationPath.md)
 - [Config Substrate Env-Var Audit](https://neomjs.com/raw/learn/agentos/ConfigSubstrateEnvVarAudit.md)
