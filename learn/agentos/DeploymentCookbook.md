@@ -1,117 +1,168 @@
-# Deployment Cookbook: Shared Topology Walkthrough
+# Deployment Cookbook: Agent OS Cloud Deployment Authority
 
-This cookbook is a concrete, ordered, end-to-end deployment guide for standing up the Neo.mjs Knowledge Base (KB) and Memory Core (MC) servers against a shared cloud-hosted Chroma instance, protected by an identity-aware reverse proxy.
+This cookbook is the F1 deployment authority for Epic #11720. It describes the
+current Agent OS deployment baseline, the D0-decided target topology, and the
+handoffs that are still owned by the active #11720 implementation subs.
 
-For theoretical background, threat models, and architectural reference, see [Shared Deployment MVP](SharedDeployment.md).
+This is not the day-0 tutorial. The tutorial is tracked separately by #11728.
+For the older shared-KB/MC background and threat model, see
+[Shared Deployment MVP](SharedDeployment.md). For the cloud topology decision
+record, see [ADR 0014](decisions/0014-cloud-deployment-topology-and-scheduler-task-taxonomy.md).
 
-## Section 1: Prerequisites & Architecture Picture
+## Section 1: Current Baseline vs Target Topology
 
-Before deploying, ensure you understand the target topology.
+The current reference compose file in [`ai/deploy/`](../../ai/deploy/) is a
+profile-structured Agent OS stack. The default profile starts the MCP baseline:
+`chroma`, `kb-server`, and `mc-server`. The `cloud` profile adds the
+cloud-safe `orchestrator`. The compose header also reserves the `ingress` and
+`local-model` profile slots for later deployment variants.
 
-### Architecture Topology
-1. **Agent Harnesses (Clients):** Local agent runners (e.g., Anthropic Claude Desktop, Gemini) sending MCP JSON-RPC over Server-Sent Events (SSE) or HTTP.
-2. **Reverse Proxy:** The public gateway that terminates TLS, enforces OAuth/OIDC authentication, and injects trusted identity headers.
-3. **MCP Servers:** The Node.js processes running `knowledge-base` and `memory-core`. These must be configured with a canonical `publicUrl` to support correct SSE advertisement and OAuth callbacks behind the proxy.
-4. **Data Layer:** A shared Chroma vector database and isolated SQLite graph databases for each server.
+| Service / profile | Current baseline | D0 target |
+|---|---|---|
+| default profile | `chroma`, `kb-server`, and `mc-server`; all three declare per-service `deploy.resources.limits`. `chroma` owns the only Docker healthcheck currently in the stack. | Keep as the baseline MCP stack: Chroma as the unified vector-store primitive, KB/MC as separate request-serving MCP containers, and Sub D-owned MCP readiness proof for the server containers. |
+| `cloud` profile | Adds the `orchestrator` service with `NEO_AI_DEPLOYMENT_MODE=cloud`, shared SQLite volume access, and its own resource envelope. | Keep as the Agent OS maintenance control-plane container, running only the cloud-safe scheduler lanes from ADR 0014. |
+| `ingress` profile slot | Reserved in the compose header; no service is wired yet. KB and MC are internal-only via `expose`. | Sub C (#11724) adds reverse proxy / TLS termination and public MCP URL wiring. |
+| `local-model` profile slot | Reserved in the compose header; no service is wired yet. | Optional self-hosted provider variant. External provider endpoints remain the MVP default. |
 
-### Identity Flow
-External Identity Provider (IdP) → Reverse Proxy (OIDC verify) → Reverse Proxy injects `X-PREFERRED-USERNAME` → MCP Server (Proxy-header-trusted auth).
+The service boundary is intentional: KB and MC serve MCP requests, Chroma stores
+vectors, and the orchestrator owns background Agent OS maintenance. Do not
+collapse them into a mono-container unless a later ADR explicitly changes the
+resource-isolation model.
 
-### Provisioning Obligations
-The Neo.mjs repository provides the MCP server applications. The external operator is responsible for provisioning:
-- The container runtime (e.g., Docker, Kubernetes).
-- The OAuth 2.1 / OIDC provider.
-- The reverse proxy.
-- The ChromaDB instance.
+## Section 2: Scheduler Taxonomy and Cloud Profile
 
-### Operator Config Bootstrap
+ADR 0014 classifies every orchestrator scheduler lane before the orchestrator is
+placed into a cloud container:
 
-The MCP servers boot from per-server `config.mjs` files (gitignored). On first clone, `npm prepare` clones each server's `config.template.mjs` into the matching `config.mjs`. After `git pull` runs that introduce **structural template evolution** — new top-level `import ... from '...'` lines, new named specifiers within existing import blocks, or new `export { ... }` blocks — re-run `npm run prepare` to surface stale-config warnings. The detector covers the import + named-export surface only; value-level changes inside `defaultConfig` (e.g., new env-binding entries, default-value adjustments) are not yet inspected and require operator awareness from release notes / PR descriptions. To refresh a stale gitignored `config.mjs` from the canonical template, run `npm run prepare -- --migrate-config` — idempotent, safe on already-current files. (See [#10815](https://github.com/neomjs/neo/issues/10815) for the drift-detection substrate.)
+| Lane set | Cloud profile behavior |
+|---|---|
+| `summary`, `backup`, `dream`, `golden-path` | Cloud-deployable maintenance lanes. They need reachable model/provider and storage substrates, but no local maintainer checkout. |
+| `bridgeDaemon`, `mlx`, `kbSync`, `primary-dev-sync` | Local-only lanes. They must be disabled in a tenant cloud deployment. |
+| `chroma` | Shared primitive. Compose or the platform owns the Chroma process in cloud; the orchestrator does not supervise it. |
 
-## Section 2: Container Packaging
+Sub A (#11722) delivered the config-level deployment-mode surface. A cloud
+orchestrator profile sets `NEO_AI_DEPLOYMENT_MODE=cloud`; the config resolver
+then disables local-only lanes unless an operator explicitly opts a narrower
+lane back in. The explicit env overrides are:
 
-When containerizing the MCP servers, you must choose between packaging both servers in one image or building two separate images. 
+| Env var | Cloud default intent |
+|---|---|
+| `NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED=false` | Prevents `git fetch` / `git pull`, worktree discovery, `.sync-metadata.json` resets, and local KB-sync cascades. |
+| `NEO_ORCHESTRATOR_KB_SYNC_ENABLED=false` | Prevents the local Neo checkout full-corpus `ai:sync-kb` loop. Tenant KB content arrives through push/bulk ingestion instead. |
+| `NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED=false` | Prevents desktop wake delivery through `osascript` / `tmux`. A2A message storage remains Memory Core behavior. |
+| `NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED=false` | Keeps tenant deployments from emitting Neo-maintainer repo backlog/PR enrichment sections. |
+| `NEO_ORCHESTRATOR_MLX_ENABLED=false` | Keeps Apple-Silicon local inference out of the cloud profile unless a local-model variant explicitly opts in. |
 
-### Recommended Pattern: Two Images (Sidecar Pattern)
-We recommend building two distinct images (or running the same image with different entrypoints).
-- **Isolation:** Process crashes in the Knowledge Base do not take down the Memory Core.
-- **Resource Limits:** KB is read-heavy; MC is write-heavy. They can be scaled or constrained independently.
-- **Shared Chroma:** Both containers connect to a single unified Chroma instance via internal container networking.
+Sub D (#11725) owns the CI-safe negative proof that the cloud profile cannot run
+the forbidden local-only behavior. This cookbook records the contract; it does
+not claim that proof has already landed.
 
-*(Note: Reference `Dockerfile` and `docker-compose.yml` artifacts are provided in the [`ai/deploy/`](../../ai/deploy/) directory, shipped under [#10801](https://github.com/neomjs/neo/issues/10801)).*
+## Section 3: Container Packaging
 
-## Section 3: Reverse Proxy Configuration
+Use per-service containers. Sub B (#11723) delivered the current
+profile-structured compose baseline: default MCP stack, `cloud` orchestrator
+profile, reserved `ingress` / `local-model` slots, and per-service resource
+limits. Sub C (#11724) and Sub D (#11725) still own the remaining
+production-profile hardening, so the compose file is closer to the target but
+not yet a complete production profile.
 
-The reverse proxy is the security boundary for the shared deployment.
+Required production-profile properties:
 
-### Routing Strategy
-You must map a single public hostname to two distinct upstream services. We recommend **pathname-based routing** to avoid managing multiple TLS certificates:
-- `/kb/*` routes to the Knowledge Base MCP server container (e.g., port 3001).
-- `/mc/*` routes to the Memory Core MCP server container (e.g., port 3002).
+Delivered by Sub B:
 
-### Header Stripping (Security)
-To prevent spoofing attacks, the reverse proxy **MUST** strip any incoming `X-PREFERRED-USERNAME` headers provided by the client before injecting its own trusted value.
+- Dedicated containers for `chroma`, `kb-server`, `mc-server`, and cloud-safe
+  `orchestrator`.
+- Resource envelopes for each declared service.
+- Default and `cloud` compose profiles, with reserved `ingress` and
+  `local-model` slots.
 
-See the [Reference Nginx and Caddy Configurations](../../ai/mcp/deploy/proxy/) for concrete examples of how to implement this header stripping securely.
+Still owned by Sub C / Sub D:
 
-## Section 4: Identity Provider Setup
+- Reverse proxy / TLS ingress and public MCP URL wiring.
+- Volumes for backup bundles that survive container rebuilds.
+- Healthcheck/readiness semantics for KB, MC, and orchestrator.
+- Optional platform variants for Kubernetes, managed Chroma, managed SQL, and
+  external model providers without changing the logical service model.
 
-You must register an OAuth application with your Identity Provider (e.g., Google, Okta, Auth0).
+## Section 4: Reverse Proxy and Auth Boundary
 
-### Client Registration
-1. Create a new Web Application client.
-2. Store the `clientId` and `clientSecret` securely.
-3. Configure the Redirect URIs. If your proxy does not handle the OAuth flow and terminates it at the MCP server, you MUST configure the `NEO_PUBLIC_URL` environment variable so the MCP server can construct correct canonical callbacks.
+The reverse proxy is the public security boundary. It terminates TLS, enforces
+OAuth/OIDC or equivalent identity, strips spoofable client identity headers, and
+injects the trusted identity headers consumed by the MCP servers.
 
-### Authentication Modes
-You must configure the MCP servers to trust the proxy:
-- Set `NEO_AUTH_TRUST_PROXY_IDENTITY=true` on both servers.
-- The proxy handles the OIDC flow, sets a session cookie, and injects the verified email or username into the `X-PREFERRED-USERNAME` header on all proxied requests.
-- See the [Authentication Threat Model](SharedDeployment.md#authentication) for details.
+The current internal compose ports are:
 
-## Section 5: Shared Chroma Topology
+| Service | Internal port |
+|---|---|
+| `kb-server` | `3000` |
+| `mc-server` | `3001` |
 
-Both MCP servers must share a single Chroma instance to enable cross-domain semantic awareness.
+Sub C (#11724) owns the production ingress wiring. A path-routed deployment can
+publish `/kb/*` and `/mc/*` on one hostname, or the operator can use separate
+hostnames. In either shape, set each server's `NEO_PUBLIC_URL` to the canonical
+public MCP URL that agents will use.
 
-1. Ensure the Chroma container/service is accessible to both MCP containers.
-2. Configure the Chroma host and port:
-   - `NEO_CHROMA_HOST=http://chroma` (or your internal DNS name).
-   - `NEO_CHROMA_PORT=8000`.
+Header rule: the proxy must remove any incoming `X-PREFERRED-USERNAME` or
+`X-AUTH-REQUEST-PREFERRED-USERNAME` header before injecting its own verified
+value. With proxy-auth mode enabled, set `NEO_AUTH_TRUST_PROXY_IDENTITY=true`.
+For direct OIDC mode, configure the issuer/client values instead of trusting the
+proxy header path.
+
+## Section 5: Persistence, Backups, and Provider Profile
+
+The deployment substrates have different recovery properties:
+
+- Chroma data is shared by KB and MC but collection-scoped by substrate.
+- KB content is a cache/index over Neo's curated corpus plus tenant-pushed repo
+  content. A KB wipe is recoverable by re-sync/re-push, but the operational cost
+  scales with tenant count.
+- Memory Core graph/session data is a primary store. A wipe between backups is
+  data loss.
+- Backup bundles need their own durable volume or managed-object-storage target;
+  the baseline compose file does not yet provide this.
+
+The orchestrator consumes model-provider endpoints for `summary`, `dream`, and
+similar lanes. External provider endpoints are the MVP default. A self-hosted
+provider container is a profile variant and should not be coupled to the
+orchestrator container.
 
 ## Section 6: Environment Variable Inventory
 
-When provisioning your containers, supply the following minimal environment variables:
+Supply these values per service/profile as needed:
 
 | Variable | Target | Purpose |
 |---|---|---|
-| `MCP_HTTP_PORT` | Both | The port the HTTP/SSE server listens on (e.g., `3001` for KB, `3002` for MC). |
-| `NEO_CHROMA_HOST` | Both | Internal URL of the Chroma instance. |
-| `NEO_CHROMA_PORT` | Both | Port of the Chroma instance. |
-| `NEO_PUBLIC_URL` | Both | The canonical public URL for this MCP server (e.g., `https://api.example.com/mc`). Required for SSE advertisement and OAuth `redirect_uri` generation behind reverse proxies. |
-| `NEO_AUTH_TRUST_PROXY_IDENTITY` | Both | Set to `true` if your reverse proxy handles authentication. |
-| `GEMINI_API_KEY` | Both | Required for Gemini integration. |
-| `NEO_TRANSPORT` | Both | Steady runtime binding for HTTP/SSE deployments (e.g., set to `sse`). |
-| `NEO_AUTO_SYNC` | KB | Deployment safety toggle. Operator one-shot KB sync toggle (safe deploy default: `false`). |
-| `NEO_KB_AUTO_START_DATABASE` | KB | Deployment safety toggle. Operator one-shot lifecycle toggle for local Chroma startup (safe deploy default: `false`). |
-| `NEO_MEM_AUTO_START_DATABASE` | MC | Safe deploy control. Operator one-shot lifecycle toggle for local Chroma startup (disabled by default: `false`). |
-| `NEO_MEM_AUTO_START_INFERENCE` | MC | Safe deploy control. Operator one-shot lifecycle toggle for local inference startup (disabled by default: `false`). |
-| `NEO_AUTO_DREAM` | MC | Safe deploy control. Operator one-shot/daemon toggle (disabled by default: `false`). |
-| `NEO_AUTO_GOLDEN_PATH` | MC | Safe deploy control. Operator one-shot/daemon toggle for Golden Path synthesis (disabled by default: `false`). |
-| `NEO_REAL_TIME_MEMORY_PARSING` | MC | Safe deploy control. Operator one-shot/daemon toggle (disabled by default: `false`). |
-| `NEO_AUTO_INGEST_FS` | MC | Safe deploy control. Operator one-shot ingestion toggle (disabled by default: `false`). |
-| `NEO_AUTO_SUMMARIZE` | MC | Set to `true` to enable startup + disconnect-driven session summarization. The lifecycle is now handled by the `bridge-daemon`, which acts as a host-level singleton via a `PID_FILE` lock. The daemon uses an in-process mutex to guarantee single-writer semantics across multiple local harness instances on that host. |
-| `NEO_MC_PRIMARY` | MC | *(Deprecated)* Previously used for single-writer enforcement. Replaced by daemon-enforced singleton locks for local multi-harness clusters. Remote multi-user Memory Core deployments instead rely on request-scoped identity context to partition write visibility. |
-| `NEO_SUMMARIZATION_SWEEP_INTERVAL_MS` | MC | The interval in milliseconds for the bridge-daemon to poll SQLite for un-summarized sessions (default: `600000` = 10 mins). Set to `0` to disable periodic sweeping. |
-| `NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS` | Orchestrator | Primary-checkout `dev` auto-sync cadence (default: `600000` = 10 mins). Set to `0` to disable the periodic trigger. |
-| `NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED` | Orchestrator | Set to `false`/`0`/`no`/`off` to disable the primary-checkout auto-sync lane without changing the daemon process. |
-| `NEO_ORCHESTRATOR_DEV_SYNC_ROOTS` | Orchestrator | Optional JSON array of absolute Neo repo roots to include in the primary-dev-sync lane. This env var has precedence over local config. Unset preserves the single owning-checkout behavior unless `ai/config.mjs` sets `orchestrator.devSyncRoots`. Configured roots are never auto-discovered or branch-switched; non-`dev` roots are fetch-only. KB sync still cascades once from the owning checkout after at least one successful `dev` update. |
-| `NEO_MCP_GITHUB_ARCHIVE_ROOT` | GitHub Workflow | The root directory for version-based archives across all entities. |
+| `NEO_TRANSPORT=sse` | KB, MC | HTTP/SSE transport for deployed MCP servers. |
+| `MCP_HTTP_PORT` | KB, MC | Internal listener port. Current baseline: KB `3000`, MC `3001`. |
+| `NEO_PUBLIC_URL` | KB, MC | Canonical public MCP URL used for advertised endpoints and auth callbacks. |
+| `NEO_CHROMA_HOST` | KB, MC, Orchestrator | Internal Chroma host, for example `chroma`. |
+| `NEO_CHROMA_PORT` | KB, MC, Orchestrator | Chroma port, normally `8000`. |
+| `NEO_MEMORY_DB_PATH` | KB, MC, Orchestrator | Shared SQLite graph path or mounted graph-store path. |
+| `NEO_AUTH_TRUST_PROXY_IDENTITY=true` | KB, MC | Enables the trusted reverse-proxy identity-header path. |
+| `NEO_AUTH_ISSUER_URL`, `NEO_OAUTH_CLIENT_ID`, `NEO_OAUTH_CLIENT_SECRET` | KB, MC | Direct OIDC/OAuth mode inputs when the MCP server handles auth instead of a trusted proxy. |
+| `NEO_AI_DEPLOYMENT_MODE=cloud` | Orchestrator | Selects the cloud maintenance profile. |
+| `NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED=false` | Orchestrator | Disables local maintainer checkout sync. |
+| `NEO_ORCHESTRATOR_KB_SYNC_ENABLED=false` | Orchestrator | Disables local full-corpus KB sync. |
+| `NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED=false` | Orchestrator | Disables desktop wake delivery. |
+| `NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED=false` | Orchestrator | Disables Neo-maintainer repo enrichment sections. |
+| `NEO_ORCHESTRATOR_MLX_ENABLED=false` | Orchestrator | Keeps local MLX supervision disabled. |
+| `NEO_AUTO_SYNC=false` | KB | Prevents one-shot local KB sync during server startup. |
+| `NEO_KB_AUTO_START_DATABASE=false` | KB | Prevents the KB server from starting a local Chroma process. |
+| `NEO_MEM_AUTO_START_DATABASE=false` | MC | Prevents the MC server from starting a local Chroma process. |
+| `NEO_MEM_AUTO_START_INFERENCE=false` | MC | Prevents the MC server from starting local inference. |
+| `NEO_AUTO_SUMMARIZE`, `NEO_AUTO_DREAM`, `NEO_AUTO_GOLDEN_PATH`, `NEO_REAL_TIME_MEMORY_PARSING`, `NEO_AUTO_INGEST_FS` | MC | Local/server startup toggles; leave disabled unless the deployment owns those daemon behaviors explicitly. |
 
-*(Notes: Public URL advertising is tracked under [#10802](https://github.com/neomjs/neo/issues/10802). Provider consolidation shipped in [PR #10810](https://github.com/neomjs/neo/pull/10810) — `embeddingProvider` is now the canonical selector. Env-var ergonomics shipped in [#10808](https://github.com/neomjs/neo/issues/10808): `MCP_HTTP_PORT` is the canonical operator-facing env var (`SSE_PORT` remains readable during the deprecation window with a warning); `NEO_CHROMA_HOST` / `NEO_CHROMA_PORT` are now env-overridable on both KB + MC. Session-summary single-writer flag `NEO_MC_PRIMARY` has been deprecated in favor of daemon-owned locks per Piece B/C migration [#10956](https://github.com/neomjs/neo/issues/10956).)*
+The top-level AI config template is [`ai/config.template.mjs`](../../ai/config.template.mjs).
+The cloud-ingestion tenant config guide is
+[Configuration](cloud-deployment/Configuration.md).
 
-### Local Orchestrator Dev-Sync Roots
+## Section 7: Local-Only Orchestrator Appendix
 
-The orchestrator can sync multiple local Neo checkouts through the primary-dev-sync lane without committing machine-specific paths. Precedence is:
+This section is for Neo maintainer machines only. It is not part of a tenant
+cloud deployment.
+
+The local orchestrator can sync multiple local Neo checkouts through the
+`primary-dev-sync` lane without committing machine-specific paths. Precedence is:
 
 1. `NEO_ORCHESTRATOR_DEV_SYNC_ROOTS`
 2. `ai/config.mjs` `orchestrator.devSyncRoots`
@@ -131,7 +182,7 @@ export default {
 };
 ```
 
-Then start the existing orchestrator command:
+Then start the existing local orchestrator command:
 
 ```sh
 npm run ai:orchestrator
@@ -143,87 +194,76 @@ For one-off process-manager overrides, keep using the env var:
 NEO_ORCHESTRATOR_DEV_SYNC_ROOTS='["/absolute/path/to/neo-gpt/neo","/absolute/path/to/neo-gemini/neo","/absolute/path/to/neo-opus/neo"]' npm run ai:orchestrator
 ```
 
-Do not add real local clone paths to `package.json` or `ai/config.template.mjs`; the template default remains `orchestrator.devSyncRoots: []`.
+Do not add real local clone paths to `package.json` or
+`ai/config.template.mjs`; the template default remains
+`orchestrator.devSyncRoots: []`.
 
-## Section 7: Healthcheck Verification
+## Section 8: Healthcheck and Journey Proof
 
-Once deployed, verify the stack by invoking each server's MCP `healthcheck` tool over its `/mcp` endpoint. The MCP servers do not expose a direct `/healthcheck` HTTP route; use JSON-RPC `tools/call` with `name: "healthcheck"` against the KB and MC MCP URLs.
+Deployed proof uses MCP tool calls, not a direct HTTP `/healthcheck` route. Call
+each server's `healthcheck` tool over its `/mcp` endpoint through the same public
+URL and auth path used by real agents.
 
-Expected JSON block (excerpt):
-```json
-{
-  "status": "healthy",
-  "identity": {
-    "source": "proxy-header",
-    "bound": true,
-    "nodeId": "@your-username"
-  },
-  "database": {
-    "topology": {
-      "mode": "unified",
-      "coordinates": { "host": "http://chroma", "port": 8000 },
-      "resolvedVia": "engines.chroma"
-    }
-  },
-  "providers": {
-    "embedding": {
-      "active": "openAiCompatible",
-      "host": "http://127.0.0.1:8000",
-      "model": "text-embedding-qwen3-embedding-1.5b",
-      "dimensions": 4096
-    },
-    "summary": {
-      "active": "openAiCompatible",
-      "host": "http://127.0.0.1:11434",
-      "model": "qwen3-8b",
-      "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
-      "local": true,
-      "credential": {
-        "env": "NEO_OPENAI_COMPATIBLE_API_KEY",
-        "configured": false,
-        "required": false
-      }
-    },
-    "auth": {
-      "configured": "proxy-header",
-      "oidc": {
-        "host": null,
-        "issuerUrl": null,
-        "realm": null,
-        "configured": false
-      },
-      "proxyHeader": {
-        "trusted": true,
-        "headersChecked": ["x-preferred-username", "x-auth-request-preferred-username"]
-      }
-    }
-  }
-}
-```
 Operator verification anchors:
-- `identity.source === "proxy-header"` confirms the reverse proxy is injecting the `X-PREFERRED-USERNAME` header and the MC server is reading it.
-- `database.topology.mode === "unified"` confirms shared Chroma topology is active.
-- `providers.embedding.active` reflects the configured embedding provider per [#10804](https://github.com/neomjs/neo/issues/10804) consolidation — `'gemini'` (cloud), `'openAiCompatible'` (local Qwen3 / MLX), or `'ollama'`.
-- `providers.summary.active` mirrors the same shape for the session-summary provider.
-- `providers.auth.configured === "proxy-header"` confirms the deployment is using the trust-proxy-identity path; for OIDC mode it would be `'oidc'` (with the `oidc.{host, issuerUrl, realm, configured: true}` block populated). `providers.auth.proxyHeader.headersChecked` is the canonical + `oauth2-proxy`-variant header pair the server reads.
 
-See [Memory Core Healthcheck](MemoryCore.md) for the full schema contract (including the `clientSecret`-non-leak invariant per [#10770](https://github.com/neomjs/neo/issues/10770)).
+- `identity.source === "proxy-header"` confirms the reverse proxy is injecting
+  trusted identity headers and the server is reading them.
+- `database.topology.mode === "unified"` confirms the shared Chroma topology.
+- Provider fields confirm the selected embedding/summary provider profile.
+- The Memory Core healthcheck remains the schema authority for MC provider/auth
+  details; see [Memory Core](MemoryCore.md).
 
-## Section 8: First-Connection Smoke Test
+For the local Dockerized fixture, run `npm run test-integration-unified`. The
+integration harness builds `ai/deploy/docker-compose.test.yml`, waits for
+Chroma, KB, and MC readiness, then calls the KB and MC `healthcheck` tools over
+`/mcp`.
+Sub D (#11725) extends the proof to the cloud-safe orchestrator profile and
+negative local-only behavior assertions.
 
-For the local Dockerized fixture, run `npm run test-integration-unified`. The Playwright integration harness builds `ai/deploy/docker-compose.test.yml`, waits for Chroma + KB + MC readiness, then calls the KB and MC `healthcheck` tools over `/mcp`. The same harness also drives the proxy-identity path with `test/playwright/integration/fixtures/mcpClient.mjs`, including the `401 Unauthorized` rejection check in `AuthRejection.integration.spec.mjs` and the cross-tenant memory-read isolation check in `CrossTenantIsolation.integration.spec.mjs`.
+## Section 9: Tenant Repo Ingestion Boundary
 
-1. Configure your local agent harness (e.g., `claude_desktop_config.json`) to point the `sse` transport URL to your public proxy endpoint.
-2. Ensure you have authenticated with the proxy (e.g., logging in via browser to obtain the session cookie, or injecting a proxy-issued bearer token).
-3. Ask the agent: *"Call the `healthcheck` tool on the remote Memory Core server."*
-4. Verify the agent successfully completes the turn and receives the healthy response.
+Tenant KB content enters through the cloud-native ingestion facades, not through
+the local `kbSync` scheduler lane. Use the
+[Cloud-Native KB Ingestion](cloud-deployment/Overview.md) guide tree for:
 
-## Section 9: Known Gaps & Follow-Up Tickets
+- per-tenant identity and visibility rules;
+- `ingest_source_files` and bulk CLI hook wiring;
+- custom parser/source registration;
+- tenant config persistence.
 
-This cookbook surfaces the following architectural gaps between "substrate complete" and "operator ready," which are actively tracked for remediation:
+Runnable ingestion examples live in
+[`examples/cloud-deployment/`](../../examples/cloud-deployment/). They are
+ingestion-contract demonstrations, not production deployment profiles.
 
-- **[#10801](https://github.com/neomjs/neo/issues/10801):** (Shipped) Create reference Docker and docker-compose artifacts for shared KB/MC deployment.
-- **[#10802](https://github.com/neomjs/neo/issues/10802):** Expose public canonical URL configuration to MCP servers for SSE and OAuth callbacks.
-- **[#10804](https://github.com/neomjs/neo/issues/10804):** Consolidate `neoEmbeddingProvider` and `chromaEmbeddingProvider` configurations.
-- **[#10805](https://github.com/neomjs/neo/issues/10805):** Build staged-stack integration test harness for shared cloud deployment.
-- **[#10808](https://github.com/neomjs/neo/issues/10808):** Operator-facing env var ergonomics — descriptive names (`MCP_HTTP_PORT`, `NEO_PUBLIC_URL`, etc.) + `NEO_CHROMA_HOST` / `NEO_CHROMA_PORT` overridability. Cross-cuts Section 6 (env var inventory) where the forward-looking names are documented ahead of substrate-side wiring.
+## Section 10: Known Gaps and Owner Map
+
+Active #11720 deployment-readiness gaps:
+
+- [#11723](https://github.com/neomjs/neo/issues/11723) - Sub B production
+  container topology.
+- [#11724](https://github.com/neomjs/neo/issues/11724) - Sub C reference
+  compose/profile, ingress, persistence, and provider wiring.
+- [#11725](https://github.com/neomjs/neo/issues/11725) - Sub D healthcheck,
+  journey proof, and negative cloud-profile assertions.
+- [#11728](https://github.com/neomjs/neo/issues/11728) - Sub F2 day-0 tutorial.
+- [#11730](https://github.com/neomjs/neo/issues/11730) - Post-MVP residual
+  architecture once #11720 closes.
+- [#11736](https://github.com/neomjs/neo/issues/11736) - Broader deployment
+  guide/security hardening outside the F1 MVP cleanup.
+
+Related boundary item closed separately:
+
+- [#11719](https://github.com/neomjs/neo/issues/11719) / PR
+  [#11748](https://github.com/neomjs/neo/pull/11748) - Separate narrow
+  Markdown table rendering fix for the old Section 6. This rewrite removes the
+  old table from the cookbook and intentionally does not use #11719 as a close
+  target.
+
+Completed baseline inputs for this cookbook:
+
+- [#11721](https://github.com/neomjs/neo/issues/11721) / PR #11738 - D0 ADR
+  0014 topology and scheduler taxonomy.
+- [#11722](https://github.com/neomjs/neo/issues/11722) / PR #11739 - top-level
+  AI deployment/maintenance config.
+- [#11726](https://github.com/neomjs/neo/issues/11726) / PR #11737 - tenant repo
+  ingestion operational model.

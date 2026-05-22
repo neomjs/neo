@@ -1,6 +1,6 @@
 # Cloud-Native KB Ingestion — Overview
 
-> **Status — Phase 3A invariant scaffold.** This guide describes the *invariant* substrate of cloud-native Knowledge Base ingestion (Epic #11624). Endpoint-exact details — the `ingestSourceFiles` MCP tool, the bulk-ingest CLI facade, hook-wiring examples — land with Phase 2 (#11626) and are intentionally **not** specified here. Sections that depend on un-merged work are marked `[Phase 2 — pending]`.
+> **Status — Phase 3B operational substrate.** This guide describes the cloud-native Knowledge Base ingestion substrate (Epic #11624): tenant identity, ingestion contracts, server-side stamping, read-side filtering, and the Phase 2 push/bulk facades.
 
 ## What "cloud-native KB ingestion" means
 
@@ -12,7 +12,7 @@ The substrate that makes this possible is the **per-tenant ingestion contract**:
 
 ## The contract split (Phase 0/1)
 
-Phase 0/1 defines the data contracts cloud ingestion is built on. PRs #11647 and #11659 are **merged**; PRs #11661 and #11662 are **approved and pending the operator merge gate**:
+Phase 0/1 defines the data contracts cloud ingestion is built on. PRs #11647, #11659, #11661, and #11662 are merged:
 
 | Contract | Ticket / PR | What it provides |
 |---|---|---|
@@ -23,7 +23,7 @@ Phase 0/1 defines the data contracts cloud ingestion is built on. PRs #11647 and
 | Per-source path externalization | #11660 / PR #11661 | `aiConfig.sourcePaths` — each default Source class reads its input path from config, so a tenant whose layout differs from Neo's can reuse the curated Source classes. |
 | Write-side tenant stamping | #11631 / PR #11662 | `VectorService.embed` server-stamps `{tenantId, repoSlug, visibility, originAgentIdentity}` from the authenticated ingestion context; client-supplied identity fields are overwritten or rejected. Tenant-aware Chroma IDs prevent byte-identical chunks from different tenants colliding. |
 
-The split is deliberate: **contracts before transport**. The schemas and registry stabilize first; the ingestion endpoints that consume them (Phase 2) are built against a frozen contract surface.
+The split was deliberate: **contracts before transport**. The schemas and registry stabilized first; the Phase 2 ingestion endpoints were built against that frozen contract surface.
 
 ## Topology anchor — unified Chroma
 
@@ -38,11 +38,11 @@ A zero-config Neo deployment behaves identically with or without the cloud-inges
 - A **Source** locates and reads content from a territory (a directory tree, an external workspace) and emits knowledge chunks into the full-corpus build.
 - A **Parser** transforms a specific file format into chunk content (e.g. a `.proto` parser, an ES5-aware parser).
 
-`SourceRegistry` holds both. Neo's curated Sources auto-register; tenant Sources/Parsers register declaratively via `aiConfig.customSources` / `aiConfig.customParsers` or programmatically via `SourceRegistry.registerSource(...)`. `[Phase 2 — pending]` the runtime wiring that invokes a registered Parser during an ingestion call is built in Phase 2; Phase 0/1B covers the registration API + config pipeline only.
+`SourceRegistry` holds both. Neo's curated Sources auto-register; tenant Sources/Parsers register declaratively via `aiConfig.customSources` / `aiConfig.customParsers` or programmatically via `SourceRegistry.registerSource(...)`. The Phase 2 ingestion facades can invoke a registered Parser during an ingestion call; with no parser match, the raw-text fallback ingests the whole file as one chunk.
 
 ## Relationship to Neo's curated content
 
-Neo's own guides, ADRs, skills, and API docs remain in the KB under `tenantId: 'neo-shared'`, `visibility: 'team'` — readable by every tenant. A cloud tenant's content is stamped with the tenant's own `tenantId` and a `visibility` of `team` (tenant-internal) or `private`. Read-side filtering (`[Phase 2/0-1D — pending]`, #11632) resolves each query against the requester's authenticated identity: a tenant sees its own content plus `neo-shared`, never another tenant's `private` chunks.
+Neo's own guides, ADRs, skills, and API docs remain in the KB under `tenantId: 'neo-shared'`, `visibility: 'team'` — readable by every tenant. A cloud tenant's content is stamped with the tenant's own `tenantId` and a `visibility` of `team` (tenant-internal) or `private`. Read-side filtering (#11632) resolves each query against the requester's authenticated identity: a tenant sees its own content plus `neo-shared`, never another tenant's `private` chunks.
 
 ## Where to go next
 
