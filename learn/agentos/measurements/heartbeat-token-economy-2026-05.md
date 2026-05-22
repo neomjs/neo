@@ -13,8 +13,9 @@ The confirmed-empty heartbeat path is safe at the current 5 minute default:
 - **Measured token-economy gate latency:** approximately `0.58s` per pulse on this machine
 - **Measured current wrapper-cycle latency:** approximately `0.69s` per pulse including the failing TTL sweeper
 
-The zero-token result is not an estimate. `ai/scripts/swarm-heartbeat.sh` executes the deterministic checks before
-injecting a prompt and returns early when both actionable counters are zero:
+The zero-token result is not an estimate. The heartbeat (measured here as the `ai/scripts/swarm-heartbeat.sh`
+shell wrapper; folded into the Orchestrator's swarm-heartbeat lane per #11766) executes the deterministic checks
+before injecting a prompt and returns early when both actionable counters are zero:
 
 1. unread mailbox messages for the target agent identity
 2. open GitHub issues assigned to the active GitHub user
@@ -71,9 +72,10 @@ invocation currently exits non-zero after roughly `116ms` with:
 ReferenceError: Neo is not defined
 ```
 
-Because `swarm-heartbeat.sh` redirects the sweeper stderr to `/dev/null`, this failure is silent in the heartbeat
-loop and `expired` falls back to `0`. The local graph contained no A2A Task nodes during measurement, so no task state
-was changed by this probe.
+Because the measured `swarm-heartbeat.sh` shell wrapper redirects the sweeper stderr to `/dev/null`, this failure is
+silent in the heartbeat loop and `expired` falls back to `0`. The local graph contained no A2A Task nodes during
+measurement, so no task state was changed by this probe. (Post-#11766, the heartbeat is an Orchestrator lane that
+calls `MailboxService.sweepExpiredTasks()` directly — no subprocess, no `/dev/null` redirect.)
 
 This caveat does not change the empty-cycle token budget, but it does mean the TTL sweeper's operational health should
 be fixed or tracked separately from #10318 before relying on heartbeat-driven task expiration.

@@ -7,14 +7,15 @@
  * This helper owns the producer side of `.neo-ai-data/heartbeat-concurrency.lock`: create
  * the lock before the work starts and remove it in a `finally` block after the work ends.
  *
- * The companion consumer is `ai/scripts/swarm-heartbeat.sh`, which treats the lock as an
- * absolute skip barrier until the configured stale-lock TTL expires.
+ * The companion consumer is the Orchestrator swarm-heartbeat lane
+ * (`ai/daemons/SwarmHeartbeatService.mjs`), which treats the lock as an absolute skip
+ * barrier until the configured stale-lock TTL expires (#11766 fold).
  *
  * @example
  *   node ai/scripts/heartbeatLock.mjs -- npx playwright test test/playwright/unit/foo.spec.mjs
  *
  * @see https://github.com/neomjs/neo/issues/10319
- * @see ai/scripts/swarm-heartbeat.sh
+ * @see ai/daemons/SwarmHeartbeatService.mjs
  */
 import {spawn} from 'child_process';
 import fs      from 'fs-extra';
@@ -27,8 +28,9 @@ export const DEFAULT_STALE_LOCK_MS = 10 * 60 * 1000;
 /**
  * @summary Creates the heartbeat concurrency lock before expensive Agent OS work starts.
  *
- * The JSON payload is intentionally tiny and diagnostic-only; `swarm-heartbeat.sh`
- * depends only on file presence so a partial write cannot corrupt heartbeat semantics.
+ * The JSON payload is intentionally tiny and diagnostic-only; the Orchestrator
+ * swarm-heartbeat lane depends only on file presence so a partial write cannot corrupt
+ * heartbeat semantics.
  *
  * @param {object} [options]
  * @param {string} [options.lockPath=HEARTBEAT_LOCK_PATH] Lock file path consumed by the heartbeat.

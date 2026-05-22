@@ -22,8 +22,8 @@ import {test, expect} from '@playwright/test';
  * @summary Dual-mode export smoke coverage for the wake scripts converted by #10795.
  *
  * Importing these modules must expose callable functions without executing their CLI
- * wrappers, so `SwarmHeartbeatService` can use the same logic directly while
- * `swarm-heartbeat.sh` keeps its existing command-line contract.
+ * wrappers, so `SwarmHeartbeatService` can use the same logic directly while the
+ * scripts keep their existing command-line contract for manual / standalone use.
  */
 test.describe('ai/scripts wake dual-mode exports', () => {
     test('converted wake scripts expose function entrypoints without running CLI wrappers', async () => {

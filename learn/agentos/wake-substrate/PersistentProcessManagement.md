@@ -1,138 +1,92 @@
-# Persistent-Process Management for SwarmHeartbeatService
+# Persistent-Process Management for the Wake Substrate
 
-This document covers operator-side installation, verification, and uninstallation of the swarm heartbeat daemon as a persistent daemon process. The entry-point wrapper at `ai/scripts/swarm-heartbeat-daemon.mjs` (#11058 split) is the launchd / systemd target; the class definition lives at `ai/daemons/SwarmHeartbeatService.mjs`. Required for autonomous **night-shift mode** operation — without persistent-process management, the heartbeat singleton only runs when an operator manually invokes the bash wrapper (`ai/scripts/swarm-heartbeat.sh`) interactively and keeps the terminal open.
+This document covers operator-side persistent-process management for the swarm wake substrate. **Since #11766 the swarm heartbeat is no longer a standalone daemon** — it is a config-gated scheduled lane inside the **Orchestrator daemon** (`Neo.ai.daemons.Orchestrator`). The Orchestrator is the single persistent local Agent OS process; there is no separate `swarm-heartbeat` launchd plist to install. The heartbeat class definition lives at `ai/daemons/SwarmHeartbeatService.mjs` and is driven by the Orchestrator's `poll()` loop (`initAsync()` once at start, `pulse()` once per cadence tick).
 
-> **Verify-before-assert notice:** the plist template in this directory (`com.neomjs.swarm-heartbeat.plist.template`) is **author-side draft**. Correctness on a given operator's macOS install is operator-territory L3 verification. Do NOT install the template as-is without running the verification commands in §3 below.
+> **Verify-before-assert notice:** any launchd / systemd template you author for the Orchestrator is **author-side draft**. Correctness on a given operator's macOS install is operator-territory L3 verification. Do NOT install a template as-is without running the verification commands below.
 
 ## Compaction Taxonomy (3-Axis Slot Rule)
 **Disposition:** `keep` (External Operator Guide; not injected into active agent context).
-**Rationale:** Low-frequency (run once per host setup), high-severity (macOS `launchd` failure isolates the swarm), non-machine-enforceable (operator-territory CLI execution).
+**Rationale:** Low-frequency (run once per host setup), high-severity (a `launchd` failure isolates the swarm), non-machine-enforceable (operator-territory CLI execution).
 
 ## 1. Why this exists
 
 The wake substrate (Epic [#10671](https://github.com/neomjs/neo/issues/10671)) ships:
 
-- `ai/daemons/SwarmHeartbeatService.mjs` — Neo-singleton heartbeat daemon (5-minute poll by default; #10789)
-- `ai/scripts/swarm-heartbeat.sh` — sibling bash wrapper for **developer-interactive** use (preserved per #10789 AC10; not the persistent-process target)
-- `ai/scripts/checkSunsetted.mjs` — sunset / idle-out detector consumed by the daemon
+- `ai/daemons/SwarmHeartbeatService.mjs` — Neo-singleton swarm-heartbeat lane (5-minute pulse cadence by default; #10789). Folded into the Orchestrator daemon as a config-gated scheduled lane per [#11766](https://github.com/neomjs/neo/issues/11766).
+- `ai/scripts/checkSunsetted.mjs` — sunset / idle-out detector consumed by the heartbeat lane
 - `ai/scripts/resumeHarness.mjs` — recovery dispatcher invoked when a sunsetted agent is detected
 - `ai/scripts/wakeSafetyGate.mjs` — fail-closed safety gate consulted before any high-authority recovery action
 
-`SwarmHeartbeatService` runs `await this.scheduleNext()` in a setTimeout chain (5-minute default cadence). It must run as a long-lived process. macOS's native primitive for long-lived per-user daemons is **launchd LaunchAgent** (per-user, lives in `~/Library/LaunchAgents/`). Linux's analog is **systemd user service** (typically `~/.config/systemd/user/`); a sibling shape is sketched in §5 below but committed-template is macOS-only for v1.
+The heartbeat must run continuously. Rather than a dedicated daemon, the heartbeat `pulse()` is scheduled by the **Orchestrator** — the same persistent process that owns summarization, KB-sync, backup, dream, and golden-path lanes. macOS's native primitive for the long-lived per-user Orchestrator process is **launchd LaunchAgent** (per-user, lives in `~/Library/LaunchAgents/`). Linux's analog is a **systemd user service** (typically `~/.config/systemd/user/`).
 
-**Why the singleton replaces the bash wrapper as the persistent-process target:**
+**Why the heartbeat is an Orchestrator lane rather than a standalone daemon (#11766):**
 
-- Architectural pattern compliance — `ai/daemons/` already houses Neo-class services (`DreamService.mjs` + 10+ under `ai/daemons/services/`); a bash daemon would have introduced architectural debt.
-- Direct module imports for `wakeSafetyGate.mjs`, `heartbeatLock.mjs`, and `MailboxService.sweepExpiredTasks` remove three subprocess hops per cycle.
-- Persistent-singleton state lets future work (gauge, observability, backpressure) live on the class instance instead of bash-shell environment variables.
+- One persistent local daemon instead of two — the Orchestrator already owns a `poll()` scheduler, PID-file singleton enforcement, lifecycle traps, and per-task health reporting. A second daemon duplicated all of that.
+- The Orchestrator's `runIfDue` lane provides the cadence gate and per-pulse failure isolation that the old self-rescheduling loop provided — a single-pulse failure is isolated by the scheduler.
+- The heartbeat lane is config-gated (`swarmHeartbeatEnabled` / `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED`), so it can be disabled per deployment profile (e.g. the cloud `Orchestrator` profile — see ADR 0014).
 
 ## 2. Operator empirical-prerequisites
 
-Before installing, verify on your local environment:
+Before relying on the heartbeat lane, verify on your local environment:
 
 ```bash
-# 1. The daemon entry-point wrapper + class definition both exist
-test -f ai/scripts/swarm-heartbeat-daemon.mjs && echo "OK (wrapper)" || echo "FAIL: did you check out the #11058 branch?"
-test -f ai/daemons/SwarmHeartbeatService.mjs && echo "OK (class)"   || echo "FAIL: class file missing"
+# 1. The Orchestrator entry-point + the heartbeat class definition both exist
+test -f ai/scripts/orchestrator-daemon.mjs    && echo "OK (orchestrator entry-point)" || echo "FAIL: orchestrator entry-point missing"
+test -f ai/daemons/SwarmHeartbeatService.mjs  && echo "OK (heartbeat class)"          || echo "FAIL: heartbeat class missing"
 
 # 2. Required tools are reachable
 which node sqlite3 gh tmux
 
 # 3. The .neo-ai-data dir tree exists (will be created if not, but worth pre-checking)
-ls -la .neo-ai-data/wake-daemon/ .neo-ai-data/sqlite/
+ls -la .neo-ai-data/wake-daemon/ .neo-ai-data/sqlite/ .neo-ai-data/orchestrator-daemon/
 
 # 4. Manual one-shot execution works — exercises the SIGTERM clean-shutdown path the
-#    wrapper's signal handlers (swarm-heartbeat-daemon.mjs) implement.
-NEO_AGENT_IDENTITY="@your-identity" POLL_INTERVAL=10 \
-   node ai/scripts/swarm-heartbeat-daemon.mjs &
+#    Orchestrator entry-point's signal handlers implement.
+node ai/scripts/orchestrator-daemon.mjs &
 DAEMON_PID=$!
 sleep 30
 kill -TERM "$DAEMON_PID"
 wait "$DAEMON_PID" 2>/dev/null
 # Expected:
-#   1. "Starting heartbeat for @your-identity (interval: 10000ms)" log line on launch
-#   2. At least one pulse cycle (10s interval × ~3 pulses in 30s window)
-#   3. "Received SIGTERM; stopping." + "Heartbeat stopped." log lines on shutdown
-#   4. wait exits 0 (clean shutdown via the handler's process.exit(0))
-# A SIGALRM-shape recipe (perl alarm) would terminate by signal, NOT through the
-# clean-shutdown handler — the daemon only catches SIGTERM/SIGINT.
+#   1. "[Orchestrator] Started. ..." log line on launch
+#   2. The heartbeat lane runs once its interval elapses (default 5min; lower
+#      NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS for a faster local check)
+#   3. Clean shutdown on SIGTERM via the entry-point's cleanup handler
 ```
 
 If any of these fails, **fix the underlying issue first**. launchd will faithfully reproduce whatever runtime environment problem the manual execution surfaces.
 
-## 3. macOS launchd installation procedure
+## 3. Running the Orchestrator as a persistent process
 
-### 3a. Substitute the template
+The Orchestrator is the single persistent local Agent OS daemon — the heartbeat rides inside it. Install the Orchestrator under launchd (macOS) or systemd (Linux) using the standard launchd LaunchAgent / systemd user-service shape, targeting `ai/scripts/orchestrator-daemon.mjs` as the `ExecStart` / `ProgramArguments` entry-point.
 
-```bash
-# From repo root, copy the template + substitute placeholders
-cp learn/agentos/wake-substrate/com.neomjs.swarm-heartbeat.plist.template \
-   ~/Library/LaunchAgents/com.neomjs.swarm-heartbeat.plist
+General launchd guidance for the Orchestrator LaunchAgent:
 
-# Substitute repo-root path (this assumes you run this command FROM the repo root)
-sed -i '' "s|\[OPERATOR_SUBSTITUTE_REPO_ROOT\]|$(pwd)|g" \
-   ~/Library/LaunchAgents/com.neomjs.swarm-heartbeat.plist
+- `WorkingDirectory` must be the repo root so the daemon resolves `.neo-ai-data/`.
+- `EnvironmentVariables.PATH` must include the install dirs of `node`, `sqlite3`, `gh`, and `tmux` — launchd does not inherit your interactive shell `PATH`.
+- `plutil -lint` the plist before `launchctl bootstrap`; a syntax error means do-not-proceed.
+- The Orchestrator entry-point enforces a PID-file singleton (`.neo-ai-data/orchestrator-daemon/orchestrator-daemon.pid`) and handles `SIGTERM` / `SIGINT` with a clean shutdown.
 
-# Substitute agent identity (replace with your actual identity, e.g. "@neo-opus-4-7")
-sed -i '' "s|\[OPERATOR_SUBSTITUTE_AGENT_IDENTITY\]|@your-identity|g" \
-   ~/Library/LaunchAgents/com.neomjs.swarm-heartbeat.plist
+The heartbeat lane needs no separate install step: once the Orchestrator is running with `swarmHeartbeatEnabled` (the default outside the cloud profile), the lane pulses on its configured interval.
 
-# Verify substitution succeeded — should be ZERO matches remaining
-grep -c "OPERATOR_SUBSTITUTE" ~/Library/LaunchAgents/com.neomjs.swarm-heartbeat.plist
-# expected output: 0
-```
+### 3a. Verify heartbeat-lane execution
 
-### 3b. Lint the plist syntax
+The Orchestrator records every lane outcome through `HealthService.recordTaskOutcome(...)`. The heartbeat lane emits `INFO`-level log lines only when something happens — these are the durable observability signals:
 
-```bash
-plutil -lint ~/Library/LaunchAgents/com.neomjs.swarm-heartbeat.plist
-# expected output: <path>: OK
-```
-
-If `plutil` reports a syntax error, **do not proceed**. Common causes:
-- Unescaped `<` / `>` / `&` in your repo path or agent identity (sed `|` delimiter avoids this for `/`-laden paths but still surfaces if your path has special XML chars)
-- Substitution missed a placeholder (zero `OPERATOR_SUBSTITUTE` matches confirmed via §3a final check)
-
-### 3c. Install + start
-
-```bash
-# Bootstrap (load + start) the LaunchAgent
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.neomjs.swarm-heartbeat.plist
-
-# Verify load
-launchctl list | grep com.neomjs
-# expected output: a line with PID + label "com.neomjs.swarm-heartbeat"
-```
-
-### 3d. Verify execution
-
-```bash
-# Initial verify: the startup line MUST appear within seconds of bootstrap
-tail -f .neo-ai-data/wake-daemon/heartbeat.stdout.log
-# Expected first line: "[SwarmHeartbeatService] Starting heartbeat for <identity> (interval: 300000ms)"
-
-# Watch the daemon's stderr — should be empty during normal operation
-tail -f .neo-ai-data/wake-daemon/heartbeat.stderr.log
-```
-
-The daemon emits `INFO`-level log lines only when something happens — these are the durable observability signals:
-
-- **Startup:** `Starting heartbeat for <identity> (interval: <ms>)` — fires once on launch.
 - **Stale lock cleared:** `Clearing stale concurrency lock (<age>ms old)` — only when a producer-side lock outlived its TTL.
 - **TTL sweep:** `sweep: <N> task(s) transitioned to Expired` — only when N > 0.
 - **Sunset recovery:** `Phase 1 Recovery Triggered for <identity>. Reason: ...` — only when the sunset detector fires.
 - **Idle-out nudge:** `Idle-out nudge triggered for <identity>` — only when the per-identity idle threshold trips.
 - **All-agent-idle:** `AllAgentIdle detected: <signal>` — only when the trio-wide idle predicate holds.
 - **Gate-closed:** `Wake safety gate closed; skipping ...` — only when a high-authority dispatch was suppressed.
-- **Shutdown:** `Received SIGTERM; stopping.` + `Heartbeat stopped.` — fires on `launchctl bootout`.
 
-A healthy idle daemon may emit nothing for many cycles in a row (no expired tasks, no sunset, no idle-out, no all-idle, no gate-closed). The startup line + an empty stderr log is the steady-state proof of life. **Do not infer "daemon stopped polling" from log silence past startup** — silence during agent-active periods is the token-economy gate working as designed.
+A healthy idle heartbeat lane may emit nothing for many cycles in a row (no expired tasks, no sunset, no idle-out, no all-idle, no gate-closed). **Do not infer "heartbeat stopped pulsing" from log silence** — silence during agent-active periods is the token-economy gate working as designed.
 
-> ⚠️ **Lock-as-evidence anti-pattern:** the file `.neo-ai-data/heartbeat-concurrency.lock` is **producer-side state** — created by `acquireHeartbeatLock` when expensive agent work starts (#10319 `withHeartbeatLock`), removed when that work finishes. The heartbeat daemon only *inspects + releases stale locks*, never touches it on healthy idle pulses. **Do not watch the lock's mtime as a polling-health indicator** — a healthy daemon may go hours without touching it.
+> ⚠️ **Lock-as-evidence anti-pattern:** the file `.neo-ai-data/heartbeat-concurrency.lock` is **producer-side state** — created by `acquireHeartbeatLock` when expensive agent work starts (#10319 `withHeartbeatLock`), removed when that work finishes. The heartbeat lane only *inspects + releases stale locks*, never touches it on healthy idle pulses. **Do not watch the lock's mtime as a polling-health indicator** — a healthy lane may go hours without touching it.
 
-#### Healthcheck-side verification (#10783)
+### 3b. Healthcheck-side verification (#10783)
 
-For a single-call observability check that doesn't require `tail -f` against multiple log files, the Memory Core healthcheck surfaces the wake substrate's three operational dimensions in one block. Call any healthcheck-emitting tool (e.g. `mcp__neo-mjs-memory-core__healthcheck`) and inspect the `features.wake` block:
+For a single-call observability check, the Memory Core healthcheck surfaces the wake substrate's operational dimensions in one block. Call any healthcheck-emitting tool (e.g. `mcp__neo-mjs-memory-core__healthcheck`) and inspect the `features.wake` block:
 
 ```jsonc
 "features": {
@@ -141,102 +95,62 @@ For a single-call observability check that doesn't require `tail -f` against mul
         "gateReason": "",
         "gateTrippedAt": null,
         "gateTrippedBy": null,
-        "daemonRunning": true,        // mtime of heartbeat-liveness file < 10min
+        "daemonRunning": true,        // mtime of heartbeat-liveness file < 2× POLL_INTERVAL
         "lastPulseAt": "2026-05-07T20:51:52.141Z",
         "secondsSinceLastPulse": 12
     }
 }
 ```
 
-The `daemonRunning` heuristic reads the dedicated liveness file `.neo-ai-data/wake-daemon/heartbeat.alive` — touched by `swarm-heartbeat.sh` at the top of every pulse loop iteration, NOT the producer-side concurrency lock above. `gateState` is read via `wakeSafetyGate.readGateState`. Field semantics + defensive defaults documented inline at `HealthService.buildWakeFeaturesBlock`.
+The `daemonRunning` heuristic reads the dedicated liveness file `.neo-ai-data/wake-daemon/heartbeat.alive` — touched by `SwarmHeartbeatService.touchLivenessFile()` at the top of every `pulse()` (the producer is the Orchestrator's swarm-heartbeat lane since #11766), NOT the producer-side concurrency lock above. `gateState` is read via `wakeSafetyGate.readGateState`. Field semantics + defensive defaults are documented inline at `HealthService.buildWakeFeaturesBlock`.
 
-**Use this for:** quick night-shift readiness check from the agent harness; integration tests asserting daemon-running invariants; operator dashboards consuming the healthcheck JSON. **Use `tail -f` for:** real-time event observation (sweep / sunset / idle-out / gate-closed events as they fire).
+**Use this for:** quick night-shift readiness check from the agent harness; integration tests asserting heartbeat-running invariants; operator dashboards consuming the healthcheck JSON. The Orchestrator's per-lane outcomes are additionally surfaced in the healthcheck `orchestrator.tasks` block.
 
-If the startup log line never appears, the daemon failed to launch. Common causes: `WorkingDirectory` mis-substituted (script can't find `.neo-ai-data/`), `PATH` missing critical CLI tool (sqlite3, node, gh), or the script crashed at module-load (check `heartbeat.stderr.log` for `ReferenceError: Neo is not defined` or similar).
+## 4. Disabling the heartbeat lane
 
-## 4. Uninstall procedure
+The heartbeat lane is config-gated; there is no plist to uninstall. To disable it for a given Orchestrator process:
 
-```bash
-# Bootout (stop + unload) the LaunchAgent — sends SIGTERM, which the singleton
-# handles via clean shutdown (clearTimeout on the next pulse + process.exit(0))
-launchctl bootout gui/$(id -u)/com.neomjs.swarm-heartbeat
+- `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED=false`, or
+- `orchestrator.localOnly.swarmHeartbeatEnabled: false` in the top-level `ai` config.
 
-# Verify unload
-launchctl list | grep com.neomjs
-# expected output: empty (no matches)
+The cloud `Orchestrator` deployment profile disables the lane by default (see ADR 0014 §2.1 — the heartbeat is a `local-only` lane delivering desktop `osascript` / `tmux` wakes). Stopping the Orchestrator process stops the heartbeat with it; the SQLite DB, ChromaDB, and Memory Core data are unaffected by daemon lifecycle.
 
-# Optional: remove the plist
-rm ~/Library/LaunchAgents/com.neomjs.swarm-heartbeat.plist
-```
-
-The daemon stops cleanly without state damage; the SQLite DB, ChromaDB, and Memory Core data are unaffected by daemon lifecycle.
-
-## 5. Linux systemd sibling (out-of-scope-for-v1 sketch)
-
-The Linux analog uses systemd's user-service substrate. **Not committed as a template in v1** because no operator has empirically validated against a Linux deployment yet. Future ticket should produce a committed `.service` file once a Linux operator validates.
-
-Sketch shape:
-
-```ini
-# ~/.config/systemd/user/swarm-heartbeat.service
-[Unit]
-Description=Neo.mjs SwarmHeartbeatService
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=/path/to/repo
-ExecStart=/usr/bin/env node /path/to/repo/ai/scripts/swarm-heartbeat-daemon.mjs
-Restart=always
-RestartSec=10
-Environment="NEO_AGENT_IDENTITY=@your-identity"
-Environment="PATH=/usr/local/bin:/usr/bin:/bin"
-StandardOutput=append:/path/to/repo/.neo-ai-data/wake-daemon/heartbeat.stdout.log
-StandardError=append:/path/to/repo/.neo-ai-data/wake-daemon/heartbeat.stderr.log
-
-[Install]
-WantedBy=default.target
-```
-
-Loaded via `systemctl --user daemon-reload && systemctl --user enable --now swarm-heartbeat.service`. Verified via `systemctl --user status swarm-heartbeat.service`.
-
-## 6. Troubleshooting (common gotchas observed in launchd-daemon authoring)
+## 5. Troubleshooting (common gotchas for the Orchestrator LaunchAgent)
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Daemon "loaded" but no log lines | `WorkingDirectory` placeholder unsubstituted OR substituted to wrong path | Re-run §3a sed with correct repo root; `launchctl bootout` + `bootstrap` to reload |
+| Orchestrator "loaded" but no log lines | `WorkingDirectory` placeholder unsubstituted OR substituted to wrong path | Re-substitute with the correct repo root; `launchctl bootout` + `bootstrap` to reload |
 | `node: command not found` in stderr log | `PATH` env var doesn't include node's location | Add node's actual install dir to the plist `EnvironmentVariables.PATH` (check via `which node` in your interactive shell) |
 | `gh: command not found` in stderr log | Same — Homebrew's `gh` not in default launchd PATH | Add `/opt/homebrew/bin` (Apple Silicon) or `/usr/local/bin` (Intel) to plist PATH |
-| `tmux: command not found` | Same PATH issue; tmux-injection is best-effort and silently no-ops if absent | Add tmux's install dir to plist PATH OR accept the no-op (heartbeat still runs) |
-| `ReferenceError: Neo is not defined` | Module-load ordering broke the Neo prelude | File a bug — `ai/scripts/swarm-heartbeat-daemon.mjs` (entry-point wrapper) MUST import `Neo` + `core/_export` + `InstanceManager` before importing the class file; regressions here have a documented anchor |
-| `KeepAlive` causing rapid relaunch loop | Script crashes on startup (config error, missing dependency) | Check `heartbeat.stderr.log` for the actual crash; FIX the crash before lengthening `ThrottleInterval` (do not paper over real bugs) |
-| Daemon runs but doesn't trigger recovery wakes | `wakeSafetyGate.json` is `tripped` (deny-by-default) | Operator-territory: `node ai/scripts/wakeSafetyGate.mjs enable --reason "validated post-#10671"` AFTER end-to-end validation per [Epic #10671](https://github.com/neomjs/neo/issues/10671) |
-| Two heartbeat pulse producers firing | Both `swarm-heartbeat.sh` AND launchd-loaded `SwarmHeartbeatService` running | Pick one. The shell wrapper is for developer-interactive use; launchd is for night-shift / persistent-process. Don't run both. |
+| `tmux: command not found` | Same PATH issue; tmux-injection is best-effort and silently no-ops if absent | Add tmux's install dir to plist PATH OR accept the no-op (the heartbeat lane still runs) |
+| `ReferenceError: Neo is not defined` | Module-load ordering broke the Neo prelude | File a bug — `ai/scripts/orchestrator-daemon.mjs` (entry-point wrapper) MUST import `Neo` + `core/_export` + `InstanceManager` before importing the daemon class |
+| `KeepAlive` causing rapid relaunch loop | Daemon crashes on startup (config error, missing dependency) | Check the stderr log for the actual crash; FIX the crash before lengthening `ThrottleInterval` (do not paper over real bugs) |
+| Heartbeat lane runs but doesn't trigger recovery wakes | `wakeSafetyGate.json` is `tripped` (deny-by-default) | Operator-territory: `node ai/scripts/wakeSafetyGate.mjs enable --reason "validated post-#10671"` AFTER end-to-end validation per [Epic #10671](https://github.com/neomjs/neo/issues/10671) |
+| Heartbeat lane never pulses | Lane disabled by config | Confirm `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED` is not `false` and the deployment profile is not the cloud profile (ADR 0014) |
 
-## 7. Relationship to operator-territory steps (#10671 epic-finish)
+## 6. Relationship to operator-territory steps (#10671 epic-finish)
 
-Persistent-process management (THIS doc) is one of three integration steps for night-shift readiness:
+Night-shift readiness has three integration steps:
 
-1. **Persistent-process management** (this doc) — install + verify launchd plist for `ai/scripts/swarm-heartbeat-daemon.mjs` (entry-point wrapper)
-2. **`wakeSafetyGate` untrip** — `node ai/scripts/wakeSafetyGate.mjs enable --reason "..."` after empirical validation that the cross-harness prompt-landing matrix (#10649) holds
-3. **End-to-end validation** — simulate mutual-idle scenario; verify recovery wake fires correctly to a healthy peer; confirm fresh-session-spawn lands cleanly without runaway-spawn pattern from 2026-05-03
+1. **Persistent-process management** (this doc) — run the Orchestrator daemon (`ai/scripts/orchestrator-daemon.mjs`) under launchd / systemd; the heartbeat lane rides inside it.
+2. **`wakeSafetyGate` untrip** — `node ai/scripts/wakeSafetyGate.mjs enable --reason "..."` after empirical validation that the cross-harness prompt-landing matrix (#10649) holds.
+3. **End-to-end validation** — simulate the mutual-idle scenario; verify a recovery wake fires correctly to a healthy peer; confirm fresh-session-spawn lands cleanly without the runaway-spawn pattern from 2026-05-03.
 
 All three must complete for the swarm to operate continuously during operator-offline (night-shift) hours.
 
-## 8. Pre-run discipline reminder
+## 7. Pre-run discipline reminder
 
-Per [#10780](https://github.com/neomjs/neo/issues/10780): before re-enabling DreamMode/Sandman (separate substrate from the heartbeat daemon — `autoDream` / `autoGoldenPath` config flags currently disabled in operator-local `config.mjs`), **always run `npm run ai:backup` first.** The backup primitive captures atomic-bundle state across KB + MC + graph + concepts + trajectories. DreamMode regressions can produce graph state that's expensive to recover from without a backup. The heartbeat daemon itself does NOT trigger DreamMode; it triggers recovery wakes for sunsetted agents — but the discipline applies to the broader Dream Pipeline substrate they're part of.
+Per [#10780](https://github.com/neomjs/neo/issues/10780): before re-enabling DreamMode/Sandman (separate substrate from the heartbeat lane — `autoDream` / `autoGoldenPath` config flags currently disabled in operator-local `config.mjs`), **always run `npm run ai:backup` first.** The backup primitive captures atomic-bundle state across KB + MC + graph + concepts + trajectories. DreamMode regressions can produce graph state that's expensive to recover from without a backup. The heartbeat lane itself does NOT trigger DreamMode; it triggers recovery wakes for sunsetted agents — but the discipline applies to the broader Dream Pipeline substrate they're part of.
 
-## 9. Related substrate
+## 8. Related substrate
 
-- **Daemon entry-point wrapper:** `ai/scripts/swarm-heartbeat-daemon.mjs` (#11058 split — Neo bootstrap + signal handlers + start invocation; the launchd / systemd target)
-- **Daemon class source:** `ai/daemons/SwarmHeartbeatService.mjs` (Neo-singleton; #10789; class-only since #11058)
-- **Sibling bash wrapper:** `ai/scripts/swarm-heartbeat.sh` (developer-interactive, NOT the persistent-process target; preserved per #10789 AC10)
-- **Daemon dependencies:** `checkSunsetted.mjs`, `resumeHarness.mjs`, `wakeSafetyGate.mjs`, `sweepExpiredTasks.mjs`, `heartbeatLock.mjs`, `idleOutNudge.mjs`, `checkAllAgentIdle.mjs`, `trioWakeCooldown.mjs`
+- **Orchestrator entry-point wrapper:** `ai/scripts/orchestrator-daemon.mjs` (Neo bootstrap + signal handlers + start invocation; the launchd / systemd target)
+- **Orchestrator daemon class:** `ai/daemons/Orchestrator.mjs` (Neo-singleton; #11009; owns the `poll()` scheduler)
+- **Heartbeat lane class:** `ai/daemons/SwarmHeartbeatService.mjs` (Neo-singleton; #10789; folded into the Orchestrator as a scheduled lane per #11766)
+- **Heartbeat lane dependencies:** `checkSunsetted.mjs`, `resumeHarness.mjs`, `wakeSafetyGate.mjs`, `sweepExpiredTasks.mjs`, `heartbeatLock.mjs`, `idleOutNudge.mjs`, `checkAllAgentIdle.mjs`, `trioWakeCooldown.mjs`
+- **Heartbeat fold ADR:** [ADR 0014](../decisions/0014-cloud-deployment-topology-and-scheduler-task-taxonomy.md) — classifies the `swarm-heartbeat` lane as `local-only`
 - **Parent epic:** [#10671](https://github.com/neomjs/neo/issues/10671) — Substrate-restart recovery (two-mode: idle-out + sunset)
-- **Implementation ticket:** [#10789](https://github.com/neomjs/neo/issues/10789) — SwarmHeartbeatService Neo-singleton replacement
-- **Closed-not-planned predecessors:** [#10781](https://github.com/neomjs/neo/issues/10781), [#10787](https://github.com/neomjs/neo/issues/10787), PR [#10782](https://github.com/neomjs/neo/pull/10782) — bash-shape attempt; closed for architectural pattern violation
+- **Implementation tickets:** [#10789](https://github.com/neomjs/neo/issues/10789) — SwarmHeartbeatService Neo-singleton; [#11766](https://github.com/neomjs/neo/issues/11766) — fold into the Orchestrator
 - **Sub-tickets resolved by this substrate:** [#10396](https://github.com/neomjs/neo/issues/10396), [#10399](https://github.com/neomjs/neo/issues/10399), [#10633](https://github.com/neomjs/neo/issues/10633)
 - **Sibling discipline:** [#10780](https://github.com/neomjs/neo/issues/10780) — Backup-first before DreamMode/Sandman; [`learn/agentos/DreamPipeline.md`](../DreamPipeline.md) for DreamMode-specific operational discipline
 - **Night-shift ownership contract:** [`NightShiftLeasedDriver.md`](./NightShiftLeasedDriver.md) — lane-scoped driver lease, TTL, renewal, and no-idle obligations for autonomous windows (#10763)
-- **Adjacent observability gap:** healthcheck `features.wake` block (gate-state + daemon-running-state + last-pulse timestamp) — currently neither healthcheck-surfaced nor ticketed; sibling-fileable extension of [#10779](https://github.com/neomjs/neo/issues/10779) (`features.dream` healthcheck)

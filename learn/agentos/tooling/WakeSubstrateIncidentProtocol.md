@@ -52,14 +52,16 @@ Before any bridge daemon, Memory Core MCP, or harness app restart during an acti
 cat .neo-ai-data/wake-daemon/bridge-daemon.pid 2>/dev/null
 ps aux | grep -E "bridge-daemon" | grep -v grep
 
-# Heartbeat processes (one per identity in normal operation)
-ps aux | grep -E "swarm-heartbeat" | grep -v grep
+# Orchestrator daemon — drives the swarm-heartbeat lane since #11766
+# (there is no standalone swarm-heartbeat process anymore)
+cat .neo-ai-data/orchestrator-daemon/orchestrator-daemon.pid 2>/dev/null
+ps aux | grep -E "orchestrator-daemon" | grep -v grep
 
 # Active resumeHarness invocations (should be zero in steady-state)
 ps aux | grep -E "resumeHarness" | grep -v grep
 ```
 
-Record every PID found, its start time, and the working directory. Multiple `swarm-heartbeat` instances per identity are a hazard: duplicated trios amplify orphan-spawn under any cross-layer regression by multiplying scheduler cycles.
+Record every PID found, its start time, and the working directory. Multiple `orchestrator-daemon` instances are a hazard: duplicated heartbeat lanes amplify orphan-spawn under any cross-layer regression by multiplying scheduler cycles. The Orchestrator entry-point enforces a PID-file singleton, so a second instance usually indicates a stale PID file or a failed SIGTERM handoff.
 
 ### Wake safety gate state
 

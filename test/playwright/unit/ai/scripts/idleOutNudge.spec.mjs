@@ -76,7 +76,7 @@ test.describe('ai/scripts/idleOutNudge', () => {
     test('Wake safety gate tripped → no nudge dispatched, no lock acquired (#10648 defense)', async () => {
         // Default-tripped state (no gate file → deny-by-default per wakeSafetyGate.mjs).
         // idleOutNudge MUST skip BEFORE acquiring the lock — defense-in-depth alongside
-        // the swarm-heartbeat.sh shell-side gate check.
+        // the `SwarmHeartbeatService` heartbeat-lane gate check.
         const result = spawnSync('node', [scriptPath, testIdentity], {
             encoding: 'utf-8',
             env     : gateOnlyEnv  // No WAKE_GATE_OVERRIDE — exercises default-tripped path
@@ -159,23 +159,9 @@ test.describe('ai/scripts/idleOutNudge', () => {
         expect(clearLockOnErrorIndex).toBeGreaterThan(catchIndex);
     });
 
-    test('swarm-heartbeat.sh integration: routes recommended_action=idle_out_nudge to idleOutNudge.mjs (#10675)', async () => {
-        // Verify the consumer integration: swarm-heartbeat.sh MUST detect the
-        // `recommended_action: 'idle_out_nudge'` signal from checkSunsetted's #10689
-        // detector contract and invoke idleOutNudge.mjs. Order: AFTER the sunsetted-fire
-        // path, BEFORE the all-agent-idle path. Defense-in-depth: gate check at shell
-        // level too.
-        const scriptContent = fs.readFileSync(path.resolve(process.cwd(), 'ai/scripts/swarm-heartbeat.sh'), 'utf-8');
-
-        const sunsettedIndex     = scriptContent.indexOf('Phase 1 Recovery Triggered');
-        const idleOutBranchIndex = scriptContent.indexOf('Idle-out nudge triggered');
-        const allAgentIdleIndex  = scriptContent.indexOf('AllAgentIdle detected');
-
-        expect(sunsettedIndex).toBeGreaterThan(-1);
-        expect(idleOutBranchIndex).toBeGreaterThan(sunsettedIndex);   // After sunset path
-        expect(allAgentIdleIndex).toBeGreaterThan(idleOutBranchIndex); // Before all-idle path
-        // Verifies the jq parse + node invocation
-        expect(scriptContent).toContain("'.recommended_action // \"no_action\"'");
-        expect(scriptContent).toContain('idleOutNudge.mjs');
-    });
+    // Note (#11766): the former `swarm-heartbeat.sh integration` test was removed with
+    // the bash script. The `recommended_action: 'idle_out_nudge'` routing — ordered
+    // after the sunset path and before the all-agent-idle path, gated by the wake
+    // safety gate — is now covered against the JS lane in
+    // `test/playwright/unit/ai/daemons/SwarmHeartbeatService.spec.mjs`.
 });

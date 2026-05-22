@@ -13,7 +13,7 @@
  * chat that just executed sunset — empirically inverted from operator intent.
  *
  * @see ai/scripts/checkSunsetted.mjs (caller; supplies originSessionId)
- * @see ai/scripts/swarm-heartbeat.sh (orchestrator; routes Phase 1 Recovery)
+ * @see ai/daemons/SwarmHeartbeatService.mjs (Orchestrator swarm-heartbeat lane; routes Phase 1 Recovery, #11766)
  * @see AGENTS.md §14 PRE-DECISION SUNSET GATE (recovery-substrate cross-reference)
  * @see .agents/skills/session-sunset/references/session-sunset-workflow.md §1
  */

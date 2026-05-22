@@ -21,7 +21,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * Heartbeat-liveness file path resolution. Mirrors `wakeSafetyGate.gateFilePath()` env-override
  * pattern so parallel test specs can isolate from the canonical on-disk path. Production
  * deployments leave `NEO_HEARTBEAT_ALIVE_PATH` unset; the canonical path under `.neo-ai-data/wake-daemon/`
- * applies. Counterpart producer: `ai/scripts/swarm-heartbeat.sh` `touch` line in pulse loop (#10783).
+ * applies. Counterpart producer: `SwarmHeartbeatService.touchLivenessFile()`, called once per
+ * `pulse()` by the Orchestrator's swarm-heartbeat lane (#10783, folded into the Orchestrator per #11766).
  */
 function heartbeatAlivePath() {
     return process.env.NEO_HEARTBEAT_ALIVE_PATH || path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon/heartbeat.alive');
@@ -31,7 +32,7 @@ function heartbeatAlivePath() {
  * @summary Resolves the stale-threshold for the `daemonRunning` heuristic at call-time (#10931).
  *
  * Coupling contract: stale threshold = 2× POLL_INTERVAL where POLL_INTERVAL is the substrate
- * convention from `ai/scripts/swarm-heartbeat.sh` (default 300s = 5 min, env-overridable).
+ * convention read in `SwarmHeartbeatService.initAsync()` (default 300s = 5 min, env-overridable).
  * The "× 2" buffer absorbs single missed pulses without false-negative liveness signal.
  *
  * Function-call-time read (rather than module-load) preserves test-isolation behavior: specs
@@ -45,7 +46,7 @@ function heartbeatAlivePath() {
  * PR #10930 by @neo-gemini-3-1-pro).
  *
  * @returns {Number} Stale-threshold in milliseconds (2× POLL_INTERVAL × 1000).
- * @see ai/scripts/swarm-heartbeat.sh#POLL_INTERVAL
+ * @see ai/daemons/SwarmHeartbeatService.mjs#initAsync — where the POLL_INTERVAL convention lives
  */
 function heartbeatLivenessStaleMs() {
     const pollIntervalSec = parseInt(process.env.POLL_INTERVAL, 10) || 300;
@@ -332,8 +333,9 @@ export function buildAuthProviderBlock(cfg) {
  * @summary Projects wake-substrate observable state into the healthcheck `features.wake` block (#10783).
  *
  * Async pure projection: reads the wake-safety-gate state (via `wakeSafetyGate.readGateState`)
- * and the heartbeat-liveness file mtime (touched once per pulse by `swarm-heartbeat.sh`),
- * returning the operator/agent-facing observability shape. Mirrors the
+ * and the heartbeat-liveness file mtime (touched once per pulse by
+ * `SwarmHeartbeatService.touchLivenessFile()`), returning the operator/agent-facing
+ * observability shape. Mirrors the
  * {@link buildAuthProviderBlock} + {@link buildSummaryProviderBlock} sibling-block precedent
  * for module-scope projection functions.
  *
@@ -359,8 +361,10 @@ export function buildAuthProviderBlock(cfg) {
  * **Liveness signal substrate (#10783 design note):** the heartbeat concurrency lock at
  * `.neo-ai-data/heartbeat-concurrency.lock` is touched only when expensive Agent OS work runs
  * (per `heartbeatLock.mjs`), NOT on every pulse. So the lock cannot serve as the daemon-liveness
- * signal directly. This block consumes a dedicated `heartbeat.alive` file that `swarm-heartbeat.sh`
- * touches at the top of each pulse loop iteration — present-and-fresh means the daemon is polling.
+ * signal directly. This block consumes a dedicated `heartbeat.alive` file that
+ * `SwarmHeartbeatService.touchLivenessFile()` touches at the top of each `pulse()` (#11766 fold:
+ * the producer is now the Orchestrator's swarm-heartbeat lane) — present-and-fresh means the
+ * Orchestrator daemon is polling.
  *
  * **Defensive defaults:** missing files / unreadable state surfaces sensible defaults
  * (`gateState: 'unknown'`, `daemonRunning: false`, `lastPulseAt: null`) WITHOUT throwing.
@@ -371,7 +375,7 @@ export function buildAuthProviderBlock(cfg) {
  *     gateTrippedBy: String|null, daemonRunning: Boolean, lastPulseAt: String|null,
  *     secondsSinceLastPulse: Number|null}>}
  * @see ai/scripts/wakeSafetyGate.mjs
- * @see ai/scripts/swarm-heartbeat.sh
+ * @see ai/daemons/SwarmHeartbeatService.mjs — the swarm-heartbeat lane that touches the liveness file
  * @see learn/agentos/wake-substrate/PersistentProcessManagement.md
  */
 export async function buildWakeFeaturesBlock(now = Date.now()) {
@@ -494,7 +498,7 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
         }
 
         const entries = await fs.readdir(backupPath, { withFileTypes: true });
-        
+
         const backupDirs = entries
             .filter(e => e.isDirectory() && e.name.startsWith('backup-'))
             .map(e => e.name);
@@ -504,7 +508,7 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
         }
 
         backupDirs.sort((a, b) => b.localeCompare(a));
-        
+
         let timestamp = null;
 
         for (const dir of backupDirs) {

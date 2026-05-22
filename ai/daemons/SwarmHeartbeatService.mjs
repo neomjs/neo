@@ -1,9 +1,9 @@
 // Class-only file (#11058 split). Entry-point bootstrap (Neo + core/_export +
-// InstanceManager) lives in `ai/scripts/swarm-heartbeat-daemon.mjs` per the
-// Orchestrator class+wrapper pattern + entry-point-only invariant from #11049.
-// `Neo.setupClass(SwarmHeartbeatService)` at file bottom works via `globalThis.Neo`
-// populated by the entry-point bootstrap chain.
+// InstanceManager) lives in the Orchestrator entry point (`ai/scripts/orchestrator-daemon.mjs`),
+// which loads this class as the swarm-heartbeat lane (#11766 fold). `Neo.setupClass(SwarmHeartbeatService)`
+// at file bottom works via `globalThis.Neo` populated by the entry-point bootstrap chain.
 import {spawn}         from 'child_process';
+import fs              from 'fs/promises';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import Base            from '../../src/core/Base.mjs';
@@ -35,14 +35,14 @@ const DEFAULT_POLL_INTERVAL_MS = 5 * 60 * 1000;
 const DEFAULT_IDENTITY         = '@neo-gemini-3-1-pro';
 
 /**
- * @summary Neo-singleton heartbeat daemon for the Phase 1/3 wake substrate.
+ * @summary Neo-singleton swarm-heartbeat lane for the Phase 1/3 wake substrate.
  *
- * Replaces the bash-shape `ai/scripts/swarm-heartbeat.sh#heartbeat_pulse` loop with the
- * canonical Neo-class shape that already houses `DreamService` and the 10+ services under
- * `ai/daemons/services/`. The bash script remains in place for the developer-interactive
- * agent-wrapper case (`AGENT_CMD="claude"` wrapper loop, ctrl-C-bound to operator session);
- * this singleton handles the **persistent-process** case where launchd / systemd keeps the
- * daemon alive across operator sleep + system reboot so autonomous recovery can fire.
+ * Folded into the Orchestrator daemon as a config-gated scheduled lane (#11766): the
+ * Orchestrator owns the persistent process and the scheduler, calling `initAsync()` once
+ * at start and `pulse()` once per cadence tick. This class is no longer a standalone
+ * daemon — it has no self-scheduling loop and no entry-point wrapper of its own. The
+ * Orchestrator's `runIfDue` lane provides the cadence gate and per-pulse failure
+ * isolation that the old self-rescheduling loop used to provide.
  *
  * **Where direct module imports replace subprocess invocations** (#10789 AC3, "where feasible"):
  *
@@ -58,28 +58,17 @@ const DEFAULT_IDENTITY         = '@neo-gemini-3-1-pro';
  * **Where dual-mode script imports replace subprocess invocations** (#10795):
  * `checkSunsetted.mjs`, `resumeHarness.mjs`, `checkAllAgentIdle.mjs`, `idleOutNudge.mjs`,
  * and `trioWakeCooldown.mjs` now expose module entrypoints while preserving their CLI
- * wrappers for `swarm-heartbeat.sh` and manual use. The daemon calls those exports directly
- * to avoid 2-5s Node startup hops per poll cycle.
- *
- * **Persistent-process management:** invocation under launchd / systemd targets the
- * entry-point wrapper at `ai/scripts/swarm-heartbeat-daemon.mjs`, NOT this class file
- * (#11058 split — class-only file no longer self-invokes). The wrapper handles Neo
- * namespace bootstrap, SIGTERM / SIGINT clean-stop, and `start()` invocation.
- *
- * **Coexistence with `swarm-heartbeat.sh`:** the singleton and the shell wrapper share the
- * concurrency lock at `.neo-ai-data/heartbeat-concurrency.lock` (#10319), but operators must
- * not run BOTH at the same time — the lock prevents *agent-work-overlapping-with-pulse*, not
- * *two pulse producers*. Operator-territory: pick one or the other.
+ * wrappers for manual use. The lane calls those exports directly to avoid 2-5s Node
+ * startup hops per pulse.
  *
  * @class Neo.ai.daemons.SwarmHeartbeatService
  * @extends Neo.core.Base
  * @singleton
- * @see ai/scripts/swarm-heartbeat.sh           — sibling bash daemon (developer-interactive shape, preserved per AC10)
- * @see ai/scripts/checkSunsetted.mjs           — sunset detector (subprocess)
- * @see ai/scripts/resumeHarness.mjs            — fresh-session-spawn dispatcher (subprocess)
- * @see ai/scripts/wakeSafetyGate.mjs           — fail-closed safety gate (direct import)
- * @see ai/scripts/heartbeatLock.mjs            — concurrency-lock primitive (direct import)
- * @see learn/agentos/wake-substrate/PersistentProcessManagement.md
+ * @see ai/daemons/Orchestrator.mjs              — the daemon this lane is folded into (#11766)
+ * @see ai/scripts/checkSunsetted.mjs            — sunset detector (subprocess)
+ * @see ai/scripts/resumeHarness.mjs             — fresh-session-spawn dispatcher (subprocess)
+ * @see ai/scripts/wakeSafetyGate.mjs            — fail-closed safety gate (direct import)
+ * @see ai/scripts/heartbeatLock.mjs             — concurrency-lock primitive (direct import)
  */
 class SwarmHeartbeatService extends Base {
     static config = {
@@ -94,21 +83,15 @@ class SwarmHeartbeatService extends Base {
          */
         singleton: true,
         /**
-         * Whether the poll loop is running.
-         * @member {Boolean} isPolling_=false
+         * Whether one-time async init has completed. Guards `initAsync()` against
+         * re-running the LifecycleService / GraphService boot on a second call.
+         * @member {Boolean} isInitialized_=false
          * @protected
          * @reactive
          */
-        isPolling_: false,
+        isInitialized_: false,
         /**
-         * Active setTimeout handle for the next pulse; null when not scheduled.
-         * @member {Object|null} pollHandle_=null
-         * @protected
-         * @reactive
-         */
-        pollHandle_: null,
-        /**
-         * Identity this daemon polls for (e.g. `@neo-gemini-3-1-pro`).
+         * Identity this lane polls for (e.g. `@neo-gemini-3-1-pro`).
          * @member {String|null} identity_=null
          * @protected
          * @reactive
@@ -124,18 +107,19 @@ class SwarmHeartbeatService extends Base {
     }
 
     /**
-     * Start the heartbeat poll loop. Idempotent — calling start() while already
-     * polling is a no-op. Boots the LifecycleService + GraphService once before
-     * scheduling the first pulse so SQLite queries on subsequent cycles can run
-     * without per-cycle init overhead.
+     * One-time async init for the swarm-heartbeat lane. Idempotent — a second call
+     * while already initialized is a no-op. Boots the LifecycleService + GraphService
+     * once so SQLite queries on subsequent `pulse()` cadence ticks run without
+     * per-pulse init overhead. The Orchestrator owns the scheduler; this method does
+     * NOT start a loop.
      * @param {Object} [options]
      * @param {String} [options.identity] Agent identity (defaults to NEO_AGENT_IDENTITY env or @neo-gemini-3-1-pro)
-     * @param {Number} [options.pollIntervalMs] Poll interval in ms (defaults to POLL_INTERVAL env*1000 or 5min)
+     * @param {Number} [options.pollIntervalMs] Pulse cadence in ms, used only for the prompt's elapsed-time label (defaults to POLL_INTERVAL env*1000 or 5min)
      * @returns {Promise<void>}
      */
-    async start({identity, pollIntervalMs} = {}) {
-        if (this.isPolling) {
-            logger.debug('[SwarmHeartbeatService] Already polling; start() is a no-op.');
+    async initAsync({identity, pollIntervalMs} = {}) {
+        if (this.isInitialized) {
+            logger.debug('[SwarmHeartbeatService] Already initialized; initAsync() is a no-op.');
             return;
         }
 
@@ -150,42 +134,17 @@ class SwarmHeartbeatService extends Base {
         await LifecycleService.initAsync();
         await GraphService.initAsync();
 
-        this.isPolling = true;
-        logger.info(`[SwarmHeartbeatService] Starting heartbeat for ${this.identity} (interval: ${this.pollIntervalMs}ms)`);
-
-        this.scheduleNext()
+        this.isInitialized = true;
+        logger.info(`[SwarmHeartbeatService] Initialized swarm-heartbeat lane for ${this.identity} (interval: ${this.pollIntervalMs}ms)`)
     }
 
     /**
-     * Stop the heartbeat poll loop. Idempotent. Cancels any pending setTimeout
-     * so a clean SIGTERM under launchd doesn't leave timers wedging the event loop.
-     * @returns {void}
-     */
-    stop() {
-        if (this.pollHandle) {
-            clearTimeout(this.pollHandle);
-            this.pollHandle = null
-        }
-        this.isPolling = false;
-        logger.info('[SwarmHeartbeatService] Heartbeat stopped.')
-    }
-
-    /**
-     * Schedule the next pulse. Called after each pulse completes (success or failure)
-     * so a single thrown error doesn't break the loop.
-     * @protected
-     */
-    scheduleNext() {
-        if (!this.isPolling) return;
-        this.pollHandle = setTimeout(() => this.pulse().catch(err => {
-            logger.error('[SwarmHeartbeatService] Pulse threw uncaught error:', err);
-            this.scheduleNext()
-        }), this.pollIntervalMs)
-    }
-
-    /**
-     * Execute one heartbeat pulse. Mirrors `swarm-heartbeat.sh#heartbeat_pulse` step-for-step:
+     * Execute one heartbeat pulse. Preserves the step sequence of the retired
+     * `swarm-heartbeat.sh#heartbeat_pulse` shell loop (folded into this lane per #11766):
      *
+     *   0. Liveness touch (`touchLivenessFile()`) — runs BEFORE the lock check so a
+     *      lock-skipped pulse still signals `daemonRunning` to `HealthService`, matching
+     *      the shell loop's touch-before-lock ordering.
      *   1. Concurrency-lock skip (active lock = expensive work in flight, skip pulse;
      *      stale lock = clear and continue per #10319).
      *   2. TTL sweep (`MailboxService.sweepExpiredTasks` — direct call, no subprocess).
@@ -201,98 +160,130 @@ class SwarmHeartbeatService extends Base {
      *   6. Token-economy gate: skip pulse if mailbox unread + open issues both zero.
      *   7. Tmux-inject pulse prompt to `$TMUX_SESSION` (preserved from shell shape).
      *
-     * Wraps the entire body in try/finally so `scheduleNext()` always fires — a
-     * single-cycle failure must not stop the daemon.
+     * No try/finally: the Orchestrator lane executor wraps this call in its own
+     * try/catch, so a single-pulse failure is isolated by the scheduler — it does not
+     * need to self-reschedule.
      * @returns {Promise<void>}
      */
     async pulse() {
+        // Step 0: liveness signal — touch before the lock check so a lock-skipped pulse
+        // still updates the `heartbeat.alive` mtime `HealthService.daemonRunning` reads.
+        await this.touchLivenessFile();
+
+        const lockState = await this.checkHeartbeatLock();
+        if (lockState.active) {
+            return
+        }
+        if (lockState.stale) {
+            logger.warn(`[SwarmHeartbeatService] Clearing stale concurrency lock (${lockState.ageMs}ms old)`);
+            await this.clearHeartbeatLock()
+        }
+
+        // Step 2: TTL sweep — direct MailboxService call (was subprocess in bash shape).
+        // Substrate maintenance: fires every cycle regardless of token-economy gate.
+        let expired = 0;
         try {
-            const lockState = await this.checkHeartbeatLock();
-            if (lockState.active) {
-                return
-            }
-            if (lockState.stale) {
-                logger.warn(`[SwarmHeartbeatService] Clearing stale concurrency lock (${lockState.ageMs}ms old)`);
-                await this.clearHeartbeatLock()
-            }
-
-            // Step 2: TTL sweep — direct MailboxService call (was subprocess in bash shape).
-            // Substrate maintenance: fires every cycle regardless of token-economy gate.
-            let expired = 0;
-            try {
-                const result = await this.sweepExpiredTasks();
-                expired = result?.sweptCount || 0;
-                if (expired > 0) {
-                    logger.info(`[SwarmHeartbeatService] sweep: ${expired} task(s) transitioned to Expired`)
-                }
-            } catch (err) {
-                logger.error('[SwarmHeartbeatService] sweepExpiredTasks failed:', err)
-            }
-
-            // Step 3: Sunset detection (direct module export; CLI wrapper preserved for shell consumers).
-            const sunsetJson = await this.checkSunsetted(this.identity);
-            if (sunsetJson?.sunsetted) {
-                if (!await this.checkGateOpen()) {
-                    const gateState = await this.readGate();
-                    logger.warn(`[SwarmHeartbeatService] Wake safety gate closed; skipping fresh-session-spawn for ${this.identity}. Sunset reason: ${sunsetJson.reason}. Gate reason: ${gateState.reason}`);
-                    return
-                }
-                logger.info(`[SwarmHeartbeatService] Phase 1 Recovery Triggered for ${this.identity}. Reason: ${sunsetJson.reason}`);
-                await this.resumeHarness(
-                    this.identity,
-                    sunsetJson.reason || '',
-                    sunsetJson.originSessionId || '',
-                    sunsetJson.abandonedCount || 0
-                );
-                return
-            }
-
-            const recommendedAction = sunsetJson?.recommended_action || 'no_action';
-            if (recommendedAction === 'idle_out_nudge') {
-                if (!await this.checkGateOpen()) {
-                    const gateState = await this.readGate();
-                    logger.warn(`[SwarmHeartbeatService] Wake safety gate closed; skipping idle-out nudge for ${this.identity}. Gate reason: ${gateState.reason}`);
-                    return
-                }
-                logger.info(`[SwarmHeartbeatService] Idle-out nudge triggered for ${this.identity}`);
-                await this.idleOutNudge(this.identity);
-                return
-            }
-
-            // Step 4: All-agent-idle detection. `checkAllAgentIdle.mjs` owns the
-            // logical cycle id so the cooldown key remains stable across pulses.
-            const allIdleJson = await this.checkAllAgentIdle();
-            if (allIdleJson?.allIdle) {
-                logger.info(`[SwarmHeartbeatService] AllAgentIdle detected: ${JSON.stringify(allIdleJson)}`);
-                if (!await this.checkGateOpen()) {
-                    const gateState = await this.readGate();
-                    logger.warn(`[SwarmHeartbeatService] Wake safety gate closed; skipping trio wake dispatch. Gate reason: ${gateState.reason}`)
-                } else {
-                    await this.trioWakeCooldown(allIdleJson)
-                }
-            }
-
-            // Step 5: Heartbeat-bypass detection.
-            if (await this.isPushCapable(this.identity)) {
-                return
-            }
-
-            // Step 6: Token-economy gate. Skip pulse-injection if no actionable state.
-            const unread = await this.getUnreadCount();
-            const issues = await this.getIssuesCount();
-            if (unread === 0 && issues === 0) {
-                return
-            }
-
-            // Step 7: Tmux-inject the pulse prompt.
-            const minutes = Math.round(this.pollIntervalMs / 60000);
-            let prompt = `[SYSTEM HEARTBEAT] Last wake: T-${minutes}min. Mailbox unread: ${unread}. Open issues assigned: ${issues}.`;
+            const result = await this.sweepExpiredTasks();
+            expired = result?.sweptCount || 0;
             if (expired > 0) {
-                prompt += ` Tasks expired this cycle: ${expired}.`
+                logger.info(`[SwarmHeartbeatService] sweep: ${expired} task(s) transitioned to Expired`)
             }
-            await this.injectTmux(prompt)
-        } finally {
-            this.scheduleNext()
+        } catch (err) {
+            logger.error('[SwarmHeartbeatService] sweepExpiredTasks failed:', err)
+        }
+
+        // Step 3: Sunset detection (direct module export; CLI wrapper preserved for shell consumers).
+        const sunsetJson = await this.checkSunsetted(this.identity);
+        if (sunsetJson?.sunsetted) {
+            if (!await this.checkGateOpen()) {
+                const gateState = await this.readGate();
+                logger.warn(`[SwarmHeartbeatService] Wake safety gate closed; skipping fresh-session-spawn for ${this.identity}. Sunset reason: ${sunsetJson.reason}. Gate reason: ${gateState.reason}`);
+                return
+            }
+            logger.info(`[SwarmHeartbeatService] Phase 1 Recovery Triggered for ${this.identity}. Reason: ${sunsetJson.reason}`);
+            await this.resumeHarness(
+                this.identity,
+                sunsetJson.reason || '',
+                sunsetJson.originSessionId || '',
+                sunsetJson.abandonedCount || 0
+            );
+            return
+        }
+
+        const recommendedAction = sunsetJson?.recommended_action || 'no_action';
+        if (recommendedAction === 'idle_out_nudge') {
+            if (!await this.checkGateOpen()) {
+                const gateState = await this.readGate();
+                logger.warn(`[SwarmHeartbeatService] Wake safety gate closed; skipping idle-out nudge for ${this.identity}. Gate reason: ${gateState.reason}`);
+                return
+            }
+            logger.info(`[SwarmHeartbeatService] Idle-out nudge triggered for ${this.identity}`);
+            await this.idleOutNudge(this.identity);
+            return
+        }
+
+        // Step 4: All-agent-idle detection. `checkAllAgentIdle.mjs` owns the
+        // logical cycle id so the cooldown key remains stable across pulses.
+        const allIdleJson = await this.checkAllAgentIdle();
+        if (allIdleJson?.allIdle) {
+            logger.info(`[SwarmHeartbeatService] AllAgentIdle detected: ${JSON.stringify(allIdleJson)}`);
+            if (!await this.checkGateOpen()) {
+                const gateState = await this.readGate();
+                logger.warn(`[SwarmHeartbeatService] Wake safety gate closed; skipping trio wake dispatch. Gate reason: ${gateState.reason}`)
+            } else {
+                await this.trioWakeCooldown(allIdleJson)
+            }
+        }
+
+        // Step 5: Heartbeat-bypass detection.
+        if (await this.isPushCapable(this.identity)) {
+            return
+        }
+
+        // Step 6: Token-economy gate. Skip pulse-injection if no actionable state.
+        const unread = await this.getUnreadCount();
+        const issues = await this.getIssuesCount();
+        if (unread === 0 && issues === 0) {
+            return
+        }
+
+        // Step 7: Tmux-inject the pulse prompt.
+        const minutes = Math.round(this.pollIntervalMs / 60000);
+        let prompt = `[SYSTEM HEARTBEAT] Last wake: T-${minutes}min. Mailbox unread: ${unread}. Open issues assigned: ${issues}.`;
+        if (expired > 0) {
+            prompt += ` Tasks expired this cycle: ${expired}.`
+        }
+        await this.injectTmux(prompt)
+    }
+
+    /**
+     * @summary Touch the heartbeat-liveness file `HealthService` reads for `daemonRunning`.
+     *
+     * Restores the producer side of the `.neo-ai-data/wake-daemon/heartbeat.alive` mtime
+     * contract that `swarm-heartbeat.sh` owned before the #11766 fold (#10783). Path
+     * resolution mirrors `HealthService.heartbeatAlivePath()` — the `NEO_HEARTBEAT_ALIVE_PATH`
+     * override, else the canonical path. A touch failure is swallowed: a missing liveness
+     * signal must never abort a pulse.
+     * @protected
+     * @returns {Promise<void>}
+     */
+    async touchLivenessFile() {
+        const alivePath = process.env.NEO_HEARTBEAT_ALIVE_PATH
+            || path.resolve(__dirname, '../../.neo-ai-data/wake-daemon/heartbeat.alive');
+        const now = new Date();
+        try {
+            await fs.utimes(alivePath, now, now)
+        } catch (err) {
+            if (err.code === 'ENOENT') {
+                try {
+                    await fs.mkdir(path.dirname(alivePath), {recursive: true});
+                    await fs.writeFile(alivePath, '')
+                } catch (writeErr) {
+                    logger.error('[SwarmHeartbeatService] heartbeat-liveness touch failed:', writeErr.message)
+                }
+            } else {
+                logger.error('[SwarmHeartbeatService] heartbeat-liveness touch failed:', err.message)
+            }
         }
     }
 

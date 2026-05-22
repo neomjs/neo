@@ -211,6 +211,13 @@ export function resolveOrchestratorStartOptions({
     );
     assignConfigInterval(options, 'dreamIntervalMs', intervals.dreamMs, [], env);
     assignConfigInterval(options, 'goldenPathIntervalMs', intervals.goldenPathMs, [], env);
+    assignConfigInterval(
+        options,
+        'swarmHeartbeatIntervalMs',
+        intervals.swarmHeartbeatMs,
+        ['NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS'],
+        env
+    );
 
     const deploymentMode = orchestratorConfig.deploymentMode || 'local';
     const localOnly      = orchestratorConfig.localOnly || {};
@@ -244,6 +251,14 @@ export function resolveOrchestratorStartOptions({
         'goldenPathRepoEnrichmentEnabled',
         localOnly.goldenPathRepoEnrichmentEnabled,
         'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED',
+        deploymentMode,
+        env
+    );
+    assignLocalOnlyToggle(
+        options,
+        'swarmHeartbeatEnabled',
+        localOnly.swarmHeartbeatEnabled,
+        'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED',
         deploymentMode,
         env
     );

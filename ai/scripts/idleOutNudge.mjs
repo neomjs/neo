@@ -2,7 +2,8 @@
 /**
  * @summary Per-identity idle-out A2A heartbeat nudge dispatcher (Epic #10671, sub #10675).
  *
- * Consumed by `swarm-heartbeat.sh` when `checkSunsetted.mjs` (per #10689 detector
+ * Consumed by the Orchestrator swarm-heartbeat lane (`ai/daemons/SwarmHeartbeatService.mjs`,
+ * #11766) when `checkSunsetted.mjs` (per #10689 detector
  * contract) emits `recommended_action: 'idle_out_nudge'` for a specific identity.
  * Sends an A2A heartbeat message via `MailboxService.addMessage` — `bridge-daemon`
  * delivers via the existing in-place keystroke path. **Zero new transport, no
@@ -48,7 +49,7 @@
  *
  * @see ai/scripts/checkSunsetted.mjs    — detector emitting `recommended_action: 'idle_out_nudge'` (#10689)
  * @see ai/scripts/inflightLock.mjs      — `idle_out_nudge` lock mode (#10683)
- * @see ai/scripts/swarm-heartbeat.sh    — caller; routes on `recommended_action`
+ * @see ai/daemons/SwarmHeartbeatService.mjs — caller; Orchestrator swarm-heartbeat lane routes on `recommended_action` (#11766)
  * @see ai/scripts/trioWakeCooldown.mjs  — sibling for swarm-wide all-idle case
  * @see ai/scripts/resumeHarness.mjs     — sibling for sunset-restart case
  * @see test/playwright/unit/ai/scripts/idleOutNudge.spec.mjs

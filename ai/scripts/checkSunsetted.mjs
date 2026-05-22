@@ -53,7 +53,7 @@
  * lacking structured `timestamp` / `sessionId` / `agentIdentity` fields.
  *
  * @see ai/scripts/inflightLock.mjs        — in-flight lock primitive (#10674)
- * @see ai/scripts/swarm-heartbeat.sh      — primary consumer of detector output
+ * @see ai/daemons/SwarmHeartbeatService.mjs — primary consumer of detector output (Orchestrator swarm-heartbeat lane, #11766)
  * @see ai/scripts/resumeHarness.mjs       — sunset-mode action dispatcher
  * @see ai/scripts/trioWakeCooldown.mjs    — idle-out-mode action dispatcher (when #10675 lands)
  * @see learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md — pre-fix forensic context
@@ -221,8 +221,8 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
         // else: nudge already in flight; emit no_action recommendation.
     }
 
-    // 4. Compute recommended_action — the single field swarm-heartbeat.sh /
-    //    trioWakeCooldown.mjs / resumeHarness.mjs consume to fork into the
+    // 4. Compute recommended_action — the single field the Orchestrator swarm-heartbeat
+    //    lane / trioWakeCooldown.mjs / resumeHarness.mjs consume to fork into the
     //    right recovery path.
     let recommendedAction;
     if (sunset)                  recommendedAction = 'sunset_restart';
@@ -232,7 +232,8 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
     // 5. Emit structured + backward-compat output. Backward-compat fields
     //    (#10673 AC5) preserve `sunsetted` / `reason` / `originSessionId` /
     //    `abandonedCount` for consumers not yet migrated to the new shape.
-    //    `swarm-heartbeat.sh` jq parsing reads these legacy fields today.
+    //    The Orchestrator swarm-heartbeat lane (`SwarmHeartbeatService`) reads
+    //    these legacy fields via the direct module export today (#11766).
     return {
         identity,
         sunset,

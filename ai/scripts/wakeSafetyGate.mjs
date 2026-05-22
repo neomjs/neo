@@ -3,7 +3,7 @@
  * @summary Wake Safety Gate / Circuit Breaker (Epic #10647, sub #10648).
  *
  * Fail-closed coordination primitive that scheduler/recovery paths
- * (`swarm-heartbeat.sh`, `resumeHarness.mjs`) MUST consult before taking any
+ * (the Orchestrator swarm-heartbeat lane, `resumeHarness.mjs`) MUST consult before taking any
  * high-authority action (fresh-session-spawn, trio wake dispatch, heartbeat-pulse
  * delivery to a harness UI). When wake delivery is unsafe or unverified, the
  * scheduler MUST no-op and report — not spawn, steer, or paste.
@@ -38,7 +38,7 @@
  * code bypasses the gate check. This is documented as operator-only;
  * the procedure for setting it lives in #10650.
  *
- * @see ai/scripts/swarm-heartbeat.sh    — gate consumer (high-authority dispatch)
+ * @see ai/daemons/SwarmHeartbeatService.mjs — gate consumer (Orchestrator swarm-heartbeat lane, high-authority dispatch, #11766)
  * @see ai/scripts/resumeHarness.mjs     — gate consumer (direct fresh-session-spawn)
  * @see ai/scripts/checkSunsetted.mjs    — companion predicate (#10641 / #10642)
  * @see test/playwright/unit/ai/scripts/wakeSafetyGate.spec.mjs
@@ -157,7 +157,8 @@ export async function isGateOpen() {
 //
 // Commands:
 //   check    — exit 0 if gate is open (enabled or override), 1 otherwise.
-//              Used by swarm-heartbeat.sh as a `if ! node ...` guard.
+//              Shell-guard form for manual use; the Orchestrator swarm-heartbeat lane
+//              consults the gate via the `isGateOpen` direct import instead (#11766).
 //   reason   — print the current gate-state reason to stdout (single line).
 //   show     — print the full gate state as JSON.
 //   trip     — write tripped state. Reason from --reason= flag or stdin.
