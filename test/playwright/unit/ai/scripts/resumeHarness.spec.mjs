@@ -359,7 +359,7 @@ test.describe('ai/scripts/resumeHarness', () => {
             buildWindowsBatchCommandLine,
             createSpawnRequest,
             quoteWindowsBatchArgument
-        } = await import('../../../../../ai/scripts/resumeHarness.mjs');
+        } = await import('../../../../../ai/scripts/windowsBatchSpawn.mjs');
 
         const cmd  = 'C:\\Program Files\\Antigravity\\bin\\antigravity.cmd',
               args = ['chat', '-n', 'payload \\path & %PATH% | < > ^ ! "quoted"\r\nnext'];
@@ -382,6 +382,21 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(request.options).not.toHaveProperty('shell');
         expect(request.options).not.toHaveProperty('windowsVerbatimArguments');
         expect(quoteWindowsBatchArgument(args[2])).toBe('"payload \\path ^& ^%PATH^% ^| ^< ^> ^^ ^! ^"quoted^"  next"');
+    });
+
+    test('Antigravity CLI: non-batch spawn requests keep direct dispatch (#11775)', async () => {
+        const { createSpawnRequest } = await import('../../../../../ai/scripts/windowsBatchSpawn.mjs');
+
+        expect(createSpawnRequest('/usr/local/bin/antigravity', ['chat'], 'linux')).toEqual({
+            cmd    : '/usr/local/bin/antigravity',
+            args   : ['chat'],
+            options: {stdio: 'ignore'}
+        });
+        expect(createSpawnRequest('C:\\Program Files\\Antigravity\\bin\\antigravity.exe', ['chat'], 'win32')).toEqual({
+            cmd    : 'C:\\Program Files\\Antigravity\\bin\\antigravity.exe',
+            args   : ['chat'],
+            options: {stdio: 'ignore'}
+        });
     });
 
     test('Antigravity CLI: missing executable reports actionable path diagnostic (#10684)', async () => {
