@@ -93,7 +93,7 @@ For source anchors, exception semantics, and substrate-decay review, read [`../a
 
 **8-point cross-substrate sweep checklist** (canonical; adopted from Discussion #11188 OQ4):
 
-1. **Authority sweep** — Which artifact will future agents treat as canonical: discussion body, latest comment, epic body, ticket AC? Are they consistent?
+1. **Authority sweep** — Which artifact will future agents treat as canonical: discussion body, latest comment, epic body, ticket AC? Are they consistent? If the proposal conflicts with an accepted ADR, apply the ADR successor-risk audit and make the keep / amend / supersede / retire disposition explicit before graduation.
 2. **Consumer sweep** — Which readers consume the proposed shape? Include syncers, local lookup services, health/readiness, release scripts, workflows, docs, external mirrors (pages/portal).
 3. **Path determinism sweep** — Can the path/key be computed from stable identity alone? If not, name the metadata/index/search contract explicitly.
 4. **State mutability sweep** — Which fields decide lifecycle placement (`closedAt`, `mergedAt`, `answerChosenAt`, etc.)? Are they enforced by substrate, mutable, or only socially expected?

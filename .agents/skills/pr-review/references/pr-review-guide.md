@@ -439,6 +439,8 @@ If a Cycle-1 structural-invalidity trigger fires, default to **Drop+Supersede fr
 
 If the PR resolves or materially follows a ticket older than the stale workflow threshold, marked stale, marked `no auto close`, or visibly superseded, the source ticket is review input, not review authority. Matching stale ACs is not enough for approval; current source/docs/tests plus newer tickets, PRs, epics, and Discussions decide whether the source ticket is still authoritative.
 
+ADR conflict trigger: run `ticket-intake/references/adr-successor-risk-audit.md`; block approval unless the PR names the ADR update or pending-authority path.
+
 This is discipline, not a mandatory checkbox. Routine PRs should clear it in under 30 seconds; when it fires, the framing flip is immediate. For trigger definitions, bias rationale, and the PR #11083 empirical anchor, read [`../audits/cycle-1-premise-preflight.md`](../audits/cycle-1-premise-preflight.md).
 
 ### 9.1 Reviewer-Yield Protocol (Deadlock Prevention)

@@ -55,6 +55,7 @@ Checks:
 - Does the approach **reuse existing substrate**, or does it invent parallel substrate? (Parallel substrate is a strong warning sign — it usually means the author missed a reusable primitive.)
 - Is the main abstraction layer the right one? (Same substrate-boundary question as `ticket-intake` prescription challenge, elevated one scope level.)
 - Is there a known **Gold Standard** from prior sessions this epic diverges from without rationale? Query Memory Core for comparable epics.
+- Does the epic predate, cite, conflict with, or depend on an ADR / Decision Record? If yes, apply the ADR successor-risk audit before passing approach elegance; older epic premises may be superseded by later ADRs, while later evidence must route through an explicit ADR challenge path.
 - Does the approach **compound** existing capability, or does it fight against it?
 - Is the epic's main decision testable — can it be empirically validated, or is it an unfalsifiable preference?
 
