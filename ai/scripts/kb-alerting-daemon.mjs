@@ -15,7 +15,7 @@
  * is opt-in — it exits early unless `aiConfig.knowledgeBase.alertingEnabled` is true.
  *
  * @see ai/daemons/KbAlertingService.mjs
- * @see ai/scripts/swarm-heartbeat-daemon.mjs (sibling wrapper precedent)
+ * @see ai/scripts/orchestrator-daemon.mjs (sibling entry-point wrapper precedent)
  * @see #11642 (Phase 4D operator alerting), #11628 (Phase 4 epic)
  */
 

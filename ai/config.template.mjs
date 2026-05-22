@@ -77,13 +77,14 @@ const defaultConfig = {
          * @type {Object}
          */
         intervals: {
-            pollMs          : 3000,
-            summarySweepMs  : 10 * 60 * 1000,
-            kbSyncMs        : 30 * 60 * 1000,
-            backupMs        : DAY_MS,
-            primaryDevSyncMs: 10 * 60 * 1000,
-            dreamMs         : HOUR_MS,
-            goldenPathMs    : HOUR_MS
+            pollMs           : 3000,
+            summarySweepMs   : 10 * 60 * 1000,
+            kbSyncMs         : 30 * 60 * 1000,
+            backupMs         : DAY_MS,
+            primaryDevSyncMs : 10 * 60 * 1000,
+            dreamMs          : HOUR_MS,
+            goldenPathMs     : HOUR_MS,
+            swarmHeartbeatMs : 5 * 60 * 1000
         },
         /**
          * Local-only maintenance lane switches. Cloud deployments can disable these
@@ -97,6 +98,9 @@ const defaultConfig = {
             kbSyncEnabled        : null,
             bridgeDaemonEnabled  : null,
             goldenPathRepoEnrichmentEnabled: null,
+            // `null` = use the deployment-profile default (local enables, cloud disables);
+            // the swarm-heartbeat lane is the folded-in wake-substrate pulse (#11766).
+            swarmHeartbeatEnabled: null,
             // Reserved policy placeholder: no runtime consumer yet.
             // `bridgeDaemonEnabled` is the active scheduler gate for desktop wake delivery.
             wakeDispatchEnabled  : null

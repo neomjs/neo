@@ -14,6 +14,8 @@ export const DEFAULT_DREAM_INTERVAL_MS            = 3600000;
 export const DREAM_TASK_NAME                      = 'dream';
 export const DEFAULT_GOLDEN_PATH_INTERVAL_MS      = 3600000;
 export const GOLDEN_PATH_TASK_NAME                = 'golden-path';
+export const DEFAULT_SWARM_HEARTBEAT_INTERVAL_MS  = 300000;
+export const SWARM_HEARTBEAT_TASK_NAME            = 'swarm-heartbeat';
 export const DEFAULT_MLX_MODEL                    = 'mlx-community/gemma-4-31b-it-bf16';
 export const DEFAULT_MLX_PORT                     = '11435';
 export const DEFAULT_MLX_ENABLED                  = false;
@@ -114,6 +116,12 @@ export function buildTaskDefinitions({
             label          : 'golden path synthesis',
             pidFileName    : 'golden-path.pid',
             expectedCommand: 'GoldenPathSynthesizer',
+            serviceTask    : true
+        },
+        [SWARM_HEARTBEAT_TASK_NAME]: {
+            label          : 'swarm heartbeat pulse',
+            pidFileName    : 'swarm-heartbeat.pid',
+            expectedCommand: 'SwarmHeartbeatService',
             serviceTask    : true
         }
     };

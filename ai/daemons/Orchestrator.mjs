@@ -26,6 +26,7 @@ import TaskStateService                from './services/TaskStateService.mjs';
 import ProcessSupervisorService        from './services/ProcessSupervisorService.mjs';
 import CadenceEngine                   from './services/CadenceEngine.mjs';
 import DreamService                    from './DreamService.mjs';
+import SwarmHeartbeatService           from './SwarmHeartbeatService.mjs';
 import GoldenPathSynthesizer           from './services/GoldenPathSynthesizer.mjs';
 import {
     DEFAULT_POLL_INTERVAL_MS,
@@ -38,6 +39,8 @@ import {
     DREAM_TASK_NAME,
     DEFAULT_GOLDEN_PATH_INTERVAL_MS,
     GOLDEN_PATH_TASK_NAME,
+    DEFAULT_SWARM_HEARTBEAT_INTERVAL_MS,
+    SWARM_HEARTBEAT_TASK_NAME,
     DEFAULT_DB_PATH,
     DEFAULT_DATA_DIR,
     DEFAULT_SCRIPT_DIR,
@@ -315,6 +318,24 @@ export class Orchestrator extends Base {
          */
         goldenPathSynthesizer_: GoldenPathSynthesizer,
         /**
+         * @member {Boolean} swarmHeartbeatEnabled_=true
+         * @protected
+         * @reactive
+         */
+        swarmHeartbeatEnabled_: true,
+        /**
+         * @member {Number} swarmHeartbeatIntervalMs_=300000
+         * @protected
+         * @reactive
+         */
+        swarmHeartbeatIntervalMs_: DEFAULT_SWARM_HEARTBEAT_INTERVAL_MS,
+        /**
+         * @member {Object} swarmHeartbeatService_=SwarmHeartbeatService
+         * @protected
+         * @reactive
+         */
+        swarmHeartbeatService_: SwarmHeartbeatService,
+        /**
          * @member {String[]} heavyMaintenanceTaskNames_=DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
          * @protected
          * @reactive
@@ -389,6 +410,12 @@ export class Orchestrator extends Base {
             process.env.NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED,
             true
         );
+        this.swarmHeartbeatIntervalMs = options.swarmHeartbeatIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS, DEFAULT_SWARM_HEARTBEAT_INTERVAL_MS);
+        this.swarmHeartbeatEnabled  = options.swarmHeartbeatEnabled ?? parseEnabledFlag(
+            process.env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED,
+            true
+        );
+        this.swarmHeartbeatService  = options.swarmHeartbeatService || SwarmHeartbeatService;
         this.goldenPathRepoEnrichmentEnabled = options.goldenPathRepoEnrichmentEnabled ?? parseEnabledFlag(
             process.env.NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED,
             true
@@ -442,6 +469,17 @@ export class Orchestrator extends Base {
 
         this.processSupervisorService.recoverTasks();
         this.db = this.initializeDatabaseFn(this.dbPath);
+
+        // One-time swarm-heartbeat lane init (#11766). An init failure must log but
+        // NOT crash the Orchestrator — the lane disables itself for this run.
+        if (this.swarmHeartbeatEnabled) {
+            try {
+                await this.swarmHeartbeatService.initAsync();
+            } catch (e) {
+                this.writeLog('ERROR', `[Orchestrator] Swarm heartbeat init failed; lane disabled this run: ${e.message}`);
+                this.swarmHeartbeatEnabled = false;
+            }
+        }
 
         this.isPolling = true;
         this.writeLog('INFO', `[Orchestrator] Started. summaryInterval=${this.summarySweepIntervalMs}ms kbSyncInterval=${this.kbSyncIntervalMs}ms poll=${this.pollIntervalMs}ms.`);
@@ -968,6 +1006,36 @@ export class Orchestrator extends Base {
                 this.healthService?.recordTaskOutcome?.(taskName, 'failed', { reason, error: e.message, failedAt: new Date().toISOString() });
             }
         }, activeHeavyTask), context);
+
+        // #11766: swarm-heartbeat lane. NOT heavy maintenance — the pulse is a light
+        // wake-substrate check, so the executor runs directly (no `executeMaintenanceTask`
+        // wrap). `reason` is passed as a string straight from `CadenceEngine.runIfDue`.
+        this.cadenceEngine.runIfDue(SWARM_HEARTBEAT_TASK_NAME, () => {
+            if (!this.swarmHeartbeatEnabled) {
+                return null;
+            }
+            if (this.cadenceEngine.shouldRunIntervalTask({
+                now,
+                lastRunAt : this.taskStateService.getTaskState(SWARM_HEARTBEAT_TASK_NAME)?.lastRunAt,
+                intervalMs: this.swarmHeartbeatIntervalMs
+            })) {
+                return { reason: `periodic-heartbeat:${this.swarmHeartbeatIntervalMs}` };
+            }
+            return null;
+        }, async (taskName, reason) => {
+            this.taskStateService.markStarted(taskName, reason);
+            this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
+            try {
+                await this.swarmHeartbeatService.pulse();
+                this.taskStateService.markCompleted(taskName);
+                this.healthService?.recordTaskOutcome?.(taskName, 'completed', { reason, completedAt: new Date().toISOString() });
+            } catch (e) {
+                const state = this.taskStateService.getTaskState(taskName);
+                if (state) state.lastReason = e.message;
+                this.taskStateService.markFailed(taskName, 1);
+                this.healthService?.recordTaskOutcome?.(taskName, 'failed', { reason, error: e.message, failedAt: new Date().toISOString() });
+            }
+        }, context);
 
         if (this.isPolling) {
             this.pollHandle = setTimeout(() => this.poll(), this.pollIntervalMs);

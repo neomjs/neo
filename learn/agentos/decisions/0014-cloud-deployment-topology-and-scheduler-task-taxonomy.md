@@ -144,7 +144,21 @@ Service boundaries derive from the lane taxonomy + resource-isolation needs. Pic
 - **ADRs:** 0003 (unified Chroma — swept, not stale), 0009 (cross-daemon lease — swept, not stale), 0005 (ADR-at-graduation), 0006 (ADRs as graph-queryable entities)
 - **Substrate:** `ai/daemons/TaskDefinitions.mjs`, `ai/daemons/Orchestrator.mjs`, `ai/daemons/services/PrimaryRepoSyncService.mjs`, `ai/scripts/bridge-daemon.mjs`, `buildScripts/ai/syncKnowledgeBase.mjs`, `ai/daemons/services/GoldenPathSynthesizer.mjs`, `buildScripts/ai/backup.mjs`, `ai/deploy/docker-compose.yml`
 
-## 8. Status / Lifecycle
+## 8. Amendments
+
+### 2026-05-22 — `swarm-heartbeat` lane added to the taxonomy (#11766)
+
+After this ADR was accepted, [#11766](https://github.com/neomjs/neo/issues/11766) folded the swarm heartbeat from a standalone launchd daemon (`ai/scripts/swarm-heartbeat-daemon.mjs` + `swarm-heartbeat.sh` + `com.neomjs.swarm-heartbeat.plist`) into an `Orchestrator` scheduler lane. The §2.1 taxonomy is amended to include it — the `Orchestrator` now drives **ten** scheduler lanes, not nine.
+
+| Lane | Kind | Classification | Rationale |
+|---|---|---|---|
+| `swarm-heartbeat` | periodic, light | **local-only** | `SwarmHeartbeatService.pulse()` delivers wake events to *local desktop agent harnesses* via `osascript` (macOS) / `tmux` keystroke simulation — the same wake-*delivery* dependency that makes `bridgeDaemon` local-only (§2.1). A cloud tenant deployment has no local harness apps to key into. (A2A *message storage* + the TTL sweep stay cloud-relevant — distinct from this wake-*delivery* lane.) |
+
+**Updated summary:** cloud-deployable = `{summary, backup, dream, golden-path}` · local-only = `{bridgeDaemon, mlx, kbSync, primary-dev-sync, swarm-heartbeat}` · shared primitive = `{chroma}`.
+
+**Cloud disable is a config default, not a hardcode.** The cloud `Orchestrator` profile disables the lane via the `localOnly.swarmHeartbeatEnabled` config key (`NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED` env override) — resolved by the same `assignLocalOnlyToggle` deployment-mode mechanism §2.3 uses for the other local-only lanes. The lane is not stripped from the build. This is the deliberate forward-compat seam: post-v13, agents could run inside a container deployment, which would flip `swarmHeartbeatEnabled` back on with no code redesign. The lane's exclusion from the cloud profile is a profile contract (§5.1), not a permanent capability removal.
+
+## 9. Status / Lifecycle
 
 - **Accepted** after PR #11738 merged to `dev` with cross-family review. Re-open the decision only if Sub B / C / D discovers evidence that invalidates the taxonomy.
 - **Periodic re-review trigger:** any PR that enables a `local-only` lane in a cloud profile, or adds a new `Orchestrator` scheduler lane, MUST cite this ADR and classify the lane.
