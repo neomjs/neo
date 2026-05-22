@@ -15,16 +15,16 @@ record, see [ADR 0014](decisions/0014-cloud-deployment-topology-and-scheduler-ta
 The current reference compose file in [`ai/deploy/`](../../ai/deploy/) is a
 profile-structured Agent OS stack. The default profile starts the MCP baseline:
 `chroma`, `kb-server`, and `mc-server`. The `cloud` profile adds the
-cloud-safe `orchestrator`; the `ingress` profile adds the Caddy reverse proxy.
-The compose header reserves the `local-model` profile slot for a later provider
-variant.
+cloud-safe `orchestrator`; the `ingress` profile adds the Caddy reverse proxy;
+the optional `local-model` profile adds a self-hosted OpenAI-compatible provider
+runtime without changing the default external-provider posture.
 
 | Service / profile | Current baseline | D0 target |
 |---|---|---|
 | default profile | `chroma`, `kb-server`, and `mc-server`; all three declare per-service `deploy.resources.limits` and Docker readiness gates. Chroma uses a TCP probe; KB and MC use an MCP `/mcp` healthcheck tool call. | Keep as the baseline MCP stack: Chroma as the unified vector-store primitive and KB/MC as separate request-serving MCP containers with production readiness semantics. |
 | `cloud` profile | Adds the `orchestrator` service with `NEO_AI_DEPLOYMENT_MODE=cloud`, shared SQLite volume access, its own resource envelope, and startup gated on healthy KB/MC services. | Keep as the Agent OS maintenance control-plane container, running only the cloud-safe scheduler lanes from ADR 0014 after the MCP substrate is ready. |
 | `ingress` profile | Adds the Caddy reverse proxy for TLS termination and public `/kb/*` / `/mc/*` path routing while KB and MC remain internal-only via `expose`. | Keep as the public boundary for auth/header stripping and MCP URL routing. |
-| `local-model` profile slot | Reserved in the compose header; no service is wired yet. | Optional self-hosted provider variant. External provider endpoints remain the MVP default. |
+| `local-model` profile | Adds a disabled-by-default `local-model` service using the configurable `NEO_LOCAL_MODEL_IMAGE` image, persistent model volume, healthcheck, and resource envelope. | Optional self-hosted provider variant. Operators must opt KB/MC/orchestrator consumers into `openAiCompatible`; external provider endpoints remain the MVP default. |
 
 The service boundary is intentional: KB and MC serve MCP requests, Chroma stores
 vectors, and the orchestrator owns background Agent OS maintenance. Do not
@@ -53,7 +53,7 @@ lane back in. The explicit env overrides are:
 | `NEO_ORCHESTRATOR_KB_SYNC_ENABLED=false` | Prevents the local Neo checkout full-corpus `ai:sync-kb` loop. Tenant KB content arrives through push/bulk ingestion instead. |
 | `NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED=false` | Prevents desktop wake delivery through `osascript` / `tmux`. A2A message storage remains Memory Core behavior. |
 | `NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED=false` | Keeps tenant deployments from emitting Neo-maintainer repo backlog/PR enrichment sections. |
-| `NEO_ORCHESTRATOR_MLX_ENABLED=false` | Keeps Apple-Silicon local inference out of the cloud profile unless a local-model variant explicitly opts in. |
+| `NEO_ORCHESTRATOR_MLX_ENABLED=false` | Keeps Apple-Silicon local inference out of the cloud profile; the `local-model` profile is a separate provider service, not an orchestrator child process. |
 | `NEO_MAILBOX_DEFAULT_REPLY_POLICY=blocked` | Keeps cloud A2A message writes tenant-bound through the Memory Core `CAN_REPLY_TO` / reachable-counterparty policy; local wake delivery remains disabled by the orchestrator bridge toggle. |
 
 Sub D (#11725) owns the CI-safe negative proof that the cloud profile cannot run
@@ -66,10 +66,12 @@ opts a lane back in.
 
 Use per-service containers. Sub B (#11723) delivered the
 profile-structured compose baseline: default MCP stack, `cloud` orchestrator
-profile, reserved `ingress` / `local-model` slots, and per-service resource
-limits. Sub C (#11724) added the reference ingress and redeploy-safe backup
-volume wiring. Sub D (#11725) delivered KB/MC container readiness semantics and
-gates the cloud orchestrator on those MCP server healthchecks.
+profile, ingress/local-model profile slots, and per-service resource limits.
+Sub C (#11724) added the reference ingress and redeploy-safe backup volume
+wiring. Sub D (#11725) delivered KB/MC container readiness semantics and gates
+the cloud orchestrator on those MCP server healthchecks. Post-MVP residual
+#11734 turns the `local-model` slot into an opt-in service profile while
+preserving the external-provider default.
 
 Required production-profile properties:
 
@@ -78,7 +80,7 @@ Delivered by Sub B:
 - Dedicated containers for `chroma`, `kb-server`, `mc-server`, and cloud-safe
   `orchestrator`.
 - Resource envelopes for each declared service.
-- Default and `cloud` compose profiles, with the `local-model` slot reserved.
+- Default, `cloud`, `ingress`, and `local-model` compose profile structure.
 
 Delivered by Sub C / Sub D:
 
@@ -134,6 +136,43 @@ similar lanes. External provider endpoints are the MVP default. A self-hosted
 provider container is a profile variant and should not be coupled to the
 orchestrator container.
 
+### Optional `local-model` profile
+
+The `local-model` profile starts an internal OpenAI-compatible provider runtime
+on `local-model:11434`. It is inactive unless the operator explicitly includes
+`--profile local-model`; merely running the default or `cloud` profiles does not
+switch KB, MC, or the orchestrator away from external providers.
+
+Use this profile in two phases so model provisioning failures are easy to
+separate from Agent OS startup failures:
+
+```sh
+docker compose -f ai/deploy/docker-compose.yml --profile local-model up -d local-model
+docker compose -f ai/deploy/docker-compose.yml --profile local-model exec local-model ollama pull <chat-model>
+docker compose -f ai/deploy/docker-compose.yml --profile local-model exec local-model ollama pull <embedding-model>
+```
+
+Then start the Agent OS stack with explicit provider env:
+
+```sh
+NEO_MODEL_PROVIDER=openAiCompatible \
+NEO_EMBEDDING_PROVIDER=openAiCompatible \
+NEO_OPENAI_COMPATIBLE_HOST=http://local-model:11434 \
+NEO_OPENAI_COMPATIBLE_MODEL=<chat-model> \
+NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=<embedding-model> \
+docker compose -f ai/deploy/docker-compose.yml --profile cloud --profile local-model up --build
+```
+
+The expected failure signatures are:
+
+- Missing model: provider calls fail with model-not-found / pull-required errors
+  while the `local-model` container healthcheck can still be healthy.
+- Provider not started or not on the compose network: KB/MC/orchestrator provider
+  calls fail to connect to `local-model:11434`.
+- Resource pressure: the `local-model` container restarts or fails its healthcheck;
+  tune `NEO_LOCAL_MODEL_MEMORY_LIMIT`, `NEO_LOCAL_MODEL_CPU_LIMIT`, or the chosen
+  model before treating Agent OS services as faulty.
+
 ## Section 6: Environment Variable Inventory
 
 Supply these values per service/profile as needed:
@@ -155,6 +194,12 @@ Supply these values per service/profile as needed:
 | `NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED=false` | Orchestrator | Disables desktop wake delivery. |
 | `NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED=false` | Orchestrator | Disables Neo-maintainer repo enrichment sections. |
 | `NEO_ORCHESTRATOR_MLX_ENABLED=false` | Orchestrator | Keeps local MLX supervision disabled. |
+| `NEO_MODEL_PROVIDER=openAiCompatible` | MC, Orchestrator | Optional `local-model` profile opt-in for summary/dream/model-consumer lanes. Leave unset for external-provider defaults. |
+| `NEO_EMBEDDING_PROVIDER=openAiCompatible` | KB, MC | Optional `local-model` profile opt-in for server-side embedding generation. Leave unset when using an external embedding provider endpoint. |
+| `NEO_OPENAI_COMPATIBLE_HOST=http://local-model:11434` | KB, MC, Orchestrator | Internal compose-network URL for the `local-model` service when the optional profile is enabled. |
+| `NEO_OPENAI_COMPATIBLE_MODEL`, `NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL` | KB, MC, Orchestrator | Chat and embedding model names already present in the local-model runtime. |
+| `NEO_OPENAI_COMPATIBLE_API_KEY` | KB, MC, Orchestrator | Optional bearer token for OpenAI-compatible providers that require one; normally empty for the local compose service. |
+| `NEO_LOCAL_MODEL_IMAGE`, `NEO_LOCAL_MODEL_KEEP_ALIVE`, `NEO_LOCAL_MODEL_MEMORY_LIMIT`, `NEO_LOCAL_MODEL_CPU_LIMIT` | `local-model` | Optional image/runtime/resource overrides for the self-hosted provider container. |
 | `NEO_AUTO_SYNC=false` | KB | Prevents one-shot local KB sync during server startup. |
 | `NEO_KB_AUTO_START_DATABASE=false` | KB | Prevents the KB server from starting a local Chroma process. |
 | `NEO_MEM_AUTO_START_DATABASE=false` | MC | Prevents the MC server from starting a local Chroma process. |

@@ -8,9 +8,8 @@
 #                           running ADR 0014's cloud-safe scheduler profile.
 #   - `ingress`:            adds the Caddy reverse proxy — TLS termination + public
 #                           `/kb` + `/mc` path routing for the MCP servers (Sub C #11724).
-# Reserved profile slot (service lands in a later variant):
-#   - `local-model`: an optional self-hosted model-provider container — ADR 0014
-#                    D1 variant (the MVP default is an external provider endpoint).
+#   - `local-model`:        adds an optional self-hosted OpenAI-compatible provider
+#                           runtime. External provider endpoints remain the default.
 #
 # Per-container resource limits (`deploy.resources.limits`) are declared on every
 # service so devops can govern RAM / CPU per service. The values are conservative
@@ -49,6 +48,12 @@ services:
       - NEO_CHROMA_PORT=8000
       - MCP_HTTP_PORT=3000
       - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+      - NEO_MODEL_PROVIDER=${NEO_MODEL_PROVIDER:-}
+      - NEO_EMBEDDING_PROVIDER=${NEO_EMBEDDING_PROVIDER:-}
+      - NEO_OPENAI_COMPATIBLE_HOST=${NEO_OPENAI_COMPATIBLE_HOST:-}
+      - NEO_OPENAI_COMPATIBLE_MODEL=${NEO_OPENAI_COMPATIBLE_MODEL:-}
+      - NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=${NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL:-}
+      - NEO_OPENAI_COMPATIBLE_API_KEY=${NEO_OPENAI_COMPATIBLE_API_KEY:-}
     volumes:
       - shared-sqlite-data:/app/.neo-ai-data/sqlite
     depends_on:
@@ -91,6 +96,12 @@ services:
       - NEO_CHROMA_PORT=8000
       - MCP_HTTP_PORT=3001
       - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
+      - NEO_MODEL_PROVIDER=${NEO_MODEL_PROVIDER:-}
+      - NEO_EMBEDDING_PROVIDER=${NEO_EMBEDDING_PROVIDER:-}
+      - NEO_OPENAI_COMPATIBLE_HOST=${NEO_OPENAI_COMPATIBLE_HOST:-}
+      - NEO_OPENAI_COMPATIBLE_MODEL=${NEO_OPENAI_COMPATIBLE_MODEL:-}
+      - NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=${NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL:-}
+      - NEO_OPENAI_COMPATIBLE_API_KEY=${NEO_OPENAI_COMPATIBLE_API_KEY:-}
     volumes:
       - shared-sqlite-data:/app/.neo-ai-data/sqlite
     depends_on:
@@ -131,6 +142,12 @@ services:
       - NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED=false
       - NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED=false
       - NEO_ORCHESTRATOR_MLX_ENABLED=false
+      - NEO_MODEL_PROVIDER=${NEO_MODEL_PROVIDER:-}
+      - NEO_EMBEDDING_PROVIDER=${NEO_EMBEDDING_PROVIDER:-}
+      - NEO_OPENAI_COMPATIBLE_HOST=${NEO_OPENAI_COMPATIBLE_HOST:-}
+      - NEO_OPENAI_COMPATIBLE_MODEL=${NEO_OPENAI_COMPATIBLE_MODEL:-}
+      - NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL=${NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL:-}
+      - NEO_OPENAI_COMPATIBLE_API_KEY=${NEO_OPENAI_COMPATIBLE_API_KEY:-}
       - NEO_CHROMA_HOST=chroma
       - NEO_CHROMA_PORT=8000
       - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
@@ -183,6 +200,38 @@ services:
           memory: 256m
           cpus: "0.5"
 
+  # Optional self-hosted model-provider runtime (Post-MVP residual #11734).
+  # The service is disabled unless the operator starts `--profile local-model`.
+  # It deliberately remains separate from the orchestrator: configure KB/MC/
+  # orchestrator consumers with `NEO_MODEL_PROVIDER=openAiCompatible` and
+  # `NEO_OPENAI_COMPATIBLE_HOST=http://local-model:11434` only for deployments
+  # that explicitly opt into this profile.
+  local-model:
+    image: ${NEO_LOCAL_MODEL_IMAGE:-ollama/ollama:latest}
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_MODELS=/root/.ollama
+      - OLLAMA_KEEP_ALIVE=${NEO_LOCAL_MODEL_KEEP_ALIVE:-5m}
+    volumes:
+      - local-model-data:/root/.ollama
+    networks:
+      - neo-mcp-network
+    expose:
+      - "11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    profiles:
+      - local-model
+    deploy:
+      resources:
+        limits:
+          memory: ${NEO_LOCAL_MODEL_MEMORY_LIMIT:-8g}
+          cpus: ${NEO_LOCAL_MODEL_CPU_LIMIT:-4.0}
+
 # kb-server / mc-server stay internal-only (`expose`) on `neo-mcp-network`; the
 # `ingress` profile is the sole public surface. `caddy-data` persists Caddy's
 # internal CA + issued certs across container rebuilds (Sub C #11724).
@@ -196,3 +245,4 @@ volumes:
   shared-sqlite-data:
   caddy-data:
   caddy-config:
+  local-model-data:
