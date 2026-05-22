@@ -194,4 +194,41 @@ test.describe('buildScripts/ai/mcpHealthcheck (#11725)', () => {
 
         expect(memoryCoreEnv.NEO_MAILBOX_DEFAULT_REPLY_POLICY).toBe('blocked');
     });
+
+    test('production compose keeps local-model as an opt-in provider profile', () => {
+        const compose         = readProductionCompose();
+        const localModel      = compose.services['local-model'];
+        const knowledgeBaseEnv = environmentMap(compose.services['kb-server']);
+        const memoryCoreEnv   = environmentMap(compose.services['mc-server']);
+        const orchestratorEnv = environmentMap(compose.services.orchestrator);
+
+        expect(localModel.profiles).toEqual(['local-model']);
+        expect(localModel.image).toBe('${NEO_LOCAL_MODEL_IMAGE:-ollama/ollama:latest}');
+        expect(localModel.expose).toEqual(['11434']);
+        expect(localModel.volumes).toContain('local-model-data:/root/.ollama');
+        expect(localModel.environment).toEqual(expect.arrayContaining([
+            'OLLAMA_HOST=0.0.0.0:11434',
+            'OLLAMA_MODELS=/root/.ollama',
+            'OLLAMA_KEEP_ALIVE=${NEO_LOCAL_MODEL_KEEP_ALIVE:-5m}'
+        ]));
+        expect(localModel.healthcheck.test).toEqual(['CMD', 'ollama', 'list']);
+        expect(localModel.deploy.resources.limits).toEqual({
+            memory: '${NEO_LOCAL_MODEL_MEMORY_LIMIT:-8g}',
+            cpus  : '${NEO_LOCAL_MODEL_CPU_LIMIT:-4.0}'
+        });
+        expect(compose.volumes).toHaveProperty('local-model-data');
+
+        for (const env of [knowledgeBaseEnv, memoryCoreEnv, orchestratorEnv]) {
+            expect(env).toMatchObject({
+                NEO_MODEL_PROVIDER                     : '${NEO_MODEL_PROVIDER:-}',
+                NEO_EMBEDDING_PROVIDER                 : '${NEO_EMBEDDING_PROVIDER:-}',
+                NEO_OPENAI_COMPATIBLE_HOST             : '${NEO_OPENAI_COMPATIBLE_HOST:-}',
+                NEO_OPENAI_COMPATIBLE_MODEL            : '${NEO_OPENAI_COMPATIBLE_MODEL:-}',
+                NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL  : '${NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL:-}',
+                NEO_OPENAI_COMPATIBLE_API_KEY          : '${NEO_OPENAI_COMPATIBLE_API_KEY:-}'
+            });
+        }
+
+        expect(orchestratorEnv.NEO_ORCHESTRATOR_MLX_ENABLED).toBe('false');
+    });
 });
