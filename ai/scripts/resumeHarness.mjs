@@ -83,50 +83,26 @@ export function isWindowsBatchCommand(cmd) {
 }
 
 /**
- * @summary Quote one value for a `cmd.exe /c call ...` command line.
- *
- * The Antigravity boot-grounding prompt is user-visible data, not shell syntax.
- * Windows batch wrappers require `cmd.exe`, so command construction escapes the
- * shell metacharacters that would otherwise split or redirect the command line.
- *
- * @param {string} value
- * @returns {string}
- */
-export function quoteWindowsCmdArgument(value) {
-    const stringValue = String(value);
-
-    if (stringValue === '') {
-        return '""';
-    }
-
-    return `"${stringValue
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"')
-        .replace(/%/g, '%%')
-        .replace(/([&|<>()^!])/g, '^$1')}"`;
-}
-
-/**
  * @summary Build a spawn request that can execute Windows `.cmd` / `.bat` wrappers.
  *
  * POSIX hosts and native Windows executables keep the direct spawn path. Windows
- * batch files are dispatched through `cmd.exe /d /s /c call ...` because Node's
- * plain `spawn(file, args)` cannot execute them directly.
+ * batch files opt into Node's shell dispatch path because plain
+ * `spawn(file, args)` cannot execute them directly and hand-rolled `cmd.exe`
+ * quoting is easy to get wrong.
  *
  * @param {string} cmd
  * @param {string[]} args
  * @param {string} [hostPlatform=process.platform]
- * @param {Object} [env=process.env]
  * @returns {{cmd: string, args: string[], options: Object}}
  */
-export function createSpawnRequest(cmd, args, hostPlatform = process.platform, env = process.env) {
+export function createSpawnRequest(cmd, args, hostPlatform = process.platform) {
     if (hostPlatform === 'win32' && isWindowsBatchCommand(cmd)) {
         return {
-            cmd    : env.ComSpec || env.COMSPEC || 'cmd.exe',
-            args   : ['/d', '/s', '/c', ['call', quoteWindowsCmdArgument(cmd), ...args.map(quoteWindowsCmdArgument)].join(' ')],
+            cmd,
+            args,
             options: {
-                stdio                   : 'ignore',
-                windowsVerbatimArguments: true
+                shell: true,
+                stdio: 'ignore'
             }
         };
     }

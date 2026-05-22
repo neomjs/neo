@@ -354,29 +354,25 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(selectHarnessAdapter({ adapter: 'claude-cli' }, 'darwin')).toBe('claude-cli');
     });
 
-    test('Antigravity CLI: Windows .cmd dispatch uses cmd.exe with escaped data args (#11767)', async () => {
+    test('Antigravity CLI: Windows .cmd dispatch delegates quoting to Node shell (#11767)', async () => {
         const { createSpawnRequest } = await import('../../../../../ai/scripts/resumeHarness.mjs');
 
+        const cmd  = 'C:\\Program Files\\Antigravity\\bin\\antigravity.cmd',
+              args = ['chat', '-n', 'payload \\path & %PATH% | < > ^ ! "quoted"'];
+
         const request = createSpawnRequest(
-            'C:\\Program Files\\Antigravity\\bin\\antigravity.cmd',
-            ['chat', '-n', 'payload \\path & %PATH% | < > ^ ! "quoted"'],
-            'win32',
-            {COMSPEC: 'C:\\Windows\\System32\\cmd.exe'}
+            cmd,
+            args,
+            'win32'
         );
 
-        expect(request.cmd).toBe('C:\\Windows\\System32\\cmd.exe');
-        expect(request.args[0]).toBe('/d');
-        expect(request.args[1]).toBe('/s');
-        expect(request.args[2]).toBe('/c');
+        expect(request.cmd).toBe(cmd);
+        expect(request.args).toEqual(args);
         expect(request.options).toMatchObject({
-            stdio                   : 'ignore',
-            windowsVerbatimArguments: true
+            shell: true,
+            stdio: 'ignore'
         });
-
-        const commandLine = request.args[3];
-        expect(commandLine).toContain('call "C:\\\\Program Files\\\\Antigravity\\\\bin\\\\antigravity.cmd"');
-        expect(commandLine).toContain('"chat" "-n"');
-        expect(commandLine).toContain('"payload \\\\path ^& %%PATH%% ^| ^< ^> ^^ ^! \\"quoted\\""');
+        expect(request.options).not.toHaveProperty('windowsVerbatimArguments');
     });
 
     test('Antigravity CLI: missing executable reports actionable path diagnostic (#10684)', async () => {
