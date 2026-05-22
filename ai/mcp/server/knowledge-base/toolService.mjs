@@ -15,6 +15,71 @@ const __filename      = fileURLToPath(import.meta.url);
 const __dirname       = path.dirname(__filename);
 /** @anchor test-isolation - ENV override to prevent parallel test mutations from corrupting the canonical file. Easily extensible to other servers via NEO_AI_MCP_<SERVER>_OPENAPI_PATH. */
 const openApiFilePath = process.env.NEO_AI_MCP_KB_OPENAPI_PATH || path.join(__dirname, 'openapi.yaml');
+const ingestToolName  = 'ingest_source_files';
+
+/**
+ * @summary Normalizes optional MCP server prefixes before transport-gating tool names.
+ * @param {String} toolName The requested MCP tool name.
+ * @returns {String} The effective OpenAPI operation id.
+ */
+const getEffectiveToolName = toolName => {
+    const lastDoubleUnderscoreIndex = toolName.lastIndexOf('__');
+
+    return lastDoubleUnderscoreIndex !== -1
+        ? toolName.substring(lastDoubleUnderscoreIndex + 2)
+        : toolName;
+};
+
+/**
+ * @summary Returns true when the KB MCP server is in its remote StreamableHTTP profile.
+ * @returns {Boolean} True when remote tenant push clients may call `ingest_source_files`.
+ */
+const isRemoteIngestTransport = () => aiConfig.transport === 'sse';
+
+/**
+ * @summary Fails closed when a local stdio client tries to invoke the remote push facade.
+ * @param {String} toolName The requested MCP tool name.
+ */
+const assertToolTransportAllowed = toolName => {
+    if (getEffectiveToolName(toolName) === ingestToolName && !isRemoteIngestTransport()) {
+        throw new Error(
+            '`ingest_source_files` is only exposed when the Knowledge Base MCP server runs ' +
+            'with `transport: "sse"` (StreamableHTTP). Use `npm run ai:ingest-tenant` or ' +
+            'direct service ingestion for local stdio workflows.'
+        );
+    }
+};
+
+/**
+ * @summary Applies the KB transport visibility policy before returning MCP tools/list.
+ * @param {Object} [options]
+ * @param {Number|String} [options.cursor=0]
+ * @param {Number} [options.limit]
+ * @returns {{tools: Object[], nextCursor: String|undefined}}
+ */
+const listTransportVisibleTools = ({cursor=0, limit} = {}) => {
+    const allTools = toolService.listTools().tools.filter(tool => (
+        tool.name !== ingestToolName || isRemoteIngestTransport()
+    ));
+
+    if (!limit) {
+        return {
+            tools     : allTools,
+            nextCursor: undefined
+        };
+    }
+
+    const
+        start      = Number(cursor) || 0,
+        end        = start + limit,
+        toolsSlice = allTools.slice(start, end),
+        nextCursor = end < allTools.length ? String(end) : undefined;
+
+    return {
+        tools: toolsSlice,
+        nextCursor
+    };
+};
 
 /**
  * @summary MCP facade for `KnowledgeBaseIngestionService.ingestSourceFiles` — applies the
@@ -99,6 +164,7 @@ const callTool = async (name, args) => {
     let result, success = 0;
 
     try {
+        assertToolTransportAllowed(name);
         result  = await _callTool(name, args);
         success = 1;
         return result;
@@ -120,6 +186,6 @@ const callTool = async (name, args) => {
     }
 };
 
-const listTools = toolService.listTools.bind(toolService);
+const listTools = listTransportVisibleTools;
 
 export {callTool, ingestSourceFilesViaMcp, listTools};
