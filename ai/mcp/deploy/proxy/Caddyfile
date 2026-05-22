@@ -27,7 +27,7 @@ mcp.example.com {
 
         # 3. Pathname Routing: Knowledge Base Server
         handle_path /kb/* {
-            reverse_proxy 127.0.0.1:3001 {
+            reverse_proxy 127.0.0.1:3000 {
                 # Inject trusted header from the forward_auth step
                 header_up X-Preferred-Username {http.request.header.X-Auth-Request-Preferred-Username}
                 header_up -X-Auth-Request-Preferred-Username
@@ -37,7 +37,7 @@ mcp.example.com {
 
         # 4. Pathname Routing: Memory Core Server
         handle_path /mc/* {
-            reverse_proxy 127.0.0.1:3002 {
+            reverse_proxy 127.0.0.1:3001 {
                 # Inject trusted header from the forward_auth step
                 header_up X-Preferred-Username {http.request.header.X-Auth-Request-Preferred-Username}
                 header_up -X-Auth-Request-Preferred-Username
