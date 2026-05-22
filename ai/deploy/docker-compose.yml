@@ -6,8 +6,9 @@
 #   - default (no profile): the baseline MCP stack — chroma + kb-server + mc-server.
 #   - `cloud`:              adds the orchestrator — the full Agent OS deployment,
 #                           running ADR 0014's cloud-safe scheduler profile.
-# Reserved profile slots (services land in later subs):
-#   - `ingress`:     reverse proxy + TLS termination — Sub C #11724.
+#   - `ingress`:            adds the Caddy reverse proxy — TLS termination + public
+#                           `/kb` + `/mc` path routing for the MCP servers (Sub C #11724).
+# Reserved profile slot (service lands in a later variant):
 #   - `local-model`: an optional self-hosted model-provider container — ADR 0014
 #                    D1 variant (the MVP default is an external provider endpoint).
 #
@@ -117,6 +118,10 @@ services:
       - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
     volumes:
       - shared-sqlite-data:/app/.neo-ai-data/sqlite
+      # Redeploy-safe backup persistence (Sub C #11724): the cloud-safe `backup`
+      # scheduler lane writes bundles here. A host bind-mount keeps them across
+      # container rebuilds and host-accessible for off-site copy / inspection.
+      - ./.neo-ai-data/backups:/app/.neo-ai-data/backups
     depends_on:
       chroma:
         condition: service_healthy
@@ -130,9 +135,35 @@ services:
           memory: 1g
           cpus: "1.0"
 
-# External exposure (reverse proxy + TLS) and redeploy-safe backup persistence
-# are layered on by Sub C #11724. Today kb-server / mc-server are internal-only
-# (`expose`) on `neo-mcp-network`.
+  # Reverse proxy + TLS termination — the public ingress for the cloud Agent OS
+  # deployment (Sub C #11724). `ingress` profile — `docker compose --profile
+  # ingress up` (combine with `--profile cloud` for the full stack). Caddy
+  # terminates TLS and path-routes `/kb/*` -> kb-server:3000, `/mc/*` -> mc-server:3001.
+  # Config: ai/deploy/Caddyfile.
+  ingress:
+    image: caddy:2-alpine
+    ports:
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - kb-server
+      - mc-server
+    networks:
+      - neo-mcp-network
+    profiles:
+      - ingress
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+
+# kb-server / mc-server stay internal-only (`expose`) on `neo-mcp-network`; the
+# `ingress` profile is the sole public surface. `caddy-data` persists Caddy's
+# internal CA + issued certs across container rebuilds (Sub C #11724).
 
 networks:
   neo-mcp-network:
@@ -141,3 +172,5 @@ networks:
 volumes:
   chroma-data:
   shared-sqlite-data:
+  caddy-data:
+  caddy-config:
