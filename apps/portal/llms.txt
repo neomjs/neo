@@ -228,6 +228,7 @@ The sections below (Release Notes, Guides/Blogs, and GitHub Tickets) represent p
 - [Shared KB/MC Team Deployment](https://neomjs.com/raw/learn/agentos/SharedDeployment.md)
 - [Deployment Cookbook](https://neomjs.com/raw/learn/agentos/DeploymentCookbook.md)
 - [Overview](https://neomjs.com/raw/learn/agentos/cloud-deployment/Overview.md)
+- [Day-0 Tutorial](https://neomjs.com/raw/learn/agentos/cloud-deployment/Day0Tutorial.md)
 - [Tenant Ingestion Model](https://neomjs.com/raw/learn/agentos/cloud-deployment/TenantIngestionModel.md)
 - [Configuration](https://neomjs.com/raw/learn/agentos/cloud-deployment/Configuration.md)
 - [Custom Sources](https://neomjs.com/raw/learn/agentos/cloud-deployment/CustomSources.md)
