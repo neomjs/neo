@@ -13,6 +13,48 @@ const META_SYNC_PATH = 'resources/content/.sync-metadata.json';
 export const DEV_SYNC_ROOTS_ENV_VAR = 'NEO_ORCHESTRATOR_DEV_SYNC_ROOTS';
 export const DEV_SYNC_ROOTS_CONFIG_KEY = 'orchestrator.devSyncRoots';
 
+const KB_RELEVANT_PATH_PREFIXES = Object.freeze([
+    '.agents/skills/',
+    '.github/RELEASE_NOTES/',
+    'ai/',
+    'apps/',
+    'docs/app/',
+    'examples/',
+    'learn/',
+    'resources/content/',
+    'src/',
+    'test/playwright/'
+]);
+
+const KB_RELEVANT_PATHS = Object.freeze(new Set([
+    'docs/output/class-hierarchy.json'
+]));
+
+const KB_IRRELEVANT_PATHS = Object.freeze(new Set([
+    META_SYNC_PATH
+]));
+
+/**
+ * @summary Checks whether a changed repository path can affect generated KB corpus chunks.
+ *
+ * The predicate mirrors Neo's default `SourceRegistry` roots conservatively. The decision
+ * layer falls back to the full KB cascade whenever the revision or changed-path probes fail;
+ * this helper only classifies concrete paths from a verified git diff.
+ *
+ * @param {String} filePath Repository-relative path.
+ * @returns {Boolean}
+ */
+export function isKbRelevantChangePath(filePath) {
+    const normalized = String(filePath || '').replace(/\\/g, '/').replace(/^\.\//, '');
+
+    if (!normalized || KB_IRRELEVANT_PATHS.has(normalized)) {
+        return false;
+    }
+
+    return KB_RELEVANT_PATHS.has(normalized) ||
+        KB_RELEVANT_PATH_PREFIXES.some(prefix => normalized.startsWith(prefix));
+}
+
 /**
  * @summary Parses the primary-dev-sync enable flag.
  *
@@ -336,9 +378,13 @@ class PrimaryRepoSyncService extends Base {
             kbSync: false
         };
 
-        if (completed > 0) {
+        const kbSyncRequired = rootResults.some(result => result.status === 'completed' && result.kbSyncRequired !== false);
+
+        if (completed > 0 && kbSyncRequired) {
             this.runKbSync(primaryRoot, execFileSyncFn, {taskStateService, healthService});
             details.kbSync = true;
+        } else if (completed > 0) {
+            details.reasonCode = 'no-kb-relevant-changes';
         } else if (rootResults.length === 0) {
             details.reasonCode = 'no-configured-roots';
         } else if (failed > 0) {
@@ -410,13 +456,22 @@ class PrimaryRepoSyncService extends Base {
         }
 
         try {
+            const oldHead = this.resolveOptionalHead(root, execFileSyncFn);
             this.git(['pull', '--ff-only', REMOTE_NAME, DEV_BRANCH], root, execFileSyncFn);
-            if (runKbSync) {
+            const newHead = this.resolveOptionalHead(root, execFileSyncFn);
+            const kbSyncDecision = this.resolveKbSyncDecision({root, oldHead, newHead, execFileSyncFn});
+            if (runKbSync && kbSyncDecision.kbSyncRequired) {
                 this.runKbSync(root, execFileSyncFn, {taskStateService, healthService});
             }
             return {
                 status : 'completed',
-                details: {...rootDetails, behind, layer: 'ff-pull', kbSync: runKbSync}
+                details: {
+                    ...rootDetails,
+                    behind,
+                    layer : 'ff-pull',
+                    kbSync: runKbSync && kbSyncDecision.kbSyncRequired,
+                    ...kbSyncDecision
+                }
             };
         } catch (e) {
             const postPullStatus = this.git(['status', '--porcelain'], root, execFileSyncFn);
@@ -474,15 +529,25 @@ class PrimaryRepoSyncService extends Base {
         const rootDetails = {[rootKey]: root};
 
         writeLog?.('INFO', `[PrimaryRepoSync] Resetting ${META_SYNC_PATH} before fast-forward pull.`);
+        const oldHead = this.resolveOptionalHead(root, execFileSyncFn);
         this.git(['checkout', '--', META_SYNC_PATH], root, execFileSyncFn);
         this.git(['pull', '--ff-only', REMOTE_NAME, DEV_BRANCH], root, execFileSyncFn);
-        if (runKbSync) {
+        const newHead = this.resolveOptionalHead(root, execFileSyncFn);
+        const kbSyncDecision = this.resolveKbSyncDecision({root, oldHead, newHead, execFileSyncFn});
+        if (runKbSync && kbSyncDecision.kbSyncRequired) {
             this.runKbSync(root, execFileSyncFn, {taskStateService, healthService});
         }
 
         return {
             status : 'completed',
-            details: {...rootDetails, behind, layer: 'meta-sync-reset', resolved: 'meta-sync', kbSync: runKbSync}
+            details: {
+                ...rootDetails,
+                behind,
+                layer   : 'meta-sync-reset',
+                resolved: 'meta-sync',
+                kbSync  : runKbSync && kbSyncDecision.kbSyncRequired,
+                ...kbSyncDecision
+            }
         };
     }
 
@@ -588,6 +653,104 @@ class PrimaryRepoSyncService extends Base {
         const parsed = parseInt(output || '0', 10);
 
         return Number.isNaN(parsed) ? 0 : parsed;
+    }
+
+    /**
+     * Resolves the current repository HEAD.
+     * @param {String} root Repository root.
+     * @param {Function} execFileSyncFn Command execution seam.
+     * @returns {String}
+     */
+    resolveHead(root, execFileSyncFn) {
+        return this.git(['rev-parse', 'HEAD'], root, execFileSyncFn).trim();
+    }
+
+    /**
+     * Resolves HEAD without blocking the pull path when the probe itself fails.
+     * @param {String} root Repository root.
+     * @param {Function} execFileSyncFn Command execution seam.
+     * @returns {String|null}
+     */
+    resolveOptionalHead(root, execFileSyncFn) {
+        try {
+            return this.resolveHead(root, execFileSyncFn);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    /**
+     * Resolves the changed paths for one revision boundary.
+     * @param {Object} options
+     * @param {String} options.root Repository root.
+     * @param {String} options.oldHead Previous HEAD.
+     * @param {String} options.newHead Current HEAD.
+     * @param {Function} options.execFileSyncFn Command execution seam.
+     * @returns {String[]}
+     */
+    resolveChangedPaths({root, oldHead, newHead, execFileSyncFn}) {
+        const output = this.git(['diff', '--name-only', `${oldHead}..${newHead}`], root, execFileSyncFn).trim();
+
+        return output ? output.split('\n').map(item => item.trim()).filter(Boolean) : [];
+    }
+
+    /**
+     * Decides whether a successful dev pull needs the expensive KB cascade.
+     * @param {Object} options
+     * @param {String} options.root Repository root.
+     * @param {String} options.oldHead Previous HEAD.
+     * @param {String} options.newHead Current HEAD.
+     * @param {Function} options.execFileSyncFn Command execution seam.
+     * @returns {Object}
+     */
+    resolveKbSyncDecision({root, oldHead, newHead, execFileSyncFn}) {
+        if (!oldHead || !newHead) {
+            return {
+                kbSyncRequired  : true,
+                kbSyncReasonCode: 'kb-relevance-unknown-head',
+                oldHead,
+                newHead
+            };
+        }
+
+        if (oldHead === newHead) {
+            return {
+                kbSyncRequired     : false,
+                kbSyncReasonCode   : 'no-kb-relevant-changes',
+                reasonCode         : 'no-kb-relevant-changes',
+                oldHead,
+                newHead,
+                changedPathCount   : 0,
+                kbChangedPathCount : 0,
+                kbChangedPathSample: []
+            };
+        }
+
+        let changedPaths;
+        try {
+            changedPaths = this.resolveChangedPaths({root, oldHead, newHead, execFileSyncFn});
+        } catch (e) {
+            return {
+                kbSyncRequired  : true,
+                kbSyncReasonCode: 'kb-relevance-check-failed',
+                oldHead,
+                newHead,
+                error         : e.message
+            };
+        }
+
+        const kbChangedPaths = changedPaths.filter(isKbRelevantChangePath);
+
+        return {
+            kbSyncRequired     : kbChangedPaths.length > 0,
+            kbSyncReasonCode   : kbChangedPaths.length > 0 ? 'kb-relevant-changes' : 'no-kb-relevant-changes',
+            ...(kbChangedPaths.length > 0 ? {} : {reasonCode: 'no-kb-relevant-changes'}),
+            oldHead,
+            newHead,
+            changedPathCount   : changedPaths.length,
+            kbChangedPathCount : kbChangedPaths.length,
+            kbChangedPathSample: kbChangedPaths.slice(0, 10)
+        };
     }
 
     /**
