@@ -54,6 +54,7 @@ lane back in. The explicit env overrides are:
 | `NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED=false` | Prevents desktop wake delivery through `osascript` / `tmux`. A2A message storage remains Memory Core behavior. |
 | `NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED=false` | Keeps tenant deployments from emitting Neo-maintainer repo backlog/PR enrichment sections. |
 | `NEO_ORCHESTRATOR_MLX_ENABLED=false` | Keeps Apple-Silicon local inference out of the cloud profile unless a local-model variant explicitly opts in. |
+| `NEO_MAILBOX_DEFAULT_REPLY_POLICY=blocked` | Keeps cloud A2A message writes tenant-bound through the Memory Core `CAN_REPLY_TO` / reachable-counterparty policy; local wake delivery remains disabled by the orchestrator bridge toggle. |
 
 Sub D (#11725) owns the CI-safe negative proof that the cloud profile cannot run
 the forbidden local-only behavior. The current unit substrate already asserts
@@ -147,6 +148,7 @@ Supply these values per service/profile as needed:
 | `NEO_MEMORY_DB_PATH` | KB, MC, Orchestrator | Shared SQLite graph path or mounted graph-store path. |
 | `NEO_AUTH_TRUST_PROXY_IDENTITY=true` | KB, MC | Enables the trusted reverse-proxy identity-header path. |
 | `NEO_AUTH_ISSUER_URL`, `NEO_OAUTH_CLIENT_ID`, `NEO_OAUTH_CLIENT_SECRET` | KB, MC | Direct OIDC/OAuth mode inputs when the MCP server handles auth instead of a trusted proxy. |
+| `NEO_MAILBOX_DEFAULT_REPLY_POLICY=blocked` | MC | Enables the strict A2A reply policy for multi-tenant deployments. |
 | `NEO_AI_DEPLOYMENT_MODE=cloud` | Orchestrator | Selects the cloud maintenance profile. |
 | `NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED=false` | Orchestrator | Disables local maintainer checkout sync. |
 | `NEO_ORCHESTRATOR_KB_SYNC_ENABLED=false` | Orchestrator | Disables local full-corpus KB sync. |

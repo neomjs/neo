@@ -79,6 +79,7 @@ services:
     environment:
       - NEO_TRANSPORT=sse
       - NEO_MC_PRIMARY=false
+      - NEO_MAILBOX_DEFAULT_REPLY_POLICY=blocked
       - NEO_AUTO_SUMMARIZE=false
       - NEO_MEM_AUTO_START_DATABASE=false
       - NEO_MEM_AUTO_START_INFERENCE=false
@@ -125,6 +126,11 @@ services:
         SERVICE_ENTRYPOINT: ai/scripts/orchestrator-daemon.mjs
     environment:
       - NEO_AI_DEPLOYMENT_MODE=cloud
+      - NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED=false
+      - NEO_ORCHESTRATOR_KB_SYNC_ENABLED=false
+      - NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED=false
+      - NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED=false
+      - NEO_ORCHESTRATOR_MLX_ENABLED=false
       - NEO_CHROMA_HOST=chroma
       - NEO_CHROMA_PORT=8000
       - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
