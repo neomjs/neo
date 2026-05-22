@@ -71,6 +71,26 @@ test.describe('buildScripts/ai/kbPushClient — repo-push MCP client (#11743)', 
         });
     });
 
+    test('parseArgs falls back to dotenv-compatible environment defaults', () => {
+        const args = parseArgs(['--from-file', 'envelope.json'], {
+            NEO_KB_INGEST_TOKEN : 'env-token',
+            NEO_KB_MCP_URL      : 'https://kb.example.com/mcp',
+            NEO_KB_MCP_TRANSPORT: 'streamable-http',
+            NEO_KB_REPO_SLUG    : 'acme/app',
+            NEO_KB_TENANT_ID    : 'tenant-a'
+        });
+
+        expect(args).toMatchObject({
+            fromFile : 'envelope.json',
+            repoSlug : 'acme/app',
+            tenantId : 'tenant-a',
+            token    : 'env-token',
+            tokenEnv : 'NEO_KB_INGEST_TOKEN',
+            transport: 'streamable-http',
+            url      : 'https://kb.example.com/mcp'
+        });
+    });
+
     test('validateArgs requires an endpoint, payload source, and bearer token by default', () => {
         expect(validateArgs(parseArgs([], {}))).toEqual([
             'Missing --url or NEO_KB_MCP_URL.',
@@ -99,6 +119,14 @@ test.describe('buildScripts/ai/kbPushClient — repo-push MCP client (#11743)', 
 
         expect(validateArgs(args)).toEqual([
             "Unsupported --transport 'http'. Expected streamable-http or sse."
+        ]);
+    });
+
+    test('validateArgs surfaces Commander parse errors instead of accepting malformed argv', () => {
+        const args = parseArgs(['--url'], {});
+
+        expect(validateArgs(args)).toEqual([
+            "error: option '--url <url>' argument missing"
         ]);
     });
 

@@ -1,6 +1,8 @@
 // Neo namespace bootstrap (entry-point invariant) - tenant-side KB push client.
 // Mirrors buildScripts/ai/ingestTenant.mjs so this CLI can use Neo's MCP client
 // wrapper from a tenant checkout or CI job.
+import 'dotenv/config';
+import {Command}       from 'commander';
 import Neo            from '../../src/Neo.mjs';
 import * as core      from '../../src/core/_export.mjs';
 import InstanceManager from '../../src/manager/Instance.mjs';
@@ -36,64 +38,70 @@ import ClientConfig   from '../../ai/mcp/client/config.mjs';
 const DEFAULT_TOKEN_ENV = 'NEO_KB_INGEST_TOKEN';
 
 /**
+ * @summary Creates an isolated Commander parser for one invocation.
+ * @returns {Command}
+ */
+function createArgParser() {
+    const program = new Command();
+
+    program
+        .name('kb-push-client')
+        .description('Tenant-side repo-push client for the KB ingest_source_files MCP facade')
+        .exitOverride()
+        .configureOutput({
+            writeErr: () => {},
+            writeOut: () => {}
+        })
+        .allowExcessArguments(false)
+        .option('--allow-unauthenticated', 'Allow missing bearer token for local demo deployments only')
+        .option('--client-name <name>', 'MCP client name')
+        .option('--from-file <path>', 'Read one JSON ingestion envelope from a file')
+        .option('--from-stdin', 'Read one JSON ingestion envelope from stdin')
+        .option('--repo-slug <slug>', 'Default repoSlug for the envelope')
+        .option('--tenant-id <tenantId>', 'Default tenantId for the envelope')
+        .option('--token <token>', 'Bearer token value')
+        .option('--token-env <name>', 'Environment variable containing the bearer token')
+        .option('--transport <type>', 'Remote MCP transport: streamable-http or sse')
+        .option('--url <url>', 'Remote KB MCP endpoint URL');
+
+    return program;
+}
+
+/**
  * @summary Parses the tenant push-client CLI argv.
  * @param {String[]} argv `process.argv.slice(2)`.
  * @param {Object} env Environment defaults; injected by tests.
  * @returns {Object}
  */
 function parseArgs(argv, env = process.env) {
-    const args = {
-        allowUnauthenticated: false,
-        clientName          : 'neo-kb-push-client',
-        fromFile            : null,
-        fromStdin           : false,
-        repoSlug            : env.NEO_KB_REPO_SLUG || null,
-        tenantId            : env.NEO_KB_TENANT_ID || null,
-        token               : null,
-        tokenEnv            : env.NEO_KB_TOKEN_ENV || DEFAULT_TOKEN_ENV,
-        transport           : env.NEO_KB_MCP_TRANSPORT || 'streamable-http',
-        url                 : env.NEO_KB_MCP_URL || null
-    };
+    const program = createArgParser();
+    let parseError = null;
 
-    for (let i = 0; i < argv.length; i++) {
-        const arg = argv[i];
-
-        switch (arg) {
-        case '--allow-unauthenticated':
-            args.allowUnauthenticated = true;
-            break;
-        case '--client-name':
-            args.clientName = argv[++i];
-            break;
-        case '--from-file':
-            args.fromFile = argv[++i];
-            break;
-        case '--from-stdin':
-            args.fromStdin = true;
-            break;
-        case '--repo-slug':
-            args.repoSlug = argv[++i];
-            break;
-        case '--tenant-id':
-            args.tenantId = argv[++i];
-            break;
-        case '--token':
-            args.token = argv[++i];
-            break;
-        case '--token-env':
-            args.tokenEnv = argv[++i];
-            break;
-        case '--transport':
-            args.transport = argv[++i];
-            break;
-        case '--url':
-            args.url = argv[++i];
-            break;
-        }
+    try {
+        program.parse(argv, {from: 'user'});
+    } catch (error) {
+        parseError = error.message;
     }
 
-    if (!args.token && args.tokenEnv) {
-        args.token = env[args.tokenEnv] || null;
+    const options  = program.opts(),
+          tokenEnv = options.tokenEnv || env.NEO_KB_TOKEN_ENV || DEFAULT_TOKEN_ENV,
+          token    = options.token || (tokenEnv ? env[tokenEnv] : null) || null;
+
+    const args = {
+        allowUnauthenticated: Boolean(options.allowUnauthenticated),
+        clientName          : options.clientName || 'neo-kb-push-client',
+        fromFile            : options.fromFile || null,
+        fromStdin           : Boolean(options.fromStdin),
+        repoSlug            : options.repoSlug || env.NEO_KB_REPO_SLUG || null,
+        tenantId            : options.tenantId || env.NEO_KB_TENANT_ID || null,
+        token,
+        tokenEnv,
+        transport           : options.transport || env.NEO_KB_MCP_TRANSPORT || 'streamable-http',
+        url                 : options.url || env.NEO_KB_MCP_URL || null
+    };
+
+    if (parseError) {
+        args.parseError = parseError;
     }
 
     return args;
@@ -243,6 +251,10 @@ async function runPush({args, input, clientFactory, clientConfig = ClientConfig}
  */
 function validateArgs(args) {
     const errors = [];
+
+    if (args.parseError) {
+        return [args.parseError];
+    }
 
     if (!args.url) {
         errors.push('Missing --url or NEO_KB_MCP_URL.');
