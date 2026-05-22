@@ -88,6 +88,21 @@ function getOperationIds(server) {
 }
 
 /**
+ * @summary Resolves operation ids expected in default `tools/list` for a server.
+ * @param {Object} server The server fixture.
+ * @returns {String[]} Expected default-listed operation ids.
+ */
+function getDefaultListedOperationIds(server) {
+    const operationIds = getOperationIds(server);
+
+    if (server.name === 'knowledge-base') {
+        return operationIds.filter(name => name !== 'ingest_source_files');
+    }
+
+    return operationIds;
+}
+
+/**
  * @summary Parses the real per-server `serviceMapping` object without invoking handlers.
  * This catches OpenAPI/toolService drift while avoiding tool side effects.
  *
@@ -182,9 +197,10 @@ test.describe('Neo MCP servers — cross-server listTools smoke (#11687)', () =>
                 {tools}            = await listTools(server),
                 listedNames        = tools.map(tool => tool.name).sort(),
                 operationIds       = getOperationIds(server).sort(),
+                defaultListedIds   = getDefaultListedOperationIds(server).sort(),
                 serviceMappingKeys = getServiceMappingKeys(server).sort();
 
-            expect(listedNames, `${server.name} listTools output drifted from openapi.yaml operationIds`).toEqual(operationIds);
+            expect(listedNames, `${server.name} listTools output drifted from default-visible operationIds`).toEqual(defaultListedIds);
             expect(serviceMappingKeys, `${server.name} serviceMapping drifted from openapi.yaml operationIds`).toEqual(operationIds);
         });
     }
