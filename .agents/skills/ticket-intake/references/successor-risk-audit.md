@@ -12,5 +12,8 @@ Do not use arbitrary hard-coded thresholds. Derive age bands from `.github/workf
 ## 2. Missing Close-Link Sweep
 Explicitly check for merged PRs that completed the ticket but missed a GitHub close keyword (`Resolves #N`, `Closes #N`). A merged PR touching the target surface or mentioned in the conversation may mean the ticket is `already-resolved`. If you find one, you MUST cite the PR number, merged status, target surface touched, and issue/thread link as evidence.
 
-## 3. Stale Renewal vs. Exemption Discipline
+## 3. ADR Successor-Risk Branch
+If the ticket predates, cites, conflicts with, or depends on an accepted ADR / Decision Record, run [`adr-successor-risk-audit.md`](./adr-successor-risk-audit.md) before emitting `valid-as-written`. ADRs are current authority snapshots, but later V-B-A evidence may challenge them through an explicit amendment or supersession path.
+
+## 4. Stale Renewal vs. Exemption Discipline
 If `stale` is present and the ticket remains valid, post a renewal comment and remove `stale` as a routine intake action. Do NOT auto-apply `no auto close`—applying exemption requires explicit parked/blocked rationale.

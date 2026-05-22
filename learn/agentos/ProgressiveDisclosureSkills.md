@@ -92,6 +92,7 @@ Invoked when evaluating a PR (either peer-reviewing another agent or guiding a h
 ### 4. `ticket-create` (The Creation Gate)
 Invoked before filing any new GitHub Issue via the `create_issue` MCP tool. Creation-side dual of `ticket-intake` — they address opposite triggers (produce new vs. consume existing).
 - **Duplicate Sweep:** Mandates a pre-creation scan of `resources/content/issues/`, `issue-archive/`, and `discussions/` to prevent Knowledge Base pollution.
+- **Six-Stage Challenge Chain:** Applies Premise / Prescription / Substrate / Consumer / Service-Boundary / Decision Record impact before drafting a ticket.
 - **Fat Ticket Body Structure:** Enforces Context / Problem / Architectural Reality / Fix / AC / Out of Scope / Related / Origin Session ID as the A2A memory shape.
 - **Title Hygiene & Label Rules:** Rejects `[enhancement]` / `[bug]` / `[epic]` title prefixes (category lives in labels); mandates `ai` label on every agent-authored ticket.
 
@@ -119,7 +120,7 @@ ensuring the YAML frontmatter and folder consistency are perfectly formed.
 | Skill | Type | Purpose |
 |---|---|---|
 | `ticket-intake` | Lifecycle | Pre-execution validation gate for existing tickets |
-| `ticket-create` | Lifecycle | Pre-creation discipline gate (duplicate sweep, Fat Ticket body, title/label rules, custom Playwright configs) |
+| `ticket-create` | Lifecycle | Pre-creation discipline gate (duplicate sweep, six-stage challenge chain, Fat Ticket body, title/label rules, custom Playwright configs) |
 | `epic-review` | Lifecycle | Pre-work six-stage gating chain for epics |
 | `epic-resolution` | Lifecycle | Closeout protocol for parent epics (exit gate) |
 | `pull-request` | Lifecycle | Post-implementation reflection + PR creation (custom Playwright configs) |

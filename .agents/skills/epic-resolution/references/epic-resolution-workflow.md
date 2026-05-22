@@ -93,7 +93,9 @@ Apply the verdict logic in this order (highest precedence first):
 | Any row has `BLOCKER` state | `RECOMMEND_KEEP_OPEN` |
 | Any row has `RESIDUAL_L<N>` AND no follow-up ticket exists | `RECOMMEND_CREATE_MISSING_SUBS` |
 | All rows are `none — closed` OR `RESIDUAL_<X> [#<followup-ticket>]` (residuals tracked elsewhere) AND §3.5 Closeout Gate passes or is N/A | `RECOMMEND_CLOSE_COMPLETED` |
-| Epic's purpose has been superseded by another effort or the AC framing is no longer valid | `RECOMMEND_RETIRE_OR_SUPERSEDE` |
+| Epic's purpose has been superseded by another effort, later ADR / Decision Record authority, or the AC framing is no longer valid | `RECOMMEND_RETIRE_OR_SUPERSEDE` |
+
+If an epic closeout hinges on ADR chronology, apply the ADR successor-risk audit before computing the verdict. The closeout comment must name the related ADR, whether it supersedes the epic or requires a challenge/amendment path, and the public evidence that supports the route.
 
 **Verdict authority:** the skill produces a structured review + recommendation. **Terminal-action shape depends on the verdict**:
 
