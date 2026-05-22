@@ -1,6 +1,6 @@
-import {randomUUID}                                                                     from 'node:crypto';
-import {test, expect}                                                                   from '@playwright/test';
-import {callHealthcheck, callJsonTool, createIdentityClient, getReadiness, readToolJson} from './fixtures/mcpClient.mjs';
+import {randomUUID}                                                       from 'node:crypto';
+import {test, expect}                                                     from '@playwright/test';
+import {callHealthcheck, callJsonTool, createIdentityClient, getReadiness} from './fixtures/mcpClient.mjs';
 
 /**
  * #11725 Sub D — the incremental adoption-ladder journey proof (Discussion #11718 §8).
@@ -200,7 +200,7 @@ test.describe('Adoption-ladder journey proof — #11725 Sub D (milestones 0-7)',
         }
     });
 
-    test('Milestone 5 — bulk/backfill: an over-threshold push is routed to the bulk path, not embedded inline', async () => {
+    test('Milestone 5 — bulk/backfill: an over-threshold push is refused by the volume gate, not embedded inline', async () => {
         const sentinel = `journey-ladder-m5-${randomUUID()}`;
         const client   = await createIdentityClient({
             baseUrl   : KB_URL,
@@ -216,23 +216,21 @@ test.describe('Adoption-ladder journey proof — #11725 Sub D (milestones 0-7)',
         }));
 
         try {
-            const result = await client.callTool({
+            const result    = await client.callTool({
                 name     : 'ingest_source_files',
                 arguments: {tenantId: 'journey-operator', repoSlug: 'journey-ladder', files: oversizedBatch}
             });
-            const gate = readToolJson(result, 'ingest_source_files volume gate');
+            const errorText = result.content?.find(item => item.type === 'text')?.text || '';
 
-            // Path-level: the operator who exceeds the per-call limit is routed to the
-            // bulk/backfill path — the gate reports the batch size, the configured
-            // threshold, and the bulk-path pointer instead of embedding 60 chunks inline.
-            expect(gate.code, 'an over-threshold push returns the volume gate').toBe('KB_INGEST_VOLUME_EXCEEDED');
-            expect(gate.batchSize, 'the gate echoes the rejected batch size').toBe(60);
-            expect(typeof gate.threshold, 'the gate reports the configured threshold').toBe('number');
-            expect(gate.batchSize, 'the rejected batch is above the threshold').toBeGreaterThan(gate.threshold);
-            expect(
-                Object.prototype.hasOwnProperty.call(gate, 'bulkPath'),
-                'the gate surfaces the bulk-path pointer — the backfill route'
-            ).toBe(true);
+            // Path-level: the operator who exceeds the per-call limit is REFUSED up-front —
+            // the deployed server returns a volume-gate tool error directing the operator to
+            // split the batch, rather than embedding 60 chunks inline. Over remote MCP the
+            // gate surfaces as an isError result (BaseServer wraps any `{error}` payload), so
+            // the structured KB_INGEST_VOLUME_EXCEEDED contract (code / bulkPath) stays owned
+            // by the in-process ai/kb-ingestion/multi-tenant.spec coverage.
+            expect(result.isError, 'an over-threshold push is refused, not embedded inline').toBe(true);
+            expect(errorText, 'the refusal identifies the work-volume gate').toContain('work volume exceeds');
+            expect(errorText, 'the refusal echoes the rejected batch volume').toContain('Batch volume 60');
         } finally {
             await client.close();
         }
