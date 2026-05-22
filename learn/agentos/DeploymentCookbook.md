@@ -128,8 +128,9 @@ The deployment substrates have different recovery properties:
   scales with tenant count.
 - Memory Core graph/session data is a primary store. A wipe between backups is
   data loss.
-- Backup bundles need their own durable volume or managed-object-storage target;
-  the baseline compose file does not yet provide this.
+- Backup bundles persist via a host bind-mount (`./.neo-ai-data/backups` on the
+  `cloud`-profile orchestrator) that survives container rebuilds; off-site copy
+  or a managed-object-storage target is the disaster-recovery layer above that.
 
 The orchestrator consumes model-provider endpoints for `summary`, `dream`, and
 similar lanes. External provider endpoints are the MVP default. A self-hosted
@@ -332,7 +333,8 @@ Post-MVP residual work is tracked separately under:
 - [#11732](https://github.com/neomjs/neo/issues/11732) - graph-store evolution
   beyond the SQLite + mounted-volume MVP baseline.
 - [#11733](https://github.com/neomjs/neo/issues/11733) - downstream external
-  deployment-pipeline wiring.
+  deployment-pipeline wiring. Delivered post-MVP — see [Downstream Pipeline
+  Wiring](cloud-deployment/PipelineWiring.md).
 - [#11734](https://github.com/neomjs/neo/issues/11734) - optional local-model
   runtime container profile.
 - [#11735](https://github.com/neomjs/neo/issues/11735) - tenant-source
