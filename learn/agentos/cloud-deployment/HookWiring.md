@@ -1,23 +1,43 @@
 # Cloud-Native KB Ingestion — Hook Wiring
 
-> **Status — Phase 3B.** This guide documents the two Phase 2 ingestion facades of Epic [#11624](https://github.com/neomjs/neo/issues/11624) — the `ingest_source_files` MCP operation ([#11634](https://github.com/neomjs/neo/issues/11634)) and the `npm run ai:ingest-tenant` bulk CLI ([#11635](https://github.com/neomjs/neo/issues/11635)), both merged. The runnable `pre-push` hook and worked external workspace it references ship in the same Phase 3B change set under [`examples/cloud-deployment/`](../../../examples/cloud-deployment/).
+> **Status — Phase 3B + #11743.** This guide documents the shipped ingestion surfaces of Epic [#11624](https://github.com/neomjs/neo/issues/11624) plus the #11743 tenant-side repo-push client: the `ingest_source_files` MCP operation ([#11634](https://github.com/neomjs/neo/issues/11634)), the `npm run ai:kb-push-client` remote MCP wrapper, and the `npm run ai:ingest-tenant` bulk CLI ([#11635](https://github.com/neomjs/neo/issues/11635)). The runnable `pre-push` hook and worked external workspace it references ship under [`examples/cloud-deployment/`](../../../examples/cloud-deployment/).
 
-## Two facades, one ingestion service
+## Three operator surfaces, one ingestion service
 
-A tenant's source content reaches the Knowledge Base through one of two facades. Both call the same `KnowledgeBaseIngestionService.ingestSourceFiles` orchestrator and write to the unified Chroma `knowledge-base` collection — they differ in **who calls them** and in **work-volume policy**.
+A tenant's source content reaches the Knowledge Base through the same `KnowledgeBaseIngestionService.ingestSourceFiles` orchestrator and writes to the unified Chroma `knowledge-base` collection. The operational surfaces differ in **who calls them**, **where they run**, and **work-volume policy**.
 
 For the operator-facing decision model — how to choose repo slugs, treat credentials, inventory source families, and decide when to use each facade — read [Tenant Ingestion Model](./TenantIngestionModel.md) first.
 
-| Facade | Caller | Volume policy | Built for |
+| Surface | Caller | Volume policy | Built for |
 |---|---|---|---|
-| `ingest_source_files` | A remote MCP client of the `sse` / StreamableHTTP deployment — an agent in the tenant workspace, or a tenant push-client | Gated — refuses a batch over `mcpSyncMaxChunks` (default 50) | Incremental pushes: a commit's worth of changed files |
+| `ingest_source_files` | A remote MCP client of the `sse` / StreamableHTTP deployment — an agent in the tenant workspace, or a tenant push client | Gated — refuses a batch over `mcpSyncMaxChunks` (default 50); listed/callable only when the KB server runs with `transport === 'sse'` | Incremental pushes: a commit's worth of changed files |
+| `npm run ai:kb-push-client` | A tenant git hook or CI job; wraps the remote MCP call | Same MCP gate as `ingest_source_files` | Operator-facing repo-push invocation over StreamableHTTP/SSE |
 | `npm run ai:ingest-tenant` | A shell process co-located with the KB server — the cloud operator, a CI job | Ungated (`viaMcp: false`) | Initial tenant onboarding (5k–50k chunks), large back-fills |
 
 The fork between them is the [#10572](https://github.com/neomjs/neo/issues/10572) **MCP work-volume gate**. An MCP tool call holds the calling agent's turn open; embedding tens of thousands of chunks synchronously inside one call is the wrong shape. The gate makes that structural — `ingest_source_files` *refuses* an over-volume batch (it returns a refusal payload, it does not block), and the bulk CLI is the sanctioned path for the volume the gate rejects. `viaMcp: false` — passed only by the CLI — is the single sanctioned gate bypass.
 
-## Transport
+## Transport and auth model
 
 The KB MCP server runs dual-transport (`ai/mcp/server/knowledge-base/Server.mjs`): `stdio` for a local single-repo deployment, or `sse` (StreamableHTTP) for a cloud deployment serving remote tenants — selected by `aiConfig.transport` with `aiConfig.mcpHttpPort`. `ingest_source_files` is transport-gated: it is listed and callable only when the KB server runs with `transport === 'sse'`. Local `stdio` clients do not see it and direct calls fail closed with guidance to use the local CLI/service path instead. The `ai:ingest-tenant` CLI is **not** a remote facade — it imports the KB services directly and runs on the deployment host.
+
+The deployable repo-push path is `npm run ai:kb-push-client`. It is a tenant-side MCP client wrapper around `ingest_source_files`:
+
+```bash
+NEO_KB_MCP_URL="https://agent-os.example.com/kb/mcp" \
+NEO_KB_INGEST_TOKEN="$repo_push_token" \
+NEO_KB_TENANT_ID="client-org" \
+NEO_KB_REPO_SLUG="acme/app" \
+npm run ai:kb-push-client -- --from-stdin < envelope.json
+```
+
+The operator-facing primitive is the **repo-push automation identity**, not a human agent session:
+
+1. Create a service account or machine client in the deployment's OIDC provider, for example `kb-repo-push-client-org`.
+2. Configure the token audience/resource to match the KB deployment's public MCP resource. Behind the reference Caddy ingress, that means the canonical KB public URL exposed by `NEO_PUBLIC_URL` plus the `/mcp` endpoint path, commonly `https://agent-os.example.com/kb/mcp`.
+3. Store the access token or client-credentials exchange output in the tenant hook/CI secret store, exposed to the hook as `NEO_KB_INGEST_TOKEN`. Do not commit it, put it in `repoSlug`, or log it.
+4. Scope the identity to the tenant it represents. The server stamps the authoritative tenant identity from authenticated context; payload `tenantId` remains a default/claim, not authority.
+
+If a deployment deliberately runs unauthenticated for a local demo, pass `--allow-unauthenticated`; production tenant ingestion should not use that flag.
 
 ## The incremental facade — `ingest_source_files`
 
@@ -52,6 +72,39 @@ No envelope field is strictly required — the ingestion service validates and r
 ```
 
 A caller branches on `code`: split into sub-threshold `ingest_source_files` calls, or hand the back-fill to the bulk CLI. A successful call returns `{ingested, deleted, embeddingsGenerated, errors, tenantId, durationMs}`.
+
+## Tenant push client — `npm run ai:kb-push-client`
+
+The push client accepts a single JSON envelope and submits it to the remote MCP endpoint:
+
+```bash
+npm run ai:kb-push-client -- \
+    --url https://agent-os.example.com/kb/mcp \
+    --tenant-id client-org \
+    --repo-slug acme/app \
+    --from-file envelope.json
+```
+
+Environment defaults:
+
+| Variable | Meaning |
+|---|---|
+| `NEO_KB_MCP_URL` | Remote KB MCP endpoint URL, for example `https://agent-os.example.com/kb/mcp`. |
+| `NEO_KB_MCP_TRANSPORT` | Client transport; `streamable-http` by default, `sse` for older endpoint wiring. |
+| `NEO_KB_INGEST_TOKEN` | Bearer token for the repo-push automation identity. |
+| `NEO_KB_TENANT_ID` | Optional envelope default; server-side auth still stamps the authoritative tenant. |
+| `NEO_KB_REPO_SLUG` | Optional envelope default for records/manifests that omit `repoSlug`. |
+
+Failure signatures a hook/CI job should branch on:
+
+| Signature | Meaning | Operator response |
+|---|---|---|
+| `KB_INGEST_VOLUME_EXCEEDED` | Batch exceeds `mcpSyncMaxChunks`. | Split the envelope or use `ai:ingest-tenant` for bulk onboarding/backfill. |
+| HTTP 401 / `Unauthorized` | Token missing, expired, wrong audience/resource, or rejected by proxy/auth middleware. | Refresh the automation identity token and verify `NEO_PUBLIC_URL` / audience wiring. |
+| Tool not listed / MCP call rejected | The endpoint is not the KB MCP server, transport config is wrong, or the deployment gates ingest tools by transport/auth. | Verify `NEO_KB_MCP_URL`, transport, and server config before retrying. |
+| Non-empty `errors` array | The ingestion service accepted the call but one or more files failed validation/parsing. | Fail the hook/CI job and surface the structured `{code, message}` entries. |
+
+This client is the current #11743 MCP-over-StreamableHTTP answer. A non-MCP HTTP or queue receiver that reuses `KnowledgeBaseIngestionService` remains a future alternative if the MCP client path proves operationally awkward. Server-side ref-only webhook/clone ingestion remains the separate [#11731](https://github.com/neomjs/neo/issues/11731) exploration.
 
 ## The bulk facade — `npm run ai:ingest-tenant`
 
@@ -92,7 +145,7 @@ A `pre-push` hook is the recommended trigger: it fires once per `git push`, rece
 1. Read the pushed ref range (`<local-ref> <local-sha> <remote-ref> <remote-sha>`) from the hook's stdin.
 2. Enumerate changed files — `git diff --name-only --diff-filter=ACMR <remote-sha> <local-sha>` for adds/modifies, `--diff-filter=D` for deletes.
 3. Assemble the envelope — changed files into `files`, deleted paths into `deleted`, the SHA pair into `baseRevision` / `headRevision`.
-4. Submit it — a small push goes to the `sse` / StreamableHTTP `ingest_source_files` endpoint; an initial import of an existing repo goes to the bulk CLI. The submission step is the deployment-specific integration point: the hook hands the envelope to the tenant push client wired to the deployment endpoint. In local `stdio` mode, use the CLI/service path instead; the MCP tool is intentionally hidden.
+4. Submit it — when `NEO_KB_MCP_URL` is configured, pipe the envelope to `ai:kb-push-client`, which calls the `sse` / StreamableHTTP `ingest_source_files` endpoint; an initial import of an existing repo still goes to the deployment-host bulk CLI. In local `stdio` mode, use the CLI/service path instead; the MCP tool is intentionally hidden.
 5. Inspect the returned summary — a non-empty `errors` array fails the hook so the developer sees it.
 
 The example combines **tombstones + revision-boundary** — the precise-but-cheap pair for a hook that already runs `git diff`.
@@ -120,4 +173,4 @@ The example combines **tombstones + revision-boundary** — the precise-but-chea
 - [Custom Parsers](./CustomParsers.md) — authoring a parser that turns a tenant file format into `parsed-chunk-v1` records.
 - [Security](./Security.md) — write-side stamping, spoof-rejection, and the parser-execution boundary.
 - [`deletion-signaling-contract.md`](../../../ai/services/knowledge-base/parser/deletion-signaling-contract.md) · [`identity-tuple.md`](../../../ai/services/knowledge-base/parser/identity-tuple.md) — the ingestion contracts.
-- [#11634](https://github.com/neomjs/neo/issues/11634) `ingest_source_files` · [#11635](https://github.com/neomjs/neo/issues/11635) `ai:ingest-tenant` · [#10572](https://github.com/neomjs/neo/issues/10572) MCP work-volume gate.
+- [#11743](https://github.com/neomjs/neo/issues/11743) repo-push receiver/auth model · [#11634](https://github.com/neomjs/neo/issues/11634) `ingest_source_files` · [#11635](https://github.com/neomjs/neo/issues/11635) `ai:ingest-tenant` · [#10572](https://github.com/neomjs/neo/issues/10572) MCP work-volume gate.

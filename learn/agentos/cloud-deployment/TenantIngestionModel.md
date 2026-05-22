@@ -16,14 +16,15 @@ This model pairs with the D0 scheduler taxonomy in [#11721](https://github.com/n
 
 ## Entry Points
 
-Use the same underlying ingestion service through two facades:
+Use the same underlying ingestion service through three operational surfaces:
 
-| Facade | Use when | Volume / lifecycle |
+| Surface | Use when | Volume / lifecycle |
 |---|---|---|
 | `ingest_source_files` | A tenant agent or push client sends a bounded incremental change set to the cloud MCP endpoint running with `transport === 'sse'`. | MCP-callable only in the remote StreamableHTTP profile and volume-gated by `mcpSyncMaxChunks`; split or use the CLI when the gate refuses. |
+| `npm run ai:kb-push-client` | A tenant git hook or CI job needs an operator-facing invocation wrapper for the remote MCP call. | Runs in the tenant workspace, uses StreamableHTTP/SSE, carries an automation identity bearer token, and preserves the MCP gate. |
 | `npm run ai:ingest-tenant -- <tenantId> ...` | A deployment operator, CI job, or onboarding script performs an initial import, full backfill, or large re-push. | Runs on the deployment host, bypasses the MCP turn-volume gate via `viaMcp: false`, and holds the heavy-maintenance lease. |
 
-Both facades call `KnowledgeBaseIngestionService.ingestSourceFiles()`. The MCP facade is hidden and fail-closed for local `stdio` server sessions because repo-push ingestion is an operator-facing remote deployment path, not an interactive local agent tool. Do not document a third ingestion path for the MVP unless the implementation adds one.
+All three surfaces call `KnowledgeBaseIngestionService.ingestSourceFiles()`. The MCP facade is hidden and fail-closed for local `stdio` server sessions because repo-push ingestion is an operator-facing remote deployment path, not an interactive local agent tool. A future non-MCP HTTP/queue receiver may share the same service, but it is not the shipped #11743 path.
 
 ## Repository Identity
 
@@ -65,6 +66,7 @@ The push-based MVP path is credential-free from the KB server's perspective:
 - The tenant workspace already has access to its own repository.
 - The tenant push client reads local files and sends content or parsed chunks.
 - The KB server receives ingestion payloads, not Git credentials.
+- The repo-push automation identity token authorizes the tenant to call the KB MCP endpoint; it is not a Git credential and is never folded into `repoSlug`, manifests, or chunk metadata.
 
 Credential-bearing Git URLs are therefore rejected or treated as deferred clone-exploration input. They must not appear in:
 
@@ -76,6 +78,20 @@ Credential-bearing Git URLs are therefore rejected or treated as deferred clone-
 - source-family inventory output
 
 If a future server-side clone path becomes necessary, [#11731](https://github.com/neomjs/neo/issues/11731) owns the credential transport and storage contract before implementation begins.
+
+## Repo-Push Automation Identity
+
+For day-0 tenant push, create a machine/service account in the deployment's OIDC provider and scope it to the tenant repository source it represents. The tenant hook or CI job stores the resulting access token in its secret store and exposes it as `NEO_KB_INGEST_TOKEN`.
+
+The deployment's OAuth audience/resource must match the KB MCP public resource. Behind the reference ingress, the client URL is typically:
+
+```text
+https://agent-os.example.com/kb/mcp
+```
+
+The token's resource should match the canonical KB public URL configured by `NEO_PUBLIC_URL` / the auth provider. The exact token acquisition flow is operator-owned — client credentials, workload identity, or CI OIDC exchange are all valid — but the resulting token must be short-lived or rotated, tenant-scoped, and stored outside the repository.
+
+The server remains authoritative for tenant identity. `NEO_KB_TENANT_ID` is a client default for envelope construction; authenticated context still stamps or rejects tenant metadata according to deployment policy.
 
 ## Parser Dispatch
 
@@ -132,10 +148,11 @@ Incremental pushes should include deletion intent. Prefer this default shape:
 2. Build the source-family inventory.
 3. Choose dispatch for each family: raw server parse, registered server parser, client-side `parsed-chunk-v1`, unsupported, or excluded.
 4. Run initial import with `ai:ingest-tenant` when volume exceeds the MCP gate.
-5. Wire incremental `pre-push` or CI pushes through `ingest_source_files`.
-6. Include tombstones and revision boundaries; include manifests at reconciliation points.
-7. Fail the hook or CI job on structured ingestion errors instead of silently dropping files.
-8. Verify retrieval against the tenant corpus plus `neo-shared` content before handing the deployment to agents.
+5. Create the repo-push automation identity, configure token audience/resource, and store the token as `NEO_KB_INGEST_TOKEN` in the tenant hook or CI secret store.
+6. Wire incremental `pre-push` or CI pushes through `ai:kb-push-client` to the remote MCP endpoint.
+7. Include tombstones and revision boundaries; include manifests at reconciliation points.
+8. Fail the hook or CI job on structured ingestion errors instead of silently dropping files.
+9. Verify retrieval against the tenant corpus plus `neo-shared` content before handing the deployment to agents.
 
 ## Evidence Boundary
 
@@ -151,7 +168,7 @@ The day-0 tutorial should reuse this model rather than redefine it.
 
 ## Related
 
-- [Hook Wiring](./HookWiring.md) — the `ingest_source_files` and `ai:ingest-tenant` facades.
+- [Hook Wiring](./HookWiring.md) — the `ingest_source_files`, `ai:kb-push-client`, and `ai:ingest-tenant` surfaces.
 - [Custom Parsers](./CustomParsers.md) — `parsed-chunk-v1` and parser execution boundaries.
 - [Custom Sources](./CustomSources.md) — full-corpus Source path, mostly not the push-based tenant default.
 - [Security](./Security.md) — tenant stamping, spoof rejection, parser trust, and KB-as-cache recovery.

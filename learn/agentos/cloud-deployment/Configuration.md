@@ -48,6 +48,21 @@ A deployment's `config.mjs` is gitignored and copied from `config.template.mjs`.
 
 Each key is also bindable via an environment variable (`NEO_KB_DEFAULT_TENANT_ID`, `NEO_TRANSPORT`, `MCP_HTTP_PORT`, …) — see `config.template.mjs`'s `envBindings` map for the full set.
 
+## Tenant push-client environment
+
+`npm run ai:kb-push-client` runs in the tenant workspace or CI job, not inside the KB server process. It therefore has its own small environment surface:
+
+| Variable | Required | Meaning |
+|---|---|---|
+| `NEO_KB_MCP_URL` | Yes unless `--url` is passed | Remote KB MCP endpoint URL, for example `https://agent-os.example.com/kb/mcp`. |
+| `NEO_KB_MCP_TRANSPORT` | No | MCP client transport; defaults to `streamable-http`, accepts `sse` for older endpoint wiring. |
+| `NEO_KB_INGEST_TOKEN` | Yes for production | Bearer token for the repo-push automation identity. |
+| `NEO_KB_TOKEN_ENV` | No | Name of the environment variable that holds the bearer token when the deployment does not use `NEO_KB_INGEST_TOKEN`. |
+| `NEO_KB_TENANT_ID` | No | Envelope default for tenant id; authenticated server context remains authoritative. |
+| `NEO_KB_REPO_SLUG` | No | Envelope default for repo slug; use a deterministic, secret-free value such as `acme/app`. |
+
+The token is a KB MCP authorization credential, not a Git credential. Store it in the tenant hook/CI secret store and rotate it using the deployment's normal OIDC or workload-identity policy.
+
 ## Per-tenant config storage — `KnowledgeBaseTenantConfig` (#11637)
 
 A multi-tenant deployment cannot express every tenant's source/parser config as static `aiConfig` keys — each tenant needs its own, mutable at runtime, durable across restarts. Phase 2E ([#11637](https://github.com/neomjs/neo/issues/11637)) stores it as a graph node.
