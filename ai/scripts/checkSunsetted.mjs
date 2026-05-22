@@ -60,6 +60,8 @@
  */
 import Neo from '../../src/Neo.mjs';
 import * as core from '../../src/core/_export.mjs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import LifecycleService from '../services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import GraphService from '../services/memory-core/GraphService.mjs';
 import { checkInflightLock } from './inflightLock.mjs';
@@ -71,15 +73,17 @@ import { checkInflightLock } from './inflightLock.mjs';
  */
 const IDLE_THRESHOLD_MS = parseInt(process.env.IDLE_THRESHOLD_MS, 10) || 10 * 60 * 1000;
 
-async function main() {
+/**
+ * @summary Compute the sunset / idle-out detector payload for one agent identity.
+ * @param {String} [identity] Agent identity to inspect.
+ * @returns {Promise<Object>} Structured detector contract consumed by shell and daemon paths.
+ */
+export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY || '@neo-gemini-3-1-pro') {
     await LifecycleService.initAsync();
 
     // Ensure GraphService is initialized
     await GraphService.initAsync();
     const db = GraphService.db.storage.db;
-
-    // Target identity for Phase 1/2
-    const identity = process.argv[2] || process.env.NEO_AGENT_IDENTITY || '@neo-gemini-3-1-pro';
 
     // 1. Query ALL subscriptions for this identity (regardless of status) so the
     //    detector can emit a structured `subscription_status` field rather than
@@ -229,7 +233,7 @@ async function main() {
     //    (#10673 AC5) preserve `sunsetted` / `reason` / `originSessionId` /
     //    `abandonedCount` for consumers not yet migrated to the new shape.
     //    `swarm-heartbeat.sh` jq parsing reads these legacy fields today.
-    console.log(JSON.stringify({
+    return {
         identity,
         sunset,
         idle_out_candidate: idleOutCandidate,
@@ -246,11 +250,20 @@ async function main() {
         reason,
         originSessionId,
         abandonedCount: lockData?.abandonedCount || 0
-    }));
-    process.exit(0);
+    };
 }
 
-main().catch(err => {
-    console.error('checkSunsetted failed:', err.message);
-    process.exit(1);
-});
+async function main() {
+    const identity = process.argv[2] || process.env.NEO_AGENT_IDENTITY || '@neo-gemini-3-1-pro';
+    const result = await checkSunsetted(identity);
+    console.log(JSON.stringify(result));
+}
+
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isMain) {
+    main().catch(err => {
+        console.error('checkSunsetted failed:', err.message);
+        process.exit(1);
+    });
+}

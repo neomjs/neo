@@ -26,7 +26,8 @@ import { readGateState, hasOverride } from './wakeSafetyGate.mjs';
 import { writeInflightLock, clearInflightLock } from './inflightLock.mjs';
 import { recordHarnessProcess, terminatePreviousHarness } from './harnessLifecycle.mjs';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
 
 /**
  * @summary Spawn a child process and (optionally) record its PID for later harness cleanup.
@@ -157,7 +158,15 @@ function buildBootGroundingPrompt(identity, reason, originSessionId) {
     ].join(' ');
 }
 
-async function resumeHarness(identity, reason, originSessionId, abandonedCount = 0) {
+/**
+ * @summary Resume a sunsetted agent by dispatching the configured fresh-session harness adapter.
+ * @param {String} identity Agent identity to resume.
+ * @param {String} reason Human-readable recovery reason.
+ * @param {String} originSessionId Prior Memory Core session anchor, if known.
+ * @param {Number} [abandonedCount=0] Prior abandoned wake action count for lock bookkeeping.
+ * @returns {Promise<void>}
+ */
+export async function resumeHarness(identity, reason, originSessionId, abandonedCount = 0) {
     // Wake safety gate (#10648, child of #10647). Direct fresh-session-spawn
     // invocations must also fail-closed when the substrate is unsafe — the
     // gate is consulted alongside (and ahead of) the existing cooldown. The
@@ -228,8 +237,7 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
     const harnessTarget = targetId ? HARNESS_REGISTRY[targetId] : null;
 
     if (!harnessTarget) {
-        console.error(`Unknown harness target for identity: ${identity}`);
-        process.exit(1);
+        throw new Error(`Unknown harness target for identity: ${identity}`);
     }
 
     const adapter = process.platform === 'darwin' ? harnessTarget.adapter : 'tmux';
@@ -406,21 +414,29 @@ async function resumeHarness(identity, reason, originSessionId, abandonedCount =
     } catch (err) {
         console.error(`Failed to resume ${identity} via ${adapter}: ${err.message}`);
         await clearInflightLock(identity, 'sunset_restart');
-        process.exit(1);
+        throw err;
     }
 }
 
-const identity        = process.argv[2];
-const reason          = process.argv[3] || 'Scheduled interval recovery';
-const originSessionId = process.argv[4] || ''; // Optional; populated by checkSunsetted post-#10611
-const abandonedCount  = parseInt(process.argv[5], 10) || 0;
+async function main() {
+    const identity        = process.argv[2];
+    const reason          = process.argv[3] || 'Scheduled interval recovery';
+    const originSessionId = process.argv[4] || ''; // Optional; populated by checkSunsetted post-#10611
+    const abandonedCount  = parseInt(process.argv[5], 10) || 0;
 
-if (!identity) {
-    console.error('Usage: resumeHarness.mjs <identity> [reason] [originSessionId] [abandonedCount]');
-    process.exit(1);
+    if (!identity) {
+        console.error('Usage: resumeHarness.mjs <identity> [reason] [originSessionId] [abandonedCount]');
+        process.exit(1);
+    }
+
+    await resumeHarness(identity, reason, originSessionId, abandonedCount);
 }
 
-resumeHarness(identity, reason, originSessionId, abandonedCount).catch(err => {
-    console.error('Unexpected error:', err.message);
-    process.exit(1);
-});
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === __filename;
+
+if (isMain) {
+    main().catch(err => {
+        console.error('Unexpected error:', err.message);
+        process.exit(1);
+    });
+}

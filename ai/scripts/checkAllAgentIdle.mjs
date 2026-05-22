@@ -19,16 +19,22 @@
  */
 import Neo from '../../src/Neo.mjs';
 import * as core from '../../src/core/_export.mjs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import LifecycleService from '../services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import GraphService from '../services/memory-core/GraphService.mjs';
 import { checkInflightLock } from './inflightLock.mjs';
 
-async function main() {
+/**
+ * @summary Compute whether every configured trio identity is past the idle threshold.
+ * @param {String} [cycleId] Stable heartbeat cycle identifier.
+ * @returns {Promise<Object>} All-agent-idle detector signal.
+ */
+export async function checkAllAgentIdle(cycleId = Math.floor(Date.now() / 1000).toString()) {
     await LifecycleService.initAsync();
     await GraphService.initAsync();
     const db = GraphService.db.storage.db;
 
-    const cycleId = process.argv[2] || Math.floor(Date.now() / 1000).toString();
     const identitiesEnv = process.env.NEO_TRIO_IDENTITIES || '@neo-gemini-3-1-pro,@neo-opus-4-7,@neo-gpt';
     const identities = identitiesEnv.split(',').map(s => s.trim()).filter(Boolean);
 
@@ -108,11 +114,20 @@ async function main() {
         details
     };
 
-    console.log(JSON.stringify(signal));
-    process.exit(0);
+    return signal;
 }
 
-main().catch(err => {
-    console.error('checkAllAgentIdle failed:', err.message);
-    process.exit(1);
-});
+async function main() {
+    const cycleId = process.argv[2] || Math.floor(Date.now() / 1000).toString();
+    const signal = await checkAllAgentIdle(cycleId);
+    console.log(JSON.stringify(signal));
+}
+
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isMain) {
+    main().catch(err => {
+        console.error('checkAllAgentIdle failed:', err.message);
+        process.exit(1);
+    });
+}
