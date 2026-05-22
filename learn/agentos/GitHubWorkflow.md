@@ -113,6 +113,12 @@ The server exposes a comprehensive suite of tools via the Model Context Protocol
 
 *   **`list_labels`**: Enumerates all valid labels in the repository. *Always check this before applying labels.*
 
+### 4.5 Discussions
+
+*   **`create_discussion`**: Creates a new GitHub Discussion (default category `Ideas`). Used for the Ideation Sandbox.
+*   **`manage_discussion_comment`**: Creates or updates a comment on a Discussion (`action`: `create` | `update`).
+*   **`manage_discussion`**: Updates the body of an existing Discussion (`action`: `update_body`). Enables post-publication corrections to Ideation Sandbox entries through the MCP surface instead of a raw `gh api graphql` workaround.
+
 ## 5. Configuration
 
 The server is highly configurable via `config.mjs` or a custom configuration file passed via the `-c` or `--config` CLI flag. This allows you to override default settings—such as the target repository, file paths, or API limits—without modifying the source code.
