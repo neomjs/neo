@@ -331,7 +331,10 @@ Post-MVP residual work is tracked separately under:
   ingestion exploration, only if push-based tenant ingestion proves
   insufficient.
 - [#11732](https://github.com/neomjs/neo/issues/11732) - graph-store evolution
-  beyond the SQLite + mounted-volume MVP baseline.
+  beyond the SQLite + mounted-volume MVP baseline. Resolved by
+  [ADR 0015](decisions/0015-graph-store-backend-posture.md): keep SQLite + WAL
+  for now; reopen networked SQL only on graph-specific multi-writer, scale, HA,
+  or storage-platform evidence.
 - [#11733](https://github.com/neomjs/neo/issues/11733) - downstream external
   deployment-pipeline wiring. Delivered post-MVP — see [Downstream Pipeline
   Wiring](cloud-deployment/PipelineWiring.md).
