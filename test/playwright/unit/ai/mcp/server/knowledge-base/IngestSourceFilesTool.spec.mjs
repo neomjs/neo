@@ -37,11 +37,12 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
 test.describe.configure({mode: 'serial'});
 
 test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', () => {
-    let ingestSourceFilesViaMcp, listTools, KnowledgeBaseIngestionService, aiConfig;
-    let originalIngest, originalThreshold;
+    let callTool, ingestSourceFilesViaMcp, listTools, KnowledgeBaseIngestionService, aiConfig;
+    let originalIngest, originalThreshold, originalTransport;
 
     test.beforeAll(async () => {
         const toolService = await import('../../../../../../../ai/mcp/server/knowledge-base/toolService.mjs');
+        callTool               = toolService.callTool;
         ingestSourceFilesViaMcp = toolService.ingestSourceFilesViaMcp;
         listTools               = toolService.listTools;
 
@@ -50,6 +51,7 @@ test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', ()
 
         originalIngest    = KnowledgeBaseIngestionService.ingestSourceFiles;
         originalThreshold = aiConfig.mcpSyncMaxChunks;
+        originalTransport = aiConfig.transport;
     });
 
     test.afterAll(() => {
@@ -58,12 +60,14 @@ test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', ()
         }
         if (aiConfig) {
             aiConfig.mcpSyncMaxChunks = originalThreshold;
+            aiConfig.transport        = originalTransport;
         }
     });
 
     test.beforeEach(() => {
         // Tight, predictable threshold; restore the real service method before each spec.
         aiConfig.mcpSyncMaxChunks                       = 5;
+        aiConfig.transport                              = 'sse';
         KnowledgeBaseIngestionService.ingestSourceFiles = originalIngest;
     });
 
@@ -137,7 +141,9 @@ test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', ()
         expect('error' in result).toBe(false);
     });
 
-    test('ingest_source_files is registered as an MCP tool via listTools()', () => {
+    test('ingest_source_files is listed for the remote SSE transport profile', () => {
+        aiConfig.transport = 'sse';
+
         const {tools} = listTools();
         const tool    = tools.find(item => item.name === 'ingest_source_files');
 
@@ -147,5 +153,14 @@ test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', ()
         // MCP description-budget guard (Anthropic/Gemini limits; pr-review guide §5.3).
         expect(tool.name.length, 'tool name within the 64-char MCP limit').toBeLessThanOrEqual(64);
         expect(tool.description.length, 'tool description within the 1024-char MCP budget').toBeLessThanOrEqual(1024);
+    });
+
+    test('ingest_source_files is hidden and fail-closed for local stdio transport', async () => {
+        aiConfig.transport = 'stdio';
+
+        const {tools} = listTools();
+
+        expect(tools.find(item => item.name === 'ingest_source_files')).toBeUndefined();
+        await expect(callTool('ingest_source_files', {files: []})).rejects.toThrow(/transport: "sse"/);
     });
 });
