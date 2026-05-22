@@ -1,1 +1,10 @@
-import Base from "../../../../../src/core/Base.mjs";\nclass HealthService extends Base {\n    static config = {\n        className: "Neo.ai.mcp.server.gitlab-workflow.services.HealthService",\n        singleton: true\n    };\n    async healthcheck() { return { status: "healthy" }; }\n    async ensureHealthy() { return true; }\n    async ensureHealthy() { throw new Error("Not implemented: Sub-task 2/3"); }\n}\nexport default Neo.setupClass(HealthService);
+import Base from "../../../../../src/core/Base.mjs";
+class HealthService extends Base {
+    static config = {
+        className: "Neo.ai.mcp.server.gitlab-workflow.services.HealthService",
+        singleton: true
+    };
+    async healthcheck() { return { status: "healthy" }; }
+    async ensureHealthy() { return true; }
+}
+export default Neo.setupClass(HealthService);

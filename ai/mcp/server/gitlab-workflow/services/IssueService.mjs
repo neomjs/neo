@@ -1,1 +1,8 @@
-import Base from "../../../../../src/core/Base.mjs";\nclass IssueService extends Base {\n    static config = {\n        className: "Neo.ai.mcp.server.gitlab-workflow.services.IssueService",\n        singleton: true\n    };\n    async listIssues() { throw new Error("Not implemented: Sub-task 2/3"); }\n    async createIssue() { throw new Error("Not implemented: Sub-task 2/3"); }\n    async manageIssueAssignees() { throw new Error("Not implemented: Sub-task 2/3"); }\n    async manageIssueComment() { throw new Error("Not implemented: Sub-task 2/3"); }\n    async manageIssueLabels() { throw new Error("Not implemented: Sub-task 2/3"); }\n}\nexport default Neo.setupClass(IssueService);
+import Base from "../../../../../src/core/Base.mjs";
+class IssueService extends Base {
+    static config = {
+        className: "Neo.ai.mcp.server.gitlab-workflow.services.IssueService",
+        singleton: true
+    };
+}
+export default Neo.setupClass(IssueService);

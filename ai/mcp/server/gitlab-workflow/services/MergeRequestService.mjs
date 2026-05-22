@@ -1,1 +1,8 @@
-import Base from "../../../../../src/core/Base.mjs";\nclass MergeRequestService extends Base {\n    static config = {\n        className: "Neo.ai.mcp.server.gitlab-workflow.services.MergeRequestService",\n        singleton: true\n    };\n    async listMergeRequests() { throw new Error("Not implemented: Sub-task 2/3"); }\n}\nexport default Neo.setupClass(MergeRequestService);
+import Base from "../../../../../src/core/Base.mjs";
+class MergeRequestService extends Base {
+    static config = {
+        className: "Neo.ai.mcp.server.gitlab-workflow.services.MergeRequestService",
+        singleton: true
+    };
+}
+export default Neo.setupClass(MergeRequestService);
