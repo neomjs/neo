@@ -354,7 +354,7 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(selectHarnessAdapter({ adapter: 'claude-cli' }, 'darwin')).toBe('claude-cli');
     });
 
-    test('Antigravity CLI: Windows .cmd dispatch delegates quoting to Node shell (#11767)', async () => {
+    test('Antigravity CLI: Windows .cmd dispatch delegates wrapper escaping to cross-spawn (#11767)', async () => {
         const { createSpawnRequest } = await import('../../../../../ai/scripts/resumeHarness.mjs');
 
         const cmd  = 'C:\\Program Files\\Antigravity\\bin\\antigravity.cmd',
@@ -368,10 +368,9 @@ test.describe('ai/scripts/resumeHarness', () => {
 
         expect(request.cmd).toBe(cmd);
         expect(request.args).toEqual(args);
-        expect(request.options).toMatchObject({
-            shell: true,
-            stdio: 'ignore'
-        });
+        expect(request.options).toEqual({stdio: 'ignore'});
+        expect(request.spawnModule).toBe('cross-spawn');
+        expect(request.options).not.toHaveProperty('shell');
         expect(request.options).not.toHaveProperty('windowsVerbatimArguments');
     });
 

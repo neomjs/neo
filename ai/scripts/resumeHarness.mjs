@@ -18,6 +18,7 @@
  * @see .agents/skills/session-sunset/references/session-sunset-workflow.md §1
  */
 import { spawn } from 'child_process';
+import crossSpawn from 'cross-spawn';
 import { constants as fsConstants } from 'fs';
 import fs from 'fs/promises';
 import os from 'os';
@@ -51,7 +52,8 @@ const __dirname  = path.dirname(__filename);
 function spawnAsync(cmd, args, identity = null, hostPlatform = process.platform) {
     return new Promise((resolve, reject) => {
         const spawnRequest = createSpawnRequest(cmd, args, hostPlatform);
-        const proc = spawn(spawnRequest.cmd, spawnRequest.args, spawnRequest.options);
+        const spawnFn = spawnRequest.spawnModule === 'cross-spawn' ? crossSpawn : spawn;
+        const proc     = spawnFn(spawnRequest.cmd, spawnRequest.args, spawnRequest.options);
         let recordPromise = Promise.resolve();
 
         if (identity && proc.pid) {
@@ -86,31 +88,30 @@ export function isWindowsBatchCommand(cmd) {
  * @summary Build a spawn request that can execute Windows `.cmd` / `.bat` wrappers.
  *
  * POSIX hosts and native Windows executables keep the direct spawn path. Windows
- * batch files opt into Node's shell dispatch path because plain
- * `spawn(file, args)` cannot execute them directly and hand-rolled `cmd.exe`
- * quoting is easy to get wrong.
+ * batch files use `cross-spawn`, which owns the `.cmd` / `.bat` wrapper handling
+ * and argument escaping instead of relying on Node's deprecated
+ * `spawn(file, args, {shell: true})` concatenation path.
  *
  * @param {string} cmd
  * @param {string[]} args
  * @param {string} [hostPlatform=process.platform]
- * @returns {{cmd: string, args: string[], options: Object}}
+ * @returns {{cmd: string, args: string[], options: Object, spawnModule: string}}
  */
 export function createSpawnRequest(cmd, args, hostPlatform = process.platform) {
     if (hostPlatform === 'win32' && isWindowsBatchCommand(cmd)) {
         return {
             cmd,
             args,
-            options: {
-                shell: true,
-                stdio: 'ignore'
-            }
+            options    : {stdio: 'ignore'},
+            spawnModule: 'cross-spawn'
         };
     }
 
     return {
         cmd,
         args,
-        options: {stdio: 'ignore'}
+        options    : {stdio: 'ignore'},
+        spawnModule: 'node'
     };
 }
 
