@@ -359,7 +359,7 @@ test.describe('ai/scripts/resumeHarness', () => {
 
         const request = createSpawnRequest(
             'C:\\Program Files\\Antigravity\\bin\\antigravity.cmd',
-            ['chat', '-n', 'payload & %PATH% | < > ^ ! "quoted"'],
+            ['chat', '-n', 'payload \\path & %PATH% | < > ^ ! "quoted"'],
             'win32',
             {COMSPEC: 'C:\\Windows\\System32\\cmd.exe'}
         );
@@ -374,9 +374,9 @@ test.describe('ai/scripts/resumeHarness', () => {
         });
 
         const commandLine = request.args[3];
-        expect(commandLine).toContain('call "C:\\Program Files\\Antigravity\\bin\\antigravity.cmd"');
+        expect(commandLine).toContain('call "C:\\\\Program Files\\\\Antigravity\\\\bin\\\\antigravity.cmd"');
         expect(commandLine).toContain('"chat" "-n"');
-        expect(commandLine).toContain('"payload ^& %%PATH%% ^| ^< ^> ^^ ^! \\"quoted\\""');
+        expect(commandLine).toContain('"payload \\\\path ^& %%PATH%% ^| ^< ^> ^^ ^! \\"quoted\\""');
     });
 
     test('Antigravity CLI: missing executable reports actionable path diagnostic (#10684)', async () => {

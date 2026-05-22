@@ -100,6 +100,7 @@ export function quoteWindowsCmdArgument(value) {
     }
 
     return `"${stringValue
+        .replace(/\\/g, '\\\\')
         .replace(/"/g, '\\"')
         .replace(/%/g, '%%')
         .replace(/([&|<>()^!])/g, '^$1')}"`;
