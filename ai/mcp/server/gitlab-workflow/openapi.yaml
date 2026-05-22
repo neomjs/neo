@@ -1,0 +1,906 @@
+openapi: 3.0.3
+info:
+  title: Neo.mjs GitLab Workflow MCP Server API
+  description: |
+    This API provides structured access to the Neo.mjs GitLab repository, enabling the automation of contribution workflows. 
+    It uses a hybrid approach, leveraging both the GitLab CLI (`gh`) for simple, direct commands (e.g., checking out a PR) 
+    and the GitLab GraphQL API for complex data fetching and mutations (e.g., listing PRs, creating comments, syncing issues).
+    This allows AI agents to programmatically interact with merge requests and issues in a safe and efficient manner.
+  version: 1.0.0
+  contact:
+    name: Neo.mjs Project
+    url: https://gitlab.com/neomjs/neo
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8002
+    description: Local development server
+
+tags:
+  - name: Health
+    description: Server health and status endpoints
+  - name: Merge Requests
+    description: Operations related to GitLab Merge Requests
+  - name: Labels
+    description: Operations related to repository labels
+  - name: Issues
+    description: Operations related to repository issues and merge requests
+  - name: Repository
+    description: Operations related to the repository itself
+
+paths:
+  /healthcheck:
+    get:
+      summary: Check GitLab CLI Health
+      operationId: healthcheck
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Verifies that the GitLab CLI (`gh`) is installed, authenticated, and meets the minimum version requirement.
+
+        **When to Use:**
+        This should be the first tool you run if you suspect any issues with the GitLab Workflow MCP server. It provides a quick diagnostic check on the server's primary dependency.
+      tags: [Health]
+      responses:
+        '200':
+          description: Server is healthy and `gh` is available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthCheckResponse'
+        '503':
+          description: Server is unhealthy or `gh` CLI is not available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /merge-requests:
+    get:
+      summary: List Merge Requests
+      operationId: list_merge_requests
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves a list of merge requests from the GitLab repository.
+
+        **When to Use:**
+        - To get a high-level overview of pending work (using the default `state: 'open'`).
+        - To research historical context by looking at past work (e.g., using `state: 'closed'` or `state: 'merged'`).
+        - To find a specific merge request number for use in other tools.
+        - When the user asks questions like:
+          - "What merge requests are currently open?"
+          - "Show me recently merged PRs."
+
+        **Best Practices:**
+        - After calling this tool, summarize the list of PRs for the user.
+        - Highlight key details such as the PR number, title, author, and state.
+        - Avoid showing the raw JSON output to the user unless they explicitly ask for it.
+
+        **Future Enhancements:**
+        Note that a future feature will sync PR conversations to local markdown files, providing a more detailed way to review historical PRs. For now, this tool is the primary way to browse PR history.
+      tags: [Merge Requests]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of merge requests to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+        - name: state
+          in: query
+          required: false
+          description: Filter merge requests by state.
+          schema:
+            type: string
+            enum: [open, closed, merged, all]
+            default: open
+      responses:
+        '200':
+          description: A list of open merge requests.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PullRequestListResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /comments/manage:
+    post:
+      summary: Manage Comments (Create or Update)
+      operationId: manage_issue_comment
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Unified tool for creating and updating comments on issues and merge requests.
+        Supports both adding new comments and modifying existing ones.
+
+        **Action: 'create'**
+        - Creates a new comment on an issue or PR.
+        - Requires `agent`, `body`, and either `issue_number` or `pr_number`.
+        - Automatically formats the comment with the agent's identity.
+        - **When to use:** To provide feedback, approve PRs (with "LGTM"), or ask questions.
+
+        **Action: 'update'**
+        - Updates an existing comment.
+        - Requires `comment_id` and `body`.
+        - **When to use:** To correct mistakes or update status in a previously posted comment.
+        - **Note:** You can only update comments created by the authenticated user.
+      tags: [Issues, Merge Requests]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - body
+              properties:
+                action:
+                  type: string
+                  enum: [create, update]
+                  description: The action to perform.
+                  example: create
+                issue_number:
+                  type: integer
+                  description: The number of the issue (required for 'create' if not a PR).
+                  example: 456
+                pr_number:
+                  type: integer
+                  description: The number of the merge request (required for 'create' if not an issue).
+                  example: 123
+                comment_id:
+                  type: string
+                  description: The global node ID of the comment (required for 'update').
+                  example: "IC_kwDOABcD1234567890"
+                body:
+                  type: string
+                  description: The content of the comment.
+                agent:
+                  type: string
+                  description: The agent identity in the format '[Model Name] ([Agent Wrapper])' (required for 'create').
+                  example: "Gemini 3.1 Pro (Antigravity)"
+      responses:
+        '200':
+          description: Comment created or updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request (missing arguments or invalid action).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Resource not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /issues/{issue_number}/labels/manage:
+    post:
+      summary: Manage Issue Labels (Add or Remove)
+      operationId: manage_issue_labels
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Unified tool for adding or removing labels from an issue or merge request.
+
+        **Action: 'add'**
+        - Adds one or more labels.
+        - **Important:** Use exact label names. Check with `list_labels` first.
+
+        **Action: 'remove'**
+        - Removes one or more labels.
+        - **Important:** Use exact label names.
+      tags: [Issues]
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: The number of the issue or merge request.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - labels
+              properties:
+                action:
+                  type: string
+                  enum: [add, remove]
+                  description: The action to perform.
+                  example: add
+                labels:
+                  type: array
+                  items:
+                    type: string
+                  description: An array of label names.
+                  example: ["bug", "priority"]
+      responses:
+        '200':
+          description: Labels updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Bad Request (invalid action).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Issue or label not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /issues/{issue_number}/assignees/manage:
+    post:
+      summary: Manage Issue Assignees (Add or Remove)
+      operationId: manage_issue_assignees
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Unified tool for assigning or unassigning users from a GitLab issue.
+
+        **Action: 'add'**
+        - Assigns one or more users.
+
+        **Action: 'remove'**
+        - Unassigns one or more users.
+
+        **Permission Check:**
+        Requires `ADMIN`, `MAINTAIN`, or `WRITE` permissions. Returns 403 otherwise.
+      tags: [Issues]
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: The number of the issue.
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+                - assignees
+              properties:
+                action:
+                  type: string
+                  enum: [add, remove]
+                  description: The action to perform.
+                  example: add
+                assignees:
+                  type: array
+                  items:
+                    type: string
+                  description: An array of GitLab user logins.
+                  example: ["tobiu"]
+      responses:
+        '200':
+          description: Assignees updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '403':
+          description: Forbidden (insufficient permissions).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Issue not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+  /issues/{issue_number}/content:
+    get:
+      summary: Get Local Issue Content by ID
+      operationId: get_local_issue_by_id
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves the full markdown content of a local issue file by its number, searching both active and archived issues.
+
+        **When to Use:**
+        Use this tool for a fast, offline-capable way to read the content of an issue that is already present on the local disk. This tool reads directly from the file system and does **not** access the GitLab API.
+
+        **Important:** The content returned reflects the state of the issue at the time of the last `sync_all` operation and may not be the most up-to-date version if remote changes have occurred since.
+      tags: [Issues]
+      parameters:
+        - name: issue_number
+          in: path
+          required: true
+          description: The number of the issue (e.g., "7608" or "#7608").
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The content and path of the issue file.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocalIssueResponse'
+        '404':
+          description: Issue file not found locally.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /issues:
+    get:
+      summary: List Issues
+      operationId: list_issues
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: true
+      description: |
+        Retrieves a list of issues from the repository. Supports basic filters such as `limit`, `state`, `labels`, and `assignee`.
+
+        **When to Use:**
+        - To find open work items or review recent closed issues.
+        - To look up issue numbers for use in other tools.
+      tags: [Issues]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of issues to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 30
+        - name: state
+          in: query
+          required: false
+          description: Filter issues by state.
+          schema:
+            type: string
+            enum: [open, closed, all]
+            default: open
+        - name: labels
+          in: query
+          required: false
+          description: Comma separated list of labels to filter by (all labels must be present on the issue).
+          schema:
+            type: string
+        - name: assignee
+          in: query
+          required: false
+          description: Filter issues by a single assignee login.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: A list of issues.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IssueListResponse'
+        '500':
+          description: Internal server error, e.g., GraphQL failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Create a new GitLab issue
+      operationId: create_issue
+      x-pass-as-object: true
+      x-annotations:
+        readOnlyHint: false
+      description: |
+        Creates a new issue on GitLab. This is the authoritative first step for creating a new ticket.
+
+        ## CRITICAL PROTOCOL: READ BEFORE USING
+        You generally FAIL to show the proposal to the user before calling this tool. Do not let that happen.
+
+        **MANDATORY WORKFLOW (Do Not Skip):**
+
+        1.  **Check Labels:** Run `list_labels` to verify available labels.
+        2.  **Draft Content:** Formulate the `title`, `body`, and `labels`.
+        3.  **VISUAL PROPOSAL (REQUIRED):** You **MUST** display the proposed ticket content to the user **IN THE CHAT** before calling this tool. Use this format:
+            ```text
+            Title: [Proposed Title]
+            Labels: [label1, label2]
+            Body:
+            [Proposed Body]
+            ```
+        4.  **Call Tool:** Immediately call `create_issue` after displaying the proposal. Do not ask for permission first (the user can decline the tool call).
+
+        **STRICT LABELING RULES:**
+        - **MANDATORY:** The `ai` label is REQUIRED on ALL tickets you create.
+        - **PRIMARY:** Include one primary label: `epic`, `enhancement`, or `bug`.
+        - **SECONDARY:** Add other relevant labels (e.g., `documentation`) if they exist.
+
+        **Post-Creation:**
+        The tool returns the new issue number. You can use this number immediately for other tools (e.g., `create_comment`, `manage_issue_assignees`).
+        To update the issue body later, use `run_shell_command` with `gh issue edit {number} --body "..."`.
+      tags: [Issues]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+              properties:
+                title:
+                  type: string
+                  description: The title of the issue.
+                body:
+                  type: string
+                  description: The Markdown body of the issue.
+                  default: ""
+                labels:
+                  type: array
+                  items:
+                    type: string
+                  description: (Optional) An array of labels to add to the issue.
+                  default: []
+                assignees:
+                  type: array
+                  items:
+                    type: string
+                  description: (Optional) An array of GitLab user logins to assign to the issue. Requires write permissions.
+                  default: []
+      responses:
+        '201':
+          description: Issue created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateIssueResponse'
+        '500':
+          description: Internal server error, e.g., `gh` command failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    HealthCheckResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "healthy"
+        timestamp:
+          type: string
+          format: date-time
+          description: The ISO 8601 timestamp of when the health check was performed.
+        version:
+          type: string
+          description: The version of the MCP server.
+          example: "1.0.0"
+        gitlabCli:
+          type: object
+          properties:
+            installed:
+              type: boolean
+              example: true
+            authenticated:
+              type: boolean
+              example: true
+            versionOk:
+              type: boolean
+              example: true
+            version:
+              type: string
+              example: "2.81.0"
+            details:
+              type: array
+              items:
+                type: string
+
+    Label:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        color:
+          type: string
+
+    LabelListResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        labels:
+          type: array
+          items:
+            $ref: '#/components/schemas/Label'
+
+    PullRequest:
+      type: object
+      properties:
+        number:
+          type: integer
+          example: 123
+        title:
+          type: string
+          example: "feat: Add new component"
+        author:
+          type: object
+          properties:
+            login:
+              type: string
+              example: "some-contributor"
+        url:
+          type: string
+          format: uri
+          example: "https://gitlab.com/neomjs/neo/pull/123"
+        state:
+          type: string
+          enum: [OPEN, CLOSED, MERGED]
+          example: "OPEN"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-10-08T12:00:00.000Z"
+
+    PullRequestListResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: Number of merge requests returned
+          example: 5
+        pullRequests:
+          type: array
+          items:
+            $ref: '#/components/schemas/PullRequest'
+
+    PullRequestConversation:
+      type: object
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+        author:
+          type: object
+          properties:
+            login:
+              type: string
+              description: The GitLab username of the PR author.
+        comments:
+          type: array
+          items:
+            type: object
+            properties:
+              author:
+                type: object
+                properties:
+                  login:
+                    type: string
+                    description: The GitLab username of the comment author.
+              body:
+                type: string
+              createdAt:
+                type: string
+                format: date-time
+
+    SuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Operation completed successfully"
+        details:
+          type: string
+          description: Optional details from the CLI output.
+          example: "Checked out branch 'some-contributor/my-feature-branch'"
+
+    SyncIssuesResponse:
+      type: object
+      required:
+        - success
+        - summary
+        - statistics
+        - timing
+      properties:
+        success:
+          type: boolean
+          example: true
+          description: Whether the sync operation completed successfully
+        summary:
+          type: string
+          example: "Synchronization complete"
+          description: Human-readable summary of the sync operation
+        statistics:
+          type: object
+          required:
+            - pushed
+            - pulled
+            - dropped
+            - reconciled
+            - releases
+          properties:
+            pushed:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  example: 2
+                  description: Number of local changes pushed to GitLab
+                issues:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1234, 1235]
+                  description: Issue numbers that were pushed
+                failures:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1236]
+                  description: Issue numbers that failed to push
+            pulled:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  example: 15
+                  description: Total number of issues pulled from GitLab
+                created:
+                  type: integer
+                  example: 3
+                  description: Number of new issues created locally
+                updated:
+                  type: integer
+                  example: 12
+                  description: Number of existing issues updated locally
+                moved:
+                  type: integer
+                  example: 2
+                  description: Number of issues moved between directories
+                issues:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1230, 1231, 1232]
+                  description: Issue numbers that were pulled
+            dropped:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  example: 1
+                  description: Number of dropped issues removed locally
+                issues:
+                  type: array
+                  items:
+                    type: integer
+                  example: [999]
+                  description: Issue numbers that were dropped
+            reconciled:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  example: 5
+                  description: Number of closed issues moved to archives during reconciliation
+                issues:
+                  type: array
+                  items:
+                    type: integer
+                  example: [1200, 1201, 1202, 1203, 1204]
+                  description: Issue numbers that were reconciled and archived
+            releases:
+              type: object
+              properties:
+                count:
+                  type: integer
+                  example: 5
+                  description: Number of release notes synced
+                synced:
+                  type: array
+                  items:
+                    type: string
+                  example: ['v11.0', 'v10.9', 'v10.8']
+                  description: Release version tags that were synced
+        timing:
+          type: object
+          required:
+            - startTime
+            - endTime
+            - durationMs
+          properties:
+            startTime:
+              type: string
+              format: date-time
+              example: "2025-10-21T10:00:00.000Z"
+              description: ISO timestamp when sync started
+            endTime:
+              type: string
+              format: date-time
+              example: "2025-10-21T10:02:30.000Z"
+              description: ISO timestamp when sync completed
+            durationMs:
+              type: integer
+              example: 150000
+              description: Total sync duration in milliseconds
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "GitLab CLI command failed"
+        message:
+          type: string
+          example: "gh pr checkout 123 failed with exit code 1"
+        code:
+          type: string
+          example: "GH_CLI_ERROR"
+
+    CreateIssueResponse:
+      type: object
+      properties:
+        issueNumber:
+          type: integer
+          description: The number of the newly created issue.
+        url:
+          type: string
+          format: uri
+          description: The URL of the newly created issue.
+
+    UpdateIssueRelationshipResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: A human-readable message describing the result of the operation.
+          example: "Successfully set #7385 as parent of #7388"
+        childIssue:
+          type: integer
+          description: The issue number of the child issue.
+          example: 7388
+        parentIssue:
+          type: integer
+          nullable: true
+          description: The issue number of the parent issue, or null if the parent was removed.
+          example: 7385
+        oldParent:
+          type: integer
+          description: The previous parent issue number, if one was replaced or removed.
+          example: 7380
+        replaceParentApplied:
+          type: boolean
+          description: Indicates whether the replace_parent flag was used.
+          example: false
+
+    LocalIssueResponse:
+      type: object
+      properties:
+        filePath:
+          type: string
+          description: The absolute path to the found issue file.
+          example: /path/to/project/.gitlab/ISSUE/issue-7608.md
+        content:
+          type: string
+          description: The full markdown content of the issue file.
+
+    ViewerPermissionResponse:
+      type: object
+      properties:
+        permission:
+          type: string
+          description: The permission level of the viewer.
+          enum: [ADMIN, MAINTAIN, WRITE, TRIAGE, READ]
+          example: WRITE
+
+    Issue:
+      type: object
+      properties:
+        number:
+          type: integer
+          example: 7608
+        title:
+          type: string
+        body:
+          type: string
+        state:
+          type: string
+          example: OPEN
+        author:
+          type: object
+          properties:
+            login:
+              type: string
+        url:
+          type: string
+          format: uri
+        labels:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+        assignees:
+          type: array
+          items:
+            type: object
+            properties:
+              login:
+                type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    IssueListResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/Issue'

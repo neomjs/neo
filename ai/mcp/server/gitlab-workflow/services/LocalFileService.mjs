@@ -1,0 +1,1 @@
+import Base from "../../../../../src/core/Base.mjs";\nclass LocalFileService extends Base {\n    static config = {\n        className: "Neo.ai.mcp.server.gitlab-workflow.services.LocalFileService",\n        singleton: true\n    };\n    async getIssueById() { throw new Error("Not implemented: Sub-task 2/3"); }\n}\nexport default Neo.setupClass(LocalFileService);
