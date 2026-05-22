@@ -32,8 +32,9 @@ import {test, expect} from '@playwright/test';
  *
  * Stubbing strategy: SwarmHeartbeatService exposes test-stubbable instance-method seams
  * (`checkHeartbeatLock`, `clearHeartbeatLock`, `sweepExpiredTasks`, `checkGateOpen`,
- * `readGate`, `runScript`, `runScriptJson`, `runCmd`, `getUnreadCount`, `getIssuesCount`,
- * `isPushCapable`, `injectTmux`) precisely so unit tests can override them without going
+ * `readGate`, `checkSunsetted`, `resumeHarness`, `idleOutNudge`, `checkAllAgentIdle`,
+ * `trioWakeCooldown`, `runScript`, `runScriptJson`, `runCmd`, `getUnreadCount`,
+ * `getIssuesCount`, `isPushCapable`, `injectTmux`) precisely so unit tests can override them without going
  * through the heavy substrate. Module-binding imports (e.g. `isGateOpen`) cannot be
  * reassigned at import-site in ES modules — instance methods are the seam that works.
  *
@@ -77,6 +78,11 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         SwarmHeartbeatService.sweepExpiredTasks  = async () => ({sweptCount: 0});
         SwarmHeartbeatService.checkGateOpen      = async () => true;
         SwarmHeartbeatService.readGate           = async () => ({state: 'enabled', reason: '', trippedAt: null, trippedBy: null});
+        SwarmHeartbeatService.checkSunsetted     = async () => null;
+        SwarmHeartbeatService.resumeHarness      = async () => {};
+        SwarmHeartbeatService.idleOutNudge       = async () => {};
+        SwarmHeartbeatService.checkAllAgentIdle  = async () => null;
+        SwarmHeartbeatService.trioWakeCooldown   = async () => {};
         SwarmHeartbeatService.runScriptJson      = async () => null;
         SwarmHeartbeatService.runScript          = async () => '';
         SwarmHeartbeatService.runCmd             = async () => '[]';
@@ -180,107 +186,110 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         SwarmHeartbeatService.checkGateOpen = async () => false;
         SwarmHeartbeatService.readGate      = async () => ({state: 'tripped', reason: 'test-tripped', trippedAt: null, trippedBy: 'test'});
 
-        const dispatched = [];
-        SwarmHeartbeatService.runScriptJson = async (name) => {
-            if (name === 'checkSunsetted.mjs') {
-                return {
-                    sunsetted          : true,
-                    reason             : 'No active WAKE_SUBSCRIPTION',
-                    originSessionId    : 'sid-123',
-                    abandonedCount     : 0,
-                    recommended_action : 'sunset_restart'
-                };
-            }
-            return null;
+        const resumeCalls = [];
+        SwarmHeartbeatService.checkSunsetted = async () => {
+            return {
+                sunsetted          : true,
+                reason             : 'No active WAKE_SUBSCRIPTION',
+                originSessionId    : 'sid-123',
+                abandonedCount     : 0,
+                recommended_action : 'sunset_restart'
+            };
         };
-        SwarmHeartbeatService.runScript = async (name, args) => { dispatched.push({name, args}); return '' };
+        SwarmHeartbeatService.resumeHarness = async (...args) => { resumeCalls.push(args) };
 
         await SwarmHeartbeatService.pulse();
 
         // Gate closed → no resumeHarness dispatch.
-        const resumeCalls = dispatched.filter(d => d.name === 'resumeHarness.mjs');
         expect(resumeCalls.length).toBe(0);
     });
 
     test('pulse() routes sunset to resumeHarness when gate is open', async () => {
         applyDefaultStubs();
-        const dispatched = [];
-        SwarmHeartbeatService.runScriptJson = async (name) => {
-            if (name === 'checkSunsetted.mjs') {
-                return {
-                    sunsetted          : true,
-                    reason             : 'Subscription missing',
-                    originSessionId    : 'sid-456',
-                    abandonedCount     : 2,
-                    recommended_action : 'sunset_restart'
-                };
-            }
-            return null;
+        const resumeCalls = [];
+        SwarmHeartbeatService.checkSunsetted = async () => {
+            return {
+                sunsetted          : true,
+                reason             : 'Subscription missing',
+                originSessionId    : 'sid-456',
+                abandonedCount     : 2,
+                recommended_action : 'sunset_restart'
+            };
         };
-        SwarmHeartbeatService.runScript = async (name, args) => { dispatched.push({name, args}); return '' };
+        SwarmHeartbeatService.resumeHarness = async (...args) => { resumeCalls.push(args) };
 
         await SwarmHeartbeatService.pulse();
 
-        const resumeCalls = dispatched.filter(d => d.name === 'resumeHarness.mjs');
         expect(resumeCalls.length).toBe(1);
-        expect(resumeCalls[0].args).toEqual(['@test', 'Subscription missing', 'sid-456', '2']);
+        expect(resumeCalls[0]).toEqual(['@test', 'Subscription missing', 'sid-456', 2]);
     });
 
     test('pulse() routes idle_out_nudge when gate is open and recommendation matches', async () => {
         applyDefaultStubs();
-        const dispatched = [];
-        SwarmHeartbeatService.runScriptJson = async (name) => {
-            if (name === 'checkSunsetted.mjs') {
-                return {
-                    sunsetted          : false,
-                    recommended_action : 'idle_out_nudge'
-                };
-            }
-            return null;
+        const nudgeCalls = [];
+        SwarmHeartbeatService.checkSunsetted = async () => {
+            return {
+                sunsetted          : false,
+                recommended_action : 'idle_out_nudge'
+            };
         };
-        SwarmHeartbeatService.runScript = async (name, args) => { dispatched.push({name, args}); return '' };
+        SwarmHeartbeatService.idleOutNudge = async (...args) => { nudgeCalls.push(args) };
 
         await SwarmHeartbeatService.pulse();
 
-        const nudgeCalls = dispatched.filter(d => d.name === 'idleOutNudge.mjs');
         expect(nudgeCalls.length).toBe(1);
-        expect(nudgeCalls[0].args).toEqual(['@test']);
+        expect(nudgeCalls[0]).toEqual(['@test']);
     });
 
     test('pulse() skips idle_out_nudge when gate is closed', async () => {
         applyDefaultStubs();
         SwarmHeartbeatService.checkGateOpen = async () => false;
 
-        const dispatched = [];
-        SwarmHeartbeatService.runScriptJson = async (name) => {
-            if (name === 'checkSunsetted.mjs') {
-                return {sunsetted: false, recommended_action: 'idle_out_nudge'};
-            }
-            return null;
-        };
-        SwarmHeartbeatService.runScript = async (name, args) => { dispatched.push({name, args}); return '' };
+        const nudgeCalls = [];
+        SwarmHeartbeatService.checkSunsetted = async () => ({sunsetted: false, recommended_action: 'idle_out_nudge'});
+        SwarmHeartbeatService.idleOutNudge   = async (...args) => { nudgeCalls.push(args) };
 
         await SwarmHeartbeatService.pulse();
 
-        const nudgeCalls = dispatched.filter(d => d.name === 'idleOutNudge.mjs');
         expect(nudgeCalls.length).toBe(0);
     });
 
     test('pulse() routes allIdle to trioWakeCooldown when gate is open', async () => {
         applyDefaultStubs();
-        const dispatched = [];
-        SwarmHeartbeatService.runScriptJson = async (name) => {
-            if (name === 'checkAllAgentIdle.mjs') return {allIdle: true, cycle_id: '1', identities: ['@a', '@b']};
-            return null;
-        };
-        SwarmHeartbeatService.runScript = async (name, args) => { dispatched.push({name, args}); return '' };
+        const trioCalls = [];
+        SwarmHeartbeatService.checkAllAgentIdle = async () => ({allIdle: true, cycle_id: '1', identities: ['@a', '@b']});
+        SwarmHeartbeatService.trioWakeCooldown  = async (signal) => { trioCalls.push(signal) };
 
         await SwarmHeartbeatService.pulse();
 
-        const trioCalls = dispatched.filter(d => d.name === 'trioWakeCooldown.mjs');
         expect(trioCalls.length).toBe(1);
-        // arg[0] is the JSON-stringified signal
-        expect(JSON.parse(trioCalls[0].args[0]).allIdle).toBe(true);
+        expect(trioCalls[0].allIdle).toBe(true);
+    });
+
+    test('pulse() does not subprocess-dispatch converted dual-mode wake scripts', async () => {
+        applyDefaultStubs();
+        const sunsetCalls = [];
+        const idleCalls = [];
+
+        SwarmHeartbeatService.checkSunsetted = async (identity) => {
+            sunsetCalls.push(identity);
+            return {sunsetted: false, recommended_action: 'no_action'};
+        };
+        SwarmHeartbeatService.checkAllAgentIdle = async (cycleId) => {
+            idleCalls.push(cycleId);
+            return {allIdle: false};
+        };
+        SwarmHeartbeatService.runScript = async () => {
+            throw new Error('runScript should not be called for converted wake scripts');
+        };
+        SwarmHeartbeatService.runScriptJson = async () => {
+            throw new Error('runScriptJson should not be called for converted wake scripts');
+        };
+
+        await SwarmHeartbeatService.pulse();
+
+        expect(sunsetCalls).toEqual(['@test']);
+        expect(idleCalls.length).toBe(1);
     });
 
     test('pulse() reschedules from finally block even when sweep throws', async () => {
