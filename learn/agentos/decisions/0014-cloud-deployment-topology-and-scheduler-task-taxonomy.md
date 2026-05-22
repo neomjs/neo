@@ -158,6 +158,24 @@ After this ADR was accepted, [#11766](https://github.com/neomjs/neo/issues/11766
 
 **Cloud disable is a config default, not a hardcode.** The cloud `Orchestrator` profile disables the lane via the `localOnly.swarmHeartbeatEnabled` config key (`NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED` env override) — resolved by the same `assignLocalOnlyToggle` deployment-mode mechanism §2.3 uses for the other local-only lanes. The lane is not stripped from the build. This is the deliberate forward-compat seam: post-v13, agents could run inside a container deployment, which would flip `swarmHeartbeatEnabled` back on with no code redesign. The lane's exclusion from the cloud profile is a profile contract (§5.1), not a permanent capability removal.
 
+### 2026-05-23 — tenant-repo pull-ingestion lane + server-side-cloning boundary update (#11740)
+
+Epic [#11731](https://github.com/neomjs/neo/issues/11731) (*Server-side tenant-repo ingestion for cloud Agent OS deployments*, graduated from Discussion #11782) adopts server-side pull-based tenant-repo KB ingestion as a post-MVP path **additive** to the #11726 push-based model. This amendment fires per §9's own re-review trigger — #11731 introduces a new `Orchestrator` scheduler lane — and updates the §6 scope boundary. ADR successor-risk verdict (per `adr-successor-risk-audit.md`): `adr-amendment-required` — the §2.1–§2.4 D0 MVP decision is **not** invalidated, so this is an amendment, not a supersession.
+
+**§6 boundary updated.** §6 records *"Server-side repo cloning — a D3 exploration; out of scope (push-based ingestion is the MVP default)."* That boundary was correct **for Epic #11720's D0 MVP** and the MVP default is unchanged. Epic #11731 is the post-MVP follow-up that brings server-side pull-ingestion **into scope** — as an additive tenant-ingestion option, not a replacement for push-based ingestion (#11726).
+
+**New lane — decision-level classification (implementation: #11790).** #11731's decomposition routes the pull-ingestion lane to sub #11790 (*tenant-repo-sync scheduler lane*), backed by a persistent GitMirror primitive (#11788) and a diff-to-ingest envelope builder (#11789). Per §9, the lane is classified here at the decision level; #11790 owns the `buildTaskDefinitions()` key, cadence config, and disable toggle.
+
+| Lane | Kind | Classification | Rationale |
+|---|---|---|---|
+| `tenant-repo-sync` | periodic, heavy | **cloud-deployable** | Pulls tenant-repo content into the cloud deployment's KB via a credentialed persistent GitMirror (#11788) + diff-to-ingest envelope (#11789). It is the cloud deployment's tenant-ingestion path — cloud-correct by construction. It is the mirror image of the local-only lanes: config-disabled in the local Neo-maintainer profile (which has no tenant repos), exactly as the local-only lanes are config-disabled in cloud. Distinct from `kbSync` — see below. |
+
+**`kbSync` is unchanged; §5.2 is reinforced, not weakened.** The existing `kbSync` lane keeps its §2.1 classification (**local-only** — the Neo-maintainer-checkout corpus scan). Tenant pull-ingestion is a **separate lane** (`tenant-repo-sync`) backed by a **separate primitive** (GitMirror, #11788) — *not* a re-pointed `kbSync`. §5.2's anti-pattern (*"Re-pointing the local `kbSync` lane at tenant content"*) stands and is reinforced: #11731 deliberately does not re-point `kbSync`; it adds the deliberate lane/service boundary §5.2 implied was the correct path. Maintainer-checkout `kbSync` and tenant pull-ingestion are two distinct concepts and must not be conflated.
+
+**Credential boundary — recorded, not yet blessed deployable.** This amendment blesses the *architectural shape* (a distinct cloud-deployable lane) — it does **not** mark the pull-ingestion path production-deployable. Per #11740 AC4, the credential / token / env-var contract — credentialed repo access that persists no secrets in `repoSlug`, logs, manifests, or graph-visible config — is specified by sub #11787 and is a hard prerequisite before `tenant-repo-sync` is marked production-ready.
+
+**Forward-looking taxonomy.** The lane does not yet exist in `buildTaskDefinitions()`; #11790 adds it. When #11790 lands, the `Orchestrator` will drive **eleven** scheduler lanes, and the cloud-deployable set becomes `{summary, backup, dream, golden-path, tenant-repo-sync}` (the local-only and shared-primitive sets unchanged).
+
 ## 9. Status / Lifecycle
 
 - **Accepted** after PR #11738 merged to `dev` with cross-family review. Re-open the decision only if Sub B / C / D discovers evidence that invalidates the taxonomy.
