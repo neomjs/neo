@@ -5,6 +5,7 @@ import PrimaryRepoSyncService, {
     buildPrimaryRepoSyncTrigger,
     DEV_SYNC_ROOTS_CONFIG_KEY,
     DEV_SYNC_ROOTS_ENV_VAR,
+    isKbRelevantChangePath,
     parseDevSyncRoots,
     parseEnabledFlag
 } from '../../../../../../ai/daemons/services/PrimaryRepoSyncService.mjs';
@@ -128,6 +129,37 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
         });
     });
 
+    test('classifies KB-relevant change paths conservatively', () => {
+        expect(isKbRelevantChangePath('src/button/Base.mjs')).toBe(true);
+        expect(isKbRelevantChangePath('ai/services/knowledge-base/source/ApiSource.mjs')).toBe(true);
+        expect(isKbRelevantChangePath('docs/output/class-hierarchy.json')).toBe(true);
+        expect(isKbRelevantChangePath('resources/content/issues/chunk-13/issue-11783.md')).toBe(true);
+        expect(isKbRelevantChangePath('resources/content/.sync-metadata.json')).toBe(false);
+        expect(isKbRelevantChangePath('.codex/config.template.toml')).toBe(false);
+        expect(isKbRelevantChangePath('package.json')).toBe(false);
+    });
+
+    test('falls back to KB cascade when changed-path detection fails', () => {
+        const execStub = createExecStub([{
+            cmd  : 'git',
+            args : ['diff', '--name-only', 'old-head..new-head'],
+            error: 'bad revision'
+        }]);
+
+        expect(PrimaryRepoSyncService.resolveKbSyncDecision({
+            root          : '/primary/neo',
+            oldHead       : 'old-head',
+            newHead       : 'new-head',
+            execFileSyncFn: execStub
+        })).toEqual({
+            kbSyncRequired  : true,
+            kbSyncReasonCode: 'kb-relevance-check-failed',
+            oldHead         : 'old-head',
+            newHead         : 'new-head',
+            error           : 'bad revision'
+        });
+    });
+
     test('resolves primary checkout from worktree list and falls back to git-common-dir', () => {
         const worktreeExec = createExecStub([{
             cmd   : 'git',
@@ -204,25 +236,44 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
             args  : ['status', '--porcelain'],
             output: ''
         }, {
+            cmd   : 'git',
+            args  : ['rev-parse', 'HEAD'],
+            output: 'old-head\n'
+        }, {
             cmd : 'git',
             args: ['pull', '--ff-only', 'origin', 'dev']
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', 'HEAD'],
+            output: 'new-head\n'
+        }, {
+            cmd   : 'git',
+            args  : ['diff', '--name-only', 'old-head..new-head'],
+            output: 'src/button/Base.mjs\n'
         }, {
             cmd : process.platform === 'win32' ? 'npm.cmd' : 'npm',
             args: ['run', 'ai:sync-kb']
         }]);
 
-        expect(PrimaryRepoSyncService.syncPrimaryDev({
+        const result = PrimaryRepoSyncService.syncPrimaryDev({
             cwd           : '/primary/neo',
             execFileSyncFn: execStub,
             writeLog      : () => {}
-        })).toEqual({
-            status : 'completed',
-            details: {
-                primaryRoot: '/primary/neo',
-                behind     : 2,
-                layer      : 'ff-pull',
-                kbSync     : true
-            }
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details).toMatchObject({
+            primaryRoot        : '/primary/neo',
+            behind             : 2,
+            layer              : 'ff-pull',
+            kbSync             : true,
+            kbSyncRequired     : true,
+            kbSyncReasonCode   : 'kb-relevant-changes',
+            oldHead            : 'old-head',
+            newHead            : 'new-head',
+            changedPathCount   : 1,
+            kbChangedPathCount : 1,
+            kbChangedPathSample: ['src/button/Base.mjs']
         });
     });
 
@@ -247,14 +298,23 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
             args  : ['status', '--porcelain'],
             output: ' M resources/content/.sync-metadata.json\n'
         }, {
+            cmd   : 'git',
+            args  : ['rev-parse', 'HEAD'],
+            output: 'old-head\n'
+        }, {
             cmd : 'git',
             args: ['checkout', '--', 'resources/content/.sync-metadata.json']
         }, {
             cmd : 'git',
             args: ['pull', '--ff-only', 'origin', 'dev']
         }, {
-            cmd : process.platform === 'win32' ? 'npm.cmd' : 'npm',
-            args: ['run', 'ai:sync-kb']
+            cmd   : 'git',
+            args  : ['rev-parse', 'HEAD'],
+            output: 'new-head\n'
+        }, {
+            cmd   : 'git',
+            args  : ['diff', '--name-only', 'old-head..new-head'],
+            output: 'resources/content/.sync-metadata.json\n'
         }]);
 
         const result = PrimaryRepoSyncService.syncPrimaryDev({
@@ -265,6 +325,15 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
 
         expect(result.status).toBe('completed');
         expect(result.details.resolved).toBe('meta-sync');
+        expect(result.details).toMatchObject({
+            kbSync            : false,
+            kbSyncRequired    : false,
+            kbSyncReasonCode  : 'no-kb-relevant-changes',
+            reasonCode        : 'no-kb-relevant-changes',
+            changedPathCount  : 1,
+            kbChangedPathCount: 0
+        });
+        expect(execStub.calls.map(call => call.cmd)).not.toContain(process.platform === 'win32' ? 'npm.cmd' : 'npm');
     });
 
     test('syncs configured dev roots and cascades KB once from the owning checkout', () => {
@@ -296,8 +365,20 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
             args  : ['status', '--porcelain'],
             output: ''
         }, {
+            cmd   : 'git',
+            args  : ['rev-parse', 'HEAD'],
+            output: 'old-head\n'
+        }, {
             cmd : 'git',
             args: ['pull', '--ff-only', 'origin', 'dev']
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', 'HEAD'],
+            output: 'new-head\n'
+        }, {
+            cmd   : 'git',
+            args  : ['diff', '--name-only', 'old-head..new-head'],
+            output: 'learn/guides/testing/UnitTesting.md\n'
         }, {
             cmd   : 'git',
             args  : ['rev-parse', '--show-toplevel'],
@@ -339,11 +420,18 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
                 skipped    : 1,
                 failed     : 0,
                 roots      : [{
-                    status: 'completed',
-                    root  : '/primary/neo',
-                    behind: 2,
-                    layer : 'ff-pull',
-                    kbSync: false
+                    status             : 'completed',
+                    root               : '/primary/neo',
+                    behind             : 2,
+                    layer              : 'ff-pull',
+                    kbSync             : false,
+                    kbSyncRequired     : true,
+                    kbSyncReasonCode   : 'kb-relevant-changes',
+                    oldHead            : 'old-head',
+                    newHead            : 'new-head',
+                    changedPathCount   : 1,
+                    kbChangedPathCount : 1,
+                    kbChangedPathSample: ['learn/guides/testing/UnitTesting.md']
                 }, {
                     status    : 'skipped',
                     reasonCode: 'up-to-date',
@@ -355,6 +443,76 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
         });
         expect(execStub.calls.filter(call => call.cmd.includes('npm') || call.cmd === 'npm').length).toBe(1);
         expect(execStub.calls.at(-1).cwd).toBe('/primary/neo');
+    });
+
+    test('skips configured-root KB cascade when completed roots changed no KB inputs', () => {
+        const execStub = createExecStub([{
+            cmd   : 'git',
+            args  : ['worktree', 'list', '--porcelain'],
+            output: 'worktree /primary/neo\n'
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--show-toplevel'],
+            output: '/primary/neo\n'
+        }, {
+            cmd : 'git',
+            args: ['fetch', 'origin', 'dev', '--quiet']
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--verify', 'origin/dev'],
+            output: 'abc123\n'
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', '--abbrev-ref', 'HEAD'],
+            output: 'dev\n'
+        }, {
+            cmd   : 'git',
+            args  : ['rev-list', '--count', 'dev..origin/dev'],
+            output: '1\n'
+        }, {
+            cmd   : 'git',
+            args  : ['status', '--porcelain'],
+            output: ''
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', 'HEAD'],
+            output: 'old-head\n'
+        }, {
+            cmd : 'git',
+            args: ['pull', '--ff-only', 'origin', 'dev']
+        }, {
+            cmd   : 'git',
+            args  : ['rev-parse', 'HEAD'],
+            output: 'new-head\n'
+        }, {
+            cmd   : 'git',
+            args  : ['diff', '--name-only', 'old-head..new-head'],
+            output: '.codex/config.template.toml\n'
+        }]);
+
+        const result = PrimaryRepoSyncService.syncPrimaryDev({
+            cwd               : '/primary/neo',
+            execFileSyncFn    : execStub,
+            writeLog          : () => {},
+            devSyncRootsConfig: '["/primary/neo"]'
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details).toMatchObject({
+            mode      : 'configured-roots',
+            completed : 1,
+            kbSync    : false,
+            reasonCode: 'no-kb-relevant-changes'
+        });
+        expect(result.details.roots[0]).toMatchObject({
+            status            : 'completed',
+            kbSyncRequired    : false,
+            kbSyncReasonCode  : 'no-kb-relevant-changes',
+            reasonCode        : 'no-kb-relevant-changes',
+            changedPathCount  : 1,
+            kbChangedPathCount: 0
+        });
+        expect(execStub.calls.map(call => call.cmd)).not.toContain(process.platform === 'win32' ? 'npm.cmd' : 'npm');
     });
 
     test('configured non-dev roots fetch origin/dev but never switch branches', () => {
