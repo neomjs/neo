@@ -54,6 +54,29 @@ This asymmetry drives retention policy (see Phase 4 #11628): KB backup is cost-o
 
 The authenticated-ingestion-context resolution maps a tenant's push to its `tenantId` / `originAgentIdentity` before the ingestion service reaches Chroma. The invariant that holds regardless of the transport: **the tenant tuple is server-derived from the authenticated identity, never trusted from the payload.** Endpoint-exact auth wiring depends on the deployment's proxy/OIDC mode; see [Deployment Cookbook](../DeploymentCookbook.md) for the MCP deployment boundary and [Hook Wiring](./HookWiring.md) for ingestion facades.
 
+## Post-MVP hardening review (#11736)
+
+The #11720 MVP proves the deployable baseline: separate MCP containers, unified
+Chroma, cloud-safe orchestrator lanes, reference ingress, trusted proxy identity
+stripping, and MCP healthcheck readiness. The broader hardening pass below is
+post-MVP by design; it records which findings are already covered by the guide
+tree and which remain deferred to tracked residual work.
+
+| Hardening area | Current documented baseline | Disposition |
+|---|---|---|
+| Reverse proxy identity boundary | `ai/deploy/Caddyfile` strips spoofable identity headers before optional auth injection, and [Deployment Cookbook](../DeploymentCookbook.md) Section 4 names the same invariant. | Actioned for the reference ingress. Production deployments must enable an OIDC/proxy-auth layer or direct OIDC before serving mutually-untrusting tenants. |
+| Repo-push automation token | [Tenant Ingestion Model](./TenantIngestionModel.md) and [Hook Wiring](./HookWiring.md) define `NEO_KB_INGEST_TOKEN` as a tenant-scoped MCP authorization credential, never a Git credential and never part of `repoSlug`, logs, manifests, or graph-visible config. | Actioned for the push-based MVP path. Server-side Git credential transport remains deferred to [#11731](https://github.com/neomjs/neo/issues/11731). |
+| Secret storage | The guide tree consistently routes tokens through tenant hook/CI secret stores and deployment auth/provider config, not committed files. | Actioned at runbook level. Platform-specific secret-manager/KMS wiring belongs to downstream deployment-pipeline work ([#11733](https://github.com/neomjs/neo/issues/11733)) once a concrete platform is selected. |
+| Network policy | The reference compose profile keeps KB and MC internal behind Caddy (`expose`, public path routing through `/kb/*` and `/mc/*`). | Actioned for compose. Kubernetes network policies, managed ingress rules, and service-mesh variants are deferred platform work, tracked under [#11733](https://github.com/neomjs/neo/issues/11733) if adopted. |
+| Container image hardening | The MVP compose baseline provides per-service resource envelopes and readiness gates. | Deferred. Non-root users, read-only root filesystems, image signing, SBOMs, and vulnerability scanning are production-platform controls, not required for the MVP reference compose. File a focused follow-up when the target registry/runtime is chosen. |
+| Data recovery severity | This guide documents KB-as-cache vs MC-as-store, and the cookbook requires a durable backup volume or object-store target for backup bundles. | Actioned conceptually. Managed SQL/object-storage hardening and retention tuning belong to [#11732](https://github.com/neomjs/neo/issues/11732) / Phase 4 retention work when the deployment leaves the single-node MVP shape. |
+| Parser execution | Server-side parser execution is operator-gated; untrusted tenant parser logic runs tenant-side and submits `parsed-chunk-v1`. | Actioned as policy. Runtime sandboxing for future in-process untrusted parsers is explicitly out of scope until such a feature graduates. |
+
+This scoped pass realigns the stale #11720 owner-map wording in the deployment
+cookbook and records the broader hardening review here. Future guide drift
+should be handled as focused follow-ups rather than silent expansion inside this
+ticket.
+
 ## Related
 
 - [Overview](./Overview.md) — the contract split + topology anchor.
