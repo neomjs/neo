@@ -39,6 +39,10 @@ If the proposed ticket involves modifying any agent skill (i.e., any file within
 
 For source anchors (#11078/#11082/#11083/#11084), Discussion #11091 authority context, and substrate-decay review, read [`../../ideation-sandbox/audits/double-diamond-divergence-guard.md`](../../ideation-sandbox/audits/double-diamond-divergence-guard.md).
 
+### 1d. Project Attachment Pre-Flight (during release cycle)
+
+Before draft, confirm the target project number is current (cite the project number in your Pre-Flight reasoning statement, e.g., *"Will attach to Project 12 per §4."*). Prevents stale-project-number drift across release cycles. Pairs mechanically with the §4 mandate below.
+
 ## 2. Six-Stage Challenge Chain
 
 Apply at creation time — not just at intake. Every stage must pass before the ticket is drafted.
@@ -75,7 +79,10 @@ Keep titles under ~70 characters. PR titles derive from ticket titles; length di
 - **Primary — exactly one:** `epic`, `enhancement`, or `bug`.
 - **Secondary — as applicable:** `architecture`, `performance`, `regression`, `refactoring`, `documentation`, `testing`, plus domain labels (`core`, `grid`, `build`, etc.).
 - Before filing: call `list_labels` to confirm the labels exist. Do not invent label names.
-- **Release tracking is NOT via labels.** Use the `create_issue` tool's `projects` parameter to atomically attach the new ticket to a ProjectV2 board. Labels are categorization primitives (`bug`, `architecture`); ProjectV2 memberships are first-class release-tracking primitives. Per [#11233](https://github.com/neomjs/neo/issues/11233), the `release:v*` label family is deprecated — use `projects: [{projectNumber: 12}]` for v13 release tracking.
+- **Project attachment is MANDATORY on every ticket during the v13 release cycle.** Visibility primitive: every new ticket goes onto Project 12 ([Neo v13 Release board](https://github.com/orgs/neomjs/projects/12)) so the swarm + operator have a single overview. ProjectV2 memberships supersede the deprecated `release:v*` label family per [#11233](https://github.com/neomjs/neo/issues/11233).
+  - **`create_issue` MCP tool path:** pass `projects: [{projectNumber: 12}]` atomically with the create.
+  - **`gh issue create` CLI bypass path:** ALWAYS follow with `gh project item-add 12 --owner neomjs --url <new-issue-url>` immediately. Treat the two-step as inseparable.
+  - **Project anchor** is currently `12` (v13). When v14 release work begins, update the project number in this section AND any hard-coded `create_issue` examples or call-sites that name the release project (the MCP tool's `projects` parameter is caller-supplied with `[]` default — not a configurable tool-side default to update). Sunset condition: once v13 release ships, this rule needs disposition review (`keep` with updated project number, OR `compress-to-trigger` if mid-release ambiguity arises).
 
 ## 5. Fat Ticket Body Structure
 
@@ -116,6 +123,7 @@ Skeleton tickets are forbidden. Every ticket body MUST contain:
 | Inventing label names | Breaks label taxonomy; causes silent GitHub API rejections |
 | Precedent-following without skill check | Propagates anti-patterns from prior sessions (e.g., `[enhancement]` prefix spread this way) |
 | Cross-scope bundling | `epic` label on a single-commit ticket; hurts granularity |
+| Using `gh issue create` without follow-up `gh project item-add` (during release cycle) | Bypasses §4 v13 release-board attachment; ticket invisible in swarm/operator overview; two-step CLI path MUST be treated as inseparable per §4 |
 
 ## 9. When to Escalate to Discussion Instead
 
