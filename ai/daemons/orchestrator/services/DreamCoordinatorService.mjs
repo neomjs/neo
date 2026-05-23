@@ -1,10 +1,22 @@
-// Neo + core/_export bootstrap belongs to the orchestrator-daemon entry point
-// (`ai/daemons/orchestrator/daemon.mjs`). Class files rely on `globalThis.Neo`
-// populated by the entry-point bootstrap.
-import Base from '../../../../src/core/Base.mjs';
+/**
+ * @summary Dream-cycle due-trigger selection for the v13 orchestrator.
+ *
+ * Stateless utility (no reactive configs, no lifecycle, no class-system features
+ * beyond namespace registration) — uses the gatekeep pattern, mirroring
+ * `src/core/IdGenerator.mjs` / `src/util/Env.mjs` precedent.
+ *
+ * Owns due-trigger selection ONLY (D3.1 boundary per `learn/agentos/v13-path.md:117`).
+ * Does NOT absorb `DreamService.processUndigestedSessions()` — that stays in
+ * `DreamService` as execution-side responsibility. The orchestrator asks this service
+ * whether a dream task is due; the service returns a trigger object or null.
+ *
+ * @namespace Neo.ai.daemons.services.DreamCoordinatorService
+ * @see ai/daemons/orchestrator/services/DreamService.mjs
+ * @see learn/agentos/v13-path.md
+ */
 
 /**
- * @summary Builds the task trigger for the dream-cycle lane.
+ * Builds the task trigger for the dream-cycle lane.
  *
  * The dream lane is a single-source interval lane: periodic-dream fires when the
  * configured interval has elapsed since `lastRunAt`. Keeping this projection pure
@@ -30,35 +42,7 @@ export function buildDreamTrigger({now, lastRunAt, intervalMs}) {
     return null;
 }
 
-/**
- * @summary Coordinates the dream-cycle due-trigger selection for the v13 orchestrator.
- *
- * Owns due-trigger selection ONLY (D3.1 boundary per `learn/agentos/v13-path.md:117`).
- * Does NOT absorb `DreamService.processUndigestedSessions()` — that stays in
- * `DreamService` as execution-side responsibility. The orchestrator asks this service
- * whether a dream task is due; the service returns a trigger object or null.
- *
- * @class Neo.ai.daemons.services.DreamCoordinatorService
- * @extends Neo.core.Base
- * @singleton
- * @see ai/daemons/orchestrator/services/DreamService.mjs
- * @see ai/daemons/orchestrator/services/SummarizationCoordinatorService.mjs — precedent shape
- * @see learn/agentos/v13-path.md
- */
-class DreamCoordinatorService extends Base {
-    static config = {
-        /**
-         * @member {String} className='Neo.ai.daemons.services.DreamCoordinatorService'
-         * @protected
-         */
-        className: 'Neo.ai.daemons.services.DreamCoordinatorService',
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
-    }
-
+const DreamCoordinatorService = {
     /**
      * Resolves the next dream task trigger.
      * @param {Object} options
@@ -74,6 +58,6 @@ class DreamCoordinatorService extends Base {
             intervalMs: dreamIntervalMs
         });
     }
-}
+};
 
-export default Neo.setupClass(DreamCoordinatorService);
+export default Neo.gatekeep(DreamCoordinatorService, 'Neo.ai.daemons.services.DreamCoordinatorService');
