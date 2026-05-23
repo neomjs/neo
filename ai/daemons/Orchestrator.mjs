@@ -3,11 +3,12 @@
 // rely on `globalThis.Neo` populated by the entry-point bootstrap; importing Neo here
 // would violate the entry-point-only invariant + risk partial-namespace damage if the
 // class were ever loaded outside its entry-point's chain.
-import fs                          from 'fs-extra';
-import {spawn}                     from 'child_process';
-import path                        from 'path';
-import Base                        from '../../src/core/Base.mjs';
-import HealthService               from '../services/memory-core/HealthService.mjs';
+import fs                                from 'fs-extra';
+import {spawn}                           from 'child_process';
+import path                              from 'path';
+import Base                              from '../../src/core/Base.mjs';
+import {Memory_Config as aiConfig}       from '../services.mjs';
+import HealthService                     from '../services/memory-core/HealthService.mjs';
 import {
     initializeDatabase
 } from '../scripts/bridge-daemon-queries.mjs';
@@ -390,18 +391,22 @@ export class Orchestrator extends Base {
             this.heavyMaintenanceLeasePath = options.heavyMaintenanceLeasePath;
         }
         this.cadenceEngine          = options.cadenceEngine          || CadenceEngine;
-        this.pollIntervalMs         = options.pollIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_POLL_INTERVAL_MS, DEFAULT_POLL_INTERVAL_MS);
+        // Interval fallback chain (per #11075 substrate-migration): options arg → env var →
+        // aiConfig.orchestrator.intervals → legacy TaskDefinitions DEFAULT_X constant. The
+        // aiConfig path enables operator override via gitignored `ai/config.mjs` without env
+        // var; the legacy DEFAULT_X retention is defense-in-depth for pre-aiConfig-init paths.
+        this.pollIntervalMs         = options.pollIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_POLL_INTERVAL_MS, aiConfig.orchestrator?.intervals?.pollMs ?? DEFAULT_POLL_INTERVAL_MS);
         this.summarySweepIntervalMs = options.summarySweepIntervalMs ?? this.cadenceEngine.parseInterval(
             process.env.NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS ?? process.env.NEO_SUMMARIZATION_SWEEP_INTERVAL_MS,
-            DEFAULT_SUMMARY_SWEEP_INTERVAL_MS
+            aiConfig.orchestrator?.intervals?.summarySweepMs ?? DEFAULT_SUMMARY_SWEEP_INTERVAL_MS
         );
-        this.kbSyncIntervalMs       = options.kbSyncIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS, DEFAULT_KB_SYNC_INTERVAL_MS);
+        this.kbSyncIntervalMs       = options.kbSyncIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS, aiConfig.orchestrator?.intervals?.kbSyncMs ?? DEFAULT_KB_SYNC_INTERVAL_MS);
         this.kbSyncEnabled          = options.kbSyncEnabled ?? parseEnabledFlag(
             process.env.NEO_ORCHESTRATOR_KB_SYNC_ENABLED,
             true
         );
-        this.backupIntervalMs       = options.backupIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS, DEFAULT_BACKUP_INTERVAL_MS);
-        this.primaryDevSyncIntervalMs = options.primaryDevSyncIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS, DEFAULT_PRIMARY_DEV_SYNC_INTERVAL_MS);
+        this.backupIntervalMs       = options.backupIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS, aiConfig.orchestrator?.intervals?.backupMs ?? DEFAULT_BACKUP_INTERVAL_MS);
+        this.primaryDevSyncIntervalMs = options.primaryDevSyncIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS, aiConfig.orchestrator?.intervals?.primaryDevSyncMs ?? DEFAULT_PRIMARY_DEV_SYNC_INTERVAL_MS);
         this.primaryDevSyncEnabled  = options.primaryDevSyncEnabled ?? parseEnabledFlag(
             process.env.NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED,
             true
@@ -410,7 +415,7 @@ export class Orchestrator extends Base {
             process.env.NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED,
             true
         );
-        this.swarmHeartbeatIntervalMs = options.swarmHeartbeatIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS, DEFAULT_SWARM_HEARTBEAT_INTERVAL_MS);
+        this.swarmHeartbeatIntervalMs = options.swarmHeartbeatIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS, aiConfig.orchestrator?.intervals?.swarmHeartbeatMs ?? DEFAULT_SWARM_HEARTBEAT_INTERVAL_MS);
         this.swarmHeartbeatEnabled  = options.swarmHeartbeatEnabled ?? parseEnabledFlag(
             process.env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED,
             true
