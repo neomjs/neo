@@ -666,7 +666,7 @@ class MemoryService extends Base {
             const result = GraphService.mutateFrontier({ targetNodeId, weight, relationship });
 
             // Trigger event-driven Golden Path Synthesis
-            import('../../daemons/services/GoldenPathSynthesizer.mjs').then(mod => {
+            import('../../services/graph/GoldenPathSynthesizer.mjs').then(mod => {
                 mod.default.synthesizeGoldenPath().catch(err => {
                     logger.error('[MemoryService] Event-driven Golden Path Synthesis failed:', err);
                 });

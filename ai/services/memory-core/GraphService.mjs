@@ -465,7 +465,7 @@ class GraphService extends Base {
             return true;
         }
 
-        const {default: MemorySessionIngestor} = await import('../../daemons/services/MemorySessionIngestor.mjs');
+        const {default: MemorySessionIngestor} = await import('../../services/ingestion/MemorySessionIngestor.mjs');
         const result = await MemorySessionIngestor.ingestSingleRow(graphNodeId);
 
         if (!result.success) {

@@ -79,8 +79,8 @@ NeuralLink_Config.data.autoConnect = false;
 // --- Daemons ---
 import DreamService from './daemons/orchestrator/services/DreamService.mjs';
 import HeavyMaintenanceLeaseService from './daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
-import SemanticGraphExtractor from './daemons/services/SemanticGraphExtractor.mjs';
-import TopologyInferenceEngine from './daemons/services/TopologyInferenceEngine.mjs';
+import SemanticGraphExtractor from './services/graph/SemanticGraphExtractor.mjs';
+import TopologyInferenceEngine from './services/graph/TopologyInferenceEngine.mjs';
 
 // --- Concept Ontology ---
 import ConceptService from './services/ConceptService.mjs';

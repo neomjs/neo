@@ -28,7 +28,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     let logger;
     let GraphService;
     let SystemLifecycleService;
-    
+
     let StorageRouter;
     let TextEmbeddingService;
     let tmpHandoffFile;
@@ -37,10 +37,10 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
     let originalEmbeddingProvider;
     let originalVectorDimension;
     let originalWarn;
-    
+
     test.beforeAll(async () => {
         aiConfig = (await import('../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        
+
         const os = await import('os');
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
@@ -49,17 +49,17 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const testDbName = `memory-core-goldenpath-test-${process.pid}-${Date.now()}.sqlite`;
         const testDbPath = path.join(tmpDir, testDbName);
         aiConfig.storagePaths.graph = testDbPath;
-        
+
         tmpHandoffFile = path.join(tmpDir, `mock_sandman_handoff_${process.pid}_${Date.now()}.md`);
         aiConfig.handoffFilePath = tmpHandoffFile;
 
-        GoldenPathSynthesizer = (await import('../../../../../../ai/daemons/services/GoldenPathSynthesizer.mjs')).default;
+        GoldenPathSynthesizer = (await import('../../../../../../ai/services/graph/GoldenPathSynthesizer.mjs')).default;
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         StorageRouter = (await import('../../../../../../ai/services.mjs')).Memory_StorageRouter;
         TextEmbeddingService = (await import('../../../../../../ai/services.mjs')).Memory_TextEmbeddingService;
         logger = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
-        
+
         if (!SystemLifecycleService._initPromise) { await SystemLifecycleService.initAsync(); } else { await SystemLifecycleService.ready(); }
     });
 
@@ -93,7 +93,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         const originalGetSummaryCollection = StorageRouter.getSummaryCollection;
         const originalEmbedText = TextEmbeddingService.embedText;
         aiConfig.vectorDimension = 2;
-        
+
         StorageRouter.getGraphCollection = async () => ({ query: async () => ({ ids: [['mock-id']], distances: [[0.1]] }) });
         StorageRouter.getSummaryCollection = async () => ({ get: async () => ({ documents: ['mock document'] }) });
         TextEmbeddingService.embedText = async () => [0.1, 0.2];
@@ -128,7 +128,7 @@ test.describe('Neo.ai.daemons.services.GoldenPathSynthesizer', () => {
         }
 
         const handoffContent = fs.readFileSync(tmpHandoffFile, 'utf-8');
-        
+
         expect(handoffContent).toContain('## Active PR Cycle State');
         expect(handoffContent).toContain('### @neo-gemini-3-1-pro');
         expect(handoffContent).toContain('- **PR #11178**: [feat(ai): Automate PR Cycle State Extraction](https://github.com/neomjs/neo/pull/11178)');

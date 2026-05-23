@@ -31,8 +31,8 @@ import {
     Memory_GraphService as GraphService,
     Memory_StorageRouter as StorageRouter
 } from '../services.mjs';
-import MemorySessionIngestor from '../daemons/services/MemorySessionIngestor.mjs';
-import LazyEdgeDrainer       from '../daemons/services/LazyEdgeDrainer.mjs';
+import MemorySessionIngestor from '../services/ingestion/MemorySessionIngestor.mjs';
+import LazyEdgeDrainer       from '../services/graph/LazyEdgeDrainer.mjs';
 import logger                from '../mcp/server/memory-core/logger.mjs';
 
 const

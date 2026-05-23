@@ -482,7 +482,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     });
 
     test('addMessage auto-emits TAGGED_CONCEPT edges via SemanticGraphExtractor', async () => {
-        const SemanticGraphExtractor = (await import('../../../../../../ai/daemons/services/SemanticGraphExtractor.mjs')).default;
+        const SemanticGraphExtractor = (await import('../../../../../../ai/services/graph/SemanticGraphExtractor.mjs')).default;
 
         // Mock the extractor to resolve immediately with predefined concepts
         const originalExtract = SemanticGraphExtractor.extractMessageConcepts;

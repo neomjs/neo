@@ -15,7 +15,7 @@ import KBRecorderService from '../KBRecorderService.mjs';
  * render-helper is the substrate-correct integration shape (see #11639 intake finding).
  *
  * @see ai/services/knowledge-base/KBRecorderService.mjs — `getTenantIngestionRollup`, the rollup source.
- * @see ai/daemons/services/GoldenPathSynthesizer.mjs — the handoff generator that composes this section.
+ * @see ai/services/graph/GoldenPathSynthesizer.mjs — the handoff generator that composes this section.
  * @see ai/services/memory-core/helpers/ConsumerFrictionHelper.mjs — the render-helper precedent.
  */
 

@@ -29,7 +29,7 @@ import ProcessSupervisorService          from './services/ProcessSupervisorServi
 import CadenceEngine                     from './services/CadenceEngine.mjs';
 import DreamService                      from './services/DreamService.mjs';
 import SwarmHeartbeatService             from './services/SwarmHeartbeatService.mjs';
-import GoldenPathSynthesizer             from '../services/GoldenPathSynthesizer.mjs';
+import GoldenPathSynthesizer             from '../../services/graph/GoldenPathSynthesizer.mjs';
 import {
     PRIMARY_DEV_SYNC_TASK_NAME,
     DREAM_TASK_NAME,

@@ -28,7 +28,7 @@ import path from 'path';
  *
  * **V-B-A obligation for path-mutating call sites:** before authoring any file in
  * `ai/services/github-workflow/sync/*.mjs`, `ai/services/github-workflow/shared/*Path.mjs`,
- * `ai/mcp/server/github-workflow/config{,.template}.mjs`, `ai/daemons/services/IssueIngestor.mjs`,
+ * `ai/mcp/server/github-workflow/config{,.template}.mjs`, `ai/services/ingestion/IssueIngestor.mjs`,
  * `buildScripts/release/publish.mjs`, or any consumer of `resources/content/...`, you MUST read
  * ADR 0004 start-to-finish, then verify the chosen pattern against this helper's signature.
  *
