@@ -188,31 +188,16 @@ You MUST follow this exact handoff protocol:
 
 *(Codified per #11217, graduated from Discussion #11216; operationalizes operator directive 2026-05-11: "premature PRs → reject". Post-#11796 family-keyed shape: [`audits/consensus-gate-mirror.md`](../audits/consensus-gate-mirror.md). §6.1.1 below = pre-#11796 per-peer shape pending follow-up.)*
 
-**Axis 2 of the consensus mandate** (Axis 1 is `ideation-sandbox-workflow.md §6` Discussion-graduation-gate). Without both axes, the consensus-mandate is bypassable by opening a PR before Discussion-graduation reaches 100% APPROVED.
+**Axis 2 of the consensus mandate** (Axis 1 is `ideation-sandbox-workflow.md §6` Discussion-graduation-gate). Without both axes, the consensus-mandate is bypassable by opening a PR before Discussion-graduation reaches the §6.2 quorum (canonical: audit pointer above).
 
 **Scope**: PRs that implement substrate evolution **from a high-blast Discussion** (per `ideation-sandbox-workflow.md §6.1`). PRs from low-blast Discussions, direct-ticket implementations without an originating Discussion, or bug-fixes use the standard §6.1 Cross-Family Mandate alone.
 
-**Author obligation**: when opening a PR from a high-blast Discussion, the PR body's "Related" section MUST cite the Discussion's graduation state via the dogfooded `## Signal Ledger` pattern (per `ideation-sandbox-workflow.md §6.6`):
-
-```markdown
-## Signal Ledger (sourced from Discussion #N)
-- @<peer1>: APPROVED @ <commentId>
-- @<peer2>: APPROVED @ <commentId>
-- @<peer3>: APPROVED @ <commentId>
-
-## Unresolved Dissent
-(empty if 100% APPROVED; otherwise: DEFERRED/VETO entries with status)
-
-## Unresolved Liveness
-(empty if all 3 signals collected; otherwise: no-signal entries with peer-owned liveness disposition)
-```
-
-These three sections are mandatory in the PR body for substrate-mutating PRs from high-blast Discussions. Empty sections are positive signals.
+**Author obligation**: PRs from high-blast Discussions MUST cite the Discussion's graduation state in the PR body via the family-keyed `## Signal Ledger` + `## Unresolved Dissent` + `## Unresolved Liveness` sections per `ideation-sandbox-workflow.md §6.6` (canonical template, multi-identity nesting, Tier-2 revalidationTrigger: [`audits/consensus-gate-mirror.md §signal-ledger-template`](../audits/consensus-gate-mirror.md)). Empty sections are positive signals.
 
 **Reviewer obligation**: the cross-family reviewer MUST verify the Signal Ledger BEFORE stamping `reviewDecision: APPROVED`:
 
 1. Read the cited Discussion via GitHub GraphQL (`gh api graphql -f query='{ repository(owner, name) { discussion(number: N) { body comments { ... } } } }'`), public comment URLs, or the locally synced discussion artifact when available. Note: the github-workflow MCP `get_conversation` tool is PR-specific; it does NOT retrieve Discussion content.
-2. Confirm each peer's APPROVED signal exists at the cited commentId
+2. Confirm the §6.2 family-keyed quorum (≥ 2 active families with signal + ≥ 1 non-author family `APPROVED`; canonical: audit pointer above). For Tier-2 substrate, also confirm the substrate Epic's `revalidationTrigger` AC for any benched family in `## Unresolved Liveness`.
 3. Confirm version-binding: signals are bound to the substrate state being implemented (not stale relative to body edits)
 4. Confirm any DEFERRED/VETO carries explicit peer-reconciliation / peer-owned disposition + residual-risk documentation
 
