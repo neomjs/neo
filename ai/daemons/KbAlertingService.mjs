@@ -2,12 +2,13 @@
 // InstanceManager) lives in `ai/scripts/kb-alerting-daemon.mjs` per the canonical
 // Orchestrator class+wrapper pattern. `Neo.setupClass(KbAlertingService)` at file
 // bottom works via `globalThis.Neo`, populated by the entry-point bootstrap chain.
-import Base                  from '../../src/core/Base.mjs';
-import {Memory_Config as aiConfig} from '../services.mjs';
-import KBRecorderService     from '../services/knowledge-base/KBRecorderService.mjs';
-import MailboxService        from '../services/memory-core/MailboxService.mjs';
-import RequestContextService from '../mcp/server/shared/services/RequestContextService.mjs';
-import logger               from '../mcp/server/knowledge-base/logger.mjs';
+import Base                           from '../../src/core/Base.mjs';
+import {Memory_Config as aiConfig}    from '../services.mjs';
+import KBRecorderService              from '../services/knowledge-base/KBRecorderService.mjs';
+import MailboxService                 from '../services/memory-core/MailboxService.mjs';
+import RequestContextService          from '../mcp/server/shared/services/RequestContextService.mjs';
+import logger                         from '../mcp/server/knowledge-base/logger.mjs';
+import {normalizeAgentIdentityNodeId} from '../scripts/resumeHarness.mjs';
 import {
     DEFAULT_COOLDOWN_MS,
     evaluateAlertRules,
@@ -315,7 +316,9 @@ class KbAlertingService extends Base {
 
         const
             {subject, body} = formatAlertMessage(alert),
-            sender          = process.env.NEO_AGENT_IDENTITY || DEFAULT_SENDER;
+            sender          = process.env.NEO_AGENT_IDENTITY
+                ? normalizeAgentIdentityNodeId(process.env.NEO_AGENT_IDENTITY)
+                : DEFAULT_SENDER;
 
         await RequestContextService.run({agentIdentityNodeId: sender}, async () => {
             await MailboxService.addMessage({
