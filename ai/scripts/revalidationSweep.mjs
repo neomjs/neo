@@ -30,41 +30,82 @@
  */
 
 import { execFileSync } from 'child_process';
+import { Command }      from 'commander';
 import { IDENTITIES }   from '../graph/identityRoots.mjs';
 
 export const SWEEP_VERSION = '1.0.0';
 
-const HELP = `Tier-2 revalidation sweep v${SWEEP_VERSION}
+/**
+ * @summary Build the commander Program for this script. Exposed for tests so
+ *   they can exercise parse / unknown-flag / required-option semantics without
+ *   spawning a child process. Each call returns a fresh `Command` instance to
+ *   avoid commander's shared-state surface in the default `program` export.
+ */
+export function createProgram() {
+    const program = new Command();
 
-Usage:
-  node ai/scripts/revalidationSweep.mjs --family <name> [options]
+    program
+        .name('revalidationSweep')
+        .description(
+            'Tier-2 revalidation sweep — notifies a reactivated AgentIdentity family of ' +
+            'Tier-2 graduated substrate landed during its bench window. Per Epic #11796 AC6 + ' +
+            'sub #11803, Option (c) sweep-script-notifies-only. See ' +
+            'learn/agentos/Tier2RevalidationSweep.md for the operator runbook.'
+        )
+        .version(SWEEP_VERSION)
+        .requiredOption(
+            '-f, --family <name>',
+            'modelFamily of reactivated identity (e.g. gemini, claude, gpt)'
+        )
+        .option(
+            '--since <ISO>',
+            'Bench start. Defaults to IDENTITIES[family].properties.since.'
+        )
+        .option(
+            '--until <ISO>',
+            'Bench end. Defaults to now.'
+        )
+        .option(
+            '-r, --repo <owner/repo>',
+            'GitHub repository to sweep.',
+            'neomjs/neo'
+        )
+        .option(
+            '--apply',
+            'Post notification comments to matched artifacts (default: dry-run mode).',
+            false
+        )
+        .option(
+            '--dry-run',
+            'Explicit dry-run mode (default behavior — log candidates without posting).',
+            false
+        );
 
-Options:
-  --family <name>     Required. modelFamily of reactivated identity (e.g. gemini).
-  --since <ISO>       Bench start. Defaults to IDENTITIES[family].properties.since.
-  --until <ISO>       Bench end. Defaults to now.
-  --repo <owner/name> GitHub repo. Defaults to neomjs/neo.
-  --dry-run           Default. Logs candidates without posting.
-  --apply             Posts notification comments on matched artifacts.
-  --help              Show this help.
-`;
+    return program;
+}
 
+/**
+ * @summary Parse argv into the sweep options object. Wraps commander with
+ *   `exitOverride()` so unknown flags / missing required options throw
+ *   `CommanderError` instead of calling `process.exit()` — required for
+ *   testability AND for `--help` to not terminate the test process. Empty/no-op
+ *   `--dry-run` flag is accepted for documentation clarity; the canonical
+ *   write-gate is `--apply` (default false).
+ */
 export function parseArgs(argv) {
-    const args = { family: null, since: null, until: null, dryRun: true, repo: 'neomjs/neo', help: false };
-    for (let i = 0; i < argv.length; i++) {
-        const arg = argv[i];
-        switch (arg) {
-            case '--family':  args.family = argv[++i]; break;
-            case '--since':   args.since  = argv[++i]; break;
-            case '--until':   args.until  = argv[++i]; break;
-            case '--repo':    args.repo   = argv[++i]; break;
-            case '--dry-run': args.dryRun = true;      break;
-            case '--apply':   args.dryRun = false;     break;
-            case '--help':
-            case '-h':        args.help   = true;      break;
-        }
-    }
-    return args;
+    const program = createProgram();
+    program.exitOverride();
+    program.configureOutput({ writeOut: () => {}, writeErr: () => {} });
+    program.parse(argv, { from: 'user' });
+
+    const options = program.opts();
+    return {
+        family: options.family,
+        since : options.since || null,
+        until : options.until || null,
+        repo  : options.repo,
+        dryRun: !options.apply
+    };
 }
 
 /**
@@ -225,14 +266,23 @@ const isMain = import.meta.url === `file://${process.argv[1]}` ||
                (process.argv[1] && import.meta.url.endsWith(process.argv[1]));
 
 if (isMain) {
-    const args = parseArgs(process.argv.slice(2));
+    // CLI mode: let commander handle --help / --version / unknown flags / missing
+    // required options directly (it writes to stdout/stderr + calls process.exit
+    // with the canonical exit code per the parsed shape). The test-facing
+    // `parseArgs()` wraps the same program with `exitOverride()` for assertion
+    // semantics; production CLI uses the default exit behavior.
+    const program = createProgram();
+    program.parse(process.argv);
 
-    if (args.help || !args.family) {
-        console.log(HELP);
-        process.exit(args.help ? 0 : 1);
-    }
+    const options = program.opts();
 
-    revalidationSweep(args)
+    revalidationSweep({
+        family: options.family,
+        since : options.since || null,
+        until : options.until || null,
+        repo  : options.repo,
+        dryRun: !options.apply
+    })
         .then(result => {
             console.log(JSON.stringify(result, null, 2));
             process.exit(0);

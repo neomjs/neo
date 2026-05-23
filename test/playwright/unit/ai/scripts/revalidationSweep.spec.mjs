@@ -26,7 +26,7 @@ import {
 } from '../../../../../ai/scripts/revalidationSweep.mjs';
 
 test.describe('Neo.ai.scripts.revalidationSweep', () => {
-    test.describe('parseArgs', () => {
+    test.describe('parseArgs (commander-backed)', () => {
         test('defaults to dry-run with neomjs/neo repo', () => {
             const args = parseArgs(['--family', 'gemini']);
             expect(args.family).toBe('gemini');
@@ -39,19 +39,44 @@ test.describe('Neo.ai.scripts.revalidationSweep', () => {
             expect(args.dryRun).toBe(false);
         });
 
-        test('parses since / until / repo / help', () => {
+        test('parses since / until / repo', () => {
             const args = parseArgs([
                 '--family', 'gpt',
                 '--since', '2026-01-01T00:00:00.000Z',
                 '--until', '2026-02-01T00:00:00.000Z',
-                '--repo', 'foo/bar',
-                '--help'
+                '--repo', 'foo/bar'
             ]);
             expect(args.family).toBe('gpt');
             expect(args.since).toBe('2026-01-01T00:00:00.000Z');
             expect(args.until).toBe('2026-02-01T00:00:00.000Z');
             expect(args.repo).toBe('foo/bar');
-            expect(args.help).toBe(true);
+        });
+
+        test('short flags -f and -r work alongside long forms', () => {
+            const args = parseArgs(['-f', 'gemini', '-r', 'foo/bar', '--apply']);
+            expect(args.family).toBe('gemini');
+            expect(args.repo).toBe('foo/bar');
+            expect(args.dryRun).toBe(false);
+        });
+
+        test('--dry-run is an accepted no-op (default behavior)', () => {
+            const args = parseArgs(['--family', 'gemini', '--dry-run']);
+            expect(args.dryRun).toBe(true);
+        });
+
+        test('rejects unknown flag (commander unknown-option semantics)', () => {
+            // Operator typo like `--aply` would silently degrade to dry-run with the
+            // hand-rolled parser; commander rejects with code `commander.unknownOption`.
+            expect(() => parseArgs(['--family', 'gemini', '--aply'])).toThrow();
+        });
+
+        test('rejects missing required --family (commander missing-required-option)', () => {
+            expect(() => parseArgs(['--since', '2026-01-01T00:00:00.000Z'])).toThrow();
+        });
+
+        test('rejects --family with no value (commander missing-arg semantics)', () => {
+            // Trailing required-option with no value triggers commander missing-arg.
+            expect(() => parseArgs(['--family'])).toThrow();
         });
     });
 
