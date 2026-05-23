@@ -28,6 +28,10 @@ and can drift independently of the Codex Desktop harness.
 - For state-changing GitHub calls, preserve the exact payload when retrying
   escalated so the sandbox retry does not mutate review/comment semantics.
 - Mid-session harness restart: read `.codex/HARNESS_RESTART.md` before diagnosing MCP, Chroma, GitHub, or wake-state failures.
+- If Codex reports `[features].codex_hooks is deprecated. Use [features].hooks instead.`,
+  the tracked `.codex/config.template.toml` is already current. Update the ignored
+  local `.codex/config.toml` copy to `[features].hooks = true` or re-copy the
+  template; do not commit `.codex/config.toml`.
 
 ## Identity & Prompt Firewall (L1 Anchor)
 
