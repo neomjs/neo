@@ -174,7 +174,7 @@ class Bridge extends Base {
             type   : 'agent_connected',
             agentId: id
         });
-        
+
         // Notify the new Agent of all already-connected apps
         for (const [appWorkerId, appWs] of this.apps.entries()) {
             if (ws.readyState === WebSocket.OPEN) {

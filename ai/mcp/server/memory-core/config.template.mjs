@@ -306,7 +306,7 @@ const defaultConfig = {
      */
     backupPath: path.resolve(cwd, '.neo-ai-data/backups'),
     /**
-     * Phase 4 (#11663): bundle retention policy for `buildScripts/ai/backup.mjs`.
+     * Phase 4 (#11663): bundle retention policy for `ai/scripts/maintenance/backup.mjs`.
      * Bundles older than `maxDays` are eligible for deletion, but the newest
      * `keepMinimum` bundles are retained unconditionally regardless of age.
      * Defaults match the pre-#11663 hardcoded behavior (`K=3, N_DAYS=30`) so

@@ -81,14 +81,14 @@ export function buildTaskDefinitions({
         kbSync: {
             label          : 'knowledge base sync',
             command        : nodeBin,
-            args           : [path.resolve(scriptDir, '../../buildScripts/ai/syncKnowledgeBase.mjs')],
+            args           : [path.join(scriptDir, 'maintenance', 'syncKnowledgeBase.mjs')],
             pidFileName    : 'kb-sync.pid',
             expectedCommand: 'syncKnowledgeBase.mjs'
         },
         backup: {
             label          : 'memory core backup',
             command        : nodeBin,
-            args           : [path.resolve(scriptDir, '../../buildScripts/ai/backup.mjs')],
+            args           : [path.join(scriptDir, 'maintenance', 'backup.mjs')],
             pidFileName    : 'backup.pid',
             expectedCommand: 'backup.mjs'
         },

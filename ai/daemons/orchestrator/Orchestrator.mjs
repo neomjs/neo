@@ -45,7 +45,7 @@ import {
  * Canonical set of heavy-maintenance task names that participate in the orchestrator's
  * cross-poll backpressure invariant: at any time, across orchestrator-owned tasks AND
  * lease-aware manual scripts (see `HeavyMaintenanceLeaseService` + Lane C wrappers in
- * `buildScripts/ai/*.mjs`), at most one substrate-heavy maintenance job may hold the
+ * `ai/scripts/maintenance/*.mjs`), at most one substrate-heavy maintenance job may hold the
  * heavy-maintenance lease.
  *
  * Membership rationale per #11503:

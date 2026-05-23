@@ -13,9 +13,9 @@ TENANT_ID="${NEO_KB_TENANT_ID:-example-tenant}"
 REPO_SLUG="${NEO_KB_REPO_SLUG:-example/repo}"
 MCP_URL="${NEO_KB_MCP_URL:-}"
 # The tenant-side MCP push client inside the neo.mjs dependency. Override via NEO_KB_PUSH_CLIENT.
-PUSH_CLIENT="${NEO_KB_PUSH_CLIENT:-node_modules/neo.mjs/buildScripts/ai/kbPushClient.mjs}"
+PUSH_CLIENT="${NEO_KB_PUSH_CLIENT:-node_modules/neo.mjs/ai/scripts/maintenance/kbPushClient.mjs}"
 # The ai:ingest-tenant CLI inside the neo.mjs dependency. Override via NEO_INGEST_CLI.
-INGEST_CLI="${NEO_INGEST_CLI:-node_modules/neo.mjs/buildScripts/ai/ingestTenant.mjs}"
+INGEST_CLI="${NEO_INGEST_CLI:-node_modules/neo.mjs/ai/scripts/maintenance/ingestTenant.mjs}"
 EMPTY="0000000000000000000000000000000000000000"
 
 build_remote_envelope() {

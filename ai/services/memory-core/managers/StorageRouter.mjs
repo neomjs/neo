@@ -7,7 +7,7 @@ import logger          from '../../../mcp/server/memory-core/logger.mjs';
  * StorageRouter acts as a transparent Proxy pattern for the underlying vector databases.
  * It reads aiConfig.engine ('chroma' or 'hybrid') and dispatches collection
  * calls (add, upsert, get, query) to the appropriate managers.
- * 
+ *
  * If 'hybrid' is selected:
  *  - Writes are dispatched to both databases (mirroring).
  *  - Reads return from the primary database (Neo) to avoid duplication.
@@ -59,8 +59,8 @@ class StorageRouter extends Base {
      * Injects the Dual-Pass Re-Ranking Middleware into the CollectionProxy.
      * Pass 1: Uses ChromaDB\'s ANN search to fetch top K candidates.
      * Pass 2: Re-ranks based on topological weighting via the SQLite Native Edge Graph.
-     * @param {CollectionProxy} proxy 
-     * @param {String} collectionType 
+     * @param {CollectionProxy} proxy
+     * @param {String} collectionType
      */
     injectQueryReRanker(proxy, collectionType) {
         const originalQuery = proxy.query.bind(proxy);

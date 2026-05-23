@@ -62,7 +62,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * @returns {string} Absolute path to the gate state file.
  */
 export function gateFilePath() {
-    return process.env.WAKE_GATE_FILE_PATH || path.resolve(__dirname, '../../.neo-ai-data/wake-daemon/wake-safety-gate.json');
+    return process.env.WAKE_GATE_FILE_PATH || path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon/wake-safety-gate.json');
 }
 
 /**

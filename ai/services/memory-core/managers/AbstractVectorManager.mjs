@@ -2,13 +2,13 @@ import Base from '../../../../src/core/Base.mjs';
 
 /**
  * @summary Defines the rigid interface contract for all vector database engines in the Memory Core.
- * 
+ *
  * This class establishes the abstract foundation for the **Vector Storage Layer**. It enforces a standardized
  * CRUD and query interface across diverse physical storage implementations (e.g., ChromaDB, SQLite-Vec).
- * 
- * By defining this contract, the architecture ensures that higher-level services like the `CollectionProxy` 
+ *
+ * By defining this contract, the architecture ensures that higher-level services like the `CollectionProxy`
  * and `DreamService` can seamlessly swap vector engines without tightly coupling to vendor-specific APIs.
- * 
+ *
  * Future AI sessions should search for `vector engine`, `storage abstraction`, or `database adapter` to find this boundary.
  *
  * @class Neo.ai.services.memory-core.managers.AbstractVectorManager

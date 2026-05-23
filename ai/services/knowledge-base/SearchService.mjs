@@ -213,7 +213,7 @@ class SearchService extends Base {
         const contextDocs = (await Promise.all(contextPromises)).join('\n\n');
 
         const prompt = `
-You are an expert Neo.mjs architect. 
+You are an expert Neo.mjs architect.
 **CRITICAL INSTRUCTION:** The framework is named "Neo.mjs". Never refer to it as "Neo.js".
 
 Answer the following question using **ONLY** the provided context documents.

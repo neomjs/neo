@@ -16,7 +16,7 @@ COPY . .
 
 # Path A for #10964: generate gitignored per-server config.mjs files inside the
 # image so clean external checkouts do not need manual template copies.
-RUN npm rebuild better-sqlite3 && node ./buildScripts/ai/initServerConfigs.mjs
+RUN npm rebuild better-sqlite3 && node ./ai/scripts/setup/initServerConfigs.mjs
 
 FROM node:24-alpine
 WORKDIR /app

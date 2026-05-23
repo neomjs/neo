@@ -31,11 +31,11 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(tasks.summary.expectedCommand).toBe('summarize-sessions.mjs');
 
         expect(tasks.kbSync.command).toBe('/test/node');
-        expect(tasks.kbSync.args).toEqual([path.resolve(scriptDir, '../../buildScripts/ai/syncKnowledgeBase.mjs')]);
+        expect(tasks.kbSync.args).toEqual([path.join(scriptDir, 'maintenance', 'syncKnowledgeBase.mjs')]);
         expect(tasks.kbSync.expectedCommand).toBe('syncKnowledgeBase.mjs');
 
         expect(tasks.backup.command).toBe('/test/node');
-        expect(tasks.backup.args).toEqual([path.resolve(scriptDir, '../../buildScripts/ai/backup.mjs')]);
+        expect(tasks.backup.args).toEqual([path.join(scriptDir, 'maintenance', 'backup.mjs')]);
         expect(tasks.backup.expectedCommand).toBe('backup.mjs');
     });
 

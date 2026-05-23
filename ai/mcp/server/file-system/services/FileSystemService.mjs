@@ -42,7 +42,7 @@ class FileSystemService {
     static async listDirectory({absolutePath}) {
         const safePath = ensureSandboxed(absolutePath);
         const entries = await fs.readdir(safePath, { withFileTypes: true });
-        
+
         return entries.map(entry => ({
             name: entry.name,
             isDirectory: entry.isDirectory(),
@@ -52,7 +52,7 @@ class FileSystemService {
 
     static async checkSyntax({absolutePath}) {
         const safePath = ensureSandboxed(absolutePath);
-        
+
         try {
             // --check runs the syntax parser without executing
             await execAsync(`node --check ${safePath}`);
@@ -65,7 +65,7 @@ class FileSystemService {
 
     static async runPlaywrightTest({absolutePath}) {
         const safePath = ensureSandboxed(absolutePath);
-        
+
         // Strict guard: ensure it's actually a test file in the playwright directory
         if (!safePath.includes('test/playwright/')) {
             throw new Error('403 Forbidden: Can only execute Playwright specs within the test/playwright/ directory.');

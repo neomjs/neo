@@ -116,15 +116,15 @@ class WakeSubscriptionService extends Base {
      */
     async pump() {
         if (this._pumping) return;
-        
+
         try {
             this._pumping = true;
             const db = GraphService.db;
             if (!db) return;
-            
+
             const storage = db.storage;
             if (!storage?.getDeltaLog) return;
-            
+
             const delta = storage.getDeltaLog(this.liveCursor);
             if (delta.invalidEdges.length === 0 && delta.invalidNodes.length === 0) {
                 this.liveCursor = delta.lastLogId;
@@ -140,7 +140,7 @@ class WakeSubscriptionService extends Base {
 
             const activeSubs = Array.from(this.subscriptionCache.values())
                 .filter(sub => sub.harnessTarget === 'mcp-notifications' && sub.status === 'active');
-                
+
             if (activeSubs.length === 0) {
                 this.liveCursor = delta.lastLogId;
                 return;
@@ -159,7 +159,7 @@ class WakeSubscriptionService extends Base {
                 }
             }
 
-            
+
             this.liveCursor = delta.lastLogId;
         } catch (e) {
             logger.error('[WakeSubscription] Background pump failed:', e);
