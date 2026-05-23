@@ -107,7 +107,11 @@ export function bodyMatches(body, family) {
     if (!livenessSectionMatch) return false;
 
     const section = livenessSectionMatch[1];
-    return new RegExp('`' + family + '`').test(section);
+    // Literal-substring match (not regex). Avoids `js/regex-injection` CodeQL because
+    // `family` is a CLI-supplied value; constructing `new RegExp(family)` from it would
+    // be a regex-injection sink even though `resolveIdentityForFamily()` validates against
+    // the IDENTITIES whitelist upstream. Defense-in-depth: keep the match literal.
+    return section.includes('`' + family + '`');
 }
 
 export function buildNotificationBody({ family, identityLogin, since, sweepAt }) {
