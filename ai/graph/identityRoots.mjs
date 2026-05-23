@@ -10,7 +10,7 @@
  *
  * It is used for both:
  * 1. Boot-time self-seeding in `GraphService.initAsync` (#10232)
- * 2. Explicit manual recovery via `ai/scripts/seedAgentIdentities.mjs`
+ * 2. Explicit manual recovery via `ai/scripts/setup/seedAgentIdentities.mjs`
  */
 
 export const IDENTITIES = [

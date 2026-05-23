@@ -16,20 +16,20 @@ import logger        from '../../../mcp/server/memory-core/logger.mjs';
 import {
     isGateOpen,
     readGateState
-} from '../../../scripts/wakeSafetyGate.mjs';
+} from '../../../scripts/lifecycle/wakeSafetyGate.mjs';
 import {
     inspectHeartbeatLock,
     releaseHeartbeatLock,
     HEARTBEAT_LOCK_PATH
-} from '../../../scripts/heartbeatLock.mjs';
-import {checkSunsetted as checkSunsettedScript}     from '../../../scripts/checkSunsetted.mjs';
+} from '../../../scripts/lifecycle/heartbeatLock.mjs';
+import {checkSunsetted as checkSunsettedScript}     from '../../../scripts/lifecycle/checkSunsetted.mjs';
 import {
     normalizeAgentIdentityNodeId,
     resumeHarness as resumeHarnessScript
-} from '../../../scripts/resumeHarness.mjs';
-import {checkAllAgentIdle as checkAllAgentIdleScript} from '../../../scripts/checkAllAgentIdle.mjs';
-import {idleOutNudge as idleOutNudgeScript}         from '../../../scripts/idleOutNudge.mjs';
-import {trioWakeCooldown as trioWakeCooldownScript} from '../../../scripts/trioWakeCooldown.mjs';
+} from '../../../scripts/lifecycle/resumeHarness.mjs';
+import {checkAllAgentIdle as checkAllAgentIdleScript} from '../../../scripts/lifecycle/checkAllAgentIdle.mjs';
+import {idleOutNudge as idleOutNudgeScript}         from '../../../scripts/lifecycle/idleOutNudge.mjs';
+import {trioWakeCooldown as trioWakeCooldownScript} from '../../../scripts/lifecycle/trioWakeCooldown.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -50,7 +50,7 @@ const DEFAULT_IDENTITY         = '@neo-gemini-3-1-pro';
  * **Where direct module imports replace subprocess invocations** (#10789 AC3, "where feasible"):
  *
  *   - `MailboxService.sweepExpiredTasks()` — the expired-task sweep was previously a `node
- *     ai/scripts/sweepExpiredTasks.mjs` subprocess; calling MailboxService directly removes the
+ *     ai/scripts/lifecycle/sweepExpiredTasks.mjs` subprocess; calling MailboxService directly removes the
  *     ~2s Node-startup hop on every poll cycle.
  *   - `wakeSafetyGate.mjs` exports (`isGateOpen`, `readGateState`) — the bash `if ! node
  *     wakeSafetyGate.mjs check` shell-out is replaced with direct function calls.
@@ -68,10 +68,10 @@ const DEFAULT_IDENTITY         = '@neo-gemini-3-1-pro';
  * @extends Neo.core.Base
  * @singleton
  * @see ai/daemons/Orchestrator.mjs              — the daemon this lane is folded into (#11766)
- * @see ai/scripts/checkSunsetted.mjs            — sunset detector (subprocess)
- * @see ai/scripts/resumeHarness.mjs             — fresh-session-spawn dispatcher (subprocess)
- * @see ai/scripts/wakeSafetyGate.mjs            — fail-closed safety gate (direct import)
- * @see ai/scripts/heartbeatLock.mjs             — concurrency-lock primitive (direct import)
+ * @see ai/scripts/lifecycle/checkSunsetted.mjs            — sunset detector (subprocess)
+ * @see ai/scripts/lifecycle/resumeHarness.mjs             — fresh-session-spawn dispatcher (subprocess)
+ * @see ai/scripts/lifecycle/wakeSafetyGate.mjs            — fail-closed safety gate (direct import)
+ * @see ai/scripts/lifecycle/heartbeatLock.mjs             — concurrency-lock primitive (direct import)
  */
 class SwarmHeartbeatService extends Base {
     static config = {

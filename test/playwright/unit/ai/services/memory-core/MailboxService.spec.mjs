@@ -824,7 +824,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
     // #10174 regression coverage — production-convention addressing
     //
     // The tests above use the `AGENT:<name>` test-fixture convention. Production seeds
-    // AgentIdentity nodes under bare `@login` (per ai/scripts/seedAgentIdentities.mjs), and
+    // AgentIdentity nodes under bare `@login` (per ai/scripts/setup/seedAgentIdentities.mjs), and
     // `RequestContextService.getAgentIdentityNodeId()` returns that bare form. The divergence
     // between test and production conventions hid the SENT_TO cull bug for months — the
     // following block mirrors the REAL seed so end-to-end regressions catch it.
