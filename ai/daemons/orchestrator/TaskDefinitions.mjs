@@ -74,7 +74,7 @@ export function buildTaskDefinitions({
         summary: {
             label          : 'session summarization',
             command        : nodeBin,
-            args           : [path.join(scriptDir, 'summarize-sessions.mjs')],
+            args           : [path.join(scriptDir, 'lifecycle', 'summarize-sessions.mjs')],
             pidFileName    : 'summarization.pid',
             expectedCommand: 'summarize-sessions.mjs'
         },
