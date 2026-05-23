@@ -112,7 +112,7 @@ test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556, #
     });
 
     test('SHARED_USER_ID is in sync with the migration runner script\'s hardcoded copy', async () => {
-        // The standalone runner at `ai/scripts/backfillChromaSharedUserId.mjs` intentionally
+        // The standalone runner at `ai/scripts/migrations/backfillChromaSharedUserId.mjs` intentionally
         // does NOT import this module — it avoids the Neo class-system bootstrap to keep the
         // script dependency-light and fast to invoke. Instead, it hardcodes the same sentinel
         // value with a sync-with-RequestContextService comment. This test enforces the sync
@@ -125,7 +125,7 @@ test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556, #
 
         // Resolve relative to the spec file's directory; the spec lives 8 levels deep from repo root.
         const repoRoot   = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../../../../../..');
-        const scriptPath = path.join(repoRoot, 'ai/scripts/backfillChromaSharedUserId.mjs');
+        const scriptPath = path.join(repoRoot, 'ai/scripts/migrations/backfillChromaSharedUserId.mjs');
         const source     = fs.readFileSync(scriptPath, 'utf-8');
 
         // Match the `const SHARED_USER_ID = '<value>';` line at module scope.
@@ -139,7 +139,7 @@ test.describe('Module-scope exports: SHARED_USER_ID + normalizeUserId (#10556, #
         const path = await import('path');
 
         const repoRoot   = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../../../../../..');
-        const scriptPath = path.join(repoRoot, 'ai/scripts/backfillChromaSharedUserId.mjs');
+        const scriptPath = path.join(repoRoot, 'ai/scripts/migrations/backfillChromaSharedUserId.mjs');
         const source     = fs.readFileSync(scriptPath, 'utf-8');
 
         const match = source.match(/^const\s+CORE_SWARM_USER_IDS\s*=\s*Object\.freeze\(\s*\[([\s\S]+?)\]\s*\)\s*;?\s*$/m);

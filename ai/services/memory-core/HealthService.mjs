@@ -8,7 +8,7 @@ import ChromaManager            from './managers/ChromaManager.mjs';
 import StorageRouter            from './managers/StorageRouter.mjs';
 import ChromaLifecycleService   from './lifecycle/ChromaLifecycleService.mjs';
 import logger                   from '../../mcp/server/memory-core/logger.mjs';
-import {readGateState}          from '../../scripts/wakeSafetyGate.mjs';
+import {readGateState}          from '../../scripts/lifecycle/wakeSafetyGate.mjs';
 import {
     SHARED_USER_ID,
     hasCoreSwarmParticipant,
@@ -66,7 +66,7 @@ function heartbeatLivenessStaleMs() {
  *    setter was invoked). Projects to `{source: 'unresolved', bound: false, nodeId: null}`.
  * 2. Resolved without graph node — `gh-cli` / `env-var` yielded a userId but no seeded
  *    AgentIdentity graph node matched. Projects to `{source: <resolved>, bound: false, nodeId: null}`.
- *    Diagnostic: agent needs seeding via `ai/scripts/seedAgentIdentities.mjs` OR the boot-time
+ *    Diagnostic: agent needs seeding via `ai/scripts/setup/seedAgentIdentities.mjs` OR the boot-time
  *    self-seed from #10232 wasn't triggered.
  * 3. Resolved with graph node — fully bound identity. Projects to `{source: <resolved>, bound: true, nodeId: '@login'}`.
  *    The success shape that A2A operation requires.
@@ -374,7 +374,7 @@ export function buildAuthProviderBlock(cfg) {
  * @returns {Promise<{gateState: String, gateReason: String, gateTrippedAt: String|null,
  *     gateTrippedBy: String|null, daemonRunning: Boolean, lastPulseAt: String|null,
  *     secondsSinceLastPulse: Number|null}>}
- * @see ai/scripts/wakeSafetyGate.mjs
+ * @see ai/scripts/lifecycle/wakeSafetyGate.mjs
  * @see ai/daemons/SwarmHeartbeatService.mjs — the swarm-heartbeat lane that touches the liveness file
  * @see learn/agentos/wake-substrate/PersistentProcessManagement.md
  */
@@ -550,7 +550,7 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
  * @param {Object} [options]
  * @param {Boolean} [options.summaryCollection=false] Whether to apply summary-specific checks.
  * @returns {Object}
- * @see ai/scripts/backfillChromaSharedUserId.mjs
+ * @see ai/scripts/migrations/backfillChromaSharedUserId.mjs
  */
 export function buildChromaMigrationStats(metadatas, {summaryCollection = false} = {}) {
     const stats = {
@@ -843,7 +843,7 @@ class HealthService extends Base {
      * Pre-#10145 records lack the `userId` metadata key entirely, and restored session summaries
      * can also be tagged to one summarizing peer while `participatingAgents` names a different
      * core-swarm peer. Both shapes are invisible to the intended tenant-aware reads until the
-     * backfill runner (`ai/scripts/backfillChromaSharedUserId.mjs`) tags them with
+     * backfill runner (`ai/scripts/migrations/backfillChromaSharedUserId.mjs`) tags them with
      * `userId: 'shared'`. Chroma where-filters cannot reliably falsify absent metadata-key cases
      * across versions, so this method scans metadata directly instead of inferring from `$ne`.
      *
@@ -851,7 +851,7 @@ class HealthService extends Base {
      * (substrate-readiness signal, not a migration error).
      *
      * @returns {Promise<Object>} Actionable debt plus untagged and summary-visibility details.
-     * @see ai/scripts/backfillChromaSharedUserId.mjs — the runner that tags untagged records
+     * @see ai/scripts/migrations/backfillChromaSharedUserId.mjs — the runner that tags untagged records
      * @see #10556 — the Fat Ticket establishing the additive-tenant-isolation read shape
      * @private
      */

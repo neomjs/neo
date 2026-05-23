@@ -8,7 +8,7 @@ import KBRecorderService              from '../../services/knowledge-base/KBReco
 import MailboxService                 from '../../services/memory-core/MailboxService.mjs';
 import RequestContextService          from '../../mcp/server/shared/services/RequestContextService.mjs';
 import logger                         from '../../mcp/server/knowledge-base/logger.mjs';
-import {normalizeAgentIdentityNodeId} from '../../scripts/resumeHarness.mjs';
+import {normalizeAgentIdentityNodeId} from '../../scripts/lifecycle/resumeHarness.mjs';
 import {
     DEFAULT_COOLDOWN_MS,
     evaluateAlertRules,
@@ -62,7 +62,7 @@ const DEFAULT_SENDER = '@system';
  * @see ai/daemons/kb-alerting/daemon.mjs — the entry-point wrapper.
  * @see ai/services/knowledge-base/helpers/KbAlertRuleEngine.mjs — the pure rule engine.
  * @see ai/daemons/SwarmHeartbeatService.mjs — the poll-loop daemon precedent.
- * @see ai/scripts/idleOutNudge.mjs — the daemon-side `MailboxService.addMessage` precedent.
+ * @see ai/scripts/lifecycle/idleOutNudge.mjs — the daemon-side `MailboxService.addMessage` precedent.
  */
 class KbAlertingService extends Base {
     static config = {

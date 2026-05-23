@@ -26,7 +26,7 @@ import logger  from '../../mcp/server/memory-core/logger.mjs';
  * rotation" pattern and preserves the queue's append-only producer semantics.
  *
  * **Invocation surface:** no MCP tool surface — this is an internal daemon service invoked
- * from either the REM cycle (`DreamService`) or the standalone `ai/scripts/priorityBackfill.mjs`
+ * from either the REM cycle (`DreamService`) or the standalone `ai/scripts/migrations/priorityBackfill.mjs`
  * CLI. Keeping it off the MCP tool surface preserves the caller constraint that back-fill is
  * an **operational** concern, not an **agent-facing** one.
  *

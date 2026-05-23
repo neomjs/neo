@@ -3,7 +3,7 @@ import fs       from 'fs-extra';
 import path     from 'path';
 import fg       from 'fast-glob';
 import aiConfig from '../../../mcp/server/knowledge-base/config.mjs';
-import {parseSectionTriggers} from '../../../scripts/lint-skill-manifest.mjs';
+import {parseSectionTriggers} from '../../../scripts/lint/lint-skill-manifest.mjs';
 
 /**
  * @summary Extracts knowledge chunks from Skill Markdown files.

@@ -374,7 +374,7 @@ class Server extends BaseServer {
      * @summary Boot-time diagnostic: invokes `lsof` to detect SQLite file contention from
      * sibling MCP server processes holding the memory-core SQLite files (ticket #10188).
      * Uses the same empirical `lsof` + PID walk pattern established in
-     * `ai/scripts/diagnoseMcpConcurrency.mjs`.
+     * `ai/scripts/diagnostics/diagnoseMcpConcurrency.mjs`.
      * @protected
      */
     logSiblingConcurrency() {

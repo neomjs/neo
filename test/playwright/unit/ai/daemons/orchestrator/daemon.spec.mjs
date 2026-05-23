@@ -27,7 +27,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(Object.values(tasks).flatMap(task => task.args || [])).not.toContain('8001');
 
         expect(tasks.summary.command).toBe('/test/node');
-        expect(tasks.summary.args).toEqual([path.join(scriptDir, 'summarize-sessions.mjs')]);
+        expect(tasks.summary.args).toEqual([path.join(scriptDir, 'lifecycle', 'summarize-sessions.mjs')]);
         expect(tasks.summary.expectedCommand).toBe('summarize-sessions.mjs');
 
         expect(tasks.kbSync.command).toBe('/test/node');

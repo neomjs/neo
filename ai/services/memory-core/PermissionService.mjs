@@ -70,7 +70,7 @@ class PermissionService extends Base {
         // Pattern mirrors linkNodes:179-185 (FK-style existence guard).
         const verifyStmt = GraphService.db.storage.db.prepare('SELECT count(*) as count FROM Nodes WHERE id = ?');
         if (verifyStmt.get(to).count === 0) {
-            throw new Error(`Cannot grant ${scope} to ${to}: target does not exist. Identity nodes must be pre-seeded via ai/scripts/seedAgentIdentities.mjs.`);
+            throw new Error(`Cannot grant ${scope} to ${to}: target does not exist. Identity nodes must be pre-seeded via ai/scripts/setup/seedAgentIdentities.mjs.`);
         }
 
         // The capability belongs to 'to', pointing at 'owner'
@@ -90,7 +90,7 @@ class PermissionService extends Base {
     async revokePermission({ to, scope }) {
         const owner = RequestContextService.getAgentIdentityNodeId();
         if (!owner) throw new Error("Cannot revoke permission: no agent identity context bound.");
-        
+
         const db = GraphService.db;
         const edgesToRemove = [];
         for (const edge of db.edges.items) {
@@ -103,7 +103,7 @@ class PermissionService extends Base {
             db.edges.remove(edgesToRemove);
             WakeSubscriptionService.pump().catch(e => logger.error('[wake-pump]', e));
         }
-        
+
         return { success: true, message: `Revoked ${scope} from ${to}` };
     }
 
@@ -131,17 +131,17 @@ class PermissionService extends Base {
         for (const edge of db.edges.items) {
             if (this.validScopes.includes(edge.type)) {
                 if (edge.source === targetId) {
-                    capabilities.push({ 
-                        target: edge.target, 
-                        scope: edge.type, 
-                        timestamp: edge.properties?.timestamp 
+                    capabilities.push({
+                        target: edge.target,
+                        scope: edge.type,
+                        timestamp: edge.properties?.timestamp
                     });
                 }
                 if (edge.target === targetId) {
-                    grantedToOthers.push({ 
-                        grantedTo: edge.source, 
-                        scope: edge.type, 
-                        timestamp: edge.properties?.timestamp 
+                    grantedToOthers.push({
+                        grantedTo: edge.source,
+                        scope: edge.type,
+                        timestamp: edge.properties?.timestamp
                     });
                 }
             }
