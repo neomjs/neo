@@ -1,5 +1,5 @@
 // Neo + core/_export bootstrap belongs to the orchestrator-daemon entry point
-import Base from '../../../src/core/Base.mjs';
+import Base from '../../../../src/core/Base.mjs';
 
 /**
  * @summary Builds the task trigger for the backup periodic sweep.

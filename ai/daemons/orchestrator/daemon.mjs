@@ -17,21 +17,21 @@
 // `Neo.findFirst` / `Neo.get` aliases, sets `Base.instanceManagerAvailable=true`,
 // and consumes the pre-singleton `Neo.idMap`. All 3 MUST run before any class
 // import that uses `Neo.setupClass()`.
-import Neo             from '../../src/Neo.mjs';
-import * as core       from '../../src/core/_export.mjs';
-import InstanceManager from '../../src/manager/Instance.mjs';
+import Neo             from '../../../src/Neo.mjs';
+import * as core       from '../../../src/core/_export.mjs';
+import InstanceManager from '../../../src/manager/Instance.mjs';
 
 import {fileURLToPath, pathToFileURL} from 'url';
 import fs from 'fs-extra';
 import path from 'path';
 import {execSync} from 'child_process';
-import AiConfig from '../config.template.mjs';
-import Orchestrator from '../daemons/Orchestrator.mjs';
+import AiConfig from '../../config.template.mjs';
+import Orchestrator from './Orchestrator.mjs';
 
 const DAEMON_DATA_DIR = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
 const PID_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator-daemon.pid');
 const LOG_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator.log');
-export const LOCAL_AI_CONFIG_FILE = fileURLToPath(new URL('../config.mjs', import.meta.url));
+export const LOCAL_AI_CONFIG_FILE = fileURLToPath(new URL('../../config.mjs', import.meta.url));
 
 const hasEnvValue = (env, key) => env[key] !== undefined && env[key] !== null && env[key] !== '';
 

@@ -6,30 +6,30 @@ import {spawn}         from 'child_process';
 import fs              from 'fs/promises';
 import path            from 'path';
 import {fileURLToPath} from 'url';
-import Base            from '../../src/core/Base.mjs';
+import Base            from '../../../../src/core/Base.mjs';
 import {
     Memory_GraphService     as GraphService,
     Memory_LifecycleService as LifecycleService
-}                    from '../services.mjs';
-import MailboxService from '../services/memory-core/MailboxService.mjs';
-import logger        from '../mcp/server/memory-core/logger.mjs';
+}                    from '../../../services.mjs';
+import MailboxService from '../../../services/memory-core/MailboxService.mjs';
+import logger        from '../../../mcp/server/memory-core/logger.mjs';
 import {
     isGateOpen,
     readGateState
-} from '../scripts/wakeSafetyGate.mjs';
+} from '../../../scripts/wakeSafetyGate.mjs';
 import {
     inspectHeartbeatLock,
     releaseHeartbeatLock,
     HEARTBEAT_LOCK_PATH
-} from '../scripts/heartbeatLock.mjs';
-import {checkSunsetted as checkSunsettedScript}     from '../scripts/checkSunsetted.mjs';
+} from '../../../scripts/heartbeatLock.mjs';
+import {checkSunsetted as checkSunsettedScript}     from '../../../scripts/checkSunsetted.mjs';
 import {
     normalizeAgentIdentityNodeId,
     resumeHarness as resumeHarnessScript
-} from '../scripts/resumeHarness.mjs';
-import {checkAllAgentIdle as checkAllAgentIdleScript} from '../scripts/checkAllAgentIdle.mjs';
-import {idleOutNudge as idleOutNudgeScript}         from '../scripts/idleOutNudge.mjs';
-import {trioWakeCooldown as trioWakeCooldownScript} from '../scripts/trioWakeCooldown.mjs';
+} from '../../../scripts/resumeHarness.mjs';
+import {checkAllAgentIdle as checkAllAgentIdleScript} from '../../../scripts/checkAllAgentIdle.mjs';
+import {idleOutNudge as idleOutNudgeScript}         from '../../../scripts/idleOutNudge.mjs';
+import {trioWakeCooldown as trioWakeCooldownScript} from '../../../scripts/trioWakeCooldown.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);

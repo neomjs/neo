@@ -1,9 +1,9 @@
 import {test, expect} from '@playwright/test';
-import Neo       from '../../../../../../src/Neo.mjs';
-import * as core from '../../../../../../src/core/_export.mjs';
+import Neo       from '../../../../../../../src/Neo.mjs';
+import * as core from '../../../../../../../src/core/_export.mjs';
 import {
     buildBackupTrigger
-} from '../../../../../../ai/daemons/services/BackupCoordinatorService.mjs';
+} from '../../../../../../../ai/daemons/orchestrator/services/BackupCoordinatorService.mjs';
 
 test.describe('BackupCoordinatorService (#11062)', () => {
     test('returns a periodic sweep trigger only when the interval is due', () => {

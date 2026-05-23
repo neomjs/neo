@@ -6,14 +6,14 @@
 import fs                          from 'fs-extra';
 import {spawn}                     from 'child_process';
 import path                        from 'path';
-import Base                        from '../../src/core/Base.mjs';
-import ClassSystemUtil             from '../../src/util/ClassSystem.mjs';
-import Env                         from '../../src/util/Env.mjs';
-import AiConfig                    from '../config.template.mjs';
-import HealthService               from '../services/memory-core/HealthService.mjs';
+import Base                        from '../../../src/core/Base.mjs';
+import ClassSystemUtil             from '../../../src/util/ClassSystem.mjs';
+import Env                         from '../../../src/util/Env.mjs';
+import AiConfig                    from '../../config.template.mjs';
+import HealthService               from '../../services/memory-core/HealthService.mjs';
 import {
     initializeDatabase
-} from '../scripts/bridge-daemon-queries.mjs';
+} from '../../scripts/bridge-daemon-queries.mjs';
 import SummarizationCoordinatorService from './services/SummarizationCoordinatorService.mjs';
 import BackupCoordinatorService        from './services/BackupCoordinatorService.mjs';
 import {
@@ -27,9 +27,9 @@ import PrimaryRepoSyncService, {
 import TaskStateService                  from './services/TaskStateService.mjs';
 import ProcessSupervisorService          from './services/ProcessSupervisorService.mjs';
 import CadenceEngine                     from './services/CadenceEngine.mjs';
-import DreamService                      from './DreamService.mjs';
-import SwarmHeartbeatService             from './SwarmHeartbeatService.mjs';
-import GoldenPathSynthesizer             from './services/GoldenPathSynthesizer.mjs';
+import DreamService                      from './services/DreamService.mjs';
+import SwarmHeartbeatService             from './services/SwarmHeartbeatService.mjs';
+import GoldenPathSynthesizer             from '../services/GoldenPathSynthesizer.mjs';
 import {
     PRIMARY_DEV_SYNC_TASK_NAME,
     DREAM_TASK_NAME,

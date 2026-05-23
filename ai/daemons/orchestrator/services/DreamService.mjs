@@ -3,24 +3,24 @@ import path from 'path';
 import yaml from 'js-yaml';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
-import { Memory_Config as aiConfig } from '../services.mjs';
-import Base from '../../src/core/Base.mjs';
-import { Memory_StorageRouter as StorageRouter } from '../services.mjs';
-import { Memory_TextEmbeddingService as TextEmbeddingService } from '../services.mjs';
-import { Memory_GraphService as GraphService } from '../services.mjs';
-import Json from '../../src/util/Json.mjs';
-import logger from '../mcp/server/memory-core/logger.mjs';
-import OpenAiCompatible from '../provider/OpenAiCompatible.mjs';
-import ConceptDiscoveryService from './services/ConceptDiscoveryService.mjs';
-import ConceptIngestor from './services/ConceptIngestor.mjs';
-import FileSystemIngestor from '../services/memory-core/FileSystemIngestor.mjs';
-import GapInferenceEngine from './services/GapInferenceEngine.mjs';
-import GraphMaintenanceService from './services/GraphMaintenanceService.mjs';
-import IssueIngestor from './services/IssueIngestor.mjs';
-import MemorySessionIngestor from './services/MemorySessionIngestor.mjs';
-import SemanticGraphExtractor from './services/SemanticGraphExtractor.mjs';
-import TopologyInferenceEngine from './services/TopologyInferenceEngine.mjs';
-import GoldenPathSynthesizer from './services/GoldenPathSynthesizer.mjs';
+import { Memory_Config as aiConfig } from '../../../services.mjs';
+import Base from '../../../../src/core/Base.mjs';
+import { Memory_StorageRouter as StorageRouter } from '../../../services.mjs';
+import { Memory_TextEmbeddingService as TextEmbeddingService } from '../../../services.mjs';
+import { Memory_GraphService as GraphService } from '../../../services.mjs';
+import Json from '../../../../src/util/Json.mjs';
+import logger from '../../../mcp/server/memory-core/logger.mjs';
+import OpenAiCompatible from '../../../provider/OpenAiCompatible.mjs';
+import ConceptDiscoveryService from '../../services/ConceptDiscoveryService.mjs';
+import ConceptIngestor from '../../services/ConceptIngestor.mjs';
+import FileSystemIngestor from '../../../services/memory-core/FileSystemIngestor.mjs';
+import GapInferenceEngine from '../../services/GapInferenceEngine.mjs';
+import GraphMaintenanceService from '../../services/GraphMaintenanceService.mjs';
+import IssueIngestor from '../../services/IssueIngestor.mjs';
+import MemorySessionIngestor from '../../services/MemorySessionIngestor.mjs';
+import SemanticGraphExtractor from '../../services/SemanticGraphExtractor.mjs';
+import TopologyInferenceEngine from '../../services/TopologyInferenceEngine.mjs';
+import GoldenPathSynthesizer from '../../services/GoldenPathSynthesizer.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -73,7 +73,7 @@ class DreamService extends Base {
         this.sessionsCollection = await StorageRouter.getSummaryCollection();
 
         // Inter-service dependency lock: ensure DB is ready BEFORE scheduling background work
-        const LifecycleService = (await import('../services.mjs')).Memory_LifecycleService;
+        const LifecycleService = (await import('../../../services.mjs')).Memory_LifecycleService;
         await LifecycleService.ready();
 
         // Wait for the full lifecycle boot to ensure GraphService.db is mounted

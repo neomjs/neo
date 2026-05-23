@@ -1,16 +1,16 @@
 import {test, expect} from '@playwright/test';
-import Neo       from '../../../../../../src/Neo.mjs';
-import * as core from '../../../../../../src/core/_export.mjs';
+import Neo       from '../../../../../../../src/Neo.mjs';
+import * as core from '../../../../../../../src/core/_export.mjs';
 import PrimaryRepoSyncService, {
     buildPrimaryRepoSyncTrigger,
     DEV_SYNC_ROOTS_CONFIG_KEY,
     DEV_SYNC_ROOTS_ENV_VAR,
     isKbRelevantChangePath,
     parseDevSyncRoots
-} from '../../../../../../ai/daemons/services/PrimaryRepoSyncService.mjs';
+} from '../../../../../../../ai/daemons/orchestrator/services/PrimaryRepoSyncService.mjs';
 import {
     PRIMARY_DEV_SYNC_TASK_NAME
-} from '../../../../../../ai/daemons/TaskDefinitions.mjs';
+} from '../../../../../../../ai/daemons/orchestrator/TaskDefinitions.mjs';
 
 function createExecStub(steps) {
     const calls = [];

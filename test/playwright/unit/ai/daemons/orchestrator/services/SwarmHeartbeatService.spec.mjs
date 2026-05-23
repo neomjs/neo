@@ -1,4 +1,4 @@
-import {setup} from '../../../setup.mjs';
+import {setup} from '../../../../../setup.mjs';
 import fs   from 'fs/promises';
 import os   from 'os';
 import path from 'path';
@@ -21,13 +21,13 @@ setup({
 // longer imports Neo itself (#11058 split — class+wrapper pattern). Mirrors the test-spec
 // bootstrap pattern in TaskStateService.spec / ProcessSupervisorService.spec /
 // SummarizationCoordinatorService.spec post-#11049/#11054.
-import Neo       from '../../../../../src/Neo.mjs';
-import * as core from '../../../../../src/core/_export.mjs';
+import Neo       from '../../../../../../../src/Neo.mjs';
+import * as core from '../../../../../../../src/core/_export.mjs';
 
 import {test, expect} from '@playwright/test';
 
 /**
- * @summary Unit coverage for `ai/daemons/SwarmHeartbeatService.mjs` (#10789 AC6, #11766 fold).
+ * @summary Unit coverage for `ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs` (#10789 AC6, #11766 fold).
  *
  * Covers: idempotent one-time `initAsync()`, concurrency-lock skip-vs-clear,
  * sunset-detection-routes-to-resumeHarness, gate-tripped blocks high-authority dispatch,
@@ -55,9 +55,9 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     let originalGraphServiceInit;
 
     test.beforeAll(async () => {
-        SwarmHeartbeatService = (await import('../../../../../ai/daemons/SwarmHeartbeatService.mjs')).default;
+        SwarmHeartbeatService = (await import('../../../../../../../ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs')).default;
 
-        const services = await import('../../../../../ai/services.mjs');
+        const services = await import('../../../../../../../ai/services.mjs');
         const LifecycleService = services.Memory_LifecycleService;
         const GraphService     = services.Memory_GraphService;
 
@@ -71,7 +71,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     });
 
     test.afterAll(async () => {
-        const services = await import('../../../../../ai/services.mjs');
+        const services = await import('../../../../../../../ai/services.mjs');
         services.Memory_LifecycleService.initAsync = originalLifecycleInit;
         services.Memory_GraphService.initAsync     = originalGraphServiceInit;
     });
