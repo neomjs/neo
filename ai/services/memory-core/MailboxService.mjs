@@ -5,7 +5,7 @@ import GraphService from './GraphService.mjs';
 import PermissionService from './PermissionService.mjs';
 import WakeSubscriptionService from './WakeSubscriptionService.mjs';
 import crypto from 'crypto';
-import SemanticGraphExtractor from '../../daemons/services/SemanticGraphExtractor.mjs';
+import SemanticGraphExtractor from '../../services/graph/SemanticGraphExtractor.mjs';
 
 /**
  * Normalizes a raw addressing target into its canonical Graph Node ID format.

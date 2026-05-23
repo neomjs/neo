@@ -49,7 +49,7 @@ test.describe('Neo.ai.daemons.services.LazyEdgeDrainer', () => {
         aiConfig.storagePaths.graph   = testDbPath;
         aiConfig.autoIngestFileSystem = false;
 
-        LazyEdgeDrainer        = (await import('../../../../../../ai/daemons/services/LazyEdgeDrainer.mjs')).default;
+        LazyEdgeDrainer        = (await import('../../../../../../ai/services/graph/LazyEdgeDrainer.mjs')).default;
         GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         logger                 = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;

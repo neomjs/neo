@@ -46,7 +46,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         aiConfig.autoIngestFileSystem = false;
 
         GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        SemanticGraphExtractor = (await import('../../../../../../ai/daemons/services/SemanticGraphExtractor.mjs')).default;
+        SemanticGraphExtractor = (await import('../../../../../../ai/services/graph/SemanticGraphExtractor.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
         OpenAiCompatible       = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
 
@@ -98,7 +98,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
 
     test('should extract provenance edges and queue unresolved targets to lazy back-fill (#10152)', async () => {
         const baseGenerate = OpenAiCompatible.prototype.generate;
-        
+
         OpenAiCompatible.prototype.generate = async function(messages) {
             return {
                 content: JSON.stringify({
@@ -168,13 +168,13 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         // Check if RELATES_TO edge was added to the GraphService (since frontier exists)
         const edges = GraphService.db.edges.items;
         expect(edges.some(e => e.type === 'RELATES_TO' && e.source === 'CONCEPT:TestConcept')).toBe(true);
-        
+
         // MENTIONED_IN shouldn't be in the DB directly because it targets a non-existent node
         expect(edges.some(e => e.type === 'MENTIONED_IN')).toBe(false);
 
         // Restore global function
         OpenAiCompatible.prototype.generate = baseGenerate;
-        
+
         // Cleanup
         if (fs.existsSync(lazyQueueFile)) {
             fs.unlinkSync(lazyQueueFile);
@@ -182,7 +182,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
     });
     test('should extract concepts from message bodies', async () => {
         const baseGenerate = OpenAiCompatible.prototype.generate;
-        
+
         try {
             OpenAiCompatible.prototype.generate = async function(messages) {
                 return {
@@ -214,7 +214,7 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
 
     test('should handle API failure gracefully during message concept extraction', async () => {
         const baseGenerate = OpenAiCompatible.prototype.generate;
-        
+
         try {
             OpenAiCompatible.prototype.generate = async function(messages) {
                 throw new Error("fetch failed");

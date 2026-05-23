@@ -49,7 +49,7 @@ test.describe('Neo.ai.daemons.services.ConceptIngestor', () => {
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff_concept_ingestor.md');
 
         GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        ConceptIngestor        = (await import('../../../../../../ai/daemons/services/ConceptIngestor.mjs')).default;
+        ConceptIngestor        = (await import('../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         ConceptService         = (await import('../../../../../../ai/services/ConceptService.mjs')).default;
         logger                 = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;

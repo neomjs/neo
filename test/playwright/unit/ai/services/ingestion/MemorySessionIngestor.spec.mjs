@@ -81,7 +81,7 @@ test.describe('Neo.ai.daemons.services.MemorySessionIngestor', () => {
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff_memory_session_ingestor.md');
 
         GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        MemorySessionIngestor  = (await import('../../../../../../ai/daemons/services/MemorySessionIngestor.mjs')).default;
+        MemorySessionIngestor  = (await import('../../../../../../ai/services/ingestion/MemorySessionIngestor.mjs')).default;
         logger                 = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
 

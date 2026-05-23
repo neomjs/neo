@@ -42,7 +42,7 @@ test.describe('Neo.ai.daemons.services.ConceptDiscoveryService', () => {
     let warnMessages = [];
 
     test.beforeAll(async () => {
-        ConceptDiscoveryService = (await import('../../../../../../ai/daemons/services/ConceptDiscoveryService.mjs')).default;
+        ConceptDiscoveryService = (await import('../../../../../../ai/services/ingestion/ConceptDiscoveryService.mjs')).default;
         ConceptService          = (await import('../../../../../../ai/services/ConceptService.mjs')).default;
         OpenAiCompatible        = (await import('../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
         logger                  = (await import('../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;

@@ -593,7 +593,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     });
 
     test('linkNodesAsync back-fills missing memory: target via MemorySessionIngestor', async () => {
-        const MemorySessionIngestor = (await import('../../../../../../ai/daemons/services/MemorySessionIngestor.mjs')).default;
+        const MemorySessionIngestor = (await import('../../../../../../ai/services/ingestion/MemorySessionIngestor.mjs')).default;
         const originalIngest = MemorySessionIngestor.ingestSingleRow;
 
         // Mock the ingestor to simulate a successful back-fill — upsert a node and return success.
@@ -621,7 +621,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     });
 
     test('linkNodesAsync normalizes uppercase MEMORY: prefix to canonical lowercase', async () => {
-        const MemorySessionIngestor = (await import('../../../../../../ai/daemons/services/MemorySessionIngestor.mjs')).default;
+        const MemorySessionIngestor = (await import('../../../../../../ai/services/ingestion/MemorySessionIngestor.mjs')).default;
         const originalIngest = MemorySessionIngestor.ingestSingleRow;
 
         MemorySessionIngestor.ingestSingleRow = async (id) => {
@@ -651,7 +651,7 @@ test.describe('Neo.ai.services.memory-core.GraphService', () => {
     });
 
     test('linkNodesAsync returns false when back-fill fails (hallucinated target)', async () => {
-        const MemorySessionIngestor = (await import('../../../../../../ai/daemons/services/MemorySessionIngestor.mjs')).default;
+        const MemorySessionIngestor = (await import('../../../../../../ai/services/ingestion/MemorySessionIngestor.mjs')).default;
         const originalIngest = MemorySessionIngestor.ingestSingleRow;
 
         MemorySessionIngestor.ingestSingleRow = async (id) => ({

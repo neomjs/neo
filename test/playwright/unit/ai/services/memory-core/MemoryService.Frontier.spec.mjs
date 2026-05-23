@@ -32,7 +32,7 @@ test.describe('MemoryService — mutateFrontier', () => {
 
         MemoryService = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).default;
         GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        GoldenPathSynthesizer = (await import('../../../../../../ai/daemons/services/GoldenPathSynthesizer.mjs')).default;
+        GoldenPathSynthesizer = (await import('../../../../../../ai/services/graph/GoldenPathSynthesizer.mjs')).default;
     });
 
     test.beforeEach(() => {
@@ -54,9 +54,9 @@ test.describe('MemoryService — mutateFrontier', () => {
 
     test('mutateFrontier calls GoldenPathSynthesizer.synthesizeGoldenPath', async () => {
         const result = await MemoryService.mutateFrontier({ targetNodeId: 'test-node' });
-        
+
         expect(result.message).toBe('Successfully mutated the context frontier.');
-        
+
         // Let event loop clear since it's a floating promise
         await new Promise(resolve => setTimeout(resolve, 50));
         expect(synthesizeCalled).toBe(true);
