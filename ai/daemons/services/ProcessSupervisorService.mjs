@@ -6,7 +6,14 @@ import {execSync} from 'child_process';
 /**
  * @class Neo.ai.daemons.services.ProcessSupervisorService
  * @extends Neo.core.Base
- * @singleton
+ *
+ * Note: per Epic #11831 / Sub 1 (#11833), this class is NO LONGER a `singleton`.
+ * It accepts external configuration from a parent (Orchestrator: dataDir,
+ * taskDefinitions, taskStateService, healthService, writeLog, spawnFn) — per
+ * @tobiu: "if a class needs external configs, it should not be a singleton in
+ * the first place." Orchestrator now constructs a per-instance ProcessSupervisorService
+ * via reactive config + `ClassSystemUtil.beforeSetInstance` (Service-DI Class B),
+ * with parent `afterSet*` hooks propagating runtime mutations.
  */
 export class ProcessSupervisorService extends Base {
     static config = {
@@ -15,11 +22,6 @@ export class ProcessSupervisorService extends Base {
          * @protected
          */
         className: 'Neo.ai.daemons.services.ProcessSupervisorService',
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true,
         /**
          * @member {String} dataDir_=''
          * @protected

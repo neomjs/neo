@@ -3,8 +3,13 @@ import Base from '../../../src/core/Base.mjs';
 /**
  * @class Neo.ai.daemons.services.CadenceEngine
  * @extends Neo.core.Base
- * @singleton
  * @summary A pure functional service that manages polling intervals and timing triggers for maintenance tasks.
+ *
+ * Note: per Epic #11831 / Sub 1 (#11833), this class is NO LONGER a `singleton`.
+ * It accepts external configuration from a parent (Orchestrator) — per @tobiu:
+ * "if a class needs external configs, it should not be a singleton in the first place."
+ * Orchestrator now constructs a per-instance CadenceEngine via reactive config +
+ * `ClassSystemUtil.beforeSetInstance` (Service-DI Class A).
  */
 export class CadenceEngine extends Base {
     static config = {
@@ -12,12 +17,7 @@ export class CadenceEngine extends Base {
          * @member {String} className='Neo.ai.daemons.services.CadenceEngine'
          * @protected
          */
-        className: 'Neo.ai.daemons.services.CadenceEngine',
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true
+        className: 'Neo.ai.daemons.services.CadenceEngine'
     }
 
     /**

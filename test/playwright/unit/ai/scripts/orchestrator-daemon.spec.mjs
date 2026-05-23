@@ -4,11 +4,8 @@ import path from 'path';
 import '../../../../../src/Neo.mjs';
 import '../../../../../src/core/_export.mjs';
 import {
-    DEFAULT_KB_SYNC_INTERVAL_MS,
     LOCAL_AI_CONFIG_FILE,
     loadLocalAiConfig,
-    DEFAULT_POLL_INTERVAL_MS,
-    DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
     resolveOrchestratorStartOptions
 } from '../../../../../ai/scripts/orchestrator-daemon.mjs';
 import {
