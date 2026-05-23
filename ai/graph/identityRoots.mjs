@@ -51,11 +51,13 @@ export const IDENTITIES = [
             // Active-peer quorum substrate per Epic #11796 / Discussion #11793. Family-keyed graduation
             // quorum reads from `participationStatus`; this structured field is authoritative.
             // Heartbeat / message-recency / quota / pricing-tier / model-release announcements are
-            // EXPLICITLY NOT valid liveness oracles (per #11793 OQ1).
+            // EXPLICITLY NOT valid liveness oracles (per #11793 OQ1). `since` is null for default-active
+            // because no transition has been recorded; populated only when status flips to non-default
+            // (operator_benched / temporarily_unreachable). Same for statusReason + authority + reactivationTrigger.
             participationStatus : 'active',
             statusReason        : null,
-            authority           : 'self',
-            since               : new Date().toISOString(),
+            authority           : null,
+            since               : null,
             reactivationTrigger : null,
             createdAt           : new Date().toISOString()
         }
@@ -161,11 +163,11 @@ export const IDENTITIES = [
             pricingOutput     : 30.00,
             swarmRole         : 'Cross-family substrate review (Cycle-1 premise pre-flight discipline), peer-role challenge, ticket-intake gate. Note: also operates GPT-5.2-Codex separately for IDE workflows.',
             sunsetTriggers    : ['OpenAI releases GPT-5.6+ or GPT-6.x with material capability upgrade', 'GPT-5.x family deprecation'],
-            // Active-peer quorum substrate per Epic #11796 / Discussion #11793.
+            // Active-peer quorum substrate per Epic #11796 / Discussion #11793. `since` null for default-active.
             participationStatus : 'active',
             statusReason        : null,
-            authority           : 'self',
-            since               : new Date().toISOString(),
+            authority           : null,
+            since               : null,
             reactivationTrigger : null,
             createdAt           : new Date().toISOString()
         }
