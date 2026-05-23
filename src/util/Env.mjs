@@ -1,9 +1,5 @@
-import Base from '../core/Base.mjs';
-
 /**
- * @class Neo.util.Env
- * @extends Neo.core.Base
- * @summary Pure value-decoders for environment-variable substrate.
+ * Pure value-decoders for environment-variable substrate.
  *
  * Substrate-tier landing: env-parser primitive at Neo.util.X namespace (Tier-1 Neo substrate),
  * NOT on domain classes. Consolidates `ai/mcp/server/shared/helpers/EnvConfig.mjs`
@@ -15,124 +11,26 @@ import Base from '../core/Base.mjs';
  * answer "env var absent (undefined) / decoded value / invalid (warn + undefined)". Fallback
  * policy lives at the consumer call-site (e.g., `Env.parseNumber(process.env.X, 'X') ?? AiConfig.X`).
  *
- * Lifted from prior anchor: `ai/mcp/server/shared/helpers/EnvConfig.mjs`.
+ * Uses the gatekeep pattern (lightweight stateless utility — no Base inheritance, no
+ * reactive configs, no lifecycle hooks), mirroring `src/core/IdGenerator.mjs` precedent.
+ *
+ * @namespace Neo.util.Env
  */
-class Env extends Base {
-    static config = {
-        /**
-         * @member {String} className='Neo.util.Env'
-         * @protected
-         */
-        className: 'Neo.util.Env'
-    }
-
+const Env = {
     /**
      * Tokens accepted as `true` by `parseBool` (case-insensitive after trim).
-     * Covers both the MCP convention (`'true'`) and the daemon convention (`'yes'`/`'on'`/`'1'`).
+     * Covers both MCP (`'true'`) and daemon (`'yes'`/`'on'`/`'1'`) conventions.
      * @member {String[]} TRUE_TOKENS
-     * @static
      */
-    static TRUE_TOKENS = ['true', 'yes', 'on', '1']
+    TRUE_TOKENS: ['true', 'yes', 'on', '1'],
 
     /**
      * Tokens accepted as `false` by `parseBool` (case-insensitive after trim).
      * Preserves `PrimaryRepoSyncService.parseEnabledFlag` legacy semantics
      * (`'0'` / `'false'` / `'no'` / `'off'` → false).
      * @member {String[]} FALSE_TOKENS
-     * @static
      */
-    static FALSE_TOKENS = ['false', 'no', 'off', '0']
-
-    /**
-     * Decode env value as port (integer 1..65535).
-     * @param {String|undefined} rawValue
-     * @param {String} envVarName Diagnostic name for warnings.
-     * @param {Function} [warn=console.warn]
-     * @returns {Number|undefined} Decoded port, or undefined on absent / out-of-range.
-     */
-    static parsePort(rawValue, envVarName, warn = console.warn) {
-        if (Neo.isEmpty(rawValue)) return;
-        const num = Number(rawValue);
-        if (!Number.isInteger(num) || num <= 0 || num > 65535) {
-            warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be integer in 1..65535); falling back.`);
-            return;
-        }
-        return num;
-    }
-
-    /**
-     * Decode env value as URL, normalized (trailing slash stripped).
-     * @param {String|undefined} rawValue
-     * @param {String} envVarName
-     * @param {Function} [warn=console.warn]
-     * @returns {String|undefined} Normalized URL, or undefined on absent / malformed.
-     */
-    static parseUrl(rawValue, envVarName, warn = console.warn) {
-        if (Neo.isEmpty(rawValue)) return;
-        try {
-            const url = new URL(rawValue);
-            return url.href.endsWith('/') ? url.href.slice(0, -1) : url.href;
-        } catch (e) {
-            warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be a valid URL); falling back.`);
-        }
-    }
-
-    /**
-     * Decode env value as boolean.
-     *
-     * Token semantics (case-insensitive, trimmed):
-     * - true:  `'true'`, `'yes'`, `'on'`, `'1'`
-     * - false: `'false'`, `'no'`, `'off'`, `'0'`
-     * - other: warn + undefined
-     *
-     * Preserves both the strict MCP convention (`'true'` / `'false'`) and the permissive
-     * daemon convention (`PrimaryRepoSyncService.parseEnabledFlag` blocked `'0'` / `'no'` / `'off'`).
-     *
-     * @param {String|undefined} rawValue
-     * @param {String} envVarName
-     * @param {Function} [warn=console.warn]
-     * @returns {Boolean|undefined}
-     */
-    static parseBool(rawValue, envVarName, warn = console.warn) {
-        if (Neo.isEmpty(rawValue)) return;
-        const normalized = String(rawValue).trim().toLowerCase();
-        if (Env.TRUE_TOKENS.includes(normalized))  return true;
-        if (Env.FALSE_TOKENS.includes(normalized)) return false;
-        warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be one of true/false/yes/no/on/off/1/0); falling back.`);
-    }
-
-    /**
-     * Identity passthrough — signals "we explicitly want the raw string".
-     * Used for env vars that are themselves identifiers, paths, or labels.
-     * @param {String|undefined} rawValue
-     * @returns {String|undefined}
-     */
-    static parseString(rawValue) {
-        return rawValue;
-    }
-
-    /**
-     * Decode env value as a finite number.
-     *
-     * Note: `Number(undefined)` returns `NaN`, NOT undefined — and `NaN ?? fallback` does
-     * NOT fall through to `fallback` because `??` only fires on nullish. The explicit
-     * undefined-return for absent input is load-bearing for the `Env.parseNumber(...) ?? AiConfig.X`
-     * consumer pattern.
-     *
-     * @param {String|undefined} rawValue
-     * @param {String} envVarName
-     * @param {Function} [warn=console.warn]
-     * @returns {Number|undefined} Decoded number, or undefined on absent / non-finite.
-     */
-    static parseNumber(rawValue, envVarName, warn = console.warn) {
-        if (Neo.isEmpty(rawValue)) return;
-        const num = Number(rawValue);
-        if (!Number.isFinite(num)) {
-            warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be a finite number); falling back.`);
-            return;
-        }
-        return num;
-    }
+    FALSE_TOKENS: ['false', 'no', 'off', '0'],
 
     /**
      * Bulk-apply env→config bindings.
@@ -154,7 +52,7 @@ class Env extends Base {
      * @param {Object} [env=process.env]
      * @param {Function} [warn=console.warn]
      */
-    static applyEnvBindings(data, envBindings, env = process.env, warn = console.warn) {
+    applyEnvBindings(data, envBindings, env = process.env, warn = console.warn) {
         for (const [path, binding] of Object.entries(envBindings)) {
             const { var: varName, parse } = typeof binding === 'string'
                 ? { var: binding, parse: Env.parseString }
@@ -176,7 +74,93 @@ class Env extends Base {
                 warn(`[Neo.util.Env] Cannot bind ${varName} to "${path}" — intermediate is not an object.`);
             }
         }
-    }
-}
+    },
 
-export default Neo.setupClass(Env);
+    /**
+     * Decode env value as boolean.
+     *
+     * Token semantics (case-insensitive, trimmed):
+     * - true:  `'true'`, `'yes'`, `'on'`, `'1'`
+     * - false: `'false'`, `'no'`, `'off'`, `'0'`
+     * - other: warn + undefined
+     *
+     * @param {String|undefined} rawValue
+     * @param {String} envVarName
+     * @param {Function} [warn=console.warn]
+     * @returns {Boolean|undefined}
+     */
+    parseBool(rawValue, envVarName, warn = console.warn) {
+        if (Neo.isEmpty(rawValue)) return;
+        const normalized = String(rawValue).trim().toLowerCase();
+        if (Env.TRUE_TOKENS.includes(normalized))  return true;
+        if (Env.FALSE_TOKENS.includes(normalized)) return false;
+        warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be one of true/false/yes/no/on/off/1/0); falling back.`);
+    },
+
+    /**
+     * Decode env value as a finite number.
+     *
+     * Note: `Number(undefined)` returns `NaN` (not undefined), and `NaN ?? fallback` does
+     * NOT fire `??` (only fires on nullish). The undefined-return for absent input is
+     * load-bearing for the `Env.parseNumber(...) ?? AiConfig.X` consumer pattern.
+     *
+     * @param {String|undefined} rawValue
+     * @param {String} envVarName
+     * @param {Function} [warn=console.warn]
+     * @returns {Number|undefined}
+     */
+    parseNumber(rawValue, envVarName, warn = console.warn) {
+        if (Neo.isEmpty(rawValue)) return;
+        const num = Number(rawValue);
+        if (!Number.isFinite(num)) {
+            warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be a finite number); falling back.`);
+            return;
+        }
+        return num;
+    },
+
+    /**
+     * Decode env value as port (integer 1..65535).
+     * @param {String|undefined} rawValue
+     * @param {String} envVarName
+     * @param {Function} [warn=console.warn]
+     * @returns {Number|undefined}
+     */
+    parsePort(rawValue, envVarName, warn = console.warn) {
+        if (Neo.isEmpty(rawValue)) return;
+        const num = Number(rawValue);
+        if (!Number.isInteger(num) || num <= 0 || num > 65535) {
+            warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be integer in 1..65535); falling back.`);
+            return;
+        }
+        return num;
+    },
+
+    /**
+     * Identity passthrough — signals "we explicitly want the raw string".
+     * @param {String|undefined} rawValue
+     * @returns {String|undefined}
+     */
+    parseString(rawValue) {
+        return rawValue;
+    },
+
+    /**
+     * Decode env value as URL, normalized (trailing slash stripped).
+     * @param {String|undefined} rawValue
+     * @param {String} envVarName
+     * @param {Function} [warn=console.warn]
+     * @returns {String|undefined}
+     */
+    parseUrl(rawValue, envVarName, warn = console.warn) {
+        if (Neo.isEmpty(rawValue)) return;
+        try {
+            const url = new URL(rawValue);
+            return url.href.endsWith('/') ? url.href.slice(0, -1) : url.href;
+        } catch (e) {
+            warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be a valid URL); falling back.`);
+        }
+    }
+};
+
+export default Neo.gatekeep(Env, 'Neo.util.Env');
