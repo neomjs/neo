@@ -2,6 +2,7 @@ import {test, expect} from '@playwright/test';
 import path from 'path';
 import Neo from '../../../../../src/Neo.mjs';
 import * as core from '../../../../../src/core/_export.mjs';
+import AiConfig from '../../../../../ai/config.template.mjs';
 import {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
     Orchestrator,
@@ -886,6 +887,39 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         await Promise.resolve();
 
         expect(pulseCalls).toEqual([]);
+    });
+
+    test('AiConfig.orchestrator.intervals fallback reaches configure() when options and env unset (#11075)', () => {
+        // Regression test for the #11075 substrate-migration: with options.pollIntervalMs unset
+        // AND NEO_ORCHESTRATOR_POLL_INTERVAL_MS env unset, the construct() fallback chain MUST
+        // observe a non-default `AiConfig.orchestrator.intervals.pollMs` value rather than
+        // silently falling through to legacy `DEFAULT_POLL_INTERVAL_MS`. Falsifies the wrong-
+        // singleton bug caught by @neo-gpt PR #11825 cycle-1 review (importing Memory_Config
+        // — memory-core server config — instead of top-level AiConfig — orchestrator/maintenance
+        // block source-of-truth).
+        const originalPollMs = AiConfig.data.orchestrator.intervals.pollMs;
+        const originalEnv    = process.env.NEO_ORCHESTRATOR_POLL_INTERVAL_MS;
+        const sentinelValue  = 7777;
+        try {
+            AiConfig.data.orchestrator.intervals.pollMs = sentinelValue;
+            delete process.env.NEO_ORCHESTRATOR_POLL_INTERVAL_MS;
+
+            // configure() is the public consumer of the AiConfig fallback chain. Static-config
+            // initial value (DEFAULT_POLL_INTERVAL_MS) applies pre-configure; calling configure
+            // with empty options exercises the env→AiConfig→DEFAULT fallback chain.
+            const orchestrator = createTestOrchestrator();
+            orchestrator.configure({});
+
+            expect(orchestrator.pollIntervalMs).toBe(sentinelValue);
+            expect(orchestrator.pollIntervalMs).not.toBe(DEFAULT_POLL_INTERVAL_MS);
+        } finally {
+            AiConfig.data.orchestrator.intervals.pollMs = originalPollMs;
+            if (originalEnv === undefined) {
+                delete process.env.NEO_ORCHESTRATOR_POLL_INTERVAL_MS;
+            } else {
+                process.env.NEO_ORCHESTRATOR_POLL_INTERVAL_MS = originalEnv;
+            }
+        }
     });
 
     test('records swarm-heartbeat task outcomes through the health service (#11766)', async () => {
