@@ -33,7 +33,7 @@ test.describe('Tier 1 Config Immutability', () => {
             primaryDevSyncMs: 10 * 60 * 1000,
             dreamMs         : 60 * 60 * 1000,
             goldenPathMs    : 60 * 60 * 1000,
-            swarmHeartbeatMs: 5 * 60 * 1000
+            swarmHeartbeatMs: 15 * 60 * 1000
         });
         expect(Config.orchestrator.localOnly).toEqual({
             primaryDevSyncEnabled: null,
