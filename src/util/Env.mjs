@@ -51,11 +51,11 @@ class Env extends Base {
      * @returns {Number|undefined} Decoded port, or undefined on absent / out-of-range.
      */
     static parsePort(rawValue, envVarName, warn = console.warn) {
-        if (rawValue === undefined || rawValue === null || rawValue === '') return undefined;
+        if (Neo.isEmpty(rawValue)) return;
         const num = Number(rawValue);
         if (!Number.isInteger(num) || num <= 0 || num > 65535) {
             warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be integer in 1..65535); falling back.`);
-            return undefined;
+            return;
         }
         return num;
     }
@@ -68,13 +68,12 @@ class Env extends Base {
      * @returns {String|undefined} Normalized URL, or undefined on absent / malformed.
      */
     static parseUrl(rawValue, envVarName, warn = console.warn) {
-        if (rawValue === undefined || rawValue === null || rawValue === '') return undefined;
+        if (Neo.isEmpty(rawValue)) return;
         try {
             const url = new URL(rawValue);
             return url.href.endsWith('/') ? url.href.slice(0, -1) : url.href;
         } catch (e) {
             warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be a valid URL); falling back.`);
-            return undefined;
         }
     }
 
@@ -95,12 +94,11 @@ class Env extends Base {
      * @returns {Boolean|undefined}
      */
     static parseBool(rawValue, envVarName, warn = console.warn) {
-        if (rawValue === undefined || rawValue === null || rawValue === '') return undefined;
+        if (Neo.isEmpty(rawValue)) return;
         const normalized = String(rawValue).trim().toLowerCase();
         if (Env.TRUE_TOKENS.includes(normalized))  return true;
         if (Env.FALSE_TOKENS.includes(normalized)) return false;
         warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be one of true/false/yes/no/on/off/1/0); falling back.`);
-        return undefined;
     }
 
     /**
@@ -127,11 +125,11 @@ class Env extends Base {
      * @returns {Number|undefined} Decoded number, or undefined on absent / non-finite.
      */
     static parseNumber(rawValue, envVarName, warn = console.warn) {
-        if (rawValue === undefined || rawValue === null || rawValue === '') return undefined;
+        if (Neo.isEmpty(rawValue)) return;
         const num = Number(rawValue);
         if (!Number.isFinite(num)) {
             warn(`[Neo.util.Env] Invalid ${envVarName}="${rawValue}" (must be a finite number); falling back.`);
-            return undefined;
+            return;
         }
         return num;
     }
@@ -172,7 +170,7 @@ class Env extends Base {
             const finalKey = keys.pop();
             const parent   = keys.length ? Neo.ns(keys, false, data) : data;
 
-            if (parent && typeof parent === 'object') {
+            if (Neo.isObject(parent)) {
                 parent[finalKey] = result;
             } else {
                 warn(`[Neo.util.Env] Cannot bind ${varName} to "${path}" — intermediate is not an object.`);
