@@ -1,5 +1,5 @@
 // Neo + core/_export + InstanceManager bootstrap belongs to the daemon entry point
-// (`ai/scripts/orchestrator-daemon.mjs`), NOT to this consumed-class file. Class files
+// (`ai/daemons/orchestrator/daemon.mjs`), NOT to this consumed-class file. Class files
 // rely on `globalThis.Neo` populated by the entry-point bootstrap; importing Neo here
 // would violate the entry-point-only invariant + risk partial-namespace damage if the
 // class were ever loaded outside its entry-point's chain.
@@ -123,47 +123,47 @@ function resolveDeploymentEnabled(key) {
 }
 
 /**
- * @summary Neo daemon class for Agent OS maintenance scheduling (#11009).
+ * @summary Neo daemon class for Agent OS maintenance scheduling.
  *
- * `ai/scripts/orchestrator-daemon.mjs` owns the Node-process boot wrapper:
- * PID file, lifecycle traps, and fatal-start isolation. This class owns the
- * actual maintenance loop, task-state persistence, subprocess execution,
- * recovery of already-running child tasks, and task outcome reporting through
+ * Schedules and runs Agent OS maintenance tasks (session summarization, KB sync,
+ * memory-core backup, primary-checkout dev-sync, dream pipeline, golden-path
+ * synthesis, swarm heartbeat) under per-task failure isolation — a thrown
+ * handover read, success hook, or task failure on one lane never stops the
+ * scheduling of any other lane.
+ *
+ * The entry-point `ai/daemons/orchestrator/daemon.mjs` owns the Node-process
+ * boot wrapper (PID file, lifecycle traps, fatal-start isolation). This class
+ * owns the maintenance loop, task-state persistence, child-process supervision,
+ * recovery of already-running child tasks, and task-outcome reporting through
  * `HealthService.recordTaskOutcome(...)`.
  *
- * Failure isolation is per task: summary scheduling and KB-sync scheduling are
- * wrapped independently so a thrown sunset-handover read or summary success hook
- * cannot stop the KB-sync lane, and a KB-sync failure cannot stop the next summary
- * sweep.
+ * All collaborators are reactive configs with sensible defaults (the imported
+ * singleton for stateless services; a class reference or `null` for the two that
+ * require lifecycle handling). Tests inject mocks via `Neo.create({collaborator: mock})`
+ * at construction or by assigning `instance.collaborator = mock` post-construct.
+ * - `cadenceEngine_` — interval cadence + due-time computation (class reference;
+ *   `beforeSet` performs polymorphic class/instance/config-object conversion +
+ *   destroys the prior instance on swap)
+ * - `processSupervisorService_` — child-process lifecycle (`beforeSet` constructs
+ *   the child from parent-sourced config; parent `afterSet*` hooks propagate
+ *   `dataDir` / `taskDefinitions` / `taskStateService` / `healthService` / `spawnFn`
+ *   mutations downstream so the child stays consistent with parent state)
+ * - `summarizationCoordinator_`, `backupCoordinator_`, `primaryRepoSyncService_`,
+ *   `dreamService_`, `swarmHeartbeatService_`, `goldenPathSynthesizer_`,
+ *   `initializeDatabaseFn_` — singleton defaults; tests override directly
  *
- * **Service-DI 4-way classification (#11833 / Epic #11831):**
- * - **(A) Class-system-managed utility collaborator** — `cadenceEngine_` reactive
- *   config with `beforeSet` + `ClassSystemUtil.beforeSetInstance` for polymorphic
- *   class/instance/config-object input and proper lifecycle on swap.
- * - **(B) Parent-configured child collaborator** — `processSupervisorService_`
- *   reactive config with `beforeSet` creation from parent-sourced config + parent
- *   `afterSet*` propagation hooks for `dataDir`/`taskDefinitions`/`taskStateService`/
- *   `healthService`/`spawnFn` so subsequent parent mutations flow to the child.
- * - **(C) Simple imported collaborator** — direct-import instance fields
- *   (`summarizationCoordinator`, `backupCoordinator`, etc.) — no class-system
- *   conversion, no parent-child propagation, no lifecycle side effect.
- * - **(D) Operator policy value** — lazy getters with the 2-value chain
- *   `Env.parseNumber(process.env.X, 'X') ?? AiConfig.orchestrator.intervals.X`
- *   for intervals + `Env.parseBool(...) ?? resolveDeploymentEnabled(...)` for booleans.
- *
- * No `configure()` shadow-resolver. No `DEFAULT_X_*_MS` constants. No
- * `parseInterval`/`parseEnabledFlag` helpers. No `processSupervisorService.set({...this...})`
- * context-replay block in `start()`.
+ * Operator policy (intervals + lane-enable booleans) is read via lazy getters that
+ * compose `Env.parseX(process.env.X, 'X') ?? AiConfig.orchestrator.X` for
+ * env-override-then-config-default precedence.
  *
  * @class Neo.ai.daemons.Orchestrator
  * @extends Neo.core.Base
  * @singleton
- * @see ai/scripts/orchestrator-daemon.mjs
- * @see ai/daemons/services/SummarizationCoordinatorService.mjs
+ * @see ai/daemons/orchestrator/daemon.mjs
+ * @see ai/daemons/orchestrator/services/SummarizationCoordinatorService.mjs
  * @see ai/services/memory-core/HealthService.mjs#recordTaskOutcome
  * @see learn/agentos/v13-path.md
  * @see #11009
- * @see #11833 (masterclass-reference refactor)
  */
 export class Orchestrator extends Base {
     static config = {
@@ -177,15 +177,11 @@ export class Orchestrator extends Base {
          * @protected
          */
         singleton: true,
-
-        // === Service-DI Class A: class-system-managed utility collaborator ===
         /**
          * @member {Neo.ai.daemons.services.CadenceEngine|Object|null} cadenceEngine_=null
          * @reactive
          */
         cadenceEngine_: null,
-
-        // === Service-DI Class B: parent-configured child collaborator + propagated parent props ===
         /**
          * @member {Neo.ai.daemons.services.ProcessSupervisorService|Object|null} processSupervisorService_=null
          * @reactive
@@ -215,19 +211,44 @@ export class Orchestrator extends Base {
          * @member {Function} spawnFn_=spawn
          * @reactive
          */
-        spawnFn_: spawn
+        spawnFn_: spawn,
+        /**
+         * @member {Object} summarizationCoordinator_=SummarizationCoordinatorService
+         * @reactive
+         */
+        summarizationCoordinator_: SummarizationCoordinatorService,
+        /**
+         * @member {Object} backupCoordinator_=BackupCoordinatorService
+         * @reactive
+         */
+        backupCoordinator_: BackupCoordinatorService,
+        /**
+         * @member {Object} primaryRepoSyncService_=PrimaryRepoSyncService
+         * @reactive
+         */
+        primaryRepoSyncService_: PrimaryRepoSyncService,
+        /**
+         * @member {Object} dreamService_=DreamService
+         * @reactive
+         */
+        dreamService_: DreamService,
+        /**
+         * @member {Object} swarmHeartbeatService_=SwarmHeartbeatService
+         * @reactive
+         */
+        swarmHeartbeatService_: SwarmHeartbeatService,
+        /**
+         * @member {Object} goldenPathSynthesizer_=GoldenPathSynthesizer
+         * @reactive
+         */
+        goldenPathSynthesizer_: GoldenPathSynthesizer,
+        /**
+         * @member {Function} initializeDatabaseFn_=initializeDatabase
+         * @reactive
+         */
+        initializeDatabaseFn_: initializeDatabase
     }
 
-    // === Service-DI Class C: simple imported collaborators (instance fields) ===
-    summarizationCoordinator = SummarizationCoordinatorService
-    backupCoordinator        = BackupCoordinatorService
-    primaryRepoSyncService   = PrimaryRepoSyncService
-    dreamService             = DreamService
-    swarmHeartbeatService    = SwarmHeartbeatService
-    goldenPathSynthesizer    = GoldenPathSynthesizer
-    initializeDatabaseFn     = initializeDatabase
-
-    // === Instance state (mutated at runtime; non-reactive) ===
     isPolling                     = false
     pollHandle                    = null
     db                            = null
@@ -247,7 +268,6 @@ export class Orchestrator extends Base {
      */
     processSupervisorWriteLog = (level, msg) => this.writeLog(level, msg)
 
-    // === Service-DI Class A: cadenceEngine beforeSet (polymorphic class/instance/config input) ===
     /**
      * @param {Neo.ai.daemons.services.CadenceEngine|Object|null} value
      * @param {Neo.ai.daemons.services.CadenceEngine|null} oldValue
@@ -258,7 +278,6 @@ export class Orchestrator extends Base {
         return ClassSystemUtil.beforeSetInstance(value, CadenceEngine, {});
     }
 
-    // === Service-DI Class B: processSupervisorService beforeSet + parent afterSet propagation ===
     /**
      * @param {Neo.ai.daemons.services.ProcessSupervisorService|Object|null} value
      * @returns {Neo.ai.daemons.services.ProcessSupervisorService}
@@ -290,7 +309,6 @@ export class Orchestrator extends Base {
         if (this.processSupervisorService) this.processSupervisorService.spawnFn = value;
     }
 
-    // === Service-DI Class D: operator policy values (lazy getters, 2-value chain) ===
     get pollIntervalMs() {
         return Env.parseNumber(process.env.NEO_ORCHESTRATOR_POLL_INTERVAL_MS, 'NEO_ORCHESTRATOR_POLL_INTERVAL_MS')
             ?? AiConfig.orchestrator.intervals.pollMs;
