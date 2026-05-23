@@ -188,7 +188,7 @@ You MUST follow this exact handoff protocol:
 
 *(Codified per #11217, graduated from Discussion #11216; operationalizes operator directive 2026-05-11: "premature PRs → reject")*
 
-**Axis 2 of the consensus mandate** (Axis 1 is `ideation-sandbox-workflow.md §6` Discussion-graduation-gate). Without both axes, the consensus-mandate is bypassable by opening a PR before Discussion-graduation reaches 100% APPROVED.
+**Axis 2 of the consensus mandate** (Axis 1 is `ideation-sandbox-workflow.md §6` Discussion-graduation-gate). Without both axes, the consensus-mandate is bypassable by opening a PR before Discussion-graduation reaches the §6.2 quorum (per Epic #11796: ≥ 2 active families + ≥ 1 non-author family `APPROVED`; Tier-2 adds `Unresolved Liveness` + `revalidationTrigger` AC).
 
 **Scope**: PRs that implement substrate evolution **from a high-blast Discussion** (per `ideation-sandbox-workflow.md §6.1`). PRs from low-blast Discussions, direct-ticket implementations without an originating Discussion, or bug-fixes use the standard §6.1 Cross-Family Mandate alone.
 
@@ -196,15 +196,20 @@ You MUST follow this exact handoff protocol:
 
 ```markdown
 ## Signal Ledger (sourced from Discussion #N)
-- @<peer1>: APPROVED @ <commentId>
-- @<peer2>: APPROVED @ <commentId>
-- @<peer3>: APPROVED @ <commentId>
+- `claude`: [AUTHOR_SIGNAL | APPROVED | DEFERRED | ABSTAIN] by @<identity> @ <anchor>
+- `gpt`: [APPROVED | DEFERRED | ABSTAIN] by @<identity> @ <anchor>
+- `gemini`: [APPROVED | DEFERRED | ABSTAIN] by @<identity> @ <anchor>
+(multi-identity-per-family: nest identity rows under the family per `ideation-sandbox-workflow.md §6.4` aggregation)
+(AUTHOR_SIGNAL appears under author's family only; NOT sufficient as cross-family endorsement — ≥ 1 non-author family `[GRADUATION_APPROVED]` required)
 
 ## Unresolved Dissent
-(empty if 100% APPROVED; otherwise: DEFERRED/VETO entries with status)
+(empty if no DEFERRED/VETO at the final Discussion body anchor — positive signal)
+(otherwise: DEFERRED/VETO entries with status: resolved-by-peer-reconciliation OR pending-reconciliation)
 
 ## Unresolved Liveness
-(empty if all 3 signals collected; otherwise: no-signal entries with peer-owned liveness disposition)
+(empty if all active families produced a signal — positive signal)
+(otherwise: inactive families with participationStatus + reactivationTrigger + STATUS)
+(Tier-2 substrate: ALSO include the revalidationTrigger AC reference for the substrate Epic per `ideation-sandbox-workflow.md §6.2(c)`)
 ```
 
 These three sections are mandatory in the PR body for substrate-mutating PRs from high-blast Discussions. Empty sections are positive signals.
@@ -212,11 +217,12 @@ These three sections are mandatory in the PR body for substrate-mutating PRs fro
 **Reviewer obligation**: the cross-family reviewer MUST verify the Signal Ledger BEFORE stamping `reviewDecision: APPROVED`:
 
 1. Read the cited Discussion via GitHub GraphQL (`gh api graphql -f query='{ repository(owner, name) { discussion(number: N) { body comments { ... } } } }'`), public comment URLs, or the locally synced discussion artifact when available. Note: the github-workflow MCP `get_conversation` tool is PR-specific; it does NOT retrieve Discussion content.
-2. Confirm each peer's APPROVED signal exists at the cited commentId
+2. Confirm the §6.2 quorum is met: ≥ 2 active families (per `AgentIdentity.participationStatus`) carrying any signal AND ≥ 1 non-author family carrying `[GRADUATION_APPROVED]`. `AUTHOR_SIGNAL` alone does NOT satisfy non-author endorsement.
 3. Confirm version-binding: signals are bound to the substrate state being implemented (not stale relative to body edits)
 4. Confirm any DEFERRED/VETO carries explicit peer-reconciliation / peer-owned disposition + residual-risk documentation
+5. For Tier-2 substrate (core-value / §critical_gates / consensus-gate mutation): additionally confirm the substrate Epic body carries an explicit `revalidationTrigger` AC for any benched family in `## Unresolved Liveness` (per Epic #11796 AC6).
 
-**Rejection path**: if the Signal Ledger is incomplete OR contains unresolved DEFERRED/VETO/liveness gaps without a codified peer-owned disposition, the reviewer posts `Request Changes` citing this §6.1.1 — NOT iterative Cycle-N review-comments on the code itself. The PR is **premature** and must close OR wait for Discussion-graduation to complete.
+**Rejection path**: if the Signal Ledger fails the §6.2 quorum (insufficient active-family floor OR missing non-author `APPROVED` OR Tier-2 missing `revalidationTrigger` AC) OR contains unresolved DEFERRED/VETO without explicit peer-reconciliation / peer-owned disposition, the reviewer posts `Request Changes` citing this §6.1.1 — NOT iterative Cycle-N review-comments on the code itself. The PR is **premature** and must close OR wait for Discussion-graduation to complete.
 
 **Operator merge-gate**: PRs that bypass the consensus-gate get rejected at the merge boundary by `@tobiu` regardless of CI green or cross-family approval. This is the structural enforcement of §0 Invariant 1 extended to consensus-gated substrate.
 
