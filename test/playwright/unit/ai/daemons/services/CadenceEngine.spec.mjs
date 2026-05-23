@@ -5,28 +5,8 @@ import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import CadenceEngine   from '../../../../../../ai/daemons/services/CadenceEngine.mjs';
 
 test.describe('Neo.ai.daemons.services.CadenceEngine (#11051)', () => {
-    // Post Sub 1 #11833: CadenceEngine no longer `singleton: true` (per @tobiu:
-    // classes that take external configs cannot be singletons). Tests construct
-    // per-test instances. parseInterval() is also queued for removal by Sub 3
-    // #11835 (replaced by Neo.util.Env.parseNumber).
     let ce;
     test.beforeEach(() => { ce = Neo.create(CadenceEngine); });
-
-    test('parseInterval() returns fallback for undefined/null/empty', () => {
-        expect(ce.parseInterval(undefined, 3000)).toBe(3000);
-        expect(ce.parseInterval(null, 3000)).toBe(3000);
-        expect(ce.parseInterval('', 3000)).toBe(3000);
-    });
-
-    test('parseInterval() parses valid numbers and prevents negative intervals', () => {
-        expect(ce.parseInterval('5000', 3000)).toBe(5000);
-        expect(ce.parseInterval('0', 3000)).toBe(0);
-        expect(ce.parseInterval('-5000', 3000)).toBe(0);
-    });
-
-    test('parseInterval() returns fallback for NaN', () => {
-        expect(ce.parseInterval('not-a-number', 3000)).toBe(3000);
-    });
 
     test('shouldRunIntervalTask() correctly evaluates due tasks', () => {
         // Disabled

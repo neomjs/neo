@@ -56,21 +56,6 @@ export function isKbRelevantChangePath(filePath) {
 }
 
 /**
- * @summary Parses the primary-dev-sync enable flag.
- *
- * @param {String|undefined|null} value Environment value.
- * @param {Boolean} [fallback=true] Fallback flag.
- * @returns {Boolean}
- */
-export function parseEnabledFlag(value, fallback=true) {
-    if (value === undefined || value === null || value === '') {
-        return fallback;
-    }
-
-    return !['0', 'false', 'no', 'off'].includes(String(value).toLowerCase());
-}
-
-/**
  * @summary Parses the optional multi-checkout dev-sync root list (#11135).
  *
  * The env var is intentionally explicit: no sibling-clone discovery, no branch
