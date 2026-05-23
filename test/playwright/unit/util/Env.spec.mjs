@@ -135,33 +135,15 @@ test.describe('Neo.util.Env', () => {
         });
     });
 
-    test.describe('setDeep', () => {
-        test('sets value at simple path', () => {
-            const obj = { a: { b: { c: 1 } } };
-            Env.setDeep(obj, 'a.b.c', 42);
-            expect(obj.a.b.c).toBe(42);
-        });
-
-        test('blocks prototype pollution via __proto__', () => {
-            const obj = { a: {} };
-            Env.setDeep(obj, 'a.__proto__.polluted', 'YES');
-            expect({}.polluted).toBe(undefined);
-        });
-
-        test('blocks prototype pollution via constructor', () => {
-            const obj = { a: {} };
-            Env.setDeep(obj, 'a.constructor.prototype.polluted', 'YES');
-            expect({}.polluted).toBe(undefined);
-        });
-
-        test('refuses to traverse non-object intermediate keys', () => {
-            const obj = { a: { b: 'leaf' } };
-            Env.setDeep(obj, 'a.b.c', 42);
-            expect(obj.a.b).toBe('leaf');
-        });
-    });
-
     test.describe('applyEnvBindings', () => {
+        test('warns + skips when intermediate is not an object (developer-authored path mistake)', () => {
+            const data = { a: { b: 'leaf' } };
+            const bindings = { 'a.b.c': { var: 'TEST_X', parse: Env.parseNumber } };
+            Env.applyEnvBindings(data, bindings, { TEST_X: '42' }, captureWarn);
+            expect(data.a.b).toBe('leaf');
+            expect(warns.length).toBe(1);
+        });
+
         test('applies string bindings from env', () => {
             const data = { name: '' };
             const bindings = { name: 'TEST_NAME' };

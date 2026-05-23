@@ -137,14 +137,19 @@ class Env extends Base {
     }
 
     /**
-     * Bulk-apply env→config bindings with prototype-pollution guards.
+     * Bulk-apply env→config bindings.
      *
      * Binding shapes:
      * - `{<dotted.path>: <envVarName>}` — implicit `parseString` parser
      * - `{<dotted.path>: {var: <envVarName>, parse: <parserFn>}}` — typed parser
      *
      * Bindings whose env var is absent or whose parser returns undefined are skipped
-     * (leaves the existing `data` value untouched).
+     * (leaves the existing `data` value untouched). Uses `Neo.ns()` for namespace-walk;
+     * warns + skips if an intermediate is not an object.
+     *
+     * Note: binding paths are developer-authored at source level (NOT env-value-derived);
+     * env values become typed leaf values via the parser, never path keys. No prototype-
+     * pollution attack surface from env input.
      *
      * @param {Object} data Mutable config object.
      * @param {Object} envBindings Path → binding map.
@@ -164,40 +169,16 @@ class Env extends Base {
             const result = parse(raw, varName, warn);
             if (result === undefined) continue;
 
-            Env.setDeep(data, path, result);
-        }
-    }
+            const keys     = path.split('.');
+            const finalKey = keys.pop();
+            const parent   = keys.length ? Neo.ns(keys, false, data) : data;
 
-    /**
-     * Set a value at a dotted path on a config object, guarding against prototype pollution.
-     * Delegates namespace-walking to `Neo.ns()` (the canonical Neo primitive at `src/Neo.mjs:683`);
-     * adds the pollution-guard + non-object-intermediate-refusal that `Neo.ns` does not provide
-     * (env-binding-substrate-specific concerns — input paths derive from operator-provided
-     * env-binding maps which is a hostile-input surface unlike the trusted class-name input
-     * `Neo.ns` was designed for).
-     *
-     * @param {Object} obj Target object.
-     * @param {String} path Dotted path (e.g., `'orchestrator.intervals.pollMs'`).
-     * @param {*} value Value to assign at the leaf.
-     */
-    static setDeep(obj, path, value) {
-        const keys = path.split('.');
-        // Guard ALL keys (including the leaf) against prototype pollution
-        for (const key of keys) {
-            if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
-                console.warn(`[Neo.util.Env] Prototype pollution attempt blocked for path "${path}"`);
-                return;
+            if (parent && typeof parent === 'object') {
+                parent[finalKey] = result;
+            } else {
+                warn(`[Neo.util.Env] Cannot bind ${varName} to "${path}" — intermediate is not an object.`);
             }
         }
-        const parentKeys = keys.slice(0, -1);
-        const finalKey   = keys[keys.length - 1];
-        // Use Neo.ns for the namespace walk; create=false preserves "refuses non-object intermediate" semantic
-        const parent = parentKeys.length ? Neo.ns(parentKeys, false, obj) : obj;
-        if (parent === null || typeof parent !== 'object') {
-            console.warn(`[Neo.util.Env] Cannot set path "${path}" because intermediate key is not an object.`);
-            return;
-        }
-        parent[finalKey] = value;
     }
 }
 
