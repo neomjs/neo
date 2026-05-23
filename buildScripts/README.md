@@ -28,6 +28,42 @@ Tools for managing the AI infrastructure, including Vector Database operations a
 | `downloadKnowledgeBase.mjs` | `npm run ai:download-kb` | Downloads the latest pre-indexed Knowledge Base from the remote source. |
 | `syncKnowledgeBase.mjs` | `npm run ai:sync-kb` | Indexes the local codebase and updates the vector database with changes. |
 
+### AI/Operator CLI Parser Convention
+
+New or actively touched AI/operator CLI surfaces under `ai/scripts/` and `buildScripts/ai/`
+should use Commander-backed parsing by default. The repository already carries
+`commander` as a direct dependency, and Commander gives these scripts consistent
+help output, unknown-option rejection, missing-value rejection, and option default
+handling.
+
+Keep parser seams testable:
+
+- Export a pure parser helper such as `parseArgs(argv)` or pair it with
+  `createProgram()` when tests need a fresh `Command` instance.
+- In exported parser tests, use `exitOverride()` and suppress Commander output so
+  unknown flags, missing required options, missing option values, and help paths
+  can be asserted without terminating the test process.
+- Bespoke parsers are allowed only for legacy-stable or special-case surfaces.
+  When a bespoke parser is actively touched, either convert it or document why
+  Commander is the wrong fit and keep tests for unknown / missing option failure
+  semantics.
+
+#### Parser Surface Audit
+
+| Surface | Parser | Classification | Notes |
+| :--- | :--- | :--- | :--- |
+| `ai/scripts/revalidationSweep.mjs` | Commander | Converted now | Landed via #11815 with focused parser tests for defaults, values, unknown flags, missing required `--family`, and missing option value. |
+| `buildScripts/ai/defragChromaDB.mjs` | Commander | Existing standard | Already uses the shared Commander pattern. |
+| `buildScripts/ai/kbPushClient.mjs` | Commander | Existing standard | Keep as an example for exported parser seams and environment defaults. |
+| `buildScripts/ai/mcpHealthcheck.mjs` | Commander | Existing standard | Keep as an example for exported parser seams and dotenv-compatible defaults. |
+| `ai/scripts/lint-agents.mjs` | Bespoke | Legacy tolerated | Has focused tests and stable linter-specific semantics; convert when the parser is next materially touched. |
+| `ai/scripts/lint-skill-manifest.mjs` | Bespoke | Legacy tolerated | Stable linter-specific parser; convert when parser semantics are next materially touched. |
+| `ai/scripts/migrateWakeSubscriptions.mjs` | Bespoke | Future-touch conversion target | Convert on the next functional parser change rather than churning the script now. |
+| `ai/scripts/normalizeGraphIdentities.mjs` | Bespoke | Future-touch conversion target | Convert on the next functional parser change rather than churning the script now. |
+| `ai/scripts/backfillChromaSharedUserId.mjs` | Bespoke | Future-touch conversion target | Convert on the next functional parser change rather than churning the script now. |
+| `buildScripts/ai/ingestTenant.mjs` | Bespoke | Future-touch conversion target | Keep existing tenant-ingest tests; convert when parser behavior changes. |
+| `buildScripts/ai/restore.mjs` | Bespoke | Future-touch conversion target | Positional bundle parsing is covered by restore tests; convert when parser behavior changes. |
+
 ---
 
 ## 2. Build Operations (`buildScripts/build/`)
