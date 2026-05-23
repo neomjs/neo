@@ -46,7 +46,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         MailboxService = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).default;
         PermissionService = (await import('../../../../../../ai/services/memory-core/PermissionService.mjs')).default;
         LifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
-        SwarmHeartbeatService = (await import('../../../../../../ai/daemons/SwarmHeartbeatService.mjs')).default;
+        SwarmHeartbeatService = (await import('../../../../../../ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs')).default;
         buildMailboxDelta = (await import('../../../../../../ai/services/memory-core/MemoryService.mjs')).buildMailboxDelta;
 
         // Pin this suite to strict-isolation mode (#10252). These tests predate the
