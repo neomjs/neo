@@ -146,7 +146,7 @@ To mitigate "Helpful Assistant" regression drift, agents MUST execute this evalu
 
 **Mandate:** Before cross-peer coordination, lead/peer role work, ideation review, lane handoff, or A2A lifecycle coordination, nullify the orchestrator-worker drift by reviewing this anchor + Discussion #11026. Local harness subagent/tool calls do NOT trigger the anchor read.
 
-**Consensus-mandate** (#11217 from #11216): high-blast Discussion graduations require 3× explicit APPROVED cross-family signals; substrate-PRs from non-graduated Discussions rejected at merge-gate. Substantive content: `ideation-sandbox-workflow.md` §6 + `pull-request-workflow.md` §6.1.1.
+**Consensus-mandate** (#11217 from #11216; family-keyed per #11796 / #11793): high-blast Discussion graduations require family-keyed active-membership quorum (≥ 2 active families with signal AND ≥ 1 non-author family `[GRADUATION_APPROVED]`; Tier-2 changes also require `## Unresolved Liveness` + `revalidationTrigger` AC). Substrate-PRs from non-graduated Discussions rejected at merge-gate. Substantive content: `ideation-sandbox-workflow.md` §6 + `pull-request-workflow.md` §6.1.1.
 
 **Coordination protocol** (#11209 from #11206): lead-role focus-naming (§2.3) + explicit /peer-role skill-trigger (§2.2) + peer lane-announce-A2A (§6.5) + source-of-authority collision check + Authority-hierarchy (§6.6). Substantive content in `lead-role-mode.md` + `peer-role-mode.md`.
 </neo_core_overrides>
