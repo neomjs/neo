@@ -1,9 +1,9 @@
 import {test, expect} from '@playwright/test';
 import {
     getDueTask
-} from '../../../../../../../ai/daemons/orchestrator/services/DreamCoordinatorService.mjs';
+} from '../../../../../../../ai/daemons/orchestrator/scheduling/dream.mjs';
 
-test.describe('DreamCoordinatorService (#11858 / Epic #11831)', () => {
+test.describe('orchestrator/scheduling/dream (#11858 / Epic #11831)', () => {
     test('returns a periodic-dream trigger when the interval has elapsed since lastRunAt', () => {
         expect(getDueTask({
             state          : {lastRunAt: 0},
