@@ -102,7 +102,7 @@ class TransportService extends Base {
         const crypto = await import('crypto');
         const cors = await import('cors');
         const app = createMcpExpressApp();
-        
+
         this.app = app;
 
         app.use(cors.default({

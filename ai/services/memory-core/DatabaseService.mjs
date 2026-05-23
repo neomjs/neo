@@ -140,7 +140,7 @@ class DatabaseService extends Base {
     async #exportGraph(backupPath, filePrefix) {
         logger.log(`Fetching all nodes and edges from the native graph...`);
         const GraphService = (await import('./GraphService.mjs')).default;
-        
+
         // Ensure graph is initialized
         if (!GraphService.db || !GraphService.db.storage || !GraphService.db.storage.db) {
              logger.log(`Graph database not initialized. Skipping graph export.`);
@@ -148,7 +148,7 @@ class DatabaseService extends Base {
         }
 
         const db = GraphService.db.storage.db;
-        
+
         let nodesCount = 0;
         let edgesCount = 0;
 
@@ -172,7 +172,7 @@ class DatabaseService extends Base {
         const fs        = (await import('fs-extra')).default;
         const path      = (await import('path')).default;
         await fs.ensureDir(backupPath);
-        
+
         const timestamp   = new Date().toISOString().replace(/:/g, '-');
         const backupFile  = path.join(backupPath, `${filePrefix}-${timestamp}.jsonl`);
         const writeStream = fs.createWriteStream(backupFile);
@@ -225,7 +225,7 @@ class DatabaseService extends Base {
         if (!GraphService.db || !GraphService.db.storage || !GraphService.db.storage.db) {
             throw new Error(`Graph database not initialized. Cannot import graph.`);
         }
-        
+
         const db = GraphService.db.storage.db;
 
         if (mode === 'replace') {
@@ -243,7 +243,7 @@ class DatabaseService extends Base {
 
         const fs = (await import('fs-extra')).default;
         const readline = (await import('readline')).default;
-        
+
         const fileStream = fs.createReadStream(filePath);
         const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
 
@@ -343,7 +343,7 @@ class DatabaseService extends Base {
     /**
      * Exports the memory database (memories, summaries, graph) to JSONL files.
      *
-     * Accepts an optional `backupPath` so orchestrators (e.g. `buildScripts/ai/backup.mjs`)
+     * Accepts an optional `backupPath` so orchestrators (e.g. `ai/scripts/maintenance/backup.mjs`)
      * can direct artifacts into a subfolder of an atomic timestamped bundle without
      * needing to post-process file locations. Default behavior is unchanged (flat write
      * to `aiConfig.backupPath`).
@@ -565,7 +565,7 @@ class DatabaseService extends Base {
                 await proxy.drop({confirmation});
                 truncated.push('summaries');
             }
-            
+
             if (include.includes('graph')) {
                 await this.#assertGraphDestructiveTargetAllowed({
                     operation: 'memory-core.graph.truncate',

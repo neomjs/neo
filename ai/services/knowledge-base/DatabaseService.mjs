@@ -46,7 +46,7 @@ dotenv.config({
  *     #9903 precedent, #10132 for retirement rationale). `makeSafe` no-match passthrough
  *     forwards raw args through the SDK when no openapi operation is registered.
  *     Non-destructive — captures the current ChromaDB collection state as JSONL for
- *     consumption by the canonical backup orchestrator (`buildScripts/ai/backup.mjs`),
+ *     consumption by the canonical backup orchestrator (`ai/scripts/maintenance/backup.mjs`),
  *     without triggering sync, re-embedding, or compaction. See #10129 for the
  *     atomic-bundle substrate design.
  *
@@ -98,7 +98,7 @@ class DatabaseService extends Base {
      * @summary Exports the Knowledge Base ChromaDB collection as JSONL.
      *
      * Peer-symmetric with `Memory_DatabaseService.exportDatabase`. Called by the canonical
-     * backup orchestrator (`buildScripts/ai/backup.mjs`) to populate the `kb/` subfolder
+     * backup orchestrator (`ai/scripts/maintenance/backup.mjs`) to populate the `kb/` subfolder
      * of an atomic timestamped bundle, or invoked standalone for ad-hoc KB snapshots.
      * Non-destructive: reads the current collection state without triggering sync, re-embed,
      * or compaction. See #10129 for bundle layout.
@@ -253,7 +253,7 @@ class DatabaseService extends Base {
      * cost-free.
      *
      * Peer-symmetric counterpart of `exportDatabase`. Called by the canonical restore
-     * orchestrator (`buildScripts/ai/restore.mjs`, #10871 AC-B).
+     * orchestrator (`ai/scripts/maintenance/restore.mjs`, #10871 AC-B).
      *
      * @param {Object}        options
      * @param {String}        options.file               Absolute path to a JSONL file OR a directory containing `.jsonl` files.

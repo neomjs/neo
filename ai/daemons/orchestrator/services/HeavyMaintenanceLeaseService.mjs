@@ -444,7 +444,7 @@ export async function releaseHeavyMaintenanceLease({
  * GraphService.decayGlobalTopology();
  * ```
  *
- * Canonical consumer reference: `buildScripts/ai/runSandman.mjs` post-PR #11509
+ * Canonical consumer reference: `ai/scripts/runners/runSandman.mjs` post-PR #11509
  * cycles 1 + 2 (decay inside inner `finally`).
  *
  * ## Returned shape (what callers of `await withHeavyMaintenanceLease(...)` see)
@@ -483,7 +483,7 @@ export async function releaseHeavyMaintenanceLease({
  * @returns {Promise<Object>} `{status, acquired, lease, result}` on completion; `{status: 'held', acquired: false, lease}` on contention.
  * @see acquireHeavyMaintenanceLease
  * @see releaseHeavyMaintenanceLease
- * @see buildScripts/ai/runSandman.mjs — canonical consumer pattern
+ * @see ai/scripts/runners/runSandman.mjs — canonical consumer pattern
  * @see https://github.com/neomjs/neo/issues/11515 — release-timing JSDoc friction-to-gold
  * @see https://github.com/neomjs/neo/pull/11509 — empirical anchor (cycles 1 + 2)
  */

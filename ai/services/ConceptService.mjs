@@ -275,7 +275,7 @@ class ConceptService extends Base {
     /**
      * @summary Builds a hierarchical tree of concepts rooted at the system anchor.
      * Each node in the tree includes its metadata and a `children` array.
-     * 
+     *
      * Documents the boundary for internal orchestration and visualization apps. LLM query surfaces should use bounded variants.
      * @param {Number} [maxTier=3] Maximum tier to include.
      * @returns {Object} Tree root with nested children.

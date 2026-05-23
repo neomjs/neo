@@ -5,11 +5,11 @@ import logger from '../../mcp/server/memory-core/logger.mjs';
 
 /**
  * @summary Service for delivering wake events via A2A Webhook Push Notifications (Shape B).
- * 
+ *
  * Implements the webhook delivery mechanism per ADR 0002 §6.2.
  * It is responsible for POSTing the MCP-aligned wake payload to the target URL,
  * applying HMAC-SHA256 signing, and handling exponential backoff and connection degradation.
- * 
+ *
  * @class Neo.ai.services.memory-core.WebhookDeliveryService
  * @extends Neo.core.Base
  * @singleton

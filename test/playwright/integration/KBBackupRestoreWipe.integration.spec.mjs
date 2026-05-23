@@ -497,7 +497,7 @@ function ingestTenantViaCli({collectionName, recordCount, repoSlug, tenantId}) {
         // closure-injected viaMcp flag, and the bulk CLI relies on viaMcp:false reaching
         // VectorService.embed as the explicit #10572 work-volume-gate bypass.
         const {default: KB_IngestionService} = await import('./ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs');
-        const {readJsonlRecords, runIngest}  = await import('./buildScripts/ai/ingestTenant.mjs');
+        const {readJsonlRecords, runIngest}  = await import('./ai/scripts/maintenance/ingestTenant.mjs');
 
         await KB_LifecycleService.ready();
 

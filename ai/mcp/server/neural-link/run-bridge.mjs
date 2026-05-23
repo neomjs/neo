@@ -28,9 +28,9 @@ if (options.debug) {
         }
 
         logger.info('Starting Neural Link Bridge...');
-        
+
         await Bridge.ready();
-        
+
         // Keep process alive
         process.on('SIGINT', async () => {
             logger.info('Received SIGINT. Shutting down...');

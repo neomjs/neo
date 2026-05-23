@@ -133,7 +133,7 @@ class SourceParser extends Base {
         // - Class JSDoc
         // - Class Declaration line (e.g. "class MyComponent extends Base {")
         let contextContent = '';
-        
+
         if (classStart > 0) {
              const preClassContent = content.substring(0, classStart).trim();
              contextContent = (preClassContent ? preClassContent + '\n\n' : '') + classDefinition;

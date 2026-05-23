@@ -75,7 +75,7 @@ function createBackupBundle(bundleRoot) {
         ${NEO_BOOTSTRAP}
 
         const silentLogger = {log(){}, warn(){}, error(){}};
-        const {runBackup} = await import('./buildScripts/ai/backup.mjs');
+        const {runBackup} = await import('./ai/scripts/maintenance/backup.mjs');
         const result = await runBackup({
             bundleRoot: process.env.NEO_TEST_BACKUP_BUNDLE,
             logger    : silentLogger
@@ -101,7 +101,7 @@ function restoreBackupBundle(bundleRoot) {
         ${NEO_BOOTSTRAP}
 
         const silentLogger = {log(){}, warn(){}, error(){}};
-        const {runRestore} = await import('./buildScripts/ai/restore.mjs');
+        const {runRestore} = await import('./ai/scripts/maintenance/restore.mjs');
         const result = await runRestore({
             bundleRoot: process.env.NEO_TEST_BACKUP_BUNDLE,
             mode      : 'merge',

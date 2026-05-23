@@ -367,7 +367,7 @@ class HealthService extends Base {
                 const { stdout } = await execAsync("gh api 'notifications?participating=true'");
                 const notifications = JSON.parse(stdout);
                 const mentions = notifications.filter(n => n.reason === 'mention');
-                
+
                 payload.notificationPreview = {
                     unreadCount: mentions.length,
                     latest: mentions.slice(0, 5).map(n => ({

@@ -111,11 +111,11 @@ export const FETCH_PULL_REQUESTS_FOR_SYNC = `
           url
           headRefName
           baseRefName
-          
+
           author {
             login
           }
-          
+
           comments(first: $maxComments) {
             nodes {
               createdAt

@@ -83,15 +83,15 @@ export const FETCH_DISCUSSIONS_FOR_SYNC = `
           closedAt
           createdAt
           updatedAt
-          
+
           author {
             login
           }
-          
+
           category {
             name
           }
-          
+
           comments(first: $maxComments) {
             nodes {
               author {

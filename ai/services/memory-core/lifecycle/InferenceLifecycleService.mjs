@@ -15,9 +15,9 @@ const memCoreDir = path.resolve(__dirname, '../../../mcp/server/memory-core');
  *
  * Following the architectural decoupling of the monolithic database service, this class isolates the cross-platform
  * auto-startup resolution path for underlying machine learning daemons required by the Memory Core embeddings.
- * It natively identifies Apple Silicon contexts (`/opt/homebrew`), Intel architectures (`/usr/local/`), and 
+ * It natively identifies Apple Silicon contexts (`/opt/homebrew`), Intel architectures (`/usr/local/`), and
  * Microsoft Windows fallback locations (`%LOCALAPPDATA%`).
- * 
+ *
  * Future AI sessions should search for `inference routing`, `ollama daemon`, `mlx python environment`, or `llm orchestrator`.
  *
  * @class Neo.ai.services.memory-core.lifecycle.InferenceLifecycleService
@@ -99,7 +99,7 @@ class InferenceLifecycleService extends Base {
 
     /**
      * @summary Intercepts OS signals to aggressively force teardown of the MLX/Ollama child engine group.
-     * @param {String|Number} signalOrCode 
+     * @param {String|Number} signalOrCode
      */
     async cleanup(signalOrCode) {
         if (typeof signalOrCode === 'string') {
@@ -114,7 +114,7 @@ class InferenceLifecycleService extends Base {
     async stopInferenceServer() {
         return { status: 'not_running', detail: 'Memory Core does not manage the MLX/Ollama daemon.' };
     }
-    
+
     /**
      * @summary Resolves the current internal status and PID tracking for the explicit LLM daemon process.
      * @returns {Object}

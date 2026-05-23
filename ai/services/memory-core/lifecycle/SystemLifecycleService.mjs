@@ -34,7 +34,7 @@ class SystemLifecycleService extends Base {
      */
     async initAsync() {
         await super.initAsync();
-        
+
         logger.info('[SystemLifecycleService] Booting internal memory-core microservices. Please stand by...');
 
         const GraphService        = (await import('../GraphService.mjs')).default;
@@ -46,7 +46,7 @@ class SystemLifecycleService extends Base {
 
         // 2. Boot Core Storage
         if (!GraphService._initPromise) await GraphService.initAsync();
-        
+
         // 3. Boot Router (relies on active Daemons)
         if (!StorageRouter._initPromise) await StorageRouter.initAsync();
 

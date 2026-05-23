@@ -216,7 +216,7 @@ async function main() {
     // --- 5.5 Upload Knowledge Base ---
 
     console.log('\n🧠 Step 5.5: Uploading Knowledge Base...');
-    runCommand('node buildScripts/ai/uploadKnowledgeBase.mjs', 'Failed to upload knowledge base');
+    runCommand('node ai/scripts/maintenance/uploadKnowledgeBase.mjs', 'Failed to upload knowledge base');
 
 
     // --- 6. Post-Release Cleanup ---
