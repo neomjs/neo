@@ -1,19 +1,19 @@
 // Class-only file (#11058-style split). Entry-point bootstrap (Neo + core/_export +
-// InstanceManager) lives in `ai/scripts/kb-alerting-daemon.mjs` per the canonical
+// InstanceManager) lives in `ai/daemons/kb-alerting/daemon.mjs` per the canonical
 // Orchestrator class+wrapper pattern. `Neo.setupClass(KbAlertingService)` at file
 // bottom works via `globalThis.Neo`, populated by the entry-point bootstrap chain.
-import Base                           from '../../src/core/Base.mjs';
-import {Memory_Config as aiConfig}    from '../services.mjs';
-import KBRecorderService              from '../services/knowledge-base/KBRecorderService.mjs';
-import MailboxService                 from '../services/memory-core/MailboxService.mjs';
-import RequestContextService          from '../mcp/server/shared/services/RequestContextService.mjs';
-import logger                         from '../mcp/server/knowledge-base/logger.mjs';
-import {normalizeAgentIdentityNodeId} from '../scripts/resumeHarness.mjs';
+import Base                           from '../../../src/core/Base.mjs';
+import {Memory_Config as aiConfig}    from '../../services.mjs';
+import KBRecorderService              from '../../services/knowledge-base/KBRecorderService.mjs';
+import MailboxService                 from '../../services/memory-core/MailboxService.mjs';
+import RequestContextService          from '../../mcp/server/shared/services/RequestContextService.mjs';
+import logger                         from '../../mcp/server/knowledge-base/logger.mjs';
+import {normalizeAgentIdentityNodeId} from '../../scripts/resumeHarness.mjs';
 import {
     DEFAULT_COOLDOWN_MS,
     evaluateAlertRules,
     formatAlertMessage
-} from '../services/knowledge-base/helpers/KbAlertRuleEngine.mjs';
+} from '../../services/knowledge-base/helpers/KbAlertRuleEngine.mjs';
 
 /**
  * @summary Poll interval fallback when `aiConfig.knowledgeBase.alertingIntervalMs` is unset.
@@ -43,7 +43,7 @@ const DEFAULT_SENDER = '@system';
  *
  * **Shape** — the canonical poll-loop daemon (the `SwarmHeartbeatService` precedent): a
  * `Neo.core.Base` singleton with `start()` / `stop()` / `scheduleNext()` / `pulse()`. The
- * entry-point wrapper `ai/scripts/kb-alerting-daemon.mjs` owns the Neo bootstrap + SIGTERM.
+ * entry-point wrapper `ai/daemons/kb-alerting/daemon.mjs` owns the Neo bootstrap + SIGTERM.
  *
  * **Split** — the *pure* threshold logic (rule validation, breach evaluation, hysteresis,
  * message formatting) lives in `KbAlertRuleEngine.mjs` and is unit-tested in isolation; this
@@ -59,7 +59,7 @@ const DEFAULT_SENDER = '@system';
  * @class Neo.ai.daemons.KbAlertingService
  * @extends Neo.core.Base
  * @singleton
- * @see ai/scripts/kb-alerting-daemon.mjs — the entry-point wrapper.
+ * @see ai/daemons/kb-alerting/daemon.mjs — the entry-point wrapper.
  * @see ai/services/knowledge-base/helpers/KbAlertRuleEngine.mjs — the pure rule engine.
  * @see ai/daemons/SwarmHeartbeatService.mjs — the poll-loop daemon precedent.
  * @see ai/scripts/idleOutNudge.mjs — the daemon-side `MailboxService.addMessage` precedent.

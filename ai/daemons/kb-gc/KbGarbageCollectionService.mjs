@@ -1,16 +1,16 @@
 // Class-only file (#11058-style split). Entry-point bootstrap (Neo + core/_export +
-// InstanceManager) lives in `ai/scripts/kb-gc-daemon.mjs` per the canonical Orchestrator
+// InstanceManager) lives in `ai/daemons/kb-gc/daemon.mjs` per the canonical Orchestrator
 // class+wrapper pattern. `Neo.setupClass(KbGarbageCollectionService)` at file bottom works
 // via `globalThis.Neo`, populated by the entry-point bootstrap chain.
-import Base                        from '../../src/core/Base.mjs';
-import {Memory_Config as aiConfig} from '../services.mjs';
-import ChromaManager               from '../services/knowledge-base/ChromaManager.mjs';
-import KBRecorderService           from '../services/knowledge-base/KBRecorderService.mjs';
-import logger                      from '../mcp/server/knowledge-base/logger.mjs';
+import Base                        from '../../../src/core/Base.mjs';
+import {Memory_Config as aiConfig} from '../../services.mjs';
+import ChromaManager               from '../../services/knowledge-base/ChromaManager.mjs';
+import KBRecorderService           from '../../services/knowledge-base/KBRecorderService.mjs';
+import logger                      from '../../mcp/server/knowledge-base/logger.mjs';
 import {
     formatGcDetail,
     selectExpiredChunks
-} from '../services/knowledge-base/helpers/KbGarbageCollectionEngine.mjs';
+} from '../../services/knowledge-base/helpers/KbGarbageCollectionEngine.mjs';
 
 /**
  * @summary Poll-interval fallback when `aiConfig.knowledgeBase.gcIntervalMs` is unset.
@@ -36,7 +36,7 @@ const ROWS_PAGE_SIZE = 2000;
  *
  * **Shape** — the canonical poll-loop daemon (the `KbReconciliationService` / `KbAlertingService`
  * precedent): a `Neo.core.Base` singleton with `start()` / `stop()` / `scheduleNext()` /
- * `pulse()`. The entry-point wrapper `ai/scripts/kb-gc-daemon.mjs` owns the Neo bootstrap +
+ * `pulse()`. The entry-point wrapper `ai/daemons/kb-gc/daemon.mjs` owns the Neo bootstrap +
  * SIGTERM.
  *
  * **Split** — the *pure* retention classification lives in `KbGarbageCollectionEngine.mjs`
@@ -57,9 +57,9 @@ const ROWS_PAGE_SIZE = 2000;
  * @class Neo.ai.daemons.KbGarbageCollectionService
  * @extends Neo.core.Base
  * @singleton
- * @see ai/scripts/kb-gc-daemon.mjs — the entry-point wrapper.
+ * @see ai/daemons/kb-gc/daemon.mjs — the entry-point wrapper.
  * @see ai/services/knowledge-base/helpers/KbGarbageCollectionEngine.mjs — the pure retention engine.
- * @see ai/daemons/KbReconciliationService.mjs — the sibling Phase 4B poll-loop daemon precedent (#11640).
+ * @see ai/daemons/kb-reconciliation/KbReconciliationService.mjs — the sibling Phase 4B poll-loop daemon precedent (#11640).
  */
 class KbGarbageCollectionService extends Base {
     static config = {

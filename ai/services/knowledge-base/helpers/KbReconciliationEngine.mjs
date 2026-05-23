@@ -30,7 +30,7 @@
  * the row's `metadata.ingestedAt` is at or before the manifest's `updatedAt` snapshot time.
  * Rows newer than the manifest are outside that manifest's authority and are skipped.
  *
- * @see ai/daemons/KbReconciliationService.mjs — the daemon that consumes this engine.
+ * @see ai/daemons/kb-reconciliation/KbReconciliationService.mjs — the daemon that consumes this engine.
  * @see ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs — `getTenantConfig`, the version source.
  * @see ai/services/knowledge-base/VectorService.mjs — `resolveTenantStamp`, the `tenantConfigVersion` stamp.
  * @see ai/services/knowledge-base/helpers/KbAlertRuleEngine.mjs — the sibling pure-helper precedent (#11642).
