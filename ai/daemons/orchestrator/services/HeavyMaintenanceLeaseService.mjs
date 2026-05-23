@@ -1,8 +1,8 @@
 import crypto from 'crypto';
 import fs     from 'fs-extra';
 import path   from 'path';
-import Neo    from '../../../src/Neo.mjs';
-import Base   from '../../../src/core/Base.mjs';
+import Neo    from '../../../../src/Neo.mjs';
+import Base   from '../../../../src/core/Base.mjs';
 
 export const DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH = '.neo-ai-data/orchestrator-daemon/heavy-maintenance-lease.json';
 export const DEFAULT_HEAVY_MAINTENANCE_LEASE_TTL_MS = 6 * 60 * 60 * 1000;

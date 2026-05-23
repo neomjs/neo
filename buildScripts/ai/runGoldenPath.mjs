@@ -1,7 +1,7 @@
 import Neo              from '../../src/Neo.mjs';
 import * as core        from '../../src/core/_export.mjs';
 import InstanceManager  from '../../src/manager/Instance.mjs';
-import DreamService     from '../../ai/daemons/DreamService.mjs';
+import DreamService     from '../../ai/daemons/orchestrator/services/DreamService.mjs';
 import GraphService     from '../../ai/services/memory-core/GraphService.mjs';
 import LifecycleService from '../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import Memory_Config    from '../../ai/mcp/server/memory-core/config.mjs';
@@ -12,7 +12,7 @@ import Memory_Config    from '../../ai/mcp/server/memory-core/config.mjs';
 
 async function testGoldenPath() {
     Memory_Config.data.debug = true;
-    
+
     // STRICTLY bypass daemon startup auto-queue.
     Memory_Config.data.autoDream = false;
     Memory_Config.data.autoSummarize = false;

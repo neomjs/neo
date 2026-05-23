@@ -58,7 +58,7 @@ test.describe('Lane C / #11507 — manual heavy-maintenance script lease adoptio
     for (const {file, owner} of SCRIPTS) {
         test(`${file}: imports withHeavyMaintenanceLease`, async () => {
             const source = await fs.readFile(path.join(scriptDir, file), 'utf-8');
-            expect(source).toMatch(/import\s*\{[^}]*withHeavyMaintenanceLease[^}]*\}\s*from\s*['"]\.\.\/\.\.\/ai\/daemons\/services\/HeavyMaintenanceLeaseService\.mjs['"]/);
+            expect(source).toMatch(/import\s*\{[^}]*withHeavyMaintenanceLease[^}]*\}\s*from\s*['"]\.\.\/\.\.\/ai\/daemons\/orchestrator\/services\/HeavyMaintenanceLeaseService\.mjs['"]/);
         });
 
         test(`${file}: wraps heavy work with withHeavyMaintenanceLease + correct owner '${owner}'`, async () => {
@@ -170,7 +170,7 @@ test.describe('Lane C / #11507 — manual heavy-maintenance script lease adoptio
             expect(source).not.toMatch(/private.*lock|local.*mutex|script.*lock.*file/i);
             // Each script must import from the same canonical lease module path; no alternate
             // lease implementations.
-            expect(source).toContain('ai/daemons/services/HeavyMaintenanceLeaseService.mjs');
+            expect(source).toContain('ai/daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs');
         }
     });
 });

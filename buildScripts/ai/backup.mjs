@@ -22,7 +22,7 @@ import {
     Memory_LifecycleService
 } from '../../ai/services.mjs';
 
-import {withHeavyMaintenanceLease} from '../../ai/daemons/services/HeavyMaintenanceLeaseService.mjs';
+import {withHeavyMaintenanceLease} from '../../ai/daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 
 const execFileAsync = promisify(execFile);
 

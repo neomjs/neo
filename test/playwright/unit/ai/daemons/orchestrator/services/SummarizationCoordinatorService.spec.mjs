@@ -4,11 +4,11 @@ import {test, expect} from '@playwright/test';
 // triggers `Neo.gatekeep()` in Compare.mjs at module-load). Mirrors the pattern in
 // Orchestrator.spec.mjs and matches the entry-point invariant — class files no longer
 // import Neo themselves; their bootstrap is the entry point's job.
-import Neo       from '../../../../../../src/Neo.mjs';
-import * as core from '../../../../../../src/core/_export.mjs';
+import Neo       from '../../../../../../../src/Neo.mjs';
+import * as core from '../../../../../../../src/core/_export.mjs';
 import {
     buildSummaryTrigger
-} from '../../../../../../ai/daemons/services/SummarizationCoordinatorService.mjs';
+} from '../../../../../../../ai/daemons/orchestrator/services/SummarizationCoordinatorService.mjs';
 
 test.describe('SummarizationCoordinatorService (#11009)', () => {
     test('prioritizes unread sunset handovers over the periodic sweep', () => {
