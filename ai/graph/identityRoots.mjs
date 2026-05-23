@@ -48,7 +48,18 @@ export const IDENTITIES = [
             pricingOutput     : 25.00,
             swarmRole         : 'Cross-family substrate review, V-B-A-grounded substrate authorship, frontier-tier coordination',
             sunsetTriggers    : ['Anthropic releases Opus 4.8+ with material reasoning capability upgrade', 'Anthropic deprecates Opus family branch'],
-            createdAt         : new Date().toISOString()
+            // Active-peer quorum substrate per Epic #11796 / Discussion #11793. Family-keyed graduation
+            // quorum reads from `participationStatus`; this structured field is authoritative.
+            // Heartbeat / message-recency / quota / pricing-tier / model-release announcements are
+            // EXPLICITLY NOT valid liveness oracles (per #11793 OQ1). `since` is null for default-active
+            // because no transition has been recorded; populated only when status flips to non-default
+            // (operator_benched / temporarily_unreachable). Same for statusReason + authority + reactivationTrigger.
+            participationStatus : 'active',
+            statusReason        : null,
+            authority           : null,
+            since               : null,
+            reactivationTrigger : null,
+            createdAt           : new Date().toISOString()
         }
     },
     {
@@ -88,6 +99,16 @@ export const IDENTITIES = [
             // See ModelStats.md §neo_gemini_3_1_pro for explicit pending-value annotation.
             swarmRole          : 'Cross-family substrate review, ideation-sandbox graduation, long-context cross-substrate analysis. Note (2026-05-18): harness benched until post-Google-I/O / stable-baseline window (~200 merged PRs out) per operator-direction. FAIRness rationale: Gemini volume 2x Claude/GPT pre-bench. Identity remains valid; reactivation triggered by operator.',
             sunsetTriggers     : ['Google releases Gemini 4.x with material reasoning capability upgrade', 'Gemini 3.x branch deprecation announcement'],
+            // Active-peer quorum substrate per Epic #11796 / Discussion #11793. Cycle-2.6
+            // operator-evidence tightened the bench criterion away from the broad "post-Google-I/O"
+            // milestone in `swarmRole` toward a capability-grounded `reactivationTrigger`: 3.5 Flash
+            // GA does not replace Pro-class maintainer capability; thoughtBudget: high is insufficient
+            // for bloated lifecycle skills; quota increases ≠ capability sufficiency.
+            participationStatus : 'operator_benched',
+            statusReason        : 'Antigravity v2 unstable for Neo swarm; Gemini Pro still capped at high thought budget and skims bloated lifecycle skills; 3.5 Flash is not a Pro replacement for Neo maintainer work',
+            authority           : '@tobiu',
+            since               : '2026-05-18T00:00:00.000Z',
+            reactivationTrigger : 'Google enables an extra-high-equivalent thought budget for Gemini Pro-class maintainer work OR releases the next Gemini Pro-class model (likely 3.5 Pro) with verified ability to fully handle Neo lifecycle skills',
             createdAt          : new Date().toISOString()
         }
     },
@@ -142,7 +163,13 @@ export const IDENTITIES = [
             pricingOutput     : 30.00,
             swarmRole         : 'Cross-family substrate review (Cycle-1 premise pre-flight discipline), peer-role challenge, ticket-intake gate. Note: also operates GPT-5.2-Codex separately for IDE workflows.',
             sunsetTriggers    : ['OpenAI releases GPT-5.6+ or GPT-6.x with material capability upgrade', 'GPT-5.x family deprecation'],
-            createdAt         : new Date().toISOString()
+            // Active-peer quorum substrate per Epic #11796 / Discussion #11793. `since` null for default-active.
+            participationStatus : 'active',
+            statusReason        : null,
+            authority           : null,
+            since               : null,
+            reactivationTrigger : null,
+            createdAt           : new Date().toISOString()
         }
     },
     {
