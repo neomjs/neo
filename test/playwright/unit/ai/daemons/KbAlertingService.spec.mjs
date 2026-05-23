@@ -67,7 +67,8 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
             run             : RequestContextService.run,
             warn            : logger.warn,
             error           : logger.error,
-            recorderReady   : KBRecorderService.ready
+            recorderReady   : KBRecorderService.ready,
+            neoAgentIdentity: process.env.NEO_AGENT_IDENTITY
         };
 
         // `start()` awaits KBRecorderService.ready() — stub it to resolve immediately.
@@ -96,6 +97,12 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
         RequestContextService.run        = originals.run;
         logger.warn                      = originals.warn;
         logger.error                     = originals.error;
+
+        if (originals.neoAgentIdentity === undefined) {
+            delete process.env.NEO_AGENT_IDENTITY
+        } else {
+            process.env.NEO_AGENT_IDENTITY = originals.neoAgentIdentity
+        }
     });
 
     /**
@@ -257,15 +264,18 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
     test.describe('dispatchA2A', () => {
         /** Captures `addMessage` payloads + neutralizes the RequestContextService wrapper. */
         function captureA2A() {
-            const sent = [];
-            RequestContextService.run        = async (ctx, fn) => fn();
+            const sent = [], contexts = [];
+            RequestContextService.run        = async (ctx, fn) => {
+                contexts.push(ctx);
+                return fn()
+            };
             MailboxService.isReachableTarget = () => true; // tests below use resolvable targets
             MailboxService.addMessage        = async (args) => { sent.push(args); return {messageId: 'MESSAGE:test'} };
-            return sent;
+            return {sent, contexts};
         }
 
         test('direct-DM — dispatches addMessage to the canonical identity target', async () => {
-            const sent = captureA2A();
+            const {sent} = captureA2A();
 
             await KbAlertingService.dispatchA2A({
                 tenantId: 'tenant-x', repoSlug: 'repo-x', metric: 'errorRate', value: 0.3,
@@ -279,7 +289,7 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
         });
 
         test('explicit broadcast — dispatches to AGENT:* when the rule opts in', async () => {
-            const sent = captureA2A();
+            const {sent} = captureA2A();
 
             await KbAlertingService.dispatchA2A({
                 tenantId: 'tenant-x', repoSlug: 'repo-x', metric: 'errorRate', value: 0.3,
@@ -290,7 +300,7 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
         });
 
         test('audit delivery mode maps to wakeSuppressed:true; critical maps to high priority', async () => {
-            const sent = captureA2A();
+            const {sent} = captureA2A();
 
             await KbAlertingService.dispatchA2A({
                 tenantId: 'tenant-x', repoSlug: 'repo-x', metric: 'errorRate', value: 0.9,
@@ -301,10 +311,22 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
             expect(sent[0].priority).toBe('high');
         });
 
+        test('normalizes an unprefixed NEO_AGENT_IDENTITY before binding sender context (#11811)', async () => {
+            const {contexts} = captureA2A();
+            process.env.NEO_AGENT_IDENTITY = 'neo-opus-4-7';
+
+            await KbAlertingService.dispatchA2A({
+                tenantId: 'tenant-x', repoSlug: 'repo-x', metric: 'errorRate', value: 0.3,
+                threshold: 0.1, severity: 'warning', channel: 'a2a:@neo-gpt', deliveryMode: 'wake'
+            });
+
+            expect(contexts[0].agentIdentityNodeId).toBe('@neo-opus-4-7');
+        });
+
         test('skips an unresolvable A2A target before dispatch — no addMessage call', async () => {
             // #11642 Contract Ledger / @neo-gpt PR #11709 review: an unresolvable target
             // (not a registered @<identity>, not AGENT:*) must be rejected before dispatch.
-            const sent = captureA2A();
+            const {sent} = captureA2A();
             MailboxService.isReachableTarget = () => false; // simulate an unregistered target
             const warns = [];
             logger.warn = (msg) => { warns.push(msg) };
