@@ -84,7 +84,7 @@ const defaultConfig = {
             primaryDevSyncMs : 10 * 60 * 1000,
             dreamMs          : HOUR_MS,
             goldenPathMs     : HOUR_MS,
-            swarmHeartbeatMs : 5 * 60 * 1000
+            swarmHeartbeatMs : 15 * 60 * 1000
         },
         /**
          * Local-only maintenance lane switches. Cloud deployments can disable these
