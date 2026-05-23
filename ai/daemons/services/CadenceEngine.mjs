@@ -21,26 +21,6 @@ export class CadenceEngine extends Base {
     }
 
     /**
-     * @summary Parses daemon interval env vars while preserving `0` as disabled.
-     *
-     * @param {String|undefined} value Environment value.
-     * @param {Number} fallback Fallback interval in milliseconds.
-     * @returns {Number}
-     */
-    parseInterval(value, fallback) {
-        if (value === undefined || value === null || value === '') {
-            return fallback;
-        }
-
-        const parsed = parseInt(value, 10);
-        if (Number.isNaN(parsed)) {
-            return fallback;
-        }
-
-        return Math.max(parsed, 0);
-    }
-
-    /**
      * @summary Returns true when an interval task is due and not disabled.
      *
      * @param {Object} options

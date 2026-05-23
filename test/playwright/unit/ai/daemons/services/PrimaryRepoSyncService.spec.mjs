@@ -6,8 +6,7 @@ import PrimaryRepoSyncService, {
     DEV_SYNC_ROOTS_CONFIG_KEY,
     DEV_SYNC_ROOTS_ENV_VAR,
     isKbRelevantChangePath,
-    parseDevSyncRoots,
-    parseEnabledFlag
+    parseDevSyncRoots
 } from '../../../../../../ai/daemons/services/PrimaryRepoSyncService.mjs';
 import {
     PRIMARY_DEV_SYNC_TASK_NAME
@@ -76,12 +75,7 @@ function createTaskStateService(running=false) {
 }
 
 test.describe('PrimaryRepoSyncService (#11017)', () => {
-    test('builds interval triggers and parses the enable flag', () => {
-        expect(parseEnabledFlag(undefined)).toBe(true);
-        expect(parseEnabledFlag('false')).toBe(false);
-        expect(parseEnabledFlag('0')).toBe(false);
-        expect(parseEnabledFlag('true')).toBe(true);
-
+    test('builds interval triggers', () => {
         expect(buildPrimaryRepoSyncTrigger({
             enabled   : true,
             now       : 600000,
