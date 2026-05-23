@@ -67,7 +67,7 @@ test.describe('Neo.ai.daemons.services.IssueIngestor', () => {
     };
 
     test.beforeAll(async () => {
-        IssueIngestor = (await import('../../../../../../ai/daemons/services/IssueIngestor.mjs')).default;
+        IssueIngestor = (await import('../../../../../../ai/services/ingestion/IssueIngestor.mjs')).default;
         const services = await import('../../../../../../ai/services.mjs');
         GraphService   = services.Memory_GraphService;
         StorageRouter  = services.Memory_StorageRouter;

@@ -61,7 +61,7 @@ test.describe('SyncService — Stage 2 Ingestion', () => {
         PullRequestSyncer = (await import('../../../../../../ai/services/github-workflow/sync/PullRequestSyncer.mjs')).default;
         GraphqlService = (await import('../../../../../../ai/services/github-workflow/GraphqlService.mjs')).default;
         MetadataManager = (await import('../../../../../../ai/services/github-workflow/sync/MetadataManager.mjs')).default;
-        IssueIngestor = (await import('../../../../../../ai/daemons/services/IssueIngestor.mjs')).default;
+        IssueIngestor = (await import('../../../../../../ai/services/ingestion/IssueIngestor.mjs')).default;
         RepositoryService = (await import('../../../../../../ai/services/github-workflow/RepositoryService.mjs')).default;
     });
 

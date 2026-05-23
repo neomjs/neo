@@ -60,8 +60,8 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         GraphService = (await import('../../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         DreamService = (await import('../../../../../../../ai/daemons/orchestrator/services/DreamService.mjs')).default;
-        MemorySessionIngestor = (await import('../../../../../../../ai/daemons/services/MemorySessionIngestor.mjs')).default;
-        SemanticGraphExtractor = (await import('../../../../../../../ai/daemons/services/SemanticGraphExtractor.mjs')).default;
+        MemorySessionIngestor = (await import('../../../../../../../ai/services/ingestion/MemorySessionIngestor.mjs')).default;
+        SemanticGraphExtractor = (await import('../../../../../../../ai/services/graph/SemanticGraphExtractor.mjs')).default;
         StorageRouter = (await import('../../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
         OpenAiCompatible       = (await import('../../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
@@ -598,9 +598,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // into the session loop and silently reintroduces N×M traversal cost at ontology scale.
 
         const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        const ConceptIngestor         = (await import('../../../../../../../ai/daemons/services/ConceptIngestor.mjs')).default;
+        const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
-        const TopologyInferenceEngine = (await import('../../../../../../../ai/daemons/services/TopologyInferenceEngine.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
 
         const sessionCount = 3;
         const mockSessions = Array.from({length: sessionCount}, (_, i) => ({
@@ -687,9 +687,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // rows instead of permanently masking them behind `graphDigested: true`.
 
         const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        const ConceptIngestor         = (await import('../../../../../../../ai/daemons/services/ConceptIngestor.mjs')).default;
+        const ConceptIngestor         = (await import('../../../../../../../ai/services/ingestion/ConceptIngestor.mjs')).default;
         const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
-        const TopologyInferenceEngine = (await import('../../../../../../../ai/daemons/services/TopologyInferenceEngine.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../../../ai/services/graph/TopologyInferenceEngine.mjs')).default;
 
         const mockSession = {
             id      : 'chroma-summary-partial',

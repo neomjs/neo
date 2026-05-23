@@ -36,8 +36,8 @@
  * Future V2 may integrate with Model-Stats registry (ADR 0012) for per-provider tokenization.
  *
  * @see learn/agentos/decisions/0012-model-stats-framework.md
- * @see ai/daemons/services/GoldenPathSynthesizer.mjs (handoff section consumer)
- * @see ai/daemons/services/SemanticGraphExtractor.mjs (canonical emitter — Dream Pipeline)
+ * @see ai/services/graph/GoldenPathSynthesizer.mjs (handoff section consumer)
+ * @see ai/services/graph/SemanticGraphExtractor.mjs (canonical emitter — Dream Pipeline)
  * @see ai/services/memory-core/SessionService.mjs#summarizeSession (canonical emitter — Memory Core)
  */
 

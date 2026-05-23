@@ -19,7 +19,7 @@ const execFileAsync = promisify(execFile);
  *
  * These are the 7 evaluation-metric tags from `.agents/skills/pr-review/assets/pr-review-template.md`
  * (cycle-1) and `.agents/skills/pr-review/assets/pr-review-followup-template.md` (cycle-N). They are
- * also the regex parse keys that `ai/daemons/services/ConceptDiscoveryService.mjs` consumes during
+ * also the regex parse keys that `ai/services/ingestion/ConceptDiscoveryService.mjs` consumes during
  * Retrospective-daemon REM-sleep graph ingestion — a malformed review with hallucinated metric
  * names produces zero graph ingest signal and is silently lost from the Native Edge Graph.
  *
@@ -270,7 +270,7 @@ class PullRequestService extends Base {
                         code   : 'INVALID_ARGUMENTS'
                     };
                 }
-                
+
                 if (!/^[0-9a-f]{4,40}$/i.test(sha)) {
                     return {
                         error  : 'Bad Request',
@@ -281,7 +281,7 @@ class PullRequestService extends Base {
 
                 const {stdout: baseStdout} = await execFileAsync('gh', ['pr', 'view', String(prNumber), '--json', 'baseRefOid'], {cwd: aiConfig.projectRoot});
                 const baseRefOid = JSON.parse(baseStdout).baseRefOid;
-                
+
                 const filePaths = file.split(',').map(f => f.trim());
                 const {stdout} = await execFileAsync('git', ['diff', `${baseRefOid}...${sha}`, '--', ...filePaths], {cwd: aiConfig.projectRoot});
                 diffStdout = stdout;
@@ -318,7 +318,7 @@ class PullRequestService extends Base {
                         resultLines.push(line);
                     }
                 }
-                
+
                 return { result: resultLines.join('\n') };
             }
 
