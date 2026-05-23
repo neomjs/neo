@@ -1,6 +1,6 @@
 import {setup} from '../../../../setup.mjs';
 
-const appName = 'LaneCManualScriptLeaseAdoptionTest';
+const appName = 'ManualHeavyMaintenanceScriptLeaseAdoptionTest';
 
 setup({
     neoConfig: {
@@ -20,36 +20,24 @@ import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
 /**
- * @summary Lane C of #11503 — verifies that the four operator-runnable heavy-maintenance CLI
- * scripts wrap their substrate-heavy work with the shared `withHeavyMaintenanceLease` primitive
- * (PR #11506 / #11505) and handle the `held` outcome with a clean non-error exit.
+ * @summary Verifies that operator-runnable heavy-maintenance CLI scripts wrap their
+ * substrate-heavy work with the shared `withHeavyMaintenanceLease` primitive and handle
+ * the `held` outcome with a clean non-error exit.
  *
- * This spec uses content-verification (parse the script source for the expected import +
- * wrapper call + held-status branch) rather than subprocess execution because:
- * - Each script imports services.mjs / Neo / lifecycle services that initialize on module load,
- *   making subprocess-per-test runs slow (multi-second) and flaky if any background daemon
- *   is contending the same Chroma instance.
- * - The underlying `withHeavyMaintenanceLease` is already tested by PR #11506's
- *   `HeavyMaintenanceLeaseService.spec.mjs` (8/8 passing); Lane C just needs to verify the
- *   WIRING is in place across all four scripts.
- *
- * Empirical anchor: today's wedge cascade at 2026-05-16T19:27Z showed the orchestrator's own
- * kbSync subprocess in a collision class that would have allowed a manual `npm run ai:sync-kb`
- * to compound the contention. Lane C closes that class at the script surface; this spec
- * proves the wiring landed.
- *
- * @see #11503 (umbrella)
- * @see #11505 (lease primitive ticket) / PR #11506 (lease primitive implementation)
- * @see #11507 (this ticket)
+ * Content-verification approach (parse the script source for the expected import +
+ * wrapper call + held-status branch) rather than subprocess execution because each script
+ * boots Neo + lifecycle services on module load, making subprocess-per-test runs slow and
+ * contention-flaky. The underlying `withHeavyMaintenanceLease` is covered separately by
+ * `HeavyMaintenanceLeaseService.spec.mjs`; this spec verifies the WIRING per script.
  */
-test.describe('Lane C / #11507 — manual heavy-maintenance script lease adoption', () => {
+test.describe('Manual heavy-maintenance script lease adoption', () => {
     const scriptsRoot = path.resolve(process.cwd(), 'ai/scripts');
     const scriptPath = file => path.join(scriptsRoot, file === 'runSandman.mjs' ? 'runners' : 'maintenance', file);
 
     /**
      * Maps each script to its expected lease `owner` string. Owner strings are stable
      * identifiers used by both the wrapper-side defer message and the orchestrator-side
-     * task names — keep these in sync with `Orchestrator.mjs` DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES.
+     * task names — keep these in sync with `MaintenanceBackpressureService.mjs` DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES.
      */
     const SCRIPTS = [
         {file: 'runSandman.mjs',           owner: 'sandman'},
