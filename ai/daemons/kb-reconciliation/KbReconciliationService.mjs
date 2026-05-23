@@ -1,19 +1,19 @@
 // Class-only file (#11058-style split). Entry-point bootstrap (Neo + core/_export +
-// InstanceManager) lives in `ai/scripts/kb-reconciliation-daemon.mjs` per the canonical
+// InstanceManager) lives in `ai/daemons/kb-reconciliation/daemon.mjs` per the canonical
 // Orchestrator class+wrapper pattern. `Neo.setupClass(KbReconciliationService)` at file
 // bottom works via `globalThis.Neo`, populated by the entry-point bootstrap chain.
-import Base                          from '../../src/core/Base.mjs';
-import {Memory_Config as aiConfig}   from '../services.mjs';
-import ChromaManager                 from '../services/knowledge-base/ChromaManager.mjs';
-import KBRecorderService             from '../services/knowledge-base/KBRecorderService.mjs';
-import KnowledgeBaseIngestionService from '../services/knowledge-base/KnowledgeBaseIngestionService.mjs';
-import logger                        from '../mcp/server/knowledge-base/logger.mjs';
+import Base                          from '../../../src/core/Base.mjs';
+import {Memory_Config as aiConfig}   from '../../services.mjs';
+import ChromaManager                 from '../../services/knowledge-base/ChromaManager.mjs';
+import KBRecorderService             from '../../services/knowledge-base/KBRecorderService.mjs';
+import KnowledgeBaseIngestionService from '../../services/knowledge-base/KnowledgeBaseIngestionService.mjs';
+import logger                        from '../../mcp/server/knowledge-base/logger.mjs';
 import {
     diffTenantChunks,
     diffTenantManifest,
     formatReconciliationDetail,
     resolveOrphanVersionGap
-} from '../services/knowledge-base/helpers/KbReconciliationEngine.mjs';
+} from '../../services/knowledge-base/helpers/KbReconciliationEngine.mjs';
 
 /**
  * @summary Poll-interval fallback when `aiConfig.knowledgeBase.reconciliationIntervalMs` is unset.
@@ -39,7 +39,7 @@ const ROWS_PAGE_SIZE = 2000;
  *
  * **Shape** — the canonical poll-loop daemon (the `SwarmHeartbeatService` / `KbAlertingService`
  * precedent): a `Neo.core.Base` singleton with `start()` / `stop()` / `scheduleNext()` /
- * `pulse()`. The entry-point wrapper `ai/scripts/kb-reconciliation-daemon.mjs` owns the Neo
+ * `pulse()`. The entry-point wrapper `ai/daemons/kb-reconciliation/daemon.mjs` owns the Neo
  * bootstrap + SIGTERM.
  *
  * **Split** — the *pure* classification (config-stale detection, version-gap partition,
@@ -61,9 +61,9 @@ const ROWS_PAGE_SIZE = 2000;
  * @class Neo.ai.daemons.KbReconciliationService
  * @extends Neo.core.Base
  * @singleton
- * @see ai/scripts/kb-reconciliation-daemon.mjs — the entry-point wrapper.
+ * @see ai/daemons/kb-reconciliation/daemon.mjs — the entry-point wrapper.
  * @see ai/services/knowledge-base/helpers/KbReconciliationEngine.mjs — the pure diff engine.
- * @see ai/daemons/KbAlertingService.mjs — the sibling Phase 4D poll-loop daemon precedent (#11642).
+ * @see ai/daemons/kb-alerting/KbAlertingService.mjs — the sibling Phase 4D poll-loop daemon precedent (#11642).
  */
 class KbReconciliationService extends Base {
     static config = {

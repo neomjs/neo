@@ -1,4 +1,4 @@
-import {setup} from '../../../setup.mjs';
+import {setup} from '../../../../setup.mjs';
 
 const appName = 'KbReconciliationServiceTest';
 
@@ -16,13 +16,13 @@ setup({
 // Test-side entry-point bootstrap: Neo + core/_export populate `globalThis.Neo` before
 // the dynamic KbReconciliationService import below. Required because the class file no
 // longer imports Neo itself (#11058-style class+wrapper split). Mirrors KbAlertingService.spec.
-import Neo       from '../../../../../src/Neo.mjs';
-import * as core from '../../../../../src/core/_export.mjs';
+import Neo       from '../../../../../../src/Neo.mjs';
+import * as core from '../../../../../../src/core/_export.mjs';
 
 import {test, expect} from '@playwright/test';
 
 /**
- * Phase 4B (#11640) — unit coverage for `ai/daemons/KbReconciliationService.mjs`, the KB
+ * Phase 4B (#11640) — unit coverage for `ai/daemons/kb-reconciliation/KbReconciliationService.mjs`, the KB
  * reconciliation daemon.
  *
  * Stubbing strategy mirrors `KbAlertingService.spec.mjs`: the daemon exposes test-stubbable
@@ -38,8 +38,8 @@ import {test, expect} from '@playwright/test';
  * `KbReconciliationEngine.spec.mjs`.
  *
  * @see https://github.com/neomjs/neo/issues/11640
- * @see ai/daemons/KbReconciliationService.mjs — the daemon under test.
- * @see test/playwright/unit/ai/daemons/KbAlertingService.spec.mjs — the sibling pattern.
+ * @see ai/daemons/kb-reconciliation/KbReconciliationService.mjs — the daemon under test.
+ * @see test/playwright/unit/ai/daemons/kb-alerting/KbAlertingService.spec.mjs — the sibling pattern.
  */
 test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
     let KbReconciliationService, DEFAULT_INTERVAL_MS;
@@ -61,10 +61,10 @@ test.describe('Neo.ai.daemons.KbReconciliationService (#11640)', () => {
 
     test.beforeAll(async () => {
         ({default: KbReconciliationService, DEFAULT_INTERVAL_MS} =
-            await import('../../../../../ai/daemons/KbReconciliationService.mjs'));
+            await import('../../../../../../ai/daemons/kb-reconciliation/KbReconciliationService.mjs'));
 
-        KBRecorderService = (await import('../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
-        logger            = (await import('../../../../../ai/mcp/server/knowledge-base/logger.mjs')).default;
+        KBRecorderService = (await import('../../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
+        logger            = (await import('../../../../../../ai/mcp/server/knowledge-base/logger.mjs')).default;
 
         originals = {
             recorderReady       : KBRecorderService.ready,

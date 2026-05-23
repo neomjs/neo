@@ -25,7 +25,7 @@
  * tenant's Chroma rows, calls this engine, emits Phase 4A telemetry, and (opt-in) issues the
  * `collection.delete`. This module only *classifies*.
  *
- * @see ai/daemons/KbGarbageCollectionService.mjs — the daemon that consumes this engine.
+ * @see ai/daemons/kb-gc/KbGarbageCollectionService.mjs — the daemon that consumes this engine.
  * @see ai/services/knowledge-base/VectorService.mjs — `resolveTenantStamp`, the `ingestedAt` stamp (#11712).
  * @see ai/services/knowledge-base/helpers/KbReconciliationEngine.mjs — the sibling pure-helper precedent (#11640).
  */

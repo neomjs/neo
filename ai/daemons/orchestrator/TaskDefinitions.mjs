@@ -67,9 +67,9 @@ export function buildTaskDefinitions({
         bridgeDaemon: {
             label          : 'bridge daemon',
             command        : nodeBin,
-            args           : [path.join(scriptDir, 'bridge-daemon.mjs')],
+            args           : [path.resolve(scriptDir, '../daemons/bridge/daemon.mjs')],
             pidFileName    : 'bridge-daemon.pid',
-            expectedCommand: 'bridge-daemon.mjs'
+            expectedCommand: 'daemons/bridge/daemon.mjs'
         },
         summary: {
             label          : 'session summarization',

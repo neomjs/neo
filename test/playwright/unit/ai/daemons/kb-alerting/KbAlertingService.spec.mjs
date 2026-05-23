@@ -1,4 +1,4 @@
-import {setup} from '../../../setup.mjs';
+import {setup} from '../../../../setup.mjs';
 
 const appName = 'KbAlertingServiceTest';
 
@@ -16,13 +16,13 @@ setup({
 // Test-side entry-point bootstrap: Neo + core/_export populate `globalThis.Neo` before
 // the dynamic KbAlertingService import below. Required because the class file no longer
 // imports Neo itself (#11058-style class+wrapper split). Mirrors SwarmHeartbeatService.spec.
-import Neo       from '../../../../../src/Neo.mjs';
-import * as core from '../../../../../src/core/_export.mjs';
+import Neo       from '../../../../../../src/Neo.mjs';
+import * as core from '../../../../../../src/core/_export.mjs';
 
 import {test, expect} from '@playwright/test';
 
 /**
- * Phase 4D (#11642) — unit coverage for `ai/daemons/KbAlertingService.mjs`, the KB
+ * Phase 4D (#11642) — unit coverage for `ai/daemons/kb-alerting/KbAlertingService.mjs`, the KB
  * operator-alerting daemon.
  *
  * Stubbing strategy mirrors `SwarmHeartbeatService.spec.mjs`: the daemon exposes
@@ -37,7 +37,7 @@ import {test, expect} from '@playwright/test';
  * the pure threshold/cooldown logic is covered separately in `KbAlertRuleEngine.spec.mjs`.
  *
  * @see https://github.com/neomjs/neo/issues/11642
- * @see ai/daemons/KbAlertingService.mjs — the daemon under test.
+ * @see ai/daemons/kb-alerting/KbAlertingService.mjs — the daemon under test.
  * @see test/playwright/unit/ai/daemons/SwarmHeartbeatService.spec.mjs — the sibling pattern.
  */
 test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
@@ -53,13 +53,13 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
 
     test.beforeAll(async () => {
         ({default: KbAlertingService, DEFAULT_INTERVAL_MS} =
-            await import('../../../../../ai/daemons/KbAlertingService.mjs'));
+            await import('../../../../../../ai/daemons/kb-alerting/KbAlertingService.mjs'));
 
-        MailboxService        = (await import('../../../../../ai/services/memory-core/MailboxService.mjs')).default;
-        RequestContextService = (await import('../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
-        logger                = (await import('../../../../../ai/mcp/server/knowledge-base/logger.mjs')).default;
+        MailboxService        = (await import('../../../../../../ai/services/memory-core/MailboxService.mjs')).default;
+        RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+        logger                = (await import('../../../../../../ai/mcp/server/knowledge-base/logger.mjs')).default;
 
-        const KBRecorderService = (await import('../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
+        const KBRecorderService = (await import('../../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
 
         originals = {
             addMessage      : MailboxService.addMessage,
@@ -76,7 +76,7 @@ test.describe('Neo.ai.daemons.KbAlertingService (#11642)', () => {
     });
 
     test.afterAll(async () => {
-        const KBRecorderService = (await import('../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
+        const KBRecorderService = (await import('../../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
         KBRecorderService.ready = originals.recorderReady;
     });
 

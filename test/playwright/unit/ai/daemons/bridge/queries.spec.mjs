@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 import Database from 'better-sqlite3';
-import { getUnreadSunsetHandovers, markNodesAsRead } from '../../../../../ai/scripts/bridge-daemon-queries.mjs';
+import { getUnreadSunsetHandovers, markNodesAsRead } from '../../../../../../ai/daemons/bridge/queries.mjs';
 
-test.describe('ai/scripts/bridge-daemon-queries', () => {
+test.describe('ai/daemons/bridge/queries', () => {
     let db;
 
     test.beforeEach(() => {
@@ -63,7 +63,7 @@ test.describe('ai/scripts/bridge-daemon-queries', () => {
             const results = getUnreadSunsetHandovers(db);
             expect(results.length).toBe(0);
         });
-        
+
         test('ignores non-MESSAGE nodes', () => {
             const nodeData = {
                 type: 'EPISODIC',
@@ -93,7 +93,7 @@ test.describe('ai/scripts/bridge-daemon-queries', () => {
 
             const row = db.prepare('SELECT data FROM Nodes WHERE id = ?').get('msg-1');
             const updatedNode = JSON.parse(row.data);
-            
+
             expect(updatedNode.properties.readAt).toBeDefined();
             expect(new Date(updatedNode.properties.readAt).getTime()).not.toBeNaN();
         });

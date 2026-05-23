@@ -1,4 +1,4 @@
-import {setup} from '../../../setup.mjs';
+import {setup} from '../../../../setup.mjs';
 
 const appName = 'KbGarbageCollectionServiceTest';
 
@@ -16,13 +16,13 @@ setup({
 // Test-side entry-point bootstrap: Neo + core/_export populate `globalThis.Neo` before the
 // dynamic KbGarbageCollectionService import below. Required because the class file no longer
 // imports Neo itself (#11058-style class+wrapper split). Mirrors KbReconciliationService.spec.
-import Neo       from '../../../../../src/Neo.mjs';
-import * as core from '../../../../../src/core/_export.mjs';
+import Neo       from '../../../../../../src/Neo.mjs';
+import * as core from '../../../../../../src/core/_export.mjs';
 
 import {test, expect} from '@playwright/test';
 
 /**
- * Phase 4C (#11641) — unit coverage for `ai/daemons/KbGarbageCollectionService.mjs`, the KB
+ * Phase 4C (#11641) — unit coverage for `ai/daemons/kb-gc/KbGarbageCollectionService.mjs`, the KB
  * garbage-collection daemon.
  *
  * Stubbing strategy mirrors `KbReconciliationService.spec.mjs`: the daemon exposes
@@ -38,8 +38,8 @@ import {test, expect} from '@playwright/test';
  * `KbGarbageCollectionEngine.spec.mjs`.
  *
  * @see https://github.com/neomjs/neo/issues/11641
- * @see ai/daemons/KbGarbageCollectionService.mjs — the daemon under test.
- * @see test/playwright/unit/ai/daemons/KbReconciliationService.spec.mjs — the sibling pattern.
+ * @see ai/daemons/kb-gc/KbGarbageCollectionService.mjs — the daemon under test.
+ * @see test/playwright/unit/ai/daemons/kb-reconciliation/KbReconciliationService.spec.mjs — the sibling pattern.
  */
 test.describe('Neo.ai.daemons.KbGarbageCollectionService (#11641)', () => {
     let KbGarbageCollectionService, DEFAULT_INTERVAL_MS;
@@ -53,10 +53,10 @@ test.describe('Neo.ai.daemons.KbGarbageCollectionService (#11641)', () => {
 
     test.beforeAll(async () => {
         ({default: KbGarbageCollectionService, DEFAULT_INTERVAL_MS} =
-            await import('../../../../../ai/daemons/KbGarbageCollectionService.mjs'));
+            await import('../../../../../../ai/daemons/kb-gc/KbGarbageCollectionService.mjs'));
 
-        KBRecorderService = (await import('../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
-        logger            = (await import('../../../../../ai/mcp/server/knowledge-base/logger.mjs')).default;
+        KBRecorderService = (await import('../../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
+        logger            = (await import('../../../../../../ai/mcp/server/knowledge-base/logger.mjs')).default;
 
         originals = {
             recorderReady        : KBRecorderService.ready,

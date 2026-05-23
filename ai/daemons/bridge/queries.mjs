@@ -1,6 +1,6 @@
 import fs from 'fs-extra';
 import Database from 'better-sqlite3';
-import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../graph/storage/constants.mjs';
+import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../graph/storage/constants.mjs';
 
 export function initializeDatabase(dbPath) {
     try {
@@ -29,8 +29,8 @@ export function getLastSyncId(db, stateFile) {
 
 export function getActiveShapeCSubscriptions(db) {
     const stmt = db.prepare(`
-        SELECT data 
-        FROM Nodes 
+        SELECT data
+        FROM Nodes
         WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
           AND json_extract(data, '$.properties.harnessTarget') = 'bridge-daemon'
           AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'

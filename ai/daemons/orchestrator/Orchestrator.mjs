@@ -13,7 +13,7 @@ import AiConfig                    from '../../config.template.mjs';
 import HealthService               from '../../services/memory-core/HealthService.mjs';
 import {
     initializeDatabase
-} from '../../scripts/bridge-daemon-queries.mjs';
+} from '../bridge/queries.mjs';
 import SummarizationCoordinatorService from './services/SummarizationCoordinatorService.mjs';
 import BackupCoordinatorService        from './services/BackupCoordinatorService.mjs';
 import {
