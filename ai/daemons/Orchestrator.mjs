@@ -7,39 +7,33 @@ import fs                          from 'fs-extra';
 import {spawn}                     from 'child_process';
 import path                        from 'path';
 import Base                        from '../../src/core/Base.mjs';
+import ClassSystemUtil             from '../../src/util/ClassSystem.mjs';
+import Env                         from '../../src/util/Env.mjs';
+import AiConfig                    from '../config.template.mjs';
 import HealthService               from '../services/memory-core/HealthService.mjs';
 import {
     initializeDatabase
 } from '../scripts/bridge-daemon-queries.mjs';
 import SummarizationCoordinatorService from './services/SummarizationCoordinatorService.mjs';
-import BackupCoordinatorService          from './services/BackupCoordinatorService.mjs';
+import BackupCoordinatorService        from './services/BackupCoordinatorService.mjs';
 import {
     acquireHeavyMaintenanceLeaseSync,
     releaseHeavyMaintenanceLeaseSync
 } from './services/HeavyMaintenanceLeaseService.mjs';
 import PrimaryRepoSyncService, {
     DEV_SYNC_ROOTS_CONFIG_KEY,
-    DEV_SYNC_ROOTS_ENV_VAR,
-    parseEnabledFlag
+    DEV_SYNC_ROOTS_ENV_VAR
 } from './services/PrimaryRepoSyncService.mjs';
-import TaskStateService                from './services/TaskStateService.mjs';
-import ProcessSupervisorService        from './services/ProcessSupervisorService.mjs';
-import CadenceEngine                   from './services/CadenceEngine.mjs';
-import DreamService                    from './DreamService.mjs';
-import SwarmHeartbeatService           from './SwarmHeartbeatService.mjs';
-import GoldenPathSynthesizer           from './services/GoldenPathSynthesizer.mjs';
+import TaskStateService                  from './services/TaskStateService.mjs';
+import ProcessSupervisorService          from './services/ProcessSupervisorService.mjs';
+import CadenceEngine                     from './services/CadenceEngine.mjs';
+import DreamService                      from './DreamService.mjs';
+import SwarmHeartbeatService             from './SwarmHeartbeatService.mjs';
+import GoldenPathSynthesizer             from './services/GoldenPathSynthesizer.mjs';
 import {
-    DEFAULT_POLL_INTERVAL_MS,
-    DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
-    DEFAULT_KB_SYNC_INTERVAL_MS,
-    DEFAULT_BACKUP_INTERVAL_MS,
-    DEFAULT_PRIMARY_DEV_SYNC_INTERVAL_MS,
     PRIMARY_DEV_SYNC_TASK_NAME,
-    DEFAULT_DREAM_INTERVAL_MS,
     DREAM_TASK_NAME,
-    DEFAULT_GOLDEN_PATH_INTERVAL_MS,
     GOLDEN_PATH_TASK_NAME,
-    DEFAULT_SWARM_HEARTBEAT_INTERVAL_MS,
     SWARM_HEARTBEAT_TASK_NAME,
     DEFAULT_DB_PATH,
     DEFAULT_DATA_DIR,
@@ -89,7 +83,7 @@ export const DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES = Object.freeze([
  * @returns {String[]|String|undefined|null}
  */
 export function resolvePrimaryDevSyncRootsConfig({envValue, configValue}) {
-    if (envValue !== undefined && envValue !== null && envValue !== '') {
+    if (!Neo.isEmpty(envValue)) {
         return envValue;
     }
 
@@ -107,11 +101,25 @@ export function resolvePrimaryDevSyncRootsConfig({envValue, configValue}) {
  * @returns {String}
  */
 export function resolvePrimaryDevSyncRootsSource({envValue}) {
-    if (envValue !== undefined && envValue !== null && envValue !== '') {
+    if (!Neo.isEmpty(envValue)) {
         return DEV_SYNC_ROOTS_ENV_VAR;
     }
 
     return DEV_SYNC_ROOTS_CONFIG_KEY;
+}
+
+/**
+ * Resolves a deployment-aware boolean toggle from `AiConfig.orchestrator.localOnly[key]`.
+ * `null` in localOnly means "use the deployment-profile default" (local = enabled,
+ * cloud = disabled); explicit `true`/`false` overrides.
+ *
+ * @param {String} key
+ * @returns {Boolean}
+ */
+function resolveDeploymentEnabled(key) {
+    const cfg = AiConfig.orchestrator.localOnly[key];
+    if (cfg !== null) return cfg;
+    return AiConfig.orchestrator.deploymentMode !== 'cloud';
 }
 
 /**
@@ -128,6 +136,25 @@ export function resolvePrimaryDevSyncRootsSource({envValue}) {
  * cannot stop the KB-sync lane, and a KB-sync failure cannot stop the next summary
  * sweep.
  *
+ * **Service-DI 4-way classification (#11833 / Epic #11831):**
+ * - **(A) Class-system-managed utility collaborator** — `cadenceEngine_` reactive
+ *   config with `beforeSet` + `ClassSystemUtil.beforeSetInstance` for polymorphic
+ *   class/instance/config-object input and proper lifecycle on swap.
+ * - **(B) Parent-configured child collaborator** — `processSupervisorService_`
+ *   reactive config with `beforeSet` creation from parent-sourced config + parent
+ *   `afterSet*` propagation hooks for `dataDir`/`taskDefinitions`/`taskStateService`/
+ *   `healthService`/`spawnFn` so subsequent parent mutations flow to the child.
+ * - **(C) Simple imported collaborator** — direct-import instance fields
+ *   (`summarizationCoordinator`, `backupCoordinator`, etc.) — no class-system
+ *   conversion, no parent-child propagation, no lifecycle side effect.
+ * - **(D) Operator policy value** — lazy getters with the 2-value chain
+ *   `Env.parseNumber(process.env.X, 'X') ?? AiConfig.orchestrator.intervals.X`
+ *   for intervals + `Env.parseBool(...) ?? resolveDeploymentEnabled(...)` for booleans.
+ *
+ * No `configure()` shadow-resolver. No `DEFAULT_X_*_MS` constants. No
+ * `parseInterval`/`parseEnabledFlag` helpers. No `processSupervisorService.set({...this...})`
+ * context-replay block in `start()`.
+ *
  * @class Neo.ai.daemons.Orchestrator
  * @extends Neo.core.Base
  * @singleton
@@ -136,6 +163,7 @@ export function resolvePrimaryDevSyncRootsSource({envValue}) {
  * @see ai/services/memory-core/HealthService.mjs#recordTaskOutcome
  * @see learn/agentos/v13-path.md
  * @see #11009
+ * @see #11833 (masterclass-reference refactor)
  */
 export class Orchestrator extends Base {
     static config = {
@@ -149,299 +177,187 @@ export class Orchestrator extends Base {
          * @protected
          */
         singleton: true,
+
+        // === Service-DI Class A: class-system-managed utility collaborator ===
         /**
-         * @member {Boolean} isPolling_=false
-         * @protected
+         * @member {Neo.ai.daemons.services.CadenceEngine|Object|null} cadenceEngine_=null
          * @reactive
          */
-        isPolling_: false,
+        cadenceEngine_: null,
+
+        // === Service-DI Class B: parent-configured child collaborator + propagated parent props ===
         /**
-         * @member {Object|null} pollHandle_=null
-         * @protected
+         * @member {Neo.ai.daemons.services.ProcessSupervisorService|Object|null} processSupervisorService_=null
          * @reactive
          */
-        pollHandle_: null,
+        processSupervisorService_: null,
         /**
-         * @member {Object|null} db_=null
-         * @protected
-         * @reactive
-         */
-        db_: null,
-        /**
-         * @member {Object} taskStateService_=TaskStateService
-         * @protected
-         * @reactive
-         */
-        taskStateService_: TaskStateService,
-        /**
-         * @member {Object|null} taskDefinitions_=null
-         * @protected
-         * @reactive
-         */
-        taskDefinitions_: null,
-        /**
-         * @member {String} dataDir_='.neo-ai-data/orchestrator-daemon'
-         * @protected
+         * @member {String} dataDir_=DEFAULT_DATA_DIR
          * @reactive
          */
         dataDir_: DEFAULT_DATA_DIR,
         /**
-         * @member {String} dbPath_='.neo-ai-data/sqlite/memory-core-graph.sqlite'
-         * @protected
+         * @member {Object|null} taskDefinitions_=null
          * @reactive
          */
-        dbPath_: DEFAULT_DB_PATH,
+        taskDefinitions_: null,
         /**
-         * @member {String|null} logFile_=null
-         * @protected
+         * @member {Object} taskStateService_=TaskStateService
          * @reactive
          */
-        logFile_: null,
-        /**
-         * @member {String|null} stateFile_=null
-         * @protected
-         * @reactive
-         */
-        stateFile_: null,
-        /**
-         * @member {Number} pollIntervalMs_=3000
-         * @protected
-         * @reactive
-         */
-        pollIntervalMs_: DEFAULT_POLL_INTERVAL_MS,
-        /**
-         * @member {Number} summarySweepIntervalMs_=600000
-         * @protected
-         * @reactive
-         */
-        summarySweepIntervalMs_: DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
-        /**
-         * @member {Number} kbSyncIntervalMs_=1800000
-         * @protected
-         * @reactive
-         */
-        kbSyncIntervalMs_: DEFAULT_KB_SYNC_INTERVAL_MS,
-        /**
-         * @member {Boolean} kbSyncEnabled_=true
-         * @protected
-         * @reactive
-         */
-        kbSyncEnabled_: true,
-        /**
-         * @member {Number} backupIntervalMs_=86400000
-         * @protected
-         * @reactive
-         */
-        backupIntervalMs_: DEFAULT_BACKUP_INTERVAL_MS,
-        /**
-         * @member {Number} primaryDevSyncIntervalMs_=600000
-         * @protected
-         * @reactive
-         */
-        primaryDevSyncIntervalMs_: DEFAULT_PRIMARY_DEV_SYNC_INTERVAL_MS,
-        /**
-         * @member {Boolean} primaryDevSyncEnabled_=true
-         * @protected
-         * @reactive
-         */
-        primaryDevSyncEnabled_: true,
-        /**
-         * @member {Boolean} bridgeDaemonEnabled_=true
-         * @protected
-         * @reactive
-         */
-        bridgeDaemonEnabled_: true,
-        /**
-         * @member {String[]|String|null} primaryDevSyncRootsConfig_=null
-         * @protected
-         * @reactive
-         */
-        primaryDevSyncRootsConfig_: null,
-        /**
-         * @member {Number} dreamIntervalMs_=3600000
-         * @protected
-         * @reactive
-         */
-        dreamIntervalMs_: DEFAULT_DREAM_INTERVAL_MS,
-        /**
-         * @member {Number} goldenPathIntervalMs_=3600000
-         * @protected
-         * @reactive
-         */
-        goldenPathIntervalMs_: DEFAULT_GOLDEN_PATH_INTERVAL_MS,
-        /**
-         * @member {Boolean} goldenPathRepoEnrichmentEnabled_=true
-         * @protected
-         * @reactive
-         */
-        goldenPathRepoEnrichmentEnabled_: true,
+        taskStateService_: TaskStateService,
         /**
          * @member {Object} healthService_=HealthService
-         * @protected
          * @reactive
          */
         healthService_: HealthService,
         /**
-         * @member {Object} cadenceEngine_=CadenceEngine
-         * @protected
-         * @reactive
-         */
-        cadenceEngine_: CadenceEngine,
-        /**
-         * @member {Object} summarizationCoordinator_=SummarizationCoordinatorService
-         * @protected
-         * @reactive
-         */
-        summarizationCoordinator_: SummarizationCoordinatorService,
-        /**
-         * @member {Object} backupCoordinator_=BackupCoordinatorService
-         * @protected
-         * @reactive
-         */
-        backupCoordinator_: BackupCoordinatorService,
-        /**
-         * @member {Object} primaryRepoSyncService_=PrimaryRepoSyncService
-         * @protected
-         * @reactive
-         */
-        primaryRepoSyncService_: PrimaryRepoSyncService,
-        /**
-         * @member {Object} dreamService_=DreamService
-         * @protected
-         * @reactive
-         */
-        dreamService_: DreamService,
-        /**
-         * @member {Object} goldenPathSynthesizer_=GoldenPathSynthesizer
-         * @protected
-         * @reactive
-         */
-        goldenPathSynthesizer_: GoldenPathSynthesizer,
-        /**
-         * @member {Boolean} swarmHeartbeatEnabled_=true
-         * @protected
-         * @reactive
-         */
-        swarmHeartbeatEnabled_: true,
-        /**
-         * @member {Number} swarmHeartbeatIntervalMs_=300000
-         * @protected
-         * @reactive
-         */
-        swarmHeartbeatIntervalMs_: DEFAULT_SWARM_HEARTBEAT_INTERVAL_MS,
-        /**
-         * @member {Object} swarmHeartbeatService_=SwarmHeartbeatService
-         * @protected
-         * @reactive
-         */
-        swarmHeartbeatService_: SwarmHeartbeatService,
-        /**
-         * @member {String[]} heavyMaintenanceTaskNames_=DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
-         * @protected
-         * @reactive
-         */
-        heavyMaintenanceTaskNames_: DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
-        /**
-         * @member {String[]} goldenPathDependencyTaskNames_=DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
-         * @protected
-         * @reactive
-         */
-        goldenPathDependencyTaskNames_: DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES,
-        /**
-         * @member {Set|null} maintenanceDeferralLogKeys_=null
-         * @protected
-         * @reactive
-         */
-        maintenanceDeferralLogKeys_: null,
-        /**
          * @member {Function} spawnFn_=spawn
-         * @protected
          * @reactive
          */
-        spawnFn_: spawn,
-        /**
-         * @member {Object} processSupervisorService_=ProcessSupervisorService
-         * @protected
-         * @reactive
-         */
-        processSupervisorService_: ProcessSupervisorService,
-        /**
-         * @member {Function} initializeDatabaseFn_=initializeDatabase
-         * @protected
-         * @reactive
-         */
-        initializeDatabaseFn_: initializeDatabase
+        spawnFn_: spawn
     }
 
-    /**
-     * Applies runtime settings from the wrapper or tests.
-     * @param {Object} [options]
-     * @returns {void}
-     */
-    configure(options = {}) {
-        const scriptDir = options.scriptDir || DEFAULT_SCRIPT_DIR;
-        const dataDir   = options.dataDir   || DEFAULT_DATA_DIR;
+    // === Service-DI Class C: simple imported collaborators (instance fields) ===
+    summarizationCoordinator = SummarizationCoordinatorService
+    backupCoordinator        = BackupCoordinatorService
+    primaryRepoSyncService   = PrimaryRepoSyncService
+    dreamService             = DreamService
+    swarmHeartbeatService    = SwarmHeartbeatService
+    goldenPathSynthesizer    = GoldenPathSynthesizer
+    initializeDatabaseFn     = initializeDatabase
 
-        this.dataDir                = dataDir;
-        this.dbPath                 = options.dbPath || DEFAULT_DB_PATH;
-        this.logFile                = options.logFile   || path.join(dataDir, 'orchestrator.log');
-        this.stateFile              = options.stateFile || path.join(dataDir, 'orchestrator-state.json');
-        if (options.heavyMaintenanceLeasePath !== undefined) {
-            this.heavyMaintenanceLeasePath = options.heavyMaintenanceLeasePath;
-        }
-        this.cadenceEngine          = options.cadenceEngine          || CadenceEngine;
-        this.pollIntervalMs         = options.pollIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_POLL_INTERVAL_MS, DEFAULT_POLL_INTERVAL_MS);
-        this.summarySweepIntervalMs = options.summarySweepIntervalMs ?? this.cadenceEngine.parseInterval(
-            process.env.NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS ?? process.env.NEO_SUMMARIZATION_SWEEP_INTERVAL_MS,
-            DEFAULT_SUMMARY_SWEEP_INTERVAL_MS
-        );
-        this.kbSyncIntervalMs       = options.kbSyncIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS, DEFAULT_KB_SYNC_INTERVAL_MS);
-        this.kbSyncEnabled          = options.kbSyncEnabled ?? parseEnabledFlag(
-            process.env.NEO_ORCHESTRATOR_KB_SYNC_ENABLED,
-            true
-        );
-        this.backupIntervalMs       = options.backupIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS, DEFAULT_BACKUP_INTERVAL_MS);
-        this.primaryDevSyncIntervalMs = options.primaryDevSyncIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS, DEFAULT_PRIMARY_DEV_SYNC_INTERVAL_MS);
-        this.primaryDevSyncEnabled  = options.primaryDevSyncEnabled ?? parseEnabledFlag(
-            process.env.NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED,
-            true
-        );
-        this.bridgeDaemonEnabled    = options.bridgeDaemonEnabled ?? parseEnabledFlag(
-            process.env.NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED,
-            true
-        );
-        this.swarmHeartbeatIntervalMs = options.swarmHeartbeatIntervalMs ?? this.cadenceEngine.parseInterval(process.env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS, DEFAULT_SWARM_HEARTBEAT_INTERVAL_MS);
-        this.swarmHeartbeatEnabled  = options.swarmHeartbeatEnabled ?? parseEnabledFlag(
-            process.env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED,
-            true
-        );
-        this.swarmHeartbeatService  = options.swarmHeartbeatService || SwarmHeartbeatService;
-        this.goldenPathRepoEnrichmentEnabled = options.goldenPathRepoEnrichmentEnabled ?? parseEnabledFlag(
-            process.env.NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED,
-            true
-        );
-        this.primaryDevSyncRootsConfig = options.primaryDevSyncRootsConfig ?? null;
-        this.taskDefinitions        = options.taskDefinitions || buildTaskDefinitions({
-            scriptDir,
-            nodeBin   : options.nodeBin || process.argv[0],
-            mlxEnabled: options.mlxEnabled ?? undefined,
-            mlxModel  : options.mlxModel || undefined
+    // === Instance state (mutated at runtime; non-reactive) ===
+    isPolling                     = false
+    pollHandle                    = null
+    db                            = null
+    dbPath                        = DEFAULT_DB_PATH
+    logFile                       = null
+    stateFile                     = null
+    heavyMaintenanceLeasePath     = null
+    primaryDevSyncRootsConfig     = null
+    maintenanceDeferralLogKeys    = null
+    heavyMaintenanceTaskNames     = DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
+    goldenPathDependencyTaskNames = DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
+
+    /**
+     * Stable logger seam for the processSupervisorService writeLog config slot.
+     * Avoids per-call `.bind(this)` allocation drift.
+     * @member {Function} processSupervisorWriteLog
+     */
+    processSupervisorWriteLog = (level, msg) => this.writeLog(level, msg)
+
+    // === Service-DI Class A: cadenceEngine beforeSet (polymorphic class/instance/config input) ===
+    /**
+     * @param {Neo.ai.daemons.services.CadenceEngine|Object|null} value
+     * @param {Neo.ai.daemons.services.CadenceEngine|null} oldValue
+     * @returns {Neo.ai.daemons.services.CadenceEngine}
+     */
+    beforeSetCadenceEngine(value, oldValue) {
+        oldValue?.destroy?.();
+        return ClassSystemUtil.beforeSetInstance(value, CadenceEngine, {});
+    }
+
+    // === Service-DI Class B: processSupervisorService beforeSet + parent afterSet propagation ===
+    /**
+     * @param {Neo.ai.daemons.services.ProcessSupervisorService|Object|null} value
+     * @returns {Neo.ai.daemons.services.ProcessSupervisorService}
+     */
+    beforeSetProcessSupervisorService(value) {
+        return ClassSystemUtil.beforeSetInstance(value, ProcessSupervisorService, {
+            dataDir         : this.dataDir,
+            taskDefinitions : this.taskDefinitions,
+            taskStateService: this.taskStateService,
+            healthService   : this.healthService,
+            writeLog        : this.processSupervisorWriteLog,
+            spawnFn         : this.spawnFn
         });
-        this.healthService          = options.healthService          || HealthService;
-        this.summarizationCoordinator = options.summarizationCoordinator || SummarizationCoordinatorService;
-        this.backupCoordinator      = options.backupCoordinator      || BackupCoordinatorService;
-        this.primaryRepoSyncService = options.primaryRepoSyncService || PrimaryRepoSyncService;
-        this.heavyMaintenanceTaskNames = [...(options.heavyMaintenanceTaskNames || DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES)];
-        this.goldenPathDependencyTaskNames = [...(options.goldenPathDependencyTaskNames || DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES)];
-        this.maintenanceDeferralLogKeys = new Set();
-        this.spawnFn                = options.spawnFn                || spawn;
-        this.processSupervisorService = options.processSupervisorService || ProcessSupervisorService;
-        this.initializeDatabaseFn   = options.initializeDatabaseFn   || initializeDatabase;
+    }
+
+    afterSetDataDir(value) {
+        if (this.processSupervisorService) this.processSupervisorService.dataDir = value;
+    }
+    afterSetTaskDefinitions(value) {
+        if (this.processSupervisorService) this.processSupervisorService.taskDefinitions = value;
+    }
+    afterSetTaskStateService(value) {
+        if (this.processSupervisorService) this.processSupervisorService.taskStateService = value;
+    }
+    afterSetHealthService(value) {
+        if (this.processSupervisorService) this.processSupervisorService.healthService = value;
+    }
+    afterSetSpawnFn(value) {
+        if (this.processSupervisorService) this.processSupervisorService.spawnFn = value;
+    }
+
+    // === Service-DI Class D: operator policy values (lazy getters, 2-value chain) ===
+    get pollIntervalMs() {
+        return Env.parseNumber(process.env.NEO_ORCHESTRATOR_POLL_INTERVAL_MS, 'NEO_ORCHESTRATOR_POLL_INTERVAL_MS')
+            ?? AiConfig.orchestrator.intervals.pollMs;
+    }
+    get summarySweepIntervalMs() {
+        return Env.parseNumber(process.env.NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS, 'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS')
+            ?? AiConfig.orchestrator.intervals.summarySweepMs;
+    }
+    get kbSyncIntervalMs() {
+        return Env.parseNumber(process.env.NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS, 'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS')
+            ?? AiConfig.orchestrator.intervals.kbSyncMs;
+    }
+    get backupIntervalMs() {
+        return Env.parseNumber(process.env.NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS, 'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS')
+            ?? AiConfig.orchestrator.intervals.backupMs;
+    }
+    get primaryDevSyncIntervalMs() {
+        return Env.parseNumber(process.env.NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS')
+            ?? AiConfig.orchestrator.intervals.primaryDevSyncMs;
+    }
+    get dreamIntervalMs() {
+        return Env.parseNumber(process.env.NEO_ORCHESTRATOR_DREAM_INTERVAL_MS, 'NEO_ORCHESTRATOR_DREAM_INTERVAL_MS')
+            ?? AiConfig.orchestrator.intervals.dreamMs;
+    }
+    get goldenPathIntervalMs() {
+        return Env.parseNumber(process.env.NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS, 'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS')
+            ?? AiConfig.orchestrator.intervals.goldenPathMs;
+    }
+    get swarmHeartbeatIntervalMs() {
+        return Env.parseNumber(process.env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS')
+            ?? AiConfig.orchestrator.intervals.swarmHeartbeatMs;
+    }
+    get kbSyncEnabled() {
+        return Env.parseBool(process.env.NEO_ORCHESTRATOR_KB_SYNC_ENABLED, 'NEO_ORCHESTRATOR_KB_SYNC_ENABLED')
+            ?? resolveDeploymentEnabled('kbSyncEnabled');
+    }
+    get primaryDevSyncEnabled() {
+        return Env.parseBool(process.env.NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED, 'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED')
+            ?? resolveDeploymentEnabled('primaryDevSyncEnabled');
+    }
+    get bridgeDaemonEnabled() {
+        return Env.parseBool(process.env.NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED, 'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED')
+            ?? resolveDeploymentEnabled('bridgeDaemonEnabled');
+    }
+    get swarmHeartbeatEnabled() {
+        return Env.parseBool(process.env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED, 'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED')
+            ?? resolveDeploymentEnabled('swarmHeartbeatEnabled');
+    }
+    get goldenPathRepoEnrichmentEnabled() {
+        return Env.parseBool(process.env.NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED, 'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED')
+            ?? resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');
     }
 
     /**
      * Starts the orchestrator process loop after the wrapper has selected this process.
-     * @param {Object} [options] Runtime overrides from the boot wrapper.
+     * @param {Object} [options] Boot-wrapper paths + harness/process seams.
+     * @param {String} [options.scriptDir]
+     * @param {String} [options.dataDir]
+     * @param {String} [options.dbPath]
+     * @param {String} [options.logFile]
+     * @param {String} [options.stateFile]
+     * @param {String} [options.heavyMaintenanceLeasePath]
+     * @param {Object} [options.taskDefinitions] Pre-built task definitions (test-injection).
+     * @param {String} [options.nodeBin]
+     * @param {Boolean} [options.mlxEnabled]
+     * @param {String}  [options.mlxModel]
+     * @param {String[]|String|null} [options.primaryDevSyncRootsConfig]
      * @returns {Promise<void>}
      */
     async start(options = {}) {
@@ -450,24 +366,43 @@ export class Orchestrator extends Base {
             return;
         }
 
-        this.configure(options);
+        const scriptDir = options.scriptDir || DEFAULT_SCRIPT_DIR;
+        const dataDir   = options.dataDir   || DEFAULT_DATA_DIR;
+
+        // Set reactive parent props FIRST so afterSet* propagation lands when
+        // processSupervisorService gets re-created below.
+        this.dataDir         = dataDir;
+        this.taskDefinitions = options.taskDefinitions || buildTaskDefinitions({
+            scriptDir,
+            nodeBin   : options.nodeBin || process.argv[0],
+            mlxEnabled: options.mlxEnabled ?? undefined,
+            mlxModel  : options.mlxModel || undefined
+        });
+
+        // Non-reactive boot-wrapper-provided instance state
+        this.dbPath                    = options.dbPath   || DEFAULT_DB_PATH;
+        this.logFile                   = options.logFile  || path.join(dataDir, 'orchestrator.log');
+        this.stateFile                 = options.stateFile || path.join(dataDir, 'orchestrator-state.json');
+        this.heavyMaintenanceLeasePath = options.heavyMaintenanceLeasePath ?? this.heavyMaintenanceLeasePath;
+        this.primaryDevSyncRootsConfig = options.primaryDevSyncRootsConfig ?? null;
+        this.maintenanceDeferralLogKeys = new Set();
 
         fs.ensureDirSync(this.dataDir);
+
         this.taskStateService.configure({
             stateFile      : this.stateFile,
             taskDefinitions: this.taskDefinitions,
             writeLogFn     : this.writeLog.bind(this)
         });
-        this.processSupervisorService.set({
-            dataDir         : this.dataDir,
-            taskDefinitions : this.taskDefinitions,
-            taskStateService: this.taskStateService,
-            healthService   : this.healthService,
-            writeLog        : this.writeLog.bind(this),
-            spawnFn         : this.spawnFn
-        });
 
+        // Trigger processSupervisorService creation via reactive setter (beforeSet reads
+        // current parent state). The static-config-block `processSupervisorService_: null`
+        // does pre-create at construct time with default parent state; this re-creates
+        // with the now-correct options-derived state. After this point, parent mutations
+        // flow through afterSet* propagation hooks.
+        this.processSupervisorService = {};
         this.processSupervisorService.recoverTasks();
+
         this.db = this.initializeDatabaseFn(this.dbPath);
 
         // One-time swarm-heartbeat lane init (#11766). An init failure must log but
@@ -477,7 +412,8 @@ export class Orchestrator extends Base {
                 await this.swarmHeartbeatService.initAsync({pollIntervalMs: this.swarmHeartbeatIntervalMs});
             } catch (e) {
                 this.writeLog('ERROR', `[Orchestrator] Swarm heartbeat init failed; lane disabled this run: ${e.message}`);
-                this.swarmHeartbeatEnabled = false;
+                // Force-disable for this run by stashing in env; getter will re-read.
+                process.env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED = 'false';
             }
         }
 
@@ -693,13 +629,8 @@ export class Orchestrator extends Base {
     /**
      * #11519: Resolves the shared heavy-maintenance lease file path with multi-tier
      * fallback. Defensive at use-site rather than configure-time so direct
-     * `poll()` callers (unit tests bypass `start()`/`configure()`) inherit a
-     * dataDir-scoped path instead of accidentally writing to the canonical
-     * production lease at `DEFAULT_HEAVY_MAINTENANCE_LEASE_PATH`. Empirical
-     * anchor: pre-fix iteration of this PR contaminated `.neo-ai-data/orchestrator-daemon/heavy-maintenance-lease.json`
-     * during a test run — the operator's live orchestrator process would have
-     * deferred heavy tasks against a stale-but-active-TTL lease until 6h
-     * expiry without this fallback.
+     * `poll()` callers (unit tests bypass `start()`) inherit a dataDir-scoped path
+     * instead of accidentally writing to the canonical production lease.
      *
      * @returns {String}
      */
@@ -720,26 +651,6 @@ export class Orchestrator extends Base {
      *    `heavyMaintenanceLeasePath` serializes heavy tasks across
      *    concurrent orchestrator daemons (operator-restart-overlap, dev vs prod
      *    daemon sets, manual CLI scripts running alongside).
-     *
-     * **Lease lifecycle:**
-     * - Acquire BEFORE executing heavy task; `held` status → defer with
-     *   `reasonCode: 'heavy-maintenance-lease-held'`.
-     * - On acquisition, inject `NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN`
-     *   env into the spawned child + register an `onComplete` release hook
-     *   on `ProcessSupervisorService.runTask` so the lease releases when the
-     *   child closes (success or failure).
-     * - Lease-release coordination by executor return shape:
-     *   - `true`: child-spawned task — lease releases via `onComplete` callback.
-     *   - `false`: spawn failed / task skipped — release immediately.
-     *   - `Promise`: in-process async executor — release on Promise settle.
-     *   - Other truthy: sync-complete executor — release immediately after return.
-     *
-     * **Why the env-var inheritance contract matters:** the primary-dev-sync
-     * task cascades a `kbSync` child (via `PrimaryRepoSyncService.runKbSync`).
-     * Without inheritance, the cascade would see its parent's own lease and
-     * defer with `held` — self-defer bug. The inherited-token env-var lets
-     * `withHeavyMaintenanceLease` recognize the parent's lease and run the
-     * cascade task without acquire/release.
      *
      * @param {Function} executeFn Task executor; receives `(taskName, reason, onSuccess, options)`.
      * @param {Object} activeHeavyTask Mutable active-heavy tracker for the current poll.
@@ -809,11 +720,6 @@ export class Orchestrator extends Base {
                     throw e;
                 }
 
-                // Lease-release coordination by executor return shape:
-                //  - `true`        → child-spawned; release via `options.onComplete` callback
-                //  - `false`       → spawn-fail/skip; release immediately
-                //  - Promise       → in-process async (dream); release on settle
-                //  - other truthy  → sync-complete (primaryRepoSyncService); release immediately
                 if (result === false) {
                     releaseLease();
                 } else if (result && typeof result.then === 'function') {
@@ -858,9 +764,6 @@ export class Orchestrator extends Base {
             return executeFn(taskName, reason);
         };
     }
-
-
-
 
     /**
      * Executes a sweep and schedules the next poll when the daemon remains active.
@@ -918,13 +821,6 @@ export class Orchestrator extends Base {
             return null;
         }, executeMaintenanceTask(executeTask), context);
 
-        // #11513 (Lane A of #11503): wrap backup execution with the heavy-maintenance
-        // executor so a due backup defers when ANY other heavy task is active. Adding
-        // `'backup'` to `DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES` makes backup recognized
-        // as a heavy *blocker* (via `findActiveHeavyMaintenanceTask`), but the deferral
-        // check on the *candidate* side only runs through `createMaintenanceExecutor`.
-        // Sibling tasks (summary at line 675, kbSync at 686, primary-dev-sync at 718,
-        // dream at 742) all route through `executeMaintenanceTask`; backup must too.
         this.cadenceEngine.runIfDue('backup', () => {
             return this.backupCoordinator.getDueTask({
                 state           : this.taskStateService.getState(),

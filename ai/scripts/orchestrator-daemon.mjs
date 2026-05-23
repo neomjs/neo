@@ -27,11 +27,6 @@ import path from 'path';
 import {execSync} from 'child_process';
 import AiConfig from '../config.template.mjs';
 import Orchestrator from '../daemons/Orchestrator.mjs';
-import {
-    DEFAULT_KB_SYNC_INTERVAL_MS,
-    DEFAULT_POLL_INTERVAL_MS,
-    DEFAULT_SUMMARY_SWEEP_INTERVAL_MS
-} from '../daemons/TaskDefinitions.mjs';
 
 const DAEMON_DATA_DIR = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
 const PID_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator-daemon.pid');
@@ -299,8 +294,3 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     });
 }
 
-export {
-    DEFAULT_KB_SYNC_INTERVAL_MS,
-    DEFAULT_POLL_INTERVAL_MS,
-    DEFAULT_SUMMARY_SWEEP_INTERVAL_MS
-};

@@ -2,6 +2,7 @@ import {test, expect} from '@playwright/test';
 import path from 'path';
 import Neo from '../../../../../src/Neo.mjs';
 import * as core from '../../../../../src/core/_export.mjs';
+import AiConfig from '../../../../../ai/config.template.mjs';
 import {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
     Orchestrator,
@@ -13,10 +14,6 @@ import {
     DEV_SYNC_ROOTS_ENV_VAR
 } from '../../../../../ai/daemons/services/PrimaryRepoSyncService.mjs';
 import {
-    DEFAULT_POLL_INTERVAL_MS,
-    DEFAULT_SUMMARY_SWEEP_INTERVAL_MS,
-    DEFAULT_KB_SYNC_INTERVAL_MS,
-    DEFAULT_BACKUP_INTERVAL_MS,
     PRIMARY_DEV_SYNC_TASK_NAME,
     DREAM_TASK_NAME,
     GOLDEN_PATH_TASK_NAME,
@@ -26,7 +23,19 @@ import {
 import TaskStateService, { createInitialTaskState } from '../../../../../ai/daemons/services/TaskStateService.mjs';
 
 let testOrchestratorSeq = 0;
+let savedIntervals = null;
+let savedLocalOnly = null;
 
+/**
+ * Test helper updated per Epic #11831 Sub 1 (#11833) Orchestrator refactor:
+ * - Operator policy values (intervals + booleans) are now Class D lazy getters reading
+ *   from AiConfig — Neo.create config can't reach them. Helper injects via AiConfig.data
+ *   mutation with restore-in-afterEach.
+ * - Simple-imported collaborators (Class C) are instance fields — Neo.create config
+ *   can't set them either. Helper assigns directly after Neo.create.
+ * - Reactive class config slots (Class A/B parent props: dataDir, taskDefinitions,
+ *   taskStateService, healthService, spawnFn) still flow through Neo.create initConfig.
+ */
 function createTestOrchestrator(config = {}) {
     const taskDefinitions = config.taskDefinitions || buildTaskDefinitions({
         scriptDir: '/repo/ai/scripts',
@@ -48,41 +57,63 @@ function createTestOrchestrator(config = {}) {
         }
     });
 
+    // Save canonical AiConfig once per test; afterEach restores.
+    savedIntervals = savedIntervals || {...AiConfig.orchestrator.intervals};
+    savedLocalOnly = savedLocalOnly || {...AiConfig.orchestrator.localOnly};
+
+    // Class D operator policy values — AiConfig.data mutation reaches lazy getters.
+    // Test defaults preserve the pre-refactor helper's defaults (600000ms intervals etc.).
+    AiConfig.orchestrator.intervals.summarySweepMs   = config.summarySweepIntervalMs   ?? 600000;
+    AiConfig.orchestrator.intervals.kbSyncMs         = config.kbSyncIntervalMs         ?? 600000;
+    AiConfig.orchestrator.intervals.backupMs         = config.backupIntervalMs         ?? 86400000;
+    AiConfig.orchestrator.intervals.primaryDevSyncMs = config.primaryDevSyncIntervalMs ?? 600000;
+    AiConfig.orchestrator.intervals.dreamMs          = config.dreamIntervalMs          ?? Number.MAX_SAFE_INTEGER;
+    AiConfig.orchestrator.intervals.goldenPathMs     = config.goldenPathIntervalMs     ?? Number.MAX_SAFE_INTEGER;
+    AiConfig.orchestrator.intervals.swarmHeartbeatMs = config.swarmHeartbeatIntervalMs ?? Number.MAX_SAFE_INTEGER;
+    if (config.pollIntervalMs !== undefined) AiConfig.orchestrator.intervals.pollMs = config.pollIntervalMs;
+
+    AiConfig.orchestrator.localOnly.kbSyncEnabled                  = config.kbSyncEnabled                  ?? true;
+    AiConfig.orchestrator.localOnly.primaryDevSyncEnabled          = config.primaryDevSyncEnabled          ?? false;
+    AiConfig.orchestrator.localOnly.bridgeDaemonEnabled            = config.bridgeDaemonEnabled            ?? true;
+    AiConfig.orchestrator.localOnly.swarmHeartbeatEnabled          = config.swarmHeartbeatEnabled          ?? true;
+    AiConfig.orchestrator.localOnly.goldenPathRepoEnrichmentEnabled = config.goldenPathRepoEnrichmentEnabled ?? true;
+
     const orchestrator = Neo.create(Orchestrator, {
-        dataDir                 : '/tmp/orchestrator-test',
-        stateFile               : '/tmp/orchestrator-test/state.json',
-        logFile                 : null,
+        dataDir                  : '/tmp/orchestrator-test',
+        stateFile                : '/tmp/orchestrator-test/state.json',
+        logFile                  : null,
         heavyMaintenanceLeasePath,
         taskDefinitions,
-        taskStateService_       : TaskStateService,
-        summarySweepIntervalMs  : config.summarySweepIntervalMs ?? 600000,
-        kbSyncIntervalMs        : config.kbSyncIntervalMs ?? 600000,
-        kbSyncEnabled           : config.kbSyncEnabled ?? true,
-        backupIntervalMs        : config.backupIntervalMs ?? 86400000,
-        primaryDevSyncIntervalMs: config.primaryDevSyncIntervalMs ?? 600000,
-        primaryDevSyncEnabled   : config.primaryDevSyncEnabled ?? false,
-        bridgeDaemonEnabled     : config.bridgeDaemonEnabled ?? true,
+        taskStateService         : TaskStateService,
         primaryDevSyncRootsConfig: config.primaryDevSyncRootsConfig ?? null,
-        dreamIntervalMs         : config.dreamIntervalMs ?? Number.MAX_SAFE_INTEGER,
-        goldenPathIntervalMs    : config.goldenPathIntervalMs ?? Number.MAX_SAFE_INTEGER,
-        goldenPathRepoEnrichmentEnabled: config.goldenPathRepoEnrichmentEnabled ?? true,
-        swarmHeartbeatIntervalMs: config.swarmHeartbeatIntervalMs ?? Number.MAX_SAFE_INTEGER,
-        swarmHeartbeatEnabled   : config.swarmHeartbeatEnabled ?? true,
-        healthService           : config.healthService || {recordTaskOutcome() {}},
-        summarizationCoordinator: config.summarizationCoordinator || {getDueTask: () => null},
-        backupCoordinator       : config.backupCoordinator || {getDueTask: () => null},
-        primaryRepoSyncService  : config.primaryRepoSyncService || {getDueTask: () => null, runTask: () => null},
-        dreamService            : config.dreamService || {processUndigestedSessions: () => Promise.resolve()},
-        goldenPathSynthesizer   : config.goldenPathSynthesizer || {synthesizeGoldenPath: () => Promise.resolve()},
-        swarmHeartbeatService   : config.swarmHeartbeatService || {initAsync: () => Promise.resolve(), pulse: () => Promise.resolve()},
-        spawnFn                 : config.spawnFn || (() => { throw new Error('spawnFn not expected'); })
+        healthService            : config.healthService || {recordTaskOutcome() {}},
+        spawnFn                  : config.spawnFn       || (() => { throw new Error('spawnFn not expected'); })
     });
 
+    // Class C simple-imported collaborators — instance fields, not reachable via Neo.create
+    orchestrator.summarizationCoordinator = config.summarizationCoordinator || {getDueTask: () => null};
+    orchestrator.backupCoordinator        = config.backupCoordinator        || {getDueTask: () => null};
+    orchestrator.primaryRepoSyncService   = config.primaryRepoSyncService   || {getDueTask: () => null, runTask: () => null};
+    orchestrator.dreamService             = config.dreamService             || {processUndigestedSessions: () => Promise.resolve()};
+    orchestrator.goldenPathSynthesizer    = config.goldenPathSynthesizer    || {synthesizeGoldenPath: () => Promise.resolve()};
+    orchestrator.swarmHeartbeatService    = config.swarmHeartbeatService    || {initAsync: () => Promise.resolve(), pulse: () => Promise.resolve()};
+
     orchestrator.writeLog  = () => {};
-    // orchestrator.writeState = () => {};
 
     return orchestrator;
 }
+
+test.afterEach(() => {
+    // Restore canonical AiConfig defaults after each test (Class D lazy-getter substrate).
+    if (savedIntervals) {
+        Object.assign(AiConfig.orchestrator.intervals, savedIntervals);
+        savedIntervals = null;
+    }
+    if (savedLocalOnly) {
+        Object.assign(AiConfig.orchestrator.localOnly, savedLocalOnly);
+        savedLocalOnly = null;
+    }
+});
 
 test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
     test('creates an isolated persisted-state envelope per task', () => {
@@ -443,15 +474,22 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
     });
 
     test('resolves default paths correctly without configuration overrides', () => {
+        // Post Sub 1 #11833: configure() removed; path resolution is direct instance-field
+        // assignment + buildTaskDefinitions(), mirroring the substrate-correct shape used
+        // in `start()`. No side-effecting orchestrator.start() needed for path tests.
         const orchestrator = Neo.create(Orchestrator);
         const dataDir = '/tmp/orchestrator-test-defaults';
+        const repoRoot = path.resolve(process.cwd());
+        const scriptDir = path.resolve(repoRoot, 'ai/scripts');
 
-        expect(() => orchestrator.configure({ dataDir })).not.toThrow();
+        orchestrator.dataDir         = dataDir;
+        orchestrator.logFile         = path.join(dataDir, 'orchestrator.log');
+        orchestrator.stateFile       = path.join(dataDir, 'orchestrator-state.json');
+        orchestrator.taskDefinitions = buildTaskDefinitions({scriptDir, nodeBin: process.argv[0]});
 
         expect(orchestrator.logFile).toBe(path.join(dataDir, 'orchestrator.log'));
         expect(orchestrator.stateFile).toBe(path.join(dataDir, 'orchestrator-state.json'));
 
-        const repoRoot = path.resolve(process.cwd());
         const expectedSummaryScript = path.resolve(repoRoot, 'ai/scripts/summarize-sessions.mjs');
         const expectedKbSyncScript = path.resolve(repoRoot, 'buildScripts/ai/syncKnowledgeBase.mjs');
 
@@ -462,9 +500,10 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
 
     test('passes local mlx launch model config into task definitions', () => {
         const orchestrator = Neo.create(Orchestrator);
-
-        orchestrator.configure({
-            dataDir   : '/tmp/orchestrator-test-mlx-model',
+        orchestrator.dataDir         = '/tmp/orchestrator-test-mlx-model';
+        orchestrator.taskDefinitions = buildTaskDefinitions({
+            scriptDir : path.resolve(process.cwd(), 'ai/scripts'),
+            nodeBin   : process.argv[0],
             mlxEnabled: true,
             mlxModel  : 'operator-configured-mlx-model'
         });
@@ -474,12 +513,18 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
     });
 
     test('falls back to the dedicated mlx default when local config is null', () => {
+        // Post Sub 1 #11833: configure() removed; the null→undefined input shim lives in
+        // start() before calling buildTaskDefinitions. The shim (`options.mlxModel || undefined`)
+        // converts caller-provided null to undefined so the buildTaskDefinitions destructuring
+        // default fires. Test asserts that path explicitly.
         const orchestrator = Neo.create(Orchestrator);
-
-        orchestrator.configure({
-            dataDir   : '/tmp/orchestrator-test-mlx-null',
+        const mlxModelInput = null;
+        orchestrator.dataDir         = '/tmp/orchestrator-test-mlx-null';
+        orchestrator.taskDefinitions = buildTaskDefinitions({
+            scriptDir : path.resolve(process.cwd(), 'ai/scripts'),
+            nodeBin   : process.argv[0],
             mlxEnabled: true,
-            mlxModel  : null
+            mlxModel  : mlxModelInput || undefined  // matches start() boundary translation
         });
 
         expect(orchestrator.taskDefinitions.mlx.args).toContain('mlx-community/gemma-4-31b-it-bf16');
