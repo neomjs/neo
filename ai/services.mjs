@@ -77,8 +77,8 @@ import NeuralLink_Config             from './mcp/server/neural-link/config.mjs';
 NeuralLink_Config.data.autoConnect = false;
 
 // --- Daemons ---
-import DreamService from './daemons/DreamService.mjs';
-import HeavyMaintenanceLeaseService from './daemons/services/HeavyMaintenanceLeaseService.mjs';
+import DreamService from './daemons/orchestrator/services/DreamService.mjs';
+import HeavyMaintenanceLeaseService from './daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 import SemanticGraphExtractor from './daemons/services/SemanticGraphExtractor.mjs';
 import TopologyInferenceEngine from './daemons/services/TopologyInferenceEngine.mjs';
 
@@ -172,10 +172,10 @@ function makeSafe(service, spec) {
 // --- Load Specs ---
 /**
  * Safely loads a YAML OpenAPI specification.
- * 
+ *
  * Degraded Mode Semantics (Fail-Open):
  * If a specification file is missing or contains syntax errors, this function catches the error
- * and returns `null` rather than crashing the process. This prevents a single malformed MCP 
+ * and returns `null` rather than crashing the process. This prevents a single malformed MCP
  * spec from causing a systemic boot cascade failure across all daemon services.
  * Downstream consumers (e.g., `makeSafe`) must handle `null` by skipping validation.
  */

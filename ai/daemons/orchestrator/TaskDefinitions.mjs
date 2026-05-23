@@ -4,10 +4,6 @@ import {fileURLToPath} from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-// 8 DEFAULT_*_INTERVAL_MS constants removed per Epic #11831 Sub 1 (#11833) AC2:
-// canonical interval defaults now live in `ai/config.template.mjs:79-88 orchestrator.intervals`;
-// Orchestrator consumes via lazy getters `Env.parseNumber(process.env.X, 'X') ?? AiConfig.X`.
-// Task-name constants stay here as code-level identifiers.
 export const PRIMARY_DEV_SYNC_TASK_NAME           = 'primary-dev-sync';
 export const DREAM_TASK_NAME                      = 'dream';
 export const GOLDEN_PATH_TASK_NAME                = 'golden-path';
@@ -18,7 +14,7 @@ export const DEFAULT_MLX_ENABLED                  = false;
 
 export const DEFAULT_DB_PATH    = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
 export const DEFAULT_DATA_DIR   = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
-export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../scripts');
+export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
 
 /**
  * Resolves whether the orchestrator should own an mlx_lm.server child process.

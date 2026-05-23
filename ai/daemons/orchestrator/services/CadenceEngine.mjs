@@ -1,4 +1,4 @@
-import Base from '../../../src/core/Base.mjs';
+import Base from '../../../../src/core/Base.mjs';
 
 /**
  * @class Neo.ai.daemons.services.CadenceEngine

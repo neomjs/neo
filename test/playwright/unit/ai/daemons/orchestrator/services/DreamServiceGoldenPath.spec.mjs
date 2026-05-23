@@ -1,4 +1,4 @@
-import {setup} from '../../../setup.mjs';
+import {setup} from '../../../../../setup.mjs';
 
 const appName = 'DreamServiceTest';
 
@@ -16,13 +16,13 @@ setup({
 });
 
 import {test, expect}  from '@playwright/test';
-import Neo             from '../../../../../src/Neo.mjs';
-import * as core       from '../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../src/manager/Instance.mjs';
+import Neo             from '../../../../../../../src/Neo.mjs';
+import * as core       from '../../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../../src/manager/Instance.mjs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import crypto          from 'crypto';
-import {TestLifecycleHelper} from '../services/memory-core/util.mjs';
+import {TestLifecycleHelper} from '../../../services/memory-core/util.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -31,7 +31,7 @@ test.describe('DreamService Golden Path', () => {
     let TextEmbeddingService, aiConfig, DreamService, GraphService, SystemLifecycleService;
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
 
         const os         = await import('os');
         const fs         = await import('fs');
@@ -46,10 +46,10 @@ test.describe('DreamService Golden Path', () => {
         aiConfig.engine               = 'hybrid';
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
 
-        TextEmbeddingService = (await import('../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
-        DreamService         = (await import('../../../../../ai/daemons/DreamService.mjs')).default;
-        GraphService         = (await import('../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        SystemLifecycleService = (await import('../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
+        TextEmbeddingService = (await import('../../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
+        DreamService         = (await import('../../../../../../../ai/daemons/orchestrator/services/DreamService.mjs')).default;
+        GraphService         = (await import('../../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        SystemLifecycleService = (await import('../../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
 
         if (fs.existsSync(testDbPath)) {
             fs.unlinkSync(testDbPath);

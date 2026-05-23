@@ -1,4 +1,4 @@
-import {setup} from '../../../setup.mjs';
+import {setup} from '../../../../../setup.mjs';
 
 const appName = 'DreamServiceTest';
 
@@ -14,13 +14,13 @@ setup({
 });
 
 import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../src/Neo.mjs';
-import * as core      from '../../../../../src/core/_export.mjs';
-import InstanceManager from '../../../../../src/manager/Instance.mjs';
+import Neo            from '../../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../../src/core/_export.mjs';
+import InstanceManager from '../../../../../../../src/manager/Instance.mjs';
 import fs             from 'fs';
 import path           from 'path';
 import os             from 'os';
-import {TestLifecycleHelper} from '../services/memory-core/util.mjs';
+import {TestLifecycleHelper} from '../../../services/memory-core/util.mjs';
 
 test.describe('Neo.ai.services.memory-core.DreamService', () => {
     let GraphService;
@@ -44,9 +44,9 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
     test.beforeAll(async () => {
         const
-            aiConfig = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default,
-            kbConfig = (await import('../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
-        
+            aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
+            kbConfig = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         if (!fs.existsSync(tmpDir)) {
             fs.mkdirSync(tmpDir, { recursive: true });
@@ -58,16 +58,16 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         aiConfig.handoffFilePath      = path.join(tmpDir, 'mock_sandman_handoff.md');
         kbConfig.data.memoryCoreDbPath = testDbPath;
 
-        GraphService = (await import('../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        DreamService = (await import('../../../../../ai/daemons/DreamService.mjs')).default;
-        MemorySessionIngestor = (await import('../../../../../ai/daemons/services/MemorySessionIngestor.mjs')).default;
-        SemanticGraphExtractor = (await import('../../../../../ai/daemons/services/SemanticGraphExtractor.mjs')).default;
-        StorageRouter = (await import('../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
-        OpenAiCompatible       = (await import('../../../../../ai/provider/OpenAiCompatible.mjs')).default;
-        SystemLifecycleService = (await import('../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
-        TextEmbeddingService   = (await import('../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
-        KBRecorderService      = (await import('../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
-        logger                 = (await import('../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
+        GraphService = (await import('../../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        DreamService = (await import('../../../../../../../ai/daemons/orchestrator/services/DreamService.mjs')).default;
+        MemorySessionIngestor = (await import('../../../../../../../ai/daemons/services/MemorySessionIngestor.mjs')).default;
+        SemanticGraphExtractor = (await import('../../../../../../../ai/daemons/services/SemanticGraphExtractor.mjs')).default;
+        StorageRouter = (await import('../../../../../../../ai/services/memory-core/managers/StorageRouter.mjs')).default;
+        OpenAiCompatible       = (await import('../../../../../../../ai/provider/OpenAiCompatible.mjs')).default;
+        SystemLifecycleService = (await import('../../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;
+        TextEmbeddingService   = (await import('../../../../../../../ai/services/memory-core/TextEmbeddingService.mjs')).default;
+        KBRecorderService      = (await import('../../../../../../../ai/services/knowledge-base/KBRecorderService.mjs')).default;
+        logger                 = (await import('../../../../../../../ai/mcp/server/memory-core/logger.mjs')).default;
 
         if (fs.existsSync(testDbPath)) {
             try {
@@ -160,7 +160,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         if (KBRecorderService?.db) {
             KBRecorderService.db.exec('DELETE FROM kb_query_log; DELETE FROM kb_query_faqs;');
         }
-        
+
         const tmpDir = path.resolve(process.cwd(), 'tmp');
         const mockHandoff = path.join(tmpDir, 'mock_sandman_handoff.md');
         if (fs.existsSync(mockHandoff)) {
@@ -386,7 +386,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // #10086: the weight gate lives in config (not a file-local constant). Verifying that
         // GapInferenceEngine reads the live config value means curators can tune the handoff
         // silence level without code changes — the stated goal of the config-lift.
-        const aiConfig = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         const original = aiConfig.data.guideGapWeightThreshold;
 
         // Plant a concept whose weight (0.5) is BELOW the default 0.8 — normally no gap emitted.
@@ -597,10 +597,10 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // Guards against any future "simplification" that re-inlines the cycle-scope call back
         // into the session loop and silently reintroduces N×M traversal cost at ontology scale.
 
-        const aiConfig                = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        const ConceptIngestor         = (await import('../../../../../ai/daemons/services/ConceptIngestor.mjs')).default;
-        const FileSystemIngestor      = (await import('../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
-        const TopologyInferenceEngine = (await import('../../../../../ai/daemons/services/TopologyInferenceEngine.mjs')).default;
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const ConceptIngestor         = (await import('../../../../../../../ai/daemons/services/ConceptIngestor.mjs')).default;
+        const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../../../ai/daemons/services/TopologyInferenceEngine.mjs')).default;
 
         const sessionCount = 3;
         const mockSessions = Array.from({length: sessionCount}, (_, i) => ({
@@ -686,10 +686,10 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // nodes. Keep such sessions undigested so the next REM cycle retries the missing graph
         // rows instead of permanently masking them behind `graphDigested: true`.
 
-        const aiConfig                = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        const ConceptIngestor         = (await import('../../../../../ai/daemons/services/ConceptIngestor.mjs')).default;
-        const FileSystemIngestor      = (await import('../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
-        const TopologyInferenceEngine = (await import('../../../../../ai/daemons/services/TopologyInferenceEngine.mjs')).default;
+        const aiConfig                = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const ConceptIngestor         = (await import('../../../../../../../ai/daemons/services/ConceptIngestor.mjs')).default;
+        const FileSystemIngestor      = (await import('../../../../../../../ai/services/memory-core/FileSystemIngestor.mjs')).default;
+        const TopologyInferenceEngine = (await import('../../../../../../../ai/daemons/services/TopologyInferenceEngine.mjs')).default;
 
         const mockSession = {
             id      : 'chroma-summary-partial',
@@ -779,7 +779,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     });
 
     test('processUndigestedSessions rethrows garbage-collection failures (#11698)', async () => {
-        const aiConfig = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
 
         const orig = {
             provider      : aiConfig.modelProvider,
@@ -819,7 +819,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         const originalGetSummary = StorageRouter.getSummaryCollection;
         const originalGetGraph = StorageRouter.getGraphCollection;
         const originalPrepare = GraphService.db.storage.db.prepare;
-        
+
         StorageRouter.getSummaryCollection = async () => {
              return {
                  get: async () => ({ documents: [] })
@@ -836,7 +836,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
                 upsert: async () => {}
             };
         };
-        
+
         GraphService.db.storage.db.prepare = function(sql) {
             // console.log("SQL PREPARE CALLED:", sql.substring(0, 50));
             if (sql.includes('SELECT') && sql.includes('Nodes')) {
@@ -904,14 +904,14 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         OpenAiCompatible.prototype.generate = async () => ({
              content: JSON.stringify({ strategic_brief: "Math synthesis works natively." })
         });
-        
+
         const baseEmbed = TextEmbeddingService.embedText;
         TextEmbeddingService.embedText = async () => new Array(4096).fill(0.1);
 
         // Setup markdown with a conflicting gap to verify dynamic stripping / injection sequence
-        const aiConfig = (await import('../../../../../ai/mcp/server/memory-core/config.mjs')).default;
+        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
         const handoffFile = aiConfig.handoffFilePath;
-        
+
         // Restore actual file system write for this test specifically
         const mockWriteFile = fs.writeFileSync;
         fs.writeFileSync = originalAppendFile;
@@ -920,12 +920,12 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         // Execute Golden Path Synthesizer
         await DreamService.synthesizeGoldenPath();
-        
+
         const finalContent = fs.readFileSync(handoffFile, 'utf8');
 
         // Verification Loop
         expect(finalContent).toContain('Epic Hero');
-        expect(finalContent).toContain('Weak Task'); 
+        expect(finalContent).toContain('Weak Task');
         expect(finalContent).not.toContain('Blocked Task'); // REJECTED topologically by GraphService
         expect(finalContent).not.toContain('Massive Stale Feature'); // REJECTED mathematically by Negative ROI penalty
         expect(finalContent).toContain('Math synthesis works natively.');
@@ -943,7 +943,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
         // Run AGAIN to trigger duplication prevention natively
         await DreamService.synthesizeGoldenPath();
         const twiceContent = fs.readFileSync(handoffFile, 'utf8');
-        
+
         // Count capabilities gaps to ensure idempotence
         const firstCount = finalContent.split('[Codebase Gap]').length;
         const secondCount = twiceContent.split('[Codebase Gap]').length;
@@ -967,19 +967,19 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
     test('should retry extraction on malformed JSON payload up to 3 times to fix #9913', async () => {
         let executionCount = 0;
         const baseGenerate = OpenAiCompatible.prototype.generate;
-        
+
         // Mock to fail twice with invalid JSON, then succeed on the 3rd attempt
         OpenAiCompatible.prototype.generate = async function(messages) {
             executionCount++;
             providerPrompt = messages; // Save for assertion
-            
+
             if (executionCount < 3) {
                 // Return malformed payload mimicking local hallucination
                 return {
                     content: "```json\n{ \"a2a_version\": \"1.0\", \"agent_id\": \"Antigravity\" " // Unfinished, no graph
                 };
             }
-            
+
             // On attempt 3, return valid Tri-Vector
             return {
                 content: JSON.stringify({
@@ -1004,7 +1004,7 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         // Assert that the LLM was called 3 times natively due to the retry loop wrapping
         expect(executionCount).toBe(3);
-        
+
         // Assert the returned result is strictly not null since attempt 3 passed
         expect(result).not.toBeNull();
         expect(result.session_artifact).toBeDefined();

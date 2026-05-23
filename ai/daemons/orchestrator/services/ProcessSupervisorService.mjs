@@ -1,4 +1,4 @@
-import Base from '../../../src/core/Base.mjs';
+import Base from '../../../../src/core/Base.mjs';
 import fs from 'fs-extra';
 import path from 'path';
 import {execSync} from 'child_process';

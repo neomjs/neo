@@ -1,11 +1,11 @@
 // Neo + core/_export bootstrap belongs to the orchestrator-daemon entry point
 // (`ai/scripts/orchestrator-daemon.mjs`). Class files rely on `globalThis.Neo`
 // populated by the entry-point bootstrap.
-import Base from '../../../src/core/Base.mjs';
+import Base from '../../../../src/core/Base.mjs';
 import {
     getUnreadSunsetHandovers,
     markNodesAsRead
-} from '../../scripts/bridge-daemon-queries.mjs';
+} from '../../../scripts/bridge-daemon-queries.mjs';
 
 /**
  * @summary Builds the task trigger for the summarization sweep lane (#11009).

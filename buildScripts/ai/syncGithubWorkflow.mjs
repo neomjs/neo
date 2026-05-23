@@ -1,5 +1,5 @@
 import {GH_Config, GH_SyncService}     from '../../ai/services.mjs';
-import {withHeavyMaintenanceLease}     from '../../ai/daemons/services/HeavyMaintenanceLeaseService.mjs';
+import {withHeavyMaintenanceLease}     from '../../ai/daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 
 /**
  * @module buildScripts/ai/syncGithubWorkflow

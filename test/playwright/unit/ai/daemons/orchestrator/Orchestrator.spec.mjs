@@ -1,26 +1,26 @@
 import {test, expect} from '@playwright/test';
 import path from 'path';
-import Neo from '../../../../../src/Neo.mjs';
-import * as core from '../../../../../src/core/_export.mjs';
-import AiConfig from '../../../../../ai/config.template.mjs';
+import Neo from '../../../../../../src/Neo.mjs';
+import * as core from '../../../../../../src/core/_export.mjs';
+import AiConfig from '../../../../../../ai/config.template.mjs';
 import {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
     Orchestrator,
     resolvePrimaryDevSyncRootsConfig,
     resolvePrimaryDevSyncRootsSource
-} from '../../../../../ai/daemons/Orchestrator.mjs';
+} from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
 import {
     DEV_SYNC_ROOTS_CONFIG_KEY,
     DEV_SYNC_ROOTS_ENV_VAR
-} from '../../../../../ai/daemons/services/PrimaryRepoSyncService.mjs';
+} from '../../../../../../ai/daemons/orchestrator/services/PrimaryRepoSyncService.mjs';
 import {
     PRIMARY_DEV_SYNC_TASK_NAME,
     DREAM_TASK_NAME,
     GOLDEN_PATH_TASK_NAME,
     SWARM_HEARTBEAT_TASK_NAME,
     buildTaskDefinitions
-} from '../../../../../ai/daemons/TaskDefinitions.mjs';
-import TaskStateService, { createInitialTaskState } from '../../../../../ai/daemons/services/TaskStateService.mjs';
+} from '../../../../../../ai/daemons/orchestrator/TaskDefinitions.mjs';
+import TaskStateService, { createInitialTaskState } from '../../../../../../ai/daemons/orchestrator/services/TaskStateService.mjs';
 
 let testOrchestratorSeq = 0;
 let savedIntervals = null;

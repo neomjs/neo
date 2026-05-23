@@ -1,22 +1,22 @@
 import {test, expect} from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
-import '../../../../../src/Neo.mjs';
-import '../../../../../src/core/_export.mjs';
+import '../../../../../../src/Neo.mjs';
+import '../../../../../../src/core/_export.mjs';
 import {
     LOCAL_AI_CONFIG_FILE,
     loadLocalAiConfig,
     resolveOrchestratorStartOptions
-} from '../../../../../ai/scripts/orchestrator-daemon.mjs';
+} from '../../../../../../ai/daemons/orchestrator/daemon.mjs';
 import {
     DEFAULT_MLX_ENABLED,
     DEFAULT_MLX_MODEL,
     DEFAULT_MLX_PORT,
     buildTaskDefinitions,
     resolveMlxEnabled
-} from '../../../../../ai/daemons/TaskDefinitions.mjs';
+} from '../../../../../../ai/daemons/orchestrator/TaskDefinitions.mjs';
 
-test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
+test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
 
 
     test('builds task commands around existing manual maintenance scripts', () => {
@@ -163,15 +163,15 @@ test.describe('ai/scripts/orchestrator-daemon.mjs (#11006/#11009)', () => {
 
     test('keeps bridge-daemon wake-only and routes maintenance ownership to the daemon class', () => {
         const bridgeSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/scripts/bridge-daemon.mjs'), 'utf8');
-        const orchestratorSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/scripts/orchestrator-daemon.mjs'), 'utf8');
-        const daemonSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/Orchestrator.mjs'), 'utf8');
-        const taskDefSource        = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/TaskDefinitions.mjs'), 'utf8');
+        const orchestratorSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/daemon.mjs'), 'utf8');
+        const daemonSource       = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/Orchestrator.mjs'), 'utf8');
+        const taskDefSource        = fs.readFileSync(path.resolve(process.cwd(), 'ai/daemons/orchestrator/TaskDefinitions.mjs'), 'utf8');
 
         expect(bridgeSource).not.toContain('summarize-sessions.mjs');
         expect(bridgeSource).not.toContain('Piece C periodic summarization sweep');
         expect(bridgeSource).not.toContain('checkSummarizationLifecycle');
 
-        expect(orchestratorSource).toContain('../daemons/Orchestrator.mjs');
+        expect(orchestratorSource).toContain('./Orchestrator.mjs');
         expect(orchestratorSource).toContain('orchestrator-daemon.pid');
         expect(orchestratorSource).toContain('setupCleanupHandlers');
         expect(orchestratorSource).toContain('enforceSingleton');

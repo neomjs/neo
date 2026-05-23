@@ -1,8 +1,8 @@
 import {test, expect} from '@playwright/test';
 import fs             from 'fs-extra';
 import path           from 'path';
-import Neo            from '../../../../../../src/Neo.mjs';
-import * as core      from '../../../../../../src/core/_export.mjs';
+import Neo            from '../../../../../../../src/Neo.mjs';
+import * as core      from '../../../../../../../src/core/_export.mjs';
 import {
     HeavyMaintenanceLeaseService,
     acquireHeavyMaintenanceLease,
@@ -13,7 +13,7 @@ import {
     releaseHeavyMaintenanceLease,
     releaseHeavyMaintenanceLeaseSync,
     withHeavyMaintenanceLease
-} from '../../../../../../ai/daemons/services/HeavyMaintenanceLeaseService.mjs';
+} from '../../../../../../../ai/daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 
 function createLeasePath(name) {
     const dir = path.join(process.cwd(), 'tmp', `heavy-maintenance-lease-${process.pid}-${Date.now()}-${Math.random()}`);

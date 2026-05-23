@@ -11,7 +11,7 @@ import KB_Config                    from '../../ai/mcp/server/knowledge-base/con
 import KB_ChromaManager             from '../../ai/services/knowledge-base/ChromaManager.mjs';
 import KB_IngestionService          from '../../ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs';
 import KB_LifecycleService          from '../../ai/services/knowledge-base/DatabaseLifecycleService.mjs';
-import {withHeavyMaintenanceLease}  from '../../ai/daemons/services/HeavyMaintenanceLeaseService.mjs';
+import {withHeavyMaintenanceLease}  from '../../ai/daemons/orchestrator/services/HeavyMaintenanceLeaseService.mjs';
 
 /**
  * @module buildScripts/ai/ingestTenant
