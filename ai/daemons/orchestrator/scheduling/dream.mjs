@@ -1,22 +1,15 @@
 /**
  * @summary Dream-cycle due-trigger projection.
  *
- * Pure function. Given current task state + clock + configured interval, returns a
- * trigger descriptor or null. No state, no I/O, no Neo class-system features.
- *
- * D3.1 boundary per `learn/agentos/v13-path.md:117`: per-task projections decide
- * what work is due; orchestrator wires; `DreamService.processUndigestedSessions()`
- * executes. This file owns the "is dream work due now?" projection only.
- *
- * @see ai/daemons/orchestrator/services/DreamService.mjs — execution side
- * @see learn/agentos/v13-path.md
+ * Returns a trigger descriptor when the configured interval has elapsed since
+ * `lastRunAt`; null otherwise. Pure function — no state, no I/O.
  */
 
 /**
  * @param {Object} options
- * @param {Object} [options.state] Current orchestrator task state for the dream lane (`{lastRunAt}`).
+ * @param {Object} [options.state] Current task state for the dream lane (`{lastRunAt}`).
  * @param {Number} options.now Current timestamp in milliseconds.
- * @param {Number} options.dreamIntervalMs Periodic dream interval; `0` (or any value `<= 0`) disables.
+ * @param {Number} options.dreamIntervalMs Periodic interval; `<= 0` disables.
  * @returns {Object|null} A dream task trigger or null when no work is due.
  */
 export function getDueTask({state, now, dreamIntervalMs}) {
