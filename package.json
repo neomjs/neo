@@ -40,6 +40,7 @@
         "ai:kb-reconciliation"         : "node ./ai/scripts/kb-reconciliation-daemon.mjs",
         "ai:kb-gc"                     : "node ./ai/scripts/kb-gc-daemon.mjs",
         "ai:orchestrator"              : "node ./ai/scripts/orchestrator-daemon.mjs",
+        "ai:revalidation-sweep"        : "node ./ai/scripts/revalidationSweep.mjs",
         "ai:run-sandman"               : "node ./buildScripts/ai/runSandman.mjs",
         "ai:server"                    : "chroma run --path ./.neo-ai-data/chroma/knowledge-base",
         "ai:server-neural-link"        : "node ./ai/mcp/server/neural-link/run-bridge.mjs",

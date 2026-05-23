@@ -164,7 +164,7 @@ Ideation Sandbox graduation is a peer-owned substrate transition. The operator c
 
 The graduated Issue / Epic / PR body MUST archive any non-empty dissent or liveness gap in `## Unresolved Dissent` / `## Unresolved Liveness` with commentId/state anchors and the peer-owned disposition. Future Discussions can re-open the risk if it materializes.
 
-Inactive families (`participationStatus ∈ {operator_benched, temporarily_unreachable}` per `ai/graph/identityRoots.mjs`) are archived in `## Unresolved Liveness` per §6.6; Tier-2 substrate additionally carries a `revalidationTrigger` AC (per Epic #11796 AC6) re-opening the substrate for retroactive signal review when the benched family reactivates. Unresolved no-signal never becomes implicit approval and never asks the operator to approve sandbox graduation.
+Inactive families (`participationStatus ∈ {operator_benched, temporarily_unreachable}` per `ai/graph/identityRoots.mjs`) are archived in `## Unresolved Liveness` per §6.6; Tier-2 substrate additionally carries a `revalidationTrigger` AC (per Epic #11796 AC6 + sub #11803 — **Tier-2 Revalidation Sweep**, see [`audits/tier-2-revalidation.md`](../audits/tier-2-revalidation.md)) re-opening the substrate for retroactive signal review when the benched family reactivates. Unresolved no-signal never becomes implicit approval.
 
 ### 6.6 Graduated-Artifact Required Sections (AC11)
 
