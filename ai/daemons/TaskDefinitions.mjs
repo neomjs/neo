@@ -4,17 +4,13 @@ import {fileURLToPath} from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-export const DEFAULT_POLL_INTERVAL_MS          = 3000;
-export const DEFAULT_SUMMARY_SWEEP_INTERVAL_MS = 600000;
-export const DEFAULT_KB_SYNC_INTERVAL_MS       = 1800000;
-export const DEFAULT_BACKUP_INTERVAL_MS        = 86400000;
-export const DEFAULT_PRIMARY_DEV_SYNC_INTERVAL_MS = 600000;
+// 8 DEFAULT_*_INTERVAL_MS constants removed per Epic #11831 Sub 1 (#11833) AC2:
+// canonical interval defaults now live in `ai/config.template.mjs:79-88 orchestrator.intervals`;
+// Orchestrator consumes via lazy getters `Env.parseNumber(process.env.X, 'X') ?? AiConfig.X`.
+// Task-name constants stay here as code-level identifiers.
 export const PRIMARY_DEV_SYNC_TASK_NAME           = 'primary-dev-sync';
-export const DEFAULT_DREAM_INTERVAL_MS            = 3600000;
 export const DREAM_TASK_NAME                      = 'dream';
-export const DEFAULT_GOLDEN_PATH_INTERVAL_MS      = 3600000;
 export const GOLDEN_PATH_TASK_NAME                = 'golden-path';
-export const DEFAULT_SWARM_HEARTBEAT_INTERVAL_MS  = 300000;
 export const SWARM_HEARTBEAT_TASK_NAME            = 'swarm-heartbeat';
 export const DEFAULT_MLX_MODEL                    = 'mlx-community/gemma-4-31b-it-bf16';
 export const DEFAULT_MLX_PORT                     = '11435';
