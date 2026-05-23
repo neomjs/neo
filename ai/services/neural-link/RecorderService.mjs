@@ -39,20 +39,20 @@ class RecorderService extends Base {
      */
     async initAsync() {
         await super.initAsync();
-        
+
         try {
             const dbPath = config.memoryCoreDbPath;
             if (!dbPath) {
                 logger.warn('[RecorderService] memoryCoreDbPath not configured. Disabling logging.');
                 return;
             }
-            
+
             await fs.ensureDir(path.dirname(dbPath));
             const Database = (await import('better-sqlite3')).default;
-            
+
             this.db = new Database(dbPath, { verbose: null });
             this.db.pragma('journal_mode = WAL');
-            
+
             // System table
             this.db.exec(`
                 CREATE TABLE IF NOT EXISTS nl_action_log (
@@ -73,7 +73,7 @@ class RecorderService extends Base {
                 CREATE INDEX IF NOT EXISTS idx_nl_action_log_session   ON nl_action_log(session_id);
                 CREATE INDEX IF NOT EXISTS idx_nl_action_log_timestamp ON nl_action_log(timestamp);
             `);
-            
+
             logger.info('[RecorderService] Connected to Memory Core nl_action_log.');
         } catch (err) {
             logger.warn('[RecorderService] Failed to initialize SQLite connection:', err.message);
@@ -87,17 +87,17 @@ class RecorderService extends Base {
      */
     log(entry) {
         if (!this.db) return;
-        
+
         try {
             const insertStmt = this.db.prepare(`
                 INSERT INTO nl_action_log (
-                    id, agent_id, session_id, sequence_id, timestamp, 
+                    id, agent_id, session_id, sequence_id, timestamp,
                     tool, args, result, success, duration_ms, app_name
                 ) VALUES (
                     ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
                 )
             `);
-            
+
             insertStmt.run(
                 crypto.randomUUID(),
                 entry.agent_id || 'unknown',
@@ -118,7 +118,7 @@ class RecorderService extends Base {
     }
 
     /**
-     * Executes queries against the internal Action Log. Principally used by DreamService triggers 
+     * Executes queries against the internal Action Log. Principally used by DreamService triggers
      * to harvest execution chains for automated Playwright test synthesis.
      * @param {Object} config Query parameters and offsets.
      * @param {Number} [config.sinceTimestamp=0] Return logs after this epoch.
@@ -128,18 +128,18 @@ class RecorderService extends Base {
      */
     querySequences({ sinceTimestamp = 0, minSuccessRate, limit } = {}) {
         if (!this.db) return [];
-        
+
         try {
             let sql = `SELECT * FROM nl_action_log WHERE timestamp >= ?`;
             const args = [sinceTimestamp];
-            
+
             sql += ` ORDER BY timestamp DESC`;
-            
+
             if (limit) {
                 sql += ` LIMIT ?`;
                 args.push(limit);
             }
-            
+
             return this.db.prepare(sql).all(...args);
         } catch (err) {
             logger.error('[RecorderService] Failed to query sequences:', err);
@@ -153,7 +153,7 @@ class RecorderService extends Base {
      */
     pruneOlderThan(days = config.pruneLogsAfterDays) {
         if (!this.db) return;
-        
+
         try {
             const cutoff = Date.now() - (days * MS_PER_DAY);
             const dropStmt = this.db.prepare(`DELETE FROM nl_action_log WHERE timestamp < ?`);

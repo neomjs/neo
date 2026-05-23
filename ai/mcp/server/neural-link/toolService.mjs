@@ -82,13 +82,13 @@ const callTool = async (name, args) => {
         } catch (e) {
             safeArgs = JSON.stringify({ error: 'Unserializable Arguments' });
         }
-        
+
         try {
             safeResult = JSON.stringify(result ?? null);
         } catch (e) {
             safeResult = JSON.stringify({ error: 'Unserializable Result' });
         }
-        
+
         RecorderService.log({
             agent_id   : ConnectionService.agentId || 'unknown',
             session_id : sessionId,

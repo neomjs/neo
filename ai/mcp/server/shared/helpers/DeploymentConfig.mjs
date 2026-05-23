@@ -83,7 +83,7 @@ export function resolveChromaPort({env = process.env, warn = console.warn, defau
  * @summary Resolves the canonical public URL for the MCP server.
  *
  * Checks `NEO_PUBLIC_URL`. Validates parseability.
- * 
+ *
  * @param {Object}   options
  * @param {Object}   [options.env=process.env]   Environment map (overridable for tests).
  * @param {Function} [options.warn=console.warn] Warning sink for invalid-value notices.
@@ -92,7 +92,7 @@ export function resolveChromaPort({env = process.env, warn = console.warn, defau
 export function resolvePublicUrl({env = process.env, warn = console.warn} = {}) {
     const rawValue = env.NEO_PUBLIC_URL;
     if (rawValue === undefined || rawValue === null || rawValue === '') return null;
-    
+
     try {
         const url = new URL(rawValue);
         // Ensure trailing slash is removed for consistency

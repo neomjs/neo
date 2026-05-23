@@ -299,7 +299,7 @@ test.describe('Neo.ai.daemons.services.HeavyMaintenanceLeaseService (#11505)', (
                 await Promise.resolve();
             } finally {
                 // Substrate-protected side effect (canonical inner-finally pattern from
-                // buildScripts/ai/runSandman.mjs post-PR #11509).
+                // ai/scripts/runners/runSandman.mjs post-PR #11509).
                 order.push('task-finally');
                 leaseDuringFinally = await inspectHeavyMaintenanceLease({leasePath, now});
             }

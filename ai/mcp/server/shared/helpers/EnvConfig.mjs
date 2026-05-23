@@ -69,7 +69,7 @@ export function applyEnvBindings(data, envBindings, env = process.env, warn = co
         const { var: varName, parse } = typeof binding === 'string'
             ? { var: binding, parse: parseString }
             : binding;
-            
+
         const raw = env[varName];
         if (globalThis.Neo && Neo.isEmpty(raw)) continue;
         if (!globalThis.Neo && (raw === undefined || raw === null || raw === '')) continue;

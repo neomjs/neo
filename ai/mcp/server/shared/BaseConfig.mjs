@@ -104,7 +104,7 @@ class BaseConfig extends Base {
 
 /**
  * Creates a Proxy to delegate unknown properties to the underlying data object.
- * @param {Neo.ai.mcp.server.shared.BaseConfig} instance 
+ * @param {Neo.ai.mcp.server.shared.BaseConfig} instance
  * @returns {Proxy}
  */
 export function createConfigProxy(instance) {

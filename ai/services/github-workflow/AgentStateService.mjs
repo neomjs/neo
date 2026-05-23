@@ -36,7 +36,7 @@ class AgentStateService extends Base {
      */
     async signalStateTransition({state, target_id, artifact_path}) {
         const validStates = ['PR_OPENED', 'BLOCKED', 'HANDOFF'];
-        
+
         if (!validStates.includes(state)) {
             return {
                 error: 'Invalid state',

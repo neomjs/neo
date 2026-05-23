@@ -19,7 +19,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const templatePath = path.resolve(__dirname, '../../../../../../../ai/mcp/server/github-workflow/config.template.mjs');
 const templateClassName = 'Neo.ai.mcp.server.github-workflow.Config';
-const cliScriptPath = path.resolve(__dirname, '../../../../../../../buildScripts/ai/syncGithubWorkflow.mjs');
+const cliScriptPath = path.resolve(__dirname, '../../../../../../../ai/scripts/maintenance/syncGithubWorkflow.mjs');
 
 /**
  * @summary Imports the copyable GitHub workflow config template under a unit-test-only namespace.
@@ -80,7 +80,7 @@ test.describe('GitHub Workflow MCP Server Config Completeness', () => {
 
         const templateKeys = Object.keys(config.issueSync);
         const missingKeys = [];
-        
+
         for (const key of requiredKeys) {
             if (!templateKeys.includes(key)) {
                 missingKeys.push(key);

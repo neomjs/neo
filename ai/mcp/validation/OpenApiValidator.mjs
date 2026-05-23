@@ -15,7 +15,7 @@ function buildZodSchema(openApiDocument, operation) {
     if (operation.parameters) {
         for (const param of operation.parameters) {
             let schema = buildZodSchemaFromNode(openApiDocument, param.schema);
-            
+
             // Mark schema as optional if not explicitly required.
             if (!param.required) {
                 schema = schema.optional();
@@ -39,7 +39,7 @@ function buildZodSchema(openApiDocument, operation) {
             const { properties, required = [] } = requestBodySchema;
             for (const [propName, propSchema] of Object.entries(properties)) {
                 let schema = buildZodSchemaFromNode(openApiDocument, propSchema);
-                
+
                 if (!required.includes(propName)) {
                     schema = schema.optional();
                 }

@@ -64,7 +64,7 @@ services:
     expose:
       - "3000"
     healthcheck:
-      test: ["CMD", "node", "./buildScripts/ai/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3000", "--client-name", "neo-kb-container-healthcheck"]
+      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3000", "--client-name", "neo-kb-container-healthcheck"]
       interval: 10s
       timeout: 10s
       retries: 12
@@ -112,7 +112,7 @@ services:
     expose:
       - "3001"
     healthcheck:
-      test: ["CMD", "node", "./buildScripts/ai/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--client-name", "neo-mc-container-healthcheck"]
+      test: ["CMD", "node", "./ai/scripts/diagnostics/mcpHealthcheck.mjs", "--url", "http://127.0.0.1:3001", "--client-name", "neo-mc-container-healthcheck"]
       interval: 10s
       timeout: 10s
       retries: 12
