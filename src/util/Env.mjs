@@ -9,7 +9,10 @@
  *
  * Decoders know NOTHING about specific configs, defaults, or domain consumers — they only
  * answer "env var absent (undefined) / decoded value / invalid (warn + undefined)". Fallback
- * policy lives at the consumer call-site (e.g., `Env.parseNumber(process.env.X, 'X') ?? AiConfig.X`).
+ * policy lives at the consumer call-site. Prefer a centralized binding registry (e.g.,
+ * `ai/config/env.mjs`) over per-call-site `Env.parseX(process.env.X, 'X')` invocations:
+ * the registry collapses the env-var name into a single declaration so consumers reference
+ * `env.X ?? AiConfig.X` instead of repeating the string literal at every read site.
  *
  * Uses the gatekeep pattern (lightweight stateless utility — no Base inheritance, no
  * reactive configs, no lifecycle hooks), mirroring `src/core/IdGenerator.mjs` precedent.
