@@ -4,11 +4,13 @@ import Neo from '../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../src/core/_export.mjs';
 import AiConfig from '../../../../../../ai/config.template.mjs';
 import {
-    DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
     Orchestrator,
     resolvePrimaryDevSyncRootsConfig,
     resolvePrimaryDevSyncRootsSource
 } from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
+import {
+    DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
+} from '../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs';
 import {
     DEV_SYNC_ROOTS_CONFIG_KEY,
     DEV_SYNC_ROOTS_ENV_VAR
