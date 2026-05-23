@@ -12,7 +12,7 @@ export const MAX_ABANDONED_ACTIONS = 3;
  */
 export function getLockPath(mode, identity) {
     const cleanIdentity = identity.replace(/[^a-zA-Z0-9_-]/g, '');
-    return path.resolve(__dirname, `../../.neo-ai-data/wake-daemon/inflight-${mode}-${cleanIdentity}.txt`);
+    return path.resolve(__dirname, `../../../.neo-ai-data/wake-daemon/inflight-${mode}-${cleanIdentity}.txt`);
 }
 
 /**

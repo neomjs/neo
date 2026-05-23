@@ -295,7 +295,7 @@ export async function resumeHarness(identity, reason, originSessionId, abandoned
 
     // Blocker 1: Idempotency (cooldown file + 600s minimum re-fire window)
     // Fix: Resolve from __dirname instead of process.cwd() to support cron/launchd
-    const cooldownDir = path.resolve(__dirname, '../../.neo-ai-data/wake-daemon');
+    const cooldownDir = path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon');
     const cooldownFile = path.resolve(cooldownDir, `cooldown-${identity.replace(/[^a-zA-Z0-9_-]/g, '')}.txt`);
 
     try {

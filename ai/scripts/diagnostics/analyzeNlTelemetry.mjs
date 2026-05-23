@@ -17,7 +17,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Resolve upward from neo/ai/scripts to neo root
-const ROOT_DIR = path.resolve(__dirname, '../../');
+const ROOT_DIR = path.resolve(__dirname, '../../../');
 import aiConfig from '../../mcp/server/memory-core/config.mjs';
 
 const DB_PATH = process.env.NEO_MEMORY_DB_PATH || path.join(aiConfig.engines.neo.dataDir, aiConfig.engines.neo.filename);

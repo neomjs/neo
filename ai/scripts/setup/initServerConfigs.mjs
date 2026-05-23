@@ -26,7 +26,7 @@ import {fileURLToPath} from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
-const cwd        = path.resolve(__dirname, '../../');
+const cwd        = path.resolve(__dirname, '../../../');
 const serversDir = path.join(cwd, 'ai', 'mcp', 'server');
 
 const MIGRATE_FLAG = '--migrate-config';
