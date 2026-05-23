@@ -144,6 +144,24 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         }
     });
 
+    test('initAsync() normalizes GitHub-login identity form to AgentIdentity node id (#11797)', async () => {
+        applyDefaultStubs();
+
+        await SwarmHeartbeatService.initAsync({identity: 'neo-opus-4-7', pollIntervalMs: 60_000});
+        expect(SwarmHeartbeatService.identity).toBe('@neo-opus-4-7');
+        SwarmHeartbeatService.isInitialized = false;
+
+        const original = process.env.NEO_AGENT_IDENTITY;
+        process.env.NEO_AGENT_IDENTITY = 'neo-gpt';
+        try {
+            await SwarmHeartbeatService.initAsync({pollIntervalMs: 60_000});
+            expect(SwarmHeartbeatService.identity).toBe('@neo-gpt');
+        } finally {
+            if (original === undefined) delete process.env.NEO_AGENT_IDENTITY;
+            else                        process.env.NEO_AGENT_IDENTITY = original;
+        }
+    });
+
     test('pulse() skips when concurrency lock is active', async () => {
         applyDefaultStubs();
         SwarmHeartbeatService.checkHeartbeatLock = async () => ({active: true, stale: false, ageMs: 1000});

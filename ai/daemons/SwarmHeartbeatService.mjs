@@ -23,7 +23,10 @@ import {
     HEARTBEAT_LOCK_PATH
 } from '../scripts/heartbeatLock.mjs';
 import {checkSunsetted as checkSunsettedScript}     from '../scripts/checkSunsetted.mjs';
-import {resumeHarness as resumeHarnessScript}       from '../scripts/resumeHarness.mjs';
+import {
+    normalizeAgentIdentityNodeId,
+    resumeHarness as resumeHarnessScript
+} from '../scripts/resumeHarness.mjs';
 import {checkAllAgentIdle as checkAllAgentIdleScript} from '../scripts/checkAllAgentIdle.mjs';
 import {idleOutNudge as idleOutNudgeScript}         from '../scripts/idleOutNudge.mjs';
 import {trioWakeCooldown as trioWakeCooldownScript} from '../scripts/trioWakeCooldown.mjs';
@@ -123,9 +126,9 @@ class SwarmHeartbeatService extends Base {
             return;
         }
 
-        this.identity = identity
-            || process.env.NEO_AGENT_IDENTITY
-            || DEFAULT_IDENTITY;
+        this.identity = normalizeAgentIdentityNodeId(
+            identity || process.env.NEO_AGENT_IDENTITY || DEFAULT_IDENTITY
+        );
 
         const envInterval = parseInt(process.env.POLL_INTERVAL, 10);
         this.pollIntervalMs = pollIntervalMs
