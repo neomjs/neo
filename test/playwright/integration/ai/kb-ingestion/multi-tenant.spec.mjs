@@ -111,7 +111,7 @@ function runMultiTenantMatrix(collectionName) {
             Memory_TextEmbeddingService
         } = await import('./ai/services.mjs');
         const {callTool} = await import('./ai/mcp/server/knowledge-base/toolService.mjs');
-        const {default: KbReconciliationService} = await import('./ai/daemons/KbReconciliationService.mjs');
+        const {default: KbReconciliationService} = await import('./ai/daemons/kb-reconciliation/KbReconciliationService.mjs');
         const {default: KnowledgeBaseIngestionService} = await import('./ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs');
         const {default: QueryService} = await import('./ai/services/knowledge-base/QueryService.mjs');
         const {default: SearchService} = await import('./ai/services/knowledge-base/SearchService.mjs');

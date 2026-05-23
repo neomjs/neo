@@ -4,8 +4,8 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import { spawn } from 'child_process';
 import crypto from 'crypto';
-import { collapseDuplicateShapeCRoutes, getNodesData, getEdgesData } from '../../../../../ai/scripts/bridge-daemon-queries.mjs';
-import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../../../../ai/graph/storage/constants.mjs';
+import { collapseDuplicateShapeCRoutes, getNodesData, getEdgesData } from '../../../../../../ai/daemons/bridge/queries.mjs';
+import { SQLITE_IN_CLAUSE_BATCH_SIZE } from '../../../../../../ai/graph/storage/constants.mjs';
 
 test.describe('Bridge Daemon', () => {
     let db;
@@ -23,7 +23,7 @@ test.describe('Bridge Daemon', () => {
         if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
         if (fs.existsSync(`${DB_PATH}-wal`)) fs.unlinkSync(`${DB_PATH}-wal`);
         if (fs.existsSync(`${DB_PATH}-shm`)) fs.unlinkSync(`${DB_PATH}-shm`);
-        
+
         db = new Database(DB_PATH);
         db.pragma('journal_mode = WAL');
 
@@ -94,14 +94,14 @@ test.describe('Bridge Daemon', () => {
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
 
         // Start the daemon with environment overrides
-        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const deliveryPromise = new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver event within timeout')), 10000);
-            
+
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
                 if (out.includes('[Bridge Daemon Test Adapter] Delivered')) {
@@ -185,7 +185,7 @@ test.describe('Bridge Daemon', () => {
 
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
 
-        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -261,7 +261,7 @@ test.describe('Bridge Daemon', () => {
 
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
 
-        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -272,7 +272,7 @@ test.describe('Bridge Daemon', () => {
             const timeout = setTimeout(() => {
                 resolve(); // Resolve instead of reject because we expect exactly one delivery. We'll wait a bit.
             }, 8000);
-            
+
             daemonProcess.stdout.on('data', (data) => {
                 const out = data.toString();
                 console.log('[DAEMON STDOUT]', out);
@@ -320,7 +320,7 @@ test.describe('Bridge Daemon', () => {
 
         // Wait for 5 seconds to ensure any duplicate delivers would have occurred
         await deliveryPromise;
-        
+
         expect(deliveryCount).toBe(1);
         expect(finalDigest).toContain('1 new messages');
         expect(finalDigest).toContain('Test Dedup Event');
@@ -355,7 +355,7 @@ test.describe('Bridge Daemon', () => {
 
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
 
-        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -453,14 +453,14 @@ test.describe('Bridge Daemon', () => {
 
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
 
-        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
 
         const errorLogPromise = new Promise((resolve, reject) => {
             const timeout = setTimeout(() => reject(new Error('Daemon failed to log error within timeout')), 10000);
-            
+
             daemonProcess.stderr.on('data', (data) => {
                 const out = data.toString();
                 if (out.includes('harnessTargetMetadata.appName is missing/empty')) {
@@ -531,7 +531,7 @@ test.describe('Bridge Daemon', () => {
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
-        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -619,7 +619,7 @@ test.describe('Bridge Daemon', () => {
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
-        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -735,7 +735,7 @@ test.describe('Bridge Daemon', () => {
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
-        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -827,7 +827,7 @@ test.describe('Bridge Daemon', () => {
         fs.writeFileSync(mockOsascriptPath, `#!/usr/bin/env node\nimport fs from 'fs';\nfs.writeFileSync('${mockOutPath}', JSON.stringify(process.argv.slice(2)));\n`);
         fs.chmodSync(mockOsascriptPath, 0o755);
 
-        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
             env: { ...process.env, PATH: `${path.resolve(binDir)}:${process.env.PATH}`, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
         });
@@ -982,7 +982,7 @@ test.describe('Bridge Daemon', () => {
             db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
         }
 
-        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
             env  : {...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
         });
@@ -1053,7 +1053,7 @@ test.describe('Bridge Daemon', () => {
         }));
         db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
 
-        daemonProcess = spawn('node', ['ai/scripts/bridge-daemon.mjs'], {
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
             stdio: 'pipe',
             env  : {...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR}
         });

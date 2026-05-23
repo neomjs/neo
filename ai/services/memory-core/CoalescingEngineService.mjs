@@ -23,7 +23,7 @@ import logger                  from '../../mcp/server/memory-core/logger.mjs';
  * - `bridge-daemon` → no-op (Shape C handles its own coalescing in-process per ADR §6.3)
  * - `disabled` / `none` → no-op (subscription opted out of push)
  *
- * Bridge daemon (Shape C) maintains a parallel coalescer in `ai/scripts/bridge-daemon.mjs`
+ * Bridge daemon (Shape C) maintains a parallel coalescer in `ai/daemons/bridge/daemon.mjs`
  * because it runs out-of-process; this engine handles the in-process Shape A + Shape B
  * routing only.
  *
@@ -312,7 +312,7 @@ class CoalescingEngineService extends Base {
                 logger.warn(`[CoalescingEngine] mcp-notifications digest dropped — no mcpServers registered: ${subscription.id}`);
                 return;
             }
-            
+
             for (const server of this.mcpServers) {
                 try {
                     await server.notification({
@@ -368,7 +368,7 @@ class CoalescingEngineService extends Base {
                 logger.warn(`[CoalescingEngine] mcp-notifications raw dropped — no mcpServers registered: ${subscription.id}`);
                 return;
             }
-            
+
             for (const server of this.mcpServers) {
                 try {
                     // TRACKING: #10400 Fix

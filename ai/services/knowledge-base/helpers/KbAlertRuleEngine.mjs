@@ -16,7 +16,7 @@
  * implements its `alertRules` schema row + the hysteresis row; channel *dispatch* (the A2A /
  * console / webhook I/O) is the daemon's concern.
  *
- * @see ai/daemons/KbAlertingService.mjs — the daemon that consumes this engine.
+ * @see ai/daemons/kb-alerting/KbAlertingService.mjs — the daemon that consumes this engine.
  * @see ai/services/knowledge-base/KBRecorderService.mjs — `getTenantIngestionRollup`, the rollup source.
  * @see ai/services/knowledge-base/helpers/KbTenantHealthHelper.mjs — the sibling pure-helper precedent (#11639).
  */

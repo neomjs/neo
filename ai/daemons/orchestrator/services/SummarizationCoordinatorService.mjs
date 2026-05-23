@@ -5,7 +5,7 @@ import Base from '../../../../src/core/Base.mjs';
 import {
     getUnreadSunsetHandovers,
     markNodesAsRead
-} from '../../../scripts/bridge-daemon-queries.mjs';
+} from '../../bridge/queries.mjs';
 
 /**
  * @summary Builds the task trigger for the summarization sweep lane (#11009).
@@ -55,7 +55,7 @@ export function buildSummaryTrigger({now, lastRunAt, intervalMs, handovers = []}
  * @extends Neo.core.Base
  * @singleton
  * @see ai/daemons/Orchestrator.mjs
- * @see ai/scripts/bridge-daemon-queries.mjs#getUnreadSunsetHandovers
+ * @see ai/daemons/bridge/queries.mjs#getUnreadSunsetHandovers
  * @see #11009
  */
 class SummarizationCoordinatorService extends Base {

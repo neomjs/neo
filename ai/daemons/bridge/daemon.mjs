@@ -7,7 +7,7 @@
  * per `.neo-ai-data/wake-daemon/` directory (singleton-enforced via PID lock
  * per #10422 / #10423).
  *
- * Scheduled Agent OS maintenance triggers belong to `orchestrator-daemon.mjs`
+ * Scheduled Agent OS maintenance triggers belong to `ai/daemons/orchestrator/daemon.mjs`
  * per #11006. Keep this daemon focused on wake delivery only.
  *
  * **Diagnostic log persistence (per #10419):**
@@ -32,9 +32,9 @@
 // at module-load. `InstanceManager` binds `Neo.find` / `Neo.findFirst` / `Neo.get`
 // aliases + sets `Base.instanceManagerAvailable=true` + consumes pre-singleton
 // `Neo.idMap`. All 3 MUST run before consumed class imports.
-import Neo             from '../../src/Neo.mjs';
-import * as core       from '../../src/core/_export.mjs';
-import InstanceManager from '../../src/manager/Instance.mjs';
+import Neo             from '../../../src/Neo.mjs';
+import * as core       from '../../../src/core/_export.mjs';
+import InstanceManager from '../../../src/manager/Instance.mjs';
 
 import fs from 'fs-extra';
 import path from 'path';
@@ -51,7 +51,7 @@ import {
     getNodesData,
     getEdgesData,
     getDbNode
-} from './bridge-daemon-queries.mjs';
+} from './queries.mjs';
 
 const DB_PATH                  = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
 const DAEMON_DATA_DIR          = process.env.NEO_AI_DAEMON_DIR || '.neo-ai-data/wake-daemon';
@@ -176,7 +176,7 @@ async function enforceSingleton() {
                     try {
                         // Use ps -p to verify the PID hasn't been recycled by a non-daemon process
                         const cmd = execSync(`ps -p ${oldPid} -o command=`).toString().trim();
-                        if (cmd.includes('bridge-daemon.mjs')) {
+                        if (cmd.includes('daemons/bridge/daemon.mjs')) {
                             writeLog('INFO', `[Bridge Daemon] Found existing instance (PID: ${oldPid}). Sending SIGTERM...`);
                             process.kill(oldPid, 'SIGTERM');
                         } else {
@@ -217,7 +217,7 @@ async function enforceSingleton() {
             writeLog('ERROR', `[Bridge Daemon] Failed to check existing PID file: ${e.message || e}`);
         }
     }
-    
+
     // Write new PID using atomic wx claim
     try {
         fs.writeFileSync(PID_FILE, process.pid.toString(), { encoding: 'utf8', flag: 'wx' });
@@ -269,12 +269,12 @@ async function pollLoop() {
     try {
         // Fetch deltas
         const logs = getGraphLogEntries(db, lastSyncId);
-        
+
         if (logs.length > 0) {
             const invalidNodes = new Set();
             const invalidEdges = new Set();
             let maxId = lastSyncId;
-            
+
             for (const trace of logs) {
                 maxId = Math.max(maxId, trace.log_id);
                 if (trace.entity_type === 'nodes') invalidNodes.add(trace.entity_id);
@@ -282,19 +282,19 @@ async function pollLoop() {
             }
 
             const subscriptions = getActiveShapeCSubscriptions(db);
-            
+
             if (subscriptions.length > 0) {
                 // Fetch the actual node/edge data to evaluate filters
                 const nodesData = getNodesData(db, invalidNodes);
                 const edgesData = getEdgesData(db, invalidEdges);
-                
+
                 const nodesMap = new Map(nodesData.map(r => [r.id, JSON.parse(r.data)]));
                 const edgesMap = new Map(edgesData.map(r => [r.id, JSON.parse(r.data)]));
 
                 for (const trace of logs) {
                     const entity = trace.entity_type === 'nodes' ? nodesMap.get(trace.entity_id) : edgesMap.get(trace.entity_id);
                     if (!entity) continue; // entity might have been deleted, skipping for wake events unless it's a deletion trigger, but currently we focus on creation/updates
-                    
+
                     for (const sub of subscriptions) {
                         const eventPayload = evaluateSubscription(sub, trace, entity, nodesMap, edgesMap);
                         if (eventPayload) {
@@ -420,7 +420,7 @@ function queueEvent(subscription, eventPayload) {
     // Deduplicate within the coalescing window
     const isDuplicate = coalesceState[subId].queue.some(existing => {
         if (existing.type !== eventPayload.type) return false;
-        
+
         if (eventPayload.type === 'message') {
             return existing.messageId === eventPayload.messageId;
         } else if (eventPayload.type === 'task') {
@@ -439,7 +439,7 @@ function queueEvent(subscription, eventPayload) {
     if (!coalesceState[subId].timer) {
         let coalesceSeconds = subscription.properties?.harnessTargetMetadata?.coalesceWindow;
         if (coalesceSeconds === undefined || coalesceSeconds === null) coalesceSeconds = DEFAULT_COALESCE_WINDOW_MS / 1000;
-        
+
         // Max 5 minutes, Min 0 seconds
         coalesceSeconds = Math.max(0, Math.min(300, coalesceSeconds));
         const windowMs = coalesceSeconds * 1000;
@@ -508,7 +508,7 @@ async function flushSubscription(subId) {
 
     const N = queue.length;
     const identity = subscription.properties?.agentIdentity;
-    
+
     let messages = [], tasks = [], permissions = [];
     for (const ev of queue) {
         if (ev.type === 'message') messages.push(ev);
@@ -535,7 +535,7 @@ async function flushSubscription(subId) {
     }
 
     const digest = `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}`;
-    
+
     // Delivery to per-harness adapter
     await deliverDigest(subscription, digest);
 }
@@ -562,7 +562,7 @@ function spawnAsync(command, args) {
 }
 
 /**
- * Global mutex for serializing adapter deliveries. 
+ * Global mutex for serializing adapter deliveries.
  * Prevents concurrent osascript calls from colliding when multiple agents wake simultaneously.
  */
 let deliveryPromise = Promise.resolve();
@@ -587,7 +587,7 @@ async function deliverDigest(subscription, digest) {
         } else if (adapter === 'osascript') {
             const appName = meta.appName;
             if (!appName) {
-                writeLog('ERROR', 
+                writeLog('ERROR',
                     `[Bridge Daemon] Cannot deliver subscription ${subscription.id}: ` +
                     `harnessTargetMetadata.appName is missing/empty. ` +
                     `Skipping delivery to avoid misrouting. ` +
@@ -673,13 +673,13 @@ async function deliverDigest(subscription, digest) {
             // than their underlying macOS process names (often just "Electron" to System Events).
             // Using \`tell process "\${appName}"\` will fail with exit code 1 because the process
             // name does not match the app name.
-            // Fix: We activate the app via its bundle name, then dynamically ask System Events for 
+            // Fix: We activate the app via its bundle name, then dynamically ask System Events for
             // the \`first application process whose frontmost is true\`.
-            // 
+            //
             // [Anchor & Echo] The Key Code 36 (Enter) Defense:
-            // We specifically use \`key code 36\` (Enter) to submit the payload after pasting. 
+            // We specifically use \`key code 36\` (Enter) to submit the payload after pasting.
             // This is load-bearing for Claude Desktop with Tab 3 (Claude Code) and Google Antigravity.
-            // Do NOT "clean this up" or revert to \`tell process\` or try to replace the Enter key 
+            // Do NOT "clean this up" or revert to \`tell process\` or try to replace the Enter key
             // without empiric validation across both harnesses.
             const osascriptArgs = [
                 '-e', 'on run argv',
@@ -786,14 +786,14 @@ async function deliverDigest(subscription, digest) {
 // Start loop
 async function main() {
     await enforceSingleton();
-    
+
     db = initializeDatabase(DB_PATH);
-    
+
     // Read lastSyncId
     lastSyncId = getLastSyncId(db, STATE_FILE);
-    
+
     writeLog('INFO', `[Bridge Daemon] Started. Tail-syncing from GraphLog ID: ${lastSyncId}`);
-    
+
     pollLoop();
 }
 
