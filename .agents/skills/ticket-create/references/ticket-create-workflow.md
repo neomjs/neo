@@ -82,7 +82,7 @@ Keep titles under ~70 characters. PR titles derive from ticket titles; length di
 - **Project attachment is MANDATORY on every ticket during the v13 release cycle.** Visibility primitive: every new ticket goes onto Project 12 ([Neo v13 Release board](https://github.com/orgs/neomjs/projects/12)) so the swarm + operator have a single overview. ProjectV2 memberships supersede the deprecated `release:v*` label family per [#11233](https://github.com/neomjs/neo/issues/11233).
   - **`create_issue` MCP tool path:** pass `projects: [{projectNumber: 12}]` atomically with the create.
   - **`gh issue create` CLI bypass path:** ALWAYS follow with `gh project item-add 12 --owner neomjs --url <new-issue-url>` immediately. Treat the two-step as inseparable.
-  - **Project anchor** is currently `12` (v13). When v14 release work begins, update the project number in this section AND the corresponding `create_issue` MCP tool default. Sunset condition: once v13 release ships, this rule needs disposition review (`keep` with updated project number, OR `compress-to-trigger` if mid-release ambiguity arises).
+  - **Project anchor** is currently `12` (v13). When v14 release work begins, update the project number in this section AND any hard-coded `create_issue` examples or call-sites that name the release project (the MCP tool's `projects` parameter is caller-supplied with `[]` default — not a configurable tool-side default to update). Sunset condition: once v13 release ships, this rule needs disposition review (`keep` with updated project number, OR `compress-to-trigger` if mid-release ambiguity arises).
 
 ## 5. Fat Ticket Body Structure
 
