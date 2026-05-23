@@ -43,7 +43,8 @@ test.describe('Neo.util.Env', () => {
         });
 
         test('?? fallback pattern works correctly with absent input', () => {
-            // The load-bearing consumer pattern: Env.parseNumber(process.env.X, 'X') ?? AiConfig.X
+            // The ?? fallback contract underpinning the consumer pattern (e.g., via the
+            // `ai/config/env.mjs` binding registry): env.X ?? AiConfig.X.
             // This MUST fall through to fallback when env var is absent (NOT NaN, which ?? would skip).
             const fallback = 99;
             expect(Env.parseNumber(undefined, 'X', captureWarn) ?? fallback).toBe(99);
