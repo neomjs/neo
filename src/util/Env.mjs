@@ -170,9 +170,11 @@ class Env extends Base {
 
     /**
      * Set a value at a dotted path on a config object, guarding against prototype pollution.
-     * Intermediate keys must already exist as objects; the leaf key is assigned directly.
-     *
-     * Refuses to traverse `__proto__` / `constructor` / `prototype` keys.
+     * Delegates namespace-walking to `Neo.ns()` (the canonical Neo primitive at `src/Neo.mjs:683`);
+     * adds the pollution-guard + non-object-intermediate-refusal that `Neo.ns` does not provide
+     * (env-binding-substrate-specific concerns — input paths derive from operator-provided
+     * env-binding maps which is a hostile-input surface unlike the trusted class-name input
+     * `Neo.ns` was designed for).
      *
      * @param {Object} obj Target object.
      * @param {String} path Dotted path (e.g., `'orchestrator.intervals.pollMs'`).
@@ -180,25 +182,22 @@ class Env extends Base {
      */
     static setDeep(obj, path, value) {
         const keys = path.split('.');
-        let current = obj;
-        for (let i = 0; i < keys.length - 1; i++) {
-            const key = keys[i];
+        // Guard ALL keys (including the leaf) against prototype pollution
+        for (const key of keys) {
             if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
                 console.warn(`[Neo.util.Env] Prototype pollution attempt blocked for path "${path}"`);
                 return;
             }
-            if (typeof current[key] !== 'object' || current[key] === null) {
-                console.warn(`[Neo.util.Env] Cannot set path "${path}" because intermediate key "${key}" is not an object.`);
-                return;
-            }
-            current = current[key];
         }
-        const finalKey = keys[keys.length - 1];
-        if (finalKey === '__proto__' || finalKey === 'constructor' || finalKey === 'prototype') {
-            console.warn(`[Neo.util.Env] Prototype pollution attempt blocked for path "${path}"`);
+        const parentKeys = keys.slice(0, -1);
+        const finalKey   = keys[keys.length - 1];
+        // Use Neo.ns for the namespace walk; create=false preserves "refuses non-object intermediate" semantic
+        const parent = parentKeys.length ? Neo.ns(parentKeys, false, obj) : obj;
+        if (parent === null || typeof parent !== 'object') {
+            console.warn(`[Neo.util.Env] Cannot set path "${path}" because intermediate key is not an object.`);
             return;
         }
-        current[finalKey] = value;
+        parent[finalKey] = value;
     }
 }
 
