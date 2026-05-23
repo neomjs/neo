@@ -5,12 +5,6 @@ import InstanceManager from '../../../../../../src/manager/Instance.mjs';
 import CadenceEngine   from '../../../../../../ai/daemons/services/CadenceEngine.mjs';
 
 test.describe('Neo.ai.daemons.services.CadenceEngine (#11051)', () => {
-    // Post Sub 1 #11833: CadenceEngine no longer `singleton: true` (per @tobiu:
-    // classes that take external configs cannot be singletons). Tests construct
-    // per-test instances via Neo.create.
-    // Post Sub 3 #11835: parseInterval() removed (consumer migrated to
-    // Neo.util.Env.parseNumber per Sub 6 #11832; 3 tests for that method deleted —
-    // coverage lives in test/playwright/unit/util/Env.spec.mjs).
     let ce;
     test.beforeEach(() => { ce = Neo.create(CadenceEngine); });
 

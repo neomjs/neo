@@ -20,11 +20,6 @@ export class CadenceEngine extends Base {
         className: 'Neo.ai.daemons.services.CadenceEngine'
     }
 
-    // parseInterval() removed per Epic #11831 Sub 3 (#11835): consumer migrated to
-    // Neo.util.Env.parseNumber (Sub 6 #11832) + caller wraps in `Math.max(0, n)` if
-    // non-negative semantics required. Orchestrator (the sole runtime consumer) was
-    // rewired in Sub 1 (#11833).
-
     /**
      * @summary Returns true when an interval task is due and not disabled.
      *

@@ -55,11 +55,6 @@ export function isKbRelevantChangePath(filePath) {
         KB_RELEVANT_PATH_PREFIXES.some(prefix => normalized.startsWith(prefix));
 }
 
-// parseEnabledFlag() removed per Epic #11831 Sub 3 (#11835): consumer migrated to
-// Neo.util.Env.parseBool which preserves legacy false tokens ('0', 'false', 'no', 'off')
-// per Sub 6 (#11832) AC9 boolean compatibility. Orchestrator (the sole runtime consumer)
-// was rewired in Sub 1 (#11833).
-
 /**
  * @summary Parses the optional multi-checkout dev-sync root list (#11135).
  *

@@ -75,9 +75,6 @@ function createTaskStateService(running=false) {
 }
 
 test.describe('PrimaryRepoSyncService (#11017)', () => {
-    // Post Sub 3 #11835: parseEnabledFlag() removed; coverage migrated to
-    // test/playwright/unit/util/Env.spec.mjs ("preserves PrimaryRepoSyncService.parseEnabledFlag
-    // legacy false tokens: 0, false, no, off").
     test('builds interval triggers', () => {
         expect(buildPrimaryRepoSyncTrigger({
             enabled   : true,
