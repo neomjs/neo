@@ -1815,7 +1815,8 @@ components:
                   example: "Re: First A2A handshake — Phase 4 split proposal"
                 from:
                   type: string
-                  description: The sender's AgentIdentity node id
+                  nullable: true
+                  description: The sender's AgentIdentity node id; `null` for system-sent messages (heartbeats, idle-out nudges) that have no SENT_BY edge in the graph
                   example: "@neo-gemini-3-1-pro"
                 sentAt:
                   type: string
