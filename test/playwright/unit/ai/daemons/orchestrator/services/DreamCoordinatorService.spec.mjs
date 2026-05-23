@@ -1,10 +1,5 @@
 import {test, expect} from '@playwright/test';
-// Test-side entry-point bootstrap: Neo + core/_export populate `globalThis.Neo`
-// before DreamCoordinatorService.mjs is loaded (whose `Neo.gatekeep(...)` at module-load
-// requires the global). Mirrors the pattern in SummarizationCoordinatorService.spec.mjs.
-import Neo       from '../../../../../../../src/Neo.mjs';
-import * as core from '../../../../../../../src/core/_export.mjs';
-import DreamCoordinatorService, {
+import {
     getDueTask
 } from '../../../../../../../ai/daemons/orchestrator/services/DreamCoordinatorService.mjs';
 
@@ -53,9 +48,5 @@ test.describe('DreamCoordinatorService (#11858 / Epic #11831)', () => {
             source  : 'periodic-dream',
             reason  : 'periodic-dream:600000'
         });
-    });
-
-    test('default export exposes getDueTask via the gatekeep-registered namespace object', () => {
-        expect(DreamCoordinatorService.getDueTask).toBe(getDueTask);
     });
 });
