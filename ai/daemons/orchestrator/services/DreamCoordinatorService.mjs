@@ -16,48 +16,29 @@
  */
 
 /**
- * Builds the task trigger for the dream-cycle lane.
+ * Resolves the next dream task trigger.
  *
  * The dream lane is a single-source interval lane: periodic-dream fires when the
- * configured interval has elapsed since `lastRunAt`. Keeping this projection pure
- * lets the orchestrator test the scheduling contract without instantiating
- * `DreamService` (whose `processUndigestedSessions()` performs Memory Core graph
- * reads + Chroma writes).
+ * configured interval has elapsed since `lastRunAt`. Keeping this pure lets the
+ * orchestrator test the scheduling contract without instantiating `DreamService`
+ * (whose `processUndigestedSessions()` performs Memory Core graph reads + Chroma writes).
  *
  * @param {Object} options
- * @param {Number} options.now        Current timestamp in milliseconds.
- * @param {Number} options.lastRunAt  Last dream task start timestamp.
- * @param {Number} options.intervalMs Periodic dream interval; `0` (or any value `<= 0`)
- *                                    disables the interval source.
+ * @param {Object} [options.state] Current orchestrator task state for the dream lane (`{lastRunAt}`).
+ * @param {Number} options.now Current timestamp in milliseconds.
+ * @param {Number} options.dreamIntervalMs Periodic dream interval; `0` (or any value `<= 0`) disables.
  * @returns {Object|null} A dream task trigger or null when no work is due.
  */
-export function buildDreamTrigger({now, lastRunAt, intervalMs}) {
-    if (intervalMs > 0 && now - lastRunAt >= intervalMs) {
+export function getDueTask({state, now, dreamIntervalMs}) {
+    const lastRunAt = state?.lastRunAt ?? 0;
+    if (dreamIntervalMs > 0 && now - lastRunAt >= dreamIntervalMs) {
         return {
             taskName: 'dream',
             source  : 'periodic-dream',
-            reason  : `periodic-dream:${intervalMs}`
+            reason  : `periodic-dream:${dreamIntervalMs}`
         };
     }
     return null;
 }
 
-const DreamCoordinatorService = {
-    /**
-     * Resolves the next dream task trigger.
-     * @param {Object} options
-     * @param {Object} options.state Current orchestrator task state for the dream lane (`{lastRunAt}`).
-     * @param {Number} options.now Current timestamp in milliseconds.
-     * @param {Number} options.dreamIntervalMs Periodic dream interval; `0` disables.
-     * @returns {Object|null}
-     */
-    getDueTask({state, now, dreamIntervalMs}) {
-        return buildDreamTrigger({
-            now,
-            lastRunAt : state?.lastRunAt ?? 0,
-            intervalMs: dreamIntervalMs
-        });
-    }
-};
-
-export default Neo.gatekeep(DreamCoordinatorService, 'Neo.ai.daemons.services.DreamCoordinatorService');
+export default Neo.gatekeep({getDueTask}, 'Neo.ai.daemons.services.DreamCoordinatorService');
