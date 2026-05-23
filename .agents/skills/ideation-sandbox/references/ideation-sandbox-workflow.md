@@ -166,6 +166,8 @@ The graduated Issue / Epic / PR body MUST archive any non-empty dissent or liven
 
 Inactive families (`participationStatus ∈ {operator_benched, temporarily_unreachable}` per `ai/graph/identityRoots.mjs`) are archived in `## Unresolved Liveness` per §6.6; Tier-2 substrate additionally carries a `revalidationTrigger` AC (per Epic #11796 AC6) re-opening the substrate for retroactive signal review when the benched family reactivates. Unresolved no-signal never becomes implicit approval and never asks the operator to approve sandbox graduation.
 
+When a benched family reactivates (`participationStatus` flips `operator_benched` / `temporarily_unreachable` → `active` in `ai/graph/identityRoots.mjs`), the **Tier-2 Revalidation Sweep** mechanism — *Option (c) sweep-script-notifies-only* per Epic #11796 AC6 / sub #11803 — identifies graduated Tier-2 artifacts whose `## Unresolved Liveness` section names the reactivated family and posts retroactive-signal-invitation notifications. Invocation: `npm run ai:revalidation-sweep -- --family <name> [--dry-run|--apply]`. Operator runbook: [`learn/agentos/Tier2RevalidationSweep.md`](../../../../learn/agentos/Tier2RevalidationSweep.md).
+
 ### 6.6 Graduated-Artifact Required Sections (AC11)
 
 The graduated Issue / Epic / PR body MUST include four explicit sections, even if empty: `## Signal Ledger` (family-keyed per §6.2), `## Unresolved Dissent`, `## Unresolved Liveness`, and `## Discussion Criteria Mapping`. Empty sections are positive signals (no dissent, no liveness gaps). Non-empty sections preserve the divergence trail per §15.6 transparent A2A introspection, and enable future Discussions to re-open if residual risks materialize.
