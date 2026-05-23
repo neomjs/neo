@@ -1183,7 +1183,7 @@ class MailboxService extends Base {
      * are untouched.
      *
      * NOT exposed via MCP tool surface — internal cron primitive only. See
-     * `ai/scripts/sweepExpiredTasks.mjs` for the CLI invoker consumed by the heartbeat.
+     * `ai/scripts/lifecycle/sweepExpiredTasks.mjs` for the CLI invoker consumed by the heartbeat.
      *
      * @returns {Promise<{success: Boolean, sweptCount: Number}>}
      */

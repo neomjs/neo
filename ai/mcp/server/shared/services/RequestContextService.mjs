@@ -7,7 +7,7 @@ import Base from '../../../../../src/core/Base.mjs';
  *
  * Reads in tenant-aware mode use `where: {$or: [{userId: <current>}, {userId: SHARED_USER_ID}]}`,
  * granting every authenticated tenant access to their own data PLUS the shared baseline.
- * The migration runner (`ai/scripts/backfillChromaSharedUserId.mjs`, #10556) tags any
+ * The migration runner (`ai/scripts/migrations/backfillChromaSharedUserId.mjs`, #10556) tags any
  * pre-#10145 ChromaDB records lacking a `userId` key with this sentinel so the additive
  * read filter can return them. New raw-memory writes tag with the resolved per-tenant userId;
  * session summaries involving named core swarm maintainers intentionally use `SHARED_USER_ID`

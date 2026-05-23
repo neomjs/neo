@@ -791,7 +791,7 @@ class IssueSyncer extends Base {
      * persisting metadata afterwards.
      *
      * The internal pullFromGitHub's related-issue force-update loop delegates here, and the
-     * `ai/scripts/detectTruncatedTimelines.mjs` recovery step invokes it via GH_SyncService.
+     * `ai/scripts/diagnostics/detectTruncatedTimelines.mjs` recovery step invokes it via GH_SyncService.
      *
      * @param {Array<number>|Set<number>} numbers The issue numbers to refetch.
      * @param {object} metadata The sync metadata object (mutated in place).

@@ -5,13 +5,13 @@ on:
     branches: [dev]
     paths:
       - 'ai/**/*.mjs'
-      - 'ai/scripts/check-retired-primitives.mjs'
+      - 'ai/scripts/diagnostics/check-retired-primitives.mjs'
       - '.github/workflows/check-retired-primitives.yml'
   push:
     branches: [dev]
     paths:
       - 'ai/**/*.mjs'
-      - 'ai/scripts/check-retired-primitives.mjs'
+      - 'ai/scripts/diagnostics/check-retired-primitives.mjs'
       - '.github/workflows/check-retired-primitives.yml'
 
 concurrency:

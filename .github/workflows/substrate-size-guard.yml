@@ -6,7 +6,7 @@ on:
     paths:
       - 'AGENTS.md'
       - '.agents/ANTIGRAVITY_RULES.md'
-      - 'ai/scripts/check-substrate-size.mjs'
+      - 'ai/scripts/diagnostics/check-substrate-size.mjs'
       - '.github/workflows/substrate-size-guard.yml'
       - 'package.json'
   push:
@@ -14,7 +14,7 @@ on:
     paths:
       - 'AGENTS.md'
       - '.agents/ANTIGRAVITY_RULES.md'
-      - 'ai/scripts/check-substrate-size.mjs'
+      - 'ai/scripts/diagnostics/check-substrate-size.mjs'
       - '.github/workflows/substrate-size-guard.yml'
       - 'package.json'
 

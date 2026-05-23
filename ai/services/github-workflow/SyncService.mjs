@@ -264,7 +264,7 @@ class SyncService extends Base {
      * surgical recovery primitive — it force-refetches the listed issues, exhausts their full
      * timelineItems connection, rewrites the local markdown, and persists updated metadata.
      *
-     * Intended callers: diagnostic scripts such as `ai/scripts/detectTruncatedTimelines.mjs` —
+     * Intended callers: diagnostic scripts such as `ai/scripts/diagnostics/detectTruncatedTimelines.mjs` —
      * not the normal `runFullSync` flow. Keeps the delta-sync cost model intact for routine
      * syncs while giving admin tooling a narrow, auditable healing path.
      *

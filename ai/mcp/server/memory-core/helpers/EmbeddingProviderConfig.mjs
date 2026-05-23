@@ -11,7 +11,7 @@
  * This shim re-exports the canonical surface from the new SDK location so stale
  * gitignored configs continue to work without the operator manually re-cp'ing from
  * `config.template.mjs`. The shim is removable once a tracked refresh mechanism
- * for gitignored configs lands (see `ai/scripts/bootstrapWorktree.mjs:219-223`,
+ * for gitignored configs lands (see `ai/scripts/migrations/bootstrapWorktree.mjs:219-223`,
  * which currently skips existing config files by design).
  *
  * @see ai/services/memory-core/helpers/EmbeddingProviderConfig.mjs — canonical implementation

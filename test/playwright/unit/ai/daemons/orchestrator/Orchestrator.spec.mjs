@@ -490,7 +490,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(orchestrator.logFile).toBe(path.join(dataDir, 'orchestrator.log'));
         expect(orchestrator.stateFile).toBe(path.join(dataDir, 'orchestrator-state.json'));
 
-        const expectedSummaryScript = path.resolve(repoRoot, 'ai/scripts/summarize-sessions.mjs');
+        const expectedSummaryScript = path.resolve(repoRoot, 'ai/scripts/lifecycle/summarize-sessions.mjs');
         const expectedKbSyncScript = path.resolve(repoRoot, 'buildScripts/ai/syncKnowledgeBase.mjs');
 
         expect(orchestrator.taskDefinitions.summary.args[0]).toBe(expectedSummaryScript);

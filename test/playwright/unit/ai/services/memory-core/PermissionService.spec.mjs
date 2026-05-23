@@ -60,9 +60,9 @@ test.describe('Neo.ai.services.memory-core.PermissionService', () => {
             await LifecycleService.ready();
             await GraphService.initAsync();
         }
-        
+
         originalAutoSave = GraphService.db.autoSave;
-        
+
         // @summary Enables autoSave for the duration of the test suite (#10256).
         // This is necessary because these tests assert SQLite state via direct queries.
         // Without autoSave = true, the memory-state and disk-state may diverge,
@@ -133,7 +133,7 @@ test.describe('Neo.ai.services.memory-core.PermissionService', () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await PermissionService.grantPermission({ to: '@alice', scope: 'CAN_READ_INBOX_OF' });
         });
-        
+
         // Alice should have a capability to read Bob's inbox
         await RequestContextService.run({ agentIdentityNodeId: '@alice' }, async () => {
             const res = await PermissionService.listPermissions();
@@ -191,7 +191,7 @@ test.describe('Neo.ai.services.memory-core.PermissionService', () => {
         // A sibling SDK-import path can wrap GraphService methods async inside the same workers:1 process.
         const node = await GraphService.getNode({ id: 'AGENT:*' });
         expect(node.type).toBe('BroadcastSentinel');
-        
+
         // Also assert in SQLite
         const rows = GraphService.db.storage.db.prepare('SELECT data FROM Nodes WHERE id = ?').all('AGENT:*');
         expect(JSON.parse(rows[0].data).label).toBe('BroadcastSentinel');
@@ -200,7 +200,7 @@ test.describe('Neo.ai.services.memory-core.PermissionService', () => {
     test('grantPermission throws when target does not exist (resolves #10231)', async () => {
         await RequestContextService.run({ agentIdentityNodeId: '@bob' }, async () => {
             await expect(PermissionService.grantPermission({ to: '@phantom', scope: 'CAN_REPLY_TO' }))
-                .rejects.toThrow('Cannot grant CAN_REPLY_TO to @phantom: target does not exist. Identity nodes must be pre-seeded via ai/scripts/seedAgentIdentities.mjs.');
+                .rejects.toThrow('Cannot grant CAN_REPLY_TO to @phantom: target does not exist. Identity nodes must be pre-seeded via ai/scripts/setup/seedAgentIdentities.mjs.');
         });
     });
 });
