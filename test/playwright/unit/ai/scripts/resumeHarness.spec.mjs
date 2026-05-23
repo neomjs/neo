@@ -107,6 +107,14 @@ test.describe('ai/scripts/resumeHarness', () => {
         expect(scriptContent).toContain("'@neo-opus-4-7'      : 'claude-desktop'");
     });
 
+    test('normalizes GitHub-login identity form before harness dispatch (#11797)', async () => {
+        const {normalizeAgentIdentityNodeId} = await import('../../../../../ai/scripts/resumeHarness.mjs');
+
+        expect(normalizeAgentIdentityNodeId('neo-opus-4-7')).toBe('@neo-opus-4-7');
+        expect(normalizeAgentIdentityNodeId('@neo-gpt')).toBe('@neo-gpt');
+        expect(normalizeAgentIdentityNodeId('  neo-gemini-3-1-pro  ')).toBe('@neo-gemini-3-1-pro');
+    });
+
     test('Opus identity osascript runtime dispatch (live host — RUN_LIVE_OSASCRIPT=1 required, #10681)', async () => {
         // Live-host integration: invokes real `osascript` which on hosts with Claude Desktop
         // + System Events accessibility granted will paste the boot-grounding prompt into the
