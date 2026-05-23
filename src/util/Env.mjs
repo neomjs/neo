@@ -163,8 +163,7 @@ class Env extends Base {
                 : binding;
 
             const raw = env[varName];
-            if (globalThis.Neo && Neo.isEmpty(raw)) continue;
-            if (!globalThis.Neo && (raw === undefined || raw === null || raw === '')) continue;
+            if (Neo.isEmpty(raw)) continue;
 
             const result = parse(raw, varName, warn);
             if (result === undefined) continue;
