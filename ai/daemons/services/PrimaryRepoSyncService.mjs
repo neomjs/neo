@@ -55,20 +55,10 @@ export function isKbRelevantChangePath(filePath) {
         KB_RELEVANT_PATH_PREFIXES.some(prefix => normalized.startsWith(prefix));
 }
 
-/**
- * @summary Parses the primary-dev-sync enable flag.
- *
- * @param {String|undefined|null} value Environment value.
- * @param {Boolean} [fallback=true] Fallback flag.
- * @returns {Boolean}
- */
-export function parseEnabledFlag(value, fallback=true) {
-    if (value === undefined || value === null || value === '') {
-        return fallback;
-    }
-
-    return !['0', 'false', 'no', 'off'].includes(String(value).toLowerCase());
-}
+// parseEnabledFlag() removed per Epic #11831 Sub 3 (#11835): consumer migrated to
+// Neo.util.Env.parseBool which preserves legacy false tokens ('0', 'false', 'no', 'off')
+// per Sub 6 (#11832) AC9 boolean compatibility. Orchestrator (the sole runtime consumer)
+// was rewired in Sub 1 (#11833).
 
 /**
  * @summary Parses the optional multi-checkout dev-sync root list (#11135).

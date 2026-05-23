@@ -20,25 +20,10 @@ export class CadenceEngine extends Base {
         className: 'Neo.ai.daemons.services.CadenceEngine'
     }
 
-    /**
-     * @summary Parses daemon interval env vars while preserving `0` as disabled.
-     *
-     * @param {String|undefined} value Environment value.
-     * @param {Number} fallback Fallback interval in milliseconds.
-     * @returns {Number}
-     */
-    parseInterval(value, fallback) {
-        if (value === undefined || value === null || value === '') {
-            return fallback;
-        }
-
-        const parsed = parseInt(value, 10);
-        if (Number.isNaN(parsed)) {
-            return fallback;
-        }
-
-        return Math.max(parsed, 0);
-    }
+    // parseInterval() removed per Epic #11831 Sub 3 (#11835): consumer migrated to
+    // Neo.util.Env.parseNumber (Sub 6 #11832) + caller wraps in `Math.max(0, n)` if
+    // non-negative semantics required. Orchestrator (the sole runtime consumer) was
+    // rewired in Sub 1 (#11833).
 
     /**
      * @summary Returns true when an interval task is due and not disabled.
