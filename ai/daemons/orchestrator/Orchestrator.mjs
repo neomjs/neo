@@ -20,6 +20,10 @@ import {
     acquireHeavyMaintenanceLeaseSync,
     releaseHeavyMaintenanceLeaseSync
 } from './services/HeavyMaintenanceLeaseService.mjs';
+import {
+    DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
+    DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
+} from './services/MaintenanceBackpressureService.mjs';
 import PrimaryRepoSyncService, {
     DEV_SYNC_ROOTS_CONFIG_KEY,
     DEV_SYNC_ROOTS_ENV_VAR
@@ -40,40 +44,6 @@ import {
     DEFAULT_SCRIPT_DIR,
     buildTaskDefinitions
 } from './TaskDefinitions.mjs';
-
-/**
- * Canonical set of heavy-maintenance task names that participate in the orchestrator's
- * cross-poll backpressure invariant: at any time, across orchestrator-owned tasks AND
- * lease-aware manual scripts (see `HeavyMaintenanceLeaseService` + Lane C wrappers in
- * `ai/scripts/maintenance/*.mjs`), at most one substrate-heavy maintenance job may hold the
- * heavy-maintenance lease.
- *
- * Membership rationale per #11503:
- * - `summary` / `kbSync` / `dream` — Memory Core graph + Chroma write-heavy
- * - `backup` — exports KB Chroma + Memory Core Chroma + SQLite graph state; substrate-heavy
- *   even though it doesn't mutate, because concurrent IO with other heavy classes is the
- *   contention surface (added by #11513 — Lane A of #11503)
- * - `PRIMARY_DEV_SYNC_TASK_NAME` — git fetch + nested KB sync cascade
- *
- * Intentionally NOT in the heavy set:
- * - `GOLDEN_PATH_TASK_NAME` — classified as light maintenance per #11511 / PR #11512
- *   (synthesizer reads the graph; does not write the heavy substrates)
- *
- * Cross-poll deferral coverage lives in `test/playwright/unit/ai/daemons/Orchestrator.spec.mjs`.
- *
- * @type {ReadonlyArray<String>}
- */
-export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
-    'summary',
-    'kbSync',
-    'backup',
-    PRIMARY_DEV_SYNC_TASK_NAME,
-    DREAM_TASK_NAME
-]);
-
-export const DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES = Object.freeze([
-    DREAM_TASK_NAME
-]);
 
 /**
  * Resolves the dev-sync roots config while preserving env-var precedence.
