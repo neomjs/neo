@@ -2,7 +2,7 @@ import fs          from 'fs-extra';
 import path        from 'path';
 import {exec}      from 'child_process';
 import {promisify} from 'util';
-import packageJson from '../../package.json' with {type: 'json'};
+import packageJson from '../../../package.json' with {type: 'json'};
 
 const execAsync = promisify(exec);
 const cwd       = process.cwd();

@@ -16,7 +16,7 @@ import GraphService from '../../services/memory-core/GraphService.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const ROADMAP_PATH = path.resolve(__dirname, '../../ROADMAP.md');
+const ROADMAP_PATH = path.resolve(__dirname, '../../../ROADMAP.md');
 
 const ROLLING_WINDOW_DAYS = 14;
 
