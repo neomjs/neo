@@ -49,6 +49,18 @@ const defaultConfig = {
      */
     logLevel: 'warn',
     /**
+     * @summary Shared MCP logger policy for GitLab Workflow.
+     *
+     * Priority-filtered stderr only. `debug: true` promotes the default `warn`
+     * threshold to `debug`; no file sink is used for this workflow server.
+     * @member {Object} logger
+     */
+    logger: {
+        defaultLevel: 'warn',
+        fileSink    : false,
+        stderrMode  : 'threshold'
+    },
+    /**
      * @member {String} transport='stdio'
      */
     transport: 'stdio',

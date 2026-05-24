@@ -68,6 +68,19 @@ const defaultConfig = {
      */
     logPath: path.resolve(neoRootDir, '.neo-ai-data/logs'),
     /**
+     * @summary Shared MCP logger policy for Neural Link.
+     *
+     * Always-on file sink plus tier-gated stderr: info/warn/error write without
+     * debug, while debug stays gated by `debug: true`.
+     * @type {Object}
+     */
+    logger: {
+        filePrefix    : 'nl-server',
+        fileSink      : true,
+        stderrMode    : 'tiered',
+        timestampStyle: 'bracketed'
+    },
+    /**
      * Number of days to retain Action logs in the Neural Link Database.
      * @type {number}
      */
