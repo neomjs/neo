@@ -293,26 +293,32 @@ export class Orchestrator extends Base {
         });
     }
 
-    afterSetDataDir(value) {
-        if (this.processSupervisorService) this.processSupervisorService.dataDir = value;
+    afterSetDataDir(value, oldValue) {
+        if (oldValue === undefined) return;
+        if (this.processSupervisorService)       this.processSupervisorService.dataDir = value;
         this.maintenanceBackpressureService?.applyBindings?.({dataDir: value});
     }
-    afterSetTaskDefinitions(value) {
-        if (this.processSupervisorService) this.processSupervisorService.taskDefinitions = value;
+    afterSetTaskDefinitions(value, oldValue) {
+        if (oldValue === undefined) return;
+        if (this.processSupervisorService)       this.processSupervisorService.taskDefinitions = value;
         this.maintenanceBackpressureService?.applyBindings?.({taskDefinitions: value});
     }
-    afterSetTaskStateService(value) {
-        if (this.processSupervisorService) this.processSupervisorService.taskStateService = value;
+    afterSetTaskStateService(value, oldValue) {
+        if (oldValue === undefined) return;
+        if (this.processSupervisorService)       this.processSupervisorService.taskStateService = value;
         this.maintenanceBackpressureService?.applyBindings?.({taskStateService: value});
     }
-    afterSetHealthService(value) {
-        if (this.processSupervisorService) this.processSupervisorService.healthService = value;
+    afterSetHealthService(value, oldValue) {
+        if (oldValue === undefined) return;
+        if (this.processSupervisorService)       this.processSupervisorService.healthService = value;
         this.maintenanceBackpressureService?.applyBindings?.({healthService: value});
     }
-    afterSetSpawnFn(value) {
+    afterSetSpawnFn(value, oldValue) {
+        if (oldValue === undefined) return;
         if (this.processSupervisorService) this.processSupervisorService.spawnFn = value;
     }
-    afterSetHeavyMaintenanceLeasePath(value) {
+    afterSetHeavyMaintenanceLeasePath(value, oldValue) {
+        if (oldValue === undefined) return;
         this.maintenanceBackpressureService?.applyBindings?.({heavyMaintenanceLeasePath: value});
     }
 
