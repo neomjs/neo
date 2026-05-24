@@ -21,7 +21,7 @@ Before conducting or posting a formal Pull Request review, you MUST empirically 
 
 ## Documentation Requirement
 
-When completing the `[EXECUTION_QUALITY]` section of the PR review template, you MUST explicitly document that you ran `gh pr checks <N>` and confirm the checks passed. If checks are pending or failing, do not complete the formal review template; document the hold or fail-fast deferral instead.
+When completing `[EXECUTION_QUALITY]`, document the green CI check as a terse fact in the metric justification or verification notes. Do not render a dedicated CI audit section in the formal review template: pending or failing CI stops the formal review before the template exists.
 
 **Example Review Commentary:**
 > CI / Security Audit: Ran `gh pr checks 1234`. All workflows (CodeQL, Unit Tests) pass successfully. No deep red flags.
