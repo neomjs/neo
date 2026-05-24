@@ -30,11 +30,19 @@ import {
 import {checkAllAgentIdle as checkAllAgentIdleScript} from '../../../scripts/lifecycle/checkAllAgentIdle.mjs';
 import {idleOutNudge as idleOutNudgeScript}         from '../../../scripts/lifecycle/idleOutNudge.mjs';
 import {trioWakeCooldown as trioWakeCooldownScript} from '../../../scripts/lifecycle/trioWakeCooldown.mjs';
+import {
+    resolveTargets        as resolveHeartbeatTargets,
+    VALID_TARGET_SOURCES
+} from '../scheduling/swarmHeartbeat.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 const DEFAULT_POLL_INTERVAL_MS = 5 * 60 * 1000;
+// Legacy export retained for any backwards-compatible consumers. Sub 1 #11905
+// removed this as the `beforeSetIdentity` fallback target (AC3 fork-safety pivot:
+// external forks must not silently inherit a Neo maintainer identity); the
+// resolver returns [] when `selfIdentity` is null, surfacing the misconfiguration.
 const DEFAULT_IDENTITY         = '@neo-gemini-3-1-pro';
 const PUSH_CAPABLE_TARGETS     = Object.freeze(['mcp-notifications', 'a2a-webhook', 'bridge-daemon']);
 
@@ -109,18 +117,18 @@ class SwarmHeartbeatService extends Base {
          */
         singleton: true,
         /**
-         * Identity this lane polls for (e.g. `@neo-gemini-3-1-pro`). Kept as the
-         * primary fallback / tmux identity. Active WAKE_SUBSCRIPTION identities
-         * are discovered per pulse so the Orchestrator is not bound to the
-         * identity of the harness that launched it (#11872). Parent (Orchestrator)
-         * sets this via reactive config assignment BEFORE `await service.ready()`
-         * in `start()` — the framework already fired identity-agnostic
-         * `initAsync()` at module-load, so the BEFORE-`.ready()` ordering matches
-         * the canonical Neo.create-flows-configs-pre-init shape and the actual
-         * `Orchestrator.start()` code. `null` falls back to `DEFAULT_IDENTITY`
-         * via `beforeSetIdentity`, which also normalizes via
+         * Primary identity this lane pulses for (e.g. `@neo-gpt`). Consumed by the
+         * resolver as `selfIdentity` for `'self'` and `'active-subscribers'` sources
+         * (Sub 1 #11905 / Epic #11829 Layer 2). Parent (Orchestrator) sets this via
+         * reactive config assignment BEFORE `await service.ready()` in `start()` —
+         * the framework already fired identity-agnostic `initAsync()` at module-load,
+         * so the BEFORE-`.ready()` ordering matches the canonical
+         * Neo.create-flows-configs-pre-init shape and the actual
+         * `Orchestrator.start()` code. `beforeSetIdentity` normalizes via
          * `normalizeAgentIdentityNodeId` so the slot always holds a canonical
-         * `@<identity>` form.
+         * `@<identity>` form; null/empty values store `null` (Sub 1 #11905 AC3
+         * fork-safety pivot — no longer falls back to DEFAULT_IDENTITY since that
+         * would leak a Neo maintainer identity into external deployments).
          * @member {String|null} identity_=null
          * @reactive
          */
@@ -134,20 +142,85 @@ class SwarmHeartbeatService extends Base {
          * @member {Number} pollIntervalMs_=300000
          * @reactive
          */
-        pollIntervalMs_: DEFAULT_POLL_INTERVAL_MS
+        pollIntervalMs_: DEFAULT_POLL_INTERVAL_MS,
+        /**
+         * Target-resolver source enum consumed by `getPulseIdentities()` per pulse
+         * (Sub 1 #11905 / Epic #11829 Layer 2). Controls which identity set the lane
+         * pulses for. `'self'` (default) is deployment-portable — external forks
+         * pulse only the harness owner. `'active-local-team'` reads `identityRoots`
+         * (Neo-team profile only). `'active-subscribers'` unions self with active
+         * `WAKE_SUBSCRIPTION` identities. `'disabled'` skips all per-identity pulse
+         * work (substrate maintenance still runs). Parent (Orchestrator) sets this
+         * via reactive assignment from `AiConfig.orchestrator.swarmHeartbeat.targetSource`
+         * (env override `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE`). Invalid
+         * values coerce to `null` via `beforeSetTargetSource` (the resolver then
+         * applies its own 'self' fallback). See {@link VALID_TARGET_SOURCES}.
+         * @member {String|null} targetSource_=null
+         * @reactive
+         */
+        targetSource_: null,
+        /**
+         * Explicit identity list (Step 1 in the 5-step precedence chain). When set
+         * and non-empty, the resolver bypasses `targetSource` and pulses these targets
+         * verbatim (post-normalization). Parent (Orchestrator) sources this from
+         * `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS` (comma-separated handles).
+         * Empty arrays + non-arrays coerce to `null` via `beforeSetExplicitTargets`
+         * (resolver then falls through to `targetSource` semantics).
+         * @member {String[]|null} explicitTargets_=null
+         * @reactive
+         */
+        explicitTargets_: null
     }
 
     /**
-     * Normalizes identity to canonical `@<identity>` form. Falls back to
-     * `DEFAULT_IDENTITY` when value is null/empty (the static-config default
-     * intentionally null'd so parent can override; if neither parent nor env
-     * provides identity, this fallback kicks in).
+     * Normalizes identity to canonical `@<identity>` form. Returns `null` when value
+     * is null/empty (Sub 1 #11905 AC3 fork-safety pivot: removed the prior
+     * `DEFAULT_IDENTITY = '@neo-gemini-3-1-pro'` fallback that leaked a Neo
+     * maintainer identity into external-fork deployments). External operators
+     * MUST set `NEO_AGENT_IDENTITY` (or `swarmHeartbeat.targetSource: 'disabled'`)
+     * — the resolver returns `[]` when `selfIdentity` is null + `targetSource`
+     * defaults to `'self'`, surfacing the misconfiguration as "no pulses fire"
+     * rather than "silently fans out to Neo identities." `DEFAULT_IDENTITY` is
+     * still exported for backwards-compatible consumers but no longer the
+     * fallback target.
      * @param {String|null} value
-     * @returns {String}
+     * @returns {String|null}
      */
     beforeSetIdentity(value) {
-        if (!value) return DEFAULT_IDENTITY;
+        if (!value) return null;
         return normalizeAgentIdentityNodeId(value);
+    }
+
+    /**
+     * Validates `targetSource` against {@link VALID_TARGET_SOURCES}. Invalid values
+     * coerce to `null` (+ warn); the resolver then applies its own 'self' fallback.
+     * Keeping the coercion at config-set time means downstream `getPulseIdentities()`
+     * sees only validated values + the resolver's `default:` branch is reachable only
+     * via direct programmatic misuse, not via operator config.
+     * @param {String|null} value
+     * @returns {String|null}
+     */
+    beforeSetTargetSource(value) {
+        if (value === null || value === undefined || value === '') return null;
+        if (!VALID_TARGET_SOURCES.includes(value)) {
+            logger.warn(`[SwarmHeartbeatService] Invalid targetSource '${value}' (valid: ${VALID_TARGET_SOURCES.join('|')}); coercing to null`);
+            return null;
+        }
+        return value;
+    }
+
+    /**
+     * Normalizes `explicitTargets` to canonical `@<identity>` form. Empty arrays and
+     * non-arrays coerce to `null` so the resolver falls through to `targetSource`
+     * semantics. Per-element normalization mirrors `beforeSetIdentity` so the slot
+     * stores invariant canonical form.
+     * @param {String[]|null} value
+     * @returns {String[]|null}
+     */
+    beforeSetExplicitTargets(value) {
+        if (!Array.isArray(value) || value.length === 0) return null;
+        const out = value.map(normalizeAgentIdentityNodeId).filter(Boolean);
+        return out.length > 0 ? out : null;
     }
 
     /**
@@ -437,32 +510,31 @@ class SwarmHeartbeatService extends Base {
     }
 
     /**
-     * @summary Resolves the per-pulse identity set from the primary fallback plus active wake subscriptions.
+     * @summary Resolves the per-pulse identity set via the {@link resolveHeartbeatTargets} resolver.
      *
-     * `NEO_AGENT_IDENTITY` identifies the daemon/harness process owner; it must not
-     * be the exclusive set of wake targets. The subscription graph is the live route
-     * truth for desktop agents, so active `WAKE_SUBSCRIPTION` identities are swept on
-     * every pulse (#11872).
+     * Delegates to the pure-function resolver in `scheduling/swarmHeartbeat.mjs` (Sub 1 #11905 /
+     * Epic #11829 Layer 2). Resolver consumes the reactive `targetSource` + `explicitTargets`
+     * configs set by the parent Orchestrator and falls back to the deployment-portable `'self'`
+     * source when no operator config is present.
+     *
+     * The previous shape (#11872) hardcoded a union of `this.identity` + the active
+     * `WAKE_SUBSCRIPTION` SQL discovery + a `DEFAULT_IDENTITY` Neo-team fallback. The
+     * fallback would leak Neo maintainer identities into external-fork deployments;
+     * the resolver replaces it with the 5-step precedence chain + AC3 fork-safety semantics.
+     * The `'active-subscribers'` source preserves the pre-#11905 behavior for operators who
+     * opt-in.
      *
      * @returns {Promise<String[]>}
      * @protected
      */
     async getPulseIdentities() {
-        const identities = new Set();
-
-        if (this.identity) {
-            identities.add(this.identity)
-        }
-
-        for (const identity of await this.getWakeSubscriptionIdentities()) {
-            identities.add(identity)
-        }
-
-        if (identities.size === 0) {
-            identities.add(DEFAULT_IDENTITY)
-        }
-
-        return Array.from(identities)
+        return await resolveHeartbeatTargets({
+            selfIdentity             : this.identity,
+            targetSource             : this.targetSource,
+            explicitTargets          : this.explicitTargets,
+            activeSubscribersProvider: () => this.getWakeSubscriptionIdentities(),
+            logger
+        });
     }
 
     /**

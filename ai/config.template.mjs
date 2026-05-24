@@ -87,6 +87,25 @@ const defaultConfig = {
             swarmHeartbeatMs : 15 * 60 * 1000
         },
         /**
+         * Swarm-heartbeat target-resolver config (Sub 1 #11905 / Epic #11829 Layer 2).
+         * Controls which identity set `SwarmHeartbeatService.pulse()` targets per cycle
+         * via the {@link resolveTargets} 5-step precedence chain. Env override:
+         * `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE`. Explicit list override
+         * (highest precedence): `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS` (comma-separated).
+         * @type {Object}
+         */
+        swarmHeartbeat: {
+            /**
+             * Resolver source enum. `null` falls through to `'self'` — the deployment-portable
+             * default. Valid values: `'self'`, `'active-local-team'`, `'active-subscribers'`,
+             * `'disabled'`. AC3 fork-safety: external workspaces with no config default to
+             * `'self'`; the lane NEVER silently fans out to Neo maintainer identities unless
+             * the operator explicitly opts in via `'active-local-team'`.
+             * @type {'self'|'active-local-team'|'active-subscribers'|'disabled'|null}
+             */
+            targetSource: null
+        },
+        /**
          * Local-only maintenance lane switches. Cloud deployments can disable these
          * without changing remote graph-backed A2A / Memory Core behavior.
          * `null` means "use the deployment profile default" (`local` enables,

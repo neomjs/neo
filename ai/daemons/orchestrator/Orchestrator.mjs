@@ -274,6 +274,20 @@ export class Orchestrator extends Base {
     get goldenPathIntervalMs()    { return Env.parseNumber('NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS')      ?? AiConfig.orchestrator.intervals.goldenPathMs;       }
     get swarmHeartbeatIntervalMs(){ return Env.parseNumber('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS')  ?? AiConfig.orchestrator.intervals.swarmHeartbeatMs;   }
     get swarmHeartbeatIdentity()  { return Env.parseString('NEO_AGENT_IDENTITY');                                                                                  }
+    get swarmHeartbeatTargetSource() { return Env.parseString('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE') ?? AiConfig.orchestrator.swarmHeartbeat?.targetSource ?? null; }
+    /**
+     * Explicit env-driven target list for the swarm-heartbeat resolver. Comma-separated
+     * `@handle` form via `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS`. Empty/absent →
+     * `null` so the resolver falls through to `targetSource` semantics. Sub 1 #11905 /
+     * Epic #11829 Layer 2.
+     * @returns {String[]|null}
+     */
+    get swarmHeartbeatExplicitTargets() {
+        const raw = Env.parseString('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS');
+        if (!raw) return null;
+        const list = raw.split(',').map(s => s.trim()).filter(Boolean);
+        return list.length > 0 ? list : null;
+    }
 
     get kbSyncEnabled()                  { return Env.parseBool('NEO_ORCHESTRATOR_KB_SYNC_ENABLED')                     ?? resolveDeploymentEnabled('kbSyncEnabled');                  }
     get primaryDevSyncEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED')            ?? resolveDeploymentEnabled('primaryDevSyncEnabled');          }
@@ -352,8 +366,10 @@ export class Orchestrator extends Base {
                 // initAsync() is identity-agnostic (peer-service .ready() only); identity
                 // and pollIntervalMs are read by pulse() per tick, so post-init assignment
                 // is sufficient. Order matches the JSDoc contract on the service class.
-                this.swarmHeartbeatService.identity       = this.swarmHeartbeatIdentity;
-                this.swarmHeartbeatService.pollIntervalMs = this.swarmHeartbeatIntervalMs;
+                this.swarmHeartbeatService.identity        = this.swarmHeartbeatIdentity;
+                this.swarmHeartbeatService.pollIntervalMs  = this.swarmHeartbeatIntervalMs;
+                this.swarmHeartbeatService.targetSource    = this.swarmHeartbeatTargetSource;
+                this.swarmHeartbeatService.explicitTargets = this.swarmHeartbeatExplicitTargets;
                 await this.swarmHeartbeatService.ready();
             } catch (e) {
                 this.writeLog('ERROR', `[Orchestrator] Swarm heartbeat init failed; lane disabled this run: ${e.message}`);

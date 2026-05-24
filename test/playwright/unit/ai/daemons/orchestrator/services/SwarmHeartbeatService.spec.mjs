@@ -29,7 +29,7 @@ import {test, expect} from '@playwright/test';
 /**
  * @summary Unit coverage for `ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs` (#10789 AC6, #11766 fold).
  *
- * Covers: `beforeSetIdentity` normalization + DEFAULT_IDENTITY fallback (#11797 + #11874),
+ * Covers: `beforeSetIdentity` normalization + null-on-empty (#11797 + #11874 + Sub 1 #11905 AC3 pivot),
  * concurrency-lock skip-vs-clear, sunset-detection-routes-to-resumeHarness, gate-tripped
  * blocks high-authority dispatch, idle-out-nudge routing, push-capable bypass,
  * sweep-failure isolation within `pulse()`.
@@ -129,15 +129,18 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     }
 
     test.afterEach(async () => {
-        // Reset identity/pollIntervalMs to fresh-creation baseline so cases don't bleed.
-        // No isInitialized reset (the band-aid was dropped per #11874 core.Base contract
-        // restoration; framework #readyPromise handles idempotency).
-        SwarmHeartbeatService.identity       = null;
-        SwarmHeartbeatService.pollIntervalMs = 5 * 60 * 1000;
+        // Reset identity/pollIntervalMs/targetSource/explicitTargets to fresh-creation
+        // baselines so cases don't bleed. No isInitialized reset (the band-aid was dropped
+        // per #11874 core.Base contract restoration; framework #readyPromise handles
+        // idempotency). The targetSource/explicitTargets resets are Sub 1 #11905 additions.
+        SwarmHeartbeatService.identity        = null;
+        SwarmHeartbeatService.pollIntervalMs  = 5 * 60 * 1000;
+        SwarmHeartbeatService.targetSource    = null;
+        SwarmHeartbeatService.explicitTargets = null;
         delete SwarmHeartbeatService.getGraphDb;
     });
 
-    test('beforeSetIdentity normalizes GitHub-login form + falls back to DEFAULT_IDENTITY (#11797, #11874)', async () => {
+    test('beforeSetIdentity normalizes GitHub-login form + returns null on empty (#11797, #11874, Sub 1 #11905 AC3 pivot)', async () => {
         // GitHub-login form: 'neo-opus-4-7' → '@neo-opus-4-7' (normalizer prepends '@')
         SwarmHeartbeatService.identity = 'neo-opus-4-7';
         expect(SwarmHeartbeatService.identity).toBe('@neo-opus-4-7');
@@ -146,14 +149,35 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         SwarmHeartbeatService.identity = '@neo-gpt';
         expect(SwarmHeartbeatService.identity).toBe('@neo-gpt');
 
-        // Null falls back to DEFAULT_IDENTITY (@neo-gemini-3-1-pro) — preserves the
-        // legacy pre-#11874 behavior where unset identity → default polled agent.
+        // Sub 1 #11905 AC3 fork-safety pivot: empty values return null (NOT
+        // DEFAULT_IDENTITY = '@neo-gemini-3-1-pro' as in pre-#11905 shape). The
+        // resolver returns [] when selfIdentity is null + targetSource defaults
+        // to 'self', surfacing the misconfiguration as "no pulses fire" rather
+        // than "silently fans out to Neo identities." External forks MUST set
+        // NEO_AGENT_IDENTITY or swarmHeartbeat.targetSource: 'disabled'.
         SwarmHeartbeatService.identity = null;
-        expect(SwarmHeartbeatService.identity).toBe('@neo-gemini-3-1-pro');
+        expect(SwarmHeartbeatService.identity).toBeNull();
 
-        // Empty string also falls back (treated as no-value)
+        // Empty string also returns null (treated as no-value)
         SwarmHeartbeatService.identity = '';
-        expect(SwarmHeartbeatService.identity).toBe('@neo-gemini-3-1-pro');
+        expect(SwarmHeartbeatService.identity).toBeNull();
+    });
+
+    test('pulse() with null identity + default targetSource pulses zero identities (Sub 1 #11905 AC3 fork-safety)', async () => {
+        applyDefaultStubs();
+        SwarmHeartbeatService.identity = null;  // external fork misconfiguration scenario
+
+        const sunsetChecks = [];
+        SwarmHeartbeatService.checkSunsetted = async (identity) => {
+            sunsetChecks.push(identity);
+            return {sunsetted: false, recommended_action: 'no_action'};
+        };
+
+        await SwarmHeartbeatService.pulse();
+
+        // Zero per-identity iterations — the lane silently no-ops (no Neo identity leak).
+        // Substrate maintenance (sweep, all-agent-idle) still ran.
+        expect(sunsetChecks).toEqual([]);
     });
 
     test('pulse() skips when concurrency lock is active', async () => {
@@ -244,8 +268,13 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         expect(nudgeCalls[0]).toEqual(['@test']);
     });
 
-    test('pulse() checks active WAKE_SUBSCRIPTION identities in addition to the primary identity (#11872)', async () => {
+    test('pulse() with targetSource=active-subscribers checks WAKE_SUBSCRIPTION identities in addition to primary identity (#11872 / Sub 1 #11905)', async () => {
         applyDefaultStubs();
+        // Sub 1 #11905: default targetSource changed null→'self' for AC3 fork-safety;
+        // tests exercising the pre-#11905 union-with-subscribers shape must explicitly
+        // opt-in to 'active-subscribers'. Mirrors Neo-operator deployment ergonomic
+        // (set in gitignored ai/config.mjs OR via NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE).
+        SwarmHeartbeatService.targetSource = 'active-subscribers';
 
         const sunsetChecks = [];
         SwarmHeartbeatService.getWakeSubscriptionIdentities = async () => ['@neo-opus-4-7', '@neo-gpt', '@neo-gpt'];
@@ -257,6 +286,85 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         await SwarmHeartbeatService.pulse();
 
         expect(sunsetChecks).toEqual(['@test', '@neo-opus-4-7', '@neo-gpt']);
+    });
+
+    test('pulse() with default targetSource=self pulses only primary identity (Sub 1 #11905 AC3 fork-safety)', async () => {
+        applyDefaultStubs();
+        // No targetSource explicitly set → resolver default ('self'). Even if WAKE_SUBSCRIPTION
+        // data is present, the lane only pulses the primary identity. External forks see
+        // identical safe behavior by default.
+        SwarmHeartbeatService.getWakeSubscriptionIdentities = async () => ['@neo-opus-4-7', '@neo-gpt'];
+
+        const sunsetChecks = [];
+        SwarmHeartbeatService.checkSunsetted = async (identity) => {
+            sunsetChecks.push(identity);
+            return {sunsetted: false, recommended_action: 'no_action'};
+        };
+
+        await SwarmHeartbeatService.pulse();
+
+        expect(sunsetChecks).toEqual(['@test']);
+    });
+
+    test('pulse() with targetSource=disabled skips all per-identity work (Sub 1 #11905)', async () => {
+        applyDefaultStubs();
+        SwarmHeartbeatService.targetSource = 'disabled';
+        SwarmHeartbeatService.getWakeSubscriptionIdentities = async () => ['@neo-opus-4-7'];
+
+        const sunsetChecks = [];
+        SwarmHeartbeatService.checkSunsetted = async (identity) => {
+            sunsetChecks.push(identity);
+            return {sunsetted: false, recommended_action: 'no_action'};
+        };
+
+        await SwarmHeartbeatService.pulse();
+
+        // Zero per-identity iterations; substrate maintenance (sweep, all-agent-idle) still ran.
+        expect(sunsetChecks).toEqual([]);
+    });
+
+    test('pulse() with explicitTargets bypasses targetSource (Sub 1 #11905)', async () => {
+        applyDefaultStubs();
+        SwarmHeartbeatService.targetSource    = 'disabled';                // would normally skip all
+        SwarmHeartbeatService.explicitTargets = ['@ext-a', 'ext-b'];        // wins; 'ext-b' normalizes
+
+        const sunsetChecks = [];
+        SwarmHeartbeatService.checkSunsetted = async (identity) => {
+            sunsetChecks.push(identity);
+            return {sunsetted: false, recommended_action: 'no_action'};
+        };
+
+        await SwarmHeartbeatService.pulse();
+
+        expect(sunsetChecks).toEqual(['@ext-a', '@ext-b']);
+    });
+
+    test('beforeSetTargetSource coerces invalid values to null (Sub 1 #11905)', async () => {
+        SwarmHeartbeatService.targetSource = 'self';
+        expect(SwarmHeartbeatService.targetSource).toBe('self');
+
+        SwarmHeartbeatService.targetSource = 'bogus-source';
+        expect(SwarmHeartbeatService.targetSource).toBeNull();
+
+        SwarmHeartbeatService.targetSource = '';
+        expect(SwarmHeartbeatService.targetSource).toBeNull();
+
+        SwarmHeartbeatService.targetSource = 'active-local-team';
+        expect(SwarmHeartbeatService.targetSource).toBe('active-local-team');
+    });
+
+    test('beforeSetExplicitTargets normalizes + coerces empty to null (Sub 1 #11905)', async () => {
+        SwarmHeartbeatService.explicitTargets = ['neo-opus-4-7', '@neo-gpt'];
+        expect(SwarmHeartbeatService.explicitTargets).toEqual(['@neo-opus-4-7', '@neo-gpt']);
+
+        SwarmHeartbeatService.explicitTargets = [];
+        expect(SwarmHeartbeatService.explicitTargets).toBeNull();
+
+        SwarmHeartbeatService.explicitTargets = null;
+        expect(SwarmHeartbeatService.explicitTargets).toBeNull();
+
+        SwarmHeartbeatService.explicitTargets = 'not-an-array';
+        expect(SwarmHeartbeatService.explicitTargets).toBeNull();
     });
 
     test('getWakeSubscriptionIdentities() normalizes active subscription identities and filters disabled routes (#11872)', async () => {
