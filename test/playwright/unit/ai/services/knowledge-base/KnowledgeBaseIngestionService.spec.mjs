@@ -523,6 +523,46 @@ test.describe('KnowledgeBaseIngestionService.tenantConfig (#11637)', () => {
         expect(bumped.properties.visibility).toBe('team');
     });
 
+    test('setTenantConfig normalizes tenant repo-access entries without persisting credentials (#11787)', async () => {
+        const written = await Service.setTenantConfig({
+            tenantId: 'tenant-a',
+            config  : {
+                tenantRepos: [{
+                    cloneUrl     : 'https://github.com/neomjs/neo.git',
+                    credentialRef: 'env:GITHUB_TOKEN'
+                }]
+            }
+        });
+
+        expect(written).toEqual({tenantId: 'tenant-a', version: 1});
+
+        const node = graphStub.store.get('kb-config:tenant-a');
+
+        expect(node.properties.tenantRepos).toEqual([{
+            cloneUrl     : 'https://github.com/neomjs/neo.git',
+            credentialRef: 'env:GITHUB_TOKEN',
+            repoSlug     : 'github.com/neomjs/neo'
+        }]);
+
+        expect((await Service.getTenantConfig({tenantId: 'tenant-a'})).tenantRepos).toEqual(node.properties.tenantRepos);
+    });
+
+    test('setTenantConfig rejects credential-bearing tenant repo clone URLs (#11787)', async () => {
+        const result = await Service.setTenantConfig({
+            tenantId: 'tenant-a',
+            config  : {
+                tenantRepos: [{
+                    cloneUrl     : 'https://token:secret@github.com/neomjs/neo.git',
+                    credentialRef: 'env:GITHUB_TOKEN'
+                }]
+            }
+        });
+
+        expect(result.code).toBe('KB_TENANT_REPO_CLONE_URL_CREDENTIALS');
+        expect(result.error).toBe('Tenant config write failed');
+        expect(graphStub.store.has('kb-config:tenant-a')).toBe(false);
+    });
+
     test('setTenantManifest persists repo manifests without bumping KnowledgeBaseTenantConfig.version (#11711)', async () => {
         await Service.setTenantConfig({tenantId: 'tenant-a', config: {customParsers: [{parserId: 'alpha'}]}});
 
