@@ -124,6 +124,9 @@ Modifying the baseline taxonomy dispositions directly in this ADR. This ADR is t
 ### 5.3 Recursive-Reload Anchor Retirement
 Retiring `AGENTS.md` §21 trigger entries that are marked as `recursive-reload-required` (YES) during Phase C compression cycles *without replacing them via native skill-loading injection*. These entries are empirically load-bearing for post-pruning-discipline-recall in long sessions; compressing them breaks behavioral disciplines (e.g., `lead-role`, `peer-role`, `post-review-pickup`). (Note: The final compaction safely retired the §21 table because the `description` frontmatter of all progressive disclosure skills is now natively injected into the turn-based memory environment on every turn).
 
+### 5.4 Additive-Drift Reflex on Substrate-Correction Tickets
+When a substrate-correction ticket exists to reduce friction, adding another audit, checklist, or template is the wrong default if direct deletion or compression of the existing substrate solves the same failure mode. Classify the friction first as cause, symptom, or direct-delete candidate, then prefer `retire` / `rewrite` / `compress-to-trigger` over new surface area when behavior can remain protected. Provenance: Discussion #11891 / PR #11892.
+
 ---
 
 ## 6. Related

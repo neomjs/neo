@@ -63,26 +63,16 @@ Verify symmetry between stated framing and mechanical implementation:
 
 ### 🧱 Conciseness Rule — Collapsed-N/A Audits
 
-When 2+ of the audit dimensions below (🛂 Provenance, 📑 Contract Completeness, 🪜 Evidence, 📜 Source-of-Authority, 📡 MCP-Tool-Description Budget, 🔌 Wire-Format Compatibility, 🔗 Cross-Skill Integration, 🧪 Test-Execution & Location, 🛡️ CI/Security) all evaluate **N/A** for the PR scope (e.g., test-reliability fix, docs-only change, micro-refactor), collapse them under a single section using the explicit canonical-anchor format:
+When 2+ expanded audit dimensions below evaluate **N/A** for the PR scope (e.g., test-reliability fix, docs-only change, micro-refactor), collapse them under a single section using the explicit canonical-anchor format:
 
 ```
-### N/A Audits — 🛂 📑 🪜 📜 📡 🔌 🔗 🧪 🛡️
+### N/A Audits — 📑 🪜 📡 🔗 🧪
 N/A across listed dimensions: <one-line reason for the PR-scope justification>.
 ```
 
 (Substitute only the emoji subset that's actually N/A. Use spaces between emojis, single-space-emdash separator after `Audits`.)
 
 **Mixing rule (CRITICAL)**: substantive audit sections — any non-N/A finding — MUST be expanded individually under their canonical header. Never collapse a dimension with actual findings. Mixing collapsed-N/A-block with substantive-expanded-sections is the substrate-correct shape for non-trivial-scope PRs that have ONE substantive audit dimension + many N/A dimensions.
-
----
-
-### 🛂 Provenance Audit
-
-If the PR is a major architectural abstraction or new core subsystem (§7.3 threshold), document the chain of custody:
-- **Internal Origin:** [session ID / internal R&D reference] OR
-- **External Origin:** [ecosystem + industry-friction-radar citation]
-
-If author cannot defend native origin vs. framework-category logic, flag as Required Action per §7.3. Mark N/A for standard features or bug fixes.
 
 ---
 
@@ -132,23 +122,6 @@ Evidence: L<X> (<sandbox-ceiling description>) → L<Y> required (<close-target 
 
 ---
 
-### 📜 Source-of-Authority Audit
-
-*(Required for any review comment that cites operator or peer authority — e.g., quoting the Human Commander, citing peer-agent decisions, invoking `[paraphrase]` of a directive. Mark N/A if the review contains no authority citations.)*
-
-Reference: `feedback_peer_cited_authority_neutral_ask` memory + Discussion #10697 OQ-2 source-discipline convergence.
-
-When citing operator / peer authority for a review demand:
-
-- [ ] Citation links a specific GitHub comment-id, A2A messageId, or is explicitly marked `[paraphrase]` for direct-session-quotes that don't appear publicly
-- [ ] Substantive demands stand on their own technical merits, not on the cited authority alone (peer can verify the substantive validity independently)
-- [ ] No appeal-to-authority compounding: "the operator said X" is calibration context, NOT a substitute for substrate-truth audit of the demand
-- [ ] When citing operator-peer A2A quotes that are not publicly visible, the citation marks them so peers outside that thread can corroborate via the operator if needed
-
-**Findings:** [Pass / unsourced authority citation flagged / N/A]
-
----
-
 ### 📡 MCP-Tool-Description Budget Audit
 
 *(Required per guide §5.3 when the PR touches `ai/mcp/server/*/openapi.yaml` — adds a new `description:`, modifies an existing block-literal `description:`, or introduces a new tool path or operation. Mark N/A for PRs that don't touch OpenAPI surfaces.)*
@@ -165,15 +138,13 @@ For every modified or added OpenAPI tool description:
 
 ---
 
-### 🔌 Wire-Format Compatibility Audit
+### Conditional Audit Triggers
 
-*(Required when the PR alters JSON-RPC notification schemas, payload envelopes, or native API wire formats. Mark N/A for routine changes that do not modify inter-process or inter-agent contracts.)*
+Expand these audits only when their trigger fires; otherwise omit them rather than rendering default N/A sections:
 
-- [ ] Does the change impact downstream consumers (e.g., Antigravity IDE, Bridge Daemon, Claude Code)?
-- [ ] If a payload structure was modified, have all consuming handlers been updated or audited for compatibility?
-- [ ] Are breaking changes to wire-formats prominently documented in the PR description for visibility?
-
-**Findings:** [Pass / specific compatibility gaps flagged / N/A]
+- **🛂 Provenance Audit (§7.3):** PR introduces a major architectural abstraction or core subsystem.
+- **📜 Source-of-Authority Audit:** review cites operator or peer authority for a demand.
+- **🔌 Wire-Format Compatibility Audit:** PR alters JSON-RPC notification schemas, payload envelopes, native API wire formats, event payloads, tool signatures, or database schemas.
 
 ---
 
@@ -201,18 +172,6 @@ For every modified or added OpenAPI tool description:
 - [ ] If code changed: Verified if there are tests, or if new tests are needed.
 
 **Findings:** [Tests pass / Location gap flagged / No tests needed (docs change) / Test failures flagged in Required Actions]
-
----
-
-### 🛡️ CI / Security Checks Audit
-
-*(Required per guide §7.6. Reviewers MUST verify automated GitHub Actions before assigning an `[EXECUTION_QUALITY]` score.)*
-
-- [ ] Ran `gh pr checks <N>` to empirically verify CI status.
-- [ ] Confirmed no checks are pending/in-progress. If unfinished, STOP and hold review.
-- [ ] Confirmed no checks are failing. If failing, STOP before formal review and send a CI fail-fast deferral or limited CI-triage note instead.
-
-**Findings:** [Pass - all checks green / Pending - review held before formal review / CI-failed - formal review deferred; author fixes first / N/A - no CI triggered]
 
 ---
 

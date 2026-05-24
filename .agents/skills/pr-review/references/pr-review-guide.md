@@ -107,7 +107,7 @@ When challenging a specific architectural pattern or complex implementation deta
 
 When reviewing a PR, audit every issue named as a close-target via GitHub's magic keywords (`Closes #N`, `Resolves #N`, `Fixes #N` — case-insensitive, in the PR body or commit messages) against the target issue's labels AND syntax validity.
 
-**Squash-merge commit-body hazard (#11185):** branch commit bodies are merge-time close-target surfaces. GitHub's squash merge can concatenate commit bodies into the default-branch commit; a stale `Resolves #N` inside any branch commit body can auto-close `#N` even when the PR body has been corrected to `Refs #N` and `gh pr view --json closingIssuesReferences` returns `[]`. Empirical anchor: PR #11183 squash-merged as `5c7c5a2f4`, whose concatenated body preserved stale `Resolves #11182` from commit `deb022d0c` and auto-closed #11182.
+**Squash-merge commit-body hazard:** branch commit bodies are merge-time close-target surfaces. GitHub's squash merge can concatenate commit bodies into the default-branch commit; a stale `Resolves #N` inside any branch commit body can auto-close `#N` even when the PR body has been corrected to `Refs #N` and `gh pr view --json closingIssuesReferences` returns `[]`. Provenance: #11185 / PR #11183.
 
 **Rule 1: Validity (Epics are not valid close-targets)**
 Epics represent a body of work delivered across multiple sub-issues; closing an epic is a *project-management* event that fires when the last sub closes (or when the epic is explicitly retired with rationale). PRs deliver subs, not epics. GitHub's auto-close-on-merge semantics fire indiscriminately on any magic-keyword reference, so the discipline-layer enforcement is the reviewer's job.
@@ -135,7 +135,7 @@ Author-side discipline (`pull-request §2`) mandates strict newline-isolated PR 
 - **Validity:** Move the epic reference to `Related: #N` (no magic-close behavior).
 - **Partial-resolution stale commit body:** Prefer Drop+Supersede / clean branch when no operator authorization exists for history rewrite. If preserving the PR is preferred, get operator-explicit authorization before amend/rebase/force-push cleanup.
 
-**Empirical anchor:** Epic #9999 ("Cloud-Native Knowledge & Multi-Tenant Memory Core") was auto-closed at 2026-04-23T23:54:09Z with `stateReason: COMPLETED` despite 7 of 10 sub-issues still being open. Most likely mechanism: a merged PR named `Closes #9999` triggering GitHub's auto-close-on-merge. The damage was compounded by `prevent-reopen.yml` (since disabled) re-closing the manual reopen 6 seconds later, plus a sabotage-spawn duplicate ticket (#10323, since closed). The discipline-layer audit codified here would have caught the close-target at review time, before merge — preventing the entire downstream chain.
+Provenance: #9999 auto-close incident and #10323 duplicate chain. The stable rule is reviewer-side close-target validation before merge.
 
 **Out of scope for this audit:**
 - Leaf tickets without `epic` label — close-target is valid.
@@ -281,12 +281,9 @@ Reviewers MUST verify symmetry between **stated framing** and **mechanical imple
 - **Expand the implementation** — if the framing reflects intended substrate that the diff doesn't yet deliver, scope-expand or file a follow-up ticket.
 - **Defend the metaphor** — argue why the framing accurately bridges to the mechanical reality (reviewer judges).
 
-#### Empirical anchors
+#### Provenance
 
-- **PR #10298** (`industry-friction-radar`, 2026-04-24): initial framing claimed the radar ingests "SOTA" patterns when the implementation explicitly filters out industry standards (rationale: industry-standard adoption defeats Neo's friction-as-signal heuristic). Caught at review; tightened to "abstracted friction patterns" — no information loss, mechanical accuracy restored.
-- **PR #10371** review (2026-04-26): initial Cycle 1 framing of Step 6 (A2A self-ping) and Step 7 (Sandman memory) as "redundant push-pull substrates" drifted from the mechanical reality that the substrates serve distinct lifecycle gaps (push-inbox vs pull-memory-graph). Caught via author calibration; reviewer posted Cycle 2.5 follow-up withdrawing the redundancy challenge with substrate-grounded reasoning.
-
-Two empirical anchors confirm the pattern: rhetorical drift fires both at author-side (PR description framing) and reviewer-side (challenge framing). The §7.4 mandate applies to both surfaces.
+PR #10298 and PR #10371 established the stable rule: rhetorical drift fires on both author-side PR framing and reviewer-side challenge framing. The §7.4 mandate applies to both surfaces.
 
 #### Cross-PR reviewer-seeded drift
 
@@ -294,7 +291,7 @@ Within-PR rhetorical drift is one shape; the §7.4 audit ALSO covers a sibling s
 
 **Universal V-B-A core-value (per AGENTS.md §3.5, graduated via #11092)** covers this discipline at the foundational tier: ALL agent assertions require V-B-A, including reviewer-planted observations on PRs. This sub-section is the pr-review-skill operationalization at PR-review-comment plant-time.
 
-**Empirical anchor — #11149 → #11153 cascade (2026-05-10):** reviewer planted "pnpm `node_modules/.pnpm/neo.mjs@*` heuristic" as "Future Enhancement" in PR #11149 cycle-1 review WITHOUT V-B-A'ing whether Neo uses pnpm (operator-confirmed: npm only). The seed became #11153's implementation premise. Two review cycles approved #11153 without empirical recheck. Operator intervention required to break the cascade ([retraction at PR #11153 review](https://github.com/neomjs/neo/pull/11153#pullrequestreview-4259953644); subsequently superseded by #11155 → PR #11158 reverting to v12.1.0 shape).
+Provenance: #11149 -> #11153 showed that unverified review suggestions can become future implementation premises. The stable rule is to V-B-A any future-work seed before placing it in review prose.
 
 **Discipline:** the seeder owns V-B-A cost at plant-time, not at implement-time. Before adding a "Future Enhancement" / "non-blocking observation" / "follow-up suggestion" to a review, the reviewer MUST V-B-A the premise via the same tool inventory as §3.5 — the cost is paid at the cheaper plant-time-by-the-author-of-the-observation rather than the expensive implement-time-by-an-unrelated-author. Unverified observations MUST be tagged explicitly as `hypothesis — needs V-B-A before implementation` so future implementers don't treat them as verified gaps.
 
@@ -415,7 +412,7 @@ strategic landscape, what's the right merge decision?" Four first-class options:
    - Cycle N+1 churn risks high-cost-low-marginal-value iteration
    - The PR ships measurable substrate value even with documented gaps
    - Required Actions surface concerns that are better-tracked-separately
-   *Empirical anchor: PR #10602 Cycle 1 (over-rigor candidate).*
+   Provenance: PR #10602 Cycle 1 (over-rigor candidate).
    Tell the author to run `pull-request-workflow.md §6.3.1` before merge.
 3. **Request Changes** — must-fix before merge; defects block substrate correctness.
 4. **Drop+Supersede** — the entire PR premise is stale/wrong with current
@@ -424,12 +421,12 @@ strategic landscape, what's the right merge decision?" Four first-class options:
    - >5 cycles iterating on fundamentally-wrong premise
    - Operator-intent correction reveals the abstraction itself needs reshape
    - Iterative refinement is rearranging deck chairs
-   *Empirical anchor: PR #10610 → #10611 (corrective candidate).*
+   Provenance: PR #10610 -> #10611 (corrective candidate).
 
 The step-back is a META-decision applied AFTER technical defects are identified,
 not parallel to score metrics or depth-floor. It's an architectural-judgment
 skill, not a defect-detection skill.
-Empirical anchor: PR #10607 8-cycle pattern.
+Provenance: PR #10607 8-cycle pattern.
 
 ### 9.0 Cycle-1 Premise Pre-Flight (Decisiveness-Before-Iteration)
 
@@ -452,13 +449,13 @@ If the author's rationale holds up to empirical scrutiny—even if it doesn't ma
 
 This explicit reviewer open-mindedness mandate is symmetric to the author's mandate, closing the loop on deadlock vulnerabilities.
 
-**Empirical anchor (PR #10607):** A deadlock pattern emerged where a reviewer theoretically escalated a minor config mapping, and the author possessed operator-intent evidence but did not properly invoke `[REJECTED_WITH_RATIONALE]`. The lack of reciprocal yielding mechanisms forced the swarm into a multi-cycle trap that required corrective primitive work in PR #10611.
+Provenance: PR #10607 and PR #10611. The stable rule is reciprocal reviewer yield when the author provides sufficient empirical rationale.
 
 ## 10. A2A Comment-ID Hand-off Protocol (#10272)
 
 **Problem:** Without commentId-scoped fetch, every review cycle N+1 incurs **cumulative-thread context cost** — full-thread fetch reads all prior cycles, not just the delta. This breaks linear-cost scaling: by cycle three of an Architectural Pillar review, fetching the full conversation burns more tokens on prior rounds than on the new substance. Compounds silently across the swarm — every reviewer pays the cumulative cost per cycle, not just once. **Treat as invariant discipline, not optional optimization** — the cost asymmetry diverges with thread length, and missed pings cascade across reviewers.
 
-**Empirical anchor (PR #10371, 2026-04-26):** Cycle 3 thread reached ~8KB markdown across 6 prior comments. Full-thread fetch by Cycle 4 reviewer reads all 8KB to extract the ~1KB delta from one new comment — **~8× context-budget waste per cycle, ratio diverging with thread length**. CommentId-scoped fetch reads ~1KB. Reviewer-side §10 + author-side `review-response-protocol.md §14` discipline together close the loop.
+Provenance: PR #10371 showed cumulative-thread fetch cost diverging with thread length. The stable rule is commentId-scoped hand-off for warm-cache review cycles.
 
 **Solution:** `manage_issue_comment` action:`create` returns `{message, commentId, url, createdAt}`. The reviewer captures `commentId` from that response and relays it to the next reviewer (peer or author) via A2A mailbox — the recipient fetches just-this-comment via `get_conversation({pr_number: N, comment_id: COMMENT_ID})`, scaling linearly with new-comment volume rather than cumulative thread size.
 
