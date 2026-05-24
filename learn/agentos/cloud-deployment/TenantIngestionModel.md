@@ -67,7 +67,7 @@ The push-based MVP path is credential-free from the KB server's perspective:
 - The tenant push client reads local files and sends content or parsed chunks.
 - The KB server receives ingestion payloads, not Git credentials.
 - The repo-push automation identity token authorizes the tenant to call the KB MCP endpoint; it is not a Git credential and is never folded into `repoSlug`, manifests, or chunk metadata.
-- Optional server-side pull config uses `tenantRepos[]` entries with clean `cloneUrl`, reference-only `credentialRef`, and normalized `repoSlug` (#11787). Credential-bearing `userinfo@` clone URLs are rejected before graph persistence; credential injection belongs to the future Git mirror worker (#11788).
+- Optional server-side pull config uses `tenantRepos[]` entries with clean `cloneUrl`, reference-only `credentialRef`, and normalized `repoSlug` (#11787). Credential-bearing `userinfo@` clone URLs are rejected before graph persistence; credential injection belongs to the `GitMirror` primitive (#11788). `GitMirror` resolves the credential reference only for the git subprocess invocation (`GIT_ASKPASS` for HTTPS, `GIT_SSH_COMMAND` for SSH) and keeps mirror contents on the deployment `tenant-repo-mirrors` volume mounted at `NEO_TENANT_REPO_MIRROR_ROOT`.
 
 Credential-bearing Git URLs are therefore rejected or treated as deferred clone-exploration input. They must not appear in:
 

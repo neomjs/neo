@@ -142,6 +142,7 @@ services:
       - NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED=false
       - NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED=false
       - NEO_ORCHESTRATOR_MLX_ENABLED=false
+      - NEO_TENANT_REPO_MIRROR_ROOT=/app/.neo-ai-data/tenant-repos
       - NEO_MODEL_PROVIDER=${NEO_MODEL_PROVIDER:-}
       - NEO_EMBEDDING_PROVIDER=${NEO_EMBEDDING_PROVIDER:-}
       - NEO_OPENAI_COMPATIBLE_HOST=${NEO_OPENAI_COMPATIBLE_HOST:-}
@@ -153,6 +154,7 @@ services:
       - NEO_MEMORY_DB_PATH=/app/.neo-ai-data/sqlite/memory-core-graph.sqlite
     volumes:
       - shared-sqlite-data:/app/.neo-ai-data/sqlite
+      - tenant-repo-mirrors:/app/.neo-ai-data/tenant-repos
       # Redeploy-safe backup persistence (Sub C #11724): the cloud-safe `backup`
       # scheduler lane writes bundles here. A host bind-mount keeps them across
       # container rebuilds and host-accessible for off-site copy / inspection.
@@ -243,6 +245,7 @@ networks:
 volumes:
   chroma-data:
   shared-sqlite-data:
+  tenant-repo-mirrors:
   caddy-data:
   caddy-config:
   local-model-data:
