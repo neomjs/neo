@@ -45,7 +45,7 @@ OR
 Verify symmetry between stated framing and mechanical implementation:
 
 - [ ] PR description: framing matches what the diff substantiates (no overshoot)
-- [ ] Anchor & Echo summaries: precise codebase terminology, no metaphor that overshoots the implementation
+- [ ] Anchor & Echo summaries: precise codebase terminology, no metaphor or source-code snapshot anchor (ticket/PR/lane/AC/cycle/line number) that overshoots durable intent
 - [ ] `[RETROSPECTIVE]` tag: accurately characterizes what shipped (no inflation of architectural significance)
 - [ ] Linked anchors: cited tickets/PRs actually establish the claimed pattern (no borrowed authority)
 
