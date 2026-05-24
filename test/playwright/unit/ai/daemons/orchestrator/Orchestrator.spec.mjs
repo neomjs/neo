@@ -17,6 +17,7 @@ import {
 } from '../../../../../../ai/daemons/orchestrator/services/PrimaryRepoSyncService.mjs';
 import {
     PRIMARY_DEV_SYNC_TASK_NAME,
+    TENANT_REPO_SYNC_TASK_NAME,
     DREAM_TASK_NAME,
     GOLDEN_PATH_TASK_NAME,
     SWARM_HEARTBEAT_TASK_NAME,
@@ -124,7 +125,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             nodeBin  : '/node'
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'summary', 'kbSync', 'backup', PRIMARY_DEV_SYNC_TASK_NAME, DREAM_TASK_NAME, GOLDEN_PATH_TASK_NAME, SWARM_HEARTBEAT_TASK_NAME]);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'summary', 'kbSync', 'backup', PRIMARY_DEV_SYNC_TASK_NAME, TENANT_REPO_SYNC_TASK_NAME, DREAM_TASK_NAME, GOLDEN_PATH_TASK_NAME, SWARM_HEARTBEAT_TASK_NAME]);
         expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({
