@@ -366,6 +366,10 @@ export class Orchestrator extends Base {
         // (dataDir / taskDefinitions / taskStateService / healthService / heavyMaintenanceLeasePath
         // were set above; the static-config pre-create at construct time used defaults).
         this.maintenanceBackpressureService = {};
+        // Per-orchestrator-instance reset: MBS is `singleton: true` so its `deferralLogKeys`
+        // instance field persists across Neo.create(Orchestrator) calls. Reset here matches
+        // the original Orchestrator's per-start() fresh-Set semantics (was `this.maintenanceDeferralLogKeys = new Set()`).
+        this.maintenanceBackpressureService.deferralLogKeys = new Set();
 
         this.db = this.initializeDatabaseFn(this.dbPath);
 

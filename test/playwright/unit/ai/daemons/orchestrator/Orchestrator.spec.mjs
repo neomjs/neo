@@ -102,6 +102,11 @@ function createTestOrchestrator(config = {}) {
 
     orchestrator.writeLog  = () => {};
 
+    // Per-orchestrator MBS state reset: MBS is `singleton: true` so `deferralLogKeys` persists
+    // across createTestOrchestrator calls within the same suite, silently deduping log emissions.
+    // Mirrors the start()-side reset for production parity. Sub 18 #11862 regression fix.
+    orchestrator.maintenanceBackpressureService.deferralLogKeys = new Set();
+
     return orchestrator;
 }
 
