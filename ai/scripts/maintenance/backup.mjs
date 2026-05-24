@@ -41,10 +41,10 @@ const execFileAsync = promisify(execFile);
  * └── trajectories/       # RLAIF training trajectories JSONL
  * ```
  *
- * Peer architecture per #10129 Phase 3: this script does NOT defrag — it captures the
- * current state whatever shape it is in. `defragChromaDB.mjs` retains its private pre-nuke
- * helper and does not call this orchestrator. Operators who want compacted backups chain
- * commands at the shell layer: `npm run ai:defrag-kb && npm run ai:backup`.
+ * This script does NOT defrag; it captures the current state whatever shape it is in.
+ * `defragChromaDB.mjs` retains its private pre-nuke helper and does not call this
+ * orchestrator. Operators who want compacted backups chain commands at the shell layer:
+ * `npm run ai:defrag-kb && npm run ai:backup`.
  *
  * All service calls route through `ai/services.mjs`, which applies Zod validation at the
  * SDK boundary via `makeSafe()` — no direct `ai/mcp/server/...` imports.
@@ -59,7 +59,7 @@ const execFileAsync = promisify(execFile);
  *
  * ## Legacy Backup Migration
  *
- * The pre-#10129 layout co-exists with the new bundle tree and is **not touched** by this script:
+ * Older backup layouts co-exist with the bundle tree and are **not touched** by this script:
  *
  * - Flat JSONL at `.neo-ai-data/backups/` root (`memory-backup-*.jsonl`, `summaries-backup-*.jsonl`,
  *   `graph-backup-*.jsonl`) — preserved as-is for archive / restore use. New bundles land in
@@ -72,20 +72,16 @@ const execFileAsync = promisify(execFile);
  * `defragChromaDB.cleanOldBackups` against `dist/chromadb-backups/<target>/`. No automated
  * migration is provided — the archives are cheap and the manual decision is low-risk.
  *
- * ## Intentionally-Excluded Substrate (Per #10871)
+ * ## Intentionally-Excluded Substrate
  *
  * The following `.neo-ai-data/` paths are **NOT** included in the bundle by design:
  *
- * - `.neo-ai-data/neo-sqlite/memory-core.sqlite` — legacy combined vector+graph store from the
- *   pre-#9922 Two-Pillar RAG architecture (last-written 2026-04-15). Replaced by the canonical
- *   `.neo-ai-data/sqlite/memory-core-graph.sqlite` (graph via `better-sqlite3`) +
- *   `.neo-ai-data/chroma/memory-core/` (vectors via Chroma). The `SQLiteVectorManager` that
- *   wrote it has zero production callers (only `AbstractVectorManager` parent remains); the
- *   legacy one-off `importBackupToSQLite.mjs` was retired in #10871 AC-B in favour of the
- *   canonical `npm run ai:restore` orchestrator. `defragSQLiteDB.mjs` targets a different
- *   filename (`knowledge-graph.sqlite`) and never touches this file. `bootstrapWorktree.mjs`
- *   symlinks the directory across worktrees for backward-compat, but no production code reads
- *   or writes it. Operator may `rm -rf .neo-ai-data/neo-sqlite/` to reclaim ~329 MB at any time.
+ * - `.neo-ai-data/neo-sqlite/memory-core.sqlite` — retired combined vector+graph store.
+ *   Current Memory Core persistence is split between
+ *   `.neo-ai-data/sqlite/memory-core-graph.sqlite` for graph state and
+ *   `.neo-ai-data/chroma/memory-core/` for vectors. `defragSQLiteDB.mjs` targets a
+ *   different filename (`knowledge-graph.sqlite`) and never touches this file. No
+ *   production backup or restore path reads it.
  * - `.neo-ai-data/wake-daemon/{bridge.log,inflight-*.txt,lastSyncId,heartbeat-*.log,sweep-errors.log}`
  *   — operational / process state owned by the bridge daemon and heartbeat substrate; classified
  *   as live-orchestration recovery, not substrate backup. Distinct backup track if needed.
@@ -95,8 +91,6 @@ const execFileAsync = promisify(execFile);
  *   `defragChromaDB.mjs`-exclusive at `dist/chromadb-backups/`.
  *
  * @see ai/scripts/maintenance/defragChromaDB.mjs
- * @see https://github.com/neomjs/neo/issues/10129
- * @see https://github.com/neomjs/neo/issues/10871
  */
 
 const __filename   = fileURLToPath(import.meta.url);
@@ -311,7 +305,8 @@ export async function verifyBundleIntegrity(layout, subsystems) {
  * (`bundle-meta.topology.chromaUnified === false`) and refuse to clobber a target whose
  * deployment shape diverged from the bundle source.
  *
- * Forward-compat extension point for #10871 AC-B (`ai/scripts/maintenance/restore.mjs`).
+ * Restore consumers use this descriptor to validate topology compatibility before
+ * importing a bundle.
  *
  * @returns {{shared_topology: Boolean, kbChromaCoords: Object, mcChromaCoords: Object}}
  */
@@ -371,14 +366,14 @@ async function buildVersionDescriptor(projectRoot, logger) {
 /**
  * Applies retention policy to the backup root.
  *
- * Two-axis policy (per Phase 4 #11663):
+ * Two-axis policy:
  *   - `keepMinimum` — newest N bundles retained unconditionally regardless of age
  *   - `maxDays`     — bundles older than this many days are eligible for deletion
  *
  * A bundle survives if EITHER axis protects it (i.e., it's in the keepMinimum-newest
- * window OR younger than maxDays). Both defaults match the pre-#11663 hardcoded
- * constants (`K=3, N_DAYS=30`) so omitting the `retention` argument preserves the
- * legacy behavior exactly.
+ * window OR younger than maxDays). Both defaults match the original hardcoded
+ * constants (`K=3, N_DAYS=30`) so omitting the `retention` argument preserves
+ * existing behavior.
  *
  * @param {String} backupRoot
  * @param {Object} logger
@@ -451,9 +446,9 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
  * into the destination directory. Missing sources are reported via `note`, not fatal — concepts
  * and trajectories may legitimately not exist in fresh environments.
  *
- * **Empty-source observability (#10871):** when the source PATH exists but yields zero bytes
- * of bundle-able data (directory with no `.jsonl` files, OR a 0-byte file), the function emits
- * a warning via `logger.warn(...)` so silent-empty subsystems are visible during backup.
+ * **Empty-source observability:** when the source PATH exists but yields zero bytes of
+ * bundle-able data (directory with no `.jsonl` files, OR a 0-byte file), the function
+ * emits a warning via `logger.warn(...)` so silent-empty subsystems are visible during backup.
  * Source-absent (path does not exist) remains silent — fresh-environment fixtures legitimately
  * lack concepts/trajectories.
  *
@@ -494,11 +489,10 @@ async function copyJsonlSource(source, destDir, logger=console) {
     return {copied: 1};
 }
 
-// Auto-run when invoked directly. Lane C of #11503 wraps the heavy-maintenance work in
-// the shared lease primitive (PR #11506 / #11505) so this CLI cannot collide with the
-// orchestrator's heavy tasks or with another manual heavy script. The exported `runBackup`
-// function is left lease-free so test harnesses and other module-level callers retain
-// full control of their own concurrency context.
+// Auto-run under the shared heavy-maintenance lease so this CLI cannot collide with the
+// orchestrator's heavy tasks or with another manual graph-heavy script. The exported
+// `runBackup` function is left lease-free so test harnesses and other module-level
+// callers retain full control of their own concurrency context.
 if (import.meta.url === `file://${process.argv[1]}`) {
     withHeavyMaintenanceLease(
         () => runBackup(),
