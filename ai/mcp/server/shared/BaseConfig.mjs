@@ -1,7 +1,7 @@
-import fs                 from 'fs/promises';
-import path               from 'path';
-import Base               from '../../../../src/core/Base.mjs';
-import {applyEnvBindings} from './helpers/EnvConfig.mjs';
+import fs   from 'fs/promises';
+import path from 'path';
+import Base  from '../../../../src/core/Base.mjs';
+import Env   from '../../../../src/util/Env.mjs';
 
 /**
  * @summary Base configuration manager for Neo MCP servers.
@@ -51,7 +51,7 @@ class BaseConfig extends Base {
      * Applies environment variables to the current configuration using the envBindings ledger.
      */
     applyEnv() {
-        applyEnvBindings(this.data, this.envBindings, process.env, console.warn);
+        Env.applyEnvBindings(this.data, this.envBindings, process.env, console.warn);
         this.applyLegacyEnv();
     }
 

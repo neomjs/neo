@@ -2,7 +2,7 @@ import os              from 'os';
 import path            from 'path';
 import BaseConfig, { createConfigProxy } from '../shared/BaseConfig.mjs';
 import {fileURLToPath} from 'url';
-import {parsePort, parseUrl, parseBool, parseNumber} from '../shared/helpers/EnvConfig.mjs';
+import Env from '../../../../src/util/Env.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 
@@ -15,27 +15,27 @@ const neoRootDir = path.resolve(__dirname, '../../../../');
  */
 
 const envBindings = {
-    'autoSync': { var: 'NEO_AUTO_SYNC', parse: parseBool },
-    'autoStartDatabase': { var: 'NEO_KB_AUTO_START_DATABASE', parse: parseBool },
+    'autoSync': { var: 'NEO_AUTO_SYNC', parse: Env.parseBool },
+    'autoStartDatabase': { var: 'NEO_KB_AUTO_START_DATABASE', parse: Env.parseBool },
     'transport': 'NEO_TRANSPORT',
-    'mcpHttpPort': { var: 'MCP_HTTP_PORT', parse: parsePort },
-    'publicUrl': { var: 'NEO_PUBLIC_URL', parse: parseUrl },
+    'mcpHttpPort': { var: 'MCP_HTTP_PORT', parse: Env.parsePort },
+    'publicUrl': { var: 'NEO_PUBLIC_URL', parse: Env.parseUrl },
 
     'auth.host': 'NEO_AUTH_HOST',
-    'auth.port': { var: 'NEO_AUTH_PORT', parse: parsePort },
+    'auth.port': { var: 'NEO_AUTH_PORT', parse: Env.parsePort },
     'auth.realm': 'NEO_AUTH_REALM',
     'auth.issuerUrl': 'NEO_AUTH_ISSUER_URL',
     'auth.clientId': 'NEO_OAUTH_CLIENT_ID',
     'auth.clientSecret': 'NEO_OAUTH_CLIENT_SECRET',
-    'auth.trustProxyIdentity': { var: 'NEO_AUTH_TRUST_PROXY_IDENTITY', parse: parseBool },
+    'auth.trustProxyIdentity': { var: 'NEO_AUTH_TRUST_PROXY_IDENTITY', parse: Env.parseBool },
 
     'host': 'NEO_CHROMA_HOST',
-    'port': { var: 'NEO_CHROMA_PORT', parse: parsePort },
+    'port': { var: 'NEO_CHROMA_PORT', parse: Env.parsePort },
 
     'memoryCoreDbPath': 'NEO_MEMORY_DB_PATH',
-    'kbFaqMinCount': { var: 'NEO_KB_FAQ_MIN_COUNT', parse: parseNumber },
-    'kbFaqSimilarityThreshold': { var: 'NEO_KB_FAQ_SIMILARITY_THRESHOLD', parse: parseNumber },
-    'kbFaqConceptLimit': { var: 'NEO_KB_FAQ_CONCEPT_LIMIT', parse: parseNumber },
+    'kbFaqMinCount': { var: 'NEO_KB_FAQ_MIN_COUNT', parse: Env.parseNumber },
+    'kbFaqSimilarityThreshold': { var: 'NEO_KB_FAQ_SIMILARITY_THRESHOLD', parse: Env.parseNumber },
+    'kbFaqConceptLimit': { var: 'NEO_KB_FAQ_CONCEPT_LIMIT', parse: Env.parseNumber },
     'defaultTenantId': 'NEO_KB_DEFAULT_TENANT_ID',
     'defaultRepoSlug': 'NEO_KB_DEFAULT_REPO_SLUG',
     'defaultVisibility': 'NEO_KB_DEFAULT_VISIBILITY',
@@ -385,7 +385,7 @@ class Config extends BaseConfig {
         // Handle legacy deprecation fallbacks explicitly
         if (process.env.SSE_PORT && !process.env.MCP_HTTP_PORT) {
             console.warn('[Config] Deprecation warning: SSE_PORT is deprecated. Please use MCP_HTTP_PORT.');
-            const legacyPort = parsePort(process.env.SSE_PORT, 'SSE_PORT', console.warn);
+            const legacyPort = Env.parsePort(process.env.SSE_PORT, 'SSE_PORT', console.warn);
             if (legacyPort !== undefined) {
                 this.data.mcpHttpPort = legacyPort;
             }

@@ -2,10 +2,8 @@
  * Pure value-decoders for environment-variable substrate.
  *
  * Substrate-tier landing: env-parser primitive at Neo.util.X namespace (Tier-1 Neo substrate),
- * NOT on domain classes. Consolidates `ai/mcp/server/shared/helpers/EnvConfig.mjs`
- * (was Tier-2 MCP-shared), `ai/daemons/services/CadenceEngine.parseInterval` (was Tier-3
- * domain), and `ai/daemons/services/PrimaryRepoSyncService.parseEnabledFlag` (was Tier-3
- * domain).
+ * NOT on domain classes. The canonical home for env-parsing across the agent OS — MCP
+ * server config.templates, orchestrator getters, and any other env-var consumer.
  *
  * Decoders know NOTHING about specific configs, defaults, or domain consumers — they only
  * answer "env var absent (undefined) / decoded value / invalid (warn + undefined)". Fallback
