@@ -9,11 +9,11 @@ import { IDENTITIES } from '../../../ai/graph/identityRoots.mjs';
 /**
  * Row-level-security visibility predicate for an in-memory graph **node or edge**, mirroring
  * the SQL RLS clause that `SQLite.loadNodeVicinitySync` / `searchNodes` apply to BOTH the
- * `Nodes` and `Edges` tables. Applied at the public read return boundary (#10011): the
+ * `Nodes` and `Edges` tables. Applied at the public read return boundary because the
  * node/edge Stores are a process-wide cache, so an entity warmed by one requester's
- * RLS-filtered lazy-load is otherwise readable by any other requester straight from the
- * cache. Edges carry their own `properties.userId` (server-stamped), so a private edge
- * between two otherwise-visible nodes is a distinct leak surface from the nodes themselves.
+ * RLS-filtered lazy-load is otherwise readable by any other requester straight from the cache.
+ * Edges carry their own `properties.userId` (server-stamped), so a private edge between two
+ * otherwise-visible nodes is a distinct leak surface from the nodes themselves.
  * @param {Object|null} entity A graph node or edge (Record or plain object) from an in-memory Store.
  * @param {String|null} requesterUserId The acting agent-identity node id, or null.
  * @returns {Boolean} true when the entity is visible to the requester.
@@ -115,7 +115,7 @@ class GraphService extends Base {
                 logger.warn(`[GraphService] Non-fatal DB contention during 'frontier' seed: ${error.message}`);
             }
 
-            // --- 1. THE GLOBAL SYSTEM PRIMER (Epic #9671) ---
+            // --- 1. THE GLOBAL SYSTEM PRIMER ---
             // Inject the Master Architecture Tenets directly into the Native Graph at boot.
             // Because this is anchored to the 'frontier' with a protected SYSTEM_TENET edge,
             // it acts as a deterministic onboarding payload for every agent session.
@@ -134,9 +134,8 @@ class GraphService extends Base {
                 logger.warn(`[GraphService] Non-fatal DB contention during Master Architecture seed: ${error.message}`);
             }
 
-            // --- 2. AGENT IDENTITY SUBSTRATE SEEDING (#10232) ---
-            // Eliminates the "seed → restart-again" recovery loop documented across sessions
-            // 0327771f, 15852d91, 8968b9f6, 24aa1fa1 (see #10232 body).
+            // --- 2. AGENT IDENTITY SUBSTRATE SEEDING ---
+            // Eliminates the "seed → restart-again" recovery loop for fresh local setups.
             // Auto-provision identity roots at boot so bindAgentIdentity doesn't throw on fresh setups.
             try {
                 for (const identity of IDENTITIES) {
@@ -193,7 +192,7 @@ class GraphService extends Base {
 
         // Lazy-load from SQLite before in-memory check — prevents cold-cache stubs from
         // overwriting rich SQLite rows via addNodes' ON CONFLICT DO UPDATE semantics.
-        // Mirrors the discipline in getNode:424. Resolves #10230.
+        // Mirrors the read path's cache-warm discipline before mutating cached records.
         this.db.getAdjacentNodes(id, 'both');
 
         let node = this.db.nodes.get(id);
@@ -306,7 +305,7 @@ class GraphService extends Base {
             let expectedCount = source === target ? 1 : 2;
 
             if (count !== expectedCount) {
-                // #10347 Cache-Warm Retry: If the count check fails, the node might exist in the SQLite WAL
+                // Cache-warm retry: If the count check fails, the node might exist in the SQLite WAL
                 // from another agent but hasn't been synced to this connection's snapshot yet.
                 // We force a cache warm (which invokes syncCache and WAL read) and re-verify.
                 if (this.db && typeof this.db.getAdjacentNodes === 'function') {
@@ -387,21 +386,21 @@ class GraphService extends Base {
 
     /**
      * Async variant of {@link GraphService#linkNodes linkNodes} that performs **lazy
-     * back-fill** on missing endpoints before attempting the edge creation (#10153).
+     * back-fill** on missing endpoints before attempting the edge creation.
      *
      * Where the sync `linkNodes` silently culls edges whose source or target is absent from the
      * graph, this async path first attempts to materialize the missing endpoints from their
      * Chroma source rows via `MemorySessionIngestor.ingestSingleRow`. Back-fill applies only to
      * node IDs matching the `memory:<chromaId>` or `session:<sessionId>` prefix (case-insensitive
-     * — consumes the uppercase-prefix convention used by `SemanticGraphExtractor`'s lazy-edges
-     * queue #10165 without requiring a canonical-format migration). Unrecognized prefixes fall
+     * — consumes the uppercase-prefix convention used by queued lazy edges without requiring a
+     * canonical-format migration). Unrecognized prefixes fall
      * through to the sync `linkNodes` cull behavior unchanged.
      *
      * **Why a separate method rather than making `linkNodes` async:** the sync `linkNodes` is
      * called from many synchronous code paths where adding an `await` would have wide blast
-     * radius. Net-new back-fill-aware callers (the `LazyEdgeDrainer` that consumes #10165's
-     * queue, future mailbox `IN_REPLY_TO` / identity `AUTHORED_BY` edge creators) use this
-     * async path; existing sync callers remain unaffected.
+     * radius. Back-fill-aware callers such as `LazyEdgeDrainer`, mailbox `IN_REPLY_TO`, and
+     * identity `AUTHORED_BY` edge creators use this async path; existing sync callers remain
+     * unaffected.
      *
      * **Prefix normalization:** if either endpoint uses the uppercase `MEMORY:`/`SESSION:`
      * prefix, the back-filled node lands under the canonical lowercase ID and the edge is
@@ -441,7 +440,7 @@ class GraphService extends Base {
     /**
      * Ensures a graph node exists, attempting lazy back-fill from its Chroma source row if
      * absent. Used by `linkNodesAsync` and the `LazyEdgeDrainer` to resolve missing endpoints
-     * before edge creation (#10153).
+     * before edge creation.
      *
      * Back-fill applies only to the `memory:` / `session:` prefix pattern — nodes managed by
      * other substrates (concepts, classes, AgentIdentity, files) remain the responsibility of
@@ -481,7 +480,7 @@ class GraphService extends Base {
     /**
      * Normalizes a graph node ID's prefix to its canonical lowercase form. Non-`memory:` /
      * non-`session:` IDs pass through unchanged. Used by `linkNodesAsync` to accept edges
-     * queued with the uppercase `MEMORY:`/`SESSION:` convention (#10165) without polluting the
+     * queued with the uppercase `MEMORY:`/`SESSION:` convention without polluting the
      * graph with case-variant duplicate nodes.
      *
      * @param {String} id Raw graph node ID
@@ -586,7 +585,7 @@ class GraphService extends Base {
             return null;
         }
 
-        // #10011 RLS: the node Store is a process-wide cache — re-check visibility at the
+        // RLS: the node Store is a process-wide cache — re-check visibility at the
         // return boundary so a cross-requester cache-warmed node is not leaked.
         let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
         if (!isRlsVisible(node, rlsUserId)) {
@@ -612,9 +611,9 @@ class GraphService extends Base {
      * @summary Retrieves a node's full record — including the `properties` blob that {@link GraphService#getNode} strips.
      *
      * `getNode` projects only the hoisted fields (`id` / `type` / `name` / `description` / `semanticVectorId` /
-     * `state`); a consumer that stores a structured payload under `properties` (e.g. the #11637
-     * `KnowledgeBaseTenantConfig` node) needs the raw `properties` object. This getter applies the identical
-     * #10011 RLS visibility re-check as `getNode` — a cross-tenant node returns `null` — so it is a
+     * `state`); a consumer that stores a structured payload under `properties` needs the raw
+     * `properties` object. This getter applies the identical RLS visibility re-check as
+     * `getNode` — a cross-tenant node returns `null` — so it is a
      * properties-returning read, not an RLS bypass.
      * @param {Object} data
      * @param {String} data.id Node id.
@@ -629,7 +628,7 @@ class GraphService extends Base {
             return null;
         }
 
-        // #10011 RLS: the node Store is a process-wide cache — re-check visibility at the
+        // RLS: the node Store is a process-wide cache — re-check visibility at the
         // return boundary so a cross-requester cache-warmed node is not leaked.
         const rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
         if (!isRlsVisible(node, rlsUserId)) {
@@ -678,7 +677,7 @@ class GraphService extends Base {
         // Guarantee lazy-loading vicinity topology securely
         this.db.getAdjacentNodes(id, 'both');
 
-        // #10011 RLS: resolve the requester once; do not expose the vicinity of a node the
+        // RLS: resolve the requester once; do not expose the vicinity of a node the
         // requester cannot see, and filter each neighbor by node + edge visibility.
         let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null,
             rootNode  = this.db.nodes.get(id);
@@ -771,7 +770,7 @@ class GraphService extends Base {
             return null;
         }
 
-        // #10011 RLS: the frontier anchor is shared, but its strategic neighbors may be
+        // RLS: the frontier anchor is shared, but its strategic neighbors may be
         // tenant-private — filter them at the return boundary.
         let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
 
@@ -796,7 +795,7 @@ class GraphService extends Base {
                 let adjacentId = e.source === 'frontier' ? e.target : e.source;
                 let node       = this.db.nodes.get(adjacentId);
 
-                // Actively filter out CLOSED structural paths + #10011 RLS-invisible nodes/edges
+                // Actively filter out CLOSED structural paths plus RLS-invisible nodes/edges.
                 if (node && isRlsVisible(node, rlsUserId) && isRlsVisible(e, rlsUserId) && node.properties?.state !== 'CLOSED') {
                     topology.strategicNeighbors.push({
                         id              : node.id,
@@ -832,7 +831,7 @@ class GraphService extends Base {
             return null;
         }
 
-        // #10011 RLS: the node Store is a process-wide cache — re-check the cache-resident
+        // RLS: the node Store is a process-wide cache — re-check the cache-resident
         // root and every traversed node at the return boundary.
         let rlsUserId = this.db.storage?.RequestContextService?.getAgentIdentityNodeId() ?? null;
         if (!isRlsVisible(rootNode, rlsUserId)) {
@@ -871,7 +870,7 @@ class GraphService extends Base {
                     let adjacentId = e.source === id ? e.target : e.source;
                     let n          = this.db.nodes.get(adjacentId);
 
-                    // #10011 RLS: skip an edge that is itself not visible, or whose far node
+                    // RLS: skip an edge that is itself not visible, or whose far node
                     // is absent or not visible — do not leak the node, edge, or traverse it.
                     if (!n || !isRlsVisible(n, rlsUserId) || !isRlsVisible(e, rlsUserId)) {
                         return;
@@ -991,11 +990,12 @@ class GraphService extends Base {
      * `PULL_REQUEST`, `SESSION`, `MEMORY`, `AgentIdentity`, `BroadcastSentinel`, `WAKE_SUBSCRIPTION`) from pruning regardless of edge state. `SESSION` and
      * `MEMORY` are protected because they are load-bearing anchors for future mailbox
      * (`IN_REPLY_TO`), identity (`AUTHORED_BY`), and provenance (`MENTIONED_IN`) edges — they may
-     * be momentarily edgeless during the ingestion window (#10151) or for empty sessions, and
-     * must persist so downstream edge-creators (#10139, #10016, #10152) attach to real targets.
+     * be momentarily edgeless during the ingestion window or for empty sessions, and must persist
+     * so downstream edge-creators attach to real targets.
      * `AgentIdentity` and `BroadcastSentinel` are protected to prevent silent wipes during
-     * idle or fresh Memory Core states prior to their first activity edges (Apoptosis Vulnerability fix #10229).
-     * `WAKE_SUBSCRIPTION` nodes are protected natively against GC race conditions during background maintenance sweeps (#10515).
+     * idle or fresh Memory Core states prior to their first activity edges.
+     * `WAKE_SUBSCRIPTION` nodes are protected natively against GC race conditions during background
+     * maintenance sweeps.
      * @returns {String[]} Array of node IDs mapping to orphaned vectors.
      */
     getOrphanedNodes() {

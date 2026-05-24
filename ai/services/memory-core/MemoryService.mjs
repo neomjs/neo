@@ -9,7 +9,7 @@ import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/
 
 /**
  * Computes a lightweight inbox snapshot for the bound AgentIdentity to piggyback on every
- * `add_memory` response — the per-turn **mailbox delta signal** shipped with #10174.
+ * `add_memory` response — the per-turn **mailbox delta signal**.
  *
  * Why it lives here rather than in `MailboxService`: `add_memory` is called by the agent's
  * Memory Core Protocol every single turn (per `CLAUDE.md §4.2`'s Consolidate-Then-Save mandate).
@@ -17,9 +17,9 @@ import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/
  * polling endpoint and without waiting for the `ai/graph/Database.mjs` in-memory edge cache to
  * gain cross-process coherence. The query intentionally bypasses `GraphService.db.edges.items`
  * (the per-process in-memory cache that never sees remote writes without a server restart —
- * observed empirically during the #10174 diagnostic) and reads straight from SQLite via
- * `GraphService.db.storage.db.prepare()`, so a message sent by another harness's MCP server is
- * visible as soon as its transaction commits.
+ * observed empirically while debugging cross-harness mailbox delivery) and reads straight from
+ * SQLite via `GraphService.db.storage.db.prepare()`, so a message sent by another harness's MCP
+ * server is visible as soon as its transaction commits.
  *
  * **Failure mode is non-fatal.** Any error inside this helper is swallowed and logged — the
  * caller's memory write must always succeed on its own merits. An agent briefly missing its
@@ -40,7 +40,7 @@ function buildMailboxDelta() {
     if (!sqlite) return null;
 
     try {
-        // Unread-count: direct DMs still use MESSAGE.properties.readAt. #11029 broadcasts use
+        // Unread-count: direct DMs still use MESSAGE.properties.readAt. Receipt-backed broadcasts use
         // per-recipient DELIVERED_TO.readAt edges; legacy broadcasts without DELIVERY edges keep
         // the historical shared-read fallback. DISTINCT defends against duplicate edge rows.
         const unreadRow = sqlite.prepare(`
@@ -150,16 +150,15 @@ function buildMailboxDelta() {
  * It handles the creation of new memory entries (including embedding generation), retrieving memories by session,
  * and performing semantic searches to find relevant past interactions.
  *
- * **Multi-tenant isolation (Epic #9999, sub-epic #10016, ticket #10000):** When a request arrives
- * via SSE transport with a valid OIDC Bearer token, `RequestContextService.getUserId()` returns
- * the authenticated user's identifier (derived from the token's `preferred_username` / `sub`
- * claim). Writes (`addMemory`) tag ChromaDB metadata with that `userId`; reads (`listMemories`,
- * `queryMemories`, and the graph-bridged summary fetches inside `getContextFrontier` and
- * `preBriefSession`) apply a `where: {userId}` filter so tenants only see their own data. In
- * stdio transport mode no request context is active, `getUserId()` returns `undefined`, and
- * writes + reads fall through unchanged — single-tenant backward-compat. The team-vs-private
- * toggle (#10010) will later let operators opt out of the read filter while keeping the write
- * tag.
+ * **Multi-tenant isolation:** When a request arrives via SSE transport with a valid OIDC Bearer
+ * token, `RequestContextService.getUserId()` returns the authenticated user's identifier
+ * (derived from the token's `preferred_username` / `sub` claim). Writes (`addMemory`) tag
+ * ChromaDB metadata with that `userId`; reads (`listMemories`, `queryMemories`, and the
+ * graph-bridged summary fetches inside `getContextFrontier` and `preBriefSession`) apply a
+ * `where: {userId}` filter so tenants only see their own data. In stdio transport mode no
+ * request context is active, `getUserId()` returns `undefined`, and writes + reads fall through
+ * unchanged — single-tenant backward-compat. Team/private sharing policy controls whether reads
+ * include only caller-owned records, team-shared records, or legacy untagged data.
  *
  * @class Neo.ai.services.memory-core.MemoryService
  * @extends Neo.core.Base
@@ -204,7 +203,7 @@ class MemoryService extends Base {
      *     `{unreadCount, latestPreview}` when the caller has a bound AgentIdentity, `null`
      *     otherwise). Piggybacks inbox awareness on the protocol's mandatory per-turn save,
      *     bypassing the in-memory graph cache so cross-harness writes surface immediately —
-     *     see {@link buildMailboxDelta} and ticket #10174.
+     *     see {@link buildMailboxDelta}.
      */
     async addMemory({prompt, response, thought, sessionId, agent, model, amountToolCalls, toolsUsed}) {
         try {
@@ -227,7 +226,7 @@ class MemoryService extends Base {
                 type: 'agent-interaction'
             };
 
-            // Tenant-isolation tag (#10000): present only when a request context was established
+            // Tenant-isolation tag: present only when a request context was established
             // by the SSE transport layer. In stdio mode it is absent — single-tenant fallthrough.
             const userId = normalizeUserId(RequestContextService.getUserId());
             if (userId) metadata.userId = userId;
@@ -304,10 +303,10 @@ class MemoryService extends Base {
 
             const collection = await StorageRouter.getMemoryCollection();
 
-            // Tenant read-filter (#10000) with additive shared-commons access (#10556): when a
+            // Tenant read-filter with additive shared-commons access: when a
             // userId resolves, the filter returns the tenant's own records AND records tagged
-            // with SHARED_USER_ID (legacy pre-#10145 data backfilled by the migration runner,
-            // plus any explicitly-shared future data). In stdio mode without resolved identity,
+            // with SHARED_USER_ID (legacy data backfilled by the migration runner, plus any
+            // explicitly-shared future data). In stdio mode without resolved identity,
             // the filter reduces to sessionId alone — single-tenant fallthrough preserved.
             // normalizeUserId strips `@`-prefix at the AgentIdentity ↔ userId boundary.
             const userId = normalizeUserId(RequestContextService.getUserId());
@@ -397,7 +396,7 @@ class MemoryService extends Base {
                 include   : ['metadatas']
             };
 
-            // Tenant-scoped where clause (#10000) with additive shared-commons access (#10556).
+            // Tenant-scoped where clause with additive shared-commons access.
             // normalizeUserId handles the AgentIdentity ↔ userId boundary.
             const userId = normalizeUserId(RequestContextService.getUserId());
             const policy = memorySharing || aiConfig?.memorySharing?.defaultPolicy || 'legacy';
@@ -505,8 +504,7 @@ class MemoryService extends Base {
             // We grab context blocks from summaries, as that is where DreamService extracts episodic graph nodes from
             const collection = await StorageRouter.getSummaryCollection();
 
-            // Tenant defense-in-depth (#10000): the graph is shared across users until #10011 adds
-            // SQLite row-level security. If a neighbor's semanticVectorId points at another user's
+            // Tenant defense-in-depth: if a neighbor's semanticVectorId points at another user's
             // summary, the userId filter reduces the fetch to zero rows rather than leaking it.
             const userId = normalizeUserId(RequestContextService.getUserId());
 
@@ -589,9 +587,8 @@ class MemoryService extends Base {
 
             const collection = await StorageRouter.getSummaryCollection();
 
-            // Tenant defense-in-depth (#10000): same rationale as getContextFrontier — the graph
-            // may return a neighbor whose vector belongs to another tenant until #10011 isolates
-            // the graph itself. userId filter converts cross-tenant leaks into empty results.
+            // Tenant defense-in-depth: same rationale as getContextFrontier. The userId filter
+            // converts cross-tenant vector lookups into empty results.
             const userId = normalizeUserId(RequestContextService.getUserId());
 
             for (const neighbor of neighbors) {
@@ -691,7 +688,7 @@ class MemoryService extends Base {
 
 export default Neo.setupClass(MemoryService);
 // Exported for unit-test consumption — see
-// `test/playwright/unit/ai/services/memory-core/MailboxService.spec.mjs` (#10174
-// regression coverage). Not part of the public service surface; consumers outside the test
-// suite should call `MemoryService.addMemory` and read the `mailbox` property on the response.
+// `test/playwright/unit/ai/services/memory-core/MailboxService.spec.mjs` regression coverage.
+// Not part of the public service surface; consumers outside the test suite should call
+// `MemoryService.addMemory` and read the `mailbox` property on the response.
 export {buildMailboxDelta};
