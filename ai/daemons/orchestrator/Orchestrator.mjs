@@ -162,6 +162,11 @@ export class Orchestrator extends Base {
          */
         processSupervisorService_: null,
         /**
+         * @member {Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService|Object|null} maintenanceBackpressureService_=MaintenanceBackpressureService
+         * @reactive
+         */
+        maintenanceBackpressureService_: MaintenanceBackpressureService,
+        /**
          * @member {String} dataDir_=DEFAULT_DATA_DIR
          * @reactive
          */
@@ -193,10 +198,9 @@ export class Orchestrator extends Base {
     backupCoordinator        = BackupCoordinatorService
     primaryRepoSyncService   = PrimaryRepoSyncService
     dreamService             = DreamService
-    swarmHeartbeatService          = SwarmHeartbeatService
-    goldenPathSynthesizer          = GoldenPathSynthesizer
-    maintenanceBackpressureService = MaintenanceBackpressureService
-    initializeDatabaseFn           = initializeDatabase
+    swarmHeartbeatService    = SwarmHeartbeatService
+    goldenPathSynthesizer    = GoldenPathSynthesizer
+    initializeDatabaseFn     = initializeDatabase
 
     // === Instance state (mutated at runtime; non-reactive) ===
     isPolling                     = false
@@ -253,13 +257,17 @@ export class Orchestrator extends Base {
     }
 
     /**
-     * Wires the singleton MaintenanceBackpressureService with parent-Orchestrator
-     * context at creation time. Subsequent parent-prop changes flow via afterSet
-     * hooks calling `mbs.applyBindings({field: newValue})`. The per-poll-refresh
-     * alternative (cloud multi-repo Orchestrator: 1 instance polling N tenant repos)
-     * calls `mbs.applyBindings({...allBindings})` per poll cycle to switch the
-     * singleton's context across repos. See MBS#applyBindings JSDoc for the dual
-     * wiring contract.
+     * Wires a per-Orchestrator MaintenanceBackpressureService instance with
+     * parent context at creation time. Subsequent parent-prop changes flow via
+     * afterSet hooks calling `mbs.applyBindings({field: newValue})`. The per-poll
+     * refresh alternative (cloud multi-repo Orchestrator owning N MBS instances
+     * keyed by repo context, OR a single MBS rebound per cycle) calls
+     * `mbs.applyBindings({...allBindings})` per poll cycle to switch context.
+     * See MBS#applyBindings JSDoc for the dual wiring contract.
+     *
+     * MBS is per-instance (not singleton) because it requires external
+     * configuration — singleton classes self-contain their config; classes
+     * that need parent-injected configuration are per-instance.
      *
      * @param {Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService|Object|null} value
      * @returns {Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService}

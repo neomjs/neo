@@ -245,11 +245,6 @@ export class MaintenanceBackpressureService extends Base {
          */
         className: 'Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService',
         /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true,
-        /**
          * @member {ReadonlyArray<String>} heavyMaintenanceTaskNames_=DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
          * @reactive
          */
@@ -357,30 +352,6 @@ export class MaintenanceBackpressureService extends Base {
         if ('releaseLeaseFn'                 in bindings) this.releaseLeaseFn                 = bindings.releaseLeaseFn;
     }
 
-    /**
-     * @summary Test-isolation reset. Clears per-instance deferral state + nullifies
-     * all parent-prop bindings to release singleton state for the next test/context.
-     *
-     * Production callers should NOT use this — Class B propagation and per-poll
-     * refresh both expect the prior bindings to persist between updates. Reserved
-     * for test `afterEach` cleanup against the singleton-state-leak risk.
-     * @returns {void}
-     */
-    resetBindings() {
-        this.applyBindings({
-            writeLog                      : () => {},
-            healthService                 : null,
-            taskStateService              : null,
-            taskDefinitions               : null,
-            heavyMaintenanceLeasePath     : null,
-            dataDir                       : DEFAULT_DATA_DIR,
-            heavyMaintenanceTaskNames     : DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
-            goldenPathDependencyTaskNames : DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES,
-            acquireLeaseFn                : acquireHeavyMaintenanceLeaseSync,
-            releaseLeaseFn                : releaseHeavyMaintenanceLeaseSync
-        });
-        this.deferralLogKeys.clear();
-    }
 
     // --- Predicate / finder delegations to module-level pure functions ---
 
