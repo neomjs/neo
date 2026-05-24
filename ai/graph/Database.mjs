@@ -84,8 +84,8 @@ class Database extends Base {
             return;
         }
 
-        // Anchor & Echo (#10190 Bug A): lastSyncId === 0 is no longer a short-circuit. 
-        // Fresh-boot is a legitimate "catch me up" signal, ensuring delta log replay.
+        // Fresh boot (`lastSyncId === 0`) is a legitimate "catch me up" signal, not a
+        // short-circuit; replay the delta log so cold caches observe prior writes.
         let delta       = this.storage.getDeltaLog(this.lastSyncId);
         this.lastSyncId = delta.lastLogId;
 
@@ -301,8 +301,8 @@ class Database extends Base {
             me.autoSave               = wasAutoSave;
             me.isExecutingTransaction = wasTransacting;
 
-            // Anchor & Echo (#10190 Bug B): Empty vicinity must not mark loaded.
-            // This prevents future adjacency updates from being cached-out silently.
+            // Empty vicinity must not mark loaded; otherwise future adjacency updates would be
+            // cached out silently for this node.
             if (vicinity.nodes.length > 0 || vicinity.edges.length > 0) {
                 me.vicinityLoadedNodes.add(nodeId);
             }
