@@ -461,6 +461,15 @@ export class Orchestrator extends Base {
             }
         }
 
+        // Refresh MBS binding to current parent state at poll-time. Required for the test-bypass-start
+        // case where Neo.create-time beforeSet capture doesn't reflect post-construct overrides
+        // (orchestrator.writeLog = customLogger, healthService swap, etc.). Production parity:
+        // start() also performs these via afterSet propagation, but per-poll refresh adds resilience.
+        this.maintenanceBackpressureService.writeLog        = (level, msg) => this.writeLog(level, msg);
+        this.maintenanceBackpressureService.healthService   = this.healthService;
+        this.maintenanceBackpressureService.taskStateService = this.taskStateService;
+        this.maintenanceBackpressureService.taskDefinitions = this.taskDefinitions;
+
         const activeHeavyTask = {name: this.maintenanceBackpressureService.getActiveHeavyMaintenanceTask()};
         const executeMaintenanceTask = executeFn => (taskName, reason, onSuccess) =>
             this.maintenanceBackpressureService.acquireLeaseAndExecute({
