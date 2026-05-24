@@ -5,7 +5,7 @@
  * on Windows. Keep the required shell hop scoped to batch wrappers, and keep the
  * quoting logic local to Neo instead of adding a broad subprocess dependency.
  *
- * @see ai/scripts/lifecycle/resumeHarness.mjs (first consumer, #11767 / #11775)
+ * @see ai/scripts/lifecycle/resumeHarness.mjs
  */
 
 /**
