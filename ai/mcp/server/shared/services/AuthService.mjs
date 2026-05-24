@@ -119,7 +119,7 @@ class AuthService extends Base {
                 }
 
                 const params = new URLSearchParams({
-                    token    : token,
+                    token,
                     client_id: aiConfig.auth.clientId,
                 });
 

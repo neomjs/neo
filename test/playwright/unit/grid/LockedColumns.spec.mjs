@@ -78,7 +78,7 @@ test.describe('Grid Locked Columns', () => {
             appName  : 'GridLockedColumnsTest',
             height   : 400,
             width    : 600,
-            store    : store,
+            store,
             rowHeight: 40,
             columns  : [{
                 dataField: 'col1',
@@ -138,10 +138,10 @@ test.describe('Grid Locked Columns', () => {
         // Change 'col1' to locked: 'start'.
         // Expected new order: col3, col4, col1 (start), col5 (unlocked), col2 (end)
         const col1 = grid.columns.get('col1');
-        
+
         // This triggers afterSetLocked -> grid.onColumnLockChange
         col1.locked = 'start';
-        
+
         await grid.timeout(50);
 
         const expectedOrderAfterLock = ['col3', 'col4', 'col1', 'col5', 'col2'];
@@ -152,38 +152,38 @@ test.describe('Grid Locked Columns', () => {
         // Expected new order: col3, col1 (start), col4, col5 (unlocked), col2 (end)
         const col4 = grid.columns.get('col4');
         col4.locked = null;
-        
+
         await grid.timeout(50);
-        
+
         const expectedOrderAfterUnlock = ['col3', 'col1', 'col4', 'col5', 'col2'];
         const actualOrderAfterUnlock = grid.columns.items.map(col => col.dataField);
         expect(actualOrderAfterUnlock).toEqual(expectedOrderAfterUnlock);
-        
+
         // Change 'col5' to locked: 'end'
         // Original order before this step: col3, col1, col4, col5, col2 (col2 was already 'end')
-        // When sorting: unlocked (col4) stays in place. 
+        // When sorting: unlocked (col4) stays in place.
         // end (col5, col2): stable sort maintains relative order so col5 then col2.
         const col5 = grid.columns.get('col5');
         col5.locked = 'end';
-        
+
         await grid.timeout(50);
-        
+
         const expectedOrderAfterEnd = ['col3', 'col1', 'col4', 'col5', 'col2'];
         const actualOrderAfterEnd = grid.columns.items.map(col => col.dataField);
         expect(actualOrderAfterEnd).toEqual(expectedOrderAfterEnd);
     });
-    
+
     test('Header Toolbar items are synchronized with column collection order', async () => {
         const headerToolbar = grid.headerToolbar;
-        
+
         const expectedOrder = ['col3', 'col4', 'col1', 'col5', 'col2'];
         const headerOrder = headerToolbar.items.map(item => item.dataField);
         expect(headerOrder).toEqual(expectedOrder);
-        
+
         const col1 = grid.columns.get('col1');
         col1.locked = 'start';
         await grid.timeout(50);
-        
+
         const expectedOrderAfterLock = ['col3', 'col4', 'col1', 'col5', 'col2'];
         const headerOrderAfterLock = headerToolbar.items.map(item => item.dataField);
         expect(headerOrderAfterLock).toEqual(expectedOrderAfterLock);
@@ -202,7 +202,7 @@ test.describe('Grid Locked Columns', () => {
 
         const col1 = grid.columns.get('col1');
         col1.locked = 'start'; // This triggers afterSetLocked -> grid.onColumnLockChange -> scrollManager.update...
-        
+
         await grid.timeout(50);
 
         expect(updateCalled).toBe(true);
@@ -228,7 +228,7 @@ test.describe('Grid Locked Columns', () => {
         // Expected sorted order: start -> unlocked -> end
         const expectedOrder = ['newCol3', 'newCol1', 'newCol2'];
         const actualOrder = grid.columns.items.map(col => col.dataField);
-        
+
         expect(actualOrder).toEqual(expectedOrder);
     });
 });

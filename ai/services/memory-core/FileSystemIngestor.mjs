@@ -148,7 +148,7 @@ class FileSystemIngestor extends Base {
                     description: isDir ? `Directory: ${relativePath}` : `File path: ${relativePath}`,
                     properties: {
                         path: relativePath,
-                        mtimeMs: mtimeMs,
+                        mtimeMs,
                         ...(fileHash && { hash: fileHash })
                     }
                 });

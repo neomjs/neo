@@ -40,7 +40,7 @@ test.describe('Neo.data.Store valueBanding', () => {
 
         let store = Neo.create(Store, {
             className: 'Test.Unit.Data.ValueBanding.TestStore',
-            model    : model,
+            model,
             valueBandingFields: ['country', 'department'],
             data: [{
                 id        : 1,

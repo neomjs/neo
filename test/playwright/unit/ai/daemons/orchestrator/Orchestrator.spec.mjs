@@ -49,7 +49,7 @@ function createTestOrchestrator(config = {}) {
 
     TaskStateService.configure({
         stateFile      : '/tmp/orchestrator-test/state.json',
-        taskDefinitions: taskDefinitions,
+        taskDefinitions,
         writeLogFn     : () => {}
     });
     TaskStateService.taskState = createInitialTaskState(taskDefinitions);

@@ -145,7 +145,7 @@ class Client extends Base {
 
             if (appName === 'Unknown App' && Neo.config.appPath) {
                 let match = Neo.config.appPath.match(/apps\/([^\/]+)\//);
-                
+
                 if (match) {
                     appName = match[1]
                 } else {
@@ -339,7 +339,7 @@ class Client extends Base {
                 id,
                 error: {
                     code   : -32603, // Internal error
-                    message: message,
+                    message,
                     data   : {stack}
                 }
             })

@@ -403,7 +403,7 @@ export async function cleanOldBackups(backupRoot, logger, retention = {}) {
             backups.push({
                 name: entry.name,
                 path: path.join(backupRoot, entry.name),
-                date: date,
+                date,
                 time: date.getTime()
             });
         }

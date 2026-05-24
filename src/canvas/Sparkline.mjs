@@ -457,9 +457,9 @@ class Sparkline extends Base {
                     x = paddingX + index * stepX,
                     y = height - paddingY - (normalized * h),
                     point = {
-                        x        : x,
-                        y        : y,
-                        val      : val,
+                        x,
+                        y,
+                        val,
                         year     : 2010 + index,
                         dist     : 0,
                         accumDist: 0

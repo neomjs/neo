@@ -31,9 +31,9 @@ class OllamaProvider extends Base {
 
     /**
      * Helper to prepare the payload for Ollama.
-     * @param {String|Array} input 
-     * @param {Object} options 
-     * @param {Boolean} stream 
+     * @param {String|Array} input
+     * @param {Object} options
+     * @param {Boolean} stream
      * @returns {Object}
      * @protected
      */
@@ -55,7 +55,7 @@ class OllamaProvider extends Base {
 
         const payload = {
             model   : this.modelName,
-            messages: messages,
+            messages,
             stream  : stream
         };
 
@@ -200,10 +200,10 @@ class OllamaProvider extends Base {
                 if (done) break;
 
                 const chunkText = decoder.decode(value, {stream: true});
-                
+
                 // Ollama returns newline delimited JSON for streams
                 const lines = chunkText.split('\n').filter(line => line.trim() !== '');
-                
+
                 for (const line of lines) {
                     try {
                         const data = JSON.parse(line);
