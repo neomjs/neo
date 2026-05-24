@@ -76,7 +76,11 @@ const PUSH_CAPABLE_TARGETS     = Object.freeze(['mcp-notifications', 'a2a-webhoo
  * identity-agnostic (peer-service `.ready()` calls only); `identity` and
  * `pollIntervalMs` are *pulse-time* runtime config (read by `pulse()` per tick),
  * not *init-time* dependencies. Parent (Orchestrator) sets these via reactive
- * config assignment AFTER `await this.swarmHeartbeatService.ready()`. There is
+ * config assignment BEFORE `await this.swarmHeartbeatService.ready()` (the
+ * framework already fired identity-agnostic `initAsync()` at module-load, so
+ * `ready()` resolves immediately; the BEFORE-`.ready()` ordering matches the
+ * `Orchestrator.start()` code and keeps the contract symmetric with non-singleton
+ * `Neo.create({...configs})` shape where configs always flow in pre-init). There is
  * exactly one Orchestrator daemon per host, so the 1:1 service-to-parent
  * relationship has no multi-instance state-collision risk that the
  * CadenceEngine / MaintenanceBackpressureService non-singleton rule guards
@@ -109,8 +113,12 @@ class SwarmHeartbeatService extends Base {
          * primary fallback / tmux identity. Active WAKE_SUBSCRIPTION identities
          * are discovered per pulse so the Orchestrator is not bound to the
          * identity of the harness that launched it (#11872). Parent (Orchestrator)
-         * sets this via reactive config assignment in `start()`. `null` falls back
-         * to `DEFAULT_IDENTITY` via `beforeSetIdentity`, which also normalizes via
+         * sets this via reactive config assignment BEFORE `await service.ready()`
+         * in `start()` — the framework already fired identity-agnostic
+         * `initAsync()` at module-load, so the BEFORE-`.ready()` ordering matches
+         * the canonical Neo.create-flows-configs-pre-init shape and the actual
+         * `Orchestrator.start()` code. `null` falls back to `DEFAULT_IDENTITY`
+         * via `beforeSetIdentity`, which also normalizes via
          * `normalizeAgentIdentityNodeId` so the slot always holds a canonical
          * `@<identity>` form.
          * @member {String|null} identity_=null
@@ -151,8 +159,11 @@ class SwarmHeartbeatService extends Base {
      * completion, NOT call `initAsync()` directly.
      *
      * Note: `this.identity` / `this.pollIntervalMs` are NOT read here — they
-     * are pulse-time runtime config the parent (Orchestrator) sets AFTER
-     * `await service.ready()`. See class-level singleton-justification block.
+     * are pulse-time runtime config the parent (Orchestrator) sets BEFORE
+     * `await service.ready()` in `start()` (framework already fired identity-
+     * agnostic init at module-load; ordering matches the Neo.create-flows-
+     * configs-pre-init shape). `pulse()` reads them per tick. See class-level
+     * singleton-justification block.
      * @returns {Promise<void>}
      */
     async initAsync() {
