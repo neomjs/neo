@@ -169,7 +169,7 @@ Per `feedback_a2a_commentid_pre_flight`: post the verdict comment FIRST, capture
 - `.agents/skills/pr-review/` — sub-execution gate (audits Evidence declaration on each merging PR)
 - `.agents/skills/pull-request/` — author-side Evidence declaration template
 - `.agents/skills/ticket-create/` — invoked by the operator on `RECOMMEND_CREATE_MISSING_SUBS`
-- AGENTS.md §0 Invariant 1 — verdict authority parallel (close-act reserved for human)
+- AGENTS.md §0 Invariant 1 — PR-merge gate (NOT a verdict-authority parallel; §4 above documents why epic-close is downstream of the review verdict, not in §0 scope). Cross-referenced here because both invariants share the empirical pattern of agent-derived-recommendation + operator-authorized-action, but the substrate-effect / reversibility / blast-radius profiles differ materially.
 - Discussion #10697 — origin ideation
 - Issue #10698 — graduation artifact
 
