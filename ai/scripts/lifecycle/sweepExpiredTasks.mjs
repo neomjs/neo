@@ -2,10 +2,10 @@
 /**
  * @summary CLI invoker for `MailboxService.sweepExpiredTasks` consumed by the swarm heartbeat.
  *
- * Track 2C (#10339) — TTL/Expired sweeper. Runs the maintenance bulk-UPDATE that transitions
+ * Runs the maintenance bulk-UPDATE that transitions
  * stale `Submitted` / `Working` / `InputRequired` tasks past their `task.expiresAt` to
  * `Expired`. The Orchestrator swarm-heartbeat lane (`ai/daemons/SwarmHeartbeatService.mjs`)
- * now calls `MailboxService.sweepExpiredTasks()` directly each pulse (#11766); this CLI
+ * now calls `MailboxService.sweepExpiredTasks()` directly each pulse; this CLI
  * wrapper is preserved for manual debugging.
  *
  * Output: a single JSON line on stdout containing `{success, sweptCount}` so a CLI caller
@@ -23,8 +23,8 @@
 // `Neo.setupClass()` at module-load time (e.g. `src/core/Compare.mjs`, transitively
 // pulled in via the LifecycleService → GraphService → SQLite import chain). Without
 // this prelude the script crashes at module-load with `ReferenceError: Neo is not
-// defined` (regression originally surfaced empirically by @neo-gpt during the #10318
-// heartbeat token-economy measurement, fixed under #10595).
+// defined`. Keep the bootstrap local to this entry point so manual CLI usage and
+// orchestrator child-process usage share the same class-system prelude.
 import Neo              from '../../../src/Neo.mjs';
 import * as core        from '../../../src/core/_export.mjs';
 import LifecycleService from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';

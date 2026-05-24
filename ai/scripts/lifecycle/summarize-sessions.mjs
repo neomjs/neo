@@ -4,13 +4,12 @@
  *
  * Backfills chronological session summaries into the Memory Core's `neo-agent-sessions`
  * Chroma collection, bypassing the auto-summarization that was disabled on MC server
- * startup per #9942 (daemon-collision fix). Operator-runnable via `npm run ai:summarize-sessions`.
+ * startup to avoid daemon collision. Operator-runnable via `npm run ai:summarize-sessions`.
  *
  * Defaults to last-30-days lookback (`includeAll: false`); for fresh-deployment
  * full-summarization, edit the call-site or extend with a `--include-all` CLI flag (future).
  *
  * @see ai/services/memory-core/SessionService.summarizeSessions
- * @see #10458 (origin), #9942 (daemon-collision context)
  */
 // Neo namespace bootstrap (entry-point invariant) — this script is an orchestrator
 // spawn-child entry point (`spawn(node, [summarize-sessions.mjs])`). Each spawned

@@ -8,19 +8,18 @@
  * Substrate-truth: harness restart spawns a fresh process for the recovering
  * identity. Without cleanup of the prior harness instance, repeated sunsets
  * accumulate stale processes and orphan windows. The OLD osascript Cmd+N
- * adapter (#10611 PR-B legacy fallback) didn't have this surface because
+ * adapter did not have this surface because
  * Cmd+N spawned a new chat WITHIN the same app instance; the new CLI-based
  * adapters create distinct processes and DO need explicit cleanup.
  *
  * Per `learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md`, the
  * acute containment for runaway-spawn was the in-flight lock primitive
- * (`inflightLock.mjs`, #10683) — single-flight per identity at the START
+ * (`inflightLock.mjs`) — single-flight per identity at the START
  * of an action. This module is the dual: cleanup at the END of the
  * previous action's process when starting the next one.
  *
  * @see ai/scripts/lifecycle/inflightLock.mjs (sibling per-identity primitive)
  * @see ai/scripts/lifecycle/resumeHarness.mjs (consumer)
- * @see #10696 — in-PR cleanup per @neo-gemini-3-1-pro review point 2
  */
 import fs   from 'fs/promises';
 import path from 'path';

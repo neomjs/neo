@@ -34,7 +34,7 @@ export async function trioWakeCooldown(signal) {
     }
 
     return withHeartbeatLock(async () => {
-        // Enforce 10-minute (600s) default TTL to match swarm consensus (Regression Fix: #10626 vs 30m flaw)
+        // Enforce the default cooldown agreed for swarm-wide wake retries.
         const ttlSeconds = parseInt(process.env.TRIO_WAKE_COOLDOWN_SECONDS, 10) || 600;
         const ttlMs = ttlSeconds * 1000;
         const now = Date.now();
@@ -63,7 +63,7 @@ export async function trioWakeCooldown(signal) {
         const sender = process.env.NEO_AGENT_IDENTITY || '@system';
         const abandonedCount = signal.details?.[coordinator]?.abandonedCount || 0;
 
-        // Secure the nudge boot ramp BEFORE taking action (Issue #10674)
+        // Secure the nudge boot ramp before taking the wake action.
         await writeInflightLock(coordinator, 'idle_out_nudge', abandonedCount);
 
         try {
