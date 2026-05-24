@@ -235,7 +235,6 @@ export function recordDeferral({
  *
  * @class Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService
  * @extends Neo.core.Base
- * @singleton
  */
 export class MaintenanceBackpressureService extends Base {
     static config = {
@@ -244,11 +243,6 @@ export class MaintenanceBackpressureService extends Base {
          * @protected
          */
         className: 'Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService',
-        /**
-         * @member {Boolean} singleton=true
-         * @protected
-         */
-        singleton: true,
         /**
          * @member {ReadonlyArray<String>} heavyMaintenanceTaskNames_=DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
          * @reactive
