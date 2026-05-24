@@ -8,13 +8,12 @@
  *
  * @see ai/daemons/Orchestrator.mjs
  * @see learn/agentos/v13-path.md
- * @see #11009
  */
 // dotenv: load local `.env` into `process.env` before ANY consumer reads env vars.
 // Cloud deployment doesn't need it (env-only via docker-compose); local dev needs
 // it for `.env` file load. Placement at the orchestrator entrypoint is deliberate
-// per Discussion #11869 cycle-2 — NO global env registry, no shared dotenv-loading
-// substrate. Each entrypoint loads its own .env if needed.
+// so env-file loading stays entrypoint-local instead of becoming a global registry
+// or shared substrate.
 import 'dotenv/config';
 
 // Neo namespace bootstrap (entry-point invariant): `Neo` + `core/_export` populate
@@ -300,4 +299,3 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         process.exit(1);
     });
 }
-

@@ -198,7 +198,7 @@ class DreamService extends Base {
                     logger.info(`[DreamService]   -> Payload size (chars): ${session.document.length}`);
 
                     // Phase 2a: Memory/Session graph ingestion — runs BEFORE SemanticGraphExtractor
-                    // so future provenance edges (#10152) from extracted entities attach to real
+                    // so future provenance edges from extracted entities attach to real
                     // MEMORY/SESSION nodes rather than dangling at `sessionId` scalars. Deterministic
                     // Chroma-ID → graph-node mapping; no LLM cost, idempotent via payloadHash.
                     const ingestStart = Date.now();
@@ -237,9 +237,9 @@ class DreamService extends Base {
                     }
                 }
 
-                // Hoisted from the per-session loop (#10085): concept-graph gap inference is
-                // ontology-scoped — same output every invocation within a single REM cycle — so
-                // running it once after the session loop replaces N redundant traversals.
+                // Concept-graph gap inference is ontology-scoped: the output is identical
+                // for every invocation within a single REM cycle, so running it once after
+                // the session loop replaces redundant traversals.
                 const conceptGapStart = Date.now();
                 await this.inferConceptGraphGaps();
                 logger.info(`[DreamService] Cycle-scope GUIDE_GAP / EXAMPLE_GAP Inference took: ${((Date.now() - conceptGapStart) / 1000).toFixed(1)}s`);
@@ -272,7 +272,8 @@ class DreamService extends Base {
      * `GapInferenceEngine` for deterministic concept-graph edge traversal (`EXPLAINED_BY` /
      * `EXEMPLIFIED_BY`). Output depends only on ontology state, not on any individual session —
      * invoked once per REM cycle after the per-session loop, before `runGarbageCollection`.
-     * Paired with `inferTestGapsFromSession` (session-scoped). See #10085 for the scope split.
+     * Paired with `inferTestGapsFromSession` (session-scoped) to keep ontology-wide
+     * and session-specific gap checks separated.
      */
     async inferConceptGraphGaps() {
         return GapInferenceEngine.inferConceptGraphGaps();
@@ -282,7 +283,8 @@ class DreamService extends Base {
      * Session-scoped TEST_GAP inference entry point. Delegates to `GapInferenceEngine` for
      * structural-node (CLASS / METHOD / COMPONENT) test-file coverage checks keyed to the
      * current session's artifact. Invoked inside the REM loop once per session.
-     * Paired with `inferConceptGraphGaps` (cycle-scoped). See #10085 for the scope split.
+     * Paired with `inferConceptGraphGaps` (cycle-scoped) to keep ontology-wide
+     * and session-specific gap checks separated.
      * @param {Object} payload The parsed Tri-Vector schema from `SemanticGraphExtractor`
      */
     async inferTestGapsFromSession(payload) {
@@ -290,7 +292,7 @@ class DreamService extends Base {
     }
 
     /**
-     * Concept discovery entry point (#10036). Delegates to `ConceptDiscoveryService` to mine
+     * Concept discovery entry point. Delegates to `ConceptDiscoveryService` to mine
      * recurring architectural vocabulary from Memory Core session summaries and local GitHub
      * issue markdown. New candidates land in `.neo-ai-data/concepts/nodes.jsonl` with
      * `validated: false`, tier 3, low weight — silenced in `sandman_handoff.md` until a
