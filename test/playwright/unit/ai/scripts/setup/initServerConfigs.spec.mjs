@@ -97,7 +97,7 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
     test('AC2: drifting config.mjs without --migrate-config emits warning, does not overwrite', async () => {
         const templateSrc = [
             `import path from 'path';`,
-            `import {parsePort, parseUrl} from '../shared/helpers/EnvConfig.mjs';`,
+            `import {parsePort, parseUrl} from '../../../../src/util/Env.mjs';`,
             `import {resolveChromaHost} from '../shared/helpers/DeploymentConfig.mjs';`,
             `export default {x: 1};`,
             ``
@@ -105,7 +105,7 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
 
         const configSrc = [
             `import path from 'path';`,
-            `import {parsePort} from '../shared/helpers/EnvConfig.mjs';`,
+            `import {parsePort} from '../../../../src/util/Env.mjs';`,
             `export default {x: 1};`,
             ``
         ].join('\n');
@@ -128,15 +128,15 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         expect(action.drift.hasDrift).toBe(true);
         expect(action.drift.missingImports).toContain('../shared/helpers/DeploymentConfig.mjs');
         // Same-source named-specifier drift: template added `parseUrl` to the existing
-        // EnvConfig.mjs import block; even though the source path is shared, the
+        // Env.mjs import block; even though the source path is shared, the
         // specifier-level projection must catch this.
-        expect(action.drift.missingImports).toContain('../shared/helpers/EnvConfig.mjs:parseUrl');
+        expect(action.drift.missingImports).toContain('../../../../src/util/Env.mjs:parseUrl');
         expect(action.drift.missingImports).toContain('../shared/helpers/DeploymentConfig.mjs:resolveChromaHost');
 
         // Multi-line warning shape: header + per-item bullet + recovery prompt
         expect(logger.entries.warn.some(l => l.includes("Stale config.mjs for 'memory-core'"))).toBe(true);
         expect(logger.entries.warn.some(l => l.includes('+ import: ../shared/helpers/DeploymentConfig.mjs'))).toBe(true);
-        expect(logger.entries.warn.some(l => l.includes('+ import: ../shared/helpers/EnvConfig.mjs:parseUrl'))).toBe(true);
+        expect(logger.entries.warn.some(l => l.includes('+ import: ../../../../src/util/Env.mjs:parseUrl'))).toBe(true);
         expect(logger.entries.warn.some(l => l.includes('npm run prepare -- --migrate-config'))).toBe(true);
 
         // Did NOT overwrite
@@ -212,18 +212,18 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
 
     test('same-source named import drift detected: template adds specifier to existing import block', async () => {
         // Empirical regression guard against the dominant config-template evolution mode
-        // (e.g., #10812 added `parseUrl` to the existing EnvConfig.mjs import block).
+        // (e.g., #10812 added `parseUrl` to the existing Env.mjs import block).
         // Source path is unchanged, so source-path projection alone wouldn't catch it.
         const templateSrc = [
             `import path from 'path';`,
-            `import {parsePort, parseUrl, parseBool, parseNumber} from '../shared/helpers/EnvConfig.mjs';`,
+            `import {parsePort, parseUrl, parseBool, parseNumber} from '../../../../src/util/Env.mjs';`,
             `export default {x: 1};`,
             ``
         ].join('\n');
 
         const configSrc = [
             `import path from 'path';`,
-            `import {parsePort, parseBool} from '../shared/helpers/EnvConfig.mjs';`,
+            `import {parsePort, parseBool} from '../../../../src/util/Env.mjs';`,
             `export default {x: 1};`,
             ``
         ].join('\n');
@@ -249,34 +249,34 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         // shared-source:specifier entries are detected by the projection.
         expect(action.drift.missingImports).toEqual(
             expect.arrayContaining([
-                '../shared/helpers/EnvConfig.mjs:parseUrl',
-                '../shared/helpers/EnvConfig.mjs:parseNumber'
+                '../../../../src/util/Env.mjs:parseUrl',
+                '../../../../src/util/Env.mjs:parseNumber'
             ])
         );
 
         // The whole-import source path is NOT missing (both files import from it),
         // so it should NOT appear in missingImports — the value-add of specifier-level
         // drift detection is exactly that we don't need the whole-import to be missing.
-        expect(action.drift.missingImports).not.toContain('../shared/helpers/EnvConfig.mjs');
+        expect(action.drift.missingImports).not.toContain('../../../../src/util/Env.mjs');
     });
 
     test('aliased named imports normalize to the imported (left-side) name', async () => {
         // `import {parsePort as foo, parseBool} from '...'` projects as `:parsePort` + `:parseBool`,
         // not the local alias `:foo`. Ensures shape comparison is stable across
         // operator local-aliasing variations.
-        const src = `import {parsePort as foo, parseBool} from '../shared/helpers/EnvConfig.mjs';\n`;
+        const src = `import {parsePort as foo, parseBool} from '../../../../src/util/Env.mjs';\n`;
         const filePath = path.join(workRoot, 'aliased.mjs');
         fs.writeFileSync(filePath, src);
 
         const shape = await projectShape(filePath);
         expect(shape.imports).toEqual(
             expect.arrayContaining([
-                '../shared/helpers/EnvConfig.mjs',
-                '../shared/helpers/EnvConfig.mjs:parsePort',
-                '../shared/helpers/EnvConfig.mjs:parseBool'
+                '../../../../src/util/Env.mjs',
+                '../../../../src/util/Env.mjs:parsePort',
+                '../../../../src/util/Env.mjs:parseBool'
             ])
         );
-        expect(shape.imports).not.toContain('../shared/helpers/EnvConfig.mjs:foo');
+        expect(shape.imports).not.toContain('../../../../src/util/Env.mjs:foo');
     });
 
     test('default + namespace imports projected with reserved suffixes (`:default`, `:*`)', async () => {
@@ -314,7 +314,7 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
             `    parseNumber,`,
             `    parsePort,`,
             `    parseUrl`,
-            `} from '../shared/helpers/EnvConfig.mjs';`,
+            `} from '../../../../src/util/Env.mjs';`,
             ``,
             `import {fileURLToPath} from 'url';`,
             ``,
@@ -329,7 +329,7 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         // Source-path entries (whole-import drift surface)
         expect(shape.imports).toEqual(
             expect.arrayContaining([
-                '../shared/helpers/EnvConfig.mjs',
+                '../../../../src/util/Env.mjs',
                 'path',
                 'url'
             ])
@@ -337,10 +337,10 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         // Named-specifier entries from the multi-line block (same-source drift surface)
         expect(shape.imports).toEqual(
             expect.arrayContaining([
-                '../shared/helpers/EnvConfig.mjs:parseBool',
-                '../shared/helpers/EnvConfig.mjs:parseNumber',
-                '../shared/helpers/EnvConfig.mjs:parsePort',
-                '../shared/helpers/EnvConfig.mjs:parseUrl',
+                '../../../../src/util/Env.mjs:parseBool',
+                '../../../../src/util/Env.mjs:parseNumber',
+                '../../../../src/util/Env.mjs:parsePort',
+                '../../../../src/util/Env.mjs:parseUrl',
                 'path:default',
                 'url:fileURLToPath'
             ])

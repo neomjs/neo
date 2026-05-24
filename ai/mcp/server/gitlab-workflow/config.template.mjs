@@ -1,7 +1,7 @@
 import path                                       from 'path';
 import {fileURLToPath}                            from 'url';
 import BaseConfig, {createConfigProxy}            from '../shared/BaseConfig.mjs';
-import {parseBool, parseString, parseUrl}         from '../shared/helpers/EnvConfig.mjs';
+import Env from '../../../../src/util/Env.mjs';
 
 const __filename     = fileURLToPath(import.meta.url);
 const __dirname      = path.dirname(__filename);
@@ -16,7 +16,9 @@ const validLogLevels = ['error', 'warn', 'info', 'log', 'debug'];
  * @param {Function} [warn=console.warn]
  * @returns {String|undefined}
  */
-function parseLogLevel(rawValue, envVarName, warn = console.warn) {
+function parseLogLevel(envVarName, {env = process.env, warn = console.warn} = {}) {
+    const rawValue = env[envVarName];
+    if (rawValue === undefined || rawValue === null || rawValue === '') return;
     const value = String(rawValue).trim().toLowerCase();
 
     if (validLogLevels.includes(value)) {
@@ -71,11 +73,11 @@ const defaultConfig = {
  * @summary Environment-variable ledger for client-project GitLab MCP config.
  */
 const envBindings = {
-    debug           : {var: 'NEO_GITLAB_WORKFLOW_DEBUG', parse: parseBool},
+    debug           : {var: 'NEO_GITLAB_WORKFLOW_DEBUG', parse: Env.parseBool},
     logLevel        : {var: 'NEO_GITLAB_WORKFLOW_LOG_LEVEL', parse: parseLogLevel},
-    transport       : {var: 'NEO_GITLAB_WORKFLOW_TRANSPORT', parse: parseString},
-    'gitlab.hostUrl': {var: 'NEO_GITLAB_HOST', parse: parseUrl},
-    'gitlab.token'  : {var: 'NEO_GITLAB_PAT', parse: parseString}
+    transport       : {var: 'NEO_GITLAB_WORKFLOW_TRANSPORT', parse: Env.parseString},
+    'gitlab.hostUrl': {var: 'NEO_GITLAB_HOST', parse: Env.parseUrl},
+    'gitlab.token'  : {var: 'NEO_GITLAB_PAT', parse: Env.parseString}
 };
 
 /**

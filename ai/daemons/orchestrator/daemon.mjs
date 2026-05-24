@@ -10,6 +10,13 @@
  * @see learn/agentos/v13-path.md
  * @see #11009
  */
+// dotenv: load local `.env` into `process.env` before ANY consumer reads env vars.
+// Cloud deployment doesn't need it (env-only via docker-compose); local dev needs
+// it for `.env` file load. Placement at the orchestrator entrypoint is deliberate
+// per Discussion #11869 cycle-2 — NO global env registry, no shared dotenv-loading
+// substrate. Each entrypoint loads its own .env if needed.
+import 'dotenv/config';
+
 // Neo namespace bootstrap (entry-point invariant): `Neo` + `core/_export` populate
 // `globalThis.Neo` so consumed class files (Orchestrator, TaskStateService,
 // ProcessSupervisorService, SummarizationCoordinatorService) can call
