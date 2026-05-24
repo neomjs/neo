@@ -197,6 +197,20 @@ const defaultConfig = {
      */
     logPath: path.resolve(neoRootDir, '.neo-ai-data/logs'),
     /**
+     * @summary Shared MCP logger policy for Knowledge Base.
+     *
+     * Always-on file sink plus debug-gated stderr. The shared logger reads this
+     * per-server policy lazily, so tests and local config overrides can update
+     * `logPath` / `debug` before the next write without re-importing the module.
+     * @type {Object}
+     */
+    logger: {
+        filePrefix    : 'kb-server',
+        fileSink      : true,
+        stderrMode    : 'debug',
+        timestampStyle: 'plain'
+    },
+    /**
      * The name of the ChromaDB collection for the knowledge base.
      * @type {string}
      */
