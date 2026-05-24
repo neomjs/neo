@@ -189,7 +189,18 @@ export class Orchestrator extends Base {
          * @member {Function} spawnFn_=spawn
          * @reactive
          */
-        spawnFn_: spawn
+        spawnFn_: spawn,
+        /**
+         * Class B reactive config: parent-configured child collaborator. Replaces
+         * the prior `swarmHeartbeatService = SwarmHeartbeatService` Class C
+         * singleton-import. Per CadenceEngine / MaintenanceBackpressureService
+         * precedent: classes that need external parent configuration (`identity`,
+         * `pollIntervalMs`) must NOT be singletons; `beforeSet` creates a fresh
+         * instance with current parent state.
+         * @member {Neo.ai.daemons.SwarmHeartbeatService|Object|null} swarmHeartbeatService_=null
+         * @reactive
+         */
+        swarmHeartbeatService_: null
     }
 
     // === Service-DI Class C: simple imported collaborators (instance fields) ===
@@ -197,7 +208,6 @@ export class Orchestrator extends Base {
     backupCoordinator        = BackupCoordinatorService
     primaryRepoSyncService   = PrimaryRepoSyncService
     dreamService             = DreamService
-    swarmHeartbeatService    = SwarmHeartbeatService
     goldenPathSynthesizer    = GoldenPathSynthesizer
     initializeDatabaseFn     = initializeDatabase
 
@@ -264,6 +274,21 @@ export class Orchestrator extends Base {
         if (this.processSupervisorService) this.processSupervisorService.spawnFn = value;
     }
 
+    /**
+     * Class B beforeSet: creates a fresh SwarmHeartbeatService instance with current
+     * parent-state seed (identity + pollIntervalMs). Re-runs on every assignment
+     * (including `this.swarmHeartbeatService = {}` in `start()` to capture
+     * options-derived state).
+     * @param {Neo.ai.daemons.SwarmHeartbeatService|Object|null} value
+     * @returns {Neo.ai.daemons.SwarmHeartbeatService}
+     */
+    beforeSetSwarmHeartbeatService(value) {
+        return ClassSystemUtil.beforeSetInstance(value, SwarmHeartbeatService, {
+            identity      : this.swarmHeartbeatIdentity,
+            pollIntervalMs: this.swarmHeartbeatIntervalMs
+        });
+    }
+
     // === Service-DI Class D: operator policy values (lazy getters, 2-value chain) ===
     get pollIntervalMs()          { return Env.parseNumber('NEO_ORCHESTRATOR_POLL_INTERVAL_MS')             ?? AiConfig.orchestrator.intervals.pollMs;             }
     get summarySweepIntervalMs()  { return Env.parseNumber('NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS')    ?? AiConfig.orchestrator.intervals.summarySweepMs;     }
@@ -273,6 +298,7 @@ export class Orchestrator extends Base {
     get dreamIntervalMs()         { return Env.parseNumber('NEO_ORCHESTRATOR_DREAM_INTERVAL_MS')            ?? AiConfig.orchestrator.intervals.dreamMs;            }
     get goldenPathIntervalMs()    { return Env.parseNumber('NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS')      ?? AiConfig.orchestrator.intervals.goldenPathMs;       }
     get swarmHeartbeatIntervalMs(){ return Env.parseNumber('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS')  ?? AiConfig.orchestrator.intervals.swarmHeartbeatMs;   }
+    get swarmHeartbeatIdentity()  { return Env.parseString('NEO_AGENT_IDENTITY');                                                                                  }
 
     get kbSyncEnabled()                  { return Env.parseBool('NEO_ORCHESTRATOR_KB_SYNC_ENABLED')                     ?? resolveDeploymentEnabled('kbSyncEnabled');                  }
     get primaryDevSyncEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED')            ?? resolveDeploymentEnabled('primaryDevSyncEnabled');          }
@@ -345,7 +371,11 @@ export class Orchestrator extends Base {
         // NOT crash the Orchestrator — the lane disables itself for this run.
         if (this.swarmHeartbeatEnabled) {
             try {
-                await this.swarmHeartbeatService.initAsync({pollIntervalMs: this.swarmHeartbeatIntervalMs});
+                // Re-create via Class B reactive setter (mirrors processSupervisorService pattern)
+                // so beforeSet picks up options-derived parent state. Then await ready() per the
+                // core.Base.mjs:589-595 contract — NEVER call initAsync() externally.
+                this.swarmHeartbeatService = {};
+                await this.swarmHeartbeatService.ready();
             } catch (e) {
                 this.writeLog('ERROR', `[Orchestrator] Swarm heartbeat init failed; lane disabled this run: ${e.message}`);
                 // Force-disable for this run via daemon-local instance state on the service.

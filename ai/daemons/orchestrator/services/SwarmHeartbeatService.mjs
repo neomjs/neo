@@ -65,9 +65,16 @@ const PUSH_CAPABLE_TARGETS     = Object.freeze(['mcp-notifications', 'a2a-webhoo
  * wrappers for manual use. The lane calls those exports directly to avoid 2-5s Node
  * startup hops per pulse.
  *
+ * **Lifecycle contract (per core.Base.mjs:589-595):** `initAsync()` is triggered ONCE
+ * by the framework during `Neo.create()`. External callers MUST use `await
+ * service.ready()` to wait for init completion — NOT call `initAsync()` directly
+ * (would execute twice → fatal duplication). Parent configs (`identity`,
+ * `pollIntervalMs`) flow via Neo.create config or reactive setters BEFORE the
+ * framework-triggered `initAsync()`. The Orchestrator owns the scheduler; this
+ * class has no self-scheduling loop and no entry-point wrapper of its own.
+ *
  * @class Neo.ai.daemons.SwarmHeartbeatService
  * @extends Neo.core.Base
- * @singleton
  * @see ai/daemons/Orchestrator.mjs              — the daemon this lane is folded into (#11766)
  * @see ai/scripts/lifecycle/checkSunsetted.mjs            — sunset detector (subprocess)
  * @see ai/scripts/lifecycle/resumeHarness.mjs             — fresh-session-spawn dispatcher (subprocess)
@@ -87,61 +94,55 @@ class SwarmHeartbeatService extends Base {
          */
         singleton: true,
         /**
-         * Whether one-time async init has completed. Guards `initAsync()` against
-         * re-running the LifecycleService / GraphService boot on a second call.
-         * @member {Boolean} isInitialized_=false
-         * @protected
-         * @reactive
-         */
-        isInitialized_: false,
-        /**
-         * Identity this lane polls for (e.g. `@neo-gemini-3-1-pro`).
-         * Kept as the primary fallback / tmux identity. Active WAKE_SUBSCRIPTION
-         * identities are discovered per pulse so the Orchestrator is not bound to
-         * the identity of the harness that launched it (#11872).
+         * Identity this lane polls for (e.g. `@neo-gemini-3-1-pro`). Kept as the
+         * primary fallback / tmux identity. Active WAKE_SUBSCRIPTION identities
+         * are discovered per pulse so the Orchestrator is not bound to the
+         * identity of the harness that launched it (#11872). Parent (Orchestrator)
+         * sets this via reactive config assignment in `start()`. `null` falls back
+         * to `DEFAULT_IDENTITY` via `beforeSetIdentity`, which also normalizes via
+         * `normalizeAgentIdentityNodeId` so the slot always holds a canonical
+         * `@<identity>` form.
          * @member {String|null} identity_=null
-         * @protected
          * @reactive
          */
         identity_: null,
         /**
-         * Interval between pulses in milliseconds.
+         * Interval between pulses in milliseconds. Parent (Orchestrator) sets this
+         * via reactive config to the orchestrator's `swarmHeartbeatIntervalMs` value
+         * (which already honors `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS` env
+         * override per Lane A #11873 env-binding pattern).
          * @member {Number} pollIntervalMs_=300000
-         * @protected
          * @reactive
          */
         pollIntervalMs_: DEFAULT_POLL_INTERVAL_MS
     }
 
     /**
-     * One-time async init for the swarm-heartbeat lane. Idempotent — a second call
-     * while already initialized is a no-op. Boots the LifecycleService + GraphService
-     * once so SQLite queries on subsequent `pulse()` cadence ticks run without
-     * per-pulse init overhead. The Orchestrator owns the scheduler; this method does
-     * NOT start a loop.
-     * @param {Object} [options]
-     * @param {String} [options.identity] Agent identity (defaults to NEO_AGENT_IDENTITY env or @neo-gemini-3-1-pro)
-     * @param {Number} [options.pollIntervalMs] Pulse cadence in ms, used only for the prompt's elapsed-time label (defaults to POLL_INTERVAL env*1000 or 5min)
+     * Normalizes identity to canonical `@<identity>` form. Falls back to
+     * `DEFAULT_IDENTITY` when value is null/empty (the static-config default
+     * intentionally null'd so parent can override; if neither parent nor env
+     * provides identity, this fallback kicks in).
+     * @param {String|null} value
+     * @returns {String}
+     */
+    beforeSetIdentity(value) {
+        if (!value) return DEFAULT_IDENTITY;
+        return normalizeAgentIdentityNodeId(value);
+    }
+
+    /**
+     * One-time async init triggered by Neo.create() framework lifecycle. Awaits
+     * peer-service readiness (LifecycleService + GraphService) so SQLite queries on
+     * subsequent `pulse()` cadence ticks run without per-pulse init overhead. Per
+     * core.Base.mjs:589-595 contract: external callers MUST use `await
+     * service.ready()` to wait for completion, NOT call `initAsync()` directly.
      * @returns {Promise<void>}
      */
-    async initAsync({identity, pollIntervalMs} = {}) {
-        if (this.isInitialized) {
-            logger.debug('[SwarmHeartbeatService] Already initialized; initAsync() is a no-op.');
-            return;
-        }
+    async initAsync() {
+        await super.initAsync();
+        await LifecycleService.ready();
+        await GraphService.ready();
 
-        this.identity = normalizeAgentIdentityNodeId(
-            identity || process.env.NEO_AGENT_IDENTITY || DEFAULT_IDENTITY
-        );
-
-        const envInterval = parseInt(process.env.POLL_INTERVAL, 10);
-        this.pollIntervalMs = pollIntervalMs
-            || (Number.isFinite(envInterval) && envInterval > 0 ? envInterval * 1000 : DEFAULT_POLL_INTERVAL_MS);
-
-        await LifecycleService.initAsync();
-        await GraphService.initAsync();
-
-        this.isInitialized = true;
         logger.info(`[SwarmHeartbeatService] Initialized swarm-heartbeat lane for ${this.identity} (interval: ${this.pollIntervalMs}ms)`)
     }
 
