@@ -5,9 +5,11 @@ import aiConfig from '../../mcp/server/memory-core/config.mjs';
 import logger  from '../../mcp/server/memory-core/logger.mjs';
 
 /**
- * @summary Drains the lazy-edges JSONL queue into the Native Edge Graph — the **consumer
- * side** of the producer/consumer contract Gemini 3.1 Pro shipped in ticket #10152 / PR #10165
- * (producer) and this ticket #10153 (consumer).
+ * @summary Drains the lazy-edges JSONL queue into the Native Edge Graph.
+ *
+ * This service is the consumer side of the producer/consumer contract used by
+ * `SemanticGraphExtractor`: the extractor writes unresolved provenance edges, and this drainer
+ * resolves or retains them once the referenced `MEMORY:` / `SESSION:` endpoints exist.
  *
  * `SemanticGraphExtractor` writes provenance edges (`MENTIONED_IN`, `DISCUSSED_IN`,
  * `REFERENCED_BY`) whose `MEMORY:` / `SESSION:` targets may not yet exist in the graph — those
