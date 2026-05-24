@@ -496,7 +496,7 @@ export async function diffRevisions({mirrorRoot, tenantId, repoSlug, baseRevisio
 
     await isUsableMirror(mirrorPath);
 
-    const result = await runGit(['diff', '--name-status', '-z', baseRevision, headRevision], {
+    const result = await runGit(['diff', '--name-status', '-z', '-M', baseRevision, headRevision], {
         cwd           : mirrorPath,
         failureCode   : 'KB_GITMIRROR_DIFF_FAILED',
         failureMessage: 'GitMirror revision diff failed'
@@ -507,7 +507,26 @@ export async function diffRevisions({mirrorRoot, tenantId, repoSlug, baseRevisio
 
     for (let i = 0; i < parts.length;) {
         const status = parts[i++];
-        const file   = parts[i++];
+
+        if (status.startsWith('R')) {
+            const oldFile = parts[i++],
+                  newFile = parts[i++];
+
+            if (oldFile) deleted.add(oldFile);
+            if (newFile) addedOrChanged.add(newFile);
+            continue;
+        }
+
+        if (status.startsWith('C')) {
+            i++;
+
+            const newFile = parts[i++];
+
+            if (newFile) addedOrChanged.add(newFile);
+            continue;
+        }
+
+        const file = parts[i++];
 
         if (!file) continue;
 
