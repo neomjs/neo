@@ -24,10 +24,9 @@ async function syncKnowledgeBase() {
         console.log(`   Using explicit stale strategy: ${staleStrategy}`);
     }
 
-    // Lane C of #11503 — wrap the heavy-maintenance work in the shared lease so this
-    // CLI cannot collide with the orchestrator's own kbSync task (which is the empirical
-    // collision class today's wedge at 19:27Z exhibited) or with other manual heavy
-    // scripts. The lease primitive lives in PR #11506 / #11505; Lane C is #11507.
+    // Run the full sync under the shared heavy-maintenance lease so this CLI cannot
+    // collide with the orchestrator's own kbSync task or with other manual graph-heavy
+    // scripts.
     let outcome;
     try {
         outcome = await withHeavyMaintenanceLease(
@@ -47,7 +46,7 @@ async function syncKnowledgeBase() {
                 console.log('✅ Services Ready. Starting Synchronization...');
 
                 // Execute the full sync (create + embed). `NEO_KB_STALE_STRATEGY=shadow-swap`
-                // is the explicit activation path for #11685; default CLI sync remains unchanged.
+                // opts into the shadow-swap stale-data strategy; default CLI sync remains unchanged.
                 return KB_DatabaseService.syncDatabase({staleStrategy});
             },
             {owner: 'kbSync', reason: 'manual-cli', metadata: {script: 'ai/scripts/maintenance/syncKnowledgeBase.mjs'}}

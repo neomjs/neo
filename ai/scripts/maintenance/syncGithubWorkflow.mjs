@@ -31,11 +31,9 @@ import {withHeavyMaintenanceLease}     from '../../daemons/orchestrator/services
  * `defragChromaDB.mjs`, and other operator-runnable CLI scripts. No direct
  * `ai/mcp/server/...` or `ai/services/...` deep imports.
  *
- * **Authority anchors:**
- * - ADR 0004 §1.3 (regeneratable cache) + §3.6 (clean-slate purge) — the workflow
- *   this script enables
- * - #11451 / PR #11461 — Phase 1 Task 10 close-out that surfaced the CLI gap
- * - #11469 — this ticket
+ * The authority boundary is ADR 0004's regeneratable-cache model: this script exists
+ * to rebuild workflow mirrors outside the MCP request-timeout envelope while preserving
+ * the same service path as `sync_all`.
  *
  * @example
  *   npm run ai:sync-github-workflow
@@ -51,11 +49,10 @@ async function syncGithubWorkflow() {
 
     console.log('🔄 Starting full GitHub Workflow sync via GH_SyncService.runFullSync()...');
 
-    // Lane C of #11503 — wrap the heavy-maintenance work in the shared lease so this
-    // CLI cannot collide with the orchestrator's kbSync / summary / dream / golden-path
-    // tasks or with another manual heavy script (#11507 / #11505 lease primitive). Stage 2
-    // graph ingestion in particular is the substrate-heavy concern (per AC7 / #11503);
-    // whole-run guard is the v1 prescription pending future Stage 1 / Stage 2 split.
+    // Run the full workflow sync under the shared heavy-maintenance lease so this CLI
+    // cannot collide with orchestrator maintenance tasks or another manual graph-heavy
+    // script. The whole-run guard keeps graph ingestion protected until the sync stages
+    // have a narrower concurrency boundary.
     let outcome;
     try {
         outcome = await withHeavyMaintenanceLease(

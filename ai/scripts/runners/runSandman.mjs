@@ -167,26 +167,17 @@ export async function runSandman() {
 
     console.log('⏳ Initializing Sandman REM Extraction Pipeline...');
 
-    // Lane C of #11503 — wrap the REM cycle in the shared heavy-maintenance lease so this
-    // CLI cannot collide with the orchestrator's `dream` task or with other manual heavy
-    // scripts. The substrate-heavy work (DreamService + GoldenPathSynthesizer LLM passes
-    // + Memory Core graph writes) is the contention surface the lease primitive (PR #11506 /
-    // #11505) guards. On held-status, the script defers cleanly without running the decay
-    // step (since no graph mutation occurred).
+    // Run the REM cycle under the shared heavy-maintenance lease so this CLI cannot
+    // collide with the orchestrator's `dream` task or with other manual graph-heavy
+    // scripts. If another owner holds the lease, defer without running decay because
+    // no graph mutation occurred in this process.
     let outcome;
     try {
         outcome = await withHeavyMaintenanceLease(async () => {
-            // Inner try/catch/finally preserves the script's prior graceful-fail semantics for
-            // provider-readiness + DreamService failures (return-without-throw at the
-            // provider-fail branch; throw-and-catch for everything else) AND guarantees the
-            // graph-mutating decay runs INSIDE the lease window.
-            //
-            // Per GPT review PR #11509 cycle 2 (PRR_kwDODSospM8AAAABAJKF8w): `withHeavyMaintenanceLease`
-            // releases the lease in its own `finally` BEFORE returning, so any decay call placed
-            // after the await would mutate Memory Core graph state outside the lease — defeating
-            // the substrate protection this PR is shipping. Placing decay in THIS inner finally
-            // pins it inside the lease window: JS guarantees the inner finally completes before
-            // the awaited task settles, so the wrapper's release runs strictly after decay.
+            // Preserve graceful failure for provider-readiness and DreamService errors while
+            // keeping graph-decay inside the lease window. `withHeavyMaintenanceLease`
+            // releases after the task settles, so the inner finally is the last safe place for
+            // graph mutation that must stay covered by the lease.
             try {
                 console.log('   Waiting for Lifecycle Service to auto-boot orchestrators...');
                 await LifecycleService.ready();
@@ -237,12 +228,8 @@ export async function runSandman() {
             }
         }, {owner: 'sandman', reason: 'manual-cli', metadata: {script: 'ai/scripts/runners/runSandman.mjs'}});
     } catch (e) {
-        // withHeavyMaintenanceLease itself failed (e.g., lease-write IO error). The whole
-        // point of the lease is to prevent concurrent graph mutation; if acquisition
-        // failed we MUST NOT proceed to graph-mutating decay. Fail-closed per GPT review
-        // PR #11509 cycle 1 (PRR_kwDODSospM8AAAABAJIdTg): GraphService.decayGlobalTopology
-        // touches SQLite graph edges + _SYSTEM_STATE; running it outside the lease defeats
-        // the substrate protection this PR is shipping.
+        // If lease acquisition fails, fail closed rather than mutating Memory Core graph state
+        // without concurrency protection.
         console.error('❌ REM cycle lease acquisition failed:', e);
         process.exit(1);
     }
