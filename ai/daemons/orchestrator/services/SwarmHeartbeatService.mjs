@@ -42,11 +42,13 @@ const PUSH_CAPABLE_TARGETS     = Object.freeze(['mcp-notifications', 'a2a-webhoo
  * @summary Neo-singleton swarm-heartbeat lane for the Phase 1/3 wake substrate.
  *
  * Folded into the Orchestrator daemon as a config-gated scheduled lane (#11766): the
- * Orchestrator owns the persistent process and the scheduler, calling `initAsync()` once
- * at start and `pulse()` once per cadence tick. This class is no longer a standalone
- * daemon — it has no self-scheduling loop and no entry-point wrapper of its own. The
- * Orchestrator's `runIfDue` lane provides the cadence gate and per-pulse failure
- * isolation that the old self-rescheduling loop used to provide.
+ * Orchestrator owns the persistent process and the scheduler, awaiting `service.ready()`
+ * once at start (the framework triggers `initAsync()` exactly once during singleton
+ * `Neo.create()`; external callers MUST NOT invoke `initAsync()` directly per
+ * `core.Base.mjs:589-595`) and calling `pulse()` once per cadence tick. This class is
+ * no longer a standalone daemon — it has no self-scheduling loop and no entry-point
+ * wrapper of its own. The Orchestrator's `runIfDue` lane provides the cadence gate and
+ * per-pulse failure isolation that the old self-rescheduling loop used to provide.
  *
  * **Where direct module imports replace subprocess invocations** (#10789 AC3, "where feasible"):
  *
