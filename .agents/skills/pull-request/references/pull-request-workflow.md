@@ -92,6 +92,30 @@ git fetch origin
 
 **Exception — first push of a freshly-branched feature:** skip ONLY after confirming via `git log origin/dev..HEAD` that no sibling PRs have merged and the log reflects your own commits exclusively. The branch-point IS `origin/dev`'s tip.
 
+### 2.3.2 Branch-Discipline Check (pre-push) *(Codified per #11133)*
+
+Mechanical pre-push gate enforced via `.husky/pre-push` → `node ./buildScripts/util/check-branch-discipline.mjs`. Blocks push when the feature branch contains `chore(data):` sync-pipeline commits that don't belong on a feature branch (the 2026-05-10 empirical 5-PR pattern: PRs #11106 / #11109 / #11114 / #11129 / #11132 — all carried stale-branch or chore-sync contamination producing review-surface signal-to-noise asymmetry).
+
+Author pre-flight to avoid the hook firing:
+
+```bash
+git fetch origin
+git log origin/dev..HEAD --format='%h %s'
+# If output contains `chore(data):` commits OR commits from other peers:
+#   Branch was cut from a stale source. Clean-path: re-branch from origin/dev and cherry-pick your feature commits.
+git checkout -b agent/<ticket-id>-v2 origin/dev
+git cherry-pick <your-feature-shas>
+```
+
+**Designated sync branches** (`chore/sync-*` / `agent/sync-*`) are exempt — those ARE the sync paths. Protected branches (`main`, `dev`) bypass (already caught by §2.3 universal safety net + §2.2 branch mandate).
+
+**Bypass** (NOT recommended; surfaces in PR diff as review-surface noise):
+```bash
+git push --no-verify
+```
+
+**Why discipline-only was insufficient:** `feedback_branch_from_origin_dev_explicitly` MEMORY.md entry already codified the discipline pre-#11133. 5 occurrences in <90 minutes (2026-05-10) despite the discipline demonstrated the mechanical gate was load-bearing.
+
 ### 2.4 Tool-Specific Branch Constraints
 
 If you intend to use the `sync_all` MCP tool, you MUST read [sync-all-constraints.md](./sync-all-constraints.md) before execution to prevent severe branch pollution.
