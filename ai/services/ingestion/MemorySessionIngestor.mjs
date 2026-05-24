@@ -29,7 +29,7 @@ function stableStringify(value) {
  * @summary Service that lifts Memory Core artifacts (session summaries + raw per-turn memories)
  * into the Native Edge Graph as first-class SESSION and MEMORY nodes — the **structural layer**
  * downstream consumers (mailbox `IN_REPLY_TO`, identity `AUTHORED_BY`, thread reconstruction,
- * #10030 concept-edge reach-back) traverse.
+ * and concept-edge reach-back) traverse.
  *
  * Prior to this service, memories + summaries existed only as Chroma rows — extracted entities
  * (concepts, classes, methods) were graph citizens but their source memories were not, leaving
@@ -57,9 +57,8 @@ function stableStringify(value) {
  * No module-level monkey-patching, no global-state mutation, no test-only branches in the
  * production code path.
  *
- * This service is the **structural-layer prerequisite** for the mailbox (#10139), AgentIdentity
- * ownership (#10016), Gemma4 extractor provenance edges (#10152), and lazy back-fill (#10153)
- * work streams under the Graph-first Memory artifacts sub-epic (#10143).
+ * This service is the **structural-layer prerequisite** for mailbox threading, AgentIdentity
+ * ownership, extractor provenance edges, and lazy graph back-fill work streams.
  *
  * @class Neo.ai.daemons.services.MemorySessionIngestor
  * @extends Neo.core.Base
@@ -170,8 +169,8 @@ class MemorySessionIngestor extends Base {
                     properties: {
                         chromaId    : session.id,
                         createdAt   : session.meta.createdAt,
-                        // Provenance marker distinguishing live REM-cycle ingestion from #10153
-                        // lazy back-fill. Queries discriminating between the two sources use
+                        // Provenance marker distinguishing live REM-cycle ingestion from lazy
+                        // back-fill. Queries discriminating between the two sources use
                         // `liveIngested` vs `backfilled` on the node's properties.
                         liveIngested: true,
                         payloadHash : sessionPayloadHash,
@@ -246,18 +245,17 @@ class MemorySessionIngestor extends Base {
 
     /**
      * Back-fills a single MEMORY or SESSION graph node from its Chroma source row — the per-row
-     * analog of `syncSessionToGraph` (which is batch-per-session). Invoked by #10153's lazy
+     * analog of `syncSessionToGraph` (which is batch-per-session). Invoked by the lazy
      * back-fill mechanism when `GraphService.linkNodes` encounters a missing target matching
      * the `memory:` or `session:` prefix pattern.
      *
      * **Graph-node-id convention:** the canonical form is lowercase (`memory:<chromaId>`,
      * `session:<sessionId>`) matching the IDs produced by `syncSessionToGraph`. This method
      * accepts **case-insensitive** prefix matching so it can consume edges queued with the
-     * uppercase convention used by `SemanticGraphExtractor`'s lazy-edges queue (#10165) without
-     * requiring a canonical-format migration. The back-filled node always lands under the
+     * uppercase convention used by `SemanticGraphExtractor`'s lazy-edges queue without requiring
+     * a canonical-format migration. The back-filled node always lands under the
      * lowercase canonical ID; callers whose edge had the uppercase form should have their edge
-     * target re-normalized at the same call site (see the `linkNodes` prefix-normalization path
-     * landed in #10153).
+     * target re-normalized at the same call site via the `linkNodes` prefix-normalization path.
      *
      * **Memory → Session dependency:** a Memory's `sessionId` metadata points at its parent
      * Session. Back-filling a Memory whose parent Session is absent would dangle the
