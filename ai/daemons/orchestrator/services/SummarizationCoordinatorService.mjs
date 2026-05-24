@@ -8,7 +8,7 @@ import {
 } from '../../bridge/queries.mjs';
 
 /**
- * @summary Builds the task trigger for the summarization sweep lane (#11009).
+ * @summary Builds the task trigger for the summarization sweep lane.
  *
  * The summarization lane has two wake-up sources: unread sunset handovers get priority
  * because they unblock the next agent boot, and the interval sweep is the fallback that
@@ -44,19 +44,18 @@ export function buildSummaryTrigger({now, lastRunAt, intervalMs, handovers = []}
 }
 
 /**
- * @summary Coordinates the Piece C summarization sweep trigger for the v13 orchestrator (#11009).
+ * @summary Coordinates the summarization sweep trigger for the v13 orchestrator.
  *
  * This service owns the summarization-specific decision tree that was incorrectly embedded
- * in `ai/scripts/orchestrator-daemon.mjs` by #11008. The `Orchestrator` daemon asks this
- * service whether a summary task is due; the service returns a trigger object plus a success
- * hook for marking sunset-handover messages as read only after the summarizer exits cleanly.
+ * in the process boot wrapper. The `Orchestrator` daemon asks this service whether
+ * a summary task is due; the service returns a trigger object plus a success hook
+ * for marking sunset-handover messages as read only after the summarizer exits cleanly.
  *
  * @class Neo.ai.daemons.services.SummarizationCoordinatorService
  * @extends Neo.core.Base
  * @singleton
  * @see ai/daemons/Orchestrator.mjs
  * @see ai/daemons/bridge/queries.mjs#getUnreadSunsetHandovers
- * @see #11009
  */
 class SummarizationCoordinatorService extends Base {
     static config = {

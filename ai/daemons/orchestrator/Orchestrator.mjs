@@ -89,7 +89,7 @@ function resolveDeploymentEnabled(key) {
 }
 
 /**
- * @summary Neo daemon class for Agent OS maintenance scheduling (#11009).
+ * @summary Neo daemon class for Agent OS maintenance scheduling.
  *
  * `ai/scripts/orchestrator-daemon.mjs` owns the Node-process boot wrapper:
  * PID file, lifecycle traps, and fatal-start isolation. This class owns the
@@ -102,7 +102,7 @@ function resolveDeploymentEnabled(key) {
  * cannot stop the KB-sync lane, and a KB-sync failure cannot stop the next summary
  * sweep.
  *
- * **Service-DI 4-way classification (#11833 / Epic #11831):**
+ * **Service-DI 4-way classification:**
  * - **(A) Class-system-managed utility collaborator** — `cadenceEngine_` reactive
  *   config with `beforeSet` + `ClassSystemUtil.beforeSetInstance` for polymorphic
  *   class/instance/config-object input and proper lifecycle on swap.
@@ -118,8 +118,8 @@ function resolveDeploymentEnabled(key) {
  *   + `Env.parseBool('NEO_X') ?? resolveDeploymentEnabled(...)` for booleans.
  *   `Env` is the canonical `Neo.util.Env` substrate primitive (`src/util/Env.mjs`);
  *   single-source-of-name discipline — env var name appears ONCE per call site
- *   (Env reads `process.env[name]` internally; refactored 2026-05-24 after the
- *   dup-name pattern regressed on Lane A).
+ *   (Env reads `process.env[name]` internally, avoiding duplicate env-var names
+ *   at each call site).
  *
  * No `configure()` shadow-resolver. No `DEFAULT_X_*_MS` constants. No
  * `parseInterval`/`parseEnabledFlag` helpers. No `processSupervisorService.set({...this...})`
@@ -132,8 +132,6 @@ function resolveDeploymentEnabled(key) {
  * @see ai/daemons/services/SummarizationCoordinatorService.mjs
  * @see ai/services/memory-core/HealthService.mjs#recordTaskOutcome
  * @see learn/agentos/v13-path.md
- * @see #11009
- * @see #11833 (masterclass-reference refactor)
  */
 export class Orchestrator extends Base {
     static config = {
@@ -413,7 +411,7 @@ export class Orchestrator extends Base {
 
         this.db = this.initializeDatabaseFn(this.dbPath);
 
-        // One-time swarm-heartbeat lane init (#11766). An init failure must log but
+        // One-time swarm-heartbeat lane init. An init failure must log but
         // NOT crash the Orchestrator — the lane disables itself for this run via the
         // daemon-local `initFailed` instance field (preserves fail-safe invariant
         // without env-registry mutation; `poll()` swarm-heartbeat lane checks it).
@@ -645,7 +643,7 @@ export class Orchestrator extends Base {
             }
         }, activeHeavyTask), context);
 
-        // #11766: swarm-heartbeat lane. NOT heavy maintenance — the pulse is a light
+        // Swarm-heartbeat lane. NOT heavy maintenance — the pulse is a light
         // wake-substrate check, so the executor runs directly (no `executeMaintenanceTask`
         // wrap). `reason` is passed as a string straight from `CadenceEngine.runIfDue`.
         this.cadenceEngine.runIfDue(SWARM_HEARTBEAT_TASK_NAME, () => {

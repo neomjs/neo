@@ -1,26 +1,25 @@
 #!/usr/bin/env node
 /**
- * @summary Auto-Wakeup Substrate Detection Logic — two-mode detector contract (Epic #10601, sub #10673).
+ * @summary Auto-Wakeup substrate detector for terminal sunset and recoverable idle-out states.
  *
  * Queries the SQLite GraphLog to determine whether an agent identity is in
  * one of two recovery-relevant states:
  *
  *   - **`sunset`** (terminal): the `WAKE_SUBSCRIPTION` is missing / disabled
  *     / degraded. The `session-sunset` workflow's Unsubscribe primitive is the
- *     authoritative signal — staleness alone is NOT a sunset signal (#10641
- *     codified this discipline). Recovery: per-harness terminal-restart per
- *     #10676 sunset-mode restart substrate.
+ *     authoritative signal; staleness alone is NOT a sunset signal. Recovery:
+ *     per-harness terminal restart.
  *   - **`idle_out_candidate`** (recoverable): subscription is active AND the
  *     last `AGENT_MEMORY` is older than `IDLE_THRESHOLD_MS` (10 min default,
  *     matches `checkAllAgentIdle.mjs` convention). Recovery: in-place A2A
- *     heartbeat nudge per #10675 — bounded, non-spawning, idempotent.
+ *     heartbeat nudge — bounded, non-spawning, idempotent.
  *
  * The two signals are mutually exclusive by construction: `sunset` requires
  * `subscription_active: false`; `idle_out_candidate` requires
  * `subscription_active: true`. Both can be `false` simultaneously (the no-op
  * "agent is operating normally" case).
  *
- * **Output shape (#10673 contract):**
+ * **Output shape:**
  *
  *     {
  *       identity: '@neo-opus-4-7',
@@ -34,7 +33,7 @@
  *       },
  *       recommended_action: 'idle_out_nudge', // 'sunset_restart' | 'idle_out_nudge' | 'no_action'
  *
- *       // Backward-compat fields (#10673 AC5) for callers not yet migrated:
+ *       // Backward-compat fields for callers not yet migrated:
  *       sunsetted: false,            // mirrors `sunset`
  *       reason: '',                   // human-readable
  *       originSessionId: 'cce1fea5-...',  // = evidence.last_sessionId
@@ -52,10 +51,10 @@
  * Core context-priming) and for update-on-read migration of legacy rows
  * lacking structured `timestamp` / `sessionId` / `agentIdentity` fields.
  *
- * @see ai/scripts/lifecycle/inflightLock.mjs        — in-flight lock primitive (#10674)
- * @see ai/daemons/SwarmHeartbeatService.mjs — primary consumer of detector output (Orchestrator swarm-heartbeat lane, #11766)
+ * @see ai/scripts/lifecycle/inflightLock.mjs        — in-flight recovery lock primitive
+ * @see ai/daemons/SwarmHeartbeatService.mjs — primary consumer of detector output
  * @see ai/scripts/lifecycle/resumeHarness.mjs       — sunset-mode action dispatcher
- * @see ai/scripts/lifecycle/trioWakeCooldown.mjs    — idle-out-mode action dispatcher (when #10675 lands)
+ * @see ai/scripts/lifecycle/trioWakeCooldown.mjs    — idle-out-mode action dispatcher
  * @see learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md — pre-fix forensic context
  */
 import Neo from '../../../src/Neo.mjs';
@@ -68,7 +67,7 @@ import { checkInflightLock } from './inflightLock.mjs';
 
 /**
  * @summary Idle-out threshold — fresh `AGENT_MEMORY` newer than this is "active";
- * older is `idle_out_candidate`. Matches `checkAllAgentIdle.mjs:35` convention so
+ * older is `idle_out_candidate`. Matches the all-agent-idle detector convention so
  * downstream consumers see consistent idle semantics across detectors.
  */
 const IDLE_THRESHOLD_MS = parseInt(process.env.IDLE_THRESHOLD_MS, 10) || 10 * 60 * 1000;
@@ -87,7 +86,7 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
 
     // 1. Query ALL subscriptions for this identity (regardless of status) so the
     //    detector can emit a structured `subscription_status` field rather than
-    //    a binary "exists / doesn't exist". Per #10673 evidence-fields contract.
+    //    a binary "exists / doesn't exist".
     const allSubsStmt = db.prepare(`
         SELECT json_extract(data, '$.properties.status')        as status,
                json_extract(data, '$.properties.harnessTarget') as harnessTarget
@@ -100,7 +99,7 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
     // Determine subscription_status with the same precedence the prior
     // active-subs query encoded: 'active' wins over 'degraded'/'disabled'
     // (an identity with both an active sub and a disabled one is operationally
-    // active). This preserves the #10641 sunset-detection discipline:
+    // active). This preserves the sunset-detection discipline:
     // subscription presence beats staleness as the authoritative signal.
     let subscriptionStatus;
     if (allSubs.length === 0) {
@@ -183,7 +182,7 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
     //
     // [Anchor & Echo] Sunset detection criterion: ONLY the explicit Unsubscribe primitive.
     //
-    // Memory-staleness is NOT a sunset signal (#10641 codified this — see
+    // Memory-staleness is NOT a sunset signal. See
     // historical context in `learn/agentos/incidents/2026-05-04-runaway-spawn-pattern.md`).
     // The authoritative sunset signal is the absence of an active
     // `WAKE_SUBSCRIPTION`. Staleness is reflected in `idle_out_candidate`
@@ -209,10 +208,9 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
         }
     } else if (lastMemoryAgeMin !== null && memAgeMs > IDLE_THRESHOLD_MS) {
         // Active subscription + stale memory = candidate idle-out nudge.
-        // Per @neo-gpt's #10683 substrate-truth audit on bounded discipline:
-        // this signal is "candidate in-place nudge," NOT "agent is idle." The
-        // consumer (per #10675) is responsible for the bounded/non-spawning/
-        // idempotent/no-destructive-type guarantees on the action dispatch.
+        // This signal is "candidate in-place nudge," NOT "agent is idle." The
+        // consumer is responsible for bounded, non-spawning, idempotent dispatch
+        // that never destructively types into an active draft.
         lockData = await checkInflightLock(identity, 'idle_out_nudge', lastMemTimeMs);
 
         if (!lockData.inFlight) {
@@ -229,11 +227,9 @@ export async function checkSunsetted(identity = process.env.NEO_AGENT_IDENTITY |
     else if (idleOutCandidate)   recommendedAction = 'idle_out_nudge';
     else                         recommendedAction = 'no_action';
 
-    // 5. Emit structured + backward-compat output. Backward-compat fields
-    //    (#10673 AC5) preserve `sunsetted` / `reason` / `originSessionId` /
-    //    `abandonedCount` for consumers not yet migrated to the new shape.
-    //    The Orchestrator swarm-heartbeat lane (`SwarmHeartbeatService`) reads
-    //    these legacy fields via the direct module export today (#11766).
+    // 5. Emit structured + backward-compat output. The legacy fields preserve
+    //    `sunsetted` / `reason` / `originSessionId` / `abandonedCount` for
+    //    consumers not yet migrated to the structured shape.
     return {
         identity,
         sunset,
