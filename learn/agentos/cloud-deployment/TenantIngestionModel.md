@@ -10,7 +10,7 @@ For the MVP deployment path, tenant ingestion is **push-based**:
 2. The tenant sends raw file deltas or `parsed-chunk-v1` records to the deployment.
 3. The KB server validates the payload, stamps the authoritative tenant tuple, embeds the chunk text server-side, and writes into the shared `knowledge-base` collection.
 
-The deployment does **not** need clone credentials for the MVP path. Server-side repo cloning is a later exploration owned by [#11731](https://github.com/neomjs/neo/issues/11731) and only starts if push-based ingestion proves insufficient.
+The deployment does **not** need clone credentials for the MVP path. Server-side repo cloning is the additive tenant-repo-sync path owned by [#11731](https://github.com/neomjs/neo/issues/11731) after the push MVP; it does not repoint the existing ingestion API or weaken the no-secret persistence boundary.
 
 This model pairs with the D0 scheduler taxonomy in [#11721](https://github.com/neomjs/neo/issues/11721): local maintainer checkout sync stays local-only, while cloud tenant content arrives through the push-based path below.
 
@@ -67,6 +67,7 @@ The push-based MVP path is credential-free from the KB server's perspective:
 - The tenant push client reads local files and sends content or parsed chunks.
 - The KB server receives ingestion payloads, not Git credentials.
 - The repo-push automation identity token authorizes the tenant to call the KB MCP endpoint; it is not a Git credential and is never folded into `repoSlug`, manifests, or chunk metadata.
+- Optional server-side pull config uses `tenantRepos[]` entries with clean `cloneUrl`, reference-only `credentialRef`, and normalized `repoSlug` (#11787). Credential-bearing `userinfo@` clone URLs are rejected before graph persistence; credential injection belongs to the future Git mirror worker (#11788).
 
 Credential-bearing Git URLs are therefore rejected or treated as deferred clone-exploration input. They must not appear in:
 
