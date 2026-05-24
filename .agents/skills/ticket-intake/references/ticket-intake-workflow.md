@@ -30,6 +30,7 @@ Before executing a `git checkout`, you MUST interrogate the codebase and Memory 
 
 7. **Contract Completeness Sweep (Readiness Gate):** If the ticket proposes modifying, introducing, or deprecating a surface that is consumed by humans, agents, or external systems (e.g., public APIs, configs, MCP tools), you MUST verify that a **Contract Ledger** matrix is present in the ticket body. See `learn/agentos/contract-ledger.md`. This is a separate readiness gate that must pass before checking ticket reality.
    - If the matrix is missing or incomplete, the ticket enters the `needs-contract-alignment` state.
+   - A matrix is incomplete when a row names an existing field, method, helper, tool, config key, docs path, or runtime surface that does not match current substrate reality or lacks the Surface-Anchor V-B-A required by `learn/agentos/contract-ledger.md`.
    - **Hand-back loop:** You MUST post a comment explaining the missing fields, requesting the author or maintainer to update the ticket body. You are forbidden from guessing the contract or starting branch/code work. Once the ticket is updated, intake re-verifies the ledger before proceeding.
 
 7.5. **Age / Successor-Risk Audit Gate:** Before classifying ticket reality, you MUST audit the ticket's age, stale bot state, and missing PR close-link hygiene.

@@ -43,6 +43,49 @@ Any ticket proposing changes to a public or consumed surface MUST include a Cont
 | `ticket-create` skill | Discussion #10703 | Mandate inclusion of Contract Ledger matrix for public-surface tickets. | Reject if missing | Yes | `ticket-create-workflow.md` updated |
 | `Neo.data.Store#load` | Issue #8888 | Accepts `config.limit` to restrict payload size. | Defaults to `Neo.config.defaultPageSize` | Yes | `Store.spec.mjs` pagination tests |
 
+## Surface-Anchor V-B-A
+
+Every Contract Ledger row that names an **existing** field, method, helper,
+MCP tool, config key, docs path, or runtime surface MUST be anchored by
+row-level Verify-Before-Assert evidence before the ticket/PR/review asserts it.
+The author must run the falsifying lookup that would disprove the surface name
+or semantics, then let that result determine the row wording.
+
+This is narrower than "verify everything" and broader than "check field names":
+the contract row is a public source of authority, so any existing surface it
+names must match current substrate reality instead of semantic memory.
+
+**Required discipline:**
+- Prefer the upstream substrate anchor over downstream consumer aliases. For
+  example, cite the service method, config key, schema field, or docs path that
+  owns the behavior rather than a later MCP/tool/user-facing label.
+- If the surface is new, say so explicitly and cite the ticket/Discussion as
+  Source of Authority. Do not describe a proposed surface as if it already
+  exists.
+- If the row depends on helper defaults, fallback behavior, or MVP scope, verify
+  that behavior in the current implementation or canonical docs instead of
+  inheriting it from prior discussion context.
+- The Evidence column should name the proof surface that will validate the row
+  after implementation; the authoring/review notes should preserve the lookup
+  used to verify any existing named surface.
+
+**Failure classes this prevents:**
+- Field-name drift: naming `sourceFiles` when the live
+  `KnowledgeBaseIngestionService.ingestSourceFiles()` envelope uses `files`,
+  `deleted`, `manifestSnapshot`, `baseRevision`, and `headRevision`.
+- Helper-default drift: reusing `resolveDeploymentEnabled()` for a
+  cloud-deployable lane without verifying that the helper is local-only shaped
+  and defaults `cloud` off.
+- Downstream-vs-substrate naming drift: naming an MCP healthcheck command when
+  the owning substrate anchor is the health payload, such as
+  `healthcheck.orchestrator.tasks` recorded through
+  `HealthService.recordTaskOutcome()`.
+- Existence drift: asserting a `setTenantConfig` MCP tool when the live surface
+  is `KnowledgeBaseIngestionService.setTenantConfig()`.
+- Stale scope inheritance: carrying an old backup/redeploy boundary after ADR
+  0014 records `tenant-repo-sync` as a distinct lane backed by a persistent
+  GitMirror primitive.
+
 ## Pipeline Integration (The Contract Completeness Gate)
 
 The Contract Ledger is enforced across the swarm lifecycle via three coordinated skill updates:
