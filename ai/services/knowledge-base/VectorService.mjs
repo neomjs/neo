@@ -80,7 +80,7 @@ class VectorService extends Base {
                 confirmation
             });
 
-            // Route through ChromaManager.deleteCollection (#11652 substrate-level guard).
+            // Route through ChromaManager.deleteCollection so the canonical-name guard applies.
             // Forward the operator confirmation so the canonical-name guard accepts it.
             await ChromaManager.deleteCollection({name: collectionName, confirmation});
             ChromaManager.invalidateKnowledgeBaseCollectionCache();
@@ -100,10 +100,9 @@ class VectorService extends Base {
     /**
      * Returns the tenant-isolation config surface.
      *
-     * Phase 0/1C runs inside the Knowledge Base server config directly, while the
-     * graduated contract documents the portable `aiConfig.knowledgeBase.*` shape for
-     * future shared AI config surfaces. Supporting both keeps this write boundary stable
-     * across the Phase 2/3 ingestion API work.
+     * The Knowledge Base server config can expose tenant fields directly or through the
+     * portable `aiConfig.knowledgeBase.*` shape used by shared AI config surfaces.
+     * Supporting both keeps this write boundary stable across ingestion API variants.
      *
      * @returns {Object} Tenant-isolation configuration object.
      */
@@ -122,17 +121,16 @@ class VectorService extends Base {
      * @param {String} [tenantContext.repoSlug] Repository slug within the tenant.
      * @param {String} [tenantContext.visibility] Visibility scope for read-side filtering.
      * @param {String} [tenantContext.originAgentIdentity] Authenticated agent identity.
-     * @param {Number} [tenantContext.configVersion] Active `KnowledgeBaseTenantConfig` version (#11637);
+     * @param {Number} [tenantContext.configVersion] Active `KnowledgeBaseTenantConfig` version;
      *                                               stamped onto chunk metadata as `tenantConfigVersion`.
      * `ingestedAt` (epoch ms, server-stamped via `Date.now()`) is added unconditionally —
-     * the #11712 retention / GC / reconciliation substrate. It marks when the chunk row is
+     * the retention / GC / reconciliation timestamp. It marks when the chunk row is
      * **actually embedded / upserted**: `embed()`'s zero-change fast path skips an unchanged
      * same-content re-push, so that chunk keeps its prior `ingestedAt` (a content change
      * yields a *new* chunk row — new content-hash ID — with its own fresh `ingestedAt`).
      * It is purely server-derived (never client-authored), so it is also a
-     * `TENANT_GUARDED_FIELDS` member. Consumers MUST treat a missing `ingestedAt` (a chunk
-     * embedded before #11712) as unknown-age and fail-safe — never expire / action a chunk
-     * with no timestamp.
+     * `TENANT_GUARDED_FIELDS` member. Consumers MUST treat a missing `ingestedAt` as
+     * unknown-age and fail-safe — never expire or action a chunk with no timestamp.
      * @returns {{tenantId: String, repoSlug: String, visibility: String, tenantConfigVersion: Number, ingestedAt: Number, originAgentIdentity: String|undefined}}
      */
     resolveTenantStamp(tenantContext = {}) {
@@ -351,7 +349,6 @@ class VectorService extends Base {
      * @param {Object[]} options.knowledgeBase   Full tenant-stamped corpus.
      * @param {Number}   options.idsToDeleteCount Logical stale-id count removed from the canonical view.
      * @returns {Promise<Object>} Embedding result.
-     * @see https://github.com/neomjs/neo/issues/11683
      */
     async embedViaShadowSwap({liveCollection, knowledgeBase, idsToDeleteCount}) {
         const shadowName  = this.createSwapCollectionName('shadow');
@@ -422,7 +419,6 @@ class VectorService extends Base {
      * @param {Object} options.shadowCollection Shadow collection handle to park.
      * @param {String} options.shadowName       Original active shadow collection name.
      * @returns {Promise<String|null>} Parked name, or `null` if parking failed.
-     * @see https://github.com/neomjs/neo/issues/11685
      */
     async parkFailedShadowCollection({shadowCollection, shadowName}) {
         const failedShadowName = this.createSwapCollectionName('failed-shadow');
@@ -440,7 +436,7 @@ class VectorService extends Base {
     /**
      * Reads a JSONL file, enriches data, generates embeddings, and updates ChromaDB.
      *
-     * **Work-volume gate (#10572):** when invoked via MCP (`viaMcp: true`), refuses
+     * **Work-volume gate:** when invoked via MCP (`viaMcp: true`), refuses
      * synchronous execution if `chunksToProcess.length` exceeds `aiConfig.mcpSyncMaxChunks`
      * (default 50, aligned with `batchSize`). Returns a structured `{error, code, ...}`
      * payload that the MCP server's `Server.mjs` converts to `isError: true` per its
@@ -453,7 +449,7 @@ class VectorService extends Base {
      *                                             enables the work-volume gate.
      * @param {Object}  [opts.tenantContext]       Server-derived tenant stamp context.
      * @param {Boolean} [opts.deleteStale=true]    True applies full-corpus stale-id deletion.
-     *                                             Incremental Phase 2 pushes pass `false` and
+     *                                             Incremental ingestion pushes pass `false` and
      *                                             use explicit deletion signaling instead.
      * @param {String}  [opts.staleStrategy]       Stale handling strategy. `delete-upfront`
      *                                             preserves the historical behavior;
@@ -461,7 +457,6 @@ class VectorService extends Base {
      *                                             before promoting it to the canonical name.
      * @returns {Promise<object>} A promise that resolves to a success message, OR a
      *     `{error, code: 'KB_SYNC_VOLUME_EXCEEDED', ...}` shape when the MCP gate fires.
-     * @see #10572
      */
     async embed(knowledgeBasePath, {viaMcp = false, tenantContext = {}, deleteStale = true, staleStrategy} = {}) {
         logger.log('Starting knowledge base embedding...');
@@ -576,7 +571,7 @@ class VectorService extends Base {
             return {message, embedded: 0, deleted: idsToDelete.length};
         }
 
-        // Work-volume gate (#10572): refuse synchronous embedding via MCP when the
+        // Work-volume gate: refuse synchronous embedding via MCP when the
         // post-delta queue exceeds the configured threshold. The threshold default
         // matches `batchSize` (one batch is the floor for "small enough to run
         // synchronously"); real latency is provider/tier/retry-state-dependent so
