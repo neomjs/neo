@@ -65,6 +65,12 @@ test.describe('GitMirror (#11788)', () => {
         await git(['-c', 'user.name=Neo Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'second'], source);
     }
 
+    async function commitRenameRevision(source) {
+        await git(['mv', 'alpha.txt', 'renamed-alpha.txt'], source);
+        await git(['add', '-A'], source);
+        await git(['-c', 'user.name=Neo Test', '-c', 'user.email=test@example.com', 'commit', '-m', 'rename alpha'], source);
+    }
+
     function mirrorOptions(source) {
         return {
             cloneUrl  : source,
@@ -119,6 +125,23 @@ test.describe('GitMirror (#11788)', () => {
             .resolves.toBe(false);
         expect(diff.addedOrChanged.sort()).toEqual(['alpha.txt', 'beta.txt']);
         expect(diff.deleted).toEqual(['remove-me.txt']);
+    });
+
+    test('represents renames as new live paths plus old tombstones', async () => {
+        const source = await createSourceRepo();
+
+        await cloneIfMissing(mirrorOptions(source));
+
+        const baseRevision = await resolveHead({...mirrorOptions(source), ref: 'main'});
+
+        await commitRenameRevision(source);
+        await fetch(mirrorOptions(source));
+
+        const headRevision = await resolveHead({...mirrorOptions(source), ref: 'main'});
+        const diff         = await diffRevisions({...mirrorOptions(source), baseRevision, headRevision});
+
+        expect(diff.addedOrChanged).toEqual(['renamed-alpha.txt']);
+        expect(diff.deleted).toEqual(['alpha.txt']);
     });
 
     test('throws stable errors for missing refs and invalid mirrors', async () => {
