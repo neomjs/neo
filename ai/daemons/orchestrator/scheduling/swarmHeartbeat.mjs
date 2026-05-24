@@ -38,38 +38,39 @@ export function getDueTask({state, now, swarmHeartbeatIntervalMs}) {
 /**
  * @summary Resolve the per-pulse identity set the swarm-heartbeat lane should target.
  *
- * 5-step precedence chain (Epic #11829 AC2, Sub 1 #11905):
+ * Five-step precedence chain:
  *
- *   1. Explicit `explicitTargets` env list (highest precedence; bypasses source-based logic).
+ *   1. Explicit `explicitTargets` list (highest precedence; bypasses source-based logic).
  *      Sourced from `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS` (comma-separated handles).
- *   2. `targetSource` enum (`'self'|'active-local-team'|'active-subscribers'|'disabled'`).
- *      Env-overridable via `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE`.
- *   3. Default `'self'` when `targetSource` is nullish — the safe deployment-portable default.
+ *   2. `targetSource` enum (`'self'|'active-local-team'|'active-subscribers'|'disabled'`),
+ *      env-overridable via `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE`.
+ *   3. Default `'self'` when `targetSource` is nullish — the deployment-portable safe default.
  *   4. `'active-local-team'` reads `identityRoots.IDENTITIES` filtered on
  *      `type === 'AgentIdentity'` AND `properties.participationStatus === 'active'`. The
- *      registry is Neo-maintainer-team-shaped; external forks customizing `identityRoots.mjs`
- *      get their own team filter for free.
- *   5. Cloud / fork safety per ADR 0014 §149-159: external workspaces with no config default to
- *      `'self'`; unknown `targetSource` values fail-closed to `'self'` (+ warn). The lane NEVER
- *      silently fans out to Neo maintainer identities in an external deployment. Operators must
- *      explicitly opt-in to `'active-local-team'` to receive cross-team pulses.
+ *      registry is team-shaped; external forks customizing `identityRoots.mjs` get their
+ *      own team filter for free.
+ *   5. Cloud/fork safety: external workspaces with no config default to `'self'`; unknown
+ *      `targetSource` values fail-closed to `'self'` with a warn log. The lane never
+ *      silently fans out to maintainer identities. Operators must explicitly opt-in to
+ *      `'active-local-team'` to receive cross-team pulses.
  *
  * `'active-subscribers'` delegates to the injected `activeSubscribersProvider` callable
- * (the existing `WAKE_SUBSCRIPTION` SQL discovery in `SwarmHeartbeatService.getWakeSubscriptionIdentities()`);
- * the union with `selfIdentity` preserves the pre-#11905 `getPulseIdentities()` shape so
- * the primary harness owner remains in the pulse set.
+ * (the existing `WAKE_SUBSCRIPTION` SQL discovery in
+ * `SwarmHeartbeatService.getWakeSubscriptionIdentities()`); union with `selfIdentity`
+ * keeps the harness owner in the pulse set.
  *
- * `'disabled'` returns `[]` + emits an info log. Downstream `pulse()` skips all per-identity
- * work (sunset detection, idle-out nudge) but the lane still runs identity-agnostic
- * substrate maintenance (TTL sweep, all-agent-idle detection, liveness touch).
+ * `'disabled'` returns `[]` plus an info log. Downstream `pulse()` skips per-identity
+ * work (sunset detection, idle-out nudge) while identity-agnostic substrate maintenance
+ * (TTL sweep, all-agent-idle detection, liveness touch) still runs.
  *
- * Pure function: side effects limited to logger calls. Output is deduplicated + order-preserving;
- * each target is normalized via `normalizeAgentIdentityNodeId` so the slot holds canonical `@<id>` form.
+ * Pure function: side effects limited to logger calls. Output is deduplicated and
+ * order-preserving; each target is normalized via `normalizeAgentIdentityNodeId` so
+ * the slot holds canonical `@<id>` form.
  *
  * @param {Object}         opts
  * @param {String}         opts.selfIdentity                  Primary identity (orchestrator harness owner).
  * @param {String|null}    [opts.targetSource=null]           Resolver source enum (see {@link VALID_TARGET_SOURCES}).
- * @param {String[]|null}  [opts.explicitTargets=null]        Explicit env-driven target list (wins when non-empty).
+ * @param {String[]|null}  [opts.explicitTargets=null]        Explicit target list (wins when non-empty).
  * @param {Function}       [opts.activeSubscribersProvider]   Async `() => Promise<String[]>` for `'active-subscribers'`.
  * @param {Object}         [opts.logger=console]              Logger; defaults to console.
  * @returns {Promise<String[]>}  Normalized canonical `@<identity>` strings (deduplicated, order-preserving).
@@ -89,12 +90,10 @@ export async function resolveTargets({
     const normalizedSelf = selfIdentity ? normalizeAgentIdentityNodeId(selfIdentity) : null;
 
     /**
-     * Self-fallback helper: returns `[selfIdentity]` when present, or emits an
-     * observable info log + returns `[]` when `selfIdentity` is null. AC3 fork-safety
-     * requires "defaults to 'self' OR disables-with-log — NEVER silently fans out
-     * to Neo maintainer identities." Silent `[]` would satisfy the no-leak property
-     * but miss the disables-with-log property; the log surfaces the misconfiguration
-     * so operators can set `NEO_AGENT_IDENTITY` or explicitly opt-in to
+     * Self-fallback: returns `[selfIdentity]` when present, otherwise emits an
+     * observable info log and returns `[]`. Silent `[]` would satisfy no-leak but
+     * miss the disables-with-log property; the log surfaces the misconfiguration so
+     * operators can set `NEO_AGENT_IDENTITY` or explicitly opt-in to
      * `targetSource='disabled'`.
      */
     const selfFallback = (resolvedFrom) => {

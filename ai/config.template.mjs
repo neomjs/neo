@@ -87,20 +87,21 @@ const defaultConfig = {
             swarmHeartbeatMs : 15 * 60 * 1000
         },
         /**
-         * Swarm-heartbeat target-resolver config (Sub 1 #11905 / Epic #11829 Layer 2).
-         * Controls which identity set `SwarmHeartbeatService.pulse()` targets per cycle
-         * via the {@link resolveTargets} 5-step precedence chain. Env override:
-         * `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE`. Explicit list override
-         * (highest precedence): `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS` (comma-separated).
+         * Swarm-heartbeat target-resolver config. Controls which identity set
+         * `SwarmHeartbeatService.pulse()` targets per cycle via the resolver
+         * precedence chain. Env override: `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE`.
+         * Explicit list override (highest precedence):
+         * `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS` (comma-separated handles).
          * @type {Object}
          */
         swarmHeartbeat: {
             /**
-             * Resolver source enum. `null` falls through to `'self'` — the deployment-portable
-             * default. Valid values: `'self'`, `'active-local-team'`, `'active-subscribers'`,
-             * `'disabled'`. AC3 fork-safety: external workspaces with no config default to
-             * `'self'`; the lane NEVER silently fans out to Neo maintainer identities unless
-             * the operator explicitly opts in via `'active-local-team'`.
+             * Resolver source enum. `null` falls through to `'self'` — the
+             * deployment-portable default. Valid values: `'self'`,
+             * `'active-local-team'`, `'active-subscribers'`, `'disabled'`. External
+             * workspaces with no config default to `'self'`; the lane never silently
+             * fans out to maintainer identities unless the operator explicitly opts
+             * in via `'active-local-team'`.
              * @type {'self'|'active-local-team'|'active-subscribers'|'disabled'|null}
              */
             targetSource: null

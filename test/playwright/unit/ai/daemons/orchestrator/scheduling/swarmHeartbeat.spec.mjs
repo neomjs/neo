@@ -54,7 +54,7 @@ test.describe('orchestrator/scheduling/swarmHeartbeat (#11859 / Epic #11831)', (
     });
 });
 
-test.describe('resolveTargets (Sub 1 #11905 / Epic #11829 Layer 2)', () => {
+test.describe('resolveTargets — deployment-portable swarm-heartbeat target resolver', () => {
     /** Build a stub logger that captures level + msg so we can assert + suppress noise. */
     function captureLogger() {
         const calls = [];
@@ -66,7 +66,7 @@ test.describe('resolveTargets (Sub 1 #11905 / Epic #11829 Layer 2)', () => {
         };
     }
 
-    test('AC4 / Step 3 — no-config defaults to self (deployment-portable safe default)', async () => {
+    test('no-config defaults to self (deployment-portable safe default)', async () => {
         const logger = captureLogger();
         const result = await resolveTargets({
             selfIdentity: '@neo-opus-4-7',
@@ -76,7 +76,7 @@ test.describe('resolveTargets (Sub 1 #11905 / Epic #11829 Layer 2)', () => {
         expect(logger.calls).toEqual([]);
     });
 
-    test('AC4 / Step 3 — explicit null targetSource defaults to self', async () => {
+    test('explicit null targetSource defaults to self', async () => {
         const logger = captureLogger();
         const result = await resolveTargets({
             selfIdentity: '@neo-gpt',
@@ -87,7 +87,7 @@ test.describe('resolveTargets (Sub 1 #11905 / Epic #11829 Layer 2)', () => {
         expect(logger.calls).toEqual([]);
     });
 
-    test('AC4 / Step 1 — explicit target list wins over targetSource', async () => {
+    test('explicit target list wins over targetSource', async () => {
         const logger = captureLogger();
         const result = await resolveTargets({
             selfIdentity   : '@neo-opus-4-7',
@@ -99,7 +99,7 @@ test.describe('resolveTargets (Sub 1 #11905 / Epic #11829 Layer 2)', () => {
         expect(logger.calls).toEqual([]);
     });
 
-    test('Step 1 — explicit target list deduplicates while preserving order', async () => {
+    test('explicit target list deduplicates while preserving order', async () => {
         const result = await resolveTargets({
             selfIdentity   : '@neo-opus-4-7',
             explicitTargets: ['@a', '@b', '@a', '@c', '@b']
@@ -107,7 +107,7 @@ test.describe('resolveTargets (Sub 1 #11905 / Epic #11829 Layer 2)', () => {
         expect(result).toEqual(['@a', '@b', '@c']);
     });
 
-    test('Step 1 — empty explicitTargets array falls through to targetSource semantics', async () => {
+    test('empty explicitTargets array falls through to targetSource semantics', async () => {
         const result = await resolveTargets({
             selfIdentity   : '@neo-opus-4-7',
             targetSource   : 'self',
@@ -116,19 +116,19 @@ test.describe('resolveTargets (Sub 1 #11905 / Epic #11829 Layer 2)', () => {
         expect(result).toEqual(['@neo-opus-4-7']);
     });
 
-    test('AC4 / Step 4 — active-local-team reads identityRoots filtered on participationStatus active', async () => {
+    test('active-local-team reads identityRoots filtered on participationStatus active', async () => {
         const result = await resolveTargets({
             selfIdentity: '@neo-opus-4-7',
             targetSource: 'active-local-team'
         });
-        // Resolver output should match the IDENTITIES filter; we compute the expected set
-        // off the live registry to keep this test resilient to peer membership changes.
+        // Compute the expected set off the live registry to keep this test resilient
+        // to membership changes.
         const expected = IDENTITIES
             .filter(i => i.type === 'AgentIdentity' && i.properties?.participationStatus === 'active')
             .map(i => i.id);
         expect(result).toEqual(expected);
-        // AC3 fork-safety check: result should NOT contain non-active maintainers (e.g., a
-        // benched Gemini identity must be filtered out unless its status flips back to 'active').
+        // Non-active maintainers (e.g. a benched identity) must be filtered out unless
+        // their status flips back to 'active'.
         const benched = IDENTITIES
             .filter(i => i.type === 'AgentIdentity' && i.properties?.participationStatus !== 'active')
             .map(i => i.id);
@@ -137,7 +137,7 @@ test.describe('resolveTargets (Sub 1 #11905 / Epic #11829 Layer 2)', () => {
         }
     });
 
-    test('Step 5 / disabled — returns empty list + logs info', async () => {
+    test('disabled — returns empty list + logs info', async () => {
         const logger = captureLogger();
         const result = await resolveTargets({
             selfIdentity: '@neo-opus-4-7',
@@ -148,7 +148,7 @@ test.describe('resolveTargets (Sub 1 #11905 / Epic #11829 Layer 2)', () => {
         expect(logger.calls.some(c => c.level === 'info' && c.msg.includes('disabled'))).toBe(true);
     });
 
-    test('Step 5 / active-subscribers — unions self with provider output (preserves pre-#11905 shape)', async () => {
+    test('active-subscribers — unions self with provider output', async () => {
         const subscribers = ['@neo-gpt', '@neo-opus-4-7', 'neo-gemini-3-1-pro'];
         const result = await resolveTargets({
             selfIdentity              : '@neo-opus-4-7',
@@ -159,7 +159,7 @@ test.describe('resolveTargets (Sub 1 #11905 / Epic #11829 Layer 2)', () => {
         expect(result).toEqual(['@neo-opus-4-7', '@neo-gpt', '@neo-gemini-3-1-pro']);
     });
 
-    test('Step 5 / active-subscribers without provider — falls back to self with warn', async () => {
+    test('active-subscribers without provider — falls back to self with warn', async () => {
         const logger = captureLogger();
         const result = await resolveTargets({
             selfIdentity: '@neo-opus-4-7',
@@ -170,7 +170,7 @@ test.describe('resolveTargets (Sub 1 #11905 / Epic #11829 Layer 2)', () => {
         expect(logger.calls.some(c => c.level === 'warn' && c.msg.includes('active-subscribers'))).toBe(true);
     });
 
-    test('AC4 / Step 5 — unknown targetSource fails closed to self + warns', async () => {
+    test('unknown targetSource fails closed to self + warns', async () => {
         const logger = captureLogger();
         const result = await resolveTargets({
             selfIdentity: '@neo-opus-4-7',
@@ -183,14 +183,13 @@ test.describe('resolveTargets (Sub 1 #11905 / Epic #11829 Layer 2)', () => {
         expect(logger.calls.some(c => VALID_TARGET_SOURCES.every(v => c.msg.includes(v)))).toBe(true);
     });
 
-    test('AC3 fork-safety — null selfIdentity + no source returns [] AND logs disables-with-log notice (per GPT PR #11913 cycle-1 RA1)', async () => {
+    test('null selfIdentity + no source returns [] AND logs disables-with-log notice', async () => {
         const logger = captureLogger();
         const result = await resolveTargets({
             selfIdentity: null,
             logger
         });
         expect(result).toEqual([]);
-        // AC3 wording: "defaults to 'self' OR disables-with-log — NEVER silently fans out".
         // The info log surfaces the misconfiguration so operators notice and either set
         // NEO_AGENT_IDENTITY or explicitly opt-in to targetSource='disabled'.
         const infoMatch = logger.calls.find(c =>
@@ -205,7 +204,7 @@ test.describe('resolveTargets (Sub 1 #11905 / Epic #11829 Layer 2)', () => {
         expect(infoMatch.msg).toContain("targetSource='disabled'");
     });
 
-    test('AC3 fork-safety — null selfIdentity + unknown source falls back to self + logs both warn (unknown) AND info (null-self)', async () => {
+    test('null selfIdentity + unknown source falls back to self + logs warn AND info', async () => {
         const logger = captureLogger();
         const result = await resolveTargets({
             selfIdentity: null,
@@ -217,7 +216,7 @@ test.describe('resolveTargets (Sub 1 #11905 / Epic #11829 Layer 2)', () => {
         expect(logger.calls.some(c => c.level === 'info' && c.msg.includes('unknown-source-fallback'))).toBe(true);
     });
 
-    test('AC3 fork-safety — null selfIdentity + active-subscribers missing provider falls back to self + logs warn AND info', async () => {
+    test('null selfIdentity + active-subscribers missing provider falls back to self + logs warn AND info', async () => {
         const logger = captureLogger();
         const result = await resolveTargets({
             selfIdentity: null,
@@ -229,7 +228,7 @@ test.describe('resolveTargets (Sub 1 #11905 / Epic #11829 Layer 2)', () => {
         expect(logger.calls.some(c => c.level === 'info' && c.msg.includes('active-subscribers-missing-provider'))).toBe(true);
     });
 
-    test('Step 5 / active-subscribers — empty subscribers + valid self yields just [self]', async () => {
+    test('active-subscribers — empty subscribers + valid self yields just [self]', async () => {
         const result = await resolveTargets({
             selfIdentity              : '@neo-opus-4-7',
             targetSource              : 'active-subscribers',
