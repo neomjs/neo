@@ -3,7 +3,11 @@ import aiConfig                             from '../../mcp/server/knowledge-bas
 import logger                               from '../../mcp/server/knowledge-base/logger.mjs';
 import Base                                 from '../../../src/core/Base.mjs';
 import DatabaseLifecycleService             from './DatabaseLifecycleService.mjs';
-import {assertCanonicalCollectionDeleteAllowed} from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import {
+    chromaConnect,
+    chromaDeleteCollection,
+    createSilentExecutor
+} from '../shared/vector/chromaClientPrimitives.mjs';
 
 const COLLECTION_ALREADY_EXISTS_RE = /already exists|already contains|conflict/i;
 const COLLECTION_NOT_FOUND_RE      = /does not exist|not found|not be found|could not be found|404/i;
@@ -68,19 +72,12 @@ class ChromaManager extends Base {
     }
 
     /**
-     * Establishes connection to ChromaDB.
+     * Establishes connection to ChromaDB via the shared `chromaConnect` primitive (#11111).
      * @returns {Promise<boolean>} True if connected, false otherwise
      */
     async connect() {
-        try {
-            await this.client.heartbeat();
-            this.connected = true;
-            return true;
-        } catch (e) {
-            this.connected = false;
-            logger.debug('[ChromaManager] ChromaDB not accessible:', e.message);
-            return false;
-        }
+        this.connected = await chromaConnect({client: this.client, logger});
+        return this.connected
     }
 
     /**
@@ -97,34 +94,14 @@ class ChromaManager extends Base {
         };
     }
 
-    #chromaLock = Promise.resolve();
-
     /**
-     * Executes a ChromaDB client function sequentially, ensuring console.warn
-     * is safely suppressed without overlapping race conditions.
-     * @param {Function} fn Async function to execute
-     * @returns {Promise<any>}
+     * Per-instance silent-execution function from the shared primitive (#11111).
+     * Each consumer gets its own isolated sequential lock. KB uses blanket suppression
+     * (no `filter` passed at call sites); MC's per-message filter is unaffected.
+     * @member {Function} #executeSilently
+     * @private
      */
-    async #executeSilently(fn) {
-        const nextLock = (async () => {
-            // Await the completion of the previous silent execution
-            await this.#chromaLock;
-
-            const originalWarn = console.warn;
-            console.warn = () => {}; // Suppress unwanted warnings from ChromaDB client
-
-            try {
-                return await fn();
-            } finally {
-                // Guaranteed sequential restore
-                console.warn = originalWarn;
-            }
-        })();
-
-        // Prevent chain crashing if an internal error occurs
-        this.#chromaLock = nextLock.catch(() => {});
-        return nextLock;
-    }
+    #executeSilently = createSilentExecutor()
 
     /**
      * @returns {Promise<Object>}
@@ -279,10 +256,10 @@ class ChromaManager extends Base {
     }
 
     /**
-     * Guarded delete-collection wrapper — peer of the Memory Core counterpart. Refuses
-     * canonical production collection names unless `UNIT_TEST_MODE=true` or a valid
-     * production `confirmation` token is supplied. See the Memory Core ChromaManager's
-     * `deleteCollection` JSDoc for the empirical anchor (2026-05-17 wipe) and rationale.
+     * Guarded delete-collection wrapper. Delegates to the shared `chromaDeleteCollection`
+     * primitive (#11111) which routes through `assertCanonicalCollectionDeleteAllowed` with
+     * `subsystem: 'knowledge-base'`. Refuses canonical production collection names unless
+     * `UNIT_TEST_MODE=true` or a valid production `confirmation` token is supplied.
      *
      * All Knowledge Base callers (`DatabaseService.truncateDatabase`, `VectorService.deleteCollection`,
      * future restore wrappers) MUST route through this method instead of bare
@@ -297,8 +274,7 @@ class ChromaManager extends Base {
      * @see https://github.com/neomjs/neo/issues/11652
      */
     async deleteCollection({name, confirmation} = {}) {
-        assertCanonicalCollectionDeleteAllowed({name, subsystem: 'knowledge-base', confirmation});
-        return await this.client.deleteCollection({name});
+        return chromaDeleteCollection({client: this.client, name, subsystem: 'knowledge-base', confirmation})
     }
 }
 
