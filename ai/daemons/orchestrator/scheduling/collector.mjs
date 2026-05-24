@@ -5,17 +5,14 @@
  * descriptor's `getDueTask(context)` adapter, normalizes the trigger shape, and attaches
  * the descriptor as metadata so downstream `pickNextCandidate` can apply policy rules.
  *
- * **Hard guardrail (ticket #11862 AC5):** this module contains NO `switch(...)` body,
- * NO `executionKind === ...` branching, NO `maintenanceClass === ...` branching, NO
- * `if (... profile ...)` branching. Policy decisions live in `pickNextCandidate`; per-task
- * destructuring lives in registry descriptor adapters. The collector itself is pure
- * iteration + normalization + metadata attachment.
+ * The collector is intentionally policy-blind: it contains no task-kind,
+ * maintenance-class, or deployment-profile branching. Policy decisions live in
+ * `pickNextCandidate`; per-task destructuring lives in registry descriptor adapters.
+ * The collector itself is pure iteration + normalization + metadata attachment.
  *
- * **Failure isolation without state mutation (ticket #11862 AC4):** when a descriptor's
- * `getDueTask` throws, the collector captures the error in the returned `errors` array
- * rather than calling `healthService.recordTaskOutcome(...)` directly. Caller (Orchestrator)
- * iterates the errors array and performs the state-mutating reporting. This keeps the
- * collector observably pure — assertable via spy/before-after-snapshot in unit tests.
+ * Descriptor failures are reported as data, not written directly to Orchestrator
+ * state. The caller owns state-mutating health reporting, keeping this module
+ * observably pure.
  *
  * @param {Object} options
  * @param {Array<Object>} options.registry Frozen task-descriptor registry (see `registry.mjs`).
@@ -50,10 +47,9 @@ export function collectDueCandidates({registry, context}) {
 /**
  * Normalizes a getDueTask return value to a uniform `{reason, onSuccess}` shape.
  *
- * Historical `CadenceEngine.runIfDue` accepted both boolean-true and object triggers;
- * the registry now uses object triggers exclusively per the Sub 20 scheduling-module
- * harmonization (#11864). This normalizer preserves backward compatibility for any
- * future module that returns a bare-boolean trigger.
+ * `CadenceEngine.runIfDue` accepts both boolean-true and object triggers. The
+ * registry uses object triggers, but this normalizer keeps the collector tolerant
+ * of any future bare-boolean trigger.
  *
  * @param {Object|Boolean} trigger Raw trigger from `getDueTask`.
  * @returns {Object} Normalized `{reason, onSuccess?, ...originalFields}`.

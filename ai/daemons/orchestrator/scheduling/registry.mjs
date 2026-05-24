@@ -17,8 +17,8 @@ import {getDueTask as getSwarmHeartbeatDueTask}      from './swarmHeartbeat.mjs'
  *   - `getDueTask`       — pure-function trigger projection (no I/O, no state writes)
  *
  * The `getDueTask` closure adapts the uniform `context` passed by the collector to each
- * scheduling module's specific destructure shape. This adapter lives INSIDE the descriptor
- * — the collector itself must remain branchless per `Orchestrator.spec` AC5 guardrail.
+ * scheduling module's specific destructure shape. This adapter lives inside the descriptor
+ * so the collector can remain pure iteration rather than branch on task-specific shapes.
  *
  * Continuous tasks (`chroma`, `bridgeDaemon`, `mlx`) are intentionally NOT in this registry
  * — they are supervisor-restart-cooldown tasks handled directly in `Orchestrator#poll()`
