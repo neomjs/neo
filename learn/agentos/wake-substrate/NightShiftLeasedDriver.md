@@ -117,6 +117,12 @@ mailbox prose.
 idle-out recovery. This contract owns lane-driver responsibility. Do not create
 a second heartbeat primitive for #10763.
 
+Wake-recipient coverage is subscription-derived: the Orchestrator heartbeat
+sweeps active `WAKE_SUBSCRIPTION` identities per pulse. A maintainer harness is
+night-shift reachable only when its route is active and Memory Core healthcheck
+shows a fresh heartbeat pulse; route presence alone means the bridge can receive
+A2A messages, not that the watchdog lane is currently running.
+
 ## 7. Minimal Message Shape
 
 Lane claim:

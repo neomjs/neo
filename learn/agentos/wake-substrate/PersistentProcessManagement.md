@@ -84,7 +84,16 @@ A healthy idle heartbeat lane may emit nothing for many cycles in a row (no expi
 
 > ⚠️ **Lock-as-evidence anti-pattern:** the file `.neo-ai-data/heartbeat-concurrency.lock` is **producer-side state** — created by `acquireHeartbeatLock` when expensive agent work starts (#10319 `withHeartbeatLock`), removed when that work finishes. The heartbeat lane only *inspects + releases stale locks*, never touches it on healthy idle pulses. **Do not watch the lock's mtime as a polling-health indicator** — a healthy lane may go hours without touching it.
 
-### 3b. Healthcheck-side verification (#10783)
+### 3b. Verify active wake-recipient coverage
+
+The Orchestrator heartbeat process identity is not the wake-recipient set. Each pulse sweeps the primary fallback identity plus active `WAKE_SUBSCRIPTION` identities, so desktop harnesses that are currently reachable through `bridge-daemon`, `mcp-notifications`, or `a2a-webhook` are part of sunset / idle-out detection even when the Orchestrator daemon was launched by another agent identity.
+
+For night-shift readiness, verify both layers:
+
+- **Route layer:** `manage_wake_subscription({action: 'list'})` shows an active subscription for each intended maintainer identity. For Codex Desktop, the target is typically `harnessTarget: 'bridge-daemon'` with `harnessTargetMetadata.appName: 'Codex'`.
+- **Pulse layer:** Memory Core healthcheck reports `features.wake.daemonRunning: true` and a recent `lastPulseAt`. An active Codex route with a stale heartbeat means the bridge can receive A2A messages, but the Orchestrator is not currently driving the watchdog lane.
+
+### 3c. Healthcheck-side verification (#10783)
 
 For a single-call observability check, the Memory Core healthcheck surfaces the wake substrate's operational dimensions in one block. Call any healthcheck-emitting tool (e.g. `mcp__neo-mjs-memory-core__healthcheck`) and inspect the `features.wake` block:
 
