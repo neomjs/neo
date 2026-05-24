@@ -6,6 +6,8 @@ import {
     checkOversizedWorkflowMaps,
     checkPerFileBudgets,
     checkSectionTriggers,
+    classifySizeReportRow,
+    formatSkillMarkdownSizeReport,
     parseArgs,
     parseFrontmatter,
     parseSectionTriggers,
@@ -30,6 +32,73 @@ test.describe('ai/scripts/lint-skill-manifest (#11275)', () => {
 
         expect(parsed.name).toBe('test-skill');
         expect(parsed.description).toBe('Short: description');
+    });
+
+    test('parseArgs supports live size reports without changing lint defaults', () => {
+        expect(parseArgs(['--report-sizes', '--top', '3'])).toEqual({
+            base       : null,
+            reportSizes: true,
+            top        : 3
+        });
+
+        expect(parseArgs(['--base=origin/dev'])).toEqual({
+            base       : 'origin/dev',
+            reportSizes: false,
+            top        : 15
+        });
+    });
+
+    test('CLI emits a live skill size report on demand', () => {
+        const result = spawnSync('node', [scriptPath, '--report-sizes', '--top', '3'], {
+            cwd     : process.cwd(),
+            encoding: 'utf8'
+        });
+
+        expect(result.status, result.stderr).toBe(0);
+        expect(result.stdout).toContain('[lint-skill-manifest] Skill Markdown size report (live)');
+        expect(result.stdout).toContain('rank\tbytes\tlines\tsignals\tdisposition\tfile');
+        expect(result.stdout).toContain('.agents/skills/');
+    });
+
+    test('formatSkillMarkdownSizeReport renders current metrics without snapshot prose', () => {
+        const report = {
+            summary: {
+                fileCount : 2,
+                totalBytes: 300,
+                totalLines: 30
+            },
+            rows: [{
+                file       : '.agents/skills/example/references/a.md',
+                bytes      : 200,
+                lines      : 20,
+                signals    : 8,
+                disposition: 'keep'
+            }]
+        };
+
+        const text = formatSkillMarkdownSizeReport(report);
+
+        expect(text).toContain('files=2 bytes=300 lines=30');
+        expect(text).toContain('1\t200\t20\t8\tkeep\t.agents/skills/example/references/a.md');
+        expect(text).not.toContain('Created for');
+    });
+
+    test('classifySizeReportRow flags stale-history-heavy payloads for rewrite', () => {
+        expect(classifySizeReportRow({
+            file    : '.agents/skills/example/references/history.md',
+            bytes   : 12000,
+            signals : 80,
+            lineRefs: 2,
+            history : 20
+        })).toBe('rewrite');
+
+        expect(classifySizeReportRow({
+            file    : '.agents/skills/example/SKILL.md',
+            bytes   : 40000,
+            signals : 250,
+            lineRefs: 0,
+            history : 0
+        })).toBe('keep');
     });
 
     test('schema validator catches missing required skill fields', () => {

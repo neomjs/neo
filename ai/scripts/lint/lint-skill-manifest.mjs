@@ -19,9 +19,14 @@ const SKILLS_DIR    = path.join(ROOT_DIR, '.agents/skills');
 const CLAUDE_DIR    = path.join(ROOT_DIR, '.claude/skills');
 const MANIFEST_PATH = path.join(SKILLS_DIR, 'skills.manifest.json');
 const SCHEMA_PATH   = path.join(SKILLS_DIR, 'skills.manifest.schema.json');
+const REPORT_TOP_N  = 15;
 
 function parseArgs(argv = process.argv.slice(2)) {
-    const options = {base: null};
+    const options = {
+        base       : null,
+        reportSizes: false,
+        top        : REPORT_TOP_N
+    };
 
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -30,12 +35,28 @@ function parseArgs(argv = process.argv.slice(2)) {
             options.base = argv[++i];
         } else if (arg.startsWith('--base=')) {
             options.base = arg.slice('--base='.length);
+        } else if (arg === '--report-sizes') {
+            options.reportSizes = true;
+        } else if (arg === '--top') {
+            options.top = parseTopArg(argv[++i]);
+        } else if (arg.startsWith('--top=')) {
+            options.top = parseTopArg(arg.slice('--top='.length));
         } else {
             throw new Error(`Unknown argument: ${arg}`);
         }
     }
 
     return options;
+}
+
+function parseTopArg(value) {
+    const parsed = Number.parseInt(value, 10);
+
+    if (!Number.isInteger(parsed) || parsed < 1) {
+        throw new Error(`--top must be a positive integer, got: ${value}`);
+    }
+
+    return parsed;
 }
 
 function readJson(filePath) {
@@ -109,6 +130,79 @@ async function walkFiles(dir) {
     }
 
     return files;
+}
+
+function countMatches(text, regex) {
+    return (text.match(regex) || []).length;
+}
+
+function classifySizeReportRow(row) {
+    if (row.file.endsWith('/SKILL.md')) return 'keep';
+    if (row.bytes > 30000 || row.signals > 150) return 'compress-to-trigger';
+    if (row.lineRefs > 0 || row.history > 50) return 'rewrite';
+    if (row.file.includes('/audits/') && row.bytes > 10000) return 'move';
+
+    return 'keep';
+}
+
+async function skillMarkdownSizeReport({top = REPORT_TOP_N} = {}) {
+    const files = (await walkFiles(SKILLS_DIR))
+        .filter(file => file.endsWith('.md'))
+        .sort();
+
+    const rows = files.map(filePath => {
+        const text    = requireText(filePath);
+        const bytes   = Buffer.byteLength(text, 'utf8');
+        const lines   = text.split('\n').length;
+        const headings = countMatches(text, /^#{1,6}\s+/gm);
+        const musts   = countMatches(text, /\bMUST\b|\bMANDATORY\b|\bFORBIDDEN\b/g);
+        const history = countMatches(text, /\b(PR|Issue|Discussion)\s+#\d+|#\d{4,}|empirical anchor|lineage|histor/ig);
+        const lineRefs = countMatches(text, /[A-Za-z0-9_.\/-]+\.(mjs|md|js|json):\d+/g);
+        const provenance = countMatches(text, /archaeolog|provenance|incident|origin|lineage|empirical anchor/ig);
+        const triggers = countMatches(text, /trigger|when to read|read .* before|<!--\s*trigger:/ig);
+        const signals = Math.round(bytes / 1000) + headings + history * 2 + lineRefs * 3 + provenance * 2 + Math.max(0, musts - 10);
+
+        const row = {
+            file: path.relative(ROOT_DIR, filePath),
+            bytes,
+            lines,
+            headings,
+            musts,
+            history,
+            lineRefs,
+            provenance,
+            triggers,
+            signals
+        };
+
+        return {
+            ...row,
+            disposition: classifySizeReportRow(row)
+        };
+    }).sort((a, b) => b.signals - a.signals || b.bytes - a.bytes || a.file.localeCompare(b.file));
+
+    return {
+        summary: {
+            fileCount : rows.length,
+            totalBytes: rows.reduce((sum, row) => sum + row.bytes, 0),
+            totalLines: rows.reduce((sum, row) => sum + row.lines, 0)
+        },
+        rows: rows.slice(0, top)
+    };
+}
+
+function formatSkillMarkdownSizeReport(report) {
+    const lines = [
+        '[lint-skill-manifest] Skill Markdown size report (live)',
+        `files=${report.summary.fileCount} bytes=${report.summary.totalBytes} lines=${report.summary.totalLines}`,
+        'rank\tbytes\tlines\tsignals\tdisposition\tfile'
+    ];
+
+    report.rows.forEach((row, index) => {
+        lines.push(`${index + 1}\t${row.bytes}\t${row.lines}\t${row.signals}\t${row.disposition}\t${row.file}`);
+    });
+
+    return lines.join('\n');
 }
 
 async function payloadBytes(skillName) {
@@ -509,6 +603,12 @@ async function lint({base = null} = {}) {
 
 async function main() {
     const options = parseArgs();
+
+    if (options.reportSizes) {
+        console.log(formatSkillMarkdownSizeReport(await skillMarkdownSizeReport({top: options.top})));
+        return;
+    }
+
     const errors  = await lint(options);
 
     if (errors.length) {
@@ -529,4 +629,16 @@ if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
     });
 }
 
-export {checkOversizedWorkflowMaps, checkPerFileBudgets, checkSectionTriggers, parseSectionTriggers, lint, parseArgs, parseFrontmatter, validateManifestSchema};
+export {
+    checkOversizedWorkflowMaps,
+    checkPerFileBudgets,
+    checkSectionTriggers,
+    classifySizeReportRow,
+    formatSkillMarkdownSizeReport,
+    parseSectionTriggers,
+    skillMarkdownSizeReport,
+    lint,
+    parseArgs,
+    parseFrontmatter,
+    validateManifestSchema
+};
