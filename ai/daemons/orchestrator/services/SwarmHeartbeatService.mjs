@@ -1,7 +1,7 @@
-// Class-only file (#11058 split). Entry-point bootstrap (Neo + core/_export +
-// InstanceManager) lives in the Orchestrator entry point (`ai/scripts/orchestrator-daemon.mjs`),
-// which loads this class as the swarm-heartbeat lane (#11766 fold). `Neo.setupClass(SwarmHeartbeatService)`
-// at file bottom works via `globalThis.Neo` populated by the entry-point bootstrap chain.
+// Class-only file. Entry-point bootstrap (Neo + core/_export + InstanceManager)
+// lives in the Orchestrator entry point, which loads this class as its
+// swarm-heartbeat lane. `Neo.setupClass(SwarmHeartbeatService)` at file bottom
+// works via `globalThis.Neo` populated by the entry-point bootstrap chain.
 import {spawn}         from 'child_process';
 import fs              from 'fs/promises';
 import path            from 'path';
@@ -42,18 +42,15 @@ const DEFAULT_POLL_INTERVAL_MS = 5 * 60 * 1000;
 const PUSH_CAPABLE_TARGETS     = Object.freeze(['mcp-notifications', 'a2a-webhook', 'bridge-daemon']);
 
 /**
- * @summary Neo-singleton swarm-heartbeat lane for the Phase 1/3 wake substrate.
+ * @summary Neo-singleton swarm-heartbeat lane for Agent OS wake maintenance.
  *
- * Folded into the Orchestrator daemon as a config-gated scheduled lane (#11766): the
- * Orchestrator owns the persistent process and the scheduler, awaiting `service.ready()`
- * once at start (the framework triggers `initAsync()` exactly once during singleton
- * `Neo.create()`; external callers MUST NOT invoke `initAsync()` directly per
- * `core.Base.mjs:589-595`) and calling `pulse()` once per cadence tick. This class is
- * no longer a standalone daemon — it has no self-scheduling loop and no entry-point
- * wrapper of its own. The Orchestrator's `runIfDue` lane provides the cadence gate and
- * per-pulse failure isolation that the old self-rescheduling loop used to provide.
+ * The Orchestrator owns the persistent process and scheduler. It awaits
+ * `service.ready()` once during startup and calls `pulse()` on cadence ticks.
+ * This class has no self-scheduling loop and no entry-point wrapper of its own;
+ * the Orchestrator cadence lane owns timing and per-pulse failure isolation.
  *
- * **Where direct module imports replace subprocess invocations** (#10789 AC3, "where feasible"):
+ * Direct module imports replace subprocess invocations where the imported
+ * primitive already owns a stable programmatic API:
  *
  *   - `MailboxService.sweepExpiredTasks()` — the expired-task sweep was previously a `node
  *     ai/scripts/lifecycle/sweepExpiredTasks.mjs` subprocess; calling MailboxService directly removes the
@@ -61,39 +58,28 @@ const PUSH_CAPABLE_TARGETS     = Object.freeze(['mcp-notifications', 'a2a-webhoo
  *   - `wakeSafetyGate.mjs` exports (`isGateOpen`, `readGateState`) — the bash `if ! node
  *     wakeSafetyGate.mjs check` shell-out is replaced with direct function calls.
  *   - `heartbeatLock.mjs` exports (`inspectHeartbeatLock`, `releaseHeartbeatLock`) — the bash
- *     stat-based concurrency-lock check is replaced with the JS implementation already shared
- *     with the producer side (#10319 `withHeartbeatLock`).
+ *     stat-based concurrency-lock check is replaced with the shared JS implementation.
  *
- * **Where dual-mode script imports replace subprocess invocations** (#10795):
+ * Dual-mode lifecycle scripts keep their CLI wrappers for manual use while
+ * exposing module entrypoints for the heartbeat lane:
  * `checkSunsetted.mjs`, `resumeHarness.mjs`, `checkAllAgentIdle.mjs`, `idleOutNudge.mjs`,
  * and `trioWakeCooldown.mjs` now expose module entrypoints while preserving their CLI
  * wrappers for manual use. The lane calls those exports directly to avoid 2-5s Node
  * startup hops per pulse.
  *
- * **Lifecycle contract (per core.Base.mjs:589-595):** `initAsync()` is triggered ONCE
- * by the framework during `Neo.create()`. External callers MUST use `await
- * service.ready()` to wait for init completion — NOT call `initAsync()` directly
- * (would execute twice → fatal duplication).
+ * `initAsync()` is framework-owned. External callers use `await service.ready()`
+ * to wait for initialization rather than invoking lifecycle hooks directly.
  *
- * **Singleton justification (AC5):** kept as singleton because `initAsync()` is
- * identity-agnostic (peer-service `.ready()` calls only); `identity` and
- * `pollIntervalMs` are *pulse-time* runtime config (read by `pulse()` per tick),
- * not *init-time* dependencies. Parent (Orchestrator) sets these via reactive
- * config assignment BEFORE `await this.swarmHeartbeatService.ready()` (the
- * framework already fired identity-agnostic `initAsync()` at module-load, so
- * `ready()` resolves immediately; the BEFORE-`.ready()` ordering matches the
- * `Orchestrator.start()` code and keeps the contract symmetric with non-singleton
- * `Neo.create({...configs})` shape where configs always flow in pre-init). There is
- * exactly one Orchestrator daemon per host, so the 1:1 service-to-parent
- * relationship has no multi-instance state-collision risk that the
- * CadenceEngine / MaintenanceBackpressureService non-singleton rule guards
- * against. Conversion to non-singleton is a follow-up architectural-purity
- * concern, NOT a substrate-correctness blocker.
+ * Singleton scope is intentional: initialization only waits for peer services,
+ * while `identity` and `pollIntervalMs` are pulse-time runtime config. The
+ * Orchestrator sets those reactive configs before awaiting readiness. There is
+ * one Orchestrator daemon per host, so the service-to-parent relationship does
+ * not share mutable pulse state across multiple scheduler owners.
  *
  * @class Neo.ai.daemons.SwarmHeartbeatService
  * @extends Neo.core.Base
  * @singleton
- * @see ai/daemons/Orchestrator.mjs              — the daemon this lane is folded into (#11766)
+ * @see ai/daemons/Orchestrator.mjs                        — daemon that owns this scheduled lane
  * @see ai/scripts/lifecycle/checkSunsetted.mjs            — sunset detector (subprocess)
  * @see ai/scripts/lifecycle/resumeHarness.mjs             — fresh-session-spawn dispatcher (subprocess)
  * @see ai/scripts/lifecycle/wakeSafetyGate.mjs            — fail-closed safety gate (direct import)
@@ -127,9 +113,8 @@ class SwarmHeartbeatService extends Base {
         /**
          * Interval between pulses in milliseconds. Parent (Orchestrator) sets this
          * via reactive config assignment to the orchestrator's
-         * `swarmHeartbeatIntervalMs` value (which already honors
-         * `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS` env override per Lane A
-         * #11873 env-binding pattern).
+         * `swarmHeartbeatIntervalMs` value, which already honors the
+         * `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS` env override.
          * @member {Number} pollIntervalMs_=300000
          * @reactive
          */
@@ -213,16 +198,13 @@ class SwarmHeartbeatService extends Base {
      * One-time async init triggered by Neo.create() framework lifecycle.
      * Identity-agnostic: awaits peer-service readiness (LifecycleService +
      * GraphService) so SQLite queries on subsequent `pulse()` cadence ticks
-     * run without per-pulse init overhead. Per core.Base.mjs:589-595 contract:
-     * external callers MUST use `await service.ready()` to wait for
-     * completion, NOT call `initAsync()` directly.
+     * run without per-pulse init overhead. External callers use
+     * `await service.ready()` to wait for completion rather than calling
+     * lifecycle hooks directly.
      *
      * Note: `this.identity` / `this.pollIntervalMs` are NOT read here — they
-     * are pulse-time runtime config the parent (Orchestrator) sets BEFORE
-     * `await service.ready()` in `start()` (framework already fired identity-
-     * agnostic init at module-load; ordering matches the Neo.create-flows-
-     * configs-pre-init shape). `pulse()` reads them per tick. See class-level
-     * singleton-justification block.
+     * are pulse-time runtime config the parent (Orchestrator) sets before
+     * `await service.ready()` in `start()`. `pulse()` reads them per tick.
      * @returns {Promise<void>}
      */
     async initAsync() {
@@ -232,14 +214,14 @@ class SwarmHeartbeatService extends Base {
     }
 
     /**
-     * Execute one heartbeat pulse. Preserves the step sequence of the retired
-     * `swarm-heartbeat.sh#heartbeat_pulse` shell loop (folded into this lane per #11766):
+     * Execute one heartbeat pulse. The step order preserves the established
+     * heartbeat contract while running inside the Orchestrator scheduler:
      *
      *   0. Liveness touch (`touchLivenessFile()`) — runs BEFORE the lock check so a
      *      lock-skipped pulse still signals `daemonRunning` to `HealthService`, matching
      *      the shell loop's touch-before-lock ordering.
      *   1. Concurrency-lock skip (active lock = expensive work in flight, skip pulse;
-     *      stale lock = clear and continue per #10319).
+     *      stale lock = clear and continue).
      *   2. TTL sweep (`MailboxService.sweepExpiredTasks` — direct call, no subprocess).
      *   3. Sunset detection via `checkSunsetted.mjs` direct export.
      *      - sunset=true + gate-open → fresh-session-spawn via `resumeHarness.mjs` direct export.
@@ -247,7 +229,7 @@ class SwarmHeartbeatService extends Base {
      *      - recommended_action=idle_out_nudge + gate-open → `idleOutNudge.mjs`.
      *      - runs for the primary identity plus every active WAKE_SUBSCRIPTION
      *        identity, so Codex/Claude/Gemini routes are monitored by subscription
-     *        reality rather than by the Orchestrator process owner's env var (#11872).
+     *        reality rather than by the Orchestrator process owner's env var.
      *   4. All-agent-idle detection via `checkAllAgentIdle.mjs` direct export.
      *      - allIdle=true + gate-open → `trioWakeCooldown.mjs` direct export.
      *   5. Heartbeat-bypass detection: identities with push-capable subscriptions
@@ -357,11 +339,10 @@ class SwarmHeartbeatService extends Base {
     /**
      * @summary Touch the heartbeat-liveness file `HealthService` reads for `daemonRunning`.
      *
-     * Restores the producer side of the `.neo-ai-data/wake-daemon/heartbeat.alive` mtime
-     * contract that `swarm-heartbeat.sh` owned before the #11766 fold (#10783). Path
-     * resolution mirrors `HealthService.heartbeatAlivePath()` — the `NEO_HEARTBEAT_ALIVE_PATH`
-     * override, else the canonical path. A touch failure is swallowed: a missing liveness
-     * signal must never abort a pulse.
+     * Produces the `.neo-ai-data/wake-daemon/heartbeat.alive` mtime signal used by
+     * `HealthService`. Path resolution mirrors `HealthService.heartbeatAlivePath()`:
+     * `NEO_HEARTBEAT_ALIVE_PATH` override first, then the canonical path. A touch
+     * failure is swallowed because a missing liveness signal must never abort a pulse.
      * @protected
      * @returns {Promise<void>}
      */
@@ -555,7 +536,7 @@ class SwarmHeartbeatService extends Base {
 
     /**
      * SQLite query: count of unread MESSAGE-label nodes addressed to the polled identity.
-     * Direct DMs use MESSAGE.properties.readAt; #11029 broadcasts use per-recipient
+     * Direct DMs use MESSAGE.properties.readAt; broadcasts use per-recipient
      * DELIVERED_TO.readAt edges, with a legacy fallback for old broadcasts lacking receipts.
      * @returns {Promise<Number>}
      * @protected
