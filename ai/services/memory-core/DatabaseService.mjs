@@ -453,11 +453,21 @@ class DatabaseService extends Base {
 
             let totalImported        = 0;
             let targetCollectionName = '';
-            // #11141: per-substrate truthful counters surface alongside the aggregate so
+            // #11141 + #11144: per-substrate truthful counters surface alongside the aggregate so
             // operator validation can distinguish inserted vs skippedExisting vs failed
-            // post-merge. Currently only graph emits structured counts (`#importGraph`);
-            // memory/summaries upsert path is bulk + adds its count to memoriesInserted.
-            const subsystemCounts = {graph: null, memoriesInserted: 0};
+            // post-merge. Graph counts come from `#importGraph`. Chroma counts (memories,
+            // summaries) come from the mode-branched path below: merge mode preflights
+            // existing IDs in chunks + only `collection.add()`s missing IDs (preserve-live
+            // parity with graph-side INSERT OR IGNORE); replace mode runs `collection.upsert()`
+            // after subsystem truncate. `memoriesInserted` is preserved as a backward-compat
+            // aggregate of memories.inserted + summaries.inserted (matches #11141 `imported`
+            // field pattern at `importDatabase`'s aggregation layer).
+            const subsystemCounts = {
+                graph           : null,
+                memories        : {inserted: 0, skippedExisting: 0, failed: 0},
+                summaries       : {inserted: 0, skippedExisting: 0, failed: 0},
+                memoriesInserted: 0
+            };
 
             for (const filePath of filesToImport) {
                 logger.log(`Importing: ${filePath}`);
@@ -480,6 +490,10 @@ class DatabaseService extends Base {
 
                 targetCollectionName = collection.name; // roughly tracking target
 
+                // #11144: route per-file counters into the right substrate bucket so
+                // memories vs summaries truthful counts stay separable across multi-file batches.
+                const chromaCounts = isMemoryBackup ? subsystemCounts.memories : subsystemCounts.summaries;
+
                 const fileStream = fs.createReadStream(filePath);
                 const rl         = readline.createInterface({input: fileStream, crlfDelay: Infinity});
                 const records    = [];
@@ -500,7 +514,7 @@ class DatabaseService extends Base {
                     records.forEach(r => delete r.embedding);
                 }
 
-                // Chroma has TWO upsert limits: (1) record-count cap ~5461; (2) HTTP
+                // Chroma has TWO upsert/add limits: (1) record-count cap ~5461; (2) HTTP
                 // body size cap that 413-rejects large payloads. With 4096-dim qwen3
                 // embeddings (~32KB each) + document text, per-record is ~35-40KB.
                 // Chunk size 250 = ~10MB body, well within HTTP limits + record cap.
@@ -508,30 +522,84 @@ class DatabaseService extends Base {
                 //   - 9244 records: "Record set length 9244 exceeds max batch size 5461"
                 //   - 4000 records: "413: Payload Too Large"
                 const CHROMA_UPSERT_CHUNK_SIZE = 250;
-                for (let i = 0; i < records.length; i += CHROMA_UPSERT_CHUNK_SIZE) {
-                    const chunk = records.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE);
-                    await collection.upsert({
-                        ids       : chunk.map(r => r.id),
-                        embeddings: chunk.map(r => r.embedding),
-                        metadatas : chunk.map(r => r.metadata),
-                        documents : chunk.map(r => r.document)
-                    });
-                    if (records.length > CHROMA_UPSERT_CHUNK_SIZE) {
-                        logger.log(`  upserted chunk ${Math.floor(i / CHROMA_UPSERT_CHUNK_SIZE) + 1}/${Math.ceil(records.length / CHROMA_UPSERT_CHUNK_SIZE)} (${chunk.length} records)`);
+
+                let fileInserted        = 0;
+                let fileSkippedExisting = 0;
+                let fileFailed          = 0;
+
+                if (mode === 'merge') {
+                    // #11144: preserve-live merge (Chroma parity with graph-side INSERT OR IGNORE
+                    // shipped in #11141). Chunked existence-check via `collection.get({ids})`,
+                    // then `collection.add()` for the missing-ID subset only. Live records
+                    // are NOT overwritten — the running daemon's authoritative state survives.
+                    const existingIds = new Set();
+                    for (let i = 0; i < records.length; i += CHROMA_UPSERT_CHUNK_SIZE) {
+                        const chunkIds  = records.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE).map(r => r.id);
+                        const existence = await collection.get({ids: chunkIds, include: []});
+                        existence.ids.forEach(id => existingIds.add(id));
                     }
+
+                    const missing       = records.filter(r => !existingIds.has(r.id));
+                    fileSkippedExisting = existingIds.size;
+
+                    if (existingIds.size > 0) {
+                        logger.log(`  merge mode: ${existingIds.size} live ID(s) preserved; ${missing.length} new record(s) to insert.`);
+                    }
+
+                    for (let i = 0; i < missing.length; i += CHROMA_UPSERT_CHUNK_SIZE) {
+                        const chunk = missing.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE);
+                        try {
+                            await collection.add({
+                                ids       : chunk.map(r => r.id),
+                                embeddings: chunk.map(r => r.embedding),
+                                metadatas : chunk.map(r => r.metadata),
+                                documents : chunk.map(r => r.document)
+                            });
+                            fileInserted += chunk.length;
+                        } catch (e) {
+                            fileFailed += chunk.length;
+                            logger.error(`[importMemories] add failed for chunk ${Math.floor(i / CHROMA_UPSERT_CHUNK_SIZE) + 1}: ${e.message}`);
+                        }
+                        if (missing.length > CHROMA_UPSERT_CHUNK_SIZE) {
+                            logger.log(`  added chunk ${Math.floor(i / CHROMA_UPSERT_CHUNK_SIZE) + 1}/${Math.ceil(missing.length / CHROMA_UPSERT_CHUNK_SIZE)} (${chunk.length} records)`);
+                        }
+                    }
+                } else {
+                    // Replace mode: subsystem already truncated above; upsert is safe
+                    // (no live rows to collide with). Fail-fast on chunk error matches
+                    // pre-#11144 behavior; the outer try/catch wraps it as DATABASE_IMPORT_ERROR.
+                    for (let i = 0; i < records.length; i += CHROMA_UPSERT_CHUNK_SIZE) {
+                        const chunk = records.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE);
+                        await collection.upsert({
+                            ids       : chunk.map(r => r.id),
+                            embeddings: chunk.map(r => r.embedding),
+                            metadatas : chunk.map(r => r.metadata),
+                            documents : chunk.map(r => r.document)
+                        });
+                        if (records.length > CHROMA_UPSERT_CHUNK_SIZE) {
+                            logger.log(`  upserted chunk ${Math.floor(i / CHROMA_UPSERT_CHUNK_SIZE) + 1}/${Math.ceil(records.length / CHROMA_UPSERT_CHUNK_SIZE)} (${chunk.length} records)`);
+                        }
+                    }
+                    fileInserted = records.length;
                 }
 
-                totalImported           += records.length;
-                subsystemCounts.memoriesInserted += records.length;
+                chromaCounts.inserted            += fileInserted;
+                chromaCounts.skippedExisting     += fileSkippedExisting;
+                chromaCounts.failed              += fileFailed;
+                totalImported                    += fileInserted;
+                subsystemCounts.memoriesInserted += fileInserted;
             }
 
             return {
                 message : `Import batch complete. Successfully ingested ${totalImported} records across ${filesToImport.length} file(s).`,
                 imported: totalImported,
                 mode,
-                // #11141: structured per-substrate breakdown for operator validation.
+                // #11141 + #11144: structured per-substrate breakdown for operator validation.
                 // `graph` is null when no graph file was imported in this batch; otherwise
                 // exposes {nodes: {inserted,skippedExisting,failed}, edges: {inserted,skippedExisting,failed}}.
+                // `memories` + `summaries` each expose {inserted, skippedExisting, failed}
+                // — merge mode populates skippedExisting; replace mode runs upsert so
+                // skippedExisting stays 0. `memoriesInserted` is the backward-compat aggregate.
                 counts  : subsystemCounts
             };
         } catch (error) {
