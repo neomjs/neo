@@ -22,14 +22,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * pattern so parallel test specs can isolate from the canonical on-disk path. Production
  * deployments leave `NEO_HEARTBEAT_ALIVE_PATH` unset; the canonical path under `.neo-ai-data/wake-daemon/`
  * applies. Counterpart producer: `SwarmHeartbeatService.touchLivenessFile()`, called once per
- * `pulse()` by the Orchestrator's swarm-heartbeat lane (#10783, folded into the Orchestrator per #11766).
+ * `pulse()` by the Orchestrator's swarm-heartbeat lane.
  */
 function heartbeatAlivePath() {
     return process.env.NEO_HEARTBEAT_ALIVE_PATH || path.resolve(__dirname, '../../../.neo-ai-data/wake-daemon/heartbeat.alive');
 }
 
 /**
- * @summary Resolves the stale-threshold for the `daemonRunning` heuristic at call-time (#10931).
+ * @summary Resolves the stale-threshold for the `daemonRunning` heuristic at call-time.
  *
  * Coupling contract: stale threshold = 2× POLL_INTERVAL where POLL_INTERVAL is the substrate
  * convention read in `SwarmHeartbeatService.initAsync()` (default 300s = 5 min, env-overridable).
@@ -42,8 +42,7 @@ function heartbeatAlivePath() {
  *
  * Operator override: `POLL_INTERVAL=N` (seconds) propagates from the daemon to observability
  * — a 15-min cadence (`POLL_INTERVAL=900`) yields a 30-min stale threshold, preventing the
- * hardcoded-10-min observability gap that prompted this function-form (per #10931 review of
- * PR #10930 by @neo-gemini-3-1-pro).
+ * hardcoded-10-min observability gap for slower heartbeat deployments.
  *
  * @returns {Number} Stale-threshold in milliseconds (2× POLL_INTERVAL × 1000).
  * @see ai/daemons/SwarmHeartbeatService.mjs#initAsync — where the POLL_INTERVAL convention lives
@@ -54,7 +53,7 @@ function heartbeatLivenessStaleMs() {
 }
 
 /**
- * @summary Projects the stdio identity state into the healthcheck-payload shape (#10176).
+ * @summary Projects the stdio identity state into the healthcheck-payload shape.
  *
  * Pure function: takes the cached stdioIdentity context (or null) and returns the
  * observability block the healthcheck response exposes — `{source, bound, nodeId}`.
@@ -67,13 +66,13 @@ function heartbeatLivenessStaleMs() {
  * 2. Resolved without graph node — `gh-cli` / `env-var` yielded a userId but no seeded
  *    AgentIdentity graph node matched. Projects to `{source: <resolved>, bound: false, nodeId: null}`.
  *    Diagnostic: agent needs seeding via `ai/scripts/setup/seedAgentIdentities.mjs` OR the boot-time
- *    self-seed from #10232 wasn't triggered.
+ *    self-seed did not run.
  * 3. Resolved with graph node — fully bound identity. Projects to `{source: <resolved>, bound: true, nodeId: '@login'}`.
  *    The success shape that A2A operation requires.
  *
  * `status` is NOT flipped by this projection. Unbound identity is a valid single-tenant
  * fallthrough per the MemoryCoreMcpAuth contract — this block is pure observability, not
- * a health gate. The architectural choice matches "surface, don't obscure" (PR #10227).
+ * a health gate. The architectural choice matches "surface, don't obscure".
  *
  * @param {Object|null} stdioIdentityState Either `null` or `{userId, agentIdentityNodeId, source}`
  * @returns {{source: String, bound: Boolean, nodeId: String|null}}
@@ -93,7 +92,7 @@ export function buildIdentityBlock(stdioIdentityState) {
 
 /**
  * @summary Projects orchestrator task outcomes into the healthcheck `orchestrator.tasks`
- *          observability block (#11009).
+ *          observability block.
  *
  * The task outcome map is updated by `Neo.ai.daemons.Orchestrator` after each child-task
  * lifecycle event. Returning a shallow clone prevents healthcheck callers from mutating
@@ -113,14 +112,14 @@ export function buildTaskOutcomesBlock(taskOutcomes) {
 
 /**
  * @summary Projects the effective ChromaDB topology resolution into the healthcheck `database.topology`
- *          observability block (#10127, #11011).
+ *          observability block.
  *
  * Pure function: takes an `aiConfig`-shaped input and returns the three-field projection operators
  * need to verify ChromaDB coordinate resolution — `{mode, coordinates, resolvedVia}`.
  *
- * **Post-v13 Substrate Migration (#11011):** The federated topology has been retired. The system
- * operates permanently in `unified` mode. Memory Core connects as a downstream client to the
- * shared ChromaDB instance via `cfg.engines.chroma`. The `mode` is statically `'unified'` and
+ * **Post-v13 topology:** The federated topology has been retired. The system operates
+ * permanently in `unified` mode. Memory Core connects as a downstream client to the shared
+ * ChromaDB instance via `cfg.engines.chroma`. The `mode` is statically `'unified'` and
  * `resolvedVia` is statically `'engines.chroma'`.
  *
  * @param {Object} cfg aiConfig-shaped input. Reads `cfg.engines.chroma.{host, port}`.
@@ -147,7 +146,7 @@ export function buildTopologyBlock(cfg) {
 
 /**
  * @summary Projects the active embedding-provider configuration into the healthcheck `providers.embedding`
- *          observability block (#10723, #10773, #10804).
+ *          observability block.
  *
  * Pure function: takes an `aiConfig`-shaped input and returns the active embedding provider with
  * their host, model, and configured vector dimension. Mirrors the {@link buildTopologyBlock} precedent
@@ -160,12 +159,13 @@ export function buildTopologyBlock(cfg) {
  * (silently defaulting to Gemini cloud while the operator believes a local provider is wired) is
  * undetectable until cross-tenant retrieval drift emerges.
  *
- * **What this block reports:** single-provider projection for every embedding callsite after #10804
- * consolidated ChromaDB and SQLite Native Edge Graph provider selection into `embeddingProvider`.
+ * **What this block reports:** single-provider projection for every embedding callsite after
+ * ChromaDB and SQLite Native Edge Graph provider selection were consolidated into
+ * `embeddingProvider`.
  *
  * **Defensive fallback:** if the provider key isn't recognized, the block surfaces
  * `{active: <unknown-key>, host: null, model: null, dimensions: <vectorDimension>, error: <msg>}`
- * so operators see the misconfig directly. Aligns with "surface, don't obscure" (PR #10227).
+ * so operators see the misconfig directly. Aligns with "surface, don't obscure".
  *
  * @param {Object} cfg aiConfig-shaped input. Reads `cfg.embeddingProvider`, `cfg.openAiCompatible.{host, embeddingModel}`,
  *     `cfg.ollama.{host, embeddingModel}`, `cfg.embeddingModel` (Gemini path), `cfg.vectorDimension`.
@@ -221,12 +221,12 @@ function buildSingleEmbeddingProviderBlock(cfg, active, configName) {
 
 /**
  * @summary Projects the active session-summary provider into the healthcheck `providers.summary`
- *          observability block (#10724).
+ *          observability block.
  *
- * The shared-deployment local-model validation path (#10724) needs operators to confirm that
- * session summaries are routed to the intended chat API before waiting for a disconnect-triggered
- * summarization run. This pure projection names the active provider, host, model, endpoint, local
- * status, and credential env var without exposing secret values, mirroring the sibling
+ * The shared-deployment local-model validation path needs operators to confirm that session
+ * summaries are routed to the intended chat API before waiting for a disconnect-triggered
+ * summarization run. This pure projection names the active provider, host, model, endpoint,
+ * local status, and credential env var without exposing secret values, mirroring the sibling
  * {@link buildEmbeddingProviderBlock} operator-facing `providers.*` observability strategy.
  *
  * @param {Object} cfg aiConfig-shaped input containing `modelProvider`, `modelName`, and
@@ -270,7 +270,7 @@ export function buildSummaryProviderBlock(cfg, env = process.env) {
 
 /**
  * @summary Projects the active authentication-provider configuration into the healthcheck
- *          `providers.auth` observability block (#10770).
+ *          `providers.auth` observability block.
  *
  * Operators deploying the shared MC/KB topology with multi-tenant identity isolation need an
  * observable surface confirming WHICH auth path is currently primary at boot — OIDC introspection
@@ -286,8 +286,8 @@ export function buildSummaryProviderBlock(cfg, env = process.env) {
  *   `trustProxyIdentity` is also true (req.auth wins by design — see SharedDeployment.md).
  * - `'proxy-header'` — OIDC unconfigured AND `trustProxyIdentity=true`. The MC server reads
  *   `X-PREFERRED-USERNAME` (or the `oauth2-proxy`-specific `X-Auth-Request-Preferred-Username`)
- *   from the upstream request and trusts the fronting proxy's identity assertion. Per
- *   PR #10785, requests missing the proxy header in this mode are actively rejected with 401.
+ *   from the upstream request and trusts the fronting proxy's identity assertion. Requests
+ *   missing the proxy header in this mode are actively rejected with 401.
  * - `'unconfigured'` — neither path active. Single-tenant fallthrough (local development).
  *
  * **Security: clientSecret never leaks.** This block intentionally omits the OAuth `clientSecret`
@@ -330,7 +330,7 @@ export function buildAuthProviderBlock(cfg) {
 }
 
 /**
- * @summary Projects wake-substrate observable state into the healthcheck `features.wake` block (#10783).
+ * @summary Projects wake-substrate observable state into the healthcheck `features.wake` block.
  *
  * Async pure projection: reads the wake-safety-gate state (via `wakeSafetyGate.readGateState`)
  * and the heartbeat-liveness file mtime (touched once per pulse by
@@ -358,17 +358,17 @@ export function buildAuthProviderBlock(cfg) {
  * - `secondsSinceLastPulse`: derived seconds since last pulse. Surfaces "alive but stalled" when
  *   `daemonRunning` is `false` but a previous mtime exists.
  *
- * **Liveness signal substrate (#10783 design note):** the heartbeat concurrency lock at
+ * **Liveness signal substrate:** the heartbeat concurrency lock at
  * `.neo-ai-data/heartbeat-concurrency.lock` is touched only when expensive Agent OS work runs
  * (per `heartbeatLock.mjs`), NOT on every pulse. So the lock cannot serve as the daemon-liveness
  * signal directly. This block consumes a dedicated `heartbeat.alive` file that
- * `SwarmHeartbeatService.touchLivenessFile()` touches at the top of each `pulse()` (#11766 fold:
- * the producer is now the Orchestrator's swarm-heartbeat lane) — present-and-fresh means the
- * Orchestrator daemon is polling.
+ * `SwarmHeartbeatService.touchLivenessFile()` touches at the top of each `pulse()`; the
+ * producer is the Orchestrator's swarm-heartbeat lane. Present-and-fresh means the Orchestrator
+ * daemon is polling.
  *
  * **Defensive defaults:** missing files / unreadable state surfaces sensible defaults
  * (`gateState: 'unknown'`, `daemonRunning: false`, `lastPulseAt: null`) WITHOUT throwing.
- * Aligns with the "surface, don't obscure" principle codified in PR #10227.
+ * Aligns with the "surface, don't obscure" principle.
  *
  * @param {Number|Date} [now=Date.now()] Time source for deterministic tests
  * @returns {Promise<{gateState: String, gateReason: String, gateTrippedAt: String|null,
@@ -428,7 +428,7 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
 
 /**
  * @summary Projects background daemon feature flags into the healthcheck `features.dream`
- *          observability block (#10779).
+ *          observability block.
  *
  * Pure projection: reads the active boolean status of the background data-processing
  * features and surfaces them so operators can verify boot-time evaluations (env var overrides
@@ -480,7 +480,7 @@ export function buildDreamFeaturesBlock(cfg, taskOutcomes = {}) {
  */
 
 /**
- * @summary Projects the backup directory state into the observability block for the healthcheck (#10844).
+ * @summary Projects the backup directory state into the observability block for the healthcheck.
  *
  * Checks the backup directory for the most recent successful backup bundle by iterating
  * over backup directories (sorted newest first) and looking for `bundle-meta.json` containing
@@ -538,13 +538,13 @@ export async function buildBackupStateBlock(backupPath, fs, path) {
 }
 
 /**
- * @summary Projects Chroma metadata into actionable tenant-migration counters (#11181).
+ * @summary Projects Chroma metadata into actionable tenant-migration counters.
  *
  * Chroma's where-filter vocabulary cannot ask for "metadata key is missing" reliably, so
  * healthcheck migration observability must inspect returned metadata, not infer from `$ne`.
  * For the summary collection, this also counts core-swarm participant summaries that are
  * tagged to one peer instead of the shared sentinel — the restored-data visibility failure
- * that triggered #11181.
+ * this healthcheck block is meant to surface.
  *
  * @param {Object[]} metadatas Chroma metadata records.
  * @param {Object} [options]
@@ -676,7 +676,7 @@ class HealthService extends Base {
     #taskOutcomes = {};
 
     /**
-     * Cached stdio identity state for the healthcheck `identity` observability block (#10176).
+     * Cached stdio identity state for the healthcheck `identity` observability block.
      * Populated by `Server.mjs` post-`resolveStdioIdentity()` via {@link HealthService#setStdioIdentityState}.
      * Null when the setter hasn't fired yet (SSE transport, pre-boot, or timing races — all of
      * which project to `source: 'unresolved'` via {@link buildIdentityBlock}).
@@ -773,7 +773,7 @@ class HealthService extends Base {
 
     /**
      * Computes the untagged-legacy-node counts for the multi-tenant migration observability
-     * surface (#10017). Operators scrape `healthcheck.migration.untaggedCount.total` to track
+     * surface. Operators scrape `healthcheck.migration.untaggedCount.total` to track
      * how much pre-tenant-aware-era data remains as natural query patterns move writes toward
      * 100% tagged coverage. A zero total is the signal that defaults can be flipped from
      * `'legacy'` to `'private'` for the deployment.
@@ -837,10 +837,10 @@ class HealthService extends Base {
 
     /**
      * Computes the ChromaDB-side actionable migration-debt counts for the multi-tenant
-     * observability surface (#10556, #11181 — companion to the SQLite graph-side counter at
-     * {@link HealthService##checkMigrationState}).
+     * observability surface, companion to the SQLite graph-side counter at
+     * {@link HealthService##checkMigrationState}.
      *
-     * Pre-#10145 records lack the `userId` metadata key entirely, and restored session summaries
+     * Legacy records can lack the `userId` metadata key entirely, and restored session summaries
      * can also be tagged to one summarizing peer while `participatingAgents` names a different
      * core-swarm peer. Both shapes are invisible to the intended tenant-aware reads until the
      * backfill runner (`ai/scripts/migrations/backfillChromaSharedUserId.mjs`) tags them with
@@ -852,7 +852,6 @@ class HealthService extends Base {
      *
      * @returns {Promise<Object>} Actionable debt plus untagged and summary-visibility details.
      * @see ai/scripts/migrations/backfillChromaSharedUserId.mjs — the runner that tags untagged records
-     * @see #10556 — the Fat Ticket establishing the additive-tenant-isolation read shape
      * @private
      */
     async #checkChromaMigrationState() {
@@ -1019,11 +1018,12 @@ class HealthService extends Base {
             return payload;
         }
 
-        // Step 1.5: ChromaDB-side migration observability (#10556).
+        // Step 1.5: ChromaDB-side migration observability.
         // MUST run AFTER #checkDatabaseConnections so `ChromaManager.connected` is established.
         // Earlier ordering (initialized at payload-construction time) cached `available: false`
         // on cold-process healthchecks even when the same payload reported `database.connected: true`.
-        // GPT review on PR #10567 caught this — empirical reproducer in PR comments.
+        // This ordering keeps the migration counters consistent with the connection status
+        // surfaced in the same payload.
         payload.migration.chromadb = await this.#checkChromaMigrationState();
 
         // Step 2: Check collections
@@ -1224,7 +1224,7 @@ class HealthService extends Base {
 
     /**
      * Caches the resolved stdio identity so the healthcheck `identity` block can surface
-     * it (#10176). Called by `Server.mjs` after `resolveStdioIdentity()` completes in the
+     * it. Called by `Server.mjs` after `resolveStdioIdentity()` completes in the
      * stdio boot path. SSE transport does not call this — per-request OIDC identity is
      * orthogonal to process-level stdio identity; observability for SSE per-request state
      * is a separate concern.
