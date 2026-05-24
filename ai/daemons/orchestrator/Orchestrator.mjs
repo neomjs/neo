@@ -277,9 +277,8 @@ export class Orchestrator extends Base {
     get swarmHeartbeatTargetSource() { return Env.parseString('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE') ?? AiConfig.orchestrator.swarmHeartbeat?.targetSource ?? null; }
     /**
      * Explicit env-driven target list for the swarm-heartbeat resolver. Comma-separated
-     * `@handle` form via `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS`. Empty/absent →
-     * `null` so the resolver falls through to `targetSource` semantics. Sub 1 #11905 /
-     * Epic #11829 Layer 2.
+     * `@handle` form via `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS`. Empty or absent →
+     * `null` so the resolver falls through to `targetSource` semantics.
      * @returns {String[]|null}
      */
     get swarmHeartbeatExplicitTargets() {
