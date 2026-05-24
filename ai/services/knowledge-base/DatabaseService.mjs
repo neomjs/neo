@@ -3,9 +3,9 @@ import Base                      from '../../../src/core/Base.mjs';
 import ChromaManager             from './ChromaManager.mjs';
 import DestructiveOperationGuard from '../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
 import VectorService             from './VectorService.mjs';
-// Phase 0/1B (#11658): SourceRegistry replaces the hardcoded source-list. Importing
-// `./source/_export.mjs` triggers auto-registration of Neo's default Source classes when
-// `aiConfig.useDefaultSources !== false`, plus declarative `aiConfig.customSources` entries.
+// SourceRegistry owns KB source discovery. Importing `./source/_export.mjs` triggers
+// auto-registration of Neo's default Source classes when `aiConfig.useDefaultSources !== false`,
+// plus declarative `aiConfig.customSources` entries.
 import SourceRegistry            from './source/_export.mjs';
 import crypto                    from 'crypto';
 import dotenv                    from 'dotenv';
@@ -42,13 +42,12 @@ dotenv.config({
  * 4.  **Backup Surface:** Exposes `manageDatabaseBackup({action: 'export'})` as a peer to
  *     `Memory_DatabaseService.manageDatabaseBackup`, reached via the `ai/services.mjs` SDK
  *     boundary. Deliberately NOT registered as an MCP tool in `toolService.mjs` — the
- *     `npm run ai:backup` script-over-tool path protects the ~80-tool MCP budget (see
- *     #9903 precedent, #10132 for retirement rationale). `makeSafe` no-match passthrough
- *     forwards raw args through the SDK when no openapi operation is registered.
+ *     `npm run ai:backup` script-over-tool path protects the MCP tool budget. `makeSafe`
+ *     no-match passthrough forwards raw args through the SDK when no openapi operation is
+ *     registered.
  *     Non-destructive — captures the current ChromaDB collection state as JSONL for
  *     consumption by the canonical backup orchestrator (`ai/scripts/maintenance/backup.mjs`),
- *     without triggering sync, re-embedding, or compaction. See #10129 for the
- *     atomic-bundle substrate design.
+ *     without triggering sync, re-embedding, or compaction.
  *
  * @class Neo.ai.services.knowledge-base.DatabaseService
  * @extends Neo.core.Base
@@ -101,7 +100,7 @@ class DatabaseService extends Base {
      * backup orchestrator (`ai/scripts/maintenance/backup.mjs`) to populate the `kb/` subfolder
      * of an atomic timestamped bundle, or invoked standalone for ad-hoc KB snapshots.
      * Non-destructive: reads the current collection state without triggering sync, re-embed,
-     * or compaction. See #10129 for bundle layout.
+     * or compaction.
      *
      * @param {Object}  options
      * @param {String} [options.backupPath=aiConfig.backupPath] Directory for the JSONL artifact.
@@ -124,8 +123,8 @@ class DatabaseService extends Base {
     /**
      * Helper method to stream a ChromaDB collection into a timestamped JSONL artifact.
      * Mirror of `Memory_DatabaseService#exportCollection` — duplicated deliberately to keep
-     * each MCP service's backup logic locally discoverable (see #10129 Phase 3: peer scripts,
-     * not delegation). Pagination cap + surgical per-id rescue mode make this robust against
+     * each service's backup logic locally discoverable instead of delegating across
+     * subsystems. Pagination cap + surgical per-id rescue mode make this robust against
      * partially corrupted HNSW segments.
      *
      * @param {Object} collection The ChromaDB collection to export.
@@ -213,15 +212,14 @@ class DatabaseService extends Base {
      * @summary Dispatcher for knowledge-base backup operations — peer of `Memory_DatabaseService.manageDatabaseBackup`.
      *
      * Reached exclusively via the `ai/services.mjs` SDK — deliberately NOT registered as an
-     * MCP tool in `toolService.mjs` serviceMapping (script-over-tool per #9903 precedent, to
-     * protect the ~80-tool MCP budget against the 100-tool harness cap; see #10132 for the
-     * full retirement rationale). `makeSafe` no-match passthrough forwards raw args through
-     * when no matching openapi operation is found, so `backup.mjs` can invoke this dispatcher
-     * with `{action, backupPath}` without a Zod schema. The manual throw below is the actual
+     * MCP tool in `toolService.mjs` serviceMapping to protect the MCP tool budget against
+     * harness caps. `makeSafe` no-match passthrough forwards raw args through when no
+     * matching openapi operation is found, so `backup.mjs` can invoke this dispatcher with
+     * `{action, backupPath}` without a Zod schema. The manual throw below is the actual
      * rejection path for invalid actions.
      *
      * Supports `action: 'export'`, `'import'`, and `'truncate'`. Import + truncate are the
-     * AC-B (#10871) restore-tooling counterparts to `'export'`, peer-symmetric with
+     * restore-tooling counterparts to `'export'`, peer-symmetric with
      * `Memory_DatabaseService.manageDatabaseBackup`.
      *
      * @param {Object}  options
@@ -253,7 +251,7 @@ class DatabaseService extends Base {
      * cost-free.
      *
      * Peer-symmetric counterpart of `exportDatabase`. Called by the canonical restore
-     * orchestrator (`ai/scripts/maintenance/restore.mjs`, #10871 AC-B).
+     * orchestrator (`ai/scripts/maintenance/restore.mjs`).
      *
      * @param {Object}        options
      * @param {String}        options.file               Absolute path to a JSONL file OR a directory containing `.jsonl` files.
@@ -321,7 +319,7 @@ class DatabaseService extends Base {
                     continue;
                 }
 
-                // Per #11653: KB chunks store content in `metadata.content`, not in Chroma's
+                // KB chunks store content in `metadata.content`, not in Chroma's
                 // primary `document` slot — so 100% of KB backup records carry `document: null`.
                 // Chroma's `collection.upsert` rejects null entries in the `documents` array
                 // with "Expected each document to be a string, but got object". Omit the
@@ -399,7 +397,7 @@ class DatabaseService extends Base {
                 confirmation
             });
 
-            // Route through ChromaManager.deleteCollection (#11652 substrate-level guard).
+            // Route through ChromaManager.deleteCollection so the canonical-name guard applies.
             // The path-target guard above already passed `assertDestructiveTargetAllowed`;
             // forward the operator confirmation so the canonical-name guard accepts it.
             await ChromaManager.deleteCollection({name: collectionName, confirmation});
@@ -425,7 +423,7 @@ class DatabaseService extends Base {
      * @param {String}        params.action       'sync', 'create', 'embed', or 'delete'
      * @param {Boolean}      [params.viaMcp]      True when dispatched from the MCP toolService
      *                                            wrapper; threaded through to `embed()` to enable
-     *                                            the work-volume gate (#10572). CLI callers
+     *                                            the work-volume gate. CLI callers
      *                                            omit this and bypass the gate.
      * @param {String}       [params.staleStrategy] Optional VectorService stale strategy.
      * @param {String|Object} [params.confirmation] Explicit production confirmation token for delete.
@@ -469,13 +467,12 @@ class DatabaseService extends Base {
         const writeStream = fs.createWriteStream(outputPath);
         let totalChunks   = 0;
 
-        // Phase 0/1B (#11658): sources discovered via SourceRegistry instead of a hardcoded
-        // array. Default Neo sources auto-register at import-time via `./source/_export.mjs`
-        // unless `aiConfig.useDefaultSources === false`; tenant-supplied custom sources
-        // register either declaratively via `aiConfig.customSources` or programmatically
-        // via `SourceRegistry.registerSource(...)`. Insertion order is preserved — the
-        // 10 default Neo sources appear in the same order as the pre-#11658 hardcoded
-        // array, so byte-equivalence of the generated JSONL is preserved.
+        // Sources are discovered via SourceRegistry instead of a hardcoded array. Default
+        // Neo sources auto-register at import-time via `./source/_export.mjs` unless
+        // `aiConfig.useDefaultSources === false`; tenant-supplied custom sources register
+        // either declaratively via `aiConfig.customSources` or programmatically via
+        // `SourceRegistry.registerSource(...)`. Insertion order is preserved for
+        // byte-equivalent generated JSONL output.
         const sources      = SourceRegistry.getSources();
         const createHashFn = this.createContentHash.bind(this);
 
@@ -512,7 +509,7 @@ class DatabaseService extends Base {
      * Delegates to VectorService.
      * @param {Object}  [opts]
      * @param {Boolean} [opts.viaMcp=false] True when invoked via MCP tool dispatch;
-     *                                      threaded to VectorService.embed for #10572's
+     *                                      threaded to VectorService.embed for the
      *                                      work-volume gate.
      * @param {String}  [opts.staleStrategy] Explicit stale-data handling strategy.
      * @returns {Promise<object>} A promise that resolves to a success message, OR a
@@ -565,7 +562,7 @@ class DatabaseService extends Base {
      * This provides a simple, single-command way to update the knowledge base from scratch.
      * @param {Object}  [opts]
      * @param {Boolean} [opts.viaMcp=false] True when invoked via MCP tool dispatch;
-     *                                      threaded to embed() for #10572's work-volume gate.
+     *                                      threaded to embed() for the work-volume gate.
      * @param {String}  [opts.staleStrategy] Explicit stale-data handling strategy.
      * @returns {Promise<object>} A promise that resolves to the final success message from the embedding step.
      */
