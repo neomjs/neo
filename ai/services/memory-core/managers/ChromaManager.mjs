@@ -3,7 +3,23 @@ import aiConfig                             from '../../../mcp/server/memory-cor
 import logger                               from '../../../mcp/server/memory-core/logger.mjs';
 import AbstractVectorManager                from './AbstractVectorManager.mjs';
 import ChromaLifecycleService               from '../lifecycle/ChromaLifecycleService.mjs';
-import {assertCanonicalCollectionDeleteAllowed} from '../../../mcp/server/shared/services/DestructiveOperationGuard.mjs';
+import {
+    chromaConnect,
+    chromaDeleteCollection,
+    createSilentExecutor
+} from '../../shared/vector/chromaClientPrimitives.mjs';
+
+/**
+ * Predicate suppression filter for MC: the four Chroma library messages that surface noisily
+ * during routine `getOrCreateCollection` calls with the dynamic embedding function. Everything
+ * else passes through to the real `console.warn`. Pre-#11111 this was inlined inside the
+ * ChromaManager's `#executeSilently` method; now passed to the shared primitive.
+ */
+const MC_WARN_FILTER = msg =>
+    msg.includes('No embedding function configuration found') ||
+    msg.includes('Could not deserialize the collection metadata') ||
+    msg.includes('dummy_embedding_function') ||
+    msg.includes('dynamic_text_embedding_service');
 
 /**
  * @summary Simple manager around the Chroma client that lazily caches frequently used collections.
@@ -76,19 +92,12 @@ class ChromaManager extends AbstractVectorManager {
     }
 
     /**
-     * Establishes connection to ChromaDB.
+     * Establishes connection to ChromaDB via the shared `chromaConnect` primitive (#11111).
      * @returns {Promise<boolean>} True if connected, false otherwise
      */
     async connect() {
-        try {
-            await this.client.heartbeat();
-            this.connected = true;
-            return true;
-        } catch (e) {
-            this.connected = false;
-            logger.debug('[ChromaManager] ChromaDB not accessible:', e.message);
-            return false;
-        }
+        this.connected = await chromaConnect({client: this.client, logger});
+        return this.connected
     }
 
     /**
@@ -107,44 +116,15 @@ class ChromaManager extends AbstractVectorManager {
         };
     }
 
-    #chromaLock = Promise.resolve();
-
     /**
-     * Executes a ChromaDB client function sequentially, ensuring console.warn
-     * is safely suppressed without overlapping race conditions.
-     * @param {Function} fn Async function to execute
-     * @returns {Promise<any>}
+     * Per-instance silent-execution function from the shared primitive (#11111).
+     * Each consumer gets its own isolated sequential lock. MC's call sites pass
+     * `{filter: MC_WARN_FILTER}` to suppress only the four specific Chroma library
+     * messages while letting everything else through.
+     * @member {Function} #executeSilently
+     * @private
      */
-    async #executeSilently(fn) {
-        const nextLock = (async () => {
-            // Await the completion of the previous silent execution
-            await this.#chromaLock;
-
-            const originalWarn = console.warn;
-            console.warn       = (...args) => {
-                const msg = args.join(' ');
-                if (msg.includes('No embedding function configuration found') ||
-                    msg.includes('Could not deserialize the collection metadata') ||
-                    msg.includes('dummy_embedding_function') ||
-                    msg.includes('dynamic_text_embedding_service')) {
-                    return;
-                }
-                originalWarn.apply(console, args);
-            };
-
-            try {
-                return await fn();
-            } finally {
-                // Guaranteed sequential restore
-                console.warn = originalWarn;
-            }
-        })();
-
-        // Prevent chain crashing if an internal error occurs
-        this.#chromaLock = nextLock.catch(() => {
-        });
-        return nextLock;
-    }
+    #executeSilently = createSilentExecutor()
 
     /**
      * Instantiates an IEmbeddingFunction wrapper for the chromadb client.
@@ -178,7 +158,7 @@ class ChromaManager extends AbstractVectorManager {
                     name             : collectionName,
                     embeddingFunction: this.#createEmbeddingFunction()
                 });
-            });
+            }, {filter: MC_WARN_FILTER});
         }
 
         this.memoryCollection = await this._memoryCollectionPromise;
@@ -196,7 +176,7 @@ class ChromaManager extends AbstractVectorManager {
                     name             : collectionName,
                     embeddingFunction: this.#createEmbeddingFunction()
                 });
-            });
+            }, {filter: MC_WARN_FILTER});
         }
 
         this.summaryCollection = await this._summaryCollectionPromise;
@@ -214,7 +194,7 @@ class ChromaManager extends AbstractVectorManager {
                     name             : collectionName,
                     embeddingFunction: this.#createEmbeddingFunction()
                 });
-            });
+            }, {filter: MC_WARN_FILTER});
         }
 
         this.graphCollection = await this._graphCollectionPromise;
@@ -242,8 +222,7 @@ class ChromaManager extends AbstractVectorManager {
      * @see https://github.com/neomjs/neo/issues/11652
      */
     async deleteCollection({name, confirmation} = {}) {
-        assertCanonicalCollectionDeleteAllowed({name, subsystem: 'memory-core', confirmation});
-        return await this.client.deleteCollection({name});
+        return chromaDeleteCollection({client: this.client, name, subsystem: 'memory-core', confirmation})
     }
 }
 
