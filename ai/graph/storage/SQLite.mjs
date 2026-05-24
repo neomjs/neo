@@ -47,7 +47,7 @@ class SQLite extends Base {
         me.db = new Database(me.dbPath, { verbose: null });
         me.db.pragma('journal_mode = WAL');
         me.db.pragma('busy_timeout = 5000');
-        me.db.pragma('foreign_keys = ON'); // honor schema-declared `Edges` ON DELETE CASCADE per #10856
+        me.db.pragma('foreign_keys = ON'); // honor schema-declared `Edges` ON DELETE CASCADE
 
         try {
             const rcs = await import('../../mcp/server/shared/services/RequestContextService.mjs');
@@ -103,7 +103,7 @@ class SQLite extends Base {
             CREATE INDEX IF NOT EXISTS idx_edges_target ON Edges(target);
         `);
 
-        // Multi-Tenant Migration (#10011): Add user_id if migrating from older schema
+        // Add user_id when migrating from older graph schemas.
         try {
             this.db.prepare('SELECT user_id FROM Nodes LIMIT 1').get();
         } catch (e) {
@@ -134,7 +134,7 @@ class SQLite extends Base {
         this.db.exec(`CREATE TRIGGER IF NOT EXISTS edge_update AFTER UPDATE ON Edges BEGIN INSERT INTO GraphLog(entity_id, entity_type) VALUES (NEW.id, 'edges'); END;`);
         this.db.exec(`CREATE TRIGGER IF NOT EXISTS edge_delete AFTER DELETE ON Edges BEGIN INSERT INTO GraphLog(entity_id, entity_type) VALUES (OLD.id, 'edges'); END;`);
 
-        // Summarization Coordinator Jobs Tracker (#10693)
+        // Summarization coordinator job lease table.
         this.db.exec(`
             CREATE TABLE IF NOT EXISTS SummarizationJobs (
                 session_id TEXT PRIMARY KEY,
@@ -305,7 +305,7 @@ class SQLite extends Base {
         if (!this.db) return;
         if (!this.db.open) throw new Error('SQLite connection is closed (lifecycle violation).');
 
-        // Critical safeguard (#10515): Prevent accidental test-driven wipes of the production database
+        // Prevent accidental test-driven wipes of non-temporary graph databases.
         if (this.dbPath && !this.dbPath.includes('tmp') && !this.dbPath.includes('test') && this.dbPath !== ':memory:') {
             throw new Error(`FATAL: Attempted to clear a non-temporary SQLite database natively! Path: ${this.dbPath}`);
         }
