@@ -185,6 +185,8 @@ Authoring substantive procedural content directly inside `SKILL.md` rather than 
 
 **Prevention:** During PR review, per `pr-review-guide.md §7.7` Anti-Patterns row: *"PR adds substantive rule body directly to always-loaded skill substrate (`SKILL.md`...) instead of conditionally loaded `references/` payload → Progressive Disclosure violation."* PR #11438 adds mechanical CI enforcement via `oversizedWorkflowMaps` + `maxPositiveDeltaBytes` in `lint-skill-manifest.mjs`.
 
+Corollary: adding a new `audits/` sibling to correct bloated skill workflow prose can be the same Map/Atlas failure inverted. If the existing audit/template/workflow can be deleted or compressed without losing runtime protection, adding another lazy-loaded page still increases future search and review cost. Provenance: Discussion #11891 / PR #11892.
+
 ### 5.6 Parent-Directory Symlink Anti-Pattern
 
 When unifying cross-clone substrate (per `ai/scripts/bootstrapWorktree.mjs`), parent-directory symlinking the skills folder (e.g., `.claude/skills/ → ../../.agents/skills/`) appears clean but breaks the `.claude/skills/` per-file symlink convention required by Claude Code. Same anti-pattern shape as `.neo-ai-data/` parent-symlink (per #10432 empirical anchor).

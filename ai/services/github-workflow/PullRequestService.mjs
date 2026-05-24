@@ -23,8 +23,8 @@ const execFileAsync = promisify(execFile);
  * Retrospective-daemon REM-sleep graph ingestion — a malformed review with hallucinated metric
  * names produces zero graph ingest signal and is silently lost from the Native Edge Graph.
  *
- * Cycle-followup templates use the same 7 metric tags (`pr-review-followup-template.md:96-102`)
- * so this set applies to both cycle-1 and cycle-N reviews without false-positive separation.
+ * Cycle-followup templates use the same 7 metric tags, so this set applies to both cycle-1
+ * and cycle-N reviews without false-positive separation.
  *
  * Extension protocol: if the pr-review skill adds a new evaluation metric, append the literal
  * `[NEW_TAG]` string here AND update both template files in the same PR.

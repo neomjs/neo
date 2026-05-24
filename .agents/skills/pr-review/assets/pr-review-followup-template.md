@@ -60,16 +60,16 @@ This is the follow-up form of the Depth Floor. Do not omit it because the prior 
 
 ---
 
-### 🧱 Conciseness Rule — Collapsed-N/A Audits
+### Conditional Audit Delta
 
-When 2+ of the audit dimensions below (Test-Execution & Location, Contract Completeness, 🛡️ CI/Security) all evaluate **N/A** for the follow-up delta scope (e.g., PR-body-only metadata polish, or a delta that doesn't touch tests/contracts), collapse them under a single section:
+Expand only audits affected by the delta. If 2+ dimensions would otherwise render N/A, collapse them:
 
 ```
-### N/A Audits — 🧪 📑 🛡️
+### N/A Audits — 🧪 📑
 N/A across listed dimensions: <one-line reason for the delta-scope justification>.
 ```
 
-(Substitute only the emoji subset that's actually N/A. Substantive dimensions — any non-N/A finding — expand individually under their canonical header.)
+(Substantive dimensions expand individually under their canonical header.)
 
 ---
 
@@ -90,29 +90,17 @@ N/A across listed dimensions: <one-line reason for the delta-scope justification
 
 ---
 
-### 🛡️ CI / Security Checks Audit
-
-*(Required per guide §7.6. Reviewers MUST verify automated GitHub Actions before assigning an `[EXECUTION_QUALITY]` score.)*
-
-- [ ] Ran `gh pr checks <N>` to empirically verify CI status.
-- [ ] Confirmed no checks are pending/in-progress. If unfinished, STOP and hold review.
-- [ ] Confirmed no checks are failing. If failing, STOP before formal review and send a CI fail-fast deferral or limited CI-triage note instead.
-
-**Findings:** [Pass - all checks green / Pending - review held before formal review / CI-failed - formal review deferred; author fixes first / N/A - no CI triggered]
-
----
-
 ### Metrics Delta
 
-Update only metrics whose score changed since the prior review. Carry unchanged metrics forward by reference.
+Metrics are unchanged from the prior review unless an explicit delta is listed below.
 
-*   **`[ARCH_ALIGNMENT]`**: [previous -> current, or "unchanged from prior review"] - [reason]
-*   **`[CONTENT_COMPLETENESS]`**: [previous -> current, or "unchanged from prior review"] - [reason]
-*   **`[EXECUTION_QUALITY]`**: [previous -> current, or "unchanged from prior review"] - [reason]
-*   **`[PRODUCTIVITY]`**: [previous -> current, or "unchanged from prior review"] - [reason]
-*   **`[IMPACT]`**: [previous -> current, or "unchanged from prior review"] - [reason]
-*   **`[COMPLEXITY]`**: [previous -> current, or "unchanged from prior review"] - [reason]
-*   **`[EFFORT_PROFILE]`**: [previous -> current, or "unchanged from prior review"] - [reason]
+*   **`[ARCH_ALIGNMENT]`**: [unchanged from prior review, or previous -> current + reason]
+*   **`[CONTENT_COMPLETENESS]`**: [unchanged from prior review, or previous -> current + reason]
+*   **`[EXECUTION_QUALITY]`**: [unchanged from prior review, or previous -> current + reason]
+*   **`[PRODUCTIVITY]`**: [unchanged from prior review, or previous -> current + reason]
+*   **`[IMPACT]`**: [unchanged from prior review, or previous -> current + reason]
+*   **`[COMPLEXITY]`**: [unchanged from prior review, or previous -> current + reason]
+*   **`[EFFORT_PROFILE]`**: [unchanged from prior review, or previous -> current + reason]
 
 ---
 
