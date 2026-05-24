@@ -805,7 +805,7 @@ class GraphService extends Base {
                         description     : node.properties?.description,
                         semanticVectorId: node.properties?.semanticVectorId,
                         relationship    : e.type,
-                        weight          : weight,
+                        weight,
                         direction       : e.source === 'frontier' ? 'outbound' : 'inbound'
                     });
                 }

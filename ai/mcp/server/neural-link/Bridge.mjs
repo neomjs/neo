@@ -180,7 +180,7 @@ class Bridge extends Base {
             if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                     type       : 'app_connected',
-                    appWorkerId: appWorkerId,
+                    appWorkerId,
                     appName    : appWs.appName || 'Unknown'
                 }));
             }

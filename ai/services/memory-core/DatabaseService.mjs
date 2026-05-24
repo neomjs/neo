@@ -76,7 +76,7 @@ class DatabaseService extends Base {
             try {
                 batch = await collection.get({
                     include: ["documents", "embeddings", "metadatas"],
-                    limit  : limit,
+                    limit,
                     offset : offset
                 });
             } catch (batchErr) {
@@ -85,7 +85,7 @@ class DatabaseService extends Base {
                 // Fetch only IDs first to bypass corrupt payload/embedding pointers
                 const idBatch = await collection.get({
                     include: [],
-                    limit  : limit,
+                    limit,
                     offset : offset
                 });
 

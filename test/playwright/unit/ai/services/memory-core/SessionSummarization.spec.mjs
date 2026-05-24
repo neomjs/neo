@@ -239,7 +239,7 @@ test.describe('Memory Core Offline Summarization', () => {
 
         // Create a massive string > 10000 chars (approx 20,000 chars)
         const hugeString = new Array(20000).fill('A').join('');
-        
+
         await SDK.Memory_Service.addMemory({
             prompt   : "Massive text request",
             thought  : "Thinking deeply...",
@@ -252,11 +252,11 @@ test.describe('Memory Core Offline Summarization', () => {
         // Mock the model.generateContent to avoid actual LLM calls and verify the exact prompt content
         const originalGenerateContent = SDK.Memory_SessionService.model ? SDK.Memory_SessionService.model.generateContent : null;
         let capturedPrompts = [];
-        
+
         SDK.Memory_SessionService.model = {
             generateContent: async (prompt) => {
                 capturedPrompts.push(prompt);
-                
+
                 return {
                     response: {
                         text: () => JSON.stringify({
@@ -277,7 +277,7 @@ test.describe('Memory Core Offline Summarization', () => {
         };
 
         const result = await SDK.Memory_SessionService.summarizeSession(bigDummySessionId);
-        
+
         // Restore
         if (originalGenerateContent) {
             SDK.Memory_SessionService.model.generateContent = originalGenerateContent;
@@ -285,10 +285,10 @@ test.describe('Memory Core Offline Summarization', () => {
 
         // Verify ONLY ONE generation payload happened
         expect(capturedPrompts.length).toBe(1);
-        
+
         // Output should be massive implicitly mapped correctly
         const finalPrompt = capturedPrompts[0];
-        expect(finalPrompt.length).toBeGreaterThan(20000); 
+        expect(finalPrompt.length).toBeGreaterThan(20000);
     });
 
     test('SessionService routes Qwen3 summaries through the OpenAiCompatible provider class', async () => {
@@ -406,13 +406,13 @@ test.describe('Memory Core Offline Summarization', () => {
             response : "Done",
             agent    : "developer",
             model    : "gemini-3.1-pro",
-            toolsUsed: toolsUsed,
+            toolsUsed,
             sessionId: dummySessionId
         });
 
         const originalGenerateContent = SDK.Memory_SessionService.model ? SDK.Memory_SessionService.model.generateContent : null;
         let capturedPrompts = [];
-        
+
         SDK.Memory_SessionService.model = {
             generateContent: async (prompt) => {
                 capturedPrompts.push(prompt);
@@ -427,7 +427,7 @@ test.describe('Memory Core Offline Summarization', () => {
         };
 
         await SDK.Memory_SessionService.summarizeSession(dummySessionId);
-        
+
         if (originalGenerateContent) {
             SDK.Memory_SessionService.model.generateContent = originalGenerateContent;
         }
@@ -454,7 +454,7 @@ test.describe('Memory Core Offline Summarization', () => {
         await SDK.Memory_Service.addMemory({
             prompt: "Test s1", thought: "T1", response: "R1", agent: "dev", model: "gemini-3.1-pro", sessionId: s1
         });
-        
+
         await new Promise(r => setTimeout(r, 100)); // Sleep to ensure timestamp difference
 
         // Memory 2 is middle
@@ -514,9 +514,9 @@ test.describe('Memory Core Offline Summarization', () => {
         const start = Date.now();
         const result = await SDK.Memory_SessionService.summarizeSession(perfSessionId);
         const end = Date.now();
-        
+
         const durationMs = end - start;
-        
+
         expect(result).not.toBeNull();
         expect(result.sessionId).toBe(perfSessionId);
         expect(durationMs).toBeLessThan(40000);

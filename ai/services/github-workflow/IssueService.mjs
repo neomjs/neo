@@ -1197,7 +1197,7 @@ class IssueService extends Base {
                 logger.info(`Issue #${blockedIssue} has no blocking relationships to remove`);
                 return {
                     message     : `Issue #${blockedIssue} has no blocked-by relationships to remove`,
-                    blockedIssue: blockedIssue,
+                    blockedIssue,
                     blockingIssue: null
                 };
             }
@@ -1216,7 +1216,7 @@ class IssueService extends Base {
 
             return {
                 message       : `Successfully removed all blocked-by relationships from issue #${blockedIssue}`,
-                blockedIssue  : blockedIssue,
+                blockedIssue,
                 blockingIssue : null,
                 removedBlockers: removals
             };
@@ -1241,7 +1241,7 @@ class IssueService extends Base {
 
         return {
             message      : `Successfully set #${blockingIssue} as blocking #${blockedIssue}`,
-            blockedIssue : blockedIssue,
+            blockedIssue,
             blockingIssue: blockingIssue
         };
     }

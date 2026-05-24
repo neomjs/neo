@@ -411,7 +411,7 @@ function queueEvent(subscription, eventPayload) {
     const subId = subscription.id;
     if (!coalesceState[subId]) {
         coalesceState[subId] = {
-            subscription: subscription,
+            subscription,
             queue: [],
             timer: null
         };

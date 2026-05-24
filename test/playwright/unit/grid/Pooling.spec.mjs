@@ -102,7 +102,7 @@ test.describe('Grid Pooling & Fixed-DOM-Order', () => {
             appName  : 'GridPoolingTest',
             height   : 400, // 10 rows visible (40px each)
             width    : 600,
-            store    : store,
+            store,
             rowHeight: 40,
             // Use small buffer for deterministic testing
             bufferRowRange: 2,
