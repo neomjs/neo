@@ -30,7 +30,7 @@ export function toTimestamp(value) {
  *
  * The stale check is intentionally payload-based instead of file-mtime-based so
  * copied or restored state keeps the owning task's declared deadline. This is the
- * shared #11503 recovery contract for daemon-owned and CLI-owned maintenance work.
+ * shared recovery contract for daemon-owned and CLI-owned maintenance work.
  *
  * @param {Object|null} lease Persisted lease payload.
  * @param {Object} [options]
@@ -289,7 +289,7 @@ export function releaseHeavyMaintenanceLeaseSync({
  * @summary Attempts to acquire the shared Agent OS heavy-maintenance lease.
  *
  * Normal contention returns a held status with active-owner metadata. It does
- * not throw because #11503 treats overlap prevention as a non-error deferral.
+ * not throw because overlap prevention is a non-error deferral.
  *
  * @param {Object} options
  * @param {String} options.owner Stable owner label.
@@ -417,8 +417,8 @@ export async function releaseHeavyMaintenanceLease({
  * Memory Core graph edit, file lock, etc.), it MUST be inside the task — typically
  * inside the task's own `finally` so it runs regardless of task success/failure.
  *
- * This release-timing trap was the empirical root cause of two cycles of changes
- * requested on PR #11509 — see #11515 for the friction-to-gold lineage.
+ * This release-timing trap is the durable consumer-side invariant for callers that
+ * need protected substrate mutation inside the lease window.
  *
  * ### ✅ Right shape — substrate mutation INSIDE the lease window
  *
@@ -444,8 +444,8 @@ export async function releaseHeavyMaintenanceLease({
  * GraphService.decayGlobalTopology();
  * ```
  *
- * Canonical consumer reference: `ai/scripts/runners/runSandman.mjs` post-PR #11509
- * cycles 1 + 2 (decay inside inner `finally`).
+ * Canonical consumer reference: `ai/scripts/runners/runSandman.mjs`, where graph
+ * decay runs inside the inner `finally` while the lease is still held.
  *
  * ## Returned shape (what callers of `await withHeavyMaintenanceLease(...)` see)
  *
@@ -484,8 +484,6 @@ export async function releaseHeavyMaintenanceLease({
  * @see acquireHeavyMaintenanceLease
  * @see releaseHeavyMaintenanceLease
  * @see ai/scripts/runners/runSandman.mjs — canonical consumer pattern
- * @see https://github.com/neomjs/neo/issues/11515 — release-timing JSDoc friction-to-gold
- * @see https://github.com/neomjs/neo/pull/11509 — empirical anchor (cycles 1 + 2)
  */
 export async function withHeavyMaintenanceLease(task, options = {}) {
     const inheritedToken = process.env.NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN;
@@ -532,18 +530,16 @@ export async function withHeavyMaintenanceLease(task, options = {}) {
 }
 
 /**
- * @summary Shared lease service for Agent OS substrate-heavy maintenance work (#11505).
+ * @summary Shared lease service for Agent OS substrate-heavy maintenance work.
  *
- * The service is the reusable #11503 mutex contract between orchestrator-owned
- * tasks and operator-runnable CLI scripts. It prevents Chroma / SQLite / LLM
+ * The service is the reusable mutex contract between orchestrator-owned tasks
+ * and operator-runnable CLI scripts. It prevents Chroma / SQLite / LLM
  * maintenance lanes from overlapping across process boundaries while preserving
  * non-error deferral semantics for expected contention.
  *
  * @class Neo.ai.daemons.services.HeavyMaintenanceLeaseService
  * @extends Neo.core.Base
  * @singleton
- * @see https://github.com/neomjs/neo/issues/11503
- * @see https://github.com/neomjs/neo/issues/11505
  */
 export class HeavyMaintenanceLeaseService extends Base {
     static config = {

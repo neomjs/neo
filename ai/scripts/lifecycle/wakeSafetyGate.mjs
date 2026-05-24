@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @summary Wake Safety Gate / Circuit Breaker (Epic #10647, sub #10648).
+ * @summary Wake safety gate / circuit breaker.
  *
  * Fail-closed coordination primitive that scheduler/recovery paths
  * (the Orchestrator swarm-heartbeat lane, `resumeHarness.mjs`) MUST consult before taking any
@@ -8,13 +8,11 @@
  * delivery to a harness UI). When wake delivery is unsafe or unverified, the
  * scheduler MUST no-op and report — not spawn, steer, or paste.
  *
- * Read the substrate model in #10647 / #10648: the wake substrate has eight
- * layers (A2A storage, unread/list, bootstrap, coalescing, bridge adapter,
- * prompt landing, fresh-session recovery, heartbeat). Validating one layer in
- * isolation does not prove the loop is healthy. The 2026-05-03 regression
- * cycle (#10641 orphan-spawn, #10644 Antigravity Cmd+L file-write, #10645
- * AgentIdentity cache miss) compounded because no cross-layer envelope
- * stopped the scheduler from acting while individual layers were broken.
+ * The wake substrate has multiple layers: A2A storage, unread/list, bootstrap,
+ * coalescing, bridge adapter, prompt landing, fresh-session recovery, and
+ * heartbeat. Validating one layer in isolation does not prove the loop is
+ * healthy. This gate is the cross-layer envelope that stops the scheduler from
+ * acting while any high-authority delivery layer is unsafe or unverified.
  *
  * The gate state lives in a JSON file under `.neo-ai-data/wake-daemon/` so
  * operators can inspect / toggle it without running JS. States:
@@ -30,17 +28,16 @@
  * post-incident reason. This honors the deny-by-default discipline:
  * forgetting to create the file MUST NOT be interpreted as permission
  * to act. Operators must explicitly write `enabled` after validating
- * the cross-harness prompt-landing matrix (#10649) or providing an
- * accepted-risk override per the restart/incident protocol (#10650).
+ * the cross-harness prompt-landing matrix or providing an accepted-risk
+ * operator override through the restart/incident protocol.
  *
  * **Operator override** lives in the `WAKE_GATE_OVERRIDE` environment
  * variable. When set to `1` (or any truthy non-empty value), consumer
- * code bypasses the gate check. This is documented as operator-only;
- * the procedure for setting it lives in #10650.
+ * code bypasses the gate check. This is operator-only.
  *
- * @see ai/daemons/SwarmHeartbeatService.mjs — gate consumer (Orchestrator swarm-heartbeat lane, high-authority dispatch, #11766)
+ * @see ai/daemons/SwarmHeartbeatService.mjs — gate consumer for heartbeat high-authority dispatch
  * @see ai/scripts/lifecycle/resumeHarness.mjs     — gate consumer (direct fresh-session-spawn)
- * @see ai/scripts/lifecycle/checkSunsetted.mjs    — companion predicate (#10641 / #10642)
+ * @see ai/scripts/lifecycle/checkSunsetted.mjs    — companion predicate
  * @see test/playwright/unit/ai/scripts/wakeSafetyGate.spec.mjs
  */
 import fs from 'fs/promises';
@@ -71,7 +68,7 @@ export function gateFilePath() {
  */
 const DEFAULT_TRIPPED = {
     state    : 'tripped',
-    reason   : 'No gate state file present; defaulting to tripped per deny-by-default discipline (#10648). Operator must explicitly enable after validating substrate.',
+    reason   : 'No gate state file present; defaulting to tripped per deny-by-default discipline. Operator must explicitly enable after validating substrate.',
     trippedAt: null,
     trippedBy: 'default-on-missing-file'
 };
@@ -133,7 +130,7 @@ export async function writeGateState(payload) {
 /**
  * Operator override check. The `WAKE_GATE_OVERRIDE` environment variable
  * bypasses the gate when set to a truthy non-empty value. Documented as
- * operator-only; procedure lives in #10650 restart/incident protocol.
+ * operator-only.
  * @returns {boolean}
  */
 export function hasOverride() {
@@ -158,7 +155,7 @@ export async function isGateOpen() {
 // Commands:
 //   check    — exit 0 if gate is open (enabled or override), 1 otherwise.
 //              Shell-guard form for manual use; the Orchestrator swarm-heartbeat lane
-//              consults the gate via the `isGateOpen` direct import instead (#11766).
+//              consults the gate via the `isGateOpen` direct import instead.
 //   reason   — print the current gate-state reason to stdout (single line).
 //   show     — print the full gate state as JSON.
 //   trip     — write tripped state. Reason from --reason= flag or stdin.

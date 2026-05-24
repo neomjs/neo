@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 /**
- * @summary Per-identity idle-out A2A heartbeat nudge dispatcher (Epic #10671, sub #10675).
+ * @summary Per-identity idle-out A2A heartbeat nudge dispatcher.
  *
- * Consumed by the Orchestrator swarm-heartbeat lane (`ai/daemons/SwarmHeartbeatService.mjs`,
- * #11766) when `checkSunsetted.mjs` (per #10689 detector
- * contract) emits `recommended_action: 'idle_out_nudge'` for a specific identity.
+ * Consumed by the Orchestrator swarm-heartbeat lane when `checkSunsetted.mjs`
+ * emits `recommended_action: 'idle_out_nudge'` for a specific identity.
  * Sends an A2A heartbeat message via `MailboxService.addMessage` — `bridge-daemon`
  * delivers via the existing in-place keystroke path. **Zero new transport, no
  * fresh-session spawn, never opens a new chat.**
@@ -13,10 +12,10 @@
  * idle simultaneously (swarm-wide signal); this dispatcher fires per-identity
  * when one specific agent's `AGENT_MEMORY` exceeds the staleness threshold while
  * the swarm is otherwise active. Both reuse the `idle_out_nudge` lock mode from
- * `inflightLock.mjs` (#10683) but operate independently — one identity going
+ * `inflightLock.mjs` but operate independently — one identity going
  * idle is not a swarm-wide event.
  *
- * **Invariants per #10675:**
+ * **Invariants:**
  *
  * - **Bounded:** the in-flight `idle_out_nudge` lock prevents re-fire within
  *   `BOOT_TIMEOUT_MS` (default 15 min, per `inflightLock.mjs`). One nudge per
@@ -31,25 +30,25 @@
  *   `recommended_action` to `'no_action'` when held — this dispatcher's
  *   defensive lock-check is layer-2 against detector-dispatcher race windows.
  * - **No-destructive-type-into-active-draft:** `bridge-daemon`'s existing
- *   focus-steal protection (#10422) covers the keystroke delivery; if the
+ *   focus-steal protection covers the keystroke delivery; if the
  *   recipient is mid-typing, the bridge-daemon defers without clobbering input.
  *
- * **Safety gate integration:** consults `wakeSafetyGate.mjs` (#10648) before
+ * **Safety gate integration:** consults `wakeSafetyGate.mjs` before
  * any action. Operator override `WAKE_GATE_OVERRIDE=1` bypasses the gate. Same
  * fail-closed pattern as `resumeHarness.mjs`.
  *
  * **Lock release path:** the lock is NOT cleared on dispatcher success — it
  * stays held until `checkInflightLock` (called by `checkSunsetted.mjs` on the
  * next heartbeat cycle) detects a fresh `AGENT_MEMORY` post-lock-acquire and
- * clears it. This is the "memory-resolved" release path defined by #10683's
+ * clears it. This is the memory-resolved release path owned by
  * `inflightLock.mjs`. If the recipient never saves a memory (rejection,
  * sustained rate-limit), the lock ages out at `BOOT_TIMEOUT_MS` and is
  * cleared as "abandoned" — `MAX_ABANDONED_ACTIONS` triggers the wake safety
  * gate auto-trip.
  *
- * @see ai/scripts/lifecycle/checkSunsetted.mjs    — detector emitting `recommended_action: 'idle_out_nudge'` (#10689)
- * @see ai/scripts/lifecycle/inflightLock.mjs      — `idle_out_nudge` lock mode (#10683)
- * @see ai/daemons/SwarmHeartbeatService.mjs — caller; Orchestrator swarm-heartbeat lane routes on `recommended_action` (#11766)
+ * @see ai/scripts/lifecycle/checkSunsetted.mjs    — detector emitting `recommended_action: 'idle_out_nudge'`
+ * @see ai/scripts/lifecycle/inflightLock.mjs      — `idle_out_nudge` lock mode
+ * @see ai/daemons/SwarmHeartbeatService.mjs — caller; routes on `recommended_action`
  * @see ai/scripts/lifecycle/trioWakeCooldown.mjs  — sibling for swarm-wide all-idle case
  * @see ai/scripts/lifecycle/resumeHarness.mjs     — sibling for sunset-restart case
  * @see test/playwright/unit/ai/scripts/idleOutNudge.spec.mjs
@@ -71,9 +70,9 @@ const NUDGE_BODY_TEMPLATE = (identity) =>
     `Please consolidate-then-save current progress (per AGENTS.md §4.2), check inbox for unread ` +
     `messages, and either continue active work or sunset cleanly.\n\n` +
     `**No action needed if you're mid-turn or rate-limited** — your next add_memory will clear this ` +
-    `nudge automatically (memory-resolved release path per #10683 inflightLock).\n\n` +
+    `nudge automatically through the memory-resolved release path.\n\n` +
     `This is a bounded, non-spawning, in-place heartbeat. The substrate will not re-fire while the ` +
-    `in-flight idle_out_nudge lock is held (per Epic #10671).`;
+    `in-flight idle_out_nudge lock is held.`;
 
 /**
  * @summary Dispatch a single idle-out heartbeat nudge to the target identity.
@@ -87,13 +86,13 @@ const NUDGE_BODY_TEMPLATE = (identity) =>
  *   6. On send error: clear lock + fail loudly (so retry isn't blocked for the
  *      full `BOOT_TIMEOUT_MS` window)
  *
- * Lock is NOT cleared on success — memory-resolved release per #10683.
+ * Lock is NOT cleared on success; release is memory-resolved.
  *
  * @param {string} identity Target agent identity (e.g., '@neo-opus-4-7').
  * @returns {Promise<void>}
  */
 export async function idleOutNudge(identity) {
-    // 1. Wake safety gate (#10648). Fail-closed; operator override via WAKE_GATE_OVERRIDE=1.
+    // 1. Wake safety gate. Fail-closed; operator override via WAKE_GATE_OVERRIDE=1.
     if (hasOverride()) {
         console.error('[OVERRIDE] WAKE_GATE_OVERRIDE set; bypassing wake safety gate for idleOutNudge.');
     } else {
@@ -104,7 +103,7 @@ export async function idleOutNudge(identity) {
         }
     }
 
-    // 2. Initialize Memory Core services (mirrors trioWakeCooldown.mjs:61-62 pattern).
+    // 2. Initialize Memory Core services before mailbox/graph access.
     await LifecycleService.initAsync();
     await GraphService.initAsync();
 
@@ -133,7 +132,7 @@ export async function idleOutNudge(identity) {
     // 5. Send the A2A heartbeat message. bridge-daemon delivers via existing in-place
     //    keystroke path; no spawn semantics. If the recipient is sunsetted (no active
     //    WAKE_SUBSCRIPTION), bridge-daemon won't deliver — that's the correct behavior:
-    //    a sunset-mode recovery path (per #10676) handles that case via terminal-restart.
+    //    a sunset-mode recovery path handles that case via terminal restart.
     try {
         await RequestContextService.run({agentIdentityNodeId: sender}, async () => {
             await MailboxService.addMessage({

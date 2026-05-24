@@ -7,13 +7,10 @@ import {execSync} from 'child_process';
  * @class Neo.ai.daemons.services.ProcessSupervisorService
  * @extends Neo.core.Base
  *
- * Note: per Epic #11831 / Sub 1 (#11833), this class is NO LONGER a `singleton`.
- * It accepts external configuration from a parent (Orchestrator: dataDir,
- * taskDefinitions, taskStateService, healthService, writeLog, spawnFn) — per
- * @tobiu: "if a class needs external configs, it should not be a singleton in
- * the first place." Orchestrator now constructs a per-instance ProcessSupervisorService
- * via reactive config + `ClassSystemUtil.beforeSetInstance` (Service-DI Class B),
- * with parent `afterSet*` hooks propagating runtime mutations.
+ * The supervisor is intentionally non-singleton because it receives parent-provided
+ * runtime configuration (`dataDir`, task definitions, task state, health sink,
+ * logger, and spawn implementation). The orchestrator owns the instance through a
+ * reactive config slot and propagates parent mutations through `afterSet*` hooks.
  */
 export class ProcessSupervisorService extends Base {
     static config = {

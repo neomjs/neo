@@ -5,11 +5,9 @@ import Base from '../../../../src/core/Base.mjs';
  * @extends Neo.core.Base
  * @summary A pure functional service that manages polling intervals and timing triggers for maintenance tasks.
  *
- * Note: per Epic #11831 / Sub 1 (#11833), this class is NO LONGER a `singleton`.
- * It accepts external configuration from a parent (Orchestrator) — per @tobiu:
- * "if a class needs external configs, it should not be a singleton in the first place."
- * Orchestrator now constructs a per-instance CadenceEngine via reactive config +
- * `ClassSystemUtil.beforeSetInstance` (Service-DI Class A).
+ * The engine is intentionally non-singleton because it receives parent-provided
+ * runtime configuration. The orchestrator owns the instance through a reactive
+ * config slot and `ClassSystemUtil.beforeSetInstance`.
  */
 export class CadenceEngine extends Base {
     static config = {
