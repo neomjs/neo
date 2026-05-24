@@ -267,11 +267,11 @@ export class Orchestrator extends Base {
     /**
      * Wires a per-Orchestrator MaintenanceBackpressureService instance with
      * parent context at creation time. Subsequent parent-prop changes flow via
-     * afterSet hooks calling `mbs.applyBindings({field: newValue})`. The per-poll
-     * refresh alternative (cloud multi-repo Orchestrator owning N MBS instances
-     * keyed by repo context, OR a single MBS rebound per cycle) calls
-     * `mbs.applyBindings({...allBindings})` per poll cycle to switch context.
-     * See MBS#applyBindings JSDoc for the dual wiring contract.
+     * direct reactive-config assignment on the MBS instance (e.g.
+     * `this.maintenanceBackpressureService.taskStateService = value`) from the
+     * matching `afterSetX` hooks below. The cloud multi-repo Orchestrator
+     * variant (one Orchestrator polling N tenant repos) likewise re-assigns
+     * MBS reactive configs per poll cycle to switch context.
      *
      * MBS is per-instance (not singleton) because it requires external
      * configuration — singleton classes self-contain their config; classes
@@ -295,31 +295,31 @@ export class Orchestrator extends Base {
 
     afterSetDataDir(value, oldValue) {
         if (oldValue === undefined) return;
-        if (this.processSupervisorService)       this.processSupervisorService.dataDir = value;
-        this.maintenanceBackpressureService?.applyBindings?.({dataDir: value});
+        this.processSupervisorService.dataDir          = value;
+        this.maintenanceBackpressureService.dataDir    = value;
     }
     afterSetTaskDefinitions(value, oldValue) {
         if (oldValue === undefined) return;
-        if (this.processSupervisorService)       this.processSupervisorService.taskDefinitions = value;
-        this.maintenanceBackpressureService?.applyBindings?.({taskDefinitions: value});
+        this.processSupervisorService.taskDefinitions       = value;
+        this.maintenanceBackpressureService.taskDefinitions = value;
     }
     afterSetTaskStateService(value, oldValue) {
         if (oldValue === undefined) return;
-        if (this.processSupervisorService)       this.processSupervisorService.taskStateService = value;
-        this.maintenanceBackpressureService?.applyBindings?.({taskStateService: value});
+        this.processSupervisorService.taskStateService       = value;
+        this.maintenanceBackpressureService.taskStateService = value;
     }
     afterSetHealthService(value, oldValue) {
         if (oldValue === undefined) return;
-        if (this.processSupervisorService)       this.processSupervisorService.healthService = value;
-        this.maintenanceBackpressureService?.applyBindings?.({healthService: value});
+        this.processSupervisorService.healthService       = value;
+        this.maintenanceBackpressureService.healthService = value;
     }
     afterSetSpawnFn(value, oldValue) {
         if (oldValue === undefined) return;
-        if (this.processSupervisorService) this.processSupervisorService.spawnFn = value;
+        this.processSupervisorService.spawnFn = value;
     }
     afterSetHeavyMaintenanceLeasePath(value, oldValue) {
         if (oldValue === undefined) return;
-        this.maintenanceBackpressureService?.applyBindings?.({heavyMaintenanceLeasePath: value});
+        this.maintenanceBackpressureService.heavyMaintenanceLeasePath = value;
     }
 
     // === Service-DI Class D: operator policy values (lazy getters, 2-value chain) ===
