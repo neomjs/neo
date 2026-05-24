@@ -8,8 +8,7 @@ This protocol ensures that feedback is:
 2. **Actionable:** Clearly delineating block-level requirements before a merge can occur.
 3. **Graph-Extractable:** Structured with specific Markdown tags so the background Retrospective Agent (Gemma 4:31B) can mathematically ingest the feedback into the Native Edge Graph.
 
-> **Measurement Notice (Epic #10537):**
-> We are actively tracking the loaded surface of PR review cycles to establish a baseline for modularization. Before conducting reviews, consult the [Loaded-Surface Measurement Methodology](./measurement-methodology.md) and ensure you capture and log the `wc -c` metric for your cycle.
+> **Measurement Trigger:** For review-density or skill-baggage work, use [Loaded-Surface Measurement Methodology](./measurement-methodology.md) and record `wc -c`; ordinary PR reviews do not load it.
 
 ## 1. Core Philosophy
 - **For Internal Agents (Peer-Review):** Be objective, clinical, and strict. Enforce the "Fat Ticket" protocol and strict JSDoc completeness.
@@ -163,7 +162,7 @@ The PR cannot be approved if the implemented contract and the ticket's Contract 
 
 ## 6. Review Template Selection
 
-Before drafting your review, classify the review cycle. Template choice is part of context-budget control and rigor control.
+Before drafting your review, classify the review cycle. Template choice is a context-budget gate: Cycle 1 / cold-cache needs the full structure; Cycle N / warm-cache uses delta shape unless evidence shows the prior anchors are no longer reliable.
 
 > **Symmetry Note:** The `pull-request` skill enforces an author-side template-adherence check (see `pull-request-workflow.md §6.4`). If you fail to use the correct template structure specified below, the author is mandated to reject your review and A2A you for a complete rewrite. Substantive content without structural adherence is not merge-eligible.
 
@@ -177,11 +176,11 @@ Use the full template from `.agents/skills/pr-review/assets/pr-review-template.m
 - **Major delta:** the author changed scope, touched new architectural surfaces, added new files outside the prior Required Actions, or rewrote the PR body/close-target semantics enough that prior scores are no longer reliable.
 - **Lost anchor recovery:** no usable prior review commentId, author response commentId, or last-known anchor exists.
 
-When in doubt, use the full template. The full template is the safety path for cold context and broadened scope.
+Use the full template when uncertainty is about missing context, broadened scope, or lost anchors. If prior review anchors are loaded and the author delta is narrow, uncertainty is not a reason to inflate the thread: use the follow-up template and state what stayed unchanged.
 
 ### 6.2 Follow-Up Review Template
 
-Use the follow-up template from `.agents/skills/pr-review/assets/pr-review-followup-template.md` only for **Cycle N / warm-cache delta re-reviews** where:
+Use the follow-up template from `.agents/skills/pr-review/assets/pr-review-followup-template.md` by default for **Cycle N / warm-cache delta re-reviews** where:
 
 - You have prior-cycle context loaded, or you have grounded from the relevant prior review/author response anchors.
 - The latest author delta maps to previous Required Actions or a narrow PR-body / metadata correction.
@@ -198,7 +197,7 @@ If a commentId-scoped A2A message arrives but you lack the surrounding prior-cyc
 
 ### 6.3 Micro-Delta Circuit Breaker Template
 
-When the PR discussion thread exceeds 24KB or has received ≥ 3 formal reviews, load the Review-Loop Cost Circuit Breaker payload for instructions and the micro-delta template.
+When the PR discussion thread exceeds 24KB or has received ≥ 3 formal reviews, load the Review-Loop Cost Circuit Breaker payload for the micro-delta template. Do not paste the full template unless that payload escalates the cycle back to cold-cache shape.
 
 **Payload Pointer:** `view_file` `.agents/skills/pr-review/audits/review-cost-circuit-breaker.md`
 
@@ -228,14 +227,7 @@ Self-reviews (§1) already have an analogous requirement ("actively hunt for bli
 
 ### 7.2 Cross-Model Asymmetry Context
 
-Different model families exhibit statistically-different failure modes when reviewing PRs:
-
-- **Claude-family** reviewers tend toward over-rigor — may flag concerns that aren't load-bearing, inflate `[COMPLEXITY]` scores, or request JSDoc polish the PR doesn't need.
-- **Gemini-family** reviewers tend toward quick-win framing — may score all metrics at 100 without challenge, pre-tick placeholder required-actions, or skip adversarial examination of the change.
-
-The Depth Floor catches the Gemini-family failure mode. `[CONTENT_COMPLETENESS]` scoring catches part of the Claude-family failure mode. Neither is a style mandate — be the reviewer you are; trust cross-model asymmetry to compensate. The floor is not a ceiling. Do not calibrate toward the other model's style; the skill-level floor is what keeps rigor universal, not style convergence.
-
-*This asymmetry is the empirical basis for the cross-family review mandate in `pull-request §6.1` and is mitigated by the decile anchor rubric in §3.1 which acts as a concrete calibration intervention.*
+Cross-family review works because different model families fail differently. Use the Depth Floor and scoring rubric as shared minimums; do not imitate another model family's style or inflate review ceremony to compensate.
 
 ### 7.3 Provenance Audit
 
@@ -281,19 +273,9 @@ Reviewers MUST verify symmetry between **stated framing** and **mechanical imple
 - **Expand the implementation** — if the framing reflects intended substrate that the diff doesn't yet deliver, scope-expand or file a follow-up ticket.
 - **Defend the metaphor** — argue why the framing accurately bridges to the mechanical reality (reviewer judges).
 
-#### Provenance
+#### Reviewer-Seeded Future Work
 
-PR #10298 and PR #10371 established the stable rule: rhetorical drift fires on both author-side PR framing and reviewer-side challenge framing. The §7.4 mandate applies to both surfaces.
-
-#### Cross-PR reviewer-seeded drift
-
-Within-PR rhetorical drift is one shape; the §7.4 audit ALSO covers a sibling sub-shape — when a reviewer plants a "Future Enhancement" / "non-blocking observation" / "follow-up suggestion" in PR-A's review without V-B-A'ing the premise, and that observation becomes the implementation premise of PR-B without an empirical-verification gate firing in between. The seed enters PR-B under the protective halo of "prior peer-review identified this gap", short-circuiting V-B-A.
-
-**Universal V-B-A core-value (per AGENTS.md §3.5, graduated via #11092)** covers this discipline at the foundational tier: ALL agent assertions require V-B-A, including reviewer-planted observations on PRs. This sub-section is the pr-review-skill operationalization at PR-review-comment plant-time.
-
-Provenance: #11149 -> #11153 showed that unverified review suggestions can become future implementation premises. The stable rule is to V-B-A any future-work seed before placing it in review prose.
-
-**Discipline:** the seeder owns V-B-A cost at plant-time, not at implement-time. Before adding a "Future Enhancement" / "non-blocking observation" / "follow-up suggestion" to a review, the reviewer MUST V-B-A the premise via the same tool inventory as §3.5 — the cost is paid at the cheaper plant-time-by-the-author-of-the-observation rather than the expensive implement-time-by-an-unrelated-author. Unverified observations MUST be tagged explicitly as `hypothesis — needs V-B-A before implementation` so future implementers don't treat them as verified gaps.
+Future-work suggestions, non-blocking observations, and follow-up ideas are review assertions. V-B-A the premise before planting them; otherwise tag them explicitly as `hypothesis — needs V-B-A before implementation`.
 
 ### 7.5 Test-Execution & Location Audit
 
@@ -307,7 +289,7 @@ Reviewers MUST verify testing claims and canonical file placement:
 
 ### 7.6 CI / Security Checks Audit
 
-Before approving any PR, you MUST use the `view_file` tool to read and strictly adhere to `.agents/skills/pr-review/audits/ci-security-audit.md` to verify the automated GitHub Actions and Security checks.
+Formal reviews assume CI is already green. Verify the current PR check state before `manage_pr_review`; if checks are pending, missing, or failing, stop and send a compact CI deferral instead of a full review. Load `.agents/skills/pr-review/audits/ci-security-audit.md` only for security-sensitive changes or ambiguous/failing check surfaces.
 
 ### 7.7 Anti-Patterns
 
@@ -391,14 +373,6 @@ For PRs that introduce new workflow primitives, skill files, architectural conve
 
 If any check surfaces a miss, flag it in Required Actions. A PR that ships a new convention without the cross-skill references creates a **latent integration gap** — the convention exists but won't fire because no other skill knows to invoke it.
 
-### 8.3 Empirical Example
-
-PR #10155 shipped `.agents/skills/epic-review/` with the claim "runs *before* `ticket-intake`." Real integration required `ticket-intake` to check whether the parent epic had been reviewed before proceeding with sub pickup. The PR did NOT update `ticket-intake`. The reviewer did NOT flag the missing integration. Result: `epic-review` ships as a skill but the "runs before ticket-intake" claim is aspirational until `ticket-intake` is updated — a latent gap §8 would have caught.
-
-### 8.4 Empirical Example 2: Wire Format Change
-
-PR #10397 changed the wake substrate wire format from raw events to a coalesced `wake/digest` envelope (Shape A). The PR cleanly migrated the upstream engine, but the reviewer missed the cross-skill integration audit for downstream consumers. Result: the Antigravity IDE wake handler silently failed because it expected raw events, not a digest payload. A §8 integration audit would have explicitly enumerated downstream consumers of the wire format (e.g., IDE client) and flagged the missing handler patch.
-
 ## 9. Strategic-Fit Step-Back
 
 After running the technical-defect audits (§3-§8), reviewers MUST execute one
@@ -412,7 +386,6 @@ strategic landscape, what's the right merge decision?" Four first-class options:
    - Cycle N+1 churn risks high-cost-low-marginal-value iteration
    - The PR ships measurable substrate value even with documented gaps
    - Required Actions surface concerns that are better-tracked-separately
-   Provenance: PR #10602 Cycle 1 (over-rigor candidate).
    Tell the author to run `pull-request-workflow.md §6.3.1` before merge.
 3. **Request Changes** — must-fix before merge; defects block substrate correctness.
 4. **Drop+Supersede** — the entire PR premise is stale/wrong with current
@@ -421,12 +394,10 @@ strategic landscape, what's the right merge decision?" Four first-class options:
    - >5 cycles iterating on fundamentally-wrong premise
    - Operator-intent correction reveals the abstraction itself needs reshape
    - Iterative refinement is rearranging deck chairs
-   Provenance: PR #10610 -> #10611 (corrective candidate).
 
 The step-back is a META-decision applied AFTER technical defects are identified,
 not parallel to score metrics or depth-floor. It's an architectural-judgment
 skill, not a defect-detection skill.
-Provenance: PR #10607 8-cycle pattern.
 
 ### 9.0 Cycle-1 Premise Pre-Flight (Decisiveness-Before-Iteration)
 
@@ -438,7 +409,7 @@ If the PR resolves or materially follows a ticket older than the stale workflow 
 
 ADR conflict trigger: run `ticket-intake/references/adr-successor-risk-audit.md`; block approval unless the PR names the ADR update or pending-authority path.
 
-This is discipline, not a mandatory checkbox. Routine PRs should clear it in under 30 seconds; when it fires, the framing flip is immediate. For trigger definitions, bias rationale, and the PR #11083 empirical anchor, read [`../audits/cycle-1-premise-preflight.md`](../audits/cycle-1-premise-preflight.md).
+This is discipline, not a mandatory checkbox. Routine PRs should clear it in under 30 seconds; when it fires, the framing flip is immediate. For trigger definitions and bias rationale, read [`../audits/cycle-1-premise-preflight.md`](../audits/cycle-1-premise-preflight.md).
 
 ### 9.1 Reviewer-Yield Protocol (Deadlock Prevention)
 
@@ -448,8 +419,6 @@ When an author invokes `[REJECTED_WITH_RATIONALE]` per the Review Response Proto
 If the author's rationale holds up to empirical scrutiny—even if it doesn't match the reviewer's preferred pattern—the reviewer MUST yield, mark the item resolved, and proceed to the next stage of the PR lifecycle (e.g., `Approve` or `Approve+Follow-Up`).
 
 This explicit reviewer open-mindedness mandate is symmetric to the author's mandate, closing the loop on deadlock vulnerabilities.
-
-Provenance: PR #10607 and PR #10611. The stable rule is reciprocal reviewer yield when the author provides sufficient empirical rationale.
 
 ## 10. A2A Comment-ID Hand-off Protocol (#10272)
 
