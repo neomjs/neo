@@ -190,7 +190,16 @@ export class Orchestrator extends Base {
          * @member {Function} spawnFn_=spawn
          * @reactive
          */
-        spawnFn_: spawn
+        spawnFn_: spawn,
+        /**
+         * Shared heavy-maintenance lease file path. Reactive so `start()` overrides
+         * propagate to the MaintenanceBackpressureService instance via
+         * `afterSetHeavyMaintenanceLeasePath`; otherwise the public `start()` option
+         * would be silently disconnected from the service that uses it.
+         * @member {String|null} heavyMaintenanceLeasePath_=null
+         * @reactive
+         */
+        heavyMaintenanceLeasePath_: null
     }
 
     // === Service-DI Class C: simple imported collaborators (instance fields) ===
@@ -209,7 +218,6 @@ export class Orchestrator extends Base {
     dbPath                        = DEFAULT_DB_PATH
     logFile                       = null
     stateFile                     = null
-    heavyMaintenanceLeasePath     = null
     primaryDevSyncRootsConfig     = null
     maintenanceDeferralLogKeys    = null
     heavyMaintenanceTaskNames     = DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
@@ -303,6 +311,9 @@ export class Orchestrator extends Base {
     }
     afterSetSpawnFn(value) {
         if (this.processSupervisorService) this.processSupervisorService.spawnFn = value;
+    }
+    afterSetHeavyMaintenanceLeasePath(value) {
+        this.maintenanceBackpressureService?.applyBindings?.({heavyMaintenanceLeasePath: value});
     }
 
     // === Service-DI Class D: operator policy values (lazy getters, 2-value chain) ===

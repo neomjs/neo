@@ -235,7 +235,6 @@ export function recordDeferral({
  *
  * @class Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService
  * @extends Neo.core.Base
- * @singleton
  */
 export class MaintenanceBackpressureService extends Base {
     static config = {
@@ -317,8 +316,8 @@ export class MaintenanceBackpressureService extends Base {
      * 2. **Per-poll refresh** — alternative pattern for the planned cloud multi-repo
      *    Orchestrator deployment (one Orchestrator polling N tenant repos). At the
      *    start of each poll cycle, the Orchestrator calls
-     *    `mbs.applyBindings({...allBindings})` with the current repo context — same
-     *    singleton MBS serves N repo contexts via per-poll rebind. The
+     *    `mbs.applyBindings({...allBindings})` with the current repo context — the
+     *    same MBS instance serves N repo contexts via per-poll rebind. The
      *    `clearDeferralLogState` reset is left to the caller; deferral state is
      *    per-context.
      *

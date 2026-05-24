@@ -92,13 +92,6 @@ function createTestOrchestrator(config = {}) {
         spawnFn                  : config.spawnFn       || (() => { throw new Error('spawnFn not expected'); })
     });
 
-    // `heavyMaintenanceLeasePath` is a plain Orchestrator instance field (not a
-    // reactive config) — Class B propagation via afterSet hooks doesn't catch it
-    // through Neo.create's config arg. Sync the per-test path to the per-instance
-    // MBS explicitly so the lease path is unique per test. Other bindings flow
-    // via Class B propagation at Neo.create time.
-    orchestrator.maintenanceBackpressureService.applyBindings({heavyMaintenanceLeasePath});
-
     // Class C simple-imported collaborators — instance fields, not reachable via Neo.create
     orchestrator.summarizationCoordinator = config.summarizationCoordinator || {getDueTask: () => null};
     orchestrator.backupCoordinator        = config.backupCoordinator        || {getDueTask: () => null};
