@@ -28,9 +28,8 @@ const ISO_VERIFIED_AT_PATTERN = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}\.\d{3}Z
  *
  * 1. **TEST_GAP inference (regex, session-scoped):** iterates session-artifact structural nodes
  *    (CLASS / METHOD / COMPONENT) and matches tokenized node names against `test/*` file-path
- *    entries in the graph. Preserved from pre-#10035 behavior — testing discipline still maps
- *    1:1 to source file names, where regex imprecision is acceptable because the test-file
- *    namespace is small and flat.
+ *    entries in the graph. This legacy regex path is still acceptable because testing
+ *    discipline maps 1:1 to source file names and the test-file namespace is small and flat.
  *
  * 2. **Concept-graph inference (edge traversal, cycle-scoped):** iterates CONCEPT nodes ingested
  *    by `ConceptIngestor` and emits deterministic signals via metadata + outbound-edge checks:
@@ -42,11 +41,11 @@ const ISO_VERIFIED_AT_PATTERN = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}\.\d{3}Z
  *      code anchors it; either the ontology is stale/aspirational or the implementation is
  *      missing and should be added). Surfaced through the same `capabilityGap` channel +
  *      `sandman_handoff.md` section pattern as the other gap types, not via `logger.warn`
- *      (logger is ephemeral; the graph + handoff is the durable substrate). Added in #10087.
+ *      (logger is ephemeral; the graph + handoff is the durable substrate).
  *    - `[KB_DEMAND_GAP]` — repeated agent questions from the Knowledge Base FAQ telemetry
  *      table map to this concept, but the FAQ cluster still lacks strong guide coverage.
  *    The three coverage signals share the `aiConfig.data.guideGapWeightThreshold` gate
- *    (config-lifted in #10086 for curator tuning; defaults to `0.8` = tier-1 baseline).
+ *    (config-lifted for curator tuning; defaults to `0.8` = tier-1 baseline).
  *    `[CONCEPT_REVERIFY_DUE]` is not weight-gated because freshness review is a curation
  *    cadence, not a severity claim. Low-priority concepts may need review without becoming
  *    more important.
@@ -82,9 +81,9 @@ class GapInferenceEngine extends Base {
     /**
      * Session-scoped TEST_GAP inference entry point. Iterates CLASS / METHOD / COMPONENT nodes
      * from the session artifact and checks for a matching test file via tokenized regex scan.
-     * Preserved from pre-#10035 behavior. Internal-config lifecycle hooks (`beforeSet*`,
-     * `afterSet*`, `beforeGet*`) are excluded since they're structurally shared and not
-     * individually testable.
+     * The legacy regex path is retained for test-file discovery. Internal-config lifecycle
+     * hooks (`beforeSet*`, `afterSet*`, `beforeGet*`) are excluded since they're structurally
+     * shared and not individually testable.
      *
      * Gaps are persisted as a JSON-array-encoded string on `node.properties.capabilityGap` with
      * `[TEST_GAP]` prefix so `GoldenPathSynthesizer` can categorize them into the correct
@@ -92,7 +91,8 @@ class GapInferenceEngine extends Base {
      * pruning.
      *
      * Paired with `inferConceptGraphGaps` — which runs at cycle-scope, not per-session — to form
-     * the full capability-gap pass. See #10085 for the scope split rationale.
+     * the full capability-gap pass while keeping session-bound test coverage separate from
+     * ontology-wide concept coverage.
      * @param {Object} payload The parsed Tri-Vector schema from `SemanticGraphExtractor`
      */
     async inferTestGapsFromSession(payload) {
@@ -144,38 +144,37 @@ class GapInferenceEngine extends Base {
      *
      * For each CONCEPT node in the graph, emits a non-destructive freshness signal plus three
      * weight-gated coverage signals based on outbound edges in the Native Edge Graph:
-     * - **`[CONCEPT_REVERIFY_DUE]`** (added in #10574): `verifiedAt` is `null`, missing,
+     * - **`[CONCEPT_REVERIFY_DUE]`**: `verifiedAt` is `null`, missing,
      *   invalid, or older than the 90-day freshness window. This queues source-grounding review
      *   work only; it never changes concept weight, edge weight, validation, or graph visibility.
      * - **`[GUIDE_GAP]`**: no outbound `EXPLAINED_BY` edge. Concept is architecturally relevant
      *   but undocumented — write a guide.
      * - **`[EXAMPLE_GAP]`**: has `EXPLAINED_BY` but no `EXEMPLIFIED_BY`. Concept is documented
      *   but lacks a working example — lower severity than a missing guide.
-     * - **`[ORPHAN_CONCEPT]`** (added in #10087): no `IMPLEMENTED_BY` edge. Concept exists in
+     * - **`[ORPHAN_CONCEPT]`**: no `IMPLEMENTED_BY` edge. Concept exists in
      *   the ontology but no source code anchors it. Either add an implementation or retire the
      *   concept from `nodes.jsonl`. Replaces the ephemeral per-orphan `logger.warn` that used
      *   to live in `ConceptIngestor` — routing through `capabilityGap` + `sandman_handoff.md`
      *   makes the signal durable and aggregatable.
      *
      * The three coverage signals share the same `aiConfig.data.guideGapWeightThreshold` weight gate
-     * (default `0.8` = tier-1 baseline; config-lifted in #10086 for curator tuning). Lower-weight
+     * (default `0.8` = tier-1 baseline; config-lifted for curator tuning). Lower-weight
      * concepts (tier-3 without uniqueness or coverage deficit lift) are considered low-priority —
      * missing guides/examples/implementations for them aren't worth surfacing in the handoff at
-     * the current early stage of the ontology. As concept ingestion matures (#10036 / #10037 /
-     * #10050), richer weight signals auto-promote meaningful gaps through the same gate without
-     * config changes. The derivation of the default (0.8) lives in `config.template.mjs` next to
-     * the value itself. Freshness review remains independent of this gate.
+     * the current early stage of the ontology. As concept ingestion accumulates richer validation
+     * and enrichment signals, meaningful gaps auto-promote through the same gate without config
+     * changes. The derivation of the default (0.8) lives in `config.template.mjs` next to the
+     * value itself. Freshness review remains independent of this gate.
      *
      * Uses the edges-direct traversal pattern (`db.edges.getByIndex('source', id).filter(...)`)
      * rather than `db.getAdjacentNodes(...)` because concept edges point at string identifiers
      * (`file:learn/guides/X.md`, `ext:react-jsx`) that are deliberately NOT materialized as graph
      * nodes. `getAdjacentNodes` would return empty for these targets and mis-flag every concept
-     * as a guide gap. See #10035 for the architectural decision.
+     * as a guide gap.
      *
      * **Scope:** cycle-scoped. Output depends only on ontology state, not on any individual
      * session — invoked once per REM cycle from `DreamService.processUndigestedSessions` after
-     * the per-session loop, before garbage collection. See #10085 for why this was hoisted out
-     * of the per-session loop.
+     * the per-session loop, before garbage collection.
      */
     async inferConceptGraphGaps() {
         const
@@ -196,11 +195,11 @@ class GapInferenceEngine extends Base {
         const threshold = aiConfig.data.guideGapWeightThreshold ?? 0.8;
 
         for (const concept of conceptNodes) {
-            // #10036: unvalidated concepts (candidates from ConceptDiscoveryService awaiting
-            // curator review) are silenced regardless of weight. Low weight is the primary gate
-            // for legitimate low-priority concepts; the validated flag is the explicit override
+            // Unvalidated concepts (candidates from ConceptDiscoveryService awaiting curator
+            // review) are silenced regardless of weight. Low weight is the primary gate for
+            // legitimate low-priority concepts; the validated flag is the explicit override
             // for "this hasn't been reviewed yet — don't surface it." Legacy rows without the
-            // field (pre-#10036) have `validated === undefined`, treated as validated.
+            // field have `validated === undefined`, treated as validated.
             if (concept.properties?.validated === false) continue;
 
             const
