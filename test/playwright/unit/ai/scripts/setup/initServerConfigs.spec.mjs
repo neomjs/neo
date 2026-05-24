@@ -130,13 +130,13 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         // Same-source named-specifier drift: template added `parseUrl` to the existing
         // Env.mjs import block; even though the source path is shared, the
         // specifier-level projection must catch this.
-        expect(action.drift.missingImports).toContain('../shared/helpers/Env.mjs:parseUrl');
+        expect(action.drift.missingImports).toContain('../../../../src/util/Env.mjs:parseUrl');
         expect(action.drift.missingImports).toContain('../shared/helpers/DeploymentConfig.mjs:resolveChromaHost');
 
         // Multi-line warning shape: header + per-item bullet + recovery prompt
         expect(logger.entries.warn.some(l => l.includes("Stale config.mjs for 'memory-core'"))).toBe(true);
         expect(logger.entries.warn.some(l => l.includes('+ import: ../shared/helpers/DeploymentConfig.mjs'))).toBe(true);
-        expect(logger.entries.warn.some(l => l.includes('+ import: ../shared/helpers/Env.mjs:parseUrl'))).toBe(true);
+        expect(logger.entries.warn.some(l => l.includes('+ import: ../../../../src/util/Env.mjs:parseUrl'))).toBe(true);
         expect(logger.entries.warn.some(l => l.includes('npm run prepare -- --migrate-config'))).toBe(true);
 
         // Did NOT overwrite
@@ -249,8 +249,8 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         // shared-source:specifier entries are detected by the projection.
         expect(action.drift.missingImports).toEqual(
             expect.arrayContaining([
-                '../shared/helpers/Env.mjs:parseUrl',
-                '../shared/helpers/Env.mjs:parseNumber'
+                '../../../../src/util/Env.mjs:parseUrl',
+                '../../../../src/util/Env.mjs:parseNumber'
             ])
         );
 
@@ -272,11 +272,11 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         expect(shape.imports).toEqual(
             expect.arrayContaining([
                 '../../../../src/util/Env.mjs',
-                '../shared/helpers/Env.mjs:parsePort',
-                '../shared/helpers/Env.mjs:parseBool'
+                '../../../../src/util/Env.mjs:parsePort',
+                '../../../../src/util/Env.mjs:parseBool'
             ])
         );
-        expect(shape.imports).not.toContain('../shared/helpers/Env.mjs:foo');
+        expect(shape.imports).not.toContain('../../../../src/util/Env.mjs:foo');
     });
 
     test('default + namespace imports projected with reserved suffixes (`:default`, `:*`)', async () => {
@@ -337,10 +337,10 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         // Named-specifier entries from the multi-line block (same-source drift surface)
         expect(shape.imports).toEqual(
             expect.arrayContaining([
-                '../shared/helpers/Env.mjs:parseBool',
-                '../shared/helpers/Env.mjs:parseNumber',
-                '../shared/helpers/Env.mjs:parsePort',
-                '../shared/helpers/Env.mjs:parseUrl',
+                '../../../../src/util/Env.mjs:parseBool',
+                '../../../../src/util/Env.mjs:parseNumber',
+                '../../../../src/util/Env.mjs:parsePort',
+                '../../../../src/util/Env.mjs:parseUrl',
                 'path:default',
                 'url:fileURLToPath'
             ])
