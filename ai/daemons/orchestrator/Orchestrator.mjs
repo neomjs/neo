@@ -118,10 +118,12 @@ function resolveDeploymentEnabled(key) {
  *   (`summarizationCoordinator`, `backupCoordinator`, etc.) — no class-system
  *   conversion, no parent-child propagation, no lifecycle side effect.
  * - **(D) Operator policy value** — lazy getters with the 2-value chain
- *   `Env.parseNumber(process.env.NEO_X, 'NEO_X') ?? AiConfig.orchestrator.intervals.X`
- *   for intervals + `Env.parseBool(process.env.NEO_X, 'NEO_X') ?? resolveDeploymentEnabled(...)`
- *   for booleans. `Env` is the canonical `Neo.util.Env` substrate primitive
- *   (`src/util/Env.mjs`); env-binding registries live per consumer area.
+ *   `Env.parseNumber('NEO_X') ?? AiConfig.orchestrator.intervals.X` for intervals
+ *   + `Env.parseBool('NEO_X') ?? resolveDeploymentEnabled(...)` for booleans.
+ *   `Env` is the canonical `Neo.util.Env` substrate primitive (`src/util/Env.mjs`);
+ *   single-source-of-name discipline — env var name appears ONCE per call site
+ *   (Env reads `process.env[name]` internally; refactored 2026-05-24 after the
+ *   dup-name pattern regressed on Lane A).
  *
  * No `configure()` shadow-resolver. No `DEFAULT_X_*_MS` constants. No
  * `parseInterval`/`parseEnabledFlag` helpers. No `processSupervisorService.set({...this...})`
@@ -263,20 +265,20 @@ export class Orchestrator extends Base {
     }
 
     // === Service-DI Class D: operator policy values (lazy getters, 2-value chain) ===
-    get pollIntervalMs()          { return Env.parseNumber(process.env.NEO_ORCHESTRATOR_POLL_INTERVAL_MS,              'NEO_ORCHESTRATOR_POLL_INTERVAL_MS')              ?? AiConfig.orchestrator.intervals.pollMs;             }
-    get summarySweepIntervalMs()  { return Env.parseNumber(process.env.NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS,     'NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS')     ?? AiConfig.orchestrator.intervals.summarySweepMs;     }
-    get kbSyncIntervalMs()        { return Env.parseNumber(process.env.NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS,           'NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS')           ?? AiConfig.orchestrator.intervals.kbSyncMs;           }
-    get backupIntervalMs()        { return Env.parseNumber(process.env.NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS,            'NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS')            ?? AiConfig.orchestrator.intervals.backupMs;           }
-    get primaryDevSyncIntervalMs(){ return Env.parseNumber(process.env.NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS,  'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS')  ?? AiConfig.orchestrator.intervals.primaryDevSyncMs;   }
-    get dreamIntervalMs()         { return Env.parseNumber(process.env.NEO_ORCHESTRATOR_DREAM_INTERVAL_MS,             'NEO_ORCHESTRATOR_DREAM_INTERVAL_MS')             ?? AiConfig.orchestrator.intervals.dreamMs;            }
-    get goldenPathIntervalMs()    { return Env.parseNumber(process.env.NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS,       'NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS')       ?? AiConfig.orchestrator.intervals.goldenPathMs;       }
-    get swarmHeartbeatIntervalMs(){ return Env.parseNumber(process.env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS,   'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS')   ?? AiConfig.orchestrator.intervals.swarmHeartbeatMs;   }
+    get pollIntervalMs()          { return Env.parseNumber('NEO_ORCHESTRATOR_POLL_INTERVAL_MS')             ?? AiConfig.orchestrator.intervals.pollMs;             }
+    get summarySweepIntervalMs()  { return Env.parseNumber('NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS')    ?? AiConfig.orchestrator.intervals.summarySweepMs;     }
+    get kbSyncIntervalMs()        { return Env.parseNumber('NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS')          ?? AiConfig.orchestrator.intervals.kbSyncMs;           }
+    get backupIntervalMs()        { return Env.parseNumber('NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS')           ?? AiConfig.orchestrator.intervals.backupMs;           }
+    get primaryDevSyncIntervalMs(){ return Env.parseNumber('NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS') ?? AiConfig.orchestrator.intervals.primaryDevSyncMs;   }
+    get dreamIntervalMs()         { return Env.parseNumber('NEO_ORCHESTRATOR_DREAM_INTERVAL_MS')            ?? AiConfig.orchestrator.intervals.dreamMs;            }
+    get goldenPathIntervalMs()    { return Env.parseNumber('NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS')      ?? AiConfig.orchestrator.intervals.goldenPathMs;       }
+    get swarmHeartbeatIntervalMs(){ return Env.parseNumber('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS')  ?? AiConfig.orchestrator.intervals.swarmHeartbeatMs;   }
 
-    get kbSyncEnabled()                  { return Env.parseBool(process.env.NEO_ORCHESTRATOR_KB_SYNC_ENABLED,                     'NEO_ORCHESTRATOR_KB_SYNC_ENABLED')                     ?? resolveDeploymentEnabled('kbSyncEnabled');                  }
-    get primaryDevSyncEnabled()          { return Env.parseBool(process.env.NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED,            'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED')            ?? resolveDeploymentEnabled('primaryDevSyncEnabled');          }
-    get bridgeDaemonEnabled()            { return Env.parseBool(process.env.NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED,               'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED')               ?? resolveDeploymentEnabled('bridgeDaemonEnabled');            }
-    get swarmHeartbeatEnabled()          { return Env.parseBool(process.env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED,             'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED')             ?? resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
-    get goldenPathRepoEnrichmentEnabled(){ return Env.parseBool(process.env.NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED, 'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED') ?? resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
+    get kbSyncEnabled()                  { return Env.parseBool('NEO_ORCHESTRATOR_KB_SYNC_ENABLED')                     ?? resolveDeploymentEnabled('kbSyncEnabled');                  }
+    get primaryDevSyncEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED')            ?? resolveDeploymentEnabled('primaryDevSyncEnabled');          }
+    get bridgeDaemonEnabled()            { return Env.parseBool('NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED')               ?? resolveDeploymentEnabled('bridgeDaemonEnabled');            }
+    get swarmHeartbeatEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED')             ?? resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
+    get goldenPathRepoEnrichmentEnabled(){ return Env.parseBool('NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED') ?? resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
 
     /**
      * Starts the orchestrator process loop after the wrapper has selected this process.

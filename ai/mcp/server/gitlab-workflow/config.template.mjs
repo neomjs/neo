@@ -16,7 +16,9 @@ const validLogLevels = ['error', 'warn', 'info', 'log', 'debug'];
  * @param {Function} [warn=console.warn]
  * @returns {String|undefined}
  */
-function parseLogLevel(rawValue, envVarName, warn = console.warn) {
+function parseLogLevel(envVarName, {env = process.env, warn = console.warn} = {}) {
+    const rawValue = env[envVarName];
+    if (rawValue === undefined || rawValue === null || rawValue === '') return;
     const value = String(rawValue).trim().toLowerCase();
 
     if (validLogLevels.includes(value)) {

@@ -3,7 +3,9 @@ import BaseConfig, {createConfigProxy}   from '../shared/BaseConfig.mjs';
 import {fileURLToPath}                   from 'url';
 import Env                               from '../../../../src/util/Env.mjs';
 
-function parseMemorySharingPolicy(rawValue, envVarName) {
+function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
+    const rawValue = env[envVarName];
+    if (rawValue === undefined || rawValue === null || rawValue === '') return;
     if (['legacy', 'private', 'team'].includes(rawValue)) {
         return rawValue;
     }

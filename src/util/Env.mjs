@@ -5,12 +5,18 @@
  * NOT on domain classes. The canonical home for env-parsing across the agent OS — MCP
  * server config.templates, orchestrator getters, and any other env-var consumer.
  *
+ * **Single-source-of-name discipline:** every parser takes the `envVarName` as its
+ * first argument and reads `env[envVarName]` internally. The canonical 2-value chain
+ * is `Env.parseX('NEO_X') ?? AiConfig.X` — the env var name appears ONCE per consumer
+ * call site. The earlier `Env.parseX(process.env.NEO_X, 'NEO_X')` shape duplicated the
+ * name at every call site (anti-pattern); refactored 2026-05-24 after operator surfaced
+ * the regression on Lane A PR #11876.
+ *
  * Decoders know NOTHING about specific configs, defaults, or domain consumers — they only
  * answer "env var absent (undefined) / decoded value / invalid (warn + undefined)". Fallback
- * policy lives at the consumer call-site as `Env.parseX(process.env.NEO_X, 'NEO_X') ?? AiConfig.X`
- * (canonical 2-value chain: env-var if set wins, otherwise config). MCP server config
- * templates use the bulk `Env.applyEnvBindings(data, envBindings, env, warn)` shape;
- * orchestrator-style getters use the per-call inline shape directly.
+ * policy lives at the consumer call-site as `Env.parseX('NEO_X') ?? AiConfig.X`. MCP
+ * server config templates use the bulk `Env.applyEnvBindings(data, envBindings, env?, warn?)`
+ * shape (binding form names each var once).
  *
  * Uses the gatekeep pattern (lightweight stateless utility — no Base inheritance, no
  * reactive configs, no lifecycle hooks), mirroring `src/core/IdGenerator.mjs` precedent.
@@ -59,10 +65,7 @@ const Env = {
                 ? { var: binding, parse: Env.parseString }
                 : binding;
 
-            const raw = env[varName];
-            if (Neo.isEmpty(raw)) continue;
-
-            const result = parse(raw, varName, warn);
+            const result = parse(varName, {env, warn});
             if (result === undefined) continue;
 
             const keys     = path.split('.');
@@ -85,12 +88,14 @@ const Env = {
      * - false: `'false'`, `'no'`, `'off'`, `'0'`
      * - other: warn + undefined
      *
-     * @param {String|undefined} rawValue
      * @param {String} envVarName
-     * @param {Function} [warn=console.warn]
+     * @param {Object} [opts]
+     * @param {Object} [opts.env=process.env]
+     * @param {Function} [opts.warn=console.warn]
      * @returns {Boolean|undefined}
      */
-    parseBool(rawValue, envVarName, warn = console.warn) {
+    parseBool(envVarName, {env = process.env, warn = console.warn} = {}) {
+        const rawValue = env[envVarName];
         if (Neo.isEmpty(rawValue)) return;
         const normalized = String(rawValue).trim().toLowerCase();
         if (Env.TRUE_TOKENS.includes(normalized))  return true;
@@ -103,14 +108,16 @@ const Env = {
      *
      * Note: `Number(undefined)` returns `NaN` (not undefined), and `NaN ?? fallback` does
      * NOT fire `??` (only fires on nullish). The undefined-return for absent input is
-     * load-bearing for the `Env.parseNumber(...) ?? AiConfig.X` consumer pattern.
+     * load-bearing for the `Env.parseNumber('NEO_X') ?? AiConfig.X` consumer pattern.
      *
-     * @param {String|undefined} rawValue
      * @param {String} envVarName
-     * @param {Function} [warn=console.warn]
+     * @param {Object} [opts]
+     * @param {Object} [opts.env=process.env]
+     * @param {Function} [opts.warn=console.warn]
      * @returns {Number|undefined}
      */
-    parseNumber(rawValue, envVarName, warn = console.warn) {
+    parseNumber(envVarName, {env = process.env, warn = console.warn} = {}) {
+        const rawValue = env[envVarName];
         if (Neo.isEmpty(rawValue)) return;
         const num = Number(rawValue);
         if (!Number.isFinite(num)) {
@@ -122,12 +129,14 @@ const Env = {
 
     /**
      * Decode env value as port (integer 1..65535).
-     * @param {String|undefined} rawValue
      * @param {String} envVarName
-     * @param {Function} [warn=console.warn]
+     * @param {Object} [opts]
+     * @param {Object} [opts.env=process.env]
+     * @param {Function} [opts.warn=console.warn]
      * @returns {Number|undefined}
      */
-    parsePort(rawValue, envVarName, warn = console.warn) {
+    parsePort(envVarName, {env = process.env, warn = console.warn} = {}) {
+        const rawValue = env[envVarName];
         if (Neo.isEmpty(rawValue)) return;
         const num = Number(rawValue);
         if (!Number.isInteger(num) || num <= 0 || num > 65535) {
@@ -138,22 +147,29 @@ const Env = {
     },
 
     /**
-     * Identity passthrough — signals "we explicitly want the raw string".
-     * @param {String|undefined} rawValue
+     * Identity passthrough — reads `env[envVarName]` and returns the raw string (or
+     * undefined if absent/empty). Signals "we explicitly want the raw string".
+     * @param {String} envVarName
+     * @param {Object} [opts]
+     * @param {Object} [opts.env=process.env]
      * @returns {String|undefined}
      */
-    parseString(rawValue) {
+    parseString(envVarName, {env = process.env} = {}) {
+        const rawValue = env[envVarName];
+        if (Neo.isEmpty(rawValue)) return;
         return rawValue;
     },
 
     /**
      * Decode env value as URL, normalized (trailing slash stripped).
-     * @param {String|undefined} rawValue
      * @param {String} envVarName
-     * @param {Function} [warn=console.warn]
+     * @param {Object} [opts]
+     * @param {Object} [opts.env=process.env]
+     * @param {Function} [opts.warn=console.warn]
      * @returns {String|undefined}
      */
-    parseUrl(rawValue, envVarName, warn = console.warn) {
+    parseUrl(envVarName, {env = process.env, warn = console.warn} = {}) {
+        const rawValue = env[envVarName];
         if (Neo.isEmpty(rawValue)) return;
         try {
             const url = new URL(rawValue);
