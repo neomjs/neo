@@ -207,13 +207,12 @@ services:
       - neo-mcp-network
     profiles:
       - ingress
-    # TCP-port responsiveness on 443 (caddy's only public surface). The
-    # `--no-check-certificate` is necessary because caddy issues its internal
-    # ACME cert against the configured public hostname, not localhost. Without
-    # an explicit healthcheck, operators can't distinguish "caddy crashed" from
-    # "no requests arriving" during the trial window (#11937).
+    # TCP-port responsiveness on 443 (caddy's only public surface). Direct nc -z
+    # exit-status check — caddy:2-alpine includes BusyBox nc; exit 0 = port accepts
+    # TCP connection, non-zero = caddy crashed. Avoids the wget --quiet + grep
+    # silent-success-empty-output failure mode (#11939 cycle-1 review per @neo-gpt).
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-check-certificate --quiet --tries=1 --spider https://127.0.0.1/ 2>&1 | grep -qE '(HTTP|Connecting|TLS)' || exit 1"]
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 443"]
       interval: 30s
       timeout: 5s
       retries: 3
