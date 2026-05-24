@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -50,12 +50,15 @@ test.describe('check-branch-discipline.mjs (#11133)', () => {
         }
     };
 
+    // Use execFileSync (no shell) — bypasses string-interpolation escape hazards
+    // (CodeQL js/incomplete-sanitization on backslash). Argv array goes directly
+    // to git without shell-quoting.
     const featureCommit = (subject = 'feat: ship a real feature') => {
-        execSync('git commit --allow-empty -m "' + subject.replace(/"/g, '\\"') + '"', { cwd: tempDir, stdio: 'ignore' });
+        execFileSync('git', ['commit', '--allow-empty', '-m', subject], { cwd: tempDir, stdio: 'ignore' });
     };
 
     const choreSyncCommit = (subject = 'chore(data): Hourly data sync pipeline update [skip ci]') => {
-        execSync('git commit --allow-empty -m "' + subject.replace(/"/g, '\\"') + '"', { cwd: tempDir, stdio: 'ignore' });
+        execFileSync('git', ['commit', '--allow-empty', '-m', subject], { cwd: tempDir, stdio: 'ignore' });
     };
 
     test('clean feature branch passes (no chore-sync commits)', () => {
@@ -108,14 +111,14 @@ test.describe('check-branch-discipline.mjs (#11133)', () => {
 
     test('regex anchored: lookalike subject like `chore(data) without colon` does NOT match', () => {
         execSync('git checkout -b agent/0000-feature', { cwd: tempDir, stdio: 'ignore' });
-        execSync('git commit --allow-empty -m "chore(data) lookalike but no colon"', { cwd: tempDir, stdio: 'ignore' });
+        execFileSync('git', ['commit', '--allow-empty', '-m', 'chore(data) lookalike but no colon'], { cwd: tempDir, stdio: 'ignore' });
         const result = runScript();
         expect(result.status).toBe(0);
     });
 
     test('regex case-insensitive: `chore(DATA): Sync` triggers', () => {
         execSync('git checkout -b agent/0000-feature', { cwd: tempDir, stdio: 'ignore' });
-        execSync('git commit --allow-empty -m "chore(DATA): Sync run"', { cwd: tempDir, stdio: 'ignore' });
+        execFileSync('git', ['commit', '--allow-empty', '-m', 'chore(DATA): Sync run'], { cwd: tempDir, stdio: 'ignore' });
         const result = runScript();
         expect(result.status).toBe(1);
         expect(result.output).toContain('chore-sync commit');
