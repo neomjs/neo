@@ -36,6 +36,7 @@ const __dirname  = path.dirname(__filename);
 
 const DEFAULT_POLL_INTERVAL_MS = 5 * 60 * 1000;
 const DEFAULT_IDENTITY         = '@neo-gemini-3-1-pro';
+const PUSH_CAPABLE_TARGETS     = Object.freeze(['mcp-notifications', 'a2a-webhook', 'bridge-daemon']);
 
 /**
  * @summary Neo-singleton swarm-heartbeat lane for the Phase 1/3 wake substrate.
@@ -95,6 +96,9 @@ class SwarmHeartbeatService extends Base {
         isInitialized_: false,
         /**
          * Identity this lane polls for (e.g. `@neo-gemini-3-1-pro`).
+         * Kept as the primary fallback / tmux identity. Active WAKE_SUBSCRIPTION
+         * identities are discovered per pulse so the Orchestrator is not bound to
+         * the identity of the harness that launched it (#11872).
          * @member {String|null} identity_=null
          * @protected
          * @reactive
@@ -155,10 +159,13 @@ class SwarmHeartbeatService extends Base {
      *      - sunset=true + gate-open → fresh-session-spawn via `resumeHarness.mjs` direct export.
      *      - sunset=true + gate-closed → log + skip (no spawn).
      *      - recommended_action=idle_out_nudge + gate-open → `idleOutNudge.mjs`.
+     *      - runs for the primary identity plus every active WAKE_SUBSCRIPTION
+     *        identity, so Codex/Claude/Gemini routes are monitored by subscription
+     *        reality rather than by the Orchestrator process owner's env var (#11872).
      *   4. All-agent-idle detection via `checkAllAgentIdle.mjs` direct export.
      *      - allIdle=true + gate-open → `trioWakeCooldown.mjs` direct export.
      *   5. Heartbeat-bypass detection: identities with push-capable subscriptions
-     *      (mcp-notifications / a2a-webhook) skip the token-economy fast-path because
+     *      (mcp-notifications / a2a-webhook / bridge-daemon) skip the token-economy fast-path because
      *      they receive wakes via push.
      *   6. Token-economy gate: skip pulse if mailbox unread + open issues both zero.
      *   7. Tmux-inject pulse prompt to `$TMUX_SESSION` (preserved from shell shape).
@@ -195,34 +202,36 @@ class SwarmHeartbeatService extends Base {
             logger.error('[SwarmHeartbeatService] sweepExpiredTasks failed:', err)
         }
 
-        // Step 3: Sunset detection (direct module export; CLI wrapper preserved for shell consumers).
-        const sunsetJson = await this.checkSunsetted(this.identity);
-        if (sunsetJson?.sunsetted) {
-            if (!await this.checkGateOpen()) {
-                const gateState = await this.readGate();
-                logger.warn(`[SwarmHeartbeatService] Wake safety gate closed; skipping fresh-session-spawn for ${this.identity}. Sunset reason: ${sunsetJson.reason}. Gate reason: ${gateState.reason}`);
-                return
+        // Step 3: Sunset / idle-out detection (direct module exports; CLI wrappers preserved for shell consumers).
+        const pulseIdentities = await this.getPulseIdentities();
+        for (const identity of pulseIdentities) {
+            const sunsetJson = await this.checkSunsetted(identity);
+            if (sunsetJson?.sunsetted) {
+                if (!await this.checkGateOpen()) {
+                    const gateState = await this.readGate();
+                    logger.warn(`[SwarmHeartbeatService] Wake safety gate closed; skipping fresh-session-spawn for ${identity}. Sunset reason: ${sunsetJson.reason}. Gate reason: ${gateState.reason}`);
+                    continue
+                }
+                logger.info(`[SwarmHeartbeatService] Phase 1 Recovery Triggered for ${identity}. Reason: ${sunsetJson.reason}`);
+                await this.resumeHarness(
+                    identity,
+                    sunsetJson.reason || '',
+                    sunsetJson.originSessionId || '',
+                    sunsetJson.abandonedCount || 0
+                );
+                continue
             }
-            logger.info(`[SwarmHeartbeatService] Phase 1 Recovery Triggered for ${this.identity}. Reason: ${sunsetJson.reason}`);
-            await this.resumeHarness(
-                this.identity,
-                sunsetJson.reason || '',
-                sunsetJson.originSessionId || '',
-                sunsetJson.abandonedCount || 0
-            );
-            return
-        }
 
-        const recommendedAction = sunsetJson?.recommended_action || 'no_action';
-        if (recommendedAction === 'idle_out_nudge') {
-            if (!await this.checkGateOpen()) {
-                const gateState = await this.readGate();
-                logger.warn(`[SwarmHeartbeatService] Wake safety gate closed; skipping idle-out nudge for ${this.identity}. Gate reason: ${gateState.reason}`);
-                return
+            const recommendedAction = sunsetJson?.recommended_action || 'no_action';
+            if (recommendedAction === 'idle_out_nudge') {
+                if (!await this.checkGateOpen()) {
+                    const gateState = await this.readGate();
+                    logger.warn(`[SwarmHeartbeatService] Wake safety gate closed; skipping idle-out nudge for ${identity}. Gate reason: ${gateState.reason}`);
+                    continue
+                }
+                logger.info(`[SwarmHeartbeatService] Idle-out nudge triggered for ${identity}`);
+                await this.idleOutNudge(identity)
             }
-            logger.info(`[SwarmHeartbeatService] Idle-out nudge triggered for ${this.identity}`);
-            await this.idleOutNudge(this.identity);
-            return
         }
 
         // Step 4: All-agent-idle detection. `checkAllAgentIdle.mjs` owns the
@@ -401,6 +410,71 @@ class SwarmHeartbeatService extends Base {
     }
 
     /**
+     * @summary Resolves the per-pulse identity set from the primary fallback plus active wake subscriptions.
+     *
+     * `NEO_AGENT_IDENTITY` identifies the daemon/harness process owner; it must not
+     * be the exclusive set of wake targets. The subscription graph is the live route
+     * truth for desktop agents, so active `WAKE_SUBSCRIPTION` identities are swept on
+     * every pulse (#11872).
+     *
+     * @returns {Promise<String[]>}
+     * @protected
+     */
+    async getPulseIdentities() {
+        const identities = new Set();
+
+        if (this.identity) {
+            identities.add(this.identity)
+        }
+
+        for (const identity of await this.getWakeSubscriptionIdentities()) {
+            identities.add(identity)
+        }
+
+        if (identities.size === 0) {
+            identities.add(DEFAULT_IDENTITY)
+        }
+
+        return Array.from(identities)
+    }
+
+    /**
+     * SQLite query: active `WAKE_SUBSCRIPTION` identities that can receive an in-place wake.
+     * @returns {Promise<String[]>}
+     * @protected
+     */
+    async getWakeSubscriptionIdentities() {
+        try {
+            const db = this.getGraphDb();
+            const stmt = db.prepare(`
+                SELECT DISTINCT json_extract(data, '$.properties.agentIdentity') as identity
+                FROM Nodes
+                WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
+                  AND json_extract(data, '$.properties.trigger') = 'SENT_TO_ME'
+                  AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+                  AND COALESCE(json_extract(data, '$.properties.harnessTarget'), '') != 'disabled'
+                  AND json_extract(data, '$.properties.agentIdentity') IS NOT NULL
+            `);
+            return stmt.all()
+                .map(row => row.identity)
+                .filter(Boolean)
+                .map(identity => normalizeAgentIdentityNodeId(identity))
+        } catch (err) {
+            logger.error('[SwarmHeartbeatService] getWakeSubscriptionIdentities failed:', err);
+            return []
+        }
+    }
+
+    /**
+     * Test-stubbable seam over the SDK GraphService database handle.
+     * @returns {Object} better-sqlite3 database handle
+     * @protected
+     */
+    getGraphDb() {
+        return GraphService.db.storage.db
+    }
+
+    /**
      * SQLite query: count of unread MESSAGE-label nodes addressed to the polled identity.
      * Direct DMs use MESSAGE.properties.readAt; #11029 broadcasts use per-recipient
      * DELIVERED_TO.readAt edges, with a legacy fallback for old broadcasts lacking receipts.
@@ -409,7 +483,7 @@ class SwarmHeartbeatService extends Base {
      */
     async getUnreadCount() {
         try {
-            const db = GraphService.db.storage.db;
+            const db = this.getGraphDb();
             const stmt = db.prepare(`
                 WITH unread_messages AS (
                     SELECT n.id AS messageId
@@ -473,23 +547,24 @@ class SwarmHeartbeatService extends Base {
 
     /**
      * Check whether the polled identity has a push-capable subscription
-     * (`harnessTarget IN ('mcp-notifications', 'a2a-webhook')` and not `degraded`).
+     * (`harnessTarget IN ('mcp-notifications', 'a2a-webhook', 'bridge-daemon')` and not `degraded`).
      * @param {String} identity
      * @returns {Promise<Boolean>}
      * @protected
      */
     async isPushCapable(identity) {
         try {
-            const db = GraphService.db.storage.db;
+            const db = this.getGraphDb();
             const stmt = db.prepare(`
                 SELECT count(*) as count
                 FROM Nodes
                 WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
                   AND json_extract(data, '$.properties.agentIdentity') = ?
-                  AND json_extract(data, '$.properties.harnessTarget') IN ('mcp-notifications', 'a2a-webhook')
+                  AND json_extract(data, '$.properties.trigger') = 'SENT_TO_ME'
+                  AND json_extract(data, '$.properties.harnessTarget') IN (${PUSH_CAPABLE_TARGETS.map(() => '?').join(', ')})
                   AND COALESCE(json_extract(data, '$.properties.status'), 'active') != 'degraded'
             `);
-            const row = stmt.get(identity);
+            const row = stmt.get(identity, ...PUSH_CAPABLE_TARGETS);
             return (row?.count || 0) > 0
         } catch (err) {
             logger.error('[SwarmHeartbeatService] isPushCapable query failed:', err);

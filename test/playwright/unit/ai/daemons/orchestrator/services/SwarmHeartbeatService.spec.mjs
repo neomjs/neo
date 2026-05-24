@@ -51,6 +51,7 @@ import {test, expect} from '@playwright/test';
  */
 test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     let SwarmHeartbeatService;
+    let GraphService;
     let originalLifecycleInit;
     let originalGraphServiceInit;
 
@@ -59,7 +60,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
 
         const services = await import('../../../../../../../ai/services.mjs');
         const LifecycleService = services.Memory_LifecycleService;
-        const GraphService     = services.Memory_GraphService;
+        GraphService           = services.Memory_GraphService;
 
         originalLifecycleInit    = LifecycleService.initAsync;
         originalGraphServiceInit = GraphService.initAsync;
@@ -96,9 +97,11 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         SwarmHeartbeatService.idleOutNudge       = async () => {};
         SwarmHeartbeatService.checkAllAgentIdle  = async () => null;
         SwarmHeartbeatService.trioWakeCooldown   = async () => {};
+        SwarmHeartbeatService.getWakeSubscriptionIdentities = async () => [];
         SwarmHeartbeatService.runScriptJson      = async () => null;
         SwarmHeartbeatService.runScript          = async () => '';
         SwarmHeartbeatService.runCmd             = async () => '[]';
+        delete SwarmHeartbeatService.getGraphDb;
         SwarmHeartbeatService.getUnreadCount     = async () => 0;
         SwarmHeartbeatService.getIssuesCount     = async () => 0;
         SwarmHeartbeatService.isPushCapable      = async () => false;
@@ -110,6 +113,7 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         SwarmHeartbeatService.isInitialized  = false;
         SwarmHeartbeatService.identity       = null;
         SwarmHeartbeatService.pollIntervalMs = 5 * 60 * 1000;
+        delete SwarmHeartbeatService.getGraphDb;
     });
 
     test('initAsync() is idempotent — second call is a no-op once initialized', async () => {
@@ -235,10 +239,11 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     test('pulse() routes idle_out_nudge when gate is open and recommendation matches', async () => {
         applyDefaultStubs();
         const nudgeCalls = [];
-        SwarmHeartbeatService.checkSunsetted = async () => {
+        SwarmHeartbeatService.checkSunsetted = async (identity) => {
             return {
+                identity,
                 sunsetted          : false,
-                recommended_action : 'idle_out_nudge'
+                recommended_action : identity === '@test' ? 'idle_out_nudge' : 'no_action'
             };
         };
         SwarmHeartbeatService.idleOutNudge = async (...args) => { nudgeCalls.push(args) };
@@ -247,6 +252,44 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
 
         expect(nudgeCalls.length).toBe(1);
         expect(nudgeCalls[0]).toEqual(['@test']);
+    });
+
+    test('pulse() checks active WAKE_SUBSCRIPTION identities in addition to the primary identity (#11872)', async () => {
+        applyDefaultStubs();
+
+        const sunsetChecks = [];
+        SwarmHeartbeatService.getWakeSubscriptionIdentities = async () => ['@neo-opus-4-7', '@neo-gpt', '@neo-gpt'];
+        SwarmHeartbeatService.checkSunsetted = async (identity) => {
+            sunsetChecks.push(identity);
+            return {sunsetted: false, recommended_action: 'no_action'};
+        };
+
+        await SwarmHeartbeatService.pulse();
+
+        expect(sunsetChecks).toEqual(['@test', '@neo-opus-4-7', '@neo-gpt']);
+    });
+
+    test('getWakeSubscriptionIdentities() normalizes active subscription identities and filters disabled routes (#11872)', async () => {
+        applyDefaultStubs();
+
+        SwarmHeartbeatService.getGraphDb = () => {
+            return {
+                prepare: () => ({
+                    all: () => [
+                        {identity: 'neo-gpt'},
+                        {identity: '@neo-opus-4-7'},
+                        {identity: null}
+                    ]
+                })
+            }
+        };
+
+        const serviceProto = Object.getPrototypeOf(SwarmHeartbeatService);
+
+        await expect(serviceProto.getWakeSubscriptionIdentities.call(SwarmHeartbeatService)).resolves.toEqual([
+            '@neo-gpt',
+            '@neo-opus-4-7'
+        ]);
     });
 
     test('pulse() skips idle_out_nudge when gate is closed', async () => {
@@ -345,6 +388,29 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         await SwarmHeartbeatService.pulse();
         // Push-capable bypass — no tmux injection even with high unread count.
         expect(injected.length).toBe(0);
+    });
+
+    test('isPushCapable() treats bridge-daemon as push-capable so Codex does not fall through to tmux (#11872)', async () => {
+        applyDefaultStubs();
+
+        const capturedArgs = [];
+        SwarmHeartbeatService.getGraphDb = () => {
+            return {
+                prepare: () => {
+                    return {
+                        get: (...args) => {
+                            capturedArgs.push(args);
+                            return {count: 1}
+                        }
+                    }
+                }
+            }
+        };
+
+        const serviceProto = Object.getPrototypeOf(SwarmHeartbeatService);
+
+        await expect(serviceProto.isPushCapable.call(SwarmHeartbeatService, '@neo-gpt')).resolves.toBe(true);
+        expect(capturedArgs[0]).toEqual(['@neo-gpt', 'mcp-notifications', 'a2a-webhook', 'bridge-daemon']);
     });
 
     test('pulse() includes expired-count in prompt when sweep yields > 0', async () => {
