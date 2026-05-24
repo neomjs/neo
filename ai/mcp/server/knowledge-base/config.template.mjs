@@ -385,7 +385,7 @@ class Config extends BaseConfig {
         // Handle legacy deprecation fallbacks explicitly
         if (process.env.SSE_PORT && !process.env.MCP_HTTP_PORT) {
             console.warn('[Config] Deprecation warning: SSE_PORT is deprecated. Please use MCP_HTTP_PORT.');
-            const legacyPort = Env.parsePort(process.env.SSE_PORT, 'SSE_PORT', console.warn);
+            const legacyPort = Env.parsePort('SSE_PORT');
             if (legacyPort !== undefined) {
                 this.data.mcpHttpPort = legacyPort;
             }
