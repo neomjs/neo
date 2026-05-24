@@ -7,36 +7,40 @@ import { fileURLToPath } from 'node:url';
  * Pre-push branch-discipline check (#11133).
  *
  * Catches the 2026-05-10 empirical 5-PR pattern where feature branches accumulated
- * `chore(data): ...` sync-pipeline commits or stale-peer-branch ancestry. PR diffs
- * then showed hundreds of files / thousands of LOC where actual feature was 10-100 LOC,
- * producing review-surface signal-to-noise asymmetry + squash-merge git-history pollution.
+ * `chore(data): ...` sync-pipeline commits. PR diffs then showed hundreds of files /
+ * thousands of LOC where actual feature was 10-100 LOC, producing review-surface
+ * signal-to-noise asymmetry + squash-merge git-history pollution.
  *
  * **What this hook checks** (on every `git push`):
  *
- * 1. **Chore-sync commits on feature branches.** If `git log origin/dev..HEAD` contains
- *    commits whose subject matches the auto-sync pipeline pattern (`chore(data):` or
- *    `[skip ci]` heuristic with sync-data path indicators), block push with remediation
- *    guidance. Designated sync branches (`chore/sync-*` / `agent/sync-*`) are exempt —
- *    same allowlist as `check-chore-sync.mjs` (pre-commit sibling).
+ * **Chore-sync commits on feature branches.** If `git log origin/dev..HEAD` contains
+ * commits whose subject matches `^chore\(data\):.*(sync|pipeline)` (case-insensitive),
+ * block push with remediation guidance. Designated sync branches (`chore/sync-*` /
+ * `agent/sync-*`) are exempt. Bypass: `git push --no-verify`.
  *
- * 2. **Stale-peer-branch ancestry.** If the branch was cut from another peer's
- *    still-open PR branch (commits authored by a different agent identity that aren't
- *    on `origin/dev`), block push with rebase guidance. Bypass: `--no-verify`.
+ * **NOT implemented in this initial cut** (per ticket Out of Scope; deferred as
+ * follow-ups if the simpler regex doesn't converge the empirical pattern):
+ * - Peer-author detection (stale-peer-branch ancestry). The 2026-05-10 anchor was
+ *   dominantly chore-sync; peer-author is a less-frequent sub-pattern.
+ * - `[skip ci]` heuristic / sync-data path indicators. `CHORE_SYNC_RE` covers the
+ *   pipeline-generated commit subject directly; broader heuristics would risk
+ *   false-positives on legitimate `[skip ci]` developer commits.
  *
- * **Anchor branches** (always exempt — these are the substrate-correct sync paths):
+ * **Anchor branches** (always exempt — substrate-correct sync paths):
  *   - `chore/sync-*` — bot-created sync branches
  *   - `agent/sync-*` — manual sync branches
- *   - `main`, `dev` — never run pre-push from these (caught by §2.2 universal safety net)
+ *   - `main`, `dev` — never run pre-push from these (caught by `pull-request-workflow.md §2.3`
+ *     universal safety net)
  *
  * **Empirical anchor:** PRs #11106, #11109, #11114, #11129, #11132 (2026-05-10) — 5
- * occurrences in <90 minutes of the same chore-sync / stale-branch pattern despite
- * the existing `feedback_branch_from_origin_dev_explicitly` discipline. Discipline-only
- * enforcement empirically fails ~30% of the time at minimum; mechanical gate is required.
+ * occurrences in <90 minutes of the chore-sync pattern despite the existing
+ * `feedback_branch_from_origin_dev_explicitly` discipline. Discipline-only enforcement
+ * failed empirically; mechanical gate is load-bearing.
  *
  * @see #11133 — the ticket this script implements
  * @see #11141 — sister pre-push pattern: branch freshness check
- * @see buildScripts/util/check-chore-sync.mjs — pre-commit sibling enforcing the same
- *      generated-content path list at commit time
+ * @see buildScripts/util/check-chore-sync.mjs — pre-commit sibling that enforces the
+ *      generated-content path list at commit time (complementary surface)
  */
 
 const __filename = fileURLToPath(import.meta.url);
