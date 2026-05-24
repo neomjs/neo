@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @summary All-agent-idle detection at heartbeat layer (Substrate Primitive #10625).
+ * @summary All-agent-idle detection at heartbeat layer.
  *
  * This script queries the SQLite GraphLog to determine if ALL configured agents
  * in the swarm trio are idle (i.e. their last AGENT_MEMORY timestamp is older
@@ -85,7 +85,7 @@ export async function checkAllAgentIdle() {
 
         let lastMemTime = memRow?.timestampField || null;
 
-        // Fallback for legacy regex extraction per #10623 if timestamp structured field is absent
+        // Fallback for legacy memories whose timestamp only exists in the name field.
         if (memRow && !lastMemTime) {
             const tsMatch = memRow.nameField?.match(/^Memory:\s+(.+)$/);
             if (tsMatch?.[1]) {

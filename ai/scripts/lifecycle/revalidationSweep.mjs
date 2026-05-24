@@ -1,20 +1,15 @@
 #!/usr/bin/env node
 /**
- * @summary Tier-2 revalidation sweep — notifies a reactivated family of Tier-2
- *   substrate graduations that landed during its bench window.
+ * @summary Tier-2 revalidation sweep for families that reactivate after a bench window.
  *
- * Per Epic #11796 AC6 + sub #11803 (this script), Tier-2 substrate changes that
- * graduate under benched-family liveness gap carry an `## Unresolved Liveness`
- * entry + `revalidationTrigger` AC. When the benched family reactivates
- * (`participationStatus` flips `operator_benched` / `temporarily_unreachable`
- * → `active` in `ai/graph/identityRoots.mjs`), this sweep identifies the
- * affected artifacts and posts a notification inviting retroactive signal
- * review.
+ * Tier-2 substrate changes that graduate under a benched-family liveness gap
+ * carry an `## Unresolved Liveness` entry plus a revalidation trigger. When
+ * the benched family reactivates in `ai/graph/identityRoots.mjs`, this sweep
+ * identifies affected artifacts and posts a notification inviting retroactive
+ * signal review.
  *
- * **Option (c) sweep-script-notifies-only** per ticket #11803 — substrate
- * provides a discoverable notification surface; the reconciliation itself is
- * human/peer-judgment-driven (not auto-re-opened). Option (a) was rejected as
- * too weak (convention-only) and Option (b) as too strong (auto-reopen → churn).
+ * The script notifies only. Reconciliation remains human/peer-judgment-driven
+ * rather than auto-reopening artifacts.
  *
  * Usage:
  *   node ai/scripts/lifecycle/revalidationSweep.mjs --family <name> [--since ISO] [--until ISO] [--dry-run|--apply]
@@ -23,9 +18,9 @@
  * `--since` defaults to `IDENTITIES[family].properties.since` when present.
  * `--until` defaults to "now". Default mode is dry-run; pass `--apply` to post.
  *
- * @see learn/agentos/Tier2RevalidationSweep.md           — operator runbook (AC5)
+ * @see learn/agentos/Tier2RevalidationSweep.md           — operator runbook
  * @see ai/graph/identityRoots.mjs                        — participationStatus source-of-truth
- * @see .agents/skills/ideation-sandbox/references/ideation-sandbox-workflow.md §6.5 — invocation discipline (AC7)
+ * @see .agents/skills/ideation-sandbox/references/ideation-sandbox-workflow.md §6.5 — invocation discipline
  * @see .agents/skills/ideation-sandbox/audits/consensus-mandate.md §quorum-rule — Tier-2 rule background
  */
 
@@ -110,10 +105,9 @@ export function parseArgs(argv) {
 
 /**
  * @summary Resolve the AgentIdentity record for a model family. MVP requires
- *   exactly one identity per family; the multi-identity-per-family case (e.g.
- *   `@neo-opus-4-7` + `@neo-claude-opus` Discussion #11792 substrate) is
- *   explicitly deferred and will surface here as a thrown error pointing at
- *   the §6.4 same-family aggregation work that must precede sweep extension.
+ *   exactly one identity per family. Multi-identity families require a
+ *   same-family aggregation rule before the sweep can route notifications
+ *   without ambiguity.
  */
 export function resolveIdentityForFamily(family) {
     const matches = IDENTITIES.filter(node =>

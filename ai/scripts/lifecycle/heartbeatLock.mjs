@@ -9,12 +9,11 @@
  *
  * The companion consumer is the Orchestrator swarm-heartbeat lane
  * (`ai/daemons/SwarmHeartbeatService.mjs`), which treats the lock as an absolute skip
- * barrier until the configured stale-lock TTL expires (#11766 fold).
+ * barrier until the configured stale-lock TTL expires.
  *
  * @example
  *   node ai/scripts/lifecycle/heartbeatLock.mjs -- npx playwright test test/playwright/unit/foo.spec.mjs
  *
- * @see https://github.com/neomjs/neo/issues/10319
  * @see ai/daemons/SwarmHeartbeatService.mjs
  */
 import {spawn} from 'child_process';
@@ -101,7 +100,7 @@ export async function inspectHeartbeatLock({
 /**
  * @summary Runs an async task while holding the heartbeat concurrency lock.
  *
- * The `finally` release is the load-bearing guarantee for #10319: long Playwright runs,
+ * The `finally` release is the load-bearing guarantee: long Playwright runs,
  * memory extraction, and other expensive tasks can prevent overlapping heartbeat pulses
  * without leaving the fallback wake substrate permanently disabled.
  *

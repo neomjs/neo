@@ -44,7 +44,7 @@ export async function checkInflightLock(identity, mode, latestMemoryTimestampMs)
             const newAbandonedCount = (lockData.abandonedCount || 0) + 1;
 
             if (newAbandonedCount >= MAX_ABANDONED_ACTIONS) {
-                // Trip the safety gate per #10648 contract
+                // Trip the safety gate after repeated abandoned wake actions.
                 await writeGateState({
                     state: 'tripped',
                     reason: `${newAbandonedCount} consecutive abandoned actions for ${mode} on ${identity}`,
