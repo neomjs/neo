@@ -25,7 +25,7 @@ AI scripts kept introducing bespoke argument parsers even though
 surfaces.
 
 The immediate PR #11815 issue was fixed in that PR. It converted
-`ai/scripts/revalidationSweep.mjs` to a Commander-backed `createProgram()` /
+`ai/scripts/lifecycle/revalidationSweep.mjs` to a Commander-backed `createProgram()` /
 `parseArgs()` surface and added focused tests for defaults, supplied values,
 unknown flags, missing required family, and missing option values.
 
@@ -42,9 +42,9 @@ New and actively touched AI script CLI surfaces MUST use Commander-backed
 parsing by default.
 
 This decision applies to CLI entry points in the Agent OS maintenance tooling
-surface, especially `ai/scripts/**`, `ai/mcp/**`, and `buildScripts/ai/**`.
-Broader app scaffolding and build/doc CLIs may already use Commander and are
-not the driver of this ADR.
+surface, especially `ai/scripts/**` and `ai/mcp/**`. Broader app scaffolding
+and build/doc CLIs may already use Commander and are not the driver of this
+ADR.
 
 ### 2.1 Default parser shape
 
@@ -93,18 +93,18 @@ tests for:
 
 | Surface | Current parser posture | Disposition |
 |---|---|---|
-| `ai/scripts/revalidationSweep.mjs` | Commander-backed after PR #11815; tests cover defaults, supplied values, unknown flags, missing required family, and missing option values | `converted now` - precedent surface for this ADR |
-| `buildScripts/ai/kbPushClient.mjs` | Commander-backed parser with tests | `converted now` |
-| `buildScripts/ai/mcpHealthcheck.mjs` | Commander-backed parser with tests | `converted now` |
-| `buildScripts/ai/defragChromaDB.mjs` | Commander-backed CLI | `converted now` |
+| `ai/scripts/lifecycle/revalidationSweep.mjs` | Commander-backed after PR #11815; tests cover defaults, supplied values, unknown flags, missing required family, and missing option values | `converted now` - precedent surface for this ADR |
+| `ai/scripts/maintenance/kbPushClient.mjs` | Commander-backed parser with tests | `converted now` |
+| `ai/scripts/diagnostics/mcpHealthcheck.mjs` | Commander-backed parser with tests | `converted now` |
+| `ai/scripts/maintenance/defragChromaDB.mjs` | Commander-backed CLI | `converted now` |
 | `ai/mcp/**/mcp-server.mjs`, `ai/mcp/client/mcp-cli.mjs`, `ai/mcp/server/neural-link/run-bridge.mjs` | Commander-backed server/client entry points | `converted now` |
-| `ai/scripts/lint-agents.mjs` | Bespoke parser with tests covering defaults, `--base`, help, and unknown-argument rejection | `legacy tolerated`; convert when parser semantics are next touched |
-| `ai/scripts/lint-skill-manifest.mjs` | Bespoke parser with tests | `legacy tolerated`; convert when parser semantics are next touched |
-| `ai/scripts/migrateWakeSubscriptions.mjs` | Bespoke parser | `future-touch conversion target` |
-| `ai/scripts/normalizeGraphIdentities.mjs` | Bespoke parser | `future-touch conversion target` |
-| `ai/scripts/backfillChromaSharedUserId.mjs` | Bespoke parser | `future-touch conversion target` |
-| `buildScripts/ai/ingestTenant.mjs` | Bespoke parser with tests | `legacy tolerated`; convert when parser semantics are next touched |
-| `buildScripts/ai/restore.mjs` | Bespoke parser with tests covering required argument and unknown-flag rejection | `legacy tolerated`; convert only under a dedicated restore-parser lane |
+| `ai/scripts/lint/lint-agents.mjs` | Bespoke parser with tests covering defaults, `--base`, help, and unknown-argument rejection | `legacy tolerated`; convert when parser semantics are next touched |
+| `ai/scripts/lint/lint-skill-manifest.mjs` | Bespoke parser with tests | `legacy tolerated`; convert when parser semantics are next touched |
+| `ai/scripts/migrations/migrateWakeSubscriptions.mjs` | Bespoke parser | `future-touch conversion target` |
+| `ai/scripts/migrations/normalizeGraphIdentities.mjs` | Bespoke parser | `future-touch conversion target` |
+| `ai/scripts/migrations/backfillChromaSharedUserId.mjs` | Bespoke parser | `future-touch conversion target` |
+| `ai/scripts/maintenance/ingestTenant.mjs` | Bespoke parser with tests | `legacy tolerated`; convert when parser semantics are next touched |
+| `ai/scripts/maintenance/restore.mjs` | Bespoke parser with tests covering required argument and unknown-flag rejection | `legacy tolerated`; convert only under a dedicated restore-parser lane |
 
 This audit is intentionally not a global migration plan. It gives future
 authors enough authority to avoid adding new bespoke parsers and enough
@@ -157,12 +157,13 @@ Before adding or modifying an AI script CLI parser:
 
 - #11817 - implementation ticket resolved by this ADR.
 - PR #11815 - immediate Commander conversion and parser-test precedent for
-  `ai/scripts/revalidationSweep.mjs`.
+  `ai/scripts/lifecycle/revalidationSweep.mjs`.
 - PR #11749 / issue #11743 - repo-push MCP client precedent with a
-  Commander-backed `buildScripts/ai/kbPushClient.mjs` parser.
+  Commander-backed `ai/scripts/maintenance/kbPushClient.mjs` parser.
 - `package.json` - declares `commander`.
-- `ai/scripts/revalidationSweep.mjs` - current precedent parser surface.
-- `test/playwright/unit/ai/scripts/revalidationSweep.spec.mjs` - current
+- `ai/scripts/lifecycle/revalidationSweep.mjs` - current precedent parser
+  surface.
+- `test/playwright/unit/ai/scripts/lifecycle/revalidationSweep.spec.mjs` - current
   precedent parser test surface.
 - ADR 0005 - ADR-at-graduation workflow and authority/workstream separation.
 - ADR 0006 - ADRs as graph-queryable entities.
