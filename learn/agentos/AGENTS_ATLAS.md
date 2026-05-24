@@ -124,6 +124,7 @@ Per `AGENTS.md` §pr_diff_equals_pr_body: PR body + review templates are graph-i
 - Stage 2: Query for Memory (`query_summaries`, `query_raw_memories`). Mandatory for regressions, surprises, architecture queries, trade-offs.
 **15.4 Ask the Expert Protocol:** Treat `ask_knowledge_base` as an Embedded RAG Sub-Agent.
 **15.5 Neo Identity Anchor:** in main `AGENTS.md` §neo_identity_anchor as the per-turn anti-drift priming surface.
+**15.6 Source-comment intent filter:** Anchor & Echo comments explain durable intent, invariant, or local boundary. Living source comments default away from ticket / PR / lane / AC / cycle / line-number anchors; promote durable history to ADR/Atlas/learn/owning-primitive docs or cite a stable symbol. Snapshot archaeology belongs in PRs, tickets, commits, and Discussions. Diagnostic-first command: `rg -n "cycle-[0-9]|Lane [A-Z]|AC[0-9]|#[0-9]{4,5}|\\.mjs:[0-9]+" <changed-source-paths>` (candidate-only). Examples: avoid `core/Base.mjs:589-595`, lane/AC/ticket prose, and consumer comments re-explaining `initAsync()`/dotenv; prefer `Base#ready()`, local boundary language, credential separation by `credentialRef`, or `SwarmHeartbeatService#pulse()` cadence ownership.
 
 ## §implementation_loop [DISCIPLINE-ONLY]
 Step 1: Query & Analyze. Step 2: Implement Changes. Step 3: Verify.

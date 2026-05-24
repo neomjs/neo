@@ -261,7 +261,7 @@ Unaudited rhetorical drift poisons the `ask_knowledge_base` ingestion pipeline. 
 Reviewers MUST verify symmetry between **stated framing** and **mechanical implementation**:
 
 1. **PR description** — does the architectural narrative accurately describe the boundaries and capabilities of the code? Or does the prose claim more than the diff substantiates?
-2. **Anchor & Echo summaries** (`AGENTS.md §15.2`) — does new JSDoc reuse precise codebase terminology, or does it lean on metaphor that overshoots the implementation?
+2. **Anchor & Echo summaries** (`AGENTS.md §15.2`) — does new JSDoc reuse precise codebase terminology, or does it lean on metaphor / source-comment archaeology that overshoots durable intent?
 3. **`[RETROSPECTIVE]` tags** (§4) — does the takeaway accurately characterize what shipped, or does it inflate the architectural significance of a routine change?
 4. **Linked-anchor accuracy** — when prose claims "implements pattern X from #N" or "similar to PR #M", does the cited reference actually establish that pattern, or is it being cited for borrowed authority?
 
