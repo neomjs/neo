@@ -36563,6 +36563,7 @@
   "repo:rustcc/writing-an-os-in-rust",
   "repo:rustcn-org/rust-algos",
   "repo:rustdesk/rustdesk",
+  "repo:rustdesk/rustdesk-server",
   "repo:rusterlium/rustler",
   "repo:rustformers/llm",
   "repo:rustfs/rustfs",
