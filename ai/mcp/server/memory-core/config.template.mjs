@@ -326,6 +326,20 @@ const defaultConfig = {
      */
     logPath: path.resolve(cwd, '.neo-ai-data/logs'),
     /**
+     * @summary Shared MCP logger policy for Memory Core.
+     *
+     * Always-on file sink plus debug-gated stderr. `flush: true` preserves the
+     * short-lived script contract used by Sandman and other immediate-exit paths.
+     * @type {Object}
+     */
+    logger: {
+        filePrefix    : 'mc-server',
+        fileSink      : true,
+        flush         : true,
+        stderrMode    : 'debug',
+        timestampStyle: 'plain'
+    },
+    /**
      * Mailbox substrate behavior configuration (#10252).
      *
      * Deployment-tier selectors for the A2A mailbox service. The A2A primitives

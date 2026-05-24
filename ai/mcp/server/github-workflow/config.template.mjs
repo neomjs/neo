@@ -43,6 +43,18 @@ const defaultConfig = {
      */
     logLevel: 'warn',
     /**
+     * @summary Shared MCP logger policy for GitHub Workflow.
+     *
+     * Priority-filtered stderr only. `debug: true` promotes the default `warn`
+     * threshold to `debug`; no file sink is used for this workflow server.
+     * @type {Object}
+     */
+    logger: {
+        defaultLevel: 'warn',
+        fileSink    : false,
+        stderrMode  : 'threshold'
+    },
+    /**
      * A dummy embedding function to satisfy the ChromaDB API when embeddings are provided manually.
      * @returns {null}
      */
