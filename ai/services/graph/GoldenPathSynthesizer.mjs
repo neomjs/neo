@@ -237,7 +237,7 @@ class GoldenPathSynthesizer extends Base {
 
                 let priority = (semanticScore * SEMANTIC_WEIGHT) + (struct_score * STRUCTURAL_WEIGHT);
 
-                // Apply Negative ROI Protocol for automatically rejected Swarm tickets (#9971)
+                // Apply the Negative ROI Protocol for automatically rejected Swarm tickets.
                 const labels = nodeData?.properties?.labels || [];
                 if (labels.includes('needs-re-triage')) {
                     priority -= 10000;
@@ -319,7 +319,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
         }
 
         // Centralize full generation of sandman_handoff.md here, enforcing completely idempotent behavior.
-        // Issue #9806: TTL Pruning and Issue #9805: Centralized overwrite
+        // TTL pruning and centralized overwrite happen in the same render pass.
         let handoffContent = `# Autonomous Handoff (Dream Pipeline & Golden Path)\n\n`;
         handoffContent += `The Native Edge Graph has audited the codebase structurally. The following architectural coverage gaps currently exist natively within the SQLite matrix.\n\n`;
 
@@ -424,7 +424,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             logger.info(`[GoldenPathSynthesizer] TTL Pruning eradicated ${prunedGaps} stale Gaps from the Native Graph.`);
         }
 
-        // --- #11447 Brain-Pillar Consumer-Friction Channel V1 (visibility-only) ---
+        // --- Brain-Pillar Consumer-Friction Channel V1 (visibility-only) ---
         // Surface ConsumerFriction records emitted by upstream brain consumers (e.g.,
         // SemanticGraphExtractor, SessionService.summarizeSession) when substrate payloads
         // were the wrong shape for them (context-overflow, parse-failure, size-precheck-skip,
@@ -445,10 +445,10 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             logger.warn(`[GoldenPathSynthesizer] ConsumerFriction section render failed: ${err.message}`);
         }
 
-        // --- #11639 Phase 4A — KB Multi-Tenant Ingestion Health (visibility) ---
+        // --- KB Multi-Tenant Ingestion Health (visibility) ---
         // Per-tenant KB ingestion telemetry (the `kb_ingestion_metrics` rollup) surfaced as a
         // handoff section. Composed here — not written by a standalone daemon — because
-        // sandman_handoff.md is regenerated idempotently in full (see the #11639 intake finding).
+        // sandman_handoff.md is regenerated idempotently in full.
         try {
             const {renderKbMultiTenantHealthSection} = await import('../../services/knowledge-base/helpers/KbTenantHealthHelper.mjs');
             const kbHealthSection = await renderKbMultiTenantHealthSection();

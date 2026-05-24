@@ -109,11 +109,10 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             let payload = null;
             let result = null;
 
-            // #11447 Brain-Pillar Consumer-Friction Channel V1: wrap each LLM invocation with
-            // bidirectional guardrail per Discussion #11444 graduation contract. Angle 2
-            // (upstream pre-check) skips invocation when the composed messages' estimated
-            // token count exceeds the consumer's safe processing band (default 75% of
-            // `aiConfig.openAiCompatible.contextLimitTokens`). Angle 1 (downstream try/catch)
+            // Wrap each LLM invocation with the Consumer-Friction guardrail. The upstream
+            // pre-check skips invocation when the composed messages' estimated token count
+            // exceeds the consumer's safe processing band (default 75% of
+            // `aiConfig.openAiCompatible.contextLimitTokens`). The downstream try/catch
             // categorizes engine-level failures into friction symptoms. Friction is emitted
             // into the in-memory aggregator (with `serviceDomain: 'dream-pipeline'`) for
             // handoff rendering by `GoldenPathSynthesizer.synthesizeGoldenPath`.
@@ -257,7 +256,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
                          * Provenance edges (MENTIONED_IN, DISCUSSED_IN, REFERENCED_BY) linking to past sessions/memories
                          * may reference nodes not in the current payload or synchronous graph cache.
                          * Instead of dropping them as invalid, we route them to a JSONL backfill queue.
-                         * Consumer-side draining and retry logic is handled under Epic #10153.
+                         * Consumer-side draining and retry logic is handled by LazyEdgeDrainer.
                          */
                         logger.info(`[SemanticGraphExtractor] Queuing unresolved provenance edge for lazy back-fill: ${resolvedSource} -> ${resolvedTarget}`);
                         const lazyQueueFile = aiConfig.lazyEdgesQueuePath;
