@@ -23,10 +23,10 @@ const __dirname  = path.dirname(__filename);
 const PARSED_CHUNK_SCHEMA_PATH = path.join(__dirname, 'parser/parsed-chunk-v1.schema.json');
 
 /**
- * @summary Orchestrates Phase 2 Knowledge Base ingestion pushes.
+ * @summary Orchestrates tenant-aware Knowledge Base ingestion pushes.
  *
  * `KnowledgeBaseIngestionService` is the service-layer substrate consumed by the
- * Phase 2 MCP and bulk facades. It validates the caller tenant boundary, accepts
+ * MCP and bulk ingestion facades. It validates the caller tenant boundary, accepts
  * client-side parsed `parsed-chunk-v1` records or server-side raw file payloads,
  * rejects restore-only embedding records, applies deletion signaling, and delegates
  * embedding/upsert work to {@link Neo.ai.services.knowledge-base.VectorService}.
@@ -39,7 +39,6 @@ const PARSED_CHUNK_SCHEMA_PATH = path.join(__dirname, 'parser/parsed-chunk-v1.sc
  * @class Neo.ai.services.knowledge-base.KnowledgeBaseIngestionService
  * @extends Neo.core.Base
  * @singleton
- * @see https://github.com/neomjs/neo/issues/11633
  */
 class KnowledgeBaseIngestionService extends Base {
     static config = {
@@ -60,7 +59,7 @@ class KnowledgeBaseIngestionService extends Base {
         chromaManager: ChromaManager,
         /**
          * @member {Object} graphService=GraphService
-         * @summary Native Edge Graph service backing the #11637 `KnowledgeBaseTenantConfig` node. Injectable for tests.
+         * @summary Native Edge Graph service backing the `KnowledgeBaseTenantConfig` node. Injectable for tests.
          */
         graphService: GraphService,
         /**
@@ -70,7 +69,7 @@ class KnowledgeBaseIngestionService extends Base {
         recorderService: KBRecorderService,
         /**
          * @member {Object|null} revisionResolver=null
-         * @summary Optional Phase 2E revision-boundary resolver used to derive deleted paths.
+         * @summary Optional revision-boundary resolver used to derive deleted paths.
          */
         revisionResolver: null,
         /**
@@ -107,11 +106,11 @@ class KnowledgeBaseIngestionService extends Base {
      * @param {Object} [payload.manifestSnapshot] Post-push manifest (`{repoSlug, pathsAfterPush}`).
      * @param {String} [payload.baseRevision] Previous revision boundary.
      * @param {String} [payload.headRevision] Current revision boundary.
-     * @param {Boolean} [payload.viaMcp=true] Caller-selected work-volume-gate mode (#11635 Phase 2C).
-     *                                        Omitted / truthy → MCP-safe: the #10572 gate in
-     *                                        `VectorService.embed` applies. Explicit `false` (the
-     *                                        `ai:ingest-tenant` bulk CLI path) bypasses the gate —
-     *                                        opt-in to long-running bulk work.
+     * @param {Boolean} [payload.viaMcp=true] Caller-selected work-volume-gate mode. Omitted
+     *                                        or truthy values keep `VectorService.embed`
+     *                                        MCP-safe. Explicit `false` (the `ai:ingest-tenant`
+     *                                        bulk CLI path) bypasses the gate as an opt-in to
+     *                                        long-running bulk work.
      * @returns {Promise<{ingested: Number, deleted: Number, embeddingsGenerated: Number, errors: Array, tenantId: String, durationMs: Number}>}
      */
     async ingestSourceFiles(payload = {}) {
@@ -122,7 +121,7 @@ class KnowledgeBaseIngestionService extends Base {
             const tenantContext = this.resolveTenantContext(payload);
             summary.tenantId    = tenantContext.tenantId;
 
-            // #11637 — resolve the active tenant-config version for chunk-metadata stamping.
+            // Resolve the active tenant-config version for chunk-metadata stamping.
             // Fail-soft: a graph read must never break an ingest, so a resolution failure degrades to 0.
             try {
                 tenantContext.configVersion = (await this.getTenantConfig({tenantId: tenantContext.tenantId})).version;
@@ -243,11 +242,11 @@ class KnowledgeBaseIngestionService extends Base {
     }
 
     /**
-     * @summary Groups parsed chunks by repoSlug and routes each group to VectorService.embed(),
-     * threading the caller-selected `viaMcp` work-volume-gate mode (#11635 Phase 2C).
+     * @summary Groups parsed chunks by repoSlug and routes each group to VectorService.embed().
      * @param {Object}  options
-     * @param {Boolean} [options.viaMcp=true] Forwarded to `VectorService.embed`; `true` keeps the
-     *                                        #10572 work-volume gate, `false` (bulk CLI) bypasses it.
+     * @param {Boolean} [options.viaMcp=true] Forwarded to `VectorService.embed`; `true` keeps
+     *                                        the MCP work-volume gate, `false` (bulk CLI)
+     *                                        bypasses it.
      * @returns {Promise<void>}
      * @protected
      */
@@ -421,11 +420,11 @@ class KnowledgeBaseIngestionService extends Base {
     }
 
     /**
-     * @summary Reads the persisted claimed-state manifests for one tenant (#11711).
+     * @summary Reads the persisted claimed-state manifests for one tenant.
      *
      * The sibling `kb-manifest:<tenantId>` graph node stores push-manifest state outside
-     * `KnowledgeBaseTenantConfig`: config `version` is the #11640 staleness signal and must
-     * not increment on routine pushes. Missing or RLS-hidden nodes resolve to an empty map so
+     * `KnowledgeBaseTenantConfig`: config `version` is the staleness signal and must not
+     * increment on routine pushes. Missing or RLS-hidden nodes resolve to an empty map so
      * reconciliation never actions rows without a claimed baseline.
      *
      * @param {Object}  data
@@ -453,7 +452,7 @@ class KnowledgeBaseIngestionService extends Base {
     }
 
     /**
-     * @summary Reads one persisted tenant/repo claimed-state manifest (#11711).
+     * @summary Reads one persisted tenant/repo claimed-state manifest.
      * @param {Object} data
      * @param {String} data.tenantId Tenant id.
      * @param {String} data.repoSlug Repo slug.
@@ -474,7 +473,7 @@ class KnowledgeBaseIngestionService extends Base {
     }
 
     /**
-     * @summary Persists one repo's post-push claimed-state manifest without bumping config version (#11711).
+     * @summary Persists one repo's post-push claimed-state manifest without bumping config version.
      *
      * RLS: writes still pass through {@link resolveTenantContext}. `GraphService.upsertNode`
      * stamps `properties.userId` when a request-scoped identity is active, while
@@ -537,7 +536,7 @@ class KnowledgeBaseIngestionService extends Base {
     }
 
     /**
-     * @summary Best-effort persistence hook for the push manifest already consumed by deletion signaling (#11711).
+     * @summary Best-effort persistence hook for the push manifest already consumed by deletion signaling.
      * @param {Object} options
      * @returns {Promise<void>}
      * @protected
@@ -709,7 +708,7 @@ class KnowledgeBaseIngestionService extends Base {
     }
 
     /**
-     * @summary Resolves revision-boundary tombstones via an injected Phase 2E resolver.
+     * @summary Resolves revision-boundary tombstones via an injected resolver.
      * @param {Object} options
      * @returns {Promise<Array<Object>>}
      * @protected
@@ -785,7 +784,7 @@ class KnowledgeBaseIngestionService extends Base {
     }
 
     /**
-     * @summary Resolves a tenant's Knowledge Base ingestion config (#11637 Phase 2E).
+     * @summary Resolves a tenant's Knowledge Base ingestion config.
      *
      * Three-tier resolution: the `KnowledgeBaseTenantConfig` graph node (`kb-config:<tenantId>`) →
      * the `kb-config.yaml` deployment bootstrap → the default source/parser registry from `aiConfig`.
@@ -851,7 +850,7 @@ class KnowledgeBaseIngestionService extends Base {
     }
 
     /**
-     * @summary Reads the optional `kb-config.yaml` deployment bootstrap, fail-soft (#11637 Phase 2E).
+     * @summary Reads the optional `kb-config.yaml` deployment bootstrap, fail-soft.
      *
      * The bootstrap is a deployment-root first-deploy convenience (`{tenants: {<tenantId>: {...}}}`);
      * the `KnowledgeBaseTenantConfig` graph node remains the canonical store. A missing or malformed
@@ -875,7 +874,7 @@ class KnowledgeBaseIngestionService extends Base {
     }
 
     /**
-     * @summary Persists a tenant's Knowledge Base ingestion config as a versioned graph node (#11637 Phase 2E).
+     * @summary Persists a tenant's Knowledge Base ingestion config as a versioned graph node.
      *
      * Writes the `KnowledgeBaseTenantConfig` node (`kb-config:<tenantId>`); `version` increments on
      * each mutation. RLS — two distinct layers:
@@ -883,12 +882,12 @@ class KnowledgeBaseIngestionService extends Base {
      *   (`KB_INGEST_TENANT_MISMATCH`). The explicit gate is required because `GraphService.upsertNode`
      *   auto-stamps the *caller's* identity onto `properties.userId` — an un-gated cross-tenant write
      *   would silently re-own the node rather than be rejected.
-     * - **Read visibility (#11716):** the node is marked `visibility:'team'` so the offline KB
-     *   reconciliation daemon (#11640) — which reads `getTenantConfig` with no request context —
-     *   can resolve it. `GraphService.getNodeRecord` exposes only ownerless / owner-matched /
+     * - **Read visibility:** the node is marked `visibility:'team'` so the offline KB
+     *   reconciliation daemon — which reads `getTenantConfig` with no request context — can
+     *   resolve it. `GraphService.getNodeRecord` exposes only ownerless / owner-matched /
      *   shared / `visibility:'team'` nodes; a request-authored (`userId`-stamped) config node
      *   without this marker is invisible to the daemon, silently degrading config-staleness
-     *   detection to the default tier. Mirrors the `kb-manifest:<tenantId>` sibling node (#11711).
+     *   detection to the default tier. Mirrors the `kb-manifest:<tenantId>` sibling node.
      * @param {Object} data
      * @param {String} data.tenantId Tenant id.
      * @param {Object} [data.config={}] Config payload — `useDefaultSources` / `useDefaultParsers` /
