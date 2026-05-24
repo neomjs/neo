@@ -9,7 +9,9 @@ const packageRoot = path.resolve(__dirname, '../../../../');
 const projectRoot = process.cwd() === '/' ? packageRoot : process.cwd();
 const validLogLevels = ['error', 'warn', 'info', 'log', 'debug'];
 
-function parseLogLevel(rawValue, envVarName, warn = console.warn) {
+function parseLogLevel(envVarName, {env = process.env, warn = console.warn} = {}) {
+    const rawValue = env[envVarName];
+    if (rawValue === undefined || rawValue === null || rawValue === '') return;
     const value = String(rawValue).trim().toLowerCase();
 
     if (validLogLevels.includes(value)) {

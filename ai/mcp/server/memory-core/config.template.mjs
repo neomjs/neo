@@ -1,14 +1,11 @@
-import path            from 'path';
-import BaseConfig, { createConfigProxy } from '../shared/BaseConfig.mjs';
-import {fileURLToPath} from 'url';
-import {
-    parseBool,
-    parseNumber,
-    parsePort,
-    parseUrl
-} from '../shared/helpers/EnvConfig.mjs';
+import path                              from 'path';
+import BaseConfig, {createConfigProxy}   from '../shared/BaseConfig.mjs';
+import {fileURLToPath}                   from 'url';
+import Env                               from '../../../../src/util/Env.mjs';
 
-function parseMemorySharingPolicy(rawValue, envVarName) {
+function parseMemorySharingPolicy(envVarName, {env = process.env} = {}) {
+    const rawValue = env[envVarName];
+    if (rawValue === undefined || rawValue === null || rawValue === '') return;
     if (['legacy', 'private', 'team'].includes(rawValue)) {
         return rawValue;
     }
@@ -404,25 +401,25 @@ const defaultConfig = {
  * Maps dot-notation paths in the configuration object to environment variables and parser functions.
  */
 const envBindings = {
-    'autoSummarize': { var: 'NEO_AUTO_SUMMARIZE', parse: parseBool },
-    'autoStartDatabase': { var: 'NEO_MEM_AUTO_START_DATABASE', parse: parseBool },
-    'autoStartInference': { var: 'NEO_MEM_AUTO_START_INFERENCE', parse: parseBool },
-    'autoDream': { var: 'NEO_AUTO_DREAM', parse: parseBool },
-    'autoGoldenPath': { var: 'NEO_AUTO_GOLDEN_PATH', parse: parseBool },
-    'realTimeMemoryParsing': { var: 'NEO_REAL_TIME_MEMORY_PARSING', parse: parseBool },
-    'autoIngestFileSystem': { var: 'NEO_AUTO_INGEST_FS', parse: parseBool },
-    'debug': { var: 'NEO_DEBUG', parse: parseBool },
+    'autoSummarize': { var: 'NEO_AUTO_SUMMARIZE', parse: Env.parseBool},
+    'autoStartDatabase': { var: 'NEO_MEM_AUTO_START_DATABASE', parse: Env.parseBool},
+    'autoStartInference': { var: 'NEO_MEM_AUTO_START_INFERENCE', parse: Env.parseBool},
+    'autoDream': { var: 'NEO_AUTO_DREAM', parse: Env.parseBool},
+    'autoGoldenPath': { var: 'NEO_AUTO_GOLDEN_PATH', parse: Env.parseBool},
+    'realTimeMemoryParsing': { var: 'NEO_REAL_TIME_MEMORY_PARSING', parse: Env.parseBool},
+    'autoIngestFileSystem': { var: 'NEO_AUTO_INGEST_FS', parse: Env.parseBool},
+    'debug': { var: 'NEO_DEBUG', parse: Env.parseBool},
     'transport': 'NEO_TRANSPORT',
-    'mcpHttpPort': { var: 'MCP_HTTP_PORT', parse: parsePort },
-    'publicUrl': { var: 'NEO_PUBLIC_URL', parse: parseUrl },
+    'mcpHttpPort': { var: 'MCP_HTTP_PORT', parse: Env.parsePort},
+    'publicUrl': { var: 'NEO_PUBLIC_URL', parse: Env.parseUrl},
 
     'auth.host': 'NEO_AUTH_HOST',
-    'auth.port': { var: 'NEO_AUTH_PORT', parse: parsePort },
+    'auth.port': { var: 'NEO_AUTH_PORT', parse: Env.parsePort},
     'auth.realm': 'NEO_AUTH_REALM',
     'auth.issuerUrl': 'NEO_AUTH_ISSUER_URL',
     'auth.clientId': 'NEO_OAUTH_CLIENT_ID',
     'auth.clientSecret': 'NEO_OAUTH_CLIENT_SECRET',
-    'auth.trustProxyIdentity': { var: 'NEO_AUTH_TRUST_PROXY_IDENTITY', parse: parseBool },
+    'auth.trustProxyIdentity': { var: 'NEO_AUTH_TRUST_PROXY_IDENTITY', parse: Env.parseBool},
 
     'modelProvider': 'NEO_MODEL_PROVIDER',
     'embeddingProvider': 'NEO_EMBEDDING_PROVIDER',
@@ -435,13 +432,13 @@ const envBindings = {
     'openAiCompatible.model': 'NEO_OPENAI_COMPATIBLE_MODEL',
     'openAiCompatible.embeddingModel': 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL',
     'openAiCompatible.apiKey': 'NEO_OPENAI_COMPATIBLE_API_KEY',
-    'openAiCompatible.unloadRetryCount': { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', parse: parseNumber },
-    'openAiCompatible.unloadRetryDelayMs': { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', parse: parseNumber },
+    'openAiCompatible.unloadRetryCount': { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', parse: Env.parseNumber},
+    'openAiCompatible.unloadRetryDelayMs': { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', parse: Env.parseNumber},
 
-    'vectorDimension': { var: 'NEO_VECTOR_DIMENSION', parse: parseNumber },
+    'vectorDimension': { var: 'NEO_VECTOR_DIMENSION', parse: Env.parseNumber},
 
     'engines.chroma.host': 'NEO_CHROMA_HOST',
-    'engines.chroma.port': { var: 'NEO_CHROMA_PORT', parse: parsePort },
+    'engines.chroma.port': { var: 'NEO_CHROMA_PORT', parse: Env.parsePort},
 
     'collections.memory': 'NEO_MEMORY_COLLECTION_NAME',
     'collections.session': 'NEO_SESSION_COLLECTION_NAME',
@@ -450,11 +447,11 @@ const envBindings = {
     'storagePaths.graph': 'NEO_MEMORY_DB_PATH',
 
     'datasets.rlaif.trajectories': 'NEO_RLAIF_PATH',
-    'decayFactor': { var: 'NEO_GRAPH_DECAY_FACTOR', parse: parseNumber },
-    'guideGapWeightThreshold': { var: 'NEO_GUIDE_GAP_WEIGHT_THRESHOLD', parse: parseNumber },
+    'decayFactor': { var: 'NEO_GRAPH_DECAY_FACTOR', parse: Env.parseNumber},
+    'guideGapWeightThreshold': { var: 'NEO_GUIDE_GAP_WEIGHT_THRESHOLD', parse: Env.parseNumber},
 
-    'conceptDiscovery.prScanLimit': { var: 'NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT', parse: parseNumber },
-    'conceptDiscovery.minSourceLength': { var: 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', parse: parseNumber },
+    'conceptDiscovery.prScanLimit': { var: 'NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT', parse: Env.parseNumber},
+    'conceptDiscovery.minSourceLength': { var: 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', parse: Env.parseNumber},
 
     'mailbox.defaultReplyPolicy': 'NEO_MAILBOX_DEFAULT_REPLY_POLICY',
     'memorySharing.defaultPolicy': { var: 'NEO_MEMORY_SHARING_DEFAULT_POLICY', parse: parseMemorySharingPolicy },
@@ -494,7 +491,7 @@ class Config extends BaseConfig {
         // Handle legacy deprecation fallbacks explicitly
         if (process.env.SSE_PORT && !process.env.MCP_HTTP_PORT) {
             console.warn('[Config] Deprecation warning: SSE_PORT is deprecated. Please use MCP_HTTP_PORT.');
-            const legacyPort = parsePort(process.env.SSE_PORT, 'SSE_PORT', console.warn);
+            const legacyPort = Env.parsePort('SSE_PORT');
             if (legacyPort !== undefined) {
                 this.data.mcpHttpPort = legacyPort;
             }
@@ -512,7 +509,7 @@ class Config extends BaseConfig {
 
         if (process.env.NEO_KB_CHROMA_PORT && !process.env.NEO_CHROMA_PORT) {
             console.warn('[Config] Deprecation warning: NEO_KB_CHROMA_PORT is deprecated. Please use NEO_CHROMA_PORT.');
-            const legacyPort = parsePort(process.env.NEO_KB_CHROMA_PORT, 'NEO_KB_CHROMA_PORT', console.warn);
+            const legacyPort = Env.parsePort('NEO_KB_CHROMA_PORT');
             if (legacyPort !== undefined) {
                 this.data.engines.chroma.port = legacyPort;
             }

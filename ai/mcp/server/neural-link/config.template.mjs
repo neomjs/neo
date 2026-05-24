@@ -2,7 +2,7 @@ import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
 import BaseConfig, { createConfigProxy } from '../shared/BaseConfig.mjs';
-import {parsePort, parseBool, parseNumber} from '../shared/helpers/EnvConfig.mjs';
+import Env from '../../../../src/util/Env.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -14,12 +14,12 @@ const cwd        = process.cwd();
  */
 
 const envBindings = {
-    'autoConnect': { var: 'NEO_NL_AUTO_CONNECT', parse: parseBool },
-    'debug': { var: 'NEO_DEBUG', parse: parseBool },
-    'port': { var: 'NEO_NL_PORT', parse: parsePort },
-    'rpcTimeout': { var: 'NEO_NL_RPC_TIMEOUT', parse: parseNumber },
+    'autoConnect': { var: 'NEO_NL_AUTO_CONNECT', parse: Env.parseBool },
+    'debug': { var: 'NEO_DEBUG', parse: Env.parseBool },
+    'port': { var: 'NEO_NL_PORT', parse: Env.parsePort },
+    'rpcTimeout': { var: 'NEO_NL_RPC_TIMEOUT', parse: Env.parseNumber },
     'memoryCoreDbPath': 'NEO_MEMORY_DB_PATH',
-    'pruneLogsAfterDays': { var: 'NEO_NL_PRUNE_LOGS_AFTER_DAYS', parse: parseNumber }
+    'pruneLogsAfterDays': { var: 'NEO_NL_PRUNE_LOGS_AFTER_DAYS', parse: Env.parseNumber }
 };
 
 const defaultConfig = {
