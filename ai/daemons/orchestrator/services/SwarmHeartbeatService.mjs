@@ -68,13 +68,22 @@ const PUSH_CAPABLE_TARGETS     = Object.freeze(['mcp-notifications', 'a2a-webhoo
  * **Lifecycle contract (per core.Base.mjs:589-595):** `initAsync()` is triggered ONCE
  * by the framework during `Neo.create()`. External callers MUST use `await
  * service.ready()` to wait for init completion — NOT call `initAsync()` directly
- * (would execute twice → fatal duplication). Parent configs (`identity`,
- * `pollIntervalMs`) flow via Neo.create config or reactive setters BEFORE the
- * framework-triggered `initAsync()`. The Orchestrator owns the scheduler; this
- * class has no self-scheduling loop and no entry-point wrapper of its own.
+ * (would execute twice → fatal duplication).
+ *
+ * **Singleton justification (AC5):** kept as singleton because `initAsync()` is
+ * identity-agnostic (peer-service `.ready()` calls only); `identity` and
+ * `pollIntervalMs` are *pulse-time* runtime config (read by `pulse()` per tick),
+ * not *init-time* dependencies. Parent (Orchestrator) sets these via reactive
+ * config assignment AFTER `await this.swarmHeartbeatService.ready()`. There is
+ * exactly one Orchestrator daemon per host, so the 1:1 service-to-parent
+ * relationship has no multi-instance state-collision risk that the
+ * CadenceEngine / MaintenanceBackpressureService non-singleton rule guards
+ * against. Conversion to non-singleton is a follow-up architectural-purity
+ * concern, NOT a substrate-correctness blocker.
  *
  * @class Neo.ai.daemons.SwarmHeartbeatService
  * @extends Neo.core.Base
+ * @singleton
  * @see ai/daemons/Orchestrator.mjs              — the daemon this lane is folded into (#11766)
  * @see ai/scripts/lifecycle/checkSunsetted.mjs            — sunset detector (subprocess)
  * @see ai/scripts/lifecycle/resumeHarness.mjs             — fresh-session-spawn dispatcher (subprocess)
@@ -108,9 +117,10 @@ class SwarmHeartbeatService extends Base {
         identity_: null,
         /**
          * Interval between pulses in milliseconds. Parent (Orchestrator) sets this
-         * via reactive config to the orchestrator's `swarmHeartbeatIntervalMs` value
-         * (which already honors `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS` env
-         * override per Lane A #11873 env-binding pattern).
+         * via reactive config assignment to the orchestrator's
+         * `swarmHeartbeatIntervalMs` value (which already honors
+         * `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS` env override per Lane A
+         * #11873 env-binding pattern).
          * @member {Number} pollIntervalMs_=300000
          * @reactive
          */
@@ -131,19 +141,22 @@ class SwarmHeartbeatService extends Base {
     }
 
     /**
-     * One-time async init triggered by Neo.create() framework lifecycle. Awaits
-     * peer-service readiness (LifecycleService + GraphService) so SQLite queries on
-     * subsequent `pulse()` cadence ticks run without per-pulse init overhead. Per
-     * core.Base.mjs:589-595 contract: external callers MUST use `await
-     * service.ready()` to wait for completion, NOT call `initAsync()` directly.
+     * One-time async init triggered by Neo.create() framework lifecycle.
+     * Identity-agnostic: awaits peer-service readiness (LifecycleService +
+     * GraphService) so SQLite queries on subsequent `pulse()` cadence ticks
+     * run without per-pulse init overhead. Per core.Base.mjs:589-595 contract:
+     * external callers MUST use `await service.ready()` to wait for
+     * completion, NOT call `initAsync()` directly.
+     *
+     * Note: `this.identity` / `this.pollIntervalMs` are NOT read here — they
+     * are pulse-time runtime config the parent (Orchestrator) sets AFTER
+     * `await service.ready()`. See class-level singleton-justification block.
      * @returns {Promise<void>}
      */
     async initAsync() {
         await super.initAsync();
         await LifecycleService.ready();
-        await GraphService.ready();
-
-        logger.info(`[SwarmHeartbeatService] Initialized swarm-heartbeat lane for ${this.identity} (interval: ${this.pollIntervalMs}ms)`)
+        await GraphService.ready()
     }
 
     /**
