@@ -101,8 +101,8 @@ const CANDIDATE_DEFAULTS = {
  * it writes candidate rows INTO the JSONL that `ConceptIngestor` picks up next cycle. Split
  * by direction of data flow and trust level: curator-asserted rows vs LLM-proposed rows.
  *
- * **Why single JSONL (no staging file)?** Per the #10036 intake discussion, a
- * `candidates.jsonl` split would duplicate the curator's review surface. The weight gate
+ * **Why single JSONL (no staging file)?** A separate candidate file would duplicate
+ * the curator's review surface. The weight gate
  * (`guideGapWeightThreshold`) plus the `validated: false` flag silence unvalidated rows in
  * `sandman_handoff.md`; git diff on `nodes.jsonl` is the review UI.
  *
@@ -134,7 +134,7 @@ class ConceptDiscoveryService extends Base {
     /**
      * Instance-level override for the per-cycle PR cap. Tests mutate this directly for
      * deterministic cap behavior; production falls back to `aiConfig.data.conceptDiscovery
-     * .prScanLimit` (#10086 config-lift pattern — live read at call time, not module load).
+     * .prScanLimit` so config is read at call time instead of module load.
      * @member {Number|null} prScanLimit=null
      */
     prScanLimit = null
