@@ -53,9 +53,10 @@ Use the wait window productively:
 
 1. Check unread A2A and open peer review requests.
 2. If a peer PR can be reviewed or unblocked without abandoning your lane, do that work while CI runs.
-3. Return to your PR and re-run `gh pr checks <PR_NUMBER>`.
+3. If no peer-unblock lane is available, park a concrete recheck trigger (watchdog wake, next turn, or after the next short lane) and pick up the next positive-ROI backlog lane per `post-review-pickup`.
+4. Return to your PR at the recheck trigger and re-run `gh pr checks <PR_NUMBER>` before assigning a reviewer.
 
-Do not spin indefinitely. If checks are still pending and no useful peer-unblock lane is available within the current turn, leave the PR in the observer/no-action hold state with the exact CI status and stop.
+Do not spin indefinitely. Pending CI is asynchronous work owned by GitHub Actions; by itself it is not a halt-state. A stop is valid only when a normal `post-review-pickup` halt criterion has been verified and named.
 
 ### Failing, Cancelled, Timed Out, Or Deep Red
 
@@ -91,4 +92,5 @@ Once CI is green, send the re-review A2A with the original response `commentId` 
 | Sending `Requested action: use /pr-review` before green CI | Reviewer-side rules now require holding or stopping, so the wake creates churn. |
 | Suppressing all PR-open A2A until CI is green | Violates lifecycle visibility and makes the swarm blind to an opened PR. |
 | Treating green CI as approval | Green CI only permits requesting human/peer review. |
-| Busy-waiting forever | Pending CI time should unblock peers or end in an explicit observer hold. |
+| Busy-waiting forever | Pending CI time should unblock peers, then trigger a recheck. |
+| Stopping solely because CI is still pending | Turns an asynchronous GitHub Actions wait into agent idle time; park the recheck and pick up the next lane. |
