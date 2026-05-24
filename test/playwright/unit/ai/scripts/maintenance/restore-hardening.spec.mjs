@@ -130,18 +130,27 @@ test.describe('restore hardening regression (#11150 / #11151)', () => {
     // Test 3: Chunked Chroma upsert in #importMemories
     // ─────────────────────────────────────────────────────────────────────
 
-    test('#importMemories chunks Chroma collection.upsert() for large record sets', async () => {
+    test('#importMemories chunks Chroma write calls for large record sets (#11144: merge=add, replace=upsert)', async () => {
         // Black-box the chunking via the public manageDatabaseBackup({action:'import'})
         // surface. Mock the Memory_StorageRouter.getMemoryCollection to return a fake
-        // collection with an upsert spy; record per-call record-count, assert chunked.
+        // collection with add + get spies; record per-call record-count, assert chunked.
+        //
+        // #11144 changed merge-mode's Chroma primitive from `upsert()` to a preflight
+        // `get({ids})` existence check + `add()` for missing-only IDs. With no live
+        // records, every backup ID is "missing" → 1000 records still chunk into 4
+        // chunks of 250 (same CHROMA_UPSERT_CHUNK_SIZE budget). Also assert the
+        // existence-preflight is chunked at the same boundary.
         const SDK = await import('../../../../../../ai/services.mjs');
         const Memory_DatabaseService = SDK.Memory_DatabaseService;
         const Memory_StorageRouter   = SDK.Memory_StorageRouter;
 
-        const upsertCalls = [];
+        const addCalls    = [];
+        const getCalls    = [];
         const mockCollection = {
             name: 'neo-agent-memory',
-            upsert: async ({ids}) => { upsertCalls.push(ids.length); }
+            get   : async ({ids}) => { getCalls.push(ids.length); return {ids: []}; },
+            add   : async ({ids}) => { addCalls.push(ids.length); },
+            upsert: async ({ids}) => { addCalls.push(ids.length); } // replace-mode path safety
         };
         const originalGetMemColl = Memory_StorageRouter.getMemoryCollection;
         const originalGetSumColl = Memory_StorageRouter.getSummaryCollection;
@@ -149,7 +158,7 @@ test.describe('restore hardening regression (#11150 / #11151)', () => {
         Memory_StorageRouter.getSummaryCollection = async () => mockCollection;
 
         // Build synthetic JSONL bundle dir with 1000 records (> CHROMA_UPSERT_CHUNK_SIZE
-        // of 250 → expect ⌈1000/250⌉ = 4 calls).
+        // of 250 → expect ⌈1000/250⌉ = 4 add() calls + 4 get() preflight calls).
         const workRoot = await fsExtra.mkdtemp(path.join(os.tmpdir(), 'restore-hardening-chunk-'));
         const mcDir   = path.join(workRoot, 'mc-import');
         await fsExtra.ensureDir(mcDir);
@@ -171,10 +180,16 @@ test.describe('restore hardening regression (#11150 / #11151)', () => {
                 mode  : 'merge'
             });
 
-            // Assert chunking: each call <= 250, total records 1000, exactly 4 calls.
-            expect(upsertCalls.length).toBe(4);
-            expect(upsertCalls.reduce((a, b) => a + b, 0)).toBe(1000);
-            for (const callSize of upsertCalls) {
+            // Assert chunking on the merge-mode add() path: each call <= 250,
+            // total records 1000, exactly 4 calls.
+            expect(addCalls.length).toBe(4);
+            expect(addCalls.reduce((a, b) => a + b, 0)).toBe(1000);
+            for (const callSize of addCalls) {
+                expect(callSize).toBeLessThanOrEqual(250);
+            }
+            // Existence preflight also chunked at the same boundary.
+            expect(getCalls.length).toBe(4);
+            for (const callSize of getCalls) {
                 expect(callSize).toBeLessThanOrEqual(250);
             }
         } finally {
