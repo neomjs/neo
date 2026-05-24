@@ -89,6 +89,17 @@ ln -sf ../../.agents/skills/my-skill .claude/skills/my-skill
 
 When authoring sections within a skill (SKILL.md Map OR references/ Atlas), apply the 3-Axis Slot Rule from ADR 0007: evaluate each section on trigger-frequency × failure-severity × enforceability, then assign disposition (`keep` / `move` / `compress-to-trigger` / `rewrite` / `retire`). The substrate-vs-discipline tag (`MACHINE-ENFORCEABLE-CANDIDATE` / `DISCIPLINE-ONLY`) preserves authorial intent across compaction cycles. PR #11436 amends ADR 0007 to add a `recursive-reload-required` annotation column for skill manifest entries that are load-bearing for post-pruning behavioral-discipline recall.
 
+### 2.7 Lesson Promotion Atom
+
+Operational lessons promoted into skill substrate SHOULD be compressed into a decision atom before adding runtime prose:
+
+- **Bias** — the wrong default model or behavior the lesson is correcting.
+- **Rule** — the smallest durable behavior future agents must execute.
+- **Rationale** — the current architectural reason the rule exists.
+- **Trigger** — the condition that loads deeper payload or provenance, if needed.
+
+Runtime atoms belong in the skill payload section that actually fires. Incident history, examples, and provenance belong behind atlas/provenance pointers. New skills are reserved for genuinely new operational domains, not for every expensive lesson.
+
 ---
 
 ## 3. Consumers

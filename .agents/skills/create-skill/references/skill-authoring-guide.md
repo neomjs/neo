@@ -143,8 +143,8 @@ When a swarm agent discovers a systemic trap, an architectural pattern, or a wor
 **You MUST promote valuable operational lessons to the Swarm:**
 
 1. **Locate the relevant domain:** Determine which existing skill governs the domain (e.g., `pull-request`, `neural-link`, `unit-test`).
-2. **Update the Payload:** Edit the appropriate `references/*.md` file to append the new lesson, trap, or rule. Update the file in-place and include it in your Pull Request.
-3. **Author New Skills:** If the lesson represents a completely novel operational domain, use this guide to scaffold a new skill and propose it to the human commander.
+2. **Classify before writing:** Runtime behavior becomes a compact decision atom: `Bias`, `Rule`, `Rationale`, `Trigger`. Incident history, examples, and provenance move behind atlas/provenance pointers instead of entering the runtime path.
+3. **Update the smallest surface:** Edit the existing payload section that fires for the domain. Author a new skill only when the lesson represents a genuinely new operational domain.
 
 *Why:* Skills are the permanent architectural memory of the swarm. Promoting lessons ensures the next agent does not repeat your expensive mistakes.
 
