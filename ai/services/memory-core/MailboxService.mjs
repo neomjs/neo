@@ -34,17 +34,12 @@ function normalizeMailboxTarget(to, sentBy) {
 }
 
 /**
- * #11417: Validates the canonical mailbox target after `normalizeMailboxTarget`. Attempts
- * unambiguous alias resolution for `AGENT:<family>/<model>` patterns against registered
- * AgentIdentity graph nodes; rejects unresolvable targets with a clear error rather than
- * allowing `GraphService.linkNodes` to silently cull the `SENT_TO` edge.
+ * Validates the canonical mailbox target after `normalizeMailboxTarget`.
+ * Resolves unambiguous `AGENT:<family>/<model>` aliases against registered AgentIdentity
+ * graph nodes and rejects unresolvable targets before edge creation, so invalid addresses
+ * cannot become orphaned messages with missing `SENT_TO` edges.
  *
- * Resolves the silent-orphan failure mode where `add_message` with
- * `to: "AGENT:openai/gpt"` (alias confab from the openapi schema's lone `'AGENT:*'`
- * example) normalized to `@openai/gpt`, then the FK guard culled the edge → message
- * stored with `to: null` and the intended recipient never saw it.
- *
- * Resolution policy (per ticket Option C — resolve + reject):
+ * Resolution policy:
  * - `'AGENT:*'` and `role:` / `human:` prefixes pass through unchanged.
  * - Targets that already match a registered graph node ID pass through.
  * - `AGENT:<family>/<model>` patterns resolve to the single AgentIdentity node whose
@@ -69,15 +64,13 @@ function validateMailboxTarget(normalizedTo, originalTo) {
     if (normalizedTo === 'AGENT:*') return normalizedTo;
     // role:/human: prefixes are legacy addressing forms; pass through unchanged. If the
     // target turns out to be orphan, the FK guard will surface that separately — this
-    // validator focuses on the @<identity> + AGENT:<family>/<model> failure surface
-    // documented in #11417.
+    // validator focuses on the @<identity> + AGENT:<family>/<model> failure surface.
     if (normalizedTo.startsWith('role:') || normalizedTo.startsWith('human:')) return normalizedTo;
 
     const db = GraphService.db;
 
-    // Warm cache once before declaring "not found" — mirrors the cache-warm retry in
-    // GraphService.linkNodes so we don't reject legitimate targets that exist in WAL
-    // but haven't been synced to this connection's in-memory cache yet (#10347).
+    // Warm cache once before declaring "not found" so we don't reject legitimate targets
+    // that exist in WAL but have not reached this connection's in-memory cache yet.
     let exists = db?.nodes?.has(normalizedTo);
     if (!exists && db?.getAdjacentNodes) {
         db.getAdjacentNodes(normalizedTo, 'both');
@@ -134,8 +127,8 @@ function setRecordProperties(record, properties) {
 /**
  * @summary Returns the current broadcast delivery audience for a MESSAGE sent to `AGENT:*`.
  *
- * Per #11029, broadcasts remain one semantic MESSAGE + SENT_TO->AGENT:* edge, while unread
- * state moves to per-recipient DELIVERY edges. The audience is a send-time snapshot of
+ * Broadcasts remain one semantic MESSAGE + SENT_TO->AGENT:* edge, while per-recipient
+ * delivery state lives on `DELIVERED_TO` edges. The audience is a send-time snapshot of
  * registered peer agents, excluding the sender and sentinel/human identities.
  *
  * @param {String} sentBy The canonical sender identity.
@@ -194,11 +187,10 @@ function getReadAtForMessage(messageNode, deliveryEdge=null) {
 }
 
 /**
- * #10148: Returns the archive timestamp for a message from the per-recipient
- * delivery edge (broadcast path) or the message node itself (direct DM path).
- * Mirrors the `readAt` storage convention from #11029 — broadcasts keep
- * archive state per-recipient on DELIVERED_TO edges; direct DMs use
- * a single `archivedAt` on the MESSAGE node properties.
+ * Returns the archive timestamp for a message from the per-recipient delivery edge
+ * (broadcast path) or the message node itself (direct DM path). Broadcasts keep archive
+ * state per-recipient on DELIVERED_TO edges; direct DMs use a single `archivedAt` on the
+ * MESSAGE node properties.
  *
  * @param {Object} messageNode MESSAGE node record.
  * @param {Object|null} [deliveryEdge] Per-recipient DELIVERED_TO edge for broadcasts; null for direct DMs.
@@ -227,10 +219,10 @@ async function setDeliveryEdgeReadAt(edge, readAt) {
 }
 
 /**
- * #10148: Sets the archive timestamp on a per-recipient DELIVERED_TO edge for
- * broadcast messages. Mirrors `setDeliveryEdgeReadAt` exactly — same write
- * shape (merge properties + addEdges + acknowledgeLocalMutations) so broadcast
- * archive state participates in the same WAL coherence guarantees as readAt.
+ * Sets the archive timestamp on a per-recipient DELIVERED_TO edge for broadcast
+ * messages. Mirrors `setDeliveryEdgeReadAt` exactly — same write shape
+ * (merge properties + addEdges + acknowledgeLocalMutations) so broadcast archive state
+ * participates in the same WAL coherence guarantees as read receipts.
  *
  * @param {Object} edge DELIVERED_TO edge record.
  * @param {String} archivedAt ISO timestamp.
@@ -251,12 +243,10 @@ async function setDeliveryEdgeArchivedAt(edge, archivedAt) {
 }
 
 /**
- * #10148: Placeholder text replacing `subject` + `bodyText` on a MESSAGE node
- * after sender-side retraction via `deleteMessage`. Permanently overwrites
- * the original content — retractions are non-recoverable per #10148 Out of
- * Scope. The node + all edges (SENT_BY, SENT_TO, DELIVERED_TO, PART_OF_THREAD,
- * IN_REPLY_TO) survive so thread context remains coherent for downstream
- * traversal; only the human-readable content is removed.
+ * Placeholder text replacing `subject` + `bodyText` on a MESSAGE node after
+ * sender-side retraction via `deleteMessage`. Retractions permanently overwrite the
+ * original content, while the node and all routing/thread edges survive so downstream
+ * traversal remains coherent.
  *
  * @type {String}
  */
@@ -303,8 +293,8 @@ class MailboxService extends Base {
      *
      * Runs the exact `normalizeMailboxTarget` + `validateMailboxTarget` pipeline that
      * {@link addMessage} uses, but returns a boolean instead of throwing. This lets a
-     * caller (e.g. the Phase 4D `KbAlertingService` alerting daemon, #11642) reject an
-     * unresolvable A2A target *before* dispatch rather than discovering it via an
+     * caller such as `KbAlertingService` reject an unresolvable A2A target *before* dispatch
+     * rather than discovering it via an
      * `addMessage` rejection — no duplication of the mailbox recipient grammar.
      *
      * @param {String} to The raw recipient target (`@<identity>`, `AGENT:*`, an alias, …).
@@ -335,17 +325,17 @@ class MailboxService extends Base {
      * @param {Boolean} [args.wakeSuppressed=false] Persist the message without emitting `SENT_TO_ME`
      *   wake events. Intended for mailbox-only handovers such as session-sunset self-DMs that must be
      *   consumed by the next boot, not injected back into the active sender harness.
-     * @param {Object} [args.task] Optional A2A Task envelope payload (per #10334). When present,
+     * @param {Object} [args.task] Optional A2A Task envelope payload. When present,
      *   stored verbatim as a property on the MESSAGE node and surfaced by get_message + list_messages
-     *   for programmatic agent coordination. Phase 1 (this primitive) treats `task` as opaque JSON;
-     *   Phase 2 (Track 2B #10338) layers state-machine transitions, RBAC enforcement, and idempotency
-     *   claim-and-lock on top. Schema follows Option C hybrid (A2A spec subset + Neo extensions like
-     *   `expiresAt`, `Blocked`) per Discussion #10313 graduation. See
+     *   for programmatic agent coordination. This write primitive treats `task` as opaque JSON;
+     *   the transition API owns state-machine transitions, RBAC enforcement, and idempotency
+     *   claim-and-lock semantics. Schema follows Neo's A2A hybrid contract: an A2A spec subset plus
+     *   Neo extensions such as `expiresAt` and `Blocked`. See
      *   {@link https://a2a-protocol.org/latest/specification/} for the canonical Task envelope.
      * @returns {Promise<Object>}
      */
     async addMessage({ to, subject, body, originSessionId, relatedSessions = [], relatedTickets = [], inReplyTo, priority = 'normal', partOfThread, taggedConcepts = [], wakeSuppressed = false, task }) {
-        const preNormalizeTo = to; // Phase 1 #10347 observability
+        const preNormalizeTo = to; // diagnostic payload captures caller-supplied target
         const sentBy = RequestContextService.getAgentIdentityNodeId();
         if (!sentBy) {
             throw new Error("Cannot send message: no agent identity context bound. Ensure StdioIdentityResolver or OIDC transport is active.");
@@ -353,17 +343,15 @@ class MailboxService extends Base {
 
         // Canonicalize addressing to match the seeded AgentIdentity graph-node IDs. Upstream tool-
         // schema wording exposes the `'AGENT:@login'` prefixed form; the seed uses bare `@login`.
-        // Without this normalization, `GraphService.linkNodes`'s FK guard silently culls the
-        // `SENT_TO` edge — the root-cause bug closed by #10174. Permission checks and edge
-        // creation below all consume the canonical form from this point on.
+        // Without this normalization, `GraphService.linkNodes`'s FK guard can cull the
+        // `SENT_TO` edge for otherwise-valid identities. Permission checks and edge creation
+        // below all consume the canonical form from this point on.
         to = normalizeMailboxTarget(to, sentBy);
-        const postNormalizeTo = to; // Phase 1 #10347 observability
+        const postNormalizeTo = to; // diagnostic payload captures normalized target
 
-        // #11417: Reject or resolve invalid `to:` values BEFORE handing them to
-        // `GraphService.linkNodes`. Without this guard, an alias-format mistake (e.g.
-        // `to: "AGENT:openai/gpt"` confabulated from the openapi schema's lone
-        // `'AGENT:*'` example) silently stored as `to: null` in the SENT_TO edge,
-        // producing orphan messages invisible to their intended recipient.
+        // Reject or resolve invalid `to:` values BEFORE handing them to `GraphService.linkNodes`.
+        // Alias-format mistakes must fail loudly instead of producing orphan messages invisible
+        // to their intended recipient.
         to = validateMailboxTarget(to, preNormalizeTo);
 
         const messageId = `MESSAGE:${crypto.randomUUID()}`;
@@ -371,11 +359,10 @@ class MailboxService extends Base {
 
         const isRoleOrHuman = to.startsWith('role:') || to.startsWith('human:');
 
-        // Reply permission gate (#10252): strict-isolation mode only.
+        // Reply permission gate: strict-isolation mode only.
         //
-        // In `'blocked'` mode (multi-user / multi-tenant deployment default per #10146),
-        // non-broadcast DMs to a specific AgentIdentity require either a prior
-        // `CAN_REPLY_TO` grant or the reachable-counterparty trust-lift (#10179).
+        // In `'blocked'` mode, non-broadcast DMs to a specific AgentIdentity require either
+        // a prior `CAN_REPLY_TO` grant or the reachable-counterparty trust-lift.
         //
         // In `'open'` mode (homogeneous trusted-frontier swarm default), the check is
         // skipped — all authenticated peers can DM each other. The PermissionService
@@ -385,11 +372,11 @@ class MailboxService extends Base {
         //
         // Read-path scoping (`CAN_READ_INBOX_OF`, `CAN_READ_MEMORIES_OF`,
         // `CAN_READ_SESSIONS_OF`) is NOT affected by this setting — reading someone's
-        // inbox is categorically different from sending them a message; asymmetric
-        // treatment is intentional per #10252's Out of Scope.
+        // inbox is categorically different from sending them a message; asymmetric treatment
+        // is intentional.
         const strictReplyPolicy = aiConfig.mailbox?.defaultReplyPolicy === 'blocked';
 
-        // @summary Defensive guard enforcing the "Block Wins" negative-intent primitive (#10255).
+        // @summary Defensive guard enforcing the "Block Wins" negative-intent primitive.
         // Fires in BOTH reply-policy modes ('open' and 'blocked').
         // Explicit blocks override both the 'open' default-allow AND the 'blocked'-mode
         // reachable-counterparty trust-lift. Re-granting CAN_REPLY_TO does not silently
@@ -406,32 +393,27 @@ class MailboxService extends Base {
             // Reachable Counterparty trust lift: if `to` ever sent a message that reached the
             // caller — either directly (SENT_TO → sentBy) or via broadcast (SENT_TO → AGENT:*) —
             // an implicit trust chain permits DM without an explicit CAN_REPLY_TO grant.
-            // Broadcast inclusion closes #10179: pre-fix the iteration only matched direct
-            // SENT_TO targets, breaking the first-message bootstrap pattern where Agent A
-            // broadcasts and Agent B wants to DM-reply. Trade-off: any broadcaster becomes
-            // DM-reachable by every authenticated recipient; rate-limit mitigation is deferred
-            // until the spam surface materializes empirically at swarm scale.
+            // Broadcast inclusion preserves first-message bootstrap: an agent that receives a
+            // broadcast can DM-reply to the broadcaster without an explicit grant. Trade-off:
+            // any broadcaster becomes DM-reachable by every authenticated recipient; rate-limit
+            // mitigation remains deferred until spam materializes empirically at swarm scale.
             if (!canReply) {
-                // Trigger syncCache + lazy-reload vicinity (#10257). The trust-lift
-                // iteration needs to see peer-process broadcasts / DMs that just landed —
-                // SENT_TO edges targeting sentBy or AGENT:*. Without the re-load, those
-                // edges from peer harnesses remain invisible to this process, blocking
-                // first-message bootstrap even when SQLite has them. Bare `syncCache()`
-                // alone would invalidate without re-hydrating; `getAdjacentNodes` handles
-                // both steps. See listMessages for the full rationale.
+                // Trigger syncCache + lazy-reload vicinity. The trust-lift iteration needs to
+                // see peer-process broadcasts / DMs that just landed — SENT_TO edges targeting
+                // sentBy or AGENT:*. Without the re-load, those edges from peer harnesses remain
+                // invisible to this process, blocking first-message bootstrap even when SQLite
+                // has them. Bare `syncCache()` alone would invalidate without re-hydrating;
+                // `getAdjacentNodes` handles both steps. See listMessages for the full rationale.
                 GraphService.db.getAdjacentNodes(sentBy, 'inbound');
                 GraphService.db.getAdjacentNodes('AGENT:*', 'inbound');
 
                 for (const edge of GraphService.db.edges.items) {
                     if (edge.type === 'SENT_TO' && (edge.target === sentBy || edge.target === 'AGENT:*')) {
-                        // Per-message outbound vicinity lazy-load (#10257 follow-up per Gemini's
-                        // cross-family review on PR #10258). Symmetric with listMessages' inner
-                        // loop fix. Without this, the SENT_BY edge scan below comes up empty
-                        // for peer-process messages (the SENT_BY edge targets the author node,
-                        // not sentBy or AGENT:*, so the entry-level inbound lookups don't load
-                        // it). That would cause priorSender to stay null and the trust-lift to
-                        // falsely fail — breaking first-message bootstrap under cross-process
-                        // writes, exactly the scenario this PR's core fix is meant to close.
+                        // Per-message outbound vicinity lazy-load, symmetric with listMessages'
+                        // inner loop. Without this, the SENT_BY edge scan below comes up empty
+                        // for peer-process messages because the SENT_BY edge targets the author
+                        // node, not sentBy or AGENT:*. That would cause priorSender to stay null
+                        // and the trust-lift to falsely fail under cross-process writes.
                         GraphService.db.getAdjacentNodes(edge.source, 'outbound');
 
                         let priorSender = null;
@@ -455,13 +437,11 @@ class MailboxService extends Base {
         }
 
         // 1. Create the Message Node
-        // The optional `task` property carries an A2A-Task-object-shaped JSON payload per #10334
-        // (Track 2 envelope primitive). When present, downstream consumers (listMessages,
-        // getMessage) surface it for programmatic agent coordination. Schema sketch + Option C
-        // hybrid (A2A spec subset + Neo extensions like `expiresAt`/`Blocked`) per Discussion
-        // #10313 graduation. Phase 1 stores arbitrary opaque object; Phase 2 (Track 2B #10338)
-        // layers state-machine transition logic + RBAC matrix on top. See
-        // https://a2a-protocol.org/latest/specification/ for the canonical envelope shape.
+        // The optional `task` property carries an A2A-Task-object-shaped JSON payload. When
+        // present, downstream consumers surface it for programmatic agent coordination. The
+        // payload follows Neo's hybrid contract: A2A spec subset + Neo extensions like
+        // `expiresAt` / `Blocked`; state transitions and RBAC are owned by transitionTask.
+        // See https://a2a-protocol.org/latest/specification/ for the canonical envelope shape.
         const messageProperties = {
             subject,
             bodyText: body,
@@ -507,7 +487,7 @@ class MailboxService extends Base {
             }
         }
 
-        // Phase 1 #10347 Observability: Make SENT_TO failure loud and cross-process readable
+        // Make SENT_TO edge-creation failures loud and cross-process readable.
         try {
             const edgeCount = GraphService.db.storage.db.prepare('SELECT count(*) as count FROM Edges WHERE source = ? AND target = ? AND type = ?').get(messageId, to, 'SENT_TO').count;
             if (edgeCount === 0) {
@@ -581,16 +561,16 @@ class MailboxService extends Base {
      *   than `from` to avoid the anti-spoof reserved-key collision in
      *   {@link Neo.ai.mcp.server.shared.services.AuthMiddleware} — `from` is a claim-of-authorship
      *   key blocked at the callTool choke-point, whereas this parameter is a read-path filter
-     *   with no authorship semantics. Renamed per #10174.
+     *   with no authorship semantics.
      * @param {String[]} [args.taggedConcepts] Filter by specific tagged concepts (requires all)
      * @param {Number} [args.limit=50] Maximum number of messages to return
      * @param {Number} [args.offset=0] Pagination offset
-     * @param {Boolean} [args.includeArchived=false] Surface archived messages (#10148). Default
-     *   excludes any message whose `archivedAt` is set (on the MESSAGE node for direct DMs OR
-     *   on the per-recipient DELIVERED_TO edge for broadcasts) — archived ≠ deleted; the
-     *   message persists but is hidden from the default inbox view. Retracted messages
-     *   (sender-side `deleteMessage`) are NOT filtered — they surface with the
-     *   `'[retracted by sender]'` placeholder so thread context remains coherent.
+     * @param {Boolean} [args.includeArchived=false] Surface archived messages. Default excludes
+     *   any message whose `archivedAt` is set (on the MESSAGE node for direct DMs OR on the
+     *   per-recipient DELIVERED_TO edge for broadcasts) — archived ≠ deleted; the message persists
+     *   but is hidden from the default inbox view. Retracted messages (sender-side `deleteMessage`)
+     *   are NOT filtered — they surface with the `'[retracted by sender]'` placeholder so thread
+     *   context remains coherent.
      * @returns {Promise<Object>}
      */
     async listMessages({ box = 'inbox', status = 'all', to, threadId, fromIdentity, taggedConcepts, limit = 50, offset = 0, includeArchived = false } = {}) {
@@ -610,7 +590,7 @@ class MailboxService extends Base {
         const db = GraphService.db;
 
         // Consume WAL delta AND re-populate vicinity from SQLite before iterating
-        // in-memory edges (#10257). A bare `syncCache()` call invalidates cached
+        // in-memory edges. A bare `syncCache()` call invalidates cached
         // entries but edge-type scans don't have a lazy-reload fallback, so locally-
         // written messages get wiped without re-hydration. `getAdjacentNodes` is the
         // correct primitive: it triggers `syncCache` (see Database.mjs:~267) AND then
@@ -650,7 +630,7 @@ class MailboxService extends Base {
                         isMatch = true;
                     } else if (targetNode === 'AGENT:*') {
                         // Load the full message vicinity before deciding whether this is a
-                        // #11029 per-recipient broadcast or a legacy shared-read broadcast.
+                        // per-recipient broadcast or a legacy shared-read broadcast.
                         db.getAdjacentNodes(edgeSource, 'outbound');
                         deliveryEdge = getBroadcastDeliveryEdge(edgeSource, target);
                         if (deliveryEdge || !hasBroadcastDeliveryEdges(edgeSource)) {
@@ -674,8 +654,8 @@ class MailboxService extends Base {
                 // Lazy-reload this message's outbound vicinity — loads SENT_BY,
                 // PART_OF_THREAD, TAGGED_CONCEPT, etc. edges authored by the message.
                 // Without this, the inner `sourceEdge` iteration (below) sees only
-                // edges present in the process's cache at query entry, which for
-                // peer-process writes is empty. #10257.
+                // edges present in the process's cache at query entry, which is empty
+                // for peer-process writes.
                 db.getAdjacentNodes(messageNodeId, 'outbound');
 
                 const messageNode = db.nodes.get(messageNodeId);
@@ -687,11 +667,11 @@ class MailboxService extends Base {
                     if (status === 'unread' && !isUnread) continue;
                     if (status === 'read' && isUnread) continue;
 
-                    // #10148: archive-state filter. Default-excludes messages whose archivedAt
-                    // is set (direct DM: on MESSAGE node; broadcast: on DELIVERED_TO edge);
-                    // opt-in via includeArchived: true surfaces them. Retracted messages are
-                    // intentionally NOT filtered — they show with the placeholder subject so
-                    // thread context remains coherent (per Avoided Traps in ticket body).
+                    // Archive-state filter. Default-excludes messages whose archivedAt is set
+                    // (direct DM: on MESSAGE node; broadcast: on DELIVERED_TO edge); opt-in via
+                    // includeArchived: true surfaces them. Retracted messages are intentionally
+                    // NOT filtered — they show with the placeholder subject so thread context
+                    // remains coherent.
                     const archivedAt = getArchivedAtForMessage(messageNode, deliveryEdge);
                     if (!includeArchived && archivedAt) continue;
 
@@ -736,7 +716,7 @@ class MailboxService extends Base {
                     };
                     if (messageNode.properties.task !== undefined) summary.task = messageNode.properties.task;
                     if (messageNode.properties.wakeSuppressed) summary.wakeSuppressed = true;
-                    // #10148: surface archive + retracted state so callers can render distinctly.
+                    // Surface archive + retracted state so callers can render distinctly.
                     if (archivedAt) summary.archivedAt = archivedAt;
                     if (messageNode.properties.retracted) summary.retracted = true;
                     messages.push(summary);
@@ -769,7 +749,7 @@ class MailboxService extends Base {
 
         const db = GraphService.db;
 
-        // Trigger syncCache + lazy-reload vicinity for this message node (#10257).
+        // Trigger syncCache + lazy-reload vicinity for this message node.
         // Ensures peer-process writes to this message's edges (e.g. late PART_OF_THREAD
         // additions, read-receipt annotations) are visible. See listMessages for the
         // full rationale on why bare `syncCache()` is insufficient for edge-type scans.
@@ -806,7 +786,7 @@ class MailboxService extends Base {
 
         if (!isAuthorized && sentTo === 'AGENT:*') {
             // Legacy broadcasts without per-recipient receipts retain their historical
-            // read-path semantics. #11029 broadcasts authorize only snapshotted recipients.
+            // read-path semantics. Receipt-backed broadcasts authorize only snapshotted recipients.
             isAuthorized = deliveryEdge || !hasBroadcastDeliveryEdges(messageId);
         } else if (!isAuthorized && sentTo && sentTo !== me && sentTo !== 'AGENT:*') {
             // Check if me has permission to read sentTo's inbox
@@ -848,7 +828,7 @@ class MailboxService extends Base {
 
         const db = GraphService.db;
 
-        // Trigger syncCache + lazy-reload vicinity (#10257). Ensures the SENT_TO edge
+        // Trigger syncCache + lazy-reload vicinity. Ensures the SENT_TO edge
         // iteration sees peer-process writes. See listMessages for the full rationale.
         db.getAdjacentNodes(messageId, 'both');
 
@@ -900,15 +880,14 @@ class MailboxService extends Base {
     }
 
     /**
-     * #10148: Receiver-side archive. Hides the message from the default `listMessages`
-     * view without deleting it — opt-in surfacing via `listMessages({includeArchived: true})`.
+     * Receiver-side archive. Hides the message from the default `listMessages` view without
+     * deleting it — opt-in surfacing via `listMessages({includeArchived: true})`.
      *
      * **Permission model:** only the recipient (`SENT_TO` me OR per-recipient broadcast
      * `DELIVERED_TO` me) can archive. Senders archiving their own outbox is out of scope
      * (no use case surfaced yet; deferrable to a follow-up if needed). Archive is
-     * **per-recipient** for broadcasts via the DELIVERED_TO edge's `archivedAt` property,
-     * mirroring the #11029 readAt storage convention — each recipient archives their own
-     * copy independently.
+     * **per-recipient** for broadcasts via the DELIVERED_TO edge's `archivedAt` property —
+     * each recipient archives their own copy independently.
      *
      * **Lifecycle distinction (vs `markRead` + `deleteMessage`):**
      * - `markRead`: read ≠ done. Marks delivery receipt without removing from view.
@@ -929,7 +908,7 @@ class MailboxService extends Base {
 
         const db = GraphService.db;
 
-        // Trigger syncCache + lazy-reload vicinity (#10257) — same pattern as markRead.
+        // Trigger syncCache + lazy-reload vicinity — same pattern as markRead.
         db.getAdjacentNodes(messageId, 'both');
 
         const messageNode = db.nodes.get(messageId);
@@ -980,7 +959,7 @@ class MailboxService extends Base {
     }
 
     /**
-     * #10148: Sender-side retraction. Marks the message as `retracted: true` and clears
+     * Sender-side retraction. Marks the message as `retracted: true` and clears
      * `bodyText` + `subject` to `'[retracted by sender]'`. All edges (`SENT_BY`, `SENT_TO`,
      * `DELIVERED_TO`, `PART_OF_THREAD`, `IN_REPLY_TO`) are preserved so thread context
      * remains coherent — receivers see the placeholder where the message used to be,
@@ -990,12 +969,11 @@ class MailboxService extends Base {
      * delete other agents' messages from their inbox; archive is the recipient-side primitive.
      *
      * **Irreversibility:** retractions are permanent decisions. Original body + subject are
-     * overwritten at write time; there is no undo path. Per #10148 Out of Scope:
-     * "Time-limited retraction window (retractions are permanent decisions)".
+     * overwritten at write time; there is no undo path.
      *
      * **Out of scope (deferred to future):**
-     * - `purgeMessage` — hard-delete that drops node + edges entirely. Rejected per ticket
-     *   Avoided Traps because thread-context-rot is worse than visible placeholders.
+     * - `purgeMessage` — hard-delete that drops node + edges entirely. Rejected because
+     *   thread-context rot is worse than visible placeholders.
      *
      * @param {Object} args
      * @param {String} args.messageId The ID of the message to retract.
@@ -1009,7 +987,7 @@ class MailboxService extends Base {
 
         const db = GraphService.db;
 
-        // Trigger syncCache + lazy-reload vicinity (#10257) — same pattern as markRead.
+        // Trigger syncCache + lazy-reload vicinity — same pattern as markRead.
         db.getAdjacentNodes(messageId, 'both');
 
         const messageNode = db.nodes.get(messageId);
@@ -1043,8 +1021,8 @@ class MailboxService extends Base {
 
     /**
      * Transitions an A2A task to a new state.
-     * Enforces the Track 2B (#10338) state-machine, RBAC transition authority, and
-     * optimistic-concurrency idempotency (claim-and-lock).
+     * Enforces task state-machine transitions, RBAC transition authority, and
+     * optimistic-concurrency idempotency.
      *
      * Note on Error Semantics:
      * - Throws an Error for unauthorized access or invalid input parameters.
@@ -1159,7 +1137,7 @@ class MailboxService extends Base {
     /**
      * @summary Sweeps expired A2A Tasks past their `task.expiresAt` to the `Expired` state.
      *
-     * Maintenance operation invoked by the swarm-heartbeat cron cycle (Track 2C, #10339).
+     * Maintenance operation invoked by the swarm-heartbeat cron cycle.
      * Bulk-transitions all MESSAGE nodes carrying an A2A Task envelope whose `task.expiresAt`
      * ISO timestamp has passed AND whose `task.state` is non-terminal
      * (`Submitted` / `Working` / `InputRequired`) to `Expired` via a single atomic
@@ -1244,15 +1222,15 @@ class MailboxService extends Base {
 
     /**
      * Returns a scalar count of messages matching the given filter, without
-     * fetching message bodies. Patterned after `MemoryService.buildMailboxDelta`
-     * (#10178) — uses direct `prepare` + `get` against `Edges` joined with
+     * fetching message bodies. Patterned after `MemoryService.buildMailboxDelta` — uses
+     * direct `prepare` + `get` against `Edges` joined with
      * `Nodes`, returning `{count}` in O(indexed) time regardless of mailbox
      * depth. Retires the `listMessages({limit: N}).messages.length` proxy
-     * pattern previously used by `getHealthcheckPreview` (#10180).
+     * pattern previously used by `getHealthcheckPreview`.
      *
      * **Inbox path (3-way UNION):** captures direct DMs (`SENT_TO` me with
      * `readAt` on the MESSAGE node), per-recipient broadcasts (`DELIVERED_TO`
-     * me with `readAt` on the DELIVERY edge per #11029), and legacy broadcasts
+     * me with `readAt` on the DELIVERY edge), and legacy broadcasts
      * (`SENT_TO AGENT:*` with the shared-read fallback when no `DELIVERED_TO`
      * edges exist). Mirrors `buildMailboxDelta`'s unread-count taxonomy exactly.
      *
@@ -1268,8 +1246,8 @@ class MailboxService extends Base {
      *
      * **Box-value contract:** only `'inbox'` and `'outbox'` are currently supported.
      * `'all'` is deferred to a follow-up (would require UNION of inbox + outbox paths).
-     * Any other value (including typos) throws — see #11528 cycle-1 review for the
-     * rationale on rejecting unsupported enums vs silently aliasing to inbox.
+     * Any other value (including typos) throws so callers see unsupported enums instead
+     * of silently receiving inbox-shaped results.
      *
      * @param {Object} [args]
      * @param {String} [args.box='inbox'] Which box to count. Supported: `'inbox'` or `'outbox'`. Throws on unsupported values.
@@ -1287,11 +1265,9 @@ class MailboxService extends Base {
             throw new Error("Cannot count messages: no agent identity context bound.");
         }
 
-        // Per #11528 cycle-1 review (@neo-gpt): reject unsupported `box` values explicitly
-        // rather than silently aliasing to the inbox path. The original branch-on-outbox
-        // pattern would have returned partial-results for `box='all'` (deferred to a follow-up
-        // per #10180 PR body) or any typo. Fail fast on unsupported enum so callers see the
-        // deferred-vs-implemented boundary at the call site.
+        // Reject unsupported `box` values explicitly rather than silently aliasing to the inbox
+        // path. The branch-on-outbox shape would otherwise return partial results for `box='all'`
+        // or typoed inputs. Fail fast so callers see the deferred-vs-implemented boundary.
         if (box !== 'inbox' && box !== 'outbox') {
             throw new Error(`Cannot count messages: unsupported box value '${box}'. Supported values: 'inbox', 'outbox' ('all' is deferred to a follow-up).`);
         }
@@ -1401,8 +1377,8 @@ class MailboxService extends Base {
     /**
      * Generates the mailbox preview for the healthcheck payload.
      *
-     * Uses `countMessages` (#10180) for the `unreadCount` field — direct-SQL path
-     * with no upper-bound cap. Inbox + outbox previews retain `listMessages` with
+     * Uses `countMessages` for the `unreadCount` field — direct-SQL path with no
+     * upper-bound cap. Inbox + outbox previews retain `listMessages` with
      * `limit: 3` matching the preview surface size; the previously-implicit cap
      * of 100 on `unreadCount` is retired.
      *
@@ -1420,9 +1396,9 @@ class MailboxService extends Base {
 
         const inboxPreview = inboxResult.messages.map(msg => ({
             id: msg.messageId,
-            // Legacy Data Remediation: Messages written during the #10184/#10181 incident
-            // window may lack a SENT_BY edge if the sender was identity-unbound.
-            // This fallback ensures schema compliance. New writes enforce bind-identity discipline.
+            // Legacy data remediation: messages written before bind-identity enforcement may lack
+            // a SENT_BY edge if the sender was identity-unbound. This fallback ensures schema
+            // compliance; new writes enforce bind-identity discipline.
             from: msg.from || 'unknown',
             subject: msg.subject ? msg.subject.substring(0, 60) + (msg.subject.length > 60 ? '...' : '') : '',
             createdAt: msg.sentAt,
