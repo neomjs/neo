@@ -112,6 +112,26 @@ For each parent AC of the epic, Stage 3 must produce columns 1–3 of the shared
 
 **Cross-reference:** [`learn/agentos/evidence-ladder.md`](../../../../learn/agentos/evidence-ladder.md) for L1-L4 ladder + sandbox-vs-achievable ceiling distinction + complete schema definitions.
 
+#### Stage 3.5 — Code-vs-Data-Migration Sub-Split Audit
+
+*(Trigger: epic body or sub-ticket prescriptions describe BOTH (a) code changes (updates to `.mjs` / `.ts` / `.js` / build-script logic) AND (b) data migration (file renames / mass content relocation / large structured-data moves / bulk ticket-file relayouts). Mark N/A when the epic's surface is purely one or the other.)*
+
+**Audit:** verify the sub-ticket structure splits these concerns into SEPARATE sub-tickets:
+
+- **Code sub-ticket(s)** — small, reviewable in isolation; enables the new shape.
+- **Data-migration sub-ticket(s)** — mechanical, separate review pass; consumes the new shape after the code lands.
+
+**Sequencing rule:** the code sub MUST land before the data-migration sub so the data lands in a substrate that already supports it. For dependency-cycle epics where this isn't possible (e.g. the data migration is required to *generate* the test fixtures the code sub uses), document the rationale explicitly in the epic body's Avoided Traps section + name the sequencing exception so reviewers know to expect the mixed-scope diff.
+
+**Findings:** if the epic prescribes BOTH concerns in the SAME sub-ticket, flag as a Stage 3 Required Action; recommend the split before the sub is picked up. Catching this at epic-review time is cheaper than at sub-PR-review time (where the only remediation is Drop+Supersede).
+
+**Empirical anchor:** Epic #11113 / PR #11114 mixed-scope diff — 5 wire-format consumer code files (~15 LOC of recursive-readdir mirror logic) bundled with ~4190 ticket-file flat→chunked renames in the same PR. Cycle-1 review struggled to isolate code correctness from data-migration noise; cycle-2's clean diff still mixed 5 code files with 95+ data-rename files. Operator @tobiu surfaced this 2026-05-10 as a friction-gold candidate: *"the idea for an epic was e.g. keeping code changes and data migration output inside separate commits. makes reviews easier."* (paraphrase). Stage 3.5 codifies the substrate-level fix.
+
+**Out of scope for this stage:**
+- Per-commit separation within a single PR — squash-merge collapses commits, so the right tier is sub-ticket / PR-scope, not commit-scope.
+- Pre-PR commit-time lint detecting mixed-scope diffs — too mechanical; semantically distinguishing "data migration" from "any large refactor" is false-positive-prone.
+- Title-prefix conventions (`feat(code):` vs `feat(data):`) — cosmetic; doesn't fix the underlying review-friction at the diff level.
+
 ### Stage 4 — Prescription Layer
 
 *(Runs only if stages 1-2 pass.)*
