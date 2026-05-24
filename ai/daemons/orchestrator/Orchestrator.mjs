@@ -273,6 +273,7 @@ export class Orchestrator extends Base {
     get dreamIntervalMs()         { return Env.parseNumber('NEO_ORCHESTRATOR_DREAM_INTERVAL_MS')            ?? AiConfig.orchestrator.intervals.dreamMs;            }
     get goldenPathIntervalMs()    { return Env.parseNumber('NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS')      ?? AiConfig.orchestrator.intervals.goldenPathMs;       }
     get swarmHeartbeatIntervalMs(){ return Env.parseNumber('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS')  ?? AiConfig.orchestrator.intervals.swarmHeartbeatMs;   }
+    get swarmHeartbeatIdentity()  { return Env.parseString('NEO_AGENT_IDENTITY');                                                                                  }
 
     get kbSyncEnabled()                  { return Env.parseBool('NEO_ORCHESTRATOR_KB_SYNC_ENABLED')                     ?? resolveDeploymentEnabled('kbSyncEnabled');                  }
     get primaryDevSyncEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED')            ?? resolveDeploymentEnabled('primaryDevSyncEnabled');          }
@@ -342,18 +343,20 @@ export class Orchestrator extends Base {
         this.db = this.initializeDatabaseFn(this.dbPath);
 
         // One-time swarm-heartbeat lane init (#11766). An init failure must log but
-        // NOT crash the Orchestrator — the lane disables itself for this run.
+        // NOT crash the Orchestrator — the lane disables itself for this run via the
+        // daemon-local `initFailed` instance field (preserves fail-safe invariant
+        // without env-registry mutation; `poll()` swarm-heartbeat lane checks it).
         if (this.swarmHeartbeatEnabled) {
             try {
-                await this.swarmHeartbeatService.initAsync({pollIntervalMs: this.swarmHeartbeatIntervalMs});
+                // Set pulse-time runtime config on the singleton BEFORE awaiting ready().
+                // initAsync() is identity-agnostic (peer-service .ready() only); identity
+                // and pollIntervalMs are read by pulse() per tick, so post-init assignment
+                // is sufficient. Order matches the JSDoc contract on the service class.
+                this.swarmHeartbeatService.identity       = this.swarmHeartbeatIdentity;
+                this.swarmHeartbeatService.pollIntervalMs = this.swarmHeartbeatIntervalMs;
+                await this.swarmHeartbeatService.ready();
             } catch (e) {
                 this.writeLog('ERROR', `[Orchestrator] Swarm heartbeat init failed; lane disabled this run: ${e.message}`);
-                // Force-disable for this run via daemon-local instance state on the service.
-                // The static getter chain (`Env.parseBool ?? resolveDeploymentEnabled`) stays
-                // pure 2-layer; `poll()`'s swarm-heartbeat lane checks `initFailed` before
-                // calling `pulse()`. This preserves the fail-safe invariant (init failure
-                // disables lane for this run regardless of operator env override) without
-                // env-mutation abuse for runtime state.
                 this.swarmHeartbeatService.initFailed = true;
             }
         }

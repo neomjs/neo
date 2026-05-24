@@ -29,9 +29,22 @@ import {test, expect} from '@playwright/test';
 /**
  * @summary Unit coverage for `ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs` (#10789 AC6, #11766 fold).
  *
- * Covers: idempotent one-time `initAsync()`, concurrency-lock skip-vs-clear,
- * sunset-detection-routes-to-resumeHarness, gate-tripped blocks high-authority dispatch,
- * idle-out-nudge routing, push-capable bypass, sweep-failure isolation within `pulse()`.
+ * Covers: `beforeSetIdentity` normalization + DEFAULT_IDENTITY fallback (#11797 + #11874),
+ * concurrency-lock skip-vs-clear, sunset-detection-routes-to-resumeHarness, gate-tripped
+ * blocks high-authority dispatch, idle-out-nudge routing, push-capable bypass,
+ * sweep-failure isolation within `pulse()`.
+ *
+ * Post-#11874 (core.Base contract restoration): `initAsync()` is identity-agnostic
+ * (peer-service `.ready()` calls only — no `process.env` reads, no `isInitialized`
+ * band-aid, no manual idempotency guard). The framework triggers it ONCE during
+ * singleton creation; external callers MUST use `await service.ready()` to wait for
+ * completion. Identity / pollIntervalMs are pulse-time runtime config set by the
+ * parent (Orchestrator) via reactive config assignment BEFORE `await
+ * service.ready()` in `start()` (the framework already fired identity-agnostic
+ * `initAsync()` at module-load, so the BEFORE-`.ready()` ordering matches the
+ * `Orchestrator.start()` code); tests assign them directly via property write
+ * post-fixture-setup to exercise `beforeSetIdentity` normalization without
+ * needing the Orchestrator wire-up dance.
  *
  * Post-#11766 the class is a lane folded into the Orchestrator: the Orchestrator owns the
  * scheduler. There is no self-rescheduling loop, no `start()`/`stop()`/`scheduleNext()`;
@@ -47,7 +60,8 @@ import {test, expect} from '@playwright/test';
  * through the heavy substrate. Module-binding imports (e.g. `isGateOpen`) cannot be
  * reassigned at import-site in ES modules — instance methods are the seam that works.
  *
- * Each test stubs only what it needs; `afterEach` resets singleton state so cases don't bleed.
+ * Each test stubs only what it needs; `afterEach` resets identity/pollIntervalMs to
+ * baselines so cases don't bleed.
  */
 test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     let SwarmHeartbeatService;
@@ -80,12 +94,14 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     /**
      * Apply a default no-op stub set so every test starts from a deterministic baseline.
      * Individual tests override the seams they care about.
+     *
+     * Post-#11874: `identity` assignment exercises `beforeSetIdentity` normalization;
+     * no explicit `await SwarmHeartbeatService.ready()` is needed for downstream
+     * `pulse()` tests because peer-service stubs (LifecycleService/GraphService
+     * initAsync no-ops in beforeAll) make the framework's #readyPromise resolve fast
+     * during singleton creation at module-load.
      */
     function applyDefaultStubs() {
-        // SwarmHeartbeatService is a Neo singleton — reset the one-time-init flag so each
-        // test starts from a clean lifecycle state regardless of prior-test or cross-file
-        // singleton-state bleed (symmetric with the afterEach reset).
-        SwarmHeartbeatService.isInitialized = false;
         SwarmHeartbeatService.touchLivenessFile = async () => {};
         SwarmHeartbeatService.checkHeartbeatLock = async () => ({active: false, stale: false, ageMs: 0});
         SwarmHeartbeatService.clearHeartbeatLock = async () => {};
@@ -106,64 +122,38 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         SwarmHeartbeatService.getIssuesCount     = async () => 0;
         SwarmHeartbeatService.isPushCapable      = async () => false;
         SwarmHeartbeatService.injectTmux         = async () => {};
+        // Identity assignment exercises beforeSetIdentity normalizer (no-op for
+        // already-canonical '@test' form). pollIntervalMs is direct config assignment.
         SwarmHeartbeatService.identity           = '@test';
+        SwarmHeartbeatService.pollIntervalMs     = 60_000;
     }
 
     test.afterEach(async () => {
-        SwarmHeartbeatService.isInitialized  = false;
+        // Reset identity/pollIntervalMs to fresh-creation baseline so cases don't bleed.
+        // No isInitialized reset (the band-aid was dropped per #11874 core.Base contract
+        // restoration; framework #readyPromise handles idempotency).
         SwarmHeartbeatService.identity       = null;
         SwarmHeartbeatService.pollIntervalMs = 5 * 60 * 1000;
         delete SwarmHeartbeatService.getGraphDb;
     });
 
-    test('initAsync() is idempotent — second call is a no-op once initialized', async () => {
-        applyDefaultStubs();
-
-        await SwarmHeartbeatService.initAsync({identity: '@test', pollIntervalMs: 60_000});
-        expect(SwarmHeartbeatService.isInitialized).toBe(true);
-
-        // A second call short-circuits on the isInitialized guard and does NOT
-        // re-resolve identity — proven by passing a different identity that must be ignored.
-        await SwarmHeartbeatService.initAsync({identity: '@second', pollIntervalMs: 60_000});
-        expect(SwarmHeartbeatService.identity).toBe('@test');
-    });
-
-    test('initAsync() picks identity from explicit arg, then env, then default', async () => {
-        applyDefaultStubs();
-
-        // Explicit arg wins.
-        await SwarmHeartbeatService.initAsync({identity: '@explicit', pollIntervalMs: 60_000});
-        expect(SwarmHeartbeatService.identity).toBe('@explicit');
-        SwarmHeartbeatService.isInitialized = false;
-
-        // Env-var falls in when arg absent.
-        const original = process.env.NEO_AGENT_IDENTITY;
-        process.env.NEO_AGENT_IDENTITY = '@from-env';
-        try {
-            await SwarmHeartbeatService.initAsync({pollIntervalMs: 60_000});
-            expect(SwarmHeartbeatService.identity).toBe('@from-env');
-        } finally {
-            if (original === undefined) delete process.env.NEO_AGENT_IDENTITY;
-            else                        process.env.NEO_AGENT_IDENTITY = original;
-        }
-    });
-
-    test('initAsync() normalizes GitHub-login identity form to AgentIdentity node id (#11797)', async () => {
-        applyDefaultStubs();
-
-        await SwarmHeartbeatService.initAsync({identity: 'neo-opus-4-7', pollIntervalMs: 60_000});
+    test('beforeSetIdentity normalizes GitHub-login form + falls back to DEFAULT_IDENTITY (#11797, #11874)', async () => {
+        // GitHub-login form: 'neo-opus-4-7' → '@neo-opus-4-7' (normalizer prepends '@')
+        SwarmHeartbeatService.identity = 'neo-opus-4-7';
         expect(SwarmHeartbeatService.identity).toBe('@neo-opus-4-7');
-        SwarmHeartbeatService.isInitialized = false;
 
-        const original = process.env.NEO_AGENT_IDENTITY;
-        process.env.NEO_AGENT_IDENTITY = 'neo-gpt';
-        try {
-            await SwarmHeartbeatService.initAsync({pollIntervalMs: 60_000});
-            expect(SwarmHeartbeatService.identity).toBe('@neo-gpt');
-        } finally {
-            if (original === undefined) delete process.env.NEO_AGENT_IDENTITY;
-            else                        process.env.NEO_AGENT_IDENTITY = original;
-        }
+        // Canonical form passes through unchanged
+        SwarmHeartbeatService.identity = '@neo-gpt';
+        expect(SwarmHeartbeatService.identity).toBe('@neo-gpt');
+
+        // Null falls back to DEFAULT_IDENTITY (@neo-gemini-3-1-pro) — preserves the
+        // legacy pre-#11874 behavior where unset identity → default polled agent.
+        SwarmHeartbeatService.identity = null;
+        expect(SwarmHeartbeatService.identity).toBe('@neo-gemini-3-1-pro');
+
+        // Empty string also falls back (treated as no-value)
+        SwarmHeartbeatService.identity = '';
+        expect(SwarmHeartbeatService.identity).toBe('@neo-gemini-3-1-pro');
     });
 
     test('pulse() skips when concurrency lock is active', async () => {
