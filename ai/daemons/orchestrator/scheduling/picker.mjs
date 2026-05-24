@@ -98,4 +98,3 @@ function filterUnmetDependencies(candidates, runningSet) {
 function selectFirstCandidate(candidates) {
     return candidates[0] ?? null;
 }
-
