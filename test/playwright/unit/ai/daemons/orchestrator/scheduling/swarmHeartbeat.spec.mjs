@@ -183,11 +183,50 @@ test.describe('resolveTargets (Sub 1 #11905 / Epic #11829 Layer 2)', () => {
         expect(logger.calls.some(c => VALID_TARGET_SOURCES.every(v => c.msg.includes(v)))).toBe(true);
     });
 
-    test('AC3 fork-safety — null selfIdentity + no source returns [] (operator must notice, not silent leak)', async () => {
+    test('AC3 fork-safety — null selfIdentity + no source returns [] AND logs disables-with-log notice (per GPT PR #11913 cycle-1 RA1)', async () => {
+        const logger = captureLogger();
         const result = await resolveTargets({
-            selfIdentity: null
+            selfIdentity: null,
+            logger
         });
         expect(result).toEqual([]);
+        // AC3 wording: "defaults to 'self' OR disables-with-log — NEVER silently fans out".
+        // The info log surfaces the misconfiguration so operators notice and either set
+        // NEO_AGENT_IDENTITY or explicitly opt-in to targetSource='disabled'.
+        const infoMatch = logger.calls.find(c =>
+            c.level === 'info' &&
+            c.msg.includes("'self' resolved to self") &&
+            c.msg.includes('selfIdentity is null') &&
+            c.msg.includes('disabled')
+        );
+        expect(infoMatch).toBeTruthy();
+        // Operator-actionable guidance must name both knobs.
+        expect(infoMatch.msg).toContain('NEO_AGENT_IDENTITY');
+        expect(infoMatch.msg).toContain("targetSource='disabled'");
+    });
+
+    test('AC3 fork-safety — null selfIdentity + unknown source falls back to self + logs both warn (unknown) AND info (null-self)', async () => {
+        const logger = captureLogger();
+        const result = await resolveTargets({
+            selfIdentity: null,
+            targetSource: 'bogus-source-name',
+            logger
+        });
+        expect(result).toEqual([]);
+        expect(logger.calls.some(c => c.level === 'warn' && c.msg.includes('bogus-source-name'))).toBe(true);
+        expect(logger.calls.some(c => c.level === 'info' && c.msg.includes('unknown-source-fallback'))).toBe(true);
+    });
+
+    test('AC3 fork-safety — null selfIdentity + active-subscribers missing provider falls back to self + logs warn AND info', async () => {
+        const logger = captureLogger();
+        const result = await resolveTargets({
+            selfIdentity: null,
+            targetSource: 'active-subscribers',
+            logger
+        });
+        expect(result).toEqual([]);
+        expect(logger.calls.some(c => c.level === 'warn' && c.msg.includes('active-subscribers'))).toBe(true);
+        expect(logger.calls.some(c => c.level === 'info' && c.msg.includes('active-subscribers-missing-provider'))).toBe(true);
     });
 
     test('Step 5 / active-subscribers — empty subscribers + valid self yields just [self]', async () => {

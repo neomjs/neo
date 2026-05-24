@@ -88,6 +88,23 @@ export async function resolveTargets({
 
     const normalizedSelf = selfIdentity ? normalizeAgentIdentityNodeId(selfIdentity) : null;
 
+    /**
+     * Self-fallback helper: returns `[selfIdentity]` when present, or emits an
+     * observable info log + returns `[]` when `selfIdentity` is null. AC3 fork-safety
+     * requires "defaults to 'self' OR disables-with-log — NEVER silently fans out
+     * to Neo maintainer identities." Silent `[]` would satisfy the no-leak property
+     * but miss the disables-with-log property; the log surfaces the misconfiguration
+     * so operators can set `NEO_AGENT_IDENTITY` or explicitly opt-in to
+     * `targetSource='disabled'`.
+     */
+    const selfFallback = (resolvedFrom) => {
+        if (!normalizedSelf) {
+            log('info', `[resolveSwarmHeartbeatTargets] '${resolvedFrom}' resolved to self but selfIdentity is null — disabled (no pulse targets). Set NEO_AGENT_IDENTITY or orchestrator.swarmHeartbeat.targetSource='disabled' explicitly to silence this notice.`);
+            return [];
+        }
+        return [normalizedSelf];
+    };
+
     // Step 1: explicit env target list (override-all). Empty array / null falls through.
     if (Array.isArray(explicitTargets) && explicitTargets.length > 0) {
         const seen = new Set();
@@ -107,7 +124,7 @@ export async function resolveTargets({
 
     switch (source) {
         case 'self':
-            return normalizedSelf ? [normalizedSelf] : [];
+            return selfFallback('self');
 
         case 'disabled':
             log('info', '[resolveSwarmHeartbeatTargets] disabled — no pulse targets');
@@ -131,7 +148,7 @@ export async function resolveTargets({
         case 'active-subscribers': {
             if (typeof activeSubscribersProvider !== 'function') {
                 log('warn', `[resolveSwarmHeartbeatTargets] targetSource='active-subscribers' requires activeSubscribersProvider; falling back to 'self'`);
-                return normalizedSelf ? [normalizedSelf] : [];
+                return selfFallback('active-subscribers-missing-provider');
             }
             const subscribers = (await activeSubscribersProvider()) || [];
             const seen = new Set();
@@ -152,6 +169,6 @@ export async function resolveTargets({
 
         default:
             log('warn', `[resolveSwarmHeartbeatTargets] Unknown targetSource '${source}' (valid: ${VALID_TARGET_SOURCES.join('|')}); falling back to 'self'`);
-            return normalizedSelf ? [normalizedSelf] : [];
+            return selfFallback('unknown-source-fallback');
     }
 }
