@@ -47,7 +47,7 @@ function stableStringify(value) {
  * into the Native Edge Graph (SQLite) as first-class graph citizens — CONCEPT nodes plus typed edges
  * (PARENT_CONCEPT, IMPLEMENTED_BY, EXPLAINED_BY, EXEMPLIFIED_BY, ANALOGOUS_TO).
  *
- * This service is the Phase-0 bridge between the version-controlled concept graph maintained as
+ * This service is the bridge between the version-controlled concept graph maintained as
  * JSONL (cheap to edit, diff-friendly, PR-reviewable) and the runtime Native Edge Graph that
  * `GapInferenceEngine` traverses for deterministic gap detection. It mirrors the ingestor pattern
  * established by `IssueIngestor` and `FileSystemIngestor` — a singleton with a single public
@@ -56,14 +56,14 @@ function stableStringify(value) {
  * **Why differential sync?** The REM pipeline runs on local models (currently `gemma4-31b` — a
  * 256K-context frontier-capable open-weight model distilled from Gemini 3). Capability is not the
  * concern; I/O throughput is. Hashing concept payloads and skipping unchanged rows eliminates
- * redundant SQLite writes across cycles — 59 nodes today, potentially thousands after
- * #10050/#10036/#10037 enrichment. Cheap, deterministic, auditable.
+ * redundant SQLite writes across cycles — compact today, potentially thousands of nodes
+ * as ontology enrichment expands. Cheap, deterministic, auditable.
  *
- * **Why upsert-only, no deletions in Phase 1?** Concept removal is a data-hygiene concern handled
+ * **Why upsert-only, no deletions here?** Concept removal is a data-hygiene concern handled
  * by `GraphMaintenanceService`'s Fade / Apoptosis passes. This ingestor is strictly additive.
  *
- * This class is the canonical example of **deterministic graph ingestion** referenced by #10080
- * (relevance-bounded query layer) and the `tech-debt-radar` unbounded-API detection in #10082.
+ * This class is the canonical example of **deterministic graph ingestion** consumed by
+ * relevance-bounded query layers and tech-debt radar sweeps.
  *
  * @class Neo.ai.daemons.services.ConceptIngestor
  * @extends Neo.core.Base
@@ -102,14 +102,14 @@ class ConceptIngestor extends Base {
             tags       : conceptNode.tags        ?? [],
             tier       : conceptNode.tier        ?? 0,
             uniqueToNeo: !!conceptNode.uniqueToNeo,
-            // #10036: validated flag — unvalidated concepts are candidates from ConceptDiscoveryService
-            // awaiting human curation. `undefined` (legacy rows pre-#10036) is treated as validated.
+            // Unvalidated concepts are candidates from ConceptDiscoveryService awaiting human
+            // curation. `undefined` from legacy rows is treated as validated.
             // Flipping `validated: false → true` during curator review must trigger re-upsert, so the
             // flag contributes to the hash.
             validated  : conceptNode.validated !== false,
-            // #10574: verifiedAt freshness metadata is non-destructive. It queues re-verification
-            // work but never fades the CONCEPT node or its edges. Missing legacy values normalize
-            // to null and must trigger re-upsert when curators later stamp an ISO date.
+            // Freshness metadata is non-destructive. It queues re-verification work but never
+            // fades the CONCEPT node or its edges. Missing legacy values normalize to null and
+            // must trigger re-upsert when curators later stamp an ISO date.
             verifiedAt : conceptNode.verifiedAt ?? null
         };
 
@@ -198,8 +198,8 @@ class ConceptIngestor extends Base {
      * `capabilityGap` channel from this service — that emission lives in
      * `GapInferenceEngine.inferConceptGraphGaps`, which weight-gates the signal and routes it
      * through the same `capabilityGap` tag channel + `sandman_handoff.md` section pattern as
-     * `[GUIDE_GAP]` and `[EXAMPLE_GAP]`. See #10087 for the architectural rationale — per-orphan
-     * `logger.warn` was ephemeral in an offline daemon, the graph+handoff plane is durable.
+     * `[GUIDE_GAP]` and `[EXAMPLE_GAP]`. Per-orphan `logger.warn` output is ephemeral in an
+     * offline daemon; the graph+handoff plane is durable.
      *
      * @returns {Promise<Object>} Ingestion statistics: `{conceptsProcessed, conceptsUpserted, conceptsSkipped, edgesReplaced, orphansDetected, errors}`
      */
@@ -274,7 +274,7 @@ class ConceptIngestor extends Base {
                     // Orphan detection — no IMPLEMENTED_BY means no source code anchors this concept.
                     // Counted here for the cycle-summary stats line; the actionable `[ORPHAN_CONCEPT]`
                     // gap signal is emitted by `GapInferenceEngine.inferConceptGraphGaps` through the
-                    // durable `capabilityGap` channel + `sandman_handoff.md` section (see #10087).
+                    // durable `capabilityGap` channel + `sandman_handoff.md` section.
                     const hasImplementedBy = newEdges.some(e => e.type === CONCEPT_EDGE_TYPES.IMPLEMENTED_BY);
                     if (!hasImplementedBy && conceptNode.tier > 0) {
                         stats.orphansDetected++;
