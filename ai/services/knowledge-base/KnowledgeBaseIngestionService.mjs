@@ -6,6 +6,8 @@ import KBRecorderService     from './KBRecorderService.mjs';
 import RequestContextService,
        {normalizeUserId}    from '../../mcp/server/shared/services/RequestContextService.mjs';
 import SourceRegistry        from './source/_export.mjs';
+import {normalizeTenantRepoConfig}
+                             from './helpers/TenantRepoAccessContract.mjs';
 import VectorService         from './VectorService.mjs';
 import aiConfig              from '../../mcp/server/knowledge-base/config.mjs';
 import crypto                from 'crypto';
@@ -808,7 +810,8 @@ class KnowledgeBaseIngestionService extends Base {
                 useDefaultParsers: p.useDefaultParsers !== false,
                 customSources    : p.customSources || [],
                 customParsers    : p.customParsers || [],
-                sourcePaths      : p.sourcePaths    || {}
+                sourcePaths      : p.sourcePaths    || {},
+                tenantRepos      : p.tenantRepos    || []
             };
         }
 
@@ -816,28 +819,34 @@ class KnowledgeBaseIngestionService extends Base {
         const bootstrap = this.readKbConfigBootstrap()?.tenants?.[resolvedTenant];
 
         if (bootstrap) {
+            const normalizedBootstrap = normalizeTenantRepoConfig(bootstrap);
+
             return {
                 tenantId         : resolvedTenant,
                 source           : 'yaml',
                 version          : 0,
-                useDefaultSources: bootstrap.useDefaultSources !== false,
-                useDefaultParsers: bootstrap.useDefaultParsers !== false,
-                customSources    : bootstrap.customSources || [],
-                customParsers    : bootstrap.customParsers || [],
-                sourcePaths      : bootstrap.sourcePaths    || {}
+                useDefaultSources: normalizedBootstrap.useDefaultSources !== false,
+                useDefaultParsers: normalizedBootstrap.useDefaultParsers !== false,
+                customSources    : normalizedBootstrap.customSources || [],
+                customParsers    : normalizedBootstrap.customParsers || [],
+                sourcePaths      : normalizedBootstrap.sourcePaths    || {},
+                tenantRepos      : normalizedBootstrap.tenantRepos    || []
             };
         }
 
         // Tier 3 — default source/parser registry.
+        const normalizedAiConfig = normalizeTenantRepoConfig(aiConfig);
+
         return {
             tenantId         : resolvedTenant,
             source           : 'default',
             version          : 0,
-            useDefaultSources: aiConfig.useDefaultSources !== false,
-            useDefaultParsers: aiConfig.useDefaultParsers !== false,
-            customSources    : aiConfig.customSources || [],
-            customParsers    : aiConfig.customParsers || [],
-            sourcePaths      : aiConfig.sourcePaths    || {}
+            useDefaultSources: normalizedAiConfig.useDefaultSources !== false,
+            useDefaultParsers: normalizedAiConfig.useDefaultParsers !== false,
+            customSources    : normalizedAiConfig.customSources || [],
+            customParsers    : normalizedAiConfig.customParsers || [],
+            sourcePaths      : normalizedAiConfig.sourcePaths    || {},
+            tenantRepos      : normalizedAiConfig.tenantRepos    || []
         };
     }
 
@@ -888,7 +897,8 @@ class KnowledgeBaseIngestionService extends Base {
      */
     async setTenantConfig({tenantId, config = {}} = {}) {
         try {
-            const {tenantId: resolvedTenant} = this.resolveTenantContext({tenantId});
+            const {tenantId: resolvedTenant} = this.resolveTenantContext({tenantId}),
+                  normalizedConfig           = normalizeTenantRepoConfig(config);
 
             await this.graphService.initAsync();
 
@@ -901,11 +911,12 @@ class KnowledgeBaseIngestionService extends Base {
                 type      : 'KnowledgeBaseTenantConfig',
                 properties: {
                     tenantId         : resolvedTenant,
-                    useDefaultSources: config.useDefaultSources !== false,
-                    useDefaultParsers: config.useDefaultParsers !== false,
-                    customSources    : config.customSources || [],
-                    customParsers    : config.customParsers || [],
-                    sourcePaths      : config.sourcePaths    || {},
+                    useDefaultSources: normalizedConfig.useDefaultSources !== false,
+                    useDefaultParsers: normalizedConfig.useDefaultParsers !== false,
+                    customSources    : normalizedConfig.customSources || [],
+                    customParsers    : normalizedConfig.customParsers || [],
+                    sourcePaths      : normalizedConfig.sourcePaths    || {},
+                    tenantRepos      : normalizedConfig.tenantRepos    || [],
                     version,
                     visibility       : 'team'
                 }
