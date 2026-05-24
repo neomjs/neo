@@ -34,7 +34,7 @@ test.describe('Neo.ai.mcp.client.Client MCP Servers Health', () => {
         test(`Server '${serverName}' should boot, negotiate JSON-RPC, and respond to healthcheck`, async () => {
             let mcpClient = Neo.create(Client, {
                 clientName: 'Neo.ai.MCP.Playwright',
-                serverName: serverName,
+                serverName,
                 env       : process.env
             });
 
@@ -48,15 +48,15 @@ test.describe('Neo.ai.mcp.client.Client MCP Servers Health', () => {
                 expect(tools.length).toBeGreaterThan(0);
 
                 const camelCaseTools = Object.keys(mcpClient.tools);
-                
+
                 // Invoke healthcheck if available
                 if (camelCaseTools.includes('healthcheck')) {
                     const healthResult = await mcpClient.tools.healthcheck({});
                     expect(healthResult.isError).toBeFalsy();
-                    
+
                     const content = healthResult.content[0].text;
                     const parsed = JSON.parse(content);
-                    
+
                     // State should be healthy or degraded (missing API keys), but not unhealthy
                     expect(['healthy', 'degraded']).toContain(parsed.status);
                 } else {

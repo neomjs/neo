@@ -554,7 +554,7 @@ class MailboxService extends Base {
                         let name = c.split(':').slice(1).join(':');
                         GraphService.upsertNode({
                             id: c,
-                            type: type,
+                            type,
                             name: name || c,
                             properties: { auto_extracted: true }
                         });

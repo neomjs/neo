@@ -307,7 +307,7 @@ class Toolbar extends BaseToolbar {
 
                     columnPositions.push({
                         dataField: item.dataField,
-                        width: width,
+                        width,
                         x: currentX
                     });
 

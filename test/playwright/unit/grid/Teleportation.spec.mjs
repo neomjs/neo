@@ -50,7 +50,7 @@ test.describe('Grid Teleportation & VDOM Deltas', () => {
             appName  : 'GridTeleportationTest',
             height   : 400,
             width    : 600,
-            store    : store,
+            store,
             rowHeight: 40,
             columns  : [{
                 dataField: 'id',

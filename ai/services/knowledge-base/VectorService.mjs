@@ -531,7 +531,7 @@ class VectorService extends Base {
         do {
             batch = await collection.get({
                 include: [],
-                limit: limit,
+                limit,
                 offset: offset
             });
 

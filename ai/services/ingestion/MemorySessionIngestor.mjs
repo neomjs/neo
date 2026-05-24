@@ -392,10 +392,10 @@ class MemorySessionIngestor extends Base {
             name      : chromaId.slice(0, 12),
             properties: {
                 backfilled : true,
-                chromaId   : chromaId,
+                chromaId,
                 createdAt  : meta.createdAt,
-                payloadHash: payloadHash,
-                sessionId  : sessionId,
+                payloadHash,
+                sessionId,
                 userId     : meta.userId
             }
         });
@@ -467,10 +467,10 @@ class MemorySessionIngestor extends Base {
             name      : meta.title || sessionId,
             properties: {
                 backfilled : true,
-                chromaId   : chromaId,
+                chromaId,
                 createdAt  : meta.createdAt,
-                payloadHash: payloadHash,
-                sessionId  : sessionId,
+                payloadHash,
+                sessionId,
                 userId     : meta.userId
             }
         });
