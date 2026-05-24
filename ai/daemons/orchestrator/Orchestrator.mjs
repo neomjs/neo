@@ -16,14 +16,7 @@ import {
 } from '../bridge/queries.mjs';
 import SummarizationCoordinatorService from './services/SummarizationCoordinatorService.mjs';
 import BackupCoordinatorService        from './services/BackupCoordinatorService.mjs';
-import {
-    acquireHeavyMaintenanceLeaseSync,
-    releaseHeavyMaintenanceLeaseSync
-} from './services/HeavyMaintenanceLeaseService.mjs';
-import {
-    DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
-    DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
-} from './services/MaintenanceBackpressureService.mjs';
+import MaintenanceBackpressureService  from './services/MaintenanceBackpressureService.mjs';
 import PrimaryRepoSyncService, {
     DEV_SYNC_ROOTS_CONFIG_KEY,
     DEV_SYNC_ROOTS_ENV_VAR
@@ -189,7 +182,17 @@ export class Orchestrator extends Base {
          * @member {Function} spawnFn_=spawn
          * @reactive
          */
-        spawnFn_: spawn
+        spawnFn_: spawn,
+        /**
+         * @member {Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService|Object|null} maintenanceBackpressureService_=MaintenanceBackpressureService
+         * @reactive
+         */
+        maintenanceBackpressureService_: MaintenanceBackpressureService,
+        /**
+         * @member {String|null} heavyMaintenanceLeasePath_=null
+         * @reactive
+         */
+        heavyMaintenanceLeasePath_: null
     }
 
     // === Service-DI Class C: simple imported collaborators (instance fields) ===
@@ -208,11 +211,7 @@ export class Orchestrator extends Base {
     dbPath                        = DEFAULT_DB_PATH
     logFile                       = null
     stateFile                     = null
-    heavyMaintenanceLeasePath     = null
     primaryDevSyncRootsConfig     = null
-    maintenanceDeferralLogKeys    = null
-    heavyMaintenanceTaskNames     = DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
-    goldenPathDependencyTaskNames = DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
 
     /**
      * Stable logger seam for the processSupervisorService writeLog config slot.
@@ -232,7 +231,7 @@ export class Orchestrator extends Base {
         return ClassSystemUtil.beforeSetInstance(value, CadenceEngine, {});
     }
 
-    // === Service-DI Class B: processSupervisorService beforeSet + parent afterSet propagation ===
+    // === Service-DI Class B: processSupervisorService + maintenanceBackpressureService beforeSet + parent afterSet propagation ===
     /**
      * @param {Neo.ai.daemons.services.ProcessSupervisorService|Object|null} value
      * @returns {Neo.ai.daemons.services.ProcessSupervisorService}
@@ -248,20 +247,44 @@ export class Orchestrator extends Base {
         });
     }
 
+    /**
+     * @param {Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService|Object|null} value
+     * @returns {Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureService}
+     */
+    beforeSetMaintenanceBackpressureService(value) {
+        return ClassSystemUtil.beforeSetInstance(value, MaintenanceBackpressureService, {
+            dataDir                  : this.dataDir,
+            taskDefinitions          : this.taskDefinitions,
+            taskStateService         : this.taskStateService,
+            healthService            : this.healthService,
+            heavyMaintenanceLeasePath: this.heavyMaintenanceLeasePath,
+            // Invoke-time arrow so test overrides of `orchestrator.writeLog` flow through to MBS.
+            // Same pattern as `processSupervisorWriteLog` field (line ~222).
+            writeLog                 : (level, msg) => this.writeLog(level, msg)
+        });
+    }
+
     afterSetDataDir(value) {
-        if (this.processSupervisorService) this.processSupervisorService.dataDir = value;
+        if (this.processSupervisorService)         this.processSupervisorService.dataDir = value;
+        if (this.maintenanceBackpressureService)   this.maintenanceBackpressureService.dataDir = value;
     }
     afterSetTaskDefinitions(value) {
-        if (this.processSupervisorService) this.processSupervisorService.taskDefinitions = value;
+        if (this.processSupervisorService)         this.processSupervisorService.taskDefinitions = value;
+        if (this.maintenanceBackpressureService)   this.maintenanceBackpressureService.taskDefinitions = value;
     }
     afterSetTaskStateService(value) {
-        if (this.processSupervisorService) this.processSupervisorService.taskStateService = value;
+        if (this.processSupervisorService)         this.processSupervisorService.taskStateService = value;
+        if (this.maintenanceBackpressureService)   this.maintenanceBackpressureService.taskStateService = value;
     }
     afterSetHealthService(value) {
-        if (this.processSupervisorService) this.processSupervisorService.healthService = value;
+        if (this.processSupervisorService)         this.processSupervisorService.healthService = value;
+        if (this.maintenanceBackpressureService)   this.maintenanceBackpressureService.healthService = value;
     }
     afterSetSpawnFn(value) {
         if (this.processSupervisorService) this.processSupervisorService.spawnFn = value;
+    }
+    afterSetHeavyMaintenanceLeasePath(value) {
+        if (this.maintenanceBackpressureService) this.maintenanceBackpressureService.heavyMaintenanceLeasePath = value;
     }
 
     // === Service-DI Class D: operator policy values (lazy getters, 2-value chain) ===
@@ -322,7 +345,6 @@ export class Orchestrator extends Base {
         this.stateFile                 = options.stateFile || path.join(dataDir, 'orchestrator-state.json');
         this.heavyMaintenanceLeasePath = options.heavyMaintenanceLeasePath ?? this.heavyMaintenanceLeasePath;
         this.primaryDevSyncRootsConfig = options.primaryDevSyncRootsConfig ?? null;
-        this.maintenanceDeferralLogKeys = new Set();
 
         fs.ensureDirSync(this.dataDir);
 
@@ -339,6 +361,11 @@ export class Orchestrator extends Base {
         // flow through afterSet* propagation hooks.
         this.processSupervisorService = {};
         this.processSupervisorService.recoverTasks();
+
+        // Re-trigger maintenanceBackpressureService beforeSet to pick up current parent state
+        // (dataDir / taskDefinitions / taskStateService / healthService / heavyMaintenanceLeasePath
+        // were set above; the static-config pre-create at construct time used defaults).
+        this.maintenanceBackpressureService = {};
 
         this.db = this.initializeDatabaseFn(this.dbPath);
 
@@ -403,313 +430,6 @@ export class Orchestrator extends Base {
     }
 
     /**
-     * Checks whether a task participates in cross-task maintenance backpressure.
-     * @param {String} taskName Stable orchestrator task name.
-     * @returns {Boolean}
-     */
-    isHeavyMaintenanceTask(taskName) {
-        return this.heavyMaintenanceTaskNames.includes(taskName);
-    }
-
-    /**
-     * Checks whether a running task should delay Golden Path frontier refresh.
-     * @param {String} taskName Stable orchestrator task name.
-     * @returns {Boolean}
-     */
-    isGoldenPathDependencyTask(taskName) {
-        return this.goldenPathDependencyTaskNames.includes(taskName);
-    }
-
-    /**
-     * Finds the first running heavy maintenance task.
-     * @param {Object} [options]
-     * @param {String|null} [options.excludeTaskName=null] Task name to ignore.
-     * @returns {String|null}
-     */
-    findActiveHeavyMaintenanceTask({excludeTaskName = null} = {}) {
-        for (const taskName of this.heavyMaintenanceTaskNames) {
-            if (taskName === excludeTaskName) {
-                continue;
-            }
-
-            if (this.taskStateService.getTaskState(taskName)?.running) {
-                return taskName;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Finds a running task that would make Golden Path read partial graph state.
-     * @param {Object} [options]
-     * @param {String|null} [options.activeTaskName=null] Newly started task in the current poll.
-     * @returns {String|null}
-     */
-    findActiveGoldenPathDependencyTask({activeTaskName = null} = {}) {
-        if (activeTaskName && this.isGoldenPathDependencyTask(activeTaskName)) {
-            return activeTaskName;
-        }
-
-        for (const taskName of this.goldenPathDependencyTaskNames) {
-            if (this.taskStateService.getTaskState(taskName)?.running) {
-                return taskName;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Clears dedupe keys for a task once it is no longer deferred.
-     * @param {String} taskName Stable orchestrator task name.
-     * @returns {void}
-     */
-    clearMaintenanceDeferralLogState(taskName) {
-        if (!this.maintenanceDeferralLogKeys) {
-            return;
-        }
-
-        const prefix = `${taskName}:`;
-
-        for (const key of this.maintenanceDeferralLogKeys) {
-            if (key.startsWith(prefix)) {
-                this.maintenanceDeferralLogKeys.delete(key);
-            }
-        }
-    }
-
-    /**
-     * Records a sparse non-error deferral when another heavy maintenance task is active.
-     * @param {String} taskName Deferred task name.
-     * @param {String} blockingTaskName Active heavy maintenance task name.
-     * @param {String} reason Scheduling reason for the deferred task.
-     * @returns {void}
-     */
-    recordMaintenanceDeferral(taskName, blockingTaskName, reason) {
-        this.maintenanceDeferralLogKeys ??= new Set();
-
-        const key = `${taskName}:${blockingTaskName}:${reason}`;
-
-        if (!this.maintenanceDeferralLogKeys.has(key)) {
-            const taskLabel     = this.taskDefinitions?.[taskName]?.label || taskName;
-            const blockingLabel = this.taskDefinitions?.[blockingTaskName]?.label || blockingTaskName;
-
-            this.writeLog('INFO', `[Orchestrator] Deferring ${taskLabel}; heavy maintenance task ${blockingLabel} is active (${reason}).`);
-            this.maintenanceDeferralLogKeys.add(key);
-        }
-
-        this.healthService?.recordTaskOutcome?.(taskName, 'skipped', {
-            reason,
-            reasonCode     : 'heavy-maintenance-backpressure',
-            blockingTaskName,
-            deferredAt     : new Date().toISOString()
-        });
-    }
-
-    /**
-     * #11519: Records a non-error deferral when another orchestrator process holds
-     * the shared heavy-maintenance lease (cross-daemon backpressure).
-     *
-     * Mirrors `recordMaintenanceDeferral` shape but distinguished by `reasonCode`
-     * so operator dashboards + Memory Core graph ingestion can separate
-     * intra-process backpressure (`heavy-maintenance-backpressure`) from
-     * inter-process file-lease backpressure (`heavy-maintenance-lease-held`).
-     *
-     * @param {String} taskName Deferred task name.
-     * @param {Object|null} holdingLease Lease payload of the active owner (token-stripped).
-     * @param {String} reason Scheduling reason for the deferred task.
-     * @returns {void}
-     */
-    recordCrossDaemonLeaseDeferral(taskName, holdingLease, reason) {
-        this.maintenanceDeferralLogKeys ??= new Set();
-
-        const holderOwner = holdingLease?.owner || 'unknown';
-        const key         = `${taskName}:lease-held-by-${holderOwner}:${reason}`;
-
-        if (!this.maintenanceDeferralLogKeys.has(key)) {
-            const taskLabel = this.taskDefinitions?.[taskName]?.label || taskName;
-
-            this.writeLog('INFO', `[Orchestrator] Deferring ${taskLabel}; cross-daemon heavy-maintenance lease held by ${holderOwner} (${reason}).`);
-            this.maintenanceDeferralLogKeys.add(key);
-        }
-
-        this.healthService?.recordTaskOutcome?.(taskName, 'skipped', {
-            reason,
-            reasonCode  : 'heavy-maintenance-lease-held',
-            holdingOwner: holderOwner,
-            holdingPid  : holdingLease?.pid,
-            deferredAt  : new Date().toISOString()
-        });
-    }
-
-    /**
-     * Records a sparse Golden Path deferral when graph-mutating dependencies are active.
-     * @param {String} blockingTaskName Active dependency task name.
-     * @param {String} reason Scheduling reason for the Golden Path task.
-     * @returns {void}
-     */
-    recordGoldenPathDependencyDeferral(blockingTaskName, reason) {
-        this.maintenanceDeferralLogKeys ??= new Set();
-
-        const key = `${GOLDEN_PATH_TASK_NAME}:${blockingTaskName}:${reason}`;
-
-        if (!this.maintenanceDeferralLogKeys.has(key)) {
-            const taskLabel     = this.taskDefinitions?.[GOLDEN_PATH_TASK_NAME]?.label || GOLDEN_PATH_TASK_NAME;
-            const blockingLabel = this.taskDefinitions?.[blockingTaskName]?.label || blockingTaskName;
-
-            this.writeLog('INFO', `[Orchestrator] Deferring ${taskLabel}; dependency task ${blockingLabel} is active (${reason}).`);
-            this.maintenanceDeferralLogKeys.add(key);
-        }
-
-        this.healthService?.recordTaskOutcome?.(GOLDEN_PATH_TASK_NAME, 'skipped', {
-            reason,
-            reasonCode     : 'golden-path-dependency-backpressure',
-            blockingTaskName,
-            deferredAt     : new Date().toISOString()
-        });
-    }
-
-    /**
-     * #11519: Resolves the shared heavy-maintenance lease file path with multi-tier
-     * fallback. Defensive at use-site rather than configure-time so direct
-     * `poll()` callers (unit tests bypass `start()`) inherit a dataDir-scoped path
-     * instead of accidentally writing to the canonical production lease.
-     *
-     * @returns {String}
-     */
-    resolveHeavyMaintenanceLeasePath() {
-        if (this.heavyMaintenanceLeasePath) {
-            return this.heavyMaintenanceLeasePath;
-        }
-        return path.join(this.dataDir || DEFAULT_DATA_DIR, 'heavy-maintenance-lease.json');
-    }
-
-    /**
-     * Wraps a task executor with cross-task heavy-maintenance backpressure.
-     *
-     * **Two-tier backpressure (intra-process + inter-process):**
-     * 1. **Intra-process** (existing): in-process `activeHeavyTask` tracker
-     *    serializes heavy tasks within a single orchestrator poll cycle.
-     * 2. **Inter-process** (#11519 cross-daemon): shared file lease at
-     *    `heavyMaintenanceLeasePath` serializes heavy tasks across
-     *    concurrent orchestrator daemons (operator-restart-overlap, dev vs prod
-     *    daemon sets, manual CLI scripts running alongside).
-     *
-     * @param {Function} executeFn Task executor; receives `(taskName, reason, onSuccess, options)`.
-     * @param {Object} activeHeavyTask Mutable active-heavy tracker for the current poll.
-     * @returns {Function}
-     */
-    createMaintenanceExecutor(executeFn, activeHeavyTask) {
-        return (taskName, reason, onSuccess) => {
-            const reasonText = reason || 'scheduled';
-
-            if (this.isHeavyMaintenanceTask(taskName)) {
-                const blockingTaskName = activeHeavyTask.name && activeHeavyTask.name !== taskName
-                    ? activeHeavyTask.name
-                    : this.findActiveHeavyMaintenanceTask({excludeTaskName: taskName});
-
-                if (blockingTaskName) {
-                    this.recordMaintenanceDeferral(taskName, blockingTaskName, reasonText);
-                    return false;
-                }
-
-                let acquisition;
-                try {
-                    acquisition = acquireHeavyMaintenanceLeaseSync({
-                        owner    : taskName,
-                        reason   : reasonText,
-                        metadata : {source: 'orchestrator'},
-                        leasePath: this.resolveHeavyMaintenanceLeasePath()
-                    });
-                } catch (e) {
-                    this.writeLog('ERROR', `[Orchestrator] Heavy-maintenance lease acquire failed for ${taskName}: ${e.message}`);
-                    this.healthService?.recordTaskOutcome?.(taskName, 'failed', {
-                        reason     : reasonText,
-                        reasonCode : 'heavy-maintenance-lease-acquire-error',
-                        error      : e.message,
-                        failedAt   : new Date().toISOString()
-                    });
-                    return false;
-                }
-
-                if (!acquisition.acquired) {
-                    this.recordCrossDaemonLeaseDeferral(taskName, acquisition.lease, reasonText);
-                    return false;
-                }
-
-                this.clearMaintenanceDeferralLogState(taskName);
-
-                const releaseLease = () => {
-                    try {
-                        releaseHeavyMaintenanceLeaseSync({
-                            token    : acquisition.lease.token,
-                            leasePath: this.resolveHeavyMaintenanceLeasePath()
-                        });
-                    } catch (e) {
-                        this.writeLog('ERROR', `[Orchestrator] Heavy-maintenance lease release failed for ${taskName}: ${e.message}`);
-                    }
-                };
-
-                const taskOptions = {
-                    env       : {NEO_HEAVY_MAINTENANCE_LEASE_INHERITED_TOKEN: acquisition.lease.token},
-                    onComplete: releaseLease
-                };
-
-                let result;
-                try {
-                    result = executeFn(taskName, reason, onSuccess, taskOptions);
-                } catch (e) {
-                    releaseLease();
-                    throw e;
-                }
-
-                if (result === false) {
-                    releaseLease();
-                } else if (result && typeof result.then === 'function') {
-                    result.then(releaseLease, releaseLease);
-                } else if (result !== true) {
-                    releaseLease();
-                }
-
-                if (result !== false) {
-                    activeHeavyTask.name = taskName;
-                }
-
-                return result;
-            }
-
-            this.clearMaintenanceDeferralLogState(taskName);
-
-            return executeFn(taskName, reason, onSuccess);
-        };
-    }
-
-    /**
-     * Wraps Golden Path execution with dependency ordering without making it a heavyweight blocker.
-     * @param {Function} executeFn Task executor.
-     * @param {Object} activeHeavyTask Mutable active-heavy tracker for the current poll.
-     * @returns {Function}
-     */
-    createGoldenPathExecutor(executeFn, activeHeavyTask) {
-        return (taskName, reason) => {
-            const reasonText = reason || 'scheduled';
-            const blockingTaskName = this.findActiveGoldenPathDependencyTask({
-                activeTaskName: activeHeavyTask.name
-            });
-
-            if (blockingTaskName) {
-                this.recordGoldenPathDependencyDeferral(blockingTaskName, reasonText);
-                return false;
-            }
-
-            this.clearMaintenanceDeferralLogState(taskName);
-
-            return executeFn(taskName, reason);
-        };
-    }
-
-    /**
      * Executes a sweep and schedules the next poll when the daemon remains active.
      * @returns {void}
      */
@@ -737,8 +457,11 @@ export class Orchestrator extends Base {
             }
         }
 
-        const activeHeavyTask = {name: this.findActiveHeavyMaintenanceTask()};
-        const executeMaintenanceTask = executeFn => this.createMaintenanceExecutor(executeFn, activeHeavyTask);
+        const activeHeavyTask = {name: this.maintenanceBackpressureService.getActiveHeavyMaintenanceTask()};
+        const executeMaintenanceTask = executeFn => (taskName, reason, onSuccess) =>
+            this.maintenanceBackpressureService.acquireLeaseAndExecute({
+                taskName, executeFn, reason, onSuccess, activeHeavyTask
+            });
 
         this.cadenceEngine.runIfDue('summary', () => {
             return this.summarizationCoordinator.getDueTask({
@@ -830,22 +553,27 @@ export class Orchestrator extends Base {
                 return { reason: `periodic-golden-path:${this.goldenPathIntervalMs}` };
             }
             return null;
-        }, this.createGoldenPathExecutor(async (taskName, reason) => {
-            this.taskStateService.markStarted(taskName, reason.reason);
-            this.healthService?.recordTaskOutcome?.(taskName, 'running', { reason, startedAt: new Date().toISOString() });
-            try {
-                await this.goldenPathSynthesizer.synthesizeGoldenPath({
-                    repoEnrichmentEnabled: this.goldenPathRepoEnrichmentEnabled
-                });
-                this.taskStateService.markCompleted(taskName);
-                this.healthService?.recordTaskOutcome?.(taskName, 'completed', { reason, completedAt: new Date().toISOString() });
-            } catch (e) {
-                const state = this.taskStateService.getTaskState(taskName);
-                if (state) state.lastReason = e.message;
-                this.taskStateService.markFailed(taskName, 1);
-                this.healthService?.recordTaskOutcome?.(taskName, 'failed', { reason, error: e.message, failedAt: new Date().toISOString() });
-            }
-        }, activeHeavyTask), context);
+        }, (taskName, reason) => this.maintenanceBackpressureService.executeWithGoldenPathDependencyGate({
+            taskName,
+            executeFn: async (innerTaskName, innerReason) => {
+                this.taskStateService.markStarted(innerTaskName, innerReason.reason);
+                this.healthService?.recordTaskOutcome?.(innerTaskName, 'running', { reason: innerReason, startedAt: new Date().toISOString() });
+                try {
+                    await this.goldenPathSynthesizer.synthesizeGoldenPath({
+                        repoEnrichmentEnabled: this.goldenPathRepoEnrichmentEnabled
+                    });
+                    this.taskStateService.markCompleted(innerTaskName);
+                    this.healthService?.recordTaskOutcome?.(innerTaskName, 'completed', { reason: innerReason, completedAt: new Date().toISOString() });
+                } catch (e) {
+                    const state = this.taskStateService.getTaskState(innerTaskName);
+                    if (state) state.lastReason = e.message;
+                    this.taskStateService.markFailed(innerTaskName, 1);
+                    this.healthService?.recordTaskOutcome?.(innerTaskName, 'failed', { reason: innerReason, error: e.message, failedAt: new Date().toISOString() });
+                }
+            },
+            reason,
+            activeHeavyTask
+        }), context);
 
         // #11766: swarm-heartbeat lane. NOT heavy maintenance — the pulse is a light
         // wake-substrate check, so the executor runs directly (no `executeMaintenanceTask`
