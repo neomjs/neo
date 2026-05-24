@@ -125,6 +125,24 @@ Per `AGENTS.md` §pr_diff_equals_pr_body: PR body + review templates are graph-i
 **15.4 Ask the Expert Protocol:** Treat `ask_knowledge_base` as an Embedded RAG Sub-Agent.
 **15.5 Neo Identity Anchor:** in main `AGENTS.md` §neo_identity_anchor as the per-turn anti-drift priming surface.
 
+## §source_code_documentation_intent_contract [DISCIPLINE-ONLY]
+Source-code comments and JSDoc explain durable intent, invariant, and maintenance boundary. They default to NO ticket / PR / lane / AC / cycle / line-number anchors. If historical context is still needed to maintain the code, promote the decision to a durable authority surface (ADR, AGENTS rule, this atlas, learn doc, owning-primitive docs) FIRST, then cite the promoted surface or a stable code symbol — never the original snapshot.
+
+PR bodies, commit messages, ticket bodies, and Discussion comments are carved out: archaeology IS the value there because those artifacts are graph-ingestion substrate. The rule targets source surfaces that future maintainers read in isolation, after the originating snapshot has decayed.
+
+Six operational tests (full rule body + reviewer Required Action template + diagnostic command in `.agents/skills/pr-review/references/pr-review-guide.md §7.4.1`):
+
+1. **Snapshot test** — no ticket/PR/lane/AC/cycle/line range in source-code comments by default.
+2. **Promotion test** — durable decisions cited via authority surface, not original snapshot.
+3. **Symbol test** — stable symbols (`Base#ready()`, `Service#method()`) or canonical docs over line numbers.
+4. **Consumer-boundary test** — generic Neo/framework patterns live in owning primitive's docs; consumers document only their local boundary.
+5. **Removal test** — if removing the anchor wouldn't block a future correct change, the anchor is archaeology.
+6. **Contract test** — current contract (ADR / AGENTS / KB / symbol) may stay; implementation diary (Discussion thread, PR cycle log, lane name) must move out of source.
+
+**Test-description carve-out**: `test.describe(...)` / `test(...)` / `it(...)` titles may cite ticket/AC when serving as AC-verification artifact; test-body comments follow the strict rule.
+
+The contract extends `§knowledge_base_primary_truth` Contextual Completeness Gate (Anchor & Echo): Anchor & Echo establishes vocabulary; this contract prevents the vocabulary from being polluted with snapshot archaeology that decays under living architecture. Default placement: PR-review skill payload (skill-loaded only when `/pr-review` fires) + this atlas note (occasional-loaded on architectural sweeps). `AGENTS.md` placement deliberately avoided to satisfy `AGENTS.md` §substrate_accretion_defense (no always-loaded turn-substrate impact).
+
 ## §implementation_loop [DISCIPLINE-ONLY]
 Step 1: Query & Analyze. Step 2: Implement Changes. Step 3: Verify.
 

@@ -1,6 +1,6 @@
 # Pull Request Review Guide
 
-This document outlines the authoritative protocol for structuring Pull Request Reviews within the Neo.mjs project. 
+This document outlines the authoritative protocol for structuring Pull Request Reviews within the Neo.mjs project.
 Whether you are a human reviewer or an autonomous Agent evaluating code, you must adhere to this structure.
 
 This protocol ensures that feedback is:
@@ -86,7 +86,7 @@ Cycle 1 / cold-cache reviews score every metric explicitly in the full template.
 - Do not silently omit metrics. The delta form reduces thread bulk; it does not erase the scoring surface.
 
 ## 4. Graph Ingestion Tags
-To bridge the gap between human/agent code review and the internal Agent OS memory, you MUST use the following explicit markdown tags for any critical feedback. 
+To bridge the gap between human/agent code review and the internal Agent OS memory, you MUST use the following explicit markdown tags for any critical feedback.
 The Retrospective daemon explicitly regex-matches these tags during REM sleep:
 
 *   **`[KB_GAP]`**: Use this to document missing concepts, misunderstandings of framework logic, or areas where the developer (or agent) clearly lacked documentation.
@@ -297,6 +297,8 @@ Within-PR rhetorical drift is one shape; the §7.4 audit ALSO covers a sibling s
 **Empirical anchor — #11149 → #11153 cascade (2026-05-10):** reviewer planted "pnpm `node_modules/.pnpm/neo.mjs@*` heuristic" as "Future Enhancement" in PR #11149 cycle-1 review WITHOUT V-B-A'ing whether Neo uses pnpm (operator-confirmed: npm only). The seed became #11153's implementation premise. Two review cycles approved #11153 without empirical recheck. Operator intervention required to break the cascade ([retraction at PR #11153 review](https://github.com/neomjs/neo/pull/11153#pullrequestreview-4259953644); subsequently superseded by #11155 → PR #11158 reverting to v12.1.0 shape).
 
 **Discipline:** the seeder owns V-B-A cost at plant-time, not at implement-time. Before adding a "Future Enhancement" / "non-blocking observation" / "follow-up suggestion" to a review, the reviewer MUST V-B-A the premise via the same tool inventory as §3.5 — the cost is paid at the cheaper plant-time-by-the-author-of-the-observation rather than the expensive implement-time-by-an-unrelated-author. Unverified observations MUST be tagged explicitly as `hypothesis — needs V-B-A before implementation` so future implementers don't treat them as verified gaps.
+
+<!-- trigger: source-code comment archaeology / why-first audit → read audits/source-code-why-first-audit.md -->
 
 ### 7.5 Test-Execution & Location Audit
 

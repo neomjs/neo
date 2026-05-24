@@ -51,6 +51,20 @@ Verify symmetry between stated framing and mechanical implementation:
 
 **Findings:** [Pass / specific drift flagged with Required Action / N/A]
 
+**Source-Code Why-First Audit (per guide §7.4.1):**
+
+*(Required when the PR adds or modifies source-code comments / JSDoc. Mark N/A for docs-only, config-only, or generated-file changes.)*
+
+Source-code comments default to NO ticket / PR / lane / AC / cycle / line-number anchors:
+
+- [ ] Snapshot test: no comment anchor binds to a snapshot artifact (ticket / PR / lane / AC / cycle / line range)
+- [ ] Promotion test: still-relevant historical decisions cited via promoted authority surface (ADR / AGENTS / AGENTS_ATLAS / learn doc / owning-primitive docs), not the original snapshot
+- [ ] Symbol test: stable symbols (`Base#ready()`, `Service#method()`) or canonical docs cited instead of line numbers
+- [ ] Consumer-boundary test: generic Neo/framework patterns (e.g., `initAsync()` semantics, dotenv loading) NOT re-explained in consumer; consumers document only local boundary or exception
+- [ ] Test-description carve-out applied correctly: `it()` / `describe()` titles may cite ticket/AC when the test is the AC-verification artifact; comments INSIDE test bodies follow strict rule
+
+**Findings:** [Pass / specific archaeology flagged with Required Action / N/A]
+
 ---
 
 ### 🧠 Graph Ingestion Notes
