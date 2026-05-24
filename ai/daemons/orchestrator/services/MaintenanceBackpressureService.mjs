@@ -307,6 +307,81 @@ export class MaintenanceBackpressureService extends Base {
      */
     deferralLogKeys = new Set()
 
+    /**
+     * @summary Atomic-from-caller-perspective bulk binding update.
+     *
+     * Two parent-Orchestrator wiring patterns coexist on this service:
+     *
+     * 1. **Class B afterSet propagation** — primary pattern for the local single-repo
+     *    Orchestrator deployment. Parent Orchestrator declares afterSet hooks on the
+     *    consumed parent props (`writeLog`, `healthService`, `taskStateService`,
+     *    `taskDefinitions`, `dataDir`, `heavyMaintenanceLeasePath`) and forwards
+     *    changes via `mbs.applyBindings({field: newValue})`. Per-prop updates flow
+     *    individually.
+     *
+     * 2. **Per-poll refresh** — alternative pattern for the planned cloud multi-repo
+     *    Orchestrator deployment (one Orchestrator polling N tenant repos). At the
+     *    start of each poll cycle, the Orchestrator calls
+     *    `mbs.applyBindings({...allBindings})` with the current repo context — same
+     *    singleton MBS serves N repo contexts via per-poll rebind. The
+     *    `clearDeferralLogState` reset is left to the caller; deferral state is
+     *    per-context.
+     *
+     * Bindings absent from the input object are NOT cleared — only present keys
+     * mutate state. This keeps the per-prop afterSet caller from clobbering
+     * unrelated bindings.
+     *
+     * @param {Object}        bindings
+     * @param {Function}      [bindings.writeLog]
+     * @param {Object|null}   [bindings.healthService]
+     * @param {Object|null}   [bindings.taskStateService]
+     * @param {Object|null}   [bindings.taskDefinitions]
+     * @param {String|null}   [bindings.heavyMaintenanceLeasePath]
+     * @param {String}        [bindings.dataDir]
+     * @param {String[]}      [bindings.heavyMaintenanceTaskNames]
+     * @param {String[]}      [bindings.goldenPathDependencyTaskNames]
+     * @param {Function}      [bindings.acquireLeaseFn]
+     * @param {Function}      [bindings.releaseLeaseFn]
+     * @returns {void}
+     */
+    applyBindings(bindings = {}) {
+        if ('writeLog'                       in bindings) this.writeLog                       = bindings.writeLog;
+        if ('healthService'                  in bindings) this.healthService                  = bindings.healthService;
+        if ('taskStateService'               in bindings) this.taskStateService               = bindings.taskStateService;
+        if ('taskDefinitions'                in bindings) this.taskDefinitions                = bindings.taskDefinitions;
+        if ('heavyMaintenanceLeasePath'      in bindings) this.heavyMaintenanceLeasePath      = bindings.heavyMaintenanceLeasePath;
+        if ('dataDir'                        in bindings) this.dataDir                        = bindings.dataDir;
+        if ('heavyMaintenanceTaskNames'      in bindings) this.heavyMaintenanceTaskNames      = bindings.heavyMaintenanceTaskNames;
+        if ('goldenPathDependencyTaskNames'  in bindings) this.goldenPathDependencyTaskNames  = bindings.goldenPathDependencyTaskNames;
+        if ('acquireLeaseFn'                 in bindings) this.acquireLeaseFn                 = bindings.acquireLeaseFn;
+        if ('releaseLeaseFn'                 in bindings) this.releaseLeaseFn                 = bindings.releaseLeaseFn;
+    }
+
+    /**
+     * @summary Test-isolation reset. Clears per-instance deferral state + nullifies
+     * all parent-prop bindings to release singleton state for the next test/context.
+     *
+     * Production callers should NOT use this — Class B propagation and per-poll
+     * refresh both expect the prior bindings to persist between updates. Reserved
+     * for test `afterEach` cleanup against the singleton-state-leak risk.
+     * @returns {void}
+     */
+    resetBindings() {
+        this.applyBindings({
+            writeLog                      : () => {},
+            healthService                 : null,
+            taskStateService              : null,
+            taskDefinitions               : null,
+            heavyMaintenanceLeasePath     : null,
+            dataDir                       : DEFAULT_DATA_DIR,
+            heavyMaintenanceTaskNames     : DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
+            goldenPathDependencyTaskNames : DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES,
+            acquireLeaseFn                : acquireHeavyMaintenanceLeaseSync,
+            releaseLeaseFn                : releaseHeavyMaintenanceLeaseSync
+        });
+        this.deferralLogKeys.clear();
+    }
+
     // --- Predicate / finder delegations to module-level pure functions ---
 
     /**

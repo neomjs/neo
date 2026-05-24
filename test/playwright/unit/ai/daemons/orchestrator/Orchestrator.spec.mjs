@@ -8,7 +8,7 @@ import {
     resolvePrimaryDevSyncRootsConfig,
     resolvePrimaryDevSyncRootsSource
 } from '../../../../../../ai/daemons/orchestrator/Orchestrator.mjs';
-import {
+import MaintenanceBackpressureService, {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
 } from '../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs';
 import {
@@ -92,6 +92,23 @@ function createTestOrchestrator(config = {}) {
         spawnFn                  : config.spawnFn       || (() => { throw new Error('spawnFn not expected'); })
     });
 
+    // MBS is a Neo singleton — Neo.create can't reach `heavyMaintenanceLeasePath`
+    // through Class B propagation when it's a plain Orchestrator instance field
+    // rather than a reactive config. Sync per-test bindings explicitly so the
+    // singleton MBS sees the unique per-test lease path + the propagated
+    // collaborators. Mirrors the runtime contract: parent owns the bindings,
+    // service is the consumer.
+    orchestrator.maintenanceBackpressureService.applyBindings({
+        heavyMaintenanceLeasePath,
+        taskDefinitions,
+        taskStateService             : TaskStateService,
+        healthService                : orchestrator.healthService,
+        dataDir                      : orchestrator.dataDir,
+        heavyMaintenanceTaskNames    : orchestrator.heavyMaintenanceTaskNames,
+        goldenPathDependencyTaskNames: orchestrator.goldenPathDependencyTaskNames,
+        writeLog                     : orchestrator.maintenanceBackpressureWriteLog
+    });
+
     // Class C simple-imported collaborators — instance fields, not reachable via Neo.create
     orchestrator.summarizationCoordinator = config.summarizationCoordinator || {getDueTask: () => null};
     orchestrator.backupCoordinator        = config.backupCoordinator        || {getDueTask: () => null};
@@ -115,6 +132,11 @@ test.afterEach(() => {
         Object.assign(AiConfig.orchestrator.localOnly, savedLocalOnly);
         savedLocalOnly = null;
     }
+
+    // Reset the MBS singleton against state-leak between tests. MBS exposes
+    // `resetBindings()` specifically for this purpose; production callers must NOT
+    // use it (Class B and per-poll-refresh patterns both rely on bindings persisting).
+    MaintenanceBackpressureService.resetBindings();
 });
 
 test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
