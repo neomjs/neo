@@ -9,7 +9,7 @@ import path                        from 'path';
 import Base                        from '../../../src/core/Base.mjs';
 import ClassSystemUtil             from '../../../src/util/ClassSystem.mjs';
 import Env                         from '../../../src/util/Env.mjs';
-import AiConfig                    from '../../config.template.mjs';
+import AiConfig                    from '../../config.mjs';
 import HealthService               from '../../services/memory-core/HealthService.mjs';
 import {
     initializeDatabase

@@ -11,7 +11,7 @@ import {fileURLToPath}  from 'url';
 import Neo              from '../../../src/Neo.mjs';
 import * as core        from '../../../src/core/_export.mjs';
 import InstanceManager  from '../../../src/manager/Instance.mjs';
-import AiConfig         from '../../config.template.mjs';
+import AiConfig         from '../../config.mjs';
 import kbConfig         from '../../mcp/server/knowledge-base/config.mjs';
 import mcConfig         from '../../mcp/server/memory-core/config.mjs';
 

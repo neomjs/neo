@@ -2,22 +2,18 @@ import Ollama           from '../../provider/Ollama.mjs';
 import OpenAiCompatible from '../../provider/OpenAiCompatible.mjs';
 
 /**
- * @summary Provider dispatch for graph-generation services (#11965 AC5).
+ * @summary Resolves a chat-capable provider for graph-generation callsites
+ * based on the active `modelProvider` selector.
  *
- * Closes #11965 AC5 "Dream/REM graph-mutator provider reachability is not
- * hardwired to the wrong provider family" by giving graph-generation callsites
- * (`SemanticGraphExtractor`, `GoldenPathSynthesizer`, `TopologyInferenceEngine`)
- * a single dispatch seam that honors `aiConfig.modelProvider`. Without this
- * indirection, cloud deployments configured for native Ollama would still see
- * graph generation hit OpenAI-compatible endpoints, breaking the operator
- * client-need signal that flipped OQ2 disposition during Discussion #11961
- * graduation (cloud-deployment clients prefer Ollama; no Mac OS in cloud rules
- * out MLX).
+ * Graph-generation services (`SemanticGraphExtractor`, `GoldenPathSynthesizer`,
+ * `TopologyInferenceEngine`) all need a `provider.generate(prompt)`-shaped
+ * client. This helper is the single dispatch seam so a deployment configured
+ * for native Ollama actually routes graph work through native Ollama, not
+ * the OpenAI-compatible substitute.
  *
- * Pure function with injectable provider factories so tests can verify
- * selector behavior without hitting real Ollama / OpenAI-compatible endpoints.
- * Mirrors the `buildChatModel` pattern in `SessionService.mjs` so reviewers
- * recognize the shape.
+ * Pure function with injectable provider factories; tests verify selector
+ * behavior without touching real endpoints. Mirrors `SessionService.buildChatModel`
+ * in shape and contract.
  *
  * @param {Object} options
  * @param {String} options.modelProvider One of `'ollama'`, `'openAiCompatible'`.

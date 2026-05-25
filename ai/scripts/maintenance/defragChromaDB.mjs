@@ -5,7 +5,7 @@ import fs              from 'fs-extra';
 import path            from 'path';
 import {fileURLToPath, pathToFileURL} from 'url';
 import Neo             from '../../../src/Neo.mjs';
-import AiConfig        from '../../config.template.mjs';
+import AiConfig        from '../../config.mjs';
 
 /**
  * @summary A generic CLI tool to defragment ChromaDB instances (Knowledge Base & Memory Core).

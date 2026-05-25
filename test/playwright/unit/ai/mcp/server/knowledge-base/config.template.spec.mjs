@@ -1,6 +1,6 @@
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../../src/Neo.mjs';
-import AiConfig       from '../../../../../../../ai/config.template.mjs';
+import AiConfig       from '../../../../../../../ai/config.mjs';
 
 test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
     let originalEnv;
