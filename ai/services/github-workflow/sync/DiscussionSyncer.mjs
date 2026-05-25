@@ -117,12 +117,10 @@ class DiscussionSyncer extends Base {
                 }
             }
 
-            // Closed-post-latest-release: no release-version applies. Keep in active per Epic
-            // #11187 Phase 6 mental model — archive folders for vN.M.K are created at release-cut
-            // by publish.mjs, never pre-staged. The previous `'legacy'` fallback created the
-            // architectural bug fixed by #11360. #getDiscussionPath falls back to active-flat path
-            // when archivePlan returns no entry (was previously returning null; now consistent
-            // with IssueSyncer/PullRequestSyncer).
+            // Closed-post-latest-release: no release-version applies yet. Keep in active because
+            // archive folders for vN.M.K are created at release cut by publish.mjs, never pre-staged.
+            // `#getDiscussionPath` falls back to the active-flat path when archivePlan returns no entry,
+            // matching IssueSyncer and PullRequestSyncer.
             if (!discussion.closed || !version) {
                 activeItems.push(discussion.number);
                 continue;
@@ -273,14 +271,10 @@ class DiscussionSyncer extends Base {
                 // Gray-matter serialization
                 const content = matter.stringify(body, frontmatter);
 
-                // #11573 integrity gate: empirically catches the failure mode where a stale
-                // MCP daemon code path silently drops frontmatter fields (e.g., #11554 shipped
-                // but old MCP processes kept writing pre-fix content). THROWS on missing keys
-                // per the ticket Contract Ledger ("post-sync integrity assertion fails when a
-                // synced discussion lacks a required frontmatter key"). The existing
-                // per-discussion `try { ... } catch (e)` at the loop boundary (#312-314) catches
-                // the throw, logs the warning, and skips the write — broken-frontmatter files
-                // are NEVER persisted, but the sync run continues with other discussions.
+                // Integrity gate: catches stale daemon code paths that silently drop frontmatter fields.
+                // The per-discussion `try { ... } catch (e)` at the loop boundary catches the throw,
+                // logs the warning, and skips the write, so broken-frontmatter files are never
+                // persisted while the sync run continues with other discussions.
                 const integrity = verifyDiscussionFrontmatter(content);
                 if (!integrity.ok) {
                     throw new Error(`Discussion #${discussion.number} serialized content missing required frontmatter keys: ${integrity.missing.join(', ')}. ADR 0011 / #11573 contract violation — likely stale MCP daemon code path.`);

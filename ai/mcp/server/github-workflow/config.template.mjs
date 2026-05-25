@@ -174,12 +174,9 @@ const defaultConfig = {
         releaseFilenamePrefix: 'v',
         /**
          * The maximum number of issues to fetch from the GitHub API in a single sync.
-         * Defensive ceiling against runaway pagination on a misconfigured GraphQL pageInfo.
-         * Bumped from 10000 → 20000 in #11451 Cycle 2 to support clean-slate exhaustive
-         * emission per ADR 0004 §3.6 — Neo's repo currently has 8,502 issues + 2,816 PRs
-         * (V-B-A'd via GitHub search 2026-05-16 per @neo-gpt review PRR_kwDODSospM8AAAABAIZAdg;
-         * ~135% defensive headroom on issues). The local droppedLabels filter further trims
-         * the actual processed set.
+         * Defensive ceiling against runaway pagination on a misconfigured GraphQL pageInfo while
+         * leaving enough headroom for clean-slate exhaustive emission under ADR 0004. The local
+         * droppedLabels filter further trims the actual processed set.
          * @type {number}
          */
         maxIssues: 20000,
