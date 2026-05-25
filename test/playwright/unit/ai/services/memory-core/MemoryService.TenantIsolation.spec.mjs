@@ -463,3 +463,106 @@ test.describe('MemoryService — raw-memory trust-tier filtering (#10292)', () =
         expect(spyCollection.queryCalls).toHaveLength(0);
     });
 });
+
+test.describe('MemoryService — context frontier trust-tier weighting (#10292)', () => {
+    let GraphService;
+    let originalGetContextFrontier;
+    let originalGetSummaryCollection;
+    let spyCollection;
+
+    test.beforeAll(async () => {
+        GraphService = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+    });
+
+    test.beforeEach(() => {
+        spyCollection = createSpyCollection();
+
+        originalGetSummaryCollection       = StorageRouter.getSummaryCollection;
+        StorageRouter.getSummaryCollection = async () => spyCollection;
+
+        originalGetContextFrontier = GraphService.getContextFrontier;
+        GraphService.getContextFrontier = () => ({
+            frontier: {id: 'frontier'},
+            strategicNeighbors: [
+                {
+                    id              : 'external-node',
+                    name            : 'External context',
+                    relationship    : 'SPAWNED_MEMORY',
+                    weight          : 0.95,
+                    semanticVectorId: 'summary-external'
+                },
+                {
+                    id              : 'owner-node',
+                    name            : 'Owner context',
+                    relationship    : 'SPAWNED_MEMORY',
+                    weight          : 0.75,
+                    semanticVectorId: 'summary-owner'
+                },
+                {
+                    id              : 'legacy-node',
+                    name            : 'Legacy context',
+                    relationship    : 'SPAWNED_MEMORY',
+                    weight          : 0.9,
+                    semanticVectorId: 'summary-legacy'
+                }
+            ]
+        });
+    });
+
+    test.afterEach(() => {
+        StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+        GraphService.getContextFrontier    = originalGetContextFrontier;
+    });
+
+    test('getContextFrontier projects summary trust tiers and sorts by weighted score', async () => {
+        spyCollection.rows.set('summary-external', {
+            id: 'summary-external',
+            metadata: {
+                sourceTrustTier: 'external',
+                timestamp      : 100
+            },
+            document: 'external summary'
+        });
+        spyCollection.rows.set('summary-owner', {
+            id: 'summary-owner',
+            metadata: {
+                sourceTrustTier: 'owner',
+                timestamp      : 200
+            },
+            document: 'owner summary'
+        });
+        spyCollection.rows.set('summary-legacy', {
+            id: 'summary-legacy',
+            metadata: {
+                timestamp: 300
+            },
+            document: 'legacy summary'
+        });
+
+        const view = await MemoryService.getContextFrontier();
+
+        expect(view.semanticContexts.map(context => context.nodeId)).toEqual([
+            'owner-node',
+            'external-node',
+            'legacy-node'
+        ]);
+        expect(view.semanticContexts[0]).toMatchObject({
+            nodeId       : 'owner-node',
+            trustTier    : 'owner',
+            trustWeight  : 0.75,
+            weightedScore: 0.5625
+        });
+        expect(view.semanticContexts[1]).toMatchObject({
+            nodeId       : 'external-node',
+            trustTier    : 'external',
+            trustWeight  : 0.25,
+            weightedScore: 0.2375
+        });
+        expect(view.semanticContexts[2]).toMatchObject({
+            nodeId       : 'legacy-node',
+            trustTier    : 'unclassified',
+            trustWeight  : 0.125,
+            weightedScore: 0.1125
+        });
+    });
+});
