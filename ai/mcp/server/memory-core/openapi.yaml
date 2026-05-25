@@ -2031,6 +2031,20 @@ components:
           items:
             type: string
           example: ["gemini-3.1-pro", "gemma4"]
+        sourceAgentIdentities:
+          type: array
+          items:
+            type: string
+          description: AgentIdentity node ids found on source memories when summary provenance is available.
+          example: ["@neo-gpt"]
+        sourceTrustTier:
+          type: string
+          enum: [system, repo-trusted, owner, self, peer-trusted, internal-authored, external, unclassified]
+          description: Most restrictive source-memory trust tier for this derived summary.
+        provenancePolicy:
+          type: string
+          description: Summary provenance composition policy.
+          example: "most-restrictive-source"
 
     QuerySummariesRequest:
       type: object
@@ -2055,6 +2069,10 @@ components:
           type: string
           enum: [private, team, legacy]
           description: Optional override for the memory sharing tenant isolation scope.
+        minTrustTier:
+          type: string
+          enum: [system, repo-trusted, owner, self, peer-trusted, internal-authored, external, unclassified]
+          description: Optional minimum accepted #10292 source-provenance trust tier. Summaries derived from lower-trust or unclassified source memories are excluded.
 
     QuerySummariesResponse:
       type: object

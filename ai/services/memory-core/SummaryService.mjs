@@ -3,6 +3,7 @@ import Base                  from '../../../src/core/Base.mjs';
 import StorageRouter         from './managers/StorageRouter.mjs';
 import logger                from '../../mcp/server/memory-core/logger.mjs';
 import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoots.mjs';
 
 /**
  * @summary Service for handling deleting, listing, and querying session summaries.
@@ -36,6 +37,8 @@ class SummaryService extends Base {
         singleton: true
     }
 
+    static trustTierRanks = new Map(TRUST_TIER_ORDER.map((tier, index) => [tier, index]))
+
     /**
      * @summary Converts comma-delimited Chroma metadata fields into stable result arrays.
      * @param {String|undefined} value Metadata value.
@@ -43,6 +46,35 @@ class SummaryService extends Base {
      */
     static splitMetadataList(value) {
         return value ? String(value).split(',').map(item => item.trim()).filter(Boolean) : [];
+    }
+
+    /**
+     * @summary Resolves a summary row's provenance trust tier from source-memory metadata.
+     *
+     * Summaries are derived content. Their filterable tier is the most restrictive source tier
+     * stamped by `SessionService`, not the summarizing agent identity.
+     *
+     * @param {Object} metadata Chroma summary metadata row.
+     * @returns {String} Trust tier, or `unclassified` for pre-provenance summaries.
+     */
+    static resolveSummaryTrustTier(metadata) {
+        return this.trustTierRanks.has(metadata?.sourceTrustTier)
+            ? metadata.sourceTrustTier
+            : TRUST_TIERS.UNCLASSIFIED;
+    }
+
+    /**
+     * @summary Returns true when a summary row satisfies the optional minimum trust threshold.
+     * @param {Object} metadata Chroma summary metadata row.
+     * @param {String|undefined} minTrustTier Optional minimum accepted trust tier.
+     * @returns {Boolean}
+     */
+    static matchesMinTrustTier(metadata, minTrustTier) {
+        if (!minTrustTier) {
+            return true;
+        }
+
+        return this.trustTierRanks.get(this.resolveSummaryTrustTier(metadata)) <= this.trustTierRanks.get(minTrustTier);
     }
 
     /**
@@ -260,10 +292,19 @@ class SummaryService extends Base {
      * @param {Number} options.nResults      The number of results to return.
      * @param {String} [options.category]    Optional category to filter results.
      * @param {String} [options.memorySharing] Optional override for tenant isolation policy.
+     * @param {String} [options.minTrustTier] Optional minimum accepted source trust tier.
      * @returns {Promise<{query: string, count: number, results: Object[]}>}
      */
-    async querySummaries({query, nResults, category, memorySharing}) {
+    async querySummaries({query, nResults, category, memorySharing, minTrustTier}) {
         try {
+            if (minTrustTier && !this.constructor.trustTierRanks.has(minTrustTier)) {
+                return {
+                    error  : 'Invalid minTrustTier',
+                    message: `minTrustTier must be one of: ${TRUST_TIER_ORDER.join(', ')}`,
+                    code   : 'SUMMARY_QUERY_INVALID_TRUST_TIER'
+                };
+            }
+
             const collection = await StorageRouter.getSummaryCollection();
             const queryArgs = {
                 queryTexts: [query],
@@ -291,7 +332,7 @@ class SummaryService extends Base {
                 }
             }
 
-            if (tenantScope === null && userId && policy === 'legacy') {
+            if ((tenantScope === null && userId && policy === 'legacy') || minTrustTier) {
                 queryArgs.nResults = nResults * 5;
             }
 
@@ -310,11 +351,14 @@ class SummaryService extends Base {
             let metadatas = searchResult.metadatas?.[0] || [];
             let documents = searchResult.documents?.[0] || [];
 
-            if (userId && policy === 'legacy') {
+            if ((userId && policy === 'legacy') || minTrustTier) {
                 const filteredIndices = [];
                 for (let i = 0; i < metadatas.length; i++) {
                     const metaUserId = metadatas[i]?.userId;
-                    if (!metaUserId || metaUserId === userId || metaUserId === SHARED_USER_ID) {
+                    const tenantMatch = !userId || policy !== 'legacy' || !metaUserId || metaUserId === userId || metaUserId === SHARED_USER_ID;
+                    const trustMatch  = this.constructor.matchesMinTrustTier(metadatas[i], minTrustTier);
+
+                    if (tenantMatch && trustMatch) {
                         filteredIndices.push(i);
                         if (filteredIndices.length === nResults) break;
                     }
