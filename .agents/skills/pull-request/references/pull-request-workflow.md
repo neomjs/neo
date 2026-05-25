@@ -92,6 +92,10 @@ git fetch origin
 
 **Exception — first push of a freshly-branched feature:** skip ONLY after confirming via `git log origin/dev..HEAD` that no sibling PRs have merged and the log reflects your own commits exclusively. The branch-point IS `origin/dev`'s tip.
 
+### 2.3.2 Branch-Discipline Check (pre-push) *(#11133)*
+
+`.husky/pre-push` blocks `chore(data):` commits on feature branches: [`audits/branch-discipline-check.md`](../audits/branch-discipline-check.md).
+
 ### 2.4 Tool-Specific Branch Constraints
 
 If you intend to use the `sync_all` MCP tool, you MUST read [sync-all-constraints.md](./sync-all-constraints.md) before execution to prevent severe branch pollution.
