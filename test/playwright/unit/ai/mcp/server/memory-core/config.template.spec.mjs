@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import path from 'path';
 import Neo from '../../../../../../../src/Neo.mjs';
-import AiConfig from '../../../../../../../ai/config.mjs';
+import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
 
 test.describe('Memory Core Config (#10010)', () => {
     let originalEnv;
@@ -53,18 +53,18 @@ test.describe('Memory Core Config (#10010)', () => {
     });
 
     test('maps deployment-wide Tier-1 defaults for provider, auth, and storage groups', () => {
-        expect(config.modelProvider).toBe(AiConfig.modelProvider);
-        expect(config.embeddingProvider).toBe(AiConfig.embeddingProvider);
-        expect(config.ollama).toEqual(AiConfig.ollama);
-        expect(config.openAiCompatible).toEqual(AiConfig.openAiCompatible);
-        expect(config.vectorDimension).toBe(AiConfig.vectorDimension);
-        expect(config.modelName).toBe(AiConfig.modelName);
-        expect(config.embeddingModel).toBe(AiConfig.embeddingModel);
+        expect(config.modelProvider).toBe(TIER1_DEFAULTS.modelProvider);
+        expect(config.embeddingProvider).toBe(TIER1_DEFAULTS.embeddingProvider);
+        expect(config.ollama).toEqual(TIER1_DEFAULTS.ollama);
+        expect(config.openAiCompatible).toEqual(TIER1_DEFAULTS.openAiCompatible);
+        expect(config.vectorDimension).toBe(TIER1_DEFAULTS.vectorDimension);
+        expect(config.modelName).toBe(TIER1_DEFAULTS.modelName);
+        expect(config.embeddingModel).toBe(TIER1_DEFAULTS.embeddingModel);
 
-        expect(config.auth).toEqual(AiConfig.auth);
+        expect(config.auth).toEqual(TIER1_DEFAULTS.auth);
         expect(config.engines.chroma).toMatchObject({
-            host: AiConfig.engines.chroma.host,
-            port: AiConfig.engines.chroma.port
+            host: TIER1_DEFAULTS.engines.chroma.host,
+            port: TIER1_DEFAULTS.engines.chroma.port
         });
         expect(config.engines.chroma.dataDir).toContain('.neo-ai-data/chroma/memory-core');
     });
