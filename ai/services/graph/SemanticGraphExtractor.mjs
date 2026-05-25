@@ -6,7 +6,7 @@ import {invokeWithGuardrail} from '../../services/memory-core/helpers/ConsumerFr
 import GraphService from '../../services/memory-core/GraphService.mjs';
 import Json from '../../../src/util/Json.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
-import OpenAiCompatible from '../../provider/OpenAiCompatible.mjs';
+import {buildGraphProvider} from './providerDispatch.mjs';
 
 /**
  * @class Neo.ai.daemons.services.SemanticGraphExtractor
@@ -93,9 +93,10 @@ When extracting entities, you MUST emit provenance edges linking them back to th
 DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object.`;
 
         try {
-            const provider = Neo.create(OpenAiCompatible, {
-                modelName: aiConfig.openAiCompatible.model,
-                host: aiConfig.openAiCompatible.host
+            const provider = buildGraphProvider({
+                modelProvider         : aiConfig.modelProvider,
+                ollamaConfig          : aiConfig.ollama,
+                openAiCompatibleConfig: aiConfig.openAiCompatible
             });
 
             // Format boundaries securely
@@ -111,12 +112,17 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 
             // Wrap each LLM invocation with the Consumer-Friction guardrail. The upstream
             // pre-check skips invocation when the composed messages' estimated token count
-            // exceeds the consumer's safe processing band (default 75% of
-            // `aiConfig.openAiCompatible.contextLimitTokens`). The downstream try/catch
-            // categorizes engine-level failures into friction symptoms. Friction is emitted
-            // into the in-memory aggregator (with `serviceDomain: 'dream-pipeline'`) for
-            // handoff rendering by `GoldenPathSynthesizer.synthesizeGoldenPath`.
-            const consumerModel          = aiConfig.openAiCompatible.model || 'openAiCompatible';
+            // exceeds the consumer's safe processing band (default 75% of the consumer's
+            // context limit). The downstream try/catch categorizes engine-level failures
+            // into friction symptoms. Friction is emitted into the in-memory aggregator
+            // (with `serviceDomain: 'dream-pipeline'`) for handoff rendering by
+            // `GoldenPathSynthesizer.synthesizeGoldenPath`.
+            // #11965 AC5: consumerModel reflects the active modelProvider for accurate
+            // telemetry; openAiCompatible's context-limit knobs are kept as the conservative
+            // upstream pre-check threshold for both provider families.
+            const consumerModel          = aiConfig.modelProvider === 'ollama'
+                ? aiConfig.ollama?.model || 'ollama'
+                : aiConfig.openAiCompatible?.model || 'openAiCompatible';
             const consumerContextTokens  = aiConfig.openAiCompatible.contextLimitTokens || 32768;
             const consumerSafeTokens     = aiConfig.openAiCompatible.safeProcessingLimitTokens;
 
@@ -348,9 +354,10 @@ Enforce this STRICT JSON schema:
 DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide purely the JSON object.`;
 
         try {
-            const provider = Neo.create(OpenAiCompatible, {
-                modelName: aiConfig.openAiCompatible.model,
-                host: aiConfig.openAiCompatible.host
+            const provider = buildGraphProvider({
+                modelProvider         : aiConfig.modelProvider,
+                ollamaConfig          : aiConfig.ollama,
+                openAiCompatibleConfig: aiConfig.openAiCompatible
             });
 
             const messages = [

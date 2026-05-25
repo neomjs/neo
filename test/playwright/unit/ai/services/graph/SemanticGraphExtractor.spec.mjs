@@ -45,6 +45,14 @@ test.describe('Neo.ai.daemons.services.SemanticGraphExtractor', () => {
         aiConfig.lazyEdgesQueuePath   = path.join(tmpDir, `lazy-edges-${process.pid}-${Date.now()}.jsonl`);
         aiConfig.autoIngestFileSystem = false;
 
+        // #11965 Sub-2 cycle-3: graph services now dispatch provider via
+        // aiConfig.modelProvider through buildGraphProvider. Memory Core's
+        // default modelProvider is 'gemini' which is out of Sub-2 graph scope
+        // (gemini-graph dispatch deferred to Sub-3 / follow-up). This test
+        // stubs OpenAiCompatible.prototype.generate, so force the dispatch
+        // path to 'openAiCompatible'.
+        aiConfig.modelProvider = 'openAiCompatible';
+
         GraphService           = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
         SemanticGraphExtractor = (await import('../../../../../../ai/services/graph/SemanticGraphExtractor.mjs')).default;
         SystemLifecycleService = (await import('../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs')).default;

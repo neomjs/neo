@@ -8,7 +8,7 @@ import { Memory_TextEmbeddingService as TextEmbeddingService } from '../../servi
 import { Memory_GraphService as GraphService } from '../../services.mjs';
 import Json from '../../../src/util/Json.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
-import OpenAiCompatible from '../../provider/OpenAiCompatible.mjs';
+import {buildGraphProvider} from './providerDispatch.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -279,10 +279,11 @@ class GoldenPathSynthesizer extends Base {
             });
 
             try {
-                logger.info('[GoldenPathSynthesizer] Instantiating API provider to interpret Mathematical Golden Path...');
-                const provider = Neo.create(OpenAiCompatible, {
-                    modelName: aiConfig.openAiCompatible.model,
-                    host: aiConfig.openAiCompatible.host
+                logger.info(`[GoldenPathSynthesizer] Instantiating ${aiConfig.modelProvider} provider to interpret Mathematical Golden Path...`);
+                const provider = buildGraphProvider({
+                    modelProvider         : aiConfig.modelProvider,
+                    ollamaConfig          : aiConfig.ollama,
+                    openAiCompatibleConfig: aiConfig.openAiCompatible
                 });
 
                 // Get adjacent frontier topology for context
