@@ -1878,6 +1878,15 @@ components:
           type: string
           nullable: true
           example: "gemini-3.1-pro"
+        agentIdentity:
+          type: string
+          nullable: true
+          description: "AgentIdentity node id that authored the memory when provenance is available."
+          example: "@neo-gpt"
+        trustTier:
+          type: string
+          enum: [system, repo-trusted, owner, self, peer-trusted, internal-authored, external, unclassified]
+          description: "#10292 content-provenance trust tier resolved from the memory's AgentIdentity."
 
     QueryMemoriesRequest:
       type: object
@@ -1901,6 +1910,10 @@ components:
           type: string
           enum: [private, team, legacy]
           description: Optional override for the memory sharing tenant isolation scope.
+        minTrustTier:
+          type: string
+          enum: [system, repo-trusted, owner, self, peer-trusted, internal-authored, external, unclassified]
+          description: Optional minimum accepted #10292 provenance trust tier. Results authored by lower-trust or unclassified identities are excluded.
 
     QueryMemoriesResponse:
       type: object

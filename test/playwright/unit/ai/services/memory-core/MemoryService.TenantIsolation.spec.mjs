@@ -382,3 +382,84 @@ test.describe('MemoryService — memorySharing policy (#10010)', () => {
         expect(queryCall.where).toBeUndefined();
     });
 });
+
+test.describe('MemoryService — raw-memory trust-tier filtering (#10292)', () => {
+    let spyCollection;
+    let originalGetMemoryCollection;
+
+    test.beforeEach(() => {
+        spyCollection                     = createSpyCollection();
+        originalGetMemoryCollection       = StorageRouter.getMemoryCollection;
+        StorageRouter.getMemoryCollection = async () => spyCollection;
+    });
+
+    test.afterEach(() => {
+        StorageRouter.getMemoryCollection = originalGetMemoryCollection;
+    });
+
+    test('queryMemories filters by minTrustTier and returns provenance fields', async () => {
+        spyCollection.rows.set('m-owner', {
+            id: 'm-owner',
+            metadata: {
+                agentIdentity: '@tobiu',
+                prompt       : 'owner',
+                sessionId    : 's',
+                timestamp    : 100
+            },
+            document: 'owner'
+        });
+        spyCollection.rows.set('m-peer', {
+            id: 'm-peer',
+            metadata: {
+                agentIdentity: '@neo-gpt',
+                prompt       : 'peer',
+                sessionId    : 's',
+                timestamp    : 200
+            },
+            document: 'peer'
+        });
+        spyCollection.rows.set('m-unclassified', {
+            id: 'm-unclassified',
+            metadata: {
+                prompt   : 'legacy',
+                sessionId: 's',
+                timestamp: 300
+            },
+            document: 'legacy'
+        });
+
+        const view = await MemoryService.queryMemories({
+            query       : 'anything',
+            nResults    : 3,
+            minTrustTier: 'peer-trusted'
+        });
+
+        expect(view.count).toBe(2);
+        expect(view.results.map(result => result.prompt).sort()).toEqual(['owner', 'peer']);
+        expect(view.results.find(result => result.prompt === 'owner')).toMatchObject({
+            agentIdentity: '@tobiu',
+            trustTier    : 'owner'
+        });
+        expect(view.results.find(result => result.prompt === 'peer')).toMatchObject({
+            agentIdentity: '@neo-gpt',
+            trustTier    : 'peer-trusted'
+        });
+
+        const queryCall = spyCollection.queryCalls.at(-1);
+        expect(queryCall.nResults).toBe(15);
+    });
+
+    test('queryMemories rejects unknown minTrustTier before querying storage', async () => {
+        const view = await MemoryService.queryMemories({
+            query       : 'anything',
+            nResults    : 3,
+            minTrustTier: 'trusted-ish'
+        });
+
+        expect(view).toMatchObject({
+            error: 'Invalid minTrustTier',
+            code : 'MEMORY_QUERY_INVALID_TRUST_TIER'
+        });
+        expect(spyCollection.queryCalls).toHaveLength(0);
+    });
+});
