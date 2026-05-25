@@ -47,9 +47,12 @@ async function walkSourceFiles(rootDir, extensions = ['.mjs', '.js', '.cjs']) {
 }
 
 /**
- * Strips block comments, line comments, and string literals from JS-shaped source so source-grep
- * invariants don't false-positive against JSDoc / inline-comment mentions of the patterns they're
- * guarding against. Output preserves line structure for line-aware regex anchors.
+ * Strips block comments and line comments from JS-shaped source while preserving string literals,
+ * so source-grep invariants don't false-positive against JSDoc / inline-comment mentions of the
+ * patterns they're guarding against. String-literal content is deliberately preserved because
+ * AC1-3 specifically target string-literal occurrences (e.g., `'@neo-opus-4-7'` would be a
+ * violation, but a comment mentioning the same handle would not). Output preserves line structure
+ * for line-aware regex anchors.
  */
 function stripCommentsAndStrings(source) {
     let out = '';
