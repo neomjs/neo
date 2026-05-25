@@ -189,6 +189,12 @@ class MemoryService extends Base {
 
     /**
      * Adds a new memory to the collection.
+     *
+     * When the MCP transport has resolved a real `AgentIdentity`, the write stamps both the
+     * Chroma metadata (`agentIdentity`) and a graph `AUTHORED_BY` edge. Fallback-only identities
+     * remain scalar metadata so single-tenant and unseeded callers do not create edges to nodes
+     * that do not exist.
+     *
      * @param {Object} options
      * @param {String} options.prompt    The user's prompt.
      * @param {String} options.response  The agent's response.
@@ -228,8 +234,13 @@ class MemoryService extends Base {
 
             // Tenant-isolation tag: present only when a request context was established
             // by the SSE transport layer. In stdio mode it is absent — single-tenant fallthrough.
-            const userId = normalizeUserId(RequestContextService.getUserId());
+            const requestIdentity   = RequestContextService.getAgentIdentityNodeId();
+            const userId            = normalizeUserId(RequestContextService.getUserId());
+            const canonicalIdentity = requestIdentity
+                || (userId ? `@${userId}` : (agent?.startsWith('@') ? agent : (agent ? `@${agent}` : undefined)));
+
             if (userId) metadata.userId = userId;
+            if (canonicalIdentity) metadata.agentIdentity = canonicalIdentity;
 
             if (agent) metadata.agent = agent;
             if (model) metadata.model = model;
@@ -243,10 +254,6 @@ class MemoryService extends Base {
                 metadatas: [metadata],
                 documents: [combinedText]
             });
-
-            // Derive canonical graph identity. Fallback to formatting userId, or passing raw agent.
-            const canonicalIdentity = RequestContextService.getAgentIdentityNodeId()
-                || (userId ? `@${userId}` : (agent?.startsWith('@') ? agent : (agent ? `@${agent}` : undefined)));
 
             // 1. Topologically inject the new memory into the Native Edge Graph
             GraphService.upsertNode({
@@ -263,15 +270,26 @@ class MemoryService extends Base {
                 }
             });
 
-            // 2. Link this memory dynamically to the active context frontier
+            // 2. Stamp write-time provenance when the transport resolved a real AgentIdentity.
+            // Fallback-only identities remain scalar metadata so single-tenant/unseeded callers
+            // keep working without hallucinated graph edges to nodes that do not exist.
+            if (requestIdentity) {
+                GraphService.linkNodes(memoryId, requestIdentity, 'AUTHORED_BY', 1.0, {
+                    timestamp,
+                    userId      : requestIdentity,
+                    sharedEntity: true
+                });
+            }
+
+            // 3. Link this memory dynamically to the active context frontier
             GraphService.linkNodes('frontier', memoryId, 'SPAWNED_MEMORY', 0.8);
 
-            // 3. Real-Time A2A JSON Parsing (Deprecated)
+            // 4. Real-Time A2A JSON Parsing (Deprecated)
             if (aiConfig.realTimeMemoryParsing) {
                 logger.warn(`[MemoryService] Real-Time parsing skipped: DreamService decoupled. Awaiting REM sleep.`);
             }
 
-            // 4. Mailbox delta signal: per-turn piggyback of inbox unread-count + latest preview.
+            // 5. Mailbox delta signal: per-turn piggyback of inbox unread-count + latest preview.
             //    Non-fatal — buildMailboxDelta swallows its own errors and returns null on failure,
             //    so a degraded mailbox query never blocks a successful memory write.
             const mailbox = buildMailboxDelta();
