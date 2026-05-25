@@ -53,7 +53,10 @@ class SourceParser extends Base {
         }
 
         try {
-            ast = acorn.parse(content, { sourceType: 'module', locations: true, ecmaVersion: 2022 });
+            // `ecmaVersion: 'latest'` lets acorn auto-track its highest-supported syntax
+            // rather than pinning a literal year that future TC39 features (e.g. import
+            // attributes `with {type: 'json'}`, decorators) would silently fail to parse.
+            ast = acorn.parse(content, { sourceType: 'module', locations: true, ecmaVersion: 'latest' });
         } catch (e) {
             logger.warn(`Failed to parse source file ${filePath}: ${e.message}`);
             return [];
