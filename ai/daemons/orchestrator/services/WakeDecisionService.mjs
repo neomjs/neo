@@ -175,12 +175,19 @@ export class WakeDecisionService extends Base {
      * line. Subject + taggedConcepts remain human-visible for mailbox UI but
      * are not parser inputs — subject-only spoofing is rejected (returns null).
      *
-     * @param {Object} message Mailbox message node. Expected shape: `{properties: {task: {type, ready, reason, expiresAt}, ...}}`.
+     * **Dual-shape support** (PR #11999 cycle-2):
+     * - **Raw MESSAGE node** (graph-level read): `{id, properties: {task: {...}, ...}}`
+     * - **`MailboxService.listMessages()` summary** (mailbox-API read): `{messageId, task: {...}, ...}`
+     *
+     * The parser reads from either shape. Sub-iii's `getReadinessSentinelMessages`
+     * helper passes summary objects; direct graph reads pass raw node objects.
+     *
+     * @param {Object} message Mailbox message — raw node or listMessages summary.
      * @param {Number} currentTimeMs Caller-supplied current time (purity).
      * @returns {{ready: Boolean, reason: String, expiresAtMs: Number, sourceMessageId: String}|null}
      */
     static parseReadinessSentinel(message, currentTimeMs) {
-        const task = message?.properties?.task;
+        const task = message?.task || message?.properties?.task;
         if (!task || task.type !== 'wake-readiness') return null;
 
         if (typeof task.ready !== 'boolean') return null;
@@ -194,7 +201,7 @@ export class WakeDecisionService extends Base {
             ready          : task.ready,
             reason         : typeof task.reason === 'string' ? task.reason : '',
             expiresAtMs,
-            sourceMessageId: message.id || message.properties?.messageId || null
+            sourceMessageId: message.id || message.messageId || message.properties?.messageId || null
         };
     }
 

@@ -286,6 +286,47 @@ test.describe('Neo.ai.daemons.services.WakeDecisionService (#11995, Sub-ii of Ep
             expect(WakeDecisionService.parseActiveReadinessSentinels(noise, NOW)).toBeNull();
             expect(WakeDecisionService.parseActiveReadinessSentinels([], NOW)).toBeNull();
         });
+
+        test('parseReadinessSentinel: accepts MailboxService.listMessages summary shape (PR #11999 cycle-2)', () => {
+            // Sub-iii's getReadinessSentinelMessages helper returns listMessages summaries:
+            //   {messageId, task, sentAt, ...}    (flat — `task` at top level)
+            // NOT raw node shape:
+            //   {id, properties: {task, ...}}     (nested under `properties`)
+            // The parser must accept both shapes — otherwise real sentinels parse as null
+            // and blocks/ready grants are silently ignored in the production wake loop.
+            const summaryShape = {
+                messageId: 'MESSAGE:summary-form-uuid',
+                task     : {type: 'wake-readiness', ready: false, reason: 'benched-quota', expiresAt: new Date(NOW + 30 * 60 * 1000).toISOString()},
+                sentAt   : new Date(NOW - 60_000).toISOString()
+            };
+
+            const result = WakeDecisionService.parseReadinessSentinel(summaryShape, NOW);
+
+            expect(result).not.toBeNull();
+            expect(result.ready).toBe(false);
+            expect(result.reason).toBe('benched-quota');
+            expect(result.expiresAtMs).toBe(NOW + 30 * 60 * 1000);
+            expect(result.sourceMessageId).toBe('MESSAGE:summary-form-uuid');
+        });
+
+        test('parseReadinessSentinel: summary-shape composition with parseActiveReadinessSentinels (PR #11999 cycle-2)', () => {
+            // End-to-end: listMessages summaries flow through the composition function
+            // (most-restrictive-wins) and produce a correct active sentinel — exercises
+            // the same code path the production heartbeat loop uses.
+            const summaries = [
+                {messageId: 'MESSAGE:summary-1', task: {type: 'wake-readiness', ready: false, reason: 'rate-limit', expiresAt: new Date(NOW + 10 * 60 * 1000).toISOString()}},
+                {messageId: 'MESSAGE:summary-2', task: {type: 'wake-readiness', ready: false, reason: 'longer-block', expiresAt: new Date(NOW + 60 * 60 * 1000).toISOString()}},
+                {messageId: 'MESSAGE:summary-3', task: {type: 'wake-readiness', ready: true,  reason: 'unblocked',    expiresAt: new Date(NOW + 5 * 60 * 1000).toISOString()}}
+            ];
+
+            const active = WakeDecisionService.parseActiveReadinessSentinels(summaries, NOW);
+
+            // ready:false dominates (longest block wins): MESSAGE:summary-2 has 60min expiresAt
+            expect(active).not.toBeNull();
+            expect(active.ready).toBe(false);
+            expect(active.reason).toBe('longer-block');
+            expect(active.sourceMessageId).toBe('MESSAGE:summary-2');
+        });
     });
 
     // ---------------------------------------------------------------------

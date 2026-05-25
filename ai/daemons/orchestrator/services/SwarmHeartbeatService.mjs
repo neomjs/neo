@@ -12,6 +12,7 @@ import {
     Memory_LifecycleService as LifecycleService
 }                    from '../../../services.mjs';
 import MailboxService from '../../../services/memory-core/MailboxService.mjs';
+import RequestContextService from '../../../mcp/server/shared/services/RequestContextService.mjs';
 import logger        from '../../../mcp/server/memory-core/logger.mjs';
 import {
     isGateOpen,
@@ -29,6 +30,8 @@ import {
 } from '../../../scripts/lifecycle/resumeHarness.mjs';
 import {checkAllAgentIdle as checkAllAgentIdleScript} from '../../../scripts/lifecycle/checkAllAgentIdle.mjs';
 import {idleOutNudge as idleOutNudgeScript}         from '../../../scripts/lifecycle/idleOutNudge.mjs';
+import WakeSubscriptionService                       from '../../../services/memory-core/WakeSubscriptionService.mjs';
+import wakeDecisionServiceInstance, {WakeDecisionService} from './WakeDecisionService.mjs';
 import {trioWakeCooldown as trioWakeCooldownScript} from '../../../scripts/lifecycle/trioWakeCooldown.mjs';
 import {
     resolveTargets        as resolveHeartbeatTargets,
@@ -248,11 +251,16 @@ class SwarmHeartbeatService extends Base {
      *        reality rather than by the Orchestrator process owner's env var.
      *   4. All-agent-idle detection via `checkAllAgentIdle.mjs` direct export.
      *      - allIdle=true + gate-open → `trioWakeCooldown.mjs` direct export.
-     *   5. Heartbeat-bypass detection: identities with push-capable subscriptions
-     *      (mcp-notifications / a2a-webhook / bridge-daemon) skip the token-economy fast-path because
-     *      they receive wakes via push.
-     *   6. Token-economy gate: skip pulse if mailbox unread + open issues both zero.
-     *   7. Tmux-inject pulse prompt to `$TMUX_SESSION` (preserved from shell shape).
+     *   5. Per-identity 3-signal-decision-gated heartbeat-pulse emit (Epic #11993
+     *      Sub-iii). For each identity in `pulseIdentities`, query A2A activity
+     *      timestamps + readiness sentinels + orchestrator-local backoff window,
+     *      compose via `WakeDecisionService.decideWake({active, idle, ready})`, and
+     *      emit a Shape B `WakeSubscriptionService.emitHeartbeatPulse({targetIdentity})`
+     *      iff the decision is `wake: true`. Bridge-daemon dispatches via its existing
+     *      adapter set (osascript / codex-app-server / antigravity-cli / claude-cli).
+     *      Replaces old steps 5/6/7 (push-capability bypass + token-economy gate +
+     *      tmux-inject) which conflated three concerns and silently no-op'd for
+     *      non-tmux harnesses.
      *
      * No try/finally: the Orchestrator lane executor wraps this call in its own
      * try/catch, so a single-pulse failure is isolated by the scheduler — it does not
@@ -331,25 +339,35 @@ class SwarmHeartbeatService extends Base {
             }
         }
 
-        // Step 5: Heartbeat-bypass detection.
-        if (await this.isPushCapable(this.identity)) {
-            return
-        }
+        // Step 5: Per-identity 3-signal-decision-gated heartbeat-pulse emit.
+        // Per Epic #11993 Sub-iii (#11996): replaces old push-capability bypass +
+        // token-economy gate + tmux-inject with a unified Shape B emit path.
+        // Wake = active AND idle AND ready (per WakeDecisionService.decideWake).
+        const now = Date.now();
+        for (const identity of pulseIdentities) {
+            const recentActivityTimestamps = await this.getRecentActivityTimestamps(identity, now);
+            const sentinelMessages         = await this.getReadinessSentinelMessages(identity);
+            const activeReadinessSentinel  = WakeDecisionService.parseActiveReadinessSentinels(sentinelMessages, now);
+            const activeBackoffWindow      = this.getActiveBackoffWindow(identity, now);
 
-        // Step 6: Token-economy gate. Skip pulse-injection if no actionable state.
-        const unread = await this.getUnreadCount();
-        const issues = await this.getIssuesCount();
-        if (unread === 0 && issues === 0) {
-            return
-        }
+            const decision = WakeDecisionService.decideWake({
+                identity,
+                currentTimeMs: now,
+                recentActivityTimestamps,
+                activeReadinessSentinel,
+                activeBackoffWindow
+            });
 
-        // Step 7: Tmux-inject the pulse prompt.
-        const minutes = Math.round(this.pollIntervalMs / 60000);
-        let prompt = `[SYSTEM HEARTBEAT] Last wake: T-${minutes}min. Mailbox unread: ${unread}. Open issues assigned: ${issues}.`;
-        if (expired > 0) {
-            prompt += ` Tasks expired this cycle: ${expired}.`
+            if (decision.wake) {
+                try {
+                    await WakeSubscriptionService.emitHeartbeatPulse({targetIdentity: identity});
+                } catch (err) {
+                    logger.error(`[SwarmHeartbeatService] Failed to emit heartbeat pulse for ${identity}: ${err.message}`);
+                }
+            } else {
+                logger.debug(`[SwarmHeartbeatService] Skip pulse for ${identity}: ${decision.reason}`);
+            }
         }
-        await this.injectTmux(prompt)
     }
 
     /**
@@ -648,20 +666,93 @@ class SwarmHeartbeatService extends Base {
     }
 
     /**
-     * Inject the pulse prompt into the configured tmux session. No-op when tmux
-     * is not running OR `$TMUX_SESSION` doesn't exist.
-     * @param {String} prompt
-     * @returns {Promise<void>}
+     * Query A2A graph for recent message-activity timestamps adjacent to the identity.
+     *
+     * Sub-iii (#11996) implementation of the activity-signal input for
+     * `WakeDecisionService.decideWake`. Returns millisecond timestamps of any A2A
+     * activity (sent OR received) by this identity within the last 3h, archived-excluded.
+     *
+     * `MailboxService.listMessages()` is caller-identity-scoped: it reads
+     * `RequestContextService.getAgentIdentityNodeId()` at entry and throws if
+     * no identity is bound. The orchestrator daemon owns no implicit identity,
+     * so we explicitly bind to the polled identity (the box owner) for the
+     * duration of the query — semantically clean (it's their outbox + inbox)
+     * and matches the precedent in `idleOutNudge.mjs` + `KbAlertingService.mjs`.
+     *
+     * @param {String} identity Target agent identity.
+     * @param {Number} currentTimeMs Current time (cutoff anchor).
+     * @returns {Promise<Number[]>} Activity timestamps in milliseconds.
      * @protected
      */
-    async injectTmux(prompt) {
-        const session = process.env.TMUX_SESSION || 'neo-agent';
+    async getRecentActivityTimestamps(identity, currentTimeMs) {
+        const cutoffMs = currentTimeMs - 3 * 60 * 60 * 1000;
         try {
-            // tmux has-session exits 0 if session exists, 1 otherwise
-            await this.runCmd('tmux', ['has-session', '-t', session]);
-            await this.runCmd('tmux', ['send-keys', '-t', session, prompt, 'C-m'])
-        } catch {
-            // Session absent or tmux unavailable — silently no-op (matches shell behavior)
+            return await RequestContextService.run({agentIdentityNodeId: identity}, async () => {
+                const sentResult     = await MailboxService.listMessages({box: 'outbox', fromIdentity: identity, limit: 100, includeArchived: false});
+                const receivedResult = await MailboxService.listMessages({box: 'inbox',  to: identity,           limit: 100, includeArchived: false});
+
+                const messages = [
+                    ...(sentResult?.messages || []),
+                    ...(receivedResult?.messages || [])
+                ];
+
+                return messages
+                    .map(m => Date.parse(m.sentAt || ''))
+                    .filter(ts => Number.isFinite(ts) && ts >= cutoffMs);
+            });
+        } catch (err) {
+            logger.error(`[SwarmHeartbeatService] getRecentActivityTimestamps failed for ${identity}: ${err.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Query for `[wake-readiness]` sentinel messages addressed to this identity.
+     * Filtered server-side by `taggedConcepts: ['wake-readiness']` so the parser
+     * runs over the narrow candidate set only.
+     *
+     * Same `RequestContextService.run` binding rationale as
+     * `getRecentActivityTimestamps`. Returns `listMessages` summary objects
+     * (shape: `{messageId, task, sentAt, ...}`) — `WakeDecisionService.parseReadinessSentinel`
+     * accepts the summary shape directly (no per-message adapter needed).
+     *
+     * @param {String} identity Target agent identity.
+     * @returns {Promise<Object[]>} Candidate sentinel summary messages.
+     * @protected
+     */
+    async getReadinessSentinelMessages(identity) {
+        try {
+            return await RequestContextService.run({agentIdentityNodeId: identity}, async () => {
+                const result = await MailboxService.listMessages({
+                    to            : identity,
+                    taggedConcepts: ['wake-readiness'],
+                    limit         : 20,
+                    includeArchived: false
+                });
+                return result?.messages || [];
+            });
+        } catch (err) {
+            logger.error(`[SwarmHeartbeatService] getReadinessSentinelMessages failed for ${identity}: ${err.message}`);
+            return [];
+        }
+    }
+
+    /**
+     * Query the WakeDecisionService singleton for an active backoff window
+     * for the identity. Returns null if no window active or service unconfigured.
+     *
+     * @param {String} identity Target agent identity.
+     * @param {Number} currentTimeMs Current time (TTL anchor).
+     * @returns {Object|null} `{expiresAtMs, reason, recordedAtMs}` or null.
+     * @protected
+     */
+    getActiveBackoffWindow(identity, currentTimeMs) {
+        if (!wakeDecisionServiceInstance?.backoffState) return null;
+        try {
+            return wakeDecisionServiceInstance.getActiveBackoffWindow(identity, currentTimeMs);
+        } catch (err) {
+            logger.error(`[SwarmHeartbeatService] getActiveBackoffWindow failed for ${identity}: ${err.message}`);
+            return null;
         }
     }
 
