@@ -6,6 +6,7 @@ import '../../../../../../src/core/_export.mjs';
 import {
     LOCAL_AI_CONFIG_FILE,
     loadLocalAiConfig,
+    resolveLmsConfig,
     resolveMlxConfig,
     resolveOrchestratorStartOptions
 } from '../../../../../../ai/daemons/orchestrator/daemon.mjs';
@@ -198,6 +199,124 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         // post-#11075 migration. TaskDefinitions.mjs no longer carries them.
         expect(templateSource).toMatch(
             /mlx:\s*\{[\s\S]*enabled:\s*false[\s\S]*model\s*:\s*'mlx-community\/gemma-4-31b-it-bf16'[\s\S]*port\s*:\s*'11435'[\s\S]*\}/
+        );
+    });
+
+    // -----------------------------------------------------------------------------
+    // #11986 — LM Studio CLI (`lms`) orchestrator-managed lifecycle (mirror of MLX)
+    // -----------------------------------------------------------------------------
+
+    test('buildTaskDefinitions is pure: tasks.lms is omitted when lmsEnabled is false', () => {
+        const scriptDir = path.resolve(process.cwd(), 'ai/scripts');
+        const tasks     = buildTaskDefinitions({scriptDir, nodeBin: '/test/node'});
+
+        expect(tasks.lms).toBeUndefined();
+    });
+
+    test('buildTaskDefinitions is pure: no env-var lookups; concrete lmsModel/lmsPort flow through', () => {
+        // Architectural contract: TaskDefinitions.mjs has no embedded LM Studio
+        // defaults and no env-var reads. Caller (daemon.mjs via resolveLmsConfig)
+        // resolves AiConfig + env-vars and forwards concrete values. This test
+        // documents the pure-function contract by setting env-vars that would have
+        // been picked up if the implementation leaked and verifying they are ignored.
+        const scriptDir = path.resolve(process.cwd(), 'ai/scripts');
+        const originalLmsModel   = process.env.NEO_ORCHESTRATOR_LMS_MODEL;
+        const originalLmsEnabled = process.env.NEO_ORCHESTRATOR_LMS_ENABLED;
+        const originalLmsPort    = process.env.NEO_ORCHESTRATOR_LMS_PORT;
+
+        process.env.NEO_ORCHESTRATOR_LMS_ENABLED = 'true';
+        process.env.NEO_ORCHESTRATOR_LMS_MODEL   = 'env-leaked-model';
+        process.env.NEO_ORCHESTRATOR_LMS_PORT    = '99999';
+
+        try {
+            // Default: lmsEnabled=false; env-vars are ignored.
+            const tasks = buildTaskDefinitions({scriptDir, nodeBin: '/test/node'});
+            expect(tasks.lms).toBeUndefined();
+
+            // Explicit values are passed through verbatim; env-vars are still ignored.
+            const explicitTasks = buildTaskDefinitions({
+                scriptDir,
+                nodeBin   : '/test/node',
+                lmsEnabled: true,
+                lmsModel  : 'explicit-model',
+                lmsPort   : 4242
+            });
+
+            expect(explicitTasks.lms.command).toBe('lms');
+            expect(explicitTasks.lms.args).toEqual(['server', 'start', '--port', '4242']);
+            expect(explicitTasks.lms.expectedCommand).toBe('lms server');
+            expect(explicitTasks.lms.pidFileName).toBe('lms.pid');
+            expect(explicitTasks.lms.args).not.toContain('99999');
+        } finally {
+            for (const [key, value] of [
+                ['NEO_ORCHESTRATOR_LMS_MODEL',   originalLmsModel],
+                ['NEO_ORCHESTRATOR_LMS_ENABLED', originalLmsEnabled],
+                ['NEO_ORCHESTRATOR_LMS_PORT',    originalLmsPort]
+            ]) {
+                if (value === undefined) {
+                    delete process.env[key];
+                } else {
+                    process.env[key] = value;
+                }
+            }
+        }
+    });
+
+    test('resolveLmsConfig overlays env-var precedence onto AiConfig.orchestrator.lms', () => {
+        const aiConfigDefaults = {
+            lms: {
+                enabled: false,
+                model  : 'qwen3-embedding-8b',
+                port   : '1234'
+            }
+        };
+
+        // No env overrides: AiConfig defaults flow through.
+        expect(resolveLmsConfig({orchestratorConfig: aiConfigDefaults, env: {}})).toEqual({
+            enabled: false,
+            model  : 'qwen3-embedding-8b',
+            port   : '1234'
+        });
+
+        // Env overrides win.
+        expect(resolveLmsConfig({
+            orchestratorConfig: aiConfigDefaults,
+            env               : {
+                NEO_ORCHESTRATOR_LMS_ENABLED: 'true',
+                NEO_ORCHESTRATOR_LMS_MODEL  : 'env-model',
+                NEO_ORCHESTRATOR_LMS_PORT   : '4242'
+            }
+        })).toEqual({
+            enabled: true,
+            model  : 'env-model',
+            port   : '4242'
+        });
+
+        // Explicit env=false overrides an enabled AiConfig default.
+        expect(resolveLmsConfig({
+            orchestratorConfig: {lms: {...aiConfigDefaults.lms, enabled: true}},
+            env               : {NEO_ORCHESTRATOR_LMS_ENABLED: 'false'}
+        })).toEqual({
+            enabled: false,
+            model  : 'qwen3-embedding-8b',
+            port   : '1234'
+        });
+
+        // Missing orchestratorConfig.lms: undefined-safe, no crash; values undefined.
+        expect(resolveLmsConfig({orchestratorConfig: {}, env: {}})).toEqual({
+            enabled: false,
+            model  : undefined,
+            port   : undefined
+        });
+    });
+
+    test('AiConfig.orchestrator.lms ships canonical LM Studio launch defaults', async () => {
+        const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/config.template.mjs'), 'utf8');
+
+        // AiConfig template is the single source of truth for LM Studio defaults.
+        // TaskDefinitions.mjs is a pure function that consumes these via caller-resolved values.
+        expect(templateSource).toMatch(
+            /lms:\s*\{[\s\S]*enabled:\s*false[\s\S]*model\s*:\s*'qwen3-embedding-8b'[\s\S]*port\s*:\s*'1234'[\s\S]*\}/
         );
     });
 

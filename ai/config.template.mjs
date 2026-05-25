@@ -278,6 +278,31 @@ const defaultConfig = {
             enabled: false,
             model  : 'mlx-community/gemma-4-31b-it-bf16',
             port   : '11435'
+        },
+        /**
+         * Orchestrator-owned LM Studio CLI (`lms`) inference server config. Operators
+         * tune via gitignored `ai/config.mjs` or env vars (`NEO_ORCHESTRATOR_LMS_ENABLED`,
+         * `NEO_ORCHESTRATOR_LMS_MODEL`, `NEO_ORCHESTRATOR_LMS_PORT`).
+         *
+         * Parallel alternative to `orchestrator.mlx` — both serve OpenAI-compatible HTTP
+         * for local embedding workloads; pick at most one via the respective `enabled` flag.
+         *
+         * - `enabled`: whether the orchestrator should supervise an `lms server start`
+         *   child process. Disabled by default; **macOS-only** (LM Studio CLI is not
+         *   shipped for Linux containers, so this lane is local-dev substrate, not
+         *   cloud-deployment substrate).
+         * - `model`: model identifier the operator intends LM Studio to serve. The
+         *   orchestrator-managed `lms server start` lane currently brings the server up;
+         *   ensuring this model is loaded (via `lms load <model>` or `/v1/models` probe)
+         *   is tracked as #11986 AC5 residual and is NOT performed by this lane today.
+         *   Distinct from the OpenAI-compatible API payload label (`NEO_OPENAI_COMPATIBLE_MODEL`).
+         * - `port`: OpenAI-compatible local-inference port (LM Studio CLI default `1234`).
+         * @type {Object}
+         */
+        lms: {
+            enabled: false,
+            model  : 'qwen3-embedding-8b',
+            port   : '1234'
         }
     },
     /**
