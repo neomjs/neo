@@ -109,54 +109,69 @@ test.describe('ai/scripts/idleOutNudge', () => {
         expect(lockAfter).toBe(lockBefore);
     });
 
-    test('Static script: nudge body convention contains identity + memory-resolved framing (#10675)', async () => {
-        // Per #10675 invariants, the body must communicate to the recipient:
-        // - Why the nudge fired (idle threshold)
-        // - That no action is needed if mid-turn / rate-limited
-        // - That memory-resolved release path clears the lock automatically
-        // - Bounded / non-spawning / in-place framing
+    test('Static script: dispatcher invariants framing intact post-Shape-B refactor (#10675 / #11996)', async () => {
+        // Per #10675 invariants (preserved across Sub-iii Shape A → Shape B refactor),
+        // the dispatcher MUST communicate:
+        // - Why the nudge fires (idle threshold from checkSunsetted.mjs)
+        // - That no action is needed if mid-turn / rate-limited (lock memory-resolved release)
+        // - Bounded / non-spawning / no-inbox-surfacing framing
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
 
         expect(scriptContent).toContain('idle threshold');
-        expect(scriptContent).toContain('AGENTS.md §4.2');
         expect(scriptContent).toContain('memory-resolved');
         expect(scriptContent).toContain('non-spawning');
-        expect(scriptContent).toContain('in-place');
         // The dispatcher consumes the inflightLock primitive
-        expect(scriptContent).toContain("writeInflightLock");
-        expect(scriptContent).toContain("checkInflightLock");
+        expect(scriptContent).toContain('writeInflightLock');
+        expect(scriptContent).toContain('checkInflightLock');
+        // Sub-iii refactor: Shape A heartbeat-mailbox path replaced with Shape B GraphLog-only pulse
+        expect(scriptContent).toContain('WakeSubscriptionService.emitHeartbeatPulse');
+        expect(scriptContent).not.toContain('MailboxService.addMessage');
     });
 
-    test('Static script: defense-in-depth — gate check + lock check before send (#10648, #10675)', async () => {
+    test('Static script: defense-in-depth — gate check + lock check before pulse emit (#10648, #10675, #11996)', async () => {
         // Verify the dispatcher's safety sequence ordering at the source level.
-        // Order MUST be: gate check → lock check → lock acquire → A2A send.
+        // Order MUST be: gate check → lock check → lock acquire → heartbeat-pulse emit.
         // Use the LAST occurrence of each (the actual call site, not the import).
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
 
         const gateCheckIndex   = scriptContent.lastIndexOf('readGateState()');
         const lockCheckIndex   = scriptContent.lastIndexOf('checkInflightLock(identity');
         const lockWriteIndex   = scriptContent.lastIndexOf('writeInflightLock(identity');
-        const messageSendIndex = scriptContent.lastIndexOf('MailboxService.addMessage');
+        const emitPulseIndex   = scriptContent.lastIndexOf('emitHeartbeatPulse');
 
         expect(gateCheckIndex).toBeGreaterThan(-1);
         expect(lockCheckIndex).toBeGreaterThan(gateCheckIndex);
         expect(lockWriteIndex).toBeGreaterThan(lockCheckIndex);
-        expect(messageSendIndex).toBeGreaterThan(lockWriteIndex);
+        expect(emitPulseIndex).toBeGreaterThan(lockWriteIndex);
     });
 
-    test('Static script: send-failure path clears the lock to enable retry (#10675)', async () => {
-        // The catch block on MailboxService.addMessage MUST clear the lock so a transient
-        // send error doesn't block retries for the full BOOT_TIMEOUT_MS window.
-        // Verify the relative ordering: send call → catch block → clearInflightLock call.
+    test('Static script: emit-failure path clears the lock to enable retry (#10675, #11996)', async () => {
+        // The catch block on emitHeartbeatPulse MUST clear the lock so a transient
+        // emit error doesn't block retries for the full BOOT_TIMEOUT_MS window.
+        // Verify the relative ordering: emit call → catch block → clearInflightLock call.
         const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
 
-        const sendIndex            = scriptContent.indexOf('MailboxService.addMessage');
-        const catchIndex           = scriptContent.indexOf('catch (err)', sendIndex);
+        const emitIndex             = scriptContent.indexOf('emitHeartbeatPulse');
+        const catchIndex            = scriptContent.indexOf('catch (err)', emitIndex);
         const clearLockOnErrorIndex = scriptContent.indexOf("clearInflightLock(identity, 'idle_out_nudge')", catchIndex);
 
-        expect(sendIndex).toBeGreaterThan(-1);
-        expect(catchIndex).toBeGreaterThan(sendIndex);
+        expect(emitIndex).toBeGreaterThan(-1);
+        expect(catchIndex).toBeGreaterThan(emitIndex);
         expect(clearLockOnErrorIndex).toBeGreaterThan(catchIndex);
+    });
+
+    test('Static script: Shape A heartbeat-mailbox path fully removed (#11996 AC3 + AC5)', async () => {
+        // Post-Sub-iii cleanup: Shape A (MailboxService.addMessage-driven heartbeats)
+        // is removed entirely, not preserved as a "diagnostic fallback" per @tobiu cycle-3
+        // pushback on Discussion #11992. The refactored dispatcher MUST NOT import
+        // MailboxService nor reference addMessage; the wake path is exclusively Shape B
+        // (GraphLog-only emitHeartbeatPulse).
+        const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
+
+        expect(scriptContent).not.toContain('MailboxService');
+        expect(scriptContent).not.toContain('addMessage');
+        // No NUDGE_BODY_TEMPLATE either — Shape B carries no per-pulse body
+        expect(scriptContent).not.toContain('NUDGE_BODY_TEMPLATE');
     });
 
     // Note (#11766): the former `swarm-heartbeat.sh integration` test was removed with

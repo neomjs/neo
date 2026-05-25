@@ -64,6 +64,8 @@ import {test, expect} from '@playwright/test';
  */
 test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     let SwarmHeartbeatService;
+    let WakeSubscriptionService;
+    let originalEmitHeartbeatPulse;
     let heartbeatAlivePath;
     let GraphService;
     let originalLifecycleInit;
@@ -73,6 +75,10 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         const swarmHeartbeatModule = await import('../../../../../../../ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs');
         SwarmHeartbeatService = swarmHeartbeatModule.default;
         heartbeatAlivePath    = swarmHeartbeatModule.heartbeatAlivePath;
+
+        const wakeSubscriptionModule = await import('../../../../../../../ai/services/memory-core/WakeSubscriptionService.mjs');
+        WakeSubscriptionService      = wakeSubscriptionModule.default;
+        originalEmitHeartbeatPulse   = WakeSubscriptionService.emitHeartbeatPulse;
 
         const services = await import('../../../../../../../ai/services.mjs');
         const LifecycleService = services.Memory_LifecycleService;
@@ -91,6 +97,9 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         const services = await import('../../../../../../../ai/services.mjs');
         services.Memory_LifecycleService.initAsync = originalLifecycleInit;
         services.Memory_GraphService.initAsync     = originalGraphServiceInit;
+        if (originalEmitHeartbeatPulse) {
+            WakeSubscriptionService.emitHeartbeatPulse = originalEmitHeartbeatPulse;
+        }
     });
 
     /**
@@ -123,7 +132,12 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         SwarmHeartbeatService.getUnreadCount     = async () => 0;
         SwarmHeartbeatService.getIssuesCount     = async () => 0;
         SwarmHeartbeatService.isPushCapable      = async () => false;
-        SwarmHeartbeatService.injectTmux         = async () => {};
+        // Sub-iii (#11996) 3-signal-emit-loop seams — default to no-wake by returning
+        // empty activity (decideWake returns 'no-active-signal' → no emit fires).
+        SwarmHeartbeatService.getRecentActivityTimestamps  = async () => [];
+        SwarmHeartbeatService.getReadinessSentinelMessages = async () => [];
+        SwarmHeartbeatService.getActiveBackoffWindow       = () => null;
+        WakeSubscriptionService.emitHeartbeatPulse         = async () => ({status: 'emitted'});
         // Identity assignment exercises beforeSetIdentity normalizer (no-op for
         // already-canonical '@test' form). pollIntervalMs is direct config assignment.
         SwarmHeartbeatService.identity           = '@test';
@@ -438,51 +452,77 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         expect(idleCalls).toEqual([[]]);
     });
 
-    test('pulse() isolates a sweep failure locally and continues to later steps', async () => {
+    test('pulse() isolates a sweep failure locally and continues to later steps (#11996 cycle-3 shape)', async () => {
         applyDefaultStubs();
-        SwarmHeartbeatService.sweepExpiredTasks = async () => { throw new Error('substrate down') };
-        SwarmHeartbeatService.getUnreadCount    = async () => 2;
+        SwarmHeartbeatService.sweepExpiredTasks            = async () => { throw new Error('substrate down') };
+        SwarmHeartbeatService.getRecentActivityTimestamps  = async () => [Date.now() - 30 * 60 * 1000]; // active+idle
+        SwarmHeartbeatService.getReadinessSentinelMessages = async () => [];
+        SwarmHeartbeatService.getActiveBackoffWindow       = () => null;
 
-        const injected = [];
-        SwarmHeartbeatService.injectTmux = async (p) => { injected.push(p) };
+        const emitted = [];
+        WakeSubscriptionService.emitHeartbeatPulse = async ({targetIdentity}) => { emitted.push(targetIdentity); return {status: 'emitted'} };
 
         // Sweep throws but is caught by the inner try/catch around the sweep step;
-        // pulse() does not propagate the error and proceeds to inject.
+        // pulse() does not propagate the error and proceeds to the 3-signal emit loop.
         await expect(SwarmHeartbeatService.pulse()).resolves.toBeUndefined();
-        expect(injected.length).toBe(1);
+        expect(emitted.length).toBeGreaterThan(0);
     });
 
-    test('pulse() injects tmux prompt only when actionable state exists', async () => {
+    test('pulse() 3-signal emit loop calls emitHeartbeatPulse iff decideWake returns wake:true (#11996 AC2)', async () => {
         applyDefaultStubs();
 
-        const injected = [];
-        SwarmHeartbeatService.injectTmux = async (prompt) => { injected.push(prompt) };
+        // Identity has activity 30min ago → active + idle (not within 15m idle window)
+        SwarmHeartbeatService.getRecentActivityTimestamps  = async () => [Date.now() - 30 * 60 * 1000];
+        SwarmHeartbeatService.getReadinessSentinelMessages = async () => [];
+        SwarmHeartbeatService.getActiveBackoffWindow       = () => null;
 
-        // Case 1: no unread, no issues — no injection.
-        await SwarmHeartbeatService.pulse();
-        expect(injected.length).toBe(0);
-
-        // Case 2: unread present — inject.
-        SwarmHeartbeatService.getUnreadCount = async () => 3;
+        const emitted = [];
+        WakeSubscriptionService.emitHeartbeatPulse = async ({targetIdentity}) => { emitted.push(targetIdentity); return {status: 'emitted'} };
 
         await SwarmHeartbeatService.pulse();
-        expect(injected.length).toBe(1);
-        expect(injected[0]).toContain('Mailbox unread: 3');
-        expect(injected[0]).toContain('Open issues assigned: 0');
+        // Default pulseIdentities = [this.identity]; the loop should emit once for active+idle+ready.
+        expect(emitted.length).toBe(1);
     });
 
-    test('pulse() respects heartbeat-bypass for push-capable identities', async () => {
+    test('pulse() 3-signal emit loop skips emit when readiness sentinel blocks (#11996 AC2)', async () => {
         applyDefaultStubs();
-        SwarmHeartbeatService.isPushCapable  = async () => true;
-        SwarmHeartbeatService.getUnreadCount = async () => 99;
-        SwarmHeartbeatService.getIssuesCount = async () => 99;
 
-        const injected = [];
-        SwarmHeartbeatService.injectTmux = async (p) => { injected.push(p) };
+        SwarmHeartbeatService.getRecentActivityTimestamps  = async () => [Date.now() - 30 * 60 * 1000]; // active+idle
+        // Active blocking sentinel (ready:false, future expiresAt)
+        SwarmHeartbeatService.getReadinessSentinelMessages = async () => [{
+            id        : 'msg-block',
+            properties: {task: {type: 'wake-readiness', ready: false, reason: 'benched', expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString()}}
+        }];
+        SwarmHeartbeatService.getActiveBackoffWindow = () => null;
+
+        const emitted = [];
+        WakeSubscriptionService.emitHeartbeatPulse = async ({targetIdentity}) => { emitted.push(targetIdentity); return {status: 'emitted'} };
 
         await SwarmHeartbeatService.pulse();
-        // Push-capable bypass — no tmux injection even with high unread count.
-        expect(injected.length).toBe(0);
+        expect(emitted.length).toBe(0);
+    });
+
+    test('pulse() 3-signal emit loop skips emit when backoff window active (#11996 AC2)', async () => {
+        applyDefaultStubs();
+
+        SwarmHeartbeatService.getRecentActivityTimestamps  = async () => [Date.now() - 30 * 60 * 1000]; // active+idle
+        SwarmHeartbeatService.getReadinessSentinelMessages = async () => [];
+        SwarmHeartbeatService.getActiveBackoffWindow       = () => ({expiresAtMs: Date.now() + 30 * 60 * 1000, reason: 'error-streak-3'});
+
+        const emitted = [];
+        WakeSubscriptionService.emitHeartbeatPulse = async ({targetIdentity}) => { emitted.push(targetIdentity); return {status: 'emitted'} };
+
+        await SwarmHeartbeatService.pulse();
+        expect(emitted.length).toBe(0);
+    });
+
+    test('injectTmux method removed entirely (#11996 AC1)', async () => {
+        // Per Epic #11993 cycle-3 + Sub-iii AC1: tmux-inject is dead-path substrate
+        // for non-tmux harnesses (Codex Desktop case); deleted entirely.
+        // bridge-daemon's tmux adapter is the canonical tmux delivery path.
+        expect(SwarmHeartbeatService.injectTmux).toBeUndefined();
+        const serviceProto = Object.getPrototypeOf(SwarmHeartbeatService);
+        expect(serviceProto.injectTmux).toBeUndefined();
     });
 
     test('isPushCapable() treats bridge-daemon as push-capable so Codex does not fall through to tmux (#11872)', async () => {
@@ -524,18 +564,12 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         }
     });
 
-    test('pulse() includes expired-count in prompt when sweep yields > 0', async () => {
-        applyDefaultStubs();
-        SwarmHeartbeatService.sweepExpiredTasks = async () => ({sweptCount: 5});
-        SwarmHeartbeatService.getUnreadCount    = async () => 1;
-
-        const injected = [];
-        SwarmHeartbeatService.injectTmux = async (p) => { injected.push(p) };
-
-        await SwarmHeartbeatService.pulse();
-        expect(injected.length).toBe(1);
-        expect(injected[0]).toContain('Tasks expired this cycle: 5');
-    });
+    // (Removed #11996 cycle-3 cleanup) test 'pulse() includes expired-count in prompt when sweep yields > 0'
+    // tested the old Step 7 tmux-inject prompt formatting. After Sub-iii, the
+    // 3-signal-emit loop carries no per-pulse prompt content (bridge-daemon's digest
+    // line reads "N heartbeat pulses" — see ai/daemons/bridge/daemon.mjs:572). The
+    // expired-task COUNT is still logged at Step 2 for diagnostics; no need to assert
+    // it in the wake-event payload.
 
     test('pulse() touches the heartbeat-liveness file HealthService reads (#11766)', async () => {
         applyDefaultStubs();

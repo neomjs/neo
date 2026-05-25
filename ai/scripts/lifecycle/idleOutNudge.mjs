@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 /**
- * @summary Per-identity idle-out A2A heartbeat nudge dispatcher.
+ * @summary Per-identity idle-out heartbeat-pulse dispatcher.
  *
  * Consumed by the Orchestrator swarm-heartbeat lane when `checkSunsetted.mjs`
  * emits `recommended_action: 'idle_out_nudge'` for a specific identity.
- * Sends an A2A heartbeat message via `MailboxService.addMessage` — `bridge-daemon`
- * delivers via the existing in-place keystroke path. **Zero new transport, no
- * fresh-session spawn, never opens a new chat.**
+ * Emits a Shape B GraphLog-only heartbeat pulse via
+ * `WakeSubscriptionService.emitHeartbeatPulse` — `bridge-daemon` delivers via
+ * its existing harness adapter set. **Zero MESSAGE-node persistence, no
+ * SENT_TO edge, no inbox surfacing.** Per Epic #11993 Sub-iii (#11996 cleanup):
+ * Shape A heartbeat-via-mailbox-message removed entirely.
  *
  * **Distinct from `trioWakeCooldown.mjs`:** trio fires when ALL configured agents
  * idle simultaneously (swarm-wide signal); this dispatcher fires per-identity
- * when one specific agent's `AGENT_MEMORY` exceeds the staleness threshold while
+ * when one specific agent's `AGENT_MEMORY` exceeds the idle threshold while
  * the swarm is otherwise active. Both reuse the `idle_out_nudge` lock mode from
  * `inflightLock.mjs` but operate independently — one identity going
  * idle is not a swarm-wide event.
@@ -21,17 +23,14 @@
  *   `BOOT_TIMEOUT_MS` (default 15 min, per `inflightLock.mjs`). One nudge per
  *   identity per window — no spam during long deep-thinking turns or rate-limit
  *   throttle.
- * - **Non-spawning:** uses the A2A messaging path. The recipient sees this as a
- *   normal mailbox message that `bridge-daemon` keystroke-injects into their
- *   active chat tab. No `Cmd+N` spawn; no new harness session.
+ * - **non-spawning:** uses the bridge-daemon dispatch path via Shape B pulse.
+ *   The recipient sees the pulse as a `[WAKE]` block whose digest line reads
+ *   "N heartbeat pulses". No durable mailbox message, no transcript pollution.
  * - **Idempotent:** acquiring the lock is the gate. If a prior nudge is in
  *   flight (lock held), this invocation is a no-op. The detector contract in
  *   `checkSunsetted.mjs` ALSO consults the lock and downgrades the
  *   `recommended_action` to `'no_action'` when held — this dispatcher's
  *   defensive lock-check is layer-2 against detector-dispatcher race windows.
- * - **No-destructive-type-into-active-draft:** `bridge-daemon`'s existing
- *   focus-steal protection covers the keystroke delivery; if the
- *   recipient is mid-typing, the bridge-daemon defers without clobbering input.
  *
  * **Safety gate integration:** consults `wakeSafetyGate.mjs` before
  * any action. Operator override `WAKE_GATE_OVERRIDE=1` bypasses the gate. Same
@@ -48,7 +47,8 @@
  *
  * @see ai/scripts/lifecycle/checkSunsetted.mjs    — detector emitting `recommended_action: 'idle_out_nudge'`
  * @see ai/scripts/lifecycle/inflightLock.mjs      — `idle_out_nudge` lock mode
- * @see ai/daemons/SwarmHeartbeatService.mjs — caller; routes on `recommended_action`
+ * @see ai/daemons/SwarmHeartbeatService.mjs       — caller; routes on `recommended_action`
+ * @see ai/services/memory-core/WakeSubscriptionService.mjs — `emitHeartbeatPulse` Shape B primitive (Epic #11993 Sub-i)
  * @see ai/scripts/lifecycle/trioWakeCooldown.mjs  — sibling for swarm-wide all-idle case
  * @see ai/scripts/lifecycle/resumeHarness.mjs     — sibling for sunset-restart case
  * @see test/playwright/unit/ai/scripts/idleOutNudge.spec.mjs
@@ -59,31 +59,21 @@ import path                      from 'path';
 import {fileURLToPath}           from 'url';
 import LifecycleService          from '../../services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import GraphService              from '../../services/memory-core/GraphService.mjs';
-import MailboxService            from '../../services/memory-core/MailboxService.mjs';
+import WakeSubscriptionService   from '../../services/memory-core/WakeSubscriptionService.mjs';
 import RequestContextService     from '../../mcp/server/shared/services/RequestContextService.mjs';
 import {hasOverride, readGateState} from './wakeSafetyGate.mjs';
 import {writeInflightLock, clearInflightLock, checkInflightLock} from './inflightLock.mjs';
 
-const NUDGE_BODY_TEMPLATE = (identity) =>
-    `Heartbeat nudge for ${identity}: your last AGENT_MEMORY save is older than the idle threshold ` +
-    `(default 10 min, configurable via IDLE_THRESHOLD_MS). The substrate is checking in.\n\n` +
-    `Please consolidate-then-save current progress (per AGENTS.md §4.2), check inbox for unread ` +
-    `messages, and either continue active work or sunset cleanly.\n\n` +
-    `**No action needed if you're mid-turn or rate-limited** — your next add_memory will clear this ` +
-    `nudge automatically through the memory-resolved release path.\n\n` +
-    `This is a bounded, non-spawning, in-place heartbeat. The substrate will not re-fire while the ` +
-    `in-flight idle_out_nudge lock is held.`;
-
 /**
- * @summary Dispatch a single idle-out heartbeat nudge to the target identity.
+ * @summary Dispatch a single idle-out heartbeat pulse to the target identity.
  *
  * Sequence (mirrors `resumeHarness.mjs` defense-in-depth pattern):
  *   1. Wake safety gate check (with `WAKE_GATE_OVERRIDE` operator bypass)
  *   2. Initialize Memory Core services
  *   3. Defensive in-flight lock check (handles detector-dispatcher race window)
  *   4. Acquire in-flight `idle_out_nudge` lock
- *   5. Send A2A heartbeat message via `MailboxService.addMessage`
- *   6. On send error: clear lock + fail loudly (so retry isn't blocked for the
+ *   5. Emit Shape B heartbeat pulse via `WakeSubscriptionService.emitHeartbeatPulse`
+ *   6. On emit error: clear lock + fail loudly (so retry isn't blocked for the
  *      full `BOOT_TIMEOUT_MS` window)
  *
  * Lock is NOT cleared on success; release is memory-resolved.
@@ -103,7 +93,7 @@ export async function idleOutNudge(identity) {
         }
     }
 
-    // 2. Initialize Memory Core services before mailbox/graph access.
+    // 2. Initialize Memory Core services before graph access.
     await LifecycleService.initAsync();
     await GraphService.initAsync();
 
@@ -124,30 +114,27 @@ export async function idleOutNudge(identity) {
         return;
     }
 
-    // 4. Acquire the in-flight lock BEFORE sending — secures the nudge bounded window.
+    // 4. Acquire the in-flight lock BEFORE emitting — secures the nudge bounded window.
     await writeInflightLock(identity, 'idle_out_nudge', 0);
 
     const sender = process.env.NEO_AGENT_IDENTITY || '@system';
 
-    // 5. Send the A2A heartbeat message. bridge-daemon delivers via existing in-place
-    //    keystroke path; no spawn semantics. If the recipient is sunsetted (no active
-    //    WAKE_SUBSCRIPTION), bridge-daemon won't deliver — that's the correct behavior:
-    //    a sunset-mode recovery path handles that case via terminal restart.
+    // 5. Emit Shape B heartbeat pulse. Creates an ephemeral GraphLog entry tagged
+    //    as `heartbeat_pulse`; bridge-daemon's resync() picks it up + dispatches
+    //    via the existing adapter set (osascript / codex-app-server / etc.).
+    //    NO MESSAGE node persisted, NO SENT_TO edge, NO inbox surfacing.
+    //    Idempotent: if no active bridge-daemon subscription for the identity,
+    //    the emit no-ops (logged, not throws).
     try {
         await RequestContextService.run({agentIdentityNodeId: sender}, async () => {
-            await MailboxService.addMessage({
-                to      : identity,
-                subject : '[heartbeat] idle-out nudge',
-                body    : NUDGE_BODY_TEMPLATE(identity),
-                priority: 'normal'
-            });
+            await WakeSubscriptionService.emitHeartbeatPulse({targetIdentity: identity});
         });
-        console.error(`[idleOutNudge] Sent heartbeat nudge to ${identity}`);
+        console.error(`[idleOutNudge] Emitted heartbeat pulse to ${identity}`);
     } catch (err) {
-        // 6. Send-failure path: release the lock so the next interval can retry.
-        //    Without this, a transient MailboxService error would block all idle-out
-        //    nudges for this identity for the full BOOT_TIMEOUT_MS window.
-        console.error(`[idleOutNudge] Failed to send nudge to ${identity}: ${err.message}`);
+        // 6. Emit-failure path: release the lock so the next interval can retry.
+        //    Without this, a transient WakeSubscriptionService error would block all
+        //    idle-out nudges for this identity for the full BOOT_TIMEOUT_MS window.
+        console.error(`[idleOutNudge] Failed to emit heartbeat pulse to ${identity}: ${err.message}`);
         await clearInflightLock(identity, 'idle_out_nudge').catch(() => {});
         throw err;
     }
