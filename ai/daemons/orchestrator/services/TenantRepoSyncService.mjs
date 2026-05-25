@@ -131,8 +131,8 @@ class TenantRepoSyncService extends Base {
         /**
          * Concurrency cap on simultaneous tenant-repo git/ingest work within one
          * `runTask` invocation. Default `2` is conservative for multi-tenant
-         * cloud deployments. Set to `1` to serialize (pre-#11942-AC2 behavior).
-         * Set higher when network/CPU headroom permits.
+         * cloud deployments. Set to `1` to serialize all work when deployment
+         * capacity is constrained. Set higher when network/CPU headroom permits.
          * @member {Number} concurrencyLimit_=2
          * @reactive
          */
@@ -193,7 +193,7 @@ class TenantRepoSyncService extends Base {
      * | `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED` | outer `details.reasonCode` | `onlyRepoSlugs` filter requested a slug that is not in `tenantRepos[]` |
      * | `KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED` | outer `details.reasonCode` | `tenant-repo-sync-revisions.json` write failure (next cycle retries idempotently) |
      * | `KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND` | reserved | future `--tenant-id` CLI flag; no current emitter |
-     * | `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT` | per-repo `lastErrorCode` | concurrency-gate slot-acquisition timeout (#11942 AC2 — `concurrencyGateTimeoutMs` exceeded) |
+     * | `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT` | per-repo `lastErrorCode` | concurrency-gate slot-acquisition timeout after `concurrencyGateTimeoutMs` |
      *
      * @param {Object} options
      * @param {String} [options.taskName='tenant-repo-sync']
@@ -327,8 +327,8 @@ class TenantRepoSyncService extends Base {
         let   completedCount     = 0;
         let   failedCount        = 0;
 
-        // #11942 AC2 concurrency-gate: per-runTask semaphore capping simultaneous git/ingest
-        // work. Fresh instance per call so live `concurrencyLimit` / `concurrencyGateTimeoutMs`
+        // Per-runTask concurrency gate caps simultaneous git/ingest work.
+        // Fresh instance per call so live `concurrencyLimit` / `concurrencyGateTimeoutMs`
         // config edits take effect on the next cycle. JS is single-threaded so the shared
         // mutable counters (`completedCount` / `failedCount`) and `repoStates` array are safe.
         const semaphore = createConcurrencySemaphore({
@@ -338,9 +338,9 @@ class TenantRepoSyncService extends Base {
 
         let notDueCount = 0;
 
-        // #11942 AC1 cycle-2 (#11962): bootstrap-spread seeding. Without seeding,
-        // all fresh repos (lastRunAttemptAt=0) become due on the first sweep
-        // regardless of jitter — (now - 0) always exceeds any reasonable cadence.
+        // Bootstrap-spread seeding prevents all fresh repos (`lastRunAttemptAt = 0`)
+        // from becoming due on the first sweep regardless of jitter; `(now - 0)`
+        // always exceeds any reasonable cadence.
         // Seeding `lastRunAttemptAt = now - baseCadenceMs` makes the effective
         // due-time `now + jitterMs`, so first-sync attempts spread across
         // `[0, jitterRatio * baseCadenceMs)` per repo. Persisted state survives
@@ -376,8 +376,8 @@ class TenantRepoSyncService extends Base {
             const priorState   = persistedRevisions[repoLabel] || null;
             const startedMs    = Date.now();
 
-            // #11942 AC1 per-repo due check: deterministic jitter + exponential backoff
-            // applied on top of configured cadence. Manual CLI runs (onlyRepoSlugs filter)
+            // Per-repo due check applies deterministic jitter + exponential backoff on
+            // top of configured cadence. Manual CLI runs (onlyRepoSlugs filter)
             // bypass the due-check — operator-initiated sync should always fire for the
             // requested repos.
             if (!onlyRepoSlugs) {
@@ -443,9 +443,9 @@ class TenantRepoSyncService extends Base {
                     viaMcp: false // operator-bulk path
                 });
 
-                // #11942 AC1: persist full per-repo state on success. Reset consecutiveFailures
+                // Persist full per-repo state on success. Reset consecutiveFailures
                 // to 0 (backoff is the multiplier-component of effectiveCadence; reset on
-                // successful sync per ticket prescription). lastRunAttemptAt advances to
+                // successful sync). lastRunAttemptAt advances to
                 // startedMs so subsequent due-checks measure from the actual attempt.
                 persistedRevisions[repoLabel] = {
                     lastIngestedRev    : envelope.headRevision || priorState?.lastIngestedRev || null,
@@ -482,7 +482,7 @@ class TenantRepoSyncService extends Base {
                 const code = isTenantRepoSyncErrorCode(e.code) ? e.code : KB_TENANT_REPO_SYNC_SYNC_FAILED;
                 writeLog?.('ERROR', `[TenantRepoSync] ${repoLabel} failed: ${code} (${e.message})`);
 
-                // #11942 AC1: increment consecutiveFailures on failure; preserve last good
+                // Increment consecutiveFailures on failure; preserve last good
                 // ingested revision so the next successful run starts from the correct base.
                 // lastRunAttemptAt advances even on failure (backoff measures from attempt
                 // start, not last-success).
@@ -511,7 +511,8 @@ class TenantRepoSyncService extends Base {
                     code,
                     consecutiveFailures: nextFailureCount
                 });
-                // Continue with remaining repos — failure isolation per ticket prescription.
+                // Continue with remaining repos — per-repo failure isolation is the
+                // tenant deployment contract.
             } finally {
                 if (slotAcquired) semaphore.release();
             }
@@ -581,7 +582,7 @@ class TenantRepoSyncService extends Base {
     /**
      * Reads the per-tenant-repo persisted state map. Missing file = empty map (bootstrap).
      *
-     * Per-repo state shape (post-#11942 AC1):
+     * Current per-repo persisted state shape:
      * ```
      * {
      *   lastIngestedRev    : '<sha>',
@@ -590,7 +591,7 @@ class TenantRepoSyncService extends Base {
      * }
      * ```
      *
-     * Backward-compatible read: pre-AC1 persistence stored bare SHA strings under
+     * Backward-compatible read: legacy persistence stored bare SHA strings under
      * `revisions[label]`. On read, string-shaped entries are auto-migrated to the
      * full object shape (lastIngestedRev = old-string; lastRunAttemptAt = 0;
      * consecutiveFailures = 0). Next write persists the new shape, completing the
@@ -611,7 +612,7 @@ class TenantRepoSyncService extends Base {
             const normalized = {};
             for (const [label, value] of Object.entries(data.revisions)) {
                 if (typeof value === 'string') {
-                    // Pre-AC1 shape: bare SHA string. Migrate to full state shape on read.
+                    // Legacy shape: bare SHA string. Migrate to full state shape on read.
                     normalized[label] = {
                         lastIngestedRev    : value,
                         lastRunAttemptAt   : 0,
