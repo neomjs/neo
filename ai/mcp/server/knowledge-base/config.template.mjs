@@ -1,5 +1,6 @@
 import os              from 'os';
 import path            from 'path';
+import AiConfig        from '../../../config.template.mjs';
 import BaseConfig, { createConfigProxy } from '../shared/BaseConfig.mjs';
 import {fileURLToPath} from 'url';
 import Env from '../../../../src/util/Env.mjs';
@@ -93,13 +94,13 @@ const defaultConfig = {
      * @type {Object}
      */
     auth: {
-        host              : null,
-        port              : 8080,
-        realm             : 'master',
-        issuerUrl         : null,
-        clientId          : null,
-        clientSecret      : '',
-        trustProxyIdentity: false
+        host              : AiConfig.auth.host,
+        port              : AiConfig.auth.port,
+        realm             : AiConfig.auth.realm,
+        issuerUrl         : AiConfig.auth.issuerUrl,
+        clientId          : AiConfig.auth.clientId,
+        clientSecret      : AiConfig.auth.clientSecret,
+        trustProxyIdentity: AiConfig.auth.trustProxyIdentity
     },
     /**
      * A dummy embedding function to satisfy the ChromaDB API when embeddings are provided manually.
@@ -131,7 +132,7 @@ const defaultConfig = {
      * unified Chroma instance for both KB + MC, this points at the shared cloud-hosted Chroma.
      * @type {string}
      */
-    host: 'localhost',
+    host: AiConfig.engines.chroma.host,
     /**
      * The port the ChromaDB server for the knowledge base is listening on.
      *
@@ -139,7 +140,7 @@ const defaultConfig = {
      * fall back to the default with a console warning per the resolver validity contract.
      * @type {number}
      */
-    port: 8000,
+    port: AiConfig.engines.chroma.port,
     /**
      * The local persistence path for the agent knowledge-base server.
      * @type {string}
