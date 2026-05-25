@@ -201,11 +201,6 @@ test.describe('DestructiveOperationGuard call-site wiring (#10845)', () => {
         let deleteCalls = 0;
 
         proxy.getManagers = async () => [{
-            resolveChromaCoordinates: () => ({
-                host   : 'localhost',
-                port   : 8000,
-                dataDir: path.join(repoRoot, '.neo-ai-data/chroma/memory-core')
-            }),
             getMemoryCollection: async () => ({
                 name: 'neo-agent-memory'
             }),
