@@ -1,6 +1,6 @@
-import {test, expect} from '@playwright/test';
-import Neo            from '../../../../../../../src/Neo.mjs';
-import AiConfig       from '../../../../../../../ai/config.mjs';
+import {test, expect}  from '@playwright/test';
+import Neo             from '../../../../../../../src/Neo.mjs';
+import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
 
 test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
     let originalEnv;
@@ -42,9 +42,9 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
     });
 
     test('maps deployment-wide Tier-1 auth and unified Chroma defaults', () => {
-        expect(config.auth).toEqual(AiConfig.auth);
-        expect(config.host).toBe(AiConfig.engines.chroma.host);
-        expect(config.port).toBe(AiConfig.engines.chroma.port);
+        expect(config.auth).toEqual(TIER1_DEFAULTS.auth);
+        expect(config.host).toBe(TIER1_DEFAULTS.engines.chroma.host);
+        expect(config.port).toBe(TIER1_DEFAULTS.engines.chroma.port);
 
         expect(config.collectionName).toBe('neo-knowledge-base');
         expect(config.path).toContain('.neo-ai-data/chroma/knowledge-base');
