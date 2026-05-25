@@ -1,5 +1,5 @@
 /**
- * @summary Empirical diagnostic for cross-harness memory-core SQLite concurrency (#10187).
+ * @summary Empirical diagnostic for cross-harness memory-core SQLite concurrency.
  *
  * Cross-harness MCP servers (Claude Desktop + each Claude Code session/worktree +
  * Antigravity with its twin-language-server 2x multiplier) each spawn independent
@@ -8,17 +8,17 @@
  *
  * SQLite WAL mode handles storage-layer concurrency (multi-reader / single-writer),
  * but each process maintains its own `GraphService` singleton cache with no
- * cross-process invalidation — the root cause Epic #10186 structurally addresses.
- * Until the ADR (#10189) lands and a shared caching substrate is in place (#10190),
- * this script is the empirical probe that quantifies the concurrency situation:
+ * cross-process invalidation. This script is the empirical probe that
+ * quantifies the concurrency situation for cache-coherence design and
+ * operations:
  *
  *   - How many processes currently hold the DB file open?
  *   - What are their PIDs and launching command names?
  *   - Which parent harness (Claude Desktop / Claude Code / Antigravity / other) do
  *     they belong to, resolved by walking the `ppid` chain?
  *
- * The output anchors the ADR at #10189 in empirical reality rather than assumed
- * architecture, and doubles as an on-call diagnostic when a binding-null or
+ * The output anchors cache-coherence decisions in empirical reality rather than
+ * assumed architecture, and doubles as an on-call diagnostic when a binding-null or
  * stale-cache symptom surfaces again.
  *
  * Usage:
@@ -29,13 +29,12 @@
  * alternative primitive with similar output; lsof was chosen because it ships by
  * default on both targets and emits a deterministic machine-parseable format via
  * `-F pcn`. Read-only: the script never signals, kills, or otherwise mutates the
- * processes it surfaces (see Avoided Traps in #10186).
+ * processes it surfaces.
  *
  * @see ai/services/memory-core/GraphService.mjs  singleton cache origin
  * @see ai/graph/Database.mjs                                 vicinityLoadedNodes mark-without-load
  * @see ai/graph/storage/SQLite.mjs                           WAL pragma (storage layer is concurrency-safe)
- * @see https://github.com/neomjs/neo/issues/10186            Parent epic
- * @see https://github.com/neomjs/neo/issues/10187            This ticket
+ * @see learn/agentos/decisions/0001-cross-process-cache-coherence.md
  */
 import {execSync}      from 'child_process';
 import fs              from 'fs';
@@ -180,7 +179,8 @@ function listHoldingProcesses() {
  * running the script interactively (human-readable table), and automation that
  * consumes the JSON output for CI diagnostics or future ADR evidence-capture
  * pipelines. Neither format mutates repository state or signals external
- * processes — strictly read-only, per #10186's Avoided Traps.
+ * processes — strictly read-only, matching the cache-coherence ADR's avoided
+ * trap of treating diagnostics as control-plane mutation.
  *
  * @returns {void} Exits with 0 on success, 1 if the SQLite file does not exist.
  */
