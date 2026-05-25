@@ -1,13 +1,12 @@
 import fs from 'fs-extra';
 import path from 'node:path';
 import Base from '../../../../src/core/Base.mjs';
+import AiConfig from '../../../config.template.mjs';
 import {DEFAULT_DATA_DIR} from '../TaskDefinitions.mjs';
 import GitMirror from '../../../services/knowledge-base/helpers/GitMirror.mjs';
 import {buildIngestEnvelope} from '../../../services/knowledge-base/helpers/TenantRepoIngestEnvelopeBuilder.mjs';
 import {normalizeTenantRepoConfig} from '../../../services/knowledge-base/helpers/TenantRepoAccessContract.mjs';
 import {isRepoDue} from '../scheduling/tenantRepoSync.mjs';
-
-const DEFAULT_GLOBAL_CADENCE_MS = 30 * 60 * 1000; // 30min — matches AiConfig orchestrator.intervals.tenantRepoSyncMs default
 import {
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
@@ -224,7 +223,8 @@ class TenantRepoSyncService extends Base {
         onlyRepoSlugs,
         revisionsFilePath,
         envelopeBuilder = buildIngestEnvelope,
-        globalCadenceMs = DEFAULT_GLOBAL_CADENCE_MS
+        globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
+        jitterRatio     = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio
     } = {}) {
         const state = taskStateService.getTaskState(taskName);
 
@@ -241,7 +241,7 @@ class TenantRepoSyncService extends Base {
             const result = await this.syncTenantRepos({
                 writeLog, tenantReposConfig, aiConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
                 taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder,
-                globalCadenceMs
+                globalCadenceMs, jitterRatio
             });
             const status = result.status;
 
@@ -285,7 +285,8 @@ class TenantRepoSyncService extends Base {
     async syncTenantRepos({
         writeLog, tenantReposConfig, aiConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
         taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder = buildIngestEnvelope,
-        globalCadenceMs = DEFAULT_GLOBAL_CADENCE_MS
+        globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
+        jitterRatio     = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio
     }) {
         const resolvedConfig = tenantReposConfig || await this.resolveTenantReposConfig({aiConfig});
         const allRepos       = resolvedConfig.tenantRepos || [];
@@ -349,7 +350,8 @@ class TenantRepoSyncService extends Base {
                     repo,
                     persistedRepoState: priorState,
                     now               : startedMs,
-                    globalCadenceMs
+                    globalCadenceMs,
+                    jitterRatio
                 });
 
                 if (!dueState.due) {

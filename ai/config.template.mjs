@@ -148,6 +148,22 @@ const defaultConfig = {
          */
         devSyncRoots: [],
         /**
+         * Tenant-repo-sync per-repo scheduling parameters (#11942 AC1).
+         *
+         * The cadence floor lives in `intervals.tenantRepoSyncMs` above (30min default).
+         * Per-repo cadence in `tenantRepos[].cadenceMs` (operator-set) overrides global.
+         *
+         * - `jitterRatio` caps the deterministic per-repo jitter offset as a fraction
+         *   of the base cadence. Default `0.20` (≤20% of cadence per AC1 prescription).
+         *   Set `0` to disable jitter entirely (deterministic-cadence-only, no anti-
+         *   thundering-herd protection — only safe for low-tenant deployments).
+         *
+         * @type {Object}
+         */
+        tenantRepoSync: {
+            jitterRatio: 0.20
+        },
+        /**
          * Orchestrator-owned MLX inference server config. Operators tune via gitignored
          * `ai/config.mjs` or env vars (`NEO_ORCHESTRATOR_MLX_ENABLED`,
          * `NEO_ORCHESTRATOR_MLX_MODEL`, `NEO_ORCHESTRATOR_MLX_PORT`).

@@ -1,6 +1,5 @@
 import {test, expect} from '@playwright/test';
 import {
-    DEFAULT_JITTER_RATIO,
     buildTenantRepoSyncTrigger,
     computeDeterministicJitter,
     getDueTask,
@@ -58,17 +57,34 @@ test.describe('computeDeterministicJitter (#11942 AC1)', () => {
         expect(j1).toBe(j2);
     });
 
-    test('bounded — jitter < jitterRatio * baseCadenceMs', () => {
+    test('bounded — default jitterRatio=0 (no jitter); explicit ratio → bounded by ratio*baseCadenceMs', () => {
+        // Default jitterRatio (when caller omits) is 0 → no jitter. Pure function stays
+        // config-free; the production caller (TenantRepoSyncService) supplies the actual
+        // ratio from AiConfig — that wiring is covered by service-level integration tests.
         for (const slug of ['neomjs/a', 'neomjs/b', 'neomjs/c', 'neomjs/d', 'neomjs/e']) {
-            const jitter = computeDeterministicJitter({tenantId: 'tenant-a', repoSlug: slug, baseCadenceMs: 60000});
+            const noJitter = computeDeterministicJitter({tenantId: 'tenant-a', repoSlug: slug, baseCadenceMs: 60000});
+            expect(noJitter).toBe(0);
+        }
+
+        // With explicit jitterRatio (test uses literal 0.20 — pure-function contract is
+        // ratio-in / jitter-out; whether AiConfig's canonical value is 0.20 is asserted
+        // separately in service-level integration tests).
+        for (const slug of ['neomjs/a', 'neomjs/b', 'neomjs/c', 'neomjs/d', 'neomjs/e']) {
+            const jitter = computeDeterministicJitter({
+                tenantId      : 'tenant-a',
+                repoSlug      : slug,
+                baseCadenceMs : 60000,
+                jitterRatio   : 0.20
+            });
             expect(jitter).toBeGreaterThanOrEqual(0);
-            expect(jitter).toBeLessThan(60000 * DEFAULT_JITTER_RATIO);
+            expect(jitter).toBeLessThan(60000 * 0.20);
         }
     });
 
     test('distinct repos produce distinct jitter (anti-thundering-herd)', () => {
+        // Explicit non-zero jitterRatio required for distinct jitters (default 0 → all zeros).
         const jitters = ['neomjs/a', 'neomjs/b', 'neomjs/c', 'neomjs/d'].map(slug =>
-            computeDeterministicJitter({tenantId: 'tenant-a', repoSlug: slug, baseCadenceMs: 60000})
+            computeDeterministicJitter({tenantId: 'tenant-a', repoSlug: slug, baseCadenceMs: 60000, jitterRatio: 0.20})
         );
         // At least 3 distinct values across 4 repos — proves the hash isn't degenerate.
         // (Probabilistic guarantee, but with FNV-1a + 4 inputs the collision risk is negligible.)

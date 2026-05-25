@@ -46,17 +46,6 @@ export function getDueTask({state, now, intervalMs, enabled}) {
 }
 
 /**
- * Default per-repo jitter ratio: a deterministic time offset of up to 20% of the
- * configured cadence, derived from `tenantId + repoSlug` hash. The cap ensures
- * jitter never grows unbounded relative to cadence + the deterministic origin
- * means multiple `tenantRepoSync` daemons (e.g., HA pair, test repro) compute
- * the same jitter for the same repo, preserving operator reproducibility.
- *
- * @type {Number}
- */
-export const DEFAULT_JITTER_RATIO = 0.20;
-
-/**
  * @summary Deterministic per-repo jitter offset in milliseconds.
  *
  * Prevents "thundering-herd" on first-bootstrap multi-tenant deployments where
@@ -75,10 +64,10 @@ export const DEFAULT_JITTER_RATIO = 0.20;
  * @param {String} options.tenantId
  * @param {String} options.repoSlug
  * @param {Number} options.baseCadenceMs Pre-jitter cadence; jitter offset capped at `jitterRatio * baseCadenceMs`.
- * @param {Number} [options.jitterRatio=DEFAULT_JITTER_RATIO] Per-repo jitter cap as fraction of `baseCadenceMs`.
+ * @param {Number} [options.jitterRatio=0] Per-repo jitter cap as fraction of `baseCadenceMs`. Caller (typically `TenantRepoSyncService`) passes the value from `aiConfig.orchestrator.tenantRepoSync.jitterRatio`. Default `0` (no jitter) keeps pure-function behavior config-free; production callers always pass the configured value.
  * @returns {Number} Non-negative jitter offset in milliseconds, `< jitterRatio * baseCadenceMs`.
  */
-export function computeDeterministicJitter({tenantId, repoSlug, baseCadenceMs, jitterRatio = DEFAULT_JITTER_RATIO}) {
+export function computeDeterministicJitter({tenantId, repoSlug, baseCadenceMs, jitterRatio = 0}) {
     if (!Number.isFinite(baseCadenceMs) || baseCadenceMs <= 0) return 0;
     if (!Number.isFinite(jitterRatio) || jitterRatio <= 0) return 0;
 
@@ -113,10 +102,10 @@ export function computeDeterministicJitter({tenantId, repoSlug, baseCadenceMs, j
  * @param {Object} [options.persistedRepoState] Per-repo persisted state: `{lastIngestedRev, lastRunAttemptAt, consecutiveFailures}`. Defaults treated as bootstrap (lastRunAttemptAt=0, consecutiveFailures=0).
  * @param {Number} options.now Current timestamp in ms.
  * @param {Number} options.globalCadenceMs Global cadence fallback when repo has no override.
- * @param {Number} [options.jitterRatio=DEFAULT_JITTER_RATIO]
+ * @param {Number} [options.jitterRatio=0] Caller (typically `TenantRepoSyncService`) passes the value from `aiConfig.orchestrator.tenantRepoSync.jitterRatio`. Default `0` (no jitter) keeps the pure function config-free.
  * @returns {{due: Boolean, effectiveCadenceMs: Number, jitterMs: Number, backoffMultiplier: Number, lastRunAttemptAt: Number}}
  */
-export function isRepoDue({repo, persistedRepoState, now, globalCadenceMs, jitterRatio = DEFAULT_JITTER_RATIO}) {
+export function isRepoDue({repo, persistedRepoState, now, globalCadenceMs, jitterRatio = 0}) {
     const baseCadenceMs       = Number.isFinite(repo?.cadenceMs) && repo.cadenceMs > 0 ? repo.cadenceMs : globalCadenceMs;
     const consecutiveFailures = persistedRepoState?.consecutiveFailures ?? 0;
     const lastRunAttemptAt    = persistedRepoState?.lastRunAttemptAt ?? 0;
