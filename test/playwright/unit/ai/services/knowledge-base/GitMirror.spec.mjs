@@ -155,7 +155,7 @@ test.describe('GitMirror (#11788)', () => {
             .rejects.toMatchObject({code: 'KB_GITMIRROR_MIRROR_PATH_INVALID'});
         await expect(cloneIfMissing({
             ...mirrorOptions(source),
-            cloneUrl: 'https://token:secret@example.com/acme/repo.git',
+            cloneUrl: 'https://token:secret@example.com/tenant-a/repo-x.git',
             repoSlug: 'local/credential-url'
         })).rejects.toMatchObject({code: 'KB_GITMIRROR_CLONE_FAILED'});
         await expect(cloneIfMissing({

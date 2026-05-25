@@ -26,7 +26,7 @@ The deployable repo-push path is `npm run ai:kb-push-client`. It is a tenant-sid
 NEO_KB_MCP_URL="https://agent-os.example.com/kb/mcp" \
 NEO_KB_INGEST_TOKEN="$repo_push_token" \
 NEO_KB_TENANT_ID="client-org" \
-NEO_KB_REPO_SLUG="acme/app" \
+NEO_KB_REPO_SLUG="neomjs/create-app" \
 npm run ai:kb-push-client -- --from-stdin < envelope.json
 ```
 
@@ -81,7 +81,7 @@ The push client accepts a single JSON envelope and submits it to the remote MCP 
 npm run ai:kb-push-client -- \
     --url https://agent-os.example.com/kb/mcp \
     --tenant-id client-org \
-    --repo-slug acme/app \
+    --repo-slug neomjs/create-app \
     --from-file envelope.json
 ```
 

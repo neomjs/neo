@@ -53,7 +53,7 @@ test.describe('ai/scripts/maintenance/kbPushClient — repo-push MCP client (#11
                 '--url', 'https://kb.example.com/mcp',
                 '--from-stdin',
                 '--tenant-id', 'tenant-a',
-                '--repo-slug', 'acme/app',
+                '--repo-slug', 'neomjs/create-app',
                 '--transport', 'sse',
                 '--token-env', 'TOKEN_ENV'
             ],
@@ -62,7 +62,7 @@ test.describe('ai/scripts/maintenance/kbPushClient — repo-push MCP client (#11
 
         expect(args).toMatchObject({
             fromStdin: true,
-            repoSlug : 'acme/app',
+            repoSlug : 'neomjs/create-app',
             tenantId : 'tenant-a',
             token    : 'secret-token',
             tokenEnv : 'TOKEN_ENV',
@@ -76,13 +76,13 @@ test.describe('ai/scripts/maintenance/kbPushClient — repo-push MCP client (#11
             NEO_KB_INGEST_TOKEN : 'env-token',
             NEO_KB_MCP_URL      : 'https://kb.example.com/mcp',
             NEO_KB_MCP_TRANSPORT: 'streamable-http',
-            NEO_KB_REPO_SLUG    : 'acme/app',
+            NEO_KB_REPO_SLUG    : 'neomjs/create-app',
             NEO_KB_TENANT_ID    : 'tenant-a'
         });
 
         expect(args).toMatchObject({
             fromFile : 'envelope.json',
-            repoSlug : 'acme/app',
+            repoSlug : 'neomjs/create-app',
             tenantId : 'tenant-a',
             token    : 'env-token',
             tokenEnv : 'NEO_KB_INGEST_TOKEN',
@@ -144,14 +144,14 @@ test.describe('ai/scripts/maintenance/kbPushClient — repo-push MCP client (#11
             manifestSnapshot: {pathsAfterPush: ['src/a.mjs']}
         }, {
             tenantId: 'cli-tenant',
-            repoSlug : 'acme/app'
+            repoSlug : 'neomjs/create-app'
         });
 
         expect(normalized).toEqual({
             tenantId        : 'payload-tenant',
-            repoSlug         : 'acme/app',
+            repoSlug         : 'neomjs/create-app',
             manifestSnapshot: {
-                repoSlug      : 'acme/app',
+                repoSlug      : 'neomjs/create-app',
                 pathsAfterPush: ['src/a.mjs']
             }
         });
@@ -196,7 +196,7 @@ test.describe('ai/scripts/maintenance/kbPushClient — repo-push MCP client (#11
             '--url', 'https://kb.example.com/mcp',
             '--from-stdin',
             '--tenant-id', 'tenant-a',
-            '--repo-slug', 'acme/app',
+            '--repo-slug', 'neomjs/create-app',
             '--token', 'secret-token'
         ], {});
 
@@ -225,7 +225,7 @@ test.describe('ai/scripts/maintenance/kbPushClient — repo-push MCP client (#11
             name    : 'ingest_source_files',
             envelope: {
                 tenantId: 'tenant-a',
-                repoSlug : 'acme/app',
+                repoSlug : 'neomjs/create-app',
                 files    : [{sourcePath: 'src/a.mjs', content: 'x'}]
             }
         });

@@ -55,8 +55,8 @@ test.describe.configure({mode: 'serial'});
  */
 const TWO_TENANT_ROLLUP = [
     {
-        tenantId       : 'tenant-acme',
-        repoSlug       : 'acme-web',
+        tenantId       : 'tenant-a',
+        repoSlug       : 'neomjs/create-app',
         eventCount     : 12,
         ingestEvents   : 9,
         tombstoneEvents: 2,
@@ -155,7 +155,7 @@ test.describe('KbTenantHealthHelper (#11639)', () => {
             const dataRows = section.split('\n').filter(line => line.startsWith('| `'));
 
             expect(dataRows).toHaveLength(2);
-            expect(section).toContain('| `tenant-acme` | `acme-web` | 12 | 9 | 2 | 0 | 1 | 8.3% | 340 | 18 |');
+            expect(section).toContain('| `tenant-a` | `neomjs/create-app` | 12 | 9 | 2 | 0 | 1 | 8.3% | 340 | 18 |');
             expect(section).toContain('| `neo-shared` | `neo` | 4 | 4 | 0 | 0 | 0 | 0.0% | 88 | 0 |');
         });
 
