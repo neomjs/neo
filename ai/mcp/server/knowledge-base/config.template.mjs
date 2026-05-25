@@ -1,7 +1,7 @@
 import os              from 'os';
 import path            from 'path';
 import AiConfig        from '../../../config.template.mjs';
-import BaseConfig, { createConfigProxy } from '../shared/BaseConfig.mjs';
+import BaseConfig, { createConfigProxy } from '../../../BaseConfig.mjs';
 import {fileURLToPath} from 'url';
 import Env from '../../../../src/util/Env.mjs';
 
@@ -16,31 +16,30 @@ const neoRootDir = path.resolve(__dirname, '../../../../');
  */
 
 const envBindings = {
-    'autoSync': { var: 'NEO_AUTO_SYNC', parse: Env.parseBool },
-    'autoStartDatabase': { var: 'NEO_KB_AUTO_START_DATABASE', parse: Env.parseBool },
-    'transport': 'NEO_TRANSPORT',
-    'mcpHttpPort': { var: 'MCP_HTTP_PORT', parse: Env.parsePort },
-    'publicUrl': { var: 'NEO_PUBLIC_URL', parse: Env.parseUrl },
-
-    'auth.host': 'NEO_AUTH_HOST',
-    'auth.port': { var: 'NEO_AUTH_PORT', parse: Env.parsePort },
-    'auth.realm': 'NEO_AUTH_REALM',
-    'auth.issuerUrl': 'NEO_AUTH_ISSUER_URL',
-    'auth.clientId': 'NEO_OAUTH_CLIENT_ID',
-    'auth.clientSecret': 'NEO_OAUTH_CLIENT_SECRET',
-    'auth.trustProxyIdentity': { var: 'NEO_AUTH_TRUST_PROXY_IDENTITY', parse: Env.parseBool },
-
-    'host': 'NEO_CHROMA_HOST',
-    'port': { var: 'NEO_CHROMA_PORT', parse: Env.parsePort },
-
-    'memoryCoreDbPath': 'NEO_MEMORY_DB_PATH',
-    'kbFaqMinCount': { var: 'NEO_KB_FAQ_MIN_COUNT', parse: Env.parseNumber },
-    'kbFaqSimilarityThreshold': { var: 'NEO_KB_FAQ_SIMILARITY_THRESHOLD', parse: Env.parseNumber },
-    'kbFaqConceptLimit': { var: 'NEO_KB_FAQ_CONCEPT_LIMIT', parse: Env.parseNumber },
-    'defaultTenantId': 'NEO_KB_DEFAULT_TENANT_ID',
-    'defaultRepoSlug': 'NEO_KB_DEFAULT_REPO_SLUG',
-    'defaultVisibility': 'NEO_KB_DEFAULT_VISIBILITY',
-    'spoofRejectionMode': 'NEO_KB_SPOOF_REJECTION_MODE'
+    autoSync         : { var: 'NEO_AUTO_SYNC', parse: Env.parseBool },
+    autoStartDatabase: { var: 'NEO_KB_AUTO_START_DATABASE', parse: Env.parseBool },
+    transport        : 'NEO_TRANSPORT',
+    mcpHttpPort      : { var: 'MCP_HTTP_PORT', parse: Env.parsePort },
+    publicUrl        : { var: 'NEO_PUBLIC_URL', parse: Env.parseUrl },
+    auth             : {
+        host              : 'NEO_AUTH_HOST',
+        port              : { var: 'NEO_AUTH_PORT', parse: Env.parsePort },
+        realm             : 'NEO_AUTH_REALM',
+        issuerUrl         : 'NEO_AUTH_ISSUER_URL',
+        clientId          : 'NEO_OAUTH_CLIENT_ID',
+        clientSecret      : 'NEO_OAUTH_CLIENT_SECRET',
+        trustProxyIdentity: { var: 'NEO_AUTH_TRUST_PROXY_IDENTITY', parse: Env.parseBool }
+    },
+    host                    : 'NEO_CHROMA_HOST',
+    port                    : { var: 'NEO_CHROMA_PORT', parse: Env.parsePort },
+    memoryCoreDbPath        : 'NEO_MEMORY_DB_PATH',
+    kbFaqMinCount           : { var: 'NEO_KB_FAQ_MIN_COUNT', parse: Env.parseNumber },
+    kbFaqSimilarityThreshold: { var: 'NEO_KB_FAQ_SIMILARITY_THRESHOLD', parse: Env.parseNumber },
+    kbFaqConceptLimit       : { var: 'NEO_KB_FAQ_CONCEPT_LIMIT', parse: Env.parseNumber },
+    defaultTenantId         : 'NEO_KB_DEFAULT_TENANT_ID',
+    defaultRepoSlug         : 'NEO_KB_DEFAULT_REPO_SLUG',
+    defaultVisibility       : 'NEO_KB_DEFAULT_VISIBILITY',
+    spoofRejectionMode      : 'NEO_KB_SPOOF_REJECTION_MODE'
 };
 
 const defaultConfig = {
@@ -372,7 +371,7 @@ const defaultConfig = {
  * Supports loading configuration from a custom file and merging with defaults.
  *
  * @class Neo.ai.mcp.server.knowledge-base.Config
- * @extends Neo.core.Base
+ * @extends Neo.ai.BaseConfig
  * @singleton
  */
 class Config extends BaseConfig {
@@ -386,12 +385,16 @@ class Config extends BaseConfig {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * @member {Object} defaultConfig
+         */
+        defaultConfig,
+        /**
+         * @member {Object} envBindings
+         */
+        envBindings
     }
-
-    defaultConfig = defaultConfig;
-    envBindings = envBindings;
-
 }
 const instance = Neo.setupClass(Config);
 
