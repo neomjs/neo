@@ -12,8 +12,8 @@ import {
 /**
  * Predicate suppression filter for MC: the four Chroma library messages that surface noisily
  * during routine `getOrCreateCollection` calls with the dynamic embedding function. Everything
- * else passes through to the real `console.warn`. Pre-#11111 this was inlined inside the
- * ChromaManager's `#executeSilently` method; now passed to the shared primitive.
+ * else passes through to the real `console.warn`. The suppression now feeds the shared Chroma
+ * client primitives instead of staying local to ChromaManager's silent executor.
  */
 const MC_WARN_FILTER = msg =>
     msg.includes('No embedding function configuration found') ||
@@ -92,7 +92,7 @@ class ChromaManager extends AbstractVectorManager {
     }
 
     /**
-     * Establishes connection to ChromaDB via the shared `chromaConnect` primitive (#11111).
+     * Establishes connection to ChromaDB via the shared `chromaConnect` primitive.
      * @returns {Promise<boolean>} True if connected, false otherwise
      */
     async connect() {
@@ -117,7 +117,7 @@ class ChromaManager extends AbstractVectorManager {
     }
 
     /**
-     * Per-instance silent-execution function from the shared primitive (#11111).
+     * Per-instance silent-execution function from the shared Chroma primitive.
      * Each consumer gets its own isolated sequential lock. MC's call sites pass
      * `{filter: MC_WARN_FILTER}` to suppress only the four specific Chroma library
      * messages while letting everything else through.

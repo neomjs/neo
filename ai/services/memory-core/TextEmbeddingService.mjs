@@ -5,7 +5,7 @@ import logger               from '../../mcp/server/memory-core/logger.mjs';
 
 /**
  * Determines whether TextEmbeddingService needs a Gemini embedding client for the active provider.
- * Kept pure so #10804 config-consolidation tests can pin the single-provider gate without
+ * Kept pure so config-consolidation tests can pin the single-provider gate without
  * constructing the singleton or requiring a live `GEMINI_API_KEY`.
  * @param {Object} cfg aiConfig-shaped input.
  * @returns {Boolean}
