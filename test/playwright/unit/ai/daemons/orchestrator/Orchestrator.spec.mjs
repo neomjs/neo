@@ -17,6 +17,7 @@ import {
 } from '../../../../../../ai/daemons/orchestrator/services/PrimaryRepoSyncService.mjs';
 import {
     PRIMARY_DEV_SYNC_TASK_NAME,
+    TENANT_REPO_SYNC_TASK_NAME,
     DREAM_TASK_NAME,
     GOLDEN_PATH_TASK_NAME,
     SWARM_HEARTBEAT_TASK_NAME,
@@ -27,6 +28,7 @@ import TaskStateService, { createInitialTaskState } from '../../../../../../ai/d
 let testOrchestratorSeq = 0;
 let savedIntervals = null;
 let savedLocalOnly = null;
+let savedCloudOnly = null;
 
 /**
  * Test helper updated per Epic #11831 Sub 1 (#11833) Orchestrator refactor:
@@ -62,6 +64,7 @@ function createTestOrchestrator(config = {}) {
     // Save canonical AiConfig once per test; afterEach restores.
     savedIntervals = savedIntervals || {...AiConfig.orchestrator.intervals};
     savedLocalOnly = savedLocalOnly || {...AiConfig.orchestrator.localOnly};
+    savedCloudOnly = savedCloudOnly || {...AiConfig.orchestrator.cloudOnly};
 
     // Class D operator policy values — AiConfig.data mutation reaches lazy getters.
     // Test defaults preserve the pre-refactor helper's defaults (600000ms intervals etc.).
@@ -69,6 +72,7 @@ function createTestOrchestrator(config = {}) {
     AiConfig.orchestrator.intervals.kbSyncMs         = config.kbSyncIntervalMs         ?? 600000;
     AiConfig.orchestrator.intervals.backupMs         = config.backupIntervalMs         ?? 86400000;
     AiConfig.orchestrator.intervals.primaryDevSyncMs = config.primaryDevSyncIntervalMs ?? 600000;
+    AiConfig.orchestrator.intervals.tenantRepoSyncMs = config.tenantRepoSyncIntervalMs ?? Number.MAX_SAFE_INTEGER;
     AiConfig.orchestrator.intervals.dreamMs          = config.dreamIntervalMs          ?? Number.MAX_SAFE_INTEGER;
     AiConfig.orchestrator.intervals.goldenPathMs     = config.goldenPathIntervalMs     ?? Number.MAX_SAFE_INTEGER;
     AiConfig.orchestrator.intervals.swarmHeartbeatMs = config.swarmHeartbeatIntervalMs ?? Number.MAX_SAFE_INTEGER;
@@ -79,6 +83,8 @@ function createTestOrchestrator(config = {}) {
     AiConfig.orchestrator.localOnly.bridgeDaemonEnabled            = config.bridgeDaemonEnabled            ?? true;
     AiConfig.orchestrator.localOnly.swarmHeartbeatEnabled          = config.swarmHeartbeatEnabled          ?? true;
     AiConfig.orchestrator.localOnly.goldenPathRepoEnrichmentEnabled = config.goldenPathRepoEnrichmentEnabled ?? true;
+
+    AiConfig.orchestrator.cloudOnly.tenantRepoSyncEnabled = config.tenantRepoSyncEnabled ?? false;
 
     const orchestrator = Neo.create(Orchestrator, {
         dataDir                  : '/tmp/orchestrator-test',
@@ -99,6 +105,8 @@ function createTestOrchestrator(config = {}) {
     orchestrator.backupGetDueTask         = config.backupGetDueTask         || (() => null);
     orchestrator.primaryDevSyncGetDueTask = config.primaryDevSyncGetDueTask || (() => null);
     orchestrator.primaryRepoSyncService   = config.primaryRepoSyncService   || {runTask: () => null};
+    orchestrator.tenantRepoSyncService    = config.tenantRepoSyncService    || {runTask: () => null};
+    orchestrator.tenantRepoSyncGetDueTask = config.tenantRepoSyncGetDueTask || (() => null);
     orchestrator.dreamService             = config.dreamService             || {processUndigestedSessions: () => Promise.resolve()};
     orchestrator.goldenPathSynthesizer    = config.goldenPathSynthesizer    || {synthesizeGoldenPath: () => Promise.resolve()};
     orchestrator.swarmHeartbeatService    = config.swarmHeartbeatService    || {initAsync: () => Promise.resolve(), pulse: () => Promise.resolve()};
@@ -118,6 +126,10 @@ test.afterEach(() => {
         Object.assign(AiConfig.orchestrator.localOnly, savedLocalOnly);
         savedLocalOnly = null;
     }
+    if (savedCloudOnly) {
+        Object.assign(AiConfig.orchestrator.cloudOnly, savedCloudOnly);
+        savedCloudOnly = null;
+    }
 });
 
 test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
@@ -127,7 +139,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             nodeBin  : '/node'
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'summary', 'kbSync', 'backup', PRIMARY_DEV_SYNC_TASK_NAME, DREAM_TASK_NAME, GOLDEN_PATH_TASK_NAME, SWARM_HEARTBEAT_TASK_NAME]);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'summary', 'kbSync', 'backup', PRIMARY_DEV_SYNC_TASK_NAME, TENANT_REPO_SYNC_TASK_NAME, DREAM_TASK_NAME, GOLDEN_PATH_TASK_NAME, SWARM_HEARTBEAT_TASK_NAME]);
         expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({
@@ -556,6 +568,60 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             taskName: PRIMARY_DEV_SYNC_TASK_NAME,
             reason  : 'periodic-sweep:600000'
         }]);
+    });
+
+    test('routes tenant-repo-sync through Orchestrator.poll() when enabled + interval elapsed (#11790 AC2 poll-wiring)', () => {
+        const started = [];
+        const orchestrator = createTestOrchestrator({
+            kbSyncIntervalMs        : 0,
+            backupIntervalMs        : 0,
+            tenantRepoSyncEnabled   : true,
+            tenantRepoSyncIntervalMs: 600000,
+            tenantRepoSyncGetDueTask: () => ({
+                taskName: TENANT_REPO_SYNC_TASK_NAME,
+                source  : 'periodic-sweep',
+                reason  : 'periodic-sweep:600000'
+            }),
+            tenantRepoSyncService: {
+                runTask({taskName, reason}) {
+                    started.push({taskName, reason});
+                }
+            }
+        });
+
+        orchestrator.processSupervisorService = {
+            runTask() {}
+        };
+
+        orchestrator.poll();
+
+        expect(started).toEqual([{
+            taskName: TENANT_REPO_SYNC_TASK_NAME,
+            reason  : 'periodic-sweep:600000'
+        }]);
+    });
+
+    test('skips tenant-repo-sync when disabled (local deployment default — Contract Ledger row 2)', () => {
+        const started = [];
+        const orchestrator = createTestOrchestrator({
+            kbSyncIntervalMs        : 0,
+            backupIntervalMs        : 0,
+            tenantRepoSyncEnabled   : false,
+            tenantRepoSyncIntervalMs: 600000,
+            tenantRepoSyncService: {
+                runTask({taskName, reason}) {
+                    started.push({taskName, reason});
+                }
+            }
+        });
+
+        orchestrator.processSupervisorService = {
+            runTask() {}
+        };
+
+        orchestrator.poll();
+
+        expect(started).toEqual([]);
     });
 
     test('passes local dev-sync roots to primary-dev-sync while env keeps precedence', () => {

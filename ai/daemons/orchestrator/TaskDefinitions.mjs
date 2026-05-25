@@ -5,6 +5,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 export const PRIMARY_DEV_SYNC_TASK_NAME           = 'primary-dev-sync';
+export const TENANT_REPO_SYNC_TASK_NAME           = 'tenant-repo-sync';
 export const DREAM_TASK_NAME                      = 'dream';
 export const GOLDEN_PATH_TASK_NAME                = 'golden-path';
 export const SWARM_HEARTBEAT_TASK_NAME            = 'swarm-heartbeat';
@@ -96,6 +97,12 @@ export function buildTaskDefinitions({
             label          : 'primary checkout dev sync',
             pidFileName    : 'primary-dev-sync.pid',
             expectedCommand: 'PrimaryRepoSyncService',
+            serviceTask    : true
+        },
+        [TENANT_REPO_SYNC_TASK_NAME]: {
+            label          : 'tenant repo sync (cloud)',
+            pidFileName    : 'tenant-repo-sync.pid',
+            expectedCommand: 'TenantRepoSyncService',
             serviceTask    : true
         },
         [DREAM_TASK_NAME]: {
