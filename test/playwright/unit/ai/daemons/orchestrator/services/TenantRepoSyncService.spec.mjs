@@ -24,7 +24,6 @@ import os              from 'os';
 import path            from 'path';
 
 import TenantRepoSyncService from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncService.mjs';
-import {TENANT_REPO_SYNC_TASK_NAME} from '../../../../../../../ai/daemons/orchestrator/TaskDefinitions.mjs';
 import {deriveTenantRepoMirrorPath} from '../../../../../../../ai/services/knowledge-base/helpers/TenantRepoAccessContract.mjs';
 
 // Serial mode: TenantRepoSyncService is a singleton.
@@ -123,12 +122,12 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(result.status).toBe('skipped');
         expect(result.details.reason).toBe('no-tenant-repos-configured');
         expect(result.details.repoCount).toBe(0);
-        expect(taskStateService.taskState[TENANT_REPO_SYNC_TASK_NAME].skippedAt).toBeTruthy();
+        expect(taskStateService.taskState['tenant-repo-sync'].skippedAt).toBeTruthy();
     });
 
     test('skipped when already running (re-entrancy guard)', async () => {
         const taskStateService = createInMemoryTaskStateService();
-        taskStateService.taskState[TENANT_REPO_SYNC_TASK_NAME] = {running: true, pid: 12345};
+        taskStateService.taskState['tenant-repo-sync'] = {running: true, pid: 12345};
 
         const result = await TenantRepoSyncService.runTask({
             reason          : 'periodic',

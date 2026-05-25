@@ -1,7 +1,7 @@
 import fs from 'fs-extra';
 import path from 'node:path';
 import Base from '../../../../src/core/Base.mjs';
-import {DEFAULT_DATA_DIR, TENANT_REPO_SYNC_TASK_NAME} from '../TaskDefinitions.mjs';
+import {DEFAULT_DATA_DIR} from '../TaskDefinitions.mjs';
 import GitMirror from '../../../services/knowledge-base/helpers/GitMirror.mjs';
 import {buildIngestEnvelope} from '../../../services/knowledge-base/helpers/TenantRepoIngestEnvelopeBuilder.mjs';
 import {normalizeTenantRepoConfig} from '../../../services/knowledge-base/helpers/TenantRepoAccessContract.mjs';
@@ -84,7 +84,7 @@ class TenantRepoSyncService extends Base {
      * | `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT` | reserved | future concurrency-limit gate (#11942 AC2); no current emitter |
      *
      * @param {Object} options
-     * @param {String} [options.taskName=TENANT_REPO_SYNC_TASK_NAME]
+     * @param {String} [options.taskName='tenant-repo-sync']
      * @param {String} options.reason Scheduling reason (e.g. `'periodic-sweep:1800000'` or `'manual'`).
      * @param {Object} options.taskStateService Orchestrator task-state service.
      * @param {Object} [options.healthService] HealthService-compatible sink.
@@ -99,7 +99,7 @@ class TenantRepoSyncService extends Base {
      * @returns {Promise<Object>} `{status, details}` — status ∈ {`completed`, `failed`, `skipped`}.
      */
     async runTask({
-        taskName = TENANT_REPO_SYNC_TASK_NAME,
+        taskName = 'tenant-repo-sync',
         reason,
         taskStateService,
         healthService,

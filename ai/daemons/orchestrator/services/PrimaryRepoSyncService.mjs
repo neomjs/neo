@@ -2,10 +2,6 @@
 import {execFileSync} from 'child_process';
 import path           from 'path';
 import Base           from '../../../../src/core/Base.mjs';
-import {
-    PRIMARY_DEV_SYNC_TASK_NAME
-} from '../TaskDefinitions.mjs';
-
 const DEV_BRANCH     = 'dev';
 const REMOTE_NAME    = 'origin';
 const REMOTE_REF     = `${REMOTE_NAME}/${DEV_BRANCH}`;
@@ -153,7 +149,7 @@ class PrimaryRepoSyncService extends Base {
     /**
      * Runs the task under the orchestrator state and health envelopes.
      * @param {Object} options
-     * @param {String} [options.taskName=PRIMARY_DEV_SYNC_TASK_NAME]
+     * @param {String} [options.taskName='primary-dev-sync']
      * @param {String} options.reason Scheduling reason.
      * @param {Object} options.taskStateService Orchestrator task-state service.
      * @param {Object} options.healthService HealthService-compatible sink.
@@ -165,7 +161,7 @@ class PrimaryRepoSyncService extends Base {
      * @returns {Object} Execution result.
      */
     runTask({
-        taskName = PRIMARY_DEV_SYNC_TASK_NAME,
+        taskName = 'primary-dev-sync',
         reason,
         taskStateService,
         healthService,

@@ -5,12 +5,7 @@ import {
     acquireHeavyMaintenanceLeaseSync,
     releaseHeavyMaintenanceLeaseSync
 } from './HeavyMaintenanceLeaseService.mjs';
-import {
-    DREAM_TASK_NAME,
-    GOLDEN_PATH_TASK_NAME,
-    PRIMARY_DEV_SYNC_TASK_NAME,
-    DEFAULT_DATA_DIR
-} from '../TaskDefinitions.mjs';
+import {DEFAULT_DATA_DIR} from '../TaskDefinitions.mjs';
 
 /**
  * Canonical set of heavy-maintenance task names that participate in the cross-poll
@@ -24,8 +19,8 @@ export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
     'summary',
     'kbSync',
     'backup',
-    PRIMARY_DEV_SYNC_TASK_NAME,
-    DREAM_TASK_NAME
+    'primary-dev-sync',
+    'dream'
 ]);
 
 /**
@@ -34,7 +29,7 @@ export const DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES = Object.freeze([
  * @type {ReadonlyArray<String>}
  */
 export const DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES = Object.freeze([
-    DREAM_TASK_NAME
+    'dream'
 ]);
 
 // ============================================================================
@@ -513,7 +508,7 @@ export class MaintenanceBackpressureService extends Base {
      * dependency gate to avoid reading a partial graph state.
      *
      * @param {Object} options
-     * @param {String} options.taskName Stable orchestrator task name (`GOLDEN_PATH_TASK_NAME`).
+     * @param {String} options.taskName Stable orchestrator task name (`'golden-path'`).
      * @param {Function} options.executeFn Task body `(taskName, reason) => result`.
      * @param {Object} [options.reason] Scheduling reason.
      * @param {Object} options.activeHeavyTask Mutable `{name: String|null}` tracker for the current poll.
@@ -527,7 +522,7 @@ export class MaintenanceBackpressureService extends Base {
 
         if (blockingTaskName) {
             this.recordDeferral({
-                taskName  : GOLDEN_PATH_TASK_NAME,
+                taskName  : 'golden-path',
                 reasonCode: 'golden-path-dependency-backpressure',
                 reasonText,
                 blockingTaskName
