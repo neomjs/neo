@@ -25,17 +25,28 @@ test.describe('TenantRepoSyncErrors taxonomy (#11942 AC3+AC4)', () => {
         });
     });
 
-    test('TENANT_REPO_SYNC_ERROR_CODES set contains exactly the exported codes', () => {
-        expect(TENANT_REPO_SYNC_ERROR_CODES.size).toBe(5);
-        expect(TENANT_REPO_SYNC_ERROR_CODES.has(KB_TENANT_REPO_SYNC_SYNC_FAILED)).toBe(true);
-        expect(TENANT_REPO_SYNC_ERROR_CODES.has(KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED)).toBe(true);
-        expect(TENANT_REPO_SYNC_ERROR_CODES.has(KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND)).toBe(true);
-        expect(TENANT_REPO_SYNC_ERROR_CODES.has(KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED)).toBe(true);
-        expect(TENANT_REPO_SYNC_ERROR_CODES.has(KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT)).toBe(true);
+    test('TENANT_REPO_SYNC_ERROR_CODES array contains exactly the exported codes', () => {
+        expect(Array.isArray(TENANT_REPO_SYNC_ERROR_CODES)).toBe(true);
+        expect(TENANT_REPO_SYNC_ERROR_CODES.length).toBe(5);
+        expect(TENANT_REPO_SYNC_ERROR_CODES).toContain(KB_TENANT_REPO_SYNC_SYNC_FAILED);
+        expect(TENANT_REPO_SYNC_ERROR_CODES).toContain(KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED);
+        expect(TENANT_REPO_SYNC_ERROR_CODES).toContain(KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND);
+        expect(TENANT_REPO_SYNC_ERROR_CODES).toContain(KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED);
+        expect(TENANT_REPO_SYNC_ERROR_CODES).toContain(KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT);
     });
 
-    test('TENANT_REPO_SYNC_ERROR_CODES is frozen (immutable taxonomy at module load)', () => {
+    test('TENANT_REPO_SYNC_ERROR_CODES is truly immutable — external mutation rejected', () => {
+        // Object.freeze(new Set(...)) freezes the Set wrapper's properties but NOT
+        // Set membership — .add() still mutates the underlying collection. Object.freeze
+        // on an array, by contrast, rejects .push / indexed assignment / length mutation
+        // in strict mode. ES modules are strict by default, so these throw.
         expect(Object.isFrozen(TENANT_REPO_SYNC_ERROR_CODES)).toBe(true);
+        expect(() => TENANT_REPO_SYNC_ERROR_CODES.push('KB_TENANT_REPO_SYNC_MUTATED')).toThrow(TypeError);
+        expect(() => { TENANT_REPO_SYNC_ERROR_CODES[5] = 'KB_TENANT_REPO_SYNC_MUTATED'; }).toThrow(TypeError);
+        expect(() => { TENANT_REPO_SYNC_ERROR_CODES.length = 0; }).toThrow(TypeError);
+        expect(TENANT_REPO_SYNC_ERROR_CODES.length).toBe(5);
+        expect(TENANT_REPO_SYNC_ERROR_CODES).not.toContain('KB_TENANT_REPO_SYNC_MUTATED');
+        expect(isTenantRepoSyncErrorCode('KB_TENANT_REPO_SYNC_MUTATED')).toBe(false);
     });
 
     test('isTenantRepoSyncErrorCode discriminates membership correctly', () => {

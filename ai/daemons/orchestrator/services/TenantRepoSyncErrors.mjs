@@ -19,20 +19,26 @@ export const KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED = 'KB_TENANT_REPO_SYNC_M
 export const KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT = 'KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT';
 
 /**
- * @summary Frozen set of all valid tenant-repo-sync error codes.
+ * @summary Frozen enumeration of all valid tenant-repo-sync error codes.
  *
- * Test surfaces use this to assert exhaustive coverage; the runtime uses it for
- * `isTenantRepoSyncErrorCode(code)` membership checks at boundary handlers.
+ * Exported as a `Object.freeze`'d Array because `Object.freeze(new Set(...))` does NOT
+ * freeze Set membership — `.add()` still mutates the internal collection even after freeze.
+ * A frozen array, by contrast, rejects `.push()`, indexed assignment, and length mutation
+ * in strict mode (ES modules are strict by default), giving true immutability of the
+ * exported substrate. Boundary membership checks go through `isTenantRepoSyncErrorCode()`,
+ * which uses a module-internal Set for O(1) lookup.
  *
- * @type {ReadonlySet<String>}
+ * @type {ReadonlyArray<String>}
  */
-export const TENANT_REPO_SYNC_ERROR_CODES = Object.freeze(new Set([
+export const TENANT_REPO_SYNC_ERROR_CODES = Object.freeze([
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
     KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
     KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND,
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
     KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT
-]));
+]);
+
+const TENANT_REPO_SYNC_ERROR_CODE_SET = new Set(TENANT_REPO_SYNC_ERROR_CODES);
 
 /**
  * @summary `Error` subclass carrying a stable `code` field plus optional metadata.
@@ -69,5 +75,5 @@ export class TenantRepoSyncError extends Error {
  * @returns {Boolean}
  */
 export function isTenantRepoSyncErrorCode(code) {
-    return typeof code === 'string' && TENANT_REPO_SYNC_ERROR_CODES.has(code);
+    return typeof code === 'string' && TENANT_REPO_SYNC_ERROR_CODE_SET.has(code);
 }
