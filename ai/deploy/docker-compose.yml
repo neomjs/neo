@@ -170,6 +170,17 @@ services:
       - neo-mcp-network
     profiles:
       - cloud
+    # Liveness verified via TaskStateService's persistent state file (#11937).
+    # TaskStateService writes JSON state on every task lifecycle transition;
+    # mtime within 10 minutes (≫ swarm-heartbeat + summary cadences with safety
+    # margin) = orchestrator is alive and polling. 90s start_period covers the
+    # first-poll latency on cold container boot.
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"const fs=require('fs');const f=(process.env.NEO_AI_ORCHESTRATOR_DIR||'/app/.neo-ai-data/orchestrator-daemon')+'/state.json';try{const m=fs.statSync(f).mtimeMs;process.exit(Date.now()-m<600000?0:1)}catch(e){process.exit(1)}\""]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
     deploy:
       resources:
         limits:
@@ -196,6 +207,16 @@ services:
       - neo-mcp-network
     profiles:
       - ingress
+    # TCP-port responsiveness on 443 (caddy's only public surface). Direct nc -z
+    # exit-status check — caddy:2-alpine includes BusyBox nc; exit 0 = port accepts
+    # TCP connection, non-zero = caddy crashed. Avoids the wget --quiet + grep
+    # silent-success-empty-output failure mode (#11939 cycle-1 review per @neo-gpt).
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 443"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
