@@ -11,11 +11,12 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
 /**
  * @summary Builds child-process commands for orchestrator-owned maintenance tasks.
  *
- * Pure function: receives concrete `mlxEnabled` / `mlxModel` / `mlxPort` values from the
- * caller; performs no env-var lookups and carries no embedded MLX defaults. The
- * canonical MLX defaults live in `ai/config.template.mjs` under `orchestrator.mlx`;
- * `daemon.mjs::resolveMlxConfig` applies env-var overrides and forwards the resolved
- * values via `Orchestrator.start({mlxEnabled, mlxModel, mlxPort})`.
+ * Pure function: receives concrete `mlxEnabled` / `mlxModel` / `mlxPort` and
+ * `lmsEnabled` / `lmsModel` / `lmsPort` values from the caller; performs no env-var
+ * lookups and carries no embedded MLX or LM Studio defaults. The canonical defaults
+ * live in `ai/config.template.mjs` under `orchestrator.mlx` and `orchestrator.lms`;
+ * `daemon.mjs::resolveMlxConfig` / `resolveLmsConfig` apply env-var overrides and
+ * forward the resolved values via `Orchestrator.start({mlx*, lms*})`.
  *
  * The orchestrator intentionally shells out to existing manual maintenance scripts for
  * Piece C instead of reimplementing their internals. This keeps orchestration separate
@@ -27,7 +28,10 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
  * @param {String} [options.nodeBin] Node executable.
  * @param {Boolean} [options.mlxEnabled=false] Whether to launch an orchestrator-owned mlx_lm.server.
  * @param {String} [options.mlxModel] MLX launch model: a Hugging Face repo id or local path.
- * @param {String|Number} [options.mlxPort] OpenAI-compatible local inference port.
+ * @param {String|Number} [options.mlxPort] MLX OpenAI-compatible local inference port.
+ * @param {Boolean} [options.lmsEnabled=false] Whether to launch an orchestrator-owned LM Studio CLI server.
+ * @param {String} [options.lmsModel] LM Studio model identifier (informational; lifecycle currently spawns `lms server start` only — see #11986 AC5 for the model-load probe follow-up).
+ * @param {String|Number} [options.lmsPort] LM Studio OpenAI-compatible local inference port (CLI default `1234`).
  * @returns {Object}
  */
 export function buildTaskDefinitions({
@@ -35,7 +39,10 @@ export function buildTaskDefinitions({
     nodeBin    = process.argv[0],
     mlxEnabled = false,
     mlxModel,
-    mlxPort
+    mlxPort,
+    lmsEnabled = false,
+    lmsModel,
+    lmsPort
 } = {}) {
     const tasks = {
         chroma: {
@@ -112,6 +119,16 @@ export function buildTaskDefinitions({
             args           : ['-m', 'mlx_lm.server', '--model', mlxModel, '--port', String(mlxPort)],
             pidFileName    : 'mlx.pid',
             expectedCommand: 'mlx_lm.server'
+        };
+    }
+
+    if (lmsEnabled) {
+        tasks.lms = {
+            label          : 'lms server (LM Studio CLI)',
+            command        : 'lms',
+            args           : ['server', 'start', '--port', String(lmsPort)],
+            pidFileName    : 'lms.pid',
+            expectedCommand: 'lms server'
         };
     }
 

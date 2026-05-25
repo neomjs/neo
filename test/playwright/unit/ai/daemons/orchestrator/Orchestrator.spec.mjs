@@ -516,6 +516,22 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(orchestrator.taskDefinitions.mlx.args).not.toContain('gemma-4-31b-it');
     });
 
+    test('passes local lms launch port config into task definitions (#11986)', () => {
+        const orchestrator = Neo.create(Orchestrator);
+        orchestrator.dataDir         = '/tmp/orchestrator-test-lms-port';
+        orchestrator.taskDefinitions = buildTaskDefinitions({
+            scriptDir : path.resolve(process.cwd(), 'ai/scripts'),
+            nodeBin   : process.argv[0],
+            lmsEnabled: true,
+            lmsModel  : 'qwen3-embedding-8b',
+            lmsPort   : 4242
+        });
+
+        expect(orchestrator.taskDefinitions.lms.command).toBe('lms');
+        expect(orchestrator.taskDefinitions.lms.args).toEqual(['server', 'start', '--port', '4242']);
+        expect(orchestrator.taskDefinitions.lms.pidFileName).toBe('lms.pid');
+    });
+
     test('routes primary-dev-sync through its service coordinator', () => {
         const started = [];
         const orchestrator = createTestOrchestrator({

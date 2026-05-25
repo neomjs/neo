@@ -407,6 +407,9 @@ export class Orchestrator extends Base {
      * @param {Boolean} [options.mlxEnabled]
      * @param {String}  [options.mlxModel]
      * @param {String}  [options.mlxPort]
+     * @param {Boolean} [options.lmsEnabled]
+     * @param {String}  [options.lmsModel]
+     * @param {String}  [options.lmsPort]
      * @param {String[]|String|null} [options.primaryDevSyncRootsConfig]
      * @returns {Promise<void>}
      */
@@ -427,7 +430,10 @@ export class Orchestrator extends Base {
             nodeBin   : options.nodeBin || process.argv[0],
             mlxEnabled: options.mlxEnabled ?? undefined,
             mlxModel  : options.mlxModel || undefined,
-            mlxPort   : options.mlxPort  || undefined
+            mlxPort   : options.mlxPort  || undefined,
+            lmsEnabled: options.lmsEnabled ?? undefined,
+            lmsModel  : options.lmsModel || undefined,
+            lmsPort   : options.lmsPort  || undefined
         });
 
         // Non-reactive boot-wrapper-provided instance state
