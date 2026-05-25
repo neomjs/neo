@@ -6,12 +6,52 @@
  *
  * Capability fields (`contextWindowInput`, `hosting`, `tier`, etc.) per ADR 0012 Model-Stats
  * Framework. Source-cited values mirror `learn/agentos/ModelStats.md`; the registry is the
- * canonical authority for capability-data drift detection.
+ * canonical authority for capability-data drift detection. `trustTier` is the #10292 content
+ * provenance taxonomy used by Memory Core consumers to distinguish owner, peer-trusted, external,
+ * and unclassified authorship at ingestion/query boundaries.
  *
  * It is used for both:
  * 1. Boot-time self-seeding in `GraphService.initAsync`
  * 2. Explicit manual recovery via `ai/scripts/setup/seedAgentIdentities.mjs`
  */
+
+/**
+ * @summary Content-provenance trust taxonomy for AgentIdentity roots.
+ *
+ * Higher-level Memory Core query filtering and frontier weighting use these stable string
+ * values; do not replace them with display labels.
+ *
+ * @member {Object}
+ */
+export const TRUST_TIERS = Object.freeze({
+    SYSTEM           : 'system',
+    REPO_TRUSTED     : 'repo-trusted',
+    OWNER            : 'owner',
+    SELF             : 'self',
+    PEER_TRUSTED     : 'peer-trusted',
+    INTERNAL_AUTHORED: 'internal-authored',
+    EXTERNAL         : 'external',
+    UNCLASSIFIED     : 'unclassified'
+});
+
+/**
+ * @summary Highest-to-lowest trust ordering for the #10292 provenance taxonomy.
+ *
+ * The order is intentionally exported next to the enum so query-path slices can compare tiers
+ * without duplicating ranking tables.
+ *
+ * @member {String[]}
+ */
+export const TRUST_TIER_ORDER = Object.freeze([
+    TRUST_TIERS.SYSTEM,
+    TRUST_TIERS.REPO_TRUSTED,
+    TRUST_TIERS.OWNER,
+    TRUST_TIERS.SELF,
+    TRUST_TIERS.PEER_TRUSTED,
+    TRUST_TIERS.INTERNAL_AUTHORED,
+    TRUST_TIERS.EXTERNAL,
+    TRUST_TIERS.UNCLASSIFIED
+]);
 
 export const IDENTITIES = [
     {
@@ -24,6 +64,7 @@ export const IDENTITIES = [
             displayName: 'Claude Opus 4.7',
             modelFamily: 'claude',
             accountType: 'agent',
+            trustTier  : TRUST_TIERS.PEER_TRUSTED,
             subscriptionTemplate: {
                 trigger: 'SENT_TO_ME',
                 harnessTarget: 'bridge-daemon',
@@ -73,6 +114,7 @@ export const IDENTITIES = [
             displayName: 'Gemini 3.1 Pro',
             modelFamily: 'gemini',
             accountType: 'agent',
+            trustTier  : TRUST_TIERS.PEER_TRUSTED,
             subscriptionTemplate: {
                 trigger: 'SENT_TO_ME',
                 harnessTarget: 'bridge-daemon',
@@ -123,6 +165,7 @@ export const IDENTITIES = [
             displayName: 'Tobias Uhlig',
             modelFamily: null,
             accountType: 'human',
+            trustTier  : TRUST_TIERS.OWNER,
             createdAt: new Date().toISOString()
         }
     },
@@ -136,6 +179,7 @@ export const IDENTITIES = [
             displayName: 'Codex',
             modelFamily: 'gpt',
             accountType: 'agent',
+            trustTier  : TRUST_TIERS.PEER_TRUSTED,
             subscriptionTemplate: {
                 trigger: 'SENT_TO_ME',
                 harnessTarget: 'bridge-daemon',
@@ -183,6 +227,7 @@ export const IDENTITIES = [
             displayName: 'Broadcast',
             modelFamily: null,
             accountType: 'sentinel',
+            trustTier  : TRUST_TIERS.UNCLASSIFIED,
             createdAt: new Date().toISOString()
         }
     }
