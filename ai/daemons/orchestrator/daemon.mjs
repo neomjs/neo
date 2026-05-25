@@ -294,6 +294,38 @@ export function resolveMlxConfig({orchestratorConfig = {}, env = process.env} = 
 }
 
 /**
+ * Resolves the effective LM Studio CLI (`lms`) inference-server config by overlaying
+ * env-var overrides onto `AiConfig.orchestrator.lms`. Operators tune via gitignored
+ * `ai/config.mjs` or env (`NEO_ORCHESTRATOR_LMS_{ENABLED,MODEL,PORT}`); canonical
+ * defaults (`enabled: false`, `qwen3-embedding-8b` model, port `'1234'`) live in
+ * `ai/config.template.mjs` — this helper does not re-embed them.
+ *
+ * Mirror of `resolveMlxConfig` — the `lms` task is the parallel-alternative
+ * macOS-only local embedding server lane. Both `mlx` and `lms` lanes are mutually
+ * exclusive in practice (operators pick one via the respective `enabled` flag),
+ * though the orchestrator does not enforce that — two enabled lanes would bind
+ * different ports and operate independently.
+ *
+ * Boolean parsing for `NEO_ORCHESTRATOR_LMS_ENABLED` goes through
+ * `Neo.util.Env.parseBool` for canonical token semantics
+ * (true/yes/on/1, false/no/off/0, case-insensitive, trimmed).
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.orchestratorConfig={}] Slice of `AiConfig.orchestrator`.
+ * @param {Object} [options.env=process.env] Env-var source (test-injectable).
+ * @returns {{enabled: Boolean, model: String, port: String}}
+ */
+export function resolveLmsConfig({orchestratorConfig = {}, env = process.env} = {}) {
+    const lms = orchestratorConfig.lms || {};
+
+    return {
+        enabled: Env.parseBool('NEO_ORCHESTRATOR_LMS_ENABLED', {env}) ?? !!lms.enabled,
+        model  : env.NEO_ORCHESTRATOR_LMS_MODEL || lms.model,
+        port   : env.NEO_ORCHESTRATOR_LMS_PORT  || lms.port
+    };
+}
+
+/**
  * Starts the singleton orchestrator daemon.
  * @param {Object} [options] Runtime overrides for tests or process managers.
  * @returns {Promise<void>}
@@ -306,6 +338,7 @@ export async function startOrchestrator(options = {}) {
     const orchestratorConfig = AiConfig.orchestrator || {};
     const maintenanceConfig  = AiConfig.maintenance || {};
     const mlx                = resolveMlxConfig({orchestratorConfig});
+    const lms                = resolveLmsConfig({orchestratorConfig});
 
     return Orchestrator.start({
         dataDir: DAEMON_DATA_DIR,
@@ -313,6 +346,9 @@ export async function startOrchestrator(options = {}) {
         mlxEnabled: mlx.enabled,
         mlxModel  : mlx.model,
         mlxPort   : mlx.port,
+        lmsEnabled: lms.enabled,
+        lmsModel  : lms.model,
+        lmsPort   : lms.port,
         ...resolveOrchestratorStartOptions({orchestratorConfig, maintenanceConfig}),
         ...options
     });
