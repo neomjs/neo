@@ -5,6 +5,7 @@ import {invokeWithGuardrail} from './helpers/ConsumerFrictionHelper.mjs';
 import crypto from 'crypto';
 import GraphService from './GraphService.mjs';
 import OpenAiCompatibleProvider from '../../provider/OpenAiCompatible.mjs';
+import OllamaProvider           from '../../provider/Ollama.mjs';
 import StorageRouter from './managers/StorageRouter.mjs';
 import HealthService from './HealthService.mjs';
 import Json from '../../../src/util/Json.mjs';
@@ -118,6 +119,33 @@ class SessionService extends Base {
                     provider.apiKey    = aiConfig.openAiCompatible.apiKey;
                     provider.host      = aiConfig.openAiCompatible.host;
                     provider.modelName = aiConfig.openAiCompatible.model;
+
+                    const result  = await provider.generate(promptText);
+                    const content = result.content || result.raw?.message?.content || '';
+
+                    return {response: {text: () => content}};
+                }
+            };
+        } else if (aiConfig.modelProvider === 'ollama') {
+            // #11965 Sub-2: native Ollama chat dispatch via Neo.ai.provider.Ollama.
+            // Wraps the provider's `generate()` chat-completions call in the Gemini-shaped
+            // {response: {text: () => content}} envelope so the rest of SessionService
+            // (summarization, invokeWithGuardrail, etc.) stays provider-agnostic.
+            logger.info(`[SessionService] Initializing generation model via native Ollama (${aiConfig.ollama?.model || '<unset>'})`);
+            const provider = Neo.create(OllamaProvider, {
+                host          : aiConfig.ollama?.host          || 'http://127.0.0.1:11434',
+                modelName     : aiConfig.ollama?.model         || 'gemma4',
+                embeddingModel: aiConfig.ollama?.embeddingModel || null
+            });
+
+            this.model = {
+                generateContent: async (promptText) => {
+                    logger.info(`[Ollama] Sending summarization prompt (${promptText.length} chars)`);
+                    // Refresh provider config per request — matches OpenAiCompatible-path
+                    // semantic so runtime config mutation by tests / embedded operators
+                    // still applies to subsequent invocations.
+                    provider.host      = aiConfig.ollama?.host  || provider.host;
+                    provider.modelName = aiConfig.ollama?.model || provider.modelName;
 
                     const result  = await provider.generate(promptText);
                     const content = result.content || result.raw?.message?.content || '';
@@ -469,9 +497,12 @@ ${aggregatedContent}
         // try/catch) categorizes engine-level failures into friction symptoms. Friction is
         // emitted with `serviceDomain: 'memory-core'` for handoff rendering by
         // `GoldenPathSynthesizer.synthesizeGoldenPath`.
-        const consumerModel         = aiConfig.modelProvider === 'openAiCompatible'
-            ? (aiConfig.openAiCompatible.model || 'openAiCompatible')
-            : (aiConfig.modelName || 'gemini');
+        // #11965 Sub-2: consumer model naming covers all three active providers for
+        // guardrail/log surfaces.
+        const consumerModel =
+            aiConfig.modelProvider === 'openAiCompatible' ? (aiConfig.openAiCompatible.model || 'openAiCompatible') :
+            aiConfig.modelProvider === 'ollama'           ? (aiConfig.ollama?.model           || 'ollama') :
+            (aiConfig.modelName || 'gemini');
         const consumerContextTokens = aiConfig.openAiCompatible?.contextLimitTokens || 32768;
         const consumerSafeTokens    = aiConfig.openAiCompatible?.safeProcessingLimitTokens;
         const guardrailed           = await invokeWithGuardrail({
