@@ -1,7 +1,7 @@
 import fs   from 'fs/promises';
 import path from 'path';
-import Base  from '../../../../src/core/Base.mjs';
-import Env   from '../../../../src/util/Env.mjs';
+import Base  from '../src/core/Base.mjs';
+import Env   from '../src/util/Env.mjs';
 
 /**
  * @summary Base configuration manager for Neo MCP servers.
@@ -9,33 +9,32 @@ import Env   from '../../../../src/util/Env.mjs';
  * Provides shared logic for file-based configuration loading, deep merging,
  * and environment variable application.
  *
- * @class Neo.ai.mcp.server.shared.BaseConfig
+ * @class Neo.ai.BaseConfig
  * @extends Neo.core.Base
  */
 class BaseConfig extends Base {
     static config = {
         /**
-         * @member {String} className='Neo.ai.mcp.server.shared.BaseConfig'
+         * @member {String} className='Neo.ai.BaseConfig'
          * @protected
          */
-        className: 'Neo.ai.mcp.server.shared.BaseConfig'
+        className: 'Neo.ai.BaseConfig',
+        /**
+         * The current configuration object.
+         * @member {Object|null} data=null
+         */
+        data: null,
+        /**
+         * Server default configuration object.
+         * @member {Object} defaultConfig={}
+         */
+        defaultConfig: {},
+        /**
+         * Nested env-var binding ledger. Shape mirrors `defaultConfig`.
+         * @member {Object} envBindings={}
+         */
+        envBindings: {}
     }
-
-    /**
-     * The current configuration object.
-     * @member {Object} data
-     */
-    data = null;
-
-    /**
-     * @member {Object} defaultConfig={}
-     */
-    defaultConfig = {};
-
-    /**
-     * @member {Object} envBindings={}
-     */
-    envBindings = {};
 
     /**
      * Initializes the configuration object by deep cloning the defaults.
@@ -52,15 +51,6 @@ class BaseConfig extends Base {
      */
     applyEnv() {
         Env.applyEnvBindings(this.data, this.envBindings, process.env, console.warn);
-        this.applyLegacyEnv();
-    }
-
-    /**
-     * Hook for subclasses to handle specific environment variable deprecations or fallbacks.
-     * @protected
-     */
-    applyLegacyEnv() {
-        // Override in subclass if needed
     }
 
     /**
@@ -104,7 +94,7 @@ class BaseConfig extends Base {
 
 /**
  * Creates a Proxy to delegate unknown properties to the underlying data object.
- * @param {Neo.ai.mcp.server.shared.BaseConfig} instance
+ * @param {Neo.ai.BaseConfig} instance
  * @returns {Proxy}
  */
 export function createConfigProxy(instance) {
@@ -123,4 +113,4 @@ export function createConfigProxy(instance) {
     });
 }
 
-export { BaseConfig as default };
+export default Neo.setupClass(BaseConfig);

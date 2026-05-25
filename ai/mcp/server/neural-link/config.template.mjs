@@ -1,7 +1,7 @@
 import os              from 'os';
 import path            from 'path';
 import {fileURLToPath} from 'url';
-import BaseConfig, { createConfigProxy } from '../shared/BaseConfig.mjs';
+import BaseConfig, { createConfigProxy } from '../../../BaseConfig.mjs';
 import Env from '../../../../src/util/Env.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -93,7 +93,7 @@ const defaultConfig = {
  * Supports loading configuration from a custom file and merging with defaults.
  *
  * @class Neo.ai.mcp.server.neural-link.Config
- * @extends Neo.core.Base
+ * @extends Neo.ai.BaseConfig
  * @singleton
  */
 class Config extends BaseConfig {
@@ -107,23 +107,16 @@ class Config extends BaseConfig {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * @member {Object} defaultConfig
+         */
+        defaultConfig,
+        /**
+         * @member {Object} envBindings
+         */
+        envBindings
     }
-
-    defaultConfig = defaultConfig;
-    envBindings = envBindings;
-
-    /**
-     * Applies legacy environment variable fallbacks
-     */
-    applyLegacyEnv() {
-        // NEO_MEMORY_CORE_DB_PATH fallback for memoryCoreDbPath
-        if (process.env.NEO_MEMORY_CORE_DB_PATH && !process.env.NEO_MEMORY_DB_PATH) {
-            this.data.memoryCoreDbPath = process.env.NEO_MEMORY_CORE_DB_PATH;
-        }
-    }
-
-
 }
 const instance = Neo.setupClass(Config);
 

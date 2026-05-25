@@ -1,6 +1,6 @@
 import path                                       from 'path';
 import {fileURLToPath}                            from 'url';
-import BaseConfig, {createConfigProxy}            from '../shared/BaseConfig.mjs';
+import BaseConfig, {createConfigProxy}            from '../../../BaseConfig.mjs';
 import Env from '../../../../src/util/Env.mjs';
 
 const __filename     = fileURLToPath(import.meta.url);
@@ -88,15 +88,17 @@ const envBindings = {
     debug           : {var: 'NEO_GITLAB_WORKFLOW_DEBUG', parse: Env.parseBool},
     logLevel        : {var: 'NEO_GITLAB_WORKFLOW_LOG_LEVEL', parse: parseLogLevel},
     transport       : {var: 'NEO_GITLAB_WORKFLOW_TRANSPORT', parse: Env.parseString},
-    'gitlab.hostUrl': {var: 'NEO_GITLAB_HOST', parse: Env.parseUrl},
-    'gitlab.token'  : {var: 'NEO_GITLAB_PAT', parse: Env.parseString}
+    gitlab          : {
+        hostUrl: {var: 'NEO_GITLAB_HOST', parse: Env.parseUrl},
+        token  : {var: 'NEO_GITLAB_PAT',  parse: Env.parseString}
+    }
 };
 
 /**
  * @summary GitLab Workflow MCP configuration singleton.
  *
  * @class Neo.ai.mcp.server.gitlab-workflow.Config
- * @extends Neo.ai.mcp.server.shared.BaseConfig
+ * @extends Neo.ai.BaseConfig
  */
 class Config extends BaseConfig {
     static config = {
@@ -109,11 +111,16 @@ class Config extends BaseConfig {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * @member {Object} defaultConfig
+         */
+        defaultConfig,
+        /**
+         * @member {Object} envBindings
+         */
+        envBindings
     }
-
-    defaultConfig = defaultConfig
-    envBindings   = envBindings
 }
 
 const instance = Neo.setupClass(Config);

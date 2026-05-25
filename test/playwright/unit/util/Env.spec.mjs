@@ -158,7 +158,7 @@ test.describe('Neo.util.Env', () => {
     test.describe('applyEnvBindings', () => {
         test('warns + skips when intermediate is not an object (developer-authored path mistake)', () => {
             const data = { a: { b: 'leaf' } };
-            const bindings = { 'a.b.c': { var: 'TEST_X', parse: Env.parseNumber } };
+            const bindings = { a: { b: { c: { var: 'TEST_X', parse: Env.parseNumber } } } };
             Env.applyEnvBindings(data, bindings, { TEST_X: '42' }, captureWarn);
             expect(data.a.b).toBe('leaf');
             expect(warns.length).toBe(1);
@@ -174,10 +174,42 @@ test.describe('Neo.util.Env', () => {
 
         test('applies typed bindings with custom parser', () => {
             const data = { config: { port: 0 } };
-            const bindings = { 'config.port': { var: 'TEST_PORT', parse: Env.parsePort } };
+            const bindings = { config: { port: { var: 'TEST_PORT', parse: Env.parsePort } } };
             const env = { TEST_PORT: '8080' };
             Env.applyEnvBindings(data, bindings, env);
             expect(data.config.port).toBe(8080);
+        });
+
+        test('applies nested bindings which mirror the config object shape', () => {
+            const data = {
+                auth: {
+                    host: '',
+                    port: 0
+                }
+            };
+            const bindings = {
+                auth: {
+                    host: 'TEST_AUTH_HOST',
+                    port: { var: 'TEST_AUTH_PORT', parse: Env.parsePort }
+                }
+            };
+            const env = {
+                TEST_AUTH_HOST: 'auth.local',
+                TEST_AUTH_PORT: '8080'
+            };
+
+            Env.applyEnvBindings(data, bindings, env);
+
+            expect(data.auth).toEqual({
+                host: 'auth.local',
+                port: 8080
+            });
+        });
+
+        test('rejects dotted binding keys', () => {
+            expect(() => {
+                Env.applyEnvBindings({}, {'auth.host': 'TEST_AUTH_HOST'}, { TEST_AUTH_HOST: 'auth.local' });
+            }).toThrow(/Dotted envBinding paths are not supported/);
         });
 
         test('skips bindings when env var absent (leaves existing data untouched)', () => {
