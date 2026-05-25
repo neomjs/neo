@@ -420,4 +420,60 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(summaryLine).toBeDefined();
         expect(summaryLine.msg).toMatch(/1 repos, 1 completed, 0 failed/);
     });
+
+    test('--repo-slug filter against unknown slug surfaces stable KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+        const logLines         = [];
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/known'});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'manual',
+            taskStateService,
+            writeLog        : (level, msg) => logLines.push({level, msg}),
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/known', mirrorRoot, cloneUrl: 'https://example.com/known.git'}
+            ]},
+            onlyRepoSlugs                : ['org/unknown', 'org/also-unknown'],
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile
+        });
+
+        expect(result.status).toBe('failed');
+        expect(result.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED');
+        expect(result.details.requestedSlugs).toEqual(['org/unknown', 'org/also-unknown']);
+        expect(result.details.unknownSlugs).toEqual(['org/unknown', 'org/also-unknown']);
+        expect(result.details.configuredSlugs).toEqual(['org/known']);
+
+        const warn = logLines.find(l => l.msg.includes('Requested repoSlug'));
+        expect(warn).toBeDefined();
+        expect(warn.level).toBe('WARN');
+    });
+
+    test('writePersistedRevisions wraps fs write failure as KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED', async () => {
+        const readOnlyParent = path.join(tmpDir, 'read-only-parent');
+        await fs.ensureDir(readOnlyParent);
+        await fs.chmod(readOnlyParent, 0o500); // r-x — write blocked
+
+        try {
+            let thrown = null;
+            try {
+                await TenantRepoSyncService.writePersistedRevisions({
+                    filePath : path.join(readOnlyParent, 'subdir', 'revisions.json'),
+                    revisions: {'t1/org/repo': 'sha-abc'}
+                });
+            } catch (e) {
+                thrown = e;
+            }
+
+            expect(thrown).toBeTruthy();
+            expect(thrown.name).toBe('TenantRepoSyncError');
+            expect(thrown.code).toBe('KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED');
+            expect(thrown.meta.phase).toBe('manifest-update');
+            expect(thrown.meta.filePath).toContain('revisions.json');
+        } finally {
+            await fs.chmod(readOnlyParent, 0o700);
+        }
+    });
 });

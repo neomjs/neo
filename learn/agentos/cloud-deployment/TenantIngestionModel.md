@@ -273,6 +273,20 @@ The operator readiness endpoint reads this shape from `HealthService` — there 
 
 Status is computed from per-repo `lastIngestedRev` + recent-failure-count state; the projection is deterministic, no separate persisted status column.
 
+### Stable Error Code Taxonomy
+
+Per-repo failures carry a stable `lastErrorCode` field on the health payload; operators branch on `error.code`, not message prose. Codes live in [`TenantRepoSyncErrors.mjs`](../../../ai/daemons/orchestrator/services/TenantRepoSyncErrors.mjs).
+
+| Code | Where it surfaces | Trigger |
+|---|---|---|
+| `KB_TENANT_REPO_SYNC_SYNC_FAILED` | per-repo `lastErrorCode` | Underlying clone/fetch/envelope/ingest failure (wraps the original error after secret redaction at the GitMirror boundary) |
+| `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED` | outer `details.reasonCode` | Manual CLI requested a `--repo-slug` that is not present in `tenantRepos[]` config. CLI exits with code `3`. |
+| `KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED` | outer `details.reasonCode` | `tenant-repo-sync-revisions.json` write failure. Next cycle re-detects the same diff and retries idempotently — no manual recovery needed if the underlying filesystem issue is resolved. |
+| `KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND` | reserved | Future `--tenant-id` CLI flag; no current emitter. |
+| `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT` | reserved | Future concurrency-limit gate (tracked in [#11942](https://github.com/neomjs/neo/issues/11942) AC2); no current emitter. |
+
+The `KB_TENANT_REPO_SYNC_*` prefix distinguishes these codes from sibling-subsystem error families (`KB_GITMIRROR_*`, `KB_INGEST_*`, `KB_TENANT_REPO_ACCESS_*`).
+
 ### Quarantine Runbook
 
 When a repo enters `quarantined`, the lane stops attempting it on periodic cycles until the operator acts. Steps:
