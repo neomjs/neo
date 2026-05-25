@@ -3,7 +3,7 @@ import Base from '../../../../../src/core/Base.mjs';
 /**
  * Set of argument keys that an MCP tool caller MUST NOT supply — the server always derives
  * these from the active `RequestContextService` (OIDC Bearer token for SSE, stdio env-var /
- * gh-CLI resolution per ticket #10145). Client-supplied values would let a Gemini-harness
+ * gh-CLI resolution). Client-supplied values would let a Gemini-harness
  * session forge a write attributed to `@neo-opus-4-7`, etc.
  *
  * **Scope note:** `recipient` / `to` fields are legitimate (destination address, not claim-of-
@@ -34,7 +34,7 @@ const IDENTITY_OVERRIDE_KEYS = new Set([
  *
  * **Present-day behavior:** no current MCP tool schema exposes any of the forbidden keys, so
  * this middleware is a no-op on every live tool call. It exists as **defense-in-depth** for
- * upcoming additions — particularly Mailbox (#10139) which adds `from` fields where the spoof
+ * upcoming additions — particularly Mailbox tooling, which adds `from` fields where the spoof
  * surface becomes real. Shipping the guard before the surface is the inverse of "patch after
  * incident" hygiene.
  *

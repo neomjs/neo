@@ -7,20 +7,19 @@ import Base       from '../../../../../src/core/Base.mjs';
  * The stdio transport has no request-level authentication primitive (unlike the SSE transport's
  * OIDC Bearer token flow handled by `AuthService`). Identity must be pinned at process-boot time
  * so that every subsequent `callTool` dispatch inherits a consistent tenant tag via
- * `RequestContextService`, bringing stdio to **parity with the SSE identity propagation** shipped
- * by ticket #10000.
+ * `RequestContextService`, bringing stdio to **parity with the SSE identity propagation**.
  *
  * **Resolution chain** (first match wins):
  *
  * 1. **`NEO_AGENT_IDENTITY` environment variable** — explicit pinning for agent harnesses.
  *    Claude Code sets this via `.claude/settings.json`; Gemini via `.gemini/settings.json`; other
  *    harnesses via their native config surface. This is the authoritative path for per-model
- *    GitHub account binding (precedent: #10144 seed identities `@neo-opus-4-7`, `@neo-gemini-3-1-pro`).
+ *    GitHub account binding to seeded AgentIdentity node ids such as `@neo-opus-4-7`.
  * 2. **`gh api user` via the GitHub CLI** — zero-friction fallback for local human developers
  *    who have `gh` installed and authenticated. Matches the `@me` shortcut semantics used
  *    across the Agent OS tooling surface.
  * 3. **`unresolved`** — neither path yielded an identity. Downstream services treat this as
- *    **single-tenant mode** (backward-compatible with pre-#10145 behavior). Not a startup
+ *    **single-tenant mode** (the legacy unauthenticated transport behavior). Not a startup
  *    failure — preserves the existing local-agent developer experience.
  *
  * **Intentionally NOT in scope:**
@@ -60,7 +59,7 @@ class StdioIdentityResolver extends Base {
      *
      * **Normalization:** GitHub login strings are stored WITHOUT the leading `@` to match
      * GitHub API conventions (`gh api user .login` returns `neo-opus-4-7`, not `@neo-opus-4-7`).
-     * Callers that need the `@`-prefixed graph-node-id form (per #10144 seed convention) prepend
+     * Callers that need the `@`-prefixed graph-node-id form prepend
      * the `@` at lookup time.
      *
      * @returns {Promise<{githubLogin: String|null, username: String|null, source: String}>}

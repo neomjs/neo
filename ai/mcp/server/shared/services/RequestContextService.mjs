@@ -7,15 +7,13 @@ import Base from '../../../../../src/core/Base.mjs';
  *
  * Reads in tenant-aware mode use `where: {$or: [{userId: <current>}, {userId: SHARED_USER_ID}]}`,
  * granting every authenticated tenant access to their own data PLUS the shared baseline.
- * The migration runner (`ai/scripts/migrations/backfillChromaSharedUserId.mjs`, #10556) tags any
- * pre-#10145 ChromaDB records lacking a `userId` key with this sentinel so the additive
+ * The migration runner (`ai/scripts/migrations/backfillChromaSharedUserId.mjs`) tags legacy
+ * ChromaDB records lacking a `userId` key with this sentinel so the additive
  * read filter can return them. New raw-memory writes tag with the resolved per-tenant userId;
  * session summaries involving named core swarm maintainers intentionally use `SHARED_USER_ID`
- * so the compressed navigation artifact remains visible to every named peer (#11181).
+ * so the compressed navigation artifact remains visible to every named peer.
  *
  * @member {String}
- * @see #10556 — chromadb metadata backfill that introduces this sentinel
- * @see #10017 — adjacent SQLite Native Edge Graph migration (different storage layer, gradual)
  */
 export const SHARED_USER_ID = 'shared';
 
@@ -29,7 +27,6 @@ export const SHARED_USER_ID = 'shared';
  * tenant-aware summary reads.
  *
  * @member {String[]}
- * @see #11181 — restored summary visibility regression
  */
 export const CORE_SWARM_USER_IDS = Object.freeze([
     'neo-opus-4-7',
@@ -40,7 +37,6 @@ export const CORE_SWARM_USER_IDS = Object.freeze([
 /**
  * @summary AgentIdentity node-id form for {@link CORE_SWARM_USER_IDS}.
  * @member {String[]}
- * @see #11181
  */
 export const CORE_SWARM_AGENT_IDS = Object.freeze(
     CORE_SWARM_USER_IDS.map(userId => `@${userId}`)
@@ -50,7 +46,7 @@ export const CORE_SWARM_AGENT_IDS = Object.freeze(
  * @summary Strips the `@`-prefix from AgentIdentity-style identifiers so userId comparisons
  * are always canonical-form.
  *
- * AgentIdentity graph node IDs use the form `@neo-opus-4-7` (per #10144 seed convention),
+ * AgentIdentity graph node IDs use the form `@neo-opus-4-7`,
  * but ChromaDB metadata `userId` values are stored without the prefix (`neo-opus-4-7`).
  * Without a normalization boundary, code paths that mix the two forms produce silent
  * self-filtering — a write tags `userId: 'neo-opus-4-7'` but a read filter that uses
@@ -78,7 +74,6 @@ export function normalizeUserId(input) {
  *
  * @param {String|String[]|null|undefined} input Agent list to normalize.
  * @returns {String[]} Canonical userIds with empty entries removed.
- * @see #11181
  */
 export function parseAgentList(input) {
     if (input == null) return [];
@@ -101,7 +96,6 @@ export function parseAgentList(input) {
  *
  * @param {String|String[]|null|undefined} participatingAgents Summary metadata participant list.
  * @returns {Boolean}
- * @see #11181
  */
 export function hasCoreSwarmParticipant(participatingAgents) {
     const participants = new Set(parseAgentList(participatingAgents));
@@ -121,7 +115,6 @@ export function hasCoreSwarmParticipant(participatingAgents) {
  * @param {String|null|undefined} input.userId Active request userId.
  * @param {String|String[]|null|undefined} input.participatingAgents Summary participant metadata.
  * @returns {String|undefined} `shared`, a normalized userId, or undefined for single-tenant fallthrough.
- * @see #11181
  */
 export function resolveSummaryVisibilityUserId({userId, participatingAgents} = {}) {
     if (hasCoreSwarmParticipant(participatingAgents)) {
@@ -141,20 +134,20 @@ export function resolveSummaryVisibilityUserId({userId, participatingAgents} = {
  * any of the primitive leaking into their method signatures.
  *
  * **Module-level exports:**
- * - {@link SHARED_USER_ID} — sentinel value for legacy/commons records (#10556)
- * - {@link normalizeUserId} — `@`-prefix stripping boundary helper (#10556)
- * - {@link resolveSummaryVisibilityUserId} — summary visibility resolver for core-swarm artifacts (#11181)
+ * - {@link SHARED_USER_ID} — sentinel value for legacy/commons records
+ * - {@link normalizeUserId} — `@`-prefix stripping boundary helper
+ * - {@link resolveSummaryVisibilityUserId} — summary visibility resolver for core-swarm artifacts
  *
- * **Identity flow (Epic #9999, sub-epic #10016, tickets #10000 + #10145):**
+ * **Identity flow:**
  *
- * 1. **SSE transport (#10000):** `AuthService.verifyAccessToken` validates the incoming Bearer
+ * 1. **SSE transport:** `AuthService.verifyAccessToken` validates the incoming Bearer
  *    token via OIDC introspection and returns `{userId, username, ...}` on the auth context,
  *    extracted from the introspection response's `preferred_username` / `sub` / `name` /
  *    `email` claims. `TransportService` wraps each `/mcp` request with
  *    `RequestContextService.run({userId, username, agentIdentityNodeId, source: 'oidc'}, ...)`.
- * 2. **Stdio transport (#10145):** `StdioIdentityResolver` resolves identity at server boot
+ * 2. **Stdio transport:** `StdioIdentityResolver` resolves identity at server boot
  *    via `NEO_AGENT_IDENTITY` env-var or `gh api user` CLI fallback. The memory-core `Server`
- *    looks up the matching AgentIdentity graph node (per ticket #10144), then wraps every
+ *    looks up the matching AgentIdentity graph node, then wraps every
  *    `CallToolRequestSchema` dispatch with `RequestContextService.run({userId, username,
  *    agentIdentityNodeId, source: 'env-var' | 'gh-cli'}, ...)`. Stdio now reaches parity with
  *    SSE — per-agent GitHub account pinning tags writes with the correct tenant regardless of
@@ -169,7 +162,7 @@ export function resolveSummaryVisibilityUserId({userId, participatingAgents} = {
  * 4. **Unresolved-identity fallthrough:** when neither transport resolves a userId (stdio with
  *    neither env-var nor authenticated `gh` CLI, offline daemon contexts), `getUserId()` returns
  *    `undefined` and services fall back to **single-tenant mode** — no tag on writes, no filter
- *    on reads. Backward-compatible with pre-#10145 behavior.
+ *    on reads. This preserves the legacy single-tenant behavior.
  *
  * **Why AsyncLocalStorage and not explicit parameter threading:** userId is a cross-cutting
  * concern that every ChromaDB touch point cares about. Threading it as a parameter through
@@ -224,8 +217,7 @@ class RequestContextService extends Base {
      *                                                that as single-tenant fallthrough.
      * @param {String}   [context.username]           Human-readable display name for logging.
      * @param {String}   [context.agentIdentityNodeId] ID of the bound AgentIdentity graph node
-     *                                                (per ticket #10144's seed convention:
-     *                                                `@`-prefixed GitHub login). Populated when
+     *                                                (`@`-prefixed GitHub login). Populated when
      *                                                the resolved identity matches a seeded
      *                                                node in the Native Edge Graph. Null when
      *                                                the identity is unbound (e.g. unseeded
@@ -274,7 +266,7 @@ class RequestContextService extends Base {
     }
 
     /**
-     * Convenience accessor for the bound AgentIdentity graph-node ID (per ticket #10144).
+     * Convenience accessor for the bound AgentIdentity graph-node ID.
      * Services building `AUTHORED_BY` / `OWNED_BY` edges at write time use this to terminate
      * edges on the correct identity node. Returns `undefined` when no context is active, and
      * `null` when context is active but the resolved identity has no matching AgentIdentity
