@@ -99,7 +99,7 @@ class SyncService extends Base {
      * 7.  Syncs discussions into local Markdown files via `DiscussionSyncer`.
      * 8.  Syncs pull requests into local Markdown files via `PullRequestSyncer`.
      * 9.  Carries `metadata.discussions` + `metadata.pulls` onto `newMetadata` so the
-     *     per-syncer cache populations survive `MetadataManager.save` (#11573).
+     *     per-syncer cache populations survive `MetadataManager.save`.
      * 10. Caches releases in `newMetadata` for next run.
      * 11. Saves the updated, pruned metadata to disk via `MetadataManager`.
      * @returns {Promise<object>} A comprehensive object containing detailed statistics and timing
@@ -136,7 +136,7 @@ class SyncService extends Base {
             newMetadata.pushFailures = newMetadata.pushFailures.filter(failedId => !newMetadata.issues[failedId]);
         }
 
-        // 9. Carry over per-syncer metadata mutations (#11573).
+        // 9. Carry over per-syncer metadata mutations.
         //
         // `newMetadata` is a fresh object constructed by `IssueSyncer.pullFromGitHub` carrying
         // only `{issues, pushFailures, lastSync}`. `DiscussionSyncer.syncDiscussions(metadata)`
@@ -145,10 +145,9 @@ class SyncService extends Base {
         // carry-over, those mutations are dropped at `save(newMetadata)` and the on-disk diff
         // cache stays empty after every sync.
         //
-        // Empirical anchor: operator V-B-A 2026-05-18 caught 0/104 on-disk Discussion markdown
-        // files lacking `closed`/`closedAt` despite #11554 having merged the frontmatter-emit
-        // fix. The compounding factor — alongside stale MCP daemon code paths — was the
-        // metadata.discussions = {} state that prevented any cache reconciliation.
+        // This prevents a fresh metadata object from dropping discussion and PR cache populations
+        // created by their dedicated syncers, which would otherwise leave the on-disk diff cache
+        // empty after every sync.
         newMetadata.discussions = metadata.discussions || {};
         newMetadata.pulls       = metadata.pulls       || {};
 

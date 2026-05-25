@@ -5,24 +5,19 @@
  * Discussion / Issue / PullRequest syncers; sibling-file-lift applies; no novel directory choice.
  *
  * @summary Validates that the YAML frontmatter block of serialized markdown carries the expected
- * top-level keys before persistence (#11573). Closes the V-B-A gap where #11554's frontmatter-emit
- * fix shipped with green CI but the production effect was never verified — 0 of 104 on-disk
- * Discussion markdown files carried the new `closed` / `closedAt` keys despite the merged code path.
+ * top-level keys before persistence. Guards the production effect of frontmatter migrations, where
+ * green CI alone does not prove that live sync writers are serializing the new keys.
  *
  * Intentionally a pure helper:
  * - Uses `gray-matter` (the same parser the syncer uses) to isolate the frontmatter block from
- *   the markdown body. This eliminates the body-line false-positive class GPT empirically caught
- *   in PR #11574 cycle-1 V-B-A (where a body line starting with `closed:` falsely satisfied a
- *   missing-key check against the actual frontmatter).
+ *   the markdown body. This eliminates the body-line false-positive class where a body line starting
+ *   with `closed:` falsely satisfies a missing-key check against the actual frontmatter.
  * - No Neo runtime dependency (importable from any sync context, including non-Neo callers).
  * - No filesystem IO (operates on the in-memory `content` string just before `fs.writeFile`).
  * - No logger dependency (returns a structured result; caller decides log level + action).
  *
  * Cost model: one `gray-matter` parse per discussion (~100/sync × ~1ms = sub-100ms — far below
  * the network + serialize cost of a sync run).
- *
- * @see #11573 (this ticket) / #11554 (originally fixed frontmatter shape) / PR #11574 cycle-1
- *      (GPT V-B-A — the body-line false-positive that drove the gray-matter scope fix)
  */
 import matter from 'gray-matter';
 
@@ -67,8 +62,8 @@ function verifyFrontmatterIntegrity(content, requiredKeys) {
 
 /**
  * Convenience wrapper for the Discussion syncer's required key set. Centralizes the
- * "what counts as a complete Discussion frontmatter" contract so future regression
- * tickets can extend this single list instead of grepping all syncers.
+ * "what counts as a complete Discussion frontmatter" contract so future migrations
+ * can extend this single list instead of grepping all syncers.
  *
  * Currently mirrors `DiscussionSyncer.mjs:241-250` frontmatter object construction.
  *
