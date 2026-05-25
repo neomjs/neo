@@ -128,4 +128,18 @@ test.describe('Neo.ai.scripts.analyzeNlTelemetry', () => {
         expect(data).toContain('whitebox_e2e_introspection');
         expect(data).toContain('Navigate to user profile');
     });
+
+    test('uses current storagePaths.graph config instead of retired graph-engine paths (#10126)', () => {
+        const diagnosticsSource = fs.readFileSync(scriptPath, 'utf8');
+        const maintenanceSource = fs.readFileSync(
+            path.resolve(process.cwd(), 'ai/scripts/maintenance/recreateGraphDb.mjs'),
+            'utf8'
+        );
+        const retiredPath = ['aiConfig', 'engines', 'neo'].join('.');
+
+        expect(diagnosticsSource).toContain('aiConfig.storagePaths.graph');
+        expect(maintenanceSource).toContain('aiConfig.storagePaths.graph');
+        expect(diagnosticsSource).not.toContain(retiredPath);
+        expect(maintenanceSource).not.toContain(retiredPath);
+    });
 });
