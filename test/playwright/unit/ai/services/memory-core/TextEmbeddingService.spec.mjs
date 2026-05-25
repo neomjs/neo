@@ -48,3 +48,89 @@ test.describe('TextEmbeddingService #10804 — shouldInitializeGeminiEmbeddingCl
         })).toBe(false);
     });
 });
+
+test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', () => {
+    let TextEmbeddingService;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/services/memory-core/TextEmbeddingService.mjs');
+        TextEmbeddingService = mod.default;
+    });
+
+    test.afterEach(() => {
+        // Restore singleton ollamaProvider slot — fake injection across tests must not leak.
+        TextEmbeddingService.ollamaProvider = null;
+    });
+
+    test('embedText dispatches to native Ollama provider when explicitProvider=ollama', async () => {
+        const captured  = [];
+        const fakeOllama = {
+            async embed(input) {
+                captured.push({input});
+                return {embeddings: [[0.1, 0.2, 0.3]], raw: {model: 'fake-model'}};
+            }
+        };
+        TextEmbeddingService.ollamaProvider = fakeOllama;
+
+        const result = await TextEmbeddingService.embedText('hello world', 'ollama');
+
+        expect(result).toEqual([0.1, 0.2, 0.3]);
+        expect(captured).toEqual([{input: 'hello world'}]);
+    });
+
+    test('embedTexts dispatches batch to native Ollama provider when explicitProvider=ollama', async () => {
+        const captured  = [];
+        const fakeOllama = {
+            async embed(input) {
+                captured.push({input});
+                return {
+                    embeddings: [
+                        [0.1, 0.2],
+                        [0.3, 0.4],
+                        [0.5, 0.6]
+                    ],
+                    raw: {model: 'fake-model'}
+                };
+            }
+        };
+        TextEmbeddingService.ollamaProvider = fakeOllama;
+
+        const result = await TextEmbeddingService.embedTexts(['a', 'b', 'c'], 'ollama');
+
+        expect(result).toEqual([[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]);
+        expect(captured).toEqual([{input: ['a', 'b', 'c']}]);
+    });
+
+    test('embedText with explicitProvider=ollama returns empty when provider returns no embeddings', async () => {
+        TextEmbeddingService.ollamaProvider = {
+            async embed() { return {embeddings: [], raw: {}}; }
+        };
+
+        const result = await TextEmbeddingService.embedText('hello', 'ollama');
+        expect(result).toBeUndefined(); // embeddings[0] of empty array
+    });
+
+    test('embedText with explicitProvider=openAiCompatible does NOT dispatch to Ollama', async () => {
+        const ollamaCalls = [];
+        TextEmbeddingService.ollamaProvider = {
+            async embed(input) { ollamaCalls.push(input); return {embeddings: [[9, 9, 9]]}; }
+        };
+
+        // openAiCompatible path tries to hit /v1/embeddings — let it fail; we only assert
+        // that the Ollama fake was NOT called.
+        await TextEmbeddingService.embedText('hello', 'openAiCompatible').catch(() => {});
+        expect(ollamaCalls).toEqual([]);
+    });
+
+    test('embedText with explicitProvider=gemini does NOT dispatch to Ollama', async () => {
+        const ollamaCalls = [];
+        TextEmbeddingService.ollamaProvider = {
+            async embed(input) { ollamaCalls.push(input); return {embeddings: [[9, 9, 9]]}; }
+        };
+
+        // gemini path checks GEMINI_API_KEY + embeddingModel; without those it throws
+        // — we only assert the Ollama fake wasn't called regardless of throw.
+        await TextEmbeddingService.embedText('hello', 'gemini').catch(() => {});
+        expect(ollamaCalls).toEqual([]);
+    });
+});
