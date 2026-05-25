@@ -14,7 +14,7 @@ import Base from '../../../../../src/core/Base.mjs';
  *    to identify the required authorization server.
  * - **Audience Enforcement:** Strictly validates that the `aud` (Audience) claim in the
  *   Bearer token matches the MCP server's public URL to prevent passthrough attacks.
- * - **Identity Propagation (Epic #9999, ticket #10000):** The `verifyAccessToken` verifier
+ * - **Identity Propagation:** The `verifyAccessToken` verifier
  *   extracts `preferred_username` (or `sub` as fallback) from the introspection response and
  *   surfaces it as `userId` on the auth context. Downstream request handlers read this via
  *   `RequestContextService.getUserId()` to tag ChromaDB writes and filter reads per tenant,
@@ -158,7 +158,7 @@ class AuthService extends Base {
                 }
 
                 // Extract identity claims from the introspection response for downstream
-                // tenant isolation (ticket #10000). `preferred_username` is Keycloak / GitLab /
+                // tenant isolation. `preferred_username` is Keycloak / GitLab /
                 // many OIDC providers' convention for the human-readable login name; `sub` is the
                 // OIDC-spec-mandated subject identifier and the reliable fallback. Providers may
                 // omit `preferred_username` (e.g. machine-to-machine client credential flows),
@@ -174,7 +174,7 @@ class AuthService extends Base {
                     expiresAt: data.exp,
                     userId,
                     username,
-                    // Provenance tag consumed by `RequestContextService.getSource()` (#10145).
+                    // Provenance tag consumed by `RequestContextService.getSource()`.
                     // Distinguishes OIDC-derived identity from stdio env-var / gh-CLI paths.
                     source   : 'oidc'
                 };
