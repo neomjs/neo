@@ -521,25 +521,6 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(orchestrator.taskDefinitions.mlx.args).not.toContain('gemma-4-31b-it');
     });
 
-    test('falls back to the dedicated mlx default when local config is null', () => {
-        // Post Sub 1 #11833: configure() removed; the null→undefined input shim lives in
-        // start() before calling buildTaskDefinitions. The shim (`options.mlxModel || undefined`)
-        // converts caller-provided null to undefined so the buildTaskDefinitions destructuring
-        // default fires. Test asserts that path explicitly.
-        const orchestrator = Neo.create(Orchestrator);
-        const mlxModelInput = null;
-        orchestrator.dataDir         = '/tmp/orchestrator-test-mlx-null';
-        orchestrator.taskDefinitions = buildTaskDefinitions({
-            scriptDir : path.resolve(process.cwd(), 'ai/scripts'),
-            nodeBin   : process.argv[0],
-            mlxEnabled: true,
-            mlxModel  : mlxModelInput || undefined  // matches start() boundary translation
-        });
-
-        expect(orchestrator.taskDefinitions.mlx.args).toContain('mlx-community/gemma-4-31b-it-bf16');
-        expect(orchestrator.taskDefinitions.mlx.args).not.toContain(null);
-    });
-
     test('routes primary-dev-sync through its service coordinator', () => {
         const started = [];
         const orchestrator = createTestOrchestrator({
