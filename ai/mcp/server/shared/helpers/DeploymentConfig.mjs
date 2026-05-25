@@ -1,8 +1,8 @@
 /**
  * @summary Resolves the MCP server HTTP listening port.
  *
- * Pattern mirrors {@link Neo.ai.mcp.server.memory-core.helpers.EmbeddingProviderConfig#resolveEmbeddingProvider}
- * from PR #10810 — pure, testable, dependency-free; consumers (`Server.mjs` config templates)
+ * Pattern mirrors {@link Neo.ai.mcp.server.memory-core.helpers.EmbeddingProviderConfig#resolveEmbeddingProvider}:
+ * pure, testable, dependency-free; consumers (`Server.mjs` config templates)
  * call it once at config-load time.
  *
  * @param {Object}   options
@@ -32,8 +32,7 @@ export function resolveMcpHttpPort({env = process.env, warn = console.warn, defa
 /**
  * @summary Resolves the ChromaDB host.
  *
- * Per #10808 operator-facing env-var ergonomics: `NEO_CHROMA_HOST` is the canonical
- * operator-set env var (used by unified Chroma config).
+ * `NEO_CHROMA_HOST` is the canonical operator-set env var used by unified Chroma config.
  *
  * Pure function: takes env; returns resolved host string.
  *

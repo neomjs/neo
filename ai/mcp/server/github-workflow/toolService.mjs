@@ -20,7 +20,7 @@ const __dirname       = path.dirname(__filename);
 const openApiFilePath = path.join(__dirname, 'openapi.yaml');
 
 /**
- * #11145 — Default branch detector. Exec's `git branch --show-current` against the MCP
+ * Default branch detector. Exec's `git branch --show-current` against the MCP
  * server's projectRoot. Returns the trimmed branch name (or empty string on detached HEAD).
  * Throws on git execution failure.
  *
@@ -51,15 +51,15 @@ async function defaultBranchDetector() {
 }
 
 /**
- * #11145 — Wraps a SyncService method with a dev-branch-only guard at the tool boundary.
+ * Wraps a SyncService method with a dev-branch-only guard at the tool boundary.
  *
  * Why tool-boundary, not library: `SyncService` callers include the daemon path
  * (Orchestrator's PrimaryRepoSyncService, scheduled context, spawned in canonical-on-dev)
  * and build-scripts (`buildScripts/release/publish.mjs`, build-context). Both are legit.
  * Only the agent-callable MCP tool surface needs rejection — that's the violation vector.
  *
- * Description-as-policy on the OpenAPI tool was empirically insufficient: 5+/day @neo-
- * gemini-3-1-pro violations + the 2026-05-10 PR #11143 stale-branch + chore-sync race.
+ * Description-as-policy on the OpenAPI tool was empirically insufficient: repeated off-dev
+ * sync attempts showed that the tool boundary needs executable branch enforcement.
  *
  * Branch-detector is injectable for testability; default uses `git branch --show-current`.
  *
@@ -92,20 +92,20 @@ function buildDevBranchGuard(delegate, getBranch = defaultBranchDetector) {
 const syncAllOnDevOnly = buildDevBranchGuard(SyncService.runFullSync.bind(SyncService));
 
 /**
- * #10702 — `get_conversation` dispatch router. The tool serves BOTH pull requests and
+ * `get_conversation` dispatch router. The tool serves BOTH pull requests and
  * issues; it routes to the matching service by which identifier the caller supplied.
  * Rejects ambiguous (both ids) and empty (neither id) argument shapes with structured
  * errors so the failure is legible rather than a downstream null-deref.
  *
- * Exported for unit-test access (#10702), mirroring the `buildDevBranchGuard` /
+ * Exported for unit-test access, mirroring the `buildDevBranchGuard` /
  * `syncAllOnDevOnly` test-surface precedent below.
  *
  * @param {Object|Number} options `pr_number` XOR `issue_number`, plus optional selectors.
- *                                A bare number is the legacy positional PR form (pre-#10702).
+ *                                A bare number is the legacy positional PR form.
  * @returns {Promise<Object>} Conversation data or a structured error.
  */
 async function getConversationRouter(options) {
-    // Legacy positional number form predates #10702 and is always a pull request.
+    // Legacy positional number form is always a pull request.
     if (typeof options === 'number') {
         return PullRequestService.getConversation(options);
     }
@@ -160,7 +160,7 @@ const serviceMapping = {
     update_issue_relationship: IssueService      .updateIssueRelationship.bind(IssueService)
 };
 
-// Exported for unit-test access (#11145). `buildDevBranchGuard` accepts injected
+// Exported for unit-test access. `buildDevBranchGuard` accepts injected
 // `delegate` + `getBranch` for fixture-driven testing without spawning real `git`.
 export {buildDevBranchGuard, getConversationRouter, syncAllOnDevOnly};
 
