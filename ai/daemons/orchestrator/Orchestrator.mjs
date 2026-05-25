@@ -392,6 +392,7 @@ export class Orchestrator extends Base {
      * @param {String} [options.nodeBin]
      * @param {Boolean} [options.mlxEnabled]
      * @param {String}  [options.mlxModel]
+     * @param {String}  [options.mlxPort]
      * @param {String[]|String|null} [options.primaryDevSyncRootsConfig]
      * @returns {Promise<void>}
      */
@@ -411,7 +412,8 @@ export class Orchestrator extends Base {
             scriptDir,
             nodeBin   : options.nodeBin || process.argv[0],
             mlxEnabled: options.mlxEnabled ?? undefined,
-            mlxModel  : options.mlxModel || undefined
+            mlxModel  : options.mlxModel || undefined,
+            mlxPort   : options.mlxPort  || undefined
         });
 
         // Non-reactive boot-wrapper-provided instance state

@@ -148,18 +148,23 @@ const defaultConfig = {
          */
         devSyncRoots: [],
         /**
-         * MLX model artifact used to launch the orchestrator-owned inference server.
-         * This is a Hugging Face repo id or local path for `mlx_lm.server --model`, not
-         * the OpenAI-compatible API payload model label. Set this in gitignored
-         * `ai/config.mjs` or via `NEO_ORCHESTRATOR_MLX_MODEL`. Disabled by default
-         * because LM Studio / other OpenAI-compatible providers already own the normal
-         * inference endpoint; enable only when this orchestrator should supervise MLX
-         * by setting `enabled: true` or `NEO_ORCHESTRATOR_MLX_ENABLED=true`.
+         * Orchestrator-owned MLX inference server config. Operators tune via gitignored
+         * `ai/config.mjs` or env vars (`NEO_ORCHESTRATOR_MLX_ENABLED`,
+         * `NEO_ORCHESTRATOR_MLX_MODEL`, `NEO_ORCHESTRATOR_MLX_PORT`).
+         *
+         * - `enabled`: whether the orchestrator should supervise an `mlx_lm.server` child
+         *   process. Disabled by default because LM Studio / other OpenAI-compatible
+         *   providers already own the normal inference endpoint; enable only when this
+         *   orchestrator should own MLX directly.
+         * - `model`: Hugging Face repo id or local path for `mlx_lm.server --model`.
+         *   Distinct from the OpenAI-compatible API payload model label (`NEO_OPENAI_COMPATIBLE_MODEL`).
+         * - `port`: OpenAI-compatible local-inference port.
          * @type {Object}
          */
         mlx: {
             enabled: false,
-            model: null
+            model  : 'mlx-community/gemma-4-31b-it-bf16',
+            port   : '11435'
         }
     },
     /**
