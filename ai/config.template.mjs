@@ -60,6 +60,98 @@ const defaultConfig = {
         trustProxyIdentity: process.env.NEO_AUTH_TRUST_PROXY_IDENTITY === 'true'
     },
     /**
+     * @summary Deployment-wide chat / generation model provider.
+     *
+     * Tier-1 source of truth for model-consuming Agent OS lanes. Memory Core maps
+     * this into its historical `modelProvider` key until runtime provider routing
+     * graduates from #10103 Sub-2. Supported values today: `gemini`,
+     * `openAiCompatible`.
+     * @type {String}
+     */
+    chatProvider: process.env.NEO_MODEL_PROVIDER || 'gemini',
+    /**
+     * @summary Backwards-compatible alias for the active chat provider.
+     *
+     * Existing Memory Core consumers still read `modelProvider`; keep the Tier-1
+     * template aligned with `chatProvider` so Sub-1 can move ownership without
+     * forcing runtime dispatch changes.
+     * @type {String}
+     */
+    modelProvider: process.env.NEO_MODEL_PROVIDER || 'gemini',
+    /**
+     * @summary Deployment-wide embedding provider selector.
+     *
+     * Shared by Memory Core embedding consumers and Knowledge Base ingestion
+     * paths. `NEO_CHROMA_EMBEDDING_PROVIDER` remains readable for the server-local
+     * deprecation window; the Tier-1 default uses the canonical env name.
+     * @type {String}
+     */
+    embeddingProvider: process.env.NEO_EMBEDDING_PROVIDER || process.env.NEO_CHROMA_EMBEDDING_PROVIDER || 'openAiCompatible',
+    /**
+     * @summary Deployment-wide Ollama provider defaults.
+     *
+     * These are configuration defaults only. Runtime dispatch support for native
+     * `ollama` is owned by #10103 Sub-2.
+     * @type {Object}
+     */
+    ollama: {
+        host          : process.env.NEO_OLLAMA_HOST || 'http://127.0.0.1:11434',
+        model         : process.env.NEO_OLLAMA_MODEL || 'gemma4:31b',
+        embeddingModel: process.env.NEO_OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding'
+    },
+    /**
+     * @summary Deployment-wide OpenAI-compatible provider defaults.
+     *
+     * Covers MLX, LM Studio, Ollama's OpenAI-compatible surface, llama.cpp, and
+     * managed OpenAI-compatible endpoints.
+     * @type {Object}
+     */
+    openAiCompatible: {
+        host                    : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
+        model                   : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
+        embeddingModel          : process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
+        apiKey                  : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
+        unloadRetryCount        : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
+        unloadRetryDelayMs      : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
+        contextLimitTokens      : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTEXT_LIMIT_TOKENS) || 32768,
+        safeProcessingLimitTokens: Number(process.env.NEO_OPENAI_COMPATIBLE_SAFE_PROCESSING_LIMIT_TOKENS) || undefined
+    },
+    /**
+     * @summary Deployment-wide Gemini model defaults.
+     *
+     * Memory Core still exposes these historical field names for Gemini-backed
+     * summary and embedding paths; Tier-1 owns the default tuple.
+     * @type {String}
+     */
+    modelName: 'gemini-2.5-flash',
+    /**
+     * @summary Deployment-wide Gemini embedding model default.
+     * @type {String}
+     */
+    embeddingModel: 'gemini-embedding-001',
+    /**
+     * @summary Enforced vector dimension across shared vector collections.
+     *
+     * Hard-configured to prevent schema wipes when operators change embedding
+     * providers. Gemini deployments must explicitly pair provider and dimension
+     * overrides.
+     * @type {Number}
+     */
+    vectorDimension: Number(process.env.NEO_VECTOR_DIMENSION) || 4096,
+    /**
+     * @summary Deployment-wide storage engine coordinates.
+     *
+     * `engines.chroma` is the unified Chroma topology from ADR 0003. Collection
+     * names and local persistence directories remain server-local.
+     * @type {Object}
+     */
+    engines: {
+        chroma: {
+            host: process.env.NEO_CHROMA_HOST || process.env.NEO_KB_CHROMA_HOST || 'localhost',
+            port: Number(process.env.NEO_CHROMA_PORT || process.env.NEO_KB_CHROMA_PORT) || 8000
+        }
+    },
+    /**
      * Agent OS maintenance orchestrator configuration.
      * @type {Object}
      */

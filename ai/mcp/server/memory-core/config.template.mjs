@@ -1,4 +1,5 @@
 import path                              from 'path';
+import AiConfig                          from '../../../config.template.mjs';
 import BaseConfig, {createConfigProxy}   from '../shared/BaseConfig.mjs';
 import {fileURLToPath}                   from 'url';
 import Env                               from '../../../../src/util/Env.mjs';
@@ -111,20 +112,20 @@ const defaultConfig = {
      * @type {Object}
      */
     auth: {
-        host              : null,
-        port              : 8080,
-        realm             : 'master',
-        issuerUrl         : null,
-        clientId          : null,
-        clientSecret      : '',
-        trustProxyIdentity: false
+        host              : AiConfig.auth.host,
+        port              : AiConfig.auth.port,
+        realm             : AiConfig.auth.realm,
+        issuerUrl         : AiConfig.auth.issuerUrl,
+        clientId          : AiConfig.auth.clientId,
+        clientSecret      : AiConfig.auth.clientSecret,
+        trustProxyIdentity: AiConfig.auth.trustProxyIdentity
     },
     /**
      * Explicit override provider for the core LLM Engine (e.g. summarization).
      * Supported values: 'gemini', 'ollama', 'openAiCompatible'
      * @type {String}
      */
-    modelProvider: 'gemini',
+    modelProvider: AiConfig.modelProvider,
     /**
      * Canonical embedding provider for Memory Core and Knowledge Base embedding callsites.
      * Supported values: 'gemini', 'ollama', 'openAiCompatible'
@@ -136,26 +137,26 @@ const defaultConfig = {
      * a warning and feeds this unified selector.
      * @type {String}
      */
-    embeddingProvider: 'openAiCompatible',
+    embeddingProvider: AiConfig.embeddingProvider,
     /**
      * Settings for the Ollama integration
      */
     ollama: {
-        host          : 'http://127.0.0.1:11434',
-        model         : 'gemma4:31b',
-        embeddingModel: 'qwen3-embedding'
+        host          : AiConfig.ollama.host,
+        model         : AiConfig.ollama.model,
+        embeddingModel: AiConfig.ollama.embeddingModel
     },
     /**
      * Settings for the OpenAI-Compatible API integration (e.g., mlx-lm or mlx-openai-server)
      * WARNING: Never hardcode API keys here. Always export them via .env or globally.
      */
     openAiCompatible: {
-        host          : 'http://127.0.0.1:11434',
-        model         : 'gemma-4-31b-it',
-        embeddingModel: 'text-embedding-qwen3-embedding-8b',
-        apiKey        : '',
-        unloadRetryCount: 3,
-        unloadRetryDelayMs: 500,
+        host                    : AiConfig.openAiCompatible.host,
+        model                   : AiConfig.openAiCompatible.model,
+        embeddingModel          : AiConfig.openAiCompatible.embeddingModel,
+        apiKey                  : AiConfig.openAiCompatible.apiKey,
+        unloadRetryCount        : AiConfig.openAiCompatible.unloadRetryCount,
+        unloadRetryDelayMs      : AiConfig.openAiCompatible.unloadRetryDelayMs,
         /**
          * Configured context-window capacity of `model` measured in **tokens**.
          * Token-based per the Discussion #11444 / #11447 V1 graduation contract.
@@ -167,7 +168,7 @@ const defaultConfig = {
          * for Gemma-4-8B-IT, 131072 for Llama-3.1-70B 128K-context variants.
          * @type {number}
          */
-        contextLimitTokens: 32768,
+        contextLimitTokens: AiConfig.openAiCompatible.contextLimitTokens,
         /**
          * Optional safer processing threshold (tokens) below `contextLimitTokens` for
          * the upstream pre-check skip. When the estimated input token count exceeds
@@ -178,24 +179,24 @@ const defaultConfig = {
          * consensus.
          * @type {number|undefined}
          */
-        safeProcessingLimitTokens: undefined
+        safeProcessingLimitTokens: AiConfig.openAiCompatible.safeProcessingLimitTokens
     },
     /**
      * The enforced vector dimension across all SQLite collections.
      * Hard-configured here to prevent catastrophic schema wipes due to dynamic model changes.
      * @type {number}
      */
-    vectorDimension: 4096,
+    vectorDimension: AiConfig.vectorDimension,
     /**
      * The name of the Google Generative AI model for content generation.
      * @type {string}
      */
-    modelName: 'gemini-2.5-flash',
+    modelName: AiConfig.modelName,
     /**
      * The name of the Google Generative AI model for text embeddings.
      * @type {string}
      */
-    embeddingModel: 'gemini-embedding-001',
+    embeddingModel: AiConfig.embeddingModel,
     /**
      * Pagination limit for fetching records during session summarization scans.
      * Controls the batch size for memory and summary retrieval.
@@ -226,8 +227,8 @@ const defaultConfig = {
             dataDir: path.resolve(cwd, '.neo-ai-data/chroma/memory-core'),
             // #10808: prefer operator-facing `NEO_CHROMA_HOST/PORT` (cookbook Section 5);
             // `NEO_KB_CHROMA_HOST/PORT` remains readable for backwards-compat during deprecation window.
-            host   : 'localhost',
-            port   : 8000
+            host   : AiConfig.engines.chroma.host,
+            port   : AiConfig.engines.chroma.port
         }
     },
     /**
