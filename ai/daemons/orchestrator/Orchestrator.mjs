@@ -22,6 +22,7 @@ import PrimaryRepoSyncService, {
     DEV_SYNC_ROOTS_CONFIG_KEY,
     DEV_SYNC_ROOTS_ENV_VAR
 } from './services/PrimaryRepoSyncService.mjs';
+import TenantRepoSyncService             from './services/TenantRepoSyncService.mjs';
 import {getDueTask as summaryGetDueTaskImport}        from './scheduling/summary.mjs';
 import {getDueTask as backupGetDueTaskImport}         from './scheduling/backup.mjs';
 import {getDueTask as primaryDevSyncGetDueTaskImport} from './scheduling/primaryDevSync.mjs';
@@ -31,8 +32,10 @@ import CadenceEngine                     from './services/CadenceEngine.mjs';
 import DreamService                      from './services/DreamService.mjs';
 import SwarmHeartbeatService             from './services/SwarmHeartbeatService.mjs';
 import GoldenPathSynthesizer             from '../../services/graph/GoldenPathSynthesizer.mjs';
+import {getDueTask as tenantRepoSyncGetDueTaskImport} from './scheduling/tenantRepoSync.mjs';
 import {
     PRIMARY_DEV_SYNC_TASK_NAME,
+    TENANT_REPO_SYNC_TASK_NAME,
     DREAM_TASK_NAME,
     GOLDEN_PATH_TASK_NAME,
     SWARM_HEARTBEAT_TASK_NAME,
@@ -87,6 +90,21 @@ function resolveDeploymentEnabled(key) {
     const cfg = AiConfig.orchestrator.localOnly[key];
     if (cfg !== null) return cfg;
     return AiConfig.orchestrator.deploymentMode !== 'cloud';
+}
+
+/**
+ * Resolves a cloud-deployment-aware boolean toggle from `AiConfig.orchestrator.cloudOnly[key]`.
+ * Inverse of `resolveDeploymentEnabled`: `null` in cloudOnly means "use the deployment-profile
+ * default" (cloud = enabled, local = disabled); explicit `true`/`false` overrides. Used for
+ * lanes classified cloud-deployable per ADR 0014 (e.g. `tenant-repo-sync`).
+ *
+ * @param {String} key
+ * @returns {Boolean}
+ */
+function resolveCloudOnlyEnabled(key) {
+    const cfg = AiConfig.orchestrator.cloudOnly?.[key];
+    if (cfg !== null && cfg !== undefined) return cfg;
+    return AiConfig.orchestrator.deploymentMode === 'cloud';
 }
 
 /**
@@ -208,6 +226,7 @@ export class Orchestrator extends Base {
 
     // === Service-DI Class C: simple imported collaborators (instance fields) ===
     primaryRepoSyncService   = PrimaryRepoSyncService
+    tenantRepoSyncService    = TenantRepoSyncService
     dreamService             = DreamService
     swarmHeartbeatService    = SwarmHeartbeatService
     goldenPathSynthesizer    = GoldenPathSynthesizer
@@ -215,6 +234,7 @@ export class Orchestrator extends Base {
     summaryGetDueTask        = summaryGetDueTaskImport
     backupGetDueTask         = backupGetDueTaskImport
     primaryDevSyncGetDueTask = primaryDevSyncGetDueTaskImport
+    tenantRepoSyncGetDueTask = tenantRepoSyncGetDueTaskImport
 
     // === Instance state (mutated at runtime; non-reactive) ===
     isPolling                     = false
@@ -333,6 +353,7 @@ export class Orchestrator extends Base {
     get kbSyncIntervalMs()        { return Env.parseNumber('NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS')          ?? AiConfig.orchestrator.intervals.kbSyncMs;           }
     get backupIntervalMs()        { return Env.parseNumber('NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS')           ?? AiConfig.orchestrator.intervals.backupMs;           }
     get primaryDevSyncIntervalMs(){ return Env.parseNumber('NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS') ?? AiConfig.orchestrator.intervals.primaryDevSyncMs;   }
+    get tenantRepoSyncIntervalMs(){ return Env.parseNumber('NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS') ?? AiConfig.orchestrator.intervals.tenantRepoSyncMs;   }
     get dreamIntervalMs()         { return Env.parseNumber('NEO_ORCHESTRATOR_DREAM_INTERVAL_MS')            ?? AiConfig.orchestrator.intervals.dreamMs;            }
     get goldenPathIntervalMs()    { return Env.parseNumber('NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS')      ?? AiConfig.orchestrator.intervals.goldenPathMs;       }
     get swarmHeartbeatIntervalMs(){ return Env.parseNumber('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS')  ?? AiConfig.orchestrator.intervals.swarmHeartbeatMs;   }
@@ -353,6 +374,7 @@ export class Orchestrator extends Base {
 
     get kbSyncEnabled()                  { return Env.parseBool('NEO_ORCHESTRATOR_KB_SYNC_ENABLED')                     ?? resolveDeploymentEnabled('kbSyncEnabled');                  }
     get primaryDevSyncEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED')            ?? resolveDeploymentEnabled('primaryDevSyncEnabled');          }
+    get tenantRepoSyncEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED')            ?? resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
     get bridgeDaemonEnabled()            { return Env.parseBool('NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED')               ?? resolveDeploymentEnabled('bridgeDaemonEnabled');            }
     get swarmHeartbeatEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED')             ?? resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return Env.parseBool('NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED') ?? resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
@@ -597,6 +619,23 @@ export class Orchestrator extends Base {
                 devSyncRootsSource: resolvePrimaryDevSyncRootsSource({
                     envValue: process.env[DEV_SYNC_ROOTS_ENV_VAR]
                 })
+            });
+        }), context);
+
+        this.cadenceEngine.runIfDue(TENANT_REPO_SYNC_TASK_NAME, () => {
+            return this.tenantRepoSyncGetDueTask({
+                state     : this.taskStateService.getState(),
+                now,
+                intervalMs: this.tenantRepoSyncIntervalMs,
+                enabled   : this.tenantRepoSyncEnabled
+            });
+        }, executeMaintenanceTask((taskName, reason) => {
+            return this.tenantRepoSyncService.runTask({
+                taskName,
+                reason,
+                taskStateService: this.taskStateService,
+                healthService   : this.healthService,
+                writeLog        : this.writeLog.bind(this)
             });
         }), context);
 
