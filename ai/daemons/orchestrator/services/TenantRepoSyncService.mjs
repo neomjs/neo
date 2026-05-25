@@ -5,6 +5,13 @@ import {DEFAULT_DATA_DIR, TENANT_REPO_SYNC_TASK_NAME} from '../TaskDefinitions.m
 import GitMirror from '../../../services/knowledge-base/helpers/GitMirror.mjs';
 import {buildIngestEnvelope} from '../../../services/knowledge-base/helpers/TenantRepoIngestEnvelopeBuilder.mjs';
 import {normalizeTenantRepoConfig} from '../../../services/knowledge-base/helpers/TenantRepoAccessContract.mjs';
+import {
+    KB_TENANT_REPO_SYNC_SYNC_FAILED,
+    KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
+    KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
+    TenantRepoSyncError,
+    isTenantRepoSyncErrorCode
+} from './TenantRepoSyncErrors.mjs';
 
 const PERSISTED_REVISIONS_FILE_NAME = 'tenant-repo-sync-revisions.json';
 
@@ -61,6 +68,21 @@ class TenantRepoSyncService extends Base {
     /**
      * Runs the tenant-repo-sync task under orchestrator state + health envelopes.
      *
+     * Error code taxonomy (see `./TenantRepoSyncErrors.mjs`). Operators branch on
+     * `details.repos[i].lastErrorCode` for per-repo failures and `details.reasonCode`
+     * for outer-task structural failures. Underlying transport errors
+     * (GitMirror auth, ChromaDB write, etc.) are wrapped as
+     * `KB_TENANT_REPO_SYNC_SYNC_FAILED` so callers can rely on the stable prefix
+     * without parsing message prose.
+     *
+     * | Code | Surface | Trigger |
+     * |---|---|---|
+     * | `KB_TENANT_REPO_SYNC_SYNC_FAILED` | per-repo `lastErrorCode` | underlying clone/fetch/envelope/ingest failure (wraps the original error) |
+     * | `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED` | outer `details.reasonCode` | `onlyRepoSlugs` filter requested a slug that is not in `tenantRepos[]` |
+     * | `KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED` | outer `details.reasonCode` | `tenant-repo-sync-revisions.json` write failure (next cycle retries idempotently) |
+     * | `KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND` | reserved | future `--tenant-id` CLI flag; no current emitter |
+     * | `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT` | reserved | future concurrency-limit gate (#11942 AC2); no current emitter |
+     *
      * @param {Object} options
      * @param {String} [options.taskName=TENANT_REPO_SYNC_TASK_NAME]
      * @param {String} options.reason Scheduling reason (e.g. `'periodic-sweep:1800000'` or `'manual'`).
@@ -71,7 +93,7 @@ class TenantRepoSyncService extends Base {
      * @param {Object} [options.aiConfig] AI config object (test seam). Defaults to live import.
      * @param {Object} [options.gitMirror=GitMirror] Injectable mirror primitive (test seam).
      * @param {Object} [options.knowledgeBaseIngestionService] KB ingestion service singleton (test seam). Resolved from `ai/services.mjs` if omitted.
-     * @param {String[]} [options.onlyRepoSlugs] If provided, only sync repos whose `repoSlug` is in the list. Used by the manual CLI run path.
+     * @param {String[]} [options.onlyRepoSlugs] If provided, only sync repos whose `repoSlug` is in the list. Used by the manual CLI run path. Empty filter result against non-empty list surfaces `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED`.
      * @param {String} [options.revisionsFilePath] Override the per-tenant-repo lastIngestedRev persistence file path (test seam). Defaults to `<DEFAULT_DATA_DIR>/tenant-repo-sync-revisions.json`.
      * @param {Function} [options.envelopeBuilder=buildIngestEnvelope] Injectable envelope-builder (test seam). Production callers omit; unit tests pass a fake that returns canned envelope shape.
      * @returns {Promise<Object>} `{status, details}` — status ∈ {`completed`, `failed`, `skipped`}.
@@ -119,10 +141,21 @@ class TenantRepoSyncService extends Base {
             healthService?.recordTaskOutcome?.(taskName, status, {reason, ...result.details});
             return result;
         } catch (e) {
-            const details = {reason, phase: 'tenant-repo-sync', error: e.message};
+            // Propagate stable error code + meta when the throw is a TenantRepoSyncError;
+            // otherwise wrap as the unspecific KB_TENANT_REPO_SYNC_SYNC_FAILED so operators
+            // can branch on `error.code` instead of message prose.
+            const code      = isTenantRepoSyncErrorCode(e.code) ? e.code : KB_TENANT_REPO_SYNC_SYNC_FAILED;
+            const meta      = (e instanceof TenantRepoSyncError) ? e.meta : undefined;
+            const details   = {
+                reason,
+                phase     : 'tenant-repo-sync',
+                error     : e.message,
+                reasonCode: code,
+                ...(meta ? {meta} : {})
+            };
 
             taskStateService.markFailed(taskName, null);
-            writeLog?.('ERROR', `[TenantRepoSync] Failed: ${e.message}`);
+            writeLog?.('ERROR', `[TenantRepoSync] Failed: ${code} (${e.message})`);
             healthService?.recordTaskOutcome?.(taskName, 'failed', details);
             return {status: 'failed', details};
         }
@@ -143,6 +176,24 @@ class TenantRepoSyncService extends Base {
         const repos          = onlyRepoSlugs
             ? allRepos.filter(r => onlyRepoSlugs.includes(r.repoSlug))
             : allRepos;
+
+        // Distinguish "operator-requested-unknown-slug" from "no config at all".
+        // Empty filter result with non-empty onlyRepoSlugs = stable REPO_NOT_CONFIGURED
+        // error so the CLI / future API surface can branch on `error.code`.
+        if (repos.length === 0 && onlyRepoSlugs?.length > 0) {
+            const knownSlugs   = allRepos.map(r => r.repoSlug);
+            const unknownSlugs = onlyRepoSlugs.filter(s => !knownSlugs.includes(s));
+            const details = {
+                reason     : 'repo-not-configured',
+                reasonCode : KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
+                repoCount  : 0,
+                requestedSlugs: onlyRepoSlugs,
+                unknownSlugs,
+                configuredSlugs: knownSlugs
+            };
+            writeLog?.('WARN', `[TenantRepoSync] Requested repoSlug(s) not configured: ${unknownSlugs.join(', ')}. Configured: ${knownSlugs.join(', ') || '(none)'}.`);
+            return {status: 'failed', details};
+        }
 
         if (repos.length === 0) {
             const details = {reason: 'no-tenant-repos-configured', repoCount: 0};
@@ -225,9 +276,7 @@ class TenantRepoSyncService extends Base {
                     durationMs
                 });
             } catch (e) {
-                const code = typeof e.code === 'string' && e.code.startsWith('KB_TENANT_REPO_SYNC_')
-                    ? e.code
-                    : 'KB_TENANT_REPO_SYNC_SYNC_FAILED';
+                const code = isTenantRepoSyncErrorCode(e.code) ? e.code : KB_TENANT_REPO_SYNC_SYNC_FAILED;
                 writeLog?.('ERROR', `[TenantRepoSync] ${repoLabel} failed: ${code} (${e.message})`);
                 repoStates.push({
                     tenantId       : repo.tenantId,
@@ -326,14 +375,26 @@ class TenantRepoSyncService extends Base {
      * directory on first write so a fresh deployment doesn't need explicit dir
      * provisioning.
      *
+     * Throws `TenantRepoSyncError(KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED)` on
+     * write failure so the next cycle re-detects the same diff and retries
+     * idempotently (per-repo failure isolation contract).
+     *
      * @param {Object} options
      * @param {String} options.filePath
      * @param {Object<String, String>} options.revisions
      * @returns {Promise<void>}
      */
     async writePersistedRevisions({filePath, revisions}) {
-        await fs.ensureDir(path.dirname(filePath));
-        await fs.writeJson(filePath, {revisions}, {spaces: 2});
+        try {
+            await fs.ensureDir(path.dirname(filePath));
+            await fs.writeJson(filePath, {revisions}, {spaces: 2});
+        } catch (e) {
+            throw new TenantRepoSyncError(
+                KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
+                `Failed to persist tenant-repo-sync revisions at ${filePath}: ${e.message}`,
+                {filePath, phase: 'manifest-update'}
+            );
+        }
     }
 }
 
