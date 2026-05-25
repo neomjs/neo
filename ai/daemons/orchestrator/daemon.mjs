@@ -267,6 +267,29 @@ export function resolveOrchestratorStartOptions({
 }
 
 /**
+ * Resolves the effective MLX inference-server config by overlaying env-var overrides
+ * onto `AiConfig.orchestrator.mlx`. Operators tune via gitignored `ai/config.mjs`
+ * or env (`NEO_ORCHESTRATOR_MLX_{ENABLED,MODEL,PORT}`); canonical defaults
+ * (`enabled: false`, Gemma-4 model, port `'11435'`) live in
+ * `ai/config.template.mjs` — this helper does not re-embed them.
+ *
+ * @param {Object} [options]
+ * @param {Object} [options.orchestratorConfig={}] Slice of `AiConfig.orchestrator`.
+ * @param {Object} [options.env=process.env] Env-var source (test-injectable).
+ * @returns {{enabled: Boolean, model: String, port: String}}
+ */
+export function resolveMlxConfig({orchestratorConfig = {}, env = process.env} = {}) {
+    const mlx        = orchestratorConfig.mlx || {};
+    const envEnabled = env.NEO_ORCHESTRATOR_MLX_ENABLED;
+
+    return {
+        enabled: envEnabled !== undefined ? envEnabled === 'true' : !!mlx.enabled,
+        model  : env.NEO_ORCHESTRATOR_MLX_MODEL || mlx.model,
+        port   : env.NEO_ORCHESTRATOR_MLX_PORT  || mlx.port
+    };
+}
+
+/**
  * Starts the singleton orchestrator daemon.
  * @param {Object} [options] Runtime overrides for tests or process managers.
  * @returns {Promise<void>}
@@ -278,15 +301,14 @@ export async function startOrchestrator(options = {}) {
     await loadLocalAiConfig();
     const orchestratorConfig = AiConfig.orchestrator || {};
     const maintenanceConfig  = AiConfig.maintenance || {};
-    const mlxConfig          = orchestratorConfig.mlx || {};
-    const mlxEnabled         = process.env.NEO_ORCHESTRATOR_MLX_ENABLED !== undefined
-        ? undefined
-        : mlxConfig.enabled;
+    const mlx                = resolveMlxConfig({orchestratorConfig});
+
     return Orchestrator.start({
         dataDir: DAEMON_DATA_DIR,
         primaryDevSyncRootsConfig: orchestratorConfig.devSyncRoots,
-        mlxEnabled: mlxEnabled ?? undefined,
-        mlxModel  : mlxConfig.model || undefined,
+        mlxEnabled: mlx.enabled,
+        mlxModel  : mlx.model,
+        mlxPort   : mlx.port,
         ...resolveOrchestratorStartOptions({orchestratorConfig, maintenanceConfig}),
         ...options
     });
