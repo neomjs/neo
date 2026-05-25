@@ -5,15 +5,6 @@ import logger                from '../../mcp/server/memory-core/logger.mjs';
 import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
 
 /**
- * @summary Converts comma-delimited Chroma metadata fields into stable result arrays.
- * @param {String|undefined} value Metadata value.
- * @returns {String[]} Trimmed, non-empty values.
- */
-function splitMetadataList(value) {
-    return value ? String(value).split(',').map(item => item.trim()).filter(Boolean) : [];
-}
-
-/**
  * @summary Service for handling deleting, listing, and querying session summaries.
  *
  * This service manages the high-level session summaries. It allows for retrieving past summaries to provide context,
@@ -43,6 +34,15 @@ class SummaryService extends Base {
          * @protected
          */
         singleton: true
+    }
+
+    /**
+     * @summary Converts comma-delimited Chroma metadata fields into stable result arrays.
+     * @param {String|undefined} value Metadata value.
+     * @returns {String[]} Trimmed, non-empty values.
+     */
+    static splitMetadataList(value) {
+        return value ? String(value).split(',').map(item => item.trim()).filter(Boolean) : [];
     }
 
     /**
@@ -231,7 +231,7 @@ class SummaryService extends Base {
                     technologies: techSource
                         ? techSource.split(',').map(item => item.trim()).filter(Boolean)
                         : [],
-                    sourceAgentIdentities: splitMetadataList(metadata.sourceAgentIdentities),
+                    sourceAgentIdentities: this.constructor.splitMetadataList(metadata.sourceAgentIdentities),
                     sourceTrustTier      : metadata.sourceTrustTier,
                     provenancePolicy     : metadata.provenancePolicy
                 };
@@ -347,7 +347,7 @@ class SummaryService extends Base {
                     technologies: techSource
                         ? techSource.split(',').map(item => item.trim()).filter(Boolean)
                         : [],
-                    sourceAgentIdentities: splitMetadataList(metadata.sourceAgentIdentities),
+                    sourceAgentIdentities: this.constructor.splitMetadataList(metadata.sourceAgentIdentities),
                     sourceTrustTier      : metadata.sourceTrustTier,
                     provenancePolicy     : metadata.provenancePolicy,
                     distance,
