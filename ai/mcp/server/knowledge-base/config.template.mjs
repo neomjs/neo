@@ -67,8 +67,8 @@ const defaultConfig = {
     /**
      * Port the MCP server's HTTP/SSE transport listens on (only used when `transport === 'sse'`).
      *
-     * Operator env var: `MCP_HTTP_PORT`. The legacy `SSE_PORT` env var remains readable for one
-     * deprecation window per #10808; resolver emits a warning if both are set with different values.
+     * Operator env var: `MCP_HTTP_PORT`. The deprecated `SSE_PORT` alias remains readable during
+     * the migration window; resolver emits a warning if both are set with different values.
      * @type {number}
      */
     mcpHttpPort: 3000,
@@ -127,7 +127,7 @@ const defaultConfig = {
     /**
      * The hostname of the ChromaDB server for the knowledge base.
      *
-     * Operator env var: `NEO_CHROMA_HOST` (#10808). For shared cloud deployments where KB hosts the
+     * Operator env var: `NEO_CHROMA_HOST`. For shared cloud deployments where KB hosts the
      * unified Chroma instance for both KB + MC, this points at the shared cloud-hosted Chroma.
      * @type {string}
      */
@@ -135,7 +135,7 @@ const defaultConfig = {
     /**
      * The port the ChromaDB server for the knowledge base is listening on.
      *
-     * Operator env var: `NEO_CHROMA_PORT` (#10808). Invalid values (non-integer / out-of-range)
+     * Operator env var: `NEO_CHROMA_PORT`. Invalid values (non-integer / out-of-range)
      * fall back to the default with a console warning per the resolver validity contract.
      * @type {number}
      */
@@ -189,7 +189,7 @@ const defaultConfig = {
      */
     hierarchyPath: path.resolve(neoRootDir, 'docs/output/class-hierarchy.json'),
     /**
-     * Directory for the always-on KB server diagnostic log files (#10576). The KB server's
+     * Directory for the always-on KB server diagnostic log files. The KB server's
      * `logger.mjs` writes daily-rotated entries here regardless of `debug`, so long-running
      * operations (sync, embedding loops, ChromaDB lifecycle) leave a tail-able diagnostic
      * trail observable from the host shell. Default: `<neoRootDir>/.neo-ai-data/logs/`.
@@ -216,34 +216,34 @@ const defaultConfig = {
      */
     collectionName: 'neo-knowledge-base',
     /**
-     * Phase 0/1B (#11658): when `true` (default), the SourceRegistry auto-registers Neo's
+     * When `true` (default), the SourceRegistry auto-registers Neo's
      * 10 curated default Source classes. Cloud deployments that ingest only tenant content
      * can set `false` to skip Neo's curated sources entirely.
      * @type {boolean}
      */
     useDefaultSources: true,
     /**
-     * Phase 0/1B (#11658): when `true` (default), the SourceRegistry auto-registers Neo's
-     * built-in Parser classes (none ship in Phase 0/1B; populated in Phase 2 / Phase 3).
+     * When `true` (default), the SourceRegistry auto-registers Neo's
+     * built-in Parser classes. The default registry may be empty until parser modules are added.
      * @type {boolean}
      */
     useDefaultParsers: true,
     /**
-     * Phase 0/1B (#11658): declarative tenant-supplied Source registration.
+     * Declarative tenant-supplied Source registration.
      * Each entry: `{SourceClass, sourceName?}`.
      * @type {Array<{SourceClass: Object, sourceName?: string}>}
      */
     customSources: [],
     /**
-     * Phase 0/1B (#11658): declarative tenant-supplied Parser registration.
+     * Declarative tenant-supplied Parser registration.
      * Each entry: `{ParserClass, parserId?}`.
      * @type {Array<{ParserClass: Object, parserId?: string}>}
      */
     customParsers: [],
     /**
-     * Phase 0/1B-β (#11660): per-source path overrides keyed by Source-class registry name.
+     * Per-source path overrides keyed by Source-class registry name.
      * Empty entries or missing keys fall through to each Source class's hardcoded fallback
-     * (preserves byte-equivalence with pre-#11660 behavior). Shape varies per Source class —
+     * (preserves byte-equivalence with existing deployment behavior). Shape varies per Source class —
      * each interprets its own entry shape (string / string-array / path→type object).
      * @type {Object<string,string|string[]|Object<string,string>>}
      */
@@ -273,7 +273,7 @@ const defaultConfig = {
      * namespace visible across every tenant.
      *
      * Write side: `VectorService.embed()` stamps this when no authenticated ingestion context
-     * is supplied. Read side (#11632): `QueryService.queryDocuments` and `DocumentService`
+     * is supplied. Read side: `QueryService.queryDocuments` and `DocumentService`
      * include it in the `where: {tenantId: {$in: [<requester>, <this>]}}` filter so every tenant
      * additionally retrieves the curated corpus. Cloud ingestion paths override the write-side
      * value with server-derived tenant context; client-supplied chunk metadata is never authoritative.
@@ -291,8 +291,8 @@ const defaultConfig = {
     /**
      * @summary Default read visibility for embedded Knowledge Base chunks.
      *
-     * Phase 0/1C writes the authoritative value; Phase 2/3 read paths consume it for
-     * tenant-aware filtering.
+     * Write paths stamp the authoritative value; tenant-aware read paths consume it for
+     * filtering.
      * @type {string}
      */
     defaultVisibility: 'team',
@@ -316,7 +316,7 @@ const defaultConfig = {
      */
     batchSize: 50,
     /**
-     * Work-volume gate for MCP-callable `manage_knowledge_base sync` (#10572): when
+     * Work-volume gate for MCP-callable `manage_knowledge_base sync`: when
      * the post-delta `chunksToProcess.length` exceeds this value AND the call originates
      * via MCP tool dispatch, `VectorService.embed` refuses synchronous execution and
      * returns a `KB_SYNC_VOLUME_EXCEEDED` error pointing the operator at the CLI path
@@ -393,10 +393,10 @@ class Config extends BaseConfig {
     envBindings = envBindings;
 
     /**
-     * Applies legacy environment variable fallbacks
+     * Applies deprecated environment variable fallbacks.
      */
     applyLegacyEnv() {
-        // Handle legacy deprecation fallbacks explicitly
+        // Keep alias handling explicit so deprecation warnings stay local to config resolution.
         if (process.env.SSE_PORT && !process.env.MCP_HTTP_PORT) {
             console.warn('[Config] Deprecation warning: SSE_PORT is deprecated. Please use MCP_HTTP_PORT.');
             const legacyPort = Env.parsePort('SSE_PORT');
