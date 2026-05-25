@@ -318,7 +318,7 @@ Pick a secret-free tenant tuple:
 
 ```bash
 export NEO_KB_TENANT_ID="client-org"
-export NEO_KB_REPO_SLUG="acme/app"
+export NEO_KB_REPO_SLUG="neomjs/create-app"
 export NEO_KB_INGEST_TOKEN="<repo-push-automation-token>"
 ```
 
@@ -328,7 +328,7 @@ Create a small content-bearing envelope:
 cat > /tmp/day0-envelope.json <<'JSON'
 {
   "tenantId": "client-org",
-  "repoSlug": "acme/app",
+  "repoSlug": "neomjs/create-app",
   "files": [
     {
       "sourcePath": "docs/hello.md",
@@ -424,13 +424,13 @@ const content = fs.readFileSync('proto/example.proto', 'utf8');
 
 process.stdout.write(JSON.stringify({
   tenantId: 'client-org',
-  repoSlug: 'acme/app',
+  repoSlug: 'neomjs/create-app',
   files: [{
     sourcePath: 'proto/example.proto',
     parsedChunks: [{
       schemaVersion: '1.0.0',
       tenantId: 'client-org',
-      repoSlug: 'acme/app',
+      repoSlug: 'neomjs/create-app',
       rootKind: 'external-source',
       sourcePath: 'proto/example.proto',
       content,
@@ -492,7 +492,7 @@ for (let i = 0; i < 3; i++) {
   process.stdout.write(JSON.stringify({
     schemaVersion: '1.0.0',
     tenantId: 'client-org',
-    repoSlug: 'acme/app',
+    repoSlug: 'neomjs/create-app',
     rootKind: 'external-source',
     sourcePath: `bulk/doc-${i}.md`,
     content: `# Bulk doc ${i}\n\nBulk import smoke record ${i}.`,
