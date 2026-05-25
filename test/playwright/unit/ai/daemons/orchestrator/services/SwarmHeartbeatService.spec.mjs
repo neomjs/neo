@@ -55,9 +55,11 @@ import {test, expect} from '@playwright/test';
  * (`checkHeartbeatLock`, `clearHeartbeatLock`, `sweepExpiredTasks`, `checkGateOpen`,
  * `readGate`, `checkSunsetted`, `resumeHarness`, `idleOutNudge`, `checkAllAgentIdle`,
  * `trioWakeCooldown`, `runScript`, `runScriptJson`, `runCmd`, `getUnreadCount`,
- * `getIssuesCount`, `isPushCapable`, `injectTmux`) precisely so unit tests can override them without going
- * through the heavy substrate. Module-binding imports (e.g. `isGateOpen`) cannot be
- * reassigned at import-site in ES modules — instance methods are the seam that works.
+ * `getIssuesCount`, `isPushCapable`, `getRecentActivityTimestamps`,
+ * `getReadinessSentinelMessages`, `getActiveBackoffWindow`) precisely so unit tests can
+ * override them without going through the heavy substrate. Module-binding imports (e.g.
+ * `isGateOpen`) cannot be reassigned at import-site in ES modules — instance methods
+ * are the seam that works.
  *
  * Each test stubs only what it needs; `afterEach` resets identity/pollIntervalMs to
  * baselines so cases don't bleed.
