@@ -1,5 +1,5 @@
 import path                              from 'path';
-import AiConfig                          from '../../../config.mjs';
+import AiConfig                          from '../../../config.template.mjs';
 import BaseConfig, {createConfigProxy}   from '../shared/BaseConfig.mjs';
 import {fileURLToPath}                   from 'url';
 import Env                               from '../../../../src/util/Env.mjs';
@@ -86,8 +86,7 @@ const defaultConfig = {
     /**
      * Port the MCP server's HTTP/SSE transport listens on (only used when `transport === 'sse'`).
      *
-     * Operator env var: `MCP_HTTP_PORT`. The legacy `SSE_PORT` env var remains readable for one
-     * deprecation window per #10808; resolver emits a warning if both are set with different values.
+     * Operator env var: `MCP_HTTP_PORT`.
      * @type {number}
      */
     mcpHttpPort: 3001,
@@ -133,8 +132,6 @@ const defaultConfig = {
      * unified 4096-dimension Chroma collection invariant. Gemini remains available as an
      * explicit operator override and must be paired with `vectorDimension: 3072`.
      *
-     * `NEO_CHROMA_EMBEDDING_PROVIDER` remains readable for one deprecation window but emits
-     * a warning and feeds this unified selector.
      * @type {String}
      */
     embeddingProvider: AiConfig.embeddingProvider,
@@ -225,8 +222,6 @@ const defaultConfig = {
     engines: {
         chroma: {
             dataDir: path.resolve(cwd, '.neo-ai-data/chroma/memory-core'),
-            // #10808: prefer operator-facing `NEO_CHROMA_HOST/PORT` (cookbook Section 5);
-            // `NEO_KB_CHROMA_HOST/PORT` remains readable for backwards-compat during deprecation window.
             host   : AiConfig.engines.chroma.host,
             port   : AiConfig.engines.chroma.port
         }
@@ -499,37 +494,6 @@ class Config extends BaseConfig {
     defaultConfig = defaultConfig;
     envBindings = envBindings;
 
-    /**
-     * Applies legacy environment variable fallbacks
-     */
-    applyLegacyEnv() {
-        // Handle legacy deprecation fallbacks explicitly
-        if (process.env.SSE_PORT && !process.env.MCP_HTTP_PORT) {
-            console.warn('[Config] Deprecation warning: SSE_PORT is deprecated. Please use MCP_HTTP_PORT.');
-            const legacyPort = Env.parsePort('SSE_PORT');
-            if (legacyPort !== undefined) {
-                this.data.mcpHttpPort = legacyPort;
-            }
-        }
-
-        if (process.env.NEO_CHROMA_EMBEDDING_PROVIDER && !process.env.NEO_EMBEDDING_PROVIDER) {
-            console.warn('[Config] Deprecation warning: NEO_CHROMA_EMBEDDING_PROVIDER is deprecated. Please use NEO_EMBEDDING_PROVIDER.');
-            this.data.embeddingProvider = process.env.NEO_CHROMA_EMBEDDING_PROVIDER;
-        }
-
-        if (process.env.NEO_KB_CHROMA_HOST && !process.env.NEO_CHROMA_HOST) {
-            console.warn('[Config] Deprecation warning: NEO_KB_CHROMA_HOST is deprecated. Please use NEO_CHROMA_HOST.');
-            this.data.engines.chroma.host = process.env.NEO_KB_CHROMA_HOST;
-        }
-
-        if (process.env.NEO_KB_CHROMA_PORT && !process.env.NEO_CHROMA_PORT) {
-            console.warn('[Config] Deprecation warning: NEO_KB_CHROMA_PORT is deprecated. Please use NEO_CHROMA_PORT.');
-            const legacyPort = Env.parsePort('NEO_KB_CHROMA_PORT');
-            if (legacyPort !== undefined) {
-                this.data.engines.chroma.port = legacyPort;
-            }
-        }
-    }
 }
 const instance = Neo.setupClass(Config);
 

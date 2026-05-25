@@ -56,23 +56,43 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
     let aiConfig;
     let templateText;
     let originalSourcePaths;
+    let originalTier1Config;
+    let originalTier1ClassHierarchy;
+    let originalConfig;
+    let originalClassHierarchy;
 
     test.beforeAll(async () => {
-        aiConfig = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.mjs')).default;
+        originalTier1Config         = Neo.ai?.Config;
+        originalTier1ClassHierarchy = Neo.classHierarchyMap?.['Neo.ai.Config'];
+        originalConfig         = Neo.ai?.mcp?.server?.['knowledge-base']?.Config;
+        originalClassHierarchy = Neo.classHierarchyMap?.['Neo.ai.mcp.server.knowledge-base.Config'];
+
+        if (Neo.ai?.Config) {
+            delete Neo.ai.Config;
+        }
+        if (Neo.classHierarchyMap?.['Neo.ai.Config']) {
+            delete Neo.classHierarchyMap['Neo.ai.Config'];
+        }
+
+        if (Neo.ai?.mcp?.server?.['knowledge-base']?.Config) {
+            delete Neo.ai.mcp.server['knowledge-base'].Config;
+        }
+        if (Neo.classHierarchyMap?.['Neo.ai.mcp.server.knowledge-base.Config']) {
+            delete Neo.classHierarchyMap['Neo.ai.mcp.server.knowledge-base.Config'];
+        }
+
+        aiConfig = (await import('../../../../../../../ai/mcp/server/knowledge-base/config.template.mjs')).default;
         // Phase 0/1B-β #11660 + Cycle 1 RA from @neo-gpt commentId IC_kwDODSospM8AAAABC9gB_A:
         // the byte-equivalence anchor MUST assert against the canonical git-tracked template,
-        // not the per-clone gitignored `config.mjs` (which may be stale on clones that pulled
+        // not any per-clone operator overlay (which may be stale on clones that pulled
         // the template change without re-running `bootstrapWorktree.mjs` to refresh local config).
-        // Importing the template module directly would trigger a `Neo.setupClass` namespace
-        // collision under `unitTestMode` (both config.mjs + config.template.mjs register the
-        // same `Neo.ai.mcp.server.knowledge-base.Config` className). Workaround: read the
-        // template file as text and verify the expected fallback strings appear inside the
-        // `sourcePaths` block. Text-level verification is stale-clone-safe.
+        // Read the template file as text and verify the expected fallback strings appear inside
+        // the `sourcePaths` block. Text-level verification is stale-clone-safe.
         templateText = await fs.readFile(TEMPLATE_PATH, 'utf-8');
 
         // Stale-clone-safe init: the override/missing-key runtime tests below mutate
         // `aiConfig.sourcePaths[name]` via override + delete. If the local clone's gitignored
-        // `config.mjs` is stale and lacks the `sourcePaths` key, those mutations would crash
+        // the operator overlay is stale and lacks the `sourcePaths` key, those mutations would crash
         // (cannot set property of undefined). Seed empty object for the test run; restore the
         // original state in afterAll so per-clone freshness is preserved on test exit.
         originalSourcePaths = aiConfig.sourcePaths;
@@ -85,6 +105,30 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
         // Restore clone-config freshness (or lack thereof) — don't leak the seeded sourcePaths
         // object into subsequent specs that might import the same singleton.
         aiConfig.sourcePaths = originalSourcePaths;
+
+        if (originalTier1Config !== undefined) {
+            Neo.ai.Config = originalTier1Config;
+        } else if (Neo.ai?.Config) {
+            delete Neo.ai.Config;
+        }
+
+        if (originalTier1ClassHierarchy !== undefined) {
+            Neo.classHierarchyMap['Neo.ai.Config'] = originalTier1ClassHierarchy;
+        } else if (Neo.classHierarchyMap?.['Neo.ai.Config']) {
+            delete Neo.classHierarchyMap['Neo.ai.Config'];
+        }
+
+        if (originalConfig !== undefined) {
+            Neo.ai.mcp.server['knowledge-base'].Config = originalConfig;
+        } else if (Neo.ai?.mcp?.server?.['knowledge-base']?.Config) {
+            delete Neo.ai.mcp.server['knowledge-base'].Config;
+        }
+
+        if (originalClassHierarchy !== undefined) {
+            Neo.classHierarchyMap['Neo.ai.mcp.server.knowledge-base.Config'] = originalClassHierarchy;
+        } else if (Neo.classHierarchyMap?.['Neo.ai.mcp.server.knowledge-base.Config']) {
+            delete Neo.classHierarchyMap['Neo.ai.mcp.server.knowledge-base.Config'];
+        }
     });
 
     test.describe('Single-path Source classes', () => {
@@ -243,7 +287,7 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
 
                 // Verify each Source class's resolution path still works via the `??` fallback.
                 // This is the byte-equivalence guarantee for pre-#11660 deployments whose
-                // local `config.mjs` was generated from a config.template.mjs that didn't have
+                // the local operator overlay was generated from a config.template.mjs that didn't have
                 // the `sourcePaths` key.
                 expect(aiConfig.sourcePaths?.AdrSource          ?? 'learn/agentos/decisions').toBe('learn/agentos/decisions');
                 expect(aiConfig.sourcePaths?.ConceptSource      ?? 'resources/content/concepts').toBe('resources/content/concepts');

@@ -6,12 +6,27 @@ import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
 test.describe('Memory Core Config (#10010)', () => {
     let originalEnv;
     let config;
+    let originalTier1Config;
+    let originalTier1ClassHierarchy;
+    let originalConfig;
+    let originalClassHierarchy;
 
     test.beforeAll(async () => {
         originalEnv = { ...process.env };
+        originalTier1Config         = Neo.ai?.Config;
+        originalTier1ClassHierarchy = Neo.classHierarchyMap?.['Neo.ai.Config'];
+        originalConfig         = Neo.ai?.mcp?.server?.['memory-core']?.Config;
+        originalClassHierarchy = Neo.classHierarchyMap?.['Neo.ai.mcp.server.memory-core.Config'];
+
+        if (Neo.ai?.Config) {
+            delete Neo.ai.Config;
+        }
+        if (Neo.classHierarchyMap?.['Neo.ai.Config']) {
+            delete Neo.classHierarchyMap['Neo.ai.Config'];
+        }
 
         // Remove the class from Neo's namespace to prevent collisions if another spec
-        // already imported the real config.mjs in the same worker.
+        // already imported the production-class template in the same worker.
         if (Neo.ai?.mcp?.server?.['memory-core']?.Config) {
             delete Neo.ai.mcp.server['memory-core'].Config;
         }
@@ -23,12 +38,28 @@ test.describe('Memory Core Config (#10010)', () => {
     });
 
     test.afterAll(() => {
-        // Remove the class from Neo's namespace to prevent collisions with other specs
-        // that import the real config.mjs in the same worker.
-        if (Neo.ai?.mcp?.server?.['memory-core']?.Config) {
+        if (originalTier1Config !== undefined) {
+            Neo.ai.Config = originalTier1Config;
+        } else if (Neo.ai?.Config) {
+            delete Neo.ai.Config;
+        }
+
+        if (originalTier1ClassHierarchy !== undefined) {
+            Neo.classHierarchyMap['Neo.ai.Config'] = originalTier1ClassHierarchy;
+        } else if (Neo.classHierarchyMap?.['Neo.ai.Config']) {
+            delete Neo.classHierarchyMap['Neo.ai.Config'];
+        }
+
+        // Restore any runtime config registration that existed before this template test.
+        if (originalConfig !== undefined) {
+            Neo.ai.mcp.server['memory-core'].Config = originalConfig;
+        } else if (Neo.ai?.mcp?.server?.['memory-core']?.Config) {
             delete Neo.ai.mcp.server['memory-core'].Config;
         }
-        if (Neo.classHierarchyMap?.['Neo.ai.mcp.server.memory-core.Config']) {
+
+        if (originalClassHierarchy !== undefined) {
+            Neo.classHierarchyMap['Neo.ai.mcp.server.memory-core.Config'] = originalClassHierarchy;
+        } else if (Neo.classHierarchyMap?.['Neo.ai.mcp.server.memory-core.Config']) {
             delete Neo.classHierarchyMap['Neo.ai.mcp.server.memory-core.Config'];
         }
     });

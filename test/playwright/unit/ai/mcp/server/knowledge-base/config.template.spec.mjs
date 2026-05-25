@@ -5,9 +5,24 @@ import {TIER1_DEFAULTS} from '../../../../../fixtures/aiConfigDefaults.mjs';
 test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
     let originalEnv;
     let config;
+    let originalTier1Config;
+    let originalTier1ClassHierarchy;
+    let originalConfig;
+    let originalClassHierarchy;
 
     test.beforeAll(async () => {
         originalEnv = {...process.env};
+        originalTier1Config         = Neo.ai?.Config;
+        originalTier1ClassHierarchy = Neo.classHierarchyMap?.['Neo.ai.Config'];
+        originalConfig         = Neo.ai?.mcp?.server?.['knowledge-base']?.Config;
+        originalClassHierarchy = Neo.classHierarchyMap?.['Neo.ai.mcp.server.knowledge-base.Config'];
+
+        if (Neo.ai?.Config) {
+            delete Neo.ai.Config;
+        }
+        if (Neo.classHierarchyMap?.['Neo.ai.Config']) {
+            delete Neo.classHierarchyMap['Neo.ai.Config'];
+        }
 
         if (Neo.ai?.mcp?.server?.['knowledge-base']?.Config) {
             delete Neo.ai.mcp.server['knowledge-base'].Config;
@@ -20,10 +35,27 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
     });
 
     test.afterAll(() => {
-        if (Neo.ai?.mcp?.server?.['knowledge-base']?.Config) {
+        if (originalTier1Config !== undefined) {
+            Neo.ai.Config = originalTier1Config;
+        } else if (Neo.ai?.Config) {
+            delete Neo.ai.Config;
+        }
+
+        if (originalTier1ClassHierarchy !== undefined) {
+            Neo.classHierarchyMap['Neo.ai.Config'] = originalTier1ClassHierarchy;
+        } else if (Neo.classHierarchyMap?.['Neo.ai.Config']) {
+            delete Neo.classHierarchyMap['Neo.ai.Config'];
+        }
+
+        if (originalConfig !== undefined) {
+            Neo.ai.mcp.server['knowledge-base'].Config = originalConfig;
+        } else if (Neo.ai?.mcp?.server?.['knowledge-base']?.Config) {
             delete Neo.ai.mcp.server['knowledge-base'].Config;
         }
-        if (Neo.classHierarchyMap?.['Neo.ai.mcp.server.knowledge-base.Config']) {
+
+        if (originalClassHierarchy !== undefined) {
+            Neo.classHierarchyMap['Neo.ai.mcp.server.knowledge-base.Config'] = originalClassHierarchy;
+        } else if (Neo.classHierarchyMap?.['Neo.ai.mcp.server.knowledge-base.Config']) {
             delete Neo.classHierarchyMap['Neo.ai.mcp.server.knowledge-base.Config'];
         }
     });

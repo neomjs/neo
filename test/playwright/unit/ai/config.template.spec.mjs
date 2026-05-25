@@ -1,9 +1,39 @@
 import { test, expect } from '@playwright/test';
-import '../../../../src/Neo.mjs';
+import Neo from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
-import Config from '../../../../ai/config.template.mjs';
 
 test.describe('Tier 1 Config Immutability', () => {
+    let Config;
+    let originalConfig;
+    let originalClassHierarchy;
+
+    test.beforeAll(async () => {
+        originalConfig         = Neo.ai?.Config;
+        originalClassHierarchy = Neo.classHierarchyMap?.['Neo.ai.Config'];
+
+        if (Neo.ai?.Config) {
+            delete Neo.ai.Config;
+        }
+        if (Neo.classHierarchyMap?.['Neo.ai.Config']) {
+            delete Neo.classHierarchyMap['Neo.ai.Config'];
+        }
+
+        Config = (await import('../../../../ai/config.template.mjs')).default;
+    });
+
+    test.afterAll(() => {
+        if (originalConfig !== undefined) {
+            Neo.ai.Config = originalConfig;
+        } else if (Neo.ai?.Config) {
+            delete Neo.ai.Config;
+        }
+
+        if (originalClassHierarchy !== undefined) {
+            Neo.classHierarchyMap['Neo.ai.Config'] = originalClassHierarchy;
+        } else if (Neo.classHierarchyMap?.['Neo.ai.Config']) {
+            delete Neo.classHierarchyMap['Neo.ai.Config'];
+        }
+    });
 
     test('defaultConfig remains unmutated across singleton instantiations', async () => {
         const initialPort = Config.mcpHttpPort;
@@ -27,7 +57,7 @@ test.describe('Tier 1 Config Immutability', () => {
     test('ships Tier-1 provider and unified Chroma defaults', async () => {
         expect(Config.chatProvider).toBe(process.env.NEO_MODEL_PROVIDER || 'gemini');
         expect(Config.modelProvider).toBe(Config.chatProvider);
-        expect(Config.embeddingProvider).toBe(process.env.NEO_EMBEDDING_PROVIDER || process.env.NEO_CHROMA_EMBEDDING_PROVIDER || 'openAiCompatible');
+        expect(Config.embeddingProvider).toBe(process.env.NEO_EMBEDDING_PROVIDER || 'openAiCompatible');
         expect(Config.vectorDimension).toBe(Number(process.env.NEO_VECTOR_DIMENSION) || 4096);
         expect(Config.modelName).toBe('gemini-2.5-flash');
         expect(Config.embeddingModel).toBe('gemini-embedding-001');
@@ -48,8 +78,8 @@ test.describe('Tier 1 Config Immutability', () => {
             safeProcessingLimitTokens: Number(process.env.NEO_OPENAI_COMPATIBLE_SAFE_PROCESSING_LIMIT_TOKENS) || undefined
         });
         expect(Config.engines.chroma).toEqual({
-            host: process.env.NEO_CHROMA_HOST || process.env.NEO_KB_CHROMA_HOST || 'localhost',
-            port: Number(process.env.NEO_CHROMA_PORT || process.env.NEO_KB_CHROMA_PORT) || 8000
+            host: process.env.NEO_CHROMA_HOST || 'localhost',
+            port: Number(process.env.NEO_CHROMA_PORT) || 8000
         });
     });
 
