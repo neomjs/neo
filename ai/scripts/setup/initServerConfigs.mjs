@@ -10,12 +10,14 @@ import {fileURLToPath} from 'url';
  * Two responsibilities for every (`config.template.mjs`, `config.mjs`) pair:
  *
  * 1. **First-time clone:** when the gitignored `config.mjs` is missing, copy
- *    `config.template.mjs` over it.
+ *    `config.template.mjs` over it. Server configs materialize their Tier-1
+ *    import from template to operator overlay during that copy.
  * 2. **Drift detection:** when `config.mjs` already exists, compare its
  *    structural shape (top-level imports + named exports) against the template.
  *    Mismatched items emit a stderr warning listing what's new in the template.
  *    Operator can refresh the gitignored file by re-running with
- *    `npm run prepare -- --migrate-config` (overwrites `config.mjs` from the template).
+ *    `npm run prepare -- --migrate-config` (overwrites `config.mjs` from the
+ *    active template shape).
  *
  * The Tier-1 pair is the canonical operator overlay for deployment-wide defaults
  * (cookbook §7). Runtime code MUST import from `ai/config.mjs`, never from
@@ -67,9 +69,7 @@ const MIGRATE_FLAG = '--migrate-config';
  * @param {String} filePath  Absolute path to a readable `.mjs` file.
  * @returns {Promise<{imports: String[], exports: String[]}>}
  */
-export async function projectShape(filePath) {
-    const src = await fs.readFile(filePath, 'utf-8');
-
+export function projectSourceShape(src) {
     const imports = [];
 
     for (const match of src.matchAll(/^import\s+([\s\S]*?)\s+from\s+['"]([^'"]+)['"]/gm)) {
@@ -110,6 +110,28 @@ export async function projectShape(filePath) {
     return {imports, exports}
 }
 
+export async function projectShape(filePath) {
+    const src = await fs.readFile(filePath, 'utf-8');
+
+    return projectSourceShape(src)
+}
+
+/**
+ * Converts tracked server templates into runtime operator overlays.
+ *
+ * Source templates import the tracked Tier-1 template so unit tests never consume
+ * gitignored local overlays. Generated server `config.mjs` files still need the
+ * operator overlay, so the bootstrap copy step rewrites that one source import.
+ *
+ * @param {String} src Template source.
+ * @returns {String}
+ */
+export function materializeServerConfigTemplate(src) {
+    return src
+        .replaceAll("from '../../../config.template.mjs'", "from '../../../config.mjs'")
+        .replaceAll('from "../../../config.template.mjs"', 'from "../../../config.mjs"')
+}
+
 /**
  * Compares two projected shapes and returns the drift items present in
  * `templateShape` but missing from `configShape`. Symmetric drift (items in
@@ -136,9 +158,9 @@ export function detectDrift(templateShape, configShape) {
  * `config.mjs` exists. Three branches per server:
  *
  *   1. Template absent — skip (log warning).
- *   2. Config missing — clone template (preserves pre-#10815 behavior).
+ *   2. Config missing — clone materialized template (preserves pre-#10815 behavior).
  *   3. Config present + drift detected — warn-only (default) OR overwrite
- *      from template when invoked with `--migrate-config`.
+ *      from materialized template when invoked with `--migrate-config`.
  *
  * @param {Object}   [options]
  * @param {String[]} [options.argv=process.argv]   Argv source; injectable for tests.
@@ -173,15 +195,17 @@ export async function initConfigs({argv = process.argv, logger = console, server
             continue;
         }
 
+        const activeTemplateSrc = materializeServerConfigTemplate(await fs.readFile(templatePath, 'utf-8'));
+
         if (!fs.existsSync(activePath)) {
             logger.log(`[Neo AI] Config missing for MCP server '${serverName}'. Cloning from template...`);
-            await fs.copy(templatePath, activePath);
+            await fs.writeFile(activePath, activeTemplateSrc, 'utf-8');
             processed.push({serverName, action: 'clone'});
             continue;
         }
 
         const drift = detectDrift(
-            await projectShape(templatePath),
+            projectSourceShape(activeTemplateSrc),
             await projectShape(activePath)
         );
 
@@ -192,7 +216,7 @@ export async function initConfigs({argv = process.argv, logger = console, server
 
         if (migrate) {
             logger.log(`[Neo AI] Migrating stale config for '${serverName}' (drift detected, ${MIGRATE_FLAG} set)...`);
-            await fs.copy(templatePath, activePath);
+            await fs.writeFile(activePath, activeTemplateSrc, 'utf-8');
             processed.push({serverName, action: 'migrate', drift});
         } else {
             logger.warn(`[Neo AI] Stale config.mjs for '${serverName}' — template has evolved:`);

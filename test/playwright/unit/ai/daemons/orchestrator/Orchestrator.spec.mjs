@@ -2,7 +2,7 @@ import {test, expect} from '@playwright/test';
 import path from 'path';
 import Neo from '../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../src/core/_export.mjs';
-import AiConfig from '../../../../../../ai/config.template.mjs';
+import AiConfig from '../../../../../../ai/config.mjs';
 import {
     Orchestrator,
     resolvePrimaryDevSyncRootsConfig,

@@ -82,11 +82,10 @@ const defaultConfig = {
      * @summary Deployment-wide embedding provider selector.
      *
      * Shared by Memory Core embedding consumers and Knowledge Base ingestion
-     * paths. `NEO_CHROMA_EMBEDDING_PROVIDER` remains readable for the server-local
-     * deprecation window; the Tier-1 default uses the canonical env name.
+     * paths.
      * @type {String}
      */
-    embeddingProvider: process.env.NEO_EMBEDDING_PROVIDER || process.env.NEO_CHROMA_EMBEDDING_PROVIDER || 'openAiCompatible',
+    embeddingProvider: process.env.NEO_EMBEDDING_PROVIDER || 'openAiCompatible',
     /**
      * @summary Deployment-wide Ollama provider defaults.
      *
@@ -147,8 +146,8 @@ const defaultConfig = {
      */
     engines: {
         chroma: {
-            host: process.env.NEO_CHROMA_HOST || process.env.NEO_KB_CHROMA_HOST || 'localhost',
-            port: Number(process.env.NEO_CHROMA_PORT || process.env.NEO_KB_CHROMA_PORT) || 8000
+            host: process.env.NEO_CHROMA_HOST || 'localhost',
+            port: Number(process.env.NEO_CHROMA_PORT) || 8000
         }
     },
     /**
@@ -490,14 +489,7 @@ class Config extends Base {
     }
 }
 
-// Idempotent registration: `ai/config.template.mjs` and the operator-overlay
-// `ai/config.mjs` are structurally identical (the latter is auto-copied from
-// the former by `initServerConfigs.mjs`). In production only one is loaded, so
-// no collision. In Playwright test workers that get reused across specs,
-// modules importing one or the other can both end up in the same process —
-// reuse the existing `Neo.ai.Config` registration rather than colliding under
-// unitTestMode.
-const instance = Neo.ns('Neo.ai.Config') ?? Neo.setupClass(Config);
+const instance = Neo.setupClass(Config);
 
 export default new Proxy(instance, {
     get(target, prop, receiver) {

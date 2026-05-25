@@ -24,9 +24,9 @@ const cliScriptPath = path.resolve(__dirname, '../../../../../../../ai/scripts/m
 /**
  * @summary Imports the copyable GitHub workflow config template under a unit-test-only namespace.
  *
- * The template intentionally uses the production config class name so users can copy it to
- * `config.mjs`. In a single Playwright worker, importing both files would otherwise trigger
- * Neo's `unitTestMode` namespace-collision guard.
+ * The template intentionally uses the production config class name so users can copy it as an
+ * operator overlay. This helper imports it under a test-only namespace to avoid Neo's
+ * `unitTestMode` namespace-collision guard.
  */
 async function importTemplateConfig() {
     const originalSetupClass = Neo.setupClass;
