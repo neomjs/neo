@@ -2,7 +2,6 @@ import {test, expect} from '@playwright/test';
 import Neo       from '../../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../../src/core/_export.mjs';
 import PrimaryRepoSyncService, {
-    buildPrimaryRepoSyncTrigger,
     DEV_SYNC_ROOTS_CONFIG_KEY,
     DEV_SYNC_ROOTS_ENV_VAR,
     isKbRelevantChangePath,
@@ -75,26 +74,6 @@ function createTaskStateService(running=false) {
 }
 
 test.describe('PrimaryRepoSyncService (#11017)', () => {
-    test('builds interval triggers', () => {
-        expect(buildPrimaryRepoSyncTrigger({
-            enabled   : true,
-            now       : 600000,
-            lastRunAt : 0,
-            intervalMs: 600000
-        })).toEqual({
-            taskName: PRIMARY_DEV_SYNC_TASK_NAME,
-            source  : 'periodic-sweep',
-            reason  : 'periodic-sweep:600000'
-        });
-
-        expect(buildPrimaryRepoSyncTrigger({
-            enabled   : false,
-            now       : 600000,
-            lastRunAt : 0,
-            intervalMs: 600000
-        })).toBeNull();
-    });
-
     test('parses explicit dev-sync roots without machine-specific defaults', () => {
         expect(parseDevSyncRoots(undefined)).toEqual({status: 'unset', roots: []});
         expect(parseDevSyncRoots('')).toEqual({status: 'unset', roots: []});

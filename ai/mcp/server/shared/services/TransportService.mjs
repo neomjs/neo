@@ -15,7 +15,7 @@ import RequestContextService from './RequestContextService.mjs';
  * - **Auth Integration:** Automatically wires up the **Authorization Anchor** when OIDC
  *   configuration is detected in the environment.
  * - **CORS Enforcement:** Ensures cross-origin compatibility for modern browser-based AI agents.
- * - **Request-Context Propagation (ticket #10000):** Each `/mcp` request is wrapped in
+ * - **Request-Context Propagation:** Each `/mcp` request is wrapped in
  *   `RequestContextService.run({userId, username, sessionId}, ...)` before dispatching to the MCP
  *   transport. This bridges the gap between Express's per-request `req.auth` context and the
  *   service layer that runs inside `callTool(name, args)` — downstream services read the
@@ -177,12 +177,12 @@ class TransportService extends Base {
             }
 
             // Propagate the authenticated identity and sessionId into the async call chain so service methods
-            // can tag ChromaDB writes and filter reads per tenant (ticket #10000 + #10145).
+            // can tag ChromaDB writes and filter reads per tenant.
             //
             // Context-shape dispatch:
             // - If the concrete server (e.g. memory-core) implements `buildRequestContext()`,
             //   defer to it — the server may enrich the raw OIDC auth with server-specific
-            //   bindings like AgentIdentity graph-node IDs (memory-core's #10144 contract).
+            //   bindings like AgentIdentity graph-node IDs from memory-core.
             // - Otherwise fall back to the minimal `{userId, username}` shape — sufficient for
             //   servers (knowledge-base, gh-workflow) that don't own an identity graph.
             // - Finally, the `sessionId` from the transport is appended to whichever context

@@ -14,8 +14,6 @@ import HealthService               from '../../services/memory-core/HealthServic
 import {
     initializeDatabase
 } from '../bridge/queries.mjs';
-import SummarizationCoordinatorService from './services/SummarizationCoordinatorService.mjs';
-import BackupCoordinatorService        from './services/BackupCoordinatorService.mjs';
 import MaintenanceBackpressureService, {
     DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES,
     DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
@@ -25,6 +23,9 @@ import PrimaryRepoSyncService, {
     DEV_SYNC_ROOTS_ENV_VAR
 } from './services/PrimaryRepoSyncService.mjs';
 import TenantRepoSyncService             from './services/TenantRepoSyncService.mjs';
+import {getDueTask as summaryGetDueTaskImport}        from './scheduling/summary.mjs';
+import {getDueTask as backupGetDueTaskImport}         from './scheduling/backup.mjs';
+import {getDueTask as primaryDevSyncGetDueTaskImport} from './scheduling/primaryDevSync.mjs';
 import TaskStateService                  from './services/TaskStateService.mjs';
 import ProcessSupervisorService          from './services/ProcessSupervisorService.mjs';
 import CadenceEngine                     from './services/CadenceEngine.mjs';
@@ -129,8 +130,13 @@ function resolveCloudOnlyEnabled(key) {
  *   `afterSet*` propagation hooks for `dataDir`/`taskDefinitions`/`taskStateService`/
  *   `healthService`/`spawnFn` so subsequent parent mutations flow to the child.
  * - **(C) Simple imported collaborator** — direct-import instance fields
- *   (`summarizationCoordinator`, `backupCoordinator`, etc.) — no class-system
- *   conversion, no parent-child propagation, no lifecycle side effect.
+ *   (`primaryRepoSyncService`, `dreamService`, etc.) for class-shaped execution
+ *   collaborators, and function-typed instance fields
+ *   (`summaryGetDueTask`, `backupGetDueTask`, `primaryDevSyncGetDueTask`) for
+ *   pure-function scheduling triggers from `./scheduling/<task>.mjs` — no
+ *   class-system conversion, no parent-child propagation, no lifecycle side effect.
+ *   The function-typed fields default to the imported pure functions so tests can
+ *   override the seam without touching module-level mocks.
  * - **(D) Operator policy value** — lazy getters with the 2-value chain
  *   `Env.parseNumber('NEO_X') ?? AiConfig.orchestrator.intervals.X` for intervals
  *   + `Env.parseBool('NEO_X') ?? resolveDeploymentEnabled(...)` for booleans.
@@ -147,7 +153,7 @@ function resolveCloudOnlyEnabled(key) {
  * @extends Neo.core.Base
  * @singleton
  * @see ai/scripts/orchestrator-daemon.mjs
- * @see ai/daemons/services/SummarizationCoordinatorService.mjs
+ * @see ai/daemons/orchestrator/scheduling/summary.mjs
  * @see ai/services/memory-core/HealthService.mjs#recordTaskOutcome
  * @see learn/agentos/v13-path.md
  */
@@ -219,14 +225,15 @@ export class Orchestrator extends Base {
     }
 
     // === Service-DI Class C: simple imported collaborators (instance fields) ===
-    summarizationCoordinator = SummarizationCoordinatorService
-    backupCoordinator        = BackupCoordinatorService
     primaryRepoSyncService   = PrimaryRepoSyncService
     tenantRepoSyncService    = TenantRepoSyncService
     dreamService             = DreamService
     swarmHeartbeatService    = SwarmHeartbeatService
     goldenPathSynthesizer    = GoldenPathSynthesizer
     initializeDatabaseFn     = initializeDatabase
+    summaryGetDueTask        = summaryGetDueTaskImport
+    backupGetDueTask         = backupGetDueTaskImport
+    primaryDevSyncGetDueTask = primaryDevSyncGetDueTaskImport
     tenantRepoSyncGetDueTask = tenantRepoSyncGetDueTaskImport
 
     // === Instance state (mutated at runtime; non-reactive) ===
@@ -559,7 +566,7 @@ export class Orchestrator extends Base {
         const executeMaintenanceTask = executeFn => this.createMaintenanceExecutor(executeFn, activeHeavyTask);
 
         this.cadenceEngine.runIfDue('summary', () => {
-            return this.summarizationCoordinator.getDueTask({
+            return this.summaryGetDueTask({
                 db                    : this.db,
                 state                 : this.taskStateService.getState(),
                 now,
@@ -584,7 +591,7 @@ export class Orchestrator extends Base {
         }, executeMaintenanceTask(executeTask), context);
 
         this.cadenceEngine.runIfDue('backup', () => {
-            return this.backupCoordinator.getDueTask({
+            return this.backupGetDueTask({
                 state           : this.taskStateService.getState(),
                 now,
                 backupIntervalMs: this.backupIntervalMs
@@ -592,7 +599,7 @@ export class Orchestrator extends Base {
         }, executeMaintenanceTask(executeTask), context);
 
         this.cadenceEngine.runIfDue(PRIMARY_DEV_SYNC_TASK_NAME, () => {
-            return this.primaryRepoSyncService.getDueTask({
+            return this.primaryDevSyncGetDueTask({
                 state     : this.taskStateService.getState(),
                 now,
                 intervalMs: this.primaryDevSyncIntervalMs,

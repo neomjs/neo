@@ -15,7 +15,7 @@ const execAsync     = promisify(exec);
 const execFileAsync = promisify(execFile);
 
 /**
- * **Visible** template-anchor substrings — checked AND named in the error response on miss (#11491).
+ * **Visible** template-anchor substrings — checked AND named in the error response on miss.
  *
  * These are the 7 evaluation-metric tags from `.agents/skills/pr-review/assets/pr-review-template.md`
  * (cycle-1) and `.agents/skills/pr-review/assets/pr-review-followup-template.md` (cycle-N). They are
@@ -41,7 +41,7 @@ const VISIBLE_PR_REVIEW_ANCHORS = [
 
 /**
  * **Invisible** template-anchor substrings — checked SILENTLY; NOT named in the error response
- * on miss. Defeats Goodhart anchor-stuffing (#11491 operator-directed enhancement 2026-05-16T21:16Z+).
+ * on miss. Defeats Goodhart anchor-stuffing while preserving useful diagnostics for visible misses.
  *
  * **Failure-mode the invisible layer prevents**:
  * A sophisticated agent receives the visible-list error, hallucinates a body that contains
@@ -50,11 +50,9 @@ const VISIBLE_PR_REVIEW_ANCHORS = [
  * Visible-only validation passes the malformed body. The invisible layer catches this by
  * checking structural anchors that span both cycle-1 and cycle-followup templates.
  *
- * **Empirical anchor**: review `4304287893` on PR #11499 (2026-05-16T21:16:25Z) contained
- * all 7 visible metric tags but missed `Depth Floor`, `Required Actions`, and
- * `Strategic-Fit Decision` (only had bare `Strategic-Fit`). The 3-minute-later corrected
- * review `4304295863` (21:19:24Z) had all three. These 3 substrings empirically distinguish
- * a structurally-correct review from a metric-tag-stuffed hallucination.
+ * **Empirical anchor**: a malformed review can contain all visible metric tags while missing
+ * `Depth Floor`, `Required Actions`, and `Strategic-Fit Decision` structure. These 3 substrings
+ * empirically distinguish a structurally-correct review from a metric-tag-stuffed hallucination.
  *
  * **Why these specific substrings**:
  * - `Depth Floor` — cycle-1 has `🔬 Depth Floor`, cycle-followup has `Delta Depth Floor`. Both contain the substring.
@@ -133,10 +131,10 @@ class PullRequestService extends Base {
 
     /**
      * Gets the conversation for a specific pull request, optionally filtered by comment
-     * selector to reduce context-fetch cost across review cycles (#10272 §2.2).
+     * selector to reduce context-fetch cost across review cycles.
      *
      * **Default behavior (no selectors):** returns full conversation — backward compatible
-     * with the pre-#10272 shape that callers depend on.
+     * with the legacy full-conversation shape that callers depend on.
      *
      * **Selectors (first-match precedence, pick at most one):**
      * - `comment_id` — fetch ONLY the comment whose GitHub node ID matches. Used for A2A
@@ -167,8 +165,8 @@ class PullRequestService extends Base {
      * @returns {Promise<object>} Conversation data (optionally filtered) or a structured error.
      */
     async getConversation(options) {
-        // Accept legacy positional `prNumber` form for backward compatibility with any
-        // caller predating #10272. New callers use the object form for filter support.
+        // Accept legacy positional `prNumber` form for backward compatibility.
+        // New callers use the object form for filter support.
         const {pr_number, comment_id, since_comment_id, last_n} = typeof options === 'number'
             ? {pr_number: options}
             : (options || {});
@@ -379,10 +377,9 @@ class PullRequestService extends Base {
     }
 
     /**
-     * @summary Atomic create or update of a formal GitHub pull request review (#11273).
+     * @summary Atomic create or update of a formal GitHub pull request review.
      *
-     * Closes the empirically-recurring formal-state gap pattern (PR #11234 + PR #11271
-     * empirical anchors): agents post substantive review prose via `manage_issue_comment`
+     * Closes the empirically-recurring formal-state gap pattern: agents post substantive review prose via `manage_issue_comment`
      * but forget the second `gh pr review --approve | --request-changes` step to flip
      * GitHub's `reviewDecision` surface, blocking the cross-family review mandate gate
      * per `pull-request §6.1`. This tool routes through the `addPullRequestReview`
@@ -410,8 +407,7 @@ class PullRequestService extends Base {
      * @param {String} [options.review_id]      The GraphQL node ID of the existing review (required for `update`; PRR_*).
      * @returns {Promise<Object>} Review payload on success (`{message, reviewId, state, url, submittedAt, databaseId?}`) or structured error.
      *
-     * @see #11273 (Atomic PR review create via dedicated github-workflow MCP tool)
-     * @see Discussion #11239 (graduation source; substrate-author = @neo-gemini-3-1-pro)
+     * @see Neo.ai.services.github-workflow.queries.mutations.ADD_PULL_REQUEST_REVIEW
      */
     async managePrReview({action, pr_number, state, body, review_id}) {
         if (!['create', 'update'].includes(action)) {
@@ -430,8 +426,8 @@ class PullRequestService extends Base {
             };
         }
 
-        // Tool-boundary mechanical body-shape validation (#11491).
-        // PR #11479 added a description-prose MANDATORY pre-step pointing to the pr-review SKILL.md;
+        // Tool-boundary mechanical body-shape validation.
+        // The tool description points callers to the pr-review SKILL.md;
         // this gate promotes that discipline-only guard to a mechanical floor with two layers:
         //
         // 1. VISIBLE layer — checked against VISIBLE_PR_REVIEW_ANCHORS; misses are named in the
@@ -478,8 +474,7 @@ class PullRequestService extends Base {
                 code    : 'PR_REVIEW_TEMPLATE_VALIDATION_FAILED',
                 // `missing_visible` lists the named-in-message visible misses. Invisible misses
                 // are intentionally NOT enumerated in the response body — even programmatic
-                // callers should be nudged toward the skill rather than the anchor list. This is
-                // the operator-directed invisibility safeguard (#11491 enhancement 2026-05-16).
+                // callers should be nudged toward the skill rather than the anchor list.
                 missing_visible: missingVisible,
                 skill          : skillPath,
                 template       : templatePath
@@ -625,7 +620,6 @@ class PullRequestService extends Base {
      * @param {string}    options.action             Either `'add'` or `'remove'`.
      * @returns {Promise<object>} Success message + reviewer payload on success, or structured error.
      *
-     * @see #10217 / Sub 3 of Epic #10214
      * @see pull-request-workflow.md §6.1 (cross-family mandate — invitation layer cross-reference)
      */
     async managePrReviewers({pr_number, reviewers, team_reviewers, action}) {

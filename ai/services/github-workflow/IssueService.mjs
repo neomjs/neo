@@ -71,7 +71,7 @@ class IssueService extends Base {
     /**
      * Fetches the conversation (title, body, author, comments) for an issue.
      *
-     * Issue-side twin of `PullRequestService.getConversation` (#10702). `get_conversation`
+     * Issue-side twin of `PullRequestService.getConversation`. `get_conversation`
      * is a single dual-purpose tool; `toolService` routes here when the caller supplies
      * `issue_number`. The selector contract (`comment_id` > `since_comment_id` > `last_n` >
      * full) is identical to the PR path; only the GraphQL resource type differs.
@@ -99,7 +99,7 @@ class IssueService extends Base {
             repo       : aiConfig.repo,
             issueNumber: issue_number,
             // get_conversation is one dual-purpose tool; the issue path shares the PR
-            // conversation comment cap rather than adding a separate config key (#10702).
+            // conversation comment cap rather than adding a separate config key.
             maxComments: aiConfig.pullRequest.maxCommentsPerPullRequest
         };
 
@@ -167,8 +167,8 @@ class IssueService extends Base {
     /**
      * @summary Assigns one or more users to a GitHub issue, or clears all assignees.
      *
-     * Implements the precondition + post-verify gate from #11537 (graduated from Discussion
-     * #11536). The "single guarded MCP operation" semantics — one MCP call performs
+     * Implements the precondition + post-verify gate for assignment changes. The
+     * "single guarded MCP operation" semantics — one MCP call performs
      * fetch-current → enforce gate → mutate → re-fetch (post-verify) → return the verified
      * state. Internally chains multiple GitHub API calls; consumers see one response with
      * honest race-window semantics (NOT strict CAS across concurrent MCP server instances).
@@ -178,12 +178,11 @@ class IssueService extends Base {
      *   `ASSIGNEE_CONFLICT` unless `acknowledgedReassign: '<reason>'` is provided.
      * - `acknowledgedReassign: '<reason>'` — strict-replacement override. Clears existing
      *   assignees, assigns the new set, posts an audit-trail comment on the issue
-     *   capturing the reason (per GPT STEP_BACK AC8: reason persistence in
-     *   GitHub-visible artifact).
+     *   capturing the reason in a GitHub-visible artifact.
      * - `requireUnassigned: false` — legacy blind-add (no precondition gate). Provided
      *   for backward-compat; new callers should not rely on this.
      *
-     * **Co-owner-add deferral (per Discussion #11536 OQ3 resolution):** V1 supports only
+     * **Co-owner-add deferral:** V1 supports only
      * strict-replacement override; co-owner-add (`acknowledgedCoOwner`) deferred to V2.
      * Rationale: simultaneous co-authorship is virtually nonexistent in our swarm topology
      * due to git-conflict chaos; cross-family corrective-authorship is always a handoff,
@@ -265,7 +264,7 @@ class IssueService extends Base {
             // Step 5 — post-verify: re-fetch and confirm the resulting assignee state.
             const verifiedAssignees = await this.#fetchCurrentAssignees(issue_number);
 
-            // Step 6 — audit-trail comment for overrides (per GPT STEP_BACK AC8 carry-forward).
+            // Step 6 — audit-trail comment for overrides.
             // Persists the reason as a GitHub-visible artifact (issue comment); reason must NOT be lost.
             if (isOverride) {
                 await this.#createReassignAuditComment(issue_number, currentAssignees, assignees, acknowledgedReassign);
@@ -421,7 +420,7 @@ class IssueService extends Base {
                 : idData.repository.issue.id;
 
             // Shared Mutation — capture response so we can surface the canonical comment
-            // identifier. Enables the A2A propagation pattern from #10272 §2.3: posting
+            // identifier. Enables the A2A propagation pattern: posting
             // a review comment returns the commentId, which the reviewer can then relay
             // via mailbox DM to the author; the author fetches just-this-comment via
             // `get_conversation({comment_id: ...})` instead of re-walking the whole thread.
@@ -457,7 +456,7 @@ class IssueService extends Base {
      * rather than orphaned creation rollback).
      *
      * This is the substrate-correct primitive that replaces the deprecated `release:v*`
-     * label-as-project-proxy pattern (#11233). Labels and projects are independent first-class
+     * label-as-project-proxy pattern. Labels and projects are independent first-class
      * GitHub primitives; the proxy pattern produces structural drift between them.
      *
      * @param {object}   options                       The options for creating the issue.
@@ -685,7 +684,7 @@ class IssueService extends Base {
      * Unified entry point for adding/removing/updating an issue's ProjectV2 memberships.
      *
      * Mirror-shape of `manageIssueLabels` for the project-membership substrate. The substrate-correct
-     * replacement for the deprecated `release:v*` label-as-project-membership-proxy pattern (#11233).
+     * replacement for the deprecated `release:v*` label-as-project-membership-proxy pattern.
      *
      * **Action: 'add'** — Attaches the issue to one or more ProjectV2 boards.
      *   Requires `projectNumbers: number[]`.
@@ -966,7 +965,7 @@ class IssueService extends Base {
      * @summary Consolidates assignee management into a single method.
      *
      * For `action: 'add'`, delegates to `assignIssue` which enforces the precondition
-     * + post-verify gate (#11537): `requireUnassigned: true` default + reason-bearing
+     * + post-verify gate: `requireUnassigned: true` default + reason-bearing
      * `acknowledgedReassign` override + audit-trail comment persistence.
      *
      * @param {object}   options                       The options object

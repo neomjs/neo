@@ -77,7 +77,7 @@ export class CanonicalCollectionGuardError extends Error {
  * Bypass paths (either is sufficient):
  *
  * 1. `process.env.UNIT_TEST_MODE === 'true'` — the test harness is loaded; `aiConfig.collections.*`
- *    resolves to process-isolated `test-*` prefixes per `config.mjs:228-229`, and the test
+ *    resolves to process-isolated `test-*` prefixes, and the test
  *    cleanup helpers are responsible for their own substrate.
  * 2. `confirmation === DESTRUCTIVE_PRODUCTION_CONFIRMATION` — operator-acknowledged production
  *    recovery (e.g., `restore.mjs --mode replace` already gates via `DestructiveOperationGuard`
@@ -98,9 +98,8 @@ export class CanonicalCollectionGuardError extends Error {
  *
  * **Why the gate is uniform (not canonical-set-gated):**
  *
- * Per @neo-gpt's PR #11656 Cycle 1 review (commentId PRR_kwDODSospM8AAAABAYwPjg, Required
- * Action 1) — a guard that returns early for non-canonical names leaves the "non-canonical
- * name as bypass surface" open. A production caller could invoke
+ * A guard that returns early for non-canonical names leaves the "non-canonical name as bypass
+ * surface" open. A production caller could invoke
  * `deleteCollection({name: 'arbitrary-collection'})` and bypass the substrate-level invariant
  * entirely. The uniform-gate shape forces every destructive caller to thread either the test
  * env or the explicit confirmation token, regardless of collection name.

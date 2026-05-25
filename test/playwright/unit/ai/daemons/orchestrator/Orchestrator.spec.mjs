@@ -98,10 +98,13 @@ function createTestOrchestrator(config = {}) {
         spawnFn                  : config.spawnFn       || (() => { throw new Error('spawnFn not expected'); })
     });
 
-    // Class C simple-imported collaborators — instance fields, not reachable via Neo.create
-    orchestrator.summarizationCoordinator = config.summarizationCoordinator || {getDueTask: () => null};
-    orchestrator.backupCoordinator        = config.backupCoordinator        || {getDueTask: () => null};
-    orchestrator.primaryRepoSyncService   = config.primaryRepoSyncService   || {getDueTask: () => null, runTask: () => null};
+    // Class C simple-imported collaborators — instance fields, not reachable via Neo.create.
+    // Scheduling triggers are function-typed seams (`./scheduling/<task>.mjs`); execution
+    // collaborators stay object-typed (class singletons / per-instance services).
+    orchestrator.summaryGetDueTask        = config.summaryGetDueTask        || (() => null);
+    orchestrator.backupGetDueTask         = config.backupGetDueTask         || (() => null);
+    orchestrator.primaryDevSyncGetDueTask = config.primaryDevSyncGetDueTask || (() => null);
+    orchestrator.primaryRepoSyncService   = config.primaryRepoSyncService   || {runTask: () => null};
     orchestrator.tenantRepoSyncService    = config.tenantRepoSyncService    || {runTask: () => null};
     orchestrator.tenantRepoSyncGetDueTask = config.tenantRepoSyncGetDueTask || (() => null);
     orchestrator.dreamService             = config.dreamService             || {processUndigestedSessions: () => Promise.resolve()};
@@ -161,10 +164,8 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
                     outcomes.push({taskName, status, details});
                 }
             },
-            summarizationCoordinator: {
-                getDueTask() {
-                    throw new Error('summary read failed');
-                }
+            summaryGetDueTask: () => {
+                throw new Error('summary read failed');
             }
         });
 
@@ -202,14 +203,10 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
                     outcomes.push({taskName, status, details});
                 }
             },
-            summarizationCoordinator: {
-                getDueTask() {
-                    return {
-                        taskName: 'summary',
-                        reason  : 'periodic-sweep:600000'
-                    };
-                }
-            }
+            summaryGetDueTask: () => ({
+                taskName: 'summary',
+                reason  : 'periodic-sweep:600000'
+            })
         });
 
         orchestrator.processSupervisorService = {
@@ -457,10 +454,8 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
                     outcomes.push({taskName, status, details});
                 }
             },
-            backupCoordinator: {
-                getDueTask() {
-                    throw new Error('backup logic failed');
-                }
+            backupGetDueTask: () => {
+                throw new Error('backup logic failed');
             }
         });
 
@@ -552,13 +547,11 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             backupIntervalMs        : 0,
             primaryDevSyncEnabled   : true,
             primaryDevSyncIntervalMs: 600000,
+            primaryDevSyncGetDueTask: () => ({
+                taskName: PRIMARY_DEV_SYNC_TASK_NAME,
+                reason  : 'periodic-sweep:600000'
+            }),
             primaryRepoSyncService  : {
-                getDueTask() {
-                    return {
-                        taskName: PRIMARY_DEV_SYNC_TASK_NAME,
-                        reason  : 'periodic-sweep:600000'
-                    };
-                },
                 runTask({taskName, reason}) {
                     started.push({taskName, reason});
                 }
@@ -643,13 +636,11 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
                 primaryDevSyncEnabled     : true,
                 primaryDevSyncIntervalMs  : 600000,
                 primaryDevSyncRootsConfig : ['/config/neo'],
+                primaryDevSyncGetDueTask  : () => ({
+                    taskName: PRIMARY_DEV_SYNC_TASK_NAME,
+                    reason  : 'periodic-sweep:600000'
+                }),
                 primaryRepoSyncService    : {
-                    getDueTask() {
-                        return {
-                            taskName: PRIMARY_DEV_SYNC_TASK_NAME,
-                            reason  : 'periodic-sweep:600000'
-                        };
-                    },
                     runTask(options) {
                         received.push({
                             value : options.devSyncRootsConfig,
@@ -732,14 +723,10 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
                     outcomes.push({taskName, status, details});
                 }
             },
-            backupCoordinator: {
-                getDueTask() {
-                    return {
-                        taskName: 'backup',
-                        reason  : 'periodic-backup:test'
-                    };
-                }
-            }
+            backupGetDueTask: () => ({
+                taskName: 'backup',
+                reason  : 'periodic-backup:test'
+            })
         });
 
         // summary is the blocker; backup must defer behind it.
@@ -845,14 +832,14 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
                     outcomes.push({taskName, status, details});
                 }
             },
+            primaryDevSyncGetDueTask: () => {
+                getDueTaskCalls.push('called');
+                return {
+                    taskName: PRIMARY_DEV_SYNC_TASK_NAME,
+                    reason  : 'periodic-primary-dev-sync:test'
+                };
+            },
             primaryRepoSyncService: {
-                getDueTask() {
-                    getDueTaskCalls.push('called');
-                    return {
-                        taskName: PRIMARY_DEV_SYNC_TASK_NAME,
-                        reason  : 'periodic-primary-dev-sync:test'
-                    };
-                },
                 runTask(...args) {
                     runTaskCalls.push(args);
                 }

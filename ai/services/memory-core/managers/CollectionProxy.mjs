@@ -118,11 +118,10 @@ class CollectionProxy extends Base {
             });
 
             // Route through the guarded `manager.deleteCollection({name, confirmation})`
-            // wrapper (#11652 substrate guard). The path-target guard above already passed;
-            // the operator confirmation token is threaded down so the uniform collection-name
-            // gate accepts the production-recovery bypass. Fail-closed if a manager lacks
-            // the wrapper — bare-client fallback would re-open the bypass surface this guard
-            // exists to close (#11656 review Required Action 2, commentId PRR_kwDODSospM8AAAABAYwPjg).
+            // wrapper. The path-target guard above already passed; the operator confirmation token
+            // is threaded down so the uniform collection-name gate accepts the production-recovery
+            // bypass. Fail closed if a manager lacks the wrapper because bare-client fallback would
+            // bypass the destructive-operation guard.
             if (typeof manager.deleteCollection !== 'function') {
                 throw new Error(
                     `[CollectionProxy] manager ${manager?.constructor?.config?.className || 'unknown'} ` +

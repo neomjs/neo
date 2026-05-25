@@ -13,9 +13,8 @@ const harnessLabels = {
  * @summary Classifies the harness that owns a local MCP process by walking its parent process chain.
  *
  * The diagnostic is intentionally heuristic and read-only. It mirrors the process-chain
- * classifier pioneered by `ai/scripts/diagnostics/diagnoseMcpConcurrency.mjs` for #10187, but lives at
- * the Memory Core SDK boundary so both operator scripts and boot-time server logging can
- * share one contract.
+ * classifier used by `ai/scripts/diagnostics/diagnoseMcpConcurrency.mjs`, but lives at the Memory
+ * Core SDK boundary so both operator scripts and boot-time server logging can share one contract.
  *
  * @param {Number}   pid                    Starting PID to inspect.
  * @param {Object}   [options]
