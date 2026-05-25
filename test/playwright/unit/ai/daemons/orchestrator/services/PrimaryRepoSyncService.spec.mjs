@@ -7,9 +7,6 @@ import PrimaryRepoSyncService, {
     isKbRelevantChangePath,
     parseDevSyncRoots
 } from '../../../../../../../ai/daemons/orchestrator/services/PrimaryRepoSyncService.mjs';
-import {
-    PRIMARY_DEV_SYNC_TASK_NAME
-} from '../../../../../../../ai/daemons/orchestrator/TaskDefinitions.mjs';
 
 function createExecStub(steps) {
     const calls = [];
@@ -682,8 +679,8 @@ test.describe('PrimaryRepoSyncService (#11017)', () => {
 
         expect(result.status).toBe('skipped');
         expect(taskStateService.events).toEqual([
-            ['started', PRIMARY_DEV_SYNC_TASK_NAME, 'periodic-sweep:600000'],
-            ['skipped', PRIMARY_DEV_SYNC_TASK_NAME]
+            ['started', 'primary-dev-sync', 'periodic-sweep:600000'],
+            ['skipped', 'primary-dev-sync']
         ]);
         expect(outcomes[0].status).toBe('skipped');
         expect(outcomes[0].details.reasonCode).toBe('up-to-date');

@@ -34,11 +34,6 @@ import SwarmHeartbeatService             from './services/SwarmHeartbeatService.
 import GoldenPathSynthesizer             from '../../services/graph/GoldenPathSynthesizer.mjs';
 import {getDueTask as tenantRepoSyncGetDueTaskImport} from './scheduling/tenantRepoSync.mjs';
 import {
-    PRIMARY_DEV_SYNC_TASK_NAME,
-    TENANT_REPO_SYNC_TASK_NAME,
-    DREAM_TASK_NAME,
-    GOLDEN_PATH_TASK_NAME,
-    SWARM_HEARTBEAT_TASK_NAME,
     DEFAULT_DB_PATH,
     DEFAULT_DATA_DIR,
     DEFAULT_SCRIPT_DIR,
@@ -600,7 +595,7 @@ export class Orchestrator extends Base {
             });
         }, executeMaintenanceTask(executeTask), context);
 
-        this.cadenceEngine.runIfDue(PRIMARY_DEV_SYNC_TASK_NAME, () => {
+        this.cadenceEngine.runIfDue('primary-dev-sync', () => {
             return this.primaryDevSyncGetDueTask({
                 state     : this.taskStateService.getState(),
                 now,
@@ -624,7 +619,7 @@ export class Orchestrator extends Base {
             });
         }), context);
 
-        this.cadenceEngine.runIfDue(TENANT_REPO_SYNC_TASK_NAME, () => {
+        this.cadenceEngine.runIfDue('tenant-repo-sync', () => {
             return this.tenantRepoSyncGetDueTask({
                 state     : this.taskStateService.getState(),
                 now,
@@ -641,10 +636,10 @@ export class Orchestrator extends Base {
             });
         }), context);
 
-        this.cadenceEngine.runIfDue(DREAM_TASK_NAME, () => {
+        this.cadenceEngine.runIfDue('dream', () => {
             if (this.cadenceEngine.shouldRunIntervalTask({
                 now,
-                lastRunAt : this.taskStateService.getTaskState(DREAM_TASK_NAME)?.lastRunAt,
+                lastRunAt : this.taskStateService.getTaskState('dream')?.lastRunAt,
                 intervalMs: this.dreamIntervalMs
             })) {
                 return { reason: `periodic-dream:${this.dreamIntervalMs}` };
@@ -665,10 +660,10 @@ export class Orchestrator extends Base {
             }
         }), context);
 
-        this.cadenceEngine.runIfDue(GOLDEN_PATH_TASK_NAME, () => {
+        this.cadenceEngine.runIfDue('golden-path', () => {
             if (this.cadenceEngine.shouldRunIntervalTask({
                 now,
-                lastRunAt : this.taskStateService.getTaskState(GOLDEN_PATH_TASK_NAME)?.lastRunAt,
+                lastRunAt : this.taskStateService.getTaskState('golden-path')?.lastRunAt,
                 intervalMs: this.goldenPathIntervalMs
             })) {
                 return { reason: `periodic-golden-path:${this.goldenPathIntervalMs}` };
@@ -694,7 +689,7 @@ export class Orchestrator extends Base {
         // Swarm-heartbeat lane. NOT heavy maintenance — the pulse is a light
         // wake-substrate check, so the executor runs directly (no `executeMaintenanceTask`
         // wrap). `reason` is passed as a string straight from `CadenceEngine.runIfDue`.
-        this.cadenceEngine.runIfDue(SWARM_HEARTBEAT_TASK_NAME, () => {
+        this.cadenceEngine.runIfDue('swarm-heartbeat', () => {
             if (!this.swarmHeartbeatEnabled) {
                 return null;
             }
@@ -706,7 +701,7 @@ export class Orchestrator extends Base {
             }
             if (this.cadenceEngine.shouldRunIntervalTask({
                 now,
-                lastRunAt : this.taskStateService.getTaskState(SWARM_HEARTBEAT_TASK_NAME)?.lastRunAt,
+                lastRunAt : this.taskStateService.getTaskState('swarm-heartbeat')?.lastRunAt,
                 intervalMs: this.swarmHeartbeatIntervalMs
             })) {
                 return { reason: `periodic-heartbeat:${this.swarmHeartbeatIntervalMs}` };

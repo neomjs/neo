@@ -13,11 +13,6 @@ import {
     recordDeferral,
     resolveHeavyMaintenanceLeasePath
 } from '../../../../../../../ai/daemons/orchestrator/services/MaintenanceBackpressureService.mjs';
-import {
-    DREAM_TASK_NAME,
-    GOLDEN_PATH_TASK_NAME,
-    PRIMARY_DEV_SYNC_TASK_NAME
-} from '../../../../../../../ai/daemons/orchestrator/TaskDefinitions.mjs';
 
 // A non-heavy task name (must NOT be in DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES) for
 // passthrough tests of `acquireLeaseAndExecute`.
@@ -61,18 +56,18 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
     test('DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES pins the canonical heavy-classification set', () => {
         expect([...DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES].sort()).toEqual([
             'backup',
-            DREAM_TASK_NAME,
+            'dream',
             'kbSync',
-            PRIMARY_DEV_SYNC_TASK_NAME,
+            'primary-dev-sync',
             'summary'
         ].sort());
         expect(Object.isFrozen(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES)).toBe(true);
         // Golden Path is light maintenance per #11511 / PR #11512 — must NOT be in heavy set
-        expect(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES).not.toContain(GOLDEN_PATH_TASK_NAME);
+        expect(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES).not.toContain('golden-path');
     });
 
     test('DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES pins the dependency set', () => {
-        expect([...DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES]).toEqual([DREAM_TASK_NAME]);
+        expect([...DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES]).toEqual(['dream']);
         expect(Object.isFrozen(DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES)).toBe(true);
     });
 
@@ -86,14 +81,14 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
             heavyMaintenanceTaskNames: DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
         })).toBe(true);
         expect(isHeavyMaintenanceTask({
-            taskName                 : GOLDEN_PATH_TASK_NAME,
+            taskName                 : 'golden-path',
             heavyMaintenanceTaskNames: DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES
         })).toBe(false);
     });
 
     test('isGoldenPathDependencyTask returns membership in dependency set', () => {
         expect(isGoldenPathDependencyTask({
-            taskName                     : DREAM_TASK_NAME,
+            taskName                     : 'dream',
             goldenPathDependencyTaskNames: DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES
         })).toBe(true);
         expect(isGoldenPathDependencyTask({
@@ -132,15 +127,15 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         expect(getActiveGoldenPathDependencyTask({
             goldenPathDependencyTaskNames: DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES,
             taskStateService,
-            activeTaskName               : DREAM_TASK_NAME
-        })).toBe(DREAM_TASK_NAME);
+            activeTaskName               : 'dream'
+        })).toBe('dream');
 
         // activeTaskName is NOT a dependency → fall back to state scan
         expect(getActiveGoldenPathDependencyTask({
             goldenPathDependencyTaskNames: DEFAULT_GOLDEN_PATH_DEPENDENCY_TASK_NAMES,
-            taskStateService             : buildTaskStateService({[DREAM_TASK_NAME]: {running: true}}),
+            taskStateService             : buildTaskStateService({['dream']: {running: true}}),
             activeTaskName               : 'summary'
-        })).toBe(DREAM_TASK_NAME);
+        })).toBe('dream');
 
         // No dependency running, no active dependency → null
         expect(getActiveGoldenPathDependencyTask({
@@ -271,13 +266,13 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
 
         recordDeferral({
             deferralLogKeys,
-            taskName       : GOLDEN_PATH_TASK_NAME,
+            taskName       : 'golden-path',
             reasonCode     : 'golden-path-dependency-backpressure',
             reasonText     : `periodic-golden-path:1800000`,
-            blockingTaskName: DREAM_TASK_NAME,
+            blockingTaskName: 'dream',
             taskDefinitions: {
-                [GOLDEN_PATH_TASK_NAME]: {label: 'Golden Path'},
-                [DREAM_TASK_NAME]      : {label: 'Dream cycle'}
+                ['golden-path']: {label: 'Golden Path'},
+                ['dream']      : {label: 'Dream cycle'}
             },
             writeLog: (level, message) => logCalls.push({level, message})
         });
@@ -477,12 +472,12 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
     test('executeWithGoldenPathDependencyGate defers when dependency task is running', () => {
         const outcomeCalls = [];
         const service      = buildService({
-            taskStateService: buildTaskStateService({[DREAM_TASK_NAME]: {running: true}}),
+            taskStateService: buildTaskStateService({['dream']: {running: true}}),
             healthService   : {recordTaskOutcome: (t, s, p) => outcomeCalls.push({t, s, p})}
         });
 
         const result = service.executeWithGoldenPathDependencyGate({
-            taskName       : GOLDEN_PATH_TASK_NAME,
+            taskName       : 'golden-path',
             executeFn      : () => { throw new Error('should not execute'); },
             reason         : 'periodic-golden-path',
             activeHeavyTask: {name: null}
@@ -490,7 +485,7 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
 
         expect(result).toBe(false);
         expect(outcomeCalls[0].p.reasonCode).toBe('golden-path-dependency-backpressure');
-        expect(outcomeCalls[0].p.blockingTaskName).toBe(DREAM_TASK_NAME);
+        expect(outcomeCalls[0].p.blockingTaskName).toBe('dream');
     });
 
     test('executeWithGoldenPathDependencyGate passes through when no dependency is running', () => {
@@ -500,13 +495,13 @@ test.describe('Neo.ai.daemons.orchestrator.services.MaintenanceBackpressureServi
         });
 
         const result = service.executeWithGoldenPathDependencyGate({
-            taskName       : GOLDEN_PATH_TASK_NAME,
+            taskName       : 'golden-path',
             executeFn      : (taskName, reason) => { executions.push({taskName, reason}); return 'gp-done'; },
             reason         : 'periodic-golden-path',
             activeHeavyTask: {name: null}
         });
 
-        expect(executions).toEqual([{taskName: GOLDEN_PATH_TASK_NAME, reason: 'periodic-golden-path'}]);
+        expect(executions).toEqual([{taskName: 'golden-path', reason: 'periodic-golden-path'}]);
         expect(result).toBe('gp-done');
     });
 });
