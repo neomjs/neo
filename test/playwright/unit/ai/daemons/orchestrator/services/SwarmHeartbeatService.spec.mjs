@@ -72,6 +72,9 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     let GraphService;
     let originalLifecycleInit;
     let originalGraphServiceInit;
+    let MailboxService;
+    let originalListMessages;
+    let RequestContextService;
 
     test.beforeAll(async () => {
         const swarmHeartbeatModule = await import('../../../../../../../ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs');
@@ -81,6 +84,13 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         const wakeSubscriptionModule = await import('../../../../../../../ai/services/memory-core/WakeSubscriptionService.mjs');
         WakeSubscriptionService      = wakeSubscriptionModule.default;
         originalEmitHeartbeatPulse   = WakeSubscriptionService.emitHeartbeatPulse;
+
+        const mailboxModule    = await import('../../../../../../../ai/services/memory-core/MailboxService.mjs');
+        MailboxService         = mailboxModule.default;
+        originalListMessages   = MailboxService.listMessages;
+
+        const contextModule    = await import('../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs');
+        RequestContextService  = contextModule.default;
 
         const services = await import('../../../../../../../ai/services.mjs');
         const LifecycleService = services.Memory_LifecycleService;
@@ -101,6 +111,9 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         services.Memory_GraphService.initAsync     = originalGraphServiceInit;
         if (originalEmitHeartbeatPulse) {
             WakeSubscriptionService.emitHeartbeatPulse = originalEmitHeartbeatPulse;
+        }
+        if (originalListMessages) {
+            MailboxService.listMessages = originalListMessages;
         }
     });
 
@@ -516,6 +529,99 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
 
         await SwarmHeartbeatService.pulse();
         expect(emitted.length).toBe(0);
+    });
+
+    test('getRecentActivityTimestamps binds RequestContextService identity before MailboxService.listMessages call (PR #11999 cycle-2)', async () => {
+        // MailboxService.listMessages() reads RequestContextService.getAgentIdentityNodeId()
+        // at entry and throws "Cannot list messages: no agent identity context bound." when
+        // unbound. Sub-iii's helper MUST wrap the calls in RequestContextService.run({...})
+        // so the production heartbeat loop sees real activity timestamps instead of silently
+        // catching the throw and returning [].
+        applyDefaultStubs();
+        // Restore the REAL helper (override the applyDefaultStubs stub).
+        delete SwarmHeartbeatService.getRecentActivityTimestamps;
+
+        const seenContextIdentities = [];
+        MailboxService.listMessages = async ({box, fromIdentity, to}) => {
+            const boundIdentity = RequestContextService.getAgentIdentityNodeId();
+            seenContextIdentities.push({box, fromIdentity, to, boundIdentity});
+            return {messages: [{messageId: `${box}-msg`, sentAt: new Date(Date.now() - 30 * 60 * 1000).toISOString()}]};
+        };
+
+        const targetIdentity = '@neo-context-test';
+        const now            = Date.now();
+        const result         = await SwarmHeartbeatService.getRecentActivityTimestamps(targetIdentity, now);
+
+        try {
+            // Each MailboxService.listMessages call must have seen the bound identity.
+            expect(seenContextIdentities.length).toBeGreaterThan(0);
+            for (const call of seenContextIdentities) {
+                expect(call.boundIdentity).toBe(targetIdentity);
+            }
+            // Result must include parsed timestamps (proves the wrapper returned real data,
+            // not the catch-fallback []).
+            expect(result.length).toBeGreaterThan(0);
+            expect(result.every(ts => Number.isFinite(ts))).toBe(true);
+        } finally {
+            MailboxService.listMessages = originalListMessages;
+        }
+    });
+
+    test('getReadinessSentinelMessages binds RequestContextService identity AND returns listMessages summaries that decideWake honors (PR #11999 cycle-2)', async () => {
+        // Two-part contract:
+        // 1. The helper wraps MailboxService.listMessages in RequestContextService.run.
+        // 2. The summary shape returned ({messageId, task, ...}) is consumed by
+        //    WakeDecisionService.parseActiveReadinessSentinels and the resulting
+        //    `active: false` propagates through decideWake → blocks the wake.
+        applyDefaultStubs();
+        delete SwarmHeartbeatService.getReadinessSentinelMessages;
+
+        const wakeDecisionModule = await import('../../../../../../../ai/daemons/orchestrator/services/WakeDecisionService.mjs');
+        const {WakeDecisionService} = wakeDecisionModule;
+
+        const targetIdentity     = '@neo-context-test';
+        const now                = Date.now();
+        const seenContext        = [];
+        const blockingSentinelTs = new Date(now + 60 * 60 * 1000).toISOString();
+        MailboxService.listMessages = async ({to, taggedConcepts}) => {
+            seenContext.push({to, taggedConcepts, boundIdentity: RequestContextService.getAgentIdentityNodeId()});
+            return {
+                messages: [{
+                    messageId: 'MESSAGE:real-listmessages-summary',
+                    task     : {type: 'wake-readiness', ready: false, reason: 'rate-limit', expiresAt: blockingSentinelTs},
+                    sentAt   : new Date(now - 60_000).toISOString()
+                }]
+            };
+        };
+
+        try {
+            const sentinelMessages       = await SwarmHeartbeatService.getReadinessSentinelMessages(targetIdentity);
+            const activeReadinessSentinel = WakeDecisionService.parseActiveReadinessSentinels(sentinelMessages, now);
+
+            // Part 1: Context-binding contract.
+            expect(seenContext.length).toBe(1);
+            expect(seenContext[0].to).toBe(targetIdentity);
+            expect(seenContext[0].taggedConcepts).toEqual(['wake-readiness']);
+            expect(seenContext[0].boundIdentity).toBe(targetIdentity);
+
+            // Part 2: Summary-shape adapter contract — parser accepts {messageId, task}.
+            expect(activeReadinessSentinel).not.toBeNull();
+            expect(activeReadinessSentinel.ready).toBe(false);
+            expect(activeReadinessSentinel.reason).toBe('rate-limit');
+            expect(activeReadinessSentinel.sourceMessageId).toBe('MESSAGE:real-listmessages-summary');
+
+            // Composition: feeding into decideWake produces wake:false (blocked).
+            const decision = WakeDecisionService.decideWake({
+                identity                : targetIdentity,
+                currentTimeMs           : now,
+                recentActivityTimestamps: [now - 30 * 60 * 1000],
+                activeReadinessSentinel
+            });
+            expect(decision.wake).toBe(false);
+            expect(decision.signals.ready).toBe(false);
+        } finally {
+            MailboxService.listMessages = originalListMessages;
+        }
     });
 
     test('injectTmux method removed entirely (#11996 AC1)', async () => {

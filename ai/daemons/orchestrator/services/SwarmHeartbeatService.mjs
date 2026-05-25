@@ -12,6 +12,7 @@ import {
     Memory_LifecycleService as LifecycleService
 }                    from '../../../services.mjs';
 import MailboxService from '../../../services/memory-core/MailboxService.mjs';
+import RequestContextService from '../../../mcp/server/shared/services/RequestContextService.mjs';
 import logger        from '../../../mcp/server/memory-core/logger.mjs';
 import {
     isGateOpen,
@@ -668,10 +669,15 @@ class SwarmHeartbeatService extends Base {
      * Query A2A graph for recent message-activity timestamps adjacent to the identity.
      *
      * Sub-iii (#11996) implementation of the activity-signal input for
-     * `WakeDecisionService.decideWake`. Per Discussion #11992 §5.2 sweep #7 +
-     * the cycle-1 review-response on PR #11997: returns millisecond timestamps
-     * of any A2A activity (sent OR received) by this identity within the last 3h,
-     * archived-excluded. Caller passes the result as `recentActivityTimestamps`.
+     * `WakeDecisionService.decideWake`. Returns millisecond timestamps of any A2A
+     * activity (sent OR received) by this identity within the last 3h, archived-excluded.
+     *
+     * `MailboxService.listMessages()` is caller-identity-scoped: it reads
+     * `RequestContextService.getAgentIdentityNodeId()` at entry and throws if
+     * no identity is bound. The orchestrator daemon owns no implicit identity,
+     * so we explicitly bind to the polled identity (the box owner) for the
+     * duration of the query — semantically clean (it's their outbox + inbox)
+     * and matches the precedent in `idleOutNudge.mjs` + `KbAlertingService.mjs`.
      *
      * @param {String} identity Target agent identity.
      * @param {Number} currentTimeMs Current time (cutoff anchor).
@@ -681,17 +687,19 @@ class SwarmHeartbeatService extends Base {
     async getRecentActivityTimestamps(identity, currentTimeMs) {
         const cutoffMs = currentTimeMs - 3 * 60 * 60 * 1000;
         try {
-            const sentResult     = await MailboxService.listMessages({box: 'outbox', fromIdentity: identity, limit: 100, includeArchived: false});
-            const receivedResult = await MailboxService.listMessages({box: 'inbox',  to: identity,           limit: 100, includeArchived: false});
+            return await RequestContextService.run({agentIdentityNodeId: identity}, async () => {
+                const sentResult     = await MailboxService.listMessages({box: 'outbox', fromIdentity: identity, limit: 100, includeArchived: false});
+                const receivedResult = await MailboxService.listMessages({box: 'inbox',  to: identity,           limit: 100, includeArchived: false});
 
-            const messages = [
-                ...(sentResult?.messages || []),
-                ...(receivedResult?.messages || [])
-            ];
+                const messages = [
+                    ...(sentResult?.messages || []),
+                    ...(receivedResult?.messages || [])
+                ];
 
-            return messages
-                .map(m => Date.parse(m.createdAt || m.sentAt || ''))
-                .filter(ts => Number.isFinite(ts) && ts >= cutoffMs);
+                return messages
+                    .map(m => Date.parse(m.sentAt || ''))
+                    .filter(ts => Number.isFinite(ts) && ts >= cutoffMs);
+            });
         } catch (err) {
             logger.error(`[SwarmHeartbeatService] getRecentActivityTimestamps failed for ${identity}: ${err.message}`);
             return [];
@@ -703,19 +711,26 @@ class SwarmHeartbeatService extends Base {
      * Filtered server-side by `taggedConcepts: ['wake-readiness']` so the parser
      * runs over the narrow candidate set only.
      *
+     * Same `RequestContextService.run` binding rationale as
+     * `getRecentActivityTimestamps`. Returns `listMessages` summary objects
+     * (shape: `{messageId, task, sentAt, ...}`) — `WakeDecisionService.parseReadinessSentinel`
+     * accepts the summary shape directly (no per-message adapter needed).
+     *
      * @param {String} identity Target agent identity.
-     * @returns {Promise<Object[]>} Candidate sentinel messages.
+     * @returns {Promise<Object[]>} Candidate sentinel summary messages.
      * @protected
      */
     async getReadinessSentinelMessages(identity) {
         try {
-            const result = await MailboxService.listMessages({
-                to            : identity,
-                taggedConcepts: ['wake-readiness'],
-                limit         : 20,
-                includeArchived: false
+            return await RequestContextService.run({agentIdentityNodeId: identity}, async () => {
+                const result = await MailboxService.listMessages({
+                    to            : identity,
+                    taggedConcepts: ['wake-readiness'],
+                    limit         : 20,
+                    includeArchived: false
+                });
+                return result?.messages || [];
             });
-            return result?.messages || [];
         } catch (err) {
             logger.error(`[SwarmHeartbeatService] getReadinessSentinelMessages failed for ${identity}: ${err.message}`);
             return [];
