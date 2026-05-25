@@ -3,7 +3,7 @@ import { Memory_Config as aiConfig } from '../../services.mjs';
 import Base from '../../../src/core/Base.mjs';
 import Json from '../../../src/util/Json.mjs';
 import logger from '../../mcp/server/memory-core/logger.mjs';
-import OpenAiCompatible from '../../provider/OpenAiCompatible.mjs';
+import {buildGraphProvider} from './providerDispatch.mjs';
 
 /**
  * @class Neo.ai.daemons.services.TopologyInferenceEngine
@@ -54,9 +54,10 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
 ${contextText}
 `;
         try {
-            const provider = Neo.create(OpenAiCompatible, {
-                modelName: aiConfig.openAiCompatible.model,
-                host: aiConfig.openAiCompatible.host
+            const provider = buildGraphProvider({
+                modelProvider         : aiConfig.modelProvider,
+                ollamaConfig          : aiConfig.ollama,
+                openAiCompatibleConfig: aiConfig.openAiCompatible
             });
 
             const result = await provider.generate(prompt);

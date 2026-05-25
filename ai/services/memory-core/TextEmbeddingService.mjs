@@ -2,6 +2,7 @@ import {GoogleGenerativeAI} from '@google/generative-ai';
 import aiConfig             from '../../mcp/server/memory-core/config.mjs';
 import Base                 from '../../../src/core/Base.mjs';
 import logger               from '../../mcp/server/memory-core/logger.mjs';
+import OllamaProvider       from '../../provider/Ollama.mjs';
 
 /**
  * Determines whether TextEmbeddingService needs a Gemini embedding client for the active provider.
@@ -42,7 +43,18 @@ class TextEmbeddingService extends Base {
          * @protected
          * @reactive
          */
-        embeddingModel_: null
+        embeddingModel_: null,
+        /**
+         * Lazy-instantiated `Neo.ai.provider.Ollama` instance used by the native
+         * Ollama embedding-dispatch path (#11965 Sub-2 of #10103). Created on first
+         * `embedText`/`embedTexts` call with `explicitProvider === 'ollama'`. Tests
+         * inject a fake by setting this directly via the singleton, bypassing the
+         * lazy-init path.
+         * @member {Object|null} ollamaProvider_=null
+         * @protected
+         * @reactive
+         */
+        ollamaProvider_: null
     }
 
     /**
@@ -138,6 +150,30 @@ class TextEmbeddingService extends Base {
     }
 
     /**
+     * @summary Lazy-instantiates or returns the cached native Ollama provider client.
+     *
+     * Reads host + embeddingModel from `aiConfig.ollama`. Caches the instance on the
+     * singleton's reactive `ollamaProvider_` slot. Test seam: tests can set
+     * `TextEmbeddingService.ollamaProvider` directly with a fake to bypass real-host
+     * instantiation.
+     *
+     * @returns {OllamaProvider}
+     * @protected
+     */
+    #getOllamaProvider() {
+        if (this.ollamaProvider) return this.ollamaProvider;
+
+        const config = aiConfig.ollama || {};
+        const provider = Neo.create(OllamaProvider, {
+            host          : config.host           || 'http://127.0.0.1:11434',
+            modelName     : config.model          || 'gemma4',
+            embeddingModel: config.embeddingModel || null
+        });
+        this.ollamaProvider = provider;
+        return provider;
+    }
+
+    /**
      * Creates an embedding vector for the provided text.
      * @param {String} text The text to embed.
      * @param {String} explicitProvider The embedding provider to use.
@@ -150,7 +186,14 @@ class TextEmbeddingService extends Base {
             const { unloadRetryCount = 3 } = aiConfig.openAiCompatible;
             const result = await this.#postOpenAiCompatible(text, unloadRetryCount);
             return result.data?.[0]?.embedding;
-        } else {
+        } else if (explicitProvider === 'ollama') {
+            // #11965 Sub-2: native Ollama embedding dispatch via Neo.ai.provider.Ollama.
+            // Single-input call returns shape `{embeddings: [[...]]}`; we project the
+            // single inner array since this method is the per-text variant.
+            const provider = this.#getOllamaProvider();
+            const result   = await provider.embed(text);
+            return result.embeddings?.[0];
+        } else if (explicitProvider === 'gemini') {
             const geminiKey = process.env.GEMINI_API_KEY;
             if (!geminiKey) {
                  throw new Error('Semantic search unavailable: GEMINI_API_KEY is missing.');
@@ -160,6 +203,12 @@ class TextEmbeddingService extends Base {
             }
             const result = await this.embeddingModel.embedContent(text);
             return result.embedding.values;
+        } else {
+            // #11965 Sub-2 cycle-2: explicit unsupported-provider rejection. Pre-AC1
+            // fallthrough quietly routed any unknown name into the Gemini path; that
+            // silent-fallback was speculative-support. Fail loudly with the expected
+            // provider set so operators see misconfiguration immediately.
+            throw new Error(`TextEmbeddingService: unsupported embedding provider '${explicitProvider}'. Expected one of: 'gemini', 'openAiCompatible', 'ollama'.`);
         }
     }
 
@@ -176,7 +225,13 @@ class TextEmbeddingService extends Base {
             const { unloadRetryCount = 3 } = aiConfig.openAiCompatible;
             const result = await this.#postOpenAiCompatible(texts, unloadRetryCount);
             return result.data.sort((a, b) => a.index - b.index).map(d => d.embedding);
-        } else {
+        } else if (explicitProvider === 'ollama') {
+            // #11965 Sub-2: native Ollama batch embedding dispatch. Ollama's /api/embed
+            // accepts array-of-strings natively + returns parallel embeddings array.
+            const provider = this.#getOllamaProvider();
+            const result   = await provider.embed(texts);
+            return result.embeddings || [];
+        } else if (explicitProvider === 'gemini') {
             const geminiKey = process.env.GEMINI_API_KEY;
             if (!geminiKey) {
                  throw new Error('Semantic search unavailable: GEMINI_API_KEY is missing.');
@@ -188,6 +243,9 @@ class TextEmbeddingService extends Base {
             const requests = texts.map(text => ({model: aiConfig.embeddingModel, content: {parts: [{text}]}}));
             const result = await this.embeddingModel.batchEmbedContents({ requests });
             return result.embeddings.map(e => e.values);
+        } else {
+            // #11965 Sub-2 cycle-2: explicit unsupported-provider rejection (matches embedText).
+            throw new Error(`TextEmbeddingService: unsupported embedding provider '${explicitProvider}'. Expected one of: 'gemini', 'openAiCompatible', 'ollama'.`);
         }
     }
 }
