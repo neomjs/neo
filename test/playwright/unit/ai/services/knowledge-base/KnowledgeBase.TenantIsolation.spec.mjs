@@ -186,7 +186,7 @@ test.describe('KnowledgeBase — fail-closed tenant isolation (#11632)', () => {
         SearchService.model                      = {
             generateContent: async () => ({response: {text: () => 'stub-synthesis'}})
         };
-        // The worktree's gitignored config.mjs predates the tenant keys — pin the value so the
+        // A local operator overlay may predate the tenant keys — pin the value so the
         // suite is deterministic regardless of local config staleness.
         aiConfig.defaultTenantId = 'neo-shared';
     });

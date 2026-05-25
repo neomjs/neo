@@ -26,7 +26,7 @@ import path           from 'path';
 test.describe.configure({mode: 'serial'});
 
 test.describe('initServerConfigs — template drift detection (#10815)', () => {
-    let initConfigs, projectShape, detectDrift;
+    let initConfigs, projectShape, detectDrift, materializeServerConfigTemplate;
     let workRoot;
 
     function recordingLogger() {
@@ -59,7 +59,12 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
     }
 
     test.beforeAll(async () => {
-        ({initConfigs, projectShape, detectDrift} = await import('../../../../../../ai/scripts/setup/initServerConfigs.mjs'));
+        ({
+            initConfigs,
+            projectShape,
+            detectDrift,
+            materializeServerConfigTemplate
+        } = await import('../../../../../../ai/scripts/setup/initServerConfigs.mjs'));
 
         workRoot = path.resolve(process.cwd(), 'tmp', `init-server-configs-${process.pid}-${Date.now()}`);
         fs.mkdirSync(workRoot, {recursive: true});
@@ -92,6 +97,58 @@ test.describe('initServerConfigs — template drift detection (#10815)', () => {
         const cloned = fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8');
         expect(cloned).toBe(templateSrc);
         expect(logger.entries.log.some(l => l.includes("Cloning from template"))).toBe(true);
+    });
+
+    test('server config clone materializes Tier-1 template import to operator overlay', async () => {
+        const templateSrc = [
+            `import AiConfig from '../../../config.template.mjs';`,
+            `export default {auth: AiConfig.auth};`,
+            ``
+        ].join('\n');
+        const root = buildServerSandbox({
+            sandboxName     : 'materialized-tier1-import',
+            templateContents: templateSrc,
+            configContents  : undefined
+        });
+
+        const logger = recordingLogger();
+        const result = await initConfigs({
+            argv       : ['node', 'initServerConfigs.mjs'],
+            logger,
+            serversRoot: root
+        });
+
+        const action = result.processed.find(p => p.serverName === 'memory-core');
+        expect(action.action).toBe('clone');
+
+        const cloned = fs.readFileSync(path.join(root, 'memory-core', 'config.mjs'), 'utf-8');
+        expect(cloned).toBe(materializeServerConfigTemplate(templateSrc));
+        expect(cloned).toContain(`from '../../../config.mjs'`);
+        expect(cloned).not.toContain('config.template.mjs');
+    });
+
+    test('server config drift compares against materialized Tier-1 import', async () => {
+        const templateSrc = [
+            `import AiConfig from '../../../config.template.mjs';`,
+            `export default {auth: AiConfig.auth};`,
+            ``
+        ].join('\n');
+        const root = buildServerSandbox({
+            sandboxName     : 'materialized-tier1-silent',
+            templateContents: templateSrc,
+            configContents  : materializeServerConfigTemplate(templateSrc)
+        });
+
+        const logger = recordingLogger();
+        const result = await initConfigs({
+            argv       : ['node', 'initServerConfigs.mjs'],
+            logger,
+            serversRoot: root
+        });
+
+        const action = result.processed.find(p => p.serverName === 'memory-core');
+        expect(action.action).toBe('silent');
+        expect(logger.entries.warn).toEqual([]);
     });
 
     test('AC2: drifting config.mjs without --migrate-config emits warning, does not overwrite', async () => {

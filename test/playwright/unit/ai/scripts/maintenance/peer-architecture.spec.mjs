@@ -49,8 +49,8 @@ test.describe('backup.mjs ↔ defragChromaDB.mjs peer architecture (#10129 Phase
     test('backup.mjs does not import services/managers from ai/mcp/server/* (SDK bypass check)', () => {
         // Intent: no `import X from '.../ai/mcp/server/<name>/services/*'` or `/managers/*` —
         // service / manager singletons MUST be reached via the `ai/services.mjs` SDK boundary
-        // so makeSafe() Zod validation fires. Importing read-only config files
-        // (`ai/mcp/server/<name>/config.mjs`) is permitted — those carry no method surface and
+        // so makeSafe() Zod validation fires. Importing read-only config overlay files
+        // is permitted — those carry no method surface and
         // backup.mjs needs them to assemble the `bundle-meta.topology` descriptor (#10871 AC-A).
         const source = fs.readFileSync(BACKUP_SCRIPT, 'utf8');
         expect(source).not.toMatch(/from\s+['"][^'"]*ai\/mcp\/server\/[^'"]+\/(services|managers)\//);

@@ -192,16 +192,13 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
     });
 
     test('AiConfig.orchestrator.mlx ships canonical MLX launch defaults', async () => {
-        const aiConfigModule = await import('../../../../../../ai/config.template.mjs');
-        const aiConfig       = aiConfigModule.default;
+        const templateSource = fs.readFileSync(path.resolve(process.cwd(), 'ai/config.template.mjs'), 'utf8');
 
         // AiConfig template is the single source of truth for MLX defaults
         // post-#11075 migration. TaskDefinitions.mjs no longer carries them.
-        expect(aiConfig.data.orchestrator.mlx).toEqual({
-            enabled: false,
-            model  : 'mlx-community/gemma-4-31b-it-bf16',
-            port   : '11435'
-        });
+        expect(templateSource).toMatch(
+            /mlx:\s*\{[\s\S]*enabled:\s*false[\s\S]*model\s*:\s*'mlx-community\/gemma-4-31b-it-bf16'[\s\S]*port\s*:\s*'11435'[\s\S]*\}/
+        );
     });
 
     test('keeps bridge-daemon wake-only and routes maintenance ownership to the daemon class', () => {

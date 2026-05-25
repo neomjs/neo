@@ -1,6 +1,6 @@
 import os              from 'os';
 import path            from 'path';
-import AiConfig        from '../../../config.mjs';
+import AiConfig        from '../../../config.template.mjs';
 import BaseConfig, { createConfigProxy } from '../shared/BaseConfig.mjs';
 import {fileURLToPath} from 'url';
 import Env from '../../../../src/util/Env.mjs';
@@ -68,8 +68,7 @@ const defaultConfig = {
     /**
      * Port the MCP server's HTTP/SSE transport listens on (only used when `transport === 'sse'`).
      *
-     * Operator env var: `MCP_HTTP_PORT`. The deprecated `SSE_PORT` alias remains readable during
-     * the migration window; resolver emits a warning if both are set with different values.
+     * Operator env var: `MCP_HTTP_PORT`.
      * @type {number}
      */
     mcpHttpPort: 3000,
@@ -392,25 +391,6 @@ class Config extends BaseConfig {
 
     defaultConfig = defaultConfig;
     envBindings = envBindings;
-
-    /**
-     * Applies deprecated environment variable fallbacks.
-     */
-    applyLegacyEnv() {
-        // Keep alias handling explicit so deprecation warnings stay local to config resolution.
-        if (process.env.SSE_PORT && !process.env.MCP_HTTP_PORT) {
-            console.warn('[Config] Deprecation warning: SSE_PORT is deprecated. Please use MCP_HTTP_PORT.');
-            const legacyPort = Env.parsePort('SSE_PORT');
-            if (legacyPort !== undefined) {
-                this.data.mcpHttpPort = legacyPort;
-            }
-        }
-
-        // NEO_MEMORY_CORE_DB_PATH fallback for memoryCoreDbPath
-        if (process.env.NEO_MEMORY_CORE_DB_PATH && !process.env.NEO_MEMORY_DB_PATH) {
-            this.data.memoryCoreDbPath = process.env.NEO_MEMORY_CORE_DB_PATH;
-        }
-    }
 
 }
 const instance = Neo.setupClass(Config);

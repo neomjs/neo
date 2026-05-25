@@ -53,7 +53,7 @@ test.describe('Neo.ai.services.memory-core.MailboxService', () => {
         // config-gated default and assert `'blocked'`-mode behavior (Unauthorized
         // throws on ungranted DMs, reachable-counterparty trust-lift semantics).
         // Explicit pin preserves their invariants regardless of the library default
-        // shipped in config.mjs. Symmetric restore in afterAll per symmetric-cleanup
+        // shipped in the canonical template. Symmetric restore in afterAll per symmetric-cleanup
         // discipline — Playwright `fullyParallel` interleaves across files even when
         // describe mode is `serial`, so cross-file mutation of the singleton Config
         // needs both-ends guards.

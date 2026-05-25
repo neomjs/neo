@@ -454,7 +454,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
         // must point operators at a usable log path with no `undefined` interpolation.
         // Defensive fallback in VectorService kicks in when `aiConfig.logPath` is absent
         // — proven by the no-undefined assertion under the canonical-config setup, then
-        // by the dedicated fallback test below that simulates a stale config.mjs.
+        // by the dedicated fallback test below that simulates a stale operator overlay.
         expect(result.message).toContain('tail -f');
         expect(result.message).toContain('kb-server-');
         expect(result.message).not.toContain('undefined');
@@ -471,7 +471,7 @@ test.describe('VectorService.embed — work-volume branching (#10572)', () => {
     });
 
     test('above-threshold MCP gate-message renders fallback path when aiConfig.logPath unset (#10580 RA1)', async () => {
-        // Simulates an existing gitignored `config.mjs` deployment without the new
+        // Simulates an existing operator overlay without the new
         // `logPath` template key. Naked `${aiConfig.logPath}` interpolation would
         // render `undefined/kb-server-...`; the fallback in VectorService.embed should
         // render `${neoRootDir}/.neo-ai-data/logs/kb-server-...` instead.
