@@ -249,15 +249,12 @@ class DatabaseService extends Base {
 
         let imported = 0;
 
-        // Mode-dependent INSERT semantics (#11141):
+        // Mode-dependent INSERT semantics:
         //   - 'replace' mode: TRUNCATE-then-OR-REPLACE. Conflict impossible after truncate,
         //     OR REPLACE retained for backward parity. Backup IS the new state.
         //   - 'merge' mode: OR IGNORE. Preserves live rows when IDs collide; backup-only IDs
-        //     still INSERT; live-only IDs untouched. This is the "merge latest content with
-        //     backup" semantic the runRestore two-mode contract documented (#10871). Pre-#11141,
-        //     merge silently used OR REPLACE — overwriting post-wipe re-ingestion (gh-workflow +
-        //     retrospective daemon) with stale backup versions. The 2026-05-10 graph-wipe incident
-        //     was the empirical anchor that surfaced this gap.
+        //     still INSERT; live-only IDs untouched. This preserves live post-wipe re-ingestion
+        //     while letting backups fill records that are genuinely missing.
         const conflictClause = mode === 'replace' ? 'OR REPLACE' : 'OR IGNORE';
         const insertNode = db.prepare(`INSERT ${conflictClause} INTO Nodes (id, user_id, data) VALUES (?, ?, ?)`);
         const insertEdge = db.prepare(`
@@ -265,10 +262,9 @@ class DatabaseService extends Base {
             VALUES (?, ?, ?, ?, ?, ?)
         `);
 
-        // Truthful counters per @neo-gpt's #11141 peer-review (commentId 4416007918):
-        // distinguish inserted (changes === 1) from skippedExisting (changes === 0; OR
-        // IGNORE silently no-op'd) vs failed (exception per-record). Better-sqlite3
-        // exposes this via `stmt.run().changes`.
+        // Truthful counters distinguish inserted (`changes === 1`) from skippedExisting
+        // (`changes === 0`; OR IGNORE no-op) and failed (exception per record). better-sqlite3
+        // exposes this through `stmt.run().changes`.
         const counts = {
             nodes: {inserted: 0, skippedExisting: 0, failed: 0},
             edges: {inserted: 0, skippedExisting: 0, failed: 0}
@@ -436,7 +432,7 @@ class DatabaseService extends Base {
                 // by the same filename heuristic the per-file dispatch loop uses below.
                 // Truncating subsystems that aren't being restored would be destructive
                 // without restoration. Each subsystem's truncate fires the destructive-op
-                // guard independently (#10845).
+                // guard independently.
                 const subsystemsToWipe = new Set();
                 for (const filePath of filesToImport) {
                     const base = path.basename(filePath);
@@ -453,15 +449,12 @@ class DatabaseService extends Base {
 
             let totalImported        = 0;
             let targetCollectionName = '';
-            // #11141 + #11144: per-substrate truthful counters surface alongside the aggregate so
-            // operator validation can distinguish inserted vs skippedExisting vs failed
-            // post-merge. Graph counts come from `#importGraph`. Chroma counts (memories,
-            // summaries) come from the mode-branched path below: merge mode preflights
-            // existing IDs in chunks + only `collection.add()`s missing IDs (preserve-live
-            // parity with graph-side INSERT OR IGNORE); replace mode runs `collection.upsert()`
-            // after subsystem truncate. `memoriesInserted` is preserved as a backward-compat
-            // aggregate of memories.inserted + summaries.inserted (matches #11141 `imported`
-            // field pattern at `importDatabase`'s aggregation layer).
+            // Per-substrate truthful counters surface alongside the aggregate so operator
+            // validation can distinguish inserted vs skippedExisting vs failed. Graph counts come
+            // from `#importGraph`. Chroma counts come from the mode-branched path below: merge mode
+            // preflights existing IDs in chunks and only `collection.add()`s missing IDs; replace
+            // mode runs `collection.upsert()` after subsystem truncate. `memoriesInserted` remains
+            // as a backward-compatible aggregate of memories.inserted + summaries.inserted.
             const subsystemCounts = {
                 graph           : null,
                 memories        : {inserted: 0, skippedExisting: 0, failed: 0},
@@ -475,8 +468,8 @@ class DatabaseService extends Base {
                 const isGraphBackup = path.basename(filePath).startsWith('graph-backup');
                 if (isGraphBackup) {
                     const graphImportResult = await this.#importGraph(filePath, mode, confirmation);
-                    // #11141: #importGraph now returns {imported, counts, mode}; counts
-                    // exposes node/edge inserted/skippedExisting/failed for truthful merge accounting.
+                    // `#importGraph` returns {imported, counts, mode}; counts exposes node/edge
+                    // inserted/skippedExisting/failed for truthful merge accounting.
                     totalImported += graphImportResult.imported;
                     subsystemCounts.graph = graphImportResult.counts;
                     continue;
@@ -490,8 +483,8 @@ class DatabaseService extends Base {
 
                 targetCollectionName = collection.name; // roughly tracking target
 
-                // #11144: route per-file counters into the right substrate bucket so
-                // memories vs summaries truthful counts stay separable across multi-file batches.
+                // Route per-file counters into the right substrate bucket so memories vs summaries
+                // truthful counts stay separable across multi-file batches.
                 const chromaCounts = isMemoryBackup ? subsystemCounts.memories : subsystemCounts.summaries;
 
                 const fileStream = fs.createReadStream(filePath);
@@ -528,10 +521,10 @@ class DatabaseService extends Base {
                 let fileFailed          = 0;
 
                 if (mode === 'merge') {
-                    // #11144: preserve-live merge (Chroma parity with graph-side INSERT OR IGNORE
-                    // shipped in #11141). Chunked existence-check via `collection.get({ids})`,
-                    // then `collection.add()` for the missing-ID subset only. Live records
-                    // are NOT overwritten — the running daemon's authoritative state survives.
+                    // Preserve-live merge, matching graph-side INSERT OR IGNORE semantics. Chunked
+                    // existence-check via `collection.get({ids})`, then `collection.add()` for the
+                    // missing-ID subset only. Live records are NOT overwritten, so the running
+                    // daemon's authoritative state survives.
                     const existingIds = new Set();
                     for (let i = 0; i < records.length; i += CHROMA_UPSERT_CHUNK_SIZE) {
                         const chunkIds  = records.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE).map(r => r.id);
@@ -567,7 +560,7 @@ class DatabaseService extends Base {
                 } else {
                     // Replace mode: subsystem already truncated above; upsert is safe
                     // (no live rows to collide with). Fail-fast on chunk error matches
-                    // pre-#11144 behavior; the outer try/catch wraps it as DATABASE_IMPORT_ERROR.
+                    // fail-fast behavior; the outer try/catch wraps it as DATABASE_IMPORT_ERROR.
                     for (let i = 0; i < records.length; i += CHROMA_UPSERT_CHUNK_SIZE) {
                         const chunk = records.slice(i, i + CHROMA_UPSERT_CHUNK_SIZE);
                         await collection.upsert({
@@ -594,7 +587,7 @@ class DatabaseService extends Base {
                 message : `Import batch complete. Successfully ingested ${totalImported} records across ${filesToImport.length} file(s).`,
                 imported: totalImported,
                 mode,
-                // #11141 + #11144: structured per-substrate breakdown for operator validation.
+                // Structured per-substrate breakdown for operator validation.
                 // `graph` is null when no graph file was imported in this batch; otherwise
                 // exposes {nodes: {inserted,skippedExisting,failed}, edges: {inserted,skippedExisting,failed}}.
                 // `memories` + `summaries` each expose {inserted, skippedExisting, failed}
