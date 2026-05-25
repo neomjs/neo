@@ -30,7 +30,7 @@ test.describe('SourceParser', () => {
         SourceParser = (await import('../../../../../../../ai/services/knowledge-base/parser/SourceParser.mjs')).default;
     });
 
-    test('parses ES2025 import attributes (`with {type: \'json\'}`) without warning', () => {
+    test('parses ES2025 import attributes (`with {type: \'json\'}`) and produces a module-context chunk', () => {
         const fixture = `import packageJson from '../../../package.json' with {type: 'json'};
 
 const version = packageJson.version;
@@ -39,16 +39,19 @@ export default {version};
 `;
         const chunks = SourceParser.parse(fixture, 'fixture/import-with.mjs');
 
-        // Acorn under `ecmaVersion: 'latest'` succeeds; older pins (e.g. 2022)
-        // returned an empty chunk array via the catch-branch warning path.
-        // The parser doesn't emit class/method chunks for a plain module like
-        // this fixture, but it MUST NOT bail with zero chunks due to parse
-        // failure either. The contract here is "no parse error" rather than
-        // "must produce N chunks".
-        expect(Array.isArray(chunks)).toBe(true);
+        // Success-only oracle: under the old `ecmaVersion: 2022` pin, acorn
+        // rejects the `with` keyword and `parse()` falls into the warn-catch
+        // branch that returns `[]`. An `Array.isArray(chunks)` assertion alone
+        // would pass on BOTH the broken and fixed paths (false-positive). We
+        // assert on the artifact only the fixed path produces: one
+        // `module-context` chunk (the no-class branch emits exactly one).
+        expect(chunks).toHaveLength(1);
+        expect(chunks[0].kind).toBe('module-context');
+        expect(chunks[0].source).toBe('fixture/import-with.mjs');
+        expect(chunks[0].content).toContain("with {type: 'json'}");
     });
 
-    test('parses shebang-prefixed module entry scripts', () => {
+    test('parses shebang-prefixed module entry scripts and emits class/method chunks', () => {
         const fixture = `#!/usr/bin/env node
 import fs from 'fs';
 
@@ -64,20 +67,26 @@ export default Tool;
 `;
         const chunks = SourceParser.parse(fixture, 'fixture/shebang.mjs');
 
-        expect(Array.isArray(chunks)).toBe(true);
-        // Shebang stripping should leave the class+method parseable.
-        const methodChunk = chunks.find(chunk => chunk.type === 'method' || chunk.kind === 'method');
-        if (methodChunk) {
-            expect(typeof methodChunk).toBe('object');
-        }
+        // Success-only oracle: shebang-stripping path must yield more than
+        // module-context. The class body produces a config chunk and at
+        // least one method chunk; a pre-fix parse failure would return [].
+        expect(chunks.length).toBeGreaterThan(1);
+        const kinds = chunks.map(c => c.kind);
+        expect(kinds).toContain('module-context');
+        expect(kinds).toContain('class-config');
+        const methodChunk = chunks.find(c => c.kind === 'method' || c.type === 'method');
+        expect(methodChunk).toBeTruthy();
     });
 
     test('returns empty array (warn-not-throw) for truly malformed source', () => {
         const fixture = `import x from 'y'; this is not valid javascript {{{`;
         const chunks = SourceParser.parse(fixture, 'fixture/malformed.mjs');
 
-        // Parse failure path: chunks=[] (warning logged, caller continues with
-        // empty result rather than crashing the KB sync).
+        // Parse failure path: chunks=[] (warning logged, caller continues
+        // with empty result rather than crashing the KB sync). The
+        // malformed-source contract is preserved across the ecmaVersion
+        // bump — only success cases shift; legitimately unparseable input
+        // still warns and returns empty.
         expect(chunks).toEqual([]);
     });
 });
