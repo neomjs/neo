@@ -11,13 +11,12 @@ import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/
  * This service manages the high-level session summaries. It allows for retrieving past summaries to provide context,
  * searching summaries by content or metadata, and performing administrative tasks like deleting all summaries.
  *
- * **Multi-tenant isolation (Epic #9999, sub-epic #10016, ticket #10000):** When a request context
- * is active (SSE transport + OIDC Bearer token), `RequestContextService.getUserId()` returns the
- * authenticated tenant. Reads (`listSummaries`, `querySummaries`) apply `where: {userId}` so each
- * tenant only sees their own session summaries; `deleteAllSummaries` switches from the global
- * `collection.drop()` + re-create path to `collection.delete({where: {userId}})` so one tenant
- * can never wipe another tenant's data. In stdio mode `getUserId()` is `undefined`, the filters
- * are skipped, and the legacy drop-based `deleteAllSummaries` behavior is preserved for local dev.
+ * **Multi-tenant isolation:** When a request context is active, `RequestContextService.getUserId()`
+ * returns the authenticated tenant. Reads (`listSummaries`, `querySummaries`) scope summary access
+ * to the tenant plus the configured shared commons; destructive deletes use `collection.delete`
+ * with a tenant `where` clause so one tenant cannot wipe another tenant's data. In stdio mode
+ * `getUserId()` is `undefined`, filters are skipped, and the legacy drop-based delete path remains
+ * available for local development.
  *
  * @class Neo.ai.services.memory-core.SummaryService
  * @extends Neo.core.Base
@@ -57,12 +56,8 @@ class SummaryService extends Base {
             const collection = await StorageRouter.getSummaryCollection();
             const userId     = normalizeUserId(RequestContextService.getUserId());
 
-            // Multi-tenant branch (#10000): when an authenticated user invokes this, only their
-            // own summaries are deleted — the `collection.drop()` path would nuke every tenant's
-            // data in a unified deployment. `collection.delete({where: {userId}})` scopes the
-            // destructive operation to the current tenant's rows. Note: the filter intentionally
-            // does NOT include SHARED_USER_ID (#10556) — deleting "all my summaries" must not
-            // touch the shared commons even though reads include it via the additive $or filter.
+            // Authenticated tenants delete only their own summaries. The shared commons is excluded
+            // from this destructive path even though reads can include it through the additive scope.
             if (userId) {
                 const before = await collection.get({
                     where  : {userId},
@@ -96,8 +91,8 @@ class SummaryService extends Base {
     /**
      * Retrieves summaries in reverse chronological order using a two-phase fetch strategy.
      *
-     * Phase 1: Fetch ALL metadata (lightweight) to perform a global sort in memory.
-     * Phase 2: Fetch full documents (heavy) only for the paginated slice.
+     * Step 1: Fetch ALL metadata (lightweight) to perform a global sort in memory.
+     * Step 2: Fetch full documents (heavy) only for the paginated slice.
      *
      * @param {Object} options
      * @param {Number} options.limit=50 The maximum number of summaries to return.
@@ -108,10 +103,9 @@ class SummaryService extends Base {
         try {
             const collection = await StorageRouter.getSummaryCollection();
 
-            // Tenant read-filter (#10000) with additive shared-commons access (#10556): when a
-            // request context resolves a userId, return both the tenant's own records AND records
-            // tagged with SHARED_USER_ID (legacy pre-#10145 data backfilled by the migration runner,
-            // plus any explicitly-shared future data). Undefined in stdio mode = legacy unfiltered.
+            // Tenant read-filter with additive shared-commons access: when a request context
+            // resolves a userId, return both the tenant's own records and records tagged with
+            // SHARED_USER_ID. Undefined in stdio mode keeps the legacy unfiltered behavior.
             // normalizeUserId strips `@`-prefix so AgentIdentity nodeId vs ChromaDB userId never
             // self-filters.
             const userId = normalizeUserId(RequestContextService.getUserId());
@@ -130,7 +124,7 @@ class SummaryService extends Base {
 
             const where = tenantScope ? tenantScope : undefined;
 
-            // Phase 1: Fetch ALL metadata (lightweight)
+            // Step 1: Fetch ALL metadata (lightweight).
             let allRecords = [];
             const batchSize  = aiConfig.summarizationBatchLimit || 2000;
 
@@ -164,7 +158,7 @@ class SummaryService extends Base {
                 }
             }
 
-            // Phase 2: Filter, Sort and Slice
+            // Step 2: Filter, sort, and slice.
             if (userId && policy === 'legacy') {
                 allRecords = allRecords.filter(r => !r.metadata.userId || r.metadata.userId === userId || r.metadata.userId === SHARED_USER_ID);
             }
@@ -180,7 +174,7 @@ class SummaryService extends Base {
                 return {count: 0, total, summaries: []};
             }
 
-            // Phase 3: Fetch full documents for the slice.
+            // Step 3: Fetch full documents for the slice.
             // The `where` tenant filter is re-applied as belt-and-suspenders — the ids list was
             // already derived from a tenant-scoped batch sweep, so this is redundant in the happy
             // path but blocks a class of misuse if the method is ever called with externally
@@ -266,7 +260,7 @@ class SummaryService extends Base {
                 include   : ['metadatas', 'documents']
             };
 
-            // Tenant-scoped where clause (#10000) with additive shared-commons access (#10556).
+            // Tenant-scoped where clause with additive shared-commons access.
             // normalizeUserId handles the AgentIdentity-vs-userId namespace boundary.
             const userId = normalizeUserId(RequestContextService.getUserId());
             const policy = memorySharing || aiConfig?.memorySharing?.defaultPolicy || 'legacy';

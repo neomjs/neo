@@ -7,8 +7,8 @@ import CoalescingEngineService from './CoalescingEngineService.mjs';
 
 /**
  * @summary Service for managing graph-resident WAKE_SUBSCRIPTION nodes and the
- * `manage_wake_subscription` MCP tool surface — the foundational substrate for the
- * Phase 3 cross-harness autonomous wake substrate (ADR 0002).
+ * `manage_wake_subscription` MCP tool surface — the graph-backed substrate for
+ * cross-harness autonomous wake delivery.
  *
  * Subscriptions are graph-resident (durable across MCP server restarts per ADR 0002 §6.6.2)
  * with a write-through in-memory cache for sub-millisecond trigger evaluation.
@@ -17,16 +17,14 @@ import CoalescingEngineService from './CoalescingEngineService.mjs';
  * node.
  *
  * The service implements the discipline-layer surface; channel-specific event delivery
- * (Shape A MCP notifications, Shape B A2A webhook, Shape C bridge daemon) is wired
- * by the consuming sub-tickets #10358 / #10359 / #10360. The `resync` action queries
- * `GraphLog` deltas and returns the event-payload list; channel dispatch is the
- * consumer's responsibility.
+ * is handled by the MCP notification, A2A webhook, and bridge-daemon consumers. The
+ * `resync` action queries `GraphLog` deltas and returns event payloads; channel
+ * dispatch is the consumer's responsibility.
  *
  * @class Neo.ai.services.memory-core.WakeSubscriptionService
  * @extends Neo.core.Base
  * @singleton
  * @see learn/agentos/decisions/0002-phase3-wake-substrate-standards-alignment.md §6.6
- * @see #10357 (parent Epic) #10361 (this sub) #10358/#10359/#10360 (channel consumers)
  */
 class WakeSubscriptionService extends Base {
     static config = {
@@ -62,7 +60,7 @@ class WakeSubscriptionService extends Base {
      * (@neo-opus-4-7), Codex (@neo-gpt). The bridge daemon dispatches via `tell application
      * "<appName>"`, so list completeness is load-bearing — a missing entry rejects the canonical
      * AgentIdentity.subscriptionTemplate at auto-bootstrap time and silently strands the
-     * corresponding harness from Shape C wake delivery (per #10636 regression after PR #10628).
+     * corresponding harness from Shape C wake delivery.
      *
      * @protected
      */
@@ -131,11 +129,8 @@ class WakeSubscriptionService extends Base {
                 return;
             }
 
-            // We only care about mcp-notifications target
-            // We also explicitly do a full scan since the cache might only have lazy-loaded partials.
-            // Wait, does subscriptionCache have all active subscriptions? No, it's lazy loaded.
-            // We should ensure all active mcp-notifications subscriptions are in cache.
-            // Or simply do a quick SQLite scan for them to guarantee we don't miss any if we haven't listed them.
+            // Shape A delivery needs every active mcp-notifications subscription, not only routes
+            // that were touched through this process's lazy cache.
             this._warmMcpSubscriptions();
 
             const activeSubs = Array.from(this.subscriptionCache.values())
@@ -227,7 +222,7 @@ class WakeSubscriptionService extends Base {
         const owner = RequestContextService.getAgentIdentityNodeId();
         if (!owner) throw new Error('Cannot bootstrap subscription: no agent identity context bound.');
 
-        // Cross-session duplicate-accumulation defense (#11182).
+        // Cross-session duplicate-accumulation defense.
         //
         // The route-key idempotency check below is necessary but empirically not sufficient: across
         // sessions, duplicates accumulate (`@neo-opus-4-7` had 2 active subscriptions 2 days apart;
@@ -868,19 +863,11 @@ class WakeSubscriptionService extends Base {
     /**
      * @summary Retires all-but-newest active wake subscriptions WITHIN each canonical route group.
      *
-     * Cross-session duplicate-accumulation defense per #11182. Both `@neo-opus-4-7` and `@neo-gpt`
-     * empirically accumulated 2 active subscriptions per identity at the ~2-day mark, with identical
-     * route-tuples (same `agentIdentity` / `trigger` / `harnessTarget` / `appName`). The static
-     * idempotency check via `_findActiveSubscriptionByRoute()` appears correct on paper but
-     * empirically misses the existing-row at next-session bootstrap. Rather than chase the exact
-     * runtime root cause (likely a session-sunset-unsubscribe-skip plus cache-warm edge case), this
-     * reconciler self-heals at every bootstrap call.
-     *
-     * **Route-aware scope** (per PR #11183 Cycle 1 GPT-RA1): the reconciler groups owner-scoped
-     * active subscriptions by canonical route-key via `_buildSubscriptionRouteKey()` and retires
-     * N-1 PER GROUP. This preserves legitimate multi-route setups for the same agent (e.g., a
-     * `SENT_TO_ME` bridge-daemon route + a `TASK_STATE_CHANGED` a2a-webhook route). Only true
-     * duplicates within an identical route-tuple are retired.
+     * Active subscription duplicates can accumulate across sessions when route recovery misses a
+     * durable row or a prior session exits without cleanup. The reconciler groups owner-scoped
+     * active subscriptions by canonical route key and retires N-1 per group. This preserves
+     * legitimate multi-route setups for the same agent, such as a `SENT_TO_ME` bridge-daemon route
+     * plus a `TASK_STATE_CHANGED` webhook route; only identical route tuples are retired.
      *
      * @param {String} owner AgentIdentity node id.
      * @returns {Number} Count of subscriptions retired (0 when state was already canonical).
