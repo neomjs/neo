@@ -153,12 +153,13 @@ class TenantRepoSyncService extends Base {
         const resolvedRevisionsPath = revisionsFilePath || this.defaultRevisionsFilePath();
         const ingestionService      = knowledgeBaseIngestionService || await this.resolveIngestionService();
         const persistedRevisions    = await this.readPersistedRevisions({filePath: resolvedRevisionsPath});
-        const results            = [];
+        const repos_ = [];
         let   completedCount     = 0;
         let   failedCount        = 0;
 
         for (const repo of repos) {
             const repoLabel = `${repo.tenantId}/${repo.repoSlug}`;
+            const startedMs = Date.now();
             try {
                 writeLog?.('INFO', `[TenantRepoSync] Refreshing ${repoLabel}.`);
 
@@ -189,7 +190,7 @@ class TenantRepoSyncService extends Base {
 
                 const ingestResult = await ingestionService.ingestSourceFiles({
                     ...envelope,
-                    viaMcp: false // operator-bulk path per TenantIngestionModel.md
+                    viaMcp: false // operator-bulk path
                 });
 
                 // Persist headRevision only on successful ingest. Bootstrap envelopes
@@ -198,14 +199,52 @@ class TenantRepoSyncService extends Base {
                     persistedRevisions[repoLabel] = envelope.headRevision;
                 }
 
-                results.push({repo: repoLabel, status: 'completed', ingested: ingestResult.ingested, deleted: ingestResult.deleted, headRevision: envelope.headRevision});
+                const durationMs = Date.now() - startedMs;
+                const shortHead  = envelope.headRevision ? envelope.headRevision.slice(0, 8) : null;
+                const ingested   = ingestResult.ingested ?? 0;
+                const deleted    = ingestResult.deleted  ?? 0;
+
+                writeLog?.('INFO', `[TenantRepoSync] ${repoLabel} completed: head=${shortHead ?? 'unknown'} ingested=${ingested} deleted=${deleted} (${durationMs}ms)`);
+
+                repos_.push({
+                    tenantId            : repo.tenantId,
+                    repoSlug            : repo.repoSlug,
+                    lastIngestedRev     : shortHead,
+                    lastSyncAt          : new Date().toISOString(),
+                    status              : 'active',
+                    lastSyncDeletedCount: deleted
+                });
                 completedCount++;
-                healthService?.recordTaskOutcome?.(taskName, 'completed', {repo: repoLabel, ingested: ingestResult.ingested});
+                healthService?.recordTaskOutcome?.(taskName, 'completed', {
+                    repo            : repoLabel,
+                    tenantId        : repo.tenantId,
+                    repoSlug        : repo.repoSlug,
+                    ingested,
+                    deleted,
+                    headRevision    : shortHead,
+                    durationMs
+                });
             } catch (e) {
-                writeLog?.('ERROR', `[TenantRepoSync] ${repoLabel} failed: ${e.message}`);
-                results.push({repo: repoLabel, status: 'failed', error: e.message, code: e.code});
+                const code = typeof e.code === 'string' && e.code.startsWith('KB_TENANT_REPO_SYNC_')
+                    ? e.code
+                    : 'KB_TENANT_REPO_SYNC_SYNC_FAILED';
+                writeLog?.('ERROR', `[TenantRepoSync] ${repoLabel} failed: ${code} (${e.message})`);
+                repos_.push({
+                    tenantId       : repo.tenantId,
+                    repoSlug       : repo.repoSlug,
+                    lastIngestedRev: persistedRevisions[repoLabel] ? persistedRevisions[repoLabel].slice(0, 8) : null,
+                    lastSyncAt     : new Date().toISOString(),
+                    status         : 'degraded', // quarantined disposition tracked in #11942 (per-repo backoff state)
+                    lastErrorCode  : code
+                });
                 failedCount++;
-                healthService?.recordTaskOutcome?.(taskName, 'failed', {repo: repoLabel, error: e.message, code: e.code});
+                healthService?.recordTaskOutcome?.(taskName, 'failed', {
+                    repo    : repoLabel,
+                    tenantId: repo.tenantId,
+                    repoSlug: repo.repoSlug,
+                    error   : e.message,
+                    code
+                });
                 // Continue with remaining repos — failure isolation per ticket prescription.
             }
         }
@@ -213,7 +252,18 @@ class TenantRepoSyncService extends Base {
         await this.writePersistedRevisions({filePath: resolvedRevisionsPath, revisions: persistedRevisions});
 
         const status = failedCount === 0 ? 'completed' : (completedCount > 0 ? 'completed' : 'failed');
-        return {status, details: {repoCount: repos.length, completedCount, failedCount, results}};
+
+        writeLog?.('INFO', `[TenantRepoSync] Cycle summary: ${repos.length} repos, ${completedCount} completed, ${failedCount} failed.`);
+
+        return {
+            status,
+            details: {
+                repoCount   : repos.length,
+                completedCount,
+                failedCount,
+                repos       : repos_
+            }
+        };
     }
 
     /**

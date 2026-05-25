@@ -156,6 +156,165 @@ Incremental pushes should include deletion intent. Prefer this default shape:
 8. Fail the hook or CI job on structured ingestion errors instead of silently dropping files.
 9. Verify retrieval against the tenant corpus plus `neo-shared` content before handing the deployment to agents.
 
+## Server-Side Pull Mode (Tenant Repo Sync)
+
+Push-based ingestion (above) remains the MVP path. Server-side pull is the **additive** complement for deployments where the tenant workspace can't run a push hook, or where the operator wants the deployment to refresh on its own cadence.
+
+The pull lane (`tenant-repo-sync`) clones each configured repository into a deployment-owned mirror, fetches periodically, builds the same ingestion envelope the push path uses, and writes through `KnowledgeBaseIngestionService.ingestSourceFiles({...envelope, viaMcp: false})`. **Push and pull share one ingestion contract** — the only difference is who initiates the cycle. Mixing both for the same `repoSlug` is supported but operationally noisy; pick one per repo unless reconciling.
+
+### When to use pull vs push
+
+| Choose pull when | Choose push when |
+|---|---|
+| The tenant can't run a `pre-push` hook or CI job pointed at the deployment | The tenant workspace already has its repo content and an outbound network path |
+| The deployment must refresh autonomously on cadence | A push-based pre-commit hook is the natural delivery surface |
+| Operators want a single named `tenantRepos[]` config they manage centrally | Tenant teams own their own push surface |
+| The repo is upstream-open (`https://github.com/<org>/<repo>` style) and the deployment can clone it | Repo lives in an isolated network that the deployment can't reach |
+
+### Configuration
+
+The `aiConfig.tenantRepos[]` array is read by `KnowledgeBaseIngestionService.getTenantConfig()` via the `TenantRepoAccessContract` normalizer. Each entry:
+
+```js
+{
+    tenantId      : 'acme-corp',                        // server-derived; must match the authenticated tenant for stamping
+    repoSlug      : 'acme-corp/widgets',                // tenant-owned, namespaced, never credential-bearing
+    cloneUrl      : 'https://github.com/acme-corp/widgets.git',  // clean URL; no userinfo@
+    credentialRef : 'env:NEO_TENANT_ACME_TOKEN',        // reference only; resolved by GitMirror at subprocess time
+    rootKind      : 'external-source',                  // 'neo-workspace' | 'bare-repo' | 'external-source'
+    parserId      : 'raw-text',                         // optional; defaults to family dispatch
+    parserVersion : '1'                                 // optional
+}
+```
+
+**Credential-bearing `cloneUrl` strings (`https://user:token@...`) are rejected at config normalization.** The `credentialRef` is a reference (env-var name, secret-store path, etc.) that `GitMirror` resolves only at the git subprocess invocation boundary (`GIT_ASKPASS` for HTTPS, `GIT_SSH_COMMAND` for SSH). The deployment graph never persists resolved credentials.
+
+For the canonical config schema and rejection rules, see [`TenantRepoAccessContract.mjs`](../../../ai/services/knowledge-base/helpers/TenantRepoAccessContract.mjs).
+
+### Triggers
+
+The pull lane has two trigger surfaces — periodic and manual — and they share the same `TenantRepoSyncService.runTask()` entry point.
+
+**Periodic (Orchestrator lane):**
+
+The `tenant-repo-sync` lane is registered with the Agent OS Orchestrator. The Orchestrator's `poll()` calls `tenantRepoSyncGetDueTask({state, now, intervalMs, enabled})`; when due, it dispatches `TenantRepoSyncService.runTask({taskName, reason, taskStateService, healthService, writeLog})`.
+
+Toggles:
+
+| Env var | AiConfig path | Default | Effect |
+|---|---|---|---|
+| `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED` | `orchestrator.cloudOnly.tenantRepoSyncEnabled` | cloud profile: enabled; local: disabled | Master toggle for the periodic lane |
+| `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS` | `orchestrator.intervals.tenantRepoSyncMs` | 30 minutes | Period between sweeps |
+
+The `cloudOnly` collection is the inverse-polarity sibling of `localOnly`. `null` means "use the deployment-profile default" (cloud enables, local disables); explicit `true`/`false` overrides. Local Neo-maintainer deployments default-off because most operator checkouts don't have `tenantRepos[]` configured.
+
+**Manual (operator CLI):**
+
+For bootstrap, one-off after a config change, or scoped re-sync, use the standalone CLI:
+
+```text
+node ./ai/scripts/maintenance/syncTenantRepos.mjs                   # all configured tenantRepos
+node ./ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug a/b   # subset
+node ./ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug a/b --repo-slug c/d
+```
+
+Exit code: `0` on `completed`, `1` on `failed` or `skipped` (no-tenant-repos-configured), `2` on argument error. The CLI uses an in-memory `TaskStateService` stand-in so it works without an orchestrator-daemon state-dir; it does not race against a running Orchestrator's lane.
+
+### Mirror Volume
+
+`GitMirror` clones each `<tenantId>/<repoSlug>` under a deployment-owned root:
+
+| Env var | Default | Mount in compose |
+|---|---|---|
+| `NEO_TENANT_REPO_MIRROR_ROOT` | `/var/lib/neo/tenant-repo-mirrors` | named volume `tenant-repo-mirrors` |
+
+The mirror directory is a deployment cache, not authoritative state. Per-repo `lastIngestedRev` is stored separately in `<orchestrator-data-dir>/tenant-repo-sync-revisions.json` (sibling to the orchestrator state file) so the next sync can compute the incremental diff.
+
+### Redeploy Posture
+
+Mirrors are reproducible from upstream git. **Backup is not required** for correctness — on redeploy, `GitMirror.cloneIfMissing()` re-clones any missing mirror on the next sync. Operators who want faster cold-start recovery may include the `tenant-repo-mirrors` volume in their backup bundle, but this is an operational preference, not a Chroma/MC correctness dependency.
+
+`lastIngestedRev` persistence in `tenant-repo-sync-revisions.json` IS load-bearing for incremental ingestion. Treat that file as part of the orchestrator state dir (already backed up alongside the orchestrator's other state).
+
+### Health and Telemetry
+
+Per-repo freshness is surfaced through the existing Memory Core healthcheck orchestrator task block. After each `runTask` cycle, `HealthService.recordTaskOutcome('tenant-repo-sync', ..., details)` projects this shape:
+
+```js
+{
+    reason     : 'periodic-sweep:1800000' | 'manual' | 'no-tenant-repos-configured',
+    repoCount  : 3,
+    completedCount: 3,
+    failedCount   : 0,
+    repos: [
+        {
+            tenantId             : 'acme-corp',
+            repoSlug             : 'acme-corp/widgets',
+            lastIngestedRev      : 'a1b2c3d4',    // short SHA from the most recent successful ingest
+            lastSyncAt           : '2026-05-25T05:30:00.000Z',
+            status               : 'active',      // 'active' | 'degraded' | 'quarantined' | 'disabled'
+            lastSyncDeletedCount : 0,
+            lastErrorCode        : null           // present only when status !== 'active'
+        }
+    ]
+}
+```
+
+The operator readiness endpoint reads this shape from `HealthService` — there is no need to read Chroma rows for freshness checks. Empty `tenantRepos[]` produces `repos: []`, not an omission.
+
+### Repo Freshness Status Enum
+
+| Status | Meaning | Transition |
+|---|---|---|
+| `active` | Last cycle succeeded; lane is on its normal cadence | Successful sync from any non-`disabled` status |
+| `degraded` | Last cycle failed but retry budget remains; lane will retry on next tick | First non-success after `active` |
+| `quarantined` | Consecutive failures exceeded the backoff threshold; operator action needed | Implementation tracked in [#11942](https://github.com/neomjs/neo/issues/11942) (per-repo backoff state). Until that lands, repeated failure surfaces as `degraded` with the same operator-runbook guidance |
+| `disabled` | Operator explicitly disabled the repo in `tenantRepos[]` config | Config flag; not a runtime transition |
+
+Status is computed from per-repo `lastIngestedRev` + recent-failure-count state; the projection is deterministic, no separate persisted status column.
+
+### Quarantine Runbook
+
+When a repo enters `quarantined`, the lane stops attempting it on periodic cycles until the operator acts. Steps:
+
+1. Read the per-repo `lastErrorCode` from the health payload. Stable codes follow the `KB_TENANT_REPO_SYNC_*` prefix (e.g., `KB_TENANT_REPO_SYNC_SYNC_FAILED`, `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED`).
+2. Inspect operator logs filtered to `[TenantRepoSync] <tenantId>/<repoSlug>` for the redacted error message.
+3. Common cases:
+   - `KB_TENANT_REPO_SYNC_SYNC_FAILED` with git stderr indicating auth failure → rotate the `credentialRef` target; re-check the secret store.
+   - Persistent network/DNS error → the deployment can't reach the upstream remote; verify network egress.
+   - Repository deleted / renamed upstream → update the `tenantRepos[]` config or remove the entry.
+4. Once the underlying issue is resolved, force a manual sync via `node ./ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug <slug>`. A successful run returns the repo to `active`.
+
+The lane never silently abandons a `quarantined` repo — operator action is the recovery path. Webhook-driven retry on git push is deferred.
+
+### Operator Logging
+
+Each `runTask` cycle emits per-repo log lines in this shape:
+
+```text
+[TenantRepoSync] Refreshing acme-corp/widgets.
+[TenantRepoSync] acme-corp/widgets completed: head=a1b2c3d4 ingested=12 deleted=1 (842ms)
+[TenantRepoSync] acme-corp/widgets failed: KB_TENANT_REPO_SYNC_SYNC_FAILED (auth failed) [redacted]
+[TenantRepoSync] Cycle summary: 3 repos, 2 completed, 1 failed.
+```
+
+All credential material and raw git stderr passes through `redactTenantRepoSecrets()` before logging. The deployment log MUST NOT carry `https://user:token@...` URLs, resolved secrets, or stderr that includes the secret material.
+
+### Push-vs-Pull Coexistence
+
+A single `repoSlug` can be served by both surfaces, but the operational rules are:
+
+- Server-derived `tenantId` stamping is authoritative regardless of which surface delivered the content. A push-mode tenant can't claim a different `tenantId` than its authenticated identity; a pull-mode entry uses the `tenantRepos[]` config's `tenantId`.
+- If both surfaces write to the same `(tenantId, repoSlug)`, the most recent revision wins for the next ingest envelope. The deletion-signaling contract (tombstones, manifests, baseRevision/headRevision) keeps state consistent across alternation, but operators should expect noisy revision history.
+- Local maintainer checkout sync (`primary-dev-sync`, `kbSync`) is NEVER repointed at tenant content. Tenant content lives only in tenant-namespaced `(tenantId, repoSlug)` keys; the maintainer-checkout lanes remain scoped to the operator's own neomjs/neo repo.
+
+### Cross-Subsystem Surfaces
+
+- **Deployment compose / volume:** add `tenant-repo-mirrors` to the `cloud` profile and mount at `NEO_TENANT_REPO_MIRROR_ROOT`. See [`DeploymentCookbook.md`](../DeploymentCookbook.md) for the canonical compose shape.
+- **Tenant config storage:** `tenantRepos[]` is persisted via `KnowledgeBaseIngestionService.setTenantConfig({tenantId, config})` when a tenant-config operator tool is added. Cross-tenant writes remain rejected by the existing RLS gate; missing/invalid `credentialRef` or credential-bearing `cloneUrl` surfaces stable rejection errors at normalization.
+- **Parser/source-family dispatch:** pull-mode files enter the same parser/source-family model as push/bulk ingestion. No new parser contract is introduced by server-side git acquisition; the [Parser Dispatch](#parser-dispatch) and [Source-Family Inventory](#source-family-inventory) tables above apply unchanged. Unsupported source families use [`CustomSources.md`](./CustomSources.md) / [`CustomParsers.md`](./CustomParsers.md) guidance, not a pull-specific path.
+- **Deletion telemetry:** the `lastSyncDeletedCount` health field surfaces the per-cycle deletion count from the ingestion summary. Partial ingest or manifest update failure leaves `lastIngestedRev` unchanged so the next cycle re-detects and retries deletion idempotently.
+
 ## Evidence Boundary
 
 This guide is an L1 operational contract. It does not require new runtime behavior by itself. Add tests only when implementation touches a real seam, for example:

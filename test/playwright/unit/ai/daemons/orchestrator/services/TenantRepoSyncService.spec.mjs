@@ -230,9 +230,12 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(result.details.completedCount).toBe(2);
         expect(result.details.failedCount).toBe(1);
 
-        const failed = result.details.results.find(r => r.status === 'failed');
-        expect(failed.repo).toBe('t1/org/broken');
-        expect(failed.code).toBe('KB_GITMIRROR_FETCH_FAILED');
+        const failed = result.details.repos.find(r => r.status === 'degraded');
+        expect(failed.tenantId).toBe('t1');
+        expect(failed.repoSlug).toBe('org/broken');
+        // Service wraps non-prefixed errors as the stable KB_TENANT_REPO_SYNC_SYNC_FAILED code
+        // so test assertion uses the lastErrorCode the operator would actually see.
+        expect(failed.lastErrorCode).toBe('KB_TENANT_REPO_SYNC_SYNC_FAILED');
     });
 
     test('onlyRepoSlugs scoping: subset filtering for manual CLI path', async () => {
@@ -314,5 +317,107 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
         expect(result.status).toBe('completed');
         expect(capturedLastIngestedRev).toBe('sha-prior-run');
+    });
+
+    test('health payload: per-repo details.repos[] carries operator-visible freshness fields on success', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/repo-a'});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://example.com/a.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile
+        });
+
+        expect(result.details.repos).toBeDefined();
+        expect(result.details.repos).toHaveLength(1);
+
+        const repoState = result.details.repos[0];
+        expect(repoState.tenantId).toBe('t1');
+        expect(repoState.repoSlug).toBe('org/repo-a');
+        expect(repoState.status).toBe('active');
+        expect(repoState.lastIngestedRev).toBeTruthy();
+        expect(repoState.lastSyncAt).toBeTruthy();
+        expect(new Date(repoState.lastSyncAt).getTime()).not.toBeNaN();
+        expect(typeof repoState.lastSyncDeletedCount).toBe('number');
+        expect(repoState.lastErrorCode).toBeUndefined(); // only set on degraded/quarantined
+    });
+
+    test('health payload: failed repo surfaces status=degraded + stable KB_TENANT_REPO_SYNC_* error code', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/broken'});
+
+        const failingMirror = {
+            async cloneIfMissing() {},
+            async fetch() {
+                const err = new Error('git fetch failed: connection refused');
+                err.code = 'KB_GITMIRROR_FETCH_FAILED';
+                throw err;
+            },
+            async resolveHead() { return 'sha-current'; },
+            async isAncestor() { return true; },
+            async diffRevisions() { return {addedOrChanged: [], deleted: []}; }
+        };
+
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/broken', mirrorRoot, cloneUrl: 'https://example.com/broken.git'}
+            ]},
+            gitMirror                    : failingMirror,
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile
+        });
+
+        expect(result.status).toBe('failed');
+
+        const repoState = result.details.repos[0];
+        expect(repoState.status).toBe('degraded');
+        // Underlying error code (KB_GITMIRROR_FETCH_FAILED) does NOT carry the
+        // KB_TENANT_REPO_SYNC_ prefix, so the service wraps it as the stable
+        // KB_TENANT_REPO_SYNC_SYNC_FAILED code that operators branch on.
+        expect(repoState.lastErrorCode).toBe('KB_TENANT_REPO_SYNC_SYNC_FAILED');
+        expect(repoState.tenantId).toBe('t1');
+        expect(repoState.repoSlug).toBe('org/broken');
+    });
+
+    test('operator log: emits per-repo completed line + cycle summary in expected shape', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+        const logLines         = [];
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/repo-a'});
+
+        await TenantRepoSyncService.runTask({
+            reason          : 'periodic-sweep:60000',
+            taskStateService,
+            writeLog        : (level, msg) => logLines.push({level, msg}),
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://example.com/a.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile
+        });
+
+        const refreshLine = logLines.find(l => l.msg.includes('Refreshing t1/org/repo-a'));
+        const completedLine = logLines.find(l => l.msg.includes('t1/org/repo-a completed'));
+        const summaryLine = logLines.find(l => l.msg.includes('Cycle summary'));
+
+        expect(refreshLine).toBeDefined();
+        expect(completedLine).toBeDefined();
+        expect(completedLine.msg).toMatch(/head=\w+/);
+        expect(completedLine.msg).toMatch(/ingested=\d+/);
+        expect(completedLine.msg).toMatch(/deleted=\d+/);
+        expect(completedLine.msg).toMatch(/\(\d+ms\)/);
+        expect(summaryLine).toBeDefined();
+        expect(summaryLine.msg).toMatch(/1 repos, 1 completed, 0 failed/);
     });
 });
