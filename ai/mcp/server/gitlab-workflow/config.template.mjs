@@ -30,77 +30,76 @@ function parseLogLevel(envVarName, {env = process.env, warn = console.warn} = {}
 }
 
 /**
- * @summary Default configuration for the GitLab Workflow MCP server scaffold.
- *
- * Keeps client-project GitLab host / PAT configuration out of tracked files.
- * The real GitLabClient subtask consumes the same keys when API calls land.
- */
-const defaultConfig = {
-    /**
-     * @member {String} projectRoot
-     */
-    projectRoot,
-    /**
-     * @member {Boolean} debug=false
-     */
-    debug: false,
-    /**
-     * @member {String} logLevel='warn'
-     */
-    logLevel: 'warn',
-    /**
-     * @summary Shared MCP logger policy for GitLab Workflow.
-     *
-     * Priority-filtered stderr only. `debug: true` promotes the default `warn`
-     * threshold to `debug`; no file sink is used for this workflow server.
-     * @member {Object} logger
-     */
-    logger: {
-        defaultLevel: 'warn',
-        fileSink    : false,
-        stderrMode  : 'threshold'
-    },
-    /**
-     * @member {String} transport='stdio'
-     */
-    transport: 'stdio',
-    /**
-     * @member {Object} gitlab
-     */
-    gitlab: {
-        /**
-         * GitLab instance base URL.
-         * @member {String} hostUrl='https://gitlab.com'
-         */
-        hostUrl: 'https://gitlab.com',
-        /**
-         * GitLab Personal Access Token. Empty in the tracked template.
-         * @member {String} token=''
-         */
-        token: ''
-    }
-};
-
-/**
- * @summary Environment-variable ledger for client-project GitLab MCP config.
- */
-const envBindings = {
-    debug           : {var: 'NEO_GITLAB_WORKFLOW_DEBUG', parse: Env.parseBool},
-    logLevel        : {var: 'NEO_GITLAB_WORKFLOW_LOG_LEVEL', parse: parseLogLevel},
-    transport       : {var: 'NEO_GITLAB_WORKFLOW_TRANSPORT', parse: Env.parseString},
-    gitlab          : {
-        hostUrl: {var: 'NEO_GITLAB_HOST', parse: Env.parseUrl},
-        token  : {var: 'NEO_GITLAB_PAT',  parse: Env.parseString}
-    }
-};
-
-/**
  * @summary GitLab Workflow MCP configuration singleton.
  *
  * @class Neo.ai.mcp.server.gitlab-workflow.Config
  * @extends Neo.ai.BaseConfig
  */
 class Config extends BaseConfig {
+    /**
+     * @summary Default configuration for the GitLab Workflow MCP server scaffold.
+     *
+     * Keeps client-project GitLab host / PAT configuration out of tracked files.
+     * The real GitLabClient subtask consumes the same keys when API calls land.
+     */
+    static defaultConfig = {
+        /**
+         * @member {String} projectRoot
+         */
+        projectRoot,
+        /**
+         * @member {Boolean} debug=false
+         */
+        debug: false,
+        /**
+         * @member {String} logLevel='warn'
+         */
+        logLevel: 'warn',
+        /**
+         * @summary Shared MCP logger policy for GitLab Workflow.
+         *
+         * Priority-filtered stderr only. `debug: true` promotes the default `warn`
+         * threshold to `debug`; no file sink is used for this workflow server.
+         * @member {Object} logger
+         */
+        logger: {
+            defaultLevel: 'warn',
+            fileSink    : false,
+            stderrMode  : 'threshold'
+        },
+        /**
+         * @member {String} transport='stdio'
+         */
+        transport: 'stdio',
+        /**
+         * @member {Object} gitlab
+         */
+        gitlab: {
+            /**
+             * GitLab instance base URL.
+             * @member {String} hostUrl='https://gitlab.com'
+             */
+            hostUrl: 'https://gitlab.com',
+            /**
+             * GitLab Personal Access Token. Empty in the tracked template.
+             * @member {String} token=''
+             */
+            token: ''
+        }
+    };
+
+    /**
+     * @summary Environment-variable ledger for client-project GitLab MCP config.
+     */
+    static envBindings = {
+        debug           : {var: 'NEO_GITLAB_WORKFLOW_DEBUG', parse: Env.parseBool},
+        logLevel        : {var: 'NEO_GITLAB_WORKFLOW_LOG_LEVEL', parse: parseLogLevel},
+        transport       : {var: 'NEO_GITLAB_WORKFLOW_TRANSPORT', parse: Env.parseString},
+        gitlab          : {
+            hostUrl: {var: 'NEO_GITLAB_HOST', parse: Env.parseUrl},
+            token  : {var: 'NEO_GITLAB_PAT',  parse: Env.parseString}
+        }
+    };
     static config = {
         /**
          * @member {String} className='Neo.ai.mcp.server.gitlab-workflow.Config'
@@ -115,11 +114,11 @@ class Config extends BaseConfig {
         /**
          * @member {Object} defaultConfig
          */
-        defaultConfig,
+        defaultConfig: this.defaultConfig,
         /**
          * @member {Object} envBindings
          */
-        envBindings
+        envBindings: this.envBindings
     }
 }
 

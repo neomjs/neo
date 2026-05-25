@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
+import fs from 'fs/promises';
 import Neo from '../../../../src/Neo.mjs';
 import '../../../../src/core/_export.mjs';
+import {TIER1_DEFAULTS} from '../../fixtures/aiConfigDefaults.mjs';
 
 test.describe('Tier 1 Config Immutability', () => {
     let Config;
@@ -59,6 +61,7 @@ test.describe('Tier 1 Config Immutability', () => {
         expect(Config.modelProvider).toBe(Config.chatProvider);
         expect(Config.embeddingProvider).toBe(process.env.NEO_EMBEDDING_PROVIDER || 'openAiCompatible');
         expect(Config.vectorDimension).toBe(Number(process.env.NEO_VECTOR_DIMENSION) || 4096);
+        expect(Config.backupPath).toBe(TIER1_DEFAULTS.backupPath);
         expect(Config.modelName).toBe('gemini-2.5-flash');
         expect(Config.embeddingModel).toBe('gemini-embedding-001');
 
@@ -118,5 +121,24 @@ test.describe('Tier 1 Config Immutability', () => {
                 maxDays    : 7
             }
         });
+    });
+
+    test('keeps config ledgers inside config classes', async () => {
+        const templateUrls = [
+            '../../../../ai/config.template.mjs',
+            '../../../../ai/mcp/server/github-workflow/config.template.mjs',
+            '../../../../ai/mcp/server/gitlab-workflow/config.template.mjs',
+            '../../../../ai/mcp/server/knowledge-base/config.template.mjs',
+            '../../../../ai/mcp/server/memory-core/config.template.mjs',
+            '../../../../ai/mcp/server/neural-link/config.template.mjs'
+        ];
+
+        for (const templateUrl of templateUrls) {
+            const source = await fs.readFile(new URL(templateUrl, import.meta.url), 'utf8');
+
+            expect(source).not.toMatch(/^const\s+(defaultConfig|envBindings)\s*=/m);
+            expect(source).toMatch(/static\s+defaultConfig\s*=/);
+            expect(source).toMatch(/static\s+envBindings\s*=/);
+        }
     });
 });
