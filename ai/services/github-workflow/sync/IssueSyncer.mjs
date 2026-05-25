@@ -118,12 +118,10 @@ class IssueSyncer extends Base {
     /**
      * @summary Counts `ISSUE_COMMENT` nodes in an issue's exhausted `timelineItems` set.
      *
-     * Post-#10090 pagination-exhaust (`#exhaustTimelineItems`) guarantees `timelineItems.nodes`
-     * contains the complete per-issue event stream — including every surviving comment. This
-     * method returns the authoritative `commentsTotal` for metadata persistence, replacing the
-     * pre-timeline-era `issue.comments.totalCount` scalar (#10110). Single source of truth:
-     * the metadata value is now structurally guaranteed to match what the timeline renders in
-     * the local markdown.
+     * Timeline exhaustion (`#exhaustTimelineItems`) guarantees `timelineItems.nodes` contains the
+     * complete per-issue event stream — including every surviving comment. This method returns the
+     * authoritative `commentsTotal` for metadata persistence, replacing the older scalar count with
+     * the same source used to render local markdown.
      *
      * MUST be called only after `#exhaustTimelineItems(issue)` has run; otherwise the count
      * reflects only the first timeline page and will under-report on long-timeline issues.
@@ -144,14 +142,10 @@ class IssueSyncer extends Base {
      * @private
      */
     #formatIssueMarkdown(issue) {
-        // Defensive null-safety per #11481 (follow-up to #11474 / PR #11476's whack-a-mole gap):
-        // GitHub GraphQL returns null for issue.author when the author has been deleted (Ghost
-        // user), and individual nodes within labels/assignees/subIssues/blockedBy/blocking can
-        // also be null when their referenced entities are deleted. Each deref site uses optional
-        // chaining + filter-out for list entries. Fallback conventions match #11476's: 'Ghost'
-        // for users (matches existing line-186 actor/author convention); '(no title)' for
-        // missing entity titles; filter-out for null list entries (preserves array integrity
-        // without injecting fallback objects into structured fields).
+        // GitHub GraphQL may return null authors or relationship nodes after users, labels, or
+        // linked issues are deleted. Each dereference site uses optional chaining plus stable
+        // fallback conventions: `Ghost` for users, `(no title)` for missing titles, and filtering
+        // for null list entries so structured fields keep only real entities.
         const frontmatter = {
             id                : issue.number,
             title             : issue.title?.replace(lineBreaksRegex, ' ') || '(no title)',
@@ -162,7 +156,7 @@ class IssueSyncer extends Base {
             updatedAt         : issue.updatedAt,
             githubUrl         : issue.url,
             author            : issue.author?.login || 'Ghost',
-            commentsCount     : this.#countTimelineComments(issue), // Derived from the exhausted timeline — #10110
+            commentsCount     : this.#countTimelineComments(issue), // Derived from the exhausted timeline.
             parentIssue       : issue.parent?.number ?? null,
             subIssues         : (issue.subIssues?.nodes || []).map(sub =>
                 sub ? `[${sub.state === 'CLOSED' ? 'x' : ' '}] ${sub.number} ${sub.title?.replace(lineBreaksRegex, ' ') || '(no title)'}` : null
@@ -216,13 +210,9 @@ class IssueSyncer extends Base {
 
         let details = '';
 
-        // Defensive null-safety per #11474: GitHub GraphQL returns null for referenced
-        // entities that have been deleted (users, labels, sub-issues, parent issues,
-        // blocking issues, commits, cross-referenced sources). Each deref site uses
-        // optional chaining + a fallback marker so a single null doesn't abort a sync
-        // run that's already processed thousands of issues. Fallback conventions:
-        // `'Ghost'` for users (matches existing actor/author convention at line 186);
-        // `'(deleted X)'` for named entities; `'?'` for numeric references.
+        // GitHub GraphQL can null out referenced entities after deletion. Optional chaining plus
+        // stable fallback markers keep a single missing user, label, issue, commit, or source from
+        // aborting a long sync run after thousands of issues have already been processed.
         switch (event.__typename) {
             case 'LabeledEvent':
                 details = `added the \`${event.label?.name || '(deleted label)'}\` label`;
@@ -328,9 +318,8 @@ class IssueSyncer extends Base {
         }
 
         for (const issue of fetchedIssues) {
-            // Null-safety per #11481: GitHub may return null label nodes or null name fields
-            // when labels have been deleted. Filter-out null/empty so droppedLabels matching
-            // works on the valid subset.
+            // GitHub may return null label nodes or null name fields after labels are deleted.
+            // Filter null/empty entries so droppedLabels matching operates on the valid subset.
             const labels = issue.labels?.nodes
                 ? issue.labels.nodes.map(l => l?.name?.toLowerCase()).filter(Boolean)
                 : issue.labels?.map(l => l?.name?.toLowerCase() || (typeof l === 'string' ? l.toLowerCase() : null)).filter(Boolean) || [];
@@ -370,13 +359,10 @@ class IssueSyncer extends Base {
                         : issueSyncConfig.versionDirectoryPrefix + issue.milestone.title;
                 } else if (issue.oldVersion && semver.valid(semver.clean(issue.oldVersion)) !== null) {
                     // Use cached path-derived version when present and valid semver. Unchanged closed
-                    // issues seeded from existing serialized metadata may lack milestone data (legacy
-                    // entries pre-#11594 metadata-persistence fix) but still have a known on-disk
-                    // bucket via oldVersion (path-derived at ~L310-317). Skipping closedAt timestamp
-                    // inference here prevents false-positive bucket-shift WARN on unchanged archived
-                    // issues — the path IS the canonical bucket when no milestone data exists.
-                    // Per #11594 AC3 / AC4(b): oldVersion precedence for unchanged closed issues.
-                    // (#11594 Cycle 2 fix per @neo-gpt PR #11607 Cycle 2 review.)
+                    // issues seeded from existing serialized metadata may lack milestone data but still
+                    // have a known on-disk bucket via oldVersion. Skipping closedAt timestamp inference
+                    // here prevents false-positive bucket-shift WARN on unchanged archived issues: the
+                    // path is the canonical bucket when no milestone data exists.
                     version = issue.oldVersion;
                 } else if (issue.closedAt) {
                     const closed = new Date(issue.closedAt);
@@ -395,18 +381,16 @@ class IssueSyncer extends Base {
             }
 
             if (issue.oldVersion && issue.oldVersion !== version) {
-                // Filter false-positive WARN volume during ADR 0004 clean-cut migration window (#11486).
-                // `oldVersion` derives from the cached path's directory name (see lines ~310-317); during
-                // migration, that contains pre-cut title-derived strings (e.g. 'vneo.d.ts - Typescript
-                // definitions...') that fail semver validation. Sealed-chunk enforcement at the
-                // reconcile step (~L569/L575) already prevents these from causing actual moves, so
-                // emitting WARN is pure noise. Real release-boundary recalculations (e.g. v11.12.0 →
-                // v11.13.0) where both sides are valid semver remain at WARN.
+                // Suppress false-positive WARN volume during archive topology migrations. `oldVersion`
+                // derives from the cached path directory and can contain pre-cut title-derived strings
+                // that fail semver validation. Sealed-chunk enforcement already prevents those legacy
+                // buckets from causing actual moves, so only release-boundary recalculations where both
+                // sides are valid semver remain WARN-worthy.
                 const oldIsValidTag = semver.valid(semver.clean(issue.oldVersion)) !== null;
                 const newIsValidTag = semver.valid(semver.clean(version))            !== null;
 
                 if (oldIsValidTag && newIsValidTag) {
-                    // Dedupe across multiple `#planBuckets` call sites within one sync cycle (#11486).
+                    // Dedupe across multiple `#planBuckets` call sites within one sync cycle.
                     if (!this.#warnedAnomalies.has(issue.number)) {
                         this.#warnedAnomalies.add(issue.number);
                         logger.warn(`🚨 [ARCHIVE ANOMALY] Issue #${issue.number} closedAt shift detected: moving from bucket '${issue.oldVersion}' to '${version}'. Dry-run review required.`);
@@ -460,7 +444,7 @@ class IssueSyncer extends Base {
         const filename = `${issueSyncConfig.issueFilenamePrefix}${issue.number}.md`;
 
         // Handle both GraphQL (issue.labels.nodes) and potential direct array.
-        // Null-safety per #11481: filter-out null nodes / null name fields (deleted labels).
+        // Filter null nodes and missing label names left behind by deleted labels.
         const labels = issue.labels?.nodes
             ? issue.labels.nodes.map(l => l?.name?.toLowerCase()).filter(Boolean)
             : issue.labels?.map(l => l?.name?.toLowerCase() || (typeof l === 'string' ? l.toLowerCase() : null)).filter(Boolean) || [];
@@ -520,10 +504,9 @@ class IssueSyncer extends Base {
     async pullFromGitHub(metadata) {
         logger.info('📥 Fetching issues from GitHub via GraphQL...');
 
-        // Reset per-sync-cycle dedupe set for ARCHIVE ANOMALY WARN emission (#11486).
-        // pullFromGitHub is the natural top-of-sync entrypoint; reconcileClosedIssueLocations and
-        // refetchIssuesByNumber called later in the cycle will reuse the same set, so the same
-        // issue is WARN'd at most once per full sync.
+        // Reset per-sync-cycle dedupe set for ARCHIVE ANOMALY WARN emission. pullFromGitHub is
+        // the natural top-of-sync entrypoint; reconcileClosedIssueLocations and refetchIssuesByNumber
+        // called later in the cycle reuse the same set, so each issue warns at most once per full sync.
         this.#warnedAnomalies.clear();
 
         let allIssues   = [];
@@ -542,14 +525,10 @@ class IssueSyncer extends Base {
                     limit           : 100,
                     cursor,
                     states          : ['OPEN', 'CLOSED'],
-                    // Clean-slate sync (metadata.lastSync null) needs to traverse the full repo
-                    // history per ADR 0004 §1.3 + §3.6; falling back to syncStartDate (2025-01-01)
-                    // would miss pre-2025 issues that haven't been touched since then. Use an
-                    // explicit pre-Neo date in that path so GraphQL pulls every issue, then local
-                    // droppedLabels + maxIssues caps trim the actual processed set. Empirical anchor:
-                    // PR #11461 Cycle 1 review (PRR_kwDODSospM8AAAABAIXzdA) — GPT V-B-A'd the
-                    // clean-slate rehydration premise as falsified for caps; this is the symmetric
-                    // fix for the date-window slice.
+                    // Clean-slate sync (`metadata.lastSync === null`) must traverse the full repo
+                    // history per ADR 0004. Falling back to the normal syncStartDate would miss old
+                    // issues that have not been touched since that date. Use an explicit pre-Neo date,
+                    // then let droppedLabels and maxIssues caps trim the actual processed set.
                     since           : metadata.lastSync || '2017-01-01T00:00:00Z',
                     maxLabels       : issueSyncConfig.maxLabelsPerIssue,
                     maxAssignees    : issueSyncConfig.maxAssigneesPerIssue,
@@ -651,8 +630,8 @@ class IssueSyncer extends Base {
                 stats.pulled.count++;
                 stats.pulled.issues.push(issueNumber);
 
-                // Continuation-fetch the full timeline if the first page was truncated.
-                // Prevents silent comment-body + structural-event loss on active Epics (#10090).
+                // Continuation-fetch the full timeline if the first page was truncated, preventing
+                // silent comment-body and structural-event loss on long-running issues.
                 await this.#exhaustTimelineItems(issue);
 
                 const markdown = this.#formatIssueMarkdown(issue);
@@ -687,7 +666,7 @@ class IssueSyncer extends Base {
                 milestone    : issue.milestone?.title || null,
                 title        : issue.title,
                 contentHash,                                    // Store hash for push comparison
-                commentsTotal: this.#countTimelineComments(issue) // Derived from the exhausted timeline — #10110
+                commentsTotal: this.#countTimelineComments(issue) // Derived from the exhausted timeline.
             };
 
             const plan = planBuckets.get(issueNumber);
@@ -781,7 +760,7 @@ class IssueSyncer extends Base {
      *
      * Bypasses the delta-sync `updatedAt` gate. Use this when the local file is known to have
      * drifted from GitHub for reasons that do NOT bump `issue.updatedAt`:
-     *   - `timelineItems` truncation (the original cap-related divergence — see #10090)
+     *   - `timelineItems` truncation
      *   - Comment deletions (GitHub does not update `updatedAt` on delete)
      *   - Relationship events (sub-issue/blocking edges) when both sides are outside the delta window
      *
@@ -853,7 +832,7 @@ class IssueSyncer extends Base {
                     milestone    : issue.milestone?.title || null,
                     title        : issue.title,
                     contentHash,
-                    commentsTotal: this.#countTimelineComments(issue) // Derived from the exhausted timeline — #10110
+                    commentsTotal: this.#countTimelineComments(issue) // Derived from the exhausted timeline.
                 };
 
                 if (indexMutations) {
