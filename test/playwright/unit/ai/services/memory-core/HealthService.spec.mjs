@@ -219,14 +219,11 @@ test.describe('HealthService #11181 — buildChromaMigrationStats', () => {
  * correctness (does the value reach the MCP healthcheck response under both real topologies?) is
  * validated empirically post-merge via harness restart + healthcheck inspection.
  *
- * The function delegates coordinate resolution to `ChromaManager.resolveChromaCoordinates` — a pure
- * method extracted in #10001 whose own unit coverage exists separately. Here we verify the three
- * surface properties operators consume: `mode` (unified vs federated), `coordinates` (pass-through
- * of the resolver's output), and `resolvedVia` (the config-key-path string that names which branch
- * won).
+ * The function reads the current unified `engines.chroma` coordinates directly. Here we verify the
+ * three surface properties operators consume: `mode` (unified), `coordinates` (pass-through of the
+ * configured coordinates), and `resolvedVia` (the config-key-path string that names the source).
  *
  * @see Neo.ai.services.memory-core.HealthService#buildTopologyBlock
- * @see Neo.ai.services.memory-core.managers.ChromaManager#resolveChromaCoordinates
  */
 test.describe('HealthService #10127, #11011 — buildTopologyBlock', () => {
     let buildTopologyBlock;

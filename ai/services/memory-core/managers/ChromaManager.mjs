@@ -78,8 +78,32 @@ class ChromaManager extends AbstractVectorManager {
         super.construct(config);
 
         // The client is constructed here; heartbeat/connection is evaluated lazily by `connect()`.
-        const {host, port} = aiConfig.engines.chroma;
+        const {host, port} = this.resolveChromaClientConfig(aiConfig);
         this.client        = new ChromaClient({host, port, ssl: false});
+    }
+
+    /**
+     * @summary Resolves and validates Memory Core's Chroma client coordinates before boot continues.
+     * @param {Object} config aiConfig-shaped configuration object.
+     * @returns {{host: String, port: Number}}
+     * @throws {Error} When `engines.chroma.{host, port}` is missing or malformed.
+     */
+    resolveChromaClientConfig(config) {
+        const chroma = config?.engines?.chroma;
+        const port   = Number(chroma?.port);
+
+        if (!chroma?.host || !Number.isFinite(port) || port <= 0) {
+            const message = 'ChromaManager: engines.chroma.{host, port} is required for Memory Core Chroma startup.';
+
+            logger.error(`[ChromaManager] Boot-time config error: ${message}`);
+
+            throw new Error(message);
+        }
+
+        return {
+            host: chroma.host,
+            port
+        }
     }
 
     /**

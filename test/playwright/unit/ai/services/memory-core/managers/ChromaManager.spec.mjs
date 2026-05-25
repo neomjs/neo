@@ -19,6 +19,7 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
 import InstanceManager from '../../../../../../../src/manager/Instance.mjs';
 import aiConfig       from '../../../../../../../ai/mcp/server/memory-core/config.mjs';
 import ChromaManager  from '../../../../../../../ai/services/memory-core/managers/ChromaManager.mjs';
+import logger         from '../../../../../../../ai/mcp/server/memory-core/logger.mjs';
 import SystemLifecycleService from '../../../../../../../ai/services/memory-core/lifecycle/SystemLifecycleService.mjs';
 import path           from 'path';
 
@@ -26,6 +27,24 @@ const tmpDir = path.resolve(process.cwd(), 'tmp');
 aiConfig.storagePaths.graph = path.join(tmpDir, 'test-graph-' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.db');
 
 test.describe('Neo.ai.services.memory-core.managers.ChromaManager', () => {
+    test('logs an operator-actionable config error before throwing on missing Chroma coordinates', () => {
+        const errors        = [];
+        const originalError = logger.error;
+
+        logger.error = msg => errors.push(msg);
+
+        try {
+            expect(() => ChromaManager.resolveChromaClientConfig({engines: {}}))
+                .toThrow(/engines\.chroma\.\{host, port\}/);
+
+            expect(errors).toHaveLength(1);
+            expect(errors[0]).toContain('Boot-time config error');
+            expect(errors[0]).toContain('engines.chroma.{host, port}');
+        } finally {
+            logger.error = originalError;
+        }
+    });
+
     test('should prevent console.warn global state theft during concurrent collection fetching', async () => {
         // Set up a custom warn logger to inspect leaks
         const warningLogs = [];
