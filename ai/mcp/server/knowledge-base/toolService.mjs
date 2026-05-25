@@ -82,8 +82,7 @@ const listTransportVisibleTools = ({cursor=0, limit} = {}) => {
 };
 
 /**
- * @summary MCP facade for `KnowledgeBaseIngestionService.ingestSourceFiles` — applies the
- * #10572 work-volume gate before dispatch.
+ * @summary MCP facade for `KnowledgeBaseIngestionService.ingestSourceFiles`.
  *
  * An agent-initiated `ingest_source_files` push embeds synchronously; an oversized batch
  * would freeze the calling agent. This facade counts the batch volume up-front and, when
@@ -96,8 +95,8 @@ const listTransportVisibleTools = ({cursor=0, limit} = {}) => {
  * guard, not an exact post-parse count.
  *
  * The gate lives at the MCP facade (not threaded into the service) because the batch
- * volume is knowable from the input alone, and #11634 keeps service-layer ingestion
- * logic (Phase 2A `KnowledgeBaseIngestionService`) untouched.
+ * volume is knowable from the input alone, keeping service-layer ingestion logic
+ * unchanged and transport policy localized to the MCP facade.
  *
  * @param {Object}    args            The `ingest_source_files` tool envelope.
  * @param {String}   [args.tenantId]  Authenticated tenant id.
@@ -138,11 +137,11 @@ const serviceMapping = {
     list_documents       : DocumentService         .listDocuments      .bind(DocumentService),
     list_agent_faqs      : KBRecorderService       .listAgentFaqs      .bind(KBRecorderService),
     manage_database      : DatabaseLifecycleService.manageDatabase     .bind(DatabaseLifecycleService),
-    // #10572: dispatch wrapper marks `viaMcp: true` so VectorService.embed can apply the
-    // work-volume gate. CLI invocations (via `npm run ai:sync-kb`) call DatabaseService.syncDatabase
-    // directly without `viaMcp`, bypassing the gate — explicit opt-in to long-running work.
+    // MCP dispatch marks `viaMcp: true` so VectorService.embed can apply the synchronous
+    // work-volume gate. CLI invocations call DatabaseService.syncDatabase directly without
+    // `viaMcp`, preserving explicit operator opt-in to long-running work.
     manage_knowledge_base: args => DatabaseService.manageKnowledgeBase({...args, viaMcp: true}),
-    // #11634: facade applies the #10572 work-volume gate before dispatch — see ingestSourceFilesViaMcp.
+    // Remote tenant ingestion applies the MCP work-volume gate before service dispatch.
     ingest_source_files  : ingestSourceFilesViaMcp,
     query_documents      : QueryService            .queryDocuments     .bind(QueryService)
 };
