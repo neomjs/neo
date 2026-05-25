@@ -1,6 +1,6 @@
 import path            from 'path';
 import {fileURLToPath} from 'url';
-import BaseConfig, { createConfigProxy } from '../shared/BaseConfig.mjs';
+import BaseConfig, { createConfigProxy } from '../../../BaseConfig.mjs';
 
 const __filename  = fileURLToPath(import.meta.url);
 const __dirname   = path.dirname(__filename);
@@ -259,8 +259,10 @@ const defaultConfig = {
 };
 
 const envBindings = {
-    'issueSync.archiveRoot': 'NEO_MCP_GITHUB_ARCHIVE_ROOT',
-    'logLevel': { var: 'NEO_LOG_LEVEL', parse: parseLogLevel }
+    issueSync: {
+        archiveRoot: 'NEO_MCP_GITHUB_ARCHIVE_ROOT'
+    },
+    logLevel: {var: 'NEO_LOG_LEVEL', parse: parseLogLevel}
 };
 
 /**
@@ -270,7 +272,7 @@ const envBindings = {
  * The configuration handles GitHub repository details, sync settings, and server behavior options.
  *
  * @class Neo.ai.mcp.server.github-workflow.Config
- * @extends Neo.core.Base
+ * @extends Neo.ai.BaseConfig
  * @singleton
  */
 class Config extends BaseConfig {
@@ -284,12 +286,16 @@ class Config extends BaseConfig {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * @member {Object} defaultConfig
+         */
+        defaultConfig,
+        /**
+         * @member {Object} envBindings
+         */
+        envBindings
     }
-
-    defaultConfig = defaultConfig;
-    envBindings = envBindings;
-
 }
 const instance = Neo.setupClass(Config);
 

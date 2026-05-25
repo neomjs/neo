@@ -1,8 +1,7 @@
-import fs              from 'fs/promises';
 import path            from 'path';
 import {fileURLToPath} from 'url';
-import Base            from '../src/core/Base.mjs';
-import {resolveMcpHttpPort, resolvePublicUrl} from './mcp/server/shared/helpers/DeploymentConfig.mjs';
+import BaseConfig, {createConfigProxy} from './BaseConfig.mjs';
+import Env             from '../src/util/Env.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -29,18 +28,18 @@ const defaultConfig = {
      * Transport protocol ('stdio' or 'sse').
      * @type {string}
      */
-    transport: process.env.NEO_TRANSPORT || 'stdio',
+    transport: 'stdio',
     /**
      * Optional public canonical URL.
      * @type {string|null}
      */
-    publicUrl: resolvePublicUrl(),
+    publicUrl: null,
     /**
      * Port the MCP server's HTTP/SSE transport listens on.
      * Sub-servers will typically override this with their own defaultPort.
      * @type {number}
      */
-    mcpHttpPort: resolveMcpHttpPort({defaultPort: 3000}),
+    mcpHttpPort: 3000,
     /**
      * Optional Express middleware function for authentication.
      * @type {Function|null}
@@ -51,13 +50,13 @@ const defaultConfig = {
      * @type {Object}
      */
     auth: {
-        host              : process.env.NEO_AUTH_HOST || null,
-        port              : Number(process.env.NEO_AUTH_PORT) || 8080,
-        realm             : process.env.NEO_AUTH_REALM || 'master',
-        issuerUrl         : process.env.NEO_AUTH_ISSUER_URL || null,
-        clientId          : process.env.NEO_OAUTH_CLIENT_ID || null,
-        clientSecret      : process.env.NEO_OAUTH_CLIENT_SECRET || '',
-        trustProxyIdentity: process.env.NEO_AUTH_TRUST_PROXY_IDENTITY === 'true'
+        host              : null,
+        port              : 8080,
+        realm             : 'master',
+        issuerUrl         : null,
+        clientId          : null,
+        clientSecret      : '',
+        trustProxyIdentity: false
     },
     /**
      * @summary Deployment-wide chat / generation model provider.
@@ -68,16 +67,16 @@ const defaultConfig = {
      * `openAiCompatible`.
      * @type {String}
      */
-    chatProvider: process.env.NEO_MODEL_PROVIDER || 'gemini',
+    chatProvider: 'gemini',
     /**
-     * @summary Backwards-compatible alias for the active chat provider.
+     * @summary Runtime alias for the active chat provider.
      *
-     * Existing Memory Core consumers still read `modelProvider`; keep the Tier-1
-     * template aligned with `chatProvider` so Sub-1 can move ownership without
-     * forcing runtime dispatch changes.
+     * Existing Memory Core consumers read `modelProvider`; keep the Tier-1
+     * template aligned with `chatProvider` until provider routing converges on
+     * one canonical key.
      * @type {String}
      */
-    modelProvider: process.env.NEO_MODEL_PROVIDER || 'gemini',
+    modelProvider: 'gemini',
     /**
      * @summary Deployment-wide embedding provider selector.
      *
@@ -85,7 +84,7 @@ const defaultConfig = {
      * paths.
      * @type {String}
      */
-    embeddingProvider: process.env.NEO_EMBEDDING_PROVIDER || 'openAiCompatible',
+    embeddingProvider: 'openAiCompatible',
     /**
      * @summary Deployment-wide Ollama provider defaults.
      *
@@ -94,9 +93,9 @@ const defaultConfig = {
      * @type {Object}
      */
     ollama: {
-        host          : process.env.NEO_OLLAMA_HOST || 'http://127.0.0.1:11434',
-        model         : process.env.NEO_OLLAMA_MODEL || 'gemma4:31b',
-        embeddingModel: process.env.NEO_OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding'
+        host          : 'http://127.0.0.1:11434',
+        model         : 'gemma4:31b',
+        embeddingModel: 'qwen3-embedding'
     },
     /**
      * @summary Deployment-wide OpenAI-compatible provider defaults.
@@ -106,14 +105,14 @@ const defaultConfig = {
      * @type {Object}
      */
     openAiCompatible: {
-        host                    : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
-        model                   : process.env.NEO_OPENAI_COMPATIBLE_MODEL || 'gemma-4-31b-it',
-        embeddingModel          : process.env.NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL || 'text-embedding-qwen3-embedding-8b',
-        apiKey                  : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
-        unloadRetryCount        : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
-        unloadRetryDelayMs      : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
-        contextLimitTokens      : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTEXT_LIMIT_TOKENS) || 32768,
-        safeProcessingLimitTokens: Number(process.env.NEO_OPENAI_COMPATIBLE_SAFE_PROCESSING_LIMIT_TOKENS) || undefined
+        host                    : 'http://127.0.0.1:11434',
+        model                   : 'gemma-4-31b-it',
+        embeddingModel          : 'text-embedding-qwen3-embedding-8b',
+        apiKey                  : '',
+        unloadRetryCount        : 3,
+        unloadRetryDelayMs      : 500,
+        contextLimitTokens      : 32768,
+        safeProcessingLimitTokens: undefined
     },
     /**
      * @summary Deployment-wide Gemini model defaults.
@@ -136,7 +135,7 @@ const defaultConfig = {
      * overrides.
      * @type {Number}
      */
-    vectorDimension: Number(process.env.NEO_VECTOR_DIMENSION) || 4096,
+    vectorDimension: 4096,
     /**
      * @summary Deployment-wide storage engine coordinates.
      *
@@ -146,8 +145,8 @@ const defaultConfig = {
      */
     engines: {
         chroma: {
-            host: process.env.NEO_CHROMA_HOST || 'localhost',
-            port: Number(process.env.NEO_CHROMA_PORT) || 8000
+            host: 'localhost',
+            port: 8000
         }
     },
     /**
@@ -161,7 +160,7 @@ const defaultConfig = {
          * maintenance lanes unless a narrower localOnly override opts them back in.
          * @type {'local'|'cloud'}
          */
-        deploymentMode: process.env.NEO_AI_DEPLOYMENT_MODE || 'local',
+        deploymentMode: 'local',
         /**
          * Maintenance-loop intervals consumed by the orchestrator daemon.
          * Env vars at the daemon boundary retain precedence over these defaults.
@@ -425,11 +424,60 @@ const defaultConfig = {
 };
 
 /**
+ * @summary Tier-1 environment-variable ledger.
+ *
+ * Binding shape mirrors `defaultConfig`; dotted binding keys are intentionally unsupported.
+ */
+const envBindings = {
+    debug        : {var: 'NEO_DEBUG', parse: Env.parseBool},
+    transport    : 'NEO_TRANSPORT',
+    publicUrl    : {var: 'NEO_PUBLIC_URL', parse: Env.parseUrl},
+    mcpHttpPort  : {var: 'MCP_HTTP_PORT', parse: Env.parsePort},
+    auth         : {
+        host              : 'NEO_AUTH_HOST',
+        port              : {var: 'NEO_AUTH_PORT', parse: Env.parsePort},
+        realm             : 'NEO_AUTH_REALM',
+        issuerUrl         : 'NEO_AUTH_ISSUER_URL',
+        clientId          : 'NEO_OAUTH_CLIENT_ID',
+        clientSecret      : 'NEO_OAUTH_CLIENT_SECRET',
+        trustProxyIdentity: {var: 'NEO_AUTH_TRUST_PROXY_IDENTITY', parse: Env.parseBool}
+    },
+    chatProvider     : 'NEO_MODEL_PROVIDER',
+    modelProvider    : 'NEO_MODEL_PROVIDER',
+    embeddingProvider: 'NEO_EMBEDDING_PROVIDER',
+    ollama           : {
+        host          : 'NEO_OLLAMA_HOST',
+        model         : 'NEO_OLLAMA_MODEL',
+        embeddingModel: 'NEO_OLLAMA_EMBEDDING_MODEL'
+    },
+    openAiCompatible: {
+        host                    : 'NEO_OPENAI_COMPATIBLE_HOST',
+        model                   : 'NEO_OPENAI_COMPATIBLE_MODEL',
+        embeddingModel          : 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL',
+        apiKey                  : 'NEO_OPENAI_COMPATIBLE_API_KEY',
+        unloadRetryCount        : {var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', parse: Env.parseNumber},
+        unloadRetryDelayMs      : {var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', parse: Env.parseNumber},
+        contextLimitTokens      : {var: 'NEO_OPENAI_COMPATIBLE_CONTEXT_LIMIT_TOKENS', parse: Env.parseNumber},
+        safeProcessingLimitTokens: {var: 'NEO_OPENAI_COMPATIBLE_SAFE_PROCESSING_LIMIT_TOKENS', parse: Env.parseNumber}
+    },
+    vectorDimension: {var: 'NEO_VECTOR_DIMENSION', parse: Env.parseNumber},
+    engines        : {
+        chroma: {
+            host: 'NEO_CHROMA_HOST',
+            port: {var: 'NEO_CHROMA_PORT', parse: Env.parsePort}
+        }
+    },
+    orchestrator: {
+        deploymentMode: 'NEO_AI_DEPLOYMENT_MODE'
+    }
+};
+
+/**
  * @class Neo.ai.Config
- * @extends Neo.core.Base
+ * @extends Neo.ai.BaseConfig
  * @singleton
  */
-class Config extends Base {
+class Config extends BaseConfig {
     static config = {
         /**
          * @member {String} className='Neo.ai.Config'
@@ -440,62 +488,18 @@ class Config extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
-    }
-
-    /**
-     * The configuration data object.
-     * @member {Object} data
-     */
-    data = null;
-
-    /**
-     * @param {Object} config
-     */
-    construct(config) {
-        super.construct(config);
-        this.data = Neo.clone(defaultConfig, true);
-    }
-
-    /**
-     * Loads a JSON or MJS configuration file and merges it into the current data.
-     * @param {String} filePath
-     */
-    async load(filePath) {
-        if (!filePath) return;
-
-        try {
-            const absolutePath = path.resolve(filePath);
-            const ext          = path.extname(absolutePath);
-            let   customConfig;
-
-            if (ext === '.mjs' || ext === '.js') {
-                const module = await import(absolutePath);
-                customConfig = module.default;
-            } else {
-                const content = await fs.readFile(absolutePath, 'utf-8');
-                customConfig  = JSON.parse(content);
-            }
-
-            // Deep merge custom config into the data object
-            Neo.merge(this.data, customConfig);
-
-            console.error(`[Config] Loaded custom configuration from ${absolutePath}`);
-
-        } catch (error) {
-            console.error(`[Config] Failed to load configuration from ${filePath}:`, error.message);
-            throw error;
-        }
+        singleton: true,
+        /**
+         * @member {Object} defaultConfig
+         */
+        defaultConfig,
+        /**
+         * @member {Object} envBindings
+         */
+        envBindings
     }
 }
 
 const instance = Neo.setupClass(Config);
 
-export default new Proxy(instance, {
-    get(target, prop, receiver) {
-        if (Reflect.has(target, prop)) {
-            return Reflect.get(target, prop, receiver);
-        }
-        return target.data[prop];
-    }
-});
+export default createConfigProxy(instance);

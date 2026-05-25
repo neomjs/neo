@@ -1,6 +1,6 @@
 import path                              from 'path';
 import AiConfig                          from '../../../config.template.mjs';
-import BaseConfig, {createConfigProxy}   from '../shared/BaseConfig.mjs';
+import BaseConfig, {createConfigProxy}   from '../../../BaseConfig.mjs';
 import {fileURLToPath}                   from 'url';
 import Env                               from '../../../../src/util/Env.mjs';
 
@@ -408,64 +408,77 @@ const defaultConfig = {
 
 /**
  * Single source of truth for environment variable overrides.
- * Maps dot-notation paths in the configuration object to environment variables and parser functions.
+ * Maps nested configuration paths to environment variables and parser functions.
  */
 const envBindings = {
-    'autoSummarize': { var: 'NEO_AUTO_SUMMARIZE', parse: Env.parseBool},
-    'autoStartDatabase': { var: 'NEO_MEM_AUTO_START_DATABASE', parse: Env.parseBool},
-    'autoStartInference': { var: 'NEO_MEM_AUTO_START_INFERENCE', parse: Env.parseBool},
-    'autoDream': { var: 'NEO_AUTO_DREAM', parse: Env.parseBool},
-    'autoGoldenPath': { var: 'NEO_AUTO_GOLDEN_PATH', parse: Env.parseBool},
-    'realTimeMemoryParsing': { var: 'NEO_REAL_TIME_MEMORY_PARSING', parse: Env.parseBool},
-    'autoIngestFileSystem': { var: 'NEO_AUTO_INGEST_FS', parse: Env.parseBool},
-    'debug': { var: 'NEO_DEBUG', parse: Env.parseBool},
-    'transport': 'NEO_TRANSPORT',
-    'mcpHttpPort': { var: 'MCP_HTTP_PORT', parse: Env.parsePort},
-    'publicUrl': { var: 'NEO_PUBLIC_URL', parse: Env.parseUrl},
-
-    'auth.host': 'NEO_AUTH_HOST',
-    'auth.port': { var: 'NEO_AUTH_PORT', parse: Env.parsePort},
-    'auth.realm': 'NEO_AUTH_REALM',
-    'auth.issuerUrl': 'NEO_AUTH_ISSUER_URL',
-    'auth.clientId': 'NEO_OAUTH_CLIENT_ID',
-    'auth.clientSecret': 'NEO_OAUTH_CLIENT_SECRET',
-    'auth.trustProxyIdentity': { var: 'NEO_AUTH_TRUST_PROXY_IDENTITY', parse: Env.parseBool},
-
-    'modelProvider': 'NEO_MODEL_PROVIDER',
-    'embeddingProvider': 'NEO_EMBEDDING_PROVIDER',
-
-    'ollama.host': 'NEO_OLLAMA_HOST',
-    'ollama.model': 'NEO_OLLAMA_MODEL',
-    'ollama.embeddingModel': 'NEO_OLLAMA_EMBEDDING_MODEL',
-
-    'openAiCompatible.host': 'NEO_OPENAI_COMPATIBLE_HOST',
-    'openAiCompatible.model': 'NEO_OPENAI_COMPATIBLE_MODEL',
-    'openAiCompatible.embeddingModel': 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL',
-    'openAiCompatible.apiKey': 'NEO_OPENAI_COMPATIBLE_API_KEY',
-    'openAiCompatible.unloadRetryCount': { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', parse: Env.parseNumber},
-    'openAiCompatible.unloadRetryDelayMs': { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', parse: Env.parseNumber},
-
-    'vectorDimension': { var: 'NEO_VECTOR_DIMENSION', parse: Env.parseNumber},
-
-    'engines.chroma.host': 'NEO_CHROMA_HOST',
-    'engines.chroma.port': { var: 'NEO_CHROMA_PORT', parse: Env.parsePort},
-
-    'collections.memory': 'NEO_MEMORY_COLLECTION_NAME',
-    'collections.session': 'NEO_SESSION_COLLECTION_NAME',
-    'collections.graph': 'NEO_GRAPH_COLLECTION_NAME',
-
-    'storagePaths.graph': 'NEO_MEMORY_DB_PATH',
-
-    'datasets.rlaif.trajectories': 'NEO_RLAIF_PATH',
-    'decayFactor': { var: 'NEO_GRAPH_DECAY_FACTOR', parse: Env.parseNumber},
-    'guideGapWeightThreshold': { var: 'NEO_GUIDE_GAP_WEIGHT_THRESHOLD', parse: Env.parseNumber},
-
-    'conceptDiscovery.prScanLimit': { var: 'NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT', parse: Env.parseNumber},
-    'conceptDiscovery.minSourceLength': { var: 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', parse: Env.parseNumber},
-
-    'mailbox.defaultReplyPolicy': 'NEO_MAILBOX_DEFAULT_REPLY_POLICY',
-    'memorySharing.defaultPolicy': { var: 'NEO_MEMORY_SHARING_DEFAULT_POLICY', parse: parseMemorySharingPolicy },
-    'lazyEdgesQueuePath': 'NEO_LAZY_EDGES_QUEUE_PATH'
+    autoSummarize        : { var: 'NEO_AUTO_SUMMARIZE', parse: Env.parseBool},
+    autoStartDatabase    : { var: 'NEO_MEM_AUTO_START_DATABASE', parse: Env.parseBool},
+    autoStartInference   : { var: 'NEO_MEM_AUTO_START_INFERENCE', parse: Env.parseBool},
+    autoDream            : { var: 'NEO_AUTO_DREAM', parse: Env.parseBool},
+    autoGoldenPath       : { var: 'NEO_AUTO_GOLDEN_PATH', parse: Env.parseBool},
+    realTimeMemoryParsing: { var: 'NEO_REAL_TIME_MEMORY_PARSING', parse: Env.parseBool},
+    autoIngestFileSystem : { var: 'NEO_AUTO_INGEST_FS', parse: Env.parseBool},
+    debug                : { var: 'NEO_DEBUG', parse: Env.parseBool},
+    transport            : 'NEO_TRANSPORT',
+    mcpHttpPort          : { var: 'MCP_HTTP_PORT', parse: Env.parsePort},
+    publicUrl            : { var: 'NEO_PUBLIC_URL', parse: Env.parseUrl},
+    auth                 : {
+        host              : 'NEO_AUTH_HOST',
+        port              : { var: 'NEO_AUTH_PORT', parse: Env.parsePort},
+        realm             : 'NEO_AUTH_REALM',
+        issuerUrl         : 'NEO_AUTH_ISSUER_URL',
+        clientId          : 'NEO_OAUTH_CLIENT_ID',
+        clientSecret      : 'NEO_OAUTH_CLIENT_SECRET',
+        trustProxyIdentity: { var: 'NEO_AUTH_TRUST_PROXY_IDENTITY', parse: Env.parseBool}
+    },
+    modelProvider     : 'NEO_MODEL_PROVIDER',
+    embeddingProvider : 'NEO_EMBEDDING_PROVIDER',
+    ollama            : {
+        host          : 'NEO_OLLAMA_HOST',
+        model         : 'NEO_OLLAMA_MODEL',
+        embeddingModel: 'NEO_OLLAMA_EMBEDDING_MODEL'
+    },
+    openAiCompatible: {
+        host              : 'NEO_OPENAI_COMPATIBLE_HOST',
+        model             : 'NEO_OPENAI_COMPATIBLE_MODEL',
+        embeddingModel    : 'NEO_OPENAI_COMPATIBLE_EMBEDDING_MODEL',
+        apiKey            : 'NEO_OPENAI_COMPATIBLE_API_KEY',
+        unloadRetryCount  : { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', parse: Env.parseNumber},
+        unloadRetryDelayMs: { var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', parse: Env.parseNumber}
+    },
+    vectorDimension: { var: 'NEO_VECTOR_DIMENSION', parse: Env.parseNumber},
+    engines        : {
+        chroma: {
+            host: 'NEO_CHROMA_HOST',
+            port: { var: 'NEO_CHROMA_PORT', parse: Env.parsePort}
+        }
+    },
+    collections: {
+        memory : 'NEO_MEMORY_COLLECTION_NAME',
+        session: 'NEO_SESSION_COLLECTION_NAME',
+        graph  : 'NEO_GRAPH_COLLECTION_NAME'
+    },
+    storagePaths: {
+        graph: 'NEO_MEMORY_DB_PATH'
+    },
+    datasets: {
+        rlaif: {
+            trajectories: 'NEO_RLAIF_PATH'
+        }
+    },
+    decayFactor            : { var: 'NEO_GRAPH_DECAY_FACTOR', parse: Env.parseNumber},
+    guideGapWeightThreshold: { var: 'NEO_GUIDE_GAP_WEIGHT_THRESHOLD', parse: Env.parseNumber},
+    conceptDiscovery       : {
+        prScanLimit    : { var: 'NEO_CONCEPT_DISCOVERY_PR_SCAN_LIMIT', parse: Env.parseNumber},
+        minSourceLength: { var: 'NEO_CONCEPT_DISCOVERY_MIN_SOURCE_LENGTH', parse: Env.parseNumber}
+    },
+    mailbox: {
+        defaultReplyPolicy: 'NEO_MAILBOX_DEFAULT_REPLY_POLICY'
+    },
+    memorySharing: {
+        defaultPolicy: { var: 'NEO_MEMORY_SHARING_DEFAULT_POLICY', parse: parseMemorySharingPolicy }
+    },
+    lazyEdgesQueuePath: 'NEO_LAZY_EDGES_QUEUE_PATH'
 };
 
 /**
@@ -474,7 +487,7 @@ const envBindings = {
  * Supports loading configuration from a custom file and merging with defaults.
  *
  * @class Neo.ai.mcp.server.memory-core.Config
- * @extends Neo.core.Base
+ * @extends Neo.ai.BaseConfig
  * @singleton
  */
 class Config extends BaseConfig {
@@ -488,12 +501,16 @@ class Config extends BaseConfig {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * @member {Object} defaultConfig
+         */
+        defaultConfig,
+        /**
+         * @member {Object} envBindings
+         */
+        envBindings
     }
-
-    defaultConfig = defaultConfig;
-    envBindings = envBindings;
-
 }
 const instance = Neo.setupClass(Config);
 

@@ -42,13 +42,13 @@ const Env = {
     /**
      * Bulk-apply env→config bindings.
      *
-     * Binding shapes:
-     * - `{<dotted.path>: <envVarName>}` — implicit `parseString` parser
-     * - `{<dotted.path>: {var: <envVarName>, parse: <parserFn>}}` — typed parser
+     * Binding shapes mirror the config object shape:
+     * - `{auth: {host: <envVarName>}}` — implicit `parseString` parser
+     * - `{auth: {port: {var: <envVarName>, parse: <parserFn>}}}` — typed parser
      *
      * Bindings whose env var is absent or whose parser returns undefined are skipped
-     * (leaves the existing `data` value untouched). Uses `Neo.ns()` for namespace-walk;
-     * warns + skips if an intermediate is not an object.
+     * (leaves the existing `data` value untouched). Uses `Neo.assignToNs()` for the
+     * final assignment; warns + skips if an intermediate is not an object.
      *
      * Note: binding paths are developer-authored at source level (NOT env-value-derived);
      * env values become typed leaf values via the parser, never path keys. No prototype-
@@ -60,24 +60,41 @@ const Env = {
      * @param {Function} [warn=console.warn]
      */
     applyEnvBindings(data, envBindings, env = process.env, warn = console.warn) {
-        for (const [path, binding] of Object.entries(envBindings)) {
-            const { var: varName, parse } = typeof binding === 'string'
-                ? { var: binding, parse: Env.parseString }
+        const applyBinding = (path, binding) => {
+            const {var: varName, parse = Env.parseString} = typeof binding === 'string'
+                ? {var: binding, parse: Env.parseString}
                 : binding;
 
             const result = parse(varName, {env, warn});
-            if (result === undefined) continue;
+            if (result === undefined) return;
 
-            const keys     = path.split('.');
-            const finalKey = keys.pop();
-            const parent   = keys.length ? Neo.ns(keys, false, data) : data;
+            const parentPath = path.slice(0, -1),
+                  parent     = parentPath.length ? Neo.ns(parentPath, false, data) : data;
 
             if (Neo.isObject(parent)) {
-                parent[finalKey] = result;
+                Neo.assignToNs(path, result, data);
             } else {
-                warn(`[Neo.util.Env] Cannot bind ${varName} to "${path}" — intermediate is not an object.`);
+                warn(`[Neo.util.Env] Cannot bind ${varName} to "${path.join('.')}" — intermediate is not an object.`);
             }
-        }
+        };
+
+        const walk = (bindings, path = []) => {
+            for (const [key, binding] of Object.entries(bindings)) {
+                const isBindingDescriptor = Neo.isObject(binding) && Object.prototype.hasOwnProperty.call(binding, 'var');
+
+                if (key.includes('.')) {
+                    throw new Error(`[Neo.util.Env] Dotted envBinding paths are not supported: "${path.concat(key).join('.')}". Use nested binding objects.`);
+                }
+
+                if (typeof binding === 'string' || isBindingDescriptor) {
+                    applyBinding(path.concat(key), binding);
+                } else if (Neo.isObject(binding)) {
+                    walk(binding, path.concat(key));
+                }
+            }
+        };
+
+        walk(envBindings);
     },
 
     /**
