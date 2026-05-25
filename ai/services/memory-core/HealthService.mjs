@@ -53,6 +53,61 @@ function heartbeatLivenessStaleMs() {
 }
 
 /**
+ * @summary Normalizes an AgentIdentity handle for wake-readiness observability.
+ *
+ * Healthcheck projections should expose the same canonical `@<identity>` shape
+ * operators see in A2A and wake-subscription state, while staying independent
+ * from the Orchestrator class boot chain.
+ * @param {String|null|undefined} value
+ * @returns {String|null}
+ */
+function normalizeAgentHandle(value) {
+    if (!value) return null;
+    const trimmed = String(value).trim();
+    if (!trimmed) return null;
+    return trimmed.startsWith('@') ? trimmed : `@${trimmed}`;
+}
+
+/**
+ * @summary Projects swarm-heartbeat target config into the wake health block.
+ *
+ * This is the operator-facing counterpart to
+ * `SwarmHeartbeatService.getPulseIdentities()`: it does not query live
+ * subscriptions, but it makes the effective target-selection mode visible so a
+ * self-only Orchestrator heartbeat cannot look "healthy" while never being able
+ * to route Codex nightshift wake checks.
+ *
+ * @param {Object} [cfg=aiConfig] aiConfig-shaped input
+ * @param {Object} [env=process.env] Environment source for deterministic tests
+ * @returns {{targetSource: String, targetMode: String, explicitTargets: String[],
+ *     selfIdentity: String|null, codexEligibleByTargetConfig: Boolean}}
+ */
+export function buildWakeTargetConfigBlock(cfg = aiConfig, env = process.env) {
+    const rawTargets = env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS || '';
+    const explicitTargets = rawTargets
+        .split(',')
+        .map(normalizeAgentHandle)
+        .filter(Boolean);
+
+    const targetSource = env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE ||
+        cfg.orchestrator?.swarmHeartbeat?.targetSource ||
+        'self';
+    const selfIdentity = normalizeAgentHandle(env.NEO_AGENT_IDENTITY);
+    const targetMode   = explicitTargets.length > 0 ? 'explicit-targets' : targetSource;
+
+    return {
+        targetSource,
+        targetMode,
+        explicitTargets,
+        selfIdentity,
+        codexEligibleByTargetConfig: explicitTargets.includes('@neo-gpt') ||
+            targetSource === 'active-subscribers' ||
+            targetSource === 'active-local-team' ||
+            (targetSource === 'self' && selfIdentity === '@neo-gpt')
+    };
+}
+
+/**
  * @summary Projects the stdio identity state into the healthcheck-payload shape.
  *
  * Pure function: takes the cached stdioIdentity context (or null) and returns the
@@ -357,6 +412,10 @@ export function buildAuthProviderBlock(cfg) {
  * - `lastPulseAt`: ISO timestamp of the liveness file mtime, or `null` if absent.
  * - `secondsSinceLastPulse`: derived seconds since last pulse. Surfaces "alive but stalled" when
  *   `daemonRunning` is `false` but a previous mtime exists.
+ * - `targetSource` / `targetMode` / `explicitTargets` / `selfIdentity` /
+ *   `codexEligibleByTargetConfig`: effective Orchestrator target-selection
+ *   config. These fields prevent a self-only heartbeat from masquerading as
+ *   Codex nightshift-ready merely because the liveness file is fresh.
  *
  * **Liveness signal substrate:** the heartbeat concurrency lock at
  * `.neo-ai-data/heartbeat-concurrency.lock` is touched only when expensive Agent OS work runs
@@ -373,7 +432,8 @@ export function buildAuthProviderBlock(cfg) {
  * @param {Number|Date} [now=Date.now()] Time source for deterministic tests
  * @returns {Promise<{gateState: String, gateReason: String, gateTrippedAt: String|null,
  *     gateTrippedBy: String|null, daemonRunning: Boolean, lastPulseAt: String|null,
- *     secondsSinceLastPulse: Number|null}>}
+ *     secondsSinceLastPulse: Number|null, targetSource: String, targetMode: String,
+ *     explicitTargets: String[], selfIdentity: String|null, codexEligibleByTargetConfig: Boolean}>}
  * @see ai/scripts/lifecycle/wakeSafetyGate.mjs
  * @see ai/daemons/SwarmHeartbeatService.mjs — the swarm-heartbeat lane that touches the liveness file
  * @see learn/agentos/wake-substrate/PersistentProcessManagement.md
@@ -423,7 +483,7 @@ export async function buildWakeFeaturesBlock(now = Date.now()) {
         // Other errors (permission, etc.) also degrade gracefully to defaults.
     }
 
-    return {...gateBlock, ...livenessBlock};
+    return {...gateBlock, ...livenessBlock, ...buildWakeTargetConfigBlock()};
 }
 
 /**

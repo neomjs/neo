@@ -709,11 +709,14 @@ test.describe('HealthService #10844 — buildBackupStateBlock', () => {
  */
 test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
     let buildWakeFeaturesBlock;
+    let buildWakeTargetConfigBlock;
+    let originalWakeEnv;
     let tmpDir;
 
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
-        buildWakeFeaturesBlock = mod.buildWakeFeaturesBlock;
+        buildWakeFeaturesBlock      = mod.buildWakeFeaturesBlock;
+        buildWakeTargetConfigBlock = mod.buildWakeTargetConfigBlock;
 
         const os   = await import('os');
         const path = await import('path');
@@ -733,6 +736,15 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
         const path = await import('path');
         const fs   = await import('fs/promises');
 
+        originalWakeEnv = {
+            NEO_AGENT_IDENTITY                            : process.env.NEO_AGENT_IDENTITY,
+            NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE: process.env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE,
+            NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS      : process.env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS
+        };
+        delete process.env.NEO_AGENT_IDENTITY;
+        delete process.env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE;
+        delete process.env.NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS;
+
         process.env.WAKE_GATE_FILE_PATH      = path.join(tmpDir, `gate-${Date.now()}.json`);
         process.env.NEO_HEARTBEAT_ALIVE_PATH = path.join(tmpDir, `alive-${Date.now()}`);
 
@@ -744,6 +756,62 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
     test.afterEach(() => {
         delete process.env.WAKE_GATE_FILE_PATH;
         delete process.env.NEO_HEARTBEAT_ALIVE_PATH;
+
+        for (const [key, value] of Object.entries(originalWakeEnv || {})) {
+            if (value === undefined) delete process.env[key];
+            else                     process.env[key] = value;
+        }
+    });
+
+    test('target config defaults to self-only and marks Codex ineligible', () => {
+        const result = buildWakeTargetConfigBlock(
+            {orchestrator: {swarmHeartbeat: {targetSource: null}}},
+            {}
+        );
+
+        expect(result).toEqual({
+            targetSource                  : 'self',
+            targetMode                    : 'self',
+            explicitTargets               : [],
+            selfIdentity                  : null,
+            codexEligibleByTargetConfig   : false
+        });
+    });
+
+    test('active-subscribers target source marks Codex eligible for subscription-aware pulses', () => {
+        const result = buildWakeTargetConfigBlock(
+            {orchestrator: {swarmHeartbeat: {targetSource: null}}},
+            {
+                NEO_AGENT_IDENTITY                            : 'neo-opus-4-7',
+                NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE: 'active-subscribers'
+            }
+        );
+
+        expect(result).toMatchObject({
+            targetSource               : 'active-subscribers',
+            targetMode                 : 'active-subscribers',
+            explicitTargets            : [],
+            selfIdentity               : '@neo-opus-4-7',
+            codexEligibleByTargetConfig: true
+        });
+    });
+
+    test('explicit targets normalize handles and mark Codex eligible', () => {
+        const result = buildWakeTargetConfigBlock(
+            {orchestrator: {swarmHeartbeat: {targetSource: 'self'}}},
+            {
+                NEO_AGENT_IDENTITY                      : 'neo-opus-4-7',
+                NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS: 'neo-gpt, @neo-opus-4-7'
+            }
+        );
+
+        expect(result).toEqual({
+            targetSource               : 'self',
+            targetMode                 : 'explicit-targets',
+            explicitTargets            : ['@neo-gpt', '@neo-opus-4-7'],
+            selfIdentity               : '@neo-opus-4-7',
+            codexEligibleByTargetConfig: true
+        });
     });
 
     test('gate enabled + liveness fresh → daemonRunning true, gateState enabled', async () => {
@@ -885,7 +953,12 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
             gateTrippedBy        : null,
             daemonRunning        : false,
             lastPulseAt          : null,
-            secondsSinceLastPulse: null
+            secondsSinceLastPulse: null,
+            targetSource         : 'self',
+            targetMode           : 'self',
+            explicitTargets      : [],
+            selfIdentity         : null,
+            codexEligibleByTargetConfig: false
         });
     });
 
