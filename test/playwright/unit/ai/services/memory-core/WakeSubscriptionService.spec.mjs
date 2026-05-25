@@ -949,6 +949,69 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             expect(res.eventsReplayed).toBe(0);
         });
     });
+
+    test('emitHeartbeatPulse writes only a heartbeat GraphLog row and replays through resync', async () => {
+        const sqlite = GraphService.db.storage.db;
+        const {subscriptionId} = insertDurableSubscription({
+            trigger              : 'HEARTBEAT_PULSE',
+            harnessTarget        : 'bridge-daemon',
+            harnessTargetMetadata: {appName: 'Codex'}
+        });
+        const before = sqlite.prepare('SELECT MAX(log_id) as maxId FROM GraphLog').get().maxId || 0;
+
+        const emitted = await WakeSubscriptionService.emitHeartbeatPulse({targetIdentity: '@alice'});
+
+        expect(emitted.status).toBe('emitted');
+        expect(emitted.targetIdentity).toBe('@alice');
+        expect(emitted.entityId).toMatch(/^HEARTBEAT_PULSE:@alice:/);
+        expect(emitted.logId).toBeGreaterThan(before);
+
+        const messageRows = sqlite.prepare(`
+            SELECT COUNT(*) as count
+            FROM Nodes
+            WHERE json_extract(data, '$.label') = 'MESSAGE'
+        `).get().count;
+        const sentToRows = sqlite.prepare("SELECT COUNT(*) as count FROM Edges WHERE type = 'SENT_TO'").get().count;
+        expect(messageRows).toBe(0);
+        expect(sentToRows).toBe(0);
+
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const res = await WakeSubscriptionService.resync({subscriptionId, sinceLogId: before});
+
+            expect(res.subscriptionId).toBe(subscriptionId);
+            expect(res.eventsReplayed).toBe(1);
+            expect(res.lastLogId).toBe(emitted.logId);
+            expect(res.events[0]).toMatchObject({
+                eventType    : 'wake/heartbeat_pulse',
+                logId        : emitted.logId,
+                agentIdentity: '@alice',
+                subscriptionId,
+                payload      : {
+                    targetIdentity: '@alice'
+                }
+            });
+        });
+    });
+
+    test('emitHeartbeatPulse is an idempotent no-op without an active bridge heartbeat subscription', async () => {
+        const sqlite = GraphService.db.storage.db;
+        const before = sqlite.prepare('SELECT MAX(log_id) as maxId FROM GraphLog').get().maxId || 0;
+
+        const emitted = await WakeSubscriptionService.emitHeartbeatPulse({targetIdentity: '@alice'});
+        const pulseRows = sqlite.prepare(`
+            SELECT COUNT(*) as count
+            FROM GraphLog
+            WHERE log_id > ?
+              AND entity_type = 'heartbeat_pulse'
+        `).get(before).count;
+
+        expect(emitted).toEqual({
+            status        : 'skipped',
+            reason        : 'no-active-bridge-daemon-subscription',
+            targetIdentity: '@alice'
+        });
+        expect(pulseRows).toBe(0);
+    });
     // -----------------------------------------------------------------------------
     // pump()
     // -----------------------------------------------------------------------------
