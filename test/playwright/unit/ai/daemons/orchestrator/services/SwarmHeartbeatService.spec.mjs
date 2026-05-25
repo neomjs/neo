@@ -55,24 +55,42 @@ import {test, expect} from '@playwright/test';
  * (`checkHeartbeatLock`, `clearHeartbeatLock`, `sweepExpiredTasks`, `checkGateOpen`,
  * `readGate`, `checkSunsetted`, `resumeHarness`, `idleOutNudge`, `checkAllAgentIdle`,
  * `trioWakeCooldown`, `runScript`, `runScriptJson`, `runCmd`, `getUnreadCount`,
- * `getIssuesCount`, `isPushCapable`, `injectTmux`) precisely so unit tests can override them without going
- * through the heavy substrate. Module-binding imports (e.g. `isGateOpen`) cannot be
- * reassigned at import-site in ES modules — instance methods are the seam that works.
+ * `getIssuesCount`, `isPushCapable`, `getRecentActivityTimestamps`,
+ * `getReadinessSentinelMessages`, `getActiveBackoffWindow`) precisely so unit tests can
+ * override them without going through the heavy substrate. Module-binding imports (e.g.
+ * `isGateOpen`) cannot be reassigned at import-site in ES modules — instance methods
+ * are the seam that works.
  *
  * Each test stubs only what it needs; `afterEach` resets identity/pollIntervalMs to
  * baselines so cases don't bleed.
  */
 test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     let SwarmHeartbeatService;
+    let WakeSubscriptionService;
+    let originalEmitHeartbeatPulse;
     let heartbeatAlivePath;
     let GraphService;
     let originalLifecycleInit;
     let originalGraphServiceInit;
+    let MailboxService;
+    let originalListMessages;
+    let RequestContextService;
 
     test.beforeAll(async () => {
         const swarmHeartbeatModule = await import('../../../../../../../ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs');
         SwarmHeartbeatService = swarmHeartbeatModule.default;
         heartbeatAlivePath    = swarmHeartbeatModule.heartbeatAlivePath;
+
+        const wakeSubscriptionModule = await import('../../../../../../../ai/services/memory-core/WakeSubscriptionService.mjs');
+        WakeSubscriptionService      = wakeSubscriptionModule.default;
+        originalEmitHeartbeatPulse   = WakeSubscriptionService.emitHeartbeatPulse;
+
+        const mailboxModule    = await import('../../../../../../../ai/services/memory-core/MailboxService.mjs');
+        MailboxService         = mailboxModule.default;
+        originalListMessages   = MailboxService.listMessages;
+
+        const contextModule    = await import('../../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs');
+        RequestContextService  = contextModule.default;
 
         const services = await import('../../../../../../../ai/services.mjs');
         const LifecycleService = services.Memory_LifecycleService;
@@ -91,6 +109,12 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         const services = await import('../../../../../../../ai/services.mjs');
         services.Memory_LifecycleService.initAsync = originalLifecycleInit;
         services.Memory_GraphService.initAsync     = originalGraphServiceInit;
+        if (originalEmitHeartbeatPulse) {
+            WakeSubscriptionService.emitHeartbeatPulse = originalEmitHeartbeatPulse;
+        }
+        if (originalListMessages) {
+            MailboxService.listMessages = originalListMessages;
+        }
     });
 
     /**
@@ -123,7 +147,12 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         SwarmHeartbeatService.getUnreadCount     = async () => 0;
         SwarmHeartbeatService.getIssuesCount     = async () => 0;
         SwarmHeartbeatService.isPushCapable      = async () => false;
-        SwarmHeartbeatService.injectTmux         = async () => {};
+        // Sub-iii (#11996) 3-signal-emit-loop seams — default to no-wake by returning
+        // empty activity (decideWake returns 'no-active-signal' → no emit fires).
+        SwarmHeartbeatService.getRecentActivityTimestamps  = async () => [];
+        SwarmHeartbeatService.getReadinessSentinelMessages = async () => [];
+        SwarmHeartbeatService.getActiveBackoffWindow       = () => null;
+        WakeSubscriptionService.emitHeartbeatPulse         = async () => ({status: 'emitted'});
         // Identity assignment exercises beforeSetIdentity normalizer (no-op for
         // already-canonical '@test' form). pollIntervalMs is direct config assignment.
         SwarmHeartbeatService.identity           = '@test';
@@ -438,51 +467,170 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         expect(idleCalls).toEqual([[]]);
     });
 
-    test('pulse() isolates a sweep failure locally and continues to later steps', async () => {
+    test('pulse() isolates a sweep failure locally and continues to later steps (#11996 cycle-3 shape)', async () => {
         applyDefaultStubs();
-        SwarmHeartbeatService.sweepExpiredTasks = async () => { throw new Error('substrate down') };
-        SwarmHeartbeatService.getUnreadCount    = async () => 2;
+        SwarmHeartbeatService.sweepExpiredTasks            = async () => { throw new Error('substrate down') };
+        SwarmHeartbeatService.getRecentActivityTimestamps  = async () => [Date.now() - 30 * 60 * 1000]; // active+idle
+        SwarmHeartbeatService.getReadinessSentinelMessages = async () => [];
+        SwarmHeartbeatService.getActiveBackoffWindow       = () => null;
 
-        const injected = [];
-        SwarmHeartbeatService.injectTmux = async (p) => { injected.push(p) };
+        const emitted = [];
+        WakeSubscriptionService.emitHeartbeatPulse = async ({targetIdentity}) => { emitted.push(targetIdentity); return {status: 'emitted'} };
 
         // Sweep throws but is caught by the inner try/catch around the sweep step;
-        // pulse() does not propagate the error and proceeds to inject.
+        // pulse() does not propagate the error and proceeds to the 3-signal emit loop.
         await expect(SwarmHeartbeatService.pulse()).resolves.toBeUndefined();
-        expect(injected.length).toBe(1);
+        expect(emitted.length).toBeGreaterThan(0);
     });
 
-    test('pulse() injects tmux prompt only when actionable state exists', async () => {
+    test('pulse() 3-signal emit loop calls emitHeartbeatPulse iff decideWake returns wake:true (#11996 AC2)', async () => {
         applyDefaultStubs();
 
-        const injected = [];
-        SwarmHeartbeatService.injectTmux = async (prompt) => { injected.push(prompt) };
+        // Identity has activity 30min ago → active + idle (not within 15m idle window)
+        SwarmHeartbeatService.getRecentActivityTimestamps  = async () => [Date.now() - 30 * 60 * 1000];
+        SwarmHeartbeatService.getReadinessSentinelMessages = async () => [];
+        SwarmHeartbeatService.getActiveBackoffWindow       = () => null;
 
-        // Case 1: no unread, no issues — no injection.
-        await SwarmHeartbeatService.pulse();
-        expect(injected.length).toBe(0);
-
-        // Case 2: unread present — inject.
-        SwarmHeartbeatService.getUnreadCount = async () => 3;
+        const emitted = [];
+        WakeSubscriptionService.emitHeartbeatPulse = async ({targetIdentity}) => { emitted.push(targetIdentity); return {status: 'emitted'} };
 
         await SwarmHeartbeatService.pulse();
-        expect(injected.length).toBe(1);
-        expect(injected[0]).toContain('Mailbox unread: 3');
-        expect(injected[0]).toContain('Open issues assigned: 0');
+        // Default pulseIdentities = [this.identity]; the loop should emit once for active+idle+ready.
+        expect(emitted.length).toBe(1);
     });
 
-    test('pulse() respects heartbeat-bypass for push-capable identities', async () => {
+    test('pulse() 3-signal emit loop skips emit when readiness sentinel blocks (#11996 AC2)', async () => {
         applyDefaultStubs();
-        SwarmHeartbeatService.isPushCapable  = async () => true;
-        SwarmHeartbeatService.getUnreadCount = async () => 99;
-        SwarmHeartbeatService.getIssuesCount = async () => 99;
 
-        const injected = [];
-        SwarmHeartbeatService.injectTmux = async (p) => { injected.push(p) };
+        SwarmHeartbeatService.getRecentActivityTimestamps  = async () => [Date.now() - 30 * 60 * 1000]; // active+idle
+        // Active blocking sentinel (ready:false, future expiresAt)
+        SwarmHeartbeatService.getReadinessSentinelMessages = async () => [{
+            id        : 'msg-block',
+            properties: {task: {type: 'wake-readiness', ready: false, reason: 'benched', expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString()}}
+        }];
+        SwarmHeartbeatService.getActiveBackoffWindow = () => null;
+
+        const emitted = [];
+        WakeSubscriptionService.emitHeartbeatPulse = async ({targetIdentity}) => { emitted.push(targetIdentity); return {status: 'emitted'} };
 
         await SwarmHeartbeatService.pulse();
-        // Push-capable bypass — no tmux injection even with high unread count.
-        expect(injected.length).toBe(0);
+        expect(emitted.length).toBe(0);
+    });
+
+    test('pulse() 3-signal emit loop skips emit when backoff window active (#11996 AC2)', async () => {
+        applyDefaultStubs();
+
+        SwarmHeartbeatService.getRecentActivityTimestamps  = async () => [Date.now() - 30 * 60 * 1000]; // active+idle
+        SwarmHeartbeatService.getReadinessSentinelMessages = async () => [];
+        SwarmHeartbeatService.getActiveBackoffWindow       = () => ({expiresAtMs: Date.now() + 30 * 60 * 1000, reason: 'error-streak-3'});
+
+        const emitted = [];
+        WakeSubscriptionService.emitHeartbeatPulse = async ({targetIdentity}) => { emitted.push(targetIdentity); return {status: 'emitted'} };
+
+        await SwarmHeartbeatService.pulse();
+        expect(emitted.length).toBe(0);
+    });
+
+    test('getRecentActivityTimestamps binds RequestContextService identity before MailboxService.listMessages call (PR #11999 cycle-2)', async () => {
+        // MailboxService.listMessages() reads RequestContextService.getAgentIdentityNodeId()
+        // at entry and throws "Cannot list messages: no agent identity context bound." when
+        // unbound. Sub-iii's helper MUST wrap the calls in RequestContextService.run({...})
+        // so the production heartbeat loop sees real activity timestamps instead of silently
+        // catching the throw and returning [].
+        applyDefaultStubs();
+        // Restore the REAL helper (override the applyDefaultStubs stub).
+        delete SwarmHeartbeatService.getRecentActivityTimestamps;
+
+        const seenContextIdentities = [];
+        MailboxService.listMessages = async ({box, fromIdentity, to}) => {
+            const boundIdentity = RequestContextService.getAgentIdentityNodeId();
+            seenContextIdentities.push({box, fromIdentity, to, boundIdentity});
+            return {messages: [{messageId: `${box}-msg`, sentAt: new Date(Date.now() - 30 * 60 * 1000).toISOString()}]};
+        };
+
+        const targetIdentity = '@neo-context-test';
+        const now            = Date.now();
+        const result         = await SwarmHeartbeatService.getRecentActivityTimestamps(targetIdentity, now);
+
+        try {
+            // Each MailboxService.listMessages call must have seen the bound identity.
+            expect(seenContextIdentities.length).toBeGreaterThan(0);
+            for (const call of seenContextIdentities) {
+                expect(call.boundIdentity).toBe(targetIdentity);
+            }
+            // Result must include parsed timestamps (proves the wrapper returned real data,
+            // not the catch-fallback []).
+            expect(result.length).toBeGreaterThan(0);
+            expect(result.every(ts => Number.isFinite(ts))).toBe(true);
+        } finally {
+            MailboxService.listMessages = originalListMessages;
+        }
+    });
+
+    test('getReadinessSentinelMessages binds RequestContextService identity AND returns listMessages summaries that decideWake honors (PR #11999 cycle-2)', async () => {
+        // Two-part contract:
+        // 1. The helper wraps MailboxService.listMessages in RequestContextService.run.
+        // 2. The summary shape returned ({messageId, task, ...}) is consumed by
+        //    WakeDecisionService.parseActiveReadinessSentinels and the resulting
+        //    `active: false` propagates through decideWake → blocks the wake.
+        applyDefaultStubs();
+        delete SwarmHeartbeatService.getReadinessSentinelMessages;
+
+        const wakeDecisionModule = await import('../../../../../../../ai/daemons/orchestrator/services/WakeDecisionService.mjs');
+        const {WakeDecisionService} = wakeDecisionModule;
+
+        const targetIdentity     = '@neo-context-test';
+        const now                = Date.now();
+        const seenContext        = [];
+        const blockingSentinelTs = new Date(now + 60 * 60 * 1000).toISOString();
+        MailboxService.listMessages = async ({to, taggedConcepts}) => {
+            seenContext.push({to, taggedConcepts, boundIdentity: RequestContextService.getAgentIdentityNodeId()});
+            return {
+                messages: [{
+                    messageId: 'MESSAGE:real-listmessages-summary',
+                    task     : {type: 'wake-readiness', ready: false, reason: 'rate-limit', expiresAt: blockingSentinelTs},
+                    sentAt   : new Date(now - 60_000).toISOString()
+                }]
+            };
+        };
+
+        try {
+            const sentinelMessages       = await SwarmHeartbeatService.getReadinessSentinelMessages(targetIdentity);
+            const activeReadinessSentinel = WakeDecisionService.parseActiveReadinessSentinels(sentinelMessages, now);
+
+            // Part 1: Context-binding contract.
+            expect(seenContext.length).toBe(1);
+            expect(seenContext[0].to).toBe(targetIdentity);
+            expect(seenContext[0].taggedConcepts).toEqual(['wake-readiness']);
+            expect(seenContext[0].boundIdentity).toBe(targetIdentity);
+
+            // Part 2: Summary-shape adapter contract — parser accepts {messageId, task}.
+            expect(activeReadinessSentinel).not.toBeNull();
+            expect(activeReadinessSentinel.ready).toBe(false);
+            expect(activeReadinessSentinel.reason).toBe('rate-limit');
+            expect(activeReadinessSentinel.sourceMessageId).toBe('MESSAGE:real-listmessages-summary');
+
+            // Composition: feeding into decideWake produces wake:false (blocked).
+            const decision = WakeDecisionService.decideWake({
+                identity                : targetIdentity,
+                currentTimeMs           : now,
+                recentActivityTimestamps: [now - 30 * 60 * 1000],
+                activeReadinessSentinel
+            });
+            expect(decision.wake).toBe(false);
+            expect(decision.signals.ready).toBe(false);
+        } finally {
+            MailboxService.listMessages = originalListMessages;
+        }
+    });
+
+    test('injectTmux method removed entirely (#11996 AC1)', async () => {
+        // Per Epic #11993 cycle-3 + Sub-iii AC1: tmux-inject is dead-path substrate
+        // for non-tmux harnesses (Codex Desktop case); deleted entirely.
+        // bridge-daemon's tmux adapter is the canonical tmux delivery path.
+        expect(SwarmHeartbeatService.injectTmux).toBeUndefined();
+        const serviceProto = Object.getPrototypeOf(SwarmHeartbeatService);
+        expect(serviceProto.injectTmux).toBeUndefined();
     });
 
     test('isPushCapable() treats bridge-daemon as push-capable so Codex does not fall through to tmux (#11872)', async () => {
@@ -524,18 +672,12 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         }
     });
 
-    test('pulse() includes expired-count in prompt when sweep yields > 0', async () => {
-        applyDefaultStubs();
-        SwarmHeartbeatService.sweepExpiredTasks = async () => ({sweptCount: 5});
-        SwarmHeartbeatService.getUnreadCount    = async () => 1;
-
-        const injected = [];
-        SwarmHeartbeatService.injectTmux = async (p) => { injected.push(p) };
-
-        await SwarmHeartbeatService.pulse();
-        expect(injected.length).toBe(1);
-        expect(injected[0]).toContain('Tasks expired this cycle: 5');
-    });
+    // (Removed #11996 cycle-3 cleanup) test 'pulse() includes expired-count in prompt when sweep yields > 0'
+    // tested the old Step 7 tmux-inject prompt formatting. After Sub-iii, the
+    // 3-signal-emit loop carries no per-pulse prompt content (bridge-daemon's digest
+    // line reads "N heartbeat pulses" — see ai/daemons/bridge/daemon.mjs:572). The
+    // expired-task COUNT is still logged at Step 2 for diagnostics; no need to assert
+    // it in the wake-event payload.
 
     test('pulse() touches the heartbeat-liveness file HealthService reads (#11766)', async () => {
         applyDefaultStubs();
