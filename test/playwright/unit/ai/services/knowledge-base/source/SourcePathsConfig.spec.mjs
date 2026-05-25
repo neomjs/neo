@@ -18,6 +18,7 @@ setup({
 import {test, expect}  from '@playwright/test';
 import Neo             from '../../../../../../../src/Neo.mjs';
 import * as core       from '../../../../../../../src/core/_export.mjs';
+import {KB_DEFAULTS}   from '../../../../../fixtures/knowledgeBaseConfigDefaults.mjs';
 import fs              from 'fs-extra';
 import path            from 'path';
 import {fileURLToPath} from 'url';
@@ -307,7 +308,11 @@ test.describe('aiConfig.sourcePaths config-driven path resolution (#11660)', () 
 
     test.describe('LearningSource — base directory derived from tree path', () => {
         test('default learn/tree.json → base directory is learn/', () => {
-            const treePath = aiConfig.sourcePaths?.LearningSource ?? 'learn/tree.json';
+            // Read from KB_DEFAULTS fixture (frozen snapshot of KB-template defaults) rather
+            // than the live overlay-merged singleton — operator-customized
+            // `sourcePaths.LearningSource` would otherwise break this canonical-default check.
+            // #11981 / Sub-2 of #11976 (1-spec drift-migration scope).
+            const treePath = KB_DEFAULTS.sourcePaths?.LearningSource ?? 'learn/tree.json';
             const basePath = path.dirname(treePath);
             expect(basePath).toBe('learn');
         });
