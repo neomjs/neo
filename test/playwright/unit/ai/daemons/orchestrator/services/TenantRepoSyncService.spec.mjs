@@ -107,6 +107,10 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
     test.afterEach(async () => {
         await fs.remove(tmpDir);
+        // Restore the singleton's reactive config to default values so #11942-AC2
+        // concurrency tests cannot leak short timeouts / serial-limit to siblings.
+        TenantRepoSyncService.concurrencyLimit         = 2;
+        TenantRepoSyncService.concurrencyGateTimeoutMs = 30000;
     });
 
     test('skipped when no tenantRepos configured', async () => {
@@ -508,5 +512,149 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         } finally {
             await fs.chmod(readOnlyParent, 0o700);
         }
+    });
+
+    test('concurrency-gate: concurrencyLimit=1 serializes per-repo work (#11942 AC2)', async () => {
+        TenantRepoSyncService.concurrencyLimit = 1;
+
+        const inFlightLog = [];
+        let inFlight      = 0;
+
+        const trackingMirror = {
+            async cloneIfMissing() {
+                inFlight++;
+                inFlightLog.push(inFlight);
+                await new Promise(resolve => setTimeout(resolve, 10));
+                inFlight--;
+            },
+            async fetch()              {},
+            async resolveHead({ref})   { return `sha-for-${ref}`; },
+            async isAncestor()         { return true; },
+            async diffRevisions()      { return {addedOrChanged: [], deleted: []}; }
+        };
+
+        for (const slug of ['org/r1', 'org/r2', 'org/r3']) {
+            await provisionMirrorDir({tenantId: 't1', repoSlug: slug});
+        }
+
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'periodic',
+            taskStateService: createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: ['org/r1', 'org/r2', 'org/r3'].map(s => ({
+                tenantId: 't1', repoSlug: s, mirrorRoot, cloneUrl: `https://example.com/${s.split('/')[1]}.git`
+            }))},
+            gitMirror                    : trackingMirror,
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details.completedCount).toBe(3);
+        // With concurrencyLimit=1, the in-flight counter must never exceed 1.
+        expect(Math.max(...inFlightLog)).toBe(1);
+        expect(inFlightLog.every(n => n <= 1)).toBe(true);
+    });
+
+    test('concurrency-gate: concurrencyLimit=2 caps in-flight work at 2 with 4 repos (#11942 AC2)', async () => {
+        TenantRepoSyncService.concurrencyLimit = 2;
+
+        const inFlightLog = [];
+        let inFlight      = 0;
+
+        const trackingMirror = {
+            async cloneIfMissing() {
+                inFlight++;
+                inFlightLog.push(inFlight);
+                await new Promise(resolve => setTimeout(resolve, 20));
+                inFlight--;
+            },
+            async fetch()              {},
+            async resolveHead({ref})   { return `sha-for-${ref}`; },
+            async isAncestor()         { return true; },
+            async diffRevisions()      { return {addedOrChanged: [], deleted: []}; }
+        };
+
+        for (const slug of ['org/r1', 'org/r2', 'org/r3', 'org/r4']) {
+            await provisionMirrorDir({tenantId: 't1', repoSlug: slug});
+        }
+
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'periodic',
+            taskStateService: createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: ['org/r1', 'org/r2', 'org/r3', 'org/r4'].map(s => ({
+                tenantId: 't1', repoSlug: s, mirrorRoot, cloneUrl: `https://example.com/${s.split('/')[1]}.git`
+            }))},
+            gitMirror                    : trackingMirror,
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details.completedCount).toBe(4);
+        // With concurrencyLimit=2 + 4 repos, peak in-flight should reach 2 (proving parallelism
+        // exists) but must not exceed 2 (proving the gate caps correctly).
+        expect(Math.max(...inFlightLog)).toBe(2);
+        expect(inFlightLog.every(n => n <= 2)).toBe(true);
+    });
+
+    test('concurrency-gate: queued slot acquisition surfaces KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT (#11942 AC2)', async () => {
+        TenantRepoSyncService.concurrencyLimit         = 1;
+        TenantRepoSyncService.concurrencyGateTimeoutMs = 50;
+
+        let releaseFirstRepo;
+        const firstRepoGate = new Promise(resolve => { releaseFirstRepo = resolve; });
+        let cloneCallCount  = 0;
+
+        const slowMirror = {
+            async cloneIfMissing() {
+                cloneCallCount++;
+                if (cloneCallCount === 1) {
+                    // First repo holds the slot indefinitely until the test releases it.
+                    await firstRepoGate;
+                }
+            },
+            async fetch()              {},
+            async resolveHead({ref})   { return `sha-for-${ref}`; },
+            async isAncestor()         { return true; },
+            async diffRevisions()      { return {addedOrChanged: [], deleted: []}; }
+        };
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/slow'});
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/queued'});
+
+        const resultPromise = TenantRepoSyncService.runTask({
+            reason          : 'periodic',
+            taskStateService: createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/slow',   mirrorRoot, cloneUrl: 'https://example.com/slow.git'},
+                {tenantId: 't1', repoSlug: 'org/queued', mirrorRoot, cloneUrl: 'https://example.com/queued.git'}
+            ]},
+            gitMirror                    : slowMirror,
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile
+        });
+
+        // Wait long enough for the queued repo's slot acquisition to time out (~50ms).
+        await new Promise(resolve => setTimeout(resolve, 150));
+        releaseFirstRepo();
+        const result = await resultPromise;
+
+        // Queued repo surfaced the timeout via per-repo health payload.
+        const queuedState = result.details.repos.find(r => r.repoSlug === 'org/queued');
+        expect(queuedState).toBeDefined();
+        expect(queuedState.status).toBe('degraded');
+        expect(queuedState.lastErrorCode).toBe('KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT');
+
+        // Slow repo completed once released.
+        const slowState = result.details.repos.find(r => r.repoSlug === 'org/slow');
+        expect(slowState.status).toBe('active');
+
+        // Outer task is 'completed' per partial-success contract (at least one repo succeeded).
+        expect(result.status).toBe('completed');
+        expect(result.details.failedCount).toBe(1);
+        expect(result.details.completedCount).toBe(1);
     });
 });

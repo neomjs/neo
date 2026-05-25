@@ -9,11 +9,74 @@ import {
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
     KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED,
+    KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT,
     TenantRepoSyncError,
     isTenantRepoSyncErrorCode
 } from './TenantRepoSyncErrors.mjs';
 
 const PERSISTED_REVISIONS_FILE_NAME = 'tenant-repo-sync-revisions.json';
+
+/**
+ * @summary In-memory async semaphore with optional slot-acquisition timeout.
+ *
+ * Caps the number of concurrent acquirers to `limit`. Acquirers beyond the limit
+ * queue and resolve as slots are released (FIFO). If `timeoutMs > 0`, queued
+ * acquirers reject with `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT` after the
+ * configured duration.
+ *
+ * Lifecycle is bounded to a single `runTask` invocation — a fresh semaphore is
+ * created per call from the current reactive `concurrencyLimit` /
+ * `concurrencyGateTimeoutMs` config values, so live config edits take effect
+ * on the next cycle.
+ *
+ * @param {Object} options
+ * @param {Number} options.limit Maximum concurrent acquirers.
+ * @param {Number} [options.timeoutMs=0] Per-acquire slot-wait timeout. `0` disables.
+ * @returns {{acquire: Function, release: Function}}
+ */
+function createConcurrencySemaphore({limit, timeoutMs = 0}) {
+    let active = 0;
+    const waiters = [];
+
+    const handoffSlot = () => {
+        while (active < limit && waiters.length > 0) {
+            const waiter = waiters.shift();
+            if (waiter.timeoutId) clearTimeout(waiter.timeoutId);
+            active++;
+            waiter.resolve();
+        }
+    };
+
+    return {
+        async acquire() {
+            if (active < limit) {
+                active++;
+                return;
+            }
+            return new Promise((resolve, reject) => {
+                const waiter = {resolve, reject, timeoutId: null};
+                if (timeoutMs > 0) {
+                    waiter.timeoutId = setTimeout(() => {
+                        const idx = waiters.indexOf(waiter);
+                        if (idx !== -1) {
+                            waiters.splice(idx, 1);
+                            reject(new TenantRepoSyncError(
+                                KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT,
+                                `Concurrency gate timeout after ${timeoutMs}ms (limit=${limit})`,
+                                {limit, timeoutMs, phase: 'concurrency-gate'}
+                            ));
+                        }
+                    }, timeoutMs);
+                }
+                waiters.push(waiter);
+            });
+        },
+        release() {
+            if (active > 0) active--;
+            handoffSlot();
+        }
+    };
+}
 
 /**
  * @summary Cloud-deployable scheduler lane that pulls tenant repos into the deployment KB.
@@ -62,7 +125,26 @@ class TenantRepoSyncService extends Base {
          * @member {Boolean} singleton=true
          * @protected
          */
-        singleton: true
+        singleton: true,
+        /**
+         * Concurrency cap on simultaneous tenant-repo git/ingest work within one
+         * `runTask` invocation. Default `2` is conservative for multi-tenant
+         * cloud deployments. Set to `1` to serialize (pre-#11942-AC2 behavior).
+         * Set higher when network/CPU headroom permits.
+         * @member {Number} concurrencyLimit_=2
+         * @reactive
+         */
+        concurrencyLimit_: 2,
+        /**
+         * Maximum time a per-repo task waits to acquire a concurrency slot before
+         * surfacing `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT`. Default `30000`
+         * (30s) accommodates a slow-clone tenant ahead in the queue without
+         * waiting indefinitely. Set to `0` to disable the timeout (slots wait
+         * indefinitely until a release).
+         * @member {Number} concurrencyGateTimeoutMs_=30000
+         * @reactive
+         */
+        concurrencyGateTimeoutMs_: 30000
     }
 
     /**
@@ -81,7 +163,7 @@ class TenantRepoSyncService extends Base {
      * | `KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED` | outer `details.reasonCode` | `onlyRepoSlugs` filter requested a slug that is not in `tenantRepos[]` |
      * | `KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED` | outer `details.reasonCode` | `tenant-repo-sync-revisions.json` write failure (next cycle retries idempotently) |
      * | `KB_TENANT_REPO_SYNC_TENANT_NOT_FOUND` | reserved | future `--tenant-id` CLI flag; no current emitter |
-     * | `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT` | reserved | future concurrency-limit gate (#11942 AC2); no current emitter |
+     * | `KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT` | per-repo `lastErrorCode` | concurrency-gate slot-acquisition timeout (#11942 AC2 — `concurrencyGateTimeoutMs` exceeded) |
      *
      * @param {Object} options
      * @param {String} [options.taskName='tenant-repo-sync']
@@ -208,10 +290,22 @@ class TenantRepoSyncService extends Base {
         let   completedCount     = 0;
         let   failedCount        = 0;
 
-        for (const repo of repos) {
+        // #11942 AC2 concurrency-gate: per-runTask semaphore capping simultaneous git/ingest
+        // work. Fresh instance per call so live `concurrencyLimit` / `concurrencyGateTimeoutMs`
+        // config edits take effect on the next cycle. JS is single-threaded so the shared
+        // mutable counters (`completedCount` / `failedCount`) and `repoStates` array are safe.
+        const semaphore = createConcurrencySemaphore({
+            limit    : this.concurrencyLimit,
+            timeoutMs: this.concurrencyGateTimeoutMs
+        });
+
+        await Promise.all(repos.map(async (repo) => {
             const repoLabel = `${repo.tenantId}/${repo.repoSlug}`;
+            let slotAcquired = false;
             const startedMs = Date.now();
             try {
+                await semaphore.acquire();
+                slotAcquired = true;
                 writeLog?.('INFO', `[TenantRepoSync] Refreshing ${repoLabel}.`);
 
                 await gitMirror.cloneIfMissing({
@@ -295,8 +389,10 @@ class TenantRepoSyncService extends Base {
                     code
                 });
                 // Continue with remaining repos — failure isolation per ticket prescription.
+            } finally {
+                if (slotAcquired) semaphore.release();
             }
-        }
+        }));
 
         await this.writePersistedRevisions({filePath: resolvedRevisionsPath, revisions: persistedRevisions});
 
