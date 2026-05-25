@@ -1,3 +1,4 @@
+import Neo      from '../../../src/Neo.mjs';
 import AiConfig from '../../../ai/config.template.mjs';
 
 /**
@@ -13,16 +14,17 @@ import AiConfig from '../../../ai/config.template.mjs';
  * **Determinism contract:**
  * - {@link TIER1_DEFAULTS} reads from the tracked `ai/config.template.mjs`,
  *   never from the gitignored `ai/config.mjs` overlay.
- * - Deep-cloned via a custom recursive `deepClone()` helper (NOT
- *   `structuredClone` — that built-in rejects the nested arrow functions in
- *   `aiConfig.dummyEmbeddingFunction`). Nested groups (`auth`, `ollama`,
+ * - Deep-cloned via `Neo.clone(obj, true, true)` (Neo's canonical deep-clone
+ *   primitive — `ignoreNeoInstances=true` matches the snapshot semantic;
+ *   functions + primitives flow through the `cloneMap` fallback unchanged,
+ *   plain Objects/Arrays recurse). Nested groups (`auth`, `ollama`,
  *   `openAiCompatible`, `engines.chroma`, …) hold no shared references with
- *   the live `AiConfig.data`. Mutating the live singleton in one spec cannot
+ *   the live `AiConfig.data`; mutating the live singleton in one spec cannot
  *   leak into another spec's assertion against the snapshot.
- * - Recursively frozen via `deepFreeze()` so accidental in-test writes to
- *   nested groups throw (in strict mode) instead of silently mutating a
- *   "frozen" snapshot — the shallow `Object.freeze({...x})` failure mode
- *   caught in #11978 cycle-1 review.
+ * - Recursively frozen via the local `deepFreeze()` helper. Neo doesn't ship
+ *   a recursive freeze counterpart to `Neo.clone`, so this helper stays
+ *   in-fixture; the shallow `Object.freeze({...x})` failure mode caught in
+ *   #11978 cycle-1 is the regression-anchor for why deep freeze is required.
  *
  * **Why not import the template directly in tests?**
  * The per-server templates under `ai/mcp/server/` currently import `AiConfig`
@@ -42,27 +44,12 @@ import AiConfig from '../../../ai/config.template.mjs';
  */
 
 /**
- * Recursively deep-clones plain objects / arrays, leaving primitives AND
- * functions as-is. Functions are referenced rather than cloned because
- * `structuredClone` rejects them, and the snapshot's contract is about
- * isolating mutable DATA — function references are inherently stateless
- * for our assertion purposes (e.g. the nested arrow functions in
- * `aiConfig.dummyEmbeddingFunction`).
- *
- * @param {*} value
- * @returns {*}
- */
-function deepClone(value) {
-    if (value === null || typeof value !== 'object') return value;
-    if (Array.isArray(value)) return value.map(deepClone);
-    const out = {};
-    for (const key of Object.keys(value)) out[key] = deepClone(value[key]);
-    return out;
-}
-
-/**
  * Recursively freezes every plain-object / array node in the given value.
  * Returns the same value for chaining. No-op on primitives + functions.
+ *
+ * Local to this fixture because Neo doesn't ship a recursive-freeze
+ * counterpart to `Neo.clone`. If a `Neo.freeze` primitive lands later, this
+ * helper retires.
  *
  * @param {*} value
  * @returns {*}
@@ -81,7 +68,7 @@ function deepFreeze(value) {
  *
  * @type {Readonly<Object>}
  */
-export const TIER1_DEFAULTS = deepFreeze(deepClone(AiConfig.data));
+export const TIER1_DEFAULTS = deepFreeze(Neo.clone(AiConfig.data, true, true));
 
 /**
  * Live `Neo.ai.Config` singleton — same instance any runtime code receives.
