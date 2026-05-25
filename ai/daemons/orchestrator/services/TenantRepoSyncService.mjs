@@ -141,10 +141,21 @@ class TenantRepoSyncService extends Base {
             healthService?.recordTaskOutcome?.(taskName, status, {reason, ...result.details});
             return result;
         } catch (e) {
-            const details = {reason, phase: 'tenant-repo-sync', error: e.message};
+            // Propagate stable error code + meta when the throw is a TenantRepoSyncError;
+            // otherwise wrap as the unspecific KB_TENANT_REPO_SYNC_SYNC_FAILED so operators
+            // can branch on `error.code` instead of message prose.
+            const code      = isTenantRepoSyncErrorCode(e.code) ? e.code : KB_TENANT_REPO_SYNC_SYNC_FAILED;
+            const meta      = (e instanceof TenantRepoSyncError) ? e.meta : undefined;
+            const details   = {
+                reason,
+                phase     : 'tenant-repo-sync',
+                error     : e.message,
+                reasonCode: code,
+                ...(meta ? {meta} : {})
+            };
 
             taskStateService.markFailed(taskName, null);
-            writeLog?.('ERROR', `[TenantRepoSync] Failed: ${e.message}`);
+            writeLog?.('ERROR', `[TenantRepoSync] Failed: ${code} (${e.message})`);
             healthService?.recordTaskOutcome?.(taskName, 'failed', details);
             return {status: 'failed', details};
         }

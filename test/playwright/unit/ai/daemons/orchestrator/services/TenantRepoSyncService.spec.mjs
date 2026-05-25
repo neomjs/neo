@@ -476,4 +476,38 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             await fs.chmod(readOnlyParent, 0o700);
         }
     });
+
+    test('runTask propagates TenantRepoSyncError code + meta through outer details when syncTenantRepos throws', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+        const logLines         = [];
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/repo-a'});
+
+        const readOnlyParent = path.join(tmpDir, 'ro-parent');
+        await fs.ensureDir(readOnlyParent);
+        await fs.chmod(readOnlyParent, 0o500);
+
+        try {
+            const result = await TenantRepoSyncService.runTask({
+                reason          : 'periodic-sweep:60000',
+                taskStateService,
+                writeLog        : (level, msg) => logLines.push({level, msg}),
+                tenantReposConfig: {tenantRepos: [
+                    {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://example.com/a.git'}
+                ]},
+                gitMirror                    : makeFakeGitMirror(),
+                envelopeBuilder              : makeFakeEnvelopeBuilder(),
+                knowledgeBaseIngestionService: makeFakeIngestionService(),
+                revisionsFilePath            : path.join(readOnlyParent, 'subdir', 'revisions.json')
+            });
+
+            expect(result.status).toBe('failed');
+            expect(result.details.reasonCode).toBe('KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED');
+            expect(result.details.meta?.phase).toBe('manifest-update');
+            expect(result.details.meta?.filePath).toContain('revisions.json');
+            const errLine = logLines.find(l => l.level === 'ERROR' && l.msg.includes('KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED'));
+            expect(errLine).toBeDefined();
+        } finally {
+            await fs.chmod(readOnlyParent, 0o700);
+        }
+    });
 });
