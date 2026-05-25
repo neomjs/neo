@@ -1,7 +1,7 @@
 import {TENANT_REPO_SYNC_TASK_NAME} from '../TaskDefinitions.mjs';
 
 /**
- * Builds the trigger for the cloud-deployable tenant-repo-sync lane (#11790).
+ * Builds the trigger for the cloud-deployable tenant-repo-sync lane.
  * Mirror of `buildPrimaryRepoSyncTrigger` in `./primaryDevSync.mjs` — pure function;
  * no class, no Neo machinery, no side effects.
  *

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * @summary Manual / operator-facing run path for the tenant-repo-sync lane (#11790).
+ * @summary Manual / operator-facing run path for the tenant-repo-sync lane.
  *
  * Forces a single sweep of the cloud-deployable tenant-repo-sync cycle outside the
  * Orchestrator's periodic schedule. Operators run this for: bootstrap (initial

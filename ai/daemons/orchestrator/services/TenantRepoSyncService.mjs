@@ -9,25 +9,25 @@ import {normalizeTenantRepoConfig} from '../../../services/knowledge-base/helper
 const PERSISTED_REVISIONS_FILE_NAME = 'tenant-repo-sync-revisions.json';
 
 /**
- * @summary Cloud-deployable scheduler lane that pulls tenant repos into the deployment KB (#11790).
+ * @summary Cloud-deployable scheduler lane that pulls tenant repos into the deployment KB.
  *
  * Bridges the `tenant-repo-sync` Orchestrator periodic lane (registered via
  * `TaskDefinitions.mjs` `serviceTask: true`) to the per-repo refresh cycle:
  *
  * ```
- *   tenantRepos[] config (normalized via TenantRepoAccessContract / #11787)
+ *   tenantRepos[] config (normalized via TenantRepoAccessContract)
  *     -> per-repo loop
- *          -> GitMirror.cloneIfMissing + GitMirror.fetch (#11788)
- *          -> buildIngestEnvelope({ tenantId, repoSlug, mirrorRoot, lastIngestedRev, ... }) (#11789)
- *          -> KnowledgeBaseIngestionService.ingestSourceFiles(envelope) (existing MVP push-substrate, viaMcp: false)
+ *          -> GitMirror.cloneIfMissing + GitMirror.fetch
+ *          -> buildIngestEnvelope({tenantId, repoSlug, mirrorRoot, lastIngestedRev, ...})
+ *          -> KnowledgeBaseIngestionService.ingestSourceFiles(envelope) (viaMcp: false)
  *          -> persist lastIngestedRev for next cycle
  * ```
  *
- * The MVP push-based path (`ingest_source_files`, `npm run ai:kb-push-client`,
+ * The push-based ingestion path (`ingest_source_files`, `npm run ai:kb-push-client`,
  * `npm run ai:ingest-tenant`) is unchanged. This lane is the additive PULL complement
- * per Epic #11731 + Discussion #11782 Option A. Local-only lanes (`primary-dev-sync`,
- * `kbSync`, `bridgeDaemon`) are unaffected — ADR 0014 §5.2 anti-pattern against
- * re-pointing `kbSync` at tenant content is preserved.
+ * for cloud tenant deployments. Local-only lanes (`primary-dev-sync`, `kbSync`,
+ * `bridgeDaemon`) are unaffected — `kbSync` is never re-pointed at tenant content per
+ * the cloud-deployment lane-classification ADR's separation invariant.
  *
  * Per-repo failure isolation: a failure on one tenantRepo entry does NOT halt the
  * sweep; it is logged + healthService-recorded + the remaining repos continue. The
