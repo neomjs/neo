@@ -82,6 +82,7 @@ const defaultConfig = {
             kbSyncMs         : 30 * 60 * 1000,
             backupMs         : DAY_MS,
             primaryDevSyncMs : 10 * 60 * 1000,
+            tenantRepoSyncMs : 30 * 60 * 1000,
             dreamMs          : HOUR_MS,
             goldenPathMs     : HOUR_MS,
             swarmHeartbeatMs : 15 * 60 * 1000
@@ -124,6 +125,20 @@ const defaultConfig = {
             // Reserved policy placeholder: no runtime consumer yet.
             // `bridgeDaemonEnabled` is the active scheduler gate for desktop wake delivery.
             wakeDispatchEnabled  : null
+        },
+        /**
+         * Cloud-only maintenance lane switches (mirror of `localOnly` with inverted
+         * deployment-default: `null` means "use the deployment-profile default" —
+         * cloud enables, local disables. Set `true` only when explicitly opting a
+         * lane back in for the LOCAL profile (e.g. operator-side smoke testing of
+         * tenant-repo-sync without a cloud-profile container).
+         * @type {Object}
+         */
+        cloudOnly: {
+            // tenant-repo-sync: cloud-deployable per ADR 0014 + #11740. Cloud
+            // profile defaults enabled when tenant repos are configured; local
+            // Neo-maintainer profile defaults disabled unless explicitly opted in.
+            tenantRepoSyncEnabled: null
         },
         /**
          * Optional local Neo repo roots for the primary-dev-sync lane.

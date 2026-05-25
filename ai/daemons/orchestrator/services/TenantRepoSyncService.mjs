@@ -31,8 +31,10 @@ const PERSISTED_REVISIONS_FILE_NAME = 'tenant-repo-sync-revisions.json';
  *
  * Per-repo failure isolation: a failure on one tenantRepo entry does NOT halt the
  * sweep; it is logged + healthService-recorded + the remaining repos continue. The
- * outer task lifecycle reports `completed` only when every repo succeeded; `failed`
- * if any repo failed; `skipped` if no repos were configured.
+ * outer task lifecycle reports `completed` when no repos failed OR at least one repo
+ * succeeded (partial-success contract — per-repo isolation precludes all-or-nothing
+ * semantics); `failed` only when every configured repo failed; `skipped` when no
+ * repos were configured.
  *
  * @class Neo.ai.daemons.services.TenantRepoSyncService
  * @extends Neo.core.Base
