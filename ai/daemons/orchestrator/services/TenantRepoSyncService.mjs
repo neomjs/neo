@@ -148,6 +148,34 @@ class TenantRepoSyncService extends Base {
     }
 
     /**
+     * Rejects non-positive-integer `concurrencyLimit` values. `0` would create a
+     * never-acquirable semaphore; negatives and fractional values produce ambiguous
+     * `active < limit` semantics (1.5 admits two slots, etc.). Invalid values fall
+     * back to the previous valid value, or the template default if no prior value.
+     *
+     * @param {*} value
+     * @param {Number} oldValue
+     * @returns {Number}
+     */
+    beforeSetConcurrencyLimit(value, oldValue) {
+        if (!Number.isInteger(value) || value < 1) return oldValue ?? 2;
+        return value;
+    }
+
+    /**
+     * Rejects non-finite or negative `concurrencyGateTimeoutMs` values. `0` is a
+     * valid sentinel meaning "no timeout — slots wait indefinitely until release".
+     *
+     * @param {*} value
+     * @param {Number} oldValue
+     * @returns {Number}
+     */
+    beforeSetConcurrencyGateTimeoutMs(value, oldValue) {
+        if (!Number.isFinite(value) || value < 0) return oldValue ?? 30000;
+        return value;
+    }
+
+    /**
      * Runs the tenant-repo-sync task under orchestrator state + health envelopes.
      *
      * Error code taxonomy (see `./TenantRepoSyncErrors.mjs`). Operators branch on

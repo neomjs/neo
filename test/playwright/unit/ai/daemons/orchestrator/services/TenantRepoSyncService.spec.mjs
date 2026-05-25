@@ -599,6 +599,43 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(inFlightLog.every(n => n <= 2)).toBe(true);
     });
 
+    test('concurrency-gate: beforeSetConcurrencyLimit rejects invalid values (0/negative/fractional/non-integer) (#11942 AC2)', () => {
+        // Baseline: set to a known valid value.
+        TenantRepoSyncService.concurrencyLimit = 2;
+        expect(TenantRepoSyncService.concurrencyLimit).toBe(2);
+
+        // Invalid values fall back to the previous valid value (2).
+        for (const invalid of [0, -1, 1.5, NaN, Infinity, '3', null, undefined, {}, []]) {
+            TenantRepoSyncService.concurrencyLimit = invalid;
+            expect(TenantRepoSyncService.concurrencyLimit).toBe(2);
+        }
+
+        // Valid integer values are accepted.
+        TenantRepoSyncService.concurrencyLimit = 1;
+        expect(TenantRepoSyncService.concurrencyLimit).toBe(1);
+        TenantRepoSyncService.concurrencyLimit = 10;
+        expect(TenantRepoSyncService.concurrencyLimit).toBe(10);
+    });
+
+    test('concurrency-gate: beforeSetConcurrencyGateTimeoutMs rejects NaN/Infinity/negative; accepts 0 as no-timeout sentinel (#11942 AC2)', () => {
+        TenantRepoSyncService.concurrencyGateTimeoutMs = 30000;
+        expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(30000);
+
+        // Invalid values fall back to the previous valid value.
+        for (const invalid of [-1, -100, NaN, Infinity, -Infinity, '5000', null, undefined]) {
+            TenantRepoSyncService.concurrencyGateTimeoutMs = invalid;
+            expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(30000);
+        }
+
+        // 0 is a valid sentinel (no timeout — slots wait indefinitely).
+        TenantRepoSyncService.concurrencyGateTimeoutMs = 0;
+        expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(0);
+
+        // Positive finite values are accepted.
+        TenantRepoSyncService.concurrencyGateTimeoutMs = 60000;
+        expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(60000);
+    });
+
     test('concurrency-gate: queued slot acquisition surfaces KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT (#11942 AC2)', async () => {
         TenantRepoSyncService.concurrencyLimit         = 1;
         TenantRepoSyncService.concurrencyGateTimeoutMs = 50;
