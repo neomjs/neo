@@ -348,7 +348,26 @@ export class Orchestrator extends Base {
     get kbSyncIntervalMs()        { return Env.parseNumber('NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS')          ?? AiConfig.orchestrator.intervals.kbSyncMs;           }
     get backupIntervalMs()        { return Env.parseNumber('NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS')           ?? AiConfig.orchestrator.intervals.backupMs;           }
     get primaryDevSyncIntervalMs(){ return Env.parseNumber('NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS') ?? AiConfig.orchestrator.intervals.primaryDevSyncMs;   }
+    /**
+     * Per-repo global cadence — the default time between sync attempts for a single
+     * configured tenant repo. Decoupled from the orchestrator-level sweep cadence
+     * (`tenantRepoSyncSweepCadenceMs`) so deterministic jitter can actually spread
+     * per-repo work across the jitter window. Env var name preserved for back-compat.
+     */
     get tenantRepoSyncIntervalMs(){ return Env.parseNumber('NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS') ?? AiConfig.orchestrator.intervals.tenantRepoSyncMs;   }
+    /**
+     * Orchestrator-level sweep cadence — how often `tenant-repo-sync` is invoked.
+     * Short by design (default 1min) so per-repo deterministic jitter spreads
+     * actual sync attempts across the jitter window instead of synchronizing them
+     * onto the sweep boundary.
+     */
+    get tenantRepoSyncSweepCadenceMs(){ return Env.parseNumber('NEO_ORCHESTRATOR_TENANT_REPO_SYNC_SWEEP_CADENCE_MS') ?? AiConfig.orchestrator.tenantRepoSync.sweepCadenceMs; }
+    /**
+     * Per-repo jitter ratio (fraction of base cadence). Defaults to the configured
+     * `aiConfig.orchestrator.tenantRepoSync.jitterRatio`; env-overridable so
+     * deployment-specific tuning doesn't require a config-template edit.
+     */
+    get tenantRepoSyncJitterRatio()  { return Env.parseNumber('NEO_ORCHESTRATOR_TENANT_REPO_SYNC_JITTER_RATIO')   ?? AiConfig.orchestrator.tenantRepoSync.jitterRatio;     }
     get dreamIntervalMs()         { return Env.parseNumber('NEO_ORCHESTRATOR_DREAM_INTERVAL_MS')            ?? AiConfig.orchestrator.intervals.dreamMs;            }
     get goldenPathIntervalMs()    { return Env.parseNumber('NEO_ORCHESTRATOR_GOLDEN_PATH_INTERVAL_MS')      ?? AiConfig.orchestrator.intervals.goldenPathMs;       }
     get swarmHeartbeatIntervalMs(){ return Env.parseNumber('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS')  ?? AiConfig.orchestrator.intervals.swarmHeartbeatMs;   }
@@ -623,7 +642,7 @@ export class Orchestrator extends Base {
             return this.tenantRepoSyncGetDueTask({
                 state     : this.taskStateService.getState(),
                 now,
-                intervalMs: this.tenantRepoSyncIntervalMs,
+                intervalMs: this.tenantRepoSyncSweepCadenceMs,
                 enabled   : this.tenantRepoSyncEnabled
             });
         }, executeMaintenanceTask((taskName, reason) => {
@@ -632,7 +651,9 @@ export class Orchestrator extends Base {
                 reason,
                 taskStateService: this.taskStateService,
                 healthService   : this.healthService,
-                writeLog        : this.writeLog.bind(this)
+                writeLog        : this.writeLog.bind(this),
+                globalCadenceMs : this.tenantRepoSyncIntervalMs,
+                jitterRatio     : this.tenantRepoSyncJitterRatio
             });
         }), context);
 

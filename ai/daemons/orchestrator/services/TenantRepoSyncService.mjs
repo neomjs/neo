@@ -1,10 +1,12 @@
 import fs from 'fs-extra';
 import path from 'node:path';
 import Base from '../../../../src/core/Base.mjs';
+import AiConfig from '../../../config.template.mjs';
 import {DEFAULT_DATA_DIR} from '../TaskDefinitions.mjs';
 import GitMirror from '../../../services/knowledge-base/helpers/GitMirror.mjs';
 import {buildIngestEnvelope} from '../../../services/knowledge-base/helpers/TenantRepoIngestEnvelopeBuilder.mjs';
 import {normalizeTenantRepoConfig} from '../../../services/knowledge-base/helpers/TenantRepoAccessContract.mjs';
+import {isRepoDue} from '../scheduling/tenantRepoSync.mjs';
 import {
     KB_TENANT_REPO_SYNC_SYNC_FAILED,
     KB_TENANT_REPO_SYNC_MANIFEST_UPDATE_FAILED,
@@ -220,7 +222,10 @@ class TenantRepoSyncService extends Base {
         knowledgeBaseIngestionService,
         onlyRepoSlugs,
         revisionsFilePath,
-        envelopeBuilder = buildIngestEnvelope
+        envelopeBuilder = buildIngestEnvelope,
+        globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
+        jitterRatio     = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
+        seedBootstrap   = true
     } = {}) {
         const state = taskStateService.getTaskState(taskName);
 
@@ -236,7 +241,8 @@ class TenantRepoSyncService extends Base {
         try {
             const result = await this.syncTenantRepos({
                 writeLog, tenantReposConfig, aiConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
-                taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder
+                taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder,
+                globalCadenceMs, jitterRatio, seedBootstrap
             });
             const status = result.status;
 
@@ -279,7 +285,10 @@ class TenantRepoSyncService extends Base {
      */
     async syncTenantRepos({
         writeLog, tenantReposConfig, aiConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
-        taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder = buildIngestEnvelope
+        taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder = buildIngestEnvelope,
+        globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
+        jitterRatio     = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
+        seedBootstrap   = true
     }) {
         const resolvedConfig = tenantReposConfig || await this.resolveTenantReposConfig({aiConfig});
         const allRepos       = resolvedConfig.tenantRepos || [];
@@ -327,10 +336,78 @@ class TenantRepoSyncService extends Base {
             timeoutMs: this.concurrencyGateTimeoutMs
         });
 
+        let notDueCount = 0;
+
+        // #11942 AC1 cycle-2 (#11962): bootstrap-spread seeding. Without seeding,
+        // all fresh repos (lastRunAttemptAt=0) become due on the first sweep
+        // regardless of jitter — (now - 0) always exceeds any reasonable cadence.
+        // Seeding `lastRunAttemptAt = now - baseCadenceMs` makes the effective
+        // due-time `now + jitterMs`, so first-sync attempts spread across
+        // `[0, jitterRatio * baseCadenceMs)` per repo. Persisted state survives
+        // orchestrator restarts so HA-failover preserves the spread.
+        // Skipped when `onlyRepoSlugs` is set (manual CLI bypass) or when caller
+        // explicitly opts out via `seedBootstrap: false` (test seam for spec files
+        // that simulate "first cycle fires all repos").
+        let seededAny = false;
+        if (seedBootstrap && !onlyRepoSlugs) {
+            const sweepStartedMs = Date.now();
+            for (const repo of repos) {
+                const repoLabel = `${repo.tenantId}/${repo.repoSlug}`;
+                if (!persistedRevisions[repoLabel]) {
+                    const baseCadenceMs = (Number.isFinite(repo.cadenceMs) && repo.cadenceMs > 0)
+                        ? repo.cadenceMs
+                        : globalCadenceMs;
+                    persistedRevisions[repoLabel] = {
+                        lastIngestedRev    : null,
+                        lastRunAttemptAt   : sweepStartedMs - baseCadenceMs,
+                        consecutiveFailures: 0
+                    };
+                    seededAny = true;
+                    writeLog?.('INFO', `[TenantRepoSync] Bootstrap-seeding ${repoLabel} (sync scheduled within jitter window).`);
+                }
+            }
+            if (seededAny) {
+                await this.writePersistedRevisions({filePath: resolvedRevisionsPath, revisions: persistedRevisions});
+            }
+        }
+
         await Promise.all(repos.map(async (repo) => {
-            const repoLabel = `${repo.tenantId}/${repo.repoSlug}`;
+            const repoLabel    = `${repo.tenantId}/${repo.repoSlug}`;
+            const priorState   = persistedRevisions[repoLabel] || null;
+            const startedMs    = Date.now();
+
+            // #11942 AC1 per-repo due check: deterministic jitter + exponential backoff
+            // applied on top of configured cadence. Manual CLI runs (onlyRepoSlugs filter)
+            // bypass the due-check — operator-initiated sync should always fire for the
+            // requested repos.
+            if (!onlyRepoSlugs) {
+                const dueState = isRepoDue({
+                    repo,
+                    persistedRepoState: priorState,
+                    now               : startedMs,
+                    globalCadenceMs,
+                    jitterRatio
+                });
+
+                if (!dueState.due) {
+                    const nextDueAtMs = (priorState?.lastRunAttemptAt ?? 0) + dueState.effectiveCadenceMs;
+                    notDueCount++;
+                    writeLog?.('INFO', `[TenantRepoSync] ${repoLabel} not yet due (next ~${new Date(nextDueAtMs).toISOString()}, consecutiveFailures=${priorState?.consecutiveFailures ?? 0}, backoffX=${dueState.backoffMultiplier}).`);
+                    repoStates.push({
+                        tenantId           : repo.tenantId,
+                        repoSlug           : repo.repoSlug,
+                        lastIngestedRev    : priorState?.lastIngestedRev ? priorState.lastIngestedRev.slice(0, 8) : null,
+                        lastSyncAt         : priorState?.lastRunAttemptAt ? new Date(priorState.lastRunAttemptAt).toISOString() : null,
+                        status             : 'not-due',
+                        nextDueAt          : new Date(nextDueAtMs).toISOString(),
+                        effectiveCadenceMs : dueState.effectiveCadenceMs,
+                        consecutiveFailures: priorState?.consecutiveFailures ?? 0
+                    });
+                    return; // skip semaphore + work entirely
+                }
+            }
+
             let slotAcquired = false;
-            const startedMs = Date.now();
             try {
                 await semaphore.acquire();
                 slotAcquired = true;
@@ -354,7 +431,7 @@ class TenantRepoSyncService extends Base {
                     tenantId        : repo.tenantId,
                     repoSlug        : repo.repoSlug,
                     mirrorRoot      : repo.mirrorRoot,
-                    lastIngestedRev : persistedRevisions[repoLabel] || null,
+                    lastIngestedRev : priorState?.lastIngestedRev || null,
                     rootKind        : repo.rootKind || 'external-source',
                     parserId        : repo.parserId,
                     parserVersion   : repo.parserVersion,
@@ -366,11 +443,15 @@ class TenantRepoSyncService extends Base {
                     viaMcp: false // operator-bulk path
                 });
 
-                // Persist headRevision only on successful ingest. Bootstrap envelopes
-                // omit baseRevision but always carry headRevision.
-                if (envelope.headRevision) {
-                    persistedRevisions[repoLabel] = envelope.headRevision;
-                }
+                // #11942 AC1: persist full per-repo state on success. Reset consecutiveFailures
+                // to 0 (backoff is the multiplier-component of effectiveCadence; reset on
+                // successful sync per ticket prescription). lastRunAttemptAt advances to
+                // startedMs so subsequent due-checks measure from the actual attempt.
+                persistedRevisions[repoLabel] = {
+                    lastIngestedRev    : envelope.headRevision || priorState?.lastIngestedRev || null,
+                    lastRunAttemptAt   : startedMs,
+                    consecutiveFailures: 0
+                };
 
                 const durationMs = Date.now() - startedMs;
                 const shortHead  = envelope.headRevision ? envelope.headRevision.slice(0, 8) : null;
@@ -400,21 +481,35 @@ class TenantRepoSyncService extends Base {
             } catch (e) {
                 const code = isTenantRepoSyncErrorCode(e.code) ? e.code : KB_TENANT_REPO_SYNC_SYNC_FAILED;
                 writeLog?.('ERROR', `[TenantRepoSync] ${repoLabel} failed: ${code} (${e.message})`);
+
+                // #11942 AC1: increment consecutiveFailures on failure; preserve last good
+                // ingested revision so the next successful run starts from the correct base.
+                // lastRunAttemptAt advances even on failure (backoff measures from attempt
+                // start, not last-success).
+                const nextFailureCount = (priorState?.consecutiveFailures ?? 0) + 1;
+                persistedRevisions[repoLabel] = {
+                    lastIngestedRev    : priorState?.lastIngestedRev || null,
+                    lastRunAttemptAt   : startedMs,
+                    consecutiveFailures: nextFailureCount
+                };
+
                 repoStates.push({
-                    tenantId       : repo.tenantId,
-                    repoSlug       : repo.repoSlug,
-                    lastIngestedRev: persistedRevisions[repoLabel] ? persistedRevisions[repoLabel].slice(0, 8) : null,
-                    lastSyncAt     : new Date().toISOString(),
-                    status         : 'degraded', // quarantined disposition tracked in #11942 (per-repo backoff state)
-                    lastErrorCode  : code
+                    tenantId           : repo.tenantId,
+                    repoSlug           : repo.repoSlug,
+                    lastIngestedRev    : priorState?.lastIngestedRev ? priorState.lastIngestedRev.slice(0, 8) : null,
+                    lastSyncAt         : new Date().toISOString(),
+                    status             : 'degraded',
+                    lastErrorCode      : code,
+                    consecutiveFailures: nextFailureCount
                 });
                 failedCount++;
                 healthService?.recordTaskOutcome?.(taskName, 'failed', {
-                    repo    : repoLabel,
-                    tenantId: repo.tenantId,
-                    repoSlug: repo.repoSlug,
-                    error   : e.message,
-                    code
+                    repo               : repoLabel,
+                    tenantId           : repo.tenantId,
+                    repoSlug           : repo.repoSlug,
+                    error              : e.message,
+                    code,
+                    consecutiveFailures: nextFailureCount
                 });
                 // Continue with remaining repos — failure isolation per ticket prescription.
             } finally {
@@ -424,9 +519,16 @@ class TenantRepoSyncService extends Base {
 
         await this.writePersistedRevisions({filePath: resolvedRevisionsPath, revisions: persistedRevisions});
 
-        const status = failedCount === 0 ? 'completed' : (completedCount > 0 ? 'completed' : 'failed');
+        // Status logic: not-due repos don't change the success/failure tally — a cycle
+        // where ALL repos were not-due is still 'completed' (the cycle ran successfully;
+        // each repo's decision was honored). 'failed' only when actual work failed and no
+        // actual work succeeded.
+        const attemptedCount = completedCount + failedCount;
+        const status = attemptedCount === 0
+            ? 'completed' // all repos were not-due; cycle ran cleanly
+            : (failedCount === 0 ? 'completed' : (completedCount > 0 ? 'completed' : 'failed'));
 
-        writeLog?.('INFO', `[TenantRepoSync] Cycle summary: ${repos.length} repos, ${completedCount} completed, ${failedCount} failed.`);
+        writeLog?.('INFO', `[TenantRepoSync] Cycle summary: ${repos.length} repos, ${completedCount} completed, ${failedCount} failed, ${notDueCount} not-due.`);
 
         return {
             status,
@@ -434,6 +536,7 @@ class TenantRepoSyncService extends Base {
                 repoCount   : repos.length,
                 completedCount,
                 failedCount,
+                notDueCount,
                 repos       : repoStates
             }
         };
@@ -476,11 +579,26 @@ class TenantRepoSyncService extends Base {
     }
 
     /**
-     * Reads the per-tenant-repo lastIngestedRev map. Missing file = empty map (bootstrap).
+     * Reads the per-tenant-repo persisted state map. Missing file = empty map (bootstrap).
+     *
+     * Per-repo state shape (post-#11942 AC1):
+     * ```
+     * {
+     *   lastIngestedRev    : '<sha>',
+     *   lastRunAttemptAt   : <ms-epoch>,
+     *   consecutiveFailures: <int>
+     * }
+     * ```
+     *
+     * Backward-compatible read: pre-AC1 persistence stored bare SHA strings under
+     * `revisions[label]`. On read, string-shaped entries are auto-migrated to the
+     * full object shape (lastIngestedRev = old-string; lastRunAttemptAt = 0;
+     * consecutiveFailures = 0). Next write persists the new shape, completing the
+     * migration in-place.
      *
      * @param {Object} options
      * @param {String} options.filePath
-     * @returns {Promise<Object<String, String>>} `{ '<tenantId>/<repoSlug>': '<sha>' }`.
+     * @returns {Promise<Object<String, {lastIngestedRev: String, lastRunAttemptAt: Number, consecutiveFailures: Number}>>}
      */
     async readPersistedRevisions({filePath}) {
         if (!await fs.pathExists(filePath)) {
@@ -488,7 +606,26 @@ class TenantRepoSyncService extends Base {
         }
         try {
             const data = await fs.readJson(filePath);
-            return (data && typeof data === 'object' && data.revisions) ? {...data.revisions} : {};
+            if (!data || typeof data !== 'object' || !data.revisions) return {};
+
+            const normalized = {};
+            for (const [label, value] of Object.entries(data.revisions)) {
+                if (typeof value === 'string') {
+                    // Pre-AC1 shape: bare SHA string. Migrate to full state shape on read.
+                    normalized[label] = {
+                        lastIngestedRev    : value,
+                        lastRunAttemptAt   : 0,
+                        consecutiveFailures: 0
+                    };
+                } else if (value && typeof value === 'object') {
+                    normalized[label] = {
+                        lastIngestedRev    : value.lastIngestedRev || null,
+                        lastRunAttemptAt   : Number.isFinite(value.lastRunAttemptAt) ? value.lastRunAttemptAt : 0,
+                        consecutiveFailures: Number.isFinite(value.consecutiveFailures) ? value.consecutiveFailures : 0
+                    };
+                }
+            }
+            return normalized;
         } catch {
             return {};
         }

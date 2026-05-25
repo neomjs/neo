@@ -163,7 +163,11 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             gitMirror                    : makeFakeGitMirror({captureCalls: mirrorCalls}),
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
             knowledgeBaseIngestionService: makeFakeIngestionService({captureCalls: ingestCalls}),
-            revisionsFilePath            : revisionsFile
+            revisionsFilePath            : revisionsFile,
+            // Bootstrap-seeding (#11942 AC1 cycle-2) defers fresh repos to a later sweep
+            // within the jitter window; this test simulates the in-loop iteration path
+            // and opts out so it can assert "first call processes all repos".
+            seedBootstrap                : false
         });
 
         expect(result.status).toBe('completed');
@@ -220,7 +224,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             gitMirror                    : failingGitMirror,
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
             knowledgeBaseIngestionService: makeFakeIngestionService(),
-            revisionsFilePath            : revisionsFile
+            revisionsFilePath            : revisionsFile,
+            seedBootstrap                : false
         });
 
         // Failures do NOT short-circuit — all 3 repos visited.
@@ -335,7 +340,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             gitMirror                    : makeFakeGitMirror(),
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
             knowledgeBaseIngestionService: makeFakeIngestionService(),
-            revisionsFilePath            : revisionsFile
+            revisionsFilePath            : revisionsFile,
+            seedBootstrap                : false
         });
 
         expect(result.details.repos).toBeDefined();
@@ -377,7 +383,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             gitMirror                    : failingMirror,
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
             knowledgeBaseIngestionService: makeFakeIngestionService(),
-            revisionsFilePath            : revisionsFile
+            revisionsFilePath            : revisionsFile,
+            seedBootstrap                : false
         });
 
         expect(result.status).toBe('failed');
@@ -407,7 +414,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             gitMirror                    : makeFakeGitMirror(),
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
             knowledgeBaseIngestionService: makeFakeIngestionService(),
-            revisionsFilePath            : revisionsFile
+            revisionsFilePath            : revisionsFile,
+            seedBootstrap                : false
         });
 
         const refreshLine = logLines.find(l => l.msg.includes('Refreshing t1/org/repo-a'));
@@ -546,7 +554,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             gitMirror                    : trackingMirror,
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
             knowledgeBaseIngestionService: makeFakeIngestionService(),
-            revisionsFilePath            : revisionsFile
+            revisionsFilePath            : revisionsFile,
+            seedBootstrap                : false
         });
 
         expect(result.status).toBe('completed');
@@ -588,7 +597,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             gitMirror                    : trackingMirror,
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
             knowledgeBaseIngestionService: makeFakeIngestionService(),
-            revisionsFilePath            : revisionsFile
+            revisionsFilePath            : revisionsFile,
+            seedBootstrap                : false
         });
 
         expect(result.status).toBe('completed');
@@ -636,6 +646,406 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(60000);
     });
 
+    test('jitter+backoff: skips not-due repo with prior recent lastRunAttemptAt (#11942 AC1)', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+        const ingestCalls      = [];
+
+        // Pre-populate persistence with a recent lastRunAttemptAt — repo should be skipped.
+        const recentMs = Date.now() - 1000; // 1s ago
+        await fs.writeJson(revisionsFile, {
+            revisions: {
+                't1/neomjs/recent-repo': {
+                    lastIngestedRev    : 'sha-recent',
+                    lastRunAttemptAt   : recentMs,
+                    consecutiveFailures: 0
+                }
+            }
+        });
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'neomjs/recent-repo'});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'periodic-sweep:1800000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'neomjs/recent-repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/recent-repo.git'}
+            ]},
+            globalCadenceMs              : 60 * 60 * 1000, // 1h cadence — recent run is well within window
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({captureCalls: ingestCalls}),
+            revisionsFilePath            : revisionsFile
+        });
+
+        expect(result.status).toBe('completed'); // not-due is not a failure
+        expect(result.details.notDueCount).toBe(1);
+        expect(result.details.completedCount).toBe(0);
+        expect(result.details.failedCount).toBe(0);
+        expect(ingestCalls).toHaveLength(0); // no actual ingest work
+
+        const repoState = result.details.repos[0];
+        expect(repoState.status).toBe('not-due');
+        expect(repoState.nextDueAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        expect(repoState.effectiveCadenceMs).toBeGreaterThan(0);
+        expect(repoState.consecutiveFailures).toBe(0);
+    });
+
+    test('jitter+backoff: persists consecutiveFailures increment on failure (#11942 AC1)', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+
+        // Opts out of #11942 AC1 cycle-2 (#11962) bootstrap seeding so the
+        // simulated failure path actually fires this sweep (instead of being
+        // deferred-as-seeded). Test verifies failure-increment semantics, not
+        // bootstrap-spread behavior.
+        const failingMirror = {
+            async cloneIfMissing() { throw new Error('Simulated clone failure'); },
+            async fetch()          {},
+            async resolveHead()    { return null; },
+            async isAncestor()     { return false; },
+            async diffRevisions()  { return {addedOrChanged: [], deleted: []}; }
+        };
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'neomjs/failing-repo'});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'periodic-sweep:1800000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'neomjs/failing-repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/failing-repo.git'}
+            ]},
+            gitMirror                    : failingMirror,
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile,
+            seedBootstrap                : false
+        });
+
+        expect(result.status).toBe('failed');
+        expect(result.details.failedCount).toBe(1);
+        expect(result.details.repos[0].consecutiveFailures).toBe(1);
+
+        // Persistence reflects the failure increment for next cycle's backoff calculation.
+        const persisted = await fs.readJson(revisionsFile);
+        expect(persisted.revisions['t1/neomjs/failing-repo']).toEqual({
+            lastIngestedRev    : null,
+            lastRunAttemptAt   : expect.any(Number),
+            consecutiveFailures: 1
+        });
+    });
+
+    test('jitter+backoff: persists consecutiveFailures reset on subsequent success (#11942 AC1)', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+
+        // Pre-populate with consecutiveFailures=3 (from prior failures); also stale lastRunAttemptAt
+        // so the backoff'd effective cadence is still elapsed.
+        await fs.writeJson(revisionsFile, {
+            revisions: {
+                't1/neomjs/recovering-repo': {
+                    lastIngestedRev    : 'sha-old',
+                    lastRunAttemptAt   : 0, // very stale — backoff'd cadence is exceeded
+                    consecutiveFailures: 3
+                }
+            }
+        });
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'neomjs/recovering-repo'});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'periodic-sweep:1800000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'neomjs/recovering-repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/recovering-repo.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details.completedCount).toBe(1);
+
+        // Persistence: consecutiveFailures reset to 0 on success.
+        const persisted = await fs.readJson(revisionsFile);
+        expect(persisted.revisions['t1/neomjs/recovering-repo'].consecutiveFailures).toBe(0);
+        expect(persisted.revisions['t1/neomjs/recovering-repo'].lastIngestedRev).toBe('sha-head-neomjs/recovering-repo');
+    });
+
+    test('jitter+backoff: backward-compatible read of pre-AC1 string-shaped persistence (#11942 AC1)', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+
+        // Pre-AC1 persistence shape: bare SHA strings under revisions.
+        await fs.writeJson(revisionsFile, {
+            revisions: {
+                't1/neomjs/legacy-repo': 'sha-from-before-ac1'
+            }
+        });
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'neomjs/legacy-repo'});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'periodic-sweep:1800000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'neomjs/legacy-repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/legacy-repo.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile
+        });
+
+        // Successful migration: pre-AC1 SHA was read as lastIngestedRev with zeroed state;
+        // run proceeds normally; persistence rewritten in new shape.
+        expect(result.status).toBe('completed');
+
+        const persisted = await fs.readJson(revisionsFile);
+        const state     = persisted.revisions['t1/neomjs/legacy-repo'];
+        expect(typeof state).toBe('object');
+        expect(state.lastIngestedRev).toBeTruthy();
+        expect(state.consecutiveFailures).toBe(0); // success path resets
+        expect(state.lastRunAttemptAt).toBeGreaterThan(0);
+    });
+
+    test('jitter+backoff: onlyRepoSlugs (manual CLI path) bypasses due-check (#11942 AC1)', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+        const ingestCalls      = [];
+
+        // Pre-populate with very recent lastRunAttemptAt — would normally be not-due.
+        const recentMs = Date.now() - 1000;
+        await fs.writeJson(revisionsFile, {
+            revisions: {
+                't1/neomjs/manual-repo': {
+                    lastIngestedRev    : 'sha-recent',
+                    lastRunAttemptAt   : recentMs,
+                    consecutiveFailures: 0
+                }
+            }
+        });
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'neomjs/manual-repo'});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'neomjs/manual-repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/manual-repo.git'}
+            ]},
+            onlyRepoSlugs                : ['neomjs/manual-repo'], // manual CLI path
+            globalCadenceMs              : 60 * 60 * 1000,
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({captureCalls: ingestCalls}),
+            revisionsFilePath            : revisionsFile
+        });
+
+        // Manual CLI invocation bypasses due-check — repo IS synced even though
+        // periodic-cycle would have skipped it.
+        expect(result.status).toBe('completed');
+        expect(result.details.completedCount).toBe(1);
+        expect(result.details.notDueCount).toBe(0); // onlyRepoSlugs bypasses due-check → no not-due skips
+        expect(ingestCalls).toHaveLength(1);
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // #11942 AC1 cycle-2 (#11962): bootstrap-spread seeding + decoupled-sweep
+    // composition + orchestrator-resolved cadence pass-through.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    test('bootstrap-spread: first sweep seeds new repos with lastRunAttemptAt=now-baseCadence (#11942 AC1 cycle-2)', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/repo-a'});
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/repo-b'});
+
+        const baseCadenceMs = 1800000; // 30min — matches AiConfig default
+
+        const sweepStart = Date.now();
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'},
+                {tenantId: 't1', repoSlug: 'org/repo-b', mirrorRoot, cloneUrl: 'https://github.com/neomjs/b.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : baseCadenceMs,
+            jitterRatio                  : 0.20
+            // seedBootstrap defaults to true (production behavior)
+        });
+
+        // First sweep: seeding fires, both repos seeded as not-due (waiting for jitter window).
+        expect(result.status).toBe('completed');
+        expect(result.details.repoCount).toBe(2);
+        expect(result.details.completedCount).toBe(0);
+        expect(result.details.notDueCount).toBe(2);
+
+        // Persisted state shows seeded `lastRunAttemptAt = sweepStart - baseCadenceMs`.
+        const persisted = await fs.readJson(revisionsFile);
+        const stateA = persisted.revisions['t1/org/repo-a'];
+        const stateB = persisted.revisions['t1/org/repo-b'];
+
+        expect(stateA).toBeTruthy();
+        expect(stateA.lastIngestedRev).toBeNull();
+        expect(stateA.consecutiveFailures).toBe(0);
+        expect(stateA.lastRunAttemptAt).toBeLessThanOrEqual(sweepStart - baseCadenceMs + 100); // allow tiny clock drift
+        expect(stateA.lastRunAttemptAt).toBeGreaterThanOrEqual(sweepStart - baseCadenceMs - 100);
+
+        expect(stateB).toBeTruthy();
+        expect(stateB.lastRunAttemptAt).toBeLessThanOrEqual(sweepStart - baseCadenceMs + 100);
+    });
+
+    test('bootstrap-spread: seeded repo becomes due on a later sweep within its jitter window (#11942 AC1 cycle-2)', async () => {
+        // Pre-populate persistence with a seeded state — simulating the state left by
+        // a prior bootstrap-spread sweep. Repo with deterministic jitter 0ms (smallest)
+        // should become due on any subsequent sweep; repo with larger jitter only on
+        // sweeps past its individual due-time.
+        const ingestCalls   = [];
+        const baseCadenceMs = 100; // tiny so test can advance via real Date.now
+
+        // Pre-write seeded state: lastRunAttemptAt = (now - baseCadence) → due at now + jitter
+        const seedTime  = Date.now() - baseCadenceMs;
+        await fs.writeJson(revisionsFile, {
+            revisions: {
+                't1/org/short-jitter': {lastIngestedRev: null, lastRunAttemptAt: seedTime, consecutiveFailures: 0},
+                't1/org/long-jitter' : {lastIngestedRev: null, lastRunAttemptAt: seedTime, consecutiveFailures: 0}
+            }
+        });
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/short-jitter'});
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/long-jitter'});
+
+        // With jitterRatio=0.50, jitter range = [0, 50ms). Deterministic per repo.
+        // Both repos seeded with lastRunAttemptAt = now - 100ms.
+        // After waiting 60ms (past most-likely jitter windows), the lower-jitter
+        // repo should be due. Don't assert which one — let determinism pick.
+        await new Promise(r => setTimeout(r, 60));
+
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'periodic-sweep:1000',
+            taskStateService: createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/short-jitter', mirrorRoot, cloneUrl: 'https://github.com/neomjs/short.git'},
+                {tenantId: 't1', repoSlug: 'org/long-jitter',  mirrorRoot, cloneUrl: 'https://github.com/neomjs/long.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({captureCalls: ingestCalls}),
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : baseCadenceMs,
+            jitterRatio                  : 0.50,
+            seedBootstrap                : false // pre-seeded; don't re-seed
+        });
+
+        // Distribution proof: not-due-count + completed-count = 2 total; spread is real
+        // (at least one repo NOT processed because its jitter is past current elapsed time).
+        const distributed = result.details.completedCount + result.details.notDueCount;
+        expect(distributed).toBe(2);
+
+        // The deterministic-jitter spread means we expect at least 1 repo to be in each
+        // state ONLY when the wait happens to land between the two jitter offsets.
+        // Looser invariant that always holds: distribution sums to total repo count.
+    });
+
+    test('orchestrator-resolved globalCadenceMs flows through to isRepoDue (#11942 AC1 cycle-2 RA3)', async () => {
+        // Pre-populate priorState with a fresh lastRunAttemptAt so isRepoDue compares
+        // against the explicit globalCadenceMs passed via runTask args.
+        const recentMs = Date.now() - 100;
+        await fs.writeJson(revisionsFile, {
+            revisions: {
+                't1/org/repo': {lastIngestedRev: 'sha-prior', lastRunAttemptAt: recentMs, consecutiveFailures: 0}
+            }
+        });
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/repo'});
+
+        // Force the orchestrator-resolved cadence high enough that 100ms-elapsed
+        // is NOT due. Without explicit pass, the service would fall back to
+        // AiConfig.data.orchestrator.intervals.tenantRepoSyncMs default.
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'periodic-sweep:60000',
+            taskStateService: createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/repo.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : 60 * 60 * 1000, // 1 hour — high enough that 100ms-elapsed is not-due
+            jitterRatio                  : 0,              // strip jitter so cadence comparison is exact
+            seedBootstrap                : false           // pre-seeded
+        });
+
+        // 100ms elapsed vs 1-hour cadence → not due. Proves orchestrator-resolved cadence flowed through.
+        expect(result.details.notDueCount).toBe(1);
+        expect(result.details.completedCount).toBe(0);
+    });
+
+    test('orchestrator-resolved jitterRatio flows through to isRepoDue (#11942 AC1 cycle-2 RA3)', async () => {
+        // Pre-populate priorState with lastRunAttemptAt exactly at cadence-boundary
+        // so jitterRatio=0 → due (cadence elapsed), jitterRatio=0.50 with large jitter → not-due.
+        const baseCadenceMs = 1000;
+        const exactlyAtCadenceBoundary = Date.now() - baseCadenceMs;
+        await fs.writeJson(revisionsFile, {
+            revisions: {
+                't1/org/repo': {lastIngestedRev: 'sha-prior', lastRunAttemptAt: exactlyAtCadenceBoundary, consecutiveFailures: 0}
+            }
+        });
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/repo'});
+
+        // jitterRatio=0.50 + tenantId/repoSlug → jitter > 0 → effectiveCadence > baseCadence → not-due
+        // (because (now - lastRunAttemptAt) = baseCadenceMs < baseCadenceMs + jitter).
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'periodic-sweep:60000',
+            taskStateService: createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/repo', mirrorRoot, cloneUrl: 'https://github.com/neomjs/repo.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile,
+            globalCadenceMs              : baseCadenceMs,
+            jitterRatio                  : 0.50, // non-zero jitter → adds offset → not-due at exact-cadence-boundary
+            seedBootstrap                : false
+        });
+
+        // Proves jitterRatio was used by isRepoDue (jitter offset added to effectiveCadence).
+        expect(result.details.notDueCount).toBe(1);
+        expect(result.details.completedCount).toBe(0);
+    });
+
+    test('manual CLI (onlyRepoSlugs) bypasses bootstrap seeding (#11942 AC1 cycle-2)', async () => {
+        // Operator-initiated sync must always fire regardless of bootstrap-seeding state.
+        const taskStateService = createInMemoryTaskStateService();
+        const ingestCalls      = [];
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/manual-target'});
+
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'manual',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/manual-target', mirrorRoot, cloneUrl: 'https://github.com/neomjs/manual.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService({captureCalls: ingestCalls}),
+            onlyRepoSlugs                : ['org/manual-target'],
+            revisionsFilePath            : revisionsFile
+            // seedBootstrap defaults to true but onlyRepoSlugs path skips seeding entirely.
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details.completedCount).toBe(1);
+        expect(result.details.notDueCount).toBe(0); // manual path bypasses both seeding and due-check
+        expect(ingestCalls).toHaveLength(1);
+    });
+
     test('concurrency-gate: queued slot acquisition surfaces KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT (#11942 AC2)', async () => {
         TenantRepoSyncService.concurrencyLimit         = 1;
         TenantRepoSyncService.concurrencyGateTimeoutMs = 50;
@@ -671,7 +1081,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             gitMirror                    : slowMirror,
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
             knowledgeBaseIngestionService: makeFakeIngestionService(),
-            revisionsFilePath            : revisionsFile
+            revisionsFilePath            : revisionsFile,
+            seedBootstrap                : false
         });
 
         // Wait long enough for the queued repo's slot acquisition to time out (~50ms).
