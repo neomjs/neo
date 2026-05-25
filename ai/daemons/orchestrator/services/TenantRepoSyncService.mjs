@@ -224,7 +224,8 @@ class TenantRepoSyncService extends Base {
         revisionsFilePath,
         envelopeBuilder = buildIngestEnvelope,
         globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
-        jitterRatio     = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio
+        jitterRatio     = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
+        seedBootstrap   = true
     } = {}) {
         const state = taskStateService.getTaskState(taskName);
 
@@ -241,7 +242,7 @@ class TenantRepoSyncService extends Base {
             const result = await this.syncTenantRepos({
                 writeLog, tenantReposConfig, aiConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
                 taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder,
-                globalCadenceMs, jitterRatio
+                globalCadenceMs, jitterRatio, seedBootstrap
             });
             const status = result.status;
 
@@ -286,7 +287,8 @@ class TenantRepoSyncService extends Base {
         writeLog, tenantReposConfig, aiConfig, gitMirror, knowledgeBaseIngestionService, onlyRepoSlugs,
         taskStateService, healthService, taskName, revisionsFilePath, envelopeBuilder = buildIngestEnvelope,
         globalCadenceMs = AiConfig.data.orchestrator.intervals.tenantRepoSyncMs,
-        jitterRatio     = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio
+        jitterRatio     = AiConfig.data.orchestrator.tenantRepoSync.jitterRatio,
+        seedBootstrap   = true
     }) {
         const resolvedConfig = tenantReposConfig || await this.resolveTenantReposConfig({aiConfig});
         const allRepos       = resolvedConfig.tenantRepos || [];
@@ -335,6 +337,39 @@ class TenantRepoSyncService extends Base {
         });
 
         let notDueCount = 0;
+
+        // #11942 AC1 cycle-2 (#11962): bootstrap-spread seeding. Without seeding,
+        // all fresh repos (lastRunAttemptAt=0) become due on the first sweep
+        // regardless of jitter — (now - 0) always exceeds any reasonable cadence.
+        // Seeding `lastRunAttemptAt = now - baseCadenceMs` makes the effective
+        // due-time `now + jitterMs`, so first-sync attempts spread across
+        // `[0, jitterRatio * baseCadenceMs)` per repo. Persisted state survives
+        // orchestrator restarts so HA-failover preserves the spread.
+        // Skipped when `onlyRepoSlugs` is set (manual CLI bypass) or when caller
+        // explicitly opts out via `seedBootstrap: false` (test seam for spec files
+        // that simulate "first cycle fires all repos").
+        let seededAny = false;
+        if (seedBootstrap && !onlyRepoSlugs) {
+            const sweepStartedMs = Date.now();
+            for (const repo of repos) {
+                const repoLabel = `${repo.tenantId}/${repo.repoSlug}`;
+                if (!persistedRevisions[repoLabel]) {
+                    const baseCadenceMs = (Number.isFinite(repo.cadenceMs) && repo.cadenceMs > 0)
+                        ? repo.cadenceMs
+                        : globalCadenceMs;
+                    persistedRevisions[repoLabel] = {
+                        lastIngestedRev    : null,
+                        lastRunAttemptAt   : sweepStartedMs - baseCadenceMs,
+                        consecutiveFailures: 0
+                    };
+                    seededAny = true;
+                    writeLog?.('INFO', `[TenantRepoSync] Bootstrap-seeding ${repoLabel} (sync scheduled within jitter window).`);
+                }
+            }
+            if (seededAny) {
+                await this.writePersistedRevisions({filePath: resolvedRevisionsPath, revisions: persistedRevisions});
+            }
+        }
 
         await Promise.all(repos.map(async (repo) => {
             const repoLabel    = `${repo.tenantId}/${repo.repoSlug}`;

@@ -157,11 +157,18 @@ const defaultConfig = {
          *   of the base cadence. Default `0.20` (≤20% of cadence per AC1 prescription).
          *   Set `0` to disable jitter entirely (deterministic-cadence-only, no anti-
          *   thundering-herd protection — only safe for low-tenant deployments).
+         * - `sweepCadenceMs` is the frequency at which the orchestrator wakes the
+         *   tenant-repo-sync task. Decoupled from per-repo cadence (`intervals.tenantRepoSyncMs`)
+         *   so deterministic jitter can actually spread per-repo sync attempts across
+         *   the jitter window. A short sweep cadence + a long per-repo cadence means
+         *   each sweep checks all repos against their individual due-times; repos
+         *   become due at different sweeps based on their deterministic jitter offset.
          *
          * @type {Object}
          */
         tenantRepoSync: {
-            jitterRatio: 0.20
+            jitterRatio   : 0.20,
+            sweepCadenceMs: 60 * 1000
         },
         /**
          * Orchestrator-owned MLX inference server config. Operators tune via gitignored
