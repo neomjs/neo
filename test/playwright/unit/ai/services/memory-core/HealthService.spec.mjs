@@ -716,7 +716,7 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/services/memory-core/HealthService.mjs');
         buildWakeFeaturesBlock      = mod.buildWakeFeaturesBlock;
-        buildWakeTargetConfigBlock = mod.buildWakeTargetConfigBlock;
+        buildWakeTargetConfigBlock = mod.default.constructor.buildWakeTargetConfigBlock.bind(mod.default.constructor);
 
         const os   = await import('os');
         const path = await import('path');
@@ -763,7 +763,7 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
         }
     });
 
-    test('target config defaults to self-only and marks Codex ineligible', () => {
+    test('target config defaults to self-only without asserting identity eligibility', () => {
         const result = buildWakeTargetConfigBlock(
             {orchestrator: {swarmHeartbeat: {targetSource: null}}},
             {}
@@ -773,12 +773,11 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
             targetSource                  : 'self',
             targetMode                    : 'self',
             explicitTargets               : [],
-            selfIdentity                  : null,
-            codexEligibleByTargetConfig   : false
+            selfIdentity                  : null
         });
     });
 
-    test('active-subscribers target source marks Codex eligible for subscription-aware pulses', () => {
+    test('active-subscribers target source surfaces subscription-aware mode only', () => {
         const result = buildWakeTargetConfigBlock(
             {orchestrator: {swarmHeartbeat: {targetSource: null}}},
             {
@@ -791,12 +790,11 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
             targetSource               : 'active-subscribers',
             targetMode                 : 'active-subscribers',
             explicitTargets            : [],
-            selfIdentity               : '@neo-opus-4-7',
-            codexEligibleByTargetConfig: true
+            selfIdentity               : '@neo-opus-4-7'
         });
     });
 
-    test('explicit targets normalize handles and mark Codex eligible', () => {
+    test('explicit targets normalize handles without hard-coded identity readiness', () => {
         const result = buildWakeTargetConfigBlock(
             {orchestrator: {swarmHeartbeat: {targetSource: 'self'}}},
             {
@@ -809,8 +807,7 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
             targetSource               : 'self',
             targetMode                 : 'explicit-targets',
             explicitTargets            : ['@neo-gpt', '@neo-opus-4-7'],
-            selfIdentity               : '@neo-opus-4-7',
-            codexEligibleByTargetConfig: true
+            selfIdentity               : '@neo-opus-4-7'
         });
     });
 
@@ -957,8 +954,7 @@ test.describe('HealthService #10783 — buildWakeFeaturesBlock', () => {
             targetSource         : 'self',
             targetMode           : 'self',
             explicitTargets      : [],
-            selfIdentity         : null,
-            codexEligibleByTargetConfig: false
+            selfIdentity         : null
         });
     });
 
