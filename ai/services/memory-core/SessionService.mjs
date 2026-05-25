@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import GraphService from './GraphService.mjs';
 import OpenAiCompatibleProvider from '../../provider/OpenAiCompatible.mjs';
 import OllamaProvider           from '../../provider/Ollama.mjs';
+import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoots.mjs';
 
 /**
  * @summary Builds the chat-completion model wrapper for the configured `modelProvider`.
@@ -160,6 +161,59 @@ class SessionService extends Base {
          * @protected
          */
         singleton: true
+    }
+
+    static identityTrustTiers = new Map(IDENTITIES.map(identity => [identity.id, identity.properties?.trustTier || TRUST_TIERS.UNCLASSIFIED]))
+
+    static trustTierRanks = new Map(TRUST_TIER_ORDER.map((tier, index) => [tier, index]))
+
+    /**
+     * @summary Resolves source-memory provenance for a derived session summary.
+     *
+     * A session summary is derived content: it must retain the most restrictive trust tier of
+     * its source memories so the summarizer cannot launder lower-trust material into its own
+     * higher-trust identity. Unknown or pre-provenance memories therefore collapse to
+     * `unclassified`.
+     *
+     * @param {Object[]} [metadatas=[]] Source memory metadata rows.
+     * @returns {{sourceAgentIdentities: String[], sourceTrustTier: String, unclassifiedSourceCount: Number}}
+     */
+    static resolveSummarySourceProvenance(metadatas = []) {
+        const sourceAgentIdentities = new Set();
+        let sourceTrustTier         = null,
+            unclassifiedSourceCount = 0;
+
+        for (const metadata of metadatas || []) {
+            const agentIdentity = typeof metadata?.agentIdentity === 'string' && metadata.agentIdentity
+                ? metadata.agentIdentity
+                : null;
+            const knownTrustTier = agentIdentity ? this.identityTrustTiers.get(agentIdentity) : null;
+            const trustTier = agentIdentity
+                ? (knownTrustTier || TRUST_TIERS.UNCLASSIFIED)
+                : TRUST_TIERS.UNCLASSIFIED;
+
+            if (agentIdentity) {
+                sourceAgentIdentities.add(agentIdentity);
+            }
+
+            if (!knownTrustTier) {
+                unclassifiedSourceCount++;
+            }
+
+            if (
+                sourceTrustTier === null ||
+                (this.trustTierRanks.get(trustTier) ?? this.trustTierRanks.get(TRUST_TIERS.UNCLASSIFIED)) >
+                (this.trustTierRanks.get(sourceTrustTier) ?? this.trustTierRanks.get(TRUST_TIERS.UNCLASSIFIED))
+            ) {
+                sourceTrustTier = trustTier;
+            }
+        }
+
+        return {
+            sourceAgentIdentities: [...sourceAgentIdentities],
+            sourceTrustTier     : sourceTrustTier || TRUST_TIERS.UNCLASSIFIED,
+            unclassifiedSourceCount
+        };
     }
 
     /**
@@ -578,6 +632,7 @@ ${aggregatedContent}
         const { summary, title, category, quality, productivity, impact, complexity, technologies } = summaryData;
 
         const summaryId = `summary_${sessionId}`;
+        const timestamp = new Date(lastActivity).toISOString();
 
         // Multi-tenant isolation tag (#10000, #11181): private summaries keep the active
         // request userId; core-swarm summaries use the shared sentinel so every named peer can
@@ -586,6 +641,7 @@ ${aggregatedContent}
             userId: RequestContextService.getUserId(),
             participatingAgents
         });
+        const sourceProvenance = this.constructor.resolveSummarySourceProvenance(memories.metadatas);
 
         const summaryMetadata = {
             sessionId, timestamp: lastActivity, memoryCount: memories.ids.length,
@@ -594,8 +650,14 @@ ${aggregatedContent}
             participatingAgents: participatingAgents.join(','),
             models: models.join(','),
             totalToolCalls,
-            toolsUsed: Array.from(allToolsUsed).join(',')
+            toolsUsed: Array.from(allToolsUsed).join(','),
+            sourceAgentIdentities: sourceProvenance.sourceAgentIdentities.join(','),
+            sourceTrustTier      : sourceProvenance.sourceTrustTier,
+            provenancePolicy     : 'most-restrictive-source'
         };
+        if (sourceProvenance.unclassifiedSourceCount > 0) {
+            summaryMetadata.unclassifiedSourceCount = sourceProvenance.unclassifiedSourceCount;
+        }
         if (userId) summaryMetadata.userId = userId;
 
         await this.sessionsCollection.upsert({
@@ -610,11 +672,29 @@ ${aggregatedContent}
             type: 'SESSION_SUMMARY',
             name: title,
             description: `${category} session by ${participatingAgents.join(', ')}`,
-            semanticVectorId: summaryId
+            semanticVectorId: summaryId,
+            properties: {
+                sessionId,
+                sourceAgentIdentities: sourceProvenance.sourceAgentIdentities,
+                sourceTrustTier      : sourceProvenance.sourceTrustTier,
+                provenancePolicy     : 'most-restrictive-source',
+                ...(userId ? {userId} : {})
+            }
         });
 
         // Tie the summary strategically to the current focal point
         GraphService.linkNodes('frontier', summaryId, 'SESSION_COMPLETED', 1.0);
+
+        const graphAgentIdentities = sourceProvenance.sourceAgentIdentities.filter(agentIdentity => this.constructor.identityTrustTiers.has(agentIdentity));
+
+        for (const agentIdentity of graphAgentIdentities) {
+            GraphService.linkNodes(summaryId, agentIdentity, 'AUTHORED_BY', 1.0, {
+                timestamp,
+                userId          : agentIdentity,
+                sharedEntity    : true,
+                provenancePolicy: 'most-restrictive-source'
+            });
+        }
 
         // --- 2. Semantic Extraction (Regex Linkage) ---
         const issueRegex = /(?:#|issue-)(\d+)/gi;

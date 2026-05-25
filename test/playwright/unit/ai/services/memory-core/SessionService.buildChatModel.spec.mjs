@@ -152,3 +152,159 @@ test.describe('SessionService.buildChatModel (#11965 Sub-2)', () => {
         expect(factoryCalls).toEqual([{apiKey: 'gem-key', modelName: 'gemini-pro'}]);
     });
 });
+
+test.describe('SessionService summary provenance (#10292)', () => {
+    let GraphService;
+    let RequestContextService;
+    let SessionService;
+
+    let originalIngestAntigravityArtifacts;
+    let originalLinkNodes;
+    let originalMemoryCollection;
+    let originalModel;
+    let originalSessionsCollection;
+    let originalUpsertNode;
+
+    let linkNodesCalls;
+    let sessionUpserts;
+    let upsertNodeCalls;
+
+    test.beforeAll(async () => {
+        const mod = await import('../../../../../../ai/services/memory-core/SessionService.mjs');
+
+        SessionService        = mod.default;
+        GraphService          = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+    });
+
+    test.beforeEach(() => {
+        linkNodesCalls = [];
+        sessionUpserts = [];
+        upsertNodeCalls = [];
+
+        originalIngestAntigravityArtifacts = SessionService.ingestAntigravityArtifacts;
+        originalMemoryCollection           = SessionService.memoryCollection;
+        originalModel                      = SessionService.model;
+        originalSessionsCollection         = SessionService.sessionsCollection;
+        originalLinkNodes                  = GraphService.linkNodes;
+        originalUpsertNode                 = GraphService.upsertNode;
+
+        SessionService.ingestAntigravityArtifacts = async () => {};
+        SessionService.memoryCollection = {
+            async get() {
+                return {
+                    ids      : ['memory-1', 'memory-2', 'memory-3'],
+                    documents: [
+                        'User Prompt: work on #10292',
+                        'Agent Thought: peer-trusted source',
+                        'Agent Response: unclassified source'
+                    ],
+                    metadatas: [{
+                        timestamp    : 10,
+                        agent        : 'neo-gpt',
+                        model        : 'gpt-5.5',
+                        agentIdentity: '@neo-gpt'
+                    }, {
+                        timestamp    : 20,
+                        agent        : 'external-contributor',
+                        model        : 'unknown',
+                        agentIdentity: '@external-contributor'
+                    }, {
+                        timestamp: 30
+                    }]
+                };
+            }
+        };
+        SessionService.sessionsCollection = {
+            async upsert(payload) {
+                sessionUpserts.push(payload);
+            }
+        };
+        SessionService.model = {
+            async generateContent() {
+                return {
+                    response: {
+                        text: () => JSON.stringify({
+                            summary     : 'Summary mentions #10292.',
+                            title       : 'Summary Provenance',
+                            category    : 'feature',
+                            quality     : 80,
+                            productivity: 75,
+                            impact      : 70,
+                            complexity  : 55,
+                            technologies: ['memory-core']
+                        })
+                    }
+                };
+            }
+        };
+
+        GraphService.linkNodes = (...args) => {
+            linkNodesCalls.push(args);
+        };
+        GraphService.upsertNode = (node) => {
+            upsertNodeCalls.push(node);
+        };
+    });
+
+    test.afterEach(() => {
+        SessionService.ingestAntigravityArtifacts = originalIngestAntigravityArtifacts;
+        SessionService.memoryCollection           = originalMemoryCollection;
+        SessionService.model                      = originalModel;
+        SessionService.sessionsCollection         = originalSessionsCollection;
+        GraphService.linkNodes                    = originalLinkNodes;
+        GraphService.upsertNode                   = originalUpsertNode;
+    });
+
+    test('resolveSummarySourceProvenance uses the most restrictive source tier', () => {
+        const result = SessionService.constructor.resolveSummarySourceProvenance([
+            {agentIdentity: '@tobiu'},
+            {agentIdentity: '@neo-gpt'},
+            {agentIdentity: '@external-contributor'},
+            {}
+        ]);
+
+        expect(result.sourceAgentIdentities).toEqual(['@tobiu', '@neo-gpt', '@external-contributor']);
+        expect(result.sourceTrustTier).toBe('unclassified');
+        expect(result.unclassifiedSourceCount).toBe(2);
+    });
+
+    test('summarizeSession stamps summary provenance without laundering source trust', async () => {
+        const result = await RequestContextService.run({
+            userId             : 'tobiu',
+            username           : 'Tobias',
+            agentIdentityNodeId: '@tobiu',
+            source             : 'oidc'
+        }, () => SessionService.summarizeSession('summary-provenance-session'));
+
+        expect(result.summaryId).toBe('summary_summary-provenance-session');
+
+        expect(sessionUpserts).toHaveLength(1);
+        const metadata = sessionUpserts[0].metadatas[0];
+
+        expect(metadata.sourceAgentIdentities).toBe('@neo-gpt,@external-contributor');
+        expect(metadata.sourceTrustTier).toBe('unclassified');
+        expect(metadata.provenancePolicy).toBe('most-restrictive-source');
+        expect(metadata.unclassifiedSourceCount).toBe(2);
+
+        const summaryNode = upsertNodeCalls.find(node => node.id === result.summaryId);
+        expect(summaryNode.properties).toMatchObject({
+            sourceAgentIdentities: ['@neo-gpt', '@external-contributor'],
+            sourceTrustTier      : 'unclassified',
+            provenancePolicy     : 'most-restrictive-source'
+        });
+
+        const authoredByEdges = linkNodesCalls.filter(([, , relationship]) => relationship === 'AUTHORED_BY');
+        expect(authoredByEdges).toHaveLength(1);
+        expect(authoredByEdges[0][0]).toBe(result.summaryId);
+        expect(authoredByEdges[0][1]).toBe('@neo-gpt');
+        expect(authoredByEdges[0][4]).toMatchObject({
+            userId          : '@neo-gpt',
+            sharedEntity    : true,
+            provenancePolicy: 'most-restrictive-source'
+        });
+
+        expect(authoredByEdges.some(([, target]) => target === '@tobiu')).toBe(false);
+        expect(authoredByEdges.some(([, target]) => target === '@external-contributor')).toBe(false);
+    });
+});
