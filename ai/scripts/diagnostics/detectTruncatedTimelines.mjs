@@ -1,5 +1,5 @@
 /**
- * @summary Diagnostic sweep for the IssueSyncer timelineItems truncation bug (#10090).
+ * @summary Diagnostic sweep for IssueSyncer timelineItems truncation.
  *
  * IssueSyncer renders GitHub comment bodies through the unified `timelineItems`
  * GraphQL channel, which is page-capped at `maxTimelineItemsPerIssue` (50). Once an
@@ -27,7 +27,6 @@
  *
  * @see ai/services/github-workflow/sync/IssueSyncer.mjs
  * @see ai/services/github-workflow/queries/issueQueries.mjs
- * @see https://github.com/neomjs/neo/issues/10090
  */
 import fs              from 'fs/promises';
 import path            from 'path';

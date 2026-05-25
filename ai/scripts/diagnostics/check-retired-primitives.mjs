@@ -9,14 +9,13 @@ import process        from 'node:process';
  * CI scripts for agent substrate validation; sibling-file-lift applies; no novel directory
  * choice.
  *
- * @summary CI grep-fail check that retired primitives (ADR 0004 §2.3) are not imported from
- * non-spec source files. Closes the empirical gap where the discipline-only
- * §1.3/§2.6/§5.6 substrate-evolution-guard layer in ADR 0004 caught the regression at peer-review
- * time on PR #11403 (Cycle-1), not at CI time. Pattern-recognition + mechanical-enforcement
- * together close the lookback-distance regression window.
+ * @summary CI grep-fail check that retired primitives (ADR 0004 §2.3) are not
+ * imported from non-spec source files. Complements ADR 0004's discipline-only
+ * §1.3/§2.6/§5.6 substrate-evolution-guard layer with mechanical enforcement,
+ * closing the reviewer-time lookback window where dead-code preservation can
+ * otherwise survive until peer review.
  *
  * @see learn/agentos/decisions/0004-github-content-architecture.md §2.6 Clean-Cut Pattern
- * @see #11406 (ticket) / PR #11403 Cycle-1 (`PRR_kwDODSospM8AAAABAB3NsQ`) — empirical anchor
  */
 
 /**
@@ -24,10 +23,9 @@ import process        from 'node:process';
  * Add new entries as ADR 0004 §2.3 RETIRED table grows. Each entry is the import-path
  * fragment as it would appear inside a `from '...'` clause.
  *
- * Empirically anchored to PR #11403's Lane B clean-cut: both files were deleted in commit
- * `79ac1f8c9` after their last call sites were rewired to the unified `contentPath.mjs` /
- * `contentIndex.mjs` substrate. The §2.6 Clean-Cut Pattern mandates DELETION, not preservation
- * as dead code (deprecation-theater regression caught on PR #11381 and recurring on PR #11403).
+ * Anchored to the universal GitHub-content substrate: both files are retired
+ * once their call sites use `contentPath.mjs` / `contentIndex.mjs`. The §2.6
+ * Clean-Cut Pattern mandates deletion, not preservation as dead code.
  */
 const RETIRED_PRIMITIVES = [
     'shared/chunkPath.mjs',
@@ -39,7 +37,8 @@ const EXCLUDE_GLOB = ['*.spec.mjs', '*.test.mjs'];
 
 /**
  * Escapes ALL regex metacharacters in a string fragment so it can be safely embedded
- * in an extended-regex pattern (#11490 CodeQL alert `js/incomplete-sanitization`).
+ * in an extended-regex pattern. This keeps future retired-primitive entries
+ * from becoming regex metacharacter input.
  *
  * Prior version escaped only `.`, leaving backslashes + other metacharacters (`* + ? ^ $ { } ( ) | [ ] \\`)
  * unprotected. While the current `RETIRED_PRIMITIVES` values contain none of these, defensive
