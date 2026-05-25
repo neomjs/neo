@@ -145,6 +145,52 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         });
     });
 
+    test('resolveMlxConfig accepts canonical boolean tokens via Env.parseBool (TRUE/yes/on/1 + FALSE/no/off/0)', () => {
+        // Per Neo.util.Env.parseBool token semantics — case-insensitive, trimmed.
+        // Token sets: TRUE_TOKENS=['true','yes','on','1'], FALSE_TOKENS=['false','no','off','0'].
+        const aiDefaultDisabled = {mlx: {enabled: false, model: 'm', port: 'p'}};
+        const aiDefaultEnabled  = {mlx: {enabled: true,  model: 'm', port: 'p'}};
+
+        // Truthy tokens (against an AiConfig default of `enabled: false` — env wins on each).
+        for (const truthy of ['true', 'TRUE', 'True', 'yes', 'YES', 'on', 'ON', '1']) {
+            expect(resolveMlxConfig({
+                orchestratorConfig: aiDefaultDisabled,
+                env               : {NEO_ORCHESTRATOR_MLX_ENABLED: truthy}
+            }).enabled).toBe(true);
+        }
+
+        // Falsy tokens (against an AiConfig default of `enabled: true` — env wins on each).
+        for (const falsy of ['false', 'FALSE', 'False', 'no', 'NO', 'off', 'OFF', '0']) {
+            expect(resolveMlxConfig({
+                orchestratorConfig: aiDefaultEnabled,
+                env               : {NEO_ORCHESTRATOR_MLX_ENABLED: falsy}
+            }).enabled).toBe(false);
+        }
+
+        // Whitespace-tolerant per Env.parseBool's trim semantics.
+        expect(resolveMlxConfig({
+            orchestratorConfig: aiDefaultDisabled,
+            env               : {NEO_ORCHESTRATOR_MLX_ENABLED: '  yes  '}
+        }).enabled).toBe(true);
+
+        // Invalid token: Env.parseBool returns undefined → falls back to AiConfig default.
+        // (Env warns to console; suppression is the caller's concern, not asserted here.)
+        const originalWarn = console.warn;
+        console.warn       = () => {};
+        try {
+            expect(resolveMlxConfig({
+                orchestratorConfig: aiDefaultEnabled,
+                env               : {NEO_ORCHESTRATOR_MLX_ENABLED: 'maybe'}
+            }).enabled).toBe(true);
+            expect(resolveMlxConfig({
+                orchestratorConfig: aiDefaultDisabled,
+                env               : {NEO_ORCHESTRATOR_MLX_ENABLED: 'maybe'}
+            }).enabled).toBe(false);
+        } finally {
+            console.warn = originalWarn;
+        }
+    });
+
     test('AiConfig.orchestrator.mlx ships canonical MLX launch defaults', async () => {
         const aiConfigModule = await import('../../../../../../ai/config.template.mjs');
         const aiConfig       = aiConfigModule.default;
