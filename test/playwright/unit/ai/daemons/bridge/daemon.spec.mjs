@@ -158,6 +158,63 @@ test.describe('Bridge Daemon', () => {
         expect(logContents).toContain('[Bridge Daemon Test Adapter] Delivered');          // Same delivery line as stdout
     });
 
+    test('delivers GraphLog-only heartbeat pulses via test adapter', async () => {
+        const subId = 'sub_' + crypto.randomUUID();
+        const agentId = '@test-agent-heartbeat';
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(agentId, JSON.stringify({
+            id: agentId,
+            label: 'AGENT',
+            properties: { name: 'Test Agent Heartbeat' }
+        }));
+
+        db.prepare('INSERT OR REPLACE INTO Nodes (id, data) VALUES (?, ?)').run(subId, JSON.stringify({
+            id: subId,
+            label: 'WAKE_SUBSCRIPTION',
+            properties: {
+                agentIdentity: agentId,
+                harnessTarget: 'bridge-daemon',
+                status: 'active',
+                trigger: 'HEARTBEAT_PULSE',
+                harnessTargetMetadata: {
+                    adapter: 'test',
+                    coalesceWindow: 1
+                }
+            }
+        }));
+
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(subId, 'nodes');
+
+        daemonProcess = spawn('node', ['ai/daemons/bridge/daemon.mjs'], {
+            stdio: 'pipe',
+            env: { ...process.env, NEO_AI_DB_PATH: DB_PATH, NEO_AI_DAEMON_DIR: DAEMON_DIR }
+        });
+
+        const deliveryPromise = new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Daemon failed to deliver heartbeat pulse within timeout')), 10000);
+
+            daemonProcess.stdout.on('data', (data) => {
+                const out = data.toString();
+                if (out.includes('[Bridge Daemon Test Adapter] Delivered')) {
+                    clearTimeout(timeout);
+                    resolve(out);
+                }
+            });
+            daemonProcess.on('error', reject);
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const pulseId = `HEARTBEAT_PULSE:${agentId}:${crypto.randomUUID()}`;
+        db.prepare('INSERT INTO GraphLog (entity_id, entity_type) VALUES (?, ?)').run(pulseId, 'heartbeat_pulse');
+
+        const output = await deliveryPromise;
+        expect(output).toContain('[Bridge Daemon Test Adapter] Delivered');
+        expect(output).toContain('[WAKE][priority:normal]');
+        expect(output).toContain('heartbeat pulses');
+        expect(output).not.toContain('new messages');
+    });
+
     test('does not deliver wake events for wakeSuppressed mailbox-only messages', async () => {
         const subId = 'sub_' + crypto.randomUUID();
         const agentId = '@test-agent-suppressed';

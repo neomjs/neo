@@ -292,7 +292,10 @@ async function pollLoop() {
                 const edgesMap = new Map(edgesData.map(r => [r.id, JSON.parse(r.data)]));
 
                 for (const trace of logs) {
-                    const entity = trace.entity_type === 'nodes' ? nodesMap.get(trace.entity_id) : edgesMap.get(trace.entity_id);
+                    const entity = trace.entity_type === 'nodes' ? nodesMap.get(trace.entity_id)
+                        : trace.entity_type === 'edges' ? edgesMap.get(trace.entity_id)
+                        : trace.entity_type === 'heartbeat_pulse' ? {id: trace.entity_id, type: 'HEARTBEAT_PULSE'}
+                        : null;
                     if (!entity) continue; // entity might have been deleted, skipping for wake events unless it's a deletion trigger, but currently we focus on creation/updates
 
                     for (const sub of subscriptions) {
@@ -393,9 +396,38 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
                 logId: trace.log_id
             };
         }
+    } else if (trigger === 'HEARTBEAT_PULSE' && trace.entity_type === 'heartbeat_pulse') {
+        const pulse = parseHeartbeatPulseEntityId(trace.entity_id);
+        if (pulse?.targetIdentity === agentIdentity) {
+            return {
+                type: 'heartbeat',
+                targetIdentity: pulse.targetIdentity,
+                pulseId: pulse.pulseId,
+                logId: trace.log_id
+            };
+        }
     }
 
     return null;
+}
+
+/**
+ * Parses a GraphLog-only heartbeat pulse entity id.
+ * @param {String} entityId Encoded `HEARTBEAT_PULSE:<identity>:<uuid>` id.
+ * @returns {{targetIdentity:String,pulseId:String}|null} Parsed pulse.
+ */
+function parseHeartbeatPulseEntityId(entityId) {
+    const prefix = 'HEARTBEAT_PULSE:';
+    if (!entityId?.startsWith(prefix)) return null;
+
+    const body      = entityId.slice(prefix.length);
+    const separator = body.lastIndexOf(':');
+    if (separator <= 0 || separator === body.length - 1) return null;
+
+    return {
+        targetIdentity: body.slice(0, separator),
+        pulseId       : body.slice(separator + 1)
+    };
 }
 
 
@@ -427,6 +459,8 @@ function queueEvent(subscription, eventPayload) {
             return existing.taskId === eventPayload.taskId && existing.newState === eventPayload.newState;
         } else if (eventPayload.type === 'permission') {
             return existing.scope === eventPayload.scope && existing.grantedBy === eventPayload.grantedBy;
+        } else if (eventPayload.type === 'heartbeat') {
+            return existing.pulseId === eventPayload.pulseId;
         }
         return false;
     });
@@ -509,11 +543,12 @@ async function flushSubscription(subId) {
     const N = queue.length;
     const identity = subscription.properties?.agentIdentity;
 
-    let messages = [], tasks = [], permissions = [];
+    let messages = [], tasks = [], permissions = [], heartbeats = [];
     for (const ev of queue) {
         if (ev.type === 'message') messages.push(ev);
         else if (ev.type === 'task') tasks.push(ev);
         else if (ev.type === 'permission') permissions.push(ev);
+        else if (ev.type === 'heartbeat') heartbeats.push(ev);
     }
 
     let breakdown = '';
@@ -532,6 +567,10 @@ async function flushSubscription(subId) {
     if (permissions.length > 0) {
         const latest = permissions[permissions.length - 1];
         breakdown += `\n- ${permissions.length} permissions granted (latest: ${latest.scope} by ${latest.grantedBy})`;
+    }
+    if (heartbeats.length > 0) {
+        const latest = heartbeats[heartbeats.length - 1];
+        breakdown += `\n- ${heartbeats.length} heartbeat pulses (latest GraphLog: ${latest.logId})`;
     }
 
     const digest = `[WAKE][priority:${digestPriority}] ${N} events for ${identity}: ${breakdown}\n\nSubscription: ${subId}`;

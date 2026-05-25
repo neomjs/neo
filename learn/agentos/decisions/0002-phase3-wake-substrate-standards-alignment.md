@@ -422,7 +422,10 @@ by Shape C bridge daemon.
 
 - Each wake event carries `logId` (the originating `GraphLog.log_id` of the
   substrate mutation that triggered it) plus `eventId` (a ULID unique per
-  emission). See §6.1.1-6.1.3 payloads.
+  emission). See §6.1.1-6.1.3 payloads. Shape B heartbeat pulses use the
+  same watermark contract through an explicit `heartbeat_pulse` GraphLog row:
+  no `MESSAGE` node and no `SENT_TO` edge are created, so reconnect replay can
+  wake the bridge daemon without adding inbox-visible content.
 - Client persists `lastSeenLogId` per subscription — typically in
   harness-local state alongside the subscription ID. The persistence
   granularity is the client's call: per-event commit (most durable, more
