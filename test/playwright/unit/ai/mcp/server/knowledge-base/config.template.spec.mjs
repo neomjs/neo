@@ -75,6 +75,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
 
     test('maps deployment-wide Tier-1 auth and unified Chroma defaults', () => {
         expect(config.auth).toEqual(TIER1_DEFAULTS.auth);
+        expect(config.backupPath).toBe(TIER1_DEFAULTS.backupPath);
         expect(config.host).toBe(TIER1_DEFAULTS.engines.chroma.host);
         expect(config.port).toBe(TIER1_DEFAULTS.engines.chroma.port);
 
@@ -84,6 +85,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
 
     test('env overrides remain final after Tier-1 default mapping', () => {
         process.env.NEO_AUTH_REALM = 'tenant-realm';
+        process.env.NEO_BACKUP_PATH = '/tmp/neo-kb-backups';
         process.env.NEO_CHROMA_HOST = 'chroma';
         process.env.NEO_CHROMA_PORT = '8010';
 
@@ -91,6 +93,7 @@ test.describe('Knowledge Base Config Tier-1 defaults (#11963)', () => {
         config.applyEnv();
 
         expect(config.auth.realm).toBe('tenant-realm');
+        expect(config.backupPath).toBe('/tmp/neo-kb-backups');
         expect(config.host).toBe('chroma');
         expect(config.port).toBe(8010);
     });
