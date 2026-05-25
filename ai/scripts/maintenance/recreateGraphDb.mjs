@@ -14,10 +14,11 @@ import StorageRouter   from '../../services/memory-core/managers/StorageRouter.m
 async function recreateGraphDb() {
     console.log('⏳ Initializing Graph DB Recreation Script...');
 
-    const dbPath = path.resolve(aiConfig.engines.neo.dataDir, aiConfig.engines.neo.filename);
+    const dbPath = path.resolve(aiConfig.storagePaths.graph);
+    aiConfig.storagePaths.graph = dbPath;
 
     // 1. Delete Native Edge Graph structural elements ONLY (do not destroy standard SQLite Vector memory schemas)
-    console.log(`   Deleting Native Edge Graph Database schema nodes...`);
+    console.log(`   Deleting Native Edge Graph Database schema nodes at ${dbPath}...`);
     // Connect explicitly via GraphService bounds
     await GraphService.ready();
     if (GraphService.db && GraphService.db.storage) {
