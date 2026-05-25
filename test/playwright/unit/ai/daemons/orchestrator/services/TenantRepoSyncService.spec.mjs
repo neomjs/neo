@@ -136,7 +136,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         const result = await TenantRepoSyncService.runTask({
             reason          : 'periodic',
             taskStateService,
-            tenantReposConfig: {tenantRepos: [{tenantId: 't1', repoSlug: 'org/repo', mirrorRoot: '/tmp/mirror', cloneUrl: 'https://example.com/repo.git'}]},
+            tenantReposConfig: {tenantRepos: [{tenantId: 't1', repoSlug: 'org/repo', mirrorRoot: '/tmp/mirror', cloneUrl: 'https://github.com/neomjs/repo.git'}]},
             revisionsFilePath: revisionsFile
         });
 
@@ -157,8 +157,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             reason          : 'periodic-sweep:60000',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
-                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://example.com/a.git'},
-                {tenantId: 't1', repoSlug: 'org/repo-b', mirrorRoot, cloneUrl: 'https://example.com/b.git'}
+                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'},
+                {tenantId: 't1', repoSlug: 'org/repo-b', mirrorRoot, cloneUrl: 'https://github.com/neomjs/b.git'}
             ]},
             gitMirror                    : makeFakeGitMirror({captureCalls: mirrorCalls}),
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
@@ -213,9 +213,9 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             reason          : 'periodic',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
-                {tenantId: 't1', repoSlug: 'org/good',   mirrorRoot, cloneUrl: 'https://example.com/good.git'},
-                {tenantId: 't1', repoSlug: 'org/broken', mirrorRoot, cloneUrl: 'https://example.com/broken.git'},
-                {tenantId: 't1', repoSlug: 'org/good2',  mirrorRoot, cloneUrl: 'https://example.com/good2.git'}
+                {tenantId: 't1', repoSlug: 'org/good',   mirrorRoot, cloneUrl: 'https://github.com/neomjs/good.git'},
+                {tenantId: 't1', repoSlug: 'org/broken', mirrorRoot, cloneUrl: 'https://github.com/neomjs/broken.git'},
+                {tenantId: 't1', repoSlug: 'org/good2',  mirrorRoot, cloneUrl: 'https://github.com/neomjs/good2.git'}
             ]},
             gitMirror                    : failingGitMirror,
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
@@ -253,9 +253,9 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             reason          : 'manual',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
-                {tenantId: 't1', repoSlug: 'org/a', mirrorRoot, cloneUrl: 'https://example.com/a.git'},
-                {tenantId: 't1', repoSlug: 'org/b', mirrorRoot, cloneUrl: 'https://example.com/b.git'},
-                {tenantId: 't1', repoSlug: 'org/c', mirrorRoot, cloneUrl: 'https://example.com/c.git'}
+                {tenantId: 't1', repoSlug: 'org/a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'},
+                {tenantId: 't1', repoSlug: 'org/b', mirrorRoot, cloneUrl: 'https://github.com/neomjs/b.git'},
+                {tenantId: 't1', repoSlug: 'org/c', mirrorRoot, cloneUrl: 'https://github.com/neomjs/c.git'}
             ]},
             gitMirror                    : makeFakeGitMirror(),
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
@@ -299,7 +299,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         const result = await TenantRepoSyncService.runTask({
             reason          : 'periodic',
             taskStateService,
-            tenantReposConfig: {tenantRepos: [{tenantId: 't1', repoSlug: 'org/seeded', mirrorRoot, cloneUrl: 'https://example.com/seeded.git'}]},
+            tenantReposConfig: {tenantRepos: [{tenantId: 't1', repoSlug: 'org/seeded', mirrorRoot, cloneUrl: 'https://github.com/neomjs/seeded.git'}]},
             gitMirror                    : envelopeWatchingGitMirror,
             // For the persistence test, use a real-shape envelope-builder fake that
             // calls gitMirror.resolveHead twice — once for HEAD, once for prior sha —
@@ -330,7 +330,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             reason          : 'periodic-sweep:60000',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
-                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://example.com/a.git'}
+                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'}
             ]},
             gitMirror                    : makeFakeGitMirror(),
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
@@ -372,7 +372,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             reason          : 'periodic-sweep:60000',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
-                {tenantId: 't1', repoSlug: 'org/broken', mirrorRoot, cloneUrl: 'https://example.com/broken.git'}
+                {tenantId: 't1', repoSlug: 'org/broken', mirrorRoot, cloneUrl: 'https://github.com/neomjs/broken.git'}
             ]},
             gitMirror                    : failingMirror,
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
@@ -402,7 +402,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             taskStateService,
             writeLog        : (level, msg) => logLines.push({level, msg}),
             tenantReposConfig: {tenantRepos: [
-                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://example.com/a.git'}
+                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'}
             ]},
             gitMirror                    : makeFakeGitMirror(),
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
@@ -434,7 +434,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             taskStateService,
             writeLog        : (level, msg) => logLines.push({level, msg}),
             tenantReposConfig: {tenantRepos: [
-                {tenantId: 't1', repoSlug: 'org/known', mirrorRoot, cloneUrl: 'https://example.com/known.git'}
+                {tenantId: 't1', repoSlug: 'org/known', mirrorRoot, cloneUrl: 'https://github.com/neomjs/known.git'}
             ]},
             onlyRepoSlugs                : ['org/unknown', 'org/also-unknown'],
             gitMirror                    : makeFakeGitMirror(),
@@ -495,7 +495,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 taskStateService,
                 writeLog        : (level, msg) => logLines.push({level, msg}),
                 tenantReposConfig: {tenantRepos: [
-                    {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://example.com/a.git'}
+                    {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'}
                 ]},
                 gitMirror                    : makeFakeGitMirror(),
                 envelopeBuilder              : makeFakeEnvelopeBuilder(),
@@ -541,7 +541,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             reason          : 'periodic',
             taskStateService: createInMemoryTaskStateService(),
             tenantReposConfig: {tenantRepos: ['org/r1', 'org/r2', 'org/r3'].map(s => ({
-                tenantId: 't1', repoSlug: s, mirrorRoot, cloneUrl: `https://example.com/${s.split('/')[1]}.git`
+                tenantId: 't1', repoSlug: s, mirrorRoot, cloneUrl: `https://github.com/neomjs/${s.split('/')[1]}.git`
             }))},
             gitMirror                    : trackingMirror,
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
@@ -583,7 +583,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             reason          : 'periodic',
             taskStateService: createInMemoryTaskStateService(),
             tenantReposConfig: {tenantRepos: ['org/r1', 'org/r2', 'org/r3', 'org/r4'].map(s => ({
-                tenantId: 't1', repoSlug: s, mirrorRoot, cloneUrl: `https://example.com/${s.split('/')[1]}.git`
+                tenantId: 't1', repoSlug: s, mirrorRoot, cloneUrl: `https://github.com/neomjs/${s.split('/')[1]}.git`
             }))},
             gitMirror                    : trackingMirror,
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
@@ -628,8 +628,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             reason          : 'periodic',
             taskStateService: createInMemoryTaskStateService(),
             tenantReposConfig: {tenantRepos: [
-                {tenantId: 't1', repoSlug: 'org/slow',   mirrorRoot, cloneUrl: 'https://example.com/slow.git'},
-                {tenantId: 't1', repoSlug: 'org/queued', mirrorRoot, cloneUrl: 'https://example.com/queued.git'}
+                {tenantId: 't1', repoSlug: 'org/slow',   mirrorRoot, cloneUrl: 'https://github.com/neomjs/slow.git'},
+                {tenantId: 't1', repoSlug: 'org/queued', mirrorRoot, cloneUrl: 'https://github.com/neomjs/queued.git'}
             ]},
             gitMirror                    : slowMirror,
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
