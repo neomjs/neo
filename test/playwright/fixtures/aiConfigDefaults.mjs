@@ -1,7 +1,12 @@
-import Neo      from '../../../src/Neo.mjs';
+import path            from 'path';
+import {fileURLToPath} from 'url';
+import Neo             from '../../../src/Neo.mjs';
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS  = 24 * HOUR_MS;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+const neoRootDir = path.resolve(__dirname, '../../..');
 
 /**
  * @module test/playwright/fixtures/aiConfigDefaults
@@ -65,6 +70,7 @@ function deepFreeze(value) {
  * @type {Readonly<Object>}
  */
 export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
+    backupPath: process.env.NEO_BACKUP_PATH || path.resolve(neoRootDir, '.neo-ai-data/backups'),
     auth: {
         host              : process.env.NEO_AUTH_HOST || null,
         port              : Number(process.env.NEO_AUTH_PORT) || 8080,
