@@ -393,3 +393,77 @@ test.describe('SummaryService — memorySharing policy (#10010)', () => {
         expect(queryCall.where).toBeUndefined();
     });
 });
+
+test.describe('SummaryService — provenance trust filtering (#10292)', () => {
+    let spy;
+    let originalGetSummaryCollection;
+
+    test.beforeEach(() => {
+        spy = createSpyCollection();
+        originalGetSummaryCollection = StorageRouter.getSummaryCollection;
+        StorageRouter.getSummaryCollection = async () => spy;
+    });
+
+    test.afterEach(() => {
+        StorageRouter.getSummaryCollection = originalGetSummaryCollection;
+    });
+
+    test('querySummaries filters by minTrustTier and returns provenance fields', async () => {
+        spy.rows.set('s-owner', {
+            id      : 's-owner',
+            metadata: {timestamp: 100, title: 'owner', sourceTrustTier: 'owner', sourceAgentIdentities: '@tobiu', provenancePolicy: 'most-restrictive-source'},
+            document: 'owner'
+        });
+        spy.rows.set('s-peer', {
+            id      : 's-peer',
+            metadata: {timestamp: 200, title: 'peer', sourceTrustTier: 'peer-trusted', sourceAgentIdentities: '@neo-gpt', provenancePolicy: 'most-restrictive-source'},
+            document: 'peer'
+        });
+        spy.rows.set('s-external', {
+            id      : 's-external',
+            metadata: {timestamp: 300, title: 'external', sourceTrustTier: 'external', sourceAgentIdentities: '@external', provenancePolicy: 'most-restrictive-source'},
+            document: 'external'
+        });
+        spy.rows.set('s-legacy', {
+            id      : 's-legacy',
+            metadata: {timestamp: 400, title: 'legacy'},
+            document: 'legacy'
+        });
+
+        const view = await SummaryService.querySummaries({
+            query       : 'anything',
+            nResults    : 10,
+            minTrustTier: 'peer-trusted'
+        });
+
+        expect(view.count).toBe(2);
+        expect(view.results.map(r => r.title)).toEqual(['owner', 'peer']);
+        expect(view.results[0]).toMatchObject({
+            sourceAgentIdentities: ['@tobiu'],
+            sourceTrustTier      : 'owner',
+            provenancePolicy     : 'most-restrictive-source'
+        });
+        expect(view.results[1]).toMatchObject({
+            sourceAgentIdentities: ['@neo-gpt'],
+            sourceTrustTier      : 'peer-trusted',
+            provenancePolicy     : 'most-restrictive-source'
+        });
+
+        const queryCall = spy.calls.query.at(-1);
+        expect(queryCall.nResults).toBe(50);
+    });
+
+    test('querySummaries rejects unknown minTrustTier before querying storage', async () => {
+        const result = await SummaryService.querySummaries({
+            query       : 'anything',
+            nResults    : 10,
+            minTrustTier: 'trusted-ish'
+        });
+
+        expect(result).toMatchObject({
+            error: 'Invalid minTrustTier',
+            code : 'SUMMARY_QUERY_INVALID_TRUST_TIER'
+        });
+        expect(spy.calls.query).toHaveLength(0);
+    });
+});
