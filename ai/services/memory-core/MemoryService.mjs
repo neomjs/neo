@@ -6,6 +6,11 @@ import logger                from '../../mcp/server/memory-core/logger.mjs';
 import SessionService        from './SessionService.mjs';
 import aiConfig              from '../../mcp/server/memory-core/config.mjs';
 import RequestContextService, {SHARED_USER_ID, normalizeUserId} from '../../mcp/server/shared/services/RequestContextService.mjs';
+import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoots.mjs';
+
+const
+    identityTrustTiers = new Map(IDENTITIES.map(identity => [identity.id, identity.properties?.trustTier || TRUST_TIERS.UNCLASSIFIED])),
+    trustTierRanks     = new Map(TRUST_TIER_ORDER.map((tier, index) => [tier, index]));
 
 /**
  * Computes a lightweight inbox snapshot for the bound AgentIdentity to piggyback on every
@@ -140,6 +145,29 @@ function buildMailboxDelta() {
         logger.warn('[MemoryService] Mailbox delta query failed (non-fatal, memory write unaffected):', error.message);
         return null;
     }
+}
+
+/**
+ * @summary Resolves a raw memory row's #10292 trust tier from its AgentIdentity metadata.
+ * @param {Object} metadata Chroma metadata row.
+ * @returns {String} Trust tier, or `unclassified` when no seeded identity matches.
+ */
+function resolveMemoryTrustTier(metadata) {
+    return identityTrustTiers.get(metadata?.agentIdentity) || TRUST_TIERS.UNCLASSIFIED;
+}
+
+/**
+ * @summary Returns true when a row satisfies the optional minimum trust threshold.
+ * @param {Object} metadata Chroma metadata row.
+ * @param {String|undefined} minTrustTier Optional minimum accepted trust tier.
+ * @returns {Boolean}
+ */
+function matchesMinTrustTier(metadata, minTrustTier) {
+    if (!minTrustTier) {
+        return true;
+    }
+
+    return trustTierRanks.get(resolveMemoryTrustTier(metadata)) <= trustTierRanks.get(minTrustTier);
 }
 
 
@@ -403,10 +431,19 @@ class MemoryService extends Base {
      * @param {Number} options.nResults      The number of results to return.
      * @param {String} [options.sessionId]   Optional session ID to filter results.
      * @param {String} [options.memorySharing] Optional override for tenant isolation policy.
+     * @param {String} [options.minTrustTier] Optional #10292 minimum accepted trust tier.
      * @returns {Promise<{query: string, count: number, results: Object[]}>}
      */
-    async queryMemories({query, nResults, sessionId, memorySharing}) {
+    async queryMemories({query, nResults, sessionId, memorySharing, minTrustTier}) {
         try {
+            if (minTrustTier && !trustTierRanks.has(minTrustTier)) {
+                return {
+                    error  : 'Invalid minTrustTier',
+                    message: `minTrustTier must be one of: ${TRUST_TIER_ORDER.join(', ')}`,
+                    code   : 'MEMORY_QUERY_INVALID_TRUST_TIER'
+                };
+            }
+
             const collection = await StorageRouter.getMemoryCollection();
             const queryArgs = {
                 queryTexts: [query],
@@ -434,7 +471,7 @@ class MemoryService extends Base {
                 }
             }
 
-            if (tenantScope === null && userId && policy === 'legacy') {
+            if ((tenantScope === null && userId && policy === 'legacy') || minTrustTier) {
                 queryArgs.nResults = nResults * 5;
             }
 
@@ -452,11 +489,14 @@ class MemoryService extends Base {
             let distances = searchResult.distances?.[0] || [];
             let metadatas = searchResult.metadatas?.[0] || [];
 
-            if (userId && policy === 'legacy') {
+            if ((userId && policy === 'legacy') || minTrustTier) {
                 const filteredIndices = [];
                 for (let i = 0; i < metadatas.length; i++) {
                     const metaUserId = metadatas[i]?.userId;
-                    if (!metaUserId || metaUserId === userId || metaUserId === SHARED_USER_ID) {
+                    const tenantMatch = !userId || policy !== 'legacy' || !metaUserId || metaUserId === userId || metaUserId === SHARED_USER_ID;
+                    const trustMatch  = matchesMinTrustTier(metadatas[i], minTrustTier);
+
+                    if (tenantMatch && trustMatch) {
                         filteredIndices.push(i);
                         if (filteredIndices.length === nResults) break;
                     }
@@ -470,6 +510,8 @@ class MemoryService extends Base {
                 const metadata       = metadatas[index] || {};
                 const distance       = Number(distances[index] ?? 0);
                 const relevanceScore = Number((1 / (1 + distance)).toFixed(6));
+                const agentIdentity  = metadata.agentIdentity || null;
+                const trustTier      = resolveMemoryTrustTier(metadata);
 
                 return {
                     id,
@@ -479,6 +521,8 @@ class MemoryService extends Base {
                     thought  : metadata.thought,
                     response : metadata.response,
                     type     : metadata.type,
+                    agentIdentity,
+                    trustTier,
                     distance,
                     relevanceScore
                 };
