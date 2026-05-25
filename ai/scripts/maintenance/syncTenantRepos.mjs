@@ -54,7 +54,9 @@ tenantRepo. Pass --repo-slug to scope to a specific repo (repeatable).
 
 Exit codes:
   0  completed (or partial-completed with at least one repo successful)
-  1  failed (all repos failed) or skipped (no configured tenantRepos)`);
+  1  failed (all repos failed) or skipped (no configured tenantRepos)
+  3  --repo-slug requested but the named repo is not configured (KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED)
+  2  argument-parse error`);
 }
 
 /**
@@ -109,7 +111,14 @@ async function main() {
     });
 
     console.log(JSON.stringify(result, null, 2));
-    process.exit(result.status === 'completed' ? 0 : 1);
+
+    if (result.status === 'completed') {
+        process.exit(0);
+    }
+    if (result.status === 'failed' && result.details?.reasonCode === 'KB_TENANT_REPO_SYNC_REPO_NOT_CONFIGURED') {
+        process.exit(3);
+    }
+    process.exit(1);
 }
 
 main().catch(err => {
