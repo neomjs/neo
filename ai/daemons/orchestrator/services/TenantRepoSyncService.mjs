@@ -153,7 +153,7 @@ class TenantRepoSyncService extends Base {
         const resolvedRevisionsPath = revisionsFilePath || this.defaultRevisionsFilePath();
         const ingestionService      = knowledgeBaseIngestionService || await this.resolveIngestionService();
         const persistedRevisions    = await this.readPersistedRevisions({filePath: resolvedRevisionsPath});
-        const repos_ = [];
+        const repoStates = [];
         let   completedCount     = 0;
         let   failedCount        = 0;
 
@@ -206,7 +206,7 @@ class TenantRepoSyncService extends Base {
 
                 writeLog?.('INFO', `[TenantRepoSync] ${repoLabel} completed: head=${shortHead ?? 'unknown'} ingested=${ingested} deleted=${deleted} (${durationMs}ms)`);
 
-                repos_.push({
+                repoStates.push({
                     tenantId            : repo.tenantId,
                     repoSlug            : repo.repoSlug,
                     lastIngestedRev     : shortHead,
@@ -229,7 +229,7 @@ class TenantRepoSyncService extends Base {
                     ? e.code
                     : 'KB_TENANT_REPO_SYNC_SYNC_FAILED';
                 writeLog?.('ERROR', `[TenantRepoSync] ${repoLabel} failed: ${code} (${e.message})`);
-                repos_.push({
+                repoStates.push({
                     tenantId       : repo.tenantId,
                     repoSlug       : repo.repoSlug,
                     lastIngestedRev: persistedRevisions[repoLabel] ? persistedRevisions[repoLabel].slice(0, 8) : null,
@@ -261,7 +261,7 @@ class TenantRepoSyncService extends Base {
                 repoCount   : repos.length,
                 completedCount,
                 failedCount,
-                repos       : repos_
+                repos       : repoStates
             }
         };
     }

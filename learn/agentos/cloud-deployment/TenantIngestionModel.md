@@ -177,10 +177,10 @@ The `aiConfig.tenantRepos[]` array is read by `KnowledgeBaseIngestionService.get
 
 ```js
 {
-    tenantId      : 'acme-corp',                        // server-derived; must match the authenticated tenant for stamping
-    repoSlug      : 'acme-corp/widgets',                // tenant-owned, namespaced, never credential-bearing
-    cloneUrl      : 'https://github.com/acme-corp/widgets.git',  // clean URL; no userinfo@
-    credentialRef : 'env:NEO_TENANT_ACME_TOKEN',        // reference only; resolved by GitMirror at subprocess time
+    tenantId      : 'neomjs',                           // server-derived; must match the authenticated tenant for stamping
+    repoSlug      : 'neomjs/create-app',                // tenant-owned, namespaced, never credential-bearing
+    cloneUrl      : 'https://github.com/neomjs/create-app.git',  // clean URL; no userinfo@
+    credentialRef : 'env:NEO_TENANT_NEOMJS_TOKEN',      // reference only; resolved by GitMirror at subprocess time
     rootKind      : 'external-source',                  // 'neo-workspace' | 'bare-repo' | 'external-source'
     parserId      : 'raw-text',                         // optional; defaults to family dispatch
     parserVersion : '1'                                 // optional
@@ -248,8 +248,8 @@ Per-repo freshness is surfaced through the existing Memory Core healthcheck orch
     failedCount   : 0,
     repos: [
         {
-            tenantId             : 'acme-corp',
-            repoSlug             : 'acme-corp/widgets',
+            tenantId             : 'neomjs',
+            repoSlug             : 'neomjs/create-app',
             lastIngestedRev      : 'a1b2c3d4',    // short SHA from the most recent successful ingest
             lastSyncAt           : '2026-05-25T05:30:00.000Z',
             status               : 'active',      // 'active' | 'degraded' | 'quarantined' | 'disabled'
@@ -292,9 +292,9 @@ The lane never silently abandons a `quarantined` repo — operator action is the
 Each `runTask` cycle emits per-repo log lines in this shape:
 
 ```text
-[TenantRepoSync] Refreshing acme-corp/widgets.
-[TenantRepoSync] acme-corp/widgets completed: head=a1b2c3d4 ingested=12 deleted=1 (842ms)
-[TenantRepoSync] acme-corp/widgets failed: KB_TENANT_REPO_SYNC_SYNC_FAILED (auth failed) [redacted]
+[TenantRepoSync] Refreshing neomjs/create-app.
+[TenantRepoSync] neomjs/create-app completed: head=a1b2c3d4 ingested=12 deleted=1 (842ms)
+[TenantRepoSync] neomjs/create-app failed: KB_TENANT_REPO_SYNC_SYNC_FAILED (auth failed) [redacted]
 [TenantRepoSync] Cycle summary: 3 repos, 2 completed, 1 failed.
 ```
 
