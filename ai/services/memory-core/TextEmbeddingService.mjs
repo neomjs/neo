@@ -193,7 +193,7 @@ class TextEmbeddingService extends Base {
             const provider = this.#getOllamaProvider();
             const result   = await provider.embed(text);
             return result.embeddings?.[0];
-        } else {
+        } else if (explicitProvider === 'gemini') {
             const geminiKey = process.env.GEMINI_API_KEY;
             if (!geminiKey) {
                  throw new Error('Semantic search unavailable: GEMINI_API_KEY is missing.');
@@ -203,6 +203,12 @@ class TextEmbeddingService extends Base {
             }
             const result = await this.embeddingModel.embedContent(text);
             return result.embedding.values;
+        } else {
+            // #11965 Sub-2 cycle-2: explicit unsupported-provider rejection. Pre-AC1
+            // fallthrough quietly routed any unknown name into the Gemini path; that
+            // silent-fallback was speculative-support. Fail loudly with the expected
+            // provider set so operators see misconfiguration immediately.
+            throw new Error(`TextEmbeddingService: unsupported embedding provider '${explicitProvider}'. Expected one of: 'gemini', 'openAiCompatible', 'ollama'.`);
         }
     }
 
@@ -225,7 +231,7 @@ class TextEmbeddingService extends Base {
             const provider = this.#getOllamaProvider();
             const result   = await provider.embed(texts);
             return result.embeddings || [];
-        } else {
+        } else if (explicitProvider === 'gemini') {
             const geminiKey = process.env.GEMINI_API_KEY;
             if (!geminiKey) {
                  throw new Error('Semantic search unavailable: GEMINI_API_KEY is missing.');
@@ -237,6 +243,9 @@ class TextEmbeddingService extends Base {
             const requests = texts.map(text => ({model: aiConfig.embeddingModel, content: {parts: [{text}]}}));
             const result = await this.embeddingModel.batchEmbedContents({ requests });
             return result.embeddings.map(e => e.values);
+        } else {
+            // #11965 Sub-2 cycle-2: explicit unsupported-provider rejection (matches embedText).
+            throw new Error(`TextEmbeddingService: unsupported embedding provider '${explicitProvider}'. Expected one of: 'gemini', 'openAiCompatible', 'ollama'.`);
         }
     }
 }

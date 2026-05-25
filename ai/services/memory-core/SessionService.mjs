@@ -6,6 +6,88 @@ import crypto from 'crypto';
 import GraphService from './GraphService.mjs';
 import OpenAiCompatibleProvider from '../../provider/OpenAiCompatible.mjs';
 import OllamaProvider           from '../../provider/Ollama.mjs';
+
+/**
+ * @summary Builds the chat-completion model wrapper for the configured `modelProvider`.
+ *
+ * Pure-ish: side effects are limited to logging + provider instantiation via the
+ * injected factories. Returns a `{generateContent}` shim that wraps the provider's
+ * `generate()` in a Gemini-shaped response envelope (`{response: {text()}}`) so
+ * downstream consumers (`summarizeSession`, `invokeWithGuardrail`) stay
+ * provider-agnostic.
+ *
+ * Extracted from `SessionService.construct()` for #11965 Sub-2 cycle-2 testability:
+ * tests can pass mocked provider factories to verify selector boundaries + envelope
+ * shape without hitting real Ollama / OpenAI-compatible endpoints. Production
+ * `construct()` calls this with `Neo.create`-based factories that return real
+ * provider class instances.
+ *
+ * @param {Object} options
+ * @param {String} options.modelProvider 'gemini' | 'openAiCompatible' | 'ollama'.
+ * @param {Object} [options.openAiCompatibleConfig] Slice of `aiConfig.openAiCompatible` ({host, apiKey, model}).
+ * @param {Object} [options.ollamaConfig] Slice of `aiConfig.ollama` ({host, model, embeddingModel}).
+ * @param {String} [options.geminiApiKey] `GEMINI_API_KEY` env value (passed for testability).
+ * @param {String} [options.geminiModelName] `aiConfig.modelName` (Gemini model name).
+ * @param {Function} [options.ollamaProviderFactory] Test seam — defaults to `Neo.create(OllamaProvider, cfg)`.
+ * @param {Function} [options.openAiCompatibleProviderFactory] Test seam — defaults to `Neo.create(OpenAiCompatibleProvider, cfg)`.
+ * @param {Function} [options.geminiClientFactory] Test seam — defaults to `new GoogleGenerativeAI(...).getGenerativeModel({model})`.
+ * @returns {Object|null} Gemini-shaped `{generateContent}` model, OR `null` for gemini without API key.
+ * @throws {Error} When `modelProvider` is not in the supported set.
+ */
+export function buildChatModel({
+    modelProvider,
+    openAiCompatibleConfig,
+    ollamaConfig,
+    geminiApiKey,
+    geminiModelName,
+    ollamaProviderFactory          = (cfg) => Neo.create(OllamaProvider, cfg),
+    openAiCompatibleProviderFactory = (cfg) => Neo.create(OpenAiCompatibleProvider, cfg),
+    geminiClientFactory             = (apiKey, modelName) => new GoogleGenerativeAI(apiKey).getGenerativeModel({model: modelName})
+} = {}) {
+    if (modelProvider === 'openAiCompatible') {
+        const cfg = openAiCompatibleConfig || {};
+        const provider = openAiCompatibleProviderFactory({
+            apiKey   : cfg.apiKey,
+            host     : cfg.host,
+            modelName: cfg.model
+        });
+        return {
+            generateContent: async (promptText) => {
+                provider.apiKey    = cfg.apiKey;
+                provider.host      = cfg.host;
+                provider.modelName = cfg.model;
+                const result  = await provider.generate(promptText);
+                const content = result.content || result.raw?.message?.content || '';
+                return {response: {text: () => content}};
+            }
+        };
+    }
+
+    if (modelProvider === 'ollama') {
+        const cfg = ollamaConfig || {};
+        const provider = ollamaProviderFactory({
+            host          : cfg.host           || 'http://127.0.0.1:11434',
+            modelName     : cfg.model          || 'gemma4',
+            embeddingModel: cfg.embeddingModel || null
+        });
+        return {
+            generateContent: async (promptText) => {
+                provider.host      = cfg.host  || provider.host;
+                provider.modelName = cfg.model || provider.modelName;
+                const result  = await provider.generate(promptText);
+                const content = result.content || result.raw?.message?.content || '';
+                return {response: {text: () => content}};
+            }
+        };
+    }
+
+    if (modelProvider === 'gemini') {
+        if (!geminiApiKey) return null;
+        return geminiClientFactory(geminiApiKey, geminiModelName);
+    }
+
+    throw new Error(`SessionService: unsupported modelProvider '${modelProvider}'. Expected one of: 'gemini', 'openAiCompatible', 'ollama'.`);
+}
 import StorageRouter from './managers/StorageRouter.mjs';
 import HealthService from './HealthService.mjs';
 import Json from '../../../src/util/Json.mjs';
@@ -105,60 +187,24 @@ class SessionService extends Base {
             }
         }
 
+        // #11965 Sub-2 cycle-2: delegate to extracted `buildChatModel` helper for
+        // testability + explicit unsupported-provider rejection (throws if modelProvider
+        // is not in the supported set, fail-loud rather than silent Gemini fallthrough).
         if (aiConfig.modelProvider === 'openAiCompatible') {
             logger.info(`[SessionService] Initializing generation model via OpenAI-Compatible API (${aiConfig.openAiCompatible.model})`);
-            const provider = Neo.create(OpenAiCompatibleProvider, {
-                apiKey   : aiConfig.openAiCompatible.apiKey,
-                host     : aiConfig.openAiCompatible.host,
-                modelName: aiConfig.openAiCompatible.model
-            });
-
-            this.model = {
-                generateContent: async (promptText) => {
-                    logger.info(`[OpenAiCompatible] Sending summarization prompt (${promptText.length} chars)`);
-                    provider.apiKey    = aiConfig.openAiCompatible.apiKey;
-                    provider.host      = aiConfig.openAiCompatible.host;
-                    provider.modelName = aiConfig.openAiCompatible.model;
-
-                    const result  = await provider.generate(promptText);
-                    const content = result.content || result.raw?.message?.content || '';
-
-                    return {response: {text: () => content}};
-                }
-            };
         } else if (aiConfig.modelProvider === 'ollama') {
-            // #11965 Sub-2: native Ollama chat dispatch via Neo.ai.provider.Ollama.
-            // Wraps the provider's `generate()` chat-completions call in the Gemini-shaped
-            // {response: {text: () => content}} envelope so the rest of SessionService
-            // (summarization, invokeWithGuardrail, etc.) stays provider-agnostic.
             logger.info(`[SessionService] Initializing generation model via native Ollama (${aiConfig.ollama?.model || '<unset>'})`);
-            const provider = Neo.create(OllamaProvider, {
-                host          : aiConfig.ollama?.host          || 'http://127.0.0.1:11434',
-                modelName     : aiConfig.ollama?.model         || 'gemma4',
-                embeddingModel: aiConfig.ollama?.embeddingModel || null
-            });
-
-            this.model = {
-                generateContent: async (promptText) => {
-                    logger.info(`[Ollama] Sending summarization prompt (${promptText.length} chars)`);
-                    // Refresh provider config per request — matches OpenAiCompatible-path
-                    // semantic so runtime config mutation by tests / embedded operators
-                    // still applies to subsequent invocations.
-                    provider.host      = aiConfig.ollama?.host  || provider.host;
-                    provider.modelName = aiConfig.ollama?.model || provider.modelName;
-
-                    const result  = await provider.generate(promptText);
-                    const content = result.content || result.raw?.message?.content || '';
-
-                    return {response: {text: () => content}};
-                }
-            };
-        } else {
+        } else if (aiConfig.modelProvider === 'gemini') {
             logger.info(`[SessionService] Initializing generation model via Gemini (${aiConfig.modelName})`);
-            const geminiKey = process.env.GEMINI_API_KEY;
-            const genAI = new GoogleGenerativeAI(geminiKey);
-            this.model = genAI.getGenerativeModel({ model: aiConfig.modelName });
         }
+
+        this.model = buildChatModel({
+            modelProvider          : aiConfig.modelProvider,
+            openAiCompatibleConfig : aiConfig.openAiCompatible,
+            ollamaConfig           : aiConfig.ollama,
+            geminiApiKey           : process.env.GEMINI_API_KEY,
+            geminiModelName        : aiConfig.modelName
+        });
     }
 
     /**

@@ -133,4 +133,20 @@ test.describe('TextEmbeddingService #11965 Sub-2 — native Ollama dispatch', ()
         await TextEmbeddingService.embedText('hello', 'gemini').catch(() => {});
         expect(ollamaCalls).toEqual([]);
     });
+
+    test('embedText throws explicitly for unsupported provider (no silent Gemini fallthrough)', async () => {
+        // #11965 Sub-2 cycle-2 (per @neo-gpt review): pre-cycle-2, any unknown
+        // explicitProvider value fell through to the Gemini branch. That silent-fallback
+        // masked misconfiguration. Now an unsupported value throws with the expected set
+        // named in the message.
+        await expect(TextEmbeddingService.embedText('hello', 'bogus-provider')).rejects.toThrow(
+            /unsupported embedding provider 'bogus-provider'.*Expected one of.*gemini.*openAiCompatible.*ollama/
+        );
+    });
+
+    test('embedTexts throws explicitly for unsupported provider (no silent Gemini fallthrough)', async () => {
+        await expect(TextEmbeddingService.embedTexts(['a', 'b'], 'mystery-provider')).rejects.toThrow(
+            /unsupported embedding provider 'mystery-provider'.*Expected one of.*gemini.*openAiCompatible.*ollama/
+        );
+    });
 });
