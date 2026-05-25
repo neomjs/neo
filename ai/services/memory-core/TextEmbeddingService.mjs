@@ -46,10 +46,9 @@ class TextEmbeddingService extends Base {
         embeddingModel_: null,
         /**
          * Lazy-instantiated `Neo.ai.provider.Ollama` instance used by the native
-         * Ollama embedding-dispatch path (#11965 Sub-2 of #10103). Created on first
-         * `embedText`/`embedTexts` call with `explicitProvider === 'ollama'`. Tests
-         * inject a fake by setting this directly via the singleton, bypassing the
-         * lazy-init path.
+         * Ollama embedding-dispatch path. Created on first `embedText`/`embedTexts`
+         * call with `explicitProvider === 'ollama'`. Tests inject a fake by setting
+         * this directly via the singleton, bypassing the lazy-init path.
          * @member {Object|null} ollamaProvider_=null
          * @protected
          * @reactive
@@ -187,9 +186,8 @@ class TextEmbeddingService extends Base {
             const result = await this.#postOpenAiCompatible(text, unloadRetryCount);
             return result.data?.[0]?.embedding;
         } else if (explicitProvider === 'ollama') {
-            // #11965 Sub-2: native Ollama embedding dispatch via Neo.ai.provider.Ollama.
-            // Single-input call returns shape `{embeddings: [[...]]}`; we project the
-            // single inner array since this method is the per-text variant.
+            // Native Ollama returns `{embeddings: [[...]]}` even for single-input;
+            // project the single inner array since this method is the per-text variant.
             const provider = this.#getOllamaProvider();
             const result   = await provider.embed(text);
             return result.embeddings?.[0];
@@ -204,10 +202,8 @@ class TextEmbeddingService extends Base {
             const result = await this.embeddingModel.embedContent(text);
             return result.embedding.values;
         } else {
-            // #11965 Sub-2 cycle-2: explicit unsupported-provider rejection. Pre-AC1
-            // fallthrough quietly routed any unknown name into the Gemini path; that
-            // silent-fallback was speculative-support. Fail loudly with the expected
-            // provider set so operators see misconfiguration immediately.
+            // Unknown provider names fail loudly rather than silently fall back to
+            // the Gemini path — silent fallback is speculative-support.
             throw new Error(`TextEmbeddingService: unsupported embedding provider '${explicitProvider}'. Expected one of: 'gemini', 'openAiCompatible', 'ollama'.`);
         }
     }
@@ -226,8 +222,8 @@ class TextEmbeddingService extends Base {
             const result = await this.#postOpenAiCompatible(texts, unloadRetryCount);
             return result.data.sort((a, b) => a.index - b.index).map(d => d.embedding);
         } else if (explicitProvider === 'ollama') {
-            // #11965 Sub-2: native Ollama batch embedding dispatch. Ollama's /api/embed
-            // accepts array-of-strings natively + returns parallel embeddings array.
+            // Ollama's `/api/embed` accepts array-of-strings natively + returns
+            // a parallel embeddings array — no per-text fan-out needed.
             const provider = this.#getOllamaProvider();
             const result   = await provider.embed(texts);
             return result.embeddings || [];
@@ -244,7 +240,7 @@ class TextEmbeddingService extends Base {
             const result = await this.embeddingModel.batchEmbedContents({ requests });
             return result.embeddings.map(e => e.values);
         } else {
-            // #11965 Sub-2 cycle-2: explicit unsupported-provider rejection (matches embedText).
+            // Unknown provider names fail loudly (matches `embedText`).
             throw new Error(`TextEmbeddingService: unsupported embedding provider '${explicitProvider}'. Expected one of: 'gemini', 'openAiCompatible', 'ollama'.`);
         }
     }

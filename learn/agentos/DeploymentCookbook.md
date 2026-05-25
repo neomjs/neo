@@ -229,11 +229,18 @@ The local orchestrator can sync multiple local Neo checkouts through the
 2. `ai/config.mjs` `orchestrator.devSyncRoots`
 3. unset single owning-checkout behavior
 
-For a durable local setup, create the gitignored `ai/config.mjs` file:
+For a durable local setup, edit the gitignored `ai/config.mjs` file. On a
+fresh clone, `npm run prepare` auto-creates `ai/config.mjs` as a copy of
+`ai/config.template.mjs`, so it always exists after install — edit the
+relevant block (e.g. `orchestrator.devSyncRoots`) and leave the rest at
+template defaults:
 
 ```js
-export default {
+// In your local ai/config.mjs (gitignored; copy of ai/config.template.mjs):
+const defaultConfig = {
+    // ... preserved template defaults ...
     orchestrator: {
+        // ... preserved fields ...
         devSyncRoots: [
             '/absolute/path/to/neo-gpt/neo',
             '/absolute/path/to/neo-gemini/neo',
@@ -242,6 +249,11 @@ export default {
     }
 };
 ```
+
+If the template evolves and your local file falls out of shape-parity, the
+`prepare` script warns with the missing imports/exports. Run
+`npm run prepare -- --migrate-config` to refresh `ai/config.mjs` from the
+template (drops local edits — re-apply them afterward).
 
 Then start the existing local orchestrator command:
 

@@ -4,6 +4,7 @@ import '../../../../src/core/_export.mjs';
 import Config from '../../../../ai/config.template.mjs';
 
 test.describe('Tier 1 Config Immutability', () => {
+
     test('defaultConfig remains unmutated across singleton instantiations', async () => {
         const initialPort = Config.mcpHttpPort;
 

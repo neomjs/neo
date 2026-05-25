@@ -490,7 +490,14 @@ class Config extends Base {
     }
 }
 
-const instance = Neo.setupClass(Config);
+// Idempotent registration: `ai/config.template.mjs` and the operator-overlay
+// `ai/config.mjs` are structurally identical (the latter is auto-copied from
+// the former by `initServerConfigs.mjs`). In production only one is loaded, so
+// no collision. In Playwright test workers that get reused across specs,
+// modules importing one or the other can both end up in the same process —
+// reuse the existing `Neo.ai.Config` registration rather than colliding under
+// unitTestMode.
+const instance = Neo.ns('Neo.ai.Config') ?? Neo.setupClass(Config);
 
 export default new Proxy(instance, {
     get(target, prop, receiver) {

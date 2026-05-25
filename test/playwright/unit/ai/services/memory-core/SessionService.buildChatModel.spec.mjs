@@ -17,17 +17,6 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
-/**
- * @summary Focused unit coverage for `buildChatModel` extracted from `SessionService.construct()`.
- *
- * Tests verify selector boundaries + envelope shape for `modelProvider`
- * values. Provider factories are injected so tests never hit real
- * Ollama / OpenAI-compatible endpoints. Filed per @neo-gpt cycle-1 review
- * of PR #11966 (Sub-2 of #10103, native Ollama wire-up).
- *
- * @see ai/services/memory-core/SessionService.mjs#buildChatModel
- * @see https://github.com/neomjs/neo/issues/11965
- */
 test.describe('SessionService.buildChatModel (#11965 Sub-2)', () => {
     let buildChatModel;
 

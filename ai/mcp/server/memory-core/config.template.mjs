@@ -1,5 +1,5 @@
 import path                              from 'path';
-import AiConfig                          from '../../../config.template.mjs';
+import AiConfig                          from '../../../config.mjs';
 import BaseConfig, {createConfigProxy}   from '../shared/BaseConfig.mjs';
 import {fileURLToPath}                   from 'url';
 import Env                               from '../../../../src/util/Env.mjs';

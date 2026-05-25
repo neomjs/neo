@@ -17,19 +17,6 @@ import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../src/core/_export.mjs';
 
-/**
- * @summary Focused unit coverage for `buildGraphProvider` shared dispatch
- * helper used by SemanticGraphExtractor, GoldenPathSynthesizer, and
- * TopologyInferenceEngine. Closes #11965 AC5 graph-mutator provider
- * reachability — these services previously hardwired `OpenAiCompatible`,
- * breaking cloud deployments configured for native Ollama.
- *
- * Tests verify selector boundaries + provider config pass-through via
- * injected factories. No real Ollama / OpenAI-compatible endpoints reached.
- *
- * @see ai/services/graph/providerDispatch.mjs
- * @see https://github.com/neomjs/neo/issues/11965
- */
 test.describe('buildGraphProvider (#11965 Sub-2 cycle-3)', () => {
     let buildGraphProvider;
 

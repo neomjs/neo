@@ -30,7 +30,7 @@ import {fileURLToPath, pathToFileURL} from 'url';
 import fs from 'fs-extra';
 import path from 'path';
 import {execSync} from 'child_process';
-import AiConfig from '../../config.template.mjs';
+import AiConfig from '../../config.mjs';
 import Env from '../../../src/util/Env.mjs';
 import Orchestrator from './Orchestrator.mjs';
 

@@ -4,30 +4,33 @@ import {fileURLToPath} from 'url';
 
 /**
  * @module ai/scripts/setup/initServerConfigs
- * @summary Bootstrap script for `ai/mcp/server/*` config files. Runs at `npm prepare`.
+ * @summary Bootstrap script for the top-level Tier-1 `ai/config.mjs` AND each
+ * per-server `config.mjs` under `ai/mcp/server/`. Runs at `npm prepare`.
  *
- * Two responsibilities:
+ * Two responsibilities for every (`config.template.mjs`, `config.mjs`) pair:
  *
- * 1. **First-time clone:** when a server's gitignored `config.mjs` is missing, copy
+ * 1. **First-time clone:** when the gitignored `config.mjs` is missing, copy
  *    `config.template.mjs` over it.
- * 2. **Drift detection (#10815):** when `config.mjs` already exists, compare its
+ * 2. **Drift detection:** when `config.mjs` already exists, compare its
  *    structural shape (top-level imports + named exports) against the template.
- *    Mismatched items emit a per-server stderr warning listing what's new in the
- *    template. Operator can refresh the gitignored file by re-running with
+ *    Mismatched items emit a stderr warning listing what's new in the template.
+ *    Operator can refresh the gitignored file by re-running with
  *    `npm run prepare -- --migrate-config` (overwrites `config.mjs` from the template).
  *
- * The drift detector is regex-based by design. AST parsing was rejected per the
- * #10815 Avoided Traps section — adds dependency weight to a 52-line bootstrap
- * script for a failure mode that hasn't required deep parsing in practice. Re-evaluate
- * only if structural drift starts hiding inside conditional / dynamic imports.
+ * The Tier-1 pair is the canonical operator overlay for deployment-wide defaults
+ * (cookbook §7). Runtime code MUST import from `ai/config.mjs`, never from
+ * `ai/config.template.mjs` directly — otherwise the operator overlay is bypassed.
  *
- * @see https://github.com/neomjs/neo/issues/10815
+ * The drift detector is regex-based by design. AST parsing was rejected as
+ * dependency weight inappropriate for a small bootstrap script; re-evaluate only
+ * if structural drift starts hiding inside conditional / dynamic imports.
  */
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const cwd        = path.resolve(__dirname, '../../../');
 const serversDir = path.join(cwd, 'ai', 'mcp', 'server');
+const aiDir      = path.join(cwd, 'ai');
 
 const MIGRATE_FLAG = '--migrate-config';
 
@@ -203,9 +206,73 @@ export async function initConfigs({argv = process.argv, logger = console, server
     return {processed}
 }
 
+/**
+ * Ensures the top-level Tier-1 `ai/config.mjs` exists and is in shape-parity
+ * with `ai/config.template.mjs`. Runtime code MUST import from `ai/config.mjs`
+ * (the operator overlay), never from `ai/config.template.mjs` directly —
+ * otherwise the overlay is bypassed and operator customizations don't propagate.
+ *
+ * Same three branches as `initConfigs`:
+ *
+ *   1. Template absent — skip (log warning).
+ *   2. Config missing — clone template.
+ *   3. Config present + drift detected — warn-only (default) OR overwrite
+ *      from template when invoked with `--migrate-config`.
+ *
+ * @param {Object} [options]
+ * @param {String[]} [options.argv=process.argv]   Argv source; injectable for tests.
+ * @param {Object}   [options.logger=console]      Log sink; injectable for tests.
+ * @param {String}   [options.aiRoot=aiDir]        Override for tests.
+ * @returns {Promise<{action: 'clone'|'silent'|'warn'|'migrate'|'skip-no-template', drift?: Object}>}
+ */
+export async function initTier1Config({argv = process.argv, logger = console, aiRoot = aiDir} = {}) {
+    logger.log('[Neo AI] Checking top-level Tier-1 config...');
+
+    const templatePath = path.join(aiRoot, 'config.template.mjs');
+    const activePath   = path.join(aiRoot, 'config.mjs');
+
+    if (!fs.existsSync(templatePath)) {
+        logger.warn('[Neo AI] ai/config.template.mjs not found; skipping Tier-1 config initialization.');
+        return {action: 'skip-no-template'}
+    }
+
+    if (!fs.existsSync(activePath)) {
+        logger.log('[Neo AI] Tier-1 ai/config.mjs missing. Cloning from template...');
+        await fs.copy(templatePath, activePath);
+        return {action: 'clone'}
+    }
+
+    const drift = detectDrift(
+        await projectShape(templatePath),
+        await projectShape(activePath)
+    );
+
+    if (!drift.hasDrift) {
+        return {action: 'silent'}
+    }
+
+    const migrate = argv.includes(MIGRATE_FLAG);
+
+    if (migrate) {
+        logger.log(`[Neo AI] Migrating stale Tier-1 ai/config.mjs (drift detected, ${MIGRATE_FLAG} set)...`);
+        await fs.copy(templatePath, activePath);
+        return {action: 'migrate', drift}
+    }
+
+    logger.warn('[Neo AI] Stale Tier-1 ai/config.mjs — template has evolved:');
+    drift.missingImports.forEach(i => logger.warn(`  + import: ${i}`));
+    drift.missingExports.forEach(e => logger.warn(`  + export: ${e}`));
+    logger.warn(`  Run \`npm run prepare -- ${MIGRATE_FLAG}\` to refresh (gitignored; safe).`);
+
+    return {action: 'warn', drift}
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
-    initConfigs().catch(err => {
-        console.error('[Neo AI] Failed to initialize server configs:', err);
+    (async () => {
+        await initTier1Config();
+        await initConfigs();
+    })().catch(err => {
+        console.error('[Neo AI] Failed to initialize configs:', err);
         process.exit(1);
     });
 }
