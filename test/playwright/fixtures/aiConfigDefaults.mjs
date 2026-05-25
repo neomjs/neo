@@ -13,13 +13,16 @@ import AiConfig from '../../../ai/config.template.mjs';
  * **Determinism contract:**
  * - {@link TIER1_DEFAULTS} reads from the tracked `ai/config.template.mjs`,
  *   never from the gitignored `ai/config.mjs` overlay.
- * - Deep-cloned via `structuredClone` so nested groups (`auth`, `ollama`,
+ * - Deep-cloned via a custom recursive `deepClone()` helper (NOT
+ *   `structuredClone` — that built-in rejects the nested arrow functions in
+ *   `aiConfig.dummyEmbeddingFunction`). Nested groups (`auth`, `ollama`,
  *   `openAiCompatible`, `engines.chroma`, …) hold no shared references with
  *   the live `AiConfig.data`. Mutating the live singleton in one spec cannot
  *   leak into another spec's assertion against the snapshot.
- * - Recursively frozen so accidental in-test writes to nested groups throw
- *   (in strict mode) instead of silently mutating a "frozen" snapshot — the
- *   shallow `Object.freeze` failure mode caught in #11978 cycle-1 review.
+ * - Recursively frozen via `deepFreeze()` so accidental in-test writes to
+ *   nested groups throw (in strict mode) instead of silently mutating a
+ *   "frozen" snapshot — the shallow `Object.freeze({...x})` failure mode
+ *   caught in #11978 cycle-1 review.
  *
  * **Why not import the template directly in tests?**
  * The per-server templates under `ai/mcp/server/` currently import `AiConfig`
