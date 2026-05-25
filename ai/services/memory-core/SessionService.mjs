@@ -8,59 +8,6 @@ import OpenAiCompatibleProvider from '../../provider/OpenAiCompatible.mjs';
 import OllamaProvider           from '../../provider/Ollama.mjs';
 import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoots.mjs';
 
-const
-    identityTrustTiers = new Map(IDENTITIES.map(identity => [identity.id, identity.properties?.trustTier || TRUST_TIERS.UNCLASSIFIED])),
-    trustTierRanks     = new Map(TRUST_TIER_ORDER.map((tier, index) => [tier, index]));
-
-/**
- * @summary Resolves source-memory provenance for a derived session summary.
- *
- * A session summary is derived content: it must retain the most restrictive trust tier of
- * its source memories so the summarizer cannot launder lower-trust material into its own
- * higher-trust identity. Unknown or pre-provenance memories therefore collapse to
- * `unclassified`.
- *
- * @param {Object[]} [metadatas=[]] Source memory metadata rows.
- * @returns {{sourceAgentIdentities: String[], sourceTrustTier: String, unclassifiedSourceCount: Number}}
- */
-export function resolveSummarySourceProvenance(metadatas = []) {
-    const sourceAgentIdentities = new Set();
-    let sourceTrustTier         = null,
-        unclassifiedSourceCount = 0;
-
-    for (const metadata of metadatas || []) {
-        const agentIdentity = typeof metadata?.agentIdentity === 'string' && metadata.agentIdentity
-            ? metadata.agentIdentity
-            : null;
-        const knownTrustTier = agentIdentity ? identityTrustTiers.get(agentIdentity) : null;
-        const trustTier = agentIdentity
-            ? (knownTrustTier || TRUST_TIERS.UNCLASSIFIED)
-            : TRUST_TIERS.UNCLASSIFIED;
-
-        if (agentIdentity) {
-            sourceAgentIdentities.add(agentIdentity);
-        }
-
-        if (!knownTrustTier) {
-            unclassifiedSourceCount++;
-        }
-
-        if (
-            sourceTrustTier === null ||
-            (trustTierRanks.get(trustTier) ?? trustTierRanks.get(TRUST_TIERS.UNCLASSIFIED)) >
-            (trustTierRanks.get(sourceTrustTier) ?? trustTierRanks.get(TRUST_TIERS.UNCLASSIFIED))
-        ) {
-            sourceTrustTier = trustTier;
-        }
-    }
-
-    return {
-        sourceAgentIdentities: [...sourceAgentIdentities],
-        sourceTrustTier     : sourceTrustTier || TRUST_TIERS.UNCLASSIFIED,
-        unclassifiedSourceCount
-    };
-}
-
 /**
  * @summary Builds the chat-completion model wrapper for the configured `modelProvider`.
  *
@@ -214,6 +161,59 @@ class SessionService extends Base {
          * @protected
          */
         singleton: true
+    }
+
+    static identityTrustTiers = new Map(IDENTITIES.map(identity => [identity.id, identity.properties?.trustTier || TRUST_TIERS.UNCLASSIFIED]))
+
+    static trustTierRanks = new Map(TRUST_TIER_ORDER.map((tier, index) => [tier, index]))
+
+    /**
+     * @summary Resolves source-memory provenance for a derived session summary.
+     *
+     * A session summary is derived content: it must retain the most restrictive trust tier of
+     * its source memories so the summarizer cannot launder lower-trust material into its own
+     * higher-trust identity. Unknown or pre-provenance memories therefore collapse to
+     * `unclassified`.
+     *
+     * @param {Object[]} [metadatas=[]] Source memory metadata rows.
+     * @returns {{sourceAgentIdentities: String[], sourceTrustTier: String, unclassifiedSourceCount: Number}}
+     */
+    static resolveSummarySourceProvenance(metadatas = []) {
+        const sourceAgentIdentities = new Set();
+        let sourceTrustTier         = null,
+            unclassifiedSourceCount = 0;
+
+        for (const metadata of metadatas || []) {
+            const agentIdentity = typeof metadata?.agentIdentity === 'string' && metadata.agentIdentity
+                ? metadata.agentIdentity
+                : null;
+            const knownTrustTier = agentIdentity ? this.identityTrustTiers.get(agentIdentity) : null;
+            const trustTier = agentIdentity
+                ? (knownTrustTier || TRUST_TIERS.UNCLASSIFIED)
+                : TRUST_TIERS.UNCLASSIFIED;
+
+            if (agentIdentity) {
+                sourceAgentIdentities.add(agentIdentity);
+            }
+
+            if (!knownTrustTier) {
+                unclassifiedSourceCount++;
+            }
+
+            if (
+                sourceTrustTier === null ||
+                (this.trustTierRanks.get(trustTier) ?? this.trustTierRanks.get(TRUST_TIERS.UNCLASSIFIED)) >
+                (this.trustTierRanks.get(sourceTrustTier) ?? this.trustTierRanks.get(TRUST_TIERS.UNCLASSIFIED))
+            ) {
+                sourceTrustTier = trustTier;
+            }
+        }
+
+        return {
+            sourceAgentIdentities: [...sourceAgentIdentities],
+            sourceTrustTier     : sourceTrustTier || TRUST_TIERS.UNCLASSIFIED,
+            unclassifiedSourceCount
+        };
     }
 
     /**
@@ -641,7 +641,7 @@ ${aggregatedContent}
             userId: RequestContextService.getUserId(),
             participatingAgents
         });
-        const sourceProvenance = resolveSummarySourceProvenance(memories.metadatas);
+        const sourceProvenance = this.constructor.resolveSummarySourceProvenance(memories.metadatas);
 
         const summaryMetadata = {
             sessionId, timestamp: lastActivity, memoryCount: memories.ids.length,
@@ -685,7 +685,7 @@ ${aggregatedContent}
         // Tie the summary strategically to the current focal point
         GraphService.linkNodes('frontier', summaryId, 'SESSION_COMPLETED', 1.0);
 
-        const graphAgentIdentities = sourceProvenance.sourceAgentIdentities.filter(agentIdentity => identityTrustTiers.has(agentIdentity));
+        const graphAgentIdentities = sourceProvenance.sourceAgentIdentities.filter(agentIdentity => this.constructor.identityTrustTiers.has(agentIdentity));
 
         for (const agentIdentity of graphAgentIdentities) {
             GraphService.linkNodes(summaryId, agentIdentity, 'AUTHORED_BY', 1.0, {

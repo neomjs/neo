@@ -157,7 +157,6 @@ test.describe('SessionService summary provenance (#10292)', () => {
     let GraphService;
     let RequestContextService;
     let SessionService;
-    let resolveSummarySourceProvenance;
 
     let originalIngestAntigravityArtifacts;
     let originalLinkNodes;
@@ -173,10 +172,9 @@ test.describe('SessionService summary provenance (#10292)', () => {
     test.beforeAll(async () => {
         const mod = await import('../../../../../../ai/services/memory-core/SessionService.mjs');
 
-        SessionService                 = mod.default;
-        resolveSummarySourceProvenance = mod.resolveSummarySourceProvenance;
-        GraphService                   = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
-        RequestContextService          = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
+        SessionService        = mod.default;
+        GraphService          = (await import('../../../../../../ai/services/memory-core/GraphService.mjs')).default;
+        RequestContextService = (await import('../../../../../../ai/mcp/server/shared/services/RequestContextService.mjs')).default;
     });
 
     test.beforeEach(() => {
@@ -259,7 +257,7 @@ test.describe('SessionService summary provenance (#10292)', () => {
     });
 
     test('resolveSummarySourceProvenance uses the most restrictive source tier', () => {
-        const result = resolveSummarySourceProvenance([
+        const result = SessionService.constructor.resolveSummarySourceProvenance([
             {agentIdentity: '@tobiu'},
             {agentIdentity: '@neo-gpt'},
             {agentIdentity: '@external-contributor'},
