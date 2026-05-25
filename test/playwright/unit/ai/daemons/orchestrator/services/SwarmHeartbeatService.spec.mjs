@@ -19,8 +19,7 @@ setup({
 // Test-side entry-point bootstrap: Neo + core/_export populate `globalThis.Neo` before
 // the dynamic SwarmHeartbeatService import below. Required because the class file no
 // longer imports Neo itself (#11058 split — class+wrapper pattern). Mirrors the test-spec
-// bootstrap pattern in TaskStateService.spec / ProcessSupervisorService.spec /
-// SummarizationCoordinatorService.spec post-#11049/#11054.
+// bootstrap pattern in TaskStateService.spec / ProcessSupervisorService.spec post-#11049/#11054.
 import Neo       from '../../../../../../../src/Neo.mjs';
 import * as core from '../../../../../../../src/core/_export.mjs';
 

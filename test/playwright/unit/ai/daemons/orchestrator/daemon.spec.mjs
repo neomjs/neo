@@ -181,9 +181,13 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(orchestratorSource).not.toContain('syncKnowledgeBase.mjs');
         expect(orchestratorSource).not.toContain('backup.mjs');
 
-        expect(daemonSource).not.toContain('summarize-sessions.mjs');
-        expect(daemonSource).not.toContain('syncKnowledgeBase.mjs');
-        expect(daemonSource).not.toContain('backup.mjs');
+        // Match the canonical maintenance-script path-component pattern from TaskDefinitions
+        // (`path.join(scriptDir, 'lifecycle' | 'maintenance', '<name>.mjs')`). Bare filename
+        // checks would false-positive against legitimate `./scheduling/<task>.mjs` imports
+        // that share leaf names (e.g. `./scheduling/backup.mjs`).
+        expect(daemonSource).not.toContain("'summarize-sessions.mjs'");
+        expect(daemonSource).not.toContain("'syncKnowledgeBase.mjs'");
+        expect(daemonSource).not.toContain("'backup.mjs'");
 
         expect(taskDefSource).toContain('summarize-sessions.mjs');
         expect(taskDefSource).toContain('syncKnowledgeBase.mjs');
