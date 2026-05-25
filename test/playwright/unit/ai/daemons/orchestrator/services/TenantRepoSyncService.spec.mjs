@@ -107,6 +107,10 @@ test.describe('TenantRepoSyncService (#11790)', () => {
 
     test.afterEach(async () => {
         await fs.remove(tmpDir);
+        // Restore the singleton's reactive config to default values so #11942-AC2
+        // concurrency tests cannot leak short timeouts / serial-limit to siblings.
+        TenantRepoSyncService.concurrencyLimit         = 2;
+        TenantRepoSyncService.concurrencyGateTimeoutMs = 30000;
     });
 
     test('skipped when no tenantRepos configured', async () => {
@@ -132,7 +136,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         const result = await TenantRepoSyncService.runTask({
             reason          : 'periodic',
             taskStateService,
-            tenantReposConfig: {tenantRepos: [{tenantId: 't1', repoSlug: 'org/repo', mirrorRoot: '/tmp/mirror', cloneUrl: 'https://example.com/repo.git'}]},
+            tenantReposConfig: {tenantRepos: [{tenantId: 't1', repoSlug: 'org/repo', mirrorRoot: '/tmp/mirror', cloneUrl: 'https://github.com/neomjs/repo.git'}]},
             revisionsFilePath: revisionsFile
         });
 
@@ -153,8 +157,8 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             reason          : 'periodic-sweep:60000',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
-                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://example.com/a.git'},
-                {tenantId: 't1', repoSlug: 'org/repo-b', mirrorRoot, cloneUrl: 'https://example.com/b.git'}
+                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'},
+                {tenantId: 't1', repoSlug: 'org/repo-b', mirrorRoot, cloneUrl: 'https://github.com/neomjs/b.git'}
             ]},
             gitMirror                    : makeFakeGitMirror({captureCalls: mirrorCalls}),
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
@@ -209,9 +213,9 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             reason          : 'periodic',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
-                {tenantId: 't1', repoSlug: 'org/good',   mirrorRoot, cloneUrl: 'https://example.com/good.git'},
-                {tenantId: 't1', repoSlug: 'org/broken', mirrorRoot, cloneUrl: 'https://example.com/broken.git'},
-                {tenantId: 't1', repoSlug: 'org/good2',  mirrorRoot, cloneUrl: 'https://example.com/good2.git'}
+                {tenantId: 't1', repoSlug: 'org/good',   mirrorRoot, cloneUrl: 'https://github.com/neomjs/good.git'},
+                {tenantId: 't1', repoSlug: 'org/broken', mirrorRoot, cloneUrl: 'https://github.com/neomjs/broken.git'},
+                {tenantId: 't1', repoSlug: 'org/good2',  mirrorRoot, cloneUrl: 'https://github.com/neomjs/good2.git'}
             ]},
             gitMirror                    : failingGitMirror,
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
@@ -249,9 +253,9 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             reason          : 'manual',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
-                {tenantId: 't1', repoSlug: 'org/a', mirrorRoot, cloneUrl: 'https://example.com/a.git'},
-                {tenantId: 't1', repoSlug: 'org/b', mirrorRoot, cloneUrl: 'https://example.com/b.git'},
-                {tenantId: 't1', repoSlug: 'org/c', mirrorRoot, cloneUrl: 'https://example.com/c.git'}
+                {tenantId: 't1', repoSlug: 'org/a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'},
+                {tenantId: 't1', repoSlug: 'org/b', mirrorRoot, cloneUrl: 'https://github.com/neomjs/b.git'},
+                {tenantId: 't1', repoSlug: 'org/c', mirrorRoot, cloneUrl: 'https://github.com/neomjs/c.git'}
             ]},
             gitMirror                    : makeFakeGitMirror(),
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
@@ -295,7 +299,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         const result = await TenantRepoSyncService.runTask({
             reason          : 'periodic',
             taskStateService,
-            tenantReposConfig: {tenantRepos: [{tenantId: 't1', repoSlug: 'org/seeded', mirrorRoot, cloneUrl: 'https://example.com/seeded.git'}]},
+            tenantReposConfig: {tenantRepos: [{tenantId: 't1', repoSlug: 'org/seeded', mirrorRoot, cloneUrl: 'https://github.com/neomjs/seeded.git'}]},
             gitMirror                    : envelopeWatchingGitMirror,
             // For the persistence test, use a real-shape envelope-builder fake that
             // calls gitMirror.resolveHead twice — once for HEAD, once for prior sha —
@@ -326,7 +330,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             reason          : 'periodic-sweep:60000',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
-                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://example.com/a.git'}
+                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'}
             ]},
             gitMirror                    : makeFakeGitMirror(),
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
@@ -368,7 +372,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             reason          : 'periodic-sweep:60000',
             taskStateService,
             tenantReposConfig: {tenantRepos: [
-                {tenantId: 't1', repoSlug: 'org/broken', mirrorRoot, cloneUrl: 'https://example.com/broken.git'}
+                {tenantId: 't1', repoSlug: 'org/broken', mirrorRoot, cloneUrl: 'https://github.com/neomjs/broken.git'}
             ]},
             gitMirror                    : failingMirror,
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
@@ -398,7 +402,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             taskStateService,
             writeLog        : (level, msg) => logLines.push({level, msg}),
             tenantReposConfig: {tenantRepos: [
-                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://example.com/a.git'}
+                {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'}
             ]},
             gitMirror                    : makeFakeGitMirror(),
             envelopeBuilder              : makeFakeEnvelopeBuilder(),
@@ -430,7 +434,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
             taskStateService,
             writeLog        : (level, msg) => logLines.push({level, msg}),
             tenantReposConfig: {tenantRepos: [
-                {tenantId: 't1', repoSlug: 'org/known', mirrorRoot, cloneUrl: 'https://example.com/known.git'}
+                {tenantId: 't1', repoSlug: 'org/known', mirrorRoot, cloneUrl: 'https://github.com/neomjs/known.git'}
             ]},
             onlyRepoSlugs                : ['org/unknown', 'org/also-unknown'],
             gitMirror                    : makeFakeGitMirror(),
@@ -491,7 +495,7 @@ test.describe('TenantRepoSyncService (#11790)', () => {
                 taskStateService,
                 writeLog        : (level, msg) => logLines.push({level, msg}),
                 tenantReposConfig: {tenantRepos: [
-                    {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://example.com/a.git'}
+                    {tenantId: 't1', repoSlug: 'org/repo-a', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git'}
                 ]},
                 gitMirror                    : makeFakeGitMirror(),
                 envelopeBuilder              : makeFakeEnvelopeBuilder(),
@@ -508,5 +512,186 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         } finally {
             await fs.chmod(readOnlyParent, 0o700);
         }
+    });
+
+    test('concurrency-gate: concurrencyLimit=1 serializes per-repo work (#11942 AC2)', async () => {
+        TenantRepoSyncService.concurrencyLimit = 1;
+
+        const inFlightLog = [];
+        let inFlight      = 0;
+
+        const trackingMirror = {
+            async cloneIfMissing() {
+                inFlight++;
+                inFlightLog.push(inFlight);
+                await new Promise(resolve => setTimeout(resolve, 10));
+                inFlight--;
+            },
+            async fetch()              {},
+            async resolveHead({ref})   { return `sha-for-${ref}`; },
+            async isAncestor()         { return true; },
+            async diffRevisions()      { return {addedOrChanged: [], deleted: []}; }
+        };
+
+        for (const slug of ['org/r1', 'org/r2', 'org/r3']) {
+            await provisionMirrorDir({tenantId: 't1', repoSlug: slug});
+        }
+
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'periodic',
+            taskStateService: createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: ['org/r1', 'org/r2', 'org/r3'].map(s => ({
+                tenantId: 't1', repoSlug: s, mirrorRoot, cloneUrl: `https://github.com/neomjs/${s.split('/')[1]}.git`
+            }))},
+            gitMirror                    : trackingMirror,
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details.completedCount).toBe(3);
+        // With concurrencyLimit=1, the in-flight counter must never exceed 1.
+        expect(Math.max(...inFlightLog)).toBe(1);
+        expect(inFlightLog.every(n => n <= 1)).toBe(true);
+    });
+
+    test('concurrency-gate: concurrencyLimit=2 caps in-flight work at 2 with 4 repos (#11942 AC2)', async () => {
+        TenantRepoSyncService.concurrencyLimit = 2;
+
+        const inFlightLog = [];
+        let inFlight      = 0;
+
+        const trackingMirror = {
+            async cloneIfMissing() {
+                inFlight++;
+                inFlightLog.push(inFlight);
+                await new Promise(resolve => setTimeout(resolve, 20));
+                inFlight--;
+            },
+            async fetch()              {},
+            async resolveHead({ref})   { return `sha-for-${ref}`; },
+            async isAncestor()         { return true; },
+            async diffRevisions()      { return {addedOrChanged: [], deleted: []}; }
+        };
+
+        for (const slug of ['org/r1', 'org/r2', 'org/r3', 'org/r4']) {
+            await provisionMirrorDir({tenantId: 't1', repoSlug: slug});
+        }
+
+        const result = await TenantRepoSyncService.runTask({
+            reason          : 'periodic',
+            taskStateService: createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: ['org/r1', 'org/r2', 'org/r3', 'org/r4'].map(s => ({
+                tenantId: 't1', repoSlug: s, mirrorRoot, cloneUrl: `https://github.com/neomjs/${s.split('/')[1]}.git`
+            }))},
+            gitMirror                    : trackingMirror,
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile
+        });
+
+        expect(result.status).toBe('completed');
+        expect(result.details.completedCount).toBe(4);
+        // With concurrencyLimit=2 + 4 repos, peak in-flight should reach 2 (proving parallelism
+        // exists) but must not exceed 2 (proving the gate caps correctly).
+        expect(Math.max(...inFlightLog)).toBe(2);
+        expect(inFlightLog.every(n => n <= 2)).toBe(true);
+    });
+
+    test('concurrency-gate: beforeSetConcurrencyLimit rejects invalid values (0/negative/fractional/non-integer) (#11942 AC2)', () => {
+        // Baseline: set to a known valid value.
+        TenantRepoSyncService.concurrencyLimit = 2;
+        expect(TenantRepoSyncService.concurrencyLimit).toBe(2);
+
+        // Invalid values fall back to the previous valid value (2).
+        for (const invalid of [0, -1, 1.5, NaN, Infinity, '3', null, undefined, {}, []]) {
+            TenantRepoSyncService.concurrencyLimit = invalid;
+            expect(TenantRepoSyncService.concurrencyLimit).toBe(2);
+        }
+
+        // Valid integer values are accepted.
+        TenantRepoSyncService.concurrencyLimit = 1;
+        expect(TenantRepoSyncService.concurrencyLimit).toBe(1);
+        TenantRepoSyncService.concurrencyLimit = 10;
+        expect(TenantRepoSyncService.concurrencyLimit).toBe(10);
+    });
+
+    test('concurrency-gate: beforeSetConcurrencyGateTimeoutMs rejects NaN/Infinity/negative; accepts 0 as no-timeout sentinel (#11942 AC2)', () => {
+        TenantRepoSyncService.concurrencyGateTimeoutMs = 30000;
+        expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(30000);
+
+        // Invalid values fall back to the previous valid value.
+        for (const invalid of [-1, -100, NaN, Infinity, -Infinity, '5000', null, undefined]) {
+            TenantRepoSyncService.concurrencyGateTimeoutMs = invalid;
+            expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(30000);
+        }
+
+        // 0 is a valid sentinel (no timeout — slots wait indefinitely).
+        TenantRepoSyncService.concurrencyGateTimeoutMs = 0;
+        expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(0);
+
+        // Positive finite values are accepted.
+        TenantRepoSyncService.concurrencyGateTimeoutMs = 60000;
+        expect(TenantRepoSyncService.concurrencyGateTimeoutMs).toBe(60000);
+    });
+
+    test('concurrency-gate: queued slot acquisition surfaces KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT (#11942 AC2)', async () => {
+        TenantRepoSyncService.concurrencyLimit         = 1;
+        TenantRepoSyncService.concurrencyGateTimeoutMs = 50;
+
+        let releaseFirstRepo;
+        const firstRepoGate = new Promise(resolve => { releaseFirstRepo = resolve; });
+        let cloneCallCount  = 0;
+
+        const slowMirror = {
+            async cloneIfMissing() {
+                cloneCallCount++;
+                if (cloneCallCount === 1) {
+                    // First repo holds the slot indefinitely until the test releases it.
+                    await firstRepoGate;
+                }
+            },
+            async fetch()              {},
+            async resolveHead({ref})   { return `sha-for-${ref}`; },
+            async isAncestor()         { return true; },
+            async diffRevisions()      { return {addedOrChanged: [], deleted: []}; }
+        };
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/slow'});
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/queued'});
+
+        const resultPromise = TenantRepoSyncService.runTask({
+            reason          : 'periodic',
+            taskStateService: createInMemoryTaskStateService(),
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/slow',   mirrorRoot, cloneUrl: 'https://github.com/neomjs/slow.git'},
+                {tenantId: 't1', repoSlug: 'org/queued', mirrorRoot, cloneUrl: 'https://github.com/neomjs/queued.git'}
+            ]},
+            gitMirror                    : slowMirror,
+            envelopeBuilder              : makeFakeEnvelopeBuilder(),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile
+        });
+
+        // Wait long enough for the queued repo's slot acquisition to time out (~50ms).
+        await new Promise(resolve => setTimeout(resolve, 150));
+        releaseFirstRepo();
+        const result = await resultPromise;
+
+        // Queued repo surfaced the timeout via per-repo health payload.
+        const queuedState = result.details.repos.find(r => r.repoSlug === 'org/queued');
+        expect(queuedState).toBeDefined();
+        expect(queuedState.status).toBe('degraded');
+        expect(queuedState.lastErrorCode).toBe('KB_TENANT_REPO_SYNC_CONCURRENCY_GATE_TIMEOUT');
+
+        // Slow repo completed once released.
+        const slowState = result.details.repos.find(r => r.repoSlug === 'org/slow');
+        expect(slowState.status).toBe('active');
+
+        // Outer task is 'completed' per partial-success contract (at least one repo succeeded).
+        expect(result.status).toBe('completed');
+        expect(result.details.failedCount).toBe(1);
+        expect(result.details.completedCount).toBe(1);
     });
 });
