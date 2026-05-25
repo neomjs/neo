@@ -3,12 +3,11 @@ import {
     buildPrimaryRepoSyncTrigger,
     getDueTask
 } from '../../../../../../../ai/daemons/orchestrator/scheduling/primaryDevSync.mjs';
-import {PRIMARY_DEV_SYNC_TASK_NAME} from '../../../../../../../ai/daemons/orchestrator/TaskDefinitions.mjs';
 
 test.describe('orchestrator/scheduling/primaryDevSync (#11864 / Epic #11831)', () => {
     test('buildPrimaryRepoSyncTrigger fires when enabled + interval elapsed', () => {
         expect(buildPrimaryRepoSyncTrigger({enabled: true, now: 60000, lastRunAt: 0, intervalMs: 60000})).toEqual({
-            taskName: PRIMARY_DEV_SYNC_TASK_NAME,
+            taskName: 'primary-dev-sync',
             source  : 'periodic-sweep',
             reason  : 'periodic-sweep:60000'
         });
@@ -26,14 +25,14 @@ test.describe('orchestrator/scheduling/primaryDevSync (#11864 / Epic #11831)', (
         expect(buildPrimaryRepoSyncTrigger({enabled: true, now: 999999999, lastRunAt: 0, intervalMs: 0})).toBeNull();
     });
 
-    test('getDueTask wraps buildPrimaryRepoSyncTrigger with state mapping (keyed by PRIMARY_DEV_SYNC_TASK_NAME)', () => {
+    test('getDueTask wraps buildPrimaryRepoSyncTrigger with state mapping (keyed by primary-dev-sync)', () => {
         expect(getDueTask({
-            state     : {[PRIMARY_DEV_SYNC_TASK_NAME]: {lastRunAt: 1000}},
+            state     : {['primary-dev-sync']: {lastRunAt: 1000}},
             now       : 1000 + 60000,
             intervalMs: 60000,
             enabled   : true
         })).toEqual({
-            taskName: PRIMARY_DEV_SYNC_TASK_NAME,
+            taskName: 'primary-dev-sync',
             source  : 'periodic-sweep',
             reason  : 'periodic-sweep:60000'
         });
@@ -41,7 +40,7 @@ test.describe('orchestrator/scheduling/primaryDevSync (#11864 / Epic #11831)', (
 
     test('getDueTask returns null when not enabled', () => {
         expect(getDueTask({
-            state     : {[PRIMARY_DEV_SYNC_TASK_NAME]: {lastRunAt: 0}},
+            state     : {['primary-dev-sync']: {lastRunAt: 0}},
             now       : 60000,
             intervalMs: 60000,
             enabled   : false

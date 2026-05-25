@@ -1,5 +1,3 @@
-import {TENANT_REPO_SYNC_TASK_NAME} from '../TaskDefinitions.mjs';
-
 /**
  * Builds the trigger for the cloud-deployable tenant-repo-sync lane.
  * Mirror of `buildPrimaryRepoSyncTrigger` in `./primaryDevSync.mjs` — pure function;
@@ -22,7 +20,7 @@ export function buildTenantRepoSyncTrigger({enabled, now, lastRunAt, intervalMs}
     }
 
     return {
-        taskName: TENANT_REPO_SYNC_TASK_NAME,
+        taskName: 'tenant-repo-sync',
         source  : 'periodic-sweep',
         reason  : `periodic-sweep:${intervalMs}`
     };
@@ -43,6 +41,6 @@ export function getDueTask({state, now, intervalMs, enabled}) {
         enabled,
         now,
         intervalMs,
-        lastRunAt: state[TENANT_REPO_SYNC_TASK_NAME]?.lastRunAt || 0
+        lastRunAt: state['tenant-repo-sync']?.lastRunAt || 0
     });
 }

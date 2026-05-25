@@ -16,11 +16,6 @@ import {
     DEV_SYNC_ROOTS_ENV_VAR
 } from '../../../../../../ai/daemons/orchestrator/services/PrimaryRepoSyncService.mjs';
 import {
-    PRIMARY_DEV_SYNC_TASK_NAME,
-    TENANT_REPO_SYNC_TASK_NAME,
-    DREAM_TASK_NAME,
-    GOLDEN_PATH_TASK_NAME,
-    SWARM_HEARTBEAT_TASK_NAME,
     buildTaskDefinitions
 } from '../../../../../../ai/daemons/orchestrator/TaskDefinitions.mjs';
 import TaskStateService, { createInitialTaskState } from '../../../../../../ai/daemons/orchestrator/services/TaskStateService.mjs';
@@ -139,7 +134,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             nodeBin  : '/node'
         }));
 
-        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'summary', 'kbSync', 'backup', PRIMARY_DEV_SYNC_TASK_NAME, TENANT_REPO_SYNC_TASK_NAME, DREAM_TASK_NAME, GOLDEN_PATH_TASK_NAME, SWARM_HEARTBEAT_TASK_NAME]);
+        expect(Object.keys(state)).toEqual(['chroma', 'bridgeDaemon', 'summary', 'kbSync', 'backup', 'primary-dev-sync', 'tenant-repo-sync', 'dream', 'golden-path', 'swarm-heartbeat']);
         expect(state.mlx).toBeUndefined();
         expect(state.memoryCoreChroma).toBeUndefined();
         expect(state.summary).toMatchObject({
@@ -280,7 +275,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
 
         const orchestrator = createTestOrchestrator();
 
-        TaskStateService.taskState[GOLDEN_PATH_TASK_NAME].running = true;
+        TaskStateService.taskState['golden-path'].running = true;
         orchestrator.processSupervisorService = {
             runTask(taskName, reason) {
                 started.push({taskName, reason});
@@ -358,17 +353,17 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             }
         });
 
-        TaskStateService.taskState[DREAM_TASK_NAME].running = true;
+        TaskStateService.taskState['dream'].running = true;
         orchestrator.writeLog = (level, message) => logs.push({level, message});
 
         orchestrator.poll();
 
         expect(calls).toEqual([]);
         expect(outcomes).toContainEqual({
-            taskName: GOLDEN_PATH_TASK_NAME,
+            taskName: 'golden-path',
             status  : 'skipped',
             details : expect.objectContaining({
-                blockingTaskName: DREAM_TASK_NAME,
+                blockingTaskName: 'dream',
                 reason          : 'periodic-golden-path:600000',
                 reasonCode      : 'golden-path-dependency-backpressure'
             })
@@ -529,7 +524,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             primaryDevSyncEnabled   : true,
             primaryDevSyncIntervalMs: 600000,
             primaryDevSyncGetDueTask: () => ({
-                taskName: PRIMARY_DEV_SYNC_TASK_NAME,
+                taskName: 'primary-dev-sync',
                 reason  : 'periodic-sweep:600000'
             }),
             primaryRepoSyncService  : {
@@ -546,7 +541,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         orchestrator.poll();
 
         expect(started).toEqual([{
-            taskName: PRIMARY_DEV_SYNC_TASK_NAME,
+            taskName: 'primary-dev-sync',
             reason  : 'periodic-sweep:600000'
         }]);
     });
@@ -559,7 +554,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             tenantRepoSyncEnabled   : true,
             tenantRepoSyncIntervalMs: 600000,
             tenantRepoSyncGetDueTask: () => ({
-                taskName: TENANT_REPO_SYNC_TASK_NAME,
+                taskName: 'tenant-repo-sync',
                 source  : 'periodic-sweep',
                 reason  : 'periodic-sweep:600000'
             }),
@@ -577,7 +572,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         orchestrator.poll();
 
         expect(started).toEqual([{
-            taskName: TENANT_REPO_SYNC_TASK_NAME,
+            taskName: 'tenant-repo-sync',
             reason  : 'periodic-sweep:600000'
         }]);
     });
@@ -618,7 +613,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
                 primaryDevSyncIntervalMs  : 600000,
                 primaryDevSyncRootsConfig : ['/config/neo'],
                 primaryDevSyncGetDueTask  : () => ({
-                    taskName: PRIMARY_DEV_SYNC_TASK_NAME,
+                    taskName: 'primary-dev-sync',
                     reason  : 'periodic-sweep:600000'
                 }),
                 primaryRepoSyncService    : {
@@ -684,13 +679,13 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect([...DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES].sort()).toEqual([
             'backup',
             'kbSync',
-            PRIMARY_DEV_SYNC_TASK_NAME,
-            DREAM_TASK_NAME,
+            'primary-dev-sync',
+            'dream',
             'summary'
         ].sort());
         expect(Object.isFrozen(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES)).toBe(true);
         // Defensive: golden-path is intentionally OUT per #11511 / #11512 (light maintenance).
-        expect(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES).not.toContain(GOLDEN_PATH_TASK_NAME);
+        expect(DEFAULT_HEAVY_MAINTENANCE_TASK_NAMES).not.toContain('golden-path');
     });
 
     test('defers due backup when another heavy maintenance task is already running (#11513 AC3)', () => {
@@ -793,7 +788,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
 
         expect(dreamCalls).toEqual([]);
         expect(outcomes).toContainEqual({
-            taskName: DREAM_TASK_NAME,
+            taskName: 'dream',
             status  : 'skipped',
             details : expect.objectContaining({
                 blockingTaskName: 'summary',
@@ -816,7 +811,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
             primaryDevSyncGetDueTask: () => {
                 getDueTaskCalls.push('called');
                 return {
-                    taskName: PRIMARY_DEV_SYNC_TASK_NAME,
+                    taskName: 'primary-dev-sync',
                     reason  : 'periodic-primary-dev-sync:test'
                 };
             },
@@ -834,7 +829,7 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         expect(getDueTaskCalls.length).toBeGreaterThan(0);
         expect(runTaskCalls).toEqual([]);
         expect(outcomes).toContainEqual({
-            taskName: PRIMARY_DEV_SYNC_TASK_NAME,
+            taskName: 'primary-dev-sync',
             status  : 'skipped',
             details : expect.objectContaining({
                 blockingTaskName: 'summary',
@@ -992,12 +987,12 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         await Promise.resolve();
 
         expect(outcomes).toContainEqual({
-            taskName: SWARM_HEARTBEAT_TASK_NAME,
+            taskName: 'swarm-heartbeat',
             status  : 'running',
             details : expect.objectContaining({reason: 'periodic-heartbeat:600000'})
         });
         expect(outcomes).toContainEqual({
-            taskName: SWARM_HEARTBEAT_TASK_NAME,
+            taskName: 'swarm-heartbeat',
             status  : 'completed',
             details : expect.objectContaining({reason: 'periodic-heartbeat:600000'})
         });

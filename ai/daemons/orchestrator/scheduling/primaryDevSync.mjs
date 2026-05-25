@@ -1,5 +1,3 @@
-import {PRIMARY_DEV_SYNC_TASK_NAME} from '../TaskDefinitions.mjs';
-
 /**
  * Builds the trigger for the primary-checkout dev-sync lane. Pure function.
  *
@@ -16,7 +14,7 @@ export function buildPrimaryRepoSyncTrigger({enabled, now, lastRunAt, intervalMs
     }
 
     return {
-        taskName: PRIMARY_DEV_SYNC_TASK_NAME,
+        taskName: 'primary-dev-sync',
         source  : 'periodic-sweep',
         reason  : `periodic-sweep:${intervalMs}`
     };
@@ -37,6 +35,6 @@ export function getDueTask({state, now, intervalMs, enabled}) {
         enabled,
         now,
         intervalMs,
-        lastRunAt: state[PRIMARY_DEV_SYNC_TASK_NAME]?.lastRunAt || 0
+        lastRunAt: state['primary-dev-sync']?.lastRunAt || 0
     });
 }

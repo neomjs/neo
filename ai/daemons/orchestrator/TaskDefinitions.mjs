@@ -4,12 +4,6 @@ import {fileURLToPath} from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
-export const PRIMARY_DEV_SYNC_TASK_NAME           = 'primary-dev-sync';
-export const TENANT_REPO_SYNC_TASK_NAME           = 'tenant-repo-sync';
-export const DREAM_TASK_NAME                      = 'dream';
-export const GOLDEN_PATH_TASK_NAME                = 'golden-path';
-export const SWARM_HEARTBEAT_TASK_NAME            = 'swarm-heartbeat';
-
 export const DEFAULT_DB_PATH    = process.env.NEO_AI_DB_PATH || '.neo-ai-data/sqlite/memory-core-graph.sqlite';
 export const DEFAULT_DATA_DIR   = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
 export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
@@ -79,31 +73,31 @@ export function buildTaskDefinitions({
             pidFileName    : 'backup.pid',
             expectedCommand: 'backup.mjs'
         },
-        [PRIMARY_DEV_SYNC_TASK_NAME]: {
+        'primary-dev-sync': {
             label          : 'primary checkout dev sync',
             pidFileName    : 'primary-dev-sync.pid',
             expectedCommand: 'PrimaryRepoSyncService',
             serviceTask    : true
         },
-        [TENANT_REPO_SYNC_TASK_NAME]: {
+        'tenant-repo-sync': {
             label          : 'tenant repo sync (cloud)',
             pidFileName    : 'tenant-repo-sync.pid',
             expectedCommand: 'TenantRepoSyncService',
             serviceTask    : true
         },
-        [DREAM_TASK_NAME]: {
+        dream: {
             label          : 'REM sleep graph extraction',
             pidFileName    : 'dream.pid',
             expectedCommand: 'DreamService',
             serviceTask    : true
         },
-        [GOLDEN_PATH_TASK_NAME]: {
+        'golden-path': {
             label          : 'golden path synthesis',
             pidFileName    : 'golden-path.pid',
             expectedCommand: 'GoldenPathSynthesizer',
             serviceTask    : true
         },
-        [SWARM_HEARTBEAT_TASK_NAME]: {
+        'swarm-heartbeat': {
             label          : 'swarm heartbeat pulse',
             pidFileName    : 'swarm-heartbeat.pid',
             expectedCommand: 'SwarmHeartbeatService',
