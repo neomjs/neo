@@ -195,6 +195,9 @@ Supply these values per service/profile as needed:
 | `NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED=false` | Orchestrator | Disables desktop wake delivery. |
 | `NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED=false` | Orchestrator | Disables Neo-maintainer repo enrichment sections. |
 | `NEO_ORCHESTRATOR_MLX_ENABLED=false` | Orchestrator | Keeps local MLX supervision disabled. |
+| `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED` | Orchestrator | Master toggle for the `tenant-repo-sync` pull lane. Cloud profile default-on when `tenantRepos[]` is configured; local profile default-off. Set explicitly to override the deployment-profile default. |
+| `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS` | Orchestrator | Sweep cadence for the periodic pull lane. Default 1800000 (30 min). |
+| `NEO_TENANT_REPO_MIRROR_ROOT` | Orchestrator | Persistent clone target for the `tenant-repo-mirrors` named volume. Default `/var/lib/neo/tenant-repo-mirrors`. |
 | `NEO_MODEL_PROVIDER=openAiCompatible` | MC, Orchestrator | Optional `local-model` profile opt-in for summary/dream/model-consumer lanes. Leave unset for external-provider defaults. |
 | `NEO_EMBEDDING_PROVIDER=openAiCompatible` | KB, MC | Optional `local-model` profile opt-in for server-side embedding generation. Leave unset when using an external embedding provider endpoint. |
 | `NEO_OPENAI_COMPATIBLE_HOST=http://local-model:11434` | KB, MC, Orchestrator | Internal compose-network URL for the `local-model` service when the optional profile is enabled. |
@@ -308,6 +311,24 @@ Runnable ingestion examples live in
 ingestion-contract demonstrations, not production deployment profiles.
 The linear first-run operator path is
 [Day-0 Cloud Deployment Tutorial](cloud-deployment/Day0Tutorial.md).
+
+### Server-side pull mode (`tenant-repo-sync` lane)
+
+For deployments that prefer the deployment to refresh tenant content autonomously
+(instead of waiting on a tenant push hook), the additive pull mode is documented
+in [Server-Side Pull Mode](cloud-deployment/TenantIngestionModel.md#server-side-pull-mode-tenant-repo-sync).
+The cloud profile MUST add a `tenant-repo-mirrors` named volume mounted at
+`NEO_TENANT_REPO_MIRROR_ROOT` (default `/var/lib/neo/tenant-repo-mirrors`) so the
+`GitMirror` primitive has a persistent clone target. Per-repo `lastIngestedRev`
+persistence lives in the orchestrator state dir
+(`<NEO_AI_ORCHESTRATOR_DIR>/tenant-repo-sync-revisions.json`), so it survives a
+container restart alongside the rest of the orchestrator state. The mirror cache
+itself is reproducible from upstream git — backup is optional, not load-bearing.
+
+The `tenant-repo-sync` lane is gated by `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED`
+(cloud profile default-on; local maintainer profile default-off) and runs on a
+30-minute default cadence (`NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS`).
+Manual sweep: `node ./ai/scripts/maintenance/syncTenantRepos.mjs`.
 
 ## Section 10: Delivered MVP and Residual Owner Map
 
