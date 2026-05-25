@@ -64,12 +64,15 @@ import {test, expect} from '@playwright/test';
  */
 test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
     let SwarmHeartbeatService;
+    let heartbeatAlivePath;
     let GraphService;
     let originalLifecycleInit;
     let originalGraphServiceInit;
 
     test.beforeAll(async () => {
-        SwarmHeartbeatService = (await import('../../../../../../../ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs')).default;
+        const swarmHeartbeatModule = await import('../../../../../../../ai/daemons/orchestrator/services/SwarmHeartbeatService.mjs');
+        SwarmHeartbeatService = swarmHeartbeatModule.default;
+        heartbeatAlivePath    = swarmHeartbeatModule.heartbeatAlivePath;
 
         const services = await import('../../../../../../../ai/services.mjs');
         const LifecycleService = services.Memory_LifecycleService;
@@ -503,6 +506,22 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
 
         await expect(serviceProto.isPushCapable.call(SwarmHeartbeatService, '@neo-gpt')).resolves.toBe(true);
         expect(capturedArgs[0]).toEqual(['@neo-gpt', 'mcp-notifications', 'a2a-webhook', 'bridge-daemon']);
+    });
+
+    test('heartbeatAlivePath() defaults to the repo-root path HealthService reads (#11872)', async () => {
+        const original = process.env.NEO_HEARTBEAT_ALIVE_PATH;
+        delete process.env.NEO_HEARTBEAT_ALIVE_PATH;
+
+        try {
+            expect(heartbeatAlivePath()).toBe(path.resolve(process.cwd(), '.neo-ai-data/wake-daemon/heartbeat.alive'));
+
+            const overridePath = path.join(os.tmpdir(), `neo-heartbeat-override-${Date.now()}.alive`);
+            process.env.NEO_HEARTBEAT_ALIVE_PATH = overridePath;
+            expect(heartbeatAlivePath()).toBe(overridePath);
+        } finally {
+            if (original === undefined) delete process.env.NEO_HEARTBEAT_ALIVE_PATH;
+            else                        process.env.NEO_HEARTBEAT_ALIVE_PATH = original;
+        }
     });
 
     test('pulse() includes expired-count in prompt when sweep yields > 0', async () => {
