@@ -50,8 +50,8 @@ Recommended `repoSlug` shape:
 Examples:
 
 ```text
-acme/app
-acme/docs
+neomjs/create-app
+neomjs/neo
 internal/platform
 ```
 

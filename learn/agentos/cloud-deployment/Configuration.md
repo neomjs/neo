@@ -59,7 +59,7 @@ Each key is also bindable via an environment variable (`NEO_KB_DEFAULT_TENANT_ID
 | `NEO_KB_INGEST_TOKEN` | Yes for production | Bearer token for the repo-push automation identity. |
 | `NEO_KB_TOKEN_ENV` | No | Name of the environment variable that holds the bearer token when the deployment does not use `NEO_KB_INGEST_TOKEN`. |
 | `NEO_KB_TENANT_ID` | No | Envelope default for tenant id; authenticated server context remains authoritative. |
-| `NEO_KB_REPO_SLUG` | No | Envelope default for repo slug; use a deterministic, secret-free value such as `acme/app`. |
+| `NEO_KB_REPO_SLUG` | No | Envelope default for repo slug; use a deterministic, secret-free value such as `neomjs/create-app`. |
 
 The token is a KB MCP authorization credential, not a Git credential. Store it in the tenant hook/CI secret store and rotate it using the deployment's normal OIDC or workload-identity policy.
 
