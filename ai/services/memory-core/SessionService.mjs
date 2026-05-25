@@ -16,11 +16,10 @@ import OllamaProvider           from '../../provider/Ollama.mjs';
  * downstream consumers (`summarizeSession`, `invokeWithGuardrail`) stay
  * provider-agnostic.
  *
- * Extracted from `SessionService.construct()` for #11965 Sub-2 cycle-2 testability:
- * tests can pass mocked provider factories to verify selector boundaries + envelope
- * shape without hitting real Ollama / OpenAI-compatible endpoints. Production
- * `construct()` calls this with `Neo.create`-based factories that return real
- * provider class instances.
+ * Extracted from `construct()` for testability: tests can pass mocked provider
+ * factories to verify selector boundaries + envelope shape without hitting real
+ * Ollama / OpenAI-compatible endpoints. Production `construct()` calls this with
+ * `Neo.create`-based factories that return real provider class instances.
  *
  * @param {Object} options
  * @param {String} options.modelProvider 'gemini' | 'openAiCompatible' | 'ollama'.
@@ -187,9 +186,8 @@ class SessionService extends Base {
             }
         }
 
-        // #11965 Sub-2 cycle-2: delegate to extracted `buildChatModel` helper for
-        // testability + explicit unsupported-provider rejection (throws if modelProvider
-        // is not in the supported set, fail-loud rather than silent Gemini fallthrough).
+        // Delegate to `buildChatModel` so the dispatch is testable + unknown
+        // provider names throw loudly rather than silently fall through to Gemini.
         if (aiConfig.modelProvider === 'openAiCompatible') {
             logger.info(`[SessionService] Initializing generation model via OpenAI-Compatible API (${aiConfig.openAiCompatible.model})`);
         } else if (aiConfig.modelProvider === 'ollama') {
@@ -543,7 +541,7 @@ ${aggregatedContent}
         // try/catch) categorizes engine-level failures into friction symptoms. Friction is
         // emitted with `serviceDomain: 'memory-core'` for handoff rendering by
         // `GoldenPathSynthesizer.synthesizeGoldenPath`.
-        // #11965 Sub-2: consumer model naming covers all three active providers for
+        // Consumer model naming covers all three active providers for
         // guardrail/log surfaces.
         const consumerModel =
             aiConfig.modelProvider === 'openAiCompatible' ? (aiConfig.openAiCompatible.model || 'openAiCompatible') :

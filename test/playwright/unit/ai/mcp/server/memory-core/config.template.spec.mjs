@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import path from 'path';
 import Neo from '../../../../../../../src/Neo.mjs';
-import AiConfig from '../../../../../../../ai/config.template.mjs';
+import AiConfig from '../../../../../../../ai/config.mjs';
 
 test.describe('Memory Core Config (#10010)', () => {
     let originalEnv;
