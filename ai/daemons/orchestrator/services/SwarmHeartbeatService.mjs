@@ -42,6 +42,22 @@ const DEFAULT_POLL_INTERVAL_MS = 5 * 60 * 1000;
 const PUSH_CAPABLE_TARGETS     = Object.freeze(['mcp-notifications', 'a2a-webhook', 'bridge-daemon']);
 
 /**
+ * @summary Resolves the heartbeat liveness file path shared with HealthService.
+ *
+ * `HealthService` reads the repo-root `.neo-ai-data/wake-daemon/heartbeat.alive`
+ * mtime to project `features.wake.daemonRunning`. This producer must touch the
+ * same path or health checks can remain stale while pulses execute. Tests and
+ * operator probes can isolate the path via `NEO_HEARTBEAT_ALIVE_PATH`, matching
+ * the consumer-side override contract.
+ *
+ * @returns {String}
+ * @see ai/services/memory-core/HealthService.mjs
+ */
+function heartbeatAlivePath() {
+    return process.env.NEO_HEARTBEAT_ALIVE_PATH || path.resolve(__dirname, '../../../../.neo-ai-data/wake-daemon/heartbeat.alive')
+}
+
+/**
  * @summary Neo-singleton swarm-heartbeat lane for Agent OS wake maintenance.
  *
  * The Orchestrator owns the persistent process and scheduler. It awaits
@@ -347,8 +363,7 @@ class SwarmHeartbeatService extends Base {
      * @returns {Promise<void>}
      */
     async touchLivenessFile() {
-        const alivePath = process.env.NEO_HEARTBEAT_ALIVE_PATH
-            || path.resolve(__dirname, '../../.neo-ai-data/wake-daemon/heartbeat.alive');
+        const alivePath = heartbeatAlivePath();
         const now = new Date();
         try {
             await fs.utimes(alivePath, now, now)
@@ -711,4 +726,4 @@ class SwarmHeartbeatService extends Base {
 
 export default Neo.setupClass(SwarmHeartbeatService);
 
-export {HEARTBEAT_LOCK_PATH, DEFAULT_POLL_INTERVAL_MS};
+export {HEARTBEAT_LOCK_PATH, DEFAULT_POLL_INTERVAL_MS, heartbeatAlivePath};
