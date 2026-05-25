@@ -94,17 +94,23 @@ A new per-host singleton Node process responsible for ALL scheduled work that to
 
 **Out of scope:** wake-event delivery — bridge-daemon's specialized HTTP/osascript-driven domain stays separate. The two daemons sit at the same architectural tier (per-host singleton, PID-file-enforced) but own different concerns.
 
-**Structure:**
+**Structure (post-Epic #11831 harmonization):**
 ```
-ai/scripts/orchestrator-daemon.mjs   # Thin Node-process boot wrapper (PID file, lifecycle, error-isolation)
-ai/daemons/Orchestrator.mjs          # Neo class: schedules + runs tasks; per-task try/catch
-ai/daemons/services/
-  ├── SummarizationCoordinatorService.mjs   # NEW: Piece C
-  ├── PrimaryRepoSyncService.mjs             # primary checkout dev sync + KB cascade
-  ├── DreamService.mjs (existing)            # consumed by Orchestrator
-  ├── SwarmHeartbeatService.mjs (existing)   # consumed by Orchestrator
-  └── ... (existing decomposed services from #10013)
+ai/scripts/orchestrator-daemon.mjs        # Thin Node-process boot wrapper (PID file, lifecycle, error-isolation)
+ai/daemons/orchestrator/Orchestrator.mjs  # Neo class: schedules + runs tasks; per-task try/catch
+ai/daemons/orchestrator/scheduling/
+  ├── summary.mjs                         # Piece C trigger (pure functions; supersedes SummarizationCoordinatorService per #11864)
+  ├── backup.mjs                          # backup trigger (pure functions)
+  ├── primaryDevSync.mjs                  # primary-dev-sync trigger (pure functions)
+  └── ... (dream, goldenPath, swarmHeartbeat, tenantRepoSync, etc.)
+ai/daemons/orchestrator/services/
+  ├── PrimaryRepoSyncService.mjs          # primary checkout dev sync executor (runTask only; trigger moved to scheduling/)
+  ├── DreamService.mjs                    # consumed by Orchestrator
+  ├── SwarmHeartbeatService.mjs           # consumed by Orchestrator
+  └── ... (TaskStateService, ProcessSupervisorService, CadenceEngine, MaintenanceBackpressureService, etc.)
 ```
+
+Per #11864 (Sub 20 of Epic #11831): scheduling triggers are pure-function modules under `scheduling/<task>.mjs`; class machinery in `services/` only where execution/state responsibilities are earned.
 
 **Failure isolation:** each scheduled task wraps execution in try/catch with `HealthService.recordTaskOutcome(...)`. A summarization-sweep failure does NOT kill the dream-cycle task. The Orchestrator's lifecycle is independent of any individual task.
 
@@ -114,7 +120,7 @@ ai/daemons/services/
 
 Per [Discussion #11025](https://github.com/orgs/neomjs/discussions/11025) graduation OQ8 + operator's wake-up call 2026-05-09: the orchestrator's cadence model must be **block-aware**. Graph-processing tasks (Gemma4-31b dream cycle) take ~10 minutes and block `add_memory` while running. The orchestrator cannot run graph-heavy tasks "round the clock" — it must schedule with awareness of agent-active windows.
 
-**CadenceEngine boundary** (M3.5 Sub-3 extraction per §4 M3.5 below): pure trigger-builder via `getIntervalTrigger({taskName, now, lastRunAt, intervalMs, reasonPrefix})`; per-task coordinators decide "what work is due"; Orchestrator wires; ProcessSupervisor executes. NOT execute-runner. Mirrors `SummarizationCoordinatorService.getDueTask({...})` precedent at `ai/daemons/services/SummarizationCoordinatorService.mjs`.
+**CadenceEngine boundary** (M3.5 Sub-3 extraction per §4 M3.5 below): pure trigger-builder via `getIntervalTrigger({taskName, now, lastRunAt, intervalMs, reasonPrefix})`; per-task coordinators decide "what work is due"; Orchestrator wires; ProcessSupervisor executes. NOT execute-runner. Mirrors the `getDueTask({...})` pure-function pattern at `ai/daemons/orchestrator/scheduling/summary.mjs` (post-#11864 canonical shape; pre-#11864 the precedent was `services/SummarizationCoordinatorService.mjs.getDueTask`, retired in favor of the scheduling-module form).
 
 **Per-task fairness model:**
 - Backup: daily-fixed (24h interval; preconditions all DreamMode/Sandman work)
@@ -166,9 +172,9 @@ Build `ai/mcp/server/shared/Server.mjs` (D2). Migrate one MCP server (smallest f
 **Exit gate:** all 5 MCP servers extend the common base; Factory pattern is uniformly applied across all 5; per-server `Server.mjs` files are <100 LOC.
 
 ### M3 — Orchestrator Daemon Skeleton + Piece C
-Build `ai/daemons/Orchestrator.mjs` + `ai/scripts/orchestrator-daemon.mjs` boot wrapper (D3). First task: `SummarizationCoordinatorService` running drift-detection sweep on configurable cadence. Strip the in-process `runPeriodicSummarizationSweep` from `SessionService` (which I added in PR [#10954](https://github.com/neomjs/neo/pull/10954) — wrong-substrate; reshape to Orchestrator).
+Build `ai/daemons/Orchestrator.mjs` + `ai/scripts/orchestrator-daemon.mjs` boot wrapper (D3). First task: a summarization sweep coordinator running drift-detection on configurable cadence. Strip the in-process `runPeriodicSummarizationSweep` from `SessionService` (which I added in PR [#10954](https://github.com/neomjs/neo/pull/10954) — wrong-substrate; reshape to Orchestrator). _(Post-#11864 shape: `ai/daemons/orchestrator/scheduling/summary.mjs` pure-function module; the historical `SummarizationCoordinatorService` class was retired as Sub 20 of Epic #11831.)_
 
-**MVP split:** [#11006](https://github.com/neomjs/neo/issues/11006) moved existing summary + KB sync triggers out of `bridge-daemon.mjs`. PR #11008 initially concentrated too much scheduling logic inside `ai/scripts/orchestrator-daemon.mjs`; [#11009](https://github.com/neomjs/neo/issues/11009) corrects that by restoring the intended shape: the script is a thin boot wrapper, `ai/daemons/Orchestrator.mjs` owns task scheduling and failure isolation, `SummarizationCoordinatorService` owns Piece C trigger selection, and `HealthService.recordTaskOutcome(...)` exposes per-task outcomes.
+**MVP split:** [#11006](https://github.com/neomjs/neo/issues/11006) moved existing summary + KB sync triggers out of `bridge-daemon.mjs`. PR #11008 initially concentrated too much scheduling logic inside `ai/scripts/orchestrator-daemon.mjs`; [#11009](https://github.com/neomjs/neo/issues/11009) corrects that by restoring the intended shape: the script is a thin boot wrapper, `ai/daemons/Orchestrator.mjs` owns task scheduling and failure isolation, the summarization coordinator owns Piece C trigger selection (now `scheduling/summary.mjs` post-#11864), and `HealthService.recordTaskOutcome(...)` exposes per-task outcomes.
 
 **Exit gate:** orchestrator daemon runs on the operator's host; summarization sweep fires automatically on cadence; healthcheck observability in place; PR #10954 closed in favor of corrected-substrate successor.
 
@@ -185,7 +191,7 @@ Per [Discussion #11025](https://github.com/orgs/neomjs/discussions/11025) 3-voic
 | Sub-3 | `CadenceEngine` (pure trigger-builder per D3.1; NOT execute-runner) | After Sub-1 + Sub-2 |
 | Sub-4 | Orchestrator slim-down PR (wire all 3 collaborators; verify no behavior regression via characterization-then-extract test pattern) | After Sub-1 + Sub-2 + Sub-3 |
 
-Extracted services land in `ai/daemons/services/` (Discussion #11025 OQ1 location A; matches `SummarizationCoordinatorService.mjs` precedent at line 233 of pre-extraction Orchestrator).
+Extracted services land in `ai/daemons/services/` (Discussion #11025 OQ1 location A; matches the pre-#11864 `SummarizationCoordinatorService.mjs` precedent at line 233 of pre-extraction Orchestrator — that specific class was later retired via #11864 in favor of pure-function `scheduling/<task>.mjs` modules, but the M3.5 services/ landing-place decision remains the canonical extraction site for execution-shaped collaborators).
 
 **Why M3.5 before M4:** without decomposition, every M4 per-task coordinator addition (DreamCoordinator, SandmanCoordinator, BackupService, GoldenPathCoordinator, GraphMaintenanceCoordinator) would compound the existing fat-class problem. M3.5 keystone substrate makes M4 incremental.
 
