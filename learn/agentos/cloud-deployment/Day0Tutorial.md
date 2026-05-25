@@ -53,8 +53,8 @@ Failure signatures:
 ## Milestone 0 - Runnable Remote-MCP Healthcheck Demo
 
 Start the day-0 fixture stack. It uses the same Dockerized topology as the
-integration harness: Chroma, a deterministic OpenAI-compatible embedding mock,
-KB, and MC.
+integration harness: Chroma, a deterministic OpenAI-compatible provider mock
+that serves embeddings plus chat completions, KB, and MC.
 
 ```bash
 export NEO_DAY0_PROJECT="neo-day0"
@@ -119,6 +119,33 @@ Expected output from each command includes:
 
 If Docker is unavailable, the host cannot execute the Docker proof. That is an
 environment blocker, not a Neo deployment result.
+
+The healthcheck proves MCP transport, auth stamping, Chroma connectivity, and
+provider configuration visibility. It is not by itself a full model-readiness
+proof. The integration suite also exercises the same cloud profile through
+`test/playwright/integration/CloudProviderReadiness.integration.spec.mjs`, which
+calls the deployed Memory Core container against explicit mocked provider
+endpoints for:
+
+- OpenAI-compatible `/v1/embeddings`
+- streaming OpenAI-compatible `/v1/chat/completions`
+- the Dream/REM graph-mutator provider dispatch seam
+
+For production, provider/auth/storage ownership starts at the Tier-1
+`ai/config.template.mjs` contract. KB and MC consume that shared provider and
+auth shape, while keeping server-local boundaries for ports, collection names,
+SQLite paths, and MCP transport details. The two supported cloud-provider
+profiles are intentionally distinct:
+
+| Profile | Selectors | Endpoint shape | Use when |
+|---|---|---|---|
+| Native Ollama | `NEO_MODEL_PROVIDER=ollama`, `NEO_EMBEDDING_PROVIDER=ollama` | Ollama `/api/chat` and `/api/embed` | The deployment exposes a real Ollama service and you want native Ollama request semantics. |
+| OpenAI-compatible fallback | `NEO_MODEL_PROVIDER=openAiCompatible`, `NEO_EMBEDDING_PROVIDER=openAiCompatible` | `/v1/chat/completions` and `/v1/embeddings` | The deployment runs MLX, LM Studio, llama.cpp, managed OpenAI-compatible infrastructure, or an Ollama endpoint that intentionally exposes the OpenAI-compatible surface. |
+
+Do not mix the selectors accidentally. A native Ollama deployment should prove
+the native routes; an OpenAI-compatible deployment should prove both `/v1`
+routes. Container health or embeddings-only success is not enough to hand a
+cloud deployment to agents.
 
 For the production profile, the same readiness idea is encoded in
 [`ai/deploy/docker-compose.yml`](../../../ai/deploy/docker-compose.yml): Chroma
