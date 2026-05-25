@@ -44,7 +44,19 @@ class WakeSubscriptionService extends Base {
      * @member {String[]} validTriggers
      * @protected
      */
-    validTriggers = ['SENT_TO_ME', 'TASK_STATE_CHANGED', 'PERMISSION_GRANTED']
+    validTriggers = ['SENT_TO_ME', 'TASK_STATE_CHANGED', 'PERMISSION_GRANTED', 'HEARTBEAT_PULSE']
+
+    /**
+     * @member {String} heartbeatPulseEntityType='heartbeat_pulse'
+     * @protected
+     */
+    heartbeatPulseEntityType = 'heartbeat_pulse'
+
+    /**
+     * @member {String} heartbeatPulseEntityPrefix='HEARTBEAT_PULSE'
+     * @protected
+     */
+    heartbeatPulseEntityPrefix = 'HEARTBEAT_PULSE'
 
     /**
      * @member {String[]} validHarnessTargets
@@ -593,6 +605,51 @@ class WakeSubscriptionService extends Base {
     }
 
     /**
+     * @summary Emits a durable GraphLog-only heartbeat pulse for an active bridge-daemon route.
+     *
+     * Heartbeat pulses are interrupt transport hints, not mailbox content. The pulse writes only a
+     * tagged `GraphLog` row, never a `MESSAGE` node or `SENT_TO` edge, so it is replayable by
+     * `resync()` and bridge-daemon tailing without surfacing in inbox listings.
+     *
+     * @param {Object} opts
+     * @param {String} opts.targetIdentity AgentIdentity node id that should receive the pulse.
+     * @returns {Promise<Object>} Emission status and optional `logId`.
+     */
+    async emitHeartbeatPulse({targetIdentity} = {}) {
+        if (!targetIdentity) throw new Error("Missing 'targetIdentity' parameter.");
+
+        const activeRoutes = this._getCandidateSubscriptions(targetIdentity, 'HEARTBEAT_PULSE', 'bridge-daemon')
+            .filter(subscription => (subscription.status || 'active') === 'active');
+
+        if (activeRoutes.length === 0) {
+            logger.info(`[WakeSubscription] heartbeat pulse skipped for ${targetIdentity}: no active bridge-daemon heartbeat subscription.`);
+            return {
+                status: 'skipped',
+                reason: 'no-active-bridge-daemon-subscription',
+                targetIdentity
+            };
+        }
+
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite?.prepare) {
+            throw new Error('Cannot emit heartbeat pulse: GraphLog storage unavailable.');
+        }
+
+        const entityId = this._createHeartbeatPulseEntityId(targetIdentity);
+        sqlite.prepare('INSERT INTO GraphLog(entity_id, entity_type) VALUES (?, ?)').run(entityId, this.heartbeatPulseEntityType);
+
+        const logId = this._getEntityLogId(entityId);
+        logger.info(`[WakeSubscription] emitted heartbeat pulse for ${targetIdentity} at GraphLog ${logId}.`);
+
+        return {
+            status: 'emitted',
+            targetIdentity,
+            entityId,
+            logId
+        };
+    }
+
+    /**
      * Replays GraphLog deltas matching the subscription's current trigger+filter spec,
      * starting from `sinceLogId`. Returns the matching event payloads as data; the
      * channel-specific re-emission (MCP notifications / webhook POST / daemon dispatch)
@@ -637,6 +694,10 @@ class WakeSubscriptionService extends Base {
             const matched = this._evaluateNodeAgainstSubscription(nodeId, subscription, logId);
             if (matched) events.push(matched);
         }
+        for (const pulseTrace of this._getHeartbeatPulseLogEntries(sinceLogId)) {
+            const matched = this._evaluateHeartbeatPulseAgainstSubscription(pulseTrace, subscription);
+            if (matched) events.push(matched);
+        }
 
         return {
             subscriptionId,
@@ -658,6 +719,25 @@ class WakeSubscriptionService extends Base {
             const row = GraphService.db.storage.db.prepare('SELECT MAX(log_id) as maxId FROM GraphLog WHERE entity_id = ?').get(entityId);
             return row?.maxId || null;
         } catch (e) { return null; }
+    }
+
+    /**
+     * Reads heartbeat pulse GraphLog rows after a cursor.
+     * @protected
+     * @param {Number} sinceLogId Client watermark.
+     * @returns {Object[]} GraphLog heartbeat pulse rows.
+     */
+    _getHeartbeatPulseLogEntries(sinceLogId) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (!sqlite?.prepare) return [];
+
+        return sqlite.prepare(`
+            SELECT log_id, entity_id, entity_type
+            FROM GraphLog
+            WHERE log_id > ?
+              AND entity_type = ?
+            ORDER BY log_id ASC
+        `).all(sinceLogId, this.heartbeatPulseEntityType);
     }
 
     /**
@@ -733,6 +813,26 @@ class WakeSubscriptionService extends Base {
     }
 
     /**
+     * Evaluates a GraphLog-only heartbeat pulse against a subscription.
+     * @protected
+     * @param {Object} trace GraphLog heartbeat pulse row.
+     * @param {Object} subscription The cached WAKE_SUBSCRIPTION entry.
+     * @returns {Object|null} Wrapped heartbeat-pulse event or null.
+     */
+    _evaluateHeartbeatPulseAgainstSubscription(trace, subscription) {
+        if (subscription.trigger !== 'HEARTBEAT_PULSE') return null;
+        if (trace.entity_type !== this.heartbeatPulseEntityType) return null;
+
+        const pulse = this._parseHeartbeatPulseEntityId(trace.entity_id);
+        if (!pulse || pulse.targetIdentity !== subscription.agentIdentity) return null;
+
+        return this._wrapEvent('wake/heartbeat_pulse', subscription, {
+            targetIdentity: pulse.targetIdentity,
+            pulseId       : pulse.pulseId
+        }, trace.log_id);
+    }
+
+    /**
      * Builds the wake/sent_to_me payload from a MESSAGE node.
      * @protected
      * @param {Object} messageNode Graph node with `properties` (from / subject / priority / taggedConcepts / inReplyTo / to)
@@ -754,7 +854,7 @@ class WakeSubscriptionService extends Base {
     /**
      * Wraps a payload in the standard wake notification envelope per ADR 0002 §6.1.1-§6.1.3.
      * @protected
-     * @param {String} eventType One of `wake/sent_to_me`, `wake/task_state_changed`, `wake/permission_granted`
+     * @param {String} eventType One of `wake/sent_to_me`, `wake/task_state_changed`, `wake/permission_granted`, `wake/heartbeat_pulse`
      * @param {Object} subscription Cached WAKE_SUBSCRIPTION entry (provides `id` + `agentIdentity`)
      * @param {Object} payload Trigger-specific inner payload built by the matching `_build*Payload` helper
      * @param {String|Number} logIdAnchor GraphLog `log_id` anchor preserved across re-emissions for cursor-based catchup
@@ -770,6 +870,36 @@ class WakeSubscriptionService extends Base {
             subscriptionId: subscription.id,
             payload,
             emittedAt     : new Date().toISOString()
+        };
+    }
+
+    /**
+     * Creates the stable GraphLog entity id for a heartbeat pulse.
+     * @protected
+     * @param {String} targetIdentity AgentIdentity node id.
+     * @returns {String} Encoded heartbeat pulse entity id.
+     */
+    _createHeartbeatPulseEntityId(targetIdentity) {
+        return `${this.heartbeatPulseEntityPrefix}:${targetIdentity}:${crypto.randomUUID()}`;
+    }
+
+    /**
+     * Parses a heartbeat pulse GraphLog entity id.
+     * @protected
+     * @param {String} entityId Encoded heartbeat pulse entity id.
+     * @returns {{targetIdentity:String,pulseId:String}|null} Parsed pulse identity.
+     */
+    _parseHeartbeatPulseEntityId(entityId) {
+        const prefix = `${this.heartbeatPulseEntityPrefix}:`;
+        if (!entityId?.startsWith(prefix)) return null;
+
+        const body      = entityId.slice(prefix.length);
+        const separator = body.lastIndexOf(':');
+        if (separator <= 0 || separator === body.length - 1) return null;
+
+        return {
+            targetIdentity: body.slice(0, separator),
+            pulseId       : body.slice(separator + 1)
         };
     }
 
