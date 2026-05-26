@@ -90,6 +90,31 @@ export const KB_DEFAULTS = deepFreeze(Neo.clone({
             'examples': 'example',
             'docs/app': 'app',
             'ai'      : 'ai-infrastructure'
+        },
+        RawRepoSource     : {
+            root             : '.',
+            includeExtensions: [],
+            excludeExtensions: [
+                '.7z', '.avif', '.bin', '.bmp', '.bz2', '.class', '.dmg', '.eot',
+                '.exe', '.gif', '.gz', '.ico', '.jar', '.jpeg', '.jpg', '.lockb',
+                '.mov', '.mp3', '.mp4', '.otf', '.pdf', '.png', '.sqlite', '.tar',
+                '.tgz', '.ttf', '.wasm', '.webm', '.webp', '.woff', '.woff2', '.zip'
+            ],
+            excludePaths: [
+                '.git',
+                '.neo-ai-data',
+                'coverage',
+                'dist',
+                'docs/output',
+                'node_modules',
+                'package-lock.json',
+                'playwright-report',
+                'resources/examples',
+                'resources/fonts',
+                'resources/images',
+                'test-results',
+                'yarn.lock'
+            ]
         }
     },
     collectionName    : 'neo-knowledge-base',
@@ -102,6 +127,7 @@ export const KB_DEFAULTS = deepFreeze(Neo.clone({
     defaultVisibility : 'team',
     spoofRejectionMode: 'overwrite',
     useDefaultSources : true,
+    rawRepoSource     : false,
     useDefaultParsers : true,
     batchSize         : 50,
     batchDelay        : 10000,

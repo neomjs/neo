@@ -470,7 +470,7 @@ test.describe('KnowledgeBaseIngestionService.tenantConfig (#11637)', () => {
     test('setTenantConfig persists a versioned KnowledgeBaseTenantConfig node that getTenantConfig reads back', async () => {
         const written = await Service.setTenantConfig({
             tenantId: 'tenant-a',
-            config  : {useDefaultSources: false, customParsers: [{parserId: 'es5'}]}
+            config  : {useDefaultSources: false, rawRepoSource: true, customParsers: [{parserId: 'es5'}]}
         });
         expect(written).toEqual({tenantId: 'tenant-a', version: 1});
 
@@ -483,6 +483,7 @@ test.describe('KnowledgeBaseIngestionService.tenantConfig (#11637)', () => {
             source           : 'graph',
             version          : 1,
             useDefaultSources: false,
+            rawRepoSource    : true,
             customParsers    : [{parserId: 'es5'}]
         });
     });
@@ -619,7 +620,7 @@ test.describe('KnowledgeBaseIngestionService.tenantConfig (#11637)', () => {
     test('getTenantConfig resolves the kb-config.yaml bootstrap tier when no graph node exists', async () => {
         Service.readKbConfigBootstrap = () => ({
             tenants: {
-                'tenant-a': {useDefaultSources: false, customSources: [{sourceName: 'BootstrapSource'}]}
+                'tenant-a': {useDefaultSources: false, rawRepoSource: true, customSources: [{sourceName: 'BootstrapSource'}]}
             }
         });
 
@@ -629,6 +630,7 @@ test.describe('KnowledgeBaseIngestionService.tenantConfig (#11637)', () => {
             source           : 'yaml',
             version          : 0,
             useDefaultSources: false,
+            rawRepoSource    : true,
             customSources    : [{sourceName: 'BootstrapSource'}]
         });
 

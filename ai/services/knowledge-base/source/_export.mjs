@@ -6,6 +6,7 @@ import ConceptSource     from './ConceptSource.mjs';
 import DiscussionSource  from './DiscussionSource.mjs';
 import LearningSource    from './LearningSource.mjs';
 import PullRequestSource from './PullRequestSource.mjs';
+import RawRepoSource     from './RawRepoSource.mjs';
 import ReleaseNotesSource from './ReleaseNotesSource.mjs';
 import SkillSource       from './SkillSource.mjs';
 import TestSource        from './TestSource.mjs';
@@ -24,8 +25,11 @@ import TicketSource      from './TicketSource.mjs';
  *   ensuring byte-equivalence with the prior KB generation pipeline.
  * - When `aiConfig.useDefaultSources === false` (cloud deployments opting out of Neo's
  *   curated content), no default registration occurs. The registry only contains whatever
- *   tenant-supplied sources register via `aiConfig.customSources` or programmatically via
- *   `SourceRegistry.registerSource(...)`.
+ *   tenant-supplied sources register via `aiConfig.customSources`, explicit `rawRepoSource`,
+ *   or programmatically via `SourceRegistry.registerSource(...)`.
+ * - When `aiConfig.rawRepoSource === true`, {@link RawRepoSource} registers as an
+ *   explicit opt-in fallback for tenants whose repo shape is unknown. It is intentionally
+ *   NOT part of {@link DEFAULT_SOURCES}; zero-config Neo sync keeps the legacy 10-source set.
  *
  * **Declarative custom-source/parser registration shape:**
  *
@@ -90,19 +94,29 @@ const DEFAULT_SOURCES = [
  * without depending on module-import singleton state.
  *
  * @param {Object}   registry          A `SourceRegistry`-shaped object exposing `registerSource(class, {sourceName?})` and `registerParser(class, {parserId?})`.
- * @param {Object}   config            A config object exposing `useDefaultSources` (boolean), `useDefaultParsers` (boolean), `customSources` (array), `customParsers` (array).
+ * @param {Object}   config            A config object exposing `useDefaultSources` (boolean), `rawRepoSource` (boolean), `useDefaultParsers` (boolean), `customSources` (array), `customParsers` (array).
  * @param {Object}   [options]
  * @param {Array}   [options.defaults] Override the default Source class set (testing-only override; production omits to use {@link DEFAULT_SOURCES}).
- * @returns {{defaultSourcesRegistered: Number, customSourcesRegistered: Number, customParsersRegistered: Number}}
+ * @returns {{defaultSourcesRegistered: Number, rawRepoSourceRegistered: Number, customSourcesRegistered: Number, customParsersRegistered: Number}}
  */
 export function applyConfigToRegistry(registry, config, {defaults = DEFAULT_SOURCES} = {}) {
-    const stats = {defaultSourcesRegistered: 0, customSourcesRegistered: 0, customParsersRegistered: 0};
+    const stats = {
+        defaultSourcesRegistered: 0,
+        rawRepoSourceRegistered: 0,
+        customSourcesRegistered : 0,
+        customParsersRegistered : 0
+    };
 
     if (config?.useDefaultSources !== false) {
         for (const SourceClass of defaults) {
             registry.registerSource(SourceClass);
             stats.defaultSourcesRegistered++;
         }
+    }
+
+    if (config?.rawRepoSource === true) {
+        registry.registerSource(RawRepoSource);
+        stats.rawRepoSourceRegistered++;
     }
 
     // Declarative custom-source registration via aiConfig.customSources (Phase 0/1B contract).
@@ -145,6 +159,7 @@ export {
     DiscussionSource,
     LearningSource,
     PullRequestSource,
+    RawRepoSource,
     ReleaseNotesSource,
     SkillSource,
     TestSource,
