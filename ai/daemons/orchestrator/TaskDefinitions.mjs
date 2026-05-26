@@ -75,7 +75,7 @@ export function buildTaskDefinitions({
             expectedCommand: 'syncKnowledgeBase.mjs'
         },
         backup: {
-            label          : 'memory core backup',
+            label          : 'agent OS backup',
             command        : nodeBin,
             args           : [path.join(scriptDir, 'maintenance', 'backup.mjs')],
             pidFileName    : 'backup.pid',
