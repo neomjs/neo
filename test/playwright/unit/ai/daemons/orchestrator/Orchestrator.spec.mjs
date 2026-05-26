@@ -24,6 +24,7 @@ let testOrchestratorSeq = 0;
 let savedIntervals = null;
 let savedLocalOnly = null;
 let savedCloudOnly = null;
+let savedDeploymentMode = null;
 
 /**
  * Test helper updated per Epic #11831 Sub 1 (#11833) Orchestrator refactor:
@@ -60,6 +61,7 @@ function createTestOrchestrator(config = {}) {
     savedIntervals = savedIntervals || {...AiConfig.orchestrator.intervals};
     savedLocalOnly = savedLocalOnly || {...AiConfig.orchestrator.localOnly};
     savedCloudOnly = savedCloudOnly || {...AiConfig.orchestrator.cloudOnly};
+    savedDeploymentMode = savedDeploymentMode ?? AiConfig.orchestrator.deploymentMode;
 
     // Class D operator policy values — AiConfig.data mutation reaches lazy getters.
     // Test defaults preserve the pre-refactor helper's defaults (600000ms intervals etc.).
@@ -72,6 +74,7 @@ function createTestOrchestrator(config = {}) {
     AiConfig.orchestrator.intervals.goldenPathMs     = config.goldenPathIntervalMs     ?? Number.MAX_SAFE_INTEGER;
     AiConfig.orchestrator.intervals.swarmHeartbeatMs = config.swarmHeartbeatIntervalMs ?? Number.MAX_SAFE_INTEGER;
     if (config.pollIntervalMs !== undefined) AiConfig.orchestrator.intervals.pollMs = config.pollIntervalMs;
+    if (config.deploymentMode !== undefined) AiConfig.orchestrator.deploymentMode = config.deploymentMode;
 
     AiConfig.orchestrator.localOnly.kbSyncEnabled                  = config.kbSyncEnabled                  ?? true;
     AiConfig.orchestrator.localOnly.primaryDevSyncEnabled          = config.primaryDevSyncEnabled          ?? false;
@@ -118,14 +121,28 @@ test.afterEach(() => {
         savedIntervals = null;
     }
     if (savedLocalOnly) {
-        Object.assign(AiConfig.orchestrator.localOnly, savedLocalOnly);
+        restoreConfigObject(AiConfig.orchestrator.localOnly, savedLocalOnly);
         savedLocalOnly = null;
     }
     if (savedCloudOnly) {
-        Object.assign(AiConfig.orchestrator.cloudOnly, savedCloudOnly);
+        restoreConfigObject(AiConfig.orchestrator.cloudOnly, savedCloudOnly);
         savedCloudOnly = null;
     }
+    if (savedDeploymentMode !== null) {
+        AiConfig.orchestrator.deploymentMode = savedDeploymentMode;
+        savedDeploymentMode = null;
+    }
 });
+
+function restoreConfigObject(target, prior) {
+    for (const key of Object.keys(target)) {
+        if (!(key in prior)) {
+            delete target[key];
+        }
+    }
+
+    Object.assign(target, prior);
+}
 
 test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
     test('creates an isolated persisted-state envelope per task', () => {
@@ -434,6 +451,49 @@ test.describe('Neo.ai.daemons.Orchestrator (#11009)', () => {
         orchestrator.poll();
 
         expect(started).toEqual([{
+            taskName: 'chroma',
+            reason  : 'supervisor-restart'
+        }]);
+    });
+
+    test('skips chroma daemon supervision in cloud mode while keeping local default (#12019)', () => {
+        const cloudStarted = [];
+        const cloudOrchestrator = createTestOrchestrator({
+            deploymentMode: 'cloud',
+            kbSyncEnabled : false
+        });
+
+        TaskStateService.taskState.chroma.running = false;
+        TaskStateService.taskState.chroma.lastRunAt = 0;
+        cloudOrchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                cloudStarted.push({taskName, reason});
+                return true;
+            }
+        };
+
+        cloudOrchestrator.poll();
+
+        expect(cloudStarted).toEqual([]);
+
+        const localStarted = [];
+        const localOrchestrator = createTestOrchestrator({
+            deploymentMode: 'local',
+            kbSyncEnabled : false
+        });
+
+        TaskStateService.taskState.chroma.running = false;
+        TaskStateService.taskState.chroma.lastRunAt = 0;
+        localOrchestrator.processSupervisorService = {
+            runTask(taskName, reason) {
+                localStarted.push({taskName, reason});
+                return true;
+            }
+        };
+
+        localOrchestrator.poll();
+
+        expect(localStarted).toEqual([{
             taskName: 'chroma',
             reason  : 'supervisor-restart'
         }]);

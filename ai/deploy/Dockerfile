@@ -32,7 +32,7 @@ ENV NEO_TRANSPORT=sse
 # `TARGET_SERVER` selects an MCP server image ('knowledge-base' or 'memory-core').
 # `SERVICE_ENTRYPOINT` generalizes the entrypoint so non-MCP-server services — e.g.
 # the Agent OS orchestrator (ADR 0014 cloud topology, Sub B #11723) — build from the
-# same image: pass `SERVICE_ENTRYPOINT=ai/scripts/orchestrator-daemon.mjs`.
+# same image: pass `SERVICE_ENTRYPOINT=ai/daemons/orchestrator/daemon.mjs`.
 ARG TARGET_SERVER
 ARG SERVICE_ENTRYPOINT=ai/mcp/server/${TARGET_SERVER}/mcp-server.mjs
 ENV SERVER_ENTRYPOINT=${SERVICE_ENTRYPOINT}

@@ -1,12 +1,12 @@
 /**
- * @module ai/scripts/orchestrator-daemon
+ * @module ai/daemons/orchestrator/daemon
  * @summary Thin Node-process boot wrapper for the Agent OS maintenance orchestrator.
  *
  * Process ownership stays here: PID-file directory creation, CLI entrypoint, and
  * fatal-start error isolation. Scheduling, child-task state, and per-task health
  * reporting live in `Neo.ai.daemons.Orchestrator`.
  *
- * @see ai/daemons/Orchestrator.mjs
+ * @see ai/daemons/orchestrator/Orchestrator.mjs
  * @see learn/agentos/v13-path.md
  */
 // dotenv: load local `.env` into `process.env` before ANY consumer reads env vars.
@@ -36,7 +36,18 @@ import Orchestrator from './Orchestrator.mjs';
 const DAEMON_DATA_DIR = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
 const PID_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator-daemon.pid');
 const LOG_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator.log');
+const ORCHESTRATOR_DAEMON_PATH_TAIL = 'ai/daemons/orchestrator/daemon.mjs';
 export const LOCAL_AI_CONFIG_FILE = fileURLToPath(new URL('../../config.mjs', import.meta.url));
+
+/**
+ * @summary Checks whether a process command belongs to this daemon entry point.
+ * Uses the orchestrator-specific path-tail to avoid sibling `daemon.mjs` collisions.
+ * @param {String} cmd Process command line.
+ * @returns {Boolean}
+ */
+export function isOrchestratorDaemonCommand(cmd) {
+    return cmd.includes(ORCHESTRATOR_DAEMON_PATH_TAIL);
+}
 
 function writeLog(level, message) {
     const timestamp = new Date().toISOString();
@@ -95,7 +106,7 @@ async function enforceSingleton() {
                 if (isAlive) {
                     const cmd = processCommand(oldPid);
 
-                    if (cmd.includes('orchestrator-daemon.mjs')) {
+                    if (isOrchestratorDaemonCommand(cmd)) {
                         writeLog('INFO', `[Orchestrator] Found existing instance (PID: ${oldPid}). Sending SIGTERM...`);
                         process.kill(oldPid, 'SIGTERM');
                         if (!await waitForExit(oldPid, 5000)) {
