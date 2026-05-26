@@ -463,7 +463,8 @@ class IssueService extends Base {
      * @param {string}   options.title                 The title of the issue.
      * @param {string}   [options.body='']             The Markdown body of the issue.
      * @param {string[]} [options.labels=[]]           An array of labels to add to the issue.
-     * @param {string[]} [options.assignees=[]]        An array of user logins to assign.
+     * @param {string[]} [options.assignees=[]]        An array of user logins to assign. Use `@me`
+     *     to assign the authenticated GitHub user.
      * @param {Array<{projectNumber: number}>} [options.projects=[]] An array of ProjectV2 memberships
      *     to attach atomically after issue creation. Each entry specifies the org-level project number.
      * @returns {Promise<object>} A promise that resolves to the new issue's data or a structured error.
