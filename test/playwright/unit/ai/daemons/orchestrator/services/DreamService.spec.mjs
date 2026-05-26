@@ -910,7 +910,8 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         // Setup markdown with a conflicting gap to verify dynamic stripping / injection sequence
         const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default;
-        const handoffFile = aiConfig.handoffFilePath;
+        const handoffFile = aiConfig.handoffFilePath,
+              originalModelProvider = aiConfig.modelProvider;
 
         // Restore actual file system write for this test specifically
         const mockWriteFile = fs.writeFileSync;
@@ -918,55 +919,62 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
 
         fs.writeFileSync(handoffFile, '- **[Codebase Gap]** Node `Fake`: Exists\n\n## Computed Golden Path\nOld Path\n', 'utf8');
 
-        // Execute Golden Path Synthesizer
-        await DreamService.synthesizeGoldenPath();
+        aiConfig.modelProvider = 'openAiCompatible';
 
-        const finalContent = fs.readFileSync(handoffFile, 'utf8');
+        try {
+            // Execute Golden Path Synthesizer
+            await DreamService.synthesizeGoldenPath();
 
-        // Verification Loop
-        expect(finalContent).toContain('Epic Hero');
-        expect(finalContent).toContain('Weak Task');
-        expect(finalContent).not.toContain('Blocked Task'); // REJECTED topologically by GraphService
-        expect(finalContent).not.toContain('Massive Stale Feature'); // REJECTED mathematically by Negative ROI penalty
-        expect(finalContent).toContain('Math synthesis works natively.');
-        expect(finalContent.indexOf('- **[Codebase Gap]**')).toBeLessThan(finalContent.indexOf('## Computed Golden Path'));
-        expect(finalContent).not.toContain('Old Path');
+            const finalContent = fs.readFileSync(handoffFile, 'utf8');
 
-        // #10087: planted CONCEPT with [ORPHAN_CONCEPT] must surface as a dedicated section
-        expect(finalContent).toContain('⚠️ Orphaned Concepts');
-        expect(finalContent).toContain('Reactivity');
-        expect(finalContent).toContain('Concept Reverification Queue');
-        expect(finalContent).toContain('Config System');
-        expect(finalContent).toContain('Agent FAQ Demand Gaps');
-        expect(finalContent).toContain('reactive config');
+            // Verification Loop
+            expect(finalContent).toContain('Epic Hero');
+            expect(finalContent).toContain('Weak Task');
+            expect(finalContent).not.toContain('Blocked Task'); // REJECTED topologically by GraphService
+            expect(finalContent).not.toContain('Massive Stale Feature'); // REJECTED mathematically by Negative ROI penalty
+            expect(finalContent).toContain('Math synthesis works natively.');
+            expect(finalContent.indexOf('- **[Codebase Gap]**')).toBeLessThan(finalContent.indexOf('## Computed Golden Path'));
+            expect(finalContent).not.toContain('Old Path');
 
-        // Run AGAIN to trigger duplication prevention natively
-        await DreamService.synthesizeGoldenPath();
-        const twiceContent = fs.readFileSync(handoffFile, 'utf8');
+            // #10087: planted CONCEPT with [ORPHAN_CONCEPT] must surface as a dedicated section
+            expect(finalContent).toContain('⚠️ Orphaned Concepts');
+            expect(finalContent).toContain('Reactivity');
+            expect(finalContent).toContain('Concept Reverification Queue');
+            expect(finalContent).toContain('Config System');
+            expect(finalContent).toContain('Agent FAQ Demand Gaps');
+            expect(finalContent).toContain('reactive config');
 
-        // Count capabilities gaps to ensure idempotence
-        const firstCount = finalContent.split('[Codebase Gap]').length;
-        const secondCount = twiceContent.split('[Codebase Gap]').length;
-        expect(secondCount).toBe(firstCount);
+            // Run AGAIN to trigger duplication prevention natively
+            await DreamService.synthesizeGoldenPath();
+            const twiceContent = fs.readFileSync(handoffFile, 'utf8');
 
-        // Restore
-        OpenAiCompatible.prototype.generate = baseGenerate;
-        TextEmbeddingService.embedText = baseEmbed;
-        fs.writeFileSync = mockWriteFile;
-        StorageRouter.getSummaryCollection = originalGetSummary;
-        StorageRouter.getGraphCollection = originalGetGraph;
-        if (originalPrepare) {
-             GraphService.db.storage.db.prepare = originalPrepare;
-        } else {
-             delete GraphService.db.storage.db.prepare;
+            // Count capabilities gaps to ensure idempotence
+            const firstCount = finalContent.split('[Codebase Gap]').length;
+            const secondCount = twiceContent.split('[Codebase Gap]').length;
+            expect(secondCount).toBe(firstCount);
+        } finally {
+            OpenAiCompatible.prototype.generate = baseGenerate;
+            TextEmbeddingService.embedText = baseEmbed;
+            fs.writeFileSync = mockWriteFile;
+            StorageRouter.getSummaryCollection = originalGetSummary;
+            StorageRouter.getGraphCollection = originalGetGraph;
+            aiConfig.modelProvider = originalModelProvider;
+
+            if (originalPrepare) {
+                 GraphService.db.storage.db.prepare = originalPrepare;
+            } else {
+                 delete GraphService.db.storage.db.prepare;
+            }
+            GraphService.linkNodes          = originalLinkNodes;
+            GraphService.getContextFrontier = originalGetContextFrontier;
         }
-        GraphService.linkNodes          = originalLinkNodes;
-        GraphService.getContextFrontier = originalGetContextFrontier;
     });
 
     test('should retry extraction on malformed JSON payload up to 3 times to fix #9913', async () => {
         let executionCount = 0;
-        const baseGenerate = OpenAiCompatible.prototype.generate;
+        const aiConfig = (await import('../../../../../../../ai/mcp/server/memory-core/config.mjs')).default,
+              baseGenerate = OpenAiCompatible.prototype.generate,
+              originalModelProvider = aiConfig.modelProvider;
 
         // Mock to fail twice with invalid JSON, then succeed on the 3rd attempt
         OpenAiCompatible.prototype.generate = async function(messages) {
@@ -995,26 +1003,30 @@ test.describe('Neo.ai.services.memory-core.DreamService', () => {
             };
         };
 
-        const session = {
-            meta: { sessionId: 'playwright-retry-test' },
-            document: "Mock episodic history"
-        };
+        aiConfig.modelProvider = 'openAiCompatible';
 
-        const result = await SemanticGraphExtractor.executeTriVectorExtraction(session);
+        try {
+            const session = {
+                meta: { sessionId: 'playwright-retry-test' },
+                document: "Mock episodic history"
+            };
 
-        // Assert that the LLM was called 3 times natively due to the retry loop wrapping
-        expect(executionCount).toBe(3);
+            const result = await SemanticGraphExtractor.executeTriVectorExtraction(session);
 
-        // Assert the returned result is strictly not null since attempt 3 passed
-        expect(result).not.toBeNull();
-        expect(result.session_artifact).toBeDefined();
+            // Assert that the LLM was called 3 times natively due to the retry loop wrapping
+            expect(executionCount).toBe(3);
 
-        // Check if the feedback logic was appended to the provider messages
-        const lastMessage = providerPrompt[providerPrompt.length - 1];
-        expect(lastMessage.role).toBe('user');
-        expect(lastMessage.content).toContain('failed internal schema validation');
+            // Assert the returned result is strictly not null since attempt 3 passed
+            expect(result).not.toBeNull();
+            expect(result.session_artifact).toBeDefined();
 
-        // Restore global function
-        OpenAiCompatible.prototype.generate = baseGenerate;
+            // Check if the feedback logic was appended to the provider messages
+            const lastMessage = providerPrompt[providerPrompt.length - 1];
+            expect(lastMessage.role).toBe('user');
+            expect(lastMessage.content).toContain('failed internal schema validation');
+        } finally {
+            aiConfig.modelProvider = originalModelProvider;
+            OpenAiCompatible.prototype.generate = baseGenerate;
+        }
     });
 });
