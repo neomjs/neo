@@ -282,41 +282,24 @@ Expected payload fields:
 }
 ```
 
+Seed the Neo-shared corpus once inside the KB container before querying it:
+
+```bash
+docker compose \
+  -p "$NEO_DAY0_PROJECT" \
+  -f ai/deploy/docker-compose.test.yml \
+  exec -T kb-server \
+  npm run ai:sync-kb
+```
+
+For a production compose stack, use the same one-shot form against the deployed
+`kb-server`. This is an operator-triggered seed/import, not the periodic cloud
+orchestrator `kbSync` lane; `NEO_ORCHESTRATOR_KB_SYNC_ENABLED` remains `false`
+per [ADR 0014](../decisions/0014-cloud-deployment-topology-and-scheduler-task-taxonomy.md).
+
 Then query Neo-shared content:
 
 ```bash
-node - <<'NODE' > /tmp/day0-neo-shared.json
-const fs = require('fs');
-const content = fs.readFileSync('learn/agentos/cloud-deployment/TenantIngestionModel.md', 'utf8');
-
-process.stdout.write(JSON.stringify({
-  tenantId: 'neo-shared',
-  repoSlug: 'neo',
-  files: [{
-    sourcePath: 'learn/agentos/cloud-deployment/TenantIngestionModel.md',
-    parsedChunks: [{
-      schemaVersion: '1.0.0',
-      tenantId: 'neo-shared',
-      repoSlug: 'neo',
-      rootKind: 'neo-workspace',
-      sourcePath: 'learn/agentos/cloud-deployment/TenantIngestionModel.md',
-      content,
-      hashInputs: ['kind', 'name', 'content', 'sourcePath', 'parserId', 'parserVersion'],
-      parserId: 'day0-neo-shared-seed',
-      parserVersion: '1.0.0',
-      kind: 'guide',
-      name: 'Tenant Ingestion Model'
-    }]
-  }]
-}));
-NODE
-
-node /tmp/day0-call-tool.mjs \
-  "$NEO_KB_MCP_BASE_URL" \
-  neo-shared \
-  ingest_source_files \
-  /tmp/day0-neo-shared.json
-
 cat > /tmp/day0-kb-query.json <<'JSON'
 {
   "query": "cloud deployment tenant ingestion model",
@@ -340,8 +323,8 @@ Failure signatures:
 
 | Signature | Meaning | Fix |
 |---|---|---|
-| `collection does not exist` | The KB collection was not initialized. | Run the deployed KB sync/import step for Neo-shared content, or inspect KB startup logs. |
-| Empty answer with healthy DB | The curated Neo content is not indexed. | Run the deployment's Neo-shared KB sync before tenant onboarding. |
+| `collection does not exist` | The KB collection was not initialized. | Run the one-shot `kb-server` `npm run ai:sync-kb` command above, or inspect KB startup logs. |
+| Empty answer with healthy DB | The curated Neo content is not indexed. | Verify the image contains the Neo source trees and re-run the one-shot Neo-shared KB sync before tenant onboarding. |
 | `Tool not found: ask_knowledge_base` | The endpoint is not the KB MCP server. | Verify `/kb/mcp` routing and `NEO_PUBLIC_URL`. |
 
 ## Milestone 3 - Tenant Repo Ingestion

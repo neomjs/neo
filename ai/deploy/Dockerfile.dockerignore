@@ -1,6 +1,5 @@
-# Runtime / agent state: host-only, never deployed.
+# Runtime / operator state: host-only, never deployed.
 .neo-ai-data
-.agents
 .claude
 .codex
 .env*
@@ -9,12 +8,15 @@
 .vscode
 tmp
 
-# Frontend, docs, examples, tests, and local KB corpus are not deploy runtime.
+# Agent harness state is host-only; skill substrate stays for KB ingestion.
+.agents/*
+!.agents/skills
+!.agents/skills/**
+
+# Workspace demo apps are not required for the Day-0 Neo-shared KB seed.
 apps
-docs
-examples
-learn
-resources
+
+# The integration harness mounts its narrow KB fixture path explicitly (#12024).
 test
 
 # Build / test artifacts: rebuilt in-container.
