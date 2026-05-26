@@ -22,9 +22,13 @@ import InstanceManager from '../../../../../../../src/manager/Instance.mjs';
 import fs              from 'fs-extra';
 import os              from 'os';
 import path            from 'path';
+import {fileURLToPath} from 'url';
 
 import TenantRepoSyncService from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncService.mjs';
 import {deriveTenantRepoMirrorPath} from '../../../../../../../ai/services/knowledge-base/helpers/TenantRepoAccessContract.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
 
 // Serial mode: TenantRepoSyncService is a singleton.
 test.describe.configure({mode: 'serial'});
@@ -1104,5 +1108,44 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(result.status).toBe('completed');
         expect(result.details.failedCount).toBe(1);
         expect(result.details.completedCount).toBe(1);
+    });
+});
+
+test.describe('TenantRepoSyncService.resolveIngestionService — export-drift guard (#12042)', () => {
+    /*
+     * Other tests in this file inject `knowledgeBaseIngestionService` directly via
+     * `runTask` arguments, bypassing `resolveIngestionService` entirely. That's how
+     * the export-drift bug fixed in PR #12037 (lookup of the non-existent
+     * `KB_KnowledgeBaseIngestionService` / `KnowledgeBaseIngestionService` names)
+     * escaped unit-test detection.
+     *
+     * A runtime test that imports `ai/services.mjs` and calls `resolveIngestionService()`
+     * is blocked here by the same `Neo.ai.Config` namespace collision pattern that the
+     * operator-overlay `ai/config.mjs` triggers under `unitTestMode` (template vs overlay
+     * double-register at `ai/config.template.mjs:578`). Static source-parsing catches
+     * the same drift without invoking class registration:
+     *
+     *   - Drift A: `services.mjs` renames `KB_IngestionService` → caught here.
+     *   - Drift B: `TenantRepoSyncService.resolveIngestionService` looks up a different
+     *     symbol than what `services.mjs` exports → caught here.
+     *   - Drift C: `KB_IngestionService` shape loses `ingestSourceFiles` method →
+     *     NOT caught here (would need runtime test); residual gap documented.
+     */
+    const repoRoot   = path.resolve(__dirname, '../../../../../../../');
+    const servicesPath = path.join(repoRoot, 'ai/services.mjs');
+    const resolverPath = path.join(repoRoot, 'ai/daemons/orchestrator/services/TenantRepoSyncService.mjs');
+
+    test('ai/services.mjs exports KB_IngestionService', async () => {
+        const source = await fs.readFile(servicesPath, 'utf-8');
+
+        expect(source).toMatch(/export\s*\{[^}]*\bKB_IngestionService\b[^}]*\}/s);
+    });
+
+    test('TenantRepoSyncService.resolveIngestionService references services.KB_IngestionService', async () => {
+        const source = await fs.readFile(resolverPath, 'utf-8');
+        const match  = source.match(/async\s+resolveIngestionService\s*\([^)]*\)\s*\{([\s\S]*?)\n\s{4}\}/);
+
+        expect(match, 'resolveIngestionService method body extractable').not.toBeNull();
+        expect(match[1]).toContain('services.KB_IngestionService');
     });
 });
