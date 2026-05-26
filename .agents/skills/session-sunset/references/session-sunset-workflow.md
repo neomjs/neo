@@ -117,16 +117,18 @@ Summarize the scope of your session. How many PRs were merged? How many skills w
 
 ### Step 6.5: Pre-Query Next-Session Pickup Queue
 
-Before the inbox cleanup, query lifecycle candidates that the next agent (or your future self) should consider on cold-pickup. The receiving agent's first turn is the highest-cost time to discover work — pre-queried candidates eliminate that ramp.
+Before the inbox cleanup, query lifecycle candidates that your future self (or any agent reading this self-DM via the mailbox at boot) should consider on cold-pickup. The receiving agent's first turn is the highest-cost time to discover work — pre-queried candidates eliminate that ramp.
 
-**Composition contract** (mirrors `learn/agentos/sandman-handoff-format.md` Section 5):
+**Scope of this step — the sunset self-DM only.** You are producing the Pickup Queue block embedded into the Step 8 self-DM body (per-identity, Memory-Core mailbox-resident). The on-disk `resources/content/sandman_handoff.md` is a SEPARATE artifact written by `GoldenPathSynthesizer` (run by the `dream` periodic task in `orchestrator-daemon` or by `npm run ai:run-sandman`); its Section 5 schema is defined in `learn/agentos/sandman-handoff-format.md` §5 and is fulfilled by that writer, not by this step. Do NOT delegate to the sandman file from here; the two carriers are parallel and independent. The shape template defined in `sandman-handoff-format.md` §5 IS the template the sunset self-DM mirrors — same composition, same per-entry format, same zero-candidate invariant.
+
+**Composition (mirrors `sandman-handoff-format.md` §5):**
 
 - 1-2 candidates from the **assigned** current-release Project (active or paused lanes you own)
 - 2-3 candidates from the **unassigned** current-release Project (open lanes any peer can claim)
 
 **Resolution:** "current-release Project" resolves dynamically from substrate (config / `identityRoots.mjs` / Project metadata) — no hardcoded board number. Falls back to the most recently configured release Project if metadata is silent.
 
-**Query shape (`gh issue list`):**
+**Query shape (`gh`):**
 
 ```bash
 # Unassigned current-release Project candidates
@@ -137,7 +139,7 @@ gh project item-list <PROJECT_NUM> --owner <OWNER> --limit 200 --format json \
 gh issue list --assignee '@me' --state open --json number,title,labels,updatedAt
 ```
 
-**Per-entry format** (per format-spec template):
+**Per-entry format (mirrors §5 template):**
 
 - `#<ticket-id>` — <1-line scope description> — <effort-tag>
 
@@ -145,11 +147,7 @@ gh issue list --assignee '@me' --state open --json number,title,labels,updatedAt
 
 **Zero-candidate state:** emit an empty queue with an explicit named reason (e.g., `Empty: all unassigned current-release tickets blocked on cross-family review`). Never silent — aligns with the wake-heartbeat halt-discipline that requires a named reason before declaring idle.
 
-**Surface duality:** populate the queue body once and route to two consumers:
-- Embed in Step 8 self-DM body as `## Next-Session Pickup Queue` (per-identity continuity)
-- Trust the daemon-driven `sandman_handoff.md` regeneration (or your `scope: solo-refresh` `ai:run-sandman` invocation from Step 2) to surface the same shape in the shared snapshot (cross-session)
-
-If the daemon-regenerated `sandman_handoff.md` does not yet surface Section 5 (synthesizer follow-up work), the self-DM Pickup Queue remains the canonical per-identity carrier until parity lands.
+**Embed in Step 8:** the queue is included verbatim under the `## Next-Session Pickup Queue` section of the self-DM payload composed in Step 8.
 
 ### Step 7: Inbox Cleanup (`mark_read`)
 To preserve "hot" thread visibility across sessions (Option B), agents do NOT `mark_read` messages immediately during active processing. Now that handovers are drafted (and have read your inbox state), you MUST explicitly use the `mark_read` MCP tool on all processed messages in your inbox. This ensures the inbox is clean for the next agent session.

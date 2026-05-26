@@ -35,9 +35,9 @@ The top 5 nodes mathematically recommended for execution, calculated via Hybrid 
 
 ### 5. Next-Session Pickup Queue
 
-Pre-queried lifecycle candidates surfaced at sunset/handoff time so the receiving agent boots with immediate-actionable options instead of needing fresh backlog discovery on cold context.
+Pre-queried lifecycle candidates surfaced in the regenerated `sandman_handoff.md` so any agent reading the file (boot or mid-session) has immediate-actionable options without running a fresh backlog query on cold context.
 
-**Composition:** 1-2 from assigned current-release Project + 2-3 from unassigned current-release Project. Current-release resolves dynamically from substrate (config / `identityRoots.mjs` / Project metadata), not hardcoded.
+**Composition:** 1-2 from the assigned current-release Project + 2-3 from the unassigned current-release Project. Current-release resolves dynamically from substrate (config / `identityRoots.mjs` / Project metadata), not hardcoded.
 
 **Per-entry template:**
 
@@ -47,4 +47,6 @@ Effort-tag uses the `[EFFORT_PROFILE]` taxonomy: `Quick Win` / `Heavy Lift` / `M
 
 **Zero-candidate state:** empty queue with an explicit named reason (e.g., `Empty: all unassigned current-release tickets blocked on cross-family review`). Never silent — aligns with the wake-heartbeat halt-discipline that requires a named reason before declaring idle.
 
-**Surface duality:** the section appears in both the daemon-regenerated `sandman_handoff.md` (cross-session shared snapshot) and per-agent session-sunset self-DM handover (per-identity continuity). Both consumers read the same shape.
+**Writer:** `GoldenPathSynthesizer`, invoked by the `dream` periodic task in `orchestrator-daemon` or by `npm run ai:run-sandman` for solo regeneration. This section defines the schema the writer fulfills; writer-side implementation of Section 5 emission is a follow-up.
+
+**Distinct from session-sunset self-DM (do NOT conflate):** the per-agent `session-sunset` skill produces a parallel, same-shape `## Next-Session Pickup Queue` block inside the per-identity self-DM handover payload (mailbox-resident, written by the sunsetting agent). That is a different artifact — different writer, different consumer surface, different storage substrate (Memory Core mailbox vs the on-disk file documented here). The two carriers complement each other; neither delegates to nor substitutes for the other. See `.agents/skills/session-sunset/references/session-sunset-workflow.md` Step 6.5 for the self-DM side.
