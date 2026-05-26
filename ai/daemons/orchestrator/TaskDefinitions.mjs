@@ -15,8 +15,9 @@ export const DEFAULT_SCRIPT_DIR = path.resolve(__dirname, '../../scripts');
  * `lmsEnabled` / `lmsModel` / `lmsPort` values from the caller; performs no env-var
  * lookups and carries no embedded MLX or LM Studio defaults. The canonical defaults
  * live in `ai/config.template.mjs` under `orchestrator.mlx` and `orchestrator.lms`;
- * `daemon.mjs::resolveMlxConfig` / `resolveLmsConfig` apply env-var overrides and
- * forward the resolved values via `Orchestrator.start({mlx*, lms*})`.
+ * `Orchestrator` exposes them via env-overrideable getters
+ * (`mlxEnabled`/`mlxModel`/`mlxPort`/`lmsEnabled`/`lmsModel`/`lmsPort`) and forwards
+ * the resolved values via `Orchestrator.start()`.
  *
  * The orchestrator intentionally shells out to existing manual maintenance scripts for
  * Piece C instead of reimplementing their internals. This keeps orchestration separate

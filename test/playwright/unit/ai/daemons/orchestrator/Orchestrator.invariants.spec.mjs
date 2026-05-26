@@ -135,6 +135,84 @@ test.describe('Orchestrator config precedence (#11834 AC2)', () => {
         expect(AiConfig.orchestrator.intervals.kbSyncMs).toBe(99_000);
         expect(AiConfig.orchestrator.localOnly.kbSyncEnabled).toBe(!baselineLocalKbs);
     });
+
+    // === mlx + lms supervised-server lane getters (#12005) ===
+
+    test('mlxEnabled: env var wins over AiConfig.orchestrator.mlx.enabled', () => {
+        AiConfig.orchestrator.mlx = {enabled: false, model: 'm', port: '11435'};
+        process.env.NEO_ORCHESTRATOR_MLX_ENABLED = 'true';
+        try {
+            expect(createMinimalOrchestrator().mlxEnabled).toBe(true);
+        } finally {
+            delete process.env.NEO_ORCHESTRATOR_MLX_ENABLED;
+        }
+    });
+
+    test('mlxEnabled / mlxModel / mlxPort: AiConfig consulted when env vars absent', () => {
+        delete process.env.NEO_ORCHESTRATOR_MLX_ENABLED;
+        delete process.env.NEO_ORCHESTRATOR_MLX_MODEL;
+        delete process.env.NEO_ORCHESTRATOR_MLX_PORT;
+        AiConfig.orchestrator.mlx = {enabled: true, model: 'mlx-from-config', port: '11999'};
+
+        const o = createMinimalOrchestrator();
+        expect(o.mlxEnabled).toBe(true);
+        expect(o.mlxModel).toBe('mlx-from-config');
+        expect(o.mlxPort).toBe('11999');
+    });
+
+    test('mlx getters undefined-safe when AiConfig.orchestrator.mlx is missing', () => {
+        delete process.env.NEO_ORCHESTRATOR_MLX_ENABLED;
+        delete process.env.NEO_ORCHESTRATOR_MLX_MODEL;
+        delete process.env.NEO_ORCHESTRATOR_MLX_PORT;
+        const savedMlx = AiConfig.orchestrator.mlx;
+        delete AiConfig.orchestrator.mlx;
+        try {
+            const o = createMinimalOrchestrator();
+            expect(o.mlxEnabled).toBe(false);
+            expect(o.mlxModel).toBeUndefined();
+            expect(o.mlxPort).toBeUndefined();
+        } finally {
+            if (savedMlx !== undefined) AiConfig.orchestrator.mlx = savedMlx;
+        }
+    });
+
+    test('lmsEnabled: env var wins over AiConfig.orchestrator.lms.enabled', () => {
+        AiConfig.orchestrator.lms = {enabled: false, model: 'qwen', port: '1234'};
+        process.env.NEO_ORCHESTRATOR_LMS_ENABLED = 'true';
+        try {
+            expect(createMinimalOrchestrator().lmsEnabled).toBe(true);
+        } finally {
+            delete process.env.NEO_ORCHESTRATOR_LMS_ENABLED;
+        }
+    });
+
+    test('lmsEnabled / lmsModel / lmsPort: AiConfig consulted when env vars absent', () => {
+        delete process.env.NEO_ORCHESTRATOR_LMS_ENABLED;
+        delete process.env.NEO_ORCHESTRATOR_LMS_MODEL;
+        delete process.env.NEO_ORCHESTRATOR_LMS_PORT;
+        AiConfig.orchestrator.lms = {enabled: true, model: 'lms-from-config', port: '4242'};
+
+        const o = createMinimalOrchestrator();
+        expect(o.lmsEnabled).toBe(true);
+        expect(o.lmsModel).toBe('lms-from-config');
+        expect(o.lmsPort).toBe('4242');
+    });
+
+    test('lms getters undefined-safe when AiConfig.orchestrator.lms is missing', () => {
+        delete process.env.NEO_ORCHESTRATOR_LMS_ENABLED;
+        delete process.env.NEO_ORCHESTRATOR_LMS_MODEL;
+        delete process.env.NEO_ORCHESTRATOR_LMS_PORT;
+        const savedLms = AiConfig.orchestrator.lms;
+        delete AiConfig.orchestrator.lms;
+        try {
+            const o = createMinimalOrchestrator();
+            expect(o.lmsEnabled).toBe(false);
+            expect(o.lmsModel).toBeUndefined();
+            expect(o.lmsPort).toBeUndefined();
+        } finally {
+            if (savedLms !== undefined) AiConfig.orchestrator.lms = savedLms;
+        }
+    });
 });
 
 test.describe('Orchestrator parent-prop propagation (#11834 AC3)', () => {
