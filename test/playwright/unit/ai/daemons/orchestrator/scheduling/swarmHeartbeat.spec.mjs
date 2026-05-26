@@ -237,6 +237,51 @@ test.describe('resolveTargets — deployment-portable swarm-heartbeat target res
         expect(result).toEqual(['@neo-opus-4-7']);
     });
 
+    // ----- active-a2a-participants (#12003): activity-derived candidate discovery -----
+
+    test('active-a2a-participants — unions self with provider output (3h A2A activity)', async () => {
+        const participants = ['@neo-gpt', '@neo-opus-4-7', 'neo-gemini-3-1-pro'];
+        const result = await resolveTargets({
+            selfIdentity                  : '@neo-opus-4-7',
+            targetSource                  : 'active-a2a-participants',
+            activeA2aParticipantsProvider : async () => participants
+        });
+        // Self appears first; participants union (no duplicates); 3rd entry gets normalized.
+        expect(result).toEqual(['@neo-opus-4-7', '@neo-gpt', '@neo-gemini-3-1-pro']);
+    });
+
+    test('active-a2a-participants without provider — falls back to self with warn', async () => {
+        const logger = captureLogger();
+        const result = await resolveTargets({
+            selfIdentity: '@neo-opus-4-7',
+            targetSource: 'active-a2a-participants',
+            logger
+        });
+        expect(result).toEqual(['@neo-opus-4-7']);
+        expect(logger.calls.some(c => c.level === 'warn' && c.msg.includes('active-a2a-participants'))).toBe(true);
+    });
+
+    test('active-a2a-participants — empty participants + valid self yields just [self]', async () => {
+        const result = await resolveTargets({
+            selfIdentity                  : '@neo-opus-4-7',
+            targetSource                  : 'active-a2a-participants',
+            activeA2aParticipantsProvider : async () => []
+        });
+        expect(result).toEqual(['@neo-opus-4-7']);
+    });
+
+    test('null selfIdentity + active-a2a-participants missing provider falls back to self + logs warn AND info', async () => {
+        const logger = captureLogger();
+        const result = await resolveTargets({
+            selfIdentity: null,
+            targetSource: 'active-a2a-participants',
+            logger
+        });
+        expect(result).toEqual([]);
+        expect(logger.calls.some(c => c.level === 'warn' && c.msg.includes('active-a2a-participants'))).toBe(true);
+        expect(logger.calls.some(c => c.level === 'info' && c.msg.includes('active-a2a-participants-missing-provider'))).toBe(true);
+    });
+
     test('normalization — selfIdentity without @ prefix gets canonicalized', async () => {
         const result = await resolveTargets({
             selfIdentity: 'neo-opus-4-7'  // no @ prefix
@@ -244,8 +289,8 @@ test.describe('resolveTargets — deployment-portable swarm-heartbeat target res
         expect(result).toEqual(['@neo-opus-4-7']);
     });
 
-    test('VALID_TARGET_SOURCES — exported as frozen tuple of the 4 supported enum values', () => {
-        expect(VALID_TARGET_SOURCES).toEqual(['self', 'active-local-team', 'active-subscribers', 'disabled']);
+    test('VALID_TARGET_SOURCES — exported as frozen tuple of the 5 supported enum values', () => {
+        expect(VALID_TARGET_SOURCES).toEqual(['self', 'active-local-team', 'active-subscribers', 'active-a2a-participants', 'disabled']);
         expect(Object.isFrozen(VALID_TARGET_SOURCES)).toBe(true);
     });
 });

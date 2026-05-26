@@ -198,15 +198,27 @@ class Config extends BaseConfig {
              */
             swarmHeartbeat: {
                 /**
-                 * Resolver source enum. `null` falls through to `'self'` — the
-                 * deployment-portable default. Valid values: `'self'`,
-                 * `'active-local-team'`, `'active-subscribers'`, `'disabled'`. External
-                 * workspaces with no config default to `'self'`; the lane never silently
-                 * fans out to maintainer identities unless the operator explicitly opts
-                 * in via `'active-local-team'`.
-                 * @type {'self'|'active-local-team'|'active-subscribers'|'disabled'|null}
+                 * Resolver source enum. Tracked default is `'active-a2a-participants'`
+                 * per Discussion #11992 §5.1.1 "activity-derived signals" framing — the
+                 * pulse candidate set is auto-discovered from A2A `MESSAGE` activity
+                 * within the last 3h (sibling to the per-identity `active` signal). This
+                 * is per-MC-instance derived (no team-registry coupling), so external
+                 * workspaces only ever see their own MC's activity — tenant-safe.
+                 *
+                 * Valid values: `'self'`, `'active-local-team'`, `'active-subscribers'`,
+                 * `'active-a2a-participants'`, `'disabled'`. `null` falls through to
+                 * `'self'` (deployment-portable code-side safety net).
+                 *
+                 * - `'self'` — pulse only the harness owner (`NEO_AGENT_IDENTITY`)
+                 * - `'active-local-team'` — reads `identityRoots.mjs` Neo-team registry
+                 * - `'active-subscribers'` — unions self with `WAKE_SUBSCRIPTION` nodes
+                 * - `'active-a2a-participants'` — unions self with identities active in
+                 *   A2A graph within last 3h (the default)
+                 * - `'disabled'` — no pulse targets
+                 *
+                 * @type {'self'|'active-local-team'|'active-subscribers'|'active-a2a-participants'|'disabled'|null}
                  */
-                targetSource: null
+                targetSource: 'active-a2a-participants'
             },
             /**
              * Local-only maintenance lane switches. Cloud deployments can disable these

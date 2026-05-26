@@ -377,6 +377,9 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
 
         SwarmHeartbeatService.targetSource = 'active-local-team';
         expect(SwarmHeartbeatService.targetSource).toBe('active-local-team');
+
+        SwarmHeartbeatService.targetSource = 'active-a2a-participants';
+        expect(SwarmHeartbeatService.targetSource).toBe('active-a2a-participants');
     });
 
     test('beforeSetExplicitTargets normalizes + coerces empty to null', async () => {
@@ -414,6 +417,57 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
             '@neo-gpt',
             '@neo-opus-4-7'
         ]);
+    });
+
+    test('getActiveA2aParticipants() returns deduplicated normalized identities from A2A graph (3h window) (#12003)', async () => {
+        applyDefaultStubs();
+
+        // Capture the SQL params passed by the implementation so the test asserts the
+        // 3h cutoff is being applied — both SENT_TO and SENT_BY queries get the cutoff.
+        const capturedParams = [];
+        SwarmHeartbeatService.getGraphDb = () => {
+            return {
+                prepare: () => ({
+                    all: (...params) => {
+                        capturedParams.push(params);
+                        return [
+                            {identity: 'neo-gpt'},
+                            {identity: '@neo-opus-4-7'},
+                            {identity: null},
+                            {identity: '@neo-gemini-3-1-pro'}
+                        ];
+                    }
+                })
+            }
+        };
+
+        const serviceProto = Object.getPrototypeOf(SwarmHeartbeatService);
+        const result       = await serviceProto.getActiveA2aParticipants.call(SwarmHeartbeatService);
+
+        // Identities normalized + null filtered; order preserved.
+        expect(result).toEqual(['@neo-gpt', '@neo-opus-4-7', '@neo-gemini-3-1-pro']);
+        // Two cutoff params passed (SENT_TO + SENT_BY UNION); both should be ISO strings.
+        expect(capturedParams.length).toBe(1);
+        expect(capturedParams[0]).toHaveLength(2);
+        expect(capturedParams[0][0]).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        expect(capturedParams[0][1]).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        // Both cutoff params identical (same Date.now() snapshot).
+        expect(capturedParams[0][0]).toBe(capturedParams[0][1]);
+    });
+
+    test('getActiveA2aParticipants() returns [] on query failure (substrate-error fallback)', async () => {
+        applyDefaultStubs();
+
+        SwarmHeartbeatService.getGraphDb = () => {
+            return {
+                prepare: () => {
+                    throw new Error('simulated graph DB unavailability');
+                }
+            }
+        };
+
+        const serviceProto = Object.getPrototypeOf(SwarmHeartbeatService);
+        await expect(serviceProto.getActiveA2aParticipants.call(SwarmHeartbeatService)).resolves.toEqual([]);
     });
 
     test('pulse() skips idle_out_nudge when gate is closed', async () => {

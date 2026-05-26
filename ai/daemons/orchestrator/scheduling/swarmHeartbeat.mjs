@@ -10,6 +10,7 @@ export const VALID_TARGET_SOURCES = Object.freeze([
     'self',
     'active-local-team',
     'active-subscribers',
+    'active-a2a-participants',
     'disabled'
 ]);
 
@@ -77,10 +78,11 @@ export function getDueTask({state, now, swarmHeartbeatIntervalMs}) {
  */
 export async function resolveTargets({
     selfIdentity,
-    targetSource             = null,
-    explicitTargets          = null,
-    activeSubscribersProvider = null,
-    logger                   = console
+    targetSource                  = null,
+    explicitTargets               = null,
+    activeSubscribersProvider     = null,
+    activeA2aParticipantsProvider = null,
+    logger                        = console
 } = {}) {
     const log = (level, msg) => {
         const fn = typeof logger?.[level] === 'function' ? logger[level] : console[level];
@@ -157,6 +159,33 @@ export async function resolveTargets({
                 out.push(normalizedSelf);
             }
             for (const raw of subscribers) {
+                const id = normalizeAgentIdentityNodeId(raw);
+                if (id && !seen.has(id)) {
+                    seen.add(id);
+                    out.push(id);
+                }
+            }
+            return out;
+        }
+
+        case 'active-a2a-participants': {
+            // Activity-derived candidate discovery per Discussion #11992 §5.1.1 framing —
+            // pulse candidate set is auto-discovered from A2A graph activity within the
+            // 3h `active` window (`getRecentActivityTimestamps` per-identity sibling).
+            // Per-MC-instance derived; no team-registry coupling (safe for external
+            // workspaces — they only ever see their own activity).
+            if (typeof activeA2aParticipantsProvider !== 'function') {
+                log('warn', `[resolveSwarmHeartbeatTargets] targetSource='active-a2a-participants' requires activeA2aParticipantsProvider; falling back to 'self'`);
+                return selfFallback('active-a2a-participants-missing-provider');
+            }
+            const participants = (await activeA2aParticipantsProvider()) || [];
+            const seen = new Set();
+            const out  = [];
+            if (normalizedSelf) {
+                seen.add(normalizedSelf);
+                out.push(normalizedSelf);
+            }
+            for (const raw of participants) {
                 const id = normalizeAgentIdentityNodeId(raw);
                 if (id && !seen.has(id)) {
                     seen.add(id);
