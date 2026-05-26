@@ -25,10 +25,18 @@ let savedIntervals       = null;
 let savedLocalOnly       = null;
 let savedCloudOnly       = null;
 let savedDeploymentMode  = null;
+let savedMlxConfig                   = undefined;
+let savedLmsConfig                   = undefined;
 let savedEnvKbSyncEnabled            = undefined;
 let savedEnvKbSyncInterval           = undefined;
 let savedEnvTenantRepoSyncEnabled    = undefined;
 let savedEnvTenantRepoSyncInterval   = undefined;
+let savedEnvMlxEnabled               = undefined;
+let savedEnvMlxModel                 = undefined;
+let savedEnvMlxPort                  = undefined;
+let savedEnvLmsEnabled               = undefined;
+let savedEnvLmsModel                 = undefined;
+let savedEnvLmsPort                  = undefined;
 
 function createMinimalOrchestrator() {
     const taskDefinitions = buildTaskDefinitions({
@@ -60,11 +68,19 @@ test.beforeEach(() => {
     savedLocalOnly      = {...AiConfig.orchestrator.localOnly};
     savedCloudOnly      = AiConfig.orchestrator.cloudOnly ? {...AiConfig.orchestrator.cloudOnly} : null;
     savedDeploymentMode = AiConfig.orchestrator.deploymentMode;
+    savedMlxConfig      = AiConfig.orchestrator.mlx ? {...AiConfig.orchestrator.mlx} : undefined;
+    savedLmsConfig      = AiConfig.orchestrator.lms ? {...AiConfig.orchestrator.lms} : undefined;
 
     savedEnvKbSyncEnabled          = process.env.NEO_ORCHESTRATOR_KB_SYNC_ENABLED;
     savedEnvKbSyncInterval         = process.env.NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS;
     savedEnvTenantRepoSyncEnabled  = process.env.NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED;
     savedEnvTenantRepoSyncInterval = process.env.NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS;
+    savedEnvMlxEnabled             = process.env.NEO_ORCHESTRATOR_MLX_ENABLED;
+    savedEnvMlxModel               = process.env.NEO_ORCHESTRATOR_MLX_MODEL;
+    savedEnvMlxPort                = process.env.NEO_ORCHESTRATOR_MLX_PORT;
+    savedEnvLmsEnabled             = process.env.NEO_ORCHESTRATOR_LMS_ENABLED;
+    savedEnvLmsModel               = process.env.NEO_ORCHESTRATOR_LMS_MODEL;
+    savedEnvLmsPort                = process.env.NEO_ORCHESTRATOR_LMS_PORT;
 });
 
 test.afterEach(() => {
@@ -75,10 +91,27 @@ test.afterEach(() => {
     }
     AiConfig.orchestrator.deploymentMode = savedDeploymentMode;
 
+    if (savedMlxConfig === undefined) {
+        delete AiConfig.orchestrator.mlx;
+    } else {
+        AiConfig.orchestrator.mlx = savedMlxConfig;
+    }
+    if (savedLmsConfig === undefined) {
+        delete AiConfig.orchestrator.lms;
+    } else {
+        AiConfig.orchestrator.lms = savedLmsConfig;
+    }
+
     restoreEnv('NEO_ORCHESTRATOR_KB_SYNC_ENABLED',           savedEnvKbSyncEnabled);
     restoreEnv('NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS',       savedEnvKbSyncInterval);
     restoreEnv('NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED',  savedEnvTenantRepoSyncEnabled);
     restoreEnv('NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS', savedEnvTenantRepoSyncInterval);
+    restoreEnv('NEO_ORCHESTRATOR_MLX_ENABLED',               savedEnvMlxEnabled);
+    restoreEnv('NEO_ORCHESTRATOR_MLX_MODEL',                 savedEnvMlxModel);
+    restoreEnv('NEO_ORCHESTRATOR_MLX_PORT',                  savedEnvMlxPort);
+    restoreEnv('NEO_ORCHESTRATOR_LMS_ENABLED',               savedEnvLmsEnabled);
+    restoreEnv('NEO_ORCHESTRATOR_LMS_MODEL',                 savedEnvLmsModel);
+    restoreEnv('NEO_ORCHESTRATOR_LMS_PORT',                  savedEnvLmsPort);
 });
 
 function restoreEnv(name, prior) {
@@ -137,15 +170,25 @@ test.describe('Orchestrator config precedence (#11834 AC2)', () => {
     });
 
     // === mlx + lms supervised-server lane getters (#12005) ===
+    // AiConfig.orchestrator.mlx + .lms + the 6 NEO_ORCHESTRATOR_{MLX,LMS}_{ENABLED,MODEL,PORT}
+    // env vars are saved/restored by the file-level beforeEach/afterEach hooks above —
+    // individual tests can mutate freely without leak risk.
 
     test('mlxEnabled: env var wins over AiConfig.orchestrator.mlx.enabled', () => {
         AiConfig.orchestrator.mlx = {enabled: false, model: 'm', port: '11435'};
         process.env.NEO_ORCHESTRATOR_MLX_ENABLED = 'true';
-        try {
-            expect(createMinimalOrchestrator().mlxEnabled).toBe(true);
-        } finally {
-            delete process.env.NEO_ORCHESTRATOR_MLX_ENABLED;
-        }
+
+        expect(createMinimalOrchestrator().mlxEnabled).toBe(true);
+    });
+
+    test('mlxEnabled: explicit env=false overrides an enabled AiConfig default', () => {
+        // Coverage parity with the deleted resolveMlxConfig "explicit env=false overrides
+        // an enabled AiConfig default" test branch. This is the path most at risk if the
+        // getter's `??` operator drifts to `||` later.
+        AiConfig.orchestrator.mlx = {enabled: true, model: 'm', port: '11435'};
+        process.env.NEO_ORCHESTRATOR_MLX_ENABLED = 'false';
+
+        expect(createMinimalOrchestrator().mlxEnabled).toBe(false);
     });
 
     test('mlxEnabled / mlxModel / mlxPort: AiConfig consulted when env vars absent', () => {
@@ -164,26 +207,29 @@ test.describe('Orchestrator config precedence (#11834 AC2)', () => {
         delete process.env.NEO_ORCHESTRATOR_MLX_ENABLED;
         delete process.env.NEO_ORCHESTRATOR_MLX_MODEL;
         delete process.env.NEO_ORCHESTRATOR_MLX_PORT;
-        const savedMlx = AiConfig.orchestrator.mlx;
         delete AiConfig.orchestrator.mlx;
-        try {
-            const o = createMinimalOrchestrator();
-            expect(o.mlxEnabled).toBe(false);
-            expect(o.mlxModel).toBeUndefined();
-            expect(o.mlxPort).toBeUndefined();
-        } finally {
-            if (savedMlx !== undefined) AiConfig.orchestrator.mlx = savedMlx;
-        }
+
+        const o = createMinimalOrchestrator();
+        expect(o.mlxEnabled).toBe(false);
+        expect(o.mlxModel).toBeUndefined();
+        expect(o.mlxPort).toBeUndefined();
     });
 
     test('lmsEnabled: env var wins over AiConfig.orchestrator.lms.enabled', () => {
         AiConfig.orchestrator.lms = {enabled: false, model: 'qwen', port: '1234'};
         process.env.NEO_ORCHESTRATOR_LMS_ENABLED = 'true';
-        try {
-            expect(createMinimalOrchestrator().lmsEnabled).toBe(true);
-        } finally {
-            delete process.env.NEO_ORCHESTRATOR_LMS_ENABLED;
-        }
+
+        expect(createMinimalOrchestrator().lmsEnabled).toBe(true);
+    });
+
+    test('lmsEnabled: explicit env=false overrides an enabled AiConfig default', () => {
+        // Coverage parity with the deleted resolveLmsConfig "explicit env=false overrides
+        // an enabled AiConfig default" test branch. Sibling of the mlx false-env-override
+        // test above — same `??` vs `||` regression hazard.
+        AiConfig.orchestrator.lms = {enabled: true, model: 'qwen', port: '1234'};
+        process.env.NEO_ORCHESTRATOR_LMS_ENABLED = 'false';
+
+        expect(createMinimalOrchestrator().lmsEnabled).toBe(false);
     });
 
     test('lmsEnabled / lmsModel / lmsPort: AiConfig consulted when env vars absent', () => {
@@ -202,16 +248,12 @@ test.describe('Orchestrator config precedence (#11834 AC2)', () => {
         delete process.env.NEO_ORCHESTRATOR_LMS_ENABLED;
         delete process.env.NEO_ORCHESTRATOR_LMS_MODEL;
         delete process.env.NEO_ORCHESTRATOR_LMS_PORT;
-        const savedLms = AiConfig.orchestrator.lms;
         delete AiConfig.orchestrator.lms;
-        try {
-            const o = createMinimalOrchestrator();
-            expect(o.lmsEnabled).toBe(false);
-            expect(o.lmsModel).toBeUndefined();
-            expect(o.lmsPort).toBeUndefined();
-        } finally {
-            if (savedLms !== undefined) AiConfig.orchestrator.lms = savedLms;
-        }
+
+        const o = createMinimalOrchestrator();
+        expect(o.lmsEnabled).toBe(false);
+        expect(o.lmsModel).toBeUndefined();
+        expect(o.lmsPort).toBeUndefined();
     });
 });
 
