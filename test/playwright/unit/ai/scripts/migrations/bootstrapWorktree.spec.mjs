@@ -44,6 +44,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     let fakeWorktree;
 
     const fixtureConfigs = [
+        'ai/config.mjs',
         'ai/mcp/server/github-workflow/config.mjs',
         'ai/mcp/server/knowledge-base/config.mjs',
         'ai/mcp/server/memory-core/config.mjs',
@@ -109,7 +110,7 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
     });
 
     test('is idempotent — re-running after partial seed leaves existing files untouched', async () => {
-        // Pre-seed one of the four with distinct content; confirm it's preserved.
+        // Pre-seed one config with distinct content; confirm it's preserved.
         const preseeded    = fixtureConfigs[0];
         const preseededDst = path.join(fakeWorktree, preseeded);
         await fs.ensureDir(path.dirname(preseededDst));
@@ -158,6 +159,75 @@ test.describe('ai/scripts/bootstrapWorktree', () => {
 
         expect(result.missing).toEqual([removed]);
         expect(result.copied).toEqual(fixtureConfigs.filter(c => c !== removed));
+    });
+
+    test('copies Tier-1 config and materializes stale per-server AiConfig imports (#12051)', async () => {
+        const tier1Rel      = 'ai/config.mjs';
+        const serverRel     = 'ai/mcp/server/memory-core/config.mjs';
+        const tier1Content  = [
+            `export default {`,
+            `    tenantRepos: [{tenantId: 'acme', repoSlug: 'org/repo'}],`,
+            `    customOperatorKey: 'preserved'`,
+            `};`,
+            ``
+        ].join('\n');
+        const serverContent = [
+            `import AiConfig from '../../../config.template.mjs';`,
+            `export const customKey = 'preserved-server-edit';`,
+            `export default {`,
+            `    tenantRepos: AiConfig.tenantRepos,`,
+            `    customKey`,
+            `};`,
+            ``
+        ].join('\n');
+
+        await fs.writeFile(path.join(fakeMainCheckout, tier1Rel), tier1Content, 'utf-8');
+        await fs.writeFile(path.join(fakeMainCheckout, serverRel), serverContent, 'utf-8');
+
+        const result = await bootstrapWorktree({
+            mainCheckout: fakeMainCheckout,
+            projectRoot : fakeWorktree,
+            configs     : [tier1Rel, serverRel],
+            log         : () => {}
+        });
+
+        expect(result.copied).toEqual([tier1Rel, serverRel]);
+
+        const copiedTier1  = await fs.readFile(path.join(fakeWorktree, tier1Rel), 'utf-8');
+        const copiedServer = await fs.readFile(path.join(fakeWorktree, serverRel), 'utf-8');
+
+        expect(copiedTier1).toBe(tier1Content);
+        expect(copiedTier1).toContain(`tenantRepos`);
+        expect(copiedTier1).toContain(`customOperatorKey: 'preserved'`);
+        expect(copiedServer).toContain(`from '../../../config.mjs'`);
+        expect(copiedServer).not.toContain(`../../../config.template.mjs`);
+        expect(copiedServer).toContain(`customKey = 'preserved-server-edit'`);
+    });
+
+    test('preserves existing destination configs without materializing them (#12051)', async () => {
+        const staleServerRel = 'ai/mcp/server/memory-core/config.mjs';
+        const dst            = path.join(fakeWorktree, staleServerRel);
+        const existing       = [
+            `import AiConfig from '../../../config.template.mjs';`,
+            `export default {tenantRepos: AiConfig.tenantRepos};`,
+            ``
+        ].join('\n');
+
+        await fs.ensureDir(path.dirname(dst));
+        await fs.writeFile(dst, existing, 'utf-8');
+
+        const result = await bootstrapWorktree({
+            mainCheckout: fakeMainCheckout,
+            projectRoot : fakeWorktree,
+            configs     : [staleServerRel],
+            log         : () => {}
+        });
+
+        expect(result.copied).toHaveLength(0);
+        expect(result.skipped).toEqual([staleServerRel]);
+
+        const preserved = await fs.readFile(dst, 'utf-8');
+        expect(preserved).toBe(existing);
     });
 
     // --------------------------------------------------------------------------------
