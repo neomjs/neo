@@ -197,7 +197,7 @@ Supply these values per service/profile as needed:
 | `NEO_ORCHESTRATOR_MLX_ENABLED=false` | Orchestrator | Keeps local MLX supervision disabled. |
 | `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED` | Orchestrator | Master toggle for the `tenant-repo-sync` pull lane. Cloud profile default-on when `tenantRepos[]` is configured; local profile default-off. Set explicitly to override the deployment-profile default. |
 | `NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS` | Orchestrator | Sweep cadence for the periodic pull lane. Default 1800000 (30 min). |
-| `NEO_TENANT_REPO_MIRROR_ROOT` | Orchestrator | Persistent clone target for the `tenant-repo-mirrors` named volume. Default `/var/lib/neo/tenant-repo-mirrors`. |
+| `NEO_TENANT_REPO_MIRROR_ROOT` | Orchestrator | Parent directory under which the `GitMirror` primitive stores `tenant-repos/<tenant>/<repo>` mirrors. Per-repo `tenantRepos[].mirrorRoot` overrides this Tier-1 default. Canonical compose value `/app/.neo-ai-data`. |
 | `NEO_MODEL_PROVIDER=openAiCompatible` | MC, Orchestrator | Optional `local-model` profile opt-in for summary/dream/model-consumer lanes. Leave unset for external-provider defaults. |
 | `NEO_EMBEDDING_PROVIDER=openAiCompatible` | KB, MC | Optional `local-model` profile opt-in for server-side embedding generation. Leave unset when using an external embedding provider endpoint. |
 | `NEO_OPENAI_COMPATIBLE_HOST=http://local-model:11434` | KB, MC, Orchestrator | Internal compose-network URL for the `local-model` service when the optional profile is enabled. |
@@ -330,8 +330,10 @@ For deployments that prefer the deployment to refresh tenant content autonomousl
 (instead of waiting on a tenant push hook), the additive pull mode is documented
 in [Server-Side Pull Mode](cloud-deployment/TenantIngestionModel.md#server-side-pull-mode-tenant-repo-sync).
 The cloud profile MUST add a `tenant-repo-mirrors` named volume mounted at
-`NEO_TENANT_REPO_MIRROR_ROOT` (default `/var/lib/neo/tenant-repo-mirrors`) so the
-`GitMirror` primitive has a persistent clone target. Per-repo `lastIngestedRev`
+`<NEO_TENANT_REPO_MIRROR_ROOT>/tenant-repos` (canonical compose: `/app/.neo-ai-data/tenant-repos`)
+so the `GitMirror` primitive has a persistent clone target. The env-bound Tier-1 default
+`NEO_TENANT_REPO_MIRROR_ROOT=/app/.neo-ai-data` names the **parent** of `tenant-repos/`;
+the helper `deriveTenantRepoMirrorPath` appends the `tenant-repos/<tenant>/<repo>` segment. Per-repo `lastIngestedRev`
 persistence lives in the orchestrator state dir
 (`<NEO_AI_ORCHESTRATOR_DIR>/tenant-repo-sync-revisions.json`), so it survives a
 container restart alongside the rest of the orchestrator state. The mirror cache

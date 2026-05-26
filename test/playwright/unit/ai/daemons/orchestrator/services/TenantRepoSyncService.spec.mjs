@@ -1195,3 +1195,91 @@ test.describe('TenantRepoSyncService.resolveIngestionService — export-drift gu
         expect(typeof ingestionService.ingestSourceFiles).toBe('function');
     });
 });
+
+test.describe('TenantRepoSyncService.resolveTenantReposConfig — Tier-1 mirrorRoot fallback (#12036 Bug C)', () => {
+    /*
+     * Materialization of per-repo `mirrorRoot` from the Tier-1
+     * `aiConfig.orchestrator.tenantRepoMirrorRoot` default when the per-repo
+     * override is absent. The Tier-1 value is env-bound to
+     * `NEO_TENANT_REPO_MIRROR_ROOT` (canonical compose value: `/app/.neo-ai-data`).
+     *
+     * `deriveTenantRepoMirrorPath` appends `tenant-repos/<tenant>/<repo>`, so the
+     * Tier-1 root must name the PARENT of `tenant-repos/` (i.e., `/app/.neo-ai-data`,
+     * NOT `/app/.neo-ai-data/tenant-repos`). The no-double-segment assertion below
+     * locks that invariant.
+     */
+
+    test('absent per-repo mirrorRoot inherits Tier-1 default; explicit per-repo override wins', async () => {
+        const aiConfigStub = {
+            tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/inherits', cloneUrl: 'https://github.com/neomjs/a.git', credentialRef: 'env:T'},
+                {tenantId: 't1', repoSlug: 'org/overrides', cloneUrl: 'https://github.com/neomjs/b.git', credentialRef: 'env:T', mirrorRoot: '/custom/root'}
+            ]
+        };
+
+        const result = await TenantRepoSyncService.resolveTenantReposConfig({
+            aiConfig       : aiConfigStub,
+            tier1MirrorRoot: '/app/.neo-ai-data'
+        });
+
+        const inherits  = result.tenantRepos.find(r => r.repoSlug === 'org/inherits');
+        const overrides = result.tenantRepos.find(r => r.repoSlug === 'org/overrides');
+
+        expect(inherits.mirrorRoot).toBe('/app/.neo-ai-data');
+        expect(overrides.mirrorRoot).toBe('/custom/root');
+    });
+
+    test('Tier-1 default + deriveTenantRepoMirrorPath produces canonical no-double-segment path', async () => {
+        const aiConfigStub = {
+            tenantRepos: [
+                {tenantId: 'tenant-a', repoSlug: 'repo-a', cloneUrl: 'https://github.com/neomjs/a.git', credentialRef: 'env:T'}
+            ]
+        };
+
+        const result      = await TenantRepoSyncService.resolveTenantReposConfig({
+            aiConfig       : aiConfigStub,
+            tier1MirrorRoot: '/app/.neo-ai-data'
+        });
+        const resolvedRepo = result.tenantRepos[0];
+        const mirrorPath   = deriveTenantRepoMirrorPath({
+            mirrorRoot: resolvedRepo.mirrorRoot,
+            tenantId  : resolvedRepo.tenantId,
+            repoSlug  : resolvedRepo.repoSlug
+        });
+
+        expect(mirrorPath).toBe('/app/.neo-ai-data/tenant-repos/tenant-a/repo-a');
+        expect(mirrorPath).not.toContain('tenant-repos/tenant-repos');
+    });
+
+    test('stale-overlay defense: missing orchestratorConfig.tenantRepoMirrorRoot falls back to env var (#12036 cycle-2 RA1)', async () => {
+        const aiConfigStub = {
+            tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/r', cloneUrl: 'https://github.com/o/r.git', credentialRef: 'env:T'}
+            ]
+        };
+
+        const result = await TenantRepoSyncService.resolveTenantReposConfig({
+            aiConfig          : aiConfigStub,
+            orchestratorConfig: {},  // simulate stale operator overlay (no tenantRepoMirrorRoot key)
+            env               : {NEO_TENANT_REPO_MIRROR_ROOT: '/env-bound/root'}
+        });
+
+        expect(result.tenantRepos[0].mirrorRoot).toBe('/env-bound/root');
+    });
+
+    test('stale-overlay defense: missing orchestratorConfig AND no env var → hardcoded /app/.neo-ai-data (#12036 cycle-2 RA1)', async () => {
+        const aiConfigStub = {
+            tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/r', cloneUrl: 'https://github.com/o/r.git', credentialRef: 'env:T'}
+            ]
+        };
+
+        const result = await TenantRepoSyncService.resolveTenantReposConfig({
+            aiConfig          : aiConfigStub,
+            orchestratorConfig: {},
+            env               : {}
+        });
+
+        expect(result.tenantRepos[0].mirrorRoot).toBe('/app/.neo-ai-data');
+    });
+});
