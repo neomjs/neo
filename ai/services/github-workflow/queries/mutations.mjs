@@ -39,9 +39,9 @@ export const ADD_BLOCKED_BY = `
  * Mutation to add a comment to a subject (issue or PR).
  *
  * Returns the new comment's `id`, `url`, and `createdAt` so the caller can surface
- * the canonical identifier for A2A propagation patterns (per #10272 §2.3 —
- * comment-ID hand-off via mailbox DMs lets the recipient `get_conversation` fetch
- * just-this-comment via the `comment_id` param instead of re-fetching the whole thread).
+ * the canonical identifier for A2A propagation patterns. Comment-ID hand-off via
+ * mailbox DMs lets the recipient fetch just that comment through `get_conversation`
+ * with the `comment_id` param instead of re-fetching the whole thread.
  *
  * Variables required:
  * - $subjectId: ID! - The global ID of the issue or PR
@@ -388,7 +388,7 @@ export const GET_PROJECT_V2_METADATA = `
 /**
  * Mutation to add an existing issue (or PR) to a ProjectV2 board.
  *
- * Substrate-correct replacement for the `release:v*` label-as-project-proxy pattern (#11233).
+ * Substrate-correct replacement for the `release:v*` label-as-project-proxy pattern.
  * Labels are categorization primitives; projects are first-class membership primitives — they
  * are independent GitHub concepts that cannot be reduced to one another without structural drift.
  *
@@ -516,14 +516,13 @@ export const GET_PULL_REQUEST_ID = `
 `;
 
 /**
- * Mutation to create a formal pull request review with state transition (#11273).
+ * Mutation to create a formal pull request review with a GitHub review-state transition.
  *
  * Atomic alternative to the historical two-step `manage_issue_comment` → `gh pr review`
  * chain. Single call posts the substantive review body AND flips GitHub's
- * `reviewDecision` surface. Replaces the formal-state-gap pattern empirically anchored
- * by PR #11234 (Gemini) + PR #11271 (Opus) where agents posted review prose but
- * forgot the second formal-state flip, blocking the cross-family review mandate
- * gate per `pull-request §6.1`.
+ * `reviewDecision` surface. This keeps review prose and formal review state bound
+ * to one API operation, preventing comments that look like reviews while leaving
+ * GitHub's merge-gate state unchanged.
  *
  * `event` is GitHub's `PullRequestReviewEvent` enum: APPROVE, REQUEST_CHANGES, COMMENT.
  * (PENDING and DISMISS are deliberately out of scope; PENDING creates a draft,
@@ -557,7 +556,7 @@ export const ADD_PULL_REQUEST_REVIEW = `
 `;
 
 /**
- * Mutation to update an existing pull request review's body (#11273).
+ * Mutation to update an existing pull request review's body.
  *
  * Companion to `ADD_PULL_REQUEST_REVIEW` for the `update` action — the GitHub API
  * allows updating a review's body after submission but does NOT allow changing

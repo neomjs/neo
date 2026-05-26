@@ -258,7 +258,7 @@ class SyncService extends Base {
      *
      * The sync engine normally relies on `issue.updatedAt` to decide which issues need a fresh
      * pull. That gate is blind to several classes of drift: `timelineItems` truncation past the
-     * page cap (#10090), comment deletions (GitHub does not bump `updatedAt` on delete), and
+     * page cap, comment deletions (GitHub does not bump `updatedAt` on delete), and
      * relationship events where both sides fall outside the delta window. This endpoint is the
      * surgical recovery primitive — it force-refetches the listed issues, exhausts their full
      * timelineItems connection, rewrites the local markdown, and persists updated metadata.

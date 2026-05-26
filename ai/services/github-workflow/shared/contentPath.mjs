@@ -2,7 +2,7 @@ import path from 'path';
 
 /**
  * @module ai/services/github-workflow/shared/contentPath
- * @summary Universal ordinal-100 path-resolution primitive for `resources/content/` substrate per ADR 0004.
+ * @summary Universal ordinal-100 path-resolution primitive for the `resources/content/` substrate.
  *
  * This helper is the single source-of-truth for active-tier and archive-tier on-disk path math
  * across all content types (issues, pulls, discussions, release-notes). It supersedes the
@@ -17,11 +17,10 @@ import path from 'path';
  *   4. Archive tier path: `{contentRoot}/archive/{type}/{version|bucket}/chunk-{N}/{filename}`
  *
  * No flat-vs-chunked branching. No ID-range math. No `<NNN>xx/` folders. ONE primitive applied
- * universally per the operator-confirmed `"consistency is key. same for all. own id chunks."`
- * directive (ADR 0004 §1.1).
+ * universally under ADR 0004's single path-resolution contract.
  *
  * **Sealed-chunk invariant:** `.github/workflows/prevent-reopen.yml` enforces that closed items
- * past their 24h-grace window cannot be reopened (CI auto-re-closes + creates new ticket).
+ * past their 24h-grace window cannot be reopened; the CI guard preserves archive immutability.
  * Therefore once a chunk is sealed at archive-cut, membership is mechanically immutable — this
  * is what makes the ordinal chunking safe. Anyone reading this helper MUST mentally factor that
  * primitive in (ADR 0004 §5.4 anti-pattern: "Skipping `prevent-reopen.yml` in the mental model").
@@ -33,8 +32,6 @@ import path from 'path';
  * ADR 0004 start-to-finish, then verify the chosen pattern against this helper's signature.
  *
  * @see ADR 0004 (`learn/agentos/decisions/0004-github-content-architecture.md`)
- * @see Epic #11372
- * @see #11379 (this implementation ticket)
  * @see .github/workflows/prevent-reopen.yml (sealed-chunk substrate)
  */
 
@@ -90,12 +87,12 @@ export const DEFAULT_CHUNK_PREFIX    = 'chunk-';
  * @throws {TypeError} If any segment / integer invariant is violated
  *
  * @example
- *   // Active tier — issue #1234 at ordinal index 42 (chunk 1)
+ *   // Active tier — issue 1234 at ordinal index 42 (chunk 1)
  *   contentPath({contentRoot: 'resources/content', type: 'issues', filename: 'issue-1234.md', itemIndex: 42})
  *   // → 'resources/content/issues/chunk-1/issue-1234.md'
  *
  * @example
- *   // Archive tier — pull #999 at ordinal index 250 in v12.1.0 (chunk 3)
+ *   // Archive tier — pull 999 at ordinal index 250 in v12.1.0 (chunk 3)
  *   contentPath({
  *     contentRoot: 'resources/content', type: 'pulls', version: 'v12.1.0',
  *     filename: 'pr-999.md', itemIndex: 250
@@ -122,8 +119,8 @@ export default function contentPath(config = {}) {
     validateNonNegativeInteger(itemIndex, 'itemIndex');
     validateBucketXor({version, bucket});
 
-    // Presence-aware validation per #11381 GPT review RA1: supplying `version: ''` or `bucket: ''`
-    // is a contract violation (caller signaled archive-tier routing with a non-empty value missing).
+    // Presence-aware validation: supplying `version: ''` or `bucket: ''` is a
+    // contract violation (caller signaled archive-tier routing without a value).
     // Distinguish key-not-supplied (undefined / null) from key-supplied-as-empty (which must throw).
     if (version !== undefined && version !== null) validateSegment(version, 'version');
     if (bucket  !== undefined && bucket  !== null) validateSegment(bucket,  'bucket');
@@ -159,8 +156,8 @@ export function contentBucketDir(config = {}) {
     validateSegment(type,        'type');
     validateBucketXor({version, bucket});
 
-    // Presence-aware validation (see #11381 GPT review RA1 / `contentPath` body): supplied-but-empty
-    // archive-tier selectors must fail-loud rather than silently routing to active-tier.
+    // Supplied-but-empty archive-tier selectors must fail-loud rather than
+    // silently routing to active-tier.
     if (version !== undefined && version !== null) validateSegment(version, 'version');
     if (bucket  !== undefined && bucket  !== null) validateSegment(bucket,  'bucket');
 
@@ -190,10 +187,10 @@ export function chunkNumberFor(itemIndex, itemsPerChunk = DEFAULT_ITEMS_PER_CHUN
  * Supplying both is a programming error (archive disambiguation conflict); supplying neither
  * is the legitimate "active tier" path and is permitted.
  *
- * Presence-aware semantics (per #11381 GPT review RA1): supplying both keys is a conflict
- * even if both values are empty strings — the caller signaled archive-tier intent on two
- * different axes simultaneously. Non-emptiness of the supplied value is validated separately
- * by `validateSegment` at the call site.
+ * Presence-aware semantics: supplying both keys is a conflict even if both values are
+ * empty strings — the caller signaled archive-tier intent on two different axes
+ * simultaneously. Non-emptiness of the supplied value is validated separately by
+ * `validateSegment` at the call site.
  *
  * @param {Object} config
  * @param {String} [config.version]
