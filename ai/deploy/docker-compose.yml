@@ -252,8 +252,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${NEO_LOCAL_MODEL_MEMORY_LIMIT:-8g}
-          cpus: ${NEO_LOCAL_MODEL_CPU_LIMIT:-4.0}
+          memory: "${NEO_LOCAL_MODEL_MEMORY_LIMIT:-8g}"
+          cpus: "${NEO_LOCAL_MODEL_CPU_LIMIT:-4.0}"
 
 # kb-server / mc-server stay internal-only (`expose`) on `neo-mcp-network`; the
 # `ingress` profile is the sole public surface. `caddy-data` persists Caddy's
