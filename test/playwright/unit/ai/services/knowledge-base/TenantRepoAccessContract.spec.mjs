@@ -48,6 +48,35 @@ test.describe('TenantRepoAccessContract (#11787)', () => {
         }).tenantRepos[0].repoSlug).toBe('github.com/neomjs/custom');
     });
 
+    test('preserves optional branchRef when valid (#12040)', () => {
+        expect(normalizeTenantRepoEntry({
+            cloneUrl     : 'https://github.com/neomjs/neo.git',
+            credentialRef: 'env:GITHUB_TOKEN',
+            branchRef    : 'dev'
+        })).toMatchObject({
+            cloneUrl     : 'https://github.com/neomjs/neo.git',
+            credentialRef: 'env:GITHUB_TOKEN',
+            repoSlug     : 'github.com/neomjs/neo',
+            branchRef    : 'dev'
+        });
+    });
+
+    test('rejects invalid branchRef shapes (#12040)', () => {
+        const base = {
+            cloneUrl     : 'https://github.com/neomjs/neo.git',
+            credentialRef: 'env:GITHUB_TOKEN'
+        };
+
+        expect(() => normalizeTenantRepoEntry({...base, branchRef: ''}))
+            .toThrow(/branchRef must be a non-empty string/u);
+        expect(() => normalizeTenantRepoEntry({...base, branchRef: '   '}))
+            .toThrow(/branchRef must be a non-empty string/u);
+        expect(() => normalizeTenantRepoEntry({...base, branchRef: 123}))
+            .toThrow(/branchRef must be a non-empty string/u);
+        expect(() => normalizeTenantRepoEntry({...base, branchRef: null}))
+            .toThrow(/branchRef must be a non-empty string/u);
+    });
+
     test('rejects cloneUrl userinfo before config persistence', () => {
         expect(hasCloneUrlUserInfo('https://token:secret@github.com/neomjs/neo.git')).toBe(true);
         expect(hasCloneUrlUserInfo('git@github.com:neomjs/neo.git')).toBe(true);
