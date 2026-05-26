@@ -961,7 +961,8 @@ paths:
                   type: array
                   items:
                     type: string
-                  description: (Optional) An array of GitHub user logins to assign to the issue. Requires write permissions.
+                  description: (Optional) An array of GitHub user logins to assign to the issue. Use `@me` to assign the authenticated user. Requires write permissions.
+                  example: ["@me"]
                   default: []
                 projects:
                   type: array
