@@ -27,7 +27,7 @@ import * as core      from '../../../../../../../src/core/_export.mjs';
  * up-front with a structured `KB_INGEST_VOLUME_EXCEEDED` payload instead of being
  * dispatched (which would embed synchronously and freeze the calling agent).
  *
- * The facade is tested directly (exported from `toolService.mjs`) so the gate logic
+ * The facade is tested directly from `ingestSourceFilesTool.mjs` so the gate logic
  * is isolated from the openapi -> Zod dispatch layer and the `callTool` telemetry
  * wrapper; `listTools()` separately confirms the openapi operation registers.
  *
@@ -42,8 +42,9 @@ test.describe('ingest_source_files MCP facade — work-volume gate (#11634)', ()
 
     test.beforeAll(async () => {
         const toolService = await import('../../../../../../../ai/mcp/server/knowledge-base/toolService.mjs');
+        const ingestTool  = await import('../../../../../../../ai/mcp/server/knowledge-base/ingestSourceFilesTool.mjs');
         callTool               = toolService.callTool;
-        ingestSourceFilesViaMcp = toolService.ingestSourceFilesViaMcp;
+        ingestSourceFilesViaMcp = ingestTool.ingestSourceFilesViaMcp;
         listTools               = toolService.listTools;
 
         KnowledgeBaseIngestionService = (await import('../../../../../../../ai/services/knowledge-base/KnowledgeBaseIngestionService.mjs')).default;
