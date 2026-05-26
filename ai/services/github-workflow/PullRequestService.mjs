@@ -50,7 +50,7 @@ const VISIBLE_PR_REVIEW_ANCHORS = [
  * Visible-only validation passes the malformed body. The invisible layer catches this by
  * checking structural anchors that span both cycle-1 and cycle-followup templates.
  *
- * **Empirical anchor**: a malformed review can contain all visible metric tags while missing
+ * **Observed failure mode**: a malformed review can contain all visible metric tags while missing
  * `Depth Floor`, `Required Actions`, and `Strategic-Fit Decision` structure. These 3 substrings
  * empirically distinguish a structurally-correct review from a metric-tag-stuffed hallucination.
  *
@@ -58,8 +58,7 @@ const VISIBLE_PR_REVIEW_ANCHORS = [
  * - `Depth Floor` — cycle-1 has `🔬 Depth Floor`, cycle-followup has `Delta Depth Floor`. Both contain the substring.
  * - `Required Actions` — both cycle-1 (`📋 Required Actions`) and cycle-followup carry the literal heading.
  * - `Strategic-Fit Decision` — cycle-1 (`🪜 Strategic-Fit Decision`) and cycle-followup (`Strategic-Fit Decision`)
- *   both include the word `Decision`. Hallucinated headings that drop `Decision` (as Gemini's
- *   review `4304287893` did) fail this check.
+ *   both include the word `Decision`. Hallucinated headings that drop `Decision` fail this check.
  *
  * **Asymmetry that makes this work**:
  * - Author who reads `.agents/skills/pr-review/SKILL.md` and follows the template → all checks pass
