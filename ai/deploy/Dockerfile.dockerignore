@@ -16,6 +16,16 @@ tmp
 # Workspace demo apps are not required for the Day-0 Neo-shared KB seed.
 apps
 
+# Only the docs app source is needed in deploy images; generated docs/output is massive.
+docs
+!docs/app
+!docs/app/**
+
+# Keep resources/content for KB ingestion, but skip bulky runtime asset bundles.
+resources/images
+resources/fonts
+resources/examples
+
 # The integration harness mounts its narrow KB fixture path explicitly (#12024).
 test
 
