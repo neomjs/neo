@@ -101,6 +101,7 @@ test.describe('Tier 1 Config Immutability', () => {
         expect(Config.orchestrator.localOnly).toEqual({
             primaryDevSyncEnabled: null,
             kbSyncEnabled        : null,
+            chromaDaemonEnabled  : null,
             bridgeDaemonEnabled  : null,
             goldenPathRepoEnrichmentEnabled: null,
             swarmHeartbeatEnabled: null,

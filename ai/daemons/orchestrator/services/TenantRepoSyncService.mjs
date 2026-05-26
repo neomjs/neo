@@ -568,7 +568,7 @@ class TenantRepoSyncService extends Base {
 
     /**
      * Default per-tenant-repo lastIngestedRev persistence file path. Lives next to
-     * the orchestrator state file (`<DEFAULT_DATA_DIR>/state.json` per `TaskDefinitions.mjs`)
+     * the orchestrator state file (`<DEFAULT_DATA_DIR>/orchestrator-state.json`)
      * so the two persistence surfaces share lifecycle (same data-dir = same recovery scope).
      * Separate file (not inlined into TaskStateService's state) prevents `markCompleted/markFailed`
      * task-lifecycle writes from racing with revision-map writes.
