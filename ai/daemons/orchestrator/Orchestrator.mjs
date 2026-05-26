@@ -1,5 +1,5 @@
 // Neo + core/_export + InstanceManager bootstrap belongs to the daemon entry point
-// (`ai/scripts/orchestrator-daemon.mjs`), NOT to this consumed-class file. Class files
+// (`ai/daemons/orchestrator/daemon.mjs`), NOT to this consumed-class file. Class files
 // rely on `globalThis.Neo` populated by the entry-point bootstrap; importing Neo here
 // would violate the entry-point-only invariant + risk partial-namespace damage if the
 // class were ever loaded outside its entry-point's chain.
@@ -105,7 +105,7 @@ function resolveCloudOnlyEnabled(key) {
 /**
  * @summary Neo daemon class for Agent OS maintenance scheduling.
  *
- * `ai/scripts/orchestrator-daemon.mjs` owns the Node-process boot wrapper:
+ * `ai/daemons/orchestrator/daemon.mjs` owns the Node-process boot wrapper:
  * PID file, lifecycle traps, and fatal-start isolation. This class owns the
  * actual maintenance loop, task-state persistence, subprocess execution,
  * recovery of already-running child tasks, and task outcome reporting through
@@ -147,7 +147,7 @@ function resolveCloudOnlyEnabled(key) {
  * @class Neo.ai.daemons.Orchestrator
  * @extends Neo.core.Base
  * @singleton
- * @see ai/scripts/orchestrator-daemon.mjs
+ * @see ai/daemons/orchestrator/daemon.mjs
  * @see ai/daemons/orchestrator/scheduling/summary.mjs
  * @see ai/services/memory-core/HealthService.mjs#recordTaskOutcome
  * @see learn/agentos/v13-path.md

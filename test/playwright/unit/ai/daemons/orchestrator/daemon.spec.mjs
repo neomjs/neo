@@ -5,6 +5,7 @@ import '../../../../../../src/Neo.mjs';
 import '../../../../../../src/core/_export.mjs';
 import {
     LOCAL_AI_CONFIG_FILE,
+    isOrchestratorDaemonCommand,
     loadLocalAiConfig
 } from '../../../../../../ai/daemons/orchestrator/daemon.mjs';
 import {
@@ -206,6 +207,17 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
         expect(taskDefSource).toContain('summarize-sessions.mjs');
         expect(taskDefSource).toContain('syncKnowledgeBase.mjs');
         expect(taskDefSource).toContain('backup.mjs');
+    });
+
+    test('matches only the orchestrator daemon path-tail for singleton self-detection', () => {
+        const legacyScriptsPath = ['ai', 'scripts', ['orchestrator', 'daemon.mjs'].join('-')].join('/');
+
+        expect(isOrchestratorDaemonCommand('node /repo/ai/daemons/orchestrator/daemon.mjs')).toBe(true);
+        expect(isOrchestratorDaemonCommand('/usr/local/bin/node ai/daemons/orchestrator/daemon.mjs --watch')).toBe(true);
+
+        expect(isOrchestratorDaemonCommand('node /repo/ai/daemons/bridge/daemon.mjs')).toBe(false);
+        expect(isOrchestratorDaemonCommand(`node /repo/${legacyScriptsPath}`)).toBe(false);
+        expect(isOrchestratorDaemonCommand('node daemon.mjs')).toBe(false);
     });
 
     test('loads gitignored top-level AI config only when present', async () => {
