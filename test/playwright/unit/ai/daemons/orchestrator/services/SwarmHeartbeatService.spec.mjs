@@ -377,6 +377,9 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
 
         SwarmHeartbeatService.targetSource = 'active-local-team';
         expect(SwarmHeartbeatService.targetSource).toBe('active-local-team');
+
+        SwarmHeartbeatService.targetSource = 'active-a2a-participants';
+        expect(SwarmHeartbeatService.targetSource).toBe('active-a2a-participants');
     });
 
     test('beforeSetExplicitTargets normalizes + coerces empty to null', async () => {
@@ -414,6 +417,75 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
             '@neo-gpt',
             '@neo-opus-4-7'
         ]);
+    });
+
+    test('getActiveA2aParticipants() SQL covers SENT_TO + DELIVERED_TO + SENT_BY edge taxonomy, excludes AGENT:* sentinel, applies 3h cutoff (#12003 cycle-2)', async () => {
+        applyDefaultStubs();
+
+        // Capture both the SQL string and the parameters so the test asserts the
+        // edge taxonomy (the contract from #12003), not just the returned identity list.
+        let capturedSql       = null;
+        const capturedParams  = [];
+        SwarmHeartbeatService.getGraphDb = () => {
+            return {
+                prepare: sql => {
+                    capturedSql = sql;
+                    return {
+                        all: (...params) => {
+                            capturedParams.push(params);
+                            return [
+                                {identity: 'neo-gpt'},          // SENT_TO recipient (direct DM)
+                                {identity: '@neo-opus-4-7'},    // DELIVERED_TO recipient (broadcast fan-out)
+                                {identity: null},
+                                {identity: '@neo-gemini-3-1-pro'} // SENT_BY sender
+                            ];
+                        }
+                    };
+                }
+            }
+        };
+
+        const serviceProto = Object.getPrototypeOf(SwarmHeartbeatService);
+        const result       = await serviceProto.getActiveA2aParticipants.call(SwarmHeartbeatService);
+
+        // SQL edge-taxonomy contract: all 3 edge classes covered.
+        expect(capturedSql).toContain("e.type = 'SENT_TO'");
+        expect(capturedSql).toContain("e.type = 'DELIVERED_TO'");
+        expect(capturedSql).toContain("e.type = 'SENT_BY'");
+        // SENT_TO branch explicitly excludes the AGENT:* broadcast sentinel — the
+        // per-recipient DELIVERED_TO edges are the canonical broadcast targets.
+        expect(capturedSql).toContain("e.target != 'AGENT:*'");
+        // 3h cutoff applied via sentAt comparison.
+        expect(capturedSql).toContain("json_extract(n.data, '$.properties.sentAt') >= ?");
+        // MESSAGE label filter on all branches.
+        expect(capturedSql).toContain("json_extract(n.data, '$.label') = 'MESSAGE'");
+
+        // Identities normalized + null filtered; dedup via SELECT DISTINCT.
+        expect(result).toEqual(['@neo-gpt', '@neo-opus-4-7', '@neo-gemini-3-1-pro']);
+
+        // 3 cutoff params (one per UNION branch); identical (same Date.now() snapshot); ISO format.
+        expect(capturedParams).toHaveLength(1);
+        expect(capturedParams[0]).toHaveLength(3);
+        for (const param of capturedParams[0]) {
+            expect(param).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        }
+        expect(capturedParams[0][0]).toBe(capturedParams[0][1]);
+        expect(capturedParams[0][1]).toBe(capturedParams[0][2]);
+    });
+
+    test('getActiveA2aParticipants() returns [] on query failure (substrate-error fallback)', async () => {
+        applyDefaultStubs();
+
+        SwarmHeartbeatService.getGraphDb = () => {
+            return {
+                prepare: () => {
+                    throw new Error('simulated graph DB unavailability');
+                }
+            }
+        };
+
+        const serviceProto = Object.getPrototypeOf(SwarmHeartbeatService);
+        await expect(serviceProto.getActiveA2aParticipants.call(SwarmHeartbeatService)).resolves.toEqual([]);
     });
 
     test('pulse() skips idle_out_nudge when gate is closed', async () => {

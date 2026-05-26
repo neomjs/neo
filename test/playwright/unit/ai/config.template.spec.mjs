@@ -107,6 +107,14 @@ test.describe('Tier 1 Config Immutability', () => {
             wakeDispatchEnabled  : null
         });
 
+        // #12003: swarm-heartbeat candidate-discovery default is the activity-derived
+        // source per Discussion #11992 §5.1.1 "activity-derived signals" framing.
+        // Per-MC-instance derived; no team-registry coupling; tenant-safe for external
+        // workspaces (each deployment's MC has its own A2A activity).
+        expect(Config.orchestrator.swarmHeartbeat).toEqual({
+            targetSource: 'active-a2a-participants'
+        });
+
         expect(Config.maintenance.backup).toEqual({
             intervalMs: 24 * 60 * 60 * 1000,
             retention: {
