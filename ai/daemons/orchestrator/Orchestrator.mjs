@@ -75,15 +75,16 @@ export function resolvePrimaryDevSyncRootsSource({envValue}) {
 
 /**
  * Resolves a deployment-aware boolean toggle from `AiConfig.orchestrator.localOnly[key]`.
- * `null` in localOnly means "use the deployment-profile default" (local = enabled,
- * cloud = disabled); explicit `true`/`false` overrides.
+ * `null` or missing keys mean "use the deployment-profile default" (local = enabled,
+ * cloud = disabled); explicit `true`/`false` overrides. Missing-key fallback keeps
+ * gitignored operator configs safe when a newly tracked template key is introduced.
  *
  * @param {String} key
  * @returns {Boolean}
  */
 function resolveDeploymentEnabled(key) {
     const cfg = AiConfig.orchestrator.localOnly[key];
-    if (cfg !== null) return cfg;
+    if (cfg !== null && cfg !== undefined) return cfg;
     return AiConfig.orchestrator.deploymentMode !== 'cloud';
 }
 
@@ -389,6 +390,7 @@ export class Orchestrator extends Base {
     get kbSyncEnabled()                  { return Env.parseBool('NEO_ORCHESTRATOR_KB_SYNC_ENABLED')                     ?? resolveDeploymentEnabled('kbSyncEnabled');                  }
     get primaryDevSyncEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED')            ?? resolveDeploymentEnabled('primaryDevSyncEnabled');          }
     get tenantRepoSyncEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED')            ?? resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
+    get chromaDaemonEnabled()            { return Env.parseBool('NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED')               ?? resolveDeploymentEnabled('chromaDaemonEnabled');            }
     get bridgeDaemonEnabled()            { return Env.parseBool('NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED')               ?? resolveDeploymentEnabled('bridgeDaemonEnabled');            }
     get swarmHeartbeatEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED')             ?? resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return Env.parseBool('NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED') ?? resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
@@ -582,7 +584,7 @@ export class Orchestrator extends Base {
         };
 
         const continuousTasks = [
-            'chroma',
+            ...(this.chromaDaemonEnabled ? ['chroma'] : []),
             ...(this.bridgeDaemonEnabled ? ['bridgeDaemon'] : []),
             'mlx'
         ];

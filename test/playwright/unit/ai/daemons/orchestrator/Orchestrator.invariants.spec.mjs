@@ -31,6 +31,7 @@ let savedEnvKbSyncEnabled            = undefined;
 let savedEnvKbSyncInterval           = undefined;
 let savedEnvTenantRepoSyncEnabled    = undefined;
 let savedEnvTenantRepoSyncInterval   = undefined;
+let savedEnvChromaDaemonEnabled      = undefined;
 let savedEnvMlxEnabled               = undefined;
 let savedEnvMlxModel                 = undefined;
 let savedEnvMlxPort                  = undefined;
@@ -75,6 +76,7 @@ test.beforeEach(() => {
     savedEnvKbSyncInterval         = process.env.NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS;
     savedEnvTenantRepoSyncEnabled  = process.env.NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED;
     savedEnvTenantRepoSyncInterval = process.env.NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS;
+    savedEnvChromaDaemonEnabled    = process.env.NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED;
     savedEnvMlxEnabled             = process.env.NEO_ORCHESTRATOR_MLX_ENABLED;
     savedEnvMlxModel               = process.env.NEO_ORCHESTRATOR_MLX_MODEL;
     savedEnvMlxPort                = process.env.NEO_ORCHESTRATOR_MLX_PORT;
@@ -85,9 +87,9 @@ test.beforeEach(() => {
 
 test.afterEach(() => {
     Object.assign(AiConfig.orchestrator.intervals, savedIntervals);
-    Object.assign(AiConfig.orchestrator.localOnly, savedLocalOnly);
+    restoreConfigObject(AiConfig.orchestrator.localOnly, savedLocalOnly);
     if (savedCloudOnly) {
-        Object.assign(AiConfig.orchestrator.cloudOnly, savedCloudOnly);
+        restoreConfigObject(AiConfig.orchestrator.cloudOnly, savedCloudOnly);
     }
     AiConfig.orchestrator.deploymentMode = savedDeploymentMode;
 
@@ -106,6 +108,7 @@ test.afterEach(() => {
     restoreEnv('NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS',       savedEnvKbSyncInterval);
     restoreEnv('NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED',  savedEnvTenantRepoSyncEnabled);
     restoreEnv('NEO_ORCHESTRATOR_TENANT_REPO_SYNC_INTERVAL_MS', savedEnvTenantRepoSyncInterval);
+    restoreEnv('NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED',     savedEnvChromaDaemonEnabled);
     restoreEnv('NEO_ORCHESTRATOR_MLX_ENABLED',               savedEnvMlxEnabled);
     restoreEnv('NEO_ORCHESTRATOR_MLX_MODEL',                 savedEnvMlxModel);
     restoreEnv('NEO_ORCHESTRATOR_MLX_PORT',                  savedEnvMlxPort);
@@ -120,6 +123,16 @@ function restoreEnv(name, prior) {
     } else {
         process.env[name] = prior;
     }
+}
+
+function restoreConfigObject(target, prior) {
+    for (const key of Object.keys(target)) {
+        if (!(key in prior)) {
+            delete target[key];
+        }
+    }
+
+    Object.assign(target, prior);
 }
 
 test.describe('Orchestrator config precedence (#11834 AC2)', () => {
@@ -156,6 +169,24 @@ test.describe('Orchestrator config precedence (#11834 AC2)', () => {
 
         AiConfig.orchestrator.deploymentMode = 'cloud';
         expect(createMinimalOrchestrator().kbSyncEnabled).toBe(false);
+    });
+
+    test('chromaDaemonEnabled follows deployment profile default and env override (#12019)', () => {
+        delete process.env.NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED;
+        AiConfig.orchestrator.localOnly.chromaDaemonEnabled = null;
+
+        AiConfig.orchestrator.deploymentMode = 'local';
+        expect(createMinimalOrchestrator().chromaDaemonEnabled).toBe(true);
+
+        AiConfig.orchestrator.deploymentMode = 'cloud';
+        expect(createMinimalOrchestrator().chromaDaemonEnabled).toBe(false);
+
+        process.env.NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED = 'true';
+        expect(createMinimalOrchestrator().chromaDaemonEnabled).toBe(true);
+
+        process.env.NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED = 'false';
+        AiConfig.orchestrator.deploymentMode = 'local';
+        expect(createMinimalOrchestrator().chromaDaemonEnabled).toBe(false);
     });
 
     test('AiConfig.data mutations are isolated per test via beforeEach/afterEach restore', () => {
