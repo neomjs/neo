@@ -22,9 +22,13 @@ import InstanceManager from '../../../../../../../src/manager/Instance.mjs';
 import fs              from 'fs-extra';
 import os              from 'os';
 import path            from 'path';
+import {fileURLToPath} from 'url';
 
 import TenantRepoSyncService from '../../../../../../../ai/daemons/orchestrator/services/TenantRepoSyncService.mjs';
 import {deriveTenantRepoMirrorPath} from '../../../../../../../ai/services/knowledge-base/helpers/TenantRepoAccessContract.mjs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
 
 // Serial mode: TenantRepoSyncService is a singleton.
 test.describe.configure({mode: 'serial'});
@@ -1104,5 +1108,59 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(result.status).toBe('completed');
         expect(result.details.failedCount).toBe(1);
         expect(result.details.completedCount).toBe(1);
+    });
+});
+
+test.describe('TenantRepoSyncService.resolveIngestionService — export-drift guard (#12042)', () => {
+    /*
+     * Other tests in this file inject `knowledgeBaseIngestionService` directly via
+     * `runTask` arguments, bypassing `resolveIngestionService` entirely. That's how
+     * the export-drift bug fixed in PR #12037 (lookup of the non-existent
+     * `KB_KnowledgeBaseIngestionService` / `KnowledgeBaseIngestionService` names)
+     * escaped unit-test detection. This block covers all three drift classes:
+     *
+     *   - Drift A: `services.mjs` renames `KB_IngestionService` (static source guard).
+     *   - Drift B: `TenantRepoSyncService.resolveIngestionService` looks up a different
+     *     symbol than what `services.mjs` exports (static source guard).
+     *   - Drift C: `KB_IngestionService` shape loses `ingestSourceFiles` method
+     *     (runtime resolver call + structural check).
+     *
+     * The Drift C runtime test depends on the per-server `config.mjs` files being
+     * materialized — i.e., the bootstrap step in `ai/scripts/setup/initServerConfigs.mjs`
+     * rewrites `import AiConfig from '../../../config.template.mjs'` to
+     * `import AiConfig from '../../../config.mjs'` so that runtime code loads the
+     * operator overlay (which `Neo.ai.Config`-registers exactly once) instead of the
+     * template (which would register via a parallel chain and trip the `unitTestMode`
+     * namespace-collision guard at `src/Neo.mjs:820`). CI's `npm ci` runs the
+     * bootstrap on fresh clone, so this is the green path. Operator checkouts whose
+     * per-server `config.mjs` was generated before the materialization logic landed
+     * will hit the collision until they re-run `npm run prepare -- --migrate-config`
+     * OR manually update the import path. Documented in #12047 (open) for the
+     * materialization-migration substrate work.
+     */
+    const repoRoot     = path.resolve(__dirname, '../../../../../../../');
+    const servicesPath = path.join(repoRoot, 'ai/services.mjs');
+    const resolverPath = path.join(repoRoot, 'ai/daemons/orchestrator/services/TenantRepoSyncService.mjs');
+
+    test('ai/services.mjs exports KB_IngestionService', async () => {
+        const source = await fs.readFile(servicesPath, 'utf-8');
+
+        expect(source).toMatch(/export\s*\{[^}]*\bKB_IngestionService\b[^}]*\}/s);
+    });
+
+    test('TenantRepoSyncService.resolveIngestionService references services.KB_IngestionService', async () => {
+        const source = await fs.readFile(resolverPath, 'utf-8');
+        const match  = source.match(/async\s+resolveIngestionService\s*\([^)]*\)\s*\{([\s\S]*?)\n\s{4}\}/);
+
+        expect(match, 'resolveIngestionService method body extractable').not.toBeNull();
+        expect(match[1]).toContain('services.KB_IngestionService');
+    });
+
+    test('resolveIngestionService returns the canonical KB_IngestionService with ingestSourceFiles method (Drift C)', async () => {
+        const ingestionService = await TenantRepoSyncService.resolveIngestionService();
+
+        expect(ingestionService).toBeDefined();
+        expect(ingestionService).not.toBeNull();
+        expect(typeof ingestionService.ingestSourceFiles).toBe('function');
     });
 });
