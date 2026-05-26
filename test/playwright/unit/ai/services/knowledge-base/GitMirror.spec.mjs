@@ -80,6 +80,41 @@ test.describe('GitMirror (#11788)', () => {
         };
     }
 
+    async function withFakeGitCapture(callback) {
+        const originalPath = process.env.PATH;
+        const binDir       = path.join(root, 'fake-bin');
+        const capturePath  = path.join(root, 'git-env.txt');
+        const gitPath      = path.join(binDir, 'git');
+
+        await fs.ensureDir(binDir);
+        await fs.writeFile(gitPath, `#!/bin/sh
+{
+    printf '%s\\n' "GIT_ASKPASS=$GIT_ASKPASS"
+    printf '%s\\n' "NEO_GITMIRROR_PASSWORD=$NEO_GITMIRROR_PASSWORD"
+    printf '%s\\n' "NEO_GITMIRROR_USERNAME=$NEO_GITMIRROR_USERNAME"
+} > ${JSON.stringify(capturePath)}
+printf 'fatal: token %s\\n' "$NEO_GITMIRROR_PASSWORD" >&2
+exit 1
+`);
+        await fs.chmod(gitPath, 0o755);
+
+        process.env.PATH = `${binDir}${path.delimiter}${originalPath}`;
+
+        try {
+            await callback(capturePath);
+        } finally {
+            process.env.PATH = originalPath;
+        }
+    }
+
+    function parseCapturedEnv(raw) {
+        return Object.fromEntries(raw.trim().split('\n').map(line => {
+            const index = line.indexOf('=');
+
+            return [line.slice(0, index), line.slice(index + 1)];
+        }));
+    }
+
     test('clones a local source repo as an idempotent bare mirror', async () => {
         const source = await createSourceRepo();
         const first  = await cloneIfMissing(mirrorOptions(source));
@@ -163,6 +198,72 @@ test.describe('GitMirror (#11788)', () => {
             cloneUrl     : path.join(root, 'other-source'),
             credentialRef: 'env:NEO_GITMIRROR_MISSING_TOKEN',
             repoSlug     : 'local/other-source'
+        })).rejects.toMatchObject({code: 'KB_GITMIRROR_CREDENTIAL_REF_INVALID'});
+    });
+
+    test('resolves file credentialRef strings through askpass and redacts the resolved secret', async () => {
+        const secretPath = path.join(root, 'tenant-token');
+
+        await fs.writeFile(secretPath, ' file-secret-token \n');
+
+        await withFakeGitCapture(async capturePath => {
+            try {
+                await cloneIfMissing({
+                    ...mirrorOptions('https://example.com/tenant/repo.git'),
+                    credentialRef: `file:${secretPath}`
+                });
+            } catch (error) {
+                const captured = parseCapturedEnv(await fs.readFile(capturePath, 'utf-8'));
+
+                expect(error).toMatchObject({code: 'KB_GITMIRROR_CLONE_FAILED'});
+                expect(error.stderr).toContain('[REDACTED]');
+                expect(error.stderr).not.toContain('file-secret-token');
+                expect(captured.NEO_GITMIRROR_PASSWORD).toBe('file-secret-token');
+                expect(captured.NEO_GITMIRROR_USERNAME).toBe('x-access-token');
+                await expect(fs.pathExists(path.dirname(captured.GIT_ASKPASS))).resolves.toBe(false);
+                return;
+            }
+
+            throw new Error('Expected fake git failure');
+        });
+    });
+
+    test('passes file credentialRef objects through with explicit username', async () => {
+        const secretPath = path.join(root, 'tenant-token-object');
+
+        await fs.writeFile(secretPath, 'object-secret-token\n');
+
+        await withFakeGitCapture(async capturePath => {
+            await expect(cloneIfMissing({
+                ...mirrorOptions('https://example.com/tenant/repo.git'),
+                credentialRef: {
+                    type    : 'file',
+                    filePath: secretPath,
+                    username: 'deploy-token'
+                }
+            })).rejects.toMatchObject({code: 'KB_GITMIRROR_CLONE_FAILED'});
+
+            const captured = parseCapturedEnv(await fs.readFile(capturePath, 'utf-8'));
+
+            expect(captured.NEO_GITMIRROR_PASSWORD).toBe('object-secret-token');
+            expect(captured.NEO_GITMIRROR_USERNAME).toBe('deploy-token');
+        });
+    });
+
+    test('rejects empty or missing file credentialRef targets', async () => {
+        const emptyPath   = path.join(root, 'empty-token');
+        const missingPath = path.join(root, 'missing-token');
+
+        await fs.writeFile(emptyPath, ' \n');
+
+        await expect(cloneIfMissing({
+            ...mirrorOptions('https://example.com/tenant/repo.git'),
+            credentialRef: `file:${emptyPath}`
+        })).rejects.toMatchObject({code: 'KB_GITMIRROR_CREDENTIAL_REF_INVALID'});
+
+        await expect(cloneIfMissing({
+            ...mirrorOptions('https://example.com/tenant/repo.git'),
+            credentialRef: {type: 'file', filePath: missingPath}
         })).rejects.toMatchObject({code: 'KB_GITMIRROR_CREDENTIAL_REF_INVALID'});
     });
 

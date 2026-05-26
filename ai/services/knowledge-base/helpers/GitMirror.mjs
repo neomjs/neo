@@ -111,6 +111,10 @@ function normalizeCredentialRef(credentialRef) {
             return {type: 'ssh', keyPath: credentialRef.slice(4)};
         }
 
+        if (credentialRef.startsWith('file:')) {
+            return {type: 'file', filePath: credentialRef.slice(5)};
+        }
+
         return {type: 'env', name: credentialRef};
     }
 
@@ -132,6 +136,32 @@ function normalizeCredentialRef(credentialRef) {
  */
 function shellQuote(value) {
     return `'${String(value).replace(/'/gu, `'\\''`)}'`;
+}
+
+/**
+ * @summary Builds the transient askpass environment for HTTPS git credentials.
+ * @param {Object} options
+ * @param {String} options.secret Resolved credential material.
+ * @param {String} [options.username='x-access-token'] Git username returned by askpass.
+ * @returns {Promise<{env: Object, secretHints: String[], cleanup: Function}>}
+ * @private
+ */
+async function createAskPassCredentialEnvironment({secret, username = 'x-access-token'} = {}) {
+    const askPassDir  = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-gitmirror-askpass-'));
+    const askPassPath = path.join(askPassDir, 'askpass.sh');
+    const gitUsername = username || 'x-access-token';
+
+    await fs.writeFile(askPassPath, ASKPASS_SCRIPT, {mode: 0o700});
+
+    return {
+        env: {
+            GIT_ASKPASS           : askPassPath,
+            NEO_GITMIRROR_PASSWORD: secret,
+            NEO_GITMIRROR_USERNAME: gitUsername
+        },
+        secretHints: [secret],
+        cleanup    : () => fs.remove(askPassDir)
+    };
 }
 
 /**
@@ -159,20 +189,37 @@ async function resolveCredentialEnvironment({credentialRef} = {}) {
             );
         }
 
-        const askPassDir  = await fs.mkdtemp(path.join(os.tmpdir(), 'neo-gitmirror-askpass-'));
-        const askPassPath = path.join(askPassDir, 'askpass.sh');
+        return createAskPassCredentialEnvironment({secret, username: ref.username});
+    }
 
-        await fs.writeFile(askPassPath, ASKPASS_SCRIPT, {mode: 0o700});
+    if (ref.type === 'file') {
+        if (!ref.filePath) {
+            throw createGitMirrorError(
+                'KB_GITMIRROR_CREDENTIAL_REF_INVALID',
+                'GitMirror file credentialRef requires filePath'
+            );
+        }
 
-        return {
-            env: {
-                GIT_ASKPASS           : askPassPath,
-                NEO_GITMIRROR_PASSWORD: secret,
-                NEO_GITMIRROR_USERNAME: ref.username || 'x-access-token'
-            },
-            secretHints: [secret],
-            cleanup    : () => fs.remove(askPassDir)
-        };
+        let secret;
+
+        try {
+            secret = (await fs.readFile(ref.filePath, 'utf-8')).trim();
+        } catch (error) {
+            throw createGitMirrorError(
+                'KB_GITMIRROR_CREDENTIAL_REF_INVALID',
+                'GitMirror file credentialRef could not be resolved',
+                {cause: error}
+            );
+        }
+
+        if (!secret) {
+            throw createGitMirrorError(
+                'KB_GITMIRROR_CREDENTIAL_REF_INVALID',
+                'GitMirror file credentialRef resolved to empty secret'
+            );
+        }
+
+        return createAskPassCredentialEnvironment({secret, username: ref.username});
     }
 
     if (ref.type === 'ssh') {
