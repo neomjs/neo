@@ -702,7 +702,7 @@ class IssueSyncer extends Base {
         const lastSyncDate = metadata.lastSync ? new Date(metadata.lastSync) : new Date(0);
 
         allIssues.forEach(issue => {
-            // 1. Existing Parent Check (Legacy but safe)
+            // 1. Parent field check for relationships already present on the fetched node.
             if (issue.parent) {
                 relatedIssuesToUpdate.add(issue.parent.number);
             }

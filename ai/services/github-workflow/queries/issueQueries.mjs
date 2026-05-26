@@ -157,7 +157,7 @@ export const FETCH_ISSUES_FOR_SYNC = `
             ]) {
             # pageInfo enables continuation-fetching when an issue's timeline has outgrown
             # a single page of \`maxTimelineItems\`. Without this, tail events (including
-            # newly-authored comments) are silently dropped once totalCount > first. See #10090.
+            # newly-authored comments) are silently dropped once totalCount > first.
             pageInfo { hasNextPage endCursor }
             nodes {
               __typename
@@ -839,7 +839,7 @@ export const GET_ISSUE_PARENT = `
  * @summary Fetches the current assignee logins for a single issue.
  *
  * Narrow query used by `manage_issue_assignees` as the precondition fetch step in the
- * precondition + post-verify gate (#11537). Distinct from `FETCH_SINGLE_ISSUE` which
+ * precondition + post-verify gate. Distinct from `FETCH_SINGLE_ISSUE` which
  * also pulls timeline, sub-issues, blocking relationships — too heavy for a gate check.
  *
  * Variables required:
@@ -867,7 +867,7 @@ export const GET_ISSUE_ASSIGNEES = `
  *
  * Issue-side twin of `pullRequestQueries.GET_CONVERSATION` — identical shape, querying the
  * `issue` field instead of `pullRequest`. Powers the `get_conversation` tool when the
- * caller supplies an `issue_number` (#10702).
+ * caller supplies an `issue_number`.
  *
  * Variables required:
  * - $owner: String! - Repository owner

@@ -315,8 +315,8 @@ class IssueService extends Base {
     /**
      * @summary Persists an `acknowledgedReassign` reason as a GitHub-visible audit-trail comment.
      *
-     * Per GPT STEP_BACK §4 carry-forward AC: the reason must be persisted in a GitHub-visible
-     * artifact (issue comment), NOT only transient event metadata. The comment becomes
+     * The reason must be persisted in a GitHub-visible artifact (issue comment),
+     * not only transient event metadata. The comment becomes
      * graph-readable provenance via the Native Edge Graph + Retrospective daemon's
      * comment-ingestion path.
      *
