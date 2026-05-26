@@ -322,8 +322,9 @@ async function pollLoop() {
  * Evaluates a GraphLog entry against a WAKE_SUBSCRIPTION trigger + filters.
  */
 function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
-    const trigger = sub.properties?.trigger;
-    const filters = sub.properties?.filters || {};
+    const trigger       = sub.properties?.trigger;
+    const harnessTarget = sub.properties?.harnessTarget;
+    const filters       = sub.properties?.filters || {};
     const agentIdentity = sub.properties?.agentIdentity;
 
     if (!agentIdentity) return null;
@@ -396,7 +397,7 @@ function evaluateSubscription(sub, trace, entity, nodesMap, edgesMap) {
                 logId: trace.log_id
             };
         }
-    } else if (trigger === 'HEARTBEAT_PULSE' && trace.entity_type === 'heartbeat_pulse') {
+    } else if (harnessTarget === 'bridge-daemon' && trace.entity_type === 'heartbeat_pulse') {
         const pulse = parseHeartbeatPulseEntityId(trace.entity_id);
         if (pulse?.targetIdentity === agentIdentity) {
             return {

@@ -993,7 +993,7 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
         });
     });
 
-    test('emitHeartbeatPulse is an idempotent no-op without an active bridge heartbeat subscription', async () => {
+    test('emitHeartbeatPulse is an idempotent no-op without an active bridge-daemon subscription', async () => {
         const sqlite = GraphService.db.storage.db;
         const before = sqlite.prepare('SELECT MAX(log_id) as maxId FROM GraphLog').get().maxId || 0;
 
@@ -1010,6 +1010,57 @@ test.describe('Neo.ai.services.memory-core.WakeSubscriptionService', () => {
             reason        : 'no-active-bridge-daemon-subscription',
             targetIdentity: '@alice'
         });
+        expect(pulseRows).toBe(0);
+    });
+
+    test('emitHeartbeatPulse fires when only a SENT_TO_ME bridge-daemon subscription exists (Epic #11993 gate fix)', async () => {
+        // Production agents establish bridge-daemon routing through SENT_TO_ME subscriptions.
+        const sqlite = GraphService.db.storage.db;
+        const {subscriptionId} = insertDurableSubscription({
+            trigger              : 'SENT_TO_ME',
+            harnessTarget        : 'bridge-daemon',
+            harnessTargetMetadata: {appName: 'Codex'}
+        });
+        const before = sqlite.prepare('SELECT MAX(log_id) as maxId FROM GraphLog').get().maxId || 0;
+
+        const emitted = await WakeSubscriptionService.emitHeartbeatPulse({targetIdentity: '@alice'});
+
+        expect(emitted.status).toBe('emitted');
+        expect(emitted.targetIdentity).toBe('@alice');
+        expect(emitted.entityId).toMatch(/^HEARTBEAT_PULSE:@alice:/);
+        expect(emitted.logId).toBeGreaterThan(before);
+
+        // resync now delivers the pulse through that existing bridge-daemon route.
+        await RequestContextService.run({agentIdentityNodeId: '@alice'}, async () => {
+            const res = await WakeSubscriptionService.resync({subscriptionId, sinceLogId: before});
+            expect(res.eventsReplayed).toBe(1);
+            expect(res.events[0]).toMatchObject({
+                eventType    : 'wake/heartbeat_pulse',
+                agentIdentity: '@alice',
+                subscriptionId,
+                payload      : {targetIdentity: '@alice'}
+            });
+        });
+    });
+
+    test('emitHeartbeatPulse still no-ops when subscription is non-bridge-daemon (mcp-notifications / a2a-webhook)', async () => {
+        // Non-bridge routes remain outside the heartbeat-pulse transport contract.
+        const sqlite = GraphService.db.storage.db;
+        insertDurableSubscription({
+            trigger              : 'SENT_TO_ME',
+            harnessTarget        : 'mcp-notifications',
+            harnessTargetMetadata: {appName: 'noop'}
+        });
+        const before = sqlite.prepare('SELECT MAX(log_id) as maxId FROM GraphLog').get().maxId || 0;
+
+        const emitted = await WakeSubscriptionService.emitHeartbeatPulse({targetIdentity: '@alice'});
+
+        expect(emitted.status).toBe('skipped');
+        expect(emitted.reason).toBe('no-active-bridge-daemon-subscription');
+        const pulseRows = sqlite.prepare(`
+            SELECT COUNT(*) as count FROM GraphLog
+            WHERE log_id > ? AND entity_type = 'heartbeat_pulse'
+        `).get(before).count;
         expect(pulseRows).toBe(0);
     });
     // -----------------------------------------------------------------------------

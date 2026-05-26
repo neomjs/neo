@@ -618,11 +618,10 @@ class WakeSubscriptionService extends Base {
     async emitHeartbeatPulse({targetIdentity} = {}) {
         if (!targetIdentity) throw new Error("Missing 'targetIdentity' parameter.");
 
-        const activeRoutes = this._getCandidateSubscriptions(targetIdentity, 'HEARTBEAT_PULSE', 'bridge-daemon')
-            .filter(subscription => (subscription.status || 'active') === 'active');
-
-        if (activeRoutes.length === 0) {
-            logger.info(`[WakeSubscription] heartbeat pulse skipped for ${targetIdentity}: no active bridge-daemon heartbeat subscription.`);
+        // Heartbeat pulses ride the existing bridge-daemon route; a dedicated
+        // HEARTBEAT_PULSE trigger is not exposed by manage_wake_subscription.
+        if (!this._hasActiveBridgeDaemonRoute(targetIdentity)) {
+            logger.info(`[WakeSubscription] heartbeat pulse skipped for ${targetIdentity}: no active bridge-daemon subscription.`);
             return {
                 status: 'skipped',
                 reason: 'no-active-bridge-daemon-subscription',
@@ -820,8 +819,10 @@ class WakeSubscriptionService extends Base {
      * @returns {Object|null} Wrapped heartbeat-pulse event or null.
      */
     _evaluateHeartbeatPulseAgainstSubscription(trace, subscription) {
-        if (subscription.trigger !== 'HEARTBEAT_PULSE') return null;
+        // Dispatch pulses through the existing bridge-daemon route, independent of the
+        // subscription trigger that originally established the route.
         if (trace.entity_type !== this.heartbeatPulseEntityType) return null;
+        if (subscription.harnessTarget !== 'bridge-daemon') return null;
 
         const pulse = this._parseHeartbeatPulseEntityId(trace.entity_id);
         if (!pulse || pulse.targetIdentity !== subscription.agentIdentity) return null;
@@ -1117,17 +1118,58 @@ class WakeSubscriptionService extends Base {
                 .map(({id, node}) => this._hydrateSubscriptionFromDurableNode(id, node));
         }
 
+        return this._getCandidateSubscriptionsFromMemory(owner, sub => sub.trigger === trigger && sub.harnessTarget === harnessTarget);
+    }
+
+    /**
+     * @summary Returns true if the identity has at least one active bridge-daemon
+     * subscription, regardless of trigger type.
+     *
+     * Heartbeat-pulse emission uses route reachability rather than a dedicated trigger.
+     *
+     * @param {String} identity AgentIdentity node id.
+     * @returns {Boolean}
+     * @protected
+     */
+    _hasActiveBridgeDaemonRoute(identity) {
+        const sqlite = GraphService.db?.storage?.db;
+        if (sqlite) {
+            const row = sqlite.prepare(`
+                SELECT count(*) as count FROM Nodes
+                WHERE json_extract(data, '$.label') = 'WAKE_SUBSCRIPTION'
+                  AND json_extract(data, '$.properties.agentIdentity') = ?
+                  AND json_extract(data, '$.properties.harnessTarget') = 'bridge-daemon'
+                  AND COALESCE(json_extract(data, '$.properties.status'), 'active') = 'active'
+            `).get(identity);
+            return (row?.count || 0) > 0;
+        }
+
+        return this._getCandidateSubscriptionsFromMemory(identity, sub => sub.harnessTarget === 'bridge-daemon').length > 0;
+    }
+
+    /**
+     * @summary In-memory subscription scan fallback for unit-test harnesses where the
+     * graph storage substrate is replaced. Pulls active nodes from `GraphService.db.nodes`
+     * and applies the caller-supplied predicate on the WAKE_SUBSCRIPTION's properties.
+     *
+     * @param {String} owner AgentIdentity node id.
+     * @param {Function} predicate Filter applied to the hydrated subscription entry.
+     * @returns {Object[]}
+     * @protected
+     */
+    _getCandidateSubscriptionsFromMemory(owner, predicate) {
         const candidates = [];
         const db         = GraphService.db;
         if (!db) return candidates;
 
         for (const node of db.nodes.items) {
-            if (node.label !== 'WAKE_SUBSCRIPTION') continue;
+            if (node.label !== 'WAKE_SUBSCRIPTION')   continue;
             const props = node.properties || {};
-            if (props.agentIdentity !== owner)     continue;
-            if (props.trigger !== trigger)         continue;
-            if (props.harnessTarget !== harnessTarget) continue;
-            candidates.push({id: node.id, ...props});
+            if (props.agentIdentity !== owner)        continue;
+            if ((props.status || 'active') !== 'active') continue;
+            const entry = {id: node.id, ...props};
+            if (!predicate(entry))                    continue;
+            candidates.push(entry);
         }
 
         return candidates;
