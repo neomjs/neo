@@ -23,6 +23,11 @@ The commands below use local demo endpoints. Replace the URLs, tenant id, repo
 slug, and tokens with deployment values once the same path is run behind Caddy
 or another production ingress.
 
+When using the optional ingress profile, `ai/deploy/Caddyfile` binds
+`tls internal` to `NEO_DEPLOY_HOSTNAME`, defaulting to `localhost`. Set
+`NEO_DEPLOY_HOSTNAME` before starting the ingress service when testing a named
+host.
+
 ## Prerequisites
 
 Run from a Neo checkout that contains the cloud deployment profile and
