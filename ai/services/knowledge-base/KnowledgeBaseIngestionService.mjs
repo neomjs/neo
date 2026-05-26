@@ -714,10 +714,14 @@ class KnowledgeBaseIngestionService extends Base {
      * @protected
      */
     async resolveRevisionTombstones({baseRevision, headRevision, tenantContext, summary}) {
-        if (!baseRevision || !headRevision) {
+        if (!baseRevision) {
+            return [];
+        }
+
+        if (!headRevision) {
             summary.errors.push(this.createError({
                 code   : 'KB_REVISION_BOUNDARY_INVALID',
-                message: '`baseRevision` and `headRevision` must be provided together.'
+                message: '`headRevision` is required when `baseRevision` is provided.'
             }));
             return [];
         }
