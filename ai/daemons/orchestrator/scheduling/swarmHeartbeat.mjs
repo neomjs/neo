@@ -10,6 +10,7 @@ export const VALID_TARGET_SOURCES = Object.freeze([
     'self',
     'active-local-team',
     'active-subscribers',
+    'active-a2a-participants',
     'disabled'
 ]);
 
@@ -38,49 +39,62 @@ export function getDueTask({state, now, swarmHeartbeatIntervalMs}) {
 /**
  * @summary Resolve the per-pulse identity set the swarm-heartbeat lane should target.
  *
- * Five-step precedence chain:
+ * Precedence chain:
  *
  *   1. Explicit `explicitTargets` list (highest precedence; bypasses source-based logic).
  *      Sourced from `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGETS` (comma-separated handles).
- *   2. `targetSource` enum (`'self'|'active-local-team'|'active-subscribers'|'disabled'`),
- *      env-overridable via `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE`.
- *   3. Default `'self'` when `targetSource` is nullish — the deployment-portable safe default.
- *   4. `'active-local-team'` reads `identityRoots.IDENTITIES` filtered on
- *      `type === 'AgentIdentity'` AND `properties.participationStatus === 'active'`. The
- *      registry is team-shaped; external forks customizing `identityRoots.mjs` get their
- *      own team filter for free.
- *   5. Cloud/fork safety: external workspaces with no config default to `'self'`; unknown
- *      `targetSource` values fail-closed to `'self'` with a warn log. The lane never
- *      silently fans out to maintainer identities. Operators must explicitly opt-in to
- *      `'active-local-team'` to receive cross-team pulses.
+ *   2. `targetSource` enum (see {@link VALID_TARGET_SOURCES} — 5 values), env-overridable
+ *      via `NEO_ORCHESTRATOR_SWARM_HEARTBEAT_TARGET_SOURCE`.
+ *   3. Code-side null→self fallback when `targetSource` is nullish (the deployment-portable
+ *      safety net for the rare case where the tracked template default is bypassed). The
+ *      tracked default in `ai/config.template.mjs` is `'active-a2a-participants'` per #12003.
  *
- * `'active-subscribers'` delegates to the injected `activeSubscribersProvider` callable
- * (the existing `WAKE_SUBSCRIPTION` SQL discovery in
- * `SwarmHeartbeatService.getWakeSubscriptionIdentities()`); union with `selfIdentity`
- * keeps the harness owner in the pulse set.
+ * **Per-source semantics:**
  *
- * `'disabled'` returns `[]` plus an info log. Downstream `pulse()` skips per-identity
- * work (sunset detection, idle-out nudge) while identity-agnostic substrate maintenance
- * (TTL sweep, all-agent-idle detection, liveness touch) still runs.
+ * - **`'self'`** — pulses only the harness owner (`selfIdentity`); deployment-portable
+ *   minimal-fan-out shape.
+ * - **`'active-local-team'`** — reads `identityRoots.IDENTITIES` filtered on
+ *   `type === 'AgentIdentity'` AND `properties.participationStatus === 'active'`. Team-
+ *   registry coupled (suitable for Neo team workspace; external forks customize
+ *   `identityRoots.mjs` to get their own team filter for free).
+ * - **`'active-subscribers'`** — delegates to injected `activeSubscribersProvider`
+ *   (the existing `WAKE_SUBSCRIPTION` SQL discovery in
+ *   `SwarmHeartbeatService.getWakeSubscriptionIdentities()`); union with `selfIdentity`.
+ *   Subscription-presence-based — degrades on dormant subscribers.
+ * - **`'active-a2a-participants'`** (#12003) — delegates to injected
+ *   `activeA2aParticipantsProvider` (the `SwarmHeartbeatService.getActiveA2aParticipants()`
+ *   3h `MESSAGE`-edge query); union with `selfIdentity`. Activity-derived — per-MC-instance
+ *   discovery, tenant-safe (no team-registry coupling), self-healing 3h sliding window.
+ *   Per Discussion #11992 §5.1.1 framing; **tracked template default**.
+ * - **`'disabled'`** — returns `[]` plus an info log. Downstream `pulse()` skips per-identity
+ *   work (sunset detection, idle-out nudge) while identity-agnostic substrate maintenance
+ *   (TTL sweep, all-agent-idle detection, liveness touch) still runs.
+ *
+ * Cloud/fork safety: external workspaces never silently fan out to maintainer identities.
+ * `'active-a2a-participants'` and `'active-subscribers'` are per-MC-instance derived (each
+ * deployment's MC has its own A2A activity and subscriptions); only `'active-local-team'`
+ * has team-registry coupling and must be operator-opted-into.
  *
  * Pure function: side effects limited to logger calls. Output is deduplicated and
  * order-preserving; each target is normalized via `normalizeAgentIdentityNodeId` so
  * the slot holds canonical `@<id>` form.
  *
  * @param {Object}         opts
- * @param {String}         opts.selfIdentity                  Primary identity (orchestrator harness owner).
- * @param {String|null}    [opts.targetSource=null]           Resolver source enum (see {@link VALID_TARGET_SOURCES}).
- * @param {String[]|null}  [opts.explicitTargets=null]        Explicit target list (wins when non-empty).
- * @param {Function}       [opts.activeSubscribersProvider]   Async `() => Promise<String[]>` for `'active-subscribers'`.
- * @param {Object}         [opts.logger=console]              Logger; defaults to console.
+ * @param {String}         opts.selfIdentity                       Primary identity (orchestrator harness owner).
+ * @param {String|null}    [opts.targetSource=null]                Resolver source enum (see {@link VALID_TARGET_SOURCES}).
+ * @param {String[]|null}  [opts.explicitTargets=null]             Explicit target list (wins when non-empty).
+ * @param {Function}       [opts.activeSubscribersProvider]        Async `() => Promise<String[]>` for `'active-subscribers'`.
+ * @param {Function}       [opts.activeA2aParticipantsProvider]    Async `() => Promise<String[]>` for `'active-a2a-participants'` (#12003).
+ * @param {Object}         [opts.logger=console]                   Logger; defaults to console.
  * @returns {Promise<String[]>}  Normalized canonical `@<identity>` strings (deduplicated, order-preserving).
  */
 export async function resolveTargets({
     selfIdentity,
-    targetSource             = null,
-    explicitTargets          = null,
-    activeSubscribersProvider = null,
-    logger                   = console
+    targetSource                  = null,
+    explicitTargets               = null,
+    activeSubscribersProvider     = null,
+    activeA2aParticipantsProvider = null,
+    logger                        = console
 } = {}) {
     const log = (level, msg) => {
         const fn = typeof logger?.[level] === 'function' ? logger[level] : console[level];
@@ -157,6 +171,33 @@ export async function resolveTargets({
                 out.push(normalizedSelf);
             }
             for (const raw of subscribers) {
+                const id = normalizeAgentIdentityNodeId(raw);
+                if (id && !seen.has(id)) {
+                    seen.add(id);
+                    out.push(id);
+                }
+            }
+            return out;
+        }
+
+        case 'active-a2a-participants': {
+            // Activity-derived candidate discovery per Discussion #11992 §5.1.1 framing —
+            // pulse candidate set is auto-discovered from A2A graph activity within the
+            // 3h `active` window (`getRecentActivityTimestamps` per-identity sibling).
+            // Per-MC-instance derived; no team-registry coupling (safe for external
+            // workspaces — they only ever see their own activity).
+            if (typeof activeA2aParticipantsProvider !== 'function') {
+                log('warn', `[resolveSwarmHeartbeatTargets] targetSource='active-a2a-participants' requires activeA2aParticipantsProvider; falling back to 'self'`);
+                return selfFallback('active-a2a-participants-missing-provider');
+            }
+            const participants = (await activeA2aParticipantsProvider()) || [];
+            const seen = new Set();
+            const out  = [];
+            if (normalizedSelf) {
+                seen.add(normalizedSelf);
+                out.push(normalizedSelf);
+            }
+            for (const raw of participants) {
                 const id = normalizeAgentIdentityNodeId(raw);
                 if (id && !seen.has(id)) {
                     seen.add(id);
