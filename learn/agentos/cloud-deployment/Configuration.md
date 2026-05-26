@@ -22,6 +22,7 @@ A deployment's `config.mjs` is gitignored and copied from `config.template.mjs`.
 | Key | Default | Meaning |
 |---|---|---|
 | `useDefaultSources` | `true` | Auto-register Neo's 10 curated Source classes. A deployment ingesting only tenant content sets `false`. |
+| `rawRepoSource` | `false` | Explicitly registers `RawRepoSource`, a raw-text fallback that walks one configured repository root for tenants whose repo shape is unknown. |
 | `useDefaultParsers` | `true` | Auto-register Neo's built-in Parser classes (`SourceParser`, `DocumentationParser`, `TestParser`). |
 | `customSources` | `[]` | Declarative tenant Source registration — `[{SourceClass, sourceName?}]`. See [Custom Sources](./CustomSources.md). |
 | `customParsers` | `[]` | Declarative tenant Parser registration — `[{ParserClass, parserId?}]`. See [Custom Parsers](./CustomParsers.md). |
@@ -67,7 +68,7 @@ The token is a KB MCP authorization credential, not a Git credential. Store it i
 
 A multi-tenant deployment cannot express every tenant's source/parser config as static `aiConfig` keys — each tenant needs its own, mutable at runtime, durable across restarts. Phase 2E ([#11637](https://github.com/neomjs/neo/issues/11637)) stores it as a graph node.
 
-**The node.** One `KnowledgeBaseTenantConfig` node per tenant, id `kb-config:<tenantId>`, in the Native Edge Graph. Its `properties` carry the tenant's config payload — `{useDefaultSources, useDefaultParsers, customSources, customParsers, sourcePaths, version, userId}`. `version` increments on every mutation; `userId` is the [#10011](https://github.com/neomjs/neo/issues/10011) RLS ownership stamp — a tenant cannot read or mutate another tenant's config node.
+**The node.** One `KnowledgeBaseTenantConfig` node per tenant, id `kb-config:<tenantId>`, in the Native Edge Graph. Its `properties` carry the tenant's config payload — `{useDefaultSources, rawRepoSource, useDefaultParsers, customSources, customParsers, sourcePaths, version, userId}`. `version` increments on every mutation; `userId` is the [#10011](https://github.com/neomjs/neo/issues/10011) RLS ownership stamp — a tenant cannot read or mutate another tenant's config node.
 
 **Resolution.** `KnowledgeBaseIngestionService.getTenantConfig({tenantId})` resolves a tenant's effective config through three tiers, first hit wins:
 
@@ -83,6 +84,7 @@ A multi-tenant deployment cannot express every tenant's source/parser config as 
 tenants:
   client-org:
     useDefaultSources: false
+    rawRepoSource: true
     customParsers: [...]
     sourcePaths: {...}
 ```

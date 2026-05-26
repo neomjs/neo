@@ -99,6 +99,25 @@ A Source class is registered in the `SourceRegistry` singleton under a stable na
 
 `aiConfig.useDefaultSources` (default `true`) controls whether Neo's 10 curated Source classes are also registered. A deployment indexing *only* tenant content sets it `false`; the registry then contains only the tenant's custom Sources. See [Configuration](./Configuration.md).
 
+## Built-in Raw Repo Fallback
+
+Use `rawRepoSource: true` when a tenant needs day-0 ingestion before its repository shape is known well enough to justify a custom Source. This registers `RawRepoSource`, which walks `aiConfig.sourcePaths.RawRepoSource.root` and emits one raw-text parsed chunk per included file. It is not part of Neo's 10 curated default Sources, so zero-config Neo syncs never walk the full repository implicitly.
+
+```js
+rawRepoSource: true,
+useDefaultSources: false,
+sourcePaths: {
+    RawRepoSource: {
+        root             : '.',
+        includeExtensions: ['.md', '.js', '.json'],
+        excludePaths     : ['.git', 'node_modules', 'dist', 'docs/output'],
+        excludeExtensions: ['.png', '.jpg', '.pdf', '.woff2']
+    }
+}
+```
+
+Graduate from `RawRepoSource` to a custom Source when a tenant needs semantic chunking, generated-manifest boundaries, or source-specific metadata.
+
 ## Path conventions
 
 A Source should not hard-code its territory path. Resolve it from `aiConfig.sourcePaths` keyed by the Source's registry name — `aiConfig.sourcePaths?.ProtoSource ?? '<fallback>'` — so a deployment whose layout differs overrides only that key. Each Source interprets its own entry shape (a string, a string-array, or a path→type object — see the built-in Source defaults in `config.template.mjs`).

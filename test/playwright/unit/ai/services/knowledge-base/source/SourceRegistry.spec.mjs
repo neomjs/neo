@@ -20,12 +20,13 @@ import Neo            from '../../../../../../../src/Neo.mjs';
 import * as core      from '../../../../../../../src/core/_export.mjs';
 
 test.describe('Neo.ai.services.knowledge-base.source.SourceRegistry (#11658)', () => {
-    let SourceRegistry, DEFAULT_SOURCES;
+    let SourceRegistry, DEFAULT_SOURCES, RawRepoSource;
 
     test.beforeAll(async () => {
         const exportModule = await import('../../../../../../../ai/services/knowledge-base/source/_export.mjs');
         SourceRegistry  = exportModule.default;
         DEFAULT_SOURCES = exportModule.DEFAULT_SOURCES;
+        RawRepoSource   = exportModule.RawRepoSource;
     });
 
     test.beforeEach(() => {
@@ -50,6 +51,7 @@ test.describe('Neo.ai.services.knowledge-base.source.SourceRegistry (#11658)', (
             'TicketSource',  // TicketSource BEFORE TestSource (matches pre-#11658 hardcoded order)
             'TestSource'
         ]);
+        expect(DEFAULT_SOURCES).not.toContain(RawRepoSource);
     });
 
     test('registerSource derives sourceName from className final segment when not supplied', () => {
@@ -199,6 +201,7 @@ test.describe('applyConfigToRegistry — config-driven registration path (#11658
         });
 
         expect(stats.defaultSourcesRegistered).toBe(0);
+        expect(stats.rawRepoSourceRegistered).toBe(0);
         expect(SourceRegistry.getSources()).toHaveLength(0);
         expect(SourceRegistry.getSourceNames()).toEqual([]);
     });
@@ -207,11 +210,23 @@ test.describe('applyConfigToRegistry — config-driven registration path (#11658
         const stats = applyConfigToRegistry(SourceRegistry, {});  // omitted toggle = truthy default
 
         expect(stats.defaultSourcesRegistered).toBe(10);
+        expect(stats.rawRepoSourceRegistered).toBe(0);
         expect(SourceRegistry.getSources()).toHaveLength(10);
         // First + last sentinel checks reaffirm insertion order without re-asserting the full sequence
         // (the byte-equivalence test in the prior describe block holds the order invariant).
         expect(SourceRegistry.getSourceNames()[0]).toBe('AdrSource');
         expect(SourceRegistry.getSourceNames()[9]).toBe('TestSource');
+    });
+
+    test('rawRepoSource:true registers RawRepoSource explicitly without widening DEFAULT_SOURCES', () => {
+        const stats = applyConfigToRegistry(SourceRegistry, {
+            rawRepoSource    : true,
+            useDefaultSources: false
+        });
+
+        expect(stats.rawRepoSourceRegistered).toBe(1);
+        expect(stats.defaultSourcesRegistered).toBe(0);
+        expect(SourceRegistry.getSourceNames()).toEqual(['RawRepoSource']);
     });
 
     test('declarative customSources entry registers tenant source class with sourceName override', () => {
@@ -289,6 +304,7 @@ test.describe('applyConfigToRegistry — config-driven registration path (#11658
 
         expect(stats).toEqual({
             defaultSourcesRegistered: 0,
+            rawRepoSourceRegistered: 0,
             customSourcesRegistered : 2,
             customParsersRegistered : 1
         });

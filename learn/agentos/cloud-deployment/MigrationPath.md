@@ -24,6 +24,7 @@ A single-repo deployment *is* a one-tenant deployment where the tenant is `neo-s
 Divergence from the single-repo default is **granular and opt-in**. An operator moving to a multi-tenant cloud deployment changes only what their topology requires:
 
 - **Skip Neo's curated content** — set `aiConfig.useDefaultSources = false`. The `SourceRegistry` then contains only tenant-supplied Sources.
+- **Unknown tenant repo shape** — set `aiConfig.rawRepoSource = true` to register the built-in raw-text fallback Source while a custom Source is still premature.
 - **Different repo layout** — override only the affected `aiConfig.sourcePaths` keys (e.g. a tenant whose guides live under `docs/guides/tree.json` rather than `learn/tree.json`). Un-overridden keys still resolve to Neo defaults.
 - **Register tenant Sources/Parsers** — populate `aiConfig.customSources` / `aiConfig.customParsers` with pre-imported tenant classes, or call `SourceRegistry.registerSource(...)` at runtime.
 - **Spoof-rejection policy** — a multi-tenant operator should consider `aiConfig.spoofRejectionMode: 'reject'` (fail-closed) over the `'overwrite'` default (see [Security](./Security.md)).
@@ -32,7 +33,7 @@ Each of these is a local config edit; none requires a code fork.
 
 ## Config-template clone-sync
 
-The new config keys (`useDefaultSources`, `useDefaultParsers`, `customSources`, `customParsers`, `sourcePaths`, `defaultTenantId`, `defaultRepoSlug`, `defaultVisibility`, `spoofRejectionMode`) live in `ai/mcp/server/knowledge-base/config.template.mjs` — the `SourceRegistry` keys via PR #11659, the `sourcePaths` keys via PR #11661, and the tenant-stamping keys via PR #11662. Each clone's local `config.mjs` is gitignored and copied from the template.
+The new config keys (`useDefaultSources`, `rawRepoSource`, `useDefaultParsers`, `customSources`, `customParsers`, `sourcePaths`, `defaultTenantId`, `defaultRepoSlug`, `defaultVisibility`, `spoofRejectionMode`) live in `ai/mcp/server/knowledge-base/config.template.mjs` — the `SourceRegistry` keys via PR #11659, the `sourcePaths` keys via PR #11661, and the tenant-stamping keys via PR #11662. Each clone's local `config.mjs` is gitignored and copied from the template.
 
 - **Zero-config deployments** need no local `config.mjs` edit — the runtime falls through to defaults when a key is absent.
 - **Cloud / tenant-mode deployments** add the keys they need to their local `config.mjs`. A harness restart picks up the change (config modules load once per MCP process).

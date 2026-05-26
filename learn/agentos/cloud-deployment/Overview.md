@@ -19,7 +19,7 @@ Phase 0/1 defines the data contracts cloud ingestion is built on. PRs #11647, #1
 | `parsed-chunk-v1` schema | #11629 / PR #11647 | The ingest-side chunk shape every Source/Parser emits. Rejects records carrying an `embedding` field (that field belongs only to the restore-only `backup-record-v1` sibling). |
 | Path-identity tuple | #11629 / PR #11647 | `{tenantId, repoSlug, rootKind, sourcePath}` in chunk metadata — replaces the legacy single-`neoRootDir`-relative `source` string. Neo's curated content uses `tenantId: 'neo-shared'`, `repoSlug: 'neo'`. |
 | Deletion-signaling contract | #11629 / PR #11647 | Tombstone + manifest + revision-boundary mechanisms for propagating source deletions into the index. |
-| `SourceRegistry` | #11658 / PR #11659 | Data-driven Source/Parser registration. `useDefaultSources` / `useDefaultParsers` gate Neo's curated sources; `customSources` / `customParsers` register tenant-supplied classes. |
+| `SourceRegistry` | #11658 / PR #11659 | Data-driven Source/Parser registration. `useDefaultSources` / `useDefaultParsers` gate Neo's curated sources; `customSources` / `customParsers` register tenant-supplied classes; `rawRepoSource` explicitly enables the built-in raw repo fallback. |
 | Per-source path externalization | #11660 / PR #11661 | `aiConfig.sourcePaths` — each default Source class reads its input path from config, so a tenant whose layout differs from Neo's can reuse the curated Source classes. |
 | Write-side tenant stamping | #11631 / PR #11662 | `VectorService.embed` server-stamps `{tenantId, repoSlug, visibility, originAgentIdentity}` from the authenticated ingestion context; client-supplied identity fields are overwritten or rejected. Tenant-aware Chroma IDs prevent byte-identical chunks from different tenants colliding. |
 
@@ -31,7 +31,7 @@ Per [ADR 0003 — Chroma Topology Unified Only](../decisions/0003-chroma-topolog
 
 ## Default-source inheritance
 
-A zero-config Neo deployment behaves identically with or without the cloud-ingestion substrate: `useDefaultSources` defaults to `true`, the `SourceRegistry` auto-registers Neo's 10 curated Source classes, and `aiConfig.sourcePaths` carries Neo's default layout. A cloud tenant opting out of Neo's curated content sets `useDefaultSources: false`; a tenant whose repo layout differs overrides only the `sourcePaths` keys it needs. Inheritance is the default; divergence is opt-in and granular.
+A zero-config Neo deployment behaves identically with or without the cloud-ingestion substrate: `useDefaultSources` defaults to `true`, `rawRepoSource` defaults to `false`, the `SourceRegistry` auto-registers Neo's 10 curated Source classes, and `aiConfig.sourcePaths` carries Neo's default layout. A cloud tenant opting out of Neo's curated content sets `useDefaultSources: false`; a tenant whose repo layout differs overrides only the `sourcePaths` keys it needs; a tenant with no known shape can opt into `rawRepoSource` as a day-0 fallback. Inheritance is the default; divergence is opt-in and granular.
 
 ## Registry contract split — Source vs Parser
 

@@ -208,6 +208,17 @@ class Config extends BaseConfig {
          */
         useDefaultSources: true,
         /**
+         * @summary Explicit opt-in fallback Source for unknown tenant repository shapes.
+         *
+         * When `true`, `SourceRegistry` registers `RawRepoSource` in addition to any default or
+         * custom Sources. It is intentionally disabled by default so zero-config Neo deployments
+         * keep the curated 10-source corpus and never walk the full repository tree implicitly.
+         *
+         * Operator env var: `NEO_KB_RAW_REPO_SOURCE`.
+         * @type {boolean}
+         */
+        rawRepoSource: false,
+        /**
          * When `true` (default), the SourceRegistry auto-registers Neo's
          * built-in Parser classes. The default registry may be empty until parser modules are added.
          * @type {boolean}
@@ -251,6 +262,31 @@ class Config extends BaseConfig {
                 'examples': 'example',
                 'docs/app': 'app',
                 'ai'      : 'ai-infrastructure'
+            },
+            RawRepoSource     : {
+                root             : '.',
+                includeExtensions: [],
+                excludeExtensions: [
+                    '.7z', '.avif', '.bin', '.bmp', '.bz2', '.class', '.dmg', '.eot',
+                    '.exe', '.gif', '.gz', '.ico', '.jar', '.jpeg', '.jpg', '.lockb',
+                    '.mov', '.mp3', '.mp4', '.otf', '.pdf', '.png', '.sqlite', '.tar',
+                    '.tgz', '.ttf', '.wasm', '.webm', '.webp', '.woff', '.woff2', '.zip'
+                ],
+                excludePaths: [
+                    '.git',
+                    '.neo-ai-data',
+                    'coverage',
+                    'dist',
+                    'docs/output',
+                    'node_modules',
+                    'package-lock.json',
+                    'playwright-report',
+                    'resources/examples',
+                    'resources/fonts',
+                    'resources/images',
+                    'test-results',
+                    'yarn.lock'
+                ]
             }
         },
         /**
@@ -368,11 +404,12 @@ class Config extends BaseConfig {
             clientId          : 'NEO_OAUTH_CLIENT_ID',
             clientSecret      : 'NEO_OAUTH_CLIENT_SECRET',
             trustProxyIdentity: { var: 'NEO_AUTH_TRUST_PROXY_IDENTITY', parse: Env.parseBool }
-            },
-            backupPath              : 'NEO_BACKUP_PATH',
-            host                    : 'NEO_CHROMA_HOST',
-            port                    : { var: 'NEO_CHROMA_PORT', parse: Env.parsePort },
-            memoryCoreDbPath        : 'NEO_MEMORY_DB_PATH',
+        },
+        rawRepoSource          : { var: 'NEO_KB_RAW_REPO_SOURCE', parse: Env.parseBool },
+        backupPath             : 'NEO_BACKUP_PATH',
+        host                   : 'NEO_CHROMA_HOST',
+        port                   : { var: 'NEO_CHROMA_PORT', parse: Env.parsePort },
+        memoryCoreDbPath       : 'NEO_MEMORY_DB_PATH',
         kbFaqMinCount           : { var: 'NEO_KB_FAQ_MIN_COUNT', parse: Env.parseNumber },
         kbFaqSimilarityThreshold: { var: 'NEO_KB_FAQ_SIMILARITY_THRESHOLD', parse: Env.parseNumber },
         kbFaqConceptLimit       : { var: 'NEO_KB_FAQ_CONCEPT_LIMIT', parse: Env.parseNumber },
