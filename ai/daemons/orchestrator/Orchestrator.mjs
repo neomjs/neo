@@ -393,8 +393,27 @@ export class Orchestrator extends Base {
     get swarmHeartbeatEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED')             ?? resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return Env.parseBool('NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED') ?? resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
 
+    // MLX inference-server lane config (supervised continuous task; opt-in via AiConfig.orchestrator.mlx.enabled).
+    // Canonical defaults live in `ai/config.template.mjs::orchestrator.mlx`; env vars override per the 2-value chain.
+    get mlxEnabled() { return Env.parseBool('NEO_ORCHESTRATOR_MLX_ENABLED') ?? !!AiConfig.orchestrator.mlx?.enabled; }
+    get mlxModel()   { return Env.parseString('NEO_ORCHESTRATOR_MLX_MODEL') ?? AiConfig.orchestrator.mlx?.model;      }
+    get mlxPort()    { return Env.parseString('NEO_ORCHESTRATOR_MLX_PORT')  ?? AiConfig.orchestrator.mlx?.port;       }
+
+    // LM Studio CLI inference-server lane config (parallel-alternative to MLX; opt-in via
+    // AiConfig.orchestrator.lms.enabled). Mutually exclusive in practice — operators pick one.
+    // Canonical defaults live in `ai/config.template.mjs::orchestrator.lms`.
+    get lmsEnabled() { return Env.parseBool('NEO_ORCHESTRATOR_LMS_ENABLED') ?? !!AiConfig.orchestrator.lms?.enabled; }
+    get lmsModel()   { return Env.parseString('NEO_ORCHESTRATOR_LMS_MODEL') ?? AiConfig.orchestrator.lms?.model;      }
+    get lmsPort()    { return Env.parseString('NEO_ORCHESTRATOR_LMS_PORT')  ?? AiConfig.orchestrator.lms?.port;       }
+
     /**
      * Starts the orchestrator process loop after the wrapper has selected this process.
+     *
+     * Lane-internal config (intervals, enable flags, mlx/lms server tuning) is NOT read
+     * from `options`. The Orchestrator owns those via getters that consult env vars +
+     * `AiConfig.orchestrator.X` directly. Test fixtures override individual lane configs
+     * via env vars or by stubbing the getter on a test instance.
+     *
      * @param {Object} [options] Boot-wrapper paths + harness/process seams.
      * @param {String} [options.scriptDir]
      * @param {String} [options.dataDir]
@@ -404,12 +423,6 @@ export class Orchestrator extends Base {
      * @param {String} [options.heavyMaintenanceLeasePath]
      * @param {Object} [options.taskDefinitions] Pre-built task definitions (test-injection).
      * @param {String} [options.nodeBin]
-     * @param {Boolean} [options.mlxEnabled]
-     * @param {String}  [options.mlxModel]
-     * @param {String}  [options.mlxPort]
-     * @param {Boolean} [options.lmsEnabled]
-     * @param {String}  [options.lmsModel]
-     * @param {String}  [options.lmsPort]
      * @param {String[]|String|null} [options.primaryDevSyncRootsConfig]
      * @returns {Promise<void>}
      */
@@ -428,12 +441,12 @@ export class Orchestrator extends Base {
         this.taskDefinitions = options.taskDefinitions || buildTaskDefinitions({
             scriptDir,
             nodeBin   : options.nodeBin || process.argv[0],
-            mlxEnabled: options.mlxEnabled ?? undefined,
-            mlxModel  : options.mlxModel || undefined,
-            mlxPort   : options.mlxPort  || undefined,
-            lmsEnabled: options.lmsEnabled ?? undefined,
-            lmsModel  : options.lmsModel || undefined,
-            lmsPort   : options.lmsPort  || undefined
+            mlxEnabled: this.mlxEnabled,
+            mlxModel  : this.mlxModel,
+            mlxPort   : this.mlxPort,
+            lmsEnabled: this.lmsEnabled,
+            lmsModel  : this.lmsModel,
+            lmsPort   : this.lmsPort
         });
 
         // Non-reactive boot-wrapper-provided instance state

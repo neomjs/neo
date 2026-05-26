@@ -31,31 +31,12 @@ import fs from 'fs-extra';
 import path from 'path';
 import {execSync} from 'child_process';
 import AiConfig from '../../config.mjs';
-import Env from '../../../src/util/Env.mjs';
 import Orchestrator from './Orchestrator.mjs';
 
 const DAEMON_DATA_DIR = process.env.NEO_AI_ORCHESTRATOR_DIR || '.neo-ai-data/orchestrator-daemon';
 const PID_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator-daemon.pid');
 const LOG_FILE        = path.join(DAEMON_DATA_DIR, 'orchestrator.log');
 export const LOCAL_AI_CONFIG_FILE = fileURLToPath(new URL('../../config.mjs', import.meta.url));
-
-const hasEnvValue = (env, key) => env[key] !== undefined && env[key] !== null && env[key] !== '';
-
-function assignConfigInterval(options, key, value, envNames, env) {
-    if (envNames.some(name => hasEnvValue(env, name))) return;
-    if (Number.isFinite(value) && value > 0) {
-        options[key] = value;
-    }
-}
-
-function assignLocalOnlyToggle(options, key, value, envName, deploymentMode, env) {
-    if (hasEnvValue(env, envName)) return;
-    if (typeof value === 'boolean') {
-        options[key] = value;
-    } else if (deploymentMode === 'cloud') {
-        options[key] = false;
-    }
-}
 
 function writeLog(level, message) {
     const timestamp = new Date().toISOString();
@@ -172,162 +153,16 @@ export async function loadLocalAiConfig({
 }
 
 /**
- * Resolves daemon start options from the Tier-1 AI config while preserving env precedence.
- * @param {Object} [options]
- * @param {Object} [options.orchestratorConfig={}] Top-level `orchestrator` config block.
- * @param {Object} [options.maintenanceConfig={}] Top-level `maintenance` config block.
- * @param {Object} [options.env=process.env] Environment source.
- * @returns {Object}
- */
-export function resolveOrchestratorStartOptions({
-    orchestratorConfig = {},
-    maintenanceConfig  = {},
-    env                = process.env
-} = {}) {
-    const options   = {};
-    const intervals = orchestratorConfig.intervals || {};
-
-    assignConfigInterval(options, 'pollIntervalMs', intervals.pollMs, ['NEO_ORCHESTRATOR_POLL_INTERVAL_MS'], env);
-    assignConfigInterval(
-        options,
-        'summarySweepIntervalMs',
-        intervals.summarySweepMs,
-        ['NEO_ORCHESTRATOR_SUMMARY_SWEEP_INTERVAL_MS', 'NEO_SUMMARIZATION_SWEEP_INTERVAL_MS'],
-        env
-    );
-    assignConfigInterval(options, 'kbSyncIntervalMs', intervals.kbSyncMs, ['NEO_ORCHESTRATOR_KB_SYNC_INTERVAL_MS'], env);
-    assignConfigInterval(
-        options,
-        'backupIntervalMs',
-        intervals.backupMs ?? maintenanceConfig.backup?.intervalMs,
-        ['NEO_ORCHESTRATOR_BACKUP_INTERVAL_MS'],
-        env
-    );
-    assignConfigInterval(
-        options,
-        'primaryDevSyncIntervalMs',
-        intervals.primaryDevSyncMs,
-        ['NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_INTERVAL_MS'],
-        env
-    );
-    assignConfigInterval(options, 'dreamIntervalMs', intervals.dreamMs, [], env);
-    assignConfigInterval(options, 'goldenPathIntervalMs', intervals.goldenPathMs, [], env);
-    assignConfigInterval(
-        options,
-        'swarmHeartbeatIntervalMs',
-        intervals.swarmHeartbeatMs,
-        ['NEO_ORCHESTRATOR_SWARM_HEARTBEAT_INTERVAL_MS'],
-        env
-    );
-
-    const deploymentMode = orchestratorConfig.deploymentMode || 'local';
-    const localOnly      = orchestratorConfig.localOnly || {};
-
-    assignLocalOnlyToggle(
-        options,
-        'primaryDevSyncEnabled',
-        localOnly.primaryDevSyncEnabled,
-        'NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED',
-        deploymentMode,
-        env
-    );
-    assignLocalOnlyToggle(
-        options,
-        'kbSyncEnabled',
-        localOnly.kbSyncEnabled,
-        'NEO_ORCHESTRATOR_KB_SYNC_ENABLED',
-        deploymentMode,
-        env
-    );
-    assignLocalOnlyToggle(
-        options,
-        'bridgeDaemonEnabled',
-        localOnly.bridgeDaemonEnabled,
-        'NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED',
-        deploymentMode,
-        env
-    );
-    assignLocalOnlyToggle(
-        options,
-        'goldenPathRepoEnrichmentEnabled',
-        localOnly.goldenPathRepoEnrichmentEnabled,
-        'NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED',
-        deploymentMode,
-        env
-    );
-    assignLocalOnlyToggle(
-        options,
-        'swarmHeartbeatEnabled',
-        localOnly.swarmHeartbeatEnabled,
-        'NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED',
-        deploymentMode,
-        env
-    );
-
-    return options;
-}
-
-/**
- * Resolves the effective MLX inference-server config by overlaying env-var overrides
- * onto `AiConfig.orchestrator.mlx`. Operators tune via gitignored `ai/config.mjs`
- * or env (`NEO_ORCHESTRATOR_MLX_{ENABLED,MODEL,PORT}`); canonical defaults
- * (`enabled: false`, Gemma-4 model, port `'11435'`) live in
- * `ai/config.template.mjs` — this helper does not re-embed them.
- *
- * Boolean parsing for `NEO_ORCHESTRATOR_MLX_ENABLED` goes through
- * `Neo.util.Env.parseBool` for canonical token semantics
- * (true/yes/on/1, false/no/off/0, case-insensitive, trimmed).
- *
- * @param {Object} [options]
- * @param {Object} [options.orchestratorConfig={}] Slice of `AiConfig.orchestrator`.
- * @param {Object} [options.env=process.env] Env-var source (test-injectable).
- * @returns {{enabled: Boolean, model: String, port: String}}
- */
-export function resolveMlxConfig({orchestratorConfig = {}, env = process.env} = {}) {
-    const mlx = orchestratorConfig.mlx || {};
-
-    return {
-        enabled: Env.parseBool('NEO_ORCHESTRATOR_MLX_ENABLED', {env}) ?? !!mlx.enabled,
-        model  : env.NEO_ORCHESTRATOR_MLX_MODEL || mlx.model,
-        port   : env.NEO_ORCHESTRATOR_MLX_PORT  || mlx.port
-    };
-}
-
-/**
- * Resolves the effective LM Studio CLI (`lms`) inference-server config by overlaying
- * env-var overrides onto `AiConfig.orchestrator.lms`. Operators tune via gitignored
- * `ai/config.mjs` or env (`NEO_ORCHESTRATOR_LMS_{ENABLED,MODEL,PORT}`); canonical
- * defaults (`enabled: false`, `qwen3-embedding-8b` model, port `'1234'`) live in
- * `ai/config.template.mjs` — this helper does not re-embed them.
- *
- * Mirror of `resolveMlxConfig` — the `lms` task is the parallel-alternative
- * macOS-only local embedding server lane. Both `mlx` and `lms` lanes are mutually
- * exclusive in practice (operators pick one via the respective `enabled` flag),
- * though the orchestrator does not enforce that — two enabled lanes would bind
- * different ports and operate independently.
- *
- * Boolean parsing for `NEO_ORCHESTRATOR_LMS_ENABLED` goes through
- * `Neo.util.Env.parseBool` for canonical token semantics
- * (true/yes/on/1, false/no/off/0, case-insensitive, trimmed).
- *
- * @param {Object} [options]
- * @param {Object} [options.orchestratorConfig={}] Slice of `AiConfig.orchestrator`.
- * @param {Object} [options.env=process.env] Env-var source (test-injectable).
- * @returns {{enabled: Boolean, model: String, port: String}}
- */
-export function resolveLmsConfig({orchestratorConfig = {}, env = process.env} = {}) {
-    const lms = orchestratorConfig.lms || {};
-
-    return {
-        enabled: Env.parseBool('NEO_ORCHESTRATOR_LMS_ENABLED', {env}) ?? !!lms.enabled,
-        model  : env.NEO_ORCHESTRATOR_LMS_MODEL || lms.model,
-        port   : env.NEO_ORCHESTRATOR_LMS_PORT  || lms.port
-    };
-}
-
-/**
  * Starts the singleton orchestrator daemon.
- * @param {Object} [options] Runtime overrides for tests or process managers.
+ *
+ * Thin process-boot wrapper: PID singleton enforcement, signal handlers, env-file
+ * loading, Neo namespace bootstrap (already done at module-top), local AI config
+ * load, then delegation to `Orchestrator.start()`. Lane-internal config (intervals,
+ * enable flags, mlx/lms server tuning) is read by the Orchestrator itself via
+ * env-precedence getters that consult `AiConfig.orchestrator.X` directly — this
+ * function does NOT pre-resolve those into a flat options bag.
+ *
+ * @param {Object} [options] Test-injection seams (scriptDir, dbPath, taskDefinitions, ...).
  * @returns {Promise<void>}
  */
 export async function startOrchestrator(options = {}) {
@@ -335,21 +170,10 @@ export async function startOrchestrator(options = {}) {
     await enforceSingleton();
     setupCleanupHandlers();
     await loadLocalAiConfig();
-    const orchestratorConfig = AiConfig.orchestrator || {};
-    const maintenanceConfig  = AiConfig.maintenance || {};
-    const mlx                = resolveMlxConfig({orchestratorConfig});
-    const lms                = resolveLmsConfig({orchestratorConfig});
 
     return Orchestrator.start({
         dataDir: DAEMON_DATA_DIR,
-        primaryDevSyncRootsConfig: orchestratorConfig.devSyncRoots,
-        mlxEnabled: mlx.enabled,
-        mlxModel  : mlx.model,
-        mlxPort   : mlx.port,
-        lmsEnabled: lms.enabled,
-        lmsModel  : lms.model,
-        lmsPort   : lms.port,
-        ...resolveOrchestratorStartOptions({orchestratorConfig, maintenanceConfig}),
+        primaryDevSyncRootsConfig: AiConfig.orchestrator?.devSyncRoots,
         ...options
     });
 }
