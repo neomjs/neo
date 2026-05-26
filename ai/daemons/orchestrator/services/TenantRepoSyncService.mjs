@@ -432,6 +432,7 @@ class TenantRepoSyncService extends Base {
                     repoSlug        : repo.repoSlug,
                     mirrorRoot      : repo.mirrorRoot,
                     lastIngestedRev : priorState?.lastIngestedRev || null,
+                    newHead         : repo.branchRef || 'HEAD',
                     rootKind        : repo.rootKind || 'external-source',
                     parserId        : repo.parserId,
                     parserVersion   : repo.parserVersion,

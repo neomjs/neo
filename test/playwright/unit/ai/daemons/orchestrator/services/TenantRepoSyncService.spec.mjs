@@ -1109,6 +1109,37 @@ test.describe('TenantRepoSyncService (#11790)', () => {
         expect(result.details.failedCount).toBe(1);
         expect(result.details.completedCount).toBe(1);
     });
+
+    test('branchRef from tenantRepos[] flows through to envelopeBuilder.newHead (#12040)', async () => {
+        const taskStateService = createInMemoryTaskStateService();
+        const envelopeCalls    = [];
+
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/repo-with-branch'});
+        await provisionMirrorDir({tenantId: 't1', repoSlug: 'org/repo-default'});
+
+        await TenantRepoSyncService.runTask({
+            reason          : 'periodic-sweep:60000',
+            taskStateService,
+            tenantReposConfig: {tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/repo-with-branch', mirrorRoot, cloneUrl: 'https://github.com/neomjs/a.git', branchRef: 'dev'},
+                {tenantId: 't1', repoSlug: 'org/repo-default',     mirrorRoot, cloneUrl: 'https://github.com/neomjs/b.git'}
+            ]},
+            gitMirror                    : makeFakeGitMirror(),
+            envelopeBuilder              : makeFakeEnvelopeBuilder({captureCalls: envelopeCalls}),
+            knowledgeBaseIngestionService: makeFakeIngestionService(),
+            revisionsFilePath            : revisionsFile,
+            seedBootstrap                : false
+        });
+
+        const branchCall  = envelopeCalls.find(c => c.args.repoSlug === 'org/repo-with-branch');
+        const defaultCall = envelopeCalls.find(c => c.args.repoSlug === 'org/repo-default');
+
+        expect(branchCall, 'envelope builder called for repo-with-branch').toBeDefined();
+        expect(branchCall.args.newHead).toBe('dev');
+
+        expect(defaultCall, 'envelope builder called for repo-default').toBeDefined();
+        expect(defaultCall.args.newHead).toBe('HEAD');
+    });
 });
 
 test.describe('TenantRepoSyncService.resolveIngestionService — export-drift guard (#12042)', () => {

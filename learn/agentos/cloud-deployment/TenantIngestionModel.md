@@ -181,6 +181,7 @@ The `aiConfig.tenantRepos[]` array is read by `KnowledgeBaseIngestionService.get
     repoSlug      : 'neomjs/create-app',                // tenant-owned, namespaced, never credential-bearing
     cloneUrl      : 'https://github.com/neomjs/create-app.git',  // clean URL; no userinfo@
     credentialRef : 'file:/run/secrets/neomjs_repo_token', // env:VAR and ssh:/path remain supported
+    branchRef     : 'dev',                              // optional; git ref (branch/tag/sha) to ingest from. Default: 'HEAD' = remote default branch
     rootKind      : 'external-source',                  // 'neo-workspace' | 'bare-repo' | 'external-source'
     parserId      : 'raw-text',                         // optional; defaults to family dispatch
     parserVersion : '1'                                 // optional
@@ -190,6 +191,8 @@ The `aiConfig.tenantRepos[]` array is read by `KnowledgeBaseIngestionService.get
 **Credential-bearing `cloneUrl` strings (`https://user:token@...`) are rejected at config normalization.** The `credentialRef` is a reference (env-var name, secret-store path, etc.) that `GitMirror` resolves only at the git subprocess invocation boundary (`GIT_ASKPASS` for HTTPS, `GIT_SSH_COMMAND` for SSH). The deployment graph never persists resolved credentials.
 
 Use `file:/run/secrets/<name>` when the deployment mounts Git credentials through Docker `secrets:` or a Kubernetes Secret volume. `GitMirror` reads and trims the file at subprocess time, then feeds the value through the same transient `GIT_ASKPASS` path as `env:` credentials; empty or missing files fail before git runs.
+
+**`branchRef` (optional)** selects which git ref to ingest from. Omitted = `'HEAD'` = the remote's default branch. Useful when the canonical product-source-of-truth branch differs from the repo's default branch — e.g., trunk-based teams using `dev` as integration line + `main` as release-tag-only. Validated as a non-empty string at config normalization; accepts any git ref name (branch, tag, sha) since it flows through `gitMirror.resolveHead()`.
 
 For the canonical config schema and rejection rules, see [`TenantRepoAccessContract.mjs`](../../../ai/services/knowledge-base/helpers/TenantRepoAccessContract.mjs).
 
