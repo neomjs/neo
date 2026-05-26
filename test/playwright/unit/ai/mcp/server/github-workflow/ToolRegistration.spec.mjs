@@ -2,6 +2,7 @@ import {test, expect}  from '@playwright/test';
 import fs              from 'fs';
 import path            from 'path';
 import {fileURLToPath} from 'url';
+import yaml            from 'js-yaml';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -57,5 +58,20 @@ test.describe('GitHub Workflow MCP Server Tool Registration', () => {
         expect(keys.includes('manage_pr_review'),
             `FAIL: manage_pr_review not found in toolService mapping — #11273 substrate-correct atomic-PR-review primitive (closes formal-state gap pattern from PR #11234 + PR #11271 empirical anchors). Keys found: ${keys.join(', ')}`
         ).toBe(true);
+    });
+
+    test('create_issue documents @me for assignee self-assignment (#12038)', () => {
+        const filePath = path.resolve(__dirname, '../../../../../../../ai/mcp/server/github-workflow/openapi.yaml');
+
+        expect(fs.existsSync(filePath), `openapi.yaml not found at ${filePath}`).toBe(true);
+
+        const fileContent = fs.readFileSync(filePath, 'utf8'),
+              doc         = yaml.load(fileContent),
+              operation   = doc.paths['/issues'].post,
+              assignees   = operation.requestBody.content['application/json'].schema.properties.assignees;
+
+        expect(operation.operationId).toBe('create_issue');
+        expect(assignees.description).toContain('@me');
+        expect(assignees.example).toContain('@me');
     });
 });
