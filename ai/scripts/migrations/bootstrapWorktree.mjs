@@ -1,13 +1,14 @@
 /**
- * @summary Copies gitignored `ai/mcp/server/<name>/config.mjs` files from the main git
- * checkout into the current git worktree, and optionally symlinks the gitignored
- * substrate-data subdirs of `.neo-ai-data/` (sqlite, chroma, wake-daemon, etc.) so
+ * @summary Copies gitignored `ai/config.mjs` plus per-server config overlays from
+ * the main git checkout into the current git worktree, and optionally symlinks the
+ * gitignored substrate-data subdirs of `.neo-ai-data/` (sqlite, chroma, wake-daemon, etc.) so
  * Memory Core, knowledge-base, and bridge-daemon state is unified across worktree
  * MCP server processes — while leaving the git-tracked `concepts/` subdir untouched.
  *
- * **Background (config copy):** `ai/mcp/server/{github-workflow,knowledge-base,memory-core,neural-link}/config.mjs`
- * are gitignored (they are copy-from-template files for local overrides). Fresh git worktrees
- * under `.claude/worktrees/<name>/` therefore cannot run any script that imports
+ * **Background (config copy):** `ai/config.mjs` is the Tier-1 operator overlay.
+ * `ai/mcp/server/{github-workflow,knowledge-base,memory-core,neural-link}/config.mjs`
+ * are gitignored per-server overlays. Fresh git worktrees under
+ * `.claude/worktrees/<name>/` therefore cannot run any script that imports
  * `ai/services.mjs`:
  *
  * ```
@@ -93,7 +94,9 @@
  *
  * Idempotent: files that already exist are skipped; subdirs already symlinked report
  * `'already-linked'`. Refuses to run from the main checkout itself (no-op when worktree
- * root === resolved canonical root).
+ * root === resolved canonical root). Copied per-server configs are materialized through
+ * {@link materializeServerConfigTemplate}, so stale canonical overlays that still import
+ * `../../../config.template.mjs` point at the worktree-local `../../../config.mjs` instead.
  *
  * @see https://github.com/neomjs/neo/issues/10095
  * @see https://github.com/neomjs/neo/issues/10224 (closed predecessor — coarse-grained symlink)
@@ -101,6 +104,7 @@
  * @see https://github.com/neomjs/neo/issues/10432 / #10433 (granular per-subdir refinement)
  * @see https://github.com/neomjs/neo/issues/10435 (independent-clone topology extension)
  * @see https://github.com/neomjs/neo/issues/10591 (gitignored single-file symlink extension)
+ * @see https://github.com/neomjs/neo/issues/12051 (Tier-1 config + materialize-on-copy)
  */
 import {execFile}       from 'child_process';
 import fs               from 'fs/promises';
@@ -108,9 +112,12 @@ import path             from 'path';
 import {fileURLToPath}  from 'url';
 import {promisify}      from 'util';
 
+import {materializeServerConfigTemplate} from '../setup/initServerConfigs.mjs';
+
 const execFileAsync = promisify(execFile);
 
 export const BOOTSTRAP_CONFIGS = [
+    'ai/config.mjs',
     'ai/mcp/server/github-workflow/config.mjs',
     'ai/mcp/server/knowledge-base/config.mjs',
     'ai/mcp/server/memory-core/config.mjs',
@@ -206,6 +213,8 @@ export async function resolveMainCheckout(cwd, {explicitRoot} = {}) {
 
 /**
  * @summary Copies missing config.mjs files from the main checkout into the target project root.
+ * Per-server configs are materialized after copy so their Tier-1 import points at the
+ * copied operator overlay (`ai/config.mjs`) instead of `ai/config.template.mjs`.
  *
  * Pure function form for testability — accepts explicit `mainCheckout`, `projectRoot`, and
  * `configs` arguments. CLI mode (bottom of file) resolves these via git.
@@ -245,11 +254,19 @@ export async function bootstrapWorktree({mainCheckout, projectRoot, configs = BO
 
         await fs.mkdir(path.dirname(dst), {recursive: true});
         await fs.copyFile(src, dst);
+        if (isPerServerConfig(rel)) {
+            const copiedSrc = await fs.readFile(dst, 'utf-8');
+            await fs.writeFile(dst, materializeServerConfigTemplate(copiedSrc), 'utf-8');
+        }
         result.copied.push(rel);
         log(`copied: ${rel}`);
     }
 
     return result;
+}
+
+function isPerServerConfig(rel) {
+    return rel.startsWith('ai/mcp/server/') && rel.endsWith('/config.mjs');
 }
 
 async function exists(p) {
