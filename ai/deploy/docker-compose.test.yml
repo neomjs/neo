@@ -64,6 +64,11 @@ services:
       - NEO_OPENAI_COMPATIBLE_API_KEY=test-integration-key
     tmpfs:
       - /tmp/neo-integration
+    volumes:
+      # Production deploy images keep the broad `test` tree out of the build
+      # context; this test-only mount preserves the KB ingestion golden fixtures
+      # that the integration matrix executes from inside the kb-server container.
+      - ../../test/playwright/integration/ai/kb-ingestion/fixtures/external-workspaces:/app/test/playwright/integration/ai/kb-ingestion/fixtures/external-workspaces:ro
     depends_on:
       chroma:
         condition: service_healthy

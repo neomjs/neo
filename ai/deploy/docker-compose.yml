@@ -197,6 +197,8 @@ services:
     image: caddy:2-alpine
     ports:
       - "443:443"
+    environment:
+      - NEO_DEPLOY_HOSTNAME=${NEO_DEPLOY_HOSTNAME:-localhost}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
