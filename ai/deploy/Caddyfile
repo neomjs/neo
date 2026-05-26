@@ -8,10 +8,11 @@
 # Wired into ai/deploy/docker-compose.yml as the `ingress` profile service:
 #   docker compose --profile cloud --profile ingress up
 #
-# Copy-paste-runnable as-is: `tls internal` issues a self-signed certificate, so
-# the stack stands up with zero operator configuration. For production, replace
-# `:443` with your real hostname — Caddy then auto-provisions a publicly-trusted
-# certificate — or mount certs and swap `tls internal` for `tls /cert.pem /key.pem`.
+# Copy-paste-runnable as-is: NEO_DEPLOY_HOSTNAME defaults to localhost, giving
+# `tls internal` a concrete identifier for self-signed certificate issuance. For
+# production, set NEO_DEPLOY_HOSTNAME to your real hostname — Caddy then
+# auto-provisions a publicly-trusted certificate — or mount certs and swap
+# `tls internal` for `tls /cert.pem /key.pem`.
 #
 # Security threat model: the MCP servers run with trustProxyIdentity, trusting the
 # X-PREFERRED-USERNAME header for authorization. Any client-supplied value for that
@@ -24,33 +25,33 @@
 # `request_header`. `route` pins literal order — see ai/mcp/deploy/proxy/Caddyfile.
 # ------------------------------------------------------------------------------
 
-:443 {
-    tls internal
+{$NEO_DEPLOY_HOSTNAME:localhost}:443 {
+	tls internal
 
-    route {
-        # 1. SECURITY — strip client-supplied identity headers before anything trusts them.
-        request_header -X-Preferred-Username
-        request_header -X-Auth-Request-Preferred-Username
+	route {
+		# 1. SECURITY — strip client-supplied identity headers before anything trusts them.
+		request_header -X-Preferred-Username
+		request_header -X-Auth-Request-Preferred-Username
 
-        # 2. OPTIONAL auth layer. Uncomment and provision an oauth2-proxy (operator-owned
-        #    OIDC) for enforced identity. Without it the stack still stands up, but identity
-        #    is unenforced — reference/demo posture only; never run multi-tenant unauthed.
-        # forward_auth oauth2-proxy:4180 {
-        #     uri /oauth2/auth
-        #     copy_headers X-Auth-Request-Preferred-Username
-        # }
+		# 2. OPTIONAL auth layer. Uncomment and provision an oauth2-proxy (operator-owned
+		#    OIDC) for enforced identity. Without it the stack still stands up, but identity
+		#    is unenforced — reference/demo posture only; never run multi-tenant unauthed.
+		# forward_auth oauth2-proxy:4180 {
+		#     uri /oauth2/auth
+		#     copy_headers X-Auth-Request-Preferred-Username
+		# }
 
-        # 3. Knowledge Base MCP server — compose service DNS, internal port 3000.
-        #    With the optional auth layer enabled, inject the trusted identity header
-        #    inside this block, e.g.:
-        #    `header_up X-Preferred-Username {http.request.header.X-Auth-Request-Preferred-Username}`
-        handle_path /kb/* {
-            reverse_proxy kb-server:3000
-        }
+		# 3. Knowledge Base MCP server — compose service DNS, internal port 3000.
+		#    With the optional auth layer enabled, inject the trusted identity header
+		#    inside this block, e.g.:
+		#    `header_up X-Preferred-Username {http.request.header.X-Auth-Request-Preferred-Username}`
+		handle_path /kb/* {
+			reverse_proxy kb-server:3000
+		}
 
-        # 4. Memory Core MCP server — compose service DNS, internal port 3001.
-        handle_path /mc/* {
-            reverse_proxy mc-server:3001
-        }
-    }
+		# 4. Memory Core MCP server — compose service DNS, internal port 3001.
+		handle_path /mc/* {
+			reverse_proxy mc-server:3001
+		}
+	}
 }
