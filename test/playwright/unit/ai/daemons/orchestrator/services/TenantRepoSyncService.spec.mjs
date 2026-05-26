@@ -1250,4 +1250,36 @@ test.describe('TenantRepoSyncService.resolveTenantReposConfig — Tier-1 mirrorR
         expect(mirrorPath).toBe('/app/.neo-ai-data/tenant-repos/tenant-a/repo-a');
         expect(mirrorPath).not.toContain('tenant-repos/tenant-repos');
     });
+
+    test('stale-overlay defense: missing orchestratorConfig.tenantRepoMirrorRoot falls back to env var (#12036 cycle-2 RA1)', async () => {
+        const aiConfigStub = {
+            tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/r', cloneUrl: 'https://github.com/o/r.git', credentialRef: 'env:T'}
+            ]
+        };
+
+        const result = await TenantRepoSyncService.resolveTenantReposConfig({
+            aiConfig          : aiConfigStub,
+            orchestratorConfig: {},  // simulate stale operator overlay (no tenantRepoMirrorRoot key)
+            env               : {NEO_TENANT_REPO_MIRROR_ROOT: '/env-bound/root'}
+        });
+
+        expect(result.tenantRepos[0].mirrorRoot).toBe('/env-bound/root');
+    });
+
+    test('stale-overlay defense: missing orchestratorConfig AND no env var → hardcoded /app/.neo-ai-data (#12036 cycle-2 RA1)', async () => {
+        const aiConfigStub = {
+            tenantRepos: [
+                {tenantId: 't1', repoSlug: 'org/r', cloneUrl: 'https://github.com/o/r.git', credentialRef: 'env:T'}
+            ]
+        };
+
+        const result = await TenantRepoSyncService.resolveTenantReposConfig({
+            aiConfig          : aiConfigStub,
+            orchestratorConfig: {},
+            env               : {}
+        });
+
+        expect(result.tenantRepos[0].mirrorRoot).toBe('/app/.neo-ai-data');
+    });
 });

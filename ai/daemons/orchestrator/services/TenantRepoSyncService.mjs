@@ -546,20 +546,39 @@ class TenantRepoSyncService extends Base {
 
     /**
      * Resolves the tenantRepos config from `aiConfig` via `TenantRepoAccessContract.normalizeTenantRepos`.
-     * Materializes per-repo `mirrorRoot` via the Tier-1 `orchestrator.tenantRepoMirrorRoot`
-     * fallback when the per-repo override is absent — the env-bound Tier-1 default is
-     * `NEO_TENANT_REPO_MIRROR_ROOT` (canonical compose value: `/app/.neo-ai-data`).
-     * Test seam: pass `aiConfig` argument to bypass live import + pass `tier1MirrorRoot`
-     * to bypass the live AiConfig import.
+     * Materializes per-repo `mirrorRoot` via a defensive fallback chain when the per-repo
+     * override is absent:
+     *
+     *   1. `tier1MirrorRoot` (test seam — full short-circuit)
+     *   2. `orchestratorConfig.tenantRepoMirrorRoot` (canonical path; Tier-1 env-bound default)
+     *   3. `env.NEO_TENANT_REPO_MIRROR_ROOT` (defensive — covers stale-overlay deployments
+     *      where the operator's gitignored `ai/config.mjs` predates the new
+     *      `tenantRepoMirrorRoot` key + envBindings entry, so the Tier-1 lookup misses)
+     *   4. `'/app/.neo-ai-data'` (hardcoded final fallback)
+     *
+     * The (3) layer is the "stale gitignored overlay copied into deploy image" defense:
+     * `ai/deploy/Dockerfile` does `COPY . .` before `initServerConfigs.mjs` runs in
+     * warn-only mode, so an older operator overlay survives into the container with no
+     * `tenantRepoMirrorRoot` key — but the env var is still injected via compose, so
+     * a direct `process.env` read keeps the resolver behavior correct regardless.
+     *
+     * Test seams: `aiConfig` bypasses live import; `tier1MirrorRoot` short-circuits the
+     * chain; `orchestratorConfig` stubs the AiConfig.orchestrator section; `env` stubs
+     * `process.env` for fallback-chain testing.
      *
      * @param {Object} options
      * @param {Object} [options.aiConfig] Pre-resolved config object.
      * @param {String} [options.tier1MirrorRoot] Pre-resolved Tier-1 mirrorRoot default (test seam).
+     * @param {Object} [options.orchestratorConfig=AiConfig.orchestrator] Stub for the AiConfig.orchestrator section (test seam).
+     * @param {Object} [options.env=process.env] Stub for the env-var lookup (test seam).
      * @returns {Promise<{tenantRepos: Array<Object>}>}
      */
-    async resolveTenantReposConfig({aiConfig, tier1MirrorRoot}) {
+    async resolveTenantReposConfig({aiConfig, tier1MirrorRoot, orchestratorConfig = AiConfig.orchestrator, env = process.env}) {
         const cfg              = aiConfig || (await import('../../../mcp/server/knowledge-base/config.mjs')).default;
-        const tier1Default     = tier1MirrorRoot ?? AiConfig.orchestrator?.tenantRepoMirrorRoot;
+        const tier1Default     = tier1MirrorRoot
+            ?? orchestratorConfig?.tenantRepoMirrorRoot
+            ?? env.NEO_TENANT_REPO_MIRROR_ROOT
+            ?? '/app/.neo-ai-data';
         const normalized       = normalizeTenantRepoConfig({tenantRepos: cfg.tenantRepos || []});
 
         normalized.tenantRepos = normalized.tenantRepos.map(entry =>
