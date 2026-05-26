@@ -790,7 +790,7 @@ class KnowledgeBaseIngestionService extends Base {
      * the `kb-config.yaml` deployment bootstrap → the default source/parser registry from `aiConfig`.
      * @param {Object}  data
      * @param {String} [data.tenantId] Tenant id; normalized, defaults to `aiConfig.defaultTenantId`.
-     * @returns {Promise<{tenantId: String, source: String, version: Number, useDefaultSources: Boolean, useDefaultParsers: Boolean, customSources: Array, customParsers: Array, sourcePaths: Object}>}
+     * @returns {Promise<{tenantId: String, source: String, version: Number, useDefaultSources: Boolean, rawRepoSource: Boolean, useDefaultParsers: Boolean, customSources: Array, customParsers: Array, sourcePaths: Object}>}
      */
     async getTenantConfig({tenantId} = {}) {
         const resolvedTenant = normalizeUserId(tenantId) || aiConfig.defaultTenantId || 'neo-shared';
@@ -806,6 +806,7 @@ class KnowledgeBaseIngestionService extends Base {
                 source           : 'graph',
                 version          : p.version || 0,
                 useDefaultSources: p.useDefaultSources !== false,
+                rawRepoSource    : p.rawRepoSource === true,
                 useDefaultParsers: p.useDefaultParsers !== false,
                 customSources    : p.customSources || [],
                 customParsers    : p.customParsers || [],
@@ -825,6 +826,7 @@ class KnowledgeBaseIngestionService extends Base {
                 source           : 'yaml',
                 version          : 0,
                 useDefaultSources: normalizedBootstrap.useDefaultSources !== false,
+                rawRepoSource    : normalizedBootstrap.rawRepoSource === true,
                 useDefaultParsers: normalizedBootstrap.useDefaultParsers !== false,
                 customSources    : normalizedBootstrap.customSources || [],
                 customParsers    : normalizedBootstrap.customParsers || [],
@@ -841,6 +843,7 @@ class KnowledgeBaseIngestionService extends Base {
             source           : 'default',
             version          : 0,
             useDefaultSources: normalizedAiConfig.useDefaultSources !== false,
+            rawRepoSource    : normalizedAiConfig.rawRepoSource === true,
             useDefaultParsers: normalizedAiConfig.useDefaultParsers !== false,
             customSources    : normalizedAiConfig.customSources || [],
             customParsers    : normalizedAiConfig.customParsers || [],
@@ -890,8 +893,9 @@ class KnowledgeBaseIngestionService extends Base {
      *   detection to the default tier. Mirrors the `kb-manifest:<tenantId>` sibling node.
      * @param {Object} data
      * @param {String} data.tenantId Tenant id.
-     * @param {Object} [data.config={}] Config payload — `useDefaultSources` / `useDefaultParsers` /
-     *                                  `customSources` / `customParsers` / `sourcePaths`.
+     * @param {Object} [data.config={}] Config payload — `useDefaultSources` / `rawRepoSource` /
+     *                                  `useDefaultParsers` / `customSources` / `customParsers` /
+     *                                  `sourcePaths`.
      * @returns {Promise<{tenantId: String, version: Number}|{error: String, code: String, message: String}>}
      */
     async setTenantConfig({tenantId, config = {}} = {}) {
@@ -911,6 +915,7 @@ class KnowledgeBaseIngestionService extends Base {
                 properties: {
                     tenantId         : resolvedTenant,
                     useDefaultSources: normalizedConfig.useDefaultSources !== false,
+                    rawRepoSource    : normalizedConfig.rawRepoSource === true,
                     useDefaultParsers: normalizedConfig.useDefaultParsers !== false,
                     customSources    : normalizedConfig.customSources || [],
                     customParsers    : normalizedConfig.customParsers || [],
