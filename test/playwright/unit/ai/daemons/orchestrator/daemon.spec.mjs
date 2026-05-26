@@ -32,6 +32,7 @@ test.describe('ai/daemons/orchestrator/daemon.mjs (#11006/#11009)', () => {
 
         expect(tasks.backup.command).toBe('/test/node');
         expect(tasks.backup.args).toEqual([path.join(scriptDir, 'maintenance', 'backup.mjs')]);
+        expect(tasks.backup.label).toBe('agent OS backup');
         expect(tasks.backup.expectedCommand).toBe('backup.mjs');
     });
 
