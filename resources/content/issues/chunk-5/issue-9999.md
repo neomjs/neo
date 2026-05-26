@@ -16,15 +16,15 @@ commentsCount: 10
 parentIssue: null
 subIssues:
   - '[x] 10013 [Sub-Epic] DreamService Decomposition'
-  - '[ ] 10015 [Sub-Epic] Dynamic Topology — Unified vs. Federated Routing'
-  - '[ ] 10016 [Sub-Epic] Multi-Tenant Identity & Data Privacy'
+  - '[x] 10015 [Sub-Epic] Dynamic Topology — Unified vs. Federated Routing'
+  - '[x] 10016 [Sub-Epic] Multi-Tenant Identity & Data Privacy'
   - '[ ] 10030 [Epic] Concept Ontology & Semantic Gap Inference'
   - '[x] 10057 Knowledge Base: Add PullRequestSource for PR Conversation Embeddings'
   - '[x] 10127 HealthService: surface effective unified/federated topology in /health'
   - '[x] 10129 Backup: atomic timestamped bundle across all persistent subsystems'
-  - '[ ] 10136 Rewrite CodebaseOverview.md to reflect Two Hemispheres architecture + Dream Pipeline'
-  - '[ ] 10139 Extend Memory Core with Explicit A2A Primitive'
-  - '[ ] 10143 Graph-first Memory artifacts: lift Memory + Session to first-class nodes'
+  - '[x] 10136 Rewrite CodebaseOverview.md to reflect Two Hemispheres architecture + Dream Pipeline'
+  - '[x] 10139 Extend Memory Core with Explicit A2A Primitive'
+  - '[x] 10143 Graph-first Memory artifacts: lift Memory + Session to first-class nodes'
   - '[x] 10587 Capture runSandman inference hard-failures durably'
   - '[x] 10691 Shared KB/MC Team Deployment MVP'
   - '[x] 10721 Shared deployment MVP completeness gaps (post-#10691)'
@@ -33,14 +33,15 @@ subIssues:
   - '[x] 10808 Operator-facing env var ergonomics: descriptive names + Chroma host/port overrides'
   - '[x] 10813 Restore session summaries: primary-flag gate + sunset-event trigger'
   - '[x] 10822 Config substrate cleanup: KISS hard cuts + three-tier model'
-  - '[ ] 10945 Expand deployment-pipeline integration coverage for Memory Core'
+  - '[x] 10945 Expand deployment-pipeline integration coverage for Memory Core'
   - '[x] 10957 Document v13 architectural path — slim MCP servers, orchestrator daemon, SDK migration sequence'
   - '[x] 10960 v13 Release Tracking — main-focus-items canonical sub-issue tree'
   - '[x] 11009 Move Orchestrator logic into Neo daemon class'
   - '[x] 11720 Cloud Agent OS Deployment Readiness'
-  - '[ ] 11730 Cloud Agent OS Deployment — Post-MVP Residual Workstreams'
-subIssuesCompleted: 16
-subIssuesTotal: 24
+  - '[x] 11730 Cloud Agent OS Deployment — Post-MVP Residual Workstreams'
+  - '[ ] 11731 Server-side tenant-repo ingestion for cloud Agent OS deployments'
+subIssuesCompleted: 23
+subIssuesTotal: 25
 blockedBy: []
 blocking:
   - '[ ] 10135 Audit Agent OS for Windows support'
@@ -1034,4 +1035,8 @@ Co-authored-by: tobiu <tobiasuhlig78@gmail.com>"
 - 2026-05-21T17:10:21Z @neo-opus-4-7 added sub-issue #11720
 - 2026-05-21T18:29:12Z @neo-opus-4-7 cross-referenced by #11730
 - 2026-05-21T18:30:02Z @neo-opus-4-7 added sub-issue #11730
+- 2026-05-22T21:10:20Z @neo-opus-4-7 cross-referenced by #11731
+- 2026-05-22T21:10:26Z @neo-opus-4-7 added sub-issue #11731
+- 2026-05-24T08:47:27Z @neo-gpt cross-referenced by #11884
+- 2026-05-25T02:11:32Z @neo-opus-4-7 cross-referenced by PR #11949
 

@@ -8,16 +8,16 @@ labels:
   - architecture
 assignees: []
 createdAt: '2026-02-24T19:41:53Z'
-updatedAt: '2026-02-24T19:43:58Z'
+updatedAt: '2026-05-26T02:45:46Z'
 githubUrl: 'https://github.com/neomjs/neo/issues/9299'
 author: tobiu
-commentsCount: 0
+commentsCount: 1
 parentIssue: 9295
 subIssues: []
 subIssuesCompleted: 0
 subIssuesTotal: 0
 blockedBy:
-  - '[ ] 9915 [Research] Evaluate Moltbook API capabilities and MCP infrastructure'
+  - '[ ] 9915 [Blocked Research] Moltbook API / identity feasibility for Neo AgentOS demo'
 blocking: []
 ---
 # Implement Agent Self-Discovery via Neural Link Introspection
@@ -51,4 +51,18 @@ The telemetry and insights gathered from this live, out-of-band introspection ph
 - 2026-04-12T11:16:55Z @tobiu cross-referenced by PR #9911
 - 2026-04-12T11:37:42Z @tobiu marked this issue as being blocked by #9915
 - 2026-04-13T07:24:28Z @tobiu cross-referenced by PR #9947
+### @neo-gpt - 2026-05-26T02:45:46Z
+
+## Current Reality Triage — 2026-05-26
+
+Verified live before this comment:
+- PR #9901 attempted to resolve this ticket and was closed unmerged.
+- The operator decline reason on #9901 was architectural: Neural Link cannot introspect Moltbook because Moltbook is not a Neo.mjs app; external-platform interaction requires a dedicated browser/platform MCP path and frontier-model execution, not local Neural Link introspection.
+- The current repo does ship Neural Link server/client/docs/tests (`ai/services/neural-link/*`, `src/ai/*`, `learn/agentos/NeuralLink.md`, whitebox E2E docs/tests), so the generic Neural Link capability exists.
+
+Verdict: keep open, but future implementation must use the corrected shape:
+- The self-discovery phase may use Neural Link only against a live Neo.mjs app to gather empirical evidence about Neo runtime structure.
+- The Moltbook/external-platform phase must use the browser/platform automation path, not Neural Link.
+- Completion evidence should be reproducible harness/test/script output or a durable generated artifact from that harness; a static report alone should not close the ticket.
+
 
