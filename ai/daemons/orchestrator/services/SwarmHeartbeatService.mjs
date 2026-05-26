@@ -542,6 +542,13 @@ class SwarmHeartbeatService extends Base {
      * (Discussion #11992 §5.1.1 + Epic #11993 cycle-3 "activity-derived signals are durable"
      * framing) — sibling to per-identity `getRecentActivityTimestamps`.
      *
+     * **3-branch UNION mirrors mailbox semantics:**
+     * - `SENT_TO` → direct-message recipients (`AGENT:*` sentinel excluded — broadcasts don't
+     *   land at a real identity; the per-recipient `DELIVERED_TO` edges are the actual recipients)
+     * - `DELIVERED_TO` → per-recipient broadcast targets (the canonical fan-out edge)
+     * - `SENT_BY`  → message senders (so an active sender lands in the candidate set even
+     *   if no one has replied yet within 3h)
+     *
      * @returns {Promise<String[]>} Normalized canonical `@<identity>` strings, deduplicated.
      * @protected
      */
@@ -564,13 +571,21 @@ class SwarmHeartbeatService extends Base {
                     SELECT e.target AS identity
                     FROM Edges e
                     JOIN Nodes n ON n.id = e.source
+                    WHERE e.type = 'DELIVERED_TO'
+                      AND json_extract(n.data, '$.label') = 'MESSAGE'
+                      AND json_extract(n.data, '$.properties.sentAt') >= ?
+                      AND e.target IS NOT NULL
+                    UNION
+                    SELECT e.target AS identity
+                    FROM Edges e
+                    JOIN Nodes n ON n.id = e.source
                     WHERE e.type = 'SENT_BY'
                       AND json_extract(n.data, '$.label') = 'MESSAGE'
                       AND json_extract(n.data, '$.properties.sentAt') >= ?
                       AND e.target IS NOT NULL
                 )
             `);
-            return stmt.all(cutoffIso, cutoffIso)
+            return stmt.all(cutoffIso, cutoffIso, cutoffIso)
                 .map(row => row.identity)
                 .filter(Boolean)
                 .map(identity => normalizeAgentIdentityNodeId(identity))

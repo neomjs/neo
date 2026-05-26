@@ -419,40 +419,58 @@ test.describe('Neo.ai.daemons.SwarmHeartbeatService', () => {
         ]);
     });
 
-    test('getActiveA2aParticipants() returns deduplicated normalized identities from A2A graph (3h window) (#12003)', async () => {
+    test('getActiveA2aParticipants() SQL covers SENT_TO + DELIVERED_TO + SENT_BY edge taxonomy, excludes AGENT:* sentinel, applies 3h cutoff (#12003 cycle-2)', async () => {
         applyDefaultStubs();
 
-        // Capture the SQL params passed by the implementation so the test asserts the
-        // 3h cutoff is being applied — both SENT_TO and SENT_BY queries get the cutoff.
-        const capturedParams = [];
+        // Capture both the SQL string and the parameters so the test asserts the
+        // edge taxonomy (the contract from #12003), not just the returned identity list.
+        let capturedSql       = null;
+        const capturedParams  = [];
         SwarmHeartbeatService.getGraphDb = () => {
             return {
-                prepare: () => ({
-                    all: (...params) => {
-                        capturedParams.push(params);
-                        return [
-                            {identity: 'neo-gpt'},
-                            {identity: '@neo-opus-4-7'},
-                            {identity: null},
-                            {identity: '@neo-gemini-3-1-pro'}
-                        ];
-                    }
-                })
+                prepare: sql => {
+                    capturedSql = sql;
+                    return {
+                        all: (...params) => {
+                            capturedParams.push(params);
+                            return [
+                                {identity: 'neo-gpt'},          // SENT_TO recipient (direct DM)
+                                {identity: '@neo-opus-4-7'},    // DELIVERED_TO recipient (broadcast fan-out)
+                                {identity: null},
+                                {identity: '@neo-gemini-3-1-pro'} // SENT_BY sender
+                            ];
+                        }
+                    };
+                }
             }
         };
 
         const serviceProto = Object.getPrototypeOf(SwarmHeartbeatService);
         const result       = await serviceProto.getActiveA2aParticipants.call(SwarmHeartbeatService);
 
-        // Identities normalized + null filtered; order preserved.
+        // SQL edge-taxonomy contract: all 3 edge classes covered.
+        expect(capturedSql).toContain("e.type = 'SENT_TO'");
+        expect(capturedSql).toContain("e.type = 'DELIVERED_TO'");
+        expect(capturedSql).toContain("e.type = 'SENT_BY'");
+        // SENT_TO branch explicitly excludes the AGENT:* broadcast sentinel — the
+        // per-recipient DELIVERED_TO edges are the canonical broadcast targets.
+        expect(capturedSql).toContain("e.target != 'AGENT:*'");
+        // 3h cutoff applied via sentAt comparison.
+        expect(capturedSql).toContain("json_extract(n.data, '$.properties.sentAt') >= ?");
+        // MESSAGE label filter on all branches.
+        expect(capturedSql).toContain("json_extract(n.data, '$.label') = 'MESSAGE'");
+
+        // Identities normalized + null filtered; dedup via SELECT DISTINCT.
         expect(result).toEqual(['@neo-gpt', '@neo-opus-4-7', '@neo-gemini-3-1-pro']);
-        // Two cutoff params passed (SENT_TO + SENT_BY UNION); both should be ISO strings.
-        expect(capturedParams.length).toBe(1);
-        expect(capturedParams[0]).toHaveLength(2);
-        expect(capturedParams[0][0]).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-        expect(capturedParams[0][1]).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-        // Both cutoff params identical (same Date.now() snapshot).
+
+        // 3 cutoff params (one per UNION branch); identical (same Date.now() snapshot); ISO format.
+        expect(capturedParams).toHaveLength(1);
+        expect(capturedParams[0]).toHaveLength(3);
+        for (const param of capturedParams[0]) {
+            expect(param).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+        }
         expect(capturedParams[0][0]).toBe(capturedParams[0][1]);
+        expect(capturedParams[0][1]).toBe(capturedParams[0][2]);
     });
 
     test('getActiveA2aParticipants() returns [] on query failure (substrate-error fallback)', async () => {
