@@ -21,7 +21,10 @@ RUN npm rebuild better-sqlite3 && node ./ai/scripts/setup/initServerConfigs.mjs
 FROM node:24-alpine
 WORKDIR /app
 
-RUN apk add --no-cache libstdc++
+# `git` is required by `ai/services/knowledge-base/helpers/GitMirror.mjs` for
+# tenant-repo clone/fetch. The orchestrator daemon's tenantRepoSync lane and
+# the operator-bulk `syncTenantRepos.mjs` CLI both shell out to it.
+RUN apk add --no-cache libstdc++ git
 
 COPY --from=builder /app ./
 
