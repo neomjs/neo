@@ -47,11 +47,30 @@ Required local tools:
 | npm | `npm --version` | a version string |
 | Docker Compose | `docker compose version` | a Compose version string |
 
+Container runtime choices:
+
+| Runtime | Fit | Setup hint |
+|---|---|---|
+| Docker Desktop | macOS / Windows desktop default. | Install Docker Desktop and start it before running `docker compose`. |
+| Docker Engine | Linux host or server default. | Install the Docker Engine and Compose plugin from your distribution or Docker packages. |
+| Colima | Open-source macOS VM runtime with Docker-compatible sockets. | Install `colima` plus Docker CLI tooling, then start a VM before running this tutorial. |
+| Podman | Docker-compatible alternative for teams already standardized on Podman. | Enable Docker-compatible Compose support and verify `docker compose version`. |
+| OrbStack | macOS desktop runtime with Docker-compatible CLI integration. | Install OrbStack, start it, and verify `docker compose version`. |
+
+All commands in this guide use Docker's canonical no-dash `docker compose`
+form. If your runtime only exposes the legacy `docker-compose` binary, wire it
+as a Docker CLI plugin before continuing.
+
+For local macOS VM runtimes such as Colima, size the VM for the Agent OS stack:
+use roughly 16 GiB as the practical minimum for Chroma + KB + MC +
+Orchestrator, and 24+ GiB when loading local chat models alongside the stack.
+
 Failure signatures:
 
 | Signature | Meaning | Fix |
 |---|---|---|
 | `docker: command not found` | Docker is not installed in this environment. | Install Docker Desktop / Docker Engine or run the tutorial on a Docker-capable host. |
+| `docker: unknown command: docker compose` | Docker CLI is installed, but the Compose plugin path is not wired. This is common after `brew install docker docker-compose` on macOS. | `mkdir -p ~/.docker/cli-plugins && ln -sf "$(brew --prefix)/bin/docker-compose" ~/.docker/cli-plugins/docker-compose` |
 | `Cannot connect to the Docker daemon` | Docker is installed but not running or not accessible. | Start Docker and verify `docker info`. |
 | `npm ERR!` during install | Dependencies are missing or the registry is unavailable. | Retry after network recovery; do not continue with a partial `node_modules`. |
 
