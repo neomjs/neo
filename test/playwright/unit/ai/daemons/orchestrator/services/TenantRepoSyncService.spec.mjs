@@ -1117,21 +1117,26 @@ test.describe('TenantRepoSyncService.resolveIngestionService — export-drift gu
      * `runTask` arguments, bypassing `resolveIngestionService` entirely. That's how
      * the export-drift bug fixed in PR #12037 (lookup of the non-existent
      * `KB_KnowledgeBaseIngestionService` / `KnowledgeBaseIngestionService` names)
-     * escaped unit-test detection.
+     * escaped unit-test detection. This block covers all three drift classes:
      *
-     * A runtime test that imports `ai/services.mjs` and calls `resolveIngestionService()`
-     * is blocked here by the same `Neo.ai.Config` namespace collision pattern that the
-     * operator-overlay `ai/config.mjs` triggers under `unitTestMode` (template vs overlay
-     * double-register at `ai/config.template.mjs:578`). Static source-parsing catches
-     * the same drift without invoking class registration:
-     *
-     *   - Drift A: `services.mjs` renames `KB_IngestionService` → caught here.
+     *   - Drift A: `services.mjs` renames `KB_IngestionService` (static source guard).
      *   - Drift B: `TenantRepoSyncService.resolveIngestionService` looks up a different
-     *     symbol than what `services.mjs` exports → caught here.
-     *   - Drift C: `KB_IngestionService` shape loses `ingestSourceFiles` method →
-     *     NOT caught here (would need runtime test); residual gap documented.
+     *     symbol than what `services.mjs` exports (static source guard).
+     *   - Drift C: `KB_IngestionService` shape loses `ingestSourceFiles` method
+     *     (runtime resolver call + structural check).
+     *
+     * The runtime test (Drift C) calls the real resolver, which transitively imports
+     * `ai/services.mjs` → `ai/config.template.mjs`, which trips the `Neo.ai.Config`
+     * namespace-collision guard under `unitTestMode` because the operator overlay
+     * `ai/config.mjs` already registered that className. The guard's strict-mode
+     * behavior is to throw; the non-strict behavior is to return the existing
+     * namespace (a no-op for already-registered identical classes). Since we want
+     * the no-op behavior — this is exactly the case the guard's non-strict branch
+     * was written for ("different versions of Neo.mjs", per the comment at
+     * `src/Neo.mjs:811-818`) — we temporarily disable strict mode during the
+     * resolver call.
      */
-    const repoRoot   = path.resolve(__dirname, '../../../../../../../');
+    const repoRoot     = path.resolve(__dirname, '../../../../../../../');
     const servicesPath = path.join(repoRoot, 'ai/services.mjs');
     const resolverPath = path.join(repoRoot, 'ai/daemons/orchestrator/services/TenantRepoSyncService.mjs');
 
@@ -1147,5 +1152,20 @@ test.describe('TenantRepoSyncService.resolveIngestionService — export-drift gu
 
         expect(match, 'resolveIngestionService method body extractable').not.toBeNull();
         expect(match[1]).toContain('services.KB_IngestionService');
+    });
+
+    test('resolveIngestionService returns the canonical KB_IngestionService with ingestSourceFiles method (Drift C)', async () => {
+        const originalUnitTestMode = Neo.config.unitTestMode;
+        Neo.config.unitTestMode    = false;
+
+        try {
+            const ingestionService = await TenantRepoSyncService.resolveIngestionService();
+
+            expect(ingestionService).toBeDefined();
+            expect(ingestionService).not.toBeNull();
+            expect(typeof ingestionService.ingestSourceFiles).toBe('function');
+        } finally {
+            Neo.config.unitTestMode = originalUnitTestMode;
+        }
     });
 });
