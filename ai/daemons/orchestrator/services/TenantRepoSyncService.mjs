@@ -563,7 +563,7 @@ class TenantRepoSyncService extends Base {
      */
     async resolveIngestionService() {
         const services = await import('../../../services.mjs');
-        return services.KB_KnowledgeBaseIngestionService || services.KnowledgeBaseIngestionService;
+        return services.KB_IngestionService;
     }
 
     /**
