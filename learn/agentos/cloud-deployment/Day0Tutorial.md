@@ -564,27 +564,92 @@ Failure signatures:
 | `KB_INGEST_CLI_JSONL_PARSE_FAILED` | A JSONL line is malformed. | Fix the line; the CLI reports parse errors without hiding sibling records. |
 | Non-zero CLI exit | One or more records failed. | Inspect the printed `errors` array before retrying. |
 
-## Milestone 6 - Optional Clone / Server-Side Source
+## Milestone 6 - Optional Pull Mode / Server-Side Tenant Repo Sync
 
-Server-side clone is not part of the MVP push path. If the deployment receives
-only `{repo, ref, sha}` metadata and must fetch content itself, stop and route to
-[#11731](https://github.com/neomjs/neo/issues/11731). That path needs a
-credential-storage and clone-trust contract before implementation.
+Push (Milestone 3) is the primary tenant-ingestion path — tenant repo workflow drives the publish cadence under a service-account identity, and the deployment never holds tenant-repo credentials. Pull mode is the **additive alternative** for tenants who want the deployment to own the ingestion cadence (orchestrator polls the tenant repo on a schedule rather than waiting on a `pre-push` hook).
 
-Use [Custom Sources](./CustomSources.md) only when the deployment operator owns
-the source territory and has explicitly decided to run a full-corpus source on
-the deployment host.
+The substrate that powers pull mode shipped via Epic [#11731](https://github.com/neomjs/neo/issues/11731) — clone-trust + credential-boundary contract (`TenantRepoAccessContract` + `GitMirror`), envelope builder, scheduler lane, `RawRepoSource`, `branchRef`, `file:` credentialRef, Tier-1 `tenantRepoMirrorRoot` fallback. Read [Tenant Ingestion Model](./TenantIngestionModel.md) for the operator decision model and [Hook Wiring](./HookWiring.md) for the push-vs-pull selection guide.
+
+**Skip this milestone if push covers your tenant content.** Pull is additive, not a prerequisite for the Day-0 operator handoff.
+
+If pull mode applies to your deployment, configure one tenant repo as a smoke:
+
+```js
+// In <NEO_SOURCE_DIR>/ai/mcp/server/knowledge-base/config.mjs (operator overlay):
+tenantRepos: [
+    {
+        tenantId      : 'client-org',
+        repoSlug      : 'client-org/example-repo',
+        cloneUrl      : 'https://git.example.com/client-org/example-repo.git',  // clean URL; no userinfo@
+        credentialRef : 'env:NEO_TENANT_EXAMPLE_TOKEN',                          // reference-only; resolved at GIT_ASKPASS time
+        branchRef     : 'main'                                                   // optional; defaults to 'HEAD' = remote default
+    }
+]
+```
+
+Set the credential at the deployment env (compose, k8s Secret, or `file:/run/secrets/<name>` per [#12046](https://github.com/neomjs/neo/pull/12046)):
+
+```bash
+export NEO_TENANT_EXAMPLE_TOKEN="<read-only-repo-access-token>"
+```
+
+Trigger the first sync:
+
+```bash
+node ai/scripts/maintenance/syncTenantRepos.mjs --repo-slug client-org/example-repo
+```
+
+Expected output:
+
+```json
+{
+  "status": "completed",
+  "details": {
+    "repoCount": 1,
+    "completedCount": 1,
+    "repos": [{"tenantId": "client-org", "repoSlug": "client-org/example-repo", "status": "active", "lastIngestedRev": "<sha>"}]
+  }
+}
+```
+
+Verify the chunks landed:
+
+```bash
+node /tmp/day0-call-tool.mjs \
+  "$NEO_KB_MCP_BASE_URL" \
+  "client-org" \
+  ask_knowledge_base \
+  /tmp/day0-tenant-query.json   # re-use the query envelope from Milestone 3
+```
+
+Failure signatures:
+
+| Signature | Meaning | Fix |
+|---|---|---|
+| `KB_GITMIRROR_CLONE_FAILED` | Clone subprocess failed (network, auth, missing repo, or — Day-0 — missing `git` binary in older deploy images per [#12036](https://github.com/neomjs/neo/issues/12036)). | Verify `read_repository` scope on the token; verify deploy image is built from current `ai/deploy/Dockerfile` (post-#12037 ships `git`). |
+| `KB_TENANT_REPO_CREDENTIAL_REF_REQUIRED` / `KB_GITMIRROR_CREDENTIAL_REF_INVALID` | `credentialRef` missing or doesn't resolve at runtime. | Confirm the env var name matches the `credentialRef` exactly; for `file:` scheme, confirm the file exists + is non-empty. |
+| `KB_TENANT_REPO_MIRROR_ROOT_REQUIRED` | No per-repo `mirrorRoot`, no Tier-1 default, no env var. | Set `NEO_TENANT_REPO_MIRROR_ROOT=/app/.neo-ai-data` in compose env (the canonical default, env-bound to `aiConfig.orchestrator.tenantRepoMirrorRoot` per [#12050](https://github.com/neomjs/neo/pull/12050)). |
+
+### Operator-owned Custom Source (genuinely orthogonal)
+
+A separate operator pattern: the deployment owns the source territory entirely — running its own full-corpus build over a repo it has on disk, *not* polling a tenant repo through `tenantRepos[]`. That's a [Custom Source](./CustomSources.md) workflow (`Source.extract` + `SourceRegistry`), distinct from pull mode. Both can coexist in a single deployment (pull-mode for tenant-owned repos + Custom-Source for operator-owned content territories).
 
 Expected day-0 result for this milestone is one of:
 
 ```text
-server-side clone: deferred to #11731
+pull mode configured for <tenantId>/<repoSlug>; first sync completed at <sha>
 ```
 
 or:
 
 ```text
-operator-owned Source registered intentionally
+skipped — push (Milestone 3) covers our tenant content
+```
+
+or:
+
+```text
+operator-owned Custom Source registered intentionally
 ```
 
 ## Milestone 7 - Backup, Redeploy, Handoff
