@@ -191,7 +191,12 @@ export function normalizeRepoSlug(repoSlug) {
 /**
  * @summary Normalizes one tenant repo-access config entry and enforces the no-secret boundary.
  * @param {Object} entry Tenant repo-access config entry.
- * @returns {{cloneUrl: String, credentialRef: String|Object, repoSlug: String}}
+ * @param {String} [entry.branchRef] Optional git ref (branch / tag / sha) to ingest from. When
+ *     omitted the downstream envelope builder defaults to `'HEAD'` (= remote default branch).
+ *     Useful for tenants whose canonical product-source-of-truth branch differs from the
+ *     repo's default branch (e.g., trunk-based teams using `dev` as integration line and
+ *     `main` as release-tag-only).
+ * @returns {{cloneUrl: String, credentialRef: String|Object, repoSlug: String, branchRef?: String}}
  */
 export function normalizeTenantRepoEntry(entry = {}) {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
@@ -207,6 +212,13 @@ export function normalizeTenantRepoEntry(entry = {}) {
         throw createContractError(
             'KB_TENANT_REPO_CREDENTIAL_REF_REQUIRED',
             'Tenant repo config entries require credentialRef'
+        );
+    }
+
+    if (Object.hasOwn(entry, 'branchRef') && (typeof entry.branchRef !== 'string' || entry.branchRef.trim() === '')) {
+        throw createContractError(
+            'KB_TENANT_REPO_ENTRY_INVALID',
+            'Tenant repo config branchRef must be a non-empty string when present'
         );
     }
 
