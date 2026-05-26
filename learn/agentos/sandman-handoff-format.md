@@ -32,3 +32,19 @@ A fallback queue of recent structurally significant tickets that are `OPEN` and 
 
 ### 4. Computed Golden Path
 The top 5 nodes mathematically recommended for execution, calculated via Hybrid GraphRAG (Semantic Vector Distance + Structural Edge Weight). A strategic brief synthesizing *why* these nodes represent the active frontier is appended to guide agent intuition.
+
+### 5. Next-Session Pickup Queue
+
+Pre-queried lifecycle candidates surfaced at sunset/handoff time so the receiving agent boots with immediate-actionable options instead of needing fresh backlog discovery on cold context.
+
+**Composition:** 1-2 from assigned current-release Project + 2-3 from unassigned current-release Project. Current-release resolves dynamically from substrate (config / `identityRoots.mjs` / Project metadata), not hardcoded.
+
+**Per-entry template:**
+
+- `#<ticket-id>` — <1-line scope description> — <effort-tag>
+
+Effort-tag uses the `[EFFORT_PROFILE]` taxonomy: `Quick Win` / `Heavy Lift` / `Maintenance` / `Architectural Pillar`.
+
+**Zero-candidate state:** empty queue with an explicit named reason (e.g., `Empty: all unassigned current-release tickets blocked on cross-family review`). Never silent — aligns with the wake-heartbeat halt-discipline that requires a named reason before declaring idle.
+
+**Surface duality:** the section appears in both the daemon-regenerated `sandman_handoff.md` (cross-session shared snapshot) and per-agent session-sunset self-DM handover (per-identity continuity). Both consumers read the same shape.
