@@ -96,7 +96,7 @@ A new per-host singleton Node process responsible for ALL scheduled work that to
 
 **Structure (post-Epic #11831 harmonization):**
 ```
-ai/scripts/orchestrator-daemon.mjs        # Thin Node-process boot wrapper (PID file, lifecycle, error-isolation)
+ai/daemons/orchestrator/daemon.mjs        # Thin Node-process boot wrapper (PID file, lifecycle, error-isolation)
 ai/daemons/orchestrator/Orchestrator.mjs  # Neo class: schedules + runs tasks; per-task try/catch
 ai/daemons/orchestrator/scheduling/
   ├── summary.mjs                         # Piece C trigger (pure functions; supersedes SummarizationCoordinatorService per #11864)
@@ -172,9 +172,9 @@ Build `ai/mcp/server/shared/Server.mjs` (D2). Migrate one MCP server (smallest f
 **Exit gate:** all 5 MCP servers extend the common base; Factory pattern is uniformly applied across all 5; per-server `Server.mjs` files are <100 LOC.
 
 ### M3 — Orchestrator Daemon Skeleton + Piece C
-Build `ai/daemons/Orchestrator.mjs` + `ai/scripts/orchestrator-daemon.mjs` boot wrapper (D3). First task: a summarization sweep coordinator running drift-detection on configurable cadence. Strip the in-process `runPeriodicSummarizationSweep` from `SessionService` (which I added in PR [#10954](https://github.com/neomjs/neo/pull/10954) — wrong-substrate; reshape to Orchestrator). _(Post-#11864 shape: `ai/daemons/orchestrator/scheduling/summary.mjs` pure-function module; the historical `SummarizationCoordinatorService` class was retired as Sub 20 of Epic #11831.)_
+Build `ai/daemons/orchestrator/Orchestrator.mjs` + `ai/daemons/orchestrator/daemon.mjs` boot wrapper (D3). First task: a summarization sweep coordinator running drift-detection on configurable cadence. Strip the in-process `runPeriodicSummarizationSweep` from `SessionService` (which I added in PR [#10954](https://github.com/neomjs/neo/pull/10954) — wrong-substrate; reshape to Orchestrator). _(Post-#11864 shape: `ai/daemons/orchestrator/scheduling/summary.mjs` pure-function module; the historical `SummarizationCoordinatorService` class was retired as Sub 20 of Epic #11831.)_
 
-**MVP split:** [#11006](https://github.com/neomjs/neo/issues/11006) moved existing summary + KB sync triggers out of `bridge-daemon.mjs`. PR #11008 initially concentrated too much scheduling logic inside `ai/scripts/orchestrator-daemon.mjs`; [#11009](https://github.com/neomjs/neo/issues/11009) corrects that by restoring the intended shape: the script is a thin boot wrapper, `ai/daemons/Orchestrator.mjs` owns task scheduling and failure isolation, the summarization coordinator owns Piece C trigger selection (now `scheduling/summary.mjs` post-#11864), and `HealthService.recordTaskOutcome(...)` exposes per-task outcomes.
+**MVP split:** [#11006](https://github.com/neomjs/neo/issues/11006) moved existing summary + KB sync triggers out of `bridge-daemon.mjs`. PR #11008 initially concentrated too much scheduling logic inside the Orchestrator boot wrapper; [#11009](https://github.com/neomjs/neo/issues/11009) corrects that by restoring the intended shape: the wrapper is thin, `ai/daemons/orchestrator/Orchestrator.mjs` owns task scheduling and failure isolation, the summarization coordinator owns Piece C trigger selection (now `scheduling/summary.mjs` post-#11864), and `HealthService.recordTaskOutcome(...)` exposes per-task outcomes.
 
 **Exit gate:** orchestrator daemon runs on the operator's host; summarization sweep fires automatically on cadence; healthcheck observability in place; PR #10954 closed in favor of corrected-substrate successor.
 

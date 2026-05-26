@@ -230,6 +230,9 @@ class Config extends BaseConfig {
             localOnly: {
                 primaryDevSyncEnabled: null,
                 kbSyncEnabled        : null,
+                // Local profile may supervise a child Chroma process; cloud profile
+                // reaches the compose-owned `chroma` peer container instead (#12019).
+                chromaDaemonEnabled  : null,
                 bridgeDaemonEnabled  : null,
                 goldenPathRepoEnrichmentEnabled: null,
                 // `null` = use the deployment-profile default (local enables, cloud disables);

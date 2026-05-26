@@ -1,5 +1,5 @@
 // Neo + core/_export + InstanceManager bootstrap belongs to the daemon entry point
-// (`ai/scripts/orchestrator-daemon.mjs`), NOT to this consumed-class file. Class files
+// (`ai/daemons/orchestrator/daemon.mjs`), NOT to this consumed-class file. Class files
 // rely on `globalThis.Neo` populated by the entry-point bootstrap; importing Neo here
 // would violate the entry-point-only invariant + risk partial-namespace damage if the
 // class were ever loaded outside its entry-point's chain.
@@ -75,15 +75,16 @@ export function resolvePrimaryDevSyncRootsSource({envValue}) {
 
 /**
  * Resolves a deployment-aware boolean toggle from `AiConfig.orchestrator.localOnly[key]`.
- * `null` in localOnly means "use the deployment-profile default" (local = enabled,
- * cloud = disabled); explicit `true`/`false` overrides.
+ * `null` or missing keys mean "use the deployment-profile default" (local = enabled,
+ * cloud = disabled); explicit `true`/`false` overrides. Missing-key fallback keeps
+ * gitignored operator configs safe when a newly tracked template key is introduced.
  *
  * @param {String} key
  * @returns {Boolean}
  */
 function resolveDeploymentEnabled(key) {
     const cfg = AiConfig.orchestrator.localOnly[key];
-    if (cfg !== null) return cfg;
+    if (cfg !== null && cfg !== undefined) return cfg;
     return AiConfig.orchestrator.deploymentMode !== 'cloud';
 }
 
@@ -105,7 +106,7 @@ function resolveCloudOnlyEnabled(key) {
 /**
  * @summary Neo daemon class for Agent OS maintenance scheduling.
  *
- * `ai/scripts/orchestrator-daemon.mjs` owns the Node-process boot wrapper:
+ * `ai/daemons/orchestrator/daemon.mjs` owns the Node-process boot wrapper:
  * PID file, lifecycle traps, and fatal-start isolation. This class owns the
  * actual maintenance loop, task-state persistence, subprocess execution,
  * recovery of already-running child tasks, and task outcome reporting through
@@ -147,7 +148,7 @@ function resolveCloudOnlyEnabled(key) {
  * @class Neo.ai.daemons.Orchestrator
  * @extends Neo.core.Base
  * @singleton
- * @see ai/scripts/orchestrator-daemon.mjs
+ * @see ai/daemons/orchestrator/daemon.mjs
  * @see ai/daemons/orchestrator/scheduling/summary.mjs
  * @see ai/services/memory-core/HealthService.mjs#recordTaskOutcome
  * @see learn/agentos/v13-path.md
@@ -389,6 +390,7 @@ export class Orchestrator extends Base {
     get kbSyncEnabled()                  { return Env.parseBool('NEO_ORCHESTRATOR_KB_SYNC_ENABLED')                     ?? resolveDeploymentEnabled('kbSyncEnabled');                  }
     get primaryDevSyncEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_PRIMARY_DEV_SYNC_ENABLED')            ?? resolveDeploymentEnabled('primaryDevSyncEnabled');          }
     get tenantRepoSyncEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_TENANT_REPO_SYNC_ENABLED')            ?? resolveCloudOnlyEnabled('tenantRepoSyncEnabled');           }
+    get chromaDaemonEnabled()            { return Env.parseBool('NEO_ORCHESTRATOR_CHROMA_DAEMON_ENABLED')               ?? resolveDeploymentEnabled('chromaDaemonEnabled');            }
     get bridgeDaemonEnabled()            { return Env.parseBool('NEO_ORCHESTRATOR_BRIDGE_DAEMON_ENABLED')               ?? resolveDeploymentEnabled('bridgeDaemonEnabled');            }
     get swarmHeartbeatEnabled()          { return Env.parseBool('NEO_ORCHESTRATOR_SWARM_HEARTBEAT_ENABLED')             ?? resolveDeploymentEnabled('swarmHeartbeatEnabled');          }
     get goldenPathRepoEnrichmentEnabled(){ return Env.parseBool('NEO_ORCHESTRATOR_GOLDEN_PATH_REPO_ENRICHMENT_ENABLED') ?? resolveDeploymentEnabled('goldenPathRepoEnrichmentEnabled');}
@@ -582,7 +584,7 @@ export class Orchestrator extends Base {
         };
 
         const continuousTasks = [
-            'chroma',
+            ...(this.chromaDaemonEnabled ? ['chroma'] : []),
             ...(this.bridgeDaemonEnabled ? ['bridgeDaemon'] : []),
             'mlx'
         ];
