@@ -1,0 +1,35 @@
+# Runtime / agent state: host-only, never deployed.
+.neo-ai-data
+.agents
+.claude
+.codex
+.env*
+.gemini
+.idea
+.vscode
+tmp
+
+# Frontend, docs, examples, tests, and local KB corpus are not deploy runtime.
+apps
+docs
+examples
+learn
+resources
+test
+
+# Build / test artifacts: rebuilt in-container.
+node_modules
+dist
+coverage
+playwright-report
+test-results
+
+# Git and repository automation substrate: not needed inside deploy images.
+.git
+.github
+.husky
+sent-to-cull.jsonl
+
+# Logs and local OS metadata.
+*.log
+.DS_Store
