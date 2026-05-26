@@ -231,7 +231,9 @@ Exit code: `0` on `completed`, `1` on `failed` or `skipped` (no-tenant-repos-con
 
 | Env var | Default | Mount in compose |
 |---|---|---|
-| `NEO_TENANT_REPO_MIRROR_ROOT` | `/var/lib/neo/tenant-repo-mirrors` | named volume `tenant-repo-mirrors` |
+| `NEO_TENANT_REPO_MIRROR_ROOT` | `/app/.neo-ai-data` (env-bound to Tier-1 `aiConfig.orchestrator.tenantRepoMirrorRoot`) | named volume `tenant-repo-mirrors` at `<root>/tenant-repos` (canonical: `/app/.neo-ai-data/tenant-repos`) |
+
+The env var names the **parent** of `tenant-repos/`; `deriveTenantRepoMirrorPath` appends the `tenant-repos/<tenant>/<repo>` segment so the same root can host other gitignored substrate-data subdirs. Per-repo `tenantRepos[].mirrorRoot` overrides this Tier-1 default when present.
 
 The mirror directory is a deployment cache, not authoritative state. Per-repo `lastIngestedRev` is stored separately in `<orchestrator-data-dir>/tenant-repo-sync-revisions.json` (sibling to the orchestrator state file) so the next sync can compute the incremental diff.
 

@@ -546,15 +546,27 @@ class TenantRepoSyncService extends Base {
 
     /**
      * Resolves the tenantRepos config from `aiConfig` via `TenantRepoAccessContract.normalizeTenantRepos`.
-     * Test seam: pass `aiConfig` argument to bypass live import.
+     * Materializes per-repo `mirrorRoot` via the Tier-1 `orchestrator.tenantRepoMirrorRoot`
+     * fallback when the per-repo override is absent — the env-bound Tier-1 default is
+     * `NEO_TENANT_REPO_MIRROR_ROOT` (canonical compose value: `/app/.neo-ai-data`).
+     * Test seam: pass `aiConfig` argument to bypass live import + pass `tier1MirrorRoot`
+     * to bypass the live AiConfig import.
      *
      * @param {Object} options
      * @param {Object} [options.aiConfig] Pre-resolved config object.
+     * @param {String} [options.tier1MirrorRoot] Pre-resolved Tier-1 mirrorRoot default (test seam).
      * @returns {Promise<{tenantRepos: Array<Object>}>}
      */
-    async resolveTenantReposConfig({aiConfig}) {
-        const cfg = aiConfig || (await import('../../../mcp/server/knowledge-base/config.mjs')).default;
-        return normalizeTenantRepoConfig({tenantRepos: cfg.tenantRepos || []});
+    async resolveTenantReposConfig({aiConfig, tier1MirrorRoot}) {
+        const cfg              = aiConfig || (await import('../../../mcp/server/knowledge-base/config.mjs')).default;
+        const tier1Default     = tier1MirrorRoot ?? AiConfig.orchestrator?.tenantRepoMirrorRoot;
+        const normalized       = normalizeTenantRepoConfig({tenantRepos: cfg.tenantRepos || []});
+
+        normalized.tenantRepos = normalized.tenantRepos.map(entry =>
+            entry.mirrorRoot ? entry : {...entry, mirrorRoot: tier1Default}
+        );
+
+        return normalized;
     }
 
     /**

@@ -173,6 +173,17 @@ class Config extends BaseConfig {
              */
             deploymentMode: 'local',
             /**
+             * Filesystem root under which tenant-repo mirrors are stored. The
+             * `deriveTenantRepoMirrorPath` helper appends `tenant-repos/<tenant>/<repo>`,
+             * so this value names the PARENT of that directory — typically
+             * `/app/.neo-ai-data` in containerized cloud deployments. Per-repo
+             * `tenantRepos[].mirrorRoot` overrides this value when present; absent
+             * per-repo overrides fall back through this Tier-1 default. Env override:
+             * `NEO_TENANT_REPO_MIRROR_ROOT`.
+             * @type {String}
+             */
+            tenantRepoMirrorRoot: '/app/.neo-ai-data',
+            /**
              * Maintenance-loop intervals consumed by the orchestrator daemon.
              * Env vars at the daemon boundary retain precedence over these defaults.
              * @type {Object}
@@ -520,7 +531,8 @@ class Config extends BaseConfig {
             }
         },
         orchestrator: {
-            deploymentMode: 'NEO_AI_DEPLOYMENT_MODE'
+            deploymentMode      : 'NEO_AI_DEPLOYMENT_MODE',
+            tenantRepoMirrorRoot: 'NEO_TENANT_REPO_MIRROR_ROOT'
         }
     };
     static config = {
