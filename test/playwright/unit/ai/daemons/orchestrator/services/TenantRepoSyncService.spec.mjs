@@ -1125,16 +1125,18 @@ test.describe('TenantRepoSyncService.resolveIngestionService — export-drift gu
      *   - Drift C: `KB_IngestionService` shape loses `ingestSourceFiles` method
      *     (runtime resolver call + structural check).
      *
-     * The runtime test (Drift C) calls the real resolver, which transitively imports
-     * `ai/services.mjs` → `ai/config.template.mjs`, which trips the `Neo.ai.Config`
-     * namespace-collision guard under `unitTestMode` because the operator overlay
-     * `ai/config.mjs` already registered that className. The guard's strict-mode
-     * behavior is to throw; the non-strict behavior is to return the existing
-     * namespace (a no-op for already-registered identical classes). Since we want
-     * the no-op behavior — this is exactly the case the guard's non-strict branch
-     * was written for ("different versions of Neo.mjs", per the comment at
-     * `src/Neo.mjs:811-818`) — we temporarily disable strict mode during the
-     * resolver call.
+     * The Drift C runtime test depends on the per-server `config.mjs` files being
+     * materialized — i.e., the bootstrap step in `ai/scripts/setup/initServerConfigs.mjs`
+     * rewrites `import AiConfig from '../../../config.template.mjs'` to
+     * `import AiConfig from '../../../config.mjs'` so that runtime code loads the
+     * operator overlay (which `Neo.ai.Config`-registers exactly once) instead of the
+     * template (which would register via a parallel chain and trip the `unitTestMode`
+     * namespace-collision guard at `src/Neo.mjs:820`). CI's `npm ci` runs the
+     * bootstrap on fresh clone, so this is the green path. Operator checkouts whose
+     * per-server `config.mjs` was generated before the materialization logic landed
+     * will hit the collision until they re-run `npm run prepare -- --migrate-config`
+     * OR manually update the import path. Documented in #12047 (open) for the
+     * materialization-migration substrate work.
      */
     const repoRoot     = path.resolve(__dirname, '../../../../../../../');
     const servicesPath = path.join(repoRoot, 'ai/services.mjs');
@@ -1155,17 +1157,10 @@ test.describe('TenantRepoSyncService.resolveIngestionService — export-drift gu
     });
 
     test('resolveIngestionService returns the canonical KB_IngestionService with ingestSourceFiles method (Drift C)', async () => {
-        const originalUnitTestMode = Neo.config.unitTestMode;
-        Neo.config.unitTestMode    = false;
+        const ingestionService = await TenantRepoSyncService.resolveIngestionService();
 
-        try {
-            const ingestionService = await TenantRepoSyncService.resolveIngestionService();
-
-            expect(ingestionService).toBeDefined();
-            expect(ingestionService).not.toBeNull();
-            expect(typeof ingestionService.ingestSourceFiles).toBe('function');
-        } finally {
-            Neo.config.unitTestMode = originalUnitTestMode;
-        }
+        expect(ingestionService).toBeDefined();
+        expect(ingestionService).not.toBeNull();
+        expect(typeof ingestionService.ingestSourceFiles).toBe('function');
     });
 });
