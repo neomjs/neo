@@ -242,6 +242,35 @@ test.describe('KnowledgeBaseIngestionService.ingestSourceFiles', () => {
         expect(metrics[0].eventType).toBe('error');
     });
 
+    test('treats null baseRevision as first-sync (no boundary, no error)', async () => {
+        const summary = await Service.ingestSourceFiles({
+            tenantId    : 'tenant-a',
+            repoSlug    : 'repo-a',
+            files       : [],
+            baseRevision: null,
+            headRevision: 'head'
+        });
+
+        expect(summary.errors.some(e => e.code === 'KB_REVISION_BOUNDARY_INVALID')).toBe(false);
+        expect(summary.errors.some(e => e.code === 'KB_REVISION_BOUNDARY_UNAVAILABLE')).toBe(false);
+        expect(metrics[0]?.eventType).not.toBe('error');
+    });
+
+    test('rejects baseRevision-set with null headRevision via the new error message', async () => {
+        const summary = await Service.ingestSourceFiles({
+            tenantId    : 'tenant-a',
+            repoSlug    : 'repo-a',
+            files       : [],
+            baseRevision: 'base',
+            headRevision: null
+        });
+
+        expect(summary.errors[0]).toMatchObject({
+            code   : 'KB_REVISION_BOUNDARY_INVALID',
+            message: '`headRevision` is required when `baseRevision` is provided.'
+        });
+    });
+
     test('reports unavailable revision-boundary deletion resolver without throwing', async () => {
         const summary = await Service.ingestSourceFiles({
             tenantId    : 'tenant-a',
