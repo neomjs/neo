@@ -202,6 +202,23 @@ class Config extends BaseConfig {
              */
             tenantRepoMirrorRoot: '/app/.neo-ai-data',
             /**
+             * Provider-readiness probe parameters consumed by the orchestrator dream task
+             * and the standalone Sandman CLI runner. The probe issues an HTTP GET against
+             * the resolved graph provider's `/api/tags` (Ollama) or `/v1/models`
+             * (OpenAI-compatible) endpoint, retrying `attempts` times with `delayMs`
+             * between retries, abandoning each probe after `timeoutMs`.
+             *
+             * Defaults are sized for a developer-laptop cold start (30 × 1s + 3s timeout
+             * per probe ≈ 2 min absolute ceiling). Cloud-deployment operators tune these
+             * via gitignored `ai/config.mjs` or the env vars below.
+             * @type {Object}
+             */
+            providerReadiness: {
+                attempts : 30,
+                delayMs  : 1000,
+                timeoutMs: 3000
+            },
+            /**
              * Maintenance-loop intervals consumed by the orchestrator daemon.
              * Env vars at the daemon boundary retain precedence over these defaults.
              * @type {Object}
@@ -551,7 +568,12 @@ class Config extends BaseConfig {
         },
         orchestrator: {
             deploymentMode      : 'NEO_AI_DEPLOYMENT_MODE',
-            tenantRepoMirrorRoot: 'NEO_TENANT_REPO_MIRROR_ROOT'
+            tenantRepoMirrorRoot: 'NEO_TENANT_REPO_MIRROR_ROOT',
+            providerReadiness   : {
+                attempts : {var: 'NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS', parse: Env.parseNumber},
+                delayMs  : {var: 'NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS', parse: Env.parseNumber},
+                timeoutMs: {var: 'NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS', parse: Env.parseNumber}
+            }
         }
     };
     static config = {

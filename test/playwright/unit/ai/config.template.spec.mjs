@@ -117,6 +117,15 @@ test.describe('Tier 1 Config Immutability', () => {
             targetSource: 'active-a2a-participants'
         });
 
+        // Provider-readiness probe parameters consumed by the orchestrator dream task
+        // + standalone Sandman CLI runner. Values are concrete defaults — no module-level
+        // constants substitute when callers omit them.
+        expect(Config.orchestrator.providerReadiness).toEqual({
+            attempts : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_ATTEMPTS)   || 30,
+            delayMs  : Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_DELAY_MS)   || 1000,
+            timeoutMs: Number(process.env.NEO_ORCHESTRATOR_PROVIDER_READY_TIMEOUT_MS) || 3000
+        });
+
         expect(Config.maintenance.backup).toEqual({
             intervalMs: 24 * 60 * 60 * 1000,
             retention: {
