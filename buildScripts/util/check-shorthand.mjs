@@ -1,3 +1,4 @@
+import {program}            from 'commander';
 import {execSync, spawnSync} from 'node:child_process';
 import {readFileSync}        from 'node:fs';
 import path                  from 'node:path';
@@ -22,17 +23,31 @@ if (path.resolve(scriptRoot) !== path.resolve(gitRoot)) {
     process.exit(1);
 }
 
-const shorthandRegex = /^(\s+)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:\s*\2\s*[,}]/;
-const defaultDirs    = ['ai', 'src', 'test/playwright'];
+const DEFAULT_DIRS    = ['ai', 'src', 'test/playwright'];
+const DEFAULT_IGNORES = ['.claude', '.codex', 'dist', 'node_modules'];
+const SHORTHAND_RE    = /^(\s+)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:\s*\2\s*[,}]/;
+
+program
+    .name('check-shorthand')
+    .description('Substrate gate against `key: key` verbose-form regression in .mjs files.')
+    .argument('[files...]', 'Specific .mjs files to scan (lint-staged passes staged paths here). When omitted, falls back to scanning --dirs.')
+    .option('-d, --dirs <list>', 'Comma-separated directories to scan in default mode.', DEFAULT_DIRS.join(','))
+    .option('-i, --ignore <list>', 'Comma-separated path fragments to exclude from default-mode scan.', DEFAULT_IGNORES.join(','))
+    .option('-q, --quiet', 'Suppress the per-violation listing; print summary only.', false)
+    .showHelpAfterError();
+
+program.parse(process.argv);
+
+const argvFiles = program.args;
+const options   = program.opts();
+const scanDirs  = options.dirs.split(',').map(s => s.trim()).filter(Boolean);
+const ignores   = options.ignore.split(',').map(s => s.trim()).filter(Boolean);
 
 function collectDefaultFiles() {
-    const args = ['-type', 'f', '-name', '*.mjs',
-        '-not', '-path', '*/.claude/*',
-        '-not', '-path', '*/.codex/*',
-        '-not', '-path', '*/dist/*',
-        '-not', '-path', '*/node_modules/*'
-    ];
-    const result = spawnSync('find', [...defaultDirs, ...args], {cwd: gitRoot, encoding: 'utf-8'});
+    const findArgs = ['-type', 'f', '-name', '*.mjs'];
+    ignores.forEach(ignore => findArgs.push('-not', '-path', `*/${ignore}/*`));
+
+    const result = spawnSync('find', [...scanDirs, ...findArgs], {cwd: gitRoot, encoding: 'utf-8'});
     if (result.status !== 0) {
         console.error('\x1b[31mError: find command failed.\x1b[0m');
         console.error(result.stderr);
@@ -41,8 +56,7 @@ function collectDefaultFiles() {
     return result.stdout.trim().split('\n').filter(Boolean);
 }
 
-const argvFiles = process.argv.slice(2);
-const files     = argvFiles.length > 0
+const files = argvFiles.length > 0
     ? argvFiles.filter(f => f.endsWith('.mjs'))
     : collectDefaultFiles();
 
@@ -62,7 +76,7 @@ for (const file of files) {
     }
     const lines = content.split('\n');
     lines.forEach((line, index) => {
-        if (shorthandRegex.test(line)) {
+        if (SHORTHAND_RE.test(line)) {
             violations.push(`${file}:${index + 1}: ${line.trim()}`);
         }
     });
@@ -70,8 +84,10 @@ for (const file of files) {
 
 if (violations.length > 0) {
     console.error(`\x1b[31mcheck-shorthand: ${violations.length} verbose key:key form(s) found:\x1b[0m`);
-    violations.forEach(v => console.error('  ' + v));
-    console.error('\nUse ES2015 shorthand: {key} instead of {key: key}.');
+    if (!options.quiet) {
+        violations.forEach(v => console.error('  ' + v));
+        console.error('\nUse ES2015 shorthand: {key} instead of {key: key}.');
+    }
     process.exit(1);
 }
 
