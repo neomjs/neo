@@ -16,6 +16,7 @@ setup({
 import {test, expect} from '@playwright/test';
 import Neo            from '../../../../../src/Neo.mjs';
 import * as core      from '../../../../../src/core/_export.mjs';
+import http           from 'http';
 
 function createReadableStream(chunks) {
     const encoder = new TextEncoder();
@@ -41,7 +42,29 @@ function createReadableStream(chunks) {
     };
 }
 
-test.describe('AI provider keep_alive payload shape (#12080)', () => {
+async function createOllamaChatServer(payloads) {
+    const server = http.createServer((req, res) => {
+        let body = '';
+
+        req.on('data', chunk => body += chunk);
+        req.on('end', () => {
+            payloads.push(JSON.parse(body));
+            res.writeHead(200, {'Content-Type': 'application/json'});
+            res.end(JSON.stringify({message: {content: 'ok'}}));
+        });
+    });
+
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+
+    return {
+        host: `http://127.0.0.1:${server.address().port}`,
+        async close() {
+            await new Promise(resolve => server.close(resolve));
+        }
+    };
+}
+
+test.describe('AI provider keep_alive payload shape (#12080, #12089)', () => {
     let OllamaProvider;
     let OpenAiCompatibleProvider;
     let originalFetch;
@@ -57,6 +80,102 @@ test.describe('AI provider keep_alive payload shape (#12080)', () => {
 
     test.afterEach(() => {
         globalThis.fetch = originalFetch;
+    });
+
+    test('Ollama.generate() defaults and overrides keep_alive at the top-level payload', async () => {
+        const payloads = [];
+        const server = await createOllamaChatServer(payloads);
+
+        try {
+            const provider = Neo.create(OllamaProvider, {
+                host     : server.host,
+                modelName: 'gemma4-test'
+            });
+
+            const defaultResult = await provider.generate('hello', {temperature: 0.2});
+            const overrideResult = await provider.generate('hello', {keep_alive: 0, temperature: 0.2});
+
+            expect(defaultResult.content).toBe('ok');
+            expect(overrideResult.content).toBe('ok');
+        } finally {
+            await server.close();
+        }
+
+        expect(payloads).toHaveLength(2);
+        expect(payloads[0]).toMatchObject({
+            model     : 'gemma4-test',
+            stream    : false,
+            keep_alive: -1,
+            options   : {
+                temperature: 0.2
+            }
+        });
+        expect(payloads[1]).toMatchObject({
+            model     : 'gemma4-test',
+            stream    : false,
+            keep_alive: 0,
+            options   : {
+                temperature: 0.2
+            }
+        });
+        expect(payloads[0].options.keep_alive).toBeUndefined();
+        expect(payloads[1].options.keep_alive).toBeUndefined();
+    });
+
+    test('Ollama.preparePayload() defaults keep_alive for direct payload consumers', () => {
+        const provider = Neo.create(OllamaProvider, {
+            host     : 'http://ollama.test',
+            modelName: 'gemma4-test'
+        });
+
+        const payload = provider.preparePayload('hello', {temperature: 0.2}, false);
+
+        expect(payload).toMatchObject({
+            model     : 'gemma4-test',
+            stream    : false,
+            keep_alive: -1,
+            options   : {
+                temperature: 0.2
+            }
+        });
+    });
+
+    test('Ollama.stream() defaults keep_alive to top-level payload', async () => {
+        let capturedPayload;
+
+        globalThis.fetch = async (url, init) => {
+            expect(url).toBe('http://ollama.test/api/chat');
+            capturedPayload = JSON.parse(init.body);
+
+            return {
+                ok  : true,
+                body: createReadableStream([
+                    '{"message":{"content":"ok"},"done":false}\n',
+                    '{"message":{"content":" done"},"done":true}\n'
+                ])
+            };
+        };
+
+        const provider = Neo.create(OllamaProvider, {
+            host     : 'http://ollama.test',
+            modelName: 'gemma4-test'
+        });
+        const chunks = [];
+
+        for await (const chunk of provider.stream('hello', {temperature: 0.2})) {
+            chunks.push(chunk);
+        }
+
+        expect(chunks).toEqual(['ok', ' done']);
+        expect(capturedPayload).toMatchObject({
+            model     : 'gemma4-test',
+            stream    : true,
+            keep_alive: -1,
+            options   : {
+                temperature: 0.2
+            }
+        });
+        expect(capturedPayload.options.keep_alive).toBeUndefined();
     });
 
     test('Ollama.stream() promotes keep_alive to top-level payload', async () => {
@@ -97,7 +216,44 @@ test.describe('AI provider keep_alive payload shape (#12080)', () => {
         expect(capturedPayload.options.keep_alive).toBeUndefined();
     });
 
-    test('OpenAiCompatible.stream() already keeps keep_alive top-level', async () => {
+    test('OpenAiCompatible.stream() defaults keep_alive to top-level payload', async () => {
+        let capturedPayload;
+
+        globalThis.fetch = async (url, init) => {
+            expect(url).toBe('http://openai-compatible.test/v1/chat/completions');
+            capturedPayload = JSON.parse(init.body);
+
+            return {
+                ok  : true,
+                body: createReadableStream([
+                    'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n',
+                    'data: [DONE]\n\n'
+                ])
+            };
+        };
+
+        const provider = Neo.create(OpenAiCompatibleProvider, {
+            host     : 'http://openai-compatible.test',
+            modelName: 'gemma4-test'
+        });
+        const chunks = [];
+
+        for await (const chunk of provider.stream('hello', {num_ctx: 8192, temperature: 0.2})) {
+            chunks.push(chunk);
+        }
+
+        expect(chunks).toEqual(['ok']);
+        expect(capturedPayload).toMatchObject({
+            model      : 'gemma4-test',
+            stream     : true,
+            keep_alive : -1,
+            temperature: 0.2
+        });
+        expect(capturedPayload.options).toBeUndefined();
+        expect(capturedPayload.num_ctx).toBeUndefined();
+    });
+
+    test('OpenAiCompatible.stream() keeps explicit keep_alive top-level', async () => {
         let capturedPayload;
 
         globalThis.fetch = async (url, init) => {
@@ -132,5 +288,37 @@ test.describe('AI provider keep_alive payload shape (#12080)', () => {
         });
         expect(capturedPayload.options).toBeUndefined();
         expect(capturedPayload.num_ctx).toBeUndefined();
+    });
+
+    test('OpenAiCompatible.generate() defaults keep_alive through the streaming payload', async () => {
+        let capturedPayload;
+
+        globalThis.fetch = async (url, init) => {
+            expect(url).toBe('http://openai-compatible.test/v1/chat/completions');
+            capturedPayload = JSON.parse(init.body);
+
+            return {
+                ok  : true,
+                body: createReadableStream([
+                    'data: {"choices":[{"delta":{"content":"ok"}}]}\n\n',
+                    'data: [DONE]\n\n'
+                ])
+            };
+        };
+
+        const provider = Neo.create(OpenAiCompatibleProvider, {
+            host     : 'http://openai-compatible.test',
+            modelName: 'gemma4-test'
+        });
+
+        const result = await provider.generate('hello', {temperature: 0.2});
+
+        expect(result.content).toBe('ok');
+        expect(capturedPayload).toMatchObject({
+            model      : 'gemma4-test',
+            stream     : true,
+            keep_alive : -1,
+            temperature: 0.2
+        });
     });
 });

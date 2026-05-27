@@ -24,8 +24,8 @@ import {IDENTITIES, TRUST_TIERS, TRUST_TIER_ORDER} from '../../graph/identityRoo
  *
  * @param {Object} options
  * @param {String} options.modelProvider 'gemini' | 'openAiCompatible' | 'ollama'.
- * @param {Object} [options.openAiCompatibleConfig] Slice of `aiConfig.openAiCompatible` ({host, apiKey, model}).
- * @param {Object} [options.ollamaConfig] Slice of `aiConfig.ollama` ({host, model, embeddingModel}).
+ * @param {Object} [options.openAiCompatibleConfig] Slice of `aiConfig.openAiCompatible` ({host, apiKey, model, keep_alive}).
+ * @param {Object} [options.ollamaConfig] Slice of `aiConfig.ollama` ({host, model, embeddingModel, keep_alive}).
  * @param {String} [options.geminiApiKey] `GEMINI_API_KEY` env value (passed for testability).
  * @param {String} [options.geminiModelName] `aiConfig.modelName` (Gemini model name).
  * @param {Function} [options.ollamaProviderFactory] Test seam — defaults to `Neo.create(OllamaProvider, cfg)`.
@@ -49,13 +49,17 @@ export function buildChatModel({
         const provider = openAiCompatibleProviderFactory({
             apiKey   : cfg.apiKey,
             host     : cfg.host,
-            modelName: cfg.model
+            modelName: cfg.model,
+            ...(cfg.keep_alive !== undefined ? {keepAlive: cfg.keep_alive} : {})
         });
         return {
             generateContent: async (promptText) => {
                 provider.apiKey    = cfg.apiKey;
                 provider.host      = cfg.host;
                 provider.modelName = cfg.model;
+                if (cfg.keep_alive !== undefined) {
+                    provider.keepAlive = cfg.keep_alive;
+                }
                 const result  = await provider.generate(promptText);
                 const content = result.content || result.raw?.message?.content || '';
                 return {response: {text: () => content}};
@@ -68,12 +72,16 @@ export function buildChatModel({
         const provider = ollamaProviderFactory({
             host          : cfg.host           || 'http://127.0.0.1:11434',
             modelName     : cfg.model          || 'gemma4',
-            embeddingModel: cfg.embeddingModel || null
+            embeddingModel: cfg.embeddingModel || null,
+            ...(cfg.keep_alive !== undefined ? {keepAlive: cfg.keep_alive} : {})
         });
         return {
             generateContent: async (promptText) => {
                 provider.host      = cfg.host  || provider.host;
                 provider.modelName = cfg.model || provider.modelName;
+                if (cfg.keep_alive !== undefined) {
+                    provider.keepAlive = cfg.keep_alive;
+                }
                 const result  = await provider.generate(promptText);
                 const content = result.content || result.raw?.message?.content || '';
                 return {response: {text: () => content}};

@@ -113,6 +113,8 @@ test.describe('Memory Core Config (#10010)', () => {
         process.env.NEO_EMBEDDING_PROVIDER = 'ollama';
         process.env.NEO_AUTH_REALM = 'tenant-realm';
         process.env.NEO_BACKUP_PATH = '/tmp/neo-memory-backups';
+        process.env.NEO_OLLAMA_KEEP_ALIVE = '0';
+        process.env.NEO_OPENAI_COMPATIBLE_KEEP_ALIVE = '10m';
         process.env.NEO_CHROMA_HOST = 'chroma';
         process.env.NEO_CHROMA_PORT = '8010';
 
@@ -124,6 +126,8 @@ test.describe('Memory Core Config (#10010)', () => {
         expect(config.embeddingProvider).toBe('ollama');
         expect(config.auth.realm).toBe('tenant-realm');
         expect(config.backupPath).toBe('/tmp/neo-memory-backups');
+        expect(config.ollama.keep_alive).toBe(0);
+        expect(config.openAiCompatible.keep_alive).toBe('10m');
         expect(config.engines.chroma).toMatchObject({
             host: 'chroma',
             port: 8010

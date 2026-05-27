@@ -40,18 +40,20 @@ test.describe('SessionService.buildChatModel (#11965 Sub-2)', () => {
         const fakeOllama = {
             host         : 'fake://injected',
             modelName    : 'fake-injected',
+            keepAlive    : null,
             async generate(promptText) {
-                captured.push({promptText, host: this.host, modelName: this.modelName});
+                captured.push({promptText, host: this.host, modelName: this.modelName, keepAlive: this.keepAlive});
                 return {content: 'fake-content-for: ' + promptText, raw: {message: {content: 'fake-content-for: ' + promptText}}};
             }
         };
 
         const model = buildChatModel({
             modelProvider          : 'ollama',
-            ollamaConfig           : {host: 'http://ollama.test', model: 'test-gemma', embeddingModel: null},
+            ollamaConfig           : {host: 'http://ollama.test', model: 'test-gemma', embeddingModel: null, keep_alive: -1},
             ollamaProviderFactory  : (cfg) => {
                 fakeOllama.host      = cfg.host;
                 fakeOllama.modelName = cfg.modelName;
+                fakeOllama.keepAlive = cfg.keepAlive;
                 return fakeOllama;
             }
         });
@@ -70,23 +72,25 @@ test.describe('SessionService.buildChatModel (#11965 Sub-2)', () => {
         expect(captured[0]).toEqual({
             promptText: 'hello world',
             host      : 'http://ollama.test',
-            modelName : 'test-gemma'
+            modelName : 'test-gemma',
+            keepAlive : -1
         });
     });
 
-    test('modelProvider=ollama refreshes provider host/model per invocation', async () => {
+    test('modelProvider=ollama refreshes provider host/model/keepAlive per invocation', async () => {
         const captured = [];
         const fakeOllama = {
             host     : null,
             modelName: null,
+            keepAlive: null,
             async generate(promptText) {
-                captured.push({promptText, host: this.host, modelName: this.modelName});
+                captured.push({promptText, host: this.host, modelName: this.modelName, keepAlive: this.keepAlive});
                 return {content: 'r:' + promptText};
             }
         };
 
         // Pass a mutable ollamaConfig ref so we can change it between invocations.
-        const ollamaConfig = {host: 'http://v1.test', model: 'model-v1'};
+        const ollamaConfig = {host: 'http://v1.test', model: 'model-v1', keep_alive: -1};
         const model = buildChatModel({
             modelProvider         : 'ollama',
             ollamaConfig,
@@ -96,11 +100,12 @@ test.describe('SessionService.buildChatModel (#11965 Sub-2)', () => {
         await model.generateContent('first');
         ollamaConfig.host  = 'http://v2.test';
         ollamaConfig.model = 'model-v2';
+        ollamaConfig.keep_alive = 0;
         await model.generateContent('second');
 
         expect(captured).toEqual([
-            {promptText: 'first',  host: 'http://v1.test', modelName: 'model-v1'},
-            {promptText: 'second', host: 'http://v2.test', modelName: 'model-v2'}
+            {promptText: 'first',  host: 'http://v1.test', modelName: 'model-v1', keepAlive: -1},
+            {promptText: 'second', host: 'http://v2.test', modelName: 'model-v2', keepAlive: 0}
         ]);
     });
 
@@ -110,22 +115,23 @@ test.describe('SessionService.buildChatModel (#11965 Sub-2)', () => {
             host     : null,
             modelName: null,
             apiKey   : null,
+            keepAlive: null,
             async generate(promptText) {
-                captured.push({promptText, host: this.host, modelName: this.modelName, apiKey: this.apiKey});
+                captured.push({promptText, host: this.host, modelName: this.modelName, apiKey: this.apiKey, keepAlive: this.keepAlive});
                 return {content: 'oai:' + promptText};
             }
         };
 
         const model = buildChatModel({
             modelProvider                  : 'openAiCompatible',
-            openAiCompatibleConfig         : {host: 'http://oai.test', apiKey: 'sk-test', model: 'oai-model'},
+            openAiCompatibleConfig         : {host: 'http://oai.test', apiKey: 'sk-test', model: 'oai-model', keep_alive: -1},
             openAiCompatibleProviderFactory: () => fakeProvider
         });
 
         expect(model).toBeTruthy();
         const response = await model.generateContent('hello');
         expect(response.response.text()).toBe('oai:hello');
-        expect(captured[0]).toMatchObject({host: 'http://oai.test', modelName: 'oai-model', apiKey: 'sk-test'});
+        expect(captured[0]).toMatchObject({host: 'http://oai.test', modelName: 'oai-model', apiKey: 'sk-test', keepAlive: -1});
     });
 
     test('modelProvider=gemini returns null when geminiApiKey is missing', () => {

@@ -117,7 +117,8 @@ class Config extends BaseConfig {
         ollama: {
             host          : 'http://127.0.0.1:11434',
             model         : 'gemma4:31b',
-            embeddingModel: 'qwen3-embedding'
+            embeddingModel: 'qwen3-embedding',
+            keep_alive    : -1
         },
         /**
          * @summary Deployment-wide OpenAI-compatible provider defaults.
@@ -133,6 +134,7 @@ class Config extends BaseConfig {
             apiKey                  : '',
             unloadRetryCount        : 3,
             unloadRetryDelayMs      : 500,
+            keep_alive              : -1,
             // gemma-4-31b-it (and gemma-4-26B MoE) native context = 256K (262,144) tokens.
             // Cap sized for the model's actual capacity; env override
             // `NEO_OPENAI_COMPATIBLE_CONTEXT_LIMIT_TOKENS` preserved for operator re-pinning.
@@ -529,7 +531,8 @@ class Config extends BaseConfig {
         ollama           : {
             host          : 'NEO_OLLAMA_HOST',
             model         : 'NEO_OLLAMA_MODEL',
-            embeddingModel: 'NEO_OLLAMA_EMBEDDING_MODEL'
+            embeddingModel: 'NEO_OLLAMA_EMBEDDING_MODEL',
+            keep_alive    : {var: 'NEO_OLLAMA_KEEP_ALIVE', parse: Env.parseKeepAlive}
         },
         openAiCompatible: {
             host                    : 'NEO_OPENAI_COMPATIBLE_HOST',
@@ -538,6 +541,7 @@ class Config extends BaseConfig {
             apiKey                  : 'NEO_OPENAI_COMPATIBLE_API_KEY',
             unloadRetryCount        : {var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT', parse: Env.parseNumber},
             unloadRetryDelayMs      : {var: 'NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS', parse: Env.parseNumber},
+            keep_alive              : {var: 'NEO_OPENAI_COMPATIBLE_KEEP_ALIVE', parse: Env.parseKeepAlive},
             contextLimitTokens      : {var: 'NEO_OPENAI_COMPATIBLE_CONTEXT_LIMIT_TOKENS', parse: Env.parseNumber},
             safeProcessingLimitTokens: {var: 'NEO_OPENAI_COMPATIBLE_SAFE_PROCESSING_LIMIT_TOKENS', parse: Env.parseNumber}
         },

@@ -2,7 +2,7 @@ import {Command} from 'commander';
 import Neo from '../../../src/Neo.mjs';
 import '../../../src/core/_export.mjs';
 import aiConfig from '../../mcp/server/memory-core/config.mjs';
-import {buildGraphProvider} from '../../services/graph/providerDispatch.mjs';
+import {buildGraphProvider, resolveGraphModelProvider} from '../../services/graph/providerDispatch.mjs';
 
 /**
  * @module ai/scripts/benchmark/keep-alive-probe
@@ -11,24 +11,12 @@ import {buildGraphProvider} from '../../services/graph/providerDispatch.mjs';
  * **Why this exists** (Epic #12065 Sub 8 / #12074 Part B):
  *
  * V-B-A on the provider substrate (2026-05-27, branch `feature-12074-gemma4-bench`):
- * - `ai/provider/Ollama.mjs:108` — `generate()` hardcodes `keep_alive: "1h"` BEFORE
- *   serialization. Heavy non-streaming graph calls (production
- *   `SemanticGraphExtractor.executeTriVectorExtraction` path) get the long lease
- *   unconditionally.
- * - `ai/provider/Ollama.mjs:91-92` (in `preparePayload()`) — arbitrary remaining
- *   options are nested under `payload.options`, NOT top-level. Native Ollama
- *   `/api/chat` reads `keep_alive` at TOP LEVEL of the request body, so
- *   caller-supplied `keep_alive` via `provider.stream(messages, {keep_alive})` is
- *   silently ignored by Ollama. **This probe early-exits on native Ollama** with
- *   an explicit message; characterizing native Ollama keep_alive control requires
- *   either patching `Ollama.stream()` (separate SDK fix) or a raw-fetch path.
- * - `ai/provider/OpenAiCompatible.mjs:146` + `preparePayload()` (lines 91-106) —
- *   `stream()` propagates arbitrary remaining `options` into the JSON payload via
- *   `Object.assign(payload, clonedOptions)` (line 105). Caller-supplied
- *   `keep_alive` IS top-level in the JSON. The **unverified residual** is whether
- *   the deployed OpenAI-compatible server (LM Studio, llama.cpp, vLLM, Ollama's
- *   `/v1/...` surface) HONORS the non-standard `keep_alive` extension — **this is
- *   what the probe characterizes**, scoped to the OpenAI-compat path.
+ * - `ai/provider/Ollama.mjs` promotes caller-supplied `keep_alive` to the top-level
+ *   native `/api/chat` payload and defaults to the configured keep-alive value.
+ * - `ai/provider/OpenAiCompatible.mjs` sends top-level `keep_alive` for compatible
+ *   servers that honor Ollama-style cache-retention extensions.
+ * - The remaining V-B-A target is whether the deployed server HONORS `keep_alive`
+ *   and whether the control path (`keep_alive: 0`) actually evicts cache state.
  *
  * **What this probe actually proves / disproves**:
  *
@@ -42,13 +30,13 @@ import {buildGraphProvider} from '../../services/graph/providerDispatch.mjs';
  * **What this probe does NOT prove**:
  * - Whether reuse benefit scales with prompt size. Use `gemma4-rem-benchmark.mjs`
  *   with `--keep-alive` to characterize that.
- * - Whether `keep_alive` is honored by all OpenAI-compat servers — LM Studio, llama.cpp,
- *   vLLM, and Ollama's own `/v1/...` surface all have different cache semantics.
+ * - Whether `keep_alive` is honored by every server — native Ollama, LM Studio,
+ *   llama.cpp, vLLM, and Ollama's own `/v1/...` surface all have different cache semantics.
  *   This probe only measures the operator's actual configured endpoint.
  *
  * @see ai/scripts/benchmark/gemma4-rem-benchmark.mjs — companion size-bucket harness
- * @see ai/provider/Ollama.mjs — provider with hardcoded keep_alive in generate()
- * @see ai/provider/OpenAiCompatible.mjs — provider without keep_alive
+ * @see ai/provider/Ollama.mjs — provider keep-alive payload propagation
+ * @see ai/provider/OpenAiCompatible.mjs — OpenAI-compatible keep-alive payload propagation
  * @see learn/agentos/gemma4-rem-benchmark.md — full protocol + findings table
  */
 
@@ -143,10 +131,7 @@ async function main() {
     program.parse();
     const opts = program.opts();
 
-    // Mirror PR #12061's `resolveGraphModelProvider` shape inline (see sibling
-    // `gemma4-rem-benchmark.mjs` for migration note once #12061 merges).
-    const graphProvider = aiConfig.graphProvider
-        || (aiConfig.modelProvider === 'ollama' ? 'ollama' : 'openAiCompatible');
+    const graphProvider = resolveGraphModelProvider(aiConfig);
 
     const providerHost = graphProvider === 'ollama' ? aiConfig.ollama.host : aiConfig.openAiCompatible.host;
     const providerModel = graphProvider === 'ollama' ? aiConfig.ollama.model : aiConfig.openAiCompatible.model;
@@ -155,38 +140,6 @@ async function main() {
     console.log(`[keep-alive-probe] Model: ${providerModel}`);
     console.log(`[keep-alive-probe] Host: ${providerHost}`);
     console.log(`[keep-alive-probe] Prompt: "${FIXED_PROMPT.slice(0, 60)}..." (${FIXED_PROMPT.length} chars)`);
-
-    // Narrow probe scope per @neo-gpt PR #12076 cycle-2 review: native Ollama's
-    // `preparePayload()` nests arbitrary `options` under `payload.options`
-    // (Ollama.mjs lines 91-92), so caller-supplied `keep_alive` becomes
-    // `payload.options.keep_alive` — but native Ollama's `/api/chat` reads
-    // `keep_alive` at TOP LEVEL of the request body. The probe's `keep_alive=0`
-    // control would be silently ignored, making the reuse/control comparison
-    // meaningless for the native Ollama path.
-    //
-    // OpenAI-compatible providers are fine: `OpenAiCompatible.preparePayload()`
-    // uses `Object.assign(payload, clonedOptions)` (line 105), so caller-supplied
-    // `keep_alive` IS top-level in the JSON payload. The remaining V-B-A target
-    // for OpenAI-compat is whether the deployed server HONORS the non-standard
-    // `keep_alive` extension.
-    //
-    // Native Ollama keep_alive probing would require either patching
-    // `Ollama.stream()` to inject top-level `keep_alive` (separate ticket: SDK
-    // fix outside this benchmark's scope) OR a raw-fetch path that bypasses the
-    // provider — also separate scope.
-    if (graphProvider === 'ollama') {
-        console.error('\n[keep-alive-probe] EARLY EXIT: this probe cannot characterize native Ollama keep_alive control.');
-        console.error('Reason: caller-supplied keep_alive is nested under payload.options by Ollama.preparePayload(),');
-        console.error('but native Ollama /api/chat reads keep_alive at top level. The keep_alive=0 control would be');
-        console.error('silently ignored — see PR #12076 cycle-2 review thread for the audit.');
-        console.error('');
-        console.error('Workaround for native Ollama: rely on Ollama.generate() callsites, which write keep_alive');
-        console.error('top-level directly (Ollama.mjs:108 hardcodes keep_alive="1h" for heavy non-streaming graph calls).');
-        console.error('');
-        console.error('Follow-up: patching Ollama.stream() to inject top-level keep_alive is tracked separately;');
-        console.error('this benchmark PR (#12076 / Sub 8 #12074) does not own that fix.');
-        process.exit(2);
-    }
 
     const provider = buildGraphProvider({
         modelProvider         : graphProvider,

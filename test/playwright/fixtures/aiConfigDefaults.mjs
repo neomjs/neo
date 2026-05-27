@@ -62,6 +62,23 @@ function deepFreeze(value) {
 }
 
 /**
+ * Mirrors `Env.parseKeepAlive` without importing the Env singleton into this
+ * plain-data fixture.
+ * @param {String|undefined} value
+ * @param {Number|String} fallback
+ * @returns {Number|String}
+ */
+function parseKeepAlive(value, fallback) {
+    if (value === undefined || value === null || value === '') return fallback;
+
+    const trimmed = String(value).trim();
+    if (!trimmed) return fallback;
+
+    const num = Number(trimmed);
+    return Number.isFinite(num) ? num : trimmed;
+}
+
+/**
  * Deep-frozen snapshot of the Tier-1 default values server templates inherit.
  * Use this for deterministic test assertions; nested groups (e.g.
  * `TIER1_DEFAULTS.auth`, `TIER1_DEFAULTS.ollama`) are independent references
@@ -86,7 +103,8 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
     ollama: {
         host          : process.env.NEO_OLLAMA_HOST || 'http://127.0.0.1:11434',
         model         : process.env.NEO_OLLAMA_MODEL || 'gemma4:31b',
-        embeddingModel: process.env.NEO_OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding'
+        embeddingModel: process.env.NEO_OLLAMA_EMBEDDING_MODEL || 'qwen3-embedding',
+        keep_alive    : parseKeepAlive(process.env.NEO_OLLAMA_KEEP_ALIVE, -1)
     },
     openAiCompatible: {
         host                    : process.env.NEO_OPENAI_COMPATIBLE_HOST || 'http://127.0.0.1:11434',
@@ -95,6 +113,7 @@ export const TIER1_DEFAULTS = deepFreeze(Neo.clone({
         apiKey                  : process.env.NEO_OPENAI_COMPATIBLE_API_KEY || '',
         unloadRetryCount        : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_COUNT) || 3,
         unloadRetryDelayMs      : Number(process.env.NEO_OPENAI_COMPATIBLE_UNLOAD_RETRY_DELAY_MS) || 500,
+        keep_alive              : parseKeepAlive(process.env.NEO_OPENAI_COMPATIBLE_KEEP_ALIVE, -1),
         contextLimitTokens      : Number(process.env.NEO_OPENAI_COMPATIBLE_CONTEXT_LIMIT_TOKENS) || 262144,
         safeProcessingLimitTokens: Number(process.env.NEO_OPENAI_COMPATIBLE_SAFE_PROCESSING_LIMIT_TOKENS) || 200000
     },

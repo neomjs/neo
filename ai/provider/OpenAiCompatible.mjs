@@ -30,6 +30,15 @@ class OpenAiCompatibleProvider extends Base {
          */
         apiKey: '',
         /**
+         * @summary Provider keep-alive retention hint for OpenAI-compatible servers that
+         * honor Ollama-style cache-retention extensions.
+         *
+         * `-1` requests resident model/cache retention; unsupported servers ignore the
+         * non-standard payload field.
+         * @member {Number|String} keepAlive=-1
+         */
+        keepAlive: -1,
+        /**
          * @member {String} systemPrompt=''
          */
         systemPrompt: '',
@@ -98,6 +107,10 @@ class OpenAiCompatibleProvider extends Base {
                 }
             }));
             delete clonedOptions.tools;
+        }
+
+        if (clonedOptions.keep_alive === undefined) {
+            payload.keep_alive = this.keepAlive;
         }
 
         // Merge any other remaining options
