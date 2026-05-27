@@ -121,9 +121,7 @@ DO NOT output markdown, \`\`\`json blocks, or any other explanations. Provide pu
             // #11965 AC5 / #12059: consumerModel reflects the active graph-generation provider
             // for accurate telemetry; openAiCompatible's context-limit knobs are kept as the conservative
             // upstream pre-check threshold for both provider families.
-            const consumerModel          = graphProvider === 'ollama'
-                ? aiConfig.ollama?.model || 'ollama'
-                : aiConfig.openAiCompatible?.model || 'openAiCompatible';
+            const consumerModel          = aiConfig[graphProvider]?.model;
             const consumerContextTokens  = aiConfig.openAiCompatible.contextLimitTokens || 32768;
             const consumerSafeTokens     = aiConfig.openAiCompatible.safeProcessingLimitTokens;
 
